@@ -97,8 +97,8 @@ message OwnerChanged {
 }
 
 message ContractUpgrade {
-  uint32 old_version = 1;
-  uint32 new_version = 2;
+  string old_version = 1;
+  string new_version = 2;
 }
 
 message StorageDeposit {

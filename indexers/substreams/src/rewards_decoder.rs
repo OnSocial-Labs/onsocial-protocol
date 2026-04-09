@@ -4,7 +4,7 @@
 //! Events: REWARD_CREDITED, REWARD_CLAIMED, CLAIM_FAILED, POOL_DEPOSIT,
 //!         OWNER_CHANGED, MAX_DAILY_UPDATED, EXECUTOR_ADDED,
 //!         EXECUTOR_REMOVED, CALLER_ADDED, CALLER_REMOVED,
-//!         CONTRACT_UPGRADE
+//!         CONTRACT_UPGRADE, APP_REGISTERED, APP_UPDATED
 
 use crate::pb::rewards::v1::rewards_event::Payload;
 use crate::pb::rewards::v1::*;
@@ -132,6 +132,29 @@ fn decode_payload(event_type: &str, data: &Value) -> Option<(bool, Payload)> {
             Payload::ContractUpgrade(ContractUpgrade {
                 old_version: str_field(data, "old_version"),
                 new_version: str_field(data, "new_version"),
+            }),
+        )),
+
+        "APP_REGISTERED" => Some((
+            true,
+            Payload::AppRegistered(AppRegistered {
+                app_id: str_field(data, "app_id"),
+                daily_cap: str_field(data, "daily_cap"),
+                reward_per_action: str_field(data, "reward_per_action"),
+                total_budget: str_field(data, "total_budget"),
+                daily_budget: str_field(data, "daily_budget"),
+            }),
+        )),
+
+        "APP_UPDATED" => Some((
+            true,
+            Payload::AppUpdated(AppUpdated {
+                app_id: str_field(data, "app_id"),
+                daily_cap: str_field(data, "daily_cap"),
+                reward_per_action: str_field(data, "reward_per_action"),
+                active: data.get("active").and_then(|v| v.as_bool()).unwrap_or(true),
+                total_budget: str_field(data, "total_budget"),
+                daily_budget: str_field(data, "daily_budget"),
             }),
         )),
 

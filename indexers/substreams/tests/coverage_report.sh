@@ -155,29 +155,52 @@ CONTRACT_INDEXED=$INDEXED_OPS
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "${BLUE}STAKING Operations${NC}"
+echo -e "${BLUE}BOOST Operations${NC}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 TOTAL_OPS=0
 INDEXED_OPS=0
 
-count_op "stakingEvents" "stake"
-count_op "stakingEvents" "unstake"
-count_op "stakingEvents" "withdraw"
-count_op "stakingEvents" "reward_claim"
-count_op "stakingEvents" "pool_created"
-count_op "stakingEvents" "pool_updated"
-count_op "stakingEvents" "delegation_change"
-count_op "stakingEvents" "slash"
-count_op "stakingEvents" "credit_purchase"
-count_op "stakingEvents" "credit_use"
-count_op "stakingEvents" "credit_refund"
-count_op "stakingEvents" "validator_added"
-count_op "stakingEvents" "validator_removed"
-count_op "stakingEvents" "epoch_reward"
+count_op "boostEvents" "BOOST_LOCK"
+count_op "boostEvents" "BOOST_EXTEND"
+count_op "boostEvents" "BOOST_UNLOCK"
+count_op "boostEvents" "REWARDS_RELEASED"
+count_op "boostEvents" "REWARDS_CLAIM"
+count_op "boostEvents" "CREDITS_PURCHASE"
+count_op "boostEvents" "SCHEDULED_FUND"
+count_op "boostEvents" "INFRA_WITHDRAW"
+count_op "boostEvents" "OWNER_CHANGED"
+count_op "boostEvents" "CONTRACT_UPGRADE"
+count_op "boostEvents" "STORAGE_DEPOSIT"
+count_op "boostEvents" "UNLOCK_FAILED"
+count_op "boostEvents" "CLAIM_FAILED"
+count_op "boostEvents" "WITHDRAW_INFRA_FAILED"
 
-STAKING_TOTAL=$TOTAL_OPS
-STAKING_INDEXED=$INDEXED_OPS
+BOOST_TOTAL=$TOTAL_OPS
+BOOST_INDEXED=$INDEXED_OPS
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo -e "${BLUE}REWARDS Operations${NC}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+TOTAL_OPS=0
+INDEXED_OPS=0
+
+count_op "rewardsEvents" "REWARD_CREDITED"
+count_op "rewardsEvents" "REWARD_CLAIMED"
+count_op "rewardsEvents" "CLAIM_FAILED"
+count_op "rewardsEvents" "POOL_DEPOSIT"
+count_op "rewardsEvents" "OWNER_CHANGED"
+count_op "rewardsEvents" "MAX_DAILY_UPDATED"
+count_op "rewardsEvents" "EXECUTOR_ADDED"
+count_op "rewardsEvents" "EXECUTOR_REMOVED"
+count_op "rewardsEvents" "CALLER_ADDED"
+count_op "rewardsEvents" "CALLER_REMOVED"
+count_op "rewardsEvents" "CONTRACT_UPGRADE"
+
+REWARDS_TOTAL=$TOTAL_OPS
+REWARDS_INDEXED=$INDEXED_OPS
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -287,15 +310,16 @@ echo "║                     COVERAGE SUMMARY                         ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo ""
 
-ALL_TOTAL=$((DATA_TOTAL + STORAGE_TOTAL + GROUP_TOTAL + PERMISSION_TOTAL + CONTRACT_TOTAL + STAKING_TOTAL + TOKEN_TOTAL + SCARCE_UPDATE_TOTAL + COLLECTION_UPDATE_TOTAL + SCARCES_OTHER_TOTAL))
-ALL_INDEXED=$((DATA_INDEXED + STORAGE_INDEXED + GROUP_INDEXED + PERMISSION_INDEXED + CONTRACT_INDEXED + STAKING_INDEXED + TOKEN_INDEXED + SCARCE_UPDATE_INDEXED + COLLECTION_UPDATE_INDEXED + SCARCES_OTHER_INDEXED))
+ALL_TOTAL=$((DATA_TOTAL + STORAGE_TOTAL + GROUP_TOTAL + PERMISSION_TOTAL + CONTRACT_TOTAL + BOOST_TOTAL + REWARDS_TOTAL + TOKEN_TOTAL + SCARCE_UPDATE_TOTAL + COLLECTION_UPDATE_TOTAL + SCARCES_OTHER_TOTAL))
+ALL_INDEXED=$((DATA_INDEXED + STORAGE_INDEXED + GROUP_INDEXED + PERMISSION_INDEXED + CONTRACT_INDEXED + BOOST_INDEXED + REWARDS_INDEXED + TOKEN_INDEXED + SCARCE_UPDATE_INDEXED + COLLECTION_UPDATE_INDEXED + SCARCES_OTHER_INDEXED))
 
 printf "  DATA_UPDATE:       %2d/%2d operations indexed\n" "$DATA_INDEXED" "$DATA_TOTAL"
 printf "  STORAGE_UPDATE:    %2d/%2d operations indexed\n" "$STORAGE_INDEXED" "$STORAGE_TOTAL"
 printf "  GROUP_UPDATE:      %2d/%2d operations indexed\n" "$GROUP_INDEXED" "$GROUP_TOTAL"
 printf "  PERMISSION_UPDATE: %2d/%2d operations indexed\n" "$PERMISSION_INDEXED" "$PERMISSION_TOTAL"
 printf "  CONTRACT_UPDATE:   %2d/%2d operations indexed\n" "$CONTRACT_INDEXED" "$CONTRACT_TOTAL"
-printf "  STAKING:           %2d/%2d operations indexed\n" "$STAKING_INDEXED" "$STAKING_TOTAL"
+printf "  BOOST:             %2d/%2d operations indexed\n" "$BOOST_INDEXED" "$BOOST_TOTAL"
+printf "  REWARDS:           %2d/%2d operations indexed\n" "$REWARDS_INDEXED" "$REWARDS_TOTAL"
 printf "  TOKEN:             %2d/%2d operations indexed\n" "$TOKEN_INDEXED" "$TOKEN_TOTAL"
 printf "  SCARCE_UPDATE:     %2d/%2d operations indexed\n" "$SCARCE_UPDATE_INDEXED" "$SCARCE_UPDATE_TOTAL"
 printf "  COLLECTION_UPDATE: %2d/%2d operations indexed\n" "$COLLECTION_UPDATE_INDEXED" "$COLLECTION_UPDATE_TOTAL"
@@ -349,9 +373,11 @@ check_test_file "core/test_contract.sh" "CONTRACT_UPDATE tests"
 check_test_file "test_health.sh" "Health & connectivity tests"
 check_test_file "scarces/test_scarces_events.sh" "Scarces event read tests"
 check_test_file "scarces/test_scarces_write.sh" "Scarces event write tests"
-check_test_file "staking/test_staking_events.sh" "Staking event tests"
-check_test_file "staking/test_staker_state.sh" "Staker state tests"
-check_test_file "staking/test_credit_purchases.sh" "Credit purchase tests"
+check_test_file "boost/test_boost_events.sh" "Boost event tests"
+check_test_file "boost/test_booster_state.sh" "Booster state tests"
+check_test_file "boost/test_credit_purchases.sh" "Boost credit purchase tests"
+check_test_file "rewards/test_rewards_events.sh" "Rewards event tests"
+check_test_file "rewards/test_user_reward_state.sh" "User reward state tests"
 check_test_file "token/test_token_events.sh" "Token event tests"
 check_test_file "token/test_token_balances.sh" "Token balance tests"
 

@@ -36,8 +36,8 @@ CREATE TABLE IF NOT EXISTS boost_events (
   new_owner TEXT,
 
   -- Contract upgrade
-  old_version INTEGER,
-  new_version INTEGER,
+  old_version TEXT,
+  new_version TEXT,
 
   -- Storage deposit
   deposit TEXT,

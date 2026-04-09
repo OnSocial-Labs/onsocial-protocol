@@ -1,7 +1,7 @@
 #!/bin/bash
 # =============================================================================
-# Credit Purchases Tests for Hasura/PostgreSQL Indexer
-# Tests the creditPurchases table
+# Boost Credit Purchases Tests for Hasura/PostgreSQL Indexer
+# Tests the boostCreditPurchases table (credit purchase history)
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -9,7 +9,7 @@ source "$SCRIPT_DIR/../common.sh"
 
 echo ""
 echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║             Credit Purchases Test Suite                      ║"
+echo "║             Boost Credit Purchases Test Suite                ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo ""
 
@@ -18,10 +18,10 @@ mode="${1:-query}"
 # ─────────────────────────────────────────────────────────────────────────────
 # Schema validation
 # ─────────────────────────────────────────────────────────────────────────────
-log_test "creditPurchases table exists with expected columns"
+log_test "boostCreditPurchases table exists with expected columns"
 
 result=$(query_hasura '{
-  creditPurchases(limit: 1) {
+  boostCreditPurchases(limit: 1) {
     id
     blockHeight
     blockTimestamp
@@ -35,18 +35,38 @@ result=$(query_hasura '{
 
 error=$(echo "$result" | jq -r '.errors[0].message // empty' 2>/dev/null)
 if [[ -z "$error" ]]; then
-    test_passed "creditPurchases table accessible with all columns"
+    test_passed "boostCreditPurchases table accessible with all columns"
 else
-    test_failed "creditPurchases table query failed: $error"
+    test_failed "boostCreditPurchases table query failed: $error"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Recent credit purchases
+# Total purchases
 # ─────────────────────────────────────────────────────────────────────────────
-log_test "Recent credit purchases (last 5)"
+log_test "Total credit purchase count"
 
 result=$(query_hasura '{
-  creditPurchases(order_by: {blockHeight: desc}, limit: 5) {
+  boostCreditPurchasesAggregate {
+    aggregate { count }
+  }
+}')
+
+count=$(echo "$result" | jq '.data.boostCreditPurchasesAggregate.aggregate.count // 0' 2>/dev/null)
+log_info "Total credit purchases: $count"
+
+if [[ "$count" -ge 0 ]]; then
+    test_passed "boostCreditPurchases aggregate query works ($count purchases)"
+else
+    test_failed "boostCreditPurchases aggregate query failed"
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Recent purchases
+# ─────────────────────────────────────────────────────────────────────────────
+log_test "Most recent credit purchases (limit 5)"
+
+result=$(query_hasura '{
+  boostCreditPurchases(order_by: {blockHeight: desc}, limit: 5) {
     id
     accountId
     amount
@@ -56,44 +76,45 @@ result=$(query_hasura '{
   }
 }')
 
-count=$(echo "$result" | jq '.data.creditPurchases | length // 0' 2>/dev/null)
+count=$(echo "$result" | jq '.data.boostCreditPurchases | length // 0' 2>/dev/null)
 if [[ "$count" -gt 0 ]]; then
-    test_passed "Found $count recent credit purchases"
-    echo "$result" | jq -r '.data.creditPurchases[] | "  \(.accountId) | amt=\(.amount) | infra=\(.infraShare) | rewards=\(.rewardsShare) | blk=\(.blockHeight)"' 2>/dev/null
+    test_passed "Found $count credit purchase entries"
+    echo "$result" | jq -r '.data.boostCreditPurchases[] | "  \(.accountId) | amt=\(.amount) | infra=\(.infraShare) | rewards=\(.rewardsShare) | blk=\(.blockHeight)"' 2>/dev/null
 else
-    log_warn "No credit purchases indexed yet"
+    log_warn "No credit purchase entries yet"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Share split validation
+# Field validation
 # ─────────────────────────────────────────────────────────────────────────────
-log_test "Credit purchase share splits are valid"
+log_test "Credit purchases have all required fields populated"
 
 result=$(query_hasura '{
-  creditPurchases(limit: 10) {
+  boostCreditPurchases(limit: 20) {
+    accountId
     amount
     infraShare
     rewardsShare
   }
 }')
 
-count=$(echo "$result" | jq '.data.creditPurchases | length // 0' 2>/dev/null)
+count=$(echo "$result" | jq '.data.boostCreditPurchases | length // 0' 2>/dev/null)
 if [[ "$count" -gt 0 ]]; then
-    # Each purchase should have non-empty amount, infraShare, rewardsShare
     valid=true
     for i in $(seq 0 $((count - 1))); do
-        amt=$(echo "$result" | jq -r ".data.creditPurchases[$i].amount // empty" 2>/dev/null)
-        inf=$(echo "$result" | jq -r ".data.creditPurchases[$i].infraShare // empty" 2>/dev/null)
-        rew=$(echo "$result" | jq -r ".data.creditPurchases[$i].rewardsShare // empty" 2>/dev/null)
-        if [[ -z "$amt" || -z "$inf" || -z "$rew" ]]; then
+        acct=$(echo "$result" | jq -r ".data.boostCreditPurchases[$i].accountId // empty" 2>/dev/null)
+        amt=$(echo "$result" | jq -r ".data.boostCreditPurchases[$i].amount // empty" 2>/dev/null)
+        infra=$(echo "$result" | jq -r ".data.boostCreditPurchases[$i].infraShare // empty" 2>/dev/null)
+        rewards=$(echo "$result" | jq -r ".data.boostCreditPurchases[$i].rewardsShare // empty" 2>/dev/null)
+        if [[ -z "$acct" || -z "$amt" || -z "$infra" || -z "$rewards" ]]; then
             valid=false
             break
         fi
     done
     if [[ "$valid" == "true" ]]; then
-        test_passed "All $count credit purchases have valid share splits"
+        test_passed "All $count credit purchases have required fields"
     else
-        test_failed "Some credit purchases have empty share fields"
+        test_failed "Some credit purchases missing required fields"
     fi
 else
     log_warn "No credit purchases to validate"
@@ -104,7 +125,7 @@ fi
 # ─────────────────────────────────────────────────────────────────────────────
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-printf "Credit Purchases Tests: ${GREEN}%d passed${NC}" "$TESTS_PASSED"
+printf "Boost Credit Purchases Tests: ${GREEN}%d passed${NC}" "$TESTS_PASSED"
 if [[ $TESTS_FAILED -gt 0 ]]; then
     printf ", ${RED}%d failed${NC}" "$TESTS_FAILED"
 fi

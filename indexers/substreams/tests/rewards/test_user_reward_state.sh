@@ -1,7 +1,7 @@
 #!/bin/bash
 # =============================================================================
-# Staker State Tests for Hasura/PostgreSQL Indexer
-# Tests the stakerState materialized view
+# User Reward State Tests for Hasura/PostgreSQL Indexer
+# Tests the userRewardState table (current reward state per user)
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -9,7 +9,7 @@ source "$SCRIPT_DIR/../common.sh"
 
 echo ""
 echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║             Staker State Test Suite                          ║"
+echo "║             User Reward State Test Suite                     ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo ""
 
@@ -18,70 +18,105 @@ mode="${1:-query}"
 # ─────────────────────────────────────────────────────────────────────────────
 # Schema validation
 # ─────────────────────────────────────────────────────────────────────────────
-log_test "stakerState table exists with expected columns"
+log_test "userRewardState table exists with expected columns"
 
 result=$(query_hasura '{
-  stakerState(limit: 1) {
+  userRewardState(limit: 1) {
     accountId
-    lockedAmount
-    effectiveStake
-    lockMonths
+    totalEarned
     totalClaimed
-    totalCreditsPurchased
-    lastEventType
-    lastEventBlock
+    lastCreditBlock
+    lastClaimBlock
     updatedAt
   }
 }')
 
 error=$(echo "$result" | jq -r '.errors[0].message // empty' 2>/dev/null)
 if [[ -z "$error" ]]; then
-    test_passed "stakerState table accessible with all columns"
+    test_passed "userRewardState table accessible with all columns"
 else
-    test_failed "stakerState table query failed: $error"
+    test_failed "userRewardState table query failed: $error"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Active stakers
+# Accounts with rewards
 # ─────────────────────────────────────────────────────────────────────────────
-log_test "Active stakers (lockedAmount > 0)"
+log_test "Accounts with reward activity"
 
 result=$(query_hasura '{
-  stakerStateAggregate(where: {lockedAmount: {_neq: "0"}}) {
+  userRewardStateAggregate {
     aggregate { count }
   }
 }')
 
-count=$(echo "$result" | jq '.data.stakerStateAggregate.aggregate.count // 0' 2>/dev/null)
-log_info "Active stakers: $count"
+count=$(echo "$result" | jq '.data.userRewardStateAggregate.aggregate.count // 0' 2>/dev/null)
+log_info "Accounts with reward state: $count"
 
 if [[ "$count" -ge 0 ]]; then
-    test_passed "stakerState aggregate query works ($count active)"
+    test_passed "userRewardState aggregate query works ($count accounts)"
 else
-    test_failed "stakerState aggregate query failed"
+    test_failed "userRewardState aggregate query failed"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Top stakers
+# Recently active accounts
 # ─────────────────────────────────────────────────────────────────────────────
-log_test "Top stakers by effective stake (limit 5)"
+log_test "Most recently active reward accounts (limit 5)"
 
 result=$(query_hasura '{
-  stakerState(order_by: {lastEventBlock: desc}, limit: 5) {
+  userRewardState(order_by: {lastCreditBlock: desc}, limit: 5) {
     accountId
-    lockedAmount
-    effectiveStake
-    lockMonths
-    lastEventType
+    totalEarned
+    totalClaimed
+    lastCreditBlock
+    lastClaimBlock
   }
 }')
 
-count=$(echo "$result" | jq '.data.stakerState | length // 0' 2>/dev/null)
+count=$(echo "$result" | jq '.data.userRewardState | length // 0' 2>/dev/null)
 if [[ "$count" -gt 0 ]]; then
-    test_passed "Found $count staker state entries"
-    echo "$result" | jq -r '.data.stakerState[] | "  \(.accountId) | locked=\(.lockedAmount) | eff=\(.effectiveStake) | months=\(.lockMonths)"' 2>/dev/null
+    test_passed "Found $count user reward state entries"
+    echo "$result" | jq -r '.data.userRewardState[] | "  \(.accountId) | earned=\(.totalEarned) | claimed=\(.totalClaimed) | lastCredit=\(.lastCreditBlock)"' 2>/dev/null
 else
-    log_warn "No staker state entries yet"
+    log_warn "No user reward state entries yet"
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Non-negative balances
+# ─────────────────────────────────────────────────────────────────────────────
+log_test "totalEarned >= totalClaimed for all accounts"
+
+result=$(query_hasura '{
+  userRewardState(limit: 50) {
+    accountId
+    totalEarned
+    totalClaimed
+  }
+}')
+
+count=$(echo "$result" | jq '.data.userRewardState | length // 0' 2>/dev/null)
+if [[ "$count" -gt 0 ]]; then
+    valid=true
+    for i in $(seq 0 $((count - 1))); do
+        earned=$(echo "$result" | jq -r ".data.userRewardState[$i].totalEarned // \"0\"" 2>/dev/null)
+        claimed=$(echo "$result" | jq -r ".data.userRewardState[$i].totalClaimed // \"0\"" 2>/dev/null)
+        # Simple numeric comparison (works for integer strings)
+        if [[ "${earned:-0}" != "0" && "${claimed:-0}" != "0" ]]; then
+            if (( $(echo "$claimed > $earned" | bc -l 2>/dev/null || echo "0") )); then
+                acct=$(echo "$result" | jq -r ".data.userRewardState[$i].accountId" 2>/dev/null)
+                log_warn "Account $acct has claimed ($claimed) > earned ($earned)"
+                valid=false
+                break
+            fi
+        fi
+    done
+    if [[ "$valid" == "true" ]]; then
+        test_passed "All $count accounts have valid earned/claimed ratios"
+    else
+        test_failed "Found accounts with claimed > earned"
+    fi
+else
+    log_warn "No user reward state entries to validate"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -89,7 +124,7 @@ fi
 # ─────────────────────────────────────────────────────────────────────────────
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-printf "Staker State Tests: ${GREEN}%d passed${NC}" "$TESTS_PASSED"
+printf "User Reward State Tests: ${GREEN}%d passed${NC}" "$TESTS_PASSED"
 if [[ $TESTS_FAILED -gt 0 ]]; then
     printf ", ${RED}%d failed${NC}" "$TESTS_FAILED"
 fi

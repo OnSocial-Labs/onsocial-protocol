@@ -12,16 +12,7 @@ use crate::pb::scarces::v1::*;
 use serde_json::Value;
 
 /// Known onsocial-standard event types emitted by the scarces contract.
-const SCARCES_EVENT_TYPES: &[&str] = &[
-    "SCARCE_UPDATE",
-    "COLLECTION_UPDATE",
-    "LAZY_LISTING_UPDATE",
-    "CONTRACT_UPDATE",
-    "OFFER_UPDATE",
-    "STORAGE_UPDATE",
-    "APP_POOL_UPDATE",
-];
-
+/// New event types still pass through (with operation + extra_data preserved).
 pub fn decode_scarces_event(
     json_data: &str,
     receipt_id: &str,
@@ -37,9 +28,6 @@ pub fn decode_scarces_event(
     }
 
     let event_type = parsed.get("event")?.as_str()?;
-    if !SCARCES_EVENT_TYPES.contains(&event_type) {
-        return None;
-    }
 
     let data_arr = parsed.get("data")?.as_array()?;
     let data = data_arr.first()?;

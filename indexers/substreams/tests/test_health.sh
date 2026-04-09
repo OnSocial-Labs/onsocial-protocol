@@ -130,7 +130,7 @@ test_schema() {
     local query='{ __schema { queryType { fields { name } } } }'
     local result=$(query_hasura "$query")
     
-    local tables=("dataUpdates" "storageUpdates" "groupUpdates" "contractUpdates" "permissionUpdates" "stakingEvents" "stakerState" "creditPurchases" "tokenEvents" "tokenBalances" "cursors")
+    local tables=("dataUpdates" "storageUpdates" "groupUpdates" "contractUpdates" "permissionUpdates" "boostEvents" "boosterState" "boostCreditPurchases" "rewardsEvents" "userRewardState" "tokenEvents" "tokenBalances" "scarcesEvents" "cursors")
     local all_found=true
     
     for table in "${tables[@]}"; do

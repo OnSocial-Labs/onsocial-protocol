@@ -128,8 +128,8 @@ fn decode_payload(event_type: &str, data: &Value) -> Option<(bool, Payload)> {
         "CONTRACT_UPGRADE" => Some((
             true,
             Payload::ContractUpgrade(ContractUpgrade {
-                old_version: u32_field(data, "old_version"),
-                new_version: u32_field(data, "new_version"),
+                old_version: str_field(data, "old_version"),
+                new_version: str_field(data, "new_version"),
             }),
         )),
 
@@ -179,11 +179,4 @@ fn str_field(data: &Value, key: &str) -> String {
 
 fn u64_field(data: &Value, key: &str) -> u64 {
     data.get(key).and_then(|v| v.as_u64()).unwrap_or(0)
-}
-
-fn u32_field(data: &Value, key: &str) -> u32 {
-    data.get(key)
-        .and_then(|v| v.as_u64())
-        .map(|v| v as u32)
-        .unwrap_or(0)
 }

@@ -163,6 +163,11 @@ jobs:
             # and later core schema revisions added columns without ALTER migrations.
             # Bring those tables up to the current shape before applying indexes.
             $PSQL <<'SQLEOF'
+            -- boost_events: version columns were INTEGER, contract emits semver strings
+            ALTER TABLE IF EXISTS boost_events
+              ALTER COLUMN old_version TYPE TEXT USING old_version::TEXT,
+              ALTER COLUMN new_version TYPE TEXT USING new_version::TEXT;
+
             ALTER TABLE IF EXISTS data_updates
               ADD COLUMN IF NOT EXISTS extra_data TEXT;
 

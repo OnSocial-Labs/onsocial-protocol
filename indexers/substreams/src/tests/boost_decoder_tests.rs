@@ -177,7 +177,7 @@ fn test_decode_all_14_events() {
         ),
         (
             "CONTRACT_UPGRADE",
-            r#"{"old_version":1,"new_version":2,"account_id":"a"}"#,
+            r#"{"old_version":"0.1.0","new_version":"0.2.0","account_id":"a"}"#,
         ),
         (
             "STORAGE_DEPOSIT",

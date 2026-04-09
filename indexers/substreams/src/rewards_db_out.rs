@@ -106,6 +106,33 @@ pub(crate) fn write_rewards_event(tables: &mut Tables, event: &RewardsEvent) {
             row.set("old_version", &p.old_version);
             row.set("new_version", &p.new_version);
         }
+        Some(Payload::AppRegistered(p)) => {
+            row.set("app_id", &p.app_id);
+            row.set(
+                "extra_data",
+                serde_json::json!({
+                    "daily_cap": p.daily_cap,
+                    "reward_per_action": p.reward_per_action,
+                    "total_budget": p.total_budget,
+                    "daily_budget": p.daily_budget,
+                })
+                .to_string(),
+            );
+        }
+        Some(Payload::AppUpdated(p)) => {
+            row.set("app_id", &p.app_id);
+            row.set(
+                "extra_data",
+                serde_json::json!({
+                    "daily_cap": p.daily_cap,
+                    "reward_per_action": p.reward_per_action,
+                    "active": p.active,
+                    "total_budget": p.total_budget,
+                    "daily_budget": p.daily_budget,
+                })
+                .to_string(),
+            );
+        }
         Some(Payload::UnknownEvent(p)) => {
             row.set("extra_data", &p.extra_data);
         }

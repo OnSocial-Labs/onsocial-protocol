@@ -38,6 +38,8 @@ message RewardsEvent {
     CallerAdded caller_added = 18;
     CallerRemoved caller_removed = 19;
     ContractUpgrade contract_upgrade = 20;
+    AppRegistered app_registered = 21;
+    AppUpdated app_updated = 22;
     UnknownEvent unknown_event = 30;
   }
 }
@@ -95,6 +97,23 @@ message CallerRemoved {
 message ContractUpgrade {
   string old_version = 1;
   string new_version = 2;
+}
+
+message AppRegistered {
+  string app_id = 1;
+  string daily_cap = 2;
+  string reward_per_action = 3;
+  string total_budget = 4;
+  string daily_budget = 5;
+}
+
+message AppUpdated {
+  string app_id = 1;
+  string daily_cap = 2;
+  string reward_per_action = 3;
+  bool active = 4;
+  string total_budget = 5;
+  string daily_budget = 6;
 }
 
 // Catch-all for unknown/future event types — preserves full JSON payload

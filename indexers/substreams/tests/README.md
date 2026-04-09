@@ -18,14 +18,22 @@ tests/
     test_contract.sh     # CONTRACT_UPDATE events
     test_permission.sh   # PERMISSION_UPDATE events
 
-  staking/               # Staking contract
-    test_staking_events.sh    # Staking event types
-    test_staker_state.sh      # Staker state view
-    test_credit_purchases.sh  # Credit purchase history
+  boost/                 # Boost contract
+    test_boost_events.sh      # Boost event types
+    test_booster_state.sh     # Booster state view
+    test_credit_purchases.sh  # Boost credit purchase history
+
+  rewards/               # Rewards contract
+    test_rewards_events.sh    # Reward event types
+    test_user_reward_state.sh # User reward state view
 
   token/                 # Token contract (NEP-141)
     test_token_events.sh      # ft_mint, ft_burn, ft_transfer
     test_token_balances.sh    # Token balance tracking
+
+  scarces/               # Scarces contract (NFT marketplace)
+    test_scarces_events.sh    # Scarces event read tests
+    test_scarces_write.sh     # Scarces event write tests
 ```
 
 ## Setup
@@ -56,7 +64,7 @@ All test files support three modes:
 ```bash
 ./run_all.sh                         # All contracts, query mode
 ./run_all.sh query core              # Core contract only
-./run_all.sh query 'core staking'    # Core + staking
+./run_all.sh query 'core boost'      # Core + boost
 ./run_all.sh all                     # Full suite, all contracts
 ```
 
@@ -70,10 +78,14 @@ All test files support three modes:
 ./core/test_contract.sh query
 ./core/test_permission.sh query
 
-# Staking contract tests
-./staking/test_staking_events.sh query
-./staking/test_staker_state.sh query
-./staking/test_credit_purchases.sh query
+# Boost contract tests
+./boost/test_boost_events.sh query
+./boost/test_booster_state.sh query
+./boost/test_credit_purchases.sh query
+
+# Rewards contract tests
+./rewards/test_rewards_events.sh query
+./rewards/test_user_reward_state.sh query
 
 # Token contract tests
 ./token/test_token_events.sh query

@@ -117,8 +117,8 @@ pub(crate) fn write_boost_event(tables: &mut Tables, event: &BoostEvent) {
             row.set("new_owner", &p.new_owner);
         }
         Some(Payload::ContractUpgrade(p)) => {
-            row.set("old_version", p.old_version);
-            row.set("new_version", p.new_version);
+            row.set("old_version", &p.old_version);
+            row.set("new_version", &p.new_version);
         }
         Some(Payload::StorageDeposit(p)) => {
             row.set("deposit", &p.deposit);

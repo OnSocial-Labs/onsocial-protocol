@@ -9,9 +9,17 @@ fn test_decode_ignores_non_onsocial() {
 }
 
 #[test]
-fn test_decode_ignores_unknown_event_type() {
+fn test_decode_preserves_unknown_event_type() {
     let json = r#"{"standard":"onsocial","version":"1.0.0","event":"UNKNOWN_UPDATE","data":[{"operation":"test","author":"a"}]}"#;
-    assert!(decode_scarces_event(json, "r", 1, 1, 0).is_none());
+    let event = decode_scarces_event(json, "r", 1, 1, 0);
+    assert!(
+        event.is_some(),
+        "Unknown events should be preserved, not dropped"
+    );
+    let e = event.unwrap();
+    assert_eq!(e.event_type, "UNKNOWN_UPDATE");
+    assert_eq!(e.operation, "test");
+    assert!(!e.extra_data.is_empty());
 }
 
 #[test]
