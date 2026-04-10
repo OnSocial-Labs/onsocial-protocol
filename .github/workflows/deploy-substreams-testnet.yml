@@ -339,8 +339,31 @@ jobs:
             rm -rf "$UPLOAD_DIR"
             echo "✓ Spkg swapped"
 
-            # Drop stale cursors table from old per-contract sinks (incompatible schema)
-            $PSQL -c "DROP TABLE IF EXISTS cursors" 2>/dev/null || true
+            # Cursor handling:
+            # - clean deploy: drop cursors and re-index from scratch
+            # - incremental deploy: keep existing combined-sink cursors so we do
+            #   not replay historical blocks into existing tables and hit
+            #   duplicate primary-key errors on deterministic row IDs.
+            #   Only drop if the table shape looks stale/incompatible.
+            if [ "$CLEAN_DEPLOY" = "true" ]; then
+              echo "🧹 Clean deploy — dropping cursors"
+              $PSQL -c "DROP TABLE IF EXISTS cursors" 2>/dev/null || true
+            else
+              CURSOR_COLUMNS=$($PSQL -tAc "
+                SELECT COALESCE(string_agg(column_name, ',' ORDER BY ordinal_position), '')
+                FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'cursors'
+              " 2>/dev/null | tr -d '[:space:]' || true)
+
+              if [ -z "$CURSOR_COLUMNS" ]; then
+                echo "ℹ️ No existing cursors table — sink will initialize a new one"
+              elif [[ "$CURSOR_COLUMNS" != *id* || "$CURSOR_COLUMNS" != *block_num* || "$CURSOR_COLUMNS" != *cursor* ]]; then
+                echo "⚠️ Incompatible cursors table detected (${CURSOR_COLUMNS}) — dropping it"
+                $PSQL -c "DROP TABLE IF EXISTS cursors" 2>/dev/null || true
+              else
+                echo "✓ Keeping existing cursors table for incremental deploy"
+              fi
+            fi
 
             # Run sink setup (creates cursors table, validates schema)
             echo "📝 Running sink setup..."
