@@ -372,6 +372,37 @@ jobs:
             }
             echo "✓ Sink setup complete"
 
+            # Consistency check: if cursors table has no valid progress (max
+            # block_num is 0 or NULL) but data tables already contain rows, the
+            # sink would replay from the initial start block and hit duplicate-
+            # key errors on deterministic row IDs.  Truncate stale data so the
+            # sink can replay cleanly.
+            MAX_CURSOR_BLOCK=$($PSQL -tAc \
+              "SELECT COALESCE(MAX(block_num), 0) FROM cursors" 2>/dev/null \
+              | tr -d '[:space:]' || echo "0")
+            if [ "$MAX_CURSOR_BLOCK" = "0" ]; then
+              DATA_ROW_COUNT=$($PSQL -tAc \
+                "SELECT COALESCE(SUM(n_live_tup), 0)::bigint FROM pg_stat_user_tables
+                 WHERE relname NOT IN ('cursors', 'schema_migrations')" 2>/dev/null \
+                | tr -d '[:space:]' || echo "0")
+              if [ "$DATA_ROW_COUNT" != "0" ] && [ "$DATA_ROW_COUNT" != "" ]; then
+                echo "⚠️ No valid cursor (block_num=$MAX_CURSOR_BLOCK) but data tables hold ~$DATA_ROW_COUNT rows"
+                echo "   Truncating data tables to avoid duplicate-key errors on replay..."
+                $PSQL <<'SQLEOF'
+            DO $$ DECLARE t TEXT;
+            BEGIN
+              FOR t IN SELECT tablename FROM pg_tables
+                WHERE schemaname = 'public'
+                  AND tablename NOT IN ('cursors', 'schema_migrations')
+              LOOP
+                EXECUTE 'TRUNCATE TABLE ' || quote_ident(t) || ' CASCADE';
+              END LOOP;
+            END $$;
+            SQLEOF
+                echo "✓ Data tables truncated — sink will re-index from start block"
+              fi
+            fi
+
             # Build the combined params string
             PARAMS="core=core.onsocial.${NETWORK_SUFFIX}&boost=boost.onsocial.${NETWORK_SUFFIX}&rewards=rewards.onsocial.${NETWORK_SUFFIX}&token=token.onsocial.${NETWORK_SUFFIX}&scarces=scarces.onsocial.${NETWORK_SUFFIX}"
 
