@@ -16,9 +16,11 @@ use crate::pb::boost::v1::BoostOutput;
 use crate::pb::boost::v1::boost_event::Payload;
 use crate::pb::core_onsocial::v1::*;
 use crate::pb::rewards::v1::RewardsOutput;
+use crate::pb::scarces::v1::ScarcesOutput;
 use crate::pb::token::v1::TokenOutput;
 use crate::process_core_log;
 use crate::rewards_decoder::decode_rewards_event;
+use crate::scarces_decoder::decode_scarces_event;
 use crate::tests::mock_block::MockBlockBuilder;
 use crate::token_decoder::decode_token_events;
 
@@ -639,4 +641,668 @@ fn onchain_combined_claim_rewards_flow() {
     // Token should see ft_transfer
     assert_eq!(token_events.len(), 1);
     assert_eq!(token_events[0].event_type, "ft_transfer");
+}
+
+// =============================================================================
+// SCARCES helper pipeline
+// =============================================================================
+
+fn run_scarces(block: &substreams_near::pb::sf::near::r#type::v1::Block) -> ScarcesOutput {
+    let ctx = block_context(block);
+    let mut events = Vec::new();
+    for_each_event_log(block, Some("scarces.onsocial.testnet"), |log| {
+        if let Some(e) = decode_scarces_event(
+            log.json_data,
+            &log.receipt_id,
+            ctx.block_height,
+            ctx.block_timestamp,
+            log.log_index,
+        ) {
+            events.push(e);
+        }
+    });
+    ScarcesOutput {
+        events,
+        block_height: ctx.block_height,
+        block_timestamp: ctx.block_timestamp,
+        block_hash: ctx.block_hash,
+    }
+}
+
+// =============================================================================
+// REWARDS — EXECUTOR_ADDED (real testnet event)
+// =============================================================================
+
+// Source: tx=3nbfqASEJbGM8VzT5n3CtAazuqDdL5ehYB176XZpBH5t
+// Contract: rewards.onsocial.testnet
+const REAL_EXECUTOR_ADDED: &str = r#"{"standard":"onsocial","version":"1.0.0","event":"EXECUTOR_ADDED","data":[{"executor":"test-executor.testnet","account_id":"governance.onsocial.testnet"}]}"#;
+
+#[test]
+fn onchain_rewards_executor_added() {
+    let block = MockBlockBuilder::new(245_000_001, 1_776_000_000)
+        .add_receipt(
+            "rewards.onsocial.testnet",
+            &[70, 71],
+            vec![REAL_EXECUTOR_ADDED],
+        )
+        .build();
+    let out = run_rewards(&block);
+    assert_eq!(out.events.len(), 1);
+    let e = &out.events[0];
+    assert_eq!(e.event_type, "EXECUTOR_ADDED");
+    assert_eq!(e.account_id, "governance.onsocial.testnet");
+    match e.payload.as_ref().unwrap() {
+        crate::pb::rewards::v1::rewards_event::Payload::ExecutorAdded(p) => {
+            assert_eq!(p.executor, "test-executor.testnet");
+        }
+        other => panic!("Expected ExecutorAdded, got {:?}", other),
+    }
+}
+
+// =============================================================================
+// REWARDS — EXECUTOR_REMOVED (real testnet event)
+// =============================================================================
+
+// Source: tx=7jKzMZcQAWFrDeXsFdD9ywVZpdETAbJfZpquSh9HfHah
+const REAL_EXECUTOR_REMOVED: &str = r#"{"standard":"onsocial","version":"1.0.0","event":"EXECUTOR_REMOVED","data":[{"executor":"test-executor.testnet","account_id":"governance.onsocial.testnet"}]}"#;
+
+#[test]
+fn onchain_rewards_executor_removed() {
+    let block = MockBlockBuilder::new(245_000_002, 1_776_000_000)
+        .add_receipt(
+            "rewards.onsocial.testnet",
+            &[72, 73],
+            vec![REAL_EXECUTOR_REMOVED],
+        )
+        .build();
+    let out = run_rewards(&block);
+    assert_eq!(out.events.len(), 1);
+    let e = &out.events[0];
+    assert_eq!(e.event_type, "EXECUTOR_REMOVED");
+    match e.payload.as_ref().unwrap() {
+        crate::pb::rewards::v1::rewards_event::Payload::ExecutorRemoved(p) => {
+            assert_eq!(p.executor, "test-executor.testnet");
+        }
+        other => panic!("Expected ExecutorRemoved, got {:?}", other),
+    }
+}
+
+// =============================================================================
+// REWARDS — CALLER_ADDED (real testnet event)
+// =============================================================================
+
+// Source: tx=84XRgU8mYh2YG4sd8fuCh3anUdp5i8oLC37gZUFqcC4u
+const REAL_CALLER_ADDED: &str = r#"{"standard":"onsocial","version":"1.0.0","event":"CALLER_ADDED","data":[{"caller":"test-caller.testnet","account_id":"governance.onsocial.testnet"}]}"#;
+
+#[test]
+fn onchain_rewards_caller_added() {
+    let block = MockBlockBuilder::new(245_000_003, 1_776_000_000)
+        .add_receipt(
+            "rewards.onsocial.testnet",
+            &[74, 75],
+            vec![REAL_CALLER_ADDED],
+        )
+        .build();
+    let out = run_rewards(&block);
+    assert_eq!(out.events.len(), 1);
+    let e = &out.events[0];
+    assert_eq!(e.event_type, "CALLER_ADDED");
+    match e.payload.as_ref().unwrap() {
+        crate::pb::rewards::v1::rewards_event::Payload::CallerAdded(p) => {
+            assert_eq!(p.caller, "test-caller.testnet");
+        }
+        other => panic!("Expected CallerAdded, got {:?}", other),
+    }
+}
+
+// =============================================================================
+// REWARDS — CALLER_REMOVED (real testnet event)
+// =============================================================================
+
+// Source: tx=2wYKrm2766cuJan8T9gzdoHEB4UudZBe9GJ5GPLocRFy
+const REAL_CALLER_REMOVED: &str = r#"{"standard":"onsocial","version":"1.0.0","event":"CALLER_REMOVED","data":[{"caller":"test-caller.testnet","account_id":"governance.onsocial.testnet"}]}"#;
+
+#[test]
+fn onchain_rewards_caller_removed() {
+    let block = MockBlockBuilder::new(245_000_004, 1_776_000_000)
+        .add_receipt(
+            "rewards.onsocial.testnet",
+            &[76, 77],
+            vec![REAL_CALLER_REMOVED],
+        )
+        .build();
+    let out = run_rewards(&block);
+    assert_eq!(out.events.len(), 1);
+    let e = &out.events[0];
+    assert_eq!(e.event_type, "CALLER_REMOVED");
+    match e.payload.as_ref().unwrap() {
+        crate::pb::rewards::v1::rewards_event::Payload::CallerRemoved(p) => {
+            assert_eq!(p.caller, "test-caller.testnet");
+        }
+        other => panic!("Expected CallerRemoved, got {:?}", other),
+    }
+}
+
+// =============================================================================
+// REWARDS — MAX_DAILY_UPDATED (real testnet event)
+// =============================================================================
+
+// Source: tx=FsHqRabh8KJpeQiodJCnJYjpWYtdH76taJwJqCSFDPHR
+const REAL_MAX_DAILY_UPDATED: &str = r#"{"standard":"onsocial","version":"1.0.0","event":"MAX_DAILY_UPDATED","data":[{"old_max":"1000000000000000000","new_max":"2000000000000000000","account_id":"governance.onsocial.testnet"}]}"#;
+
+#[test]
+fn onchain_rewards_max_daily_updated() {
+    let block = MockBlockBuilder::new(245_000_005, 1_776_000_000)
+        .add_receipt(
+            "rewards.onsocial.testnet",
+            &[78, 79],
+            vec![REAL_MAX_DAILY_UPDATED],
+        )
+        .build();
+    let out = run_rewards(&block);
+    assert_eq!(out.events.len(), 1);
+    let e = &out.events[0];
+    assert_eq!(e.event_type, "MAX_DAILY_UPDATED");
+    match e.payload.as_ref().unwrap() {
+        crate::pb::rewards::v1::rewards_event::Payload::MaxDailyUpdated(p) => {
+            assert_eq!(p.old_max, "1000000000000000000");
+            assert_eq!(p.new_max, "2000000000000000000");
+        }
+        other => panic!("Expected MaxDailyUpdated, got {:?}", other),
+    }
+}
+
+// =============================================================================
+// REWARDS — APP_UPDATED (real testnet event)
+// =============================================================================
+
+// Source: tx=G2DvdFpxZb3DNAfNQWYkubAXw5o5sXToXfgDmfjquaDe
+const REAL_APP_UPDATED: &str = r#"{"standard":"onsocial","version":"1.0.0","event":"APP_UPDATED","data":[{"app_id":"test_community_02","daily_cap":"2000000000000000000","reward_per_action":"200000000000000000","active":true,"total_budget":"750000000000000000000000","daily_budget":"7500000000000000000000","account_id":"governance.onsocial.testnet"}]}"#;
+
+#[test]
+fn onchain_rewards_app_updated() {
+    let block = MockBlockBuilder::new(245_000_006, 1_776_000_000)
+        .add_receipt(
+            "rewards.onsocial.testnet",
+            &[80, 81],
+            vec![REAL_APP_UPDATED],
+        )
+        .build();
+    let out = run_rewards(&block);
+    assert_eq!(out.events.len(), 1);
+    let e = &out.events[0];
+    assert_eq!(e.event_type, "APP_UPDATED");
+    assert_eq!(e.account_id, "governance.onsocial.testnet");
+    match e.payload.as_ref().unwrap() {
+        crate::pb::rewards::v1::rewards_event::Payload::AppUpdated(p) => {
+            assert_eq!(p.app_id, "test_community_02");
+            assert_eq!(p.daily_cap, "2000000000000000000");
+            assert_eq!(p.reward_per_action, "200000000000000000");
+            assert!(p.active);
+            assert_eq!(p.total_budget, "750000000000000000000000");
+            assert_eq!(p.daily_budget, "7500000000000000000000");
+        }
+        other => panic!("Expected AppUpdated, got {:?}", other),
+    }
+}
+
+// =============================================================================
+// REWARDS — REWARD_CREDITED (real testnet event)
+// =============================================================================
+
+// Source: tx=6oeaZxj7FjDpRbfgtP1CmTBvk1wdkqJvYb5i6ct5We7S
+const REAL_REWARD_CREDITED: &str = r#"{"standard":"onsocial","version":"1.0.0","event":"REWARD_CREDITED","data":[{"amount":"100000000000000000","source":"engagement","credited_by":"governance.onsocial.testnet","app_id":"test_community_02","account_id":"test03.onsocial.testnet"}]}"#;
+
+#[test]
+fn onchain_rewards_reward_credited() {
+    let block = MockBlockBuilder::new(245_000_007, 1_776_000_000)
+        .add_receipt(
+            "rewards.onsocial.testnet",
+            &[82, 83],
+            vec![REAL_REWARD_CREDITED],
+        )
+        .build();
+    let out = run_rewards(&block);
+    assert_eq!(out.events.len(), 1);
+    let e = &out.events[0];
+    assert_eq!(e.event_type, "REWARD_CREDITED");
+    assert_eq!(e.account_id, "test03.onsocial.testnet");
+    match e.payload.as_ref().unwrap() {
+        crate::pb::rewards::v1::rewards_event::Payload::RewardCredited(p) => {
+            assert_eq!(p.amount, "100000000000000000");
+            assert_eq!(p.source, "engagement");
+            assert_eq!(p.credited_by, "governance.onsocial.testnet");
+            assert_eq!(p.app_id, "test_community_02");
+        }
+        other => panic!("Expected RewardCredited, got {:?}", other),
+    }
+}
+
+// =============================================================================
+// REWARDS — REWARD_CLAIMED (real testnet event)
+// =============================================================================
+
+// Source: tx=2L31r5nYeTKL26VvwuNppHiZCPpmAWMDTkfYMQJBSiKz
+const REAL_REWARD_CLAIMED: &str = r#"{"standard":"onsocial","version":"1.0.0","event":"REWARD_CLAIMED","data":[{"amount":"100000000000000000","account_id":"test01.onsocial.testnet"}]}"#;
+
+#[test]
+fn onchain_rewards_reward_claimed() {
+    let block = MockBlockBuilder::new(245_000_008, 1_776_000_000)
+        .add_receipt(
+            "rewards.onsocial.testnet",
+            &[84, 85],
+            vec![REAL_REWARD_CLAIMED],
+        )
+        .build();
+    let out = run_rewards(&block);
+    assert_eq!(out.events.len(), 1);
+    let e = &out.events[0];
+    assert_eq!(e.event_type, "REWARD_CLAIMED");
+    assert_eq!(e.account_id, "test01.onsocial.testnet");
+    match e.payload.as_ref().unwrap() {
+        crate::pb::rewards::v1::rewards_event::Payload::RewardClaimed(p) => {
+            assert_eq!(p.amount, "100000000000000000");
+        }
+        other => panic!("Expected RewardClaimed, got {:?}", other),
+    }
+}
+
+// =============================================================================
+// TOKEN — ft_burn (real testnet event)
+// =============================================================================
+
+// Source: tx=83rKvzeGzz4L7PXTuL3Z2SYAKEvo1hFgv1bJrYJ3mfau
+const REAL_FT_BURN: &str = r#"{"standard":"nep141","version":"1.0.0","event":"ft_burn","data":[{"owner_id":"test01.onsocial.testnet","amount":"1000000000000000000","memo":"User burn"}]}"#;
+
+#[test]
+fn onchain_token_ft_burn() {
+    let block = MockBlockBuilder::new(245_000_009, 1_776_000_000)
+        .add_receipt("token.onsocial.testnet", &[86, 87], vec![REAL_FT_BURN])
+        .build();
+    let out = run_token(&block);
+    assert_eq!(out.events.len(), 1);
+    let e = &out.events[0];
+    assert_eq!(e.event_type, "ft_burn");
+}
+
+// =============================================================================
+// TOKEN — ft_transfer from rewards claim (real testnet event)
+// =============================================================================
+
+// Source: tx=2L31r5nYeTKL26VvwuNppHiZCPpmAWMDTkfYMQJBSiKz
+const REAL_FT_TRANSFER_CLAIM: &str = r#"{"standard":"nep141","version":"1.0.0","event":"ft_transfer","data":[{"old_owner_id":"rewards.onsocial.testnet","new_owner_id":"test01.onsocial.testnet","amount":"100000000000000000"}]}"#;
+
+#[test]
+fn onchain_token_ft_transfer_from_rewards_claim() {
+    let block = MockBlockBuilder::new(245_000_010, 1_776_000_000)
+        .add_receipt(
+            "token.onsocial.testnet",
+            &[88, 89],
+            vec![REAL_FT_TRANSFER_CLAIM],
+        )
+        .build();
+    let out = run_token(&block);
+    assert_eq!(out.events.len(), 1);
+    let e = &out.events[0];
+    assert_eq!(e.event_type, "ft_transfer");
+}
+
+// =============================================================================
+// BOOST — STORAGE_DEPOSIT (real testnet event)
+// =============================================================================
+
+// Source: tx=EiY9aCoHxNLQ1Wx7ATgKy1B9oEMpNQFo5zB5CTeSorzY
+const REAL_BOOST_STORAGE_DEPOSIT: &str = r#"{"standard":"onsocial","version":"1.0.0","event":"STORAGE_DEPOSIT","data":[{"deposit":"5000000000000000000000","account_id":"test02.onsocial.testnet"}]}"#;
+
+#[test]
+fn onchain_boost_storage_deposit() {
+    let block = MockBlockBuilder::new(245_000_011, 1_776_000_000)
+        .add_receipt(
+            "boost.onsocial.testnet",
+            &[90, 91],
+            vec![REAL_BOOST_STORAGE_DEPOSIT],
+        )
+        .build();
+    let out = run_boost(&block);
+    assert_eq!(out.events.len(), 1);
+    let e = &out.events[0];
+    assert_eq!(e.event_type, "STORAGE_DEPOSIT");
+    assert_eq!(e.account_id, "test02.onsocial.testnet");
+    assert!(e.success);
+    match e.payload.as_ref().unwrap() {
+        Payload::StorageDeposit(p) => {
+            assert_eq!(p.deposit, "5000000000000000000000");
+        }
+        other => panic!("Expected StorageDeposit, got {:?}", other),
+    }
+}
+
+// =============================================================================
+// BOOST — CREDITS_PURCHASE (real testnet event)
+// =============================================================================
+
+// Source: tx=GTH59mi3Lsa2VVSd7xhVvUyDrcB4jmSvnxib2GHwMq6K
+const REAL_CREDITS_PURCHASE: &str = r#"{"standard":"onsocial","version":"1.0.0","event":"CREDITS_PURCHASE","data":[{"amount":"1000000000000000000","infra_share":"600000000000000000","rewards_share":"400000000000000000","account_id":"test01.onsocial.testnet"}]}"#;
+
+#[test]
+fn onchain_boost_credits_purchase() {
+    let block = MockBlockBuilder::new(245_000_012, 1_776_000_000)
+        .add_receipt(
+            "boost.onsocial.testnet",
+            &[92, 93],
+            vec![REAL_CREDITS_PURCHASE],
+        )
+        .build();
+    let out = run_boost(&block);
+    assert_eq!(out.events.len(), 1);
+    let e = &out.events[0];
+    assert_eq!(e.event_type, "CREDITS_PURCHASE");
+    assert_eq!(e.account_id, "test01.onsocial.testnet");
+    assert!(e.success);
+    match e.payload.as_ref().unwrap() {
+        Payload::CreditsPurchase(p) => {
+            assert_eq!(p.amount, "1000000000000000000");
+            assert_eq!(p.infra_share, "600000000000000000");
+            assert_eq!(p.rewards_share, "400000000000000000");
+        }
+        other => panic!("Expected CreditsPurchase, got {:?}", other),
+    }
+}
+
+// =============================================================================
+// BOOST — BOOST_EXTEND (real testnet event)
+// =============================================================================
+
+// Source: tx=7pm4HiVinKvQcZCzZjE9V3SVxEeX2aUstQNSYZhNgP96
+const REAL_BOOST_EXTEND: &str = r#"{"standard":"onsocial","version":"1.0.0","event":"BOOST_EXTEND","data":[{"new_months":6,"new_effective_boost":"4400000000000000000","account_id":"test06.onsocial.testnet"}]}"#;
+
+#[test]
+fn onchain_boost_extend() {
+    let block = MockBlockBuilder::new(245_000_013, 1_776_000_000)
+        .add_receipt("boost.onsocial.testnet", &[94, 95], vec![REAL_BOOST_EXTEND])
+        .build();
+    let out = run_boost(&block);
+    assert_eq!(out.events.len(), 1);
+    let e = &out.events[0];
+    assert_eq!(e.event_type, "BOOST_EXTEND");
+    assert_eq!(e.account_id, "test06.onsocial.testnet");
+    assert!(e.success);
+    match e.payload.as_ref().unwrap() {
+        Payload::BoostExtend(p) => {
+            assert_eq!(p.new_months, 6);
+            assert_eq!(p.new_effective_boost, "4400000000000000000");
+        }
+        other => panic!("Expected BoostExtend, got {:?}", other),
+    }
+}
+
+// =============================================================================
+// BOOST — INFRA_WITHDRAW (real testnet event)
+// =============================================================================
+
+// Source: tx=6jw5VyzDR2ZJhMqxM4ZTXd61vgxvLDzKJoJA1crGET7
+const REAL_INFRA_WITHDRAW: &str = r#"{"standard":"onsocial","version":"1.0.0","event":"INFRA_WITHDRAW","data":[{"amount":"100000000000000000","receiver_id":"onsocial.testnet","account_id":"onsocial.testnet"}]}"#;
+
+#[test]
+fn onchain_boost_infra_withdraw() {
+    let block = MockBlockBuilder::new(245_000_014, 1_776_000_000)
+        .add_receipt(
+            "boost.onsocial.testnet",
+            &[96, 97],
+            vec![REAL_INFRA_WITHDRAW],
+        )
+        .build();
+    let out = run_boost(&block);
+    assert_eq!(out.events.len(), 1);
+    let e = &out.events[0];
+    assert_eq!(e.event_type, "INFRA_WITHDRAW");
+    assert_eq!(e.account_id, "onsocial.testnet");
+    assert!(e.success);
+    match e.payload.as_ref().unwrap() {
+        Payload::InfraWithdraw(p) => {
+            assert_eq!(p.amount, "100000000000000000");
+            assert_eq!(p.receiver_id, "onsocial.testnet");
+        }
+        other => panic!("Expected InfraWithdraw, got {:?}", other),
+    }
+}
+
+// =============================================================================
+// BOOST — SCHEDULED_FUND (real testnet event)
+// =============================================================================
+
+// Source: tx=8MATospz18uo8tEBBi2s4jTkjqoRz2HKbwDMjc8RT1KA
+const REAL_SCHEDULED_FUND: &str = r#"{"standard":"onsocial","version":"1.0.0","event":"SCHEDULED_FUND","data":[{"amount":"1000000000000000000","total_pool":"149984378419894505520788876","account_id":"onsocial.testnet"}]}"#;
+
+#[test]
+fn onchain_boost_scheduled_fund() {
+    let block = MockBlockBuilder::new(245_000_015, 1_776_000_000)
+        .add_receipt(
+            "boost.onsocial.testnet",
+            &[98, 99],
+            vec![REAL_SCHEDULED_FUND],
+        )
+        .build();
+    let out = run_boost(&block);
+    assert_eq!(out.events.len(), 1);
+    let e = &out.events[0];
+    assert_eq!(e.event_type, "SCHEDULED_FUND");
+    assert_eq!(e.account_id, "onsocial.testnet");
+    assert!(e.success);
+    match e.payload.as_ref().unwrap() {
+        Payload::ScheduledFund(p) => {
+            assert_eq!(p.amount, "1000000000000000000");
+            assert_eq!(p.total_pool, "149984378419894505520788876");
+        }
+        other => panic!("Expected ScheduledFund, got {:?}", other),
+    }
+}
+
+// =============================================================================
+// SCARCES — STORAGE_UPDATE (real testnet event)
+// =============================================================================
+
+// Source: tx=eZfnTJVJja2LrNLaRGptVJWw5JC7XeY7PMWqPXLUUDc
+const REAL_SCARCES_STORAGE_UPDATE: &str = r#"{"standard":"onsocial","version":"1.0.0","event":"STORAGE_UPDATE","data":[{"operation":"storage_deposit","author":"test01.onsocial.testnet","account_id":"test01.onsocial.testnet","deposit":"100000000000000000000000","new_balance":"2350000000000000000000014"}]}"#;
+
+#[test]
+fn onchain_scarces_storage_update() {
+    let block = MockBlockBuilder::new(245_000_016, 1_776_000_000)
+        .add_receipt(
+            "scarces.onsocial.testnet",
+            &[100, 101],
+            vec![REAL_SCARCES_STORAGE_UPDATE],
+        )
+        .build();
+    let out = run_scarces(&block);
+    assert_eq!(out.events.len(), 1);
+    let e = &out.events[0];
+    assert_eq!(e.event_type, "STORAGE_UPDATE");
+    assert_eq!(e.operation, "storage_deposit");
+    assert_eq!(e.author, "test01.onsocial.testnet");
+    assert_eq!(e.account_id, "test01.onsocial.testnet");
+    assert_eq!(e.deposit, "100000000000000000000000");
+    assert_eq!(e.new_balance, "2350000000000000000000014");
+}
+
+// =============================================================================
+// SCARCES — SCARCE_UPDATE (real testnet event — quick_mint)
+// =============================================================================
+
+// Source: tx=7BqsNJANWzJequSo5wczxTa64BbrpYY53ivGMBZyido3
+const REAL_SCARCE_UPDATE: &str = r#"{"standard":"onsocial","version":"1.0.0","event":"SCARCE_UPDATE","data":[{"operation":"quick_mint","author":"test01.onsocial.testnet","token_id":"s:15","owner_id":"test01.onsocial.testnet"}]}"#;
+
+#[test]
+fn onchain_scarces_scarce_update_quick_mint() {
+    let block = MockBlockBuilder::new(245_000_017, 1_776_000_000)
+        .add_receipt(
+            "scarces.onsocial.testnet",
+            &[102, 103],
+            vec![REAL_SCARCE_UPDATE],
+        )
+        .build();
+    let out = run_scarces(&block);
+    assert_eq!(out.events.len(), 1);
+    let e = &out.events[0];
+    assert_eq!(e.event_type, "SCARCE_UPDATE");
+    assert_eq!(e.operation, "quick_mint");
+    assert_eq!(e.author, "test01.onsocial.testnet");
+    assert_eq!(e.token_id, "s:15");
+    assert_eq!(e.owner_id, "test01.onsocial.testnet");
+}
+
+// =============================================================================
+// SCARCES — COLLECTION_UPDATE (real testnet event — create)
+// =============================================================================
+
+// Source: tx=EEpCQ1ATBeb5KFrPzajk1FeMArShYuENPkFMgMffTF7q
+const REAL_COLLECTION_UPDATE: &str = r#"{"standard":"onsocial","version":"1.0.0","event":"COLLECTION_UPDATE","data":[{"operation":"create","author":"test01.onsocial.testnet","creator_id":"test01.onsocial.testnet","collection_id":"fixture_test_coll","total_supply":10,"price_near":"100000000000000000000000"}]}"#;
+
+#[test]
+fn onchain_scarces_collection_update_create() {
+    let block = MockBlockBuilder::new(245_000_018, 1_776_000_000)
+        .add_receipt(
+            "scarces.onsocial.testnet",
+            &[104, 105],
+            vec![REAL_COLLECTION_UPDATE],
+        )
+        .build();
+    let out = run_scarces(&block);
+    assert_eq!(out.events.len(), 1);
+    let e = &out.events[0];
+    assert_eq!(e.event_type, "COLLECTION_UPDATE");
+    assert_eq!(e.operation, "create");
+    assert_eq!(e.creator_id, "test01.onsocial.testnet");
+    assert_eq!(e.collection_id, "fixture_test_coll");
+    assert_eq!(e.total_supply, 10);
+    assert_eq!(e.price, "100000000000000000000000");
+}
+
+// =============================================================================
+// SCARCES — LAZY_LISTING_UPDATE (real testnet event — created)
+// =============================================================================
+
+// Source: tx=AP2TYFRBmtypbbBuRpseFt45hNG1jJyDckQp7GM6bYb2
+const REAL_LAZY_LISTING_UPDATE: &str = r#"{"standard":"onsocial","version":"1.0.0","event":"LAZY_LISTING_UPDATE","data":[{"operation":"created","author":"test01.onsocial.testnet","creator_id":"test01.onsocial.testnet","listing_id":"ll:16","price":"500000000000000000000000"}]}"#;
+
+#[test]
+fn onchain_scarces_lazy_listing_update_created() {
+    let block = MockBlockBuilder::new(245_000_019, 1_776_000_000)
+        .add_receipt(
+            "scarces.onsocial.testnet",
+            &[106, 107],
+            vec![REAL_LAZY_LISTING_UPDATE],
+        )
+        .build();
+    let out = run_scarces(&block);
+    assert_eq!(out.events.len(), 1);
+    let e = &out.events[0];
+    assert_eq!(e.event_type, "LAZY_LISTING_UPDATE");
+    assert_eq!(e.operation, "created");
+    assert_eq!(e.creator_id, "test01.onsocial.testnet");
+    assert_eq!(e.listing_id, "ll:16");
+    assert_eq!(e.price, "500000000000000000000000");
+}
+
+// =============================================================================
+// SCARCES — OFFER_UPDATE (real testnet event — offer_made)
+// =============================================================================
+
+// Source: tx=C38cxnxEF2AVNQVfzNNoTcNUS1Aj79XKmvyqQ2TXJLrN
+const REAL_OFFER_UPDATE: &str = r#"{"standard":"onsocial","version":"1.0.0","event":"OFFER_UPDATE","data":[{"operation":"offer_made","author":"test03.onsocial.testnet","buyer_id":"test03.onsocial.testnet","token_id":"s:15","amount":"100000000000000000000000","expires_at":"1800000000000000000"}]}"#;
+
+#[test]
+fn onchain_scarces_offer_update_made() {
+    let block = MockBlockBuilder::new(245_000_020, 1_776_000_000)
+        .add_receipt(
+            "scarces.onsocial.testnet",
+            &[108, 109],
+            vec![REAL_OFFER_UPDATE],
+        )
+        .build();
+    let out = run_scarces(&block);
+    assert_eq!(out.events.len(), 1);
+    let e = &out.events[0];
+    assert_eq!(e.event_type, "OFFER_UPDATE");
+    assert_eq!(e.operation, "offer_made");
+    assert_eq!(e.buyer_id, "test03.onsocial.testnet");
+    assert_eq!(e.token_id, "s:15");
+    assert_eq!(e.amount, "100000000000000000000000");
+    assert_eq!(e.expires_at, 1_800_000_000_000_000_000);
+}
+
+// =============================================================================
+// SCARCES — APP_POOL_UPDATE (real testnet event — register)
+// =============================================================================
+
+// Source: tx=7QS9bcRqBT3mMV9f23jRw97srWyWnm2kmRb5VkQp4fUL
+const REAL_APP_POOL_UPDATE: &str = r#"{"standard":"onsocial","version":"1.0.0","event":"APP_POOL_UPDATE","data":[{"operation":"register","author":"test01.onsocial.testnet","owner_id":"test01.onsocial.testnet","app_id":"test01.onsocial.testnet","initial_balance":"1000000000000000000000000"}]}"#;
+
+#[test]
+fn onchain_scarces_app_pool_update_register() {
+    let block = MockBlockBuilder::new(245_000_021, 1_776_000_000)
+        .add_receipt(
+            "scarces.onsocial.testnet",
+            &[110, 111],
+            vec![REAL_APP_POOL_UPDATE],
+        )
+        .build();
+    let out = run_scarces(&block);
+    assert_eq!(out.events.len(), 1);
+    let e = &out.events[0];
+    assert_eq!(e.event_type, "APP_POOL_UPDATE");
+    assert_eq!(e.operation, "register");
+    assert_eq!(e.owner_id, "test01.onsocial.testnet");
+    assert_eq!(e.app_id, "test01.onsocial.testnet");
+    assert_eq!(e.initial_balance, "1000000000000000000000000");
+}
+
+// =============================================================================
+// SCARCES — CONTRACT_UPDATE (real testnet event — add_intents_executor)
+// =============================================================================
+
+// Source: tx=Bm4ZTenmcS1G4NCjDVEuMrpAvok8Dmbfnt59238bE2NQ
+const REAL_SCARCES_CONTRACT_UPDATE: &str = r#"{"standard":"onsocial","version":"1.0.0","event":"CONTRACT_UPDATE","data":[{"operation":"add_intents_executor","author":"onsocial.testnet","executor":"test-executor.testnet"}]}"#;
+
+#[test]
+fn onchain_scarces_contract_update_add_executor() {
+    let block = MockBlockBuilder::new(245_000_022, 1_776_000_000)
+        .add_receipt(
+            "scarces.onsocial.testnet",
+            &[112, 113],
+            vec![REAL_SCARCES_CONTRACT_UPDATE],
+        )
+        .build();
+    let out = run_scarces(&block);
+    assert_eq!(out.events.len(), 1);
+    let e = &out.events[0];
+    assert_eq!(e.event_type, "CONTRACT_UPDATE");
+    assert_eq!(e.operation, "add_intents_executor");
+    assert_eq!(e.author, "onsocial.testnet");
+    assert_eq!(e.executor, "test-executor.testnet");
+}
+
+// =============================================================================
+// SCARCES — credit_unused_deposit (real testnet event from QuickMint flow)
+// =============================================================================
+
+// Source: tx=7BqsNJANWzJequSo5wczxTa64BbrpYY53ivGMBZyido3
+const REAL_SCARCES_CREDIT_UNUSED: &str = r#"{"standard":"onsocial","version":"1.0.0","event":"STORAGE_UPDATE","data":[{"operation":"credit_unused_deposit","author":"test01.onsocial.testnet","account_id":"test01.onsocial.testnet","amount":"10000000000000000000000","new_balance":"2360000000000000000000014"}]}"#;
+
+#[test]
+fn onchain_scarces_storage_credit_unused_deposit() {
+    let block = MockBlockBuilder::new(245_000_023, 1_776_000_000)
+        .add_receipt(
+            "scarces.onsocial.testnet",
+            &[114, 115],
+            vec![REAL_SCARCES_CREDIT_UNUSED],
+        )
+        .build();
+    let out = run_scarces(&block);
+    assert_eq!(out.events.len(), 1);
+    let e = &out.events[0];
+    assert_eq!(e.event_type, "STORAGE_UPDATE");
+    assert_eq!(e.operation, "credit_unused_deposit");
+    assert_eq!(e.amount, "10000000000000000000000");
+    assert_eq!(e.new_balance, "2360000000000000000000014");
 }

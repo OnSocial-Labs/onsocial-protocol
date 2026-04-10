@@ -94,6 +94,14 @@ jobs:
           echo "::add-mask::$DB_URL"
           echo "url=$DB_URL" >> "$GITHUB_OUTPUT"
 
+      - name: Fetch Substreams API Token from Secret Manager
+        id: sf_token
+        run: |
+          TOKEN=$(gcloud secrets versions access latest \
+            --secret="SUBSTREAMS_API_TOKEN")
+          echo "::add-mask::$TOKEN"
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+
       - name: Prepare upload directory
         working-directory: indexers/substreams
         env:
@@ -123,11 +131,12 @@ jobs:
           VER: ${{ steps.ver.outputs.version }}
           CLEAN_DEPLOY: ${{ inputs.clean_deploy || 'false' }}
           SUBSTREAMS_DB_URL: ${{ steps.db.outputs.url }}
+          SUBSTREAMS_API_TOKEN: ${{ steps.sf_token.outputs.token }}
         with:
           host: 135.181.110.183
           username: root
           key: ${{ steps.ssh.outputs.key }}
-          envs: VER,CLEAN_DEPLOY,SUBSTREAMS_DB_URL
+          envs: VER,CLEAN_DEPLOY,SUBSTREAMS_DB_URL,SUBSTREAMS_API_TOKEN
           command_timeout: 10m
           script: |
             set -euo pipefail
@@ -267,7 +276,7 @@ jobs:
 
             [Service]
             Type=simple
-            Environment=SUBSTREAMS_API_TOKEN=
+            Environment=SUBSTREAMS_API_TOKEN=${SUBSTREAMS_API_TOKEN}
             ExecStart=/usr/local/bin/substreams-sink-sql run \
               ${DB_URL} \
               ${SPKG_DIR}/${SPKG_NAME} \
