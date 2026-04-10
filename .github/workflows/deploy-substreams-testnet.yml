@@ -332,7 +332,7 @@ jobs:
             LoadCredential=endpoint:/etc/onsocial/credentials/${SERVICE}/endpoint
             LoadCredential=params:/etc/onsocial/credentials/${SERVICE}/params
             LoadCredential=spkg:/etc/onsocial/credentials/${SERVICE}/spkg
-            ExecStart=/bin/bash -lc 'exec /usr/local/bin/substreams-sink-sql run "$(cat "$${CREDENTIALS_DIRECTORY}/db_url")" "$(cat "$${CREDENTIALS_DIRECTORY}/spkg")" -e "$(cat "$${CREDENTIALS_DIRECTORY}/endpoint")" -p "map_combined_output=$(cat "$${CREDENTIALS_DIRECTORY}/params")" --on-module-hash-mistmatch warn --infinite-retry'
+            ExecStart=/bin/bash -lc 'export SUBSTREAMS_API_TOKEN="\$(cat "\${CREDENTIALS_DIRECTORY}/api_token")"; exec /usr/local/bin/substreams-sink-sql run "\$(cat "\${CREDENTIALS_DIRECTORY}/db_url")" "\$(cat "\${CREDENTIALS_DIRECTORY}/spkg")" -e "\$(cat "\${CREDENTIALS_DIRECTORY}/endpoint")" -p "map_combined_output=\$(cat "\${CREDENTIALS_DIRECTORY}/params")" --on-module-hash-mistmatch warn --infinite-retry'
             Restart=on-failure
             RestartSec=15
 
