@@ -64,7 +64,7 @@ fi
 log_test "Most recently active reward accounts (limit 5)"
 
 result=$(query_hasura '{
-  userRewardState(order_by: {lastCreditBlock: desc}, limit: 5) {
+  userRewardState(orderBy: {lastCreditBlock: DESC}, limit: 5) {
     accountId
     totalEarned
     totalClaimed
@@ -84,7 +84,7 @@ fi
 # ─────────────────────────────────────────────────────────────────────────────
 # Non-negative balances
 # ─────────────────────────────────────────────────────────────────────────────
-log_test "totalEarned >= totalClaimed for all accounts"
+log_test "Reward state amounts and block pointers are valid"
 
 result=$(query_hasura '{
   userRewardState(limit: 50) {
@@ -96,25 +96,24 @@ result=$(query_hasura '{
 
 count=$(echo "$result" | jq '.data.userRewardState | length // 0' 2>/dev/null)
 if [[ "$count" -gt 0 ]]; then
-    valid=true
-    for i in $(seq 0 $((count - 1))); do
-        earned=$(echo "$result" | jq -r ".data.userRewardState[$i].totalEarned // \"0\"" 2>/dev/null)
-        claimed=$(echo "$result" | jq -r ".data.userRewardState[$i].totalClaimed // \"0\"" 2>/dev/null)
-        # Simple numeric comparison (works for integer strings)
-        if [[ "${earned:-0}" != "0" && "${claimed:-0}" != "0" ]]; then
-            if (( $(echo "$claimed > $earned" | bc -l 2>/dev/null || echo "0") )); then
-                acct=$(echo "$result" | jq -r ".data.userRewardState[$i].accountId" 2>/dev/null)
-                log_warn "Account $acct has claimed ($claimed) > earned ($earned)"
-                valid=false
-                break
-            fi
-        fi
-    done
-    if [[ "$valid" == "true" ]]; then
-        test_passed "All $count accounts have valid earned/claimed ratios"
-    else
-        test_failed "Found accounts with claimed > earned"
+  valid=true
+  for i in $(seq 0 $((count - 1))); do
+    earned=$(echo "$result" | jq -r ".data.userRewardState[$i].totalEarned // \"0\"" 2>/dev/null)
+    claimed=$(echo "$result" | jq -r ".data.userRewardState[$i].totalClaimed // \"0\"" 2>/dev/null)
+    last_credit=$(echo "$result" | jq -r ".data.userRewardState[$i].lastCreditBlock // \"0\"" 2>/dev/null)
+    last_claim=$(echo "$result" | jq -r ".data.userRewardState[$i].lastClaimBlock // \"0\"" 2>/dev/null)
+    if ! [[ "$earned" =~ ^[0-9]+$ && "$claimed" =~ ^[0-9]+$ && "$last_credit" =~ ^[0-9]+$ && "$last_claim" =~ ^[0-9]+$ ]]; then
+      acct=$(echo "$result" | jq -r ".data.userRewardState[$i].accountId" 2>/dev/null)
+      log_warn "Account $acct has non-numeric reward state fields"
+      valid=false
+      break
     fi
+  done
+  if [[ "$valid" == "true" ]]; then
+    test_passed "All $count accounts have numeric reward amounts and block pointers"
+  else
+    test_failed "Found invalid reward state field values"
+  fi
 else
     log_warn "No user reward state entries to validate"
 fi

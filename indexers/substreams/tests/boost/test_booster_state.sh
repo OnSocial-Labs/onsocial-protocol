@@ -67,7 +67,7 @@ fi
 log_test "Most recently active booster accounts (limit 5)"
 
 result=$(query_hasura '{
-  boosterState(order_by: {lastEventBlock: desc}, limit: 5) {
+  boosterState(orderBy: {lastEventBlock: DESC}, limit: 5) {
     accountId
     lockedAmount
     effectiveBoost

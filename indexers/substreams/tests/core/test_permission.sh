@@ -13,7 +13,7 @@ source "$SCRIPT_DIR/../common.sh"
 test_permission_query() {
     log_test "Query existing PermissionUpdates"
     
-    local result=$(query_hasura '{ permissionUpdates(limit: 5, order_by: {blockHeight: desc}) { id operation author targetId path level blockHeight } }')
+    local result=$(query_hasura '{ permissionUpdates(limit: 5, orderBy: {blockHeight: DESC}) { id operation author targetId path level blockHeight } }')
     
     if echo "$result" | jq -e '.data.permissionUpdates[0]' >/dev/null 2>&1; then
         local count=$(echo "$result" | jq '.data.permissionUpdates | length')
@@ -33,7 +33,7 @@ test_permission_query() {
 test_permission_validate_fields() {
     log_test "Validating PermissionUpdate field mapping against existing data"
     
-    local result=$(query_hasura '{ permissionUpdates(limit: 1, order_by: {blockHeight: desc}) { id operation author targetId permissionKey path level expiresAt partitionId blockHeight blockTimestamp receiptId deleted value derivedId derivedType } }')
+    local result=$(query_hasura '{ permissionUpdates(limit: 1, orderBy: {blockHeight: DESC}) { id operation author targetId permissionKey path level expiresAt partitionId blockHeight blockTimestamp receiptId deleted value derivedId derivedType } }')
     
     if ! echo "$result" | jq -e '.data.permissionUpdates[0]' >/dev/null 2>&1; then
         log_warn "No PermissionUpdates found to validate"
@@ -90,7 +90,7 @@ test_permission_grant() {
     call_and_wait "execute" \
         "{\"request\": {\"action\": {\"type\": \"set_permission\", \"grantee\": \"$grantee\", \"path\": \"$path\", \"level\": 2}}}"
     
-    local result=$(query_hasura '{ permissionUpdates(limit: 1, order_by: {blockHeight: desc}) { id operation author targetId path level partitionId blockHeight blockTimestamp receiptId expiresAt } }')
+    local result=$(query_hasura '{ permissionUpdates(limit: 1, orderBy: {blockHeight: DESC}) { id operation author targetId path level partitionId blockHeight blockTimestamp receiptId expiresAt } }')
     
     echo "Verifying PermissionUpdate fields for grant:"
     local entry=".data.permissionUpdates[0]"
@@ -135,7 +135,7 @@ test_permission_revoke() {
     call_and_wait "execute" \
         "{\"request\": {\"action\": {\"type\": \"set_permission\", \"grantee\": \"$grantee\", \"path\": \"$path\", \"level\": 0}}}"
     
-    local result=$(query_hasura '{ permissionUpdates(limit: 1, order_by: {blockHeight: desc}) { id operation author targetId path level partitionId blockHeight blockTimestamp receiptId deleted } }')
+    local result=$(query_hasura '{ permissionUpdates(limit: 1, orderBy: {blockHeight: DESC}) { id operation author targetId path level partitionId blockHeight blockTimestamp receiptId deleted } }')
     
     echo "Verifying PermissionUpdate fields for revoke:"
     local entry=".data.permissionUpdates[0]"
@@ -172,7 +172,7 @@ test_permission_key_grant() {
     call_and_wait "execute" \
         "{\"request\": {\"action\": {\"type\": \"set_key_permission\", \"public_key\": \"$public_key\", \"path\": \"$path\", \"level\": 2}}}"
     
-    local result=$(query_hasura '{ permissionUpdates(limit: 1, order_by: {blockHeight: desc}) { id operation author targetId permissionKey path level partitionId blockHeight blockTimestamp receiptId expiresAt } }')
+    local result=$(query_hasura '{ permissionUpdates(limit: 1, orderBy: {blockHeight: DESC}) { id operation author targetId permissionKey path level partitionId blockHeight blockTimestamp receiptId expiresAt } }')
     
     echo "Verifying PermissionUpdate fields for key_grant:"
     local entry=".data.permissionUpdates[0]"
@@ -218,7 +218,7 @@ test_permission_key_revoke() {
     call_and_wait "execute" \
         "{\"request\": {\"action\": {\"type\": \"set_key_permission\", \"public_key\": \"$public_key\", \"path\": \"$path\", \"level\": 0}}}"
     
-    local result=$(query_hasura '{ permissionUpdates(limit: 1, order_by: {blockHeight: desc}) { id operation author permissionKey path level blockHeight blockTimestamp receiptId deleted } }')
+    local result=$(query_hasura '{ permissionUpdates(limit: 1, orderBy: {blockHeight: DESC}) { id operation author permissionKey path level blockHeight blockTimestamp receiptId deleted } }')
     
     echo "Verifying PermissionUpdate fields for key_revoke:"
     local entry=".data.permissionUpdates[0]"

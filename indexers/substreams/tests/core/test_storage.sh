@@ -13,7 +13,7 @@ source "$SCRIPT_DIR/../common.sh"
 test_storage_query() {
     log_test "Query existing StorageUpdates"
     
-    local result=$(query_hasura '{ storageUpdates(limit: 5, order_by: {blockHeight: desc}) { id operation author amount blockHeight blockTimestamp } }')
+    local result=$(query_hasura '{ storageUpdates(limit: 5, orderBy: {blockHeight: DESC}) { id operation author amount blockHeight blockTimestamp } }')
     
     if echo "$result" | jq -e '.data.storageUpdates[0]' >/dev/null 2>&1; then
         local count=$(echo "$result" | jq '.data.storageUpdates | length')
@@ -33,7 +33,7 @@ test_storage_query() {
 test_storage_validate_fields() {
     log_test "Validating StorageUpdate field mapping against existing data"
     
-    local result=$(query_hasura '{ storageUpdates(limit: 1, order_by: {blockHeight: desc}) { id operation author amount previousBalance newBalance reason partitionId blockHeight blockTimestamp receiptId targetId actorId payerId authType } }')
+    local result=$(query_hasura '{ storageUpdates(limit: 1, orderBy: {blockHeight: DESC}) { id operation author amount previousBalance newBalance reason partitionId blockHeight blockTimestamp receiptId targetId actorId payerId authType } }')
     
     if ! echo "$result" | jq -e '.data.storageUpdates[0]' >/dev/null 2>&1; then
         log_warn "No StorageUpdates found to validate"
@@ -86,7 +86,7 @@ test_storage_auto_deposit() {
         "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"profile/$key\": \"test\"}}}}" \
         "0.01"
     
-    local result=$(query_hasura '{ storageUpdates(limit: 1, order_by: {blockHeight: desc}) { id operation author amount previousBalance newBalance reason partitionId blockHeight blockTimestamp receiptId targetId actorId payerId authType } }')
+    local result=$(query_hasura '{ storageUpdates(limit: 1, orderBy: {blockHeight: DESC}) { id operation author amount previousBalance newBalance reason partitionId blockHeight blockTimestamp receiptId targetId actorId payerId authType } }')
     
     echo "Verifying StorageUpdate fields for auto_deposit:"
     local entry=".data.storageUpdates[0]"
@@ -136,7 +136,7 @@ test_storage_deposit() {
         "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"profile/$key\": \"deposit-test\"}}}}" \
         "0.1"
     
-    local result=$(query_hasura '{ storageUpdates(limit: 1, order_by: {blockHeight: desc}) { id operation author amount previousBalance newBalance reason partitionId blockHeight blockTimestamp receiptId } }')
+    local result=$(query_hasura '{ storageUpdates(limit: 1, orderBy: {blockHeight: DESC}) { id operation author amount previousBalance newBalance reason partitionId blockHeight blockTimestamp receiptId } }')
     
     echo "Verifying StorageUpdate fields for deposit:"
     local entry=".data.storageUpdates[0]"

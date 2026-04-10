@@ -75,7 +75,7 @@ done
 log_test "Recent rewards events (last 5)"
 
 result=$(query_hasura '{
-  rewardsEvents(order_by: {blockHeight: desc}, limit: 5) {
+    rewardsEvents(orderBy: {blockHeight: DESC}, limit: 5) {
     id
     eventType
     accountId

@@ -66,7 +66,7 @@ fi
 log_test "Most recent credit purchases (limit 5)"
 
 result=$(query_hasura '{
-  boostCreditPurchases(order_by: {blockHeight: desc}, limit: 5) {
+  boostCreditPurchases(orderBy: {blockHeight: DESC}, limit: 5) {
     id
     accountId
     amount

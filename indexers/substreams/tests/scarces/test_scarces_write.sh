@@ -24,17 +24,17 @@ test_storage_deposit() {
         "{\"request\": {\"action\": {\"type\": \"storage_deposit\"}}}" \
         "0.25"
 
-    local result=$(query_hasura "{ scarces_events(where: {event_type: {_eq: \"STORAGE_UPDATE\"}, operation: {_eq: \"deposit\"}}, limit: 1, order_by: {block_height: desc}) { id event_type operation author account_id deposit block_height block_timestamp receipt_id extra_data } }")
+    local result=$(query_hasura "{ scarcesEvents(where: {eventType: {_eq: \"STORAGE_UPDATE\"}, operation: {_eq: \"deposit\"}}, limit: 1, orderBy: {blockHeight: DESC}) { id eventType operation author accountId deposit blockHeight blockTimestamp receiptId extraData } }")
 
-    if echo "$result" | jq -e '.data.scarces_events[0]' >/dev/null 2>&1; then
-        local entry=".data.scarces_events[0]"
+    if echo "$result" | jq -e '.data.scarcesEvents[0]' >/dev/null 2>&1; then
+        local entry=".data.scarcesEvents[0]"
 
-        assert_field "$result" "$entry.event_type" "STORAGE_UPDATE" "event_type = STORAGE_UPDATE"
+        assert_field "$result" "$entry.eventType" "STORAGE_UPDATE" "eventType = STORAGE_UPDATE"
         assert_field "$result" "$entry.operation" "deposit" "operation = deposit"
         assert_field_exists "$result" "$entry.author" "author exists"
-        assert_field_bigint "$result" "$entry.block_height" "block_height is BigInt"
-        assert_field_exists "$result" "$entry.receipt_id" "receipt_id exists"
-        assert_field_exists "$result" "$entry.extra_data" "extra_data preserved"
+        assert_field_bigint "$result" "$entry.blockHeight" "blockHeight is BigInt"
+        assert_field_exists "$result" "$entry.receiptId" "receiptId exists"
+        assert_field_exists "$result" "$entry.extraData" "extraData preserved"
 
         if [[ $ASSERTIONS_FAILED -eq 0 ]]; then
             test_passed "STORAGE_UPDATE (deposit) indexed correctly"
@@ -58,18 +58,18 @@ test_quick_mint() {
         "{\"request\": {\"action\": {\"type\": \"quick_mint\", \"metadata\": {\"title\": \"$title\", \"description\": \"Integration test NFT\"}}}}" \
         "0.01"
 
-    local result=$(query_hasura "{ scarces_events(where: {event_type: {_eq: \"SCARCE_UPDATE\"}, operation: {_eq: \"mint\"}}, limit: 1, order_by: {block_height: desc}) { id event_type operation author owner_id token_id block_height block_timestamp receipt_id extra_data } }")
+    local result=$(query_hasura "{ scarcesEvents(where: {eventType: {_eq: \"SCARCE_UPDATE\"}, operation: {_eq: \"mint\"}}, limit: 1, orderBy: {blockHeight: DESC}) { id eventType operation author ownerId tokenId blockHeight blockTimestamp receiptId extraData } }")
 
-    if echo "$result" | jq -e '.data.scarces_events[0]' >/dev/null 2>&1; then
-        local entry=".data.scarces_events[0]"
+    if echo "$result" | jq -e '.data.scarcesEvents[0]' >/dev/null 2>&1; then
+        local entry=".data.scarcesEvents[0]"
 
-        assert_field "$result" "$entry.event_type" "SCARCE_UPDATE" "event_type = SCARCE_UPDATE"
+        assert_field "$result" "$entry.eventType" "SCARCE_UPDATE" "eventType = SCARCE_UPDATE"
         assert_field "$result" "$entry.operation" "mint" "operation = mint"
-        assert_field_exists "$result" "$entry.owner_id" "owner_id exists"
-        assert_field_exists "$result" "$entry.token_id" "token_id exists"
-        assert_field_bigint "$result" "$entry.block_height" "block_height is BigInt"
-        assert_field_exists "$result" "$entry.receipt_id" "receipt_id exists"
-        assert_field_exists "$result" "$entry.extra_data" "extra_data preserved"
+        assert_field_exists "$result" "$entry.ownerId" "ownerId exists"
+        assert_field_exists "$result" "$entry.tokenId" "tokenId exists"
+        assert_field_bigint "$result" "$entry.blockHeight" "blockHeight is BigInt"
+        assert_field_exists "$result" "$entry.receiptId" "receiptId exists"
+        assert_field_exists "$result" "$entry.extraData" "extraData preserved"
 
         if [[ $ASSERTIONS_FAILED -eq 0 ]]; then
             test_passed "SCARCE_UPDATE (mint) indexed correctly"
@@ -90,8 +90,8 @@ test_list_scarce() {
     log_test "SCARCE_UPDATE — list_native_scarce"
 
     # Find the latest minted token
-    local mint_result=$(query_hasura "{ scarces_events(where: {event_type: {_eq: \"SCARCE_UPDATE\"}, operation: {_eq: \"mint\"}, owner_id: {_eq: \"$SIGNER\"}}, limit: 1, order_by: {block_height: desc}) { token_id } }")
-    local token_id=$(echo "$mint_result" | jq -r '.data.scarces_events[0].token_id // ""')
+    local mint_result=$(query_hasura "{ scarcesEvents(where: {eventType: {_eq: \"SCARCE_UPDATE\"}, operation: {_eq: \"mint\"}, ownerId: {_eq: \"$SIGNER\"}}, limit: 1, orderBy: {blockHeight: DESC}) { tokenId } }")
+    local token_id=$(echo "$mint_result" | jq -r '.data.scarcesEvents[0].tokenId // ""')
 
     if [[ -z "$token_id" || "$token_id" == "null" ]]; then
         log_warn "No minted token found — skipping list test"
@@ -103,16 +103,16 @@ test_list_scarce() {
         "{\"request\": {\"action\": {\"type\": \"list_native_scarce\", \"token_id\": \"$token_id\", \"price\": \"1000000000000000000000000\"}}}" \
         "0.01"
 
-    local result=$(query_hasura "{ scarces_events(where: {event_type: {_eq: \"SCARCE_UPDATE\"}, operation: {_eq: \"list\"}, token_id: {_eq: \"$token_id\"}}, limit: 1, order_by: {block_height: desc}) { id event_type operation token_id price seller_id block_height receipt_id extra_data } }")
+    local result=$(query_hasura "{ scarcesEvents(where: {eventType: {_eq: \"SCARCE_UPDATE\"}, operation: {_eq: \"list\"}, tokenId: {_eq: \"$token_id\"}}, limit: 1, orderBy: {blockHeight: DESC}) { id eventType operation tokenId price sellerId blockHeight receiptId extraData } }")
 
-    if echo "$result" | jq -e '.data.scarces_events[0]' >/dev/null 2>&1; then
-        local entry=".data.scarces_events[0]"
+    if echo "$result" | jq -e '.data.scarcesEvents[0]' >/dev/null 2>&1; then
+        local entry=".data.scarcesEvents[0]"
 
-        assert_field "$result" "$entry.event_type" "SCARCE_UPDATE" "event_type = SCARCE_UPDATE"
+        assert_field "$result" "$entry.eventType" "SCARCE_UPDATE" "eventType = SCARCE_UPDATE"
         assert_field "$result" "$entry.operation" "list" "operation = list"
-        assert_field "$result" "$entry.token_id" "$token_id" "token_id matches"
+        assert_field "$result" "$entry.tokenId" "$token_id" "tokenId matches"
         assert_field_exists "$result" "$entry.price" "price exists"
-        assert_field_exists "$result" "$entry.seller_id" "seller_id exists"
+        assert_field_exists "$result" "$entry.sellerId" "sellerId exists"
 
         if [[ $ASSERTIONS_FAILED -eq 0 ]]; then
             test_passed "SCARCE_UPDATE (list) indexed correctly"
@@ -143,8 +143,8 @@ test_burn_scarce() {
         "0.01"
 
     # Find the token we just minted
-    local mint_result=$(query_hasura "{ scarces_events(where: {event_type: {_eq: \"SCARCE_UPDATE\"}, operation: {_eq: \"mint\"}, owner_id: {_eq: \"$SIGNER\"}}, limit: 1, order_by: {block_height: desc}) { token_id } }")
-    local token_id=$(echo "$mint_result" | jq -r '.data.scarces_events[0].token_id // ""')
+    local mint_result=$(query_hasura "{ scarcesEvents(where: {eventType: {_eq: \"SCARCE_UPDATE\"}, operation: {_eq: \"mint\"}, ownerId: {_eq: \"$SIGNER\"}}, limit: 1, orderBy: {blockHeight: DESC}) { tokenId } }")
+    local token_id=$(echo "$mint_result" | jq -r '.data.scarcesEvents[0].tokenId // ""')
 
     if [[ -z "$token_id" || "$token_id" == "null" ]]; then
         log_warn "Could not find minted token — skipping burn test"
@@ -156,12 +156,12 @@ test_burn_scarce() {
         "{\"request\": {\"action\": {\"type\": \"burn_scarce\", \"token_id\": \"$token_id\"}}}" \
         "0.01"
 
-    local result=$(query_hasura "{ scarces_events(where: {event_type: {_eq: \"SCARCE_UPDATE\"}, operation: {_eq: \"burn\"}, token_id: {_eq: \"$token_id\"}}, limit: 1) { id event_type operation token_id block_height receipt_id extra_data } }")
+    local result=$(query_hasura "{ scarcesEvents(where: {eventType: {_eq: \"SCARCE_UPDATE\"}, operation: {_eq: \"burn\"}, tokenId: {_eq: \"$token_id\"}}, limit: 1) { id eventType operation tokenId blockHeight receiptId extraData } }")
 
-    if echo "$result" | jq -e '.data.scarces_events[0]' >/dev/null 2>&1; then
-        local entry=".data.scarces_events[0]"
+    if echo "$result" | jq -e '.data.scarcesEvents[0]' >/dev/null 2>&1; then
+        local entry=".data.scarcesEvents[0]"
         assert_field "$result" "$entry.operation" "burn" "operation = burn"
-        assert_field "$result" "$entry.token_id" "$token_id" "token_id matches"
+        assert_field "$result" "$entry.tokenId" "$token_id" "tokenId matches"
 
         test_passed "SCARCE_UPDATE (burn) indexed correctly"
     else
@@ -183,16 +183,16 @@ test_create_collection() {
         "{\"request\": {\"action\": {\"type\": \"create_collection\", \"collection_id\": \"$coll_id\", \"total_supply\": 10, \"metadata_template\": $(echo "$metadata_template" | jq -Rs .), \"price_near\": \"1000000000000000000000000\"}}}" \
         "0.5"
 
-    local result=$(query_hasura "{ scarces_events(where: {event_type: {_eq: \"COLLECTION_UPDATE\"}, operation: {_eq: \"create\"}, collection_id: {_eq: \"$coll_id\"}}, limit: 1) { id event_type operation collection_id creator_id total_supply price block_height receipt_id extra_data } }")
+    local result=$(query_hasura "{ scarcesEvents(where: {eventType: {_eq: \"COLLECTION_UPDATE\"}, operation: {_eq: \"create\"}, collectionId: {_eq: \"$coll_id\"}}, limit: 1) { id eventType operation collectionId creatorId totalSupply price blockHeight receiptId extraData } }")
 
-    if echo "$result" | jq -e '.data.scarces_events[0]' >/dev/null 2>&1; then
-        local entry=".data.scarces_events[0]"
+    if echo "$result" | jq -e '.data.scarcesEvents[0]' >/dev/null 2>&1; then
+        local entry=".data.scarcesEvents[0]"
 
-        assert_field "$result" "$entry.event_type" "COLLECTION_UPDATE" "event_type = COLLECTION_UPDATE"
+        assert_field "$result" "$entry.eventType" "COLLECTION_UPDATE" "eventType = COLLECTION_UPDATE"
         assert_field "$result" "$entry.operation" "create" "operation = create"
-        assert_field "$result" "$entry.collection_id" "$coll_id" "collection_id matches"
-        assert_field_exists "$result" "$entry.creator_id" "creator_id exists"
-        assert_field_exists "$result" "$entry.total_supply" "total_supply exists"
+        assert_field "$result" "$entry.collectionId" "$coll_id" "collectionId matches"
+        assert_field_exists "$result" "$entry.creatorId" "creatorId exists"
+        assert_field_exists "$result" "$entry.totalSupply" "totalSupply exists"
         assert_field_exists "$result" "$entry.price" "price exists"
 
         if [[ $ASSERTIONS_FAILED -eq 0 ]]; then

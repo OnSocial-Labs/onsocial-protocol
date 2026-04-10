@@ -13,7 +13,7 @@ source "$SCRIPT_DIR/../common.sh"
 test_group_query() {
     log_test "Query existing GroupUpdates"
     
-    local result=$(query_hasura '{ groupUpdates(limit: 5, order_by: {blockHeight: desc}) { id operation groupId author blockHeight } }')
+    local result=$(query_hasura '{ groupUpdates(limit: 5, orderBy: {blockHeight: DESC}) { id operation groupId author blockHeight } }')
     
     if echo "$result" | jq -e '.data.groupUpdates[0]' >/dev/null 2>&1; then
         local count=$(echo "$result" | jq '.data.groupUpdates | length')
@@ -33,7 +33,7 @@ test_group_query() {
 test_group_validate_fields() {
     log_test "Validating GroupUpdate field mapping against existing data"
     
-    local result=$(query_hasura '{ groupUpdates(limit: 1, order_by: {blockHeight: desc}) { id operation groupId author memberId role proposalId proposalType partitionId blockHeight blockTimestamp receiptId } }')
+    local result=$(query_hasura '{ groupUpdates(limit: 1, orderBy: {blockHeight: DESC}) { id operation groupId author memberId role proposalId proposalType partitionId blockHeight blockTimestamp receiptId } }')
     
     if ! echo "$result" | jq -e '.data.groupUpdates[0]' >/dev/null 2>&1; then
         log_warn "No GroupUpdates found to validate"
@@ -84,7 +84,7 @@ test_group_create() {
         "{\"request\": {\"action\": {\"type\": \"create_group\", \"group_id\": \"$group_id\", \"config\": {}}}}" \
         "0.1"
     
-    local result=$(query_hasura '{ groupUpdates(limit: 5, order_by: {blockHeight: desc}) { id operation groupId author partitionId blockHeight blockTimestamp receiptId memberId role level } }')
+    local result=$(query_hasura '{ groupUpdates(limit: 5, orderBy: {blockHeight: DESC}) { id operation groupId author partitionId blockHeight blockTimestamp receiptId memberId role level } }')
     
     echo "Verifying GroupUpdate fields for group_created:"
     
@@ -136,7 +136,7 @@ test_group_add_member() {
     call_and_wait "execute" \
         "{\"request\": {\"action\": {\"type\": \"add_group_member\", \"group_id\": \"$group_id\", \"member_id\": \"$member\"}}}"
     
-    local result=$(query_hasura '{ groupUpdates(limit: 1, order_by: {blockHeight: desc}) { id operation groupId memberId author role blockHeight blockTimestamp receiptId partitionId } }')
+    local result=$(query_hasura '{ groupUpdates(limit: 1, orderBy: {blockHeight: DESC}) { id operation groupId memberId author role blockHeight blockTimestamp receiptId partitionId } }')
     
     echo "Verifying GroupUpdate fields for member_added:"
     local entry=".data.groupUpdates[0]"
@@ -183,7 +183,7 @@ test_group_remove_member() {
     call_and_wait "execute" \
         "{\"request\": {\"action\": {\"type\": \"remove_group_member\", \"group_id\": \"$group_id\", \"member_id\": \"$member\"}}}"
     
-    local result=$(query_hasura '{ groupUpdates(limit: 3, order_by: {blockHeight: desc}) { id operation groupId memberId } }')
+    local result=$(query_hasura '{ groupUpdates(limit: 3, orderBy: {blockHeight: DESC}) { id operation groupId memberId } }')
     local op=$(echo "$result" | jq -r '.data.groupUpdates[0].operation // ""')
     
     if [[ "$op" == "remove_member" ]]; then
@@ -218,7 +218,7 @@ test_group_proposal_create() {
         "{\"request\": {\"action\": {\"type\": \"create_proposal\", \"group_id\": \"$group_id\", \"proposal_type\": \"custom_proposal\", \"changes\": {\"title\": \"Test Proposal\", \"description\": \"Testing indexing\", \"custom_data\": {}}, \"auto_vote\": true}}}" \
         "0.1"
     
-    local result=$(query_hasura "{ groupUpdates(where: {operation: {_eq: \"proposal_created\"}, groupId: {_eq: \"$group_id\"}}, limit: 1, order_by: {blockHeight: desc}) { id operation groupId proposalId proposalType author blockHeight blockTimestamp receiptId } }")
+    local result=$(query_hasura "{ groupUpdates(where: {operation: {_eq: \"proposal_created\"}, groupId: {_eq: \"$group_id\"}}, limit: 1, orderBy: {blockHeight: DESC}) { id operation groupId proposalId proposalType author blockHeight blockTimestamp receiptId } }")
     local op=$(echo "$result" | jq -r '.data.groupUpdates[0].operation // ""')
     
     if [[ "$op" == "proposal_created" ]]; then
@@ -262,7 +262,7 @@ test_group_vote() {
     fi
     
     # Query existing vote_cast operations
-    local result=$(query_hasura "{ groupUpdates(where: {operation: {_eq: \"vote_cast\"}}, limit: 1, order_by: {blockHeight: desc}) { id operation groupId proposalId voter approve blockHeight } }")
+    local result=$(query_hasura "{ groupUpdates(where: {operation: {_eq: \"vote_cast\"}}, limit: 1, orderBy: {blockHeight: DESC}) { id operation groupId proposalId voter approve blockHeight } }")
     
     if echo "$result" | jq -e '.data.groupUpdates[0]' >/dev/null 2>&1; then
         test_passed "Found existing vote_cast operations"

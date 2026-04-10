@@ -13,7 +13,7 @@ source "$SCRIPT_DIR/../common.sh"
 test_data_query() {
     log_test "Query existing DataUpdates"
     
-    local result=$(query_hasura '{ dataUpdates(limit: 5, order_by: {blockHeight: desc}) { id operation author path blockHeight blockTimestamp } }')
+    local result=$(query_hasura '{ dataUpdates(limit: 5, orderBy: {blockHeight: DESC}) { id operation author path blockHeight blockTimestamp } }')
     
     if echo "$result" | jq -e '.data.dataUpdates[0]' >/dev/null 2>&1; then
         local count=$(echo "$result" | jq '.data.dataUpdates | length')
@@ -38,7 +38,7 @@ test_data_query() {
 test_data_validate_fields() {
     log_test "Validating DataUpdate field mapping against existing data"
     
-    local result=$(query_hasura '{ dataUpdates(limit: 1, order_by: {blockHeight: desc}) { id operation path value author partitionId blockHeight blockTimestamp receiptId accountId dataType groupId isGroupContent } }')
+    local result=$(query_hasura '{ dataUpdates(limit: 1, orderBy: {blockHeight: DESC}) { id operation path value author partitionId blockHeight blockTimestamp receiptId accountId dataType groupId isGroupContent } }')
     
     if ! echo "$result" | jq -e '.data.dataUpdates[0]' >/dev/null 2>&1; then
         log_warn "No DataUpdates found to validate"
@@ -96,7 +96,7 @@ test_data_set() {
         "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"profile/$key\": \"$value\"}}}}" \
         "0.01"
     
-    local result=$(query_hasura '{ dataUpdates(limit: 1, order_by: {blockHeight: desc}) { id operation path value author partitionId blockHeight blockTimestamp receiptId accountId dataType dataId groupId groupPath isGroupContent } }')
+    local result=$(query_hasura '{ dataUpdates(limit: 1, orderBy: {blockHeight: DESC}) { id operation path value author partitionId blockHeight blockTimestamp receiptId accountId dataType dataId groupId groupPath isGroupContent } }')
     
     echo "Verifying all DataUpdate fields:"
     local entry=".data.dataUpdates[0]"
@@ -150,7 +150,7 @@ test_data_remove() {
     call_and_wait "execute" \
         "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"profile/$key\": null}}}}"
     
-    local result=$(query_hasura '{ dataUpdates(limit: 1, order_by: {blockHeight: desc}) { id operation path value author partitionId blockHeight blockTimestamp receiptId } }')
+    local result=$(query_hasura '{ dataUpdates(limit: 1, orderBy: {blockHeight: DESC}) { id operation path value author partitionId blockHeight blockTimestamp receiptId } }')
     
     echo "Verifying all DataUpdate fields for remove:"
     local entry=".data.dataUpdates[0]"
@@ -186,7 +186,7 @@ test_data_parent() {
         "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"post/$key\": {\"text\": \"This is a reply!\", \"parent\": \"$parent_path\"}}}}}" \
         "0.01"
     
-    local result=$(query_hasura '{ dataUpdates(limit: 1, order_by: {blockHeight: desc}, where: {dataType: {_eq: "post"}}) { id operation path value author partitionId blockHeight blockTimestamp receiptId accountId dataType parentPath parentAuthor refPath refAuthor } }')
+    local result=$(query_hasura '{ dataUpdates(limit: 1, orderBy: {blockHeight: DESC}, where: {dataType: {_eq: "post"}}) { id operation path value author partitionId blockHeight blockTimestamp receiptId accountId dataType parentPath parentAuthor refPath refAuthor } }')
     
     echo "Verifying parent field extraction:"
     local entry=".data.dataUpdates[0]"
@@ -236,7 +236,7 @@ test_data_ref() {
         "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"post/$key\": {\"text\": \"Quoting this great post!\", \"ref\": \"$ref_path\"}}}}}" \
         "0.01"
     
-    local result=$(query_hasura '{ dataUpdates(limit: 1, order_by: {blockHeight: desc}, where: {dataType: {_eq: "post"}}) { id operation path value author partitionId blockHeight blockTimestamp receiptId accountId dataType parentPath parentAuthor refPath refAuthor } }')
+    local result=$(query_hasura '{ dataUpdates(limit: 1, orderBy: {blockHeight: DESC}, where: {dataType: {_eq: "post"}}) { id operation path value author partitionId blockHeight blockTimestamp receiptId accountId dataType parentPath parentAuthor refPath refAuthor } }')
     
     echo "Verifying ref field extraction:"
     local entry=".data.dataUpdates[0]"
@@ -287,7 +287,7 @@ test_data_parent_and_ref() {
         "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"post/$key\": {\"text\": \"Replying to Alice while quoting Bob!\", \"parent\": \"$parent_path\", \"ref\": \"$ref_path\"}}}}}" \
         "0.01"
     
-    local result=$(query_hasura '{ dataUpdates(limit: 1, order_by: {blockHeight: desc}, where: {dataType: {_eq: "post"}}) { id operation path value author partitionId blockHeight blockTimestamp receiptId accountId dataType parentPath parentAuthor refPath refAuthor } }')
+    local result=$(query_hasura '{ dataUpdates(limit: 1, orderBy: {blockHeight: DESC}, where: {dataType: {_eq: "post"}}) { id operation path value author partitionId blockHeight blockTimestamp receiptId accountId dataType parentPath parentAuthor refPath refAuthor } }')
     
     echo "Verifying both parent and ref field extraction:"
     local entry=".data.dataUpdates[0]"
@@ -335,7 +335,7 @@ test_data_parent_type() {
         "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"post/$key\": {\"text\": \"A typed reply\", \"parent\": \"$parent_path\", \"parentType\": \"reply\"}}}}}" \
         "0.01"
     
-    local result=$(query_hasura '{ dataUpdates(limit: 1, order_by: {blockHeight: desc}, where: {dataType: {_eq: "post"}}) { id operation path author dataType blockHeight blockTimestamp receiptId parentPath parentAuthor parentType } }')
+    local result=$(query_hasura '{ dataUpdates(limit: 1, orderBy: {blockHeight: DESC}, where: {dataType: {_eq: "post"}}) { id operation path author dataType blockHeight blockTimestamp receiptId parentPath parentAuthor parentType } }')
     
     echo "Verifying parentType field extraction:"
     local entry=".data.dataUpdates[0]"
@@ -382,7 +382,7 @@ test_data_ref_type() {
         "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"post/$key\": {\"text\": \"A typed quote\", \"ref\": \"$ref_path\", \"refType\": \"quote\"}}}}}" \
         "0.01"
     
-    local result=$(query_hasura '{ dataUpdates(limit: 1, order_by: {blockHeight: desc}, where: {dataType: {_eq: "post"}}) { id operation path author dataType blockHeight blockTimestamp receiptId refPath refAuthor refType } }')
+    local result=$(query_hasura '{ dataUpdates(limit: 1, orderBy: {blockHeight: DESC}, where: {dataType: {_eq: "post"}}) { id operation path author dataType blockHeight blockTimestamp receiptId refPath refAuthor refType } }')
     
     echo "Verifying refType field extraction:"
     local entry=".data.dataUpdates[0]"
@@ -428,7 +428,7 @@ test_data_refs_array() {
         "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"post/$key\": {\"text\": \"Referencing multiple posts\", \"refs\": [\"alice.testnet/post/1\", \"bob.testnet/post/2\", \"carol.testnet/post/3\"]}}}}}" \
         "0.01"
     
-    local result=$(query_hasura '{ dataUpdates(limit: 1, order_by: {blockHeight: desc}, where: {dataType: {_eq: "post"}}) { id operation path author dataType blockHeight blockTimestamp receiptId refs refAuthors } }')
+    local result=$(query_hasura '{ dataUpdates(limit: 1, orderBy: {blockHeight: DESC}, where: {dataType: {_eq: "post"}}) { id operation path author dataType blockHeight blockTimestamp receiptId refs refAuthors } }')
     
     echo "Verifying refs array extraction:"
     local entry=".data.dataUpdates[0]"
@@ -487,7 +487,7 @@ test_data_all_refs() {
         "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"post/$key\": {\"text\": \"Complete reference test\", \"parent\": \"alice.testnet/post/thread\", \"parentType\": \"reply\", \"ref\": \"bob.testnet/post/quoted\", \"refType\": \"quote\", \"refs\": [\"carol.testnet/post/1\", \"dave.testnet/post/2\"]}}}}}" \
         "0.01"
     
-    local result=$(query_hasura '{ dataUpdates(limit: 1, order_by: {blockHeight: desc}, where: {dataType: {_eq: "post"}}) { id operation path author dataType blockHeight blockTimestamp receiptId parentPath parentAuthor parentType refPath refAuthor refType refs refAuthors } }')
+    local result=$(query_hasura '{ dataUpdates(limit: 1, orderBy: {blockHeight: DESC}, where: {dataType: {_eq: "post"}}) { id operation path author dataType blockHeight blockTimestamp receiptId parentPath parentAuthor parentType refPath refAuthor refType refs refAuthors } }')
     
     echo "Verifying ALL reference fields:"
     local entry=".data.dataUpdates[0]"

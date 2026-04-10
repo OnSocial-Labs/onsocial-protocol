@@ -80,7 +80,7 @@ done
 log_test "Recent boost events (last 5)"
 
 result=$(query_hasura '{
-  boostEvents(order_by: {blockHeight: desc}, limit: 5) {
+    boostEvents(orderBy: {blockHeight: DESC}, limit: 5) {
     id
     eventType
     accountId

@@ -62,7 +62,7 @@ done
 log_test "Recent token events (last 5)"
 
 result=$(query_hasura '{
-  tokenEvents(order_by: {blockHeight: desc}, limit: 5) {
+    tokenEvents(orderBy: {blockHeight: DESC}, limit: 5) {
     id
     eventType
     ownerId

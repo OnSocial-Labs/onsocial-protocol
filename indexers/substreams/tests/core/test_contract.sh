@@ -14,7 +14,7 @@ source "$SCRIPT_DIR/../common.sh"
 test_contract_query() {
     log_test "Query existing ContractUpdates"
     
-    local result=$(query_hasura '{ contractUpdates(limit: 10, order_by: {blockHeight: desc}) { id operation author path targetId partitionId blockTimestamp } }')
+    local result=$(query_hasura '{ contractUpdates(limit: 10, orderBy: {blockHeight: DESC}) { id operation author path targetId partitionId blockTimestamp } }')
     
     if echo "$result" | jq -e '.data.contractUpdates[0]' >/dev/null 2>&1; then
         local count=$(echo "$result" | jq '.data.contractUpdates | length')
@@ -34,7 +34,7 @@ test_contract_query() {
 test_contract_validate_fields() {
     log_test "Validating ContractUpdate field mapping against existing data"
     
-    local result=$(query_hasura '{ contractUpdates(limit: 1, order_by: {blockHeight: desc}) { id operation author path partitionId blockHeight blockTimestamp receiptId derivedId derivedType targetId authType actorId payerId extraData } }')
+    local result=$(query_hasura '{ contractUpdates(limit: 1, orderBy: {blockHeight: DESC}) { id operation author path partitionId blockHeight blockTimestamp receiptId derivedId derivedType targetId authType actorId payerId extraData } }')
     
     if ! echo "$result" | jq -e '.data.contractUpdates[0]' >/dev/null 2>&1; then
         log_warn "No ContractUpdates found to validate"
@@ -90,7 +90,7 @@ test_contract_set() {
         "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"profile/$key\": \"test\"}}}}" \
         "0.01"
     
-    local result=$(query_hasura '{ contractUpdates(where: {operation: {_eq: "set"}}, limit: 1, order_by: {blockHeight: desc}) { id operation author path partitionId blockHeight blockTimestamp receiptId targetId authType actorId payerId } }')
+    local result=$(query_hasura '{ contractUpdates(where: {operation: {_eq: "set"}}, limit: 1, orderBy: {blockHeight: DESC}) { id operation author path partitionId blockHeight blockTimestamp receiptId targetId authType actorId payerId } }')
     
     if echo "$result" | jq -e '.data.contractUpdates[0]' >/dev/null 2>&1; then
         echo "Verifying ContractUpdate fields for set:"
@@ -125,7 +125,7 @@ test_contract_config() {
     echo "  near call $CONTRACT set_config '{\"key\": \"max_data_size\", \"value\": \"10000\"}' --accountId admin.testnet"
     
     # Query to see if any config changes exist
-    local result=$(query_hasura '{ contractUpdates(where: {operation: {_eq: "update_config"}}, limit: 5, order_by: {blockHeight: desc}) { id operation path targetId author } }')
+    local result=$(query_hasura '{ contractUpdates(where: {operation: {_eq: "update_config"}}, limit: 5, orderBy: {blockHeight: DESC}) { id operation path targetId author } }')
     
     if echo "$result" | jq -e '.data.contractUpdates[0]' >/dev/null 2>&1; then
         log_info "Found existing config_change events:"
@@ -149,7 +149,7 @@ test_contract_admin() {
     echo "  near call $CONTRACT remove_intents_executor '{\"accountId\": \"executor.testnet\"}' --accountId admin.testnet"
     
     # Query to see if any executor changes exist
-    local result=$(query_hasura '{ contractUpdates(where: {operation: {_ilike: "%intents%"}}, limit: 5, order_by: {blockHeight: desc}) { id operation author targetId } }')
+    local result=$(query_hasura '{ contractUpdates(where: {operation: {_ilike: "%intents%"}}, limit: 5, orderBy: {blockHeight: DESC}) { id operation author targetId } }')
     
     if echo "$result" | jq -e '.data.contractUpdates[0]' >/dev/null 2>&1; then
         log_info "Found existing intents_executor events:"
@@ -172,7 +172,7 @@ test_contract_manager() {
     echo "  near call $CONTRACT set_manager '{\"new_manager\": \"new-manager.testnet\"}' --accountId admin.testnet"
     
     # Query to see if any manager changes exist
-    local result=$(query_hasura '{ contractUpdates(where: {operation: {_eq: "update_manager"}}, limit: 5, order_by: {blockHeight: desc}) { id operation targetId actorId author } }')
+    local result=$(query_hasura '{ contractUpdates(where: {operation: {_eq: "update_manager"}}, limit: 5, orderBy: {blockHeight: DESC}) { id operation targetId actorId author } }')
     
     if echo "$result" | jq -e '.data.contractUpdates[0]' >/dev/null 2>&1; then
         log_info "Found existing manager_change events:"
@@ -196,7 +196,7 @@ test_contract_status() {
     echo "  near call $CONTRACT resume_live '{}' --accountId admin.testnet"
     
     # Query to see if any status changes exist
-    local result=$(query_hasura '{ contractUpdates(where: {operation: {_in: ["enter_read_only", "resume_live", "activate_contract"]}}, limit: 5, order_by: {blockHeight: desc}) { id operation targetId author } }')
+    local result=$(query_hasura '{ contractUpdates(where: {operation: {_in: ["enter_read_only", "resume_live", "activate_contract"]}}, limit: 5, orderBy: {blockHeight: DESC}) { id operation targetId author } }')
     
     if echo "$result" | jq -e '.data.contractUpdates[0]' >/dev/null 2>&1; then
         log_info "Found existing status_change events:"
@@ -219,7 +219,7 @@ test_contract_partition() {
     echo "  near call $CONTRACT create_partition '{\"partitionId\": 1, \"config\": {}}' --accountId admin.testnet"
     
     # Query to see if any partition events exist
-    local result=$(query_hasura '{ contractUpdates(where: {partitionId: {_is_null: false}}, limit: 5, order_by: {blockHeight: desc}) { id operation partitionId author } }')
+    local result=$(query_hasura '{ contractUpdates(where: {partitionId: {_is_null: false}}, limit: 5, orderBy: {blockHeight: DESC}) { id operation partitionId author } }')
     
     if echo "$result" | jq -e '.data.contractUpdates[0]' >/dev/null 2>&1; then
         log_info "Found existing partition events:"

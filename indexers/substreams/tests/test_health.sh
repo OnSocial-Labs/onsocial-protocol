@@ -32,7 +32,7 @@ test_hasura_health() {
 test_cursor() {
     log_header "Test 2: Indexer Cursor Check"
     
-    local query='{ cursors(limit: 1) { id cursor block_num } }'
+    local query='{ cursors(limit: 1) { id cursor blockNum } }'
     local result=$(query_hasura "$query")
     
     if echo "$result" | jq -e '.data.cursors[0]' >/dev/null 2>&1; then
@@ -53,7 +53,7 @@ test_cursor() {
 test_data_updates() {
     log_header "Test 3: Data Updates Table"
     
-    local query='{ dataUpdates(limit: 5, order_by: {blockHeight: desc}) { id operation author path value blockHeight blockTimestamp } }'
+    local query='{ dataUpdates(limit: 5, orderBy: {blockHeight: DESC}) { id operation author path value blockHeight blockTimestamp } }'
     local result=$(query_hasura "$query")
     
     if echo "$result" | jq -e '.data.dataUpdates' >/dev/null 2>&1; then
@@ -79,7 +79,7 @@ test_data_updates() {
 test_storage_updates() {
     log_header "Test 4: Storage Updates Table"
     
-    local query='{ storageUpdates(limit: 5, order_by: {blockHeight: desc}) { id operation author amount blockHeight } }'
+    local query='{ storageUpdates(limit: 5, orderBy: {blockHeight: DESC}) { id operation author amount blockHeight } }'
     local result=$(query_hasura "$query")
     
     if echo "$result" | jq -e '.data.storageUpdates' >/dev/null 2>&1; then
@@ -103,7 +103,7 @@ test_storage_updates() {
 test_group_updates() {
     log_header "Test 5: Group Updates Table"
     
-    local query='{ groupUpdates(limit: 5, order_by: {blockHeight: desc}) { id groupId operation memberId blockHeight } }'
+    local query='{ groupUpdates(limit: 5, orderBy: {blockHeight: DESC}) { id groupId operation memberId blockHeight } }'
     local result=$(query_hasura "$query")
     
     if echo "$result" | jq -e '.data.groupUpdates' >/dev/null 2>&1; then

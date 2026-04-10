@@ -62,7 +62,7 @@ fi
 log_test "Most recently active token accounts (limit 5)"
 
 result=$(query_hasura '{
-  tokenBalances(order_by: {lastEventBlock: desc}, limit: 5) {
+  tokenBalances(orderBy: {lastEventBlock: DESC}, limit: 5) {
     accountId
     lastEventType
     lastEventBlock
@@ -95,7 +95,7 @@ if [[ "$count" -gt 0 ]]; then
     for i in $(seq 0 $((count - 1))); do
         evt=$(echo "$result" | jq -r ".data.tokenBalances[$i].lastEventType // empty" 2>/dev/null)
         case "$evt" in
-            ft_mint|ft_burn|ft_transfer|"") ;;  # valid
+            ft_mint|ft_burn|ft_transfer|ft_transfer_out|ft_transfer_in|"") ;;  # valid
             *) valid=false; log_warn "Unexpected event type: $evt"; break ;;
         esac
     done
