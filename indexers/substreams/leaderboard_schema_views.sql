@@ -6,7 +6,7 @@
 --
 -- Depends on:
 --   boost_schema.sql       → booster_state
---   rewards_schema.sql     → rewards_events, user_reward_state
+--   rewards_schema.sql     → rewards_events
 --   core_schema_views.sql  → posts_current, reaction_counts,
 --                             standing_counts, standing_out_counts
 --   scarces_schema.sql     → scarces_events
@@ -18,7 +18,7 @@
 --   4. reward_activity_daily   — daily earnings per user
 --   5. reward_weights          — standing × boost multiplier
 --   6. content_activity        — posts, replies, reactions, active days
---   7. nft_activity            — scarce creation, sales, revenue
+--   7. scarces_activity         — scarce creation, sales, revenue
 --   8. reputation_scores       — composite reputation per user
 --   9. leaderboard_by_app      — per-partner rankings
 --  10. leaderboard_by_group    — per-community rankings
@@ -55,16 +55,38 @@ CREATE INDEX IF NOT EXISTS idx_leaderboard_boost_rank
 -- ────────────────────────────────────────────────────────────────────────────
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS leaderboard_rewards AS
+WITH earned AS (
+  SELECT
+    account_id,
+    SUM(amount::NUMERIC)  AS total_earned,
+    COUNT(*)              AS credit_count,
+    MAX(block_height)     AS last_credit_block
+  FROM rewards_events
+  WHERE event_type = 'REWARD_CREDITED'
+    AND amount IS NOT NULL AND amount != ''
+  GROUP BY account_id
+),
+claimed AS (
+  SELECT
+    account_id,
+    SUM(amount::NUMERIC)  AS total_claimed,
+    MAX(block_height)     AS last_claim_block
+  FROM rewards_events
+  WHERE event_type = 'REWARD_CLAIMED'
+    AND amount IS NOT NULL AND amount != ''
+  GROUP BY account_id
+)
 SELECT
-  account_id,
-  total_earned,
-  total_claimed,
-  (total_earned::NUMERIC - total_claimed::NUMERIC) AS unclaimed,
-  last_credit_block,
-  last_claim_block,
-  RANK() OVER (ORDER BY total_earned::NUMERIC DESC) AS rank
-FROM user_reward_state
-WHERE total_earned != '0' AND total_earned != '';
+  e.account_id,
+  e.total_earned,
+  COALESCE(c.total_claimed, 0)                        AS total_claimed,
+  e.total_earned - COALESCE(c.total_claimed, 0)        AS unclaimed,
+  e.credit_count,
+  e.last_credit_block,
+  c.last_claim_block,
+  RANK() OVER (ORDER BY e.total_earned DESC)           AS rank
+FROM earned e
+LEFT JOIN claimed c ON c.account_id = e.account_id;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_leaderboard_rewards_pk
   ON leaderboard_rewards(account_id);
@@ -129,9 +151,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_reward_activity_daily_pk
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS reward_weights AS
 SELECT
-  u.account_id,
-  u.total_earned,
-  u.total_claimed,
+  r.account_id,
+  r.total_earned,
+  r.total_claimed,
   COALESCE(s.standing_with_count, 0)               AS standing_with_count,
   COALESCE(b.effective_boost, '0')::NUMERIC         AS effective_boost,
   COALESCE(b.lock_months, 0)                        AS lock_months,
@@ -145,9 +167,9 @@ SELECT
   (1.0 + LN(GREATEST(COALESCE(s.standing_with_count, 0), 1)))
     * (1.0 + COALESCE(b.effective_boost, '0')::NUMERIC / 1e18)
                                                     AS reward_multiplier
-FROM user_reward_state u
-LEFT JOIN standing_counts s ON s.account_id = u.account_id
-LEFT JOIN booster_state b ON b.account_id = u.account_id;
+FROM leaderboard_rewards r
+LEFT JOIN standing_counts s ON s.account_id = r.account_id
+LEFT JOIN booster_state b ON b.account_id = r.account_id;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_reward_weights_pk
   ON reward_weights(account_id);
@@ -194,13 +216,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_content_activity_pk
   ON content_activity(account_id);
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 7. nft_activity — per-user NFT/scarce marketplace activity
+-- 7. scarces_activity — per-user scarces marketplace activity
 -- ────────────────────────────────────────────────────────────────────────────
 -- Aggregates creation, sales, purchases, revenue.
 -- Depends on: scarces_schema.sql (scarces_events)
 -- ────────────────────────────────────────────────────────────────────────────
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS nft_activity AS
+CREATE MATERIALIZED VIEW IF NOT EXISTS scarces_activity AS
 SELECT
   author                                                      AS account_id,
   -- Creator metrics (mints, collections created)
@@ -222,27 +244,27 @@ SELECT
   -- Collections
   COUNT(DISTINCT collection_id) FILTER (
     WHERE operation = 'create_collection')                    AS collections_created,
-  MAX(block_height)                                           AS last_nft_block
+  MAX(block_height)                                           AS last_scarces_block
 FROM scarces_events
 GROUP BY author;
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_nft_activity_pk
-  ON nft_activity(account_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_scarces_activity_pk
+  ON scarces_activity(account_id);
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 8. reputation_scores — composite reputation score per user
 -- ────────────────────────────────────────────────────────────────────────────
 -- Combines: social reach × token commitment × content quality × consistency
--- Depends on: standing_counts, booster_state, user_reward_state,
---             content_activity, nft_activity
+-- Depends on: standing_counts, booster_state, leaderboard_rewards,
+--             content_activity, scarces_activity
 --
 -- Formula:
 --   social      = 1 + ln(max(followers, 1))
 --   commitment  = 1 + effective_boost / 1e18
 --   quality     = 1 + avg_reactions_per_post / 10
 --   consistency = 1 + active_days / 30
---   nft_factor  = 1 + ln(max(items_created + items_sold, 1)) / 10
---   reputation  = social × commitment × quality × consistency × nft_factor
+--   scarces     = 1 + ln(max(items_created + items_sold, 1)) / 10
+--   reputation  = social × commitment × quality × consistency × scarces
 -- ────────────────────────────────────────────────────────────────────────────
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS reputation_scores AS
@@ -254,47 +276,47 @@ SELECT
   COALESCE(so.standing_with_others_count, 0)                  AS following,
   COALESCE(b.effective_boost, '0')::NUMERIC / 1e18            AS boost,
   COALESCE(b.lock_months, 0)                                  AS lock_months,
-  COALESCE(r.total_earned, '0')::NUMERIC / 1e18              AS rewards_earned,
+  COALESCE(r.total_earned, 0) / 1e18                         AS rewards_earned,
   COALESCE(c.total_posts, 0)                                  AS total_posts,
   COALESCE(c.reply_count, 0)                                  AS reply_count,
   COALESCE(c.total_reactions_received, 0)                     AS reactions_received,
   COALESCE(c.avg_reactions_per_post, 0)                       AS avg_reactions,
   COALESCE(c.active_days, 0)                                  AS active_days,
   COALESCE(c.unique_reply_targets, 0)                         AS unique_conversations,
-  COALESCE(n.items_created, 0)                                AS nfts_created,
-  COALESCE(n.items_sold, 0)                                   AS nfts_sold,
-  COALESCE(n.revenue_earned, 0) / 1e24                        AS nft_revenue_near,
+  COALESCE(n.items_created, 0)                                AS scarces_created,
+  COALESCE(n.items_sold, 0)                                   AS scarces_sold,
+  COALESCE(n.revenue_earned, 0) / 1e24                        AS scarces_revenue_near,
 
   -- Dimension scores (exposed for debugging / per-dimension leaderboards)
   ROUND((1.0 + LN(GREATEST(COALESCE(s.standing_with_count, 0), 1)))::NUMERIC, 4)
                                                               AS social_score,
   ROUND((1.0 + COALESCE(b.effective_boost, '0')::NUMERIC / 1e18)::NUMERIC, 4)
                                                               AS commitment_score,
-  ROUND((1.0 + COALESCE(c.avg_reactions_per_post, 0) / 10.0)::NUMERIC, 4)
+  ROUND((1.0 + COALESCE(c.avg_reactions_per_post, 0)::NUMERIC / 10.0), 4)
                                                               AS quality_score,
-  ROUND((1.0 + COALESCE(c.active_days, 0) / 30.0)::NUMERIC, 4)
+  ROUND((1.0 + COALESCE(c.active_days, 0)::NUMERIC / 30.0), 4)
                                                               AS consistency_score,
   ROUND((1.0 + LN(GREATEST(COALESCE(n.items_created, 0)
-                          + COALESCE(n.items_sold, 0), 1)) / 10.0)::NUMERIC, 4)
-                                                              AS nft_score,
+                          + COALESCE(n.items_sold, 0), 1))::NUMERIC / 10.0), 4)
+                                                              AS scarces_score,
 
   -- Composite reputation
-  ROUND(
+  ROUND((
     (1.0 + LN(GREATEST(COALESCE(s.standing_with_count, 0), 1)))
     * (1.0 + COALESCE(b.effective_boost, '0')::NUMERIC / 1e18)
-    * (1.0 + COALESCE(c.avg_reactions_per_post, 0) / 10.0)
-    * (1.0 + COALESCE(c.active_days, 0) / 30.0)
+    * (1.0 + COALESCE(c.avg_reactions_per_post, 0)::NUMERIC / 10.0)
+    * (1.0 + COALESCE(c.active_days, 0)::NUMERIC / 30.0)
     * (1.0 + LN(GREATEST(COALESCE(n.items_created, 0)
-                        + COALESCE(n.items_sold, 0), 1)) / 10.0)
-  , 4)                                                        AS reputation,
+                        + COALESCE(n.items_sold, 0), 1))::NUMERIC / 10.0)
+  )::NUMERIC, 4)                                              AS reputation,
 
   RANK() OVER (ORDER BY
     (1.0 + LN(GREATEST(COALESCE(s.standing_with_count, 0), 1)))
     * (1.0 + COALESCE(b.effective_boost, '0')::NUMERIC / 1e18)
-    * (1.0 + COALESCE(c.avg_reactions_per_post, 0) / 10.0)
-    * (1.0 + COALESCE(c.active_days, 0) / 30.0)
+    * (1.0 + COALESCE(c.avg_reactions_per_post, 0)::NUMERIC / 10.0)
+    * (1.0 + COALESCE(c.active_days, 0)::NUMERIC / 30.0)
     * (1.0 + LN(GREATEST(COALESCE(n.items_created, 0)
-                        + COALESCE(n.items_sold, 0), 1)) / 10.0)
+                        + COALESCE(n.items_sold, 0), 1))::NUMERIC / 10.0)
     DESC
   )                                                           AS rank
 
@@ -306,18 +328,18 @@ FROM (
   UNION
   SELECT account_id FROM booster_state
   UNION
-  SELECT account_id FROM user_reward_state
+  SELECT account_id FROM leaderboard_rewards
   UNION
   SELECT account_id FROM content_activity
   UNION
-  SELECT account_id FROM nft_activity
+  SELECT account_id FROM scarces_activity
 ) a
 LEFT JOIN standing_counts    s  ON s.account_id  = a.account_id
 LEFT JOIN standing_out_counts so ON so.account_id = a.account_id
 LEFT JOIN booster_state      b  ON b.account_id  = a.account_id
-LEFT JOIN user_reward_state  r  ON r.account_id  = a.account_id
+LEFT JOIN leaderboard_rewards r ON r.account_id  = a.account_id
 LEFT JOIN content_activity   c  ON c.account_id  = a.account_id
-LEFT JOIN nft_activity       n  ON n.account_id  = a.account_id;
+LEFT JOIN scarces_activity   n  ON n.account_id  = a.account_id;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_reputation_scores_pk
   ON reputation_scores(account_id);
@@ -439,7 +461,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_app_reputation_pk
 -- Refresh function
 -- ────────────────────────────────────────────────────────────────────────────
 -- Refreshes all leaderboard + reputation views. Call after refresh_core_views().
--- Order matters: content_activity & nft_activity must come before reputation_scores.
+-- Order matters: content_activity & scarces_activity must come before reputation_scores.
 --
 -- Example pg_cron (every 5 min):
 --   SELECT cron.schedule('refresh-leaderboard', '*/5 * * * *',
@@ -456,7 +478,7 @@ BEGIN
 
   -- Activity aggregates (inputs to reputation)
   REFRESH MATERIALIZED VIEW CONCURRENTLY content_activity;
-  REFRESH MATERIALIZED VIEW CONCURRENTLY nft_activity;
+  REFRESH MATERIALIZED VIEW CONCURRENTLY scarces_activity;
 
   -- Composite reputation (depends on activity views above)
   REFRESH MATERIALIZED VIEW CONCURRENTLY reputation_scores;

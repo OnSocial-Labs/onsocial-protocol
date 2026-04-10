@@ -16,6 +16,66 @@ export MAX_WAIT_RETRIES="${MAX_WAIT_RETRIES:-20}"   # 20 attempts
 export WAIT_RETRY_DELAY="${WAIT_RETRY_DELAY:-3}"    # 3 seconds each = 60s max
 export LAST_EVENT_BLOCK=""                          # Set by call_and_wait()
 
+get_rpc_url() {
+    case "$NETWORK" in
+        mainnet)
+            echo "https://rpc.mainnet.near.org"
+            ;;
+        *)
+            echo "https://rpc.testnet.near.org"
+            ;;
+    esac
+}
+
+extract_transaction_id() {
+    local tx_output="$1"
+    echo "$tx_output" | sed -n 's/.*Transaction ID: \([A-Za-z0-9_-]*\).*/\1/p' | tail -1
+}
+
+lookup_block_height_by_tx() {
+    local tx_hash="$1"
+    local signer_id="$2"
+    local rpc_url
+    rpc_url=$(get_rpc_url)
+
+    local tx_result
+    tx_result=$(curl -s "$rpc_url" \
+        -H "Content-Type: application/json" \
+        -d "{\"jsonrpc\":\"2.0\",\"id\":\"dontcare\",\"method\":\"tx\",\"params\":[\"$tx_hash\",\"$signer_id\"]}")
+
+    local block_hash
+    block_hash=$(echo "$tx_result" | jq -r '.result.transaction_outcome.block_hash // empty')
+    if [[ -z "$block_hash" ]]; then
+        return 1
+    fi
+
+    curl -s "$rpc_url" \
+        -H "Content-Type: application/json" \
+        -d "{\"jsonrpc\":\"2.0\",\"id\":\"dontcare\",\"method\":\"block\",\"params\":{\"block_id\":\"$block_hash\"}}" \
+        | jq -r '.result.header.height // empty'
+}
+
+extract_index_target_block() {
+    local tx_output="$1"
+    local signer_id="$2"
+
+    local event_block
+    event_block=$(echo "$tx_output" | grep -o '"block_height":[0-9]*' | tail -1 | grep -o '[0-9]*')
+    if [[ -n "$event_block" ]]; then
+        echo "$event_block"
+        return 0
+    fi
+
+    local tx_hash
+    tx_hash=$(extract_transaction_id "$tx_output")
+    if [[ -n "$tx_hash" ]]; then
+        lookup_block_height_by_tx "$tx_hash" "$signer_id"
+        return 0
+    fi
+
+    return 1
+}
+
 # Colors
 export GREEN='\033[0;32m'
 export RED='\033[0;31m'
@@ -83,8 +143,41 @@ check_hasura_health() {
 
 # Get current cursor/block from indexer
 get_current_block() {
-    local result=$(query_hasura '{ cursors(limit: 1) { cursor blockNum } }')
-    echo "$result" | jq -r '.data.cursors[0].blockNum // "0"'
+    local result
+    result=$(query_hasura '{ cursors(limit: 1) { cursor blockNum } }')
+
+    local cursor_block
+    cursor_block=$(echo "$result" | jq -r '.data.cursors[0].blockNum // "0"')
+    if [[ "$cursor_block" =~ ^[0-9]+$ ]] && [[ "$cursor_block" -gt 0 ]]; then
+        echo "$cursor_block"
+        return 0
+    fi
+
+    # Some deployments have stale cursor rows even while Hasura still serves indexed data.
+    # Fall back to the maximum block height visible across the indexed tables.
+    result=$(query_hasura '{
+        contractUpdates(limit: 1, orderBy: {blockHeight: DESC}) { blockHeight }
+        dataUpdates(limit: 1, orderBy: {blockHeight: DESC}) { blockHeight }
+        storageUpdates(limit: 1, orderBy: {blockHeight: DESC}) { blockHeight }
+        groupUpdates(limit: 1, orderBy: {blockHeight: DESC}) { blockHeight }
+        permissionUpdates(limit: 1, orderBy: {blockHeight: DESC}) { blockHeight }
+        boostEvents(limit: 1, orderBy: {blockHeight: DESC}) { blockHeight }
+        rewardsEvents(limit: 1, orderBy: {blockHeight: DESC}) { blockHeight }
+        tokenEvents(limit: 1, orderBy: {blockHeight: DESC}) { blockHeight }
+        scarcesEvents(limit: 1, orderBy: {blockHeight: DESC}) { blockHeight }
+    }')
+
+    echo "$result" | jq -r '[
+        .data.contractUpdates[0].blockHeight,
+        .data.dataUpdates[0].blockHeight,
+        .data.storageUpdates[0].blockHeight,
+        .data.groupUpdates[0].blockHeight,
+        .data.permissionUpdates[0].blockHeight,
+        .data.boostEvents[0].blockHeight,
+        .data.rewardsEvents[0].blockHeight,
+        .data.tokenEvents[0].blockHeight,
+        .data.scarcesEvents[0].blockHeight
+    ] | map(select(. != null) | tonumber) | max // 0'
 }
 
 # Smart wait: poll until indexer reaches target block
@@ -145,8 +238,7 @@ call_and_wait() {
         return 1
     fi
     
-    # Extract block height from EVENT_JSON log (NEP-297 standard event)
-    LAST_EVENT_BLOCK=$(echo "$tx_output" | grep -o '"block_height":[0-9]*' | tail -1 | grep -o '[0-9]*')
+    LAST_EVENT_BLOCK=$(extract_index_target_block "$tx_output" "$SIGNER")
     
     if [[ -n "$LAST_EVENT_BLOCK" ]]; then
         log_info "Event at block $LAST_EVENT_BLOCK, waiting for indexer..."

@@ -17,6 +17,7 @@ tests/
     test_group.sh        # GROUP_UPDATE events
     test_contract.sh     # CONTRACT_UPDATE events
     test_permission.sh   # PERMISSION_UPDATE events
+    test_gap_verification.sh # Executes and verifies remaining core readiness proofs
 
   boost/                 # Boost contract
     test_boost_events.sh      # Boost event types
@@ -80,6 +81,8 @@ All test files support three modes:
 ./core/test_group.sh query
 ./core/test_contract.sh query
 ./core/test_permission.sh query
+./core/test_gap_verification.sh query
+GAP_MEMBER=test04.onsocial.testnet ./core/test_gap_verification.sh write
 
 # Boost contract tests
 ./boost/test_boost_events.sh query
@@ -93,6 +96,8 @@ All test files support three modes:
 # Token contract tests
 ./token/test_token_events.sh query
 ./token/test_token_balances.sh query
+./token/test_token_events.sh write
+./token/test_token_balances.sh write
 
 # Cross-contract
 ./test_health.sh

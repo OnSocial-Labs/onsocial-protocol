@@ -26,6 +26,10 @@ on:
         description: "GSM secret name for the Substreams API token"
         required: true
         default: "SUBSTREAMS_API_TOKEN"
+      hasura_admin_secret_name:
+        description: "GSM secret name for the Hasura admin secret"
+        required: true
+        default: "HASURA_ADMIN_SECRET"
       substreams_endpoint:
         description: "Substreams endpoint override"
         required: false
@@ -144,6 +148,14 @@ jobs:
           echo "::add-mask::$TOKEN"
           echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
 
+      - name: Fetch Hasura admin secret from Secret Manager
+        id: hasura_secret
+        run: |
+          SECRET=$(gcloud secrets versions access latest \
+            --secret="${{ inputs.hasura_admin_secret_name || 'HASURA_ADMIN_SECRET' }}")
+          echo "::add-mask::$SECRET"
+          echo "secret=$SECRET" >> "$GITHUB_OUTPUT"
+
       - name: Prepare upload directory
         working-directory: indexers/substreams
         env:
@@ -151,7 +163,8 @@ jobs:
         run: |
           mkdir -p $GITHUB_WORKSPACE/spkg-upload
           cp onsocial-events-${VER}-combined.spkg $GITHUB_WORKSPACE/spkg-upload/
-          cp combined_schema.sql $GITHUB_WORKSPACE/spkg-upload/
+          find . -maxdepth 1 -type f -name '*.sql' -exec cp {} $GITHUB_WORKSPACE/spkg-upload/ \;
+          cp scripts/sync-hasura-substreams-metadata.sh $GITHUB_WORKSPACE/spkg-upload/
           echo "Upload contents:"
           ls -la $GITHUB_WORKSPACE/spkg-upload/
 
@@ -174,11 +187,12 @@ jobs:
           CLEAN_DEPLOY: ${{ inputs.clean_deploy || 'false' }}
           SUBSTREAMS_DB_URL: ${{ steps.db.outputs.url }}
           SUBSTREAMS_API_TOKEN: ${{ steps.sf_token.outputs.token }}
+          HASURA_ADMIN_SECRET: ${{ steps.hasura_secret.outputs.secret }}
         with:
           host: ${{ env.TESTNET_SUBSTREAMS_DEPLOY_HOST }}
           username: root
           key: ${{ steps.ssh.outputs.key }}
-          envs: VER,CLEAN_DEPLOY,SUBSTREAMS_DB_URL,SUBSTREAMS_API_TOKEN
+          envs: VER,CLEAN_DEPLOY,SUBSTREAMS_DB_URL,SUBSTREAMS_API_TOKEN,HASURA_ADMIN_SECRET
           command_timeout: 10m
           script: |
             set -euo pipefail
@@ -187,6 +201,7 @@ jobs:
             SERVICE="onsocial-sink-combined"
             SPKG_NAME="onsocial-events-${VER}-combined.spkg"
             NETWORK_SUFFIX="testnet"
+            HASURA_URL="http://127.0.0.1:8080/v1/graphql"
 
             echo "=== Substreams deploy: ${{ steps.sha.outputs.short }} (${VER}) ==="
             echo "Mode: single combined stream (1 sink for all contracts)"
@@ -288,6 +303,34 @@ jobs:
             echo "📝 Applying combined schema"
             $PSQL < "${UPLOAD_DIR}/combined_schema.sql"
             echo "✓ Combined schema applied"
+
+            # Rebuild all managed derived views so definition changes in the SQL
+            # files are actually applied on deploy. The view files use
+            # CREATE MATERIALIZED VIEW IF NOT EXISTS, so re-applying without
+            # dropping would silently keep stale definitions.
+            echo "🧹 Rebuilding core and leaderboard materialized views"
+            $PSQL <<'SQLEOF'
+            DO $$ DECLARE mv TEXT;
+            BEGIN
+              FOR mv IN SELECT matviewname FROM pg_matviews WHERE schemaname = 'public'
+              LOOP
+                EXECUTE 'DROP MATERIALIZED VIEW IF EXISTS ' || quote_ident(mv) || ' CASCADE';
+              END LOOP;
+            END $$;
+            SQLEOF
+            echo "✓ Derived views dropped"
+
+            shopt -s nullglob
+            VIEW_FILES=("${UPLOAD_DIR}"/*_schema_views.sql)
+            if [ ${#VIEW_FILES[@]} -gt 0 ]; then
+              printf '%s\n' "${VIEW_FILES[@]}" | sort | while read -r view_sql; do
+                echo "📝 Applying $(basename "$view_sql")"
+                $PSQL < "$view_sql"
+              done
+              echo "✓ Schema view files applied"
+            else
+              echo "ℹ️ No *_schema_views.sql files found to apply"
+            fi
 
             # Swap spkg
             [ -f "${SPKG_DIR}/${SPKG_NAME}" ] && cp "${SPKG_DIR}/${SPKG_NAME}" "${SPKG_DIR}/${SPKG_NAME}.prev"
@@ -402,6 +445,12 @@ jobs:
               journalctl -u "$SERVICE" --no-pager -n 50 2>/dev/null || true
               exit 1
             fi
+
+            echo "🧩 Syncing Hasura metadata for public substreams relations..."
+            HASURA_URL="$HASURA_URL" \
+            HASURA_ADMIN_SECRET="$HASURA_ADMIN_SECRET" \
+            bash "${SPKG_DIR}/sync-hasura-substreams-metadata.sh" "${SPKG_DIR}"
+            echo "✓ Hasura metadata synced"
 
             MISSING_TABLES=$($PSQL -tAc "
               SELECT string_agg(name, ',')
