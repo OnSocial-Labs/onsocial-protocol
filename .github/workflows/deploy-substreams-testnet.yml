@@ -336,6 +336,7 @@ jobs:
             [ -f "${SPKG_DIR}/${SPKG_NAME}" ] && cp "${SPKG_DIR}/${SPKG_NAME}" "${SPKG_DIR}/${SPKG_NAME}.prev"
             mv "${UPLOAD_DIR}/${SPKG_NAME}" "${SPKG_DIR}/${SPKG_NAME}"
             cp "${UPLOAD_DIR}"/*.sql "${SPKG_DIR}/" 2>/dev/null || true
+            cp "${UPLOAD_DIR}"/*.sh "${SPKG_DIR}/" 2>/dev/null || true
             rm -rf "$UPLOAD_DIR"
             echo "✓ Spkg swapped"
 
