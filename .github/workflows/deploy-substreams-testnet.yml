@@ -11,6 +11,33 @@ on:
         description: "Drop all tables and re-index from scratch"
         type: boolean
         default: false
+      deploy_host:
+        description: "Optional override for testnet data host/IP"
+        required: false
+      ssh_secret_name:
+        description: "GSM secret name for the testnet host SSH key"
+        required: true
+        default: "hetzner-testnet-ssh-key"
+      db_secret_name:
+        description: "GSM secret name for the testnet Substreams DB URL"
+        required: true
+        default: "substreams-testnet-db-url"
+      api_token_secret_name:
+        description: "GSM secret name for the Substreams API token"
+        required: true
+        default: "SUBSTREAMS_API_TOKEN"
+      substreams_endpoint:
+        description: "Substreams endpoint override"
+        required: false
+        default: "testnet.near.streamingfast.io:443"
+
+env:
+  TESTNET_SUBSTREAMS_DEPLOY_HOST: ${{ inputs.deploy_host != '' && inputs.deploy_host || vars.TESTNET_DATA_DEPLOY_HOST != '' && vars.TESTNET_DATA_DEPLOY_HOST || '135.181.110.183' }}
+  TESTNET_SUBSTREAMS_ENDPOINT: ${{ inputs.substreams_endpoint != '' && inputs.substreams_endpoint || 'testnet.near.streamingfast.io:443' }}
+
+concurrency:
+  group: substreams-testnet-deploy
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -18,9 +45,24 @@ permissions:
   id-token: write
 
 jobs:
+  validate:
+    name: Validate Inputs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check host configuration
+        run: |
+          if [ -z "${{ env.TESTNET_SUBSTREAMS_DEPLOY_HOST }}" ]; then
+            echo "❌ TESTNET_SUBSTREAMS_DEPLOY_HOST is not set. Provide deploy_host or configure TESTNET_DATA_DEPLOY_HOST."
+            exit 1
+          fi
+          echo "✅ Testnet substreams host resolved"
+
   deploy:
     name: Deploy spkg to Hetzner
+    needs: validate
     runs-on: ubuntu-latest
+    environment:
+      name: testnet
     if: >
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
@@ -75,7 +117,7 @@ jobs:
         id: ssh
         run: |
           gcloud secrets versions access latest \
-            --secret="hetzner-testnet-ssh-key" > /tmp/deploy_key
+            --secret="${{ inputs.ssh_secret_name || 'hetzner-testnet-ssh-key' }}" > /tmp/deploy_key
           chmod 600 /tmp/deploy_key
           # Mask every line of the key so it never appears in logs
           while IFS= read -r line; do
@@ -90,7 +132,7 @@ jobs:
         id: db
         run: |
           DB_URL=$(gcloud secrets versions access latest \
-            --secret="substreams-testnet-db-url")
+            --secret="${{ inputs.db_secret_name || 'substreams-testnet-db-url' }}")
           echo "::add-mask::$DB_URL"
           echo "url=$DB_URL" >> "$GITHUB_OUTPUT"
 
@@ -98,7 +140,7 @@ jobs:
         id: sf_token
         run: |
           TOKEN=$(gcloud secrets versions access latest \
-            --secret="SUBSTREAMS_API_TOKEN")
+            --secret="${{ inputs.api_token_secret_name || 'SUBSTREAMS_API_TOKEN' }}")
           echo "::add-mask::$TOKEN"
           echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
 
@@ -116,7 +158,7 @@ jobs:
       - name: Upload spkg and schema
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: 135.181.110.183
+          host: ${{ env.TESTNET_SUBSTREAMS_DEPLOY_HOST }}
           username: root
           key: ${{ steps.ssh.outputs.key }}
           source: spkg-upload/*
@@ -133,7 +175,7 @@ jobs:
           SUBSTREAMS_DB_URL: ${{ steps.db.outputs.url }}
           SUBSTREAMS_API_TOKEN: ${{ steps.sf_token.outputs.token }}
         with:
-          host: 135.181.110.183
+          host: ${{ env.TESTNET_SUBSTREAMS_DEPLOY_HOST }}
           username: root
           key: ${{ steps.ssh.outputs.key }}
           envs: VER,CLEAN_DEPLOY,SUBSTREAMS_DB_URL,SUBSTREAMS_API_TOKEN
@@ -155,7 +197,7 @@ jobs:
               echo "❌ No DB_URL — ensure 'substreams-testnet-db-url' secret exists in GCP Secret Manager"
               exit 1
             fi
-            ENDPOINT="${SUBSTREAMS_ENDPOINT:-testnet.near.streamingfast.io:443}"
+            ENDPOINT="${SUBSTREAMS_ENDPOINT:-${{ env.TESTNET_SUBSTREAMS_ENDPOINT }}}"
 
             # Stop existing sinks (combined + any legacy per-contract sinks)
             systemctl stop $SERVICE 2>/dev/null || true
@@ -267,6 +309,15 @@ jobs:
             # Build the combined params string
             PARAMS="core=core.onsocial.${NETWORK_SUFFIX}&boost=boost.onsocial.${NETWORK_SUFFIX}&rewards=rewards.onsocial.${NETWORK_SUFFIX}&token=token.onsocial.${NETWORK_SUFFIX}&scarces=scarces.onsocial.${NETWORK_SUFFIX}"
 
+            # Write sink secrets/config to root-only credential source files.
+            install -d -m 700 /etc/onsocial/credentials/${SERVICE}
+            printf '%s' "${DB_URL}" > /etc/onsocial/credentials/${SERVICE}/db_url
+            printf '%s' "${SUBSTREAMS_API_TOKEN}" > /etc/onsocial/credentials/${SERVICE}/api_token
+            printf '%s' "${ENDPOINT}" > /etc/onsocial/credentials/${SERVICE}/endpoint
+            printf '%s' "${PARAMS}" > /etc/onsocial/credentials/${SERVICE}/params
+            printf '%s' "${SPKG_DIR}/${SPKG_NAME}" > /etc/onsocial/credentials/${SERVICE}/spkg
+            chmod 600 /etc/onsocial/credentials/${SERVICE}/*
+
             # Create or update systemd unit
             UNIT="/etc/systemd/system/${SERVICE}.service"
             cat > "$UNIT" <<UNITEOF
@@ -276,14 +327,12 @@ jobs:
 
             [Service]
             Type=simple
-            Environment=SUBSTREAMS_API_TOKEN=${SUBSTREAMS_API_TOKEN}
-            ExecStart=/usr/local/bin/substreams-sink-sql run \
-              ${DB_URL} \
-              ${SPKG_DIR}/${SPKG_NAME} \
-              -e ${ENDPOINT} \
-              -p map_combined_output=${PARAMS} \
-              --on-module-hash-mistmatch warn \
-              --infinite-retry
+            LoadCredential=db_url:/etc/onsocial/credentials/${SERVICE}/db_url
+            LoadCredential=api_token:/etc/onsocial/credentials/${SERVICE}/api_token
+            LoadCredential=endpoint:/etc/onsocial/credentials/${SERVICE}/endpoint
+            LoadCredential=params:/etc/onsocial/credentials/${SERVICE}/params
+            LoadCredential=spkg:/etc/onsocial/credentials/${SERVICE}/spkg
+            ExecStart=/bin/bash -lc 'exec /usr/local/bin/substreams-sink-sql run "$(cat "$${CREDENTIALS_DIRECTORY}/db_url")" "$(cat "$${CREDENTIALS_DIRECTORY}/spkg")" -e "$(cat "$${CREDENTIALS_DIRECTORY}/endpoint")" -p "map_combined_output=$(cat "$${CREDENTIALS_DIRECTORY}/params")" --on-module-hash-mistmatch warn --infinite-retry'
             Restart=on-failure
             RestartSec=15
 
@@ -293,6 +342,13 @@ jobs:
             systemctl daemon-reload
             systemctl enable "$SERVICE" 2>/dev/null || true
             echo "✓ Systemd unit updated"
+
+            UNIT_ENV=$(systemctl show "$SERVICE" --property=Environment --value 2>/dev/null || true)
+            if [ -n "$UNIT_ENV" ]; then
+              echo "❌ Systemd unit still has Environment entries; expected credentials-only configuration"
+              exit 1
+            fi
+            echo "✓ Systemd unit does not expose runtime environment secrets"
 
             # Start sink
             systemctl start "$SERVICE"
@@ -327,20 +383,22 @@ jobs:
             # Post-deploy smoke test: verify sink system tables and contract tables.
             echo "🧪 Running post-deploy smoke test..."
             CURSOR_WAIT=0
-            CURSOR_MAX_WAIT=60
+            CURSOR_MAX_WAIT=120
             while [ $CURSOR_WAIT -lt $CURSOR_MAX_WAIT ]; do
               CURSOR_COUNT=$($PSQL -tAc "SELECT COUNT(*) FROM cursors" 2>/dev/null | tr -d '[:space:]' || true)
-              if [ -n "$CURSOR_COUNT" ] && [ "$CURSOR_COUNT" != "0" ]; then
+              CURSOR_BLOCK_NUM=$($PSQL -tAc "SELECT COALESCE(MAX(block_num), 0) FROM cursors" 2>/dev/null | tr -d '[:space:]' || true)
+              if [ -n "$CURSOR_COUNT" ] && [ "$CURSOR_COUNT" != "0" ] && [ -n "$CURSOR_BLOCK_NUM" ] && [ "$CURSOR_BLOCK_NUM" != "0" ]; then
                 echo "  ✅ cursors rows present: $CURSOR_COUNT"
+                echo "  ✅ cursor block advanced: $CURSOR_BLOCK_NUM"
                 break
               fi
               sleep 5
               CURSOR_WAIT=$((CURSOR_WAIT + 5))
-              echo "  ⏱ waiting for cursors row... ${CURSOR_WAIT}s"
+              echo "  ⏱ waiting for cursor progress... ${CURSOR_WAIT}s (rows=${CURSOR_COUNT:-0}, block=${CURSOR_BLOCK_NUM:-0})"
             done
 
-            if [ -z "${CURSOR_COUNT:-}" ] || [ "$CURSOR_COUNT" = "0" ]; then
-              echo "❌ Smoke test failed: cursors table has no rows"
+            if [ -z "${CURSOR_COUNT:-}" ] || [ "$CURSOR_COUNT" = "0" ] || [ -z "${CURSOR_BLOCK_NUM:-}" ] || [ "$CURSOR_BLOCK_NUM" = "0" ]; then
+              echo "❌ Smoke test failed: cursor did not advance beyond block 0"
               journalctl -u "$SERVICE" --no-pager -n 50 2>/dev/null || true
               exit 1
             fi
