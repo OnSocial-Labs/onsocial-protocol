@@ -40,12 +40,15 @@ tests/
 
 1. **Environment Variables** - Set these in the root `.env` file or export them:
    ```bash
-   export HASURA_URL="https://hasura.onsocial.id"
+  export HASURA_URL="http://localhost:8080"
    export HASURA_ADMIN_SECRET="your_admin_secret_here"
    export CONTRACT="core.onsocial.testnet"
    export SIGNER="onsocial.testnet"
    export NETWORK="testnet"
    ```
+
+  `HASURA_URL` must point to a reachable Hasura instance for the indexed testnet DB.
+  There is no safe public default here. Use an SSH tunnel or the actual deployed endpoint.
 
 2. **Load Environment** (from project root):
    ```bash

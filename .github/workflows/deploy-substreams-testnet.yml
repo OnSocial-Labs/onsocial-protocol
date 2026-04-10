@@ -155,7 +155,7 @@ jobs:
               echo "❌ No DB_URL — ensure 'substreams-testnet-db-url' secret exists in GCP Secret Manager"
               exit 1
             fi
-            ENDPOINT="${SUBSTREAMS_ENDPOINT:-near-testnet.streamingfast.io:443}"
+            ENDPOINT="${SUBSTREAMS_ENDPOINT:-testnet.near.streamingfast.io:443}"
 
             # Stop existing sinks (combined + any legacy per-contract sinks)
             systemctl stop $SERVICE 2>/dev/null || true

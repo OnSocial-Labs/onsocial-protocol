@@ -7,7 +7,7 @@
 # Configuration
 export CONTRACT="${CONTRACT:-core.onsocial.testnet}"
 export SIGNER="${SIGNER:-onsocial.testnet}"
-export HASURA_URL="${HASURA_URL:-https://hasura.onsocial.id}"
+export HASURA_URL="${HASURA_URL:?HASURA_URL environment variable is required}"
 export HASURA_ADMIN_SECRET="${HASURA_ADMIN_SECRET:?HASURA_ADMIN_SECRET environment variable is required}"
 export NETWORK="${NETWORK:-testnet}"
 
