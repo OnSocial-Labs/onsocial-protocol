@@ -259,7 +259,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_scarces_activity_pk
 --             content_activity, scarces_activity
 --
 -- Formula:
---   social      = 1 + ln(max(followers, 1))
+--   social      = 1 + ln(max(standing_with, 1))
 --   commitment  = 1 + effective_boost / 1e18
 --   quality     = 1 + avg_reactions_per_post / 10
 --   consistency = 1 + active_days / 30
@@ -272,8 +272,8 @@ SELECT
   a.account_id,
 
   -- Raw components
-  COALESCE(s.standing_with_count, 0)                          AS followers,
-  COALESCE(so.standing_with_others_count, 0)                  AS following,
+  COALESCE(s.standing_with_count, 0)                          AS standing_with,
+  COALESCE(so.standing_with_others_count, 0)                  AS standing_out,
   COALESCE(b.effective_boost, '0')::NUMERIC / 1e18            AS boost,
   COALESCE(b.lock_months, 0)                                  AS lock_months,
   COALESCE(r.total_earned, 0) / 1e18                         AS rewards_earned,

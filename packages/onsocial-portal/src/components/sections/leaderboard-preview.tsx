@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { Crown, TrendingUp, ArrowUpRight } from 'lucide-react';
+import { Crown, Shield, TrendingUp, ArrowUpRight } from 'lucide-react';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { PortalBadge } from '@/components/ui/portal-badge';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
@@ -11,9 +11,11 @@ import { section } from '@/lib/section-styles';
 import {
   fetchCompactBoard,
   formatSocialCompact,
+  formatReputation,
   truncateAccountId,
   commitmentAccent,
   commitmentLabel,
+  reputationTier,
   type CompactLeaderboard,
 } from '@/lib/leaderboard';
 
@@ -48,9 +50,11 @@ export function LeaderboardPreview() {
   }, []);
 
   const hasData =
-    data && (data.influence.length > 0 || data.earners.length > 0);
+    data &&
+    (data.influence.length > 0 ||
+      data.reputation.length > 0 ||
+      data.earners.length > 0);
 
-  // Don't render the section if there's no data after loading
   if (!loading && !hasData) return null;
 
   return (
@@ -62,14 +66,14 @@ export function LeaderboardPreview() {
           viewport={{ once: true, margin: '-60px' }}
           transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
         >
-          <p className={section.heading}>Boost Leaderboard</p>
+          <p className={section.heading}>Leaderboard</p>
 
           {loading ? (
             <div className="flex min-h-32 items-center justify-center rounded-[1.5rem] border border-border/50 bg-background/35">
               <PulsingDots size="md" />
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-3">
               {/* Influence */}
               <SurfacePanel radius="xl" tone="soft" className="p-4 md:p-5">
                 <div className="mb-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
@@ -77,15 +81,15 @@ export function LeaderboardPreview() {
                   Top Influence
                 </div>
                 <div className="space-y-2">
-                  {data!.influence.map((e, i) => (
+                  {data!.influence.map((e) => (
                     <div
                       key={e.accountId}
                       className="flex items-center gap-2.5"
                     >
-                      <MiniRank rank={i + 1} />
+                      <MiniRank rank={e.rank} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-mono text-xs text-foreground">
-                          {truncateAccountId(e.accountId, 22)}
+                          {truncateAccountId(e.accountId, 18)}
                         </p>
                       </div>
                       <PortalBadge
@@ -102,6 +106,38 @@ export function LeaderboardPreview() {
                 </div>
               </SurfacePanel>
 
+              {/* Reputation */}
+              <SurfacePanel radius="xl" tone="soft" className="p-4 md:p-5">
+                <div className="mb-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                  <Shield className="h-3.5 w-3.5" />
+                  Top Reputation
+                </div>
+                <div className="space-y-2">
+                  {data!.reputation.map((e) => {
+                    const tier = reputationTier(e.rank);
+                    return (
+                      <div
+                        key={e.accountId}
+                        className="flex items-center gap-2.5"
+                      >
+                        <MiniRank rank={e.rank} />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-mono text-xs text-foreground">
+                            {truncateAccountId(e.accountId, 18)}
+                          </p>
+                        </div>
+                        <PortalBadge accent={tier.accent} size="xs">
+                          {tier.label}
+                        </PortalBadge>
+                        <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                          {formatReputation(e.reputation)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </SurfacePanel>
+
               {/* Earners */}
               <SurfacePanel radius="xl" tone="soft" className="p-4 md:p-5">
                 <div className="mb-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
@@ -109,15 +145,15 @@ export function LeaderboardPreview() {
                   Top Earners
                 </div>
                 <div className="space-y-2">
-                  {data!.earners.map((e, i) => (
+                  {data!.earners.map((e) => (
                     <div
                       key={e.accountId}
                       className="flex items-center gap-2.5"
                     >
-                      <MiniRank rank={i + 1} />
+                      <MiniRank rank={e.rank} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-mono text-xs text-foreground">
-                          {truncateAccountId(e.accountId, 22)}
+                          {truncateAccountId(e.accountId, 18)}
                         </p>
                       </div>
                       <span className="font-mono text-xs tabular-nums text-muted-foreground">
@@ -130,7 +166,6 @@ export function LeaderboardPreview() {
             </div>
           )}
 
-          {/* Link to full leaderboard */}
           {!loading && hasData && (
             <div className="mt-4 text-center">
               <Link

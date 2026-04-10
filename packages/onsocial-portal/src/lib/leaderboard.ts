@@ -1,41 +1,76 @@
 import { yoctoToSocial } from '@/lib/near-rpc';
 
 // ---------------------------------------------------------------------------
-// Types — match Hasura camelCase column names
+// Types — match Hasura graphql-default camelCase from materialized views
 // ---------------------------------------------------------------------------
 
-export interface BoosterEntry {
+/** leaderboard_boost view */
+export interface InfluenceEntry {
   accountId: string;
   lockedAmount: string;
   effectiveBoost: string;
   lockMonths: number;
   totalClaimed?: string;
   totalCreditsPurchased?: string;
-  lastEventType?: string;
   lastEventBlock?: number;
+  rank: number;
 }
 
+/** leaderboard_rewards view */
 export interface EarnerEntry {
   accountId: string;
   totalEarned: string;
   totalClaimed?: string;
+  unclaimed?: string;
+  creditCount?: number;
   lastCreditBlock?: number;
+  lastClaimBlock?: number;
+  rank: number;
 }
 
-export interface CompositeEntry {
+/** reputation_scores view */
+export interface ReputationEntry {
   accountId: string;
-  effectiveBoost: string;
-  totalEarned: string;
+  standingWith: number;
+  standingOut: number;
+  boost: string;
   lockMonths: number;
-  score: number;
+  rewardsEarned: string;
+  totalPosts: number;
+  replyCount: number;
+  reactionsReceived: number;
+  avgReactions: number;
+  activeDays: number;
+  uniqueConversations: number;
+  scarcesCreated: number;
+  scarcesSold: number;
+  scarcesRevenueNear: string;
+  socialScore: string;
+  commitmentScore: string;
+  qualityScore: string;
+  consistencyScore: string;
+  scarcesScore: string;
+  reputation: string;
+  rank: number;
 }
 
+/** Homepage compact preview */
 export interface CompactLeaderboard {
   influence: Pick<
-    BoosterEntry,
-    'accountId' | 'effectiveBoost' | 'lockMonths'
+    InfluenceEntry,
+    'accountId' | 'effectiveBoost' | 'lockMonths' | 'rank'
   >[];
-  earners: Pick<EarnerEntry, 'accountId' | 'totalEarned'>[];
+  reputation: Pick<
+    ReputationEntry,
+    | 'accountId'
+    | 'reputation'
+    | 'boost'
+    | 'rewardsEarned'
+    | 'totalPosts'
+    | 'activeDays'
+    | 'rank'
+  >[];
+  earners: Pick<EarnerEntry, 'accountId' | 'totalEarned' | 'rank'>[];
 }
 
 // ---------------------------------------------------------------------------
@@ -60,26 +95,20 @@ async function fetchLeaderboard<T>(
 
 export function fetchInfluenceBoard(
   limit = 20
-): Promise<{ boosterState: BoosterEntry[] } | null> {
+): Promise<{ leaderboardBoost: InfluenceEntry[] } | null> {
   return fetchLeaderboard('influence', limit);
 }
 
-export function fetchCommitmentBoard(
+export function fetchReputationBoard(
   limit = 20
-): Promise<{ boosterState: BoosterEntry[] } | null> {
-  return fetchLeaderboard('commitment', limit);
+): Promise<{ reputationScores: ReputationEntry[] } | null> {
+  return fetchLeaderboard('reputation', limit);
 }
 
 export function fetchEarnerBoard(
   limit = 20
-): Promise<{ earners: EarnerEntry[] } | null> {
+): Promise<{ leaderboardRewards: EarnerEntry[] } | null> {
   return fetchLeaderboard('earners', limit);
-}
-
-export function fetchCompositeBoard(
-  limit = 20
-): Promise<{ composite: CompositeEntry[] } | null> {
-  return fetchLeaderboard('composite', limit);
 }
 
 export function fetchCompactBoard(): Promise<CompactLeaderboard | null> {
@@ -90,8 +119,8 @@ export function fetchCompactBoard(): Promise<CompactLeaderboard | null> {
 // Formatting
 // ---------------------------------------------------------------------------
 
-export function formatSocialCompact(yocto: string): string {
-  const raw = Number.parseFloat(yoctoToSocial(yocto));
+export function formatSocialCompact(yocto: string | number): string {
+  const raw = Number.parseFloat(yoctoToSocial(String(yocto ?? '0')));
   if (!Number.isFinite(raw) || raw === 0) return '0';
 
   if (raw >= 1_000_000) return `${(raw / 1_000_000).toFixed(1)}M`;
@@ -102,6 +131,21 @@ export function formatSocialCompact(yocto: string): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
+
+export function formatReputation(value: string | number): string {
+  const num = Number.parseFloat(String(value));
+  if (!Number.isFinite(num) || num === 0) return '0';
+  if (num >= 10_000) return `${(num / 1_000).toFixed(1)}K`;
+  if (num >= 100) return num.toFixed(0);
+  return num.toFixed(1);
+}
+
+export function formatScore(value: string | number): string {
+  const num = Number.parseFloat(String(value));
+  if (!Number.isFinite(num) || num === 0) return '0';
+  if (num >= 100) return num.toFixed(0);
+  return num.toFixed(1);
 }
 
 export function truncateAccountId(id: string, max = 20): string {
@@ -128,9 +172,22 @@ export function commitmentAccent(
   return 'slate';
 }
 
-export function formatCompositeScore(score: number): string {
-  return score.toLocaleString('en-US', {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  });
+/** Maps a reputation rank → tier name */
+export function reputationTier(rank: number): {
+  label: string;
+  accent: 'amber' | 'purple' | 'blue' | 'green' | 'slate';
+} {
+  if (rank <= 1) return { label: 'Legend', accent: 'amber' };
+  if (rank <= 3) return { label: 'Elite', accent: 'purple' };
+  if (rank <= 10) return { label: 'Rising', accent: 'blue' };
+  if (rank <= 25) return { label: 'Active', accent: 'green' };
+  return { label: 'New', accent: 'slate' };
+}
+
+/** Percent bar width (0–100) for a value against the leader */
+export function pctOfLeader(value: string | number, leader: string | number): number {
+  const v = Number.parseFloat(String(value));
+  const l = Number.parseFloat(String(leader));
+  if (!Number.isFinite(v) || !Number.isFinite(l) || l === 0) return 0;
+  return Math.min(100, Math.round((v / l) * 100));
 }
