@@ -3,7 +3,10 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { resolveNearRpcUrl, type Network } from '@onsocial/rpc';
+import { createRequire } from 'node:module';
 import type { Tier } from '../types/index.js';
+
+const require = createRequire(import.meta.url);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -42,6 +45,12 @@ function env(name: string, fallback = ''): string {
   if (secret) process.env[name] = secret; // cache for the process lifetime
   return secret || fallback;
 }
+
+// Lazy-loaded to break circular: config → client → logger → config
+let _revolutClient:
+  | InstanceType<typeof import('../services/revolut/client.js').RevolutClient>
+  | null
+  | undefined;
 
 export const config = {
   // Server
@@ -118,17 +127,32 @@ export const config = {
     free: 60,
     pro: 600,
     scale: 3000,
+    service: 10000,
   } as Record<Tier, number>,
 
-  // Flat tier pricing (USD/month via SOCIAL tokens)
-  tierPricing: {
-    pro: 49, // $49/month in SOCIAL
-    scale: 199, // $199/month in SOCIAL
+  // Revolut Merchant API (keys pulled from GSM — lazy + dynamic import to avoid circular init)
+  get revolutClient() {
+    if (_revolutClient !== undefined) return _revolutClient;
+    const secretKey = env('REVOLUT_SECRET_KEY');
+    if (!secretKey) {
+      _revolutClient = null;
+      return null;
+    }
+    // Pre-populate variation IDs from GSM so plans.ts can read process.env
+    env('REVOLUT_PRO_VARIATION_ID');
+    env('REVOLUT_SCALE_VARIATION_ID');
+    const { RevolutClient } =
+      require('../services/revolut/client.js') as typeof import('../services/revolut/client.js');
+    _revolutClient = new RevolutClient({
+      secretKey,
+      publicKey: env('REVOLUT_PUBLIC_KEY'),
+      webhookSigningSecret: env('REVOLUT_WEBHOOK_SIGNING_SECRET'),
+      apiUrl:
+        env('REVOLUT_API_URL') || 'https://sandbox-merchant.revolut.com/api',
+      apiVersion: process.env.REVOLUT_API_VERSION || '2025-12-04',
+    });
+    return _revolutClient;
   },
-
-  // Price oracle
-  refPoolId: parseInt(process.env.REF_POOL_ID || '0', 10),
-  socialPriceUsd: parseFloat(process.env.SOCIAL_PRICE_USD || '0.10'),
 } as const;
 
 export type Config = typeof config;

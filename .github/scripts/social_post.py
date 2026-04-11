@@ -449,23 +449,14 @@ Never force it, never use puns, memes, or try-hard jokes. \
 About half the posts should have a touch of wit; the other half can be straight.
 
 Link rules:
-- NEVER include a link to the GitHub repository in any post. The repo is private \
-and the profile bio already links to the project.
-- You have the discussions URL and nearblocks explorer links for any contracts that changed.
-- For the TWEET: do NOT include a URL by default. Only include one if the post \
-references something the reader would specifically want to click (a new release, \
-a discussion thread). When the commit is about a contract \
-deployment, upgrade, testnet/mainnet activity, or on-chain verification, include \
-the relevant nearblocks explorer link so devs can inspect the contract. \
-Most tweets should have NO link — the profile bio links to the project.
-- For TELEGRAM: include one URL only if it adds context. Use the discussions URL \
-for feature or community-facing updates, or the nearblocks link \
-for contract deployments and on-chain activity. \
-Never link to the repo. If the message is self-contained, skip the link.
+- NEVER include any URL or link in any post. No GitHub links, no nearblocks links, \
+no discussions links, no links of any kind. The profile bio links to the project. \
+Both the tweet and telegram message must be fully self-contained text with zero URLs.
 
 Examples of tone:
   Bad: "Huge update just dropped! We're thrilled to ship gasless auth!"
   Bad (jargon): "New IterableSet index on app_pool_ids with paginated view capped at 100."
+  Bad (jargon): "Substreams views distinguish standing_with from standing_out, React API fetches rankings with 30s revalidation."
   Bad (repetitive opener): "Added app discovery views. Added test coverage. Added..."
   Good: "Gasless auth now works via NEAR meta-transactions. Keys are session-scoped, 30 min TTL."
   Good: "NFT marketplace apps can now be discovered on-chain — app listing and count views are live."
@@ -475,23 +466,25 @@ Examples of tone:
 
 Write TWO versions:
 
-1. TWEET: — max 240 characters, hard limit. Must be understandable by someone who has \
-never seen the repo. Lead with WHAT changed (the feature or fix), not HOW (implementation \
-details like struct names or storage keys). Avoid internal jargon — translate it to what \
-the user or developer gains. If the commit is about tests, emphasize what's now covered, \
-not the test count. One clear sentence is better than two cramped ones. \
+1. TWEET: — max 280 characters, hard limit. Must be understandable by someone who has \
+never seen the repo. Lead with WHAT changed for users, not HOW it was implemented. \
+Never mention internal names like database columns, SQL views, struct names, storage keys, \
+or API field renames — translate everything to what the user or developer gains. \
+If the commit touches multiple components, describe the combined user-facing outcome, \
+not each component separately. One clear sentence is better than two cramped ones. \
 IMPORTANT: Vary the sentence structure. Do NOT start with "Added", "Updated", "Fixed", \
 or any past-tense verb every time. Mix it up — use noun phrases ("App discovery is now \
 on-chain"), present tense ("The scarces contract now exposes..."), or context-first \
 structure ("For frontend devs: ..."). Never start two consecutive posts the same way. \
-If you include a URL, count it as ~50 characters.
+NEVER include any URL or link in the tweet.
 
-2. TELEGRAM: — 2-3 sentences. A bit more detail on what changed and why. \
-No markdown formatting.
+2. TELEGRAM: — 2-3 sentences. A bit more detail on what changed and why it matters \
+to users. Focus on the user-visible outcome, not implementation details. \
+No markdown formatting. NEVER include any URL or link.
 
 Return only the two posts with their labels, nothing else."""
 
-MAX_TWEET_LENGTH = 240
+MAX_TWEET_LENGTH = 280
 
 
 def generate_posts() -> tuple[str, str]:
@@ -566,6 +559,8 @@ def contains_forbidden_language(text: str) -> str | None:
         return "exclamation mark"
     if re.search(r"github\.com/", lowered):
         return "GitHub repo link"
+    if re.search(r"https?://", lowered):
+        return "URL (no links allowed in posts)"
     return None
 
 
@@ -585,10 +580,13 @@ def validate_posts(tweet_text: str, telegram_text: str) -> list[str]:
     if not tweet_text.strip() or not telegram_text.strip():
         errors.append("empty generated post")
 
+    # Skip component-mention check for cross-component commits (2+ components)
     if CHANGED_COMPONENTS != "(could not detect changed files)" and CHANGED_COMPONENTS != "misc / repo-level changes":
-        component = first_component_label(CHANGED_FILE_LIST).split(" (")[0].lower()
-        if component and component not in tweet_text.lower() and component not in telegram_text.lower():
-            errors.append("posts do not mention the primary changed component")
+        num_components = len([c for c in CHANGED_COMPONENTS.split(", ") if c.strip()])
+        if num_components <= 1:
+            component = first_component_label(CHANGED_FILE_LIST).split(" (")[0].lower()
+            if component and component not in tweet_text.lower() and component not in telegram_text.lower():
+                errors.append("posts do not mention the primary changed component")
 
     return errors
 

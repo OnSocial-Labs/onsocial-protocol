@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
+import Link from 'next/link';
 import { motion, useInView } from 'framer-motion';
 import { PageShell } from '@/components/layout/page-shell';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
@@ -33,7 +34,7 @@ const TIERS = [
     rows: '10,000',
     aggregations: true,
     accent: 'blue' as PortalAccent,
-    live: false,
+    live: true,
   },
   {
     name: 'Scale',
@@ -45,7 +46,7 @@ const TIERS = [
     rows: '50,000',
     aggregations: true,
     accent: 'purple' as PortalAccent,
-    live: false,
+    live: true,
   },
 ];
 
@@ -87,7 +88,7 @@ export default function OnApiPage() {
               className={
                 tier.live
                   ? 'border-[var(--portal-green-border)] shadow-[0_0_20px_var(--portal-green-shadow)]'
-                  : 'opacity-50'
+                  : ''
               }
             >
               <div className="px-5 pt-5 pb-1 md:px-6 md:pt-6">
@@ -136,13 +137,35 @@ export default function OnApiPage() {
                   }
                 />
               </StatStrip>
+
+              {tier.live ? (
+                <div className="px-5 pb-4 pt-2 md:px-6 flex gap-2">
+                  <Link
+                    href="/onapi/keys"
+                    className="portal-blue-surface flex flex-1 items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium transition-all hover:brightness-110"
+                  >
+                    Get your key
+                  </Link>
+                </div>
+              ) : (
+                <div className="px-5 pb-4 pt-2 md:px-6">
+                  <Link
+                    href="/onapi/billing"
+                    className="portal-purple-surface flex w-full items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium transition-all hover:brightness-110"
+                  >
+                    Manage billing
+                  </Link>
+                </div>
+              )}
             </SurfacePanel>
           ))}
         </div>
 
         <p className="mt-3 text-center text-xs text-muted-foreground">
-          Paid tiers use SOCIAL credits — 60% funds infrastructure, 40% goes
-          to the participation pool.
+          Paid tiers billed monthly via Revolut.{' '}
+          <Link href="/onapi/billing" className="underline hover:text-foreground">
+            Manage billing →
+          </Link>
         </p>
       </motion.div>
     </PageShell>

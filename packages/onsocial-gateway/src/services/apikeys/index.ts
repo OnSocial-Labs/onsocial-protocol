@@ -391,7 +391,7 @@ export async function revokeApiKey(
 
 /**
  * Update the tier for all active keys belonging to an account.
- * Called when the indexer detects a CREDITS_PURCHASE event.
+ * Called by the Revolut webhook handler on ORDER_COMPLETED.
  */
 export async function updateAccountTier(
   accountId: string,

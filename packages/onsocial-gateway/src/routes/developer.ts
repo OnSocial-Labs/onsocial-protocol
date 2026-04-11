@@ -97,6 +97,54 @@ developerRouter.delete('/keys/:prefix', async (req: Request, res: Response) => {
 });
 
 /**
+ * Rotate a key — atomically revoke old key and create a new one.
+ * Preserves the label from the old key.
+ *
+ * Returns the new raw key exactly once.
+ */
+developerRouter.post(
+  '/keys/:prefix/rotate',
+  async (req: Request, res: Response) => {
+    const accountId = req.auth!.accountId;
+    const { prefix } = req.params;
+
+    // Find the old key to preserve its label
+    const existing = await listApiKeys(accountId);
+    const oldKey = existing.find((k) => k.prefix === prefix);
+
+    if (!oldKey) {
+      res.status(404).json({ error: 'Key not found' });
+      return;
+    }
+
+    // Revoke old key
+    const revoked = await revokeApiKey(accountId, prefix);
+    if (!revoked) {
+      res.status(404).json({ error: 'Key not found or already revoked' });
+      return;
+    }
+
+    // Create new key with the same label
+    const result = await createApiKey(accountId, oldKey.label);
+
+    if ('code' in result) {
+      const err = result as ApiKeyError;
+      res.status(400).json({ error: err.message, code: err.code });
+      return;
+    }
+
+    res.status(201).json({
+      key: result.rawKey,
+      prefix: result.prefix,
+      label: result.label,
+      tier: result.tier,
+      revokedPrefix: prefix,
+      warning: 'Save this key now. It cannot be retrieved again.',
+    });
+  }
+);
+
+/**
  * Get usage statistics for the authenticated developer.
  *
  * Returns: { today, thisMonth, byEndpoint, byActor, byStatus }

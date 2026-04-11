@@ -1,6 +1,6 @@
 import type { Request } from 'express';
 
-export type Tier = 'free' | 'pro' | 'scale';
+export type Tier = 'free' | 'pro' | 'scale' | 'service';
 
 export type AuthMethod = 'jwt' | 'apikey';
 

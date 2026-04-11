@@ -180,12 +180,63 @@ async function verifyKeyBelongsToAccount(
 }
 
 /**
+ * Build NEP-413 Borsh-serialized payload for signature verification.
+ *
+ * NEP-413 AuthenticationToken:
+ *   tag:          u32 LE (2**31 + 413 = 2147484061)
+ *   message:      u32 LE length + UTF-8 bytes
+ *   nonce:        32 bytes
+ *   recipient:    u32 LE length + UTF-8 bytes
+ *   callback_url: Option<String> (1 byte: 0 = None)
+ */
+function buildNep413Payload(
+  message: string,
+  nonce: Uint8Array,
+  recipient: string
+): Uint8Array {
+  const tag = 2147484061; // 2^31 + 413
+  const msgBytes = new TextEncoder().encode(message);
+  const recipientBytes = new TextEncoder().encode(recipient);
+
+  // 4 (tag) + 4 (msg len) + msg + 32 (nonce) + 4 (recipient len) + recipient + 1 (None)
+  const total = 4 + 4 + msgBytes.length + 32 + 4 + recipientBytes.length + 1;
+  const buf = new Uint8Array(total);
+  const view = new DataView(buf.buffer);
+  let offset = 0;
+
+  // tag
+  view.setUint32(offset, tag, true);
+  offset += 4;
+
+  // message
+  view.setUint32(offset, msgBytes.length, true);
+  offset += 4;
+  buf.set(msgBytes, offset);
+  offset += msgBytes.length;
+
+  // nonce
+  buf.set(nonce, offset);
+  offset += 32;
+
+  // recipient
+  view.setUint32(offset, recipientBytes.length, true);
+  offset += 4;
+  buf.set(recipientBytes, offset);
+  offset += recipientBytes.length;
+
+  // callback_url: None
+  buf[offset] = 0;
+
+  return buf;
+}
+
+/**
  * Verify NEAR signature for authentication
  * Client signs a message with their NEAR private key
  *
- * Message format: "OnSocial Auth: <ISO timestamp>"
- * Signature: base64 encoded ed25519 signature
- * PublicKey: ed25519:<base64 or base58 encoded key>
+ * Supports two modes:
+ * 1. Plain: signature over raw UTF-8 message bytes
+ * 2. NEP-413: signature over Borsh-serialized payload (when nonce + recipient provided)
  *
  * Verification steps:
  * 1. Validate message format and timestamp freshness (within 5 minutes)
@@ -196,7 +247,9 @@ export async function verifyNearSignature(
   accountId: string,
   message: string,
   signature: string,
-  publicKey: string
+  publicKey: string,
+  nonce?: string,
+  recipient?: string
 ): Promise<{ valid: boolean; error?: string }> {
   // Step 1: Validate message format and timestamp
   const messageValidation = validateMessage(message);
@@ -222,7 +275,24 @@ export async function verifyNearSignature(
   }
 
   // Step 3: Verify ed25519 signature
-  const messageBytes = new TextEncoder().encode(message);
+  // If nonce + recipient provided, verify against NEP-413 Borsh payload
+  // Otherwise verify against plain UTF-8 message bytes
+  let messageBytes: Uint8Array;
+  if (nonce && recipient) {
+    let nonceBytes: Uint8Array;
+    try {
+      nonceBytes = decodeBase64(nonce);
+    } catch {
+      return { valid: false, error: 'Invalid nonce encoding' };
+    }
+    if (nonceBytes.length !== 32) {
+      return { valid: false, error: 'Nonce must be 32 bytes' };
+    }
+    messageBytes = buildNep413Payload(message, nonceBytes, recipient);
+  } else {
+    messageBytes = new TextEncoder().encode(message);
+  }
+
   const isValidSignature = nacl.sign.detached.verify(
     messageBytes,
     signatureBytes,

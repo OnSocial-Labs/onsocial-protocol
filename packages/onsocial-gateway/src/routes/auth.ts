@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { generateToken, verifyNearSignature } from '../auth/index.js';
 import { getTierInfo, clearTierCache } from '../tiers/index.js';
 import { config } from '../config/index.js';
-import { priceOracle } from '../services/price-oracle.js';
+import { SUBSCRIPTION_PLANS, formatPrice } from '../services/revolut/index.js';
 import { logger } from '../logger.js';
 import type { Request, Response } from 'express';
 
@@ -16,11 +16,14 @@ export const authRouter = Router();
  *   accountId: string,
  *   message: string,      // "OnSocial Auth: <timestamp>"
  *   signature: string,    // base64 encoded ed25519 signature
- *   publicKey: string     // ed25519:<base64 or base58>
+ *   publicKey: string,    // ed25519:<base64 or base58>
+ *   nonce?: string,       // base64 encoded 32-byte nonce (NEP-413)
+ *   recipient?: string    // signing recipient (NEP-413)
  * }
  */
 authRouter.post('/login', async (req: Request, res: Response) => {
-  const { accountId, message, signature, publicKey } = req.body;
+  const { accountId, message, signature, publicKey, nonce, recipient } =
+    req.body;
 
   if (!accountId || !message || !signature || !publicKey) {
     res.status(400).json({
@@ -35,7 +38,9 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       accountId,
       message,
       signature,
-      publicKey
+      publicKey,
+      nonce,
+      recipient
     );
     if (!verification.valid) {
       res.status(401).json({
@@ -113,28 +118,23 @@ authRouter.get('/me', async (req: Request, res: Response) => {
 
 /**
  * GET /auth/pricing
- * Public endpoint: show tier pricing + current SOCIAL price
+ * Public endpoint: show subscription plans and rate limits
  */
-authRouter.get('/pricing', async (_req: Request, res: Response) => {
-  try {
-    const price = await priceOracle.getPrice();
-    const proSocial = await priceOracle.socialForUsd(config.tierPricing.pro);
+authRouter.get('/pricing', (_req: Request, res: Response) => {
+  const tiers: Record<string, unknown> = {
+    free: { priceUsd: 0, rateLimit: config.rateLimits.free },
+  };
 
-    res.json({
-      tiers: {
-        free: { price: 0, rateLimit: config.rateLimits.free },
-        pro: {
-          priceUsd: config.tierPricing.pro,
-          priceSocial: proSocial,
-          rateLimit: config.rateLimits.pro,
-        },
-      },
-      socialPriceUsd: price,
-    });
-  } catch (error) {
-    logger.error({ error }, 'Pricing error');
-    res.status(500).json({ error: 'Failed to get pricing' });
+  for (const plan of SUBSCRIPTION_PLANS) {
+    tiers[plan.tier] = {
+      priceUsd: plan.amountMinor / 100,
+      price: formatPrice(plan),
+      interval: plan.interval,
+      rateLimit: plan.rateLimit,
+    };
   }
+
+  res.json({ tiers });
 });
 
 /**

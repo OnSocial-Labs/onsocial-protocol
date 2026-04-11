@@ -1,0 +1,22 @@
+{
+  "name": "onsocial-labs",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3050",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "^16.1.6",
+    "react": "^19.0.0",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.4",
+    "@types/node": "^25.4.0",
+    "@types/react": "^19.2.14",
+    "tailwindcss": "^4.1.4",
+    "typescript": "^5.9.3"
+  }
+}

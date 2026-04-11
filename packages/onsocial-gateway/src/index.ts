@@ -9,6 +9,8 @@ import { authMiddleware, rateLimitMiddleware } from './middleware/index.js';
 import { meteringMiddleware } from './middleware/metering.js';
 import { authRouter } from './routes/auth.js';
 import { developerRouter } from './routes/developer.js';
+import { subscriptionRouter } from './routes/subscription.js';
+import { webhookRouter } from './routes/webhooks.js';
 import { graphRouter } from './routes/graph.js';
 import { relayRouter } from './routes/relay.js';
 import { composeRouter } from './routes/compose/index.js';
@@ -26,6 +28,10 @@ app.use(
       : { origin: config.corsOrigins.split(',').map((s) => s.trim()) }
   )
 );
+// Webhook route — BEFORE auth/json middleware (needs raw body, no auth)
+app.use('/webhooks', webhookRouter);
+
+// JSON body parser (after webhooks which use raw body)
 app.use(express.json({ limit: '10mb' }));
 
 // Logging
@@ -47,6 +53,7 @@ app.get('/health', (_req, res) => {
       'relay',
       'compose',
       'data',
+      'subscriptions',
     ],
   });
 });
@@ -94,6 +101,7 @@ app.use(meteringMiddleware);
 // Routes — 3 proxies + auth + developer keys
 app.use('/auth', authRouter);
 app.use('/developer', developerRouter);
+app.use('/developer', subscriptionRouter);
 app.use('/graph', graphRouter);
 app.use('/storage', storageRouter);
 app.use('/relay', relayRouter);

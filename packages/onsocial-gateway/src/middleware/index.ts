@@ -36,6 +36,10 @@ function createRateLimiters(): Record<Tier, RateLimiter> {
       points: config.rateLimits.scale,
       duration: 60,
     }),
+    service: new RateLimiterMemory({
+      points: config.rateLimits.service,
+      duration: 60,
+    }),
   };
 
   if (!config.redisUrl) {
@@ -87,6 +91,13 @@ function createRateLimiters(): Record<Tier, RateLimiter> {
         duration: 60,
         keyPrefix: 'rl:scale',
         insuranceLimiter: memoryFallbacks.scale,
+      }),
+      service: new RateLimiterRedis({
+        storeClient: redisClient,
+        points: config.rateLimits.service,
+        duration: 60,
+        keyPrefix: 'rl:service',
+        insuranceLimiter: memoryFallbacks.service,
       }),
     };
   } catch {

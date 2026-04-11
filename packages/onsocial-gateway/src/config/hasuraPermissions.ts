@@ -4,10 +4,11 @@
  * This file generates the metadata for Hasura role-based permissions.
  * Apply using: POST /v1/metadata with the generated JSON
  *
- * Tiers (must match gateway Tier type: 'free' | 'pro' | 'scale'):
- * - free:  Basic queries, 100 row limit, no aggregations
- * - pro:   Extended queries, 1000 row limit, aggregations allowed
- * - scale: Full access, 10000 row limit, aggregations allowed
+ * Tiers (must match gateway Tier type: 'free' | 'pro' | 'scale' | 'service'):
+ * - free:    Basic queries, 100 row limit, no aggregations
+ * - pro:     Extended queries, 1000 row limit, aggregations allowed
+ * - scale:   Full access, 10000 row limit, aggregations allowed
+ * - service: Internal services (portal, backend), same as scale
  */
 
 export interface PermissionConfig {
@@ -35,7 +36,7 @@ const TABLES = [
   // Staking contract
   'staking_events',
   'staker_state',
-  'credit_purchases',
+  'developer_subscriptions',
   // Substreams cursor
   'cursors',
 ];
@@ -204,15 +205,21 @@ const TABLE_COLUMNS: Record<string, string[]> = {
     'last_event_block',
     'updated_at',
   ],
-  credit_purchases: [
+  developer_subscriptions: [
     'id',
-    'block_height',
-    'block_timestamp',
-    'receipt_id',
     'account_id',
-    'amount',
-    'infra_share',
-    'rewards_share',
+    'tier',
+    'status',
+    'revolut_subscription_id',
+    'revolut_customer_id',
+    'revolut_setup_order_id',
+    'revolut_last_order_id',
+    'promotion_code',
+    'promotion_cycles_remaining',
+    'current_period_start',
+    'current_period_end',
+    'created_at',
+    'updated_at',
   ],
   cursors: ['id', 'cursor', 'block_num', 'block_id'],
 };
@@ -221,13 +228,14 @@ const TABLE_COLUMNS: Record<string, string[]> = {
  * Generate select permission for a role and table
  */
 function generateSelectPermission(
-  role: 'free' | 'pro' | 'scale',
+  role: 'free' | 'pro' | 'scale' | 'service',
   table: string
 ): object {
   const limits = {
     free: { limit: 100, allow_aggregations: false },
     pro: { limit: 1000, allow_aggregations: true },
     scale: { limit: 10000, allow_aggregations: true },
+    service: { limit: 10000, allow_aggregations: true },
   };
 
   const cfg = limits[role];
@@ -258,7 +266,12 @@ function generateSelectPermission(
 export function generateHasuraPermissions(): object {
   const permissions: object[] = [];
 
-  const roles: ('free' | 'pro' | 'scale')[] = ['free', 'pro', 'scale'];
+  const roles: ('free' | 'pro' | 'scale' | 'service')[] = [
+    'free',
+    'pro',
+    'scale',
+    'service',
+  ];
 
   for (const role of roles) {
     for (const table of TABLES) {
@@ -278,7 +291,7 @@ export function generateHasuraPermissions(): object {
 export function generateDropPermissions(): object {
   const drops: object[] = [];
 
-  const roles = ['free', 'pro', 'scale'];
+  const roles = ['free', 'pro', 'scale', 'service'];
 
   for (const role of roles) {
     for (const table of TABLES) {

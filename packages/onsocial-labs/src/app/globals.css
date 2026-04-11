@@ -1,0 +1,142 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --color-border: hsl(var(--border));
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --animate-fade-in: fade-in 0.5s ease-out;
+  --animate-fade-in-down: fade-in-down 0.5s ease-out;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in-down {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 95%;
+    --muted: 0 0% 10%;
+    --muted-foreground: 0 0% 50%;
+    --border: 0 0% 14%;
+    --radius: 0.5rem;
+    --portal-blue: #60a5fa;
+    --portal-blue-border: rgb(96 165 250 / 0.4);
+    --portal-blue-border-strong: rgb(96 165 250 / 0.6);
+    --portal-blue-bg: rgb(96 165 250 / 0.06);
+    --portal-blue-shadow: rgb(96 165 250 / 0.2);
+    --portal-green: #4ade80;
+    --portal-green-border: rgb(74 222 128 / 0.4);
+    --portal-green-border-strong: rgb(74 222 128 / 0.6);
+    --portal-green-bg: rgb(74 222 128 / 0.06);
+    --portal-green-shadow: rgb(74 222 128 / 0.2);
+    --portal-purple: #c084fc;
+    --portal-purple-border: rgb(192 132 252 / 0.4);
+    --portal-purple-border-strong: rgb(192 132 252 / 0.6);
+    --portal-purple-bg: rgb(192 132 252 / 0.06);
+    --portal-purple-shadow: rgb(192 132 252 / 0.2);
+    --portal-slate: #6b7280;
+    --portal-slate-border: rgb(107 114 128 / 0.35);
+    --portal-slate-bg: rgb(107 114 128 / 0.06);
+    color-scheme: dark;
+  }
+}
+
+@layer base {
+  * { border-color: hsl(var(--border)); }
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+}
+
+/* ── Portal utilities ──────────────────────────────────────────── */
+
+.portal-green-text { color: var(--portal-green); }
+.portal-blue-text { color: var(--portal-blue); }
+.portal-purple-text { color: var(--portal-purple); }
+
+.portal-blue-surface {
+  border-color: var(--portal-blue-border);
+  background-color: var(--portal-blue-bg);
+  color: hsl(var(--foreground));
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+.portal-blue-surface:hover {
+  border-color: var(--portal-blue-border-strong);
+  box-shadow: 0 4px 6px -1px var(--portal-blue-shadow), 0 2px 4px -2px var(--portal-blue-shadow);
+}
+
+.portal-green-surface {
+  border-color: var(--portal-green-border);
+  background-color: var(--portal-green-bg);
+  color: hsl(var(--foreground));
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+.portal-green-surface:hover {
+  border-color: var(--portal-green-border-strong);
+  box-shadow: 0 4px 6px -1px var(--portal-green-shadow), 0 2px 4px -2px var(--portal-green-shadow);
+}
+
+.portal-purple-surface {
+  border-color: var(--portal-purple-border);
+  background-color: var(--portal-purple-bg);
+  color: hsl(var(--foreground));
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+.portal-purple-surface:hover {
+  border-color: var(--portal-purple-border-strong);
+  box-shadow: 0 4px 6px -1px var(--portal-purple-shadow), 0 2px 4px -2px var(--portal-purple-shadow);
+}
+
+/* ── Glass panel (matches SurfacePanel tone="soft") ────────────── */
+
+.glass-panel {
+  background: hsl(0 0% 0% / 0.40);
+  border: 1px solid hsl(0 0% 100% / 0.06);
+  border-radius: 1.5rem;
+}
+
+/* ── Divider ───────────────────────────────────────────────────── */
+
+.divider-section {
+  background: linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.06), transparent);
+}
+
+/* ── Stat strip ────────────────────────────────────────────────── */
+
+.stat-strip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  text-align: center;
+}
+
+.stat-cell {
+  padding: 0.625rem 0.5rem;
+  position: relative;
+}
+
+.stat-cell + .stat-cell::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 25%;
+  bottom: 25%;
+  width: 1px;
+  background: hsl(0 0% 100% / 0.06);
+}
+

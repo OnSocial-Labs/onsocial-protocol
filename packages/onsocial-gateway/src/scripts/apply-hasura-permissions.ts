@@ -207,16 +207,22 @@ const TABLES = [
     ],
   },
   {
-    name: 'credit_purchases',
+    name: 'developer_subscriptions',
     columns: [
       'id',
-      'block_height',
-      'block_timestamp',
-      'receipt_id',
       'account_id',
-      'amount',
-      'infra_share',
-      'rewards_share',
+      'tier',
+      'status',
+      'revolut_subscription_id',
+      'revolut_customer_id',
+      'revolut_setup_order_id',
+      'revolut_last_order_id',
+      'promotion_code',
+      'promotion_cycles_remaining',
+      'current_period_start',
+      'current_period_end',
+      'created_at',
+      'updated_at',
     ],
   },
   // ── Substreams cursor ──
@@ -226,11 +232,12 @@ const TABLES = [
   },
 ];
 
-// Tiers must match gateway Tier type: 'free' | 'pro' | 'scale'
+// Tiers must match gateway Tier type: 'free' | 'pro' | 'scale' | 'service'
 const TIERS = {
   free: { limit: 100, allow_aggregations: false },
   pro: { limit: 1000, allow_aggregations: true },
   scale: { limit: 10000, allow_aggregations: true },
+  service: { limit: 10000, allow_aggregations: true },
 };
 
 const HASURA_METADATA_URL = config.hasuraUrl.replace(

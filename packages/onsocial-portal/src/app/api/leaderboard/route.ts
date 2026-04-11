@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ACTIVE_API_URL } from '@/lib/portal-config';
+import { gatewayQuery } from '@/lib/gateway-client';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-const HASURA_URL =
-  process.env.HASURA_URL ??
-  process.env.NEXT_PUBLIC_HASURA_URL ??
-  `${ACTIVE_API_URL.replace(/\/$/, '')}/v1/graphql`;
-
-const HASURA_ADMIN_SECRET = process.env.HASURA_ADMIN_SECRET ?? '';
 
 const MAX_LIMIT = 50;
 const REVALIDATE_SECONDS = 30;
@@ -138,38 +131,18 @@ export async function GET(request: NextRequest) {
 
   const query = buildQuery(scope, limit);
 
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-  if (HASURA_ADMIN_SECRET) {
-    headers['x-hasura-admin-secret'] = HASURA_ADMIN_SECRET;
-  }
-
   try {
-    const res = await fetch(HASURA_URL, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ query }),
-      cache: 'no-store',
-    });
+    const data = await gatewayQuery(query);
 
-    const body = await res.json();
-
-    if (body.errors) {
-      return NextResponse.json(
-        { error: 'Query failed', details: body.errors },
-        { status: 502 }
-      );
-    }
-
-    return NextResponse.json(body.data, {
+    return NextResponse.json(data, {
       headers: {
         'Cache-Control': `public, s-maxage=${REVALIDATE_SECONDS}, stale-while-revalidate=${REVALIDATE_SECONDS * 2}`,
       },
     });
-  } catch {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Upstream unreachable';
     return NextResponse.json(
-      { error: 'Upstream unreachable' },
+      { error: message },
       { status: 502 }
     );
   }

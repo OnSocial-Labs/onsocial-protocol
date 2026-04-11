@@ -39,6 +39,12 @@ export const QUERY_LIMITS: Record<Tier, TierLimits> = {
     maxRowLimit: 50000, // Bulk exports
     allowAggregations: true,
   },
+  service: {
+    maxDepth: 12,
+    maxComplexity: 5000,
+    maxRowLimit: 50000,
+    allowAggregations: true,
+  },
 };
 
 /**

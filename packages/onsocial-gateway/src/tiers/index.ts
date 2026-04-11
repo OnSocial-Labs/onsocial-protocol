@@ -1,4 +1,5 @@
 import { config } from '../config/index.js';
+import { subscriptionStore } from '../services/revolut/index.js';
 import type { Tier, TierInfo } from '../types/index.js';
 
 // In-memory cache for tier lookups (simple TTL cache)
@@ -6,12 +7,10 @@ const tierCache = new Map<string, { info: TierInfo; expiresAt: number }>();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
- * Get tier info for an account (with caching)
+ * Get tier info for an account (with caching).
  *
- * Phase 1: All authenticated users get 'free' tier (60 req/min).
- * Phase 2: Query indexed subscription table for 'pro' tier ($49/mo paid in SOCIAL).
- *
- * Staking is NOT used for tier assignment — it's for token holder rewards only.
+ * Queries the developer_subscriptions table for an active subscription.
+ * Falls back to 'free' if no active subscription exists.
  */
 export async function getTierInfo(accountId: string): Promise<TierInfo> {
   const now = Date.now();
@@ -22,9 +21,12 @@ export async function getTierInfo(accountId: string): Promise<TierInfo> {
     return cached.info;
   }
 
-  // TODO Phase 2: query indexed DB for active pro subscription
-  // e.g. SELECT tier FROM developer_subscriptions WHERE account_id = $1 AND expires_at > NOW()
-  const tier: Tier = 'free';
+  // Query subscription store for active subscription
+  let tier: Tier = 'free';
+  const sub = await subscriptionStore.getActiveByAccount(accountId);
+  if (sub) {
+    tier = sub.tier;
+  }
 
   const info: TierInfo = {
     tier,

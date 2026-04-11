@@ -40,6 +40,9 @@ SECRETS=(
   "TELEGRAM_BOT_TOKEN_TESTNET:Telegram bot token for the testnet OnSocial Pulse rewards bot"
   "TELEGRAM_BOT_TOKEN_MAINNET:Telegram bot token for the mainnet OnSocial Pulse rewards bot"
   "ADMIN_SECRET:Backend admin API secret for partner approval (min 32 chars)"
+  "REVOLUT_SECRET_KEY:Revolut Merchant API secret key (sk_live_...)"
+  "REVOLUT_PUBLIC_KEY:Revolut Merchant API public key (pk_live_...)"
+  "REVOLUT_WEBHOOK_SIGNING_SECRET:Revolut webhook signing secret (wsk_...)"
 )
 
 echo "============================================"
