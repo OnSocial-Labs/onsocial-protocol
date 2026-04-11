@@ -280,11 +280,9 @@ subscriptionRouter.post(
             },
             'Failed to cancel Revolut subscription'
           );
-          res
-            .status(502)
-            .json({
-              error: 'Failed to cancel subscription with payment provider',
-            });
+          res.status(502).json({
+            error: 'Failed to cancel subscription with payment provider',
+          });
           return;
         }
       }
