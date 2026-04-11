@@ -47,7 +47,7 @@ jobs:
         run: sudo chown -R $(id -u):$(id -g) target/near/
 
       - name: Upload WASM
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: scarces-onsocial.wasm
           path: target/near/scarces_onsocial/scarces_onsocial.wasm

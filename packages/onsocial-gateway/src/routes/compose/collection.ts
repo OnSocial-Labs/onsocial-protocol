@@ -133,7 +133,6 @@ collectionRouter.post(
   '/create-collection',
   upload.single('image'),
   async (req: Request, res: Response) => {
-    const accountId = req.auth!.accountId;
     const effectiveActorId = resolveActorId(req);
 
     try {
@@ -207,7 +206,6 @@ collectionRouter.post(
   '/prepare/create-collection',
   upload.single('image'),
   async (req: Request, res: Response) => {
-    const accountId = req.auth!.accountId;
     const effectiveActorId = resolveActorId(req);
 
     try {

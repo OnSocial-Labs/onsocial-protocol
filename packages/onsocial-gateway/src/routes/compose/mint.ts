@@ -42,7 +42,6 @@ mintRouter.post(
   '/mint',
   upload.single('image'),
   async (req: Request, res: Response) => {
-    const accountId = req.auth!.accountId;
     const effectiveActorId = resolveActorId(req);
 
     try {
@@ -149,7 +148,6 @@ mintRouter.post(
   '/prepare/mint',
   upload.single('image'),
   async (req: Request, res: Response) => {
-    const accountId = req.auth!.accountId;
     const effectiveActorId = resolveActorId(req);
 
     try {

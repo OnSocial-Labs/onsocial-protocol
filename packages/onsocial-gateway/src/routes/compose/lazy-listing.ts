@@ -52,7 +52,6 @@ lazyListingRouter.post(
   '/lazy-list',
   upload.single('image'),
   async (req: Request, res: Response) => {
-    const accountId = req.auth!.accountId;
     const effectiveActorId = resolveActorId(req);
 
     try {
@@ -156,7 +155,6 @@ lazyListingRouter.post(
   '/prepare/lazy-list',
   upload.single('image'),
   async (req: Request, res: Response) => {
-    const accountId = req.auth!.accountId;
     const effectiveActorId = resolveActorId(req);
 
     try {
@@ -262,7 +260,6 @@ lazyListingRouter.post(
 lazyListingRouter.post(
   '/cancel-lazy-list',
   async (req: Request, res: Response) => {
-    const accountId = req.auth!.accountId;
     const effectiveActorId = resolveActorId(req);
 
     try {

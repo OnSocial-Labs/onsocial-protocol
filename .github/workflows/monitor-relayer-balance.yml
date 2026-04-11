@@ -28,7 +28,7 @@ jobs:
     steps:
       - name: Restore previous balances
         id: cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: .relayer-balances
           key: relayer-balances-${{ github.run_id }}
@@ -113,7 +113,7 @@ jobs:
           fi
 
       - name: Save current balances
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: .relayer-balances
           key: relayer-balances-${{ github.run_id }}
