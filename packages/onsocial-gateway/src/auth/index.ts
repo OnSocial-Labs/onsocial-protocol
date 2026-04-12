@@ -1,4 +1,4 @@
-import { createHash } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 import jwt from 'jsonwebtoken';
 import nacl from 'tweetnacl';
 import tweetnacl_util from 'tweetnacl-util';
@@ -9,11 +9,38 @@ import { getTierInfo } from '../tiers/index.js';
 import { logger } from '../logger.js';
 import type { JwtPayload } from '../types/index.js';
 
-// Message validity window (5 minutes)
-const MESSAGE_VALIDITY_MS = 5 * 60 * 1000;
+// ── Constants ─────────────────────────────────────────────────
 
-// Expected message prefix
-const MESSAGE_PREFIX = 'OnSocial Auth: ';
+/** Challenge validity window */
+const CHALLENGE_TTL_MS = 5 * 60 * 1000;
+
+/** NEP-413 message prefix */
+const AUTH_PREFIX = 'OnSocial API Auth';
+
+/** NEP-413 recipient (must match what portal passes to wallet) */
+const AUTH_RECIPIENT = 'OnSocial Gateway';
+
+// ── Challenge store ───────────────────────────────────────────
+
+interface StoredChallenge {
+  accountId: string;
+  nonce: string; // base64
+  message: string;
+  issuedAt: string;
+  expiresAt: string;
+}
+
+const challengeStore = new Map<string, StoredChallenge>();
+
+/** Purge expired challenges periodically */
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, challenge] of challengeStore) {
+    if (Date.parse(challenge.expiresAt) < now) {
+      challengeStore.delete(key);
+    }
+  }
+}, 60_000);
 
 /**
  * Generate JWT token for authenticated user
@@ -43,53 +70,110 @@ export function verifyToken(token: string): JwtPayload | null {
   }
 }
 
+// ── Challenge generation ──────────────────────────────────────
+
+export interface AuthChallenge {
+  message: string;
+  recipient: string;
+  nonce: string; // base64
+}
+
 /**
- * Parse and validate the auth message format and timestamp
- * Message format: "OnSocial Auth: <timestamp>"
- * Timestamp can be ISO-8601, unix seconds, or unix milliseconds.
+ * Generate a server-side auth challenge for a given account.
+ * The portal will pass this to wallet.signMessage().
  */
-function parseAuthTimestamp(timestampStrRaw: string): number | null {
-  const timestampStr = timestampStrRaw.trim();
-  if (!timestampStr) return null;
-
-  // 1) ISO-8601 or other Date.parse-able formats
-  const parsed = Date.parse(timestampStr);
-  if (!isNaN(parsed)) return parsed;
-
-  // 2) Unix seconds / milliseconds (numeric)
-  if (!/^[0-9]+$/.test(timestampStr)) return null;
-  const asNumber = Number(timestampStr);
-  if (!Number.isFinite(asNumber)) return null;
-
-  // Heuristic: < 1e12 is seconds, otherwise ms.
-  if (asNumber < 1e12) return Math.floor(asNumber * 1000);
-  return Math.floor(asNumber);
-}
-
-function validateMessage(message: string): { valid: boolean; error?: string } {
-  if (!message.startsWith(MESSAGE_PREFIX)) {
-    return { valid: false, error: 'Invalid message format' };
-  }
-
-  const timestampStr = message.slice(MESSAGE_PREFIX.length);
-  const timestamp = parseAuthTimestamp(timestampStr);
-  if (timestamp === null)
-    return { valid: false, error: 'Invalid timestamp in message' };
-
+export function createAuthChallenge(accountId: string): AuthChallenge {
   const now = Date.now();
-  const age = now - timestamp;
+  const issuedAt = new Date(now).toISOString();
+  const expiresAt = new Date(now + CHALLENGE_TTL_MS).toISOString();
+  const nonce = randomBytes(32).toString('base64');
 
-  if (age < -60000) {
-    // Allow 1 minute clock skew into the future
-    return { valid: false, error: 'Message timestamp is in the future' };
-  }
+  const message = [
+    AUTH_PREFIX,
+    `Account: ${accountId}`,
+    `Nonce: ${nonce}`,
+    `Issued: ${issuedAt}`,
+    `Expires: ${expiresAt}`,
+    `Network: ${config.nearNetwork}`,
+  ].join('\n');
 
-  if (age > MESSAGE_VALIDITY_MS) {
-    return { valid: false, error: 'Message has expired' };
-  }
+  const challenge: StoredChallenge = {
+    accountId,
+    nonce,
+    message,
+    issuedAt,
+    expiresAt,
+  };
 
-  return { valid: true };
+  // Key by accountId — one active challenge per account
+  challengeStore.set(accountId, challenge);
+
+  return { message, recipient: AUTH_RECIPIENT, nonce };
 }
+
+// ── NEP-413 serialization (matches backend exactly) ───────────
+
+function encodeU32(value: number): Uint8Array {
+  const buffer = new ArrayBuffer(4);
+  new DataView(buffer).setUint32(0, value, true);
+  return new Uint8Array(buffer);
+}
+
+function encodeString(value: string): Uint8Array {
+  const bytes = new TextEncoder().encode(value);
+  const len = encodeU32(bytes.length);
+  const out = new Uint8Array(len.length + bytes.length);
+  out.set(len);
+  out.set(bytes, len.length);
+  return out;
+}
+
+function encodeOptionalString(value: string | null): Uint8Array {
+  if (value == null) {
+    return new Uint8Array([0]);
+  }
+  const encoded = encodeString(value);
+  const out = new Uint8Array(1 + encoded.length);
+  out[0] = 1;
+  out.set(encoded, 1);
+  return out;
+}
+
+function concatBytes(parts: Uint8Array[]): Uint8Array {
+  const totalLength = parts.reduce((sum, part) => sum + part.length, 0);
+  const output = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const part of parts) {
+    output.set(part, offset);
+    offset += part.length;
+  }
+  return output;
+}
+
+/**
+ * Serialize NEP-413 payload and SHA-256 hash it.
+ * Identical to the backend's serializeNep413Payload.
+ */
+function serializeNep413Payload(input: {
+  message: string;
+  nonce: Uint8Array;
+  recipient: string;
+  callbackUrl: string | null;
+}): Uint8Array {
+  const prefix = encodeU32(2 ** 31 + 413);
+  const payload = concatBytes([
+    encodeString(input.message),
+    input.nonce,
+    encodeString(input.recipient),
+    encodeOptionalString(input.callbackUrl),
+  ]);
+
+  return createHash('sha256')
+    .update(Buffer.from(concatBytes([prefix, payload])))
+    .digest();
+}
+
+// ── Signature verification ────────────────────────────────────
 
 /**
  * Parse NEAR public key format
@@ -191,87 +275,44 @@ async function verifyKeyBelongsToAccount(
 }
 
 /**
- * Build NEP-413 Borsh-serialized payload for signature verification.
+ * Verify NEAR signature against a server-issued challenge.
+ * Uses the same NEP-413 serialization + SHA-256 as the backend Social Key flow.
  *
- * NEP-413 AuthenticationToken:
- *   tag:          u32 LE (2**31 + 413 = 2147484061)
- *   message:      u32 LE length + UTF-8 bytes
- *   nonce:        32 bytes
- *   recipient:    u32 LE length + UTF-8 bytes
- *   callback_url: Option<String> (1 byte: 0 = None)
- *
- * The concatenated bytes are then SHA-256 hashed before ed25519 verification.
- */
-function buildNep413Payload(
-  message: string,
-  nonce: Uint8Array,
-  recipient: string
-): Uint8Array {
-  const tag = 2147484061; // 2^31 + 413
-  const msgBytes = new TextEncoder().encode(message);
-  const recipientBytes = new TextEncoder().encode(recipient);
-
-  // 4 (tag) + 4 (msg len) + msg + 32 (nonce) + 4 (recipient len) + recipient + 1 (None)
-  const total = 4 + 4 + msgBytes.length + 32 + 4 + recipientBytes.length + 1;
-  const buf = new Uint8Array(total);
-  const view = new DataView(buf.buffer);
-  let offset = 0;
-
-  // tag
-  view.setUint32(offset, tag, true);
-  offset += 4;
-
-  // message
-  view.setUint32(offset, msgBytes.length, true);
-  offset += 4;
-  buf.set(msgBytes, offset);
-  offset += msgBytes.length;
-
-  // nonce
-  buf.set(nonce, offset);
-  offset += 32;
-
-  // recipient
-  view.setUint32(offset, recipientBytes.length, true);
-  offset += 4;
-  buf.set(recipientBytes, offset);
-  offset += recipientBytes.length;
-
-  // callback_url: None
-  buf[offset] = 0;
-
-  // SHA-256 hash the serialized payload (matches NEP-413 spec / NEAR wallet signing)
-  return new Uint8Array(createHash('sha256').update(buf).digest());
-}
-
-/**
- * Verify NEAR signature for authentication
- * Client signs a message with their NEAR private key
- *
- * Supports two modes:
- * 1. Plain: signature over raw UTF-8 message bytes
- * 2. NEP-413: signature over Borsh-serialized payload (when nonce + recipient provided)
- *
- * Verification steps:
- * 1. Validate message format and timestamp freshness (within 5 minutes)
- * 2. Verify public key belongs to the account (via NEAR RPC)
- * 3. Verify signature is valid for the message using ed25519
+ * Steps:
+ * 1. Look up stored challenge for the account
+ * 2. Validate challenge hasn't expired
+ * 3. Verify message matches stored challenge
+ * 4. Serialize NEP-413 payload, SHA-256 hash, ed25519 verify
+ * 5. Verify public key belongs to account (NEAR RPC)
+ * 6. Consume the challenge (one-time use)
  */
 export async function verifyNearSignature(
   accountId: string,
   message: string,
   signature: string,
-  publicKey: string,
-  nonce?: string,
-  recipient?: string
+  publicKey: string
 ): Promise<{ valid: boolean; error?: string }> {
-  // Step 1: Validate message format and timestamp
-  const messageValidation = validateMessage(message);
-  if (!messageValidation.valid) {
-    return messageValidation;
+  // Step 1: Look up stored challenge
+  const challenge = challengeStore.get(accountId);
+  if (!challenge) {
+    return {
+      valid: false,
+      error: 'No active challenge — request /auth/challenge first',
+    };
   }
 
-  // Step 2: Parse and verify signature
+  // Step 2: Validate expiry
+  if (Date.parse(challenge.expiresAt) < Date.now()) {
+    challengeStore.delete(accountId);
+    return { valid: false, error: 'Challenge has expired' };
+  }
+
+  // Step 3: Verify message matches
+  if (message !== challenge.message) {
+    return { valid: false, error: 'Message does not match challenge' };
+  }
+
+  // Step 4: Parse inputs
   const pubKeyBytes = parsePublicKey(publicKey);
   if (!pubKeyBytes || pubKeyBytes.length !== 32) {
     return { valid: false, error: 'Invalid public key format' };
@@ -283,41 +324,36 @@ export async function verifyNearSignature(
   } catch {
     return { valid: false, error: 'Invalid signature encoding' };
   }
-
   if (signatureBytes.length !== 64) {
     return { valid: false, error: 'Invalid signature length' };
   }
 
-  // Step 3: Verify ed25519 signature
-  // If nonce + recipient provided, verify against NEP-413 Borsh payload
-  // Otherwise verify against plain UTF-8 message bytes
-  let messageBytes: Uint8Array;
-  if (nonce && recipient) {
-    let nonceBytes: Uint8Array;
-    try {
-      nonceBytes = decodeBase64(nonce);
-    } catch {
-      return { valid: false, error: 'Invalid nonce encoding' };
-    }
-    if (nonceBytes.length !== 32) {
-      return { valid: false, error: 'Nonce must be 32 bytes' };
-    }
-    messageBytes = buildNep413Payload(message, nonceBytes, recipient);
-  } else {
-    messageBytes = new TextEncoder().encode(message);
+  let nonceBytes: Uint8Array;
+  try {
+    nonceBytes = new Uint8Array(Buffer.from(challenge.nonce, 'base64'));
+  } catch {
+    return { valid: false, error: 'Invalid challenge nonce' };
   }
 
-  const isValidSignature = nacl.sign.detached.verify(
-    messageBytes,
+  // Step 5: NEP-413 serialize + SHA-256 + ed25519 verify
+  const messageHash = serializeNep413Payload({
+    message,
+    nonce: nonceBytes,
+    recipient: AUTH_RECIPIENT,
+    callbackUrl: null,
+  });
+
+  const isValid = nacl.sign.detached.verify(
+    new Uint8Array(messageHash),
     signatureBytes,
     pubKeyBytes
   );
 
-  if (!isValidSignature) {
+  if (!isValid) {
     return { valid: false, error: 'Invalid signature' };
   }
 
-  // Step 4: Verify public key belongs to account
+  // Step 6: Verify public key belongs to account
   const keyBelongsToAccount = await verifyKeyBelongsToAccount(
     accountId,
     publicKey
@@ -325,6 +361,9 @@ export async function verifyNearSignature(
   if (!keyBelongsToAccount) {
     return { valid: false, error: 'Public key does not belong to account' };
   }
+
+  // Consume the challenge (one-time use)
+  challengeStore.delete(accountId);
 
   return { valid: true };
 }

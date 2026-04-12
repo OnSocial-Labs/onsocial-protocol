@@ -1,5 +1,9 @@
 import { Router } from 'express';
-import { generateToken, verifyNearSignature } from '../auth/index.js';
+import {
+  createAuthChallenge,
+  generateToken,
+  verifyNearSignature,
+} from '../auth/index.js';
 import { getTierInfo, clearTierCache } from '../tiers/index.js';
 import { config } from '../config/index.js';
 import { SUBSCRIPTION_PLANS, formatPrice } from '../services/revolut/index.js';
@@ -9,21 +13,39 @@ import type { Request, Response } from 'express';
 export const authRouter = Router();
 
 /**
+ * POST /auth/challenge
+ * Generate a server-side challenge for wallet signing.
+ * The portal calls this before wallet.signMessage().
+ *
+ * Body: { accountId: string }
+ * Returns: { challenge: { message, recipient, nonce } }
+ */
+authRouter.post('/challenge', (req: Request, res: Response) => {
+  const { accountId } = req.body;
+
+  if (!accountId || typeof accountId !== 'string') {
+    res.status(400).json({ error: 'accountId is required' });
+    return;
+  }
+
+  const challenge = createAuthChallenge(accountId);
+
+  res.json({ challenge });
+});
+
+/**
  * POST /auth/login
- * Authenticate with NEAR signature, receive JWT
+ * Verify the signed challenge and issue a JWT.
  *
  * Body: {
  *   accountId: string,
- *   message: string,      // "OnSocial Auth: <timestamp>"
+ *   message: string,      // the challenge message (signed by wallet)
  *   signature: string,    // base64 encoded ed25519 signature
  *   publicKey: string,    // ed25519:<base64 or base58>
- *   nonce?: string,       // base64 encoded 32-byte nonce (NEP-413)
- *   recipient?: string    // signing recipient (NEP-413)
  * }
  */
 authRouter.post('/login', async (req: Request, res: Response) => {
-  const { accountId, message, signature, publicKey, nonce, recipient } =
-    req.body;
+  const { accountId, message, signature, publicKey } = req.body;
 
   if (!accountId || !message || !signature || !publicKey) {
     res.status(400).json({
@@ -38,9 +60,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       accountId,
       message,
       signature,
-      publicKey,
-      nonce,
-      recipient
+      publicKey
     );
     if (!verification.valid) {
       res.status(401).json({

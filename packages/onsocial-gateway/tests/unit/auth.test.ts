@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createHash } from 'crypto';
 import nacl from 'tweetnacl';
 import tweetnacl_util from 'tweetnacl-util';
 
@@ -35,57 +36,131 @@ vi.mock('../../src/logger.js', () => ({
 }));
 
 import {
+  createAuthChallenge,
   verifyNearSignature,
   generateToken,
   verifyToken,
 } from '../../src/auth/index.js';
 import { rpcQuery } from '../../src/rpc/index.js';
 
-describe('verifyNearSignature', () => {
+// ── Helpers ───────────────────────────────────────────────────
+
+/** Reproduce the same NEP-413 serialization + SHA-256 as the gateway/backend */
+function serializeAndHash(
+  message: string,
+  nonce: Uint8Array,
+  recipient: string
+): Uint8Array {
+  const tag = 2 ** 31 + 413;
+  const encU32 = (v: number) => {
+    const b = new ArrayBuffer(4);
+    new DataView(b).setUint32(0, v, true);
+    return new Uint8Array(b);
+  };
+  const encStr = (s: string) => {
+    const bytes = new TextEncoder().encode(s);
+    const len = encU32(bytes.length);
+    const out = new Uint8Array(len.length + bytes.length);
+    out.set(len);
+    out.set(bytes, len.length);
+    return out;
+  };
+
+  const prefix = encU32(tag);
+  const parts = [
+    encStr(message),
+    nonce,
+    encStr(recipient),
+    new Uint8Array([0]),
+  ];
+  const total = prefix.length + parts.reduce((s, p) => s + p.length, 0);
+  const buf = new Uint8Array(total);
+  let off = 0;
+  buf.set(prefix, off);
+  off += prefix.length;
+  for (const p of parts) {
+    buf.set(p, off);
+    off += p.length;
+  }
+
+  return new Uint8Array(createHash('sha256').update(buf).digest());
+}
+
+/** Sign a challenge exactly as the wallet + portal would */
+function signChallenge(
+  challenge: { message: string; recipient: string; nonce: string },
+  secretKey: Uint8Array
+): string {
+  const nonceBytes = Uint8Array.from(atob(challenge.nonce), (c) =>
+    c.charCodeAt(0)
+  );
+  const hash = serializeAndHash(
+    challenge.message,
+    nonceBytes,
+    challenge.recipient
+  );
+  return encodeBase64(nacl.sign.detached(hash, secretKey));
+}
+
+// ── Tests ─────────────────────────────────────────────────────
+
+describe('Challenge-based auth', () => {
   const keyPair = nacl.sign.keyPair();
   const publicKeyBase64 = `ed25519:${encodeBase64(keyPair.publicKey)}`;
-
-  function signMessage(message: string): string {
-    const messageBytes = new TextEncoder().encode(message);
-    const signature = nacl.sign.detached(messageBytes, keyPair.secretKey);
-    return encodeBase64(signature);
-  }
+  const accountId = 'alice.testnet';
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: RPC returns the matching public key
+    vi.mocked(rpcQuery).mockResolvedValue({
+      keys: [{ public_key: publicKeyBase64 }],
+    });
   });
 
-  it('rejects invalid message format', async () => {
+  it('full flow: challenge → sign → verify succeeds', async () => {
+    const challenge = createAuthChallenge(accountId);
+    const signature = signChallenge(challenge, keyPair.secretKey);
+
     const result = await verifyNearSignature(
-      'alice.testnet',
-      'wrong prefix',
-      signMessage('wrong prefix'),
+      accountId,
+      challenge.message,
+      signature,
+      publicKeyBase64
+    );
+    expect(result.valid).toBe(true);
+  });
+
+  it('rejects when no challenge was issued', async () => {
+    const result = await verifyNearSignature(
+      'nobody.testnet',
+      'fake message',
+      encodeBase64(new Uint8Array(64)),
       publicKeyBase64
     );
     expect(result.valid).toBe(false);
-    expect(result.error).toBe('Invalid message format');
+    expect(result.error).toContain('No active challenge');
   });
 
-  it('rejects expired message', async () => {
-    const oldTimestamp = Date.now() - 10 * 60 * 1000; // 10 min ago
-    const message = `OnSocial Auth: ${oldTimestamp}`;
+  it('rejects when message does not match challenge', async () => {
+    createAuthChallenge(accountId);
+
     const result = await verifyNearSignature(
-      'alice.testnet',
-      message,
-      signMessage(message),
+      accountId,
+      'tampered message',
+      encodeBase64(new Uint8Array(64)),
       publicKeyBase64
     );
     expect(result.valid).toBe(false);
-    expect(result.error).toBe('Message has expired');
+    expect(result.error).toBe('Message does not match challenge');
   });
 
   it('rejects invalid signature', async () => {
-    const message = `OnSocial Auth: ${Date.now()}`;
-    const fakeSignature = encodeBase64(new Uint8Array(64)); // all zeros
+    const challenge = createAuthChallenge(accountId);
+    const fakeSignature = encodeBase64(new Uint8Array(64));
 
     const result = await verifyNearSignature(
-      'alice.testnet',
-      message,
+      accountId,
+      challenge.message,
       fakeSignature,
       publicKeyBase64
     );
@@ -94,42 +169,73 @@ describe('verifyNearSignature', () => {
   });
 
   it('rejects when key does not belong to account', async () => {
-    const message = `OnSocial Auth: ${Date.now()}`;
-
     vi.mocked(rpcQuery).mockResolvedValue({
-      keys: [{ public_key: 'ed25519:OTHER_KEY' }],
+      keys: [
+        { public_key: 'ed25519:SOME_OTHER_KEY_AAAAAAAAAAAAAAAAAAAAAAAAA=' },
+      ],
     });
 
+    const challenge = createAuthChallenge(accountId);
+    const signature = signChallenge(challenge, keyPair.secretKey);
+
     const result = await verifyNearSignature(
-      'alice.testnet',
-      message,
-      signMessage(message),
+      accountId,
+      challenge.message,
+      signature,
       publicKeyBase64
     );
     expect(result.valid).toBe(false);
     expect(result.error).toBe('Public key does not belong to account');
   });
 
-  it('accepts valid signature with matching key', async () => {
-    const message = `OnSocial Auth: ${Date.now()}`;
+  it('challenge is consumed after successful verify (one-time use)', async () => {
+    const challenge = createAuthChallenge(accountId);
+    const signature = signChallenge(challenge, keyPair.secretKey);
 
-    vi.mocked(rpcQuery).mockResolvedValue({
-      keys: [{ public_key: publicKeyBase64 }],
-    });
-
-    const result = await verifyNearSignature(
-      'alice.testnet',
-      message,
-      signMessage(message),
+    const first = await verifyNearSignature(
+      accountId,
+      challenge.message,
+      signature,
       publicKeyBase64
     );
-    expect(result.valid).toBe(true);
-    expect(result.error).toBeUndefined();
+    expect(first.valid).toBe(true);
+
+    // Same challenge again should fail
+    const second = await verifyNearSignature(
+      accountId,
+      challenge.message,
+      signature,
+      publicKeyBase64
+    );
+    expect(second.valid).toBe(false);
+    expect(second.error).toContain('No active challenge');
   });
 
-  it('accepts valid signature when RPC returns base58 key but client sends base64', async () => {
-    // This is the cross-format case: HOT wallet sends ed25519:<base64>,
-    // but NEAR RPC returns ed25519:<base58>. Same key, different encoding.
+  it('new challenge replaces old one', async () => {
+    const old = createAuthChallenge(accountId);
+    const fresh = createAuthChallenge(accountId);
+
+    // Old message should not match the fresh challenge
+    const result = await verifyNearSignature(
+      accountId,
+      old.message,
+      signChallenge(old, keyPair.secretKey),
+      publicKeyBase64
+    );
+    expect(result.valid).toBe(false);
+    expect(result.error).toBe('Message does not match challenge');
+
+    // Fresh one works
+    const result2 = await verifyNearSignature(
+      accountId,
+      fresh.message,
+      signChallenge(fresh, keyPair.secretKey),
+      publicKeyBase64
+    );
+    expect(result2.valid).toBe(true);
+  });
+
+  it('accepts valid signature with cross-format key (base58 RPC, base64 client)', async () => {
     const ALPHABET =
       '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
     function base58Encode(bytes: Uint8Array): string {
@@ -158,36 +264,20 @@ describe('verifyNearSignature', () => {
     }
 
     const publicKeyBase58 = `ed25519:${base58Encode(keyPair.publicKey)}`;
-    // Sanity: the two formats should be different strings
-    expect(publicKeyBase58).not.toBe(publicKeyBase64);
-
-    const message = `OnSocial Auth: ${Date.now()}`;
-
-    // RPC returns base58, client sent base64
     vi.mocked(rpcQuery).mockResolvedValue({
       keys: [{ public_key: publicKeyBase58 }],
     });
 
+    const challenge = createAuthChallenge(accountId);
+    const signature = signChallenge(challenge, keyPair.secretKey);
+
     const result = await verifyNearSignature(
-      'alice.testnet',
-      message,
-      signMessage(message),
-      publicKeyBase64 // client sends base64
+      accountId,
+      challenge.message,
+      signature,
+      publicKeyBase64
     );
     expect(result.valid).toBe(true);
-    expect(result.error).toBeUndefined();
-  });
-
-  it('does NOT bypass verification in development mode', async () => {
-    // This is the critical test: even with nodeEnv='development',
-    // verification must still run (we removed the bypass)
-    const result = await verifyNearSignature(
-      'alice.testnet',
-      'OnSocial Auth: invalid-timestamp',
-      'invalid-signature',
-      'ed25519:invalid'
-    );
-    expect(result.valid).toBe(false);
   });
 });
 

@@ -27,9 +27,17 @@ export interface UsageSummary {
 
 // ── Gateway Auth ──────────────────────────────────────────────
 
+function decodeBase64ToBytes(value: string): Uint8Array {
+  return Uint8Array.from(atob(value), (char) => char.charCodeAt(0));
+}
+
 /**
- * Authenticate with the gateway via NEAR wallet signature.
- * Returns a short-lived JWT for key management.
+ * Authenticate with the gateway via server-issued challenge + NEAR wallet signature.
+ * Same pattern as the Social Key flow (proven to work).
+ *
+ * 1. POST /auth/challenge → { challenge: { message, recipient, nonce } }
+ * 2. wallet.signMessage(challenge)
+ * 3. POST /auth/login with signed message → JWT
  */
 export async function gatewayLogin(
   wallet: NearWalletBase,
@@ -39,39 +47,50 @@ export async function gatewayLogin(
     throw new Error('Wallet does not support message signing');
   }
 
-  const timestamp = new Date().toISOString();
-  const message = `OnSocial Auth: ${timestamp}`;
-  const nonce = crypto.getRandomValues(new Uint8Array(32));
-  const recipient = 'onsocial.id';
+  // Step 1: Request challenge from gateway
+  const challengeRes = await fetch(`${GATEWAY_BASE}/auth/challenge`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accountId }),
+  });
 
+  if (!challengeRes.ok) {
+    const body = await challengeRes.json().catch(() => ({}));
+    throw new Error(
+      (body as { error?: string }).error ?? 'Failed to get auth challenge',
+    );
+  }
+
+  const { challenge } = (await challengeRes.json()) as {
+    challenge: { message: string; recipient: string; nonce: string };
+  };
+
+  // Step 2: Sign the challenge with wallet (NEP-413)
   const signed = await wallet.signMessage({
     network: ACTIVE_NEAR_NETWORK,
     signerId: accountId,
-    message,
-    recipient,
-    nonce,
+    message: challenge.message,
+    recipient: challenge.recipient,
+    nonce: decodeBase64ToBytes(challenge.nonce),
   });
 
-  // Encode the nonce as base64 for the gateway
-  const nonceBase64 = btoa(String.fromCharCode(...nonce));
-
+  // Step 3: Send signed message to gateway for verification
   const res = await fetch(`${GATEWAY_BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       accountId: signed.accountId,
-      message,
+      message: challenge.message,
       signature: signed.signature,
       publicKey: signed.publicKey,
-      nonce: nonceBase64,
-      recipient,
     }),
   });
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     const detail = (body as { details?: string }).details;
-    const msg = (body as { error?: string }).error ?? `Login failed (${res.status})`;
+    const msg =
+      (body as { error?: string }).error ?? `Login failed (${res.status})`;
     throw new Error(detail ? `${msg}: ${detail}` : msg);
   }
 
