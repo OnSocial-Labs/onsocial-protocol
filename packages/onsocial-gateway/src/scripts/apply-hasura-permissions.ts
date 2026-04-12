@@ -232,6 +232,10 @@ const TABLES = [
   },
 ];
 
+// Tables that need Hasura tracking but NOT public role-based permissions.
+// These are admin-only (accessed via x-hasura-admin-secret).
+const ADMIN_ONLY_TABLES = ['api_keys', 'api_usage'];
+
 // Tiers must match gateway Tier type: 'free' | 'pro' | 'scale' | 'service'
 const TIERS = {
   free: { limit: 100, allow_aggregations: false },
@@ -262,6 +266,46 @@ async function hasuraMetadata(body: object): Promise<unknown> {
   }
 
   return data;
+}
+
+async function trackTables(): Promise<void> {
+  console.log('📌 Tracking tables in Hasura...\n');
+
+  const allTableNames = [...TABLES.map((t) => t.name), ...ADMIN_ONLY_TABLES];
+
+  let tracked = 0;
+  let skipped = 0;
+
+  for (const name of allTableNames) {
+    try {
+      await hasuraMetadata({
+        type: 'pg_track_table',
+        args: {
+          source: 'default',
+          table: { schema: 'public', name },
+        },
+      });
+      console.log(`   ✓ Tracked ${name}`);
+      tracked++;
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (
+        msg.includes('already tracked') ||
+        msg.includes('already-tracked') ||
+        msg.includes('already-exists')
+      ) {
+        console.log(`   ⏭ ${name} (already tracked)`);
+        skipped++;
+      } else if (msg.includes('does not exist') || msg.includes('not found')) {
+        console.log(`   ⚠ ${name} (table not in database yet)`);
+        skipped++;
+      } else {
+        console.error(`   ✗ ${name}: ${msg}`);
+      }
+    }
+  }
+
+  console.log(`\n✅ Tracked ${tracked} tables (${skipped} skipped)\n`);
 }
 
 async function checkExistingPermissions(): Promise<void> {
@@ -394,10 +438,12 @@ async function main(): Promise<void> {
         await dropPermissions();
         break;
       case 'create':
+        await trackTables();
         await createPermissions();
         break;
       case 'reset':
         await dropPermissions();
+        await trackTables();
         await createPermissions();
         break;
       default:

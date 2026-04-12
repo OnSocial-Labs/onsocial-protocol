@@ -51,25 +51,30 @@ developerRouter.use(requireJwtAuth);
  * Body (optional): { label?: string }
  */
 developerRouter.post('/keys', async (req: Request, res: Response) => {
-  const accountId = req.auth!.accountId;
-  const label: string = req.body?.label ?? 'default';
-  const result = await createApiKey(accountId, label);
+  try {
+    const accountId = req.auth!.accountId;
+    const label: string = req.body?.label ?? 'default';
+    const result = await createApiKey(accountId, label);
 
-  // Check for error
-  if ('code' in result) {
-    const err = result as ApiKeyError;
-    const status = err.code === 'MAX_KEYS_REACHED' ? 409 : 400;
-    res.status(status).json({ error: err.message, code: err.code });
-    return;
+    // Check for error
+    if ('code' in result) {
+      const err = result as ApiKeyError;
+      const status = err.code === 'MAX_KEYS_REACHED' ? 409 : 400;
+      res.status(status).json({ error: err.message, code: err.code });
+      return;
+    }
+
+    res.status(201).json({
+      key: result.rawKey,
+      prefix: result.prefix,
+      label: result.label,
+      tier: result.tier,
+      warning: 'Save this key now. It cannot be retrieved again.',
+    });
+  } catch (error) {
+    req.log.error({ error }, 'Failed to create API key');
+    res.status(500).json({ error: 'Failed to create API key' });
   }
-
-  res.status(201).json({
-    key: result.rawKey,
-    prefix: result.prefix,
-    label: result.label,
-    tier: result.tier,
-    warning: 'Save this key now. It cannot be retrieved again.',
-  });
 });
 
 /**
@@ -77,22 +82,32 @@ developerRouter.post('/keys', async (req: Request, res: Response) => {
  * Keys are masked — only prefix + label shown.
  */
 developerRouter.get('/keys', async (req: Request, res: Response) => {
-  const accountId = req.auth!.accountId;
-  const keys = await listApiKeys(accountId);
-  res.json({ keys });
+  try {
+    const accountId = req.auth!.accountId;
+    const keys = await listApiKeys(accountId);
+    res.json({ keys });
+  } catch (error) {
+    req.log.error({ error }, 'Failed to list API keys');
+    res.status(500).json({ error: 'Failed to list keys' });
+  }
 });
 
 /**
  * Revoke a key by its prefix.
  */
 developerRouter.delete('/keys/:prefix', async (req: Request, res: Response) => {
-  const accountId = req.auth!.accountId;
-  const revoked = await revokeApiKey(accountId, req.params.prefix);
+  try {
+    const accountId = req.auth!.accountId;
+    const revoked = await revokeApiKey(accountId, req.params.prefix);
 
-  if (revoked) {
-    res.json({ status: 'revoked' });
-  } else {
-    res.status(404).json({ error: 'Key not found' });
+    if (revoked) {
+      res.json({ status: 'revoked' });
+    } else {
+      res.status(404).json({ error: 'Key not found' });
+    }
+  } catch (error) {
+    req.log.error({ error }, 'Failed to revoke API key');
+    res.status(500).json({ error: 'Failed to revoke key' });
   }
 });
 
@@ -108,39 +123,44 @@ developerRouter.post(
     const accountId = req.auth!.accountId;
     const { prefix } = req.params;
 
-    // Find the old key to preserve its label
-    const existing = await listApiKeys(accountId);
-    const oldKey = existing.find((k) => k.prefix === prefix);
+    try {
+      // Find the old key to preserve its label
+      const existing = await listApiKeys(accountId);
+      const oldKey = existing.find((k) => k.prefix === prefix);
 
-    if (!oldKey) {
-      res.status(404).json({ error: 'Key not found' });
-      return;
+      if (!oldKey) {
+        res.status(404).json({ error: 'Key not found' });
+        return;
+      }
+
+      // Revoke old key
+      const revoked = await revokeApiKey(accountId, prefix);
+      if (!revoked) {
+        res.status(404).json({ error: 'Key not found or already revoked' });
+        return;
+      }
+
+      // Create new key with the same label
+      const result = await createApiKey(accountId, oldKey.label);
+
+      if ('code' in result) {
+        const err = result as ApiKeyError;
+        res.status(400).json({ error: err.message, code: err.code });
+        return;
+      }
+
+      res.status(201).json({
+        key: result.rawKey,
+        prefix: result.prefix,
+        label: result.label,
+        tier: result.tier,
+        revokedPrefix: prefix,
+        warning: 'Save this key now. It cannot be retrieved again.',
+      });
+    } catch (error) {
+      req.log.error({ error }, 'Failed to rotate API key');
+      res.status(500).json({ error: 'Failed to rotate key' });
     }
-
-    // Revoke old key
-    const revoked = await revokeApiKey(accountId, prefix);
-    if (!revoked) {
-      res.status(404).json({ error: 'Key not found or already revoked' });
-      return;
-    }
-
-    // Create new key with the same label
-    const result = await createApiKey(accountId, oldKey.label);
-
-    if ('code' in result) {
-      const err = result as ApiKeyError;
-      res.status(400).json({ error: err.message, code: err.code });
-      return;
-    }
-
-    res.status(201).json({
-      key: result.rawKey,
-      prefix: result.prefix,
-      label: result.label,
-      tier: result.tier,
-      revokedPrefix: prefix,
-      warning: 'Save this key now. It cannot be retrieved again.',
-    });
   }
 );
 
