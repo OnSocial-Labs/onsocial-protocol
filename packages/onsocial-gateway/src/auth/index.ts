@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import jwt from 'jsonwebtoken';
 import nacl from 'tweetnacl';
 import tweetnacl_util from 'tweetnacl-util';
@@ -198,6 +199,8 @@ async function verifyKeyBelongsToAccount(
  *   nonce:        32 bytes
  *   recipient:    u32 LE length + UTF-8 bytes
  *   callback_url: Option<String> (1 byte: 0 = None)
+ *
+ * The concatenated bytes are then SHA-256 hashed before ed25519 verification.
  */
 function buildNep413Payload(
   message: string,
@@ -237,7 +240,8 @@ function buildNep413Payload(
   // callback_url: None
   buf[offset] = 0;
 
-  return buf;
+  // SHA-256 hash the serialized payload (matches NEP-413 spec / NEAR wallet signing)
+  return new Uint8Array(createHash('sha256').update(buf).digest());
 }
 
 /**
