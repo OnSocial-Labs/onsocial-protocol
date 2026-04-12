@@ -435,59 +435,45 @@ export default function BillingPage() {
         </div>
       )}
 
-      {/* ── Current Plan Summary (only when authed) ────────── */}
-      {showSubManagement && (
+      {/* ── Subscription status (only for paid subscribers) ────────── */}
+      {showSubManagement && subscription && (
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          <StatStrip columns={subscription ? 3 : 2}>
-            <StatStripCell
-              label="Current plan"
-              showDivider
-            >
-              <PortalBadge accent={tierAccent(currentTier ?? 'free')} size="sm">
-                {currentTier ?? 'free'}
-              </PortalBadge>
-            </StatStripCell>
+          <StatStrip columns={2}>
             <StatStripCell
               label="Status"
-              showDivider={!!subscription}
+              showDivider
             >
-              {subscription ? (
-                <span
-                  className={
-                    subscription.status === 'active'
-                      ? 'portal-green-text'
-                      : subscription.status === 'cancelled'
-                        ? 'portal-amber-text'
-                        : 'portal-red-text'
-                  }
-                >
-                  {subscription.status === 'active'
-                    ? 'Active'
+              <span
+                className={
+                  subscription.status === 'active'
+                    ? 'portal-green-text'
                     : subscription.status === 'cancelled'
-                      ? 'Cancelling'
-                      : subscription.status === 'past_due'
-                        ? 'Past due'
-                        : 'Expired'}
+                      ? 'portal-amber-text'
+                      : 'portal-red-text'
+                }
+              >
+                {subscription.status === 'active'
+                  ? 'Active'
+                  : subscription.status === 'cancelled'
+                    ? 'Cancelling'
+                    : subscription.status === 'past_due'
+                      ? 'Past due'
+                      : 'Expired'}
+              </span>
+            </StatStripCell>
+            <StatStripCell label="Renews">
+              {subscription.status === 'cancelled' ? (
+                <span className="text-muted-foreground">
+                  Expires {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
                 </span>
               ) : (
-                <span className="text-muted-foreground">Free tier</span>
+                new Date(subscription.currentPeriodEnd).toLocaleDateString()
               )}
             </StatStripCell>
-            {subscription && (
-              <StatStripCell label="Renews">
-                {subscription.status === 'cancelled' ? (
-                  <span className="text-muted-foreground">
-                    Expires {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
-                  </span>
-                ) : (
-                  new Date(subscription.currentPeriodEnd).toLocaleDateString()
-                )}
-              </StatStripCell>
-            )}
           </StatStrip>
         </motion.div>
       )}

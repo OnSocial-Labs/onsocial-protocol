@@ -260,30 +260,36 @@ subscriptionRouter.post('/subscribe', async (req: Request, res: Response) => {
  */
 subscriptionRouter.get('/subscription', async (req: Request, res: Response) => {
   const accountId = req.auth!.accountId;
-  const sub = await subscriptionStore.getByAccount(accountId);
+  try {
+    const sub = await subscriptionStore.getByAccount(accountId);
 
-  if (!sub) {
+    if (!sub) {
+      res.json({ subscription: null, tier: 'free' });
+      return;
+    }
+
+    const plan = getPlan(sub.tier);
+    res.json({
+      subscription: {
+        id: sub.id,
+        tier: sub.tier,
+        status: sub.status,
+        currentPeriodStart: sub.currentPeriodStart,
+        currentPeriodEnd: sub.currentPeriodEnd,
+        price: plan ? formatPrice(plan) : null,
+        promotionCode: sub.promotionCode ?? null,
+        promotionCyclesRemaining: sub.promotionCyclesRemaining ?? 0,
+      },
+      tier:
+        sub.status === 'active' && new Date(sub.currentPeriodEnd) > new Date()
+          ? sub.tier
+          : 'free',
+    });
+  } catch (error) {
+    req.log.error({ error }, 'Failed to fetch subscription');
+    // Degrade gracefully — treat as free tier
     res.json({ subscription: null, tier: 'free' });
-    return;
   }
-
-  const plan = getPlan(sub.tier);
-  res.json({
-    subscription: {
-      id: sub.id,
-      tier: sub.tier,
-      status: sub.status,
-      currentPeriodStart: sub.currentPeriodStart,
-      currentPeriodEnd: sub.currentPeriodEnd,
-      price: plan ? formatPrice(plan) : null,
-      promotionCode: sub.promotionCode ?? null,
-      promotionCyclesRemaining: sub.promotionCyclesRemaining ?? 0,
-    },
-    tier:
-      sub.status === 'active' && new Date(sub.currentPeriodEnd) > new Date()
-        ? sub.tier
-        : 'free',
-  });
 });
 
 /**
