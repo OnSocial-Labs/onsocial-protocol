@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto';
 import { execSync } from 'node:child_process';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -68,12 +69,17 @@ export const config = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '15m',
 
   // Refresh token — separate secret, longer lifetime
+  // Derives from JWT_SECRET via HMAC if REFRESH_SECRET is not explicitly set.
   refreshSecret: (() => {
     const secret = env('REFRESH_SECRET');
-    if (!secret && process.env.NODE_ENV === 'production') {
-      throw new Error('FATAL: REFRESH_SECRET must be set in production');
+    if (secret) return secret;
+    const jwtSecret = env('JWT_SECRET');
+    if (jwtSecret) {
+      return createHmac('sha256', jwtSecret)
+        .update('onsocial-refresh-token')
+        .digest('hex');
     }
-    return secret || 'dev-refresh-secret-change-in-production';
+    return 'dev-refresh-secret-change-in-production';
   })(),
   refreshExpiresIn: process.env.REFRESH_EXPIRES_IN || '7d',
   /** Max-Age for the refresh cookie in seconds (default 7 days). */

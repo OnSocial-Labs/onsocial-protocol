@@ -70,7 +70,6 @@ describe('config network defaults', () => {
       NODE_ENV: 'production',
       JWT_SECRET: 'test-jwt-secret',
       HASURA_ADMIN_SECRET: 'test-hasura-secret',
-      REFRESH_SECRET: 'test-refresh-secret',
       NEAR_NETWORK: 'testnet',
       SOCIAL_TOKEN_CONTRACT: undefined,
     });
@@ -84,7 +83,6 @@ describe('config network defaults', () => {
       NODE_ENV: 'production',
       JWT_SECRET: 'test-jwt-secret',
       HASURA_ADMIN_SECRET: 'test-hasura-secret',
-      REFRESH_SECRET: 'test-refresh-secret',
       NEAR_NETWORK: 'mainnet',
       SOCIAL_TOKEN_CONTRACT: undefined,
     });
@@ -98,7 +96,6 @@ describe('config network defaults', () => {
       NODE_ENV: 'production',
       JWT_SECRET: 'test-jwt-secret',
       HASURA_ADMIN_SECRET: 'test-hasura-secret',
-      REFRESH_SECRET: 'test-refresh-secret',
       NEAR_NETWORK: 'mainnet',
       SOCIAL_TOKEN_CONTRACT: 'custom-token.near',
     });
