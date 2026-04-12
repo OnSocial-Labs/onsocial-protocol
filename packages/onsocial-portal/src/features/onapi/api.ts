@@ -41,7 +41,7 @@ function decodeBase64ToBytes(value: string): Uint8Array {
  */
 export async function gatewayLogin(
   wallet: NearWalletBase,
-  accountId: string,
+  accountId: string
 ): Promise<string> {
   if (typeof wallet.signMessage !== 'function') {
     throw new Error('Wallet does not support message signing');
@@ -57,7 +57,7 @@ export async function gatewayLogin(
   if (!challengeRes.ok) {
     const body = await challengeRes.json().catch(() => ({}));
     throw new Error(
-      (body as { error?: string }).error ?? 'Failed to get auth challenge',
+      (body as { error?: string }).error ?? 'Failed to get auth challenge'
     );
   }
 
@@ -88,7 +88,10 @@ export async function gatewayLogin(
   });
 
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
+    const body = (await res.json().catch(() => ({}))) as Record<
+      string,
+      unknown
+    >;
     const detail = (body as { details?: string }).details;
     const msg =
       (body as { error?: string }).error ?? `Login failed (${res.status})`;
@@ -120,7 +123,7 @@ export async function gatewayRefresh(): Promise<{ token: string } | null> {
 
 export async function createApiKey(
   jwt: string,
-  label: string,
+  label: string
 ): Promise<CreateKeyResult> {
   const res = await fetch(`${GATEWAY_BASE}/developer/keys`, {
     method: 'POST',
@@ -134,7 +137,8 @@ export async function createApiKey(
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(
-      (body as { error?: string }).error ?? `Failed to create key (${res.status})`,
+      (body as { error?: string }).error ??
+        `Failed to create key (${res.status})`
     );
   }
 
@@ -152,22 +156,19 @@ export async function listApiKeys(jwt: string): Promise<ApiKeyInfo[]> {
   return data.keys;
 }
 
-export async function revokeApiKey(
-  jwt: string,
-  prefix: string,
-): Promise<void> {
+export async function revokeApiKey(jwt: string, prefix: string): Promise<void> {
   const res = await fetch(
     `${GATEWAY_BASE}/developer/keys/${encodeURIComponent(prefix)}`,
     {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${jwt}` },
-    },
+    }
   );
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(
-      (body as { error?: string }).error ?? 'Failed to revoke key',
+      (body as { error?: string }).error ?? 'Failed to revoke key'
     );
   }
 }
@@ -184,20 +185,20 @@ export async function getUsage(jwt: string): Promise<UsageSummary> {
 
 export async function rotateApiKey(
   jwt: string,
-  prefix: string,
+  prefix: string
 ): Promise<CreateKeyResult> {
   const res = await fetch(
     `${GATEWAY_BASE}/developer/keys/${encodeURIComponent(prefix)}/rotate`,
     {
       method: 'POST',
       headers: { Authorization: `Bearer ${jwt}` },
-    },
+    }
   );
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(
-      (body as { error?: string }).error ?? 'Failed to rotate key',
+      (body as { error?: string }).error ?? 'Failed to rotate key'
     );
   }
 

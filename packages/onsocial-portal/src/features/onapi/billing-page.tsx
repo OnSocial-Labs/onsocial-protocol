@@ -447,8 +447,8 @@ export default function BillingPage() {
               label="Current plan"
               showDivider
             >
-              <PortalBadge accent={tierAccent(currentTier)} size="sm">
-                {currentTier}
+              <PortalBadge accent={tierAccent(currentTier ?? 'free')} size="sm">
+                {currentTier ?? 'free'}
               </PortalBadge>
             </StatStripCell>
             <StatStripCell

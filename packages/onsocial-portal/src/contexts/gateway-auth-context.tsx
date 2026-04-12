@@ -43,7 +43,9 @@ export const useGatewayAuth = () => useContext(GatewayAuthContext);
 // ── Helpers ───────────────────────────────────────────────────
 
 /** Decode JWT payload without verification (client-side only). */
-function decodePayload(token: string): { exp?: number; accountId?: string } | null {
+function decodePayload(
+  token: string
+): { exp?: number; accountId?: string } | null {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
@@ -79,8 +81,8 @@ export function GatewayAuthProvider({ children }: { children: ReactNode }) {
 
     // Refresh 2 minutes before expiry, minimum 10 seconds from now
     const msUntilRefresh = Math.max(
-      (payload.exp * 1000 - Date.now()) - 2 * 60 * 1000,
-      10_000,
+      payload.exp * 1000 - Date.now() - 2 * 60 * 1000,
+      10_000
     );
 
     refreshTimerRef.current = setTimeout(async () => {
@@ -124,7 +126,9 @@ export function GatewayAuthProvider({ children }: { children: ReactNode }) {
         // No valid refresh cookie — user will sign on first ensureAuth()
       });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [accountId, isConnected, scheduleRefresh]);
 
   // Cleanup timer on unmount
@@ -180,7 +184,8 @@ export function GatewayAuthProvider({ children }: { children: ReactNode }) {
         scheduleRefresh(token);
         return token;
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Authentication failed';
+        const msg =
+          err instanceof Error ? err.message : 'Authentication failed';
         setAuthError(msg);
         return null;
       } finally {
