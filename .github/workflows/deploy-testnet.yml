@@ -288,6 +288,15 @@ jobs:
               exit 1
             fi
 
+            # ── Run gateway SQL migrations (idempotent) ──────────
+            echo "Running gateway migrations..."
+            docker compose exec -T gateway find /app/packages/onsocial-gateway/migrations -name '*.sql' -print | sort | while read f; do
+              echo "  Applying $(basename $f)..."
+              docker compose exec -T gateway cat "$f" | \
+                docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" 2>&1 || \
+                echo "  ⚠️  $(basename $f) failed (may already be applied)"
+            done
+
             # ── Sync Hasura permissions (idempotent — skips existing) ─
             echo "Syncing Hasura permissions..."
             docker compose exec -T gateway node packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js create 2>&1 || \

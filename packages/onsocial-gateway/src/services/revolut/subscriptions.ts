@@ -64,6 +64,8 @@ interface SubscriptionStore {
   ): Promise<void>;
   getByAccount(accountId: string): Promise<SubscriptionRecord | null>;
   getActiveByAccount(accountId: string): Promise<SubscriptionRecord | null>;
+  /** Subscription whose paid period has not yet ended (any status). */
+  getWithValidPeriod(accountId: string): Promise<SubscriptionRecord | null>;
   updateStatus(accountId: string, status: SubscriptionStatus): Promise<void>;
   updatePeriod(
     accountId: string,
@@ -106,6 +108,15 @@ class MemoryStore implements SubscriptionStore {
     const sub = this.subs.get(accountId);
     if (!sub) return null;
     if (sub.status !== 'active') return null;
+    if (new Date(sub.currentPeriodEnd) < new Date()) return null;
+    return sub;
+  }
+
+  async getWithValidPeriod(
+    accountId: string
+  ): Promise<SubscriptionRecord | null> {
+    const sub = this.subs.get(accountId);
+    if (!sub) return null;
     if (new Date(sub.currentPeriodEnd) < new Date()) return null;
     return sub;
   }
@@ -287,6 +298,25 @@ class HasuraStore implements SubscriptionStore {
         developer_subscriptions(where: {
           account_id: { _eq: $acct }
           status: { _eq: "active" }
+          current_period_end: { _gt: $now }
+        }, limit: 1) { ${this.FIELDS} }
+      }`,
+      { acct: accountId, now: new Date().toISOString() }
+    );
+    return data.developer_subscriptions[0]
+      ? this.toRecord(data.developer_subscriptions[0])
+      : null;
+  }
+
+  async getWithValidPeriod(
+    accountId: string
+  ): Promise<SubscriptionRecord | null> {
+    const data = await this.gql<{
+      developer_subscriptions: Array<Record<string, unknown>>;
+    }>(
+      `query($acct: String!, $now: timestamptz!) {
+        developer_subscriptions(where: {
+          account_id: { _eq: $acct }
           current_period_end: { _gt: $now }
         }, limit: 1) { ${this.FIELDS} }
       }`,

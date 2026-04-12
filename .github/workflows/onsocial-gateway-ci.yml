@@ -101,7 +101,11 @@ jobs:
         run: pnpm --filter @onsocial/rpc build && pnpm --filter onsocial-gateway build
 
       - name: Setup database
-        run: PGPASSWORD=onsocial psql -h localhost -U onsocial -d onsocial -f packages/onsocial-gateway/migrations/001_api_keys.sql
+        run: |
+          for f in packages/onsocial-gateway/migrations/*.sql; do
+            echo "Applying $(basename $f)..."
+            PGPASSWORD=onsocial psql -h localhost -U onsocial -d onsocial -f "$f"
+          done
 
       - name: Start gateway
         run: |

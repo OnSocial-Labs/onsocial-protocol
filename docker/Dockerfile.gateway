@@ -47,6 +47,9 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
 COPY --from=builder /app/packages/onsocial-rpc/dist ./packages/onsocial-rpc/dist
 COPY --from=builder /app/packages/onsocial-gateway/dist ./packages/onsocial-gateway/dist
 
+# Copy SQL migrations (applied via deploy script)
+COPY --from=builder /app/packages/onsocial-gateway/migrations ./packages/onsocial-gateway/migrations
+
 # Non-root user for security
 RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
 USER nodejs

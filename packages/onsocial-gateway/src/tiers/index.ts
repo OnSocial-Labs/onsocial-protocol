@@ -22,10 +22,10 @@ export async function getTierInfo(accountId: string): Promise<TierInfo> {
     return cached.info;
   }
 
-  // Query subscription store for active subscription
+  // Query subscription store — honour paid period even after cancellation
   let tier: Tier = 'free';
   try {
-    const sub = await subscriptionStore.getActiveByAccount(accountId);
+    const sub = await subscriptionStore.getWithValidPeriod(accountId);
     if (sub) {
       tier = sub.tier;
     }
