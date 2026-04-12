@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
   Copy,
@@ -12,10 +13,10 @@ import {
   Trash2,
   RefreshCw,
   Activity,
-  Shield,
   AlertTriangle,
 } from 'lucide-react';
 import { useWallet } from '@/contexts/wallet-context';
+import { useGatewayAuth } from '@/contexts/gateway-auth-context';
 import { PageShell } from '@/components/layout/page-shell';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
 import { SurfacePanel } from '@/components/ui/surface-panel';
@@ -24,7 +25,6 @@ import { PortalBadge } from '@/components/ui/portal-badge';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
 import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
 import {
-  gatewayLogin,
   createApiKey,
   listApiKeys,
   revokeApiKey,
@@ -34,6 +34,7 @@ import {
   type CreateKeyResult,
   type UsageSummary,
 } from '@/features/onapi/api';
+import { fetchSubscription } from '@/features/onapi/billing-api';
 import { ACTIVE_API_URL } from '@/lib/portal-config';
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -69,12 +70,8 @@ function CopyInline({ text }: { text: string }) {
 // ── Main Page ─────────────────────────────────────────────────
 
 export default function OnApiKeysPage() {
-  const { accountId, wallet, isConnected, connect } = useWallet();
-
-  // Gateway JWT session
-  const [jwt, setJwt] = useState<string | null>(null);
-  const [authLoading, setAuthLoading] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
+  const { accountId, isConnected } = useWallet();
+  const { jwt, isAuthenticating: authLoading, authError, ensureAuth } = useGatewayAuth();
 
   // Key state
   const [keys, setKeys] = useState<ApiKeyInfo[]>([]);
@@ -98,31 +95,9 @@ export default function OnApiKeysPage() {
   // Error
   const [error, setError] = useState<string | null>(null);
 
-  const hasAuthed = useRef(false);
-
-  // ── Authenticate with gateway ────────────────────────────────
-
-  const authenticate = useCallback(async () => {
-    if (!wallet || !accountId) return;
-    setAuthLoading(true);
-    setAuthError(null);
-    try {
-      const token = await gatewayLogin(wallet, accountId);
-      setJwt(token);
-      hasAuthed.current = true;
-    } catch (err) {
-      setAuthError(err instanceof Error ? err.message : 'Authentication failed');
-    } finally {
-      setAuthLoading(false);
-    }
-  }, [wallet, accountId]);
-
-  // Auto-authenticate when wallet connects
-  useEffect(() => {
-    if (isConnected && wallet && accountId && !jwt && !hasAuthed.current) {
-      authenticate();
-    }
-  }, [isConnected, wallet, accountId, jwt, authenticate]);
+  // Subscription / entitlement
+  const [currentTier, setCurrentTier] = useState<string>('free');
+  const [tierLoading, setTierLoading] = useState(false);
 
   // ── Fetch keys + usage when authenticated ────────────────────
 
@@ -144,9 +119,27 @@ export default function OnApiKeysPage() {
     }
   }, [jwt]);
 
+  // ── Fetch subscription tier ──────────────────────────────────
+
+  const refreshTier = useCallback(async () => {
+    if (!jwt) return;
+    setTierLoading(true);
+    try {
+      const data = await fetchSubscription(jwt);
+      setCurrentTier(data.tier);
+    } catch {
+      // Non-critical — default to free
+    } finally {
+      setTierLoading(false);
+    }
+  }, [jwt]);
+
   useEffect(() => {
-    if (jwt) refresh();
-  }, [jwt, refresh]);
+    if (jwt) {
+      refresh();
+      refreshTier();
+    }
+  }, [jwt, refresh, refreshTier]);
 
   // ── Create key ───────────────────────────────────────────────
 
@@ -204,31 +197,8 @@ export default function OnApiKeysPage() {
     }
   };
 
-  // ── Disconnected state ───────────────────────────────────────
-
-  if (!isConnected) {
-    return (
-      <PageShell className="max-w-3xl">
-        <SecondaryPageHeader
-          badge="API Keys"
-          badgeAccent="blue"
-          title="Manage your OnAPI keys"
-          description="Connect your NEAR wallet to create and manage API keys."
-        />
-        <SurfacePanel radius="xl" tone="soft" padding="roomy" className="text-center">
-          <Key className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-          <p className="mb-4 text-sm text-muted-foreground">
-            Sign in with your NEAR wallet to get started.
-          </p>
-          <Button onClick={() => connect()} variant="default">
-            Connect Wallet
-          </Button>
-        </SurfacePanel>
-      </PageShell>
-    );
-  }
-
-  // ── Authenticating state ─────────────────────────────────────
+  // ── Not yet authenticated: landing state ──────────────────
+  //    No wallet popup on load. User must click explicitly.
 
   if (!jwt) {
     return (
@@ -237,40 +207,56 @@ export default function OnApiKeysPage() {
           badge="API Keys"
           badgeAccent="blue"
           title="Manage your OnAPI keys"
-          description="Sign a message to verify wallet ownership."
+          description="Create, rotate, and revoke API keys for your applications."
         />
         <SurfacePanel radius="xl" tone="soft" padding="roomy" className="text-center">
+          <Key className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
           {authLoading ? (
             <>
               <PulsingDots size="md" />
               <p className="mt-3 text-sm text-muted-foreground">
-                Sign the message in your wallet...
+                Sign the message in your wallet…
               </p>
             </>
           ) : authError ? (
             <>
-              <AlertTriangle className="mx-auto mb-3 h-8 w-8 portal-amber-text" />
+              <AlertTriangle className="mx-auto mb-3 h-6 w-6 portal-amber-text" />
               <p className="mb-2 text-sm text-foreground">{authError}</p>
-              <Button onClick={authenticate} variant="outline" size="sm">
+              <Button onClick={ensureAuth} variant="outline" size="sm">
                 Try Again
               </Button>
             </>
           ) : (
             <>
-              <Shield className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-              <p className="mb-4 text-sm text-muted-foreground">
-                Verify wallet ownership to manage API keys.
+              <p className="mb-1 text-sm text-foreground font-medium">
+                {isConnected ? 'One quick sign to unlock your keys' : 'Sign in to get your API key'}
               </p>
-              <Button onClick={authenticate} variant="default">
-                Sign &amp; Verify
+              <p className="mb-4 text-xs text-muted-foreground">
+                No transaction, no gas — just a signature to prove it's you.
+              </p>
+              <Button onClick={ensureAuth} variant="default">
+                {isConnected ? 'Sign & continue' : 'Connect wallet'}
               </Button>
             </>
           )}
         </SurfacePanel>
+
+        {/* ── Quick start (visible even before auth) ────────── */}
+        <SurfacePanel radius="xl" tone="soft" padding="roomy">
+          <div className="mb-2 flex items-center gap-2">
+            <Activity className="h-4 w-4 portal-blue-text" />
+            <h3 className="text-sm font-semibold">Quick start</h3>
+          </div>
+          <pre className="overflow-x-auto rounded-lg border border-border/30 bg-background/40 p-3 text-xs leading-relaxed text-muted-foreground">
+            <code>{`curl -X POST ${ACTIVE_API_URL.replace(/\/$/, '')}/graph/query \\
+  -H "Content-Type: application/json" \\
+  -H "X-API-Key: YOUR_KEY" \\
+  -d '{"query": "{ reputationScores(limit: 5) { accountId reputation rank } }"}'`}</code>
+          </pre>
+        </SurfacePanel>
       </PageShell>
     );
   }
-
   // ── Authenticated: key management ────────────────────────────
 
   return (
@@ -281,6 +267,31 @@ export default function OnApiKeysPage() {
         title="Manage your OnAPI keys"
         description={`Signed in as ${accountId}`}
       />
+
+      {/* ── Plan badge + upgrade CTA ────────────────────────── */}
+      {!tierLoading && (
+        <div className="flex items-center justify-between rounded-lg border border-border/30 bg-background/30 px-4 py-2.5">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+              Plan
+            </span>
+            <PortalBadge
+              accent={currentTier === 'scale' ? 'purple' : currentTier === 'pro' ? 'blue' : 'green'}
+              size="sm"
+            >
+              {currentTier}
+            </PortalBadge>
+          </div>
+          {currentTier === 'free' && (
+            <Link
+              href="/onapi/billing"
+              className="text-xs text-muted-foreground underline transition-colors hover:text-foreground"
+            >
+              Upgrade plan
+            </Link>
+          )}
+        </div>
+      )}
 
       {/* ── Usage Strip ─────────────────────────────────────── */}
       {usage && (

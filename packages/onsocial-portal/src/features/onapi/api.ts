@@ -70,9 +70,9 @@ export async function gatewayLogin(
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(
-      (body as { error?: string }).error ?? `Login failed (${res.status})`,
-    );
+    const detail = (body as { details?: string }).details;
+    const msg = (body as { error?: string }).error ?? `Login failed (${res.status})`;
+    throw new Error(detail ? `${msg}: ${detail}` : msg);
   }
 
   const data = (await res.json()) as { token: string };

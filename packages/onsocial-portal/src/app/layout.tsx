@@ -9,6 +9,7 @@ import { PwaProvider } from '@/components/providers/pwa-provider';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { SmoothScrollProvider } from '@/components/providers/smooth-scroll-provider';
 import { WalletProvider } from '@/contexts/wallet-context';
+import { GatewayAuthProvider } from '@/contexts/gateway-auth-context';
 import { Navigation } from '@/components/navigation/navigation';
 import { Footer } from '@/components/footer';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/near-network';
@@ -140,6 +141,7 @@ export default function RootLayout({
           >
             <RuntimeConfigWarnings />
             <WalletProvider network={ACTIVE_NEAR_NETWORK}>
+              <GatewayAuthProvider>
               <MobilePageProvider>
                 <Suspense>
                   <SmoothScrollProvider>
@@ -149,6 +151,7 @@ export default function RootLayout({
                   </SmoothScrollProvider>
                 </Suspense>
               </MobilePageProvider>
+              </GatewayAuthProvider>
             </WalletProvider>
           </ThemeProvider>
         </PwaProvider>

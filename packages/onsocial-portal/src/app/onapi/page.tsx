@@ -1,7 +1,8 @@
 'use client';
 
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { ArrowUpRight } from 'lucide-react';
 import { motion, useInView } from 'framer-motion';
 import { PageShell } from '@/components/layout/page-shell';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
@@ -9,6 +10,10 @@ import { SectionHeader } from '@/components/layout/section-header';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
 import { portalColors, type PortalAccent } from '@/lib/portal-colors';
+import {
+  fetchPlansPublic,
+  type PlanInfo,
+} from '@/features/onapi/billing-api';
 
 // ─── Access tiers ─────────────────────────────────────────────
 const TIERS = [
@@ -54,6 +59,23 @@ export default function OnApiPage() {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, amount: 0.15 });
 
+  // Fetch live plan data (includes promotions) on mount
+  const [livePlans, setLivePlans] = useState<PlanInfo[]>([]);
+  useEffect(() => {
+    fetchPlansPublic().then((p) => setLivePlans(p));
+  }, []);
+
+  // Merge live promo data into static tiers
+  const tiers = TIERS.map((tier) => {
+    const live = livePlans.find(
+      (p) => p.tier.toLowerCase() === tier.name.toLowerCase(),
+    );
+    return {
+      ...tier,
+      promotion: live?.promotion ?? null,
+    };
+  });
+
   return (
     <PageShell className="max-w-5xl">
       <SecondaryPageHeader
@@ -79,85 +101,118 @@ export default function OnApiPage() {
         />
 
         <div className="grid gap-4 md:grid-cols-3">
-          {TIERS.map((tier) => (
-            <SurfacePanel
+          {tiers.map((tier) => (
+            <Link
               key={tier.name}
-              radius="xl"
-              tone="soft"
-              padding="none"
-              className={
-                tier.live
-                  ? 'border-[var(--portal-green-border)] shadow-[0_0_20px_var(--portal-green-shadow)]'
-                  : ''
+              href={
+                tier.name === 'Free'
+                  ? '/onapi/keys'
+                  : `/onapi/billing?tier=${tier.name.toLowerCase()}`
               }
+              className="group"
             >
-              <div className="px-5 pt-5 pb-1 md:px-6 md:pt-6">
-                <div className="flex items-center justify-between gap-3">
-                  <h3
-                    className="text-lg font-bold tracking-[-0.02em]"
+              <SurfacePanel
+                radius="xl"
+                tone="soft"
+                padding="none"
+                className="transition-[border-color,box-shadow] duration-200 hover:border-[var(--_accent-border)] hover:shadow-[0_0_20px_var(--_accent-shadow)]"
+                style={
+                  {
+                    '--_accent-border': `color-mix(in srgb, ${portalColors[tier.accent]} 35%, transparent)`,
+                    '--_accent-shadow': `color-mix(in srgb, ${portalColors[tier.accent]} 20%, transparent)`,
+                  } as React.CSSProperties
+                }
+              >
+                <div className="px-5 pt-5 pb-1 md:px-6 md:pt-6">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3
+                      className="text-lg font-bold tracking-[-0.02em]"
+                      style={{ color: portalColors[tier.accent] }}
+                    >
+                      {tier.name}
+                    </h3>
+                    <span
+                      className="text-[10px] font-medium uppercase tracking-[0.14em]"
+                      style={{
+                        color: tier.live
+                          ? portalColors.green
+                          : 'var(--muted-foreground)',
+                      }}
+                    >
+                      {tier.live ? 'Live' : 'Planned'}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex items-baseline gap-1">
+                    {tier.promotion ? (
+                      <>
+                        <span className="text-lg font-medium text-muted-foreground line-through">
+                          {tier.price}
+                        </span>
+                        <span className="text-2xl font-bold tracking-[-0.03em]">
+                          {tier.promotion.discountedPrice}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {tier.priceNote}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-2xl font-bold tracking-[-0.03em]">
+                          {tier.price}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {tier.priceNote}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  {tier.promotion && (
+                    <p
+                      className="mt-1 text-xs font-medium"
+                      style={{ color: portalColors[tier.accent] }}
+                    >
+                      {tier.promotion.name} —{' '}
+                      {tier.promotion.discountPercent}% off
+                      {tier.promotion.durationCycles > 0
+                        ? ` for ${tier.promotion.durationCycles} mo`
+                        : ''}
+                    </p>
+                  )}
+                </div>
+
+                <StatStrip columns={3} className="mt-2">
+                  <StatStripCell label="Rate" value={tier.rate} showDivider />
+                  <StatStripCell
+                    label="Depth"
+                    value={tier.depth}
+                    showDivider
+                  />
+                  <StatStripCell label="Complexity" value={tier.complexity} />
+                </StatStrip>
+                <StatStrip columns={2} groupClassName="border-t-0">
+                  <StatStripCell label="Rows" value={tier.rows} showDivider />
+                  <StatStripCell
+                    label="Aggregations"
+                    value={tier.aggregations ? 'Yes' : 'No'}
+                    valueClassName={
+                      tier.aggregations
+                        ? 'portal-green-text'
+                        : 'text-muted-foreground'
+                    }
+                  />
+                </StatStrip>
+
+                <div className="px-5 pb-4 pt-3 md:px-6">
+                  <span
+                    className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em]"
                     style={{ color: portalColors[tier.accent] }}
                   >
-                    {tier.name}
-                  </h3>
-                  <span
-                    className="text-[10px] font-medium uppercase tracking-[0.14em]"
-                    style={{
-                      color: tier.live
-                        ? portalColors.green
-                        : 'var(--muted-foreground)',
-                    }}
-                  >
-                    {tier.live ? 'Live' : 'Planned'}
+                    {tier.name === 'Free' ? 'Get started' : 'Subscribe'}
+                    <ArrowUpRight className="h-3 w-3 opacity-40 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                   </span>
                 </div>
-                <div className="mt-1 flex items-baseline gap-1">
-                  <span className="text-2xl font-bold tracking-[-0.03em]">
-                    {tier.price}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {tier.priceNote}
-                  </span>
-                </div>
-              </div>
-
-              <StatStrip columns={3} className="mt-2">
-                <StatStripCell label="Rate" value={tier.rate} showDivider />
-                <StatStripCell label="Depth" value={tier.depth} showDivider />
-                <StatStripCell label="Complexity" value={tier.complexity} />
-              </StatStrip>
-              <StatStrip columns={2} groupClassName="border-t-0">
-                <StatStripCell label="Rows" value={tier.rows} showDivider />
-                <StatStripCell
-                  label="Aggregations"
-                  value={tier.aggregations ? 'Yes' : 'No'}
-                  valueClassName={
-                    tier.aggregations
-                      ? 'portal-green-text'
-                      : 'text-muted-foreground'
-                  }
-                />
-              </StatStrip>
-
-              {tier.live ? (
-                <div className="px-5 pb-4 pt-2 md:px-6 flex gap-2">
-                  <Link
-                    href="/onapi/keys"
-                    className="portal-blue-surface flex flex-1 items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium transition-all hover:brightness-110"
-                  >
-                    Get your key
-                  </Link>
-                </div>
-              ) : (
-                <div className="px-5 pb-4 pt-2 md:px-6">
-                  <Link
-                    href="/onapi/billing"
-                    className="portal-purple-surface flex w-full items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium transition-all hover:brightness-110"
-                  >
-                    Manage billing
-                  </Link>
-                </div>
-              )}
-            </SurfacePanel>
+              </SurfacePanel>
+            </Link>
           ))}
         </div>
 

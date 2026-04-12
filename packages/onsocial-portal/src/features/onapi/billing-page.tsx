@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
@@ -12,9 +13,9 @@ import {
   Zap,
   ChevronRight,
   X,
-  Tag,
 } from 'lucide-react';
 import { useWallet } from '@/contexts/wallet-context';
+import { useGatewayAuth } from '@/contexts/gateway-auth-context';
 import { PageShell } from '@/components/layout/page-shell';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
 import { SectionHeader } from '@/components/layout/section-header';
@@ -24,9 +25,9 @@ import { PortalBadge } from '@/components/ui/portal-badge';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
 import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
 import { portalColors, type PortalAccent } from '@/lib/portal-colors';
-import { gatewayLogin } from '@/features/onapi/api';
 import {
   fetchPlans,
+  fetchPlansPublic,
   fetchSubscription,
   subscribe,
   cancelSubscription,
@@ -74,12 +75,12 @@ function PlanCard({
   upgrading,
 }: {
   plan: PlanInfo;
-  currentTier: string;
+  currentTier: string | null;
   onUpgrade: (tier: string) => void;
   upgrading: string | null;
 }) {
-  const isCurrent = plan.tier === currentTier;
-  const isBelow = tierRank(plan.tier) <= tierRank(currentTier) && !isCurrent;
+  const isCurrent = currentTier !== null && plan.tier === currentTier;
+  const isBelow = currentTier !== null && tierRank(plan.tier) <= tierRank(currentTier) && !isCurrent;
   const accent = tierAccent(plan.tier);
 
   return (
@@ -114,13 +115,32 @@ function PlanCard({
           )}
         </div>
         <div className="mt-1 flex items-baseline gap-1">
-          <span className="text-2xl font-bold tracking-[-0.03em]">
-            {plan.tier === 'free' ? '$0' : `$${(plan.amountMinor / 100).toFixed(0)}`}
-          </span>
-          <span className="text-xs text-muted-foreground">
-            {plan.tier === 'free' ? 'forever' : `/${plan.interval}`}
-          </span>
+          {plan.promotion ? (
+            <>
+              <span className="text-lg font-bold tracking-[-0.03em] line-through text-muted-foreground">
+                ${(plan.amountMinor / 100).toFixed(0)}
+              </span>
+              <span className="text-2xl font-bold tracking-[-0.03em]">
+                ${(plan.promotion.discountedAmountMinor / 100).toFixed(0)}
+              </span>
+              <span className="text-xs text-muted-foreground">/{plan.interval}</span>
+            </>
+          ) : (
+            <>
+              <span className="text-2xl font-bold tracking-[-0.03em]">
+                {plan.tier === 'free' ? '$0' : `$${(plan.amountMinor / 100).toFixed(0)}`}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {plan.tier === 'free' ? 'forever' : `/${plan.interval}`}
+              </span>
+            </>
+          )}
         </div>
+        {plan.promotion && (
+          <p className="mt-1 text-[11px] font-medium portal-green-text">
+            {plan.promotion.discountPercent}% off for {plan.promotion.durationCycles} {plan.interval}{plan.promotion.durationCycles > 1 ? 's' : ''}
+          </p>
+        )}
         <p className="mt-1 text-[11px] text-muted-foreground">
           {tierTagline(plan.tier)}
         </p>
@@ -151,7 +171,15 @@ function PlanCard({
             <Check className="h-4 w-4" />
             Active plan
           </div>
-        ) : plan.tier === 'free' ? null : (
+        ) : plan.tier === 'free' ? (
+          <Link
+            href="/onapi/keys"
+            className="portal-green-surface flex w-full items-center justify-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-medium transition-all hover:brightness-110"
+          >
+            Get free API key
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Link>
+        ) : (
           <Button
             onClick={() => onUpgrade(plan.tier)}
             loading={upgrading === plan.tier}
@@ -185,14 +213,39 @@ const FREE_PLAN: PlanInfo = {
   rateLimit: 60,
 };
 
+const FALLBACK_PLANS: PlanInfo[] = [
+  {
+    tier: 'pro',
+    name: 'Pro',
+    price: '$49.00/month',
+    amountMinor: 4900,
+    currency: 'USD',
+    interval: 'month',
+    rateLimit: 600,
+  },
+  {
+    tier: 'scale',
+    name: 'Scale',
+    price: '$199.00/month',
+    amountMinor: 19900,
+    currency: 'USD',
+    interval: 'month',
+    rateLimit: 3000,
+  },
+];
+
 // ── Main Page ─────────────────────────────────────────────────
 
 export default function BillingPage() {
-  const { accountId, wallet, isConnected, connect } = useWallet();
+  const { accountId, isConnected, connect } = useWallet();
+  const { jwt, isAuthenticating: authLoading, authError, ensureAuth } = useGatewayAuth();
   const searchParams = useSearchParams();
 
   // Checkout return detection
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
+
+  // Pre-selected tier from landing page
+  const requestedTier = searchParams.get('tier');
 
   useEffect(() => {
     if (searchParams.get('checkout') === 'success') {
@@ -202,54 +255,41 @@ export default function BillingPage() {
     }
   }, [searchParams]);
 
-  // Gateway JWT session
-  const [jwt, setJwt] = useState<string | null>(null);
-  const [authLoading, setAuthLoading] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
+  // Auto-fill billing email focus hint when arriving from tier selection
+  useEffect(() => {
+    if (requestedTier && requestedTier !== 'free') {
+      // Scroll to billing email input after data loads
+      const timer = setTimeout(() => {
+        document.getElementById('billing-email')?.focus();
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+  }, [requestedTier]);
 
-  // Data
-  const [plans, setPlans] = useState<PlanInfo[]>([]);
+  // Data — start with fallbacks so all tiers are visible before auth
+  const [plans, setPlans] = useState<PlanInfo[]>(FALLBACK_PLANS);
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
-  const [currentTier, setCurrentTier] = useState('free');
+  const [currentTier, setCurrentTier] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Fetch plans on page load (public endpoint, no auth needed)
+  useEffect(() => {
+    fetchPlansPublic().then((live) => {
+      if (live.length > 0) setPlans(live);
+    });
+  }, []);
 
   // Actions
   const [upgrading, setUpgrading] = useState<string | null>(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
-  // Promo code
-  const [promoInput, setPromoInput] = useState('');
-  const [promoApplied, setPromoApplied] = useState<string | null>(null);
-
   // Email for billing
   const [billingEmail, setBillingEmail] = useState('');
 
-  const hasAuthed = useRef(false);
-
-  // ── Auth ──────────────────────────────────────────────────────
-
-  const authenticate = useCallback(async () => {
-    if (!wallet || !accountId) return;
-    setAuthLoading(true);
-    setAuthError(null);
-    try {
-      const token = await gatewayLogin(wallet, accountId);
-      setJwt(token);
-      hasAuthed.current = true;
-    } catch (err) {
-      setAuthError(err instanceof Error ? err.message : 'Authentication failed');
-    } finally {
-      setAuthLoading(false);
-    }
-  }, [wallet, accountId]);
-
-  useEffect(() => {
-    if (isConnected && wallet && accountId && !jwt && !hasAuthed.current) {
-      authenticate();
-    }
-  }, [isConnected, wallet, accountId, jwt, authenticate]);
+  // Ref to track a pending upgrade tier when we need to connect first
+  const pendingUpgradeRef = useRef<string | null>(null);
 
   // ── Fetch data ────────────────────────────────────────────────
 
@@ -277,9 +317,37 @@ export default function BillingPage() {
   }, [jwt, refresh]);
 
   // ── Upgrade (redirect to Revolut checkout) ────────────────────
+  //    Handles connect → sign → subscribe in one click if not yet authed.
+
+  const executeUpgrade = useCallback(async (tier: string) => {
+    const email = billingEmail.trim();
+    if (!email) {
+      setError('Please enter your email address for billing');
+      setUpgrading(null);
+      return;
+    }
+    setUpgrading(tier);
+    setError(null);
+
+    try {
+      // Ensure we have a JWT (reuses existing or triggers one wallet sign)
+      const token = await ensureAuth();
+      if (!token) {
+        setUpgrading(null);
+        return; // auth error already set in context
+      }
+
+      // Start checkout
+      const result = await subscribe(token, tier, email);
+      // Redirect to Revolut hosted checkout
+      window.location.href = result.checkoutUrl;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start checkout');
+      setUpgrading(null);
+    }
+  }, [ensureAuth, billingEmail]);
 
   const handleUpgrade = async (tier: string) => {
-    if (!jwt) return;
     const email = billingEmail.trim();
     if (!email) {
       setError('Please enter your email address for billing');
@@ -287,15 +355,27 @@ export default function BillingPage() {
     }
     setUpgrading(tier);
     setError(null);
-    try {
-      const result = await subscribe(jwt, tier, email, promoApplied ?? undefined);
-      // Redirect to Revolut hosted checkout
-      window.location.href = result.checkoutUrl;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start checkout');
-      setUpgrading(null);
+
+    if (!isConnected) {
+      // Store the requested tier so the useEffect can continue after connect
+      pendingUpgradeRef.current = tier;
+      await connect();
+      // Don't proceed here — wallet state isn't updated yet.
+      // The useEffect below picks up once isConnected becomes true.
+      return;
     }
+
+    await executeUpgrade(tier);
   };
+
+  // Continue the upgrade flow once wallet connects after a pending upgrade request
+  useEffect(() => {
+    if (isConnected && accountId && pendingUpgradeRef.current) {
+      const tier = pendingUpgradeRef.current;
+      pendingUpgradeRef.current = null;
+      executeUpgrade(tier);
+    }
+  }, [isConnected, accountId, executeUpgrade]);
 
   // ── Cancel ────────────────────────────────────────────────────
 
@@ -314,85 +394,13 @@ export default function BillingPage() {
     }
   };
 
-  // ── Apply promo ───────────────────────────────────────────────
-
-  const handleApplyPromo = () => {
-    const code = promoInput.trim().toUpperCase();
-    if (!code) return;
-    setPromoApplied(code);
-    setPromoInput('');
-  };
-
-  // ── Disconnected state ────────────────────────────────────────
-
-  if (!isConnected) {
-    return (
-      <PageShell className="max-w-3xl">
-        <SecondaryPageHeader
-          badge="Billing"
-          badgeAccent="purple"
-          title="Manage your subscription"
-          description="Connect your NEAR wallet to view and manage your plan."
-        />
-        <SurfacePanel radius="xl" tone="soft" padding="roomy" className="text-center">
-          <CreditCard className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-          <p className="mb-4 text-sm text-muted-foreground">
-            Sign in with your NEAR wallet to get started.
-          </p>
-          <Button onClick={() => connect()} variant="default">
-            Connect Wallet
-          </Button>
-        </SurfacePanel>
-      </PageShell>
-    );
-  }
-
-  // ── Authenticating state ──────────────────────────────────────
-
-  if (!jwt) {
-    return (
-      <PageShell className="max-w-3xl">
-        <SecondaryPageHeader
-          badge="Billing"
-          badgeAccent="purple"
-          title="Manage your subscription"
-          description="Sign a message to verify wallet ownership."
-        />
-        <SurfacePanel radius="xl" tone="soft" padding="roomy" className="text-center">
-          {authLoading ? (
-            <>
-              <PulsingDots size="md" />
-              <p className="mt-3 text-sm text-muted-foreground">
-                Sign the message in your wallet...
-              </p>
-            </>
-          ) : authError ? (
-            <>
-              <AlertTriangle className="mx-auto mb-3 h-8 w-8 portal-amber-text" />
-              <p className="mb-2 text-sm text-foreground">{authError}</p>
-              <Button onClick={authenticate} variant="outline" size="sm">
-                Try Again
-              </Button>
-            </>
-          ) : (
-            <>
-              <Shield className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-              <p className="mb-4 text-sm text-muted-foreground">
-                Verify wallet ownership to manage billing.
-              </p>
-              <Button onClick={authenticate} variant="default">
-                Sign &amp; Verify
-              </Button>
-            </>
-          )}
-        </SurfacePanel>
-      </PageShell>
-    );
-  }
-
-  // ── Authenticated ─────────────────────────────────────────────
+  // ── Page render ───────────────────────────────────────────────
+  //    Plans are always visible. Wallet is only needed to subscribe or
+  //    manage an existing subscription. No wallet popup on page load.
 
   const allPlans = [FREE_PLAN, ...plans];
+  const isAuthed = !!jwt;
+  const showSubManagement = isAuthed && !loading;
 
   return (
     <PageShell className="max-w-5xl">
@@ -400,12 +408,35 @@ export default function BillingPage() {
         badge="Billing"
         badgeAccent="purple"
         glowAccents={['green', 'blue', 'purple']}
-        title="Manage your subscription"
-        description={`Signed in as ${accountId}`}
+        title="Choose your plan"
+        description={
+          accountId
+            ? `Signed in as ${accountId}`
+            : 'Browse plans below. Wallet is only needed when you subscribe.'
+        }
       />
 
-      {/* ── Current Plan Summary ──────────────────────────── */}
-      {!loading && (
+      {/* ── Auth loading indicator (inline, not blocking) ──── */}
+      {authLoading && (
+        <div className="flex items-center justify-center gap-2 rounded-lg border border-border/30 bg-background/30 px-4 py-2.5">
+          <PulsingDots size="sm" />
+          <span className="text-xs text-muted-foreground">Verifying wallet ownership…</span>
+        </div>
+      )}
+
+      {/* ── Auth error (inline, not blocking) ─────────────── */}
+      {authError && (
+        <div className="flex items-center gap-3 rounded-lg border border-border/30 bg-background/30 px-4 py-2.5">
+          <AlertTriangle className="h-4 w-4 portal-amber-text flex-shrink-0" />
+          <p className="flex-1 text-xs text-foreground">{authError}</p>
+          <Button onClick={ensureAuth} variant="outline" size="xs">
+            Retry
+          </Button>
+        </div>
+      )}
+
+      {/* ── Current Plan Summary (only when authed) ────────── */}
+      {showSubManagement && (
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -466,18 +497,32 @@ export default function BillingPage() {
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-3 rounded-lg border border-[var(--portal-green-border)] bg-[var(--portal-green-bg)] px-4 py-3"
+          className="rounded-lg border border-[var(--portal-green-border)] bg-[var(--portal-green-bg)] px-5 py-4"
         >
-          <CheckCircle2 className="h-5 w-5 portal-green-text flex-shrink-0" />
-          <p className="flex-1 text-sm portal-green-text">
-            Payment complete! Your plan has been upgraded.
-          </p>
-          <button
-            onClick={() => setCheckoutSuccess(false)}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="h-5 w-5 portal-green-text flex-shrink-0" />
+            <p className="flex-1 text-sm font-medium portal-green-text">
+              Payment complete! Your plan has been upgraded.
+            </p>
+            <button
+              onClick={() => setCheckoutSuccess(false)}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="mt-3 flex items-center gap-3 pl-8">
+            <Link
+              href="/onapi/keys"
+              className="portal-green-surface inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all hover:brightness-110"
+            >
+              Create your first API key
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Link>
+            <span className="text-xs text-muted-foreground">
+              Keys inherit your active plan limits.
+            </span>
+          </div>
         </motion.div>
       )}
 
@@ -522,9 +567,15 @@ export default function BillingPage() {
           </div>
 
           {/* ── Billing email (required for new subscriptions) ── */}
-          {currentTier === 'free' && (
+          {(!currentTier || currentTier === 'free') && (
             <div className="mx-auto mt-4 max-w-xs">
+              <label htmlFor="billing-email" className="mb-1 block text-center text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                {requestedTier && requestedTier !== 'free'
+                  ? `Enter your email to subscribe to ${requestedTier}`
+                  : 'Email for billing'}
+              </label>
               <input
+                id="billing-email"
                 type="email"
                 value={billingEmail}
                 onChange={(e) => setBillingEmail(e.target.value)}
@@ -534,44 +585,6 @@ export default function BillingPage() {
             </div>
           )}
 
-          {/* ── Promo code ──────────────────────────────────── */}
-          <div className="mt-4 flex items-center justify-center gap-2">
-            {promoApplied ? (
-              <div className="flex items-center gap-2 rounded-lg border border-[var(--portal-green-border)] bg-[var(--portal-green-bg)] px-3 py-1.5">
-                <Tag className="h-3.5 w-3.5 portal-green-text" />
-                <span className="text-sm font-medium portal-green-text">
-                  {promoApplied}
-                </span>
-                <button
-                  onClick={() => setPromoApplied(null)}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ) : (
-              <>
-                <input
-                  type="text"
-                  value={promoInput}
-                  onChange={(e) => setPromoInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleApplyPromo()}
-                  placeholder="Promo code"
-                  maxLength={32}
-                  className="h-8 w-40 rounded-lg border border-border/40 bg-background/40 px-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-[var(--portal-purple)] focus:outline-none"
-                />
-                <Button
-                  onClick={handleApplyPromo}
-                  variant="outline"
-                  size="xs"
-                  disabled={!promoInput.trim()}
-                >
-                  Apply
-                </Button>
-              </>
-            )}
-          </div>
-
           <p className="mt-3 text-center text-xs text-muted-foreground">
             Paid tiers are billed monthly via Revolut. Cancel anytime.
           </p>
@@ -579,7 +592,7 @@ export default function BillingPage() {
       )}
 
       {/* ── Active Subscription Management ────────────────── */}
-      {!loading && subscription && subscription.status === 'active' && (
+      {showSubManagement && subscription && subscription.status === 'active' && (
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -646,7 +659,7 @@ export default function BillingPage() {
       )}
 
       {/* ── Cancelled Subscription Notice ─────────────────── */}
-      {!loading && subscription && subscription.status === 'cancelled' && (
+      {showSubManagement && subscription && subscription.status === 'cancelled' && (
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -669,7 +682,7 @@ export default function BillingPage() {
       )}
 
       {/* ── Past Due Notice ───────────────────────────────── */}
-      {!loading && subscription && subscription.status === 'past_due' && (
+      {showSubManagement && subscription && subscription.status === 'past_due' && (
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}

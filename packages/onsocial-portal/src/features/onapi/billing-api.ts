@@ -12,6 +12,13 @@ export interface PlanInfo {
   currency: string;
   interval: string;
   rateLimit: number;
+  promotion?: {
+    name: string;
+    discountPercent: number;
+    durationCycles: number;
+    discountedAmountMinor: number;
+    discountedPrice: string;
+  };
 }
 
 export interface SubscriptionInfo {
@@ -71,7 +78,17 @@ async function gw<T>(
 
 // ── API calls ─────────────────────────────────────────────────
 
-/** Fetch available subscription plans (public, but JWT simplifies auth) */
+/** Fetch available subscription plans (public, no auth required) */
+export async function fetchPlansPublic(): Promise<PlanInfo[]> {
+  const res = await fetch(`${GATEWAY_BASE}/developer/plans`, {
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!res.ok) return []; // Fallback plans will be used
+  const data = (await res.json()) as { plans: PlanInfo[] };
+  return data.plans;
+}
+
+/** Fetch available subscription plans (authenticated) */
 export async function fetchPlans(jwt: string): Promise<PlanInfo[]> {
   const data = await gw<{ plans: PlanInfo[] }>('/developer/plans', jwt);
   return data.plans;
@@ -89,14 +106,12 @@ export async function subscribe(
   jwt: string,
   tier: string,
   email?: string,
-  promoCode?: string,
 ): Promise<SubscribeResult> {
   return gw('/developer/subscribe', jwt, {
     method: 'POST',
     body: JSON.stringify({
       tier,
       ...(email && { email }),
-      ...(promoCode && { promoCode }),
     }),
   });
 }
