@@ -12,6 +12,8 @@ export interface TierInfo {
 export interface JwtPayload {
   accountId: string;
   tier: Tier;
+  /** Token purpose: 'access' for API calls, 'refresh' for silent renewal. */
+  kind?: 'access' | 'refresh';
   /** How the request was authenticated */
   method?: AuthMethod;
   iat: number;

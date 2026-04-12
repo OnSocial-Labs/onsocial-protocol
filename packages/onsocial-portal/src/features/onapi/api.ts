@@ -78,6 +78,7 @@ export async function gatewayLogin(
   const res = await fetch(`${GATEWAY_BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({
       accountId: signed.accountId,
       message: challenge.message,
@@ -96,6 +97,23 @@ export async function gatewayLogin(
 
   const data = (await res.json()) as { token: string };
   return data.token;
+}
+
+/**
+ * Silent refresh — sends the HttpOnly refresh cookie to get a new access token.
+ * Returns { token } on success or null if no valid refresh session exists.
+ */
+export async function gatewayRefresh(): Promise<{ token: string } | null> {
+  try {
+    const res = await fetch(`${GATEWAY_BASE}/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as { token: string };
+  } catch {
+    return null;
+  }
 }
 
 // ── Key Management (requires JWT) ─────────────────────────────

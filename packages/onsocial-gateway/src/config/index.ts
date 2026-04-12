@@ -65,7 +65,24 @@ export const config = {
     }
     return secret || 'dev-secret-change-in-production';
   })(),
-  jwtExpiresIn: '1h',
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '15m',
+
+  // Refresh token — separate secret, longer lifetime
+  refreshSecret: (() => {
+    const secret = env('REFRESH_SECRET');
+    if (!secret && process.env.NODE_ENV === 'production') {
+      throw new Error('FATAL: REFRESH_SECRET must be set in production');
+    }
+    return secret || 'dev-refresh-secret-change-in-production';
+  })(),
+  refreshExpiresIn: process.env.REFRESH_EXPIRES_IN || '7d',
+  /** Max-Age for the refresh cookie in seconds (default 7 days). */
+  refreshCookieMaxAge: parseInt(
+    process.env.REFRESH_COOKIE_MAX_AGE || String(7 * 24 * 60 * 60),
+    10
+  ),
+  /** Cookie name for refresh token. */
+  refreshCookieName: 'onsocial_refresh',
 
   // CORS — comma-separated allowed origins, default '*' for dev
   corsOrigins: process.env.CORS_ORIGINS || '*',

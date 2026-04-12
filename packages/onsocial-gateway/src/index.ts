@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import { pinoHttp } from 'pino-http';
 
 import { config } from './config/index.js';
@@ -24,8 +25,11 @@ app.use(helmet());
 app.use(
   cors(
     config.corsOrigins === '*'
-      ? undefined // default open CORS for dev
-      : { origin: config.corsOrigins.split(',').map((s) => s.trim()) }
+      ? { credentials: true, origin: true } // dev: mirror request origin
+      : {
+          origin: config.corsOrigins.split(',').map((s) => s.trim()),
+          credentials: true,
+        }
   )
 );
 // Webhook route — BEFORE auth/json middleware (needs raw body, no auth)
@@ -33,6 +37,9 @@ app.use('/webhooks', webhookRouter);
 
 // JSON body parser (after webhooks which use raw body)
 app.use(express.json({ limit: '10mb' }));
+
+// Cookie parser (needed for refresh token cookie)
+app.use(cookieParser());
 
 // Logging
 app.use(pinoHttp({ logger }));

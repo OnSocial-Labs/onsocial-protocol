@@ -10,20 +10,20 @@ import React, {
   type ReactNode,
 } from 'react';
 import { useWallet } from '@/contexts/wallet-context';
-import { gatewayLogin } from '@/features/onapi/api';
+import { gatewayLogin, gatewayRefresh } from '@/features/onapi/api';
 
 // ── Types ─────────────────────────────────────────────────────
 
 interface GatewayAuthContextValue {
-  /** Current JWT (null if not authenticated). */
+  /** Current access JWT (null if not authenticated). */
   jwt: string | null;
   /** True while signing / exchanging with gateway. */
   isAuthenticating: boolean;
   /** Last auth error message (cleared on retry). */
   authError: string | null;
   /**
-   * Ensure a valid JWT exists. If the user is connected but has no JWT,
-   * triggers wallet signing (one popup). Returns the JWT or null on failure.
+   * Ensure a valid JWT exists. Tries silent refresh first, then wallet sign.
+   * Returns the JWT or null on failure.
    */
   ensureAuth: () => Promise<string | null>;
   /** Clear the stored JWT (e.g. on sign-out). */
@@ -41,9 +41,6 @@ const GatewayAuthContext = createContext<GatewayAuthContextValue>({
 export const useGatewayAuth = () => useContext(GatewayAuthContext);
 
 // ── Helpers ───────────────────────────────────────────────────
-
-const STORAGE_KEY = 'onsocial_gateway_jwt';
-const STORAGE_ACCOUNT_KEY = 'onsocial_gateway_account';
 
 /** Decode JWT payload without verification (client-side only). */
 function decodePayload(token: string): { exp?: number; accountId?: string } | null {
@@ -63,39 +60,6 @@ function isTokenValid(token: string): boolean {
   return payload.exp * 1000 > Date.now() + 2 * 60 * 1000;
 }
 
-function loadStoredToken(accountId: string): string | null {
-  try {
-    const storedAccount = sessionStorage.getItem(STORAGE_ACCOUNT_KEY);
-    if (storedAccount !== accountId) return null;
-    const token = sessionStorage.getItem(STORAGE_KEY);
-    if (token && isTokenValid(token)) return token;
-    // Expired or missing — clean up
-    sessionStorage.removeItem(STORAGE_KEY);
-    sessionStorage.removeItem(STORAGE_ACCOUNT_KEY);
-  } catch {
-    // SSR or storage unavailable
-  }
-  return null;
-}
-
-function storeToken(token: string, accountId: string): void {
-  try {
-    sessionStorage.setItem(STORAGE_KEY, token);
-    sessionStorage.setItem(STORAGE_ACCOUNT_KEY, accountId);
-  } catch {
-    // Ignore storage errors
-  }
-}
-
-function clearStoredToken(): void {
-  try {
-    sessionStorage.removeItem(STORAGE_KEY);
-    sessionStorage.removeItem(STORAGE_ACCOUNT_KEY);
-  } catch {
-    // Ignore
-  }
-}
-
 // ── Provider ──────────────────────────────────────────────────
 
 export function GatewayAuthProvider({ children }: { children: ReactNode }) {
@@ -104,28 +68,76 @@ export function GatewayAuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const authPromiseRef = useRef<Promise<string | null> | null>(null);
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Restore token from sessionStorage on mount / account change
-  useEffect(() => {
-    if (accountId) {
-      const stored = loadStoredToken(accountId);
-      if (stored) setJwt(stored);
-    }
-  }, [accountId]);
+  // Schedule a silent refresh before the access token expires
+  const scheduleRefresh = useCallback((token: string) => {
+    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
 
-  // Clear JWT when wallet disconnects or account changes
+    const payload = decodePayload(token);
+    if (!payload?.exp) return;
+
+    // Refresh 2 minutes before expiry, minimum 10 seconds from now
+    const msUntilRefresh = Math.max(
+      (payload.exp * 1000 - Date.now()) - 2 * 60 * 1000,
+      10_000,
+    );
+
+    refreshTimerRef.current = setTimeout(async () => {
+      try {
+        const result = await gatewayRefresh();
+        if (result) {
+          setJwt(result.token);
+          scheduleRefresh(result.token);
+        }
+      } catch {
+        // Silent refresh failed — user will re-auth on next ensureAuth()
+      }
+    }, msUntilRefresh);
+  }, []);
+
+  // Clear JWT when wallet disconnects
   useEffect(() => {
     if (!isConnected) {
       setJwt(null);
       setAuthError(null);
-      clearStoredToken();
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
     }
   }, [isConnected]);
+
+  // On mount / account change: try silent refresh to restore session
+  useEffect(() => {
+    if (!accountId || !isConnected) return;
+
+    let cancelled = false;
+    gatewayRefresh()
+      .then((result) => {
+        if (cancelled || !result) return;
+        // Verify the refreshed token is for the current account
+        const payload = decodePayload(result.token);
+        if (payload?.accountId === accountId) {
+          setJwt(result.token);
+          scheduleRefresh(result.token);
+        }
+      })
+      .catch(() => {
+        // No valid refresh cookie — user will sign on first ensureAuth()
+      });
+
+    return () => { cancelled = true; };
+  }, [accountId, isConnected, scheduleRefresh]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    };
+  }, []);
 
   const clearAuth = useCallback(() => {
     setJwt(null);
     setAuthError(null);
-    clearStoredToken();
+    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
   }, []);
 
   // Core auth function — deduplicates concurrent calls
@@ -133,13 +145,19 @@ export function GatewayAuthProvider({ children }: { children: ReactNode }) {
     // Already have a valid token
     if (jwt && isTokenValid(jwt)) return jwt;
 
-    // Check storage again (may have been set by another component)
-    if (accountId) {
-      const stored = loadStoredToken(accountId);
-      if (stored) {
-        setJwt(stored);
-        return stored;
+    // Try silent refresh first (cookie-based, no popup)
+    try {
+      const result = await gatewayRefresh();
+      if (result) {
+        const payload = decodePayload(result.token);
+        if (payload?.accountId === accountId) {
+          setJwt(result.token);
+          scheduleRefresh(result.token);
+          return result.token;
+        }
       }
+    } catch {
+      // Refresh failed — fall through to wallet sign
     }
 
     // Need wallet to sign
@@ -159,7 +177,7 @@ export function GatewayAuthProvider({ children }: { children: ReactNode }) {
       try {
         const token = await gatewayLogin(wallet, accountId);
         setJwt(token);
-        storeToken(token, accountId);
+        scheduleRefresh(token);
         return token;
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Authentication failed';
@@ -173,7 +191,7 @@ export function GatewayAuthProvider({ children }: { children: ReactNode }) {
 
     authPromiseRef.current = promise;
     return promise;
-  }, [jwt, wallet, accountId]);
+  }, [jwt, wallet, accountId, scheduleRefresh]);
 
   const value: GatewayAuthContextValue = {
     jwt,

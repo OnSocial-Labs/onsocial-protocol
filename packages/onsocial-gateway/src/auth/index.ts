@@ -30,7 +30,20 @@ interface StoredChallenge {
   expiresAt: string;
 }
 
+interface ParsedAuthMessage {
+  accountId: string;
+  nonce: string;
+  issuedAt: string;
+  expiresAt: string;
+  network: string;
+}
+
+interface UsedAuthMessage {
+  expiresAt: string;
+}
+
 const challengeStore = new Map<string, StoredChallenge>();
+const usedMessageStore = new Map<string, UsedAuthMessage>();
 
 /** Purge expired challenges periodically */
 setInterval(() => {
@@ -40,11 +53,21 @@ setInterval(() => {
       challengeStore.delete(key);
     }
   }
+
+  for (const [key, usedMessage] of usedMessageStore) {
+    if (Date.parse(usedMessage.expiresAt) < now) {
+      usedMessageStore.delete(key);
+    }
+  }
 }, 60_000);
 
+function authMessageKey(accountId: string, message: string): string {
+  return `${accountId}:${createHash('sha256').update(message).digest('hex')}`;
+}
+
 /**
- * Generate JWT token for authenticated user
- * Token includes tier for rate limiting without re-checking on every request
+ * Generate short-lived access JWT for authenticated user.
+ * Token includes tier for rate limiting without re-checking on every request.
  */
 export async function generateToken(accountId: string): Promise<string> {
   const tierInfo = await getTierInfo(accountId);
@@ -52,15 +75,45 @@ export async function generateToken(accountId: string): Promise<string> {
   const payload: Omit<JwtPayload, 'iat' | 'exp'> = {
     accountId,
     tier: tierInfo.tier,
+    kind: 'access',
   };
 
   return jwt.sign(payload, config.jwtSecret, {
     expiresIn: config.jwtExpiresIn,
-  });
+  } as jwt.SignOptions);
 }
 
 /**
- * Verify and decode JWT token
+ * Generate long-lived refresh JWT.
+ * Contains only identity — tier is re-resolved on refresh.
+ */
+export function generateRefreshToken(accountId: string): string {
+  return jwt.sign({ accountId, kind: 'refresh' }, config.refreshSecret, {
+    expiresIn: config.refreshExpiresIn,
+  } as jwt.SignOptions);
+}
+
+/**
+ * Verify and decode a refresh token.
+ * Returns the accountId or null if invalid/expired.
+ */
+export function verifyRefreshToken(
+  token: string
+): { accountId: string } | null {
+  try {
+    const payload = jwt.verify(token, config.refreshSecret) as {
+      accountId?: string;
+      kind?: string;
+    };
+    if (payload.kind !== 'refresh' || !payload.accountId) return null;
+    return { accountId: payload.accountId };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Verify and decode access JWT token.
  */
 export function verifyToken(token: string): JwtPayload | null {
   try {
@@ -78,6 +131,41 @@ export interface AuthChallenge {
   nonce: string; // base64
 }
 
+function buildAuthMessage(input: {
+  accountId: string;
+  nonce: string;
+  issuedAt: string;
+  expiresAt: string;
+}): string {
+  return [
+    AUTH_PREFIX,
+    `Account: ${input.accountId}`,
+    `Nonce: ${input.nonce}`,
+    `Issued: ${input.issuedAt}`,
+    `Expires: ${input.expiresAt}`,
+    `Network: ${config.nearNetwork}`,
+  ].join('\n');
+}
+
+function parseAuthMessage(message: string): ParsedAuthMessage | null {
+  const lines = message.split('\n');
+  if (lines.length !== 6 || lines[0] !== AUTH_PREFIX) {
+    return null;
+  }
+
+  const accountId = lines[1]?.replace(/^Account: /, '');
+  const nonce = lines[2]?.replace(/^Nonce: /, '');
+  const issuedAt = lines[3]?.replace(/^Issued: /, '');
+  const expiresAt = lines[4]?.replace(/^Expires: /, '');
+  const network = lines[5]?.replace(/^Network: /, '');
+
+  if (!accountId || !nonce || !issuedAt || !expiresAt || !network) {
+    return null;
+  }
+
+  return { accountId, nonce, issuedAt, expiresAt, network };
+}
+
 /**
  * Generate a server-side auth challenge for a given account.
  * The portal will pass this to wallet.signMessage().
@@ -88,14 +176,7 @@ export function createAuthChallenge(accountId: string): AuthChallenge {
   const expiresAt = new Date(now + CHALLENGE_TTL_MS).toISOString();
   const nonce = randomBytes(32).toString('base64');
 
-  const message = [
-    AUTH_PREFIX,
-    `Account: ${accountId}`,
-    `Nonce: ${nonce}`,
-    `Issued: ${issuedAt}`,
-    `Expires: ${expiresAt}`,
-    `Network: ${config.nearNetwork}`,
-  ].join('\n');
+  const message = buildAuthMessage({ accountId, nonce, issuedAt, expiresAt });
 
   const challenge: StoredChallenge = {
     accountId,
@@ -292,24 +373,61 @@ export async function verifyNearSignature(
   signature: string,
   publicKey: string
 ): Promise<{ valid: boolean; error?: string }> {
-  // Step 1: Look up stored challenge
   const challenge = challengeStore.get(accountId);
-  if (!challenge) {
-    return {
-      valid: false,
-      error: 'No active challenge — request /auth/challenge first',
-    };
+
+  if (challenge) {
+    // Verify message matches the issued challenge exactly when present.
+    if (message !== challenge.message) {
+      return { valid: false, error: 'Message does not match challenge' };
+    }
   }
 
-  // Step 2: Validate expiry
-  if (Date.parse(challenge.expiresAt) < Date.now()) {
-    challengeStore.delete(accountId);
+  const parsedMessage = parseAuthMessage(message);
+  if (!parsedMessage) {
+    return { valid: false, error: 'Invalid auth message format' };
+  }
+
+  if (parsedMessage.accountId !== accountId) {
+    return { valid: false, error: 'Auth message account mismatch' };
+  }
+
+  if (parsedMessage.network !== config.nearNetwork) {
+    return { valid: false, error: 'Auth message network mismatch' };
+  }
+
+  const issuedAtMs = Date.parse(parsedMessage.issuedAt);
+  const expiresAtMs = Date.parse(parsedMessage.expiresAt);
+  if (!Number.isFinite(issuedAtMs) || !Number.isFinite(expiresAtMs)) {
+    return { valid: false, error: 'Invalid auth message timestamps' };
+  }
+
+  const now = Date.now();
+  if (issuedAtMs > now + 60_000) {
+    return { valid: false, error: 'Auth message timestamp is in the future' };
+  }
+
+  if (expiresAtMs < now) {
     return { valid: false, error: 'Challenge has expired' };
   }
 
-  // Step 3: Verify message matches
-  if (message !== challenge.message) {
-    return { valid: false, error: 'Message does not match challenge' };
+  if (expiresAtMs - issuedAtMs > CHALLENGE_TTL_MS + 1_000) {
+    return { valid: false, error: 'Auth message validity window is invalid' };
+  }
+
+  const usedMessageKey = authMessageKey(accountId, message);
+  const usedMessage = usedMessageStore.get(usedMessageKey);
+  if (usedMessage && Date.parse(usedMessage.expiresAt) >= now) {
+    return { valid: false, error: 'Challenge has already been used' };
+  }
+
+  if (challenge) {
+    // Step 2: Validate expiry
+    if (Date.parse(challenge.expiresAt) < now) {
+      challengeStore.delete(accountId);
+      return { valid: false, error: 'Challenge has expired' };
+    }
+
+    usedMessageStore.delete(usedMessageKey);
   }
 
   // Step 4: Parse inputs
@@ -330,8 +448,12 @@ export async function verifyNearSignature(
 
   let nonceBytes: Uint8Array;
   try {
-    nonceBytes = new Uint8Array(Buffer.from(challenge.nonce, 'base64'));
+    nonceBytes = new Uint8Array(Buffer.from(parsedMessage.nonce, 'base64'));
   } catch {
+    return { valid: false, error: 'Invalid challenge nonce' };
+  }
+
+  if (nonceBytes.length !== 32) {
     return { valid: false, error: 'Invalid challenge nonce' };
   }
 
@@ -362,8 +484,11 @@ export async function verifyNearSignature(
     return { valid: false, error: 'Public key does not belong to account' };
   }
 
-  // Consume the challenge (one-time use)
-  challengeStore.delete(accountId);
+  // Consume the challenge (one-time use) when verification is tied to an issued challenge.
+  if (challenge) {
+    challengeStore.delete(accountId);
+  }
+  usedMessageStore.set(usedMessageKey, { expiresAt: parsedMessage.expiresAt });
 
   return { valid: true };
 }

@@ -20,6 +20,8 @@ vi.mock('../../src/config/index.js', () => ({
   config: {
     jwtSecret: 'test-secret-key-for-tests',
     jwtExpiresIn: '1h',
+    refreshSecret: 'test-refresh-secret-for-tests',
+    refreshExpiresIn: '7d',
     nodeEnv: 'development',
     nearNetwork: 'testnet',
     nearRpcUrl: 'https://rpc.testnet.near.org',
@@ -39,6 +41,8 @@ import {
   createAuthChallenge,
   verifyNearSignature,
   generateToken,
+  generateRefreshToken,
+  verifyRefreshToken,
   verifyToken,
 } from '../../src/auth/index.js';
 import { rpcQuery } from '../../src/rpc/index.js';
@@ -138,7 +142,7 @@ describe('Challenge-based auth', () => {
       publicKeyBase64
     );
     expect(result.valid).toBe(false);
-    expect(result.error).toContain('No active challenge');
+    expect(result.error).toBe('Invalid auth message format');
   });
 
   it('rejects when message does not match challenge', async () => {
@@ -208,7 +212,7 @@ describe('Challenge-based auth', () => {
       publicKeyBase64
     );
     expect(second.valid).toBe(false);
-    expect(second.error).toContain('No active challenge');
+    expect(second.error).toBe('Challenge has already been used');
   });
 
   it('new challenge replaces old one', async () => {
@@ -279,6 +283,36 @@ describe('Challenge-based auth', () => {
     );
     expect(result.valid).toBe(true);
   });
+
+  it('accepts a valid signed message even if the in-memory challenge store is empty', async () => {
+    const now = Date.now();
+    const issuedAt = new Date(now).toISOString();
+    const expiresAt = new Date(now + 5 * 60 * 1000).toISOString();
+    const nonceBytes = crypto.getRandomValues(new Uint8Array(32));
+    const nonce = encodeBase64(nonceBytes);
+    const challenge = {
+      message: [
+        'OnSocial API Auth',
+        `Account: ${accountId}`,
+        `Nonce: ${nonce}`,
+        `Issued: ${issuedAt}`,
+        `Expires: ${expiresAt}`,
+        'Network: testnet',
+      ].join('\n'),
+      recipient: 'OnSocial Gateway',
+      nonce,
+    };
+
+    const signature = signChallenge(challenge, keyPair.secretKey);
+
+    const result = await verifyNearSignature(
+      accountId,
+      challenge.message,
+      signature,
+      publicKeyBase64
+    );
+    expect(result.valid).toBe(true);
+  });
 });
 
 describe('JWT tokens', () => {
@@ -301,5 +335,41 @@ describe('JWT tokens', () => {
     // Flip a character
     const tampered = token.slice(0, -2) + 'xx';
     expect(verifyToken(tampered)).toBeNull();
+  });
+});
+
+describe('Refresh tokens', () => {
+  it('generates and verifies a refresh token', () => {
+    const token = generateRefreshToken('carol.testnet');
+    expect(token).toBeTruthy();
+
+    const result = verifyRefreshToken(token);
+    expect(result).not.toBeNull();
+    expect(result!.accountId).toBe('carol.testnet');
+  });
+
+  it('returns null for garbage refresh token', () => {
+    expect(verifyRefreshToken('garbage.token.data')).toBeNull();
+  });
+
+  it('returns null when access token is used as refresh token', async () => {
+    const accessToken = await generateToken('carol.testnet');
+    // Access token has kind: 'access', not 'refresh'
+    expect(verifyRefreshToken(accessToken)).toBeNull();
+  });
+
+  it('returns null for tampered refresh token', () => {
+    const token = generateRefreshToken('carol.testnet');
+    const tampered = token.slice(0, -2) + 'xx';
+    expect(verifyRefreshToken(tampered)).toBeNull();
+  });
+
+  it('access token cannot be verified as refresh and vice versa', async () => {
+    const accessToken = await generateToken('dave.testnet');
+    const refreshToken = generateRefreshToken('dave.testnet');
+
+    // Cross-verification must fail
+    expect(verifyRefreshToken(accessToken)).toBeNull();
+    expect(verifyToken(refreshToken)).toBeNull();
   });
 });

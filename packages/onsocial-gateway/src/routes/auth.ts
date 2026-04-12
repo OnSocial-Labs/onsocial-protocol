@@ -2,6 +2,8 @@ import { Router } from 'express';
 import {
   createAuthChallenge,
   generateToken,
+  generateRefreshToken,
+  verifyRefreshToken,
   verifyNearSignature,
 } from '../auth/index.js';
 import { getTierInfo, clearTierCache } from '../tiers/index.js';
@@ -11,6 +13,27 @@ import { logger } from '../logger.js';
 import type { Request, Response } from 'express';
 
 export const authRouter = Router();
+
+// ── Cookie helpers ────────────────────────────────────────────
+
+function setRefreshCookie(res: Response, refreshToken: string): void {
+  res.cookie(config.refreshCookieName, refreshToken, {
+    httpOnly: true,
+    secure: config.nodeEnv === 'production',
+    sameSite: config.nodeEnv === 'production' ? 'none' : 'lax',
+    maxAge: config.refreshCookieMaxAge * 1000,
+    path: '/auth',
+  });
+}
+
+function clearRefreshCookie(res: Response): void {
+  res.clearCookie(config.refreshCookieName, {
+    httpOnly: true,
+    secure: config.nodeEnv === 'production',
+    sameSite: config.nodeEnv === 'production' ? 'none' : 'lax',
+    path: '/auth',
+  });
+}
 
 /**
  * POST /auth/challenge
@@ -71,11 +94,14 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     }
 
     const token = await generateToken(accountId);
+    const refreshToken = generateRefreshToken(accountId);
     const tierInfo = await getTierInfo(accountId);
+
+    setRefreshCookie(res, refreshToken);
 
     res.json({
       token,
-      expiresIn: '1h',
+      expiresIn: config.jwtExpiresIn,
       tier: tierInfo.tier,
       rateLimit: tierInfo.rateLimit,
     });
@@ -87,9 +113,45 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 
 /**
  * POST /auth/refresh
- * Refresh JWT token (requires valid existing token)
+ * Issue a new access token using the refresh cookie.
+ * No Bearer header required — the HttpOnly cookie is sent automatically.
+ * Also accepts a valid Bearer token for backward compatibility.
  */
 authRouter.post('/refresh', async (req: Request, res: Response) => {
+  // Path 1: Try refresh cookie first
+  const refreshCookie = req.cookies?.[config.refreshCookieName] as
+    | string
+    | undefined;
+  if (refreshCookie) {
+    const payload = verifyRefreshToken(refreshCookie);
+    if (payload) {
+      try {
+        clearTierCache(payload.accountId);
+        const token = await generateToken(payload.accountId);
+        const newRefresh = generateRefreshToken(payload.accountId);
+        const tierInfo = await getTierInfo(payload.accountId);
+
+        setRefreshCookie(res, newRefresh);
+
+        res.json({
+          token,
+          expiresIn: config.jwtExpiresIn,
+          tier: tierInfo.tier,
+          rateLimit: tierInfo.rateLimit,
+        });
+        return;
+      } catch (error) {
+        logger.error({ error }, 'Refresh error (cookie)');
+        clearRefreshCookie(res);
+        res.status(500).json({ error: 'Token refresh failed' });
+        return;
+      }
+    }
+    // Cookie present but invalid/expired — clear it
+    clearRefreshCookie(res);
+  }
+
+  // Path 2: Fall back to Bearer token (backward compat / API clients)
   if (!req.auth) {
     res.status(401).json({ error: 'Valid token required' });
     return;
@@ -102,7 +164,7 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
 
     res.json({
       token,
-      expiresIn: '1h',
+      expiresIn: config.jwtExpiresIn,
       tier: tierInfo.tier,
       rateLimit: tierInfo.rateLimit,
     });
