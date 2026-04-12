@@ -130,7 +130,8 @@ describe('verifyNearSignature', () => {
   it('accepts valid signature when RPC returns base58 key but client sends base64', async () => {
     // This is the cross-format case: HOT wallet sends ed25519:<base64>,
     // but NEAR RPC returns ed25519:<base58>. Same key, different encoding.
-    const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+    const ALPHABET =
+      '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
     function base58Encode(bytes: Uint8Array): string {
       const digits = [0];
       for (const byte of bytes) {
