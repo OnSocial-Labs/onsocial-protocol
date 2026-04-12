@@ -21,11 +21,47 @@ import {
   formatPrice,
   subscriptionStore,
   getPromotion,
+  getActivePromoForTier,
   promoAppliesToTier,
+  resolvePrice,
   formatDiscount,
 } from '../services/revolut/index.js';
 
 export const subscriptionRouter = Router();
+
+// ── Public endpoints (no auth required) ───────────────────────
+
+/**
+ * GET /developer/plans
+ * Public endpoint: list available subscription plans.
+ */
+subscriptionRouter.get('/plans', (_req: Request, res: Response) => {
+  res.json({
+    plans: SUBSCRIPTION_PLANS.map((p) => {
+      const promo = getActivePromoForTier(p.tier);
+      return {
+        tier: p.tier,
+        name: p.name,
+        price: formatPrice(p),
+        amountMinor: p.amountMinor,
+        currency: p.currency,
+        interval: p.interval,
+        rateLimit: p.rateLimit,
+        ...(promo && {
+          promotion: {
+            name: promo.name,
+            discountPercent: promo.discountPercent,
+            durationCycles: promo.durationCycles,
+            discountedAmountMinor: resolvePrice(p, promo),
+            discountedPrice: formatDiscount(p, promo),
+          },
+        }),
+      };
+    }),
+  });
+});
+
+// ── Authenticated endpoints ───────────────────────────────────
 
 // JWT-only auth (same pattern as developer.ts)
 function requireJwtAuth(req: Request, res: Response, next: () => void): void {
@@ -118,8 +154,8 @@ subscriptionRouter.post('/subscribe', async (req: Request, res: Response) => {
     return;
   }
 
-  // Resolve promotion (if provided)
-  let promo = promoCode ? getPromotion(promoCode) : undefined;
+  // Resolve promotion: explicit code > auto-applied active promo
+  let promo = promoCode ? getPromotion(promoCode) : getActivePromoForTier(tier);
   if (promoCode && !promo) {
     res.status(400).json({ error: 'Invalid or expired promo code' });
     return;
@@ -305,21 +341,3 @@ subscriptionRouter.post(
     });
   }
 );
-
-/**
- * GET /developer/plans
- * Public-ish endpoint: list available subscription plans.
- */
-subscriptionRouter.get('/plans', (_req: Request, res: Response) => {
-  res.json({
-    plans: SUBSCRIPTION_PLANS.map((p) => ({
-      tier: p.tier,
-      name: p.name,
-      price: formatPrice(p),
-      amountMinor: p.amountMinor,
-      currency: p.currency,
-      interval: p.interval,
-      rateLimit: p.rateLimit,
-    })),
-  });
-});

@@ -167,9 +167,19 @@ async function verifyKeyBelongsToAccount(
     });
 
     if ('keys' in result && Array.isArray(result.keys)) {
-      return result.keys.some(
-        (key: { public_key: string }) => key.public_key === publicKey
-      );
+      // Compare decoded key bytes (not format-dependent strings) so
+      // ed25519:<base64> and ed25519:<base58> of the same key both match.
+      const incomingBytes = parsePublicKey(publicKey);
+      if (!incomingBytes) return false;
+
+      return result.keys.some((key: { public_key: string }) => {
+        // Fast path: exact string match
+        if (key.public_key === publicKey) return true;
+        // Slow path: decode both and compare bytes
+        const rpcBytes = parsePublicKey(key.public_key);
+        if (!rpcBytes || rpcBytes.length !== incomingBytes.length) return false;
+        return rpcBytes.every((b, i) => b === incomingBytes[i]);
+      });
     }
 
     return false;

@@ -127,6 +127,56 @@ describe('verifyNearSignature', () => {
     expect(result.error).toBeUndefined();
   });
 
+  it('accepts valid signature when RPC returns base58 key but client sends base64', async () => {
+    // This is the cross-format case: HOT wallet sends ed25519:<base64>,
+    // but NEAR RPC returns ed25519:<base58>. Same key, different encoding.
+    const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+    function base58Encode(bytes: Uint8Array): string {
+      const digits = [0];
+      for (const byte of bytes) {
+        let carry = byte;
+        for (let j = 0; j < digits.length; j++) {
+          carry += digits[j] << 8;
+          digits[j] = carry % 58;
+          carry = (carry / 58) | 0;
+        }
+        while (carry > 0) {
+          digits.push(carry % 58);
+          carry = (carry / 58) | 0;
+        }
+      }
+      let str = '';
+      for (const byte of bytes) {
+        if (byte !== 0) break;
+        str += '1';
+      }
+      for (let i = digits.length - 1; i >= 0; i--) {
+        str += ALPHABET[digits[i]];
+      }
+      return str;
+    }
+
+    const publicKeyBase58 = `ed25519:${base58Encode(keyPair.publicKey)}`;
+    // Sanity: the two formats should be different strings
+    expect(publicKeyBase58).not.toBe(publicKeyBase64);
+
+    const message = `OnSocial Auth: ${Date.now()}`;
+
+    // RPC returns base58, client sent base64
+    vi.mocked(rpcQuery).mockResolvedValue({
+      keys: [{ public_key: publicKeyBase58 }],
+    });
+
+    const result = await verifyNearSignature(
+      'alice.testnet',
+      message,
+      signMessage(message),
+      publicKeyBase64 // client sends base64
+    );
+    expect(result.valid).toBe(true);
+    expect(result.error).toBeUndefined();
+  });
+
   it('does NOT bypass verification in development mode', async () => {
     // This is the critical test: even with nodeEnv='development',
     // verification must still run (we removed the bypass)

@@ -19,6 +19,7 @@ export {
   subscribableTiers,
   formatPrice,
   getPromotion,
+  getActivePromoForTier,
   promoAppliesToTier,
   resolvePrice,
   formatDiscount,

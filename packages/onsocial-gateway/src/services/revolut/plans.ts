@@ -165,3 +165,14 @@ export function formatDiscount(
   const symbol = plan.currency === 'USD' ? '$' : plan.currency;
   return `${symbol}${discountedMajor}/${plan.interval} (${promo.discountPercent}% off for ${promo.durationCycles} ${plan.interval}s, then ${fullPrice})`;
 }
+
+/** Find the best active promotion for a given tier (if any). */
+export function getActivePromoForTier(tier: string): Promotion | undefined {
+  const now = new Date();
+  return PROMOTIONS.find((p) => {
+    if (!p.active) return false;
+    if (p.validFrom && now < new Date(p.validFrom)) return false;
+    if (p.validUntil && now > new Date(p.validUntil)) return false;
+    return p.tiers.length === 0 || p.tiers.includes(tier);
+  });
+}
