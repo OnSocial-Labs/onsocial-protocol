@@ -256,6 +256,22 @@ ssh "root@$SERVER_IP" bash -s "$IMAGE_TAG" << 'REMOTE_SCRIPT'
     return 1
   }
 
+  run_gateway_schema_sync() {
+    local database_url="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+
+    echo "Ensuring postgres and hasura are up before migrations..."
+    docker compose up -d postgres hasura
+    check_health "hasura" "http://localhost:8080/healthz" 25 4
+
+    echo "Applying gateway SQL migrations..."
+    docker compose run --rm --no-deps -e DATABASE_URL="$database_url" --entrypoint node gateway \
+      packages/onsocial-gateway/dist/scripts/apply-migrations.js
+
+    echo "Applying Hasura tracking and permissions..."
+    docker compose run --rm --no-deps --entrypoint node gateway \
+      packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js create
+  }
+
   # Rolling restart with health verification
   echo "Rolling relayer-1..."
   docker compose up -d --no-deps relayer-1
@@ -270,6 +286,8 @@ ssh "root@$SERVER_IP" bash -s "$IMAGE_TAG" << 'REMOTE_SCRIPT'
   echo "Rolling relayer-0..."
   docker compose up -d --no-deps relayer-0
   sleep 10
+
+  run_gateway_schema_sync
 
   echo "Rolling gateway..."
   docker compose up -d --no-deps gateway

@@ -288,19 +288,16 @@ jobs:
               exit 1
             fi
 
-            # ── Run gateway SQL migrations (idempotent) ──────────
+            # ── Run gateway SQL migrations (tracked + locked) ─────
             echo "Running gateway migrations..."
-            docker compose exec -T gateway find /app/packages/onsocial-gateway/migrations -name '*.sql' -print | sort | while read f; do
-              echo "  Applying $(basename $f)..."
-              docker compose exec -T gateway cat "$f" | \
-                docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" 2>&1 || \
-                echo "  ⚠️  $(basename $f) failed (may already be applied)"
-            done
+            DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+            docker compose exec -T -e DATABASE_URL="$DATABASE_URL" gateway \
+              node packages/onsocial-gateway/dist/scripts/apply-migrations.js
 
             # ── Sync Hasura permissions (idempotent — skips existing) ─
             echo "Syncing Hasura permissions..."
-            docker compose exec -T gateway node packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js create 2>&1 || \
-              echo "⚠️  Hasura permission sync skipped (script not built or unavailable)"
+            docker compose exec -T gateway \
+              node packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js create
 
             echo "Reloading caddy..."
             docker compose up -d --no-deps caddy

@@ -373,6 +373,22 @@ ssh "${SSH_OPTIONS[@]}" "root@$SERVER_IP" bash -s "$IMAGE_TAG" "$DEPLOY_TARGET" 
     return 1
   }
 
+  run_gateway_schema_sync() {
+    local service_name="$1"
+    local database_url="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
+
+    echo "Applying gateway SQL migrations..."
+    docker compose -f docker-compose.app.yml run --rm --no-deps \
+      -e DATABASE_URL="$database_url" \
+      --entrypoint node "$service_name" \
+      packages/onsocial-gateway/dist/scripts/apply-migrations.js
+
+    echo "Applying Hasura tracking and permissions..."
+    docker compose -f docker-compose.app.yml run --rm --no-deps \
+      --entrypoint node "$service_name" \
+      packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js create
+  }
+
   slot_service_name() {
     local service_prefix="$1"
     local slot="$2"
@@ -544,6 +560,7 @@ ssh "${SSH_OPTIONS[@]}" "root@$SERVER_IP" bash -s "$IMAGE_TAG" "$DEPLOY_TARGET" 
   elif [[ "$DEPLOY_TARGET" = "gateway" ]]; then
     pending_gateway_slot="$next_gateway_slot"
     docker compose -f docker-compose.app.yml pull "$(slot_service_name gateway "$next_gateway_slot")"
+    run_gateway_schema_sync "$(slot_service_name gateway "$next_gateway_slot")"
     docker compose -f docker-compose.app.yml up -d "$(slot_service_name gateway "$next_gateway_slot")"
     check_health "gateway-$next_gateway_slot" "$(slot_health_url gateway "$next_gateway_slot")" 25 4
 
@@ -568,6 +585,7 @@ ssh "${SSH_OPTIONS[@]}" "root@$SERVER_IP" bash -s "$IMAGE_TAG" "$DEPLOY_TARGET" 
     docker compose -f docker-compose.app.yml pull \
       "$(slot_service_name backend "$next_backend_slot")" \
       "$(slot_service_name gateway "$next_gateway_slot")"
+    run_gateway_schema_sync "$(slot_service_name gateway "$next_gateway_slot")"
     docker compose -f docker-compose.app.yml up -d "$(slot_service_name backend "$next_backend_slot")"
     check_health "backend-$next_backend_slot" "$(slot_health_url backend "$next_backend_slot")" 25 4
 
