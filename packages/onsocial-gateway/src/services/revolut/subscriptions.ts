@@ -219,57 +219,57 @@ class HasuraStore implements SubscriptionStore {
   private toRecord(row: Record<string, unknown>): SubscriptionRecord {
     return {
       id: row.id as string,
-      accountId: row.account_id as string,
+      accountId: row.accountId as string,
       tier: row.tier as Tier,
       status: row.status as SubscriptionStatus,
-      revolutSubscriptionId: (row.revolut_subscription_id as string) || null,
-      revolutCustomerId: (row.revolut_customer_id as string) || null,
-      revolutSetupOrderId: (row.revolut_setup_order_id as string) || null,
-      revolutLastOrderId: (row.revolut_last_order_id as string) || null,
-      promotionCode: (row.promotion_code as string) || null,
-      promotionCyclesRemaining: (row.promotion_cycles_remaining as number) || 0,
-      currentPeriodStart: row.current_period_start as string,
-      currentPeriodEnd: row.current_period_end as string,
-      createdAt: row.created_at as string,
-      updatedAt: row.updated_at as string,
+      revolutSubscriptionId: (row.revolutSubscriptionId as string) || null,
+      revolutCustomerId: (row.revolutCustomerId as string) || null,
+      revolutSetupOrderId: (row.revolutSetupOrderId as string) || null,
+      revolutLastOrderId: (row.revolutLastOrderId as string) || null,
+      promotionCode: (row.promotionCode as string) || null,
+      promotionCyclesRemaining: (row.promotionCyclesRemaining as number) || 0,
+      currentPeriodStart: row.currentPeriodStart as string,
+      currentPeriodEnd: row.currentPeriodEnd as string,
+      createdAt: row.createdAt as string,
+      updatedAt: row.updatedAt as string,
     };
   }
 
   private readonly FIELDS = `
-    id account_id tier status
-    revolut_subscription_id revolut_customer_id revolut_setup_order_id revolut_last_order_id
-    promotion_code promotion_cycles_remaining
-    current_period_start current_period_end created_at updated_at
+    id accountId tier status
+    revolutSubscriptionId revolutCustomerId revolutSetupOrderId revolutLastOrderId
+    promotionCode promotionCyclesRemaining
+    currentPeriodStart currentPeriodEnd createdAt updatedAt
   `;
 
   async upsert(
     record: Omit<SubscriptionRecord, 'createdAt' | 'updatedAt'>
   ): Promise<void> {
     await this.gql(
-      `mutation($obj: developer_subscriptions_insert_input!) {
-        insert_developer_subscriptions_one(
+      `mutation($obj: developerSubscriptionsInsertInput!) {
+        insertDeveloperSubscriptionsOne(
           object: $obj
           on_conflict: {
-            constraint: developer_subscriptions_account_id_key
-            update_columns: [tier, status, revolut_subscription_id, revolut_customer_id, revolut_setup_order_id, revolut_last_order_id, promotion_code, promotion_cycles_remaining, current_period_start, current_period_end, updated_at]
+            constraint: developerSubscriptionsAccountIdKey
+            update_columns: [tier, status, revolutSubscriptionId, revolutCustomerId, revolutSetupOrderId, revolutLastOrderId, promotionCode, promotionCyclesRemaining, currentPeriodStart, currentPeriodEnd, updatedAt]
           }
         ) { id }
       }`,
       {
         obj: {
           id: record.id,
-          account_id: record.accountId,
+          accountId: record.accountId,
           tier: record.tier,
           status: record.status,
-          revolut_subscription_id: record.revolutSubscriptionId,
-          revolut_customer_id: record.revolutCustomerId,
-          revolut_setup_order_id: record.revolutSetupOrderId,
-          revolut_last_order_id: record.revolutLastOrderId,
-          promotion_code: record.promotionCode,
-          promotion_cycles_remaining: record.promotionCyclesRemaining,
-          current_period_start: record.currentPeriodStart,
-          current_period_end: record.currentPeriodEnd,
-          updated_at: new Date().toISOString(),
+          revolutSubscriptionId: record.revolutSubscriptionId,
+          revolutCustomerId: record.revolutCustomerId,
+          revolutSetupOrderId: record.revolutSetupOrderId,
+          revolutLastOrderId: record.revolutLastOrderId,
+          promotionCode: record.promotionCode,
+          promotionCyclesRemaining: record.promotionCyclesRemaining,
+          currentPeriodStart: record.currentPeriodStart,
+          currentPeriodEnd: record.currentPeriodEnd,
+          updatedAt: new Date().toISOString(),
         },
       }
     );
@@ -277,15 +277,15 @@ class HasuraStore implements SubscriptionStore {
 
   async getByAccount(accountId: string): Promise<SubscriptionRecord | null> {
     const data = await this.gql<{
-      developer_subscriptions: Array<Record<string, unknown>>;
+      developerSubscriptions: Array<Record<string, unknown>>;
     }>(
       `query($acct: String!) {
-        developer_subscriptions(where: { account_id: { _eq: $acct } }, limit: 1) { ${this.FIELDS} }
+        developerSubscriptions(where: { accountId: { _eq: $acct } }, limit: 1) { ${this.FIELDS} }
       }`,
       { acct: accountId }
     );
-    return data.developer_subscriptions[0]
-      ? this.toRecord(data.developer_subscriptions[0])
+    return data.developerSubscriptions[0]
+      ? this.toRecord(data.developerSubscriptions[0])
       : null;
   }
 
@@ -293,19 +293,19 @@ class HasuraStore implements SubscriptionStore {
     accountId: string
   ): Promise<SubscriptionRecord | null> {
     const data = await this.gql<{
-      developer_subscriptions: Array<Record<string, unknown>>;
+      developerSubscriptions: Array<Record<string, unknown>>;
     }>(
       `query($acct: String!, $now: timestamptz!) {
-        developer_subscriptions(where: {
-          account_id: { _eq: $acct }
+        developerSubscriptions(where: {
+          accountId: { _eq: $acct }
           status: { _eq: "active" }
-          current_period_end: { _gt: $now }
+          currentPeriodEnd: { _gt: $now }
         }, limit: 1) { ${this.FIELDS} }
       }`,
       { acct: accountId, now: new Date().toISOString() }
     );
-    return data.developer_subscriptions[0]
-      ? this.toRecord(data.developer_subscriptions[0])
+    return data.developerSubscriptions[0]
+      ? this.toRecord(data.developerSubscriptions[0])
       : null;
   }
 
@@ -313,18 +313,18 @@ class HasuraStore implements SubscriptionStore {
     accountId: string
   ): Promise<SubscriptionRecord | null> {
     const data = await this.gql<{
-      developer_subscriptions: Array<Record<string, unknown>>;
+      developerSubscriptions: Array<Record<string, unknown>>;
     }>(
       `query($acct: String!, $now: timestamptz!) {
-        developer_subscriptions(where: {
-          account_id: { _eq: $acct }
-          current_period_end: { _gt: $now }
+        developerSubscriptions(where: {
+          accountId: { _eq: $acct }
+          currentPeriodEnd: { _gt: $now }
         }, limit: 1) { ${this.FIELDS} }
       }`,
       { acct: accountId, now: new Date().toISOString() }
     );
-    return data.developer_subscriptions[0]
-      ? this.toRecord(data.developer_subscriptions[0])
+    return data.developerSubscriptions[0]
+      ? this.toRecord(data.developerSubscriptions[0])
       : null;
   }
 
@@ -334,10 +334,10 @@ class HasuraStore implements SubscriptionStore {
   ): Promise<void> {
     await this.gql(
       `mutation($acct: String!, $status: String!, $now: timestamptz!) {
-        update_developer_subscriptions(
-          where: { account_id: { _eq: $acct } }
-          _set: { status: $status, updated_at: $now }
-        ) { affected_rows }
+        updateDeveloperSubscriptions(
+          where: { accountId: { _eq: $acct } }
+          _set: { status: $status, updatedAt: $now }
+        ) { affectedRows }
       }`,
       { acct: accountId, status, now: new Date().toISOString() }
     );
@@ -351,16 +351,16 @@ class HasuraStore implements SubscriptionStore {
   ): Promise<void> {
     await this.gql(
       `mutation($acct: String!, $start: timestamptz!, $end: timestamptz!, $orderId: String!, $now: timestamptz!) {
-        update_developer_subscriptions(
-          where: { account_id: { _eq: $acct } }
+        updateDeveloperSubscriptions(
+          where: { accountId: { _eq: $acct } }
           _set: {
-            current_period_start: $start
-            current_period_end: $end
-            revolut_last_order_id: $orderId
+            currentPeriodStart: $start
+            currentPeriodEnd: $end
+            revolutLastOrderId: $orderId
             status: "active"
-            updated_at: $now
+            updatedAt: $now
           }
-        ) { affected_rows }
+        ) { affectedRows }
       }`,
       {
         acct: accountId,
@@ -376,15 +376,15 @@ class HasuraStore implements SubscriptionStore {
     setupOrderId: string
   ): Promise<SubscriptionRecord | null> {
     const data = await this.gql<{
-      developer_subscriptions: Array<Record<string, unknown>>;
+      developerSubscriptions: Array<Record<string, unknown>>;
     }>(
       `query($orderId: String!) {
-        developer_subscriptions(where: { revolut_setup_order_id: { _eq: $orderId } }, limit: 1) { ${this.FIELDS} }
+        developerSubscriptions(where: { revolutSetupOrderId: { _eq: $orderId } }, limit: 1) { ${this.FIELDS} }
       }`,
       { orderId: setupOrderId }
     );
-    return data.developer_subscriptions[0]
-      ? this.toRecord(data.developer_subscriptions[0])
+    return data.developerSubscriptions[0]
+      ? this.toRecord(data.developerSubscriptions[0])
       : null;
   }
 
@@ -392,50 +392,50 @@ class HasuraStore implements SubscriptionStore {
     revolutSubId: string
   ): Promise<SubscriptionRecord | null> {
     const data = await this.gql<{
-      developer_subscriptions: Array<Record<string, unknown>>;
+      developerSubscriptions: Array<Record<string, unknown>>;
     }>(
       `query($subId: String!) {
-        developer_subscriptions(where: { revolut_subscription_id: { _eq: $subId } }, limit: 1) { ${this.FIELDS} }
+        developerSubscriptions(where: { revolutSubscriptionId: { _eq: $subId } }, limit: 1) { ${this.FIELDS} }
       }`,
       { subId: revolutSubId }
     );
-    return data.developer_subscriptions[0]
-      ? this.toRecord(data.developer_subscriptions[0])
+    return data.developerSubscriptions[0]
+      ? this.toRecord(data.developerSubscriptions[0])
       : null;
   }
 
   async listActiveWithRevolutSub(): Promise<SubscriptionRecord[]> {
     const data = await this.gql<{
-      developer_subscriptions: Array<Record<string, unknown>>;
+      developerSubscriptions: Array<Record<string, unknown>>;
     }>(
       `query {
-        developer_subscriptions(where: {
+        developerSubscriptions(where: {
           status: { _eq: "active" }
-          revolut_subscription_id: { _is_null: false }
+          revolutSubscriptionId: { _is_null: false }
         }) { ${this.FIELDS} }
       }`
     );
-    return data.developer_subscriptions.map((r) => this.toRecord(r));
+    return data.developerSubscriptions.map((r) => this.toRecord(r));
   }
 
   async decrementPromoCycles(accountId: string): Promise<number> {
     const data = await this.gql<{
-      update_developer_subscriptions: {
-        returning: Array<{ promotion_cycles_remaining: number }>;
+      updateDeveloperSubscriptions: {
+        returning: Array<{ promotionCyclesRemaining: number }>;
       };
     }>(
       `mutation($acct: String!, $now: timestamptz!) {
-        update_developer_subscriptions(
-          where: { account_id: { _eq: $acct }, promotion_cycles_remaining: { _gt: 0 } }
-          _inc: { promotion_cycles_remaining: -1 }
-          _set: { updated_at: $now }
-        ) { returning { promotion_cycles_remaining } }
+        updateDeveloperSubscriptions(
+          where: { accountId: { _eq: $acct }, promotionCyclesRemaining: { _gt: 0 } }
+          _inc: { promotionCyclesRemaining: -1 }
+          _set: { updatedAt: $now }
+        ) { returning { promotionCyclesRemaining } }
       }`,
       { acct: accountId, now: new Date().toISOString() }
     );
     return (
-      data.update_developer_subscriptions.returning[0]
-        ?.promotion_cycles_remaining ?? 0
+      data.updateDeveloperSubscriptions.returning[0]
+        ?.promotionCyclesRemaining ?? 0
     );
   }
 }
