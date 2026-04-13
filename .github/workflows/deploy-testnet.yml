@@ -142,12 +142,11 @@ jobs:
           echo "✅ Config files synced to server"
 
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ env.DEPLOY_HOST }}
-          username: root
-          key: ${{ steps.ssh.outputs.key }}
-          script: |
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile=~/.ssh/known_hosts \
+            root@${{ env.DEPLOY_HOST }} 'bash -seu' <<'REMOTE_SCRIPT'
             set -euo pipefail
             cd /opt/onsocial
 
@@ -335,4 +334,5 @@ jobs:
             docker compose ps --format "table {{.Name}}\t{{.Status}}"
             echo ""
             rm -f deploy_gsm.env
+          REMOTE_SCRIPT
             echo "✅ Testnet deploy complete — ${{ steps.sha.outputs.short }} (prev: $PREV_TAG)"
