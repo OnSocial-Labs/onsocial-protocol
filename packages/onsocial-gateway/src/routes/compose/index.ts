@@ -3,8 +3,8 @@
  *
  * Modules:
  *   set             — Store content at any core contract path
- *   mint            — Mint NFTs with auto-uploaded media
- *   collection      — Create NFT collections
+ *   mint            — Mint Scarces with auto-uploaded media
+ *   collection      — Create Scarces collections
  *   lazy-listing    — List content for deferred-mint purchase
  *   token           — Transfer, burn, renew, redeem, revoke, refund
  *   approval        — NEP-178 approval management

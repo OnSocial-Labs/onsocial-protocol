@@ -1,5 +1,5 @@
 /**
- * Compose: Mint — mint NFTs with auto-uploaded media + metadata.
+ * Compose: Mint — mint Scarces with auto-uploaded media + metadata.
  */
 
 import { config } from '../../config/index.js';

@@ -1,7 +1,7 @@
 /**
  * Compose: NEP-178 Approval management — approve, revoke, revoke-all.
  *
- * These are standard NFT approval operations. The `msg` field on approve
+ * These are standard Scarces approval operations (NEP-178 style). The `msg` field on approve
  * enables cross-contract marketplace flows (e.g. listing on external marketplace).
  */
 

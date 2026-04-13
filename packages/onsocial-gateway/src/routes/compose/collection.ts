@@ -1,5 +1,5 @@
 /**
- * Compose routes: Collection — create NFT collections with auto-uploaded images.
+ * Compose routes: Collection — create Scarces collections with auto-uploaded images.
  *
  * POST /create-collection          — Upload + relay via intent auth
  * POST /prepare/create-collection  — Upload only, return action for SDK signing
@@ -110,7 +110,7 @@ function buildCreateCollectionReq(body: Record<string, unknown>) {
 }
 
 // ---------------------------------------------------------------------------
-// POST /compose/create-collection — Create NFT collection with auto-uploaded image
+// POST /compose/create-collection — Create Scarces collection with auto-uploaded image
 //
 // multipart/form-data:
 //   Fields: collectionId (required), totalSupply (required), title (required),

@@ -51,6 +51,13 @@ services:
       RELAYER_API_KEY: ${RELAYER_API_KEY}
       ADMIN_WALLETS: ${ADMIN_WALLETS:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      REVOLUT_SECRET_KEY: ${REVOLUT_SECRET_KEY:-}
+      REVOLUT_PUBLIC_KEY: ${REVOLUT_PUBLIC_KEY:-}
+      REVOLUT_WEBHOOK_SIGNING_SECRET: ${REVOLUT_WEBHOOK_SIGNING_SECRET:-}
+      REVOLUT_PRO_VARIATION_ID: ${REVOLUT_PRO_VARIATION_ID:-}
+      REVOLUT_SCALE_VARIATION_ID: ${REVOLUT_SCALE_VARIATION_ID:-}
+      REVOLUT_API_URL: ${REVOLUT_API_URL:-}
+      REVOLUT_API_VERSION: ${REVOLUT_API_VERSION:-}
     depends_on:
       relayer-lb:
         condition: service_started
@@ -98,6 +105,43 @@ services:
       retries: 3
     mem_limit: 512m
     cpus: 1.0
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  notification-worker:
+    image: ghcr.io/onsocial-labs/onsocial-protocol/gateway:${IMAGE_TAG:-latest}
+    container_name: notification-worker
+    restart: unless-stopped
+    command: ["node", "packages/onsocial-gateway/dist/scripts/run-notification-worker.js"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+      HASURA_URL: ${HASURA_URL}
+      HASURA_ADMIN_SECRET: ${HASURA_ADMIN_SECRET}
+      JWT_SECRET: ${JWT_SECRET}
+      LIGHTHOUSE_API_KEY: ${LIGHTHOUSE_API_KEY}
+      NEAR_NETWORK: ${NEAR_NETWORK:-testnet}
+      SOCIAL_TOKEN_CONTRACT: ${SOCIAL_TOKEN_CONTRACT:-}
+      STAKING_CONTRACT: ${STAKING_CONTRACT:-}
+      NEARBLOCKS_API_URL: ${NEARBLOCKS_API_URL:-https://api.nearblocks.io}
+      NEARBLOCKS_API_KEY: ${NEARBLOCKS_API_KEY:-}
+      LAVA_API_KEY: ${LAVA_API_KEY:-}
+      RELAYER_URL: ${RELAYER_URL:-http://relayer-lb:3040}
+      RELAYER_API_KEY: ${RELAYER_API_KEY}
+      ADMIN_WALLETS: ${ADMIN_WALLETS:-}
+      NOTIFICATION_WORKER_POLL_INTERVAL_MS: ${NOTIFICATION_WORKER_POLL_INTERVAL_MS:-15000}
+      NOTIFICATION_WORKER_BATCH_SIZE: ${NOTIFICATION_WORKER_BATCH_SIZE:-250}
+    depends_on:
+      relayer-lb:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'run-notification-worker.js' >/dev/null"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    mem_limit: 256m
+    cpus: 0.5
     read_only: true
     tmpfs:
       - /tmp

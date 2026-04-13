@@ -71,6 +71,7 @@ export function GatewayAuthProvider({ children }: { children: ReactNode }) {
   const [authError, setAuthError] = useState<string | null>(null);
   const authPromiseRef = useRef<Promise<string | null> | null>(null);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previousAccountIdRef = useRef<string | null>(null);
 
   // Schedule a silent refresh before the access token expires
   const scheduleRefresh = useCallback((token: string) => {
@@ -106,6 +107,17 @@ export function GatewayAuthProvider({ children }: { children: ReactNode }) {
       if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
     }
   }, [isConnected]);
+
+  // Clear JWT immediately when the connected wallet account changes.
+  useEffect(() => {
+    if (previousAccountIdRef.current !== accountId) {
+      setJwt(null);
+      setAuthError(null);
+      authPromiseRef.current = null;
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+      previousAccountIdRef.current = accountId ?? null;
+    }
+  }, [accountId]);
 
   // On mount / account change: try silent refresh to restore session
   useEffect(() => {
@@ -144,8 +156,11 @@ export function GatewayAuthProvider({ children }: { children: ReactNode }) {
     if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
   }, []);
 
-  // Core auth function — deduplicates concurrent calls
-  const ensureAuth = useCallback(async (): Promise<string | null> => {
+  const runAuthFlow = useCallback(async (
+    options?: { silent?: boolean }
+  ): Promise<string | null> => {
+    const silent = options?.silent ?? false;
+
     // Already have a valid token
     if (jwt && isTokenValid(jwt)) return jwt;
 
@@ -166,7 +181,9 @@ export function GatewayAuthProvider({ children }: { children: ReactNode }) {
 
     // Need wallet to sign
     if (!wallet || !accountId) {
-      setAuthError('Connect your wallet first');
+      if (!silent) {
+        setAuthError('Connect your wallet first');
+      }
       return null;
     }
 
@@ -177,7 +194,9 @@ export function GatewayAuthProvider({ children }: { children: ReactNode }) {
 
     const promise = (async () => {
       setIsAuthenticating(true);
-      setAuthError(null);
+      if (!silent) {
+        setAuthError(null);
+      }
       try {
         const token = await gatewayLogin(wallet, accountId);
         setJwt(token);
@@ -186,7 +205,9 @@ export function GatewayAuthProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         const msg =
           err instanceof Error ? err.message : 'Authentication failed';
-        setAuthError(msg);
+        if (!silent) {
+          setAuthError(msg);
+        }
         return null;
       } finally {
         setIsAuthenticating(false);
@@ -197,6 +218,11 @@ export function GatewayAuthProvider({ children }: { children: ReactNode }) {
     authPromiseRef.current = promise;
     return promise;
   }, [jwt, wallet, accountId, scheduleRefresh]);
+
+  // Core auth function — deduplicates concurrent calls
+  const ensureAuth = useCallback(async (): Promise<string | null> => {
+    return runAuthFlow({ silent: false });
+  }, [runAuthFlow]);
 
   const value: GatewayAuthContextValue = {
     jwt,

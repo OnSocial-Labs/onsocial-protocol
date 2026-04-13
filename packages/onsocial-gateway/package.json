@@ -12,12 +12,16 @@
     "start": "node dist/index.js",
     "migrate": "tsx src/scripts/apply-migrations.ts",
     "migrate:prod": "node dist/scripts/apply-migrations.js",
+    "notifications:worker": "tsx src/scripts/run-notification-worker.ts",
+    "notifications:worker:once": "tsx src/scripts/run-notification-worker.ts --once",
+    "notifications:worker:prod": "node dist/scripts/run-notification-worker.js",
     "hasura:permissions": "tsx src/scripts/apply-hasura-permissions.ts create",
+    "hasura:audit": "tsx src/scripts/audit-hasura-schema.ts",
     "lint": "eslint src",
     "format": "prettier --write .",
     "test": "vitest run tests/unit",
     "test:watch": "vitest tests/unit",
-    "test:integration": "vitest run tests/integration",
+    "test:integration": "vitest run tests/integration --maxWorkers=1 --fileParallelism=false",
     "test:all": "vitest run"
   },
   "dependencies": {

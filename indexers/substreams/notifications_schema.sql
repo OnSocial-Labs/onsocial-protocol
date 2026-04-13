@@ -32,8 +32,8 @@ CREATE TABLE IF NOT EXISTS notifications (
   --   group_invite       — you were invited to a group
   --   group_join_request — someone requested to join your group
   --   group_proposal     — new proposal in your group
-  --   nft_sold           — your NFT was purchased
-  --   nft_offer          — someone made an offer on your NFT
+  --   scarces_sold       — your Scarce was purchased
+  --   scarces_offer      — someone made an offer on your Scarce
   --   boost_unlocked     — your boost lock expired
   -- Apps extend freely: guild_joined, endorsement_new, delegate_new, etc.
 
@@ -77,6 +77,7 @@ CREATE INDEX IF NOT EXISTS idx_notifications_source_block
 CREATE TABLE IF NOT EXISTS notification_cursors (
   source_table TEXT PRIMARY KEY,
   last_block_height BIGINT NOT NULL DEFAULT 0,
+  last_event_id TEXT NOT NULL DEFAULT '',
   last_processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

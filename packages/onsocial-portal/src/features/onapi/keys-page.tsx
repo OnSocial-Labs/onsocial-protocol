@@ -1,29 +1,37 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { useSearchParams } from 'next/navigation';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   Copy,
   Check,
+  CheckCircle2,
+  ChevronDown,
   Eye,
   EyeOff,
   Key,
   Plus,
   Trash2,
   RefreshCw,
-  Activity,
   AlertTriangle,
+  X,
+  ArrowUpRight,
 } from 'lucide-react';
 import { useWallet } from '@/contexts/wallet-context';
 import { useGatewayAuth } from '@/contexts/gateway-auth-context';
+import { useMobilePageContext } from '@/components/providers/mobile-page-context';
 import { PageShell } from '@/components/layout/page-shell';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { Button } from '@/components/ui/button';
 import { PortalBadge } from '@/components/ui/portal-badge';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
+import { TransactionFeedbackToast, type TransactionFeedback } from '@/components/ui/transaction-feedback-toast';
 import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
+import { portalColors, portalFrameBorders, portalFrameBackgrounds, type PortalAccent } from '@/lib/portal-colors';
+import { fadeUpMotion, scaleFadeMotion, fadeMotion } from '@/lib/motion';
 import {
   createApiKey,
   listApiKeys,
@@ -34,14 +42,68 @@ import {
   type CreateKeyResult,
   type UsageSummary,
 } from '@/features/onapi/api';
-import { fetchSubscription } from '@/features/onapi/billing-api';
-import { ACTIVE_API_URL } from '@/lib/portal-config';
-
-// ── Helpers ───────────────────────────────────────────────────
+import {
+  fetchPlansPublic,
+  fetchSubscription,
+  subscribe,
+  cancelSubscription,
+  type PlanInfo,
+  type SubscriptionInfo,
+} from '@/features/onapi/billing-api';
 
 function maskKey(prefix: string): string {
   return `${prefix}${'•'.repeat(20)}`;
 }
+
+function formatTierLabel(tier: string): string {
+  return tier.charAt(0).toUpperCase() + tier.slice(1);
+}
+
+const TIER_ACCENT: Record<string, PortalAccent> = {
+  free: 'green',
+  pro: 'blue',
+  scale: 'purple',
+  service: 'amber',
+};
+
+const TIER_LIMITS: Record<string, string> = {
+  free: '60 /min',
+  pro: '600 /min',
+  scale: '3,000 /min',
+  service: '10,000 /min',
+};
+
+/** Daily request budget estimate (rate-limit × 1440 minutes). */
+const TIER_DAILY_BUDGET: Record<string, number> = {
+  free: 86_400,
+  pro: 864_000,
+  scale: 4_320_000,
+  service: 14_400_000,
+};
+
+/** Static tier specs matching the landing-page cards. */
+const TIER_SPECS: Record<string, { depth: string; complexity: string; rows: string; aggregations: boolean }> = {
+  free:  { depth: '3',  complexity: '50',    rows: '100',    aggregations: false },
+  pro:   { depth: '8',  complexity: '1,000', rows: '10,000', aggregations: true },
+  scale: { depth: '12', complexity: '5,000', rows: '50,000', aggregations: true },
+};
+
+function nextTierUp(tier: string): string | null {
+  const order = ['free', 'pro', 'scale'];
+  const idx = order.indexOf(tier);
+  return idx >= 0 && idx < order.length - 1 ? order[idx + 1] : null;
+}
+
+function tierAccent(tier: string): PortalAccent {
+  return TIER_ACCENT[tier] ?? 'slate';
+}
+
+function tierRank(tier: string): number {
+  const ranks: Record<string, number> = { free: 0, pro: 1, scale: 2, service: 3 };
+  return ranks[tier] ?? -1;
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function CopyInline({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -67,91 +129,251 @@ function CopyInline({ text }: { text: string }) {
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────
-
 export default function OnApiKeysPage() {
-  const { accountId, isConnected } = useWallet();
-  const { jwt, isAuthenticating: authLoading, authError, ensureAuth } = useGatewayAuth();
+  const { accountId, isConnected, isLoading: walletLoading, connect } = useWallet();
+  const {
+    jwt,
+    isAuthenticating: authLoading,
+    authError,
+    ensureAuth,
+    clearAuth,
+  } = useGatewayAuth();
+  const { setNavBack } = useMobilePageContext();
+  const searchParams = useSearchParams();
+  const reduceMotion = useReducedMotion();
 
-  // Key state
+  useEffect(() => {
+    setNavBack({ label: 'Back' });
+    return () => setNavBack(null);
+  }, [setNavBack]);
+
+  const requestedTier = searchParams.get('tier');
+
+  const [plans, setPlans] = useState<PlanInfo[]>([]);
+  const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
+  const [currentTier, setCurrentTier] = useState<string>('free');
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const [billingEmail, setBillingEmail] = useState('');
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [upgrading, setUpgrading] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const pendingUpgradeRef = useRef(false);
+
+  const [checkoutSuccess, setCheckoutSuccess] = useState(false);
+  useEffect(() => {
+    if (searchParams.get('checkout') === 'success') {
+      setCheckoutSuccess(true);
+      window.history.replaceState({}, '', '/onapi/keys');
+    }
+  }, [searchParams]);
+
   const [keys, setKeys] = useState<ApiKeyInfo[]>([]);
   const [usage, setUsage] = useState<UsageSummary | null>(null);
   const [keysLoading, setKeysLoading] = useState(false);
 
-  // Create key state
   const [newKey, setNewKey] = useState<CreateKeyResult | null>(null);
   const [showNewKey, setShowNewKey] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [quickStartOpen, setQuickStartOpen] = useState(false);
   const [label, setLabel] = useState('');
 
-  // Revoke state
   const [revoking, setRevoking] = useState<string | null>(null);
   const [confirmRevoke, setConfirmRevoke] = useState<string | null>(null);
 
-  // Rotate state
   const [rotating, setRotating] = useState<string | null>(null);
   const [confirmRotate, setConfirmRotate] = useState<string | null>(null);
 
-  // Error
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<TransactionFeedback | null>(null);
+  const lastAuthError = useRef(authError);
 
-  // Subscription / entitlement
-  const [currentTier, setCurrentTier] = useState<string>('free');
-  const [tierLoading, setTierLoading] = useState(false);
+  /** Map raw SDK/API errors to human-friendly messages. */
+  function friendlyError(raw: string): string {
+    const lower = raw.toLowerCase();
+    if (lower.includes('closed the window') || lower.includes('wallet closed') || lower.includes('user rejected') || lower.includes('cancelled') || lower.includes('canceled'))
+      return 'Wallet confirmation cancelled';
+    if (lower.includes('permission denied'))
+      return 'Wallet permission denied';
+    if (lower.includes('timeout') || lower.includes('timed out'))
+      return 'Wallet request timed out';
+    if (lower.includes('authentication') || lower.includes('unauthorized'))
+      return 'Session expired — sign in again';
+    if (lower.includes('network') || lower.includes('fetch'))
+      return 'Network error — check your connection';
+    return raw;
+  }
 
-  // ── Fetch keys + usage when authenticated ────────────────────
+  // Surface only NEW auth errors as toasts (skip stale errors from previous navigation)
+  useEffect(() => {
+    if (authError && authError !== lastAuthError.current) {
+      setToast({ type: 'error', msg: friendlyError(authError) });
+    }
+    lastAuthError.current = authError;
+  }, [authError]);
+
+  useEffect(() => {
+    if (error) {
+      setToast({ type: 'error', msg: friendlyError(error) });
+    }
+  }, [error]);
 
   const refresh = useCallback(async () => {
     if (!jwt) return;
     setKeysLoading(true);
     setError(null);
     try {
-      const [keyList, usageData] = await Promise.all([
+      const [keyList, usageData, subData] = await Promise.all([
         listApiKeys(jwt),
         getUsage(jwt).catch(() => null),
+        fetchSubscription(jwt).catch(
+          () => ({ subscription: null, tier: 'free' as string, admin: false }),
+        ),
       ]);
       setKeys(keyList);
       setUsage(usageData);
+      setSubscription(subData.subscription);
+      setCurrentTier(subData.tier);
+      setIsAdmin(!!subData.admin);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load keys');
+      const msg = err instanceof Error ? err.message : 'Failed to load keys';
+      if (msg.includes('Authentication')) {
+        try {
+          const token = await ensureAuth();
+          if (token) {
+            const [keyList, usageData, subData] = await Promise.all([
+              listApiKeys(token),
+              getUsage(token).catch(() => null),
+              fetchSubscription(token).catch(
+                () => ({ subscription: null, tier: 'free' as string, admin: false }),
+              ),
+            ]);
+            setKeys(keyList);
+            setUsage(usageData);
+            setSubscription(subData.subscription);
+            setCurrentTier(subData.tier);
+            setIsAdmin(!!subData.admin);
+            return;
+          }
+        } catch {
+        }
+        clearAuth();
+        return;
+      }
+      setError(msg);
     } finally {
       setKeysLoading(false);
     }
-  }, [jwt]);
-
-  // ── Fetch subscription tier ──────────────────────────────────
-
-  const refreshTier = useCallback(async () => {
-    if (!jwt) return;
-    setTierLoading(true);
-    try {
-      const data = await fetchSubscription(jwt);
-      setCurrentTier(data.tier);
-    } catch {
-      // Non-critical — default to free
-    } finally {
-      setTierLoading(false);
-    }
-  }, [jwt]);
+  }, [jwt, ensureAuth, clearAuth]);
 
   useEffect(() => {
-    if (jwt) {
-      refresh();
-      refreshTier();
+    if (!jwt || !accountId || !isConnected) {
+      setKeys([]);
+      setUsage(null);
+      setNewKey(null);
+      setShowNewKey(false);
+      setError(null);
+      setSubscription(null);
+      setCurrentTier('free');
+      setIsAdmin(false);
+      return;
     }
-  }, [jwt, refresh, refreshTier]);
 
-  // ── Create key ───────────────────────────────────────────────
+    void refresh();
+  }, [jwt, accountId, isConnected, refresh]);
+
+  useEffect(() => {
+    fetchPlansPublic().then((planList) => {
+      if (planList.length > 0) setPlans(planList);
+    });
+  }, []);
+
+  const targetPlan = requestedTier
+    ? plans.find((plan) => plan.tier === requestedTier) ?? null
+    : null;
+  const accent: PortalAccent = targetPlan ? tierAccent(targetPlan.tier) : 'blue';
+  // past_due subscriptions are effectively free for upgrade / downgrade logic
+  const effectiveTier = subscription?.status === 'past_due' ? 'free' : currentTier;
+  const alreadyOnTier = requestedTier ? effectiveTier === requestedTier : false;
+  const isUpgrade = requestedTier
+    ? tierRank(requestedTier) > tierRank(effectiveTier)
+    : false;
+  const isDowngrade = requestedTier
+    ? tierRank(requestedTier) < tierRank(effectiveTier) && !alreadyOnTier
+    : false;
+  const hasKeys = keys.length > 0;
+  const showUpgradePanel = Boolean(
+    targetPlan && !alreadyOnTier && (isUpgrade || effectiveTier === 'free'),
+  );
+  const quickStartExpanded = !hasKeys || quickStartOpen;
+  const emailValid = EMAIL_RE.test(billingEmail.trim());
+  const showEmailHint =
+    emailTouched && billingEmail.trim().length > 0 && !emailValid;
+
+  const executeUpgrade = useCallback(async () => {
+    if (!emailValid || !requestedTier) return;
+    setUpgrading(true);
+    setError(null);
+    try {
+      const token = await ensureAuth();
+      if (!token) {
+        setUpgrading(false);
+        return;
+      }
+      const result = await subscribe(token, requestedTier, billingEmail.trim());
+      window.location.href = result.checkoutUrl;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start checkout');
+      setUpgrading(false);
+    }
+  }, [ensureAuth, billingEmail, requestedTier, emailValid]);
+
+  const handleSubscribe = async () => {
+    if (!emailValid) return;
+    setUpgrading(true);
+    setError(null);
+    if (!isConnected) {
+      pendingUpgradeRef.current = true;
+      await connect();
+      return;
+    }
+    await executeUpgrade();
+  };
+
+  useEffect(() => {
+    if (isConnected && accountId && pendingUpgradeRef.current) {
+      pendingUpgradeRef.current = false;
+      void executeUpgrade();
+    }
+  }, [isConnected, accountId, executeUpgrade]);
+
+  const handleCancel = async () => {
+    if (!jwt) return;
+    setCancelling(true);
+    setError(null);
+    try {
+      await cancelSubscription(jwt);
+      setConfirmCancel(false);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to cancel');
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   const handleCreate = async () => {
     if (!jwt) return;
     setCreating(true);
     setError(null);
     try {
-      const result = await createApiKey(jwt, label || 'default');
+      const result = await createApiKey(jwt, label.trim());
       setNewKey(result);
       setShowNewKey(true);
       setLabel('');
+      setShowCreateForm(false);
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create key');
@@ -159,8 +381,6 @@ export default function OnApiKeysPage() {
       setCreating(false);
     }
   };
-
-  // ── Revoke key ───────────────────────────────────────────────
 
   const handleRevoke = async (prefix: string) => {
     if (!jwt) return;
@@ -177,8 +397,6 @@ export default function OnApiKeysPage() {
       setRevoking(null);
     }
   };
-
-  // ── Rotate key ───────────────────────────────────────────────
 
   const handleRotate = async (prefix: string) => {
     if (!jwt) return;
@@ -197,136 +415,431 @@ export default function OnApiKeysPage() {
     }
   };
 
-  // ── Not yet authenticated: landing state ──────────────────
-  //    No wallet popup on load. User must click explicitly.
-
   if (!jwt) {
     return (
-      <PageShell className="max-w-3xl">
-        <SecondaryPageHeader
-          badge="API Keys"
-          badgeAccent="blue"
-          title="Manage your OnAPI keys"
-          description="Create, rotate, and revoke API keys for your applications."
-        />
+      <PageShell className="max-w-3xl space-y-6">
+        <SecondaryPageHeader badge="API Keys" badgeAccent="blue" />
         <SurfacePanel radius="xl" tone="soft" padding="roomy" className="text-center">
-          <Key className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-          {authLoading ? (
+          {!isConnected ? (
             <>
-              <PulsingDots size="md" />
-              <p className="mt-3 text-sm text-muted-foreground">
-                Sign the message in your wallet…
+              <Key className="mx-auto mb-3 h-6 w-6 text-muted-foreground/40" />
+              <p className="mb-4 text-sm font-medium text-foreground">
+                Connect to manage your API access
               </p>
-            </>
-          ) : authError ? (
-            <>
-              <AlertTriangle className="mx-auto mb-3 h-6 w-6 portal-amber-text" />
-              <p className="mb-2 text-sm text-foreground">{authError}</p>
-              <Button onClick={ensureAuth} variant="outline" size="sm">
-                Try Again
+              <Button onClick={connect} variant="default" size="sm" loading={walletLoading}>
+                Sign in
               </Button>
             </>
           ) : (
             <>
-              <p className="mb-1 text-sm text-foreground font-medium">
-                {isConnected ? 'One quick sign to unlock your keys' : 'Sign in to get your API key'}
+              <Key className="mx-auto mb-3 h-6 w-6 text-muted-foreground/40" />
+              <p className="mb-1 text-sm font-medium text-foreground">
+                One more step
               </p>
-              <p className="mb-4 text-xs text-muted-foreground">
-                No transaction, no gas — just a signature to prove it's you.
+              <p className="mb-4 text-[11px] text-muted-foreground">
+                Sign a message to open your session — no gas, no transaction.
               </p>
-              <Button onClick={ensureAuth} variant="default">
-                {isConnected ? 'Sign & continue' : 'Connect wallet'}
+              <Button onClick={ensureAuth} variant="default" size="sm" loading={authLoading}>
+                Authorize
               </Button>
             </>
           )}
         </SurfacePanel>
 
-        {/* ── Quick start (visible even before auth) ────────── */}
-        <SurfacePanel radius="xl" tone="soft" padding="roomy">
-          <div className="mb-2 flex items-center gap-2">
-            <Activity className="h-4 w-4 portal-blue-text" />
-            <h3 className="text-sm font-semibold">Quick start</h3>
-          </div>
-          <pre className="overflow-x-auto rounded-lg border border-border/30 bg-background/40 p-3 text-xs leading-relaxed text-muted-foreground">
-            <code>{`curl -X POST ${ACTIVE_API_URL.replace(/\/$/, '')}/graph/query \\
-  -H "Content-Type: application/json" \\
-  -H "X-API-Key: YOUR_KEY" \\
-  -d '{"query": "{ reputationScores(limit: 5) { accountId reputation rank } }"}'`}</code>
-          </pre>
-        </SurfacePanel>
+        <TransactionFeedbackToast result={toast} onClose={() => setToast(null)} />
       </PageShell>
     );
   }
-  // ── Authenticated: key management ────────────────────────────
 
   return (
-    <PageShell className="max-w-3xl">
-      <SecondaryPageHeader
-        badge="API Keys"
-        badgeAccent="blue"
-        title="Manage your OnAPI keys"
-        description={`Signed in as ${accountId}`}
-      />
-
-      {/* ── Plan badge + upgrade CTA ────────────────────────── */}
-      {!tierLoading && (
-        <div className="flex items-center justify-between rounded-lg border border-border/30 bg-background/30 px-4 py-2.5">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-              Plan
-            </span>
-            <PortalBadge
-              accent={currentTier === 'scale' ? 'purple' : currentTier === 'pro' ? 'blue' : 'green'}
-              size="sm"
-            >
-              {currentTier}
-            </PortalBadge>
-          </div>
-          {currentTier === 'free' && (
-            <Link
-              href="/onapi/billing"
-              className="text-xs text-muted-foreground underline transition-colors hover:text-foreground"
-            >
-              Upgrade plan
-            </Link>
-          )}
-        </div>
-      )}
-
-      {/* ── Usage Strip ─────────────────────────────────────── */}
-      {usage && (
+    <PageShell className="max-w-3xl space-y-6">
+      <SecondaryPageHeader badge="API Keys" badgeAccent="blue" />
+      {checkoutSuccess && (
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
+          {...fadeUpMotion(!!reduceMotion, { distance: 8, duration: 0.24 })}
+          className="rounded-lg border border-[var(--portal-green-border)] bg-[var(--portal-green-bg)] px-5 py-4"
         >
-          <StatStrip columns={2}>
-            <StatStripCell
-              label="Requests today"
-              value={usage.today.toLocaleString()}
-              showDivider
-            />
-            <StatStripCell
-              label="This month"
-              value={usage.thisMonth.toLocaleString()}
-            />
-          </StatStrip>
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="h-5 w-5 shrink-0 portal-green-text" />
+            <p className="flex-1 text-sm font-medium portal-green-text">
+              Payment complete — your plan is active!
+            </p>
+            <button
+              onClick={() => setCheckoutSuccess(false)}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </motion.div>
       )}
 
-      {/* ── Error banner ────────────────────────────────────── */}
-      {error && (
-        <div className="portal-amber-panel rounded-lg px-4 py-3 text-sm">
-          {error}
-        </div>
-      )}
+      {/* ── Plan card: always visible for authenticated users ── */}
+      <motion.div
+        {...fadeUpMotion(!!reduceMotion, { distance: 12, delay: 0.12 })}
+      >
+          {/* ── Upgrade flow: minimal current-plan line ── */}
+          {showUpgradePanel ? (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 px-1">
+                <span
+                  className="inline-block h-2 w-2 rounded-full"
+                  style={{ backgroundColor: portalColors[tierAccent(currentTier)] }}
+                />
+                <span
+                  className="text-xs font-semibold uppercase tracking-[0.18em]"
+                  style={{ color: portalColors[tierAccent(currentTier)] }}
+                >
+                  {formatTierLabel(currentTier)}
+                </span>
+                <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Current plan</span>
+                <span className="ml-auto font-mono text-[10px] tabular-nums text-muted-foreground">
+                  {(usage?.today ?? 0).toLocaleString()} today · {(usage?.thisMonth ?? 0).toLocaleString()} /mo
+                </span>
+              </div>
+              {(() => {
+                const budget = TIER_DAILY_BUDGET[currentTier] ?? 86_400;
+                const todayCount = usage?.today ?? 0;
+                const pct = budget > 0 ? todayCount / budget : 0;
+                const pctClamped = Math.min(pct, 1);
+                return (
+                  <div className="h-px w-full bg-border/40">
+                    <div
+                      className="h-full transition-all duration-500"
+                      style={{
+                        width: `${Math.max(pctClamped * 100, 1)}%`,
+                        backgroundColor: 'var(--muted-foreground)',
+                        opacity: 0.3,
+                      }}
+                    />
+                  </div>
+                );
+              })()}
+            </div>
+          ) : (
+          /* ── Dashboard: full plan card ── */
+          <SurfacePanel
+            radius="xl"
+            tone="soft"
+            padding="roomy"
+            className="transition-[border-color,box-shadow] duration-200"
+            style={{
+              borderColor: `color-mix(in srgb, ${portalColors[tierAccent(currentTier)]} 25%, transparent)`,
+              boxShadow: `0 0 24px color-mix(in srgb, ${portalColors[tierAccent(currentTier)]} 8%, transparent)`,
+            }}
+          >
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="flex items-center gap-2">
+                <span
+                  className="inline-block h-2 w-2 rounded-full"
+                  style={{ backgroundColor: portalColors[tierAccent(currentTier)] }}
+                />
+                <span
+                  className="text-xs font-semibold uppercase tracking-[0.18em]"
+                  style={{ color: portalColors[tierAccent(currentTier)] }}
+                >
+                  {formatTierLabel(currentTier)}
+                </span>
+              </span>
+              {isAdmin && (
+                <PortalBadge accent="amber" size="xs">Admin</PortalBadge>
+              )}
+              {subscription && !['expired', 'pending'].includes(subscription.status) && (
+                <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                  {subscription.status === 'active'
+                    ? 'Active'
+                    : subscription.status === 'cancelled'
+                      ? 'Cancelling'
+                      : 'Past due'}
+                </span>
+              )}
+              {subscription?.promotionCode && (
+                <PortalBadge accent="amber" size="xs">
+                  {subscription.promotionCode}
+                  {subscription.promotionCyclesRemaining > 0
+                    ? ` · ${subscription.promotionCyclesRemaining} left`
+                    : ''}
+                </PortalBadge>
+              )}
+            </div>
 
-      {/* ── New key reveal (show-once) ──────────────────────── */}
+            {(!subscription || ['expired', 'pending'].includes(subscription.status)) && (
+              <div className="mt-3">
+                <StatStrip columns={3}>
+                  <StatStripCell label="Rate limit" showDivider>
+                    <span className="font-mono text-sm font-semibold tracking-tight" style={{ color: portalColors[tierAccent(currentTier)] }}>
+                      {TIER_LIMITS[currentTier] ?? '60 /min'}
+                    </span>
+                  </StatStripCell>
+                  <StatStripCell label="Reqs today" showDivider>
+                    <span className="font-mono text-sm font-semibold tracking-tight portal-blue-text">
+                      {(usage?.today ?? 0).toLocaleString()}
+                    </span>
+                  </StatStripCell>
+                  <StatStripCell label="Reqs this month">
+                    <span className="font-mono text-sm font-semibold tracking-tight portal-slate-text">
+                      {(usage?.thisMonth ?? 0).toLocaleString()}
+                    </span>
+                  </StatStripCell>
+                </StatStrip>
+              </div>
+            )}
+
+            {subscription && !['expired', 'pending'].includes(subscription.status) && (
+              <div className="mt-3">
+                <StatStrip columns={4}>
+                  <StatStripCell label="Period" showDivider>
+                    {new Date(subscription.currentPeriodStart).toLocaleDateString()}
+                    {' → '}
+                    {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                  </StatStripCell>
+                  <StatStripCell label={subscription.status === 'cancelled' ? 'Expires' : 'Renews'} showDivider>
+                    {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                  </StatStripCell>
+                  <StatStripCell label="Reqs today" showDivider>
+                    <span className="font-mono text-sm font-semibold tracking-tight portal-blue-text">
+                      {(usage?.today ?? 0).toLocaleString()}
+                    </span>
+                  </StatStripCell>
+                  <StatStripCell label="Reqs this month">
+                    <span className="font-mono text-sm font-semibold tracking-tight portal-slate-text">
+                      {(usage?.thisMonth ?? 0).toLocaleString()}
+                    </span>
+                  </StatStripCell>
+                </StatStrip>
+              </div>
+            )}
+
+            {!requestedTier && !isAdmin && currentTier !== 'scale' && (() => {
+              const budget = TIER_DAILY_BUDGET[currentTier] ?? 86_400;
+              const todayCount = usage?.today ?? 0;
+              const pct = budget > 0 ? todayCount / budget : 0;
+              const next = nextTierUp(currentTier);
+              if (!next) return null;
+              const nextAccent = tierAccent(next);
+              const pctClamped = Math.min(pct, 1);
+              const showNudge = pct >= 0.8;
+              const Wrapper = showNudge ? motion.a : motion.div;
+              return (
+                <Wrapper
+                  {...(showNudge ? { href: `/onapi/keys?tier=${next}` } : {})}
+                  {...fadeUpMotion(!!reduceMotion, { distance: 4, duration: 0.2, delay: 0.08 })}
+                  className={`mt-3 block${showNudge ? ' cursor-pointer' : ''}`}
+                >
+                  {/* thin usage meter */}
+                  <div className="h-px w-full bg-border/40">
+                    <div
+                      className="h-full transition-all duration-500"
+                      style={{
+                        width: `${Math.max(pctClamped * 100, 1)}%`,
+                        backgroundColor: showNudge ? portalColors[nextAccent] : 'var(--muted-foreground)',
+                        opacity: showNudge ? 1 : 0.3,
+                      }}
+                    />
+                  </div>
+                  {showNudge && (
+                    <div className="flex items-center justify-between pt-2">
+                      <span className="text-xs text-muted-foreground/70">
+                        {pct >= 1 ? 'Daily limit reached' : 'Nearing daily limit'}
+                      </span>
+                      <span
+                        className="inline-flex items-center gap-1 text-[11px] font-medium tracking-[0.08em] transition-opacity hover:opacity-70"
+                        style={{ color: portalColors[nextAccent] }}
+                      >
+                        {formatTierLabel(next)} {TIER_LIMITS[next]}
+                        <ArrowUpRight className="h-3 w-3" />
+                      </span>
+                    </div>
+                  )}
+                </Wrapper>
+              );
+            })()}
+
+            {subscription?.status === 'active' && (
+              <div className="mt-4">
+                {confirmCancel ? (
+                  <div className="flex items-center gap-2">
+                    <p className="flex-1 text-xs text-muted-foreground">
+                      You&apos;ll keep access until {new Date(subscription.currentPeriodEnd).toLocaleDateString()}. Sure?
+                    </p>
+                    <Button
+                      variant="destructive"
+                      size="xs"
+                      loading={cancelling}
+                      onClick={handleCancel}
+                    >
+                      Confirm
+                    </Button>
+                    <Button variant="ghost" size="xs" onClick={() => setConfirmCancel(false)}>
+                      Keep
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    onClick={() => setConfirmCancel(true)}
+                    className="text-muted-foreground"
+                  >
+                    Cancel subscription
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {subscription?.status === 'cancelled' && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                Your {formatTierLabel(subscription.tier)} access runs until {new Date(subscription.currentPeriodEnd).toLocaleDateString()}, then switches to Free.
+              </p>
+            )}
+
+            {subscription?.status === 'past_due' && (
+              <p className="mt-3 text-xs portal-red-text">
+                Payment didn&apos;t go through — resubscribe to keep your plan.
+              </p>
+            )}
+          </SurfacePanel>
+          )}
+        </motion.div>
+
+      {showUpgradePanel && targetPlan && (() => {
+              const specs = TIER_SPECS[targetPlan.tier] ?? TIER_SPECS.pro;
+              return (
+              <motion.div {...fadeUpMotion(!!reduceMotion, { distance: 16, duration: 0.3 })}>
+              <SurfacePanel
+                radius="xl"
+                tone="soft"
+                padding="none"
+                className="overflow-hidden transition-[border-color,box-shadow] duration-200"
+                style={{
+                  borderColor: `color-mix(in srgb, ${portalColors[accent]} 30%, transparent)`,
+                  boxShadow: `0 0 20px color-mix(in srgb, ${portalColors[accent]} 12%, transparent)`,
+                }}
+              >
+                {/* ── Card header: tier name + price ── */}
+                <div className="px-5 pt-5 pb-1">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3
+                      className="text-lg font-bold tracking-[-0.02em]"
+                      style={{ color: portalColors[accent] }}
+                    >
+                      {targetPlan.name}
+                    </h3>
+                    <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                      Upgrade
+                    </span>
+                  </div>
+                  <div className="mt-1 flex items-baseline gap-1">
+                    {targetPlan.promotion ? (
+                      <>
+                        <span className="text-lg font-medium text-muted-foreground line-through">
+                          ${(targetPlan.amountMinor / 100).toFixed(0)}
+                        </span>
+                        <span className="text-2xl font-bold tracking-[-0.03em]">
+                          {targetPlan.promotion.discountedPrice}
+                        </span>
+                        <span className="text-xs text-muted-foreground">/{targetPlan.interval}</span>
+                        <span className="ml-2 text-xs font-medium" style={{ color: portalColors[accent] }}>
+                          {targetPlan.promotion.discountPercent}% off
+                          {targetPlan.promotion.durationCycles > 0
+                            ? ` for ${targetPlan.promotion.durationCycles} mo`
+                            : ''}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-2xl font-bold tracking-[-0.03em]">
+                          ${(targetPlan.amountMinor / 100).toFixed(0)}
+                        </span>
+                        <span className="text-xs text-muted-foreground">/{targetPlan.interval}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* ── Key specs (checkout-focused) ── */}
+                <StatStrip columns={2} className="mt-2">
+                  <StatStripCell label="Requests" value={`${targetPlan.rateLimit.toLocaleString()} /min`} showDivider />
+                  <StatStripCell
+                    label="Aggregations"
+                    value={specs.aggregations ? 'Yes' : 'No'}
+                    valueClassName={specs.aggregations ? 'portal-green-text' : 'text-muted-foreground'}
+                  />
+                </StatStrip>
+
+                {/* ── Email + checkout ── */}
+                <div className="space-y-3 px-5 pt-3 pb-5">
+                  <SurfacePanel
+                    radius="md"
+                    tone="inset"
+                    borderTone="subtle"
+                    padding="none"
+                    className={`flex items-center gap-3 px-3 py-2.5 transition-[border-color] duration-150 ease focus-within:border-[var(--_focus-accent)] ${showEmailHint ? 'border-amber-500/40' : ''}`}
+                    style={{
+                      '--_focus-accent': showEmailHint
+                        ? 'color-mix(in srgb, var(--portal-amber) 50%, transparent)'
+                        : `color-mix(in srgb, ${portalColors[accent]} 50%, transparent)`,
+                    } as CSSProperties}
+                  >
+                    <input
+                      id="billing-email"
+                      type="email"
+                      value={billingEmail}
+                      onChange={(e) => {
+                        setBillingEmail(e.target.value);
+                        setEmailTouched(false);
+                      }}
+                      onBlur={() => setEmailTouched(true)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          e.currentTarget.blur();
+                        }
+                      }}
+                      placeholder="Billing email"
+                      className="min-w-0 flex-1 bg-transparent text-sm font-medium tracking-[-0.01em] outline-none placeholder:text-muted-foreground/50"
+                    />
+                  </SurfacePanel>
+                  <Button
+                    onClick={handleSubscribe}
+                    loading={upgrading}
+                    disabled={upgrading || !emailValid}
+                    variant={accent === 'purple' ? 'secondary' : 'default'}
+                    className="w-full justify-center"
+                    size="cta"
+                  >
+                    Continue to checkout
+                  </Button>
+                  <p className="text-center text-[10px] tracking-[0.04em] text-muted-foreground/50">
+                    Powered by Revolut Pay
+                  </p>
+                </div>
+              </SurfacePanel>
+              </motion.div>
+              );
+            })()}
+
+            {requestedTier && isDowngrade && targetPlan && (
+              <p className="text-sm text-muted-foreground">
+                {subscription?.status === 'cancelled'
+                  ? <>Your {formatTierLabel(currentTier)} plan runs until {new Date(subscription.currentPeriodEnd).toLocaleDateString()} — you can switch after that.</>
+                  : <>You&apos;re on a higher plan — cancel your current subscription to switch.</>}
+              </p>
+            )}
+
+            {requestedTier && alreadyOnTier && targetPlan && (
+              <p className="text-sm text-muted-foreground">
+                You&apos;re already on the{' '}
+                <span style={{ color: portalColors[accent] }} className="font-medium">
+                  {targetPlan?.name}
+                </span>{' '}
+                plan.
+              </p>
+            )}
+
       {newKey && (
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
+          {...fadeUpMotion(!!reduceMotion, { distance: 12, delay: 0.18 })}
         >
           <SurfacePanel
             radius="xl"
@@ -336,14 +849,12 @@ export default function OnApiKeysPage() {
           >
             <div className="mb-2 flex items-center gap-2">
               <Key className="h-4 w-4 portal-green-text" />
-              <span className="text-sm font-semibold">New API Key Created</span>
-              <PortalBadge accent="green" size="xs">
-                {newKey.tier}
-              </PortalBadge>
+              <span className="text-sm font-semibold">Your new key</span>
             </div>
 
-            <p className="mb-3 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-              Copy this key now. It cannot be retrieved again.
+            <p className="mb-3 flex items-center gap-1.5 text-xs portal-amber-text">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              Copy it now — it won&apos;t be shown again.
             </p>
 
             <div className="flex items-center gap-2 rounded-lg border border-border/40 bg-background/40 px-3 py-2">
@@ -351,7 +862,7 @@ export default function OnApiKeysPage() {
                 {showNewKey ? newKey.key : maskKey(newKey.prefix)}
               </code>
               <button
-                onClick={() => setShowNewKey((v) => !v)}
+                onClick={() => setShowNewKey((visible) => !visible)}
                 className="text-muted-foreground transition-colors hover:text-foreground"
                 aria-label={showNewKey ? 'Hide key' : 'Reveal key'}
               >
@@ -365,166 +876,294 @@ export default function OnApiKeysPage() {
             </div>
 
             <p className="mt-2 text-[10px] text-muted-foreground">
-              Label: {newKey.label} &middot; Prefix: {newKey.prefix}
+              Label: {newKey.label} · Prefix: {newKey.prefix}
             </p>
           </SurfacePanel>
         </motion.div>
       )}
 
-      {/* ── Create key ──────────────────────────────────────── */}
-      <SurfacePanel radius="xl" tone="soft" padding="roomy">
-        <h3 className="mb-3 text-sm font-semibold">Create a new key</h3>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            placeholder="Key label (optional)"
-            maxLength={64}
-            className="h-9 flex-1 rounded-lg border border-border/40 bg-background/40 px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-[var(--portal-blue)] focus:outline-none"
+      {!showUpgradePanel && (
+      <AnimatePresence mode="wait">
+        {showCreateForm ? (
+          <motion.div
+            key="create-form"
+            {...scaleFadeMotion(!!reduceMotion)}
+          >
+            <SurfacePanel radius="xl" tone="soft" padding="roomy">
+              <h3 className="mb-3 text-sm font-semibold">New key</h3>
+              <div className="flex gap-2 items-center">
+                <SurfacePanel
+                  radius="md"
+                  tone="inset"
+                  borderTone="subtle"
+                  padding="none"
+                  className="flex flex-1 items-center px-3 py-1.5 transition-[border-color] duration-150 ease focus-within:border-[color-mix(in_srgb,var(--portal-blue)_50%,transparent)]"
+                >
+                  <input
+                    type="text"
+                    value={label}
+                    onChange={(e) => setLabel(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && label.trim() && !creating) {
+                        e.preventDefault();
+                        handleCreate();
+                      }
+                    }}
+                    placeholder="Label"
+                    maxLength={64}
+                    required
+                    autoFocus
+                    className="min-w-0 flex-1 bg-transparent text-sm font-medium tracking-[-0.01em] outline-none placeholder:text-muted-foreground/50"
+                  />
+                </SurfacePanel>
+                <Button
+                  onClick={handleCreate}
+                  loading={creating}
+                  disabled={creating || !label.trim()}
+                  size="xs"
+                >
+                  <Plus className="mr-1 h-3.5 w-3.5" />
+                  Create
+                </Button>
+                <Button
+                  onClick={() => {
+                    setShowCreateForm(false);
+                    setLabel('');
+                  }}
+                  variant="ghost"
+                  size="xs"
+                  disabled={creating}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </SurfacePanel>
+          </motion.div>
+        ) : hasKeys ? (
+          <motion.div
+            key="create-spacer"
+            {...fadeMotion()}
           />
-          <Button
-            onClick={handleCreate}
-            loading={creating}
-            disabled={creating || keys.length >= 10}
-            size="sm"
-          >
-            <Plus className="mr-1 h-3.5 w-3.5" />
-            Create Key
-          </Button>
-        </div>
-        {keys.length >= 10 && (
-          <p className="mt-2 text-[10px] text-muted-foreground">
-            Maximum 10 keys reached. Revoke an existing key to create a new one.
-          </p>
-        )}
-      </SurfacePanel>
+        ) : null}
+      </AnimatePresence>
+      )}
 
-      {/* ── Key list ────────────────────────────────────────── */}
-      <SurfacePanel radius="xl" tone="soft" padding="none">
-        <div className="flex items-center justify-between px-5 pt-5 pb-3">
-          <h3 className="text-sm font-semibold">Your keys</h3>
-          <button
-            onClick={refresh}
-            disabled={keysLoading}
-            className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-foreground"
-          >
-            {keysLoading ? <PulsingDots size="sm" /> : 'Refresh'}
-          </button>
+      <motion.div {...fadeUpMotion(!!reduceMotion, { distance: 12, delay: 0.24 })}>
+      {showUpgradePanel ? (
+        /* ── Upgrade flow: hide keys + integration to keep focus on checkout ── */
+        null
+      ) : (
+      /* ── Dashboard: full CRUD keys section ── */
+      <SurfacePanel radius="xl" tone="soft" padding="none" className="overflow-hidden">
+        <div className="flex items-center justify-between px-4 pt-4 pb-2 md:px-5">
+          <h3 className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">{hasKeys ? 'Your keys' : 'Get started'}</h3>
+          <div className="flex items-center gap-2">
+            {hasKeys && !showCreateForm && (
+              <Button
+                onClick={() => setShowCreateForm(true)}
+                disabled={keys.length >= 10}
+                variant="outline"
+                size="xs"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                New key
+              </Button>
+            )}
+            {hasKeys && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={refresh}
+              disabled={keysLoading}
+              aria-label="Refresh keys"
+              className="h-7 w-7 md:h-7 md:w-7 border-border/40 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${keysLoading ? 'animate-spin' : ''}`} />
+            </Button>
+            )}
+          </div>
         </div>
 
         {keys.length === 0 ? (
-          <div className="px-5 pb-5 text-center text-sm text-muted-foreground">
+          <div className="px-4 pb-5 pt-2 md:px-5">
             {keysLoading ? (
-              <PulsingDots size="md" />
+              <div className="py-4 text-center"><PulsingDots size="md" /></div>
             ) : (
-              'No API keys yet. Create one above.'
+              <div className="space-y-3">
+                <div className="flex gap-2 items-center">
+                  <SurfacePanel
+                    radius="md"
+                    tone="inset"
+                    borderTone="subtle"
+                    padding="none"
+                    className="flex flex-1 items-center px-3 py-1.5 transition-[border-color] duration-150 ease focus-within:border-[color-mix(in_srgb,var(--portal-blue)_50%,transparent)]"
+                  >
+                    <input
+                      type="text"
+                      value={label}
+                      onChange={(e) => setLabel(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && label.trim() && !creating) {
+                          e.preventDefault();
+                          handleCreate();
+                        }
+                      }}
+                      placeholder="Name your first key"
+                      maxLength={64}
+                      required
+                      autoFocus
+                      className="min-w-0 flex-1 bg-transparent text-sm font-medium tracking-[-0.01em] outline-none placeholder:text-muted-foreground/50"
+                    />
+                  </SurfacePanel>
+                  <Button
+                    onClick={handleCreate}
+                    loading={creating}
+                    disabled={creating || !label.trim()}
+                    size="xs"
+                  >
+                    <Plus className="mr-1 h-3.5 w-3.5" />
+                    Create
+                  </Button>
+                </div>
+                <p className="text-[11px] text-muted-foreground/50 text-center">Name it anything — e.g. &ldquo;production&rdquo; or &ldquo;dev&rdquo;</p>
+              </div>
             )}
           </div>
         ) : (
-          <div className="divide-y divide-border/20">
-            {keys.map((k) => (
-              <div
-                key={k.prefix}
-                className="flex items-center gap-3 px-5 py-3"
-              >
-                <Key className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <div>
+            {keys.map((keyInfo, i) => (
+              <div key={keyInfo.prefix}>
+                {i > 0 && <div className="h-px divider-detail mx-3 md:mx-4" />}
+                <div
+                  className="group flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-background/40 md:px-4"
+                >
+                <div
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border"
+                  style={{
+                    borderColor: portalFrameBorders[tierAccent(currentTier)],
+                    backgroundColor: portalFrameBackgrounds[tierAccent(currentTier)],
+                  }}
+                >
+                  <Key className="h-3 w-3" style={{ color: portalColors[tierAccent(currentTier)] }} />
+                </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <code className="truncate font-mono text-xs text-foreground">
-                      {maskKey(k.prefix)}
-                    </code>
-                    <PortalBadge accent="blue" size="xs">
-                      {k.tier}
-                    </PortalBadge>
-                  </div>
+                  <code className="block truncate font-mono text-xs text-foreground">
+                    {maskKey(keyInfo.prefix)}
+                  </code>
                   <p className="mt-0.5 text-[10px] text-muted-foreground">
-                    {k.label} &middot; Created{' '}
-                    {new Date(k.createdAt).toLocaleDateString()}
+                    {keyInfo.label}
                   </p>
                 </div>
 
-                {confirmRevoke === k.prefix ? (
+                {confirmRevoke === keyInfo.prefix ? (
                   <div className="flex items-center gap-1.5">
                     <Button
                       variant="destructive"
                       size="xs"
-                      loading={revoking === k.prefix}
-                      onClick={() => handleRevoke(k.prefix)}
+                      loading={revoking === keyInfo.prefix}
+                      onClick={() => handleRevoke(keyInfo.prefix)}
                     >
                       Confirm
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      onClick={() => setConfirmRevoke(null)}
-                    >
+                    <Button variant="ghost" size="xs" onClick={() => setConfirmRevoke(null)}>
                       Cancel
                     </Button>
                   </div>
-                ) : confirmRotate === k.prefix ? (
+                ) : confirmRotate === keyInfo.prefix ? (
                   <div className="flex items-center gap-1.5">
                     <Button
                       variant="default"
                       size="xs"
-                      loading={rotating === k.prefix}
-                      onClick={() => handleRotate(k.prefix)}
+                      loading={rotating === keyInfo.prefix}
+                      onClick={() => handleRotate(keyInfo.prefix)}
                     >
                       Confirm
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      onClick={() => setConfirmRotate(null)}
-                    >
+                    <Button variant="ghost" size="xs" onClick={() => setConfirmRotate(null)}>
                       Cancel
                     </Button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-1.5">
-                    <button
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="icon"
                       onClick={() => {
                         setConfirmRevoke(null);
-                        setConfirmRotate(k.prefix);
+                        setConfirmRotate(keyInfo.prefix);
                       }}
-                      className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
-                      aria-label={`Rotate key ${k.prefix}`}
-                      title="Rotate key"
+                      aria-label={`Rotate key ${keyInfo.prefix}`}
+                      className="h-7 w-7 md:h-7 md:w-7 border-border/40 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground"
                     >
-                      <RefreshCw className="h-4 w-4" />
-                    </button>
-                    <button
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
                       onClick={() => {
                         setConfirmRotate(null);
-                        setConfirmRevoke(k.prefix);
+                        setConfirmRevoke(keyInfo.prefix);
                       }}
-                      className="shrink-0 text-muted-foreground transition-colors hover:text-red-400"
-                      aria-label={`Revoke key ${k.prefix}`}
-                      title="Revoke key"
+                      aria-label={`Revoke key ${keyInfo.prefix}`}
+                      className="h-7 w-7 md:h-7 md:w-7 border-border/40 bg-transparent text-muted-foreground hover:bg-transparent hover:text-red-400"
                     >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
                 )}
+              </div>
               </div>
             ))}
           </div>
         )}
       </SurfacePanel>
+      )}
+      </motion.div>
 
-      {/* ── Quick start snippet ─────────────────────────────── */}
-      <SurfacePanel radius="xl" tone="soft" padding="roomy">
-        <div className="mb-2 flex items-center gap-2">
-          <Activity className="h-4 w-4 portal-blue-text" />
-          <h3 className="text-sm font-semibold">Quick start</h3>
-        </div>
-        <pre className="overflow-x-auto rounded-lg border border-border/30 bg-background/40 p-3 text-xs leading-relaxed text-muted-foreground">
-          <code>{`curl -X POST ${ACTIVE_API_URL.replace(/\/$/, '')}/graph/query \\
-  -H "Content-Type: application/json" \\
-  -H "X-API-Key: YOUR_KEY" \\
-  -d '{"query": "{ reputationScores(limit: 5) { accountId reputation rank } }"}'`}</code>
-        </pre>
+      {hasKeys && !showUpgradePanel && (
+      <motion.div {...fadeUpMotion(!!reduceMotion, { distance: 12, delay: 0.30 })}>
+      <SurfacePanel radius="xl" tone="soft" padding="none" className="overflow-hidden">
+        <button
+          onClick={() => setQuickStartOpen((open) => !open)}
+          className="group flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
+          aria-expanded={quickStartExpanded}
+        >
+          <h3 className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">Integration</h3>
+            <ChevronDown
+              className={`h-3.5 w-3.5 text-muted-foreground transition-[color,transform] duration-200 group-hover:text-foreground/80 ${quickStartExpanded ? 'rotate-180' : ''}`}
+            />
+        </button>
+        <AnimatePresence initial={false}>
+          {quickStartExpanded && (
+            <motion.div
+              key="quick-start"
+              {...fadeMotion(0.2)}
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden">
+              <div className="h-px divider-section" />
+              <div className="space-y-3 px-5 pb-5 pt-4 text-xs text-muted-foreground">
+                <pre className="overflow-x-auto rounded-lg border border-border/30 bg-background/40 px-3 py-2 font-mono text-[11px] leading-relaxed text-foreground">
+{`import { OnSocial } from '@onsocial/sdk';
+const os = new OnSocial({ apiKey: 'onsocial_...' });`}
+                </pre>
+                <StatStrip columns={2}>
+                  <StatStripCell label="Capabilities" showDivider>
+                    <span className="text-xs text-foreground">Graph · Relay · Compose · Storage</span>
+                  </StatStripCell>
+                  <StatStripCell label="Tables">
+                    <span className="font-mono text-[11px] text-foreground">data · groups · tokens · boost</span>
+                  </StatStripCell>
+                </StatStrip>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </SurfacePanel>
+      </motion.div>
+      )}
+      <TransactionFeedbackToast result={toast} onClose={() => setToast(null)} />
     </PageShell>
   );
 }

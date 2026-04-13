@@ -259,7 +259,7 @@ jobs:
               Caddyfile.template > Caddyfile
 
             # ── Pull new images ──────────────────────────────────────
-            docker compose pull caddy gateway relayer-0 relayer-1 backend
+            docker compose pull caddy gateway notification-worker relayer-0 relayer-1 backend
 
             # ── Rolling restart: relayer-1 → verify → relayer-0 → verify
             echo "Rolling relayer-1..."
@@ -298,6 +298,23 @@ jobs:
             docker compose exec -T gateway \
               node packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js create
 
+            echo "Restarting notification worker..."
+            docker compose up -d --no-deps notification-worker
+            for i in $(seq 1 20); do
+              status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' notification-worker 2>/dev/null || true)"
+              if [ "$status" = "healthy" ] || [ "$status" = "running" ]; then
+                echo "  ✅ notification-worker healthy (attempt $i/20)"
+                break
+              fi
+              if [ "$i" -eq 20 ]; then
+                echo "❌ notification-worker health check failed — rolling back"
+                rollback "notification-worker gateway relayer-0 relayer-1"
+                exit 1
+              fi
+              echo "  ⏳ notification-worker not ready ($i/20)..."
+              sleep 3
+            done
+
             echo "Reloading caddy..."
             docker compose up -d --no-deps caddy
             if ! check_health "caddy (public)" "https://testnet.onsocial.id/health" 10 5; then
@@ -327,7 +344,7 @@ jobs:
             fi
 
             # ── Bring up any remaining services ──────────────────────
-            FINAL_SERVICES="postgres hasura relayer-lb relayer-0 relayer-1 gateway caddy backend"
+            FINAL_SERVICES="postgres hasura relayer-lb relayer-0 relayer-1 gateway notification-worker caddy backend"
             docker compose up -d --no-deps $FINAL_SERVICES
 
             echo ""

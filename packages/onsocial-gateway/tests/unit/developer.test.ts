@@ -12,6 +12,9 @@ const mockCreateApiKey = vi.fn();
 const mockListApiKeys = vi.fn();
 const mockRevokeApiKey = vi.fn();
 const mockGetUsageSummary = vi.fn();
+const mockRegisterDeveloperApp = vi.fn();
+const mockListDeveloperApps = vi.fn();
+const mockDeleteDeveloperApp = vi.fn();
 
 vi.mock('../../src/services/apikeys/index.js', () => ({
   createApiKey: (...args: unknown[]) => mockCreateApiKey(...args),
@@ -23,6 +26,13 @@ vi.mock('../../src/services/apikeys/index.js', () => ({
 vi.mock('../../src/services/metering/index.js', () => ({
   recordUsage: vi.fn(),
   getUsageSummary: (...args: unknown[]) => mockGetUsageSummary(...args),
+}));
+
+vi.mock('../../src/services/developer-apps/index.js', () => ({
+  registerDeveloperApp: (...args: unknown[]) =>
+    mockRegisterDeveloperApp(...args),
+  listDeveloperApps: (...args: unknown[]) => mockListDeveloperApps(...args),
+  deleteDeveloperApp: (...args: unknown[]) => mockDeleteDeveloperApp(...args),
 }));
 
 vi.mock('../../src/config/index.js', () => ({
@@ -243,5 +253,92 @@ describe('GET /developer/usage', () => {
 
     expect(res.status).toBe(500);
     expect(res.body.error).toMatch(/usage/i);
+  });
+});
+
+describe('POST /developer/apps', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('registers an app namespace', async () => {
+    mockRegisterDeveloperApp.mockResolvedValue({
+      appId: 'portal',
+      ownerAccountId: 'alice.testnet',
+      createdAt: Date.now(),
+    });
+
+    const res = await request(
+      createApp({ accountId: 'alice.testnet', method: 'jwt' })
+    )
+      .post('/developer/apps')
+      .send({ appId: 'portal' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.app.appId).toBe('portal');
+    expect(mockRegisterDeveloperApp).toHaveBeenCalledWith(
+      'alice.testnet',
+      'portal'
+    );
+  });
+
+  it('requires appId', async () => {
+    const res = await request(
+      createApp({ accountId: 'alice.testnet', method: 'jwt' })
+    )
+      .post('/developer/apps')
+      .send({});
+
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('GET /developer/apps', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('lists registered apps', async () => {
+    mockListDeveloperApps.mockResolvedValue([
+      {
+        appId: 'portal',
+        ownerAccountId: 'alice.testnet',
+        createdAt: Date.now(),
+      },
+      { appId: 'labs', ownerAccountId: 'alice.testnet', createdAt: Date.now() },
+    ]);
+
+    const res = await request(
+      createApp({ accountId: 'alice.testnet', method: 'jwt' })
+    ).get('/developer/apps');
+
+    expect(res.status).toBe(200);
+    expect(res.body.apps).toHaveLength(2);
+    expect(mockListDeveloperApps).toHaveBeenCalledWith('alice.testnet');
+  });
+});
+
+describe('DELETE /developer/apps/:appId', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('deletes an owned app namespace', async () => {
+    mockDeleteDeveloperApp.mockResolvedValue(true);
+
+    const res = await request(
+      createApp({ accountId: 'alice.testnet', method: 'jwt' })
+    ).delete('/developer/apps/portal');
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('deleted');
+    expect(mockDeleteDeveloperApp).toHaveBeenCalledWith(
+      'alice.testnet',
+      'portal'
+    );
+  });
+
+  it('returns 404 when app does not exist', async () => {
+    mockDeleteDeveloperApp.mockResolvedValue(false);
+
+    const res = await request(
+      createApp({ accountId: 'alice.testnet', method: 'jwt' })
+    ).delete('/developer/apps/missing');
+
+    expect(res.status).toBe(404);
   });
 });

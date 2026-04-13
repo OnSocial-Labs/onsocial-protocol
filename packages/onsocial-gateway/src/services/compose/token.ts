@@ -16,7 +16,7 @@ import {
 // Transfer
 // ---------------------------------------------------------------------------
 
-/** Build a TransferScarce action — transfer an NFT to another account. */
+/** Build a TransferScarce action — transfer a Scarce to another account. */
 export function buildTransferAction(params: {
   tokenId: string;
   receiverId: string;
@@ -36,7 +36,7 @@ export function buildTransferAction(params: {
   };
 }
 
-/** Build a BatchTransfer action — transfer multiple NFTs in one tx. */
+/** Build a BatchTransfer action — transfer multiple Scarces in one tx. */
 export function buildBatchTransferAction(params: {
   transfers: Array<{
     receiver_id: string;

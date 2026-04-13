@@ -1,5 +1,5 @@
 /**
- * Compose routes: Mint — mint NFTs with auto-uploaded media + metadata.
+ * Compose routes: Mint — mint Scarces with auto-uploaded media + metadata.
  *
  * POST /mint          — Upload + relay via intent auth
  * POST /prepare/mint  — Upload only, return action for SDK signing
@@ -24,7 +24,7 @@ const upload = multer({
 });
 
 // ---------------------------------------------------------------------------
-// POST /compose/mint — Mint NFT with auto-uploaded media + metadata
+// POST /compose/mint — Mint Scarces with auto-uploaded media + metadata
 //
 // multipart/form-data:
 //   Fields: title (required), description, copies, collectionId, extra (JSON),

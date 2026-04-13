@@ -150,7 +150,12 @@ export async function listApiKeys(jwt: string): Promise<ApiKeyInfo[]> {
     headers: { Authorization: `Bearer ${jwt}` },
   });
 
-  if (!res.ok) throw new Error('Failed to list keys');
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(
+      (body as { error?: string }).error ?? 'Failed to list keys'
+    );
+  }
 
   const data = (await res.json()) as { keys: ApiKeyInfo[] };
   return data.keys;

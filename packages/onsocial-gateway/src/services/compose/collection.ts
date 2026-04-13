@@ -1,5 +1,5 @@
 /**
- * Compose: Create Collection — create NFT collections with auto-uploaded images.
+ * Compose: Create Collection — create Scarces collections with auto-uploaded images.
  */
 
 import { config } from '../../config/index.js';

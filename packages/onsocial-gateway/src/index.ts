@@ -10,6 +10,7 @@ import { authMiddleware, rateLimitMiddleware } from './middleware/index.js';
 import { meteringMiddleware } from './middleware/metering.js';
 import { authRouter } from './routes/auth.js';
 import { developerRouter } from './routes/developer.js';
+import { notificationRouter } from './routes/notifications.js';
 import { subscriptionRouter } from './routes/subscription.js';
 import { webhookRouter } from './routes/webhooks.js';
 import { graphRouter } from './routes/graph.js';
@@ -105,6 +106,7 @@ app.use(meteringMiddleware);
 // Routes — 3 proxies + auth + developer keys
 app.use('/auth', authRouter);
 app.use('/developer', subscriptionRouter); // before developerRouter — /plans is public
+app.use('/developer', notificationRouter);
 app.use('/developer', developerRouter);
 
 // Rate limiting only applies to actual API traffic, not auth/billing/dashboard flows.

@@ -24,7 +24,7 @@ export interface PlanInfo {
 export interface SubscriptionInfo {
   id: string;
   tier: string;
-  status: 'active' | 'cancelled' | 'past_due' | 'expired';
+  status: 'pending' | 'active' | 'cancelled' | 'past_due' | 'expired';
   currentPeriodStart: string;
   currentPeriodEnd: string;
   promotionCode: string | null;
@@ -97,7 +97,7 @@ export async function fetchPlans(jwt: string): Promise<PlanInfo[]> {
 /** Fetch current subscription for signed-in account */
 export async function fetchSubscription(
   jwt: string,
-): Promise<{ subscription: SubscriptionInfo | null; tier: string }> {
+): Promise<{ subscription: SubscriptionInfo | null; tier: string; admin?: boolean }> {
   return gw('/developer/subscription', jwt);
 }
 

@@ -2,6 +2,7 @@
 // Shared helpers for integration tests (run against a live gateway)
 
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { KeyPair } from 'near-api-js';
@@ -50,40 +51,125 @@ function loadCredentials(): { publicKey: string; privateKey: string } {
 
 const creds = loadCredentials();
 
+function encodeU32(value: number): Uint8Array {
+  const buffer = new ArrayBuffer(4);
+  new DataView(buffer).setUint32(0, value, true);
+  return new Uint8Array(buffer);
+}
+
+function encodeString(value: string): Uint8Array {
+  const bytes = new TextEncoder().encode(value);
+  const length = encodeU32(bytes.length);
+  const output = new Uint8Array(length.length + bytes.length);
+  output.set(length);
+  output.set(bytes, length.length);
+  return output;
+}
+
+function concatBytes(parts: Uint8Array[]): Uint8Array {
+  const totalLength = parts.reduce((sum, part) => sum + part.length, 0);
+  const output = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const part of parts) {
+    output.set(part, offset);
+    offset += part.length;
+  }
+  return output;
+}
+
+function serializeAndHashNep413(input: {
+  message: string;
+  nonce: Uint8Array;
+  recipient: string;
+}): Uint8Array {
+  const prefix = encodeU32(2 ** 31 + 413);
+  const payload = concatBytes([
+    encodeString(input.message),
+    input.nonce,
+    encodeString(input.recipient),
+    new Uint8Array([0]),
+  ]);
+
+  return createHash('sha256')
+    .update(Buffer.from(concatBytes([prefix, payload])))
+    .digest();
+}
+
+function signChallenge(challenge: {
+  message: string;
+  nonce: string;
+  recipient: string;
+}): string {
+  const nonceBytes = Uint8Array.from(atob(challenge.nonce), (char) =>
+    char.charCodeAt(0)
+  );
+  const hash = serializeAndHashNep413({
+    message: challenge.message,
+    nonce: nonceBytes,
+    recipient: challenge.recipient,
+  });
+  const keyPair = KeyPair.fromString(creds.privateKey);
+  const { signature } = keyPair.sign(hash);
+
+  return encodeBase64(signature);
+}
+
 /**
  * Obtain a valid JWT by performing a real NEAR signature-based login.
  * Caches the token for the lifetime of the test suite.
  */
 let _cachedToken: string | null = null;
+let _cachedTokenPromise: Promise<string> | null = null;
 
 export async function getAuthToken(): Promise<string> {
   if (_cachedToken) return _cachedToken;
+  if (_cachedTokenPromise) return _cachedTokenPromise;
 
-  const message = `OnSocial Auth: ${new Date().toISOString()}`;
-  const keyPair = KeyPair.fromString(creds.privateKey);
-  const messageBytes = new TextEncoder().encode(message);
-  const { signature } = keyPair.sign(messageBytes);
-  const signatureB64 = encodeBase64(signature);
+  _cachedTokenPromise = (async () => {
+    const challengeRes = await fetch(`${GATEWAY_URL}/auth/challenge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accountId: TEST_ACCOUNT_ID }),
+    });
 
-  const res = await fetch(`${GATEWAY_URL}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      accountId: TEST_ACCOUNT_ID,
-      message,
-      signature: signatureB64,
-      publicKey: creds.publicKey,
-    }),
-  });
+    if (!challengeRes.ok) {
+      const body = await challengeRes.text();
+      throw new Error(
+        `Auth challenge failed (${challengeRes.status}): ${body}`
+      );
+    }
 
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Auth login failed (${res.status}): ${body}`);
+    const challengeData = (await challengeRes.json()) as {
+      challenge: { message: string; recipient: string; nonce: string };
+    };
+    const signatureB64 = signChallenge(challengeData.challenge);
+
+    const res = await fetch(`${GATEWAY_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accountId: TEST_ACCOUNT_ID,
+        message: challengeData.challenge.message,
+        signature: signatureB64,
+        publicKey: creds.publicKey,
+      }),
+    });
+
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Auth login failed (${res.status}): ${body}`);
+    }
+
+    const data = (await res.json()) as { token: string };
+    _cachedToken = data.token;
+    return data.token;
+  })();
+
+  try {
+    return await _cachedTokenPromise;
+  } finally {
+    _cachedTokenPromise = null;
   }
-
-  const data = (await res.json()) as { token: string };
-  _cachedToken = data.token;
-  return _cachedToken;
 }
 
 /** Headers with a valid JWT for authenticated endpoints. */

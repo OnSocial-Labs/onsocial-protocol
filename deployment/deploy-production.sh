@@ -239,7 +239,7 @@ ssh "root@$SERVER_IP" bash -s "$IMAGE_TAG" << 'REMOTE_SCRIPT'
   # Pull new images
   echo "Pulling images (tag: $IMAGE_TAG)..."
   set -a && source .env.production && source .env.image && set +a
-  docker compose pull caddy gateway relayer-0 relayer-1 backend
+  docker compose pull caddy gateway notification-worker relayer-0 relayer-1 backend
 
   # Health check helper
   check_health() {
@@ -253,6 +253,22 @@ ssh "root@$SERVER_IP" bash -s "$IMAGE_TAG" << 'REMOTE_SCRIPT'
       sleep "$delay"
     done
     echo "  ❌ $name failed after $retries attempts"
+    return 1
+  }
+
+  check_service_health() {
+    local service_name="$1" retries="${2:-20}" delay="${3:-3}"
+    local status
+    for i in $(seq 1 "$retries"); do
+      status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$service_name" 2>/dev/null || true)"
+      if [[ "$status" = "healthy" || "$status" = "running" ]]; then
+        echo "  ✅ $service_name healthy (attempt $i/$retries)"
+        return 0
+      fi
+      echo "  ⏳ $service_name not ready ($i/$retries)..."
+      sleep "$delay"
+    done
+    echo "  ❌ $service_name failed after $retries attempts"
     return 1
   }
 
@@ -288,6 +304,16 @@ ssh "root@$SERVER_IP" bash -s "$IMAGE_TAG" << 'REMOTE_SCRIPT'
   sleep 10
 
   run_gateway_schema_sync
+
+  echo "Restarting notification worker..."
+  docker compose up -d --no-deps notification-worker
+  check_service_health notification-worker 20 3 || {
+    echo "❌ notification-worker failed — rolling back to $PREV_TAG"
+    echo "IMAGE_TAG=$PREV_TAG" > .env.image
+    set -a && source .env.production && source .env.image && set +a
+    docker compose up -d --no-deps notification-worker gateway relayer-0 relayer-1
+    exit 1
+  }
 
   echo "Rolling gateway..."
   docker compose up -d --no-deps gateway

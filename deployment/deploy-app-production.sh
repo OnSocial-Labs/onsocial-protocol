@@ -350,6 +350,12 @@ ssh "${SSH_OPTIONS[@]}" "root@$SERVER_IP" bash -s "$IMAGE_TAG" "$DEPLOY_TARGET" 
   CADDY_RENDERED_FILE="Caddyfile.rendered"
   CADDY_ACTIVE_FILE="Caddyfile"
   CADDY_BACKUP_FILE="Caddyfile.rollback"
+  PREV_TAG="unknown"
+  WORKER_UPDATED="false"
+
+  if [[ -f .env.image ]]; then
+    PREV_TAG="$(grep '^IMAGE_TAG=' .env.image | cut -d= -f2 || true)"
+  fi
 
   echo "IMAGE_TAG=$IMAGE_TAG" > .env.image
   set -a && source .env.production && source .env.image && set +a
@@ -387,6 +393,29 @@ ssh "${SSH_OPTIONS[@]}" "root@$SERVER_IP" bash -s "$IMAGE_TAG" "$DEPLOY_TARGET" 
     docker compose -f docker-compose.app.yml run --rm --no-deps \
       --entrypoint node "$service_name" \
       packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js create
+  }
+
+  restart_notification_worker() {
+    local retries="${1:-20}"
+    local delay="${2:-3}"
+    local status
+
+    echo "Restarting notification worker..."
+    docker compose -f docker-compose.app.yml up -d --no-deps notification-worker
+
+    for attempt in $(seq 1 "$retries"); do
+      status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' notification-worker 2>/dev/null || true)"
+      if [[ "$status" = "healthy" || "$status" = "running" ]]; then
+        WORKER_UPDATED="true"
+        echo "  ✅ notification-worker healthy (attempt $attempt/$retries)"
+        return 0
+      fi
+      echo "  ⏳ notification-worker not ready ($attempt/$retries)..."
+      sleep "$delay"
+    done
+
+    echo "  ❌ notification-worker failed after $retries attempts"
+    return 1
   }
 
   slot_service_name() {
@@ -521,6 +550,12 @@ ssh "${SSH_OPTIONS[@]}" "root@$SERVER_IP" bash -s "$IMAGE_TAG" "$DEPLOY_TARGET" 
       docker compose -f docker-compose.app.yml stop "$(slot_service_name gateway "$pending_gateway_slot")" >/dev/null 2>&1 || true
     fi
 
+    if [[ "$WORKER_UPDATED" = "true" && -n "$PREV_TAG" && "$PREV_TAG" != "unknown" ]]; then
+      echo "IMAGE_TAG=$PREV_TAG" > .env.image
+      set -a && source .env.production && source .env.image && set +a
+      docker compose -f docker-compose.app.yml up -d --no-deps notification-worker >/dev/null 2>&1 || true
+    fi
+
     echo "$current_backend_slot" > "$BACKEND_SLOT_FILE"
     echo "$current_gateway_slot" > "$GATEWAY_SLOT_FILE"
     report_active_state "$current_backend_slot" "$current_gateway_slot"
@@ -559,8 +594,9 @@ ssh "${SSH_OPTIONS[@]}" "root@$SERVER_IP" bash -s "$IMAGE_TAG" "$DEPLOY_TARGET" 
     report_active_state "$next_backend_slot" "$current_gateway_slot"
   elif [[ "$DEPLOY_TARGET" = "gateway" ]]; then
     pending_gateway_slot="$next_gateway_slot"
-    docker compose -f docker-compose.app.yml pull "$(slot_service_name gateway "$next_gateway_slot")"
+    docker compose -f docker-compose.app.yml pull "$(slot_service_name gateway "$next_gateway_slot")" notification-worker
     run_gateway_schema_sync "$(slot_service_name gateway "$next_gateway_slot")"
+    restart_notification_worker
     docker compose -f docker-compose.app.yml up -d "$(slot_service_name gateway "$next_gateway_slot")"
     check_health "gateway-$next_gateway_slot" "$(slot_health_url gateway "$next_gateway_slot")" 25 4
 
@@ -584,11 +620,13 @@ ssh "${SSH_OPTIONS[@]}" "root@$SERVER_IP" bash -s "$IMAGE_TAG" "$DEPLOY_TARGET" 
     pending_gateway_slot="$next_gateway_slot"
     docker compose -f docker-compose.app.yml pull \
       "$(slot_service_name backend "$next_backend_slot")" \
-      "$(slot_service_name gateway "$next_gateway_slot")"
+      "$(slot_service_name gateway "$next_gateway_slot")" \
+      notification-worker
     run_gateway_schema_sync "$(slot_service_name gateway "$next_gateway_slot")"
     docker compose -f docker-compose.app.yml up -d "$(slot_service_name backend "$next_backend_slot")"
     check_health "backend-$next_backend_slot" "$(slot_health_url backend "$next_backend_slot")" 25 4
 
+    restart_notification_worker
     docker compose -f docker-compose.app.yml up -d "$(slot_service_name gateway "$next_gateway_slot")"
     check_health "gateway-$next_gateway_slot" "$(slot_health_url gateway "$next_gateway_slot")" 25 4
 

@@ -58,7 +58,10 @@ export const ACTIVE_API_URL =
     : 'https://testnet.onsocial.id');
 
 export const ACTIVE_BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL ?? 'https://api.onsocial.id';
+  process.env.NEXT_PUBLIC_BACKEND_URL ??
+  (ACTIVE_NEAR_NETWORK === 'mainnet'
+    ? 'https://api.onsocial.id'
+    : 'https://testnet.onsocial.id');
 
 export const GOVERNANCE_WALLETS = parseWalletList(
   process.env.NEXT_PUBLIC_GOVERNANCE_WALLETS ?? DEFAULT_GOVERNANCE_WALLETS

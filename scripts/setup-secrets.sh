@@ -43,6 +43,10 @@ SECRETS=(
   "REVOLUT_SECRET_KEY:Revolut Merchant API secret key (sk_live_...)"
   "REVOLUT_PUBLIC_KEY:Revolut Merchant API public key (pk_live_...)"
   "REVOLUT_WEBHOOK_SIGNING_SECRET:Revolut webhook signing secret (wsk_...)"
+  "REVOLUT_PRO_VARIATION_ID:Revolut Pro plan variation UUID"
+  "REVOLUT_SCALE_VARIATION_ID:Revolut Scale plan variation UUID"
+  "REVOLUT_API_URL:Optional Revolut API base URL override"
+  "REVOLUT_API_VERSION:Optional Revolut API version override"
 )
 
 echo "============================================"

@@ -1,7 +1,7 @@
 /**
  * Compose: Offers — make, cancel, and accept offers on tokens and collections.
  *
- * Supports both token-level offers (specific NFT) and collection-level offers
+ * Supports both token-level offers (specific Scarce) and collection-level offers
  * (any token within a collection). All payments are gasless via NEAR Intents.
  */
 

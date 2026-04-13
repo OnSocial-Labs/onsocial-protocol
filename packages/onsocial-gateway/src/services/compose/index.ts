@@ -46,7 +46,7 @@ export {
   composeSet,
 } from './set.js';
 
-// Mint (scarces contract — NFT)
+// Mint (scarces contract)
 export {
   type ComposeMintRequest,
   type ComposeMintResult,
