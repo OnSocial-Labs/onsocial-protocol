@@ -233,9 +233,8 @@ services:
       RELAYER_SIGNER_MODE: kms
       RELAYER_ACCOUNT_ID: ${RELAYER_ACCOUNT_ID:-relayer.onsocial.testnet}
       RELAYER_ALLOWED_CONTRACTS: ${RELAYER_ALLOWED_CONTRACTS:-core.onsocial.testnet,scarces.onsocial.testnet,rewards.onsocial.testnet}
-      RELAYER_RPC_URL: ${RELAYER_RPC_URL:-}
-      RELAYER_FALLBACK_RPC_URL: ${RELAYER_FALLBACK_RPC_URL:-}
       RELAYER_API_KEY: ${RELAYER_API_KEY}
+      LAVA_API_KEY: ${LAVA_API_KEY:-}
       GCP_KMS_PROJECT: ${GCP_KMS_PROJECT:-onsocial-protocol}
       GCP_KMS_LOCATION: ${GCP_KMS_LOCATION:-global}
       GCP_KMS_ADMIN_KEY: admin-key
@@ -246,7 +245,6 @@ services:
       GCP_KMS_POOL_SIZE: ${GCP_KMS_POOL_SIZE:-30}
       RELAYER_MIN_KEYS: ${RELAYER_MIN_KEYS:-30}
       # allowed_contracts defaults are set in config.rs (core + scarces + rewards per network)
-      LAVA_API_KEY: ${LAVA_API_KEY:-}
       GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/gcp-sa.json
       # Instance 0 uses the original keyring
       GCP_KMS_KEYRING: ${GCP_KMS_KEYRING_0:-relayer-keys-testnet}
