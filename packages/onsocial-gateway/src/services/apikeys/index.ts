@@ -189,28 +189,28 @@ class HasuraStore implements ApiKeyStore {
 
   private toRecord(row: Record<string, unknown>): ApiKeyRecord {
     return {
-      keyHash: row.key_hash as string,
-      keyPrefix: row.key_prefix as string,
-      accountId: row.account_id as string,
+      keyHash: row.keyHash as string,
+      keyPrefix: row.keyPrefix as string,
+      accountId: row.accountId as string,
       label: (row.label as string) || 'default',
       tier: (row.tier as Tier) || 'free',
-      createdAt: new Date(row.created_at as string).getTime(),
-      revokedAt: row.revoked_at
-        ? new Date(row.revoked_at as string).getTime()
+      createdAt: new Date(row.createdAt as string).getTime(),
+      revokedAt: row.revokedAt
+        ? new Date(row.revokedAt as string).getTime()
         : null,
     };
   }
 
   async create(record: ApiKeyRecord): Promise<void> {
     await this.gql(
-      `mutation($obj: api_keys_insert_input!) {
-        insert_api_keys_one(object: $obj) { key_hash }
+      `mutation($obj: ApiKeysInsertInput!) {
+        insertApiKeysOne(object: $obj) { keyHash }
       }`,
       {
         obj: {
-          key_hash: record.keyHash,
-          key_prefix: record.keyPrefix,
-          account_id: record.accountId,
+          keyHash: record.keyHash,
+          keyPrefix: record.keyPrefix,
+          accountId: record.accountId,
           label: record.label,
           tier: record.tier,
         },
@@ -220,56 +220,56 @@ class HasuraStore implements ApiKeyStore {
 
   async lookupByHash(hash: string): Promise<ApiKeyRecord | null> {
     const data = await this.gql<{
-      api_keys_by_pk: Record<string, unknown> | null;
+      apiKeysByPk: Record<string, unknown> | null;
     }>(
       `query($hash: String!) {
-        api_keys_by_pk(key_hash: $hash) {
-          key_hash key_prefix account_id label tier created_at revoked_at
+        apiKeysByPk(keyHash: $hash) {
+          keyHash keyPrefix accountId label tier createdAt revokedAt
         }
       }`,
       { hash }
     );
-    const row = data.api_keys_by_pk;
-    if (!row || row.revoked_at) return null;
+    const row = data.apiKeysByPk;
+    if (!row || row.revokedAt) return null;
     return this.toRecord(row);
   }
 
   async listByAccount(accountId: string): Promise<ApiKeyRecord[]> {
     const data = await this.gql<{
-      api_keys: Array<Record<string, unknown>>;
+      apiKeys: Array<Record<string, unknown>>;
     }>(
       `query($acct: String!) {
-        api_keys(where: { account_id: { _eq: $acct }, revoked_at: { _is_null: true } }) {
-          key_hash key_prefix account_id label tier created_at revoked_at
+        apiKeys(where: { accountId: { _eq: $acct }, revokedAt: { _isNull: true } }) {
+          keyHash keyPrefix accountId label tier createdAt revokedAt
         }
       }`,
       { acct: accountId }
     );
-    return data.api_keys.map((r) => this.toRecord(r));
+    return data.apiKeys.map((r) => this.toRecord(r));
   }
 
   async revokeByPrefix(accountId: string, prefix: string): Promise<boolean> {
     const data = await this.gql<{
-      update_api_keys: { affected_rows: number };
+      updateApiKeys: { affectedRows: number };
     }>(
       `mutation($acct: String!, $prefix: String!, $now: timestamptz!) {
-        update_api_keys(
-          where: { account_id: { _eq: $acct }, key_prefix: { _eq: $prefix }, revoked_at: { _is_null: true } }
-          _set: { revoked_at: $now }
-        ) { affected_rows }
+        updateApiKeys(
+          where: { accountId: { _eq: $acct }, keyPrefix: { _eq: $prefix }, revokedAt: { _isNull: true } }
+          _set: { revokedAt: $now }
+        ) { affectedRows }
       }`,
       { acct: accountId, prefix, now: new Date().toISOString() }
     );
-    return data.update_api_keys.affected_rows > 0;
+    return data.updateApiKeys.affectedRows > 0;
   }
 
   async updateTier(accountId: string, tier: Tier): Promise<void> {
     await this.gql(
       `mutation($acct: String!, $tier: String!) {
-        update_api_keys(
-          where: { account_id: { _eq: $acct }, revoked_at: { _is_null: true } }
+        updateApiKeys(
+          where: { accountId: { _eq: $acct }, revokedAt: { _isNull: true } }
           _set: { tier: $tier }
-        ) { affected_rows }
+        ) { affectedRows }
       }`,
       { acct: accountId, tier }
     );
@@ -277,16 +277,16 @@ class HasuraStore implements ApiKeyStore {
 
   async countActive(accountId: string): Promise<number> {
     const data = await this.gql<{
-      api_keys_aggregate: { aggregate: { count: number } };
+      apiKeysAggregate: { aggregate: { count: number } };
     }>(
       `query($acct: String!) {
-        api_keys_aggregate(where: { account_id: { _eq: $acct }, revoked_at: { _is_null: true } }) {
+        apiKeysAggregate(where: { accountId: { _eq: $acct }, revokedAt: { _isNull: true } }) {
           aggregate { count }
         }
       }`,
       { acct: accountId }
     );
-    return data.api_keys_aggregate.aggregate.count;
+    return data.apiKeysAggregate.aggregate.count;
   }
 }
 

@@ -143,18 +143,18 @@ class HasuraUsageStore implements UsageStore {
   record(entry: UsageRecord): void {
     // Fire-and-forget — errors are logged but never block the response
     this.gql(
-      `mutation($obj: api_usage_insert_input!) {
-        insert_api_usage_one(object: $obj) { id }
+      `mutation($obj: ApiUsageInsertInput!) {
+        insertApiUsageOne(object: $obj) { id }
       }`,
       {
         obj: {
-          key_prefix: entry.keyPrefix,
-          account_id: entry.accountId,
-          actor_id: entry.actorId,
+          keyPrefix: entry.keyPrefix,
+          accountId: entry.accountId,
+          actorId: entry.actorId,
           endpoint: entry.endpoint,
           method: entry.method,
-          status_code: entry.statusCode,
-          response_ms: entry.responseMs,
+          statusCode: entry.statusCode,
+          responseMs: entry.responseMs,
         },
       }
     ).catch((err) => {
@@ -182,28 +182,28 @@ class HasuraUsageStore implements UsageStore {
         month: { aggregate: { count: number } };
       }>(
         `query($acct: String!, $day: timestamptz!, $month: timestamptz!) {
-          today: api_usage_aggregate(
-            where: { account_id: { _eq: $acct }, created_at: { _gte: $day } }
+          today: apiUsageAggregate(
+            where: { accountId: { _eq: $acct }, createdAt: { _gte: $day } }
           ) { aggregate { count } }
-          month: api_usage_aggregate(
-            where: { account_id: { _eq: $acct }, created_at: { _gte: $month } }
+          month: apiUsageAggregate(
+            where: { accountId: { _eq: $acct }, createdAt: { _gte: $month } }
           ) { aggregate { count } }
         }`,
         { acct: accountId, day: startOfDay, month: startOfMonth }
       ),
       this.gql<{
-        api_usage: Array<{
+        apiUsage: Array<{
           endpoint: string;
-          actor_id: string | null;
-          status_code: number;
+          actorId: string | null;
+          statusCode: number;
         }>;
       }>(
         `query($acct: String!, $month: timestamptz!) {
-          api_usage(
-            where: { account_id: { _eq: $acct }, created_at: { _gte: $month } }
-            order_by: { created_at: desc }
+          apiUsage(
+            where: { accountId: { _eq: $acct }, createdAt: { _gte: $month } }
+            orderBy: { createdAt: DESC }
             limit: 10000
-          ) { endpoint actor_id status_code }
+          ) { endpoint actorId statusCode }
         }`,
         { acct: accountId, month: startOfMonth }
       ),
@@ -214,12 +214,12 @@ class HasuraUsageStore implements UsageStore {
     const actorMap = new Map<string, number>();
     const statusMap = new Map<number, number>();
 
-    for (const r of rows.api_usage) {
+    for (const r of rows.apiUsage) {
       epMap.set(r.endpoint, (epMap.get(r.endpoint) || 0) + 1);
-      if (r.actor_id) {
-        actorMap.set(r.actor_id, (actorMap.get(r.actor_id) || 0) + 1);
+      if (r.actorId) {
+        actorMap.set(r.actorId, (actorMap.get(r.actorId) || 0) + 1);
       }
-      statusMap.set(r.status_code, (statusMap.get(r.status_code) || 0) + 1);
+      statusMap.set(r.statusCode, (statusMap.get(r.statusCode) || 0) + 1);
     }
 
     return {

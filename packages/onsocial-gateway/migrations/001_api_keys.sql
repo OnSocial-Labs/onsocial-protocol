@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS api_keys (
   key_prefix  TEXT        NOT NULL,
   account_id  TEXT        NOT NULL,
   label       TEXT        NOT NULL DEFAULT 'default',
-  tier        TEXT        NOT NULL DEFAULT 'free' CHECK (tier IN ('free', 'pro', 'scale')),
+  tier        TEXT        NOT NULL DEFAULT 'free' CHECK (tier IN ('free', 'pro', 'scale', 'service')),
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   revoked_at  TIMESTAMPTZ
 );
