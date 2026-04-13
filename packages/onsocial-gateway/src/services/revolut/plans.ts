@@ -70,7 +70,6 @@ export const SUBSCRIPTION_PLANS: readonly SubscriptionPlan[] = [
     intervalCount: 1,
     description: 'OnSocial API Pro — 600 req/min',
     rateLimit: 600,
-    revolutPlanVariationId: process.env.REVOLUT_PRO_VARIATION_ID || undefined,
   },
   {
     tier: 'scale',
@@ -81,9 +80,14 @@ export const SUBSCRIPTION_PLANS: readonly SubscriptionPlan[] = [
     intervalCount: 1,
     description: 'OnSocial API Scale — 3,000 req/min',
     rateLimit: 3000,
-    revolutPlanVariationId: process.env.REVOLUT_SCALE_VARIATION_ID || undefined,
   },
 ] as const;
+
+/** Map tier → env var name for Revolut plan variation IDs */
+const VARIATION_ENV: Record<string, string> = {
+  pro: 'REVOLUT_PRO_VARIATION_ID',
+  scale: 'REVOLUT_SCALE_VARIATION_ID',
+};
 
 /**
  * Active promotions.
@@ -106,9 +110,13 @@ export const PROMOTIONS: readonly Promotion[] = [
   // },
 ] as const;
 
-/** Lookup plan by tier name */
+/** Lookup plan by tier name (resolves variation ID lazily from process.env) */
 export function getPlan(tier: string): SubscriptionPlan | undefined {
-  return SUBSCRIPTION_PLANS.find((p) => p.tier === tier);
+  const plan = SUBSCRIPTION_PLANS.find((p) => p.tier === tier);
+  if (!plan) return undefined;
+  const envName = VARIATION_ENV[plan.tier];
+  const variationId = envName ? process.env[envName] || undefined : undefined;
+  return { ...plan, revolutPlanVariationId: variationId };
 }
 
 /** All subscribable tier names */

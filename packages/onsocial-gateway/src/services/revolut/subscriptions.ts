@@ -12,7 +12,7 @@
  *   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
  *   account_id     TEXT NOT NULL UNIQUE,
  *   tier           TEXT NOT NULL CHECK (tier IN ('pro', 'scale')),
- *   status         TEXT NOT NULL CHECK (status IN ('active', 'cancelled', 'past_due', 'expired')),
+ *   status         TEXT NOT NULL CHECK (status IN ('active', 'cancelled', 'past_due', 'pending', 'expired')),
  *   revolut_subscription_id   TEXT,
  *   revolut_customer_id       TEXT,
  *   revolut_setup_order_id    TEXT,
@@ -37,6 +37,7 @@ export type SubscriptionStatus =
   | 'active'
   | 'cancelled'
   | 'past_due'
+  | 'pending'
   | 'expired';
 
 export interface SubscriptionRecord {

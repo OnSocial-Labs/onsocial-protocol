@@ -43,7 +43,7 @@ webhookRouter.use(express.raw({ type: 'application/json' }));
  * Revolut sends: { event, order_id, merchant_order_ext_ref }
  */
 webhookRouter.post('/revolut', async (req: Request, res: Response) => {
-  const revolut = config.revolutClient;
+  const revolut = await config.getRevolutClient();
   if (!revolut) {
     res.status(503).json({ error: 'Payment service not configured' });
     return;
@@ -139,7 +139,7 @@ webhookRouter.post('/revolut', async (req: Request, res: Response) => {
 async function resolveSubscriptionForOrder(
   orderId: string
 ): Promise<{ sub: SubscriptionRecord; tier: Tier } | null> {
-  const revolut = config.revolutClient!;
+  const revolut = (await config.getRevolutClient())!;
   const order = await revolut.getOrder(orderId);
 
   // Strategy 1: legacy orders with metadata

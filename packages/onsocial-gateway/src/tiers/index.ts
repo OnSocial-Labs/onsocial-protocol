@@ -8,9 +8,17 @@ const tierCache = new Map<string, { info: TierInfo; expiresAt: number }>();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
+ * Whether the given account is an admin wallet (receives `service` tier).
+ */
+export function isAdmin(accountId: string): boolean {
+  return config.adminWallets.has(accountId.toLowerCase());
+}
+
+/**
  * Get tier info for an account (with caching).
  *
- * Queries the developer_subscriptions table for an active subscription.
+ * Admin wallets always receive the `service` tier.
+ * Otherwise queries the developer_subscriptions table for an active subscription.
  * Falls back to 'free' if no active subscription exists or if the lookup fails.
  */
 export async function getTierInfo(accountId: string): Promise<TierInfo> {
@@ -22,15 +30,19 @@ export async function getTierInfo(accountId: string): Promise<TierInfo> {
     return cached.info;
   }
 
-  // Query subscription store — honour paid period even after cancellation
-  let tier: Tier = 'free';
-  try {
-    const sub = await subscriptionStore.getWithValidPeriod(accountId);
-    if (sub) {
-      tier = sub.tier;
+  // Admin wallets always get service tier
+  let tier: Tier = isAdmin(accountId) ? 'service' : 'free';
+
+  // Non-admin: check subscription
+  if (tier === 'free') {
+    try {
+      const sub = await subscriptionStore.getWithValidPeriod(accountId);
+      if (sub) {
+        tier = sub.tier;
+      }
+    } catch (err) {
+      logger.warn({ err, accountId }, 'Tier lookup failed, defaulting to free');
     }
-  } catch (err) {
-    logger.warn({ err, accountId }, 'Tier lookup failed, defaulting to free');
   }
 
   const info: TierInfo = {

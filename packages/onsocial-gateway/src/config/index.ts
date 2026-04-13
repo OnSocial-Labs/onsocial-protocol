@@ -1,13 +1,11 @@
 import { createHmac } from 'node:crypto';
 import { execSync } from 'node:child_process';
+import os from 'node:os';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { resolveNearRpcUrl, type Network } from '@onsocial/rpc';
-import { createRequire } from 'node:module';
 import type { Tier } from '../types/index.js';
-
-const require = createRequire(import.meta.url);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -24,8 +22,12 @@ if (process.env.NODE_ENV !== 'production') {
 function gsmSecret(name: string): string {
   try {
     const project = process.env.GCP_PROJECT || 'onsocial-protocol';
+    // Resolve gcloud: prefer PATH, fall back to well-known SDK location
+    const gcloud =
+      process.env.GCLOUD_PATH ||
+      path.resolve(os.homedir(), 'google-cloud-sdk/bin/gcloud');
     return execSync(
-      `gcloud secrets versions access latest --secret="${name}" --project="${project}"`,
+      `"${gcloud}" secrets versions access latest --secret="${name}" --project="${project}"`,
       { timeout: 5_000, stdio: ['pipe', 'pipe', 'pipe'] }
     )
       .toString()
@@ -145,6 +147,15 @@ export const config = {
   // Redis (optional — enables shared rate limits across replicas)
   redisUrl: process.env.REDIS_URL || '',
 
+  // Admin wallets — comma-separated list of NEAR account IDs that receive
+  // the `service` tier automatically (no subscription needed).
+  adminWallets: new Set(
+    (process.env.ADMIN_WALLETS ?? '')
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean)
+  ),
+
   // Rate limits (requests per minute) — flat tiers
   rateLimits: {
     free: 60,
@@ -154,7 +165,7 @@ export const config = {
   } as Record<Tier, number>,
 
   // Revolut Merchant API (keys pulled from GSM — lazy + dynamic import to avoid circular init)
-  get revolutClient() {
+  async getRevolutClient() {
     if (_revolutClient !== undefined) return _revolutClient;
     const secretKey = env('REVOLUT_SECRET_KEY');
     if (!secretKey) {
@@ -164,8 +175,7 @@ export const config = {
     // Pre-populate variation IDs from GSM so plans.ts can read process.env
     env('REVOLUT_PRO_VARIATION_ID');
     env('REVOLUT_SCALE_VARIATION_ID');
-    const { RevolutClient } =
-      require('../services/revolut/client.js') as typeof import('../services/revolut/client.js');
+    const { RevolutClient } = await import('../services/revolut/client.js');
     _revolutClient = new RevolutClient({
       secretKey,
       publicKey: env('REVOLUT_PUBLIC_KEY'),

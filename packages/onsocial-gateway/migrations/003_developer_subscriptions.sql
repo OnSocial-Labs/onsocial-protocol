@@ -39,5 +39,5 @@ CREATE INDEX IF NOT EXISTS idx_dev_subs_period
 COMMENT ON TABLE  developer_subscriptions IS 'Developer subscription records for paid API tiers (pro, scale).';
 COMMENT ON COLUMN developer_subscriptions.account_id IS 'NEAR account ID that owns this subscription';
 COMMENT ON COLUMN developer_subscriptions.tier IS 'Subscription tier: pro or scale';
-COMMENT ON COLUMN developer_subscriptions.status IS 'active, cancelled, past_due, or expired';
+COMMENT ON COLUMN developer_subscriptions.status IS 'pending, active, cancelled, past_due, or expired';
 COMMENT ON COLUMN developer_subscriptions.current_period_end IS 'End of current billing period — tier access continues until this date even after cancellation';

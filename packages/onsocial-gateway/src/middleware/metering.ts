@@ -24,6 +24,17 @@ export function meteringMiddleware(
     return;
   }
 
+  // Skip internal management routes — only meter real API usage
+  const fullPath = req.baseUrl + req.path;
+  if (
+    fullPath.startsWith('/developer') ||
+    fullPath.startsWith('/auth') ||
+    fullPath === '/health'
+  ) {
+    next();
+    return;
+  }
+
   const start = Date.now();
 
   res.on('finish', () => {

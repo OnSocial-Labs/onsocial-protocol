@@ -12,6 +12,7 @@
 import { createHash, randomBytes } from 'crypto';
 import { config } from '../../config/index.js';
 import { logger } from '../../logger.js';
+import { isAdmin } from '../../tiers/index.js';
 import type { Tier } from '../../types/index.js';
 
 // --- Constants ---
@@ -333,21 +334,25 @@ export async function createApiKey(
   const hash = hashKey(raw);
   const prefix = raw.slice(0, 20);
   const sanitizedLabel = label.slice(0, 64).trim() || 'default';
+  const tier: Tier = isAdmin(accountId) ? 'service' : 'free';
 
   const record: ApiKeyRecord = {
     keyHash: hash,
     keyPrefix: prefix,
     accountId,
     label: sanitizedLabel,
-    tier: 'free',
+    tier,
     createdAt: Date.now(),
     revokedAt: null,
   };
 
   await store.create(record);
-  logger.info({ accountId, prefix, label: sanitizedLabel }, 'API key created');
+  logger.info(
+    { accountId, prefix, label: sanitizedLabel, tier },
+    'API key created'
+  );
 
-  return { rawKey: raw, prefix, label: sanitizedLabel, tier: 'free' };
+  return { rawKey: raw, prefix, label: sanitizedLabel, tier };
 }
 
 /**

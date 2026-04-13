@@ -99,21 +99,20 @@ app.get('/health/ready', async (_req, res) => {
 // Auth middleware (parses JWT, attaches to req.auth)
 app.use(authMiddleware);
 
-// Rate limiting (tier-based: free 60/min, pro 600/min, scale 3000/min)
-app.use(rateLimitMiddleware);
-
 // Usage metering (fire-and-forget: records after response is sent)
 app.use(meteringMiddleware);
 
 // Routes — 3 proxies + auth + developer keys
 app.use('/auth', authRouter);
+app.use('/developer', subscriptionRouter); // before developerRouter — /plans is public
 app.use('/developer', developerRouter);
-app.use('/developer', subscriptionRouter);
-app.use('/graph', graphRouter);
-app.use('/storage', storageRouter);
-app.use('/relay', relayRouter);
-app.use('/compose', composeRouter);
-app.use('/data', dataRouter);
+
+// Rate limiting only applies to actual API traffic, not auth/billing/dashboard flows.
+app.use('/graph', rateLimitMiddleware, graphRouter);
+app.use('/storage', rateLimitMiddleware, storageRouter);
+app.use('/relay', rateLimitMiddleware, relayRouter);
+app.use('/compose', rateLimitMiddleware, composeRouter);
+app.use('/data', rateLimitMiddleware, dataRouter);
 
 // 404 handler
 app.use((_req, res) => {

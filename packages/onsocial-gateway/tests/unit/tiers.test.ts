@@ -11,6 +11,7 @@ vi.mock('../../src/services/revolut/index.js', () => ({
 vi.mock('../../src/config/index.js', () => ({
   config: {
     rateLimits: { free: 60, pro: 600, scale: 3000, service: 10000 },
+    adminWallets: new Set<string>(),
   },
 }));
 

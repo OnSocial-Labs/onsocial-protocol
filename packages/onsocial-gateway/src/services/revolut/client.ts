@@ -17,7 +17,7 @@
  * @see https://developer.revolut.com/docs/merchant/merchant-api
  */
 
-import { createHmac, timingSafeEqual } from 'crypto';
+import { createHash, createHmac, timingSafeEqual } from 'crypto';
 import { logger } from '../../logger.js';
 
 // --- Types -----------------------------------------------------------------
@@ -397,7 +397,14 @@ export class RevolutClient {
     };
 
     if (idempotencyKey && method === 'POST') {
-      headers['Idempotency-Key'] = idempotencyKey;
+      // Revolut limits idempotency keys to 50 chars — hash if too long
+      headers['Idempotency-Key'] =
+        idempotencyKey.length <= 50
+          ? idempotencyKey
+          : createHash('sha256')
+              .update(idempotencyKey)
+              .digest('hex')
+              .slice(0, 50);
     }
 
     const res = await fetch(url, {
