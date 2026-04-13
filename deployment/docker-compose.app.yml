@@ -49,6 +49,7 @@ services:
       LAVA_API_KEY: ${LAVA_API_KEY:-}
       RELAYER_URL: ${RELAYER_URL:-http://relayer-lb:3040}
       RELAYER_API_KEY: ${RELAYER_API_KEY}
+      ADMIN_WALLETS: ${ADMIN_WALLETS:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
     depends_on:
       relayer-lb:
@@ -85,6 +86,7 @@ services:
       LAVA_API_KEY: ${LAVA_API_KEY:-}
       RELAYER_URL: ${RELAYER_URL:-http://relayer-lb:3040}
       RELAYER_API_KEY: ${RELAYER_API_KEY}
+      ADMIN_WALLETS: ${ADMIN_WALLETS:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
     depends_on:
       relayer-lb:
