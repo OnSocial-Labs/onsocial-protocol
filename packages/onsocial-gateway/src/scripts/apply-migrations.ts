@@ -44,10 +44,7 @@ async function getAppliedFiles(client: Client): Promise<Set<string>> {
   return new Set(result.rows.map((row: { filename: string }) => row.filename));
 }
 
-async function applyMigration(
-  client: Client,
-  filename: string
-): Promise<void> {
+async function applyMigration(client: Client, filename: string): Promise<void> {
   const filePath = path.join(MIGRATIONS_DIR, filename);
   const sql = fs.readFileSync(filePath, 'utf8').trim();
 
