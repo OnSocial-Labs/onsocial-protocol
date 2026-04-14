@@ -185,7 +185,7 @@ class MemoryStore implements SubscriptionStore {
   }
 }
 
-class HasuraStore implements SubscriptionStore {
+export class HasuraStore implements SubscriptionStore {
   private url: string;
   private secret: string;
 
@@ -242,18 +242,19 @@ class HasuraStore implements SubscriptionStore {
     currentPeriodStart currentPeriodEnd createdAt updatedAt
   `;
 
-  async upsert(
+  private isOnConflictUnsupported(error: unknown): boolean {
+    return (
+      error instanceof Error &&
+      error.message.includes("has no argument named 'on_conflict'")
+    );
+  }
+
+  private async insert(
     record: Omit<SubscriptionRecord, 'createdAt' | 'updatedAt'>
-  ): Promise<void> {
+  ) {
     await this.gql(
       `mutation($obj: developerSubscriptionsInsertInput!) {
-        insertDeveloperSubscriptionsOne(
-          object: $obj
-          on_conflict: {
-            constraint: developerSubscriptionsAccountIdKey
-            update_columns: [tier, status, revolutSubscriptionId, revolutCustomerId, revolutSetupOrderId, revolutLastOrderId, promotionCode, promotionCyclesRemaining, currentPeriodStart, currentPeriodEnd, updatedAt]
-          }
-        ) { id }
+        insertDeveloperSubscriptionsOne(object: $obj) { id }
       }`,
       {
         obj: {
@@ -273,6 +274,105 @@ class HasuraStore implements SubscriptionStore {
         },
       }
     );
+  }
+
+  private async update(
+    record: Omit<SubscriptionRecord, 'createdAt' | 'updatedAt'>
+  ) {
+    await this.gql(
+      `mutation(
+        $acct: String!
+        $tier: String!
+        $status: String!
+        $revolutSubscriptionId: String
+        $revolutCustomerId: String
+        $revolutSetupOrderId: String
+        $revolutLastOrderId: String
+        $promotionCode: String
+        $promotionCyclesRemaining: Int!
+        $currentPeriodStart: timestamptz!
+        $currentPeriodEnd: timestamptz!
+        $now: timestamptz!
+      ) {
+        updateDeveloperSubscriptions(
+          where: { accountId: { _eq: $acct } }
+          _set: {
+            tier: $tier
+            status: $status
+            revolutSubscriptionId: $revolutSubscriptionId
+            revolutCustomerId: $revolutCustomerId
+            revolutSetupOrderId: $revolutSetupOrderId
+            revolutLastOrderId: $revolutLastOrderId
+            promotionCode: $promotionCode
+            promotionCyclesRemaining: $promotionCyclesRemaining
+            currentPeriodStart: $currentPeriodStart
+            currentPeriodEnd: $currentPeriodEnd
+            updatedAt: $now
+          }
+        ) { affectedRows }
+      }`,
+      {
+        acct: record.accountId,
+        tier: record.tier,
+        status: record.status,
+        revolutSubscriptionId: record.revolutSubscriptionId,
+        revolutCustomerId: record.revolutCustomerId,
+        revolutSetupOrderId: record.revolutSetupOrderId,
+        revolutLastOrderId: record.revolutLastOrderId,
+        promotionCode: record.promotionCode,
+        promotionCyclesRemaining: record.promotionCyclesRemaining,
+        currentPeriodStart: record.currentPeriodStart,
+        currentPeriodEnd: record.currentPeriodEnd,
+        now: new Date().toISOString(),
+      }
+    );
+  }
+
+  async upsert(
+    record: Omit<SubscriptionRecord, 'createdAt' | 'updatedAt'>
+  ): Promise<void> {
+    try {
+      await this.gql(
+        `mutation($obj: developerSubscriptionsInsertInput!) {
+          insertDeveloperSubscriptionsOne(
+            object: $obj
+            on_conflict: {
+              constraint: developerSubscriptionsAccountIdKey
+              update_columns: [tier, status, revolutSubscriptionId, revolutCustomerId, revolutSetupOrderId, revolutLastOrderId, promotionCode, promotionCyclesRemaining, currentPeriodStart, currentPeriodEnd, updatedAt]
+            }
+          ) { id }
+        }`,
+        {
+          obj: {
+            id: record.id,
+            accountId: record.accountId,
+            tier: record.tier,
+            status: record.status,
+            revolutSubscriptionId: record.revolutSubscriptionId,
+            revolutCustomerId: record.revolutCustomerId,
+            revolutSetupOrderId: record.revolutSetupOrderId,
+            revolutLastOrderId: record.revolutLastOrderId,
+            promotionCode: record.promotionCode,
+            promotionCyclesRemaining: record.promotionCyclesRemaining,
+            currentPeriodStart: record.currentPeriodStart,
+            currentPeriodEnd: record.currentPeriodEnd,
+            updatedAt: new Date().toISOString(),
+          },
+        }
+      );
+    } catch (error) {
+      if (!this.isOnConflictUnsupported(error)) {
+        throw error;
+      }
+
+      const existing = await this.getByAccount(record.accountId);
+      if (existing) {
+        await this.update(record);
+        return;
+      }
+
+      await this.insert(record);
+    }
   }
 
   async getByAccount(accountId: string): Promise<SubscriptionRecord | null> {

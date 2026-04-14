@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 
 // MemoryStore is used when NODE_ENV !== 'production' and HASURA_ADMIN_SECRET is unset
 import {
+  HasuraStore,
   subscriptionStore,
   type SubscriptionRecord,
 } from '../../src/services/revolut/subscriptions.js';
@@ -30,6 +31,10 @@ const baseSub: Omit<SubscriptionRecord, 'createdAt' | 'updatedAt'> = {
   currentPeriodStart: pastISO(24),
   currentPeriodEnd: futureISO(24 * 29), // ~29 days left
 };
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 // ── Tests ─────────────────────────────────────────────────────
 
@@ -254,5 +259,99 @@ describe('SubscriptionStore (MemoryStore)', () => {
         await subscriptionStore.decrementPromoCycles('alice.testnet');
       expect(remaining).toBe(0);
     });
+  });
+});
+
+describe('HasuraStore', () => {
+  it('falls back to update when insert_one on_conflict is unsupported', async () => {
+    const store = new HasuraStore(
+      'https://hasura.example/v1/graphql',
+      'secret'
+    );
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce({
+        json: async () => ({
+          errors: [
+            {
+              message:
+                "'insertDeveloperSubscriptionsOne' has no argument named 'on_conflict'",
+            },
+          ],
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        json: async () => ({
+          data: {
+            developerSubscriptions: [
+              {
+                ...baseSub,
+                createdAt: pastISO(48),
+                updatedAt: pastISO(24),
+              },
+            ],
+          },
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        json: async () => ({
+          data: {
+            updateDeveloperSubscriptions: { affectedRows: 1 },
+          },
+        }),
+      } as Response);
+
+    await store.upsert({ ...baseSub, tier: 'scale' });
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[2]?.[1]).toMatchObject({
+      method: 'POST',
+    });
+    const thirdBody = JSON.parse(String(fetchMock.mock.calls[2]?.[1]?.body));
+    expect(thirdBody.query).toContain('updateDeveloperSubscriptions');
+    expect(thirdBody.variables.tier).toBe('scale');
+  });
+
+  it('falls back to plain insert when insert_one on_conflict is unsupported and no row exists', async () => {
+    const store = new HasuraStore(
+      'https://hasura.example/v1/graphql',
+      'secret'
+    );
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce({
+        json: async () => ({
+          errors: [
+            {
+              message:
+                "'insertDeveloperSubscriptionsOne' has no argument named 'on_conflict'",
+            },
+          ],
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        json: async () => ({
+          data: {
+            developerSubscriptions: [],
+          },
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        json: async () => ({
+          data: {
+            insertDeveloperSubscriptionsOne: { id: baseSub.id },
+          },
+        }),
+      } as Response);
+
+    await store.upsert(baseSub);
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const thirdBody = JSON.parse(String(fetchMock.mock.calls[2]?.[1]?.body));
+    expect(thirdBody.query).toContain(
+      'insertDeveloperSubscriptionsOne(object: $obj)'
+    );
+    expect(thirdBody.query).not.toContain('on_conflict');
+    expect(thirdBody.variables.obj.accountId).toBe(baseSub.accountId);
   });
 });
