@@ -304,6 +304,8 @@ describe('HasuraStore', () => {
     await store.upsert({ ...baseSub, tier: 'scale' });
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
+    const firstBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(firstBody.query).toContain('DeveloperSubscriptionsInsertInput!');
     expect(fetchMock.mock.calls[2]?.[1]).toMatchObject({
       method: 'POST',
     });
@@ -348,6 +350,7 @@ describe('HasuraStore', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
     const thirdBody = JSON.parse(String(fetchMock.mock.calls[2]?.[1]?.body));
+    expect(thirdBody.query).toContain('DeveloperSubscriptionsInsertInput!');
     expect(thirdBody.query).toContain(
       'insertDeveloperSubscriptionsOne(object: $obj)'
     );

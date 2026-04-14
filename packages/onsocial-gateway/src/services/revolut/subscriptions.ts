@@ -253,7 +253,7 @@ export class HasuraStore implements SubscriptionStore {
     record: Omit<SubscriptionRecord, 'createdAt' | 'updatedAt'>
   ) {
     await this.gql(
-      `mutation($obj: developerSubscriptionsInsertInput!) {
+      `mutation($obj: DeveloperSubscriptionsInsertInput!) {
         insertDeveloperSubscriptionsOne(object: $obj) { id }
       }`,
       {
@@ -333,7 +333,7 @@ export class HasuraStore implements SubscriptionStore {
   ): Promise<void> {
     try {
       await this.gql(
-        `mutation($obj: developerSubscriptionsInsertInput!) {
+        `mutation($obj: DeveloperSubscriptionsInsertInput!) {
           insertDeveloperSubscriptionsOne(
             object: $obj
             on_conflict: {

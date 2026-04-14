@@ -26,6 +26,8 @@ const ACTIVE_GROUP_MEMBER_OPERATIONS = new Set([
 ]);
 
 export const NOTIFICATION_WORKER_LOCK_ID = 3489132402;
+const APP_NOTIFICATION_CURSOR_FLOOR_UUID =
+  '00000000-0000-0000-0000-000000000000';
 
 type SourceTable = (typeof SOURCE_TABLES)[number];
 type DbScalar = string | number | boolean | null;
@@ -639,7 +641,7 @@ function getSelectSql(sourceTable: SourceTable): string {
                recipient, actor, event_type, dedupe_key, object_id, group_id,
                source_contract, source_receipt_id, source_block_height, context
         FROM app_notification_events
-        WHERE (sequence > $1 OR (sequence = $1 AND ($2::uuid IS NULL OR id > $2::uuid)))
+        WHERE (sequence > $1 OR (sequence = $1 AND id > $2::uuid))
         ORDER BY sequence ASC, id ASC
         LIMIT $3
       `;
@@ -653,10 +655,15 @@ async function ensureCursorRow(
   await client.query(
     `
       INSERT INTO notification_cursors (source_table, last_block_height, last_event_id)
-      VALUES ($1, 0, NULL)
+      VALUES ($1, 0, $2)
       ON CONFLICT (source_table) DO NOTHING
     `,
-    [sourceTable]
+    [
+      sourceTable,
+      sourceTable === 'app_notification_events'
+        ? APP_NOTIFICATION_CURSOR_FLOOR_UUID
+        : '',
+    ]
   );
 }
 
@@ -678,7 +685,10 @@ async function getCursor(
 
   return {
     ...result.rows[0],
-    last_event_id: result.rows[0]?.last_event_id || null,
+    last_event_id:
+      sourceTable === 'app_notification_events'
+        ? result.rows[0]?.last_event_id || APP_NOTIFICATION_CURSOR_FLOOR_UUID
+        : (result.rows[0]?.last_event_id ?? ''),
   };
 }
 
@@ -852,7 +862,7 @@ export class NotificationWorker {
   ): Promise<Array<Record<string, unknown>>> {
     const cursorEventId =
       sourceTable === 'app_notification_events'
-        ? cursor.last_event_id || null
+        ? cursor.last_event_id || APP_NOTIFICATION_CURSOR_FLOOR_UUID
         : (cursor.last_event_id ?? '');
 
     const result = await this.client.query<Record<string, unknown>>(

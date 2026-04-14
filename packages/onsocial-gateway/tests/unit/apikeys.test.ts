@@ -18,7 +18,11 @@ vi.mock('../../src/tiers/index.js', () => ({
   getTierInfo: (...args: unknown[]) => mockGetTierInfo(...args),
 }));
 
-import { createApiKey, listApiKeys } from '../../src/services/apikeys/index.js';
+import {
+  createApiKey,
+  listApiKeys,
+  lookupApiKey,
+} from '../../src/services/apikeys/index.js';
 
 describe('api key service', () => {
   beforeEach(() => {
@@ -58,5 +62,39 @@ describe('api key service', () => {
     const keys = await listApiKeys('admin.testnet');
     expect(keys).toHaveLength(1);
     expect(keys[0].tier).toBe('service');
+  });
+
+  it('uses the live account tier when authenticating an existing API key', async () => {
+    const accountId = 'auth-live-tier.testnet';
+    mockGetTierInfo
+      .mockResolvedValueOnce({ tier: 'scale', rateLimit: 5000 })
+      .mockResolvedValueOnce({ tier: 'free', rateLimit: 60 });
+
+    const created = await createApiKey(accountId, 'main-key');
+    expect('code' in created).toBe(false);
+    if ('code' in created) {
+      return;
+    }
+
+    const lookedUp = await lookupApiKey(created.rawKey);
+    expect(lookedUp).not.toBeNull();
+    expect(lookedUp!.tier).toBe('free');
+  });
+
+  it('shows the live account tier when listing existing API keys', async () => {
+    const accountId = 'list-live-tier.testnet';
+    mockGetTierInfo
+      .mockResolvedValueOnce({ tier: 'pro', rateLimit: 600 })
+      .mockResolvedValueOnce({ tier: 'scale', rateLimit: 5000 });
+
+    const created = await createApiKey(accountId, 'main-key');
+    expect('code' in created).toBe(false);
+    if ('code' in created) {
+      return;
+    }
+
+    const keys = await listApiKeys(accountId);
+    expect(keys).toHaveLength(1);
+    expect(keys[0].tier).toBe('scale');
   });
 });

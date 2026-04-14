@@ -362,7 +362,13 @@ export async function createApiKey(
 export async function lookupApiKey(raw: string): Promise<ApiKeyRecord | null> {
   if (!isValidApiKeyFormat(raw)) return null;
   const hash = hashKey(raw);
-  return store.lookupByHash(hash);
+  const record = await store.lookupByHash(hash);
+  if (!record) {
+    return null;
+  }
+
+  const { tier } = await getTierInfo(record.accountId);
+  return { ...record, tier };
 }
 
 /**
@@ -374,10 +380,11 @@ export async function listApiKeys(
   Array<{ prefix: string; label: string; tier: Tier; createdAt: number }>
 > {
   const records = await store.listByAccount(accountId);
+  const { tier } = await getTierInfo(accountId);
   return records.map((r) => ({
     prefix: r.keyPrefix,
     label: r.label,
-    tier: r.tier,
+    tier,
     createdAt: r.createdAt,
   }));
 }
