@@ -21,8 +21,11 @@ import { ingestAppNotificationEvents } from '../services/notifications/app-event
 
 export const notificationRouter = Router();
 
-notificationRouter.use(requireAuth);
-notificationRouter.use(requireTier('pro', 'scale', 'service'));
+notificationRouter.use(
+  '/notifications',
+  requireAuth,
+  requireTier('pro', 'scale', 'service')
+);
 
 function parseRead(value: unknown): boolean | undefined {
   if (value === undefined) {
