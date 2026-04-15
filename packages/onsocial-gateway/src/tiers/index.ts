@@ -39,6 +39,15 @@ export async function getTierInfo(accountId: string): Promise<TierInfo> {
       const sub = await subscriptionStore.getWithValidPeriod(accountId);
       if (sub) {
         tier = sub.tier;
+        // During a downgrade, honour the previous higher tier until its grace period ends
+        if (
+          sub.graceTier &&
+          sub.gracePeriodEnd &&
+          new Date(sub.gracePeriodEnd) > new Date() &&
+          config.rateLimits[sub.graceTier] > config.rateLimits[tier]
+        ) {
+          tier = sub.graceTier;
+        }
       }
     } catch (err) {
       logger.warn({ err, accountId }, 'Tier lookup failed, defaulting to free');

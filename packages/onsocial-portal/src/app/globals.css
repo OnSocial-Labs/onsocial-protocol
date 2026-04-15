@@ -108,7 +108,6 @@
     --portal-green-border-strong: rgb(74 222 128 / 0.6);
     --portal-green-bg: rgb(74 222 128 / 0.06);
     --portal-green-shadow: rgb(74 222 128 / 0.2);
-    --portal-green-toast-bg: rgb(240 253 244);
     --portal-amber: #fbbf24;
     --portal-amber-border: rgb(251 191 36 / 0.48);
     --portal-amber-border-strong: rgb(251 191 36 / 0.65);
@@ -131,7 +130,6 @@
     --portal-red-frame-bg: rgb(248 113 113 / 0.08);
     --portal-red-bg: rgb(248 113 113 / 0.06);
     --portal-red-shadow: rgb(248 113 113 / 0.24);
-    --portal-red-toast-bg: rgb(254 242 242);
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
     --border: 0 0% 90%;
@@ -184,7 +182,6 @@
     --portal-green-border-strong: rgb(74 222 128 / 0.6);
     --portal-green-bg: rgb(74 222 128 / 0.06);
     --portal-green-shadow: rgb(74 222 128 / 0.2);
-    --portal-green-toast-bg: rgb(15 23 18);
     --portal-amber: #fbbf24;
     --portal-amber-border: rgb(251 191 36 / 0.48);
     --portal-amber-border-strong: rgb(251 191 36 / 0.65);
@@ -207,7 +204,6 @@
     --portal-red-frame-bg: rgb(248 113 113 / 0.08);
     --portal-red-bg: rgb(248 113 113 / 0.06);
     --portal-red-shadow: rgb(248 113 113 / 0.26);
-    --portal-red-toast-bg: rgb(26 16 16);
     --destructive: 0 62% 55%;
     --destructive-foreground: 0 0% 95%;
     --border: 0 0% 14%;
@@ -514,31 +510,15 @@
   background-color: var(--portal-red-bg);
 }
 
-.portal-green-toast {
-  border-color: var(--portal-green-border-strong);
-  background-color: var(--portal-green-toast-bg);
-  color: hsl(var(--foreground));
+.portal-toast {
+  border: 1px solid hsl(var(--border) / 0.45);
+  background: hsl(var(--background) / 0.82);
+  backdrop-filter: blur(24px) saturate(1.5);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
   box-shadow:
-    0 20px 48px -24px var(--portal-green-shadow),
-    0 10px 24px -18px var(--portal-green-shadow);
-}
-
-.portal-neutral-toast {
-  border-color: hsl(var(--border) / 0.9);
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
-  box-shadow:
-    0 20px 48px -24px rgb(15 23 42 / 0.14),
-    0 10px 24px -18px rgb(15 23 42 / 0.12);
-}
-
-.portal-red-toast {
-  border-color: var(--portal-red-frame-border);
-  background-color: var(--portal-red-toast-bg);
-  color: hsl(var(--foreground));
-  box-shadow:
-    0 20px 48px -24px rgb(248 113 113 / 0.24),
-    0 10px 24px -18px rgb(248 113 113 / 0.18);
+    0 0 0 1px hsl(var(--border) / 0.06),
+    0 24px 56px -16px rgb(0 0 0 / 0.22),
+    0 8px 20px -12px rgb(0 0 0 / 0.16);
 }
 
 /* Kill browser autofill blue/yellow background */

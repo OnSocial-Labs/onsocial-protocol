@@ -56,6 +56,7 @@ The portal is single-network per deployment. Browser-facing values live in
 Recommended local scripts:
 
 ```bash
+pnpm dev:local-sandbox
 pnpm dev:testnet
 pnpm dev:mainnet
 pnpm dev:both
@@ -63,6 +64,18 @@ pnpm dev:both
 
 `pnpm dev:both` runs testnet on `localhost:3000` and mainnet on
 `localhost:3001`.
+
+Local sandbox billing against a local gateway:
+
+```bash
+NEXT_PUBLIC_NEAR_NETWORK=testnet
+NEXT_PUBLIC_API_URL=http://localhost:4000
+NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
+```
+
+Use `pnpm dev:local-sandbox` when the gateway is running locally in Revolut
+sandbox mode and you want the portal checkout flow to stay entirely on your
+machine.
 
 Testnet / staging:
 

@@ -5,6 +5,13 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { resolveNearRpcUrl, type Network } from '@onsocial/rpc';
+import {
+  resolveRevolutEnvironment,
+  resolveRevolutConfig,
+  resolveRevolutEnvValue,
+  resolveRevolutScopedEnvName,
+  resolveRevolutVariationEnvName,
+} from '../services/revolut/env.js';
 import type { Tier } from '../types/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -54,6 +61,86 @@ let _revolutClient:
   | InstanceType<typeof import('../services/revolut/client.js').RevolutClient>
   | null
   | undefined;
+
+export function validateRevolutBillingConfig(): {
+  enabled: boolean;
+  environment: 'sandbox' | 'production';
+  warnings: string[];
+} {
+  const environment = resolveRevolutEnvironment(env);
+  const warnings: string[] = [];
+  const requiredEntries = [
+    {
+      label: resolveRevolutScopedEnvName('REVOLUT_SECRET_KEY', environment),
+      value: resolveRevolutEnvValue('REVOLUT_SECRET_KEY', env),
+    },
+    {
+      label: resolveRevolutScopedEnvName('REVOLUT_PUBLIC_KEY', environment),
+      value: resolveRevolutEnvValue('REVOLUT_PUBLIC_KEY', env),
+    },
+    {
+      label: resolveRevolutScopedEnvName(
+        'REVOLUT_WEBHOOK_SIGNING_SECRET',
+        environment
+      ),
+      value: resolveRevolutEnvValue('REVOLUT_WEBHOOK_SIGNING_SECRET', env),
+    },
+    {
+      label: resolveRevolutVariationEnvName('pro', environment),
+      value: resolveRevolutEnvValue('REVOLUT_PRO_VARIATION_ID', env),
+    },
+    {
+      label: resolveRevolutVariationEnvName('scale', environment),
+      value: resolveRevolutEnvValue('REVOLUT_SCALE_VARIATION_ID', env),
+    },
+  ];
+
+  const hasAnyRevolutConfig = [
+    process.env.REVOLUT_ENVIRONMENT,
+    process.env.REVOLUT_MODE,
+    process.env.REVOLUT_SECRET_KEY,
+    process.env.REVOLUT_SECRET_KEY_SANDBOX,
+    process.env.REVOLUT_SECRET_KEY_PRODUCTION,
+    process.env.REVOLUT_PRO_VARIATION_ID,
+    process.env.REVOLUT_PRO_VARIATION_ID_SANDBOX,
+    process.env.REVOLUT_PRO_VARIATION_ID_PRODUCTION,
+  ].some(Boolean);
+
+  const missing = requiredEntries
+    .filter((entry) => !entry.value)
+    .map((entry) => entry.label);
+
+  if (
+    process.env.NODE_ENV === 'production' &&
+    !process.env.REVOLUT_ENVIRONMENT
+  ) {
+    warnings.push(
+      'REVOLUT_ENVIRONMENT is not set; billing will default to sandbox.'
+    );
+  }
+
+  if (process.env.NODE_ENV === 'production' && environment === 'sandbox') {
+    warnings.push(
+      'Revolut billing is configured to use sandbox in production.'
+    );
+  }
+
+  if (
+    missing.length > 0 &&
+    hasAnyRevolutConfig &&
+    environment === 'production'
+  ) {
+    throw new Error(
+      `FATAL: Revolut production billing is incomplete. Missing: ${missing.join(', ')}`
+    );
+  }
+
+  return {
+    enabled: missing.length === 0,
+    environment,
+    warnings,
+  };
+}
 
 export const config = {
   // Server
@@ -167,22 +254,21 @@ export const config = {
   // Revolut Merchant API (keys pulled from GSM — lazy + dynamic import to avoid circular init)
   async getRevolutClient() {
     if (_revolutClient !== undefined) return _revolutClient;
-    const secretKey = env('REVOLUT_SECRET_KEY');
-    if (!secretKey) {
+    const revolut = resolveRevolutConfig(env);
+    if (!revolut.secretKey) {
       _revolutClient = null;
       return null;
     }
-    // Pre-populate variation IDs from GSM so plans.ts can read process.env
-    env('REVOLUT_PRO_VARIATION_ID');
-    env('REVOLUT_SCALE_VARIATION_ID');
+    // Pre-populate variation IDs from GSM so plans.ts can read process.env.
+    env(resolveRevolutVariationEnvName('pro', revolut.environment));
+    env(resolveRevolutVariationEnvName('scale', revolut.environment));
     const { RevolutClient } = await import('../services/revolut/client.js');
     _revolutClient = new RevolutClient({
-      secretKey,
-      publicKey: env('REVOLUT_PUBLIC_KEY'),
-      webhookSigningSecret: env('REVOLUT_WEBHOOK_SIGNING_SECRET'),
-      apiUrl:
-        env('REVOLUT_API_URL') || 'https://sandbox-merchant.revolut.com/api',
-      apiVersion: process.env.REVOLUT_API_VERSION || '2025-12-04',
+      secretKey: revolut.secretKey,
+      publicKey: revolut.publicKey,
+      webhookSigningSecret: revolut.webhookSigningSecret,
+      apiUrl: revolut.apiUrl,
+      apiVersion: revolut.apiVersion,
     });
     return _revolutClient;
   },

@@ -359,22 +359,34 @@ export class RevolutClient {
     timestampHeader: string
   ): boolean {
     try {
-      // Parse "v1=<hex>" from Revolut-Signature header
-      const match = signatureHeader.match(/^v1=([a-f0-9]+)$/);
-      if (!match) return false;
-      const receivedSig = match[1];
+      // Replay protection: reject timestamps older than 5 minutes
+      const tsMs = Number(timestampHeader);
+      if (Number.isNaN(tsMs) || Math.abs(Date.now() - tsMs) > 5 * 60 * 1000) {
+        logger.warn(
+          { timestampHeader },
+          'Webhook timestamp outside 5-minute tolerance'
+        );
+        return false;
+      }
 
       // Build signed payload
       const payload = `v1.${timestampHeader}.${rawBody}`;
       const expectedSig = createHmac('sha256', this.cfg.webhookSigningSecret)
         .update(payload)
         .digest('hex');
+      const expectedBuf = Buffer.from(expectedSig, 'hex');
 
-      // Timing-safe comparison
-      const a = Buffer.from(receivedSig, 'hex');
-      const b = Buffer.from(expectedSig, 'hex');
-      if (a.length !== b.length) return false;
-      return timingSafeEqual(a, b);
+      // Revolut may send multiple comma-separated signatures during secret rotation
+      const signatures = signatureHeader.split(',');
+      for (const sig of signatures) {
+        const match = sig.trim().match(/^v1=([a-f0-9]+)$/);
+        if (!match) continue;
+        const receivedBuf = Buffer.from(match[1], 'hex');
+        if (receivedBuf.length !== expectedBuf.length) continue;
+        if (timingSafeEqual(receivedBuf, expectedBuf)) return true;
+      }
+
+      return false;
     } catch (err) {
       logger.warn({ err }, 'Webhook signature verification error');
       return false;
@@ -421,6 +433,11 @@ export class RevolutClient {
         'Revolut API error'
       );
       throw new Error(`Revolut API ${method} ${path}: ${res.status} ${text}`);
+    }
+
+    // 204 No Content (e.g. cancel subscription) — no body to parse
+    if (res.status === 204) {
+      return undefined as T;
     }
 
     return (await res.json()) as T;

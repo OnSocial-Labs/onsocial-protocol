@@ -21,6 +21,8 @@
  *   promotion_cycles_remaining INT DEFAULT 0,
  *   current_period_start TIMESTAMPTZ NOT NULL,
  *   current_period_end   TIMESTAMPTZ NOT NULL,
+ *   grace_tier           TEXT,
+ *   grace_period_end     TIMESTAMPTZ,
  *   created_at           TIMESTAMPTZ DEFAULT now(),
  *   updated_at           TIMESTAMPTZ DEFAULT now()
  * );
@@ -53,6 +55,10 @@ export interface SubscriptionRecord {
   promotionCyclesRemaining: number;
   currentPeriodStart: string; // ISO 8601
   currentPeriodEnd: string; // ISO 8601
+  /** Previous higher tier preserved during downgrade (rate limits kept until gracePeriodEnd). */
+  graceTier: Tier | null;
+  /** ISO 8601 — end of grace period for the previous higher tier. */
+  gracePeriodEnd: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -94,6 +100,8 @@ class MemoryStore implements SubscriptionStore {
     const existing = this.subs.get(record.accountId);
     this.subs.set(record.accountId, {
       ...record,
+      graceTier: record.graceTier ?? null,
+      gracePeriodEnd: record.gracePeriodEnd ?? null,
       createdAt: existing?.createdAt || now,
       updatedAt: now,
     });
@@ -144,6 +152,7 @@ class MemoryStore implements SubscriptionStore {
       sub.currentPeriodStart = periodStart;
       sub.currentPeriodEnd = periodEnd;
       sub.revolutLastOrderId = orderId;
+      sub.status = 'active';
       sub.updatedAt = new Date().toISOString();
     }
   }
@@ -230,6 +239,8 @@ export class HasuraStore implements SubscriptionStore {
       promotionCyclesRemaining: (row.promotionCyclesRemaining as number) || 0,
       currentPeriodStart: row.currentPeriodStart as string,
       currentPeriodEnd: row.currentPeriodEnd as string,
+      graceTier: (row.graceTier as Tier) || null,
+      gracePeriodEnd: (row.gracePeriodEnd as string) || null,
       createdAt: row.createdAt as string,
       updatedAt: row.updatedAt as string,
     };
@@ -239,7 +250,9 @@ export class HasuraStore implements SubscriptionStore {
     id accountId tier status
     revolutSubscriptionId revolutCustomerId revolutSetupOrderId revolutLastOrderId
     promotionCode promotionCyclesRemaining
-    currentPeriodStart currentPeriodEnd createdAt updatedAt
+    currentPeriodStart currentPeriodEnd
+    graceTier gracePeriodEnd
+    createdAt updatedAt
   `;
 
   private isOnConflictUnsupported(error: unknown): boolean {
@@ -270,6 +283,8 @@ export class HasuraStore implements SubscriptionStore {
           promotionCyclesRemaining: record.promotionCyclesRemaining,
           currentPeriodStart: record.currentPeriodStart,
           currentPeriodEnd: record.currentPeriodEnd,
+          graceTier: record.graceTier,
+          gracePeriodEnd: record.gracePeriodEnd,
           updatedAt: new Date().toISOString(),
         },
       }
@@ -292,6 +307,8 @@ export class HasuraStore implements SubscriptionStore {
         $promotionCyclesRemaining: Int!
         $currentPeriodStart: timestamptz!
         $currentPeriodEnd: timestamptz!
+        $graceTier: String
+        $gracePeriodEnd: timestamptz
         $now: timestamptz!
       ) {
         updateDeveloperSubscriptions(
@@ -307,6 +324,8 @@ export class HasuraStore implements SubscriptionStore {
             promotionCyclesRemaining: $promotionCyclesRemaining
             currentPeriodStart: $currentPeriodStart
             currentPeriodEnd: $currentPeriodEnd
+            graceTier: $graceTier
+            gracePeriodEnd: $gracePeriodEnd
             updatedAt: $now
           }
         ) { affectedRows }
@@ -323,6 +342,8 @@ export class HasuraStore implements SubscriptionStore {
         promotionCyclesRemaining: record.promotionCyclesRemaining,
         currentPeriodStart: record.currentPeriodStart,
         currentPeriodEnd: record.currentPeriodEnd,
+        graceTier: record.graceTier,
+        gracePeriodEnd: record.gracePeriodEnd,
         now: new Date().toISOString(),
       }
     );
@@ -338,7 +359,7 @@ export class HasuraStore implements SubscriptionStore {
             object: $obj
             on_conflict: {
               constraint: developerSubscriptionsAccountIdKey
-              update_columns: [tier, status, revolutSubscriptionId, revolutCustomerId, revolutSetupOrderId, revolutLastOrderId, promotionCode, promotionCyclesRemaining, currentPeriodStart, currentPeriodEnd, updatedAt]
+              update_columns: [tier, status, revolutSubscriptionId, revolutCustomerId, revolutSetupOrderId, revolutLastOrderId, promotionCode, promotionCyclesRemaining, currentPeriodStart, currentPeriodEnd, graceTier, gracePeriodEnd, updatedAt]
             }
           ) { id }
         }`,
@@ -356,6 +377,8 @@ export class HasuraStore implements SubscriptionStore {
             promotionCyclesRemaining: record.promotionCyclesRemaining,
             currentPeriodStart: record.currentPeriodStart,
             currentPeriodEnd: record.currentPeriodEnd,
+            graceTier: record.graceTier,
+            gracePeriodEnd: record.gracePeriodEnd,
             updatedAt: new Date().toISOString(),
           },
         }

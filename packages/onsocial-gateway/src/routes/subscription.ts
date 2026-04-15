@@ -14,7 +14,8 @@ import { randomUUID } from 'crypto';
 import { requireAuth } from '../middleware/index.js';
 import { config } from '../config/index.js';
 import { logger } from '../logger.js';
-import { isAdmin } from '../tiers/index.js';
+import { clearTierCache, isAdmin } from '../tiers/index.js';
+import { updateAccountTier } from '../services/apikeys/index.js';
 import {
   getPlan,
   subscribableTiers,
@@ -29,6 +30,31 @@ import {
 } from '../services/revolut/index.js';
 
 export const subscriptionRouter = Router();
+
+function hasPaidAccess(sub: {
+  status: string;
+  currentPeriodEnd: string;
+}): boolean {
+  return (
+    sub.status !== 'pending' && new Date(sub.currentPeriodEnd) > new Date()
+  );
+}
+
+function normalizeRevolutState(value?: string | null): string {
+  return value?.trim().toLowerCase() || '';
+}
+
+function isResumableSetupOrderState(state: string): boolean {
+  return ['created', 'pending', 'processing', 'authorized'].includes(
+    normalizeRevolutState(state)
+  );
+}
+
+function isTerminalSetupOrderState(state: string): boolean {
+  return ['completed', 'failed', 'cancelled', 'expired'].includes(
+    normalizeRevolutState(state)
+  );
+}
 
 // ── Public endpoints (no auth required) ───────────────────────
 
@@ -127,14 +153,78 @@ subscriptionRouter.post(
       return;
     }
 
-    // Check if already subscribed to same or higher tier
-    const existing = await subscriptionStore.getActiveByAccount(accountId);
+    // Check if the account still has paid access in the current billing period.
+    const existing = await subscriptionStore.getWithValidPeriod(accountId);
     if (existing) {
       const existingPlan = getPlan(existing.tier);
       const requestedPlan = getPlan(tier)!;
+      let clearedPendingSetup = false;
+
+      if (existing.status === 'pending') {
+        if (existing.revolutSetupOrderId) {
+          try {
+            const setupOrder = await revolut.getOrder(
+              existing.revolutSetupOrderId
+            );
+
+            if (
+              isResumableSetupOrderState(setupOrder.state) &&
+              setupOrder.checkout_url
+            ) {
+              res.json({
+                checkoutUrl: setupOrder.checkout_url,
+                orderId: existing.revolutSetupOrderId,
+                subscriptionId: existing.revolutSubscriptionId,
+                plan: {
+                  tier: requestedPlan.tier,
+                  name: requestedPlan.name,
+                  price: formatPrice(requestedPlan),
+                  rateLimit: requestedPlan.rateLimit,
+                },
+                pending: true,
+              });
+              return;
+            }
+
+            if (isTerminalSetupOrderState(setupOrder.state)) {
+              await subscriptionStore.updateStatus(accountId, 'cancelled');
+              clearedPendingSetup = true;
+            } else {
+              res.status(409).json({
+                error: `Subscription setup for ${existing.tier} is still pending confirmation.`,
+                subscription: existing,
+              });
+              return;
+            }
+          } catch (err) {
+            logger.warn(
+              {
+                err,
+                accountId,
+                setupOrderId: existing.revolutSetupOrderId,
+              },
+              'Failed to inspect pending Revolut setup order'
+            );
+            res.status(409).json({
+              error: `Subscription setup for ${existing.tier} is still pending confirmation.`,
+              subscription: existing,
+            });
+            return;
+          }
+        } else {
+          res.status(409).json({
+            error: `Subscription setup for ${existing.tier} is still pending confirmation.`,
+            subscription: existing,
+          });
+          return;
+        }
+      }
+
+      // Same tier — already subscribed
       if (
+        !clearedPendingSetup &&
         existingPlan &&
-        existingPlan.amountMinor >= requestedPlan.amountMinor
+        existingPlan.amountMinor === requestedPlan.amountMinor
       ) {
         res.status(409).json({
           error: `Already subscribed to ${existing.tier} (active until ${existing.currentPeriodEnd})`,
@@ -142,12 +232,23 @@ subscriptionRouter.post(
         });
         return;
       }
-      // Upgrading — cancel old subscription first if it's via Revolut
-      if (existing.revolutSubscriptionId) {
+
+      // Upgrade or downgrade — cancel old Revolut subscription, then fall
+      // through to create a new checkout on the requested tier.
+      // Revolut doesn't support changing plan_variation_id on an existing
+      // subscription, so we must cancel + re-create.
+      if (!clearedPendingSetup && existing.revolutSubscriptionId) {
         try {
           await revolut.cancelSubscription(existing.revolutSubscriptionId);
-        } catch {
-          // Best effort — may already be cancelled
+        } catch (err) {
+          logger.warn(
+            {
+              err,
+              accountId,
+              revolutSubscriptionId: existing.revolutSubscriptionId,
+            },
+            'Revolut cancel failed during tier change'
+          );
         }
       }
     }
@@ -204,6 +305,14 @@ subscriptionRouter.post(
       }
 
       // 4. Store subscription in our DB (pending until webhook confirms payment)
+      // If downgrading, preserve the old higher tier as a grace period so rate
+      // limits aren't cut immediately.
+      const oldPlan = existing ? getPlan(existing.tier) : null;
+      const isDowngrade =
+        existing &&
+        oldPlan &&
+        oldPlan.amountMinor > plan.amountMinor &&
+        hasPaidAccess(existing);
       const now = new Date();
       const periodEnd = new Date(now);
       if (plan.interval === 'month') {
@@ -225,6 +334,8 @@ subscriptionRouter.post(
         promotionCyclesRemaining: promo ? promo.durationCycles : 0,
         currentPeriodStart: now.toISOString(),
         currentPeriodEnd: periodEnd.toISOString(),
+        graceTier: isDowngrade ? existing.tier : null,
+        gracePeriodEnd: isDowngrade ? existing.currentPeriodEnd : null,
       });
 
       logger.info(
@@ -300,13 +411,10 @@ subscriptionRouter.get(
           price: plan ? formatPrice(plan) : null,
           promotionCode: sub.promotionCode ?? null,
           promotionCyclesRemaining: sub.promotionCyclesRemaining ?? 0,
+          graceTier: sub.graceTier ?? null,
+          gracePeriodEnd: sub.gracePeriodEnd ?? null,
         },
-        tier: admin
-          ? 'service'
-          : sub.status === 'active' &&
-              new Date(sub.currentPeriodEnd) > new Date()
-            ? sub.tier
-            : 'free',
+        tier: admin ? 'service' : hasPaidAccess(sub) ? sub.tier : 'free',
         admin,
       });
     } catch (error) {
@@ -368,6 +476,67 @@ subscriptionRouter.post(
       status: 'cancelled',
       message: `Subscription cancelled. ${sub.tier} access continues until ${sub.currentPeriodEnd}.`,
       activeUntil: sub.currentPeriodEnd,
+    });
+  }
+);
+
+subscriptionRouter.post(
+  '/subscription/dev-complete',
+  requireAuth,
+  requireJwtAuth,
+  async (req: Request, res: Response) => {
+    if (config.nodeEnv === 'production') {
+      res.status(404).json({ error: 'Not found' });
+      return;
+    }
+
+    const accountId = req.auth!.accountId;
+    const sub = await subscriptionStore.getByAccount(accountId);
+
+    if (!sub) {
+      res.status(404).json({ error: 'No subscription found' });
+      return;
+    }
+
+    const plan = getPlan(sub.tier);
+    if (!plan) {
+      res.status(400).json({ error: 'Unknown subscription tier' });
+      return;
+    }
+
+    const now = new Date();
+    const periodEnd = new Date(now);
+    if (plan.interval === 'month') {
+      periodEnd.setMonth(periodEnd.getMonth() + plan.intervalCount);
+    } else {
+      periodEnd.setFullYear(periodEnd.getFullYear() + plan.intervalCount);
+    }
+
+    const orderId =
+      sub.revolutSetupOrderId || sub.revolutLastOrderId || `dev-${Date.now()}`;
+
+    await subscriptionStore.updatePeriod(
+      accountId,
+      now.toISOString(),
+      periodEnd.toISOString(),
+      orderId
+    );
+
+    await updateAccountTier(accountId, sub.tier);
+    clearTierCache(accountId);
+
+    logger.info(
+      { accountId, tier: sub.tier, orderId },
+      'Subscription marked active via dev completion endpoint'
+    );
+
+    res.json({
+      status: 'active',
+      subscription: {
+        tier: sub.tier,
+        currentPeriodStart: now.toISOString(),
+        currentPeriodEnd: periodEnd.toISOString(),
+      },
     });
   }
 );

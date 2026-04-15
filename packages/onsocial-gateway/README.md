@@ -92,6 +92,18 @@ since the tier is locked in at the moment of staking based on USD value.
 
 See `.env.example` for all options.
 
+### Revolut sandbox vs production
+
+For reliable billing tests, set `REVOLUT_ENVIRONMENT=sandbox` or `REVOLUT_ENVIRONMENT=production` and keep credentials split by environment:
+
+- `REVOLUT_SECRET_KEY_SANDBOX` / `REVOLUT_SECRET_KEY_PRODUCTION`
+- `REVOLUT_PUBLIC_KEY_SANDBOX` / `REVOLUT_PUBLIC_KEY_PRODUCTION`
+- `REVOLUT_WEBHOOK_SIGNING_SECRET_SANDBOX` / `REVOLUT_WEBHOOK_SIGNING_SECRET_PRODUCTION`
+- `REVOLUT_PRO_VARIATION_ID_SANDBOX` / `REVOLUT_PRO_VARIATION_ID_PRODUCTION`
+- `REVOLUT_SCALE_VARIATION_ID_SANDBOX` / `REVOLUT_SCALE_VARIATION_ID_PRODUCTION`
+
+The gateway prefers environment-specific values and falls back to the existing unsuffixed `REVOLUT_*` variables for backward compatibility.
+
 ### CI/CD Secrets Required
 
 The GitHub Actions workflow requires these secrets:

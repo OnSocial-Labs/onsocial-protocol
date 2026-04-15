@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { pinoHttp } from 'pino-http';
 
-import { config } from './config/index.js';
+import { config, validateRevolutBillingConfig } from './config/index.js';
 import { logger } from './logger.js';
 import { authMiddleware, rateLimitMiddleware } from './middleware/index.js';
 import { meteringMiddleware } from './middleware/metering.js';
@@ -20,6 +20,11 @@ import { dataRouter } from './routes/data.js';
 import { storageRouter } from './services/storage/index.js';
 
 const app = express();
+const revolutBilling = validateRevolutBillingConfig();
+
+for (const warning of revolutBilling.warnings) {
+  logger.warn({ revolutEnvironment: revolutBilling.environment }, warning);
+}
 
 // Security
 app.use(helmet());
@@ -142,6 +147,8 @@ const server = app.listen(config.port, () => {
       port: config.port,
       network: config.nearNetwork,
       hasura: config.hasuraUrl,
+      revolutBillingEnabled: revolutBilling.enabled,
+      revolutEnvironment: revolutBilling.environment,
     },
     'onsocial-gateway started'
   );

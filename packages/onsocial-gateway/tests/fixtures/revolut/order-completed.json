@@ -1,0 +1,5 @@
+{
+  "event": "ORDER_COMPLETED",
+  "order_id": "order-completed-123",
+  "merchant_order_ext_ref": "alice.testnet:pro"
+}

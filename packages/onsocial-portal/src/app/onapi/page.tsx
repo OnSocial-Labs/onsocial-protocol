@@ -9,7 +9,6 @@ import { PageShell } from '@/components/layout/page-shell';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
 import { SectionHeader } from '@/components/layout/section-header';
 import { SurfacePanel } from '@/components/ui/surface-panel';
-import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
 import { portalColors, portalFrameBorders, portalFrameBackgrounds, type PortalAccent } from '@/lib/portal-colors';
 import { useGatewayAuth } from '@/contexts/gateway-auth-context';
 import {
@@ -145,11 +144,14 @@ export default function OnApiPage() {
           {tiers.map((tier, index) => {
             const isCurrent = jwt && currentTier === tier.name.toLowerCase();
             const tierKey = tier.name.toLowerCase();
-            const isUpgrade = jwt && tierRank(tierKey) > tierRank(currentTier);
-            const isDowngrade = jwt && tierRank(tierKey) < tierRank(currentTier);
-            const href = isCurrent || tierKey === 'free'
+            const isServiceTier = currentTier === 'service';
+            const isUpgrade = jwt && !isServiceTier && tierRank(tierKey) > tierRank(currentTier);
+            const isDowngrade =
+              jwt && !isServiceTier && tierRank(tierKey) < tierRank(currentTier);
+            const requiresCancelFirst = false; // gateway handles cancel+re-create
+            const href = isCurrent
               ? '/onapi/keys'
-              : isDowngrade
+              : tierKey === 'free' && !isDowngrade
                 ? '/onapi/keys'
                 : `/onapi/keys?tier=${tierKey}`;
 
@@ -230,43 +232,55 @@ export default function OnApiPage() {
                   )}
                 </div>
 
-                <StatStrip columns={3} className="mt-2">
-                  <StatStripCell label="Requests" value={tier.rate} showDivider />
-                  <StatStripCell
-                    label="Depth"
-                    value={tier.depth}
-                    showDivider
-                  />
-                  <StatStripCell label="Complexity" value={tier.complexity} />
-                </StatStrip>
-                <StatStrip columns={2} groupClassName="border-t-0">
-                  <StatStripCell label="Rows" value={tier.rows} showDivider />
-                  <StatStripCell
-                    label="Aggregations"
-                    value={tier.aggregations ? 'Yes' : 'No'}
-                    valueClassName={
-                      tier.aggregations
-                        ? 'portal-green-text'
-                        : 'text-muted-foreground'
-                    }
-                  />
-                </StatStrip>
+                <div className="mt-3 space-y-0 px-5 md:px-6">
+                  {[
+                    { label: 'Requests', val: tier.rate },
+                    { label: 'Depth', val: tier.depth },
+                    { label: 'Complexity', val: tier.complexity },
+                    { label: 'Rows', val: tier.rows },
+                    {
+                      label: 'Analytics',
+                      val: tier.aggregations ? 'Custom' : 'Prebuilt',
+                      accent: tier.aggregations,
+                    },
+                  ].map((spec, i) => (
+                    <div key={spec.label}>
+                      {i > 0 && <div className="h-px w-full divider-detail" />}
+                      <div className="flex items-center justify-between py-2">
+                        <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                          {spec.label}
+                        </span>
+                        <span
+                          className={`font-mono text-[13px] font-semibold ${
+                            spec.accent === true
+                              ? 'portal-green-text'
+                              : spec.accent === false
+                                ? 'text-muted-foreground/60'
+                                : 'text-foreground/80'
+                          }`}
+                        >
+                          {spec.val}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
 
-                {!isDowngrade && (
-                <div className="px-5 pb-4 pt-3 md:px-6">
+                <div className="px-5 pb-5 pt-4 md:px-6">
                   <span
                     className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em]"
                     style={{ color: portalColors[tier.accent] }}
                   >
                     {isCurrent
                       ? 'Manage'
-                      : isUpgrade
-                        ? 'Upgrade'
-                        : 'Get started'}
+                      : isDowngrade
+                        ? 'Downgrade'
+                        : isUpgrade
+                          ? 'Upgrade'
+                          : 'Get started'}
                     <ArrowUpRight className="h-3 w-3 opacity-40 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                   </span>
                 </div>
-                )}
               </SurfacePanel>
             </Link>
             </motion.div>

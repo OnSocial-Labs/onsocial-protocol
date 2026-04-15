@@ -1,13 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
-import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   Copy,
   Check,
-  CheckCircle2,
   ChevronDown,
   Eye,
   EyeOff,
@@ -47,9 +45,11 @@ import {
   fetchSubscription,
   subscribe,
   cancelSubscription,
+  completeDevSubscription,
   type PlanInfo,
   type SubscriptionInfo,
 } from '@/features/onapi/billing-api';
+import { ACTIVE_API_URL } from '@/lib/portal-config';
 
 function maskKey(prefix: string): string {
   return `${prefix}${'•'.repeat(20)}`;
@@ -159,12 +159,12 @@ export default function OnApiKeysPage() {
   const [upgrading, setUpgrading] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [completingDev, setCompletingDev] = useState(false);
   const pendingUpgradeRef = useRef(false);
 
-  const [checkoutSuccess, setCheckoutSuccess] = useState(false);
   useEffect(() => {
     if (searchParams.get('checkout') === 'success') {
-      setCheckoutSuccess(true);
+      setToast({ type: 'success', msg: 'Payment complete \u2014 your plan is active!' });
       window.history.replaceState({}, '', '/onapi/keys');
     }
   }, [searchParams]);
@@ -293,20 +293,24 @@ export default function OnApiKeysPage() {
   const targetPlan = requestedTier
     ? plans.find((plan) => plan.tier === requestedTier) ?? null
     : null;
-  const accent: PortalAccent = targetPlan ? tierAccent(targetPlan.tier) : 'blue';
-  // past_due subscriptions are effectively free for upgrade / downgrade logic
+  const accent: PortalAccent = targetPlan ? tierAccent(targetPlan.tier) : requestedTier ? tierAccent(requestedTier) : 'blue';
+  // past_due subscriptions are effectively free for checkout decisions
   const effectiveTier = subscription?.status === 'past_due' ? 'free' : currentTier;
+  const isServiceTier = effectiveTier === 'service';
   const alreadyOnTier = requestedTier ? effectiveTier === requestedTier : false;
   const isUpgrade = requestedTier
-    ? tierRank(requestedTier) > tierRank(effectiveTier)
+    ? !isServiceTier && tierRank(requestedTier) > tierRank(effectiveTier)
     : false;
   const isDowngrade = requestedTier
-    ? tierRank(requestedTier) < tierRank(effectiveTier) && !alreadyOnTier
+    ? !isServiceTier && tierRank(requestedTier) < tierRank(effectiveTier) && !alreadyOnTier
     : false;
+  const requiresCancelFirst = false; // gateway handles cancel+re-create in one action
   const hasKeys = keys.length > 0;
   const showUpgradePanel = Boolean(
-    targetPlan && !alreadyOnTier && (isUpgrade || effectiveTier === 'free'),
+    targetPlan && !alreadyOnTier && (isUpgrade || isDowngrade || effectiveTier === 'free'),
   );
+  const showDevBillingBypass =
+    ACTIVE_API_URL.includes('localhost') && subscription?.status === 'pending';
   const quickStartExpanded = !hasKeys || quickStartOpen;
   const emailValid = EMAIL_RE.test(billingEmail.trim());
   const showEmailHint =
@@ -361,6 +365,21 @@ export default function OnApiKeysPage() {
       setError(err instanceof Error ? err.message : 'Failed to cancel');
     } finally {
       setCancelling(false);
+    }
+  };
+
+  const handleDevComplete = async () => {
+    if (!jwt) return;
+    setCompletingDev(true);
+    setError(null);
+    try {
+      await completeDevSubscription(jwt);
+      await refresh();
+      setToast({ type: 'success', msg: 'Payment complete \u2014 your plan is active!' });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to complete sandbox payment');
+    } finally {
+      setCompletingDev(false);
     }
   };
 
@@ -454,32 +473,29 @@ export default function OnApiKeysPage() {
   return (
     <PageShell className="max-w-3xl space-y-6">
       <SecondaryPageHeader badge="API Keys" badgeAccent="blue" />
-      {checkoutSuccess && (
-        <motion.div
-          {...fadeUpMotion(!!reduceMotion, { distance: 8, duration: 0.24 })}
-          className="rounded-lg border border-[var(--portal-green-border)] bg-[var(--portal-green-bg)] px-5 py-4"
-        >
-          <div className="flex items-center gap-3">
-            <CheckCircle2 className="h-5 w-5 shrink-0 portal-green-text" />
-            <p className="flex-1 text-sm font-medium portal-green-text">
-              Payment complete — your plan is active!
+
+      {showDevBillingBypass && (
+        <SurfacePanel radius="xl" tone="soft" padding="roomy" className="space-y-3">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-foreground">
+              Local sandbox bypass
             </p>
-            <button
-              onClick={() => setCheckoutSuccess(false)}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <p className="text-xs text-muted-foreground">
+              Revolut sandbox checkout is still pending. For local testing, mark it complete here and continue with the API key flow.
+            </p>
           </div>
-        </motion.div>
+          <Button onClick={handleDevComplete} size="sm" loading={completingDev}>
+            Mark sandbox payment complete
+          </Button>
+        </SurfacePanel>
       )}
 
       {/* ── Plan card: always visible for authenticated users ── */}
       <motion.div
         {...fadeUpMotion(!!reduceMotion, { distance: 12, delay: 0.12 })}
       >
-          {/* ── Upgrade flow: minimal current-plan line ── */}
-          {showUpgradePanel ? (
+          {/* ── Upgrade / downgrade flow: minimal current-plan line ── */}
+          {showUpgradePanel || requiresCancelFirst ? (
             <div className="space-y-3">
               <div className="flex items-center gap-2 px-1">
                 <span
@@ -585,16 +601,13 @@ export default function OnApiKeysPage() {
               </div>
             )}
 
-            {subscription && !['expired', 'pending'].includes(subscription.status) && (
+            {subscription && subscription.status === 'cancelled' && (
               <div className="mt-3">
-                <StatStrip columns={4}>
-                  <StatStripCell label="Period" showDivider>
-                    {new Date(subscription.currentPeriodStart).toLocaleDateString()}
-                    {' → '}
-                    {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
-                  </StatStripCell>
-                  <StatStripCell label={subscription.status === 'cancelled' ? 'Expires' : 'Renews'} showDivider>
-                    {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                <StatStrip columns={3}>
+                  <StatStripCell label="Rate limit" showDivider>
+                    <span className="font-mono text-sm font-semibold tracking-tight" style={{ color: portalColors[tierAccent(currentTier)] }}>
+                      {TIER_LIMITS[currentTier] ?? '60 /min'}
+                    </span>
                   </StatStripCell>
                   <StatStripCell label="Reqs today" showDivider>
                     <span className="font-mono text-sm font-semibold tracking-tight portal-blue-text">
@@ -610,15 +623,37 @@ export default function OnApiKeysPage() {
               </div>
             )}
 
-            {!requestedTier && !isAdmin && currentTier !== 'scale' && (() => {
+            {subscription && !['expired', 'pending', 'cancelled'].includes(subscription.status) && (
+              <div className="mt-3">
+                <StatStrip columns={3}>
+                  <StatStripCell label="Rate limit" showDivider>
+                    <span className="font-mono text-sm font-semibold tracking-tight" style={{ color: portalColors[tierAccent(currentTier)] }}>
+                      {TIER_LIMITS[currentTier] ?? '60 /min'}
+                    </span>
+                  </StatStripCell>
+                  <StatStripCell label="Reqs today" showDivider>
+                    <span className="font-mono text-sm font-semibold tracking-tight portal-blue-text">
+                      {(usage?.today ?? 0).toLocaleString()}
+                    </span>
+                  </StatStripCell>
+                  <StatStripCell label="Reqs this month">
+                    <span className="font-mono text-sm font-semibold tracking-tight portal-slate-text">
+                      {(usage?.thisMonth ?? 0).toLocaleString()}
+                    </span>
+                  </StatStripCell>
+                </StatStrip>
+              </div>
+            )}
+
+            {!requestedTier && !isAdmin && subscription?.status !== 'cancelled' && (() => {
               const budget = TIER_DAILY_BUDGET[currentTier] ?? 86_400;
               const todayCount = usage?.today ?? 0;
               const pct = budget > 0 ? todayCount / budget : 0;
               const next = nextTierUp(currentTier);
-              if (!next) return null;
-              const nextAccent = tierAccent(next);
+              const nextAccent = next ? tierAccent(next) : tierAccent(currentTier);
               const pctClamped = Math.min(pct, 1);
-              const showNudge = pct >= 0.8;
+              const showNudge = next && pct >= 0.8;
+              const hasRenewal = subscription?.status === 'active' && subscription.currentPeriodEnd;
               const Wrapper = showNudge ? motion.a : motion.div;
               return (
                 <Wrapper
@@ -637,7 +672,7 @@ export default function OnApiKeysPage() {
                       }}
                     />
                   </div>
-                  {showNudge && (
+                  {showNudge && next ? (
                     <div className="flex items-center justify-between pt-2">
                       <span className="text-xs text-muted-foreground/70">
                         {pct >= 1 ? 'Daily limit reached' : 'Nearing daily limit'}
@@ -650,7 +685,13 @@ export default function OnApiKeysPage() {
                         <ArrowUpRight className="h-3 w-3" />
                       </span>
                     </div>
-                  )}
+                  ) : hasRenewal ? (
+                    <div className="flex items-center justify-between pt-2">
+                      <span className="text-xs text-muted-foreground/70">
+                        Renews {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                      </span>
+                    </div>
+                  ) : null}
                 </Wrapper>
               );
             })()}
@@ -681,22 +722,60 @@ export default function OnApiKeysPage() {
                     onClick={() => setConfirmCancel(true)}
                     className="text-muted-foreground"
                   >
-                    Cancel subscription
+                    Cancel renewal
                   </Button>
                 )}
               </div>
             )}
 
-            {subscription?.status === 'cancelled' && (
-              <p className="mt-3 text-xs text-muted-foreground">
-                Your {formatTierLabel(subscription.tier)} access runs until {new Date(subscription.currentPeriodEnd).toLocaleDateString()}, then switches to Free.
-              </p>
-            )}
+            {subscription?.status === 'cancelled' && (() => {
+              const start = new Date(subscription.currentPeriodStart).getTime();
+              const end = new Date(subscription.currentPeriodEnd).getTime();
+              const now = Date.now();
+              const total = end - start;
+              const elapsed = Math.max(0, now - start);
+              const pct = total > 0 ? Math.min(elapsed / total, 1) : 0;
+              const accentColor = portalColors[tierAccent(currentTier)];
+              const nearEnd = pct >= 0.75;
+              return (
+                <div className="mt-3">
+                  <div className="h-px w-full bg-border/40">
+                    <div
+                      className="h-full transition-all duration-500"
+                      style={{
+                        width: `${Math.max(pct * 100, 1)}%`,
+                        backgroundColor: nearEnd ? accentColor : 'var(--muted-foreground)',
+                        opacity: nearEnd ? 0.7 : 0.3,
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between pt-2">
+                    <span className="text-xs text-muted-foreground/70">
+                      {formatTierLabel(subscription.tier)} until {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                    </span>
+                    <span className="text-[11px] font-medium tracking-[0.08em] text-muted-foreground/50">
+                      then Free
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
 
             {subscription?.status === 'past_due' && (
               <p className="mt-3 text-xs portal-red-text">
                 Payment didn&apos;t go through — resubscribe to keep your plan.
               </p>
+            )}
+
+            {subscription?.graceTier && subscription.gracePeriodEnd && new Date(subscription.gracePeriodEnd) > new Date() && (
+              <div className="mt-3 flex items-center justify-between">
+                <span className="text-xs text-muted-foreground/70">
+                  {formatTierLabel(subscription.graceTier)} limits until {new Date(subscription.gracePeriodEnd).toLocaleDateString()}
+                </span>
+                <span className="text-[11px] font-medium tracking-[0.08em] text-muted-foreground/50">
+                  then {formatTierLabel(subscription.tier)}
+                </span>
+              </div>
             )}
           </SurfacePanel>
           )}
@@ -726,7 +805,7 @@ export default function OnApiKeysPage() {
                       {targetPlan.name}
                     </h3>
                     <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                      Upgrade
+                      {isDowngrade ? 'Downgrade' : 'Upgrade'}
                     </span>
                   </div>
                   <div className="mt-1 flex items-baseline gap-1">
@@ -761,8 +840,8 @@ export default function OnApiKeysPage() {
                 <StatStrip columns={2} className="mt-2">
                   <StatStripCell label="Requests" value={`${targetPlan.rateLimit.toLocaleString()} /min`} showDivider />
                   <StatStripCell
-                    label="Aggregations"
-                    value={specs.aggregations ? 'Yes' : 'No'}
+                    label="Analytics"
+                    value={specs.aggregations ? 'Custom' : 'Prebuilt'}
                     valueClassName={specs.aggregations ? 'portal-green-text' : 'text-muted-foreground'}
                   />
                 </StatStrip>
@@ -819,12 +898,40 @@ export default function OnApiKeysPage() {
               );
             })()}
 
-            {requestedTier && isDowngrade && targetPlan && (
-              <p className="text-sm text-muted-foreground">
-                {subscription?.status === 'cancelled'
-                  ? <>Your {formatTierLabel(currentTier)} plan runs until {new Date(subscription.currentPeriodEnd).toLocaleDateString()} — you can switch after that.</>
-                  : <>You&apos;re on a higher plan — cancel your current subscription to switch.</>}
-              </p>
+            {requestedTier && requiresCancelFirst && (
+              <motion.div {...fadeUpMotion(!!reduceMotion, { distance: 16, duration: 0.3 })}>
+              <SurfacePanel
+                radius="xl"
+                tone="soft"
+                padding="roomy"
+                className="transition-[border-color,box-shadow] duration-200"
+                style={{
+                  borderColor: `color-mix(in srgb, ${portalColors[accent]} 20%, transparent)`,
+                }}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <span
+                    className="inline-block h-2 w-2 rounded-full"
+                    style={{ backgroundColor: portalColors[accent] }}
+                  />
+                  <span
+                    className="text-xs font-semibold uppercase tracking-[0.18em]"
+                    style={{ color: portalColors[accent] }}
+                  >
+                    {formatTierLabel(requestedTier)}
+                  </span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {requestedTier === 'free'
+                    ? (subscription?.status === 'cancelled'
+                      ? <>Your {formatTierLabel(currentTier)} access runs until {new Date(subscription.currentPeriodEnd).toLocaleDateString()}. You&apos;ll switch to Free automatically after that.</>
+                      : <>Cancel your {formatTierLabel(currentTier)} renewal and you&apos;ll switch to Free automatically when the period ends.</>)
+                    : (subscription?.status === 'cancelled'
+                      ? <>Your {formatTierLabel(currentTier)} plan runs until {new Date(subscription.currentPeriodEnd).toLocaleDateString()} — you can buy {formatTierLabel(requestedTier)} after it expires.</>
+                      : <>Cancel your {formatTierLabel(currentTier)} renewal first. You&apos;ll keep access until the period ends, then you can switch to {formatTierLabel(requestedTier)}.</>)}
+                </p>
+              </SurfacePanel>
+              </motion.div>
             )}
 
             {requestedTier && alreadyOnTier && targetPlan && (

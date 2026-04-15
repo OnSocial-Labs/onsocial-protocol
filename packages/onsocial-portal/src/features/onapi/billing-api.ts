@@ -29,6 +29,8 @@ export interface SubscriptionInfo {
   currentPeriodEnd: string;
   promotionCode: string | null;
   promotionCyclesRemaining: number;
+  graceTier: string | null;
+  gracePeriodEnd: string | null;
 }
 
 export interface SubscribeResult {
@@ -116,7 +118,11 @@ export async function subscribe(
   });
 }
 
-/** Cancel subscription (keeps access until period end) */
+/** Cancel renewal (keeps access until period end) */
 export async function cancelSubscription(jwt: string): Promise<void> {
   await gw('/developer/subscription/cancel', jwt, { method: 'POST' });
+}
+
+export async function completeDevSubscription(jwt: string): Promise<void> {
+  await gw('/developer/subscription/dev-complete', jwt, { method: 'POST' });
 }

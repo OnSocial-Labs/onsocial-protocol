@@ -9,6 +9,7 @@
  */
 
 import type { Tier } from '../../types/index.js';
+import { resolveRevolutVariationId } from './env.js';
 
 export interface SubscriptionPlan {
   /** Plan identifier — matches the Tier type ('pro', 'scale', etc.) */
@@ -83,12 +84,6 @@ export const SUBSCRIPTION_PLANS: readonly SubscriptionPlan[] = [
   },
 ] as const;
 
-/** Map tier → env var name for Revolut plan variation IDs */
-const VARIATION_ENV: Record<string, string> = {
-  pro: 'REVOLUT_PRO_VARIATION_ID',
-  scale: 'REVOLUT_SCALE_VARIATION_ID',
-};
-
 /**
  * Active promotions.
  *
@@ -114,8 +109,7 @@ export const PROMOTIONS: readonly Promotion[] = [
 export function getPlan(tier: string): SubscriptionPlan | undefined {
   const plan = SUBSCRIPTION_PLANS.find((p) => p.tier === tier);
   if (!plan) return undefined;
-  const envName = VARIATION_ENV[plan.tier];
-  const variationId = envName ? process.env[envName] || undefined : undefined;
+  const variationId = resolveRevolutVariationId(plan.tier) || undefined;
   return { ...plan, revolutPlanVariationId: variationId };
 }
 

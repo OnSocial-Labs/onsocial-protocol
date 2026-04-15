@@ -1,0 +1,5 @@
+{
+  "event": "ORDER_PAYMENT_FAILED",
+  "order_id": "order-failed-456",
+  "merchant_order_ext_ref": "alice.testnet:pro"
+}

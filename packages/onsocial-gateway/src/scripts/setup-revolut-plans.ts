@@ -20,26 +20,33 @@ import {
   type RevolutConfig,
   type RevolutPlan,
 } from '../services/revolut/client.js';
+import {
+  resolveRevolutConfig,
+  resolveRevolutVariationEnvName,
+} from '../services/revolut/env.js';
 import { SUBSCRIPTION_PLANS } from '../services/revolut/plans.js';
 
-const secretKey = process.env.REVOLUT_SECRET_KEY;
-if (!secretKey) {
+const revolut = resolveRevolutConfig();
+if (!revolut.secretKey) {
   console.error('Error: REVOLUT_SECRET_KEY env var is required');
   process.exit(1);
 }
 
 const cfg: RevolutConfig = {
-  secretKey,
-  publicKey: process.env.REVOLUT_PUBLIC_KEY || '',
-  webhookSigningSecret: process.env.REVOLUT_WEBHOOK_SIGNING_SECRET || '',
-  apiUrl:
-    process.env.REVOLUT_API_URL || 'https://sandbox-merchant.revolut.com/api',
-  apiVersion: process.env.REVOLUT_API_VERSION || '2025-12-04',
+  secretKey: revolut.secretKey,
+  publicKey: revolut.publicKey,
+  webhookSigningSecret: revolut.webhookSigningSecret,
+  apiUrl: revolut.apiUrl,
+  apiVersion: revolut.apiVersion,
 };
 
 const client = new RevolutClient(cfg);
 
 async function main() {
+  console.log(
+    `Using Revolut ${revolut.environment} environment (${cfg.apiUrl})`
+  );
+
   // Check for existing plans
   const existing = await client.listSubscriptionPlans();
   const existingByName = new Map<string, RevolutPlan>();
@@ -91,8 +98,9 @@ async function main() {
 
   // Print env var output
   console.log('\n─── Copy these to your .env or GSM secrets ───\n');
+  console.log(`REVOLUT_ENVIRONMENT=${revolut.environment}`);
   for (const r of results) {
-    const envName = `REVOLUT_${r.tier.toUpperCase()}_VARIATION_ID`;
+    const envName = resolveRevolutVariationEnvName(r.tier, revolut.environment);
     console.log(`${envName}=${r.variationId}`);
   }
   console.log('');

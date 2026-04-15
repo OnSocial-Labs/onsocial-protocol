@@ -199,3 +199,46 @@ describe('Subscription lifecycle → tier resolution', () => {
     expect((await getTierInfo('user.testnet')).tier).toBe('pro');
   });
 });
+
+describe('Grace period tier resolution', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    clearTierCache('user.testnet');
+  });
+
+  it('uses graceTier when it is higher and grace period has not expired', async () => {
+    mockGetWithValidPeriod.mockResolvedValue({
+      tier: 'pro',
+      status: 'active',
+      graceTier: 'scale',
+      gracePeriodEnd: new Date(Date.now() + 10 * 24 * 3600_000).toISOString(),
+    });
+    const info = await getTierInfo('user.testnet');
+    expect(info.tier).toBe('scale');
+    expect(info.rateLimit).toBe(3000);
+  });
+
+  it('uses current tier when grace period has expired', async () => {
+    mockGetWithValidPeriod.mockResolvedValue({
+      tier: 'pro',
+      status: 'active',
+      graceTier: 'scale',
+      gracePeriodEnd: new Date(Date.now() - 1000).toISOString(),
+    });
+    const info = await getTierInfo('user.testnet');
+    expect(info.tier).toBe('pro');
+    expect(info.rateLimit).toBe(600);
+  });
+
+  it('uses current tier when graceTier is null', async () => {
+    mockGetWithValidPeriod.mockResolvedValue({
+      tier: 'pro',
+      status: 'active',
+      graceTier: null,
+      gracePeriodEnd: null,
+    });
+    const info = await getTierInfo('user.testnet');
+    expect(info.tier).toBe('pro');
+    expect(info.rateLimit).toBe(600);
+  });
+});

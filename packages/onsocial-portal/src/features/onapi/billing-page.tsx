@@ -132,7 +132,8 @@ export default function BillingPage() {
   const targetPlan = plans.find((p) => p.tier === requestedTier) ?? plans[0];
   const accent = targetPlan ? tierAccent(targetPlan.tier) : 'blue';
   const alreadyOnTier = currentTier === requestedTier;
-  const isDowngrade = tierRank(requestedTier) <= tierRank(currentTier) && !alreadyOnTier;
+  const requiresCancelFirst =
+    tierRank(requestedTier) <= tierRank(currentTier) && !alreadyOnTier;
 
   const emailValid = EMAIL_RE.test(billingEmail.trim());
   const showEmailHint = emailTouched && billingEmail.trim().length > 0 && !emailValid;
@@ -304,7 +305,7 @@ export default function BillingPage() {
                   </div>
                 ) : (
                   <Button variant="outline" size="sm" onClick={() => setConfirmCancel(true)} className="text-muted-foreground">
-                    Cancel subscription
+                    Cancel renewal
                   </Button>
                 )}
               </div>
@@ -326,7 +327,7 @@ export default function BillingPage() {
       )}
 
       {/* ── Upgrade checkout (only when not already on this tier) ── */}
-      {!loading && targetPlan && !alreadyOnTier && !isDowngrade && (
+      {!loading && targetPlan && !alreadyOnTier && !requiresCancelFirst && (
         <motion.div
           {...fadeUpMotion(!!reduceMotion, { distance: 16, duration: 0.3 })}
         >
@@ -454,10 +455,10 @@ export default function BillingPage() {
         </div>
       )}
 
-      {/* ── Downgrade notice ──────────────────────────────── */}
-      {!loading && isDowngrade && (
+      {/* ── Lower-tier flow notice ───────────────────────── */}
+      {!loading && requiresCancelFirst && (
         <div className="text-center text-sm text-muted-foreground">
-          You&apos;re on a higher plan. Cancel your current subscription first to switch.
+          You&apos;re on a higher plan. Cancel renewal first, keep access until it ends, then buy this plan later if you still need it.
         </div>
       )}
     </PageShell>
