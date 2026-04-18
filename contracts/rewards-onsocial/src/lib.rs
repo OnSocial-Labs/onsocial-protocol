@@ -21,6 +21,9 @@ mod views;
 #[cfg(test)]
 mod tests;
 
+#[cfg(test)]
+mod sdk_parity_test;
+
 pub use admin::{ContractInfo, RegisterApp, UpdateApp};
 pub use errors::RewardsError;
 pub use protocol::{Action, Auth, Options, Request};

@@ -171,6 +171,7 @@ export function WalletButton({
       <FloatingPanelMenu
         open={menu.isOpen}
         align={menuAlign === 'left' ? 'left' : 'right'}
+        offsetClass="mt-1"
         className="w-56 md:w-64"
       >
         <div className="border-b border-fade-section px-3 py-2.5 md:px-4 md:py-3">

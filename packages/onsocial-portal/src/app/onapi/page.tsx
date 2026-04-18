@@ -122,10 +122,10 @@ export default function OnApiPage() {
     <PageShell className="max-w-5xl">
       <SecondaryPageHeader
         badge="OnAPI"
-        badgeAccent="blue"
-        glowAccents={['green', 'blue', 'purple']}
-        title="Access OnSocial data and actions"
-        description="Query the NEAR blockchain, manage social graphs, and execute gasless transactions — all through one endpoint."
+        badgeAccent="purple"
+        glowAccents={['purple', 'blue']}
+        title="Build on the social layer"
+        description="Query social graphs, compose on-chain content, and relay gasless transactions — one API for everything on OnSocial."
       />
 
       {/* ── Access Tiers ──────────────────────────────────────── */}

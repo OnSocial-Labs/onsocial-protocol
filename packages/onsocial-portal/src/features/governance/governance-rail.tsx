@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, Plus, RefreshCw, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,13 @@ import {
 import { FloatingPanelMenu } from '@/components/ui/floating-panel-menu';
 import { cn } from '@/lib/utils';
 import { useDropdown } from '@/hooks/use-dropdown';
+import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  getDesktopNavMetrics,
+  getMobileNavMetrics,
+  MOBILE_NAV_MIN_WIDTH,
+} from '@/lib/nav-metrics';
+import { useNavVisibility } from '@/components/providers/nav-visibility-context';
 import type {
   GovernanceLane,
   GovernanceStatusFilter,
@@ -45,13 +53,45 @@ export function GovernanceRail({
   visibleStatusOptions,
 }: GovernanceRailProps) {
   const statusMenu = useDropdown();
+  const isMobile = useIsMobile();
+  const { navHidden } = useNavVisibility();
+  const [viewportWidth, setViewportWidth] = useState(MOBILE_NAV_MIN_WIDTH);
+
+  useEffect(() => {
+    const syncViewportWidth = () => {
+      setViewportWidth(window.innerWidth);
+    };
+
+    syncViewportWidth();
+    window.addEventListener('resize', syncViewportWidth);
+
+    return () => {
+      window.removeEventListener('resize', syncViewportWidth);
+    };
+  }, []);
+
+  const { topInset: mobileTopInset, height: mobileNavHeight } =
+    getMobileNavMetrics(viewportWidth);
+  const { railTop: desktopRailTop } = getDesktopNavMetrics();
+
+  // Desktop keeps a fixed top below the static nav.
+  // Mobile uses the same inset as the nav itself when hidden,
+  // and the nav bottom plus that same inset when visible.
+  const stickyTop = isMobile
+    ? navHidden
+      ? `${mobileTopInset}px`
+      : `${mobileTopInset + mobileNavHeight + mobileTopInset}px`
+    : `${desktopRailTop}px`;
 
   const activeStatusOption =
     visibleStatusOptions.find((option) => option.value === statusFilter) ??
     visibleStatusOptions[0];
 
   return (
-    <div className="sticky top-[68px] z-20 mb-6 rounded-2xl border border-border/50 bg-background/88 px-3 py-3 shadow-[0_18px_42px_-28px_rgba(15,23,42,0.34)] backdrop-blur-xl md:top-24 md:rounded-[1.5rem] md:px-4 md:py-4">
+    <div
+      className="sticky z-20 mb-6 rounded-2xl border border-border/50 bg-background/88 px-3 py-3 shadow-[0_18px_42px_-28px_rgba(15,23,42,0.34)] backdrop-blur-xl transition-[top] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] md:rounded-[1.5rem] md:px-4 md:py-4"
+      style={{ top: stickyTop }}
+    >
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3 md:grid md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
           <div className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

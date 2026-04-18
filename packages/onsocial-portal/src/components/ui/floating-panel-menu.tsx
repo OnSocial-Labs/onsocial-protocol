@@ -16,6 +16,7 @@ const alignClasses = {
 interface FloatingPanelMenuProps {
   open: boolean;
   align?: keyof typeof alignClasses;
+  offsetClass?: string;
   className?: string;
   role?: string;
   'aria-label'?: string;
@@ -27,6 +28,7 @@ interface FloatingPanelMenuProps {
 export function FloatingPanelMenu({
   open,
   align = 'right',
+  offsetClass = 'mt-2',
   className,
   children,
   ...props
@@ -45,8 +47,9 @@ export function FloatingPanelMenu({
             exitScale: 0.985,
           })}
           className={cn(
-            'absolute z-40 mt-2 max-w-[calc(100vw-2rem)] origin-top overflow-hidden',
+            'absolute top-full z-40 max-w-[calc(100vw-2rem)] origin-top overflow-hidden',
             alignClasses[align],
+            offsetClass,
             floatingPanelClass,
             className
           )}

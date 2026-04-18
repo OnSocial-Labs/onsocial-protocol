@@ -110,3 +110,15 @@ help:
 .PHONY: targets-count
 targets-count:
 	@echo "$(INFO)Available make targets: $$(make -qp | grep '^[a-zA-Z0-9][^$$#\/\\t=]*:' | wc -l)$(RESET)"
+
+# Verify SDK ↔ contract action parity (round-trip).
+# 1. Run the @onsocial/sdk vitest suite to regenerate the JSON fixture.
+# 2. Run the cargo unit test that deserializes the fixture into the contract's
+#    Request/Action types — proves builders emit JSON the contract accepts.
+.PHONY: verify-sdk-parity
+verify-sdk-parity:
+	@$(call log_progress,Regenerating SDK parity fixture)
+	@cd packages/onsocial-sdk && pnpm test
+	@$(call log_progress,Round-tripping fixture through contract types)
+	@cd contracts/core-onsocial && cargo test --lib sdk_parity
+	@$(call log_success,SDK ↔ contract parity verified)

@@ -166,9 +166,9 @@ function PlaygroundContent() {
     <PageShell size="wide">
       <TransactionFeedbackToast result={txResult} onClose={clearTxResult} />
       <SecondaryPageHeader
-        badge="Interactive sandbox"
-        badgeAccent="blue"
-        glowAccents={['blue', 'green', 'purple']}
+        badge="Playground"
+        badgeAccent="purple"
+        glowAccents={['purple', 'blue']}
         align="left"
         contentClassName="max-w-5xl"
         descriptionClassName="max-w-3xl"

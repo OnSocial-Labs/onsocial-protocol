@@ -39,9 +39,9 @@ export default function SDKPage() {
   return (
     <PageShell className="max-w-5xl">
       <SecondaryPageHeader
-        badge="Builder toolkit"
-        badgeAccent="green"
-        glowAccents={['blue', 'green', 'purple']}
+        badge="SDK"
+        badgeAccent="purple"
+        glowAccents={['purple', 'blue']}
         title="Build on OnSocial with a Unified SDK"
         description="A unified client with optional gateway, relay, storage, and indexed reads built in when needed."
       />

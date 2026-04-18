@@ -230,6 +230,40 @@
     cursor: not-allowed;
   }
 
+  html {
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--foreground) / 0.12) transparent;
+  }
+
+  /* Webkit (Chrome, Safari, Edge) custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--foreground) / 0.1);
+    border-radius: 9999px;
+    transition: background 0.2s ease;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--foreground) / 0.2);
+  }
+
+  ::-webkit-scrollbar-thumb:active {
+    background: hsl(var(--foreground) / 0.28);
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));

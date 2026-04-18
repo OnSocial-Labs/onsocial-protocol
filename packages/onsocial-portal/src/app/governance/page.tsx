@@ -153,7 +153,7 @@ function GovernancePageContent() {
   return (
     <PageShell className="max-w-6xl">
       <SecondaryPageHeader
-        badge="Public governance"
+        badge="Governance"
         badgeAccent="blue"
         glowAccents={['blue', 'green']}
         glowClassName="h-56 opacity-80"

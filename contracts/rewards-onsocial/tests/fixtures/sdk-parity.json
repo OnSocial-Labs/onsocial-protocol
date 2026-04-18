@@ -1,0 +1,44 @@
+{
+  "schema": "onsocial.sdk.parity/v1",
+  "generated_by": "packages/onsocial-sdk/src/advanced/dump-rewards-parity.test.ts",
+  "network": "testnet",
+  "contract": "rewards-onsocial",
+  "cases": [
+    {
+      "name": "credit reward minimal",
+      "expected_action_type": "credit_reward",
+      "request": {
+        "target_account": "rewards.onsocial.testnet",
+        "action": {
+          "type": "credit_reward",
+          "account_id": "alice.near",
+          "amount": "1000"
+        }
+      }
+    },
+    {
+      "name": "credit reward with source and app",
+      "expected_action_type": "credit_reward",
+      "request": {
+        "target_account": "rewards.onsocial.testnet",
+        "action": {
+          "type": "credit_reward",
+          "account_id": "alice.near",
+          "amount": "2500",
+          "source": "engagement",
+          "app_id": "social-app"
+        }
+      }
+    },
+    {
+      "name": "claim",
+      "expected_action_type": "claim",
+      "request": {
+        "target_account": "rewards.onsocial.testnet",
+        "action": {
+          "type": "claim"
+        }
+      }
+    }
+  ]
+}

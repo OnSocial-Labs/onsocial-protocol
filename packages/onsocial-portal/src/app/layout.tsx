@@ -5,6 +5,7 @@ import Script from 'next/script';
 import './globals.css';
 import { RuntimeConfigWarnings } from '@/components/providers/runtime-config-warnings';
 import { MobilePageProvider } from '@/components/providers/mobile-page-context';
+import { NavVisibilityProvider } from '@/components/providers/nav-visibility-context';
 import { PwaProvider } from '@/components/providers/pwa-provider';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { SmoothScrollProvider } from '@/components/providers/smooth-scroll-provider';
@@ -143,6 +144,7 @@ export default function RootLayout({
             <WalletProvider network={ACTIVE_NEAR_NETWORK}>
               <GatewayAuthProvider>
               <MobilePageProvider>
+              <NavVisibilityProvider>
                 <Suspense>
                   <SmoothScrollProvider>
                     <Navigation />
@@ -150,6 +152,7 @@ export default function RootLayout({
                     <Footer />
                   </SmoothScrollProvider>
                 </Suspense>
+              </NavVisibilityProvider>
               </MobilePageProvider>
               </GatewayAuthProvider>
             </WalletProvider>

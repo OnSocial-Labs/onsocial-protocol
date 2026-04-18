@@ -1,0 +1,354 @@
+{
+  "schema": "onsocial.sdk.parity/v1",
+  "generated_by": "packages/onsocial-sdk/src/advanced/dump-parity.test.ts",
+  "network": "testnet",
+  "cases": [
+    {
+      "name": "profile write",
+      "expected_action_type": "set",
+      "request": {
+        "target_account": "core.onsocial.testnet",
+        "action": {
+          "type": "set",
+          "data": {
+            "profile/v": "1",
+            "profile/name": "Alice",
+            "profile/bio": "Builder"
+          }
+        }
+      }
+    },
+    {
+      "name": "post create",
+      "expected_action_type": "set",
+      "request": {
+        "target_account": "core.onsocial.testnet",
+        "action": {
+          "type": "set",
+          "data": {
+            "post/post-123": {
+              "v": 1,
+              "text": "Hello OnSocial!",
+              "timestamp": 42
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "stand with user",
+      "expected_action_type": "set",
+      "request": {
+        "target_account": "core.onsocial.testnet",
+        "action": {
+          "type": "set",
+          "data": {
+            "standing/bob.near": {
+              "v": 1,
+              "since": 99
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "remove standing",
+      "expected_action_type": "set",
+      "request": {
+        "target_account": "core.onsocial.testnet",
+        "action": {
+          "type": "set",
+          "data": {
+            "standing/bob.near": null
+          }
+        }
+      }
+    },
+    {
+      "name": "react to content",
+      "expected_action_type": "set",
+      "request": {
+        "target_account": "core.onsocial.testnet",
+        "action": {
+          "type": "set",
+          "data": {
+            "reaction/bob.near/like/post/123": {
+              "v": 1,
+              "type": "like"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "reply to post",
+      "expected_action_type": "set",
+      "request": {
+        "target_account": "core.onsocial.testnet",
+        "action": {
+          "type": "set",
+          "data": {
+            "post/reply-1": {
+              "v": 1,
+              "text": "great post",
+              "parent": "alice.near/post/main",
+              "parentType": "post",
+              "timestamp": 7
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "quote post",
+      "expected_action_type": "set",
+      "request": {
+        "target_account": "core.onsocial.testnet",
+        "action": {
+          "type": "set",
+          "data": {
+            "post/quote-1": {
+              "v": 1,
+              "text": "love this",
+              "ref": "alice.near/post/main",
+              "refType": "quote",
+              "timestamp": 8
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "group post",
+      "expected_action_type": "set",
+      "request": {
+        "target_account": "core.onsocial.testnet",
+        "action": {
+          "type": "set",
+          "data": {
+            "groups/builders/content/post/gp-1": {
+              "v": 1,
+              "text": "group hello",
+              "timestamp": 9
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "create group",
+      "expected_action_type": "create_group",
+      "request": {
+        "target_account": "core.onsocial.testnet",
+        "action": {
+          "type": "create_group",
+          "group_id": "builders",
+          "config": {
+            "is_private": false
+          }
+        }
+      }
+    },
+    {
+      "name": "join group",
+      "expected_action_type": "join_group",
+      "request": {
+        "target_account": "core.onsocial.testnet",
+        "action": {
+          "type": "join_group",
+          "group_id": "builders"
+        }
+      }
+    },
+    {
+      "name": "leave group",
+      "expected_action_type": "leave_group",
+      "request": {
+        "target_account": "core.onsocial.testnet",
+        "action": {
+          "type": "leave_group",
+          "group_id": "builders"
+        }
+      }
+    },
+    {
+      "name": "add group member",
+      "expected_action_type": "add_group_member",
+      "request": {
+        "target_account": "core.onsocial.testnet",
+        "action": {
+          "type": "add_group_member",
+          "group_id": "builders",
+          "member_id": "bob.near"
+        }
+      }
+    },
+    {
+      "name": "remove group member",
+      "expected_action_type": "remove_group_member",
+      "request": {
+        "target_account": "core.onsocial.testnet",
+        "action": {
+          "type": "remove_group_member",
+          "group_id": "builders",
+          "member_id": "bob.near"
+        }
+      }
+    },
+    {
+      "name": "approve join request",
+      "expected_action_type": "approve_join_request",
+      "request": {
+        "target_account": "core.onsocial.testnet",
+        "action": {
+          "type": "approve_join_request",
+          "group_id": "builders",
+          "requester_id": "bob.near"
+        }
+      }
+    },
+    {
+      "name": "reject join request with reason",
+      "expected_action_type": "reject_join_request",
+      "request": {
+        "target_account": "core.onsocial.testnet",
+        "action": {
+          "type": "reject_join_request",
+          "group_id": "builders",
+          "requester_id": "bob.near",
+          "reason": "no spots"
+        }
+      }
+    },
+    {
+      "name": "cancel join request",
+      "expected_action_type": "cancel_join_request",
+      "request": {
+        "target_account": "core.onsocial.testnet",
+        "action": {
+          "type": "cancel_join_request",
+          "group_id": "builders"
+        }
+      }
+    },
+    {
+      "name": "blacklist member",
+      "expected_action_type": "blacklist_group_member",
+      "request": {
+        "target_account": "core.onsocial.testnet",
+        "action": {
+          "type": "blacklist_group_member",
+          "group_id": "builders",
+          "member_id": "bob.near"
+        }
+      }
+    },
+    {
+      "name": "unblacklist member",
+      "expected_action_type": "unblacklist_group_member",
+      "request": {
+        "target_account": "core.onsocial.testnet",
+        "action": {
+          "type": "unblacklist_group_member",
+          "group_id": "builders",
+          "member_id": "bob.near"
+        }
+      }
+    },
+    {
+      "name": "transfer group ownership",
+      "expected_action_type": "transfer_group_ownership",
+      "request": {
+        "target_account": "core.onsocial.testnet",
+        "action": {
+          "type": "transfer_group_ownership",
+          "group_id": "builders",
+          "new_owner": "carol.near",
+          "remove_old_owner": true
+        }
+      }
+    },
+    {
+      "name": "set group privacy",
+      "expected_action_type": "set_group_privacy",
+      "request": {
+        "target_account": "core.onsocial.testnet",
+        "action": {
+          "type": "set_group_privacy",
+          "group_id": "builders",
+          "is_private": true
+        }
+      }
+    },
+    {
+      "name": "create proposal",
+      "expected_action_type": "create_proposal",
+      "request": {
+        "target_account": "core.onsocial.testnet",
+        "action": {
+          "type": "create_proposal",
+          "group_id": "builders",
+          "proposal_type": "config_change",
+          "changes": {
+            "is_private": true
+          },
+          "auto_vote": true,
+          "description": "Lock down the group"
+        }
+      }
+    },
+    {
+      "name": "vote on proposal",
+      "expected_action_type": "vote_on_proposal",
+      "request": {
+        "target_account": "core.onsocial.testnet",
+        "action": {
+          "type": "vote_on_proposal",
+          "group_id": "builders",
+          "proposal_id": "p-1",
+          "approve": true
+        }
+      }
+    },
+    {
+      "name": "cancel proposal",
+      "expected_action_type": "cancel_proposal",
+      "request": {
+        "target_account": "core.onsocial.testnet",
+        "action": {
+          "type": "cancel_proposal",
+          "group_id": "builders",
+          "proposal_id": "p-1"
+        }
+      }
+    },
+    {
+      "name": "set account permission",
+      "expected_action_type": "set_permission",
+      "request": {
+        "target_account": "core.onsocial.testnet",
+        "action": {
+          "type": "set_permission",
+          "grantee": "bob.near",
+          "path": "profile",
+          "level": 2,
+          "expires_at": "1700000000000"
+        }
+      }
+    },
+    {
+      "name": "set key permission",
+      "expected_action_type": "set_key_permission",
+      "request": {
+        "target_account": "core.onsocial.testnet",
+        "action": {
+          "type": "set_key_permission",
+          "public_key": "ed25519:11111111111111111111111111111111",
+          "path": "profile",
+          "level": 2,
+          "expires_at": "1700000000000"
+        }
+      }
+    }
+  ]
+}

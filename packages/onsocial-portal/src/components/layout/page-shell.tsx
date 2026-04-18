@@ -23,7 +23,7 @@ export function PageShell({
   className,
 }: PageShellProps) {
   return (
-    <div className="min-h-screen pt-24 pb-16">
+    <div className="min-h-screen pt-[72px] pb-16 md:pt-20">
       <div
         className={cn('w-full mx-auto px-4', pageShellClasses[size], className)}
       >

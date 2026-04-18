@@ -778,8 +778,8 @@ export default function PartnersPage() {
   return (
     <PageShell className="max-w-5xl">
       <SecondaryPageHeader
-        badge="Partner Programs"
-        badgeAccent="green"
+        badge="Partners"
+        badgeAccent="blue"
         glowAccents={['blue', 'green']}
         glowClassName="h-40 opacity-70"
         contentClassName="max-w-3xl"

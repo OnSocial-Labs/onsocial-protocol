@@ -20,7 +20,9 @@
     "clean": "rm -rf dist",
     "lint": "eslint src",
     "format": "prettier --write .",
-    "test": "vitest run"
+    "test": "vitest run src",
+    "test:integration": "vitest run tests/integration --fileParallelism=false",
+    "test:all": "vitest run"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

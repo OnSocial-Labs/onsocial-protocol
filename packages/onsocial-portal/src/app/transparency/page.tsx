@@ -627,7 +627,7 @@ export default function TransparencyPage() {
   return (
     <PageShell className="max-w-5xl">
       <SecondaryPageHeader
-        badge="Network Transparency"
+        badge="Transparency"
         badgeAccent="blue"
         glowAccents={['blue', 'purple']}
         className="mb-10"

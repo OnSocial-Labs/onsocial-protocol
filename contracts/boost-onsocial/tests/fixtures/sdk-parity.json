@@ -1,0 +1,47 @@
+{
+  "schema": "onsocial.sdk.boost-msg-parity/v1",
+  "generated_by": "packages/onsocial-sdk/src/advanced/dump-boost-parity.test.ts",
+  "contract": "boost-onsocial",
+  "cases": [
+    {
+      "name": "lock 1 months",
+      "expected_action": "lock",
+      "expected_months": 1,
+      "msg": "{\"action\":\"lock\",\"months\":1}"
+    },
+    {
+      "name": "lock 6 months",
+      "expected_action": "lock",
+      "expected_months": 6,
+      "msg": "{\"action\":\"lock\",\"months\":6}"
+    },
+    {
+      "name": "lock 12 months",
+      "expected_action": "lock",
+      "expected_months": 12,
+      "msg": "{\"action\":\"lock\",\"months\":12}"
+    },
+    {
+      "name": "lock 24 months",
+      "expected_action": "lock",
+      "expected_months": 24,
+      "msg": "{\"action\":\"lock\",\"months\":24}"
+    },
+    {
+      "name": "lock 48 months",
+      "expected_action": "lock",
+      "expected_months": 48,
+      "msg": "{\"action\":\"lock\",\"months\":48}"
+    },
+    {
+      "name": "credits purchase",
+      "expected_action": "credits",
+      "msg": "{\"action\":\"credits\"}"
+    },
+    {
+      "name": "fund scheduled pool",
+      "expected_action": "fund_scheduled",
+      "msg": "{\"action\":\"fund_scheduled\"}"
+    }
+  ]
+}

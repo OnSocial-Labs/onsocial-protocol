@@ -41,6 +41,7 @@ pub mod unit {
     pub mod refund_test;
     pub mod sale_views_test;
     pub mod scarce_views_test;
+    pub mod sdk_parity_test;
     pub mod spending_protection_test;
     pub mod storage_deposit_test;
 }

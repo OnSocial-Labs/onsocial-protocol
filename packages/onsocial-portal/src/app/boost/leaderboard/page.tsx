@@ -502,9 +502,9 @@ export default function BoostLeaderboardPage() {
   return (
     <PageShell className="max-w-5xl">
       <SecondaryPageHeader
-        badge="Reputation leaderboard"
-        badgeAccent="amber"
-        glowAccents={['amber', 'purple', 'green']}
+        badge="Leaderboard"
+        badgeAccent="blue"
+        glowAccents={['blue', 'green']}
         contentClassName="max-w-4xl"
         title="Reputation"
         description="Your reputation multiplies everything: posts, reactions, locks, and rewards. The more ways you participate, the faster you climb."

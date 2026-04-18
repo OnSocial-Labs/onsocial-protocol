@@ -1,0 +1,942 @@
+{
+  "schema": "onsocial.sdk.parity/v1",
+  "generated_by": "packages/onsocial-sdk/src/advanced/dump-scarces-parity.test.ts",
+  "network": "testnet",
+  "contract": "scarces-onsocial",
+  "cases": [
+    {
+      "name": "quick mint via builder",
+      "expected_action_type": "quick_mint",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "quick_mint",
+          "metadata": {
+            "title": "My Art",
+            "description": "A test piece"
+          }
+        }
+      }
+    },
+    {
+      "name": "quick mint with all options",
+      "expected_action_type": "quick_mint",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "quick_mint",
+          "metadata": {
+            "title": "Limited",
+            "extra": "{\"rarity\":\"epic\"}"
+          },
+          "royalty": {
+            "creator.near": 500
+          },
+          "app_id": "app.near",
+          "transferable": false,
+          "burnable": false
+        }
+      }
+    },
+    {
+      "name": "transfer scarce via builder",
+      "expected_action_type": "transfer_scarce",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "transfer_scarce",
+          "token_id": "t1",
+          "receiver_id": "bob.near",
+          "memo": "gift"
+        }
+      }
+    },
+    {
+      "name": "batch transfer",
+      "expected_action_type": "batch_transfer",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "batch_transfer",
+          "transfers": [
+            {
+              "receiver_id": "a.near",
+              "token_id": "t1"
+            },
+            {
+              "receiver_id": "b.near",
+              "token_id": "t2",
+              "memo": "thx"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "approve scarce",
+      "expected_action_type": "approve_scarce",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "approve_scarce",
+          "token_id": "t1",
+          "account_id": "market.near",
+          "msg": "{\"price\":\"100\"}"
+        }
+      }
+    },
+    {
+      "name": "revoke scarce approval",
+      "expected_action_type": "revoke_scarce",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "revoke_scarce",
+          "token_id": "t1",
+          "account_id": "market.near"
+        }
+      }
+    },
+    {
+      "name": "revoke all scarce approvals",
+      "expected_action_type": "revoke_all_scarce",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "revoke_all_scarce",
+          "token_id": "t1"
+        }
+      }
+    },
+    {
+      "name": "burn scarce without collection",
+      "expected_action_type": "burn_scarce",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "burn_scarce",
+          "token_id": "t1"
+        }
+      }
+    },
+    {
+      "name": "burn scarce with collection",
+      "expected_action_type": "burn_scarce",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "burn_scarce",
+          "token_id": "t1",
+          "collection_id": "genesis"
+        }
+      }
+    },
+    {
+      "name": "renew token",
+      "expected_action_type": "renew_token",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "renew_token",
+          "token_id": "t1",
+          "collection_id": "genesis",
+          "new_expires_at": 1999999999000000000
+        }
+      }
+    },
+    {
+      "name": "revoke token",
+      "expected_action_type": "revoke_token",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "revoke_token",
+          "token_id": "t1",
+          "collection_id": "genesis",
+          "memo": "fraud"
+        }
+      }
+    },
+    {
+      "name": "redeem token",
+      "expected_action_type": "redeem_token",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "redeem_token",
+          "token_id": "t1",
+          "collection_id": "genesis"
+        }
+      }
+    },
+    {
+      "name": "claim refund",
+      "expected_action_type": "claim_refund",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "claim_refund",
+          "token_id": "t1",
+          "collection_id": "genesis"
+        }
+      }
+    },
+    {
+      "name": "create collection minimal via builder",
+      "expected_action_type": "create_collection",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "create_collection",
+          "collection_id": "genesis",
+          "total_supply": 1000,
+          "metadata_template": "{\"title\":\"Genesis\"}",
+          "price_near": "1000000000000000000000000"
+        }
+      }
+    },
+    {
+      "name": "create collection fully populated (flatten ScarceOptions + extras)",
+      "expected_action_type": "create_collection",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "create_collection",
+          "collection_id": "fully",
+          "total_supply": 250,
+          "metadata_template": "{\"title\":\"Fully\"}",
+          "price_near": "5000000000000000000000000",
+          "start_time": 1900000000000000000,
+          "end_time": 1999000000000000000,
+          "royalty": {
+            "creator.near": 500
+          },
+          "app_id": "app.near",
+          "mint_mode": "creator_only",
+          "max_per_wallet": 5,
+          "renewable": true,
+          "transferable": false,
+          "burnable": false,
+          "revocation_mode": "invalidate",
+          "max_redeems": 3,
+          "metadata": "{\"banner\":\"ipfs://x\"}",
+          "start_price": "10000000000000000000000000",
+          "allowlist_price": "500000000000000000000000"
+        }
+      }
+    },
+    {
+      "name": "update collection price",
+      "expected_action_type": "update_collection_price",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "update_collection_price",
+          "collection_id": "genesis",
+          "new_price_near": "2000000000000000000000000"
+        }
+      }
+    },
+    {
+      "name": "update collection timing",
+      "expected_action_type": "update_collection_timing",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "update_collection_timing",
+          "collection_id": "genesis",
+          "start_time": 1900000000000000000,
+          "end_time": 1999000000000000000
+        }
+      }
+    },
+    {
+      "name": "mint from collection",
+      "expected_action_type": "mint_from_collection",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "mint_from_collection",
+          "collection_id": "genesis",
+          "quantity": 2
+        }
+      }
+    },
+    {
+      "name": "mint from collection with receiver",
+      "expected_action_type": "mint_from_collection",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "mint_from_collection",
+          "collection_id": "genesis",
+          "quantity": 1,
+          "receiver_id": "bob.near"
+        }
+      }
+    },
+    {
+      "name": "airdrop from collection",
+      "expected_action_type": "airdrop_from_collection",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "airdrop_from_collection",
+          "collection_id": "genesis",
+          "receivers": [
+            "alice.near",
+            "bob.near"
+          ]
+        }
+      }
+    },
+    {
+      "name": "delete collection",
+      "expected_action_type": "delete_collection",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "delete_collection",
+          "collection_id": "genesis"
+        }
+      }
+    },
+    {
+      "name": "pause collection",
+      "expected_action_type": "pause_collection",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "pause_collection",
+          "collection_id": "genesis"
+        }
+      }
+    },
+    {
+      "name": "resume collection",
+      "expected_action_type": "resume_collection",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "resume_collection",
+          "collection_id": "genesis"
+        }
+      }
+    },
+    {
+      "name": "set allowlist",
+      "expected_action_type": "set_allowlist",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "set_allowlist",
+          "collection_id": "genesis",
+          "entries": [
+            {
+              "account_id": "alice.near",
+              "allocation": 2
+            },
+            {
+              "account_id": "bob.near",
+              "allocation": 5
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "remove from allowlist",
+      "expected_action_type": "remove_from_allowlist",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "remove_from_allowlist",
+          "collection_id": "genesis",
+          "accounts": [
+            "alice.near"
+          ]
+        }
+      }
+    },
+    {
+      "name": "set collection metadata",
+      "expected_action_type": "set_collection_metadata",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "set_collection_metadata",
+          "collection_id": "genesis",
+          "metadata": "{\"banner\":\"ipfs://abc\"}"
+        }
+      }
+    },
+    {
+      "name": "set collection app metadata",
+      "expected_action_type": "set_collection_app_metadata",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "set_collection_app_metadata",
+          "app_id": "app.near",
+          "collection_id": "genesis",
+          "metadata": "{\"category\":\"art\"}"
+        }
+      }
+    },
+    {
+      "name": "withdraw unclaimed refunds",
+      "expected_action_type": "withdraw_unclaimed_refunds",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "withdraw_unclaimed_refunds",
+          "collection_id": "genesis"
+        }
+      }
+    },
+    {
+      "name": "list native scarce via builder",
+      "expected_action_type": "list_native_scarce",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "list_native_scarce",
+          "token_id": "t1",
+          "price": "5000000000000000000000000"
+        }
+      }
+    },
+    {
+      "name": "list native scarce with expiry",
+      "expected_action_type": "list_native_scarce",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "list_native_scarce",
+          "token_id": "t1",
+          "price": "5000000000000000000000000",
+          "expires_at": 1999000000000000000
+        }
+      }
+    },
+    {
+      "name": "delist native scarce",
+      "expected_action_type": "delist_native_scarce",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "delist_native_scarce",
+          "token_id": "t1"
+        }
+      }
+    },
+    {
+      "name": "list native scarce auction minimal (flatten AuctionListing)",
+      "expected_action_type": "list_native_scarce_auction",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "list_native_scarce_auction",
+          "token_id": "t1",
+          "reserve_price": "1000000000000000000000000",
+          "min_bid_increment": "100000000000000000000000"
+        }
+      }
+    },
+    {
+      "name": "list native scarce auction fully populated",
+      "expected_action_type": "list_native_scarce_auction",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "list_native_scarce_auction",
+          "token_id": "t1",
+          "reserve_price": "1000000000000000000000000",
+          "min_bid_increment": "100000000000000000000000",
+          "expires_at": 1999000000000000000,
+          "auction_duration_ns": 86400000000000,
+          "anti_snipe_extension_ns": 300000000000,
+          "buy_now_price": "5000000000000000000000000"
+        }
+      }
+    },
+    {
+      "name": "settle auction",
+      "expected_action_type": "settle_auction",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "settle_auction",
+          "token_id": "t1"
+        }
+      }
+    },
+    {
+      "name": "cancel auction",
+      "expected_action_type": "cancel_auction",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "cancel_auction",
+          "token_id": "t1"
+        }
+      }
+    },
+    {
+      "name": "delist scarce (cross-contract)",
+      "expected_action_type": "delist_scarce",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "delist_scarce",
+          "scarce_contract_id": "other.near",
+          "token_id": "t1"
+        }
+      }
+    },
+    {
+      "name": "update price (cross-contract)",
+      "expected_action_type": "update_price",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "update_price",
+          "scarce_contract_id": "other.near",
+          "token_id": "t1",
+          "price": "2000000000000000000000000"
+        }
+      }
+    },
+    {
+      "name": "accept offer",
+      "expected_action_type": "accept_offer",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "accept_offer",
+          "token_id": "t1",
+          "buyer_id": "bob.near"
+        }
+      }
+    },
+    {
+      "name": "cancel offer",
+      "expected_action_type": "cancel_offer",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "cancel_offer",
+          "token_id": "t1"
+        }
+      }
+    },
+    {
+      "name": "accept collection offer",
+      "expected_action_type": "accept_collection_offer",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "accept_collection_offer",
+          "collection_id": "genesis",
+          "token_id": "t1",
+          "buyer_id": "bob.near"
+        }
+      }
+    },
+    {
+      "name": "cancel collection offer",
+      "expected_action_type": "cancel_collection_offer",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "cancel_collection_offer",
+          "collection_id": "genesis"
+        }
+      }
+    },
+    {
+      "name": "create lazy listing via builder",
+      "expected_action_type": "create_lazy_listing",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "create_lazy_listing",
+          "metadata": {
+            "title": "Limited"
+          },
+          "price": "10000000000000000000000000"
+        }
+      }
+    },
+    {
+      "name": "create lazy listing fully populated (flatten ScarceOptions + expiry)",
+      "expected_action_type": "create_lazy_listing",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "create_lazy_listing",
+          "metadata": {
+            "title": "Limited",
+            "media": "ipfs://x"
+          },
+          "price": "10000000000000000000000000",
+          "royalty": {
+            "creator.near": 750
+          },
+          "app_id": "app.near",
+          "transferable": false,
+          "burnable": false,
+          "expires_at": 1999000000000000000
+        }
+      }
+    },
+    {
+      "name": "cancel lazy listing",
+      "expected_action_type": "cancel_lazy_listing",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "cancel_lazy_listing",
+          "listing_id": "l1"
+        }
+      }
+    },
+    {
+      "name": "update lazy listing price",
+      "expected_action_type": "update_lazy_listing_price",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "update_lazy_listing_price",
+          "listing_id": "l1",
+          "new_price": "20000000000000000000000000"
+        }
+      }
+    },
+    {
+      "name": "update lazy listing expiry",
+      "expected_action_type": "update_lazy_listing_expiry",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "update_lazy_listing_expiry",
+          "listing_id": "l1",
+          "new_expires_at": 1999000000000000000
+        }
+      }
+    },
+    {
+      "name": "update lazy listing expiry to none",
+      "expected_action_type": "update_lazy_listing_expiry",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "update_lazy_listing_expiry",
+          "listing_id": "l1"
+        }
+      }
+    },
+    {
+      "name": "purchase from collection",
+      "expected_action_type": "purchase_from_collection",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "purchase_from_collection",
+          "collection_id": "genesis",
+          "quantity": 3,
+          "max_price_per_token": "2000000000000000000000000"
+        }
+      }
+    },
+    {
+      "name": "purchase lazy listing",
+      "expected_action_type": "purchase_lazy_listing",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "purchase_lazy_listing",
+          "listing_id": "l1"
+        }
+      }
+    },
+    {
+      "name": "purchase native scarce via builder",
+      "expected_action_type": "purchase_native_scarce",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "purchase_native_scarce",
+          "token_id": "t1"
+        }
+      }
+    },
+    {
+      "name": "place bid",
+      "expected_action_type": "place_bid",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "place_bid",
+          "token_id": "t1",
+          "amount": "1000"
+        }
+      }
+    },
+    {
+      "name": "make offer",
+      "expected_action_type": "make_offer",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "make_offer",
+          "token_id": "t1",
+          "amount": "500"
+        }
+      }
+    },
+    {
+      "name": "make offer with expiry",
+      "expected_action_type": "make_offer",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "make_offer",
+          "token_id": "t1",
+          "amount": "500",
+          "expires_at": 1999000000000000000
+        }
+      }
+    },
+    {
+      "name": "make collection offer",
+      "expected_action_type": "make_collection_offer",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "make_collection_offer",
+          "collection_id": "genesis",
+          "amount": "750"
+        }
+      }
+    },
+    {
+      "name": "cancel collection (refund flow)",
+      "expected_action_type": "cancel_collection",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "cancel_collection",
+          "collection_id": "genesis",
+          "refund_per_token": "1000000000000000000000000",
+          "refund_deadline_ns": 1999000000000000000
+        }
+      }
+    },
+    {
+      "name": "fund app pool",
+      "expected_action_type": "fund_app_pool",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "fund_app_pool",
+          "app_id": "app.near"
+        }
+      }
+    },
+    {
+      "name": "storage deposit (no account)",
+      "expected_action_type": "storage_deposit",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "storage_deposit"
+        }
+      }
+    },
+    {
+      "name": "storage deposit (with account)",
+      "expected_action_type": "storage_deposit",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "storage_deposit",
+          "account_id": "alice.near"
+        }
+      }
+    },
+    {
+      "name": "register app minimal (flatten AppConfig defaults)",
+      "expected_action_type": "register_app",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "register_app",
+          "app_id": "app.near"
+        }
+      }
+    },
+    {
+      "name": "register app fully populated",
+      "expected_action_type": "register_app",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "register_app",
+          "app_id": "app.near",
+          "max_user_bytes": 1024,
+          "default_royalty": {
+            "creator.near": 500
+          },
+          "primary_sale_bps": 250,
+          "curated": true,
+          "metadata": "{\"name\":\"My App\"}"
+        }
+      }
+    },
+    {
+      "name": "set spending cap to none",
+      "expected_action_type": "set_spending_cap",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "set_spending_cap"
+        }
+      }
+    },
+    {
+      "name": "set spending cap to value",
+      "expected_action_type": "set_spending_cap",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "set_spending_cap",
+          "cap": "5000000000000000000000000"
+        }
+      }
+    },
+    {
+      "name": "storage withdraw",
+      "expected_action_type": "storage_withdraw",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "storage_withdraw"
+        }
+      }
+    },
+    {
+      "name": "withdraw app pool",
+      "expected_action_type": "withdraw_app_pool",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "withdraw_app_pool",
+          "app_id": "app.near",
+          "amount": "1000000000000000000000000"
+        }
+      }
+    },
+    {
+      "name": "withdraw platform storage",
+      "expected_action_type": "withdraw_platform_storage",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "withdraw_platform_storage",
+          "amount": "500000000000000000000000"
+        }
+      }
+    },
+    {
+      "name": "set app config minimal (flatten AppConfig defaults)",
+      "expected_action_type": "set_app_config",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "set_app_config",
+          "app_id": "app.near"
+        }
+      }
+    },
+    {
+      "name": "set app config fully populated",
+      "expected_action_type": "set_app_config",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "set_app_config",
+          "app_id": "app.near",
+          "max_user_bytes": 2048,
+          "default_royalty": {
+            "creator.near": 250
+          },
+          "primary_sale_bps": 500,
+          "curated": false,
+          "metadata": "{\"description\":\"updated\"}"
+        }
+      }
+    },
+    {
+      "name": "transfer app ownership",
+      "expected_action_type": "transfer_app_ownership",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "transfer_app_ownership",
+          "app_id": "app.near",
+          "new_owner": "newowner.near"
+        }
+      }
+    },
+    {
+      "name": "add moderator",
+      "expected_action_type": "add_moderator",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "add_moderator",
+          "app_id": "app.near",
+          "account_id": "mod.near"
+        }
+      }
+    },
+    {
+      "name": "remove moderator",
+      "expected_action_type": "remove_moderator",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "remove_moderator",
+          "app_id": "app.near",
+          "account_id": "mod.near"
+        }
+      }
+    },
+    {
+      "name": "ban collection",
+      "expected_action_type": "ban_collection",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "ban_collection",
+          "app_id": "app.near",
+          "collection_id": "genesis",
+          "reason": "policy violation"
+        }
+      }
+    },
+    {
+      "name": "unban collection",
+      "expected_action_type": "unban_collection",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "unban_collection",
+          "app_id": "app.near",
+          "collection_id": "genesis"
+        }
+      }
+    }
+  ]
+}

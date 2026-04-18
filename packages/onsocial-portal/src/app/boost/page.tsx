@@ -737,7 +737,7 @@ export default function BoostPage() {
       <SecondaryPageHeader
         ref={heroRef}
         badge="Boost"
-        badgeAccent="green"
+        badgeAccent="blue"
         glowAccents={['blue', 'green']}
         glowClassName="h-40 opacity-70"
         contentClassName="max-w-3xl"

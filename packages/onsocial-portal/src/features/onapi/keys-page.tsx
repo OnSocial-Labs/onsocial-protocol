@@ -437,7 +437,7 @@ export default function OnApiKeysPage() {
   if (!jwt) {
     return (
       <PageShell className="max-w-3xl space-y-6">
-        <SecondaryPageHeader badge="API Keys" badgeAccent="blue" />
+        <SecondaryPageHeader badge="API Keys" badgeAccent="purple" />
         <SurfacePanel radius="xl" tone="soft" padding="roomy" className="text-center">
           {!isConnected ? (
             <>
@@ -472,7 +472,7 @@ export default function OnApiKeysPage() {
 
   return (
     <PageShell className="max-w-3xl space-y-6">
-      <SecondaryPageHeader badge="API Keys" badgeAccent="blue" />
+      <SecondaryPageHeader badge="API Keys" badgeAccent="purple" />
 
       {showDevBillingBypass && (
         <SurfacePanel radius="xl" tone="soft" padding="roomy" className="space-y-3">
@@ -577,91 +577,45 @@ export default function OnApiKeysPage() {
                     : ''}
                 </PortalBadge>
               )}
+              {subscription?.status === 'active' && subscription.currentPeriodEnd && (
+                <span className="ml-auto text-[10px] tabular-nums text-muted-foreground/50">
+                  Renews {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                </span>
+              )}
             </div>
 
-            {(!subscription || ['expired', 'pending'].includes(subscription.status)) && (
-              <div className="mt-3">
-                <StatStrip columns={3}>
-                  <StatStripCell label="Rate limit" showDivider>
-                    <span className="font-mono text-sm font-semibold tracking-tight" style={{ color: portalColors[tierAccent(currentTier)] }}>
-                      {TIER_LIMITS[currentTier] ?? '60 /min'}
-                    </span>
-                  </StatStripCell>
-                  <StatStripCell label="Reqs today" showDivider>
-                    <span className="font-mono text-sm font-semibold tracking-tight portal-blue-text">
-                      {(usage?.today ?? 0).toLocaleString()}
-                    </span>
-                  </StatStripCell>
-                  <StatStripCell label="Reqs this month">
-                    <span className="font-mono text-sm font-semibold tracking-tight portal-slate-text">
-                      {(usage?.thisMonth ?? 0).toLocaleString()}
-                    </span>
-                  </StatStripCell>
-                </StatStrip>
-              </div>
-            )}
+            {/* ── Stats row (always shown) ── */}
+            <div className="mt-3">
+              <StatStrip columns={3}>
+                <StatStripCell label="Rate limit" showDivider>
+                  <span className="font-mono text-sm font-semibold tracking-tight" style={{ color: portalColors[tierAccent(currentTier)] }}>
+                    {TIER_LIMITS[currentTier] ?? '60 /min'}
+                  </span>
+                </StatStripCell>
+                <StatStripCell label="Reqs today" showDivider>
+                  <span className="font-mono text-sm font-semibold tracking-tight portal-blue-text">
+                    {(usage?.today ?? 0).toLocaleString()}
+                  </span>
+                </StatStripCell>
+                <StatStripCell label="Reqs this month">
+                  <span className="font-mono text-sm font-semibold tracking-tight portal-slate-text">
+                    {(usage?.thisMonth ?? 0).toLocaleString()}
+                  </span>
+                </StatStripCell>
+              </StatStrip>
+            </div>
 
-            {subscription && subscription.status === 'cancelled' && (
-              <div className="mt-3">
-                <StatStrip columns={3}>
-                  <StatStripCell label="Rate limit" showDivider>
-                    <span className="font-mono text-sm font-semibold tracking-tight" style={{ color: portalColors[tierAccent(currentTier)] }}>
-                      {TIER_LIMITS[currentTier] ?? '60 /min'}
-                    </span>
-                  </StatStripCell>
-                  <StatStripCell label="Reqs today" showDivider>
-                    <span className="font-mono text-sm font-semibold tracking-tight portal-blue-text">
-                      {(usage?.today ?? 0).toLocaleString()}
-                    </span>
-                  </StatStripCell>
-                  <StatStripCell label="Reqs this month">
-                    <span className="font-mono text-sm font-semibold tracking-tight portal-slate-text">
-                      {(usage?.thisMonth ?? 0).toLocaleString()}
-                    </span>
-                  </StatStripCell>
-                </StatStrip>
-              </div>
-            )}
-
-            {subscription && !['expired', 'pending', 'cancelled'].includes(subscription.status) && (
-              <div className="mt-3">
-                <StatStrip columns={3}>
-                  <StatStripCell label="Rate limit" showDivider>
-                    <span className="font-mono text-sm font-semibold tracking-tight" style={{ color: portalColors[tierAccent(currentTier)] }}>
-                      {TIER_LIMITS[currentTier] ?? '60 /min'}
-                    </span>
-                  </StatStripCell>
-                  <StatStripCell label="Reqs today" showDivider>
-                    <span className="font-mono text-sm font-semibold tracking-tight portal-blue-text">
-                      {(usage?.today ?? 0).toLocaleString()}
-                    </span>
-                  </StatStripCell>
-                  <StatStripCell label="Reqs this month">
-                    <span className="font-mono text-sm font-semibold tracking-tight portal-slate-text">
-                      {(usage?.thisMonth ?? 0).toLocaleString()}
-                    </span>
-                  </StatStripCell>
-                </StatStrip>
-              </div>
-            )}
-
-            {!requestedTier && !isAdmin && subscription?.status !== 'cancelled' && (() => {
+            {/* ── Usage bar (thin, directly under stats) ── */}
+            {!isAdmin && subscription?.status !== 'cancelled' && (() => {
               const budget = TIER_DAILY_BUDGET[currentTier] ?? 86_400;
               const todayCount = usage?.today ?? 0;
               const pct = budget > 0 ? todayCount / budget : 0;
+              const pctClamped = Math.min(pct, 1);
               const next = nextTierUp(currentTier);
               const nextAccent = next ? tierAccent(next) : tierAccent(currentTier);
-              const pctClamped = Math.min(pct, 1);
               const showNudge = next && pct >= 0.8;
-              const hasRenewal = subscription?.status === 'active' && subscription.currentPeriodEnd;
-              const Wrapper = showNudge ? motion.a : motion.div;
               return (
-                <Wrapper
-                  {...(showNudge ? { href: `/onapi/keys?tier=${next}` } : {})}
-                  {...fadeUpMotion(!!reduceMotion, { distance: 4, duration: 0.2, delay: 0.08 })}
-                  className={`mt-3 block${showNudge ? ' cursor-pointer' : ''}`}
-                >
-                  {/* thin usage meter */}
+                <div className="mt-0">
                   <div className="h-px w-full bg-border/40">
                     <div
                       className="h-full transition-all duration-500"
@@ -672,32 +626,19 @@ export default function OnApiKeysPage() {
                       }}
                     />
                   </div>
-                  {showNudge && next ? (
-                    <div className="flex items-center justify-between pt-2">
-                      <span className="text-xs text-muted-foreground/70">
+                  {showNudge && next && (
+                    <div className="flex items-center justify-between pt-1.5">
+                      <span className="text-[10px] text-muted-foreground/60">
                         {pct >= 1 ? 'Daily limit reached' : 'Nearing daily limit'}
                       </span>
-                      <span
-                        className="inline-flex items-center gap-1 text-[11px] font-medium tracking-[0.08em] transition-opacity hover:opacity-70"
-                        style={{ color: portalColors[nextAccent] }}
-                      >
-                        {formatTierLabel(next)} {TIER_LIMITS[next]}
-                        <ArrowUpRight className="h-3 w-3" />
-                      </span>
                     </div>
-                  ) : hasRenewal ? (
-                    <div className="flex items-center justify-between pt-2">
-                      <span className="text-xs text-muted-foreground/70">
-                        Renews {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
-                      </span>
-                    </div>
-                  ) : null}
-                </Wrapper>
+                  )}
+                </div>
               );
             })()}
 
             {subscription?.status === 'active' && (
-              <div className="mt-4">
+              <div className="mt-3">
                 {confirmCancel ? (
                   <div className="flex items-center gap-2">
                     <p className="flex-1 text-xs text-muted-foreground">
@@ -777,6 +718,36 @@ export default function OnApiKeysPage() {
                 </span>
               </div>
             )}
+
+            {/* ── Subtle inline upgrade options ── */}
+            {!requestedTier && !isAdmin && subscription?.status !== 'past_due' && (() => {
+              const upgrades = (['pro', 'scale'] as const).filter(
+                (t) => tierRank(t) > tierRank(currentTier)
+              );
+              if (upgrades.length === 0) return null;
+              return (
+                <div className="mt-3 flex items-center gap-2">
+                  <div className="h-px flex-1 bg-border/20" />
+                  {upgrades.map((t) => (
+                    <a
+                      key={t}
+                      href={`/onapi/keys?tier=${t}`}
+                      className="group/chip inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium tracking-[0.04em] transition-all duration-150 hover:shadow-sm"
+                      style={{
+                        color: portalColors[tierAccent(t)],
+                        backgroundColor: `color-mix(in srgb, ${portalColors[tierAccent(t)]} 8%, transparent)`,
+                        borderWidth: 1,
+                        borderColor: `color-mix(in srgb, ${portalColors[tierAccent(t)]} 15%, transparent)`,
+                      }}
+                    >
+                      {formatTierLabel(t)}
+                      <span className="text-[10px] font-normal opacity-60">{TIER_LIMITS[t]}</span>
+                      <ArrowUpRight className="h-2.5 w-2.5 opacity-40 transition-all duration-150 group-hover/chip:opacity-100 group-hover/chip:translate-x-0.5 group-hover/chip:-translate-y-0.5" />
+                    </a>
+                  ))}
+                </div>
+              );
+            })()}
           </SurfacePanel>
           )}
         </motion.div>
@@ -847,38 +818,43 @@ export default function OnApiKeysPage() {
                 </StatStrip>
 
                 {/* ── Email + checkout ── */}
-                <div className="space-y-3 px-5 pt-3 pb-5">
-                  <SurfacePanel
-                    radius="md"
-                    tone="inset"
-                    borderTone="subtle"
-                    padding="none"
-                    className={`flex items-center gap-3 px-3 py-2.5 transition-[border-color] duration-150 ease focus-within:border-[var(--_focus-accent)] ${showEmailHint ? 'border-amber-500/40' : ''}`}
-                    style={{
-                      '--_focus-accent': showEmailHint
-                        ? 'color-mix(in srgb, var(--portal-amber) 50%, transparent)'
-                        : `color-mix(in srgb, ${portalColors[accent]} 50%, transparent)`,
-                    } as CSSProperties}
-                  >
-                    <input
-                      id="billing-email"
-                      type="email"
-                      value={billingEmail}
-                      onChange={(e) => {
-                        setBillingEmail(e.target.value);
-                        setEmailTouched(false);
-                      }}
-                      onBlur={() => setEmailTouched(true)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          e.currentTarget.blur();
-                        }
-                      }}
-                      placeholder="Billing email"
-                      className="min-w-0 flex-1 bg-transparent text-sm font-medium tracking-[-0.01em] outline-none placeholder:text-muted-foreground/50"
-                    />
-                  </SurfacePanel>
+                <div className="space-y-2.5 px-5 pt-3 pb-5">
+                  <div>
+                    <SurfacePanel
+                      radius="md"
+                      tone="inset"
+                      borderTone="subtle"
+                      padding="none"
+                      className={`flex items-center gap-3 px-3 py-2.5 transition-[border-color] duration-150 ease focus-within:border-[var(--_focus-accent)] ${showEmailHint ? 'border-amber-500/40' : ''}`}
+                      style={{
+                        '--_focus-accent': showEmailHint
+                          ? 'color-mix(in srgb, var(--portal-amber) 50%, transparent)'
+                          : `color-mix(in srgb, ${portalColors[accent]} 50%, transparent)`,
+                      } as CSSProperties}
+                    >
+                      <input
+                        id="billing-email"
+                        type="email"
+                        value={billingEmail}
+                        onChange={(e) => {
+                          setBillingEmail(e.target.value);
+                          setEmailTouched(false);
+                        }}
+                        onBlur={() => setEmailTouched(true)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            e.currentTarget.blur();
+                          }
+                        }}
+                        placeholder="Billing email"
+                        className="min-w-0 flex-1 bg-transparent text-sm font-medium tracking-[-0.01em] outline-none placeholder:text-muted-foreground/50"
+                      />
+                    </SurfacePanel>
+                    <p className="mt-1 px-0.5 text-[10px] tracking-[0.02em] text-muted-foreground/40">
+                      For receipts and payment updates
+                    </p>
+                  </div>
                   <Button
                     onClick={handleSubscribe}
                     loading={upgrading}
@@ -887,7 +863,7 @@ export default function OnApiKeysPage() {
                     className="w-full justify-center"
                     size="cta"
                   >
-                    Continue to checkout
+                    {isDowngrade ? 'Switch to' : 'Upgrade to'} {targetPlan.name}
                   </Button>
                   <p className="text-center text-[10px] tracking-[0.04em] text-muted-foreground/50">
                     Powered by Revolut Pay
