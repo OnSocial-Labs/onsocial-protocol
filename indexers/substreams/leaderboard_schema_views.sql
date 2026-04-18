@@ -32,7 +32,7 @@
 -- 1. leaderboard_boost — ranked by effective_boost
 -- ────────────────────────────────────────────────────────────────────────────
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS leaderboard_boost AS
+CREATE OR REPLACE VIEW leaderboard_boost AS
 SELECT
   account_id,
   locked_amount,
@@ -45,16 +45,11 @@ SELECT
 FROM booster_state
 WHERE effective_boost != '0' AND effective_boost != '';
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_leaderboard_boost_pk
-  ON leaderboard_boost(account_id);
-CREATE INDEX IF NOT EXISTS idx_leaderboard_boost_rank
-  ON leaderboard_boost(rank);
-
 -- ────────────────────────────────────────────────────────────────────────────
 -- 2. leaderboard_rewards — ranked by total earned rewards
 -- ────────────────────────────────────────────────────────────────────────────
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS leaderboard_rewards AS
+CREATE OR REPLACE VIEW leaderboard_rewards AS
 WITH earned AS (
   SELECT
     account_id,
@@ -88,11 +83,6 @@ SELECT
 FROM earned e
 LEFT JOIN claimed c ON c.account_id = e.account_id;
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_leaderboard_rewards_pk
-  ON leaderboard_rewards(account_id);
-CREATE INDEX IF NOT EXISTS idx_leaderboard_rewards_rank
-  ON leaderboard_rewards(rank);
-
 -- ────────────────────────────────────────────────────────────────────────────
 -- 3. leaderboard_snapshot — periodic snapshots for historical rankings
 -- ────────────────────────────────────────────────────────────────────────────
@@ -124,7 +114,7 @@ CREATE INDEX IF NOT EXISTS idx_leaderboard_snapshots_rank
 -- ────────────────────────────────────────────────────────────────────────────
 -- Useful for "daily earnings" charts and activity heatmaps.
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS reward_activity_daily AS
+CREATE OR REPLACE VIEW reward_activity_daily AS
 SELECT
   account_id,
   -- Approximate day from block_timestamp (nanoseconds → date)
@@ -137,9 +127,6 @@ WHERE event_type = 'REWARD_CREDITED'
   AND amount IS NOT NULL AND amount != ''
 GROUP BY account_id, DATE(TO_TIMESTAMP(block_timestamp / 1000000000));
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_reward_activity_daily_pk
-  ON reward_activity_daily(account_id, activity_date);
-
 -- ────────────────────────────────────────────────────────────────────────────
 -- 5. reward_weights — standing-with count feeds into reward multiplier
 -- ────────────────────────────────────────────────────────────────────────────
@@ -149,7 +136,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_reward_activity_daily_pk
 -- Boost lock also contributes (existing tokenomics).
 -- ────────────────────────────────────────────────────────────────────────────
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS reward_weights AS
+CREATE OR REPLACE VIEW reward_weights AS
 SELECT
   r.account_id,
   r.total_earned,
@@ -171,11 +158,6 @@ FROM leaderboard_rewards r
 LEFT JOIN standing_counts s ON s.account_id = r.account_id
 LEFT JOIN booster_state b ON b.account_id = r.account_id;
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_reward_weights_pk
-  ON reward_weights(account_id);
-CREATE INDEX IF NOT EXISTS idx_reward_weights_multiplier
-  ON reward_weights(reward_multiplier DESC);
-
 -- ────────────────────────────────────────────────────────────────────────────
 -- 6. content_activity — per-user content creation and engagement metrics
 -- ────────────────────────────────────────────────────────────────────────────
@@ -184,7 +166,7 @@ CREATE INDEX IF NOT EXISTS idx_reward_weights_multiplier
 -- Depends on: core_schema_views.sql (posts_current, reaction_counts)
 -- ────────────────────────────────────────────────────────────────────────────
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS content_activity AS
+CREATE OR REPLACE VIEW content_activity AS
 SELECT
   p.account_id,
   COUNT(*)                                                    AS total_posts,
@@ -212,9 +194,6 @@ LEFT JOIN reaction_counts rc
  AND rc.post_path  = 'post/' || p.post_id
 GROUP BY p.account_id;
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_content_activity_pk
-  ON content_activity(account_id);
-
 -- ────────────────────────────────────────────────────────────────────────────
 -- 7. scarces_activity — per-user scarces marketplace activity
 -- ────────────────────────────────────────────────────────────────────────────
@@ -222,7 +201,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_content_activity_pk
 -- Depends on: scarces_schema.sql (scarces_events)
 -- ────────────────────────────────────────────────────────────────────────────
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS scarces_activity AS
+CREATE OR REPLACE VIEW scarces_activity AS
 SELECT
   author                                                      AS account_id,
   -- Creator metrics (mints, collections created)
@@ -248,9 +227,6 @@ SELECT
 FROM scarces_events
 GROUP BY author;
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_scarces_activity_pk
-  ON scarces_activity(account_id);
-
 -- ────────────────────────────────────────────────────────────────────────────
 -- 8. reputation_scores — composite reputation score per user
 -- ────────────────────────────────────────────────────────────────────────────
@@ -267,7 +243,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_scarces_activity_pk
 --   reputation  = social × commitment × quality × consistency × scarces
 -- ────────────────────────────────────────────────────────────────────────────
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS reputation_scores AS
+CREATE OR REPLACE VIEW reputation_scores AS
 SELECT
   a.account_id,
 
@@ -341,13 +317,6 @@ LEFT JOIN leaderboard_rewards r ON r.account_id  = a.account_id
 LEFT JOIN content_activity   c  ON c.account_id  = a.account_id
 LEFT JOIN scarces_activity   n  ON n.account_id  = a.account_id;
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_reputation_scores_pk
-  ON reputation_scores(account_id);
-CREATE INDEX IF NOT EXISTS idx_reputation_scores_rank
-  ON reputation_scores(rank);
-CREATE INDEX IF NOT EXISTS idx_reputation_scores_reputation
-  ON reputation_scores(reputation DESC);
-
 -- ────────────────────────────────────────────────────────────────────────────
 -- 9. leaderboard_by_app — per-partner/dApp leaderboard
 -- ────────────────────────────────────────────────────────────────────────────
@@ -356,7 +325,7 @@ CREATE INDEX IF NOT EXISTS idx_reputation_scores_reputation
 -- Depends on: rewards_schema.sql (rewards_events)
 -- ────────────────────────────────────────────────────────────────────────────
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS leaderboard_by_app AS
+CREATE OR REPLACE VIEW leaderboard_by_app AS
 SELECT
   app_id,
   account_id,
@@ -375,11 +344,6 @@ WHERE event_type = 'REWARD_CREDITED'
   AND amount IS NOT NULL AND amount != ''
 GROUP BY app_id, account_id;
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_leaderboard_by_app_pk
-  ON leaderboard_by_app(app_id, account_id);
-CREATE INDEX IF NOT EXISTS idx_leaderboard_by_app_rank
-  ON leaderboard_by_app(app_id, rank);
-
 -- ────────────────────────────────────────────────────────────────────────────
 -- 10. leaderboard_by_group — per-community leaderboard
 -- ────────────────────────────────────────────────────────────────────────────
@@ -388,7 +352,7 @@ CREATE INDEX IF NOT EXISTS idx_leaderboard_by_app_rank
 -- Depends on: core_schema_views.sql (posts_current, reaction_counts)
 -- ────────────────────────────────────────────────────────────────────────────
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS leaderboard_by_group AS
+CREATE OR REPLACE VIEW leaderboard_by_group AS
 SELECT
   p.group_id,
   p.account_id,
@@ -414,11 +378,6 @@ LEFT JOIN reaction_counts rc
 WHERE p.group_id IS NOT NULL AND p.group_id != ''
 GROUP BY p.group_id, p.account_id;
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_leaderboard_by_group_pk
-  ON leaderboard_by_group(group_id, account_id);
-CREATE INDEX IF NOT EXISTS idx_leaderboard_by_group_rank
-  ON leaderboard_by_group(group_id, rank);
-
 -- ────────────────────────────────────────────────────────────────────────────
 -- 11. app_reputation — per-partner/dApp aggregate reputation
 -- ────────────────────────────────────────────────────────────────────────────
@@ -426,7 +385,7 @@ CREATE INDEX IF NOT EXISTS idx_leaderboard_by_group_rank
 -- Depends on: rewards_schema.sql (rewards_events), reputation_scores
 -- ────────────────────────────────────────────────────────────────────────────
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS app_reputation AS
+CREATE OR REPLACE VIEW app_reputation AS
 SELECT
   re.app_id,
   COUNT(DISTINCT re.account_id)                               AS total_users,
@@ -454,9 +413,6 @@ WHERE re.event_type = 'REWARD_CREDITED'
   AND re.amount IS NOT NULL AND re.amount != ''
 GROUP BY re.app_id;
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_app_reputation_pk
-  ON app_reputation(app_id);
-
 -- ────────────────────────────────────────────────────────────────────────────
 -- Refresh function
 -- ────────────────────────────────────────────────────────────────────────────
@@ -470,23 +426,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_app_reputation_pk
 
 CREATE OR REPLACE FUNCTION refresh_leaderboard_views() RETURNS void AS $$
 BEGIN
-  -- Base leaderboards
-  REFRESH MATERIALIZED VIEW CONCURRENTLY leaderboard_boost;
-  REFRESH MATERIALIZED VIEW CONCURRENTLY leaderboard_rewards;
-  REFRESH MATERIALIZED VIEW CONCURRENTLY reward_activity_daily;
-  REFRESH MATERIALIZED VIEW CONCURRENTLY reward_weights;
-
-  -- Activity aggregates (inputs to reputation)
-  REFRESH MATERIALIZED VIEW CONCURRENTLY content_activity;
-  REFRESH MATERIALIZED VIEW CONCURRENTLY scarces_activity;
-
-  -- Composite reputation (depends on activity views above)
-  REFRESH MATERIALIZED VIEW CONCURRENTLY reputation_scores;
-
-  -- Per-scope leaderboards
-  REFRESH MATERIALIZED VIEW CONCURRENTLY leaderboard_by_app;
-  REFRESH MATERIALIZED VIEW CONCURRENTLY leaderboard_by_group;
-  REFRESH MATERIALIZED VIEW CONCURRENTLY app_reputation;
+  -- No-op: all leaderboard/reputation views are now live views.
+  -- Kept for backward compatibility with any existing callers.
+  RAISE NOTICE 'refresh_leaderboard_views() is a no-op — views are live';
 END;
 $$ LANGUAGE plpgsql;
 
