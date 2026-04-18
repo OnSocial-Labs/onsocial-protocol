@@ -57,6 +57,16 @@ export type { PostRow, ReactionRow, Paginated, HashtagCount } from './query.js';
 export { StorageModule } from './storage.js';
 export { WebhooksModule, verifyWebhookSignature } from './webhooks.js';
 export type { WebhookEndpoint, CreateWebhookParams } from './webhooks.js';
+export { NotificationsModule } from './notifications.js';
+export type {
+  Notification,
+  ListNotificationsParams,
+  ListNotificationsResult,
+  NotificationEvent,
+  SendEventsParams,
+  NotificationRule,
+  CreateRuleParams,
+} from './notifications.js';
 
 // Base Social Schema v1 — promotable shared spec
 export {

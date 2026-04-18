@@ -16,6 +16,7 @@ import { RewardsModule } from './rewards.js';
 import { QueryModule } from './query.js';
 import { StorageModule } from './storage.js';
 import { WebhooksModule } from './webhooks.js';
+import { NotificationsModule } from './notifications.js';
 
 // ── Execute types ───────────────────────────────────────────────────────────
 
@@ -119,6 +120,8 @@ export class OnSocial {
   readonly storage: StorageModule;
   /** Webhook endpoints (pro tier+). */
   readonly webhooks: WebhooksModule;
+  /** Notifications (list, count, mark-read, send events, rules). Pro tier+. */
+  readonly notifications: NotificationsModule;
 
   /** The underlying HTTP client (for advanced usage). */
   readonly http: HttpClient;
@@ -132,6 +135,7 @@ export class OnSocial {
     this.query = new QueryModule(this.http);
     this.storage = new StorageModule(this.http);
     this.webhooks = new WebhooksModule(this.http);
+    this.notifications = new NotificationsModule(this.http);
   }
 
   // ── Generic execute ─────────────────────────────────────────────────────

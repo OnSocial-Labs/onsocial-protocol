@@ -197,13 +197,29 @@ class HasuraNotificationStore implements NotificationStore {
       'appId: { _eq: $app }',
       'recipient: { _eq: $recipient }',
       'createdAt: { _lt: $cursor }',
-      'read: { _eq: $read }',
-      'notificationType: { _eq: $type }',
     ];
+
+    if (params.read !== undefined) {
+      whereFields.push('read: { _eq: $read }');
+    }
+    if (params.type) {
+      whereFields.push('notificationType: { _eq: $type }');
+    }
 
     if (eventTypeFilter) {
       whereFields.push('context: { _contains: $eventContext }');
     }
+
+    const varDecls = [
+      '$owner: String!',
+      '$app: String!',
+      '$recipient: String!',
+      '$limit: Int!',
+      '$cursor: timestamptz!',
+    ];
+    if (params.read !== undefined) varDecls.push('$read: Boolean');
+    if (params.type) varDecls.push('$type: String');
+    if (eventTypeFilter) varDecls.push('$eventContext: jsonb');
 
     const result = await this.gql<{
       notifications: Array<{
@@ -219,7 +235,7 @@ class HasuraNotificationStore implements NotificationStore {
         context: Record<string, unknown>;
       }>;
     }>(
-      `query($owner: String!, $app: String!, $recipient: String!, $limit: Int!, $cursor: timestamptz!, $read: Boolean, $type: String, $eventContext: jsonb) {
+      `query(${varDecls.join(', ')}) {
         notifications(
           where: {
             ${whereFields.join('\n            ')}
@@ -245,9 +261,11 @@ class HasuraNotificationStore implements NotificationStore {
         recipient: params.recipient,
         limit: params.limit,
         cursor: params.cursor ?? '9999-12-31T23:59:59.999Z',
-        read: params.read ?? null,
-        type: params.type ?? null,
-        eventContext: eventTypeFilter ? { eventType: eventTypeFilter } : null,
+        ...(params.read !== undefined ? { read: params.read } : {}),
+        ...(params.type ? { type: params.type } : {}),
+        ...(eventTypeFilter
+          ? { eventContext: { eventType: eventTypeFilter } }
+          : {}),
       }
     );
 
@@ -293,10 +311,17 @@ class HasuraNotificationStore implements NotificationStore {
       whereFields.push('context: { _contains: $eventContext }');
     }
 
+    const countVarDecls = [
+      '$owner: String!',
+      '$app: String!',
+      '$recipient: String!',
+    ];
+    if (eventTypeFilter) countVarDecls.push('$eventContext: jsonb');
+
     const result = await this.gql<{
       notificationsAggregate: { aggregate: { count: number } };
     }>(
-      `query($owner: String!, $app: String!, $recipient: String!, $eventContext: jsonb) {
+      `query(${countVarDecls.join(', ')}) {
         notificationsAggregate(
           where: {
             ${whereFields.join('\n            ')}
@@ -309,7 +334,9 @@ class HasuraNotificationStore implements NotificationStore {
         owner: ownerAccountId,
         app: appId,
         recipient,
-        eventContext: eventTypeFilter ? { eventType: eventTypeFilter } : null,
+        ...(eventTypeFilter
+          ? { eventContext: { eventType: eventTypeFilter } }
+          : {}),
       }
     );
 

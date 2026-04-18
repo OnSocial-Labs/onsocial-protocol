@@ -2,11 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createHmac } from 'node:crypto';
 import { verifyWebhookSignature } from './webhooks.js';
 
-function sign(
-  body: string,
-  timestamp: string,
-  secret: string
-): string {
+function sign(body: string, timestamp: string, secret: string): string {
   return createHmac('sha256', secret)
     .update(`${timestamp}.${body}`)
     .digest('hex');
@@ -19,9 +15,9 @@ describe('verifyWebhookSignature', () => {
 
   it('returns true for valid signature', () => {
     const signature = sign(body, timestamp, secret);
-    expect(
-      verifyWebhookSignature({ body, signature, timestamp, secret })
-    ).toBe(true);
+    expect(verifyWebhookSignature({ body, signature, timestamp, secret })).toBe(
+      true
+    );
   });
 
   it('returns false for wrong signature', () => {
@@ -37,9 +33,9 @@ describe('verifyWebhookSignature', () => {
 
   it('returns false for wrong secret', () => {
     const signature = sign(body, timestamp, 'wrong-secret');
-    expect(
-      verifyWebhookSignature({ body, signature, timestamp, secret })
-    ).toBe(false);
+    expect(verifyWebhookSignature({ body, signature, timestamp, secret })).toBe(
+      false
+    );
   });
 
   it('returns false for tampered body', () => {
@@ -69,9 +65,7 @@ describe('verifyWebhookSignature', () => {
   });
 
   it('accepts timestamps within the window', () => {
-    const recentTimestamp = new Date(
-      Date.now() - 2 * 60 * 1000
-    ).toISOString(); // 2 min ago
+    const recentTimestamp = new Date(Date.now() - 2 * 60 * 1000).toISOString(); // 2 min ago
     const signature = sign(body, recentTimestamp, secret);
     expect(
       verifyWebhookSignature({
@@ -84,9 +78,7 @@ describe('verifyWebhookSignature', () => {
   });
 
   it('respects custom maxAgeMs', () => {
-    const recentTimestamp = new Date(
-      Date.now() - 2 * 60 * 1000
-    ).toISOString();
+    const recentTimestamp = new Date(Date.now() - 2 * 60 * 1000).toISOString();
     const signature = sign(body, recentTimestamp, secret);
     // With 1-minute max age, 2-minute-old timestamp should be rejected
     expect(
