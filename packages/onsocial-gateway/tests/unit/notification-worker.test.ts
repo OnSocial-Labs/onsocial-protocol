@@ -8,6 +8,63 @@ import {
   mapScarcesEventNotifications,
 } from '../../src/services/notifications/worker.js';
 
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+function makeDataUpdate(
+  overrides: Partial<Parameters<typeof mapDataUpdateNotifications>[0]> = {}
+): Parameters<typeof mapDataUpdateNotifications>[0] {
+  return {
+    id: 'du-default',
+    block_height: 100,
+    block_timestamp: '1730000000000000000',
+    receipt_id: 'rcpt-default',
+    operation: 'set',
+    author: 'alice.testnet',
+    path: 'alice/post/main',
+    value: '{"type":"md"}',
+    account_id: 'alice.testnet',
+    data_type: 'post',
+    data_id: 'main',
+    group_id: null,
+    target_account: null,
+    parent_path: null,
+    parent_author: null,
+    ref_path: null,
+    ref_author: null,
+    ...overrides,
+  };
+}
+
+function makeScarcesEvent(
+  overrides: Partial<Parameters<typeof mapScarcesEventNotifications>[0]> = {}
+): Parameters<typeof mapScarcesEventNotifications>[0] {
+  return {
+    id: 'sc-default',
+    block_height: 400,
+    block_timestamp: '1730000007000000000',
+    receipt_id: 'rcpt-default',
+    event_type: 'SCARCE_UPDATE',
+    operation: 'purchase',
+    author: 'market.testnet',
+    token_id: 'scarce-1',
+    collection_id: 'collection-1',
+    listing_id: 'listing-1',
+    owner_id: 'seller.testnet',
+    creator_id: 'creator.testnet',
+    buyer_id: 'buyer.testnet',
+    seller_id: 'seller.testnet',
+    bidder: null,
+    winner_id: null,
+    account_id: null,
+    amount: '500',
+    price: '500',
+    bid_amount: null,
+    app_id: 'portal',
+    scarce_contract_id: 'scarces.onsocial.testnet',
+    ...overrides,
+  };
+}
+
 describe('mapDataUpdateNotifications', () => {
   it('maps replies and quotes from post writes', () => {
     const notifications = mapDataUpdateNotifications({
@@ -279,5 +336,285 @@ describe('mapAppNotificationEventNotifications', () => {
       objectId: 'post-1',
       groupId: 'writers',
     });
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Edge cases & correctness
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('self-notification suppression', () => {
+  it('suppresses reply notification when author replies to own post', () => {
+    const notifications = mapDataUpdateNotifications(
+      makeDataUpdate({
+        author: 'alice.testnet',
+        parent_author: 'alice.testnet',
+        parent_path: 'alice/post/root',
+        ref_author: null,
+        ref_path: null,
+      })
+    );
+    expect(notifications).toHaveLength(0);
+  });
+
+  it('suppresses reaction notification when user reacts to own post', () => {
+    const notifications = mapDataUpdateNotifications(
+      makeDataUpdate({
+        data_type: 'reaction',
+        author: 'alice.testnet',
+        target_account: 'alice.testnet',
+        path: 'alice/reaction/alice.testnet/post/42',
+        value: 'like',
+        parent_path: null,
+        parent_author: null,
+      })
+    );
+    expect(notifications).toHaveLength(0);
+  });
+
+  it('suppresses standing notification when user somehow stands with self', () => {
+    const notifications = mapDataUpdateNotifications(
+      makeDataUpdate({
+        data_type: 'standing',
+        author: 'alice.testnet',
+        target_account: 'alice.testnet',
+        path: 'alice/standing/alice.testnet',
+        parent_path: null,
+        parent_author: null,
+      })
+    );
+    expect(notifications).toHaveLength(0);
+  });
+
+  it('suppresses scarces_sold when buyer is also seller', () => {
+    const notifications = mapScarcesEventNotifications(
+      makeScarcesEvent({
+        seller_id: 'alice.testnet',
+        buyer_id: 'alice.testnet',
+      })
+    );
+    expect(notifications).toHaveLength(0);
+  });
+
+  it('suppresses scarces_offer when bidder is also owner', () => {
+    const notifications = mapScarcesEventNotifications(
+      makeScarcesEvent({
+        operation: 'offer_make',
+        event_type: 'OFFER_UPDATE',
+        owner_id: 'alice.testnet',
+        bidder: 'alice.testnet',
+      })
+    );
+    expect(notifications).toHaveLength(0);
+  });
+});
+
+describe('operation filtering', () => {
+  it('ignores delete operations on data_updates (standing removal, etc.)', () => {
+    const notifications = mapDataUpdateNotifications(
+      makeDataUpdate({
+        operation: 'delete',
+        data_type: 'standing',
+        target_account: 'bob.testnet',
+      })
+    );
+    expect(notifications).toHaveLength(0);
+  });
+
+  it('ignores non-set operations (update, etc.)', () => {
+    const notifications = mapDataUpdateNotifications(
+      makeDataUpdate({ operation: 'update' })
+    );
+    expect(notifications).toHaveLength(0);
+  });
+
+  it('ignores null operations', () => {
+    const notifications = mapDataUpdateNotifications(
+      makeDataUpdate({ operation: null })
+    );
+    expect(notifications).toHaveLength(0);
+  });
+
+  it('only maps member_invited for group invites', () => {
+    expect(
+      mapGroupInviteNotification({
+        id: 'gu-x',
+        block_height: 200,
+        block_timestamp: '1730000003000000000',
+        receipt_id: 'rcpt-x',
+        operation: 'add_member',
+        author: 'owner.testnet',
+        group_id: 'guild',
+        member_id: 'new.testnet',
+        role: 'member',
+        proposal_id: null,
+        proposal_type: null,
+        status: null,
+        title: null,
+        description: null,
+        sequence_number: null,
+      })
+    ).toHaveLength(0);
+  });
+
+  it('ignores failed reward events', () => {
+    const notifications = mapRewardsEventNotifications({
+      id: 'rw-fail',
+      block_height: 300,
+      block_timestamp: '1730000005000000000',
+      receipt_id: 'rcpt-fail',
+      account_id: 'alice.testnet',
+      event_type: 'REWARD_CREDITED',
+      success: false,
+      amount: '100',
+      source: 'content_reward',
+      credited_by: 'rewards.onsocial.testnet',
+      app_id: 'portal',
+    });
+    expect(notifications).toHaveLength(0);
+  });
+
+  it('ignores unknown scarces operations', () => {
+    const notifications = mapScarcesEventNotifications(
+      makeScarcesEvent({ operation: 'quick_mint' })
+    );
+    expect(notifications).toHaveLength(0);
+  });
+});
+
+describe('malformed/null field handling', () => {
+  it('returns empty when author is null', () => {
+    const notifications = mapDataUpdateNotifications(
+      makeDataUpdate({
+        author: null,
+        account_id: null,
+        parent_author: 'bob.testnet',
+        parent_path: 'bob/post/root',
+      })
+    );
+    expect(notifications).toHaveLength(0);
+  });
+
+  it('returns empty when recipient fields are null/empty', () => {
+    // Post with no parent and no ref → no reply, no quote
+    const notifications = mapDataUpdateNotifications(
+      makeDataUpdate({
+        parent_author: null,
+        parent_path: null,
+        ref_author: null,
+        ref_path: null,
+      })
+    );
+    expect(notifications).toHaveLength(0);
+  });
+
+  it('returns empty for reaction with no target_account', () => {
+    const notifications = mapDataUpdateNotifications(
+      makeDataUpdate({
+        data_type: 'reaction',
+        target_account: null,
+        path: 'alice/reaction/bob.testnet/post/42',
+        value: 'like',
+        parent_path: null,
+        parent_author: null,
+      })
+    );
+    expect(notifications).toHaveLength(0);
+  });
+
+  it('returns empty for app event with missing required fields', () => {
+    const noRecipient = mapAppNotificationEventNotifications({
+      id: 'app-bad',
+      block_height: 1,
+      created_at: '2026-01-01T00:00:00Z',
+      owner_account_id: 'alice.testnet',
+      app_id: 'portal',
+      recipient: '',
+      actor: 'bob.testnet',
+      event_type: 'custom',
+      dedupe_key: 'test',
+      object_id: null,
+      group_id: null,
+      source_contract: 'app',
+      source_receipt_id: null,
+      source_block_height: null,
+      context: {},
+    });
+    expect(noRecipient).toHaveLength(0);
+  });
+});
+
+describe('dedup key correctness', () => {
+  it('generates unique dedup keys per row+type+recipient', () => {
+    const n1 = mapDataUpdateNotifications(
+      makeDataUpdate({
+        id: 'row-A',
+        data_type: 'standing',
+        target_account: 'bob.testnet',
+      })
+    );
+    const n2 = mapDataUpdateNotifications(
+      makeDataUpdate({
+        id: 'row-B',
+        data_type: 'standing',
+        target_account: 'bob.testnet',
+      })
+    );
+    expect(n1).toHaveLength(1);
+    expect(n2).toHaveLength(1);
+    expect(n1[0]?.dedupeKey).not.toBe(n2[0]?.dedupeKey);
+  });
+
+  it('same row processed twice produces same dedup key', () => {
+    const input = makeDataUpdate({
+      id: 'row-C',
+      data_type: 'standing',
+      target_account: 'bob.testnet',
+    });
+    const n1 = mapDataUpdateNotifications(input);
+    const n2 = mapDataUpdateNotifications(input);
+    expect(n1[0]?.dedupeKey).toBe(n2[0]?.dedupeKey);
+  });
+
+  it('reply and quote from same row have different dedup keys', () => {
+    const notifications = mapDataUpdateNotifications(
+      makeDataUpdate({
+        parent_author: 'bob.testnet',
+        parent_path: 'bob/post/root',
+        ref_author: 'carol.testnet',
+        ref_path: 'carol/post/root',
+      })
+    );
+    expect(notifications).toHaveLength(2);
+    expect(notifications[0]?.dedupeKey).not.toBe(notifications[1]?.dedupeKey);
+  });
+});
+
+describe('group proposal fan-out', () => {
+  it('excludes the proposal author from recipients', () => {
+    const notifications = mapGroupProposalNotifications(
+      {
+        id: 'gu-fan',
+        block_height: 201,
+        block_timestamp: '1730000004000000000',
+        receipt_id: 'rcpt-fan',
+        operation: 'proposal_created',
+        author: 'owner.testnet',
+        group_id: 'guild',
+        member_id: null,
+        role: null,
+        proposal_id: 'p-1',
+        proposal_type: 'add_member',
+        status: 'open',
+        title: 'Add Alice',
+        description: null,
+        sequence_number: 1,
+      },
+      ['owner.testnet', 'member1.testnet', 'member2.testnet']
+    );
+    // owner.testnet is the author → should be excluded (self-notification)
+    const recipients = notifications.map((n) => n.recipient);
+    expect(recipients).not.toContain('owner.testnet');
+    expect(recipients).toEqual(['member1.testnet', 'member2.testnet']);
   });
 });
