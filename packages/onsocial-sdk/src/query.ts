@@ -444,19 +444,23 @@ export class QueryModule {
     postPath: string,
   ): Promise<Record<string, number>> {
     const res = await this.graphql<{ reactionCounts: Array<{
+      reactionKind: string;
       reactionCount: number;
     }> }>({
       query: `query ReactionCounts($owner: String!, $path: String!) {
         reactionCounts(where: {postOwner: {_eq: $owner}, postPath: {_eq: $path}}) {
-          reactionCount
+          reactionKind reactionCount
         }
       }`,
       variables: { owner: postOwner, path: postPath },
     });
     const out: Record<string, number> = {};
+    let total = 0;
     for (const r of res.data?.reactionCounts ?? []) {
-      out['total'] = r.reactionCount;
+      out[r.reactionKind] = r.reactionCount;
+      total += r.reactionCount;
     }
+    out.total = total;
     return out;
   }
 

@@ -95,7 +95,10 @@ function ok(label: string, detail?: string) {
 
 function fail(label: string, err: unknown) {
   failed++;
-  console.log(`  ❌ ${label} —`, JSON.stringify(err, Object.getOwnPropertyNames(err as object), 2));
+  const detail = err != null && typeof err === 'object'
+    ? JSON.stringify(err, Object.getOwnPropertyNames(err), 2)
+    : String(err);
+  console.log(`  ❌ ${label} —`, detail);
 }
 
 async function main() {
@@ -107,8 +110,6 @@ async function main() {
   console.log(`  Creds:    ${CREDS_FILE}`);
   console.log();
 
-  const STEPS = 14;
-
   // ── Load credentials ─────────────────────────────────────────────────
   const { secretKey, publicKey } = loadKeypair(CREDS_FILE);
   console.log(`  Key:      ${publicKey.slice(0, 30)}...\n`);
@@ -116,10 +117,20 @@ async function main() {
   // ── Init SDK (JWT mode for write operations) ─────────────────────────
   const os = new OnSocial({ gatewayUrl: GATEWAY_URL, network: 'testnet' });
 
+  // Track per-step success for the pipeline summary
+  let authOk = false;
+  let profileOk = false;
+  let readOk = false;
+  let standOk = false;
+  let reactOk = false;
+  let unreactOk = false;
+  let unstandOk = false;
+  let revokeOk = false;
+
   // ════════════════════════════════════════════════════════════════════════
   // 1. AUTH — challenge-based NEP-413 login
   // ════════════════════════════════════════════════════════════════════════
-  console.log('[1/10] Auth — challenge + login');
+  console.log('[1/14] Auth — challenge + login');
   try {
     const challengeRes = await os.http.post<{
       challenge: { message: string; recipient: string; nonce: string };
@@ -137,6 +148,7 @@ async function main() {
       publicKey,
     });
     ok('login()', `tier=${loginResult.tier}, expires=${loginResult.expiresIn}`);
+    authOk = true;
   } catch (e: any) {
     fail('login()', e);
     console.log('\n  ⛔ Cannot proceed without auth. Exiting.\n');
@@ -146,7 +158,7 @@ async function main() {
   // ════════════════════════════════════════════════════════════════════════
   // 2. ONAPI KEY — create a developer API key
   // ════════════════════════════════════════════════════════════════════════
-  console.log('\n[2/10] OnAPI — create developer key');
+  console.log('\n[2/14] OnAPI — create developer key');
   let apiKey: string | null = null;
   try {
     const keyResult = await os.http.post<{
@@ -164,7 +176,7 @@ async function main() {
   // ════════════════════════════════════════════════════════════════════════
   // 3. STORAGE — upload media to IPFS via gateway
   // ════════════════════════════════════════════════════════════════════════
-  console.log('\n[3/10] Storage — upload media to IPFS');
+  console.log('\n[3/14] Storage — upload media to IPFS');
   let mediaCid: string | null = null;
   try {
     // Create a small test image (1x1 red PNG)
@@ -216,6 +228,7 @@ async function main() {
       bio: `Full pipeline at ${new Date(ts).toISOString()}`,
     });
     ok('setProfile()', `txHash=${result.txHash?.slice(0, 20)}...`);
+    profileOk = true;
   } catch (e) {
     fail('setProfile()', e);
   }
@@ -227,6 +240,7 @@ async function main() {
   try {
     const entry = await os.social.getOne(`${ACCOUNT_ID}/profile/name`);
     ok('getOne()', `value=${JSON.stringify(entry?.value)?.slice(0, 60)}`);
+    readOk = true;
   } catch (e) {
     fail('getOne()', e);
   }
@@ -238,6 +252,7 @@ async function main() {
   try {
     const result = await os.social.standWith('onsocial.testnet');
     ok('standWith()', `txHash=${result.txHash?.slice(0, 20)}...`);
+    standOk = true;
   } catch (e) {
     fail('standWith()', e);
   }
@@ -249,6 +264,7 @@ async function main() {
   try {
     const result = await os.social.react(ACCOUNT_ID, `post/${postId}`, { type: 'like' });
     ok('react()', `txHash=${result.txHash?.slice(0, 20)}...`);
+    reactOk = true;
   } catch (e) {
     fail('react()', e);
   }
@@ -268,7 +284,7 @@ async function main() {
   }
 
   // ════════════════════════════════════════════════════════════════════════
-  // 7. ONAPI QUERY — use API key to query indexed data
+  // 10. ONAPI QUERY — use API key to query indexed data
   // ════════════════════════════════════════════════════════════════════════
   console.log('\n[10/14] OnAPI Query — read indexed data via API key');
   if (apiKey) {
@@ -300,7 +316,7 @@ async function main() {
   }
 
   // ════════════════════════════════════════════════════════════════════════
-  // 8. STORAGE READ — verify uploaded media is accessible
+  // 11. STORAGE READ — verify uploaded media is accessible
   // ════════════════════════════════════════════════════════════════════════
   console.log('\n[11/14] Storage — verify media accessible');
   if (mediaCid) {
@@ -320,7 +336,7 @@ async function main() {
   }
 
   // ════════════════════════════════════════════════════════════════════════
-  // 9. CLEANUP — revoke the test API key
+  // 12. CLEANUP — revoke the test API key
   // ════════════════════════════════════════════════════════════════════════
   console.log('\n[12/14] Cleanup — revoke test API key');
   if (apiKey) {
@@ -333,6 +349,7 @@ async function main() {
       } else {
         ok('revokeKey()', 'key not found in list (may already be cleaned up)');
       }
+      revokeOk = true;
     } catch (e) {
       fail('revokeKey()', e);
     }
@@ -341,35 +358,40 @@ async function main() {
   }
 
   // ════════════════════════════════════════════════════════════════════════
-  // 10. PIPELINE SUMMARY
+  // 13. CLEANUP — undo react + unstand
   // ════════════════════════════════════════════════════════════════════════
   console.log('\n[13/14] Cleanup — undo react + unstand');
   try {
     await os.social.unreact(ACCOUNT_ID, 'like', `post/${postId}`);
     ok('unreact()', 'removed like');
+    unreactOk = true;
   } catch (e) {
     fail('unreact()', e);
   }
   try {
     await os.social.unstand('onsocial.testnet');
     ok('unstand()', 'removed standing');
+    unstandOk = true;
   } catch (e) {
     fail('unstand()', e);
   }
 
   console.log('\n[14/14] Pipeline verification');
   const pipeline = [
-    ['Auth (NEP-413 challenge)', true],
-    ['OnAPI key (create + query + revoke)', !!apiKey],
+    ['Auth (NEP-413 challenge)', authOk],
+    ['OnAPI key (create)', !!apiKey],
     ['Storage (IPFS upload)', !!mediaCid],
     ['Post with media + hashtags (gasless relay)', !!postTxHash],
-    ['Profile write (gasless relay)', true],
-    ['On-chain read (RPC view)', true],
-    ['StandWith (social graph)', true],
-    ['React to post', true],
+    ['Profile write (gasless relay)', profileOk],
+    ['On-chain read (RPC view)', readOk],
+    ['StandWith (social graph)', standOk],
+    ['React to post', reactOk],
     ['MintPost (social commerce)', !!mintResult],
     ['Indexed query (Hasura via apiKey)', !!apiKey],
     ['Media verification', !!mediaCid],
+    ['Cleanup: revoke API key', revokeOk || !apiKey],
+    ['Cleanup: unreact', unreactOk],
+    ['Cleanup: unstand', unstandOk],
   ] as const;
   for (const [label, didRun] of pipeline) {
     console.log(`  ${didRun ? '✅' : '⚠️ '} ${label}`);

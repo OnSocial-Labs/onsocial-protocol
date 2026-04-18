@@ -7,7 +7,7 @@
 
 ### Contracts
 [![Core CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/core-onsocial-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/core-onsocial-ci.yml)
-[![Staking CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/staking-onsocial-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/staking-onsocial-ci.yml)
+[![Scarces CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/scarces-onsocial-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/scarces-onsocial-ci.yml)
 [![Token CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/token-onsocial-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/token-onsocial-ci.yml)
 
 ### Services
@@ -19,12 +19,9 @@
 [![Deploy Services (Testnet)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/deploy-testnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/deploy-testnet.yml)
 
 ### Live Testnet
-[![Core Contract](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-core-onsocial-testnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-core-onsocial-testnet.yml)
-[![Staking Contract](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-staking-onsocial-testnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-staking-onsocial-testnet.yml)
-[![Token Contract](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-token-onsocial-testnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-token-onsocial-testnet.yml)
-
-### Live Mainnet
-[![Token Contract](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-token-onsocial-mainnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-token-onsocial-mainnet.yml)
+[![Core Contract](https://img.shields.io/badge/Core_Contract-testnet-brightgreen)](https://testnet.nearblocks.io/address/core.onsocial.testnet)
+[![Scarces Contract](https://img.shields.io/badge/Scarces_Contract-testnet-brightgreen)](https://testnet.nearblocks.io/address/marketplace.onsocial.testnet)
+[![Token Contract](https://img.shields.io/badge/Token_Contract-testnet-brightgreen)](https://testnet.nearblocks.io/address/token.onsocial.testnet)
 
 ### Monitoring
 [![Relayer Balance](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/monitor-relayer-balance.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/monitor-relayer-balance.yml)
