@@ -163,9 +163,21 @@ export async function buildSetAction(
   }
 
   // 3. Build action (no relay — caller decides auth mode)
+  //
+  // Scattered-key detection: when every value key already starts with
+  // `path/` (e.g. profile writes produce "profile/name", "profile/bio"),
+  // use the value entries directly as flat top-level data keys instead of
+  // wrapping them under the path. The contract expects flat slash-keys
+  // like "profile/name" — wrapping would produce the invalid "profile"
+  // top-level key (no slash) and double-prefix the inner keys.
+  const valueKeys = Object.keys(value);
+  const isScattered =
+    valueKeys.length > 0 &&
+    valueKeys.every((k) => k.startsWith(req.path + '/'));
+
   const action = {
     type: 'set',
-    data: { [req.path]: value },
+    data: isScattered ? value : { [req.path]: value },
   };
 
   return {

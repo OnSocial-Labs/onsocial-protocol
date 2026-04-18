@@ -339,6 +339,30 @@ describe('buildSetAction', () => {
       buildSetAction('alice.testnet', { path: 'post//main', value: {} }, [])
     ).rejects.toThrow(ComposeError);
   });
+
+  it('flattens scattered-key profile data instead of wrapping', async () => {
+    const result = await buildSetAction(
+      'alice.testnet',
+      {
+        path: 'profile',
+        value: {
+          'profile/name': 'Alice',
+          'profile/bio': 'Builder',
+          'profile/v': '1',
+        },
+      },
+      []
+    );
+
+    expect(result.action).toEqual({
+      type: 'set',
+      data: {
+        'profile/name': 'Alice',
+        'profile/bio': 'Builder',
+        'profile/v': '1',
+      },
+    });
+  });
 });
 
 describe('validatePath', () => {

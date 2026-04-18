@@ -508,6 +508,27 @@ jobs:
             bash "${SPKG_DIR}/sync-hasura-substreams-metadata.sh" "${SPKG_DIR}"
             echo "✓ Hasura metadata synced"
 
+            # New substreams relations are tracked here, but they remain invisible
+            # to gateway API clients until the gateway re-applies Hasura select
+            # permissions for the api_user tiers. The app deploy also does this,
+            # but it may run before substreams finishes creating/tracking new
+            # relations. Re-run it here to close that ordering gap.
+            if [ -d /opt/onsocial ] && [ -f /opt/onsocial/docker-compose.yml ]; then
+              echo "🔐 Syncing gateway Hasura permissions after substreams metadata update..."
+              (
+                cd /opt/onsocial
+                if docker compose ps gateway >/dev/null 2>&1; then
+                  docker compose exec -T gateway \
+                    node packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js create
+                  echo "✓ Gateway Hasura permissions synced"
+                else
+                  echo "⚠️ Gateway service not found in /opt/onsocial docker compose; skipping permission sync"
+                fi
+              )
+            else
+              echo "⚠️ /opt/onsocial docker compose stack not found; skipping gateway Hasura permission sync"
+            fi
+
             MISSING_TABLES=$($PSQL -tAc "
               SELECT string_agg(name, ',')
               FROM (
