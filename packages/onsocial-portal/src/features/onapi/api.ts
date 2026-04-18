@@ -209,3 +209,71 @@ export async function rotateApiKey(
 
   return (await res.json()) as CreateKeyResult;
 }
+
+// ── Developer Apps (requires JWT) ─────────────────────────────
+
+export interface DeveloperAppInfo {
+  appId: string;
+  ownerAccountId: string;
+  createdAt: string;
+}
+
+export async function listDeveloperApps(jwt: string): Promise<DeveloperAppInfo[]> {
+  const res = await fetch(`${GATEWAY_BASE}/developer/apps`, {
+    headers: { Authorization: `Bearer ${jwt}` },
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(
+      (body as { error?: string }).error ?? 'Failed to list apps'
+    );
+  }
+
+  const data = (await res.json()) as { apps: DeveloperAppInfo[] };
+  return data.apps;
+}
+
+export async function registerDeveloperApp(
+  jwt: string,
+  appId: string
+): Promise<DeveloperAppInfo> {
+  const res = await fetch(`${GATEWAY_BASE}/developer/apps`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${jwt}`,
+    },
+    body: JSON.stringify({ appId }),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(
+      (body as { error?: string }).error ?? 'Failed to register app'
+    );
+  }
+
+  const data = (await res.json()) as { app: DeveloperAppInfo };
+  return data.app;
+}
+
+export async function deleteDeveloperApp(
+  jwt: string,
+  appId: string
+): Promise<void> {
+  const res = await fetch(
+    `${GATEWAY_BASE}/developer/apps/${encodeURIComponent(appId)}`,
+    {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${jwt}` },
+    }
+  );
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(
+      (body as { error?: string }).error ?? 'Failed to delete app'
+    );
+  }
+}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
@@ -14,6 +15,7 @@ import {
   Trash2,
   RefreshCw,
   AlertTriangle,
+  Boxes,
   X,
   ArrowUpRight,
 } from 'lucide-react';
@@ -473,6 +475,15 @@ export default function OnApiKeysPage() {
   return (
     <PageShell className="max-w-3xl space-y-6">
       <SecondaryPageHeader badge="API Keys" badgeAccent="purple" />
+
+      <Link
+        href="/onapi/apps"
+        className="group -mt-2 flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <Boxes className="h-3.5 w-3.5" />
+        Manage app namespaces
+        <ArrowUpRight className="h-3 w-3 opacity-40 transition-all duration-150 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+      </Link>
 
       {showDevBillingBypass && (
         <SurfacePanel radius="xl" tone="soft" padding="roomy" className="space-y-3">

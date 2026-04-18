@@ -99,7 +99,7 @@ class HasuraStore implements DeveloperAppStore {
 
   async register(record: DeveloperAppRecord): Promise<void> {
     await this.gql(
-      `mutation($obj: developerAppsInsertInput!) {
+      `mutation($obj: DeveloperAppsInsertInput!) {
         insertDeveloperAppsOne(object: $obj) { appId }
       }`,
       {

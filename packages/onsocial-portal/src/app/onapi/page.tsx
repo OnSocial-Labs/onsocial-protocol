@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowUpRight, Key } from 'lucide-react';
+import { ArrowUpRight, Boxes, Key } from 'lucide-react';
 import { motion, useInView, useReducedMotion } from 'framer-motion';
 import { fadeUpMotion } from '@/lib/motion';
 import { PageShell } from '@/components/layout/page-shell';
@@ -18,7 +18,9 @@ import {
 } from '@/features/onapi/billing-api';
 import {
   listApiKeys,
+  listDeveloperApps,
   type ApiKeyInfo,
+  type DeveloperAppInfo,
 } from '@/features/onapi/api';
 
 // ─── Access tiers ─────────────────────────────────────────────
@@ -84,24 +86,28 @@ export default function OnApiPage() {
     fetchPlansPublic().then((p) => setLivePlans(p));
   }, []);
 
-  // Fetch user's current tier + keys when authenticated
+  // Fetch user's current tier + keys + apps when authenticated
   const [currentTier, setCurrentTier] = useState<string>('free');
   const [keys, setKeys] = useState<ApiKeyInfo[]>([]);
+  const [apps, setApps] = useState<DeveloperAppInfo[]>([]);
 
   const loadUserData = useCallback(async () => {
     if (!jwt) return;
-    const [sub, keyList] = await Promise.all([
+    const [sub, keyList, appList] = await Promise.all([
       fetchSubscription(jwt).catch(() => ({ tier: 'free' })),
       listApiKeys(jwt).catch(() => []),
+      listDeveloperApps(jwt).catch(() => []),
     ]);
     setCurrentTier(sub.tier.toLowerCase());
     setKeys(keyList);
+    setApps(appList);
   }, [jwt]);
 
   useEffect(() => {
     if (!jwt) {
       setCurrentTier('free');
       setKeys([]);
+      setApps([]);
       return;
     }
     loadUserData();
@@ -335,6 +341,54 @@ export default function OnApiPage() {
               {keys.length > 3 && (
                 <div className="px-5 pb-3 pt-1 text-xs text-muted-foreground">
                   +{keys.length - 3} more
+                </div>
+              )}
+            </SurfacePanel>
+            </Link>
+          </motion.div>
+        )}
+
+        {/* ── Your apps ──────────────────────────────────────── */}
+        {jwt && apps.length > 0 && (
+          <motion.div
+            className="mt-4"
+            {...fadeUpMotion(!!reduceMotion, { distance: 20, duration: 0.4, delay: 0.4 })}
+            animate={isInView ? fadeUpMotion(!!reduceMotion, { distance: 20, duration: 0.4, delay: 0.4 }).animate : {}}
+          >
+            <Link href="/onapi/apps" className="group block">
+            <SurfacePanel
+              radius="xl"
+              tone="soft"
+              padding="none"
+              className="overflow-hidden transition-[border-color] duration-200 group-hover:border-border/70"
+            >
+              <div className="flex items-center justify-between px-5 pt-4 pb-2">
+                <h3 className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">App namespaces</h3>
+                <ArrowUpRight className="h-3 w-3 text-muted-foreground/40 transition-all duration-200 group-hover:text-foreground/80 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              </div>
+              <div>
+                {apps.slice(0, 3).map((app, i) => (
+                  <div key={app.appId}>
+                    {i > 0 && <div className="h-px divider-detail mx-4 md:mx-5" />}
+                    <div className="flex items-center gap-3 px-5 py-2.5">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/40 bg-muted/20">
+                        <Boxes className="h-3 w-3 text-muted-foreground" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <code className="block truncate font-mono text-xs text-foreground">
+                          {app.appId}
+                        </code>
+                        <p className="mt-0.5 text-[10px] text-muted-foreground">
+                          {new Date(app.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {apps.length > 3 && (
+                <div className="px-5 pb-3 pt-1 text-xs text-muted-foreground">
+                  +{apps.length - 3} more
                 </div>
               )}
             </SurfacePanel>
