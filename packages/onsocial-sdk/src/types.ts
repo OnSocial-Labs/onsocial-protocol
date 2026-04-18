@@ -90,7 +90,12 @@ export interface ListKeysOptions {
 export interface ProfileData {
   name?: string;
   bio?: string;
-  avatar?: string;
+  /**
+   * Profile avatar. Accepts a CID/URL string, OR a `File`/`Blob` which the
+   * SDK uploads to IPFS via the gateway and replaces with `ipfs://<cid>`
+   * before writing to the contract.
+   */
+  avatar?: string | Blob | File;
   links?: Record<string, string>;
   tags?: string[];
   [key: string]: unknown;
@@ -99,6 +104,12 @@ export interface ProfileData {
 export interface PostData {
   text: string;
   media?: string[];
+  /**
+   * Optional file attachment. The SDK uploads it to IPFS via the gateway
+   * and prepends `ipfs://<cid>` to `media[]` before writing the post.
+   * Removed from the stored post body.
+   */
+  image?: Blob | File;
   tags?: string[];
   access?: 'public' | 'private' | 'group';
   [key: string]: unknown;
@@ -114,8 +125,15 @@ export interface ReactionData {
 export interface MintOptions {
   title: string;
   description?: string;
+  /** Optional file — uploaded by gateway (counts against tier quota). */
   image?: Blob | File;
+  /** Pre-uploaded IPFS CID — bypasses gateway upload (BYO storage). */
   mediaCid?: string;
+  /**
+   * Optional NEP-177 `media_hash` (raw sha256 of the file bytes, base64).
+   * Usually safe to omit when using `ipfs://` URLs since CIDs are already
+   * content-addressed; provide only when targeting strict NEP-177 verifiers.
+   */
   mediaHash?: string;
   copies?: number;
   collectionId?: string;
@@ -134,7 +152,16 @@ export interface CollectionOptions {
   collectionId: string;
   totalSupply: number;
   title: string;
+  /** Optional file — uploaded by gateway (counts against tier quota). */
   image?: Blob | File;
+  /** Pre-uploaded IPFS CID — bypasses gateway upload (BYO storage). */
+  mediaCid?: string;
+  /**
+   * Optional NEP-177 `media_hash` (raw sha256 of the file bytes, base64).
+   * Usually safe to omit when using `ipfs://` URLs since CIDs are already
+   * content-addressed; provide only when targeting strict NEP-177 verifiers.
+   */
+  mediaHash?: string;
   priceNear?: string;
   description?: string;
   royalty?: Record<string, number>;
@@ -168,6 +195,12 @@ export interface LazyListingOptions {
   priceNear: string;
   image?: Blob | File;
   mediaCid?: string;
+  /**
+   * Optional NEP-177 `media_hash` (raw sha256 of the file bytes, base64).
+   * Usually safe to omit when using `ipfs://` URLs since CIDs are already
+   * content-addressed; provide only when targeting strict NEP-177 verifiers.
+   */
+  mediaHash?: string;
   description?: string;
   royalty?: Record<string, number>;
   extra?: Record<string, unknown>;

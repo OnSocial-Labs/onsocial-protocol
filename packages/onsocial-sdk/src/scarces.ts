@@ -15,6 +15,150 @@ import type {
   RelayResponse,
 } from './types.js';
 
+export interface TokenMetadata {
+  title: string;
+  description?: string;
+  media?: string;
+  media_hash?: string;
+  copies?: number;
+  extra?: string;
+  reference?: string;
+  reference_hash?: string;
+}
+
+export function nearToYocto(near: string): string {
+  const parts = near.split('.');
+  const whole = parts[0] || '0';
+  const frac = (parts[1] || '').padEnd(24, '0').slice(0, 24);
+  return (
+    BigInt(whole) * BigInt('1000000000000000000000000') + BigInt(frac) + ''
+  );
+}
+
+function parseOptionalU64(value: string | undefined): number | undefined {
+  if (value == null || value === '') return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`Invalid numeric value: ${value}`);
+  }
+  return parsed;
+}
+
+function buildTokenMetadata(opts: {
+  title: string;
+  description?: string;
+  mediaCid?: string;
+  mediaHash?: string;
+  copies?: number;
+  extra?: Record<string, unknown>;
+}): TokenMetadata {
+  return {
+    title: opts.title,
+    ...(opts.description ? { description: opts.description } : {}),
+    ...(opts.mediaCid ? { media: `ipfs://${opts.mediaCid}` } : {}),
+    ...(opts.mediaHash ? { media_hash: opts.mediaHash } : {}),
+    ...(opts.copies != null ? { copies: opts.copies } : {}),
+    ...(opts.extra ? { extra: JSON.stringify(opts.extra) } : {}),
+  };
+}
+
+export function buildQuickMintAction(opts: MintOptions) {
+  return {
+    type: 'quick_mint' as const,
+    metadata: buildTokenMetadata(opts),
+    ...(opts.royalty ? { royalty: opts.royalty } : {}),
+    ...(opts.appId ? { app_id: opts.appId } : {}),
+  };
+}
+
+export function buildMintFromCollectionAction(
+  collectionId: string,
+  quantity = 1,
+  receiverId?: string,
+) {
+  return {
+    type: 'mint_from_collection' as const,
+    collection_id: collectionId,
+    quantity,
+    ...(receiverId ? { receiver_id: receiverId } : {}),
+  };
+}
+
+export function buildCreateCollectionAction(opts: CollectionOptions) {
+  const metadataTemplate = JSON.stringify({
+    title: opts.title,
+    ...(opts.description ? { description: opts.description } : {}),
+    ...(opts.extra ? { extra: JSON.stringify(opts.extra) } : {}),
+  });
+
+  return {
+    type: 'create_collection' as const,
+    collection_id: opts.collectionId,
+    total_supply: opts.totalSupply,
+    metadata_template: metadataTemplate,
+    price_near: nearToYocto(opts.priceNear ?? '0'),
+    ...(opts.royalty ? { royalty: opts.royalty } : {}),
+    ...(opts.appId ? { app_id: opts.appId } : {}),
+    ...(opts.mintMode ? { mint_mode: opts.mintMode } : {}),
+    ...(opts.maxPerWallet != null ? { max_per_wallet: opts.maxPerWallet } : {}),
+    ...(opts.renewable != null ? { renewable: opts.renewable } : {}),
+    ...(opts.transferable != null ? { transferable: opts.transferable } : {}),
+    ...(opts.burnable != null ? { burnable: opts.burnable } : {}),
+    ...(parseOptionalU64(opts.startTime) != null
+      ? { start_time: parseOptionalU64(opts.startTime) }
+      : {}),
+    ...(parseOptionalU64(opts.endTime) != null
+      ? { end_time: parseOptionalU64(opts.endTime) }
+      : {}),
+  };
+}
+
+export function buildTransferScarceAction(
+  tokenId: string,
+  receiverId: string,
+  memo?: string,
+) {
+  return {
+    type: 'transfer_scarce' as const,
+    token_id: tokenId,
+    receiver_id: receiverId,
+    ...(memo ? { memo } : {}),
+  };
+}
+
+export function buildListNativeScarceAction(opts: ListingOptions) {
+  return {
+    type: 'list_native_scarce' as const,
+    token_id: opts.tokenId,
+    price: nearToYocto(opts.priceNear),
+    ...(parseOptionalU64(opts.expiresAt) != null
+      ? { expires_at: parseOptionalU64(opts.expiresAt) }
+      : {}),
+  };
+}
+
+export function buildPurchaseNativeScarceAction(tokenId: string) {
+  return {
+    type: 'purchase_native_scarce' as const,
+    token_id: tokenId,
+  };
+}
+
+export function buildCreateLazyListingAction(opts: LazyListingOptions) {
+  return {
+    type: 'create_lazy_listing' as const,
+    metadata: buildTokenMetadata(opts),
+    price: nearToYocto(opts.priceNear),
+    ...(opts.royalty ? { royalty: opts.royalty } : {}),
+    ...(opts.appId ? { app_id: opts.appId } : {}),
+    ...(opts.transferable != null ? { transferable: opts.transferable } : {}),
+    ...(opts.burnable != null ? { burnable: opts.burnable } : {}),
+    ...(parseOptionalU64(opts.expiresAt) != null
+      ? { expires_at: parseOptionalU64(opts.expiresAt) }
+      : {}),
+  };
+}
+
 export class ScarcesModule {
   constructor(private _http: HttpClient) {}
 
@@ -76,6 +220,8 @@ export class ScarcesModule {
     if (opts.renewable !== undefined) form.append('renewable', String(opts.renewable));
     if (opts.transferable !== undefined) form.append('transferable', String(opts.transferable));
     if (opts.burnable !== undefined) form.append('burnable', String(opts.burnable));
+    if (opts.mediaCid) form.append('mediaCid', opts.mediaCid);
+    if (opts.mediaHash) form.append('mediaHash', opts.mediaHash);
     if (opts.image) form.append('image', opts.image);
 
     return this._http.requestForm<RelayResponse>(

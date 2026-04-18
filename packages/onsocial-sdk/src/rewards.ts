@@ -11,6 +11,32 @@ import type {
   RelayResponse,
 } from './types.js';
 
+export type RewardsAction =
+  | {
+      type: 'credit_reward';
+      account_id: string;
+      amount: string;
+      source?: string;
+      app_id?: string;
+    }
+  | { type: 'claim' };
+
+export function buildCreditRewardAction(
+  req: CreditRequest & { amount: string },
+): RewardsAction {
+  return {
+    type: 'credit_reward',
+    account_id: req.accountId,
+    amount: req.amount,
+    ...(req.source ? { source: req.source } : {}),
+    ...(req.appId ? { app_id: req.appId } : {}),
+  };
+}
+
+export function buildClaimAction(): RewardsAction {
+  return { type: 'claim' };
+}
+
 export class RewardsModule {
   constructor(private _http: HttpClient) {}
 
@@ -22,7 +48,12 @@ export class RewardsModule {
    * ```
    */
   async credit(req: CreditRequest): Promise<CreditResponse> {
-    return this._http.post<CreditResponse>('/v1/reward', req);
+    return this._http.post<CreditResponse>('/v1/reward', {
+      account_id: req.accountId,
+      ...(req.source ? { source: req.source } : {}),
+      ...(req.amount ? { amount: req.amount } : {}),
+      ...(req.appId ? { app_id: req.appId } : {}),
+    });
   }
 
   /**
@@ -33,7 +64,9 @@ export class RewardsModule {
    * ```
    */
   async claim(accountId: string): Promise<ClaimResponse> {
-    return this._http.post<ClaimResponse>('/v1/claim', { accountId });
+    return this._http.post<ClaimResponse>('/v1/claim', {
+      account_id: accountId,
+    });
   }
 
   /** Get reward balance and stats for an account. */

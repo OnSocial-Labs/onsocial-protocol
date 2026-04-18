@@ -6,19 +6,20 @@ import type { ApiError, OnSocialConfig, Network } from './types.js';
 
 const GATEWAY_URLS: Record<Network, string> = {
   mainnet: 'https://api.onsocial.id',
-  testnet: 'https://api.testnet.onsocial.id',
+  testnet: 'https://testnet.onsocial.id',
 };
 
 /** Low-level HTTP client shared by all modules. */
 export class HttpClient {
   readonly baseUrl: string;
+  readonly network: Network;
   private _fetch: typeof globalThis.fetch;
   private _token: string | null = null;
   private _apiKey: string | null = null;
 
   constructor(config: OnSocialConfig = {}) {
-    const network = config.network ?? 'mainnet';
-    this.baseUrl = (config.gatewayUrl ?? GATEWAY_URLS[network]).replace(
+    this.network = config.network ?? 'mainnet';
+    this.baseUrl = (config.gatewayUrl ?? GATEWAY_URLS[this.network]).replace(
       /\/$/,
       '',
     );

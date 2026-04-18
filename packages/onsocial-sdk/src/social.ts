@@ -1,50 +1,399 @@
 // ---------------------------------------------------------------------------
 // OnSocial SDK — social module (profiles, posts, standings, reactions)
+//
+// All object writes carry `v: 1` per the Base Social Schema. Profile is
+// stored as scattered slash-keys (per-field) so it emits `profile/v` instead.
+// See src/schema/v1.ts for the full spec.
 // ---------------------------------------------------------------------------
 
 import type { HttpClient } from './http.js';
+import { SCHEMA_VERSION } from './schema/v1.js';
+import type { MediaRef } from './schema/v1.js';
 import type {
   EntryView,
   KeyEntry,
   ListKeysOptions,
+  Network,
   PostData,
   ProfileData,
   ReactionData,
   RelayResponse,
 } from './types.js';
 
+const CORE_CONTRACTS: Record<Network, string> = {
+  mainnet: 'core.onsocial.near',
+  testnet: 'core.onsocial.testnet',
+};
+
+export type SocialSetData = Record<string, unknown>;
+
+const PROFILE_RESERVED_FIELDS = ['name', 'bio', 'avatar', 'links', 'tags'];
+
+function encodeProfileField(value: unknown): string {
+  return typeof value === 'string' ? value : JSON.stringify(value);
+}
+
+export function buildProfileSetData(profile: ProfileData): SocialSetData {
+  const data: SocialSetData = {
+    'profile/v': String(SCHEMA_VERSION),
+  };
+
+  if (profile.name !== undefined) data['profile/name'] = profile.name;
+  if (profile.bio !== undefined) data['profile/bio'] = profile.bio;
+  if (profile.avatar !== undefined) data['profile/avatar'] = profile.avatar;
+  if (profile.links !== undefined) {
+    data['profile/links'] = encodeProfileField(profile.links);
+  }
+  if (profile.tags !== undefined) {
+    data['profile/tags'] = encodeProfileField(profile.tags);
+  }
+
+  for (const [key, value] of Object.entries(profile)) {
+    if (!PROFILE_RESERVED_FIELDS.includes(key) && value !== undefined) {
+      data[`profile/${key}`] = encodeProfileField(value);
+    }
+  }
+
+  return data;
+}
+
+export function buildPostSetData(
+  post: PostData,
+  postId: string,
+  now = Date.now(),
+): SocialSetData {
+  return {
+    [`post/${postId}`]: {
+      v: SCHEMA_VERSION,
+      ...post,
+      timestamp: post.timestamp ?? now,
+    },
+  };
+}
+
+/**
+ * Build a reply post. The `parent` and `parentType` fields are picked up
+ * by the substreams indexer and exposed via the `thread_replies` view.
+ *
+ * @param parentAuthor - account that owns the parent post
+ * @param parentId     - id of the parent post (the part after `post/`)
+ * @param post         - reply content
+ * @param replyId      - id for the new reply
+ * @param now          - timestamp override (defaults to Date.now())
+ */
+export function buildReplySetData(
+  parentAuthor: string,
+  parentId: string,
+  post: PostData,
+  replyId: string,
+  now = Date.now(),
+): SocialSetData {
+  return {
+    [`post/${replyId}`]: {
+      v: SCHEMA_VERSION,
+      ...post,
+      parent: `${parentAuthor}/post/${parentId}`,
+      parentType: 'post',
+      timestamp: post.timestamp ?? now,
+    },
+  };
+}
+
+/**
+ * Build a quote post (the OnSocial equivalent of a repost / quote-tweet).
+ * The `ref` and `refType` fields are picked up by the substreams indexer
+ * and exposed via the `quotes` view.
+ */
+export function buildQuoteSetData(
+  refAuthor: string,
+  refPath: string,
+  post: PostData,
+  quoteId: string,
+  now = Date.now(),
+): SocialSetData {
+  return {
+    [`post/${quoteId}`]: {
+      v: SCHEMA_VERSION,
+      ...post,
+      ref: `${refAuthor}/${refPath}`,
+      refType: 'quote',
+      timestamp: post.timestamp ?? now,
+    },
+  };
+}
+
+/**
+ * Build a post written into a group's content namespace. The contract stores
+ * it under `groups/<groupId>/content/post/<postId>` — the `content/` segment
+ * is required so default member write permissions (granted on the `content`
+ * subpath at join time) authorize the write.
+ *
+ * Note: the enclosing `Set` action must target the group's owning account
+ * (group owner) or be sent by a member with permission on `content`.
+ */
+export function buildGroupPostSetData(
+  groupId: string,
+  post: PostData,
+  postId: string,
+  now = Date.now(),
+): SocialSetData {
+  return {
+    [`groups/${groupId}/content/post/${postId}`]: {
+      v: SCHEMA_VERSION,
+      ...post,
+      timestamp: post.timestamp ?? now,
+    },
+  };
+}
+
+export function buildStandingSetData(
+  targetAccount: string,
+  now = Date.now(),
+): SocialSetData {
+  return {
+    [`standing/${targetAccount}`]: { v: SCHEMA_VERSION, since: now },
+  };
+}
+
+export function buildStandingRemoveData(targetAccount: string): SocialSetData {
+  return {
+    [`standing/${targetAccount}`]: null,
+  };
+}
+
+/**
+ * Build a reaction write. v1 path layout: `reaction/<owner>/<kind>/<contentPath>`.
+ *
+ * Including the kind in the path lets a single reactor emit multiple reactions
+ * to the same target (e.g. like + bookmark) without one overwriting the other.
+ */
+export function buildReactionSetData(
+  ownerAccount: string,
+  contentPath: string,
+  reaction: ReactionData,
+): SocialSetData {
+  const kind = String(reaction.type ?? '').trim();
+  if (!kind) {
+    throw new Error('reaction.type required to derive path');
+  }
+  return {
+    [`reaction/${ownerAccount}/${kind}/${contentPath}`]: {
+      v: SCHEMA_VERSION,
+      ...reaction,
+    },
+  };
+}
+
+/** Build a reaction tombstone. Must be called with the same `kind` used to set. */
+export function buildReactionRemoveData(
+  ownerAccount: string,
+  kind: string,
+  contentPath: string,
+): SocialSetData {
+  return {
+    [`reaction/${ownerAccount}/${kind}/${contentPath}`]: null,
+  };
+}
+
+// ── Saves (private bookmarks) ─────────────────────────────────────────────
+
+export interface SaveBuildInput {
+  folder?: string;
+  note?: string;
+  /** Override timestamp (defaults to Date.now()). */
+  now?: number;
+}
+
+/**
+ * Build a private save (bookmark). Path: `saved/<contentPath>`.
+ * Personal/utility — never aggregated by indexers.
+ */
+export function buildSaveSetData(
+  contentPath: string,
+  input: SaveBuildInput = {},
+): SocialSetData {
+  const value: Record<string, unknown> = {
+    v: SCHEMA_VERSION,
+    timestamp: input.now ?? Date.now(),
+  };
+  if (input.folder !== undefined) value.folder = input.folder;
+  if (input.note !== undefined) value.note = input.note;
+  return { [`saved/${contentPath}`]: value };
+}
+
+export function buildSaveRemoveData(contentPath: string): SocialSetData {
+  return { [`saved/${contentPath}`]: null };
+}
+
+// ── Endorsements (weighted directed vouch) ────────────────────────────────
+
+export type EndorsementWeightInput = 1 | 2 | 3 | 4 | 5;
+
+export interface EndorsementBuildInput {
+  topic?: string;
+  weight?: EndorsementWeightInput;
+  note?: string;
+  expiresAt?: number;
+  /** Override timestamp (defaults to Date.now()). */
+  now?: number;
+}
+
+/**
+ * Build an endorsement. Path: `endorsement/<target>` or
+ * `endorsement/<target>/<topic>` when `topic` is set.
+ */
+export function buildEndorsementSetData(
+  targetAccount: string,
+  input: EndorsementBuildInput = {},
+): SocialSetData {
+  const value: Record<string, unknown> = {
+    v: SCHEMA_VERSION,
+    since: input.now ?? Date.now(),
+  };
+  if (input.topic !== undefined) value.topic = input.topic;
+  if (input.weight !== undefined) value.weight = input.weight;
+  if (input.note !== undefined) value.note = input.note;
+  if (input.expiresAt !== undefined) value.expiresAt = input.expiresAt;
+  const path = input.topic
+    ? `endorsement/${targetAccount}/${input.topic}`
+    : `endorsement/${targetAccount}`;
+  return { [path]: value };
+}
+
+export function buildEndorsementRemoveData(
+  targetAccount: string,
+  topic?: string,
+): SocialSetData {
+  const path = topic
+    ? `endorsement/${targetAccount}/${topic}`
+    : `endorsement/${targetAccount}`;
+  return { [path]: null };
+}
+
+// ── Attestations (verifiable typed claims) ────────────────────────────────
+
+export interface AttestationSignatureInput {
+  alg: string;
+  sig: string;
+  signer?: string;
+}
+
+export interface AttestationBuildInput {
+  /** Free-string claim type; pattern: [a-z0-9][a-z0-9_-]{0,63} */
+  type: string;
+  /** Subject identifier (account, content path, or any opaque id). */
+  subject: string;
+  scope?: string;
+  expiresAt?: number;
+  /** Pre-pinned evidence references. */
+  evidence?: MediaRef[];
+  metadata?: Record<string, unknown>;
+  signature?: AttestationSignatureInput;
+  x?: Record<string, Record<string, unknown>>;
+  /** Override issuedAt timestamp (defaults to Date.now()). */
+  now?: number;
+}
+
+/**
+ * Build an attestation. Path: `claims/<subject>/<type>/<claimId>`.
+ * Written under the issuer's account namespace.
+ */
+export function buildAttestationSetData(
+  claimId: string,
+  input: AttestationBuildInput,
+): SocialSetData {
+  if (!claimId) throw new Error('claimId required');
+  if (!input.type) throw new Error('attestation.type required');
+  if (!input.subject) throw new Error('attestation.subject required');
+  const value: Record<string, unknown> = {
+    v: SCHEMA_VERSION,
+    type: input.type,
+    subject: input.subject,
+    issuedAt: input.now ?? Date.now(),
+  };
+  if (input.scope !== undefined) value.scope = input.scope;
+  if (input.expiresAt !== undefined) value.expiresAt = input.expiresAt;
+  if (input.evidence !== undefined) value.evidence = input.evidence;
+  if (input.metadata !== undefined) value.metadata = input.metadata;
+  if (input.signature !== undefined) value.signature = input.signature;
+  if (input.x !== undefined) value.x = input.x;
+  return {
+    [`claims/${input.subject}/${input.type}/${claimId}`]: value,
+  };
+}
+
+export function buildAttestationRemoveData(
+  subject: string,
+  type: string,
+  claimId: string,
+): SocialSetData {
+  return {
+    [`claims/${subject}/${type}/${claimId}`]: null,
+  };
+}
+
+function getSingleEntry(data: SocialSetData): [string, unknown] {
+  const entries = Object.entries(data);
+  if (entries.length !== 1) {
+    throw new Error('Expected exactly one social data entry');
+  }
+  return entries[0];
+}
+
+function isFileLike(value: unknown): value is Blob | File {
+  return (
+    typeof Blob !== 'undefined' &&
+    value instanceof Blob
+  );
+}
+
 export class SocialModule {
-  constructor(private _http: HttpClient) {}
+  private _coreContract: string;
+
+  constructor(private _http: HttpClient) {
+    this._coreContract = CORE_CONTRACTS[_http.network];
+  }
+
+  /**
+   * Upload a file to IPFS via the gateway and return its `ipfs://<cid>` URL.
+   * Used internally by `setProfile`/`post` to materialize file fields.
+   */
+  private async _uploadFile(file: Blob | File): Promise<string> {
+    const form = new FormData();
+    form.append('file', file);
+    const { cid } = await this._http.requestForm<{ cid: string }>(
+      'POST',
+      '/storage/upload',
+      form,
+    );
+    return `ipfs://${cid}`;
+  }
 
   // ── Profiles ────────────────────────────────────────────────────────────
 
   /**
    * Create or update the current user's profile.
    *
+   * `avatar` may be a string (URL/CID) or a `File`/`Blob` — the SDK uploads
+   * any file to IPFS via the gateway and stores `ipfs://<cid>` in its place.
+   *
    * ```ts
    * await os.social.setProfile({ name: 'Alice', bio: 'Builder' });
+   * await os.social.setProfile({ name: 'Alice', avatar: file });
    * ```
    */
   async setProfile(profile: ProfileData): Promise<RelayResponse> {
-    const data: Record<string, string> = {};
-    if (profile.name !== undefined) data['profile/name'] = profile.name;
-    if (profile.bio !== undefined) data['profile/bio'] = profile.bio;
-    if (profile.avatar !== undefined) data['profile/avatar'] = profile.avatar;
-    if (profile.links !== undefined)
-      data['profile/links'] = JSON.stringify(profile.links);
-    if (profile.tags !== undefined)
-      data['profile/tags'] = JSON.stringify(profile.tags);
-
-    // Forward any extra keys as-is
-    for (const [k, v] of Object.entries(profile)) {
-      if (!['name', 'bio', 'avatar', 'links', 'tags'].includes(k)) {
-        data[`profile/${k}`] = typeof v === 'string' ? v : JSON.stringify(v);
-      }
+    let resolved: ProfileData = profile;
+    if (isFileLike(profile.avatar)) {
+      const url = await this._uploadFile(profile.avatar);
+      resolved = { ...profile, avatar: url };
     }
+    const data = buildProfileSetData(resolved);
 
     return this._http.post<RelayResponse>('/compose/set', {
       path: 'profile',
       value: data,
+      targetAccount: this._coreContract,
     });
   }
 
@@ -53,18 +402,28 @@ export class SocialModule {
   /**
    * Create a post.
    *
+   * Pass `image: File` to attach a file — the SDK uploads it to IPFS via
+   * the gateway and prepends `ipfs://<cid>` to `media[]`. The `image` field
+   * itself is stripped from the stored post body.
+   *
    * ```ts
    * await os.social.post({ text: 'Hello OnSocial!' });
+   * await os.social.post({ text: 'gm', image: file });
    * ```
    */
   async post(post: PostData, postId?: string): Promise<RelayResponse> {
+    let resolved: PostData = post;
+    if (isFileLike(post.image)) {
+      const url = await this._uploadFile(post.image);
+      const { image: _drop, ...rest } = post;
+      resolved = { ...rest, media: [url, ...(post.media ?? [])] };
+    }
     const id = postId ?? Date.now().toString();
+    const [path, value] = getSingleEntry(buildPostSetData(resolved, id));
     return this._http.post<RelayResponse>('/compose/set', {
-      path: `post/${id}`,
-      value: JSON.stringify({
-        ...post,
-        timestamp: post.timestamp ?? Date.now(),
-      }),
+      path,
+      value: JSON.stringify(value),
+      targetAccount: this._coreContract,
     });
   }
 
@@ -78,9 +437,11 @@ export class SocialModule {
    * ```
    */
   async standWith(targetAccount: string): Promise<RelayResponse> {
+    const [path, value] = getSingleEntry(buildStandingSetData(targetAccount));
     return this._http.post<RelayResponse>('/compose/set', {
-      path: `standing/${targetAccount}`,
-      value: JSON.stringify({ since: Date.now() }),
+      path,
+      value: JSON.stringify(value),
+      targetAccount: this._coreContract,
     });
   }
 
@@ -92,9 +453,11 @@ export class SocialModule {
    * ```
    */
   async unstand(targetAccount: string): Promise<RelayResponse> {
+    const [path, value] = getSingleEntry(buildStandingRemoveData(targetAccount));
     return this._http.post<RelayResponse>('/compose/set', {
-      path: `standing/${targetAccount}`,
-      value: '',
+      path,
+      value: JSON.stringify(value),
+      targetAccount: this._coreContract,
     });
   }
 
@@ -112,9 +475,35 @@ export class SocialModule {
     contentPath: string,
     reaction: ReactionData,
   ): Promise<RelayResponse> {
+    const [path, value] = getSingleEntry(
+      buildReactionSetData(ownerAccount, contentPath, reaction),
+    );
     return this._http.post<RelayResponse>('/compose/set', {
-      path: `reaction/${ownerAccount}/${contentPath}`,
-      value: JSON.stringify(reaction),
+      path,
+      value: JSON.stringify(value),
+      targetAccount: this._coreContract,
+    });
+  }
+
+  /**
+   * Remove a previously-set reaction. Must specify the same `kind` used to react.
+   *
+   * ```ts
+   * await os.social.unreact('bob.near', 'like', 'post/123');
+   * ```
+   */
+  async unreact(
+    ownerAccount: string,
+    kind: string,
+    contentPath: string,
+  ): Promise<RelayResponse> {
+    const [path, value] = getSingleEntry(
+      buildReactionRemoveData(ownerAccount, kind, contentPath),
+    );
+    return this._http.post<RelayResponse>('/compose/set', {
+      path,
+      value: JSON.stringify(value),
+      targetAccount: this._coreContract,
     });
   }
 
@@ -128,7 +517,11 @@ export class SocialModule {
    * ```
    */
   async set(path: string, value: string): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/compose/set', { path, value });
+    return this._http.post<RelayResponse>('/compose/set', {
+      path,
+      value,
+      targetAccount: this._coreContract,
+    });
   }
 
   // ── On-chain reads ────────────────────────────────────────────────────
