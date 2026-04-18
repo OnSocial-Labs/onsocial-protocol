@@ -18,14 +18,15 @@ import {
   markNotificationsRead,
 } from '../services/notifications/index.js';
 import { ingestAppNotificationEvents } from '../services/notifications/app-events.js';
+import { ensureDeveloperApp } from '../services/developer-apps/index.js';
 
 export const notificationRouter = Router();
 
-notificationRouter.use(
-  '/notifications',
-  requireAuth,
-  requireTier('pro', 'scale', 'service')
-);
+/** All notification routes require auth. */
+notificationRouter.use('/notifications', requireAuth);
+
+/** Write operations (events, rules, webhooks) require a paid tier. */
+const requirePaidTier = requireTier('pro', 'scale', 'service');
 
 function parseRead(value: unknown): boolean | undefined {
   if (value === undefined) {
@@ -51,13 +52,12 @@ function requireRecipient(req: Request, res: Response): string | undefined {
   return recipient;
 }
 
-function requireAppId(req: Request, res: Response): string | undefined {
-  const appId = String(req.query.appId ?? req.body?.appId ?? '').trim();
-  if (!appId) {
-    res.status(400).json({ error: 'appId is required' });
-    return undefined;
-  }
-  return appId;
+const DEFAULT_APP_ID = 'default';
+
+/** Resolve appId from query/body, defaulting to 'default'. */
+function resolveAppId(req: Request): string {
+  const raw = String(req.query.appId ?? req.body?.appId ?? '').trim();
+  return raw || DEFAULT_APP_ID;
 }
 
 function normalizeEventBatch(req: Request): Array<Record<string, unknown>> {
@@ -85,10 +85,7 @@ notificationRouter.get(
 notificationRouter.get(
   '/notifications',
   async (req: Request, res: Response) => {
-    const appId = requireAppId(req, res);
-    if (!appId) {
-      return;
-    }
+    const appId = resolveAppId(req);
     const recipient = requireRecipient(req, res);
     if (!recipient) {
       return;
@@ -125,10 +122,7 @@ notificationRouter.get(
 notificationRouter.get(
   '/notifications/count',
   async (req: Request, res: Response) => {
-    const appId = requireAppId(req, res);
-    if (!appId) {
-      return;
-    }
+    const appId = resolveAppId(req);
     const recipient = requireRecipient(req, res);
     if (!recipient) {
       return;
@@ -154,11 +148,12 @@ notificationRouter.get(
 
 notificationRouter.post(
   '/notifications/events',
+  requirePaidTier,
   async (req: Request, res: Response) => {
-    const appId = requireAppId(req, res);
-    if (!appId) {
-      return;
-    }
+    const appId = resolveAppId(req);
+
+    // Auto-register the app namespace if it doesn't exist yet.
+    await ensureDeveloperApp(req.auth!.accountId, appId);
 
     const events = normalizeEventBatch(req);
     if (events.length === 0) {
@@ -229,10 +224,7 @@ notificationRouter.post(
 notificationRouter.post(
   '/notifications/read',
   async (req: Request, res: Response) => {
-    const appId = requireAppId(req, res);
-    if (!appId) {
-      return;
-    }
+    const appId = resolveAppId(req);
     const recipient = requireRecipient(req, res);
     if (!recipient) {
       return;
@@ -281,11 +273,9 @@ notificationRouter.get(
 
 notificationRouter.post(
   '/notifications/rules',
+  requirePaidTier,
   async (req: Request, res: Response) => {
-    const appId = requireAppId(req, res);
-    if (!appId) {
-      return;
-    }
+    const appId = resolveAppId(req);
 
     const ruleType = req.body?.ruleType;
     if (ruleType !== 'recipient' && ruleType !== 'group') {
@@ -361,11 +351,9 @@ notificationRouter.get(
 
 notificationRouter.post(
   '/notifications/webhooks',
+  requirePaidTier,
   async (req: Request, res: Response) => {
-    const appId = requireAppId(req, res);
-    if (!appId) {
-      return;
-    }
+    const appId = resolveAppId(req);
 
     const url = typeof req.body?.url === 'string' ? req.body.url : '';
     if (!url) {

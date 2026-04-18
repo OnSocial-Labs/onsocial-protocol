@@ -228,3 +228,32 @@ export async function getDeveloperAppById(
 ): Promise<DeveloperAppRecord | null> {
   return store.getByAppId(normalizeAppId(appId));
 }
+
+/**
+ * Ensure an app namespace exists for the given owner.
+ * Creates it silently if it doesn't exist yet; swallows APP_ALREADY_EXISTS.
+ * Returns the existing or newly-created record.
+ */
+export async function ensureDeveloperApp(
+  ownerAccountId: string,
+  appId: string
+): Promise<DeveloperAppRecord> {
+  const normalizedAppId = normalizeAppId(appId);
+  const existing = await store.getByAppId(normalizedAppId);
+  if (existing) return existing;
+
+  const result = await registerDeveloperApp(ownerAccountId, appId);
+  if ('code' in result) {
+    // APP_ALREADY_EXISTS race: re-fetch
+    if (result.code === 'APP_ALREADY_EXISTS') {
+      return (await store.getByAppId(normalizedAppId))!;
+    }
+    // INVALID_APP_ID — fall back to a record with the default id
+    logger.warn(
+      { appId, error: result.message },
+      'ensureDeveloperApp: invalid appId, using default'
+    );
+    return ensureDeveloperApp(ownerAccountId, 'default');
+  }
+  return result;
+}

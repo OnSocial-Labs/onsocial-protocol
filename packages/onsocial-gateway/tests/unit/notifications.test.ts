@@ -11,6 +11,7 @@ const mockListNotificationWebhooks = vi.fn();
 const mockCreateNotificationWebhook = vi.fn();
 const mockDeleteNotificationWebhook = vi.fn();
 const mockIngestAppNotificationEvents = vi.fn();
+const mockEnsureDeveloperApp = vi.fn();
 
 vi.mock('../../src/services/notifications/index.js', () => ({
   listNotifications: (...args: unknown[]) => mockListNotifications(...args),
@@ -43,6 +44,13 @@ vi.mock('../../src/services/notifications/webhooks.js', () => ({
 vi.mock('../../src/services/notifications/app-events.js', () => ({
   ingestAppNotificationEvents: (...args: unknown[]) =>
     mockIngestAppNotificationEvents(...args),
+}));
+
+vi.mock('../../src/services/developer-apps/index.js', () => ({
+  ensureDeveloperApp: (...args: unknown[]) => mockEnsureDeveloperApp(...args),
+  registerDeveloperApp: vi.fn(),
+  listDeveloperApps: vi.fn(),
+  deleteDeveloperApp: vi.fn(),
 }));
 
 vi.mock('../../src/logger.js', () => ({
@@ -128,14 +136,19 @@ describe('GET /developer/notifications', () => {
     });
   });
 
-  it('rejects free-tier access', async () => {
+  it('allows free-tier read access', async () => {
+    mockListNotifications.mockResolvedValue({
+      notifications: [],
+      nextCursor: null,
+    });
+
     const res = await request(
       createApp({ accountId: 'alice.testnet', method: 'apikey', tier: 'free' })
     )
       .get('/developer/notifications')
       .query({ recipient: 'bob.testnet' });
 
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
   });
 
   it('requires recipient', async () => {
@@ -146,15 +159,22 @@ describe('GET /developer/notifications', () => {
     expect(res.status).toBe(400);
   });
 
-  it('requires appId', async () => {
+  it('defaults appId to default when omitted', async () => {
+    mockListNotifications.mockResolvedValue({
+      notifications: [],
+      nextCursor: null,
+    });
+
     const res = await request(
       createApp({ accountId: 'alice.testnet', method: 'apikey' })
     )
       .get('/developer/notifications')
       .query({ recipient: 'bob.testnet' });
 
-    expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/appId/i);
+    expect(res.status).toBe(200);
+    expect(mockListNotifications).toHaveBeenCalledWith(
+      expect.objectContaining({ appId: 'default' })
+    );
   });
 });
 
@@ -189,6 +209,7 @@ describe('POST /developer/notifications/events', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('queues a single custom app event', async () => {
+    mockEnsureDeveloperApp.mockResolvedValue({});
     mockIngestAppNotificationEvents.mockResolvedValue([
       { id: 'evt-1', dedupeKey: 'post:1:bob', status: 'queued' },
     ]);
@@ -233,6 +254,7 @@ describe('POST /developer/notifications/events', () => {
   });
 
   it('queues batched custom app events', async () => {
+    mockEnsureDeveloperApp.mockResolvedValue({});
     mockIngestAppNotificationEvents.mockResolvedValue([
       { id: 'evt-1', dedupeKey: '1', status: 'queued' },
       { id: null, dedupeKey: '2', status: 'duplicate' },
@@ -263,18 +285,43 @@ describe('POST /developer/notifications/events', () => {
     expect(res.body.results).toHaveLength(2);
   });
 
-  it('requires appId', async () => {
+  it('requires appId for events (defaults to default)', async () => {
+    mockEnsureDeveloperApp.mockResolvedValue({});
+    mockIngestAppNotificationEvents.mockResolvedValue([]);
+
     const res = await request(
       createApp({ accountId: 'alice.testnet', method: 'apikey', tier: 'pro' })
     )
       .post('/developer/notifications/events')
-      .send({ recipient: 'bob.testnet', eventType: 'comment.reply' });
+      .send({
+        recipient: 'bob.testnet',
+        eventType: 'comment.reply',
+        dedupeKey: 'k1',
+      });
 
-    expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/appId/i);
+    expect(res.status).toBe(201);
+    expect(mockIngestAppNotificationEvents).toHaveBeenCalledWith(
+      expect.objectContaining({ appId: 'default' })
+    );
+  });
+
+  it('rejects free-tier from sending events', async () => {
+    const res = await request(
+      createApp({ accountId: 'alice.testnet', method: 'apikey', tier: 'free' })
+    )
+      .post('/developer/notifications/events')
+      .send({
+        appId: 'portal',
+        recipient: 'bob.testnet',
+        eventType: 'comment.reply',
+        dedupeKey: 'k1',
+      });
+
+    expect(res.status).toBe(403);
   });
 
   it('returns validation errors from the service', async () => {
+    mockEnsureDeveloperApp.mockResolvedValue({});
     mockIngestAppNotificationEvents.mockResolvedValue({
       code: 'INVALID_APP_EVENT',
       message: 'dedupeKey is required for every event',
@@ -345,15 +392,19 @@ describe('POST /developer/notifications/read', () => {
     expect(res.status).toBe(400);
   });
 
-  it('requires appId', async () => {
+  it('defaults appId to default for mark-read', async () => {
+    mockMarkNotificationsRead.mockResolvedValue(1);
+
     const res = await request(
       createApp({ accountId: 'alice.testnet', method: 'jwt', tier: 'pro' })
     )
       .post('/developer/notifications/read')
       .send({ recipient: 'bob.testnet', ids: ['n1'] });
 
-    expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/appId/i);
+    expect(res.status).toBe(200);
+    expect(mockMarkNotificationsRead).toHaveBeenCalledWith(
+      expect.objectContaining({ appId: 'default' })
+    );
   });
 });
 

@@ -23,7 +23,8 @@ export interface Notification {
 }
 
 export interface ListNotificationsParams {
-  appId: string;
+  /** App namespace. Falls back to the SDK-level `appId` (default: `'default'`). */
+  appId?: string;
   recipient: string;
   limit?: number;
   cursor?: string;
@@ -48,7 +49,8 @@ export interface NotificationEvent {
 }
 
 export interface SendEventsParams {
-  appId: string;
+  /** App namespace. Falls back to the SDK-level `appId` (default: `'default'`). */
+  appId?: string;
   events: NotificationEvent[];
 }
 
@@ -64,7 +66,8 @@ export interface NotificationRule {
 }
 
 export interface CreateRuleParams {
-  appId: string;
+  /** App namespace. Falls back to the SDK-level `appId` (default: `'default'`). */
+  appId?: string;
   ruleType: 'recipient' | 'group';
   recipientAccountId?: string;
   groupId?: string;
@@ -74,14 +77,25 @@ export interface CreateRuleParams {
 // ── Module ─────────────────────────────────────────────────────────────────
 
 export class NotificationsModule {
-  constructor(private readonly http: HttpClient) {}
+  private readonly defaultAppId: string;
+
+  constructor(
+    private readonly http: HttpClient,
+    appId?: string
+  ) {
+    this.defaultAppId = appId ?? 'default';
+  }
+
+  private appId(override?: string): string {
+    return override ?? this.defaultAppId;
+  }
 
   /** List notifications for a recipient. */
   async list(
     params: ListNotificationsParams
   ): Promise<ListNotificationsResult> {
     const qs = new URLSearchParams();
-    qs.set('appId', params.appId);
+    qs.set('appId', this.appId(params.appId));
     qs.set('recipient', params.recipient);
     if (params.limit !== undefined) qs.set('limit', String(params.limit));
     if (params.cursor) qs.set('cursor', params.cursor);
@@ -95,12 +109,14 @@ export class NotificationsModule {
 
   /** Get unread notification count. */
   async unreadCount(
-    appId: string,
     recipient: string,
-    eventType?: string
+    opts?: { appId?: string; eventType?: string }
   ): Promise<number> {
-    const qs = new URLSearchParams({ appId, recipient });
-    if (eventType) qs.set('eventType', eventType);
+    const qs = new URLSearchParams({
+      appId: this.appId(opts?.appId),
+      recipient,
+    });
+    if (opts?.eventType) qs.set('eventType', opts.eventType);
     const res = await this.http.get<{ recipient: string; unread: number }>(
       `/developer/notifications/count?${qs.toString()}`
     );
@@ -109,13 +125,12 @@ export class NotificationsModule {
 
   /** Mark notifications as read. Pass ids or `all: true`. */
   async markRead(
-    appId: string,
     recipient: string,
-    opts: { ids?: string[]; all?: boolean }
+    opts: { ids?: string[]; all?: boolean; appId?: string }
   ): Promise<number> {
     const res = await this.http.post<{ updated: number }>(
       '/developer/notifications/read',
-      { appId, recipient, ...opts }
+      { appId: this.appId(opts.appId), recipient, ids: opts.ids, all: opts.all }
     );
     return res.updated;
   }
@@ -128,7 +143,7 @@ export class NotificationsModule {
   async sendEvents(params: SendEventsParams): Promise<unknown[]> {
     const res = await this.http.post<{ results: unknown[] }>(
       '/developer/notifications/events',
-      { appId: params.appId, events: params.events }
+      { appId: this.appId(params.appId), events: params.events }
     );
     return res.results;
   }
@@ -145,7 +160,7 @@ export class NotificationsModule {
   async createRule(params: CreateRuleParams): Promise<NotificationRule> {
     const res = await this.http.post<{ rule: NotificationRule }>(
       '/developer/notifications/rules',
-      params
+      { ...params, appId: this.appId(params.appId) }
     );
     return res.rule;
   }

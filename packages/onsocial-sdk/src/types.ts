@@ -25,6 +25,13 @@ export interface OnSocialConfig {
    * API-key owner's. Only effective with API-key auth.
    */
   actorId?: string;
+  /**
+   * Default app namespace for notifications.
+   *
+   * When set, all notification calls use this appId unless overridden per-call.
+   * Defaults to `'default'` if omitted.
+   */
+  appId?: string;
   /** Custom fetch implementation (default: globalThis.fetch). */
   fetch?: typeof globalThis.fetch;
 }

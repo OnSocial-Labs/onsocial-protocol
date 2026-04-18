@@ -15,6 +15,7 @@ vi.mock('../../src/services/metering/index.js', () => ({
 }));
 
 vi.mock('../../src/services/developer-apps/index.js', () => ({
+  ensureDeveloperApp: vi.fn(),
   registerDeveloperApp: vi.fn(),
   listDeveloperApps: vi.fn(),
   deleteDeveloperApp: vi.fn(),

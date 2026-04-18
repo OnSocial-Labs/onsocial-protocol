@@ -134,8 +134,8 @@ export class OnSocial {
     this.rewards = new RewardsModule(this.http);
     this.query = new QueryModule(this.http);
     this.storage = new StorageModule(this.http);
-    this.webhooks = new WebhooksModule(this.http);
-    this.notifications = new NotificationsModule(this.http);
+    this.webhooks = new WebhooksModule(this.http, config.appId);
+    this.notifications = new NotificationsModule(this.http, config.appId);
   }
 
   // ── Generic execute ─────────────────────────────────────────────────────

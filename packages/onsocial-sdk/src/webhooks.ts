@@ -18,8 +18,8 @@ export interface WebhookEndpoint {
 }
 
 export interface CreateWebhookParams {
-  /** Registered developer app ID. */
-  appId: string;
+  /** App namespace. Falls back to the SDK-level `appId` (default: `'default'`). */
+  appId?: string;
   /** HTTPS URL that will receive webhook POST requests. */
   url: string;
 }
@@ -27,7 +27,14 @@ export interface CreateWebhookParams {
 // ── Module ─────────────────────────────────────────────────────────────────
 
 export class WebhooksModule {
-  constructor(private readonly http: HttpClient) {}
+  private readonly defaultAppId: string;
+
+  constructor(
+    private readonly http: HttpClient,
+    appId?: string
+  ) {
+    this.defaultAppId = appId ?? 'default';
+  }
 
   /**
    * Register a webhook endpoint for an app.
@@ -44,7 +51,7 @@ export class WebhooksModule {
   async create(params: CreateWebhookParams): Promise<WebhookEndpoint> {
     const res = await this.http.post<{ webhook: WebhookEndpoint }>(
       '/developer/notifications/webhooks',
-      { appId: params.appId, url: params.url }
+      { appId: params.appId ?? this.defaultAppId, url: params.url }
     );
     return res.webhook;
   }

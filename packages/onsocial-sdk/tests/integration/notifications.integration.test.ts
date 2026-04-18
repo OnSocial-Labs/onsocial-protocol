@@ -69,20 +69,20 @@ describe('notifications', () => {
   }, 35_000);
 
   it('should report unread count > 0', async () => {
-    const count = await os.notifications.unreadCount(appId, ACCOUNT_ID);
+    const count = await os.notifications.unreadCount(ACCOUNT_ID);
     expect(count).toBeGreaterThanOrEqual(1);
   }, 10_000);
 
   // ── Mark read ─────────────────────────────────────────────────────────
 
   it('should mark all notifications as read', async () => {
-    const updated = await os.notifications.markRead(appId, ACCOUNT_ID, {
+    const updated = await os.notifications.markRead(ACCOUNT_ID, {
       all: true,
     });
     expect(updated).toBeGreaterThanOrEqual(1);
 
     // Verify unread count is now 0
-    const count = await os.notifications.unreadCount(appId, ACCOUNT_ID);
+    const count = await os.notifications.unreadCount(ACCOUNT_ID);
     expect(count).toBe(0);
   }, 10_000);
 
