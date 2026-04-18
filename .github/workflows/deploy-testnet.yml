@@ -210,8 +210,8 @@ jobs:
             check_container_health() {
               local name="$1" service="$2" url="$3" retries="${4:-20}" delay="${5:-3}"
               for i in $(seq 1 "$retries"); do
-                if docker compose exec -T "$service" curl -sf --max-time 5 "$url" > /dev/null 2>&1 \
-                || docker compose exec -T "$service" wget -qO- --timeout=5 "$url" > /dev/null 2>&1; then
+                if docker compose exec -T "$service" curl -sf --max-time 5 "$url" </dev/null > /dev/null 2>&1 \
+                || docker compose exec -T "$service" wget -qO- --timeout=5 "$url" </dev/null > /dev/null 2>&1; then
                   echo "  ✅ $name healthy (attempt $i/$retries)"
                   return 0
                 fi
@@ -224,7 +224,7 @@ jobs:
             print_service_logs() {
               local service="$1"
               echo "----- ${service} logs (last 200 lines) -----"
-              docker compose logs --tail=200 "$service" || true
+              docker compose logs --tail=200 "$service" </dev/null || true
               echo "----- end ${service} logs -----"
             }
 
@@ -233,12 +233,12 @@ jobs:
               local services="$1"
               if [ "$PREV_TAG" = "unknown" ]; then
                 echo "⚠️  No previous tag — cannot rollback, just restarting current"
-                docker compose up -d --no-deps $services
+                docker compose up -d --no-deps $services </dev/null
               else
                 echo "IMAGE_TAG=$PREV_TAG" > .env.image
                 set -a && source .env.production && source .env.image && set +a
-                docker compose pull $services || true
-                docker compose up -d --no-deps $services
+                docker compose pull $services </dev/null || true
+                docker compose up -d --no-deps $services </dev/null
               fi
             }
 
@@ -259,11 +259,11 @@ jobs:
               Caddyfile.template > Caddyfile
 
             # ── Pull new images ──────────────────────────────────────
-            docker compose pull caddy gateway notification-worker relayer-0 relayer-1 backend
+            docker compose pull caddy gateway notification-worker relayer-0 relayer-1 backend </dev/null
 
             # ── Rolling restart: relayer-1 → verify → relayer-0 → verify
             echo "Rolling relayer-1..."
-            docker compose up -d --no-deps relayer-1
+            docker compose up -d --no-deps relayer-1 </dev/null
             if ! check_container_health "relayer-1" "relayer-1" "http://localhost:3040/ready" 20 3; then
               echo "❌ relayer-1 health check failed — rolling back"
               rollback "relayer-1"
@@ -271,7 +271,7 @@ jobs:
             fi
 
             echo "Rolling relayer-0..."
-            docker compose up -d --no-deps relayer-0
+            docker compose up -d --no-deps relayer-0 </dev/null
             if ! check_container_health "relayer-0" "relayer-0" "http://localhost:3040/ready" 20 3; then
               echo "❌ relayer-0 health check failed — rolling back"
               rollback "relayer-0 relayer-1"
@@ -280,7 +280,7 @@ jobs:
 
             # ── Gateway restart → verify → then Caddy ────────────────
             echo "Rolling gateway..."
-            docker compose up -d --no-deps gateway
+            docker compose up -d --no-deps gateway </dev/null
             if ! check_container_health "gateway" "gateway" "http://localhost:8080/health" 20 3; then
               echo "❌ Gateway health check failed — rolling back"
               rollback "gateway relayer-0 relayer-1"
@@ -291,17 +291,17 @@ jobs:
             echo "Running gateway migrations..."
             DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
             docker compose exec -T -e DATABASE_URL="$DATABASE_URL" gateway \
-              node packages/onsocial-gateway/dist/scripts/apply-migrations.js
+              node packages/onsocial-gateway/dist/scripts/apply-migrations.js </dev/null
 
             # ── Sync Hasura permissions (idempotent — skips existing) ─
             echo "Syncing Hasura permissions..."
             docker compose exec -T gateway \
-              node packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js create
+              node packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js create </dev/null
 
             echo "Restarting notification worker..."
-            docker compose up -d --no-deps notification-worker
+            docker compose up -d --no-deps notification-worker </dev/null
             for i in $(seq 1 20); do
-              status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' notification-worker 2>/dev/null || true)"
+              status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' notification-worker </dev/null 2>/dev/null || true)"
               if [ "$status" = "healthy" ] || [ "$status" = "running" ]; then
                 echo "  ✅ notification-worker healthy (attempt $i/20)"
                 break
@@ -316,7 +316,7 @@ jobs:
             done
 
             echo "Reloading caddy..."
-            docker compose up -d --no-deps caddy
+            docker compose up -d --no-deps caddy </dev/null
             if ! check_health "caddy (public)" "https://testnet.onsocial.id/health" 10 5; then
               echo "❌ Public health check failed — rolling back"
               rollback "caddy gateway relayer-0 relayer-1"
@@ -335,7 +335,7 @@ jobs:
 
             # ── Backend (Telegram rewards bot) ───────────────────────
             echo "Rolling backend..."
-            docker compose up -d --no-deps backend
+            docker compose up -d --no-deps backend </dev/null
             if ! check_container_health "backend" "backend" "http://localhost:4001/health" 24 5; then
               print_service_logs "backend"
               echo "❌ Backend health check failed — rolling back"
@@ -345,10 +345,10 @@ jobs:
 
             # ── Bring up any remaining services ──────────────────────
             FINAL_SERVICES="postgres hasura relayer-lb relayer-0 relayer-1 gateway notification-worker caddy backend"
-            docker compose up -d --no-deps $FINAL_SERVICES
+            docker compose up -d --no-deps $FINAL_SERVICES </dev/null
 
             echo ""
-            docker compose ps --format "table {{.Name}}\t{{.Status}}"
+            docker compose ps --format "table {{.Name}}\t{{.Status}}" </dev/null
             echo ""
             rm -f deploy_gsm.env
           REMOTE_SCRIPT
