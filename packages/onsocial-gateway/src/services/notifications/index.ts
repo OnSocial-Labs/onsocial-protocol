@@ -6,6 +6,7 @@ export const NOTIFICATION_TYPES = [
   'reply',
   'quote',
   'reaction',
+  'mention',
   'standing_new',
   'reward_credited',
   'reward_claimed',
@@ -419,7 +420,7 @@ function limitForTier(tier: Tier): number {
     case 'pro':
       return 50;
     default:
-      return 0;
+      return 20;
   }
 }
 

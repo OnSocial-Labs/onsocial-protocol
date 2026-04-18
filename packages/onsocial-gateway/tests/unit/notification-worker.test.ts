@@ -31,6 +31,7 @@ function makeDataUpdate(
     parent_author: null,
     ref_path: null,
     ref_author: null,
+    extra_data: null,
     ...overrides,
   };
 }
@@ -85,6 +86,7 @@ describe('mapDataUpdateNotifications', () => {
       parent_author: 'bob.testnet',
       ref_path: 'carol/post/root',
       ref_author: 'carol.testnet',
+      extra_data: null,
     });
 
     expect(notifications).toHaveLength(2);
@@ -115,6 +117,7 @@ describe('mapDataUpdateNotifications', () => {
       parent_author: null,
       ref_path: null,
       ref_author: null,
+      extra_data: null,
     });
 
     const standingNotifications = mapDataUpdateNotifications({
@@ -135,6 +138,7 @@ describe('mapDataUpdateNotifications', () => {
       parent_author: null,
       ref_path: null,
       ref_author: null,
+      extra_data: null,
     });
 
     expect(reactionNotifications).toHaveLength(1);
@@ -616,5 +620,139 @@ describe('group proposal fan-out', () => {
     const recipients = notifications.map((n) => n.recipient);
     expect(recipients).not.toContain('owner.testnet');
     expect(recipients).toEqual(['member1.testnet', 'member2.testnet']);
+  });
+});
+
+describe('mention notifications', () => {
+  it('generates mention notifications from extra_data.mentions', () => {
+    const notifications = mapDataUpdateNotifications(
+      makeDataUpdate({
+        id: 'du-mention-1',
+        extra_data: JSON.stringify({
+          mentions: ['bob.testnet', 'carol.testnet'],
+        }),
+      })
+    );
+
+    const mentions = notifications.filter(
+      (n) => n.notificationType === 'mention'
+    );
+    expect(mentions).toHaveLength(2);
+    expect(mentions.map((m) => m.recipient).sort()).toEqual([
+      'bob.testnet',
+      'carol.testnet',
+    ]);
+    expect(mentions[0]?.actor).toBe('alice.testnet');
+    expect(mentions[0]?.context).toEqual(
+      expect.objectContaining({ postId: 'main', path: 'alice/post/main' })
+    );
+  });
+
+  it('suppresses self-mention (author mentions themselves)', () => {
+    const notifications = mapDataUpdateNotifications(
+      makeDataUpdate({
+        extra_data: JSON.stringify({
+          mentions: ['alice.testnet'],
+        }),
+      })
+    );
+
+    const mentions = notifications.filter(
+      (n) => n.notificationType === 'mention'
+    );
+    expect(mentions).toHaveLength(0);
+  });
+
+  it('generates mention alongside reply notification', () => {
+    const notifications = mapDataUpdateNotifications(
+      makeDataUpdate({
+        parent_author: 'dave.testnet',
+        parent_path: 'dave/post/root',
+        extra_data: JSON.stringify({
+          mentions: ['bob.testnet'],
+        }),
+      })
+    );
+
+    const types = notifications.map((n) => n.notificationType).sort();
+    expect(types).toEqual(['mention', 'reply']);
+  });
+
+  it('handles null extra_data gracefully', () => {
+    const notifications = mapDataUpdateNotifications(
+      makeDataUpdate({ extra_data: null })
+    );
+    const mentions = notifications.filter(
+      (n) => n.notificationType === 'mention'
+    );
+    expect(mentions).toHaveLength(0);
+  });
+
+  it('handles malformed JSON in extra_data', () => {
+    const notifications = mapDataUpdateNotifications(
+      makeDataUpdate({ extra_data: 'not-json{' })
+    );
+    const mentions = notifications.filter(
+      (n) => n.notificationType === 'mention'
+    );
+    expect(mentions).toHaveLength(0);
+  });
+
+  it('handles extra_data without mentions field', () => {
+    const notifications = mapDataUpdateNotifications(
+      makeDataUpdate({ extra_data: JSON.stringify({ hashtags: ['web3'] }) })
+    );
+    const mentions = notifications.filter(
+      (n) => n.notificationType === 'mention'
+    );
+    expect(mentions).toHaveLength(0);
+  });
+
+  it('skips non-string entries in mentions array', () => {
+    const notifications = mapDataUpdateNotifications(
+      makeDataUpdate({
+        extra_data: JSON.stringify({
+          mentions: ['bob.testnet', 42, null, '', 'carol.testnet'],
+        }),
+      })
+    );
+    const mentions = notifications.filter(
+      (n) => n.notificationType === 'mention'
+    );
+    expect(mentions).toHaveLength(2);
+    expect(mentions.map((m) => m.recipient).sort()).toEqual([
+      'bob.testnet',
+      'carol.testnet',
+    ]);
+  });
+
+  it('does not generate mentions for non-post data types', () => {
+    const notifications = mapDataUpdateNotifications(
+      makeDataUpdate({
+        data_type: 'reaction',
+        target_account: 'bob.testnet',
+        extra_data: JSON.stringify({ mentions: ['carol.testnet'] }),
+      })
+    );
+    const mentions = notifications.filter(
+      (n) => n.notificationType === 'mention'
+    );
+    expect(mentions).toHaveLength(0);
+  });
+
+  it('dedup keys are unique per mentioned account', () => {
+    const notifications = mapDataUpdateNotifications(
+      makeDataUpdate({
+        id: 'du-dedup-mention',
+        extra_data: JSON.stringify({
+          mentions: ['bob.testnet', 'carol.testnet'],
+        }),
+      })
+    );
+    const mentions = notifications.filter(
+      (n) => n.notificationType === 'mention'
+    );
+    expect(mentions).toHaveLength(2);
+    expect(mentions[0]?.dedupeKey).not.toBe(mentions[1]?.dedupeKey);
   });
 });

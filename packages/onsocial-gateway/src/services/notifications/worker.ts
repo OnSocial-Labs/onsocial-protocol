@@ -57,6 +57,7 @@ interface DataUpdateRow {
   parent_author: string | null;
   ref_path: string | null;
   ref_author: string | null;
+  extra_data: string | null;
 }
 
 interface GroupUpdateRow {
@@ -259,6 +260,21 @@ function buildNotification(
   };
 }
 
+function parseMentions(extraData: string | null): string[] {
+  if (!extraData) return [];
+  try {
+    const parsed = JSON.parse(extraData);
+    if (Array.isArray(parsed?.mentions)) {
+      return parsed.mentions.filter(
+        (m: unknown): m is string => typeof m === 'string' && m.length > 0
+      );
+    }
+  } catch {
+    // Malformed JSON — skip
+  }
+  return [];
+}
+
 function extractReactionTargetPath(path: string | null): string | null {
   if (!path) {
     return null;
@@ -330,6 +346,27 @@ export function mapDataUpdateNotifications(
 
     if (reaction) {
       notifications.push(reaction);
+    }
+  }
+
+  if (dataType === 'post') {
+    // Extract mentions from extra_data JSON
+    const mentionedAccounts = parseMentions(row.extra_data);
+    for (const mentioned of mentionedAccounts) {
+      const mention = buildNotification(row, {
+        recipient: mentioned,
+        actor,
+        notificationType: 'mention',
+        sourceContract: 'core',
+        context: {
+          postId: normalizeText(row.data_id),
+          path: normalizeText(row.path),
+          groupId: normalizeText(row.group_id),
+        },
+      });
+      if (mention) {
+        notifications.push(mention);
+      }
     }
   }
 
@@ -591,7 +628,7 @@ function getSelectSql(sourceTable: SourceTable): string {
       return `
         SELECT id, block_height, block_timestamp, receipt_id, operation, author, path, value,
                account_id, data_type, data_id, group_id, target_account, parent_path,
-               parent_author, ref_path, ref_author
+               parent_author, ref_path, ref_author, extra_data
         FROM data_updates
         WHERE (block_height > $1 OR (block_height = $1 AND id > $2))
         ORDER BY block_height ASC, id ASC

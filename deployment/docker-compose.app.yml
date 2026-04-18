@@ -37,6 +37,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: "8080"
+      DATABASE_URL: ${DATABASE_URL:-}
       HASURA_URL: ${HASURA_URL}
       HASURA_ADMIN_SECRET: ${HASURA_ADMIN_SECRET}
       JWT_SECRET: ${JWT_SECRET}
@@ -96,6 +97,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: "8080"
+      DATABASE_URL: ${DATABASE_URL:-}
       HASURA_URL: ${HASURA_URL}
       HASURA_ADMIN_SECRET: ${HASURA_ADMIN_SECRET}
       JWT_SECRET: ${JWT_SECRET}
