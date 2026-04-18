@@ -232,6 +232,7 @@ class HasuraNotificationStore implements NotificationStore {
         sourceContract: string;
         sourceReceiptId: string | null;
         sourceBlockHeight: number | null;
+        dedupeKey: string | null;
         context: Record<string, unknown>;
       }>;
     }>(
@@ -252,6 +253,7 @@ class HasuraNotificationStore implements NotificationStore {
           sourceContract
           sourceReceiptId
           sourceBlockHeight
+          dedupeKey
           context
         }
       }`,
@@ -276,6 +278,7 @@ class HasuraNotificationStore implements NotificationStore {
       type: row.notificationType,
       createdAt: row.createdAt,
       read: row.read,
+      dedupeKey: row.dedupeKey,
       source: {
         contract: row.sourceContract,
         receiptId: row.sourceReceiptId,
@@ -385,7 +388,7 @@ class HasuraNotificationStore implements NotificationStore {
       owner: params.ownerAccountId,
       app: params.appId,
       recipient: params.recipient,
-      ids: params.ids ?? [],
+      ...(params.all ? {} : { ids: params.ids ?? [] }),
       readAt: new Date().toISOString(),
     });
 

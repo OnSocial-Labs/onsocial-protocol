@@ -8,18 +8,16 @@ import type { HttpClient } from './http.js';
 
 export interface Notification {
   id: string;
-  ownerAccountId: string;
-  appId: string;
   recipient: string;
   actor: string | null;
-  notificationType: string;
-  dedupeKey: string;
-  objectPath: string | null;
-  groupId: string | null;
-  sourceContract: string | null;
-  sourceReceiptId: string | null;
-  sourceBlockHeight: number | null;
+  type: string;
+  dedupeKey: string | null;
   read: boolean;
+  source: {
+    contract: string | null;
+    receiptId: string | null;
+    blockHeight: number | null;
+  };
   context: Record<string, unknown> | null;
   createdAt: string;
 }
@@ -36,7 +34,7 @@ export interface ListNotificationsParams {
 
 export interface ListNotificationsResult {
   notifications: Notification[];
-  cursor: string | null;
+  nextCursor: string | null;
 }
 
 export interface NotificationEvent {

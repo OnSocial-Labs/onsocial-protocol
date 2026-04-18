@@ -57,9 +57,9 @@ describe('notifications', () => {
         });
         const match = result.notifications.find(
           (n) =>
-            n.notificationType === 'app_event' &&
+            n.type === 'app_event' &&
             n.context?.source === 'sdk-integration-test' &&
-            n.dedupeKey === `integ:${eventId}`
+            n.dedupeKey === `integ:${eventId}:${ACCOUNT_ID}`
         );
         return match ? result : null;
       },
@@ -147,6 +147,7 @@ describe('notifications', () => {
 
   it('should deduplicate events with the same key', async () => {
     const dedupeKey = `dedup:${testId()}`;
+    const fullKey = `${dedupeKey}:${ACCOUNT_ID}`;
 
     // Send twice with the same dedupeKey
     await os.notifications.sendEvents({
@@ -172,17 +173,21 @@ describe('notifications', () => {
       ],
     });
 
-    // Wait for the worker to process
-    await new Promise((r) => setTimeout(r, 5_000));
-
-    // List and count matching notifications — should be exactly 1
-    const { notifications } = await os.notifications.list({
-      appId,
-      recipient: ACCOUNT_ID,
-      eventType: 'integration_test',
-      limit: 50,
-    });
-    const matches = notifications.filter((n) => n.dedupeKey === dedupeKey);
+    // Wait for the worker to pick up events (polls every ~15s)
+    const { notifications } = await waitFor(
+      async () => {
+        const result = await os.notifications.list({
+          appId,
+          recipient: ACCOUNT_ID,
+          eventType: 'integration_test',
+          limit: 50,
+        });
+        const match = result.notifications.find((n) => n.dedupeKey === fullKey);
+        return match ? result : null;
+      },
+      { timeoutMs: 35_000, intervalMs: 3_000, label: 'dedup notification' }
+    );
+    const matches = notifications.filter((n) => n.dedupeKey === fullKey);
     expect(matches).toHaveLength(1);
-  }, 20_000);
+  }, 40_000);
 });
