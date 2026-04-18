@@ -18,31 +18,31 @@ import {
 describe('paths namespace', () => {
   it('builds app paths', () => {
     expect(paths.app('dating', 'profile', 'orientation')).toBe(
-      'apps/dating/profile/orientation',
+      'apps/dating/profile/orientation'
     );
     expect(paths.app('dating')).toBe('apps/dating');
   });
 
   it('builds group / profile / post / standing / reaction paths', () => {
     expect(paths.group('builders', 'post', 'p1')).toBe(
-      'groups/builders/post/p1',
+      'groups/builders/post/p1'
     );
     expect(paths.profile('name')).toBe('profile/name');
     expect(paths.profile()).toBe('profile');
     expect(paths.post('p1')).toBe('post/p1');
     expect(paths.standing('bob.near')).toBe('standing/bob.near');
     expect(paths.reaction('bob.near', 'like', 'post/123')).toBe(
-      'reaction/bob.near/like/post/123',
+      'reaction/bob.near/like/post/123'
     );
   });
 
   it('builds group content + group post paths under content/ namespace', () => {
     expect(paths.groupContent('builders')).toBe('groups/builders/content');
     expect(paths.groupContent('builders', 'event', 'meetup-7')).toBe(
-      'groups/builders/content/event/meetup-7',
+      'groups/builders/content/event/meetup-7'
     );
     expect(paths.groupPost('builders', 'p1')).toBe(
-      'groups/builders/content/post/p1',
+      'groups/builders/content/post/p1'
     );
     expect(() => paths.groupPost('', 'p1')).toThrow();
     expect(() => paths.groupPost('g', '')).toThrow();
@@ -52,10 +52,10 @@ describe('paths namespace', () => {
     expect(paths.saved('bob.near/post/123')).toBe('saved/bob.near/post/123');
     expect(paths.endorsement('alice.near')).toBe('endorsement/alice.near');
     expect(paths.endorsement('alice.near', 'rust')).toBe(
-      'endorsement/alice.near/rust',
+      'endorsement/alice.near/rust'
     );
     expect(paths.claim('merchant.near', 'verified', 'cert-001')).toBe(
-      'claims/merchant.near/verified/cert-001',
+      'claims/merchant.near/verified/cert-001'
     );
   });
 
@@ -103,9 +103,7 @@ describe('validatePath', () => {
 
   it('assertValidPaths throws on bad keys', () => {
     expect(() => assertValidPaths({ 'profile/name': 'ok' })).not.toThrow();
-    expect(() =>
-      assertValidPaths({ 'bad path': 'x' }),
-    ).toThrow(/bad path/);
+    expect(() => assertValidPaths({ 'bad path': 'x' })).toThrow(/bad path/);
   });
 });
 
@@ -129,7 +127,7 @@ describe('buildAppSetData', () => {
     const action = buildCoreSetAction(
       buildAppSetData('marketplace', {
         'listing/abc': { price: '5', sku: 'X1' },
-      }),
+      })
     );
     expect(action).toEqual({
       type: 'set',
@@ -153,17 +151,17 @@ describe('mergeSetData', () => {
   });
 
   it('throws on collision by default', () => {
-    expect(() =>
-      mergeSetData([{ 'a/b': 1 }, { 'a/b': 2 }]),
-    ).toThrow(/Duplicate key/);
+    expect(() => mergeSetData([{ 'a/b': 1 }, { 'a/b': 2 }])).toThrow(
+      /Duplicate key/
+    );
   });
 
   it('honors last/first wins modes', () => {
     expect(
-      mergeSetData([{ 'a/b': 1 }, { 'a/b': 2 }], { onCollision: 'last' }),
+      mergeSetData([{ 'a/b': 1 }, { 'a/b': 2 }], { onCollision: 'last' })
     ).toEqual({ 'a/b': 2 });
     expect(
-      mergeSetData([{ 'a/b': 1 }, { 'a/b': 2 }], { onCollision: 'first' }),
+      mergeSetData([{ 'a/b': 1 }, { 'a/b': 2 }], { onCollision: 'first' })
     ).toEqual({ 'a/b': 1 });
   });
 });

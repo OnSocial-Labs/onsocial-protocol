@@ -69,7 +69,7 @@ describe('Query Validation', () => {
   });
 
   describe('Aggregations', () => {
-    it('should reject aggregations for free tier', () => {
+    it('should allow aggregations for free tier', () => {
       const query = `{
         storageUpdates_aggregate {
           aggregate {
@@ -79,8 +79,7 @@ describe('Query Validation', () => {
       }`;
 
       const result = validateQuery(query, 'free');
-      expect(result.valid).toBe(false);
-      expect(result.error).toContain('Aggregation');
+      expect(result.valid).toBe(true);
     });
 
     it('should allow aggregations for pro tier', () => {
@@ -205,7 +204,7 @@ describe('Query Validation', () => {
     it('should have correct free tier limits', () => {
       expect(QUERY_LIMITS.free.maxDepth).toBe(3);
       expect(QUERY_LIMITS.free.maxRowLimit).toBe(100);
-      expect(QUERY_LIMITS.free.allowAggregations).toBe(false);
+      expect(QUERY_LIMITS.free.allowAggregations).toBe(true);
     });
 
     it('should have correct pro tier limits', () => {

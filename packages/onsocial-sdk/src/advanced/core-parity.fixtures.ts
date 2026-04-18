@@ -64,9 +64,13 @@ export const ALL_CORE_ACTION_TYPES = [
 ] as const;
 
 export function getCoreParityCases(
-  network: Network = 'testnet',
+  network: Network = 'testnet'
 ): CoreParityCase[] {
-  const cases: Array<{ name: string; action: CoreAction; expectedAction: CoreAction }> = [
+  const cases: Array<{
+    name: string;
+    action: CoreAction;
+    expectedAction: CoreAction;
+  }> = [
     {
       name: 'profile write',
       action: buildProfileAction({ name: 'Alice', bio: 'Builder' }),
@@ -131,7 +135,7 @@ export function getCoreParityCases(
         'main',
         { text: 'great post' },
         'reply-1',
-        7,
+        7
       ),
       expectedAction: {
         type: 'set',
@@ -153,7 +157,7 @@ export function getCoreParityCases(
         'post/main',
         { text: 'love this' },
         'quote-1',
-        8,
+        8
       ),
       expectedAction: {
         type: 'set',
@@ -174,7 +178,7 @@ export function getCoreParityCases(
         'builders',
         { text: 'group hello' },
         'gp-1',
-        9,
+        9
       ),
       expectedAction: {
         type: 'set',
@@ -269,11 +273,7 @@ export function getCoreParityCases(
     },
     {
       name: 'transfer group ownership',
-      action: buildTransferGroupOwnershipAction(
-        'builders',
-        'carol.near',
-        true,
-      ),
+      action: buildTransferGroupOwnershipAction('builders', 'carol.near', true),
       expectedAction: {
         type: 'transfer_group_ownership',
         group_id: 'builders',

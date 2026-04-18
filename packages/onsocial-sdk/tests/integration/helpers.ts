@@ -8,15 +8,33 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
+import { execSync } from 'node:child_process';
 import { OnSocial } from '../../src/client.js';
 
 // ── Environment ────────────────────────────────────────────────────────────
 
-export const GATEWAY_URL = process.env.GATEWAY_URL || 'https://testnet.onsocial.id';
+export const GATEWAY_URL =
+  process.env.GATEWAY_URL || 'https://testnet.onsocial.id';
 export const ACCOUNT_ID = process.env.ACCOUNT_ID || 'test01.onsocial.testnet';
 export const CREDS_FILE =
   process.env.CREDS_FILE ||
   path.join(process.env.HOME!, `.near-credentials/testnet/${ACCOUNT_ID}.json`);
+
+/** Resolve service API key: env var → GSM secret → undefined (fallback to NEP-413). */
+function resolveServiceKey(): string | undefined {
+  if (process.env.ONSOCIAL_API_KEY) return process.env.ONSOCIAL_API_KEY;
+  try {
+    const gcloud = path.join(process.env.HOME!, 'google-cloud-sdk/bin/gcloud');
+    return execSync(
+      `${gcloud} secrets versions access latest --secret=ONSOCIAL_SERVICE_ONAPI_KEY`,
+      { encoding: 'utf8', timeout: 10_000, stdio: ['pipe', 'pipe', 'pipe'] }
+    ).trim();
+  } catch {
+    return undefined;
+  }
+}
+
+const SERVICE_KEY = resolveServiceKey();
 
 // ── Crypto helpers ─────────────────────────────────────────────────────────
 
@@ -53,14 +71,17 @@ function nep413Hash(message: string, nonce: Buffer, recipient: string): Buffer {
     encStr(recipient),
     Buffer.from([0]),
   ]);
-  return crypto.createHash('sha256').update(Buffer.concat([prefix, payload])).digest();
+  return crypto
+    .createHash('sha256')
+    .update(Buffer.concat([prefix, payload]))
+    .digest();
 }
 
 export function signNep413(
   message: string,
   nonceB64: string,
   recipient: string,
-  secretKey: Buffer,
+  secretKey: Buffer
 ): string {
   const nonce = Buffer.from(nonceB64, 'base64');
   const hash = nep413Hash(message, nonce, recipient);
@@ -118,15 +139,30 @@ export async function getSessionClient(): Promise<OnSocial> {
 /**
  * Returns an API-key-authenticated client — the way a real developer uses the SDK.
  *
- * On first call: authenticates via NEP-413, creates an API key, then builds
- * a client configured with that key. Cached for the entire test run.
+ * When `ONSOCIAL_API_KEY` is set (e.g. a service-tier key from GSM), the SDK
+ * uses it directly — no NEP-413 handshake, no per-run key creation.  The
+ * `actorId` is set so writes go under the test account's namespace.
  *
- * API keys work for both writes (/compose/set, /relay/execute) and reads
- * (/graph/query). Only key management itself requires JWT.
+ * Otherwise falls back to the NEP-413 flow: authenticate, create a
+ * throw-away API key, cache it for the run.
  */
 export async function getClient(): Promise<OnSocial> {
   if (_apiKeyClient) return _apiKeyClient;
 
+  // Fast path: pre-provisioned API key (service tier, no auth race)
+  const envKey = SERVICE_KEY;
+  if (envKey) {
+    _apiKeyInfo = { key: envKey, prefix: 'env' };
+    _apiKeyClient = new OnSocial({
+      gatewayUrl: GATEWAY_URL,
+      network: 'testnet',
+      apiKey: envKey,
+      actorId: ACCOUNT_ID,
+    });
+    return _apiKeyClient;
+  }
+
+  // Slow path: NEP-413 → create ephemeral key
   const session = await getSessionClient();
 
   // Clean up stale integration-test keys to stay under the 10-key limit
@@ -162,7 +198,7 @@ export async function getApiKey(): Promise<string> {
 
 /** Revoke the shared integration test API key (requires session client). */
 export async function cleanupApiKey(): Promise<void> {
-  if (!_apiKeyInfo) return;
+  if (!_apiKeyInfo || _apiKeyInfo.prefix === 'env') return;
   try {
     const session = await getSessionClient();
     await revokeApiKey(session, _apiKeyInfo.prefix);
@@ -182,23 +218,28 @@ export function getKeypair() {
 
 export async function createApiKey(
   os: OnSocial,
-  label = 'integration-test',
+  label = 'integration-test'
 ): Promise<{ key: string; prefix: string; tier: string }> {
-  return os.http.post<{ key: string; prefix: string; tier: string; label: string }>(
-    '/developer/keys',
-    { label },
-  );
+  return os.http.post<{
+    key: string;
+    prefix: string;
+    tier: string;
+    label: string;
+  }>('/developer/keys', { label });
 }
 
 export async function listApiKeys(
-  os: OnSocial,
+  os: OnSocial
 ): Promise<{ keys: Array<{ prefix: string; label: string }> }> {
   return os.http.get<{ keys: Array<{ prefix: string; label: string }> }>(
-    '/developer/keys',
+    '/developer/keys'
   );
 }
 
-export async function revokeApiKey(os: OnSocial, prefix: string): Promise<void> {
+export async function revokeApiKey(
+  os: OnSocial,
+  prefix: string
+): Promise<void> {
   await os.http.delete(`/developer/keys/${prefix}`);
 }
 
@@ -210,7 +251,7 @@ export async function revokeApiKey(os: OnSocial, prefix: string): Promise<void> 
  */
 export async function waitFor<T>(
   fn: () => Promise<T>,
-  opts: { timeoutMs?: number; intervalMs?: number; label?: string } = {},
+  opts: { timeoutMs?: number; intervalMs?: number; label?: string } = {}
 ): Promise<T> {
   const { timeoutMs = 30_000, intervalMs = 2_000, label = 'waitFor' } = opts;
   const deadline = Date.now() + timeoutMs;
@@ -234,7 +275,7 @@ export function testImageBlob(): Blob {
   // 1x1 red PNG
   const png = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
-    'base64',
+    'base64'
   );
   return new Blob([png], { type: 'image/png' });
 }

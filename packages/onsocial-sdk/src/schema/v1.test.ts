@@ -38,7 +38,13 @@ describe('ProfileV1', () => {
       handle: 'alice_42',
       displayName: 'Alice',
       bio: 'Building',
-      avatar: { cid: 'bafy...', mime: 'image/webp', width: 256, height: 256, alt: 'Alice' },
+      avatar: {
+        cid: 'bafy...',
+        mime: 'image/webp',
+        width: 256,
+        height: 256,
+        alt: 'Alice',
+      },
       links: [{ label: 'Site', url: 'https://x.test' }],
       tags: ['near', 'web3'],
       lang: 'en',
@@ -55,14 +61,14 @@ describe('ProfileV1', () => {
   it('rejects bad lang and bad media', () => {
     expect(() => profileV1({ lang: '!' })).toThrow(/lang/);
     expect(() =>
-      profileV1({ avatar: { cid: '', mime: 'image/png' } as never }),
+      profileV1({ avatar: { cid: '', mime: 'image/png' } as never })
     ).toThrow(/avatar/);
   });
 
   it('rejects bad extension namespace', () => {
-    expect(() =>
-      profileV1({ x: { 'bad ns': { foo: 1 } } as never }),
-    ).toThrow(/x.bad ns/);
+    expect(() => profileV1({ x: { 'bad ns': { foo: 1 } } as never })).toThrow(
+      /x.bad ns/
+    );
   });
 });
 
@@ -93,13 +99,15 @@ describe('PostV1', () => {
   });
 
   it('rejects uppercase hashtags and bad parentType / refType', () => {
-    expect(() => postV1({ text: 'x', hashtags: ['BadTag'] })).toThrow(/hashtags/);
-    expect(() =>
-      postV1({ text: 'x', parentType: 'reply' as never }),
-    ).toThrow(/parentType/);
-    expect(() =>
-      postV1({ text: 'x', refType: 'mirror' as never }),
-    ).toThrow(/refType/);
+    expect(() => postV1({ text: 'x', hashtags: ['BadTag'] })).toThrow(
+      /hashtags/
+    );
+    expect(() => postV1({ text: 'x', parentType: 'reply' as never })).toThrow(
+      /parentType/
+    );
+    expect(() => postV1({ text: 'x', refType: 'mirror' as never })).toThrow(
+      /refType/
+    );
   });
 
   it('rejects unknown embed kinds', () => {
@@ -107,7 +115,7 @@ describe('PostV1', () => {
       postV1({
         text: 'x',
         embeds: [{ kind: 'video', url: 'x' } as never],
-      }),
+      })
     ).toThrow(/embeds/);
   });
 });
@@ -121,7 +129,9 @@ describe('ReactionV1', () => {
   });
 
   it('rejects out-of-vocab type', () => {
-    expect(() => reactionV1({ type: 'angry' as never })).toThrow(/reaction.type/);
+    expect(() => reactionV1({ type: 'angry' as never })).toThrow(
+      /reaction.type/
+    );
   });
 
   it('allows custom emoji escape hatch', () => {
@@ -150,9 +160,7 @@ describe('GroupConfigV1', () => {
   });
 
   it('rejects missing name', () => {
-    expect(() =>
-      groupConfigV1({ isPrivate: false } as never),
-    ).toThrow(/name/);
+    expect(() => groupConfigV1({ isPrivate: false } as never)).toThrow(/name/);
   });
 });
 
@@ -189,8 +197,12 @@ describe('EndorsementV1', () => {
   });
 
   it('rejects out-of-range weight', () => {
-    expect(validateEndorsementV1({ v: 1, since: 1, weight: 7 })).toMatch(/weight/);
-    expect(validateEndorsementV1({ v: 1, since: 1, weight: 0 })).toMatch(/weight/);
+    expect(validateEndorsementV1({ v: 1, since: 1, weight: 7 })).toMatch(
+      /weight/
+    );
+    expect(validateEndorsementV1({ v: 1, since: 1, weight: 0 })).toMatch(
+      /weight/
+    );
   });
 });
 
@@ -217,12 +229,33 @@ describe('AttestationV1', () => {
   });
 
   it('rejects bad type pattern', () => {
-    expect(validateAttestationV1({ v: 1, type: 'BAD TYPE!', subject: 'x', issuedAt: 1 })).toMatch(/type/);
-    expect(validateAttestationV1({ v: 1, type: '-leading', subject: 'x', issuedAt: 1 })).toMatch(/type/);
+    expect(
+      validateAttestationV1({
+        v: 1,
+        type: 'BAD TYPE!',
+        subject: 'x',
+        issuedAt: 1,
+      })
+    ).toMatch(/type/);
+    expect(
+      validateAttestationV1({
+        v: 1,
+        type: '-leading',
+        subject: 'x',
+        issuedAt: 1,
+      })
+    ).toMatch(/type/);
   });
 
   it('rejects missing subject', () => {
-    expect(validateAttestationV1({ v: 1, type: 'verified', subject: '', issuedAt: 1 })).toMatch(/subject/);
+    expect(
+      validateAttestationV1({
+        v: 1,
+        type: 'verified',
+        subject: '',
+        issuedAt: 1,
+      })
+    ).toMatch(/subject/);
   });
 
   it('rejects bad signature', () => {
@@ -233,7 +266,7 @@ describe('AttestationV1', () => {
         subject: 'x',
         issuedAt: 1,
         signature: { alg: '', sig: 'a' },
-      }),
+      })
     ).toMatch(/signature/);
   });
 });

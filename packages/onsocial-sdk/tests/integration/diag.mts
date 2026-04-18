@@ -13,16 +13,41 @@ function base58Decode(s: string): Buffer {
   const hex = num.toString(16).padStart(2, '0');
   return Buffer.from(hex.length % 2 ? '0' + hex : hex, 'hex');
 }
-function signNep413(message: string, nonceB64: string, recipient: string, secretKey: Buffer): string {
+function signNep413(
+  message: string,
+  nonceB64: string,
+  recipient: string,
+  secretKey: Buffer
+): string {
   const nonce = Buffer.from(nonceB64, 'base64');
-  const prefix = Buffer.alloc(4); prefix.writeUInt32LE(2 ** 31 + 413, 0);
-  const enc = (s: string) => { const b = Buffer.from(s); const l = Buffer.alloc(4); l.writeUInt32LE(b.length); return Buffer.concat([l, b]); };
-  const payload = Buffer.concat([enc(message), nonce, enc(recipient), Buffer.from([0])]);
-  const hash = crypto.createHash('sha256').update(Buffer.concat([prefix, payload])).digest();
-  return Buffer.from(crypto.sign(null, hash, {
-    key: Buffer.concat([Buffer.from('302e020100300506032b657004220420', 'hex'), secretKey.subarray(0, 32)]),
-    format: 'der', type: 'pkcs8',
-  })).toString('base64');
+  const prefix = Buffer.alloc(4);
+  prefix.writeUInt32LE(2 ** 31 + 413, 0);
+  const enc = (s: string) => {
+    const b = Buffer.from(s);
+    const l = Buffer.alloc(4);
+    l.writeUInt32LE(b.length);
+    return Buffer.concat([l, b]);
+  };
+  const payload = Buffer.concat([
+    enc(message),
+    nonce,
+    enc(recipient),
+    Buffer.from([0]),
+  ]);
+  const hash = crypto
+    .createHash('sha256')
+    .update(Buffer.concat([prefix, payload]))
+    .digest();
+  return Buffer.from(
+    crypto.sign(null, hash, {
+      key: Buffer.concat([
+        Buffer.from('302e020100300506032b657004220420', 'hex'),
+        secretKey.subarray(0, 32),
+      ]),
+      format: 'der',
+      type: 'pkcs8',
+    })
+  ).toString('base64');
 }
 
 async function main() {
@@ -30,23 +55,43 @@ async function main() {
   const secretKey = base58Decode(creds.private_key.replace(/^ed25519:/, ''));
 
   const session = new OnSocial({ gatewayUrl: GATEWAY_URL, network: 'testnet' });
-  const { challenge } = await session.http.post<any>('/auth/challenge', { accountId: ACCOUNT_ID });
-  const sig = signNep413(challenge.message, challenge.nonce, challenge.recipient, secretKey);
-  await session.auth.login({ accountId: ACCOUNT_ID, publicKey: creds.public_key, signature: sig, message: challenge.message });
+  const { challenge } = await session.http.post<any>('/auth/challenge', {
+    accountId: ACCOUNT_ID,
+  });
+  const sig = signNep413(
+    challenge.message,
+    challenge.nonce,
+    challenge.recipient,
+    secretKey
+  );
+  await session.auth.login({
+    accountId: ACCOUNT_ID,
+    publicKey: creds.public_key,
+    signature: sig,
+    message: challenge.message,
+  });
   console.log('Session auth OK');
 
   // Write with session client first to compare
   const field = `diag_${Date.now()}`;
   console.log(`Writing profile/${field} with SESSION...`);
-  const sessionWrite = await session.social.setProfile({ [field]: 'session-value' });
+  const sessionWrite = await session.social.setProfile({
+    [field]: 'session-value',
+  });
   console.log('Session write:', JSON.stringify(sessionWrite));
 
   // Create API key
-  const keyResult = await session.http.post<any>('/developer/keys', { label: 'diag-test' });
+  const keyResult = await session.http.post<any>('/developer/keys', {
+    label: 'diag-test',
+  });
   console.log('API key:', keyResult.prefix);
 
   // Write with API key client
-  const apiOs = new OnSocial({ gatewayUrl: GATEWAY_URL, network: 'testnet', apiKey: keyResult.key });
+  const apiOs = new OnSocial({
+    gatewayUrl: GATEWAY_URL,
+    network: 'testnet',
+    apiKey: keyResult.key,
+  });
   const field2 = `diag_api_${Date.now()}`;
   console.log(`Writing profile/${field2} with API KEY...`);
   const apiWrite = await apiOs.social.setProfile({ [field2]: 'api-value' });
@@ -54,7 +99,7 @@ async function main() {
 
   // Wait
   console.log('Waiting 8s...');
-  await new Promise(r => setTimeout(r, 8000));
+  await new Promise((r) => setTimeout(r, 8000));
 
   // Read back both
   const e1 = await session.social.getOne(`profile/${field}`, ACCOUNT_ID);
@@ -66,4 +111,7 @@ async function main() {
   await session.http.delete(`/developer/keys/${keyResult.prefix}`);
   console.log('Cleaned up');
 }
-main().catch(e => { console.error(e); process.exit(1); });
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

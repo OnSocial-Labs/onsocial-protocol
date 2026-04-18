@@ -22,7 +22,7 @@ export type RewardsAction =
   | { type: 'claim' };
 
 export function buildCreditRewardAction(
-  req: CreditRequest & { amount: string },
+  req: CreditRequest & { amount: string }
 ): RewardsAction {
   return {
     type: 'credit_reward',
@@ -71,7 +71,9 @@ export class RewardsModule {
 
   /** Get reward balance and stats for an account. */
   async getBalance(accountId: string): Promise<RewardBalance> {
-    return this._http.get<RewardBalance>(`/v1/balance/${encodeURIComponent(accountId)}`);
+    return this._http.get<RewardBalance>(
+      `/v1/balance/${encodeURIComponent(accountId)}`
+    );
   }
 
   /** Get the app's on-chain reward configuration. */

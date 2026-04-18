@@ -18,7 +18,7 @@ describe('commerce', () => {
         text: `Commerce test post ${postId} — will be minted as scarce`,
         hashtags: ['commercetest'],
       },
-      postId,
+      postId
     );
   });
 
@@ -30,10 +30,7 @@ describe('commerce', () => {
 
   it('should mint a post with royalty', async () => {
     const postId2 = testId();
-    await os.social.post(
-      { text: `Royalty commerce test ${postId2}` },
-      postId2,
-    );
+    await os.social.post({ text: `Royalty commerce test ${postId2}` }, postId2);
 
     const result = await os.mintPost(ACCOUNT_ID, postId2, {
       royalty: { [ACCOUNT_ID]: 500 }, // 5%

@@ -48,7 +48,9 @@ describe('advanced action helpers', () => {
       },
     });
 
-    expect(buildReactionAction('bob.near', 'post/123', { type: 'like' })).toEqual({
+    expect(
+      buildReactionAction('bob.near', 'post/123', { type: 'like' })
+    ).toEqual({
       type: 'set',
       data: {
         'reaction/bob.near/like/post/123': { v: 1, type: 'like' },
@@ -63,7 +65,7 @@ describe('advanced action helpers', () => {
         amount: '1000',
         source: 'message',
         appId: 'chat',
-      }),
+      })
     ).toEqual({
       type: 'credit_reward',
       account_id: 'alice.near',
@@ -82,7 +84,7 @@ describe('advanced action helpers', () => {
         totalSupply: 100,
         title: 'Genesis',
         priceNear: '1',
-      }),
+      })
     ).toEqual({
       type: 'create_collection',
       collection_id: 'genesis',
@@ -92,7 +94,7 @@ describe('advanced action helpers', () => {
     });
 
     expect(
-      buildScarcesListNativeAction({ tokenId: '1', priceNear: '2' }),
+      buildScarcesListNativeAction({ tokenId: '1', priceNear: '2' })
     ).toEqual({
       type: 'list_native_scarce',
       token_id: '1',
@@ -107,11 +109,15 @@ describe('advanced action helpers', () => {
 
   it('prepares requests with network-aware default target contracts', () => {
     expect(resolveContractId('testnet', 'core')).toBe('core.onsocial.testnet');
-    expect(resolveContractId('testnet', 'scarces')).toBe('scarces.onsocial.testnet');
-    expect(resolveContractId('testnet', 'rewards')).toBe('rewards.onsocial.testnet');
+    expect(resolveContractId('testnet', 'scarces')).toBe(
+      'scarces.onsocial.testnet'
+    );
+    expect(resolveContractId('testnet', 'rewards')).toBe(
+      'rewards.onsocial.testnet'
+    );
 
     expect(
-      prepareCoreRequest(buildProfileAction({ name: 'Alice' }), 'testnet'),
+      prepareCoreRequest(buildProfileAction({ name: 'Alice' }), 'testnet')
     ).toEqual({
       targetAccount: 'core.onsocial.testnet',
       action: {
@@ -120,17 +126,19 @@ describe('advanced action helpers', () => {
       },
     });
 
-    expect(prepareRewardsRequest(buildRewardsClaimAction(), 'mainnet')).toEqual({
-      targetAccount: 'rewards.onsocial.near',
-      action: { type: 'claim' },
-    });
+    expect(prepareRewardsRequest(buildRewardsClaimAction(), 'mainnet')).toEqual(
+      {
+        targetAccount: 'rewards.onsocial.near',
+        action: { type: 'claim' },
+      }
+    );
 
     expect(
       prepareScarcesRequest(
         buildScarcesPurchaseNativeAction('7'),
         'testnet',
-        'custom.testnet',
-      ),
+        'custom.testnet'
+      )
     ).toEqual({
       targetAccount: 'custom.testnet',
       action: {

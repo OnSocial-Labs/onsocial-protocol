@@ -13,7 +13,7 @@ describe('rewards action builders', () => {
         amount: '1000',
         source: 'message',
         appId: 'chat',
-      }),
+      })
     ).toEqual({
       type: 'credit_reward',
       account_id: 'alice.near',

@@ -3,7 +3,13 @@
 // ---------------------------------------------------------------------------
 
 export { OnSocial } from './client.js';
-export type { ExecuteAction, ExecuteOptions, SignedAuth, MintPostOptions, MintPostResult } from './client.js';
+export type {
+  ExecuteAction,
+  ExecuteOptions,
+  SignedAuth,
+  MintPostOptions,
+  MintPostResult,
+} from './client.js';
 export { OnSocialError } from './http.js';
 
 // Modules (for advanced composition)
@@ -49,6 +55,8 @@ export { buildClaimAction, buildCreditRewardAction } from './rewards.js';
 export { QueryModule } from './query.js';
 export type { PostRow, ReactionRow, Paginated, HashtagCount } from './query.js';
 export { StorageModule } from './storage.js';
+export { WebhooksModule, verifyWebhookSignature } from './webhooks.js';
+export type { WebhookEndpoint, CreateWebhookParams } from './webhooks.js';
 
 // Base Social Schema v1 — promotable shared spec
 export {

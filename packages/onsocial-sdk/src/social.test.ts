@@ -17,7 +17,7 @@ describe('social set-data builders', () => {
         links: { github: 'alice' },
         tags: ['near', 'social'],
         status: { mood: 'online' },
-      }),
+      })
     ).toEqual({
       'profile/v': '1',
       'profile/name': 'Alice',
@@ -49,7 +49,7 @@ describe('social set-data builders', () => {
 
   it('builds reaction data at the canonical content path', () => {
     expect(
-      buildReactionSetData('bob.near', 'post/123', { type: 'like' }),
+      buildReactionSetData('bob.near', 'post/123', { type: 'like' })
     ).toEqual({
       'reaction/bob.near/like/post/123': { v: 1, type: 'like' },
     });
@@ -80,7 +80,7 @@ describe('SocialModule transport', () => {
     expect(requestForm).toHaveBeenCalledWith(
       'POST',
       '/storage/upload',
-      expect.any(FormData),
+      expect.any(FormData)
     );
     expect(post).toHaveBeenCalledWith('/compose/set', {
       path: 'profile',
@@ -114,13 +114,13 @@ describe('SocialModule transport', () => {
     const file = new Blob(['img'], { type: 'image/png' });
     await social.post(
       { text: 'gm', image: file, media: ['ipfs://existing'] },
-      'p1',
+      'p1'
     );
 
     expect(requestForm).toHaveBeenCalledWith(
       'POST',
       '/storage/upload',
-      expect.any(FormData),
+      expect.any(FormData)
     );
     const [, body] = post.mock.calls[0];
     expect(body.path).toBe('post/p1');

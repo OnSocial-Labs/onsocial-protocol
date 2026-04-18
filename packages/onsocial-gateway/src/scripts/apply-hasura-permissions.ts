@@ -18,7 +18,7 @@ import {
 
 // Tiers must match gateway Tier type: 'free' | 'pro' | 'scale' | 'service'
 const TIERS = {
-  free: { limit: 100, allow_aggregations: false },
+  free: { limit: 100, allow_aggregations: true },
   pro: { limit: 1000, allow_aggregations: true },
   scale: { limit: 10000, allow_aggregations: true },
   service: { limit: 10000, allow_aggregations: true },

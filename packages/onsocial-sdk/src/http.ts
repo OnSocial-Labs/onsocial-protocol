@@ -16,15 +16,17 @@ export class HttpClient {
   private _fetch: typeof globalThis.fetch;
   private _token: string | null = null;
   private _apiKey: string | null = null;
+  private _actorId: string | null = null;
 
   constructor(config: OnSocialConfig = {}) {
     this.network = config.network ?? 'mainnet';
     this.baseUrl = (config.gatewayUrl ?? GATEWAY_URLS[this.network]).replace(
       /\/$/,
-      '',
+      ''
     );
     this._fetch = config.fetch ?? globalThis.fetch.bind(globalThis);
     this._apiKey = config.apiKey ?? null;
+    this._actorId = config.actorId ?? null;
   }
 
   /** Set the JWT obtained from login(). */
@@ -55,20 +57,33 @@ export class HttpClient {
   }
 
   /** JSON request. */
-  async request<T>(
-    method: string,
-    path: string,
-    body?: unknown,
-  ): Promise<T> {
+  async request<T>(method: string, path: string, body?: unknown): Promise<T> {
     const url = `${this.baseUrl}${path}`;
     const headers = this._headers(
-      body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+      body !== undefined ? { 'Content-Type': 'application/json' } : undefined
     );
+
+    // Inject actor_id for API-key POST requests to compose/relay endpoints
+    let resolved = body;
+    if (
+      this._actorId &&
+      this._apiKey &&
+      method === 'POST' &&
+      body &&
+      typeof body === 'object' &&
+      !Array.isArray(body) &&
+      (path.startsWith('/compose/') || path.startsWith('/relay/'))
+    ) {
+      resolved = {
+        ...(body as Record<string, unknown>),
+        actor_id: this._actorId,
+      };
+    }
 
     const res = await this._fetch(url, {
       method,
       headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: resolved !== undefined ? JSON.stringify(resolved) : undefined,
     });
 
     if (!res.ok) {
@@ -85,7 +100,7 @@ export class HttpClient {
   async requestForm<T>(
     method: string,
     path: string,
-    form: FormData,
+    form: FormData
   ): Promise<T> {
     const url = `${this.baseUrl}${path}`;
     // Don't set Content-Type — browser/node will add boundary automatically

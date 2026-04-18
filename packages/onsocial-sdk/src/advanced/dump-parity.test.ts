@@ -13,7 +13,7 @@ import { getCoreParityCases } from './core-parity.fixtures.js';
 const here = dirname(fileURLToPath(import.meta.url));
 const outPath = resolve(
   here,
-  '../../../../contracts/core-onsocial/tests/fixtures/sdk-parity.json',
+  '../../../../contracts/core-onsocial/tests/fixtures/sdk-parity.json'
 );
 
 describe('SDK ↔ contract parity fixture export', () => {

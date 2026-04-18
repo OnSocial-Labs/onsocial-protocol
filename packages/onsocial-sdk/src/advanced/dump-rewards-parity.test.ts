@@ -11,7 +11,7 @@ import { getRewardsParityCases } from './rewards-parity.fixtures.js';
 const here = dirname(fileURLToPath(import.meta.url));
 const outPath = resolve(
   here,
-  '../../../../contracts/rewards-onsocial/tests/fixtures/sdk-parity.json',
+  '../../../../contracts/rewards-onsocial/tests/fixtures/sdk-parity.json'
 );
 
 describe('SDK ↔ rewards parity fixture export', () => {

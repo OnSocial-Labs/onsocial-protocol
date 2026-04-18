@@ -20,7 +20,8 @@ import { OnSocial } from './src/client.js';
 
 const GATEWAY_URL = process.env.GATEWAY_URL || 'https://testnet.onsocial.id';
 const ACCOUNT_ID = process.env.ACCOUNT_ID || 'test01.onsocial.testnet';
-const CREDS_FILE = process.env.CREDS_FILE ||
+const CREDS_FILE =
+  process.env.CREDS_FILE ||
   path.join(process.env.HOME!, `.near-credentials/testnet/${ACCOUNT_ID}.json`);
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -63,10 +64,18 @@ function nep413Hash(message: string, nonce: Buffer, recipient: string): Buffer {
     Buffer.from([0]),
   ]);
 
-  return crypto.createHash('sha256').update(Buffer.concat([prefix, payload])).digest();
+  return crypto
+    .createHash('sha256')
+    .update(Buffer.concat([prefix, payload]))
+    .digest();
 }
 
-function signNep413(message: string, nonceB64: string, recipient: string, secretKey: Buffer): string {
+function signNep413(
+  message: string,
+  nonceB64: string,
+  recipient: string,
+  secretKey: Buffer
+): string {
   const nonce = Buffer.from(nonceB64, 'base64');
   const hash = nep413Hash(message, nonce, recipient);
 
@@ -95,9 +104,10 @@ function ok(label: string, detail?: string) {
 
 function fail(label: string, err: unknown) {
   failed++;
-  const detail = err != null && typeof err === 'object'
-    ? JSON.stringify(err, Object.getOwnPropertyNames(err), 2)
-    : String(err);
+  const detail =
+    err != null && typeof err === 'object'
+      ? JSON.stringify(err, Object.getOwnPropertyNames(err), 2)
+      : String(err);
   console.log(`  ❌ ${label} —`, detail);
 }
 
@@ -182,7 +192,7 @@ async function main() {
     // Create a small test image (1x1 red PNG)
     const PNG_1x1 = Buffer.from(
       'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
-      'base64',
+      'base64'
     );
     const file = new Blob([PNG_1x1], { type: 'image/png' });
     const { cid } = await os.storage.upload(file);
@@ -197,16 +207,21 @@ async function main() {
   // ════════════════════════════════════════════════════════════════════════
   // 4. SOCIAL POST — on-chain write with media + hashtags, gasless via relay
   // ════════════════════════════════════════════════════════════════════════
-  console.log('\n[4/14] Social — post with media + hashtags (gasless on-chain write)');
+  console.log(
+    '\n[4/14] Social — post with media + hashtags (gasless on-chain write)'
+  );
   let postTxHash: string | undefined;
   const postId = String(Date.now());
   try {
     const media: string[] = mediaCid ? [`ipfs://${mediaCid}`] : [];
-    const result = await os.social.post({
-      text: `Full pipeline test at ${new Date().toISOString()} #onsocial #sdktest`,
-      media,
-      hashtags: ['onsocial', 'sdktest'],
-    }, postId);
+    const result = await os.social.post(
+      {
+        text: `Full pipeline test at ${new Date().toISOString()} #onsocial #sdktest`,
+        media,
+        hashtags: ['onsocial', 'sdktest'],
+      },
+      postId
+    );
     postTxHash = result.txHash;
     ok('post()', `txHash=${result.txHash?.slice(0, 20)}... postId=${postId}`);
     if (media.length > 0) {
@@ -262,7 +277,9 @@ async function main() {
   // ════════════════════════════════════════════════════════════════════════
   console.log('\n[8/14] Social — react to post (gasless on-chain write)');
   try {
-    const result = await os.social.react(ACCOUNT_ID, `post/${postId}`, { type: 'like' });
+    const result = await os.social.react(ACCOUNT_ID, `post/${postId}`, {
+      type: 'like',
+    });
     ok('react()', `txHash=${result.txHash?.slice(0, 20)}...`);
     reactOk = true;
   } catch (e) {
@@ -288,7 +305,11 @@ async function main() {
   // ════════════════════════════════════════════════════════════════════════
   console.log('\n[10/14] OnAPI Query — read indexed data via API key');
   if (apiKey) {
-    const osApi = new OnSocial({ gatewayUrl: GATEWAY_URL, network: 'testnet', apiKey });
+    const osApi = new OnSocial({
+      gatewayUrl: GATEWAY_URL,
+      network: 'testnet',
+      apiKey,
+    });
     try {
       const page = await osApi.query.getPosts({ author: ACCOUNT_ID, limit: 5 });
       ok('getPosts() [apiKey]', `${page.items.length} posts indexed`);
@@ -298,16 +319,25 @@ async function main() {
     try {
       const profile = await osApi.query.getProfile(ACCOUNT_ID);
       if (profile) {
-        ok('getProfile() [apiKey]', `fields=[${Object.keys(profile).join(', ')}]`);
+        ok(
+          'getProfile() [apiKey]',
+          `fields=[${Object.keys(profile).join(', ')}]`
+        );
       } else {
-        ok('getProfile() [apiKey]', 'null (not indexed yet — substreams may need time)');
+        ok(
+          'getProfile() [apiKey]',
+          'null (not indexed yet — substreams may need time)'
+        );
       }
     } catch (e) {
       fail('getProfile() [apiKey]', e);
     }
     try {
       const counts = await osApi.query.getStandingCounts(ACCOUNT_ID);
-      ok('getStandingCounts() [apiKey]', `standers=${counts.standers}, standingWith=${counts.standingWith}`);
+      ok(
+        'getStandingCounts() [apiKey]',
+        `standers=${counts.standers}, standingWith=${counts.standingWith}`
+      );
     } catch (e) {
       fail('getStandingCounts() [apiKey]', e);
     }
@@ -324,7 +354,10 @@ async function main() {
       const url = os.storage.url(mediaCid);
       const res = await fetch(url, { method: 'HEAD' });
       if (res.ok) {
-        ok('media accessible', `${url} → ${res.status} ${res.headers.get('content-type')}`);
+        ok(
+          'media accessible',
+          `${url} → ${res.status} ${res.headers.get('content-type')}`
+        );
       } else {
         fail('media accessible', { message: `${url} → ${res.status}` });
       }
@@ -341,7 +374,9 @@ async function main() {
   console.log('\n[12/14] Cleanup — revoke test API key');
   if (apiKey) {
     try {
-      const { keys } = await os.http.get<{ keys: Array<{ prefix: string; label: string }> }>('/developer/keys');
+      const { keys } = await os.http.get<{
+        keys: Array<{ prefix: string; label: string }>;
+      }>('/developer/keys');
       const testKey = keys.find((k) => k.label === 'sdk-live-test');
       if (testKey) {
         await os.http.delete(`/developer/keys/${testKey.prefix}`);
@@ -405,7 +440,7 @@ async function main() {
   if (failed > 0) process.exit(1);
 }
 
-main().catch(err => {
+main().catch((err) => {
   console.error('\nFatal:', err);
   process.exit(1);
 });

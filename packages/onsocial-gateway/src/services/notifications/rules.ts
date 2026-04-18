@@ -140,7 +140,7 @@ class HasuraRuleStore implements NotificationRuleStore {
     const data = await this.gql<{
       insertDeveloperNotificationRulesOne: Record<string, unknown>;
     }>(
-      `mutation($obj: developerNotificationRulesInsertInput!) {
+      `mutation($obj: DeveloperNotificationRulesInsertInput!) {
         insertDeveloperNotificationRulesOne(object: $obj) {
           id ownerAccountId appId ruleType recipientAccountId groupId notificationTypes active createdAt
         }

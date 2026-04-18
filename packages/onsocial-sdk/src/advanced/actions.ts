@@ -61,88 +61,281 @@ export type CoreAction =
   | { type: 'add_group_member'; group_id: string; member_id: string }
   | { type: 'remove_group_member'; group_id: string; member_id: string }
   | { type: 'approve_join_request'; group_id: string; requester_id: string }
-  | { type: 'reject_join_request'; group_id: string; requester_id: string; reason?: string }
+  | {
+      type: 'reject_join_request';
+      group_id: string;
+      requester_id: string;
+      reason?: string;
+    }
   | { type: 'cancel_join_request'; group_id: string }
   | { type: 'blacklist_group_member'; group_id: string; member_id: string }
   | { type: 'unblacklist_group_member'; group_id: string; member_id: string }
-  | { type: 'transfer_group_ownership'; group_id: string; new_owner: string; remove_old_owner?: boolean }
+  | {
+      type: 'transfer_group_ownership';
+      group_id: string;
+      new_owner: string;
+      remove_old_owner?: boolean;
+    }
   | { type: 'set_group_privacy'; group_id: string; is_private: boolean }
-  | { type: 'create_proposal'; group_id: string; proposal_type: string; changes: Record<string, unknown>; auto_vote?: boolean; description?: string }
-  | { type: 'vote_on_proposal'; group_id: string; proposal_id: string; approve: boolean }
+  | {
+      type: 'create_proposal';
+      group_id: string;
+      proposal_type: string;
+      changes: Record<string, unknown>;
+      auto_vote?: boolean;
+      description?: string;
+    }
+  | {
+      type: 'vote_on_proposal';
+      group_id: string;
+      proposal_id: string;
+      approve: boolean;
+    }
   | { type: 'cancel_proposal'; group_id: string; proposal_id: string }
-  | { type: 'set_permission'; grantee: string; path: string; level: number; expires_at?: string }
-  | { type: 'set_key_permission'; public_key: string; path: string; level: number; expires_at?: string };
+  | {
+      type: 'set_permission';
+      grantee: string;
+      path: string;
+      level: number;
+      expires_at?: string;
+    }
+  | {
+      type: 'set_key_permission';
+      public_key: string;
+      path: string;
+      level: number;
+      expires_at?: string;
+    };
 
 // ── Scarces Actions (scarces-onsocial) ──────────────────────────────────────
 
 export type ScarcesAction =
   // Minting
-  | { type: 'quick_mint'; metadata: TokenMetadata; royalty?: Record<string, number>; app_id?: string; transferable?: boolean; burnable?: boolean }
-  | { type: 'mint_from_collection'; collection_id: string; quantity: number; receiver_id?: string }
-  | { type: 'airdrop_from_collection'; collection_id: string; receivers: string[] }
+  | {
+      type: 'quick_mint';
+      metadata: TokenMetadata;
+      royalty?: Record<string, number>;
+      app_id?: string;
+      transferable?: boolean;
+      burnable?: boolean;
+    }
+  | {
+      type: 'mint_from_collection';
+      collection_id: string;
+      quantity: number;
+      receiver_id?: string;
+    }
+  | {
+      type: 'airdrop_from_collection';
+      collection_id: string;
+      receivers: string[];
+    }
   // Transfers
-  | { type: 'transfer_scarce'; receiver_id: string; token_id: string; memo?: string }
-  | { type: 'batch_transfer'; transfers: Array<{ receiver_id: string; token_id: string; memo?: string }> }
+  | {
+      type: 'transfer_scarce';
+      receiver_id: string;
+      token_id: string;
+      memo?: string;
+    }
+  | {
+      type: 'batch_transfer';
+      transfers: Array<{
+        receiver_id: string;
+        token_id: string;
+        memo?: string;
+      }>;
+    }
   // Approvals
-  | { type: 'approve_scarce'; token_id: string; account_id: string; msg?: string }
+  | {
+      type: 'approve_scarce';
+      token_id: string;
+      account_id: string;
+      msg?: string;
+    }
   | { type: 'revoke_scarce'; token_id: string; account_id: string }
   | { type: 'revoke_all_scarce'; token_id: string }
   // Lifecycle
   | { type: 'burn_scarce'; token_id: string; collection_id?: string }
-  | { type: 'renew_token'; token_id: string; collection_id: string; new_expires_at: number }
-  | { type: 'revoke_token'; token_id: string; collection_id: string; memo?: string }
+  | {
+      type: 'renew_token';
+      token_id: string;
+      collection_id: string;
+      new_expires_at: number;
+    }
+  | {
+      type: 'revoke_token';
+      token_id: string;
+      collection_id: string;
+      memo?: string;
+    }
   | { type: 'redeem_token'; token_id: string; collection_id: string }
   | { type: 'claim_refund'; token_id: string; collection_id: string }
   // Collections
-  | { type: 'create_collection'; collection_id: string; total_supply: number; metadata_template: string; price_near: string; start_time?: number; end_time?: number; royalty?: Record<string, number>; app_id?: string; mint_mode?: string; max_per_wallet?: number; renewable?: boolean; transferable?: boolean; burnable?: boolean; revocation_mode?: string; max_redeems?: number; metadata?: string; start_price?: string; allowlist_price?: string }
-  | { type: 'update_collection_price'; collection_id: string; new_price_near: string }
-  | { type: 'update_collection_timing'; collection_id: string; start_time?: number; end_time?: number }
+  | {
+      type: 'create_collection';
+      collection_id: string;
+      total_supply: number;
+      metadata_template: string;
+      price_near: string;
+      start_time?: number;
+      end_time?: number;
+      royalty?: Record<string, number>;
+      app_id?: string;
+      mint_mode?: string;
+      max_per_wallet?: number;
+      renewable?: boolean;
+      transferable?: boolean;
+      burnable?: boolean;
+      revocation_mode?: string;
+      max_redeems?: number;
+      metadata?: string;
+      start_price?: string;
+      allowlist_price?: string;
+    }
+  | {
+      type: 'update_collection_price';
+      collection_id: string;
+      new_price_near: string;
+    }
+  | {
+      type: 'update_collection_timing';
+      collection_id: string;
+      start_time?: number;
+      end_time?: number;
+    }
   | { type: 'delete_collection'; collection_id: string }
   | { type: 'pause_collection'; collection_id: string }
   | { type: 'resume_collection'; collection_id: string }
   | { type: 'set_allowlist'; collection_id: string; entries: AllowlistEntry[] }
   | { type: 'remove_from_allowlist'; collection_id: string; accounts: string[] }
-  | { type: 'set_collection_metadata'; collection_id: string; metadata?: string }
-  | { type: 'set_collection_app_metadata'; app_id: string; collection_id: string; metadata?: string }
+  | {
+      type: 'set_collection_metadata';
+      collection_id: string;
+      metadata?: string;
+    }
+  | {
+      type: 'set_collection_app_metadata';
+      app_id: string;
+      collection_id: string;
+      metadata?: string;
+    }
   | { type: 'withdraw_unclaimed_refunds'; collection_id: string }
-  | { type: 'cancel_collection'; collection_id: string; refund_per_token: string; refund_deadline_ns?: number }
+  | {
+      type: 'cancel_collection';
+      collection_id: string;
+      refund_per_token: string;
+      refund_deadline_ns?: number;
+    }
   // Marketplace
-  | { type: 'list_native_scarce'; token_id: string; price: string; expires_at?: number }
+  | {
+      type: 'list_native_scarce';
+      token_id: string;
+      price: string;
+      expires_at?: number;
+    }
   | { type: 'delist_native_scarce'; token_id: string }
-  | { type: 'list_native_scarce_auction'; token_id: string; reserve_price: string; min_bid_increment: string; expires_at?: number; auction_duration_ns?: number; anti_snipe_extension_ns?: number; buy_now_price?: string }
+  | {
+      type: 'list_native_scarce_auction';
+      token_id: string;
+      reserve_price: string;
+      min_bid_increment: string;
+      expires_at?: number;
+      auction_duration_ns?: number;
+      anti_snipe_extension_ns?: number;
+      buy_now_price?: string;
+    }
   | { type: 'settle_auction'; token_id: string }
   | { type: 'cancel_auction'; token_id: string }
   | { type: 'delist_scarce'; scarce_contract_id: string; token_id: string }
-  | { type: 'update_price'; scarce_contract_id: string; token_id: string; price: string }
-  | { type: 'purchase_from_collection'; collection_id: string; quantity: number; max_price_per_token: string }
+  | {
+      type: 'update_price';
+      scarce_contract_id: string;
+      token_id: string;
+      price: string;
+    }
+  | {
+      type: 'purchase_from_collection';
+      collection_id: string;
+      quantity: number;
+      max_price_per_token: string;
+    }
   | { type: 'purchase_lazy_listing'; listing_id: string }
   | { type: 'purchase_native_scarce'; token_id: string }
   | { type: 'place_bid'; token_id: string; amount: string }
   // Offers
-  | { type: 'make_offer'; token_id: string; amount: string; expires_at?: number }
+  | {
+      type: 'make_offer';
+      token_id: string;
+      amount: string;
+      expires_at?: number;
+    }
   | { type: 'cancel_offer'; token_id: string }
   | { type: 'accept_offer'; token_id: string; buyer_id: string }
-  | { type: 'make_collection_offer'; collection_id: string; amount: string; expires_at?: number }
+  | {
+      type: 'make_collection_offer';
+      collection_id: string;
+      amount: string;
+      expires_at?: number;
+    }
   | { type: 'cancel_collection_offer'; collection_id: string }
-  | { type: 'accept_collection_offer'; collection_id: string; token_id: string; buyer_id: string }
+  | {
+      type: 'accept_collection_offer';
+      collection_id: string;
+      token_id: string;
+      buyer_id: string;
+    }
   // Lazy listings
-  | { type: 'create_lazy_listing'; metadata: TokenMetadata; price: string; royalty?: Record<string, number>; app_id?: string; transferable?: boolean; burnable?: boolean; expires_at?: number }
+  | {
+      type: 'create_lazy_listing';
+      metadata: TokenMetadata;
+      price: string;
+      royalty?: Record<string, number>;
+      app_id?: string;
+      transferable?: boolean;
+      burnable?: boolean;
+      expires_at?: number;
+    }
   | { type: 'cancel_lazy_listing'; listing_id: string }
   | { type: 'update_lazy_listing_price'; listing_id: string; new_price: string }
-  | { type: 'update_lazy_listing_expiry'; listing_id: string; new_expires_at?: number }
+  | {
+      type: 'update_lazy_listing_expiry';
+      listing_id: string;
+      new_expires_at?: number;
+    }
   // App/Admin
   | { type: 'fund_app_pool'; app_id: string }
   | { type: 'storage_deposit'; account_id?: string }
-  | { type: 'register_app'; app_id: string; max_user_bytes?: number; default_royalty?: Record<string, number>; primary_sale_bps?: number; curated?: boolean; metadata?: string }
+  | {
+      type: 'register_app';
+      app_id: string;
+      max_user_bytes?: number;
+      default_royalty?: Record<string, number>;
+      primary_sale_bps?: number;
+      curated?: boolean;
+      metadata?: string;
+    }
   | { type: 'set_spending_cap'; cap?: string }
   | { type: 'storage_withdraw' }
   | { type: 'withdraw_app_pool'; app_id: string; amount: string }
   | { type: 'withdraw_platform_storage'; amount: string }
-  | { type: 'set_app_config'; app_id: string; max_user_bytes?: number; default_royalty?: Record<string, number>; primary_sale_bps?: number; curated?: boolean; metadata?: string }
+  | {
+      type: 'set_app_config';
+      app_id: string;
+      max_user_bytes?: number;
+      default_royalty?: Record<string, number>;
+      primary_sale_bps?: number;
+      curated?: boolean;
+      metadata?: string;
+    }
   | { type: 'transfer_app_ownership'; app_id: string; new_owner: string }
   | { type: 'add_moderator'; app_id: string; account_id: string }
   | { type: 'remove_moderator'; app_id: string; account_id: string }
-  | { type: 'ban_collection'; app_id: string; collection_id: string; reason?: string }
+  | {
+      type: 'ban_collection';
+      app_id: string;
+      collection_id: string;
+      reason?: string;
+    }
   | { type: 'unban_collection'; app_id: string; collection_id: string };
 
 export interface TokenMetadata {
@@ -164,7 +357,13 @@ export interface AllowlistEntry {
 // ── Rewards Actions (rewards-onsocial) ──────────────────────────────────────
 
 export type RewardsAction =
-  | { type: 'credit_reward'; account_id: string; amount: string; source?: string; app_id?: string }
+  | {
+      type: 'credit_reward';
+      account_id: string;
+      amount: string;
+      source?: string;
+      app_id?: string;
+    }
   | { type: 'claim' };
 
 // ── Union of all actions ────────────────────────────────────────────────────
@@ -231,7 +430,8 @@ export function buildRequest<T extends Action>(input: {
   options?: RequestOptions;
 }): RequestEnvelope<T> {
   const env: RequestEnvelope<T> = { action: input.action };
-  if (input.targetAccount !== undefined) env.target_account = input.targetAccount;
+  if (input.targetAccount !== undefined)
+    env.target_account = input.targetAccount;
   if (input.auth !== undefined) env.auth = input.auth;
   if (input.options !== undefined) env.options = input.options;
   return env;
@@ -239,14 +439,12 @@ export function buildRequest<T extends Action>(input: {
 
 export function resolveContractId(
   network: Network,
-  contract: ContractName,
+  contract: ContractName
 ): string {
   return CONTRACTS[network][contract];
 }
 
-export function buildCoreSetAction(
-  data: Record<string, unknown>,
-): CoreAction {
+export function buildCoreSetAction(data: Record<string, unknown>): CoreAction {
   return { type: 'set', data };
 }
 
@@ -257,14 +455,14 @@ export function buildProfileAction(profile: ProfileData): CoreAction {
 export function buildPostAction(
   post: PostData,
   postId: string,
-  now?: number,
+  now?: number
 ): CoreAction {
   return buildCoreSetAction(buildPostSetData(post, postId, now));
 }
 
 export function buildStandWithAction(
   targetAccount: string,
-  now?: number,
+  now?: number
 ): CoreAction {
   return buildCoreSetAction(buildStandingSetData(targetAccount, now));
 }
@@ -276,10 +474,10 @@ export function buildUnstandAction(targetAccount: string): CoreAction {
 export function buildReactionAction(
   ownerAccount: string,
   contentPath: string,
-  reaction: ReactionData,
+  reaction: ReactionData
 ): CoreAction {
   return buildCoreSetAction(
-    buildReactionSetData(ownerAccount, contentPath, reaction),
+    buildReactionSetData(ownerAccount, contentPath, reaction)
   );
 }
 
@@ -287,10 +485,10 @@ export function buildReactionAction(
 export function buildReactionRemoveAction(
   ownerAccount: string,
   kind: string,
-  contentPath: string,
+  contentPath: string
 ): CoreAction {
   return buildCoreSetAction(
-    buildReactionRemoveData(ownerAccount, kind, contentPath),
+    buildReactionRemoveData(ownerAccount, kind, contentPath)
   );
 }
 
@@ -298,7 +496,7 @@ export function buildReactionRemoveAction(
 
 export function buildSaveAction(
   contentPath: string,
-  input: SaveBuildInput = {},
+  input: SaveBuildInput = {}
 ): CoreAction {
   return buildCoreSetAction(buildSaveSetData(contentPath, input));
 }
@@ -311,14 +509,14 @@ export function buildSaveRemoveAction(contentPath: string): CoreAction {
 
 export function buildEndorseAction(
   targetAccount: string,
-  input: EndorsementBuildInput = {},
+  input: EndorsementBuildInput = {}
 ): CoreAction {
   return buildCoreSetAction(buildEndorsementSetData(targetAccount, input));
 }
 
 export function buildEndorseRemoveAction(
   targetAccount: string,
-  topic?: string,
+  topic?: string
 ): CoreAction {
   return buildCoreSetAction(buildEndorsementRemoveData(targetAccount, topic));
 }
@@ -327,7 +525,7 @@ export function buildEndorseRemoveAction(
 
 export function buildAttestAction(
   claimId: string,
-  input: AttestationBuildInput,
+  input: AttestationBuildInput
 ): CoreAction {
   return buildCoreSetAction(buildAttestationSetData(claimId, input));
 }
@@ -335,15 +533,13 @@ export function buildAttestAction(
 export function buildAttestRevokeAction(
   subject: string,
   type: string,
-  claimId: string,
+  claimId: string
 ): CoreAction {
-  return buildCoreSetAction(
-    buildAttestationRemoveData(subject, type, claimId),
-  );
+  return buildCoreSetAction(buildAttestationRemoveData(subject, type, claimId));
 }
 
 export function buildRewardsCreditAction(
-  req: CreditRequest & { amount: string },
+  req: CreditRequest & { amount: string }
 ): RewardsAction {
   return buildCreditRewardActionInternal(req);
 }
@@ -352,26 +548,24 @@ export function buildRewardsClaimAction(): RewardsAction {
   return buildClaimRewardActionInternal();
 }
 
-export function buildScarcesQuickMintAction(
-  opts: MintOptions,
-): ScarcesAction {
+export function buildScarcesQuickMintAction(opts: MintOptions): ScarcesAction {
   return buildQuickMintActionInternal(opts);
 }
 
 export function buildScarcesMintFromCollectionAction(
   collectionId: string,
   quantity = 1,
-  receiverId?: string,
+  receiverId?: string
 ): ScarcesAction {
   return buildMintFromCollectionActionInternal(
     collectionId,
     quantity,
-    receiverId,
+    receiverId
   );
 }
 
 export function buildScarcesCreateCollectionAction(
-  opts: CollectionOptions,
+  opts: CollectionOptions
 ): ScarcesAction {
   return buildCreateCollectionActionInternal(opts);
 }
@@ -379,25 +573,25 @@ export function buildScarcesCreateCollectionAction(
 export function buildScarcesTransferAction(
   tokenId: string,
   receiverId: string,
-  memo?: string,
+  memo?: string
 ): ScarcesAction {
   return buildTransferScarceActionInternal(tokenId, receiverId, memo);
 }
 
 export function buildScarcesListNativeAction(
-  opts: ListingOptions,
+  opts: ListingOptions
 ): ScarcesAction {
   return buildListNativeScarceActionInternal(opts);
 }
 
 export function buildScarcesPurchaseNativeAction(
-  tokenId: string,
+  tokenId: string
 ): ScarcesAction {
   return buildPurchaseNativeScarceActionInternal(tokenId);
 }
 
 export function buildScarcesCreateLazyListingAction(
-  opts: LazyListingOptions,
+  opts: LazyListingOptions
 ): ScarcesAction {
   return buildCreateLazyListingActionInternal(opts);
 }
@@ -406,7 +600,7 @@ export function prepareCoreRequest(
   action: CoreAction,
   network: Network = 'mainnet',
   targetAccount?: string,
-  options?: RequestOptions,
+  options?: RequestOptions
 ): PreparedActionRequest<CoreAction> {
   const req: PreparedActionRequest<CoreAction> = {
     targetAccount: targetAccount ?? resolveContractId(network, 'core'),
@@ -420,7 +614,7 @@ export function prepareScarcesRequest(
   action: ScarcesAction,
   network: Network = 'mainnet',
   targetAccount?: string,
-  options?: RequestOptions,
+  options?: RequestOptions
 ): PreparedActionRequest<ScarcesAction> {
   const req: PreparedActionRequest<ScarcesAction> = {
     targetAccount: targetAccount ?? resolveContractId(network, 'scarces'),
@@ -434,7 +628,7 @@ export function prepareRewardsRequest(
   action: RewardsAction,
   network: Network = 'mainnet',
   targetAccount?: string,
-  options?: RequestOptions,
+  options?: RequestOptions
 ): PreparedActionRequest<RewardsAction> {
   const req: PreparedActionRequest<RewardsAction> = {
     targetAccount: targetAccount ?? resolveContractId(network, 'rewards'),
@@ -452,7 +646,7 @@ export function prepareRewardsRequest(
 
 export function buildCreateGroupAction(
   groupId: string,
-  config: Record<string, unknown> = {},
+  config: Record<string, unknown> = {}
 ): CoreAction {
   return { type: 'create_group', group_id: groupId, config };
 }
@@ -467,14 +661,14 @@ export function buildLeaveGroupAction(groupId: string): CoreAction {
 
 export function buildAddGroupMemberAction(
   groupId: string,
-  memberId: string,
+  memberId: string
 ): CoreAction {
   return { type: 'add_group_member', group_id: groupId, member_id: memberId };
 }
 
 export function buildRemoveGroupMemberAction(
   groupId: string,
-  memberId: string,
+  memberId: string
 ): CoreAction {
   return {
     type: 'remove_group_member',
@@ -485,7 +679,7 @@ export function buildRemoveGroupMemberAction(
 
 export function buildApproveJoinRequestAction(
   groupId: string,
-  requesterId: string,
+  requesterId: string
 ): CoreAction {
   return {
     type: 'approve_join_request',
@@ -497,7 +691,7 @@ export function buildApproveJoinRequestAction(
 export function buildRejectJoinRequestAction(
   groupId: string,
   requesterId: string,
-  reason?: string,
+  reason?: string
 ): CoreAction {
   const action: CoreAction = {
     type: 'reject_join_request',
@@ -514,7 +708,7 @@ export function buildCancelJoinRequestAction(groupId: string): CoreAction {
 
 export function buildBlacklistGroupMemberAction(
   groupId: string,
-  memberId: string,
+  memberId: string
 ): CoreAction {
   return {
     type: 'blacklist_group_member',
@@ -525,7 +719,7 @@ export function buildBlacklistGroupMemberAction(
 
 export function buildUnblacklistGroupMemberAction(
   groupId: string,
-  memberId: string,
+  memberId: string
 ): CoreAction {
   return {
     type: 'unblacklist_group_member',
@@ -537,7 +731,7 @@ export function buildUnblacklistGroupMemberAction(
 export function buildTransferGroupOwnershipAction(
   groupId: string,
   newOwner: string,
-  removeOldOwner?: boolean,
+  removeOldOwner?: boolean
 ): CoreAction {
   const action: CoreAction = {
     type: 'transfer_group_ownership',
@@ -550,7 +744,7 @@ export function buildTransferGroupOwnershipAction(
 
 export function buildSetGroupPrivacyAction(
   groupId: string,
-  isPrivate: boolean,
+  isPrivate: boolean
 ): CoreAction {
   return {
     type: 'set_group_privacy',
@@ -570,7 +764,7 @@ export interface CreateProposalOptions {
 }
 
 export function buildCreateProposalAction(
-  opts: CreateProposalOptions,
+  opts: CreateProposalOptions
 ): CoreAction {
   const action: CoreAction = {
     type: 'create_proposal',
@@ -586,7 +780,7 @@ export function buildCreateProposalAction(
 export function buildVoteOnProposalAction(
   groupId: string,
   proposalId: string,
-  approve: boolean,
+  approve: boolean
 ): CoreAction {
   return {
     type: 'vote_on_proposal',
@@ -598,7 +792,7 @@ export function buildVoteOnProposalAction(
 
 export function buildCancelProposalAction(
   groupId: string,
-  proposalId: string,
+  proposalId: string
 ): CoreAction {
   return {
     type: 'cancel_proposal',
@@ -626,7 +820,7 @@ export interface SetPermissionOptions {
 }
 
 export function buildSetPermissionAction(
-  opts: SetPermissionOptions,
+  opts: SetPermissionOptions
 ): CoreAction {
   const action: CoreAction = {
     type: 'set_permission',
@@ -650,7 +844,7 @@ export interface SetKeyPermissionOptions {
 }
 
 export function buildSetKeyPermissionAction(
-  opts: SetKeyPermissionOptions,
+  opts: SetKeyPermissionOptions
 ): CoreAction {
   const action: CoreAction = {
     type: 'set_key_permission',
@@ -683,7 +877,7 @@ export interface SessionKeyGrantOptions {
 }
 
 export function buildSessionKeyGrantAction(
-  opts: SessionKeyGrantOptions,
+  opts: SessionKeyGrantOptions
 ): CoreAction {
   const ttl = opts.ttlMs ?? 24 * 60 * 60 * 1000;
   const now = opts.now ?? Date.now();
@@ -702,10 +896,10 @@ export function buildReplyAction(
   parentId: string,
   post: PostData,
   replyId: string,
-  now?: number,
+  now?: number
 ): CoreAction {
   return buildCoreSetAction(
-    buildReplySetData(parentAuthor, parentId, post, replyId, now),
+    buildReplySetData(parentAuthor, parentId, post, replyId, now)
   );
 }
 
@@ -714,10 +908,10 @@ export function buildQuoteAction(
   refPath: string,
   post: PostData,
   quoteId: string,
-  now?: number,
+  now?: number
 ): CoreAction {
   return buildCoreSetAction(
-    buildQuoteSetData(refAuthor, refPath, post, quoteId, now),
+    buildQuoteSetData(refAuthor, refPath, post, quoteId, now)
   );
 }
 
@@ -725,9 +919,7 @@ export function buildGroupPostAction(
   groupId: string,
   post: PostData,
   postId: string,
-  now?: number,
+  now?: number
 ): CoreAction {
-  return buildCoreSetAction(
-    buildGroupPostSetData(groupId, post, postId, now),
-  );
+  return buildCoreSetAction(buildGroupPostSetData(groupId, post, postId, now));
 }

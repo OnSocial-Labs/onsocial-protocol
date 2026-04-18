@@ -26,7 +26,7 @@ describe('scarces action builders', () => {
         extra: { rarity: 'legendary' },
         royalty: { 'alice.near': 500 },
         appId: 'onsocial',
-      }),
+      })
     ).toEqual({
       type: 'quick_mint',
       metadata: {
@@ -59,7 +59,7 @@ describe('scarces action builders', () => {
         renewable: true,
         transferable: true,
         burnable: false,
-      }),
+      })
     ).toEqual({
       type: 'create_collection',
       collection_id: 'genesis',
@@ -94,7 +94,7 @@ describe('scarces action builders', () => {
         tokenId: '1',
         priceNear: '3.25',
         expiresAt: '123',
-      }),
+      })
     ).toEqual({
       type: 'list_native_scarce',
       token_id: '1',
@@ -126,7 +126,7 @@ describe('scarces action builders', () => {
         transferable: true,
         burnable: false,
         expiresAt: '999',
-      }),
+      })
     ).toEqual({
       type: 'create_lazy_listing',
       metadata: {

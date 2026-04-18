@@ -16,7 +16,7 @@ export interface RewardsParityCase {
 }
 
 export function getRewardsParityCases(
-  network: Network = 'testnet',
+  network: Network = 'testnet'
 ): RewardsParityCase[] {
   const cases: Array<{
     name: string;

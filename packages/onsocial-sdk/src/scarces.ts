@@ -74,7 +74,7 @@ export function buildQuickMintAction(opts: MintOptions) {
 export function buildMintFromCollectionAction(
   collectionId: string,
   quantity = 1,
-  receiverId?: string,
+  receiverId?: string
 ) {
   return {
     type: 'mint_from_collection' as const,
@@ -116,7 +116,7 @@ export function buildCreateCollectionAction(opts: CollectionOptions) {
 export function buildTransferScarceAction(
   tokenId: string,
   receiverId: string,
-  memo?: string,
+  memo?: string
 ) {
   return {
     type: 'transfer_scarce' as const,
@@ -216,10 +216,14 @@ export class ScarcesModule {
     if (opts.endTime) form.append('endTime', opts.endTime);
     if (opts.appId) form.append('appId', opts.appId);
     if (opts.mintMode) form.append('mintMode', opts.mintMode);
-    if (opts.maxPerWallet) form.append('maxPerWallet', String(opts.maxPerWallet));
-    if (opts.renewable !== undefined) form.append('renewable', String(opts.renewable));
-    if (opts.transferable !== undefined) form.append('transferable', String(opts.transferable));
-    if (opts.burnable !== undefined) form.append('burnable', String(opts.burnable));
+    if (opts.maxPerWallet)
+      form.append('maxPerWallet', String(opts.maxPerWallet));
+    if (opts.renewable !== undefined)
+      form.append('renewable', String(opts.renewable));
+    if (opts.transferable !== undefined)
+      form.append('transferable', String(opts.transferable));
+    if (opts.burnable !== undefined)
+      form.append('burnable', String(opts.burnable));
     if (opts.mediaCid) form.append('mediaCid', opts.mediaCid);
     if (opts.mediaHash) form.append('mediaHash', opts.mediaHash);
     if (opts.image) form.append('image', opts.image);
@@ -227,7 +231,7 @@ export class ScarcesModule {
     return this._http.requestForm<RelayResponse>(
       'POST',
       '/compose/create-collection',
-      form,
+      form
     );
   }
 
@@ -235,7 +239,7 @@ export class ScarcesModule {
   async mintFromCollection(
     collectionId: string,
     quantity = 1,
-    receiverId?: string,
+    receiverId?: string
   ): Promise<RelayResponse> {
     return this._http.post<RelayResponse>('/compose/mint-from-collection', {
       collectionId,
@@ -248,23 +252,24 @@ export class ScarcesModule {
   async purchaseFromCollection(
     collectionId: string,
     maxPricePerTokenNear: string,
-    quantity = 1,
+    quantity = 1
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>(
-      '/compose/purchase-from-collection',
-      { collectionId, quantity, maxPricePerTokenNear },
-    );
+    return this._http.post<RelayResponse>('/compose/purchase-from-collection', {
+      collectionId,
+      quantity,
+      maxPricePerTokenNear,
+    });
   }
 
   /** Airdrop scarces from a collection to multiple receivers. */
   async airdrop(
     collectionId: string,
-    receivers: string[],
+    receivers: string[]
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>(
-      '/compose/airdrop-from-collection',
-      { collectionId, receivers },
-    );
+    return this._http.post<RelayResponse>('/compose/airdrop-from-collection', {
+      collectionId,
+      receivers,
+    });
   }
 
   /** Pause minting on a collection. */
@@ -320,7 +325,7 @@ export class ScarcesModule {
     return this._http.requestForm<MintResponse>(
       'POST',
       '/compose/lazy-list',
-      form,
+      form
     );
   }
 
@@ -337,7 +342,7 @@ export class ScarcesModule {
   async transfer(
     tokenId: string,
     receiverId: string,
-    memo?: string,
+    memo?: string
   ): Promise<RelayResponse> {
     return this._http.post<RelayResponse>('/compose/transfer', {
       tokenId,
@@ -348,7 +353,7 @@ export class ScarcesModule {
 
   /** Batch transfer multiple scarces. */
   async batchTransfer(
-    transfers: Array<{ receiver_id: string; token_id: string; memo?: string }>,
+    transfers: Array<{ receiver_id: string; token_id: string; memo?: string }>
   ): Promise<RelayResponse> {
     return this._http.post<RelayResponse>('/compose/batch-transfer', {
       transfers,
@@ -367,10 +372,7 @@ export class ScarcesModule {
 
   /** List a scarce for fixed-price sale. */
   async list(opts: ListingOptions): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>(
-      '/compose/list-native-scarce',
-      opts,
-    );
+    return this._http.post<RelayResponse>('/compose/list-native-scarce', opts);
   }
 
   /** Delist a scarce from sale. */
@@ -438,11 +440,11 @@ export class ScarcesModule {
 
   /** Make an offer on an entire collection. */
   async makeCollectionOffer(
-    opts: CollectionOfferOptions,
+    opts: CollectionOfferOptions
   ): Promise<RelayResponse> {
     return this._http.post<RelayResponse>(
       '/compose/make-collection-offer',
-      opts,
+      opts
     );
   }
 
@@ -457,7 +459,7 @@ export class ScarcesModule {
   async acceptCollectionOffer(
     collectionId: string,
     tokenId: string,
-    buyerId: string,
+    buyerId: string
   ): Promise<RelayResponse> {
     return this._http.post<RelayResponse>('/compose/accept-collection-offer', {
       collectionId,

@@ -23,7 +23,7 @@ export type BoostFtMsg =
 export function buildBoostLockMsg(months: BoostLockPeriod): BoostFtMsg {
   if (!BOOST_LOCK_PERIODS.includes(months)) {
     throw new Error(
-      `Invalid boost lock period: ${months}. Allowed: ${BOOST_LOCK_PERIODS.join(', ')}`,
+      `Invalid boost lock period: ${months}. Allowed: ${BOOST_LOCK_PERIODS.join(', ')}`
     );
   }
   return { action: 'lock', months };

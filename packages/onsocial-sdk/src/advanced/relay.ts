@@ -71,7 +71,9 @@ export class DirectRelay {
     });
 
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+      const err = await res
+        .json()
+        .catch(() => ({ error: `HTTP ${res.status}` }));
       throw new Error(err.error ?? `Relayer returned ${res.status}`);
     }
 

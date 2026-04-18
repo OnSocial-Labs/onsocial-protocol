@@ -43,7 +43,7 @@ export interface ValidatePathOptions {
  */
 export function validatePath(
   path: string,
-  opts: ValidatePathOptions = {},
+  opts: ValidatePathOptions = {}
 ): string | null {
   const maxLen = opts.maxKeyLength ?? PATH_DEFAULTS.maxKeyLength;
   const maxDepth = opts.maxPathDepth ?? PATH_DEFAULTS.maxPathDepth;
@@ -54,7 +54,12 @@ export function validatePath(
   if (path.includes('..') || path.includes('\\') || path.includes('//')) {
     return 'Invalid path format';
   }
-  if (path === '.' || path.startsWith('./') || path.includes('/./') || path.endsWith('/.')) {
+  if (
+    path === '.' ||
+    path.startsWith('./') ||
+    path.includes('/./') ||
+    path.endsWith('/.')
+  ) {
     return 'Invalid path format';
   }
 
@@ -70,7 +75,7 @@ export function validatePath(
 /** Throws if any key in `data` fails validation. */
 export function assertValidPaths(
   data: SocialSetData,
-  opts?: ValidatePathOptions,
+  opts?: ValidatePathOptions
 ): void {
   for (const key of Object.keys(data)) {
     const err = validatePath(key, opts);
@@ -103,7 +108,9 @@ export const paths = {
   groupContent(groupId: string, ...segments: string[]): string {
     if (!groupId) throw new Error('groupId is required');
     const tail = segments.filter((s) => s !== undefined && s !== '').join('/');
-    return tail ? `groups/${groupId}/content/${tail}` : `groups/${groupId}/content`;
+    return tail
+      ? `groups/${groupId}/content/${tail}`
+      : `groups/${groupId}/content`;
   },
   /** Convenience: `groups/<groupId>/content/post/<postId>`. */
   groupPost(groupId: string, postId: string): string {
@@ -161,7 +168,7 @@ export const paths = {
  */
 export function buildAppSetData(
   appId: string,
-  fields: Record<string, unknown>,
+  fields: Record<string, unknown>
 ): SocialSetData {
   if (!appId) throw new Error('appId is required');
   const data: SocialSetData = {};
@@ -190,7 +197,7 @@ export interface MergeOptions {
  */
 export function mergeSetData(
   entries: SocialSetData[],
-  opts: MergeOptions = {},
+  opts: MergeOptions = {}
 ): SocialSetData {
   const mode = opts.onCollision ?? 'error';
   const out: SocialSetData = {};

@@ -70,7 +70,9 @@ describe('query', () => {
     });
 
     it('should respect limit parameter', async () => {
-      const standingWith = await os.query.getStandingWith(ACCOUNT_ID, { limit: 1 });
+      const standingWith = await os.query.getStandingWith(ACCOUNT_ID, {
+        limit: 1,
+      });
       expect(standingWith.length).toBeLessThanOrEqual(1);
     });
   });
@@ -87,6 +89,18 @@ describe('query', () => {
       });
       expect(result.data).toBeDefined();
       expect(Array.isArray(result.data?.dataUpdates)).toBe(true);
+    });
+  });
+
+  describe('platform stats', () => {
+    it('should return profile count', async () => {
+      const count = await os.query.getProfileCount();
+      expect(count).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should return group count', async () => {
+      const count = await os.query.getGroupCount();
+      expect(count).toBeGreaterThanOrEqual(1);
     });
   });
 });

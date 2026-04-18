@@ -7,7 +7,7 @@ import { PUBLIC_TABLES } from './hasuraPermissionCatalog.js';
  * Apply using: POST /v1/metadata with the generated JSON
  *
  * Tiers (must match gateway Tier type: 'free' | 'pro' | 'scale' | 'service'):
- * - free:    Basic queries, 100 row limit, no aggregations
+ * - free:    Basic queries, 100 row limit, aggregations allowed
  * - pro:     Extended queries, 1000 row limit, aggregations allowed
  * - scale:   Full access, 10000 row limit, aggregations allowed
  * - service: Internal services (portal, backend), same as scale
@@ -38,7 +38,7 @@ function generateSelectPermission(
   table: string
 ): object {
   const limits = {
-    free: { limit: 100, allow_aggregations: false },
+    free: { limit: 100, allow_aggregations: true },
     pro: { limit: 1000, allow_aggregations: true },
     scale: { limit: 10000, allow_aggregations: true },
     service: { limit: 10000, allow_aggregations: true },

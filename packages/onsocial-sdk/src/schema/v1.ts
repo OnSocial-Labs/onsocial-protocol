@@ -94,7 +94,13 @@ export interface PostV1 {
 }
 
 export type Embed =
-  | { kind: 'link'; url: string; title?: string; description?: string; image?: MediaRef }
+  | {
+      kind: 'link';
+      url: string;
+      title?: string;
+      description?: string;
+      image?: MediaRef;
+    }
   | { kind: 'token'; chain: string; contract: string; tokenId?: string }
   | { kind: 'poll'; question: string; options: string[]; closesAt?: number };
 
@@ -166,11 +172,15 @@ function validateMedia(m: unknown): string | null {
   if (!isPlainObj(m)) return 'media must be an object';
   if (!isStr(m.cid) || m.cid.length === 0) return 'media.cid required';
   if (!isStr(m.mime) || m.mime.length === 0) return 'media.mime required';
-  if (m.size !== undefined && !isNum(m.size)) return 'media.size must be number';
-  if (m.width !== undefined && !isNum(m.width)) return 'media.width must be number';
-  if (m.height !== undefined && !isNum(m.height)) return 'media.height must be number';
+  if (m.size !== undefined && !isNum(m.size))
+    return 'media.size must be number';
+  if (m.width !== undefined && !isNum(m.width))
+    return 'media.width must be number';
+  if (m.height !== undefined && !isNum(m.height))
+    return 'media.height must be number';
   if (m.alt !== undefined && !isStr(m.alt)) return 'media.alt must be string';
-  if (m.blurhash !== undefined && !isStr(m.blurhash)) return 'media.blurhash must be string';
+  if (m.blurhash !== undefined && !isStr(m.blurhash))
+    return 'media.blurhash must be string';
   return null;
 }
 
@@ -191,10 +201,14 @@ function validateExtensions(x: unknown): string | null {
 export function validateProfileV1(p: unknown): string | null {
   if (!isPlainObj(p)) return 'profile must be an object';
   if (p.v !== SCHEMA_VERSION) return `profile.v must be ${SCHEMA_VERSION}`;
-  if (p.handle !== undefined && (!isStr(p.handle) || !HANDLE_RE.test(p.handle))) {
+  if (
+    p.handle !== undefined &&
+    (!isStr(p.handle) || !HANDLE_RE.test(p.handle))
+  ) {
     return 'profile.handle must match [a-z0-9_]{1,32}';
   }
-  if (p.displayName !== undefined && !isStr(p.displayName)) return 'profile.displayName must be string';
+  if (p.displayName !== undefined && !isStr(p.displayName))
+    return 'profile.displayName must be string';
   if (p.bio !== undefined && !isStr(p.bio)) return 'profile.bio must be string';
   if (p.avatar !== undefined) {
     const e = validateMedia(p.avatar);
@@ -213,7 +227,8 @@ export function validateProfileV1(p: unknown): string | null {
     }
   }
   if (p.tags !== undefined) {
-    if (!Array.isArray(p.tags) || !p.tags.every(isStr)) return 'profile.tags must be string[]';
+    if (!Array.isArray(p.tags) || !p.tags.every(isStr))
+      return 'profile.tags must be string[]';
   }
   if (p.lang !== undefined && (!isStr(p.lang) || !BCP47_RE.test(p.lang))) {
     return 'profile.lang must be a BCP-47 tag';
@@ -225,10 +240,17 @@ export function validatePostV1(post: unknown): string | null {
   if (!isPlainObj(post)) return 'post must be an object';
   if (post.v !== SCHEMA_VERSION) return `post.v must be ${SCHEMA_VERSION}`;
   if (!isStr(post.text)) return 'post.text required';
-  if (post.contentType !== undefined && post.contentType !== 'text' && post.contentType !== 'md') {
+  if (
+    post.contentType !== undefined &&
+    post.contentType !== 'text' &&
+    post.contentType !== 'md'
+  ) {
     return 'post.contentType must be "text" or "md"';
   }
-  if (post.lang !== undefined && (!isStr(post.lang) || !BCP47_RE.test(post.lang))) {
+  if (
+    post.lang !== undefined &&
+    (!isStr(post.lang) || !BCP47_RE.test(post.lang))
+  ) {
     return 'post.lang must be a BCP-47 tag';
   }
   if (post.media !== undefined) {
@@ -244,26 +266,40 @@ export function validatePostV1(post: unknown): string | null {
     }
   }
   if (post.hashtags !== undefined) {
-    if (!Array.isArray(post.hashtags) || !post.hashtags.every((t) => isStr(t) && HASHTAG_RE.test(t))) {
+    if (
+      !Array.isArray(post.hashtags) ||
+      !post.hashtags.every((t) => isStr(t) && HASHTAG_RE.test(t))
+    ) {
       return 'post.hashtags must be lowercase strings without #';
     }
   }
   if (post.embeds !== undefined) {
     if (!Array.isArray(post.embeds)) return 'post.embeds must be array';
     for (const e of post.embeds) {
-      if (!isPlainObj(e) || !isStr(e.kind)) return 'post.embeds[*].kind required';
+      if (!isPlainObj(e) || !isStr(e.kind))
+        return 'post.embeds[*].kind required';
       if (e.kind !== 'link' && e.kind !== 'token' && e.kind !== 'poll') {
         return `post.embeds[*].kind unknown: ${e.kind}`;
       }
     }
   }
-  if (post.parentType !== undefined && post.parentType !== 'post' && post.parentType !== 'comment') {
+  if (
+    post.parentType !== undefined &&
+    post.parentType !== 'post' &&
+    post.parentType !== 'comment'
+  ) {
     return 'post.parentType must be "post" or "comment"';
   }
-  if (post.refType !== undefined && !['quote', 'cite', 'embed'].includes(post.refType as string)) {
+  if (
+    post.refType !== undefined &&
+    !['quote', 'cite', 'embed'].includes(post.refType as string)
+  ) {
     return 'post.refType must be "quote" | "cite" | "embed"';
   }
-  if (post.access !== undefined && !['public', 'private', 'group'].includes(post.access as string)) {
+  if (
+    post.access !== undefined &&
+    !['public', 'private', 'group'].includes(post.access as string)
+  ) {
     return 'post.access must be "public" | "private" | "group"';
   }
   if (post.nsfw !== undefined && typeof post.nsfw !== 'boolean') {
@@ -279,10 +315,14 @@ export function validatePostV1(post: unknown): string | null {
 export function validateReactionV1(r: unknown): string | null {
   if (!isPlainObj(r)) return 'reaction must be an object';
   if (r.v !== SCHEMA_VERSION) return `reaction.v must be ${SCHEMA_VERSION}`;
-  if (!isStr(r.type) || !(REACTION_KINDS as readonly string[]).includes(r.type)) {
+  if (
+    !isStr(r.type) ||
+    !(REACTION_KINDS as readonly string[]).includes(r.type)
+  ) {
     return `reaction.type must be one of ${REACTION_KINDS.join(', ')}`;
   }
-  if (r.emoji !== undefined && !isStr(r.emoji)) return 'reaction.emoji must be string';
+  if (r.emoji !== undefined && !isStr(r.emoji))
+    return 'reaction.emoji must be string';
   if (!isNum(r.timestamp)) return 'reaction.timestamp required';
   return null;
 }
@@ -291,8 +331,10 @@ export function validateStandingV1(s: unknown): string | null {
   if (!isPlainObj(s)) return 'standing must be an object';
   if (s.v !== SCHEMA_VERSION) return `standing.v must be ${SCHEMA_VERSION}`;
   if (!isNum(s.since)) return 'standing.since required';
-  if (s.note !== undefined && !isStr(s.note)) return 'standing.note must be string';
-  if (s.expiresAt !== undefined && !isNum(s.expiresAt)) return 'standing.expiresAt must be number';
+  if (s.note !== undefined && !isStr(s.note))
+    return 'standing.note must be string';
+  if (s.expiresAt !== undefined && !isNum(s.expiresAt))
+    return 'standing.expiresAt must be number';
   return null;
 }
 
@@ -300,16 +342,21 @@ export function validateGroupConfigV1(g: unknown): string | null {
   if (!isPlainObj(g)) return 'group config must be an object';
   if (g.v !== SCHEMA_VERSION) return `group.v must be ${SCHEMA_VERSION}`;
   if (!isStr(g.name) || g.name.length === 0) return 'group.name required';
-  if (g.description !== undefined && !isStr(g.description)) return 'group.description must be string';
+  if (g.description !== undefined && !isStr(g.description))
+    return 'group.description must be string';
   if (g.avatar !== undefined) {
     const e = validateMedia(g.avatar);
     if (e) return `group.avatar: ${e}`;
   }
-  if (typeof g.isPrivate !== 'boolean') return 'group.isPrivate required (boolean)';
+  if (typeof g.isPrivate !== 'boolean')
+    return 'group.isPrivate required (boolean)';
   if (g.memberDriven !== undefined && typeof g.memberDriven !== 'boolean') {
     return 'group.memberDriven must be boolean';
   }
-  if (g.tags !== undefined && (!Array.isArray(g.tags) || !g.tags.every(isStr))) {
+  if (
+    g.tags !== undefined &&
+    (!Array.isArray(g.tags) || !g.tags.every(isStr))
+  ) {
     return 'group.tags must be string[]';
   }
   return validateExtensions(g.x);
@@ -343,14 +390,22 @@ export function profileV1(input: Omit<ProfileV1, 'v'>): ProfileV1 {
   assertProfileV1(out);
   return out;
 }
-export function postV1(input: Omit<PostV1, 'v' | 'timestamp'> & { timestamp?: number }): PostV1 {
-  const out: PostV1 = { v: SCHEMA_VERSION, timestamp: input.timestamp ?? Date.now(), ...input };
+export function postV1(
+  input: Omit<PostV1, 'v' | 'timestamp'> & { timestamp?: number }
+): PostV1 {
+  const out: PostV1 = {
+    v: SCHEMA_VERSION,
+    timestamp: input.timestamp ?? Date.now(),
+    ...input,
+  };
   // input may also contain timestamp; ensure final value
   if (input.timestamp !== undefined) out.timestamp = input.timestamp;
   assertPostV1(out);
   return out;
 }
-export function reactionV1(input: Omit<ReactionV1, 'v' | 'timestamp'> & { timestamp?: number }): ReactionV1 {
+export function reactionV1(
+  input: Omit<ReactionV1, 'v' | 'timestamp'> & { timestamp?: number }
+): ReactionV1 {
   const out: ReactionV1 = {
     v: SCHEMA_VERSION,
     timestamp: input.timestamp ?? Date.now(),
@@ -360,8 +415,14 @@ export function reactionV1(input: Omit<ReactionV1, 'v' | 'timestamp'> & { timest
   assertReactionV1(out);
   return out;
 }
-export function standingV1(input: Omit<StandingV1, 'v' | 'since'> & { since?: number }): StandingV1 {
-  const out: StandingV1 = { v: SCHEMA_VERSION, since: input.since ?? Date.now(), ...input };
+export function standingV1(
+  input: Omit<StandingV1, 'v' | 'since'> & { since?: number }
+): StandingV1 {
+  const out: StandingV1 = {
+    v: SCHEMA_VERSION,
+    since: input.since ?? Date.now(),
+    ...input,
+  };
   if (input.since !== undefined) out.since = input.since;
   assertStandingV1(out);
   return out;
@@ -478,7 +539,8 @@ export function validateSaveV1(s: unknown): string | null {
   if (!isPlainObj(s)) return 'save must be an object';
   if (s.v !== SCHEMA_VERSION) return `save.v must be ${SCHEMA_VERSION}`;
   if (!isNum(s.timestamp)) return 'save.timestamp required (unix ms)';
-  if (s.folder !== undefined && !isStr(s.folder)) return 'save.folder must be string';
+  if (s.folder !== undefined && !isStr(s.folder))
+    return 'save.folder must be string';
   if (s.note !== undefined && !isStr(s.note)) return 'save.note must be string';
   return validateExtensions(s.x);
 }
@@ -487,13 +549,15 @@ export function validateEndorsementV1(e: unknown): string | null {
   if (!isPlainObj(e)) return 'endorsement must be an object';
   if (e.v !== SCHEMA_VERSION) return `endorsement.v must be ${SCHEMA_VERSION}`;
   if (!isNum(e.since)) return 'endorsement.since required (unix ms)';
-  if (e.topic !== undefined && !isStr(e.topic)) return 'endorsement.topic must be string';
+  if (e.topic !== undefined && !isStr(e.topic))
+    return 'endorsement.topic must be string';
   if (e.weight !== undefined) {
     if (!isNum(e.weight) || ![1, 2, 3, 4, 5].includes(e.weight as number)) {
       return 'endorsement.weight must be 1, 2, 3, 4, or 5';
     }
   }
-  if (e.note !== undefined && !isStr(e.note)) return 'endorsement.note must be string';
+  if (e.note !== undefined && !isStr(e.note))
+    return 'endorsement.note must be string';
   if (e.expiresAt !== undefined && !isNum(e.expiresAt)) {
     return 'endorsement.expiresAt must be number';
   }
@@ -504,7 +568,8 @@ function validateAttestationSignature(s: unknown): string | null {
   if (!isPlainObj(s)) return 'signature must be an object';
   if (!isStr(s.alg) || s.alg.length === 0) return 'signature.alg required';
   if (!isStr(s.sig) || s.sig.length === 0) return 'signature.sig required';
-  if (s.signer !== undefined && !isStr(s.signer)) return 'signature.signer must be string';
+  if (s.signer !== undefined && !isStr(s.signer))
+    return 'signature.signer must be string';
   return null;
 }
 
@@ -514,12 +579,14 @@ export function validateAttestationV1(a: unknown): string | null {
   if (!isStr(a.type) || !CLAIM_TYPE_RE.test(a.type)) {
     return 'attestation.type must match [a-z0-9][a-z0-9_-]{0,63}';
   }
-  if (!isStr(a.subject) || a.subject.length === 0) return 'attestation.subject required';
+  if (!isStr(a.subject) || a.subject.length === 0)
+    return 'attestation.subject required';
   if (!isNum(a.issuedAt)) return 'attestation.issuedAt required (unix ms)';
   if (a.expiresAt !== undefined && !isNum(a.expiresAt)) {
     return 'attestation.expiresAt must be number';
   }
-  if (a.scope !== undefined && !isStr(a.scope)) return 'attestation.scope must be string';
+  if (a.scope !== undefined && !isStr(a.scope))
+    return 'attestation.scope must be string';
   if (a.evidence !== undefined) {
     if (!Array.isArray(a.evidence)) return 'attestation.evidence must be array';
     for (const m of a.evidence) {
@@ -551,7 +618,7 @@ export function assertAttestationV1(a: unknown): asserts a is AttestationV1 {
 }
 
 export function saveV1(
-  input: Omit<SaveV1, 'v' | 'timestamp'> & { timestamp?: number },
+  input: Omit<SaveV1, 'v' | 'timestamp'> & { timestamp?: number }
 ): SaveV1 {
   const out: SaveV1 = {
     v: SCHEMA_VERSION,
@@ -564,7 +631,7 @@ export function saveV1(
 }
 
 export function endorsementV1(
-  input: Omit<EndorsementV1, 'v' | 'since'> & { since?: number },
+  input: Omit<EndorsementV1, 'v' | 'since'> & { since?: number }
 ): EndorsementV1 {
   const out: EndorsementV1 = {
     v: SCHEMA_VERSION,
@@ -577,7 +644,7 @@ export function endorsementV1(
 }
 
 export function attestationV1(
-  input: Omit<AttestationV1, 'v' | 'issuedAt'> & { issuedAt?: number },
+  input: Omit<AttestationV1, 'v' | 'issuedAt'> & { issuedAt?: number }
 ): AttestationV1 {
   const out: AttestationV1 = {
     v: SCHEMA_VERSION,

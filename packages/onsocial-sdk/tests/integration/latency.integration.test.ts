@@ -7,7 +7,9 @@ import type { OnSocial } from '../../src/client.js';
 
 describe('latency', () => {
   let os: OnSocial;
-  beforeAll(async () => { os = await getClient(); });
+  beforeAll(async () => {
+    os = await getClient();
+  });
 
   it('post: write → substreams read', async () => {
     const postId = testId();
@@ -20,12 +22,14 @@ describe('latency', () => {
     const t1 = performance.now();
     let found: unknown = null;
     for (let i = 0; i < 60; i++) {
-      await new Promise(r => setTimeout(r, 2000));
+      await new Promise((r) => setTimeout(r, 2000));
       const page = await os.query.getPosts({ author: ACCOUNT_ID, limit: 10 });
       found = page.items.find((p: any) => p.postId === postId);
       if (found) {
         const indexMs = performance.now() - t1;
-        console.log(`POST INDEX:      ${indexMs.toFixed(0)}ms  (poll #${i + 1})`);
+        console.log(
+          `POST INDEX:      ${indexMs.toFixed(0)}ms  (poll #${i + 1})`
+        );
         console.log(`POST TOTAL:      ${(writeMs + indexMs).toFixed(0)}ms`);
         break;
       }
@@ -44,12 +48,14 @@ describe('latency', () => {
     const t1 = performance.now();
     let found: unknown = null;
     for (let i = 0; i < 60; i++) {
-      await new Promise(r => setTimeout(r, 2000));
+      await new Promise((r) => setTimeout(r, 2000));
       const p = await os.query.getProfile(ACCOUNT_ID);
       if (p && p[field]) {
         found = p[field];
         const indexMs = performance.now() - t1;
-        console.log(`PROFILE INDEX:   ${indexMs.toFixed(0)}ms  (poll #${i + 1})`);
+        console.log(
+          `PROFILE INDEX:   ${indexMs.toFixed(0)}ms  (poll #${i + 1})`
+        );
         console.log(`PROFILE TOTAL:   ${(writeMs + indexMs).toFixed(0)}ms`);
         break;
       }

@@ -17,6 +17,14 @@ export interface OnSocialConfig {
   gatewayUrl?: string;
   /** API key for server-side usage (X-API-Key header). */
   apiKey?: string;
+  /**
+   * Actor ID for API-key auth — the end-user account that owns the data.
+   *
+   * When set, the SDK injects `actor_id` into every compose/relay POST body
+   * so the gateway writes data under this account's namespace instead of the
+   * API-key owner's. Only effective with API-key auth.
+   */
+  actorId?: string;
   /** Custom fetch implementation (default: globalThis.fetch). */
   fetch?: typeof globalThis.fetch;
 }

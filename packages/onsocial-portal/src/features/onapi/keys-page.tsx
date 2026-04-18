@@ -83,7 +83,7 @@ const TIER_DAILY_BUDGET: Record<string, number> = {
 
 /** Static tier specs matching the landing-page cards. */
 const TIER_SPECS: Record<string, { depth: string; complexity: string; rows: string; aggregations: boolean }> = {
-  free:  { depth: '3',  complexity: '50',    rows: '100',    aggregations: false },
+  free:  { depth: '3',  complexity: '50',    rows: '100',    aggregations: true },
   pro:   { depth: '8',  complexity: '1,000', rows: '10,000', aggregations: true },
   scale: { depth: '12', complexity: '5,000', rows: '50,000', aggregations: true },
 };

@@ -106,7 +106,7 @@ export const ALL_SCARCES_ACTION_TYPES = [
 ] as const;
 
 export function getScarcesParityCases(
-  network: Network = 'testnet',
+  network: Network = 'testnet'
 ): ScarcesParityCase[] {
   const cases: Array<{
     name: string;

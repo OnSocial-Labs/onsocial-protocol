@@ -60,7 +60,7 @@ export function buildProfileSetData(profile: ProfileData): SocialSetData {
 export function buildPostSetData(
   post: PostData,
   postId: string,
-  now = Date.now(),
+  now = Date.now()
 ): SocialSetData {
   return {
     [`post/${postId}`]: {
@@ -86,7 +86,7 @@ export function buildReplySetData(
   parentId: string,
   post: PostData,
   replyId: string,
-  now = Date.now(),
+  now = Date.now()
 ): SocialSetData {
   return {
     [`post/${replyId}`]: {
@@ -109,7 +109,7 @@ export function buildQuoteSetData(
   refPath: string,
   post: PostData,
   quoteId: string,
-  now = Date.now(),
+  now = Date.now()
 ): SocialSetData {
   return {
     [`post/${quoteId}`]: {
@@ -135,7 +135,7 @@ export function buildGroupPostSetData(
   groupId: string,
   post: PostData,
   postId: string,
-  now = Date.now(),
+  now = Date.now()
 ): SocialSetData {
   return {
     [`groups/${groupId}/content/post/${postId}`]: {
@@ -148,7 +148,7 @@ export function buildGroupPostSetData(
 
 export function buildStandingSetData(
   targetAccount: string,
-  now = Date.now(),
+  now = Date.now()
 ): SocialSetData {
   return {
     [`standing/${targetAccount}`]: { v: SCHEMA_VERSION, since: now },
@@ -170,7 +170,7 @@ export function buildStandingRemoveData(targetAccount: string): SocialSetData {
 export function buildReactionSetData(
   ownerAccount: string,
   contentPath: string,
-  reaction: ReactionData,
+  reaction: ReactionData
 ): SocialSetData {
   const kind = String(reaction.type ?? '').trim();
   if (!kind) {
@@ -188,7 +188,7 @@ export function buildReactionSetData(
 export function buildReactionRemoveData(
   ownerAccount: string,
   kind: string,
-  contentPath: string,
+  contentPath: string
 ): SocialSetData {
   return {
     [`reaction/${ownerAccount}/${kind}/${contentPath}`]: null,
@@ -210,7 +210,7 @@ export interface SaveBuildInput {
  */
 export function buildSaveSetData(
   contentPath: string,
-  input: SaveBuildInput = {},
+  input: SaveBuildInput = {}
 ): SocialSetData {
   const value: Record<string, unknown> = {
     v: SCHEMA_VERSION,
@@ -244,7 +244,7 @@ export interface EndorsementBuildInput {
  */
 export function buildEndorsementSetData(
   targetAccount: string,
-  input: EndorsementBuildInput = {},
+  input: EndorsementBuildInput = {}
 ): SocialSetData {
   const value: Record<string, unknown> = {
     v: SCHEMA_VERSION,
@@ -262,7 +262,7 @@ export function buildEndorsementSetData(
 
 export function buildEndorsementRemoveData(
   targetAccount: string,
-  topic?: string,
+  topic?: string
 ): SocialSetData {
   const path = topic
     ? `endorsement/${targetAccount}/${topic}`
@@ -300,7 +300,7 @@ export interface AttestationBuildInput {
  */
 export function buildAttestationSetData(
   claimId: string,
-  input: AttestationBuildInput,
+  input: AttestationBuildInput
 ): SocialSetData {
   if (!claimId) throw new Error('claimId required');
   if (!input.type) throw new Error('attestation.type required');
@@ -325,7 +325,7 @@ export function buildAttestationSetData(
 export function buildAttestationRemoveData(
   subject: string,
   type: string,
-  claimId: string,
+  claimId: string
 ): SocialSetData {
   return {
     [`claims/${subject}/${type}/${claimId}`]: null,
@@ -341,10 +341,7 @@ function getSingleEntry(data: SocialSetData): [string, unknown] {
 }
 
 function isFileLike(value: unknown): value is Blob | File {
-  return (
-    typeof Blob !== 'undefined' &&
-    value instanceof Blob
-  );
+  return typeof Blob !== 'undefined' && value instanceof Blob;
 }
 
 export class SocialModule {
@@ -364,7 +361,7 @@ export class SocialModule {
     const { cid } = await this._http.requestForm<{ cid: string }>(
       'POST',
       '/storage/upload',
-      form,
+      form
     );
     return `ipfs://${cid}`;
   }
@@ -453,7 +450,9 @@ export class SocialModule {
    * ```
    */
   async unstand(targetAccount: string): Promise<RelayResponse> {
-    const [path, value] = getSingleEntry(buildStandingRemoveData(targetAccount));
+    const [path, value] = getSingleEntry(
+      buildStandingRemoveData(targetAccount)
+    );
     return this._http.post<RelayResponse>('/compose/set', {
       path,
       value: JSON.stringify(value),
@@ -473,10 +472,10 @@ export class SocialModule {
   async react(
     ownerAccount: string,
     contentPath: string,
-    reaction: ReactionData,
+    reaction: ReactionData
   ): Promise<RelayResponse> {
     const [path, value] = getSingleEntry(
-      buildReactionSetData(ownerAccount, contentPath, reaction),
+      buildReactionSetData(ownerAccount, contentPath, reaction)
     );
     return this._http.post<RelayResponse>('/compose/set', {
       path,
@@ -495,10 +494,10 @@ export class SocialModule {
   async unreact(
     ownerAccount: string,
     kind: string,
-    contentPath: string,
+    contentPath: string
   ): Promise<RelayResponse> {
     const [path, value] = getSingleEntry(
-      buildReactionRemoveData(ownerAccount, kind, contentPath),
+      buildReactionRemoveData(ownerAccount, kind, contentPath)
     );
     return this._http.post<RelayResponse>('/compose/set', {
       path,

@@ -43,7 +43,9 @@ export interface SigningPayloadInput {
  * - nonce and expires_at_ms are serialized as strings
  * - action is canonicalized (keys sorted recursively)
  */
-export function buildSigningPayload(input: SigningPayloadInput): Record<string, unknown> {
+export function buildSigningPayload(
+  input: SigningPayloadInput
+): Record<string, unknown> {
   return {
     target_account: input.targetAccount,
     public_key: input.publicKey,
@@ -70,7 +72,7 @@ export function buildSigningPayload(input: SigningPayloadInput): Record<string, 
  */
 export function buildSigningMessage(
   contractId: string,
-  payload: Record<string, unknown>,
+  payload: Record<string, unknown>
 ): Uint8Array {
   const domain = `${DOMAIN_PREFIX}:${contractId}`;
   const payloadJson = JSON.stringify(payload);

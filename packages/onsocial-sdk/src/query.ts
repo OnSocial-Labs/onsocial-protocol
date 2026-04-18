@@ -75,10 +75,16 @@ export class QueryModule {
 
   /** Fetch a profile by account ID (raw rows — one per field). */
   async profile(accountId: string) {
-    return this.graphql<{ profilesCurrent: Array<{
-      accountId: string; field: string; value: string;
-      blockHeight: number; blockTimestamp: number; operation: string;
-    }> }>({
+    return this.graphql<{
+      profilesCurrent: Array<{
+        accountId: string;
+        field: string;
+        value: string;
+        blockHeight: number;
+        blockTimestamp: number;
+        operation: string;
+      }>;
+    }>({
       query: `query Profile($id: String!) {
         profilesCurrent(where: {accountId: {_eq: $id}}) {
           accountId field value blockHeight blockTimestamp operation
@@ -109,16 +115,25 @@ export class QueryModule {
               groupId isGroupContent
             }
           }`,
-      variables: { ...(hasAuthor ? { author: opts.author } : {}), limit, offset },
+      variables: {
+        ...(hasAuthor ? { author: opts.author } : {}),
+        limit,
+        offset,
+      },
     });
   }
 
   /** Fetch standings (who an account stands with). */
   async standings(accountId: string, opts: { limit?: number } = {}) {
-    return this.graphql<{ standingsCurrent: Array<{
-      accountId: string; targetAccount: string; value: string;
-      blockHeight: number; blockTimestamp: number;
-    }> }>({
+    return this.graphql<{
+      standingsCurrent: Array<{
+        accountId: string;
+        targetAccount: string;
+        value: string;
+        blockHeight: number;
+        blockTimestamp: number;
+      }>;
+    }>({
       query: `query Standings($id: String!, $limit: Int!) {
         standingsCurrent(where: {accountId: {_eq: $id}}, limit: $limit) {
           accountId targetAccount value blockHeight blockTimestamp
@@ -131,8 +146,16 @@ export class QueryModule {
   /** Fetch standing counts for an account. */
   async standingCounts(accountId: string) {
     return this.graphql<{
-      standingCounts: Array<{ accountId: string; standingWithCount: number; lastStandingBlock: number }>;
-      standingOutCounts: Array<{ accountId: string; standingWithOthersCount: number; lastStandingBlock: number }>;
+      standingCounts: Array<{
+        accountId: string;
+        standingWithCount: number;
+        lastStandingBlock: number;
+      }>;
+      standingOutCounts: Array<{
+        accountId: string;
+        standingWithOthersCount: number;
+        lastStandingBlock: number;
+      }>;
     }>({
       query: `query StandingCounts($id: String!) {
         standingCounts(where: {accountId: {_eq: $id}}) {
@@ -161,9 +184,14 @@ export class QueryModule {
 
   /** Fetch universal edge counts (any relationship type). */
   async edgeCounts(accountId: string) {
-    return this.graphql<{ edgeCounts: Array<{
-      accountId: string; edgeType: string; inboundCount: number; lastBlock: number;
-    }> }>({
+    return this.graphql<{
+      edgeCounts: Array<{
+        accountId: string;
+        edgeType: string;
+        inboundCount: number;
+        lastBlock: number;
+      }>;
+    }>({
       query: `query EdgeCounts($id: String!) {
         edgeCounts(where: {accountId: {_eq: $id}}) {
           accountId edgeType inboundCount lastBlock
@@ -213,25 +241,28 @@ export class QueryModule {
    */
   async dataByType(
     dataType: string,
-    opts: { accountId?: string; limit?: number; offset?: number } = {},
+    opts: { accountId?: string; limit?: number; offset?: number } = {}
   ) {
     const limit = opts.limit ?? 50;
     const offset = opts.offset ?? 0;
     const conditions = [`{dataType: {_eq: $dataType}}`];
     if (opts.accountId) conditions.push(`{accountId: {_eq: $accountId}}`);
-    const where = conditions.length === 1
-      ? conditions[0]
-      : `{_and: [${conditions.join(', ')}]}`;
+    const where =
+      conditions.length === 1
+        ? conditions[0]
+        : `{_and: [${conditions.join(', ')}]}`;
 
-    return this.graphql<{ dataUpdates: Array<{
-      path: string;
-      value: string;
-      accountId: string;
-      dataId: string;
-      blockHeight: number;
-      blockTimestamp: number;
-      operation: string;
-    }> }>({
+    return this.graphql<{
+      dataUpdates: Array<{
+        path: string;
+        value: string;
+        accountId: string;
+        dataId: string;
+        blockHeight: number;
+        blockTimestamp: number;
+        operation: string;
+      }>;
+    }>({
       query: `query DataByType($dataType: String!${opts.accountId ? ', $accountId: String!' : ''}) {
         dataUpdates(where: ${where}, limit: ${limit}, offset: ${offset}, orderBy: [{blockHeight: DESC}]) {
           path value accountId dataId blockHeight blockTimestamp operation
@@ -252,16 +283,18 @@ export class QueryModule {
    * ```
    */
   async dataByPath(path: string) {
-    return this.graphql<{ dataUpdates: Array<{
-      path: string;
-      value: string;
-      accountId: string;
-      dataType: string;
-      dataId: string;
-      blockHeight: number;
-      blockTimestamp: number;
-      operation: string;
-    }> }>({
+    return this.graphql<{
+      dataUpdates: Array<{
+        path: string;
+        value: string;
+        accountId: string;
+        dataType: string;
+        dataId: string;
+        blockHeight: number;
+        blockTimestamp: number;
+        operation: string;
+      }>;
+    }>({
       query: `query DataByPath($path: String!) {
         dataUpdates(where: {path: {_eq: $path}}, limit: 1, orderBy: [{blockHeight: DESC}]) {
           path value accountId dataType dataId blockHeight blockTimestamp operation
@@ -299,7 +332,7 @@ export class QueryModule {
    * ```
    */
   async getPosts(
-    opts: { author?: string; limit?: number; offset?: number } = {},
+    opts: { author?: string; limit?: number; offset?: number } = {}
   ): Promise<Paginated<PostRow>> {
     const limit = opts.limit ?? 20;
     const res = await this.posts({ ...opts, limit });
@@ -318,9 +351,11 @@ export class QueryModule {
    * const { items } = await os.query.getFeed({ standingWith, limit: 20 });
    * ```
    */
-  async getFeed(
-    opts: { standingWith: string[]; limit?: number; offset?: number },
-  ): Promise<Paginated<PostRow>> {
+  async getFeed(opts: {
+    standingWith: string[];
+    limit?: number;
+    offset?: number;
+  }): Promise<Paginated<PostRow>> {
     if (opts.standingWith.length === 0) return { items: [] };
     const limit = opts.limit ?? 20;
     const offset = opts.offset ?? 0;
@@ -355,14 +390,22 @@ export class QueryModule {
   async getReplies(
     parentAuthor: string,
     postId: string,
-    opts: { limit?: number } = {},
+    opts: { limit?: number } = {}
   ): Promise<PostRow[]> {
-    const parentPath = `post/${postId}`;
-    const res = await this.graphql<{ threadReplies: Array<{
-      replyAuthor: string; replyId: string; value: string;
-      blockHeight: number; blockTimestamp: number; groupId?: string;
-      parentAuthor: string; parentPath: string; parentType?: string;
-    }> }>({
+    const parentPath = `${parentAuthor}/post/${postId}`;
+    const res = await this.graphql<{
+      threadReplies: Array<{
+        replyAuthor: string;
+        replyId: string;
+        value: string;
+        blockHeight: number;
+        blockTimestamp: number;
+        groupId?: string;
+        parentAuthor: string;
+        parentPath: string;
+        parentType?: string;
+      }>;
+    }>({
       query: `query Replies($parentAuthor: String!, $parentPath: String!, $limit: Int!) {
         threadReplies(
           where: {parentAuthor: {_eq: $parentAuthor}, parentPath: {_eq: $parentPath}},
@@ -375,7 +418,7 @@ export class QueryModule {
       }`,
       variables: { parentAuthor, parentPath, limit: opts.limit ?? 100 },
     });
-    return (res.data?.threadReplies ?? []).map(r => ({
+    return (res.data?.threadReplies ?? []).map((r) => ({
       accountId: r.replyAuthor,
       postId: r.replyId,
       value: r.value,
@@ -398,14 +441,22 @@ export class QueryModule {
   async getQuotes(
     refAuthor: string,
     postId: string,
-    opts: { limit?: number } = {},
+    opts: { limit?: number } = {}
   ): Promise<PostRow[]> {
-    const refPath = `post/${postId}`;
-    const res = await this.graphql<{ quotes: Array<{
-      quoteAuthor: string; quoteId: string; value: string;
-      blockHeight: number; blockTimestamp: number; groupId?: string;
-      refAuthor: string; refPath: string; refType?: string;
-    }> }>({
+    const refPath = `${refAuthor}/post/${postId}`;
+    const res = await this.graphql<{
+      quotes: Array<{
+        quoteAuthor: string;
+        quoteId: string;
+        value: string;
+        blockHeight: number;
+        blockTimestamp: number;
+        groupId?: string;
+        refAuthor: string;
+        refPath: string;
+        refType?: string;
+      }>;
+    }>({
       query: `query Quotes($refAuthor: String!, $refPath: String!, $limit: Int!) {
         quotes(
           where: {refAuthor: {_eq: $refAuthor}, refPath: {_eq: $refPath}},
@@ -418,7 +469,7 @@ export class QueryModule {
       }`,
       variables: { refAuthor, refPath, limit: opts.limit ?? 100 },
     });
-    return (res.data?.quotes ?? []).map(q => ({
+    return (res.data?.quotes ?? []).map((q) => ({
       accountId: q.quoteAuthor,
       postId: q.quoteId,
       value: q.value,
@@ -441,12 +492,14 @@ export class QueryModule {
    */
   async getReactionCounts(
     postOwner: string,
-    postPath: string,
+    postPath: string
   ): Promise<Record<string, number>> {
-    const res = await this.graphql<{ reactionCounts: Array<{
-      reactionKind: string;
-      reactionCount: number;
-    }> }>({
+    const res = await this.graphql<{
+      reactionCounts: Array<{
+        reactionKind: string;
+        reactionCount: number;
+      }>;
+    }>({
       query: `query ReactionCounts($owner: String!, $path: String!) {
         reactionCounts(where: {postOwner: {_eq: $owner}, postPath: {_eq: $path}}) {
           reactionKind reactionCount
@@ -474,10 +527,10 @@ export class QueryModule {
    */
   async getStandingWith(
     accountId: string,
-    opts: { limit?: number } = {},
+    opts: { limit?: number } = {}
   ): Promise<string[]> {
     const res = await this.standings(accountId, opts);
-    return (res.data?.standingsCurrent ?? []).map(r => r.targetAccount);
+    return (res.data?.standingsCurrent ?? []).map((r) => r.targetAccount);
   }
 
   /**
@@ -490,11 +543,14 @@ export class QueryModule {
    */
   async getStanders(
     accountId: string,
-    opts: { limit?: number } = {},
+    opts: { limit?: number } = {}
   ): Promise<string[]> {
-    const res = await this.graphql<{ standingsCurrent: Array<{
-      accountId: string; targetAccount: string;
-    }> }>({
+    const res = await this.graphql<{
+      standingsCurrent: Array<{
+        accountId: string;
+        targetAccount: string;
+      }>;
+    }>({
       query: `query Standers($id: String!, $limit: Int!) {
         standingsCurrent(where: {targetAccount: {_eq: $id}}, limit: $limit) {
           accountId targetAccount
@@ -502,7 +558,7 @@ export class QueryModule {
       }`,
       variables: { id: accountId, limit: opts.limit ?? 100 },
     });
-    return (res.data?.standingsCurrent ?? []).map(r => r.accountId);
+    return (res.data?.standingsCurrent ?? []).map((r) => r.accountId);
   }
 
   /**
@@ -513,7 +569,7 @@ export class QueryModule {
    * ```
    */
   async getStandingCounts(
-    accountId: string,
+    accountId: string
   ): Promise<{ standers: number; standingWith: number }> {
     const res = await this.standingCounts(accountId);
     const inbound = res.data?.standingCounts?.[0];
@@ -535,14 +591,20 @@ export class QueryModule {
    */
   async getPostsByHashtag(
     hashtag: string,
-    opts: { limit?: number; offset?: number } = {},
+    opts: { limit?: number; offset?: number } = {}
   ): Promise<Paginated<PostRow>> {
     const limit = opts.limit ?? 20;
     const offset = opts.offset ?? 0;
-    const res = await this.graphql<{ postHashtags: Array<{
-      accountId: string; postId: string; hashtag: string;
-      blockHeight: number; blockTimestamp: number; groupId: string | null;
-    }> }>({
+    const res = await this.graphql<{
+      postHashtags: Array<{
+        accountId: string;
+        postId: string;
+        hashtag: string;
+        blockHeight: number;
+        blockTimestamp: number;
+        groupId: string | null;
+      }>;
+    }>({
       query: `query PostsByHashtag($tag: String!, $limit: Int!, $offset: Int!) {
         postHashtags(
           where: {hashtag: {_eq: $tag}},
@@ -553,11 +615,15 @@ export class QueryModule {
           accountId postId hashtag blockHeight blockTimestamp groupId
         }
       }`,
-      variables: { tag: hashtag.toLowerCase().replace(/^#/, ''), limit, offset },
+      variables: {
+        tag: hashtag.toLowerCase().replace(/^#/, ''),
+        limit,
+        offset,
+      },
     });
     const rows = res.data?.postHashtags ?? [];
     return {
-      items: rows.map(r => ({
+      items: rows.map((r) => ({
         accountId: r.accountId,
         postId: r.postId,
         value: '', // join with posts_current for full content
@@ -578,7 +644,7 @@ export class QueryModule {
    * ```
    */
   async getTrendingHashtags(
-    opts: { limit?: number } = {},
+    opts: { limit?: number } = {}
   ): Promise<HashtagCount[]> {
     const res = await this.graphql<{ hashtagCounts: HashtagCount[] }>({
       query: `query TrendingHashtags($limit: Int!) {
@@ -604,7 +670,7 @@ export class QueryModule {
    */
   async searchHashtags(
     prefix: string,
-    opts: { limit?: number } = {},
+    opts: { limit?: number } = {}
   ): Promise<HashtagCount[]> {
     const res = await this.graphql<{ hashtagCounts: HashtagCount[] }>({
       query: `query SearchHashtags($prefix: String!, $limit: Int!) {
@@ -616,8 +682,47 @@ export class QueryModule {
           hashtag postCount lastBlock
         }
       }`,
-      variables: { prefix: `${prefix.toLowerCase().replace(/^#/, '')}%`, limit: opts.limit ?? 10 },
+      variables: {
+        prefix: `${prefix.toLowerCase().replace(/^#/, '')}%`,
+        limit: opts.limit ?? 10,
+      },
     });
     return res.data?.hashtagCounts ?? [];
+  }
+
+  // ── Platform stats ────────────────────────────────────────────────────
+
+  /**
+   * Get the total number of accounts that have created a profile.
+   *
+   * ```ts
+   * const count = await os.query.getProfileCount();
+   * // count → 42
+   * ```
+   */
+  async getProfileCount(): Promise<number> {
+    const res = await this.graphql<{
+      profilesCurrent: Array<{ accountId: string }>;
+    }>({
+      query: `{ profilesCurrent(where: {value: {_isNull: false}}, distinctOn: [accountId]) { accountId } }`,
+    });
+    return res.data?.profilesCurrent?.length ?? 0;
+  }
+
+  /**
+   * Get the total number of groups created.
+   *
+   * ```ts
+   * const count = await os.query.getGroupCount();
+   * // count → 126
+   * ```
+   */
+  async getGroupCount(): Promise<number> {
+    const res = await this.graphql<{
+      groupUpdates: Array<{ groupId: string }>;
+    }>({
+      query: `{ groupUpdates(where: {value: {_isNull: false}}, distinctOn: [groupId]) { groupId } }`,
+    });
+    return res.data?.groupUpdates?.length ?? 0;
   }
 }

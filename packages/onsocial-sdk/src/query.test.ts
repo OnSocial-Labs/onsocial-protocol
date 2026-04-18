@@ -15,7 +15,11 @@ function stubFetch(body: unknown) {
 
 function makeOs(body: unknown) {
   const fetch = stubFetch(body);
-  const os = new OnSocial({ gatewayUrl: 'https://g.test', fetch, apiKey: 'test-key' });
+  const os = new OnSocial({
+    gatewayUrl: 'https://g.test',
+    fetch,
+    apiKey: 'test-key',
+  });
   return { os, fetch };
 }
 
@@ -29,8 +33,22 @@ describe('QueryModule', () => {
       const { os, fetch } = makeOs({
         data: {
           profilesCurrent: [
-            { accountId: 'a.near', field: 'name', value: '"Alice"', blockHeight: 1, blockTimestamp: 2, operation: 'set' },
-            { accountId: 'a.near', field: 'bio', value: '"Hello"', blockHeight: 1, blockTimestamp: 2, operation: 'set' },
+            {
+              accountId: 'a.near',
+              field: 'name',
+              value: '"Alice"',
+              blockHeight: 1,
+              blockTimestamp: 2,
+              operation: 'set',
+            },
+            {
+              accountId: 'a.near',
+              field: 'bio',
+              value: '"Hello"',
+              blockHeight: 1,
+              blockTimestamp: 2,
+              operation: 'set',
+            },
           ],
         },
       });
@@ -52,7 +70,13 @@ describe('QueryModule', () => {
       const { os, fetch } = makeOs({
         data: {
           postsCurrent: [
-            { accountId: 'a.near', postId: 'p1', value: '{}', blockHeight: 1, blockTimestamp: 2 },
+            {
+              accountId: 'a.near',
+              postId: 'p1',
+              value: '{}',
+              blockHeight: 1,
+              blockTimestamp: 2,
+            },
           ],
         },
       });
@@ -80,8 +104,20 @@ describe('QueryModule', () => {
     it('uses standingWithCount and standingWithOthersCount', async () => {
       const { os, fetch } = makeOs({
         data: {
-          standingCounts: [{ accountId: 'a.near', standingWithCount: 42, lastStandingBlock: 99 }],
-          standingOutCounts: [{ accountId: 'a.near', standingWithOthersCount: 7, lastStandingBlock: 99 }],
+          standingCounts: [
+            {
+              accountId: 'a.near',
+              standingWithCount: 42,
+              lastStandingBlock: 99,
+            },
+          ],
+          standingOutCounts: [
+            {
+              accountId: 'a.near',
+              standingWithOthersCount: 7,
+              lastStandingBlock: 99,
+            },
+          ],
         },
       });
 
@@ -119,8 +155,22 @@ describe('QueryModule', () => {
       const { os } = makeOs({
         data: {
           profilesCurrent: [
-            { accountId: 'a.near', field: 'name', value: '{"v":1,"displayName":"Alice"}', blockHeight: 1, blockTimestamp: 2, operation: 'set' },
-            { accountId: 'a.near', field: 'avatar', value: '{"v":1,"cid":"Qm..."}', blockHeight: 1, blockTimestamp: 2, operation: 'set' },
+            {
+              accountId: 'a.near',
+              field: 'name',
+              value: '{"v":1,"displayName":"Alice"}',
+              blockHeight: 1,
+              blockTimestamp: 2,
+              operation: 'set',
+            },
+            {
+              accountId: 'a.near',
+              field: 'avatar',
+              value: '{"v":1,"cid":"Qm..."}',
+              blockHeight: 1,
+              blockTimestamp: 2,
+              operation: 'set',
+            },
           ],
         },
       });
@@ -141,8 +191,11 @@ describe('QueryModule', () => {
   describe('getPosts()', () => {
     it('returns paginated result with nextOffset', async () => {
       const rows = Array.from({ length: 20 }, (_, i) => ({
-        accountId: 'a.near', postId: `p${i}`, value: '{}',
-        blockHeight: 100 - i, blockTimestamp: 0,
+        accountId: 'a.near',
+        postId: `p${i}`,
+        value: '{}',
+        blockHeight: 100 - i,
+        blockTimestamp: 0,
       }));
       const { os } = makeOs({ data: { postsCurrent: rows } });
 
@@ -152,9 +205,19 @@ describe('QueryModule', () => {
     });
 
     it('returns undefined nextOffset on last page', async () => {
-      const { os } = makeOs({ data: { postsCurrent: [
-        { accountId: 'a.near', postId: 'p1', value: '{}', blockHeight: 1, blockTimestamp: 0 },
-      ] } });
+      const { os } = makeOs({
+        data: {
+          postsCurrent: [
+            {
+              accountId: 'a.near',
+              postId: 'p1',
+              value: '{}',
+              blockHeight: 1,
+              blockTimestamp: 0,
+            },
+          ],
+        },
+      });
 
       const page = await os.query.getPosts({ limit: 20 });
       expect(page.items).toHaveLength(1);
@@ -164,9 +227,19 @@ describe('QueryModule', () => {
 
   describe('getFeed()', () => {
     it('queries posts for standing-with accounts', async () => {
-      const { os, fetch } = makeOs({ data: { postsCurrent: [
-        { accountId: 'bob.near', postId: 'p1', value: '{}', blockHeight: 1, blockTimestamp: 0 },
-      ] } });
+      const { os, fetch } = makeOs({
+        data: {
+          postsCurrent: [
+            {
+              accountId: 'bob.near',
+              postId: 'p1',
+              value: '{}',
+              blockHeight: 1,
+              blockTimestamp: 0,
+            },
+          ],
+        },
+      });
 
       const page = await os.query.getFeed({
         standingWith: ['bob.near', 'carol.near'],
@@ -189,13 +262,23 @@ describe('QueryModule', () => {
 
   describe('getReplies()', () => {
     it('queries threadReplies and normalises to PostRow', async () => {
-      const { os, fetch } = makeOs({ data: { threadReplies: [
-        {
-          replyAuthor: 'bob.near', replyId: 'r1', value: '{"v":1,"text":"reply"}',
-          blockHeight: 10, blockTimestamp: 20, groupId: null,
-          parentAuthor: 'alice.near', parentPath: 'post/p1', parentType: 'post',
+      const { os, fetch } = makeOs({
+        data: {
+          threadReplies: [
+            {
+              replyAuthor: 'bob.near',
+              replyId: 'r1',
+              value: '{"v":1,"text":"reply"}',
+              blockHeight: 10,
+              blockTimestamp: 20,
+              groupId: null,
+              parentAuthor: 'alice.near',
+              parentPath: 'post/p1',
+              parentType: 'post',
+            },
+          ],
         },
-      ] } });
+      });
 
       const replies = await os.query.getReplies('alice.near', 'p1');
       expect(replies).toHaveLength(1);
@@ -204,19 +287,29 @@ describe('QueryModule', () => {
       expect(replies[0].parentAuthor).toBe('alice.near');
 
       const body = JSON.parse(fetch.mock.calls[0][1].body);
-      expect(body.variables.parentPath).toBe('post/p1');
+      expect(body.variables.parentPath).toBe('alice.near/post/p1');
     });
   });
 
   describe('getQuotes()', () => {
     it('queries quotes view and normalises to PostRow', async () => {
-      const { os, fetch } = makeOs({ data: { quotes: [
-        {
-          quoteAuthor: 'carol.near', quoteId: 'q1', value: '{"v":1,"text":"quote"}',
-          blockHeight: 10, blockTimestamp: 20, groupId: null,
-          refAuthor: 'alice.near', refPath: 'post/p1', refType: 'quote',
+      const { os, fetch } = makeOs({
+        data: {
+          quotes: [
+            {
+              quoteAuthor: 'carol.near',
+              quoteId: 'q1',
+              value: '{"v":1,"text":"quote"}',
+              blockHeight: 10,
+              blockTimestamp: 20,
+              groupId: null,
+              refAuthor: 'alice.near',
+              refPath: 'post/p1',
+              refType: 'quote',
+            },
+          ],
         },
-      ] } });
+      });
 
       const quotes = await os.query.getQuotes('alice.near', 'p1');
       expect(quotes).toHaveLength(1);
@@ -224,32 +317,52 @@ describe('QueryModule', () => {
       expect(quotes[0].refAuthor).toBe('alice.near');
 
       const body = JSON.parse(fetch.mock.calls[0][1].body);
-      expect(body.variables.refPath).toBe('post/p1');
+      expect(body.variables.refPath).toBe('alice.near/post/p1');
     });
   });
 
   describe('getReactionCounts()', () => {
     it('returns total count', async () => {
-      const { os } = makeOs({ data: { reactionCounts: [
-        { reactionCount: 7 },
-      ] } });
+      const { os } = makeOs({
+        data: {
+          reactionCounts: [{ reactionKind: 'like', reactionCount: 7 }],
+        },
+      });
 
       const counts = await os.query.getReactionCounts('alice.near', 'post/p1');
-      expect(counts).toEqual({ total: 7 });
+      expect(counts).toEqual({ like: 7, total: 7 });
     });
 
-    it('returns empty object when no reactions', async () => {
+    it('returns only total when no reactions', async () => {
       const { os } = makeOs({ data: { reactionCounts: [] } });
-      expect(await os.query.getReactionCounts('a.near', 'post/x')).toEqual({});
+      expect(await os.query.getReactionCounts('a.near', 'post/x')).toEqual({
+        total: 0,
+      });
     });
   });
 
   describe('getStandingWith()', () => {
     it('returns target account IDs', async () => {
-      const { os } = makeOs({ data: { standingsCurrent: [
-        { accountId: 'a.near', targetAccount: 'bob.near', value: '{}', blockHeight: 1, blockTimestamp: 0 },
-        { accountId: 'a.near', targetAccount: 'carol.near', value: '{}', blockHeight: 1, blockTimestamp: 0 },
-      ] } });
+      const { os } = makeOs({
+        data: {
+          standingsCurrent: [
+            {
+              accountId: 'a.near',
+              targetAccount: 'bob.near',
+              value: '{}',
+              blockHeight: 1,
+              blockTimestamp: 0,
+            },
+            {
+              accountId: 'a.near',
+              targetAccount: 'carol.near',
+              value: '{}',
+              blockHeight: 1,
+              blockTimestamp: 0,
+            },
+          ],
+        },
+      });
 
       const result = await os.query.getStandingWith('a.near');
       expect(result).toEqual(['bob.near', 'carol.near']);
@@ -258,10 +371,14 @@ describe('QueryModule', () => {
 
   describe('getStanders()', () => {
     it('returns source account IDs (inbound)', async () => {
-      const { os, fetch } = makeOs({ data: { standingsCurrent: [
-        { accountId: 'dave.near', targetAccount: 'a.near' },
-        { accountId: 'eve.near', targetAccount: 'a.near' },
-      ] } });
+      const { os, fetch } = makeOs({
+        data: {
+          standingsCurrent: [
+            { accountId: 'dave.near', targetAccount: 'a.near' },
+            { accountId: 'eve.near', targetAccount: 'a.near' },
+          ],
+        },
+      });
 
       const result = await os.query.getStanders('a.near');
       expect(result).toEqual(['dave.near', 'eve.near']);
@@ -276,8 +393,20 @@ describe('QueryModule', () => {
     it('returns parsed numeric counts', async () => {
       const { os } = makeOs({
         data: {
-          standingCounts: [{ accountId: 'a.near', standingWithCount: 42, lastStandingBlock: 99 }],
-          standingOutCounts: [{ accountId: 'a.near', standingWithOthersCount: 7, lastStandingBlock: 99 }],
+          standingCounts: [
+            {
+              accountId: 'a.near',
+              standingWithCount: 42,
+              lastStandingBlock: 99,
+            },
+          ],
+          standingOutCounts: [
+            {
+              accountId: 'a.near',
+              standingWithOthersCount: 7,
+              lastStandingBlock: 99,
+            },
+          ],
         },
       });
 
@@ -300,10 +429,28 @@ describe('QueryModule', () => {
 
   describe('getPostsByHashtag()', () => {
     it('queries postHashtags by tag, newest first', async () => {
-      const { os, fetch } = makeOs({ data: { postHashtags: [
-        { accountId: 'alice.near', postId: 'p1', hashtag: 'onchain', blockHeight: 100, blockTimestamp: 1, groupId: null },
-        { accountId: 'bob.near', postId: 'p2', hashtag: 'onchain', blockHeight: 99, blockTimestamp: 2, groupId: null },
-      ] } });
+      const { os, fetch } = makeOs({
+        data: {
+          postHashtags: [
+            {
+              accountId: 'alice.near',
+              postId: 'p1',
+              hashtag: 'onchain',
+              blockHeight: 100,
+              blockTimestamp: 1,
+              groupId: null,
+            },
+            {
+              accountId: 'bob.near',
+              postId: 'p2',
+              hashtag: 'onchain',
+              blockHeight: 99,
+              blockTimestamp: 2,
+              groupId: null,
+            },
+          ],
+        },
+      });
 
       const page = await os.query.getPostsByHashtag('#onchain', { limit: 10 });
       expect(page.items).toHaveLength(2);
@@ -317,8 +464,12 @@ describe('QueryModule', () => {
 
     it('returns nextOffset when page is full', async () => {
       const rows = Array.from({ length: 5 }, (_, i) => ({
-        accountId: 'a.near', postId: `p${i}`, hashtag: 'gm',
-        blockHeight: 100 - i, blockTimestamp: 0, groupId: null,
+        accountId: 'a.near',
+        postId: `p${i}`,
+        hashtag: 'gm',
+        blockHeight: 100 - i,
+        blockTimestamp: 0,
+        groupId: null,
       }));
       const { os } = makeOs({ data: { postHashtags: rows } });
 
@@ -327,9 +478,20 @@ describe('QueryModule', () => {
     });
 
     it('returns no nextOffset on last page', async () => {
-      const { os } = makeOs({ data: { postHashtags: [
-        { accountId: 'a.near', postId: 'p1', hashtag: 'gm', blockHeight: 1, blockTimestamp: 0, groupId: null },
-      ] } });
+      const { os } = makeOs({
+        data: {
+          postHashtags: [
+            {
+              accountId: 'a.near',
+              postId: 'p1',
+              hashtag: 'gm',
+              blockHeight: 1,
+              blockTimestamp: 0,
+              groupId: null,
+            },
+          ],
+        },
+      });
 
       const page = await os.query.getPostsByHashtag('gm', { limit: 20 });
       expect(page.nextOffset).toBeUndefined();
@@ -338,10 +500,14 @@ describe('QueryModule', () => {
 
   describe('getTrendingHashtags()', () => {
     it('returns hashtags ordered by postCount', async () => {
-      const { os, fetch } = makeOs({ data: { hashtagCounts: [
-        { hashtag: 'onchain', postCount: 42, lastBlock: 100 },
-        { hashtag: 'gm', postCount: 10, lastBlock: 99 },
-      ] } });
+      const { os, fetch } = makeOs({
+        data: {
+          hashtagCounts: [
+            { hashtag: 'onchain', postCount: 42, lastBlock: 100 },
+            { hashtag: 'gm', postCount: 10, lastBlock: 99 },
+          ],
+        },
+      });
 
       const tags = await os.query.getTrendingHashtags({ limit: 10 });
       expect(tags).toHaveLength(2);
@@ -360,10 +526,14 @@ describe('QueryModule', () => {
 
   describe('searchHashtags()', () => {
     it('searches by prefix with _like', async () => {
-      const { os, fetch } = makeOs({ data: { hashtagCounts: [
-        { hashtag: 'onchain', postCount: 42, lastBlock: 100 },
-        { hashtag: 'onsocial', postCount: 5, lastBlock: 90 },
-      ] } });
+      const { os, fetch } = makeOs({
+        data: {
+          hashtagCounts: [
+            { hashtag: 'onchain', postCount: 42, lastBlock: 100 },
+            { hashtag: 'onsocial', postCount: 5, lastBlock: 90 },
+          ],
+        },
+      });
 
       const results = await os.query.searchHashtags('#on', { limit: 5 });
       expect(results).toHaveLength(2);

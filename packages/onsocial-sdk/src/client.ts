@@ -2,7 +2,12 @@
 // OnSocial SDK — main client
 // ---------------------------------------------------------------------------
 
-import type { OnSocialConfig, MintOptions, MintResponse, RelayResponse } from './types.js';
+import type {
+  OnSocialConfig,
+  MintOptions,
+  MintResponse,
+  RelayResponse,
+} from './types.js';
 import { HttpClient } from './http.js';
 import { AuthModule } from './auth.js';
 import { SocialModule } from './social.js';
@@ -10,6 +15,7 @@ import { ScarcesModule } from './scarces.js';
 import { RewardsModule } from './rewards.js';
 import { QueryModule } from './query.js';
 import { StorageModule } from './storage.js';
+import { WebhooksModule } from './webhooks.js';
 
 // ── Execute types ───────────────────────────────────────────────────────────
 
@@ -111,6 +117,8 @@ export class OnSocial {
   readonly query: QueryModule;
   /** IPFS storage (upload files and JSON). */
   readonly storage: StorageModule;
+  /** Webhook endpoints (pro tier+). */
+  readonly webhooks: WebhooksModule;
 
   /** The underlying HTTP client (for advanced usage). */
   readonly http: HttpClient;
@@ -123,6 +131,7 @@ export class OnSocial {
     this.rewards = new RewardsModule(this.http);
     this.query = new QueryModule(this.http);
     this.storage = new StorageModule(this.http);
+    this.webhooks = new WebhooksModule(this.http);
   }
 
   // ── Generic execute ─────────────────────────────────────────────────────
@@ -149,7 +158,7 @@ export class OnSocial {
    */
   async execute(
     action: ExecuteAction,
-    opts?: ExecuteOptions,
+    opts?: ExecuteOptions
   ): Promise<RelayResponse> {
     return this.http.post<RelayResponse>('/relay/execute', {
       action,
@@ -187,7 +196,11 @@ export class OnSocial {
    */
   async submit(
     action: ExecuteAction,
-    opts: { targetAccount: string; auth: SignedAuth; options?: Record<string, unknown> },
+    opts: {
+      targetAccount: string;
+      auth: SignedAuth;
+      options?: Record<string, unknown>;
+    }
   ): Promise<RelayResponse> {
     return this.http.post<RelayResponse>('/relay/signed', {
       target_account: opts.targetAccount,
@@ -220,21 +233,27 @@ export class OnSocial {
   async mintPost(
     postAuthor: string,
     postId: string,
-    opts: MintPostOptions = {},
+    opts: MintPostOptions = {}
   ): Promise<MintPostResult> {
     // Read the post content for NFT metadata
     const entry = await this.social.getOne(`post/${postId}`, postAuthor);
     let text = '';
     if (entry.value) {
       try {
-        const parsed = typeof entry.value === 'string' ? JSON.parse(entry.value) : entry.value;
+        const parsed =
+          typeof entry.value === 'string'
+            ? JSON.parse(entry.value)
+            : entry.value;
         text = parsed.text ?? '';
       } catch {
         text = String(entry.value);
       }
     }
 
-    const title = opts.title ?? ((text.length > 100 ? text.slice(0, 97) + '...' : text) || `Post ${postId}`);
+    const title =
+      opts.title ??
+      ((text.length > 100 ? text.slice(0, 97) + '...' : text) ||
+        `Post ${postId}`);
     const mintOpts: MintOptions = {
       title,
       description: opts.description ?? text,

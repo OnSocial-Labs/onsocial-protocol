@@ -36,7 +36,7 @@ describe('OnSocial.execute', () => {
 
     await os.execute(
       { type: 'set', data: { 'profile/name': 'Alice' } },
-      { targetAccount: 'alice.near', options: { refund_unused_deposit: true } },
+      { targetAccount: 'alice.near', options: { refund_unused_deposit: true } }
     );
 
     const body = JSON.parse(fetch.mock.calls[0][1].body);
@@ -69,7 +69,7 @@ describe('OnSocial.submit', () => {
           expires_at_ms: '9999999999999',
           signature: 'base64sig',
         },
-      },
+      }
     );
 
     const [url, opts] = fetch.mock.calls[0];
@@ -98,7 +98,7 @@ describe('OnSocial.submit', () => {
           signature: 'sig',
         },
         options: { refund_unused_deposit: true },
-      },
+      }
     );
 
     const body = JSON.parse(fetch.mock.calls[0][1].body);
@@ -123,9 +123,15 @@ describe('OnSocial.mintPost', () => {
   it('reads post, mints with post metadata in extra', async () => {
     const fetch = multiFetch(
       // getOne response (post content)
-      { requested_key: 'post/123', full_key: 'alice.near/post/123', value: '{"text":"gm onchain","v":1}', deleted: false, corrupted: false },
+      {
+        requested_key: 'post/123',
+        full_key: 'alice.near/post/123',
+        value: '{"text":"gm onchain","v":1}',
+        deleted: false,
+        corrupted: false,
+      },
       // mint response
-      { txHash: 'token42' },
+      { txHash: 'token42' }
     );
     const os = new OnSocial({ fetch, apiKey: 'key' });
 
@@ -150,9 +156,15 @@ describe('OnSocial.mintPost', () => {
 
   it('lists immediately when priceNear is set', async () => {
     const fetch = multiFetch(
-      { requested_key: 'post/p1', full_key: 'a.near/post/p1', value: '{"text":"sell this"}', deleted: false, corrupted: false },
+      {
+        requested_key: 'post/p1',
+        full_key: 'a.near/post/p1',
+        value: '{"text":"sell this"}',
+        deleted: false,
+        corrupted: false,
+      },
       { txHash: 'token99' },
-      { txHash: 'listing-tx' },
+      { txHash: 'listing-tx' }
     );
     const os = new OnSocial({ fetch, apiKey: 'key' });
 
@@ -173,8 +185,14 @@ describe('OnSocial.mintPost', () => {
   it('truncates long post text to 100 chars for title', async () => {
     const longText = 'a'.repeat(200);
     const fetch = multiFetch(
-      { requested_key: 'post/p1', full_key: 'a.near/post/p1', value: JSON.stringify({ text: longText }), deleted: false, corrupted: false },
-      { txHash: 'tok1' },
+      {
+        requested_key: 'post/p1',
+        full_key: 'a.near/post/p1',
+        value: JSON.stringify({ text: longText }),
+        deleted: false,
+        corrupted: false,
+      },
+      { txHash: 'tok1' }
     );
     const os = new OnSocial({ fetch, apiKey: 'key' });
 
@@ -190,8 +208,14 @@ describe('OnSocial.mintPost', () => {
 
   it('allows title override', async () => {
     const fetch = multiFetch(
-      { requested_key: 'post/p1', full_key: 'a.near/post/p1', value: '{"text":"original"}', deleted: false, corrupted: false },
-      { txHash: 'tok1' },
+      {
+        requested_key: 'post/p1',
+        full_key: 'a.near/post/p1',
+        value: '{"text":"original"}',
+        deleted: false,
+        corrupted: false,
+      },
+      { txHash: 'tok1' }
     );
     const os = new OnSocial({ fetch, apiKey: 'key' });
 

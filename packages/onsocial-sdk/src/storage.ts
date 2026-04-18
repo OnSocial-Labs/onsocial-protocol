@@ -22,7 +22,7 @@ export class StorageModule {
     return this._http.requestForm<StorageUploadResponse>(
       'POST',
       '/storage/upload',
-      form,
+      form
     );
   }
 

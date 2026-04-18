@@ -25,7 +25,7 @@ export const QUERY_LIMITS: Record<Tier, TierLimits> = {
     maxDepth: 3, // Shallow queries only
     maxComplexity: 50, // Simple queries
     maxRowLimit: 100, // Small result sets
-    allowAggregations: false,
+    allowAggregations: true,
   },
   pro: {
     maxDepth: 8, // Deep nesting allowed

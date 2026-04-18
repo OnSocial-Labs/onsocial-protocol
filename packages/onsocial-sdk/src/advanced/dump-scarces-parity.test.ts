@@ -11,7 +11,7 @@ import { getScarcesParityCases } from './scarces-parity.fixtures.js';
 const here = dirname(fileURLToPath(import.meta.url));
 const outPath = resolve(
   here,
-  '../../../../contracts/scarces-onsocial/tests/fixtures/sdk-parity.json',
+  '../../../../contracts/scarces-onsocial/tests/fixtures/sdk-parity.json'
 );
 
 describe('SDK ↔ scarces parity fixture export', () => {

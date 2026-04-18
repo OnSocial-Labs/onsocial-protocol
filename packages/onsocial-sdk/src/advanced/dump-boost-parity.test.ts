@@ -11,7 +11,7 @@ import { getBoostMsgParityCases } from './boost-parity.fixtures.js';
 const here = dirname(fileURLToPath(import.meta.url));
 const outPath = resolve(
   here,
-  '../../../../contracts/boost-onsocial/tests/fixtures/sdk-parity.json',
+  '../../../../contracts/boost-onsocial/tests/fixtures/sdk-parity.json'
 );
 
 describe('SDK ↔ boost msg parity fixture export', () => {

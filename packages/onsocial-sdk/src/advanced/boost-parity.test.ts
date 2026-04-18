@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  BOOST_LOCK_PERIODS,
-  buildBoostLockMsg,
-} from './boost-msg.js';
+import { BOOST_LOCK_PERIODS, buildBoostLockMsg } from './boost-msg.js';
 import { getBoostMsgParityCases } from './boost-parity.fixtures.js';
 
 describe('boost ft_on_transfer msg parity suite', () => {
@@ -22,7 +19,7 @@ describe('boost ft_on_transfer msg parity suite', () => {
   it('rejects invalid lock periods at build time', () => {
     expect(() =>
       // @ts-expect-error — runtime guard, not type-checked.
-      buildBoostLockMsg(3),
+      buildBoostLockMsg(3)
     ).toThrow(/Invalid boost lock period/);
   });
 });

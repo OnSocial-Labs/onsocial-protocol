@@ -138,7 +138,7 @@ class HasuraWebhookStore implements NotificationWebhookStore {
     const data = await this.gql<{
       insertNotificationWebhookEndpointsOne: Record<string, unknown>;
     }>(
-      `mutation($obj: notificationWebhookEndpointsInsertInput!) {
+      `mutation($obj: NotificationWebhookEndpointsInsertInput!) {
         insertNotificationWebhookEndpointsOne(object: $obj) {
           id ownerAccountId appId url signingSecret active createdAt
         }
@@ -203,7 +203,7 @@ class HasuraWebhookStore implements NotificationWebhookStore {
     errorMessage: string | null;
   }): Promise<void> {
     await this.gql(
-      `mutation($obj: notificationDeliveryAttemptsInsertInput!) {
+      `mutation($obj: NotificationDeliveryAttemptsInsertInput!) {
         insertNotificationDeliveryAttemptsOne(object: $obj) { id }
       }`,
       {
@@ -339,11 +339,18 @@ export async function sendNotificationWebhookDelivery(params: {
     );
   }
 
-  await store.recordAttempt({
-    endpointId: params.endpoint.id,
-    notificationId: params.notificationId,
-    statusCode,
-    success,
-    errorMessage,
-  });
+  try {
+    await store.recordAttempt({
+      endpointId: params.endpoint.id,
+      notificationId: params.notificationId,
+      statusCode,
+      success,
+      errorMessage,
+    });
+  } catch (error) {
+    logger.warn(
+      { error, endpointId: params.endpoint.id },
+      'Failed to record notification webhook delivery attempt'
+    );
+  }
 }

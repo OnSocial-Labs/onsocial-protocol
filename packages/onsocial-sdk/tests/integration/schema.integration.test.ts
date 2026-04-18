@@ -103,7 +103,7 @@ describe('schema validation', () => {
 
   describe('core views', () => {
     for (const [table, expectedColumns] of Object.entries(
-      SDK_EXPECTED_SCHEMA,
+      SDK_EXPECTED_SCHEMA
     )) {
       describe(table, () => {
         it(`should exist in Hasura schema`, () => {
@@ -113,7 +113,7 @@ describe('schema validation', () => {
             const queryRoot = schemaTypes.get('query_root');
             expect(
               hasType || queryRoot?.has(table),
-              `Table/view "${table}" not found in Hasura schema`,
+              `Table/view "${table}" not found in Hasura schema`
             ).toBeTruthy();
           }
         });
@@ -124,7 +124,7 @@ describe('schema validation', () => {
             if (fields) {
               expect(
                 fields.has(col),
-                `Column "${col}" missing from "${table}". Available: ${[...fields].join(', ')}`,
+                `Column "${col}" missing from "${table}". Available: ${[...fields].join(', ')}`
               ).toBe(true);
             }
           });
@@ -132,5 +132,4 @@ describe('schema validation', () => {
       });
     }
   });
-
 });
