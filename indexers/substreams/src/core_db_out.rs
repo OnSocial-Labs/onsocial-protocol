@@ -47,6 +47,7 @@ pub(crate) fn core_db_out_impl(output: Output) -> DatabaseChanges {
         row.set("derived_type", &update.derived_type);
         row.set("writes", &update.writes);
         row.set("extra_data", &update.extra_data);
+        row.set("reaction_kind", &update.reaction_kind);
     }
 
     // Process StorageUpdates

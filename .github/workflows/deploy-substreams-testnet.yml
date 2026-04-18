@@ -235,7 +235,8 @@ jobs:
               ALTER COLUMN new_version TYPE TEXT USING new_version::TEXT;
 
             ALTER TABLE IF EXISTS data_updates
-              ADD COLUMN IF NOT EXISTS extra_data TEXT;
+              ADD COLUMN IF NOT EXISTS extra_data TEXT,
+              ADD COLUMN IF NOT EXISTS reaction_kind TEXT;
 
             ALTER TABLE IF EXISTS storage_updates
               ADD COLUMN IF NOT EXISTS available_balance TEXT,

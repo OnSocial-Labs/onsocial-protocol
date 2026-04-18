@@ -29,7 +29,8 @@ CREATE TABLE IF NOT EXISTS data_updates (
   derived_id TEXT,
   derived_type TEXT,
   writes TEXT,
-  extra_data TEXT
+  extra_data TEXT,
+  reaction_kind TEXT
 );
 
 CREATE TABLE IF NOT EXISTS storage_updates (

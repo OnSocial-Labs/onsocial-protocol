@@ -74,6 +74,10 @@ message DataUpdate {
   
   // Full JSON catch-all (ensures no data is ever lost)
   string extra_data = 28;
+
+  // Reaction kind extracted from path: reaction/<owner>/<kind>/<contentPath>
+  // Empty for non-reaction updates. Populated for data_type = "reaction".
+  string reaction_kind = 29;
 }
 
 // =============================================================================

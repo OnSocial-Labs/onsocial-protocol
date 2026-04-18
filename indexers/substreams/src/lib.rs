@@ -507,6 +507,17 @@ fn extract_data_update(
         None
     };
 
+    // Reaction kind: schema v1 uses reaction/<owner>/<kind>/<contentPath>.
+    // For data_type == "reaction", parts[3] is the kind ("like", "bookmark", etc.).
+    let reaction_kind = if data_type.as_deref() == Some("reaction") {
+        path_parts
+            .get(3)
+            .filter(|s| !s.is_empty() && !s.contains('.'))
+            .map(|s| s.to_string())
+    } else {
+        None
+    };
+
     // Get value and extract reference fields
     let value = get_string(&data.extra, "value");
     let value_json: Option<Value> = value.as_ref().and_then(|v| serde_json::from_str(v).ok());
@@ -546,6 +557,7 @@ fn extract_data_update(
         writes: get_string(&data.extra, "writes").unwrap_or_default(),
         // Capture all fields as JSON so nothing is ever lost
         extra_data: serde_json::to_string(&data.extra).unwrap_or_default(),
+        reaction_kind: reaction_kind.unwrap_or_default(),
     })
 }
 
