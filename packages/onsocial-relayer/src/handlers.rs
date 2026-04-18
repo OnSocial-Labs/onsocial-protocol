@@ -360,8 +360,18 @@ pub async fn execute(
 }
 
 /// Build the FunctionCall actions for a relayed execute request.
+///
+/// `target_account` is stripped from the contract args because the relayer
+/// uses it only for routing (choosing the receiver contract).  The contract's
+/// `execute` method defaults `target_account` to `actor_id` when absent,
+/// which puts data under the correct user namespace.
 fn build_execute_actions(request: &Value, gas: NearGas, deposit: u128) -> Vec<Action> {
-    let args = serde_json::to_vec(&serde_json::json!({ "request": request })).unwrap_or_default();
+    let mut contract_request = request.clone();
+    if let Some(obj) = contract_request.as_object_mut() {
+        obj.remove("target_account");
+    }
+    let args =
+        serde_json::to_vec(&serde_json::json!({ "request": contract_request })).unwrap_or_default();
 
     vec![Action::FunctionCall(Box::new(FunctionCallAction {
         method_name: "execute".to_string(),
