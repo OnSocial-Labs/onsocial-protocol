@@ -725,4 +725,270 @@ export class QueryModule {
     });
     return res.data?.groupUpdates?.length ?? 0;
   }
+
+  // ── Saves (private bookmarks) ─────────────────────────────────────────
+
+  /** Row from `saves_current` view. */
+  /**
+   * Get saves (bookmarks) for an account.
+   *
+   * ```ts
+   * const saves = await os.query.getSaves('alice.near');
+   * ```
+   */
+  async getSaves(
+    accountId: string,
+    opts: { limit?: number; offset?: number } = {}
+  ): Promise<
+    Array<{
+      accountId: string;
+      contentPath: string;
+      value: string;
+      blockHeight: number;
+      blockTimestamp: number;
+      operation: string;
+    }>
+  > {
+    const limit = opts.limit ?? 50;
+    const offset = opts.offset ?? 0;
+    const res = await this.graphql<{
+      savesCurrent: Array<{
+        accountId: string;
+        contentPath: string;
+        value: string;
+        blockHeight: number;
+        blockTimestamp: number;
+        operation: string;
+      }>;
+    }>({
+      query: `query Saves($id: String!, $limit: Int!, $offset: Int!) {
+        savesCurrent(
+          where: {accountId: {_eq: $id}, operation: {_eq: "set"}},
+          limit: $limit, offset: $offset,
+          orderBy: [{blockHeight: DESC}]
+        ) {
+          accountId contentPath value blockHeight blockTimestamp operation
+        }
+      }`,
+      variables: { id: accountId, limit, offset },
+    });
+    return res.data?.savesCurrent ?? [];
+  }
+
+  // ── Endorsements ──────────────────────────────────────────────────────
+
+  /**
+   * Get endorsements issued by an account.
+   *
+   * ```ts
+   * const given = await os.query.getEndorsementsGiven('alice.near');
+   * ```
+   */
+  async getEndorsementsGiven(
+    accountId: string,
+    opts: { limit?: number; offset?: number } = {}
+  ): Promise<
+    Array<{
+      issuer: string;
+      target: string;
+      value: string;
+      blockHeight: number;
+      blockTimestamp: number;
+      operation: string;
+    }>
+  > {
+    const limit = opts.limit ?? 50;
+    const offset = opts.offset ?? 0;
+    const res = await this.graphql<{
+      endorsementsCurrent: Array<{
+        issuer: string;
+        target: string;
+        value: string;
+        blockHeight: number;
+        blockTimestamp: number;
+        operation: string;
+      }>;
+    }>({
+      query: `query EndorsementsGiven($id: String!, $limit: Int!, $offset: Int!) {
+        endorsementsCurrent(
+          where: {issuer: {_eq: $id}, operation: {_eq: "set"}},
+          limit: $limit, offset: $offset,
+          orderBy: [{blockHeight: DESC}]
+        ) {
+          issuer target value blockHeight blockTimestamp operation
+        }
+      }`,
+      variables: { id: accountId, limit, offset },
+    });
+    return res.data?.endorsementsCurrent ?? [];
+  }
+
+  /**
+   * Get endorsements received by an account.
+   *
+   * ```ts
+   * const received = await os.query.getEndorsementsReceived('bob.near');
+   * ```
+   */
+  async getEndorsementsReceived(
+    accountId: string,
+    opts: { limit?: number; offset?: number } = {}
+  ): Promise<
+    Array<{
+      issuer: string;
+      target: string;
+      value: string;
+      blockHeight: number;
+      blockTimestamp: number;
+      operation: string;
+    }>
+  > {
+    const limit = opts.limit ?? 50;
+    const offset = opts.offset ?? 0;
+    const res = await this.graphql<{
+      endorsementsCurrent: Array<{
+        issuer: string;
+        target: string;
+        value: string;
+        blockHeight: number;
+        blockTimestamp: number;
+        operation: string;
+      }>;
+    }>({
+      query: `query EndorsementsReceived($id: String!, $limit: Int!, $offset: Int!) {
+        endorsementsCurrent(
+          where: {target: {_eq: $id}, operation: {_eq: "set"}},
+          limit: $limit, offset: $offset,
+          orderBy: [{blockHeight: DESC}]
+        ) {
+          issuer target value blockHeight blockTimestamp operation
+        }
+      }`,
+      variables: { id: accountId, limit, offset },
+    });
+    return res.data?.endorsementsCurrent ?? [];
+  }
+
+  // ── Attestations (claims) ─────────────────────────────────────────────
+
+  /**
+   * Get attestations (claims) issued by an account.
+   *
+   * ```ts
+   * const claims = await os.query.getClaimsIssued('alice.near');
+   * ```
+   */
+  async getClaimsIssued(
+    accountId: string,
+    opts: { claimType?: string; limit?: number; offset?: number } = {}
+  ): Promise<
+    Array<{
+      issuer: string;
+      subject: string;
+      claimType: string;
+      claimId: string;
+      value: string;
+      blockHeight: number;
+      blockTimestamp: number;
+      operation: string;
+    }>
+  > {
+    const limit = opts.limit ?? 50;
+    const offset = opts.offset ?? 0;
+    const conditions = ['{issuer: {_eq: $id}}', '{operation: {_eq: "set"}}'];
+    if (opts.claimType) conditions.push('{claimType: {_eq: $claimType}}');
+    const where = `{_and: [${conditions.join(', ')}]}`;
+
+    const res = await this.graphql<{
+      claimsCurrent: Array<{
+        issuer: string;
+        subject: string;
+        claimType: string;
+        claimId: string;
+        value: string;
+        blockHeight: number;
+        blockTimestamp: number;
+        operation: string;
+      }>;
+    }>({
+      query: `query ClaimsIssued($id: String!${opts.claimType ? ', $claimType: String!' : ''}, $limit: Int!, $offset: Int!) {
+        claimsCurrent(
+          where: ${where},
+          limit: $limit, offset: $offset,
+          orderBy: [{blockHeight: DESC}]
+        ) {
+          issuer subject claimType claimId value blockHeight blockTimestamp operation
+        }
+      }`,
+      variables: {
+        id: accountId,
+        ...(opts.claimType ? { claimType: opts.claimType } : {}),
+        limit,
+        offset,
+      },
+    });
+    return res.data?.claimsCurrent ?? [];
+  }
+
+  /**
+   * Get attestations (claims) about a subject.
+   *
+   * ```ts
+   * const claims = await os.query.getClaimsAbout('bob.near');
+   * ```
+   */
+  async getClaimsAbout(
+    subject: string,
+    opts: { claimType?: string; limit?: number; offset?: number } = {}
+  ): Promise<
+    Array<{
+      issuer: string;
+      subject: string;
+      claimType: string;
+      claimId: string;
+      value: string;
+      blockHeight: number;
+      blockTimestamp: number;
+      operation: string;
+    }>
+  > {
+    const limit = opts.limit ?? 50;
+    const offset = opts.offset ?? 0;
+    const conditions = [
+      '{subject: {_eq: $subject}}',
+      '{operation: {_eq: "set"}}',
+    ];
+    if (opts.claimType) conditions.push('{claimType: {_eq: $claimType}}');
+    const where = `{_and: [${conditions.join(', ')}]}`;
+
+    const res = await this.graphql<{
+      claimsCurrent: Array<{
+        issuer: string;
+        subject: string;
+        claimType: string;
+        claimId: string;
+        value: string;
+        blockHeight: number;
+        blockTimestamp: number;
+        operation: string;
+      }>;
+    }>({
+      query: `query ClaimsAbout($subject: String!${opts.claimType ? ', $claimType: String!' : ''}, $limit: Int!, $offset: Int!) {
+        claimsCurrent(
+          where: ${where},
+          limit: $limit, offset: $offset,
+          orderBy: [{blockHeight: DESC}]
+        ) {
+          issuer subject claimType claimId value blockHeight blockTimestamp operation
+        }
+      }`,
+      variables: {
+        subject,
+        ...(opts.claimType ? { claimType: opts.claimType } : {}),
+        limit,
+        offset,
+      },
+    });
+    return res.data?.claimsCurrent ?? [];
+  }
 }

@@ -312,6 +312,54 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
     ],
   },
   {
+    name: 'saves_current',
+    columns: [
+      'account_id',
+      'content_path',
+      'value',
+      'block_height',
+      'block_timestamp',
+      'operation',
+    ],
+  },
+  {
+    name: 'endorsements_current',
+    columns: [
+      'issuer',
+      'target',
+      'topic_or_target',
+      'path',
+      'value',
+      'block_height',
+      'block_timestamp',
+      'operation',
+    ],
+  },
+  {
+    name: 'saves_current',
+    columns: [
+      'account_id',
+      'content_path',
+      'value',
+      'block_height',
+      'block_timestamp',
+      'operation',
+    ],
+  },
+  {
+    name: 'endorsements_current',
+    columns: [
+      'issuer',
+      'target',
+      'topic_or_target',
+      'path',
+      'value',
+      'block_height',
+      'block_timestamp',
+      'operation',
+    ],
+  },
+  {
     name: 'post_hashtags',
     columns: [
       'account_id',

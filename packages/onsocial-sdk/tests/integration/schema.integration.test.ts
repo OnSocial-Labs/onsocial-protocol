@@ -68,6 +68,24 @@ const SDK_EXPECTED_SCHEMA: Record<string, string[]> = {
     'value',
     'blockHeight',
   ],
+  // query.ts → saves
+  savesCurrent: [
+    'accountId',
+    'contentPath',
+    'value',
+    'blockHeight',
+    'blockTimestamp',
+    'operation',
+  ],
+  // query.ts → endorsements
+  endorsementsCurrent: [
+    'issuer',
+    'target',
+    'value',
+    'blockHeight',
+    'blockTimestamp',
+    'operation',
+  ],
 };
 
 let schemaTypes: Map<string, Set<string>>;

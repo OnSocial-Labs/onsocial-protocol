@@ -57,8 +57,8 @@ if [ ${#SQL_FILES[@]} -eq 0 ]; then
   exit 1
 fi
 
-PUBLIC_RELATIONS=$(grep -hE 'CREATE (TABLE|VIEW|MATERIALIZED VIEW) IF NOT EXISTS ' "${SQL_FILES[@]}" | \
-  sed -E 's/^CREATE (TABLE|VIEW|MATERIALIZED VIEW) IF NOT EXISTS ([a-zA-Z_][a-zA-Z0-9_]*).*/\2/' | \
+PUBLIC_RELATIONS=$(grep -hE 'CREATE (OR REPLACE )?(TABLE|VIEW|MATERIALIZED VIEW) ' "${SQL_FILES[@]}" | \
+  sed -E 's/^CREATE (OR REPLACE )?(TABLE|VIEW|MATERIALIZED VIEW) (IF NOT EXISTS )?([a-zA-Z_][a-zA-Z0-9_]*).*/\4/' | \
   sort -u | \
   grep -vx 'schema_migrations' || true)
 

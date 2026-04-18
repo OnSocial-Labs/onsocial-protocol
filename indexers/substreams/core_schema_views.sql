@@ -280,6 +280,46 @@ FROM post_hashtags
 GROUP BY hashtag;
 
 -- ────────────────────────────────────────────────────────────────────────────
+-- 14. saves_current — latest save state per (account, path)
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE INDEX IF NOT EXISTS idx_data_updates_saved_dedup
+  ON data_updates(account_id, path, block_height DESC) WHERE data_type = 'saved';
+
+CREATE OR REPLACE VIEW saves_current AS
+SELECT DISTINCT ON (account_id, path)
+  account_id,
+  path                         AS content_path,
+  value,
+  block_height,
+  block_timestamp,
+  operation
+FROM data_updates
+WHERE data_type = 'saved'
+ORDER BY account_id, path, block_height DESC;
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 15. endorsements_current — latest endorsement per (issuer, target[, topic])
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE INDEX IF NOT EXISTS idx_data_updates_endorsement_dedup
+  ON data_updates(account_id, path, block_height DESC) WHERE data_type = 'endorsement';
+
+CREATE OR REPLACE VIEW endorsements_current AS
+SELECT DISTINCT ON (account_id, path)
+  account_id                   AS issuer,
+  target_account               AS target,
+  data_id                      AS topic_or_target,
+  path,
+  value,
+  block_height,
+  block_timestamp,
+  operation
+FROM data_updates
+WHERE data_type = 'endorsement'
+ORDER BY account_id, path, block_height DESC;
+
+-- ────────────────────────────────────────────────────────────────────────────
 -- refresh_core_views() — no-op kept for backward compatibility
 -- ────────────────────────────────────────────────────────────────────────────
 -- Regular views are always live. This function is retained so that any
