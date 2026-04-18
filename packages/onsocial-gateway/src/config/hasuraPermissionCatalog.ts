@@ -35,6 +35,7 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
       'derived_type',
       'writes',
       'extra_data',
+      'reaction_kind',
     ],
   },
   {
@@ -221,6 +222,7 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
     columns: [
       'account_id',
       'post_owner',
+      'reaction_kind',
       'path',
       'value',
       'block_height',
@@ -232,6 +234,7 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
     name: 'reaction_counts',
     columns: [
       'post_owner',
+      'reaction_kind',
       'post_path',
       'reaction_count',
       'last_reaction_block',
@@ -293,6 +296,35 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
   {
     name: 'edge_counts',
     columns: ['account_id', 'edge_type', 'inbound_count', 'last_block'],
+  },
+  {
+    name: 'claims_current',
+    columns: [
+      'issuer',
+      'subject',
+      'claim_type',
+      'claim_id',
+      'path',
+      'value',
+      'block_height',
+      'block_timestamp',
+      'operation',
+    ],
+  },
+  {
+    name: 'post_hashtags',
+    columns: [
+      'account_id',
+      'post_id',
+      'hashtag',
+      'block_height',
+      'block_timestamp',
+      'group_id',
+    ],
+  },
+  {
+    name: 'hashtag_counts',
+    columns: ['hashtag', 'post_count', 'last_block'],
   },
   {
     name: 'token_events',

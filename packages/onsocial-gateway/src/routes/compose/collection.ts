@@ -73,6 +73,8 @@ function buildCreateCollectionReq(body: Record<string, unknown>) {
     allowlistPrice,
     transferable,
     burnable,
+    mediaCid,
+    mediaHash,
     targetAccount,
   } = body as Record<string, string | undefined>;
 
@@ -102,6 +104,8 @@ function buildCreateCollectionReq(body: Record<string, unknown>) {
         transferable: parseBool(transferable),
       }),
       ...(parseBool(burnable) != null && { burnable: parseBool(burnable) }),
+      ...(mediaCid && { mediaCid }),
+      ...(mediaHash && { mediaHash }),
       ...(targetAccount && { targetAccount }),
     },
     parsedExtra,

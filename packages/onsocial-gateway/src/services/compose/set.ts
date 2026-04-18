@@ -10,6 +10,7 @@ import {
   intentAuth,
   relayExecute,
   extractTxHash,
+  resolveCoreTarget,
   logger,
 } from './shared.js';
 
@@ -169,7 +170,7 @@ export async function buildSetAction(
 
   return {
     action,
-    targetAccount: req.targetAccount || accountId,
+    targetAccount: req.targetAccount || resolveCoreTarget(),
     uploads,
   };
 }

@@ -61,6 +61,10 @@ export interface ComposeCreateCollectionRequest {
   transferable?: boolean;
   /** Is token burnable (default true) */
   burnable?: boolean;
+  /** Pre-uploaded IPFS CID — when set, gateway skips upload (BYO storage). */
+  mediaCid?: string;
+  /** Pre-computed media hash to pair with `mediaCid`. */
+  mediaHash?: string;
   /** Optional: override target account (which scarces contract) */
   targetAccount?: string;
 }
@@ -188,8 +192,15 @@ export async function buildCreateCollectionAction(
 
   let media: UploadResult | undefined;
 
-  // 1. Upload collection image if provided
-  if (imageFile) {
+  // 1. Resolve media: prefer caller-provided CID (BYO storage); else upload.
+  if (req.mediaCid) {
+    media = {
+      cid: req.mediaCid,
+      url: `https://gateway.lighthouse.storage/ipfs/${req.mediaCid}`,
+      size: 0,
+      hash: req.mediaHash ?? '',
+    };
+  } else if (imageFile) {
     media = await uploadToLighthouse(imageFile);
     logger.info(
       { accountId, cid: media.cid, size: media.size },
@@ -202,7 +213,7 @@ export async function buildCreateCollectionAction(
     title: req.title,
     ...(req.description && { description: req.description }),
     ...(media && { media: `ipfs://${media.cid}` }),
-    ...(media && { media_hash: media.hash }),
+    ...(media && media.hash && { media_hash: media.hash }),
     ...(req.extra && { extra: JSON.stringify(req.extra) }),
   };
 

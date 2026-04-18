@@ -132,6 +132,16 @@ export interface SimpleActionResult {
   targetAccount: string;
 }
 
+/** Resolve the core contract account for the current network. */
+export function resolveCoreTarget(override?: string): string {
+  return (
+    override ||
+    (config.nearNetwork === 'mainnet'
+      ? 'core.onsocial.near'
+      : 'core.onsocial.testnet')
+  );
+}
+
 /** Resolve the scarces contract account for the current network. */
 export function resolveScarcesTarget(override?: string): string {
   return (

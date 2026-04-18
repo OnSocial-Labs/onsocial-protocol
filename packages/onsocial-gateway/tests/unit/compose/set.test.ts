@@ -300,7 +300,7 @@ describe('buildSetAction', () => {
       type: 'set',
       data: { 'profile/bio': { text: 'Developer' } },
     });
-    expect(result.targetAccount).toBe('alice.testnet');
+    expect(result.targetAccount).toBe('core.onsocial.testnet');
     expect(Object.keys(result.uploads)).toHaveLength(0);
     // No relay call
     expect(mockFetch).not.toHaveBeenCalled();
