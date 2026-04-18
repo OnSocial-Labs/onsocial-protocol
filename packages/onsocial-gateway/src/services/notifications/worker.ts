@@ -797,6 +797,11 @@ export class NotificationWorker {
   async processSourceTable(
     sourceTable: SourceTable
   ): Promise<SourceProcessingResult> {
+    const pendingDeliveries: Array<{
+      notificationId: string;
+      notification: NotificationInsert;
+    }> = [];
+
     await this.client.query('BEGIN');
     try {
       const cursor = await getCursor(this.client, sourceTable);
@@ -819,8 +824,20 @@ export class NotificationWorker {
         const notifications = await this.expandNotificationsForRules(
           await this.mapSourceRow(sourceTable, row)
         );
-        insertedNotifications +=
-          await this.insertAndDeliverNotifications(notifications);
+        for (const notification of notifications) {
+          const insertedId = await insertNotification(
+            this.client,
+            notification
+          );
+          if (!insertedId) {
+            continue;
+          }
+          insertedNotifications += 1;
+          pendingDeliveries.push({
+            notificationId: insertedId,
+            notification,
+          });
+        }
       }
 
       const lastRow = rows.at(-1) as {
@@ -842,6 +859,11 @@ export class NotificationWorker {
       );
 
       await this.client.query('COMMIT');
+
+      // Deliver webhooks AFTER commit so Hasura can see the notification rows
+      for (const { notificationId, notification } of pendingDeliveries) {
+        await this.deliverNotification(notificationId, notification);
+      }
 
       return {
         sourceTable,
@@ -945,24 +967,6 @@ export class NotificationWorker {
       this.ruleCache = await listAllNotificationRules();
     }
     return this.ruleCache;
-  }
-
-  private async insertAndDeliverNotifications(
-    notifications: NotificationInsert[]
-  ): Promise<number> {
-    let inserted = 0;
-
-    for (const notification of notifications) {
-      const insertedId = await insertNotification(this.client, notification);
-      if (!insertedId) {
-        continue;
-      }
-
-      inserted += 1;
-      await this.deliverNotification(insertedId, notification);
-    }
-
-    return inserted;
   }
 
   private async deliverNotification(
