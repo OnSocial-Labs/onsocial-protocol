@@ -402,8 +402,8 @@ services:
   pages:
     image: ghcr.io/onsocial-labs/onsocial-protocol/pages:${IMAGE_TAG:-latest}
     container_name: pages
-    expose:
-      - "3456"
+    ports:
+      - "3456:3456"
     restart: unless-stopped
     mem_limit: 256m
     cpus: 0.5
