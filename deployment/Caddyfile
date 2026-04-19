@@ -59,32 +59,20 @@ __SERVER_NAMES__ {
 }
 
 # ---------- Pages (*.onsocial.id profile pages) ----------
-*.onsocial.id {
-	tls {
-		on_demand
-	}
-
-	rate_limit {
-		zone pages_per_ip {
-			key    {remote_host}
-			events 60
-			window 1s
-		}
-	}
-
-	reverse_proxy pages:3456
-
-	header {
-		X-Content-Type-Options "nosniff"
-		Referrer-Policy "strict-origin-when-cross-origin"
-		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
-		-Server
-	}
-
-	log {
-		output file /data/logs/pages.log {
-			roll_size 50MB
-			roll_keep 3
-		}
-	}
-}
+# Uncomment when DNS *.onsocial.id points to this server AND pages container
+# is running. The wildcard MUST NOT match the gateway domain above.
+# On testnet (testnet.onsocial.id): pages needs a SEPARATE server or the
+# gateway domain must be excluded via a Caddy matcher.
+#
+# __PAGES_WILDCARD__ {
+# 	tls {
+# 		on_demand
+# 	}
+#
+# 	@not-gateway host testnet.onsocial.id api.onsocial.id mainnet.onsocial.id
+# 	handle @not-gateway {
+# 		reverse_proxy __GATEWAY_UPSTREAM__
+# 	}
+#
+# 	reverse_proxy pages:3456
+# }
