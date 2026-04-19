@@ -12,7 +12,17 @@
 # The generated Caddyfile should only contain the hostnames for the target
 # environment so testnet and mainnet stay explicitly separated.
 
+# ---------- Global: on-demand TLS for *.onsocial.id pages ----------
+{
+	on_demand_tls {
+		interval 1m
+		burst    10
+	}
+}
+
 # ---------- API Gateway (sole public surface) ----------
+# Caddy routes specific hostnames before wildcards, so this block
+# always wins for testnet.onsocial.id / api.onsocial.id.
 __SERVER_NAMES__ {
 	# 100 req/s per IP — protects infra before requests reach the app
 	rate_limit {
@@ -59,20 +69,36 @@ __SERVER_NAMES__ {
 }
 
 # ---------- Pages (*.onsocial.id profile pages) ----------
-# Uncomment when DNS *.onsocial.id points to this server AND pages container
-# is running. The wildcard MUST NOT match the gateway domain above.
-# On testnet (testnet.onsocial.id): pages needs a SEPARATE server or the
-# gateway domain must be excluded via a Caddy matcher.
-#
-# __PAGES_WILDCARD__ {
-# 	tls {
-# 		on_demand
-# 	}
-#
-# 	@not-gateway host testnet.onsocial.id api.onsocial.id mainnet.onsocial.id
-# 	handle @not-gateway {
-# 		reverse_proxy __GATEWAY_UPSTREAM__
-# 	}
-#
-# 	reverse_proxy pages:3456
-# }
+# Caddy matches specific hostnames (above) before wildcards, so
+# testnet.onsocial.id / api.onsocial.id always route to gateway.
+# Everything else (alex.onsocial.id, bob.onsocial.id, ...) → pages.
+# Requires DNS: *.onsocial.id A → this server.
+*.onsocial.id {
+	tls {
+		on_demand
+	}
+
+	rate_limit {
+		zone pages_per_ip {
+			key    {remote_host}
+			events 60
+			window 1s
+		}
+	}
+
+	reverse_proxy pages:3456
+
+	header {
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		-Server
+	}
+
+	log {
+		output file /data/logs/pages.log {
+			roll_size 50MB
+			roll_keep 3
+		}
+	}
+}
