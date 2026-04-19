@@ -298,3 +298,206 @@ export interface ApiError {
   limit?: number;
   retryAfter?: number;
 }
+
+// ── Groups ──────────────────────────────────────────────────────────────────
+
+export interface GroupMemberData {
+  role?: string;
+  permissions?: number;
+  joined_at?: string;
+  [key: string]: unknown;
+}
+
+export interface GroupStats {
+  member_count?: number;
+  proposal_count?: number;
+  [key: string]: unknown;
+}
+
+export interface JoinRequest {
+  status: 'pending' | 'approved' | 'rejected';
+  requested_at: string;
+  requester_id: string;
+  approved_at?: string;
+  approved_by?: string;
+  granted_permissions?: number;
+  [key: string]: unknown;
+}
+
+// ── Governance ──────────────────────────────────────────────────────────────
+
+export type ProposalStatus =
+  | 'active'
+  | 'executed'
+  | 'executed_skipped'
+  | 'rejected'
+  | 'cancelled';
+
+export interface VotingConfig {
+  participation_quorum_bps: number;
+  majority_threshold_bps: number;
+  voting_period: string;
+}
+
+export interface Proposal {
+  id: string;
+  sequence_number: number;
+  title: string;
+  description: string;
+  type: string;
+  proposer: string;
+  target?: string;
+  data: Record<string, unknown>;
+  created_at: string;
+  status: ProposalStatus;
+  voting_config: VotingConfig;
+  locked_deposit?: string;
+  [key: string]: unknown;
+}
+
+export interface ProposalTally {
+  yes_votes: number;
+  total_votes: number;
+  created_at: string;
+  locked_member_count: number;
+}
+
+export interface Vote {
+  voter: string;
+  approve: boolean;
+  timestamp: string;
+}
+
+export interface ListProposalsOptions {
+  fromSequence?: number;
+  limit?: number;
+}
+
+// ── Permissions ─────────────────────────────────────────────────────────────
+
+export type PermissionLevel = 0 | 1 | 2 | 3 | 4;
+
+// ── On-chain Storage ────────────────────────────────────────────────────────
+
+export interface AccountSharedStorage {
+  max_bytes: number;
+  used_bytes: number;
+  pool_id: string;
+}
+
+export interface OnChainStorageBalance {
+  balance: string;
+  used_bytes: number;
+  shared_storage?: AccountSharedStorage;
+  group_pool_used_bytes: number;
+  platform_pool_used_bytes: number;
+  platform_sponsored: boolean;
+  platform_first_write_ns?: number;
+  platform_allowance: number;
+  platform_last_refill_ns: number;
+  locked_balance: string;
+}
+
+export interface PlatformPoolInfo {
+  storage_balance: string;
+  total_bytes: number;
+  used_bytes: number;
+  shared_bytes: number;
+  available_bytes: number;
+}
+
+export interface PlatformAllowanceInfo {
+  current_allowance: number;
+  first_write_ns: number | null;
+  is_platform_sponsored: boolean;
+  config: {
+    onboarding_bytes: number;
+    daily_refill_bytes: number;
+    max_allowance_bytes: number;
+  };
+}
+
+// ── Contract Info ───────────────────────────────────────────────────────────
+
+export type ContractStatus = 'Genesis' | 'Live' | 'ReadOnly';
+
+export interface GovernanceConfig {
+  max_key_length: number;
+  max_path_depth: number;
+  max_batch_size: number;
+  max_value_bytes: number;
+  platform_onboarding_bytes: number;
+  platform_daily_refill_bytes: number;
+  platform_allowance_max_bytes: number;
+  intents_executors: string[];
+}
+
+export interface ContractInfo {
+  manager: string;
+  version: string;
+  status: ContractStatus;
+  config: GovernanceConfig;
+}
+
+// ── Pages ───────────────────────────────────────────────────────────────────
+
+/** Sections that can appear on a user's page. */
+export type PageSection =
+  | 'profile'
+  | 'links'
+  | 'support'
+  | 'posts'
+  | 'events'
+  | 'collectibles'
+  | 'badges'
+  | 'groups';
+
+/** Theme customisation stored in `page/main`. */
+export interface PageTheme {
+  primary?: string;
+  background?: string;
+  text?: string;
+  accent?: string;
+}
+
+/** Page configuration stored at `{account}/page/main`. */
+export interface PageConfig {
+  /** Template identifier — e.g. "minimal", "creator", "business". */
+  template?: string;
+  /** Color theme overrides. */
+  theme?: PageTheme;
+  /** Ordered list of visible sections. */
+  sections?: PageSection[];
+  /** Custom tagline (overrides bio on page). */
+  tagline?: string;
+  /** Custom CSS URL (premium feature). */
+  customCss?: string;
+}
+
+/** Aggregated page data returned by the gateway `/data/page` endpoint. */
+export interface PageData {
+  accountId: string;
+  profile: {
+    name?: string;
+    bio?: string;
+    avatar?: string;
+    links?: Array<{ label: string; url: string }>;
+    tags?: string[];
+  };
+  config: PageConfig;
+  stats: {
+    standingCount?: number;
+    postCount?: number;
+    badgeCount?: number;
+    groupCount?: number;
+  };
+  recentPosts?: Array<{
+    id: string;
+    text: string;
+    createdAt: string;
+  }>;
+  badges?: Array<{
+    name: string;
+    value: unknown;
+  }>;
+}

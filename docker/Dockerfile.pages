@@ -1,0 +1,45 @@
+# Dockerfile for onsocial-pages
+# Lightweight Node.js server that renders profile pages for *.onsocial.id
+
+# Stage 1: Build
+FROM node:22-alpine3.23 AS builder
+
+WORKDIR /app
+
+COPY packages/onsocial-pages/package.json ./
+COPY packages/onsocial-pages/tsconfig.json ./
+COPY tsconfig.json /app/root-tsconfig.json
+
+# Minimal install (pages is standalone — only needs TS compiler + node types)
+RUN npm install typescript @types/node
+
+# Copy source
+COPY packages/onsocial-pages/src ./src
+
+# Fix tsconfig extends path for isolated build
+RUN sed -i 's|../../tsconfig.json|/app/root-tsconfig.json|' tsconfig.json
+
+# Build
+RUN npx tsc
+
+# Stage 2: Production
+FROM node:22-alpine3.23 AS production
+
+WORKDIR /app
+
+# Copy built output only
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/package.json ./
+
+# Non-root user
+RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
+USER nodejs
+
+EXPOSE 3456
+
+ENV PORT=3456
+ENV NODE_ENV=production
+ENV NEAR_RPC_URL=https://rpc.testnet.near.org
+ENV CORE_CONTRACT=core.onsocial.testnet
+
+CMD ["node", "dist/server.js"]

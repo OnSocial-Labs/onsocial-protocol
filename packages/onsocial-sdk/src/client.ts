@@ -17,6 +17,10 @@ import { QueryModule } from './query.js';
 import { StorageModule } from './storage.js';
 import { WebhooksModule } from './webhooks.js';
 import { NotificationsModule } from './notifications.js';
+import { GroupsModule } from './groups.js';
+import { PermissionsModule } from './permissions.js';
+import { ChainModule } from './chain.js';
+import { PagesModule } from './pages.js';
 
 // ── Execute types ───────────────────────────────────────────────────────────
 
@@ -86,10 +90,23 @@ export interface SignedAuth {
  * await os.social.setProfile({ name: 'Alice', bio: 'Builder' });
  * await os.social.post({ text: 'Hello OnSocial!' });
  * await os.social.standWith('bob.near');
+ * await os.social.reply('bob.near', '123', { text: 'Great post!' });
+ * await os.social.save('bob.near/post/123');
+ * await os.social.endorse('bob.near', { topic: 'rust' });
  *
  * // Scarces (NFTs)
  * await os.scarces.mint({ title: 'My Art', image: file });
  * await os.scarces.list({ tokenId: '1', priceNear: '5' });
+ *
+ * // Groups & Governance
+ * await os.groups.create('dao', { owner: 'alice.near', member_driven: true });
+ * await os.groups.join('dao');
+ * await os.groups.propose('dao', 'CustomProposal', { title: '...', ... });
+ * await os.groups.vote('dao', proposalId, true);
+ * const config = await os.groups.getConfig('dao');
+ *
+ * // Permissions
+ * const canWrite = await os.permissions.has('alice.near', 'bob.near', 'post', 2);
  *
  * // Execute any action directly (groups, governance, permissions, custom)
  * await os.execute({ type: 'create_group', group_id: 'dao', config: {...} });
@@ -108,7 +125,7 @@ export interface SignedAuth {
 export class OnSocial {
   /** Authentication (login, refresh, logout). */
   readonly auth: AuthModule;
-  /** Social graph (profiles, posts, standings, reactions). */
+  /** Social graph (profiles, posts, standings, reactions, saves, endorsements, attestations). */
   readonly social: SocialModule;
   /** Scarces / NFTs (mint, collections, marketplace, offers). */
   readonly scarces: ScarcesModule;
@@ -122,6 +139,14 @@ export class OnSocial {
   readonly webhooks: WebhooksModule;
   /** Notifications (list, count, mark-read, send events, rules). Pro tier+. */
   readonly notifications: NotificationsModule;
+  /** Groups — lifecycle, membership, governance, and group content. */
+  readonly groups: GroupsModule;
+  /** Permissions — account-level and key-level permission management. */
+  readonly permissions: PermissionsModule;
+  /** Chain — on-chain storage management and contract introspection. */
+  readonly chain: ChainModule;
+  /** Pages — configure and read onsocial.id page data. */
+  readonly pages: PagesModule;
 
   /** The underlying HTTP client (for advanced usage). */
   readonly http: HttpClient;
@@ -136,6 +161,10 @@ export class OnSocial {
     this.storage = new StorageModule(this.http);
     this.webhooks = new WebhooksModule(this.http, config.appId);
     this.notifications = new NotificationsModule(this.http, config.appId);
+    this.groups = new GroupsModule(this.http);
+    this.permissions = new PermissionsModule(this.http);
+    this.chain = new ChainModule(this.http);
+    this.pages = new PagesModule(this.http);
   }
 
   // ── Generic execute ─────────────────────────────────────────────────────

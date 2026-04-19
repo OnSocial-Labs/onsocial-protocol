@@ -1,0 +1,26 @@
+{
+  "name": "@onsocial/pages",
+  "version": "0.1.0",
+  "description": "OnSocial Pages — edge function renderer for *.onsocial.id profile pages",
+  "type": "module",
+  "main": "dist/worker.js",
+  "types": "dist/worker.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "lint": "eslint src",
+    "format": "prettier --write .",
+    "test": "vitest run",
+    "dev": "wrangler dev",
+    "dev:local": "npx tsx src/dev.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^25.4.0",
+    "@typescript-eslint/eslint-plugin": "^8.57.0",
+    "@typescript-eslint/parser": "^8.57.0",
+    "eslint": "^9.39.4",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4",
+    "wrangler": "^4.0.0"
+  }
+}

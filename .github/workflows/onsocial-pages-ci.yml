@@ -1,0 +1,57 @@
+name: Pages CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/onsocial-pages/**'
+      - '.github/workflows/onsocial-pages-ci.yml'
+      - 'pnpm-lock.yaml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/onsocial-pages/**'
+      - '.github/workflows/onsocial-pages-ci.yml'
+      - 'pnpm-lock.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CI: true
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm --filter @onsocial/pages exec tsc --noEmit
+
+      - name: Lint
+        run: pnpm --filter @onsocial/pages lint
+
+      - name: Format check
+        run: pnpm --filter @onsocial/pages exec prettier --check "src/**/*.ts"
+
+      - name: Test
+        run: pnpm --filter @onsocial/pages test

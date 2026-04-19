@@ -1,0 +1,365 @@
+// ---------------------------------------------------------------------------
+// OnSocial SDK — groups module (lifecycle, membership, governance)
+// ---------------------------------------------------------------------------
+
+import type { HttpClient } from './http.js';
+import type { GroupConfigV1 } from './schema/v1.js';
+import type {
+  RelayResponse,
+  PostData,
+  GroupMemberData,
+  GroupStats,
+  JoinRequest,
+  Proposal,
+  ProposalTally,
+  Vote,
+  ListProposalsOptions,
+} from './types.js';
+import { buildGroupPostSetData } from './social.js';
+import type { Network } from './types.js';
+
+const CORE_CONTRACTS: Record<Network, string> = {
+  mainnet: 'core.onsocial.near',
+  testnet: 'core.onsocial.testnet',
+};
+
+/**
+ * Groups — lifecycle, membership, governance, and group content.
+ *
+ * ```ts
+ * // Create a group
+ * await os.groups.create('dao', { owner: 'alice.near', member_driven: true });
+ *
+ * // Manage members
+ * await os.groups.join('dao');
+ * await os.groups.addMember('dao', 'bob.near');
+ *
+ * // Governance
+ * await os.groups.propose('dao', 'CustomProposal', {
+ *   title: 'Upgrade logo',
+ *   description: 'New branding',
+ *   custom_data: {},
+ * });
+ * await os.groups.vote('dao', proposalId, true);
+ *
+ * // Read group state
+ * const config = await os.groups.getConfig('dao');
+ * const stats = await os.groups.getStats('dao');
+ * const isMember = await os.groups.isMember('dao', 'bob.near');
+ * ```
+ */
+export class GroupsModule {
+  private _coreContract: string;
+
+  constructor(private _http: HttpClient) {
+    this._coreContract = CORE_CONTRACTS[_http.network];
+  }
+
+  // ── Lifecycle ───────────────────────────────────────────────────────────
+
+  async create(
+    groupId: string,
+    config: GroupConfigV1
+  ): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>('/relay/execute', {
+      action: { type: 'create_group', group_id: groupId, config },
+    });
+  }
+
+  async join(groupId: string): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>('/relay/execute', {
+      action: { type: 'join_group', group_id: groupId },
+    });
+  }
+
+  async leave(groupId: string): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>('/relay/execute', {
+      action: { type: 'leave_group', group_id: groupId },
+    });
+  }
+
+  // ── Member management ─────────────────────────────────────────────────
+
+  async addMember(
+    groupId: string,
+    memberId: string
+  ): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>('/relay/execute', {
+      action: {
+        type: 'add_group_member',
+        group_id: groupId,
+        member_id: memberId,
+      },
+    });
+  }
+
+  async removeMember(
+    groupId: string,
+    memberId: string
+  ): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>('/relay/execute', {
+      action: {
+        type: 'remove_group_member',
+        group_id: groupId,
+        member_id: memberId,
+      },
+    });
+  }
+
+  async approveJoin(
+    groupId: string,
+    requesterId: string
+  ): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>('/relay/execute', {
+      action: {
+        type: 'approve_join_request',
+        group_id: groupId,
+        requester_id: requesterId,
+      },
+    });
+  }
+
+  async rejectJoin(
+    groupId: string,
+    requesterId: string,
+    reason?: string
+  ): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>('/relay/execute', {
+      action: {
+        type: 'reject_join_request',
+        group_id: groupId,
+        requester_id: requesterId,
+        ...(reason !== undefined && { reason }),
+      },
+    });
+  }
+
+  async cancelJoin(groupId: string): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>('/relay/execute', {
+      action: { type: 'cancel_join_request', group_id: groupId },
+    });
+  }
+
+  async blacklist(
+    groupId: string,
+    memberId: string
+  ): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>('/relay/execute', {
+      action: {
+        type: 'blacklist_group_member',
+        group_id: groupId,
+        member_id: memberId,
+      },
+    });
+  }
+
+  async unblacklist(
+    groupId: string,
+    memberId: string
+  ): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>('/relay/execute', {
+      action: {
+        type: 'unblacklist_group_member',
+        group_id: groupId,
+        member_id: memberId,
+      },
+    });
+  }
+
+  async transferOwnership(
+    groupId: string,
+    newOwner: string,
+    removeOldOwner?: boolean
+  ): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>('/relay/execute', {
+      action: {
+        type: 'transfer_group_ownership',
+        group_id: groupId,
+        new_owner: newOwner,
+        ...(removeOldOwner !== undefined && {
+          remove_old_owner: removeOldOwner,
+        }),
+      },
+    });
+  }
+
+  async setPrivacy(
+    groupId: string,
+    isPrivate: boolean
+  ): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>('/relay/execute', {
+      action: {
+        type: 'set_group_privacy',
+        group_id: groupId,
+        is_private: isPrivate,
+      },
+    });
+  }
+
+  // ── Group content ─────────────────────────────────────────────────────
+
+  async post(
+    groupId: string,
+    post: PostData,
+    postId?: string
+  ): Promise<RelayResponse> {
+    const id = postId ?? Date.now().toString();
+    const data = buildGroupPostSetData(groupId, post, id);
+    const entries = Object.entries(data);
+    const [path, value] = entries[0];
+    return this._http.post<RelayResponse>('/compose/set', {
+      path,
+      value: JSON.stringify(value),
+      targetAccount: this._coreContract,
+    });
+  }
+
+  // ── Governance ────────────────────────────────────────────────────────
+
+  async propose(
+    groupId: string,
+    proposalType: string,
+    changes: Record<string, unknown>,
+    opts?: { autoVote?: boolean; description?: string }
+  ): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>('/relay/execute', {
+      action: {
+        type: 'create_proposal',
+        group_id: groupId,
+        proposal_type: proposalType,
+        changes,
+        ...(opts?.autoVote !== undefined && { auto_vote: opts.autoVote }),
+        ...(opts?.description !== undefined && {
+          description: opts.description,
+        }),
+      },
+    });
+  }
+
+  async vote(
+    groupId: string,
+    proposalId: string,
+    approve: boolean
+  ): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>('/relay/execute', {
+      action: {
+        type: 'vote_on_proposal',
+        group_id: groupId,
+        proposal_id: proposalId,
+        approve,
+      },
+    });
+  }
+
+  async cancelProposal(
+    groupId: string,
+    proposalId: string
+  ): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>('/relay/execute', {
+      action: {
+        type: 'cancel_proposal',
+        group_id: groupId,
+        proposal_id: proposalId,
+      },
+    });
+  }
+
+  // ── View reads ────────────────────────────────────────────────────────
+
+  async getConfig(
+    groupId: string
+  ): Promise<Record<string, unknown> | null> {
+    const p = new URLSearchParams({ groupId });
+    return this._http.get(`/data/group-config?${p}`);
+  }
+
+  async getMember(
+    groupId: string,
+    memberId: string
+  ): Promise<GroupMemberData | null> {
+    const p = new URLSearchParams({ groupId, memberId });
+    return this._http.get(`/data/group-member?${p}`);
+  }
+
+  async isMember(groupId: string, memberId: string): Promise<boolean> {
+    const p = new URLSearchParams({ groupId, memberId });
+    return this._http.get<boolean>(`/data/group-is-member?${p}`);
+  }
+
+  async isOwner(groupId: string, userId: string): Promise<boolean> {
+    const p = new URLSearchParams({ groupId, userId });
+    return this._http.get<boolean>(`/data/group-is-owner?${p}`);
+  }
+
+  async isBlacklisted(groupId: string, userId: string): Promise<boolean> {
+    const p = new URLSearchParams({ groupId, userId });
+    return this._http.get<boolean>(`/data/group-is-blacklisted?${p}`);
+  }
+
+  async getJoinRequest(
+    groupId: string,
+    requesterId: string
+  ): Promise<JoinRequest | null> {
+    const p = new URLSearchParams({ groupId, requesterId });
+    return this._http.get(`/data/group-join-request?${p}`);
+  }
+
+  async getStats(groupId: string): Promise<GroupStats | null> {
+    const p = new URLSearchParams({ groupId });
+    return this._http.get(`/data/group-stats?${p}`);
+  }
+
+  // ── Governance views ──────────────────────────────────────────────────
+
+  async getProposal(
+    groupId: string,
+    proposalId: string
+  ): Promise<Proposal | null> {
+    const p = new URLSearchParams({ groupId, proposalId });
+    return this._http.get(`/data/proposal?${p}`);
+  }
+
+  async getProposalTally(
+    groupId: string,
+    proposalId: string
+  ): Promise<ProposalTally | null> {
+    const p = new URLSearchParams({ groupId, proposalId });
+    return this._http.get(`/data/proposal-tally?${p}`);
+  }
+
+  async getVote(
+    groupId: string,
+    proposalId: string,
+    voter: string
+  ): Promise<Vote | null> {
+    const p = new URLSearchParams({ groupId, proposalId, voter });
+    return this._http.get(`/data/vote?${p}`);
+  }
+
+  async getProposalBySequence(
+    groupId: string,
+    sequence: number
+  ): Promise<Proposal | null> {
+    const p = new URLSearchParams({
+      groupId,
+      sequence: String(sequence),
+    });
+    return this._http.get(`/data/proposal-by-sequence?${p}`);
+  }
+
+  async getProposalCount(groupId: string): Promise<number> {
+    const p = new URLSearchParams({ groupId });
+    return this._http.get<number>(`/data/proposal-count?${p}`);
+  }
+
+  async listProposals(
+    groupId: string,
+    opts?: ListProposalsOptions
+  ): Promise<Proposal[]> {
+    const p = new URLSearchParams({ groupId });
+    if (opts?.fromSequence !== undefined)
+      p.set('fromSequence', String(opts.fromSequence));
+    if (opts?.limit !== undefined) p.set('limit', String(opts.limit));
+    return this._http.get<Proposal[]>(`/data/proposals?${p}`);
+  }
+}

@@ -57,3 +57,34 @@ __SERVER_NAMES__ {
 		}
 	}
 }
+
+# ---------- Pages (*.onsocial.id profile pages) ----------
+*.onsocial.id {
+	tls {
+		on_demand
+	}
+
+	rate_limit {
+		zone pages_per_ip {
+			key    {remote_host}
+			events 60
+			window 1s
+		}
+	}
+
+	reverse_proxy pages:3456
+
+	header {
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		-Server
+	}
+
+	log {
+		output file /data/logs/pages.log {
+			roll_size 50MB
+			roll_keep 3
+		}
+	}
+}

@@ -1,0 +1,144 @@
+name: Deploy Mainnet Pages
+
+'on':
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy-mainnet-pages" to confirm'
+        required: true
+      image_tag:
+        description: 'Optional image tag override (defaults to current short SHA)'
+        required: false
+      pages_host:
+        description: 'Optional override for pages host/IP (defaults to MAINNET_APP_HOST)'
+        required: false
+      pages_ssh_secret_name:
+        description: 'GSM secret name for the pages host SSH key'
+        required: true
+        default: 'hetzner-mainnet-app-0-ssh-key'
+
+permissions:
+  contents: read
+  packages: read
+  id-token: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/onsocial-labs/onsocial-protocol
+  PAGES_HOST: ${{ inputs.pages_host != '' && inputs.pages_host || vars.MAINNET_APP_HOST }}
+
+concurrency:
+  group: mainnet-pages-deploy
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate Inputs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check confirmation
+        run: |
+          if [ "${{ inputs.confirm }}" != "deploy-mainnet-pages" ]; then
+            echo "❌ Confirmation failed. Type 'deploy-mainnet-pages' to proceed."
+            exit 1
+          fi
+          echo "✅ Confirmation accepted"
+
+      - name: Check host configuration
+        run: |
+          if [ -z "${{ env.PAGES_HOST }}" ]; then
+            echo "❌ PAGES_HOST is not set. Provide pages_host or configure MAINNET_APP_HOST."
+            exit 1
+          fi
+
+  deploy:
+    name: Deploy Mainnet Pages
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: mainnet
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Get short SHA
+        id: sha
+        run: |
+          TAG="${{ inputs.image_tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="$(git rev-parse --short HEAD)"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Authenticate to GCP (Workload Identity Federation)
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: "projects/87856119115/locations/global/workloadIdentityPools/github-ci/providers/github-oidc"
+          service_account: "github-ci-deploy@onsocial-protocol.iam.gserviceaccount.com"
+
+      - name: Fetch SSH key from Secret Manager
+        id: ssh
+        run: |
+          gcloud secrets versions access latest \
+            --secret="${{ inputs.pages_ssh_secret_name }}" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+          while IFS= read -r line; do
+            [ -n "$line" ] && echo "::add-mask::$line"
+          done < /tmp/deploy_key
+          echo "key<<SSHEOF" >> "$GITHUB_OUTPUT"
+          cat /tmp/deploy_key >> "$GITHUB_OUTPUT"
+          echo "SSHEOF" >> "$GITHUB_OUTPUT"
+          rm -f /tmp/deploy_key
+
+      - name: Deploy pages via SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ steps.ssh.outputs.key }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ env.PAGES_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+          IMAGE_TAG="${{ steps.sha.outputs.tag }}"
+
+          ssh -i ~/.ssh/deploy_key \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile=~/.ssh/known_hosts \
+            root@${{ env.PAGES_HOST }} "bash -s" <<REMOTE_SCRIPT
+            set -euo pipefail
+            cd /opt/onsocial
+
+            echo "Pulling pages image: $IMAGE_TAG"
+            docker pull ${{ env.IMAGE_PREFIX }}/pages:${IMAGE_TAG}
+            docker tag ${{ env.IMAGE_PREFIX }}/pages:${IMAGE_TAG} ${{ env.IMAGE_PREFIX }}/pages:latest
+
+            # Update image tag
+            if [ -f .env.image ]; then
+              sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=${IMAGE_TAG}|" .env.image
+            else
+              echo "IMAGE_TAG=${IMAGE_TAG}" > .env.image
+            fi
+
+            set -a && source .env.production && source .env.image && set +a
+
+            echo "Rolling pages..."
+            docker compose up -d --no-deps pages
+            
+            # Health check
+            for i in \$(seq 1 15); do
+              if docker compose exec -T pages wget -q --spider http://localhost:3456/health 2>/dev/null; then
+                echo "  ✅ Pages healthy (attempt \$i/15)"
+                break
+              fi
+              if [ "\$i" -eq 15 ]; then
+                echo "❌ Pages health check failed"
+                docker compose logs --tail=50 pages
+                exit 1
+              fi
+              echo "  ⏳ Pages not ready (\$i/15)..."
+              sleep 3
+            done
+
+            echo ""
+            docker compose ps --format "table {{.Name}}\t{{.Status}}" pages
+          REMOTE_SCRIPT
+
+          echo "✅ Mainnet pages deploy complete — $IMAGE_TAG"

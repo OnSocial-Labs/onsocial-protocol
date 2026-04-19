@@ -506,6 +506,191 @@ export class SocialModule {
     });
   }
 
+  // ── Replies & Quotes ──────────────────────────────────────────────────
+
+  /**
+   * Reply to a post.
+   *
+   * ```ts
+   * await os.social.reply('alice.near', '1713456789', { text: 'Great post!' });
+   * ```
+   */
+  async reply(
+    parentAuthor: string,
+    parentId: string,
+    post: PostData,
+    replyId?: string
+  ): Promise<RelayResponse> {
+    const id = replyId ?? Date.now().toString();
+    const [path, value] = getSingleEntry(
+      buildReplySetData(parentAuthor, parentId, post, id)
+    );
+    return this._http.post<RelayResponse>('/compose/set', {
+      path,
+      value: JSON.stringify(value),
+      targetAccount: this._coreContract,
+    });
+  }
+
+  /**
+   * Quote a post.
+   *
+   * ```ts
+   * await os.social.quote('alice.near', 'post/1713456789', { text: 'This!' });
+   * ```
+   */
+  async quote(
+    refAuthor: string,
+    refPath: string,
+    post: PostData,
+    quoteId?: string
+  ): Promise<RelayResponse> {
+    const id = quoteId ?? Date.now().toString();
+    const [path, value] = getSingleEntry(
+      buildQuoteSetData(refAuthor, refPath, post, id)
+    );
+    return this._http.post<RelayResponse>('/compose/set', {
+      path,
+      value: JSON.stringify(value),
+      targetAccount: this._coreContract,
+    });
+  }
+
+  // ── Saves (bookmarks) ────────────────────────────────────────────────
+
+  /**
+   * Save / bookmark content.
+   *
+   * ```ts
+   * await os.social.save('alice.near/post/123');
+   * await os.social.save('alice.near/post/123', { folder: 'inspiration' });
+   * ```
+   */
+  async save(
+    contentPath: string,
+    input?: SaveBuildInput
+  ): Promise<RelayResponse> {
+    const [path, value] = getSingleEntry(
+      buildSaveSetData(contentPath, input)
+    );
+    return this._http.post<RelayResponse>('/compose/set', {
+      path,
+      value: JSON.stringify(value),
+      targetAccount: this._coreContract,
+    });
+  }
+
+  /**
+   * Remove a saved bookmark.
+   *
+   * ```ts
+   * await os.social.unsave('alice.near/post/123');
+   * ```
+   */
+  async unsave(contentPath: string): Promise<RelayResponse> {
+    const [path, value] = getSingleEntry(buildSaveRemoveData(contentPath));
+    return this._http.post<RelayResponse>('/compose/set', {
+      path,
+      value: JSON.stringify(value),
+      targetAccount: this._coreContract,
+    });
+  }
+
+  // ── Endorsements ──────────────────────────────────────────────────────
+
+  /**
+   * Endorse another account.
+   *
+   * ```ts
+   * await os.social.endorse('bob.near');
+   * await os.social.endorse('bob.near', { topic: 'rust', weight: 5 });
+   * ```
+   */
+  async endorse(
+    targetAccount: string,
+    input?: EndorsementBuildInput
+  ): Promise<RelayResponse> {
+    const [path, value] = getSingleEntry(
+      buildEndorsementSetData(targetAccount, input)
+    );
+    return this._http.post<RelayResponse>('/compose/set', {
+      path,
+      value: JSON.stringify(value),
+      targetAccount: this._coreContract,
+    });
+  }
+
+  /**
+   * Remove an endorsement.
+   *
+   * ```ts
+   * await os.social.unendorse('bob.near');
+   * await os.social.unendorse('bob.near', 'rust');
+   * ```
+   */
+  async unendorse(
+    targetAccount: string,
+    topic?: string
+  ): Promise<RelayResponse> {
+    const [path, value] = getSingleEntry(
+      buildEndorsementRemoveData(targetAccount, topic)
+    );
+    return this._http.post<RelayResponse>('/compose/set', {
+      path,
+      value: JSON.stringify(value),
+      targetAccount: this._coreContract,
+    });
+  }
+
+  // ── Attestations ──────────────────────────────────────────────────────
+
+  /**
+   * Create an attestation (verifiable claim).
+   *
+   * ```ts
+   * await os.social.attest('claim-1', {
+   *   type: 'skill',
+   *   subject: 'bob.near',
+   *   scope: 'blockchain',
+   * });
+   * ```
+   */
+  async attest(
+    claimId: string,
+    input: AttestationBuildInput
+  ): Promise<RelayResponse> {
+    const [path, value] = getSingleEntry(
+      buildAttestationSetData(claimId, input)
+    );
+    return this._http.post<RelayResponse>('/compose/set', {
+      path,
+      value: JSON.stringify(value),
+      targetAccount: this._coreContract,
+    });
+  }
+
+  /**
+   * Revoke an attestation.
+   *
+   * ```ts
+   * await os.social.revokeAttestation('bob.near', 'skill', 'claim-1');
+   * ```
+   */
+  async revokeAttestation(
+    subject: string,
+    type: string,
+    claimId: string
+  ): Promise<RelayResponse> {
+    const [path, value] = getSingleEntry(
+      buildAttestationRemoveData(subject, type, claimId)
+    );
+    return this._http.post<RelayResponse>('/compose/set', {
+      path,
+      value: JSON.stringify(value),
+      targetAccount: this._coreContract,
+    });
+  }
+
   // ── Generic KV write ──────────────────────────────────────────────────
 
   /**

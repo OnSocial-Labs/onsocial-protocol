@@ -7,6 +7,7 @@ on:
       - 'packages/onsocial-relayer/**'
       - 'packages/onsocial-gateway/**'
       - 'packages/onsocial-backend/**'
+      - 'packages/onsocial-pages/**'
       - 'packages/onsocial-rpc/**'
       - 'docker/**'
       - 'deployment/**'
@@ -43,6 +44,9 @@ jobs:
             context: .
           - image: backend
             dockerfile: docker/Dockerfile.backend
+            context: .
+          - image: pages
+            dockerfile: docker/Dockerfile.pages
             context: .
     steps:
       - uses: actions/checkout@v5
@@ -259,7 +263,7 @@ jobs:
               Caddyfile.template > Caddyfile
 
             # ── Pull new images ──────────────────────────────────────
-            docker compose pull caddy gateway notification-worker relayer-0 relayer-1 backend </dev/null
+            docker compose pull caddy gateway notification-worker relayer-0 relayer-1 backend pages </dev/null
 
             # ── Rolling restart: relayer-1 → verify → relayer-0 → verify
             echo "Rolling relayer-1..."
@@ -343,8 +347,16 @@ jobs:
               exit 1
             fi
 
+            # ── Pages (profile page renderer) ────────────────────────
+            echo "Rolling pages..."
+            docker compose up -d --no-deps pages </dev/null
+            if ! check_container_health "pages" "pages" "http://localhost:3456/health" 15 3; then
+              print_service_logs "pages"
+              echo "⚠️  Pages health check failed (non-blocking)"
+            fi
+
             # ── Bring up any remaining services ──────────────────────
-            FINAL_SERVICES="postgres hasura relayer-lb relayer-0 relayer-1 gateway notification-worker caddy backend"
+            FINAL_SERVICES="postgres hasura relayer-lb relayer-0 relayer-1 gateway notification-worker caddy backend pages"
             docker compose up -d --no-deps $FINAL_SERVICES </dev/null
 
             echo ""

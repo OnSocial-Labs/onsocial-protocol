@@ -1,0 +1,11 @@
+name = "onsocial-pages"
+main = "dist/worker.js"
+compatibility_date = "2024-12-01"
+
+[vars]
+GATEWAY_URL = "https://api.onsocial.id"
+
+# Production route — *.onsocial.id
+# [[routes]]
+# pattern = "*.onsocial.id"
+# zone_name = "onsocial.id"

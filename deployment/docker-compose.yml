@@ -396,6 +396,30 @@ services:
       postgres:
         condition: service_healthy
 
+  # =========================================================================
+  # PAGES — Profile page renderer for *.onsocial.id
+  # =========================================================================
+  pages:
+    image: ghcr.io/onsocial-labs/onsocial-protocol/pages:${IMAGE_TAG:-latest}
+    container_name: pages
+    expose:
+      - "3456"
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: 0.5
+    environment:
+      NODE_ENV: production
+      PORT: "3456"
+      NEAR_RPC_URL: ${NEAR_RPC_URL:-https://rpc.testnet.near.org}
+      CORE_CONTRACT: ${CORE_CONTRACT:-core.onsocial.testnet}
+      NEAR_NETWORK: ${NEAR_NETWORK:-testnet}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3456/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
 volumes:
   postgres_data:
   postgres_backups:  # Daily pg_dump backups — 7-day retention

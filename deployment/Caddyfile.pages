@@ -1,0 +1,46 @@
+# OnSocial Pages Caddyfile
+# Wildcard TLS for *.onsocial.id using on-demand TLS
+#
+# Namecheap DNS must have:
+#   *.onsocial.id  A  → this server's IP
+
+# On-demand TLS policy — only issue certs for *.onsocial.id subdomains
+{
+	on_demand_tls {
+		interval 1m
+		burst 10
+	}
+}
+
+# Wildcard handler — all *.onsocial.id subdomains
+*.onsocial.id {
+	tls {
+		on_demand
+	}
+
+	# Rate limit
+	rate_limit {
+		zone pages_per_ip {
+			key    {remote_host}
+			events 60
+			window 1s
+		}
+	}
+
+	# All requests → pages renderer
+	reverse_proxy pages:3456
+
+	header {
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		-Server
+	}
+
+	log {
+		output file /data/logs/pages.log {
+			roll_size 50MB
+			roll_keep 3
+		}
+	}
+}

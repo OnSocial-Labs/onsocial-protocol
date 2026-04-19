@@ -8,6 +8,7 @@ name: Build and Publish Main Images
       - 'packages/onsocial-gateway/**'
       - 'packages/onsocial-backend/**'
       - 'packages/onsocial-relayer/**'
+      - 'packages/onsocial-pages/**'
       - 'packages/onsocial-rpc/**'
       - 'crates/**'
       - 'package.json'
@@ -43,6 +44,9 @@ jobs:
             context: .
           - image: relayer
             dockerfile: docker/Dockerfile.relayer
+            context: .
+          - image: pages
+            dockerfile: docker/Dockerfile.pages
             context: .
 
     steps:

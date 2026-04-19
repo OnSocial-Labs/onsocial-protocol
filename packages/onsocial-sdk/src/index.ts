@@ -67,6 +67,10 @@ export type {
   NotificationRule,
   CreateRuleParams,
 } from './notifications.js';
+export { GroupsModule } from './groups.js';
+export { PermissionsModule } from './permissions.js';
+export { ChainModule } from './chain.js';
+export { PagesModule } from './pages.js';
 
 // Base Social Schema v1 — promotable shared spec
 export {
@@ -152,4 +156,25 @@ export type {
   QueryLimits,
   StorageUploadResponse,
   ApiError,
+  GroupMemberData,
+  GroupStats,
+  JoinRequest,
+  ProposalStatus,
+  VotingConfig,
+  Proposal,
+  ProposalTally,
+  Vote,
+  ListProposalsOptions,
+  PermissionLevel,
+  AccountSharedStorage,
+  OnChainStorageBalance,
+  PlatformPoolInfo,
+  PlatformAllowanceInfo,
+  ContractStatus,
+  GovernanceConfig,
+  ContractInfo,
+  PageSection,
+  PageTheme,
+  PageConfig,
+  PageData,
 } from './types.js';
