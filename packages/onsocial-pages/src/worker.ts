@@ -2,7 +2,7 @@
 // OnSocial Pages — Cloudflare Workers edge function
 //
 // Routes:
-//   GET *.onsocial.id  → rendered profile page
+//   GET *.{PUBLIC_PAGE_BASE_DOMAIN}  → rendered profile page
 //   GET /health        → health check
 //
 // The worker extracts the account name from the subdomain, fetches
@@ -11,7 +11,23 @@
 // ---------------------------------------------------------------------------
 
 import { renderPage } from './renderer.js';
+import { resolvePageHost } from './server-utils.js';
 import type { Env, PageData } from './types.js';
+
+const RESERVED_SUBDOMAINS = new Set([
+  'www',
+  'app',
+  'api',
+  'portal',
+  'testnet',
+  'mainnet',
+  'staging',
+  'admin',
+  'mail',
+  'smtp',
+  'localhost',
+  '127',
+]);
 
 /** Extract accountId from the auth session cookie via gateway. */
 async function resolveSession(
@@ -36,6 +52,18 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const hostname = url.hostname;
+    const nearNetwork = env.NEAR_NETWORK ?? 'testnet';
+    const publicPageBaseDomain =
+      env.PUBLIC_PAGE_BASE_DOMAIN ??
+      (nearNetwork === 'mainnet' ? 'onsocial.id' : 'testnet.onsocial.id');
+    const accountSuffix = nearNetwork === 'mainnet' ? '.near' : '.testnet';
+    const siteUrl = `https://${publicPageBaseDomain}`;
+    const gatewayUrl =
+      env.PUBLIC_API_URL ||
+      env.GATEWAY_URL ||
+      (nearNetwork === 'mainnet'
+        ? 'https://api.onsocial.id'
+        : 'https://testnet.onsocial.id');
 
     // Health check
     if (url.pathname === '/health') {
@@ -44,35 +72,24 @@ export default {
       });
     }
 
-    // Extract subdomain — e.g. "alice" from "alice.onsocial.id"
-    const parts = hostname.split('.');
-    // Expect at least 3 parts: subdomain.onsocial.id
-    // In dev, could be subdomain.localhost so also handle 2-part
-    const subdomain =
-      parts.length >= 3 ? parts[0] : parts.length === 2 ? parts[0] : null;
-
     // Dev mode: accept ?account= query param (for localhost testing)
     const devAccount = url.searchParams.get('account');
+    const resolution = devAccount
+      ? null
+      : resolvePageHost({
+          host: hostname,
+          publicPageBaseDomain,
+          accountSuffix,
+          reservedSubdomains: RESERVED_SUBDOMAINS,
+        });
 
-    if (
-      !subdomain ||
-      subdomain === 'www' ||
-      subdomain === 'app' ||
-      subdomain === 'api' ||
-      subdomain === 'localhost' ||
-      subdomain === '127'
-    ) {
-      if (!devAccount) {
-        // Redirect root / reserved subdomains to main site
-        return Response.redirect('https://onsocial.id', 302);
-      }
+    if (!resolution && !devAccount) {
+      return Response.redirect(siteUrl, 302);
     }
 
-    // Resolve account ID — subdomain maps to account, or use ?account= in dev
-    const accountId = devAccount || subdomain!;
+    const accountId = devAccount || resolution!.accountId;
 
     try {
-      const gatewayUrl = env.GATEWAY_URL || 'https://api.onsocial.id';
       const dataUrl = `${gatewayUrl}/data/page?accountId=${encodeURIComponent(accountId)}`;
 
       const resp = await fetch(dataUrl, {
@@ -81,7 +98,7 @@ export default {
       });
 
       if (!resp.ok) {
-        return notFoundPage(accountId);
+        return notFoundPage(accountId, siteUrl);
       }
 
       const data = (await resp.json()) as PageData;
@@ -107,12 +124,12 @@ export default {
         },
       });
     } catch {
-      return errorPage(accountId);
+      return errorPage(accountId, siteUrl);
     }
   },
 };
 
-function notFoundPage(accountId: string): Response {
+function notFoundPage(accountId: string, siteUrl: string): Response {
   return new Response(
     `<!DOCTYPE html>
 <html lang="en">
@@ -122,8 +139,8 @@ function notFoundPage(accountId: string): Response {
 <body>
 <div>
   <h1>Page not found</h1>
-  <p><strong>${escHtml(accountId)}</strong> hasn't set up their OnSocial page yet.</p>
-  <p style="margin-top:1rem"><a href="https://app.onsocial.id">Create yours →</a></p>
+  <p><strong>${escHtml(accountId)}</strong> does not exist on this network.</p>
+  <p style="margin-top:1rem"><a href="${siteUrl}">OnSocial →</a></p>
 </div>
 </body></html>`,
     {
@@ -133,7 +150,7 @@ function notFoundPage(accountId: string): Response {
   );
 }
 
-function errorPage(accountId: string): Response {
+function errorPage(accountId: string, siteUrl: string): Response {
   return new Response(
     `<!DOCTYPE html>
 <html lang="en">
@@ -144,7 +161,7 @@ function errorPage(accountId: string): Response {
 <div>
   <h1>Something went wrong</h1>
   <p>We couldn't load the page for <strong>${escHtml(accountId)}</strong>. Try again in a moment.</p>
-  <p style="margin-top:1rem"><a href="https://onsocial.id">Go to OnSocial →</a></p>
+  <p style="margin-top:1rem"><a href="${siteUrl}">Go to OnSocial →</a></p>
 </div>
 </body></html>`,
     {

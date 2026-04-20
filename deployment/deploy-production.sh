@@ -61,6 +61,9 @@ case "$NETWORK" in
     NEAR_SUFFIX="onsocial.testnet"
     PUBLIC_DOMAIN="testnet.onsocial.id"
     SERVER_NAMES="testnet.onsocial.id"
+    PAGES_HOST_PATTERNS="*.testnet.onsocial.id"
+    PUBLIC_API_URL="https://testnet.onsocial.id"
+    PUBLIC_PAGE_BASE_DOMAIN="testnet.onsocial.id"
     CORS_ORIGINS="https://testnet.onsocial.id,http://localhost:3000,http://localhost:4000"
     HASURA_CORS="https://testnet.onsocial.id,http://localhost:3000"
     KMS_KEYRING_0="relayer-keys-testnet"
@@ -70,6 +73,9 @@ case "$NETWORK" in
     NEAR_SUFFIX="onsocial.near"
     PUBLIC_DOMAIN="api.onsocial.id"
     SERVER_NAMES="api.onsocial.id, mainnet.onsocial.id"
+    PAGES_HOST_PATTERNS="*.onsocial.id"
+    PUBLIC_API_URL="https://api.onsocial.id"
+    PUBLIC_PAGE_BASE_DOMAIN="onsocial.id"
     CORS_ORIGINS="https://onsocial.id,https://app.onsocial.id"
     HASURA_CORS="https://onsocial.id,https://app.onsocial.id"
     KMS_KEYRING_0="relayer-keys-mainnet"
@@ -127,6 +133,7 @@ fi
 info "Generating Caddyfile for $PUBLIC_DOMAIN..."
 sed \
   -e "s/__SERVER_NAMES__/$SERVER_NAMES/g" \
+  -e "s/__PAGES_HOST_PATTERNS__/$PAGES_HOST_PATTERNS/g" \
   -e 's/__BACKEND_UPSTREAM__/backend:4001/g' \
   -e 's/__GATEWAY_UPSTREAM__/gateway:8080/g' \
   "$SCRIPT_DIR/Caddyfile" > "$SCRIPT_DIR/.Caddyfile.generated"

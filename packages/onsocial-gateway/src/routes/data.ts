@@ -476,6 +476,35 @@ dataRouter.get('/page/templates', (_req: Request, res: Response) => {
   res.json(PAGE_TEMPLATES);
 });
 
+async function accountExists(accountId: string): Promise<boolean> {
+  try {
+    await rpcQuery({
+      request_type: 'view_account',
+      finality: 'final',
+      account_id: accountId,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * GET /data/account/exists?accountId=alice.near
+ *
+ * Returns whether the account exists on the configured NEAR network.
+ */
+dataRouter.get('/account/exists', async (req: Request, res: Response) => {
+  const accountId = requireStr(req.query, 'accountId');
+  if (!accountId) {
+    res.status(400).json({ error: 'Missing required query param: accountId' });
+    return;
+  }
+
+  const exists = await accountExists(accountId);
+  res.json({ accountId, exists });
+});
+
 /**
  * GET /data/page?accountId=alice.near
  *
@@ -486,6 +515,11 @@ dataRouter.get('/page', async (req: Request, res: Response) => {
   const accountId = requireStr(req.query, 'accountId');
   if (!accountId) {
     res.status(400).json({ error: 'Missing required query param: accountId' });
+    return;
+  }
+
+  if (!(await accountExists(accountId))) {
+    res.status(404).json({ error: 'Account not found' });
     return;
   }
 

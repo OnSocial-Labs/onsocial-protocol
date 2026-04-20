@@ -117,12 +117,18 @@ case "$NETWORK" in
     NEAR_RPC_URL="https://rpc.testnet.near.org"
     CORE_CONTRACT="core.onsocial.testnet"
     NEAR_NETWORK="testnet"
+    PUBLIC_API_URL="https://testnet.onsocial.id"
+    PUBLIC_PAGE_BASE_DOMAIN="testnet.onsocial.id"
+    PAGES_HOST_PATTERNS="*.testnet.onsocial.id"
     REMOTE_DIR="/opt/onsocial"
     ;;
   mainnet)
     NEAR_RPC_URL="https://rpc.mainnet.near.org"
     CORE_CONTRACT="core.onsocial.near"
     NEAR_NETWORK="mainnet"
+    PUBLIC_API_URL="https://api.onsocial.id"
+    PUBLIC_PAGE_BASE_DOMAIN="onsocial.id"
+    PAGES_HOST_PATTERNS="*.onsocial.id"
     REMOTE_DIR="/opt/onsocial"
     ;;
   *)
@@ -162,10 +168,14 @@ fi
 if [[ "$STANDALONE" = "true" ]]; then
   info "Syncing standalone deployment files..."
   ssh "${SSH_OPTIONS[@]}" "root@$SERVER_IP" "mkdir -p $REMOTE_DIR"
+  sed -e "s/__PAGES_HOST_PATTERNS__/$PAGES_HOST_PATTERNS/g" \
+    "$SCRIPT_DIR/Caddyfile.pages" > "$SCRIPT_DIR/.Caddyfile.pages.generated"
   scp "${SCP_OPTIONS[@]}" \
     "$SCRIPT_DIR/docker-compose.pages.yml" \
-    "$SCRIPT_DIR/Caddyfile.pages" \
+    "$SCRIPT_DIR/.Caddyfile.pages.generated" \
     "root@$SERVER_IP:$REMOTE_DIR/"
+  ssh "${SSH_OPTIONS[@]}" "root@$SERVER_IP" \
+    "cd $REMOTE_DIR && mv -f .Caddyfile.pages.generated Caddyfile.pages"
   COMPOSE_FILE="docker-compose.pages.yml"
 else
   COMPOSE_FILE="docker-compose.yml"
@@ -175,7 +185,8 @@ fi
 info "Deploying pages (image tag: $IMAGE_TAG)..."
 ssh "${SSH_OPTIONS[@]}" "root@$SERVER_IP" bash -s \
   "$REMOTE_DIR" "$IMAGE_PREFIX" "$IMAGE_TAG" "$COMPOSE_FILE" \
-  "$NEAR_RPC_URL" "$CORE_CONTRACT" "$NEAR_NETWORK" <<'DEPLOY_SCRIPT'
+  "$NEAR_RPC_URL" "$CORE_CONTRACT" "$NEAR_NETWORK" \
+  "$PUBLIC_API_URL" "$PUBLIC_PAGE_BASE_DOMAIN" <<'DEPLOY_SCRIPT'
   set -euo pipefail
   REMOTE_DIR="$1"
   IMAGE_PREFIX="$2"
@@ -184,6 +195,9 @@ ssh "${SSH_OPTIONS[@]}" "root@$SERVER_IP" bash -s \
   NEAR_RPC_URL="$5"
   CORE_CONTRACT="$6"
   NEAR_NETWORK="$7"
+  PUBLIC_API_URL="$8"
+  PUBLIC_PAGE_BASE_DOMAIN="$9"
+  DATA_API_URL="$PUBLIC_API_URL"
 
   cd "$REMOTE_DIR"
 
@@ -204,6 +218,9 @@ ssh "${SSH_OPTIONS[@]}" "root@$SERVER_IP" bash -s \
       grep -q '^NEAR_RPC_URL=' "$envfile" || echo "NEAR_RPC_URL=${NEAR_RPC_URL}" >> "$envfile"
       grep -q '^CORE_CONTRACT=' "$envfile" || echo "CORE_CONTRACT=${CORE_CONTRACT}" >> "$envfile"
       grep -q '^NEAR_NETWORK='  "$envfile" || echo "NEAR_NETWORK=${NEAR_NETWORK}"  >> "$envfile"
+      grep -q '^DATA_API_URL=' "$envfile" || echo "DATA_API_URL=${DATA_API_URL}" >> "$envfile"
+      grep -q '^PUBLIC_API_URL=' "$envfile" || echo "PUBLIC_API_URL=${PUBLIC_API_URL}" >> "$envfile"
+      grep -q '^PUBLIC_PAGE_BASE_DOMAIN=' "$envfile" || echo "PUBLIC_PAGE_BASE_DOMAIN=${PUBLIC_PAGE_BASE_DOMAIN}" >> "$envfile"
     fi
   done
 

@@ -192,6 +192,8 @@ jobs:
             upsert_env "GCP_KMS_KEYRING_0" "relayer-keys-testnet"
             upsert_env "GCP_KMS_KEYRING_1" "relayer-keys-inst-1"
             upsert_env "PUBLIC_DOMAIN" "testnet.onsocial.id"
+            upsert_env "PUBLIC_API_URL" "https://testnet.onsocial.id"
+            upsert_env "PUBLIC_PAGE_BASE_DOMAIN" "testnet.onsocial.id"
             upsert_env "WEBHOOK_URL" "https://testnet.onsocial.id/webhooks/telegram"
             upsert_env "CORS_ORIGINS" "https://testnet.onsocial.id,http://localhost:3000,http://localhost:4000"
             upsert_env "HASURA_GRAPHQL_CORS_DOMAIN" "https://testnet.onsocial.id,http://localhost:3000"
@@ -258,6 +260,7 @@ jobs:
             # ── Render live Caddyfile from template ──────────────────
             sed \
               -e 's/__SERVER_NAMES__/testnet.onsocial.id/g' \
+              -e 's/__PAGES_HOST_PATTERNS__/*.testnet.onsocial.id/g' \
               -e 's/__BACKEND_UPSTREAM__/backend:4001/g' \
               -e 's/__GATEWAY_UPSTREAM__/gateway:8080/g' \
               Caddyfile.template > Caddyfile

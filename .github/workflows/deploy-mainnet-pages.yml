@@ -117,6 +117,21 @@ jobs:
               echo "IMAGE_TAG=${IMAGE_TAG}" > .env.image
             fi
 
+            upsert_env() {
+              local key="$1" value="$2"
+              if grep -q "^${key}=" .env.production; then
+                sed -i "s|^${key}=.*|${key}=${value}|" .env.production
+              else
+                printf '%s=%s\n' "$key" "$value" >> .env.production
+              fi
+            }
+
+            upsert_env "NEAR_NETWORK" "mainnet"
+            upsert_env "NEAR_RPC_URL" "https://rpc.mainnet.near.org"
+            upsert_env "CORE_CONTRACT" "core.onsocial.near"
+            upsert_env "PUBLIC_API_URL" "https://api.onsocial.id"
+            upsert_env "PUBLIC_PAGE_BASE_DOMAIN" "onsocial.id"
+
             set -a && source .env.production && source .env.image && set +a
 
             echo "Rolling pages..."

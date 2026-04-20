@@ -69,7 +69,7 @@ __SERVER_NAMES__ {
 	}
 }
 
-# ---------- Pages — profile subdomains (*.onsocial.id) ----------
+# ---------- Pages — profile subdomains ----------
 # Use a catch-all HTTPS server with on-demand TLS so Caddy issues
 # individual subdomain certs at handshake time instead of trying to
 # automate a wildcard certificate at startup.
@@ -78,7 +78,7 @@ https:// {
 		on_demand
 	}
 
-	@pages host *.onsocial.id
+	@pages host __PAGES_HOST_PATTERNS__
 	handle @pages {
 		rate_limit {
 			zone pages_per_ip {

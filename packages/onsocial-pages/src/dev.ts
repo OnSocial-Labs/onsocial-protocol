@@ -13,11 +13,15 @@
 
 import http from 'node:http';
 import { renderPage } from './renderer.js';
+import { buildPageUrl } from './server-utils.js';
 import type { PageData, PageProfile, PageConfig } from './types.js';
 
 const PORT = parseInt(process.env.PORT || '8787', 10);
 const RPC_URL = process.env.NEAR_RPC_URL || 'https://rpc.testnet.near.org';
 const CORE_CONTRACT = process.env.CORE_CONTRACT || 'core.onsocial.testnet';
+const PUBLIC_PAGE_BASE_DOMAIN =
+  process.env.PUBLIC_PAGE_BASE_DOMAIN ||
+  (CORE_CONTRACT.endsWith('.near') ? 'onsocial.id' : 'testnet.onsocial.id');
 
 interface RpcEntry {
   requested_key: string;
@@ -186,7 +190,7 @@ const server = http.createServer(async (req, res) => {
     // ?edit=true simulates being the page owner
     const isOwner = url.searchParams.get('edit') === 'true';
 
-    const requestUrl = `https://${accountId.replace(/\.testnet$|\.near$/, '')}.onsocial.id`;
+    const requestUrl = buildPageUrl(accountId, PUBLIC_PAGE_BASE_DOMAIN);
     const html = renderPage(data, requestUrl, {
       isOwner,
       apiUrl: `http://localhost:${PORT}`,
@@ -214,5 +218,7 @@ server.listen(PORT, () => {
   console.log(
     `    http://localhost:${PORT}/data/page?accountId=greenghost.testnet`
   );
-  console.log(`\n  Reading from: ${CORE_CONTRACT} via ${RPC_URL}\n`);
+  console.log(
+    `\n  Reading from: ${CORE_CONTRACT} via ${RPC_URL} | Pages: ${PUBLIC_PAGE_BASE_DOMAIN}\n`
+  );
 });

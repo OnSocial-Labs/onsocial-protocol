@@ -1,40 +1,48 @@
 # OnSocial Pages Caddyfile
-# Wildcard TLS for *.onsocial.id using on-demand TLS
+# Per-subdomain TLS for public page hosts using on-demand TLS.
 #
-# Namecheap DNS must have:
-#   *.onsocial.id  A  → this server's IP
+# Namecheap DNS must have the matching wildcard A record for the target network.
+# Examples:
+#   *.onsocial.id           A → this server's IP   (mainnet)
+#   *.testnet.onsocial.id   A → this server's IP   (testnet)
 
-# On-demand TLS policy — only issue certs for *.onsocial.id subdomains
+# On-demand TLS policy — only issue certs for validated page subdomains.
 {
 	on_demand_tls {
-		interval 1m
-		burst 10
+		ask http://pages:3456/caddy-ask
 	}
 }
 
-# Wildcard handler — all *.onsocial.id subdomains
-*.onsocial.id {
+
+# Catch-all HTTPS listener so Caddy issues individual subdomain certs at
+# handshake time instead of trying to automate a wildcard certificate.
+https:// {
 	tls {
 		on_demand
 	}
 
-	# Rate limit
-	rate_limit {
-		zone pages_per_ip {
-			key    {remote_host}
-			events 60
-			window 1s
+	@pages host __PAGES_HOST_PATTERNS__
+	handle @pages {
+		rate_limit {
+			zone pages_per_ip {
+				key    {remote_host}
+				events 60
+				window 1s
+			}
+		}
+
+		reverse_proxy pages:3456
+
+		header {
+			X-Content-Type-Options "nosniff"
+			Referrer-Policy "strict-origin-when-cross-origin"
+			Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+			-Server
 		}
 	}
 
-	# All requests → pages renderer
-	reverse_proxy pages:3456
-
-	header {
-		X-Content-Type-Options "nosniff"
-		Referrer-Policy "strict-origin-when-cross-origin"
-		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
-		-Server
+	handle {
+		abort
 	}
 
 	log {

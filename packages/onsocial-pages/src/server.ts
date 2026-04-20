@@ -10,12 +10,14 @@
 //   PORT             — listen port (default 3456)
 //   DATA_API_URL     — internal gateway base URL for server-side page data
 //   PUBLIC_API_URL   — public gateway URL used by browser-side actions/editing
+//   PUBLIC_PAGE_BASE_DOMAIN — base hostname for public pages (default: onsocial.id)
 //   CORE_CONTRACT    — core contract account ID
 //   NEAR_NETWORK     — "testnet" or "mainnet" (default: derived from CORE_CONTRACT)
 // ---------------------------------------------------------------------------
 
 import http from 'node:http';
 import { renderPage } from './renderer.js';
+import { buildPageUrl, resolvePageHost } from './server-utils.js';
 import type { PageData } from './types.js';
 
 const PORT = parseInt(process.env.PORT || '3456', 10);
@@ -24,6 +26,8 @@ const NEAR_NETWORK =
   process.env.NEAR_NETWORK ||
   (CORE_CONTRACT.endsWith('.near') ? 'mainnet' : 'testnet');
 const ACCOUNT_SUFFIX = NEAR_NETWORK === 'mainnet' ? '.near' : '.testnet';
+const PUBLIC_PAGE_BASE_DOMAIN =
+  process.env.PUBLIC_PAGE_BASE_DOMAIN || 'onsocial.id';
 const DATA_API_URL =
   process.env.DATA_API_URL ||
   (NEAR_NETWORK === 'mainnet' ? 'http://gateway:8080' : 'http://gateway:8080');
@@ -32,6 +36,11 @@ const PUBLIC_API_URL =
   (NEAR_NETWORK === 'mainnet'
     ? 'https://api.onsocial.id'
     : 'https://testnet.onsocial.id');
+const ACCOUNT_VALIDATION_TTL_MS = parseInt(
+  process.env.ACCOUNT_VALIDATION_TTL_MS || '300000',
+  10
+);
+const ROOT_REDIRECT_URL = `https://${PUBLIC_PAGE_BASE_DOMAIN}`;
 
 const RESERVED_SUBDOMAINS = new Set([
   'www',
@@ -45,6 +54,11 @@ const RESERVED_SUBDOMAINS = new Set([
   'mail',
   'smtp',
 ]);
+
+const accountExistenceCache = new Map<
+  string,
+  { exists: boolean; expiresAt: number }
+>();
 
 async function fetchPageData(accountId: string): Promise<PageData> {
   const resp = await fetch(
@@ -63,29 +77,49 @@ async function fetchPageData(accountId: string): Promise<PageData> {
   return (await resp.json()) as PageData;
 }
 
-/**
- * Extract accountId from Host header.
- * "greenghost.onsocial.id" → "greenghost.testnet"
- */
-function resolveAccountId(host: string): string | null {
-  // Strip port if present
-  const hostname = host.split(':')[0];
-  const parts = hostname.split('.');
+async function accountExists(accountId: string): Promise<boolean> {
+  const cacheKey = `${NEAR_NETWORK}:${accountId}`;
+  const now = Date.now();
+  const cached = accountExistenceCache.get(cacheKey);
+  if (cached && cached.expiresAt > now) {
+    return cached.exists;
+  }
 
-  // Need at least 3 parts: subdomain.onsocial.id
-  if (parts.length < 3) return null;
+  const resp = await fetch(
+    `${DATA_API_URL}/data/account/exists?accountId=${encodeURIComponent(accountId)}`,
+    {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(10_000),
+    }
+  );
 
-  const subdomain = parts[0];
-  if (!subdomain || RESERVED_SUBDOMAINS.has(subdomain)) return null;
+  if (!resp.ok) {
+    throw new Error(`Account validation failed: ${resp.status}`);
+  }
 
-  // subdomain could already be a full account ID (greenghost.testnet → no suffix needed)
-  if (subdomain.includes('.')) return subdomain;
+  const json = (await resp.json()) as { exists?: boolean };
+  const exists = json.exists === true;
 
-  return subdomain + ACCOUNT_SUFFIX;
+  accountExistenceCache.set(cacheKey, {
+    exists,
+    expiresAt: now + ACCOUNT_VALIDATION_TTL_MS,
+  });
+
+  return exists;
 }
 
 function escHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function renderHtmlPage(
+  title: string,
+  body: string,
+  statusCode: number
+): string {
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escHtml(title)}</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Inter,-apple-system,sans-serif;background:#0f0f11;color:#e4e4e7;display:flex;justify-content:center;align-items:center;min-height:100vh;padding:2rem;text-align:center}h1{font-size:1.5rem;margin-bottom:0.5rem}p{opacity:0.72;max-width:32rem;line-height:1.5}a{color:#6366f1}</style>
+</head><body><div><h1>${escHtml(title)}</h1><p>${body}</p><p style="margin-top:1rem"><a href="${ROOT_REDIRECT_URL}">OnSocial →</a></p><p style="display:none">${statusCode}</p></div></body></html>`;
 }
 
 const server = http.createServer(async (req, res) => {
@@ -103,9 +137,14 @@ const server = http.createServer(async (req, res) => {
   // Caddy sends ?domain=alice.onsocial.id — return 200 to allow cert issuance
   if (url.pathname === '/caddy-ask') {
     const domain = url.searchParams.get('domain') ?? '';
-    const parts = domain.split('.');
-    const subdomain = parts.length >= 3 ? parts[0] : null;
-    if (subdomain && !RESERVED_SUBDOMAINS.has(subdomain)) {
+    const resolution = resolvePageHost({
+      host: domain,
+      publicPageBaseDomain: PUBLIC_PAGE_BASE_DOMAIN,
+      accountSuffix: ACCOUNT_SUFFIX,
+      reservedSubdomains: RESERVED_SUBDOMAINS,
+    });
+
+    if (resolution && (await accountExists(resolution.accountId))) {
       res.writeHead(200);
       res.end();
     } else {
@@ -124,6 +163,12 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     try {
+      if (!(await accountExists(accountId))) {
+        res.writeHead(404, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Account not found' }));
+        return;
+      }
+
       const data = await fetchPageData(accountId);
       res.writeHead(200, {
         'content-type': 'application/json',
@@ -143,16 +188,36 @@ const server = http.createServer(async (req, res) => {
 
   // Dev mode fallback: ?account= query param
   const devAccount = url.searchParams.get('account');
-  const accountId = devAccount || resolveAccountId(host);
+  const resolution = devAccount
+    ? null
+    : resolvePageHost({
+        host,
+        publicPageBaseDomain: PUBLIC_PAGE_BASE_DOMAIN,
+        accountSuffix: ACCOUNT_SUFFIX,
+        reservedSubdomains: RESERVED_SUBDOMAINS,
+      });
+  const accountId = devAccount || resolution?.accountId;
 
   if (!accountId) {
     // Root domain or reserved subdomain → redirect
-    res.writeHead(302, { Location: 'https://onsocial.id' });
+    res.writeHead(302, { Location: ROOT_REDIRECT_URL });
     res.end();
     return;
   }
 
   try {
+    if (!devAccount && !(await accountExists(accountId))) {
+      res.writeHead(404, { 'content-type': 'text/html;charset=utf-8' });
+      res.end(
+        renderHtmlPage(
+          'Page not found',
+          `${escHtml(accountId)} does not exist on ${escHtml(NEAR_NETWORK)}.`,
+          404
+        )
+      );
+      return;
+    }
+
     const data = await fetchPageData(accountId);
 
     // Smart defaults when no profile is set
@@ -167,8 +232,7 @@ const server = http.createServer(async (req, res) => {
     // Dev: simulate owner
     const isOwner = url.searchParams.get('edit') === 'true';
 
-    const subdomain = accountId.replace(/\.testnet$|\.near$/, '');
-    const requestUrl = `https://${subdomain}.onsocial.id`;
+    const requestUrl = buildPageUrl(accountId, PUBLIC_PAGE_BASE_DOMAIN);
     const html = renderPage(data, requestUrl, {
       isOwner,
       apiUrl: PUBLIC_API_URL,
@@ -190,15 +254,20 @@ const server = http.createServer(async (req, res) => {
       error: err instanceof Error ? err.message : String(err),
     });
     res.writeHead(502, { 'content-type': 'text/html' });
-    res.end(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Error</title>
-<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Inter,-apple-system,sans-serif;background:#0f0f11;color:#e4e4e7;display:flex;justify-content:center;align-items:center;min-height:100vh;padding:2rem;text-align:center}h1{font-size:1.5rem;margin-bottom:0.5rem}p{opacity:0.6}a{color:#6366f1}</style>
-</head><body><div><h1>Something went wrong</h1><p>${escHtml(accountId)} — try again in a moment.</p><p style="margin-top:1rem"><a href="https://onsocial.id">OnSocial →</a></p></div></body></html>`);
+    res.end(
+      renderHtmlPage(
+        'Something went wrong',
+        `${escHtml(accountId)} — try again in a moment.`,
+        502
+      )
+    );
   }
 });
 
 server.listen(PORT, () => {
   console.log(`OnSocial Pages server running on :${PORT}`);
   console.log(`Network: ${NEAR_NETWORK} | Contract: ${CORE_CONTRACT}`);
+  console.log(`Page domain: ${PUBLIC_PAGE_BASE_DOMAIN}`);
   console.log(`Data API: ${DATA_API_URL}`);
   console.log(`Public API: ${PUBLIC_API_URL}`);
 });
