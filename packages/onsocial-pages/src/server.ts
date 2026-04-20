@@ -7,23 +7,33 @@
 //   Host: greenghost.onsocial.id → accountId = greenghost.testnet (or .near)
 //
 // Environment:
-//   PORT            — listen port (default 3456)
-//   NEAR_RPC_URL    — NEAR RPC endpoint
-//   CORE_CONTRACT   — core contract account ID
-//   NEAR_NETWORK    — "testnet" or "mainnet" (default: derived from CORE_CONTRACT)
+//   PORT             — listen port (default 3456)
+//   DATA_API_URL     — internal gateway base URL for server-side page data
+//   PUBLIC_API_URL   — public gateway URL used by browser-side actions/editing
+//   CORE_CONTRACT    — core contract account ID
+//   NEAR_NETWORK     — "testnet" or "mainnet" (default: derived from CORE_CONTRACT)
 // ---------------------------------------------------------------------------
 
 import http from 'node:http';
 import { renderPage } from './renderer.js';
-import type { PageData, PageProfile, PageConfig } from './types.js';
+import type { PageData } from './types.js';
 
 const PORT = parseInt(process.env.PORT || '3456', 10);
-const RPC_URL = process.env.NEAR_RPC_URL || 'https://rpc.testnet.near.org';
 const CORE_CONTRACT = process.env.CORE_CONTRACT || 'core.onsocial.testnet';
 const NEAR_NETWORK =
   process.env.NEAR_NETWORK ||
   (CORE_CONTRACT.endsWith('.near') ? 'mainnet' : 'testnet');
 const ACCOUNT_SUFFIX = NEAR_NETWORK === 'mainnet' ? '.near' : '.testnet';
+const DATA_API_URL =
+  process.env.DATA_API_URL ||
+  (NEAR_NETWORK === 'mainnet'
+    ? 'http://gateway:8080'
+    : 'http://gateway:8080');
+const PUBLIC_API_URL =
+  process.env.PUBLIC_API_URL ||
+  (NEAR_NETWORK === 'mainnet'
+    ? 'https://api.onsocial.id'
+    : 'https://testnet.onsocial.id');
 
 const RESERVED_SUBDOMAINS = new Set([
   'www',
@@ -38,93 +48,21 @@ const RESERVED_SUBDOMAINS = new Set([
   'smtp',
 ]);
 
-interface RpcEntry {
-  requested_key: string;
-  value: unknown;
-  deleted?: boolean;
-}
-
 async function fetchPageData(accountId: string): Promise<PageData> {
-  const keys = [
-    'profile/name',
-    'profile/bio',
-    'profile/avatar',
-    'profile/links',
-    'profile/tags',
-    'page/main',
-  ];
-
-  const resp = await fetch(RPC_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'query',
-      params: {
-        request_type: 'call_function',
-        account_id: CORE_CONTRACT,
-        method_name: 'get',
-        args_base64: Buffer.from(
-          JSON.stringify({ keys, account_id: accountId })
-        ).toString('base64'),
-        finality: 'optimistic',
-      },
-    }),
-    signal: AbortSignal.timeout(10_000),
-  });
-
-  const json = (await resp.json()) as {
-    result?: { result?: number[] };
-    error?: unknown;
-  };
-  if (!json.result?.result) {
-    throw new Error(`RPC error: ${JSON.stringify(json.error ?? json)}`);
-  }
-
-  const entries: RpcEntry[] = JSON.parse(
-    Buffer.from(json.result.result).toString('utf-8')
-  );
-  const kv: Record<string, unknown> = {};
-  for (const e of entries) {
-    if (!e.deleted && e.value != null) kv[e.requested_key] = e.value;
-  }
-
-  const parseJson = (v: unknown): unknown => {
-    if (typeof v === 'string') {
-      try {
-        return JSON.parse(v);
-      } catch {
-        return v;
-      }
+  const resp = await fetch(
+    `${DATA_API_URL}/data/page?accountId=${encodeURIComponent(accountId)}`,
+    {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(10_000),
     }
-    return v;
-  };
+  );
 
-  const profile: PageProfile = {
-    name: (kv['profile/name'] as string) ?? undefined,
-    bio: (kv['profile/bio'] as string) ?? undefined,
-    avatar: (kv['profile/avatar'] as string) ?? undefined,
-    links: parseJson(kv['profile/links']) as
-      | Array<{ label: string; url: string }>
-      | undefined,
-    tags: parseJson(kv['profile/tags']) as string[] | undefined,
-  };
-
-  let pageConfig: PageConfig = {};
-  if (kv['page/main']) {
-    const parsed = parseJson(kv['page/main']);
-    if (parsed && typeof parsed === 'object') pageConfig = parsed as PageConfig;
+  if (!resp.ok) {
+    const details = await resp.text().catch(() => '');
+    throw new Error(`Data API error: ${resp.status} ${details}`.trim());
   }
 
-  return {
-    accountId,
-    profile,
-    config: pageConfig,
-    stats: { standingCount: 0, postCount: 0, badgeCount: 0, groupCount: 0 },
-    recentPosts: [],
-    badges: [],
-  };
+  return (await resp.json()) as PageData;
 }
 
 /**
@@ -235,7 +173,7 @@ const server = http.createServer(async (req, res) => {
     const requestUrl = `https://${subdomain}.onsocial.id`;
     const html = renderPage(data, requestUrl, {
       isOwner,
-      apiUrl: isOwner ? `http://localhost:${PORT}` : 'https://api.onsocial.id',
+      apiUrl: PUBLIC_API_URL,
     });
 
     res.writeHead(200, {
@@ -246,7 +184,13 @@ const server = http.createServer(async (req, res) => {
       'x-onsocial-account': accountId,
     });
     res.end(html);
-  } catch (_err) {
+  } catch (err) {
+    console.error('Failed to render page', {
+      accountId,
+      host,
+      path: url.pathname,
+      error: err instanceof Error ? err.message : String(err),
+    });
     res.writeHead(502, { 'content-type': 'text/html' });
     res.end(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Error</title>
 <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Inter,-apple-system,sans-serif;background:#0f0f11;color:#e4e4e7;display:flex;justify-content:center;align-items:center;min-height:100vh;padding:2rem;text-align:center}h1{font-size:1.5rem;margin-bottom:0.5rem}p{opacity:0.6}a{color:#6366f1}</style>
@@ -257,5 +201,6 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`OnSocial Pages server running on :${PORT}`);
   console.log(`Network: ${NEAR_NETWORK} | Contract: ${CORE_CONTRACT}`);
-  console.log(`RPC: ${RPC_URL}`);
+  console.log(`Data API: ${DATA_API_URL}`);
+  console.log(`Public API: ${PUBLIC_API_URL}`);
 });
