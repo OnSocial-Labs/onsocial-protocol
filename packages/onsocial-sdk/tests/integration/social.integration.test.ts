@@ -3,7 +3,13 @@
 // ---------------------------------------------------------------------------
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { getClient, testId, waitFor, ACCOUNT_ID } from './helpers.js';
+import {
+  ACCOUNT_ID,
+  confirmDirect,
+  confirmIndexed,
+  getClient,
+  testId,
+} from './helpers.js';
 import type { OnSocial } from '../../src/client.js';
 import { buildReplySetData, buildQuoteSetData } from '../../src/social.js';
 
@@ -29,8 +35,27 @@ describe('social', () => {
       expect(result.txHash).toBeTruthy();
     });
 
+    it('should expose the post via os.query.getPosts', async () => {
+      const page = await confirmIndexed(
+        async () => {
+          const value = await os.query.getPosts({
+            author: ACCOUNT_ID,
+            limit: 20,
+          });
+          return value.items.some((item) => item.postId === postId)
+            ? value
+            : null;
+        },
+        'post via getPosts',
+        { timeoutMs: 15_000, intervalMs: 2_000 }
+      );
+
+      if (!page) throw new Error('post missing from indexed posts');
+      expect(page.items.find((item) => item.postId === postId)).toBeDefined();
+    }, 20_000);
+
     it('should verify post landed on-chain via RPC', async () => {
-      const entry = await waitFor(
+      const entry = await confirmDirect(
         async () => {
           try {
             const e = await os.social.getOne(`post/${postId}`, ACCOUNT_ID);
@@ -39,9 +64,11 @@ describe('social', () => {
             return null;
           }
         },
-        { timeoutMs: 15_000, intervalMs: 2_000, label: 'post on-chain' }
+        'post on-chain',
+        { timeoutMs: 15_000, intervalMs: 2_000 }
       );
       expect(entry).toBeDefined();
+      if (!entry) throw new Error('post missing from direct read');
       const val =
         typeof entry.value === 'string' ? JSON.parse(entry.value) : entry.value;
       expect(val.text).toContain(postId);
@@ -66,7 +93,7 @@ describe('social', () => {
     });
 
     it('should see reaction counts per kind via indexer', async () => {
-      const counts = await waitFor(
+      const counts = await confirmIndexed(
         async () => {
           const c = await os.query.getReactionCounts(
             ACCOUNT_ID,
@@ -75,12 +102,10 @@ describe('social', () => {
           if (c.like && c.fire) return c;
           return null;
         },
-        {
-          timeoutMs: 15_000,
-          intervalMs: 2_000,
-          label: 'reaction counts indexed',
-        }
+        'reaction counts',
+        { timeoutMs: 15_000, intervalMs: 2_000 }
       );
+      if (!counts) throw new Error('reaction counts missing');
       expect(counts.like).toBeGreaterThanOrEqual(1);
       expect(counts.fire).toBeGreaterThanOrEqual(1);
       expect(counts.total).toBeGreaterThanOrEqual(2);
@@ -124,13 +149,15 @@ describe('social', () => {
     });
 
     it('should appear in getReplies for the parent post', async () => {
-      const replies = await waitFor(
+      const replies = await confirmIndexed(
         async () => {
           const r = await os.query.getReplies(ACCOUNT_ID, postId);
           return r.some((x) => x.postId === replyId) ? r : null;
         },
-        { timeoutMs: 15_000, intervalMs: 2_000, label: 'reply indexed' }
+        'reply',
+        { timeoutMs: 15_000, intervalMs: 2_000 }
       );
+      if (!replies) throw new Error('reply missing from index');
       const reply = replies.find((r) => r.postId === replyId)!;
       expect(reply.accountId).toBe(ACCOUNT_ID);
       expect(reply.parentAuthor).toBe(ACCOUNT_ID);
@@ -157,13 +184,15 @@ describe('social', () => {
     });
 
     it('should appear in getQuotes for the original post', async () => {
-      const quotes = await waitFor(
+      const quotes = await confirmIndexed(
         async () => {
           const q = await os.query.getQuotes(ACCOUNT_ID, postId);
           return q.some((x) => x.postId === quoteId) ? q : null;
         },
-        { timeoutMs: 15_000, intervalMs: 2_000, label: 'quote indexed' }
+        'quote',
+        { timeoutMs: 15_000, intervalMs: 2_000 }
       );
+      if (!quotes) throw new Error('quote missing from index');
       const quote = quotes.find((q) => q.postId === quoteId)!;
       expect(quote.accountId).toBe(ACCOUNT_ID);
       expect(quote.refAuthor).toBe(ACCOUNT_ID);
@@ -175,15 +204,17 @@ describe('social', () => {
 
   describe('hashtags', () => {
     it('should find the post by hashtag via getPostsByHashtag', async () => {
-      const page = await waitFor(
+      const page = await confirmIndexed(
         async () => {
           const p = await os.query.getPostsByHashtag('testhashtag', {
             limit: 50,
           });
           return p.items.some((x) => x.postId === postId) ? p : null;
         },
-        { timeoutMs: 15_000, intervalMs: 2_000, label: 'hashtag indexed' }
+        'hashtag',
+        { timeoutMs: 15_000, intervalMs: 2_000 }
       );
+      if (!page) throw new Error('hashtag index missing post');
       expect(page.items.find((x) => x.postId === postId)).toBeDefined();
     }, 20_000);
 
@@ -209,12 +240,13 @@ describe('social', () => {
     });
 
     it('should appear in standingWith list via indexer', async () => {
-      const standing = await waitFor(
+      const standing = await confirmIndexed(
         async () => {
           const list = await os.query.getStandingWith(ACCOUNT_ID);
           return list.includes(standTarget) ? list : null;
         },
-        { timeoutMs: 15_000, intervalMs: 2_000, label: 'standWith indexed' }
+        'standWith',
+        { timeoutMs: 15_000, intervalMs: 2_000 }
       );
       expect(standing).toContain(standTarget);
     }, 20_000);
@@ -248,7 +280,7 @@ describe('social', () => {
     });
 
     it('should verify profile field landed on-chain via RPC', async () => {
-      const entry = await waitFor(
+      const entry = await confirmDirect(
         async () => {
           try {
             const e = await os.social.getOne(
@@ -260,10 +292,26 @@ describe('social', () => {
             return null;
           }
         },
-        { timeoutMs: 15_000, intervalMs: 2_000, label: 'profile on-chain' }
+        'profile on-chain',
+        { timeoutMs: 15_000, intervalMs: 2_000 }
       );
       expect(entry).toBeDefined();
+      if (!entry) throw new Error('profile missing from direct read');
       expect(entry.value).toBe('integration-value');
+    }, 20_000);
+
+    it('should expose the profile field via os.query.getProfile', async () => {
+      const profile = await confirmIndexed(
+        async () => {
+          const value = await os.query.getProfile(ACCOUNT_ID);
+          return value?.[testField] === 'integration-value' ? value : null;
+        },
+        'profile via getProfile',
+        { timeoutMs: 15_000, intervalMs: 2_000 }
+      );
+
+      if (!profile) throw new Error('profile missing from index');
+      expect(profile?.[testField]).toBe('integration-value');
     }, 20_000);
   });
 });

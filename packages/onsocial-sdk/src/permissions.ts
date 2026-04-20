@@ -3,6 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import type { HttpClient } from './http.js';
+import { resolveContractId } from './contracts.js';
 import type { PermissionLevel, RelayResponse } from './types.js';
 
 /**
@@ -15,7 +16,18 @@ import type { PermissionLevel, RelayResponse } from './types.js';
  * ```
  */
 export class PermissionsModule {
-  constructor(private _http: HttpClient) {}
+  private _coreContract: string;
+
+  constructor(private _http: HttpClient) {
+    this._coreContract = resolveContractId(_http.network, 'core');
+  }
+
+  private execute(action: Record<string, unknown>): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>('/relay/execute', {
+      action,
+      target_account: this._coreContract,
+    });
+  }
 
   // ── Write methods ─────────────────────────────────────────────────────
 
@@ -25,14 +37,12 @@ export class PermissionsModule {
     level: PermissionLevel,
     expiresAt?: number
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/relay/execute', {
-      action: {
-        type: 'set_permission',
-        grantee,
-        path,
-        level,
-        ...(expiresAt !== undefined && { expires_at: expiresAt }),
-      },
+    return this.execute({
+      type: 'set_permission',
+      grantee,
+      path,
+      level,
+      ...(expiresAt !== undefined && { expires_at: expiresAt }),
     });
   }
 
@@ -42,14 +52,12 @@ export class PermissionsModule {
     level: PermissionLevel,
     expiresAt?: number
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/relay/execute', {
-      action: {
-        type: 'set_key_permission',
-        public_key: publicKey,
-        path,
-        level,
-        ...(expiresAt !== undefined && { expires_at: expiresAt }),
-      },
+    return this.execute({
+      type: 'set_key_permission',
+      public_key: publicKey,
+      path,
+      level,
+      ...(expiresAt !== undefined && { expires_at: expiresAt }),
     });
   }
 

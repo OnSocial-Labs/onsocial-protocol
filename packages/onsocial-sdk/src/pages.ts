@@ -3,19 +3,14 @@
 // ---------------------------------------------------------------------------
 
 import type { HttpClient } from './http.js';
+import { resolveContractId } from './contracts.js';
 import type {
-  Network,
   PageConfig,
   PageData,
   PageSection,
   PageTheme,
   RelayResponse,
 } from './types.js';
-
-const CORE_CONTRACTS: Record<Network, string> = {
-  mainnet: 'core.onsocial.near',
-  testnet: 'core.onsocial.testnet',
-};
 
 /**
  * Pages — configure and read `{account}.onsocial.id` page data.
@@ -44,7 +39,7 @@ export class PagesModule {
   private _coreContract: string;
 
   constructor(private _http: HttpClient) {
-    this._coreContract = CORE_CONTRACTS[_http.network];
+    this._coreContract = resolveContractId(_http.network, 'core');
   }
 
   // ── Writes ──────────────────────────────────────────────────────────────

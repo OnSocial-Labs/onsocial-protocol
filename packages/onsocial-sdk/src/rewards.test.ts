@@ -52,10 +52,22 @@ describe('RewardsModule transport', () => {
     const post = vi.fn().mockResolvedValue({ claimed: '0' });
     const rewards = new RewardsModule({ post } as never);
 
-    await rewards.claim('alice.near');
+    const result = await rewards.claim('alice.near');
 
     expect(post).toHaveBeenCalledWith('/v1/claim', {
       account_id: 'alice.near',
     });
+    expect(result.claimed).toBe('0');
+    expect(result.txHash).toBeUndefined();
+  });
+
+  it('preserves txHash when reward credit returns one', async () => {
+    const post = vi.fn().mockResolvedValue({ txHash: 'reward-tx' });
+    const rewards = new RewardsModule({ post } as never);
+
+    const result = await rewards.credit({ accountId: 'alice.near' });
+
+    expect(result.txHash).toBe('reward-tx');
+    expect(result.ok).toBeUndefined();
   });
 });

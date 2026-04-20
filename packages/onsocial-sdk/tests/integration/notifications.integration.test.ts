@@ -3,12 +3,11 @@
 // ---------------------------------------------------------------------------
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { getClient, testId, waitFor, ACCOUNT_ID } from './helpers.js';
+import { getClient, testId, confirmIndexed, ACCOUNT_ID } from './helpers.js';
 import type { OnSocial } from '../../src/client.js';
 
 describe('notifications', () => {
   let os: OnSocial;
-  const eventId = testId();
 
   beforeAll(async () => {
     os = await getClient();
@@ -27,6 +26,8 @@ describe('notifications', () => {
 
   describe('send events', () => {
     it('should send a single custom notification event', async () => {
+      const eventId = testId();
+
       const results = await os.notifications.sendEvents({
         events: [
           {
@@ -113,7 +114,22 @@ describe('notifications', () => {
 
   describe('list & count', () => {
     it('should see the notification in the list', async () => {
-      const result = await waitFor(
+      const eventId = testId();
+
+      await os.notifications.sendEvents({
+        events: [
+          {
+            recipient: ACCOUNT_ID,
+            eventType: 'integration_test',
+            dedupeKey: `integ:${eventId}`,
+            actor: 'system',
+            objectId: eventId,
+            context: { source: 'sdk-integration-test' },
+          },
+        ],
+      });
+
+      const result = await confirmIndexed(
         async () => {
           const res = await os.notifications.list({
             recipient: ACCOUNT_ID,
@@ -128,7 +144,8 @@ describe('notifications', () => {
           );
           return match ? res : null;
         },
-        { timeoutMs: 60_000, intervalMs: 3_000, label: 'notification in list' }
+        'notification in list',
+        { timeoutMs: 60_000, intervalMs: 3_000 }
       );
       expect(result!.notifications.length).toBeGreaterThan(0);
     }, 65_000);
@@ -374,7 +391,7 @@ describe('notifications', () => {
       });
 
       // Wait for the worker to pick up events
-      const result = await waitFor(
+      const result = await confirmIndexed(
         async () => {
           const res = await os.notifications.list({
             recipient: ACCOUNT_ID,
@@ -385,7 +402,8 @@ describe('notifications', () => {
             ? res
             : null;
         },
-        { timeoutMs: 35_000, intervalMs: 3_000, label: 'dedup notification' }
+        'dedup notification',
+        { timeoutMs: 35_000, intervalMs: 3_000 }
       );
       const matches = result!.notifications.filter(
         (n) => n.dedupeKey === fullKey
@@ -417,7 +435,7 @@ describe('notifications', () => {
         ],
       });
 
-      const result = await waitFor(
+      const result = await confirmIndexed(
         async () => {
           const res = await os.notifications.list({
             recipient: ACCOUNT_ID,
@@ -432,7 +450,8 @@ describe('notifications', () => {
           );
           return matchA && matchB ? res : null;
         },
-        { timeoutMs: 35_000, intervalMs: 3_000, label: 'distinct events' }
+        'distinct events',
+        { timeoutMs: 35_000, intervalMs: 3_000 }
       );
 
       const matchesA = result!.notifications.filter(
@@ -465,7 +484,7 @@ describe('notifications', () => {
         ],
       });
 
-      const result = await waitFor(
+      const result = await confirmIndexed(
         async () => {
           const res = await os.notifications.list({
             appId: 'default',
@@ -477,10 +496,10 @@ describe('notifications', () => {
             ? res
             : null;
         },
+        'default appId event',
         {
           timeoutMs: 30_000,
           intervalMs: 3_000,
-          label: 'default appId event',
         }
       );
 

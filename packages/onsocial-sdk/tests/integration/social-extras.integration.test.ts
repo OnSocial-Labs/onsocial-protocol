@@ -5,7 +5,13 @@
 // ---------------------------------------------------------------------------
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { getClient, testId, waitFor, ACCOUNT_ID } from './helpers.js';
+import {
+  ACCOUNT_ID,
+  confirmDirect,
+  confirmIndexed,
+  getClient,
+  testId,
+} from './helpers.js';
 import type { OnSocial } from '../../src/client.js';
 import {
   buildSaveSetData,
@@ -36,12 +42,12 @@ describe('social-extras', () => {
     });
 
     it('should appear in saves_current via indexer', async () => {
-      const saves = await waitFor(
+      const saves = await confirmIndexed(
         async () => {
           const s = await os.query.getSaves(ACCOUNT_ID);
           return s.some((r) => r.contentPath.includes(targetPostId)) ? s : null;
         },
-        { timeoutMs: 30_000, intervalMs: 3_000, label: 'save indexed' }
+        'save'
       );
       const save = saves.find((r) => r.contentPath.includes(targetPostId))!;
       expect(save.accountId).toBe(ACCOUNT_ID);
@@ -60,12 +66,12 @@ describe('social-extras', () => {
       const result = await os.social.set(path, JSON.stringify(value));
       expect(result.txHash).toBeTruthy();
 
-      const saves = await waitFor(
+      const saves = await confirmIndexed(
         async () => {
           const s = await os.query.getSaves(ACCOUNT_ID);
           return s.some((r) => r.contentPath.includes(folderId)) ? s : null;
         },
-        { timeoutMs: 30_000, intervalMs: 3_000, label: 'save with folder' }
+        'save with folder'
       );
       const val = JSON.parse(
         saves.find((r) => r.contentPath.includes(folderId))!.value
@@ -95,7 +101,7 @@ describe('social-extras', () => {
     });
 
     it('should appear in endorsements_current via indexer (given)', async () => {
-      const endorsed = await waitFor(
+      const endorsed = await confirmIndexed(
         async () => {
           const e = await os.query.getEndorsementsGiven(ACCOUNT_ID);
           const match = e.find(
@@ -106,11 +112,7 @@ describe('social-extras', () => {
           );
           return match ? e : null;
         },
-        {
-          timeoutMs: 30_000,
-          intervalMs: 3_000,
-          label: 'endorsement indexed (given)',
-        }
+        'endorsement given'
       );
       const row = endorsed.find(
         (r) =>
@@ -123,16 +125,12 @@ describe('social-extras', () => {
     }, 35_000);
 
     it('should appear in endorsements_current via indexer (received)', async () => {
-      const received = await waitFor(
+      const received = await confirmIndexed(
         async () => {
           const e = await os.query.getEndorsementsReceived(endorseTarget);
           return e.some((r) => r.issuer === ACCOUNT_ID) ? e : null;
         },
-        {
-          timeoutMs: 30_000,
-          intervalMs: 3_000,
-          label: 'endorsement indexed (received)',
-        }
+        'endorsement received'
       );
       expect(received.some((r) => r.issuer === ACCOUNT_ID)).toBe(true);
     }, 35_000);
@@ -149,7 +147,7 @@ describe('social-extras', () => {
       expect(result.txHash).toBeTruthy();
 
       // Verify via on-chain RPC (topic-scoped endorsements need path-based lookup)
-      const entry = await waitFor(
+      const entry = await confirmDirect(
         async () => {
           try {
             const e = await os.social.getOne(
@@ -161,11 +159,8 @@ describe('social-extras', () => {
             return null;
           }
         },
-        {
-          timeoutMs: 15_000,
-          intervalMs: 2_000,
-          label: 'endorsement with topic',
-        }
+        'endorsement with topic',
+        { timeoutMs: 15_000, intervalMs: 2_000 }
       );
       const val =
         typeof entry.value === 'string' ? JSON.parse(entry.value) : entry.value;
@@ -185,7 +180,7 @@ describe('social-extras', () => {
       const result = await os.social.set(path, JSON.stringify(value));
       expect(result.txHash).toBeTruthy();
 
-      const entry = await waitFor(
+      const entry = await confirmDirect(
         async () => {
           try {
             const e = await os.social.getOne(
@@ -197,11 +192,8 @@ describe('social-extras', () => {
             return null;
           }
         },
-        {
-          timeoutMs: 15_000,
-          intervalMs: 2_000,
-          label: 'endorsement with expiry',
-        }
+        'endorsement with expiry',
+        { timeoutMs: 15_000, intervalMs: 2_000 }
       );
       const val =
         typeof entry.value === 'string' ? JSON.parse(entry.value) : entry.value;
@@ -241,18 +233,14 @@ describe('social-extras', () => {
     });
 
     it('should appear in claims_current via indexer (issued)', async () => {
-      const claims = await waitFor(
+      const claims = await confirmIndexed(
         async () => {
           const c = await os.query.getClaimsIssued(ACCOUNT_ID, {
             claimType,
           });
           return c.some((r) => r.claimId === claimId) ? c : null;
         },
-        {
-          timeoutMs: 30_000,
-          intervalMs: 3_000,
-          label: 'claim indexed (issued)',
-        }
+        'claim issued'
       );
       const claim = claims.find((r) => r.claimId === claimId)!;
       expect(claim.issuer).toBe(ACCOUNT_ID);
@@ -264,16 +252,12 @@ describe('social-extras', () => {
     }, 35_000);
 
     it('should appear in claims_current via indexer (about subject)', async () => {
-      const claims = await waitFor(
+      const claims = await confirmIndexed(
         async () => {
           const c = await os.query.getClaimsAbout(subject, { claimType });
           return c.some((r) => r.issuer === ACCOUNT_ID) ? c : null;
         },
-        {
-          timeoutMs: 30_000,
-          intervalMs: 3_000,
-          label: 'claim indexed (about)',
-        }
+        'claim about subject'
       );
       expect(claims.some((r) => r.issuer === ACCOUNT_ID)).toBe(true);
     }, 35_000);
@@ -296,18 +280,14 @@ describe('social-extras', () => {
       const result = await os.social.set(path, JSON.stringify(value));
       expect(result.txHash).toBeTruthy();
 
-      const claims = await waitFor(
+      const claims = await confirmIndexed(
         async () => {
           const c = await os.query.getClaimsIssued(ACCOUNT_ID, {
             claimType: 'skill-assessment',
           });
           return c.some((r) => r.claimId === fullId) ? c : null;
         },
-        {
-          timeoutMs: 30_000,
-          intervalMs: 3_000,
-          label: 'full claim indexed',
-        }
+        'full claim'
       );
       const val = JSON.parse(claims.find((r) => r.claimId === fullId)!.value);
       expect(val.type).toBe('skill-assessment');
@@ -329,18 +309,14 @@ describe('social-extras', () => {
       const result = await os.social.set(path, JSON.stringify(value));
       expect(result.txHash).toBeTruthy();
 
-      const claims = await waitFor(
+      const claims = await confirmIndexed(
         async () => {
           const c = await os.query.getClaimsIssued(ACCOUNT_ID, {
             claimType: 'membership',
           });
           return c.some((r) => r.claimId === xId) ? c : null;
         },
-        {
-          timeoutMs: 30_000,
-          intervalMs: 3_000,
-          label: 'claim with extensions',
-        }
+        'claim with extensions'
       );
       const val = JSON.parse(claims.find((r) => r.claimId === xId)!.value);
       expect(val.x.myapp.tier).toBe('gold');
@@ -358,18 +334,14 @@ describe('social-extras', () => {
       expect(result.txHash).toBeTruthy();
 
       // Both claims should be queryable
-      const claims = await waitFor(
+      const claims = await confirmIndexed(
         async () => {
           const c = await os.query.getClaimsIssued(ACCOUNT_ID, { claimType });
           const hasFirst = c.some((r) => r.claimId === claimId);
           const hasSecond = c.some((r) => r.claimId === secondId);
           return hasFirst && hasSecond ? c : null;
         },
-        {
-          timeoutMs: 30_000,
-          intervalMs: 3_000,
-          label: 'multiple claims indexed',
-        }
+        'multiple claims'
       );
       expect(claims.length).toBeGreaterThanOrEqual(2);
     }, 35_000);

@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
+  ScarcesModule,
   buildCreateCollectionAction,
   buildCreateLazyListingAction,
   buildListNativeScarceAction,
@@ -140,5 +141,36 @@ describe('scarces action builders', () => {
       burnable: false,
       expires_at: 999,
     });
+  });
+});
+
+describe('ScarcesModule transport', () => {
+  it('submits multipart mint requests through /compose/mint', async () => {
+    const requestForm = vi.fn().mockResolvedValue({ txHash: 'token42' });
+    const scarces = new ScarcesModule({ requestForm } as never);
+
+    const result = await scarces.mint({ title: 'Genesis' });
+
+    expect(requestForm).toHaveBeenCalledWith(
+      'POST',
+      '/compose/mint',
+      expect.any(FormData)
+    );
+    expect(result.txHash).toBe('token42');
+  });
+
+  it('preserves normalized success responses for write endpoints without txHash', async () => {
+    const post = vi.fn().mockResolvedValue({ ok: true, status: 'accepted' });
+    const scarces = new ScarcesModule({ post } as never);
+
+    const result = await scarces.list({ tokenId: '1', priceNear: '1' });
+
+    expect(post).toHaveBeenCalledWith('/compose/list-native-scarce', {
+      tokenId: '1',
+      priceNear: '1',
+    });
+    expect(result.ok).toBe(true);
+    expect(result.status).toBe('accepted');
+    expect(result.txHash).toBeUndefined();
   });
 });

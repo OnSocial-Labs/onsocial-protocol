@@ -7,23 +7,18 @@
 // ---------------------------------------------------------------------------
 
 import type { HttpClient } from './http.js';
+import { resolveContractId } from './contracts.js';
 import { SCHEMA_VERSION } from './schema/v1.js';
 import type { MediaRef } from './schema/v1.js';
 import type {
   EntryView,
   KeyEntry,
   ListKeysOptions,
-  Network,
   PostData,
   ProfileData,
   ReactionData,
   RelayResponse,
 } from './types.js';
-
-const CORE_CONTRACTS: Record<Network, string> = {
-  mainnet: 'core.onsocial.near',
-  testnet: 'core.onsocial.testnet',
-};
 
 export type SocialSetData = Record<string, unknown>;
 
@@ -348,7 +343,7 @@ export class SocialModule {
   private _coreContract: string;
 
   constructor(private _http: HttpClient) {
-    this._coreContract = CORE_CONTRACTS[_http.network];
+    this._coreContract = resolveContractId(_http.network, 'core');
   }
 
   /**

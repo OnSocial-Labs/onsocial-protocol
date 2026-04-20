@@ -3,6 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import type { HttpClient } from './http.js';
+import { resolveContractId } from './contracts.js';
 import type { GroupConfigV1 } from './schema/v1.js';
 import type {
   RelayResponse,
@@ -16,12 +17,6 @@ import type {
   ListProposalsOptions,
 } from './types.js';
 import { buildGroupPostSetData } from './social.js';
-import type { Network } from './types.js';
-
-const CORE_CONTRACTS: Record<Network, string> = {
-  mainnet: 'core.onsocial.near',
-  testnet: 'core.onsocial.testnet',
-};
 
 /**
  * Groups — lifecycle, membership, governance, and group content.
@@ -52,7 +47,14 @@ export class GroupsModule {
   private _coreContract: string;
 
   constructor(private _http: HttpClient) {
-    this._coreContract = CORE_CONTRACTS[_http.network];
+    this._coreContract = resolveContractId(_http.network, 'core');
+  }
+
+  private execute(action: Record<string, unknown>): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>('/relay/execute', {
+      action,
+      target_account: this._coreContract,
+    });
   }
 
   // ── Lifecycle ───────────────────────────────────────────────────────────
@@ -61,21 +63,15 @@ export class GroupsModule {
     groupId: string,
     config: GroupConfigV1
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/relay/execute', {
-      action: { type: 'create_group', group_id: groupId, config },
-    });
+    return this.execute({ type: 'create_group', group_id: groupId, config });
   }
 
   async join(groupId: string): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/relay/execute', {
-      action: { type: 'join_group', group_id: groupId },
-    });
+    return this.execute({ type: 'join_group', group_id: groupId });
   }
 
   async leave(groupId: string): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/relay/execute', {
-      action: { type: 'leave_group', group_id: groupId },
-    });
+    return this.execute({ type: 'leave_group', group_id: groupId });
   }
 
   // ── Member management ─────────────────────────────────────────────────
@@ -84,12 +80,10 @@ export class GroupsModule {
     groupId: string,
     memberId: string
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/relay/execute', {
-      action: {
-        type: 'add_group_member',
-        group_id: groupId,
-        member_id: memberId,
-      },
+    return this.execute({
+      type: 'add_group_member',
+      group_id: groupId,
+      member_id: memberId,
     });
   }
 
@@ -97,12 +91,10 @@ export class GroupsModule {
     groupId: string,
     memberId: string
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/relay/execute', {
-      action: {
-        type: 'remove_group_member',
-        group_id: groupId,
-        member_id: memberId,
-      },
+    return this.execute({
+      type: 'remove_group_member',
+      group_id: groupId,
+      member_id: memberId,
     });
   }
 
@@ -110,12 +102,10 @@ export class GroupsModule {
     groupId: string,
     requesterId: string
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/relay/execute', {
-      action: {
-        type: 'approve_join_request',
-        group_id: groupId,
-        requester_id: requesterId,
-      },
+    return this.execute({
+      type: 'approve_join_request',
+      group_id: groupId,
+      requester_id: requesterId,
     });
   }
 
@@ -124,32 +114,26 @@ export class GroupsModule {
     requesterId: string,
     reason?: string
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/relay/execute', {
-      action: {
-        type: 'reject_join_request',
-        group_id: groupId,
-        requester_id: requesterId,
-        ...(reason !== undefined && { reason }),
-      },
+    return this.execute({
+      type: 'reject_join_request',
+      group_id: groupId,
+      requester_id: requesterId,
+      ...(reason !== undefined && { reason }),
     });
   }
 
   async cancelJoin(groupId: string): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/relay/execute', {
-      action: { type: 'cancel_join_request', group_id: groupId },
-    });
+    return this.execute({ type: 'cancel_join_request', group_id: groupId });
   }
 
   async blacklist(
     groupId: string,
     memberId: string
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/relay/execute', {
-      action: {
-        type: 'blacklist_group_member',
-        group_id: groupId,
-        member_id: memberId,
-      },
+    return this.execute({
+      type: 'blacklist_group_member',
+      group_id: groupId,
+      member_id: memberId,
     });
   }
 
@@ -157,12 +141,10 @@ export class GroupsModule {
     groupId: string,
     memberId: string
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/relay/execute', {
-      action: {
-        type: 'unblacklist_group_member',
-        group_id: groupId,
-        member_id: memberId,
-      },
+    return this.execute({
+      type: 'unblacklist_group_member',
+      group_id: groupId,
+      member_id: memberId,
     });
   }
 
@@ -171,15 +153,13 @@ export class GroupsModule {
     newOwner: string,
     removeOldOwner?: boolean
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/relay/execute', {
-      action: {
-        type: 'transfer_group_ownership',
-        group_id: groupId,
-        new_owner: newOwner,
-        ...(removeOldOwner !== undefined && {
-          remove_old_owner: removeOldOwner,
-        }),
-      },
+    return this.execute({
+      type: 'transfer_group_ownership',
+      group_id: groupId,
+      new_owner: newOwner,
+      ...(removeOldOwner !== undefined && {
+        remove_old_owner: removeOldOwner,
+      }),
     });
   }
 
@@ -187,12 +167,10 @@ export class GroupsModule {
     groupId: string,
     isPrivate: boolean
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/relay/execute', {
-      action: {
-        type: 'set_group_privacy',
-        group_id: groupId,
-        is_private: isPrivate,
-      },
+    return this.execute({
+      type: 'set_group_privacy',
+      group_id: groupId,
+      is_private: isPrivate,
     });
   }
 
@@ -222,17 +200,15 @@ export class GroupsModule {
     changes: Record<string, unknown>,
     opts?: { autoVote?: boolean; description?: string }
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/relay/execute', {
-      action: {
-        type: 'create_proposal',
-        group_id: groupId,
-        proposal_type: proposalType,
-        changes,
-        ...(opts?.autoVote !== undefined && { auto_vote: opts.autoVote }),
-        ...(opts?.description !== undefined && {
-          description: opts.description,
-        }),
-      },
+    return this.execute({
+      type: 'create_proposal',
+      group_id: groupId,
+      proposal_type: proposalType,
+      changes,
+      ...(opts?.autoVote !== undefined && { auto_vote: opts.autoVote }),
+      ...(opts?.description !== undefined && {
+        description: opts.description,
+      }),
     });
   }
 
@@ -241,13 +217,11 @@ export class GroupsModule {
     proposalId: string,
     approve: boolean
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/relay/execute', {
-      action: {
-        type: 'vote_on_proposal',
-        group_id: groupId,
-        proposal_id: proposalId,
-        approve,
-      },
+    return this.execute({
+      type: 'vote_on_proposal',
+      group_id: groupId,
+      proposal_id: proposalId,
+      approve,
     });
   }
 
@@ -255,12 +229,10 @@ export class GroupsModule {
     groupId: string,
     proposalId: string
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/relay/execute', {
-      action: {
-        type: 'cancel_proposal',
-        group_id: groupId,
-        proposal_id: proposalId,
-      },
+    return this.execute({
+      type: 'cancel_proposal',
+      group_id: groupId,
+      proposal_id: proposalId,
     });
   }
 

@@ -56,6 +56,44 @@ export class HttpClient {
     return h;
   }
 
+  private _isMutationPath(method: string, path: string): boolean {
+    return (
+      method === 'POST' &&
+      (path.startsWith('/compose/') ||
+        path.startsWith('/relay/') ||
+        path.startsWith('/v1/reward') ||
+        path.startsWith('/v1/claim'))
+    );
+  }
+
+  private _normalizeMutationResponse<T>(path: string, method: string, payload: T): T {
+    if (!this._isMutationPath(method, path)) return payload;
+
+    if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+      const response = { ...(payload as Record<string, unknown>) };
+
+      if (typeof response.txHash === 'string') return response as T;
+      if (typeof response.tx_hash === 'string') {
+        response.txHash = response.tx_hash;
+        return response as T;
+      }
+      if (typeof response.transactionHash === 'string') {
+        response.txHash = response.transactionHash;
+        return response as T;
+      }
+      if (typeof response.transaction_hash === 'string') {
+        response.txHash = response.transaction_hash;
+        return response as T;
+      }
+
+      if (response.ok === undefined) response.ok = true;
+      if (response.raw === undefined) response.raw = payload;
+      return response as T;
+    }
+
+    return { ok: true, raw: payload } as T;
+  }
+
   /** JSON request. */
   async request<T>(method: string, path: string, body?: unknown): Promise<T> {
     const url = `${this.baseUrl}${path}`;
@@ -93,7 +131,8 @@ export class HttpClient {
       throw new OnSocialError(res.status, err);
     }
 
-    return res.json() as Promise<T>;
+    const payload = (await res.json()) as T;
+    return this._normalizeMutationResponse(path, method, payload);
   }
 
   /** Multipart form-data request (for file uploads). */
@@ -115,7 +154,8 @@ export class HttpClient {
       throw new OnSocialError(res.status, err);
     }
 
-    return res.json() as Promise<T>;
+    const payload = (await res.json()) as T;
+    return this._normalizeMutationResponse(path, method, payload);
   }
 
   /** GET shorthand. */

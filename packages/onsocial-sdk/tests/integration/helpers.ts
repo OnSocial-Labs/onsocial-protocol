@@ -265,6 +265,38 @@ export async function waitFor<T>(
   throw new Error(`${label}: timed out after ${timeoutMs}ms`);
 }
 
+/**
+ * Wait for a direct gateway or contract-style read to reflect a prior write.
+ * Use this for `/data/*` or raw on-chain verification paths.
+ */
+export async function confirmDirect<T>(
+  fn: () => Promise<T>,
+  label: string,
+  opts: { timeoutMs?: number; intervalMs?: number } = {}
+): Promise<T> {
+  return waitFor(fn, {
+    timeoutMs: opts.timeoutMs ?? 20_000,
+    intervalMs: opts.intervalMs ?? 2_000,
+    label: `direct ${label}`,
+  });
+}
+
+/**
+ * Wait for the indexed query layer to reflect a prior write.
+ * Use this for `os.query.*` confirmations backed by substreams/Hasura.
+ */
+export async function confirmIndexed<T>(
+  fn: () => Promise<T>,
+  label: string,
+  opts: { timeoutMs?: number; intervalMs?: number } = {}
+): Promise<T> {
+  return waitFor(fn, {
+    timeoutMs: opts.timeoutMs ?? 30_000,
+    intervalMs: opts.intervalMs ?? 3_000,
+    label: `indexed ${label}`,
+  });
+}
+
 /** Generate a unique test ID to avoid collisions between runs. */
 export function testId(): string {
   return `test_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;

@@ -61,7 +61,12 @@ export interface AuthInfo {
 // ── Relay / Compose ─────────────────────────────────────────────────────────
 
 export interface RelayResponse {
-  txHash: string;
+  /** Present when the backend returns a transaction or receipt hash. */
+  txHash?: string;
+  /** Present on normalized successful write responses that do not include a txHash. */
+  ok?: boolean;
+  /** Raw backend payload when no canonical txHash field was available. */
+  raw?: unknown;
   [key: string]: unknown;
 }
 
