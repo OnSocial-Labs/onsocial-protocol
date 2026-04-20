@@ -8,6 +8,14 @@
 -- Hasura/OnAPI return live data with zero lag after substreams ingestion.
 -- Performance relies on indexes on data_updates; at current scale the
 -- DISTINCT ON queries execute in single-digit milliseconds.
+--
+-- Important semantic rule for current-state views:
+--   1. dedupe across ALL operations first (set, remove, revoke, etc.)
+--   2. then filter to active rows where needed
+--
+-- This avoids stale positive state surviving after a later tombstone event.
+-- Ordering includes receipt_id and id as deterministic tie-breakers so
+-- multiple writes to the same logical key within one block resolve correctly.
 -- ============================================================================
 
 -- ────────────────────────────────────────────────────────────────────────────
@@ -33,10 +41,10 @@ CREATE INDEX IF NOT EXISTS idx_data_updates_profile_dedup
   ON data_updates(account_id, data_id, block_height DESC) WHERE data_type = 'profile';
 
 CREATE INDEX IF NOT EXISTS idx_data_updates_post_dedup
-  ON data_updates(account_id, data_id, block_height DESC) WHERE data_type = 'post' AND operation = 'set';
+  ON data_updates(account_id, data_id, block_height DESC) WHERE data_type = 'post';
 
 CREATE INDEX IF NOT EXISTS idx_data_updates_standing_dedup
-  ON data_updates(account_id, target_account, block_height DESC) WHERE data_type = 'standing' AND operation = 'set';
+  ON data_updates(account_id, target_account, block_height DESC) WHERE data_type = 'standing';
 
 CREATE INDEX IF NOT EXISTS idx_data_updates_reaction_dedup
   ON data_updates(account_id, path, block_height DESC) WHERE data_type = 'reaction';
@@ -58,14 +66,14 @@ SELECT DISTINCT ON (account_id, data_id)
   operation
 FROM data_updates
 WHERE data_type = 'profile'
-ORDER BY account_id, data_id, block_height DESC;
+ORDER BY account_id, data_id, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC;
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 2. posts_current — latest state of each post (deduped edits + deletes)
 -- ────────────────────────────────────────────────────────────────────────────
 
 CREATE OR REPLACE VIEW posts_current AS
-SELECT DISTINCT ON (account_id, data_id)
+SELECT
   account_id,
   data_id                      AS post_id,
   value,
@@ -80,28 +88,58 @@ SELECT DISTINCT ON (account_id, data_id)
   ref_type,
   group_id,
   is_group_content
-FROM data_updates
-WHERE data_type = 'post'
-  AND operation = 'set'
-ORDER BY account_id, data_id, block_height DESC;
+FROM (
+  SELECT DISTINCT ON (account_id, data_id)
+    account_id,
+    data_id,
+    value,
+    block_height,
+    block_timestamp,
+    receipt_id,
+    parent_path,
+    parent_author,
+    parent_type,
+    ref_path,
+    ref_author,
+    ref_type,
+    group_id,
+    is_group_content,
+    operation,
+    id
+  FROM data_updates
+  WHERE data_type = 'post'
+  ORDER BY account_id, data_id, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC
+) latest
+WHERE operation = 'set';
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 3. standings_current — social graph (who stands with whom)
 -- ────────────────────────────────────────────────────────────────────────────
 
 CREATE OR REPLACE VIEW standings_current AS
-SELECT DISTINCT ON (account_id, target_account)
+SELECT
   account_id,
   target_account,
   value,
   block_height,
   block_timestamp
-FROM data_updates
-WHERE data_type = 'standing'
-  AND target_account IS NOT NULL
-  AND target_account != ''
-  AND operation = 'set'
-ORDER BY account_id, target_account, block_height DESC;
+FROM (
+  SELECT DISTINCT ON (account_id, target_account)
+    account_id,
+    target_account,
+    value,
+    block_height,
+    block_timestamp,
+    operation,
+    receipt_id,
+    id
+  FROM data_updates
+  WHERE data_type = 'standing'
+    AND target_account IS NOT NULL
+    AND target_account != ''
+  ORDER BY account_id, target_account, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC
+) latest
+WHERE operation = 'set';
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 4. reactions_current — per-user reaction state on a target post
@@ -119,7 +157,7 @@ SELECT DISTINCT ON (account_id, path)
   operation
 FROM data_updates
 WHERE data_type = 'reaction'
-ORDER BY account_id, path, block_height DESC;
+ORDER BY account_id, path, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC;
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 5. reaction_counts — aggregate reaction counts per target post, per kind
@@ -211,7 +249,7 @@ SELECT DISTINCT ON (account_id, data_type, target_account)
 FROM data_updates
 WHERE target_account IS NOT NULL
   AND target_account != ''
-ORDER BY account_id, data_type, target_account, block_height DESC;
+ORDER BY account_id, data_type, target_account, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC;
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 10. edge_counts — per (account, edge_type) counts
@@ -244,7 +282,7 @@ SELECT DISTINCT ON (account_id, path)
   operation
 FROM data_updates
 WHERE data_type = 'claims'
-ORDER BY account_id, path, block_height DESC;
+ORDER BY account_id, path, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC;
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 12. post_hashtags — hashtag-to-post junction
@@ -296,7 +334,7 @@ SELECT DISTINCT ON (account_id, path)
   operation
 FROM data_updates
 WHERE data_type = 'saved'
-ORDER BY account_id, path, block_height DESC;
+ORDER BY account_id, path, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC;
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 15. endorsements_current — latest endorsement per (issuer, target[, topic])
@@ -317,7 +355,7 @@ SELECT DISTINCT ON (account_id, path)
   operation
 FROM data_updates
 WHERE data_type = 'endorsement'
-ORDER BY account_id, path, block_height DESC;
+ORDER BY account_id, path, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC;
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- refresh_core_views() — no-op kept for backward compatibility

@@ -174,6 +174,105 @@ test_data_remove() {
 }
 
 # =============================================================================
+# Test: posts_current excludes removed posts
+# =============================================================================
+test_posts_current_remove() {
+    local post_id="removed-post-$(date +%s)"
+
+    log_test "posts_current drops a post after remove"
+
+    call_and_wait "execute" \
+        "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"post/$post_id\": {\"text\": \"temporary post\"}}}}}" \
+        "0.01"
+
+    log_info "Post created, now removing it..."
+    call_and_wait "execute" \
+        "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"post/$post_id\": null}}}}"
+
+    local result=$(query_hasura "{ postsCurrent(where: {accountId: {_eq: \"$SIGNER\"}, postId: {_eq: \"$post_id\"}}) { accountId postId blockHeight } }")
+    local count=$(echo "$result" | jq '.data.postsCurrent | length')
+
+    if [[ "$count" == "0" ]]; then
+        test_passed "posts_current excludes removed posts"
+        return 0
+    else
+        test_failed "posts_current still exposes removed post"
+        echo "$result" | jq .
+        return 1
+    fi
+}
+
+# =============================================================================
+# Test: standings_current excludes removed standings
+# =============================================================================
+test_standings_current_remove() {
+    local target="stand-remove-$(date +%s).testnet"
+
+    log_test "standings_current drops a standing edge after remove"
+
+    call_and_wait "execute" \
+        "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"standing/$target\": {\"v\": 1, \"since\": $(date +%s%3N)}}}}}" \
+        "0.01"
+
+    log_info "Standing created, now removing it..."
+    call_and_wait "execute" \
+        "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"standing/$target\": null}}}}"
+
+    local result=$(query_hasura "{ standingsCurrent(where: {accountId: {_eq: \"$SIGNER\"}, targetAccount: {_eq: \"$target\"}}) { accountId targetAccount blockHeight } }")
+    local count=$(echo "$result" | jq '.data.standingsCurrent | length')
+
+    if [[ "$count" == "0" ]]; then
+        test_passed "standings_current excludes removed edges"
+        return 0
+    else
+        test_failed "standings_current still exposes removed edge"
+        echo "$result" | jq .
+        return 1
+    fi
+}
+
+# =============================================================================
+# Test: reactions_current shows tombstone and reaction_counts drops removed reactions
+# =============================================================================
+test_reaction_current_remove() {
+    local post_id="reaction-remove-$(date +%s)"
+    local reaction_path="reaction/$SIGNER/like/post/$post_id"
+
+    log_test "reactions_current keeps tombstone while reaction_counts drops removed reactions"
+
+    call_and_wait "execute" \
+        "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"$reaction_path\": {\"v\": 1, \"type\": \"like\"}}}}}" \
+        "0.01"
+
+    log_info "Reaction created, now removing it..."
+    call_and_wait "execute" \
+        "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"$reaction_path\": null}}}}"
+
+    local current_result=$(query_hasura "{ reactionsCurrent(where: {accountId: {_eq: \"$SIGNER\"}, path: {_eq: \"$SIGNER/$reaction_path\"}}) { accountId postOwner path operation reactionKind blockHeight } }")
+    local counts_result=$(query_hasura "{ reactionCounts(where: {postOwner: {_eq: \"$SIGNER\"}, postPath: {_eq: \"post/$post_id\"}}) { reactionKind reactionCount } }")
+
+    local current_count=$(echo "$current_result" | jq '.data.reactionsCurrent | length')
+    local aggregate_count=$(echo "$counts_result" | jq '.data.reactionCounts | length')
+
+    if [[ "$current_count" != "1" ]]; then
+        test_failed "reactions_current did not keep latest tombstone row"
+        echo "$current_result" | jq .
+        return 1
+    fi
+
+    assert_field "$current_result" '.data.reactionsCurrent[0].operation' 'remove' 'reactions_current latest op = remove'
+
+    if [[ "$aggregate_count" == "0" ]]; then
+        test_passed "reaction_counts excludes removed reactions"
+        return 0
+    else
+        test_failed "reaction_counts still includes removed reaction"
+        echo "$counts_result" | jq .
+        return 1
+    fi
+}
+
+# =============================================================================
 # Test: DATA_UPDATE with parent field (replies/threading)
 # =============================================================================
 test_data_parent() {
@@ -627,6 +726,9 @@ show_help() {
     echo "  refType     - Test DATA_UPDATE with refType field"
     echo "  refs_array   - Test DATA_UPDATE with refs array (multiple refs)"
     echo "  all_refs     - Test DATA_UPDATE with ALL reference fields"
+    echo "  post_state   - Test posts_current after remove"
+    echo "  standing_state - Test standings_current after remove"
+    echo "  reaction_state - Test reactions_current/reaction_counts after remove"
     echo "  validate     - Validate all schema fields against existing data"
 }
 
@@ -664,6 +766,9 @@ main() {
             test_data_ref_type
             test_data_refs_array
             test_data_all_refs
+            test_posts_current_remove
+            test_standings_current_remove
+            test_reaction_current_remove
             ;;
         speed)
             # Speed/performance tests
@@ -683,6 +788,9 @@ main() {
             test_data_ref_type
             test_data_refs_array
             test_data_all_refs
+            test_posts_current_remove
+            test_standings_current_remove
+            test_reaction_current_remove
             test_indexing_speed
             ;;
         # Individual tests
@@ -695,6 +803,9 @@ main() {
         refType)     test_data_ref_type ;;
         refs_array)   test_data_refs_array ;;
         all_refs)     test_data_all_refs ;;
+        post_state)   test_posts_current_remove ;;
+        standing_state) test_standings_current_remove ;;
+        reaction_state) test_reaction_current_remove ;;
         validate)     test_data_validate_fields ;;
         help|--help|-h) show_help; exit 0 ;;
         *)

@@ -77,6 +77,9 @@ All test files support three modes:
 ```bash
 # Core contract tests
 ./core/test_data.sh query
+./core/test_data.sh post_state
+./core/test_data.sh standing_state
+./core/test_data.sh reaction_state
 ./core/test_storage.sh query
 ./core/test_group.sh query
 ./core/test_contract.sh query
@@ -114,9 +117,22 @@ GAP_MEMBER=test04.onsocial.testnet ./core/test_gap_verification.sh write
 
 - **Smart Waiting** - Polls indexer until block is synced (no arbitrary delays)
 - **Full Field Validation** - Validates all schema fields
+- **State View Verification** - Confirms latest-op-wins behavior for current views after tombstones
 - **Block Extraction** - Extracts block height from EVENT_JSON
 - **Assertions Tracking** - Counts passed/failed assertions
 - **Formatted Output** - Color-coded test results
+
+## Current-State Semantics
+
+Core `*_current` and derived aggregate views are intended to model latest effective state,
+not just the latest positive write. For delete-style operations, the test suite now includes
+explicit checks that:
+
+- removed posts disappear from `postsCurrent`
+- removed standings disappear from `standingsCurrent`
+- removed reactions remain observable as tombstones in `reactionsCurrent` while disappearing from `reactionCounts`
+
+These tests are meant to be run after applying schema/view updates in the indexed database.
 
 ## Security
 
