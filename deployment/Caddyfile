@@ -70,28 +70,36 @@ __SERVER_NAMES__ {
 }
 
 # ---------- Pages — profile subdomains (*.onsocial.id) ----------
-# On-demand TLS issues individual certs per subdomain (no DNS-01 needed).
-# Specific server names above always take priority over this wildcard.
-*.onsocial.id {
+# Use a catch-all HTTPS server with on-demand TLS so Caddy issues
+# individual subdomain certs at handshake time instead of trying to
+# automate a wildcard certificate at startup.
+https:// {
 	tls {
 		on_demand
 	}
 
-	rate_limit {
-		zone pages_per_ip {
-			key    {remote_host}
-			events 30
-			window 1s
+	@pages host *.onsocial.id
+	handle @pages {
+		rate_limit {
+			zone pages_per_ip {
+				key    {remote_host}
+				events 30
+				window 1s
+			}
+		}
+
+		reverse_proxy pages:3456
+
+		header {
+			X-Content-Type-Options "nosniff"
+			Referrer-Policy "strict-origin-when-cross-origin"
+			Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+			-Server
 		}
 	}
 
-	reverse_proxy pages:3456
-
-	header {
-		X-Content-Type-Options "nosniff"
-		Referrer-Policy "strict-origin-when-cross-origin"
-		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
-		-Server
+	handle {
+		abort
 	}
 
 	log {
