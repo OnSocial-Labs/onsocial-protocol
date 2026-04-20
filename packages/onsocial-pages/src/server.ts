@@ -26,9 +26,7 @@ const NEAR_NETWORK =
 const ACCOUNT_SUFFIX = NEAR_NETWORK === 'mainnet' ? '.near' : '.testnet';
 const DATA_API_URL =
   process.env.DATA_API_URL ||
-  (NEAR_NETWORK === 'mainnet'
-    ? 'http://gateway:8080'
-    : 'http://gateway:8080');
+  (NEAR_NETWORK === 'mainnet' ? 'http://gateway:8080' : 'http://gateway:8080');
 const PUBLIC_API_URL =
   process.env.PUBLIC_API_URL ||
   (NEAR_NETWORK === 'mainnet'
