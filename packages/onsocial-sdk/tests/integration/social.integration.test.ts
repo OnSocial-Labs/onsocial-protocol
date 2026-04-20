@@ -120,6 +120,24 @@ describe('social', () => {
       expect(result.txHash).toBeTruthy();
     });
 
+    it('should drop like from indexed reaction counts', async () => {
+      const counts = await confirmIndexed(
+        async () => {
+          const value = await os.query.getReactionCounts(
+            ACCOUNT_ID,
+            `post/${postId}`
+          );
+          return !value.like && value.fire ? value : null;
+        },
+        'reaction like removed',
+        { timeoutMs: 15_000, intervalMs: 2_000 }
+      );
+
+      if (!counts) throw new Error('like reaction still present in index');
+      expect(counts.like ?? 0).toBe(0);
+      expect(counts.fire).toBeGreaterThanOrEqual(1);
+    }, 20_000);
+
     it('should unreact fire', async () => {
       const result = await os.social.unreact(
         ACCOUNT_ID,
@@ -128,6 +146,25 @@ describe('social', () => {
       );
       expect(result.txHash).toBeTruthy();
     });
+
+    it('should drop all indexed reaction counts after both removals', async () => {
+      const counts = await confirmIndexed(
+        async () => {
+          const value = await os.query.getReactionCounts(
+            ACCOUNT_ID,
+            `post/${postId}`
+          );
+          return value.total === 0 ? value : null;
+        },
+        'all reactions removed',
+        { timeoutMs: 15_000, intervalMs: 2_000 }
+      );
+
+      if (!counts) throw new Error('reaction counts still present in index');
+      expect(counts.total).toBe(0);
+      expect(counts.like ?? 0).toBe(0);
+      expect(counts.fire ?? 0).toBe(0);
+    }, 20_000);
   });
 
   // ── Reply ─────────────────────────────────────────────────────────────
@@ -265,6 +302,20 @@ describe('social', () => {
       const result = await os.social.unstand(standTarget);
       expect(result.txHash).toBeTruthy();
     });
+
+    it('should remove the target from standingWith via indexer', async () => {
+      const standing = await confirmIndexed(
+        async () => {
+          const list = await os.query.getStandingWith(ACCOUNT_ID);
+          return !list.includes(standTarget) ? list : null;
+        },
+        'standWith removed',
+        { timeoutMs: 15_000, intervalMs: 2_000 }
+      );
+
+      if (!standing) throw new Error('standing target still present in index');
+      expect(standing).not.toContain(standTarget);
+    }, 20_000);
   });
 
   // ── Profile ───────────────────────────────────────────────────────────

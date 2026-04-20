@@ -76,6 +76,44 @@ describe('groups', () => {
 
       expect(count).toBeGreaterThanOrEqual(groupCountBefore + 1);
     }, 35_000);
+
+    it('should emit a create_group event via indexed groupUpdates', async () => {
+      const result = await confirmIndexed(
+        async () => {
+          const value = await os.query.graphql<{
+            groupUpdates: Array<{
+              groupId: string;
+              operation: string;
+              author: string;
+            }>;
+          }>({
+            query: `query GroupCreate($groupId: String!, $author: String!) {
+              groupUpdates(
+                where: {
+                  groupId: {_eq: $groupId},
+                  author: {_eq: $author},
+                  operation: {_eq: "create_group"}
+                },
+                limit: 1,
+                orderBy: [{blockHeight: DESC}]
+              ) {
+                groupId
+                operation
+                author
+              }
+            }`,
+            variables: { groupId, author: ACCOUNT_ID },
+          });
+          const rows = value.data?.groupUpdates ?? [];
+          return rows[0] ?? null;
+        },
+        'group create event'
+      );
+
+      expect(result?.groupId).toBe(groupId);
+      expect(result?.operation).toBe('create_group');
+      expect(result?.author).toBe(ACCOUNT_ID);
+    }, 35_000);
   });
 
   describe('membership', () => {
@@ -105,5 +143,43 @@ describe('groups', () => {
       expect(member).toBeTruthy();
       expect(typeof member).toBe('object');
     }, 25_000);
+
+    it('should emit an add_member event via indexed groupUpdates', async () => {
+      const result = await confirmIndexed(
+        async () => {
+          const value = await os.query.graphql<{
+            groupUpdates: Array<{
+              groupId: string;
+              memberId: string;
+              operation: string;
+            }>;
+          }>({
+            query: `query GroupMemberAdded($groupId: String!, $memberId: String!) {
+              groupUpdates(
+                where: {
+                  groupId: {_eq: $groupId},
+                  memberId: {_eq: $memberId},
+                  operation: {_eq: "add_member"}
+                },
+                limit: 1,
+                orderBy: [{blockHeight: DESC}]
+              ) {
+                groupId
+                memberId
+                operation
+              }
+            }`,
+            variables: { groupId, memberId },
+          });
+          const rows = value.data?.groupUpdates ?? [];
+          return rows[0] ?? null;
+        },
+        'group add member event'
+      );
+
+      expect(result?.groupId).toBe(groupId);
+      expect(result?.memberId).toBe(memberId);
+      expect(result?.operation).toBe('add_member');
+    }, 35_000);
   });
 });

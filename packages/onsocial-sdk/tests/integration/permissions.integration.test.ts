@@ -4,7 +4,7 @@
 
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { OnSocial } from '../../src/client.js';
-import { confirmDirect, getClient, getKeypair } from './helpers.js';
+import { ACCOUNT_ID, confirmDirect, confirmIndexed, getClient, getKeypair } from './helpers.js';
 
 describe('permissions', () => {
   let os: OnSocial;
@@ -31,6 +31,55 @@ describe('permissions', () => {
       expect(allowed).toBe(true);
       expect(await os.permissions.get('test01.onsocial.testnet', grantee, path)).toBe(1);
     }, 25_000);
+
+    it('should emit a grant event via indexed permissionUpdates', async () => {
+      const result = await confirmIndexed(
+        async () => {
+          const value = await os.query.graphql<{
+            permissionUpdates: Array<{
+              operation: string;
+              author: string;
+              targetId: string;
+              path: string;
+              level: number;
+            }>;
+          }>({
+            query: `query PermissionGrant($author: String!, $grantee: String!, $path: String!) {
+              permissionUpdates(
+                where: {
+                  author: {_eq: $author},
+                  targetId: {_eq: $grantee},
+                  path: {_eq: $path},
+                  operation: {_eq: "grant"}
+                },
+                limit: 1,
+                orderBy: [{blockHeight: DESC}]
+              ) {
+                operation
+                author
+                targetId
+                path
+                level
+              }
+            }`,
+            variables: {
+              author: ACCOUNT_ID,
+              grantee,
+              path: `${ACCOUNT_ID}/${path}`,
+            },
+          });
+          const rows = value.data?.permissionUpdates ?? [];
+          return rows[0] ?? null;
+        },
+        'permission grant event'
+      );
+
+      expect(result?.operation).toBe('grant');
+      expect(result?.author).toBe(ACCOUNT_ID);
+      expect(result?.targetId).toBe(grantee);
+      expect(result?.path).toBe(`${ACCOUNT_ID}/${path}`);
+      expect(result?.level).toBe(1);
+    }, 35_000);
   });
 
   describe('key permissions', () => {
@@ -65,5 +114,49 @@ describe('permissions', () => {
         )
       ).toBe(1);
     }, 25_000);
+
+    it('should emit a key grant event via indexed permissionUpdates', async () => {
+      const result = await confirmIndexed(
+        async () => {
+          const value = await os.query.graphql<{
+            permissionUpdates: Array<{
+              operation: string;
+              author: string;
+              path: string;
+              level: number;
+              targetId: string;
+            }>;
+          }>({
+            query: `query KeyPermissionGrant($author: String!, $path: String!) {
+              permissionUpdates(
+                where: {
+                  author: {_eq: $author},
+                  path: {_eq: $path},
+                  operation: {_in: ["grant_key", "key_grant"]}
+                },
+                limit: 1,
+                orderBy: [{blockHeight: DESC}]
+              ) {
+                operation
+                author
+                path
+                level
+                targetId
+              }
+            }`,
+            variables: { author: ACCOUNT_ID, path: `${ACCOUNT_ID}/${path}` },
+          });
+          const rows = value.data?.permissionUpdates ?? [];
+          return rows[0] ?? null;
+        },
+        'key permission grant event'
+      );
+
+      expect(['grant_key', 'key_grant']).toContain(result?.operation ?? '');
+      expect(result?.author).toBe(ACCOUNT_ID);
+      expect(result?.path).toBe(`${ACCOUNT_ID}/${path}`);
+      expect(result?.level).toBe(1);
+      expect(result?.targetId ?? '').toBe('');
+    }, 35_000);
   });
 });

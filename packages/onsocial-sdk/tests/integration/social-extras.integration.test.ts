@@ -86,6 +86,21 @@ describe('social-extras', () => {
       const result = await os.social.set(path, value);
       expect(result.txHash).toBeTruthy();
     });
+
+    it('should remove the save from saves_current via indexer', async () => {
+      const saves = await confirmIndexed(
+        async () => {
+          const value = await os.query.getSaves(ACCOUNT_ID);
+          return !value.some((r) => r.contentPath.includes(targetPostId))
+            ? value
+            : null;
+        },
+        'save removed'
+      );
+
+      if (!saves) throw new Error('save still present in index');
+      expect(saves.some((r) => r.contentPath.includes(targetPostId))).toBe(false);
+    }, 35_000);
   });
 
   // ── Endorsements (weighted directed vouch) ────────────────────────────
@@ -206,6 +221,34 @@ describe('social-extras', () => {
       const result = await os.social.set(path, value);
       expect(result.txHash).toBeTruthy();
     });
+
+    it('should remove the basic endorsement from current index views', async () => {
+      const given = await confirmIndexed(
+        async () => {
+          const result = await os.query.graphql<{
+            endorsementsCurrent: Array<{ path: string; operation: string }>;
+          }>({
+            query: `query EndorsementByPath($path: String!) {
+              endorsementsCurrent(
+                where: {path: {_eq: $path}, operation: {_eq: "set"}}
+              ) {
+                path
+                operation
+              }
+            }`,
+            variables: {
+              path: `${ACCOUNT_ID}/endorsement/${endorseTarget}`,
+            },
+          });
+          const rows = result.data?.endorsementsCurrent ?? [];
+          return rows.length === 0 ? rows : null;
+        },
+        'endorsement removed'
+      );
+
+      if (!given) throw new Error('endorsement still present in index');
+      expect(given).toHaveLength(0);
+    }, 35_000);
 
     it('should remove a topic-scoped endorsement', async () => {
       const data = buildEndorsementRemoveData(endorseTarget, 'remove-test');
@@ -352,5 +395,20 @@ describe('social-extras', () => {
       const result = await os.social.set(path, value);
       expect(result.txHash).toBeTruthy();
     });
+
+    it('should remove the attestation from claims_current via indexer', async () => {
+      const claims = await confirmIndexed(
+        async () => {
+          const value = await os.query.getClaimsIssued(ACCOUNT_ID, {
+            claimType,
+          });
+          return !value.some((r) => r.claimId === claimId) ? value : null;
+        },
+        'claim removed'
+      );
+
+      if (!claims) throw new Error('claim still present in index');
+      expect(claims.some((r) => r.claimId === claimId)).toBe(false);
+    }, 35_000);
   });
 });
