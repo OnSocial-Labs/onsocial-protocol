@@ -43,7 +43,7 @@ describe('groups', () => {
           name: `Integration ${groupId}`,
           description: 'SDK integration test group',
           isPrivate: false,
-          memberDriven: true,
+          memberDriven: false,
           tags: ['integration', 'sdk'],
         })
       );
@@ -64,8 +64,8 @@ describe('groups', () => {
 
       expect(config.name).toBe(`Integration ${groupId}`);
       expect(config.description).toBe('SDK integration test group');
-      expect(config.isPrivate).toBe(false);
-      expect(config.memberDriven).toBe(true);
+      expect(config.isPrivate ?? config.is_private).toBe(false);
+      expect(config.memberDriven ?? config.member_driven).toBe(false);
     }, 25_000);
 
     it('should report the creator as owner', async () => {

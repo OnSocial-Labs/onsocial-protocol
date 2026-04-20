@@ -57,13 +57,26 @@ export class GroupsModule {
     });
   }
 
+  private normalizeConfig(config: GroupConfigV1): Record<string, unknown> {
+    const { isPrivate, memberDriven, ...rest } = config;
+    return {
+      ...rest,
+      is_private: isPrivate,
+      ...(memberDriven !== undefined && { member_driven: memberDriven }),
+    };
+  }
+
   // ── Lifecycle ───────────────────────────────────────────────────────────
 
   async create(
     groupId: string,
     config: GroupConfigV1
   ): Promise<RelayResponse> {
-    return this.execute({ type: 'create_group', group_id: groupId, config });
+    return this.execute({
+      type: 'create_group',
+      group_id: groupId,
+      config: this.normalizeConfig(config),
+    });
   }
 
   async join(groupId: string): Promise<RelayResponse> {

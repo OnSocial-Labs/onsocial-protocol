@@ -20,7 +20,14 @@ describe('GroupsModule transport', () => {
       action: {
         type: 'create_group',
         group_id: 'dao',
-        config,
+        config: {
+          v: 1,
+          name: 'Builders',
+          description: 'Core contributors',
+          is_private: false,
+          member_driven: true,
+          tags: ['builders', 'core'],
+        },
       },
       target_account: 'core.onsocial.near',
     });
