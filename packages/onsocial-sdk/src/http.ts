@@ -44,6 +44,11 @@ export class HttpClient {
     return this._token !== null || this._apiKey !== null;
   }
 
+  /** Current actor account injected for API-key write flows, if configured. */
+  get actorId(): string | null {
+    return this._actorId;
+  }
+
   // ── Request helpers ─────────────────────────────────────────────────────
 
   private _headers(extra?: Record<string, string>): Record<string, string> {

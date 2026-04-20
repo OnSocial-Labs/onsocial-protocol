@@ -110,7 +110,8 @@ export class PagesModule {
    */
   async getConfig(accountId?: string): Promise<PageConfig> {
     const params = new URLSearchParams({ key: 'page/main' });
-    if (accountId) params.set('accountId', accountId);
+    const resolvedAccountId = accountId ?? this._http.actorId ?? undefined;
+    if (resolvedAccountId) params.set('accountId', resolvedAccountId);
     const entry = await this._http.get<{ value: unknown }>(
       `/data/get-one?${params}`
     );
