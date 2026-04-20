@@ -12,7 +12,18 @@
 # The generated Caddyfile should only contain the hostnames for the target
 # environment so testnet and mainnet stay explicitly separated.
 
+# ---------- Global: on-demand TLS for *.onsocial.id ----------
+# Pages issues per-subdomain certs as requests arrive.
+# The "ask" endpoint validates the subdomain before issuing a cert.
+{
+	on_demand_tls {
+		ask http://pages:3456/caddy-ask
+	}
+}
+
 # ---------- API Gateway (sole public surface) ----------
+# Caddy serves the most specific match first, so this block wins
+# over the *.onsocial.id wildcard for testnet.onsocial.id / api.onsocial.id.
 __SERVER_NAMES__ {
 	# 100 req/s per IP — protects infra before requests reach the app
 	rate_limit {
@@ -52,6 +63,39 @@ __SERVER_NAMES__ {
 
 	log {
 		output file /data/logs/gateway.log {
+			roll_size 50MB
+			roll_keep 5
+		}
+	}
+}
+
+# ---------- Pages — profile subdomains (*.onsocial.id) ----------
+# On-demand TLS issues individual certs per subdomain (no DNS-01 needed).
+# Specific server names above always take priority over this wildcard.
+*.onsocial.id {
+	tls {
+		on_demand
+	}
+
+	rate_limit {
+		zone pages_per_ip {
+			key    {remote_host}
+			events 30
+			window 1s
+		}
+	}
+
+	reverse_proxy pages:3456
+
+	header {
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		-Server
+	}
+
+	log {
+		output file /data/logs/pages.log {
 			roll_size 50MB
 			roll_keep 5
 		}

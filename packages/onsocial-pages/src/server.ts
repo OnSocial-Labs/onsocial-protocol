@@ -163,6 +163,22 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Caddy on-demand TLS permission endpoint
+  // Caddy sends ?domain=alice.onsocial.id — return 200 to allow cert issuance
+  if (url.pathname === '/caddy-ask') {
+    const domain = url.searchParams.get('domain') ?? '';
+    const parts = domain.split('.');
+    const subdomain = parts.length >= 3 ? parts[0] : null;
+    if (subdomain && !RESERVED_SUBDOMAINS.has(subdomain)) {
+      res.writeHead(200);
+      res.end();
+    } else {
+      res.writeHead(403);
+      res.end();
+    }
+    return;
+  }
+
   // JSON data endpoint (used by external consumers)
   if (url.pathname === '/data/page') {
     const accountId = url.searchParams.get('accountId');
