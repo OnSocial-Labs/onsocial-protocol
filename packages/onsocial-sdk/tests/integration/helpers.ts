@@ -103,6 +103,16 @@ let _sessionClient: OnSocial | null = null;
 let _apiKeyClient: OnSocial | null = null;
 let _apiKeyInfo: { key: string; prefix: string } | null = null;
 let _keypair: ReturnType<typeof loadKeypair> | null = null;
+const _sessionClientsByAccount = new Map<string, OnSocial>();
+const _apiKeyClientsByAccount = new Map<string, OnSocial>();
+const _apiKeyInfoByAccount = new Map<
+  string,
+  { key: string; prefix: string }
+>();
+
+function credsFileForAccount(accountId: string): string {
+  return path.join(path.dirname(CREDS_FILE), `${accountId}.json`);
+}
 
 /**
  * Returns a JWT-authenticated session client.
@@ -133,6 +143,36 @@ export async function getSessionClient(): Promise<OnSocial> {
   });
 
   _sessionClient = os;
+  return os;
+}
+
+async function getSessionClientForAccount(accountId: string): Promise<OnSocial> {
+  if (accountId === ACCOUNT_ID) return getSessionClient();
+
+  const cached = _sessionClientsByAccount.get(accountId);
+  if (cached) return cached;
+
+  const keypair = loadKeypair(credsFileForAccount(accountId));
+  const os = new OnSocial({
+    gatewayUrl: GATEWAY_URL,
+    network: 'testnet',
+  });
+
+  const challengeRes = await os.http.post<{
+    challenge: { message: string; recipient: string; nonce: string };
+  }>('/auth/challenge', { accountId });
+
+  const { message, recipient, nonce } = challengeRes.challenge;
+  const signature = signNep413(message, nonce, recipient, keypair.secretKey);
+
+  await os.auth.login({
+    accountId,
+    publicKey: keypair.publicKey,
+    signature,
+    message,
+  });
+
+  _sessionClientsByAccount.set(accountId, os);
   return os;
 }
 
@@ -187,6 +227,52 @@ export async function getClient(): Promise<OnSocial> {
   });
 
   return _apiKeyClient;
+}
+
+export async function getClientForAccount(accountId: string): Promise<OnSocial> {
+  if (accountId === ACCOUNT_ID) return getClient();
+
+  const cached = _apiKeyClientsByAccount.get(accountId);
+  if (cached) return cached;
+
+  if (SERVICE_KEY) {
+    const client = new OnSocial({
+      gatewayUrl: GATEWAY_URL,
+      network: 'testnet',
+      apiKey: SERVICE_KEY,
+      actorId: accountId,
+    });
+    _apiKeyClientsByAccount.set(accountId, client);
+    return client;
+  }
+
+  const session = await getSessionClientForAccount(accountId);
+
+  try {
+    const { keys } = await listApiKeys(session);
+    for (const k of keys) {
+      if (k.label === 'integration-test') {
+        await revokeApiKey(session, k.prefix).catch(() => {});
+      }
+    }
+  } catch {
+    // best-effort cleanup
+  }
+
+  const result = await createApiKey(session, 'integration-test');
+  _apiKeyInfoByAccount.set(accountId, {
+    key: result.key,
+    prefix: result.prefix,
+  });
+
+  const client = new OnSocial({
+    gatewayUrl: GATEWAY_URL,
+    network: 'testnet',
+    apiKey: result.key,
+  });
+
+  _apiKeyClientsByAccount.set(accountId, client);
+  return client;
 }
 
 /** Returns the raw API key string (lazy-inits if needed). */
