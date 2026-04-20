@@ -9,6 +9,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
 import { execSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { OnSocial } from '../../src/client.js';
 
 // ── Environment ────────────────────────────────────────────────────────────
@@ -19,6 +20,35 @@ export const ACCOUNT_ID = process.env.ACCOUNT_ID || 'test01.onsocial.testnet';
 export const CREDS_FILE =
   process.env.CREDS_FILE ||
   path.join(process.env.HOME!, `.near-credentials/testnet/${ACCOUNT_ID}.json`);
+
+function resolveRootEnvVar(name: string): string | undefined {
+  if (process.env[name]) return process.env[name];
+
+  try {
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    const envFile = path.resolve(here, '../../../../.env');
+    const content = fs.readFileSync(envFile, 'utf8');
+
+    for (const rawLine of content.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith('#')) continue;
+
+      const eq = line.indexOf('=');
+      if (eq <= 0) continue;
+
+      const key = line.slice(0, eq).trim();
+      if (key !== name) continue;
+
+      const value = line.slice(eq + 1).trim();
+      process.env[name] = value;
+      return value;
+    }
+  } catch {
+    return undefined;
+  }
+
+  return undefined;
+}
 
 /** Resolve service API key: env var → GSM secret → undefined (fallback to NEP-413). */
 function resolveServiceKey(): string | undefined {
@@ -35,6 +65,7 @@ function resolveServiceKey(): string | undefined {
 }
 
 const SERVICE_KEY = resolveServiceKey();
+const PARTNER_KEY = resolveRootEnvVar('ONSOCIAL_PARTNER_API_KEY');
 
 // ── Crypto helpers ─────────────────────────────────────────────────────────
 
@@ -103,6 +134,7 @@ let _sessionClient: OnSocial | null = null;
 let _apiKeyClient: OnSocial | null = null;
 let _apiKeyInfo: { key: string; prefix: string } | null = null;
 let _keypair: ReturnType<typeof loadKeypair> | null = null;
+let _partnerClient: OnSocial | null = null;
 const _sessionClientsByAccount = new Map<string, OnSocial>();
 const _apiKeyClientsByAccount = new Map<string, OnSocial>();
 const _apiKeyInfoByAccount = new Map<
@@ -273,6 +305,22 @@ export async function getClientForAccount(accountId: string): Promise<OnSocial> 
 
   _apiKeyClientsByAccount.set(accountId, client);
   return client;
+}
+
+export function getPartnerClient(): OnSocial {
+  if (!PARTNER_KEY) {
+    throw new Error('ONSOCIAL_PARTNER_API_KEY is required for rewards integration tests');
+  }
+
+  if (_partnerClient) return _partnerClient;
+
+  _partnerClient = new OnSocial({
+    gatewayUrl: GATEWAY_URL,
+    network: 'testnet',
+    apiKey: PARTNER_KEY,
+  });
+
+  return _partnerClient;
 }
 
 /** Returns the raw API key string (lazy-inits if needed). */
