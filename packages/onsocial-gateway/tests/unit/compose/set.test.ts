@@ -165,6 +165,21 @@ describe('composeSet', () => {
     expect(body.target_account).toBe('bob.testnet');
   });
 
+  it('relays { path: null } action for null tombstone', async () => {
+    mockRelaySuccess('tx_tombstone');
+
+    const result = await composeSet(
+      'alice.testnet',
+      { path: 'post/del', value: null },
+      []
+    );
+
+    expect(result.txHash).toBe('tx_tombstone');
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body.action).toEqual({ type: 'set', data: { 'post/del': null } });
+    expect(mockUploadBuffer).not.toHaveBeenCalled();
+  });
+
   it('throws ComposeError on relay failure', async () => {
     mockRelayFailure(400, 'Bad action');
 
@@ -338,6 +353,21 @@ describe('buildSetAction', () => {
     await expect(
       buildSetAction('alice.testnet', { path: 'post//main', value: {} }, [])
     ).rejects.toThrow(ComposeError);
+  });
+
+  it('emits { path: null } data for null tombstone (no relay)', async () => {
+    const result = await buildSetAction(
+      'alice.testnet',
+      { path: 'post/del', value: null },
+      []
+    );
+
+    expect(result.action).toEqual({
+      type: 'set',
+      data: { 'post/del': null },
+    });
+    expect(Object.keys(result.uploads)).toHaveLength(0);
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it('flattens scattered-key profile data instead of wrapping', async () => {

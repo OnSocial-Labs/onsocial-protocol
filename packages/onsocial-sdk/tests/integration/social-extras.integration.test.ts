@@ -83,7 +83,7 @@ describe('social-extras', () => {
     it('should remove a save (tombstone)', async () => {
       const data = buildSaveRemoveData(`post/${targetPostId}`);
       const [path, value] = Object.entries(data)[0];
-      const result = await os.social.set(path, JSON.stringify(value));
+      const result = await os.social.set(path, value);
       expect(result.txHash).toBeTruthy();
     });
   });
@@ -203,14 +203,14 @@ describe('social-extras', () => {
     it('should remove a basic endorsement (tombstone)', async () => {
       const data = buildEndorsementRemoveData(endorseTarget);
       const [path, value] = Object.entries(data)[0];
-      const result = await os.social.set(path, JSON.stringify(value));
+      const result = await os.social.set(path, value);
       expect(result.txHash).toBeTruthy();
     });
 
     it('should remove a topic-scoped endorsement', async () => {
       const data = buildEndorsementRemoveData(endorseTarget, 'remove-test');
       const [path, value] = Object.entries(data)[0];
-      const result = await os.social.set(path, JSON.stringify(value));
+      const result = await os.social.set(path, value);
       expect(result.txHash).toBeTruthy();
     });
   });
@@ -349,7 +349,7 @@ describe('social-extras', () => {
     it('should remove an attestation (tombstone)', async () => {
       const data = buildAttestationRemoveData(subject, claimType, claimId);
       const [path, value] = Object.entries(data)[0];
-      const result = await os.social.set(path, JSON.stringify(value));
+      const result = await os.social.set(path, value);
       expect(result.txHash).toBeTruthy();
     });
   });

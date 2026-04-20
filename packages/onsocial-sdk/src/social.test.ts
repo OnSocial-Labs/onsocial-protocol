@@ -59,20 +59,34 @@ describe('social set-data builders', () => {
 describe('SocialModule transport', () => {
   it('sends null removal for unstand', async () => {
     const post = vi.fn().mockResolvedValue({ txHash: 'tx' });
-    const social = new SocialModule({ post } as never);
+    const social = new SocialModule({ post, network: 'mainnet' } as never);
 
     await social.unstand('bob.near');
 
     expect(post).toHaveBeenCalledWith('/compose/set', {
       path: 'standing/bob.near',
-      value: 'null',
+      targetAccount: 'core.onsocial.near',
+      value: null,
+    });
+  });
+
+  it('preserves null tombstones in generic set', async () => {
+    const post = vi.fn().mockResolvedValue({ txHash: 'tx' });
+    const social = new SocialModule({ post, network: 'mainnet' } as never);
+
+    await social.set('post/p1', null);
+
+    expect(post).toHaveBeenCalledWith('/compose/set', {
+      path: 'post/p1',
+      targetAccount: 'core.onsocial.near',
+      value: null,
     });
   });
 
   it('uploads avatar File via /storage/upload then writes ipfs:// URL', async () => {
     const post = vi.fn().mockResolvedValue({ txHash: 'tx' });
     const requestForm = vi.fn().mockResolvedValue({ cid: 'bafy123' });
-    const social = new SocialModule({ post, requestForm } as never);
+    const social = new SocialModule({ post, requestForm, network: 'mainnet' } as never);
 
     const file = new Blob(['png-bytes'], { type: 'image/png' });
     await social.setProfile({ name: 'Alice', avatar: file });
@@ -84,6 +98,7 @@ describe('SocialModule transport', () => {
     );
     expect(post).toHaveBeenCalledWith('/compose/set', {
       path: 'profile',
+      targetAccount: 'core.onsocial.near',
       value: expect.objectContaining({
         'profile/v': '1',
         'profile/name': 'Alice',
@@ -95,13 +110,14 @@ describe('SocialModule transport', () => {
   it('passes through avatar string without uploading', async () => {
     const post = vi.fn().mockResolvedValue({ txHash: 'tx' });
     const requestForm = vi.fn();
-    const social = new SocialModule({ post, requestForm } as never);
+    const social = new SocialModule({ post, requestForm, network: 'mainnet' } as never);
 
     await social.setProfile({ avatar: 'ipfs://existing' });
 
     expect(requestForm).not.toHaveBeenCalled();
     expect(post).toHaveBeenCalledWith('/compose/set', {
       path: 'profile',
+      targetAccount: 'core.onsocial.near',
       value: expect.objectContaining({ 'profile/avatar': 'ipfs://existing' }),
     });
   });
@@ -109,7 +125,7 @@ describe('SocialModule transport', () => {
   it('uploads post image and prepends ipfs:// URL into media[]', async () => {
     const post = vi.fn().mockResolvedValue({ txHash: 'tx' });
     const requestForm = vi.fn().mockResolvedValue({ cid: 'bafyImg' });
-    const social = new SocialModule({ post, requestForm } as never);
+    const social = new SocialModule({ post, requestForm, network: 'mainnet' } as never);
 
     const file = new Blob(['img'], { type: 'image/png' });
     await social.post(
@@ -133,7 +149,7 @@ describe('SocialModule transport', () => {
   it('post without image skips upload', async () => {
     const post = vi.fn().mockResolvedValue({ txHash: 'tx' });
     const requestForm = vi.fn();
-    const social = new SocialModule({ post, requestForm } as never);
+    const social = new SocialModule({ post, requestForm, network: 'mainnet' } as never);
 
     await social.post({ text: 'plain' }, 'p2');
 

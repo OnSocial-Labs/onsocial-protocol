@@ -61,17 +61,18 @@ setRouter.post('/set', upload.any(), async (req: Request, res: Response) => {
       return;
     }
 
-    // Value can be a JSON string (multipart) or object (JSON body)
-    let value: Record<string, unknown>;
+    // Value can be a JSON string (multipart) or object (JSON body).
+    // null is a valid tombstone — do NOT convert it to {}.
+    let value: Record<string, unknown> | null;
     if (typeof req.body.value === 'string') {
       try {
-        value = JSON.parse(req.body.value);
+        value = JSON.parse(req.body.value); // JSON.parse('null') → null preserved
       } catch {
         res.status(400).json({ error: 'Invalid JSON in value field' });
         return;
       }
-    } else if (typeof req.body.value === 'object' && req.body.value !== null) {
-      value = req.body.value;
+    } else if (typeof req.body.value === 'object') {
+      value = req.body.value; // null is typeof 'object' — pass through as tombstone
     } else {
       value = {};
     }
@@ -135,19 +136,18 @@ setRouter.post(
         return;
       }
 
-      let value: Record<string, unknown>;
+      // Value can be a JSON string (multipart) or object (JSON body).
+      // null is a valid tombstone — do NOT convert it to {}.
+      let value: Record<string, unknown> | null;
       if (typeof req.body.value === 'string') {
         try {
-          value = JSON.parse(req.body.value);
+          value = JSON.parse(req.body.value); // JSON.parse('null') → null preserved
         } catch {
           res.status(400).json({ error: 'Invalid JSON in value field' });
           return;
         }
-      } else if (
-        typeof req.body.value === 'object' &&
-        req.body.value !== null
-      ) {
-        value = req.body.value;
+      } else if (typeof req.body.value === 'object') {
+        value = req.body.value; // null is typeof 'object' — pass through as tombstone
       } else {
         value = {};
       }

@@ -28,6 +28,11 @@ function encodeProfileField(value: unknown): string {
   return typeof value === 'string' ? value : JSON.stringify(value);
 }
 
+function encodeComposeValue(value: unknown): string | null {
+  if (value === null) return null;
+  return typeof value === 'string' ? value : JSON.stringify(value);
+}
+
 export function buildProfileSetData(profile: ProfileData): SocialSetData {
   const data: SocialSetData = {
     'profile/v': String(SCHEMA_VERSION),
@@ -414,7 +419,7 @@ export class SocialModule {
     const [path, value] = getSingleEntry(buildPostSetData(resolved, id));
     return this._http.post<RelayResponse>('/compose/set', {
       path,
-      value: JSON.stringify(value),
+      value: encodeComposeValue(value),
       targetAccount: this._coreContract,
     });
   }
@@ -432,7 +437,7 @@ export class SocialModule {
     const [path, value] = getSingleEntry(buildStandingSetData(targetAccount));
     return this._http.post<RelayResponse>('/compose/set', {
       path,
-      value: JSON.stringify(value),
+      value: encodeComposeValue(value),
       targetAccount: this._coreContract,
     });
   }
@@ -450,7 +455,7 @@ export class SocialModule {
     );
     return this._http.post<RelayResponse>('/compose/set', {
       path,
-      value: JSON.stringify(value),
+      value: encodeComposeValue(value),
       targetAccount: this._coreContract,
     });
   }
@@ -474,7 +479,7 @@ export class SocialModule {
     );
     return this._http.post<RelayResponse>('/compose/set', {
       path,
-      value: JSON.stringify(value),
+      value: encodeComposeValue(value),
       targetAccount: this._coreContract,
     });
   }
@@ -496,7 +501,7 @@ export class SocialModule {
     );
     return this._http.post<RelayResponse>('/compose/set', {
       path,
-      value: JSON.stringify(value),
+      value: encodeComposeValue(value),
       targetAccount: this._coreContract,
     });
   }
@@ -522,7 +527,7 @@ export class SocialModule {
     );
     return this._http.post<RelayResponse>('/compose/set', {
       path,
-      value: JSON.stringify(value),
+      value: encodeComposeValue(value),
       targetAccount: this._coreContract,
     });
   }
@@ -546,7 +551,7 @@ export class SocialModule {
     );
     return this._http.post<RelayResponse>('/compose/set', {
       path,
-      value: JSON.stringify(value),
+      value: encodeComposeValue(value),
       targetAccount: this._coreContract,
     });
   }
@@ -570,7 +575,7 @@ export class SocialModule {
     );
     return this._http.post<RelayResponse>('/compose/set', {
       path,
-      value: JSON.stringify(value),
+      value: encodeComposeValue(value),
       targetAccount: this._coreContract,
     });
   }
@@ -586,7 +591,7 @@ export class SocialModule {
     const [path, value] = getSingleEntry(buildSaveRemoveData(contentPath));
     return this._http.post<RelayResponse>('/compose/set', {
       path,
-      value: JSON.stringify(value),
+      value: encodeComposeValue(value),
       targetAccount: this._coreContract,
     });
   }
@@ -610,7 +615,7 @@ export class SocialModule {
     );
     return this._http.post<RelayResponse>('/compose/set', {
       path,
-      value: JSON.stringify(value),
+      value: encodeComposeValue(value),
       targetAccount: this._coreContract,
     });
   }
@@ -632,7 +637,7 @@ export class SocialModule {
     );
     return this._http.post<RelayResponse>('/compose/set', {
       path,
-      value: JSON.stringify(value),
+      value: encodeComposeValue(value),
       targetAccount: this._coreContract,
     });
   }
@@ -659,7 +664,7 @@ export class SocialModule {
     );
     return this._http.post<RelayResponse>('/compose/set', {
       path,
-      value: JSON.stringify(value),
+      value: encodeComposeValue(value),
       targetAccount: this._coreContract,
     });
   }
@@ -681,7 +686,7 @@ export class SocialModule {
     );
     return this._http.post<RelayResponse>('/compose/set', {
       path,
-      value: JSON.stringify(value),
+      value: encodeComposeValue(value),
       targetAccount: this._coreContract,
     });
   }
@@ -695,10 +700,10 @@ export class SocialModule {
    * await os.social.set('settings/theme', JSON.stringify({ dark: true }));
    * ```
    */
-  async set(path: string, value: string): Promise<RelayResponse> {
+  async set(path: string, value: unknown): Promise<RelayResponse> {
     return this._http.post<RelayResponse>('/compose/set', {
       path,
-      value,
+      value: encodeComposeValue(value),
       targetAccount: this._coreContract,
     });
   }

@@ -21,8 +21,8 @@ import {
 export interface ComposeSetRequest {
   /** Slash-delimited path (e.g. "post/main", "groups/dao/media/photo1") */
   path: string;
-  /** JSON value to store at the path */
-  value: Record<string, unknown>;
+  /** JSON value to store at the path, or null to tombstone (remove) the key */
+  value: Record<string, unknown> | null;
   /** Optional: which field(s) in value should receive the uploaded file CID */
   mediaField?: string;
   /** Optional: override target account for cross-account writes */
@@ -127,6 +127,17 @@ export async function buildSetAction(
   // 0. Validate path (pass accountId so full-path length can be checked)
   const pathError = validatePath(req.path, accountId);
   if (pathError) throw new ComposeError(400, pathError);
+
+  // 0b. Tombstone (null value) — removes the key from contract state.
+  // No file uploads, no scattered-key detection: just emit { path: null }.
+  if (req.value === null) {
+    const action = { type: 'set', data: { [req.path]: null } };
+    return {
+      action,
+      targetAccount: req.targetAccount || resolveCoreTarget(),
+      uploads: {},
+    };
+  }
 
   // 1. Upload files to Lighthouse (parallel)
   const entries = await Promise.all(
