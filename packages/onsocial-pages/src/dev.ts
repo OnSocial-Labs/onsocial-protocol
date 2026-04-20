@@ -7,18 +7,16 @@
 //   → http://localhost:8787?account=greenghost.testnet
 //
 // Supports:
-//   ?account=alice.testnet     — render page for account
-//   ?account=...&template=creator  — force a template
+//   ?account=alice.testnet     — validate account and redirect to canonical profile
 // ---------------------------------------------------------------------------
 
 import http from 'node:http';
-import { renderPage } from './renderer.js';
-import { buildPageUrl } from './server-utils.js';
 import type { PageData, PageProfile, PageConfig } from './types.js';
 
 const PORT = parseInt(process.env.PORT || '8787', 10);
 const RPC_URL = process.env.NEAR_RPC_URL || 'https://rpc.testnet.near.org';
 const CORE_CONTRACT = process.env.CORE_CONTRACT || 'core.onsocial.testnet';
+const PUBLIC_APP_URL = process.env.PUBLIC_APP_URL || 'http://localhost:3060';
 const PUBLIC_PAGE_BASE_DOMAIN =
   process.env.PUBLIC_PAGE_BASE_DOMAIN ||
   (CORE_CONTRACT.endsWith('.near') ? 'onsocial.id' : 'testnet.onsocial.id');
@@ -27,6 +25,20 @@ interface RpcEntry {
   requested_key: string;
   value: unknown;
   deleted?: boolean;
+}
+
+function hasPageActivationData(
+  profile: PageProfile,
+  pageConfig: PageConfig
+): boolean {
+  return Boolean(
+    profile.name?.trim() ||
+      profile.bio?.trim() ||
+      profile.avatar?.trim() ||
+      profile.links?.length ||
+      profile.tags?.length ||
+      Object.keys(pageConfig).length
+  );
 }
 
 async function fetchPageData(accountId: string): Promise<PageData> {
@@ -111,6 +123,7 @@ async function fetchPageData(accountId: string): Promise<PageData> {
 
   return {
     accountId,
+    activated: hasPageActivationData(profile, pageConfig),
     profile,
     config: pageConfig,
     stats: { standingCount: 0, postCount: 0, badgeCount: 0, groupCount: 0 },
@@ -152,7 +165,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Rendered page
+  // Canonical profile redirect
   const accountId = url.searchParams.get('account');
   if (!accountId) {
     res.writeHead(200, { 'content-type': 'text/html' });
@@ -161,46 +174,24 @@ const server = http.createServer(async (req, res) => {
 <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Inter,-apple-system,sans-serif;background:#0f0f11;color:#e4e4e7;display:flex;justify-content:center;align-items:center;min-height:100vh;padding:2rem;text-align:center}h1{font-size:2rem;margin-bottom:1rem}p{opacity:0.7;margin-bottom:0.5rem}a{color:#6366f1}code{background:rgba(255,255,255,0.1);padding:0.15em 0.4em;border-radius:4px;font-size:0.9em}.examples{margin-top:1.5rem;text-align:left;display:inline-block}.examples a{display:block;margin:0.4rem 0}</style>
 </head><body><div>
   <h1>OnSocial Pages</h1>
-  <p>Local dev server — pass <code>?account=name.testnet</code> to render a page.</p>
+  <p>Local dev server — pass <code>?account=name.testnet</code> to validate and redirect to the canonical app route.</p>
   <div class="examples">
     <a href="?account=greenghost.testnet">greenghost.testnet</a>
-    <a href="?account=greenghost.testnet&template=creator">greenghost.testnet (creator template)</a>
-    <a href="?account=greenghost.testnet&edit=true">greenghost.testnet (edit mode ✏️)</a>
-    <a href="?account=greenghost.testnet&template=creator&edit=true">creator + edit mode</a>
     <a href="/data/page?accountId=greenghost.testnet">Raw JSON data</a>
+    <a href="${PUBLIC_APP_URL}/@greenghost.testnet">Canonical app route</a>
   </div>
 </div></body></html>`);
     return;
   }
 
   try {
-    const data = await fetchPageData(accountId);
+    await fetchPageData(accountId);
 
-    // Allow template override via query param
-    const templateOverride = url.searchParams.get('template');
-    if (templateOverride) {
-      data.config.template = templateOverride;
-    }
-
-    // If no profile data, show a nice preview with the account name
-    if (!data.profile.name) {
-      data.profile.name = accountId.replace(/\.testnet$|\.near$/, '');
-    }
-
-    // ?edit=true simulates being the page owner
-    const isOwner = url.searchParams.get('edit') === 'true';
-
-    const requestUrl = buildPageUrl(accountId, PUBLIC_PAGE_BASE_DOMAIN);
-    const html = renderPage(data, requestUrl, {
-      isOwner,
-      apiUrl: `http://localhost:${PORT}`,
-    });
-
-    res.writeHead(200, {
-      'content-type': 'text/html;charset=utf-8',
+    res.writeHead(307, {
+      Location: `${PUBLIC_APP_URL.replace(/\/$/, '')}/@${encodeURIComponent(accountId)}${url.search}`,
       'x-onsocial-account': accountId,
     });
-    res.end(html);
+    res.end();
   } catch (err) {
     res.writeHead(502, { 'content-type': 'text/html' });
     res.end(
@@ -213,12 +204,9 @@ server.listen(PORT, () => {
   console.log(`\n  OnSocial Pages dev server running at:\n`);
   console.log(`    http://localhost:${PORT}?account=greenghost.testnet`);
   console.log(
-    `    http://localhost:${PORT}?account=greenghost.testnet&template=creator`
-  );
-  console.log(
     `    http://localhost:${PORT}/data/page?accountId=greenghost.testnet`
   );
   console.log(
-    `\n  Reading from: ${CORE_CONTRACT} via ${RPC_URL} | Pages: ${PUBLIC_PAGE_BASE_DOMAIN}\n`
+    `\n  Reading from: ${CORE_CONTRACT} via ${RPC_URL} | Pages: ${PUBLIC_PAGE_BASE_DOMAIN} | App: ${PUBLIC_APP_URL}\n`
   );
 });

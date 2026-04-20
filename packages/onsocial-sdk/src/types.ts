@@ -477,6 +477,7 @@ export interface PageConfig {
 /** Aggregated page data returned by the gateway `/data/page` endpoint. */
 export interface PageData {
   accountId: string;
+  activated?: boolean;
   profile: {
     name?: string;
     bio?: string;

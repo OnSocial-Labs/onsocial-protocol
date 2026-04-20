@@ -1,6 +1,5 @@
 {
-  "buildCommand": "pnpm --filter onsocial-labs exec next build --webpack",
-  "outputDirectory": "packages/onsocial-labs/out",
-  "framework": null,
+  "buildCommand": "pnpm --filter @onsocial/app build",
+  "framework": "nextjs",
   "installCommand": "pnpm install --frozen-lockfile"
 }

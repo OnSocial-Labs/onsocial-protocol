@@ -68,6 +68,8 @@ packages/onsocial-relayer/examples/
 
 # Build output
 dist/
+.next/
+**/.next/
 
 # Prettier and pnpm configuration
 .pnpmrc

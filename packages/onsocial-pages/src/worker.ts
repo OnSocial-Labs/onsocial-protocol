@@ -2,17 +2,15 @@
 // OnSocial Pages — Cloudflare Workers edge function
 //
 // Routes:
-//   GET *.{PUBLIC_PAGE_BASE_DOMAIN}  → rendered profile page
+//   GET *.{PUBLIC_PAGE_BASE_DOMAIN}  → validated redirect to canonical profile page
 //   GET /health        → health check
 //
-// The worker extracts the account name from the subdomain, fetches
-// aggregated page data from the gateway API, and returns server-rendered
-// HTML with OG tags for social previews.
+// The worker extracts the account name from the subdomain, validates it via
+// the gateway API, and redirects to the canonical @accountId route.
 // ---------------------------------------------------------------------------
 
-import { renderPage } from './renderer.js';
 import { resolvePageHost } from './server-utils.js';
-import type { Env, PageData } from './types.js';
+import type { Env } from './types.js';
 
 const RESERVED_SUBDOMAINS = new Set([
   'www',
@@ -29,23 +27,13 @@ const RESERVED_SUBDOMAINS = new Set([
   '127',
 ]);
 
-/** Extract accountId from the auth session cookie via gateway. */
-async function resolveSession(
-  cookie: string | null,
-  gatewayUrl: string
-): Promise<string | null> {
-  if (!cookie) return null;
-  try {
-    const resp = await fetch(`${gatewayUrl}/auth/session`, {
-      headers: { Cookie: cookie, Accept: 'application/json' },
-      signal: AbortSignal.timeout(3_000),
-    });
-    if (!resp.ok) return null;
-    const session = (await resp.json()) as { accountId?: string };
-    return session.accountId ?? null;
-  } catch {
-    return null;
-  }
+function buildCanonicalProfileUrl(
+  publicAppUrl: string,
+  accountId: string,
+  search: string
+): string {
+  const baseUrl = publicAppUrl.replace(/\/$/, '');
+  return `${baseUrl}/@${encodeURIComponent(accountId)}${search}`;
 }
 
 export default {
@@ -58,6 +46,7 @@ export default {
       (nearNetwork === 'mainnet' ? 'onsocial.id' : 'testnet.onsocial.id');
     const accountSuffix = nearNetwork === 'mainnet' ? '.near' : '.testnet';
     const siteUrl = `https://${publicPageBaseDomain}`;
+    const publicAppUrl = env.PUBLIC_APP_URL || siteUrl;
     const gatewayUrl =
       env.PUBLIC_API_URL ||
       env.GATEWAY_URL ||
@@ -90,41 +79,28 @@ export default {
     const accountId = devAccount || resolution!.accountId;
 
     try {
-      const dataUrl = `${gatewayUrl}/data/page?accountId=${encodeURIComponent(accountId)}`;
+      const existsUrl = `${gatewayUrl}/data/account/exists?accountId=${encodeURIComponent(accountId)}`;
 
-      const resp = await fetch(dataUrl, {
+      const resp = await fetch(existsUrl, {
         headers: { Accept: 'application/json' },
         signal: AbortSignal.timeout(5_000),
       });
 
       if (!resp.ok) {
-        return notFoundPage(accountId, siteUrl);
+        return notFoundPage(accountId, publicAppUrl);
       }
 
-      const data = (await resp.json()) as PageData;
+      const payload = (await resp.json()) as { exists?: boolean };
+      if (!payload.exists) {
+        return notFoundPage(accountId, publicAppUrl);
+      }
 
-      // Check if viewer is the page owner (shared cookie on *.onsocial.id)
-      const cookie = request.headers.get('Cookie');
-      const sessionAccountId = await resolveSession(cookie, gatewayUrl);
-      const isOwner = sessionAccountId === accountId;
-
-      const html = renderPage(data, request.url, {
-        isOwner,
-        apiUrl: gatewayUrl,
-      });
-
-      return new Response(html, {
-        headers: {
-          'content-type': 'text/html;charset=utf-8',
-          // Owner gets no-cache so edits are live; visitors get CDN cache
-          'cache-control': isOwner
-            ? 'private, no-cache'
-            : 'public, s-maxage=60, stale-while-revalidate=300',
-          'x-onsocial-account': accountId,
-        },
-      });
+      return Response.redirect(
+        buildCanonicalProfileUrl(publicAppUrl, accountId, url.search),
+        308
+      );
     } catch {
-      return errorPage(accountId, siteUrl);
+      return errorPage(accountId, publicAppUrl);
     }
   },
 };

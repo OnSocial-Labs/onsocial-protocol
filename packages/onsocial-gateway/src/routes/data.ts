@@ -73,6 +73,26 @@ function requireStr(q: Request['query'], name: string): string | null {
   return typeof v === 'string' && v ? v : null;
 }
 
+function hasPageActivationData(
+  profile: {
+    name?: string;
+    bio?: string;
+    avatar?: string;
+    links?: Array<{ label: string; url: string }>;
+    tags?: string[];
+  },
+  pageConfig: Record<string, unknown>
+): boolean {
+  return Boolean(
+    profile.name?.trim() ||
+      profile.bio?.trim() ||
+      profile.avatar?.trim() ||
+      profile.links?.length ||
+      profile.tags?.length ||
+      Object.keys(pageConfig).length
+  );
+}
+
 function optStr(q: Request['query'], name: string): string | undefined {
   const v = q[name];
   return typeof v === 'string' && v ? v : undefined;
@@ -588,8 +608,11 @@ dataRouter.get('/page', async (req: Request, res: Response) => {
       }
     }
 
+    const activated = hasPageActivationData(profile, pageConfig);
+
     res.json({
       accountId,
+      activated,
       profile,
       config: pageConfig,
       stats: {

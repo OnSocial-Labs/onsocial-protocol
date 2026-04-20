@@ -44,6 +44,7 @@ export interface PageStats {
 
 export interface PageData {
   accountId: string;
+  activated?: boolean;
   profile: PageProfile;
   config: PageConfig;
   stats: PageStats;
@@ -54,6 +55,7 @@ export interface PageData {
 export interface Env {
   GATEWAY_URL?: string;
   PUBLIC_API_URL?: string;
+  PUBLIC_APP_URL?: string;
   PUBLIC_PAGE_BASE_DOMAIN?: string;
   NEAR_NETWORK?: 'testnet' | 'mainnet';
 }

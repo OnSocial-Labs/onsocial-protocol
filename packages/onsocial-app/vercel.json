@@ -1,0 +1,5 @@
+{
+  "installCommand": "pnpm --dir ../.. install --frozen-lockfile",
+  "buildCommand": "cd ../.. && pnpm --filter @onsocial/app build",
+  "framework": "nextjs"
+}

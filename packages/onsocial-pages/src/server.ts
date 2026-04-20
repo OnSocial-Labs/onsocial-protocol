@@ -1,23 +1,23 @@
 // ---------------------------------------------------------------------------
 // OnSocial Pages — Production HTTP server
 //
-// Runs behind Caddy which handles TLS for *.onsocial.id.
+// Runs behind Caddy which handles TLS for the configured page host pattern.
 // Caddy forwards the Host header, so we extract the subdomain from that.
 //
-//   Host: greenghost.onsocial.id → accountId = greenghost.testnet (or .near)
+//   Host: greenghost.testnet.onsocial.id → accountId = greenghost.testnet
+//   Host: greenghost.onsocial.id         → accountId = greenghost.near
 //
 // Environment:
 //   PORT             — listen port (default 3456)
 //   DATA_API_URL     — internal gateway base URL for server-side page data
-//   PUBLIC_API_URL   — public gateway URL used by browser-side actions/editing
-//   PUBLIC_PAGE_BASE_DOMAIN — base hostname for public pages (default: onsocial.id)
+//   PUBLIC_APP_URL   — canonical app base URL for @accountId pages
+//   PUBLIC_PAGE_BASE_DOMAIN — base hostname for public pages
 //   CORE_CONTRACT    — core contract account ID
 //   NEAR_NETWORK     — "testnet" or "mainnet" (default: derived from CORE_CONTRACT)
 // ---------------------------------------------------------------------------
 
 import http from 'node:http';
-import { renderPage } from './renderer.js';
-import { buildPageUrl, resolvePageHost } from './server-utils.js';
+import { resolvePageHost } from './server-utils.js';
 import type { PageData } from './types.js';
 
 const PORT = parseInt(process.env.PORT || '3456', 10);
@@ -27,20 +27,18 @@ const NEAR_NETWORK =
   (CORE_CONTRACT.endsWith('.near') ? 'mainnet' : 'testnet');
 const ACCOUNT_SUFFIX = NEAR_NETWORK === 'mainnet' ? '.near' : '.testnet';
 const PUBLIC_PAGE_BASE_DOMAIN =
-  process.env.PUBLIC_PAGE_BASE_DOMAIN || 'onsocial.id';
+  process.env.PUBLIC_PAGE_BASE_DOMAIN ||
+  (NEAR_NETWORK === 'mainnet' ? 'onsocial.id' : 'testnet.onsocial.id');
 const DATA_API_URL =
   process.env.DATA_API_URL ||
   (NEAR_NETWORK === 'mainnet' ? 'http://gateway:8080' : 'http://gateway:8080');
-const PUBLIC_API_URL =
-  process.env.PUBLIC_API_URL ||
-  (NEAR_NETWORK === 'mainnet'
-    ? 'https://api.onsocial.id'
-    : 'https://testnet.onsocial.id');
+const PUBLIC_APP_URL =
+  process.env.PUBLIC_APP_URL || `https://${PUBLIC_PAGE_BASE_DOMAIN}`;
 const ACCOUNT_VALIDATION_TTL_MS = parseInt(
   process.env.ACCOUNT_VALIDATION_TTL_MS || '300000',
   10
 );
-const ROOT_REDIRECT_URL = `https://${PUBLIC_PAGE_BASE_DOMAIN}`;
+const ROOT_REDIRECT_URL = PUBLIC_APP_URL;
 
 const RESERVED_SUBDOMAINS = new Set([
   'www',
@@ -122,6 +120,11 @@ function renderHtmlPage(
 </head><body><div><h1>${escHtml(title)}</h1><p>${body}</p><p style="margin-top:1rem"><a href="${ROOT_REDIRECT_URL}">OnSocial →</a></p><p style="display:none">${statusCode}</p></div></body></html>`;
 }
 
+function buildCanonicalProfileUrl(accountId: string, search: string): string {
+  const baseUrl = PUBLIC_APP_URL.replace(/\/$/, '');
+  return `${baseUrl}/@${encodeURIComponent(accountId)}${search}`;
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', `http://localhost:${PORT}`);
   const host = req.headers.host ?? '';
@@ -134,7 +137,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   // Caddy on-demand TLS permission endpoint
-  // Caddy sends ?domain=alice.onsocial.id — return 200 to allow cert issuance
+  // Caddy sends ?domain=<page-host> — return 200 to allow cert issuance
   if (url.pathname === '/caddy-ask') {
     const domain = url.searchParams.get('domain') ?? '';
     const resolution = resolvePageHost({
@@ -206,7 +209,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   try {
-    if (!devAccount && !(await accountExists(accountId))) {
+    if (!(await accountExists(accountId))) {
       res.writeHead(404, { 'content-type': 'text/html;charset=utf-8' });
       res.end(
         renderHtmlPage(
@@ -218,34 +221,12 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    const data = await fetchPageData(accountId);
-
-    // Smart defaults when no profile is set
-    if (!data.profile.name) {
-      data.profile.name = accountId.replace(/\.testnet$|\.near$/, '');
-    }
-
-    // Dev: allow template override
-    const tplOverride = url.searchParams.get('template');
-    if (tplOverride) data.config.template = tplOverride;
-
-    // Dev: simulate owner
-    const isOwner = url.searchParams.get('edit') === 'true';
-
-    const requestUrl = buildPageUrl(accountId, PUBLIC_PAGE_BASE_DOMAIN);
-    const html = renderPage(data, requestUrl, {
-      isOwner,
-      apiUrl: PUBLIC_API_URL,
-    });
-
-    res.writeHead(200, {
-      'content-type': 'text/html;charset=utf-8',
-      'cache-control': isOwner
-        ? 'private, no-cache'
-        : 'public, max-age=60, stale-while-revalidate=300',
+    res.writeHead(308, {
+      Location: buildCanonicalProfileUrl(accountId, url.search),
+      'cache-control': 'public, max-age=60, stale-while-revalidate=300',
       'x-onsocial-account': accountId,
     });
-    res.end(html);
+    res.end();
   } catch (err) {
     console.error('Failed to render page', {
       accountId,
@@ -268,6 +249,6 @@ server.listen(PORT, () => {
   console.log(`OnSocial Pages server running on :${PORT}`);
   console.log(`Network: ${NEAR_NETWORK} | Contract: ${CORE_CONTRACT}`);
   console.log(`Page domain: ${PUBLIC_PAGE_BASE_DOMAIN}`);
+  console.log(`Canonical app: ${PUBLIC_APP_URL}`);
   console.log(`Data API: ${DATA_API_URL}`);
-  console.log(`Public API: ${PUBLIC_API_URL}`);
 });
