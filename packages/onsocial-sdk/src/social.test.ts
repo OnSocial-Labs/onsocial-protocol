@@ -157,4 +157,159 @@ describe('SocialModule transport', () => {
     const [, body] = post.mock.calls[0];
     expect(JSON.parse(body.value).text).toBe('plain');
   });
+
+  it('reactToPost and unreactFromPost derive the canonical post path', async () => {
+    const post = vi.fn().mockResolvedValue({ txHash: 'tx' });
+    const social = new SocialModule({ post, network: 'mainnet' } as never);
+
+    await social.reactToPost(
+      { author: 'alice.near', postId: 'p1' },
+      { type: 'like', source: 'feed' }
+    );
+    await social.unreactFromPost({ author: 'alice.near', postId: 'p1' }, 'like');
+
+    expect(post).toHaveBeenNthCalledWith(1, '/compose/set', {
+      path: 'reaction/alice.near/like/post/p1',
+      targetAccount: 'core.onsocial.near',
+      value: JSON.stringify({ v: 1, type: 'like', source: 'feed' }),
+    });
+    expect(post).toHaveBeenNthCalledWith(2, '/compose/set', {
+      path: 'reaction/alice.near/like/post/p1',
+      targetAccount: 'core.onsocial.near',
+      value: null,
+    });
+  });
+
+  it('replyToPost and quotePost reuse the post reference helpers', async () => {
+    const post = vi.fn().mockResolvedValue({ txHash: 'tx' });
+    const social = new SocialModule({ post, network: 'mainnet' } as never);
+
+    await social.replyToPost(
+      { author: 'alice.near', postId: '42' },
+      { text: 'Reply' },
+      'r1'
+    );
+    await social.quotePost(
+      { author: 'alice.near', postId: '42' },
+      { text: 'Quote' },
+      'q1'
+    );
+
+    expect(post).toHaveBeenNthCalledWith(
+      1,
+      '/compose/set',
+      expect.objectContaining({
+        path: 'post/r1',
+        targetAccount: 'core.onsocial.near',
+      })
+    );
+    expect(post).toHaveBeenNthCalledWith(
+      2,
+      '/compose/set',
+      expect.objectContaining({
+        path: 'post/q1',
+        targetAccount: 'core.onsocial.near',
+      })
+    );
+
+    const replyPayload = JSON.parse(post.mock.calls[0][1].value);
+    const quotePayload = JSON.parse(post.mock.calls[1][1].value);
+
+    expect(replyPayload).toEqual({
+      v: 1,
+      text: 'Reply',
+      parent: 'alice.near/post/42',
+      parentType: 'post',
+      timestamp: expect.any(Number),
+    });
+    expect(quotePayload).toEqual({
+      v: 1,
+      text: 'Quote',
+      ref: 'alice.near/post/42',
+      refType: 'quote',
+      timestamp: expect.any(Number),
+    });
+  });
+
+  it('parses typed social direct reads', async () => {
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce({
+        requested_key: 'saved/alice.near/post/123',
+        full_key: 'alice.near/saved/alice.near/post/123',
+        value: JSON.stringify({ v: 1, timestamp: 1710000000000, folder: 'reads' }),
+        deleted: false,
+        corrupted: false,
+      })
+      .mockResolvedValueOnce({
+        requested_key: 'endorsement/bob.near/rust',
+        full_key: 'alice.near/endorsement/bob.near/rust',
+        value: { v: 1, since: 1710000001000, topic: 'rust', weight: 5 },
+        deleted: false,
+        corrupted: false,
+      })
+      .mockResolvedValueOnce({
+        requested_key: 'claims/bob.near/skill/claim-1',
+        full_key: 'alice.near/claims/bob.near/skill/claim-1',
+        value: JSON.stringify({ v: 1, issuedAt: 1710000002000, scope: 'core' }),
+        deleted: false,
+        corrupted: false,
+      });
+    const social = new SocialModule({ get, network: 'mainnet' } as never);
+
+    await expect(social.getSave('alice.near/post/123', 'alice.near')).resolves.toEqual({
+      contentPath: 'alice.near/post/123',
+      v: 1,
+      timestamp: 1710000000000,
+      folder: 'reads',
+    });
+    await expect(
+      social.getEndorsement('bob.near', {
+        topic: 'rust',
+        accountId: 'alice.near',
+      })
+    ).resolves.toEqual({
+      target: 'bob.near',
+      v: 1,
+      since: 1710000001000,
+      topic: 'rust',
+      weight: 5,
+    });
+    await expect(
+      social.getAttestation('bob.near', 'skill', 'claim-1', 'alice.near')
+    ).resolves.toEqual({
+      claimId: 'claim-1',
+      subject: 'bob.near',
+      type: 'skill',
+      v: 1,
+      issuedAt: 1710000002000,
+      scope: 'core',
+    });
+
+    expect(get).toHaveBeenNthCalledWith(
+      1,
+      '/data/get-one?key=saved%2Falice.near%2Fpost%2F123&accountId=alice.near'
+    );
+    expect(get).toHaveBeenNthCalledWith(
+      2,
+      '/data/get-one?key=endorsement%2Fbob.near%2Frust&accountId=alice.near'
+    );
+    expect(get).toHaveBeenNthCalledWith(
+      3,
+      '/data/get-one?key=claims%2Fbob.near%2Fskill%2Fclaim-1&accountId=alice.near'
+    );
+  });
+
+  it('returns null for deleted structured entries', async () => {
+    const get = vi.fn().mockResolvedValue({
+      requested_key: 'saved/alice.near/post/123',
+      full_key: 'alice.near/saved/alice.near/post/123',
+      value: null,
+      deleted: true,
+      corrupted: false,
+    });
+    const social = new SocialModule({ get, network: 'mainnet' } as never);
+
+    await expect(social.getSave('alice.near/post/123', 'alice.near')).resolves.toBeNull();
+  });
 });

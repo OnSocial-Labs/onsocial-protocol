@@ -136,6 +136,8 @@ describe('QueryModule', () => {
       const body = JSON.parse(fetch.mock.calls[0][1].body);
       expect(body.query).toContain('postOwner');
       expect(body.query).not.toContain('targetAccount');
+      expect(body.variables.owner).toBe('owner.near');
+      expect(body.variables.path).toBe('%/reaction/owner.near/%/post/123');
     });
   });
 

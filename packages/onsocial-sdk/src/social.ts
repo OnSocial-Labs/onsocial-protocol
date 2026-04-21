@@ -11,13 +11,17 @@ import { resolveContractId } from './contracts.js';
 import { SCHEMA_VERSION } from './schema/v1.js';
 import type { MediaRef } from './schema/v1.js';
 import type {
+  AttestationRecord,
   EntryView,
+  EndorsementRecord,
   KeyEntry,
   ListKeysOptions,
   PostData,
+  PostRef,
   ProfileData,
   ReactionData,
   RelayResponse,
+  SaveRecord,
 } from './types.js';
 
 export type SocialSetData = Record<string, unknown>;
@@ -340,6 +344,34 @@ function getSingleEntry(data: SocialSetData): [string, unknown] {
   return entries[0];
 }
 
+function parseStructuredEntry<T extends Record<string, unknown>>(
+  entry: EntryView
+): T | null {
+  if (entry.deleted || entry.value == null) {
+    return null;
+  }
+
+  const rawValue: unknown = entry.value;
+  let parsedValue: unknown = rawValue;
+  if (typeof parsedValue === 'string') {
+    try {
+      parsedValue = JSON.parse(parsedValue) as unknown;
+    } catch {
+      return null;
+    }
+  }
+
+  if (
+    !parsedValue ||
+    typeof parsedValue !== 'object' ||
+    Array.isArray(parsedValue)
+  ) {
+    return null;
+  }
+
+  return parsedValue as T;
+}
+
 function isFileLike(value: unknown): value is Blob | File {
   return typeof Blob !== 'undefined' && value instanceof Blob;
 }
@@ -484,6 +516,13 @@ export class SocialModule {
     });
   }
 
+  async reactToPost(
+    post: PostRef,
+    reaction: ReactionData
+  ): Promise<RelayResponse> {
+    return this.react(post.author, `post/${post.postId}`, reaction);
+  }
+
   /**
    * Remove a previously-set reaction. Must specify the same `kind` used to react.
    *
@@ -504,6 +543,13 @@ export class SocialModule {
       value: encodeComposeValue(value),
       targetAccount: this._coreContract,
     });
+  }
+
+  async unreactFromPost(
+    post: PostRef,
+    kind: string
+  ): Promise<RelayResponse> {
+    return this.unreact(post.author, kind, `post/${post.postId}`);
   }
 
   // ── Replies & Quotes ──────────────────────────────────────────────────
@@ -532,6 +578,14 @@ export class SocialModule {
     });
   }
 
+  async replyToPost(
+    post: PostRef,
+    reply: PostData,
+    replyId?: string
+  ): Promise<RelayResponse> {
+    return this.reply(post.author, post.postId, reply, replyId);
+  }
+
   /**
    * Quote a post.
    *
@@ -556,6 +610,14 @@ export class SocialModule {
     });
   }
 
+  async quotePost(
+    post: PostRef,
+    quote: PostData,
+    quoteId?: string
+  ): Promise<RelayResponse> {
+    return this.quote(post.author, `post/${post.postId}`, quote, quoteId);
+  }
+
   // ── Saves (bookmarks) ────────────────────────────────────────────────
 
   /**
@@ -578,6 +640,21 @@ export class SocialModule {
       value: encodeComposeValue(value),
       targetAccount: this._coreContract,
     });
+  }
+
+  async getSave(
+    contentPath: string,
+    accountId?: string
+  ): Promise<SaveRecord | null> {
+    const entry = await this.getOne(`saved/${contentPath}`, accountId);
+    const value = parseStructuredEntry<Omit<SaveRecord, 'contentPath'>>(entry);
+    if (!value) {
+      return null;
+    }
+    return {
+      contentPath,
+      ...value,
+    } as SaveRecord;
   }
 
   /**
@@ -618,6 +695,24 @@ export class SocialModule {
       value: encodeComposeValue(value),
       targetAccount: this._coreContract,
     });
+  }
+
+  async getEndorsement(
+    targetAccount: string,
+    opts?: { topic?: string; accountId?: string }
+  ): Promise<EndorsementRecord | null> {
+    const path = opts?.topic
+      ? `endorsement/${targetAccount}/${opts.topic}`
+      : `endorsement/${targetAccount}`;
+    const entry = await this.getOne(path, opts?.accountId);
+    const value = parseStructuredEntry<Omit<EndorsementRecord, 'target'>>(entry);
+    if (!value) {
+      return null;
+    }
+    return {
+      target: targetAccount,
+      ...value,
+    } as EndorsementRecord;
   }
 
   /**
@@ -667,6 +762,30 @@ export class SocialModule {
       value: encodeComposeValue(value),
       targetAccount: this._coreContract,
     });
+  }
+
+  async getAttestation(
+    subject: string,
+    type: string,
+    claimId: string,
+    accountId?: string
+  ): Promise<AttestationRecord | null> {
+    const entry = await this.getOne(
+      `claims/${subject}/${type}/${claimId}`,
+      accountId
+    );
+    const value = parseStructuredEntry<
+      Omit<AttestationRecord, 'claimId' | 'subject' | 'type'>
+    >(entry);
+    if (!value) {
+      return null;
+    }
+    return {
+      claimId,
+      subject,
+      type,
+      ...value,
+    } as AttestationRecord;
   }
 
   /**

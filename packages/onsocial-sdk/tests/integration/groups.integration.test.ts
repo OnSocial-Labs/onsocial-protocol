@@ -21,6 +21,7 @@ describe('groups', () => {
   let cancelRequesterOs: OnSocial;
   const groupId = `grp_${testId()}`;
   const moderationGroupId = `grp_moderation_${testId()}`;
+  const joinRequestGroupId = `grp_join_requests_${testId()}`;
   const memberId = 'onsocial.testnet';
   const requesterId = 'test02.onsocial.testnet';
   const rejectRequesterId = 'test03.onsocial.testnet';
@@ -570,5 +571,207 @@ describe('groups', () => {
       expect(state?.isMember).toBe(false);
     }, 25_000);
 
+  });
+
+  describe('join requests', () => {
+    const groupPostId = testId();
+
+    it('should create a private group for join-request flows', async () => {
+      const result = await os.groups.create(
+        joinRequestGroupId,
+        groupConfigV1({
+          name: `Integration ${joinRequestGroupId}`,
+          description: 'SDK integration test join-request group',
+          isPrivate: true,
+          memberDriven: false,
+          tags: ['integration', 'sdk', 'private'],
+        })
+      );
+
+      expect(result).toBeTruthy();
+
+      const config = await confirmDirect(
+        async () => {
+          const value = await os.groups.getConfig(joinRequestGroupId);
+          return value?.is_private === true ? value : null;
+        },
+        'join-request group config'
+      );
+
+      expect(config?.is_private).toBe(true);
+    });
+
+    it('should expose initial private-group stats', async () => {
+      const stats = await confirmDirect(
+        async () => {
+          const value = await os.groups.getStats(joinRequestGroupId);
+          return value ? value : null;
+        },
+        'initial join-request group stats'
+      );
+
+      expect(stats).toBeTruthy();
+      expect(Number(stats?.total_join_requests ?? 0)).toBe(0);
+    }, 25_000);
+
+    it('should let a requester submit a pending join request', async () => {
+      const result = await requesterOs.groups.join(joinRequestGroupId);
+      expect(result).toBeTruthy();
+    });
+
+    it('should expose the pending join request via getJoinRequest and getStats', async () => {
+      const state = await confirmDirect(
+        async () => {
+          const [request, stats, isMember] = await Promise.all([
+            os.groups.getJoinRequest(joinRequestGroupId, requesterId),
+            os.groups.getStats(joinRequestGroupId),
+            os.groups.isMember(joinRequestGroupId, requesterId),
+          ]);
+
+          return request && !isMember && Number(stats?.total_join_requests ?? 0) >= 1
+            ? { request, stats, isMember }
+            : null;
+        },
+        'pending join request'
+      );
+
+      if (!state?.stats) throw new Error('pending join request stats missing');
+      expect(state?.isMember).toBe(false);
+      expect(state?.request.requester_id).toBe(requesterId);
+      expect(state?.request.status).toBe('pending');
+      expect(Number(state.stats.total_join_requests ?? 0)).toBeGreaterThanOrEqual(1);
+    }, 25_000);
+
+    it('should approve the pending join request', async () => {
+      const result = await os.groups.approveJoin(joinRequestGroupId, requesterId);
+      expect(result).toBeTruthy();
+    });
+
+    it('should add the approved requester as a member', async () => {
+      const state = await confirmDirect(
+        async () => {
+          const [isMember, stats] = await Promise.all([
+            os.groups.isMember(joinRequestGroupId, requesterId),
+            os.groups.getStats(joinRequestGroupId),
+          ]);
+
+          return isMember ? { isMember, stats } : null;
+        },
+        'approved join request'
+      );
+
+      expect(state?.isMember).toBe(true);
+      expect(Number(state?.stats?.total_join_requests ?? 0)).toBe(0);
+    }, 25_000);
+
+    it('should let another requester submit a join request for rejection', async () => {
+      const result = await rejectRequesterOs.groups.join(joinRequestGroupId);
+      expect(result).toBeTruthy();
+    });
+
+    it('should reject that pending join request', async () => {
+      const result = await os.groups.rejectJoin(
+        joinRequestGroupId,
+        rejectRequesterId,
+        'integration rejection'
+      );
+      expect(result).toBeTruthy();
+    }, 20_000);
+
+    it('should keep the rejected requester out of the member set and clear pending count', async () => {
+      const state = await confirmDirect(
+        async () => {
+          const [isMember, stats] = await Promise.all([
+            os.groups.isMember(joinRequestGroupId, rejectRequesterId),
+            os.groups.getStats(joinRequestGroupId),
+          ]);
+
+          return !isMember && Number(stats?.total_join_requests ?? 0) === 0
+            ? { isMember, stats }
+            : null;
+        },
+        'rejected join request'
+      );
+
+      if (!state?.stats) throw new Error('rejected join request stats missing');
+      expect(state?.isMember).toBe(false);
+      expect(Number(state.stats.total_join_requests ?? 0)).toBe(0);
+    }, 25_000);
+
+    it('should let a third requester submit a join request for cancellation', async () => {
+      const result = await cancelRequesterOs.groups.join(joinRequestGroupId);
+      expect(result).toBeTruthy();
+    });
+
+    it('should expose the cancellable join request before cancellation', async () => {
+      const request = await confirmDirect(
+        async () => {
+          const value = await os.groups.getJoinRequest(
+            joinRequestGroupId,
+            cancelRequesterId
+          );
+          return value?.status === 'pending' ? value : null;
+        },
+        'cancellable join request'
+      );
+
+      expect(request?.requester_id).toBe(cancelRequesterId);
+      expect(request?.status).toBe('pending');
+    }, 25_000);
+
+    it('should let the requester cancel their own join request', async () => {
+      const result = await cancelRequesterOs.groups.cancelJoin(joinRequestGroupId);
+      expect(result).toBeTruthy();
+    });
+
+    it('should keep the cancelled requester out of the member set', async () => {
+      const state = await confirmDirect(
+        async () => {
+          const isMember = await os.groups.isMember(
+            joinRequestGroupId,
+            cancelRequesterId
+          );
+          return isMember ? null : { isMember };
+        },
+        'cancelled join request membership'
+      );
+
+      expect(state?.isMember).toBe(false);
+    }, 25_000);
+
+    it('should write group content via groups.post', async () => {
+      const result = await os.groups.post(
+        joinRequestGroupId,
+        { text: `Group post ${groupPostId}` },
+        groupPostId
+      );
+
+      expect(result.txHash).toBeTruthy();
+    });
+
+    it('should transfer group ownership to the approved requester', async () => {
+      const result = await os.groups.transferOwnership(
+        joinRequestGroupId,
+        requesterId
+      );
+      expect(result).toBeTruthy();
+    });
+
+    it('should expose the approved requester as the new owner', async () => {
+      const state = await confirmDirect(
+        async () => {
+          const [newOwner, oldOwner] = await Promise.all([
+            os.groups.isOwner(joinRequestGroupId, requesterId),
+            os.groups.isOwner(joinRequestGroupId, ACCOUNT_ID),
+          ]);
+
+          return newOwner && !oldOwner ? { newOwner, oldOwner } : null;
+        },
+        'transferred group ownership'
+      );
+
+      expect(state?.newOwner).toBe(true);
+      expect(state?.oldOwner).toBe(false);
+    }, 25_000);
   });
 });

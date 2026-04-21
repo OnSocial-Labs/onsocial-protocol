@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { ArrowLeft, ArrowUpRight, ChevronDown, Eye, Flame, Handshake, Landmark, Key, Package, Play } from 'lucide-react';
+import { Activity, ArrowLeft, ArrowUpRight, ChevronDown, Eye, Flame, Handshake, Landmark, Key, Package, Play } from 'lucide-react';
 import { BrandLogo } from '@/components/brand-logo';
 import { PwaInstallButton } from '@/components/pwa-install-button';
 import { useMobilePageContext } from '@/components/providers/mobile-page-context';
@@ -37,6 +37,9 @@ import { cn } from '@/lib/utils';
 import { useDropdown } from '@/hooks/use-dropdown';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useNavVisibility } from '@/components/providers/nav-visibility-context';
+import { useWallet } from '@/contexts/wallet-context';
+import { useGatewayAuth } from '@/contexts/gateway-auth-context';
+import { isGovernanceWallet } from '@/lib/portal-config';
 
 /* ── Grouped navigation structure ────────────────────────────── */
 
@@ -54,7 +57,7 @@ interface NavGroup {
   items: NavGroupItem[];
 }
 
-const navGroups: NavGroup[] = [
+const baseNavGroups: NavGroup[] = [
   {
     label: 'Protocol',
     attribution: 'Governed by DAO',
@@ -79,9 +82,19 @@ const navGroups: NavGroup[] = [
 ];
 
 /** Flat list for mobile menu + legacy helpers */
-const navItems = navGroups.flatMap((g) =>
-  g.items.map((item) => ({ label: item.label, href: item.href, isAnchor: false }))
-);
+const internalOpsGroup: NavGroup = {
+  label: 'Internal',
+  attribution: 'Ops only',
+  accent: 'amber',
+  items: [
+    {
+      label: 'Ops Analytics',
+      href: '/ops/analytics',
+      description: 'Internal graph and activity overview',
+      icon: Activity,
+    },
+  ],
+};
 
 const homepageSections = [
   { id: 'hero', label: 'Home', accent: 'slate' as const },
@@ -121,6 +134,8 @@ function MobileMenuScrollLock() {
 }
 
 export function Navigation() {
+  const { accountId } = useWallet();
+  const { jwt } = useGatewayAuth();
   const [openPathname, setOpenPathname] = useState<string | null>(null);
   const isMobile = useIsMobile();
   const isDesktopViewport = !isMobile;
@@ -137,23 +152,43 @@ export function Navigation() {
   const mobileMenuScrollRef = useRef<HTMLDivElement | null>(null);
   const protocolDropdown = useDropdown();
   const servicesDropdown = useDropdown();
+  const internalDropdown = useDropdown();
   const mobileContextDropdown = useDropdown();
   const desktopContextDropdown = useDropdown();
   const groupDropdowns = useMemo(
-    () => [protocolDropdown, servicesDropdown],
-    [protocolDropdown, servicesDropdown]
+    () => [protocolDropdown, servicesDropdown, internalDropdown],
+    [protocolDropdown, servicesDropdown, internalDropdown]
   );
   const pathname = usePathname();
   const reduceMotion = useReducedMotion();
   const { handoffProgress, pageBadge, navBack } = useMobilePageContext();
   const router = useRouter();
+  const showInternalOps = isGovernanceWallet(accountId) || Boolean(jwt);
+  const navGroups = useMemo(
+    () =>
+      showInternalOps
+        ? [...baseNavGroups, internalOpsGroup]
+        : baseNavGroups,
+    [showInternalOps]
+  );
+  const navItems = useMemo(
+    () =>
+      navGroups.flatMap((group) =>
+        group.items.map((item) => ({
+          label: item.label,
+          href: item.href,
+          isAnchor: false,
+        }))
+      ),
+    [navGroups]
+  );
   const isOpen = openPathname === pathname;
   const activeGroup = useMemo(() => {
     if (pathname === '/') return null;
     return navGroups.find((g) =>
       g.items.some((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
     ) ?? null;
-  }, [pathname]);
+  }, [pathname, navGroups]);
   const homepageSection = useMemo(
     () =>
       pathname === '/'

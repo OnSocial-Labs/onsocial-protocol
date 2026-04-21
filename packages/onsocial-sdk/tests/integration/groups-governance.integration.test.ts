@@ -18,16 +18,26 @@ describe('groups governance', () => {
   let os: OnSocial;
   let voterOs: OnSocial;
   const voterId = 'test02.onsocial.testnet';
+  const removableMemberId = 'test03.onsocial.testnet';
   const groupId = `grp_gov_${testId()}`;
   const inviteDescription = `Invite voter ${testId()}`;
+  const removableInviteDescription = `Invite removable ${testId()}`;
   const proposalTitle = `SDK governance ${testId()}`;
   const cancelTitle = `SDK cancel ${testId()}`;
+  const removeDescription = `Remove member ${testId()}`;
+  const transferDescription = `Transfer owner ${testId()}`;
   let inviteProposalId = '';
   let inviteSequence = 0;
+  let removableInviteProposalId = '';
+  let removableInviteSequence = 0;
   let proposalId = '';
   let proposalSequence = 0;
   let cancelProposalId = '';
   let cancelProposalSequence = 0;
+  let removeProposalId = '';
+  let removeProposalSequence = 0;
+  let transferProposalId = '';
+  let transferProposalSequence = 0;
 
   beforeAll(async () => {
     os = await getClient();
@@ -65,15 +75,10 @@ describe('groups governance', () => {
     const before = await os.groups.getProposalCount(groupId);
     inviteSequence = before + 1;
 
-    const result = await os.groups.propose(
-      groupId,
-      'member_invite',
-      { target_user: voterId },
-      {
-        autoVote: true,
-        description: inviteDescription,
-      }
-    );
+    const result = await os.groups.proposeInviteMember(groupId, voterId, {
+      autoVote: true,
+      description: inviteDescription,
+    });
 
     expect(result).toBeTruthy();
 
@@ -157,13 +162,12 @@ describe('groups governance', () => {
     const before = await os.groups.getProposalCount(groupId);
     proposalSequence = before + 1;
 
-    const result = await os.groups.propose(
+    const result = await os.groups.proposeCustom(
       groupId,
-      'custom_proposal',
       {
         title: proposalTitle,
         description: 'SDK governance approval flow',
-        custom_data: { source: 'sdk-integration', kind: 'approval' },
+        customData: { source: 'sdk-integration', kind: 'approval' },
       },
       {
         autoVote: true,
@@ -378,13 +382,12 @@ describe('groups governance', () => {
     const before = await os.groups.getProposalCount(groupId);
     cancelProposalSequence = before + 1;
 
-    const result = await os.groups.propose(
+    const result = await os.groups.proposeCustom(
       groupId,
-      'custom_proposal',
       {
         title: cancelTitle,
         description: 'SDK governance cancel flow',
-        custom_data: { source: 'sdk-integration', kind: 'cancel' },
+        customData: { source: 'sdk-integration', kind: 'cancel' },
       },
       {
         autoVote: false,
@@ -479,4 +482,199 @@ describe('groups governance', () => {
     expect(result?.operation).toBe('proposal_status_updated');
     expect(result?.status).toBe('cancelled');
   }, 35_000);
+
+  it('should create an active invite proposal for a removable member via the convenience wrapper', async () => {
+    const before = await os.groups.getProposalCount(groupId);
+    removableInviteSequence = before + 1;
+
+    const result = await os.groups.proposeInviteMember(groupId, removableMemberId, {
+      autoVote: true,
+      description: removableInviteDescription,
+      message: 'Temporary governance member for removal flow',
+    });
+
+    expect(result).toBeTruthy();
+
+    const proposal = await confirmDirect(
+      async () => {
+        const [count, value] = await Promise.all([
+          os.groups.getProposalCount(groupId),
+          os.groups.getProposalBySequence(groupId, removableInviteSequence),
+        ]).catch(async () => {
+          const [count, value] = await Promise.all([
+            os.groups.getProposalCount(groupId),
+            os.groups.getProposalBySequence(groupId, removableInviteSequence),
+          ]);
+          return [count, value] as const;
+        });
+        return count >= removableInviteSequence && value?.status === 'active'
+          ? { proposal: value }
+          : null;
+      },
+      'removable invite proposal',
+      { timeoutMs: 30_000, intervalMs: 2_000 }
+    );
+
+    removableInviteProposalId = proposal?.proposal.id ?? '';
+
+    expect(removableInviteProposalId).toBeTruthy();
+    expect(proposal?.proposal.type).toBe('member_invite');
+    expect(proposal?.proposal.status).toBe('active');
+  }, 30_000);
+
+  it('should let the second voter approve the removable-member invite proposal', async () => {
+    const result = await voterOs.groups.vote(groupId, removableInviteProposalId, true);
+    expect(result).toBeTruthy();
+
+    const proposal = await confirmDirect(
+      async () => {
+        const value = await os.groups.getProposal(groupId, removableInviteProposalId);
+        return value?.status === 'executed' ? value : null;
+      },
+      'executed removable invite proposal',
+      { timeoutMs: 30_000, intervalMs: 2_000 }
+    );
+
+    expect(proposal?.id).toBe(removableInviteProposalId);
+    expect(proposal?.status).toBe('executed');
+  }, 30_000);
+
+  it('should add the removable member before the removal proposal', async () => {
+    const isMember = await confirmDirect(
+      async () =>
+        (await os.groups.isMember(groupId, removableMemberId)) ? true : null,
+      'removable member membership',
+      { timeoutMs: 30_000, intervalMs: 2_000 }
+    );
+
+    expect(isMember).toBe(true);
+  }, 25_000);
+
+  it('should create an active remove-member proposal with the convenience wrapper', async () => {
+    const before = await os.groups.getProposalCount(groupId);
+    removeProposalSequence = before + 1;
+
+    const result = await os.groups.proposeRemoveMember(
+      groupId,
+      removableMemberId,
+      {
+        autoVote: true,
+        description: removeDescription,
+        reason: 'Coverage for remove-member wrapper',
+      }
+    );
+
+    expect(result).toBeTruthy();
+
+    const proposal = await confirmDirect(
+      async () => {
+        const [count, value] = await Promise.all([
+          os.groups.getProposalCount(groupId),
+          os.groups.getProposalBySequence(groupId, removeProposalSequence),
+        ]).catch(async () => {
+          const [count, value] = await Promise.all([
+            os.groups.getProposalCount(groupId),
+            os.groups.getProposalBySequence(groupId, removeProposalSequence),
+          ]);
+          return [count, value] as const;
+        });
+
+        return count >= removeProposalSequence && value?.status === 'active'
+          ? { proposal: value }
+          : null;
+      },
+      'remove-member proposal'
+    );
+
+    removeProposalId = proposal?.proposal.id ?? '';
+
+    expect(removeProposalId).toBeTruthy();
+    expect(proposal?.proposal.type).toBe('group_update_remove_member');
+    expect(proposal?.proposal.status).toBe('active');
+    expect(proposal?.proposal.data?.GroupUpdate?.update_type).toBe('remove_member');
+  }, 30_000);
+
+  it('should execute the remove-member proposal after the second voter approves it', async () => {
+    const result = await voterOs.groups.vote(groupId, removeProposalId, true);
+    expect(result).toBeTruthy();
+
+    const state = await confirmDirect(
+      async () => {
+        const [proposal, isMember, vote] = await Promise.all([
+          os.groups.getProposal(groupId, removeProposalId),
+          os.groups.isMember(groupId, removableMemberId),
+          os.groups.getVote(groupId, removeProposalId, voterId),
+        ]);
+
+        return proposal?.status === 'executed' && !isMember && vote
+          ? { proposal, isMember, vote }
+          : null;
+      },
+      'executed remove-member proposal',
+      { timeoutMs: 30_000, intervalMs: 2_000 }
+    );
+
+    expect(state?.proposal.status).toBe('executed');
+    expect(state?.isMember).toBe(false);
+    expect(state?.vote.voter).toBe(voterId);
+    expect(state?.vote.approve).toBe(true);
+  }, 30_000);
+
+  it('should create a transfer-ownership proposal with the convenience wrapper', async () => {
+    const before = await os.groups.getProposalCount(groupId);
+    transferProposalSequence = before + 1;
+
+    const result = await os.groups.proposeTransferOwnership(groupId, voterId, {
+      autoVote: true,
+      description: transferDescription,
+      reason: 'Coverage for transfer-ownership wrapper',
+      removeOldOwner: true,
+    });
+
+    expect(result).toBeTruthy();
+
+    const proposal = await confirmDirect(
+      async () => {
+        const [count, value] = await Promise.all([
+          os.groups.getProposalCount(groupId),
+          os.groups.getProposalBySequence(groupId, transferProposalSequence),
+        ]);
+        return count >= transferProposalSequence && value?.status === 'active'
+          ? value
+          : null;
+      },
+      'transfer-ownership proposal'
+    );
+
+    transferProposalId = proposal?.id ?? '';
+
+    expect(transferProposalId).toBeTruthy();
+    expect(proposal?.type).toBe('group_update_transfer_ownership');
+    expect(proposal?.status).toBe('active');
+    expect(proposal?.data?.GroupUpdate?.update_type).toBe('transfer_ownership');
+  }, 30_000);
+
+  it('should execute the transfer-ownership proposal and move ownership to the voter', async () => {
+    const result = await voterOs.groups.vote(groupId, transferProposalId, true);
+    expect(result).toBeTruthy();
+
+    const state = await confirmDirect(
+      async () => {
+        const [proposal, newOwner, oldOwner] = await Promise.all([
+          os.groups.getProposal(groupId, transferProposalId),
+          os.groups.isOwner(groupId, voterId),
+          os.groups.isOwner(groupId, ACCOUNT_ID),
+        ]);
+
+        return proposal?.status === 'executed' && newOwner && !oldOwner
+          ? { proposal, newOwner, oldOwner }
+          : null;
+      },
+      'executed transfer-ownership proposal'
+    );
+
+    expect(state?.proposal.status).toBe('executed');
+    expect(state?.newOwner).toBe(true);
+    expect(state?.oldOwner).toBe(false);
+  }, 30_000);
 });

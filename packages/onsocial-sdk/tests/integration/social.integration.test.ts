@@ -8,14 +8,15 @@ import {
   confirmDirect,
   confirmIndexed,
   getClient,
+  testImageBlob,
   testId,
 } from './helpers.js';
 import type { OnSocial } from '../../src/client.js';
-import { buildReplySetData, buildQuoteSetData } from '../../src/social.js';
 
 describe('social', () => {
   let os: OnSocial;
   const postId = testId();
+  const imagePostId = testId();
 
   beforeAll(async () => {
     os = await getClient();
@@ -73,6 +74,67 @@ describe('social', () => {
         typeof entry.value === 'string' ? JSON.parse(entry.value) : entry.value;
       expect(val.text).toContain(postId);
     }, 20_000);
+
+    it('should upload a post image Blob and store an ipfs media URL', async () => {
+      const result = await os.social.post(
+        {
+          text: `Blob image integration ${imagePostId}`,
+          image: testImageBlob(),
+        },
+        imagePostId
+      );
+      expect(result.txHash).toBeTruthy();
+    });
+
+    it('should verify blob-backed post media landed on-chain via RPC', async () => {
+      const entry = await confirmDirect(
+        async () => {
+          try {
+            const e = await os.social.getOne(`post/${imagePostId}`, ACCOUNT_ID);
+            return e?.value ? e : null;
+          } catch {
+            return null;
+          }
+        },
+        'blob post on-chain',
+        { timeoutMs: 20_000, intervalMs: 2_000 }
+      );
+
+      expect(entry).toBeDefined();
+      if (!entry) throw new Error('blob post missing from direct read');
+
+      const val =
+        typeof entry.value === 'string' ? JSON.parse(entry.value) : entry.value;
+      expect(val.text).toContain(imagePostId);
+      expect(Array.isArray(val.media)).toBe(true);
+      expect(val.media[0]).toMatch(/^ipfs:\/\//);
+      expect(val.image).toBeUndefined();
+    }, 25_000);
+
+    it('should expose blob-backed post media via os.query.getPosts', async () => {
+      const page = await confirmIndexed(
+        async () => {
+          const value = await os.query.getPosts({
+            author: ACCOUNT_ID,
+            limit: 20,
+          });
+          return value.items.some((item) => item.postId === imagePostId)
+            ? value
+            : null;
+        },
+        'blob post via getPosts',
+        { timeoutMs: 20_000, intervalMs: 2_000 }
+      );
+
+      if (!page) throw new Error('blob post missing from indexed posts');
+      const post = page.items.find((item) => item.postId === imagePostId);
+      expect(post).toBeDefined();
+      if (!post) throw new Error('blob post missing from indexed page');
+
+      const value = JSON.parse(post.value);
+      expect(Array.isArray(value.media)).toBe(true);
+      expect(value.media[0]).toMatch(/^ipfs:\/\//);
+    }, 25_000);
   });
 
   // ── React ─────────────────────────────────────────────────────────────
@@ -109,6 +171,36 @@ describe('social', () => {
       expect(counts.like).toBeGreaterThanOrEqual(1);
       expect(counts.fire).toBeGreaterThanOrEqual(1);
       expect(counts.total).toBeGreaterThanOrEqual(2);
+    }, 20_000);
+
+    it('should expose current reactions via os.query.reactions', async () => {
+      const reactions = await confirmIndexed(
+        async () => {
+          const result = await os.query.reactions(ACCOUNT_ID, `post/${postId}`);
+          const rows = result.data?.reactionsCurrent ?? [];
+          const types = rows
+            .map((row) => {
+              try {
+                const value = JSON.parse(row.value);
+                return value?.type;
+              } catch {
+                return null;
+              }
+            })
+            .filter(Boolean);
+          return types.includes('like') && types.includes('fire') ? rows : null;
+        },
+        'query reactions',
+        { timeoutMs: 15_000, intervalMs: 2_000 }
+      );
+
+      if (!reactions) throw new Error('query.reactions missing expected rows');
+      expect(reactions.some((row) => row.path.includes(`/like/post/${postId}`))).toBe(
+        true
+      );
+      expect(reactions.some((row) => row.path.includes(`/fire/post/${postId}`))).toBe(
+        true
+      );
     }, 20_000);
 
     it('should unreact like', async () => {
@@ -173,15 +265,12 @@ describe('social', () => {
     const replyId = testId();
 
     it('should write a reply to the parent post', async () => {
-      const [path, value] = Object.entries(
-        buildReplySetData(
-          ACCOUNT_ID,
-          postId,
-          { text: `Reply ${replyId}` },
-          replyId
-        )
-      )[0];
-      const result = await os.social.set(path, JSON.stringify(value));
+      const result = await os.social.reply(
+        ACCOUNT_ID,
+        postId,
+        { text: `Reply ${replyId}` },
+        replyId
+      );
       expect(result.txHash).toBeTruthy();
     });
 
@@ -200,6 +289,26 @@ describe('social', () => {
       expect(reply.parentAuthor).toBe(ACCOUNT_ID);
       expect(reply.parentPath).toBe(`${ACCOUNT_ID}/post/${postId}`);
     }, 20_000);
+
+    it('should expose the reply via direct read', async () => {
+      const entry = await confirmDirect(
+        async () => {
+          try {
+            const value = await os.social.getOne(`post/${replyId}`, ACCOUNT_ID);
+            return value?.value ? value : null;
+          } catch {
+            return null;
+          }
+        },
+        'reply direct read',
+        { timeoutMs: 15_000, intervalMs: 2_000 }
+      );
+
+      if (!entry) throw new Error('reply missing from direct read');
+      const value =
+        typeof entry.value === 'string' ? JSON.parse(entry.value) : entry.value;
+      expect(value.text).toContain(replyId);
+    }, 20_000);
   });
 
   // ── Quote ─────────────────────────────────────────────────────────────
@@ -208,15 +317,12 @@ describe('social', () => {
     const quoteId = testId();
 
     it('should write a quote of the parent post', async () => {
-      const [path, value] = Object.entries(
-        buildQuoteSetData(
-          ACCOUNT_ID,
-          `post/${postId}`,
-          { text: `Quote ${quoteId}` },
-          quoteId
-        )
-      )[0];
-      const result = await os.social.set(path, JSON.stringify(value));
+      const result = await os.social.quote(
+        ACCOUNT_ID,
+        `post/${postId}`,
+        { text: `Quote ${quoteId}` },
+        quoteId
+      );
       expect(result.txHash).toBeTruthy();
     });
 
@@ -234,6 +340,26 @@ describe('social', () => {
       expect(quote.accountId).toBe(ACCOUNT_ID);
       expect(quote.refAuthor).toBe(ACCOUNT_ID);
       expect(quote.refPath).toBe(`${ACCOUNT_ID}/post/${postId}`);
+    }, 20_000);
+
+    it('should expose the quote via direct read', async () => {
+      const entry = await confirmDirect(
+        async () => {
+          try {
+            const value = await os.social.getOne(`post/${quoteId}`, ACCOUNT_ID);
+            return value?.value ? value : null;
+          } catch {
+            return null;
+          }
+        },
+        'quote direct read',
+        { timeoutMs: 15_000, intervalMs: 2_000 }
+      );
+
+      if (!entry) throw new Error('quote missing from direct read');
+      const value =
+        typeof entry.value === 'string' ? JSON.parse(entry.value) : entry.value;
+      expect(value.text).toContain(quoteId);
     }, 20_000);
   });
 
@@ -322,6 +448,7 @@ describe('social', () => {
 
   describe('profile', () => {
     const testField = `int_test_${Date.now()}`;
+    const avatarField = `avatar_blob_${testId()}`;
 
     it('should write a profile field', async () => {
       const result = await os.social.setProfile({
@@ -363,6 +490,150 @@ describe('social', () => {
 
       if (!profile) throw new Error('profile missing from index');
       expect(profile?.[testField]).toBe('integration-value');
+    }, 20_000);
+
+    it('should upload an avatar Blob and store an ipfs URL', async () => {
+      const result = await os.social.setProfile({
+        [avatarField]: 'blob-avatar-test',
+        avatar: testImageBlob(),
+      });
+      expect(result.txHash).toBeTruthy();
+    });
+
+    it('should verify avatar Blob landed on-chain via RPC', async () => {
+      const entry = await confirmDirect(
+        async () => {
+          try {
+            const e = await os.social.getOne('profile/avatar', ACCOUNT_ID);
+            return typeof e?.value === 'string' && e.value.startsWith('ipfs://')
+              ? e
+              : null;
+          } catch {
+            return null;
+          }
+        },
+        'profile avatar on-chain',
+        { timeoutMs: 20_000, intervalMs: 2_000 }
+      );
+
+      expect(entry).toBeDefined();
+      if (!entry) throw new Error('profile avatar missing from direct read');
+      expect(entry.value).toMatch(/^ipfs:\/\//);
+    }, 25_000);
+
+    it('should expose the avatar ipfs URL via os.query.getProfile', async () => {
+      const profile = await confirmIndexed(
+        async () => {
+          const value = await os.query.getProfile(ACCOUNT_ID);
+          return typeof value?.avatar === 'string' &&
+            value.avatar.startsWith('ipfs://') &&
+            value?.[avatarField] === 'blob-avatar-test'
+            ? value
+            : null;
+        },
+        'profile avatar via getProfile',
+        { timeoutMs: 20_000, intervalMs: 2_000 }
+      );
+
+      if (!profile) throw new Error('profile avatar missing from index');
+      expect(profile.avatar).toMatch(/^ipfs:\/\//);
+    }, 25_000);
+  });
+
+  // ── Direct Reads ─────────────────────────────────────────────────────
+
+  describe('direct reads', () => {
+    const readNamespace = `sdk_direct_reads_${testId()}`;
+    const firstPath = `${readNamespace}/alpha`;
+    const secondPath = `${readNamespace}/beta`;
+
+    it('should write direct-read fixture data', async () => {
+      const [first, second] = await Promise.all([
+        os.social.set(
+          firstPath,
+          JSON.stringify({ ok: true, slot: 'alpha', value: 'value-alpha' })
+        ),
+        os.social.set(secondPath, JSON.stringify({ ok: true, slot: 'beta' })),
+      ]);
+
+      expect(first.txHash).toBeTruthy();
+      expect(second.txHash).toBeTruthy();
+    }, 20_000);
+
+    it('should read multiple entries via social.get', async () => {
+      const entries = await confirmDirect(
+        async () => {
+          const value = await os.social.get([firstPath, secondPath], ACCOUNT_ID);
+          const alpha = value.find((entry) => entry.requested_key === firstPath);
+          const beta = value.find((entry) => entry.requested_key === secondPath);
+          return alpha?.value && beta?.value ? value : null;
+        },
+        'direct get multiple keys',
+        { timeoutMs: 15_000, intervalMs: 2_000 }
+      );
+
+      if (!entries) throw new Error('direct get returned incomplete entries');
+
+      const alpha = entries.find((entry) => entry.requested_key === firstPath);
+      const beta = entries.find((entry) => entry.requested_key === secondPath);
+
+      const alphaValue =
+        typeof alpha?.value === 'string' ? JSON.parse(alpha.value) : alpha?.value;
+      expect(alpha?.full_key).toBe(`${ACCOUNT_ID}/${firstPath}`);
+      expect(alphaValue).toEqual({ ok: true, slot: 'alpha', value: 'value-alpha' });
+      expect(alpha?.deleted).toBe(false);
+
+      const betaValue =
+        typeof beta?.value === 'string' ? JSON.parse(beta.value) : beta?.value;
+      expect(beta?.full_key).toBe(`${ACCOUNT_ID}/${secondPath}`);
+      expect(betaValue).toEqual({ ok: true, slot: 'beta' });
+      expect(beta?.deleted).toBe(false);
+    }, 20_000);
+
+    it('should list matching keys via social.listKeys', async () => {
+      const keys = await confirmDirect(
+        async () => {
+          const value = await os.social.listKeys({
+            prefix: `${ACCOUNT_ID}/${readNamespace}/`,
+            limit: 10,
+            withValues: true,
+          });
+          const matches = value.filter((entry) =>
+            [firstPath, secondPath].some((path) => entry.key === `${ACCOUNT_ID}/${path}`)
+          );
+          return matches.length === 2 ? value : null;
+        },
+        'direct list keys',
+        { timeoutMs: 15_000, intervalMs: 2_000 }
+      );
+
+      if (!keys) throw new Error('direct listKeys missing expected keys');
+
+      const listedKeys = keys.map((entry) => entry.key);
+      expect(listedKeys).toContain(`${ACCOUNT_ID}/${firstPath}`);
+      expect(listedKeys).toContain(`${ACCOUNT_ID}/${secondPath}`);
+
+      const alpha = keys.find((entry) => entry.key === `${ACCOUNT_ID}/${firstPath}`);
+      const beta = keys.find((entry) => entry.key === `${ACCOUNT_ID}/${secondPath}`);
+      const alphaValue =
+        typeof alpha?.value === 'string' ? JSON.parse(alpha.value) : alpha?.value;
+      expect(alphaValue).toEqual({ ok: true, slot: 'alpha', value: 'value-alpha' });
+      const betaValue =
+        typeof beta?.value === 'string' ? JSON.parse(beta.value) : beta?.value;
+      expect(betaValue).toEqual({ ok: true, slot: 'beta' });
+    }, 20_000);
+
+    it('should count matching keys via social.countKeys', async () => {
+      const count = await confirmDirect(
+        async () => {
+          const value = await os.social.countKeys(`${ACCOUNT_ID}/${readNamespace}/`);
+          return value.count >= 2 ? value : null;
+        },
+        'direct count keys',
+        { timeoutMs: 15_000, intervalMs: 2_000 }
+      );
+
+      expect(count?.count).toBeGreaterThanOrEqual(2);
     }, 20_000);
   });
 });

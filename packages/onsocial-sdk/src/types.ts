@@ -140,6 +140,50 @@ export interface ReactionData {
   [key: string]: unknown;
 }
 
+export interface PostRef {
+  author: string;
+  postId: string;
+}
+
+export interface SaveRecord {
+  contentPath: string;
+  v: number;
+  timestamp: number;
+  folder?: string;
+  note?: string;
+  [key: string]: unknown;
+}
+
+export interface EndorsementRecord {
+  target: string;
+  v: number;
+  since: number;
+  topic?: string;
+  weight?: 1 | 2 | 3 | 4 | 5;
+  note?: string;
+  expiresAt?: number;
+  [key: string]: unknown;
+}
+
+export interface AttestationRecord {
+  claimId: string;
+  type: string;
+  subject: string;
+  v: number;
+  issuedAt: number;
+  scope?: string;
+  expiresAt?: number;
+  evidence?: Array<Record<string, unknown>>;
+  metadata?: Record<string, unknown>;
+  signature?: {
+    alg: string;
+    sig: string;
+    signer?: string;
+  };
+  x?: Record<string, Record<string, unknown>>;
+  [key: string]: unknown;
+}
+
 // ── Scarces (NFTs) ──────────────────────────────────────────────────────────
 
 export interface MintOptions {
@@ -376,6 +420,21 @@ export interface Vote {
 export interface ListProposalsOptions {
   fromSequence?: number;
   limit?: number;
+}
+
+export interface ProposalCreateOptions {
+  autoVote?: boolean;
+  description?: string;
+}
+
+export interface CustomProposalInput {
+  title: string;
+  description?: string;
+  customData?: Record<string, unknown>;
+}
+
+export interface TransferOwnershipProposalOptions extends ProposalCreateOptions {
+  removeOldOwner?: boolean;
 }
 
 // ── Permissions ─────────────────────────────────────────────────────────────

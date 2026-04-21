@@ -13,14 +13,6 @@ import {
   testId,
 } from './helpers.js';
 import type { OnSocial } from '../../src/client.js';
-import {
-  buildSaveSetData,
-  buildSaveRemoveData,
-  buildEndorsementSetData,
-  buildEndorsementRemoveData,
-  buildAttestationSetData,
-  buildAttestationRemoveData,
-} from '../../src/social.js';
 
 describe('social-extras', () => {
   let os: OnSocial;
@@ -35,9 +27,7 @@ describe('social-extras', () => {
     const targetPostId = testId();
 
     it('should save a post (basic bookmark)', async () => {
-      const data = buildSaveSetData(`post/${targetPostId}`);
-      const [path, value] = Object.entries(data)[0];
-      const result = await os.social.set(path, JSON.stringify(value));
+      const result = await os.social.save(`post/${targetPostId}`);
       expect(result.txHash).toBeTruthy();
     });
 
@@ -49,6 +39,7 @@ describe('social-extras', () => {
         },
         'save'
       );
+      if (!saves) throw new Error('save missing from index');
       const save = saves.find((r) => r.contentPath.includes(targetPostId))!;
       expect(save.accountId).toBe(ACCOUNT_ID);
       const val = JSON.parse(save.value);
@@ -56,14 +47,36 @@ describe('social-extras', () => {
       expect(val.timestamp).toBeGreaterThan(0);
     }, 35_000);
 
+    it('should expose the saved bookmark via direct read', async () => {
+      const entry = await confirmDirect(
+        async () => {
+          try {
+            const value = await os.social.getOne(
+              `saved/post/${targetPostId}`,
+              ACCOUNT_ID
+            );
+            return value?.value ? value : null;
+          } catch {
+            return null;
+          }
+        },
+        'save direct read',
+        { timeoutMs: 15_000, intervalMs: 2_000 }
+      );
+
+      if (!entry) throw new Error('save missing from direct read');
+      const value =
+        typeof entry.value === 'string' ? JSON.parse(entry.value) : entry.value;
+      expect(value).toMatchObject({ v: 1 });
+      expect(typeof value.timestamp).toBe('number');
+    }, 25_000);
+
     it('should save with folder and note', async () => {
       const folderId = testId();
-      const data = buildSaveSetData(`post/${folderId}`, {
+      const result = await os.social.save(`post/${folderId}`, {
         folder: 'favorites',
         note: 'great post',
       });
-      const [path, value] = Object.entries(data)[0];
-      const result = await os.social.set(path, JSON.stringify(value));
       expect(result.txHash).toBeTruthy();
 
       const saves = await confirmIndexed(
@@ -73,6 +86,7 @@ describe('social-extras', () => {
         },
         'save with folder'
       );
+      if (!saves) throw new Error('save with folder missing from index');
       const val = JSON.parse(
         saves.find((r) => r.contentPath.includes(folderId))!.value
       );
@@ -81,9 +95,7 @@ describe('social-extras', () => {
     }, 35_000);
 
     it('should remove a save (tombstone)', async () => {
-      const data = buildSaveRemoveData(`post/${targetPostId}`);
-      const [path, value] = Object.entries(data)[0];
-      const result = await os.social.set(path, value);
+      const result = await os.social.unsave(`post/${targetPostId}`);
       expect(result.txHash).toBeTruthy();
     });
 
@@ -101,6 +113,27 @@ describe('social-extras', () => {
       if (!saves) throw new Error('save still present in index');
       expect(saves.some((r) => r.contentPath.includes(targetPostId))).toBe(false);
     }, 35_000);
+
+    it('should expose the save tombstone via direct read', async () => {
+      const entry = await confirmDirect(
+        async () => {
+          try {
+            const value = await os.social.getOne(
+              `saved/post/${targetPostId}`,
+              ACCOUNT_ID
+            );
+            return value?.deleted ? value : null;
+          } catch {
+            return null;
+          }
+        },
+        'save tombstone direct read',
+        { timeoutMs: 15_000, intervalMs: 2_000 }
+      );
+
+      if (!entry) throw new Error('save tombstone missing from direct read');
+      expect(entry.deleted).toBe(true);
+    }, 25_000);
   });
 
   // ── Endorsements (weighted directed vouch) ────────────────────────────
@@ -109,9 +142,7 @@ describe('social-extras', () => {
     const endorseTarget = 'onsocial.testnet';
 
     it('should endorse another account (basic)', async () => {
-      const data = buildEndorsementSetData(endorseTarget);
-      const [path, value] = Object.entries(data)[0];
-      const result = await os.social.set(path, JSON.stringify(value));
+      const result = await os.social.endorse(endorseTarget);
       expect(result.txHash).toBeTruthy();
     });
 
@@ -129,6 +160,7 @@ describe('social-extras', () => {
         },
         'endorsement given'
       );
+      if (!endorsed) throw new Error('endorsement missing from index');
       const row = endorsed.find(
         (r) =>
           r.target === endorseTarget && r.value !== '{}' && r.value !== 'null'
@@ -147,18 +179,17 @@ describe('social-extras', () => {
         },
         'endorsement received'
       );
+      if (!received) throw new Error('received endorsement missing from index');
       expect(received.some((r) => r.issuer === ACCOUNT_ID)).toBe(true);
     }, 35_000);
 
     it('should endorse with weight and topic', async () => {
       const topicId = `rust-${testId()}`;
-      const data = buildEndorsementSetData(endorseTarget, {
+      const result = await os.social.endorse(endorseTarget, {
         topic: topicId,
         weight: 5,
         note: 'excellent rust dev',
       });
-      const [path, value] = Object.entries(data)[0];
-      const result = await os.social.set(path, JSON.stringify(value));
       expect(result.txHash).toBeTruthy();
 
       // Verify via on-chain RPC (topic-scoped endorsements need path-based lookup)
@@ -177,6 +208,7 @@ describe('social-extras', () => {
         'endorsement with topic',
         { timeoutMs: 15_000, intervalMs: 2_000 }
       );
+      if (!entry) throw new Error('topic endorsement missing from direct read');
       const val =
         typeof entry.value === 'string' ? JSON.parse(entry.value) : entry.value;
       expect(val.topic).toBe(topicId);
@@ -187,12 +219,10 @@ describe('social-extras', () => {
     it('should endorse with expiry', async () => {
       const expiryTopic = `temp-${testId()}`;
       const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30 days
-      const data = buildEndorsementSetData(endorseTarget, {
+      const result = await os.social.endorse(endorseTarget, {
         topic: expiryTopic,
         expiresAt,
       });
-      const [path, value] = Object.entries(data)[0];
-      const result = await os.social.set(path, JSON.stringify(value));
       expect(result.txHash).toBeTruthy();
 
       const entry = await confirmDirect(
@@ -210,15 +240,14 @@ describe('social-extras', () => {
         'endorsement with expiry',
         { timeoutMs: 15_000, intervalMs: 2_000 }
       );
+      if (!entry) throw new Error('expiry endorsement missing from direct read');
       const val =
         typeof entry.value === 'string' ? JSON.parse(entry.value) : entry.value;
       expect(val.expiresAt).toBe(expiresAt);
     }, 25_000);
 
     it('should remove a basic endorsement (tombstone)', async () => {
-      const data = buildEndorsementRemoveData(endorseTarget);
-      const [path, value] = Object.entries(data)[0];
-      const result = await os.social.set(path, value);
+      const result = await os.social.unendorse(endorseTarget);
       expect(result.txHash).toBeTruthy();
     });
 
@@ -250,12 +279,33 @@ describe('social-extras', () => {
       expect(given).toHaveLength(0);
     }, 35_000);
 
+    it('should expose the removed basic endorsement as a tombstone via direct read', async () => {
+      const entry = await confirmDirect(
+        async () => {
+          try {
+            const value = await os.social.getOne(
+              `endorsement/${endorseTarget}`,
+              ACCOUNT_ID
+            );
+            return value?.deleted ? value : null;
+          } catch {
+            return null;
+          }
+        },
+        'endorsement tombstone direct read',
+        { timeoutMs: 15_000, intervalMs: 2_000 }
+      );
+
+      if (!entry) {
+        throw new Error('endorsement tombstone missing from direct read');
+      }
+      expect(entry.deleted).toBe(true);
+    }, 25_000);
+
     it('should remove a topic-scoped endorsement', async () => {
-      const data = buildEndorsementRemoveData(endorseTarget, 'remove-test');
-      const [path, value] = Object.entries(data)[0];
-      const result = await os.social.set(path, value);
+      const result = await os.social.unendorse(endorseTarget, 'remove-test');
       expect(result.txHash).toBeTruthy();
-    });
+    }, 20_000);
   });
 
   // ── Attestations (verifiable typed claims) ────────────────────────────
@@ -266,14 +316,40 @@ describe('social-extras', () => {
     const claimType = 'identity-verification';
 
     it('should create a minimal attestation', async () => {
-      const data = buildAttestationSetData(claimId, {
+      const result = await os.social.attest(claimId, {
         type: claimType,
         subject,
       });
-      const [path, value] = Object.entries(data)[0];
-      const result = await os.social.set(path, JSON.stringify(value));
       expect(result.txHash).toBeTruthy();
-    });
+    }, 20_000);
+
+    it('should expose the minimal attestation via direct read', async () => {
+      const entry = await confirmDirect(
+        async () => {
+          try {
+            const value = await os.social.getOne(
+              `claims/${subject}/${claimType}/${claimId}`,
+              ACCOUNT_ID
+            );
+            return value?.value ? value : null;
+          } catch {
+            return null;
+          }
+        },
+        'minimal attestation direct read',
+        { timeoutMs: 15_000, intervalMs: 2_000 }
+      );
+
+      if (!entry) throw new Error('minimal attestation missing from direct read');
+      const value =
+        typeof entry.value === 'string' ? JSON.parse(entry.value) : entry.value;
+      expect(value).toMatchObject({
+        v: 1,
+        type: claimType,
+        subject,
+      });
+      expect(typeof value.issuedAt).toBe('number');
+    }, 25_000);
 
     it('should appear in claims_current via indexer (issued)', async () => {
       const claims = await confirmIndexed(
@@ -285,6 +361,7 @@ describe('social-extras', () => {
         },
         'claim issued'
       );
+      if (!claims) throw new Error('issued claim missing from index');
       const claim = claims.find((r) => r.claimId === claimId)!;
       expect(claim.issuer).toBe(ACCOUNT_ID);
       expect(claim.subject).toBe(subject);
@@ -302,13 +379,14 @@ describe('social-extras', () => {
         },
         'claim about subject'
       );
+      if (!claims) throw new Error('claim about subject missing from index');
       expect(claims.some((r) => r.issuer === ACCOUNT_ID)).toBe(true);
     }, 35_000);
 
     it('should create attestation with full metadata', async () => {
       const fullId = testId();
       const expiresAt = Date.now() + 365 * 24 * 60 * 60 * 1000;
-      const data = buildAttestationSetData(fullId, {
+      const result = await os.social.attest(fullId, {
         type: 'skill-assessment',
         subject,
         scope: 'typescript',
@@ -319,8 +397,6 @@ describe('social-extras', () => {
           sig: 'dGVzdHNpZ25hdHVyZQ==',
         },
       });
-      const [path, value] = Object.entries(data)[0];
-      const result = await os.social.set(path, JSON.stringify(value));
       expect(result.txHash).toBeTruthy();
 
       const claims = await confirmIndexed(
@@ -332,6 +408,7 @@ describe('social-extras', () => {
         },
         'full claim'
       );
+      if (!claims) throw new Error('full claim missing from index');
       const val = JSON.parse(claims.find((r) => r.claimId === fullId)!.value);
       expect(val.type).toBe('skill-assessment');
       expect(val.scope).toBe('typescript');
@@ -343,13 +420,11 @@ describe('social-extras', () => {
 
     it('should create attestation with extensions (x)', async () => {
       const xId = testId();
-      const data = buildAttestationSetData(xId, {
+      const result = await os.social.attest(xId, {
         type: 'membership',
         subject,
         x: { myapp: { tier: 'gold', since: '2024-01' } },
       });
-      const [path, value] = Object.entries(data)[0];
-      const result = await os.social.set(path, JSON.stringify(value));
       expect(result.txHash).toBeTruthy();
 
       const claims = await confirmIndexed(
@@ -361,19 +436,18 @@ describe('social-extras', () => {
         },
         'claim with extensions'
       );
+      if (!claims) throw new Error('claim with extensions missing from index');
       const val = JSON.parse(claims.find((r) => r.claimId === xId)!.value);
       expect(val.x.myapp.tier).toBe('gold');
     }, 35_000);
 
     it('should create multiple claims of the same type', async () => {
       const secondId = testId();
-      const data = buildAttestationSetData(secondId, {
+      const result = await os.social.attest(secondId, {
         type: claimType,
         subject,
         metadata: { round: 2 },
       });
-      const [path, value] = Object.entries(data)[0];
-      const result = await os.social.set(path, JSON.stringify(value));
       expect(result.txHash).toBeTruthy();
 
       // Both claims should be queryable
@@ -386,13 +460,16 @@ describe('social-extras', () => {
         },
         'multiple claims'
       );
+      if (!claims) throw new Error('multiple claims missing from index');
       expect(claims.length).toBeGreaterThanOrEqual(2);
     }, 35_000);
 
     it('should remove an attestation (tombstone)', async () => {
-      const data = buildAttestationRemoveData(subject, claimType, claimId);
-      const [path, value] = Object.entries(data)[0];
-      const result = await os.social.set(path, value);
+      const result = await os.social.revokeAttestation(
+        subject,
+        claimType,
+        claimId
+      );
       expect(result.txHash).toBeTruthy();
     });
 
@@ -410,5 +487,28 @@ describe('social-extras', () => {
       if (!claims) throw new Error('claim still present in index');
       expect(claims.some((r) => r.claimId === claimId)).toBe(false);
     }, 35_000);
+
+    it('should expose the revoked attestation as a tombstone via direct read', async () => {
+      const entry = await confirmDirect(
+        async () => {
+          try {
+            const value = await os.social.getOne(
+              `claims/${subject}/${claimType}/${claimId}`,
+              ACCOUNT_ID
+            );
+            return value?.deleted ? value : null;
+          } catch {
+            return null;
+          }
+        },
+        'attestation tombstone direct read',
+        { timeoutMs: 15_000, intervalMs: 2_000 }
+      );
+
+      if (!entry) {
+        throw new Error('attestation tombstone missing from direct read');
+      }
+      expect(entry.deleted).toBe(true);
+    }, 25_000);
   });
 });

@@ -6,15 +6,18 @@ import type { HttpClient } from './http.js';
 import { resolveContractId } from './contracts.js';
 import type { GroupConfigV1 } from './schema/v1.js';
 import type {
-  RelayResponse,
-  PostData,
+  CustomProposalInput,
   GroupMemberData,
   GroupStats,
   JoinRequest,
-  Proposal,
-  ProposalTally,
-  Vote,
   ListProposalsOptions,
+  PostData,
+  Proposal,
+  ProposalCreateOptions,
+  ProposalTally,
+  RelayResponse,
+  Vote,
+  TransferOwnershipProposalOptions,
 } from './types.js';
 import { buildGroupPostSetData } from './social.js';
 
@@ -211,7 +214,7 @@ export class GroupsModule {
     groupId: string,
     proposalType: string,
     changes: Record<string, unknown>,
-    opts?: { autoVote?: boolean; description?: string }
+    opts?: ProposalCreateOptions
   ): Promise<RelayResponse> {
     return this.execute({
       type: 'create_proposal',
@@ -223,6 +226,80 @@ export class GroupsModule {
         description: opts.description,
       }),
     });
+  }
+
+  async proposeInviteMember(
+    groupId: string,
+    targetUser: string,
+    opts?: ProposalCreateOptions & { message?: string }
+  ): Promise<RelayResponse> {
+    return this.propose(
+      groupId,
+      'member_invite',
+      {
+        target_user: targetUser,
+        ...(opts?.message !== undefined && { message: opts.message }),
+      },
+      opts
+    );
+  }
+
+  async proposeRemoveMember(
+    groupId: string,
+    targetUser: string,
+    opts?: ProposalCreateOptions & { reason?: string }
+  ): Promise<RelayResponse> {
+    return this.propose(
+      groupId,
+      'group_update',
+      {
+        update_type: 'remove_member',
+        target_user: targetUser,
+        ...(opts?.reason !== undefined && { reason: opts.reason }),
+      },
+      opts
+    );
+  }
+
+  async proposeTransferOwnership(
+    groupId: string,
+    newOwner: string,
+    opts?: TransferOwnershipProposalOptions & { reason?: string }
+  ): Promise<RelayResponse> {
+    return this.propose(
+      groupId,
+      'group_update',
+      {
+        update_type: 'transfer_ownership',
+        new_owner: newOwner,
+        ...(opts?.removeOldOwner !== undefined && {
+          remove_old_owner: opts.removeOldOwner,
+        }),
+        ...(opts?.reason !== undefined && { reason: opts.reason }),
+      },
+      opts
+    );
+  }
+
+  async proposeCustom(
+    groupId: string,
+    proposal: CustomProposalInput,
+    opts?: ProposalCreateOptions
+  ): Promise<RelayResponse> {
+    return this.propose(
+      groupId,
+      'custom_proposal',
+      {
+        title: proposal.title,
+        ...(proposal.description !== undefined && {
+          description: proposal.description,
+        }),
+        ...(proposal.customData !== undefined && {
+          custom_data: proposal.customData,
+        }),
+      },
+      opts
+    );
   }
 
   async vote(

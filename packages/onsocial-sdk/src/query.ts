@@ -171,14 +171,14 @@ export class QueryModule {
 
   /** Fetch reactions on a piece of content. */
   async reactions(ownerAccount: string, contentPath: string) {
-    const fullPath = `reaction/${ownerAccount}/${contentPath}`;
+    const fullPath = `%/reaction/${ownerAccount}/%/${contentPath}`;
     return this.graphql<{ reactionsCurrent: ReactionRow[] }>({
-      query: `query Reactions($path: String!) {
-        reactionsCurrent(where: {path: {_like: $path}}) {
+      query: `query Reactions($owner: String!, $path: String!) {
+        reactionsCurrent(where: {postOwner: {_eq: $owner}, path: {_like: $path}}) {
           accountId postOwner path value blockHeight blockTimestamp operation
         }
       }`,
-      variables: { path: `${fullPath}%` },
+      variables: { owner: ownerAccount, path: fullPath },
     });
   }
 

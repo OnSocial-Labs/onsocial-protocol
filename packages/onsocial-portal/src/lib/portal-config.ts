@@ -1,7 +1,7 @@
 export type PortalNearNetwork = 'testnet' | 'mainnet';
 
 const DEFAULT_GOVERNANCE_WALLETS =
-  'onsocial.near,onsocial.testnet,greenghost.near,test01greenghost.testnet';
+  'onsocial.near,onsocial.testnet,greenghost.near,greenghost.onsocial.testnet,test01greenghost.testnet';
 
 function parseWalletList(value: string): string[] {
   return value
