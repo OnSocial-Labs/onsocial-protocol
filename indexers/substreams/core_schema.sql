@@ -30,7 +30,10 @@ CREATE TABLE IF NOT EXISTS data_updates (
   derived_type TEXT,
   writes TEXT,
   extra_data TEXT,
-  reaction_kind TEXT
+  reaction_kind TEXT,
+  channel TEXT,
+  kind TEXT,
+  audiences TEXT
 );
 
 CREATE TABLE IF NOT EXISTS storage_updates (
@@ -191,6 +194,9 @@ CREATE INDEX IF NOT EXISTS idx_data_updates_author ON data_updates(author);
 CREATE INDEX IF NOT EXISTS idx_data_updates_account_id ON data_updates(account_id);
 CREATE INDEX IF NOT EXISTS idx_data_updates_block_height ON data_updates(block_height);
 CREATE INDEX IF NOT EXISTS idx_data_updates_data_type ON data_updates(data_type);
+CREATE INDEX IF NOT EXISTS idx_data_updates_post_channel ON data_updates(channel) WHERE data_type = 'post' AND channel IS NOT NULL AND channel != '';
+CREATE INDEX IF NOT EXISTS idx_data_updates_post_kind ON data_updates(kind) WHERE data_type = 'post' AND kind IS NOT NULL AND kind != '';
+CREATE INDEX IF NOT EXISTS idx_data_updates_post_audiences ON data_updates(audiences) WHERE data_type = 'post' AND audiences IS NOT NULL AND audiences != '';
 CREATE INDEX IF NOT EXISTS idx_storage_updates_author ON storage_updates(author);
 CREATE INDEX IF NOT EXISTS idx_storage_updates_block_height ON storage_updates(block_height);
 CREATE INDEX IF NOT EXISTS idx_group_updates_group_id ON group_updates(group_id);

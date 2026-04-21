@@ -4,6 +4,7 @@ import {
   SCHEMA_VERSION,
   attestationV1,
   endorsementV1,
+  groupFeedMetaV1,
   groupConfigV1,
   postV1,
   profileV1,
@@ -12,6 +13,7 @@ import {
   standingV1,
   validateAttestationV1,
   validateEndorsementV1,
+  validateGroupFeedMetaV1,
   validateGroupConfigV1,
   validatePostV1,
   validateProfileV1,
@@ -92,6 +94,9 @@ describe('PostV1', () => {
       parent: 'alice.near/post/main',
       parentType: 'post',
       access: 'public',
+      channel: 'engineering',
+      kind: 'announcement',
+      audiences: ['members', 'employees'],
       timestamp: 7,
     });
     expect(validatePostV1(p)).toBeNull();
@@ -117,6 +122,43 @@ describe('PostV1', () => {
         embeds: [{ kind: 'video', url: 'x' } as never],
       })
     ).toThrow(/embeds/);
+  });
+
+  it('rejects wrong metadata types', () => {
+    expect(
+      validatePostV1({ v: 1, text: 'x', timestamp: 1, channel: 5 })
+    ).toMatch(/channel/);
+    expect(
+      validatePostV1({ v: 1, text: 'x', timestamp: 1, kind: false })
+    ).toMatch(/kind/);
+    expect(
+      validatePostV1({
+        v: 1,
+        text: 'x',
+        timestamp: 1,
+        audiences: ['members', 1],
+      })
+    ).toMatch(/audiences/);
+  });
+});
+
+describe('GroupFeedMetaV1', () => {
+  it('accepts shared group feed metadata', () => {
+    const meta = groupFeedMetaV1({
+      channel: 'engineering',
+      kind: 'announcement',
+      audiences: ['members', 'employees'],
+    });
+
+    expect(validateGroupFeedMetaV1(meta)).toBeNull();
+  });
+
+  it('rejects wrong field types', () => {
+    expect(validateGroupFeedMetaV1({ channel: 5 })).toMatch(/channel/);
+    expect(validateGroupFeedMetaV1({ kind: false })).toMatch(/kind/);
+    expect(validateGroupFeedMetaV1({ audiences: ['members', 1] })).toMatch(
+      /audiences/
+    );
   });
 });
 

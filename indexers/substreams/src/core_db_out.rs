@@ -48,6 +48,9 @@ pub(crate) fn core_db_out_impl(output: Output) -> DatabaseChanges {
         row.set("writes", &update.writes);
         row.set("extra_data", &update.extra_data);
         row.set("reaction_kind", &update.reaction_kind);
+        row.set("channel", &update.channel);
+        row.set("kind", &update.kind);
+        row.set("audiences", &update.audiences);
     }
 
     // Process StorageUpdates

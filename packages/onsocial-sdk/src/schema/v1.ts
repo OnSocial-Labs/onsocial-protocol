@@ -58,8 +58,18 @@ export type ParentType = 'post' | 'comment';
 export type RefType = 'quote' | 'cite' | 'embed';
 export type AccessLevel = 'public' | 'private' | 'group';
 export type ContentType = 'text' | 'md';
+export type PostAudience = 'members' | 'admins' | 'moderators' | 'custom';
 
-export interface PostV1 {
+export interface GroupFeedMetaV1 {
+  /** Optional shared slice key for product-level feeds, e.g. `engineering`. */
+  channel?: string;
+  /** Optional shared content kind for product-level grouping, e.g. `announcement`. */
+  kind?: string;
+  /** Optional audience labels for UI or shared query filtering. */
+  audiences?: string[];
+}
+
+export interface PostV1 extends GroupFeedMetaV1 {
   v: 1;
   text: string;
   contentType?: ContentType;
@@ -198,6 +208,23 @@ function validateExtensions(x: unknown): string | null {
   return null;
 }
 
+export function validateGroupFeedMetaV1(meta: unknown): string | null {
+  if (!isPlainObj(meta)) return 'group feed metadata must be an object';
+  if (meta.channel !== undefined && !isStr(meta.channel)) {
+    return 'group feed metadata.channel must be string';
+  }
+  if (meta.kind !== undefined && !isStr(meta.kind)) {
+    return 'group feed metadata.kind must be string';
+  }
+  if (
+    meta.audiences !== undefined &&
+    (!Array.isArray(meta.audiences) || !meta.audiences.every(isStr))
+  ) {
+    return 'group feed metadata.audiences must be string[]';
+  }
+  return null;
+}
+
 export function validateProfileV1(p: unknown): string | null {
   if (!isPlainObj(p)) return 'profile must be an object';
   if (p.v !== SCHEMA_VERSION) return `profile.v must be ${SCHEMA_VERSION}`;
@@ -302,6 +329,10 @@ export function validatePostV1(post: unknown): string | null {
   ) {
     return 'post.access must be "public" | "private" | "group"';
   }
+  const metaError = validateGroupFeedMetaV1(post);
+  if (metaError) {
+    return metaError.replace('group feed metadata', 'post');
+  }
   if (post.nsfw !== undefined && typeof post.nsfw !== 'boolean') {
     return 'post.nsfw must be boolean';
   }
@@ -360,6 +391,12 @@ export function validateGroupConfigV1(g: unknown): string | null {
     return 'group.tags must be string[]';
   }
   return validateExtensions(g.x);
+}
+
+export function groupFeedMetaV1(input: GroupFeedMetaV1): GroupFeedMetaV1 {
+  const e = validateGroupFeedMetaV1(input);
+  if (e) throw new Error(`GroupFeedMetaV1: ${e}`);
+  return { ...input };
 }
 
 export function assertProfileV1(p: unknown): asserts p is ProfileV1 {

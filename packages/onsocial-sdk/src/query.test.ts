@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { OnSocial } from './client.js';
 
 // ── Stub fetch ─────────────────────────────────────────────────────────────
@@ -262,6 +262,210 @@ describe('QueryModule', () => {
     });
   });
 
+  describe('getFilteredFeed()', () => {
+    it('queries postsCurrent with server-side channel and kind filtering', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          postsCurrent: [
+            {
+              accountId: 'bob.near',
+              postId: 'p1',
+              value: '{}',
+              blockHeight: 1,
+              blockTimestamp: 0,
+              channel: 'engineering',
+              kind: 'announcement',
+            },
+          ],
+        },
+      });
+
+      const page = await os.query.getFilteredFeed({
+        standingWith: ['bob.near', 'carol.near'],
+        channel: 'engineering',
+        kind: 'announcement',
+        limit: 10,
+      });
+
+      expect(page.items).toHaveLength(1);
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('accountId: {_in: $accounts}');
+      expect(body.query).toContain('channel: {_eq: $channel}');
+      expect(body.query).toContain('kind: {_eq: $kind}');
+      expect(body.variables.accounts).toEqual(['bob.near', 'carol.near']);
+      expect(body.variables.channel).toBe('engineering');
+      expect(body.variables.kind).toBe('announcement');
+    });
+
+    it('queries postsCurrent with server-side audience filtering', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          postsCurrent: [
+            {
+              accountId: 'bob.near',
+              postId: 'p1',
+              value: '{}',
+              blockHeight: 1,
+              blockTimestamp: 0,
+              audiences: '|members|employees|',
+            },
+          ],
+        },
+      });
+
+      const page = await os.query.getFilteredFeed({
+        standingWith: ['bob.near'],
+        audience: 'employees',
+        limit: 10,
+      });
+
+      expect(page.items).toHaveLength(1);
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('audiences: {_like: $audienceLike}');
+      expect(body.variables.audienceLike).toBe('%|employees|%');
+    });
+
+    it('returns empty for empty standing list', async () => {
+      const { os, fetch } = makeOs({ data: { postsCurrent: [] } });
+      const page = await os.query.getFilteredFeed({ standingWith: [] });
+      expect(page.items).toEqual([]);
+      expect(fetch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getGroupFeed()', () => {
+    it('queries group-scoped posts with isGroupContent filtering', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          postsCurrent: [
+            {
+              accountId: 'bob.near',
+              postId: 'g1',
+              value: '{}',
+              blockHeight: 1,
+              blockTimestamp: 0,
+              channel: 'engineering',
+              kind: 'announcement',
+              groupId: 'dao',
+              isGroupContent: true,
+            },
+          ],
+        },
+      });
+
+      const page = await os.query.getGroupFeed({ groupId: 'dao', limit: 5 });
+      expect(page.items).toHaveLength(1);
+      expect(page.items[0].groupId).toBe('dao');
+      expect(page.items[0].channel).toBe('engineering');
+      expect(page.items[0].kind).toBe('announcement');
+
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('groupId: {_eq: $groupId}');
+      expect(body.query).toContain('isGroupContent: {_eq: true}');
+      expect(body.query).toContain('channel kind');
+      expect(body.variables.groupId).toBe('dao');
+    });
+  });
+
+  describe('getFilteredGroupFeed()', () => {
+    it('filters canonical group posts by channel and kind metadata', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          postsCurrent: [
+            {
+              accountId: 'alice.near',
+              postId: 'g1',
+              value:
+                '{"text":"one","channel":"engineering","kind":"announcement","audiences":["members"]}',
+              blockHeight: 3,
+              blockTimestamp: 0,
+              groupId: 'dao',
+              isGroupContent: true,
+            },
+          ],
+        },
+      });
+
+      const page = await os.query.getFilteredGroupFeed({
+        groupId: 'dao',
+        channel: 'engineering',
+        kind: 'announcement',
+      });
+
+      expect(page.items).toHaveLength(1);
+      expect(page.items[0].postId).toBe('g1');
+      expect(fetch).toHaveBeenCalledTimes(1);
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('channel: {_eq: $channel}');
+      expect(body.query).toContain('kind: {_eq: $kind}');
+      expect(body.variables.channel).toBe('engineering');
+      expect(body.variables.kind).toBe('announcement');
+    });
+
+    it('filters canonical group posts by audience metadata', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          postsCurrent: [
+            {
+              accountId: 'alice.near',
+              postId: 'g1',
+              value: '{"text":"one","audiences":["members","employees"]}',
+              blockHeight: 2,
+              blockTimestamp: 0,
+              audiences: '|members|employees|',
+              groupId: 'dao',
+              isGroupContent: true,
+            },
+          ],
+        },
+      });
+
+      const page = await os.query.getFilteredGroupFeed({
+        groupId: 'dao',
+        audience: 'employees',
+      });
+
+      expect(page.items).toHaveLength(1);
+      expect(page.items[0].postId).toBe('g1');
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('audiences: {_like: $audienceLike}');
+      expect(body.variables.audienceLike).toBe('%|employees|%');
+    });
+  });
+
+  describe('getGroupPost()', () => {
+    it('queries a single group post by typed reference', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          postsCurrent: [
+            {
+              accountId: 'alice.near',
+              postId: 'root',
+              value: '{}',
+              blockHeight: 10,
+              blockTimestamp: 20,
+              groupId: 'dao',
+              isGroupContent: true,
+            },
+          ],
+        },
+      });
+
+      const post = await os.query.getGroupPost({
+        author: 'alice.near',
+        groupId: 'dao',
+        postId: 'root',
+      });
+
+      expect(post?.accountId).toBe('alice.near');
+      expect(post?.groupId).toBe('dao');
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.variables.accountId).toBe('alice.near');
+      expect(body.variables.groupId).toBe('dao');
+      expect(body.variables.postId).toBe('root');
+    });
+  });
+
   describe('getReplies()', () => {
     it('queries threadReplies and normalises to PostRow', async () => {
       const { os, fetch } = makeOs({
@@ -320,6 +524,200 @@ describe('QueryModule', () => {
 
       const body = JSON.parse(fetch.mock.calls[0][1].body);
       expect(body.variables.refPath).toBe('alice.near/post/p1');
+    });
+  });
+
+  describe('getRepliesByPath()', () => {
+    it('queries threadReplies using the full parent path', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          threadReplies: [
+            {
+              replyAuthor: 'bob.near',
+              replyId: 'r1',
+              value: '{"v":1,"text":"reply"}',
+              blockHeight: 10,
+              blockTimestamp: 20,
+              groupId: 'dao',
+              parentAuthor: 'alice.near',
+              parentPath: 'alice.near/groups/dao/content/post/root',
+              parentType: 'post',
+            },
+          ],
+        },
+      });
+
+      const replies = await os.query.getRepliesByPath(
+        'alice.near/groups/dao/content/post/root'
+      );
+      expect(replies).toHaveLength(1);
+      expect(replies[0].parentPath).toBe(
+        'alice.near/groups/dao/content/post/root'
+      );
+
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.variables.parentAuthor).toBe('alice.near');
+      expect(body.variables.parentPath).toBe(
+        'alice.near/groups/dao/content/post/root'
+      );
+    });
+  });
+
+  describe('getGroupThread()', () => {
+    it('delegates to the full-path thread query for group posts', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          threadReplies: [
+            {
+              replyAuthor: 'bob.near',
+              replyId: 'r1',
+              value: '{"v":1,"text":"reply"}',
+              blockHeight: 10,
+              blockTimestamp: 20,
+              groupId: 'dao',
+              parentAuthor: 'alice.near',
+              parentPath: 'alice.near/groups/dao/content/post/root',
+              parentType: 'post',
+            },
+          ],
+        },
+      });
+
+      const replies = await os.query.getGroupThread(
+        'alice.near/groups/dao/content/post/root'
+      );
+
+      expect(replies).toHaveLength(1);
+      expect(replies[0].groupId).toBe('dao');
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.variables.parentPath).toBe(
+        'alice.near/groups/dao/content/post/root'
+      );
+    });
+
+    it('accepts a typed GroupPostRef', async () => {
+      const { os, fetch } = makeOs({ data: { threadReplies: [] } });
+
+      await os.query.getGroupThread({
+        author: 'alice.near',
+        groupId: 'dao',
+        postId: 'root',
+      });
+
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.variables.parentPath).toBe(
+        'alice.near/groups/dao/content/post/root'
+      );
+    });
+  });
+
+  describe('getQuotesByPath()', () => {
+    it('queries quotes using the full ref path', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          quotes: [
+            {
+              quoteAuthor: 'carol.near',
+              quoteId: 'q1',
+              value: '{"v":1,"text":"quote"}',
+              blockHeight: 10,
+              blockTimestamp: 20,
+              groupId: 'dao',
+              refAuthor: 'alice.near',
+              refPath: 'alice.near/groups/dao/content/post/root',
+              refType: 'quote',
+            },
+          ],
+        },
+      });
+
+      const quotes = await os.query.getQuotesByPath(
+        'alice.near/groups/dao/content/post/root'
+      );
+      expect(quotes).toHaveLength(1);
+      expect(quotes[0].refPath).toBe('alice.near/groups/dao/content/post/root');
+
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.variables.refAuthor).toBe('alice.near');
+      expect(body.variables.refPath).toBe(
+        'alice.near/groups/dao/content/post/root'
+      );
+    });
+  });
+
+  describe('getQuotesForGroupPost()', () => {
+    it('accepts a typed GroupPostRef', async () => {
+      const { os, fetch } = makeOs({ data: { quotes: [] } });
+
+      await os.query.getQuotesForGroupPost({
+        author: 'alice.near',
+        groupId: 'dao',
+        postId: 'root',
+      });
+
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.variables.refPath).toBe(
+        'alice.near/groups/dao/content/post/root'
+      );
+      expect(body.variables.refAuthor).toBe('alice.near');
+    });
+  });
+
+  describe('getGroupConversation()', () => {
+    it('returns root, replies, and quotes together', async () => {
+      const { os } = makeOs({
+        data: {
+          postsCurrent: [
+            {
+              accountId: 'alice.near',
+              postId: 'root',
+              value: '{}',
+              blockHeight: 10,
+              blockTimestamp: 20,
+              groupId: 'dao',
+              isGroupContent: true,
+            },
+          ],
+          threadReplies: [
+            {
+              replyAuthor: 'bob.near',
+              replyId: 'r1',
+              value: '{"v":1}',
+              blockHeight: 11,
+              blockTimestamp: 21,
+              groupId: 'dao',
+              parentAuthor: 'alice.near',
+              parentPath: 'alice.near/groups/dao/content/post/root',
+              parentType: 'post',
+            },
+          ],
+          quotes: [
+            {
+              quoteAuthor: 'carol.near',
+              quoteId: 'q1',
+              value: '{"v":1}',
+              blockHeight: 12,
+              blockTimestamp: 22,
+              groupId: 'dao',
+              refAuthor: 'alice.near',
+              refPath: 'alice.near/groups/dao/content/post/root',
+              refType: 'quote',
+            },
+          ],
+        },
+      });
+
+      const conversation = await os.query.getGroupConversation({
+        author: 'alice.near',
+        groupId: 'dao',
+        postId: 'root',
+      });
+
+      expect(conversation.root?.postId).toBe('root');
+      expect(conversation.replies).toHaveLength(1);
+      expect(conversation.replies[0].postId).toBe('r1');
+      expect(conversation.quotes).toHaveLength(1);
+      expect(conversation.quotes[0].postId).toBe('q1');
     });
   });
 

@@ -137,10 +137,7 @@ let _keypair: ReturnType<typeof loadKeypair> | null = null;
 let _partnerClient: OnSocial | null = null;
 const _sessionClientsByAccount = new Map<string, OnSocial>();
 const _apiKeyClientsByAccount = new Map<string, OnSocial>();
-const _apiKeyInfoByAccount = new Map<
-  string,
-  { key: string; prefix: string }
->();
+const _apiKeyInfoByAccount = new Map<string, { key: string; prefix: string }>();
 
 function credsFileForAccount(accountId: string): string {
   return path.join(path.dirname(CREDS_FILE), `${accountId}.json`);
@@ -178,7 +175,9 @@ export async function getSessionClient(): Promise<OnSocial> {
   return os;
 }
 
-async function getSessionClientForAccount(accountId: string): Promise<OnSocial> {
+async function getSessionClientForAccount(
+  accountId: string
+): Promise<OnSocial> {
   if (accountId === ACCOUNT_ID) return getSessionClient();
 
   const cached = _sessionClientsByAccount.get(accountId);
@@ -261,7 +260,9 @@ export async function getClient(): Promise<OnSocial> {
   return _apiKeyClient;
 }
 
-export async function getClientForAccount(accountId: string): Promise<OnSocial> {
+export async function getClientForAccount(
+  accountId: string
+): Promise<OnSocial> {
   if (accountId === ACCOUNT_ID) return getClient();
 
   const cached = _apiKeyClientsByAccount.get(accountId);
@@ -309,7 +310,9 @@ export async function getClientForAccount(accountId: string): Promise<OnSocial> 
 
 export function getPartnerClient(): OnSocial {
   if (!PARTNER_KEY) {
-    throw new Error('ONSOCIAL_PARTNER_API_KEY is required for rewards integration tests');
+    throw new Error(
+      'ONSOCIAL_PARTNER_API_KEY is required for rewards integration tests'
+    );
   }
 
   if (_partnerClient) return _partnerClient;

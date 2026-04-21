@@ -32,13 +32,10 @@ describe('social-extras', () => {
     });
 
     it('should appear in saves_current via indexer', async () => {
-      const saves = await confirmIndexed(
-        async () => {
-          const s = await os.query.getSaves(ACCOUNT_ID);
-          return s.some((r) => r.contentPath.includes(targetPostId)) ? s : null;
-        },
-        'save'
-      );
+      const saves = await confirmIndexed(async () => {
+        const s = await os.query.getSaves(ACCOUNT_ID);
+        return s.some((r) => r.contentPath.includes(targetPostId)) ? s : null;
+      }, 'save');
       if (!saves) throw new Error('save missing from index');
       const save = saves.find((r) => r.contentPath.includes(targetPostId))!;
       expect(save.accountId).toBe(ACCOUNT_ID);
@@ -79,13 +76,10 @@ describe('social-extras', () => {
       });
       expect(result.txHash).toBeTruthy();
 
-      const saves = await confirmIndexed(
-        async () => {
-          const s = await os.query.getSaves(ACCOUNT_ID);
-          return s.some((r) => r.contentPath.includes(folderId)) ? s : null;
-        },
-        'save with folder'
-      );
+      const saves = await confirmIndexed(async () => {
+        const s = await os.query.getSaves(ACCOUNT_ID);
+        return s.some((r) => r.contentPath.includes(folderId)) ? s : null;
+      }, 'save with folder');
       if (!saves) throw new Error('save with folder missing from index');
       const val = JSON.parse(
         saves.find((r) => r.contentPath.includes(folderId))!.value
@@ -100,18 +94,17 @@ describe('social-extras', () => {
     });
 
     it('should remove the save from saves_current via indexer', async () => {
-      const saves = await confirmIndexed(
-        async () => {
-          const value = await os.query.getSaves(ACCOUNT_ID);
-          return !value.some((r) => r.contentPath.includes(targetPostId))
-            ? value
-            : null;
-        },
-        'save removed'
-      );
+      const saves = await confirmIndexed(async () => {
+        const value = await os.query.getSaves(ACCOUNT_ID);
+        return !value.some((r) => r.contentPath.includes(targetPostId))
+          ? value
+          : null;
+      }, 'save removed');
 
       if (!saves) throw new Error('save still present in index');
-      expect(saves.some((r) => r.contentPath.includes(targetPostId))).toBe(false);
+      expect(saves.some((r) => r.contentPath.includes(targetPostId))).toBe(
+        false
+      );
     }, 35_000);
 
     it('should expose the save tombstone via direct read', async () => {
@@ -147,19 +140,14 @@ describe('social-extras', () => {
     });
 
     it('should appear in endorsements_current via indexer (given)', async () => {
-      const endorsed = await confirmIndexed(
-        async () => {
-          const e = await os.query.getEndorsementsGiven(ACCOUNT_ID);
-          const match = e.find(
-            (r) =>
-              r.target === endorseTarget &&
-              r.value !== '{}' &&
-              r.value !== 'null'
-          );
-          return match ? e : null;
-        },
-        'endorsement given'
-      );
+      const endorsed = await confirmIndexed(async () => {
+        const e = await os.query.getEndorsementsGiven(ACCOUNT_ID);
+        const match = e.find(
+          (r) =>
+            r.target === endorseTarget && r.value !== '{}' && r.value !== 'null'
+        );
+        return match ? e : null;
+      }, 'endorsement given');
       if (!endorsed) throw new Error('endorsement missing from index');
       const row = endorsed.find(
         (r) =>
@@ -172,13 +160,10 @@ describe('social-extras', () => {
     }, 35_000);
 
     it('should appear in endorsements_current via indexer (received)', async () => {
-      const received = await confirmIndexed(
-        async () => {
-          const e = await os.query.getEndorsementsReceived(endorseTarget);
-          return e.some((r) => r.issuer === ACCOUNT_ID) ? e : null;
-        },
-        'endorsement received'
-      );
+      const received = await confirmIndexed(async () => {
+        const e = await os.query.getEndorsementsReceived(endorseTarget);
+        return e.some((r) => r.issuer === ACCOUNT_ID) ? e : null;
+      }, 'endorsement received');
       if (!received) throw new Error('received endorsement missing from index');
       expect(received.some((r) => r.issuer === ACCOUNT_ID)).toBe(true);
     }, 35_000);
@@ -240,7 +225,8 @@ describe('social-extras', () => {
         'endorsement with expiry',
         { timeoutMs: 15_000, intervalMs: 2_000 }
       );
-      if (!entry) throw new Error('expiry endorsement missing from direct read');
+      if (!entry)
+        throw new Error('expiry endorsement missing from direct read');
       const val =
         typeof entry.value === 'string' ? JSON.parse(entry.value) : entry.value;
       expect(val.expiresAt).toBe(expiresAt);
@@ -252,12 +238,11 @@ describe('social-extras', () => {
     });
 
     it('should remove the basic endorsement from current index views', async () => {
-      const given = await confirmIndexed(
-        async () => {
-          const result = await os.query.graphql<{
-            endorsementsCurrent: Array<{ path: string; operation: string }>;
-          }>({
-            query: `query EndorsementByPath($path: String!) {
+      const given = await confirmIndexed(async () => {
+        const result = await os.query.graphql<{
+          endorsementsCurrent: Array<{ path: string; operation: string }>;
+        }>({
+          query: `query EndorsementByPath($path: String!) {
               endorsementsCurrent(
                 where: {path: {_eq: $path}, operation: {_eq: "set"}}
               ) {
@@ -265,15 +250,13 @@ describe('social-extras', () => {
                 operation
               }
             }`,
-            variables: {
-              path: `${ACCOUNT_ID}/endorsement/${endorseTarget}`,
-            },
-          });
-          const rows = result.data?.endorsementsCurrent ?? [];
-          return rows.length === 0 ? rows : null;
-        },
-        'endorsement removed'
-      );
+          variables: {
+            path: `${ACCOUNT_ID}/endorsement/${endorseTarget}`,
+          },
+        });
+        const rows = result.data?.endorsementsCurrent ?? [];
+        return rows.length === 0 ? rows : null;
+      }, 'endorsement removed');
 
       if (!given) throw new Error('endorsement still present in index');
       expect(given).toHaveLength(0);
@@ -340,7 +323,8 @@ describe('social-extras', () => {
         { timeoutMs: 15_000, intervalMs: 2_000 }
       );
 
-      if (!entry) throw new Error('minimal attestation missing from direct read');
+      if (!entry)
+        throw new Error('minimal attestation missing from direct read');
       const value =
         typeof entry.value === 'string' ? JSON.parse(entry.value) : entry.value;
       expect(value).toMatchObject({
@@ -352,15 +336,12 @@ describe('social-extras', () => {
     }, 25_000);
 
     it('should appear in claims_current via indexer (issued)', async () => {
-      const claims = await confirmIndexed(
-        async () => {
-          const c = await os.query.getClaimsIssued(ACCOUNT_ID, {
-            claimType,
-          });
-          return c.some((r) => r.claimId === claimId) ? c : null;
-        },
-        'claim issued'
-      );
+      const claims = await confirmIndexed(async () => {
+        const c = await os.query.getClaimsIssued(ACCOUNT_ID, {
+          claimType,
+        });
+        return c.some((r) => r.claimId === claimId) ? c : null;
+      }, 'claim issued');
       if (!claims) throw new Error('issued claim missing from index');
       const claim = claims.find((r) => r.claimId === claimId)!;
       expect(claim.issuer).toBe(ACCOUNT_ID);
@@ -372,13 +353,10 @@ describe('social-extras', () => {
     }, 35_000);
 
     it('should appear in claims_current via indexer (about subject)', async () => {
-      const claims = await confirmIndexed(
-        async () => {
-          const c = await os.query.getClaimsAbout(subject, { claimType });
-          return c.some((r) => r.issuer === ACCOUNT_ID) ? c : null;
-        },
-        'claim about subject'
-      );
+      const claims = await confirmIndexed(async () => {
+        const c = await os.query.getClaimsAbout(subject, { claimType });
+        return c.some((r) => r.issuer === ACCOUNT_ID) ? c : null;
+      }, 'claim about subject');
       if (!claims) throw new Error('claim about subject missing from index');
       expect(claims.some((r) => r.issuer === ACCOUNT_ID)).toBe(true);
     }, 35_000);
@@ -399,15 +377,12 @@ describe('social-extras', () => {
       });
       expect(result.txHash).toBeTruthy();
 
-      const claims = await confirmIndexed(
-        async () => {
-          const c = await os.query.getClaimsIssued(ACCOUNT_ID, {
-            claimType: 'skill-assessment',
-          });
-          return c.some((r) => r.claimId === fullId) ? c : null;
-        },
-        'full claim'
-      );
+      const claims = await confirmIndexed(async () => {
+        const c = await os.query.getClaimsIssued(ACCOUNT_ID, {
+          claimType: 'skill-assessment',
+        });
+        return c.some((r) => r.claimId === fullId) ? c : null;
+      }, 'full claim');
       if (!claims) throw new Error('full claim missing from index');
       const val = JSON.parse(claims.find((r) => r.claimId === fullId)!.value);
       expect(val.type).toBe('skill-assessment');
@@ -427,15 +402,12 @@ describe('social-extras', () => {
       });
       expect(result.txHash).toBeTruthy();
 
-      const claims = await confirmIndexed(
-        async () => {
-          const c = await os.query.getClaimsIssued(ACCOUNT_ID, {
-            claimType: 'membership',
-          });
-          return c.some((r) => r.claimId === xId) ? c : null;
-        },
-        'claim with extensions'
-      );
+      const claims = await confirmIndexed(async () => {
+        const c = await os.query.getClaimsIssued(ACCOUNT_ID, {
+          claimType: 'membership',
+        });
+        return c.some((r) => r.claimId === xId) ? c : null;
+      }, 'claim with extensions');
       if (!claims) throw new Error('claim with extensions missing from index');
       const val = JSON.parse(claims.find((r) => r.claimId === xId)!.value);
       expect(val.x.myapp.tier).toBe('gold');
@@ -451,15 +423,12 @@ describe('social-extras', () => {
       expect(result.txHash).toBeTruthy();
 
       // Both claims should be queryable
-      const claims = await confirmIndexed(
-        async () => {
-          const c = await os.query.getClaimsIssued(ACCOUNT_ID, { claimType });
-          const hasFirst = c.some((r) => r.claimId === claimId);
-          const hasSecond = c.some((r) => r.claimId === secondId);
-          return hasFirst && hasSecond ? c : null;
-        },
-        'multiple claims'
-      );
+      const claims = await confirmIndexed(async () => {
+        const c = await os.query.getClaimsIssued(ACCOUNT_ID, { claimType });
+        const hasFirst = c.some((r) => r.claimId === claimId);
+        const hasSecond = c.some((r) => r.claimId === secondId);
+        return hasFirst && hasSecond ? c : null;
+      }, 'multiple claims');
       if (!claims) throw new Error('multiple claims missing from index');
       expect(claims.length).toBeGreaterThanOrEqual(2);
     }, 35_000);
@@ -474,15 +443,12 @@ describe('social-extras', () => {
     });
 
     it('should remove the attestation from claims_current via indexer', async () => {
-      const claims = await confirmIndexed(
-        async () => {
-          const value = await os.query.getClaimsIssued(ACCOUNT_ID, {
-            claimType,
-          });
-          return !value.some((r) => r.claimId === claimId) ? value : null;
-        },
-        'claim removed'
-      );
+      const claims = await confirmIndexed(async () => {
+        const value = await os.query.getClaimsIssued(ACCOUNT_ID, {
+          claimType,
+        });
+        return !value.some((r) => r.claimId === claimId) ? value : null;
+      }, 'claim removed');
 
       if (!claims) throw new Error('claim still present in index');
       expect(claims.some((r) => r.claimId === claimId)).toBe(false);

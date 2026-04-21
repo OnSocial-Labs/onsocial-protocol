@@ -25,10 +25,10 @@ describe('HttpClient mutation response normalization', () => {
     });
     const http = new HttpClient({ fetch, apiKey: 'key' });
 
-    const result = await http.post<{ txHash?: string }>(
-      '/compose/set',
-      { path: 'profile/name', value: 'Alice' }
-    );
+    const result = await http.post<{ txHash?: string }>('/compose/set', {
+      path: 'profile/name',
+      value: 'Alice',
+    });
 
     expect(result.txHash).toBe('alt-hash');
   });
@@ -95,7 +95,9 @@ describe('HttpClient mutation response normalization', () => {
     });
     const http = new HttpClient({ fetch, apiKey: 'key' });
 
-    const result = await http.get<{ unread: number }>('/developer/notifications/count');
+    const result = await http.get<{ unread: number }>(
+      '/developer/notifications/count'
+    );
 
     expect(result).toEqual({ unread: 5 });
   });

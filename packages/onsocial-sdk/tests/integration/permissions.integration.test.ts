@@ -4,7 +4,13 @@
 
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { OnSocial } from '../../src/client.js';
-import { ACCOUNT_ID, confirmDirect, confirmIndexed, getClient, getKeypair } from './helpers.js';
+import {
+  ACCOUNT_ID,
+  confirmDirect,
+  confirmIndexed,
+  getClient,
+  getKeypair,
+} from './helpers.js';
 
 describe('permissions', () => {
   let os: OnSocial;
@@ -24,27 +30,36 @@ describe('permissions', () => {
 
     it('should expose the granted permission via read endpoints', async () => {
       const allowed = await confirmDirect(
-        async () => ((await os.permissions.has('test01.onsocial.testnet', grantee, path, 1)) ? true : null),
+        async () =>
+          (await os.permissions.has(
+            'test01.onsocial.testnet',
+            grantee,
+            path,
+            1
+          ))
+            ? true
+            : null,
         'account permission'
       );
 
       expect(allowed).toBe(true);
-      expect(await os.permissions.get('test01.onsocial.testnet', grantee, path)).toBe(1);
+      expect(
+        await os.permissions.get('test01.onsocial.testnet', grantee, path)
+      ).toBe(1);
     }, 25_000);
 
     it('should emit a grant event via indexed permissionUpdates', async () => {
-      const result = await confirmIndexed(
-        async () => {
-          const value = await os.query.graphql<{
-            permissionUpdates: Array<{
-              operation: string;
-              author: string;
-              targetId: string;
-              path: string;
-              level: number;
-            }>;
-          }>({
-            query: `query PermissionGrant($author: String!, $grantee: String!, $path: String!) {
+      const result = await confirmIndexed(async () => {
+        const value = await os.query.graphql<{
+          permissionUpdates: Array<{
+            operation: string;
+            author: string;
+            targetId: string;
+            path: string;
+            level: number;
+          }>;
+        }>({
+          query: `query PermissionGrant($author: String!, $grantee: String!, $path: String!) {
               permissionUpdates(
                 where: {
                   author: {_eq: $author},
@@ -62,17 +77,15 @@ describe('permissions', () => {
                 level
               }
             }`,
-            variables: {
-              author: ACCOUNT_ID,
-              grantee,
-              path: `${ACCOUNT_ID}/${path}`,
-            },
-          });
-          const rows = value.data?.permissionUpdates ?? [];
-          return rows[0] ?? null;
-        },
-        'permission grant event'
-      );
+          variables: {
+            author: ACCOUNT_ID,
+            grantee,
+            path: `${ACCOUNT_ID}/${path}`,
+          },
+        });
+        const rows = value.data?.permissionUpdates ?? [];
+        return rows[0] ?? null;
+      }, 'permission grant event');
 
       expect(result?.operation).toBe('grant');
       expect(result?.author).toBe(ACCOUNT_ID);
@@ -89,7 +102,9 @@ describe('permissions', () => {
     it('should expose the revoked account permission via read endpoints', async () => {
       const revoked = await confirmDirect(
         async () =>
-          (!(await os.permissions.has(ACCOUNT_ID, grantee, path, 1)) ? true : null),
+          !(await os.permissions.has(ACCOUNT_ID, grantee, path, 1))
+            ? true
+            : null,
         'account permission revoked'
       );
 
@@ -98,19 +113,18 @@ describe('permissions', () => {
     }, 25_000);
 
     it('should emit a revoke event via indexed permissionUpdates', async () => {
-      const result = await confirmIndexed(
-        async () => {
-          const value = await os.query.graphql<{
-            permissionUpdates: Array<{
-              operation: string;
-              author: string;
-              targetId: string;
-              path: string;
-              level: number;
-              deleted: boolean;
-            }>;
-          }>({
-            query: `query PermissionRevoke($author: String!, $grantee: String!, $path: String!) {
+      const result = await confirmIndexed(async () => {
+        const value = await os.query.graphql<{
+          permissionUpdates: Array<{
+            operation: string;
+            author: string;
+            targetId: string;
+            path: string;
+            level: number;
+            deleted: boolean;
+          }>;
+        }>({
+          query: `query PermissionRevoke($author: String!, $grantee: String!, $path: String!) {
               permissionUpdates(
                 where: {
                   author: {_eq: $author},
@@ -129,17 +143,15 @@ describe('permissions', () => {
                 deleted
               }
             }`,
-            variables: {
-              author: ACCOUNT_ID,
-              grantee,
-              path: `${ACCOUNT_ID}/${path}`,
-            },
-          });
-          const rows = value.data?.permissionUpdates ?? [];
-          return rows[0] ?? null;
-        },
-        'permission revoke event'
-      );
+          variables: {
+            author: ACCOUNT_ID,
+            grantee,
+            path: `${ACCOUNT_ID}/${path}`,
+          },
+        });
+        const rows = value.data?.permissionUpdates ?? [];
+        return rows[0] ?? null;
+      }, 'permission revoke event');
 
       expect(result?.operation).toBe('revoke');
       expect(result?.author).toBe(ACCOUNT_ID);
@@ -170,17 +182,14 @@ describe('permissions', () => {
     }, 25_000);
 
     it('should report the owner as group admin and moderate', async () => {
-      const state = await confirmDirect(
-        async () => {
-          const [isAdmin, canModerate] = await Promise.all([
-            os.permissions.hasGroupAdmin(groupId, ACCOUNT_ID),
-            os.permissions.hasGroupModerate(groupId, ACCOUNT_ID),
-          ]);
+      const state = await confirmDirect(async () => {
+        const [isAdmin, canModerate] = await Promise.all([
+          os.permissions.hasGroupAdmin(groupId, ACCOUNT_ID),
+          os.permissions.hasGroupModerate(groupId, ACCOUNT_ID),
+        ]);
 
-          return isAdmin && canModerate ? { isAdmin, canModerate } : null;
-        },
-        'owner role permissions'
-      );
+        return isAdmin && canModerate ? { isAdmin, canModerate } : null;
+      }, 'owner role permissions');
 
       expect(state?.isAdmin).toBe(true);
       expect(state?.canModerate).toBe(true);
@@ -197,19 +206,16 @@ describe('permissions', () => {
     }, 25_000);
 
     it('should report basic members as neither admin nor moderator before delegation', async () => {
-      const state = await confirmDirect(
-        async () => {
-          const [memberAdmin, memberModerate] = await Promise.all([
-            os.permissions.hasGroupAdmin(groupId, memberId),
-            os.permissions.hasGroupModerate(groupId, memberId),
-          ]);
+      const state = await confirmDirect(async () => {
+        const [memberAdmin, memberModerate] = await Promise.all([
+          os.permissions.hasGroupAdmin(groupId, memberId),
+          os.permissions.hasGroupModerate(groupId, memberId),
+        ]);
 
-          return !memberAdmin && !memberModerate
-            ? { memberAdmin, memberModerate }
-            : null;
-        },
-        'basic member role permissions'
-      );
+        return !memberAdmin && !memberModerate
+          ? { memberAdmin, memberModerate }
+          : null;
+      }, 'basic member role permissions');
 
       expect(state?.memberAdmin).toBe(false);
       expect(state?.memberModerate).toBe(false);
@@ -221,20 +227,17 @@ describe('permissions', () => {
     });
 
     it('should expose the delegated moderator as moderate but not admin', async () => {
-      const state = await confirmDirect(
-        async () => {
-          const [isAdmin, canModerate, level] = await Promise.all([
-            os.permissions.hasGroupAdmin(groupId, moderatorId),
-            os.permissions.hasGroupModerate(groupId, moderatorId),
-            os.permissions.get(ACCOUNT_ID, moderatorId, configPath),
-          ]);
+      const state = await confirmDirect(async () => {
+        const [isAdmin, canModerate, level] = await Promise.all([
+          os.permissions.hasGroupAdmin(groupId, moderatorId),
+          os.permissions.hasGroupModerate(groupId, moderatorId),
+          os.permissions.get(ACCOUNT_ID, moderatorId, configPath),
+        ]);
 
-          return !isAdmin && canModerate && level === 2
-            ? { isAdmin, canModerate, level }
-            : null;
-        },
-        'delegated moderator role permissions'
-      );
+        return !isAdmin && canModerate && level === 2
+          ? { isAdmin, canModerate, level }
+          : null;
+      }, 'delegated moderator role permissions');
 
       expect(state?.isAdmin).toBe(false);
       expect(state?.canModerate).toBe(true);
@@ -242,18 +245,17 @@ describe('permissions', () => {
     }, 25_000);
 
     it('should emit an indexed permission grant for the delegated moderator config path', async () => {
-      const result = await confirmIndexed(
-        async () => {
-          const value = await os.query.graphql<{
-            permissionUpdates: Array<{
-              operation: string;
-              author: string;
-              targetId: string;
-              path: string;
-              level: number;
-            }>;
-          }>({
-            query: `query GroupConfigPermissionGrant($author: String!, $grantee: String!, $path: String!) {
+      const result = await confirmIndexed(async () => {
+        const value = await os.query.graphql<{
+          permissionUpdates: Array<{
+            operation: string;
+            author: string;
+            targetId: string;
+            path: string;
+            level: number;
+          }>;
+        }>({
+          query: `query GroupConfigPermissionGrant($author: String!, $grantee: String!, $path: String!) {
               permissionUpdates(
                 where: {
                   author: {_eq: $author},
@@ -271,16 +273,14 @@ describe('permissions', () => {
                 level
               }
             }`,
-            variables: {
-              author: ACCOUNT_ID,
-              grantee: moderatorId,
-              path: configPath,
-            },
-          });
-          return value.data?.permissionUpdates?.[0] ?? null;
-        },
-        'group config permission grant event'
-      );
+          variables: {
+            author: ACCOUNT_ID,
+            grantee: moderatorId,
+            path: configPath,
+          },
+        });
+        return value.data?.permissionUpdates?.[0] ?? null;
+      }, 'group config permission grant event');
 
       expect(result?.operation).toBe('grant');
       expect(result?.author).toBe(ACCOUNT_ID);
@@ -302,14 +302,14 @@ describe('permissions', () => {
     it('should expose the granted key permission via read endpoints', async () => {
       const allowed = await confirmDirect(
         async () =>
-          ((await os.permissions.hasKeyPermission(
+          (await os.permissions.hasKeyPermission(
             'test01.onsocial.testnet',
             publicKey,
             path,
             1
           ))
             ? true
-            : null),
+            : null,
         'key permission'
       );
 
@@ -324,18 +324,17 @@ describe('permissions', () => {
     }, 25_000);
 
     it('should emit a key grant event via indexed permissionUpdates', async () => {
-      const result = await confirmIndexed(
-        async () => {
-          const value = await os.query.graphql<{
-            permissionUpdates: Array<{
-              operation: string;
-              author: string;
-              path: string;
-              level: number;
-              targetId: string;
-            }>;
-          }>({
-            query: `query KeyPermissionGrant($author: String!, $path: String!) {
+      const result = await confirmIndexed(async () => {
+        const value = await os.query.graphql<{
+          permissionUpdates: Array<{
+            operation: string;
+            author: string;
+            path: string;
+            level: number;
+            targetId: string;
+          }>;
+        }>({
+          query: `query KeyPermissionGrant($author: String!, $path: String!) {
               permissionUpdates(
                 where: {
                   author: {_eq: $author},
@@ -352,13 +351,11 @@ describe('permissions', () => {
                 targetId
               }
             }`,
-            variables: { author: ACCOUNT_ID, path: `${ACCOUNT_ID}/${path}` },
-          });
-          const rows = value.data?.permissionUpdates ?? [];
-          return rows[0] ?? null;
-        },
-        'key permission grant event'
-      );
+          variables: { author: ACCOUNT_ID, path: `${ACCOUNT_ID}/${path}` },
+        });
+        const rows = value.data?.permissionUpdates ?? [];
+        return rows[0] ?? null;
+      }, 'key permission grant event');
 
       expect(['grant_key', 'key_grant']).toContain(result?.operation ?? '');
       expect(result?.author).toBe(ACCOUNT_ID);
@@ -375,30 +372,36 @@ describe('permissions', () => {
     it('should expose the revoked key permission via read endpoints', async () => {
       const revoked = await confirmDirect(
         async () =>
-          (!(await os.permissions.hasKeyPermission(ACCOUNT_ID, publicKey, path, 1))
+          !(await os.permissions.hasKeyPermission(
+            ACCOUNT_ID,
+            publicKey,
+            path,
+            1
+          ))
             ? true
-            : null),
+            : null,
         'key permission revoked'
       );
 
       expect(revoked).toBe(true);
-      expect(await os.permissions.getKeyPermissions(ACCOUNT_ID, publicKey, path)).toBe(0);
+      expect(
+        await os.permissions.getKeyPermissions(ACCOUNT_ID, publicKey, path)
+      ).toBe(0);
     }, 25_000);
 
     it('should emit a key revoke event via indexed permissionUpdates', async () => {
-      const result = await confirmIndexed(
-        async () => {
-          const value = await os.query.graphql<{
-            permissionUpdates: Array<{
-              operation: string;
-              author: string;
-              path: string;
-              level: number;
-              targetId: string;
-              deleted: boolean;
-            }>;
-          }>({
-            query: `query KeyPermissionRevoke($author: String!, $path: String!) {
+      const result = await confirmIndexed(async () => {
+        const value = await os.query.graphql<{
+          permissionUpdates: Array<{
+            operation: string;
+            author: string;
+            path: string;
+            level: number;
+            targetId: string;
+            deleted: boolean;
+          }>;
+        }>({
+          query: `query KeyPermissionRevoke($author: String!, $path: String!) {
               permissionUpdates(
                 where: {
                   author: {_eq: $author},
@@ -416,13 +419,11 @@ describe('permissions', () => {
                 deleted
               }
             }`,
-            variables: { author: ACCOUNT_ID, path: `${ACCOUNT_ID}/${path}` },
-          });
-          const rows = value.data?.permissionUpdates ?? [];
-          return rows[0] ?? null;
-        },
-        'key permission revoke event'
-      );
+          variables: { author: ACCOUNT_ID, path: `${ACCOUNT_ID}/${path}` },
+        });
+        const rows = value.data?.permissionUpdates ?? [];
+        return rows[0] ?? null;
+      }, 'key permission revoke event');
 
       expect(['revoke_key', 'key_revoke']).toContain(result?.operation ?? '');
       expect(result?.author).toBe(ACCOUNT_ID);

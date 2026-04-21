@@ -71,7 +71,11 @@ export class HttpClient {
     );
   }
 
-  private _normalizeMutationResponse<T>(path: string, method: string, payload: T): T {
+  private _normalizeMutationResponse<T>(
+    path: string,
+    method: string,
+    payload: T
+  ): T {
     if (!this._isMutationPath(method, path)) return payload;
 
     if (payload && typeof payload === 'object' && !Array.isArray(payload)) {

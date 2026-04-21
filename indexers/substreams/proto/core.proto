@@ -78,6 +78,11 @@ message DataUpdate {
   // Reaction kind extracted from path: reaction/<owner>/<kind>/<contentPath>
   // Empty for non-reaction updates. Populated for data_type = "reaction".
   string reaction_kind = 29;
+
+  // Optional canonical feed metadata extracted from post JSON.
+  string channel = 30;
+  string kind = 31;
+  string audiences = 32;
 }
 
 // =============================================================================

@@ -3,6 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import type { HttpClient } from './http.js';
+import type { GroupPostRef } from './types.js';
 import type { GraphQLRequest, GraphQLResponse, QueryLimits } from './types.js';
 
 // ── Row shapes (match Hasura GraphQL camelCase schema) ───────────────────
@@ -21,6 +22,9 @@ export interface PostRow {
   refPath?: string;
   refAuthor?: string;
   refType?: string;
+  channel?: string;
+  kind?: string;
+  audiences?: string;
   groupId?: string;
   isGroupContent?: boolean;
 }
@@ -48,6 +52,53 @@ export interface HashtagCount {
   hashtag: string;
   postCount: number;
   lastBlock: number;
+}
+
+export interface GroupConversation {
+  root: PostRow | null;
+  replies: PostRow[];
+  quotes: PostRow[];
+}
+
+export interface GroupFeedFilter {
+  groupId: string;
+  channel?: string;
+  kind?: string;
+  audience?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface FeedFilter {
+  standingWith: string[];
+  channel?: string;
+  kind?: string;
+  audience?: string;
+  limit?: number;
+  offset?: number;
+}
+
+const POST_ROW_FIELDS = `
+  accountId postId value blockHeight blockTimestamp receiptId
+  parentPath parentAuthor parentType refPath refAuthor refType channel kind audiences
+  groupId isGroupContent
+`;
+
+function accountFromContentPath(path: string): string {
+  const [accountId] = path.split('/', 1);
+  if (!accountId) {
+    throw new Error(`invalid content path: ${path}`);
+  }
+  return accountId;
+}
+
+function groupPostPathValue(pathOrRef: string | GroupPostRef): string {
+  if (typeof pathOrRef === 'string') return pathOrRef;
+  return `${pathOrRef.author}/groups/${pathOrRef.groupId}/content/post/${pathOrRef.postId}`;
+}
+
+function audienceLikeValue(audience: string): string {
+  return `%|${audience}|%`;
 }
 
 export class QueryModule {
@@ -103,16 +154,12 @@ export class QueryModule {
       query: hasAuthor
         ? `query Posts($author: String!, $limit: Int!, $offset: Int!) {
             postsCurrent(where: {accountId: {_eq: $author}}, limit: $limit, offset: $offset, orderBy: [{blockHeight: DESC}]) {
-              accountId postId value blockHeight blockTimestamp receiptId
-              parentPath parentAuthor parentType refPath refAuthor refType
-              groupId isGroupContent
+              ${POST_ROW_FIELDS}
             }
           }`
         : `query Posts($limit: Int!, $offset: Int!) {
             postsCurrent(limit: $limit, offset: $offset, orderBy: [{blockHeight: DESC}]) {
-              accountId postId value blockHeight blockTimestamp receiptId
-              parentPath parentAuthor parentType refPath refAuthor refType
-              groupId isGroupContent
+              ${POST_ROW_FIELDS}
             }
           }`,
       variables: {
@@ -366,9 +413,7 @@ export class QueryModule {
           limit: $limit, offset: $offset,
           orderBy: [{blockHeight: DESC}]
         ) {
-          accountId postId value blockHeight blockTimestamp receiptId
-          parentPath parentAuthor parentType refPath refAuthor refType
-          groupId isGroupContent
+          ${POST_ROW_FIELDS}
         }
       }`,
       variables: { accounts: opts.standingWith, limit, offset },
@@ -378,6 +423,170 @@ export class QueryModule {
       items: rows,
       nextOffset: rows.length >= limit ? offset + limit : undefined,
     };
+  }
+
+  /**
+   * Get a feed from accounts you stand with, filtered by indexed post metadata.
+   */
+  async getFilteredFeed(opts: FeedFilter): Promise<Paginated<PostRow>> {
+    if (opts.standingWith.length === 0) return { items: [] };
+
+    const limit = opts.limit ?? 20;
+    const offset = opts.offset ?? 0;
+
+    const res = await this.graphql<{ postsCurrent: PostRow[] }>({
+      query: `query FilteredFeed($accounts: [String!]!, $limit: Int!, $offset: Int!${opts.channel !== undefined ? ', $channel: String!' : ''}${opts.kind !== undefined ? ', $kind: String!' : ''}${opts.audience !== undefined ? ', $audienceLike: String!' : ''}) {
+        postsCurrent(
+          where: {_and: [
+            {accountId: {_in: $accounts}}${opts.channel !== undefined ? ', {channel: {_eq: $channel}}' : ''}${opts.kind !== undefined ? ', {kind: {_eq: $kind}}' : ''}${opts.audience !== undefined ? ', {audiences: {_like: $audienceLike}}' : ''}
+          ]},
+          limit: $limit,
+          offset: $offset,
+          orderBy: [{blockHeight: DESC}]
+        ) {
+          ${POST_ROW_FIELDS}
+        }
+      }`,
+      variables: {
+        accounts: opts.standingWith,
+        limit,
+        offset,
+        ...(opts.channel !== undefined ? { channel: opts.channel } : {}),
+        ...(opts.kind !== undefined ? { kind: opts.kind } : {}),
+        ...(opts.audience !== undefined
+          ? { audienceLike: audienceLikeValue(opts.audience) }
+          : {}),
+      },
+    });
+
+    const rows = res.data?.postsCurrent ?? [];
+    return {
+      items: rows,
+      nextOffset: rows.length >= limit ? offset + limit : undefined,
+    };
+  }
+
+  /**
+   * Get a feed for a specific group.
+   *
+   * ```ts
+   * const { items } = await os.query.getGroupFeed({ groupId: 'dao', limit: 20 });
+   * ```
+   */
+  async getGroupFeed(opts: {
+    groupId: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<Paginated<PostRow>> {
+    const limit = opts.limit ?? 20;
+    const offset = opts.offset ?? 0;
+    const res = await this.graphql<{ postsCurrent: PostRow[] }>({
+      query: `query GroupFeed($groupId: String!, $limit: Int!, $offset: Int!) {
+        postsCurrent(
+          where: {
+            groupId: {_eq: $groupId},
+            isGroupContent: {_eq: true}
+          },
+          limit: $limit,
+          offset: $offset,
+          orderBy: [{blockHeight: DESC}]
+        ) {
+          ${POST_ROW_FIELDS}
+        }
+      }`,
+      variables: { groupId: opts.groupId, limit, offset },
+    });
+    const rows = res.data?.postsCurrent ?? [];
+    return {
+      items: rows,
+      nextOffset: rows.length >= limit ? offset + limit : undefined,
+    };
+  }
+
+  /**
+   * Get a group feed filtered by canonical post metadata.
+   *
+   * This keeps canonical storage paths unchanged and filters on post body
+   * fields such as `channel`, `kind`, and `audiences`.
+   *
+   * ```ts
+   * const { items } = await os.query.getFilteredGroupFeed({
+   *   groupId: 'dao',
+   *   channel: 'engineering',
+   *   kind: 'announcement',
+   * });
+   * ```
+   */
+  async getFilteredGroupFeed(
+    opts: GroupFeedFilter
+  ): Promise<Paginated<PostRow>> {
+    const limit = opts.limit ?? 20;
+    const offset = opts.offset ?? 0;
+
+    const res = await this.graphql<{ postsCurrent: PostRow[] }>({
+      query: `query FilteredGroupFeed($groupId: String!, $limit: Int!, $offset: Int!${opts.channel !== undefined ? ', $channel: String!' : ''}${opts.kind !== undefined ? ', $kind: String!' : ''}${opts.audience !== undefined ? ', $audienceLike: String!' : ''}) {
+        postsCurrent(
+          where: {_and: [
+            {groupId: {_eq: $groupId}},
+            {isGroupContent: {_eq: true}}${opts.channel !== undefined ? ', {channel: {_eq: $channel}}' : ''}${opts.kind !== undefined ? ', {kind: {_eq: $kind}}' : ''}${opts.audience !== undefined ? ', {audiences: {_like: $audienceLike}}' : ''}
+          ]},
+          limit: $limit,
+          offset: $offset,
+          orderBy: [{blockHeight: DESC}]
+        ) {
+          ${POST_ROW_FIELDS}
+        }
+      }`,
+      variables: {
+        groupId: opts.groupId,
+        limit,
+        offset,
+        ...(opts.channel !== undefined ? { channel: opts.channel } : {}),
+        ...(opts.kind !== undefined ? { kind: opts.kind } : {}),
+        ...(opts.audience !== undefined
+          ? { audienceLike: audienceLikeValue(opts.audience) }
+          : {}),
+      },
+    });
+
+    const rows = res.data?.postsCurrent ?? [];
+    return {
+      items: rows,
+      nextOffset: rows.length >= limit ? offset + limit : undefined,
+    };
+  }
+
+  /**
+   * Get a single group post by typed reference.
+   *
+   * ```ts
+   * const post = await os.query.getGroupPost({ author: 'alice.near', groupId: 'dao', postId: '123' });
+   * ```
+   */
+  async getGroupPost(post: GroupPostRef): Promise<PostRow | null> {
+    const res = await this.graphql<{ postsCurrent: PostRow[] }>({
+      query: `query GroupPost($accountId: String!, $groupId: String!, $postId: String!) {
+        postsCurrent(
+          where: {
+            accountId: {_eq: $accountId},
+            groupId: {_eq: $groupId},
+            postId: {_eq: $postId},
+            isGroupContent: {_eq: true}
+          },
+          limit: 1,
+          orderBy: [{blockHeight: DESC}]
+        ) {
+          ${POST_ROW_FIELDS}
+        }
+      }`,
+      variables: {
+        accountId: post.author,
+        groupId: post.groupId,
+        postId: post.postId,
+      },
+    });
+
+    return res.data?.postsCurrent?.[0] ?? null;
   }
 
   /**
@@ -432,6 +641,107 @@ export class QueryModule {
   }
 
   /**
+   * Get replies to a post by its full indexed content path.
+   *
+   * ```ts
+   * const replies = await os.query.getRepliesByPath('alice.near/groups/dao/content/post/123');
+   * ```
+   */
+  async getRepliesByPath(
+    parentPath: string,
+    opts: { limit?: number } = {}
+  ): Promise<PostRow[]> {
+    const parentAuthor = accountFromContentPath(parentPath);
+    const res = await this.graphql<{
+      threadReplies: Array<{
+        replyAuthor: string;
+        replyId: string;
+        value: string;
+        blockHeight: number;
+        blockTimestamp: number;
+        groupId?: string;
+        parentAuthor: string;
+        parentPath: string;
+        parentType?: string;
+      }>;
+    }>({
+      query: `query RepliesByPath($parentAuthor: String!, $parentPath: String!, $limit: Int!) {
+        threadReplies(
+          where: {parentAuthor: {_eq: $parentAuthor}, parentPath: {_eq: $parentPath}},
+          limit: $limit,
+          orderBy: [{blockHeight: ASC}]
+        ) {
+          replyAuthor replyId value blockHeight blockTimestamp groupId
+          parentAuthor parentPath parentType
+        }
+      }`,
+      variables: { parentAuthor, parentPath, limit: opts.limit ?? 100 },
+    });
+    return (res.data?.threadReplies ?? []).map((r) => ({
+      accountId: r.replyAuthor,
+      postId: r.replyId,
+      value: r.value,
+      blockHeight: r.blockHeight,
+      blockTimestamp: r.blockTimestamp,
+      parentAuthor: r.parentAuthor,
+      parentPath: r.parentPath,
+      parentType: r.parentType,
+      groupId: r.groupId,
+    }));
+  }
+
+  /**
+   * Get the reply thread for a group post by its full indexed content path.
+   *
+   * This is a convenience alias for `getRepliesByPath(...)` with a name that
+   * matches common product terminology when rendering a group conversation.
+   *
+   * ```ts
+   * const replies = await os.query.getGroupThread('alice.near/groups/dao/content/post/123');
+   * ```
+   */
+  async getGroupThread(
+    rootPath: string | GroupPostRef,
+    opts: { limit?: number } = {}
+  ): Promise<PostRow[]> {
+    return this.getRepliesByPath(groupPostPathValue(rootPath), opts);
+  }
+
+  /**
+   * Get a group conversation root post, replies, and quotes together.
+   *
+   * ```ts
+   * const convo = await os.query.getGroupConversation({ author: 'alice.near', groupId: 'dao', postId: '123' });
+   * ```
+   */
+  async getGroupConversation(
+    post: GroupPostRef,
+    opts: { replyLimit?: number; quoteLimit?: number } = {}
+  ): Promise<GroupConversation> {
+    const [root, replies, quotes] = await Promise.all([
+      this.getGroupPost(post),
+      this.getGroupThread(post, { limit: opts.replyLimit }),
+      this.getQuotesForGroupPost(post, { limit: opts.quoteLimit }),
+    ]);
+
+    return { root, replies, quotes };
+  }
+
+  /**
+   * Get quotes of a group post from a typed reference.
+   *
+   * ```ts
+   * const quotes = await os.query.getQuotesForGroupPost({ author: 'alice.near', groupId: 'dao', postId: '123' });
+   * ```
+   */
+  async getQuotesForGroupPost(
+    post: GroupPostRef,
+    opts: { limit?: number } = {}
+  ): Promise<PostRow[]> {
+    return this.getQuotesByPath(groupPostPathValue(post), opts);
+  }
+
+  /**
    * Get quotes of a post.
    *
    * ```ts
@@ -458,6 +768,56 @@ export class QueryModule {
       }>;
     }>({
       query: `query Quotes($refAuthor: String!, $refPath: String!, $limit: Int!) {
+        quotes(
+          where: {refAuthor: {_eq: $refAuthor}, refPath: {_eq: $refPath}},
+          limit: $limit,
+          orderBy: [{blockHeight: ASC}]
+        ) {
+          quoteAuthor quoteId value blockHeight blockTimestamp groupId
+          refAuthor refPath refType
+        }
+      }`,
+      variables: { refAuthor, refPath, limit: opts.limit ?? 100 },
+    });
+    return (res.data?.quotes ?? []).map((q) => ({
+      accountId: q.quoteAuthor,
+      postId: q.quoteId,
+      value: q.value,
+      blockHeight: q.blockHeight,
+      blockTimestamp: q.blockTimestamp,
+      refAuthor: q.refAuthor,
+      refPath: q.refPath,
+      refType: q.refType,
+      groupId: q.groupId,
+    }));
+  }
+
+  /**
+   * Get quotes of a post by its full indexed content path.
+   *
+   * ```ts
+   * const quotes = await os.query.getQuotesByPath('alice.near/groups/dao/content/post/123');
+   * ```
+   */
+  async getQuotesByPath(
+    refPath: string,
+    opts: { limit?: number } = {}
+  ): Promise<PostRow[]> {
+    const refAuthor = accountFromContentPath(refPath);
+    const res = await this.graphql<{
+      quotes: Array<{
+        quoteAuthor: string;
+        quoteId: string;
+        value: string;
+        blockHeight: number;
+        blockTimestamp: number;
+        groupId?: string;
+        refAuthor: string;
+        refPath: string;
+        refType?: string;
+      }>;
+    }>({
+      query: `query QuotesByPath($refAuthor: String!, $refPath: String!, $limit: Int!) {
         quotes(
           where: {refAuthor: {_eq: $refAuthor}, refPath: {_eq: $refPath}},
           limit: $limit,

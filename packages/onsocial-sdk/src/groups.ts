@@ -8,6 +8,7 @@ import type { GroupConfigV1 } from './schema/v1.js';
 import type {
   CustomProposalInput,
   GroupMemberData,
+  GroupPostRef,
   GroupStats,
   JoinRequest,
   ListProposalsOptions,
@@ -19,7 +20,12 @@ import type {
   Vote,
   TransferOwnershipProposalOptions,
 } from './types.js';
-import { buildGroupPostSetData } from './social.js';
+import {
+  buildGroupPostSetData,
+  buildGroupPostPath,
+  buildGroupQuoteSetData,
+  buildGroupReplySetData,
+} from './social.js';
 
 /**
  * Groups — lifecycle, membership, governance, and group content.
@@ -71,10 +77,7 @@ export class GroupsModule {
 
   // ── Lifecycle ───────────────────────────────────────────────────────────
 
-  async create(
-    groupId: string,
-    config: GroupConfigV1
-  ): Promise<RelayResponse> {
+  async create(groupId: string, config: GroupConfigV1): Promise<RelayResponse> {
     return this.execute({
       type: 'create_group',
       group_id: groupId,
@@ -92,10 +95,7 @@ export class GroupsModule {
 
   // ── Member management ─────────────────────────────────────────────────
 
-  async addMember(
-    groupId: string,
-    memberId: string
-  ): Promise<RelayResponse> {
+  async addMember(groupId: string, memberId: string): Promise<RelayResponse> {
     return this.execute({
       type: 'add_group_member',
       group_id: groupId,
@@ -142,10 +142,7 @@ export class GroupsModule {
     return this.execute({ type: 'cancel_join_request', group_id: groupId });
   }
 
-  async blacklist(
-    groupId: string,
-    memberId: string
-  ): Promise<RelayResponse> {
+  async blacklist(groupId: string, memberId: string): Promise<RelayResponse> {
     return this.execute({
       type: 'blacklist_group_member',
       group_id: groupId,
@@ -153,10 +150,7 @@ export class GroupsModule {
     });
   }
 
-  async unblacklist(
-    groupId: string,
-    memberId: string
-  ): Promise<RelayResponse> {
+  async unblacklist(groupId: string, memberId: string): Promise<RelayResponse> {
     return this.execute({
       type: 'unblacklist_group_member',
       group_id: groupId,
@@ -206,6 +200,56 @@ export class GroupsModule {
       value: JSON.stringify(value),
       targetAccount: this._coreContract,
     });
+  }
+
+  async reply(
+    groupId: string,
+    parentPath: string,
+    post: PostData,
+    replyId?: string
+  ): Promise<RelayResponse> {
+    const id = replyId ?? Date.now().toString();
+    const data = buildGroupReplySetData(groupId, parentPath, post, id);
+    const [path, value] = Object.entries(data)[0];
+    return this._http.post<RelayResponse>('/compose/set', {
+      path,
+      value: JSON.stringify(value),
+      targetAccount: this._coreContract,
+    });
+  }
+
+  async replyToPost(
+    groupId: string,
+    parent: GroupPostRef,
+    post: PostData,
+    replyId?: string
+  ): Promise<RelayResponse> {
+    return this.reply(groupId, buildGroupPostPath(parent), post, replyId);
+  }
+
+  async quote(
+    groupId: string,
+    refPath: string,
+    post: PostData,
+    quoteId?: string
+  ): Promise<RelayResponse> {
+    const id = quoteId ?? Date.now().toString();
+    const data = buildGroupQuoteSetData(groupId, refPath, post, id);
+    const [path, value] = Object.entries(data)[0];
+    return this._http.post<RelayResponse>('/compose/set', {
+      path,
+      value: JSON.stringify(value),
+      targetAccount: this._coreContract,
+    });
+  }
+
+  async quotePost(
+    groupId: string,
+    ref: GroupPostRef,
+    post: PostData,
+    quoteId?: string
+  ): Promise<RelayResponse> {
+    return this.quote(groupId, buildGroupPostPath(ref), post, quoteId);
   }
 
   // ── Governance ────────────────────────────────────────────────────────
@@ -328,9 +372,7 @@ export class GroupsModule {
 
   // ── View reads ────────────────────────────────────────────────────────
 
-  async getConfig(
-    groupId: string
-  ): Promise<Record<string, unknown> | null> {
+  async getConfig(groupId: string): Promise<Record<string, unknown> | null> {
     const p = new URLSearchParams({ groupId });
     return this._http.get(`/data/group-config?${p}`);
   }

@@ -145,6 +145,12 @@ export interface PostRef {
   postId: string;
 }
 
+export interface GroupPostRef {
+  author: string;
+  groupId: string;
+  postId: string;
+}
+
 export interface SaveRecord {
   contentPath: string;
   v: number;
@@ -295,7 +301,7 @@ export interface CreditRequest {
   appId?: string;
 }
 
-export interface CreditResponse extends RelayResponse {}
+export type CreditResponse = RelayResponse;
 
 export interface ClaimResponse extends RelayResponse {
   claimed?: string;
@@ -433,7 +439,8 @@ export interface CustomProposalInput {
   customData?: Record<string, unknown>;
 }
 
-export interface TransferOwnershipProposalOptions extends ProposalCreateOptions {
+export interface TransferOwnershipProposalOptions
+  extends ProposalCreateOptions {
   removeOldOwner?: boolean;
 }
 

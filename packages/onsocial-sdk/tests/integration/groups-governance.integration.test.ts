@@ -58,13 +58,10 @@ describe('groups governance', () => {
 
     expect(result).toBeTruthy();
 
-    const config = await confirmDirect(
-      async () => {
-        const value = await os.groups.getConfig(groupId);
-        return value?.name === `Governance ${groupId}` ? value : null;
-      },
-      'governance group config'
-    );
+    const config = await confirmDirect(async () => {
+      const value = await os.groups.getConfig(groupId);
+      return value?.name === `Governance ${groupId}` ? value : null;
+    }, 'governance group config');
 
     expect(config?.name).toBe(`Governance ${groupId}`);
     expect(config?.member_driven ?? config?.memberDriven).toBe(true);
@@ -82,18 +79,16 @@ describe('groups governance', () => {
 
     expect(result).toBeTruthy();
 
-    const proposal = await confirmDirect(
-      async () => {
-        const [count, value] = await Promise.all([
-          os.groups.getProposalCount(groupId),
-          os.groups.getProposalBySequence(groupId, inviteSequence),
-        ]);
-        return count >= inviteSequence && value?.sequence_number === inviteSequence
-          ? value
-          : null;
-      },
-      'invite proposal'
-    );
+    const proposal = await confirmDirect(async () => {
+      const [count, value] = await Promise.all([
+        os.groups.getProposalCount(groupId),
+        os.groups.getProposalBySequence(groupId, inviteSequence),
+      ]);
+      return count >= inviteSequence &&
+        value?.sequence_number === inviteSequence
+        ? value
+        : null;
+    }, 'invite proposal');
 
     inviteProposalId = proposal?.id ?? '';
 
@@ -112,18 +107,17 @@ describe('groups governance', () => {
   }, 25_000);
 
   it('should emit a proposal_created event for the invite proposal', async () => {
-    const result = await confirmIndexed(
-      async () => {
-        const value = await os.query.graphql<{
-          groupUpdates: Array<{
-            groupId: string;
-            proposalId: string;
-            proposalType: string;
-            operation: string;
-            author: string;
-          }>;
-        }>({
-          query: `query InviteProposalCreated($groupId: String!, $proposalId: String!, $author: String!) {
+    const result = await confirmIndexed(async () => {
+      const value = await os.query.graphql<{
+        groupUpdates: Array<{
+          groupId: string;
+          proposalId: string;
+          proposalType: string;
+          operation: string;
+          author: string;
+        }>;
+      }>({
+        query: `query InviteProposalCreated($groupId: String!, $proposalId: String!, $author: String!) {
             groupUpdates(
               where: {
                 groupId: {_eq: $groupId},
@@ -141,16 +135,14 @@ describe('groups governance', () => {
               author
             }
           }`,
-          variables: {
-            groupId,
-            proposalId: inviteProposalId,
-            author: ACCOUNT_ID,
-          },
-        });
-        return value.data?.groupUpdates?.[0] ?? null;
-      },
-      'invite proposal created event'
-    );
+        variables: {
+          groupId,
+          proposalId: inviteProposalId,
+          author: ACCOUNT_ID,
+        },
+      });
+      return value.data?.groupUpdates?.[0] ?? null;
+    }, 'invite proposal created event');
 
     expect(result?.groupId).toBe(groupId);
     expect(result?.proposalId).toBe(inviteProposalId);
@@ -177,18 +169,16 @@ describe('groups governance', () => {
 
     expect(result).toBeTruthy();
 
-    const proposal = await confirmDirect(
-      async () => {
-        const [count, value] = await Promise.all([
-          os.groups.getProposalCount(groupId),
-          os.groups.getProposalBySequence(groupId, proposalSequence),
-        ]);
-        return count >= proposalSequence && value?.sequence_number === proposalSequence
-          ? value
-          : null;
-      },
-      'active custom proposal'
-    );
+    const proposal = await confirmDirect(async () => {
+      const [count, value] = await Promise.all([
+        os.groups.getProposalCount(groupId),
+        os.groups.getProposalBySequence(groupId, proposalSequence),
+      ]);
+      return count >= proposalSequence &&
+        value?.sequence_number === proposalSequence
+        ? value
+        : null;
+    }, 'active custom proposal');
 
     proposalId = proposal?.id ?? '';
 
@@ -201,23 +191,20 @@ describe('groups governance', () => {
   }, 30_000);
 
   it('should expose proposal reads via getProposal, getProposalBySequence, listProposals, tally, and owner vote', async () => {
-    const state = await confirmDirect(
-      async () => {
-        const [proposal, bySequence, list, tally, ownerVote] = await Promise.all([
-          os.groups.getProposal(groupId, proposalId),
-          os.groups.getProposalBySequence(groupId, proposalSequence),
-          os.groups.listProposals(groupId, { limit: 20 }),
-          os.groups.getProposalTally(groupId, proposalId),
-          os.groups.getVote(groupId, proposalId, ACCOUNT_ID),
-        ]);
+    const state = await confirmDirect(async () => {
+      const [proposal, bySequence, list, tally, ownerVote] = await Promise.all([
+        os.groups.getProposal(groupId, proposalId),
+        os.groups.getProposalBySequence(groupId, proposalSequence),
+        os.groups.listProposals(groupId, { limit: 20 }),
+        os.groups.getProposalTally(groupId, proposalId),
+        os.groups.getVote(groupId, proposalId, ACCOUNT_ID),
+      ]);
 
-        const listed = list.find((item) => item.id === proposalId);
-        return proposal && bySequence && listed && tally && ownerVote
-          ? { proposal, bySequence, listed, tally, ownerVote }
-          : null;
-      },
-      'proposal read endpoints'
-    );
+      const listed = list.find((item) => item.id === proposalId);
+      return proposal && bySequence && listed && tally && ownerVote
+        ? { proposal, bySequence, listed, tally, ownerVote }
+        : null;
+    }, 'proposal read endpoints');
 
     expect(state?.proposal.id).toBe(proposalId);
     expect(state?.bySequence.id).toBe(proposalId);
@@ -230,18 +217,17 @@ describe('groups governance', () => {
   }, 30_000);
 
   it('should emit a proposal_created event for the active custom proposal', async () => {
-    const result = await confirmIndexed(
-      async () => {
-        const value = await os.query.graphql<{
-          groupUpdates: Array<{
-            groupId: string;
-            proposalId: string;
-            proposalType: string;
-            operation: string;
-            author: string;
-          }>;
-        }>({
-          query: `query CustomProposalCreated($groupId: String!, $proposalId: String!, $author: String!) {
+    const result = await confirmIndexed(async () => {
+      const value = await os.query.graphql<{
+        groupUpdates: Array<{
+          groupId: string;
+          proposalId: string;
+          proposalType: string;
+          operation: string;
+          author: string;
+        }>;
+      }>({
+        query: `query CustomProposalCreated($groupId: String!, $proposalId: String!, $author: String!) {
             groupUpdates(
               where: {
                 groupId: {_eq: $groupId},
@@ -259,16 +245,14 @@ describe('groups governance', () => {
               author
             }
           }`,
-          variables: {
-            groupId,
-            proposalId,
-            author: ACCOUNT_ID,
-          },
-        });
-        return value.data?.groupUpdates?.[0] ?? null;
-      },
-      'custom proposal created event'
-    );
+        variables: {
+          groupId,
+          proposalId,
+          author: ACCOUNT_ID,
+        },
+      });
+      return value.data?.groupUpdates?.[0] ?? null;
+    }, 'custom proposal created event');
 
     expect(result?.groupId).toBe(groupId);
     expect(result?.proposalId).toBe(proposalId);
@@ -282,20 +266,17 @@ describe('groups governance', () => {
   });
 
   it('should execute the approved proposal and expose the second voter vote', async () => {
-    const state = await confirmDirect(
-      async () => {
-        const [proposal, tally, vote] = await Promise.all([
-          os.groups.getProposal(groupId, proposalId),
-          os.groups.getProposalTally(groupId, proposalId),
-          os.groups.getVote(groupId, proposalId, voterId),
-        ]);
+    const state = await confirmDirect(async () => {
+      const [proposal, tally, vote] = await Promise.all([
+        os.groups.getProposal(groupId, proposalId),
+        os.groups.getProposalTally(groupId, proposalId),
+        os.groups.getVote(groupId, proposalId, voterId),
+      ]);
 
-        return proposal?.status === 'executed' && tally && vote
-          ? { proposal, tally, vote }
-          : null;
-      },
-      'executed governance proposal'
-    );
+      return proposal?.status === 'executed' && tally && vote
+        ? { proposal, tally, vote }
+        : null;
+    }, 'executed governance proposal');
 
     expect(state?.proposal.status).toBe('executed');
     expect(state?.vote.voter).toBe(voterId);
@@ -305,24 +286,23 @@ describe('groups governance', () => {
   }, 30_000);
 
   it('should emit indexed vote_cast and executed status events for the approved proposal', async () => {
-    const state = await confirmIndexed(
-      async () => {
-        const value = await os.query.graphql<{
-          votes: Array<{
-            groupId: string;
-            proposalId: string;
-            operation: string;
-            voter: string;
-            approve: boolean;
-          }>;
-          statuses: Array<{
-            groupId: string;
-            proposalId: string;
-            operation: string;
-            status: string;
-          }>;
-        }>({
-          query: `query ProposalExecution($groupId: String!, $proposalId: String!, $voter: String!) {
+    const state = await confirmIndexed(async () => {
+      const value = await os.query.graphql<{
+        votes: Array<{
+          groupId: string;
+          proposalId: string;
+          operation: string;
+          voter: string;
+          approve: boolean;
+        }>;
+        statuses: Array<{
+          groupId: string;
+          proposalId: string;
+          operation: string;
+          status: string;
+        }>;
+      }>({
+        query: `query ProposalExecution($groupId: String!, $proposalId: String!, $voter: String!) {
             votes: groupUpdates(
               where: {
                 groupId: {_eq: $groupId},
@@ -355,19 +335,17 @@ describe('groups governance', () => {
               status
             }
           }`,
-          variables: {
-            groupId,
-            proposalId,
-            voter: voterId,
-          },
-        });
+        variables: {
+          groupId,
+          proposalId,
+          voter: voterId,
+        },
+      });
 
-        const vote = value.data?.votes?.[0];
-        const status = value.data?.statuses?.[0];
-        return vote && status ? { vote, status } : null;
-      },
-      'proposal execution events'
-    );
+      const vote = value.data?.votes?.[0];
+      const status = value.data?.statuses?.[0];
+      return vote && status ? { vote, status } : null;
+    }, 'proposal execution events');
 
     expect(state?.vote.groupId).toBe(groupId);
     expect(state?.vote.proposalId).toBe(proposalId);
@@ -397,23 +375,23 @@ describe('groups governance', () => {
 
     expect(result).toBeTruthy();
 
-    const proposal = await confirmDirect(
-      async () => {
-        const [count, value, tally] = await Promise.all([
-          os.groups.getProposalCount(groupId),
-          os.groups.getProposalBySequence(groupId, cancelProposalSequence),
-          os.groups.getProposalTally(groupId, cancelProposalId || 'pending'),
-        ]).catch(async () => {
-          const count = await os.groups.getProposalCount(groupId);
-          const value = await os.groups.getProposalBySequence(groupId, cancelProposalSequence);
-          return [count, value, null] as const;
-        });
+    const proposal = await confirmDirect(async () => {
+      const [count, value, tally] = await Promise.all([
+        os.groups.getProposalCount(groupId),
+        os.groups.getProposalBySequence(groupId, cancelProposalSequence),
+        os.groups.getProposalTally(groupId, cancelProposalId || 'pending'),
+      ]).catch(async () => {
+        const count = await os.groups.getProposalCount(groupId);
+        const value = await os.groups.getProposalBySequence(
+          groupId,
+          cancelProposalSequence
+        );
+        return [count, value, null] as const;
+      });
 
-        if (count < cancelProposalSequence || !value) return null;
-        return value.status === 'active' ? value : null;
-      },
-      'cancellable proposal'
-    );
+      if (count < cancelProposalSequence || !value) return null;
+      return value.status === 'active' ? value : null;
+    }, 'cancellable proposal');
 
     cancelProposalId = proposal?.id ?? '';
 
@@ -427,30 +405,26 @@ describe('groups governance', () => {
   });
 
   it('should expose the cancelled proposal state', async () => {
-    const proposal = await confirmDirect(
-      async () => {
-        const value = await os.groups.getProposal(groupId, cancelProposalId);
-        return value?.status === 'cancelled' ? value : null;
-      },
-      'cancelled proposal'
-    );
+    const proposal = await confirmDirect(async () => {
+      const value = await os.groups.getProposal(groupId, cancelProposalId);
+      return value?.status === 'cancelled' ? value : null;
+    }, 'cancelled proposal');
 
     expect(proposal?.id).toBe(cancelProposalId);
     expect(proposal?.status).toBe('cancelled');
   }, 25_000);
 
   it('should emit a cancelled proposal_status_updated event', async () => {
-    const result = await confirmIndexed(
-      async () => {
-        const value = await os.query.graphql<{
-          groupUpdates: Array<{
-            groupId: string;
-            proposalId: string;
-            operation: string;
-            status: string;
-          }>;
-        }>({
-          query: `query ProposalCancelled($groupId: String!, $proposalId: String!) {
+    const result = await confirmIndexed(async () => {
+      const value = await os.query.graphql<{
+        groupUpdates: Array<{
+          groupId: string;
+          proposalId: string;
+          operation: string;
+          status: string;
+        }>;
+      }>({
+        query: `query ProposalCancelled($groupId: String!, $proposalId: String!) {
             groupUpdates(
               where: {
                 groupId: {_eq: $groupId},
@@ -467,15 +441,13 @@ describe('groups governance', () => {
               status
             }
           }`,
-          variables: {
-            groupId,
-            proposalId: cancelProposalId,
-          },
-        });
-        return value.data?.groupUpdates?.[0] ?? null;
-      },
-      'cancelled proposal status event'
-    );
+        variables: {
+          groupId,
+          proposalId: cancelProposalId,
+        },
+      });
+      return value.data?.groupUpdates?.[0] ?? null;
+    }, 'cancelled proposal status event');
 
     expect(result?.groupId).toBe(groupId);
     expect(result?.proposalId).toBe(cancelProposalId);
@@ -487,11 +459,15 @@ describe('groups governance', () => {
     const before = await os.groups.getProposalCount(groupId);
     removableInviteSequence = before + 1;
 
-    const result = await os.groups.proposeInviteMember(groupId, removableMemberId, {
-      autoVote: true,
-      description: removableInviteDescription,
-      message: 'Temporary governance member for removal flow',
-    });
+    const result = await os.groups.proposeInviteMember(
+      groupId,
+      removableMemberId,
+      {
+        autoVote: true,
+        description: removableInviteDescription,
+        message: 'Temporary governance member for removal flow',
+      }
+    );
 
     expect(result).toBeTruthy();
 
@@ -523,12 +499,19 @@ describe('groups governance', () => {
   }, 30_000);
 
   it('should let the second voter approve the removable-member invite proposal', async () => {
-    const result = await voterOs.groups.vote(groupId, removableInviteProposalId, true);
+    const result = await voterOs.groups.vote(
+      groupId,
+      removableInviteProposalId,
+      true
+    );
     expect(result).toBeTruthy();
 
     const proposal = await confirmDirect(
       async () => {
-        const value = await os.groups.getProposal(groupId, removableInviteProposalId);
+        const value = await os.groups.getProposal(
+          groupId,
+          removableInviteProposalId
+        );
         return value?.status === 'executed' ? value : null;
       },
       'executed removable invite proposal',
@@ -566,32 +549,31 @@ describe('groups governance', () => {
 
     expect(result).toBeTruthy();
 
-    const proposal = await confirmDirect(
-      async () => {
+    const proposal = await confirmDirect(async () => {
+      const [count, value] = await Promise.all([
+        os.groups.getProposalCount(groupId),
+        os.groups.getProposalBySequence(groupId, removeProposalSequence),
+      ]).catch(async () => {
         const [count, value] = await Promise.all([
           os.groups.getProposalCount(groupId),
           os.groups.getProposalBySequence(groupId, removeProposalSequence),
-        ]).catch(async () => {
-          const [count, value] = await Promise.all([
-            os.groups.getProposalCount(groupId),
-            os.groups.getProposalBySequence(groupId, removeProposalSequence),
-          ]);
-          return [count, value] as const;
-        });
+        ]);
+        return [count, value] as const;
+      });
 
-        return count >= removeProposalSequence && value?.status === 'active'
-          ? { proposal: value }
-          : null;
-      },
-      'remove-member proposal'
-    );
+      return count >= removeProposalSequence && value?.status === 'active'
+        ? { proposal: value }
+        : null;
+    }, 'remove-member proposal');
 
     removeProposalId = proposal?.proposal.id ?? '';
 
     expect(removeProposalId).toBeTruthy();
     expect(proposal?.proposal.type).toBe('group_update_remove_member');
     expect(proposal?.proposal.status).toBe('active');
-    expect(proposal?.proposal.data?.GroupUpdate?.update_type).toBe('remove_member');
+    expect(proposal?.proposal.data?.GroupUpdate?.update_type).toBe(
+      'remove_member'
+    );
   }, 30_000);
 
   it('should execute the remove-member proposal after the second voter approves it', async () => {
@@ -633,18 +615,15 @@ describe('groups governance', () => {
 
     expect(result).toBeTruthy();
 
-    const proposal = await confirmDirect(
-      async () => {
-        const [count, value] = await Promise.all([
-          os.groups.getProposalCount(groupId),
-          os.groups.getProposalBySequence(groupId, transferProposalSequence),
-        ]);
-        return count >= transferProposalSequence && value?.status === 'active'
-          ? value
-          : null;
-      },
-      'transfer-ownership proposal'
-    );
+    const proposal = await confirmDirect(async () => {
+      const [count, value] = await Promise.all([
+        os.groups.getProposalCount(groupId),
+        os.groups.getProposalBySequence(groupId, transferProposalSequence),
+      ]);
+      return count >= transferProposalSequence && value?.status === 'active'
+        ? value
+        : null;
+    }, 'transfer-ownership proposal');
 
     transferProposalId = proposal?.id ?? '';
 
@@ -658,20 +637,17 @@ describe('groups governance', () => {
     const result = await voterOs.groups.vote(groupId, transferProposalId, true);
     expect(result).toBeTruthy();
 
-    const state = await confirmDirect(
-      async () => {
-        const [proposal, newOwner, oldOwner] = await Promise.all([
-          os.groups.getProposal(groupId, transferProposalId),
-          os.groups.isOwner(groupId, voterId),
-          os.groups.isOwner(groupId, ACCOUNT_ID),
-        ]);
+    const state = await confirmDirect(async () => {
+      const [proposal, newOwner, oldOwner] = await Promise.all([
+        os.groups.getProposal(groupId, transferProposalId),
+        os.groups.isOwner(groupId, voterId),
+        os.groups.isOwner(groupId, ACCOUNT_ID),
+      ]);
 
-        return proposal?.status === 'executed' && newOwner && !oldOwner
-          ? { proposal, newOwner, oldOwner }
-          : null;
-      },
-      'executed transfer-ownership proposal'
-    );
+      return proposal?.status === 'executed' && newOwner && !oldOwner
+        ? { proposal, newOwner, oldOwner }
+        : null;
+    }, 'executed transfer-ownership proposal');
 
     expect(state?.proposal.status).toBe('executed');
     expect(state?.newOwner).toBe(true);

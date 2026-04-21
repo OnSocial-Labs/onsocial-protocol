@@ -76,6 +76,31 @@ fn core_data_update_post() {
 }
 
 #[test]
+fn core_data_update_post_extracts_channel_and_kind() {
+    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"DATA_UPDATE","data":[{"operation":"set","author":"alice.near","path":"alice.near/post/main","value":"{\"text\":\"Hello world\",\"channel\":\"engineering\",\"kind\":\"announcement\"}"}]}"#;
+    let block = MockBlockBuilder::new(233_085_000, 1_700_000_000)
+        .add_receipt(CONTRACT, &[10, 20, 30], vec![json])
+        .build();
+
+    let output = run_core_pipeline(&block);
+    let du = &output.data_updates[0];
+    assert_eq!(du.channel, "engineering");
+    assert_eq!(du.kind, "announcement");
+}
+
+#[test]
+fn core_data_update_post_extracts_audiences() {
+    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"DATA_UPDATE","data":[{"operation":"set","author":"alice.near","path":"alice.near/post/main","value":"{\"text\":\"Hello world\",\"audiences\":[\"members\",\"employees\"]}"}]}"#;
+    let block = MockBlockBuilder::new(233_085_000, 1_700_000_000)
+        .add_receipt(CONTRACT, &[10, 20, 30], vec![json])
+        .build();
+
+    let output = run_core_pipeline(&block);
+    let du = &output.data_updates[0];
+    assert_eq!(du.audiences, "|members|employees|");
+}
+
+#[test]
 fn core_data_update_profile() {
     let json = r#"{"standard":"onsocial","version":"1.0.0","event":"DATA_UPDATE","data":[{"operation":"set","author":"bob.near","path":"bob.near/profile","value":"{\"name\":\"Bob\"}"}]}"#;
     let block = MockBlockBuilder::new(100, 1000)
@@ -175,6 +200,31 @@ fn core_group_update_group_post_also_materializes_as_data_update() {
     assert_eq!(du.data_id, "g1");
     assert_eq!(du.group_id, "my_group");
     assert!(du.is_group_content);
+}
+
+#[test]
+fn core_group_update_group_post_materializes_channel_and_kind() {
+    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"GROUP_UPDATE","data":[{"operation":"create","author":"alice.near","path":"alice.near/groups/my_group/content/post/g1","value":{"text":"hello","channel":"engineering","kind":"announcement"},"id":"g1","type":"content","group_id":"my_group","group_path":"content/post/g1","is_group_content":true}]}"#;
+    let block = MockBlockBuilder::new(100, 1000)
+        .add_receipt(CONTRACT, &[1], vec![json])
+        .build();
+
+    let output = run_core_pipeline(&block);
+    let du = &output.data_updates[0];
+    assert_eq!(du.channel, "engineering");
+    assert_eq!(du.kind, "announcement");
+}
+
+#[test]
+fn core_group_update_group_post_materializes_audiences() {
+    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"GROUP_UPDATE","data":[{"operation":"create","author":"alice.near","path":"alice.near/groups/my_group/content/post/g1","value":{"text":"hello","audiences":["members","employees"]},"id":"g1","type":"content","group_id":"my_group","group_path":"content/post/g1","is_group_content":true}]}"#;
+    let block = MockBlockBuilder::new(100, 1000)
+        .add_receipt(CONTRACT, &[1], vec![json])
+        .build();
+
+    let output = run_core_pipeline(&block);
+    let du = &output.data_updates[0];
+    assert_eq!(du.audiences, "|members|employees|");
 }
 
 #[test]

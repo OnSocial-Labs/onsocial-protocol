@@ -166,4 +166,94 @@ describe('GroupsModule transport', () => {
       target_account: 'core.onsocial.near',
     });
   });
+
+  it('writes group replies to /compose/set with parent metadata', async () => {
+    const post = vi.fn().mockResolvedValue({ txHash: 'tx-group-reply' });
+    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
+
+    await groups.reply(
+      'dao',
+      'alice.near/groups/dao/content/post/root',
+      { text: 'reply in group' },
+      'reply-1'
+    );
+
+    expect(post).toHaveBeenCalledTimes(1);
+    const [, request] = post.mock.calls[0];
+    expect(request.path).toBe('groups/dao/content/post/reply-1');
+    expect(request.targetAccount).toBe('core.onsocial.near');
+    expect(JSON.parse(request.value)).toMatchObject({
+      v: 1,
+      text: 'reply in group',
+      parent: 'alice.near/groups/dao/content/post/root',
+      parentType: 'post',
+    });
+    expect(JSON.parse(request.value).timestamp).toEqual(expect.any(Number));
+  });
+
+  it('writes group quotes to /compose/set with ref metadata', async () => {
+    const post = vi.fn().mockResolvedValue({ txHash: 'tx-group-quote' });
+    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
+
+    await groups.quote(
+      'dao',
+      'alice.near/groups/dao/content/post/root',
+      { text: 'quote in group' },
+      'quote-1'
+    );
+
+    expect(post).toHaveBeenCalledTimes(1);
+    const [, request] = post.mock.calls[0];
+    expect(request.path).toBe('groups/dao/content/post/quote-1');
+    expect(request.targetAccount).toBe('core.onsocial.near');
+    expect(JSON.parse(request.value)).toMatchObject({
+      v: 1,
+      text: 'quote in group',
+      ref: 'alice.near/groups/dao/content/post/root',
+      refAuthor: 'alice.near',
+      refType: 'quote',
+    });
+    expect(JSON.parse(request.value).timestamp).toEqual(expect.any(Number));
+  });
+
+  it('writes typed group-post replies without requiring a raw path', async () => {
+    const post = vi.fn().mockResolvedValue({ txHash: 'tx-group-reply-ref' });
+    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
+
+    await groups.replyToPost(
+      'dao',
+      { author: 'alice.near', groupId: 'dao', postId: 'root' },
+      { text: 'reply via ref' },
+      'reply-ref-1'
+    );
+
+    const [, request] = post.mock.calls[0];
+    expect(request.path).toBe('groups/dao/content/post/reply-ref-1');
+    expect(JSON.parse(request.value)).toMatchObject({
+      parent: 'alice.near/groups/dao/content/post/root',
+      parentType: 'post',
+      text: 'reply via ref',
+    });
+  });
+
+  it('writes typed group-post quotes without requiring a raw path', async () => {
+    const post = vi.fn().mockResolvedValue({ txHash: 'tx-group-quote-ref' });
+    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
+
+    await groups.quotePost(
+      'dao',
+      { author: 'alice.near', groupId: 'dao', postId: 'root' },
+      { text: 'quote via ref' },
+      'quote-ref-1'
+    );
+
+    const [, request] = post.mock.calls[0];
+    expect(request.path).toBe('groups/dao/content/post/quote-ref-1');
+    expect(JSON.parse(request.value)).toMatchObject({
+      ref: 'alice.near/groups/dao/content/post/root',
+      refAuthor: 'alice.near',
+      refType: 'quote',
+      text: 'quote via ref',
+    });
+  });
 });

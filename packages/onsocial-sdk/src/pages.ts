@@ -144,8 +144,8 @@ export class PagesModule {
   async getTemplates(): Promise<
     Array<{ id: string; name: string; premium: boolean }>
   > {
-    return this._http.get<Array<{ id: string; name: string; premium: boolean }>>(
-      '/data/page/templates'
-    );
+    return this._http.get<
+      Array<{ id: string; name: string; premium: boolean }>
+    >('/data/page/templates');
   }
 }

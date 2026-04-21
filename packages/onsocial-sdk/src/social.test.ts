@@ -86,7 +86,11 @@ describe('SocialModule transport', () => {
   it('uploads avatar File via /storage/upload then writes ipfs:// URL', async () => {
     const post = vi.fn().mockResolvedValue({ txHash: 'tx' });
     const requestForm = vi.fn().mockResolvedValue({ cid: 'bafy123' });
-    const social = new SocialModule({ post, requestForm, network: 'mainnet' } as never);
+    const social = new SocialModule({
+      post,
+      requestForm,
+      network: 'mainnet',
+    } as never);
 
     const file = new Blob(['png-bytes'], { type: 'image/png' });
     await social.setProfile({ name: 'Alice', avatar: file });
@@ -110,7 +114,11 @@ describe('SocialModule transport', () => {
   it('passes through avatar string without uploading', async () => {
     const post = vi.fn().mockResolvedValue({ txHash: 'tx' });
     const requestForm = vi.fn();
-    const social = new SocialModule({ post, requestForm, network: 'mainnet' } as never);
+    const social = new SocialModule({
+      post,
+      requestForm,
+      network: 'mainnet',
+    } as never);
 
     await social.setProfile({ avatar: 'ipfs://existing' });
 
@@ -125,7 +133,11 @@ describe('SocialModule transport', () => {
   it('uploads post image and prepends ipfs:// URL into media[]', async () => {
     const post = vi.fn().mockResolvedValue({ txHash: 'tx' });
     const requestForm = vi.fn().mockResolvedValue({ cid: 'bafyImg' });
-    const social = new SocialModule({ post, requestForm, network: 'mainnet' } as never);
+    const social = new SocialModule({
+      post,
+      requestForm,
+      network: 'mainnet',
+    } as never);
 
     const file = new Blob(['img'], { type: 'image/png' });
     await social.post(
@@ -149,7 +161,11 @@ describe('SocialModule transport', () => {
   it('post without image skips upload', async () => {
     const post = vi.fn().mockResolvedValue({ txHash: 'tx' });
     const requestForm = vi.fn();
-    const social = new SocialModule({ post, requestForm, network: 'mainnet' } as never);
+    const social = new SocialModule({
+      post,
+      requestForm,
+      network: 'mainnet',
+    } as never);
 
     await social.post({ text: 'plain' }, 'p2');
 
@@ -166,7 +182,10 @@ describe('SocialModule transport', () => {
       { author: 'alice.near', postId: 'p1' },
       { type: 'like', source: 'feed' }
     );
-    await social.unreactFromPost({ author: 'alice.near', postId: 'p1' }, 'like');
+    await social.unreactFromPost(
+      { author: 'alice.near', postId: 'p1' },
+      'like'
+    );
 
     expect(post).toHaveBeenNthCalledWith(1, '/compose/set', {
       path: 'reaction/alice.near/like/post/p1',
@@ -237,7 +256,11 @@ describe('SocialModule transport', () => {
       .mockResolvedValueOnce({
         requested_key: 'saved/alice.near/post/123',
         full_key: 'alice.near/saved/alice.near/post/123',
-        value: JSON.stringify({ v: 1, timestamp: 1710000000000, folder: 'reads' }),
+        value: JSON.stringify({
+          v: 1,
+          timestamp: 1710000000000,
+          folder: 'reads',
+        }),
         deleted: false,
         corrupted: false,
       })
@@ -257,7 +280,9 @@ describe('SocialModule transport', () => {
       });
     const social = new SocialModule({ get, network: 'mainnet' } as never);
 
-    await expect(social.getSave('alice.near/post/123', 'alice.near')).resolves.toEqual({
+    await expect(
+      social.getSave('alice.near/post/123', 'alice.near')
+    ).resolves.toEqual({
       contentPath: 'alice.near/post/123',
       v: 1,
       timestamp: 1710000000000,
@@ -310,6 +335,8 @@ describe('SocialModule transport', () => {
     });
     const social = new SocialModule({ get, network: 'mainnet' } as never);
 
-    await expect(social.getSave('alice.near/post/123', 'alice.near')).resolves.toBeNull();
+    await expect(
+      social.getSave('alice.near/post/123', 'alice.near')
+    ).resolves.toBeNull();
   });
 });

@@ -90,9 +90,9 @@ describe('query', () => {
 
       expect(Array.isArray(feed.items)).toBe(true);
       expect(feed.items.length).toBeGreaterThan(0);
-      expect(feed.items.every((item) => item.accountId === INDEXED_ACCOUNT)).toBe(
-        true
-      );
+      expect(
+        feed.items.every((item) => item.accountId === INDEXED_ACCOUNT)
+      ).toBe(true);
     });
   });
 
@@ -162,7 +162,9 @@ describe('query', () => {
         { timeoutMs: 30_000, intervalMs: 2_000 }
       );
 
-      const row = result?.data?.dataUpdates?.find((item) => item.dataId === customId);
+      const row = result?.data?.dataUpdates?.find(
+        (item) => item.dataId === customId
+      );
       expect(row?.accountId).toBe(ACCOUNT_ID);
       expect(row?.dataId).toBe(customId);
       expect(row?.operation).toBe('set');
@@ -171,14 +173,18 @@ describe('query', () => {
     it('should fetch a single data entry by full path', async () => {
       const result = await confirmIndexed(
         async () => {
-          const value = await os.query.dataByPath(`${ACCOUNT_ID}/${customPath}`);
+          const value = await os.query.dataByPath(
+            `${ACCOUNT_ID}/${customPath}`
+          );
           return value.data?.dataUpdates?.[0] ? value : null;
         },
         'query dataByPath',
         { timeoutMs: 30_000, intervalMs: 2_000 }
       );
 
-      expect(result?.data?.dataUpdates?.[0]?.path).toBe(`${ACCOUNT_ID}/${customPath}`);
+      expect(result?.data?.dataUpdates?.[0]?.path).toBe(
+        `${ACCOUNT_ID}/${customPath}`
+      );
       expect(result?.data?.dataUpdates?.[0]?.dataType).toBe('custom-query');
       expect(result?.data?.dataUpdates?.[0]?.dataId).toBe(customId);
     }, 35_000);
@@ -208,7 +214,9 @@ describe('query', () => {
 
       expect(Array.isArray(result.data?.leaderboardRewards)).toBe(true);
       expect((result.data?.leaderboardRewards?.length ?? 0) > 0).toBe(true);
-      expect(typeof result.data?.leaderboardRewards?.[0]?.accountId).toBe('string');
+      expect(typeof result.data?.leaderboardRewards?.[0]?.accountId).toBe(
+        'string'
+      );
     });
 
     it('should return token stats', async () => {

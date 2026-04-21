@@ -78,11 +78,7 @@ export class PermissionsModule {
     return this._http.get<boolean>(`/data/has-permission?${p}`);
   }
 
-  async get(
-    owner: string,
-    grantee: string,
-    path: string
-  ): Promise<number> {
+  async get(owner: string, grantee: string, path: string): Promise<number> {
     const p = new URLSearchParams({ owner, grantee, path });
     return this._http.get<number>(`/data/permissions?${p}`);
   }
@@ -111,18 +107,12 @@ export class PermissionsModule {
     return this._http.get<boolean>(`/data/has-key-permission?${p}`);
   }
 
-  async hasGroupAdmin(
-    groupId: string,
-    userId: string
-  ): Promise<boolean> {
+  async hasGroupAdmin(groupId: string, userId: string): Promise<boolean> {
     const p = new URLSearchParams({ groupId, userId });
     return this._http.get<boolean>(`/data/has-group-admin?${p}`);
   }
 
-  async hasGroupModerate(
-    groupId: string,
-    userId: string
-  ): Promise<boolean> {
+  async hasGroupModerate(groupId: string, userId: string): Promise<boolean> {
     const p = new URLSearchParams({ groupId, userId });
     return this._http.get<boolean>(`/data/has-group-moderate?${p}`);
   }

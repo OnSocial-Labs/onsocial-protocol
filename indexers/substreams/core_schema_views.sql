@@ -36,6 +36,14 @@ CREATE INDEX IF NOT EXISTS idx_data_updates_parent_author
 CREATE INDEX IF NOT EXISTS idx_data_updates_group_id_data_type
   ON data_updates(group_id, data_type) WHERE group_id IS NOT NULL AND group_id != '';
 
+CREATE INDEX IF NOT EXISTS idx_data_updates_post_group_channel
+  ON data_updates(group_id, channel, block_height DESC)
+  WHERE data_type = 'post' AND group_id IS NOT NULL AND group_id != '' AND channel IS NOT NULL AND channel != '';
+
+CREATE INDEX IF NOT EXISTS idx_data_updates_post_group_kind
+  ON data_updates(group_id, kind, block_height DESC)
+  WHERE data_type = 'post' AND group_id IS NOT NULL AND group_id != '' AND kind IS NOT NULL AND kind != '';
+
 -- Composite index for DISTINCT ON queries (covers the common sort order)
 CREATE INDEX IF NOT EXISTS idx_data_updates_profile_dedup
   ON data_updates(account_id, data_id, block_height DESC) WHERE data_type = 'profile';
@@ -86,6 +94,9 @@ SELECT
   ref_path,
   ref_author,
   ref_type,
+  channel,
+  kind,
+  audiences,
   group_id,
   is_group_content
 FROM (
@@ -102,6 +113,9 @@ FROM (
     ref_path,
     ref_author,
     ref_type,
+    channel,
+    kind,
+    audiences,
     group_id,
     is_group_content,
     operation,

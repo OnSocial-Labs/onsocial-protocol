@@ -535,6 +535,11 @@ fn extract_data_update(
     let (parent_path, parent_author, parent_type) = extract_parent_refs(&value_json);
     let (ref_path, ref_author, ref_type) = extract_ref_refs(&value_json);
     let (refs, ref_authors) = extract_refs_array(&value_json);
+    let (channel, kind, audiences) = if data_type == "post" {
+        extract_feed_meta(&value_json)
+    } else {
+        (None, None, None)
+    };
 
     Some(DataUpdate {
         id,
@@ -567,6 +572,9 @@ fn extract_data_update(
         // Capture all fields as JSON so nothing is ever lost
         extra_data: serde_json::to_string(&data.extra).unwrap_or_default(),
         reaction_kind: reaction_kind.unwrap_or_default(),
+        channel: channel.unwrap_or_default(),
+        kind: kind.unwrap_or_default(),
+        audiences: audiences.unwrap_or_default(),
     })
 }
 
@@ -720,6 +728,39 @@ fn extract_refs_array(value: &Option<Value>) -> (Vec<String>, Vec<String>) {
     (refs, ref_authors)
 }
 
+fn extract_feed_meta(value: &Option<Value>) -> (Option<String>, Option<String>, Option<String>) {
+    let obj = match value {
+        Some(Value::Object(o)) => o,
+        _ => return (None, None, None),
+    };
+
+    let channel = obj
+        .get("channel")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    let kind = obj
+        .get("kind")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
+    let audiences = obj
+        .get("audiences")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter().filter_map(|item| item.as_str()).fold(
+                String::from("|"),
+                |mut acc, audience| {
+                    acc.push_str(audience);
+                    acc.push('|');
+                    acc
+                },
+            )
+        })
+        .filter(|joined| joined.len() > 1);
+
+    (channel, kind, audiences)
+}
+
 // =============================================================================
 // STORAGE_UPDATE Extraction
 // =============================================================================
@@ -870,6 +911,7 @@ fn synthesize_data_update_from_group_update(
     let (parent_path, parent_author, parent_type) = extract_parent_refs(&value_json);
     let (ref_path, ref_author, ref_type) = extract_ref_refs(&value_json);
     let (refs, ref_authors) = extract_refs_array(&value_json);
+    let (channel, kind, audiences) = extract_feed_meta(&value_json);
 
     Some(DataUpdate {
         id: format!("{}-{}-{}-data", receipt_id, log_index, data_index),
@@ -904,6 +946,9 @@ fn synthesize_data_update_from_group_update(
         writes: get_string(&data.extra, "writes").unwrap_or_default(),
         extra_data: serde_json::to_string(&data.extra).unwrap_or_default(),
         reaction_kind: String::new(),
+        channel: channel.unwrap_or_default(),
+        kind: kind.unwrap_or_default(),
+        audiences: audiences.unwrap_or_default(),
     })
 }
 

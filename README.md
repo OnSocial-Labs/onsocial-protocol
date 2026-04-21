@@ -47,6 +47,7 @@
 | [contracts/token-onsocial](contracts/token-onsocial) | SOCIAL token (NEP-141) | [README](contracts/token-onsocial/README.md) |
 | [contracts/scarces-onsocial](contracts/scarces-onsocial) | Listings & commerce | [README](contracts/scarces-onsocial/README.md) |
 | **Backend Services** | | |
+| [packages/onsocial-sdk](packages/onsocial-sdk) | Gateway-first TypeScript SDK for protocol writes and indexed reads | [README](packages/onsocial-sdk/README.md) |
 | [packages/onsocial-gateway](packages/onsocial-gateway) | API gateway (GraphQL, storage, relay) | [README](packages/onsocial-gateway/README.md) |
 | [packages/onsocial-relayer](packages/onsocial-relayer) | Tx relayer (Rust, KMS-backed signing) | [README](packages/onsocial-relayer/README.md) |
 | [packages/onsocial-rpc](packages/onsocial-rpc) | NEAR RPC client | — |

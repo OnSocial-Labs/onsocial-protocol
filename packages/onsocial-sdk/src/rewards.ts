@@ -8,7 +8,6 @@ import type {
   CreditRequest,
   CreditResponse,
   RewardBalance,
-  RelayResponse,
 } from './types.js';
 
 export type RewardsAction =

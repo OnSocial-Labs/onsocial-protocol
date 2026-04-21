@@ -17,6 +17,7 @@ import type {
   KeyEntry,
   ListKeysOptions,
   PostData,
+  GroupPostRef,
   PostRef,
   ProfileData,
   ReactionData,
@@ -145,6 +146,48 @@ export function buildGroupPostSetData(
     [`groups/${groupId}/content/post/${postId}`]: {
       v: SCHEMA_VERSION,
       ...post,
+      timestamp: post.timestamp ?? now,
+    },
+  };
+}
+
+export function buildGroupPostPath(post: GroupPostRef): string {
+  return `${post.author}/groups/${post.groupId}/content/post/${post.postId}`;
+}
+
+export function buildGroupReplySetData(
+  groupId: string,
+  parentPath: string,
+  post: PostData,
+  replyId: string,
+  now = Date.now()
+): SocialSetData {
+  return {
+    [`groups/${groupId}/content/post/${replyId}`]: {
+      v: SCHEMA_VERSION,
+      ...post,
+      parent: parentPath,
+      parentType: 'post',
+      timestamp: post.timestamp ?? now,
+    },
+  };
+}
+
+export function buildGroupQuoteSetData(
+  groupId: string,
+  refPath: string,
+  post: PostData,
+  quoteId: string,
+  now = Date.now()
+): SocialSetData {
+  const [refAuthor] = refPath.split('/', 1);
+  return {
+    [`groups/${groupId}/content/post/${quoteId}`]: {
+      v: SCHEMA_VERSION,
+      ...post,
+      ref: refPath,
+      ...(refAuthor ? { refAuthor } : {}),
+      refType: 'quote',
       timestamp: post.timestamp ?? now,
     },
   };
@@ -545,10 +588,7 @@ export class SocialModule {
     });
   }
 
-  async unreactFromPost(
-    post: PostRef,
-    kind: string
-  ): Promise<RelayResponse> {
+  async unreactFromPost(post: PostRef, kind: string): Promise<RelayResponse> {
     return this.unreact(post.author, kind, `post/${post.postId}`);
   }
 
@@ -632,9 +672,7 @@ export class SocialModule {
     contentPath: string,
     input?: SaveBuildInput
   ): Promise<RelayResponse> {
-    const [path, value] = getSingleEntry(
-      buildSaveSetData(contentPath, input)
-    );
+    const [path, value] = getSingleEntry(buildSaveSetData(contentPath, input));
     return this._http.post<RelayResponse>('/compose/set', {
       path,
       value: encodeComposeValue(value),
@@ -705,7 +743,8 @@ export class SocialModule {
       ? `endorsement/${targetAccount}/${opts.topic}`
       : `endorsement/${targetAccount}`;
     const entry = await this.getOne(path, opts?.accountId);
-    const value = parseStructuredEntry<Omit<EndorsementRecord, 'target'>>(entry);
+    const value =
+      parseStructuredEntry<Omit<EndorsementRecord, 'target'>>(entry);
     if (!value) {
       return null;
     }
@@ -774,9 +813,10 @@ export class SocialModule {
       `claims/${subject}/${type}/${claimId}`,
       accountId
     );
-    const value = parseStructuredEntry<
-      Omit<AttestationRecord, 'claimId' | 'subject' | 'type'>
-    >(entry);
+    const value =
+      parseStructuredEntry<
+        Omit<AttestationRecord, 'claimId' | 'subject' | 'type'>
+      >(entry);
     if (!value) {
       return null;
     }

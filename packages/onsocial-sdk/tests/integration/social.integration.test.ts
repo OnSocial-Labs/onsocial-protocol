@@ -195,12 +195,12 @@ describe('social', () => {
       );
 
       if (!reactions) throw new Error('query.reactions missing expected rows');
-      expect(reactions.some((row) => row.path.includes(`/like/post/${postId}`))).toBe(
-        true
-      );
-      expect(reactions.some((row) => row.path.includes(`/fire/post/${postId}`))).toBe(
-        true
-      );
+      expect(
+        reactions.some((row) => row.path.includes(`/like/post/${postId}`))
+      ).toBe(true);
+      expect(
+        reactions.some((row) => row.path.includes(`/fire/post/${postId}`))
+      ).toBe(true);
     }, 20_000);
 
     it('should unreact like', async () => {
@@ -563,9 +563,16 @@ describe('social', () => {
     it('should read multiple entries via social.get', async () => {
       const entries = await confirmDirect(
         async () => {
-          const value = await os.social.get([firstPath, secondPath], ACCOUNT_ID);
-          const alpha = value.find((entry) => entry.requested_key === firstPath);
-          const beta = value.find((entry) => entry.requested_key === secondPath);
+          const value = await os.social.get(
+            [firstPath, secondPath],
+            ACCOUNT_ID
+          );
+          const alpha = value.find(
+            (entry) => entry.requested_key === firstPath
+          );
+          const beta = value.find(
+            (entry) => entry.requested_key === secondPath
+          );
           return alpha?.value && beta?.value ? value : null;
         },
         'direct get multiple keys',
@@ -578,9 +585,15 @@ describe('social', () => {
       const beta = entries.find((entry) => entry.requested_key === secondPath);
 
       const alphaValue =
-        typeof alpha?.value === 'string' ? JSON.parse(alpha.value) : alpha?.value;
+        typeof alpha?.value === 'string'
+          ? JSON.parse(alpha.value)
+          : alpha?.value;
       expect(alpha?.full_key).toBe(`${ACCOUNT_ID}/${firstPath}`);
-      expect(alphaValue).toEqual({ ok: true, slot: 'alpha', value: 'value-alpha' });
+      expect(alphaValue).toEqual({
+        ok: true,
+        slot: 'alpha',
+        value: 'value-alpha',
+      });
       expect(alpha?.deleted).toBe(false);
 
       const betaValue =
@@ -599,7 +612,9 @@ describe('social', () => {
             withValues: true,
           });
           const matches = value.filter((entry) =>
-            [firstPath, secondPath].some((path) => entry.key === `${ACCOUNT_ID}/${path}`)
+            [firstPath, secondPath].some(
+              (path) => entry.key === `${ACCOUNT_ID}/${path}`
+            )
           );
           return matches.length === 2 ? value : null;
         },
@@ -613,11 +628,21 @@ describe('social', () => {
       expect(listedKeys).toContain(`${ACCOUNT_ID}/${firstPath}`);
       expect(listedKeys).toContain(`${ACCOUNT_ID}/${secondPath}`);
 
-      const alpha = keys.find((entry) => entry.key === `${ACCOUNT_ID}/${firstPath}`);
-      const beta = keys.find((entry) => entry.key === `${ACCOUNT_ID}/${secondPath}`);
+      const alpha = keys.find(
+        (entry) => entry.key === `${ACCOUNT_ID}/${firstPath}`
+      );
+      const beta = keys.find(
+        (entry) => entry.key === `${ACCOUNT_ID}/${secondPath}`
+      );
       const alphaValue =
-        typeof alpha?.value === 'string' ? JSON.parse(alpha.value) : alpha?.value;
-      expect(alphaValue).toEqual({ ok: true, slot: 'alpha', value: 'value-alpha' });
+        typeof alpha?.value === 'string'
+          ? JSON.parse(alpha.value)
+          : alpha?.value;
+      expect(alphaValue).toEqual({
+        ok: true,
+        slot: 'alpha',
+        value: 'value-alpha',
+      });
       const betaValue =
         typeof beta?.value === 'string' ? JSON.parse(beta.value) : beta?.value;
       expect(betaValue).toEqual({ ok: true, slot: 'beta' });
@@ -626,7 +651,9 @@ describe('social', () => {
     it('should count matching keys via social.countKeys', async () => {
       const count = await confirmDirect(
         async () => {
-          const value = await os.social.countKeys(`${ACCOUNT_ID}/${readNamespace}/`);
+          const value = await os.social.countKeys(
+            `${ACCOUNT_ID}/${readNamespace}/`
+          );
           return value.count >= 2 ? value : null;
         },
         'direct count keys',

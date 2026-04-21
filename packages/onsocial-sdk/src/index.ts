@@ -23,6 +23,9 @@ export {
   buildReplySetData,
   buildQuoteSetData,
   buildGroupPostSetData,
+  buildGroupPostPath,
+  buildGroupReplySetData,
+  buildGroupQuoteSetData,
   buildStandingRemoveData,
   buildStandingSetData,
   buildSaveSetData,
@@ -53,7 +56,15 @@ export {
 export { RewardsModule } from './rewards.js';
 export { buildClaimAction, buildCreditRewardAction } from './rewards.js';
 export { QueryModule } from './query.js';
-export type { PostRow, ReactionRow, Paginated, HashtagCount } from './query.js';
+export type {
+  PostRow,
+  ReactionRow,
+  Paginated,
+  HashtagCount,
+  GroupConversation,
+  FeedFilter,
+  GroupFeedFilter,
+} from './query.js';
 export { StorageModule } from './storage.js';
 export { WebhooksModule, verifyWebhookSignature } from './webhooks.js';
 export type { WebhookEndpoint, CreateWebhookParams } from './webhooks.js';
@@ -77,6 +88,7 @@ export {
   SCHEMA_VERSION,
   REACTION_KINDS,
   validateProfileV1,
+  validateGroupFeedMetaV1,
   validatePostV1,
   validateReactionV1,
   validateStandingV1,
@@ -93,6 +105,7 @@ export {
   assertEndorsementV1,
   assertAttestationV1,
   profileV1,
+  groupFeedMetaV1,
   postV1,
   reactionV1,
   standingV1,
@@ -105,6 +118,7 @@ export type {
   MediaRef,
   ProfileV1,
   ProfileLink,
+  GroupFeedMetaV1,
   PostV1,
   Embed,
   ParentType,
@@ -140,6 +154,7 @@ export type {
   KeyEntry,
   ListKeysOptions,
   PostRef,
+  GroupPostRef,
   SaveRecord,
   EndorsementRecord,
   AttestationRecord,

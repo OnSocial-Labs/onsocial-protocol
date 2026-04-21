@@ -4,12 +4,7 @@
 
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { OnSocial } from '../../src/client.js';
-import {
-  ACCOUNT_ID,
-  CREDS_FILE,
-  getClient,
-  loadKeypair,
-} from './helpers.js';
+import { ACCOUNT_ID, CREDS_FILE, getClient, loadKeypair } from './helpers.js';
 
 describe('chain', () => {
   let os: OnSocial;

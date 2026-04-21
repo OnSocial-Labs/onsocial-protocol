@@ -12,10 +12,16 @@ describe('PagesModule', () => {
   describe('setConfig', () => {
     it('posts page config to /compose/set at page/main', async () => {
       const { post, pages } = makeModule();
-      await pages.setConfig({ template: 'creator', sections: ['profile', 'links'] });
+      await pages.setConfig({
+        template: 'creator',
+        sections: ['profile', 'links'],
+      });
       expect(post).toHaveBeenCalledWith('/compose/set', {
         path: 'page/main',
-        value: JSON.stringify({ template: 'creator', sections: ['profile', 'links'] }),
+        value: JSON.stringify({
+          template: 'creator',
+          sections: ['profile', 'links'],
+        }),
         targetAccount: 'core.onsocial.testnet',
       });
     });
@@ -24,11 +30,17 @@ describe('PagesModule', () => {
   describe('setTheme', () => {
     it('reads current config then writes merged theme', async () => {
       const { get, post, pages } = makeModule();
-      get.mockResolvedValueOnce({ value: JSON.stringify({ template: 'minimal', sections: ['profile'] }) });
+      get.mockResolvedValueOnce({
+        value: JSON.stringify({ template: 'minimal', sections: ['profile'] }),
+      });
       await pages.setTheme({ primary: '#ff0000' });
       expect(post).toHaveBeenCalledWith('/compose/set', {
         path: 'page/main',
-        value: JSON.stringify({ template: 'minimal', sections: ['profile'], theme: { primary: '#ff0000' } }),
+        value: JSON.stringify({
+          template: 'minimal',
+          sections: ['profile'],
+          theme: { primary: '#ff0000' },
+        }),
         targetAccount: 'core.onsocial.testnet',
       });
     });
@@ -37,11 +49,16 @@ describe('PagesModule', () => {
   describe('setSections', () => {
     it('reads current config then writes merged sections', async () => {
       const { get, post, pages } = makeModule();
-      get.mockResolvedValueOnce({ value: JSON.stringify({ template: 'creator' }) });
+      get.mockResolvedValueOnce({
+        value: JSON.stringify({ template: 'creator' }),
+      });
       await pages.setSections(['profile', 'support', 'badges']);
       expect(post).toHaveBeenCalledWith('/compose/set', {
         path: 'page/main',
-        value: JSON.stringify({ template: 'creator', sections: ['profile', 'support', 'badges'] }),
+        value: JSON.stringify({
+          template: 'creator',
+          sections: ['profile', 'support', 'badges'],
+        }),
         targetAccount: 'core.onsocial.testnet',
       });
     });
@@ -50,7 +67,9 @@ describe('PagesModule', () => {
   describe('setVisibility', () => {
     it('adds a section when visible=true', async () => {
       const { get, post, pages } = makeModule();
-      get.mockResolvedValueOnce({ value: JSON.stringify({ sections: ['profile', 'links'] }) });
+      get.mockResolvedValueOnce({
+        value: JSON.stringify({ sections: ['profile', 'links'] }),
+      });
       await pages.setVisibility('badges', true);
       const call = post.mock.calls[0];
       const written = JSON.parse(call[1].value);
@@ -83,7 +102,9 @@ describe('PagesModule', () => {
   describe('setTemplate', () => {
     it('reads current config and sets template', async () => {
       const { get, post, pages } = makeModule();
-      get.mockResolvedValueOnce({ value: JSON.stringify({ sections: ['profile'] }) });
+      get.mockResolvedValueOnce({
+        value: JSON.stringify({ sections: ['profile'] }),
+      });
       await pages.setTemplate('creator');
       const call = post.mock.calls[0];
       const written = JSON.parse(call[1].value);
@@ -96,7 +117,10 @@ describe('PagesModule', () => {
     it('returns parsed config from /data/get-one', async () => {
       const { get, pages } = makeModule();
       get.mockResolvedValueOnce({
-        value: JSON.stringify({ template: 'minimal', theme: { primary: '#000' } }),
+        value: JSON.stringify({
+          template: 'minimal',
+          theme: { primary: '#000' },
+        }),
       });
       const cfg = await pages.getConfig('alice.near');
       expect(get).toHaveBeenCalledWith(

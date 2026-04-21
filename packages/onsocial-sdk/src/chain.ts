@@ -44,9 +44,7 @@ export class ChainModule {
     return this._http.get(`/data/group-pool?${p}`);
   }
 
-  async getSharedPool(
-    poolId: string
-  ): Promise<Record<string, unknown> | null> {
+  async getSharedPool(poolId: string): Promise<Record<string, unknown> | null> {
     const p = new URLSearchParams({ poolId });
     return this._http.get(`/data/shared-pool?${p}`);
   }
