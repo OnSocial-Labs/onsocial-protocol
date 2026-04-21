@@ -20,6 +20,7 @@ describe('groups', () => {
   let rejectRequesterOs: OnSocial;
   let cancelRequesterOs: OnSocial;
   const groupId = `grp_${testId()}`;
+  const executeGroupId = `grp_execute_${testId()}`;
   const moderationGroupId = `grp_moderation_${testId()}`;
   const joinRequestGroupId = `grp_join_requests_${testId()}`;
   const memberId = 'onsocial.testnet';
@@ -50,7 +51,7 @@ describe('groups', () => {
       );
 
       expect(result).toBeTruthy();
-    });
+    }, 20_000);
 
     it('should expose the group config via the data endpoint', async () => {
       const config = await confirmDirect(
@@ -67,7 +68,7 @@ describe('groups', () => {
       expect(config.description).toBe('SDK integration test group');
       expect(config.isPrivate ?? config.is_private).toBe(false);
       expect(config.memberDriven ?? config.member_driven).toBe(false);
-    }, 25_000);
+    }, 45_000);
 
     it('should report the creator as owner', async () => {
       const isOwner = await confirmDirect(
@@ -127,13 +128,84 @@ describe('groups', () => {
       expect(result?.operation).toBe('create_group');
       expect(result?.author).toBe(ACCOUNT_ID);
     }, 35_000);
+
+    it('should create a group via os.execute when targeting the core contract explicitly', async () => {
+      const result = await os.execute(
+        {
+          type: 'create_group',
+          group_id: executeGroupId,
+          config: {
+            v: 1,
+            name: `Integration ${executeGroupId}`,
+            description: 'SDK integration execute test group',
+            is_private: false,
+            member_driven: false,
+            tags: ['integration', 'sdk', 'execute'],
+          },
+        },
+        { targetAccount: 'core.onsocial.testnet' }
+      );
+
+      expect(result.txHash).toBeTruthy();
+    }, 25_000);
+
+    it('should expose the execute-created group via regular group reads', async () => {
+      const config = await confirmDirect(
+        async () => {
+          const value = await os.groups.getConfig(executeGroupId);
+          return value?.name === `Integration ${executeGroupId}` ? value : null;
+        },
+        'execute-created group config'
+      );
+
+      expect(config?.name).toBe(`Integration ${executeGroupId}`);
+      expect(config?.description).toBe('SDK integration execute test group');
+      expect(config?.is_private).toBe(false);
+    }, 25_000);
+
+    it('should emit a create_group event for the execute-created group via indexed groupUpdates', async () => {
+      const result = await confirmIndexed(
+        async () => {
+          const value = await os.query.graphql<{
+            groupUpdates: Array<{
+              groupId: string;
+              operation: string;
+              author: string;
+            }>;
+          }>({
+            query: `query ExecuteGroupCreate($groupId: String!, $author: String!) {
+              groupUpdates(
+                where: {
+                  groupId: {_eq: $groupId},
+                  author: {_eq: $author},
+                  operation: {_eq: "create_group"}
+                },
+                limit: 1,
+                orderBy: [{blockHeight: DESC}]
+              ) {
+                groupId
+                operation
+                author
+              }
+            }`,
+            variables: { groupId: executeGroupId, author: ACCOUNT_ID },
+          });
+          return value.data?.groupUpdates?.[0] ?? null;
+        },
+        'execute-created group event'
+      );
+
+      expect(result?.groupId).toBe(executeGroupId);
+      expect(result?.operation).toBe('create_group');
+      expect(result?.author).toBe(ACCOUNT_ID);
+    }, 35_000);
   });
 
   describe('membership', () => {
     it('should add a member to the group', async () => {
       const result = await os.groups.addMember(groupId, memberId);
       expect(result).toBeTruthy();
-    });
+    }, 20_000);
 
     it('should report the added account as a member', async () => {
       const isMember = await confirmDirect(
@@ -220,12 +292,12 @@ describe('groups', () => {
       );
 
       expect(config?.name).toBe(`Integration ${moderationGroupId}`);
-    });
+    }, 25_000);
 
     it('should let a second actor join the moderation group directly', async () => {
       const result = await requesterOs.groups.join(moderationGroupId);
       expect(result).toBeTruthy();
-    });
+    }, 20_000);
 
     it('should expose the joined requester as a member', async () => {
       const member = await confirmDirect(
@@ -289,7 +361,7 @@ describe('groups', () => {
     it('should let the joined requester leave the moderation group', async () => {
       const result = await requesterOs.groups.leave(moderationGroupId);
       expect(result).toBeTruthy();
-    });
+    }, 20_000);
 
     it('should remove the leaver from the member set', async () => {
       const state = await confirmDirect(
@@ -349,7 +421,7 @@ describe('groups', () => {
     it('should let the owner toggle group privacy on', async () => {
       const result = await os.groups.setPrivacy(moderationGroupId, true);
       expect(result).toBeTruthy();
-    });
+    }, 20_000);
 
     it('should expose the group as private after the toggle', async () => {
       const config = await confirmDirect(
@@ -409,12 +481,12 @@ describe('groups', () => {
     it('should let the owner add a member for moderation tests', async () => {
       const result = await os.groups.addMember(moderationGroupId, rejectRequesterId);
       expect(result).toBeTruthy();
-    });
+    }, 20_000);
 
     it('should blacklist that member', async () => {
       const result = await os.groups.blacklist(moderationGroupId, rejectRequesterId);
       expect(result).toBeTruthy();
-    });
+    }, 20_000);
 
     it('should expose the member as blacklisted', async () => {
       const isBlacklisted = await confirmDirect(
@@ -480,7 +552,7 @@ describe('groups', () => {
     it('should unblacklist that member', async () => {
       const result = await os.groups.unblacklist(moderationGroupId, rejectRequesterId);
       expect(result).toBeTruthy();
-    });
+    }, 20_000);
 
     it('should expose the member as no longer blacklisted', async () => {
       const state = await confirmDirect(
@@ -546,7 +618,7 @@ describe('groups', () => {
     it('should let the owner add another member for removal coverage', async () => {
       const result = await os.groups.addMember(moderationGroupId, cancelRequesterId);
       expect(result).toBeTruthy();
-    });
+    }, 20_000);
 
     it('should remove that member as the owner', async () => {
       const result = await os.groups.removeMember(
@@ -554,7 +626,7 @@ describe('groups', () => {
         cancelRequesterId
       );
       expect(result).toBeTruthy();
-    });
+    }, 20_000);
 
     it('should expose the removed member as absent from the member set', async () => {
       const state = await confirmDirect(
@@ -599,7 +671,7 @@ describe('groups', () => {
       );
 
       expect(config?.is_private).toBe(true);
-    });
+    }, 25_000);
 
     it('should expose initial private-group stats', async () => {
       const stats = await confirmDirect(
@@ -617,7 +689,7 @@ describe('groups', () => {
     it('should let a requester submit a pending join request', async () => {
       const result = await requesterOs.groups.join(joinRequestGroupId);
       expect(result).toBeTruthy();
-    });
+    }, 20_000);
 
     it('should expose the pending join request via getJoinRequest and getStats', async () => {
       const state = await confirmDirect(
@@ -645,7 +717,7 @@ describe('groups', () => {
     it('should approve the pending join request', async () => {
       const result = await os.groups.approveJoin(joinRequestGroupId, requesterId);
       expect(result).toBeTruthy();
-    });
+    }, 20_000);
 
     it('should add the approved requester as a member', async () => {
       const state = await confirmDirect(
@@ -667,7 +739,7 @@ describe('groups', () => {
     it('should let another requester submit a join request for rejection', async () => {
       const result = await rejectRequesterOs.groups.join(joinRequestGroupId);
       expect(result).toBeTruthy();
-    });
+    }, 20_000);
 
     it('should reject that pending join request', async () => {
       const result = await os.groups.rejectJoin(
@@ -701,7 +773,7 @@ describe('groups', () => {
     it('should let a third requester submit a join request for cancellation', async () => {
       const result = await cancelRequesterOs.groups.join(joinRequestGroupId);
       expect(result).toBeTruthy();
-    });
+    }, 20_000);
 
     it('should expose the cancellable join request before cancellation', async () => {
       const request = await confirmDirect(
@@ -722,7 +794,7 @@ describe('groups', () => {
     it('should let the requester cancel their own join request', async () => {
       const result = await cancelRequesterOs.groups.cancelJoin(joinRequestGroupId);
       expect(result).toBeTruthy();
-    });
+    }, 20_000);
 
     it('should keep the cancelled requester out of the member set', async () => {
       const state = await confirmDirect(
@@ -747,7 +819,7 @@ describe('groups', () => {
       );
 
       expect(result.txHash).toBeTruthy();
-    });
+    }, 20_000);
 
     it('should transfer group ownership to the approved requester', async () => {
       const result = await os.groups.transferOwnership(
@@ -755,7 +827,7 @@ describe('groups', () => {
         requesterId
       );
       expect(result).toBeTruthy();
-    });
+    }, 20_000);
 
     it('should expose the approved requester as the new owner', async () => {
       const state = await confirmDirect(

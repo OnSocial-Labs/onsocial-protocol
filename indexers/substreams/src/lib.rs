@@ -112,6 +112,16 @@ fn process_core_log(
         }
         "GROUP_UPDATE" => {
             for (i, data) in event.data.iter().enumerate() {
+                if let Some(u) = synthesize_data_update_from_group_update(
+                    data,
+                    receipt_id,
+                    log_index as u32,
+                    i as u32,
+                    block_height,
+                    block_timestamp,
+                ) {
+                    data_updates.push(u);
+                }
                 if let Some(u) = extract_group_update(
                     data,
                     receipt_id,
@@ -473,18 +483,17 @@ fn extract_data_update(
     let path = get_string(&data.extra, "path")?;
     let path_parts: Vec<&str> = path.split('/').collect();
 
-    // Derive account_id and data_type from path
-    let account_id = path_parts
-        .first()
-        .map(|s| s.to_string())
-        .unwrap_or_default();
-    let data_type = path_parts.get(1).map(|s| s.to_string());
-    let data_id = path_parts.get(2).map(|s| s.to_string());
-
     // Check for group content
     let group_id = get_string(&data.extra, "group_id");
     let group_path = get_string(&data.extra, "group_path");
     let is_group_content = get_bool(&data.extra, "is_group_content").unwrap_or(false);
+
+    let (account_id, data_type, data_id) = classify_data_path(
+        &path_parts,
+        group_id.as_deref(),
+        group_path.as_deref(),
+        is_group_content,
+    );
 
     // Target account for social graph paths.
     // Generic rule: if parts[2] looks like a NEAR account (contains '.')
@@ -509,7 +518,7 @@ fn extract_data_update(
 
     // Reaction kind: schema v1 uses reaction/<owner>/<kind>/<contentPath>.
     // For data_type == "reaction", parts[3] is the kind ("like", "bookmark", etc.).
-    let reaction_kind = if data_type.as_deref() == Some("reaction") {
+    let reaction_kind = if data_type == "reaction" {
         path_parts
             .get(3)
             .filter(|s| !s.is_empty() && !s.contains('.'))
@@ -538,8 +547,8 @@ fn extract_data_update(
         path,
         value: value.unwrap_or_default(),
         account_id,
-        data_type: data_type.unwrap_or_default(),
-        data_id: data_id.unwrap_or_default(),
+        data_type,
+        data_id,
         group_id: group_id.unwrap_or_default(),
         group_path: group_path.unwrap_or_default(),
         is_group_content,
@@ -559,6 +568,86 @@ fn extract_data_update(
         extra_data: serde_json::to_string(&data.extra).unwrap_or_default(),
         reaction_kind: reaction_kind.unwrap_or_default(),
     })
+}
+
+fn classify_data_path(
+    path_parts: &[&str],
+    group_id: Option<&str>,
+    group_path: Option<&str>,
+    is_group_content: bool,
+) -> (String, String, String) {
+    let account_id = path_parts
+        .first()
+        .map(|s| (*s).to_string())
+        .unwrap_or_default();
+
+    if is_group_content {
+        if let Some((data_type, data_id)) = classify_group_content_type(path_parts, group_path) {
+            return (account_id, data_type, data_id);
+        }
+
+        if let Some(group_id) = group_id {
+            return (
+                account_id,
+                "group_content".to_string(),
+                group_id.to_string(),
+            );
+        }
+    }
+
+    (
+        account_id,
+        path_parts
+            .get(1)
+            .map(|s| (*s).to_string())
+            .unwrap_or_default(),
+        path_parts
+            .get(2)
+            .map(|s| (*s).to_string())
+            .unwrap_or_default(),
+    )
+}
+
+fn classify_group_content_type(
+    path_parts: &[&str],
+    group_path: Option<&str>,
+) -> Option<(String, String)> {
+    if let Some(group_path) = group_path {
+        let rel_parts: Vec<&str> = group_path.split('/').filter(|s| !s.is_empty()).collect();
+        if let Some((data_type, data_id)) = classify_group_content_segments(&rel_parts) {
+            return Some((data_type.to_string(), data_id.to_string()));
+        }
+    }
+
+    if path_parts.len() >= 6 && path_parts.get(1) == Some(&"groups") {
+        return classify_group_content_segments(&path_parts[3..])
+            .map(|(data_type, data_id)| (data_type.to_string(), data_id.to_string()));
+    }
+
+    if path_parts.len() >= 5 && path_parts.first() == Some(&"groups") {
+        return classify_group_content_segments(&path_parts[2..])
+            .map(|(data_type, data_id)| (data_type.to_string(), data_id.to_string()));
+    }
+
+    None
+}
+
+fn classify_group_content_segments<'a>(segments: &'a [&'a str]) -> Option<(&'a str, &'a str)> {
+    if segments.len() >= 3 && segments.first() == Some(&"content") {
+        return Some((segments[1], segments[2]));
+    }
+
+    if segments.len() >= 2 {
+        let data_type = match segments[0] {
+            "posts" => "post",
+            "replies" => "post",
+            "quotes" => "post",
+            other => other,
+        };
+        return Some((data_type, segments[1]));
+    }
+
+    None
 }
 
 fn extract_parent_refs(value: &Option<Value>) -> (Option<String>, Option<String>, Option<String>) {
@@ -755,6 +844,66 @@ fn extract_group_update(
         storage_allocation: get_string(&data.extra, "storage_allocation").unwrap_or_default(),
         // Capture all fields as JSON so nothing is ever lost
         extra_data: serde_json::to_string(&data.extra).unwrap_or_default(),
+    })
+}
+
+fn synthesize_data_update_from_group_update(
+    data: &core_decoder::EventData,
+    receipt_id: &str,
+    log_index: u32,
+    data_index: u32,
+    block_height: u64,
+    block_timestamp: u64,
+) -> Option<DataUpdate> {
+    let path = get_string(&data.extra, "path")?;
+    let group_path = get_string(&data.extra, "group_path");
+    let path_parts: Vec<&str> = path.split('/').collect();
+
+    let (data_type, data_id) = classify_group_content_type(&path_parts, group_path.as_deref())?;
+
+    if data_type != "post" {
+        return None;
+    }
+
+    let value = get_string(&data.extra, "value");
+    let value_json: Option<Value> = value.as_ref().and_then(|v| serde_json::from_str(v).ok());
+    let (parent_path, parent_author, parent_type) = extract_parent_refs(&value_json);
+    let (ref_path, ref_author, ref_type) = extract_ref_refs(&value_json);
+    let (refs, ref_authors) = extract_refs_array(&value_json);
+
+    Some(DataUpdate {
+        id: format!("{}-{}-{}-data", receipt_id, log_index, data_index),
+        block_height,
+        block_timestamp,
+        receipt_id: receipt_id.to_string(),
+        operation: match data.operation.as_str() {
+            "delete" => "remove".to_string(),
+            _ => "set".to_string(),
+        },
+        author: data.author.clone(),
+        partition_id: data.partition_id.unwrap_or(0) as u32,
+        path,
+        value: value.unwrap_or_default(),
+        account_id: data.author.clone(),
+        data_type,
+        data_id,
+        group_id: get_string(&data.extra, "group_id").unwrap_or_default(),
+        group_path: group_path.unwrap_or_default(),
+        is_group_content: get_bool(&data.extra, "is_group_content").unwrap_or(false),
+        target_account: String::new(),
+        parent_path: parent_path.unwrap_or_default(),
+        parent_author: parent_author.unwrap_or_default(),
+        parent_type: parent_type.unwrap_or_default(),
+        ref_path: ref_path.unwrap_or_default(),
+        ref_author: ref_author.unwrap_or_default(),
+        ref_type: ref_type.unwrap_or_default(),
+        refs,
+        ref_authors,
+        derived_id: get_string(&data.extra, "id").unwrap_or_default(),
+        derived_type: get_string(&data.extra, "type").unwrap_or_default(),
+        writes: get_string(&data.extra, "writes").unwrap_or_default(),
+        extra_data: serde_json::to_string(&data.extra).unwrap_or_default(),
+        reaction_kind: String::new(),
     })
 }
 

@@ -150,6 +150,146 @@ describe('permissions', () => {
     }, 35_000);
   });
 
+  describe('group role permissions', () => {
+    const groupId = `grp_permissions_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const moderatorId = 'test02.onsocial.testnet';
+    const memberId = 'test03.onsocial.testnet';
+    const configPath = `groups/${groupId}/config`;
+
+    it('should create a group for role permission checks', async () => {
+      const result = await os.groups.create(groupId, {
+        v: 1,
+        name: `Permissions ${groupId}`,
+        description: 'SDK integration permission role test group',
+        isPrivate: true,
+        memberDriven: false,
+        tags: ['integration', 'permissions'],
+      });
+
+      expect(result).toBeTruthy();
+    }, 25_000);
+
+    it('should report the owner as group admin and moderate', async () => {
+      const state = await confirmDirect(
+        async () => {
+          const [isAdmin, canModerate] = await Promise.all([
+            os.permissions.hasGroupAdmin(groupId, ACCOUNT_ID),
+            os.permissions.hasGroupModerate(groupId, ACCOUNT_ID),
+          ]);
+
+          return isAdmin && canModerate ? { isAdmin, canModerate } : null;
+        },
+        'owner role permissions'
+      );
+
+      expect(state?.isAdmin).toBe(true);
+      expect(state?.canModerate).toBe(true);
+    }, 25_000);
+
+    it('should add a moderator candidate and a basic member', async () => {
+      const [moderatorResult, memberResult] = await Promise.all([
+        os.groups.addMember(groupId, moderatorId),
+        os.groups.addMember(groupId, memberId),
+      ]);
+
+      expect(moderatorResult).toBeTruthy();
+      expect(memberResult).toBeTruthy();
+    }, 25_000);
+
+    it('should report basic members as neither admin nor moderator before delegation', async () => {
+      const state = await confirmDirect(
+        async () => {
+          const [memberAdmin, memberModerate] = await Promise.all([
+            os.permissions.hasGroupAdmin(groupId, memberId),
+            os.permissions.hasGroupModerate(groupId, memberId),
+          ]);
+
+          return !memberAdmin && !memberModerate
+            ? { memberAdmin, memberModerate }
+            : null;
+        },
+        'basic member role permissions'
+      );
+
+      expect(state?.memberAdmin).toBe(false);
+      expect(state?.memberModerate).toBe(false);
+    }, 25_000);
+
+    it('should delegate MODERATE permission on the group config path', async () => {
+      const result = await os.permissions.grant(moderatorId, configPath, 2);
+      expect(result).toBeTruthy();
+    });
+
+    it('should expose the delegated moderator as moderate but not admin', async () => {
+      const state = await confirmDirect(
+        async () => {
+          const [isAdmin, canModerate, level] = await Promise.all([
+            os.permissions.hasGroupAdmin(groupId, moderatorId),
+            os.permissions.hasGroupModerate(groupId, moderatorId),
+            os.permissions.get(ACCOUNT_ID, moderatorId, configPath),
+          ]);
+
+          return !isAdmin && canModerate && level === 2
+            ? { isAdmin, canModerate, level }
+            : null;
+        },
+        'delegated moderator role permissions'
+      );
+
+      expect(state?.isAdmin).toBe(false);
+      expect(state?.canModerate).toBe(true);
+      expect(state?.level).toBe(2);
+    }, 25_000);
+
+    it('should emit an indexed permission grant for the delegated moderator config path', async () => {
+      const result = await confirmIndexed(
+        async () => {
+          const value = await os.query.graphql<{
+            permissionUpdates: Array<{
+              operation: string;
+              author: string;
+              targetId: string;
+              path: string;
+              level: number;
+            }>;
+          }>({
+            query: `query GroupConfigPermissionGrant($author: String!, $grantee: String!, $path: String!) {
+              permissionUpdates(
+                where: {
+                  author: {_eq: $author},
+                  targetId: {_eq: $grantee},
+                  path: {_eq: $path},
+                  operation: {_eq: "grant"}
+                },
+                limit: 1,
+                orderBy: [{blockHeight: DESC}]
+              ) {
+                operation
+                author
+                targetId
+                path
+                level
+              }
+            }`,
+            variables: {
+              author: ACCOUNT_ID,
+              grantee: moderatorId,
+              path: configPath,
+            },
+          });
+          return value.data?.permissionUpdates?.[0] ?? null;
+        },
+        'group config permission grant event'
+      );
+
+      expect(result?.operation).toBe('grant');
+      expect(result?.author).toBe(ACCOUNT_ID);
+      expect(result?.targetId).toBe(moderatorId);
+      expect(result?.path).toBe(configPath);
+      expect(result?.level).toBe(2);
+    }, 35_000);
+  });
+
   describe('key permissions', () => {
     const { publicKey } = getKeypair();
     const path = `sdk_key_permissions_${Date.now()}_${Math.random().toString(36).slice(2, 8)}/`;

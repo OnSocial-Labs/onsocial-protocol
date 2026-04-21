@@ -142,6 +142,42 @@ fn core_data_update_with_group_content() {
 }
 
 #[test]
+fn core_data_update_with_group_content_path_is_classified_as_post() {
+    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"DATA_UPDATE","data":[{"operation":"set","author":"alice.near","path":"alice.near/groups/my_group/content/post/g1","value":"{\"text\":\"hello\"}","group_id":"my_group","group_path":"content/post/g1","is_group_content":true}]}"#;
+    let block = MockBlockBuilder::new(100, 1000)
+        .add_receipt(CONTRACT, &[1], vec![json])
+        .build();
+
+    let output = run_core_pipeline(&block);
+    let du = &output.data_updates[0];
+    assert_eq!(du.account_id, "alice.near");
+    assert_eq!(du.data_type, "post");
+    assert_eq!(du.data_id, "g1");
+    assert_eq!(du.group_id, "my_group");
+    assert_eq!(du.group_path, "content/post/g1");
+}
+
+#[test]
+fn core_group_update_group_post_also_materializes_as_data_update() {
+    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"GROUP_UPDATE","data":[{"operation":"create","author":"alice.near","path":"alice.near/groups/my_group/content/post/g1","value":{"text":"hello"},"id":"g1","type":"content","group_id":"my_group","group_path":"content/post/g1","is_group_content":true}]}"#;
+    let block = MockBlockBuilder::new(100, 1000)
+        .add_receipt(CONTRACT, &[1], vec![json])
+        .build();
+
+    let output = run_core_pipeline(&block);
+    assert_eq!(output.group_updates.len(), 1);
+    assert_eq!(output.data_updates.len(), 1);
+
+    let du = &output.data_updates[0];
+    assert_eq!(du.operation, "set");
+    assert_eq!(du.account_id, "alice.near");
+    assert_eq!(du.data_type, "post");
+    assert_eq!(du.data_id, "g1");
+    assert_eq!(du.group_id, "my_group");
+    assert!(du.is_group_content);
+}
+
+#[test]
 fn core_data_update_remove_operation() {
     let json = r#"{"standard":"onsocial","version":"1.0.0","event":"DATA_UPDATE","data":[{"operation":"remove","author":"alice.near","path":"alice.near/post/old"}]}"#;
     let block = MockBlockBuilder::new(100, 1000)
