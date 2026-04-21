@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { section } from '@/lib/section-styles';
+import { HeroProtocolPulse } from './hero-protocol-pulse';
 
 export function Hero() {
   return (
@@ -56,6 +57,14 @@ export function Hero() {
               </span>
               <span className="mt-1 block">Let the graph move with you.</span>
             </p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+          >
+            <HeroProtocolPulse />
           </motion.div>
         </div>
       </div>

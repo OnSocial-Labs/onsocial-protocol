@@ -3,6 +3,7 @@ import type { Request, Response } from 'express';
 import { config } from '../config/index.js';
 import { logger } from '../logger.js';
 import { requireAuth } from '../middleware/index.js';
+import { getAnalyticsOverview } from '../services/analytics/index.js';
 import {
   queryValidationMiddleware,
   QUERY_LIMITS,
@@ -17,6 +18,9 @@ let cachedTokenStats: {
   holders: number;
   fetchedAt: number;
 } | null = null;
+
+const ANALYTICS_VIEWER_ACCOUNT_ID =
+  config.nearNetwork === 'mainnet' ? 'onsocial.near' : 'onsocial.testnet';
 
 // Health check registered BEFORE auth middleware — must stay public for Docker/Caddy probes
 graphRouter.get('/health', async (_req: Request, res: Response) => {
@@ -106,6 +110,27 @@ graphRouter.get('/token-stats', async (_req: Request, res: Response) => {
   } catch (error) {
     logger.error({ error }, 'Nearblocks token stats error');
     res.status(502).json({ error: 'Failed to fetch token stats' });
+  }
+});
+
+graphRouter.get('/protocol-pulse', async (_req: Request, res: Response) => {
+  try {
+    const overview = await getAnalyticsOverview(ANALYTICS_VIEWER_ACCOUNT_ID);
+
+    res.json({
+      generatedAt: overview.generatedAt,
+      windowHours: overview.windowHours,
+      totals: {
+        profiles: overview.totals.profiles,
+        groups: overview.totals.groups,
+      },
+      recent24h: {
+        posts: overview.recent24h.posts,
+      },
+    });
+  } catch (error) {
+    logger.error({ error }, 'Protocol pulse stats error');
+    res.status(502).json({ error: 'Failed to fetch protocol pulse' });
   }
 });
 
