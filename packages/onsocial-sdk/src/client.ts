@@ -24,6 +24,8 @@ import { NotificationsModule } from './notifications.js';
 import { GroupsModule } from './groups.js';
 import { PostsModule } from './posts.js';
 import { ProfilesModule } from './profiles.js';
+import { ReactionsModule } from './reactions.js';
+import { SavesModule } from './saves.js';
 import { PermissionsModule } from './permissions.js';
 import { ChainModule } from './chain.js';
 import { PagesModule } from './pages.js';
@@ -137,6 +139,10 @@ export class OnSocial {
   readonly posts: PostsModule;
   /** Profiles — read/write profiles with auto-uploaded avatar / banner and materialised reads. */
   readonly profiles: ProfilesModule;
+  /** Reactions — add / remove / toggle / summary helpers over indexed reaction state. */
+  readonly reactions: ReactionsModule;
+  /** Saves — add / remove / toggle / list bookmarks; accepts post objects directly. */
+  readonly saves: SavesModule;
   /** Scarces / NFTs (mint, collections, marketplace, offers). */
   readonly scarces: ScarcesModule;
   /** Rewards (credit, claim, balance). */
@@ -183,6 +189,8 @@ export class OnSocial {
     this.pages = new PagesModule(this.http);
     this.posts = new PostsModule(this.social, this.groups);
     this.profiles = new ProfilesModule(this.social, this.query, storageProvider);
+    this.reactions = new ReactionsModule(this.social, this.query);
+    this.saves = new SavesModule(this.social, this.query);
   }
 
   // ── Generic execute ─────────────────────────────────────────────────────

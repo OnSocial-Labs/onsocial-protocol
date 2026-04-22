@@ -96,6 +96,15 @@ export { GroupsModule } from './groups.js';
 export { PostsModule } from './posts.js';
 export { ProfilesModule } from './profiles.js';
 export type { MaterialisedProfile } from './profiles.js';
+export { ReactionsModule } from './reactions.js';
+export type {
+  ReactionInput,
+  ReactionTarget,
+  ReactionSummary,
+  ToggleOptions as ReactionToggleOptions,
+} from './reactions.js';
+export { SavesModule } from './saves.js';
+export type { SaveTarget } from './saves.js';
 export { PermissionsModule } from './permissions.js';
 export { ChainModule } from './chain.js';
 export { PagesModule } from './pages.js';
