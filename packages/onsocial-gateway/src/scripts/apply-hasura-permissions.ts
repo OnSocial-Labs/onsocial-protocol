@@ -184,7 +184,9 @@ async function dropPermissions(): Promise<void> {
 async function createPermissions(): Promise<void> {
   console.log('🔧 Creating tier-based permissions...\n');
 
-  const existingPermissions = buildPermissionIndex(await exportMetadataTables());
+  const existingPermissions = buildPermissionIndex(
+    await exportMetadataTables()
+  );
 
   let created = 0;
   let updated = 0;
@@ -245,9 +247,7 @@ async function createPermissions(): Promise<void> {
           console.log(`   ↻ Replaced permission on ${table.name}`);
           updated++;
         } else if (msg.includes('does not exist')) {
-          console.log(
-            `   ⚠ ${table.name}: ${msg}`
-          );
+          console.log(`   ⚠ ${table.name}: ${msg}`);
           skipped++;
         } else {
           console.error(`   ✗ ${table.name}: ${msg}`);
