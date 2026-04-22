@@ -413,6 +413,171 @@ async function createPermissions(): Promise<void> {
   );
 }
 
+// Idempotent reconciliation: only touch (role, table) pairs whose permission
+// definition has actually changed (or is missing/extra) relative to the catalog.
+// This is the action CI should call on every deploy — most runs end up as
+// no-ops, avoiding pointless drop+create churn and Hasura schema reloads.
+async function syncPermissions(): Promise<void> {
+  console.log('🔁 Syncing permissions (diff against live metadata)...');
+
+  // 1. Snapshot current permissions per (role, table).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Hasura metadata is deeply nested
+  const md: any = await hasuraMetadata({
+    type: 'export_metadata',
+    version: 2,
+    args: {},
+  });
+  const tablesMd = md?.metadata?.sources?.[0]?.tables ?? [];
+  type ExistingPerm = {
+    columns: string[];
+    limit?: number;
+    allow_aggregations?: boolean;
+    filter: unknown;
+  };
+  const existing = new Map<string, ExistingPerm>(); // key: `${role}@${table}`
+  for (const t of tablesMd) {
+    const tableName: string | undefined = t?.table?.name;
+    if (!tableName) continue;
+    for (const p of t.select_permissions ?? []) {
+      existing.set(`${p.role}@${tableName}`, {
+        columns: Array.isArray(p.permission?.columns)
+          ? [...p.permission.columns].sort()
+          : [],
+        limit: p.permission?.limit,
+        allow_aggregations: p.permission?.allow_aggregations,
+        filter: p.permission?.filter ?? {},
+      });
+    }
+  }
+
+  // 2. Build desired set, filtered by live Postgres columns.
+  let liveColumns: Map<string, Set<string>>;
+  try {
+    liveColumns = await fetchLiveColumns();
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(`   ⚠ Could not introspect Postgres columns: ${msg}`);
+    liveColumns = new Map();
+  }
+
+  type Desired = ExistingPerm & { role: string; table: string };
+  const desired = new Map<string, Desired>();
+  for (const [role, limits] of Object.entries(TIERS)) {
+    for (const table of TABLES) {
+      const live = liveColumns.get(table.name);
+      if (!live) continue; // Table not in Postgres — Hasura would reject.
+      const columns = table.columns.filter((c) => live.has(c));
+      if (columns.length === 0) continue;
+      desired.set(`${role}@${table.name}`, {
+        role,
+        table: table.name,
+        columns: [...columns].sort(),
+        limit: limits.limit,
+        allow_aggregations: limits.allow_aggregations,
+        filter: {},
+      });
+    }
+  }
+
+  // 3. Diff.
+  const toDrop: Array<{ role: string; table: string }> = [];
+  const toCreate: Desired[] = [];
+
+  for (const [key, want] of desired) {
+    const have = existing.get(key);
+    if (!have) {
+      toCreate.push(want);
+      continue;
+    }
+    const sameCols =
+      have.columns.length === want.columns.length &&
+      have.columns.every((c, i) => c === want.columns[i]);
+    const sameLimit = have.limit === want.limit;
+    const sameAgg = !!have.allow_aggregations === !!want.allow_aggregations;
+    const sameFilter =
+      JSON.stringify(have.filter ?? {}) === JSON.stringify(want.filter ?? {});
+    if (!sameCols || !sameLimit || !sameAgg || !sameFilter) {
+      toDrop.push({ role: want.role, table: want.table });
+      toCreate.push(want);
+    }
+  }
+
+  // Permissions that exist in Hasura but are not in the desired catalog
+  // (e.g. role removed, table dropped from catalog). Only consider tables
+  // we manage — leave admin/console-created perms untouched.
+  const managedTables = new Set(TABLES.map((t) => t.name));
+  const managedRoles = new Set(Object.keys(TIERS));
+  for (const key of existing.keys()) {
+    if (desired.has(key)) continue;
+    const [role, table] = key.split('@');
+    if (!managedRoles.has(role) || !managedTables.has(table)) continue;
+    toDrop.push({ role, table });
+  }
+
+  if (toDrop.length === 0 && toCreate.length === 0) {
+    console.log(`   ✓ No changes — ${existing.size} permissions already in sync\n`);
+    return;
+  }
+
+  console.log(
+    `   • ${toDrop.length} to drop, ${toCreate.length} to (re)create\n`
+  );
+
+  // 4. Apply.
+  if (toDrop.length > 0) {
+    const ops: BulkOp[] = toDrop.map(({ role, table }) => ({
+      type: 'pg_drop_select_permission',
+      args: { source: 'default', table: { schema: 'public', name: table }, role },
+    }));
+    for (const batch of chunk(ops, BULK_CHUNK_SIZE)) {
+      const results = await hasuraBulk(batch);
+      for (let i = 0; i < batch.length; i++) {
+        const r = results[i] as { error?: string } | undefined;
+        if (r?.error) {
+          const msg = String(r.error);
+          if (!msg.includes('does not exist') && !msg.includes('not found')) {
+            unexpectedErrors++;
+            console.warn(
+              `   ⚠ drop ${batch[i].args.role}@${batch[i].args.table.name}: ${msg}`
+            );
+          }
+        }
+      }
+    }
+  }
+
+  if (toCreate.length > 0) {
+    const ops: BulkOp[] = toCreate.map((d) => ({
+      type: 'pg_create_select_permission',
+      args: {
+        source: 'default',
+        table: { schema: 'public', name: d.table },
+        role: d.role,
+        permission: {
+          columns: d.columns,
+          filter: d.filter,
+          limit: d.limit,
+          allow_aggregations: d.allow_aggregations,
+        },
+      },
+    }));
+    for (const batch of chunk(ops, BULK_CHUNK_SIZE)) {
+      const results = await hasuraBulk(batch);
+      for (let i = 0; i < batch.length; i++) {
+        const r = results[i] as { error?: string } | undefined;
+        if (r?.error) {
+          unexpectedErrors++;
+          console.warn(
+            `   ✗ create ${batch[i].args.role}@${batch[i].args.table.name}: ${r.error}`
+          );
+        }
+      }
+    }
+  }
+
+  console.log(`   ✓ Sync applied\n`);
+}
+
 async function main(): Promise<void> {
   const action = process.argv[2] || 'create';
 
@@ -439,13 +604,19 @@ async function main(): Promise<void> {
         await createPermissions();
         await smokeTestServiceRole();
         break;
+      case 'sync':
+        await snapshotMetadata();
+        await trackTables();
+        await syncPermissions();
+        await smokeTestServiceRole();
+        break;
       case 'smoke':
         await smokeTestServiceRole();
         break;
       default:
         console.error(`Unknown action: ${action}`);
         console.log(
-          'Usage: apply-hasura-permissions.ts [check|create|drop|reset|smoke]'
+          'Usage: apply-hasura-permissions.ts [check|create|drop|reset|sync|smoke]'
         );
         process.exit(1);
     }

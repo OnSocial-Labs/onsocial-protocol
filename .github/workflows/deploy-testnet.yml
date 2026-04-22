@@ -314,7 +314,7 @@ jobs:
             docker compose exec -T \
               -e HASURA_BACKUP_DIR=/tmp \
               gateway \
-              node packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js reset </dev/null
+              node packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js sync </dev/null
             # Pull the snapshot out of the container's tmpfs onto the host.
             LATEST_SNAPSHOT=$(docker compose exec -T gateway sh -c 'ls -1t /tmp/hasura-metadata-*.json 2>/dev/null | head -1' </dev/null | tr -d '\r')
             if [ -n "$LATEST_SNAPSHOT" ]; then

@@ -529,7 +529,7 @@ jobs:
                 if docker compose ps gateway >/dev/null 2>&1; then
                   mkdir -p /opt/onsocial/backups
                   docker compose exec -T -e HASURA_BACKUP_DIR=/tmp gateway \
-                    node packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js reset
+                    node packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js sync
                   LATEST_SNAPSHOT=$(docker compose exec -T gateway sh -c 'ls -1t /tmp/hasura-metadata-*.json 2>/dev/null | head -1' | tr -d '\r')
                   if [ -n "$LATEST_SNAPSHOT" ]; then
                     docker cp "gateway:$LATEST_SNAPSHOT" /opt/onsocial/backups/ 2>/dev/null || true
