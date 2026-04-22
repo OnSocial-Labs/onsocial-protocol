@@ -307,9 +307,9 @@ async function fetchLiveColumns(): Promise<Map<string, Set<string>>> {
   // columns that exist (avoids `column not found` errors when the catalog has
   // drifted ahead of the indexer schema, e.g. during a partial deploy).
   const sql = `SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = 'public'`;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- run_sql response is untyped
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- pg_run_sql response is untyped
   const result: any = await hasuraMetadata({
-    type: 'run_sql',
+    type: 'pg_run_sql',
     args: { source: 'default', sql, read_only: true },
   });
   const rows: Array<[string, string]> = (result?.result ?? []).slice(1);
