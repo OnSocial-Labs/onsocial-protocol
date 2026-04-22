@@ -1,6 +1,11 @@
 name: Deploy Substreams (Testnet)
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'indexers/substreams/**'
+      - '.github/workflows/deploy-substreams-testnet.yml'
   workflow_run:
     workflows: ["Substreams CI"]
     types: [completed]
@@ -40,7 +45,7 @@ env:
   TESTNET_SUBSTREAMS_ENDPOINT: ${{ inputs.substreams_endpoint != '' && inputs.substreams_endpoint || 'testnet.near.streamingfast.io:443' }}
 
 concurrency:
-  group: substreams-testnet-deploy
+  group: hasura-testnet
   cancel-in-progress: false
 
 permissions:
@@ -68,6 +73,7 @@ jobs:
     environment:
       name: testnet
     if: >
+      github.event_name == 'push' ||
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
     steps:
@@ -521,9 +527,14 @@ jobs:
               (
                 cd /opt/onsocial
                 if docker compose ps gateway >/dev/null 2>&1; then
-                  docker compose exec -T gateway \
+                  mkdir -p /opt/onsocial/backups
+                  docker compose exec -T -e HASURA_BACKUP_DIR=/tmp gateway \
                     node packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js reset
-                  echo "✓ Gateway Hasura permissions synced"
+                  LATEST_SNAPSHOT=$(docker compose exec -T gateway sh -c 'ls -1t /tmp/hasura-metadata-*.json 2>/dev/null | head -1' | tr -d '\r')
+                  if [ -n "$LATEST_SNAPSHOT" ]; then
+                    docker cp "gateway:$LATEST_SNAPSHOT" /opt/onsocial/backups/ 2>/dev/null || true
+                  fi
+                  echo "✓ Gateway Hasura permissions synced + smoke tested"
                 else
                   echo "⚠️ Gateway service not found in /opt/onsocial docker compose; skipping permission sync"
                 fi

@@ -183,6 +183,85 @@ async function checkExistingPermissions(): Promise<void> {
   console.log('\n✅ Permission check complete');
 }
 
+// Counts unexpected per-op errors so the workflow can fail loudly instead of
+// silently passing with broken permissions. Bumped from inside drop/create.
+let unexpectedErrors = 0;
+
+async function snapshotMetadata(): Promise<void> {
+  console.log('💾 Exporting Hasura metadata snapshot...');
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- export_metadata response is opaque
+    const result: any = await hasuraMetadata({
+      type: 'export_metadata',
+      version: 2,
+      args: {},
+    });
+    const dir = process.env.HASURA_BACKUP_DIR || '/tmp';
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const path = `${dir}/hasura-metadata-${stamp}.json`;
+    await import('node:fs/promises').then((fs) =>
+      fs.writeFile(path, JSON.stringify(result, null, 2))
+    );
+    console.log(`   ✓ Snapshot saved to ${path}\n`);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(`   ⚠ Could not snapshot metadata: ${msg}\n`);
+  }
+}
+
+async function smokeTestServiceRole(): Promise<void> {
+  // Verify the `service` role can actually read aggregate data via the same
+  // Hasura GraphQL path the gateway analytics route uses. This catches
+  // permission regressions that pass the bulk apply but break queries.
+  console.log('🧪 Smoke testing service-role analytics query...');
+
+  const query = `query SmokeTest {
+    postsCurrentAggregate { aggregate { count } }
+    reactionsCurrentAggregate { aggregate { count } }
+    groupUpdatesAggregate { aggregate { count } }
+  }`;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'x-hasura-role': 'service',
+    'x-hasura-user-id': 'smoke-test',
+  };
+  if (config.hasuraAdminSecret) {
+    headers['x-hasura-admin-secret'] = config.hasuraAdminSecret;
+  }
+
+  const response = await fetch(config.hasuraUrl, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ query }),
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- GraphQL response shape is opaque
+  const body: any = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(
+      `Smoke test HTTP ${response.status}: ${JSON.stringify(body)}`
+    );
+  }
+  if (body.errors?.length) {
+    throw new Error(
+      `Smoke test GraphQL errors: ${body.errors.map((e: { message?: string }) => e.message ?? 'unknown').join('; ')}`
+    );
+  }
+  if (typeof body.data?.postsCurrentAggregate?.aggregate?.count !== 'number') {
+    throw new Error(
+      `Smoke test: unexpected response shape: ${JSON.stringify(body)}`
+    );
+  }
+
+  console.log(
+    `   ✓ service role can read aggregates ` +
+      `(posts=${body.data.postsCurrentAggregate.aggregate.count}, ` +
+      `reactions=${body.data.reactionsCurrentAggregate.aggregate.count}, ` +
+      `groups=${body.data.groupUpdatesAggregate.aggregate.count})\n`
+  );
+}
+
 async function dropPermissions(): Promise<void> {
   console.log('🗑️  Dropping existing permissions (bulk)...');
 
@@ -209,6 +288,7 @@ async function dropPermissions(): Promise<void> {
       if (r && typeof r === 'object' && 'error' in r && r.error) {
         const msg = String(r.error);
         if (!msg.includes('does not exist') && !msg.includes('not found')) {
+          unexpectedErrors++;
           console.warn(
             `   ⚠ drop ${batch[i].args.role}@${batch[i].args.table.name}: ${msg}`
           );
@@ -302,6 +382,7 @@ async function createPermissions(): Promise<void> {
         ) {
           alreadyExists++;
         } else {
+          unexpectedErrors++;
           console.warn(
             `   ✗ ${batch[i].args.role}@${batch[i].args.table.name}: ${msg}`
           );
@@ -337,20 +418,32 @@ async function main(): Promise<void> {
         await createPermissions();
         break;
       case 'reset':
+        await snapshotMetadata();
         await trackTables();
         await dropPermissions();
         await createPermissions();
+        await smokeTestServiceRole();
+        break;
+      case 'smoke':
+        await smokeTestServiceRole();
         break;
       default:
         console.error(`Unknown action: ${action}`);
         console.log(
-          'Usage: apply-hasura-permissions.ts [check|create|drop|reset]'
+          'Usage: apply-hasura-permissions.ts [check|create|drop|reset|smoke]'
         );
         process.exit(1);
     }
   } catch (error: unknown) {
     console.error(
       `\n❌ Error: ${error instanceof Error ? error.message : String(error)}`
+    );
+    process.exit(1);
+  }
+
+  if (unexpectedErrors > 0) {
+    console.error(
+      `\n❌ Completed with ${unexpectedErrors} unexpected per-op errors — failing the deploy.`
     );
     process.exit(1);
   }

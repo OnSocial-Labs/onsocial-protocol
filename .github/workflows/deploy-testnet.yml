@@ -15,6 +15,10 @@ on:
       - '.github/workflows/deploy-testnet.yml'
   workflow_dispatch:
 
+concurrency:
+  group: hasura-testnet
+  cancel-in-progress: false
+
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ghcr.io/onsocial-labs/onsocial-protocol
@@ -301,9 +305,21 @@ jobs:
               node packages/onsocial-gateway/dist/scripts/apply-migrations.js </dev/null
 
             # ── Sync Hasura permissions (reset → reconciles column drift) ─
+            # Snapshots metadata, uses bulk metadata API (1 schema reload per
+            # chunk), and runs an end-to-end smoke test as the `service` role
+            # afterwards. Exits non-zero on any unexpected per-op error or
+            # smoke-test failure so the deploy fails loudly.
             echo "Syncing Hasura permissions..."
-            docker compose exec -T gateway \
+            mkdir -p /opt/onsocial/backups
+            docker compose exec -T \
+              -e HASURA_BACKUP_DIR=/tmp \
+              gateway \
               node packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js reset </dev/null
+            # Pull the snapshot out of the container's tmpfs onto the host.
+            LATEST_SNAPSHOT=$(docker compose exec -T gateway sh -c 'ls -1t /tmp/hasura-metadata-*.json 2>/dev/null | head -1' </dev/null | tr -d '\r')
+            if [ -n "$LATEST_SNAPSHOT" ]; then
+              docker cp "gateway:$LATEST_SNAPSHOT" /opt/onsocial/backups/ 2>/dev/null || true
+            fi
 
             echo "Restarting notification worker..."
             docker compose up -d --no-deps notification-worker </dev/null
