@@ -526,6 +526,17 @@ jobs:
               echo "🔐 Syncing gateway Hasura permissions after substreams metadata update..."
               (
                 cd /opt/onsocial
+                # Suppress "VAR is not set" docker-compose warnings — `exec`
+                # only needs to attach to the already-running container, but
+                # docker-compose still parses the entire compose file and
+                # warns about every variable referenced in it. Source .env
+                # if present so those references resolve to real values.
+                if [ -f .env ]; then
+                  set -a
+                  # shellcheck disable=SC1091
+                  . ./.env
+                  set +a
+                fi
                 if docker compose ps gateway >/dev/null 2>&1; then
                   mkdir -p /opt/onsocial/backups
                   docker compose exec -T -e HASURA_BACKUP_DIR=/tmp gateway \
