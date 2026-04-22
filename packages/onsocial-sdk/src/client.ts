@@ -15,6 +15,8 @@ import { ScarcesModule } from './scarces.js';
 import { RewardsModule } from './rewards.js';
 import { QueryModule } from './query.js';
 import { StorageModule } from './storage.js';
+import { EndorsementsModule } from './endorsements.js';
+import { AttestationsModule } from './attestations.js';
 import {
   resolveStorageProvider,
   type StorageConfig,
@@ -143,6 +145,10 @@ export class OnSocial {
   readonly reactions: ReactionsModule;
   /** Saves — add / remove / toggle / list bookmarks; accepts post objects directly. */
   readonly saves: SavesModule;
+  /** Endorsements — weighted directed vouches with toggle + materialised lists. */
+  readonly endorsements: EndorsementsModule;
+  /** Attestations — verifiable typed claims with auto-claimId issue + lists. */
+  readonly attestations: AttestationsModule;
   /** Scarces / NFTs (mint, collections, marketplace, offers). */
   readonly scarces: ScarcesModule;
   /** Rewards (credit, claim, balance). */
@@ -191,6 +197,8 @@ export class OnSocial {
     this.profiles = new ProfilesModule(this.social, this.query, storageProvider);
     this.reactions = new ReactionsModule(this.social, this.query);
     this.saves = new SavesModule(this.social, this.query);
+    this.endorsements = new EndorsementsModule(this.social, this.query);
+    this.attestations = new AttestationsModule(this.social, this.query);
   }
 
   // ── Generic execute ─────────────────────────────────────────────────────

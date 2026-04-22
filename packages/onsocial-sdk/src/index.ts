@@ -111,6 +111,10 @@ export type {
 } from './reactions.js';
 export { SavesModule } from './saves.js';
 export type { SaveTarget } from './saves.js';
+export { EndorsementsModule } from './endorsements.js';
+export type { EndorsementListItem } from './endorsements.js';
+export { AttestationsModule } from './attestations.js';
+export type { AttestationListItem } from './attestations.js';
 export { PermissionsModule } from './permissions.js';
 export { ChainModule } from './chain.js';
 export { PagesModule } from './pages.js';
