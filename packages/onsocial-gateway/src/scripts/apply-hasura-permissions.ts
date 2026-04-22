@@ -15,6 +15,12 @@ import {
   ADMIN_ONLY_TABLES,
   PUBLIC_TABLES as TABLES,
 } from '../config/hasuraPermissionCatalog.js';
+import {
+  buildPermissionIndex,
+  permissionsMatch,
+  type HasuraMetadataTable,
+  type HasuraSelectPermission,
+} from './hasuraPermissionState.js';
 
 // Tiers must match gateway Tier type: 'free' | 'pro' | 'scale' | 'service'
 const TIERS = {
@@ -46,6 +52,22 @@ async function hasuraMetadata(body: object): Promise<unknown> {
   }
 
   return data;
+}
+
+async function exportMetadataTables(): Promise<HasuraMetadataTable[]> {
+  const result = (await hasuraMetadata({
+    type: 'export_metadata',
+    version: 2,
+    args: {},
+  })) as {
+    metadata?: {
+      sources?: Array<{
+        tables?: HasuraMetadataTable[];
+      }>;
+    };
+  };
+
+  return result.metadata?.sources?.[0]?.tables || [];
 }
 
 async function dropSelectPermission(
@@ -115,14 +137,7 @@ async function trackTables(): Promise<void> {
 async function checkExistingPermissions(): Promise<void> {
   console.log('📋 Checking existing permissions...\n');
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Hasura metadata is deeply nested and untyped
-  const result: any = await hasuraMetadata({
-    type: 'export_metadata',
-    version: 2,
-    args: {},
-  });
-
-  const tables = result.metadata?.sources?.[0]?.tables || [];
+  const tables = await exportMetadataTables();
 
   for (const table of tables) {
     const tableName = table.table?.name;
@@ -169,6 +184,8 @@ async function dropPermissions(): Promise<void> {
 async function createPermissions(): Promise<void> {
   console.log('🔧 Creating tier-based permissions...\n');
 
+  const existingPermissions = buildPermissionIndex(await exportMetadataTables());
+
   let created = 0;
   let updated = 0;
   let skipped = 0;
@@ -179,6 +196,23 @@ async function createPermissions(): Promise<void> {
     );
 
     for (const table of TABLES) {
+      const desiredPermission: HasuraSelectPermission = {
+        columns: table.columns,
+        filter: {},
+        limit: limits.limit,
+        allow_aggregations: limits.allow_aggregations,
+      };
+      const existingPermission = existingPermissions.get(table.name)?.get(role);
+
+      if (
+        existingPermission &&
+        permissionsMatch(existingPermission, desiredPermission)
+      ) {
+        console.log(`   ⏭ Permission already up to date on ${table.name}`);
+        skipped++;
+        continue;
+      }
+
       try {
         await hasuraMetadata({
           type: 'pg_create_select_permission',
@@ -186,12 +220,7 @@ async function createPermissions(): Promise<void> {
             source: 'default',
             table: { schema: 'public', name: table.name },
             role,
-            permission: {
-              columns: table.columns,
-              filter: {}, // No row filter (blockchain data is public)
-              limit: limits.limit,
-              allow_aggregations: limits.allow_aggregations,
-            },
+            permission: desiredPermission,
           },
         });
         console.log(`   ✓ Created permission on ${table.name}`);
@@ -210,19 +239,14 @@ async function createPermissions(): Promise<void> {
               source: 'default',
               table: { schema: 'public', name: table.name },
               role,
-              permission: {
-                columns: table.columns,
-                filter: {},
-                limit: limits.limit,
-                allow_aggregations: limits.allow_aggregations,
-              },
+              permission: desiredPermission,
             },
           });
           console.log(`   ↻ Replaced permission on ${table.name}`);
           updated++;
-        } else if (msg.includes('table') && msg.includes('does not exist')) {
+        } else if (msg.includes('does not exist')) {
           console.log(
-            `   ⚠ ${table.name} (table not found - might not be tracked yet)`
+            `   ⚠ ${table.name}: ${msg}`
           );
           skipped++;
         } else {
