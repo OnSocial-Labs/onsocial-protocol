@@ -175,7 +175,7 @@ export class OnSocial {
     );
     this.auth = new AuthModule(this.http);
     this.social = new SocialModule(this.http, storageProvider);
-    this.scarces = new ScarcesModule(this.http);
+    this.scarces = new ScarcesModule(this.http, this.social);
     this.rewards = new RewardsModule(this.http);
     this.query = new QueryModule(this.http);
     this.storage = new StorageModule(this.http, storageProvider);

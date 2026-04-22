@@ -52,7 +52,13 @@ export {
   buildPurchaseNativeScarceAction,
   buildQuickMintAction,
   buildTransferScarceAction,
+  extractPostMedia,
   nearToYocto,
+} from './scarces.js';
+export type {
+  ExtractedPost,
+  MintFromPostOptions,
+  PostSource,
 } from './scarces.js';
 export { RewardsModule } from './rewards.js';
 export { buildClaimAction, buildCreditRewardAction } from './rewards.js';

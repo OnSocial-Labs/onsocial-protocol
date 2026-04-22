@@ -12,8 +12,11 @@ import type {
   MintOptions,
   MintResponse,
   OfferOptions,
+  PostRef,
   RelayResponse,
 } from './types.js';
+import type { MediaRef } from './schema/v1.js';
+import type { PostRow } from './query.js';
 
 export interface TokenMetadata {
   title: string;
@@ -159,8 +162,105 @@ export function buildCreateLazyListingAction(opts: LazyListingOptions) {
   };
 }
 
+// ── Post-derived mint / list helpers ────────────────────────────────────────
+
+/**
+ * Anything identifying a post for `mintFromPost` / `listFromPost`. Accepts:
+ *   • A materialised `PostRow` (preferred — skips a network read).
+ *   • A `PostRef` (`{ author, postId }`) — the SDK reads the post via
+ *     `os.social.getOne` to extract text + media.
+ */
+export type PostSource = PostRow | PostRef;
+
+/** Parsed projection of a post body — text + first usable media CID. */
+export interface ExtractedPost {
+  text: string;
+  /** First IPFS CID found in `media[]` (string or MediaRef), if any. */
+  mediaCid?: string;
+  /** Raw `media[]` entries as stored on chain. */
+  media: Array<string | MediaRef>;
+}
+
+/**
+ * Pull text + first media CID out of a post body. Accepts the raw `value`
+ * field from `posts_current` (a JSON string), or a pre-parsed object.
+ *
+ * ```ts
+ * const { text, mediaCid } = extractPostMedia(row.value);
+ * ```
+ */
+export function extractPostMedia(
+  value: string | Record<string, unknown> | null | undefined
+): ExtractedPost {
+  let parsed: Record<string, unknown> | null = null;
+  if (value == null) {
+    return { text: '', media: [] };
+  }
+  if (typeof value === 'string') {
+    try {
+      parsed = JSON.parse(value) as Record<string, unknown>;
+    } catch {
+      return { text: value, media: [] };
+    }
+  } else {
+    parsed = value;
+  }
+
+  const text = typeof parsed.text === 'string' ? parsed.text : '';
+  const rawMedia = Array.isArray(parsed.media)
+    ? (parsed.media as Array<string | MediaRef>)
+    : [];
+  let mediaCid: string | undefined;
+  for (const entry of rawMedia) {
+    if (typeof entry === 'string') {
+      if (entry.startsWith('ipfs://')) {
+        mediaCid = entry.slice('ipfs://'.length);
+        break;
+      }
+    } else if (entry && typeof entry.cid === 'string' && entry.cid) {
+      mediaCid = entry.cid;
+      break;
+    }
+  }
+  return { text, mediaCid, media: rawMedia };
+}
+
+function isPostRow(p: PostSource): p is PostRow {
+  return 'accountId' in p && 'value' in p;
+}
+
+function postCoords(p: PostSource): { author: string; postId: string } {
+  if (isPostRow(p)) return { author: p.accountId, postId: p.postId };
+  return { author: p.author, postId: p.postId };
+}
+
+/** Options for `os.scarces.mintFromPost` / `listFromPost`. */
+export interface MintFromPostOptions {
+  /** Override NFT title (default: post text truncated to 100 chars). */
+  title?: string;
+  /** Override NFT description (default: full post text). */
+  description?: string;
+  /** Number of editions (default: 1). */
+  copies?: number;
+  /** Royalty map — e.g. `{ 'alice.near': 1000 }` for 10%. */
+  royalty?: Record<string, number>;
+  /** Override media CID (default: first IPFS CID in the post's `media[]`). */
+  mediaCid?: string;
+  /** Optional file to upload via the gateway (used only when no `mediaCid`). */
+  image?: Blob | File;
+  /** App ID for attribution / quotas. */
+  appId?: string;
+  /** Receiver of the minted token (default: caller). */
+  receiverId?: string;
+  /** Extra metadata merged into the scarce's `extra` (post link is always added). */
+  extra?: Record<string, unknown>;
+}
+
 export class ScarcesModule {
-  constructor(private _http: HttpClient) {}
+  constructor(
+    private _http: HttpClient,
+    private _social?: import('./social.js').SocialModule
+  ) {}
 
   // ── Minting ─────────────────────────────────────────────────────────────
 
@@ -334,6 +434,124 @@ export class ScarcesModule {
     return this._http.post<RelayResponse>('/compose/purchase-lazy-listing', {
       listingId,
     });
+  }
+
+  // ── Post-derived helpers ────────────────────────────────────────────────
+
+  /**
+   * Mint a post as a 1-of-N collectible scarce. Reuses the post's first
+   * IPFS media CID by default — no re-upload — and links the new scarce
+   * back to its source post via `extra.sourcePost`.
+   *
+   * ```ts
+   * // From a feed row (no extra network read)
+   * await os.scarces.mintFromPost(row, { copies: 10 });
+   *
+   * // From a PostRef (SDK fetches the body to extract text + media)
+   * await os.scarces.mintFromPost(
+   *   { author: 'alice.near', postId: '123' },
+   *   { royalty: { 'alice.near': 1000 } }
+   * );
+   * ```
+   */
+  async mintFromPost(
+    post: PostSource,
+    opts: MintFromPostOptions = {}
+  ): Promise<MintResponse> {
+    const { author, postId } = postCoords(post);
+    const extracted = await this._readPost(post);
+    const mintOpts = this._buildPostMintOpts(
+      author,
+      postId,
+      extracted,
+      opts
+    );
+    return this.mint(mintOpts);
+  }
+
+  /**
+   * Create a lazy listing for a post (mint-on-purchase at a fixed price).
+   * Same media reuse + source-post linking as `mintFromPost`.
+   *
+   * ```ts
+   * await os.scarces.listFromPost(row, '5', { royalty: { 'alice.near': 1000 } });
+   * ```
+   */
+  async listFromPost(
+    post: PostSource,
+    priceNear: string,
+    opts: MintFromPostOptions & {
+      transferable?: boolean;
+      burnable?: boolean;
+      expiresAt?: string;
+    } = {}
+  ): Promise<MintResponse> {
+    const { author, postId } = postCoords(post);
+    const extracted = await this._readPost(post);
+    const base = this._buildPostMintOpts(author, postId, extracted, opts);
+    const lazyOpts: LazyListingOptions = {
+      title: base.title,
+      priceNear,
+      ...(base.description ? { description: base.description } : {}),
+      ...(base.mediaCid ? { mediaCid: base.mediaCid } : {}),
+      ...(base.image ? { image: base.image } : {}),
+      ...(base.royalty ? { royalty: base.royalty } : {}),
+      ...(base.appId ? { appId: base.appId } : {}),
+      ...(base.extra ? { extra: base.extra } : {}),
+      ...(opts.transferable != null ? { transferable: opts.transferable } : {}),
+      ...(opts.burnable != null ? { burnable: opts.burnable } : {}),
+      ...(opts.expiresAt ? { expiresAt: opts.expiresAt } : {}),
+    };
+    return this.createLazyListing(lazyOpts);
+  }
+
+  private async _readPost(post: PostSource): Promise<ExtractedPost> {
+    if (isPostRow(post)) {
+      return extractPostMedia(post.value);
+    }
+    if (!this._social) {
+      throw new Error(
+        'mintFromPost/listFromPost: PostRef requires a SocialModule. Pass a PostRow instead, or construct ScarcesModule with a social module (the OnSocial client wires this automatically).'
+      );
+    }
+    const entry = await this._social.getOne(`post/${post.postId}`, post.author);
+    return extractPostMedia(
+      (entry?.value as string | Record<string, unknown> | undefined) ?? null
+    );
+  }
+
+  private _buildPostMintOpts(
+    author: string,
+    postId: string,
+    extracted: ExtractedPost,
+    opts: MintFromPostOptions
+  ): MintOptions {
+    const text = extracted.text;
+    const title =
+      opts.title ??
+      ((text.length > 100 ? text.slice(0, 97) + '...' : text) ||
+        `Post ${postId}`);
+    return {
+      title,
+      description: opts.description ?? text,
+      ...(opts.copies != null ? { copies: opts.copies } : {}),
+      ...(opts.royalty ? { royalty: opts.royalty } : {}),
+      ...(opts.appId ? { appId: opts.appId } : {}),
+      ...(opts.receiverId ? { receiverId: opts.receiverId } : {}),
+      ...(opts.image ? { image: opts.image } : {}),
+      ...(opts.mediaCid ?? extracted.mediaCid
+        ? { mediaCid: opts.mediaCid ?? extracted.mediaCid }
+        : {}),
+      extra: {
+        sourcePost: {
+          author,
+          postId,
+          path: `${author}/post/${postId}`,
+        },
+        mintedAt: Date.now(),
+        ...(opts.extra ?? {}),
+      },
+    };
   }
 
   // ── Transfers ───────────────────────────────────────────────────────────
