@@ -515,7 +515,9 @@ async function syncPermissions(): Promise<void> {
   }
 
   if (toDrop.length === 0 && toCreate.length === 0) {
-    console.log(`   ✓ No changes — ${existing.size} permissions already in sync\n`);
+    console.log(
+      `   ✓ No changes — ${existing.size} permissions already in sync\n`
+    );
     return;
   }
 
@@ -527,7 +529,11 @@ async function syncPermissions(): Promise<void> {
   if (toDrop.length > 0) {
     const ops: BulkOp[] = toDrop.map(({ role, table }) => ({
       type: 'pg_drop_select_permission',
-      args: { source: 'default', table: { schema: 'public', name: table }, role },
+      args: {
+        source: 'default',
+        table: { schema: 'public', name: table },
+        role,
+      },
     }));
     for (const batch of chunk(ops, BULK_CHUNK_SIZE)) {
       const results = await hasuraBulk(batch);
