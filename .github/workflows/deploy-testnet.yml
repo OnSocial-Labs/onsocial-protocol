@@ -300,10 +300,10 @@ jobs:
             docker compose exec -T -e DATABASE_URL="$DATABASE_URL" gateway \
               node packages/onsocial-gateway/dist/scripts/apply-migrations.js </dev/null
 
-            # ── Sync Hasura permissions (idempotent — skips existing) ─
+            # ── Sync Hasura permissions (reconcile existing permissions) ─
             echo "Syncing Hasura permissions..."
             docker compose exec -T gateway \
-              node packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js create </dev/null
+              node packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js reset </dev/null
 
             echo "Restarting notification worker..."
             docker compose up -d --no-deps notification-worker </dev/null

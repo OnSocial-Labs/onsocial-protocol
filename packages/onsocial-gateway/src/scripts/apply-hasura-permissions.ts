@@ -48,6 +48,30 @@ async function hasuraMetadata(body: object): Promise<unknown> {
   return data;
 }
 
+async function dropSelectPermission(
+  tableName: string,
+  role: string,
+  ignoreMissing = false
+): Promise<boolean> {
+  try {
+    await hasuraMetadata({
+      type: 'pg_drop_select_permission',
+      args: {
+        source: 'default',
+        table: { schema: 'public', name: tableName },
+        role,
+      },
+    });
+    return true;
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (ignoreMissing && msg.includes('does not exist')) {
+      return false;
+    }
+    throw e;
+  }
+}
+
 async function trackTables(): Promise<void> {
   console.log('📌 Tracking tables in Hasura...\n');
 
@@ -126,14 +150,7 @@ async function dropPermissions(): Promise<void> {
   for (const role of roles) {
     for (const table of TABLES) {
       try {
-        await hasuraMetadata({
-          type: 'pg_drop_select_permission',
-          args: {
-            source: 'default',
-            table: { schema: 'public', name: table.name },
-            role,
-          },
-        });
+        await dropSelectPermission(table.name, role);
         console.log(`   ✓ Dropped ${role} permission on ${table.name}`);
         dropped++;
       } catch (e: unknown) {
@@ -153,6 +170,7 @@ async function createPermissions(): Promise<void> {
   console.log('🔧 Creating tier-based permissions...\n');
 
   let created = 0;
+  let updated = 0;
   let skipped = 0;
 
   for (const [role, limits] of Object.entries(TIERS)) {
@@ -185,8 +203,23 @@ async function createPermissions(): Promise<void> {
           msg.includes('already-exists') ||
           msg.includes('already exists')
         ) {
-          console.log(`   ⏭ ${table.name} (already exists)`);
-          skipped++;
+          await dropSelectPermission(table.name, role);
+          await hasuraMetadata({
+            type: 'pg_create_select_permission',
+            args: {
+              source: 'default',
+              table: { schema: 'public', name: table.name },
+              role,
+              permission: {
+                columns: table.columns,
+                filter: {},
+                limit: limits.limit,
+                allow_aggregations: limits.allow_aggregations,
+              },
+            },
+          });
+          console.log(`   ↻ Replaced permission on ${table.name}`);
+          updated++;
         } else if (msg.includes('table') && msg.includes('does not exist')) {
           console.log(
             `   ⚠ ${table.name} (table not found - might not be tracked yet)`
@@ -199,7 +232,9 @@ async function createPermissions(): Promise<void> {
     }
   }
 
-  console.log(`\n✅ Created ${created} permissions (${skipped} skipped)`);
+  console.log(
+    `\n✅ Created ${created} permissions (${updated} replaced, ${skipped} skipped)`
+  );
 }
 
 async function main(): Promise<void> {

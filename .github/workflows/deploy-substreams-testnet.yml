@@ -519,7 +519,7 @@ jobs:
                 cd /opt/onsocial
                 if docker compose ps gateway >/dev/null 2>&1; then
                   docker compose exec -T gateway \
-                    node packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js create
+                    node packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js reset
                   echo "✓ Gateway Hasura permissions synced"
                 else
                   echo "⚠️ Gateway service not found in /opt/onsocial docker compose; skipping permission sync"
