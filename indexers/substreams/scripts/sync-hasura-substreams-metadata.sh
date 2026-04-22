@@ -79,6 +79,10 @@ while IFS= read -r relation; do
 done <<< "$PUBLIC_RELATIONS"
 
 echo "Reloading metadata cache..."
-metadata_api '{"type":"reload_metadata","args":{}}' >/dev/null
+# IMPORTANT: reload_sources: true forces Hasura to re-introspect Postgres
+# (including views modified via CREATE OR REPLACE). Without it, columns
+# added to existing tracked views remain invisible to GraphQL even though
+# they exist in Postgres, and SDK queries silently return [].
+metadata_api '{"type":"reload_metadata","args":{"reload_remote_schemas":true,"reload_sources":true,"recreate_event_triggers":false}}' >/dev/null
 
 echo "Hasura substreams metadata sync complete: created=${created} skipped=${skipped}"
