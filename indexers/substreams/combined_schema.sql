@@ -40,10 +40,7 @@ CREATE TABLE IF NOT EXISTS data_updates (
   derived_type TEXT,
   writes TEXT,
   extra_data TEXT,
-  reaction_kind TEXT,
-  channel TEXT,
-  kind TEXT,
-  audiences TEXT
+  reaction_kind TEXT
 );
 
 CREATE TABLE IF NOT EXISTS storage_updates (

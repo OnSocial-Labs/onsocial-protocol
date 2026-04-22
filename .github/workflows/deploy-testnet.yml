@@ -300,7 +300,7 @@ jobs:
             docker compose exec -T -e DATABASE_URL="$DATABASE_URL" gateway \
               node packages/onsocial-gateway/dist/scripts/apply-migrations.js </dev/null
 
-            # ── Sync Hasura permissions (reconcile existing permissions) ─
+            # ── Sync Hasura permissions (idempotent — skips existing) ─
             echo "Syncing Hasura permissions..."
             docker compose exec -T gateway \
               node packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js create </dev/null
