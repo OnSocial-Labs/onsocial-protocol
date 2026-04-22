@@ -28,6 +28,7 @@ const HASURA_METADATA_URL = config.hasuraUrl.replace(
   '/v1/graphql',
   '/v1/metadata'
 );
+const HASURA_QUERY_URL = config.hasuraUrl.replace('/v1/graphql', '/v2/query');
 
 async function hasuraMetadata(body: object): Promise<unknown> {
   const response = await fetch(HASURA_METADATA_URL, {
@@ -216,7 +217,7 @@ async function smokeTestServiceRole(): Promise<void> {
   console.log('🧪 Smoke testing service-role analytics query...');
 
   const query = `query SmokeTest {
-    postsCurrentAggregate { aggregate { count } }
+    posts_current_aggregate { aggregate { count } }
     reactionsCurrentAggregate { aggregate { count } }
     groupUpdatesAggregate { aggregate { count } }
   }`;
@@ -248,7 +249,7 @@ async function smokeTestServiceRole(): Promise<void> {
       `Smoke test GraphQL errors: ${body.errors.map((e: { message?: string }) => e.message ?? 'unknown').join('; ')}`
     );
   }
-  if (typeof body.data?.postsCurrentAggregate?.aggregate?.count !== 'number') {
+  if (typeof body.data?.posts_current_aggregate?.aggregate?.count !== 'number') {
     throw new Error(
       `Smoke test: unexpected response shape: ${JSON.stringify(body)}`
     );
@@ -256,7 +257,7 @@ async function smokeTestServiceRole(): Promise<void> {
 
   console.log(
     `   ✓ service role can read aggregates ` +
-      `(posts=${body.data.postsCurrentAggregate.aggregate.count}, ` +
+      `(posts=${body.data.posts_current_aggregate.aggregate.count}, ` +
       `reactions=${body.data.reactionsCurrentAggregate.aggregate.count}, ` +
       `groups=${body.data.groupUpdatesAggregate.aggregate.count})\n`
   );
@@ -307,11 +308,25 @@ async function fetchLiveColumns(): Promise<Map<string, Set<string>>> {
   // columns that exist (avoids `column not found` errors when the catalog has
   // drifted ahead of the indexer schema, e.g. during a partial deploy).
   const sql = `SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = 'public'`;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- pg_run_sql response is untyped
-  const result: any = await hasuraMetadata({
-    type: 'pg_run_sql',
-    args: { source: 'default', sql, read_only: true },
+  // run_sql lives on /v2/query, not /v1/metadata. The metadata endpoint
+  // rejects both run_sql and pg_run_sql with parse-failed for this Hasura
+  // version, so we POST to /v2/query directly.
+  const response = await fetch(HASURA_QUERY_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-hasura-admin-secret': config.hasuraAdminSecret || '',
+    },
+    body: JSON.stringify({
+      type: 'run_sql',
+      args: { source: 'default', sql, read_only: true },
+    }),
   });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- run_sql response is untyped
+  const result: any = await response.json();
+  if (!response.ok) {
+    throw new Error(`Hasura /v2/query error: ${JSON.stringify(result)}`);
+  }
   const rows: Array<[string, string]> = (result?.result ?? []).slice(1);
   const map = new Map<string, Set<string>>();
   for (const [tableName, columnName] of rows) {
