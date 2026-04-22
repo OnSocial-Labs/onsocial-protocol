@@ -48,44 +48,110 @@ async function hasuraMetadata(body: object): Promise<unknown> {
   return data;
 }
 
+interface BulkOp {
+  type: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Hasura args are heterogeneous
+  args: any;
+}
+
+// Send a batch of metadata operations as a single transactional request.
+// Hasura performs ONE schema reload for the whole bulk, which avoids the
+// schema-reload storm that OOM-killed the container when we issued hundreds
+// of independent metadata calls in a loop.
+async function hasuraBulk(
+  ops: BulkOp[],
+  options?: { continueOnError?: boolean }
+): Promise<unknown[]> {
+  if (ops.length === 0) return [];
+  const continueOnError = options?.continueOnError ?? true;
+  const type = continueOnError ? 'bulk_keep_going' : 'bulk';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- bulk response is an array of per-op results
+  const result: any = await hasuraMetadata({ type, args: ops });
+  return Array.isArray(result) ? result : [];
+}
+
+function chunk<T>(items: T[], size: number): T[][] {
+  if (size <= 0) return [items];
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    out.push(items.slice(i, i + size));
+  }
+  return out;
+}
+
+const BULK_CHUNK_SIZE = 100;
+
+async function fetchTrackedTables(): Promise<Set<string>> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- export_metadata response is deeply nested
+  const result: any = await hasuraMetadata({
+    type: 'export_metadata',
+    version: 2,
+    args: {},
+  });
+  const tables = result?.metadata?.sources?.[0]?.tables ?? [];
+  const set = new Set<string>();
+  for (const t of tables) {
+    const name = t?.table?.name;
+    if (typeof name === 'string') set.add(name);
+  }
+  return set;
+}
+
 async function trackTables(): Promise<void> {
-  console.log('📌 Tracking tables in Hasura...\n');
+  console.log('📌 Tracking tables in Hasura...');
+
+  const liveColumns = await fetchLiveColumns().catch(() => new Map());
+  const tracked = await fetchTrackedTables();
 
   const allTableNames = [...TABLES.map((t) => t.name), ...ADMIN_ONLY_TABLES];
+  const toTrack = allTableNames.filter(
+    (name) => liveColumns.has(name) && !tracked.has(name)
+  );
+  const missingFromDb = allTableNames.filter((name) => !liveColumns.has(name));
+  const alreadyTracked =
+    allTableNames.length - toTrack.length - missingFromDb.length;
 
-  let tracked = 0;
-  let skipped = 0;
+  if (missingFromDb.length > 0) {
+    console.log(
+      `   ⚠ ${missingFromDb.length} catalog tables not yet in Postgres: ${missingFromDb.slice(0, 5).join(', ')}${missingFromDb.length > 5 ? ', …' : ''}`
+    );
+  }
 
-  for (const name of allTableNames) {
-    try {
-      await hasuraMetadata({
-        type: 'pg_track_table',
-        args: {
-          source: 'default',
-          table: { schema: 'public', name },
-        },
-      });
-      console.log(`   ✓ Tracked ${name}`);
-      tracked++;
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (
-        msg.includes('already tracked') ||
-        msg.includes('already-tracked') ||
-        msg.includes('already-exists')
-      ) {
-        console.log(`   ⏭ ${name} (already tracked)`);
-        skipped++;
-      } else if (msg.includes('does not exist') || msg.includes('not found')) {
-        console.log(`   ⚠ ${name} (table not in database yet)`);
-        skipped++;
+  if (toTrack.length === 0) {
+    console.log(`   ✓ All ${alreadyTracked} eligible tables already tracked\n`);
+    return;
+  }
+
+  const ops: BulkOp[] = toTrack.map((name) => ({
+    type: 'pg_track_table',
+    args: { source: 'default', table: { schema: 'public', name } },
+  }));
+
+  let trackedNow = 0;
+  for (const batch of chunk(ops, BULK_CHUNK_SIZE)) {
+    const results = await hasuraBulk(batch);
+    for (let i = 0; i < batch.length; i++) {
+      const r = results[i] as { error?: string; code?: string } | undefined;
+      if (r && typeof r === 'object' && 'error' in r && r.error) {
+        const msg = String(r.error);
+        if (
+          msg.includes('already tracked') ||
+          msg.includes('already-tracked') ||
+          msg.includes('already-exists')
+        ) {
+          // expected race
+        } else {
+          console.warn(`   ✗ track ${batch[i].args.table.name}: ${msg}`);
+        }
       } else {
-        console.error(`   ✗ ${name}: ${msg}`);
+        trackedNow++;
       }
     }
   }
 
-  console.log(`\n✅ Tracked ${tracked} tables (${skipped} skipped)\n`);
+  console.log(
+    `   ✓ Tracked ${trackedNow} new tables (${alreadyTracked} pre-existing)\n`
+  );
 }
 
 async function checkExistingPermissions(): Promise<void> {
@@ -118,35 +184,42 @@ async function checkExistingPermissions(): Promise<void> {
 }
 
 async function dropPermissions(): Promise<void> {
-  console.log('🗑️  Dropping existing permissions...\n');
+  console.log('🗑️  Dropping existing permissions (bulk)...');
 
   const roles = Object.keys(TIERS);
-  let dropped = 0;
-
+  const ops: BulkOp[] = [];
   for (const role of roles) {
     for (const table of TABLES) {
-      try {
-        await hasuraMetadata({
-          type: 'pg_drop_select_permission',
-          args: {
-            source: 'default',
-            table: { schema: 'public', name: table.name },
-            role,
-          },
-        });
-        console.log(`   ✓ Dropped ${role} permission on ${table.name}`);
-        dropped++;
-      } catch (e: unknown) {
-        // Permission might not exist, that's OK
-        const msg = e instanceof Error ? e.message : String(e);
-        if (!msg.includes('does not exist')) {
-          console.log(`   ⚠ ${role}@${table.name}: ${msg}`);
+      ops.push({
+        type: 'pg_drop_select_permission',
+        args: {
+          source: 'default',
+          table: { schema: 'public', name: table.name },
+          role,
+        },
+      });
+    }
+  }
+
+  let dropped = 0;
+  for (const batch of chunk(ops, BULK_CHUNK_SIZE)) {
+    const results = await hasuraBulk(batch);
+    for (let i = 0; i < batch.length; i++) {
+      const r = results[i] as { error?: string } | undefined;
+      if (r && typeof r === 'object' && 'error' in r && r.error) {
+        const msg = String(r.error);
+        if (!msg.includes('does not exist') && !msg.includes('not found')) {
+          console.warn(
+            `   ⚠ drop ${batch[i].args.role}@${batch[i].args.table.name}: ${msg}`
+          );
         }
+      } else {
+        dropped++;
       }
     }
   }
 
-  console.log(`\n✅ Dropped ${dropped} permissions`);
+  console.log(`   ✓ Dropped ${dropped} permissions\n`);
 }
 
 async function fetchLiveColumns(): Promise<Map<string, Set<string>>> {
@@ -169,7 +242,7 @@ async function fetchLiveColumns(): Promise<Map<string, Set<string>>> {
 }
 
 async function createPermissions(): Promise<void> {
-  console.log('🔧 Creating tier-based permissions...\n');
+  console.log('🔧 Creating tier-based permissions (bulk)...');
 
   let liveColumns: Map<string, Set<string>>;
   try {
@@ -180,65 +253,68 @@ async function createPermissions(): Promise<void> {
     liveColumns = new Map();
   }
 
-  let created = 0;
-  let skipped = 0;
-
+  const ops: BulkOp[] = [];
+  let skippedMissingTable = 0;
   for (const [role, limits] of Object.entries(TIERS)) {
-    console.log(
-      `\n📊 Role: ${role} (limit: ${limits.limit}, aggregations: ${limits.allow_aggregations})`
-    );
-
     for (const table of TABLES) {
       const live = liveColumns.get(table.name);
-      const columns = live
-        ? table.columns.filter((c) => live.has(c))
-        : table.columns;
-      const missing = live ? table.columns.filter((c) => !live.has(c)) : [];
-      if (missing.length > 0) {
-        console.log(
-          `   ⚠ ${table.name}: skipping missing columns [${missing.join(', ')}]`
-        );
+      if (!live) {
+        skippedMissingTable++;
+        continue; // Table not in Postgres yet — Hasura would reject.
       }
-
-      try {
-        await hasuraMetadata({
-          type: 'pg_create_select_permission',
-          args: {
-            source: 'default',
-            table: { schema: 'public', name: table.name },
-            role,
-            permission: {
-              columns,
-              filter: {}, // No row filter (blockchain data is public)
-              limit: limits.limit,
-              allow_aggregations: limits.allow_aggregations,
-            },
+      const columns = table.columns.filter((c) => live.has(c));
+      if (columns.length === 0) continue;
+      ops.push({
+        type: 'pg_create_select_permission',
+        args: {
+          source: 'default',
+          table: { schema: 'public', name: table.name },
+          role,
+          permission: {
+            columns,
+            filter: {}, // No row filter (blockchain data is public)
+            limit: limits.limit,
+            allow_aggregations: limits.allow_aggregations,
           },
-        });
-        console.log(`   ✓ Created permission on ${table.name}`);
-        created++;
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
+        },
+      });
+    }
+  }
+
+  if (skippedMissingTable > 0) {
+    console.log(
+      `   ⚠ Skipped ${skippedMissingTable} (role, table) pairs whose tables are not in Postgres yet`
+    );
+  }
+
+  let created = 0;
+  let alreadyExists = 0;
+  for (const batch of chunk(ops, BULK_CHUNK_SIZE)) {
+    const results = await hasuraBulk(batch);
+    for (let i = 0; i < batch.length; i++) {
+      const r = results[i] as { error?: string } | undefined;
+      if (r && typeof r === 'object' && 'error' in r && r.error) {
+        const msg = String(r.error);
         if (
           msg.includes('already defined') ||
           msg.includes('already-exists') ||
           msg.includes('already exists')
         ) {
-          console.log(`   ⏭ ${table.name} (already exists)`);
-          skipped++;
-        } else if (msg.includes('table') && msg.includes('does not exist')) {
-          console.log(
-            `   ⚠ ${table.name} (table not found - might not be tracked yet)`
-          );
-          skipped++;
+          alreadyExists++;
         } else {
-          console.error(`   ✗ ${table.name}: ${msg}`);
+          console.warn(
+            `   ✗ ${batch[i].args.role}@${batch[i].args.table.name}: ${msg}`
+          );
         }
+      } else {
+        created++;
       }
     }
   }
 
-  console.log(`\n✅ Created ${created} permissions (${skipped} skipped)`);
+  console.log(
+    `   ✓ Created ${created} permissions (${alreadyExists} already existed)\n`
+  );
 }
 
 async function main(): Promise<void> {
@@ -261,8 +337,8 @@ async function main(): Promise<void> {
         await createPermissions();
         break;
       case 'reset':
-        await dropPermissions();
         await trackTables();
+        await dropPermissions();
         await createPermissions();
         break;
       default:
