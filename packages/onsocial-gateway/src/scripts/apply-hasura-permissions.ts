@@ -217,7 +217,7 @@ async function smokeTestServiceRole(): Promise<void> {
   console.log('🧪 Smoke testing service-role analytics query...');
 
   const query = `query SmokeTest {
-    posts_current_aggregate { aggregate { count } }
+    postsCurrentAggregate { aggregate { count } }
     reactionsCurrentAggregate { aggregate { count } }
     groupUpdatesAggregate { aggregate { count } }
   }`;
@@ -249,7 +249,7 @@ async function smokeTestServiceRole(): Promise<void> {
       `Smoke test GraphQL errors: ${body.errors.map((e: { message?: string }) => e.message ?? 'unknown').join('; ')}`
     );
   }
-  if (typeof body.data?.posts_current_aggregate?.aggregate?.count !== 'number') {
+  if (typeof body.data?.postsCurrentAggregate?.aggregate?.count !== 'number') {
     throw new Error(
       `Smoke test: unexpected response shape: ${JSON.stringify(body)}`
     );
@@ -257,7 +257,7 @@ async function smokeTestServiceRole(): Promise<void> {
 
   console.log(
     `   ✓ service role can read aggregates ` +
-      `(posts=${body.data.posts_current_aggregate.aggregate.count}, ` +
+      `(posts=${body.data.postsCurrentAggregate.aggregate.count}, ` +
       `reactions=${body.data.reactionsCurrentAggregate.aggregate.count}, ` +
       `groups=${body.data.groupUpdatesAggregate.aggregate.count})\n`
   );
