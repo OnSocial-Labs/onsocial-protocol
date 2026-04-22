@@ -34,7 +34,14 @@ import type {
 
 export type SocialSetData = Record<string, unknown>;
 
-const PROFILE_RESERVED_FIELDS = ['name', 'bio', 'avatar', 'links', 'tags'];
+const PROFILE_RESERVED_FIELDS = [
+  'name',
+  'bio',
+  'avatar',
+  'banner',
+  'links',
+  'tags',
+];
 
 function encodeProfileField(value: unknown): string {
   return typeof value === 'string' ? value : JSON.stringify(value);
@@ -53,6 +60,7 @@ export function buildProfileSetData(profile: ProfileData): SocialSetData {
   if (profile.name !== undefined) data['profile/name'] = profile.name;
   if (profile.bio !== undefined) data['profile/bio'] = profile.bio;
   if (profile.avatar !== undefined) data['profile/avatar'] = profile.avatar;
+  if (profile.banner !== undefined) data['profile/banner'] = profile.banner;
   if (profile.links !== undefined) {
     data['profile/links'] = encodeProfileField(profile.links);
   }
@@ -533,7 +541,11 @@ export class SocialModule {
     let resolved: ProfileData = profile;
     if (isFileLike(profile.avatar)) {
       const url = await this._uploadFile(profile.avatar);
-      resolved = { ...profile, avatar: url };
+      resolved = { ...resolved, avatar: url };
+    }
+    if (isFileLike(resolved.banner)) {
+      const url = await this._uploadFile(resolved.banner);
+      resolved = { ...resolved, banner: url };
     }
     const data = buildProfileSetData(resolved);
 

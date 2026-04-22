@@ -23,6 +23,7 @@ import { WebhooksModule } from './webhooks.js';
 import { NotificationsModule } from './notifications.js';
 import { GroupsModule } from './groups.js';
 import { PostsModule } from './posts.js';
+import { ProfilesModule } from './profiles.js';
 import { PermissionsModule } from './permissions.js';
 import { ChainModule } from './chain.js';
 import { PagesModule } from './pages.js';
@@ -134,6 +135,8 @@ export class OnSocial {
   readonly social: SocialModule;
   /** Posts — the blessed single entry point for post creation. */
   readonly posts: PostsModule;
+  /** Profiles — read/write profiles with auto-uploaded avatar / banner and materialised reads. */
+  readonly profiles: ProfilesModule;
   /** Scarces / NFTs (mint, collections, marketplace, offers). */
   readonly scarces: ScarcesModule;
   /** Rewards (credit, claim, balance). */
@@ -179,6 +182,7 @@ export class OnSocial {
     this.chain = new ChainModule(this.http);
     this.pages = new PagesModule(this.http);
     this.posts = new PostsModule(this.social, this.groups);
+    this.profiles = new ProfilesModule(this.social, this.query, storageProvider);
   }
 
   // ── Generic execute ─────────────────────────────────────────────────────

@@ -132,6 +132,11 @@ export interface ProfileData {
    * before writing to the contract.
    */
   avatar?: string | Blob | File;
+  /**
+   * Profile banner / cover image. Same semantics as `avatar` — accepts a
+   * URL/CID string or a `File`/`Blob` (auto-uploaded by `os.profiles.update`).
+   */
+  banner?: string | Blob | File;
   links?: Record<string, string>;
   tags?: string[];
   [key: string]: unknown;

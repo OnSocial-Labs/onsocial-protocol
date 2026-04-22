@@ -94,6 +94,8 @@ export type {
 } from './notifications.js';
 export { GroupsModule } from './groups.js';
 export { PostsModule } from './posts.js';
+export { ProfilesModule } from './profiles.js';
+export type { MaterialisedProfile } from './profiles.js';
 export { PermissionsModule } from './permissions.js';
 export { ChainModule } from './chain.js';
 export { PagesModule } from './pages.js';
