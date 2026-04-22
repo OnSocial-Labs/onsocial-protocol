@@ -34,6 +34,22 @@ export interface OnSocialConfig {
   appId?: string;
   /** Custom fetch implementation (default: globalThis.fetch). */
   fetch?: typeof globalThis.fetch;
+  /**
+   * Storage provider for media uploads. Accepts:
+   *   • `undefined` (default) — uploads go via `/storage/upload` on the gateway.
+   *   • `{ provider: 'gateway' }` — same as default, explicit.
+   *   • `{ provider: 'lighthouse', apiKey }` — direct upload to Lighthouse,
+   *     bypassing the OnAPI gateway. Partner-billed.
+   *   • `{ provider: 'custom', impl }` — any object implementing StorageProvider.
+   *   • An inline StorageProvider instance.
+   *
+   * See `@onsocial/sdk/storage` for the provider interface.
+   */
+  storage?:
+    | { provider: 'gateway' }
+    | { provider: 'lighthouse'; apiKey: string }
+    | { provider: 'custom'; impl: unknown }
+    | unknown;
 }
 
 // ── Auth ────────────────────────────────────────────────────────────────────
@@ -123,11 +139,25 @@ export interface ProfileData {
 
 export interface PostData {
   text: string;
-  media?: string[];
   /**
-   * Optional file attachment. The SDK uploads it to IPFS via the gateway
-   * and prepends `ipfs://<cid>` to `media[]` before writing the post.
+   * Existing media refs. Accepts:
+   *   • `string` — a pre-resolved URL or `ipfs://<cid>` (legacy convenience).
+   *   • `MediaRef` — a fully-populated `{ cid, mime, size?, width?, height?, ... }`.
+   * `files` (below) produce MediaRef entries and are merged into this array.
+   */
+  media?: Array<string | import('./schema/v1.js').MediaRef>;
+  /**
+   * Files or Blobs to auto-upload via the configured StorageProvider. Each
+   * upload produces a `MediaRef` ({cid, mime, size}) which is appended to
+   * `media[]`. Works with any provider — gateway, direct Lighthouse, or a
+   * custom implementation — so contract-direct devs can use this path too.
    * Removed from the stored post body.
+   */
+  files?: Array<Blob | File>;
+  /**
+   * Legacy single-file attachment. The SDK uploads it to IPFS via the
+   * configured StorageProvider and prepends `ipfs://<cid>` to `media[]`.
+   * Prefer `files: [...]` for new code.
    */
   image?: Blob | File;
   tags?: string[];

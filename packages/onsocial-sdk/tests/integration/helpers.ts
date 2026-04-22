@@ -448,3 +448,19 @@ export function testImageBlob(): Blob {
   );
   return new Blob([png], { type: 'image/png' });
 }
+
+/**
+ * Create a tiny fake audio blob (not playable bytes, but carries the
+ * `audio/mpeg` mime type so the gateway + SDK treat it as audio for the
+ * purposes of `kind` inference and `media[*].mime` indexing).
+ */
+export function testAudioBlob(): Blob {
+  // Minimal 32-byte ID3v2 header + padding — enough for any upstream
+  // that does magic-byte sniffing on mp3.
+  const bytes = Buffer.from([
+    0x49, 0x44, 0x33, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0xff, 0xfb, 0x90, 0x64, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  ]);
+  return new Blob([bytes], { type: 'audio/mpeg' });
+}

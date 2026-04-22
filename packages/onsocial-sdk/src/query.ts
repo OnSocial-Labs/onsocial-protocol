@@ -6,6 +6,25 @@ import type { HttpClient } from './http.js';
 import type { GroupPostRef } from './types.js';
 import type { GraphQLRequest, GraphQLResponse, QueryLimits } from './types.js';
 
+/**
+ * Thrown when the GraphQL endpoint returns errors and no `data` payload.
+ * This typically indicates schema drift between the SDK's queries and the
+ * deployed Hasura schema (e.g. a column added to a view that hasn't been
+ * re-introspected). Letting it bubble prevents `res.data?.x ?? []` from
+ * silently producing empty results.
+ */
+export class GraphQLValidationError extends Error {
+  errors: Array<{ message: string; [key: string]: unknown }>;
+  constructor(
+    message: string,
+    errors: Array<{ message: string; [key: string]: unknown }>
+  ) {
+    super(`GraphQL query failed: ${message}`);
+    this.name = 'GraphQLValidationError';
+    this.errors = errors;
+  }
+}
+
 // ── Row shapes (match Hasura GraphQL camelCase schema) ───────────────────
 
 /** Row from `postsCurrent` view. */
@@ -114,7 +133,19 @@ export class QueryModule {
    * ```
    */
   async graphql<T = unknown>(req: GraphQLRequest): Promise<GraphQLResponse<T>> {
-    return this._http.post<GraphQLResponse<T>>('/graph/query', req);
+    const res = await this._http.post<GraphQLResponse<T>>('/graph/query', req);
+    // Defensive: if the server returned errors AND no data, throw rather than
+    // letting helpers silently coerce `res.data?.x ?? []` to an empty array.
+    // GraphQL allows partial results (data + errors), so only escalate when
+    // data is fully missing — that's the case where a downstream `?? []`
+    // would mask a schema validation failure (e.g. column drift).
+    if (res.errors?.length && (res.data === null || res.data === undefined)) {
+      const messages = res.errors
+        .map((e) => e.message ?? 'unknown error')
+        .join('; ');
+      throw new GraphQLValidationError(messages, res.errors);
+    }
+    return res;
   }
 
   /** Get query limits for the current tier. */

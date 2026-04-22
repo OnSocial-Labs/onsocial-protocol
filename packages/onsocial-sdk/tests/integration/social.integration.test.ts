@@ -8,6 +8,7 @@ import {
   confirmDirect,
   confirmIndexed,
   getClient,
+  testAudioBlob,
   testImageBlob,
   testId,
 } from './helpers.js';
@@ -662,5 +663,204 @@ describe('social', () => {
 
       expect(count?.count).toBeGreaterThanOrEqual(2);
     }, 20_000);
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Feed metadata + files[] — round-trip through substreams → Hasura.
+  //
+  // These tests assert that `channel`, `kind`, `audiences`, and uploaded
+  // `files` all land in the right indexed columns (exposed by os.query)
+  // AND in the right places in the raw on-chain JSON value.
+  // ─────────────────────────────────────────────────────────────────────
+
+  describe('feed metadata & files round-trip', () => {
+    const channelPostId = testId();
+    const audioPostId = testId();
+    const longformPostId = testId();
+    const multiFilePostId = testId();
+
+    it('should persist channel, kind, audiences in indexed columns', async () => {
+      const result = await os.posts.create(
+        {
+          text: `feed-meta ${channelPostId}`,
+          channel: 'music',
+          audiences: ['public'],
+        },
+        channelPostId
+      );
+      expect(result.txHash).toBeTruthy();
+
+      const row = await confirmIndexed(
+        async () => {
+          const page = await os.query.getPosts({
+            author: ACCOUNT_ID,
+            limit: 20,
+          });
+          return page.items.find((p) => p.postId === channelPostId) ?? null;
+        },
+        'feed-meta post indexed',
+        { timeoutMs: 30_000, intervalMs: 3_000 }
+      );
+
+      expect(row).toBeDefined();
+      if (!row) throw new Error('feed-meta post missing from index');
+      expect(row.channel).toBe('music');
+      expect(row.kind).toBe('text');
+      // `audiences` is stored as a normalized comma-separated string column
+      // by substreams — assert it at least contains the value we wrote.
+      expect(row.audiences).toContain('public');
+
+      // On-chain JSON should also round-trip the same values.
+      const entry = await os.social.getOne(`post/${channelPostId}`, ACCOUNT_ID);
+      const val =
+        typeof entry.value === 'string' ? JSON.parse(entry.value) : entry.value;
+      expect(val.channel).toBe('music');
+      expect(val.kind).toBe('text');
+      expect(val.audiences).toEqual(['public']);
+    }, 45_000);
+
+    it('should surface channel-filtered posts via getFilteredFeed', async () => {
+      const page = await confirmIndexed(
+        async () => {
+          const res = await os.query.getFilteredFeed({
+            standingWith: [ACCOUNT_ID],
+            channel: 'music',
+            limit: 20,
+          });
+          return res.items.some((p) => p.postId === channelPostId) ? res : null;
+        },
+        'music channel feed',
+        { timeoutMs: 30_000, intervalMs: 3_000 }
+      );
+      if (!page) throw new Error('music channel post missing from feed');
+      // Every row in a channel-filtered feed must actually be in that channel.
+      expect(page.items.every((p) => p.channel === 'music')).toBe(true);
+    }, 45_000);
+
+    it('should infer kind=audio from uploaded audio file and index MediaRef', async () => {
+      const result = await os.posts.create(
+        {
+          text: `audio ${audioPostId}`,
+          files: [testAudioBlob()],
+        },
+        audioPostId
+      );
+      expect(result.txHash).toBeTruthy();
+
+      // Raw on-chain value: media[0] should be a MediaRef object (not a
+      // bare ipfs:// string) because it came through the provider.
+      const entry = await confirmDirect(
+        async () => {
+          try {
+            const e = await os.social.getOne(`post/${audioPostId}`, ACCOUNT_ID);
+            return e?.value ? e : null;
+          } catch {
+            return null;
+          }
+        },
+        'audio post on-chain',
+        { timeoutMs: 20_000, intervalMs: 2_000 }
+      );
+      if (!entry) throw new Error('audio post missing from on-chain read');
+      const val =
+        typeof entry.value === 'string' ? JSON.parse(entry.value) : entry.value;
+      expect(val.kind).toBe('audio');
+      expect(Array.isArray(val.media)).toBe(true);
+      expect(val.media.length).toBe(1);
+      const ref = val.media[0];
+      expect(typeof ref).toBe('object');
+      expect(ref.cid).toBeTruthy();
+      expect(ref.mime).toMatch(/^audio\//);
+      expect(typeof ref.size).toBe('number');
+      expect(val.files).toBeUndefined();
+
+      // Indexed side: kind column should be 'audio'.
+      const row = await confirmIndexed(
+        async () => {
+          const page = await os.query.getPosts({
+            author: ACCOUNT_ID,
+            limit: 20,
+          });
+          return page.items.find((p) => p.postId === audioPostId) ?? null;
+        },
+        'audio post indexed',
+        { timeoutMs: 30_000, intervalMs: 3_000 }
+      );
+      if (!row) throw new Error('audio post missing from index');
+      expect(row.kind).toBe('audio');
+    }, 60_000);
+
+    it('should surface kind-filtered posts via getFilteredFeed', async () => {
+      const page = await confirmIndexed(
+        async () => {
+          const res = await os.query.getFilteredFeed({
+            standingWith: [ACCOUNT_ID],
+            kind: 'audio',
+            limit: 20,
+          });
+          return res.items.some((p) => p.postId === audioPostId) ? res : null;
+        },
+        'audio kind feed',
+        { timeoutMs: 30_000, intervalMs: 3_000 }
+      );
+      if (!page) throw new Error('audio post missing from kind-filtered feed');
+      expect(page.items.every((p) => p.kind === 'audio')).toBe(true);
+    }, 45_000);
+
+    it('should preserve media ordering across multi-file uploads', async () => {
+      const result = await os.posts.create(
+        {
+          text: `multi-file ${multiFilePostId}`,
+          files: [testImageBlob(), testAudioBlob()],
+        },
+        multiFilePostId
+      );
+      expect(result.txHash).toBeTruthy();
+
+      const entry = await confirmDirect(
+        async () => {
+          try {
+            const e = await os.social.getOne(
+              `post/${multiFilePostId}`,
+              ACCOUNT_ID
+            );
+            return e?.value ? e : null;
+          } catch {
+            return null;
+          }
+        },
+        'multi-file post on-chain',
+        { timeoutMs: 20_000, intervalMs: 2_000 }
+      );
+      if (!entry) throw new Error('multi-file post missing from on-chain read');
+      const val =
+        typeof entry.value === 'string' ? JSON.parse(entry.value) : entry.value;
+      expect(val.media.length).toBe(2);
+      expect(val.media[0].mime).toMatch(/^image\//);
+      expect(val.media[1].mime).toMatch(/^audio\//);
+      // image comes first → kind should infer to 'video'/'audio' only if
+      // *any* audio is present; inferKind picks audio over image → 'audio'.
+      expect(val.kind).toBe('audio');
+    }, 60_000);
+
+    it('should infer kind=longform when text > 1500 chars', async () => {
+      const longText = 'x'.repeat(1600) + ` ${longformPostId}`;
+      const result = await os.posts.create({ text: longText }, longformPostId);
+      expect(result.txHash).toBeTruthy();
+
+      const row = await confirmIndexed(
+        async () => {
+          const page = await os.query.getPosts({
+            author: ACCOUNT_ID,
+            limit: 20,
+          });
+          return page.items.find((p) => p.postId === longformPostId) ?? null;
+        },
+        'longform post indexed',
+        { timeoutMs: 30_000, intervalMs: 3_000 }
+      );
+      if (!row) throw new Error('longform post missing from index');
+      expect(row.kind).toBe('longform');
+    }, 45_000);
   });
 });

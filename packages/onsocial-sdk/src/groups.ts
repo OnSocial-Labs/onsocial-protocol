@@ -54,9 +54,14 @@ import {
  */
 export class GroupsModule {
   private _coreContract: string;
+  private _resolveMedia: (post: PostData) => Promise<PostData>;
 
-  constructor(private _http: HttpClient) {
+  constructor(
+    private _http: HttpClient,
+    resolveMedia?: (post: PostData) => Promise<PostData>
+  ) {
     this._coreContract = resolveContractId(_http.network, 'core');
+    this._resolveMedia = resolveMedia ?? ((p) => Promise.resolve(p));
   }
 
   private execute(action: Record<string, unknown>): Promise<RelayResponse> {
@@ -192,7 +197,8 @@ export class GroupsModule {
     postId?: string
   ): Promise<RelayResponse> {
     const id = postId ?? Date.now().toString();
-    const data = buildGroupPostSetData(groupId, post, id);
+    const resolved = await this._resolveMedia(post);
+    const data = buildGroupPostSetData(groupId, resolved, id);
     const entries = Object.entries(data);
     const [path, value] = entries[0];
     return this._http.post<RelayResponse>('/compose/set', {
@@ -209,7 +215,8 @@ export class GroupsModule {
     replyId?: string
   ): Promise<RelayResponse> {
     const id = replyId ?? Date.now().toString();
-    const data = buildGroupReplySetData(groupId, parentPath, post, id);
+    const resolved = await this._resolveMedia(post);
+    const data = buildGroupReplySetData(groupId, parentPath, resolved, id);
     const [path, value] = Object.entries(data)[0];
     return this._http.post<RelayResponse>('/compose/set', {
       path,
@@ -234,7 +241,8 @@ export class GroupsModule {
     quoteId?: string
   ): Promise<RelayResponse> {
     const id = quoteId ?? Date.now().toString();
-    const data = buildGroupQuoteSetData(groupId, refPath, post, id);
+    const resolved = await this._resolveMedia(post);
+    const data = buildGroupQuoteSetData(groupId, refPath, resolved, id);
     const [path, value] = Object.entries(data)[0];
     return this._http.post<RelayResponse>('/compose/set', {
       path,

@@ -10,14 +10,19 @@ import type {
 } from './types.js';
 import { HttpClient } from './http.js';
 import { AuthModule } from './auth.js';
-import { SocialModule } from './social.js';
+import { SocialModule, resolvePostMedia } from './social.js';
 import { ScarcesModule } from './scarces.js';
 import { RewardsModule } from './rewards.js';
 import { QueryModule } from './query.js';
 import { StorageModule } from './storage.js';
+import {
+  resolveStorageProvider,
+  type StorageConfig,
+} from './storage/provider.js';
 import { WebhooksModule } from './webhooks.js';
 import { NotificationsModule } from './notifications.js';
 import { GroupsModule } from './groups.js';
+import { PostsModule } from './posts.js';
 import { PermissionsModule } from './permissions.js';
 import { ChainModule } from './chain.js';
 import { PagesModule } from './pages.js';
@@ -127,6 +132,8 @@ export class OnSocial {
   readonly auth: AuthModule;
   /** Social graph (profiles, posts, standings, reactions, saves, endorsements, attestations). */
   readonly social: SocialModule;
+  /** Posts — the blessed single entry point for post creation. */
+  readonly posts: PostsModule;
   /** Scarces / NFTs (mint, collections, marketplace, offers). */
   readonly scarces: ScarcesModule;
   /** Rewards (credit, claim, balance). */
@@ -153,18 +160,25 @@ export class OnSocial {
 
   constructor(config: OnSocialConfig = {}) {
     this.http = new HttpClient(config);
+    const storageProvider = resolveStorageProvider(
+      config.storage as StorageConfig | undefined,
+      this.http
+    );
     this.auth = new AuthModule(this.http);
-    this.social = new SocialModule(this.http);
+    this.social = new SocialModule(this.http, storageProvider);
     this.scarces = new ScarcesModule(this.http);
     this.rewards = new RewardsModule(this.http);
     this.query = new QueryModule(this.http);
-    this.storage = new StorageModule(this.http);
+    this.storage = new StorageModule(this.http, storageProvider);
     this.webhooks = new WebhooksModule(this.http, config.appId);
     this.notifications = new NotificationsModule(this.http, config.appId);
-    this.groups = new GroupsModule(this.http);
+    this.groups = new GroupsModule(this.http, (p) =>
+      resolvePostMedia(p, storageProvider)
+    );
     this.permissions = new PermissionsModule(this.http);
     this.chain = new ChainModule(this.http);
     this.pages = new PagesModule(this.http);
+    this.posts = new PostsModule(this.social, this.groups);
   }
 
   // ── Generic execute ─────────────────────────────────────────────────────

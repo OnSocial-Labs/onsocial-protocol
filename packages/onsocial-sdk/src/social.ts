@@ -15,6 +15,8 @@ import {
   normalizeAudiences,
 } from './schema/v1.js';
 import type { MediaRef, Embed } from './schema/v1.js';
+import type { StorageProvider } from './storage/provider.js';
+import { GatewayProvider } from './storage/provider.js';
 import type {
   AttestationRecord,
   EntryView,
@@ -454,26 +456,64 @@ function isFileLike(value: unknown): value is Blob | File {
   return typeof Blob !== 'undefined' && value instanceof Blob;
 }
 
+/**
+ * Resolve the `image` / `files` convenience fields on `PostData` into a
+ * materialised `media[]` array. The returned PostData no longer carries
+ * `image` or `files`; all uploads have been performed via the supplied
+ * StorageProvider.
+ *
+ * Exported so callers that don't go through `SocialModule` (e.g. custom
+ * flows, contract-direct devs) can reuse the same media-resolution rules.
+ */
+export async function resolvePostMedia(
+  post: PostData,
+  storage: StorageProvider
+): Promise<PostData> {
+  const hasImage = isFileLike(post.image);
+  const hasFiles =
+    Array.isArray(post.files) && (post.files as unknown[]).length > 0;
+  if (!hasImage && !hasFiles) return post;
+
+  const { image: _dropImage, files: _dropFiles, ...rest } = post;
+  const existing = (post.media ?? []) as Array<string | MediaRef>;
+  const prepended: Array<string | MediaRef> = [];
+
+  if (hasImage && post.image) {
+    const uploaded = await storage.upload(post.image);
+    prepended.push(`ipfs://${uploaded.cid}`);
+  }
+  if (hasFiles && post.files) {
+    const uploads = await Promise.all(
+      (post.files as Array<Blob | File>).map((f) => storage.upload(f))
+    );
+    for (const u of uploads) {
+      prepended.push({ cid: u.cid, mime: u.mime, size: u.size });
+    }
+  }
+
+  return { ...rest, media: [...prepended, ...existing] };
+}
+
 export class SocialModule {
   private _coreContract: string;
+  private _storage: StorageProvider;
 
-  constructor(private _http: HttpClient) {
+  constructor(
+    private _http: HttpClient,
+    storage?: StorageProvider
+  ) {
     this._coreContract = resolveContractId(_http.network, 'core');
+    this._storage = storage ?? new GatewayProvider(_http);
   }
 
   /**
-   * Upload a file to IPFS via the gateway and return its `ipfs://<cid>` URL.
-   * Used internally by `setProfile`/`post` to materialize file fields.
+   * Upload a file via the configured StorageProvider and return its
+   * `ipfs://<cid>` URL. Used by legacy `image:` / `avatar:` convenience
+   * fields which store media as a bare string.
    */
   private async _uploadFile(file: Blob | File): Promise<string> {
-    const form = new FormData();
-    form.append('file', file);
-    const { cid } = await this._http.requestForm<{ cid: string }>(
-      'POST',
-      '/storage/upload',
-      form
-    );
-    return `ipfs://${cid}`;
+    const uploaded = await this._storage.upload(file);
+    return `ipfs://${uploaded.cid}`;
   }
 
   // ── Profiles ────────────────────────────────────────────────────────────
@@ -509,22 +549,32 @@ export class SocialModule {
   /**
    * Create a post.
    *
-   * Pass `image: File` to attach a file — the SDK uploads it to IPFS via
-   * the gateway and prepends `ipfs://<cid>` to `media[]`. The `image` field
-   * itself is stripped from the stored post body.
+   * Media handling (auto-upload via the configured StorageProvider):
+   *   • `files: File[]` — each file is uploaded and appended to `media[]`
+   *     as a fully populated `MediaRef` ({ cid, mime, size }). Preferred
+   *     for new code; works with gateway, direct-Lighthouse, and custom
+   *     providers identically.
+   *   • `image: File` — legacy single-file path; uploaded and prepended
+   *     to `media[]` as a bare `ipfs://<cid>` string.
+   *   • `media: Array<string | MediaRef>` — pre-resolved entries; passed
+   *     through unchanged (bring-your-own / pre-uploaded).
+   *
+   * Feed metadata (`channel`, `kind`, `audiences`) is normalised via
+   * `applyFeedMeta` so malformed input is silently dropped rather than
+   * corrupting feed bucketing.
    *
    * ```ts
    * await os.social.post({ text: 'Hello OnSocial!' });
-   * await os.social.post({ text: 'gm', image: file });
+   * await os.social.post({ text: 'gm', files: [imageFile] });
+   * await os.social.post({
+   *   text: 'new track',
+   *   files: [audioFile, coverFile],
+   *   channel: 'music',
+   * });
    * ```
    */
   async post(post: PostData, postId?: string): Promise<RelayResponse> {
-    let resolved: PostData = post;
-    if (isFileLike(post.image)) {
-      const url = await this._uploadFile(post.image);
-      const { image: _drop, ...rest } = post;
-      resolved = { ...rest, media: [url, ...(post.media ?? [])] };
-    }
+    const resolved = await resolvePostMedia(post, this._storage);
     const id = postId ?? Date.now().toString();
     const [path, value] = getSingleEntry(buildPostSetData(resolved, id));
     return this._http.post<RelayResponse>('/compose/set', {
@@ -532,6 +582,11 @@ export class SocialModule {
       value: encodeComposeValue(value),
       targetAccount: this._coreContract,
     });
+  }
+
+  /** Expose the configured StorageProvider (used by PostsModule / groups). */
+  get storage(): StorageProvider {
+    return this._storage;
   }
 
   // ── Standings ───────────────────────────────────────────────────────────
@@ -643,8 +698,9 @@ export class SocialModule {
     replyId?: string
   ): Promise<RelayResponse> {
     const id = replyId ?? Date.now().toString();
+    const resolved = await resolvePostMedia(post, this._storage);
     const [path, value] = getSingleEntry(
-      buildReplySetData(parentAuthor, parentId, post, id)
+      buildReplySetData(parentAuthor, parentId, resolved, id)
     );
     return this._http.post<RelayResponse>('/compose/set', {
       path,
@@ -675,8 +731,9 @@ export class SocialModule {
     quoteId?: string
   ): Promise<RelayResponse> {
     const id = quoteId ?? Date.now().toString();
+    const resolved = await resolvePostMedia(post, this._storage);
     const [path, value] = getSingleEntry(
-      buildQuoteSetData(refAuthor, refPath, post, id)
+      buildQuoteSetData(refAuthor, refPath, resolved, id)
     );
     return this._http.post<RelayResponse>('/compose/set', {
       path,

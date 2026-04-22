@@ -16,6 +16,7 @@ export { OnSocialError } from './http.js';
 export { AuthModule } from './auth.js';
 export {
   SocialModule,
+  resolvePostMedia,
   buildPostSetData,
   buildProfileSetData,
   buildReactionSetData,
@@ -66,6 +67,19 @@ export type {
   GroupFeedFilter,
 } from './query.js';
 export { StorageModule } from './storage.js';
+export {
+  GatewayProvider,
+  LighthouseProvider,
+  probeFile,
+  resolveStorageProvider,
+} from './storage/provider.js';
+export type {
+  StorageProvider,
+  StorageConfig,
+  UploadedMedia,
+  UploadedJson,
+  UploadOptions,
+} from './storage/provider.js';
 export { WebhooksModule, verifyWebhookSignature } from './webhooks.js';
 export type { WebhookEndpoint, CreateWebhookParams } from './webhooks.js';
 export { NotificationsModule } from './notifications.js';
@@ -79,6 +93,7 @@ export type {
   CreateRuleParams,
 } from './notifications.js';
 export { GroupsModule } from './groups.js';
+export { PostsModule } from './posts.js';
 export { PermissionsModule } from './permissions.js';
 export { ChainModule } from './chain.js';
 export { PagesModule } from './pages.js';

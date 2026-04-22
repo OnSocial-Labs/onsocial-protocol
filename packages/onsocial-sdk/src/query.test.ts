@@ -943,4 +943,35 @@ describe('QueryModule', () => {
       expect(body.query).toContain('_like: $prefix');
     });
   });
+
+  describe('graphql() error surfacing', () => {
+    it('throws GraphQLValidationError when errors present and data is null', async () => {
+      const { os } = makeOs({
+        data: null,
+        errors: [
+          {
+            message: "field 'channel' not found in type: 'PostsCurrent'",
+            extensions: { code: 'validation-failed' },
+          },
+        ],
+      });
+
+      await expect(
+        os.query.graphql({ query: '{ postsCurrent { channel } }' })
+      ).rejects.toThrow(/field 'channel' not found/);
+    });
+
+    it('does not throw when partial data is returned alongside errors', async () => {
+      const { os } = makeOs({
+        data: { postsCurrent: [] },
+        errors: [{ message: 'partial nullability warning' }],
+      });
+
+      const res = await os.query.graphql({
+        query: '{ postsCurrent { postId } }',
+      });
+      expect(res.errors).toHaveLength(1);
+      expect(res.data).toEqual({ postsCurrent: [] });
+    });
+  });
 });
