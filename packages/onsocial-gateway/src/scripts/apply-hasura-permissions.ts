@@ -149,8 +149,36 @@ async function dropPermissions(): Promise<void> {
   console.log(`\n✅ Dropped ${dropped} permissions`);
 }
 
+async function fetchLiveColumns(): Promise<Map<string, Set<string>>> {
+  // Query the actual Postgres column lists so we only grant permissions for
+  // columns that exist (avoids `column not found` errors when the catalog has
+  // drifted ahead of the indexer schema, e.g. during a partial deploy).
+  const sql = `SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = 'public'`;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- run_sql response is untyped
+  const result: any = await hasuraMetadata({
+    type: 'run_sql',
+    args: { source: 'default', sql, read_only: true },
+  });
+  const rows: Array<[string, string]> = (result?.result ?? []).slice(1);
+  const map = new Map<string, Set<string>>();
+  for (const [tableName, columnName] of rows) {
+    if (!map.has(tableName)) map.set(tableName, new Set());
+    map.get(tableName)!.add(columnName);
+  }
+  return map;
+}
+
 async function createPermissions(): Promise<void> {
   console.log('🔧 Creating tier-based permissions...\n');
+
+  let liveColumns: Map<string, Set<string>>;
+  try {
+    liveColumns = await fetchLiveColumns();
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(`   ⚠ Could not introspect Postgres columns: ${msg}`);
+    liveColumns = new Map();
+  }
 
   let created = 0;
   let skipped = 0;
@@ -161,6 +189,17 @@ async function createPermissions(): Promise<void> {
     );
 
     for (const table of TABLES) {
+      const live = liveColumns.get(table.name);
+      const columns = live
+        ? table.columns.filter((c) => live.has(c))
+        : table.columns;
+      const missing = live ? table.columns.filter((c) => !live.has(c)) : [];
+      if (missing.length > 0) {
+        console.log(
+          `   ⚠ ${table.name}: skipping missing columns [${missing.join(', ')}]`
+        );
+      }
+
       try {
         await hasuraMetadata({
           type: 'pg_create_select_permission',
@@ -169,7 +208,7 @@ async function createPermissions(): Promise<void> {
             table: { schema: 'public', name: table.name },
             role,
             permission: {
-              columns: table.columns,
+              columns,
               filter: {}, // No row filter (blockchain data is public)
               limit: limits.limit,
               allow_aggregations: limits.allow_aggregations,
