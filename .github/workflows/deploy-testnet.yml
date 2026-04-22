@@ -303,7 +303,7 @@ jobs:
             # ── Sync Hasura permissions (reconcile existing permissions) ─
             echo "Syncing Hasura permissions..."
             docker compose exec -T gateway \
-              node packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js reset </dev/null
+              node packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js create </dev/null
 
             echo "Restarting notification worker..."
             docker compose up -d --no-deps notification-worker </dev/null
