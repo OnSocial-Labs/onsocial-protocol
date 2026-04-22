@@ -225,6 +225,113 @@ export function validateGroupFeedMetaV1(meta: unknown): string | null {
   return null;
 }
 
+// ── Feed metadata helpers ──────────────────────────────────────────────────
+//
+// `channel`, `kind`, and `audiences` are exposed as first-class columns by
+// the substreams indexer. These helpers keep the vocabulary consistent so
+// every client (web app, mobile, third-party dApp) files posts into the
+// same feed buckets.
+
+/** Known post kinds — renderers pick a component from this union. Unknown
+ *  values are allowed (extensibility) but clients should prefer these. */
+export const POST_KINDS = [
+  'text',
+  'image',
+  'video',
+  'audio',
+  'poll',
+  'longform',
+  'link',
+] as const;
+export type PostKind = (typeof POST_KINDS)[number];
+
+/** Reserved audience tokens. `accounts:<csv>` and `group:<gid>` are prefixes. */
+export const AUDIENCES = {
+  public: 'public',
+  followers: 'followers',
+  group: (groupId: string) => `group:${groupId}`,
+  accounts: (ids: string[]) => `accounts:${ids.join(',')}`,
+} as const;
+
+const CHANNEL_RE = /^[a-z0-9][a-z0-9._-]{0,62}[a-z0-9]$|^[a-z0-9]$/;
+
+/**
+ * Normalise a user-supplied channel string to the canonical form stored on
+ * chain and indexed by substreams. Returns `undefined` if the channel is
+ * missing or invalid — callers should treat undefined as "no channel".
+ *
+ * Rules: lowercase, trim, max 64 chars, `[a-z0-9._-]`, no leading/trailing
+ * separator. Invalid input is dropped rather than throwing so a malformed
+ * channel never silently lands a post in the wrong bucket.
+ */
+export function normalizeChannel(input: unknown): string | undefined {
+  if (!isStr(input)) return undefined;
+  const trimmed = input.trim().toLowerCase();
+  if (trimmed.length === 0 || trimmed.length > 64) return undefined;
+  return CHANNEL_RE.test(trimmed) ? trimmed : undefined;
+}
+
+/**
+ * Normalise an audiences list. Accepts string | string[] | undefined.
+ * Filters out empty entries, de-duplicates, and caps at 32 values to keep
+ * the indexed column bounded.
+ */
+export function normalizeAudiences(input: unknown): string[] | undefined {
+  if (input === undefined || input === null) return undefined;
+  const list = Array.isArray(input) ? input : [input];
+  const out: string[] = [];
+  for (const v of list) {
+    if (!isStr(v)) continue;
+    const t = v.trim();
+    if (t.length === 0 || t.length > 128) continue;
+    if (!out.includes(t)) out.push(t);
+    if (out.length >= 32) break;
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+/**
+ * Derive the post `kind` deterministically from its content. Clients should
+ * call this rather than hand-setting `kind` so feed bucketing stays
+ * consistent across surfaces.
+ *
+ * Priority (first match wins):
+ *   1. Explicit `kind` if it's a known PostKind — pass through.
+ *   2. A poll embed → 'poll'.
+ *   3. Media with a video/* mime → 'video'.
+ *   4. Media with an audio/* mime → 'audio'.
+ *   5. Any media (image/*) → 'image'.
+ *   6. A link embed with no media/text-body → 'link'.
+ *   7. Text body > 1500 chars → 'longform'.
+ *   8. Fallback → 'text'.
+ */
+export function inferKind(input: {
+  text?: string;
+  media?: MediaRef[] | string[];
+  embeds?: Embed[];
+  kind?: string;
+}): PostKind {
+  if (input.kind && (POST_KINDS as readonly string[]).includes(input.kind)) {
+    return input.kind as PostKind;
+  }
+  const embeds = input.embeds ?? [];
+  if (embeds.some((e) => e && e.kind === 'poll')) return 'poll';
+
+  const media = input.media ?? [];
+  const mimes = media
+    .map((m) => (typeof m === 'string' ? '' : (m?.mime ?? '')))
+    .filter(Boolean);
+  if (mimes.some((m) => m.startsWith('video/'))) return 'video';
+  if (mimes.some((m) => m.startsWith('audio/'))) return 'audio';
+  if (media.length > 0) return 'image';
+
+  const hasLinkEmbed = embeds.some((e) => e && e.kind === 'link');
+  const text = input.text ?? '';
+  if (hasLinkEmbed && text.trim().length < 40) return 'link';
+  if (text.length > 1500) return 'longform';
+  return 'text';
+}
+
 export function validateProfileV1(p: unknown): string | null {
   if (!isPlainObj(p)) return 'profile must be an object';
   if (p.v !== SCHEMA_VERSION) return `profile.v must be ${SCHEMA_VERSION}`;

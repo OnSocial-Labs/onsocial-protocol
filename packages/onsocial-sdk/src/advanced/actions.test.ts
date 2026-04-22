@@ -30,7 +30,7 @@ describe('advanced action helpers', () => {
     expect(buildPostAction({ text: 'Hello' }, '123', 42)).toEqual({
       type: 'set',
       data: {
-        'post/123': { v: 1, text: 'Hello', timestamp: 42 },
+        'post/123': { v: 1, text: 'Hello', kind: 'text', timestamp: 42 },
       },
     });
 

@@ -2,10 +2,15 @@ import { describe, expect, it } from 'vitest';
 import {
   REACTION_KINDS,
   SCHEMA_VERSION,
+  AUDIENCES,
+  POST_KINDS,
   attestationV1,
   endorsementV1,
   groupFeedMetaV1,
   groupConfigV1,
+  inferKind,
+  normalizeAudiences,
+  normalizeChannel,
   postV1,
   profileV1,
   reactionV1,
@@ -323,5 +328,135 @@ describe('extension namespacing rule', () => {
     });
     expect(p.x?.dating).toEqual({ orientation: 'queer' });
     expect(p.x?.marketplace).toEqual({ storeUrl: 'https://x' });
+  });
+});
+
+describe('normalizeChannel', () => {
+  it('lowercases and trims valid input', () => {
+    expect(normalizeChannel('  Music  ')).toBe('music');
+  });
+  it('accepts dots, dashes, underscores, digits', () => {
+    expect(normalizeChannel('game.dev_2025-news')).toBe('game.dev_2025-news');
+  });
+  it('accepts single-character handle', () => {
+    expect(normalizeChannel('a')).toBe('a');
+  });
+  it('rejects leading punctuation', () => {
+    expect(normalizeChannel('.foo')).toBeUndefined();
+    expect(normalizeChannel('-foo')).toBeUndefined();
+  });
+  it('rejects trailing punctuation', () => {
+    expect(normalizeChannel('foo.')).toBeUndefined();
+  });
+  it('rejects invalid characters', () => {
+    expect(normalizeChannel('has space')).toBeUndefined();
+    expect(normalizeChannel('emoji🔥')).toBeUndefined();
+    expect(normalizeChannel('slash/out')).toBeUndefined();
+  });
+  it('rejects empty and oversized input', () => {
+    expect(normalizeChannel('')).toBeUndefined();
+    expect(normalizeChannel('a'.repeat(65))).toBeUndefined();
+  });
+  it('returns undefined for non-string input', () => {
+    expect(normalizeChannel(undefined)).toBeUndefined();
+    expect(normalizeChannel(42)).toBeUndefined();
+    expect(normalizeChannel(null)).toBeUndefined();
+  });
+});
+
+describe('normalizeAudiences', () => {
+  it('returns undefined for missing input', () => {
+    expect(normalizeAudiences(undefined)).toBeUndefined();
+  });
+  it('wraps a single string into a one-item array', () => {
+    expect(normalizeAudiences('public')).toEqual(['public']);
+  });
+  it('trims and filters empty strings', () => {
+    expect(normalizeAudiences([' public ', '', '  '])).toEqual(['public']);
+  });
+  it('deduplicates preserving first-seen order', () => {
+    expect(normalizeAudiences(['a', 'b', 'a', 'c', 'b'])).toEqual([
+      'a',
+      'b',
+      'c',
+    ]);
+  });
+  it('caps at 32 entries', () => {
+    const big = Array.from({ length: 50 }, (_, i) => `u${i}`);
+    const out = normalizeAudiences(big);
+    expect(out).toHaveLength(32);
+    expect(out?.[0]).toBe('u0');
+    expect(out?.[31]).toBe('u31');
+  });
+  it('drops non-string entries', () => {
+    expect(
+      normalizeAudiences(['public', 1, null, 'followers'] as unknown)
+    ).toEqual(['public', 'followers']);
+  });
+  it('returns undefined when nothing valid remains', () => {
+    expect(normalizeAudiences([])).toBeUndefined();
+    expect(normalizeAudiences(['', '   '])).toBeUndefined();
+  });
+  it('AUDIENCES helpers build canonical strings', () => {
+    expect(AUDIENCES.public).toBe('public');
+    expect(AUDIENCES.followers).toBe('followers');
+    expect(AUDIENCES.group('devs')).toBe('group:devs');
+    expect(AUDIENCES.accounts(['a.near', 'b.near'])).toBe(
+      'accounts:a.near,b.near'
+    );
+  });
+});
+
+describe('inferKind', () => {
+  it('returns "text" for empty content', () => {
+    expect(inferKind({})).toBe('text');
+  });
+  it('passes through explicit known kinds', () => {
+    for (const k of POST_KINDS) {
+      expect(inferKind({ kind: k })).toBe(k);
+    }
+  });
+  it('ignores unknown explicit kinds and re-derives', () => {
+    expect(inferKind({ kind: 'garbage', text: 'hi' })).toBe('text');
+  });
+  it('detects poll from embeds', () => {
+    expect(
+      inferKind({
+        text: 'vote!',
+        embeds: [{ kind: 'poll', question: 'q?', options: ['a', 'b'] }],
+      })
+    ).toBe('poll');
+  });
+  it('detects video by mime', () => {
+    expect(inferKind({ media: [{ cid: 'bafy', mime: 'video/mp4' }] })).toBe(
+      'video'
+    );
+  });
+  it('detects audio by mime', () => {
+    expect(inferKind({ media: [{ cid: 'bafy', mime: 'audio/mpeg' }] })).toBe(
+      'audio'
+    );
+  });
+  it('falls back to image when media present but non-video/audio', () => {
+    expect(inferKind({ media: [{ cid: 'bafy', mime: 'image/webp' }] })).toBe(
+      'image'
+    );
+  });
+  it('treats string-array media as image', () => {
+    expect(inferKind({ media: ['bafy1'] })).toBe('image');
+  });
+  it('detects link from embeds with short text', () => {
+    expect(
+      inferKind({
+        text: 'cool',
+        embeds: [{ kind: 'link', url: 'https://x.test' }],
+      })
+    ).toBe('link');
+  });
+  it('returns longform for text above ~1500 chars', () => {
+    expect(inferKind({ text: 'x'.repeat(1501) })).toBe('longform');
+  });
+  it('returns text for short plain content', () => {
+    expect(inferKind({ text: 'hello world' })).toBe('text');
   });
 });

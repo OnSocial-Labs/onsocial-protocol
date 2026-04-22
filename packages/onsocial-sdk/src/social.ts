@@ -8,8 +8,13 @@
 
 import type { HttpClient } from './http.js';
 import { resolveContractId } from './contracts.js';
-import { SCHEMA_VERSION } from './schema/v1.js';
-import type { MediaRef } from './schema/v1.js';
+import {
+  SCHEMA_VERSION,
+  inferKind,
+  normalizeChannel,
+  normalizeAudiences,
+} from './schema/v1.js';
+import type { MediaRef, Embed } from './schema/v1.js';
 import type {
   AttestationRecord,
   EntryView,
@@ -62,6 +67,38 @@ export function buildProfileSetData(profile: ProfileData): SocialSetData {
   return data;
 }
 
+/**
+ * Merge normalised feed metadata (`channel`, `kind`, `audiences`) into a
+ * post body so every writer — direct post, reply, quote, group, group-reply,
+ * group-quote — produces consistently indexed posts. Invalid `channel`
+ * values are dropped (treated as "no channel") rather than silently landing
+ * in the wrong bucket. `kind` is inferred from media/embeds/text if not
+ * supplied or if the supplied value isn't in the known vocabulary.
+ */
+function applyFeedMeta<T extends PostData>(post: T): T {
+  const channel = normalizeChannel(
+    (post as unknown as { channel?: unknown }).channel
+  );
+  const audiences = normalizeAudiences(
+    (post as unknown as { audiences?: unknown }).audiences
+  );
+  const rawKind = (post as unknown as { kind?: unknown }).kind;
+  const kind = inferKind({
+    text: post.text,
+    media: (post as unknown as { media?: MediaRef[] | string[] }).media,
+    embeds: (post as unknown as { embeds?: Embed[] }).embeds,
+    kind: typeof rawKind === 'string' ? rawKind : undefined,
+  });
+  const next = { ...post, kind } as T;
+  if (channel !== undefined)
+    (next as Record<string, unknown>).channel = channel;
+  else delete (next as Record<string, unknown>).channel;
+  if (audiences !== undefined)
+    (next as Record<string, unknown>).audiences = audiences;
+  else delete (next as Record<string, unknown>).audiences;
+  return next;
+}
+
 export function buildPostSetData(
   post: PostData,
   postId: string,
@@ -70,13 +107,11 @@ export function buildPostSetData(
   return {
     [`post/${postId}`]: {
       v: SCHEMA_VERSION,
-      ...post,
+      ...applyFeedMeta(post),
       timestamp: post.timestamp ?? now,
     },
   };
-}
-
-/**
+} /**
  * Build a reply post. The `parent` and `parentType` fields are picked up
  * by the substreams indexer and exposed via the `thread_replies` view.
  *
@@ -96,7 +131,7 @@ export function buildReplySetData(
   return {
     [`post/${replyId}`]: {
       v: SCHEMA_VERSION,
-      ...post,
+      ...applyFeedMeta(post),
       parent: `${parentAuthor}/post/${parentId}`,
       parentType: 'post',
       timestamp: post.timestamp ?? now,
@@ -119,7 +154,7 @@ export function buildQuoteSetData(
   return {
     [`post/${quoteId}`]: {
       v: SCHEMA_VERSION,
-      ...post,
+      ...applyFeedMeta(post),
       ref: `${refAuthor}/${refPath}`,
       refType: 'quote',
       timestamp: post.timestamp ?? now,
@@ -145,7 +180,7 @@ export function buildGroupPostSetData(
   return {
     [`groups/${groupId}/content/post/${postId}`]: {
       v: SCHEMA_VERSION,
-      ...post,
+      ...applyFeedMeta(post),
       timestamp: post.timestamp ?? now,
     },
   };
@@ -165,7 +200,7 @@ export function buildGroupReplySetData(
   return {
     [`groups/${groupId}/content/post/${replyId}`]: {
       v: SCHEMA_VERSION,
-      ...post,
+      ...applyFeedMeta(post),
       parent: parentPath,
       parentType: 'post',
       timestamp: post.timestamp ?? now,
@@ -184,7 +219,7 @@ export function buildGroupQuoteSetData(
   return {
     [`groups/${groupId}/content/post/${quoteId}`]: {
       v: SCHEMA_VERSION,
-      ...post,
+      ...applyFeedMeta(post),
       ref: refPath,
       ...(refAuthor ? { refAuthor } : {}),
       refType: 'quote',

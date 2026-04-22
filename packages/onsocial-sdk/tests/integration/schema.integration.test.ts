@@ -22,7 +22,7 @@ interface IntrospectionType {
 const SDK_EXPECTED_SCHEMA: Record<string, string[]> = {
   // query.ts → getProfile
   profilesCurrent: ['accountId', 'field', 'value', 'blockHeight'],
-  // query.ts → getPosts, getFeed
+  // query.ts → getPosts, getFeed, getFilteredFeed, getGroupFeed
   postsCurrent: [
     'accountId',
     'postId',
@@ -34,6 +34,10 @@ const SDK_EXPECTED_SCHEMA: Record<string, string[]> = {
     'parentPath',
     'refAuthor',
     'refPath',
+    'channel',
+    'kind',
+    'audiences',
+    'isGroupContent',
   ],
   // query.ts → getStandingWith, getStanders
   standingsCurrent: ['accountId', 'targetAccount', 'blockHeight'],

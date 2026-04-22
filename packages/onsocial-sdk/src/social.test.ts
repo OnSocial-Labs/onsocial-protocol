@@ -33,6 +33,7 @@ describe('social set-data builders', () => {
       'post/123': {
         v: 1,
         text: 'Hello',
+        kind: 'text',
         timestamp: 42,
       },
     });
@@ -237,6 +238,7 @@ describe('SocialModule transport', () => {
     expect(replyPayload).toEqual({
       v: 1,
       text: 'Reply',
+      kind: 'text',
       parent: 'alice.near/post/42',
       parentType: 'post',
       timestamp: expect.any(Number),
@@ -244,6 +246,7 @@ describe('SocialModule transport', () => {
     expect(quotePayload).toEqual({
       v: 1,
       text: 'Quote',
+      kind: 'text',
       ref: 'alice.near/post/42',
       refType: 'quote',
       timestamp: expect.any(Number),

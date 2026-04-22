@@ -92,6 +92,7 @@ export function getCoreParityCases(
           'post/post-123': {
             v: 1,
             text: 'Hello OnSocial!',
+            kind: 'text',
             timestamp: 42,
           },
         },
@@ -143,6 +144,7 @@ export function getCoreParityCases(
           'post/reply-1': {
             v: 1,
             text: 'great post',
+            kind: 'text',
             parent: 'alice.near/post/main',
             parentType: 'post',
             timestamp: 7,
@@ -165,6 +167,7 @@ export function getCoreParityCases(
           'post/quote-1': {
             v: 1,
             text: 'love this',
+            kind: 'text',
             ref: 'alice.near/post/main',
             refType: 'quote',
             timestamp: 8,
@@ -186,6 +189,7 @@ export function getCoreParityCases(
           'groups/builders/content/post/gp-1': {
             v: 1,
             text: 'group hello',
+            kind: 'text',
             timestamp: 9,
           },
         },
