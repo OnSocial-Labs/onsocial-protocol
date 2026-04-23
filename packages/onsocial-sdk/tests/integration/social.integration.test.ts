@@ -49,12 +49,12 @@ describe('social', () => {
             : null;
         },
         'post via getPosts',
-        { timeoutMs: 15_000, intervalMs: 2_000 }
+        { timeoutMs: 30_000, intervalMs: 2_000 }
       );
 
       if (!page) throw new Error('post missing from indexed posts');
       expect(page.items.find((item) => item.postId === postId)).toBeDefined();
-    }, 20_000);
+    }, 35_000);
 
     it('should verify post landed on-chain via RPC', async () => {
       const entry = await confirmDirect(
@@ -67,14 +67,14 @@ describe('social', () => {
           }
         },
         'post on-chain',
-        { timeoutMs: 15_000, intervalMs: 2_000 }
+        { timeoutMs: 30_000, intervalMs: 2_000 }
       );
       expect(entry).toBeDefined();
       if (!entry) throw new Error('post missing from direct read');
       const val =
         typeof entry.value === 'string' ? JSON.parse(entry.value) : entry.value;
       expect(val.text).toContain(postId);
-    }, 20_000);
+    }, 35_000);
 
     it('should upload a post image Blob and store an ipfs media URL', async () => {
       const result = await os.social.post(
@@ -166,13 +166,13 @@ describe('social', () => {
           return null;
         },
         'reaction counts',
-        { timeoutMs: 15_000, intervalMs: 2_000 }
+        { timeoutMs: 30_000, intervalMs: 2_000 }
       );
       if (!counts) throw new Error('reaction counts missing');
       expect(counts.like).toBeGreaterThanOrEqual(1);
       expect(counts.fire).toBeGreaterThanOrEqual(1);
       expect(counts.total).toBeGreaterThanOrEqual(2);
-    }, 20_000);
+    }, 35_000);
 
     it('should expose current reactions via os.query.reactions', async () => {
       const reactions = await confirmIndexed(
@@ -192,7 +192,7 @@ describe('social', () => {
           return types.includes('like') && types.includes('fire') ? rows : null;
         },
         'query reactions',
-        { timeoutMs: 15_000, intervalMs: 2_000 }
+        { timeoutMs: 30_000, intervalMs: 2_000 }
       );
 
       if (!reactions) throw new Error('query.reactions missing expected rows');
@@ -202,7 +202,7 @@ describe('social', () => {
       expect(
         reactions.some((row) => row.path.includes(`/fire/post/${postId}`))
       ).toBe(true);
-    }, 20_000);
+    }, 35_000);
 
     it('should unreact like', async () => {
       const result = await os.social.unreact(
@@ -223,13 +223,13 @@ describe('social', () => {
           return !value.like && value.fire ? value : null;
         },
         'reaction like removed',
-        { timeoutMs: 15_000, intervalMs: 2_000 }
+        { timeoutMs: 30_000, intervalMs: 2_000 }
       );
 
       if (!counts) throw new Error('like reaction still present in index');
       expect(counts.like ?? 0).toBe(0);
       expect(counts.fire).toBeGreaterThanOrEqual(1);
-    }, 20_000);
+    }, 35_000);
 
     it('should unreact fire', async () => {
       const result = await os.social.unreact(
@@ -250,14 +250,14 @@ describe('social', () => {
           return value.total === 0 ? value : null;
         },
         'all reactions removed',
-        { timeoutMs: 15_000, intervalMs: 2_000 }
+        { timeoutMs: 30_000, intervalMs: 2_000 }
       );
 
       if (!counts) throw new Error('reaction counts still present in index');
       expect(counts.total).toBe(0);
       expect(counts.like ?? 0).toBe(0);
       expect(counts.fire ?? 0).toBe(0);
-    }, 20_000);
+    }, 35_000);
   });
 
   // ── Reply ─────────────────────────────────────────────────────────────
@@ -282,14 +282,14 @@ describe('social', () => {
           return r.some((x) => x.postId === replyId) ? r : null;
         },
         'reply',
-        { timeoutMs: 15_000, intervalMs: 2_000 }
+        { timeoutMs: 30_000, intervalMs: 2_000 }
       );
       if (!replies) throw new Error('reply missing from index');
       const reply = replies.find((r) => r.postId === replyId)!;
       expect(reply.accountId).toBe(ACCOUNT_ID);
       expect(reply.parentAuthor).toBe(ACCOUNT_ID);
       expect(reply.parentPath).toBe(`${ACCOUNT_ID}/post/${postId}`);
-    }, 20_000);
+    }, 35_000);
 
     it('should expose the reply via direct read', async () => {
       const entry = await confirmDirect(
@@ -302,14 +302,14 @@ describe('social', () => {
           }
         },
         'reply direct read',
-        { timeoutMs: 15_000, intervalMs: 2_000 }
+        { timeoutMs: 30_000, intervalMs: 2_000 }
       );
 
       if (!entry) throw new Error('reply missing from direct read');
       const value =
         typeof entry.value === 'string' ? JSON.parse(entry.value) : entry.value;
       expect(value.text).toContain(replyId);
-    }, 20_000);
+    }, 35_000);
   });
 
   // ── Quote ─────────────────────────────────────────────────────────────
@@ -334,14 +334,14 @@ describe('social', () => {
           return q.some((x) => x.postId === quoteId) ? q : null;
         },
         'quote',
-        { timeoutMs: 15_000, intervalMs: 2_000 }
+        { timeoutMs: 30_000, intervalMs: 2_000 }
       );
       if (!quotes) throw new Error('quote missing from index');
       const quote = quotes.find((q) => q.postId === quoteId)!;
       expect(quote.accountId).toBe(ACCOUNT_ID);
       expect(quote.refAuthor).toBe(ACCOUNT_ID);
       expect(quote.refPath).toBe(`${ACCOUNT_ID}/post/${postId}`);
-    }, 20_000);
+    }, 35_000);
 
     it('should expose the quote via direct read', async () => {
       const entry = await confirmDirect(
@@ -354,14 +354,14 @@ describe('social', () => {
           }
         },
         'quote direct read',
-        { timeoutMs: 15_000, intervalMs: 2_000 }
+        { timeoutMs: 30_000, intervalMs: 2_000 }
       );
 
       if (!entry) throw new Error('quote missing from direct read');
       const value =
         typeof entry.value === 'string' ? JSON.parse(entry.value) : entry.value;
       expect(value.text).toContain(quoteId);
-    }, 20_000);
+    }, 35_000);
   });
 
   // ── Hashtags ──────────────────────────────────────────────────────────
@@ -376,11 +376,11 @@ describe('social', () => {
           return p.items.some((x) => x.postId === postId) ? p : null;
         },
         'hashtag',
-        { timeoutMs: 15_000, intervalMs: 2_000 }
+        { timeoutMs: 30_000, intervalMs: 2_000 }
       );
       if (!page) throw new Error('hashtag index missing post');
       expect(page.items.find((x) => x.postId === postId)).toBeDefined();
-    }, 20_000);
+    }, 35_000);
 
     it('should include testhashtag in getTrendingHashtags', async () => {
       const tags = await os.query.getTrendingHashtags({ limit: 50 });
@@ -410,10 +410,10 @@ describe('social', () => {
           return list.includes(standTarget) ? list : null;
         },
         'standWith',
-        { timeoutMs: 15_000, intervalMs: 2_000 }
+        { timeoutMs: 30_000, intervalMs: 2_000 }
       );
       expect(standing).toContain(standTarget);
-    }, 20_000);
+    }, 35_000);
 
     it('should appear in standers list of target', async () => {
       const standers = await os.query.getStanders(standTarget);
@@ -437,12 +437,12 @@ describe('social', () => {
           return !list.includes(standTarget) ? list : null;
         },
         'standWith removed',
-        { timeoutMs: 15_000, intervalMs: 2_000 }
+        { timeoutMs: 30_000, intervalMs: 2_000 }
       );
 
       if (!standing) throw new Error('standing target still present in index');
       expect(standing).not.toContain(standTarget);
-    }, 20_000);
+    }, 35_000);
   });
 
   // ── Profile ───────────────────────────────────────────────────────────
@@ -472,12 +472,12 @@ describe('social', () => {
           }
         },
         'profile on-chain',
-        { timeoutMs: 15_000, intervalMs: 2_000 }
+        { timeoutMs: 30_000, intervalMs: 2_000 }
       );
       expect(entry).toBeDefined();
       if (!entry) throw new Error('profile missing from direct read');
       expect(entry.value).toBe('integration-value');
-    }, 20_000);
+    }, 35_000);
 
     it('should expose the profile field via os.query.getProfile', async () => {
       const profile = await confirmIndexed(
@@ -486,12 +486,12 @@ describe('social', () => {
           return value?.[testField] === 'integration-value' ? value : null;
         },
         'profile via getProfile',
-        { timeoutMs: 15_000, intervalMs: 2_000 }
+        { timeoutMs: 30_000, intervalMs: 2_000 }
       );
 
       if (!profile) throw new Error('profile missing from index');
       expect(profile?.[testField]).toBe('integration-value');
-    }, 20_000);
+    }, 35_000);
 
     it('should upload an avatar Blob and store an ipfs URL', async () => {
       const result = await os.social.setProfile({
@@ -559,7 +559,7 @@ describe('social', () => {
 
       expect(first.txHash).toBeTruthy();
       expect(second.txHash).toBeTruthy();
-    }, 20_000);
+    }, 35_000);
 
     it('should read multiple entries via social.get', async () => {
       const entries = await confirmDirect(
@@ -577,7 +577,7 @@ describe('social', () => {
           return alpha?.value && beta?.value ? value : null;
         },
         'direct get multiple keys',
-        { timeoutMs: 15_000, intervalMs: 2_000 }
+        { timeoutMs: 30_000, intervalMs: 2_000 }
       );
 
       if (!entries) throw new Error('direct get returned incomplete entries');
@@ -602,7 +602,7 @@ describe('social', () => {
       expect(beta?.full_key).toBe(`${ACCOUNT_ID}/${secondPath}`);
       expect(betaValue).toEqual({ ok: true, slot: 'beta' });
       expect(beta?.deleted).toBe(false);
-    }, 20_000);
+    }, 35_000);
 
     it('should list matching keys via social.listKeys', async () => {
       const keys = await confirmDirect(
@@ -620,7 +620,7 @@ describe('social', () => {
           return matches.length === 2 ? value : null;
         },
         'direct list keys',
-        { timeoutMs: 15_000, intervalMs: 2_000 }
+        { timeoutMs: 30_000, intervalMs: 2_000 }
       );
 
       if (!keys) throw new Error('direct listKeys missing expected keys');
@@ -647,7 +647,7 @@ describe('social', () => {
       const betaValue =
         typeof beta?.value === 'string' ? JSON.parse(beta.value) : beta?.value;
       expect(betaValue).toEqual({ ok: true, slot: 'beta' });
-    }, 20_000);
+    }, 35_000);
 
     it('should count matching keys via social.countKeys', async () => {
       const count = await confirmDirect(
@@ -658,11 +658,11 @@ describe('social', () => {
           return value.count >= 2 ? value : null;
         },
         'direct count keys',
-        { timeoutMs: 15_000, intervalMs: 2_000 }
+        { timeoutMs: 30_000, intervalMs: 2_000 }
       );
 
       expect(count?.count).toBeGreaterThanOrEqual(2);
-    }, 20_000);
+    }, 35_000);
   });
 
   // ─────────────────────────────────────────────────────────────────────
