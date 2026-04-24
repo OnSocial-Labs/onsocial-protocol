@@ -37,10 +37,10 @@ describe('social', () => {
       expect(result.txHash).toBeTruthy();
     });
 
-    it('should expose the post via os.query.getPosts', async () => {
+    it('should expose the post via os.query.feed.recent', async () => {
       const page = await confirmIndexed(
         async () => {
-          const value = await os.query.getPosts({
+          const value = await os.query.feed.recent({
             author: ACCOUNT_ID,
             limit: 20,
           });
@@ -112,10 +112,10 @@ describe('social', () => {
       expect(val.image).toBeUndefined();
     }, 25_000);
 
-    it('should expose blob-backed post media via os.query.getPosts', async () => {
+    it('should expose blob-backed post media via os.query.feed.recent', async () => {
       const page = await confirmIndexed(
         async () => {
-          const value = await os.query.getPosts({
+          const value = await os.query.feed.recent({
             author: ACCOUNT_ID,
             limit: 20,
           });
@@ -158,7 +158,7 @@ describe('social', () => {
     it('should see reaction counts per kind via indexer', async () => {
       const counts = await confirmIndexed(
         async () => {
-          const c = await os.query.getReactionCounts(
+          const c = await os.query.reactions.counts(
             ACCOUNT_ID,
             `post/${postId}`
           );
@@ -174,10 +174,24 @@ describe('social', () => {
       expect(counts.total).toBeGreaterThanOrEqual(2);
     }, 35_000);
 
-    it('should expose current reactions via os.query.reactions', async () => {
+    it('should expose current reactions via raw graphql', async () => {
       const reactions = await confirmIndexed(
         async () => {
-          const result = await os.query.reactions(ACCOUNT_ID, `post/${postId}`);
+          const result = await os.query.graphql<{
+            reactionsCurrent: Array<{ path: string; value: string }>;
+          }>({
+            query: `query Reactions($owner: String!, $pathLike: String!) {
+              reactionsCurrent(
+                where: {postOwner: {_eq: $owner}, path: {_like: $pathLike}}
+              ) {
+                path value
+              }
+            }`,
+            variables: {
+              owner: ACCOUNT_ID,
+              pathLike: `%/post/${postId}`,
+            },
+          });
           const rows = result.data?.reactionsCurrent ?? [];
           const types = rows
             .map((row) => {
@@ -216,7 +230,7 @@ describe('social', () => {
     it('should drop like from indexed reaction counts', async () => {
       const counts = await confirmIndexed(
         async () => {
-          const value = await os.query.getReactionCounts(
+          const value = await os.query.reactions.counts(
             ACCOUNT_ID,
             `post/${postId}`
           );
@@ -243,7 +257,7 @@ describe('social', () => {
     it('should drop all indexed reaction counts after both removals', async () => {
       const counts = await confirmIndexed(
         async () => {
-          const value = await os.query.getReactionCounts(
+          const value = await os.query.reactions.counts(
             ACCOUNT_ID,
             `post/${postId}`
           );
@@ -278,7 +292,7 @@ describe('social', () => {
     it('should appear in getReplies for the parent post', async () => {
       const replies = await confirmIndexed(
         async () => {
-          const r = await os.query.getReplies(ACCOUNT_ID, postId);
+          const r = await os.query.threads.replies(ACCOUNT_ID, postId);
           return r.some((x) => x.postId === replyId) ? r : null;
         },
         'reply',
@@ -330,7 +344,7 @@ describe('social', () => {
     it('should appear in getQuotes for the original post', async () => {
       const quotes = await confirmIndexed(
         async () => {
-          const q = await os.query.getQuotes(ACCOUNT_ID, postId);
+          const q = await os.query.threads.quotes(ACCOUNT_ID, postId);
           return q.some((x) => x.postId === quoteId) ? q : null;
         },
         'quote',
@@ -370,7 +384,7 @@ describe('social', () => {
     it('should find the post by hashtag via getPostsByHashtag', async () => {
       const page = await confirmIndexed(
         async () => {
-          const p = await os.query.getPostsByHashtag('testhashtag', {
+          const p = await os.query.feed.byHashtag('testhashtag', {
             limit: 50,
           });
           return p.items.some((x) => x.postId === postId) ? p : null;
@@ -383,12 +397,12 @@ describe('social', () => {
     }, 35_000);
 
     it('should include testhashtag in getTrendingHashtags', async () => {
-      const tags = await os.query.getTrendingHashtags({ limit: 50 });
+      const tags = await os.query.hashtags.trending({ limit: 50 });
       expect(tags.some((t) => t.hashtag === 'testhashtag')).toBe(true);
     });
 
     it('should find testhashtag via searchHashtags prefix', async () => {
-      const matches = await os.query.searchHashtags('testhash', { limit: 10 });
+      const matches = await os.query.hashtags.search('testhash', { limit: 10 });
       expect(matches.some((m) => m.hashtag === 'testhashtag')).toBe(true);
     });
   });
@@ -406,7 +420,7 @@ describe('social', () => {
     it('should appear in standingWith list via indexer', async () => {
       const standing = await confirmIndexed(
         async () => {
-          const list = await os.query.getStandingWith(ACCOUNT_ID);
+          const list = await os.query.standings.outgoing(ACCOUNT_ID);
           return list.includes(standTarget) ? list : null;
         },
         'standWith',
@@ -416,13 +430,13 @@ describe('social', () => {
     }, 35_000);
 
     it('should appear in standers list of target', async () => {
-      const standers = await os.query.getStanders(standTarget);
+      const standers = await os.query.standings.incoming(standTarget);
       expect(standers).toContain(ACCOUNT_ID);
     });
 
     it('should reflect in standing counts', async () => {
-      const counts = await os.query.getStandingCounts(ACCOUNT_ID);
-      expect(counts.standingWith).toBeGreaterThanOrEqual(1);
+      const counts = await os.query.standings.counts(ACCOUNT_ID);
+      expect(counts.outgoing).toBeGreaterThanOrEqual(1);
     });
 
     it('should unstand', async () => {
@@ -433,7 +447,7 @@ describe('social', () => {
     it('should remove the target from standingWith via indexer', async () => {
       const standing = await confirmIndexed(
         async () => {
-          const list = await os.query.getStandingWith(ACCOUNT_ID);
+          const list = await os.query.standings.outgoing(ACCOUNT_ID);
           return !list.includes(standTarget) ? list : null;
         },
         'standWith removed',
@@ -479,10 +493,10 @@ describe('social', () => {
       expect(entry.value).toBe('integration-value');
     }, 35_000);
 
-    it('should expose the profile field via os.query.getProfile', async () => {
+    it('should expose the profile field via os.query.profiles.get', async () => {
       const profile = await confirmIndexed(
         async () => {
-          const value = await os.query.getProfile(ACCOUNT_ID);
+          const value = await os.query.profiles.get(ACCOUNT_ID);
           return value?.[testField] === 'integration-value' ? value : null;
         },
         'profile via getProfile',
@@ -522,10 +536,10 @@ describe('social', () => {
       expect(entry.value).toMatch(/^ipfs:\/\//);
     }, 25_000);
 
-    it('should expose the avatar ipfs URL via os.query.getProfile', async () => {
+    it('should expose the avatar ipfs URL via os.query.profiles.get', async () => {
       const profile = await confirmIndexed(
         async () => {
-          const value = await os.query.getProfile(ACCOUNT_ID);
+          const value = await os.query.profiles.get(ACCOUNT_ID);
           return typeof value?.avatar === 'string' &&
             value.avatar.startsWith('ipfs://') &&
             value?.[avatarField] === 'blob-avatar-test'
@@ -692,7 +706,7 @@ describe('social', () => {
 
       const row = await confirmIndexed(
         async () => {
-          const page = await os.query.getPosts({
+          const page = await os.query.feed.recent({
             author: ACCOUNT_ID,
             limit: 20,
           });
@@ -722,8 +736,8 @@ describe('social', () => {
     it('should surface channel-filtered posts via getFilteredFeed', async () => {
       const page = await confirmIndexed(
         async () => {
-          const res = await os.query.getFilteredFeed({
-            standingWith: [ACCOUNT_ID],
+          const res = await os.query.feed.fromAccountsFiltered({
+            accounts: [ACCOUNT_ID],
             channel: 'music',
             limit: 20,
           });
@@ -777,7 +791,7 @@ describe('social', () => {
       // Indexed side: kind column should be 'audio'.
       const row = await confirmIndexed(
         async () => {
-          const page = await os.query.getPosts({
+          const page = await os.query.feed.recent({
             author: ACCOUNT_ID,
             limit: 20,
           });
@@ -793,8 +807,8 @@ describe('social', () => {
     it('should surface kind-filtered posts via getFilteredFeed', async () => {
       const page = await confirmIndexed(
         async () => {
-          const res = await os.query.getFilteredFeed({
-            standingWith: [ACCOUNT_ID],
+          const res = await os.query.feed.fromAccountsFiltered({
+            accounts: [ACCOUNT_ID],
             kind: 'audio',
             limit: 20,
           });
@@ -850,7 +864,7 @@ describe('social', () => {
 
       const row = await confirmIndexed(
         async () => {
-          const page = await os.query.getPosts({
+          const page = await os.query.feed.recent({
             author: ACCOUNT_ID,
             limit: 20,
           });

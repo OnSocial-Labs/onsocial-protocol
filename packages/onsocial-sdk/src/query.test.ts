@@ -26,129 +26,12 @@ function makeOs(body: unknown) {
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 describe('QueryModule', () => {
-  // ── Raw helpers (column-correctness) ────────────────────────────────────
-
-  describe('profile()', () => {
-    it('queries profilesCurrent with correct columns', async () => {
-      const { os, fetch } = makeOs({
-        data: {
-          profilesCurrent: [
-            {
-              accountId: 'a.near',
-              field: 'name',
-              value: '"Alice"',
-              blockHeight: 1,
-              blockTimestamp: 2,
-              operation: 'set',
-            },
-            {
-              accountId: 'a.near',
-              field: 'bio',
-              value: '"Hello"',
-              blockHeight: 1,
-              blockTimestamp: 2,
-              operation: 'set',
-            },
-          ],
-        },
-      });
-
-      const res = await os.query.profile('a.near');
-      expect(res.data?.profilesCurrent).toHaveLength(2);
-      expect(res.data?.profilesCurrent[0].field).toBe('name');
-
-      // Verify GraphQL query uses correct camelCase columns
-      const body = JSON.parse(fetch.mock.calls[0][1].body);
-      expect(body.query).toContain('field value blockHeight');
-      expect(body.query).not.toContain('dataType');
-      expect(body.query).not.toContain(' path ');
-    });
-  });
-
-  describe('posts()', () => {
-    it('uses accountId not author, with parameterised variables', async () => {
-      const { os, fetch } = makeOs({
-        data: {
-          postsCurrent: [
-            {
-              accountId: 'a.near',
-              postId: 'p1',
-              value: '{}',
-              blockHeight: 1,
-              blockTimestamp: 2,
-            },
-          ],
-        },
-      });
-
-      await os.query.posts({ author: 'a.near', limit: 5 });
-
-      const body = JSON.parse(fetch.mock.calls[0][1].body);
-      // Must use $author variable, not interpolation
-      expect(body.query).toContain('$author');
-      expect(body.query).toContain('accountId');
-      expect(body.query).not.toContain('"a.near"');
-      expect(body.variables.author).toBe('a.near');
-      expect(body.variables.limit).toBe(5);
-    });
-
-    it('selects postId, not author column', async () => {
-      const { os, fetch } = makeOs({ data: { postsCurrent: [] } });
-      await os.query.posts();
-      const body = JSON.parse(fetch.mock.calls[0][1].body);
-      expect(body.query).toContain('postId');
-    });
-  });
-
-  describe('standingCounts()', () => {
-    it('uses standingWithCount and standingWithOthersCount', async () => {
-      const { os, fetch } = makeOs({
-        data: {
-          standingCounts: [
-            {
-              accountId: 'a.near',
-              standingWithCount: 42,
-              lastStandingBlock: 99,
-            },
-          ],
-          standingOutCounts: [
-            {
-              accountId: 'a.near',
-              standingWithOthersCount: 7,
-              lastStandingBlock: 99,
-            },
-          ],
-        },
-      });
-
-      await os.query.standingCounts('a.near');
-
-      const body = JSON.parse(fetch.mock.calls[0][1].body);
-      expect(body.query).toContain('standingWithCount');
-      expect(body.query).toContain('standingWithOthersCount');
-    });
-  });
-
-  describe('reactions()', () => {
-    it('selects postOwner', async () => {
-      const { os, fetch } = makeOs({ data: { reactionsCurrent: [] } });
-      await os.query.reactions('owner.near', 'post/123');
-      const body = JSON.parse(fetch.mock.calls[0][1].body);
-      expect(body.query).toContain('postOwner');
-      expect(body.query).not.toContain('targetAccount');
-      expect(body.variables.owner).toBe('owner.near');
-      expect(body.variables.path).toBe('%/reaction/owner.near/%/post/123');
-    });
-  });
-
-  describe('edgeCounts()', () => {
-    it('uses inboundCount column', async () => {
-      const { os, fetch } = makeOs({ data: { edgeCounts: [] } });
-      await os.query.edgeCounts('a.near');
-      const body = JSON.parse(fetch.mock.calls[0][1].body);
-      expect(body.query).toContain('inboundCount');
-    });
-  });
+  // The single-purpose raw GraphQL helpers (`profile()`, `posts()`,
+  // `standingCounts()`, `reactions()`, `edgeCounts()`) were dropped in the
+  // sub-namespace refactor. The typed sub-namespace methods below
+  // (`profiles.get`, `feed.recent`, `standings.counts`, `stats.edges`, etc.)
+  // are now the canonical accessors. Use `os.query.graphql({...})` for
+  // anything else.
 
   // ── Typed read helpers ─────────────────────────────────────────────────
 
@@ -177,7 +60,7 @@ describe('QueryModule', () => {
         },
       });
 
-      const profile = await os.query.getProfile('a.near');
+      const profile = await os.query.profiles.get('a.near');
       expect(profile).toEqual({
         name: '{"v":1,"displayName":"Alice"}',
         avatar: '{"v":1,"cid":"Qm..."}',
@@ -186,7 +69,7 @@ describe('QueryModule', () => {
 
     it('returns null for unknown account', async () => {
       const { os } = makeOs({ data: { profilesCurrent: [] } });
-      expect(await os.query.getProfile('ghost.near')).toBeNull();
+      expect(await os.query.profiles.get('ghost.near')).toBeNull();
     });
   });
 
@@ -201,7 +84,7 @@ describe('QueryModule', () => {
       }));
       const { os } = makeOs({ data: { postsCurrent: rows } });
 
-      const page = await os.query.getPosts({ limit: 20 });
+      const page = await os.query.feed.recent({ limit: 20 });
       expect(page.items).toHaveLength(20);
       expect(page.nextOffset).toBe(20);
     });
@@ -221,7 +104,7 @@ describe('QueryModule', () => {
         },
       });
 
-      const page = await os.query.getPosts({ limit: 20 });
+      const page = await os.query.feed.recent({ limit: 20 });
       expect(page.items).toHaveLength(1);
       expect(page.nextOffset).toBeUndefined();
     });
@@ -243,8 +126,8 @@ describe('QueryModule', () => {
         },
       });
 
-      const page = await os.query.getFeed({
-        standingWith: ['bob.near', 'carol.near'],
+      const page = await os.query.feed.fromAccounts({
+        accounts: ['bob.near', 'carol.near'],
         limit: 10,
       });
 
@@ -256,7 +139,7 @@ describe('QueryModule', () => {
 
     it('returns empty for empty standing list', async () => {
       const { os, fetch } = makeOs({ data: { postsCurrent: [] } });
-      const page = await os.query.getFeed({ standingWith: [] });
+      const page = await os.query.feed.fromAccounts({ accounts: [] });
       expect(page.items).toEqual([]);
       expect(fetch).not.toHaveBeenCalled();
     });
@@ -280,8 +163,8 @@ describe('QueryModule', () => {
         },
       });
 
-      const page = await os.query.getFilteredFeed({
-        standingWith: ['bob.near', 'carol.near'],
+      const page = await os.query.feed.fromAccountsFiltered({
+        accounts: ['bob.near', 'carol.near'],
         channel: 'engineering',
         kind: 'announcement',
         limit: 10,
@@ -313,8 +196,8 @@ describe('QueryModule', () => {
         },
       });
 
-      const page = await os.query.getFilteredFeed({
-        standingWith: ['bob.near'],
+      const page = await os.query.feed.fromAccountsFiltered({
+        accounts: ['bob.near'],
         audience: 'employees',
         limit: 10,
       });
@@ -327,7 +210,7 @@ describe('QueryModule', () => {
 
     it('returns empty for empty standing list', async () => {
       const { os, fetch } = makeOs({ data: { postsCurrent: [] } });
-      const page = await os.query.getFilteredFeed({ standingWith: [] });
+      const page = await os.query.feed.fromAccountsFiltered({ accounts: [] });
       expect(page.items).toEqual([]);
       expect(fetch).not.toHaveBeenCalled();
     });
@@ -353,7 +236,7 @@ describe('QueryModule', () => {
         },
       });
 
-      const page = await os.query.getGroupFeed({ groupId: 'dao', limit: 5 });
+      const page = await os.query.groups.feed({ groupId: 'dao', limit: 5 });
       expect(page.items).toHaveLength(1);
       expect(page.items[0].groupId).toBe('dao');
       expect(page.items[0].channel).toBe('engineering');
@@ -386,7 +269,7 @@ describe('QueryModule', () => {
         },
       });
 
-      const page = await os.query.getFilteredGroupFeed({
+      const page = await os.query.groups.feedFiltered({
         groupId: 'dao',
         channel: 'engineering',
         kind: 'announcement',
@@ -420,7 +303,7 @@ describe('QueryModule', () => {
         },
       });
 
-      const page = await os.query.getFilteredGroupFeed({
+      const page = await os.query.groups.feedFiltered({
         groupId: 'dao',
         audience: 'employees',
       });
@@ -451,7 +334,7 @@ describe('QueryModule', () => {
         },
       });
 
-      const post = await os.query.getGroupPost({
+      const post = await os.query.groups.post({
         author: 'alice.near',
         groupId: 'dao',
         postId: 'root',
@@ -486,7 +369,7 @@ describe('QueryModule', () => {
         },
       });
 
-      const replies = await os.query.getReplies('alice.near', 'p1');
+      const replies = await os.query.threads.replies('alice.near', 'p1');
       expect(replies).toHaveLength(1);
       expect(replies[0].accountId).toBe('bob.near');
       expect(replies[0].postId).toBe('r1');
@@ -517,7 +400,7 @@ describe('QueryModule', () => {
         },
       });
 
-      const quotes = await os.query.getQuotes('alice.near', 'p1');
+      const quotes = await os.query.threads.quotes('alice.near', 'p1');
       expect(quotes).toHaveLength(1);
       expect(quotes[0].accountId).toBe('carol.near');
       expect(quotes[0].refAuthor).toBe('alice.near');
@@ -547,7 +430,7 @@ describe('QueryModule', () => {
         },
       });
 
-      const replies = await os.query.getRepliesByPath(
+      const replies = await os.query.threads.repliesByPath(
         'alice.near/groups/dao/content/post/root'
       );
       expect(replies).toHaveLength(1);
@@ -583,7 +466,7 @@ describe('QueryModule', () => {
         },
       });
 
-      const replies = await os.query.getGroupThread(
+      const replies = await os.query.groups.thread(
         'alice.near/groups/dao/content/post/root'
       );
 
@@ -598,7 +481,7 @@ describe('QueryModule', () => {
     it('accepts a typed GroupPostRef', async () => {
       const { os, fetch } = makeOs({ data: { threadReplies: [] } });
 
-      await os.query.getGroupThread({
+      await os.query.groups.thread({
         author: 'alice.near',
         groupId: 'dao',
         postId: 'root',
@@ -631,7 +514,7 @@ describe('QueryModule', () => {
         },
       });
 
-      const quotes = await os.query.getQuotesByPath(
+      const quotes = await os.query.threads.quotesByPath(
         'alice.near/groups/dao/content/post/root'
       );
       expect(quotes).toHaveLength(1);
@@ -649,7 +532,7 @@ describe('QueryModule', () => {
     it('accepts a typed GroupPostRef', async () => {
       const { os, fetch } = makeOs({ data: { quotes: [] } });
 
-      await os.query.getQuotesForGroupPost({
+      await os.query.groups.quotes({
         author: 'alice.near',
         groupId: 'dao',
         postId: 'root',
@@ -707,7 +590,7 @@ describe('QueryModule', () => {
         },
       });
 
-      const conversation = await os.query.getGroupConversation({
+      const conversation = await os.query.groups.conversation({
         author: 'alice.near',
         groupId: 'dao',
         postId: 'root',
@@ -729,13 +612,13 @@ describe('QueryModule', () => {
         },
       });
 
-      const counts = await os.query.getReactionCounts('alice.near', 'post/p1');
+      const counts = await os.query.reactions.counts('alice.near', 'post/p1');
       expect(counts).toEqual({ like: 7, total: 7 });
     });
 
     it('returns only total when no reactions', async () => {
       const { os } = makeOs({ data: { reactionCounts: [] } });
-      expect(await os.query.getReactionCounts('a.near', 'post/x')).toEqual({
+      expect(await os.query.reactions.counts('a.near', 'post/x')).toEqual({
         total: 0,
       });
     });
@@ -764,7 +647,7 @@ describe('QueryModule', () => {
         },
       });
 
-      const result = await os.query.getStandingWith('a.near');
+      const result = await os.query.standings.outgoing('a.near');
       expect(result).toEqual(['bob.near', 'carol.near']);
     });
   });
@@ -780,7 +663,7 @@ describe('QueryModule', () => {
         },
       });
 
-      const result = await os.query.getStanders('a.near');
+      const result = await os.query.standings.incoming('a.near');
       expect(result).toEqual(['dave.near', 'eve.near']);
 
       // Queries by targetAccount (inbound), not accountId
@@ -810,17 +693,17 @@ describe('QueryModule', () => {
         },
       });
 
-      const counts = await os.query.getStandingCounts('a.near');
-      expect(counts).toEqual({ standers: 42, standingWith: 7 });
+      const counts = await os.query.standings.counts('a.near');
+      expect(counts).toEqual({ incoming: 42, outgoing: 7 });
     });
 
     it('returns zeros when no data', async () => {
       const { os } = makeOs({
         data: { standingCounts: [], standingOutCounts: [] },
       });
-      expect(await os.query.getStandingCounts('ghost.near')).toEqual({
-        standers: 0,
-        standingWith: 0,
+      expect(await os.query.standings.counts('ghost.near')).toEqual({
+        incoming: 0,
+        outgoing: 0,
       });
     });
   });
@@ -852,7 +735,7 @@ describe('QueryModule', () => {
         },
       });
 
-      const page = await os.query.getPostsByHashtag('#onchain', { limit: 10 });
+      const page = await os.query.feed.byHashtag('#onchain', { limit: 10 });
       expect(page.items).toHaveLength(2);
       expect(page.items[0].accountId).toBe('alice.near');
       expect(page.items[0].postId).toBe('p1');
@@ -873,7 +756,7 @@ describe('QueryModule', () => {
       }));
       const { os } = makeOs({ data: { postHashtags: rows } });
 
-      const page = await os.query.getPostsByHashtag('gm', { limit: 5 });
+      const page = await os.query.feed.byHashtag('gm', { limit: 5 });
       expect(page.nextOffset).toBe(5);
     });
 
@@ -893,7 +776,7 @@ describe('QueryModule', () => {
         },
       });
 
-      const page = await os.query.getPostsByHashtag('gm', { limit: 20 });
+      const page = await os.query.feed.byHashtag('gm', { limit: 20 });
       expect(page.nextOffset).toBeUndefined();
     });
   });
@@ -909,7 +792,7 @@ describe('QueryModule', () => {
         },
       });
 
-      const tags = await os.query.getTrendingHashtags({ limit: 10 });
+      const tags = await os.query.hashtags.trending({ limit: 10 });
       expect(tags).toHaveLength(2);
       expect(tags[0].hashtag).toBe('onchain');
       expect(tags[0].postCount).toBe(42);
@@ -920,7 +803,7 @@ describe('QueryModule', () => {
 
     it('returns empty array when no hashtags', async () => {
       const { os } = makeOs({ data: { hashtagCounts: [] } });
-      expect(await os.query.getTrendingHashtags()).toEqual([]);
+      expect(await os.query.hashtags.trending()).toEqual([]);
     });
   });
 
@@ -935,7 +818,7 @@ describe('QueryModule', () => {
         },
       });
 
-      const results = await os.query.searchHashtags('#on', { limit: 5 });
+      const results = await os.query.hashtags.search('#on', { limit: 5 });
       expect(results).toHaveLength(2);
 
       const body = JSON.parse(fetch.mock.calls[0][1].body);

@@ -34,7 +34,7 @@ describe('groups', () => {
     requesterOs = await getClientForAccount(requesterId);
     rejectRequesterOs = await getClientForAccount(rejectRequesterId);
     cancelRequesterOs = await getClientForAccount(cancelRequesterId);
-    groupCountBefore = await os.query.getGroupCount();
+    groupCountBefore = await os.query.stats.groupCount();
   });
 
   describe('create', () => {
@@ -79,7 +79,7 @@ describe('groups', () => {
 
     it('should increase the indexed group count', async () => {
       const count = await confirmIndexed(async () => {
-        const value = await os.query.getGroupCount();
+        const value = await os.query.stats.groupCount();
         return value >= groupCountBefore + 1 ? value : null;
       }, 'group count');
 
@@ -698,7 +698,9 @@ describe('groups', () => {
           os.groups.getStats(joinRequestGroupId),
         ]);
 
-        return isMember ? { isMember, stats } : null;
+        return isMember && Number(stats?.total_join_requests ?? 0) === 0
+          ? { isMember, stats }
+          : null;
       }, 'approved join request');
 
       expect(state?.isMember).toBe(true);
@@ -899,7 +901,7 @@ describe('groups', () => {
     it('should return the fresh group post via getGroupFeed', async () => {
       const feed = await confirmIndexed(
         async () => {
-          const value = await os.query.getGroupFeed({
+          const value = await os.query.groups.feed({
             groupId: joinRequestGroupId,
             limit: 10,
           });
@@ -937,7 +939,7 @@ describe('groups', () => {
       const parentPath = `${ACCOUNT_ID}/groups/${joinRequestGroupId}/content/post/${groupPostId}`;
       const replies = await confirmIndexed(
         async () => {
-          const value = await os.query.getRepliesByPath(parentPath, {
+          const value = await os.query.threads.repliesByPath(parentPath, {
             limit: 20,
           });
           return value.some((item) => item.postId === groupReplyId)
@@ -972,7 +974,7 @@ describe('groups', () => {
       const refPath = `${ACCOUNT_ID}/groups/${joinRequestGroupId}/content/post/${groupPostId}`;
       const quotes = await confirmIndexed(
         async () => {
-          const value = await os.query.getQuotesByPath(refPath, { limit: 20 });
+          const value = await os.query.threads.quotesByPath(refPath, { limit: 20 });
           return value.some((item) => item.postId === groupQuoteId)
             ? value
             : null;

@@ -78,13 +78,13 @@ while (Date.now() < deadline) {
     );
   }
 
-  // 2. postsCurrent view via os.query.getPosts
+  // 2. postsCurrent view via os.query.feed.recent
   const page = await os.query
     .getPosts({ author: ACCOUNT_ID, limit: 50 })
     .catch((e) => ({ items: [], error: String(e) }));
   if (attempt === 4) {
     console.log(
-      `[+${elapsed}s] os.query.getPosts() returned ${page.items.length} items; first 3:`,
+      `[+${elapsed}s] os.query.feed.recent() returned ${page.items.length} items; first 3:`,
       page.items
         .slice(0, 3)
         .map((p) => ({ postId: p.postId, blockHeight: p.blockHeight }))
@@ -172,7 +172,7 @@ while (Date.now() < deadline) {
   if (foundPost && !foundFiltered) {
     const filtered = await os.query
       .getFilteredFeed({
-        standingWith: [ACCOUNT_ID],
+        accounts: [ACCOUNT_ID],
         channel: 'music',
         limit: 20,
       })

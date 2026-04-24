@@ -1,20 +1,21 @@
 // ---------------------------------------------------------------------------
-// OnSocial SDK — social module (profiles, posts, standings, reactions)
+// OnSocial SDK — social module
 //
-// All object writes carry `v: 1` per the Base Social Schema. Profile is
-// stored as scattered slash-keys (per-field) so it emits `profile/v` instead.
-// See src/schema/v1.ts for the full spec.
+// `SocialModule` is the raw NEAR-Social write/read surface. It carries the
+// `set` / `get` / `getOne` / `listKeys` / `countKeys` primitives plus the
+// internal `setProfile / post / reply / quote / react / save / endorse /
+// stand / attest / …` helpers that the per-noun modules (`os.posts`,
+// `os.reactions`, `os.saves`, `os.endorsements`, `os.attestations`,
+// `os.standings`, `os.profiles`) delegate to.
+//
+// Pure payload builders (`buildPostSetData`, `buildReactionSetData`, …)
+// live in `src/builders/*` and are re-exported below for back-compat.
+// New consumers should import them directly from `./builders/index.js`
+// or from `@onsocial/sdk/advanced`.
 // ---------------------------------------------------------------------------
 
 import type { HttpClient } from './http.js';
 import { resolveContractId } from './contracts.js';
-import {
-  SCHEMA_VERSION,
-  inferKind,
-  normalizeChannel,
-  normalizeAudiences,
-} from './schema/v1.js';
-import type { MediaRef, Embed } from './schema/v1.js';
 import type { StorageProvider } from './storage/provider.js';
 import { GatewayProvider } from './storage/provider.js';
 import type {
@@ -24,7 +25,6 @@ import type {
   KeyEntry,
   ListKeysOptions,
   PostData,
-  GroupPostRef,
   PostRef,
   ProfileData,
   ReactionData,
@@ -32,396 +32,70 @@ import type {
   SaveRecord,
 } from './types.js';
 
-export type SocialSetData = Record<string, unknown>;
+import {
+  buildProfileSetData,
+  buildPostSetData,
+  buildReplySetData,
+  buildQuoteSetData,
+  buildStandingSetData,
+  buildStandingRemoveData,
+  buildReactionSetData,
+  buildReactionRemoveData,
+  buildSaveSetData,
+  buildSaveRemoveData,
+  buildEndorsementSetData,
+  buildEndorsementRemoveData,
+  buildAttestationSetData,
+  buildAttestationRemoveData,
+  resolvePostMedia,
+  isFileLike,
+  type SocialSetData,
+  type SaveBuildInput,
+  type EndorsementBuildInput,
+  type AttestationBuildInput,
+} from './builders/index.js';
 
-const PROFILE_RESERVED_FIELDS = [
-  'name',
-  'bio',
-  'avatar',
-  'banner',
-  'links',
-  'tags',
-];
+// ── Back-compat re-exports ──────────────────────────────────────────────────
+//
+// The pure builders moved to `./builders/*` but have always been part of
+// the public surface. Re-export them here so existing imports of the form
+// `import { buildPostSetData } from '@onsocial/sdk'` keep working.
 
-function encodeProfileField(value: unknown): string {
-  return typeof value === 'string' ? value : JSON.stringify(value);
-}
+export {
+  buildProfileSetData,
+  buildPostSetData,
+  buildReplySetData,
+  buildQuoteSetData,
+  buildGroupPostSetData,
+  buildGroupPostPath,
+  buildGroupReplySetData,
+  buildGroupQuoteSetData,
+  buildStandingSetData,
+  buildStandingRemoveData,
+  buildReactionSetData,
+  buildReactionRemoveData,
+  buildSaveSetData,
+  buildSaveRemoveData,
+  buildEndorsementSetData,
+  buildEndorsementRemoveData,
+  buildAttestationSetData,
+  buildAttestationRemoveData,
+  resolvePostMedia,
+} from './builders/index.js';
+export type {
+  SocialSetData,
+  SaveBuildInput,
+  EndorsementBuildInput,
+  EndorsementWeightInput,
+  AttestationBuildInput,
+  AttestationSignatureInput,
+} from './builders/index.js';
+
+// ── Module-private helpers ─────────────────────────────────────────────────
 
 function encodeComposeValue(value: unknown): string | null {
   if (value === null) return null;
   return typeof value === 'string' ? value : JSON.stringify(value);
-}
-
-export function buildProfileSetData(profile: ProfileData): SocialSetData {
-  const data: SocialSetData = {
-    'profile/v': String(SCHEMA_VERSION),
-  };
-
-  if (profile.name !== undefined) data['profile/name'] = profile.name;
-  if (profile.bio !== undefined) data['profile/bio'] = profile.bio;
-  if (profile.avatar !== undefined) data['profile/avatar'] = profile.avatar;
-  if (profile.banner !== undefined) data['profile/banner'] = profile.banner;
-  if (profile.links !== undefined) {
-    data['profile/links'] = encodeProfileField(profile.links);
-  }
-  if (profile.tags !== undefined) {
-    data['profile/tags'] = encodeProfileField(profile.tags);
-  }
-
-  for (const [key, value] of Object.entries(profile)) {
-    if (!PROFILE_RESERVED_FIELDS.includes(key) && value !== undefined) {
-      data[`profile/${key}`] = encodeProfileField(value);
-    }
-  }
-
-  return data;
-}
-
-/**
- * Merge normalised feed metadata (`channel`, `kind`, `audiences`) into a
- * post body so every writer — direct post, reply, quote, group, group-reply,
- * group-quote — produces consistently indexed posts. Invalid `channel`
- * values are dropped (treated as "no channel") rather than silently landing
- * in the wrong bucket. `kind` is inferred from media/embeds/text if not
- * supplied or if the supplied value isn't in the known vocabulary.
- */
-function applyFeedMeta<T extends PostData>(post: T): T {
-  const channel = normalizeChannel(
-    (post as unknown as { channel?: unknown }).channel
-  );
-  const audiences = normalizeAudiences(
-    (post as unknown as { audiences?: unknown }).audiences
-  );
-  const rawKind = (post as unknown as { kind?: unknown }).kind;
-  const kind = inferKind({
-    text: post.text,
-    media: (post as unknown as { media?: MediaRef[] | string[] }).media,
-    embeds: (post as unknown as { embeds?: Embed[] }).embeds,
-    kind: typeof rawKind === 'string' ? rawKind : undefined,
-  });
-  const next = { ...post, kind } as T;
-  if (channel !== undefined)
-    (next as Record<string, unknown>).channel = channel;
-  else delete (next as Record<string, unknown>).channel;
-  if (audiences !== undefined)
-    (next as Record<string, unknown>).audiences = audiences;
-  else delete (next as Record<string, unknown>).audiences;
-  return next;
-}
-
-export function buildPostSetData(
-  post: PostData,
-  postId: string,
-  now = Date.now()
-): SocialSetData {
-  return {
-    [`post/${postId}`]: {
-      v: SCHEMA_VERSION,
-      ...applyFeedMeta(post),
-      timestamp: post.timestamp ?? now,
-    },
-  };
-} /**
- * Build a reply post. The `parent` and `parentType` fields are picked up
- * by the substreams indexer and exposed via the `thread_replies` view.
- *
- * @param parentAuthor - account that owns the parent post
- * @param parentId     - id of the parent post (the part after `post/`)
- * @param post         - reply content
- * @param replyId      - id for the new reply
- * @param now          - timestamp override (defaults to Date.now())
- */
-export function buildReplySetData(
-  parentAuthor: string,
-  parentId: string,
-  post: PostData,
-  replyId: string,
-  now = Date.now()
-): SocialSetData {
-  return {
-    [`post/${replyId}`]: {
-      v: SCHEMA_VERSION,
-      ...applyFeedMeta(post),
-      parent: `${parentAuthor}/post/${parentId}`,
-      parentType: 'post',
-      timestamp: post.timestamp ?? now,
-    },
-  };
-}
-
-/**
- * Build a quote post (the OnSocial equivalent of a repost / quote-tweet).
- * The `ref` and `refType` fields are picked up by the substreams indexer
- * and exposed via the `quotes` view.
- */
-export function buildQuoteSetData(
-  refAuthor: string,
-  refPath: string,
-  post: PostData,
-  quoteId: string,
-  now = Date.now()
-): SocialSetData {
-  return {
-    [`post/${quoteId}`]: {
-      v: SCHEMA_VERSION,
-      ...applyFeedMeta(post),
-      ref: `${refAuthor}/${refPath}`,
-      refType: 'quote',
-      timestamp: post.timestamp ?? now,
-    },
-  };
-}
-
-/**
- * Build a post written into a group's content namespace. The contract stores
- * it under `groups/<groupId>/content/post/<postId>` — the `content/` segment
- * is required so default member write permissions (granted on the `content`
- * subpath at join time) authorize the write.
- *
- * Note: the enclosing `Set` action must target the group's owning account
- * (group owner) or be sent by a member with permission on `content`.
- */
-export function buildGroupPostSetData(
-  groupId: string,
-  post: PostData,
-  postId: string,
-  now = Date.now()
-): SocialSetData {
-  return {
-    [`groups/${groupId}/content/post/${postId}`]: {
-      v: SCHEMA_VERSION,
-      ...applyFeedMeta(post),
-      timestamp: post.timestamp ?? now,
-    },
-  };
-}
-
-export function buildGroupPostPath(post: GroupPostRef): string {
-  return `${post.author}/groups/${post.groupId}/content/post/${post.postId}`;
-}
-
-export function buildGroupReplySetData(
-  groupId: string,
-  parentPath: string,
-  post: PostData,
-  replyId: string,
-  now = Date.now()
-): SocialSetData {
-  return {
-    [`groups/${groupId}/content/post/${replyId}`]: {
-      v: SCHEMA_VERSION,
-      ...applyFeedMeta(post),
-      parent: parentPath,
-      parentType: 'post',
-      timestamp: post.timestamp ?? now,
-    },
-  };
-}
-
-export function buildGroupQuoteSetData(
-  groupId: string,
-  refPath: string,
-  post: PostData,
-  quoteId: string,
-  now = Date.now()
-): SocialSetData {
-  const [refAuthor] = refPath.split('/', 1);
-  return {
-    [`groups/${groupId}/content/post/${quoteId}`]: {
-      v: SCHEMA_VERSION,
-      ...applyFeedMeta(post),
-      ref: refPath,
-      ...(refAuthor ? { refAuthor } : {}),
-      refType: 'quote',
-      timestamp: post.timestamp ?? now,
-    },
-  };
-}
-
-export function buildStandingSetData(
-  targetAccount: string,
-  now = Date.now()
-): SocialSetData {
-  return {
-    [`standing/${targetAccount}`]: { v: SCHEMA_VERSION, since: now },
-  };
-}
-
-export function buildStandingRemoveData(targetAccount: string): SocialSetData {
-  return {
-    [`standing/${targetAccount}`]: null,
-  };
-}
-
-/**
- * Build a reaction write. v1 path layout: `reaction/<owner>/<kind>/<contentPath>`.
- *
- * Including the kind in the path lets a single reactor emit multiple reactions
- * to the same target (e.g. like + bookmark) without one overwriting the other.
- */
-export function buildReactionSetData(
-  ownerAccount: string,
-  contentPath: string,
-  reaction: ReactionData
-): SocialSetData {
-  const kind = String(reaction.type ?? '').trim();
-  if (!kind) {
-    throw new Error('reaction.type required to derive path');
-  }
-  return {
-    [`reaction/${ownerAccount}/${kind}/${contentPath}`]: {
-      v: SCHEMA_VERSION,
-      ...reaction,
-    },
-  };
-}
-
-/** Build a reaction tombstone. Must be called with the same `kind` used to set. */
-export function buildReactionRemoveData(
-  ownerAccount: string,
-  kind: string,
-  contentPath: string
-): SocialSetData {
-  return {
-    [`reaction/${ownerAccount}/${kind}/${contentPath}`]: null,
-  };
-}
-
-// ── Saves (private bookmarks) ─────────────────────────────────────────────
-
-export interface SaveBuildInput {
-  folder?: string;
-  note?: string;
-  /** Override timestamp (defaults to Date.now()). */
-  now?: number;
-}
-
-/**
- * Build a private save (bookmark). Path: `saved/<contentPath>`.
- * Personal/utility — never aggregated by indexers.
- */
-export function buildSaveSetData(
-  contentPath: string,
-  input: SaveBuildInput = {}
-): SocialSetData {
-  const value: Record<string, unknown> = {
-    v: SCHEMA_VERSION,
-    timestamp: input.now ?? Date.now(),
-  };
-  if (input.folder !== undefined) value.folder = input.folder;
-  if (input.note !== undefined) value.note = input.note;
-  return { [`saved/${contentPath}`]: value };
-}
-
-export function buildSaveRemoveData(contentPath: string): SocialSetData {
-  return { [`saved/${contentPath}`]: null };
-}
-
-// ── Endorsements (weighted directed vouch) ────────────────────────────────
-
-export type EndorsementWeightInput = 1 | 2 | 3 | 4 | 5;
-
-export interface EndorsementBuildInput {
-  topic?: string;
-  weight?: EndorsementWeightInput;
-  note?: string;
-  expiresAt?: number;
-  /** Override timestamp (defaults to Date.now()). */
-  now?: number;
-}
-
-/**
- * Build an endorsement. Path: `endorsement/<target>` or
- * `endorsement/<target>/<topic>` when `topic` is set.
- */
-export function buildEndorsementSetData(
-  targetAccount: string,
-  input: EndorsementBuildInput = {}
-): SocialSetData {
-  const value: Record<string, unknown> = {
-    v: SCHEMA_VERSION,
-    since: input.now ?? Date.now(),
-  };
-  if (input.topic !== undefined) value.topic = input.topic;
-  if (input.weight !== undefined) value.weight = input.weight;
-  if (input.note !== undefined) value.note = input.note;
-  if (input.expiresAt !== undefined) value.expiresAt = input.expiresAt;
-  const path = input.topic
-    ? `endorsement/${targetAccount}/${input.topic}`
-    : `endorsement/${targetAccount}`;
-  return { [path]: value };
-}
-
-export function buildEndorsementRemoveData(
-  targetAccount: string,
-  topic?: string
-): SocialSetData {
-  const path = topic
-    ? `endorsement/${targetAccount}/${topic}`
-    : `endorsement/${targetAccount}`;
-  return { [path]: null };
-}
-
-// ── Attestations (verifiable typed claims) ────────────────────────────────
-
-export interface AttestationSignatureInput {
-  alg: string;
-  sig: string;
-  signer?: string;
-}
-
-export interface AttestationBuildInput {
-  /** Free-string claim type; pattern: [a-z0-9][a-z0-9_-]{0,63} */
-  type: string;
-  /** Subject identifier (account, content path, or any opaque id). */
-  subject: string;
-  scope?: string;
-  expiresAt?: number;
-  /** Pre-pinned evidence references. */
-  evidence?: MediaRef[];
-  metadata?: Record<string, unknown>;
-  signature?: AttestationSignatureInput;
-  x?: Record<string, Record<string, unknown>>;
-  /** Override issuedAt timestamp (defaults to Date.now()). */
-  now?: number;
-}
-
-/**
- * Build an attestation. Path: `claims/<subject>/<type>/<claimId>`.
- * Written under the issuer's account namespace.
- */
-export function buildAttestationSetData(
-  claimId: string,
-  input: AttestationBuildInput
-): SocialSetData {
-  if (!claimId) throw new Error('claimId required');
-  if (!input.type) throw new Error('attestation.type required');
-  if (!input.subject) throw new Error('attestation.subject required');
-  const value: Record<string, unknown> = {
-    v: SCHEMA_VERSION,
-    type: input.type,
-    subject: input.subject,
-    issuedAt: input.now ?? Date.now(),
-  };
-  if (input.scope !== undefined) value.scope = input.scope;
-  if (input.expiresAt !== undefined) value.expiresAt = input.expiresAt;
-  if (input.evidence !== undefined) value.evidence = input.evidence;
-  if (input.metadata !== undefined) value.metadata = input.metadata;
-  if (input.signature !== undefined) value.signature = input.signature;
-  if (input.x !== undefined) value.x = input.x;
-  return {
-    [`claims/${input.subject}/${input.type}/${claimId}`]: value,
-  };
-}
-
-export function buildAttestationRemoveData(
-  subject: string,
-  type: string,
-  claimId: string
-): SocialSetData {
-  return {
-    [`claims/${subject}/${type}/${claimId}`]: null,
-  };
 }
 
 function getSingleEntry(data: SocialSetData): [string, unknown] {
@@ -438,7 +112,6 @@ function parseStructuredEntry<T extends Record<string, unknown>>(
   if (entry.deleted || entry.value == null) {
     return null;
   }
-
   const rawValue: unknown = entry.value;
   let parsedValue: unknown = rawValue;
   if (typeof parsedValue === 'string') {
@@ -448,7 +121,6 @@ function parseStructuredEntry<T extends Record<string, unknown>>(
       return null;
     }
   }
-
   if (
     !parsedValue ||
     typeof parsedValue !== 'object' ||
@@ -456,51 +128,10 @@ function parseStructuredEntry<T extends Record<string, unknown>>(
   ) {
     return null;
   }
-
   return parsedValue as T;
 }
 
-function isFileLike(value: unknown): value is Blob | File {
-  return typeof Blob !== 'undefined' && value instanceof Blob;
-}
-
-/**
- * Resolve the `image` / `files` convenience fields on `PostData` into a
- * materialised `media[]` array. The returned PostData no longer carries
- * `image` or `files`; all uploads have been performed via the supplied
- * StorageProvider.
- *
- * Exported so callers that don't go through `SocialModule` (e.g. custom
- * flows, contract-direct devs) can reuse the same media-resolution rules.
- */
-export async function resolvePostMedia(
-  post: PostData,
-  storage: StorageProvider
-): Promise<PostData> {
-  const hasImage = isFileLike(post.image);
-  const hasFiles =
-    Array.isArray(post.files) && (post.files as unknown[]).length > 0;
-  if (!hasImage && !hasFiles) return post;
-
-  const { image: _dropImage, files: _dropFiles, ...rest } = post;
-  const existing = (post.media ?? []) as Array<string | MediaRef>;
-  const prepended: Array<string | MediaRef> = [];
-
-  if (hasImage && post.image) {
-    const uploaded = await storage.upload(post.image);
-    prepended.push(`ipfs://${uploaded.cid}`);
-  }
-  if (hasFiles && post.files) {
-    const uploads = await Promise.all(
-      (post.files as Array<Blob | File>).map((f) => storage.upload(f))
-    );
-    for (const u of uploads) {
-      prepended.push({ cid: u.cid, mime: u.mime, size: u.size });
-    }
-  }
-
-  return { ...rest, media: [...prepended, ...existing] };
-}
+// ── Module ─────────────────────────────────────────────────────────────────
 
 export class SocialModule {
   private _coreContract: string;
@@ -514,29 +145,19 @@ export class SocialModule {
     this._storage = storage ?? new GatewayProvider(_http);
   }
 
-  /**
-   * Upload a file via the configured StorageProvider and return its
-   * `ipfs://<cid>` URL. Used by legacy `image:` / `avatar:` convenience
-   * fields which store media as a bare string.
-   */
+  /** Expose the configured StorageProvider (used by PostsModule / groups). */
+  get storage(): StorageProvider {
+    return this._storage;
+  }
+
   private async _uploadFile(file: Blob | File): Promise<string> {
     const uploaded = await this._storage.upload(file);
     return `ipfs://${uploaded.cid}`;
   }
 
   // ── Profiles ────────────────────────────────────────────────────────────
+  // Prefer `os.profiles.update()` for app code.
 
-  /**
-   * Create or update the current user's profile.
-   *
-   * `avatar` may be a string (URL/CID) or a `File`/`Blob` — the SDK uploads
-   * any file to IPFS via the gateway and stores `ipfs://<cid>` in its place.
-   *
-   * ```ts
-   * await os.social.setProfile({ name: 'Alice', bio: 'Builder' });
-   * await os.social.setProfile({ name: 'Alice', avatar: file });
-   * ```
-   */
   async setProfile(profile: ProfileData): Promise<RelayResponse> {
     let resolved: ProfileData = profile;
     if (isFileLike(profile.avatar)) {
@@ -557,34 +178,8 @@ export class SocialModule {
   }
 
   // ── Posts ───────────────────────────────────────────────────────────────
+  // Prefer `os.posts.create() / .reply() / .quote()` for app code.
 
-  /**
-   * Create a post.
-   *
-   * Media handling (auto-upload via the configured StorageProvider):
-   *   • `files: File[]` — each file is uploaded and appended to `media[]`
-   *     as a fully populated `MediaRef` ({ cid, mime, size }). Preferred
-   *     for new code; works with gateway, direct-Lighthouse, and custom
-   *     providers identically.
-   *   • `image: File` — legacy single-file path; uploaded and prepended
-   *     to `media[]` as a bare `ipfs://<cid>` string.
-   *   • `media: Array<string | MediaRef>` — pre-resolved entries; passed
-   *     through unchanged (bring-your-own / pre-uploaded).
-   *
-   * Feed metadata (`channel`, `kind`, `audiences`) is normalised via
-   * `applyFeedMeta` so malformed input is silently dropped rather than
-   * corrupting feed bucketing.
-   *
-   * ```ts
-   * await os.social.post({ text: 'Hello OnSocial!' });
-   * await os.social.post({ text: 'gm', files: [imageFile] });
-   * await os.social.post({
-   *   text: 'new track',
-   *   files: [audioFile, coverFile],
-   *   channel: 'music',
-   * });
-   * ```
-   */
   async post(post: PostData, postId?: string): Promise<RelayResponse> {
     const resolved = await resolvePostMedia(post, this._storage);
     const id = postId ?? Date.now().toString();
@@ -596,113 +191,6 @@ export class SocialModule {
     });
   }
 
-  /** Expose the configured StorageProvider (used by PostsModule / groups). */
-  get storage(): StorageProvider {
-    return this._storage;
-  }
-
-  // ── Standings ───────────────────────────────────────────────────────────
-
-  /**
-   * Stand with another user.
-   *
-   * ```ts
-   * await os.social.standWith('bob.near');
-   * ```
-   */
-  async standWith(targetAccount: string): Promise<RelayResponse> {
-    const [path, value] = getSingleEntry(buildStandingSetData(targetAccount));
-    return this._http.post<RelayResponse>('/compose/set', {
-      path,
-      value: encodeComposeValue(value),
-      targetAccount: this._coreContract,
-    });
-  }
-
-  /**
-   * Remove a standing.
-   *
-   * ```ts
-   * await os.social.unstand('bob.near');
-   * ```
-   */
-  async unstand(targetAccount: string): Promise<RelayResponse> {
-    const [path, value] = getSingleEntry(
-      buildStandingRemoveData(targetAccount)
-    );
-    return this._http.post<RelayResponse>('/compose/set', {
-      path,
-      value: encodeComposeValue(value),
-      targetAccount: this._coreContract,
-    });
-  }
-
-  // ── Reactions ───────────────────────────────────────────────────────────
-
-  /**
-   * React to content.
-   *
-   * ```ts
-   * await os.social.react('bob.near', 'post/123', { type: 'like' });
-   * ```
-   */
-  async react(
-    ownerAccount: string,
-    contentPath: string,
-    reaction: ReactionData
-  ): Promise<RelayResponse> {
-    const [path, value] = getSingleEntry(
-      buildReactionSetData(ownerAccount, contentPath, reaction)
-    );
-    return this._http.post<RelayResponse>('/compose/set', {
-      path,
-      value: encodeComposeValue(value),
-      targetAccount: this._coreContract,
-    });
-  }
-
-  async reactToPost(
-    post: PostRef,
-    reaction: ReactionData
-  ): Promise<RelayResponse> {
-    return this.react(post.author, `post/${post.postId}`, reaction);
-  }
-
-  /**
-   * Remove a previously-set reaction. Must specify the same `kind` used to react.
-   *
-   * ```ts
-   * await os.social.unreact('bob.near', 'like', 'post/123');
-   * ```
-   */
-  async unreact(
-    ownerAccount: string,
-    kind: string,
-    contentPath: string
-  ): Promise<RelayResponse> {
-    const [path, value] = getSingleEntry(
-      buildReactionRemoveData(ownerAccount, kind, contentPath)
-    );
-    return this._http.post<RelayResponse>('/compose/set', {
-      path,
-      value: encodeComposeValue(value),
-      targetAccount: this._coreContract,
-    });
-  }
-
-  async unreactFromPost(post: PostRef, kind: string): Promise<RelayResponse> {
-    return this.unreact(post.author, kind, `post/${post.postId}`);
-  }
-
-  // ── Replies & Quotes ──────────────────────────────────────────────────
-
-  /**
-   * Reply to a post.
-   *
-   * ```ts
-   * await os.social.reply('alice.near', '1713456789', { text: 'Great post!' });
-   * ```
-   */
   async reply(
     parentAuthor: string,
     parentId: string,
@@ -729,13 +217,6 @@ export class SocialModule {
     return this.reply(post.author, post.postId, reply, replyId);
   }
 
-  /**
-   * Quote a post.
-   *
-   * ```ts
-   * await os.social.quote('alice.near', 'post/1713456789', { text: 'This!' });
-   * ```
-   */
   async quote(
     refAuthor: string,
     refPath: string,
@@ -762,16 +243,76 @@ export class SocialModule {
     return this.quote(post.author, `post/${post.postId}`, quote, quoteId);
   }
 
-  // ── Saves (bookmarks) ────────────────────────────────────────────────
+  // ── Standings ───────────────────────────────────────────────────────────
+  // Prefer `os.standings.add() / .remove() / .toggle() / .has()` for app code.
 
-  /**
-   * Save / bookmark content.
-   *
-   * ```ts
-   * await os.social.save('alice.near/post/123');
-   * await os.social.save('alice.near/post/123', { folder: 'inspiration' });
-   * ```
-   */
+  async standWith(targetAccount: string): Promise<RelayResponse> {
+    const [path, value] = getSingleEntry(buildStandingSetData(targetAccount));
+    return this._http.post<RelayResponse>('/compose/set', {
+      path,
+      value: encodeComposeValue(value),
+      targetAccount: this._coreContract,
+    });
+  }
+
+  async unstand(targetAccount: string): Promise<RelayResponse> {
+    const [path, value] = getSingleEntry(
+      buildStandingRemoveData(targetAccount)
+    );
+    return this._http.post<RelayResponse>('/compose/set', {
+      path,
+      value: encodeComposeValue(value),
+      targetAccount: this._coreContract,
+    });
+  }
+
+  // ── Reactions ───────────────────────────────────────────────────────────
+  // Prefer `os.reactions.add() / .remove() / .toggle() / .summary()` for app code.
+
+  async react(
+    ownerAccount: string,
+    contentPath: string,
+    reaction: ReactionData
+  ): Promise<RelayResponse> {
+    const [path, value] = getSingleEntry(
+      buildReactionSetData(ownerAccount, contentPath, reaction)
+    );
+    return this._http.post<RelayResponse>('/compose/set', {
+      path,
+      value: encodeComposeValue(value),
+      targetAccount: this._coreContract,
+    });
+  }
+
+  async reactToPost(
+    post: PostRef,
+    reaction: ReactionData
+  ): Promise<RelayResponse> {
+    return this.react(post.author, `post/${post.postId}`, reaction);
+  }
+
+  async unreact(
+    ownerAccount: string,
+    kind: string,
+    contentPath: string
+  ): Promise<RelayResponse> {
+    const [path, value] = getSingleEntry(
+      buildReactionRemoveData(ownerAccount, kind, contentPath)
+    );
+    return this._http.post<RelayResponse>('/compose/set', {
+      path,
+      value: encodeComposeValue(value),
+      targetAccount: this._coreContract,
+    });
+  }
+
+  async unreactFromPost(post: PostRef, kind: string): Promise<RelayResponse> {
+    return this.unreact(post.author, kind, `post/${post.postId}`);
+  }
+
+  // ── Saves (bookmarks) ────────────────────────────────────────────────
+  // Prefer `os.saves.add() / .remove() / .toggle() / .has() / .list()` for app code.
+
   async save(
     contentPath: string,
     input?: SaveBuildInput
@@ -790,22 +331,10 @@ export class SocialModule {
   ): Promise<SaveRecord | null> {
     const entry = await this.getOne(`saved/${contentPath}`, accountId);
     const value = parseStructuredEntry<Omit<SaveRecord, 'contentPath'>>(entry);
-    if (!value) {
-      return null;
-    }
-    return {
-      contentPath,
-      ...value,
-    } as SaveRecord;
+    if (!value) return null;
+    return { contentPath, ...value } as SaveRecord;
   }
 
-  /**
-   * Remove a saved bookmark.
-   *
-   * ```ts
-   * await os.social.unsave('alice.near/post/123');
-   * ```
-   */
   async unsave(contentPath: string): Promise<RelayResponse> {
     const [path, value] = getSingleEntry(buildSaveRemoveData(contentPath));
     return this._http.post<RelayResponse>('/compose/set', {
@@ -816,15 +345,8 @@ export class SocialModule {
   }
 
   // ── Endorsements ──────────────────────────────────────────────────────
+  // Prefer `os.endorsements.*` for app code.
 
-  /**
-   * Endorse another account.
-   *
-   * ```ts
-   * await os.social.endorse('bob.near');
-   * await os.social.endorse('bob.near', { topic: 'rust', weight: 5 });
-   * ```
-   */
   async endorse(
     targetAccount: string,
     input?: EndorsementBuildInput
@@ -849,23 +371,10 @@ export class SocialModule {
     const entry = await this.getOne(path, opts?.accountId);
     const value =
       parseStructuredEntry<Omit<EndorsementRecord, 'target'>>(entry);
-    if (!value) {
-      return null;
-    }
-    return {
-      target: targetAccount,
-      ...value,
-    } as EndorsementRecord;
+    if (!value) return null;
+    return { target: targetAccount, ...value } as EndorsementRecord;
   }
 
-  /**
-   * Remove an endorsement.
-   *
-   * ```ts
-   * await os.social.unendorse('bob.near');
-   * await os.social.unendorse('bob.near', 'rust');
-   * ```
-   */
   async unendorse(
     targetAccount: string,
     topic?: string
@@ -881,18 +390,8 @@ export class SocialModule {
   }
 
   // ── Attestations ──────────────────────────────────────────────────────
+  // Prefer `os.attestations.*` for app code.
 
-  /**
-   * Create an attestation (verifiable claim).
-   *
-   * ```ts
-   * await os.social.attest('claim-1', {
-   *   type: 'skill',
-   *   subject: 'bob.near',
-   *   scope: 'blockchain',
-   * });
-   * ```
-   */
   async attest(
     claimId: string,
     input: AttestationBuildInput
@@ -921,24 +420,10 @@ export class SocialModule {
       parseStructuredEntry<
         Omit<AttestationRecord, 'claimId' | 'subject' | 'type'>
       >(entry);
-    if (!value) {
-      return null;
-    }
-    return {
-      claimId,
-      subject,
-      type,
-      ...value,
-    } as AttestationRecord;
+    if (!value) return null;
+    return { claimId, subject, type, ...value } as AttestationRecord;
   }
 
-  /**
-   * Revoke an attestation.
-   *
-   * ```ts
-   * await os.social.revokeAttestation('bob.near', 'skill', 'claim-1');
-   * ```
-   */
   async revokeAttestation(
     subject: string,
     type: string,
@@ -973,40 +458,21 @@ export class SocialModule {
 
   // ── On-chain reads ────────────────────────────────────────────────────
 
-  /**
-   * Read one or more entries by key directly from the contract.
-   *
-   * ```ts
-   * const entries = await os.social.get(['profile/name', 'profile/bio'], 'alice.near');
-   * ```
-   */
+  /** Read one or more entries by key directly from the contract. */
   async get(keys: string[], accountId?: string): Promise<EntryView[]> {
     const params = new URLSearchParams({ keys: keys.join(',') });
     if (accountId) params.set('accountId', accountId);
     return this._http.get<EntryView[]>(`/data/get?${params}`);
   }
 
-  /**
-   * Read a single entry by key directly from the contract.
-   *
-   * ```ts
-   * const entry = await os.social.getOne('profile/name', 'alice.near');
-   * console.log(entry.value);
-   * ```
-   */
+  /** Read a single entry by key directly from the contract. */
   async getOne(key: string, accountId?: string): Promise<EntryView> {
     const params = new URLSearchParams({ key });
     if (accountId) params.set('accountId', accountId);
     return this._http.get<EntryView>(`/data/get-one?${params}`);
   }
 
-  /**
-   * List keys matching a prefix with cursor-based pagination.
-   *
-   * ```ts
-   * const keys = await os.social.listKeys({ prefix: 'myapp/', limit: 20 });
-   * ```
-   */
+  /** List keys matching a prefix with cursor-based pagination. */
   async listKeys(opts: ListKeysOptions): Promise<KeyEntry[]> {
     const params = new URLSearchParams({ prefix: opts.prefix });
     if (opts.fromKey) params.set('fromKey', opts.fromKey);
@@ -1015,13 +481,7 @@ export class SocialModule {
     return this._http.get<KeyEntry[]>(`/data/keys?${params}`);
   }
 
-  /**
-   * Count keys matching a prefix.
-   *
-   * ```ts
-   * const { count } = await os.social.countKeys('post/');
-   * ```
-   */
+  /** Count keys matching a prefix. */
   async countKeys(prefix: string): Promise<{ count: number }> {
     const params = new URLSearchParams({ prefix });
     return this._http.get<{ count: number }>(`/data/count?${params}`);

@@ -43,26 +43,56 @@ export type {
   AttestationBuildInput,
   AttestationSignatureInput,
 } from './social.js';
+export { ScarcesModule } from './modules/scarces/index.js';
 export {
-  ScarcesModule,
-  buildCreateCollectionAction,
-  buildCreateLazyListingAction,
-  buildListNativeScarceAction,
-  buildMintFromCollectionAction,
-  buildPurchaseNativeScarceAction,
+  ScarcesTokensApi,
+  ScarcesCollectionsApi,
+  ScarcesMarketApi,
+  ScarcesAuctionsApi,
+  ScarcesOffersApi,
+  ScarcesLazyApi,
+  ScarcesFromPostApi,
+} from './modules/scarces/index.js';
+export {
   buildQuickMintAction,
   buildTransferScarceAction,
+  buildBatchTransferAction,
+  buildBurnScarceAction,
+  buildCreateCollectionAction,
+  buildMintFromCollectionAction,
+  buildPurchaseFromCollectionAction,
+  buildAirdropAction,
+  buildPauseCollectionAction,
+  buildResumeCollectionAction,
+  buildDeleteCollectionAction,
+  buildListNativeScarceAction,
+  buildDelistNativeScarceAction,
+  buildPurchaseNativeScarceAction,
+  buildListAuctionAction,
+  buildPlaceBidAction,
+  buildSettleAuctionAction,
+  buildCancelAuctionAction,
+  buildMakeOfferAction,
+  buildCancelOfferAction,
+  buildAcceptOfferAction,
+  buildMakeCollectionOfferAction,
+  buildCancelCollectionOfferAction,
+  buildAcceptCollectionOfferAction,
+  buildCreateLazyListingAction,
+  buildPurchaseLazyListingAction,
   extractPostMedia,
   nearToYocto,
-} from './scarces.js';
+} from './builders/scarces/index.js';
 export type {
   ExtractedPost,
   MintFromPostOptions,
   PostSource,
-} from './scarces.js';
+  BatchTransferEntry,
+  TokenMetadata,
+} from './builders/scarces/index.js';
 export { RewardsModule } from './rewards.js';
 export { buildClaimAction, buildCreditRewardAction } from './rewards.js';
-export { QueryModule } from './query.js';
+export { QueryModule } from './query/index.js';
 export type {
   PostRow,
   ReactionRow,
@@ -71,7 +101,7 @@ export type {
   GroupConversation,
   FeedFilter,
   GroupFeedFilter,
-} from './query.js';
+} from './query/index.js';
 export { StorageModule } from './storage.js';
 export {
   GatewayProvider,
@@ -98,26 +128,33 @@ export type {
   NotificationRule,
   CreateRuleParams,
 } from './notifications.js';
-export { GroupsModule } from './groups.js';
-export { PostsModule } from './posts.js';
-export { ProfilesModule } from './profiles.js';
-export type { MaterialisedProfile } from './profiles.js';
-export { ReactionsModule } from './reactions.js';
+export { GroupsModule } from './modules/groups.js';
+export { PostsModule } from './modules/posts.js';
+export { ProfilesModule } from './modules/profiles.js';
+export type { MaterialisedProfile } from './modules/profiles.js';
+export { ReactionsModule } from './modules/reactions.js';
 export type {
   ReactionInput,
   ReactionTarget,
   ReactionSummary,
   ToggleOptions as ReactionToggleOptions,
-} from './reactions.js';
-export { SavesModule } from './saves.js';
-export type { SaveTarget } from './saves.js';
-export { EndorsementsModule } from './endorsements.js';
-export type { EndorsementListItem } from './endorsements.js';
-export { AttestationsModule } from './attestations.js';
-export type { AttestationListItem } from './attestations.js';
+} from './modules/reactions.js';
+export { SavesModule } from './modules/saves.js';
+export type { SaveTarget } from './modules/saves.js';
+export { EndorsementsModule } from './modules/endorsements.js';
+export type { EndorsementListItem } from './modules/endorsements.js';
+export { AttestationsModule } from './modules/attestations.js';
+export type { AttestationListItem } from './modules/attestations.js';
 export { PermissionsModule } from './permissions.js';
 export { ChainModule } from './chain.js';
 export { PagesModule } from './pages.js';
+export { StandingsModule } from './modules/standings.js';
+export type {
+  ContentNamespace,
+  EconomyNamespace,
+  PlatformNamespace,
+  RawNamespace,
+} from './namespaces.js';
 
 // Base Social Schema v1 — promotable shared spec
 export {

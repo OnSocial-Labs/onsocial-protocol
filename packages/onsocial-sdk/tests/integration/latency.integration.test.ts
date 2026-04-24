@@ -23,7 +23,7 @@ describe('latency', () => {
     let found: unknown = null;
     for (let i = 0; i < 60; i++) {
       await new Promise((r) => setTimeout(r, 2000));
-      const page = await os.query.getPosts({ author: ACCOUNT_ID, limit: 10 });
+      const page = await os.query.feed.recent({ author: ACCOUNT_ID, limit: 10 });
       found = page.items.find((p: any) => p.postId === postId);
       if (found) {
         const indexMs = performance.now() - t1;
@@ -49,7 +49,7 @@ describe('latency', () => {
     let found: unknown = null;
     for (let i = 0; i < 60; i++) {
       await new Promise((r) => setTimeout(r, 2000));
-      const p = await os.query.getProfile(ACCOUNT_ID);
+      const p = await os.query.profiles.get(ACCOUNT_ID);
       if (p && p[field]) {
         found = p[field];
         const indexMs = performance.now() - t1;
@@ -65,11 +65,11 @@ describe('latency', () => {
 
   it('query speed: substreams vs RPC', async () => {
     const t0 = performance.now();
-    await os.query.getPosts({ author: ACCOUNT_ID, limit: 20 });
+    await os.query.feed.recent({ author: ACCOUNT_ID, limit: 20 });
     const queryMs = performance.now() - t0;
 
     const t1 = performance.now();
-    await os.query.getProfile(ACCOUNT_ID);
+    await os.query.profiles.get(ACCOUNT_ID);
     const profMs = performance.now() - t1;
 
     const t2 = performance.now();

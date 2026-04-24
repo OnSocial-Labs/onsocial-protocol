@@ -54,7 +54,7 @@ import {
   buildPurchaseNativeScarceAction as buildPurchaseNativeScarceActionInternal,
   buildQuickMintAction as buildQuickMintActionInternal,
   buildTransferScarceAction as buildTransferScarceActionInternal,
-} from '../scarces.js';
+} from '../builders/scarces/index.js';
 
 // ── Core Actions (core-onsocial) ────────────────────────────────────────────
 

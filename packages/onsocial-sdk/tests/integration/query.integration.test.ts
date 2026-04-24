@@ -58,7 +58,7 @@ describe('query', () => {
 
   describe('profiles', () => {
     it('should fetch profile for a known account', async () => {
-      const profile = await os.query.getProfile(INDEXED_ACCOUNT);
+      const profile = await os.query.profiles.get(INDEXED_ACCOUNT);
       expect(profile).toBeDefined();
       // onsocial.testnet should have at least a name field
       if (profile) {
@@ -70,12 +70,12 @@ describe('query', () => {
 
   describe('posts', () => {
     it('should fetch posts (may be empty for test account)', async () => {
-      const page = await os.query.getPosts({ author: ACCOUNT_ID });
+      const page = await os.query.feed.recent({ author: ACCOUNT_ID });
       expect(Array.isArray(page.items)).toBe(true);
     });
 
     it('should respect limit parameter', async () => {
-      const page = await os.query.getPosts({
+      const page = await os.query.feed.recent({
         author: INDEXED_ACCOUNT,
         limit: 2,
       });
@@ -83,8 +83,8 @@ describe('query', () => {
     });
 
     it('should return a feed for accounts the user stands with', async () => {
-      const feed = await os.query.getFeed({
-        standingWith: [INDEXED_ACCOUNT],
+      const feed = await os.query.feed.fromAccounts({
+        accounts: [INDEXED_ACCOUNT],
         limit: 3,
       });
 
@@ -98,14 +98,14 @@ describe('query', () => {
 
   describe('standings', () => {
     it('should fetch standing counts', async () => {
-      const counts = await os.query.getStandingCounts(ACCOUNT_ID);
+      const counts = await os.query.standings.counts(ACCOUNT_ID);
       expect(counts).toBeDefined();
-      expect(typeof counts.standers).toBe('number');
-      expect(typeof counts.standingWith).toBe('number');
+      expect(typeof counts.incoming).toBe('number');
+      expect(typeof counts.outgoing).toBe('number');
     });
 
     it('should list who account is standing with', async () => {
-      const standingWith = await os.query.getStandingWith(ACCOUNT_ID);
+      const standingWith = await os.query.standings.outgoing(ACCOUNT_ID);
       expect(Array.isArray(standingWith)).toBe(true);
       // Every entry should be a non-empty string (account id)
       for (const acct of standingWith) {
@@ -115,7 +115,7 @@ describe('query', () => {
     });
 
     it('should list standers of a known account', async () => {
-      const standers = await os.query.getStanders(INDEXED_ACCOUNT);
+      const standers = await os.query.standings.incoming(INDEXED_ACCOUNT);
       expect(Array.isArray(standers)).toBe(true);
       for (const acct of standers) {
         expect(typeof acct).toBe('string');
@@ -124,7 +124,7 @@ describe('query', () => {
     });
 
     it('should respect limit parameter', async () => {
-      const standingWith = await os.query.getStandingWith(ACCOUNT_ID, {
+      const standingWith = await os.query.standings.outgoing(ACCOUNT_ID, {
         limit: 1,
       });
       expect(standingWith.length).toBeLessThanOrEqual(1);
@@ -148,79 +148,66 @@ describe('query', () => {
 
   describe('custom indexed data', () => {
     it('should fetch data by type for the account', async () => {
-      const result = await confirmIndexed(
+      const row = await confirmIndexed(
         async () => {
-          const value = await os.query.dataByType('custom-query', {
+          const rows = await os.query.raw.byType('custom-query', {
             accountId: ACCOUNT_ID,
             limit: 10,
           });
-          return value.data?.dataUpdates?.some((row) => row.dataId === customId)
-            ? value
-            : null;
+          return rows.find((r) => r.dataId === customId) ?? null;
         },
-        'query dataByType',
+        'query raw.byType',
         { timeoutMs: 30_000, intervalMs: 2_000 }
       );
 
-      const row = result?.data?.dataUpdates?.find(
-        (item) => item.dataId === customId
-      );
       expect(row?.accountId).toBe(ACCOUNT_ID);
       expect(row?.dataId).toBe(customId);
       expect(row?.operation).toBe('set');
     }, 35_000);
 
     it('should fetch a single data entry by full path', async () => {
-      const result = await confirmIndexed(
+      const row = await confirmIndexed(
         async () => {
-          const value = await os.query.dataByPath(
-            `${ACCOUNT_ID}/${customPath}`
-          );
-          return value.data?.dataUpdates?.[0] ? value : null;
+          const r = await os.query.raw.byPath(`${ACCOUNT_ID}/${customPath}`);
+          return r ?? null;
         },
-        'query dataByPath',
+        'query raw.byPath',
         { timeoutMs: 30_000, intervalMs: 2_000 }
       );
 
-      expect(result?.data?.dataUpdates?.[0]?.path).toBe(
-        `${ACCOUNT_ID}/${customPath}`
-      );
-      expect(result?.data?.dataUpdates?.[0]?.dataType).toBe('custom-query');
-      expect(result?.data?.dataUpdates?.[0]?.dataId).toBe(customId);
+      expect(row?.path).toBe(`${ACCOUNT_ID}/${customPath}`);
+      expect(row?.dataType).toBe('custom-query');
+      expect(row?.dataId).toBe(customId);
     }, 35_000);
   });
 
   describe('graph summaries', () => {
     it('should return inbound edge counts for a known account', async () => {
-      const result = await confirmIndexed(
+      const rows = await confirmIndexed(
         async () => {
-          const value = await os.query.edgeCounts(INDEXED_ACCOUNT);
-          return value.data?.edgeCounts?.length ? value : null;
+          const r = await os.query.stats.edges(INDEXED_ACCOUNT);
+          return r.length ? r : null;
         },
-        'query edgeCounts',
+        'query stats.edges',
         { timeoutMs: 30_000, intervalMs: 2_000 }
       );
 
-      const edgeTypes = new Set(
-        result?.data?.edgeCounts?.map((row) => row.edgeType) ?? []
-      );
+      const edgeTypes = new Set(rows?.map((row) => row.edgeType) ?? []);
       expect(edgeTypes.has('standing')).toBe(true);
       expect(edgeTypes.has('endorsement')).toBe(true);
       expect(edgeTypes.has('claims')).toBe(true);
     }, 35_000);
 
     it('should return the rewards leaderboard', async () => {
-      const result = await os.query.leaderboard({ limit: 3 });
+      const rows = await os.query.stats.leaderboard({ limit: 3 });
 
-      expect(Array.isArray(result.data?.leaderboardRewards)).toBe(true);
-      expect((result.data?.leaderboardRewards?.length ?? 0) > 0).toBe(true);
-      expect(typeof result.data?.leaderboardRewards?.[0]?.accountId).toBe(
-        'string'
-      );
+      expect(Array.isArray(rows)).toBe(true);
+      expect(rows.length).toBeGreaterThan(0);
+      expect(typeof rows[0]?.accountId).toBe('string');
     });
 
     it('should return token stats', async () => {
-      const result = await os.query.tokenStats();
+      const result = await os.query.stats.tokenStats();
 
       expect(typeof result.contract).toBe('string');
       expect(result.contract.length).toBeGreaterThan(0);
@@ -232,12 +219,12 @@ describe('query', () => {
 
   describe('platform stats', () => {
     it('should return profile count', async () => {
-      const count = await os.query.getProfileCount();
+      const count = await os.query.stats.profileCount();
       expect(count).toBeGreaterThanOrEqual(1);
     });
 
     it('should return group count', async () => {
-      const count = await os.query.getGroupCount();
+      const count = await os.query.stats.groupCount();
       expect(count).toBeGreaterThanOrEqual(1);
     });
   });

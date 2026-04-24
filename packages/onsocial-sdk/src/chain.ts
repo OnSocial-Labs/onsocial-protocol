@@ -73,8 +73,22 @@ export class ChainModule {
     return this._http.get<string>(`/data/version`);
   }
 
-  async getConfig(): Promise<GovernanceConfig> {
+  /**
+   * Read on-chain governance config (voting thresholds, periods, etc.).
+   *
+   * Prefer this over the legacy `getConfig()` name — `os.pages.getConfig()`
+   * exists for page configuration and the disambiguated name avoids confusion.
+   */
+  async getGovernanceConfig(): Promise<GovernanceConfig> {
     return this._http.get<GovernanceConfig>(`/data/config`);
+  }
+
+  /**
+   * @deprecated Use `getGovernanceConfig()` — this name collides with
+   * `os.pages.getConfig()`. Will be removed in v0.2.
+   */
+  async getConfig(): Promise<GovernanceConfig> {
+    return this.getGovernanceConfig();
   }
 
   async getContractInfo(): Promise<ContractInfo> {

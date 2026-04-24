@@ -15,7 +15,7 @@ describe('scarces', () => {
   });
 
   it('should mint a scarce (text-only)', async () => {
-    const result = await os.scarces.mint({
+    const result = await os.scarces.tokens.mint({
       title: `Integration Test Scarce ${Date.now()}`,
       description: 'Automated integration test — safe to ignore',
     });
@@ -24,7 +24,7 @@ describe('scarces', () => {
   });
 
   it('should mint a scarce with royalty', async () => {
-    const result = await os.scarces.mint({
+    const result = await os.scarces.tokens.mint({
       title: `Royalty Scarce ${Date.now()}`,
       description: 'Test royalty mint',
       royalty: { [ACCOUNT_ID]: 1000 }, // 10%

@@ -25,7 +25,7 @@ describe('pages', () => {
       tagline,
     });
     expect(result.txHash).toBeTruthy();
-  });
+  }, 25_000);
 
   it('should expose the config via getConfig', async () => {
     const config = await confirmDirect(
@@ -50,7 +50,7 @@ describe('pages', () => {
       accent: '#ffeaa7',
     });
     expect(result.txHash).toBeTruthy();
-  });
+  }, 25_000);
 
   it('should merge the theme into existing config', async () => {
     const config = await confirmDirect(
@@ -71,7 +71,7 @@ describe('pages', () => {
   it('should replace sections', async () => {
     const result = await os.pages.setSections(['profile', 'support', 'badges']);
     expect(result.txHash).toBeTruthy();
-  });
+  }, 25_000);
 
   it('should expose the replaced sections via getConfig', async () => {
     const config = await confirmDirect(
@@ -89,7 +89,7 @@ describe('pages', () => {
   it('should toggle a section on', async () => {
     const result = await os.pages.setVisibility('events', true);
     expect(result.txHash).toBeTruthy();
-  });
+  }, 25_000);
 
   it('should show the toggled-on section via getConfig', async () => {
     const config = await confirmDirect(
@@ -107,7 +107,7 @@ describe('pages', () => {
   it('should toggle a section off', async () => {
     const result = await os.pages.setVisibility('support', false);
     expect(result.txHash).toBeTruthy();
-  });
+  }, 25_000);
 
   it('should hide the toggled-off section via getConfig', async () => {
     const config = await confirmDirect(
@@ -126,7 +126,7 @@ describe('pages', () => {
   it('should update the template only', async () => {
     const result = await os.pages.setTemplate('minimal');
     expect(result.txHash).toBeTruthy();
-  });
+  }, 25_000);
 
   it('should expose the updated template via the aggregated page endpoint', async () => {
     const page = await confirmDirect(

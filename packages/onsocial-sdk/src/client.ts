@@ -11,26 +11,33 @@ import type {
 import { HttpClient } from './http.js';
 import { AuthModule } from './auth.js';
 import { SocialModule, resolvePostMedia } from './social.js';
-import { ScarcesModule } from './scarces.js';
+import { ScarcesModule } from './modules/scarces/index.js';
 import { RewardsModule } from './rewards.js';
-import { QueryModule } from './query.js';
+import { QueryModule } from './query/index.js';
 import { StorageModule } from './storage.js';
-import { EndorsementsModule } from './endorsements.js';
-import { AttestationsModule } from './attestations.js';
+import { EndorsementsModule } from './modules/endorsements.js';
+import { AttestationsModule } from './modules/attestations.js';
 import {
   resolveStorageProvider,
   type StorageConfig,
 } from './storage/provider.js';
 import { WebhooksModule } from './webhooks.js';
 import { NotificationsModule } from './notifications.js';
-import { GroupsModule } from './groups.js';
-import { PostsModule } from './posts.js';
-import { ProfilesModule } from './profiles.js';
-import { ReactionsModule } from './reactions.js';
-import { SavesModule } from './saves.js';
+import { GroupsModule } from './modules/groups.js';
+import { PostsModule } from './modules/posts.js';
+import { ProfilesModule } from './modules/profiles.js';
+import { ReactionsModule } from './modules/reactions.js';
+import { SavesModule } from './modules/saves.js';
 import { PermissionsModule } from './permissions.js';
 import { ChainModule } from './chain.js';
 import { PagesModule } from './pages.js';
+import { StandingsModule } from './modules/standings.js';
+import type {
+  ContentNamespace,
+  EconomyNamespace,
+  PlatformNamespace,
+  RawNamespace,
+} from './namespaces.js';
 
 // ── Execute types ───────────────────────────────────────────────────────────
 
@@ -105,8 +112,8 @@ export interface SignedAuth {
  * await os.social.endorse('bob.near', { topic: 'rust' });
  *
  * // Scarces (NFTs)
- * await os.scarces.mint({ title: 'My Art', image: file });
- * await os.scarces.list({ tokenId: '1', priceNear: '5' });
+ * await os.scarces.tokens.mint({ title: 'My Art', image: file });
+ * await os.scarces.market.sell({ tokenId: '1', priceNear: '5' });
  *
  * // Groups & Governance
  * await os.groups.create('dao', { owner: 'alice.near', member_driven: true });
@@ -126,7 +133,7 @@ export interface SignedAuth {
  * await os.rewards.credit({ accountId: 'alice.near', amount: '1000000' });
  *
  * // Query indexed data
- * const { data } = await os.query.posts({ author: 'alice.near' });
+ * const page = await os.query.feed.recent({ author: 'alice.near' });
  *
  * // Storage
  * const { cid } = await os.storage.upload(file);
@@ -149,8 +156,12 @@ export class OnSocial {
   readonly endorsements: EndorsementsModule;
   /** Attestations — verifiable typed claims with auto-claimId issue + lists. */
   readonly attestations: AttestationsModule;
+  /** Standings — account ↔ account "stand with" graph. */
+  readonly standings: StandingsModule;
   /** Scarces / NFTs (mint, collections, marketplace, offers). */
   readonly scarces: ScarcesModule;
+  /** Alias of `scarces` for discoverability — same instance. */
+  readonly nfts: ScarcesModule;
   /** Rewards (credit, claim, balance). */
   readonly rewards: RewardsModule;
   /** Query indexed data via GraphQL. */
@@ -170,6 +181,50 @@ export class OnSocial {
   /** Pages — configure and read onsocial.id page data. */
   readonly pages: PagesModule;
 
+  /**
+   * Grouped namespace for user-generated content modules. Same instances
+   * as the top-level `os.profiles`, `os.posts`, … properties — just
+   * re-organised under one mental bucket for discoverability.
+   *
+   * ```ts
+   * await os.content.posts.create({ text: 'gm' });
+   * await os.content.reactions.toggle(post, 'like');
+   * const feed = await os.content.feed.getFeed({ accountId });
+   * ```
+   */
+  readonly content: ContentNamespace;
+  /**
+   * Grouped namespace for value-flow modules (NFTs + rewards).
+   *
+   * ```ts
+   * await os.economy.nfts.mint({ title: 'Art', image: file });
+   * await os.economy.rewards.claim(claimId);
+   * ```
+   */
+  readonly economy: EconomyNamespace;
+  /**
+   * Grouped namespace for dev-platform concerns (storage, permissions,
+   * notifications, webhooks, pages).
+   *
+   * ```ts
+   * const { cid } = await os.platform.storage.upload(file);
+   * await os.platform.notifications.list();
+   * ```
+   */
+  readonly platform: PlatformNamespace;
+  /**
+   * Escape-hatch namespace for granular control — `execute`, `submit`,
+   * raw NEAR Social KV, and the underlying HTTP client. Use when the
+   * opinionated namespaces don't model what you need yet.
+   *
+   * ```ts
+   * await os.raw.execute({ type: 'create_proposal', group_id: 'dao', … });
+   * await os.raw.social.set('alice.near/widget/foo', { … });
+   * await os.raw.http.post('/relay/custom', payload);
+   * ```
+   */
+  readonly raw: RawNamespace;
+
   /** The underlying HTTP client (for advanced usage). */
   readonly http: HttpClient;
 
@@ -181,7 +236,7 @@ export class OnSocial {
     );
     this.auth = new AuthModule(this.http);
     this.social = new SocialModule(this.http, storageProvider);
-    this.scarces = new ScarcesModule(this.http, this.social);
+    this.scarces = new ScarcesModule(this.http, this.social, storageProvider);
     this.rewards = new RewardsModule(this.http);
     this.query = new QueryModule(this.http);
     this.storage = new StorageModule(this.http, storageProvider);
@@ -199,6 +254,38 @@ export class OnSocial {
     this.saves = new SavesModule(this.social, this.query);
     this.endorsements = new EndorsementsModule(this.social, this.query);
     this.attestations = new AttestationsModule(this.social, this.query);
+    this.standings = new StandingsModule(this.social, this.query);
+    this.nfts = this.scarces;
+
+    // Grouped namespaces — same instances, organised for discoverability.
+    this.content = {
+      profiles: this.profiles,
+      posts: this.posts,
+      reactions: this.reactions,
+      saves: this.saves,
+      endorsements: this.endorsements,
+      attestations: this.attestations,
+      standings: this.standings,
+      feed: this.query,
+    };
+    this.economy = {
+      scarces: this.scarces,
+      nfts: this.scarces,
+      rewards: this.rewards,
+    };
+    this.platform = {
+      storage: this.storage,
+      permissions: this.permissions,
+      notifications: this.notifications,
+      webhooks: this.webhooks,
+      pages: this.pages,
+    };
+    this.raw = {
+      execute: (action, opts) => this.execute(action, opts),
+      submit: (action, opts) => this.submit(action, opts),
+      social: this.social,
+      http: this.http,
+    };
   }
 
   // ── Generic execute ─────────────────────────────────────────────────────
@@ -336,13 +423,13 @@ export class OnSocial {
       },
     };
 
-    const mint = await this.scarces.mint(mintOpts);
+    const mint = await this.scarces.tokens.mint(mintOpts);
     const result: MintPostResult = { mint };
 
     // Auto-list if price specified
     if (opts.priceNear && mint.txHash) {
       // txHash contains the token ID from the mint response
-      result.listing = await this.scarces.list({
+      result.listing = await this.scarces.market.sell({
         tokenId: mint.txHash,
         priceNear: opts.priceNear,
       });
