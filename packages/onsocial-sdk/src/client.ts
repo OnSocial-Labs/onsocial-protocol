@@ -160,8 +160,6 @@ export class OnSocial {
   readonly standings: StandingsModule;
   /** Scarces / NFTs (mint, collections, marketplace, offers). */
   readonly scarces: ScarcesModule;
-  /** Alias of `scarces` for discoverability — same instance. */
-  readonly nfts: ScarcesModule;
   /** Rewards (credit, claim, balance). */
   readonly rewards: RewardsModule;
   /** Query indexed data via GraphQL. */
@@ -194,10 +192,10 @@ export class OnSocial {
    */
   readonly content: ContentNamespace;
   /**
-   * Grouped namespace for value-flow modules (NFTs + rewards).
+   * Grouped namespace for value-flow modules (Scarces + rewards).
    *
    * ```ts
-   * await os.economy.nfts.mint({ title: 'Art', image: file });
+   * await os.economy.scarces.tokens.mint({ title: 'Art', image: file });
    * await os.economy.rewards.claim(claimId);
    * ```
    */
@@ -255,7 +253,6 @@ export class OnSocial {
     this.endorsements = new EndorsementsModule(this.social, this.query);
     this.attestations = new AttestationsModule(this.social, this.query);
     this.standings = new StandingsModule(this.social, this.query);
-    this.nfts = this.scarces;
 
     // Grouped namespaces — same instances, organised for discoverability.
     this.content = {
@@ -270,7 +267,6 @@ export class OnSocial {
     };
     this.economy = {
       scarces: this.scarces,
-      nfts: this.scarces,
       rewards: this.rewards,
     };
     this.platform = {

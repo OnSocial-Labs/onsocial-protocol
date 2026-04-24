@@ -6,7 +6,7 @@
 //
 //   os.content.{profiles,posts,reactions,saves,endorsements,attestations,
 //               standings,feed}      ← user-generated content
-//   os.economy.{scarces,nfts,rewards} ← value flows
+//   os.economy.{scarces,rewards} ← value flows
 //   os.platform.{storage,permissions,notifications,webhooks,pages}
 //                                     ← platform / integration concerns
 //
@@ -65,13 +65,10 @@ export interface ContentNamespace {
  * `os.economy` — value-flow modules.
  *
  * - `scarces` — collections, mint, list, offers (NFTs)
- * - `nfts`    — alias of `scarces` for discoverability
  * - `rewards` — credit / claim / balance
  */
 export interface EconomyNamespace {
   readonly scarces: ScarcesModule;
-  /** Alias of `scarces` — same instance, friendlier name for newcomers. */
-  readonly nfts: ScarcesModule;
   readonly rewards: RewardsModule;
 }
 

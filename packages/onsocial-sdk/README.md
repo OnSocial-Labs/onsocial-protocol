@@ -237,11 +237,10 @@ const feed = await os.content.feed.fromAccounts({ accountId: 'alice.near' });
 | Module    | Purpose                                       |
 | --------- | --------------------------------------------- |
 | `scarces` | Collections, mint, list, offers (NFTs)        |
-| `nfts`    | Alias of `scarces` for discoverability        |
 | `rewards` | Credit / claim / balance                      |
 
 ```ts
-await os.economy.nfts.mint({ title: 'Art', image: file });
+await os.economy.scarces.tokens.mint({ title: 'Art', image: file });
 await os.economy.rewards.claim(claimId);
 ```
 
@@ -324,6 +323,48 @@ import {
 ```
 
 See [`examples/`](./examples) for runnable samples covering feeds, groups, scarces, signed payloads, and webhooks.
+
+## Build Any dApp
+
+You're not constrained to the modelled domains (posts, groups, scarces, …). The protocol indexes **any** data you write under your own first-segment namespace, and the SDK gives you typed reads + writes for it without forking anything.
+
+```ts
+// 1. Pick your own namespace — the indexer auto-derives `data_type` from
+//    the first path segment, so 'review' becomes its own queryable type.
+await os.social.set('review/item-001', JSON.stringify({
+  rating: 5,
+  reviewer: 'alice.near',
+  timestamp: 1772668800,
+}));
+
+// 2. Read every entry of your custom type, scoped or unscoped by account.
+const reviews = await os.query.raw.byType('review', { accountId: 'alice.near' });
+
+// 3. Or look up a single entry by full path.
+const review = await os.query.raw.byPath('alice.near/review/item-001');
+
+// 4. Need shapes the typed query helpers don't model? Drop to raw GraphQL.
+const { data } = await os.query.graphql<{ dataUpdates: { path: string; value: string }[] }>({
+  query: `query Recent($t: String!) {
+    dataUpdates(where: {dataType: {_eq: $t}}, limit: 5, orderBy: [{blockHeight: DESC}]) {
+      path value accountId blockTimestamp
+    }
+  }`,
+  variables: { t: 'review' },
+});
+
+// 5. Batch your custom writes alongside built-in actions in one relayed tx.
+import { buildCoreSetAction, buildPostAction } from '@onsocial/sdk/advanced';
+
+await os.raw.execute([
+  buildPostAction({ text: 'Just posted a new review' }),
+  buildCoreSetAction({
+    data: { 'review/item-001': { rating: 5 } },
+  }),
+]);
+```
+
+Substreams indexes every `Action::Set` write into the raw `data_updates` table keyed by `data_type` — no schema migration needed for your custom namespace to become queryable. Typed Hasura views (for SQL joins, derived counts, leaderboards over your shape) are an opt-in process: open a PR adding a view file and a substream module entry. The raw read path works from the moment your first write lands on chain.
 
 ## Notes
 
