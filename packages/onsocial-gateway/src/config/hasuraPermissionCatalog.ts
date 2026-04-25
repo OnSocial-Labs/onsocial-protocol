@@ -16,6 +16,7 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
       'partition_id',
       'path',
       'value',
+      'value_json',
       'account_id',
       'data_type',
       'data_id',
