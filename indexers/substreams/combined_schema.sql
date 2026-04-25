@@ -204,6 +204,21 @@ CREATE INDEX IF NOT EXISTS idx_data_updates_author ON data_updates(author);
 CREATE INDEX IF NOT EXISTS idx_data_updates_account_id ON data_updates(account_id);
 CREATE INDEX IF NOT EXISTS idx_data_updates_block_height ON data_updates(block_height);
 CREATE INDEX IF NOT EXISTS idx_data_updates_data_type ON data_updates(data_type);
+
+-- Generic flexibility: parse `value` (a TEXT JSON blob) into a sidecar JSONB
+-- column so dApps writing custom data_types can filter on inner fields
+-- (e.g. `where: {value_json: {_contains: {rating: 5}}}`). Rows whose value
+-- is not a JSON object/array (legacy follows, plain strings, empty) are
+-- left NULL and skipped by the partial GIN index. Additive — original
+-- `value` column is untouched, every existing view keeps working.
+ALTER TABLE data_updates ADD COLUMN IF NOT EXISTS value_json jsonb
+  GENERATED ALWAYS AS (
+    CASE WHEN value ~ '^[\[\{]' THEN value::jsonb ELSE NULL END
+  ) STORED;
+CREATE INDEX IF NOT EXISTS idx_data_updates_value_json_gin
+  ON data_updates USING gin (value_json jsonb_path_ops)
+  WHERE value_json IS NOT NULL;
+
 CREATE INDEX IF NOT EXISTS idx_storage_updates_author ON storage_updates(author);
 CREATE INDEX IF NOT EXISTS idx_storage_updates_block_height ON storage_updates(block_height);
 CREATE INDEX IF NOT EXISTS idx_group_updates_group_id ON group_updates(group_id);

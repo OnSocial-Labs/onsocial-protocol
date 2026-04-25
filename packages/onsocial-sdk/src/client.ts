@@ -217,7 +217,7 @@ export class OnSocial {
    *
    * ```ts
    * await os.raw.execute({ type: 'create_proposal', group_id: 'dao', … });
-   * await os.raw.social.set('alice.near/widget/foo', { … });
+   * await os.raw.social.set('alice.near/mygame/score-42', { points: 9000 });
    * await os.raw.http.post('/relay/custom', payload);
    * ```
    */

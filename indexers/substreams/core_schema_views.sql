@@ -24,6 +24,13 @@
 CREATE INDEX IF NOT EXISTS idx_data_updates_data_type_account
   ON data_updates(data_type, account_id);
 
+-- Composite index optimised for the dominant `os.query.raw.byType` shape:
+--   WHERE data_type = $1 AND account_id = $2 ORDER BY block_height DESC LIMIT N
+-- Lets PG do an index-only walk and stop at LIMIT, regardless of how many
+-- other accounts wrote the same data_type.
+CREATE INDEX IF NOT EXISTS idx_data_updates_data_type_account_block
+  ON data_updates(data_type, account_id, block_height DESC);
+
 CREATE INDEX IF NOT EXISTS idx_data_updates_target_account
   ON data_updates(target_account) WHERE target_account IS NOT NULL AND target_account != '';
 
