@@ -179,6 +179,56 @@ describe('query', () => {
       expect(row?.dataType).toBe('custom-query');
       expect(row?.dataId).toBe(customId);
     }, 35_000);
+
+    it('should filter by inner JSON field via valueJson containment', async () => {
+      const dataType = `jsoncontains-${testId()}`;
+      const matchingId = testId();
+      const otherId = testId();
+      const tag = `tag-${testId()}`;
+
+      await os.social.set(
+        `${dataType}/${matchingId}`,
+        JSON.stringify({ tag, score: 99, level: 7 })
+      );
+      await os.social.set(
+        `${dataType}/${otherId}`,
+        JSON.stringify({ tag: 'unrelated', score: 1, level: 1 })
+      );
+
+      const matched = await confirmIndexed(
+        async () => {
+          const rows = await os.query.raw.byJsonContains(
+            dataType,
+            { tag },
+            { accountId: ACCOUNT_ID, limit: 10 }
+          );
+          return rows.find((r) => r.dataId === matchingId) ?? null;
+        },
+        'query raw.byJsonContains',
+        { timeoutMs: 30_000, intervalMs: 2_000 }
+      );
+
+      expect(matched?.accountId).toBe(ACCOUNT_ID);
+      expect(matched?.dataId).toBe(matchingId);
+      expect(matched?.dataType).toBe(dataType);
+
+      const parsed = JSON.parse(matched!.value) as {
+        tag: string;
+        score: number;
+        level: number;
+      };
+      expect(parsed.tag).toBe(tag);
+      expect(parsed.level).toBe(7);
+
+      // Sanity: containment with a non-matching predicate returns no rows
+      // for the matching id.
+      const noise = await os.query.raw.byJsonContains(
+        dataType,
+        { tag: 'definitely-not-present' },
+        { accountId: ACCOUNT_ID, limit: 10 }
+      );
+      expect(noise.find((r) => r.dataId === matchingId)).toBeUndefined();
+    }, 45_000);
   });
 
   describe('graph summaries', () => {
