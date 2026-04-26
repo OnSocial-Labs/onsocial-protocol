@@ -1034,4 +1034,229 @@ describe('QueryModule', () => {
       expect(await os.query.permissions.grantsBy('nobody.near')).toEqual([]);
     });
   });
+
+  describe('governance.*', () => {
+    const sampleProposal = {
+      operation: 'proposal_created',
+      author: 'a.near',
+      groupId: 'dao',
+      blockHeight: 10,
+      blockTimestamp: 100,
+      proposalId: 'dao_1_1_a.near_1',
+      proposalType: 'custom_proposal',
+      status: 'active',
+      sequenceNumber: 1,
+      title: 'Test',
+      description: '',
+      autoVote: true,
+      createdAt: 100,
+      expiresAt: 200,
+      lockedMemberCount: 4,
+      lockedDeposit: '50000',
+      voter: null,
+      approve: null,
+      yesVotes: null,
+      noVotes: null,
+      totalVotes: null,
+      shouldExecute: null,
+      shouldReject: null,
+      votedAt: null,
+      memberId: null,
+      role: null,
+      level: null,
+      path: null,
+      value: null,
+      extraData: null,
+    };
+
+    it('proposals filters by group + proposal_created op', async () => {
+      const { os, fetch } = makeOs({
+        data: { groupUpdates: [sampleProposal] },
+      });
+      const rows = await os.query.governance.proposals('dao', { limit: 10 });
+      expect(rows).toEqual([sampleProposal]);
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({
+        groupId: 'dao',
+        ops: ['proposal_created'],
+        limit: 10,
+        offset: 0,
+      });
+      expect(body.query).toMatch(/groupId: \{_eq: \$groupId\}/);
+      expect(body.query).toMatch(/operation: \{_in: \$ops\}/);
+      expect(body.query).not.toMatch(/proposalType:/);
+    });
+
+    it('proposals adds proposalType filter when provided', async () => {
+      const { os, fetch } = makeOs({ data: { groupUpdates: [] } });
+      await os.query.governance.proposals('dao', {
+        proposalType: 'custom_proposal',
+      });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toMatchObject({
+        proposalType: 'custom_proposal',
+      });
+      expect(body.query).toMatch(/proposalType: \{_eq: \$proposalType\}/);
+    });
+
+    it('proposal returns the full timeline ordered ASC', async () => {
+      const { os, fetch } = makeOs({
+        data: { groupUpdates: [sampleProposal] },
+      });
+      await os.query.governance.proposal('dao', 'dao_1_1_a.near_1');
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({
+        groupId: 'dao',
+        proposalId: 'dao_1_1_a.near_1',
+        limit: 200,
+      });
+      expect(body.query).toMatch(/orderBy: \[\{blockHeight: ASC\}\]/);
+      expect(body.query).toMatch(/proposalId: \{_eq: \$proposalId\}/);
+    });
+
+    it('proposalsBy filters by author and optional groupId', async () => {
+      const { os, fetch } = makeOs({ data: { groupUpdates: [] } });
+      await os.query.governance.proposalsBy('a.near', { groupId: 'dao' });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({
+        author: 'a.near',
+        ops: ['proposal_created'],
+        limit: 50,
+        groupId: 'dao',
+      });
+      expect(body.query).toMatch(/groupId: \{_eq: \$groupId\}/);
+    });
+
+    it('proposalStatusUpdates filters by status when given', async () => {
+      const { os, fetch } = makeOs({ data: { groupUpdates: [] } });
+      await os.query.governance.proposalStatusUpdates('dao', {
+        status: 'executed',
+      });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({
+        groupId: 'dao',
+        ops: ['proposal_status_updated'],
+        limit: 50,
+        status: 'executed',
+      });
+      expect(body.query).toMatch(/status: \{_eq: \$status\}/);
+    });
+
+    it('votes scopes to (groupId, proposalId) with vote_cast op', async () => {
+      const { os, fetch } = makeOs({ data: { groupUpdates: [] } });
+      await os.query.governance.votes('dao', 'dao_1_1_a.near_1');
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({
+        groupId: 'dao',
+        proposalId: 'dao_1_1_a.near_1',
+        ops: ['vote_cast'],
+        limit: 200,
+      });
+      expect(body.query).toMatch(/orderBy: \[\{blockHeight: ASC\}\]/);
+    });
+
+    it('votesBy filters by voter (not author)', async () => {
+      const { os, fetch } = makeOs({ data: { groupUpdates: [] } });
+      await os.query.governance.votesBy('a.near');
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({
+        voter: 'a.near',
+        ops: ['vote_cast'],
+        limit: 50,
+      });
+      expect(body.query).toMatch(/voter: \{_eq: \$voter\}/);
+    });
+
+    it('members covers add/remove/invite/blacklist/unblacklist ops', async () => {
+      const { os, fetch } = makeOs({ data: { groupUpdates: [] } });
+      await os.query.governance.members('dao');
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables.ops).toEqual([
+        'add_member',
+        'remove_member',
+        'member_invited',
+        'add_to_blacklist',
+        'remove_from_blacklist',
+      ]);
+    });
+
+    it('memberHistory filters by memberId scoped to group', async () => {
+      const { os, fetch } = makeOs({ data: { groupUpdates: [] } });
+      await os.query.governance.memberHistory('dao', 'b.near');
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toMatchObject({
+        groupId: 'dao',
+        memberId: 'b.near',
+      });
+      expect(body.query).toMatch(/memberId: \{_eq: \$memberId\}/);
+    });
+
+    it('joinRequests narrows to a single status when provided', async () => {
+      const { os, fetch } = makeOs({ data: { groupUpdates: [] } });
+      await os.query.governance.joinRequests('dao', { status: 'submitted' });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables.ops).toEqual(['join_request_submitted']);
+    });
+
+    it('joinRequests defaults to all 4 join ops', async () => {
+      const { os, fetch } = makeOs({ data: { groupUpdates: [] } });
+      await os.query.governance.joinRequests('dao');
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables.ops).toEqual([
+        'join_request_submitted',
+        'join_request_approved',
+        'join_request_rejected',
+        'join_request_cancelled',
+      ]);
+    });
+
+    it('activity returns the full event stream for a group', async () => {
+      const { os, fetch } = makeOs({ data: { groupUpdates: [] } });
+      await os.query.governance.activity('dao', { limit: 25 });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({ groupId: 'dao', limit: 25 });
+      expect(body.query).not.toMatch(/operation: /);
+    });
+
+    it('returns [] when the indexer has no matching rows', async () => {
+      const { os } = makeOs({ data: { groupUpdates: [] } });
+      expect(await os.query.governance.proposals('dao')).toEqual([]);
+    });
+  });
 });

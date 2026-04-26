@@ -133,7 +133,8 @@ export interface SignedAuth {
  * `os.query` sub-namespaces:
  * `feed`, `threads`, `groups`, `profiles`, `reactions`, `standings`,
  * `saves`, `endorsements`, `attestations`, `hashtags`, `stats`, `storage`,
- * `permissions`, `raw`. For one-off queries: `os.query.graphql<T>(...)`.
+ * `permissions`, `governance`, `raw`. For one-off queries:
+ * `os.query.graphql<T>(...)`.
  *
  * Higher-level groupings (same instances): `os.content`, `os.economy`,
  * `os.platform`. Power-user composer for atomic batches: `os.advanced`.
@@ -192,6 +193,8 @@ export interface SignedAuth {
  * const tipsIn = await os.query.storage.tipsReceived('alice.near');
  * const audit = await os.query.permissions.forPath('alice.near/profile/');
  * const issued = await os.query.permissions.grantsBy('alice.near');
+ * const proposals = await os.query.governance.proposals('dao', { limit: 20 });
+ * const votes = await os.query.governance.votes('dao', proposalId);
  *
  * // ── IPFS ─────────────────────────────────────────────────────────────
  * const { cid } = await os.storage.upload(file);

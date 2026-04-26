@@ -103,8 +103,9 @@ export type {
   GroupFeedFilter,
   StorageEventRow,
   PermissionEventRow,
+  GovernanceEventRow,
 } from './query/index.js';
-export { PERMISSION_OPERATIONS } from './query/index.js';
+export { PERMISSION_OPERATIONS, GOVERNANCE_OPERATIONS } from './query/index.js';
 export { StorageModule } from './storage.js';
 export {
   GatewayProvider,

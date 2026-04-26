@@ -18,6 +18,7 @@
 //   os.query.stats.leaderboard()
 //   os.query.storage.tipsReceived('alice.near')
 //   os.query.permissions.grantsBy('alice.near')
+//   os.query.governance.proposals('dao')
 //   os.query.raw.byType('vegancert')
 //
 // For unindexed or one-off queries, drop down to `os.query.graphql<T>(...)`.
@@ -41,6 +42,7 @@ import { HashtagsQuery } from './hashtags.js';
 import { StatsQuery } from './stats.js';
 import { StorageQuery } from './storage.js';
 import { PermissionsQuery } from './permissions.js';
+import { GovernanceQuery } from './governance.js';
 import { RawQuery } from './raw.js';
 
 export { GraphQLValidationError } from './_shared.js';
@@ -60,6 +62,8 @@ export type { EdgeCount, LeaderboardEntry, TokenStats } from './stats.js';
 export type { StorageEventRow } from './storage.js';
 export type { PermissionEventRow } from './permissions.js';
 export { PERMISSION_OPERATIONS } from './permissions.js';
+export type { GovernanceEventRow } from './governance.js';
+export { GOVERNANCE_OPERATIONS } from './governance.js';
 export type { DataRow } from './raw.js';
 
 export class QueryModule {
@@ -79,6 +83,7 @@ export class QueryModule {
   readonly stats: StatsQuery;
   readonly storage: StorageQuery;
   readonly permissions: PermissionsQuery;
+  readonly governance: GovernanceQuery;
   readonly raw: RawQuery;
 
   constructor(http: HttpClient) {
@@ -96,6 +101,7 @@ export class QueryModule {
     this.stats = new StatsQuery(this, http);
     this.storage = new StorageQuery(this);
     this.permissions = new PermissionsQuery(this);
+    this.governance = new GovernanceQuery(this);
     this.raw = new RawQuery(this);
   }
 

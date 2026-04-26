@@ -653,4 +653,120 @@ describe('groups governance', () => {
     expect(state?.newOwner).toBe(true);
     expect(state?.oldOwner).toBe(false);
   }, 30_000);
+
+  // ── Indexer-backed governance reads (os.query.governance.*) ────────────
+  // Run last so the substreams indexer has had time to catch up with all
+  // the proposal/vote/member events the tests above produced inside this
+  // shared `groupId`.
+
+  describe('os.query.governance.* on the produced governance group', () => {
+    it("proposals() returns this group's created proposals (incl. invite + custom + transfer)", async () => {
+      const rows = await confirmIndexed(async () => {
+        const list = await os.query.governance.proposals(groupId, {
+          limit: 50,
+        });
+        return list.length >= 4 ? list : null;
+      }, 'governance.proposals indexed');
+
+      expect(rows.every((r) => r.operation === 'proposal_created')).toBe(true);
+      expect(rows.every((r) => r.groupId === groupId)).toBe(true);
+      expect(rows.some((r) => r.proposalId === inviteProposalId)).toBe(true);
+      expect(rows.some((r) => r.proposalId === proposalId)).toBe(true);
+      expect(rows.some((r) => r.proposalId === transferProposalId)).toBe(true);
+    }, 35_000);
+
+    it('proposal() returns the timeline (created → vote → status_updated) for the custom proposal', async () => {
+      const timeline = await confirmIndexed(async () => {
+        const events = await os.query.governance.proposal(groupId, proposalId);
+        const hasCreate = events.some(
+          (e) => e.operation === 'proposal_created'
+        );
+        const hasVote = events.some((e) => e.operation === 'vote_cast');
+        return hasCreate && hasVote ? events : null;
+      }, 'governance.proposal timeline');
+
+      // Chronological — first event must be the creation.
+      expect(timeline[0].operation).toBe('proposal_created');
+      expect(timeline.every((e) => e.proposalId === proposalId)).toBe(true);
+    }, 35_000);
+
+    it('proposalsBy() finds proposals authored by the test account scoped to this group', async () => {
+      const mine = await confirmIndexed(async () => {
+        const list = await os.query.governance.proposalsBy(ACCOUNT_ID, {
+          groupId,
+        });
+        return list.length > 0 ? list : null;
+      }, 'governance.proposalsBy indexed');
+
+      expect(mine.every((r) => r.author === ACCOUNT_ID)).toBe(true);
+      expect(mine.every((r) => r.groupId === groupId)).toBe(true);
+      expect(mine.every((r) => r.operation === 'proposal_created')).toBe(true);
+    }, 35_000);
+
+    it('votes() returns the vote stream for the custom proposal', async () => {
+      const votes = await confirmIndexed(async () => {
+        const list = await os.query.governance.votes(groupId, proposalId);
+        return list.length > 0 ? list : null;
+      }, 'governance.votes indexed');
+
+      expect(votes.every((v) => v.operation === 'vote_cast')).toBe(true);
+      expect(votes.every((v) => v.proposalId === proposalId)).toBe(true);
+      expect(votes.every((v) => v.voter !== null)).toBe(true);
+    }, 35_000);
+
+    it('votesBy() returns voting history for the voter scoped to this group', async () => {
+      const history = await confirmIndexed(async () => {
+        const list = await os.query.governance.votesBy(voterId, { groupId });
+        return list.length > 0 ? list : null;
+      }, 'governance.votesBy indexed');
+
+      expect(history.every((v) => v.voter === voterId)).toBe(true);
+      expect(history.every((v) => v.groupId === groupId)).toBe(true);
+      expect(history.every((v) => v.operation === 'vote_cast')).toBe(true);
+    }, 35_000);
+
+    it('proposalStatusUpdates() exposes the executed transfer-ownership transition', async () => {
+      const finalized = await confirmIndexed(async () => {
+        const list = await os.query.governance.proposalStatusUpdates(groupId, {
+          status: 'executed',
+        });
+        const hit = list.find((r) => r.proposalId === transferProposalId);
+        return hit ? list : null;
+      }, 'governance.proposalStatusUpdates indexed');
+
+      expect(
+        finalized.every((r) => r.operation === 'proposal_status_updated')
+      ).toBe(true);
+      expect(finalized.every((r) => r.status === 'executed')).toBe(true);
+    }, 35_000);
+
+    it('members() returns membership change events for this group', async () => {
+      const events = await confirmIndexed(async () => {
+        const list = await os.query.governance.members(groupId, { limit: 50 });
+        return list.length > 0 ? list : null;
+      }, 'governance.members indexed');
+
+      expect(events.every((e) => e.groupId === groupId)).toBe(true);
+      const ops = new Set(events.map((e) => e.operation));
+      // Should include at least one add_member from create + invite execution.
+      expect(ops.has('add_member')).toBe(true);
+    }, 35_000);
+
+    it('activity() returns the full event stream for this group', async () => {
+      const stream = await confirmIndexed(async () => {
+        const list = await os.query.governance.activity(groupId, {
+          limit: 200,
+        });
+        return list.length > 5 ? list : null;
+      }, 'governance.activity indexed');
+
+      expect(stream.every((e) => e.groupId === groupId)).toBe(true);
+      // newest first
+      for (let i = 1; i < stream.length; i++) {
+        expect(stream[i - 1].blockHeight).toBeGreaterThanOrEqual(
+          stream[i].blockHeight
+        );
+      }
+    }, 35_000);
+  });
 });

@@ -414,6 +414,95 @@ export class GroupsModule {
   }
 
   /**
+   * Propose banning a member from the group. Resolves to a
+   * `group_update` proposal with `update_type: "ban"`.
+   */
+  async proposeBan(
+    groupId: string,
+    targetUser: string,
+    opts?: ProposalCreateOptions & { reason?: string }
+  ): Promise<RelayResponse> {
+    return this.propose(
+      groupId,
+      'group_update',
+      {
+        update_type: 'ban',
+        target_user: targetUser,
+        ...(opts?.reason !== undefined && { reason: opts.reason }),
+      },
+      opts
+    );
+  }
+
+  /**
+   * Propose unbanning a previously-banned member. Resolves to a
+   * `group_update` proposal with `update_type: "unban"`.
+   */
+  async proposeUnban(
+    groupId: string,
+    targetUser: string,
+    opts?: ProposalCreateOptions & { reason?: string }
+  ): Promise<RelayResponse> {
+    return this.propose(
+      groupId,
+      'group_update',
+      {
+        update_type: 'unban',
+        target_user: targetUser,
+        ...(opts?.reason !== undefined && { reason: opts.reason }),
+      },
+      opts
+    );
+  }
+
+  /**
+   * Propose updating group metadata (name, avatar, banner, description, ...).
+   * Resolves to a `group_update` proposal with `update_type: "metadata"`.
+   */
+  async proposeMetadataUpdate(
+    groupId: string,
+    metadata: Record<string, unknown>,
+    opts?: ProposalCreateOptions & { reason?: string }
+  ): Promise<RelayResponse> {
+    return this.propose(
+      groupId,
+      'group_update',
+      {
+        update_type: 'metadata',
+        metadata,
+        ...(opts?.reason !== undefined && { reason: opts.reason }),
+      },
+      opts
+    );
+  }
+
+  /**
+   * Propose changing the group's voting config — quorum, majority threshold,
+   * and/or voting period. Self-referential: the proposal is itself
+   * evaluated under the *current* config. All fields optional; only those
+   * provided are changed.
+   */
+  async proposeVotingConfigChange(
+    groupId: string,
+    changes: {
+      participationQuorumBps?: number;
+      majorityThresholdBps?: number;
+      votingPeriod?: string | number;
+    },
+    opts?: ProposalCreateOptions & { reason?: string }
+  ): Promise<RelayResponse> {
+    const payload: Record<string, unknown> = {};
+    if (changes.participationQuorumBps !== undefined)
+      payload.participation_quorum_bps = changes.participationQuorumBps;
+    if (changes.majorityThresholdBps !== undefined)
+      payload.majority_threshold_bps = changes.majorityThresholdBps;
+    if (changes.votingPeriod !== undefined)
+      payload.voting_period = String(changes.votingPeriod);
+    if (opts?.reason !== undefined) payload.reason = opts.reason;
+    return this.propose(groupId, 'voting_config_change', payload, opts);
+  }
+
+  /**
    * Returns true when the group's config has `member_driven: true`. In that
    * mode, all permission mutations on `groups/{id}/...` paths must go through
    * proposals (see {@link proposePermissionGrant} /

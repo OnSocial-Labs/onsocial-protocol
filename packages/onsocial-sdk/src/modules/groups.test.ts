@@ -256,4 +256,122 @@ describe('GroupsModule transport', () => {
       text: 'quote via ref',
     });
   });
+
+  it('builds ban proposals as group_update changes with reason', async () => {
+    const post = vi.fn().mockResolvedValue({ txHash: 'tx-ban' });
+    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
+
+    await groups.proposeBan('dao', 'mallory.near', {
+      reason: 'Repeated abuse',
+    });
+
+    expect(post).toHaveBeenCalledWith('/relay/execute', {
+      action: {
+        type: 'create_proposal',
+        group_id: 'dao',
+        proposal_type: 'group_update',
+        changes: {
+          update_type: 'ban',
+          target_user: 'mallory.near',
+          reason: 'Repeated abuse',
+        },
+      },
+      target_account: 'core.onsocial.near',
+    });
+  });
+
+  it('builds unban proposals as group_update changes', async () => {
+    const post = vi.fn().mockResolvedValue({ txHash: 'tx-unban' });
+    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
+
+    await groups.proposeUnban('dao', 'mallory.near');
+
+    expect(post).toHaveBeenCalledWith('/relay/execute', {
+      action: {
+        type: 'create_proposal',
+        group_id: 'dao',
+        proposal_type: 'group_update',
+        changes: {
+          update_type: 'unban',
+          target_user: 'mallory.near',
+        },
+      },
+      target_account: 'core.onsocial.near',
+    });
+  });
+
+  it('builds metadata-update proposals carrying the metadata payload', async () => {
+    const post = vi.fn().mockResolvedValue({ txHash: 'tx-meta' });
+    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
+
+    await groups.proposeMetadataUpdate(
+      'dao',
+      { name: 'Builders DAO', description: 'New tagline' },
+      { reason: 'Rebrand', autoVote: true }
+    );
+
+    expect(post).toHaveBeenCalledWith('/relay/execute', {
+      action: {
+        type: 'create_proposal',
+        group_id: 'dao',
+        proposal_type: 'group_update',
+        changes: {
+          update_type: 'metadata',
+          metadata: { name: 'Builders DAO', description: 'New tagline' },
+          reason: 'Rebrand',
+        },
+        auto_vote: true,
+      },
+      target_account: 'core.onsocial.near',
+    });
+  });
+
+  it('builds voting-config-change proposals with snake_case keys + stringified period', async () => {
+    const post = vi.fn().mockResolvedValue({ txHash: 'tx-vcc' });
+    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
+
+    await groups.proposeVotingConfigChange(
+      'dao',
+      {
+        participationQuorumBps: 7500,
+        majorityThresholdBps: 6000,
+        votingPeriod: 604800000000000,
+      },
+      { reason: 'Tighten consensus' }
+    );
+
+    expect(post).toHaveBeenCalledWith('/relay/execute', {
+      action: {
+        type: 'create_proposal',
+        group_id: 'dao',
+        proposal_type: 'voting_config_change',
+        changes: {
+          participation_quorum_bps: 7500,
+          majority_threshold_bps: 6000,
+          voting_period: '604800000000000',
+          reason: 'Tighten consensus',
+        },
+      },
+      target_account: 'core.onsocial.near',
+    });
+  });
+
+  it('voting-config-change omits unspecified fields', async () => {
+    const post = vi.fn().mockResolvedValue({ txHash: 'tx-vcc-partial' });
+    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
+
+    await groups.proposeVotingConfigChange('dao', {
+      participationQuorumBps: 5000,
+    });
+
+    expect(post).toHaveBeenCalledWith('/relay/execute', {
+      action: {
+        type: 'create_proposal',
+        group_id: 'dao',
+        proposal_type: 'voting_config_change',
+        changes: { participation_quorum_bps: 5000 },
+      },
+      target_account: 'core.onsocial.near',
+    });
+  });
 });
