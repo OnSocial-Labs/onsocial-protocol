@@ -9,6 +9,7 @@ import {
   confirmDirect,
   confirmIndexed,
   getClient,
+  getClientForAccount,
   getKeypair,
 } from './helpers.js';
 
@@ -432,5 +433,58 @@ describe('permissions', () => {
       expect(result?.targetId ?? '').toBe('');
       expect(result?.deleted).toBe(true);
     }, 35_000);
+  });
+
+  describe('member-driven group permission routing', () => {
+    const WRITE_SENDER = 'test03.onsocial.testnet';
+    const groupId = `grp_md_perm_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    // Use the owner as the grantee — only existing members can be the
+    // target of a path_permission_grant in member-driven groups, and the
+    // owner is auto-enrolled at create time.
+    const grantee = WRITE_SENDER;
+    const targetPath = `groups/${groupId}/content/`;
+    let senderOs: OnSocial;
+
+    beforeAll(async () => {
+      senderOs = await getClientForAccount(WRITE_SENDER);
+    });
+
+    it('creates a member-driven group', async () => {
+      const result = await senderOs.groups.create(groupId, {
+        v: 1,
+        name: `MD ${groupId}`,
+        description: 'SDK member-driven permission routing test',
+        isPrivate: true, // Contract enforces: member-driven groups must be private.
+        memberDriven: true,
+        tags: ['integration', 'permissions', 'member-driven'],
+      });
+      expect(result).toBeTruthy();
+    }, 25_000);
+
+    it('reports the group as member-driven via os.groups.isMemberDriven', async () => {
+      const flag = await confirmDirect(
+        async () => ((await os.groups.isMemberDriven(groupId)) ? true : null),
+        'group reports member-driven'
+      );
+      expect(flag).toBe(true);
+    }, 25_000);
+
+    it('direct grant() on a groups/{id}/... path is rejected on-chain', async () => {
+      // Member-driven groups force governance — even the owner cannot grant
+      // directly. The SDK uses wait=true so the on-chain revert surfaces here.
+      await expect(
+        senderOs.permissions.grant(grantee, targetPath, 1)
+      ).rejects.toThrow(/member-driven|governance|proposal/i);
+    }, 25_000);
+
+    it('grantOrPropose auto-files a path_permission_grant proposal instead', async () => {
+      const result = await senderOs.permissions.grantOrPropose(
+        grantee,
+        targetPath,
+        1,
+        { reason: 'integration auto-route' }
+      );
+      expect(result).toBeTruthy();
+    }, 25_000);
   });
 });

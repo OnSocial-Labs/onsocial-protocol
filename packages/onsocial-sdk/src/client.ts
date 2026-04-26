@@ -105,48 +105,99 @@ export interface SignedAuth {
  * Thin gateway-first client — every operation is a single HTTP call.
  * Zero blockchain knowledge required.
  *
+ * ## Namespaces at a glance
+ *
+ * | Namespace             | Purpose                                                      |
+ * | --------------------- | ------------------------------------------------------------ |
+ * | `os.auth`             | Login, refresh, logout                                       |
+ * | `os.social`           | Atomic `Action::Set` writes + raw `getOne`/`getMany` reads   |
+ * | `os.posts`            | Blessed single entry point for post creation                 |
+ * | `os.profiles`         | Read/write profiles + auto media upload                      |
+ * | `os.reactions`        | Add / remove / toggle / summary                              |
+ * | `os.saves`            | Bookmarks (add / remove / toggle / list)                     |
+ * | `os.endorsements`     | Weighted directed vouches                                    |
+ * | `os.attestations`     | Verifiable typed claims                                      |
+ * | `os.standings`        | "Stand with" account graph                                   |
+ * | `os.groups`           | Lifecycle, membership, governance, group content             |
+ * | `os.permissions`      | Account- + key-scoped permissions (incl. `grantOrPropose`)   |
+ * | `os.storageAccount`   | On-chain Storage record (balance, tip, withdraw, sponsor)    |
+ * | `os.scarces`          | NFTs (mint, collections, market, offers)                     |
+ * | `os.rewards`          | Credit / claim / balance                                     |
+ * | `os.storage`          | IPFS file/JSON upload                                        |
+ * | `os.pages`            | onsocial.id page configuration                               |
+ * | `os.chain`            | On-chain storage + contract introspection                    |
+ * | `os.webhooks`         | Webhook endpoints (pro+)                                     |
+ * | `os.notifications`    | Notifications (pro+)                                         |
+ * | `os.query`            | Typed GraphQL helpers over indexed data (see below)          |
+ *
+ * `os.query` sub-namespaces:
+ * `feed`, `threads`, `groups`, `profiles`, `reactions`, `standings`,
+ * `saves`, `endorsements`, `attestations`, `hashtags`, `stats`, `storage`,
+ * `permissions`, `raw`. For one-off queries: `os.query.graphql<T>(...)`.
+ *
+ * Higher-level groupings (same instances): `os.content`, `os.economy`,
+ * `os.platform`. Power-user composer for atomic batches: `os.advanced`.
+ *
+ * ## Common recipes
+ *
  * ```ts
- * import { OnSocial } from '@onsocial/sdk';
+ * import { OnSocial, NEAR, PERMISSION } from '@onsocial/sdk';
  *
  * const os = new OnSocial({ network: 'mainnet' });
  *
- * // Login with NEAR signature
+ * // ── Auth ─────────────────────────────────────────────────────────────
  * await os.auth.login({ accountId, message, signature, publicKey });
  *
- * // Social
- * await os.social.setProfile({ name: 'Alice', bio: 'Builder' });
- * await os.social.post({ text: 'Hello OnSocial!' });
- * await os.social.standWith('bob.near');
- * await os.social.reply('bob.near', '123', { text: 'Great post!' });
- * await os.social.save('bob.near/post/123');
- * await os.social.endorse('bob.near', { topic: 'rust' });
+ * // ── Social writes (gasless via relayer) ──────────────────────────────
+ * await os.profiles.set({ name: 'Alice', bio: 'Builder' });
+ * await os.posts.create({ text: 'Hello OnSocial!' });
+ * await os.standings.standWith('bob.near');
+ * await os.reactions.toggle('bob.near', '123', 'like');
+ * await os.saves.toggle('bob.near/post/123');
  *
- * // Scarces (NFTs)
+ * // ── Scarces (NFTs) ───────────────────────────────────────────────────
  * await os.scarces.tokens.mint({ title: 'My Art', image: file });
  * await os.scarces.market.sell({ tokenId: '1', priceNear: '5' });
  *
- * // Groups & Governance
- * await os.groups.create('dao', { owner: 'alice.near', member_driven: true });
+ * // ── Groups & Governance ──────────────────────────────────────────────
+ * await os.groups.create('dao', { v: 1, name: 'DAO', isPrivate: true, memberDriven: true });
  * await os.groups.join('dao');
  * await os.groups.propose('dao', 'CustomProposal', { title: '...', ... });
  * await os.groups.vote('dao', proposalId, true);
- * const config = await os.groups.getConfig('dao');
  *
- * // Permissions
- * const canWrite = await os.permissions.has('alice.near', 'bob.near', 'post', 2);
+ * // ── Permissions (auto-routes to governance for member-driven groups) ─
+ * await os.permissions.grant('bob.near', 'profile/', PERMISSION.WRITE);
+ * await os.permissions.revoke('bob.near', 'profile/');
+ * await os.permissions.grantOrPropose('bob.near', 'groups/dao/content/', 1, {
+ *   reason: 'Promote to writer',
+ * });
+ * const canWrite = await os.permissions.has(owner, grantee, 'profile/', 1);
  *
- * // Execute any action directly (groups, governance, permissions, custom)
- * await os.execute({ type: 'create_group', group_id: 'dao', config: {...} });
- * await os.execute({ type: 'create_proposal', group_id: 'dao', ... });
+ * // ── Storage account (gasless tips/withdraws, signer-funded deposits) ─
+ * const balance = await os.storageAccount.balance();
+ * await os.storageAccount.tip('bob.near', NEAR('0.001'));
+ * await os.storageAccount.withdraw(NEAR('0.05'));
+ * await os.storageAccount.sponsor('bob.near', { maxBytes: 4096 });
+ * try {
+ *   await os.storageAccount.deposit(NEAR('0.1')); // requires signer
+ * } catch (e) {
+ *   if (e instanceof SignerRequiredError) wallet.signAndSend(e.payload);
+ * }
  *
- * // Rewards
+ * // ── Rewards ──────────────────────────────────────────────────────────
  * await os.rewards.credit({ accountId: 'alice.near', amount: '1000000' });
  *
- * // Query indexed data
- * const page = await os.query.feed.recent({ author: 'alice.near' });
+ * // ── Indexed reads (GraphQL) ──────────────────────────────────────────
+ * const feed = await os.query.feed.recent({ author: 'alice.near' });
+ * const tipsIn = await os.query.storage.tipsReceived('alice.near');
+ * const audit = await os.query.permissions.forPath('alice.near/profile/');
+ * const issued = await os.query.permissions.grantsBy('alice.near');
  *
- * // Storage
+ * // ── IPFS ─────────────────────────────────────────────────────────────
  * const { cid } = await os.storage.upload(file);
+ *
+ * // ── Power user: any action directly ──────────────────────────────────
+ * await os.execute({ type: 'create_group', group_id: 'dao', config: {...} });
  * ```
  */
 export class OnSocial {

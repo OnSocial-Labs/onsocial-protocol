@@ -932,4 +932,106 @@ describe('QueryModule', () => {
       expect(await os.query.storage.tipsSent('nobody.near')).toEqual([]);
     });
   });
+
+  describe('permissions.*', () => {
+    const sampleEvent = {
+      operation: 'grant',
+      author: 'a.near',
+      targetId: 'b.near',
+      path: 'a.near/profile/',
+      level: 1,
+      deleted: false,
+      blockHeight: 1,
+      blockTimestamp: 2,
+    };
+
+    it('grantsBy filters by author and grant operations', async () => {
+      const { os, fetch } = makeOs({
+        data: { permissionUpdates: [sampleEvent] },
+      });
+      const rows = await os.query.permissions.grantsBy('a.near', { limit: 10 });
+      expect(rows).toEqual([sampleEvent]);
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({
+        id: 'a.near',
+        ops: ['grant', 'grant_key', 'key_grant'],
+        limit: 10,
+      });
+      expect(body.query).toMatch(/author: \{_eq: \$id\}/);
+      expect(body.query).toMatch(/operation: \{_in: \$ops\}/);
+    });
+
+    it('grantsTo filters by targetId with account-grant ops only', async () => {
+      const { os, fetch } = makeOs({
+        data: { permissionUpdates: [sampleEvent] },
+      });
+      await os.query.permissions.grantsTo('b.near');
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({
+        id: 'b.near',
+        ops: ['grant'],
+        limit: 50,
+      });
+      expect(body.query).toMatch(/targetId: \{_eq: \$id\}/);
+    });
+
+    it('forPath filters by exact path', async () => {
+      const { os, fetch } = makeOs({
+        data: { permissionUpdates: [sampleEvent] },
+      });
+      await os.query.permissions.forPath('a.near/profile/', { limit: 25 });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({
+        path: 'a.near/profile/',
+        limit: 25,
+      });
+      expect(body.query).toMatch(/path: \{_eq: \$path\}/);
+    });
+
+    it('history queries author OR target', async () => {
+      const { os, fetch } = makeOs({
+        data: { permissionUpdates: [sampleEvent] },
+      });
+      await os.query.permissions.history('a.near');
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).toMatch(/_or:/);
+      expect(body.query).toMatch(/author: \{_eq: \$id\}/);
+      expect(body.query).toMatch(/targetId: \{_eq: \$id\}/);
+    });
+
+    it('keyGrantsBy filters by author with key-grant ops only', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          permissionUpdates: [{ ...sampleEvent, operation: 'grant_key' }],
+        },
+      });
+      await os.query.permissions.keyGrantsBy('a.near', { limit: 5 });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({
+        id: 'a.near',
+        ops: ['grant_key', 'key_grant'],
+        limit: 5,
+      });
+    });
+
+    it('returns [] when the indexer has no matching rows', async () => {
+      const { os } = makeOs({ data: { permissionUpdates: [] } });
+      expect(await os.query.permissions.grantsBy('nobody.near')).toEqual([]);
+    });
+  });
 });

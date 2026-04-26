@@ -102,7 +102,9 @@ export type {
   FeedFilter,
   GroupFeedFilter,
   StorageEventRow,
+  PermissionEventRow,
 } from './query/index.js';
+export { PERMISSION_OPERATIONS } from './query/index.js';
 export { StorageModule } from './storage.js';
 export {
   GatewayProvider,
@@ -147,6 +149,7 @@ export type { EndorsementListItem } from './modules/endorsements.js';
 export { AttestationsModule } from './modules/attestations.js';
 export type { AttestationListItem } from './modules/attestations.js';
 export { PermissionsModule } from './permissions.js';
+export { PERMISSION, type PermissionName } from './permissions.js';
 export { ChainModule } from './chain.js';
 export { PagesModule } from './pages.js';
 export { StandingsModule } from './modules/standings.js';
