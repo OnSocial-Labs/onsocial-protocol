@@ -23,7 +23,10 @@ describe('latency', () => {
     let found: unknown = null;
     for (let i = 0; i < 60; i++) {
       await new Promise((r) => setTimeout(r, 2000));
-      const page = await os.query.feed.recent({ author: ACCOUNT_ID, limit: 10 });
+      const page = await os.query.feed.recent({
+        author: ACCOUNT_ID,
+        limit: 10,
+      });
       found = page.items.find((p: any) => p.postId === postId);
       if (found) {
         const indexMs = performance.now() - t1;

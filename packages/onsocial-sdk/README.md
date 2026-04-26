@@ -213,16 +213,16 @@ The SDK is organised into three discoverable namespaces plus a few cross-cutting
 
 ### `os.content` — user-generated content
 
-| Module          | Purpose                                                    |
-| --------------- | ---------------------------------------------------------- |
-| `profiles`      | Read / update profile data (with auto avatar / banner upload) |
-| `posts`         | Create posts, replies, quotes — including group variants   |
-| `reactions`     | `add` / `remove` / `toggle` / `summary`                    |
-| `saves`         | Bookmark posts (`add` / `remove` / `toggle` / `has` / `list`) |
-| `endorsements`  | Weighted directed vouches                                  |
-| `attestations`  | Verifiable typed claims                                    |
-| `standings`     | Account ↔ account "stand with" graph                       |
-| `feed`          | Indexed GraphQL reads (alias of `os.query`)                |
+| Module         | Purpose                                                       |
+| -------------- | ------------------------------------------------------------- |
+| `profiles`     | Read / update profile data (with auto avatar / banner upload) |
+| `posts`        | Create posts, replies, quotes — including group variants      |
+| `reactions`    | `add` / `remove` / `toggle` / `summary`                       |
+| `saves`        | Bookmark posts (`add` / `remove` / `toggle` / `has` / `list`) |
+| `endorsements` | Weighted directed vouches                                     |
+| `attestations` | Verifiable typed claims                                       |
+| `standings`    | Account ↔ account "stand with" graph                         |
+| `feed`         | Indexed GraphQL reads (alias of `os.query`)                   |
 
 ```ts
 await os.content.profiles.update({ name: 'Alice' });
@@ -234,10 +234,10 @@ const feed = await os.content.feed.fromAccounts({ accountId: 'alice.near' });
 
 ### `os.economy` — value flows
 
-| Module    | Purpose                                       |
-| --------- | --------------------------------------------- |
-| `scarces` | Collections, mint, list, offers (NFTs)        |
-| `rewards` | Credit / claim / balance                      |
+| Module    | Purpose                                |
+| --------- | -------------------------------------- |
+| `scarces` | Collections, mint, list, offers (NFTs) |
+| `rewards` | Credit / claim / balance               |
 
 ```ts
 await os.economy.scarces.tokens.mint({ title: 'Art', image: file });
@@ -246,10 +246,10 @@ await os.economy.rewards.claim(claimId);
 
 ### `os.platform` — dev-platform & integration
 
-| Module          | Purpose                                |
-| --------------- | -------------------------------------- |
-| `storage`       | IPFS file / JSON upload                |
-| `permissions`   | Account + key permission management    |
+| Module          | Purpose                                 |
+| --------------- | --------------------------------------- |
+| `storage`       | IPFS file / JSON upload                 |
+| `permissions`   | Account + key permission management     |
 | `notifications` | Push + in-app notifications (pro tier+) |
 | `webhooks`      | Outbound webhook endpoints (pro tier+)  |
 | `pages`         | onsocial.id page configuration          |
@@ -261,11 +261,11 @@ await os.platform.notifications.list();
 
 ### Cross-cutting
 
-| Module      | Purpose                                                    |
-| ----------- | ---------------------------------------------------------- |
-| `os.auth`   | Login, refresh, session management                         |
-| `os.groups` | Group lifecycle, membership, governance, group content     |
-| `os.chain`  | On-chain storage balance, nonces, governance config        |
+| Module      | Purpose                                                       |
+| ----------- | ------------------------------------------------------------- |
+| `os.auth`   | Login, refresh, session management                            |
+| `os.groups` | Group lifecycle, membership, governance, group content        |
+| `os.chain`  | On-chain storage balance, nonces, governance config           |
 | `os.social` | Raw NEAR Social KV (`set` / `get` / `listKeys` / `countKeys`) |
 
 ## Going Lower-Level
@@ -331,20 +331,27 @@ You're not constrained to the modelled domains (posts, groups, scarces, …). Th
 ```ts
 // 1. Pick your own namespace — the indexer auto-derives `data_type` from
 //    the first path segment, so 'review' becomes its own queryable type.
-await os.social.set('review/item-001', JSON.stringify({
-  rating: 5,
-  reviewer: 'alice.near',
-  timestamp: 1772668800,
-}));
+await os.social.set(
+  'review/item-001',
+  JSON.stringify({
+    rating: 5,
+    reviewer: 'alice.near',
+    timestamp: 1772668800,
+  })
+);
 
 // 2. Read every entry of your custom type, scoped or unscoped by account.
-const reviews = await os.query.raw.byType('review', { accountId: 'alice.near' });
+const reviews = await os.query.raw.byType('review', {
+  accountId: 'alice.near',
+});
 
 // 3. Or look up a single entry by full path.
 const review = await os.query.raw.byPath('alice.near/review/item-001');
 
 // 4. Need shapes the typed query helpers don't model? Drop to raw GraphQL.
-const { data } = await os.query.graphql<{ dataUpdates: { path: string; value: string }[] }>({
+const { data } = await os.query.graphql<{
+  dataUpdates: { path: string; value: string }[];
+}>({
   query: `query Recent($t: String!) {
     dataUpdates(where: {dataType: {_eq: $t}}, limit: 5, orderBy: [{blockHeight: DESC}]) {
       path value accountId blockTimestamp

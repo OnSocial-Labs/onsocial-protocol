@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { HttpClient } from './http.js';
+import { HttpClient, RelayExecutionError } from './http.js';
 
 describe('HttpClient mutation response normalization', () => {
   it('preserves txHash when the backend returns the canonical field', async () => {
@@ -100,5 +100,51 @@ describe('HttpClient mutation response normalization', () => {
     );
 
     expect(result).toEqual({ unread: 5 });
+  });
+
+  it('throws RelayExecutionError when the relayer reports an on-chain failure', async () => {
+    const fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          success: false,
+          status: 'failure',
+          error: 'Direct grant on member-driven group path is not allowed',
+          tx_hash: 'rev-tx-hash',
+        }),
+    });
+    const http = new HttpClient({ fetch, apiKey: 'key' });
+
+    await expect(
+      http.post('/relay/execute?wait=true', {
+        action: {
+          type: 'set_permission',
+          grantee: 'mod.near',
+          path: 'groups/dao/config',
+          level: 2,
+        },
+        target_account: 'core.testnet',
+      })
+    ).rejects.toMatchObject({
+      name: 'RelayExecutionError',
+      txHash: 'rev-tx-hash',
+      message: 'Direct grant on member-driven group path is not allowed',
+    });
+  });
+
+  it('RelayExecutionError surfaces success:false even without an explicit status', async () => {
+    const fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          success: false,
+          error: 'reverted',
+        }),
+    });
+    const http = new HttpClient({ fetch, apiKey: 'key' });
+
+    await expect(
+      http.post('/relay/execute?wait=true', { action: {} })
+    ).rejects.toBeInstanceOf(RelayExecutionError);
   });
 });

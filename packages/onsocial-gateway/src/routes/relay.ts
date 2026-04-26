@@ -17,6 +17,27 @@ function relayHeaders(): Record<string, string> {
   return headers;
 }
 
+/**
+ * Build the upstream relayer URL, forwarding the optional `?wait=true` query
+ * param. When `wait=true` the relayer uses `broadcast_tx_commit` and surfaces
+ * the on-chain receipt status (`success` / `failure`) instead of fire-and-forget
+ * `pending`. Use this for writes where the caller must know the tx outcome.
+ */
+function buildRelayUrl(req: Request): string {
+  const url = `${config.relayUrl}/execute`;
+  const wait = req.query.wait;
+  if (wait === 'true' || wait === '1') {
+    return `${url}?wait=true`;
+  }
+  return url;
+}
+
+/** Pick a fetch timeout: 30s for fire-and-forget, 90s when waiting for finality. */
+function relayTimeoutMs(req: Request): number {
+  const wait = req.query.wait;
+  return wait === 'true' || wait === '1' ? 90_000 : 30_000;
+}
+
 // ---------------------------------------------------------------------------
 // POST /relay/execute  — Intent auth (JWT → relayer acts on behalf of user)
 //
@@ -61,10 +82,10 @@ relayRouter.post(
     };
 
     try {
-      const response = await fetch(`${config.relayUrl}/execute`, {
+      const response = await fetch(buildRelayUrl(req), {
         method: 'POST',
         headers: relayHeaders(),
-        signal: AbortSignal.timeout(30_000),
+        signal: AbortSignal.timeout(relayTimeoutMs(req)),
         body: JSON.stringify(contractRequest),
       });
 
@@ -139,10 +160,10 @@ relayRouter.post(
     };
 
     try {
-      const response = await fetch(`${config.relayUrl}/execute`, {
+      const response = await fetch(buildRelayUrl(req), {
         method: 'POST',
         headers: relayHeaders(),
-        signal: AbortSignal.timeout(30_000),
+        signal: AbortSignal.timeout(relayTimeoutMs(req)),
         body: JSON.stringify(contractRequest),
       });
 
@@ -187,9 +208,10 @@ relayRouter.post(
     };
 
     try {
-      const response = await fetch(`${config.relayUrl}/execute`, {
+      const response = await fetch(buildRelayUrl(req), {
         method: 'POST',
         headers: relayHeaders(),
+        signal: AbortSignal.timeout(relayTimeoutMs(req)),
         body: JSON.stringify(contractRequest),
       });
 

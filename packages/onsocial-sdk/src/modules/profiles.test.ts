@@ -29,11 +29,7 @@ function makeSocial() {
 describe('ProfilesModule.update', () => {
   it('delegates to social.setProfile (no resolution here — social handles file uploads)', async () => {
     const { mod, spy } = makeSocial();
-    const profiles = new ProfilesModule(
-      mod,
-      makeQuery([]),
-      makeStorage()
-    );
+    const profiles = new ProfilesModule(mod, makeQuery([]), makeStorage());
     await profiles.update({ name: 'Alice', bio: 'Builder' });
     expect(spy).toHaveBeenCalledWith({ name: 'Alice', bio: 'Builder' });
   });
@@ -217,11 +213,7 @@ describe('ProfilesModule.getMany', () => {
         data: { profilesCurrent: rowsByAccount[_q.variables?.id ?? ''] ?? [] },
       })),
     } as unknown as QueryModule;
-    const profiles = new ProfilesModule(
-      makeSocial().mod,
-      query,
-      makeStorage()
-    );
+    const profiles = new ProfilesModule(makeSocial().mod, query, makeStorage());
     const out = await profiles.getMany(['a.near', 'b.near', 'c.near']);
     expect(Object.keys(out).sort()).toEqual(['a.near', 'c.near']);
     expect(out['a.near'].name).toBe('Alice');
@@ -264,8 +256,6 @@ describe('ProfilesModule.avatarUrl / bannerUrl', () => {
   it('returns null when avatar/banner missing or profile null', () => {
     expect(profiles.avatarUrl(null)).toBeNull();
     expect(profiles.bannerUrl(undefined)).toBeNull();
-    expect(
-      profiles.avatarUrl({ accountId: 'a.near', extra: {} })
-    ).toBeNull();
+    expect(profiles.avatarUrl({ accountId: 'a.near', extra: {} })).toBeNull();
   });
 });

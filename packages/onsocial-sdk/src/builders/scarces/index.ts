@@ -63,11 +63,7 @@ export {
   buildPurchaseLazyListingAction,
 } from './lazy.js';
 
-export {
-  extractPostMedia,
-  isPostRow,
-  postCoords,
-} from './from-post.js';
+export { extractPostMedia, isPostRow, postCoords } from './from-post.js';
 export type {
   ExtractedPost,
   MintFromPostOptions,

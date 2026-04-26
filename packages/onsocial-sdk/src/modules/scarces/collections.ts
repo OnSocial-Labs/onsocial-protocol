@@ -4,10 +4,7 @@
 
 import type { HttpClient } from '../../http.js';
 import type { StorageProvider } from '../../storage/provider.js';
-import type {
-  CollectionOptions,
-  RelayResponse,
-} from '../../types.js';
+import type { CollectionOptions, RelayResponse } from '../../types.js';
 import { buildCreateCollectionAction } from '../../builders/scarces/collections.js';
 import { hasLocalUpload, resolveScarceMedia } from './_media.js';
 

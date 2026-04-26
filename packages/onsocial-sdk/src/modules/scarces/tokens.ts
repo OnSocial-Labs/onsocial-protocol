@@ -4,11 +4,7 @@
 
 import type { HttpClient } from '../../http.js';
 import type { StorageProvider } from '../../storage/provider.js';
-import type {
-  MintOptions,
-  MintResponse,
-  RelayResponse,
-} from '../../types.js';
+import type { MintOptions, MintResponse, RelayResponse } from '../../types.js';
 import { buildQuickMintAction } from '../../builders/scarces/tokens.js';
 import { hasLocalUpload, resolveScarceMedia } from './_media.js';
 

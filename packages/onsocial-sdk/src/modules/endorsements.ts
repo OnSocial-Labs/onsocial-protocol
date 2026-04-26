@@ -67,10 +67,7 @@ export class EndorsementsModule {
    * await os.endorsements.add('bob.near', { topic: 'rust', weight: 5 });
    * ```
    */
-  add(
-    target: string,
-    input?: EndorsementBuildInput
-  ): Promise<RelayResponse> {
+  add(target: string, input?: EndorsementBuildInput): Promise<RelayResponse> {
     return this._social.endorse(target, input);
   }
 

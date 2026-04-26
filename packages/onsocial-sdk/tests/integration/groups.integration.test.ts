@@ -974,7 +974,9 @@ describe('groups', () => {
       const refPath = `${ACCOUNT_ID}/groups/${joinRequestGroupId}/content/post/${groupPostId}`;
       const quotes = await confirmIndexed(
         async () => {
-          const value = await os.query.threads.quotesByPath(refPath, { limit: 20 });
+          const value = await os.query.threads.quotesByPath(refPath, {
+            limit: 20,
+          });
           return value.some((item) => item.postId === groupQuoteId)
             ? value
             : null;

@@ -22,8 +22,18 @@ export class PermissionsModule {
     this._coreContract = resolveContractId(_http.network, 'core');
   }
 
+  /**
+   * Send a permission write to the relayer with `wait=true` so the SDK throws
+   * `RelayExecutionError` if the transaction reverts on chain (e.g. attempting
+   * a direct grant on a member-driven group's `groups/{id}/...` paths, which
+   * the contract intentionally rejects).
+   *
+   * Without this, callers would see a plausible `success: true, tx_hash: ...`
+   * response while the chain silently rejected the grant — corrupting any
+   * follow-up logic that assumed the permission landed.
+   */
   private execute(action: Record<string, unknown>): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/relay/execute', {
+    return this._http.post<RelayResponse>('/relay/execute?wait=true', {
       action,
       target_account: this._coreContract,
     });

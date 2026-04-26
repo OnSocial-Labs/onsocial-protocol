@@ -25,7 +25,9 @@ export function nearToYocto(near: string): string {
   );
 }
 
-export function parseOptionalU64(value: string | undefined): number | undefined {
+export function parseOptionalU64(
+  value: string | undefined
+): number | undefined {
   if (value == null || value === '') return undefined;
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) {

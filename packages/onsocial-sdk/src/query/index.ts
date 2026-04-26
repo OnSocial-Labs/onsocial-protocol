@@ -22,11 +22,7 @@
 // ---------------------------------------------------------------------------
 
 import type { HttpClient } from '../http.js';
-import type {
-  GraphQLRequest,
-  GraphQLResponse,
-  QueryLimits,
-} from '../types.js';
+import type { GraphQLRequest, GraphQLResponse, QueryLimits } from '../types.js';
 
 import { GraphQLValidationError } from './_shared.js';
 

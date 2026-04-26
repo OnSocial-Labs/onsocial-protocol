@@ -81,6 +81,23 @@ export class HttpClient {
     if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
       const response = { ...(payload as Record<string, unknown>) };
 
+      // Surface on-chain reverts: when the relayer was called with
+      // `wait=true` it returns `{ success: false, status: "failure", error,
+      // tx_hash }`. Without this throw, callers (and integration tests) see a
+      // plausible-looking object and never learn the chain rejected the tx.
+      const explicitFailure =
+        response.success === false || response.status === 'failure';
+      if (explicitFailure) {
+        const txHash =
+          (typeof response.txHash === 'string' && response.txHash) ||
+          (typeof response.tx_hash === 'string' && response.tx_hash) ||
+          undefined;
+        const message =
+          (typeof response.error === 'string' && response.error) ||
+          'Transaction reverted on-chain';
+        throw new RelayExecutionError(message, txHash, payload);
+      }
+
       if (typeof response.txHash === 'string') return response as T;
       if (typeof response.tx_hash === 'string') {
         response.txHash = response.tx_hash;
@@ -196,5 +213,26 @@ export class OnSocialError extends Error {
     this.status = status;
     this.details = body.details;
     this.retryAfter = body.retryAfter;
+  }
+}
+
+/**
+ * Thrown when the relayer broadcasts a transaction with `wait=true` and the
+ * on-chain receipt resolves to `Failure` (the transaction reverted).
+ *
+ * Distinct from `OnSocialError` (HTTP-level errors): `RelayExecutionError`
+ * means the relay POST itself succeeded with HTTP 200 but the chain rejected
+ * the transaction — for example, a contract assertion fired, gas ran out, or
+ * a permission check failed.
+ */
+export class RelayExecutionError extends Error {
+  txHash?: string;
+  raw?: unknown;
+
+  constructor(message: string, txHash?: string, raw?: unknown) {
+    super(message);
+    this.name = 'RelayExecutionError';
+    this.txHash = txHash;
+    this.raw = raw;
   }
 }

@@ -31,11 +31,7 @@ import type { PagesModule } from './pages.js';
 import type { SocialModule } from './social.js';
 import type { HttpClient } from './http.js';
 import type { RelayResponse } from './types.js';
-import type {
-  ExecuteAction,
-  ExecuteOptions,
-  SignedAuth,
-} from './client.js';
+import type { ExecuteAction, ExecuteOptions, SignedAuth } from './client.js';
 
 /**
  * `os.content` — everything an end-user creates or consumes.
@@ -111,10 +107,7 @@ export interface RawNamespace {
    * Execute any action via the gateway relayer (intent auth — gasless).
    * Same as `os.execute()` at the top level.
    */
-  execute(
-    action: ExecuteAction,
-    opts?: ExecuteOptions
-  ): Promise<RelayResponse>;
+  execute(action: ExecuteAction, opts?: ExecuteOptions): Promise<RelayResponse>;
   /**
    * Submit a pre-signed action via the gateway relayer.
    * Same as `os.submit()` at the top level.

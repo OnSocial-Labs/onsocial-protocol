@@ -25,10 +25,7 @@ export class ScarcesAuctionsApi {
   }
 
   /** Place a bid on an auction. */
-  async placeBid(
-    tokenId: string,
-    amountNear: string
-  ): Promise<RelayResponse> {
+  async placeBid(tokenId: string, amountNear: string): Promise<RelayResponse> {
     return this._http.post<RelayResponse>('/compose/place-bid', {
       tokenId,
       amountNear,

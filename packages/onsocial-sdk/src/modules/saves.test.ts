@@ -50,20 +50,14 @@ describe('SavesModule target normalisation', () => {
     const { mod: social, spies } = makeSocial();
     const s = new SavesModule(social, makeQuery().mod);
     await s.add(POST_REF);
-    expect(spies.save).toHaveBeenCalledWith(
-      'alice.near/post/123',
-      undefined
-    );
+    expect(spies.save).toHaveBeenCalledWith('alice.near/post/123', undefined);
   });
 
   it('accepts a PostRow', async () => {
     const { mod: social, spies } = makeSocial();
     const s = new SavesModule(social, makeQuery().mod);
     await s.add(POST_ROW);
-    expect(spies.save).toHaveBeenCalledWith(
-      'alice.near/post/123',
-      undefined
-    );
+    expect(spies.save).toHaveBeenCalledWith('alice.near/post/123', undefined);
   });
 
   it('accepts a raw content path string', async () => {

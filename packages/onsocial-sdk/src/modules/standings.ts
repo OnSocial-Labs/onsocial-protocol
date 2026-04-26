@@ -109,9 +109,7 @@ export class StandingsModule {
    * const { incoming, outgoing } = await os.standings.counts('alice.near');
    * ```
    */
-  counts(
-    accountId: string
-  ): Promise<{ incoming: number; outgoing: number }> {
+  counts(accountId: string): Promise<{ incoming: number; outgoing: number }> {
     return this._query.standings.counts(accountId);
   }
 }

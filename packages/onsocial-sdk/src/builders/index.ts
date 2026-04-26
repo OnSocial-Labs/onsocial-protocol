@@ -31,20 +31,11 @@ export {
   buildGroupQuoteSetData,
 } from './group-post.js';
 
-export {
-  buildStandingSetData,
-  buildStandingRemoveData,
-} from './standing.js';
+export { buildStandingSetData, buildStandingRemoveData } from './standing.js';
 
-export {
-  buildReactionSetData,
-  buildReactionRemoveData,
-} from './reaction.js';
+export { buildReactionSetData, buildReactionRemoveData } from './reaction.js';
 
-export {
-  buildSaveSetData,
-  buildSaveRemoveData,
-} from './save.js';
+export { buildSaveSetData, buildSaveRemoveData } from './save.js';
 export type { SaveBuildInput } from './save.js';
 
 export {

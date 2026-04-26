@@ -8,19 +8,17 @@ import type {
 
 function makeProvider(opts: { uploadDelayMs?: number } = {}) {
   let counter = 0;
-  const upload = vi.fn(
-    async (file: Blob | File): Promise<UploadedMedia> => {
-      const id = ++counter;
-      if (opts.uploadDelayMs) {
-        await new Promise((r) => setTimeout(r, opts.uploadDelayMs));
-      }
-      return {
-        cid: `bafy${id}`,
-        size: file.size ?? 100,
-        mime: file.type || 'application/octet-stream',
-      };
+  const upload = vi.fn(async (file: Blob | File): Promise<UploadedMedia> => {
+    const id = ++counter;
+    if (opts.uploadDelayMs) {
+      await new Promise((r) => setTimeout(r, opts.uploadDelayMs));
     }
-  );
+    return {
+      cid: `bafy${id}`,
+      size: file.size ?? 100,
+      mime: file.type || 'application/octet-stream',
+    };
+  });
   const uploadJson = vi.fn(
     async (): Promise<UploadedJson> => ({
       cid: 'bafyJson',
@@ -52,9 +50,9 @@ describe('StorageModule.uploadMany', () => {
     const inputs = [file('a.png'), file('b.png'), file('c.png'), file('d.png')];
     const out = await mod.uploadMany(inputs, { concurrency: 2 });
     expect(out).toHaveLength(4);
-    expect(out.every((r) => typeof r.cid === 'string' && r.cid.length > 0)).toBe(
-      true
-    );
+    expect(
+      out.every((r) => typeof r.cid === 'string' && r.cid.length > 0)
+    ).toBe(true);
     // All cids unique — proves we didn't dedupe or short-circuit.
     const cids = new Set(out.map((r) => r.cid));
     expect(cids.size).toBe(4);

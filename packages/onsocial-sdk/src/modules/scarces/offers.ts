@@ -33,9 +33,7 @@ export class ScarcesOffersApi {
   }
 
   /** Make an offer on an entire collection. */
-  async makeCollection(
-    opts: CollectionOfferOptions
-  ): Promise<RelayResponse> {
+  async makeCollection(opts: CollectionOfferOptions): Promise<RelayResponse> {
     return this._http.post<RelayResponse>(
       '/compose/make-collection-offer',
       opts

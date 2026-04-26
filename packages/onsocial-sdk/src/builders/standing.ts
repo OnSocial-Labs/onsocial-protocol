@@ -14,9 +14,7 @@ export function buildStandingSetData(
   };
 }
 
-export function buildStandingRemoveData(
-  targetAccount: string
-): SocialSetData {
+export function buildStandingRemoveData(targetAccount: string): SocialSetData {
   return {
     [`standing/${targetAccount}`]: null,
   };

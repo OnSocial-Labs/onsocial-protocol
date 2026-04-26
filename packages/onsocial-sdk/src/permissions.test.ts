@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { PermissionsModule } from './permissions.js';
 
 describe('PermissionsModule transport', () => {
-  it('posts set_permission to /relay/execute targeting the core contract', async () => {
+  it('posts set_permission to /relay/execute?wait=true targeting the core contract', async () => {
     const post = vi.fn().mockResolvedValue({ txHash: 'tx-grant' });
     const permissions = new PermissionsModule({
       post,
@@ -11,7 +11,7 @@ describe('PermissionsModule transport', () => {
 
     await permissions.grant('bob.near', 'profile/', 1, 123);
 
-    expect(post).toHaveBeenCalledWith('/relay/execute', {
+    expect(post).toHaveBeenCalledWith('/relay/execute?wait=true', {
       action: {
         type: 'set_permission',
         grantee: 'bob.near',
@@ -23,7 +23,7 @@ describe('PermissionsModule transport', () => {
     });
   });
 
-  it('posts set_key_permission to /relay/execute targeting the core contract', async () => {
+  it('posts set_key_permission to /relay/execute?wait=true targeting the core contract', async () => {
     const post = vi.fn().mockResolvedValue({ txHash: 'tx-grant-key' });
     const permissions = new PermissionsModule({
       post,
@@ -32,7 +32,7 @@ describe('PermissionsModule transport', () => {
 
     await permissions.grantKey('ed25519:abc', 'settings/', 2);
 
-    expect(post).toHaveBeenCalledWith('/relay/execute', {
+    expect(post).toHaveBeenCalledWith('/relay/execute?wait=true', {
       action: {
         type: 'set_key_permission',
         public_key: 'ed25519:abc',

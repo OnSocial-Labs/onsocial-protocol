@@ -117,7 +117,7 @@ export class ScarcesFromPostApi {
       ...(opts.appId ? { appId: opts.appId } : {}),
       ...(opts.receiverId ? { receiverId: opts.receiverId } : {}),
       ...(opts.image ? { image: opts.image } : {}),
-      ...(opts.mediaCid ?? extracted.mediaCid
+      ...((opts.mediaCid ?? extracted.mediaCid)
         ? { mediaCid: opts.mediaCid ?? extracted.mediaCid }
         : {}),
       extra: {

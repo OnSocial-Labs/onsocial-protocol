@@ -10,7 +10,7 @@ export type {
   MintPostOptions,
   MintPostResult,
 } from './client.js';
-export { OnSocialError } from './http.js';
+export { OnSocialError, RelayExecutionError } from './http.js';
 
 // Modules (for advanced composition)
 export { AuthModule } from './auth.js';

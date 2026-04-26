@@ -155,9 +155,7 @@ describe('ScarcesModule.collections', () => {
     await mod.collections.pause('g');
     await mod.collections.resume('g');
     await mod.collections.delete('g');
-    const calls = http.post.mock.calls.map(
-      (c) => c[0]
-    );
+    const calls = http.post.mock.calls.map((c) => c[0]);
     expect(calls).toEqual([
       '/compose/mint-from-collection',
       '/compose/purchase-from-collection',
@@ -176,9 +174,7 @@ describe('ScarcesModule.market', () => {
     await mod.market.sell({ tokenId: '1', priceNear: '1' });
     await mod.market.delist('1');
     await mod.market.purchase('1');
-    const calls = http.post.mock.calls.map(
-      (c) => c[0]
-    );
+    const calls = http.post.mock.calls.map((c) => c[0]);
     expect(calls).toEqual([
       '/compose/list-native-scarce',
       '/compose/delist-native-scarce',
@@ -199,9 +195,7 @@ describe('ScarcesModule.auctions', () => {
     await mod.auctions.placeBid('1', '1');
     await mod.auctions.settle('1');
     await mod.auctions.cancel('1');
-    const calls = http.post.mock.calls.map(
-      (c) => c[0]
-    );
+    const calls = http.post.mock.calls.map((c) => c[0]);
     expect(calls).toEqual([
       '/compose/list-auction',
       '/compose/place-bid',
@@ -221,9 +215,7 @@ describe('ScarcesModule.offers', () => {
     await mod.offers.makeCollection({ collectionId: 'g', amountNear: '1' });
     await mod.offers.cancelCollection('g');
     await mod.offers.acceptCollection('g', '1', 'b.near');
-    const calls = http.post.mock.calls.map(
-      (c) => c[0]
-    );
+    const calls = http.post.mock.calls.map((c) => c[0]);
     expect(calls).toEqual([
       '/compose/make-offer',
       '/compose/cancel-offer',

@@ -53,6 +53,15 @@ export interface ExecuteOptions {
   targetAccount?: string;
   /** Contract-level options (e.g. refund_unused_deposit). */
   options?: Record<string, unknown>;
+  /**
+   * Wait for the on-chain receipt before resolving and throw if the
+   * transaction reverted. When false (default) the relayer returns
+   * `pending` after broadcast and the SDK never sees the on-chain outcome.
+   *
+   * Set to `true` for permission grants, governance writes, or any flow
+   * where a silent on-chain revert would corrupt downstream state.
+   */
+  wait?: boolean;
 }
 
 /** Options for `os.mintPost()`. */
@@ -247,7 +256,11 @@ export class OnSocial {
     this.chain = new ChainModule(this.http);
     this.pages = new PagesModule(this.http);
     this.posts = new PostsModule(this.social, this.groups);
-    this.profiles = new ProfilesModule(this.social, this.query, storageProvider);
+    this.profiles = new ProfilesModule(
+      this.social,
+      this.query,
+      storageProvider
+    );
     this.reactions = new ReactionsModule(this.social, this.query);
     this.saves = new SavesModule(this.social, this.query);
     this.endorsements = new EndorsementsModule(this.social, this.query);
@@ -310,7 +323,8 @@ export class OnSocial {
     action: ExecuteAction,
     opts?: ExecuteOptions
   ): Promise<RelayResponse> {
-    return this.http.post<RelayResponse>('/relay/execute', {
+    const path = opts?.wait ? '/relay/execute?wait=true' : '/relay/execute';
+    return this.http.post<RelayResponse>(path, {
       action,
       ...(opts?.targetAccount && { target_account: opts.targetAccount }),
       ...(opts?.options && { options: opts.options }),
