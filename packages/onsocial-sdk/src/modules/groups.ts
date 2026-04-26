@@ -12,6 +12,7 @@ import type {
   GroupStats,
   JoinRequest,
   ListProposalsOptions,
+  PermissionLevel,
   PostData,
   Proposal,
   ProposalCreateOptions,
@@ -351,6 +352,77 @@ export class GroupsModule {
         }),
       },
       opts
+    );
+  }
+
+  /**
+   * Propose granting a path-scoped permission to a target user via group
+   * governance.
+   *
+   * Use this for **member-driven groups** (where `member_driven: true`),
+   * because direct calls to `os.permissions.grant()` are rejected by the
+   * contract for `groups/{id}/...` paths in such groups — only proposals
+   * approved by members can mutate group permissions.
+   *
+   * For non-member-driven groups (the default), prefer the direct
+   * `os.permissions.grant()` API for lower latency.
+   *
+   * @see {@link isMemberDriven} to detect which mode applies.
+   */
+  async proposePermissionGrant(
+    groupId: string,
+    args: {
+      targetUser: string;
+      path: string;
+      level: PermissionLevel;
+      reason: string;
+    },
+    opts?: ProposalCreateOptions
+  ): Promise<RelayResponse> {
+    return this.propose(
+      groupId,
+      'path_permission_grant',
+      {
+        target_user: args.targetUser,
+        path: args.path,
+        level: args.level,
+        reason: args.reason,
+      },
+      opts
+    );
+  }
+
+  /**
+   * Propose revoking a path-scoped permission from a target user via group
+   * governance. Companion to {@link proposePermissionGrant}.
+   */
+  async proposePermissionRevoke(
+    groupId: string,
+    args: { targetUser: string; path: string; reason: string },
+    opts?: ProposalCreateOptions
+  ): Promise<RelayResponse> {
+    return this.propose(
+      groupId,
+      'path_permission_revoke',
+      {
+        target_user: args.targetUser,
+        path: args.path,
+        reason: args.reason,
+      },
+      opts
+    );
+  }
+
+  /**
+   * Returns true when the group's config has `member_driven: true`. In that
+   * mode, all permission mutations on `groups/{id}/...` paths must go through
+   * proposals (see {@link proposePermissionGrant} /
+   * {@link proposePermissionRevoke}).
+   */
+  async isMemberDriven(groupId: string): Promise<boolean> {
+    const config = await this.getConfig(groupId);
+    return Boolean(
+      config && (config as { member_driven?: unknown }).member_driven
     );
   }
 

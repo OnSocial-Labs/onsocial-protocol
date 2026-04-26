@@ -41,6 +41,17 @@ export class PermissionsModule {
 
   // ── Write methods ─────────────────────────────────────────────────────
 
+  /**
+   * Grant a path-scoped permission directly via `set_permission`.
+   *
+   * **Member-driven groups:** When `path` targets `groups/{id}/...` and the
+   * group has `member_driven: true`, this call will be **rejected on-chain**
+   * and surface as a `RelayExecutionError`. Use
+   * `os.groups.proposePermissionGrant(groupId, ...)` instead so the change
+   * passes through governance.
+   *
+   * Use `os.groups.isMemberDriven(groupId)` to detect which mode applies.
+   */
   async grant(
     grantee: string,
     path: string,
