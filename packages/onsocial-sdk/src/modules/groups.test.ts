@@ -374,4 +374,85 @@ describe('GroupsModule transport', () => {
       target_account: 'core.onsocial.near',
     });
   });
+
+  it('builds permission-change proposals with optional reason', async () => {
+    const post = vi.fn().mockResolvedValue({ txHash: 'tx-pc' });
+    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
+
+    await groups.proposePermissionChange('dao', {
+      targetUser: 'bob.near',
+      level: 2,
+      reason: 'Promote to moderator',
+    });
+
+    expect(post).toHaveBeenCalledWith('/relay/execute', {
+      action: {
+        type: 'create_proposal',
+        group_id: 'dao',
+        proposal_type: 'permission_change',
+        changes: {
+          target_user: 'bob.near',
+          level: 2,
+          reason: 'Promote to moderator',
+        },
+      },
+      target_account: 'core.onsocial.near',
+    });
+  });
+
+  it('permission-change omits reason when not provided', async () => {
+    const post = vi.fn().mockResolvedValue({ txHash: 'tx-pc2' });
+    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
+
+    await groups.proposePermissionChange('dao', {
+      targetUser: 'bob.near',
+      level: 0,
+    });
+
+    expect(post).toHaveBeenCalledWith('/relay/execute', {
+      action: {
+        type: 'create_proposal',
+        group_id: 'dao',
+        proposal_type: 'permission_change',
+        changes: { target_user: 'bob.near', level: 0 },
+      },
+      target_account: 'core.onsocial.near',
+    });
+  });
+
+  it('builds join-request proposals with optional message', async () => {
+    const post = vi.fn().mockResolvedValue({ txHash: 'tx-jr' });
+    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
+
+    await groups.proposeJoinRequest('dao', 'alice.near', {
+      message: 'I want in',
+    });
+
+    expect(post).toHaveBeenCalledWith('/relay/execute', {
+      action: {
+        type: 'create_proposal',
+        group_id: 'dao',
+        proposal_type: 'join_request',
+        changes: { requester: 'alice.near', message: 'I want in' },
+      },
+      target_account: 'core.onsocial.near',
+    });
+  });
+
+  it('join-request omits message when not provided', async () => {
+    const post = vi.fn().mockResolvedValue({ txHash: 'tx-jr2' });
+    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
+
+    await groups.proposeJoinRequest('dao', 'alice.near');
+
+    expect(post).toHaveBeenCalledWith('/relay/execute', {
+      action: {
+        type: 'create_proposal',
+        group_id: 'dao',
+        proposal_type: 'join_request',
+        changes: { requester: 'alice.near' },
+      },
+      target_account: 'core.onsocial.near',
+    });
+  });
 });

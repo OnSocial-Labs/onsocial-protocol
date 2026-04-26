@@ -7,6 +7,7 @@ import type {
   ContractInfo,
   ContractStatus,
   GovernanceConfig,
+  KeyEntry,
   OnChainStorageBalance,
   PlatformAllowanceInfo,
   PlatformPoolInfo,
@@ -61,6 +62,36 @@ export class ChainModule {
   async getNonce(accountId: string, publicKey: string): Promise<string> {
     const p = new URLSearchParams({ accountId, publicKey });
     return this._http.get<string>(`/data/nonce?${p}`);
+  }
+
+  // ── Key index views ───────────────────────────────────────────────────
+
+  /**
+   * List on-chain keys matching a prefix with cursor-based pagination.
+   *
+   * Useful for audits, data migration, and inspecting what an account has
+   * stored under a path. Pass `withValues: true` to include the stored
+   * value alongside each key (heavier response).
+   *
+   * The contract caps `limit` at 50 — pass a smaller limit and use
+   * `fromKey` (set to the last key in the previous page) to paginate.
+   */
+  async listKeys(
+    prefix: string,
+    opts?: { fromKey?: string; limit?: number; withValues?: boolean }
+  ): Promise<KeyEntry[]> {
+    const p = new URLSearchParams({ prefix });
+    if (opts?.fromKey !== undefined) p.set('fromKey', opts.fromKey);
+    if (opts?.limit !== undefined) p.set('limit', String(opts.limit));
+    if (opts?.withValues) p.set('withValues', 'true');
+    return this._http.get<KeyEntry[]>(`/data/keys?${p}`);
+  }
+
+  /** Count on-chain keys matching a prefix (cheap pre-flight check). */
+  async countKeys(prefix: string): Promise<number> {
+    const p = new URLSearchParams({ prefix });
+    const res = await this._http.get<{ count: number }>(`/data/count?${p}`);
+    return res.count;
   }
 
   // ── Contract info ─────────────────────────────────────────────────────

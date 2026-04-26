@@ -414,6 +414,53 @@ export class GroupsModule {
   }
 
   /**
+   * Propose changing a member's group-level permission level (e.g. promote a
+   * member to moderator/admin or demote them). Resolves to a
+   * `permission_change` proposal — distinct from path-scoped grants.
+   */
+  async proposePermissionChange(
+    groupId: string,
+    args: {
+      targetUser: string;
+      level: PermissionLevel;
+      reason?: string;
+    },
+    opts?: ProposalCreateOptions
+  ): Promise<RelayResponse> {
+    return this.propose(
+      groupId,
+      'permission_change',
+      {
+        target_user: args.targetUser,
+        level: args.level,
+        ...(args.reason !== undefined && { reason: args.reason }),
+      },
+      opts
+    );
+  }
+
+  /**
+   * Propose recording a join request as a vote-driven proposal. Normally
+   * `join()` auto-creates this in member-driven groups; this helper is for
+   * cases where a third party files the request on behalf of a user.
+   */
+  async proposeJoinRequest(
+    groupId: string,
+    requester: string,
+    opts?: ProposalCreateOptions & { message?: string }
+  ): Promise<RelayResponse> {
+    return this.propose(
+      groupId,
+      'join_request',
+      {
+        requester,
+        ...(opts?.message !== undefined && { message: opts.message }),
+      },
+      opts
+    );
+  }
+
+  /**
    * Propose banning a member from the group. Resolves to a
    * `group_update` proposal with `update_type: "ban"`.
    */
