@@ -35,6 +35,17 @@ export interface OnSocialConfig {
   /** Custom fetch implementation (default: globalThis.fetch). */
   fetch?: typeof globalThis.fetch;
   /**
+   * Optional signer for deposit-funded operations on `os.storageAccount`
+   * (`deposit`, `fundPlatform`, `fundGroupPool`, `fundSharedPool`). Without
+   * a signer those methods throw `SignerRequiredError` carrying a
+   * wallet-ready payload the caller can hand to any wallet adapter.
+   *
+   * The shape is intentionally minimal so any wallet (MyNearWallet, Meteor,
+   * Sender, HERE, near-api-js KeyPair) can implement it without a hard
+   * dependency on `@onsocial/sdk`.
+   */
+  signer?: import('./modules/storage-account.js').TransactionSigner;
+  /**
    * Storage provider for media uploads. Accepts:
    *   • `undefined` (default) — uploads go via `/storage/upload` on the gateway.
    *   • `{ provider: 'gateway' }` — same as default, explicit.

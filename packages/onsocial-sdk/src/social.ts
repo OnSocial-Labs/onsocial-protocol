@@ -442,17 +442,51 @@ export class SocialModule {
   // ── Generic KV write ──────────────────────────────────────────────────
 
   /**
-   * Write arbitrary data to a path.
+   * Write arbitrary data to a path, or atomically batch multiple paths.
    *
    * ```ts
+   * // Single path
    * await os.social.set('settings/theme', JSON.stringify({ dark: true }));
+   *
+   * // Batch (atomic) — single Action::Set, single tx
+   * await os.social.set({
+   *   'profile/name': 'Alice',
+   *   'profile/bio': 'Builder',
+   *   'posts/main/2026-04-26': { text: 'gm' },
+   * });
    * ```
    */
-  async set(path: string, value: unknown): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/compose/set', {
-      path,
-      value: encodeComposeValue(value),
-      targetAccount: this._coreContract,
+  async set(path: string, value: unknown): Promise<RelayResponse>;
+  async set(entries: Record<string, unknown>): Promise<RelayResponse>;
+  async set(
+    pathOrEntries: string | Record<string, unknown>,
+    value?: unknown
+  ): Promise<RelayResponse> {
+    if (typeof pathOrEntries === 'string') {
+      return this._http.post<RelayResponse>('/compose/set', {
+        path: pathOrEntries,
+        value: encodeComposeValue(value),
+        targetAccount: this._coreContract,
+      });
+    }
+    const entries = Object.entries(pathOrEntries);
+    if (entries.length === 0) {
+      throw new Error('social.set() requires at least one entry');
+    }
+    if (entries.length === 1) {
+      const [path, val] = entries[0];
+      return this._http.post<RelayResponse>('/compose/set', {
+        path,
+        value: encodeComposeValue(val),
+        targetAccount: this._coreContract,
+      });
+    }
+    // Multi-entry: route through generic execute so we get a single
+    // Action::Set { data: { path1: value1, … } } in one transaction.
+    const action = { type: 'set', data: pathOrEntries };
+    return this._http.post<RelayResponse>('/relay/execute?wait=true', {
+      action,
+      target_account: this._coreContract,
     });
   }
 

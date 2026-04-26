@@ -16,6 +16,7 @@
 //   os.query.attestations.issued('alice.near')
 //   os.query.hashtags.trending()
 //   os.query.stats.leaderboard()
+//   os.query.storage.tipsReceived('alice.near')
 //   os.query.raw.byType('vegancert')
 //
 // For unindexed or one-off queries, drop down to `os.query.graphql<T>(...)`.
@@ -37,6 +38,7 @@ import { EndorsementsQuery } from './endorsements.js';
 import { AttestationsQuery } from './attestations.js';
 import { HashtagsQuery } from './hashtags.js';
 import { StatsQuery } from './stats.js';
+import { StorageQuery } from './storage.js';
 import { RawQuery } from './raw.js';
 
 export { GraphQLValidationError } from './_shared.js';
@@ -53,6 +55,7 @@ export type { SaveRow } from './saves.js';
 export type { EndorsementRow } from './endorsements.js';
 export type { ClaimRow } from './attestations.js';
 export type { EdgeCount, LeaderboardEntry, TokenStats } from './stats.js';
+export type { StorageEventRow } from './storage.js';
 export type { DataRow } from './raw.js';
 
 export class QueryModule {
@@ -70,6 +73,7 @@ export class QueryModule {
   readonly attestations: AttestationsQuery;
   readonly hashtags: HashtagsQuery;
   readonly stats: StatsQuery;
+  readonly storage: StorageQuery;
   readonly raw: RawQuery;
 
   constructor(http: HttpClient) {
@@ -85,6 +89,7 @@ export class QueryModule {
     this.attestations = new AttestationsQuery(this);
     this.hashtags = new HashtagsQuery(this);
     this.stats = new StatsQuery(this, http);
+    this.storage = new StorageQuery(this);
     this.raw = new RawQuery(this);
   }
 

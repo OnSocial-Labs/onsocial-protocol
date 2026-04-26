@@ -101,6 +101,7 @@ export type {
   GroupConversation,
   FeedFilter,
   GroupFeedFilter,
+  StorageEventRow,
 } from './query/index.js';
 export { StorageModule } from './storage.js';
 export {
@@ -149,6 +150,21 @@ export { PermissionsModule } from './permissions.js';
 export { ChainModule } from './chain.js';
 export { PagesModule } from './pages.js';
 export { StandingsModule } from './modules/standings.js';
+export {
+  StorageAccountModule,
+  type AmountInput,
+  type DepositWriteOptions,
+  type TransactionSigner,
+  type TxObserver,
+  type WriteOptions,
+} from './modules/storage-account.js';
+export { NEAR, nearMath, type NearAmount } from './near-amount.js';
+export {
+  StorageAccountError,
+  InsufficientStorageBalanceError,
+  PermissionDeniedError,
+  SignerRequiredError,
+} from './errors.js';
 export type {
   ContentNamespace,
   EconomyNamespace,

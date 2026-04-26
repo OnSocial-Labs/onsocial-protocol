@@ -84,6 +84,40 @@ describe('SocialModule transport', () => {
     });
   });
 
+  it('batches multi-entry set() into a single Action::Set via /relay/execute', async () => {
+    const post = vi.fn().mockResolvedValue({ txHash: 'tx' });
+    const social = new SocialModule({ post, network: 'mainnet' } as never);
+
+    await social.set({
+      'profile/name': 'Alice',
+      'posts/main/p1': { text: 'gm' },
+    });
+
+    expect(post).toHaveBeenCalledWith('/relay/execute?wait=true', {
+      action: {
+        type: 'set',
+        data: {
+          'profile/name': 'Alice',
+          'posts/main/p1': { text: 'gm' },
+        },
+      },
+      target_account: 'core.onsocial.near',
+    });
+  });
+
+  it('single-entry set(object) routes through /compose/set like set(path, value)', async () => {
+    const post = vi.fn().mockResolvedValue({ txHash: 'tx' });
+    const social = new SocialModule({ post, network: 'mainnet' } as never);
+
+    await social.set({ 'profile/name': 'Alice' });
+
+    expect(post).toHaveBeenCalledWith('/compose/set', {
+      path: 'profile/name',
+      targetAccount: 'core.onsocial.near',
+      value: 'Alice',
+    });
+  });
+
   it('uploads avatar File via /storage/upload then writes ipfs:// URL', async () => {
     const post = vi.fn().mockResolvedValue({ txHash: 'tx' });
     const requestForm = vi.fn().mockResolvedValue({ cid: 'bafy123' });

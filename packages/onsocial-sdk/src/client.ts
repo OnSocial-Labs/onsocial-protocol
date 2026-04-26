@@ -32,6 +32,7 @@ import { PermissionsModule } from './permissions.js';
 import { ChainModule } from './chain.js';
 import { PagesModule } from './pages.js';
 import { StandingsModule } from './modules/standings.js';
+import { StorageAccountModule } from './modules/storage-account.js';
 import type {
   ContentNamespace,
   EconomyNamespace,
@@ -185,6 +186,12 @@ export class OnSocial {
   readonly permissions: PermissionsModule;
   /** Chain — on-chain storage management and contract introspection. */
   readonly chain: ChainModule;
+  /**
+   * Storage account — best-in-class wrapper for on-chain Storage record
+   * operations (balance reads, gasless writes via the relayer, and
+   * deposit-funded writes via an optional signer).
+   */
+  readonly storageAccount: StorageAccountModule;
   /** Pages — configure and read onsocial.id page data. */
   readonly pages: PagesModule;
 
@@ -254,6 +261,7 @@ export class OnSocial {
     );
     this.permissions = new PermissionsModule(this.http);
     this.chain = new ChainModule(this.http);
+    this.storageAccount = new StorageAccountModule(this.http, config.signer);
     this.pages = new PagesModule(this.http);
     this.posts = new PostsModule(this.social, this.groups);
     this.profiles = new ProfilesModule(

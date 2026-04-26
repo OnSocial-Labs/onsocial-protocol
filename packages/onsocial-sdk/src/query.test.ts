@@ -857,4 +857,79 @@ describe('QueryModule', () => {
       expect(res.data).toEqual({ postsCurrent: [] });
     });
   });
+
+  describe('storage.*', () => {
+    const sampleEvent = {
+      operation: 'tip',
+      actorId: 'a.near',
+      targetId: 'b.near',
+      amount: '1000',
+      blockHeight: 1,
+      blockTimestamp: 2,
+      groupId: null,
+      poolId: null,
+      reason: null,
+    };
+
+    it('tipsSent filters by operation=tip and actorId, returning rows', async () => {
+      const { os, fetch } = makeOs({
+        data: { storageUpdates: [sampleEvent] },
+      });
+      const rows = await os.query.storage.tipsSent('a.near', { limit: 10 });
+      expect(rows).toEqual([sampleEvent]);
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({ id: 'a.near', limit: 10 });
+      expect(body.query).toMatch(/operation: \{_eq: "tip"\}/);
+      expect(body.query).toMatch(/actorId: \{_eq: \$id\}/);
+    });
+
+    it('tipsReceived filters by targetId', async () => {
+      const { os, fetch } = makeOs({
+        data: { storageUpdates: [sampleEvent] },
+      });
+      const rows = await os.query.storage.tipsReceived('b.near');
+      expect(rows).toEqual([sampleEvent]);
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({ id: 'b.near', limit: 50 });
+      expect(body.query).toMatch(/targetId: \{_eq: \$id\}/);
+    });
+
+    it('history queries actor OR target', async () => {
+      const { os, fetch } = makeOs({
+        data: { storageUpdates: [sampleEvent] },
+      });
+      await os.query.storage.history('a.near');
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).toMatch(/_or:/);
+      expect(body.query).toMatch(/actorId: \{_eq: \$id\}/);
+      expect(body.query).toMatch(/targetId: \{_eq: \$id\}/);
+    });
+
+    it('byOperation filters by arbitrary operation string', async () => {
+      const { os, fetch } = makeOs({
+        data: { storageUpdates: [{ ...sampleEvent, operation: 'withdraw' }] },
+      });
+      const rows = await os.query.storage.byOperation('withdraw', { limit: 5 });
+      expect(rows[0].operation).toBe('withdraw');
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({ op: 'withdraw', limit: 5 });
+    });
+
+    it('returns [] when the indexer has no matching rows', async () => {
+      const { os } = makeOs({ data: { storageUpdates: [] } });
+      expect(await os.query.storage.tipsSent('nobody.near')).toEqual([]);
+    });
+  });
 });
