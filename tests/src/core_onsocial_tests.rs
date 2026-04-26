@@ -12932,6 +12932,7 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
             }
         }))
         .deposit(NearToken::from_millinear(100))
+        .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?
         .unwrap();
@@ -12945,6 +12946,7 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
             }
         }))
         .deposit(NearToken::from_millinear(100))
+        .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
 
@@ -12961,6 +12963,7 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
             }
         }))
         .deposit(NearToken::from_millinear(100))
+        .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?
         .unwrap();
@@ -12974,6 +12977,7 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
             }
         }))
         .deposit(NearToken::from_millinear(100))
+        .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
 
@@ -12989,6 +12993,7 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
             }
         }))
         .deposit(NearToken::from_millinear(100))
+        .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?
         .unwrap();
@@ -13128,6 +13133,7 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
             }
         }))
         .deposit(NearToken::from_millinear(100))
+        .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?
         .unwrap();
@@ -13162,6 +13168,7 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
             }
         }))
         .deposit(NearToken::from_millinear(100))
+        .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
 
@@ -13177,6 +13184,7 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
             }
         }))
         .deposit(NearToken::from_millinear(100))
+        .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?
         .unwrap();
@@ -13201,6 +13209,7 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
             }
         }))
         .deposit(NearToken::from_millinear(100))
+        .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
 
@@ -13257,6 +13266,7 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
             }
         }))
         .deposit(NearToken::from_millinear(100))
+        .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?
         .unwrap();
@@ -13297,6 +13307,7 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
             }
         }))
         .deposit(NearToken::from_millinear(100))
+        .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?
         .unwrap();
@@ -13309,6 +13320,7 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
             }
         }))
         .deposit(NearToken::from_millinear(100))
+        .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?
         .unwrap();
@@ -13384,6 +13396,7 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
             }
         }))
         .deposit(NearToken::from_millinear(100))
+        .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?
         .unwrap();

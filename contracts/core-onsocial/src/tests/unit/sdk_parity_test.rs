@@ -114,4 +114,3 @@ fn sdk_fixture_round_trips_into_contract_request() {
         failures.join("\n - ")
     );
 }
-
