@@ -9,8 +9,9 @@
 //   • `os.scarces.auctions`     — start / placeBid / settle / cancel
 //   • `os.scarces.offers`       — make / cancel / accept / makeCollection /
 //                                 cancelCollection / acceptCollection
-//   • `os.scarces.lazy`         — create / purchase  (mint-on-purchase)
+//   • `os.scarces.lazy`         — create / purchase / cancel  (mint-on-purchase)
 //   • `os.scarces.fromPost`     — mint / list  (turn a post into a scarce)
+//   • `os.scarces.apps`         — register / setConfig / fund / moderate apps
 //
 // When the OnSocial client has a `StorageProvider` configured (e.g. Lighthouse),
 // file-bearing methods (`tokens.mint`, `collections.create`, `lazy.create`)
@@ -29,6 +30,7 @@ import { ScarcesAuctionsApi } from './auctions.js';
 import { ScarcesOffersApi } from './offers.js';
 import { ScarcesLazyApi } from './lazy.js';
 import { ScarcesFromPostApi } from './from-post.js';
+import { ScarcesAppsApi } from './apps.js';
 
 export class ScarcesModule {
   readonly tokens: ScarcesTokensApi;
@@ -38,6 +40,7 @@ export class ScarcesModule {
   readonly offers: ScarcesOffersApi;
   readonly lazy: ScarcesLazyApi;
   readonly fromPost: ScarcesFromPostApi;
+  readonly apps: ScarcesAppsApi;
 
   constructor(
     http: HttpClient,
@@ -51,6 +54,7 @@ export class ScarcesModule {
     this.offers = new ScarcesOffersApi(http);
     this.lazy = new ScarcesLazyApi(http, storage);
     this.fromPost = new ScarcesFromPostApi(this.tokens, this.lazy, social);
+    this.apps = new ScarcesAppsApi(http);
   }
 }
 
@@ -61,3 +65,5 @@ export { ScarcesAuctionsApi } from './auctions.js';
 export { ScarcesOffersApi } from './offers.js';
 export { ScarcesLazyApi } from './lazy.js';
 export { ScarcesFromPostApi } from './from-post.js';
+export { ScarcesAppsApi, type AppConfigInput } from './apps.js';
+export { type AllowlistEntry } from './collections.js';

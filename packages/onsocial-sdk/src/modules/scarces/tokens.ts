@@ -83,4 +83,49 @@ export class ScarcesTokensApi {
       collectionId,
     });
   }
+
+  /** Renew a token's expiry (collection must allow renewal). */
+  async renew(
+    tokenId: string,
+    collectionId: string,
+    newExpiresAt: number
+  ): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>('/compose/renew-token', {
+      tokenId,
+      collectionId,
+      newExpiresAt,
+    });
+  }
+
+  /** Redeem a token (e.g. for goods/services off-chain). */
+  async redeem(tokenId: string, collectionId: string): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>('/compose/redeem-token', {
+      tokenId,
+      collectionId,
+    });
+  }
+
+  /** Revoke a token (creator/moderator). Mode is configured at collection level. */
+  async revoke(
+    tokenId: string,
+    collectionId: string,
+    memo?: string
+  ): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>('/compose/revoke-token', {
+      tokenId,
+      collectionId,
+      memo,
+    });
+  }
+
+  /** Claim a refund for a cancelled-collection token. */
+  async claimRefund(
+    tokenId: string,
+    collectionId: string
+  ): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>('/compose/claim-refund', {
+      tokenId,
+      collectionId,
+    });
+  }
 }

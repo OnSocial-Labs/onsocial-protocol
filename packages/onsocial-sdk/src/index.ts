@@ -52,6 +52,11 @@ export {
   ScarcesOffersApi,
   ScarcesLazyApi,
   ScarcesFromPostApi,
+  ScarcesAppsApi,
+} from './modules/scarces/index.js';
+export type {
+  AppConfigInput,
+  AllowlistEntry,
 } from './modules/scarces/index.js';
 export {
   buildQuickMintAction,

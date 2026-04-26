@@ -1259,4 +1259,196 @@ describe('QueryModule', () => {
       expect(await os.query.governance.proposals('dao')).toEqual([]);
     });
   });
+
+  describe('scarces.*', () => {
+    const sampleEvent = {
+      eventType: 'SCARCE_UPDATE',
+      operation: 'quick_mint',
+      author: 'a.near',
+      blockHeight: 10,
+      blockTimestamp: 100,
+      tokenId: 's:1',
+      collectionId: null,
+      listingId: null,
+      ownerId: 'a.near',
+      creatorId: null,
+      buyerId: null,
+      sellerId: null,
+      bidder: null,
+      accountId: null,
+      appId: null,
+      scarceContractId: null,
+      amount: null,
+      price: null,
+      oldPrice: null,
+      newPrice: null,
+      bidAmount: null,
+      marketplaceFee: null,
+      appPoolAmount: null,
+      creatorPayment: null,
+      quantity: null,
+      totalSupply: null,
+      reservePrice: null,
+      buyNowPrice: null,
+      expiresAt: null,
+      reason: null,
+      memo: null,
+      extraData: null,
+    };
+
+    it('events filters by eventType + operation array', async () => {
+      const { os, fetch } = makeOs({
+        data: { scarcesEvents: [sampleEvent] },
+      });
+      const rows = await os.query.scarces.events({
+        eventType: 'SCARCE_UPDATE',
+        operation: ['quick_mint', 'mint'],
+        limit: 10,
+      });
+      expect(rows).toEqual([sampleEvent]);
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({
+        eventType: 'SCARCE_UPDATE',
+        operation: ['quick_mint', 'mint'],
+        limit: 10,
+        offset: 0,
+      });
+      expect(body.query).toMatch(/eventType: \{_eq: \$eventType\}/);
+      expect(body.query).toMatch(/operation: \{_in: \$operation\}/);
+    });
+
+    it('tokenHistory filters by tokenId and orders ASC', async () => {
+      const { os, fetch } = makeOs({ data: { scarcesEvents: [sampleEvent] } });
+      await os.query.scarces.tokenHistory('s:1');
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({ tokenId: 's:1', limit: 200 });
+      expect(body.query).toMatch(/tokenId: \{_eq: \$tokenId\}/);
+      expect(body.query).toMatch(/orderBy: \[\{blockHeight: ASC\}\]/);
+    });
+
+    it('collection narrows by collectionId', async () => {
+      const { os, fetch } = makeOs({ data: { scarcesEvents: [] } });
+      await os.query.scarces.collection('genesis', { limit: 5 });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toMatchObject({
+        collectionId: 'genesis',
+        limit: 5,
+      });
+      expect(body.query).toMatch(/collectionId: \{_eq: \$collectionId\}/);
+    });
+
+    it('recentMints applies SCARCE_UPDATE + mint ops filter', async () => {
+      const { os, fetch } = makeOs({ data: { scarcesEvents: [] } });
+      await os.query.scarces.recentMints({ limit: 25 });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toMatchObject({
+        eventType: 'SCARCE_UPDATE',
+        operation: ['quick_mint', 'mint', 'mint_from_collection'],
+        limit: 25,
+      });
+    });
+
+    it('mintsBy adds the author filter', async () => {
+      const { os, fetch } = makeOs({ data: { scarcesEvents: [] } });
+      await os.query.scarces.mintsBy('a.near');
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toMatchObject({
+        author: 'a.near',
+        eventType: 'SCARCE_UPDATE',
+        operation: ['quick_mint', 'mint', 'mint_from_collection'],
+      });
+    });
+
+    it('sales narrows by buyerId/sellerId', async () => {
+      const { os, fetch } = makeOs({ data: { scarcesEvents: [] } });
+      await os.query.scarces.sales({ buyerId: 'b.near', limit: 10 });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toMatchObject({
+        buyerId: 'b.near',
+        eventType: 'SCARCE_UPDATE',
+        operation: ['purchase'],
+      });
+      expect(body.query).toMatch(/buyerId: \{_eq: \$buyerId\}/);
+    });
+
+    it('bids returns auction_bid events for a token in chronological order', async () => {
+      const { os, fetch } = makeOs({ data: { scarcesEvents: [] } });
+      await os.query.scarces.bids('s:1');
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({
+        tokenId: 's:1',
+        ops: ['auction_bid'],
+        limit: 200,
+      });
+      expect(body.query).toMatch(/orderBy: \[\{blockHeight: ASC\}\]/);
+    });
+
+    it('lazyListingsBy filters by creatorId + LAZY_LISTING_UPDATE/created', async () => {
+      const { os, fetch } = makeOs({ data: { scarcesEvents: [] } });
+      await os.query.scarces.lazyListingsBy('a.near');
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({
+        creatorId: 'a.near',
+        eventType: 'LAZY_LISTING_UPDATE',
+        ops: ['created'],
+        limit: 50,
+      });
+    });
+
+    it('offersOn filters by tokenId + OFFER_UPDATE/offer_made', async () => {
+      const { os, fetch } = makeOs({ data: { scarcesEvents: [] } });
+      await os.query.scarces.offersOn('s:1');
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toMatchObject({
+        tokenId: 's:1',
+        eventType: 'OFFER_UPDATE',
+        operation: ['offer_made'],
+      });
+    });
+
+    it('appActivity filters by appId + APP_POOL_UPDATE', async () => {
+      const { os, fetch } = makeOs({ data: { scarcesEvents: [] } });
+      await os.query.scarces.appActivity('my-app');
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toMatchObject({
+        appId: 'my-app',
+        eventType: 'APP_POOL_UPDATE',
+      });
+    });
+
+    it('returns [] when the indexer has no matching rows', async () => {
+      const { os } = makeOs({ data: { scarcesEvents: [] } });
+      expect(await os.query.scarces.events()).toEqual([]);
+    });
+  });
 });

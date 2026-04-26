@@ -34,7 +34,7 @@ function makeStorage(): StorageProvider {
 }
 
 describe('ScarcesModule wiring', () => {
-  it('exposes the seven sub-namespaces', () => {
+  it('exposes the eight sub-namespaces', () => {
     const mod = new ScarcesModule(asHttp(makeHttp()));
     expect(mod.tokens).toBeDefined();
     expect(mod.collections).toBeDefined();
@@ -43,6 +43,7 @@ describe('ScarcesModule wiring', () => {
     expect(mod.offers).toBeDefined();
     expect(mod.lazy).toBeDefined();
     expect(mod.fromPost).toBeDefined();
+    expect(mod.apps).toBeDefined();
   });
 });
 
@@ -258,6 +259,260 @@ describe('ScarcesModule.lazy', () => {
     await mod.lazy.purchase('abc');
     expect(http.post).toHaveBeenCalledWith('/compose/purchase-lazy-listing', {
       listingId: 'abc',
+    });
+  });
+
+  it('cancel routes through /compose/cancel-lazy-list', async () => {
+    const http = makeHttp();
+    const mod = new ScarcesModule(asHttp(http));
+    await mod.lazy.cancel('abc');
+    expect(http.post).toHaveBeenCalledWith('/compose/cancel-lazy-list', {
+      listingId: 'abc',
+    });
+  });
+});
+
+describe('ScarcesModule.tokens — lifecycle helpers', () => {
+  it('renew routes through /compose/renew-token', async () => {
+    const http = makeHttp();
+    const mod = new ScarcesModule(asHttp(http));
+    await mod.tokens.renew('t1', 'col1', 1234);
+    expect(http.post).toHaveBeenCalledWith('/compose/renew-token', {
+      tokenId: 't1',
+      collectionId: 'col1',
+      newExpiresAt: 1234,
+    });
+  });
+
+  it('redeem routes through /compose/redeem-token', async () => {
+    const http = makeHttp();
+    const mod = new ScarcesModule(asHttp(http));
+    await mod.tokens.redeem('t1', 'col1');
+    expect(http.post).toHaveBeenCalledWith('/compose/redeem-token', {
+      tokenId: 't1',
+      collectionId: 'col1',
+    });
+  });
+
+  it('revoke routes through /compose/revoke-token', async () => {
+    const http = makeHttp();
+    const mod = new ScarcesModule(asHttp(http));
+    await mod.tokens.revoke('t1', 'col1', 'spam');
+    expect(http.post).toHaveBeenCalledWith('/compose/revoke-token', {
+      tokenId: 't1',
+      collectionId: 'col1',
+      memo: 'spam',
+    });
+  });
+
+  it('claimRefund routes through /compose/claim-refund', async () => {
+    const http = makeHttp();
+    const mod = new ScarcesModule(asHttp(http));
+    await mod.tokens.claimRefund('t1', 'col1');
+    expect(http.post).toHaveBeenCalledWith('/compose/claim-refund', {
+      tokenId: 't1',
+      collectionId: 'col1',
+    });
+  });
+});
+
+describe('ScarcesModule.collections — management helpers', () => {
+  it('updatePrice routes through /compose/update-collection-price', async () => {
+    const http = makeHttp();
+    const mod = new ScarcesModule(asHttp(http));
+    await mod.collections.updatePrice('col1', '2.5');
+    expect(http.post).toHaveBeenCalledWith('/compose/update-collection-price', {
+      collectionId: 'col1',
+      newPriceNear: '2.5',
+    });
+  });
+
+  it('updateTiming routes through /compose/update-collection-timing', async () => {
+    const http = makeHttp();
+    const mod = new ScarcesModule(asHttp(http));
+    await mod.collections.updateTiming('col1', { startTime: 1, endTime: 2 });
+    expect(http.post).toHaveBeenCalledWith(
+      '/compose/update-collection-timing',
+      { collectionId: 'col1', startTime: 1, endTime: 2 }
+    );
+  });
+
+  it('setAllowlist routes through /compose/set-allowlist', async () => {
+    const http = makeHttp();
+    const mod = new ScarcesModule(asHttp(http));
+    await mod.collections.setAllowlist('col1', [
+      { account_id: 'alice.near', allocation: 3 },
+    ]);
+    expect(http.post).toHaveBeenCalledWith('/compose/set-allowlist', {
+      collectionId: 'col1',
+      entries: [{ account_id: 'alice.near', allocation: 3 }],
+    });
+  });
+
+  it('removeFromAllowlist routes through /compose/remove-from-allowlist', async () => {
+    const http = makeHttp();
+    const mod = new ScarcesModule(asHttp(http));
+    await mod.collections.removeFromAllowlist('col1', ['a.near', 'b.near']);
+    expect(http.post).toHaveBeenCalledWith('/compose/remove-from-allowlist', {
+      collectionId: 'col1',
+      accounts: ['a.near', 'b.near'],
+    });
+  });
+
+  it('setMetadata routes through /compose/set-collection-metadata', async () => {
+    const http = makeHttp();
+    const mod = new ScarcesModule(asHttp(http));
+    await mod.collections.setMetadata('col1', '{"x":1}');
+    expect(http.post).toHaveBeenCalledWith('/compose/set-collection-metadata', {
+      collectionId: 'col1',
+      metadata: '{"x":1}',
+    });
+  });
+
+  it('setAppMetadata routes through /compose/set-collection-app-metadata', async () => {
+    const http = makeHttp();
+    const mod = new ScarcesModule(asHttp(http));
+    await mod.collections.setAppMetadata('app1', 'col1', null);
+    expect(http.post).toHaveBeenCalledWith(
+      '/compose/set-collection-app-metadata',
+      { appId: 'app1', collectionId: 'col1', metadata: null }
+    );
+  });
+
+  it('cancel routes through /compose/cancel-collection', async () => {
+    const http = makeHttp();
+    const mod = new ScarcesModule(asHttp(http));
+    await mod.collections.cancel('col1', '0.5', 99);
+    expect(http.post).toHaveBeenCalledWith('/compose/cancel-collection', {
+      collectionId: 'col1',
+      refundPerTokenNear: '0.5',
+      refundDeadlineNs: 99,
+    });
+  });
+
+  it('withdrawUnclaimedRefunds routes through /compose/withdraw-unclaimed-refunds', async () => {
+    const http = makeHttp();
+    const mod = new ScarcesModule(asHttp(http));
+    await mod.collections.withdrawUnclaimedRefunds('col1');
+    expect(http.post).toHaveBeenCalledWith(
+      '/compose/withdraw-unclaimed-refunds',
+      { collectionId: 'col1' }
+    );
+  });
+});
+
+describe('ScarcesModule.market — management helpers', () => {
+  it('updateSalePrice routes through /compose/update-sale-price', async () => {
+    const http = makeHttp();
+    const mod = new ScarcesModule(asHttp(http));
+    await mod.market.updateSalePrice('scarces.near', 't1', '7');
+    expect(http.post).toHaveBeenCalledWith('/compose/update-sale-price', {
+      scarceContractId: 'scarces.near',
+      tokenId: 't1',
+      priceNear: '7',
+    });
+  });
+
+  it('delistExternal routes through /compose/delist-external-scarce', async () => {
+    const http = makeHttp();
+    const mod = new ScarcesModule(asHttp(http));
+    await mod.market.delistExternal('scarces.near', 't1');
+    expect(http.post).toHaveBeenCalledWith('/compose/delist-external-scarce', {
+      scarceContractId: 'scarces.near',
+      tokenId: 't1',
+    });
+  });
+});
+
+describe('ScarcesModule.apps', () => {
+  it('register routes through /compose/register-app', async () => {
+    const http = makeHttp();
+    const mod = new ScarcesModule(asHttp(http));
+    await mod.apps.register('app1', { primarySaleBps: 250, curated: true });
+    expect(http.post).toHaveBeenCalledWith('/compose/register-app', {
+      appId: 'app1',
+      primarySaleBps: 250,
+      curated: true,
+    });
+  });
+
+  it('setConfig routes through /compose/set-app-config', async () => {
+    const http = makeHttp();
+    const mod = new ScarcesModule(asHttp(http));
+    await mod.apps.setConfig('app1', { metadata: 'x' });
+    expect(http.post).toHaveBeenCalledWith('/compose/set-app-config', {
+      appId: 'app1',
+      metadata: 'x',
+    });
+  });
+
+  it('fundPool routes through /compose/fund-app-pool', async () => {
+    const http = makeHttp();
+    const mod = new ScarcesModule(asHttp(http));
+    await mod.apps.fundPool('app1');
+    expect(http.post).toHaveBeenCalledWith('/compose/fund-app-pool', {
+      appId: 'app1',
+    });
+  });
+
+  it('withdrawPool routes through /compose/withdraw-app-pool', async () => {
+    const http = makeHttp();
+    const mod = new ScarcesModule(asHttp(http));
+    await mod.apps.withdrawPool('app1', '1');
+    expect(http.post).toHaveBeenCalledWith('/compose/withdraw-app-pool', {
+      appId: 'app1',
+      amountNear: '1',
+    });
+  });
+
+  it('transferOwnership routes through /compose/transfer-app-ownership', async () => {
+    const http = makeHttp();
+    const mod = new ScarcesModule(asHttp(http));
+    await mod.apps.transferOwnership('app1', 'new.near');
+    expect(http.post).toHaveBeenCalledWith('/compose/transfer-app-ownership', {
+      appId: 'app1',
+      newOwner: 'new.near',
+    });
+  });
+
+  it('addModerator routes through /compose/add-moderator', async () => {
+    const http = makeHttp();
+    const mod = new ScarcesModule(asHttp(http));
+    await mod.apps.addModerator('app1', 'mod.near');
+    expect(http.post).toHaveBeenCalledWith('/compose/add-moderator', {
+      appId: 'app1',
+      accountId: 'mod.near',
+    });
+  });
+
+  it('removeModerator routes through /compose/remove-moderator', async () => {
+    const http = makeHttp();
+    const mod = new ScarcesModule(asHttp(http));
+    await mod.apps.removeModerator('app1', 'mod.near');
+    expect(http.post).toHaveBeenCalledWith('/compose/remove-moderator', {
+      appId: 'app1',
+      accountId: 'mod.near',
+    });
+  });
+
+  it('banCollection routes through /compose/ban-collection', async () => {
+    const http = makeHttp();
+    const mod = new ScarcesModule(asHttp(http));
+    await mod.apps.banCollection('app1', 'col1', 'spam');
+    expect(http.post).toHaveBeenCalledWith('/compose/ban-collection', {
+      appId: 'app1',
+      collectionId: 'col1',
+      reason: 'spam',
+    });
+  });
+
+  it('unbanCollection routes through /compose/unban-collection', async () => {
+    const http = makeHttp();
+    const mod = new ScarcesModule(asHttp(http));
+    await mod.apps.unbanCollection('app1', 'col1');
+    expect(http.post).toHaveBeenCalledWith('/compose/unban-collection', {
+      appId: 'app1',
+      collectionId: 'col1',
     });
   });
 });

@@ -71,4 +71,11 @@ export class ScarcesLazyApi {
       listingId,
     });
   }
+
+  /** Cancel a lazy listing (creator only). */
+  async cancel(listingId: string): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>('/compose/cancel-lazy-list', {
+      listingId,
+    });
+  }
 }

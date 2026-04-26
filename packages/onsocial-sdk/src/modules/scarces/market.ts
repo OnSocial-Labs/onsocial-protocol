@@ -33,4 +33,28 @@ export class ScarcesMarketApi {
       tokenId,
     });
   }
+
+  /** Update the asking price of an external (cross-contract) listing. */
+  async updateSalePrice(
+    scarceContractId: string,
+    tokenId: string,
+    priceNear: string
+  ): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>('/compose/update-sale-price', {
+      scarceContractId,
+      tokenId,
+      priceNear,
+    });
+  }
+
+  /** Delist an external (cross-contract) scarce listing. */
+  async delistExternal(
+    scarceContractId: string,
+    tokenId: string
+  ): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>('/compose/delist-external-scarce', {
+      scarceContractId,
+      tokenId,
+    });
+  }
 }

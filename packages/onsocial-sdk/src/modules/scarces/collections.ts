@@ -8,6 +8,12 @@ import type { CollectionOptions, RelayResponse } from '../../types.js';
 import { buildCreateCollectionAction } from '../../builders/scarces/collections.js';
 import { hasLocalUpload, resolveScarceMedia } from './_media.js';
 
+/** Allowlist entry as accepted by the scarces contract. */
+export interface AllowlistEntry {
+  account_id: string;
+  allocation: number;
+}
+
 export class ScarcesCollectionsApi {
   constructor(
     private _http: HttpClient,
@@ -126,5 +132,94 @@ export class ScarcesCollectionsApi {
     return this._http.post<RelayResponse>('/compose/delete-collection', {
       collectionId,
     });
+  }
+
+  /** Update the per-token price of a collection (creator only). */
+  async updatePrice(
+    collectionId: string,
+    newPriceNear: string
+  ): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>('/compose/update-collection-price', {
+      collectionId,
+      newPriceNear,
+    });
+  }
+
+  /** Update collection start/end timestamps (ns). */
+  async updateTiming(
+    collectionId: string,
+    opts: { startTime?: number; endTime?: number }
+  ): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>('/compose/update-collection-timing', {
+      collectionId,
+      startTime: opts.startTime,
+      endTime: opts.endTime,
+    });
+  }
+
+  /** Replace the collection allowlist with `entries`. */
+  async setAllowlist(
+    collectionId: string,
+    entries: AllowlistEntry[]
+  ): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>('/compose/set-allowlist', {
+      collectionId,
+      entries,
+    });
+  }
+
+  /** Remove specific accounts from the collection allowlist. */
+  async removeFromAllowlist(
+    collectionId: string,
+    accounts: string[]
+  ): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>('/compose/remove-from-allowlist', {
+      collectionId,
+      accounts,
+    });
+  }
+
+  /** Set or clear the collection's freeform metadata blob. */
+  async setMetadata(
+    collectionId: string,
+    metadata: string | null
+  ): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>('/compose/set-collection-metadata', {
+      collectionId,
+      metadata,
+    });
+  }
+
+  /** Set or clear the per-app metadata for a collection (app owner). */
+  async setAppMetadata(
+    appId: string,
+    collectionId: string,
+    metadata: string | null
+  ): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>(
+      '/compose/set-collection-app-metadata',
+      { appId, collectionId, metadata }
+    );
+  }
+
+  /** Cancel a collection and offer per-token refunds until `refundDeadlineNs`. */
+  async cancel(
+    collectionId: string,
+    refundPerTokenNear: string,
+    refundDeadlineNs?: number
+  ): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>('/compose/cancel-collection', {
+      collectionId,
+      refundPerTokenNear,
+      refundDeadlineNs,
+    });
+  }
+
+  /** After the refund window, reclaim unclaimed refund balances (creator). */
+  async withdrawUnclaimedRefunds(collectionId: string): Promise<RelayResponse> {
+    return this._http.post<RelayResponse>(
+      '/compose/withdraw-unclaimed-refunds',
+      { collectionId }
+    );
   }
 }
