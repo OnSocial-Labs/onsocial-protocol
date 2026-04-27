@@ -159,16 +159,21 @@ collectionRouter.post(
 
       const { req: collectionReq } = buildCreateCollectionReq(req.body);
       const imageFile = extractImageFile(req.file);
+      const wait = req.query.wait === 'true' || req.query.wait === '1';
 
       const result = await composeCreateCollection(
         effectiveActorId,
         collectionReq,
-        imageFile
+        imageFile,
+        { wait }
       );
 
       res.status(201).json({
         txHash: result.txHash,
         collectionId: req.body.collectionId,
+        ...(result.success !== undefined && { success: result.success }),
+        ...(result.status !== undefined && { status: result.status }),
+        ...(result.error !== undefined && { error: result.error }),
         media: result.media
           ? {
               cid: result.media.cid,

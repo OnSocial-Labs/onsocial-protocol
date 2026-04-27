@@ -78,6 +78,7 @@ mintRouter.post(
       }
 
       const imageFile = extractImageFile(req.file);
+      const wait = req.query.wait === 'true' || req.query.wait === '1';
 
       const result = await composeMint(
         effectiveActorId,
@@ -95,11 +96,15 @@ mintRouter.post(
           ...(mediaCid && { mediaCid }),
           ...(mediaHash && { mediaHash }),
         },
-        imageFile
+        imageFile,
+        { wait }
       );
 
       res.status(201).json({
         txHash: result.txHash,
+        ...(result.success !== undefined && { success: result.success }),
+        ...(result.status !== undefined && { status: result.status }),
+        ...(result.error !== undefined && { error: result.error }),
         media: result.media
           ? {
               cid: result.media.cid,

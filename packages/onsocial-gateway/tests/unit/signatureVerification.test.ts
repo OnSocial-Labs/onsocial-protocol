@@ -1,7 +1,7 @@
 // tests/signatureVerification.test.ts
 // Unit tests for NEAR signature verification
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import nacl from 'tweetnacl';
 import { encodeBase64 } from 'tweetnacl-util';
 

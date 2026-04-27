@@ -22,6 +22,16 @@ const coreContract =
     ? 'core.onsocial.near'
     : 'core.onsocial.testnet';
 
+const tokenContract =
+  config.nearNetwork === 'mainnet'
+    ? 'token.onsocial.near'
+    : 'token.onsocial.testnet';
+
+const boostContract =
+  config.nearNetwork === 'mainnet'
+    ? 'boost.onsocial.near'
+    : 'boost.onsocial.testnet';
+
 interface CallFunctionResult {
   result: number[];
   logs: string[];
@@ -39,8 +49,9 @@ function decodeResult<T>(raw: CallFunctionResult): T {
 // `buildArgs` returns an args object or a string error message.
 // ---------------------------------------------------------------------------
 
-function coreView(
+function contractView(
   routePath: string,
+  contractAccount: string,
   methodName: string,
   buildArgs: (q: Request['query']) => Record<string, unknown> | string
 ): void {
@@ -53,7 +64,7 @@ function coreView(
     try {
       const raw = await rpcQuery<CallFunctionResult>({
         request_type: 'call_function',
-        account_id: coreContract,
+        account_id: contractAccount,
         method_name: methodName,
         args_base64: Buffer.from(JSON.stringify(argsOrError)).toString(
           'base64'
@@ -66,6 +77,30 @@ function coreView(
       res.status(502).json({ error: 'RPC call failed', details: msg });
     }
   });
+}
+
+function coreView(
+  routePath: string,
+  methodName: string,
+  buildArgs: (q: Request['query']) => Record<string, unknown> | string
+): void {
+  contractView(routePath, coreContract, methodName, buildArgs);
+}
+
+function tokenView(
+  routePath: string,
+  methodName: string,
+  buildArgs: (q: Request['query']) => Record<string, unknown> | string
+): void {
+  contractView(routePath, tokenContract, methodName, buildArgs);
+}
+
+function boostView(
+  routePath: string,
+  methodName: string,
+  buildArgs: (q: Request['query']) => Record<string, unknown> | string
+): void {
+  contractView(routePath, boostContract, methodName, buildArgs);
 }
 
 function requireStr(q: Request['query'], name: string): string | null {
@@ -480,6 +515,54 @@ coreView('/version', 'get_version', () => ({}));
 coreView('/config', 'get_config', () => ({}));
 coreView('/contract-info', 'get_contract_info', () => ({}));
 coreView('/wnear-account', 'get_wnear_account', () => ({}));
+
+// ===========================================================================
+// SOCIAL token (NEP-141) views
+// ===========================================================================
+
+tokenView('/ft-metadata', 'ft_metadata', () => ({}));
+tokenView('/ft-total-supply', 'ft_total_supply', () => ({}));
+tokenView('/ft-balance-of', 'ft_balance_of', (q) => {
+  const accountId = requireStr(q, 'accountId');
+  if (!accountId) return 'Missing required query param: accountId';
+  return { account_id: accountId };
+});
+tokenView('/ft-storage-balance', 'storage_balance_of', (q) => {
+  const accountId = requireStr(q, 'accountId');
+  if (!accountId) return 'Missing required query param: accountId';
+  return { account_id: accountId };
+});
+
+// ===========================================================================
+// Boost contract views
+// ===========================================================================
+
+boostView('/boost-stats', 'get_stats', () => ({}));
+boostView('/boost-account', 'get_account', (q) => {
+  const accountId = requireStr(q, 'accountId');
+  if (!accountId) return 'Missing required query param: accountId';
+  return { account_id: accountId };
+});
+boostView('/boost-lock-status', 'get_lock_status', (q) => {
+  const accountId = requireStr(q, 'accountId');
+  if (!accountId) return 'Missing required query param: accountId';
+  return { account_id: accountId };
+});
+boostView('/boost-reward-rate', 'get_reward_rate', (q) => {
+  const accountId = requireStr(q, 'accountId');
+  if (!accountId) return 'Missing required query param: accountId';
+  return { account_id: accountId };
+});
+boostView(
+  '/boost-storage-subsidy-available',
+  'get_storage_subsidy_available',
+  () => ({})
+);
+boostView('/boost-storage-balance', 'storage_balance_of', (q) => {
+  const accountId = requireStr(q, 'accountId');
+  if (!accountId) return 'Missing required query param: accountId';
+  return { account_id: accountId };
+});
 
 // ===========================================================================
 // Page data — aggregated endpoint for onsocial.id renderer

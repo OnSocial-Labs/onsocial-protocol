@@ -122,7 +122,18 @@ export class HttpClient {
 
   /** JSON request. */
   async request<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const url = `${this.baseUrl}${path}`;
+    // Auto-wait: compose writes inherently broadcast a transaction. Without
+    // ?wait=true the relayer returns a tx_hash before the inner action runs,
+    // so callers (and integration tests) treat on-chain panics as success.
+    // Opting in by default makes RelayExecutionError fire on inner failures.
+    const effectivePath =
+      method === 'POST' &&
+      path.startsWith('/compose/') &&
+      !path.includes('wait=') &&
+      !path.startsWith('/compose/prepare/')
+        ? `${path}${path.includes('?') ? '&' : '?'}wait=true`
+        : path;
+    const url = `${this.baseUrl}${effectivePath}`;
     const headers = this._headers(
       body !== undefined ? { 'Content-Type': 'application/json' } : undefined
     );
@@ -167,9 +178,30 @@ export class HttpClient {
     path: string,
     form: FormData
   ): Promise<T> {
-    const url = `${this.baseUrl}${path}`;
+    // Auto-wait for compose POSTs (see request() for rationale).
+    const effectivePath =
+      method === 'POST' &&
+      path.startsWith('/compose/') &&
+      !path.includes('wait=') &&
+      !path.startsWith('/compose/prepare/')
+        ? `${path}${path.includes('?') ? '&' : '?'}wait=true`
+        : path;
+    const url = `${this.baseUrl}${effectivePath}`;
     // Don't set Content-Type — browser/node will add boundary automatically
     const headers = this._headers();
+
+    // Inject actor_id for API-key POSTs to compose/relay endpoints — mirrors
+    // the JSON path in request(). Without this, FormData routes default to
+    // the API-key owner's identity instead of the configured actor.
+    if (
+      this._actorId &&
+      this._apiKey &&
+      method === 'POST' &&
+      (path.startsWith('/compose/') || path.startsWith('/relay/')) &&
+      !form.has('actor_id')
+    ) {
+      form.append('actor_id', this._actorId);
+    }
 
     const res = await this._fetch(url, { method, headers, body: form });
 

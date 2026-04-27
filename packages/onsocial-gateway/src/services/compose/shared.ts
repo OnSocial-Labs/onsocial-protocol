@@ -188,7 +188,8 @@ export function intentAuth(actorId: string): IntentAuth {
 export async function relayExecute(
   auth: ContractAuth,
   action: Record<string, unknown>,
-  targetAccount: string
+  targetAccount: string,
+  opts: { wait?: boolean } = {}
 ): Promise<{ ok: boolean; status: number; data: unknown }> {
   const contractRequest = {
     target_account: targetAccount,
@@ -196,10 +197,19 @@ export async function relayExecute(
     auth,
   };
 
-  const response = await fetch(`${config.relayUrl}/execute`, {
+  // wait=true → relayer uses broadcast_tx_commit and surfaces inner-action
+  // failures as { success: false, status: 'failure', error, tx_hash } instead
+  // of fire-and-forget pending. Required for compose writes whose callers
+  // (SDK, integration tests) need to know the on-chain outcome.
+  const url = opts.wait
+    ? `${config.relayUrl}/execute?wait=true`
+    : `${config.relayUrl}/execute`;
+  const timeoutMs = opts.wait ? 90_000 : 30_000;
+
+  const response = await fetch(url, {
     method: 'POST',
     headers: relayHeaders(),
-    signal: AbortSignal.timeout(30_000),
+    signal: AbortSignal.timeout(timeoutMs),
     body: JSON.stringify(contractRequest),
   });
 

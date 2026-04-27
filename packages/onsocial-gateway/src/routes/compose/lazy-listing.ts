@@ -92,6 +92,7 @@ lazyListingRouter.post(
       }
 
       const imageFile = extractImageFile(req.file);
+      const wait = req.query.wait === 'true' || req.query.wait === '1';
 
       const result = await composeLazyList(
         effectiveActorId,
@@ -113,11 +114,15 @@ lazyListingRouter.post(
           ...(expiresAt && { expiresAt: parseInt(expiresAt, 10) }),
           ...(targetAccount && { targetAccount }),
         },
-        imageFile
+        imageFile,
+        { wait }
       );
 
       res.status(201).json({
         txHash: result.txHash,
+        ...(result.success !== undefined && { success: result.success }),
+        ...(result.status !== undefined && { status: result.status }),
+        ...(result.error !== undefined && { error: result.error }),
         media: result.media
           ? {
               cid: result.media.cid,
@@ -273,16 +278,27 @@ lazyListingRouter.post(
       const { relayExecute, intentAuth, extractTxHash } = await import(
         '../../services/compose/shared.js'
       );
+      const wait = req.query.wait === 'true' || req.query.wait === '1';
       const relay = await relayExecute(
         intentAuth(effectiveActorId),
         built.action,
-        built.targetAccount
+        built.targetAccount,
+        { wait }
       );
       if (!relay.ok) {
         throw new ComposeError(relay.status, relay.data);
       }
 
-      res.status(200).json({ txHash: extractTxHash(relay.data) });
+      const data =
+        typeof relay.data === 'object' && relay.data !== null
+          ? (relay.data as Record<string, unknown>)
+          : {};
+      res.status(200).json({
+        txHash: extractTxHash(relay.data),
+        ...('success' in data && { success: data.success }),
+        ...('status' in data && { status: data.status }),
+        ...('error' in data && { error: data.error }),
+      });
     } catch (error) {
       if (error instanceof ComposeError) {
         res.status(error.status).json({ error: error.details });

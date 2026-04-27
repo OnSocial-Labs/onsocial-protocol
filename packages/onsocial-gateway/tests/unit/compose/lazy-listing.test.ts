@@ -21,7 +21,6 @@ import {
   buildPurchaseLazyListingAction,
   ComposeError,
 } from '../../../src/services/compose/index.js';
-import { config } from '../../../src/config/index.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // composeLazyList

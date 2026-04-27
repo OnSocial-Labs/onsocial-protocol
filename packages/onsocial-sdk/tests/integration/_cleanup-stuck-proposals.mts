@@ -57,13 +57,12 @@ let failure = 0;
 for (const p of stuck) {
   try {
     const res = await os.groups.expireProposal(p.groupId, p.proposalId);
-    const txHash = (res as any)?.txHash || (res as any)?.transaction_hash || 'unknown';
+    const txHash =
+      (res as any)?.txHash || (res as any)?.transaction_hash || 'unknown';
     console.log(`  ✓ ${p.groupId}/${p.proposalId} → ${txHash}`);
     success++;
   } catch (err: any) {
-    console.error(
-      `  ✗ ${p.groupId}/${p.proposalId} → ${err?.message || err}`
-    );
+    console.error(`  ✗ ${p.groupId}/${p.proposalId} → ${err?.message || err}`);
     failure++;
   }
 }

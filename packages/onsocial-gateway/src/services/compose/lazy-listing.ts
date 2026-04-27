@@ -56,6 +56,10 @@ export interface ComposeLazyListResult {
   txHash: string;
   media?: UploadResult;
   metadata?: UploadResult;
+  /** Present when relayer was called with wait=true. */
+  success?: boolean;
+  status?: string;
+  error?: string;
 }
 
 /** Prepared LazyListing action ready for signing. */
@@ -193,22 +197,31 @@ export async function buildLazyListAction(
 export async function composeLazyList(
   accountId: string,
   req: ComposeLazyListRequest,
-  imageFile?: UploadedFile
+  imageFile?: UploadedFile,
+  opts: { wait?: boolean } = {}
 ): Promise<ComposeLazyListResult> {
   const built = await buildLazyListAction(accountId, req, imageFile);
   const relay = await relayExecute(
     intentAuth(accountId),
     built.action,
-    built.targetAccount
+    built.targetAccount,
+    { wait: opts.wait }
   );
   if (!relay.ok) {
     throw new ComposeError(relay.status, relay.data);
   }
 
+  const data =
+    typeof relay.data === 'object' && relay.data !== null
+      ? (relay.data as Record<string, unknown>)
+      : {};
   return {
     txHash: extractTxHash(relay.data),
     media: built.media,
     metadata: built.metadata,
+    ...('success' in data && { success: data.success as boolean }),
+    ...('status' in data && { status: data.status as string }),
+    ...('error' in data && { error: data.error as string }),
   };
 }
 

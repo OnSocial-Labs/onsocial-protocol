@@ -30,6 +30,8 @@ import { ReactionsModule } from './modules/reactions.js';
 import { SavesModule } from './modules/saves.js';
 import { PermissionsModule } from './permissions.js';
 import { ChainModule } from './chain.js';
+import { TokenModule } from './token.js';
+import { BoostModule } from './boost.js';
 import { PagesModule } from './pages.js';
 import { StandingsModule } from './modules/standings.js';
 import { StorageAccountModule } from './modules/storage-account.js';
@@ -240,6 +242,10 @@ export class OnSocial {
   readonly permissions: PermissionsModule;
   /** Chain — on-chain storage management and contract introspection. */
   readonly chain: ChainModule;
+  /** Token — SOCIAL fungible-token (NEP-141) view reads. */
+  readonly token: TokenModule;
+  /** Boost — boost contract view reads (account, lock status, reward rate). */
+  readonly boost: BoostModule;
   /**
    * Storage account — best-in-class wrapper for on-chain Storage record
    * operations (balance reads, gasless writes via the relayer, and
@@ -315,6 +321,8 @@ export class OnSocial {
     );
     this.permissions = new PermissionsModule(this.http);
     this.chain = new ChainModule(this.http);
+    this.token = new TokenModule(this.http);
+    this.boost = new BoostModule(this.http);
     this.storageAccount = new StorageAccountModule(this.http, config.signer);
     this.pages = new PagesModule(this.http);
     this.posts = new PostsModule(this.social, this.groups);
@@ -343,6 +351,8 @@ export class OnSocial {
     this.economy = {
       scarces: this.scarces,
       rewards: this.rewards,
+      token: this.token,
+      boost: this.boost,
     };
     this.platform = {
       storage: this.storage,

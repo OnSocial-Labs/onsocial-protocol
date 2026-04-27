@@ -170,6 +170,15 @@ export type { AttestationListItem } from './modules/attestations.js';
 export { PermissionsModule } from './permissions.js';
 export { PERMISSION, type PermissionName } from './permissions.js';
 export { ChainModule } from './chain.js';
+export { TokenModule } from './token.js';
+export type { FtMetadata, FtStorageBalance } from './token.js';
+export { BoostModule } from './boost.js';
+export type {
+  BoostAccountView,
+  BoostContractStats,
+  BoostLockStatus,
+  BoostRewardRate,
+} from './boost.js';
 export { PagesModule } from './pages.js';
 export { StandingsModule } from './modules/standings.js';
 export {

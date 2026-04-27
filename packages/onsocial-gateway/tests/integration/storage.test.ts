@@ -33,7 +33,7 @@ describe('Storage Endpoints', () => {
     });
 
     it('should reject empty body', async () => {
-      const res = await fetch(`${GATEWAY_URL}/storage/upload-json`, {
+      await fetch(`${GATEWAY_URL}/storage/upload-json`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -33,6 +33,10 @@ export interface ComposeSetResult {
   txHash: string;
   path: string;
   uploads: Record<string, UploadResult>;
+  /** Present when relayer was called with wait=true. */
+  success?: boolean;
+  status?: string;
+  error?: string;
 }
 
 /** Prepared Set action ready for signing (returned by prepare endpoints). */
@@ -205,21 +209,30 @@ export async function buildSetAction(
 export async function composeSet(
   accountId: string,
   req: ComposeSetRequest,
-  files: UploadedFile[]
+  files: UploadedFile[],
+  opts: { wait?: boolean } = {}
 ): Promise<ComposeSetResult> {
   const built = await buildSetAction(accountId, req, files);
   const relay = await relayExecute(
     intentAuth(accountId),
     built.action,
-    built.targetAccount
+    built.targetAccount,
+    { wait: opts.wait }
   );
   if (!relay.ok) {
     throw new ComposeError(relay.status, relay.data);
   }
 
+  const data =
+    typeof relay.data === 'object' && relay.data !== null
+      ? (relay.data as Record<string, unknown>)
+      : {};
   return {
     txHash: extractTxHash(relay.data),
     path: req.path,
     uploads: built.uploads,
+    ...('success' in data && { success: data.success as boolean }),
+    ...('status' in data && { status: data.status as string }),
+    ...('error' in data && { error: data.error as string }),
   };
 }

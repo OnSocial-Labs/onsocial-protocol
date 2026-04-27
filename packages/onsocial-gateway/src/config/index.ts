@@ -198,6 +198,11 @@ export const config = {
     ((process.env.NEAR_NETWORK || 'testnet') === 'mainnet'
       ? 'staking.onsocial.near'
       : 'staking.onsocial.testnet'),
+  boostContract:
+    process.env.BOOST_CONTRACT ||
+    ((process.env.NEAR_NETWORK || 'testnet') === 'mainnet'
+      ? 'boost.onsocial.near'
+      : 'boost.onsocial.testnet'),
 
   // Hasura
   hasuraUrl: (() => {

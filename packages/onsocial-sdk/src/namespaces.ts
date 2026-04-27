@@ -23,6 +23,8 @@ import type { StandingsModule } from './modules/standings.js';
 import type { QueryModule } from './query/index.js';
 import type { ScarcesModule } from './modules/scarces/index.js';
 import type { RewardsModule } from './rewards.js';
+import type { TokenModule } from './token.js';
+import type { BoostModule } from './boost.js';
 import type { StorageModule } from './storage.js';
 import type { PermissionsModule } from './permissions.js';
 import type { NotificationsModule } from './notifications.js';
@@ -62,10 +64,14 @@ export interface ContentNamespace {
  *
  * - `scarces` — collections, mint, list, offers (NFTs)
  * - `rewards` — credit / claim / balance
+ * - `token`   — SOCIAL fungible-token (NEP-141) view reads
+ * - `boost`   — boost contract view reads (account, lock status, reward rate)
  */
 export interface EconomyNamespace {
   readonly scarces: ScarcesModule;
   readonly rewards: RewardsModule;
+  readonly token: TokenModule;
+  readonly boost: BoostModule;
 }
 
 /**

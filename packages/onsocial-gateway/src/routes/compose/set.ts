@@ -81,16 +81,21 @@ setRouter.post('/set', upload.any(), async (req: Request, res: Response) => {
     const targetAccount = req.body.targetAccount || undefined;
 
     const files = collectFiles(req.files as Express.Multer.File[] | undefined);
+    const wait = req.query.wait === 'true' || req.query.wait === '1';
 
     const result = await composeSet(
       effectiveActorId,
       { path, value, mediaField, targetAccount },
-      files
+      files,
+      { wait }
     );
 
     res.status(201).json({
       txHash: result.txHash,
       path: result.path,
+      ...(result.success !== undefined && { success: result.success }),
+      ...(result.status !== undefined && { status: result.status }),
+      ...(result.error !== undefined && { error: result.error }),
       uploads: Object.fromEntries(
         Object.entries(result.uploads).map(([k, v]) => [
           k,

@@ -40,7 +40,6 @@ describe('Gateway Graph Integration', () => {
       headers: hdrs,
       body: JSON.stringify({ query: '{ __typename }' }),
     });
-    const data = await res.json();
 
     // Gateway forwards to Hasura. Whether Hasura returns data or
     // an access-denied depends on Hasura JWT config — but the gateway

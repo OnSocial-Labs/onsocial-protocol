@@ -44,7 +44,6 @@ import express from 'express';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { relayRouter } from '../../src/routes/relay.js';
-import { requireAuth } from '../../src/middleware/index.js';
 
 const JWT_SECRET = 'test-secret-key-at-least-32-chars-long!!';
 
@@ -232,7 +231,8 @@ describe('POST /relay/signed', () => {
 
   it('returns 400 when target_account is missing', async () => {
     const token = makeToken('alice.testnet');
-    const { target_account: _, ...body } = validSignedBody;
+    const { target_account: _omit, ...body } = validSignedBody;
+    void _omit;
 
     const res = await request(createApp())
       .post('/relay/signed')
@@ -294,8 +294,6 @@ describe('POST /relay/delegate', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('returns 400 when auth.type is not delegate_action', async () => {
-    const token = makeToken('pro.testnet');
-
     // Simulate pro tier in auth
     const app = express();
     app.use(express.json());

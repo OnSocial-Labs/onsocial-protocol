@@ -49,4 +49,3 @@ console.log('---all stuck---');
 for (const s of stuck) {
   console.log(' ', s.proposalId, 'group=', s.groupId, 'block=', s.blockHeight);
 }
-

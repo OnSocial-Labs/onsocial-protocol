@@ -159,7 +159,7 @@ async function main() {
     });
     ok('login()', `tier=${loginResult.tier}, expires=${loginResult.expiresIn}`);
     authOk = true;
-  } catch (e: any) {
+  } catch (e: unknown) {
     fail('login()', e);
     console.log('\n  ⛔ Cannot proceed without auth. Exiting.\n');
     process.exit(1);
