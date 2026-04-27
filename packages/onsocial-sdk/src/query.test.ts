@@ -1451,4 +1451,190 @@ describe('QueryModule', () => {
       expect(await os.query.scarces.events()).toEqual([]);
     });
   });
+
+  describe('rewards.*', () => {
+    const sampleEvent = {
+      id: 'r:1',
+      eventType: 'REWARD_CREDITED',
+      accountId: 'alice.near',
+      success: true,
+      blockHeight: 10,
+      blockTimestamp: 100,
+      receiptId: 'rcpt:1',
+      amount: '1000',
+      source: 'engagement',
+      creditedBy: 'gov.near',
+      appId: 'chat',
+      newBalance: null,
+      oldOwner: null,
+      newOwner: null,
+      oldMax: null,
+      newMax: null,
+      executor: null,
+      caller: null,
+      oldVersion: null,
+      newVersion: null,
+      extraData: null,
+    };
+    const sampleState = {
+      accountId: 'alice.near',
+      totalEarned: '5000',
+      totalClaimed: '1000',
+      lastCreditBlock: 100,
+      lastClaimBlock: 90,
+      updatedAt: 1714000000000,
+    };
+
+    it('events filters by eventType array + accountId', async () => {
+      const { os, fetch } = makeOs({
+        data: { rewardsEvents: [sampleEvent] },
+      });
+      const rows = await os.query.rewards.events({
+        eventType: ['REWARD_CREDITED', 'REWARD_CLAIMED'],
+        accountId: 'alice.near',
+        limit: 10,
+      });
+      expect(rows).toEqual([sampleEvent]);
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({
+        eventType: ['REWARD_CREDITED', 'REWARD_CLAIMED'],
+        accountId: 'alice.near',
+        limit: 10,
+        offset: 0,
+      });
+      expect(body.query).toMatch(/eventType: \{_in: \$eventType\}/);
+      expect(body.query).toMatch(/accountId: \{_eq: \$accountId\}/);
+    });
+
+    it('userState returns first row or null', async () => {
+      const { os, fetch } = makeOs({
+        data: { userRewardState: [sampleState] },
+      });
+      const state = await os.query.rewards.userState('alice.near');
+      expect(state).toEqual(sampleState);
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({ accountId: 'alice.near' });
+      expect(body.query).toMatch(/accountId: \{_eq: \$accountId\}/);
+    });
+
+    it('userState returns null when no rows', async () => {
+      const { os } = makeOs({ data: { userRewardState: [] } });
+      expect(await os.query.rewards.userState('bob.near')).toBeNull();
+    });
+
+    it('topEarners orders by totalEarned DESC', async () => {
+      const { os, fetch } = makeOs({
+        data: { userRewardState: [sampleState] },
+      });
+      await os.query.rewards.topEarners({ limit: 5 });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({ limit: 5, offset: 0 });
+      expect(body.query).toMatch(/orderBy: \[\{totalEarned: DESC\}\]/);
+    });
+
+    it('recentCredits applies REWARD_CREDITED filter', async () => {
+      const { os, fetch } = makeOs({ data: { rewardsEvents: [] } });
+      await os.query.rewards.recentCredits({ limit: 25 });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toMatchObject({
+        eventType: 'REWARD_CREDITED',
+        limit: 25,
+      });
+    });
+
+    it('recentClaims applies REWARD_CLAIMED filter', async () => {
+      const { os, fetch } = makeOs({ data: { rewardsEvents: [] } });
+      await os.query.rewards.recentClaims();
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toMatchObject({
+        eventType: 'REWARD_CLAIMED',
+      });
+    });
+
+    it('creditsTo narrows by accountId + REWARD_CREDITED', async () => {
+      const { os, fetch } = makeOs({ data: { rewardsEvents: [] } });
+      await os.query.rewards.creditsTo('alice.near', { appId: 'chat' });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toMatchObject({
+        accountId: 'alice.near',
+        appId: 'chat',
+        eventType: 'REWARD_CREDITED',
+      });
+      expect(body.query).toMatch(/appId: \{_eq: \$appId\}/);
+    });
+
+    it('creditsBy filters by creditedBy column', async () => {
+      const { os, fetch } = makeOs({ data: { rewardsEvents: [] } });
+      await os.query.rewards.creditsBy('gov.near');
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toMatchObject({
+        creditedBy: 'gov.near',
+        eventType: 'REWARD_CREDITED',
+      });
+      expect(body.query).toMatch(/creditedBy: \{_eq: \$creditedBy\}/);
+    });
+
+    it('claimsBy narrows by accountId + REWARD_CLAIMED', async () => {
+      const { os, fetch } = makeOs({ data: { rewardsEvents: [] } });
+      await os.query.rewards.claimsBy('alice.near');
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toMatchObject({
+        accountId: 'alice.near',
+        eventType: 'REWARD_CLAIMED',
+      });
+    });
+
+    it('appActivity narrows by appId + REWARD_CREDITED', async () => {
+      const { os, fetch } = makeOs({ data: { rewardsEvents: [] } });
+      await os.query.rewards.appActivity('chat', { limit: 20 });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toMatchObject({
+        appId: 'chat',
+        eventType: 'REWARD_CREDITED',
+        limit: 20,
+      });
+    });
+
+    it('poolDeposits filters by POOL_DEPOSIT', async () => {
+      const { os, fetch } = makeOs({ data: { rewardsEvents: [] } });
+      await os.query.rewards.poolDeposits();
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toMatchObject({ eventType: 'POOL_DEPOSIT' });
+    });
+
+    it('returns [] when the indexer has no matching rows', async () => {
+      const { os } = makeOs({ data: { rewardsEvents: [] } });
+      expect(await os.query.rewards.events()).toEqual([]);
+    });
+  });
 });

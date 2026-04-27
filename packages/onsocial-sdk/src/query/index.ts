@@ -20,6 +20,7 @@
 //   os.query.permissions.grantsBy('alice.near')
 //   os.query.governance.proposals('dao')
 //   os.query.scarces.tokenHistory('s:42')
+//   os.query.rewards.creditsTo('alice.near')
 //   os.query.raw.byType('vegancert')
 //
 // For unindexed or one-off queries, drop down to `os.query.graphql<T>(...)`.
@@ -45,6 +46,7 @@ import { StorageQuery } from './storage.js';
 import { PermissionsQuery } from './permissions.js';
 import { GovernanceQuery } from './governance.js';
 import { ScarcesQuery } from './scarces.js';
+import { RewardsQuery } from './rewards.js';
 import { RawQuery } from './raw.js';
 
 export { GraphQLValidationError } from './_shared.js';
@@ -68,6 +70,8 @@ export type { GovernanceEventRow } from './governance.js';
 export { GOVERNANCE_OPERATIONS } from './governance.js';
 export type { ScarcesEventRow } from './scarces.js';
 export { SCARCES_OPERATIONS, SCARCES_EVENT_TYPES } from './scarces.js';
+export type { RewardsEventRow, UserRewardStateRow } from './rewards.js';
+export { REWARDS_EVENT_TYPES } from './rewards.js';
 export type { DataRow } from './raw.js';
 
 export class QueryModule {
@@ -89,6 +93,7 @@ export class QueryModule {
   readonly permissions: PermissionsQuery;
   readonly governance: GovernanceQuery;
   readonly scarces: ScarcesQuery;
+  readonly rewards: RewardsQuery;
   readonly raw: RawQuery;
 
   constructor(http: HttpClient) {
@@ -108,6 +113,7 @@ export class QueryModule {
     this.permissions = new PermissionsQuery(this);
     this.governance = new GovernanceQuery(this);
     this.scarces = new ScarcesQuery(this);
+    this.rewards = new RewardsQuery(this);
     this.raw = new RawQuery(this);
   }
 

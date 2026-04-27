@@ -109,8 +109,14 @@ export type {
   StorageEventRow,
   PermissionEventRow,
   GovernanceEventRow,
+  RewardsEventRow,
+  UserRewardStateRow,
 } from './query/index.js';
-export { PERMISSION_OPERATIONS, GOVERNANCE_OPERATIONS } from './query/index.js';
+export {
+  PERMISSION_OPERATIONS,
+  GOVERNANCE_OPERATIONS,
+  REWARDS_EVENT_TYPES,
+} from './query/index.js';
 export { StorageModule } from './storage.js';
 export {
   GatewayProvider,
