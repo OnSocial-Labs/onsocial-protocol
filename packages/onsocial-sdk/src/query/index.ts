@@ -21,6 +21,8 @@
 //   os.query.governance.proposals('dao')
 //   os.query.scarces.tokenHistory('s:42')
 //   os.query.rewards.creditsTo('alice.near')
+//   os.query.token.transfersTo('alice.near')
+//   os.query.boost.topBoosters({ limit: 10 })
 //   os.query.raw.byType('vegancert')
 //
 // For unindexed or one-off queries, drop down to `os.query.graphql<T>(...)`.
@@ -47,6 +49,8 @@ import { PermissionsQuery } from './permissions.js';
 import { GovernanceQuery } from './governance.js';
 import { ScarcesQuery } from './scarces.js';
 import { RewardsQuery } from './rewards.js';
+import { TokenQuery } from './token.js';
+import { BoostQuery } from './boost.js';
 import { RawQuery } from './raw.js';
 
 export { GraphQLValidationError } from './_shared.js';
@@ -72,6 +76,14 @@ export type { ScarcesEventRow } from './scarces.js';
 export { SCARCES_OPERATIONS, SCARCES_EVENT_TYPES } from './scarces.js';
 export type { RewardsEventRow, UserRewardStateRow } from './rewards.js';
 export { REWARDS_EVENT_TYPES } from './rewards.js';
+export type { TokenEventRow, TokenAccountActivityRow } from './token.js';
+export { TOKEN_EVENT_TYPES } from './token.js';
+export type {
+  BoostEventRow,
+  BoosterStateRow,
+  BoostCreditPurchaseRow,
+} from './boost.js';
+export { BOOST_EVENT_TYPES } from './boost.js';
 export type { DataRow } from './raw.js';
 
 export class QueryModule {
@@ -94,6 +106,8 @@ export class QueryModule {
   readonly governance: GovernanceQuery;
   readonly scarces: ScarcesQuery;
   readonly rewards: RewardsQuery;
+  readonly token: TokenQuery;
+  readonly boost: BoostQuery;
   readonly raw: RawQuery;
 
   constructor(http: HttpClient) {
@@ -114,6 +128,8 @@ export class QueryModule {
     this.governance = new GovernanceQuery(this);
     this.scarces = new ScarcesQuery(this);
     this.rewards = new RewardsQuery(this);
+    this.token = new TokenQuery(this);
+    this.boost = new BoostQuery(this);
     this.raw = new RawQuery(this);
   }
 

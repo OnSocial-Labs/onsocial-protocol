@@ -1637,4 +1637,383 @@ describe('QueryModule', () => {
       expect(await os.query.rewards.events()).toEqual([]);
     });
   });
+
+  describe('token.*', () => {
+    const sampleTransfer = {
+      id: 't:1',
+      eventType: 'ft_transfer',
+      blockHeight: 10,
+      blockTimestamp: 100,
+      receiptId: 'rcpt:1',
+      ownerId: null,
+      amount: '1000',
+      memo: null,
+      oldOwnerId: 'alice.near',
+      newOwnerId: 'bob.near',
+      extraData: null,
+    };
+    const sampleActivity = {
+      accountId: 'alice.near',
+      lastEventType: 'ft_transfer',
+      lastEventBlock: 10,
+      updatedAt: 1714000000000,
+    };
+
+    it('events filters by eventType array + accountId (mapped to ownerId)', async () => {
+      const { os, fetch } = makeOs({
+        data: { tokenEvents: [sampleTransfer] },
+      });
+      const rows = await os.query.token.events({
+        eventType: ['ft_mint', 'ft_burn'],
+        accountId: 'alice.near',
+        limit: 10,
+      });
+      expect(rows).toEqual([sampleTransfer]);
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({
+        eventType: ['ft_mint', 'ft_burn'],
+        accountId: 'alice.near',
+        limit: 10,
+        offset: 0,
+      });
+      expect(body.query).toMatch(/eventType: \{_in: \$eventType\}/);
+      expect(body.query).toMatch(/ownerId: \{_eq: \$accountId\}/);
+    });
+
+    it('activity OR-matches owner_id, old_owner_id, new_owner_id', async () => {
+      const { os, fetch } = makeOs({
+        data: { tokenEvents: [sampleTransfer] },
+      });
+      await os.query.token.activity('alice.near', { limit: 25 });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({
+        accountId: 'alice.near',
+        limit: 25,
+        offset: 0,
+      });
+      expect(body.query).toMatch(/ownerId: \{_eq: \$accountId\}/);
+      expect(body.query).toMatch(/oldOwnerId: \{_eq: \$accountId\}/);
+      expect(body.query).toMatch(/newOwnerId: \{_eq: \$accountId\}/);
+    });
+
+    it('lastSeen returns first row or null', async () => {
+      const { os, fetch } = makeOs({
+        data: { tokenBalances: [sampleActivity] },
+      });
+      const row = await os.query.token.lastSeen('alice.near');
+      expect(row).toEqual(sampleActivity);
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({ accountId: 'alice.near' });
+    });
+
+    it('lastSeen returns null when no rows', async () => {
+      const { os } = makeOs({ data: { tokenBalances: [] } });
+      expect(await os.query.token.lastSeen('bob.near')).toBeNull();
+    });
+
+    it('mostActiveAccounts orders by lastEventBlock DESC', async () => {
+      const { os, fetch } = makeOs({
+        data: { tokenBalances: [sampleActivity] },
+      });
+      await os.query.token.mostActiveAccounts({ limit: 5 });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({ limit: 5, offset: 0 });
+      expect(body.query).toMatch(/orderBy: \[\{lastEventBlock: DESC\}\]/);
+    });
+
+    it('recentTransfers applies ft_transfer filter', async () => {
+      const { os, fetch } = makeOs({ data: { tokenEvents: [] } });
+      await os.query.token.recentTransfers({ limit: 25 });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toMatchObject({
+        eventType: 'ft_transfer',
+        limit: 25,
+      });
+    });
+
+    it('recentMints applies ft_mint filter', async () => {
+      const { os, fetch } = makeOs({ data: { tokenEvents: [] } });
+      await os.query.token.recentMints();
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toMatchObject({ eventType: 'ft_mint' });
+    });
+
+    it('recentBurns applies ft_burn filter', async () => {
+      const { os, fetch } = makeOs({ data: { tokenEvents: [] } });
+      await os.query.token.recentBurns();
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toMatchObject({ eventType: 'ft_burn' });
+    });
+
+    it('transfersFrom narrows by oldOwnerId + ft_transfer', async () => {
+      const { os, fetch } = makeOs({ data: { tokenEvents: [] } });
+      await os.query.token.transfersFrom('alice.near', { limit: 20 });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toMatchObject({
+        oldOwnerId: 'alice.near',
+        eventType: 'ft_transfer',
+        limit: 20,
+      });
+      expect(body.query).toMatch(/oldOwnerId: \{_eq: \$oldOwnerId\}/);
+    });
+
+    it('transfersTo narrows by newOwnerId + ft_transfer', async () => {
+      const { os, fetch } = makeOs({ data: { tokenEvents: [] } });
+      await os.query.token.transfersTo('bob.near');
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toMatchObject({
+        newOwnerId: 'bob.near',
+        eventType: 'ft_transfer',
+      });
+      expect(body.query).toMatch(/newOwnerId: \{_eq: \$newOwnerId\}/);
+    });
+
+    it('returns [] when the indexer has no matching rows', async () => {
+      const { os } = makeOs({ data: { tokenEvents: [] } });
+      expect(await os.query.token.events()).toEqual([]);
+    });
+  });
+
+  describe('boost.*', () => {
+    const sampleEvent = {
+      id: 'b:1',
+      eventType: 'BOOST_LOCK',
+      accountId: 'alice.near',
+      success: true,
+      blockHeight: 10,
+      blockTimestamp: 100,
+      receiptId: 'rcpt:1',
+      amount: '10000000000000000',
+      effectiveBoost: '12000000000000000',
+      months: 12,
+      newMonths: null,
+      newEffectiveBoost: null,
+      elapsedNs: null,
+      totalReleased: null,
+      remainingPool: null,
+      infraShare: null,
+      rewardsShare: null,
+      totalPool: null,
+      receiverId: null,
+      oldOwner: null,
+      newOwner: null,
+      oldVersion: null,
+      newVersion: null,
+      deposit: null,
+      extraData: null,
+    };
+    const sampleState = {
+      accountId: 'alice.near',
+      lockedAmount: '10000000000000000',
+      effectiveBoost: '12000000000000000',
+      lockMonths: 12,
+      totalClaimed: '500000000000000',
+      totalCreditsPurchased: '0',
+      lastEventType: 'BOOST_LOCK',
+      lastEventBlock: 10,
+      updatedAt: 1714000000000,
+    };
+    const samplePurchase = {
+      id: 'cp:1',
+      blockHeight: 11,
+      blockTimestamp: 110,
+      receiptId: 'rcpt:2',
+      accountId: 'alice.near',
+      amount: '1000000000000000',
+      infraShare: '600000000000000',
+      rewardsShare: '400000000000000',
+    };
+
+    it('events filters by eventType array + accountId + success', async () => {
+      const { os, fetch } = makeOs({
+        data: { boostEvents: [sampleEvent] },
+      });
+      const rows = await os.query.boost.events({
+        eventType: ['BOOST_LOCK', 'BOOST_EXTEND'],
+        accountId: 'alice.near',
+        success: true,
+        limit: 10,
+      });
+      expect(rows).toEqual([sampleEvent]);
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({
+        eventType: ['BOOST_LOCK', 'BOOST_EXTEND'],
+        accountId: 'alice.near',
+        success: true,
+        limit: 10,
+        offset: 0,
+      });
+      expect(body.query).toMatch(/eventType: \{_in: \$eventType\}/);
+      expect(body.query).toMatch(/accountId: \{_eq: \$accountId\}/);
+      expect(body.query).toMatch(/success: \{_eq: \$success\}/);
+    });
+
+    it('state returns first row or null', async () => {
+      const { os, fetch } = makeOs({
+        data: { boosterState: [sampleState] },
+      });
+      const state = await os.query.boost.state('alice.near');
+      expect(state).toEqual(sampleState);
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({ accountId: 'alice.near' });
+    });
+
+    it('state returns null when no rows', async () => {
+      const { os } = makeOs({ data: { boosterState: [] } });
+      expect(await os.query.boost.state('bob.near')).toBeNull();
+    });
+
+    it('topBoosters orders by effectiveBoost DESC', async () => {
+      const { os, fetch } = makeOs({
+        data: { boosterState: [sampleState] },
+      });
+      await os.query.boost.topBoosters({ limit: 5 });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({ limit: 5, offset: 0 });
+      expect(body.query).toMatch(/orderBy: \[\{effectiveBoost: DESC\}\]/);
+    });
+
+    it('topLocked orders by lockedAmount DESC', async () => {
+      const { os, fetch } = makeOs({
+        data: { boosterState: [sampleState] },
+      });
+      await os.query.boost.topLocked({ limit: 5 });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).toMatch(/orderBy: \[\{lockedAmount: DESC\}\]/);
+    });
+
+    it('recentLocks applies BOOST_LOCK filter', async () => {
+      const { os, fetch } = makeOs({ data: { boostEvents: [] } });
+      await os.query.boost.recentLocks({ limit: 25 });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toMatchObject({
+        eventType: 'BOOST_LOCK',
+        limit: 25,
+      });
+    });
+
+    it('recentUnlocks applies BOOST_UNLOCK filter', async () => {
+      const { os, fetch } = makeOs({ data: { boostEvents: [] } });
+      await os.query.boost.recentUnlocks();
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toMatchObject({ eventType: 'BOOST_UNLOCK' });
+    });
+
+    it('recentClaims applies REWARDS_CLAIM filter', async () => {
+      const { os, fetch } = makeOs({ data: { boostEvents: [] } });
+      await os.query.boost.recentClaims();
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toMatchObject({ eventType: 'REWARDS_CLAIM' });
+    });
+
+    it('recentReleases applies REWARDS_RELEASED filter', async () => {
+      const { os, fetch } = makeOs({ data: { boostEvents: [] } });
+      await os.query.boost.recentReleases();
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toMatchObject({ eventType: 'REWARDS_RELEASED' });
+    });
+
+    it('accountActivity narrows by accountId only', async () => {
+      const { os, fetch } = makeOs({ data: { boostEvents: [] } });
+      await os.query.boost.accountActivity('alice.near', { limit: 20 });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toMatchObject({
+        accountId: 'alice.near',
+        limit: 20,
+      });
+    });
+
+    it('creditPurchases queries the focused table, optionally by account', async () => {
+      const { os, fetch } = makeOs({
+        data: { boostCreditPurchases: [samplePurchase] },
+      });
+      const rows = await os.query.boost.creditPurchases({
+        accountId: 'alice.near',
+        limit: 10,
+      });
+      expect(rows).toEqual([samplePurchase]);
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({
+        accountId: 'alice.near',
+        limit: 10,
+        offset: 0,
+      });
+      expect(body.query).toMatch(/boostCreditPurchases\(/);
+      expect(body.query).toMatch(/accountId: \{_eq: \$accountId\}/);
+    });
+
+    it('creditPurchases without accountId omits the where clause', async () => {
+      const { os, fetch } = makeOs({
+        data: { boostCreditPurchases: [] },
+      });
+      await os.query.boost.creditPurchases({ limit: 10 });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).not.toMatch(/where:/);
+    });
+
+    it('returns [] when the indexer has no matching rows', async () => {
+      const { os } = makeOs({ data: { boostEvents: [] } });
+      expect(await os.query.boost.events()).toEqual([]);
+    });
+  });
 });

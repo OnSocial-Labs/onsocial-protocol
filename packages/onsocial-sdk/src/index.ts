@@ -111,11 +111,18 @@ export type {
   GovernanceEventRow,
   RewardsEventRow,
   UserRewardStateRow,
+  TokenEventRow,
+  TokenAccountActivityRow,
+  BoostEventRow,
+  BoosterStateRow,
+  BoostCreditPurchaseRow,
 } from './query/index.js';
 export {
   PERMISSION_OPERATIONS,
   GOVERNANCE_OPERATIONS,
   REWARDS_EVENT_TYPES,
+  TOKEN_EVENT_TYPES,
+  BOOST_EVENT_TYPES,
 } from './query/index.js';
 export { StorageModule } from './storage.js';
 export {
