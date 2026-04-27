@@ -81,6 +81,13 @@ pub enum Action {
         group_id: String,
         proposal_id: String,
     },
+    /// Permissionless: anyone can finalize a proposal whose voting period has
+    /// elapsed without quorum or inevitable defeat. Releases the proposer's
+    /// locked storage bond.
+    ExpireProposal {
+        group_id: String,
+        proposal_id: String,
+    },
 
     SetPermission {
         grantee: AccountId,
@@ -116,6 +123,7 @@ impl Action {
             Self::CreateProposal { .. } => "create_proposal",
             Self::VoteOnProposal { .. } => "vote_on_proposal",
             Self::CancelProposal { .. } => "cancel_proposal",
+            Self::ExpireProposal { .. } => "expire_proposal",
             Self::SetPermission { .. } => "set_permission",
             Self::SetKeyPermission { .. } => "set_key_permission",
         }

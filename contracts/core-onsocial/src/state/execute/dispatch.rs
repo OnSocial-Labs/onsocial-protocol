@@ -151,6 +151,14 @@ impl SocialPlatform {
                 Ok(Value::Null)
             }
 
+            Action::ExpireProposal {
+                group_id,
+                proposal_id,
+            } => {
+                self.execute_action_expire_proposal(group_id, proposal_id, ctx)?;
+                Ok(Value::Null)
+            }
+
             Action::SetPermission {
                 grantee,
                 path,

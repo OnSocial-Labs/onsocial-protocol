@@ -13,6 +13,7 @@ pub mod unit {
     pub mod error_message_test; // NEW: Error message validation tests
     pub mod event_builder_writes_test; // EventBuilder writes[] merge/dedup invariants
     pub mod event_emission_test; // NEW: Event emission and format validation tests
+    pub mod expire_proposal_test; // Permissionless expire_proposal tests
     pub mod get_api_test; // Comprehensive get() API tests
     pub mod governance_status_test; // Governance status tests
     pub mod governance_test; // Governance tests

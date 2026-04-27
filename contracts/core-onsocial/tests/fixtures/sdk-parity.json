@@ -327,6 +327,18 @@
       }
     },
     {
+      "name": "expire proposal",
+      "expected_action_type": "expire_proposal",
+      "request": {
+        "target_account": "core.onsocial.testnet",
+        "action": {
+          "type": "expire_proposal",
+          "group_id": "builders",
+          "proposal_id": "p-1"
+        }
+      }
+    },
+    {
       "name": "set account permission",
       "expected_action_type": "set_permission",
       "request": {

@@ -35,6 +35,7 @@ const ALL_ACTION_TYPES: &[&str] = &[
     "create_proposal",
     "vote_on_proposal",
     "cancel_proposal",
+    "expire_proposal",
     "set_permission",
     "set_key_permission",
 ];

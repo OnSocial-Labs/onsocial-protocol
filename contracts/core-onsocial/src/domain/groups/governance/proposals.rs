@@ -215,6 +215,45 @@ impl GroupGovernance {
         Ok(())
     }
 
+    /// Permissionless: marks an Active proposal Expired once its voting
+    /// period has elapsed. Releases the proposer's locked bond.
+    pub fn expire_proposal(
+        platform: &mut SocialPlatform,
+        group_id: &str,
+        proposal_id: &str,
+    ) -> Result<(), SocialError> {
+        let proposal_path = format!("groups/{}/proposals/{}", group_id, proposal_id);
+
+        let proposal_data = platform
+            .storage_get(&proposal_path)
+            .ok_or_else(|| invalid_input!("Proposal not found"))?;
+
+        let status =
+            ProposalStatus::from_json_status(proposal_data.get("status").and_then(|v| v.as_str()))?;
+
+        if status != ProposalStatus::Active {
+            return Err(invalid_input!("Only active proposals can be expired"));
+        }
+
+        let created_at: u64 = proposal_data
+            .get("created_at")
+            .and_then(|v| v.as_str())
+            .and_then(|s| s.parse::<u64>().ok())
+            .ok_or_else(|| invalid_input!("Proposal missing created_at"))?;
+
+        let voting_config = Self::parse_proposal_voting_config(&proposal_data)?;
+        let voting_period = voting_config.voting_period.0;
+        let expires_at = created_at.saturating_add(voting_period);
+
+        if env::block_timestamp() <= expires_at {
+            return Err(invalid_input!("Voting period has not elapsed"));
+        }
+
+        Self::update_proposal_status(platform, group_id, proposal_id, ProposalStatus::Expired)?;
+
+        Ok(())
+    }
+
     fn get_member_count(platform: &SocialPlatform, group_id: &str) -> Result<u64, SocialError> {
         let stats = GroupStorage::get_group_stats(platform, group_id)
             .ok_or_else(|| invalid_input!("Group stats not found"))?;

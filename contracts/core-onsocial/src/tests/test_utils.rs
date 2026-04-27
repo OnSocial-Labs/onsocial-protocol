@@ -421,6 +421,20 @@ pub fn cancel_proposal_request(group_id: String, proposal_id: String) -> crate::
     }
 }
 
+#[cfg(test)]
+pub fn expire_proposal_request(group_id: String, proposal_id: String) -> crate::protocol::Request {
+    use crate::protocol::{Action, Request};
+    Request {
+        target_account: None,
+        action: Action::ExpireProposal {
+            group_id,
+            proposal_id,
+        },
+        auth: None,
+        options: None,
+    }
+}
+
 // --- Permission Operations ---
 
 #[cfg(test)]

@@ -9,6 +9,8 @@ pub(super) enum ProposalStatus {
     ExecutedSkipped,
     Rejected,
     Cancelled,
+    /// Voting period elapsed without reaching quorum or inevitable defeat. Bond is released.
+    Expired,
 }
 
 impl ProposalStatus {
@@ -19,6 +21,7 @@ impl ProposalStatus {
             Self::ExecutedSkipped => "executed_skipped",
             Self::Rejected => "rejected",
             Self::Cancelled => "cancelled",
+            Self::Expired => "expired",
         }
     }
 
@@ -29,6 +32,7 @@ impl ProposalStatus {
             "executed_skipped" => Some(Self::ExecutedSkipped),
             "rejected" => Some(Self::Rejected),
             "cancelled" => Some(Self::Cancelled),
+            "expired" => Some(Self::Expired),
             _ => None,
         }
     }

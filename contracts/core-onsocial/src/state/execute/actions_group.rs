@@ -240,4 +240,28 @@ impl SocialPlatform {
         self.cleanup_group_storage();
         result
     }
+
+    // Permissionless: status write is paid from the proposer's bond, which
+    // `update_proposal_status` unlocks before re-charging the tiny status diff.
+    pub(super) fn execute_action_expire_proposal(
+        &mut self,
+        group_id: &str,
+        proposal_id: &str,
+        ctx: &mut ExecuteContext,
+    ) -> Result<(), SocialError> {
+        self.prepare_group_storage(ctx);
+
+        let proposal_path = format!("groups/{}/proposals/{}", group_id, proposal_id);
+        if let Some(proposer) = self
+            .storage_get(&proposal_path)
+            .and_then(|v| v.get("proposer").and_then(|s| s.as_str()).map(String::from))
+            .and_then(|s| s.parse::<AccountId>().ok())
+        {
+            self.set_execution_payer(proposer);
+        }
+
+        let result = self.expire_proposal(group_id.to_string(), proposal_id.to_string());
+        self.cleanup_group_storage();
+        result
+    }
 }

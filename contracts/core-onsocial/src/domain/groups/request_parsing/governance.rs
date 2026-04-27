@@ -124,4 +124,17 @@ impl SocialPlatform {
             caller,
         )
     }
+
+    pub fn expire_proposal(
+        &mut self,
+        group_id: String,
+        proposal_id: String,
+    ) -> Result<(), SocialError> {
+        crate::validation::validate_group_id(&group_id)?;
+        crate::domain::groups::governance::GroupGovernance::expire_proposal(
+            self,
+            &group_id,
+            &proposal_id,
+        )
+    }
 }
