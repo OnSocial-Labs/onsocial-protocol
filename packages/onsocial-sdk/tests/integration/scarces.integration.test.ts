@@ -81,7 +81,13 @@ describe('scarces.collections — lifecycle', () => {
 
 describe('scarces.apps — registration & moderation', () => {
   let os: OnSocial;
-  const appId = `intapp_${testId()}`;
+  // Contract requires the registered app_id to be the caller's account or a
+  // sub-account of it (see scarces-onsocial app_pool/manage.rs::register_app).
+  // A flat unique id like `intapp_${testId()}` panics with Unauthorized,
+  // which the relayer reports as a successful tx hash — and then every later
+  // method in this describe panics with "App pool not found" because nothing
+  // was actually written. Scope the id under ACCOUNT_ID to satisfy ownership.
+  const appId = `intapp${testId()}.${ACCOUNT_ID}`;
   const moderatorId =
     process.env.SECONDARY_ACCOUNT_ID ?? 'test02.onsocial.testnet';
 
