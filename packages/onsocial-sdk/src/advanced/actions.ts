@@ -97,6 +97,7 @@ export type CoreAction =
       approve: boolean;
     }
   | { type: 'cancel_proposal'; group_id: string; proposal_id: string }
+  | { type: 'expire_proposal'; group_id: string; proposal_id: string }
   | {
       type: 'set_permission';
       grantee: string;
@@ -778,6 +779,17 @@ export function buildCancelProposalAction(
 ): CoreAction {
   return {
     type: 'cancel_proposal',
+    group_id: groupId,
+    proposal_id: proposalId,
+  };
+}
+
+export function buildExpireProposalAction(
+  groupId: string,
+  proposalId: string
+): CoreAction {
+  return {
+    type: 'expire_proposal',
     group_id: groupId,
     proposal_id: proposalId,
   };

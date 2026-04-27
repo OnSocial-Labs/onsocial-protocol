@@ -586,6 +586,18 @@ export class GroupsModule {
     });
   }
 
+  /** Permissionless: finalize an Active proposal whose voting period has elapsed. */
+  async expireProposal(
+    groupId: string,
+    proposalId: string
+  ): Promise<RelayResponse> {
+    return this.execute({
+      type: 'expire_proposal',
+      group_id: groupId,
+      proposal_id: proposalId,
+    });
+  }
+
   // ── View reads ────────────────────────────────────────────────────────
 
   async getConfig(groupId: string): Promise<Record<string, unknown> | null> {

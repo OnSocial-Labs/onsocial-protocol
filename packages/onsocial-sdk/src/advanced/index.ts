@@ -61,6 +61,7 @@ export {
   buildCreateProposalAction,
   buildVoteOnProposalAction,
   buildCancelProposalAction,
+  buildExpireProposalAction,
   // Permissions / session keys
   buildSetPermissionAction,
   buildSetKeyPermissionAction,

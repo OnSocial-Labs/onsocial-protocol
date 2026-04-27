@@ -7,6 +7,7 @@ import {
   buildBlacklistGroupMemberAction,
   buildCancelJoinRequestAction,
   buildCancelProposalAction,
+  buildExpireProposalAction,
   buildCreateGroupAction,
   buildCreateProposalAction,
   buildGroupPostAction,
@@ -59,6 +60,7 @@ export const ALL_CORE_ACTION_TYPES = [
   'create_proposal',
   'vote_on_proposal',
   'cancel_proposal',
+  'expire_proposal',
   'set_permission',
   'set_key_permission',
 ] as const;
@@ -328,6 +330,15 @@ export function getCoreParityCases(
       action: buildCancelProposalAction('builders', 'p-1'),
       expectedAction: {
         type: 'cancel_proposal',
+        group_id: 'builders',
+        proposal_id: 'p-1',
+      },
+    },
+    {
+      name: 'expire proposal',
+      action: buildExpireProposalAction('builders', 'p-1'),
+      expectedAction: {
+        type: 'expire_proposal',
         group_id: 'builders',
         proposal_id: 'p-1',
       },
