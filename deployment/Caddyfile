@@ -69,6 +69,57 @@ __SERVER_NAMES__ {
 	}
 }
 
+# ---------- IPFS gateway proxy (cdn.{testnet.,}onsocial.id) ----------
+# Brand-stable IPFS gateway under our own domain. Reverse-proxies to the
+# Lighthouse per-account subdomain so users (and on-chain `media` URLs)
+# never reference Lighthouse-owned hostnames directly. If we ever change
+# storage providers, only the upstream below has to change — every NFT
+# already minted keeps resolving.
+#
+# Caddy automatically caches responses at the OS-page-cache layer; for a
+# proper HTTP cache (disk-backed, becomes a de-facto second pin) build the
+# image with the cache-handler plugin (see docker/Dockerfile.caddy).
+__CDN_DOMAIN__ {
+	encode zstd gzip
+
+	@ipfs path /ipfs/*
+	handle @ipfs {
+		# IPFS content is immutable — cache aggressively at every layer.
+		header Cache-Control "public, max-age=31536000, immutable"
+		header Access-Control-Allow-Origin "*"
+		header Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
+		header -Server
+
+		rate_limit {
+			zone cdn_per_ip {
+				key    {remote_host}
+				events 60
+				window 1s
+			}
+		}
+
+		reverse_proxy https://__CDN_UPSTREAM__ {
+			header_up Host __CDN_UPSTREAM__
+			transport http {
+				tls
+				keepalive 60s
+			}
+		}
+	}
+
+	respond /health "ok" 200
+	handle {
+		respond 404
+	}
+
+	log {
+		output file /data/logs/cdn.log {
+			roll_size 50MB
+			roll_keep 5
+		}
+	}
+}
+
 # ---------- Pages — profile subdomains ----------
 # Use a catch-all HTTPS server with on-demand TLS so Caddy issues
 # individual subdomain certs at handshake time instead of trying to

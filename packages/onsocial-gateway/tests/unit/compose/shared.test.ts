@@ -28,7 +28,8 @@ describe('uploadToLighthouse', () => {
 
     expect(mockUploadBuffer).toHaveBeenCalledWith(
       expect.any(Buffer),
-      'test-lighthouse-key'
+      'test-lighthouse-key',
+      { headers: { storageType: 'annual' } }
     );
     expect(result.cid).toBe('QmPhoto123');
     expect(result.size).toBe(1024);
@@ -65,7 +66,8 @@ describe('uploadJsonToLighthouse', () => {
     expect(mockUploadText).toHaveBeenCalledWith(
       JSON.stringify({ name: 'Test', value: 123 }),
       'test-lighthouse-key',
-      'metadata.json'
+      'metadata.json',
+      { headers: { storageType: 'annual' } }
     );
     expect(result.cid).toBe('QmJsonCid789');
     expect(result.size).toBe(42);

@@ -37,6 +37,18 @@ vi.mock('../../../src/logger.js', () => ({
   },
 }));
 
+// Stub verifyCidLive in tests — it would otherwise issue a real HEAD via the
+// (mocked) global fetch, consuming a call slot and confusing assertions on
+// `mockFetch.mock.calls[0]`. The real function is exercised in integration
+// tests against a live gateway.
+vi.mock('../../../src/services/compose/shared.js', async (importActual) => {
+  const actual =
+    await importActual<
+      typeof import('../../../src/services/compose/shared.js')
+    >();
+  return { ...actual, verifyCidLive: vi.fn().mockResolvedValue(undefined) };
+});
+
 // ---------------------------------------------------------------------------
 // Re-exports for test files
 // ---------------------------------------------------------------------------

@@ -48,14 +48,14 @@ export class ComposeError extends Error {
 // Lighthouse upload
 // ---------------------------------------------------------------------------
 
-/**
- * Build the per-CID retrieval URL using our dedicated Lighthouse gateway.
- * The shared `gateway.lighthouse.storage` is restricted to premium plans
- * (returns 500 for our tier), so all reads go through the dedicated
- * subdomain set in `LIGHTHOUSE_GATEWAY_BASE`.
- */
-function gatewayUrl(cid: string): string {
+/** Resolve a CID to an HTTP URL via the configured public IPFS gateway. */
+export function gatewayUrl(cid: string): string {
   return `${config.lighthouseGatewayBase.replace(/\/+$/, '')}/${cid}`;
+}
+
+/** Build the canonical `ipfs://<cid>` URI (gateway-agnostic). */
+export function ipfsUri(cid: string): string {
+  return `ipfs://${cid}`;
 }
 
 function getApiKey(): string {
@@ -64,10 +64,43 @@ function getApiKey(): string {
   return key;
 }
 
+// Per-upload storage tier sent to the pinning provider.
+const STORAGE_TYPE = process.env.LIGHTHOUSE_STORAGE_TYPE || 'annual';
+const uploadOpts = { headers: { storageType: STORAGE_TYPE } };
+
+/**
+ * Verify a freshly-uploaded CID is retrievable through the configured
+ * gateway before the caller commits an on-chain reference to it.
+ */
+export async function verifyCidLive(cid: string, retries = 3): Promise<void> {
+  let lastErr: unknown;
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetch(gatewayUrl(cid), {
+        method: 'HEAD',
+        signal: AbortSignal.timeout(5_000),
+      });
+      if (res.ok) return;
+      lastErr = `HEAD ${cid} → ${res.status}`;
+    } catch (err) {
+      lastErr = err;
+    }
+    await new Promise((r) => setTimeout(r, 500 * 2 ** i));
+  }
+  throw new ComposeError(
+    502,
+    `CID ${cid} not retrievable through gateway after ${retries} attempts: ${String(lastErr)}`
+  );
+}
+
 export async function uploadToLighthouse(
   file: UploadedFile
 ): Promise<UploadResult> {
-  const result = await lighthouse.uploadBuffer(file.buffer, getApiKey());
+  const result = await lighthouse.uploadBuffer(
+    file.buffer,
+    getApiKey(),
+    uploadOpts
+  );
   const cid = result.data.Hash;
   const hash = createHash('sha256').update(file.buffer).digest('base64');
 
@@ -85,7 +118,12 @@ export async function uploadJsonToLighthouse(
 ): Promise<UploadResult> {
   const json = JSON.stringify(data);
   const buffer = Buffer.from(json);
-  const result = await lighthouse.uploadText(json, getApiKey(), filename);
+  const result = await lighthouse.uploadText(
+    json,
+    getApiKey(),
+    filename,
+    uploadOpts
+  );
   const cid = result.data.Hash;
   const hash = createHash('sha256').update(buffer).digest('base64');
 
@@ -98,15 +136,20 @@ export async function uploadJsonToLighthouse(
 }
 
 /**
- * Upload an SVG document. Uses `.svg` filename so the IPFS gateway serves
- * it with `image/svg+xml` content-type — required for wallet image rendering.
+ * Upload an SVG. Uses `.svg` filename so the gateway serves it with
+ * `image/svg+xml` content-type.
  */
 export async function uploadSvgToLighthouse(
   svg: string,
   filename = 'card.svg'
 ): Promise<UploadResult> {
   const buffer = Buffer.from(svg);
-  const result = await lighthouse.uploadText(svg, getApiKey(), filename);
+  const result = await lighthouse.uploadText(
+    svg,
+    getApiKey(),
+    filename,
+    uploadOpts
+  );
   const cid = result.data.Hash;
   const hash = createHash('sha256').update(buffer).digest('base64');
 
@@ -119,15 +162,10 @@ export async function uploadSvgToLighthouse(
 }
 
 /**
- * Build a self-contained `data:image/svg+xml;base64,...` URI for an SVG card.
+ * Encode an SVG as a `data:image/svg+xml;base64,...` URI.
  *
- * Used by the auto-mint text-card path so the card renders directly from the
- * on-chain metadata — no IPFS lookup, no Lighthouse dependency, instant in
- * every wallet. Trade-off: ~1.6 KB of on-chain bytes per token (well under
- * the 16 KB metadata cap).
- *
- * Returns the same `UploadResult` shape as the upload helpers; `cid` is empty
- * because nothing is stored externally.
+ * Returns the same `UploadResult` shape as the upload helpers; `cid` is
+ * empty because nothing is stored externally.
  */
 export function inlineSvgAsDataUri(svg: string): UploadResult {
   const buffer = Buffer.from(svg);

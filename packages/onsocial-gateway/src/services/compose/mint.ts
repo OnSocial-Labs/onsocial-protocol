@@ -16,6 +16,9 @@ import {
   logger,
   validateRoyalty,
   MAX_METADATA_LEN,
+  gatewayUrl,
+  ipfsUri,
+  verifyCidLive,
 } from './shared.js';
 import { generateTextCardSvg } from './text-card.js';
 
@@ -117,12 +120,13 @@ export async function buildMintAction(
   if (!req.collectionId) {
     if (req.mediaCid) {
       // Reuse existing IPFS CID (e.g. post image already uploaded via
-      // /compose/set). Render through our dedicated Lighthouse gateway —
-      // the shared `gateway.lighthouse.storage` is premium-only.
+      // /compose/set). Render through our configured public gateway —
+      // operators should point this at `cdn.onsocial.id` so the URL on-chain
+      // is brand-stable and provider-swappable via DNS.
       media = {
         cid: req.mediaCid,
         size: 0,
-        url: `${config.lighthouseGatewayBase.replace(/\/+$/, '')}/${req.mediaCid}`,
+        url: gatewayUrl(req.mediaCid),
         hash: req.mediaHash || '',
       };
       logger.info(
@@ -131,6 +135,8 @@ export async function buildMintAction(
       );
     } else if (imageFile) {
       media = await uploadToLighthouse(imageFile);
+      // Verify retrievable before we commit a reference to this CID on-chain.
+      await verifyCidLive(media.cid);
       logger.info(
         { accountId, cid: media.cid, size: media.size },
         'Compose mint: image uploaded to Lighthouse'
@@ -186,16 +192,26 @@ export async function buildMintAction(
       ...(req.extra && { extra: JSON.stringify(req.extra) }),
     };
 
-    // 3. Upload full metadata JSON to Lighthouse (OpenSea-compatible)
+    // 3. Upload full metadata JSON to Lighthouse (OpenSea-compatible).
+    //
+    // For uploaded/reused IPFS media (cid !== '') we add `media_ipfs` and
+    // `media_url` sidecar fields so off-chain consumers can resolve through
+    // any gateway (their preferred one, ours, or `ipfs://`). The on-chain
+    // `media` field stays as the resolved gateway URL because it renders
+    // reliably across every wallet today.
+    const isIpfsMedia = !!media && !!media.cid;
     const fullMetadata = {
       ...tokenMetadata,
       ...(media && { image: media.url }),
+      ...(isIpfsMedia && media && { media_ipfs: ipfsUri(media.cid) }),
+      ...(isIpfsMedia && media && { media_url: media.url }),
       name: req.title,
       ...(req.description && { description: req.description }),
       ...(req.extra || {}),
     };
 
     metadata = await uploadJsonToLighthouse(fullMetadata);
+    await verifyCidLive(metadata.cid);
     tokenMetadata.reference = metadata.url;
     tokenMetadata.reference_hash = metadata.hash;
 
