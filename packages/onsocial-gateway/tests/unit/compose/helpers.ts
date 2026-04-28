@@ -20,6 +20,7 @@ vi.mock('@lighthouse-web3/sdk', () => ({
 vi.mock('../../../src/config/index.js', () => ({
   config: {
     lighthouseApiKey: 'test-lighthouse-key',
+    lighthouseGatewayBase: 'https://test-gw.lighthouseweb3.xyz/ipfs',
     relayUrl: 'http://localhost:3030',
     relayApiKey: 'test-relay-key',
     nearNetwork: 'testnet',

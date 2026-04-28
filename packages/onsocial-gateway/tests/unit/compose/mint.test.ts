@@ -43,9 +43,13 @@ describe('composeMint', () => {
     expect(body.action.type).toBe('quick_mint');
     expect(body.action.metadata.title).toBe('Sunset Art');
     expect(body.action.metadata.description).toBe('A sunset');
-    expect(body.action.metadata.media).toBe('ipfs://QmArtCid');
+    expect(body.action.metadata.media).toBe(
+      'https://test-gw.lighthouseweb3.xyz/ipfs/QmArtCid'
+    );
     expect(body.action.metadata.media_hash).toBeTruthy();
-    expect(body.action.metadata.reference).toBe('ipfs://QmMetaCid');
+    expect(body.action.metadata.reference).toBe(
+      'https://test-gw.lighthouseweb3.xyz/ipfs/QmMetaCid'
+    );
     expect(body.action.metadata.reference_hash).toBeTruthy();
     // No nested options object
     expect(body.action.options).toBeUndefined();
@@ -67,14 +71,15 @@ describe('composeMint', () => {
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
     expect(body.action.metadata.media).toBeUndefined();
-    expect(body.action.metadata.reference).toBe('ipfs://QmMetaOnly');
+    expect(body.action.metadata.reference).toBe(
+      'https://test-gw.lighthouseweb3.xyz/ipfs/QmMetaOnly'
+    );
   });
 
-  it('auto-generates a typographic text-card SVG when no image and not opted out', async () => {
-    // Two uploadText calls: first SVG, then metadata JSON.
-    mockUploadText
-      .mockResolvedValueOnce({ data: { Hash: 'QmAutoCardSvg', Size: 1234 } })
-      .mockResolvedValueOnce({ data: { Hash: 'QmAutoMeta', Size: 256 } });
+  it('auto-generates an inline data: URI text-card when no image and not opted out', async () => {
+    // Only the metadata JSON hits Lighthouse — the SVG card is inlined as a
+    // base64 data: URI (no upload).
+    mockLighthouseText('QmAutoMeta', 256);
     mockRelaySuccess('tx_mint_autocard');
 
     const result = await composeMint(
@@ -84,32 +89,39 @@ describe('composeMint', () => {
     );
 
     expect(result.txHash).toBe('tx_mint_autocard');
-    expect(result.media!.cid).toBe('QmAutoCardSvg');
+    // Auto-card has no CID (nothing uploaded externally).
+    expect(result.media!.cid).toBe('');
+    expect(result.media!.url.startsWith('data:image/svg+xml;base64,')).toBe(
+      true
+    );
     expect(result.metadata!.cid).toBe('QmAutoMeta');
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
-    expect(body.action.metadata.media).toBe('ipfs://QmAutoCardSvg');
-    expect(body.action.metadata.reference).toBe('ipfs://QmAutoMeta');
+    expect(body.action.metadata.media).toBe(result.media!.url);
+    expect(body.action.metadata.reference).toBe(
+      'https://test-gw.lighthouseweb3.xyz/ipfs/QmAutoMeta'
+    );
 
-    // The first uploadText call should be the SVG card; verify shape.
-    const svgArg = mockUploadText.mock.calls[0][0] as string;
-    expect(svgArg).toContain('<svg');
-    expect(svgArg).toContain('Just Words');
+    // Decode the data: URI and verify the SVG payload shape.
+    const dataUri = body.action.metadata.media as string;
+    const base64 = dataUri.replace('data:image/svg+xml;base64,', '');
+    const svg = Buffer.from(base64, 'base64').toString('utf8');
+    expect(svg).toContain('<svg');
+    expect(svg).toContain('Just Words');
     // Author defaults to caller accountId when no creator is supplied.
-    expect(svgArg).toContain('@alice.testnet');
+    expect(svg).toContain('@alice.testnet');
     // No platform branding on the visual.
-    expect(svgArg).not.toContain('OnSocial');
-    const filename = mockUploadText.mock.calls[0][2];
-    expect(filename).toBe('card.svg');
+    expect(svg).not.toContain('OnSocial');
+    // SVG is NOT uploaded anywhere — only the metadata JSON hits Lighthouse.
+    expect(mockUploadBuffer).not.toHaveBeenCalled();
+    expect(mockUploadText).toHaveBeenCalledTimes(1);
   });
 
   it('renders the supplied creator displayName on the auto-card', async () => {
-    mockUploadText
-      .mockResolvedValueOnce({ data: { Hash: 'QmCard2', Size: 1234 } })
-      .mockResolvedValueOnce({ data: { Hash: 'QmMeta2', Size: 256 } });
+    mockLighthouseText('QmMeta2', 256);
     mockRelaySuccess('tx_mint_creator');
 
-    await composeMint(
+    const result = await composeMint(
       'alice.testnet',
       {
         title: 'A thought',
@@ -118,9 +130,11 @@ describe('composeMint', () => {
       undefined
     );
 
-    const svgArg = mockUploadText.mock.calls[0][0] as string;
-    expect(svgArg).toContain('Alice Smith');
-    expect(svgArg).toContain('@alice.near');
+    const dataUri = result.media!.url;
+    const base64 = dataUri.replace('data:image/svg+xml;base64,', '');
+    const svg = Buffer.from(base64, 'base64').toString('utf8');
+    expect(svg).toContain('Alice Smith');
+    expect(svg).toContain('@alice.near');
   });
 
   it('includes royalty in QuickMint (flattened)', async () => {
@@ -323,8 +337,8 @@ describe('buildMintAction', () => {
       metadata: {
         title: 'Sunset',
         description: 'A sunset',
-        media: 'ipfs://QmPrepArt',
-        reference: 'ipfs://QmPrepMeta',
+        media: 'https://test-gw.lighthouseweb3.xyz/ipfs/QmPrepArt',
+        reference: 'https://test-gw.lighthouseweb3.xyz/ipfs/QmPrepMeta',
       },
     });
     expect(result.media!.cid).toBe('QmPrepArt');

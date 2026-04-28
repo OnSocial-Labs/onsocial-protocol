@@ -200,7 +200,7 @@ export async function buildCreateCollectionAction(
   if (req.mediaCid) {
     media = {
       cid: req.mediaCid,
-      url: `https://gateway.lighthouse.storage/ipfs/${req.mediaCid}`,
+      url: `${config.lighthouseGatewayBase.replace(/\/+$/, '')}/${req.mediaCid}`,
       size: 0,
       hash: req.mediaHash ?? '',
     };
@@ -213,10 +213,12 @@ export async function buildCreateCollectionAction(
   }
 
   // 2. Build NEP-177 metadata template (this is what each minted token gets)
+  // We store the dedicated-gateway https URL on-chain (not `ipfs://...`)
+  // so wallets render reliably without depending on the public IPFS DHT.
   const metadataTemplate: Record<string, unknown> = {
     title: req.title,
     ...(req.description && { description: req.description }),
-    ...(media && { media: `ipfs://${media.cid}` }),
+    ...(media && { media: media.url }),
     ...(media && media.hash && { media_hash: media.hash }),
     ...(req.extra && { extra: JSON.stringify(req.extra) }),
   };

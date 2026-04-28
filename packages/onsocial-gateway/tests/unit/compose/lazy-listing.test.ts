@@ -49,8 +49,12 @@ describe('composeLazyList', () => {
     expect(body.action.type).toBe('create_lazy_listing');
     expect(body.action.metadata.title).toBe('Sunset Art');
     expect(body.action.metadata.description).toBe('A sunset');
-    expect(body.action.metadata.media).toBe('ipfs://QmArtCid');
-    expect(body.action.metadata.reference).toBe('ipfs://QmMetaCid');
+    expect(body.action.metadata.media).toBe(
+      'https://test-gw.lighthouseweb3.xyz/ipfs/QmArtCid'
+    );
+    expect(body.action.metadata.reference).toBe(
+      'https://test-gw.lighthouseweb3.xyz/ipfs/QmMetaCid'
+    );
     expect(body.action.price).toBe('5000000000000000000000000');
     // ScarceOptions flattened — no nested options object
     expect(body.action.options).toBeUndefined();
@@ -78,7 +82,9 @@ describe('composeLazyList', () => {
     expect(mockUploadBuffer).not.toHaveBeenCalled();
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
-    expect(body.action.metadata.media).toBe('ipfs://QmExistingCid');
+    expect(body.action.metadata.media).toBe(
+      'https://test-gw.lighthouseweb3.xyz/ipfs/QmExistingCid'
+    );
     expect(body.action.metadata.media_hash).toBe('abc123hash');
   });
 
@@ -97,7 +103,9 @@ describe('composeLazyList', () => {
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
     expect(body.action.metadata.media).toBeUndefined();
-    expect(body.action.metadata.reference).toBe('ipfs://QmMetaOnly');
+    expect(body.action.metadata.reference).toBe(
+      'https://test-gw.lighthouseweb3.xyz/ipfs/QmMetaOnly'
+    );
   });
 
   it('includes royalty (flattened)', async () => {
@@ -234,7 +242,9 @@ describe('buildLazyListAction', () => {
     expect(built.media!.cid).toBe('QmReused');
     expect(mockUploadBuffer).not.toHaveBeenCalled();
     const metadata = built.action.metadata as Record<string, unknown>;
-    expect(metadata.media).toBe('ipfs://QmReused');
+    expect(metadata.media).toBe(
+      'https://test-gw.lighthouseweb3.xyz/ipfs/QmReused'
+    );
   });
 
   it('builds action without media', async () => {

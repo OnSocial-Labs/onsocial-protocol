@@ -33,7 +33,7 @@ describe('uploadToLighthouse', () => {
     expect(result.cid).toBe('QmPhoto123');
     expect(result.size).toBe(1024);
     expect(result.url).toBe(
-      'https://gateway.lighthouse.storage/ipfs/QmPhoto123'
+      'https://test-gw.lighthouseweb3.xyz/ipfs/QmPhoto123'
     );
     expect(result.hash).toBeTruthy();
     // Hash should be consistent for same content
@@ -70,7 +70,7 @@ describe('uploadJsonToLighthouse', () => {
     expect(result.cid).toBe('QmJsonCid789');
     expect(result.size).toBe(42);
     expect(result.url).toBe(
-      'https://gateway.lighthouse.storage/ipfs/QmJsonCid789'
+      'https://test-gw.lighthouseweb3.xyz/ipfs/QmJsonCid789'
     );
     expect(result.hash).toBeTruthy();
   });

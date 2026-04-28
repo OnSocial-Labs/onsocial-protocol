@@ -121,7 +121,7 @@ export async function buildLazyListAction(
     media = {
       cid: req.mediaCid,
       size: 0,
-      url: `https://gateway.lighthouse.storage/ipfs/${req.mediaCid}`,
+      url: `${config.lighthouseGatewayBase.replace(/\/+$/, '')}/${req.mediaCid}`,
       hash: req.mediaHash || '',
     };
     logger.info(
@@ -137,10 +137,12 @@ export async function buildLazyListAction(
   }
 
   // ── Build NEP-177 metadata ────────────────────────────────────────
+  // Store the dedicated-gateway https URL on-chain (not `ipfs://...`) so
+  // wallets render reliably without depending on the public IPFS DHT.
   const tokenMetadata: Record<string, unknown> = {
     title: req.title,
     ...(req.description && { description: req.description }),
-    ...(media && { media: `ipfs://${media.cid}` }),
+    ...(media && { media: media.url }),
     ...(media?.hash && { media_hash: media.hash }),
     ...(req.extra && { extra: JSON.stringify(req.extra) }),
   };
@@ -148,14 +150,14 @@ export async function buildLazyListAction(
   // Upload full metadata JSON to Lighthouse
   const fullMetadata = {
     ...tokenMetadata,
-    ...(media && { image: `ipfs://${media.cid}` }),
+    ...(media && { image: media.url }),
     name: req.title,
     ...(req.description && { description: req.description }),
     ...(req.extra || {}),
   };
 
   const metadata = await uploadJsonToLighthouse(fullMetadata);
-  tokenMetadata.reference = `ipfs://${metadata.cid}`;
+  tokenMetadata.reference = metadata.url;
   tokenMetadata.reference_hash = metadata.hash;
 
   // Validate serialised metadata size

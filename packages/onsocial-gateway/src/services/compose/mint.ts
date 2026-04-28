@@ -9,7 +9,7 @@ import {
   ComposeError,
   uploadToLighthouse,
   uploadJsonToLighthouse,
-  uploadSvgToLighthouse,
+  inlineSvgAsDataUri,
   intentAuth,
   relayExecute,
   extractTxHash,
@@ -116,11 +116,13 @@ export async function buildMintAction(
   // 1. Resolve media: reuse existing CID or upload new file
   if (!req.collectionId) {
     if (req.mediaCid) {
-      // Reuse existing IPFS CID (e.g. post image already uploaded via /compose/set)
+      // Reuse existing IPFS CID (e.g. post image already uploaded via
+      // /compose/set). Render through our dedicated Lighthouse gateway —
+      // the shared `gateway.lighthouse.storage` is premium-only.
       media = {
         cid: req.mediaCid,
         size: 0,
-        url: `https://gateway.lighthouse.storage/ipfs/${req.mediaCid}`,
+        url: `${config.lighthouseGatewayBase.replace(/\/+$/, '')}/${req.mediaCid}`,
         hash: req.mediaHash || '',
       };
       logger.info(
@@ -135,7 +137,8 @@ export async function buildMintAction(
       );
     } else if (!req.skipAutoMedia) {
       // No image and no reused CID — generate a typographic text-card SVG
-      // so wallets render a real visual instead of "missing image".
+      // and inline it as a data: URI. This makes the card render directly
+      // from on-chain metadata in every wallet, with zero IPFS dependency.
       // Author attribution defaults to the calling accountId so every card
       // has provenance baked into the artwork itself.
       const creator = req.creator ?? { accountId };
@@ -144,10 +147,10 @@ export async function buildMintAction(
         description: req.description,
         creator,
       });
-      media = await uploadSvgToLighthouse(svg);
+      media = inlineSvgAsDataUri(svg);
       logger.info(
-        { accountId, cid: media.cid, size: media.size },
-        'Compose mint: auto-generated text card uploaded to Lighthouse'
+        { accountId, size: media.size },
+        'Compose mint: auto-generated text card inlined as data: URI'
       );
     }
   }
@@ -169,10 +172,15 @@ export async function buildMintAction(
   } else {
     // ── QuickMint ──────────────────────────────────────────────────
     // Build NEP-177 metadata for a standalone (non-collection) mint.
+    //
+    // `media` holds either a `data:` URI (auto text-card) or an https URL
+    // pointing at our dedicated Lighthouse gateway (uploaded image / reused
+    // CID). We store that URL directly on-chain so wallets render reliably
+    // without depending on the public IPFS DHT.
     const tokenMetadata: Record<string, unknown> = {
       title: req.title,
       ...(req.description && { description: req.description }),
-      ...(media && { media: `ipfs://${media.cid}` }),
+      ...(media && { media: media.url }),
       ...(media && { media_hash: media.hash }),
       ...(req.copies && { copies: req.copies }),
       ...(req.extra && { extra: JSON.stringify(req.extra) }),
@@ -181,14 +189,14 @@ export async function buildMintAction(
     // 3. Upload full metadata JSON to Lighthouse (OpenSea-compatible)
     const fullMetadata = {
       ...tokenMetadata,
-      ...(media && { image: `ipfs://${media.cid}` }),
+      ...(media && { image: media.url }),
       name: req.title,
       ...(req.description && { description: req.description }),
       ...(req.extra || {}),
     };
 
     metadata = await uploadJsonToLighthouse(fullMetadata);
-    tokenMetadata.reference = `ipfs://${metadata.cid}`;
+    tokenMetadata.reference = metadata.url;
     tokenMetadata.reference_hash = metadata.hash;
 
     // ScarceOptions fields are #[serde(flatten)]'d — they go at root level

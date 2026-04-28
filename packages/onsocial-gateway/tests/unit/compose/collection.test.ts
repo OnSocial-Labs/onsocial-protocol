@@ -46,7 +46,9 @@ describe('buildCreateCollectionAction', () => {
     const template = JSON.parse(result.action.metadata_template as string);
     expect(template.title).toBe('NEARCON 2026');
     expect(template.description).toBe('Conference ticket');
-    expect(template.media).toBe('ipfs://QmCollectionImg');
+    expect(template.media).toBe(
+      'https://test-gw.lighthouseweb3.xyz/ipfs/QmCollectionImg'
+    );
   });
 
   it('builds action without image', async () => {

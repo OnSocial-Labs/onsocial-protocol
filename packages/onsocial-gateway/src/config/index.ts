@@ -230,6 +230,13 @@ export const config = {
 
   // Lighthouse (storage) — auto-pulled from GSM in dev
   lighthouseApiKey: env('LIGHTHOUSE_API_KEY'),
+  // Dedicated IPFS gateway for retrieval. The shared
+  // `gateway.lighthouse.storage` is restricted to premium plans, so we use
+  // the per-account dedicated subdomain (visible in the Lighthouse profile
+  // dashboard). Override via LIGHTHOUSE_GATEWAY_BASE if it ever rotates.
+  lighthouseGatewayBase:
+    process.env.LIGHTHOUSE_GATEWAY_BASE ||
+    'https://statistical-barnacle-3ny44.lighthouseweb3.xyz/ipfs',
 
   // Relay
   relayUrl:

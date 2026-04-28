@@ -48,7 +48,15 @@ export class ComposeError extends Error {
 // Lighthouse upload
 // ---------------------------------------------------------------------------
 
-const GATEWAY_URL = 'https://gateway.lighthouse.storage/ipfs';
+/**
+ * Build the per-CID retrieval URL using our dedicated Lighthouse gateway.
+ * The shared `gateway.lighthouse.storage` is restricted to premium plans
+ * (returns 500 for our tier), so all reads go through the dedicated
+ * subdomain set in `LIGHTHOUSE_GATEWAY_BASE`.
+ */
+function gatewayUrl(cid: string): string {
+  return `${config.lighthouseGatewayBase.replace(/\/+$/, '')}/${cid}`;
+}
 
 function getApiKey(): string {
   const key = config.lighthouseApiKey;
@@ -66,7 +74,7 @@ export async function uploadToLighthouse(
   return {
     cid,
     size: Number(result.data.Size),
-    url: `${GATEWAY_URL}/${cid}`,
+    url: gatewayUrl(cid),
     hash,
   };
 }
@@ -84,7 +92,7 @@ export async function uploadJsonToLighthouse(
   return {
     cid,
     size: Number(result.data.Size),
-    url: `${GATEWAY_URL}/${cid}`,
+    url: gatewayUrl(cid),
     hash,
   };
 }
@@ -105,8 +113,30 @@ export async function uploadSvgToLighthouse(
   return {
     cid,
     size: Number(result.data.Size),
-    url: `${GATEWAY_URL}/${cid}`,
+    url: gatewayUrl(cid),
     hash,
+  };
+}
+
+/**
+ * Build a self-contained `data:image/svg+xml;base64,...` URI for an SVG card.
+ *
+ * Used by the auto-mint text-card path so the card renders directly from the
+ * on-chain metadata — no IPFS lookup, no Lighthouse dependency, instant in
+ * every wallet. Trade-off: ~1.6 KB of on-chain bytes per token (well under
+ * the 16 KB metadata cap).
+ *
+ * Returns the same `UploadResult` shape as the upload helpers; `cid` is empty
+ * because nothing is stored externally.
+ */
+export function inlineSvgAsDataUri(svg: string): UploadResult {
+  const buffer = Buffer.from(svg);
+  const base64 = buffer.toString('base64');
+  return {
+    cid: '',
+    size: buffer.byteLength,
+    url: `data:image/svg+xml;base64,${base64}`,
+    hash: createHash('sha256').update(buffer).digest('base64'),
   };
 }
 
