@@ -230,13 +230,15 @@ export const config = {
 
   // Lighthouse (storage) — auto-pulled from GSM in dev
   lighthouseApiKey: env('LIGHTHOUSE_API_KEY'),
-  // Dedicated IPFS gateway for retrieval. The shared
-  // `gateway.lighthouse.storage` is restricted to premium plans, so we use
-  // the per-account dedicated subdomain (visible in the Lighthouse profile
-  // dashboard). Override via LIGHTHOUSE_GATEWAY_BASE if it ever rotates.
+  // Public IPFS gateway used in NFT `media` / `reference` URLs. Defaults to
+  // our own brand-stable subdomain (Caddy → upstream pinning provider) so
+  // on-chain references stay valid even if the underlying provider changes.
+  // Override via LIGHTHOUSE_GATEWAY_BASE for local dev or a one-off rollback.
   lighthouseGatewayBase:
     process.env.LIGHTHOUSE_GATEWAY_BASE ||
-    'https://statistical-barnacle-3ny44.lighthouseweb3.xyz/ipfs',
+    ((process.env.NEAR_NETWORK || 'testnet') === 'mainnet'
+      ? 'https://cdn.onsocial.id/ipfs'
+      : 'https://cdn.testnet.onsocial.id/ipfs'),
 
   // Relay
   relayUrl:
