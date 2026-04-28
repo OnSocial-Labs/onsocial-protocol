@@ -11,6 +11,7 @@ WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY packages/onsocial-gateway/package.json ./packages/onsocial-gateway/
 COPY packages/onsocial-rpc/package.json ./packages/onsocial-rpc/
+COPY packages/onsocial-text-card/package.json ./packages/onsocial-text-card/
 COPY scripts/sync-deps.js ./scripts/
 
 # Install dependencies
@@ -19,11 +20,13 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
 
 # Copy source
 COPY packages/onsocial-rpc ./packages/onsocial-rpc
+COPY packages/onsocial-text-card ./packages/onsocial-text-card
 COPY packages/onsocial-gateway ./packages/onsocial-gateway
 COPY tsconfig.json ./
 
-# Build RPC package first (gateway depends on it)
+# Build workspace deps first (gateway depends on these)
 RUN pnpm --filter @onsocial/rpc build
+RUN pnpm --filter @onsocial/text-card build
 RUN pnpm --filter onsocial-gateway build
 
 # Stage 2: Production
@@ -36,6 +39,7 @@ WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY packages/onsocial-gateway/package.json ./packages/onsocial-gateway/
 COPY packages/onsocial-rpc/package.json ./packages/onsocial-rpc/
+COPY packages/onsocial-text-card/package.json ./packages/onsocial-text-card/
 COPY scripts/sync-deps.js ./scripts/
 
 # Install production dependencies only (skip prepare scripts)
@@ -45,6 +49,7 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
 
 # Copy built output
 COPY --from=builder /app/packages/onsocial-rpc/dist ./packages/onsocial-rpc/dist
+COPY --from=builder /app/packages/onsocial-text-card/dist ./packages/onsocial-text-card/dist
 COPY --from=builder /app/packages/onsocial-gateway/dist ./packages/onsocial-gateway/dist
 
 # Copy SQL migrations (applied via deploy script)
