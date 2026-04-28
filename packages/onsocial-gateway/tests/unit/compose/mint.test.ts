@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   mockUploadBuffer,
   mockFetch,
+  mockUploadText,
   mockLighthouseUpload,
   mockLighthouseText,
   mockRelaySuccess,
@@ -50,13 +51,13 @@ describe('composeMint', () => {
     expect(body.action.options).toBeUndefined();
   });
 
-  it('mints NFT without image', async () => {
+  it('mints NFT without image (skipAutoMedia)', async () => {
     mockLighthouseText('QmMetaOnly', 100);
     mockRelaySuccess('tx_mint_noimg');
 
     const result = await composeMint(
       'alice.testnet',
-      { title: 'Text NFT' },
+      { title: 'Text NFT', skipAutoMedia: true },
       undefined
     );
 
@@ -67,6 +68,59 @@ describe('composeMint', () => {
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
     expect(body.action.metadata.media).toBeUndefined();
     expect(body.action.metadata.reference).toBe('ipfs://QmMetaOnly');
+  });
+
+  it('auto-generates a typographic text-card SVG when no image and not opted out', async () => {
+    // Two uploadText calls: first SVG, then metadata JSON.
+    mockUploadText
+      .mockResolvedValueOnce({ data: { Hash: 'QmAutoCardSvg', Size: 1234 } })
+      .mockResolvedValueOnce({ data: { Hash: 'QmAutoMeta', Size: 256 } });
+    mockRelaySuccess('tx_mint_autocard');
+
+    const result = await composeMint(
+      'alice.testnet',
+      { title: 'Just Words' },
+      undefined
+    );
+
+    expect(result.txHash).toBe('tx_mint_autocard');
+    expect(result.media!.cid).toBe('QmAutoCardSvg');
+    expect(result.metadata!.cid).toBe('QmAutoMeta');
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body.action.metadata.media).toBe('ipfs://QmAutoCardSvg');
+    expect(body.action.metadata.reference).toBe('ipfs://QmAutoMeta');
+
+    // The first uploadText call should be the SVG card; verify shape.
+    const svgArg = mockUploadText.mock.calls[0][0] as string;
+    expect(svgArg).toContain('<svg');
+    expect(svgArg).toContain('Just Words');
+    // Author defaults to caller accountId when no creator is supplied.
+    expect(svgArg).toContain('@alice.testnet');
+    // No platform branding on the visual.
+    expect(svgArg).not.toContain('OnSocial');
+    const filename = mockUploadText.mock.calls[0][2];
+    expect(filename).toBe('card.svg');
+  });
+
+  it('renders the supplied creator displayName on the auto-card', async () => {
+    mockUploadText
+      .mockResolvedValueOnce({ data: { Hash: 'QmCard2', Size: 1234 } })
+      .mockResolvedValueOnce({ data: { Hash: 'QmMeta2', Size: 256 } });
+    mockRelaySuccess('tx_mint_creator');
+
+    await composeMint(
+      'alice.testnet',
+      {
+        title: 'A thought',
+        creator: { accountId: 'alice.near', displayName: 'Alice Smith' },
+      },
+      undefined
+    );
+
+    const svgArg = mockUploadText.mock.calls[0][0] as string;
+    expect(svgArg).toContain('Alice Smith');
+    expect(svgArg).toContain('@alice.near');
   });
 
   it('includes royalty in QuickMint (flattened)', async () => {

@@ -21,7 +21,7 @@ describe('scarces', () => {
     });
     tokenTxHash = result.txHash!;
     expect(tokenTxHash).toBeTruthy();
-  });
+  }, 30000);
 
   it('should mint a scarce with royalty', async () => {
     const result = await os.scarces.tokens.mint({
@@ -30,7 +30,7 @@ describe('scarces', () => {
       royalty: { [ACCOUNT_ID]: 1000 }, // 10%
     });
     expect(result.txHash).toBeTruthy();
-  });
+  }, 30000);
 });
 
 describe('scarces.collections — lifecycle', () => {

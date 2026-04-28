@@ -257,6 +257,21 @@ export interface MintOptions {
   extra?: Record<string, unknown>;
   appId?: string;
   receiverId?: string;
+  /**
+   * Skip the gateway's auto-generated branded text-card image when no
+   * media is supplied. Default: false (auto-card is generated and uploaded
+   * so wallets render an actual image instead of an empty placeholder).
+   */
+  skipAutoMedia?: boolean;
+  /**
+   * Author profile rendered onto the auto-generated text card (avatar +
+   * display name + @handle). When omitted, the gateway falls back to the
+   * caller's accountId so author attribution is always present.
+   */
+  creator?: {
+    accountId: string;
+    displayName?: string;
+  };
 }
 
 export interface MintResponse extends RelayResponse {

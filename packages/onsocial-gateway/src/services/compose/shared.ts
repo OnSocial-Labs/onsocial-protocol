@@ -89,6 +89,27 @@ export async function uploadJsonToLighthouse(
   };
 }
 
+/**
+ * Upload an SVG document. Uses `.svg` filename so the IPFS gateway serves
+ * it with `image/svg+xml` content-type — required for wallet image rendering.
+ */
+export async function uploadSvgToLighthouse(
+  svg: string,
+  filename = 'card.svg'
+): Promise<UploadResult> {
+  const buffer = Buffer.from(svg);
+  const result = await lighthouse.uploadText(svg, getApiKey(), filename);
+  const cid = result.data.Hash;
+  const hash = createHash('sha256').update(buffer).digest('base64');
+
+  return {
+    cid,
+    size: Number(result.data.Size),
+    url: `${GATEWAY_URL}/${cid}`,
+    hash,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Validation helpers (shared by mint + collection)
 // ---------------------------------------------------------------------------

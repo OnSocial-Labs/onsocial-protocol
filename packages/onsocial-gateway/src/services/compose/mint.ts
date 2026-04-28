@@ -9,6 +9,7 @@ import {
   ComposeError,
   uploadToLighthouse,
   uploadJsonToLighthouse,
+  uploadSvgToLighthouse,
   intentAuth,
   relayExecute,
   extractTxHash,
@@ -16,6 +17,7 @@ import {
   validateRoyalty,
   MAX_METADATA_LEN,
 } from './shared.js';
+import { generateTextCardSvg } from './text-card.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -44,6 +46,21 @@ export interface ComposeMintRequest {
   mediaCid?: string;
   /** Base64 SHA-256 hash of the media (pairs with mediaCid for NEP-177 media_hash) */
   mediaHash?: string;
+  /**
+   * Skip the auto-generated branded text-card image when no media is supplied.
+   * Default: false (auto-card is generated and uploaded so wallets render an
+   * actual image instead of an empty placeholder).
+   */
+  skipAutoMedia?: boolean;
+  /**
+   * Optional creator profile rendered onto the auto-generated text card
+   * (avatar initial + display name + @handle). When omitted, the SDK
+   * caller's `accountId` is used so author attribution is always present.
+   */
+  creator?: {
+    accountId: string;
+    displayName?: string;
+  };
 }
 
 export interface ComposeMintResult {
@@ -115,6 +132,22 @@ export async function buildMintAction(
       logger.info(
         { accountId, cid: media.cid, size: media.size },
         'Compose mint: image uploaded to Lighthouse'
+      );
+    } else if (!req.skipAutoMedia) {
+      // No image and no reused CID — generate a typographic text-card SVG
+      // so wallets render a real visual instead of "missing image".
+      // Author attribution defaults to the calling accountId so every card
+      // has provenance baked into the artwork itself.
+      const creator = req.creator ?? { accountId };
+      const svg = generateTextCardSvg({
+        title: req.title,
+        description: req.description,
+        creator,
+      });
+      media = await uploadSvgToLighthouse(svg);
+      logger.info(
+        { accountId, cid: media.cid, size: media.size },
+        'Compose mint: auto-generated text card uploaded to Lighthouse'
       );
     }
   }
