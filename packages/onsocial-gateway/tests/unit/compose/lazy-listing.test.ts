@@ -94,7 +94,7 @@ describe('composeLazyList', () => {
 
     const result = await composeLazyList(
       'carol.testnet',
-      { title: 'Text Listing', priceNear: '1' },
+      { title: 'Text Listing', priceNear: '1', skipAutoMedia: true },
       undefined
     );
 
@@ -252,7 +252,7 @@ describe('buildLazyListAction', () => {
 
     const built = await buildLazyListAction(
       'alice.testnet',
-      { title: 'No Media', priceNear: '1' },
+      { title: 'No Media', priceNear: '1', skipAutoMedia: true },
       undefined
     );
 
@@ -266,7 +266,12 @@ describe('buildLazyListAction', () => {
 
     const built = await buildLazyListAction(
       'alice.testnet',
-      { title: 'Extra', priceNear: '1', extra: { color: 'blue' } },
+      {
+        title: 'Extra',
+        priceNear: '1',
+        extra: { color: 'blue' },
+        skipAutoMedia: true,
+      },
       undefined
     );
 

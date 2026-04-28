@@ -90,4 +90,8 @@ export interface MintFromPostOptions {
   receiverId?: string;
   /** Extra metadata merged into the scarce's `extra` (post link is always added). */
   extra?: Record<string, unknown>;
+  /** Auto-card background theme key (forwarded when no media is supplied). */
+  cardBg?: string;
+  /** Auto-card typography key (forwarded when no media is supplied). */
+  cardFont?: string;
 }

@@ -20,7 +20,14 @@ import {
   ipfsUri,
   verifyCidLive,
 } from './shared.js';
-import { generateTextCardSvg } from './text-card.js';
+import {
+  generateTextCardSvg,
+  resolveTheme,
+  isBackgroundKey,
+  isFontKey,
+  type BackgroundKey,
+  type FontKey,
+} from '@onsocial/text-card';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -64,6 +71,13 @@ export interface ComposeMintRequest {
     accountId: string;
     displayName?: string;
   };
+  /**
+   * Auto-card theming. Both keys must be in the @onsocial/text-card
+   * catalog; unknown values fall back to the default theme. Persisted
+   * on-chain in `extra.theme` so future re-renders reproduce the look.
+   */
+  cardBg?: BackgroundKey | string;
+  cardFont?: FontKey | string;
 }
 
 export interface ComposeMintResult {
@@ -148,14 +162,30 @@ export async function buildMintAction(
       // Author attribution defaults to the calling accountId so every card
       // has provenance baked into the artwork itself.
       const creator = req.creator ?? { accountId };
+      // Reject unknown theme keys at the boundary; never trust client
+      // strings into a stylesheet. Allowlist enforced by the catalog.
+      if (req.cardBg && !isBackgroundKey(req.cardBg)) {
+        throw new ComposeError(400, `Unknown cardBg: ${req.cardBg}`);
+      }
+      if (req.cardFont && !isFontKey(req.cardFont)) {
+        throw new ComposeError(400, `Unknown cardFont: ${req.cardFont}`);
+      }
+      const theme = resolveTheme({ bg: req.cardBg, font: req.cardFont });
       const svg = generateTextCardSvg({
         title: req.title,
         description: req.description,
         creator,
+        theme,
       });
       media = inlineSvgAsDataUri(svg);
+      // Persist resolved theme keys so indexers / future re-renders can
+      // reproduce the look without parsing the SVG.
+      req.extra = {
+        ...(req.extra || {}),
+        theme: { bg: theme.bg, font: theme.font },
+      };
       logger.info(
-        { accountId, size: media.size },
+        { accountId, size: media.size, theme },
         'Compose mint: auto-generated text card inlined as data: URI'
       );
     }

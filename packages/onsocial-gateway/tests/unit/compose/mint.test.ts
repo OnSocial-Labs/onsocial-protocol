@@ -262,12 +262,11 @@ describe('composeMint', () => {
     );
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
-    expect(body.action.metadata.extra).toBe(
-      JSON.stringify({
-        rarity: 'legendary',
-        attributes: [{ trait: 'color', value: 'gold' }],
-      })
-    );
+    const extra = JSON.parse(body.action.metadata.extra);
+    expect(extra.rarity).toBe('legendary');
+    expect(extra.attributes).toEqual([{ trait: 'color', value: 'gold' }]);
+    // Auto-card branch also persists the resolved theme for round-tripping.
+    expect(extra.theme).toEqual({ bg: 'midnight', font: 'quote' });
   });
 
   it('targets scarces.onsocial.testnet by default', async () => {

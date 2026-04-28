@@ -27,6 +27,7 @@
   "dependencies": {
     "@lighthouse-web3/sdk": "^0.4.4",
     "@onsocial/rpc": "workspace:*",
+    "@onsocial/text-card": "workspace:*",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.2.3",

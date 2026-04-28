@@ -1,0 +1,26 @@
+{
+  "name": "@onsocial/text-card",
+  "version": "0.1.0",
+  "description": "Pure SVG text-card generator + theme catalog. Used by the gateway for canonical render and by clients for live preview.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "files": [
+    "dist",
+    "src"
+  ]
+}

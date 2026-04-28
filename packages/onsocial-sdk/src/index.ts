@@ -326,3 +326,24 @@ export type {
   PageConfig,
   PageData,
 } from './types.js';
+
+// ── Text-card preview (live preview for scarce mint UIs) ───────────────────
+// Re-exported from the shared @onsocial/text-card package so client UIs can
+// render byte-identical previews of what the gateway will produce at mint
+// time. Use `previewTextCard({ title, description, creator, theme })` to get
+// `{ svg, dataUri }` and bind to an <img src> for a live preview.
+export {
+  previewTextCard,
+  generateTextCardSvg,
+  resolveTheme,
+  isBackgroundKey,
+  isFontKey,
+  THEME_MANIFEST,
+  BACKGROUNDS,
+  FONTS,
+  type BackgroundKey,
+  type FontKey,
+  type Background,
+  type Font,
+  type TextCardOptions,
+} from '@onsocial/text-card';

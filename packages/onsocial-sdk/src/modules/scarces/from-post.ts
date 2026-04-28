@@ -76,6 +76,8 @@ export class ScarcesFromPostApi {
       ...(base.royalty ? { royalty: base.royalty } : {}),
       ...(base.appId ? { appId: base.appId } : {}),
       ...(base.extra ? { extra: base.extra } : {}),
+      ...(base.cardBg ? { cardBg: base.cardBg } : {}),
+      ...(base.cardFont ? { cardFont: base.cardFont } : {}),
       ...(opts.transferable != null ? { transferable: opts.transferable } : {}),
       ...(opts.burnable != null ? { burnable: opts.burnable } : {}),
       ...(opts.expiresAt ? { expiresAt: opts.expiresAt } : {}),
@@ -120,6 +122,8 @@ export class ScarcesFromPostApi {
       ...((opts.mediaCid ?? extracted.mediaCid)
         ? { mediaCid: opts.mediaCid ?? extracted.mediaCid }
         : {}),
+      ...(opts.cardBg ? { cardBg: opts.cardBg } : {}),
+      ...(opts.cardFont ? { cardFont: opts.cardFont } : {}),
       extra: {
         sourcePost: {
           author,

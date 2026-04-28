@@ -68,6 +68,10 @@ lazyListingRouter.post(
         burnable,
         expiresAt,
         targetAccount,
+        skipAutoMedia,
+        creator,
+        cardBg,
+        cardFont,
       } = req.body;
 
       if (!title || typeof title !== 'string') {
@@ -91,8 +95,21 @@ lazyListingRouter.post(
         return;
       }
 
+      const parsedCreator = parseJsonField<{
+        accountId: string;
+        displayName?: string;
+      }>(creator);
+      if (typeof creator === 'string' && parsedCreator === undefined) {
+        res.status(400).json({ error: 'Invalid JSON in creator field' });
+        return;
+      }
+
       const imageFile = extractImageFile(req.file);
       const wait = req.query.wait === 'true' || req.query.wait === '1';
+      const skipAuto =
+        skipAutoMedia === true ||
+        skipAutoMedia === 'true' ||
+        skipAutoMedia === '1';
 
       const result = await composeLazyList(
         effectiveActorId,
@@ -113,6 +130,10 @@ lazyListingRouter.post(
           }),
           ...(expiresAt && { expiresAt: parseInt(expiresAt, 10) }),
           ...(targetAccount && { targetAccount }),
+          ...(skipAuto && { skipAutoMedia: true }),
+          ...(parsedCreator && { creator: parsedCreator }),
+          ...(typeof cardBg === 'string' && cardBg && { cardBg }),
+          ...(typeof cardFont === 'string' && cardFont && { cardFont }),
         },
         imageFile,
         { wait }
@@ -176,6 +197,10 @@ lazyListingRouter.post(
         burnable,
         expiresAt,
         targetAccount,
+        skipAutoMedia,
+        creator,
+        cardBg,
+        cardFont,
       } = req.body;
 
       if (!title || typeof title !== 'string') {
@@ -199,7 +224,20 @@ lazyListingRouter.post(
         return;
       }
 
+      const parsedCreator = parseJsonField<{
+        accountId: string;
+        displayName?: string;
+      }>(creator);
+      if (typeof creator === 'string' && parsedCreator === undefined) {
+        res.status(400).json({ error: 'Invalid JSON in creator field' });
+        return;
+      }
+
       const imageFile = extractImageFile(req.file);
+      const skipAuto =
+        skipAutoMedia === true ||
+        skipAutoMedia === 'true' ||
+        skipAutoMedia === '1';
 
       const built = await buildLazyListAction(
         effectiveActorId,
@@ -220,6 +258,10 @@ lazyListingRouter.post(
           }),
           ...(expiresAt && { expiresAt: parseInt(expiresAt, 10) }),
           ...(targetAccount && { targetAccount }),
+          ...(skipAuto && { skipAutoMedia: true }),
+          ...(parsedCreator && { creator: parsedCreator }),
+          ...(typeof cardBg === 'string' && cardBg && { cardBg }),
+          ...(typeof cardFont === 'string' && cardFont && { cardFont }),
         },
         imageFile
       );

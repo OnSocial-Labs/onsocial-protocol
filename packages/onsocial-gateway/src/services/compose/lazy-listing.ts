@@ -12,6 +12,7 @@ import {
   ComposeError,
   uploadToLighthouse,
   uploadJsonToLighthouse,
+  inlineSvgAsDataUri,
   intentAuth,
   relayExecute,
   extractTxHash,
@@ -20,6 +21,14 @@ import {
   nearToYocto,
   MAX_METADATA_LEN,
 } from './shared.js';
+import {
+  generateTextCardSvg,
+  resolveTheme,
+  isBackgroundKey,
+  isFontKey,
+  type BackgroundKey,
+  type FontKey,
+} from '@onsocial/text-card';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -50,6 +59,24 @@ export interface ComposeLazyListRequest {
   expiresAt?: number;
   /** Optional: override target account (which scarces contract) */
   targetAccount?: string;
+  /**
+   * Skip the auto-generated branded text-card image when no media is
+   * supplied. Default: false (auto-card is generated and inlined so
+   * wallets render an actual image instead of an empty placeholder).
+   */
+  skipAutoMedia?: boolean;
+  /**
+   * Optional creator profile rendered onto the auto-generated text card.
+   * When omitted, the calling accountId is used so attribution is
+   * always preserved.
+   */
+  creator?: {
+    accountId: string;
+    displayName?: string;
+  };
+  /** Auto-card theming. Unknown keys fall back to defaults. */
+  cardBg?: BackgroundKey | string;
+  cardFont?: FontKey | string;
 }
 
 export interface ComposeLazyListResult {
@@ -133,6 +160,33 @@ export async function buildLazyListAction(
     logger.info(
       { accountId, cid: media.cid, size: media.size },
       'Compose lazy-list: image uploaded to Lighthouse'
+    );
+  } else if (!req.skipAutoMedia) {
+    // No image and no reused CID — generate a typographic text-card SVG
+    // and inline it as a data: URI. Mirrors composeMint so themed cards
+    // are first-class on every release path.
+    const creator = req.creator ?? { accountId };
+    if (req.cardBg && !isBackgroundKey(req.cardBg)) {
+      throw new ComposeError(400, `Unknown cardBg: ${req.cardBg}`);
+    }
+    if (req.cardFont && !isFontKey(req.cardFont)) {
+      throw new ComposeError(400, `Unknown cardFont: ${req.cardFont}`);
+    }
+    const theme = resolveTheme({ bg: req.cardBg, font: req.cardFont });
+    const svg = generateTextCardSvg({
+      title: req.title,
+      description: req.description,
+      creator,
+      theme,
+    });
+    media = inlineSvgAsDataUri(svg);
+    req.extra = {
+      ...(req.extra || {}),
+      theme: { bg: theme.bg, font: theme.font },
+    };
+    logger.info(
+      { accountId, size: media.size, theme },
+      'Compose lazy-list: auto-generated text card inlined as data: URI'
     );
   }
 

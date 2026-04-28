@@ -272,6 +272,18 @@ export interface MintOptions {
     accountId: string;
     displayName?: string;
   };
+  /**
+   * Auto-card background theme key (e.g. 'midnight', 'paper', 'mist',
+   * 'aurora', 'mono', 'sand'). Unknown values fall back to the default.
+   * Ignored when `image` or `mediaCid` is supplied.
+   */
+  cardBg?: string;
+  /**
+   * Auto-card typography key ('quote', 'statement', 'mono'). Unknown
+   * values fall back to the default. Ignored when `image` or `mediaCid`
+   * is supplied.
+   */
+  cardFont?: string;
 }
 
 export interface MintResponse extends RelayResponse {
@@ -339,6 +351,20 @@ export interface LazyListingOptions {
   transferable?: boolean;
   burnable?: boolean;
   expiresAt?: string;
+  /**
+   * Skip the gateway's auto-generated branded text-card image when no
+   * media is supplied. Default: false.
+   */
+  skipAutoMedia?: boolean;
+  /** Author profile rendered on the auto-generated card. */
+  creator?: {
+    accountId: string;
+    displayName?: string;
+  };
+  /** Auto-card background theme key. */
+  cardBg?: string;
+  /** Auto-card typography key. */
+  cardFont?: string;
 }
 
 export interface OfferOptions {

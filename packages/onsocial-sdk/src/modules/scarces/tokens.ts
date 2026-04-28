@@ -52,6 +52,8 @@ export class ScarcesTokensApi {
     if (opts.mediaHash) form.append('mediaHash', opts.mediaHash);
     if (opts.skipAutoMedia) form.append('skipAutoMedia', 'true');
     if (opts.creator) form.append('creator', JSON.stringify(opts.creator));
+    if (opts.cardBg) form.append('cardBg', opts.cardBg);
+    if (opts.cardFont) form.append('cardFont', opts.cardFont);
     if (opts.image) form.append('image', opts.image);
     return this._http.requestForm<MintResponse>('POST', '/compose/mint', form);
   }

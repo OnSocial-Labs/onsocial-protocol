@@ -60,6 +60,8 @@ mintRouter.post(
         mediaHash,
         skipAutoMedia,
         creator,
+        cardBg,
+        cardFont,
       } = req.body;
 
       if (!title || typeof title !== 'string') {
@@ -112,6 +114,8 @@ mintRouter.post(
           ...(mediaHash && { mediaHash }),
           ...(skipAuto && { skipAutoMedia: true }),
           ...(parsedCreator && { creator: parsedCreator }),
+          ...(typeof cardBg === 'string' && cardBg && { cardBg }),
+          ...(typeof cardFont === 'string' && cardFont && { cardFont }),
         },
         imageFile,
         { wait }
@@ -188,6 +192,8 @@ mintRouter.post(
         mediaHash,
         skipAutoMedia,
         creator,
+        cardBg,
+        cardFont,
       } = req.body;
 
       if (!title || typeof title !== 'string') {
@@ -239,6 +245,8 @@ mintRouter.post(
           ...(mediaHash && { mediaHash }),
           ...(skipAuto && { skipAutoMedia: true }),
           ...(parsedCreator && { creator: parsedCreator }),
+          ...(typeof cardBg === 'string' && cardBg && { cardBg }),
+          ...(typeof cardFont === 'string' && cardFont && { cardFont }),
         },
         imageFile
       );
