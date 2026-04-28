@@ -189,9 +189,16 @@ pages_host_patterns_value() {
 render_caddyfile() {
   local backend_slot="$1"
   local gateway_slot="$2"
+  local cdn_domain="cdn.onsocial.id"
+  if [[ "$PUBLIC_DOMAIN" = "testnet.onsocial.id" ]]; then
+    cdn_domain="cdn.testnet.onsocial.id"
+  fi
+  local cdn_upstream="${LIGHTHOUSE_CDN_UPSTREAM:-statistical-barnacle-3ny44.lighthouseweb3.xyz}"
   sed \
     -e "s/__SERVER_NAMES__/$(server_names_value)/g" \
     -e "s/__PAGES_HOST_PATTERNS__/$(pages_host_patterns_value)/g" \
+    -e "s|__CDN_DOMAIN__|${cdn_domain}|g" \
+    -e "s|__CDN_UPSTREAM__|${cdn_upstream}|g" \
     -e "s/__BACKEND_UPSTREAM__/$(slot_service_name backend "$backend_slot"):4001/g" \
     -e "s/__GATEWAY_UPSTREAM__/$(slot_service_name gateway "$gateway_slot"):8080/g" \
     "$CADDY_TEMPLATE_FILE" > "$CADDY_RENDERED_FILE"

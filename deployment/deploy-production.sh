@@ -131,9 +131,16 @@ fi
 
 # --- Generate Caddyfile with correct domain ---
 info "Generating Caddyfile for $PUBLIC_DOMAIN..."
+CDN_DOMAIN="cdn.onsocial.id"
+if [[ "$PUBLIC_DOMAIN" = "testnet.onsocial.id" ]]; then
+  CDN_DOMAIN="cdn.testnet.onsocial.id"
+fi
+CDN_UPSTREAM="${LIGHTHOUSE_CDN_UPSTREAM:-statistical-barnacle-3ny44.lighthouseweb3.xyz}"
 sed \
   -e "s/__SERVER_NAMES__/$SERVER_NAMES/g" \
   -e "s/__PAGES_HOST_PATTERNS__/$PAGES_HOST_PATTERNS/g" \
+  -e "s|__CDN_DOMAIN__|$CDN_DOMAIN|g" \
+  -e "s|__CDN_UPSTREAM__|$CDN_UPSTREAM|g" \
   -e 's/__BACKEND_UPSTREAM__/backend:4001/g' \
   -e 's/__GATEWAY_UPSTREAM__/gateway:8080/g' \
   "$SCRIPT_DIR/Caddyfile" > "$SCRIPT_DIR/.Caddyfile.generated"
