@@ -82,6 +82,10 @@ __SERVER_NAMES__ {
 __CDN_DOMAIN__ {
 	encode zstd gzip
 
+	handle /health {
+		respond "ok" 200
+	}
+
 	@ipfs path /ipfs/*
 	handle @ipfs {
 		# IPFS content is immutable — cache aggressively at every layer.
@@ -107,7 +111,6 @@ __CDN_DOMAIN__ {
 		}
 	}
 
-	respond /health "ok" 200
 	handle {
 		respond 404
 	}
