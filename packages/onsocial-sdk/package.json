@@ -26,6 +26,7 @@
     "test:all": "vitest run",
     "diag:cards": "tsx tests/integration/diag-mint-cards.mts",
     "diag:receipt": "tsx tests/integration/diag-receipt-yellow.mts",
+    "diag:title-split": "tsx tests/integration/diag-title-split.mts",
     "check": "pnpm lint && pnpm format:check && pnpm build && pnpm test"
   },
   "dependencies": {

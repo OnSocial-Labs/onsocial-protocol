@@ -32,7 +32,10 @@ const TITLE_MAX = 80;
  *   2. First sentence (split on `.`/`!`/`?`/newline) if shorter than
  *      the rest, OR
  *   3. Whole text if already ≤ TITLE_MAX, OR
- *   4. Hard-truncated to TITLE_MAX-1 chars + ellipsis.
+ *   4. Hard-truncated to TITLE_MAX chars on a word boundary when
+ *      possible. We deliberately do NOT append our own ellipsis —
+ *      wallets and grids add their own truncation marker, and a
+ *      doubled `…` looks broken.
  */
 function deriveTitle(text: string): string {
   const trimmed = text.trim();
@@ -56,7 +59,13 @@ function deriveTitle(text: string): string {
     return firstLine;
   }
   if (trimmed.length <= TITLE_MAX) return trimmed;
-  return trimmed.slice(0, TITLE_MAX - 1).trimEnd() + '\u2026';
+  // Hard-truncate. Try to end on a word boundary so we don't leave a
+  // half-word followed by the wallet's own ellipsis.
+  const window = trimmed.slice(0, TITLE_MAX);
+  const lastSpace = window.lastIndexOf(' ');
+  // Only honor the word boundary if it leaves at least half the title.
+  if (lastSpace >= TITLE_MAX / 2) return window.slice(0, lastSpace).trimEnd();
+  return window.trimEnd();
 }
 
 export class ScarcesFromPostApi {
@@ -199,11 +208,13 @@ export class ScarcesFromPostApi {
   ): MintOptions {
     const text = extracted.text;
     const title = opts.title ?? (deriveTitle(text) || `Post ${postId}`);
-    // Avoid duplicating the title verbatim in description — if the post
-    // is short enough that title === text, drop description so the
-    // wallet detail view shows the title once instead of twice.
+    // Only drop description when it would be byte-identical to the
+    // title (true duplication). Anything else — even small differences
+    // like a trailing tag or a second sentence — is signal worth
+    // surfacing in the wallet detail view.
     const explicitDescription = opts.description;
-    const fallbackDescription = text === title ? undefined : text || undefined;
+    const fallbackDescription =
+      !text || text === title ? undefined : text;
     const description = explicitDescription ?? fallbackDescription;
 
     // ── Media routing ──────────────────────────────────────────────

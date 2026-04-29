@@ -52,7 +52,7 @@ describe('ScarcesModule.fromPost.mint', () => {
     });
   });
 
-  it('truncates long unbroken text to ~80 char title with ellipsis', async () => {
+  it('truncates long unbroken text to ~80 chars without trailing ellipsis', async () => {
     const { mod, spies } = makeMod();
     const longText = 'x'.repeat(200);
     await mod.fromPost.mint({
@@ -61,7 +61,27 @@ describe('ScarcesModule.fromPost.mint', () => {
     });
     const [, , form] = spies.requestForm.mock.calls[0];
     expect((form.get('title') as string).length).toBe(80);
-    expect(form.get('title')).toMatch(/\u2026$/);
+    // No appended ellipsis — wallets add their own truncation marker.
+    expect(form.get('title')).not.toMatch(/[\u2026.]+$/);
+  });
+
+  it('breaks long text on a word boundary when one is available', async () => {
+    const { mod, spies } = makeMod();
+    // Long sentence (>80 chars) with spaces — should cut at a space,
+    // not mid-word, when the boundary is in the second half.
+    const text =
+      'this is a long single sentence with several words that runs well past the eighty character limit for titles';
+    await mod.fromPost.mint({
+      ...ROW,
+      value: JSON.stringify({ text }),
+    });
+    const [, , form] = spies.requestForm.mock.calls[0];
+    const title = form.get('title') as string;
+    expect(title.length).toBeLessThanOrEqual(80);
+    expect(title.endsWith(' ')).toBe(false);
+    // Must end on a complete word from the source.
+    expect(text.startsWith(title)).toBe(true);
+    expect(text[title.length] === ' ' || title.length === text.length).toBe(true);
   });
 
   it('uses first sentence as title when post has multiple sentences', async () => {
@@ -87,6 +107,19 @@ describe('ScarcesModule.fromPost.mint', () => {
     const [, , form] = spies.requestForm.mock.calls[0];
     expect(form.get('title')).toBe('Just shipped.');
     expect(form.get('description')).toBeNull();
+  });
+
+  it('keeps description when text has any extra signal beyond the title', async () => {
+    const { mod, spies } = makeMod();
+    // First sentence becomes title; the bracketed tag in the full
+    // text is signal we want to preserve in description.
+    await mod.fromPost.mint({
+      ...ROW,
+      value: JSON.stringify({ text: 'Just shipped. [run-id]' }),
+    });
+    const [, , form] = spies.requestForm.mock.calls[0];
+    expect(form.get('title')).toBe('Just shipped.');
+    expect(form.get('description')).toBe('Just shipped. [run-id]');
   });
 
   it('falls back to "Post <id>" title when text empty', async () => {

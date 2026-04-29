@@ -106,7 +106,9 @@ const VOICE_SPECS: Record<Voice, VoiceSpec> = {
     titleUppercase: false,
     titleLetterSpacing: 0,
     bylineFamily: SANS_BYLINE,
-    titleCharsPerLine: 22,
+    // Georgia 600 renders a touch wider than sans — keep parity
+    // with the right-side padding by budgeting fewer chars per line.
+    titleCharsPerLine: 20,
     bylineMaxChars: 36,
   },
   display: {
@@ -128,7 +130,9 @@ const VOICE_SPECS: Record<Voice, VoiceSpec> = {
     titleUppercase: false,
     titleLetterSpacing: -0.3,
     bylineFamily: SANS_BYLINE,
-    titleCharsPerLine: 22,
+    // Editorial serif at 500 — same right-padding-parity tightening
+    // as `serif`.
+    titleCharsPerLine: 20,
     bylineMaxChars: 36,
   },
   bold: {

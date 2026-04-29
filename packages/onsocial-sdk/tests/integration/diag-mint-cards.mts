@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Diagnostic: mint scarces from a freshly created post in 5 modes and
 // inspect what the gateway returns. Use this after a deployment to verify
-// that the cards render in real wallets (Bitte / Meteor / MyNearWallet).
+// that the cards render in real wallets (NearBlocks / MyNearWallet / Meteor).
 //
 // Storage matrix this script exercises:
 //
@@ -13,7 +13,7 @@
 // For each mint, we:
 //   • print the txHash + media URL
 //   • if media is an https://… URL    → GET the bytes; if SVG, save to /tmp
-//   • print Bitte / MyNearWallet inspector URLs for the resulting tokenId
+//   • print NearBlocks + MyNearWallet inspector URLs for the resulting tokenId
 //
 // Usage:
 //   pnpm --filter @onsocial/sdk diag:cards
@@ -175,8 +175,8 @@ async function describeMedia(
 function walletUrls(tokenId: string | undefined, network: 'testnet' | 'mainnet') {
   if (!tokenId) return;
   const contract = network === 'mainnet' ? 'scarces.onsocial.near' : 'scarces.onsocial.testnet';
-  console.log(`     bitte:    https://wallet.bitte.ai/asset/${contract}/${tokenId}`);
-  console.log(`     mintbase: https://www.mintbase.xyz/${network}/meta/${contract}:${tokenId}`);
+  console.log(`     nearblocks:   https://${network === 'mainnet' ? '' : 'testnet.'}nearblocks.io/nft/${contract}/${tokenId}`);
+  console.log(`     mynearwallet: https://${network === 'mainnet' ? 'app' : 'testnet'}.mynearwallet.com/?tab=collectibles`);
 }
 
 function pickTokenId(res: MintResponse): string | undefined {
