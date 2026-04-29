@@ -163,8 +163,11 @@ const VOICE_SPECS: Record<Voice, VoiceSpec> = {
     titleUppercase: false,
     titleLetterSpacing: -0.6,
     bylineFamily: SANS_BYLINE,
-    // Tight per-line budget; 60-char hard cap enforced in generator.
-    titleCharsPerLine: 28,
+    // Tight per-line budget calibrated against the receipt size ladder
+    // (56 → 40px Inter bold) and the 488px content width. Falls back to
+    // a 2-line wrap when the title doesn't fit at 56px. The 60-char hard
+    // cap is enforced in generator.
+    titleCharsPerLine: 17,
     bylineMaxChars: 36,
   },
 };
