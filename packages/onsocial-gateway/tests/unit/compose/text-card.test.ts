@@ -310,13 +310,16 @@ describe('generateTextCardSvg', () => {
       photo: 'https://cdn.onsocial.id/ipfs/bafyPhoto',
     });
     expect(svg).not.toContain('x'.repeat(80));
-    // Hard cap at 60 chars (incl. ellipsis). The truncated title wraps
-    // across two tspans; concatenate them to verify the visible payload.
+    // Hard cap at 60 chars (incl. ellipsis); wrap may truncate further at
+    // the smallest font-size on the receipt ladder. The truncated title
+    // wraps across tspans — concatenate them to verify the visible payload
+    // stayed within the cap and ended with an ellipsis.
     const tspanText = Array.from(svg.matchAll(/<tspan[^>]*>([^<]*)<\/tspan>/g))
       .map((m) => m[1])
       .filter((t) => /x/.test(t))
       .join('');
-    expect(tspanText.length).toBe(60);
+    expect(tspanText.length).toBeGreaterThan(0);
+    expect(tspanText.length).toBeLessThanOrEqual(60);
     expect(tspanText.endsWith('\u2026')).toBe(true);
   });
 });
