@@ -37,6 +37,7 @@
   "scripts": {
     "build": "make build-all-js",
     "check-deps": "node scripts/check-deps.js",
+    "check:cards": "pnpm --filter @onsocial/text-card --filter @onsocial/sdk --filter onsocial-gateway run check",
     "clean": "pnpm -r run clean",
     "dev": "pnpm -r run dev",
     "format": "pnpm -r run format",

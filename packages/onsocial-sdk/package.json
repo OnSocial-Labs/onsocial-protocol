@@ -19,10 +19,12 @@
     "build": "tsc",
     "clean": "rm -rf dist",
     "lint": "eslint src",
-    "format": "prettier --write .",
+    "format": "prettier --write 'src/**/*.{ts,js,json}' 'tests/**/*.ts' '*.{json,md,js}'",
+    "format:check": "prettier --check 'src/**/*.{ts,js,json}' 'tests/**/*.ts' '*.{json,md,js}'",
     "test": "vitest run src",
     "test:integration": "vitest run tests/integration --fileParallelism=false",
-    "test:all": "vitest run"
+    "test:all": "vitest run",
+    "check": "pnpm lint && pnpm format:check && pnpm build && pnpm test"
   },
   "dependencies": {
     "@onsocial/text-card": "workspace:*"

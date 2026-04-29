@@ -13,11 +13,24 @@
   },
   "scripts": {
     "build": "tsc",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist preview",
+    "preview": "tsx scripts/preview.ts",
+    "lint": "eslint src",
+    "format": "prettier --write 'src/**/*.{ts,js,json}' 'tests/**/*.ts' 'scripts/**/*.ts' '*.{json,md,js}'",
+    "format:check": "prettier --check 'src/**/*.{ts,js,json}' 'tests/**/*.ts' 'scripts/**/*.ts' '*.{json,md,js}'",
+    "test": "vitest run tests",
+    "test:watch": "vitest tests",
+    "check": "pnpm lint && pnpm format:check && pnpm build && pnpm test"
   },
   "dependencies": {},
   "devDependencies": {
-    "typescript": "^5.9.3"
+    "@eslint/js": "^9.30.1",
+    "eslint": "^9.39.4",
+    "prettier": "^3.6.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.54.0",
+    "vitest": "^3.2.4"
   },
   "files": [
     "dist",

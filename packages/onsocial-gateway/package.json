@@ -18,11 +18,13 @@
     "hasura:permissions": "tsx src/scripts/apply-hasura-permissions.ts create",
     "hasura:audit": "tsx src/scripts/audit-hasura-schema.ts",
     "lint": "eslint src",
-    "format": "prettier --write .",
+    "format": "prettier --write 'src/**/*.{ts,js,json}' 'tests/**/*.ts' '*.{json,md,js}'",
+    "format:check": "prettier --check 'src/**/*.{ts,js,json}' 'tests/**/*.ts' '*.{json,md,js}'",
     "test": "vitest run tests/unit",
     "test:watch": "vitest tests/unit",
     "test:integration": "vitest run tests/integration --maxWorkers=1 --fileParallelism=false",
-    "test:all": "vitest run"
+    "test:all": "vitest run",
+    "check": "pnpm lint && pnpm format:check && pnpm build && pnpm test"
   },
   "dependencies": {
     "@lighthouse-web3/sdk": "^0.4.4",
