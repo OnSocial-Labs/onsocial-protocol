@@ -15,28 +15,40 @@ export type PostSource = PostRow | PostRef;
 /** Parsed projection of a post body — text + first usable media CID. */
 export interface ExtractedPost {
   text: string;
-  /** First IPFS CID found in `media[]` (string or MediaRef), if any. */
+  /** First image CID found in `media[]`, if any. Convenience for the
+   *  common single-photo case. Equals `mediaCids[0]` when present. */
   mediaCid?: string;
-  /** Raw `media[]` entries as stored on chain. */
+  /** All image CIDs found in `media[]`, in source order. Excludes
+   *  video/audio entries (those would render broken in NFT artwork). */
+  mediaCids: string[];
+  /** Raw `media[]` entries as stored on chain (unfiltered). */
   media: Array<string | MediaRef>;
 }
 
+/** Treat as image when MIME is missing (legacy posts) or starts with `image/`. */
+function isImageMime(mime: string | undefined): boolean {
+  if (!mime) return true;
+  return /^image\//i.test(mime);
+}
+
 /**
- * Pull text + first media CID out of a post body. Accepts the raw `value`
+ * Pull text + image CIDs out of a post body. Accepts the raw `value`
  * field from `posts_current` (a JSON string), or a pre-parsed object.
+ * Non-image media (video, audio) is excluded — those would render as
+ * broken artwork in wallets that only show the `media` field as `<img>`.
  */
 export function extractPostMedia(
   value: string | Record<string, unknown> | null | undefined
 ): ExtractedPost {
   let parsed: Record<string, unknown> | null = null;
   if (value == null) {
-    return { text: '', media: [] };
+    return { text: '', media: [], mediaCids: [] };
   }
   if (typeof value === 'string') {
     try {
       parsed = JSON.parse(value) as Record<string, unknown>;
     } catch {
-      return { text: value, media: [] };
+      return { text: value, media: [], mediaCids: [] };
     }
   } else {
     parsed = value;
@@ -46,19 +58,22 @@ export function extractPostMedia(
   const rawMedia = Array.isArray(parsed.media)
     ? (parsed.media as Array<string | MediaRef>)
     : [];
-  let mediaCid: string | undefined;
+  const mediaCids: string[] = [];
   for (const entry of rawMedia) {
     if (typeof entry === 'string') {
+      // Legacy string-only entries: assume image (no MIME info available).
       if (entry.startsWith('ipfs://')) {
-        mediaCid = entry.slice('ipfs://'.length);
-        break;
+        mediaCids.push(entry.slice('ipfs://'.length));
       }
     } else if (entry && typeof entry.cid === 'string' && entry.cid) {
-      mediaCid = entry.cid;
-      break;
+      if (isImageMime(entry.mime)) {
+        mediaCids.push(entry.cid);
+      }
     }
   }
-  return { text, mediaCid, media: rawMedia };
+  const result: ExtractedPost = { text, media: rawMedia, mediaCids };
+  if (mediaCids.length > 0) result.mediaCid = mediaCids[0];
+  return result;
 }
 
 export function isPostRow(p: PostSource): p is PostRow {
@@ -94,4 +109,24 @@ export interface MintFromPostOptions {
   cardBg?: string;
   /** Auto-card typography key (forwarded when no media is supplied). */
   cardFont?: string;
+  /** Lock the author-mark colour to a named palette colour. */
+  cardMarkColor?: string;
+  /** Author-mark shape: 'rule' | 'dot' | 'square' | 'bar'. */
+  cardMarkShape?: string;
+  /** Title alignment on the auto-card: 'left' | 'center'. */
+  cardTitleAlign?: string;
+  /**
+   * Force the gateway to render the auto text-card even when the post
+   * has its own image. Useful for posts where the words are the point
+   * and the photo is incidental (in that case the photo is shown as a
+   * small chip in the corner, not the cover).
+   */
+  useTextCard?: boolean;
+  /**
+   * Photo CID rendered as an inset chip on the auto text-card. Only
+   * honoured when `useTextCard` is true (or the gateway is generating a
+   * text-card for some other reason). Defaults to the post's first
+   * image CID when `useTextCard` is true and the post has media.
+   */
+  cardPhotoCid?: string;
 }

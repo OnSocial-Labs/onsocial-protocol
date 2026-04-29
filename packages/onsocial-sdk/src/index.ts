@@ -330,20 +330,26 @@ export type {
 // ── Text-card preview (live preview for scarce mint UIs) ───────────────────
 // Re-exported from the shared @onsocial/text-card package so client UIs can
 // render byte-identical previews of what the gateway will produce at mint
-// time. Use `previewTextCard({ title, description, creator, theme })` to get
+// time. Use `previewTextCard({ title, creator, theme: { bg } })` to get
 // `{ svg, dataUri }` and bind to an <img src> for a live preview.
 export {
   previewTextCard,
   generateTextCardSvg,
-  resolveTheme,
-  isBackgroundKey,
-  isFontKey,
+  resolveMood,
+  isMoodKey,
   THEME_MANIFEST,
-  BACKGROUNDS,
-  FONTS,
-  type BackgroundKey,
-  type FontKey,
-  type Background,
-  type Font,
+  MOODS,
+  type MoodKey,
+  type Mood,
   type TextCardOptions,
+
+  // v0.3.1 customisation
+  MARK_COLORS,
+  MARK_SHAPES,
+  isMarkColor,
+  isMarkShape,
+  isTitleAlign,
+  type MarkColor,
+  type MarkShape,
+  type TitleAlign,
 } from '@onsocial/text-card';

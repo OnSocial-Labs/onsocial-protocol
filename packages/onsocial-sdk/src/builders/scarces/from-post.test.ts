@@ -41,4 +41,44 @@ describe('extractPostMedia', () => {
     expect(extractPostMedia(null).media).toEqual([]);
     expect(extractPostMedia(undefined).text).toBe('');
   });
+
+  it('skips video / audio entries (would render broken as NFT artwork)', () => {
+    const out = extractPostMedia(
+      JSON.stringify({
+        text: 'mixed media post',
+        media: [
+          { cid: 'bafyVid', mime: 'video/mp4' },
+          { cid: 'bafyAud', mime: 'audio/mpeg' },
+          { cid: 'bafyImg', mime: 'image/png' },
+        ],
+      })
+    );
+    // First *image* wins, not first entry.
+    expect(out.mediaCid).toBe('bafyImg');
+    expect(out.mediaCids).toEqual(['bafyImg']);
+    // Raw `media` is preserved untouched for callers who need it.
+    expect(out.media).toHaveLength(3);
+  });
+
+  it('collects all image CIDs in source order for multi-photo posts', () => {
+    const out = extractPostMedia(
+      JSON.stringify({
+        text: 'gallery',
+        media: [
+          { cid: 'bafyA', mime: 'image/jpeg' },
+          { cid: 'bafyB', mime: 'image/png' },
+          { cid: 'bafyC', mime: 'image/webp' },
+        ],
+      })
+    );
+    expect(out.mediaCid).toBe('bafyA');
+    expect(out.mediaCids).toEqual(['bafyA', 'bafyB', 'bafyC']);
+  });
+
+  it('treats string-only entries as image (legacy posts have no MIME)', () => {
+    const out = extractPostMedia(
+      JSON.stringify({ text: 'legacy', media: ['ipfs://legacyOne'] })
+    );
+    expect(out.mediaCids).toEqual(['legacyOne']);
+  });
 });

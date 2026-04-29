@@ -54,6 +54,10 @@ export class ScarcesTokensApi {
     if (opts.creator) form.append('creator', JSON.stringify(opts.creator));
     if (opts.cardBg) form.append('cardBg', opts.cardBg);
     if (opts.cardFont) form.append('cardFont', opts.cardFont);
+    if (opts.cardMarkColor) form.append('cardMarkColor', opts.cardMarkColor);
+    if (opts.cardMarkShape) form.append('cardMarkShape', opts.cardMarkShape);
+    if (opts.cardTitleAlign) form.append('cardTitleAlign', opts.cardTitleAlign);
+    if (opts.cardPhotoCid) form.append('cardPhotoCid', opts.cardPhotoCid);
     if (opts.image) form.append('image', opts.image);
     return this._http.requestForm<MintResponse>('POST', '/compose/mint', form);
   }

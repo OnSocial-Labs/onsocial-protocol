@@ -78,11 +78,65 @@ export class ScarcesFromPostApi {
       ...(base.extra ? { extra: base.extra } : {}),
       ...(base.cardBg ? { cardBg: base.cardBg } : {}),
       ...(base.cardFont ? { cardFont: base.cardFont } : {}),
+      ...(base.cardMarkColor ? { cardMarkColor: base.cardMarkColor } : {}),
+      ...(base.cardMarkShape ? { cardMarkShape: base.cardMarkShape } : {}),
+      ...(base.cardTitleAlign ? { cardTitleAlign: base.cardTitleAlign } : {}),
+      ...(base.cardPhotoCid ? { cardPhotoCid: base.cardPhotoCid } : {}),
       ...(opts.transferable != null ? { transferable: opts.transferable } : {}),
       ...(opts.burnable != null ? { burnable: opts.burnable } : {}),
       ...(opts.expiresAt ? { expiresAt: opts.expiresAt } : {}),
     };
     return this._lazy.create(lazyOpts);
+  }
+
+  /**
+   * Mint a post as a **receipt** — a permanent proof-card with a short
+   * claim and a photo as evidence. The killer mint-from-post format:
+   * "Shipped." + screenshot, "Sold out in 4 hours." + dashboard, etc.
+   *
+   * Hard rules (enforced here, before any network call):
+   * - title (or post text if no `opts.title`) must be ≤ 60 chars
+   * - a photo is required — either from `opts.cardPhotoCid` or the
+   *   post's first image
+   *
+   * Forces `useTextCard=true`. Pass `palette` to pick the finish
+   * (`'light'` default, or `'night' | 'noir' | 'dusk'`).
+   *
+   * ```ts
+   * await os.scarces.fromPost.mintReceipt(row, { copies: 1 });
+   * await os.scarces.fromPost.mintReceipt(row, { palette: 'noir' });
+   * ```
+   */
+  async mintReceipt(
+    post: PostSource,
+    opts: Omit<MintFromPostOptions, 'cardBg' | 'useTextCard'> & {
+      palette?: 'light' | 'night' | 'noir' | 'dusk';
+    } = {}
+  ): Promise<MintResponse> {
+    const extracted = await this._readPost(post);
+    const title = opts.title ?? extracted.text;
+    if (title.length > 60) {
+      throw new Error(
+        `Receipt cards are for short claims (≤60 chars, got ${title.length}). For longer thoughts use os.scarces.fromPost.mint() with a different mood.`
+      );
+    }
+    const photoCid = opts.cardPhotoCid ?? extracted.mediaCid;
+    if (!photoCid) {
+      throw new Error(
+        'Receipt cards require a photo (proof). Pass opts.cardPhotoCid or mint from a post with media.'
+      );
+    }
+    const palette = opts.palette ?? 'light';
+    const cardBg = `receipt-${palette}`;
+    // Strip our local-only `palette` knob before forwarding.
+    const { palette: _palette, ...rest } = opts;
+    return this.mint(post, {
+      ...rest,
+      title,
+      useTextCard: true,
+      cardBg,
+      cardPhotoCid: photoCid,
+    });
   }
 
   private async _readPost(post: PostSource): Promise<ExtractedPost> {
@@ -111,6 +165,28 @@ export class ScarcesFromPostApi {
       opts.title ??
       ((text.length > 100 ? text.slice(0, 97) + '...' : text) ||
         `Post ${postId}`);
+
+    // ── Media routing ──────────────────────────────────────────────
+    // - useTextCard:false (default): post photo becomes the cover.
+    // - useTextCard:true: text-card is the cover; the post's first
+    //   image becomes a small inset chip on the card so the photo
+    //   isn't lost (callers can override via `cardPhotoCid`).
+    const explicitMediaCid = opts.mediaCid ?? extracted.mediaCid;
+    const useTextCard = opts.useTextCard === true;
+    const resolvedMediaCid = useTextCard ? undefined : explicitMediaCid;
+    const resolvedPhotoCid = useTextCard
+      ? (opts.cardPhotoCid ?? extracted.mediaCid)
+      : opts.cardPhotoCid;
+
+    // ── Gallery ───────────────────────────────────────────────────────────
+    // For multi-photo posts, persist the full list under `extra.gallery`
+    // so marketplaces / future viewers can show the rest. The cover
+    // (first CID) stays in `media` per NEP-177.
+    const galleryExtra =
+      extracted.mediaCids.length > 1
+        ? { gallery: extracted.mediaCids }
+        : undefined;
+
     return {
       title,
       description: opts.description ?? text,
@@ -119,11 +195,13 @@ export class ScarcesFromPostApi {
       ...(opts.appId ? { appId: opts.appId } : {}),
       ...(opts.receiverId ? { receiverId: opts.receiverId } : {}),
       ...(opts.image ? { image: opts.image } : {}),
-      ...((opts.mediaCid ?? extracted.mediaCid)
-        ? { mediaCid: opts.mediaCid ?? extracted.mediaCid }
-        : {}),
+      ...(resolvedMediaCid ? { mediaCid: resolvedMediaCid } : {}),
       ...(opts.cardBg ? { cardBg: opts.cardBg } : {}),
       ...(opts.cardFont ? { cardFont: opts.cardFont } : {}),
+      ...(opts.cardMarkColor ? { cardMarkColor: opts.cardMarkColor } : {}),
+      ...(opts.cardMarkShape ? { cardMarkShape: opts.cardMarkShape } : {}),
+      ...(opts.cardTitleAlign ? { cardTitleAlign: opts.cardTitleAlign } : {}),
+      ...(resolvedPhotoCid ? { cardPhotoCid: resolvedPhotoCid } : {}),
       extra: {
         sourcePost: {
           author,
@@ -131,6 +209,7 @@ export class ScarcesFromPostApi {
           path: `${author}/post/${postId}`,
         },
         mintedAt: Date.now(),
+        ...(galleryExtra ?? {}),
         ...(opts.extra ?? {}),
       },
     };

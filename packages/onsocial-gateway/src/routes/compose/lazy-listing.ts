@@ -72,6 +72,9 @@ lazyListingRouter.post(
         creator,
         cardBg,
         cardFont,
+        cardMarkColor,
+        cardMarkShape,
+        cardTitleAlign,
       } = req.body;
 
       if (!title || typeof title !== 'string') {
@@ -134,6 +137,12 @@ lazyListingRouter.post(
           ...(parsedCreator && { creator: parsedCreator }),
           ...(typeof cardBg === 'string' && cardBg && { cardBg }),
           ...(typeof cardFont === 'string' && cardFont && { cardFont }),
+          ...(typeof cardMarkColor === 'string' &&
+            cardMarkColor && { cardMarkColor }),
+          ...(typeof cardMarkShape === 'string' &&
+            cardMarkShape && { cardMarkShape }),
+          ...(typeof cardTitleAlign === 'string' &&
+            cardTitleAlign && { cardTitleAlign }),
         },
         imageFile,
         { wait }
@@ -201,6 +210,9 @@ lazyListingRouter.post(
         creator,
         cardBg,
         cardFont,
+        cardMarkColor,
+        cardMarkShape,
+        cardTitleAlign,
       } = req.body;
 
       if (!title || typeof title !== 'string') {
@@ -262,6 +274,12 @@ lazyListingRouter.post(
           ...(parsedCreator && { creator: parsedCreator }),
           ...(typeof cardBg === 'string' && cardBg && { cardBg }),
           ...(typeof cardFont === 'string' && cardFont && { cardFont }),
+          ...(typeof cardMarkColor === 'string' &&
+            cardMarkColor && { cardMarkColor }),
+          ...(typeof cardMarkShape === 'string' &&
+            cardMarkShape && { cardMarkShape }),
+          ...(typeof cardTitleAlign === 'string' &&
+            cardTitleAlign && { cardTitleAlign }),
         },
         imageFile
       );

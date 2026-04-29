@@ -284,6 +284,24 @@ export interface MintOptions {
    * is supplied.
    */
   cardFont?: string;
+  /**
+   * Lock the per-account author mark to a named palette colour.
+   * One of: violet, green, orange, pink, cyan, amber, purple, emerald,
+   * rose, blue, lime, tangerine. Default: deterministic per-account hash.
+   */
+  cardMarkColor?: string;
+  /** Author-mark shape: 'rule' (default), 'dot', 'square', or 'bar'. */
+  cardMarkShape?: string;
+  /** Title alignment on the auto-card: 'left' (default) or 'center'. */
+  cardTitleAlign?: string;
+  /**
+   * Optional photo CID rendered as a small inset chip in the bottom-
+   * right corner of the auto-generated text-card. Use this when minting
+   * a text-card variant for a post that has its own image — the photo
+   * survives as a chip without being composited under the type. The
+   * gateway resolves the CID to a stable public URL.
+   */
+  cardPhotoCid?: string;
 }
 
 export interface MintResponse extends RelayResponse {
@@ -365,6 +383,14 @@ export interface LazyListingOptions {
   cardBg?: string;
   /** Auto-card typography key. */
   cardFont?: string;
+  /** Lock the author-mark colour (named palette colour). */
+  cardMarkColor?: string;
+  /** Author-mark shape: 'rule' | 'dot' | 'square' | 'bar'. */
+  cardMarkShape?: string;
+  /** Title alignment: 'left' | 'center'. */
+  cardTitleAlign?: string;
+  /** Optional photo CID rendered as an inset chip on the auto-card. */
+  cardPhotoCid?: string;
 }
 
 export interface OfferOptions {

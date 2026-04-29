@@ -25,9 +25,16 @@ import {
   resolveTheme,
   isBackgroundKey,
   isFontKey,
+  isMarkColor,
+  isMarkShape,
+  isTitleAlign,
   type BackgroundKey,
   type FontKey,
+  type MarkColor,
+  type MarkShape,
+  type TitleAlign,
 } from '@onsocial/text-card';
+import { getProfileName } from './profileLookup.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -78,6 +85,21 @@ export interface ComposeMintRequest {
    */
   cardBg?: BackgroundKey | string;
   cardFont?: FontKey | string;
+  /**
+   * Per-card customisation knobs (all optional). Validated against the
+   * @onsocial/text-card catalog; unknown values are rejected at the
+   * boundary. Persisted in `extra.theme` for round-tripping.
+   */
+  cardMarkColor?: MarkColor | string;
+  cardMarkShape?: MarkShape | string;
+  cardTitleAlign?: TitleAlign | string;
+  /**
+   * Optional photo CID rendered as an inset chip on the auto-generated
+   * text-card. Resolved through our public gateway. Only applies when
+   * the gateway is generating a text-card (i.e. no `mediaCid` and no
+   * uploaded `imageFile`); otherwise ignored.
+   */
+  cardPhotoCid?: string;
 }
 
 export interface ComposeMintResult {
@@ -161,7 +183,16 @@ export async function buildMintAction(
       // from on-chain metadata in every wallet, with zero IPFS dependency.
       // Author attribution defaults to the calling accountId so every card
       // has provenance baked into the artwork itself.
-      const creator = req.creator ?? { accountId };
+      let creator = req.creator ?? { accountId };
+      // When the caller didn't pass a displayName, look it up from
+      // core-onsocial so the byline shows the user's profile name
+      // (e.g. "Alice") instead of just their accountId.
+      if (!creator.displayName) {
+        const profileName = await getProfileName(creator.accountId);
+        if (profileName) {
+          creator = { ...creator, displayName: profileName };
+        }
+      }
       // Reject unknown theme keys at the boundary; never trust client
       // strings into a stylesheet. Allowlist enforced by the catalog.
       if (req.cardBg && !isBackgroundKey(req.cardBg)) {
@@ -170,22 +201,87 @@ export async function buildMintAction(
       if (req.cardFont && !isFontKey(req.cardFont)) {
         throw new ComposeError(400, `Unknown cardFont: ${req.cardFont}`);
       }
+      if (req.cardMarkColor && !isMarkColor(req.cardMarkColor)) {
+        throw new ComposeError(
+          400,
+          `Unknown cardMarkColor: ${req.cardMarkColor}`
+        );
+      }
+      if (req.cardMarkShape && !isMarkShape(req.cardMarkShape)) {
+        throw new ComposeError(
+          400,
+          `Unknown cardMarkShape: ${req.cardMarkShape}`
+        );
+      }
+      if (req.cardTitleAlign && !isTitleAlign(req.cardTitleAlign)) {
+        throw new ComposeError(
+          400,
+          `Unknown cardTitleAlign: ${req.cardTitleAlign}`
+        );
+      }
+      // Receipt mood: photo + title length are part of the format,
+      // not optional. Reject early so callers get a clear 400 instead
+      // of a silently-truncated card.
+      // Receipt is a layout (short claim + photo-as-proof), one mood per
+      // palette finish. Validate format requirements at the boundary so
+      // callers get a clear 400 instead of a silently truncated card.
+      if (typeof req.cardBg === 'string' && req.cardBg.startsWith('receipt-')) {
+        if (!req.cardPhotoCid) {
+          throw new ComposeError(
+            400,
+            'Receipt mood requires cardPhotoCid (proof photo).'
+          );
+        }
+        if (req.title.length > 60) {
+          throw new ComposeError(
+            400,
+            `Receipt title exceeds 60 chars (got ${req.title.length}).`
+          );
+        }
+      }
       const theme = resolveTheme({ bg: req.cardBg, font: req.cardFont });
+      const themeForCard: {
+        bg?: string;
+        font?: string;
+        markColor?: MarkColor;
+        markShape?: MarkShape;
+        titleAlign?: TitleAlign;
+      } = {
+        bg: theme.bg,
+        font: theme.font,
+        ...(req.cardMarkColor && {
+          markColor: req.cardMarkColor as MarkColor,
+        }),
+        ...(req.cardMarkShape && {
+          markShape: req.cardMarkShape as MarkShape,
+        }),
+        ...(req.cardTitleAlign && {
+          titleAlign: req.cardTitleAlign as TitleAlign,
+        }),
+      };
       const svg = generateTextCardSvg({
         title: req.title,
         description: req.description,
         creator,
-        theme,
+        theme: themeForCard,
+        ...(req.cardPhotoCid ? { photo: gatewayUrl(req.cardPhotoCid) } : {}),
       });
       media = inlineSvgAsDataUri(svg);
       // Persist resolved theme keys so indexers / future re-renders can
       // reproduce the look without parsing the SVG.
       req.extra = {
         ...(req.extra || {}),
-        theme: { bg: theme.bg, font: theme.font },
+        theme: {
+          bg: theme.bg,
+          font: theme.font,
+          ...(req.cardMarkColor && { markColor: req.cardMarkColor }),
+          ...(req.cardMarkShape && { markShape: req.cardMarkShape }),
+          ...(req.cardTitleAlign && { titleAlign: req.cardTitleAlign }),
+          ...(req.cardPhotoCid && { photoCid: req.cardPhotoCid }),
+        },
       };
       logger.info(
-        { accountId, size: media.size, theme },
+        { accountId, size: media.size, theme: themeForCard },
         'Compose mint: auto-generated text card inlined as data: URI'
       );
     }

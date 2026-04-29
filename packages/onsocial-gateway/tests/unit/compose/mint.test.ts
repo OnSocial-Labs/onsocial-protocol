@@ -20,6 +20,13 @@ import {
 } from '../../../src/services/compose/index.js';
 import { config } from '../../../src/config/index.js';
 
+// Stub the on-chain profile lookup so auto-card tests don't try to
+// hit the NEAR RPC mock and consume mockFetch slots meant for the relay.
+vi.mock('../../../src/services/compose/profileLookup.js', () => ({
+  getProfileName: vi.fn(async () => ''),
+  _resetProfileCache: vi.fn(),
+}));
+
 describe('composeMint', () => {
   beforeEach(() => vi.clearAllMocks());
 
@@ -266,7 +273,7 @@ describe('composeMint', () => {
     expect(extra.rarity).toBe('legendary');
     expect(extra.attributes).toEqual([{ trait: 'color', value: 'gold' }]);
     // Auto-card branch also persists the resolved theme for round-tripping.
-    expect(extra.theme).toEqual({ bg: 'midnight', font: 'quote' });
+    expect(extra.theme).toEqual({ bg: 'serif-night', font: 'quote' });
   });
 
   it('targets scarces.onsocial.testnet by default', async () => {

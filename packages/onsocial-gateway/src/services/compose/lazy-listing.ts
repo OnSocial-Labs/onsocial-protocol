@@ -26,9 +26,16 @@ import {
   resolveTheme,
   isBackgroundKey,
   isFontKey,
+  isMarkColor,
+  isMarkShape,
+  isTitleAlign,
   type BackgroundKey,
   type FontKey,
+  type MarkColor,
+  type MarkShape,
+  type TitleAlign,
 } from '@onsocial/text-card';
+import { getProfileName } from './profileLookup.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -77,6 +84,10 @@ export interface ComposeLazyListRequest {
   /** Auto-card theming. Unknown keys fall back to defaults. */
   cardBg?: BackgroundKey | string;
   cardFont?: FontKey | string;
+  /** Per-card customisation knobs. Validated; persisted in `extra.theme`. */
+  cardMarkColor?: MarkColor | string;
+  cardMarkShape?: MarkShape | string;
+  cardTitleAlign?: TitleAlign | string;
 }
 
 export interface ComposeLazyListResult {
@@ -165,27 +176,76 @@ export async function buildLazyListAction(
     // No image and no reused CID — generate a typographic text-card SVG
     // and inline it as a data: URI. Mirrors composeMint so themed cards
     // are first-class on every release path.
-    const creator = req.creator ?? { accountId };
+    let creator = req.creator ?? { accountId };
+    if (!creator.displayName) {
+      const profileName = await getProfileName(creator.accountId);
+      if (profileName) {
+        creator = { ...creator, displayName: profileName };
+      }
+    }
     if (req.cardBg && !isBackgroundKey(req.cardBg)) {
       throw new ComposeError(400, `Unknown cardBg: ${req.cardBg}`);
     }
     if (req.cardFont && !isFontKey(req.cardFont)) {
       throw new ComposeError(400, `Unknown cardFont: ${req.cardFont}`);
     }
+    if (req.cardMarkColor && !isMarkColor(req.cardMarkColor)) {
+      throw new ComposeError(
+        400,
+        `Unknown cardMarkColor: ${req.cardMarkColor}`
+      );
+    }
+    if (req.cardMarkShape && !isMarkShape(req.cardMarkShape)) {
+      throw new ComposeError(
+        400,
+        `Unknown cardMarkShape: ${req.cardMarkShape}`
+      );
+    }
+    if (req.cardTitleAlign && !isTitleAlign(req.cardTitleAlign)) {
+      throw new ComposeError(
+        400,
+        `Unknown cardTitleAlign: ${req.cardTitleAlign}`
+      );
+    }
     const theme = resolveTheme({ bg: req.cardBg, font: req.cardFont });
+    const themeForCard: {
+      bg?: string;
+      font?: string;
+      markColor?: MarkColor;
+      markShape?: MarkShape;
+      titleAlign?: TitleAlign;
+    } = {
+      bg: theme.bg,
+      font: theme.font,
+      ...(req.cardMarkColor && {
+        markColor: req.cardMarkColor as MarkColor,
+      }),
+      ...(req.cardMarkShape && {
+        markShape: req.cardMarkShape as MarkShape,
+      }),
+      ...(req.cardTitleAlign && {
+        titleAlign: req.cardTitleAlign as TitleAlign,
+      }),
+    };
     const svg = generateTextCardSvg({
       title: req.title,
       description: req.description,
       creator,
-      theme,
+      theme: themeForCard,
     });
     media = inlineSvgAsDataUri(svg);
     req.extra = {
       ...(req.extra || {}),
-      theme: { bg: theme.bg, font: theme.font },
+      theme: {
+        bg: theme.bg,
+        font: theme.font,
+        ...(req.cardMarkColor && { markColor: req.cardMarkColor }),
+        ...(req.cardMarkShape && { markShape: req.cardMarkShape }),
+        ...(req.cardTitleAlign && { titleAlign: req.cardTitleAlign }),
+      },
     };
     logger.info(
-      { accountId, size: media.size, theme },
+      { accountId, size: media.size, theme: themeForCard },
       'Compose lazy-list: auto-generated text card inlined as data: URI'
     );
   }

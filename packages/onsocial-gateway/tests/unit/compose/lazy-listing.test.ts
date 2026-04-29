@@ -22,6 +22,13 @@ import {
   ComposeError,
 } from '../../../src/services/compose/index.js';
 
+// Stub the on-chain profile lookup so auto-card tests don't try to
+// hit the NEAR RPC mock and consume mockFetch slots meant for the relay.
+vi.mock('../../../src/services/compose/profileLookup.js', () => ({
+  getProfileName: vi.fn(async () => ''),
+  _resetProfileCache: vi.fn(),
+}));
+
 // ═══════════════════════════════════════════════════════════════════════════
 // composeLazyList
 // ═══════════════════════════════════════════════════════════════════════════

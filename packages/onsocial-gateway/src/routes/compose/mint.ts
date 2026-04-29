@@ -62,6 +62,10 @@ mintRouter.post(
         creator,
         cardBg,
         cardFont,
+        cardMarkColor,
+        cardMarkShape,
+        cardTitleAlign,
+        cardPhotoCid,
       } = req.body;
 
       if (!title || typeof title !== 'string') {
@@ -116,6 +120,14 @@ mintRouter.post(
           ...(parsedCreator && { creator: parsedCreator }),
           ...(typeof cardBg === 'string' && cardBg && { cardBg }),
           ...(typeof cardFont === 'string' && cardFont && { cardFont }),
+          ...(typeof cardMarkColor === 'string' &&
+            cardMarkColor && { cardMarkColor }),
+          ...(typeof cardMarkShape === 'string' &&
+            cardMarkShape && { cardMarkShape }),
+          ...(typeof cardTitleAlign === 'string' &&
+            cardTitleAlign && { cardTitleAlign }),
+          ...(typeof cardPhotoCid === 'string' &&
+            cardPhotoCid && { cardPhotoCid }),
         },
         imageFile,
         { wait }
@@ -194,6 +206,10 @@ mintRouter.post(
         creator,
         cardBg,
         cardFont,
+        cardMarkColor,
+        cardMarkShape,
+        cardTitleAlign,
+        cardPhotoCid,
       } = req.body;
 
       if (!title || typeof title !== 'string') {
@@ -247,6 +263,14 @@ mintRouter.post(
           ...(parsedCreator && { creator: parsedCreator }),
           ...(typeof cardBg === 'string' && cardBg && { cardBg }),
           ...(typeof cardFont === 'string' && cardFont && { cardFont }),
+          ...(typeof cardMarkColor === 'string' &&
+            cardMarkColor && { cardMarkColor }),
+          ...(typeof cardMarkShape === 'string' &&
+            cardMarkShape && { cardMarkShape }),
+          ...(typeof cardTitleAlign === 'string' &&
+            cardTitleAlign && { cardTitleAlign }),
+          ...(typeof cardPhotoCid === 'string' &&
+            cardPhotoCid && { cardPhotoCid }),
         },
         imageFile
       );

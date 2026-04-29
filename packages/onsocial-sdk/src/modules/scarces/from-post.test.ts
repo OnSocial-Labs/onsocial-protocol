@@ -108,6 +108,149 @@ describe('ScarcesModule.fromPost.mint', () => {
       mod.fromPost.mint({ author: 'bob.near', postId: '999' })
     ).rejects.toThrow(/PostRef requires a SocialModule/);
   });
+
+  it('persists extra.gallery for multi-photo posts (cover stays in media)', async () => {
+    const { mod, spies } = makeMod();
+    const galleryRow = {
+      ...ROW,
+      value: JSON.stringify({
+        text: 'gallery post',
+        media: [
+          { cid: 'bafyA', mime: 'image/jpeg' },
+          { cid: 'bafyB', mime: 'image/png' },
+          { cid: 'bafyC', mime: 'image/webp' },
+        ],
+      }),
+    };
+    await mod.fromPost.mint(galleryRow);
+    const [, , form] = spies.requestForm.mock.calls[0];
+    expect(form.get('mediaCid')).toBe('bafyA');
+    const extra = JSON.parse(form.get('extra') as string);
+    expect(extra.gallery).toEqual(['bafyA', 'bafyB', 'bafyC']);
+  });
+
+  it('does not add extra.gallery when post has only one image', async () => {
+    const { mod, spies } = makeMod();
+    // ROW has two images (a MediaRef + a legacy ipfs:// string); use a
+    // single-image fixture to exercise the no-gallery branch.
+    const singleImage = {
+      ...ROW,
+      value: JSON.stringify({
+        text: 'just one',
+        media: [{ cid: 'bafyOnly', mime: 'image/png' }],
+      }),
+    };
+    await mod.fromPost.mint(singleImage);
+    const [, , form] = spies.requestForm.mock.calls[0];
+    const extra = JSON.parse(form.get('extra') as string);
+    expect(extra.gallery).toBeUndefined();
+  });
+
+  it('useTextCard:true clears mediaCid and forwards photo as cardPhotoCid', async () => {
+    const { mod, spies } = makeMod();
+    await mod.fromPost.mint(ROW, { useTextCard: true });
+    const [, , form] = spies.requestForm.mock.calls[0];
+    // No cover image — gateway will render the auto text-card.
+    expect(form.get('mediaCid')).toBeNull();
+    // Post's first image becomes the proof photo (only honoured when
+    // the gateway renders a receipt-mood card).
+    expect(form.get('cardPhotoCid')).toBe('bafyMedia1');
+  });
+
+  it('useTextCard:true with no post media renders pure text-card', async () => {
+    const { mod, spies } = makeMod();
+    const textOnly = {
+      ...ROW,
+      value: JSON.stringify({ text: 'words only' }),
+    };
+    await mod.fromPost.mint(textOnly, { useTextCard: true });
+    const [, , form] = spies.requestForm.mock.calls[0];
+    expect(form.get('mediaCid')).toBeNull();
+    expect(form.get('cardPhotoCid')).toBeNull();
+  });
+
+  it('caller can override cardPhotoCid explicitly', async () => {
+    const { mod, spies } = makeMod();
+    await mod.fromPost.mint(ROW, {
+      useTextCard: true,
+      cardPhotoCid: 'bafyOverridePhoto',
+    });
+    const [, , form] = spies.requestForm.mock.calls[0];
+    expect(form.get('cardPhotoCid')).toBe('bafyOverridePhoto');
+  });
+});
+
+describe('ScarcesModule.fromPost.mintReceipt', () => {
+  it('forwards receipt mood + post photo + useTextCard:true', async () => {
+    const { mod, spies } = makeMod();
+    await mod.fromPost.mintReceipt({
+      ...ROW,
+      value: JSON.stringify({
+        text: 'Shipped.',
+        media: [{ cid: 'bafyProof', mime: 'image/png' }],
+      }),
+    });
+    const [, , form] = spies.requestForm.mock.calls[0];
+    expect(form.get('cardBg')).toBe('receipt-light');
+    expect(form.get('cardPhotoCid')).toBe('bafyProof');
+    // text-card mode: post photo never becomes the cover
+    expect(form.get('mediaCid')).toBeNull();
+    expect(form.get('title')).toBe('Shipped.');
+  });
+
+  it('throws when title (or post text) exceeds 60 chars', async () => {
+    const { mod } = makeMod();
+    const longText = 'x'.repeat(80);
+    await expect(
+      mod.fromPost.mintReceipt({
+        ...ROW,
+        value: JSON.stringify({
+          text: longText,
+          media: [{ cid: 'bafyP', mime: 'image/png' }],
+        }),
+      })
+    ).rejects.toThrow(/short claims/);
+  });
+
+  it('throws when no photo is available (post has no media + no override)', async () => {
+    const { mod } = makeMod();
+    await expect(
+      mod.fromPost.mintReceipt({
+        ...ROW,
+        value: JSON.stringify({ text: 'Shipped.' }),
+      })
+    ).rejects.toThrow(/require a photo/);
+  });
+
+  it('caller-provided cardPhotoCid satisfies the photo requirement', async () => {
+    const { mod, spies } = makeMod();
+    await mod.fromPost.mintReceipt(
+      { ...ROW, value: JSON.stringify({ text: 'Shipped.' }) },
+      { cardPhotoCid: 'bafyExternalProof' }
+    );
+    const [, , form] = spies.requestForm.mock.calls[0];
+    expect(form.get('cardPhotoCid')).toBe('bafyExternalProof');
+    expect(form.get('cardBg')).toBe('receipt-light');
+  });
+
+  it('caller-provided title overrides post text for length check', async () => {
+    const { mod, spies } = makeMod();
+    // Post text is short, opts.title is too long → must throw on opts.title.
+    const longTitle = 'x'.repeat(80);
+    await expect(
+      mod.fromPost.mintReceipt(
+        {
+          ...ROW,
+          value: JSON.stringify({
+            text: 'ok',
+            media: [{ cid: 'bafyP', mime: 'image/png' }],
+          }),
+        },
+        { title: longTitle }
+      )
+    ).rejects.toThrow(/short claims/);
+    expect(spies.requestForm).not.toHaveBeenCalled();
+  });
 });
 
 describe('ScarcesModule.fromPost.list', () => {
