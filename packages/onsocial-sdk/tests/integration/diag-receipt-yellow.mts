@@ -22,58 +22,15 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os_node from 'node:os';
-import * as zlib from 'node:zlib';
 import { execFileSync } from 'node:child_process';
 import { ACCOUNT_ID, GATEWAY_URL, getSessionClient } from './helpers.js';
+import { makeSolidPng } from './diag-png.js';
 
-// Generate a 64×64 vivid yellow PNG (#FFD600) inline. Using a generated
-// buffer (not a hard-coded base64 string) so we can't accidentally ship a
-// truncated literal that fails to decode.
-const CRC32_TABLE = (() => {
-  const t = new Uint32Array(256);
-  for (let n = 0; n < 256; n++) {
-    let c = n;
-    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-    t[n] = c >>> 0;
-  }
-  return t;
-})();
-
-function crc32(buf: Buffer): number {
-  let c = 0xffffffff;
-  for (let i = 0; i < buf.length; i++) c = CRC32_TABLE[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
-  return (c ^ 0xffffffff) >>> 0;
-}
-
-function makeYellowPng(size = 64): Buffer {
-  const sig = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-  const chunk = (type: string, data: Buffer): Buffer => {
-    const len = Buffer.alloc(4);
-    len.writeUInt32BE(data.length, 0);
-    const t = Buffer.from(type, 'ascii');
-    const crc = Buffer.alloc(4);
-    crc.writeUInt32BE(crc32(Buffer.concat([t, data])), 0);
-    return Buffer.concat([len, t, data, crc]);
-  };
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(size, 0);
-  ihdr.writeUInt32BE(size, 4);
-  ihdr[8] = 8; // 8-bit
-  ihdr[9] = 2; // RGB
-  ihdr[10] = 0;
-  ihdr[11] = 0;
-  ihdr[12] = 0;
-  // Each row: filter byte (0=None) + RGB triples for each pixel.
-  const row = Buffer.alloc(1 + size * 3);
-  for (let x = 0; x < size; x++) {
-    row[1 + x * 3 + 0] = 0xff;
-    row[1 + x * 3 + 1] = 0xd6;
-    row[1 + x * 3 + 2] = 0x00;
-  }
-  const raw = Buffer.concat(Array.from({ length: size }, () => row));
-  const idat = zlib.deflateSync(raw);
-  return Buffer.concat([sig, chunk('IHDR', ihdr), chunk('IDAT', idat), chunk('IEND', Buffer.alloc(0))]);
-}
+// Per-run identifier so the wallet view immediately shows which mint
+// belongs to which diag run when you run this script multiple times.
+const RUN_ID = Math.floor(Date.now() / 1000)
+  .toString(36)
+  .slice(-5);
 
 const OPEN = process.env.OPEN === '1';
 const OUT = fs.mkdtempSync(path.join(os_node.tmpdir(), 'diag-receipt-'));
@@ -97,6 +54,7 @@ async function main() {
   console.log('═'.repeat(72));
   console.log(`  Gateway: ${GATEWAY_URL}`);
   console.log(`  Account: ${ACCOUNT_ID}`);
+  console.log(`  Run ID:  ${RUN_ID}  (title: Yellow #${RUN_ID})`);
   console.log(`  Output:  ${OUT}`);
   console.log();
 
@@ -104,7 +62,7 @@ async function main() {
 
   // ── 1. Upload the yellow PNG ────────────────────────────────────────
   console.log('[1] upload yellow.png to Lighthouse via gateway');
-  const png = makeYellowPng(64);
+  const png = makeSolidPng(64, [0xff, 0xd6, 0x00]);
   fs.writeFileSync(path.join(OUT, 'source-yellow.png'), png);
   const blob = new Blob([new Uint8Array(png)], { type: 'image/png' });
   const { cid } = await sdk.storage.upload(blob);
@@ -137,7 +95,7 @@ async function main() {
   console.log('[4] mintReceipt({ palette: "noir" }) — yellow proof on dark bg');
   const res = await sdk.scarces.fromPost.mintReceipt(
     { author: ACCOUNT_ID, postId },
-    { title: 'Yellow proof. Shipped.', palette: 'noir' }
+    { title: `Yellow #${RUN_ID} \u2014 Shipped.`, palette: 'noir' }
   );
   console.log(`    txHash:   ${res.txHash}`);
   console.log(`    metadata: ${res.metadata?.url ?? '<none>'}`);
@@ -158,25 +116,63 @@ async function main() {
   console.log(`    saved →  ${svgPath}  (${svg.length} bytes)`);
   console.log();
 
-  // ── 5. Verify the SVG actually embeds OUR yellow CID ────────────────
-  console.log('[5] verify SVG embeds the yellow CID via <image href>');
+  // ── 5. Verify the SVG actually embeds OUR yellow bytes ─────────────
+  // Photos are inlined as `data:image/png;base64,...` inside the SVG so
+  // wallets render them via `<img>` without cross-origin blocking. We
+  // verify byte-for-byte equality against the PNG we uploaded in step 1.
+  console.log('[5] verify SVG embeds the yellow photo as inline data: URI');
   const m = svg.match(/<image[^>]*href="([^"]+)"/);
   if (!m) {
     console.error('    ❌ no <image> tag in SVG');
     process.exit(1);
   }
   const href = m[1];
-  console.log(`    href: ${href}`);
-  if (!href.includes(cid)) {
-    console.error(`    ❌ href does not reference our uploaded CID (${cid})`);
+  console.log(`    href prefix: ${href.slice(0, 48)}…`);
+  const dataMatch = href.match(/^data:image\/[a-z+]+;base64,(.+)$/);
+  if (!dataMatch) {
+    console.error('    ❌ embedded photo is not a data:image base64 URI');
     process.exit(1);
   }
-  console.log('    ✅ SVG references the exact CID we uploaded.');
+  const embeddedBytes = Buffer.from(dataMatch[1], 'base64');
+  if (
+    embeddedBytes.length !== png.length ||
+    !embeddedBytes.equals(Buffer.from(png))
+  ) {
+    console.error(
+      `    ❌ embedded bytes (${embeddedBytes.length}) don't match yellow PNG (${png.length})`
+    );
+    process.exit(1);
+  }
+  console.log(
+    `    ✅ ${embeddedBytes.length} bytes match the source yellow.png byte-for-byte.`
+  );
   console.log();
 
-  // ── 6. Re-probe the embedded URL (what the wallet will fetch) ──────
-  console.log('[6] probe the embedded URL (this is what wallets will load)');
-  const ok = await probe('embedded href', href);
+  // ── 6. Verify metadata.json carries the photoCid for content-addressability ──
+  console.log('[6] verify metadata.json carries extra.theme.photoCid for indexers');
+  const metaUrl = res.metadata?.url ?? '';
+  let photoCidOk = false;
+  if (metaUrl) {
+    const metaRes = await fetch(metaUrl);
+    if (metaRes.ok) {
+      const meta = (await metaRes.json()) as {
+        extra?: string | { theme?: { photoCid?: string } };
+      };
+      // `extra` may be a JSON string (contract-stringified) or an object.
+      const extraObj =
+        typeof meta.extra === 'string' ? JSON.parse(meta.extra) : meta.extra;
+      const photoCid = extraObj?.theme?.photoCid;
+      console.log(`    photoCid: ${photoCid ?? '<missing>'}`);
+      if (photoCid === cid) {
+        console.log('    ✅ metadata records the original Lighthouse CID.');
+        photoCidOk = true;
+      } else {
+        console.error(`    ❌ metadata photoCid does not match (${cid})`);
+      }
+    } else {
+      console.error(`    ❌ GET ${metaUrl} → ${metaRes.status}`);
+    }
+  }
   console.log();
 
   if (OPEN) {
@@ -189,10 +185,10 @@ async function main() {
 
   console.log('═'.repeat(72));
   console.log(
-    `  ${ok ? '✅ Pass' : '❌ Fail'} — open ${svgPath} in a browser to confirm you see a yellow square in the dark card`
+    `  ${photoCidOk ? '✅ Pass' : '❌ Fail'} — open ${svgPath} in a browser to confirm you see a yellow square in the dark card`
   );
   console.log('═'.repeat(72));
-  process.exit(ok ? 0 : 1);
+  process.exit(photoCidOk ? 0 : 1);
 }
 
 main().catch((e) => {

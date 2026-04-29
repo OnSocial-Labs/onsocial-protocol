@@ -116,17 +116,9 @@ export interface MintFromPostOptions {
   /** Title alignment on the auto-card: 'left' | 'center'. */
   cardTitleAlign?: string;
   /**
-   * Force the gateway to render the auto text-card even when the post
-   * has its own image. Useful for posts where the words are the point
-   * and the photo is incidental (in that case the photo is shown as a
-   * small chip in the corner, not the cover).
-   */
-  useTextCard?: boolean;
-  /**
-   * Photo CID rendered as an inset chip on the auto text-card. Only
-   * honoured when `useTextCard` is true (or the gateway is generating a
-   * text-card for some other reason). Defaults to the post's first
-   * image CID when `useTextCard` is true and the post has media.
+   * Photo CID rendered as the embedded proof on a receipt card. Only
+   * meaningful when `cardBg` selects a receipt mood (e.g. via
+   * `mintReceipt(...)`). Defaults to the post's first image CID.
    */
   cardPhotoCid?: string;
 }

@@ -7,9 +7,9 @@
 //
 //   1. mint(), no photo, no skipAutoMedia       → SVG inlined as data:image/svg+xml on-chain (true on-chain art)
 //   2. mint(), post has photo (default)         → photo CID via IPFS gateway
-//   3. mint({useTextCard:true}) + photo         → SVG uploaded to Lighthouse; photo embedded as data: inside SVG
-//   4. mintReceipt({palette:'light'}) + photo   → SVG uploaded to Lighthouse; photo embedded as data: inside SVG
-//   5. mintReceipt({palette:'noir'})  + photo   → SVG uploaded to Lighthouse; photo embedded as data: inside SVG//
+//   3. mintReceipt({palette:'light'}) + photo   → SVG uploaded to Lighthouse; photo embedded as data: inside SVG
+//   4. mintReceipt({palette:'noir'})  + photo   → SVG uploaded to Lighthouse; photo embedded as data: inside SVG
+//
 // For each mint, we:
 //   • print the txHash + media URL
 //   • if media is an https://… URL    → GET the bytes; if SVG, save to /tmp
@@ -35,14 +35,21 @@ import {
   GATEWAY_URL,
   getSessionClient,
 } from './helpers.js';
+import { makeSolidPng } from './diag-png.js';
 import type { MintResponse } from '../../src/types.js';
 import type { OnSocial } from '../../src/client.js';
 
-// 1×1 red PNG (≈70 bytes) — uploaded to Lighthouse as the post's photo.
-const PNG_1x1 = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
-  'base64'
-);
+// 256×256 magenta PNG — large enough to actually be visible in wallet
+// thumbnails so mode 2 (photo cover) doesn't show as a single pixel.
+// Modes 4/5 also embed this so receipts have a real visible proof block.
+const PHOTO_PNG = makeSolidPng(256, [0xff, 0x00, 0x99]);
+
+// Per-run identifier, propagated into every mint title so a wallet view
+// after multiple diag runs immediately reveals which mints came from
+// which run. Format: 5-char base36 (~e.g. "k3xz9").
+const RUN_ID = Math.floor(Date.now() / 1000)
+  .toString(36)
+  .slice(-5);
 
 const OUT_DIR = fs.mkdtempSync(path.join(os_node.tmpdir(), 'diag-cards-'));
 const OPEN = process.env.OPEN === '1';
@@ -58,6 +65,9 @@ interface Mode {
 }
 
 interface Ctx {
+  /** Post WITHOUT a photo — used by mode 1 to exercise the on-chain data: SVG path. */
+  textPostId: string;
+  /** Post WITH a photo — used by modes 2–5. */
   postId: string;
   mediaCid: string;
 }
@@ -65,11 +75,14 @@ interface Ctx {
 const MODES: Mode[] = [
   {
     n: 1,
-    label: 'mint() text-only (no photo) → inline SVG cover',
-    run: (os, { postId }) =>
+    label: 'mint() text-only post → data: SVG on-chain',
+    run: (os, { textPostId }) =>
       os.scarces.fromPost.mint(
-        { author: ACCOUNT_ID, postId },
-        { title: 'Diag #1 — text-only auto-card', cardBg: 'serif-night' }
+        { author: ACCOUNT_ID, postId: textPostId },
+        {
+          title: `Diag #1/${RUN_ID} — text-only auto-card`,
+          cardBg: 'serif-night',
+        }
       ),
   },
   {
@@ -78,38 +91,25 @@ const MODES: Mode[] = [
     run: (os, { postId }) =>
       os.scarces.fromPost.mint(
         { author: ACCOUNT_ID, postId },
-        { title: 'Diag #2 — photo cover (default)' }
+        { title: `Diag #2/${RUN_ID} — photo cover (default)` }
       ),
   },
   {
     n: 3,
-    label: 'mint({useTextCard:true}) + photo → inline SVG with photo chip',
-    run: (os, { postId }) =>
-      os.scarces.fromPost.mint(
-        { author: ACCOUNT_ID, postId },
-        {
-          title: 'Diag #3 — text-card cover, photo as inset chip',
-          useTextCard: true,
-          cardBg: 'bold-noir',
-        }
-      ),
-  },
-  {
-    n: 4,
     label: "mintReceipt({palette:'light'}) → inline receipt SVG with photo proof",
     run: (os, { postId }) =>
       os.scarces.fromPost.mintReceipt(
         { author: ACCOUNT_ID, postId },
-        { title: 'Diag #4 — Receipt: shipped.', palette: 'light' }
+        { title: `Diag #3/${RUN_ID} — Receipt: shipped.`, palette: 'light' }
       ),
   },
   {
-    n: 5,
+    n: 4,
     label: "mintReceipt({palette:'noir'}) → inline receipt SVG with photo proof",
     run: (os, { postId }) =>
       os.scarces.fromPost.mintReceipt(
         { author: ACCOUNT_ID, postId },
-        { title: 'Diag #5 — Receipt: sold out.', palette: 'noir' }
+        { title: `Diag #4/${RUN_ID} — Receipt: sold out.`, palette: 'noir' }
       ),
   },
 ];
@@ -132,10 +132,10 @@ async function describeMedia(
     const svg = Buffer.from(b64, 'base64').toString('utf8');
     const file = path.join(OUT_DIR, `mode-${modeNum}.svg`);
     fs.writeFileSync(file, svg);
-    const hasPhoto = /<image\s[^>]*href="https?:\/\/[^"]+"/.test(svg);
+    const hasPhoto = /<image\s[^>]*href="data:image\/[^"]+"/.test(svg);
     console.log(`     media: data:URI (${b64.length} b64 chars, ${svg.length} bytes svg)`);
     console.log(`            saved → ${file}`);
-    console.log(`            embeds remote photo? ${hasPhoto ? 'yes' : 'no'}`);
+    console.log(`            embeds inline photo? ${hasPhoto ? 'yes' : 'no'}`);
     if (OPEN) {
       try {
         execFileSync('xdg-open', [file], { stdio: 'ignore' });
@@ -153,9 +153,9 @@ async function describeMedia(
         const svg = await res.text();
         const file = path.join(OUT_DIR, `mode-${modeNum}.svg`);
         fs.writeFileSync(file, svg);
-        const hasPhoto = /<image\s[^>]*href="https?:\/\/[^"]+"/.test(svg);
+        const hasPhoto = /<image\s[^>]*href="data:image\/[^"]+"/.test(svg);
         console.log(`            saved → ${file} (${svg.length} bytes)`);
-        console.log(`            embeds remote photo? ${hasPhoto ? 'yes' : 'no'}`);
+        console.log(`            embeds inline photo? ${hasPhoto ? 'yes' : 'no'}`);
         if (OPEN) {
           try {
             execFileSync('xdg-open', [file], { stdio: 'ignore' });
@@ -199,8 +199,9 @@ async function main() {
   console.log('═'.repeat(72));
   console.log(`  Gateway:   ${GATEWAY_URL}`);
   console.log(`  Account:   ${ACCOUNT_ID}`);
+  console.log(`  Run ID:    ${RUN_ID}  (titles: Diag #N/${RUN_ID})`);
   console.log(`  Output:    ${OUT_DIR}`);
-  console.log(`  Modes:     ${ONLY.length ? ONLY.join(',') : 'all (1-5)'}`);
+  console.log(`  Modes:     ${ONLY.length ? ONLY.join(',') : 'all (1-4)'}`);
   console.log();
 
   const network: 'testnet' | 'mainnet' = GATEWAY_URL.includes('testnet')
@@ -208,11 +209,23 @@ async function main() {
     : 'mainnet';
   const sdk = await getSessionClient();
 
-  // ── 0. Upload a photo + create a post we can mint from ────────────────
-  console.log('[0] upload photo to IPFS + create source post');
-  const file = new Blob([PNG_1x1], { type: 'image/png' });
+  // ── 0. Upload a photo + create both source posts ────────────────────
+  console.log('[0] upload photo + create source posts (text-only + with-photo)');
+  const file = new Blob([new Uint8Array(PHOTO_PNG)], { type: 'image/png' });
   const { cid: photoCid } = await sdk.storage.upload(file);
-  console.log(`    photoCid: ${photoCid}`);
+  console.log(`    photoCid:    ${photoCid}`);
+
+  // Mode 1 needs a post WITHOUT a photo so the gateway falls through
+  // to the text-only data: URI path. Post with photo is used by 2–5.
+  const textPostId = `diag-cards-text-${Date.now()}`;
+  await sdk.social.post(
+    {
+      text: `Diag text-only run @ ${new Date().toISOString()}`,
+      hashtags: ['diag'],
+    },
+    textPostId
+  );
+  console.log(`    textPostId:  ${textPostId}`);
 
   const postId = `diag-cards-${Date.now()}`;
   await sdk.social.post(
@@ -223,10 +236,10 @@ async function main() {
     },
     postId
   );
-  console.log(`    postId:   ${postId}`);
+  console.log(`    postId:      ${postId}`);
   console.log();
 
-  const ctx: Ctx = { postId, mediaCid: photoCid };
+  const ctx: Ctx = { textPostId, postId, mediaCid: photoCid };
   const modesToRun = ONLY.length ? MODES.filter((m) => ONLY.includes(m.n)) : MODES;
 
   let passed = 0;

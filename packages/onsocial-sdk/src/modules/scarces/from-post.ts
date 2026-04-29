@@ -99,7 +99,7 @@ export class ScarcesFromPostApi {
    * - a photo is required — either from `opts.cardPhotoCid` or the
    *   post's first image
    *
-   * Forces `useTextCard=true`. Pass `palette` to pick the finish
+   * Pass `palette` to pick the finish
    * (`'light'` default, or `'night' | 'noir' | 'dusk'`).
    *
    * ```ts
@@ -109,7 +109,7 @@ export class ScarcesFromPostApi {
    */
   async mintReceipt(
     post: PostSource,
-    opts: Omit<MintFromPostOptions, 'cardBg' | 'useTextCard'> & {
+    opts: Omit<MintFromPostOptions, 'cardBg'> & {
       palette?: 'light' | 'night' | 'noir' | 'dusk';
     } = {}
   ): Promise<MintResponse> {
@@ -133,7 +133,6 @@ export class ScarcesFromPostApi {
     return this.mint(post, {
       ...rest,
       title,
-      useTextCard: true,
       cardBg,
       cardPhotoCid: photoCid,
     });
@@ -167,14 +166,16 @@ export class ScarcesFromPostApi {
         `Post ${postId}`);
 
     // ── Media routing ──────────────────────────────────────────────
-    // - useTextCard:false (default): post photo becomes the cover.
-    // - useTextCard:true: text-card is the cover; the post's first
-    //   image becomes a small inset chip on the card so the photo
-    //   isn't lost (callers can override via `cardPhotoCid`).
+    // - Default: post photo becomes the cover (or no media → gateway
+    //   renders a text-only auto-card).
+    // - Receipt mood (cardBg starts with `receipt-`): the receipt SVG
+    //   is the cover and the photo is embedded inside it as proof; we
+    //   must not also pass `mediaCid` or the post photo would override
+    //   the rendered card.
+    const isReceiptMood = (opts.cardBg ?? '').startsWith('receipt-');
     const explicitMediaCid = opts.mediaCid ?? extracted.mediaCid;
-    const useTextCard = opts.useTextCard === true;
-    const resolvedMediaCid = useTextCard ? undefined : explicitMediaCid;
-    const resolvedPhotoCid = useTextCard
+    const resolvedMediaCid = isReceiptMood ? undefined : explicitMediaCid;
+    const resolvedPhotoCid = isReceiptMood
       ? (opts.cardPhotoCid ?? extracted.mediaCid)
       : opts.cardPhotoCid;
 

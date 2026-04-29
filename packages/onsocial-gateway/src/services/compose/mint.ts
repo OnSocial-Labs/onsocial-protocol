@@ -286,7 +286,7 @@ export async function buildMintAction(
       //     the "permanent thoughts" guarantee: as long as NEAR is
       //     alive, the art renders. ~800 bytes ⇒ ~$0.04 storage cost.
       //
-      //   • With photo (receipt / useTextCard+photo) → upload the SVG
+      //   • With photo (receipt mood) → upload the SVG
       //     to Lighthouse and put the https://cdn/ipfs/<cid> URL
       //     on-chain. Receipts are 5–50 KB once the photo is base64
       //     embedded — too large to comfortably keep on-chain. The

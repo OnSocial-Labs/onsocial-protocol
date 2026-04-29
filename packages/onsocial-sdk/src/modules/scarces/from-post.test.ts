@@ -146,42 +146,26 @@ describe('ScarcesModule.fromPost.mint', () => {
     expect(extra.gallery).toBeUndefined();
   });
 
-  it('useTextCard:true clears mediaCid and forwards photo as cardPhotoCid', async () => {
+  it('caller can override cardPhotoCid explicitly via receipt mood', async () => {
     const { mod, spies } = makeMod();
-    await mod.fromPost.mint(ROW, { useTextCard: true });
-    const [, , form] = spies.requestForm.mock.calls[0];
-    // No cover image — gateway will render the auto text-card.
-    expect(form.get('mediaCid')).toBeNull();
-    // Post's first image becomes the proof photo (only honoured when
-    // the gateway renders a receipt-mood card).
-    expect(form.get('cardPhotoCid')).toBe('bafyMedia1');
-  });
-
-  it('useTextCard:true with no post media renders pure text-card', async () => {
-    const { mod, spies } = makeMod();
-    const textOnly = {
-      ...ROW,
-      value: JSON.stringify({ text: 'words only' }),
-    };
-    await mod.fromPost.mint(textOnly, { useTextCard: true });
-    const [, , form] = spies.requestForm.mock.calls[0];
-    expect(form.get('mediaCid')).toBeNull();
-    expect(form.get('cardPhotoCid')).toBeNull();
-  });
-
-  it('caller can override cardPhotoCid explicitly', async () => {
-    const { mod, spies } = makeMod();
-    await mod.fromPost.mint(ROW, {
-      useTextCard: true,
-      cardPhotoCid: 'bafyOverridePhoto',
-    });
+    await mod.fromPost.mintReceipt(
+      {
+        ...ROW,
+        value: JSON.stringify({
+          text: 'Shipped.',
+          media: [{ cid: 'bafyDefault', mime: 'image/png' }],
+        }),
+      },
+      { cardPhotoCid: 'bafyOverridePhoto' }
+    );
     const [, , form] = spies.requestForm.mock.calls[0];
     expect(form.get('cardPhotoCid')).toBe('bafyOverridePhoto');
+    expect(form.get('mediaCid')).toBeNull();
   });
 });
 
 describe('ScarcesModule.fromPost.mintReceipt', () => {
-  it('forwards receipt mood + post photo + useTextCard:true', async () => {
+  it('forwards receipt mood + post photo as proof; never as cover', async () => {
     const { mod, spies } = makeMod();
     await mod.fromPost.mintReceipt({
       ...ROW,
