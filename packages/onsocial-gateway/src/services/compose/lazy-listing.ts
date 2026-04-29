@@ -12,7 +12,7 @@ import {
   ComposeError,
   uploadToLighthouse,
   uploadJsonToLighthouse,
-  uploadSvgToLighthouse,
+  inlineSvgAsDataUri,
   intentAuth,
   relayExecute,
   extractTxHash,
@@ -233,9 +233,10 @@ export async function buildLazyListAction(
       creator,
       theme: themeForCard,
     });
-    // Upload the SVG to Lighthouse — wallets reject inline data: URIs
-    // in NFT media fields. See mint.ts for full rationale.
-    media = await uploadSvgToLighthouse(svg, `card-${Date.now()}.svg`);
+    // Inline the SVG as a data: URI directly in the on-chain `media`
+    // field. Lazy listings have no photo, so the SVG is small (~800
+    // bytes) and lives entirely on NEAR — no IPFS / CDN dependency.
+    media = inlineSvgAsDataUri(svg);
     req.extra = {
       ...(req.extra || {}),
       theme: {
@@ -248,7 +249,7 @@ export async function buildLazyListAction(
     };
     logger.info(
       { accountId, size: media.size, theme: themeForCard },
-      'Compose lazy-list: auto-generated text card inlined as data: URI'
+      'Compose lazy-list: text-only card inlined as data: URI on-chain'
     );
   }
 

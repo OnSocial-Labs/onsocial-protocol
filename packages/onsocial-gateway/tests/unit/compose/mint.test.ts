@@ -83,12 +83,12 @@ describe('composeMint', () => {
     );
   });
 
-  it('auto-generates a text-card and uploads it to Lighthouse when no image and not opted out', async () => {
-    // Both the SVG card and the metadata JSON hit Lighthouse via uploadText.
-    // First call = SVG, second = metadata JSON.
-    mockUploadText
-      .mockResolvedValueOnce({ data: { Hash: 'QmAutoSvg', Size: 1234 } })
-      .mockResolvedValueOnce({ data: { Hash: 'QmAutoMeta', Size: 256 } });
+  it('auto-generates a text-card and inlines it as a data: URI on-chain when no image and not opted out', async () => {
+    // Text-only cards live entirely on-chain (data:image/svg+xml;base64,...)
+    // so only the metadata JSON hits Lighthouse via uploadText.
+    mockUploadText.mockResolvedValueOnce({
+      data: { Hash: 'QmAutoMeta', Size: 256 },
+    });
     mockRelaySuccess('tx_mint_autocard');
 
     const result = await composeMint(
@@ -98,11 +98,9 @@ describe('composeMint', () => {
     );
 
     expect(result.txHash).toBe('tx_mint_autocard');
-    // Auto-card now has a real CID (uploaded to Lighthouse so wallets render).
-    expect(result.media!.cid).toBe('QmAutoSvg');
-    expect(result.media!.url).toBe(
-      'https://test-gw.lighthouseweb3.xyz/ipfs/QmAutoSvg'
-    );
+    // Text-only card: no IPFS CID, media is a data: URI permanently on chain.
+    expect(result.media!.cid).toBe('');
+    expect(result.media!.url).toMatch(/^data:image\/svg\+xml;base64,/);
     expect(result.metadata!.cid).toBe('QmAutoMeta');
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
@@ -111,26 +109,30 @@ describe('composeMint', () => {
       'https://test-gw.lighthouseweb3.xyz/ipfs/QmAutoMeta'
     );
 
-    // Inspect the SVG payload that was sent to uploadText (call 0).
-    const svg = mockUploadText.mock.calls[0][0] as string;
+    // Decode the data: URI to inspect the SVG payload.
+    const base64 = result.media!.url.replace(
+      /^data:image\/svg\+xml;base64,/,
+      ''
+    );
+    const svg = Buffer.from(base64, 'base64').toString('utf8');
     expect(svg).toContain('<svg');
     expect(svg).toContain('Just Words');
     // Author defaults to caller accountId when no creator is supplied.
     expect(svg).toContain('@alice.testnet');
     // No platform branding on the visual.
     expect(svg).not.toContain('OnSocial');
-    // No image bytes uploaded — SVG + metadata both go through uploadText.
+    // No image bytes uploaded — only the metadata JSON goes through uploadText.
     expect(mockUploadBuffer).not.toHaveBeenCalled();
-    expect(mockUploadText).toHaveBeenCalledTimes(2);
+    expect(mockUploadText).toHaveBeenCalledTimes(1);
   });
 
   it('renders the supplied creator displayName on the auto-card', async () => {
-    mockUploadText
-      .mockResolvedValueOnce({ data: { Hash: 'QmSvg2', Size: 1234 } })
-      .mockResolvedValueOnce({ data: { Hash: 'QmMeta2', Size: 256 } });
+    mockUploadText.mockResolvedValueOnce({
+      data: { Hash: 'QmMeta2', Size: 256 },
+    });
     mockRelaySuccess('tx_mint_creator');
 
-    await composeMint(
+    const result = await composeMint(
       'alice.testnet',
       {
         title: 'A thought',
@@ -139,7 +141,11 @@ describe('composeMint', () => {
       undefined
     );
 
-    const svg = mockUploadText.mock.calls[0][0] as string;
+    const base64 = result.media!.url.replace(
+      /^data:image\/svg\+xml;base64,/,
+      ''
+    );
+    const svg = Buffer.from(base64, 'base64').toString('utf8');
     expect(svg).toContain('Alice Smith');
     expect(svg).toContain('@alice.near');
   });

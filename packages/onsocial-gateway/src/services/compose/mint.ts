@@ -10,6 +10,7 @@ import {
   uploadToLighthouse,
   uploadJsonToLighthouse,
   uploadSvgToLighthouse,
+  inlineSvgAsDataUri,
   fetchImageAsDataUri,
   intentAuth,
   relayExecute,
@@ -277,11 +278,33 @@ export async function buildMintAction(
         theme: themeForCard,
         ...(photoDataUri ? { photo: photoDataUri } : {}),
       });
-      // Upload the SVG to Lighthouse so wallets get a normal
-      // https://cdn…/ipfs/<cid> URL on-chain. Inlining as data: URI
-      // works in browsers but most NFT wallet renderers reject
-      // `media: data:image/svg+xml;…` and show a broken image.
-      media = await uploadSvgToLighthouse(svg, `card-${Date.now()}.svg`);
+      // Storage strategy splits by mood:
+      //
+      //   • Text-only (no photo) → inline the SVG as `data:` directly
+      //     in the on-chain `media` field. The whole NFT lives on
+      //     NEAR — no IPFS / CDN / pinning service dependency. This is
+      //     the "permanent thoughts" guarantee: as long as NEAR is
+      //     alive, the art renders. ~800 bytes ⇒ ~$0.04 storage cost.
+      //
+      //   • With photo (receipt / useTextCard+photo) → upload the SVG
+      //     to Lighthouse and put the https://cdn/ipfs/<cid> URL
+      //     on-chain. Receipts are 5–50 KB once the photo is base64
+      //     embedded — too large to comfortably keep on-chain. The
+      //     photo bytes are still embedded *inside* the SVG so wallets
+      //     render correctly without cross-origin blocking.
+      if (photoDataUri) {
+        media = await uploadSvgToLighthouse(svg, `card-${Date.now()}.svg`);
+        logger.info(
+          { accountId, cid: media.cid, size: media.size, theme: themeForCard },
+          'Compose mint: auto-card with photo uploaded to Lighthouse'
+        );
+      } else {
+        media = inlineSvgAsDataUri(svg);
+        logger.info(
+          { accountId, size: media.size, theme: themeForCard },
+          'Compose mint: text-only card inlined as data: URI on-chain'
+        );
+      }
       // Persist resolved theme keys so indexers / future re-renders can
       // reproduce the look without parsing the SVG.
       req.extra = {
@@ -295,10 +318,6 @@ export async function buildMintAction(
           ...(req.cardPhotoCid && { photoCid: req.cardPhotoCid }),
         },
       };
-      logger.info(
-        { accountId, cid: media.cid, size: media.size, theme: themeForCard },
-        'Compose mint: auto-generated text card uploaded to Lighthouse'
-      );
     }
   }
 

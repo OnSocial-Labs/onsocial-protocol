@@ -5,12 +5,11 @@
 //
 // Storage matrix this script exercises:
 //
-//   1. mint(), no photo, no skipAutoMedia       → SVG uploaded to Lighthouse, https://cdn…/ipfs/<cid>
+//   1. mint(), no photo, no skipAutoMedia       → SVG inlined as data:image/svg+xml on-chain (true on-chain art)
 //   2. mint(), post has photo (default)         → photo CID via IPFS gateway
-//   3. mint({useTextCard:true}) + photo         → SVG uploaded to Lighthouse; photo as <image href>
-//   4. mintReceipt({palette:'light'}) + photo   → SVG uploaded to Lighthouse; photo as <image href>
-//   5. mintReceipt({palette:'noir'})  + photo   → SVG uploaded to Lighthouse; photo as <image href>
-//
+//   3. mint({useTextCard:true}) + photo         → SVG uploaded to Lighthouse; photo embedded as data: inside SVG
+//   4. mintReceipt({palette:'light'}) + photo   → SVG uploaded to Lighthouse; photo embedded as data: inside SVG
+//   5. mintReceipt({palette:'noir'})  + photo   → SVG uploaded to Lighthouse; photo embedded as data: inside SVG//
 // For each mint, we:
 //   • print the txHash + media URL
 //   • if media is an https://… URL    → GET the bytes; if SVG, save to /tmp
