@@ -5,12 +5,16 @@ on:
     branches: [main]
     paths:
       - 'packages/onsocial-gateway/**'
+      - 'packages/onsocial-text-card/**'
+      - 'packages/onsocial-rpc/**'
       - '.github/workflows/onsocial-gateway-ci.yml'
       - 'pnpm-lock.yaml'
   pull_request:
     branches: [main]
     paths:
       - 'packages/onsocial-gateway/**'
+      - 'packages/onsocial-text-card/**'
+      - 'packages/onsocial-rpc/**'
       - '.github/workflows/onsocial-gateway-ci.yml'
       - 'pnpm-lock.yaml'
   workflow_dispatch:
@@ -95,10 +99,10 @@ jobs:
         run: pnpm --filter onsocial-gateway lint
 
       - name: Format check
-        run: pnpm --filter onsocial-gateway exec prettier --check .
+        run: pnpm --filter onsocial-gateway format:check
 
       - name: Build
-        run: pnpm --filter @onsocial/rpc build && pnpm --filter onsocial-gateway build
+        run: pnpm --filter @onsocial/rpc build && pnpm --filter @onsocial/text-card build && pnpm --filter onsocial-gateway build
 
       - name: Setup database
         run: |
