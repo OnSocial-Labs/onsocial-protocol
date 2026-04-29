@@ -5,16 +5,15 @@
 //
 // Storage matrix this script exercises:
 //
-//   1. mint(), no photo, no skipAutoMedia       → SVG inline as data: URI
+//   1. mint(), no photo, no skipAutoMedia       → SVG uploaded to Lighthouse, https://cdn…/ipfs/<cid>
 //   2. mint(), post has photo (default)         → photo CID via IPFS gateway
-//   3. mint({useTextCard:true}) + photo         → SVG inline; photo as <image href>
-//   4. mintReceipt({palette:'light'}) + photo   → SVG inline; photo as <image href>
-//   5. mintReceipt({palette:'noir'})  + photo   → SVG inline; photo as <image href>
+//   3. mint({useTextCard:true}) + photo         → SVG uploaded to Lighthouse; photo as <image href>
+//   4. mintReceipt({palette:'light'}) + photo   → SVG uploaded to Lighthouse; photo as <image href>
+//   5. mintReceipt({palette:'noir'})  + photo   → SVG uploaded to Lighthouse; photo as <image href>
 //
 // For each mint, we:
 //   • print the txHash + media URL
-//   • if media is data:image/svg+xml;base64,…  → decode + write to /tmp
-//   • if media is https://…                    → HEAD-check it returns 2xx
+//   • if media is an https://… URL    → GET the bytes; if SVG, save to /tmp
 //   • print Bitte / MyNearWallet inspector URLs for the resulting tokenId
 //
 // Usage:
@@ -148,12 +147,26 @@ async function describeMedia(
   } else if (url.startsWith('http://') || url.startsWith('https://')) {
     console.log(`     media: ${url}`);
     try {
-      const res = await fetch(url, { method: 'HEAD' });
-      console.log(
-        `            HEAD ${res.status} ${res.statusText} content-type=${res.headers.get('content-type') ?? '?'}`
-      );
+      const res = await fetch(url);
+      const ct = res.headers.get('content-type') ?? '?';
+      console.log(`            GET ${res.status} ${res.statusText} content-type=${ct}`);
+      if (res.ok && ct.includes('svg')) {
+        const svg = await res.text();
+        const file = path.join(OUT_DIR, `mode-${modeNum}.svg`);
+        fs.writeFileSync(file, svg);
+        const hasPhoto = /<image\s[^>]*href="https?:\/\/[^"]+"/.test(svg);
+        console.log(`            saved → ${file} (${svg.length} bytes)`);
+        console.log(`            embeds remote photo? ${hasPhoto ? 'yes' : 'no'}`);
+        if (OPEN) {
+          try {
+            execFileSync('xdg-open', [file], { stdio: 'ignore' });
+          } catch {
+            /* ignore */
+          }
+        }
+      }
     } catch (e) {
-      console.log(`            HEAD failed: ${(e as Error).message}`);
+      console.log(`            GET failed: ${(e as Error).message}`);
     }
   } else {
     console.log(`     media (unknown scheme): ${url.slice(0, 80)}…`);

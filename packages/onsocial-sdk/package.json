@@ -25,6 +25,7 @@
     "test:integration": "vitest run tests/integration --fileParallelism=false",
     "test:all": "vitest run",
     "diag:cards": "tsx tests/integration/diag-mint-cards.mts",
+    "diag:receipt": "tsx tests/integration/diag-receipt-yellow.mts",
     "check": "pnpm lint && pnpm format:check && pnpm build && pnpm test"
   },
   "dependencies": {

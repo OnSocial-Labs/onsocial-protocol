@@ -9,7 +9,7 @@ import {
   ComposeError,
   uploadToLighthouse,
   uploadJsonToLighthouse,
-  inlineSvgAsDataUri,
+  uploadSvgToLighthouse,
   intentAuth,
   relayExecute,
   extractTxHash,
@@ -266,7 +266,11 @@ export async function buildMintAction(
         theme: themeForCard,
         ...(req.cardPhotoCid ? { photo: gatewayUrl(req.cardPhotoCid) } : {}),
       });
-      media = inlineSvgAsDataUri(svg);
+      // Upload the SVG to Lighthouse so wallets get a normal
+      // https://cdn…/ipfs/<cid> URL on-chain. Inlining as data: URI
+      // works in browsers but most NFT wallet renderers reject
+      // `media: data:image/svg+xml;…` and show a broken image.
+      media = await uploadSvgToLighthouse(svg, `card-${Date.now()}.svg`);
       // Persist resolved theme keys so indexers / future re-renders can
       // reproduce the look without parsing the SVG.
       req.extra = {
@@ -281,8 +285,8 @@ export async function buildMintAction(
         },
       };
       logger.info(
-        { accountId, size: media.size, theme: themeForCard },
-        'Compose mint: auto-generated text card inlined as data: URI'
+        { accountId, cid: media.cid, size: media.size, theme: themeForCard },
+        'Compose mint: auto-generated text card uploaded to Lighthouse'
       );
     }
   }

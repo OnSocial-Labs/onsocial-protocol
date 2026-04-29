@@ -12,7 +12,7 @@ import {
   ComposeError,
   uploadToLighthouse,
   uploadJsonToLighthouse,
-  inlineSvgAsDataUri,
+  uploadSvgToLighthouse,
   intentAuth,
   relayExecute,
   extractTxHash,
@@ -233,7 +233,9 @@ export async function buildLazyListAction(
       creator,
       theme: themeForCard,
     });
-    media = inlineSvgAsDataUri(svg);
+    // Upload the SVG to Lighthouse — wallets reject inline data: URIs
+    // in NFT media fields. See mint.ts for full rationale.
+    media = await uploadSvgToLighthouse(svg, `card-${Date.now()}.svg`);
     req.extra = {
       ...(req.extra || {}),
       theme: {
