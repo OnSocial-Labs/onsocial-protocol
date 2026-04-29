@@ -6,6 +6,8 @@ name: Build and Publish Main Images
     paths:
       - 'docker/**'
       - 'packages/onsocial-gateway/**'
+      - 'packages/onsocial-sdk/**'
+      - 'packages/onsocial-text-card/**'
       - 'packages/onsocial-backend/**'
       - 'packages/onsocial-relayer/**'
       - 'packages/onsocial-pages/**'
