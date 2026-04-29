@@ -10,6 +10,7 @@ import {
   uploadToLighthouse,
   uploadJsonToLighthouse,
   uploadSvgToLighthouse,
+  fetchImageAsDataUri,
   intentAuth,
   relayExecute,
   extractTxHash,
@@ -259,12 +260,22 @@ export async function buildMintAction(
           titleAlign: req.cardTitleAlign as TitleAlign,
         }),
       };
+      // Inline the proof photo as a `data:image/...` URI inside the
+      // SVG. Wallets render NFT media via `<img src=svg-url>`, and
+      // browsers block external `<image href=https://...>` references
+      // when an SVG is loaded that way → broken icon in the chip. We
+      // still upload the photo CID separately (persisted in
+      // `theme.photoCid`) so the on-chain payload remains
+      // content-addressable.
+      const photoDataUri = req.cardPhotoCid
+        ? await fetchImageAsDataUri(gatewayUrl(req.cardPhotoCid))
+        : undefined;
       const svg = generateTextCardSvg({
         title: req.title,
         description: req.description,
         creator,
         theme: themeForCard,
-        ...(req.cardPhotoCid ? { photo: gatewayUrl(req.cardPhotoCid) } : {}),
+        ...(photoDataUri ? { photo: photoDataUri } : {}),
       });
       // Upload the SVG to Lighthouse so wallets get a normal
       // https://cdn…/ipfs/<cid> URL on-chain. Inlining as data: URI

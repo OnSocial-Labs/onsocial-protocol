@@ -162,6 +162,52 @@ export async function uploadSvgToLighthouse(
 }
 
 /**
+ * Fetch a remote image and return a `data:<mime>;base64,...` URI.
+ *
+ * Used to inline external photo references inside SVGs that will be
+ * served via `<img src=...>` in wallets. Browsers block external
+ * `<image href>` resources when the SVG is loaded that way for
+ * security, which makes the embedded photo show as a broken icon.
+ * Embedding the bytes as a data URI sidesteps the restriction.
+ *
+ * Throws `ComposeError(502, ...)` on fetch failure or non-image
+ * content-type so callers can surface a 502 instead of silently
+ * shipping a card with a broken photo chip.
+ */
+export async function fetchImageAsDataUri(
+  url: string,
+  timeoutMs = 8_000
+): Promise<string> {
+  let res: Response;
+  try {
+    res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+  } catch (err) {
+    throw new ComposeError(
+      502,
+      `Failed to fetch photo for inline embed: ${String(err)}`
+    );
+  }
+  if (!res.ok) {
+    throw new ComposeError(
+      502,
+      `Failed to fetch photo for inline embed: HTTP ${res.status}`
+    );
+  }
+  const contentType = res.headers.get('content-type') || 'image/png';
+  // Only allow image MIME types — refuses html/json/etc. so we never
+  // smuggle a non-image payload into the SVG.
+  const mime = contentType.split(';')[0].trim().toLowerCase();
+  if (!mime.startsWith('image/')) {
+    throw new ComposeError(
+      502,
+      `Photo URL returned non-image content-type: ${mime}`
+    );
+  }
+  const buf = Buffer.from(await res.arrayBuffer());
+  return `data:${mime};base64,${buf.toString('base64')}`;
+}
+
+/**
  * Encode an SVG as a `data:image/svg+xml;base64,...` URI.
  *
  * Returns the same `UploadResult` shape as the upload helpers; `cid` is
