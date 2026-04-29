@@ -82,11 +82,12 @@ router.post(
 router.get('/health', (_req: Request, res: Response) => {
   res.json({
     status: config.lighthouseApiKey ? 'ok' : 'unconfigured',
-    gateway: 'https://gateway.lighthouse.storage',
+    gateway: config.lighthouseGatewayBase,
   });
 });
 
-const GATEWAY_URL = 'https://gateway.lighthouse.storage/ipfs';
+const gatewayUrl = (cid: string): string =>
+  `${config.lighthouseGatewayBase.replace(/\/+$/, '')}/${cid}`;
 
 // GET /storage/url/:cid - Get gateway URL for a CID
 router.get('/url/:cid', (req: Request, res: Response) => {
@@ -95,7 +96,7 @@ router.get('/url/:cid', (req: Request, res: Response) => {
     res.status(400).json({ error: 'Invalid or missing CID' });
     return;
   }
-  res.json({ url: `${GATEWAY_URL}/${cid}` });
+  res.json({ url: gatewayUrl(cid) });
 });
 
 // GET /storage/:cid/json - Download and parse as JSON (MUST come before /:cid)
@@ -107,7 +108,7 @@ router.get('/:cid/json', async (req: Request, res: Response) => {
   }
 
   try {
-    const response = await fetch(`${GATEWAY_URL}/${cid}`, {
+    const response = await fetch(gatewayUrl(cid), {
       signal: AbortSignal.timeout(15_000),
     });
     if (!response.ok) {
@@ -132,7 +133,7 @@ router.get('/:cid', async (req: Request, res: Response) => {
   }
 
   try {
-    const response = await fetch(`${GATEWAY_URL}/${cid}`, {
+    const response = await fetch(gatewayUrl(cid), {
       signal: AbortSignal.timeout(30_000),
     });
     if (!response.ok) {

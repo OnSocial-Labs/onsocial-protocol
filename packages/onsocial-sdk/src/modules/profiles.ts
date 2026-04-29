@@ -184,8 +184,8 @@ export class ProfilesModule {
   }
 
   /**
-   * Resolve a profile's avatar to a hosted gateway URL (e.g.
-   * `https://gateway.onsocial.id/ipfs/<cid>`). Returns the raw value
+  * Resolve a profile's avatar to a hosted CDN URL (e.g.
+  * `https://cdn.onsocial.id/ipfs/<cid>`). Returns the raw value
    * unchanged if it isn't an `ipfs://` reference, and `null` if no avatar
    * is set.
    */

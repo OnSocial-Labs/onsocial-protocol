@@ -21,6 +21,11 @@
 import type { HttpClient } from '../http.js';
 import type { MediaRef } from '../schema/v1.js';
 
+const ONSOCIAL_CDN_BASE: Record<string, string> = {
+  mainnet: 'https://cdn.onsocial.id/ipfs',
+  testnet: 'https://cdn.testnet.onsocial.id/ipfs',
+};
+
 /**
  * Result of a successful upload. All provider-knowable fields are populated;
  * renderer-hints like `width`, `height`, `alt`, `blurhash` may be filled in
@@ -131,7 +136,10 @@ export class GatewayProvider implements StorageProvider {
   }
 
   url(cid: string): string {
-    return `https://gateway.lighthouse.storage/ipfs/${cid}`;
+    const base =
+      ONSOCIAL_CDN_BASE[this._http.network] ??
+      'https://cdn.testnet.onsocial.id/ipfs';
+    return `${base}/${cid}`;
   }
 }
 
