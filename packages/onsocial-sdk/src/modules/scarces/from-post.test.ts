@@ -52,7 +52,7 @@ describe('ScarcesModule.fromPost.mint', () => {
     });
   });
 
-  it('truncates long text to 100 char title', async () => {
+  it('truncates long unbroken text to ~80 char title with ellipsis', async () => {
     const { mod, spies } = makeMod();
     const longText = 'x'.repeat(200);
     await mod.fromPost.mint({
@@ -60,8 +60,33 @@ describe('ScarcesModule.fromPost.mint', () => {
       value: JSON.stringify({ text: longText }),
     });
     const [, , form] = spies.requestForm.mock.calls[0];
-    expect((form.get('title') as string).length).toBe(100);
-    expect(form.get('title')).toMatch(/\.\.\.$/);
+    expect((form.get('title') as string).length).toBe(80);
+    expect(form.get('title')).toMatch(/\u2026$/);
+  });
+
+  it('uses first sentence as title when post has multiple sentences', async () => {
+    const { mod, spies } = makeMod();
+    await mod.fromPost.mint({
+      ...ROW,
+      value: JSON.stringify({
+        text: 'Shipped v2 of the relayer. Three months of grinding paid off. Demo at 5pm.',
+      }),
+    });
+    const [, , form] = spies.requestForm.mock.calls[0];
+    expect(form.get('title')).toBe('Shipped v2 of the relayer.');
+    // Description keeps the full text since it differs from the title.
+    expect(form.get('description')).toMatch(/Three months/);
+  });
+
+  it('drops description when post text equals title (no duplication)', async () => {
+    const { mod, spies } = makeMod();
+    await mod.fromPost.mint({
+      ...ROW,
+      value: JSON.stringify({ text: 'Just shipped.' }),
+    });
+    const [, , form] = spies.requestForm.mock.calls[0];
+    expect(form.get('title')).toBe('Just shipped.');
+    expect(form.get('description')).toBeNull();
   });
 
   it('falls back to "Post <id>" title when text empty', async () => {

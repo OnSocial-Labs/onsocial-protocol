@@ -21,6 +21,44 @@ import type { SocialModule } from '../../social.js';
 import type { ScarcesTokensApi } from './tokens.js';
 import type { ScarcesLazyApi } from './lazy.js';
 
+/** Title length above which we hard-truncate (keeps wallet grids tidy). */
+const TITLE_MAX = 80;
+
+/**
+ * Derive a short, headline-style title from longer post text so it
+ * differs meaningfully from `description`. Strategy:
+ *   1. First non-empty line if it's a clear standalone (shorter than
+ *      the rest), OR
+ *   2. First sentence (split on `.`/`!`/`?`/newline) if shorter than
+ *      the rest, OR
+ *   3. Whole text if already ≤ TITLE_MAX, OR
+ *   4. Hard-truncated to TITLE_MAX-1 chars + ellipsis.
+ */
+function deriveTitle(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed) return '';
+  const firstLine = trimmed.split(/\r?\n/)[0]!.trim();
+  const firstSentence = firstLine.split(/(?<=[.!?])\s+/)[0]!.trim();
+  // Prefer the first sentence if it's clearly a headline (notably
+  // shorter than the rest and within TITLE_MAX).
+  if (
+    firstSentence &&
+    firstSentence.length < trimmed.length &&
+    firstSentence.length <= TITLE_MAX
+  ) {
+    return firstSentence;
+  }
+  if (
+    firstLine &&
+    firstLine.length < trimmed.length &&
+    firstLine.length <= TITLE_MAX
+  ) {
+    return firstLine;
+  }
+  if (trimmed.length <= TITLE_MAX) return trimmed;
+  return trimmed.slice(0, TITLE_MAX - 1).trimEnd() + '\u2026';
+}
+
 export class ScarcesFromPostApi {
   constructor(
     private _tokens: ScarcesTokensApi,
@@ -160,10 +198,13 @@ export class ScarcesFromPostApi {
     opts: MintFromPostOptions
   ): MintOptions {
     const text = extracted.text;
-    const title =
-      opts.title ??
-      ((text.length > 100 ? text.slice(0, 97) + '...' : text) ||
-        `Post ${postId}`);
+    const title = opts.title ?? (deriveTitle(text) || `Post ${postId}`);
+    // Avoid duplicating the title verbatim in description — if the post
+    // is short enough that title === text, drop description so the
+    // wallet detail view shows the title once instead of twice.
+    const explicitDescription = opts.description;
+    const fallbackDescription = text === title ? undefined : text || undefined;
+    const description = explicitDescription ?? fallbackDescription;
 
     // ── Media routing ──────────────────────────────────────────────
     // - Default: post photo becomes the cover (or no media → gateway
@@ -190,7 +231,7 @@ export class ScarcesFromPostApi {
 
     return {
       title,
-      description: opts.description ?? text,
+      ...(description ? { description } : {}),
       ...(opts.copies != null ? { copies: opts.copies } : {}),
       ...(opts.royalty ? { royalty: opts.royalty } : {}),
       ...(opts.appId ? { appId: opts.appId } : {}),
