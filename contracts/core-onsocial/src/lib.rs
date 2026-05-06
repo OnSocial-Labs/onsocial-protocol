@@ -17,7 +17,7 @@ mod state;
 mod status;
 mod storage;
 mod validation;
-pub use protocol::{Action, Auth, Options, Request};
+pub use protocol::{Action, Options, Request};
 #[cfg(test)]
 mod tests;
 

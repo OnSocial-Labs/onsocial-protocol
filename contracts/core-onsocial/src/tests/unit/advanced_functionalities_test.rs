@@ -27,7 +27,7 @@ mod test_advanced_functionalities {
         let options = Some(crate::Options {
             refund_unused_deposit: true,
         });
-        let result = contract.execute(set_request_with_options(deposit_data, options));
+        let result = contract.execute_admin(set_request_with_options(deposit_data, options));
         assert!(result.is_ok(), "Storage deposit should succeed");
 
         // Verify storage balance
@@ -89,7 +89,7 @@ mod test_advanced_functionalities {
         let options = Some(crate::Options {
             refund_unused_deposit: true,
         });
-        let result = contract.execute(set_request_with_options(deposit_data, options));
+        let result = contract.execute_admin(set_request_with_options(deposit_data, options));
         assert!(result.is_ok());
 
         // Add some data
@@ -109,7 +109,7 @@ mod test_advanced_functionalities {
                 "amount": (deposit_amount + 1_000_000_000_000_000_000_000_000).to_string() // More than deposited
             }
         });
-        let result = contract.execute(set_request(withdraw_too_much));
+        let result = contract.execute_admin(set_request(withdraw_too_much));
         assert!(
             result.is_err(),
             "Withdrawal of more than balance should fail"
@@ -122,7 +122,7 @@ mod test_advanced_functionalities {
                 "amount": withdraw_amount.to_string()
             }
         });
-        let result = contract.execute(set_request(withdraw_data));
+        let result = contract.execute_admin(set_request(withdraw_data));
         assert!(result.is_ok(), "Partial withdrawal should succeed");
 
         // Verify balance decreased
@@ -149,7 +149,7 @@ mod test_advanced_functionalities {
                 "amount": pool_deposit.to_string()
             }
         });
-        let result = contract.execute(set_request(pool_deposit_data));
+        let result = contract.execute_admin(set_request(pool_deposit_data));
         assert!(result.is_ok(), "Shared pool deposit should succeed");
 
         // Owner shares storage capacity with beneficiary
@@ -160,7 +160,7 @@ mod test_advanced_functionalities {
                 "max_bytes": max_bytes
             }
         });
-        let result = contract.execute(set_request(share_data));
+        let result = contract.execute_admin(set_request(share_data));
         assert!(result.is_ok(), "Storage sharing should succeed");
 
         // Verify beneficiary has shared storage allocation
@@ -190,7 +190,7 @@ mod test_advanced_functionalities {
 
         // Convert attached deposit into storage balance for `owner`.
         contract
-            .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
+            .execute_admin(set_request(json!({"storage/deposit": {"amount": "1"}})))
             .unwrap();
 
         let base_path = format!("{}/content", owner.as_str());
@@ -223,7 +223,7 @@ mod test_advanced_functionalities {
                 "level": WRITE
             }
         });
-        let result = contract.execute(set_request(grant_write));
+        let result = contract.execute_admin(set_request(grant_write));
         assert!(result.is_ok());
 
         // Verify WRITE permission at base level and inherited paths
@@ -264,7 +264,7 @@ mod test_advanced_functionalities {
                 "level": MODERATE
             }
         });
-        let result = contract.execute(set_request(grant_moderate));
+        let result = contract.execute_admin(set_request(grant_moderate));
         assert!(result.is_ok());
 
         // Now grantee has both WRITE and MODERATE at the specific path
@@ -302,7 +302,7 @@ mod test_advanced_functionalities {
 
         // Convert attached deposit into storage balance for `owner`.
         contract
-            .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
+            .execute_admin(set_request(json!({"storage/deposit": {"amount": "1"}})))
             .unwrap();
 
         let test_path = format!("{}/temp", owner.as_str());
@@ -317,7 +317,7 @@ mod test_advanced_functionalities {
                 "expires_at": expires_at
             }
         });
-        let result = contract.execute(set_request(grant_data));
+        let result = contract.execute_admin(set_request(grant_data));
         assert!(result.is_ok());
 
         // Permission should be active now
@@ -350,7 +350,7 @@ mod test_advanced_functionalities {
                 "amount": "3000000000000000000000000"  // 3 NEAR
             }
         });
-        let result = contract.execute(set_request(deposit_data));
+        let result = contract.execute_admin(set_request(deposit_data));
         assert!(result.is_ok());
 
         // Content creator sets up collaborative workspace
@@ -378,7 +378,7 @@ mod test_advanced_functionalities {
                 "level": WRITE
             }
         });
-        let result = contract.execute(set_request(grant_collaborator));
+        let result = contract.execute_admin(set_request(grant_collaborator));
         assert!(result.is_ok());
 
         // Grant MODERATE permission to moderator for oversight (implies WRITE in checks)
@@ -389,7 +389,7 @@ mod test_advanced_functionalities {
                 "level": MODERATE
             }
         });
-        let result = contract.execute(set_request(grant_moderator));
+        let result = contract.execute_admin(set_request(grant_moderator));
         assert!(result.is_ok());
 
         // Verify permissions are correctly set
@@ -477,7 +477,7 @@ mod test_advanced_functionalities {
                 "level": WRITE
             }
         });
-        let result = contract.execute(set_request(grant_broad));
+        let result = contract.execute_admin(set_request(grant_broad));
         assert!(result.is_ok());
 
         // Verify inheritance works
@@ -503,7 +503,7 @@ mod test_advanced_functionalities {
                 "path": restricted_path.clone()
             }
         });
-        let result = contract.execute(set_request(revoke_data));
+        let result = contract.execute_admin(set_request(revoke_data));
         assert!(result.is_ok());
 
         // User should still have WRITE at root and public paths (inheritance works)
@@ -537,7 +537,7 @@ mod test_advanced_functionalities {
                 "path": root_path.clone()
             }
         });
-        let result = contract.execute(set_request(revoke_root));
+        let result = contract.execute_admin(set_request(revoke_root));
         assert!(result.is_ok());
 
         // Now user should have no permissions anywhere in the hierarchy
@@ -582,7 +582,7 @@ mod test_advanced_functionalities {
                 "amount": pool_deposit.to_string()
             }
         });
-        let result = contract.execute(set_request(pool_deposit_data));
+        let result = contract.execute_admin(set_request(pool_deposit_data));
         assert!(result.is_ok());
 
         // Share storage with multiple users
@@ -592,7 +592,7 @@ mod test_advanced_functionalities {
                 "max_bytes": 50_000  // 50KB each
             }
         });
-        let result = contract.execute(set_request(share_user1));
+        let result = contract.execute_admin(set_request(share_user1));
         assert!(result.is_ok());
 
         let share_user2 = json!({
@@ -601,7 +601,7 @@ mod test_advanced_functionalities {
                 "max_bytes": 50_000  // 50KB each
             }
         });
-        let result = contract.execute(set_request(share_user2));
+        let result = contract.execute_admin(set_request(share_user2));
         assert!(result.is_ok());
 
         // Users can now store data without individual deposits
@@ -744,7 +744,7 @@ mod test_advanced_functionalities {
                 "amount": "2000000000000000000000000"  // 2 NEAR for storage
             }
         });
-        let result = contract.execute(set_request(deposit_data));
+        let result = contract.execute_admin(set_request(deposit_data));
         assert!(result.is_ok());
 
         // Verify storage balance
@@ -819,7 +819,7 @@ mod test_advanced_functionalities {
                 "amount": "100000000000000000000000"  // 0.1 NEAR (minimal)
             }
         });
-        let result = contract.execute(set_request(small_deposit));
+        let result = contract.execute_admin(set_request(small_deposit));
         assert!(result.is_ok());
 
         // Fill up storage with large content to deplete balance
@@ -865,7 +865,7 @@ mod test_advanced_functionalities {
             // Now explicitly deposit and retry
             let deposit_op = json!({"storage/deposit": {"amount": "1000000000000000000000000"}});
             contract
-                .execute(set_request(deposit_op))
+                .execute_admin(set_request(deposit_op))
                 .expect("Deposit should succeed");
 
             // Now retry the write
@@ -908,7 +908,7 @@ mod test_advanced_functionalities {
                 "amount": "10000000000000000000000000"  // 10 NEAR pool
             }
         });
-        let result = contract.execute(set_request(pool_deposit));
+        let result = contract.execute_admin(set_request(pool_deposit));
         assert!(result.is_ok());
 
         // Pool owner shares storage with Dave
@@ -918,7 +918,7 @@ mod test_advanced_functionalities {
                 "max_bytes": 100_000  // 100KB allocation
             }
         });
-        let result = contract.execute(set_request(share_data));
+        let result = contract.execute_admin(set_request(share_data));
         assert!(result.is_ok());
 
         // Verify Dave has shared storage allocation
@@ -1052,7 +1052,7 @@ mod test_advanced_functionalities {
                 "amount": "5000000000000000000000000"  // 5 NEAR
             }
         });
-        let result = contract.execute(set_request(initial_deposit));
+        let result = contract.execute_admin(set_request(initial_deposit));
         assert!(result.is_ok());
 
         // Frank creates his profile

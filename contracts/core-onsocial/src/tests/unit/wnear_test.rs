@@ -33,10 +33,6 @@ mod wnear_tests {
         contract
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    //  Admin: set_wnear_account
-    // ══════════════════════════════════════════════════════════════════════
-
     #[test]
     fn set_wnear_account_stores_value() {
         let manager = accounts(0);
@@ -90,10 +86,6 @@ mod wnear_tests {
         assert!(result.is_err());
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    //  Raw helpers: read_wnear_account / write_wnear_account
-    // ══════════════════════════════════════════════════════════════════════
-
     #[test]
     fn raw_read_write_roundtrip() {
         let ctx = get_context(accounts(0));
@@ -109,15 +101,8 @@ mod wnear_tests {
         assert!(read_wnear_account().is_none());
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    //  on_wnear_unwrapped callback
-    // ══════════════════════════════════════════════════════════════════════
-    //
-    // In unit tests, promise_results_count() == 0, so the callback always
-    // takes the failure path. We test:
-    //   1. Failure path returns the full refund amount
-    //   2. Balance is NOT credited on failure
-    //   3. Success path by simulating credit_storage_balance directly
+    // Unit tests only exercise the failure branch because
+    // `promise_results_count() == 0` in the VM test harness.
 
     #[test]
     fn on_wnear_unwrapped_returns_refund_on_failure() {

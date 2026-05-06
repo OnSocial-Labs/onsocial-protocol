@@ -33,7 +33,7 @@ mod accounting_tests {
         testing_env!(get_context_with_deposit(alice.clone(), initial_deposit).build());
 
         contract
-            .execute(set_request(json!({
+            .execute_admin(set_request(json!({
                 "storage/deposit": {
                     "amount": initial_deposit.to_string()
                 }
@@ -387,7 +387,7 @@ mod accounting_tests {
         let initial_deposit = NearToken::from_near(1).as_yoctonear();
         testing_env!(get_context_with_deposit(alice.clone(), initial_deposit).build());
         contract
-            .execute(set_request(json!({
+            .execute_admin(set_request(json!({
                 "storage/deposit": { "amount": initial_deposit.to_string() }
             })))
             .unwrap();

@@ -81,7 +81,7 @@ mod test_enhanced_permissions {
                 "amount": "1000000000000000000000000"  // 1 NEAR
             }
         });
-        contract.execute(set_request(deposit_data)).unwrap();
+        contract.execute_admin(set_request(deposit_data)).unwrap();
 
         let test_path = format!("{}/test", owner.as_str());
 
@@ -96,7 +96,7 @@ mod test_enhanced_permissions {
                 "level": WRITE
             }
         });
-        let result = contract.execute(set_request(grant_data));
+        let result = contract.execute_admin(set_request(grant_data));
         assert!(result.is_ok());
 
         // Now grantee should have write permission
@@ -116,7 +116,7 @@ mod test_enhanced_permissions {
                 "path": test_path
             }
         });
-        let result = contract.execute(set_request(revoke_data));
+        let result = contract.execute_admin(set_request(revoke_data));
         assert!(result.is_ok());
 
         // Now grantee should not have write permission again
@@ -137,7 +137,7 @@ mod test_enhanced_permissions {
                 "amount": "1000000000000000000000000"  // 1 NEAR
             }
         });
-        contract.execute(set_request(deposit_data)).unwrap();
+        contract.execute_admin(set_request(deposit_data)).unwrap();
 
         let test_path = format!("{}/test", owner.as_str());
 
@@ -153,7 +153,7 @@ mod test_enhanced_permissions {
                 "level": WRITE
             }
         });
-        contract.execute(set_request(grant_data)).unwrap();
+        contract.execute_admin(set_request(grant_data)).unwrap();
 
         // get_permissions should return WRITE flag (1)
         let flags = contract.get_permissions(owner.clone(), grantee.clone(), test_path.clone());
@@ -168,7 +168,7 @@ mod test_enhanced_permissions {
                 "level": MANAGE
             }
         });
-        contract.execute(set_request(grant_manage)).unwrap();
+        contract.execute_admin(set_request(grant_manage)).unwrap();
 
         // get_permissions should return the stored flag value
         let flags = contract.get_permissions(owner.clone(), grantee.clone(), test_path.clone());
@@ -182,7 +182,7 @@ mod test_enhanced_permissions {
                 "path": test_path
             }
         });
-        contract.execute(set_request(revoke_data)).unwrap();
+        contract.execute_admin(set_request(revoke_data)).unwrap();
 
         // get_permissions should return 0 after revocation
         let flags = contract.get_permissions(owner.clone(), grantee.clone(), test_path.clone());

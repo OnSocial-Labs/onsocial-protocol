@@ -642,7 +642,7 @@ mod partition_audit_tests {
             get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
         );
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 charlie.clone(),
                 "groups/test_group/config".to_string(),
                 MODERATE,
@@ -792,7 +792,7 @@ mod partition_audit_tests {
             get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
         );
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 charlie.clone(),
                 "groups/transfer_test/config".to_string(),
                 MODERATE,
@@ -937,7 +937,7 @@ mod partition_audit_tests {
 
         // 3. Grant permissions
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 bob.clone(),
                 "groups/group1/config".to_string(),
                 MODERATE,
@@ -945,7 +945,7 @@ mod partition_audit_tests {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 charlie.clone(),
                 "groups/group2/config".to_string(),
                 MANAGE,

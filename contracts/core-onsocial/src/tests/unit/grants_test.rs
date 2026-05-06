@@ -1,13 +1,4 @@
-//! Unit tests for domain/groups/permissions/kv/grants.rs
-//!
-//! Tests coverage for:
-//! - grant_permissions: Invalid permission level
-//! - grant_permissions: Non-member cannot receive group permissions
-//! - grant_permissions: Member nonce missing error
-//! - grant_permissions: Member nonce invalid (== 0) error
-//! - revoke_permissions: Idempotent revocation
-//! - grant_permissions: expires_at stored correctly
-//! - grant_permissions: Account path (non-group) succeeds
+//! Unit tests for `domain/groups/permissions/kv/grants.rs`.
 
 #[cfg(test)]
 mod grants_tests {
@@ -22,10 +13,6 @@ mod grants_tests {
         accounts(index)
     }
 
-    // ========================================================================
-    // TEST: grant_permissions fails with "Member nonce missing"
-    // ========================================================================
-    // Scenario: Member exists in members/ path but no entry in member_nonces/
     #[test]
     fn test_grant_permissions_fails_when_member_nonce_missing() {
         let mut contract = init_live_contract();
@@ -87,9 +74,6 @@ mod grants_tests {
         println!("✅ grant_permissions correctly fails when member nonce is missing");
     }
 
-    // ========================================================================
-    // TEST: grant_permissions fails with "Member nonce invalid" when nonce == 0
-    // ========================================================================
     #[test]
     fn test_grant_permissions_fails_when_member_nonce_zero() {
         let mut contract = init_live_contract();
@@ -157,9 +141,6 @@ mod grants_tests {
         println!("✅ grant_permissions correctly fails when member nonce is zero");
     }
 
-    // ========================================================================
-    // TEST: grant_permissions fails for non-member on group path
-    // ========================================================================
     #[test]
     fn test_grant_permissions_fails_for_non_member() {
         let mut contract = init_live_contract();
@@ -206,9 +187,6 @@ mod grants_tests {
         println!("✅ grant_permissions correctly rejects non-member for group path");
     }
 
-    // ========================================================================
-    // TEST: grant_permissions fails for invalid permission level
-    // ========================================================================
     #[test]
     fn test_grant_permissions_fails_for_invalid_level() {
         let mut contract = init_live_contract();
@@ -249,9 +227,6 @@ mod grants_tests {
         println!("✅ grant_permissions correctly rejects invalid permission level");
     }
 
-    // ========================================================================
-    // TEST: revoke_permissions on non-existent entry succeeds (idempotent)
-    // ========================================================================
     #[test]
     fn test_revoke_permissions_nonexistent_entry_succeeds() {
         let mut contract = init_live_contract();
@@ -287,9 +262,6 @@ mod grants_tests {
         println!("✅ revoke_permissions is idempotent for non-existent entry");
     }
 
-    // ========================================================================
-    // TEST: revoke_permissions on existing entry succeeds
-    // ========================================================================
     #[test]
     fn test_revoke_permissions_existing_entry_succeeds() {
         let mut contract = init_live_contract();
@@ -360,9 +332,6 @@ mod grants_tests {
         println!("✅ revoke_permissions correctly revokes existing permission");
     }
 
-    // ========================================================================
-    // TEST: grant_permissions with expires_at stores correct value
-    // ========================================================================
     #[test]
     fn test_grant_permissions_stores_expires_at() {
         let mut contract = init_live_contract();
@@ -410,9 +379,6 @@ mod grants_tests {
         println!("✅ grant_permissions correctly stores expires_at");
     }
 
-    // ========================================================================
-    // TEST: grant_permissions for account path (non-group) succeeds
-    // ========================================================================
     #[test]
     fn test_grant_permissions_account_path_succeeds() {
         let mut contract = init_live_contract();
@@ -425,7 +391,7 @@ mod grants_tests {
 
         // Deposit storage for alice
         contract
-            .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
+            .execute_admin(set_request(json!({"storage/deposit": {"amount": "1"}})))
             .unwrap();
 
         let mut event_batch = EventBatch::new();

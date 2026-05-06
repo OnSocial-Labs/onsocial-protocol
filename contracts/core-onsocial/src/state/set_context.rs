@@ -9,6 +9,8 @@ pub(crate) struct OperationContext<'a> {
     pub success_paths: &'a mut Vec<String>,
     pub errors: &'a mut Vec<SocialError>,
     pub attached_balance: Option<&'a mut u128>,
+    pub actor_id: AccountId,
+    pub payer_id: AccountId,
 }
 
 pub(crate) struct DataOperationContext<'a> {
@@ -22,11 +24,12 @@ pub(crate) struct ApiOperationContext<'a> {
     pub event_batch: &'a mut EventBatch,
     pub attached_balance: &'a mut u128,
     pub processed_accounts: &'a mut std::collections::HashSet<AccountId>,
+    pub actor_id: AccountId,
+    pub payer_id: AccountId,
 }
 
 pub(crate) struct VerifiedContext {
     pub actor_id: AccountId,
     pub payer_id: AccountId,
     pub deposit_owner: AccountId,
-    pub auth_type: &'static str,
 }

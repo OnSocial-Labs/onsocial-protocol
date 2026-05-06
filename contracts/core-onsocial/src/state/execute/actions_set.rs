@@ -18,23 +18,15 @@ impl SocialPlatform {
         let options = ctx.options.clone();
 
         // Resolve actor's public key for key-based permission fallback.
-        let actor_pk = ctx
-            .signed_nonce
-            .as_ref()
-            .map(|(_, pk, _)| pk.clone())
-            .or_else(|| {
-                if ctx.auth_type == "direct" {
-                    Some(env::signer_account_pk())
-                } else {
-                    None
-                }
-            });
+        // Auth is predecessor-trusted: for standard transactions and NEP-366
+        // inner receipts the signer's public key is the access key used to
+        // submit the (outer) transaction.
+        let actor_pk = Some(env::signer_account_pk());
 
         let verified = VerifiedContext {
             actor_id: ctx.actor_id.clone(),
             payer_id: ctx.payer_id.clone(),
             deposit_owner: ctx.deposit_owner.clone(),
-            auth_type: ctx.auth_type,
         };
 
         crate::domain::authz::cross_account::validate_cross_account_permissions_simple(
@@ -55,7 +47,6 @@ impl SocialPlatform {
         )
         .with_path(&format!("{}/meta_tx", target_account.as_str()))
         .with_target(target_account)
-        .with_field("auth_type", ctx.auth_type)
         .with_field("actor_id", ctx.actor_id.to_string())
         .with_field("payer_id", ctx.payer_id.to_string())
         .emit(&mut event_batch);
@@ -64,7 +55,6 @@ impl SocialPlatform {
             target_account,
             data,
             options,
-            signed_nonce: None, // Nonce already validated in execute auth
         };
         self.execute_set_operations_with_balance(
             &verified,

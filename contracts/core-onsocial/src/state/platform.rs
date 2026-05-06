@@ -7,7 +7,6 @@ use near_sdk::store::TreeMap;
 use near_sdk::{AccountId, NearToken, Promise, env, serde_json::Value, store::LookupMap};
 
 pub struct UnusedDepositEventMeta<'a> {
-    pub auth_type: &'a str,
     pub actor_id: &'a AccountId,
     pub payer_id: &'a AccountId,
     pub target_account: &'a AccountId,
@@ -220,7 +219,6 @@ impl SocialPlatform {
 
             if let Some(meta) = meta {
                 builder = builder
-                    .with_field("auth_type", meta.auth_type)
                     .with_field("actor_id", meta.actor_id.to_string())
                     .with_field("payer_id", meta.payer_id.to_string())
                     .with_target(meta.target_account);
@@ -252,7 +250,6 @@ impl SocialPlatform {
 
             if let Some(meta) = meta {
                 builder = builder
-                    .with_field("auth_type", meta.auth_type)
                     .with_field("actor_id", meta.actor_id.to_string())
                     .with_field("payer_id", meta.payer_id.to_string())
                     .with_target(meta.target_account);

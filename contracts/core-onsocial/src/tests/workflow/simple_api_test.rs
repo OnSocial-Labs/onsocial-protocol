@@ -1,4 +1,3 @@
-// --- Ultra-Simple API Tests ---
 #[cfg(test)]
 use crate::tests::test_utils::*;
 #[cfg(test)]
@@ -56,7 +55,7 @@ fn test_simple_storage_operations() {
         "storage/deposit": {"amount": "1000000000000000000000000"}  // 1 NEAR
     });
 
-    let result = contract.execute(set_request(deposit_data));
+    let result = contract.execute_admin(set_request(deposit_data));
     assert!(result.is_ok(), "Storage deposit should succeed");
 
     // Verify storage balance
@@ -72,7 +71,7 @@ fn test_simple_storage_operations() {
         "storage/withdraw": {"amount": "500000000000000000000000"}  // 0.5 NEAR
     });
 
-    let result = contract.execute(set_request(withdraw_data));
+    let result = contract.execute_admin(set_request(withdraw_data));
     assert!(result.is_ok(), "Storage withdraw should succeed");
 
     println!("✓ Simple storage operations test passed");
@@ -110,7 +109,7 @@ fn test_simple_permission_operations() {
         }
     });
 
-    let result = contract.execute(set_request(permission_data));
+    let result = contract.execute_admin(set_request(permission_data));
     match result {
         Ok(_) => {}
         Err(e) => panic!("Permission grant failed with error: {:?}", e),
@@ -135,7 +134,7 @@ fn test_simple_permission_operations() {
         }
     });
 
-    let result = contract.execute(set_request(revoke_data));
+    let result = contract.execute_admin(set_request(revoke_data));
     assert!(result.is_ok(), "Permission revoke should succeed");
 
     // TODO: Fix permission checking logic
@@ -172,7 +171,7 @@ fn test_mixed_operations() {
         }
     });
 
-    let result = contract.execute(set_request(mixed_data));
+    let result = contract.execute_admin(set_request(mixed_data));
     match result {
         Ok(_) => {}
         Err(e) => panic!("Mixed operations failed with error: {:?}", e),

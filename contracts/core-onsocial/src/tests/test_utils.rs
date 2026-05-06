@@ -1,4 +1,3 @@
-// --- Test Utilities ---
 use crate::events::types::Event;
 #[cfg(test)]
 use crate::*;
@@ -129,7 +128,6 @@ pub fn set_request(data: near_sdk::serde_json::Value) -> crate::protocol::Reques
     Request {
         target_account: None,
         action: Action::Set { data },
-        auth: None,
         options: None,
     }
 }
@@ -143,7 +141,6 @@ pub fn set_request_with_options(
     Request {
         target_account: None,
         action: Action::Set { data },
-        auth: None,
         options,
     }
 }
@@ -157,16 +154,9 @@ pub fn set_request_for(
     Request {
         target_account: Some(target_account),
         action: Action::Set { data },
-        auth: None,
         options: None,
     }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Execute request builders for all action types
-// ─────────────────────────────────────────────────────────────────────────────
-
-// --- KV Operations ---
 
 #[cfg(test)]
 pub fn create_group_request(
@@ -177,12 +167,9 @@ pub fn create_group_request(
     Request {
         target_account: None,
         action: Action::CreateGroup { group_id, config },
-        auth: None,
         options: None,
     }
 }
-
-// --- Group Lifecycle ---
 
 #[cfg(test)]
 pub fn join_group_request(group_id: String) -> crate::protocol::Request {
@@ -190,7 +177,6 @@ pub fn join_group_request(group_id: String) -> crate::protocol::Request {
     Request {
         target_account: None,
         action: Action::JoinGroup { group_id },
-        auth: None,
         options: None,
     }
 }
@@ -201,12 +187,9 @@ pub fn leave_group_request(group_id: String) -> crate::protocol::Request {
     Request {
         target_account: None,
         action: Action::LeaveGroup { group_id },
-        auth: None,
         options: None,
     }
 }
-
-// --- Group Membership Management ---
 
 #[cfg(test)]
 pub fn add_group_member_request(
@@ -220,7 +203,6 @@ pub fn add_group_member_request(
             group_id,
             member_id,
         },
-        auth: None,
         options: None,
     }
 }
@@ -237,7 +219,6 @@ pub fn remove_group_member_request(
             group_id,
             member_id,
         },
-        auth: None,
         options: None,
     }
 }
@@ -251,7 +232,6 @@ pub fn approve_join_request(group_id: String, requester_id: AccountId) -> crate:
             group_id,
             requester_id,
         },
-        auth: None,
         options: None,
     }
 }
@@ -270,7 +250,6 @@ pub fn reject_join_request(
             requester_id,
             reason,
         },
-        auth: None,
         options: None,
     }
 }
@@ -281,7 +260,6 @@ pub fn cancel_join_request(group_id: String) -> crate::protocol::Request {
     Request {
         target_account: None,
         action: Action::CancelJoinRequest { group_id },
-        auth: None,
         options: None,
     }
 }
@@ -298,7 +276,6 @@ pub fn blacklist_group_member_request(
             group_id,
             member_id,
         },
-        auth: None,
         options: None,
     }
 }
@@ -315,12 +292,9 @@ pub fn unblacklist_group_member_request(
             group_id,
             member_id,
         },
-        auth: None,
         options: None,
     }
 }
-
-// --- Group Governance ---
 
 #[cfg(test)]
 pub fn transfer_group_ownership_request(
@@ -336,7 +310,6 @@ pub fn transfer_group_ownership_request(
             new_owner,
             remove_old_owner,
         },
-        auth: None,
         options: None,
     }
 }
@@ -350,7 +323,6 @@ pub fn set_group_privacy_request(group_id: String, is_private: bool) -> crate::p
             group_id,
             is_private,
         },
-        auth: None,
         options: None,
     }
 }
@@ -383,7 +355,6 @@ pub fn create_proposal_request_with_description(
             auto_vote,
             description,
         },
-        auth: None,
         options: None,
     }
 }
@@ -402,7 +373,6 @@ pub fn vote_proposal_request(
             proposal_id,
             approve,
         },
-        auth: None,
         options: None,
     }
 }
@@ -416,7 +386,6 @@ pub fn cancel_proposal_request(group_id: String, proposal_id: String) -> crate::
             group_id,
             proposal_id,
         },
-        auth: None,
         options: None,
     }
 }
@@ -430,12 +399,9 @@ pub fn expire_proposal_request(group_id: String, proposal_id: String) -> crate::
             group_id,
             proposal_id,
         },
-        auth: None,
         options: None,
     }
 }
-
-// --- Permission Operations ---
 
 #[cfg(test)]
 pub fn set_permission_request(
@@ -453,15 +419,11 @@ pub fn set_permission_request(
             level,
             expires_at,
         },
-        auth: None,
         options: None,
     }
 }
 
-/// Helper to add test members to member-driven groups bypassing proposals
-/// NOTE: This is a test-only helper that bypasses normal validation for setup purposes.
-/// In production, members should be added through proper proposal workflows.
-/// Use this ONLY for setting up test scenarios where you need multiple members to test voting.
+/// Test-only helper to add members without going through proposal flow.
 #[cfg(test)]
 pub fn test_add_member_bypass_proposals(
     contract: &mut crate::Contract,
@@ -480,7 +442,7 @@ pub fn test_add_member_bypass_proposals(
     );
 }
 
-/// Helper to add test members with specific joined_at timestamp
+/// Test-only helper to add members with an explicit `joined_at` timestamp.
 #[cfg(test)]
 pub fn test_add_member_bypass_proposals_with_timestamp(
     contract: &mut crate::Contract,
@@ -585,9 +547,7 @@ pub fn test_add_member_bypass_proposals_with_timestamp(
         .expect("Test setup: failed to update stats");
 }
 
-/// Helper to remove test members bypassing proposals (for edge case testing)
-/// NOTE: This is a test-only helper that simulates member removal for testing edge cases.
-/// In production, members should be removed through proper APIs or proposals.
+/// Test-only helper to remove members without going through proposal flow.
 #[cfg(test)]
 pub fn test_remove_member_bypass_proposals(
     contract: &mut crate::Contract,

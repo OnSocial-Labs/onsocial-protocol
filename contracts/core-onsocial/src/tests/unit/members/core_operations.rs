@@ -270,7 +270,7 @@ mod core_member_operations {
             .unwrap();
 
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/testgroup/config".to_string(),
                 MANAGE,
@@ -700,7 +700,7 @@ mod core_member_operations {
 
         // Test 2: Permission grant event validation
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/event_test/posts".to_string(),
                 MODERATE,
@@ -713,7 +713,7 @@ mod core_member_operations {
 
         // Test 3: Additional permission grant event validation
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/event_test/admin".to_string(),
                 MANAGE,
@@ -765,7 +765,7 @@ mod core_member_operations {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member1.clone(),
                 "groups/ordering_test/posts".to_string(),
                 MODERATE,

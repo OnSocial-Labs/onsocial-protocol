@@ -46,7 +46,7 @@ mod member_data_lifecycle_tests {
 
         // Perform various operations and verify data persists
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/data_test/posts".to_string(),
                 MODERATE,
@@ -65,7 +65,7 @@ mod member_data_lifecycle_tests {
 
         // Update member permissions through proper channel and verify core data persists
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/data_test/config".to_string(),
                 MODERATE,
@@ -179,7 +179,7 @@ mod member_data_lifecycle_tests {
 
         // Grant additional permissions
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/blacklist_cleanup_test/special".to_string(),
                 MODERATE,
@@ -292,7 +292,7 @@ mod member_data_lifecycle_tests {
 
         // Test metadata after permission change
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/metadata_test/config".to_string(),
                 MODERATE,
@@ -360,10 +360,10 @@ mod member_data_lifecycle_tests {
         // Grant admin permission to manage config
         // set_permission does not consume attached_deposit, so ensure owner has a storage balance.
         contract
-            .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
+            .execute_admin(set_request(json!({"storage/deposit": {"amount": "1"}})))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 admin.clone(),
                 "groups/versioning_test/config".to_string(),
                 MANAGE,
@@ -383,10 +383,10 @@ mod member_data_lifecycle_tests {
         );
         // Ensure admin has storage balance for permission writes.
         contract
-            .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
+            .execute_admin(set_request(json!({"storage/deposit": {"amount": "1"}})))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/versioning_test/config".to_string(),
                 MODERATE,
@@ -422,10 +422,10 @@ mod member_data_lifecycle_tests {
         );
         // Ensure owner has storage balance for permission writes.
         contract
-            .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
+            .execute_admin(set_request(json!({"storage/deposit": {"amount": "1"}})))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/versioning_test/config".to_string(),
                 MANAGE,
@@ -606,7 +606,7 @@ mod member_data_lifecycle_tests {
 
         // Grant additional path-specific permissions
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/permission_persistence_test/posts".to_string(),
                 MODERATE,
@@ -614,7 +614,7 @@ mod member_data_lifecycle_tests {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/permission_persistence_test/admin".to_string(),
                 MANAGE,

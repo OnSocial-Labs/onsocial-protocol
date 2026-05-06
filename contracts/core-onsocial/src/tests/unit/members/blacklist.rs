@@ -297,7 +297,7 @@ mod blacklist_tests {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 admin.clone(),
                 "groups/test_group/config".to_string(),
                 MANAGE,
@@ -354,7 +354,7 @@ mod blacklist_tests {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 admin.clone(),
                 "groups/test_group/config".to_string(),
                 MANAGE,
@@ -875,7 +875,7 @@ mod blacklist_tests {
         // Grant additional specific permissions using the set_permission method
         let permission_path = "groups/test_group/posts/special";
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 permission_path.to_string(),
                 MODERATE,

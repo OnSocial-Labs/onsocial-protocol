@@ -1,24 +1,9 @@
-// === COMPREHENSIVE INTEGRATION TESTS ===
-// End-to-end tests covering real-world workflows and cross-feature interactions
-//
-// This test suite covers:
-// 1. Cross-account data operations with permissions
-// 2. Storage integration with real operations
-// 3. Complete group workflows
-// 4. Storage tracking across complex operations
-// 5. Event emission verification
-// 6. Error recovery and atomicity
-// 7. Real-world user flows
-// 8. Get API integration
 #[cfg(test)]
 mod comprehensive_integration_tests {
     use crate::domain::groups::permissions::kv::types::WRITE;
     use crate::tests::test_utils::*;
     use near_sdk::serde_json::json;
     use near_sdk::testing_env;
-    // ============================================================================
-    // 1. CROSS-ACCOUNT DATA OPERATIONS
-    // ============================================================================
     #[test]
     fn test_cross_account_write_with_permissions() {
         let mut contract = init_live_contract();
@@ -30,11 +15,11 @@ mod comprehensive_integration_tests {
 
         // Ensure Alice has a storage balance (set_permission does not consume attached_deposit).
         contract
-            .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
+            .execute_admin(set_request(json!({"storage/deposit": {"amount": "1"}})))
             .unwrap();
 
         // Alice grants Bob permission to write to her posts path
-        let grant_result = contract.execute(set_permission_request(
+        let grant_result = contract.execute_admin(set_permission_request(
             bob.clone(),
             format!("{}/posts", alice),
             WRITE,
@@ -111,11 +96,11 @@ mod comprehensive_integration_tests {
 
         // Ensure Alice has a storage balance (set_permission does not consume attached_deposit).
         contract
-            .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
+            .execute_admin(set_request(json!({"storage/deposit": {"amount": "1"}})))
             .unwrap();
 
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 bob.clone(),
                 format!("{}/posts", alice),
                 WRITE,
@@ -146,9 +131,6 @@ mod comprehensive_integration_tests {
         assert!(profile_write.is_err(), "Write to profile/ should fail");
         println!("✓ Permission boundary enforcement test passed");
     }
-    // ============================================================================
-    // 2. STORAGE INTEGRATION WITH REAL OPERATIONS
-    // ============================================================================
     #[test]
     fn test_storage_end_to_end() {
         let mut contract = init_live_contract();
@@ -215,9 +197,6 @@ mod comprehensive_integration_tests {
         assert!(!charlie_data.is_empty(), "Charlie's data should exist");
         println!("✓ Concurrent writes to different namespaces test passed");
     }
-    // ============================================================================
-    // 3. COMPLETE GROUP WORKFLOWS
-    // ============================================================================
     #[test]
     fn test_complete_public_group_workflow() {
         let mut contract = init_live_contract();
@@ -398,9 +377,6 @@ mod comprehensive_integration_tests {
         );
         println!("✓ Member-driven group proposal workflow test passed");
     }
-    // ============================================================================
-    // 4. STORAGE TRACKING ACROSS COMPLEX OPERATIONS
-    // ============================================================================
     #[test]
     fn test_storage_balance_across_multiple_operations() {
         let mut contract = init_live_contract();
@@ -410,7 +386,7 @@ mod comprehensive_integration_tests {
         testing_env!(context.build());
         // Deposit storage
         contract
-            .execute(set_request(json!({
+            .execute_admin(set_request(json!({
                 "storage/deposit": {"amount": "3000000000000000000000000"}
             })))
             .unwrap();
@@ -456,7 +432,7 @@ mod comprehensive_integration_tests {
             get_context_with_deposit(pool_owner.clone(), 10_000_000_000_000_000_000_000_000u128);
         testing_env!(context.build());
         contract
-            .execute(set_request(json!({
+            .execute_admin(set_request(json!({
                 "storage/deposit": {"amount": "5000000000000000000000000"}
             })))
             .unwrap();
@@ -496,7 +472,7 @@ mod comprehensive_integration_tests {
         let context = get_context_with_deposit(alice.clone(), initial_deposit);
         testing_env!(context.build());
         contract
-            .execute(set_request(json!({
+            .execute_admin(set_request(json!({
                 "storage/deposit": {"amount": initial_deposit.to_string()}
             })))
             .unwrap();
@@ -519,9 +495,6 @@ mod comprehensive_integration_tests {
         );
         println!("✓ Storage refunds on failed operations test passed");
     }
-    // ============================================================================
-    // 5. EVENT EMISSION VERIFICATION
-    // ============================================================================
     #[test]
     fn test_event_emission_for_operations() {
         let mut contract = init_live_contract();
@@ -548,7 +521,7 @@ mod comprehensive_integration_tests {
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
         // Multiple operations in one call should batch events
-        let result = contract.execute(set_request(json!({
+        let result = contract.execute_admin(set_request(json!({
             "storage/deposit": {"amount": "1000000000000000000000000"},
             "profile/name": "Alice",
             "profile/bio": "Developer",
@@ -563,9 +536,6 @@ mod comprehensive_integration_tests {
         assert!(result.is_ok(), "Batched operations should succeed");
         println!("✓ Event batching across operations test passed");
     }
-    // ============================================================================
-    // 6. ERROR RECOVERY AND ATOMICITY
-    // ============================================================================
     #[test]
     fn test_partial_operation_failure() {
         let mut contract = init_live_contract();
@@ -616,9 +586,6 @@ mod comprehensive_integration_tests {
         );
         println!("✓ State consistency after errors test passed");
     }
-    // ============================================================================
-    // 7. REAL-WORLD USER FLOWS
-    // ============================================================================
     #[test]
     fn test_social_media_post_lifecycle() {
         let mut contract = init_live_contract();
@@ -774,9 +741,6 @@ mod comprehensive_integration_tests {
         );
         println!("✓ Content moderation flow test passed");
     }
-    // ============================================================================
-    // 8. GET API INTEGRATION
-    // ============================================================================
     #[test]
     fn test_multi_key_retrieval() {
         let mut contract = init_live_contract();
@@ -931,9 +895,6 @@ mod comprehensive_integration_tests {
         assert!(retrieved.is_empty(), "Nonexistent keys should return empty");
         println!("✓ Get nonexistent keys test passed");
     }
-    // ============================================================================
-    // 9. COMPLEX INTEGRATION SCENARIOS
-    // ============================================================================
     #[test]
     fn test_multi_user_collaboration() {
         let mut contract = init_live_contract();
@@ -953,7 +914,7 @@ mod comprehensive_integration_tests {
             .unwrap();
         // Grant permissions to editors
         contract
-            .execute(set_request(json!({
+            .execute_admin(set_request(json!({
                 "permission/grant": {
                     "grantee": editor1.to_string(),
                     "path": format!("{}/projects/project1", owner),
@@ -962,7 +923,7 @@ mod comprehensive_integration_tests {
             })))
             .unwrap();
         contract
-            .execute(set_request(json!({
+            .execute_admin(set_request(json!({
                 "permission/grant": {
                     "grantee": editor2.to_string(),
                     "path": format!("{}/projects/project1", owner),
@@ -1016,12 +977,12 @@ mod comprehensive_integration_tests {
 
         // Ensure Alice has a storage balance (permission grants do not consume attached_deposit).
         contract
-            .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
+            .execute_admin(set_request(json!({"storage/deposit": {"amount": "1"}})))
             .unwrap();
 
         // Grant directory-level permission
         contract
-            .execute(set_request(json!({
+            .execute_admin(set_request(json!({
                 "permission/grant": {
                     "grantee": bob.to_string(),
                     "path": format!("{}/posts", alice),
@@ -1057,7 +1018,7 @@ mod comprehensive_integration_tests {
         let context = get_context_with_deposit(alice.clone(), small_deposit);
         testing_env!(context.build());
         contract
-            .execute(set_request(json!({
+            .execute_admin(set_request(json!({
                 "storage/deposit": {"amount": small_deposit.to_string()}
             })))
             .unwrap();

@@ -1,16 +1,4 @@
-//! Unit tests for domain/groups/permissions/kv/membership.rs
-//!
-//! Tests coverage for:
-//! - get_group_member_nonce: returns Some(nonce) when nonce exists and is u64
-//! - get_group_member_nonce: returns None when nonce path missing
-//! - get_group_member_nonce: returns None when nonce value is not u64
-//! - is_group_member: returns true for active member (DataValue::Value)
-//! - is_group_member: returns false for deleted member (DataValue::Deleted)
-//! - is_group_member: returns false when member path does not exist
-//! - get_active_group_member_nonce: returns None when not a member
-//! - get_active_group_member_nonce: returns None when member but nonce missing
-//! - get_active_group_member_nonce: returns None when member but nonce == 0
-//! - get_active_group_member_nonce: returns Some(nonce) when member and nonce > 0
+//! Unit tests for `domain/groups/permissions/kv/membership.rs`.
 
 #[cfg(test)]
 mod membership_tests {
@@ -22,10 +10,6 @@ mod membership_tests {
     use near_sdk::serde_json::json;
     use near_sdk::test_utils::accounts;
     use near_sdk::testing_env;
-
-    // ========================================================================
-    // get_group_member_nonce tests
-    // ========================================================================
 
     #[test]
     fn test_get_group_member_nonce_returns_some_when_nonce_exists() {
@@ -150,10 +134,6 @@ mod membership_tests {
 
         println!("✅ get_group_member_nonce returns None for object value");
     }
-
-    // ========================================================================
-    // is_group_member tests
-    // ========================================================================
 
     #[test]
     fn test_is_group_member_returns_true_for_active_member() {
@@ -288,10 +268,6 @@ mod membership_tests {
 
         println!("✅ is_group_member returns false for non-existent group");
     }
-
-    // ========================================================================
-    // get_active_group_member_nonce tests
-    // ========================================================================
 
     #[test]
     fn test_get_active_group_member_nonce_returns_none_when_not_member() {
@@ -506,10 +482,6 @@ mod membership_tests {
 
         println!("✅ get_active_group_member_nonce preserves exact nonce value");
     }
-
-    // ========================================================================
-    // Edge cases and boundary conditions
-    // ========================================================================
 
     #[test]
     fn test_membership_functions_with_empty_group_id() {

@@ -212,7 +212,7 @@ mod member_performance_tests {
         let gas_before = env::used_gas();
         let start = Instant::now();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/timing_test_group/special".to_string(),
                 MODERATE,
@@ -374,7 +374,7 @@ mod member_performance_tests {
         for (depth, path) in test_paths.iter().enumerate() {
             // Grant permission at this level
             contract
-                .execute(set_permission_request(
+                .execute_admin(set_permission_request(
                     member.clone(),
                     path.to_string(),
                     MODERATE,
@@ -413,7 +413,7 @@ mod member_performance_tests {
         let child_path = "groups/hierarchy_test/content/posts/daily/special";
 
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 parent_path.to_string(),
                 MANAGE,

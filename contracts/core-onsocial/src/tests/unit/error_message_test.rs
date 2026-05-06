@@ -1,5 +1,3 @@
-// --- Error Message Validation Tests ---
-// Tests to ensure error messages are clear and actionable
 #[cfg(test)]
 mod error_message_tests {
     use crate::Contract;
@@ -10,9 +8,6 @@ mod error_message_tests {
     fn test_account(index: usize) -> AccountId {
         accounts(index)
     }
-    // ==========================================================================
-    // PERMISSION ERROR MESSAGES
-    // ==========================================================================
     #[test]
     fn test_unauthorized_write_error_message() {
         let mut contract = init_live_contract();
@@ -62,9 +57,6 @@ mod error_message_tests {
         }
         println!("✅ Unauthorized write error message test passed");
     }
-    // ==========================================================================
-    // GROUP ERROR MESSAGES
-    // ==========================================================================
     #[test]
     fn test_group_not_found_error_message() {
         let mut contract = init_live_contract();
@@ -134,9 +126,6 @@ mod error_message_tests {
         }
         println!("✅ Not a member error message test passed");
     }
-    // ==========================================================================
-    // BLACKLIST ERROR MESSAGES
-    // ==========================================================================
     #[test]
     fn test_blacklisted_user_cannot_join() {
         let mut contract = init_live_contract();
@@ -176,9 +165,6 @@ mod error_message_tests {
         }
         println!("✅ Blacklisted user error message test passed");
     }
-    // ==========================================================================
-    // VOTING ERROR MESSAGES
-    // ==========================================================================
     #[test]
     fn test_vote_on_nonexistent_proposal() {
         let mut contract = init_live_contract();
@@ -213,9 +199,6 @@ mod error_message_tests {
         }
         println!("✅ Vote on non-existent proposal error message test passed");
     }
-    // ==========================================================================
-    // OWNERSHIP ERROR MESSAGES
-    // ==========================================================================
     #[test]
     fn test_transfer_ownership_non_owner() {
         let mut contract = init_live_contract();
@@ -262,9 +245,6 @@ mod error_message_tests {
         }
         println!("✅ Transfer ownership non-owner error message test passed");
     }
-    // ==========================================================================
-    // INVALID INPUT ERROR MESSAGES
-    // ==========================================================================
     #[test]
     fn test_empty_group_id_error_message() {
         let mut contract = init_live_contract();
@@ -295,9 +275,6 @@ mod error_message_tests {
         }
         println!("✅ Empty group ID error message test passed");
     }
-    // ==========================================================================
-    // MANAGER OPERATION ERROR MESSAGES
-    // ==========================================================================
     #[test]
     fn test_non_manager_activate_contract() {
         // Initialize contract with Alice as manager.

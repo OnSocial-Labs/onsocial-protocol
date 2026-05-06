@@ -21,7 +21,7 @@ mod storage_tip_tests {
         let yocto = NearToken::from_near(amount_near).as_yoctonear();
         testing_env!(get_context_with_deposit(account.clone(), yocto).build());
         contract
-            .execute(set_request(json!({
+            .execute_admin(set_request(json!({
                 "storage/deposit": { "amount": yocto.to_string() }
             })))
             .unwrap();
@@ -43,7 +43,7 @@ mod storage_tip_tests {
         // Alice tips Bob 1 NEAR from storage balance
         let tip_amount = NearToken::from_near(1).as_yoctonear();
         testing_env!(get_context(alice.clone()).build());
-        let result = contract.execute(set_request(json!({
+        let result = contract.execute_admin(set_request(json!({
             "storage/tip": {
                 "target_id": bob.to_string(),
                 "amount": tip_amount.to_string()
@@ -69,7 +69,7 @@ mod storage_tip_tests {
         deposit_near(&mut contract, &alice, 5);
 
         testing_env!(get_context(alice.clone()).build());
-        let result = contract.execute(set_request(json!({
+        let result = contract.execute_admin(set_request(json!({
             "storage/tip": {
                 "target_id": alice.to_string(),
                 "amount": NearToken::from_near(1).as_yoctonear().to_string()
@@ -97,7 +97,7 @@ mod storage_tip_tests {
 
         // Try to tip more than available
         testing_env!(get_context(alice.clone()).build());
-        let result = contract.execute(set_request(json!({
+        let result = contract.execute_admin(set_request(json!({
             "storage/tip": {
                 "target_id": bob.to_string(),
                 "amount": NearToken::from_near(100).as_yoctonear().to_string()
@@ -124,7 +124,7 @@ mod storage_tip_tests {
         deposit_near(&mut contract, &alice, 5);
 
         testing_env!(get_context(alice.clone()).build());
-        let result = contract.execute(set_request(json!({
+        let result = contract.execute_admin(set_request(json!({
             "storage/tip": {
                 "target_id": bob.to_string(),
                 "amount": "0"
@@ -151,7 +151,7 @@ mod storage_tip_tests {
         deposit_near(&mut contract, &alice, 5);
 
         testing_env!(get_context(alice.clone()).build());
-        let result = contract.execute(set_request(json!({
+        let result = contract.execute_admin(set_request(json!({
             "storage/tip": {
                 "target_id": bob.to_string()
             }
@@ -176,7 +176,7 @@ mod storage_tip_tests {
         deposit_near(&mut contract, &alice, 5);
 
         testing_env!(get_context(alice.clone()).build());
-        let result = contract.execute(set_request(json!({
+        let result = contract.execute_admin(set_request(json!({
             "storage/tip": {
                 "amount": NearToken::from_near(1).as_yoctonear().to_string()
             }
@@ -210,7 +210,7 @@ mod storage_tip_tests {
         let tip_amount = NearToken::from_near(1).as_yoctonear();
         testing_env!(get_context(alice.clone()).build());
         contract
-            .execute(set_request(json!({
+            .execute_admin(set_request(json!({
                 "storage/tip": {
                     "target_id": bob.to_string(),
                     "amount": tip_amount.to_string()
@@ -238,7 +238,7 @@ mod storage_tip_tests {
 
         // Alice has no storage deposit
         testing_env!(get_context(alice.clone()).build());
-        let result = contract.execute(set_request(json!({
+        let result = contract.execute_admin(set_request(json!({
             "storage/tip": {
                 "target_id": bob.to_string(),
                 "amount": NearToken::from_near(1).as_yoctonear().to_string()
@@ -271,7 +271,7 @@ mod storage_tip_tests {
         // Tip Bob
         testing_env!(get_context(alice.clone()).build());
         contract
-            .execute(set_request(json!({
+            .execute_admin(set_request(json!({
                 "storage/tip": {
                     "target_id": bob.to_string(),
                     "amount": tip1.to_string()
@@ -282,7 +282,7 @@ mod storage_tip_tests {
         // Tip Charlie
         testing_env!(get_context(alice.clone()).build());
         contract
-            .execute(set_request(json!({
+            .execute_admin(set_request(json!({
                 "storage/tip": {
                     "target_id": charlie.to_string(),
                     "amount": tip2.to_string()
@@ -337,7 +337,7 @@ mod storage_tip_tests {
 
         // Tip exact available amount
         testing_env!(get_context(alice.clone()).build());
-        let result = contract.execute(set_request(json!({
+        let result = contract.execute_admin(set_request(json!({
             "storage/tip": {
                 "target_id": bob.to_string(),
                 "amount": available.to_string()

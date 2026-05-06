@@ -51,7 +51,7 @@ mod permission_tests {
         let admin_path = "groups/testgroup/admin".to_string();
 
         // Grant member1 WRITE permission only to events path
-        let grant_result1 = contract.execute(set_permission_request(
+        let grant_result1 = contract.execute_admin(set_permission_request(
             member1.clone(),
             events_path.clone(),
             WRITE,
@@ -63,7 +63,7 @@ mod permission_tests {
         );
 
         // Grant member2 WRITE permission only to posts path
-        let grant_result2 = contract.execute(set_permission_request(
+        let grant_result2 = contract.execute_admin(set_permission_request(
             member2.clone(),
             posts_path.clone(),
             WRITE,
@@ -217,7 +217,7 @@ mod permission_tests {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 manager.clone(),
                 "groups/testgroup/config".to_string(),
                 MANAGE,
@@ -262,7 +262,7 @@ mod permission_tests {
         );
 
         // Owner grants manager MANAGE permission on events path
-        let owner_grant_events = contract.execute(set_permission_request(
+        let owner_grant_events = contract.execute_admin(set_permission_request(
             manager.clone(),
             events_path.clone(),
             MANAGE,
@@ -275,7 +275,7 @@ mod permission_tests {
         );
 
         // Owner grants manager MANAGE permission on moderation path too
-        let owner_grant_moderation = contract.execute(set_permission_request(
+        let owner_grant_moderation = contract.execute_admin(set_permission_request(
             manager.clone(),
             moderation_path.clone(),
             MANAGE,
@@ -294,11 +294,11 @@ mod permission_tests {
 
         // Ensure manager has storage balance for permission writes.
         contract
-            .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
+            .execute_admin(set_request(json!({"storage/deposit": {"amount": "1"}})))
             .unwrap();
 
         // Test 1: Manager with MANAGE on events path grants WRITE permission to member1
-        let grant_write_result = contract.execute(set_permission_request(
+        let grant_write_result = contract.execute_admin(set_permission_request(
             member1.clone(),
             events_path.clone(),
             WRITE,
@@ -311,7 +311,7 @@ mod permission_tests {
         );
 
         // Test 2: Manager with MANAGE on moderation path grants WRITE permission to member2
-        let grant_manage_delegation = contract.execute(set_permission_request(
+        let grant_manage_delegation = contract.execute_admin(set_permission_request(
             member2.clone(),
             moderation_path.clone(),
             WRITE,
@@ -328,7 +328,7 @@ mod permission_tests {
         near_sdk::testing_env!(
             get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000).build()
         );
-        let owner_grant_moderate_only = contract.execute(set_permission_request(
+        let owner_grant_moderate_only = contract.execute_admin(set_permission_request(
             member2.clone(), // Use member2 who has NO group-level permissions
             admin_path.clone(),
             MODERATE, // Only MODERATE, not MANAGE
@@ -344,7 +344,7 @@ mod permission_tests {
         near_sdk::testing_env!(
             get_context_with_deposit(member2.clone(), 1_000_000_000_000_000_000_000_000).build()
         );
-        let moderate_cannot_delegate = contract.execute(set_permission_request(
+        let moderate_cannot_delegate = contract.execute_admin(set_permission_request(
             member1.clone(),
             admin_path.clone(),
             WRITE,
@@ -357,7 +357,7 @@ mod permission_tests {
 
         // Test 3: member2 tries to grant permission to path where they have no authority at all
         let no_permission_path = "groups/testgroup/secret".to_string();
-        let grant_unauthorized = contract.execute(set_permission_request(
+        let grant_unauthorized = contract.execute_admin(set_permission_request(
             member1.clone(),
             no_permission_path.clone(),
             WRITE,
@@ -463,7 +463,7 @@ mod permission_tests {
         near_sdk::testing_env!(
             get_context_with_deposit(manager.clone(), 1_000_000_000_000_000_000_000_000).build()
         );
-        let grant_manage_result = contract.execute(set_permission_request(
+        let grant_manage_result = contract.execute_admin(set_permission_request(
             member.clone(),
             test_path.clone(),
             MANAGE,
@@ -475,7 +475,7 @@ mod permission_tests {
         );
 
         // Manager tries to grant MODERATE permission (should also fail)
-        let grant_moderate_result = contract.execute(set_permission_request(
+        let grant_moderate_result = contract.execute_admin(set_permission_request(
             member.clone(),
             test_path.clone(),
             MODERATE,
@@ -491,7 +491,7 @@ mod permission_tests {
             get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000).build()
         );
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 manager.clone(),
                 test_path.clone(),
                 MANAGE,
@@ -506,10 +506,10 @@ mod permission_tests {
 
         // Ensure manager has storage balance for permission writes.
         contract
-            .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
+            .execute_admin(set_request(json!({"storage/deposit": {"amount": "1"}})))
             .unwrap();
 
-        let grant_write_result = contract.execute(set_permission_request(
+        let grant_write_result = contract.execute_admin(set_permission_request(
             member.clone(),
             test_path.clone(),
             WRITE,
@@ -557,7 +557,7 @@ mod permission_tests {
 
         // Grant permission to member
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 test_path.clone(),
                 WRITE,
@@ -573,7 +573,7 @@ mod permission_tests {
 
         // Revoke permission (typically done by setting permission to 0 or using a revoke method)
         // Note: This depends on your actual revocation implementation
-        let revoke_result = contract.execute(set_permission_request(
+        let revoke_result = contract.execute_admin(set_permission_request(
             member.clone(),
             test_path.clone(),
             0,
@@ -625,7 +625,7 @@ mod permission_tests {
 
         // Grant WRITE permission first
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 test_path.clone(),
                 WRITE,
@@ -639,7 +639,7 @@ mod permission_tests {
 
         // Upgrade to MODERATE permission
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 test_path.clone(),
                 MODERATE,
@@ -661,7 +661,7 @@ mod permission_tests {
 
         // Upgrade to MANAGE permission
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 test_path.clone(),
                 MANAGE,
@@ -714,7 +714,7 @@ mod permission_tests {
 
         // Promote to MODERATE role using set_permission
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/promotion_test/config".to_string(),
                 MODERATE,
@@ -735,7 +735,7 @@ mod permission_tests {
 
         // Promote to MANAGE role (admin) using set_permission
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/promotion_test/config".to_string(),
                 MANAGE,
@@ -782,7 +782,7 @@ mod permission_tests {
 
         // Grant MANAGE permission to the config path
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 admin_member.clone(),
                 "groups/demotion_test/config".to_string(),
                 MANAGE,
@@ -803,7 +803,7 @@ mod permission_tests {
 
         // Demote to MODERATE role using set_permission (replaces the path permission)
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 admin_member.clone(),
                 "groups/demotion_test/config".to_string(),
                 MODERATE,
@@ -833,7 +833,7 @@ mod permission_tests {
 
         // Demote to basic WRITE role using set_permission
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 admin_member.clone(),
                 "groups/demotion_test/config".to_string(),
                 WRITE,
@@ -903,7 +903,7 @@ mod permission_tests {
 
         // Establish path-scoped role-like permissions explicitly.
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 admin.clone(),
                 "groups/hierarchy_test/config".to_string(),
                 MANAGE,
@@ -911,7 +911,7 @@ mod permission_tests {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 moderator.clone(),
                 "groups/hierarchy_test/config".to_string(),
                 MODERATE,
@@ -926,10 +926,10 @@ mod permission_tests {
 
         // Ensure admin has storage balance for permission writes.
         contract
-            .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
+            .execute_admin(set_request(json!({"storage/deposit": {"amount": "1"}})))
             .unwrap();
 
-        let admin_promote_result = contract.execute(set_permission_request(
+        let admin_promote_result = contract.execute_admin(set_permission_request(
             writer.clone(),
             "groups/hierarchy_test/config".to_string(),
             MODERATE,
@@ -944,7 +944,7 @@ mod permission_tests {
         near_sdk::testing_env!(
             get_context_with_deposit(moderator.clone(), 1_000_000_000_000_000_000_000_000).build()
         );
-        let moderator_promote_result = contract.execute(set_permission_request(
+        let moderator_promote_result = contract.execute_admin(set_permission_request(
             writer.clone(),
             "groups/hierarchy_test/config".to_string(),
             MANAGE,
@@ -959,7 +959,7 @@ mod permission_tests {
         near_sdk::testing_env!(
             get_context_with_deposit(writer.clone(), 1_000_000_000_000_000_000_000_000).build()
         );
-        let writer_promote_result = contract.execute(set_permission_request(
+        let writer_promote_result = contract.execute_admin(set_permission_request(
             moderator.clone(),
             "groups/hierarchy_test/config".to_string(),
             MODERATE,
@@ -1000,7 +1000,7 @@ mod permission_tests {
         let events_path = "groups/inheritance_test/events";
 
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 posts_path.to_string(),
                 MODERATE,
@@ -1008,7 +1008,7 @@ mod permission_tests {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 events_path.to_string(),
                 WRITE,
@@ -1038,7 +1038,7 @@ mod permission_tests {
 
         // Grant additional permissions to test inheritance
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/inheritance_test/config".to_string(),
                 MODERATE,

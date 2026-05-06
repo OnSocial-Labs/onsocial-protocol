@@ -87,7 +87,7 @@ mod join_request_tests {
             .unwrap();
 
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 moderator.clone(),
                 "groups/privategroup/join_requests".to_string(),
                 MODERATE,
@@ -152,7 +152,7 @@ mod join_request_tests {
             .unwrap();
 
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 moderator.clone(),
                 "groups/privategroup/join_requests".to_string(),
                 MODERATE,
@@ -273,7 +273,7 @@ mod join_request_tests {
 
         // Delegate membership-management only: MODERATE on the join_requests namespace.
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 join_requests_moderator.clone(),
                 "groups/privategroup/join_requests".to_string(),
                 MODERATE,
@@ -350,7 +350,7 @@ mod join_request_tests {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 moderator.clone(),
                 "groups/testgroup/join_requests".to_string(),
                 MODERATE,
@@ -456,7 +456,7 @@ mod join_request_tests {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 moderator.clone(),
                 "groups/testgroup/join_requests".to_string(),
                 MODERATE,
@@ -536,7 +536,7 @@ mod join_request_tests {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 moderator.clone(),
                 "groups/testgroup/join_requests".to_string(),
                 MODERATE,
@@ -613,7 +613,7 @@ mod join_request_tests {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 moderator.clone(),
                 "groups/testgroup/join_requests".to_string(),
                 MODERATE,
@@ -702,7 +702,7 @@ mod join_request_tests {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 manager.clone(),
                 "groups/testgroup/join_requests".to_string(),
                 MODERATE,

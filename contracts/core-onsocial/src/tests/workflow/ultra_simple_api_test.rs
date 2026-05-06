@@ -1,5 +1,3 @@
-// --- Ultra-Simple API Tests ---
-// Tests for the unified execute() API with various operation types
 #[cfg(test)]
 mod ultra_simple_api_tests {
     use crate::domain::groups::permissions::kv::types::{NONE, WRITE};
@@ -16,7 +14,6 @@ mod ultra_simple_api_tests {
         let context = get_context_with_deposit(alice.clone(), 1_000_000_000_000_000_000_000_000); // 1 NEAR
         near_sdk::testing_env!(context.build());
 
-        // Test the ultra-simple API: set profile data using the Set action
         let data = json!({
             "profile/name": "Alice",
             "profile/bio": "Developer",
@@ -65,7 +62,7 @@ mod ultra_simple_api_tests {
             "storage/deposit": {"amount": "1000000000000000000000000"}  // 1 NEAR
         });
 
-        let result = contract.execute(set_request(deposit_data));
+        let result = contract.execute_admin(set_request(deposit_data));
         assert!(
             result.is_ok(),
             "Storage deposit should succeed: {:?}",
@@ -86,7 +83,7 @@ mod ultra_simple_api_tests {
             "storage/withdraw": {"amount": "500000000000000000000000"}  // 0.5 NEAR
         });
 
-        let result = contract.execute(set_request(withdraw_data));
+        let result = contract.execute_admin(set_request(withdraw_data));
         assert!(
             result.is_ok(),
             "Storage withdraw should succeed: {:?}",
@@ -107,7 +104,7 @@ mod ultra_simple_api_tests {
         near_sdk::testing_env!(context.build());
 
         // Grant WRITE permission to bob using the SetPermission action
-        let result = contract.execute(set_permission_request(
+        let result = contract.execute_admin(set_permission_request(
             bob.clone(),
             format!("{}/posts", alice), // Path format: owner/subpath
             WRITE,                      // Permission level
@@ -132,7 +129,7 @@ mod ultra_simple_api_tests {
         );
 
         // Revoke permission by setting level to NONE
-        let result = contract.execute(set_permission_request(
+        let result = contract.execute_admin(set_permission_request(
             bob.clone(),
             format!("{}/posts", alice),
             NONE, // Revoke
@@ -170,7 +167,7 @@ mod ultra_simple_api_tests {
         near_sdk::testing_env!(context.build());
 
         // Step 1: Storage deposit
-        let deposit_result = contract.execute(set_request(json!({
+        let deposit_result = contract.execute_admin(set_request(json!({
             "storage/deposit": {"amount": "500000000000000000000000"}  // 0.5 NEAR
         })));
         assert!(deposit_result.is_ok(), "Storage deposit should succeed");
@@ -183,7 +180,7 @@ mod ultra_simple_api_tests {
         assert!(data_result.is_ok(), "Profile data set should succeed");
 
         // Step 3: Grant WRITE permission to dave
-        let perm_result = contract.execute(set_permission_request(
+        let perm_result = contract.execute_admin(set_permission_request(
             dave.clone(),
             format!("{}/friends", charlie),
             WRITE,

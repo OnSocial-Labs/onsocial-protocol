@@ -1,12 +1,4 @@
-//! Unit tests for domain/groups/permissions/kv/types.rs internal helpers
-//!
-//! Tests coverage for:
-//! - normalize_group_path_owned: Path normalization edge cases
-//! - get_parent_path: Parent path extraction
-//! - parse_permission_value: Permission value parsing
-//! - is_valid_permission_level: Level validation
-//! - PermissionLevel: Enum behavior
-//! - consider_permission_key: Permission key evaluation
+//! Unit tests for `domain/groups/permissions/kv/types.rs` helpers.
 
 #[cfg(test)]
 mod types_tests {
@@ -14,10 +6,6 @@ mod types_tests {
         FULL_ACCESS, MANAGE, MODERATE, NONE, PermissionLevel, WRITE, get_parent_path,
         is_valid_permission_level, normalize_group_path_owned, parse_permission_value,
     };
-
-    // =========================================================================
-    // normalize_group_path_owned tests
-    // =========================================================================
 
     #[test]
     fn test_normalize_group_path_direct_groups_prefix() {
@@ -69,10 +57,6 @@ mod types_tests {
         println!("✅ normalize_group_path_owned handles deep prefix");
     }
 
-    // =========================================================================
-    // get_parent_path tests
-    // =========================================================================
-
     #[test]
     fn test_get_parent_path_nested() {
         let result = get_parent_path("groups/mygroup/content/posts");
@@ -117,10 +101,6 @@ mod types_tests {
         assert_eq!(result, Some("groups/mygroup".to_string()));
         println!("✅ get_parent_path handles trailing slash");
     }
-
-    // =========================================================================
-    // parse_permission_value tests
-    // =========================================================================
 
     #[test]
     fn test_parse_permission_value_write_no_expiry() {
@@ -203,10 +183,6 @@ mod types_tests {
         println!("✅ parse_permission_value handles multiple colons");
     }
 
-    // =========================================================================
-    // is_valid_permission_level tests
-    // =========================================================================
-
     #[test]
     fn test_is_valid_permission_level_write() {
         assert!(is_valid_permission_level(WRITE, false));
@@ -247,10 +223,6 @@ mod types_tests {
         assert!(!is_valid_permission_level(FULL_ACCESS, false)); // FULL_ACCESS not valid for grants
         println!("✅ is_valid_permission_level rejects invalid levels");
     }
-
-    // =========================================================================
-    // PermissionLevel enum tests
-    // =========================================================================
 
     #[test]
     fn test_permission_level_from_stored() {

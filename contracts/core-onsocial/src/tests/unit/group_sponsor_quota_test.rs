@@ -22,7 +22,7 @@ mod group_sponsor_quota_tests {
             "storage/deposit": { "amount": owner_deposit.to_string() }
         });
         contract
-            .execute(set_request(deposit_call))
+            .execute_admin(set_request(deposit_call))
             .expect("deposit should succeed");
 
         contract
@@ -44,7 +44,7 @@ mod group_sponsor_quota_tests {
             }
         });
         contract
-            .execute(set_request(setup))
+            .execute_admin(set_request(setup))
             .expect("setup should succeed");
 
         // Target writes to a group path without any personal deposit; should be sponsored by group pool.
@@ -86,7 +86,7 @@ mod group_sponsor_quota_tests {
             "storage/deposit": { "amount": owner_deposit.to_string() }
         });
         contract
-            .execute(set_request(deposit_call))
+            .execute_admin(set_request(deposit_call))
             .expect("deposit should succeed");
 
         contract
@@ -107,7 +107,7 @@ mod group_sponsor_quota_tests {
             }
         });
         contract
-            .execute(set_request(setup))
+            .execute_admin(set_request(setup))
             .expect("setup should succeed");
 
         // Target attempts group write without personal balance; should fail due to quota gating.
@@ -142,7 +142,7 @@ mod group_sponsor_quota_tests {
             "storage/deposit": { "amount": owner_deposit.to_string() }
         });
         contract
-            .execute(set_request(deposit_call))
+            .execute_admin(set_request(deposit_call))
             .expect("deposit should succeed");
 
         contract
@@ -163,7 +163,7 @@ mod group_sponsor_quota_tests {
             }
         });
         contract
-            .execute(set_request(setup))
+            .execute_admin(set_request(setup))
             .expect("setup should succeed");
 
         // Target writes to group path; should be sponsored via default quota.
@@ -219,7 +219,7 @@ mod group_sponsor_quota_tests {
             "storage/deposit": { "amount": owner_deposit.to_string() }
         });
         contract
-            .execute(set_request(deposit_call))
+            .execute_admin(set_request(deposit_call))
             .expect("deposit should succeed");
 
         contract
@@ -241,7 +241,7 @@ mod group_sponsor_quota_tests {
             }
         });
         contract
-            .execute(set_request(setup_v1))
+            .execute_admin(set_request(setup_v1))
             .expect("setup v1 should succeed");
 
         // Target writes once to create + spend from the default-derived quota.
@@ -274,7 +274,7 @@ mod group_sponsor_quota_tests {
         });
         testing_env!(get_context(owner.clone()).build());
         contract
-            .execute(set_request(setup_v2))
+            .execute_admin(set_request(setup_v2))
             .expect("setup v2 should succeed");
 
         // Trigger lazy sync via another sponsored write.
@@ -321,7 +321,7 @@ mod group_sponsor_quota_tests {
             "storage/deposit": { "amount": owner_deposit.to_string() }
         });
         contract
-            .execute(set_request(deposit_call))
+            .execute_admin(set_request(deposit_call))
             .expect("deposit should succeed");
 
         contract
@@ -342,7 +342,7 @@ mod group_sponsor_quota_tests {
             }
         });
         contract
-            .execute(set_request(setup))
+            .execute_admin(set_request(setup))
             .expect("setup should succeed");
 
         // Target attempts group write without personal balance; should fail due to default gating.

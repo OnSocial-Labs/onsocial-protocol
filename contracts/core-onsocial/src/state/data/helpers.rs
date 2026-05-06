@@ -1,5 +1,5 @@
+use near_sdk::AccountId;
 use near_sdk::serde_json::Value;
-use near_sdk::{AccountId, PublicKey};
 
 use crate::SocialError;
 use crate::events::EventBatch;
@@ -11,7 +11,6 @@ pub(crate) struct SetOperation<'a> {
     pub target_account: &'a AccountId,
     pub data: Value,
     pub options: Options,
-    pub signed_nonce: Option<(AccountId, PublicKey, u64)>,
 }
 
 impl SocialPlatform {
@@ -33,14 +32,6 @@ impl SocialPlatform {
     ) -> Result<(), SocialError> {
         let mut processed_accounts = std::collections::HashSet::new();
 
-        if let Some((owner, public_key, nonce_u64)) = op.signed_nonce {
-            let new_bytes = Self::record_nonce(&owner, &public_key, nonce_u64);
-            if new_bytes > 0 {
-                let cost = new_bytes as u128 * near_sdk::env::storage_byte_cost().as_yoctonear();
-                *attached_balance = attached_balance.saturating_sub(cost);
-            }
-        }
-
         let data_obj = crate::protocol::operation::require_non_empty_object(&op.data)?;
         self.require_batch_size_within_limit(data_obj.len())?;
 
@@ -49,6 +40,8 @@ impl SocialPlatform {
                 event_batch,
                 attached_balance,
                 processed_accounts: &mut processed_accounts,
+                actor_id: verified.actor_id.clone(),
+                payer_id: verified.payer_id.clone(),
             };
             self.process_api_operation(key, value, op.target_account, verified, &mut ctx)?;
         }
@@ -60,7 +53,6 @@ impl SocialPlatform {
             "unused_deposit_saved",
             event_batch,
             Some(crate::state::platform::UnusedDepositEventMeta {
-                auth_type: verified.auth_type,
                 actor_id: &verified.actor_id,
                 payer_id: &verified.payer_id,
                 target_account: op.target_account,

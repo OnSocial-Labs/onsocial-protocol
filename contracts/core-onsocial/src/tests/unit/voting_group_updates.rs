@@ -1955,7 +1955,7 @@ mod voting_group_updates_tests {
             get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
         );
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 charlie.clone(),
                 "groups/perm_test/config".to_string(),
                 MODERATE,

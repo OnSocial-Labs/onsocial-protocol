@@ -82,6 +82,8 @@ impl SocialPlatform {
                 )
                 .with_path(data_ctx.full_path)
                 .with_value(data_ctx.value.clone())
+                .with_field("actor_id", ctx.actor_id.to_string())
+                .with_field("payer_id", ctx.payer_id.to_string())
                 .emit(ctx.event_batch);
             }
         } else {
@@ -93,6 +95,8 @@ impl SocialPlatform {
             )
             .with_path(data_ctx.full_path)
             .with_value(data_ctx.value.clone())
+            .with_field("actor_id", ctx.actor_id.to_string())
+            .with_field("payer_id", ctx.payer_id.to_string())
             .emit(ctx.event_batch);
 
             let sponsor_outcome = self
@@ -203,6 +207,8 @@ impl SocialPlatform {
             success_paths: &mut success_paths,
             errors: &mut errors,
             attached_balance: Some(ctx.attached_balance),
+            actor_id: ctx.actor_id.clone(),
+            payer_id: ctx.payer_id.clone(),
         };
         self.process_operation(path, value, account_id, predecessor, &mut op_ctx)?;
 

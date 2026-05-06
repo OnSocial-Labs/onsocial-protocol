@@ -1,7 +1,8 @@
-use near_sdk::AccountId;
 use near_sdk::NearSchema;
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
+
+use near_sdk::AccountId;
 
 use crate::constants::{
     MIN_PLATFORM_ALLOWANCE_MAX_BYTES, MIN_PLATFORM_DAILY_REFILL_BYTES,
@@ -32,13 +33,6 @@ pub struct ConfigUpdate {
     pub platform_onboarding_bytes: Option<u64>,
     pub platform_daily_refill_bytes: Option<u64>,
     pub platform_allowance_max_bytes: Option<u64>,
-    pub intents_executors: Option<Vec<AccountId>>,
-}
-
-impl ConfigUpdate {
-    pub fn intents_executors_ref(&self) -> Option<&[AccountId]> {
-        self.intents_executors.as_deref()
-    }
 }
 
 #[derive(
@@ -66,9 +60,6 @@ pub struct GovernanceConfig {
     pub platform_daily_refill_bytes: u64,
     #[serde(default = "default_platform_allowance_max_bytes")]
     pub platform_allowance_max_bytes: u64,
-
-    #[serde(default)]
-    pub intents_executors: Vec<AccountId>,
 }
 
 fn default_platform_onboarding_bytes() -> u64 {
@@ -91,22 +82,8 @@ impl Default for GovernanceConfig {
             platform_onboarding_bytes: MIN_PLATFORM_ONBOARDING_BYTES,
             platform_daily_refill_bytes: MIN_PLATFORM_DAILY_REFILL_BYTES,
             platform_allowance_max_bytes: MIN_PLATFORM_ALLOWANCE_MAX_BYTES,
-            intents_executors: Vec::new(),
         }
     }
-}
-
-pub(crate) fn validate_intents_executors(executors: &[AccountId]) -> Result<(), &'static str> {
-    if executors.len() > 50 {
-        return Err("Too many intents executors");
-    }
-    let mut copy = executors.to_vec();
-    copy.sort();
-    copy.dedup();
-    if copy.len() != executors.len() {
-        return Err("Duplicate intents executor entries");
-    }
-    Ok(())
 }
 
 impl GovernanceConfig {
@@ -145,10 +122,6 @@ impl GovernanceConfig {
             }
         }
 
-        if let Some(executors) = patch.intents_executors_ref() {
-            validate_intents_executors(executors)?;
-        }
-
         Ok(())
     }
 
@@ -173,9 +146,6 @@ impl GovernanceConfig {
         }
         if let Some(v) = patch.platform_allowance_max_bytes {
             self.platform_allowance_max_bytes = v;
-        }
-        if let Some(ref v) = patch.intents_executors {
-            self.intents_executors = v.clone();
         }
     }
 }

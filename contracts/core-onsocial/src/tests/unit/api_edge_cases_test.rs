@@ -1,6 +1,3 @@
-// --- API Edge Cases Tests ---
-// Tests for get_config, get_contract_status, has_group_admin_permission, and path validation
-
 #[cfg(test)]
 mod api_edge_cases_tests {
     use crate::Contract;
@@ -14,10 +11,6 @@ mod api_edge_cases_tests {
     fn test_account(index: usize) -> AccountId {
         accounts(index)
     }
-
-    // ==========================================================================
-    // GET_CONFIG AND GET_CONTRACT_STATUS TESTS
-    // ==========================================================================
 
     #[test]
     fn test_get_contract_status_returns_correct_status() {
@@ -91,10 +84,6 @@ mod api_edge_cases_tests {
             "status should be Live"
         );
         assert!(info.config.max_key_length > 0, "config should be populated");
-        assert!(
-            info.config.intents_executors.is_empty(),
-            "no executors by default"
-        );
 
         println!(
             "ContractInfo: manager={}, version={}, status={:?}",
@@ -102,10 +91,6 @@ mod api_edge_cases_tests {
         );
         println!("✅ get_contract_info returns all fields");
     }
-
-    // ==========================================================================
-    // HAS_GROUP_ADMIN_PERMISSION TESTS
-    // ==========================================================================
 
     #[test]
     fn test_has_group_admin_permission_owner_has_admin() {
@@ -185,7 +170,7 @@ mod api_edge_cases_tests {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 bob.clone(),
                 "groups/admin_test3/config".to_string(),
                 MANAGE,
@@ -284,7 +269,7 @@ mod api_edge_cases_tests {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 bob.clone(),
                 "groups/mod_test2/config".to_string(),
                 MODERATE,

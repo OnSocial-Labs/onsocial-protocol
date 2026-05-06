@@ -144,7 +144,7 @@ mod member_edge_cases {
             get_context_with_deposit(member.clone(), 1_000_000_000_000_000_000_000_000).build()
         );
 
-        let self_escalation_result = contract.execute(set_permission_request(
+        let self_escalation_result = contract.execute_admin(set_permission_request(
             member.clone(),
             "groups/test_group/config".to_string(),
             MANAGE,
@@ -200,7 +200,7 @@ mod member_edge_cases {
         // Grant manager_a MANAGE permission on specific path
         let path_admin = "groups/test_group/admin".to_string();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 manager_a.clone(),
                 path_admin.clone(),
                 MANAGE,
@@ -213,7 +213,7 @@ mod member_edge_cases {
             get_context_with_deposit(manager_a.clone(), 1_000_000_000_000_000_000_000_000).build()
         );
 
-        let grant_to_b = contract.execute(set_permission_request(
+        let grant_to_b = contract.execute_admin(set_permission_request(
             manager_b.clone(),
             path_admin.clone(),
             MANAGE,
@@ -227,7 +227,7 @@ mod member_edge_cases {
                     .build()
             );
 
-            let circular_grant = contract.execute(set_permission_request(
+            let circular_grant = contract.execute_admin(set_permission_request(
                 manager_a.clone(),
                 "groups/test_group/super_admin".to_string(),
                 MANAGE,
@@ -300,7 +300,7 @@ mod member_edge_cases {
 
         // Group B: explicitly grant MODERATE on join_requests
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 multi_member.clone(),
                 "groups/group_b/join_requests".to_string(),
                 MODERATE,
@@ -316,7 +316,7 @@ mod member_edge_cases {
 
         // Group C: explicitly grant MANAGE on config
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 multi_member.clone(),
                 "groups/group_c/config".to_string(),
                 MANAGE,
@@ -711,7 +711,7 @@ mod member_edge_cases {
 
         // Step 2: Grant specific path permission
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/consistency_test/posts".to_string(),
                 MODERATE,
@@ -730,7 +730,7 @@ mod member_edge_cases {
 
         // Step 3: Update member permissions on config path
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/consistency_test/config".to_string(),
                 MODERATE,
@@ -823,7 +823,7 @@ mod member_edge_cases {
 
         // Establish different path permissions per group for isolation testing.
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/group_alpha/config".to_string(),
                 WRITE,
@@ -831,7 +831,7 @@ mod member_edge_cases {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/group_beta/config".to_string(),
                 MODERATE,
@@ -839,7 +839,7 @@ mod member_edge_cases {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/group_gamma/config".to_string(),
                 MANAGE,
@@ -1005,7 +1005,7 @@ mod member_edge_cases {
         near_sdk::testing_env!(
             get_context_with_deposit(member.clone(), 1_000_000_000_000_000_000_000_000).build()
         );
-        let failed_permission = contract.execute(set_permission_request(
+        let failed_permission = contract.execute_admin(set_permission_request(
             member.clone(),
             "groups/recovery_test/admin".to_string(),
             MANAGE,
@@ -1029,7 +1029,7 @@ mod member_edge_cases {
         );
 
         // Test 3: Verify successful operations still work after failures
-        let successful_permission = contract.execute(set_permission_request(
+        let successful_permission = contract.execute_admin(set_permission_request(
             member.clone(),
             "groups/recovery_test/posts".to_string(),
             MODERATE,
@@ -1087,10 +1087,10 @@ mod member_edge_cases {
         // Grant admin proper permissions to manage config
         // Ensure owner has storage for permission writes.
         contract
-            .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
+            .execute_admin(set_request(json!({"storage/deposit": {"amount": "1"}})))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 admin.clone(),
                 "groups/concurrent_test/config".to_string(),
                 MANAGE,
@@ -1104,10 +1104,10 @@ mod member_edge_cases {
         );
         // Ensure admin has storage for permission writes.
         contract
-            .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
+            .execute_admin(set_request(json!({"storage/deposit": {"amount": "1"}})))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/concurrent_test/config".to_string(),
                 MODERATE,
@@ -1120,10 +1120,10 @@ mod member_edge_cases {
         );
         // Ensure owner has storage for permission writes.
         contract
-            .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
+            .execute_admin(set_request(json!({"storage/deposit": {"amount": "1"}})))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/concurrent_test/special".to_string(),
                 MANAGE,
@@ -1169,7 +1169,7 @@ mod member_edge_cases {
             };
             let path = format!("groups/concurrent_test/path_{}", i);
             contract
-                .execute(set_permission_request(
+                .execute_admin(set_permission_request(
                     member.clone(),
                     path,
                     permission_level,
@@ -1228,7 +1228,7 @@ mod member_edge_cases {
 
         // Grant various permissions on different paths
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 paths[0].to_string(),
                 MODERATE,
@@ -1236,7 +1236,7 @@ mod member_edge_cases {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 paths[1].to_string(),
                 WRITE,
@@ -1244,7 +1244,7 @@ mod member_edge_cases {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 paths[2].to_string(),
                 MANAGE,
@@ -1273,7 +1273,7 @@ mod member_edge_cases {
 
         // Grant additional config-level permission and verify consistency
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/permission_consistency/config".to_string(),
                 MODERATE,

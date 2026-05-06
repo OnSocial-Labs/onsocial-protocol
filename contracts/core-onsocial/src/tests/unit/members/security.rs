@@ -175,7 +175,7 @@ mod member_security_tests {
         near_sdk::testing_env!(fake_user_context.build());
 
         // This should fail because non-owners cannot grant themselves elevated group permissions.
-        let self_grant_result = contract.execute(set_permission_request(
+        let self_grant_result = contract.execute_admin(set_permission_request(
             fake_user.clone(),
             "groups/test_group/config".to_string(),
             MANAGE,
@@ -362,7 +362,7 @@ mod member_security_tests {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 user.clone(),
                 "groups/admin_group/config".to_string(),
                 MANAGE,
@@ -454,7 +454,7 @@ mod member_security_tests {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 user.clone(),
                 "groups/test_group/config".to_string(),
                 MANAGE,

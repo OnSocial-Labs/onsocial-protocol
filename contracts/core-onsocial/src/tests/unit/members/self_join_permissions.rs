@@ -130,7 +130,7 @@ fn test_owner_can_grant_higher_permissions_directly() {
 
     // Owner grants MANAGE on config explicitly
     contract
-        .execute(set_permission_request(
+        .execute_admin(set_permission_request(
             member.clone(),
             "groups/publicgroup/config".to_string(),
             MANAGE,
@@ -188,7 +188,7 @@ fn test_existing_member_can_be_upgraded() {
     near_sdk::testing_env!(
         get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000).build()
     );
-    let update_result = contract.execute(set_permission_request(
+    let update_result = contract.execute_admin(set_permission_request(
         member.clone(),
         "groups/publicgroup/config".to_string(),
         MODERATE,
@@ -212,7 +212,7 @@ fn test_existing_member_can_be_upgraded() {
     );
 
     // Test upgrading to MANAGE
-    let manage_result = contract.execute(set_permission_request(
+    let manage_result = contract.execute_admin(set_permission_request(
         member.clone(),
         "groups/publicgroup/config".to_string(),
         MANAGE,

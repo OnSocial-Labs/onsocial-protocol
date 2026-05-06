@@ -1,21 +1,3 @@
-// === GROUP CONTENT CREATION INTEGRATION TESTS ===
-// Comprehensive tests for GroupContentManager and group content workflows
-//
-// This test suite covers the CRITICAL group content creation flow:
-// 1. Member writing posts/messages to group paths
-// 2. Content transformation and enrichment
-// 3. Metadata generation and storage
-// 4. User-owned storage path transformation
-// 5. Permission validation during content creation
-// 6. Event emission for group content
-// 7. Storage attribution (who pays for content)
-// 8. Content retrieval and verification
-//
-// Group content is stored at user-owned paths but associated with groups:
-// - Write path: "groups/mygroup/posts/1" (checked for permissions)
-// - Storage path: "alice.near/groups/mygroup/posts/1" (actual storage location)
-// - Permission check: alice.near needs WRITE permission on groups/mygroup/posts/
-
 #[cfg(test)]
 mod group_content_integration_tests {
     use crate::domain::groups::permissions::kv::types::WRITE;
@@ -23,14 +5,9 @@ mod group_content_integration_tests {
     use near_sdk::serde_json::json;
     use near_sdk::testing_env;
 
-    // Import request builders for execute() API
     use crate::tests::test_utils::{
         add_group_member_request, create_group_request, join_group_request, set_permission_request,
     };
-
-    // ============================================================================
-    // BASIC CONTENT CREATION TESTS
-    // ============================================================================
 
     #[test]
     fn test_member_creates_post_in_public_group() {
@@ -66,7 +43,7 @@ mod group_content_integration_tests {
         testing_env!(context.build());
 
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/tech_discussion/posts/".to_string(),
                 WRITE,
@@ -144,7 +121,7 @@ mod group_content_integration_tests {
         testing_env!(context.build());
 
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/blog_group/posts/".to_string(),
                 WRITE,
@@ -221,7 +198,7 @@ mod group_content_integration_tests {
 
         // Grant permissions for different content types
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/community/posts/".to_string(),
                 WRITE,
@@ -229,7 +206,7 @@ mod group_content_integration_tests {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/community/comments/".to_string(),
                 WRITE,
@@ -237,7 +214,7 @@ mod group_content_integration_tests {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/community/media/".to_string(),
                 WRITE,
@@ -275,10 +252,6 @@ mod group_content_integration_tests {
 
         println!("✓ Different content types created successfully");
     }
-
-    // ============================================================================
-    // PERMISSION VALIDATION TESTS
-    // ============================================================================
 
     #[test]
     fn test_non_member_cannot_create_content() {
@@ -350,7 +323,7 @@ mod group_content_integration_tests {
 
         // Grant permission only for posts/, NOT comments/
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/restricted/posts/".to_string(),
                 WRITE,
@@ -420,7 +393,7 @@ mod group_content_integration_tests {
 
         // Grant path-specific permission
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/revoke_test/posts/".to_string(),
                 WRITE,
@@ -442,7 +415,7 @@ mod group_content_integration_tests {
         testing_env!(context.build());
 
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/revoke_test/posts/".to_string(),
                 0, // Revoke
@@ -465,10 +438,6 @@ mod group_content_integration_tests {
 
         println!("✓ Permission revocation correctly blocks future content creation");
     }
-
-    // ============================================================================
-    // STORAGE ATTRIBUTION TESTS
-    // ============================================================================
 
     #[test]
     fn test_content_creator_pays_storage() {
@@ -498,7 +467,7 @@ mod group_content_integration_tests {
         testing_env!(context.build());
 
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/storage_test/posts/".to_string(),
                 WRITE,
@@ -534,10 +503,6 @@ mod group_content_integration_tests {
         println!("✓ Content creator correctly pays for storage");
     }
 
-    // ============================================================================
-    // EVENT EMISSION TESTS
-    // ============================================================================
-
     #[test]
     fn test_content_creation_emits_events() {
         let mut contract = init_live_contract();
@@ -566,7 +531,7 @@ mod group_content_integration_tests {
         testing_env!(context.build());
 
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/event_test/posts/".to_string(),
                 WRITE,
@@ -596,10 +561,6 @@ mod group_content_integration_tests {
 
         println!("✓ Content creation correctly emits events");
     }
-
-    // ============================================================================
-    // COMPLEX WORKFLOW TESTS
-    // ============================================================================
 
     #[test]
     fn test_multi_member_content_collaboration() {
@@ -637,7 +598,7 @@ mod group_content_integration_tests {
         testing_env!(context.build());
 
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 alice.clone(),
                 "groups/collab/posts/".to_string(),
                 WRITE,
@@ -645,7 +606,7 @@ mod group_content_integration_tests {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 bob.clone(),
                 "groups/collab/posts/".to_string(),
                 WRITE,
@@ -718,7 +679,7 @@ mod group_content_integration_tests {
 
         // Grant content permission
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 approved_member.clone(),
                 "groups/private_club/posts/".to_string(),
                 WRITE,
@@ -785,10 +746,6 @@ mod group_content_integration_tests {
 
         println!("✓ Owner can create content without explicit permission grant");
     }
-
-    // ============================================================================
-    // ERROR HANDLING TESTS
-    // ============================================================================
 
     #[test]
     fn test_invalid_group_path_format() {
@@ -874,7 +831,7 @@ mod group_content_integration_tests {
         testing_env!(context.build());
 
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/storage_limit/posts/".to_string(),
                 WRITE,
@@ -900,10 +857,6 @@ mod group_content_integration_tests {
 
         println!("✓ Insufficient storage correctly prevents content creation");
     }
-
-    // ============================================================================
-    // CONTENT LIFECYCLE TESTS
-    // ============================================================================
 
     #[test]
     fn test_content_update_and_versioning() {
@@ -933,7 +886,7 @@ mod group_content_integration_tests {
         testing_env!(context.build());
 
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/versioning/posts/".to_string(),
                 WRITE,
@@ -1007,7 +960,7 @@ mod group_content_integration_tests {
         testing_env!(context.build());
 
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 author.clone(),
                 "groups/public_read/posts/".to_string(),
                 WRITE,

@@ -1,10 +1,4 @@
-//! Unit tests for domain/groups/permissions/kv/eval.rs
-//!
-//! Tests coverage for:
-//! - classify_group_path: Root, Config, Other classification
-//! - extract_path_owner: Group and account path owner extraction
-//! - has_permissions: Unified permission checks for groups and accounts
-//! - get_user_permissions: Permission level retrieval
+//! Unit tests for `domain/groups/permissions/kv/eval.rs`.
 
 #[cfg(test)]
 mod eval_tests {
@@ -22,10 +16,6 @@ mod eval_tests {
     fn test_account(index: usize) -> near_sdk::AccountId {
         accounts(index)
     }
-
-    // =========================================================================
-    // classify_group_path tests
-    // =========================================================================
 
     #[test]
     fn test_classify_group_path_root_direct() {
@@ -143,10 +133,6 @@ mod eval_tests {
         println!("✅ classify_group_path returns None for empty path");
     }
 
-    // =========================================================================
-    // extract_path_owner tests
-    // =========================================================================
-
     #[test]
     fn test_extract_path_owner_group_with_config() {
         let mut contract = init_live_contract();
@@ -195,10 +181,6 @@ mod eval_tests {
         assert_eq!(result, Some("".to_string()), "Empty first segment");
         println!("✅ extract_path_owner handles empty path");
     }
-
-    // =========================================================================
-    // has_permissions tests (unified API)
-    // =========================================================================
 
     #[test]
     fn test_has_permissions_group_owner_always_passes() {
@@ -279,10 +261,6 @@ mod eval_tests {
         assert!(!result, "User without grant should not have permissions");
         println!("✅ has_permissions returns false without grant on account path");
     }
-
-    // =========================================================================
-    // get_user_permissions tests
-    // =========================================================================
 
     #[test]
     fn test_get_user_permissions_group_owner_returns_full_access() {

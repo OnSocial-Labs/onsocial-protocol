@@ -269,7 +269,7 @@ mod governance_tests {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/traditional/config".to_string(),
                 MANAGE,
@@ -614,7 +614,7 @@ mod governance_tests {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 "groups/traditional/config".to_string(),
                 MANAGE,

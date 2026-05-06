@@ -1,13 +1,10 @@
-//! Protocol types for the unified execute API.
+//! Types for the unified execute API.
 
 use near_sdk::json_types::U64;
 use near_sdk::serde_json::Value;
 use near_sdk::{AccountId, PublicKey};
 
-/// Re-export the shared Auth enum from onsocial-auth.
-pub use onsocial_auth::Auth;
-
-/// Executable actions dispatched via the unified execute API.
+/// Actions dispatched via `execute` and `execute_admin`.
 #[derive(near_sdk_macros::NearSchema, serde::Serialize, serde::Deserialize, Clone)]
 #[serde(crate = "near_sdk::serde", tag = "type", rename_all = "snake_case")]
 pub enum Action {
@@ -69,7 +66,7 @@ pub enum Action {
         proposal_type: String,
         changes: Value,
         auto_vote: Option<bool>,
-        /// Optional free-text description explaining the rationale for any proposal type.
+        /// Optional rationale.
         description: Option<String>,
     },
     VoteOnProposal {
@@ -81,9 +78,7 @@ pub enum Action {
         group_id: String,
         proposal_id: String,
     },
-    /// Permissionless: anyone can finalize a proposal whose voting period has
-    /// elapsed without quorum or inevitable defeat. Releases the proposer's
-    /// locked storage bond.
+    /// Finalizes a proposal that has timed out without passing.
     ExpireProposal {
         group_id: String,
         proposal_id: String,
@@ -104,7 +99,7 @@ pub enum Action {
 }
 
 impl Action {
-    /// Returns a string identifier for logging/events.
+    /// Stable identifier used in logs and events.
     pub fn action_type(&self) -> &'static str {
         match self {
             Self::Set { .. } => "set",
@@ -128,23 +123,45 @@ impl Action {
             Self::SetKeyPermission { .. } => "set_key_permission",
         }
     }
+
+    /// Returns true for actions that must not pass through `execute()`.
+    pub fn requires_full_access(&self) -> bool {
+        match self {
+            Self::SetPermission { .. } | Self::SetKeyPermission { .. } => true,
+
+            Self::Set { data } => set_data_requires_full_access(data),
+
+            _ => false,
+        }
+    }
+}
+
+/// Returns true when a `Set.data` payload includes a reserved operation key.
+fn set_data_requires_full_access(data: &Value) -> bool {
+    let Some(obj) = data.as_object() else {
+        return false;
+    };
+
+    obj.keys().any(|k| {
+        crate::protocol::operation::classify_api_operation_key(k.as_str())
+            .map(|op| op.requires_target_owner())
+            .unwrap_or(false)
+    })
 }
 
 #[derive(near_sdk_macros::NearSchema, serde::Serialize, serde::Deserialize, Clone)]
 #[serde(crate = "near_sdk::serde")]
 pub struct Request {
-    /// Defaults to actor for `Auth::Direct`.
+    /// Defaults to the caller.
     pub target_account: Option<AccountId>,
     pub action: Action,
-    /// Defaults to `Auth::Direct`.
-    pub auth: Option<Auth>,
     pub options: Option<Options>,
 }
 
 #[derive(near_sdk_macros::NearSchema, serde::Serialize, serde::Deserialize, Default, Clone)]
 #[serde(crate = "near_sdk::serde")]
 pub struct Options {
-    /// Refund unused deposit to payer instead of crediting actor's storage.
+    /// Refund unused deposit to the payer instead of saving it to actor storage.
     #[serde(default)]
     pub refund_unused_deposit: bool,
 }

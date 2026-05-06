@@ -44,7 +44,9 @@ pub fn validate_cross_account_permissions_simple(
                         false
                     } else if require_key_for_group_paths {
                         let Some(pk) = actor_pk else {
-                            return Err(invalid_input!("actor_pk required for group write"));
+                            return Err(invalid_input!(
+                                "actor_pk required for signed-payload group write"
+                            ));
                         };
                         crate::domain::groups::permissions::kv::has_permissions_for_key(
                             platform,

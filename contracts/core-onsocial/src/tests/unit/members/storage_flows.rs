@@ -49,7 +49,7 @@ mod storage_flow_tests {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 moderator.clone(),
                 "groups/testgroup/config".to_string(),
                 MANAGE,
@@ -210,7 +210,7 @@ mod storage_flow_tests {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 moderator.clone(),
                 "groups/privategroup/join_requests".to_string(),
                 MODERATE,
@@ -442,7 +442,7 @@ mod storage_flow_tests {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 moderator.clone(),
                 "groups/permgroup/config".to_string(),
                 MANAGE,
@@ -532,7 +532,7 @@ mod storage_flow_tests {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 approver.clone(),
                 "groups/approvalgroup/join_requests".to_string(),
                 MODERATE,
@@ -629,7 +629,7 @@ mod storage_flow_tests {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 moderator.clone(),
                 "groups/refundgroup/config".to_string(),
                 MANAGE,
@@ -715,7 +715,7 @@ mod storage_flow_tests {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 moderator.clone(),
                 "groups/securegroup/config".to_string(),
                 MANAGE,
@@ -815,7 +815,7 @@ mod storage_flow_tests {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 approver.clone(),
                 "groups/rejectgroup/join_requests".to_string(),
                 MODERATE,
@@ -1148,7 +1148,7 @@ mod storage_flow_tests {
             ))
             .unwrap();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 moderator.clone(),
                 "groups/unbangroup/config".to_string(),
                 MANAGE,
@@ -1320,7 +1320,7 @@ mod storage_flow_tests {
         // Owner grants additional permissions to member
         let permission_path = "groups/revokegroup/config".to_string();
         contract
-            .execute(set_permission_request(
+            .execute_admin(set_permission_request(
                 member.clone(),
                 permission_path.clone(),
                 MODERATE,
@@ -1335,7 +1335,7 @@ mod storage_flow_tests {
             get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000);
         near_sdk::testing_env!(revoke_context.build());
 
-        let revoke_result = contract.execute(set_permission_request(
+        let revoke_result = contract.execute_admin(set_permission_request(
             member.clone(),
             permission_path.clone(),
             0,

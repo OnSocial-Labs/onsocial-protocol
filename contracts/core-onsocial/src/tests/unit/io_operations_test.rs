@@ -53,7 +53,7 @@ mod io_operations_tests {
             get_context_with_deposit(alice.clone(), NearToken::from_near(2).as_yoctonear()).build()
         );
         contract
-            .execute(set_request(json!({
+            .execute_admin(set_request(json!({
                 "storage/deposit": {
                     "amount": NearToken::from_near(2).as_yoctonear().to_string()
                 }
@@ -65,7 +65,7 @@ mod io_operations_tests {
             get_context_with_deposit(bob.clone(), NearToken::from_near(2).as_yoctonear()).build()
         );
         contract
-            .execute(set_request(json!({
+            .execute_admin(set_request(json!({
                 "storage/deposit": {
                     "amount": NearToken::from_near(2).as_yoctonear().to_string()
                 }
@@ -132,7 +132,7 @@ mod io_operations_tests {
             get_context_with_deposit(alice.clone(), NearToken::from_near(2).as_yoctonear()).build()
         );
         contract
-            .execute(set_request(json!({
+            .execute_admin(set_request(json!({
                 "storage/deposit": {
                     "amount": NearToken::from_near(2).as_yoctonear().to_string()
                 }
@@ -144,7 +144,7 @@ mod io_operations_tests {
             get_context_with_deposit(bob.clone(), NearToken::from_near(2).as_yoctonear()).build()
         );
         contract
-            .execute(set_request(json!({
+            .execute_admin(set_request(json!({
                 "storage/deposit": {
                     "amount": NearToken::from_near(2).as_yoctonear().to_string()
                 }
@@ -209,7 +209,7 @@ mod io_operations_tests {
             get_context_with_deposit(alice.clone(), NearToken::from_near(1).as_yoctonear()).build()
         );
         contract
-            .execute(set_request(json!({
+            .execute_admin(set_request(json!({
                 "storage/deposit": {
                     "amount": NearToken::from_near(1).as_yoctonear().to_string()
                 }
@@ -253,7 +253,7 @@ mod io_operations_tests {
             get_context_with_deposit(alice.clone(), NearToken::from_near(1).as_yoctonear()).build()
         );
         contract
-            .execute(set_request(json!({
+            .execute_admin(set_request(json!({
                 "storage/deposit": {
                     "amount": NearToken::from_near(1).as_yoctonear().to_string()
                 }
@@ -283,7 +283,7 @@ mod io_operations_tests {
             get_context_with_deposit(alice.clone(), NearToken::from_near(1).as_yoctonear()).build()
         );
         contract
-            .execute(set_request(json!({
+            .execute_admin(set_request(json!({
                 "storage/deposit": {
                     "amount": NearToken::from_near(1).as_yoctonear().to_string()
                 }
@@ -367,7 +367,7 @@ mod io_operations_tests {
             get_context_with_deposit(alice.clone(), NearToken::from_near(1).as_yoctonear()).build()
         );
         contract
-            .execute(set_request(json!({
+            .execute_admin(set_request(json!({
                 "storage/deposit": {
                     "amount": NearToken::from_near(1).as_yoctonear().to_string()
                 }
@@ -417,7 +417,7 @@ mod io_operations_tests {
             get_context_with_deposit(alice.clone(), NearToken::from_near(1).as_yoctonear()).build()
         );
         contract
-            .execute(set_request(json!({
+            .execute_admin(set_request(json!({
                 "storage/deposit": {
                     "amount": NearToken::from_near(1).as_yoctonear().to_string()
                 }
@@ -452,7 +452,7 @@ mod io_operations_tests {
             get_context_with_deposit(alice.clone(), NearToken::from_near(1).as_yoctonear()).build()
         );
         contract
-            .execute(set_request(json!({
+            .execute_admin(set_request(json!({
                 "storage/deposit": {
                     "amount": NearToken::from_near(1).as_yoctonear().to_string()
                 }
@@ -496,7 +496,7 @@ mod io_operations_tests {
             get_context_with_deposit(alice.clone(), NearToken::from_near(1).as_yoctonear()).build()
         );
         contract
-            .execute(set_request(json!({
+            .execute_admin(set_request(json!({
                 "storage/deposit": {
                     "amount": NearToken::from_near(1).as_yoctonear().to_string()
                 }
@@ -572,7 +572,7 @@ mod io_operations_tests {
             get_context_with_deposit(alice.clone(), NearToken::from_near(2).as_yoctonear()).build()
         );
         contract
-            .execute(set_request(json!({
+            .execute_admin(set_request(json!({
                 "storage/shared_pool_deposit": {
                     "pool_id": alice.to_string(),
                     "amount": NearToken::from_near(2).as_yoctonear().to_string()

@@ -43,7 +43,7 @@ mod voting_proposal_types_tests {
             .unwrap();
 
         // Direct permission changes on group paths must be rejected
-        let direct_group_grant = contract.execute(set_permission_request(
+        let direct_group_grant = contract.execute_admin(set_permission_request(
             bob.clone(),
             "groups/md_gate/posts".to_string(),
             WRITE,
@@ -55,7 +55,7 @@ mod voting_proposal_types_tests {
         );
 
         // Non-group paths should remain unaffected
-        let direct_personal_grant = contract.execute(set_permission_request(
+        let direct_personal_grant = contract.execute_admin(set_permission_request(
             bob.clone(),
             format!("{}/posts", alice),
             WRITE,
@@ -116,10 +116,10 @@ mod voting_proposal_types_tests {
 
         // Ensure manager has storage balance for permission writes.
         contract
-            .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
+            .execute_admin(set_request(json!({"storage/deposit": {"amount": "1"}})))
             .unwrap();
 
-        let delegated_ok = contract.execute(set_permission_request(
+        let delegated_ok = contract.execute_admin(set_permission_request(
             bob.clone(),
             "groups/md_delegation/content/posts".to_string(),
             WRITE,
@@ -134,7 +134,7 @@ mod voting_proposal_types_tests {
         );
 
         // Missing expires_at must fail.
-        let delegated_missing_exp = contract.execute(set_permission_request(
+        let delegated_missing_exp = contract.execute_admin(set_permission_request(
             bob.clone(),
             "groups/md_delegation/content/comments".to_string(),
             WRITE,
@@ -146,7 +146,7 @@ mod voting_proposal_types_tests {
         );
 
         // Delegation to non-members must fail.
-        let delegated_to_non_member = contract.execute(set_permission_request(
+        let delegated_to_non_member = contract.execute_admin(set_permission_request(
             non_member.clone(),
             "groups/md_delegation/content/media".to_string(),
             WRITE,
