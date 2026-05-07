@@ -36,7 +36,8 @@
       "request": {
         "target_account": "rewards.onsocial.testnet",
         "action": {
-          "type": "claim"
+          "type": "claim",
+          "account_id": "alice.near"
         }
       }
     }

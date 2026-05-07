@@ -2,26 +2,25 @@ use crate::*;
 use near_sdk::serde_json::{self, Value};
 
 impl RewardsContract {
-    pub(crate) fn dispatch_action(
-        &mut self,
-        action: Action,
-        actor_id: &AccountId,
-    ) -> Result<Value, RewardsError> {
+    pub(crate) fn dispatch_action(&mut self, action: Action) -> Result<Value, RewardsError> {
         match action {
             Action::CreditReward {
                 account_id,
                 amount,
                 source,
                 app_id,
-            } => self.handle_credit_reward(
-                actor_id,
-                &account_id,
-                amount.0,
-                source.as_deref(),
-                app_id.as_deref(),
-            ),
+            } => {
+                let caller = env::predecessor_account_id();
+                self.handle_credit_reward(
+                    &caller,
+                    &account_id,
+                    amount.0,
+                    source.as_deref(),
+                    app_id.as_deref(),
+                )
+            }
 
-            Action::Claim => self.handle_claim(actor_id),
+            Action::Claim { account_id } => self.handle_claim(&account_id),
         }
     }
 

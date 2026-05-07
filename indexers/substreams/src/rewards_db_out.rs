@@ -90,12 +90,6 @@ pub(crate) fn write_rewards_event(tables: &mut Tables, event: &RewardsEvent) {
             row.set("old_max", &p.old_max);
             row.set("new_max", &p.new_max);
         }
-        Some(Payload::ExecutorAdded(p)) => {
-            row.set("executor", &p.executor);
-        }
-        Some(Payload::ExecutorRemoved(p)) => {
-            row.set("executor", &p.executor);
-        }
         Some(Payload::CallerAdded(p)) => {
             row.set("caller", &p.caller);
         }

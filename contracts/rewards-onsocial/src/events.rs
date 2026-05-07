@@ -91,26 +91,6 @@ pub fn emit_max_daily_updated(owner_id: &AccountId, old_max: u128, new_max: u128
     );
 }
 
-pub fn emit_intents_executor_added(owner_id: &AccountId, executor: &AccountId) {
-    emit(
-        "EXECUTOR_ADDED",
-        owner_id,
-        serde_json::json!({
-            "executor": executor.to_string(),
-        }),
-    );
-}
-
-pub fn emit_intents_executor_removed(owner_id: &AccountId, executor: &AccountId) {
-    emit(
-        "EXECUTOR_REMOVED",
-        owner_id,
-        serde_json::json!({
-            "executor": executor.to_string(),
-        }),
-    );
-}
-
 pub fn emit_authorized_caller_added(owner_id: &AccountId, caller: &AccountId) {
     emit(
         "CALLER_ADDED",

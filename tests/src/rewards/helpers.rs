@@ -30,10 +30,11 @@ pub use crate::utils::setup_sandbox as create_sandbox;
 /// 1 yoctoNEAR — required by ft_transfer (NEP-141).
 pub const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
 
-/// 1 SOCIAL token (18 decimals).
-pub const ONE_SOCIAL: u128 = 1_000_000_000_000_000_000;
+/// Test reward unit (0.01 SOCIAL). Sized so multiples used in tests stay
+/// within the contract's hard caps (1 SOCIAL per action, 10 SOCIAL daily).
+pub const ONE_SOCIAL: u128 = 10_000_000_000_000_000;
 
-/// Default max daily cap: 100 SOCIAL.
+/// Default max daily cap (1 SOCIAL = 100 * ONE_SOCIAL test units).
 pub const DEFAULT_MAX_DAILY: u128 = 100 * ONE_SOCIAL;
 
 /// Pool deposit used in tests: 10,000 SOCIAL.
@@ -55,7 +56,6 @@ pub struct ContractInfo {
     pub pool_balance: String,
     pub total_credited: String,
     pub total_claimed: String,
-    pub intents_executors: Vec<String>,
     pub authorized_callers: Vec<String>,
 }
 
@@ -270,7 +270,13 @@ pub async fn claim_rewards(
     rewards: &Contract,
     caller: &Account,
 ) -> Result<near_workspaces::result::ExecutionFinalResult> {
-    execute_action(rewards, caller, json!({"type": "claim"})).await
+    let account_id = caller.id().to_string();
+    execute_action(
+        rewards,
+        caller,
+        json!({"type": "claim", "account_id": account_id}),
+    )
+    .await
 }
 
 // =============================================================================

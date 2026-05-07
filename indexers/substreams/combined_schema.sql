@@ -43,7 +43,9 @@ CREATE TABLE IF NOT EXISTS data_updates (
   reaction_kind TEXT,
   channel TEXT,
   kind TEXT,
-  audiences TEXT
+  audiences TEXT,
+  actor_id TEXT,
+  payer_id TEXT
 );
 
 CREATE TABLE IF NOT EXISTS storage_updates (
@@ -61,7 +63,6 @@ CREATE TABLE IF NOT EXISTS storage_updates (
   pool_key TEXT,
   group_id TEXT,
   reason TEXT,
-  auth_type TEXT,
   actor_id TEXT,
   payer_id TEXT,
   target_id TEXT,
@@ -173,7 +174,6 @@ CREATE TABLE IF NOT EXISTS contract_updates (
   derived_id TEXT,
   derived_type TEXT,
   target_id TEXT,
-  auth_type TEXT,
   actor_id TEXT,
   payer_id TEXT,
   extra_data TEXT
@@ -218,6 +218,14 @@ ALTER TABLE data_updates ADD COLUMN IF NOT EXISTS value_json jsonb
 CREATE INDEX IF NOT EXISTS idx_data_updates_value_json_gin
   ON data_updates USING gin (value_json jsonb_path_ops)
   WHERE value_json IS NOT NULL;
+
+ALTER TABLE data_updates ADD COLUMN IF NOT EXISTS actor_id TEXT;
+ALTER TABLE data_updates ADD COLUMN IF NOT EXISTS payer_id TEXT;
+ALTER TABLE data_updates DROP COLUMN IF EXISTS auth_type;
+ALTER TABLE storage_updates DROP COLUMN IF EXISTS auth_type;
+ALTER TABLE contract_updates DROP COLUMN IF EXISTS auth_type;
+CREATE INDEX IF NOT EXISTS idx_data_updates_actor_id ON data_updates(actor_id) WHERE actor_id IS NOT NULL AND actor_id != '';
+CREATE INDEX IF NOT EXISTS idx_data_updates_payer_id ON data_updates(payer_id) WHERE payer_id IS NOT NULL AND payer_id != '';
 
 CREATE INDEX IF NOT EXISTS idx_storage_updates_author ON storage_updates(author);
 CREATE INDEX IF NOT EXISTS idx_storage_updates_block_height ON storage_updates(block_height);
@@ -346,8 +354,7 @@ CREATE TABLE IF NOT EXISTS rewards_events (
   old_max TEXT,
   new_max TEXT,
 
-  -- Executor / caller
-  executor TEXT,
+  -- Caller
   caller TEXT,
 
   -- Contract upgrade

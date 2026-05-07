@@ -145,7 +145,6 @@ impl RewardsContract {
             pool_balance: U128(self.pool_balance),
             total_credited: U128(self.total_credited),
             total_claimed: U128(self.total_claimed),
-            intents_executors: self.intents_executors.clone(),
             authorized_callers: self.authorized_callers.clone(),
             app_ids: self.app_ids.clone(),
         }

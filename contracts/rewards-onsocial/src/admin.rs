@@ -20,7 +20,6 @@ pub struct ContractInfo {
     pub pool_balance: U128,
     pub total_credited: U128,
     pub total_claimed: U128,
-    pub intents_executors: Vec<AccountId>,
     pub authorized_callers: Vec<AccountId>,
     pub app_ids: Vec<String>,
 }
@@ -101,24 +100,6 @@ impl RewardsContract {
     }
 
     #[handle_result]
-    pub fn add_intents_executor(&mut self, executor: AccountId) -> Result<(), RewardsError> {
-        self.check_owner()?;
-        if !self.intents_executors.contains(&executor) {
-            self.intents_executors.push(executor.clone());
-        }
-        events::emit_intents_executor_added(&self.owner_id, &executor);
-        Ok(())
-    }
-
-    #[handle_result]
-    pub fn remove_intents_executor(&mut self, executor: AccountId) -> Result<(), RewardsError> {
-        self.check_owner()?;
-        self.intents_executors.retain(|e| e != &executor);
-        events::emit_intents_executor_removed(&self.owner_id, &executor);
-        Ok(())
-    }
-
-    #[handle_result]
     pub fn update_contract(&self) -> Result<Promise, RewardsError> {
         self.check_owner()?;
         let code = env::input().expect("No input").to_vec();
@@ -153,7 +134,7 @@ impl RewardsContract {
     #[private]
     #[init(ignore_state)]
     pub fn migrate() -> Self {
-        let mut contract: Self = env::state_read().expect("State read failed");
+        let mut contract: Self = env::state_read().expect("State missing");
         let old = contract.version.clone();
         contract.version = CONTRACT_VERSION.to_string();
         events::emit_contract_upgraded(&contract.owner_id, &old, CONTRACT_VERSION);

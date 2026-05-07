@@ -33,8 +33,6 @@ message RewardsEvent {
     PoolDeposit pool_deposit = 13;
     OwnerChanged owner_changed = 14;
     MaxDailyUpdated max_daily_updated = 15;
-    ExecutorAdded executor_added = 16;
-    ExecutorRemoved executor_removed = 17;
     CallerAdded caller_added = 18;
     CallerRemoved caller_removed = 19;
     ContractUpgrade contract_upgrade = 20;
@@ -76,14 +74,6 @@ message OwnerChanged {
 message MaxDailyUpdated {
   string old_max = 1;
   string new_max = 2;
-}
-
-message ExecutorAdded {
-  string executor = 1;
-}
-
-message ExecutorRemoved {
-  string executor = 1;
 }
 
 message CallerAdded {

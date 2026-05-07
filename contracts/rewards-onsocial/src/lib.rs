@@ -1,9 +1,4 @@
-//! OnSocial Rewards Contract — gasless reward distribution via `onsocial-auth`.
-//!
-//! Invariants:
-//!   - `pool_balance` tracks actual SOCIAL tokens held; decremented on credit, restored on failed claim.
-//!   - `pending_claims` enables optimistic claim with rollback on cross-contract failure.
-//!   - Only `social_token` is accepted via `ft_on_transfer`; all outgoing transfers target `social_token`.
+//! OnSocial Rewards Contract — gasless reward distribution.
 
 use near_sdk::json_types::U128;
 use near_sdk::store::LookupMap;
@@ -26,16 +21,13 @@ mod sdk_parity_test;
 
 pub use admin::{ContractInfo, RegisterApp, UpdateApp};
 pub use errors::RewardsError;
-pub use protocol::{Action, Auth, Options, Request};
+pub use protocol::{Action, Request};
 
 pub const GAS_FT_TRANSFER: Gas = Gas::from_tgas(10);
 pub const GAS_STORAGE_DEPOSIT: Gas = Gas::from_tgas(10);
 pub const GAS_CALLBACK: Gas = Gas::from_tgas(10);
 pub const GAS_MIGRATE: Gas = Gas::from_tgas(200);
 pub const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
-/// NEP-145 registration deposit for the SOCIAL token contract.
-/// Standard FT registration costs ~1.25 milliNEAR; we send 2 milliNEAR for safety margin.
-/// `registration_only: true` ensures excess is refunded, already-registered accounts get full refund.
 pub const FT_STORAGE_DEPOSIT: NearToken = NearToken::from_millinear(2);
 pub const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const NS_PER_DAY: u64 = 86_400_000_000_000;
@@ -102,7 +94,6 @@ pub struct RewardsContract {
     pub authorized_callers: Vec<AccountId>,
     /// Enables optimistic claim with rollback on cross-contract failure.
     pub(crate) pending_claims: LookupMap<AccountId, PendingClaim>,
-    pub intents_executors: Vec<AccountId>,
     /// Tracked separately from on-chain balance for accounting safety.
     pub pool_balance: u128,
     pub total_credited: u128,
@@ -124,7 +115,6 @@ impl RewardsContract {
             users: LookupMap::new(StorageKey::Users),
             authorized_callers: Vec::new(),
             pending_claims: LookupMap::new(StorageKey::PendingClaims),
-            intents_executors: Vec::new(),
             pool_balance: 0,
             total_credited: 0,
             total_claimed: 0,

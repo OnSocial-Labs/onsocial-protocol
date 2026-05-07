@@ -1,10 +1,5 @@
 use near_sdk::json_types::U128;
 use near_sdk::{AccountId, near};
-pub use onsocial_auth::Auth;
-
-/// Must stay unique across contracts that share the nonce store.
-pub const NONCE_PREFIX: u8 = 0x07;
-pub const DOMAIN_PREFIX: &str = "onsocial:rewards";
 
 #[near(serializers = [json])]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -18,7 +13,9 @@ pub enum Action {
         #[serde(default)]
         app_id: Option<String>,
     },
-    Claim,
+    Claim {
+        account_id: AccountId,
+    },
 }
 
 impl Action {
@@ -30,15 +27,5 @@ impl Action {
 #[near(serializers = [json])]
 #[derive(Clone)]
 pub struct Request {
-    pub target_account: Option<AccountId>,
     pub action: Action,
-    pub auth: Option<Auth>,
-    pub options: Option<Options>,
-}
-
-#[near(serializers = [json])]
-#[derive(Default, Clone)]
-pub struct Options {
-    #[serde(default)]
-    pub refund_unused_deposit: bool,
 }

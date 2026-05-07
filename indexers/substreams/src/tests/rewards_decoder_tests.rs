@@ -81,18 +81,6 @@ fn test_decode_max_daily_updated() {
 }
 
 #[test]
-fn test_decode_executor_added() {
-    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"EXECUTOR_ADDED","data":[{"executor":"bot.near","account_id":"owner.near"}]}"#;
-    let event = decode_rewards_event(json, "r", 1, 1, 0).unwrap();
-    match event.payload.unwrap() {
-        Payload::ExecutorAdded(p) => {
-            assert_eq!(p.executor, "bot.near");
-        }
-        _ => panic!("wrong payload"),
-    }
-}
-
-#[test]
 fn test_decode_contract_upgrade() {
     let json = r#"{"standard":"onsocial","version":"1.0.0","event":"CONTRACT_UPGRADE","data":[{"old_version":"1.0.0","new_version":"2.0.0","account_id":"rewards.onsocial.testnet"}]}"#;
     let event = decode_rewards_event(json, "r", 1, 1, 0).unwrap();

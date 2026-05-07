@@ -255,7 +255,7 @@ const REAL_CONTRACT_UPDATE: &str = r#"{"standard":"onsocial","version":"1.0.0","
 
 // Source: tx=D2JXs6x3WfD6qsHvXW9XvAr5k7ZisKx2VLzpb7S1NS8T
 // Block: 239409202  Contract: core.onsocial.testnet — meta_tx
-const REAL_CONTRACT_UPDATE_META_TX: &str = r#"{"standard":"onsocial","version":"1.0.0","event":"CONTRACT_UPDATE","data":[{"operation":"set","author":"relayer.onsocial.testnet","partition_id":3797,"path":"test01.onsocial.testnet/meta_tx","id":"meta_tx","type":"meta_tx","target_id":"test01.onsocial.testnet","auth_type":"intent","actor_id":"test01.onsocial.testnet","payer_id":"relayer.onsocial.testnet"}]}"#;
+const REAL_CONTRACT_UPDATE_META_TX: &str = r#"{"standard":"onsocial","version":"1.0.0","event":"CONTRACT_UPDATE","data":[{"operation":"set","author":"relayer.onsocial.testnet","partition_id":3797,"path":"test01.onsocial.testnet/meta_tx","id":"meta_tx","type":"meta_tx","target_id":"test01.onsocial.testnet","actor_id":"test01.onsocial.testnet","payer_id":"relayer.onsocial.testnet"}]}"#;
 
 #[test]
 fn onchain_core_contract_update_upgrade() {
@@ -666,64 +666,6 @@ fn run_scarces(block: &substreams_near::pb::sf::near::r#type::v1::Block) -> Scar
         block_height: ctx.block_height,
         block_timestamp: ctx.block_timestamp,
         block_hash: ctx.block_hash,
-    }
-}
-
-// =============================================================================
-// REWARDS — EXECUTOR_ADDED (real testnet event)
-// =============================================================================
-
-// Source: tx=3nbfqASEJbGM8VzT5n3CtAazuqDdL5ehYB176XZpBH5t
-// Contract: rewards.onsocial.testnet
-const REAL_EXECUTOR_ADDED: &str = r#"{"standard":"onsocial","version":"1.0.0","event":"EXECUTOR_ADDED","data":[{"executor":"test-executor.testnet","account_id":"governance.onsocial.testnet"}]}"#;
-
-#[test]
-fn onchain_rewards_executor_added() {
-    let block = MockBlockBuilder::new(245_000_001, 1_776_000_000)
-        .add_receipt(
-            "rewards.onsocial.testnet",
-            &[70, 71],
-            vec![REAL_EXECUTOR_ADDED],
-        )
-        .build();
-    let out = run_rewards(&block);
-    assert_eq!(out.events.len(), 1);
-    let e = &out.events[0];
-    assert_eq!(e.event_type, "EXECUTOR_ADDED");
-    assert_eq!(e.account_id, "governance.onsocial.testnet");
-    match e.payload.as_ref().unwrap() {
-        crate::pb::rewards::v1::rewards_event::Payload::ExecutorAdded(p) => {
-            assert_eq!(p.executor, "test-executor.testnet");
-        }
-        other => panic!("Expected ExecutorAdded, got {:?}", other),
-    }
-}
-
-// =============================================================================
-// REWARDS — EXECUTOR_REMOVED (real testnet event)
-// =============================================================================
-
-// Source: tx=7jKzMZcQAWFrDeXsFdD9ywVZpdETAbJfZpquSh9HfHah
-const REAL_EXECUTOR_REMOVED: &str = r#"{"standard":"onsocial","version":"1.0.0","event":"EXECUTOR_REMOVED","data":[{"executor":"test-executor.testnet","account_id":"governance.onsocial.testnet"}]}"#;
-
-#[test]
-fn onchain_rewards_executor_removed() {
-    let block = MockBlockBuilder::new(245_000_002, 1_776_000_000)
-        .add_receipt(
-            "rewards.onsocial.testnet",
-            &[72, 73],
-            vec![REAL_EXECUTOR_REMOVED],
-        )
-        .build();
-    let out = run_rewards(&block);
-    assert_eq!(out.events.len(), 1);
-    let e = &out.events[0];
-    assert_eq!(e.event_type, "EXECUTOR_REMOVED");
-    match e.payload.as_ref().unwrap() {
-        crate::pb::rewards::v1::rewards_event::Payload::ExecutorRemoved(p) => {
-            assert_eq!(p.executor, "test-executor.testnet");
-        }
-        other => panic!("Expected ExecutorRemoved, got {:?}", other),
     }
 }
 

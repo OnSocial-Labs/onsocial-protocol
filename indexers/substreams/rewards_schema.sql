@@ -28,8 +28,7 @@ CREATE TABLE IF NOT EXISTS rewards_events (
   old_max TEXT,
   new_max TEXT,
 
-  -- Executor / caller
-  executor TEXT,
+  -- Caller
   caller TEXT,
 
   -- Contract upgrade

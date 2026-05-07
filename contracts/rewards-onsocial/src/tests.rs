@@ -18,9 +18,6 @@ mod unit {
     fn bot() -> AccountId {
         accounts(3)
     }
-    fn relayer() -> AccountId {
-        "relayer.testnet".parse().unwrap()
-    }
 
     fn context(predecessor: AccountId) -> VMContextBuilder {
         let mut b = VMContextBuilder::new();
@@ -129,15 +126,12 @@ mod unit {
 
         // Credit via dispatch
         testing_env!(context(owner()).build());
-        let result = c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(1_000),
-                source: Some("telegram_mod".into()),
-                app_id: None,
-            },
-            &owner(),
-        );
+        let result = c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(1_000),
+            source: Some("telegram_mod".into()),
+            app_id: None,
+        });
         assert!(result.is_ok());
 
         let user_info = c.users.get(&user()).unwrap();
@@ -161,16 +155,14 @@ mod unit {
         testing_env!(context(owner()).build());
         c.add_authorized_caller(bot()).unwrap();
 
-        // Credit via bot
-        let result = c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(500),
-                source: Some("telegram_mod".into()),
-                app_id: None,
-            },
-            &bot(),
-        );
+        // Predecessor must be `bot()` to exercise the authorized_callers path.
+        testing_env!(context(bot()).build());
+        let result = c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(500),
+            source: Some("telegram_mod".into()),
+            app_id: None,
+        });
         assert!(result.is_ok());
         assert_eq!(c.users.get(&user()).unwrap().claimable, 500);
     }
@@ -184,16 +176,14 @@ mod unit {
             .ft_on_transfer(owner(), U128(50_000), r#"{"action":"deposit"}"#.into())
             .unwrap();
 
-        testing_env!(context(owner()).build());
-        let result = c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(1_000),
-                source: None,
-                app_id: None,
-            },
-            &user(), // user is NOT authorized
-        );
+        // Predecessor is `user()`, not owner and not in authorized_callers.
+        testing_env!(context(user()).build());
+        let result = c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(1_000),
+            source: None,
+            app_id: None,
+        });
         assert!(matches!(result, Err(RewardsError::Unauthorized(_))));
     }
 
@@ -211,27 +201,21 @@ mod unit {
         testing_env!(context(owner()).build());
 
         // Credit up to cap
-        let r1 = c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(100_000),
-                source: None,
-                app_id: None,
-            },
-            &owner(),
-        );
+        let r1 = c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(100_000),
+            source: None,
+            app_id: None,
+        });
         assert!(r1.is_ok());
 
         // Over cap — should fail
-        let r2 = c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(1),
-                source: None,
-                app_id: None,
-            },
-            &owner(),
-        );
+        let r2 = c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(1),
+            source: None,
+            app_id: None,
+        });
         assert!(matches!(r2, Err(RewardsError::DailyCapReached)));
     }
 
@@ -246,15 +230,12 @@ mod unit {
 
         // Day 1: credit to cap
         testing_env!(context(owner()).build());
-        c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(100_000),
-                source: None,
-                app_id: None,
-            },
-            &owner(),
-        )
+        c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(100_000),
+            source: None,
+            app_id: None,
+        })
         .unwrap();
 
         // Next day
@@ -262,15 +243,12 @@ mod unit {
         ctx.block_timestamp(1_700_000_000_000_000_000 + crate::NS_PER_DAY);
         testing_env!(ctx.build());
 
-        let r = c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(50_000),
-                source: None,
-                app_id: None,
-            },
-            &owner(),
-        );
+        let r = c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(50_000),
+            source: None,
+            app_id: None,
+        });
         assert!(r.is_ok());
         assert_eq!(c.users.get(&user()).unwrap().claimable, 150_000);
     }
@@ -283,15 +261,12 @@ mod unit {
         // No deposit — pool is 0
 
         testing_env!(context(owner()).build());
-        let result = c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(1_000),
-                source: None,
-                app_id: None,
-            },
-            &owner(),
-        );
+        let result = c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(1_000),
+            source: None,
+            app_id: None,
+        });
         assert!(matches!(result, Err(RewardsError::InsufficientPool(_))));
     }
 
@@ -341,15 +316,12 @@ mod unit {
 
         // Partner credits user via app
         testing_env!(context(owner()).build());
-        let result = c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(2_000),
-                source: Some("level_up".into()),
-                app_id: Some("game_xyz".into()),
-            },
-            &partner(),
-        );
+        let result = c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(2_000),
+            source: Some("level_up".into()),
+            app_id: Some("game_xyz".into()),
+        });
         assert!(result.is_ok());
 
         // User's global claimable updated
@@ -380,27 +352,21 @@ mod unit {
         testing_env!(context(owner()).build());
 
         // Credit up to app cap
-        c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(10_000),
-                source: None,
-                app_id: Some("game_xyz".into()),
-            },
-            &partner(),
-        )
+        c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(10_000),
+            source: None,
+            app_id: Some("game_xyz".into()),
+        })
         .unwrap();
 
         // Next credit should fail with AppDailyCapReached
-        let r2 = c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(1),
-                source: None,
-                app_id: Some("game_xyz".into()),
-            },
-            &partner(),
-        );
+        let r2 = c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(1),
+            source: None,
+            app_id: Some("game_xyz".into()),
+        });
         assert!(matches!(r2, Err(RewardsError::AppDailyCapReached(_))));
     }
 
@@ -413,17 +379,15 @@ mod unit {
         c.ft_on_transfer(owner(), U128(50_000), r#"{"action":"deposit"}"#.into())
             .unwrap();
 
-        testing_env!(context(owner()).build());
-        // bot() is NOT in game_xyz's authorized_callers
-        let r = c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(1_000),
-                source: None,
-                app_id: Some("game_xyz".into()),
-            },
-            &bot(),
-        );
+        // bot() is NOT in game_xyz's authorized_callers — predecessor must be bot()
+        // (not owner) for the per-app authz check to fire instead of the owner shortcut.
+        testing_env!(context(bot()).build());
+        let r = c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(1_000),
+            source: None,
+            app_id: Some("game_xyz".into()),
+        });
         assert!(matches!(r, Err(RewardsError::Unauthorized(_))));
     }
 
@@ -436,15 +400,12 @@ mod unit {
             .unwrap();
 
         testing_env!(context(owner()).build());
-        let r = c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(1_000),
-                source: None,
-                app_id: Some("nonexistent".into()),
-            },
-            &owner(),
-        );
+        let r = c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(1_000),
+            source: None,
+            app_id: Some("nonexistent".into()),
+        });
         assert!(matches!(r, Err(RewardsError::AppNotFound(_))));
     }
 
@@ -461,15 +422,12 @@ mod unit {
             .unwrap();
 
         testing_env!(context(owner()).build());
-        let r = c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(1_000),
-                source: None,
-                app_id: Some("game_xyz".into()),
-            },
-            &partner(),
-        );
+        let r = c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(1_000),
+            source: None,
+            app_id: Some("game_xyz".into()),
+        });
         assert!(matches!(r, Err(RewardsError::AppInactive(_))));
     }
 
@@ -484,27 +442,21 @@ mod unit {
 
         // Credit via app (doesn't consume global daily budget)
         testing_env!(context(owner()).build());
-        c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(10_000),
-                source: None,
-                app_id: Some("game_xyz".into()),
-            },
-            &partner(),
-        )
+        c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(10_000),
+            source: None,
+            app_id: Some("game_xyz".into()),
+        })
         .unwrap();
 
         // Global daily still has full 100k available
-        let r = c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(100_000),
-                source: None,
-                app_id: None,
-            },
-            &owner(),
-        );
+        let r = c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(100_000),
+            source: None,
+            app_id: None,
+        });
         assert!(r.is_ok());
         assert_eq!(c.users.get(&user()).unwrap().claimable, 110_000);
     }
@@ -554,40 +506,31 @@ mod unit {
 
         // Credit 4,000 — should succeed
         testing_env!(context(owner()).build());
-        c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(4_000),
-                source: None,
-                app_id: Some("capped_app".into()),
-            },
-            &partner(),
-        )
+        c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(4_000),
+            source: None,
+            app_id: Some("capped_app".into()),
+        })
         .unwrap();
 
         // Credit 2,000 — should be clamped to 1,000 (remaining budget)
-        let r = c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(2_000),
-                source: None,
-                app_id: Some("capped_app".into()),
-            },
-            &partner(),
-        );
+        let r = c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(2_000),
+            source: None,
+            app_id: Some("capped_app".into()),
+        });
         assert!(r.is_ok());
         assert_eq!(c.users.get(&user()).unwrap().claimable, 5_000); // 4k + 1k clamped
 
         // Budget exhausted — should fail
-        let r2 = c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(1),
-                source: None,
-                app_id: Some("capped_app".into()),
-            },
-            &partner(),
-        );
+        let r2 = c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(1),
+            source: None,
+            app_id: Some("capped_app".into()),
+        });
         assert!(matches!(r2, Err(RewardsError::AppBudgetExhausted(_))));
 
         // Config tracks total_credited
@@ -619,7 +562,7 @@ mod unit {
         let mut c = new_contract();
         testing_env!(context(owner()).build());
 
-        let result = c.dispatch_action(Action::Claim, &user());
+        let result = c.dispatch_action(Action::Claim { account_id: user() });
         assert!(matches!(result, Err(RewardsError::NothingToClaim)));
     }
 
@@ -685,18 +628,6 @@ mod unit {
         assert_eq!(migrated.version, CONTRACT_VERSION);
     }
 
-    #[test]
-    fn test_add_remove_intents_executor() {
-        let mut c = new_contract();
-        testing_env!(context(owner()).build());
-
-        c.add_intents_executor(relayer()).unwrap();
-        assert!(c.intents_executors.contains(&relayer()));
-
-        c.remove_intents_executor(relayer()).unwrap();
-        assert!(!c.intents_executors.contains(&relayer()));
-    }
-
     // ── Views ────────────────────────────────────────────────────────
 
     #[test]
@@ -733,15 +664,12 @@ mod unit {
             .unwrap();
 
         testing_env!(context(owner()).build());
-        c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(2_000),
-                source: None,
-                app_id: Some("game_xyz".into()),
-            },
-            &partner(),
-        )
+        c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(2_000),
+            source: None,
+            app_id: Some("game_xyz".into()),
+        })
         .unwrap();
 
         let metrics = c.get_app_metrics("game_xyz".into()).unwrap();
@@ -768,25 +696,19 @@ mod unit {
             .unwrap();
 
         testing_env!(context(owner()).build());
-        c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(1_500),
-                source: None,
-                app_id: None,
-            },
-            &owner(),
-        )
+        c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(1_500),
+            source: None,
+            app_id: None,
+        })
         .unwrap();
-        c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(2_000),
-                source: None,
-                app_id: Some("game_xyz".into()),
-            },
-            &partner(),
-        )
+        c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(2_000),
+            source: None,
+            app_id: Some("game_xyz".into()),
+        })
         .unwrap();
 
         let overview = c.get_user_rewards_overview(user(), Some("game_xyz".into()));
@@ -816,15 +738,12 @@ mod unit {
             .unwrap();
 
         testing_env!(context(owner()).build());
-        c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(1_500),
-                source: None,
-                app_id: None,
-            },
-            &owner(),
-        )
+        c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(1_500),
+            source: None,
+            app_id: None,
+        })
         .unwrap();
 
         let mut ctx = context(owner());
@@ -861,43 +780,34 @@ mod unit {
 
         // Credit 2,000 for user — should succeed
         testing_env!(context(owner()).build());
-        let r1 = c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(2_000),
-                source: None,
-                app_id: Some("daily_capped".into()),
-            },
-            &partner(),
-        );
+        let r1 = c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(2_000),
+            source: None,
+            app_id: Some("daily_capped".into()),
+        });
         assert!(r1.is_ok());
 
         // Credit 2,000 for bot (different user) — should be clamped to 1,000
         let r2 = c
-            .dispatch_action(
-                Action::CreditReward {
-                    account_id: bot(),
-                    amount: U128(2_000),
-                    source: None,
-                    app_id: Some("daily_capped".into()),
-                },
-                &partner(),
-            )
+            .dispatch_action(Action::CreditReward {
+                account_id: bot(),
+                amount: U128(2_000),
+                source: None,
+                app_id: Some("daily_capped".into()),
+            })
             .unwrap();
         // Only 1,000 remaining from daily budget
         let credited: String = serde_json::from_value(r2["credited"].clone()).unwrap();
         assert_eq!(credited, "1000");
 
         // Credit anything more — daily budget exhausted
-        let r3 = c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(1),
-                source: None,
-                app_id: Some("daily_capped".into()),
-            },
-            &partner(),
-        );
+        let r3 = c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(1),
+            source: None,
+            app_id: Some("daily_capped".into()),
+        });
         assert!(matches!(r3, Err(RewardsError::AppDailyBudgetExhausted(_))));
 
         // Config tracks daily_budget_spent
@@ -910,15 +820,12 @@ mod unit {
         ctx.block_timestamp(1_700_000_000_000_000_000 + 86_400_000_000_000);
         testing_env!(ctx.build());
 
-        let r4 = c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(1_000),
-                source: None,
-                app_id: Some("daily_capped".into()),
-            },
-            &partner(),
-        );
+        let r4 = c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(1_000),
+            source: None,
+            app_id: Some("daily_capped".into()),
+        });
         assert!(r4.is_ok());
 
         let config = c.app_configs.get("daily_capped").unwrap();
@@ -935,15 +842,12 @@ mod unit {
             .unwrap();
 
         testing_env!(context(owner()).build());
-        let r = c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(0),
-                source: None,
-                app_id: None,
-            },
-            &owner(),
-        );
+        let r = c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(0),
+            source: None,
+            app_id: None,
+        });
         assert!(matches!(r, Err(RewardsError::InvalidAmount)));
     }
 
@@ -964,15 +868,12 @@ mod unit {
 
         testing_env!(context(owner()).build());
         let err = c
-            .dispatch_action(
-                Action::CreditReward {
-                    account_id: user(),
-                    amount: U128(1_000_000_000_000_000_001),
-                    source: None,
-                    app_id: None,
-                },
-                &owner(),
-            )
+            .dispatch_action(Action::CreditReward {
+                account_id: user(),
+                amount: U128(1_000_000_000_000_000_001),
+                source: None,
+                app_id: None,
+            })
             .unwrap_err();
 
         assert!(
@@ -991,15 +892,12 @@ mod unit {
 
         // Owner is NOT in app's authorized_callers but should still succeed
         testing_env!(context(owner()).build());
-        let r = c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(1_000),
-                source: None,
-                app_id: Some("game_xyz".into()),
-            },
-            &owner(),
-        );
+        let r = c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(1_000),
+            source: None,
+            app_id: Some("game_xyz".into()),
+        });
         assert!(r.is_ok());
         assert_eq!(c.users.get(&user()).unwrap().claimable, 1_000);
     }
@@ -1015,26 +913,20 @@ mod unit {
 
         // Day 1: exhaust per-user app cap
         testing_env!(context(owner()).build());
-        c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(10_000),
-                source: None,
-                app_id: Some("game_xyz".into()),
-            },
-            &partner(),
-        )
+        c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(10_000),
+            source: None,
+            app_id: Some("game_xyz".into()),
+        })
         .unwrap();
 
-        let r = c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(1),
-                source: None,
-                app_id: Some("game_xyz".into()),
-            },
-            &partner(),
-        );
+        let r = c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(1),
+            source: None,
+            app_id: Some("game_xyz".into()),
+        });
         assert!(matches!(r, Err(RewardsError::AppDailyCapReached(_))));
 
         // Day 2: cap should reset
@@ -1042,15 +934,12 @@ mod unit {
         ctx.block_timestamp(1_700_000_000_000_000_000 + NS_PER_DAY);
         testing_env!(ctx.build());
 
-        let r2 = c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(5_000),
-                source: None,
-                app_id: Some("game_xyz".into()),
-            },
-            &partner(),
-        );
+        let r2 = c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(5_000),
+            source: None,
+            app_id: Some("game_xyz".into()),
+        });
         assert!(r2.is_ok());
         assert_eq!(c.users.get(&user()).unwrap().claimable, 15_000);
     }
@@ -1065,28 +954,22 @@ mod unit {
 
         // Credit 80k first
         testing_env!(context(owner()).build());
-        c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(80_000),
-                source: None,
-                app_id: None,
-            },
-            &owner(),
-        )
+        c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(80_000),
+            source: None,
+            app_id: None,
+        })
         .unwrap();
 
         // Request 50k but only 20k remaining in daily cap → should clamp
         let r = c
-            .dispatch_action(
-                Action::CreditReward {
-                    account_id: user(),
-                    amount: U128(50_000),
-                    source: None,
-                    app_id: None,
-                },
-                &owner(),
-            )
+            .dispatch_action(Action::CreditReward {
+                account_id: user(),
+                amount: U128(50_000),
+                source: None,
+                app_id: None,
+            })
             .unwrap();
 
         let credited: String = serde_json::from_value(r["credited"].clone()).unwrap();
@@ -1104,15 +987,12 @@ mod unit {
         c.ft_on_transfer(owner(), U128(50_000), r#"{"action":"deposit"}"#.into())
             .unwrap();
         testing_env!(context(owner()).build());
-        c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(5_000),
-                source: None,
-                app_id: None,
-            },
-            &owner(),
-        )
+        c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(5_000),
+            source: None,
+            app_id: None,
+        })
         .unwrap();
 
         // Simulate optimistic claim state (what handle_claim does)
@@ -1152,15 +1032,12 @@ mod unit {
         c.ft_on_transfer(owner(), U128(50_000), r#"{"action":"deposit"}"#.into())
             .unwrap();
         testing_env!(context(owner()).build());
-        c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(3_000),
-                source: None,
-                app_id: None,
-            },
-            &owner(),
-        )
+        c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(3_000),
+            source: None,
+            app_id: None,
+        })
         .unwrap();
 
         // Simulate optimistic claim state
@@ -1220,51 +1097,40 @@ mod unit {
 
         // Credit via app_a
         testing_env!(context(owner()).build());
-        c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(5_000),
-                source: None,
-                app_id: Some("app_a".into()),
-            },
-            &partner(),
-        )
+        c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(5_000),
+            source: None,
+            app_id: Some("app_a".into()),
+        })
         .unwrap();
 
         // app_a cap exhausted
-        let r = c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(1),
-                source: None,
-                app_id: Some("app_a".into()),
-            },
-            &partner(),
-        );
+        let r = c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(1),
+            source: None,
+            app_id: Some("app_a".into()),
+        });
         assert!(matches!(r, Err(RewardsError::AppDailyCapReached(_))));
 
         // app_b still has full cap — different caller (bot)
-        let r2 = c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(3_000),
-                source: None,
-                app_id: Some("app_b".into()),
-            },
-            &bot(),
-        );
+        let r2 = c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(3_000),
+            source: None,
+            app_id: Some("app_b".into()),
+        });
         assert!(r2.is_ok());
 
-        // partner cannot credit app_b
-        let r3 = c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(1_000),
-                source: None,
-                app_id: Some("app_b".into()),
-            },
-            &partner(),
-        );
+        // partner cannot credit app_b (predecessor=partner, not in app_b's authorized_callers)
+        testing_env!(context(partner()).build());
+        let r3 = c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(1_000),
+            source: None,
+            app_id: Some("app_b".into()),
+        });
         assert!(matches!(r3, Err(RewardsError::Unauthorized(_))));
 
         // User claimable = 5k + 3k from both apps
@@ -1303,42 +1169,33 @@ mod unit {
 
         // Day 1: credit 3,000 — within both budgets
         testing_env!(context(owner()).build());
-        c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(3_000),
-                source: None,
-                app_id: Some("combo".into()),
-            },
-            &partner(),
-        )
+        c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(3_000),
+            source: None,
+            app_id: Some("combo".into()),
+        })
         .unwrap();
 
         // Day 1: credit 5,000 — daily_budget has 1k left, total_budget has 3k left → clamped to 1k
         let r = c
-            .dispatch_action(
-                Action::CreditReward {
-                    account_id: bot(),
-                    amount: U128(5_000),
-                    source: None,
-                    app_id: Some("combo".into()),
-                },
-                &partner(),
-            )
+            .dispatch_action(Action::CreditReward {
+                account_id: bot(),
+                amount: U128(5_000),
+                source: None,
+                app_id: Some("combo".into()),
+            })
             .unwrap();
         let credited: String = serde_json::from_value(r["credited"].clone()).unwrap();
         assert_eq!(credited, "1000"); // clamped by daily_budget (4k - 3k = 1k remaining)
 
         // Day 1: daily budget exhausted
-        let r2 = c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(1),
-                source: None,
-                app_id: Some("combo".into()),
-            },
-            &partner(),
-        );
+        let r2 = c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(1),
+            source: None,
+            app_id: Some("combo".into()),
+        });
         assert!(matches!(r2, Err(RewardsError::AppDailyBudgetExhausted(_))));
 
         // Day 2: daily resets, but total_budget only has 2k left
@@ -1347,29 +1204,23 @@ mod unit {
         testing_env!(ctx.build());
 
         let r3 = c
-            .dispatch_action(
-                Action::CreditReward {
-                    account_id: user(),
-                    amount: U128(5_000),
-                    source: None,
-                    app_id: Some("combo".into()),
-                },
-                &partner(),
-            )
+            .dispatch_action(Action::CreditReward {
+                account_id: user(),
+                amount: U128(5_000),
+                source: None,
+                app_id: Some("combo".into()),
+            })
             .unwrap();
         let credited: String = serde_json::from_value(r3["credited"].clone()).unwrap();
         assert_eq!(credited, "2000"); // clamped by total_budget (6k - 4k = 2k remaining)
 
         // Total budget now exhausted
-        let r4 = c.dispatch_action(
-            Action::CreditReward {
-                account_id: user(),
-                amount: U128(1),
-                source: None,
-                app_id: Some("combo".into()),
-            },
-            &partner(),
-        );
+        let r4 = c.dispatch_action(Action::CreditReward {
+            account_id: user(),
+            amount: U128(1),
+            source: None,
+            app_id: Some("combo".into()),
+        });
         assert!(matches!(r4, Err(RewardsError::AppBudgetExhausted(_))));
 
         assert_eq!(c.app_configs.get("combo").unwrap().total_credited, 6_000);

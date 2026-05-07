@@ -110,7 +110,16 @@ async fn test_credit_reward_unauthorized() -> Result<()> {
 
 #[tokio::test]
 async fn test_credit_reward_exceeds_pool() -> Result<()> {
-    let (owner, _ft, rewards) = full_setup(&create_sandbox().await?).await?;
+    // Use a custom small-pool setup so a single credit (capped at 1 SOCIAL)
+    // can exceed the pool balance without violating the daily cap.
+    let worker = create_sandbox().await?;
+    let owner = worker.dev_create_account().await?;
+    let ft = deploy_mock_ft(&worker, &owner).await?;
+    let rewards = deploy_rewards(&worker, &owner, &ft).await?;
+    ft_register(&ft, &owner, rewards.id()).await?;
+    // Pool = 50 ONE_SOCIAL (= 0.5 SOCIAL); a 1 SOCIAL credit will exceed it.
+    deposit_pool(&ft, &rewards, &owner, 50 * ONE_SOCIAL).await?;
+
     let user = owner
         .create_subaccount("user4")
         .initial_balance(near_workspaces::types::NearToken::from_near(5))
@@ -118,11 +127,14 @@ async fn test_credit_reward_exceeds_pool() -> Result<()> {
         .await?
         .into_result()?;
 
-    // Try to credit more than pool has (pool = POOL_AMOUNT, max_daily = 100 SOCIAL)
-    // Set max daily high enough to allow this
-    set_max_daily(&rewards, &owner, POOL_AMOUNT * 2).await?;
-
-    let result = credit_reward(&rewards, &owner, user.id().as_str(), POOL_AMOUNT + 1, None).await?;
+    let result = credit_reward(
+        &rewards,
+        &owner,
+        user.id().as_str(),
+        100 * ONE_SOCIAL, // 1 SOCIAL — within per-action cap, exceeds pool
+        None,
+    )
+    .await?;
     assert!(result.is_failure(), "credit exceeding pool should fail");
 
     Ok(())

@@ -43,8 +43,8 @@ async function main() {
     process.exit(1);
   }
 
-  // Resolve contract ID (expand env vars)
-  let contractId = contractConfig.id;
+  // Resolve contract ID (expand env vars, allow CONTRACT_ID override)
+  let contractId = process.env.CONTRACT_ID || contractConfig.id;
   contractId = contractId.replace(/\$\{?(\w+)\}?/g, (_, name) => process.env[name] || '');
   
   console.log('Upgrading contract:', contractName);

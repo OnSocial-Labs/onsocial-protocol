@@ -1,10 +1,4 @@
-//! Rewards event decoder
-//!
-//! Decodes NEP-297 events from rewards-onsocial contract logs.
-//! Events: REWARD_CREDITED, REWARD_CLAIMED, CLAIM_FAILED, POOL_DEPOSIT,
-//!         OWNER_CHANGED, MAX_DAILY_UPDATED, EXECUTOR_ADDED,
-//!         EXECUTOR_REMOVED, CALLER_ADDED, CALLER_REMOVED,
-//!         CONTRACT_UPGRADE, APP_REGISTERED, APP_UPDATED
+//! Decoder for rewards event logs.
 
 use crate::pb::rewards::v1::rewards_event::Payload;
 use crate::pb::rewards::v1::*;
@@ -96,20 +90,6 @@ fn decode_payload(event_type: &str, data: &Value) -> Option<(bool, Payload)> {
             Payload::MaxDailyUpdated(MaxDailyUpdated {
                 old_max: str_field(data, "old_max"),
                 new_max: str_field(data, "new_max"),
-            }),
-        )),
-
-        "EXECUTOR_ADDED" => Some((
-            true,
-            Payload::ExecutorAdded(ExecutorAdded {
-                executor: str_field(data, "executor"),
-            }),
-        )),
-
-        "EXECUTOR_REMOVED" => Some((
-            true,
-            Payload::ExecutorRemoved(ExecutorRemoved {
-                executor: str_field(data, "executor"),
             }),
         )),
 
