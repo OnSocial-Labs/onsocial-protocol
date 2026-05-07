@@ -3,8 +3,6 @@ use crate::*;
 use near_sdk::json_types::U128;
 use near_sdk::testing_env;
 
-// --- Helpers ---
-
 fn app_id() -> AccountId {
     "myapp.near".parse().unwrap()
 }
@@ -59,8 +57,6 @@ fn setup_with_app_collection(col_id: &str) -> Contract {
         .unwrap();
     contract
 }
-
-// ─── BanCollection ──────────────────────────────────────────────────────────
 
 #[test]
 fn ban_collection_by_owner_happy() {
@@ -156,8 +152,6 @@ fn ban_collection_non_authority_fails() {
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
-
-// ─── UnbanCollection ────────────────────────────────────────────────────────
 
 #[test]
 fn unban_collection_happy() {

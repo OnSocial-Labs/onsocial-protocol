@@ -66,4 +66,52 @@ impl Contract {
         }
         self.contract_metadata.base_uri.clone()
     }
+
+    pub fn get_app_creators(
+        &self,
+        app_id: AccountId,
+        from_index: Option<u32>,
+        limit: Option<u32>,
+    ) -> Vec<AccountId> {
+        let Some(set) = self.app_creators.get(&app_id) else {
+            return vec![];
+        };
+        let start = from_index.unwrap_or(0) as usize;
+        let limit = limit.unwrap_or(50).min(100) as usize;
+        set.iter().skip(start).take(limit).cloned().collect()
+    }
+
+    pub fn get_app_creator_count(&self, app_id: AccountId) -> u32 {
+        self.app_creators.get(&app_id).map(|s| s.len()).unwrap_or(0)
+    }
+
+    pub fn is_app_creator(&self, app_id: AccountId, account_id: AccountId) -> bool {
+        self.app_creators
+            .get(&app_id)
+            .is_some_and(|s| s.contains(&account_id))
+    }
+
+    pub fn get_app_owners(
+        &self,
+        app_id: AccountId,
+        from_index: Option<u32>,
+        limit: Option<u32>,
+    ) -> Vec<AccountId> {
+        let Some(set) = self.app_owners.get(&app_id) else {
+            return vec![];
+        };
+        let start = from_index.unwrap_or(0) as usize;
+        let limit = limit.unwrap_or(50).min(100) as usize;
+        set.iter().skip(start).take(limit).cloned().collect()
+    }
+
+    pub fn get_app_owner_count(&self, app_id: AccountId) -> u32 {
+        self.app_owners.get(&app_id).map(|s| s.len()).unwrap_or(0)
+    }
+
+    pub fn is_app_owner(&self, app_id: AccountId, account_id: AccountId) -> bool {
+        self.app_owners
+            .get(&app_id)
+            .is_some_and(|s| s.contains(&account_id))
+    }
 }

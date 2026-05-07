@@ -28,8 +28,6 @@ fn mint_for_offer(contract: &mut Contract, token_owner: &AccountId, token_id: &s
         .unwrap();
 }
 
-// --- Make offer ---
-
 #[test]
 fn make_offer_stores_in_map() {
     let mut contract = new_contract();
@@ -87,7 +85,6 @@ fn make_offer_expired_fails() {
     let mut contract = new_contract();
     mint_for_offer(&mut contract, &owner(), "t1");
 
-    // Expiry in the past (block_timestamp from context is ~1.7e18)
     testing_env!(context_with_deposit(buyer(), 1_000_000_000_000_000_000_000_000).build());
     let err = contract
         .execute(make_request(Action::MakeOffer {
@@ -98,8 +95,6 @@ fn make_offer_expired_fails() {
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
-
-// --- Cancel offer ---
 
 #[test]
 fn cancel_offer_removes_from_map() {
@@ -138,8 +133,6 @@ fn cancel_nonexistent_offer_fails() {
     assert!(matches!(err, MarketplaceError::NotFound(_)));
 }
 
-// --- Accept offer ---
-
 #[test]
 fn accept_offer_transfers_token() {
     let mut contract = new_contract();
@@ -162,10 +155,8 @@ fn accept_offer_transfers_token() {
         }))
         .unwrap();
 
-    // Token transferred to buyer
     let token = contract.scarces_by_id.get("t1").unwrap();
     assert_eq!(token.owner_id, buyer());
-    // Offer removed
     assert!(contract.get_offer("t1".to_string(), buyer()).is_none());
 }
 
@@ -183,7 +174,7 @@ fn accept_offer_wrong_owner_fails() {
         }))
         .unwrap();
 
-    testing_env!(context_with_deposit(creator(), 1).build()); // creator is not owner
+    testing_env!(context_with_deposit(creator(), 1).build());
     let err = contract
         .execute(make_request(Action::AcceptOffer {
             token_id: "t1".to_string(),
@@ -213,7 +204,6 @@ fn accept_expired_offer_fails() {
     let mut contract = new_contract();
     mint_for_offer(&mut contract, &owner(), "t1");
 
-    // Set expires_at far in the future so make_offer succeeds
     let future = 2_000_000_000_000_000_000u64;
     testing_env!(context_with_deposit(buyer(), 1_000_000_000_000_000_000_000_000).build());
     contract
@@ -224,7 +214,6 @@ fn accept_expired_offer_fails() {
         }))
         .unwrap();
 
-    // Now advance time past expiry
     let mut ctx = context_with_deposit(owner(), 1);
     ctx.block_timestamp(future + 1);
     testing_env!(ctx.build());
@@ -237,8 +226,6 @@ fn accept_expired_offer_fails() {
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidState(_)));
 }
-
-// --- Replacing an offer ---
 
 #[test]
 fn new_offer_replaces_old() {

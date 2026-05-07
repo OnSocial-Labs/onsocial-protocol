@@ -3,8 +3,6 @@ use crate::*;
 use near_sdk::json_types::U128;
 use near_sdk::testing_env;
 
-// --- Helpers ---
-
 fn setup_contract() -> Contract {
     new_contract()
 }
@@ -49,8 +47,6 @@ fn mint_collection_token(contract: &mut Contract, collection_id: &str) -> String
     let col = contract.collections.get(collection_id).unwrap();
     format!("{}:{}", collection_id, col.minted_count)
 }
-
-// --- is_token_valid ---
 
 #[test]
 fn is_token_valid_standalone() {
@@ -98,7 +94,6 @@ fn is_token_valid_revoked_returns_false() {
         .unwrap();
     let token_id = mint_collection_token(&mut contract, "rcol");
 
-    // Revoke: soft revocation
     let action = Action::RevokeToken {
         token_id: token_id.clone(),
         collection_id: "rcol".into(),
@@ -109,8 +104,6 @@ fn is_token_valid_revoked_returns_false() {
 
     assert!(!contract.is_token_valid(token_id));
 }
-
-// --- is_token_revoked ---
 
 #[test]
 fn is_token_revoked_none_for_missing() {
@@ -130,8 +123,6 @@ fn is_token_revoked_false_for_active() {
 
     assert_eq!(contract.is_token_revoked(token_id), Some(false));
 }
-
-// --- is_token_redeemed ---
 
 #[test]
 fn is_token_redeemed_false_initially() {
@@ -154,7 +145,6 @@ fn is_token_redeemed_after_max_redeems() {
         .unwrap();
     let token_id = mint_collection_token(&mut contract, "rcol4");
 
-    // Redeem 2 times (max_redeems=2)
     for _ in 0..2 {
         testing_env!(context_with_deposit(creator(), 1).build());
         let action = Action::RedeemToken {
@@ -166,8 +156,6 @@ fn is_token_redeemed_after_max_redeems() {
 
     assert_eq!(contract.is_token_redeemed(token_id), Some(true));
 }
-
-// --- get_redeem_info ---
 
 #[test]
 fn get_redeem_info_none_for_missing() {
@@ -185,7 +173,6 @@ fn get_redeem_info_returns_correct_data() {
         .unwrap();
     let token_id = mint_collection_token(&mut contract, "rcol5");
 
-    // Redeem once
     testing_env!(context_with_deposit(creator(), 1).build());
     let action = Action::RedeemToken {
         token_id: token_id.clone(),
@@ -197,8 +184,6 @@ fn get_redeem_info_returns_correct_data() {
     assert_eq!(info.redeem_count, 1);
     assert_eq!(info.max_redeems, Some(2));
 }
-
-// --- get_token_status ---
 
 #[test]
 fn get_token_status_none_for_missing() {

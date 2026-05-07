@@ -3,8 +3,6 @@ use crate::*;
 use near_sdk::json_types::U128;
 use near_sdk::testing_env;
 
-// --- Helpers ---
-
 fn app_id() -> AccountId {
     "myapp.near".parse().unwrap()
 }
@@ -18,7 +16,7 @@ fn minimal_config(id: &str) -> CollectionConfig {
         collection_id: id.to_string(),
         total_supply: 10,
         metadata_template: r#"{"title":"Token #{seat_number}"}"#.to_string(),
-        price_near: U128(1_000_000_000_000_000_000_000_000), // 1 NEAR
+        price_near: U128(1_000_000_000_000_000_000_000_000),
         start_time: None,
         end_time: None,
         options: ScarceOptions {
@@ -68,8 +66,6 @@ fn setup_with_app_collection(col_id: &str) -> Contract {
     contract
 }
 
-// ─── UpdateCollectionPrice ──────────────────────────────────────────────────
-
 #[test]
 fn update_collection_price_happy() {
     let mut contract = setup_with_collection("col1");
@@ -113,8 +109,6 @@ fn update_collection_price_not_found_fails() {
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::NotFound(_)));
 }
-
-// ─── UpdateCollectionTiming ─────────────────────────────────────────────────
 
 #[test]
 fn update_collection_timing_happy() {
@@ -166,8 +160,6 @@ fn update_collection_timing_non_creator_fails() {
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
 
-// ─── DeleteCollection ───────────────────────────────────────────────────────
-
 #[test]
 fn delete_collection_happy() {
     let mut contract = setup_with_collection("todel");
@@ -185,7 +177,6 @@ fn delete_collection_happy() {
 fn delete_collection_with_mints_fails() {
     let mut contract = setup_with_collection("minted");
 
-    // Mint 1 token into the collection
     contract
         .execute(make_request(Action::MintFromCollection {
             collection_id: "minted".to_string(),
@@ -216,8 +207,6 @@ fn delete_collection_non_creator_fails() {
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
 
-// ─── AirdropFromCollection ──────────────────────────────────────────────────
-
 #[test]
 fn airdrop_from_collection_happy() {
     let mut contract = setup_with_collection("airdrop");
@@ -232,7 +221,6 @@ fn airdrop_from_collection_happy() {
     let col = contract.collections.get("airdrop").unwrap();
     assert_eq!(col.minted_count, 2);
 
-    // Tokens exist and are owned by the right accounts
     assert!(contract.scarces_by_id.contains_key("airdrop:1"));
     assert!(contract.scarces_by_id.contains_key("airdrop:2"));
     assert_eq!(
@@ -292,8 +280,6 @@ fn airdrop_non_creator_fails() {
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
 
-// ─── SetAllowlist ───────────────────────────────────────────────────────────
-
 #[test]
 fn set_allowlist_happy() {
     let mut contract = setup_with_collection("al");
@@ -348,7 +334,6 @@ fn set_allowlist_non_creator_fails() {
 fn set_allowlist_zero_allocation_removes() {
     let mut contract = setup_with_collection("al");
 
-    // Add via execute
     testing_env!(context_with_deposit(creator(), 1).build());
     contract
         .execute(make_request(Action::SetAllowlist {
@@ -360,7 +345,6 @@ fn set_allowlist_zero_allocation_removes() {
         }))
         .unwrap();
 
-    // Remove via zero allocation
     contract
         .execute(make_request(Action::SetAllowlist {
             collection_id: "al".to_string(),
@@ -374,8 +358,6 @@ fn set_allowlist_zero_allocation_removes() {
     let key = format!("al:al:{}", buyer());
     assert!(contract.collection_allowlist.get(&key).is_none());
 }
-
-// ─── RemoveFromAllowlist ────────────────────────────────────────────────────
 
 #[test]
 fn remove_from_allowlist_happy() {
@@ -431,8 +413,6 @@ fn remove_from_allowlist_non_creator_fails() {
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
 
-// ─── SetCollectionMetadata ──────────────────────────────────────────────────
-
 #[test]
 fn set_collection_metadata_happy() {
     let mut contract = setup_with_collection("meta");
@@ -453,7 +433,6 @@ fn set_collection_metadata_happy() {
 fn set_collection_metadata_clear() {
     let mut contract = setup_with_collection("meta");
 
-    // Set then clear
     testing_env!(context_with_deposit(creator(), 1).build());
     contract
         .execute(make_request(Action::SetCollectionMetadata {
@@ -483,7 +462,6 @@ fn set_collection_metadata_none_is_noop() {
             metadata: Some(r#"{"name":"X"}"#.to_string()),
         }))
         .unwrap();
-    // None = no-op (metadata unchanged)
     contract
         .execute(make_request(Action::SetCollectionMetadata {
             collection_id: "meta".to_string(),
@@ -509,8 +487,6 @@ fn set_collection_metadata_non_creator_fails() {
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
 
-// ─── SetCollectionAppMetadata ───────────────────────────────────────────────
-
 #[test]
 fn set_collection_app_metadata_happy() {
     let mut contract = setup_with_app_collection("appcol");
@@ -533,7 +509,6 @@ fn set_collection_app_metadata_wrong_app_fails() {
     let mut contract = setup_with_collection("noappcol");
     testing_env!(context_with_deposit(owner(), 1).build());
 
-    // Register a different app
     contract
         .execute(make_request(Action::RegisterApp {
             app_id: "other.near".parse().unwrap(),

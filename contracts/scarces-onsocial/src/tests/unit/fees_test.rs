@@ -1,7 +1,5 @@
 use crate::*;
 
-// --- FeeConfig::default ---
-
 #[test]
 fn default_fee_config_values() {
     let cfg = FeeConfig::default();
@@ -19,8 +17,6 @@ fn default_fee_invariant_parts_le_total() {
     assert!(cfg.app_pool_fee_bps <= cfg.total_fee_bps);
     assert!(cfg.platform_storage_fee_bps <= cfg.total_fee_bps);
 }
-
-// --- Constants sanity ---
 
 #[test]
 fn max_royalty_is_50_percent() {

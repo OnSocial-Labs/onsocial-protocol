@@ -6,7 +6,6 @@ pub struct ContractInfo {
     pub version: String,
     pub fee_recipient: AccountId,
     pub fee_config: FeeConfig,
-    pub intents_executors: Vec<AccountId>,
     pub approved_nft_contracts: Vec<AccountId>,
     pub wnear_account_id: Option<AccountId>,
     pub platform_storage_balance: U128,
@@ -44,6 +43,10 @@ impl Contract {
             app_pools: LookupMap::new(StorageKey::AppPools),
             app_pool_ids: IterableSet::new(StorageKey::AppPoolIds),
             app_user_usage: LookupMap::new(StorageKey::AppUserUsage),
+            app_creators: LookupMap::new(StorageKey::AppCreators),
+            app_creator_collection_counts: LookupMap::new(StorageKey::AppCreatorCounts),
+            app_owners: LookupMap::new(StorageKey::AppOwners),
+            app_owner_token_counts: LookupMap::new(StorageKey::AppOwnerCounts),
             platform_storage_balance: deposit,
             user_storage: LookupMap::new(StorageKey::UserStorage),
             collection_mint_counts: LookupMap::new(StorageKey::CollectionMintCounts),
@@ -51,7 +54,6 @@ impl Contract {
             offers: IterableMap::new(StorageKey::Offers),
             collection_offers: IterableMap::new(StorageKey::CollectionOffers),
             lazy_listings: IterableMap::new(StorageKey::LazyListings),
-            intents_executors: Vec::new(),
             contract_metadata: contract_metadata.unwrap_or_default(),
             approved_nft_contracts: IterableSet::new(StorageKey::ApprovedNftContracts),
             wnear_account_id: None,
@@ -86,45 +88,6 @@ impl Contract {
         Ok(())
     }
 
-    #[payable]
-    #[handle_result]
-    pub fn add_intents_executor(&mut self, executor: AccountId) -> Result<(), MarketplaceError> {
-        crate::guards::check_one_yocto()?;
-        self.check_contract_owner(&env::predecessor_account_id())?;
-        if self.intents_executors.contains(&executor) {
-            return Err(MarketplaceError::InvalidInput(
-                "Executor already exists".into(),
-            ));
-        }
-        if self.intents_executors.len() >= MAX_INTENTS_EXECUTORS {
-            return Err(MarketplaceError::InvalidInput(format!(
-                "Too many intents executors (max {})",
-                MAX_INTENTS_EXECUTORS
-            )));
-        }
-        self.intents_executors.push(executor.clone());
-        events::emit_intents_executor_added(&self.owner_id, &executor);
-        Ok(())
-    }
-
-    #[payable]
-    #[handle_result]
-    pub fn remove_intents_executor(&mut self, executor: AccountId) -> Result<(), MarketplaceError> {
-        crate::guards::check_one_yocto()?;
-        self.check_contract_owner(&env::predecessor_account_id())?;
-        let pos = self
-            .intents_executors
-            .iter()
-            .position(|e| e == &executor)
-            .ok_or_else(|| MarketplaceError::NotFound("Executor not found".into()))?;
-        self.intents_executors.remove(pos);
-        events::emit_intents_executor_removed(&self.owner_id, &executor);
-        Ok(())
-    }
-
-    /// Set (or clear) the wNEAR account ID for the NEP-141 FT receiver.
-    /// Once set, `ft_on_transfer` accepts wNEAR from this account.
-    /// Pass `None` to disable wNEAR deposits.
     #[payable]
     #[handle_result]
     pub fn set_wnear_account(
@@ -245,7 +208,6 @@ impl Contract {
             version: self.version.clone(),
             fee_recipient: self.fee_recipient.clone(),
             fee_config: self.fee_config.clone(),
-            intents_executors: self.intents_executors.clone(),
             approved_nft_contracts: self.approved_nft_contracts.iter().cloned().collect(),
             wnear_account_id: self.wnear_account_id.clone(),
             platform_storage_balance: U128(self.platform_storage_balance),

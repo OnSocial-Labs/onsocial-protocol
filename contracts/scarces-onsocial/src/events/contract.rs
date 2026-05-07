@@ -42,18 +42,6 @@ pub fn emit_fee_config_updated(
         .emit();
 }
 
-pub fn emit_intents_executor_added(owner_id: &AccountId, executor: &AccountId) {
-    EventBuilder::new(CONTRACT, "add_intents_executor", owner_id)
-        .field("executor", executor)
-        .emit();
-}
-
-pub fn emit_intents_executor_removed(owner_id: &AccountId, executor: &AccountId) {
-    EventBuilder::new(CONTRACT, "remove_intents_executor", owner_id)
-        .field("executor", executor)
-        .emit();
-}
-
 pub fn emit_contract_metadata_updated(
     owner_id: &AccountId,
     name: &str,

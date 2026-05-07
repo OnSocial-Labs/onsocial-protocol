@@ -2,8 +2,6 @@ use crate::tests::test_utils::*;
 use crate::*;
 use near_sdk::testing_env;
 
-// --- Helpers ---
-
 fn app_id() -> AccountId {
     "myapp.near".parse().unwrap()
 }
@@ -26,8 +24,6 @@ fn setup_with_app() -> Contract {
         .unwrap();
     contract
 }
-
-// ─── RegisterApp ─────────────────────────────────────────────────────────────
 
 #[test]
 fn register_app_happy() {
@@ -73,8 +69,6 @@ fn register_app_unauthorized_fails() {
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
-
-// ─── SetAppConfig ────────────────────────────────────────────────────────────
 
 #[test]
 fn set_app_config_happy() {
@@ -126,8 +120,6 @@ fn set_app_config_not_found_fails() {
     assert!(matches!(err, MarketplaceError::NotFound(_)));
 }
 
-// ─── TransferAppOwnership ────────────────────────────────────────────────────
-
 #[test]
 fn transfer_app_ownership_happy() {
     let mut contract = setup_with_app();
@@ -157,8 +149,6 @@ fn transfer_app_ownership_non_owner_fails() {
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
-
-// ─── AddModerator ────────────────────────────────────────────────────────────
 
 #[test]
 fn add_moderator_happy() {
@@ -209,8 +199,6 @@ fn add_moderator_non_owner_fails() {
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
-
-// ─── RemoveModerator ─────────────────────────────────────────────────────────
 
 #[test]
 fn remove_moderator_happy() {

@@ -4,7 +4,6 @@ use near_sdk::near;
 
 use super::AllowlistEntry;
 use super::TransferItem;
-use onsocial_auth::Auth;
 
 #[near(serializers = [json])]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -255,8 +254,7 @@ pub enum Action {
 }
 
 impl Action {
-    /// Security boundary for Direct auth: require 1 yoctoNEAR unless the action already enforces payment semantics.
-    /// New variants default to requiring confirmation unless explicitly exempted here.
+    // New actions should require 1 yocto unless explicitly exempted here.
     pub fn requires_confirmation(&self) -> bool {
         !matches!(
             self,
@@ -281,7 +279,7 @@ impl Action {
         )
     }
 
-    /// Relayer funding rule: only purchase/bid/offer actions may draw from prepaid balance with zero attached deposit.
+    // Only purchase, bid, and offer flows may draw prepaid balance.
     pub fn uses_prepaid_balance(&self) -> bool {
         matches!(
             self,
@@ -298,9 +296,7 @@ impl Action {
 #[near(serializers = [json])]
 #[derive(Clone)]
 pub struct Request {
-    pub target_account: Option<AccountId>,
     pub action: Action,
-    pub auth: Option<Auth>,
     pub options: Option<Options>,
 }
 

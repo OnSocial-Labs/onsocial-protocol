@@ -3,8 +3,6 @@ use crate::*;
 use near_sdk::json_types::U128;
 use near_sdk::testing_env;
 
-// --- Helpers ---
-
 fn setup_contract() -> Contract {
     new_contract()
 }
@@ -44,12 +42,9 @@ fn create_listing_with_expiry(contract: &mut Contract, expires_at: Option<u64>) 
         .to_string()
 }
 
-// --- cleanup_expired_lazy_listings ---
-
 #[test]
 fn cleanup_no_expired_returns_zero() {
     let mut contract = setup_contract();
-    // Create listing with no expiry (never expires)
     create_listing_with_expiry(&mut contract, None);
 
     testing_env!(context(owner()).build());
@@ -60,11 +55,9 @@ fn cleanup_no_expired_returns_zero() {
 #[test]
 fn cleanup_removes_expired() {
     let mut contract = setup_contract();
-    // Create listing with expiry slightly in the future
-    let soon = 1_700_000_001_000_000_000; // 1 second after default block_timestamp
+    let soon = 1_700_000_001_000_000_000;
     let id = create_listing_with_expiry(&mut contract, Some(soon));
 
-    // Advance time past the expiry
     let mut ctx = context(owner());
     ctx.block_timestamp(1_700_000_010_000_000_000);
     testing_env!(ctx.build());
@@ -83,7 +76,6 @@ fn cleanup_respects_limit() {
         create_listing_with_expiry(&mut contract, Some(soon));
     }
 
-    // Advance time past the expiry
     let mut ctx = context(owner());
     ctx.block_timestamp(1_700_000_010_000_000_000);
     testing_env!(ctx.build());
@@ -103,7 +95,6 @@ fn cleanup_skips_non_expired() {
     let non_expired_id = create_listing_with_expiry(&mut contract, Some(far_future));
     create_listing_with_expiry(&mut contract, None);
 
-    // Advance time past `soon` but before `far_future`
     let mut ctx = context(owner());
     ctx.block_timestamp(1_700_000_010_000_000_000);
     testing_env!(ctx.build());

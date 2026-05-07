@@ -44,7 +44,7 @@ pub use fees::{FeeConfig, FeeConfigUpdate};
 pub(crate) use guards::{check_token_in_collection, collection_id_from_token_id};
 pub use lazy_listing::{LazyListing, LazyListingRecord};
 pub use offer::{CollectionOffer, Offer};
-pub use protocol::{Action, Auth, Options, Request};
+pub use protocol::{Action, Options, Request};
 pub use royalties::Payout;
 pub use sale::{AuctionListing, AuctionState, AuctionView, GasOverrides, Sale, SaleType};
 pub use scarce::types::{
@@ -91,6 +91,12 @@ pub struct Contract {
     pub app_pool_ids: IterableSet<AccountId>,
     // Storage/accounting invariant: tracks per-(user, app) byte attribution for tiered storage reversal.
     pub(crate) app_user_usage: LookupMap<String, u64>,
+    // Relationship invariant: app_creators[app] reflects creators with at least one live collection in `app`.
+    pub(crate) app_creators: LookupMap<AccountId, IterableSet<AccountId>>,
+    pub(crate) app_creator_collection_counts: LookupMap<String, u32>,
+    // Relationship invariant: app_owners[app] reflects accounts currently holding ≥1 token tagged with `app`.
+    pub(crate) app_owners: LookupMap<AccountId, IterableSet<AccountId>>,
+    pub(crate) app_owner_token_counts: LookupMap<String, u32>,
     pub platform_storage_balance: u128,
     pub user_storage: LookupMap<AccountId, UserStorageBalance>,
 
@@ -101,8 +107,6 @@ pub struct Contract {
     pub collection_offers: IterableMap<String, CollectionOffer>,
 
     pub lazy_listings: IterableMap<String, LazyListingRecord>,
-
-    pub intents_executors: Vec<AccountId>,
 
     pub contract_metadata: external::ScarceContractMetadata,
 

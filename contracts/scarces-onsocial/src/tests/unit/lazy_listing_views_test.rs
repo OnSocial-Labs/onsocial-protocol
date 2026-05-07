@@ -3,8 +3,6 @@ use crate::*;
 use near_sdk::json_types::U128;
 use near_sdk::testing_env;
 
-// --- Helpers ---
-
 fn setup_contract() -> Contract {
     new_contract()
 }
@@ -88,8 +86,6 @@ fn create_listing_with_app(contract: &mut Contract) -> String {
         .to_string()
 }
 
-// --- get_lazy_listing ---
-
 #[test]
 fn get_lazy_listing_returns_created() {
     let mut contract = setup_contract();
@@ -107,8 +103,6 @@ fn get_lazy_listing_none_for_missing() {
     testing_env!(context(owner()).build());
     assert!(contract.get_lazy_listing("bad".into()).is_none());
 }
-
-// --- get_lazy_listings_by_creator ---
 
 #[test]
 fn get_lazy_listings_by_creator_empty() {
@@ -135,12 +129,9 @@ fn get_lazy_listings_by_creator_returns_owned() {
     assert!(ids.contains(&id2.as_str()));
 }
 
-// --- get_lazy_listings_by_app ---
-
 #[test]
 fn get_lazy_listings_by_app_filters() {
     let mut contract = setup_contract();
-    // Register the app first
     testing_env!(context_with_deposit(owner(), 1_000_000_000_000_000_000_000_000).build());
     let register_action = Action::RegisterApp {
         app_id: app_id(),
@@ -154,16 +145,14 @@ fn get_lazy_listings_by_app_filters() {
     };
     contract.execute(make_request(register_action)).unwrap();
 
-    create_listing(&mut contract); // no app
-    create_listing_with_app(&mut contract); // with app
+    create_listing(&mut contract);
+    create_listing_with_app(&mut contract);
 
     testing_env!(context(owner()).build());
     let by_app = contract.get_lazy_listings_by_app(app_id(), None, None);
     assert_eq!(by_app.len(), 1);
     assert_eq!(by_app[0].1.app_id, Some(app_id()));
 }
-
-// --- get_lazy_listings_count ---
 
 #[test]
 fn get_lazy_listings_count_tracks() {
@@ -178,8 +167,6 @@ fn get_lazy_listings_count_tracks() {
     testing_env!(context(owner()).build());
     assert_eq!(contract.get_lazy_listings_count(), 2);
 }
-
-// --- pagination ---
 
 #[test]
 fn get_lazy_listings_by_creator_pagination() {

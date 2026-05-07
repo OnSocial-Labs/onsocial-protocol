@@ -3,8 +3,6 @@ use crate::*;
 use near_sdk::json_types::U128;
 use near_sdk::testing_env;
 
-// --- Helpers ---
-
 fn setup_contract() -> Contract {
     new_contract()
 }
@@ -45,8 +43,6 @@ fn create_collection(contract: &mut Contract, id: &str) {
         .unwrap();
 }
 
-// --- get_collection ---
-
 #[test]
 fn get_collection_returns_created() {
     let mut contract = setup_contract();
@@ -64,8 +60,6 @@ fn get_collection_none_for_missing() {
     testing_env!(context(owner()).build());
     assert!(contract.get_collection("nope".into()).is_none());
 }
-
-// --- get_collection_availability ---
 
 #[test]
 fn get_collection_availability_full() {
@@ -99,8 +93,6 @@ fn get_collection_availability_missing_returns_zero() {
     assert_eq!(contract.get_collection_availability("nope".into()), 0);
 }
 
-// --- is_collection_sold_out ---
-
 #[test]
 fn is_collection_sold_out_false_initially() {
     let mut contract = setup_contract();
@@ -116,8 +108,6 @@ fn is_collection_sold_out_true_for_missing() {
     assert!(contract.is_collection_sold_out("nope".into()));
 }
 
-// --- is_collection_mintable ---
-
 #[test]
 fn is_collection_mintable_true_for_active() {
     let mut contract = setup_contract();
@@ -132,8 +122,6 @@ fn is_collection_mintable_false_for_missing() {
     testing_env!(context(owner()).build());
     assert!(!contract.is_collection_mintable("nope".into()));
 }
-
-// --- get_collection_progress ---
 
 #[test]
 fn get_collection_progress_none_for_missing() {
@@ -162,8 +150,6 @@ fn get_collection_progress_values() {
     assert_eq!(progress.percentage, 30);
 }
 
-// --- get_collections_by_creator ---
-
 #[test]
 fn get_collections_by_creator_empty() {
     let contract = setup_contract();
@@ -186,8 +172,6 @@ fn get_collections_by_creator_returns() {
     assert_eq!(cols.len(), 2);
 }
 
-// --- get_collections_count_by_creator ---
-
 #[test]
 fn get_collections_count_by_creator_tracks() {
     let mut contract = setup_contract();
@@ -199,8 +183,6 @@ fn get_collections_count_by_creator_tracks() {
     assert_eq!(contract.get_collections_count_by_creator(buyer()), 0);
 }
 
-// --- get_total_collections ---
-
 #[test]
 fn get_total_collections_tracks() {
     let mut contract = setup_contract();
@@ -209,8 +191,6 @@ fn get_total_collections_tracks() {
     testing_env!(context(owner()).build());
     assert_eq!(contract.get_total_collections(), 1);
 }
-
-// --- get_all_collections ---
 
 #[test]
 fn get_all_collections_pagination() {
@@ -227,15 +207,12 @@ fn get_all_collections_pagination() {
     assert_eq!(all.len(), 5);
 }
 
-// --- get_active_collections ---
-
 #[test]
 fn get_active_collections_excludes_paused() {
     let mut contract = setup_contract();
     create_collection(&mut contract, "vca1");
     create_collection(&mut contract, "vca2");
 
-    // Pause vca1 via execute
     testing_env!(context_with_deposit(creator(), 1).build());
     let action = Action::PauseCollection {
         collection_id: "vca1".into(),
@@ -247,8 +224,6 @@ fn get_active_collections_excludes_paused() {
     assert_eq!(active.len(), 1);
     assert_eq!(active[0].collection_id, "vca2");
 }
-
-// --- get_collection_stats ---
 
 #[test]
 fn get_collection_stats_none_for_missing() {
@@ -271,8 +246,6 @@ fn get_collection_stats_returns_data() {
     assert!(!stats.is_sold_out);
 }
 
-// --- get_wallet_mint_count / get_wallet_mint_remaining ---
-
 #[test]
 fn get_wallet_mint_count_zero_initially() {
     let mut contract = setup_contract();
@@ -284,7 +257,7 @@ fn get_wallet_mint_count_zero_initially() {
 #[test]
 fn get_wallet_mint_remaining_tracks() {
     let mut contract = setup_contract();
-    create_collection(&mut contract, "vcw2"); // max_per_wallet = 3
+    create_collection(&mut contract, "vcw2");
 
     testing_env!(context_with_deposit(buyer(), 1_000).build());
     let action = Action::PurchaseFromCollection {
@@ -301,8 +274,6 @@ fn get_wallet_mint_remaining_tracks() {
         Some(2)
     );
 }
-
-// --- allowlist views ---
 
 #[test]
 fn allowlist_views_default() {
@@ -323,7 +294,6 @@ fn allowlist_views_after_set() {
     let mut contract = setup_contract();
     create_collection(&mut contract, "vcal2");
 
-    // Set allowlist via execute
     testing_env!(context_with_deposit(creator(), 1).build());
     let entries = vec![AllowlistEntry {
         account_id: buyer(),
@@ -344,8 +314,6 @@ fn allowlist_views_after_set() {
     assert_eq!(contract.get_allowlist_remaining("vcal2".into(), buyer()), 5);
 }
 
-// --- get_collection_price ---
-
 #[test]
 fn get_collection_price_returns_price() {
     let mut contract = setup_contract();
@@ -363,8 +331,6 @@ fn get_collection_price_not_found() {
     let err = contract.get_collection_price("nope".into()).unwrap_err();
     assert!(matches!(err, MarketplaceError::NotFound(_)));
 }
-
-// --- calculate_collection_purchase_price ---
 
 #[test]
 fn calculate_purchase_price_multiply() {

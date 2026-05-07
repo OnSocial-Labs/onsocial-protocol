@@ -33,6 +33,8 @@ pub mod test_revocation;
 
 pub mod test_app_pools;
 
+pub mod test_app_relations;
+
 pub mod test_approvals;
 
 pub mod test_withdrawals;
@@ -69,6 +71,5 @@ pub mod test_edge_cases;
 
 pub mod test_hardening;
 
-pub mod test_auth;
 
 pub mod test_rollback;

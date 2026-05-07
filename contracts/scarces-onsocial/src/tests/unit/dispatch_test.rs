@@ -3,13 +3,9 @@ use crate::*;
 use near_sdk::json_types::U128;
 use near_sdk::testing_env;
 
-// --- Helpers ---
-
 fn setup_contract() -> Contract {
     new_contract()
 }
-
-// --- QuickMint via dispatch ---
 
 #[test]
 fn dispatch_quick_mint_returns_token_id() {
@@ -41,8 +37,6 @@ fn dispatch_quick_mint_returns_token_id() {
     assert!(result.is_string());
     assert!(result.as_str().unwrap().starts_with("s:"));
 }
-
-// --- CreateCollection via dispatch ---
 
 #[test]
 fn dispatch_create_collection() {
@@ -77,14 +71,11 @@ fn dispatch_create_collection() {
     assert!(contract.collections.contains_key("dcol"));
 }
 
-// --- ListNativeScarce via dispatch ---
-
 #[test]
 fn dispatch_list_native_scarce() {
     let mut contract = setup_contract();
     testing_env!(context(buyer()).build());
 
-    // Mint a token first
     let metadata = scarce::types::TokenMetadata {
         title: Some("Listable".into()),
         description: None,
@@ -118,8 +109,6 @@ fn dispatch_list_native_scarce() {
     let sale_id = Contract::make_sale_id(&"marketplace.near".parse().unwrap(), &tid);
     assert!(contract.sales.contains_key(&sale_id));
 }
-
-// --- DelistNativeScarce via dispatch ---
 
 #[test]
 fn dispatch_delist_native_scarce() {
@@ -160,8 +149,6 @@ fn dispatch_delist_native_scarce() {
     assert!(!contract.sales.contains_key(&sale_id));
 }
 
-// --- TransferScarce via dispatch ---
-
 #[test]
 fn dispatch_transfer_scarce() {
     let mut contract = setup_contract();
@@ -200,14 +187,11 @@ fn dispatch_transfer_scarce() {
     assert_eq!(token.owner_id, creator());
 }
 
-// --- BurnScarce via dispatch (collection token) ---
-
 #[test]
 fn dispatch_burn_scarce() {
     let mut contract = setup_contract();
     testing_env!(context(creator()).build());
 
-    // Create a collection and mint a token from it
     let params = CollectionConfig {
         collection_id: "bcol".to_string(),
         total_supply: 10,
@@ -245,8 +229,6 @@ fn dispatch_burn_scarce() {
     assert!(!contract.scarces_by_id.contains_key("bcol:1"));
 }
 
-// --- CreateLazyListing via dispatch ---
-
 #[test]
 fn dispatch_create_lazy_listing_returns_id() {
     let mut contract = setup_contract();
@@ -281,8 +263,6 @@ fn dispatch_create_lazy_listing_returns_id() {
     assert!(result.is_string());
     assert!(result.as_str().unwrap().starts_with("ll:"));
 }
-
-// --- PauseCollection / ResumeCollection via dispatch ---
 
 #[test]
 fn dispatch_pause_and_resume_collection() {
@@ -326,8 +306,6 @@ fn dispatch_pause_and_resume_collection() {
     assert!(!contract.collections.get("pcol").unwrap().paused);
 }
 
-// --- Admin: SetFeeRecipient is standalone (not via dispatch) ---
-
 #[test]
 fn standalone_set_fee_recipient_without_yocto_fails() {
     let mut contract = setup_contract();
@@ -346,8 +324,6 @@ fn standalone_set_fee_recipient_with_yocto_happy() {
     assert_eq!(contract.fee_recipient, buyer());
 }
 
-// --- Admin: UpdateFeeConfig is standalone (not via dispatch) ---
-
 #[test]
 fn standalone_update_fee_config_without_yocto_fails() {
     let mut contract = setup_contract();
@@ -362,8 +338,6 @@ fn standalone_update_fee_config_without_yocto_fails() {
     assert!(matches!(err, MarketplaceError::InsufficientDeposit(_)));
 }
 
-// --- Dispatch forwarding error from inner method ---
-
 #[test]
 fn dispatch_list_nonexistent_token_forwards_error() {
     let mut contract = setup_contract();
@@ -377,8 +351,6 @@ fn dispatch_list_nonexistent_token_forwards_error() {
     let err = contract.dispatch_action(action, &buyer()).unwrap_err();
     assert!(matches!(err, MarketplaceError::NotFound(_)));
 }
-
-// --- BurnScarce standalone via dispatch (regression: s: prefix bug) ---
 
 #[test]
 fn dispatch_burn_standalone_token() {
@@ -408,7 +380,6 @@ fn dispatch_burn_standalone_token() {
     let tid = contract.quick_mint(&buyer(), metadata, options).unwrap();
     assert!(tid.starts_with("s:"));
 
-    // Burn via dispatch with collection_id = None — previously hit NotFound("Collection not found")
     let action = Action::BurnScarce {
         token_id: tid.clone(),
         collection_id: None,
@@ -417,8 +388,6 @@ fn dispatch_burn_standalone_token() {
 
     assert!(!contract.scarces_by_id.contains_key(&tid));
 }
-
-// --- UpdatePrice via dispatch ---
 
 #[test]
 fn dispatch_update_price() {
@@ -465,8 +434,6 @@ fn dispatch_update_price() {
     );
 }
 
-// --- PurchaseNativeScarce via execute() ---
-
 #[test]
 fn execute_purchase_native_scarce_happy() {
     let mut contract = setup_contract();
@@ -497,7 +464,6 @@ fn execute_purchase_native_scarce_happy() {
         .list_native_scarce(&buyer(), &tid, U128(5_000), None)
         .unwrap();
 
-    // Purchase as creator via execute()
     testing_env!(context_with_deposit(creator(), 10_000).build());
     contract
         .execute(make_request(Action::PurchaseNativeScarce {
@@ -505,15 +471,11 @@ fn execute_purchase_native_scarce_happy() {
         }))
         .unwrap();
 
-    // Token transferred to creator
     let token = contract.scarces_by_id.get(&tid).unwrap();
     assert_eq!(token.owner_id, creator());
-    // Sale removed
     let sale_id = Contract::make_sale_id(&"marketplace.near".parse().unwrap(), &tid);
     assert!(!contract.sales.contains_key(&sale_id));
 }
-
-// --- PurchaseLazyListing via execute() ---
 
 #[test]
 fn execute_purchase_lazy_listing_happy() {
@@ -546,7 +508,6 @@ fn execute_purchase_lazy_listing_happy() {
     };
     let listing_id = contract.create_lazy_listing(&creator(), params).unwrap();
 
-    // Purchase via execute()
     testing_env!(context_with_deposit(buyer(), 10_000).build());
     let result = contract
         .execute(make_request(Action::PurchaseLazyListing {
@@ -554,16 +515,12 @@ fn execute_purchase_lazy_listing_happy() {
         }))
         .unwrap();
 
-    // Returns the minted token ID
     assert!(result.is_string());
     let token_id = result.as_str().unwrap();
     let token = contract.scarces_by_id.get(token_id).unwrap();
     assert_eq!(token.owner_id, buyer());
-    // Listing consumed
     assert!(!contract.lazy_listings.contains_key(&listing_id));
 }
-
-// --- PlaceBid via execute() ---
 
 #[test]
 fn execute_place_bid_happy() {
@@ -603,7 +560,6 @@ fn execute_place_bid_happy() {
         .list_native_scarce_auction(&buyer(), &tid, auction_params)
         .unwrap();
 
-    // Bid via execute()
     testing_env!(context_with_deposit(creator(), 5_000).build());
     contract
         .execute(make_request(Action::PlaceBid {
@@ -617,8 +573,6 @@ fn execute_place_bid_happy() {
     let auction = sale.auction.as_ref().unwrap();
     assert_eq!(auction.highest_bid, U128(2_000));
 }
-
-// --- MakeCollectionOffer via execute() ---
 
 #[test]
 fn execute_make_collection_offer_happy() {
@@ -649,7 +603,6 @@ fn execute_make_collection_offer_happy() {
     };
     contract.create_collection(&creator(), params).unwrap();
 
-    // Make collection offer via execute()
     testing_env!(context_with_deposit(buyer(), 1_000_000_000_000_000_000_000_000).build());
     contract
         .execute(make_request(Action::MakeCollectionOffer {

@@ -205,6 +205,10 @@ impl Contract {
             return Err(e);
         }
 
+        if let Some(ref app) = app_id {
+            self.track_app_creator(app, creator_id);
+        }
+
         events::emit_collection_created(creator_id, &collection_id, total_supply, price_near);
         Ok(())
     }

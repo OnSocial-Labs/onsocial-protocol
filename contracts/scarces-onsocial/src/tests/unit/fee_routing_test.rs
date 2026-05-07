@@ -2,21 +2,15 @@ use crate::tests::test_utils::*;
 use crate::*;
 use near_sdk::testing_env;
 
-// --- calculate_fee_split ---
-
 #[test]
 fn fee_split_no_app_id() {
     let contract = new_contract();
-    // Default config: total=200bps, app_pool=50bps, platform_storage=50bps
-    let price: u128 = 1_000_000_000_000_000_000_000_000; // 1 NEAR
+    let price: u128 = 1_000_000_000_000_000_000_000_000;
     let (total, app, platform, revenue) = contract.calculate_fee_split(price, None);
 
-    // total = 1 NEAR * 200 / 10000 = 0.02 NEAR
     assert_eq!(total, price * 200 / 10_000);
     assert_eq!(app, 0, "no app → no app split");
-    // platform = 1 NEAR * 50 / 10000
     assert_eq!(platform, price * 50 / 10_000);
-    // revenue = total - platform
     assert_eq!(revenue, total - platform);
 }
 
@@ -39,7 +33,7 @@ fn fee_split_with_app_pool() {
         },
     );
 
-    let price: u128 = 10_000_000_000_000_000_000_000_000; // 10 NEAR
+    let price: u128 = 10_000_000_000_000_000_000_000_000;
     let (total, app_amt, platform, revenue) = contract.calculate_fee_split(price, Some(&app));
 
     assert_eq!(total, price * 200 / 10_000);
@@ -52,7 +46,6 @@ fn fee_split_with_app_pool() {
 fn fee_split_missing_app_pool_falls_to_platform() {
     let contract = new_contract();
     let app: AccountId = "app.near".parse().unwrap();
-    // app_pool not registered
     let (total, app_amt, platform, revenue) = contract.calculate_fee_split(1_000_000, Some(&app));
 
     assert_eq!(app_amt, 0, "pool not found → no app share");
@@ -67,8 +60,6 @@ fn fee_split_zero_price() {
     assert_eq!((total, app, platform, revenue), (0, 0, 0, 0));
 }
 
-// --- route_fee ---
-
 #[test]
 fn route_fee_no_app_funds_platform() {
     let mut contract = new_contract();
@@ -80,7 +71,6 @@ fn route_fee_no_app_funds_platform() {
 
     assert!(revenue > 0);
     assert_eq!(app_amt, 0);
-    // platform_storage_balance increased by platform_storage split
     let expected_platform = price * 50 / 10_000;
     assert_eq!(
         contract.platform_storage_balance,
@@ -109,7 +99,7 @@ fn route_fee_with_app_funds_pool() {
         },
     );
 
-    let price: u128 = 2_000_000_000_000_000_000_000_000; // 2 NEAR
+    let price: u128 = 2_000_000_000_000_000_000_000_000;
     let (_revenue, app_amt) = contract.route_fee(price, Some(&app));
 
     assert!(app_amt > 0);
@@ -127,11 +117,8 @@ fn route_fee_missing_pool_falls_to_platform() {
 
     let (_revenue, app_amt) = contract.route_fee(1_000_000, Some(&app));
     assert_eq!(app_amt, 0, "pool missing → 0 returned for app_amt");
-    // platform should have gotten the platform_storage split
     assert!(contract.platform_storage_balance > before);
 }
-
-// --- FeeConfig validate_patch / apply_patch ---
 
 #[test]
 fn update_fee_config_happy() {
@@ -281,8 +268,6 @@ fn update_fee_config_total_below_min_fails() {
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
 
-// --- calculate_app_commission ---
-
 #[test]
 fn app_commission_no_app() {
     let contract = new_contract();
@@ -322,7 +307,7 @@ fn app_commission_computed() {
             used_bytes: 0,
             max_user_bytes: 50_000,
             default_royalty: None,
-            primary_sale_bps: 500, // 5%
+            primary_sale_bps: 500,
             moderators: vec![],
             curated: false,
             metadata: None,
@@ -331,5 +316,5 @@ fn app_commission_computed() {
 
     let price: u128 = 10_000;
     let commission = contract.calculate_app_commission(price, Some(&app));
-    assert_eq!(commission, price * 500 / 10_000); // 500 yN
+    assert_eq!(commission, price * 500 / 10_000);
 }

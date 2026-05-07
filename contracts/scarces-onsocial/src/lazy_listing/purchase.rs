@@ -80,6 +80,9 @@ impl Contract {
         ) {
             Ok(r) => r,
             Err(e) => {
+                if let Some(app) = self.resolve_token_app_id(&token_id, app_id.as_ref()) {
+                    self.untrack_app_owner(&app, buyer_id);
+                }
                 self.scarces_by_id.remove(&token_id);
                 self.remove_token_from_owner(buyer_id, &token_id);
                 self.pending_attached_balance += deposit;

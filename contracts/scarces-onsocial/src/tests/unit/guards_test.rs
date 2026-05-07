@@ -3,8 +3,6 @@ use crate::tests::test_utils::*;
 use crate::*;
 use near_sdk::testing_env;
 
-// --- check_one_yocto ---
-
 #[test]
 fn check_one_yocto_exact() {
     let ctx = context_with_deposit(owner(), 1);
@@ -28,8 +26,6 @@ fn check_one_yocto_too_much_fails() {
     assert!(matches!(err, MarketplaceError::InsufficientDeposit(_)));
 }
 
-// --- check_at_least_one_yocto ---
-
 #[test]
 fn check_at_least_one_yocto_exact() {
     let ctx = context_with_deposit(owner(), 1);
@@ -52,8 +48,6 @@ fn check_at_least_one_yocto_zero_fails() {
     assert!(matches!(err, MarketplaceError::InsufficientDeposit(_)));
 }
 
-// --- collection_id_from_token_id ---
-
 #[test]
 fn collection_id_from_token_with_colon() {
     assert_eq!(collection_id_from_token_id("my-col:42"), "my-col");
@@ -69,8 +63,6 @@ fn collection_id_from_multiple_colons() {
     assert_eq!(collection_id_from_token_id("a:b:c"), "a");
 }
 
-// --- check_token_in_collection ---
-
 #[test]
 fn token_in_collection_ok() {
     assert!(check_token_in_collection("col1:5", "col1").is_ok());
@@ -81,8 +73,6 @@ fn token_not_in_collection() {
     let err = check_token_in_collection("col2:5", "col1").unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
-
-// --- check_contract_owner ---
 
 #[test]
 fn check_owner_ok() {

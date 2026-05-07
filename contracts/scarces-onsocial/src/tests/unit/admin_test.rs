@@ -2,8 +2,6 @@ use crate::tests::test_utils::*;
 use crate::*;
 use near_sdk::testing_env;
 
-// --- transfer_ownership ---
-
 #[test]
 fn transfer_ownership_happy() {
     let mut contract = new_contract();
@@ -40,8 +38,6 @@ fn transfer_ownership_non_owner_fails() {
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
 
-// --- set_fee_recipient ---
-
 #[test]
 fn set_fee_recipient_happy() {
     let mut contract = new_contract();
@@ -60,85 +56,13 @@ fn set_fee_recipient_non_owner_fails() {
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
 
-// --- add / remove intents_executor ---
-
-#[test]
-fn add_intents_executor_happy() {
-    let mut contract = new_contract();
-    testing_env!(context_with_deposit(owner(), 1).build());
-
-    let executor: AccountId = "exec.near".parse().unwrap();
-    contract.add_intents_executor(executor.clone()).unwrap();
-    assert!(contract.intents_executors.contains(&executor));
-}
-
-#[test]
-fn add_intents_executor_duplicate_fails() {
-    let mut contract = new_contract();
-    testing_env!(context_with_deposit(owner(), 1).build());
-
-    let executor: AccountId = "exec.near".parse().unwrap();
-    contract.add_intents_executor(executor.clone()).unwrap();
-
-    let err = contract.add_intents_executor(executor).unwrap_err();
-    assert!(matches!(err, MarketplaceError::InvalidInput(_)));
-}
-
-#[test]
-fn add_intents_executor_cap_enforced() {
-    let mut contract = new_contract();
-    testing_env!(context_with_deposit(owner(), 1).build());
-
-    // Fill to capacity
-    for i in 0..MAX_INTENTS_EXECUTORS {
-        let exec: AccountId = format!("exec{}.near", i).parse().unwrap();
-        contract.add_intents_executor(exec).unwrap();
-    }
-
-    let overflow: AccountId = "overflow.near".parse().unwrap();
-    let err = contract.add_intents_executor(overflow).unwrap_err();
-    assert!(matches!(err, MarketplaceError::InvalidInput(_)));
-}
-
-#[test]
-fn remove_intents_executor_happy() {
-    let mut contract = new_contract();
-    testing_env!(context_with_deposit(owner(), 1).build());
-
-    let executor: AccountId = "exec.near".parse().unwrap();
-    contract.add_intents_executor(executor.clone()).unwrap();
-
-    contract.remove_intents_executor(executor.clone()).unwrap();
-    assert!(!contract.intents_executors.contains(&executor));
-}
-
-#[test]
-fn remove_intents_executor_not_found_fails() {
-    let mut contract = new_contract();
-    testing_env!(context_with_deposit(owner(), 1).build());
-
-    let err = contract
-        .remove_intents_executor("ghost.near".parse().unwrap())
-        .unwrap_err();
-    assert!(matches!(err, MarketplaceError::NotFound(_)));
-}
-
-// --- set_contract_metadata ---
-
 #[test]
 fn set_contract_metadata_partial_update() {
     let mut contract = new_contract();
     testing_env!(context_with_deposit(owner(), 1).build());
 
     contract
-        .set_contract_metadata(
-            Some("My Marketplace".into()),
-            None, // keep symbol
-            None, // keep icon
-            None, // keep base_uri
-            None, // keep reference
-            None, // keep reference_hash
-        )
+        .set_contract_metadata(Some("My Marketplace".into()), None, None, None, None, None)
         .unwrap();
 
     assert_eq!(contract.contract_metadata.name, "My Marketplace");
@@ -149,7 +73,6 @@ fn set_contract_metadata_icon_to_none() {
     let mut contract = new_contract();
     testing_env!(context_with_deposit(owner(), 1).build());
 
-    // Set icon
     contract
         .set_contract_metadata(None, None, Some(Some("icon_data".into())), None, None, None)
         .unwrap();
@@ -158,7 +81,6 @@ fn set_contract_metadata_icon_to_none() {
         Some("icon_data".to_string())
     );
 
-    // Clear icon
     contract
         .set_contract_metadata(None, None, Some(None), None, None, None)
         .unwrap();
@@ -175,8 +97,6 @@ fn set_contract_metadata_non_owner_fails() {
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
-
-// --- approved_nft_contracts ---
 
 #[test]
 fn add_approved_nft_contract_happy() {
@@ -210,8 +130,6 @@ fn approved_nft_contract_non_owner_fails() {
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
 
-// --- FeeConfig validate_patch (admin path) ---
-
 #[test]
 fn admin_update_fee_config_below_minimum_fails() {
     let contract = new_contract();
@@ -228,15 +146,10 @@ fn admin_update_fee_config_below_minimum_fails() {
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
 
-// --- get_contract_info ---
-
 #[test]
 fn get_contract_info_returns_all_fields() {
     let mut contract = new_contract();
     testing_env!(context_with_deposit(owner(), 1).build());
-
-    let executor: AccountId = "relayer.near".parse().unwrap();
-    contract.add_intents_executor(executor.clone()).unwrap();
 
     let nft: AccountId = "nft.near".parse().unwrap();
     contract.add_approved_nft_contract(nft.clone()).unwrap();
@@ -244,7 +157,6 @@ fn get_contract_info_returns_all_fields() {
     let info = contract.get_contract_info();
     assert_eq!(info.owner, owner());
     assert_eq!(info.fee_recipient, owner());
-    assert_eq!(info.intents_executors, vec![executor]);
     assert!(info.approved_nft_contracts.contains(&nft));
     assert!(info.wnear_account_id.is_none());
     assert!(!info.version.is_empty());
@@ -260,7 +172,6 @@ fn get_contract_info_empty_defaults() {
     testing_env!(context(owner()).build());
 
     let info = contract.get_contract_info();
-    assert!(info.intents_executors.is_empty());
     assert!(info.approved_nft_contracts.is_empty());
     assert!(info.wnear_account_id.is_none());
 }

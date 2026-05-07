@@ -143,8 +143,6 @@ pub fn emit_auto_delisted(token_id: &str, owner_id: &AccountId, reason: &str) {
         .emit();
 }
 
-// --- SCARCE_UPDATE — lifecycle ---
-
 pub fn emit_token_renewed(
     actor_id: &AccountId,
     token_id: &str,
@@ -176,7 +174,6 @@ pub fn emit_token_revoked(
         .field("mode", mode)
         .field_opt("memo", memo)
         .emit();
-    // Invalidate mutates metadata; burn destroys the token.
     match mode {
         "invalidate" => nep171::emit_metadata_update(&[token_id]),
         "burn" => nep171::emit_burn(owner_id.as_str(), &[token_id], None, memo),
@@ -211,8 +208,6 @@ pub fn emit_scarce_burned(owner_id: &AccountId, token_id: &str, collection_id: O
     nep171::emit_burn(owner_id.as_str(), &[token_id], None, None);
 }
 
-// --- SCARCE_UPDATE — approvals ---
-
 pub fn emit_approval_granted(
     owner_id: &AccountId,
     token_id: &str,
@@ -241,8 +236,6 @@ pub fn emit_all_approvals_revoked(owner_id: &AccountId, token_id: &str) {
         .field("token_id", token_id)
         .emit();
 }
-
-// --- SCARCE_UPDATE — auctions ---
 
 pub fn emit_auction_created(
     owner_id: &AccountId,
@@ -303,8 +296,6 @@ pub fn emit_auction_cancelled(actor_id: &AccountId, token_id: &str, reason: &str
         .field("reason", reason)
         .emit();
 }
-
-// --- SCARCE_UPDATE — quick mint ---
 
 pub fn emit_quick_mint(actor_id: &AccountId, token_id: &str) {
     EventBuilder::new(SCARCE, "quick_mint", actor_id)

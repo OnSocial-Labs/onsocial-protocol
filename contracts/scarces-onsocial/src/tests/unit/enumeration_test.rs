@@ -3,8 +3,6 @@ use crate::*;
 use near_sdk::json_types::U128;
 use near_sdk::testing_env;
 
-// --- Helpers ---
-
 fn setup_contract() -> Contract {
     new_contract()
 }
@@ -65,8 +63,6 @@ fn minimal_collection_config(id: &str) -> CollectionConfig {
     }
 }
 
-// --- nft_total_supply ---
-
 #[test]
 fn nft_total_supply_empty() {
     let contract = setup_contract();
@@ -84,8 +80,6 @@ fn nft_total_supply_after_mints() {
     testing_env!(context(owner()).build());
     assert_eq!(contract.nft_total_supply().0, 3);
 }
-
-// --- nft_tokens ---
 
 #[test]
 fn nft_tokens_returns_all() {
@@ -117,8 +111,6 @@ fn nft_tokens_pagination() {
     assert_eq!(page3.len(), 1);
 }
 
-// --- nft_supply_for_owner ---
-
 #[test]
 fn nft_supply_for_owner_zero() {
     let contract = setup_contract();
@@ -137,8 +129,6 @@ fn nft_supply_for_owner_counts_correctly() {
     assert_eq!(contract.nft_supply_for_owner(buyer()).0, 2);
     assert_eq!(contract.nft_supply_for_owner(creator()).0, 1);
 }
-
-// --- nft_tokens_for_owner ---
 
 #[test]
 fn nft_tokens_for_owner_empty() {
@@ -178,8 +168,6 @@ fn nft_tokens_for_owner_pagination() {
     assert_eq!(page2.len(), 3);
 }
 
-// --- nft_supply_for_collection ---
-
 #[test]
 fn nft_supply_for_collection_zero() {
     let contract = setup_contract();
@@ -198,7 +186,6 @@ fn nft_supply_for_collection_after_mint() {
         .create_collection(&creator(), minimal_collection_config("ecol"))
         .unwrap();
 
-    // Mint via execute
     let action = Action::MintFromCollection {
         collection_id: "ecol".into(),
         quantity: 2,
@@ -208,8 +195,6 @@ fn nft_supply_for_collection_after_mint() {
 
     assert_eq!(contract.nft_supply_for_collection("ecol".into()).0, 2);
 }
-
-// --- nft_tokens_for_collection ---
 
 #[test]
 fn nft_tokens_for_collection_empty() {

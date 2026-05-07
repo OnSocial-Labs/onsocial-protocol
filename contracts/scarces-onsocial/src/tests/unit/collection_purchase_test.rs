@@ -3,8 +3,6 @@ use crate::*;
 use near_sdk::json_types::U128;
 use near_sdk::testing_env;
 
-// --- Helpers ---
-
 fn setup_contract_with_collection(price: u128) -> (Contract, String) {
     let mut contract = new_contract();
 
@@ -33,8 +31,6 @@ fn setup_contract_with_collection(price: u128) -> (Contract, String) {
     contract.create_collection(&creator(), config).unwrap();
     (contract, "col".to_string())
 }
-
-// --- Quantity validation ---
 
 #[test]
 fn purchase_quantity_zero_fails() {
@@ -66,8 +62,6 @@ fn purchase_quantity_exceeds_max_batch_fails() {
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
 
-// --- Collection not found ---
-
 #[test]
 fn purchase_nonexistent_collection_fails() {
     let mut contract = new_contract();
@@ -82,8 +76,6 @@ fn purchase_nonexistent_collection_fails() {
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::NotFound(_)));
 }
-
-// --- Creator-only mode ---
 
 #[test]
 fn purchase_creator_only_mode_fails() {
@@ -124,8 +116,6 @@ fn purchase_creator_only_mode_fails() {
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
 
-// --- Supply exceeded ---
-
 #[test]
 fn purchase_exceeds_supply_fails() {
     let mut contract = new_contract();
@@ -165,8 +155,6 @@ fn purchase_exceeds_supply_fails() {
     assert!(matches!(err, MarketplaceError::InvalidState(_)));
 }
 
-// --- Max per wallet ---
-
 #[test]
 fn purchase_exceeds_per_wallet_limit_fails() {
     let mut contract = new_contract();
@@ -195,7 +183,6 @@ fn purchase_exceeds_per_wallet_limit_fails() {
     };
     contract.create_collection(&creator(), config).unwrap();
 
-    // First purchase of 2 succeeds
     testing_env!(context_with_deposit(buyer(), 100_000).build());
     contract
         .execute(make_request(Action::PurchaseFromCollection {
@@ -205,7 +192,6 @@ fn purchase_exceeds_per_wallet_limit_fails() {
         }))
         .unwrap();
 
-    // Third exceeds per-wallet limit
     testing_env!(context_with_deposit(buyer(), 100_000).build());
     let err = contract
         .execute(make_request(Action::PurchaseFromCollection {
@@ -216,8 +202,6 @@ fn purchase_exceeds_per_wallet_limit_fails() {
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
-
-// --- Slippage guard ---
 
 #[test]
 fn purchase_slippage_guard_rejects_high_price() {
@@ -234,8 +218,6 @@ fn purchase_slippage_guard_rejects_high_price() {
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
 
-// --- Insufficient deposit ---
-
 #[test]
 fn purchase_insufficient_deposit_fails() {
     let (mut contract, col) = setup_contract_with_collection(10_000);
@@ -250,8 +232,6 @@ fn purchase_insufficient_deposit_fails() {
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InsufficientDeposit(_)));
 }
-
-// --- Happy path ---
 
 #[test]
 fn purchase_single_happy() {
@@ -304,8 +284,6 @@ fn purchase_tracks_revenue() {
     assert_eq!(collection.total_revenue.0, 3_000);
 }
 
-// --- Paused collection ---
-
 #[test]
 fn purchase_paused_collection_fails() {
     let (mut contract, col) = setup_contract_with_collection(1_000);
@@ -322,8 +300,6 @@ fn purchase_paused_collection_fails() {
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidState(_)));
 }
-
-// --- Allowlist pre-start phase ---
 
 #[test]
 fn purchase_before_start_without_allowlist_fails() {
@@ -394,7 +370,6 @@ fn purchase_before_start_with_allowlist_succeeds() {
     };
     contract.create_collection(&creator(), config).unwrap();
 
-    // Add buyer to allowlist with allocation of 5
     testing_env!(context(creator()).build());
     let entries = vec![AllowlistEntry {
         account_id: buyer(),

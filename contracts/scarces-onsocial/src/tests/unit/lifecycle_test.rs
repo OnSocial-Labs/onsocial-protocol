@@ -3,7 +3,6 @@ use crate::*;
 use near_sdk::json_types::U128;
 use near_sdk::testing_env;
 
-/// Create a contract with a collection and mint one token into it.
 fn setup_with_token(
     renewable: bool,
     revocation_mode: RevocationMode,
@@ -45,8 +44,6 @@ fn setup_with_token(
     (contract, token_id)
 }
 
-// --- Renew ---
-
 #[test]
 fn renew_happy_path() {
     let (mut contract, tid) = setup_with_token(true, RevocationMode::None, true, None);
@@ -78,7 +75,6 @@ fn renew_past_expiry_fails() {
     let (mut contract, tid) = setup_with_token(true, RevocationMode::None, true, None);
     testing_env!(context(creator()).build());
 
-    // timestamp in the past
     let past = 1_000_000_000_000_000_000u64;
     let err = contract
         .renew_token(&creator(), &tid, "col", past)
@@ -97,8 +93,6 @@ fn renew_non_creator_fails() {
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
-
-// --- Revoke (Invalidate) ---
 
 #[test]
 fn revoke_invalidate_happy() {
@@ -129,8 +123,6 @@ fn revoke_already_revoked_fails() {
     assert!(matches!(err, MarketplaceError::InvalidState(_)));
 }
 
-// --- Revoke (Burn) ---
-
 #[test]
 fn revoke_burn_removes_token() {
     let (mut contract, tid) = setup_with_token(false, RevocationMode::Burn, true, None);
@@ -148,8 +140,6 @@ fn revoke_burn_removes_token() {
     );
 }
 
-// --- Revoke (None) ---
-
 #[test]
 fn revoke_irrevocable_fails() {
     let (mut contract, tid) = setup_with_token(false, RevocationMode::None, true, None);
@@ -160,8 +150,6 @@ fn revoke_irrevocable_fails() {
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidState(_)));
 }
-
-// --- Redeem ---
 
 #[test]
 fn redeem_happy_path() {
@@ -199,7 +187,6 @@ fn redeem_revoked_token_fails() {
     let (mut contract, tid) = setup_with_token(false, RevocationMode::Invalidate, true, Some(1));
     testing_env!(context(creator()).build());
 
-    // First revoke, then try redeem
     contract
         .revoke_token(&creator(), &tid, "col", None)
         .unwrap();
@@ -218,8 +205,6 @@ fn redeem_increments_collection_counters() {
     assert_eq!(col.redeemed_count, 1);
     assert_eq!(col.fully_redeemed_count, 1, "1 of 1 max → fully redeemed");
 }
-
-// --- Burn (owner burn) ---
 
 #[test]
 fn burn_happy_path() {
@@ -250,8 +235,6 @@ fn burn_not_owner_fails() {
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
 
-// --- Cross-collection token ID mismatch ---
-
 #[test]
 fn renew_wrong_collection_fails() {
     let (mut contract, _tid) = setup_with_token(true, RevocationMode::None, true, None);
@@ -260,6 +243,5 @@ fn renew_wrong_collection_fails() {
     let err = contract
         .renew_token(&creator(), "col:1", "other-col", 2_000_000_000_000_000_000)
         .unwrap_err();
-    // check_token_in_collection should reject
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }

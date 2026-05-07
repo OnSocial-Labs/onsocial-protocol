@@ -29,7 +29,6 @@ pub const MAX_METADATA_LEN: usize = 16_384;
 pub const MAX_BATCH_MINT: u32 = 10;
 pub const MAX_AIRDROP_RECIPIENTS: u32 = 50;
 pub const MAX_BATCH_TRANSFER: u32 = 20;
-pub const MAX_INTENTS_EXECUTORS: usize = 50;
 
 pub const DEFAULT_CALLBACK_GAS: u64 = 50;
 pub const DEFAULT_SCARCE_TRANSFER_GAS: u64 = 50;

@@ -3,10 +3,8 @@ use crate::*;
 use near_sdk::json_types::U128;
 use near_sdk::testing_env;
 
-// ── Helper: create a listed native scarce ────────────────────────────────────
-
 fn setup_listed_scarce(contract: &mut Contract) -> (String, u128) {
-    let price: u128 = 5_000_000_000_000_000_000_000_000; // 5 NEAR
+    let price: u128 = 5_000_000_000_000_000_000_000_000;
     testing_env!(context(buyer()).build());
     let metadata = scarce::types::TokenMetadata {
         title: Some("Prepaid test".into()),
@@ -35,14 +33,11 @@ fn setup_listed_scarce(contract: &mut Contract) -> (String, u128) {
     (tid, price)
 }
 
-// ── draw_user_balance ────────────────────────────────────────────────────────
-
 #[test]
 fn draw_user_balance_full_available() {
     let mut contract = new_contract();
     let byte_cost = storage::storage_byte_cost();
 
-    // User has 10 NEAR, 0 used bytes → all available
     contract.user_storage.insert(
         buyer(),
         UserStorageBalance {
@@ -57,7 +52,6 @@ fn draw_user_balance_full_available() {
     assert_eq!(drawn, 10 * byte_cost * 1000);
     assert_eq!(contract.pending_attached_balance, drawn);
 
-    // User storage reduced to 0
     let user = contract.user_storage.get(&buyer()).unwrap();
     assert_eq!(user.balance, U128(0));
 }
@@ -84,7 +78,6 @@ fn draw_user_balance_reserves_storage_cost() {
     assert_eq!(drawn, total - reserved);
     assert_eq!(contract.pending_attached_balance, drawn);
 
-    // Reserved amount stays
     let user = contract.user_storage.get(&buyer()).unwrap();
     assert_eq!(user.balance, U128(reserved));
 }
@@ -102,7 +95,6 @@ fn draw_user_balance_all_reserved_returns_zero() {
     let mut contract = new_contract();
     let byte_cost = storage::storage_byte_cost();
 
-    // Balance exactly covers used bytes → nothing available
     contract.user_storage.insert(
         buyer(),
         UserStorageBalance {
@@ -118,14 +110,11 @@ fn draw_user_balance_all_reserved_returns_zero() {
     assert_eq!(contract.pending_attached_balance, 0);
 }
 
-// ── restore_user_balance ─────────────────────────────────────────────────────
-
 #[test]
 fn restore_user_balance_partial_use() {
     let mut contract = new_contract();
     let drawn: u128 = 10_000;
 
-    // Simulate: 10_000 drawn, only 6_000 used → 4_000 remaining
     contract.user_storage.insert(
         buyer(),
         UserStorageBalance {
@@ -137,7 +126,7 @@ fn restore_user_balance_partial_use() {
     );
 
     let external_remaining = contract.restore_user_balance(&buyer(), 4_000, drawn);
-    assert_eq!(external_remaining, 0); // 4_000 < 10_000 drawn → all goes to user
+    assert_eq!(external_remaining, 0);
 
     let user = contract.user_storage.get(&buyer()).unwrap();
     assert_eq!(user.balance, U128(4_000));
@@ -148,7 +137,6 @@ fn restore_user_balance_exact_use() {
     let mut contract = new_contract();
     let drawn: u128 = 5_000;
 
-    // All drawn was consumed → remaining = 0
     let external_remaining = contract.restore_user_balance(&buyer(), 0, drawn);
     assert_eq!(external_remaining, 0);
 }
@@ -156,16 +144,12 @@ fn restore_user_balance_exact_use() {
 #[test]
 fn restore_user_balance_with_external_deposit() {
     let mut contract = new_contract();
-    // Edge case: remaining > drawn (shouldn't happen with current flow, but safe)
-    // remaining = 15_000, drawn = 5_000 → refund 5_000, external 10_000
     let external_remaining = contract.restore_user_balance(&buyer(), 15_000, 5_000);
     assert_eq!(external_remaining, 10_000);
 
     let user = contract.user_storage.get(&buyer()).unwrap();
     assert_eq!(user.balance, U128(5_000));
 }
-
-// ── uses_prepaid_balance ─────────────────────────────────────────────────────
 
 #[test]
 fn uses_prepaid_balance_purchase_actions() {
@@ -216,7 +200,6 @@ fn uses_prepaid_balance_purchase_actions() {
 
 #[test]
 fn uses_prepaid_balance_excluded_actions() {
-    // StorageDeposit and FundAppPool should NOT draw from prepaid balance
     assert!(!Action::StorageDeposit { account_id: None }.uses_prepaid_balance());
     assert!(
         !Action::FundAppPool {
@@ -234,15 +217,12 @@ fn uses_prepaid_balance_excluded_actions() {
     );
 }
 
-// ── Integration: prepaid purchase via execute() ──────────────────────────────
-
 #[test]
 fn execute_purchase_native_scarce_from_prepaid_balance() {
     let mut contract = new_contract();
     let (tid, price) = setup_listed_scarce(&mut contract);
 
-    // Fund creator's (buyer = accounts(1)) storage with 10 NEAR
-    let deposit_amount = 10_000_000_000_000_000_000_000_000u128; // 10 NEAR
+    let deposit_amount = 10_000_000_000_000_000_000_000_000u128;
     contract.user_storage.insert(
         creator(),
         UserStorageBalance {
@@ -253,7 +233,6 @@ fn execute_purchase_native_scarce_from_prepaid_balance() {
         },
     );
 
-    // Creator purchases via execute() with 0 attached deposit (relayer path)
     testing_env!(context(creator()).build());
     contract
         .execute(make_request(Action::PurchaseNativeScarce {
@@ -261,15 +240,12 @@ fn execute_purchase_native_scarce_from_prepaid_balance() {
         }))
         .unwrap();
 
-    // Token transferred to creator
     let token = contract.scarces_by_id.get(&tid).unwrap();
     assert_eq!(token.owner_id, creator());
 
-    // Sale removed
     let sale_id = Contract::make_sale_id(&"marketplace.near".parse().unwrap(), &tid);
     assert!(!contract.sales.contains_key(&sale_id));
 
-    // User balance decreased by price (fees deducted from price, not from user)
     let user = contract.user_storage.get(&creator()).unwrap();
     let change = deposit_amount - user.balance.0;
     assert_eq!(change, price);
@@ -280,8 +256,7 @@ fn execute_purchase_insufficient_prepaid_balance_fails() {
     let mut contract = new_contract();
     let (tid, _price) = setup_listed_scarce(&mut contract);
 
-    // Fund creator's balance with less than price
-    let small_amount = 1_000u128; // Way less than 5 NEAR
+    let small_amount = 1_000u128;
     contract.user_storage.insert(
         creator(),
         UserStorageBalance {
@@ -292,14 +267,12 @@ fn execute_purchase_insufficient_prepaid_balance_fails() {
         },
     );
 
-    // Purchase should fail
     testing_env!(context(creator()).build());
     let result = contract.execute(make_request(Action::PurchaseNativeScarce {
         token_id: tid.clone(),
     }));
     assert!(result.is_err());
 
-    // User balance fully restored (drawn then returned on failure)
     let user = contract.user_storage.get(&creator()).unwrap();
     assert_eq!(user.balance, U128(small_amount));
 }
@@ -309,7 +282,6 @@ fn execute_purchase_no_prepaid_no_deposit_fails() {
     let mut contract = new_contract();
     let (tid, _price) = setup_listed_scarce(&mut contract);
 
-    // No user balance, no attached deposit
     testing_env!(context(creator()).build());
     let result = contract.execute(make_request(Action::PurchaseNativeScarce {
         token_id: tid.clone(),
@@ -322,7 +294,6 @@ fn execute_purchase_with_deposit_skips_prepaid() {
     let mut contract = new_contract();
     let (tid, price) = setup_listed_scarce(&mut contract);
 
-    // User has prepaid balance AND attaches deposit
     let prepaid = 10_000_000_000_000_000_000_000_000u128;
     contract.user_storage.insert(
         creator(),
@@ -334,7 +305,6 @@ fn execute_purchase_with_deposit_skips_prepaid() {
         },
     );
 
-    // Attach enough deposit — prepaid should NOT be touched
     testing_env!(context_with_deposit(creator(), price).build());
     contract
         .execute(make_request(Action::PurchaseNativeScarce {
@@ -342,7 +312,6 @@ fn execute_purchase_with_deposit_skips_prepaid() {
         }))
         .unwrap();
 
-    // Prepaid balance untouched
     let user = contract.user_storage.get(&creator()).unwrap();
     assert_eq!(user.balance, U128(prepaid));
 }
@@ -353,10 +322,9 @@ fn execute_purchase_reserves_storage_bytes() {
     let (tid, price) = setup_listed_scarce(&mut contract);
     let byte_cost = storage::storage_byte_cost();
 
-    // User has balance, some used by storage
     let used_bytes = 100u64;
     let reserved = used_bytes as u128 * byte_cost;
-    let total = price + reserved + 1_000; // enough for price + storage reserve
+    let total = price + reserved + 1_000;
     contract.user_storage.insert(
         creator(),
         UserStorageBalance {
@@ -374,8 +342,7 @@ fn execute_purchase_reserves_storage_bytes() {
         }))
         .unwrap();
 
-    // Storage reservation preserved
     let user = contract.user_storage.get(&creator()).unwrap();
     assert!(user.balance.0 >= reserved);
-    assert_eq!(user.used_bytes, used_bytes); // unchanged
+    assert_eq!(user.used_bytes, used_bytes);
 }

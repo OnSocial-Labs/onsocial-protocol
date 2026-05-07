@@ -3,8 +3,6 @@ use crate::*;
 use near_sdk::json_types::U128;
 use near_sdk::testing_env;
 
-// --- Helpers ---
-
 fn setup_contract() -> Contract {
     new_contract()
 }
@@ -47,7 +45,7 @@ fn list_and_setup_auction(contract: &mut Contract, seller: &AccountId) -> String
                 reserve_price: U128(1_000),
                 min_bid_increment: U128(100),
                 expires_at: None,
-                auction_duration_ns: Some(60_000_000_000), // 60s
+                auction_duration_ns: Some(60_000_000_000),
                 anti_snipe_extension_ns: 0,
                 buy_now_price: None,
             },
@@ -56,14 +54,11 @@ fn list_and_setup_auction(contract: &mut Contract, seller: &AccountId) -> String
     tid
 }
 
-// ─── SettleAuction ──────────────────────────────────────────────────────────
-
 #[test]
 fn settle_auction_after_expiry_happy() {
     let mut contract = setup_contract();
     let tid = list_and_setup_auction(&mut contract, &owner());
 
-    // Place a bid to start the timer (payment action needs deposit)
     testing_env!(context_with_deposit(buyer(), 1_000).build());
     contract
         .execute(make_request(Action::PlaceBid {
@@ -72,10 +67,9 @@ fn settle_auction_after_expiry_happy() {
         }))
         .unwrap();
 
-    // Advance time past auction end
     testing_env!(
         context_with_deposit(buyer(), 0)
-            .block_timestamp(1_700_000_000_000_000_000 + 120_000_000_000) // well past 60s
+            .block_timestamp(1_700_000_000_000_000_000 + 120_000_000_000)
             .build()
     );
 
@@ -85,10 +79,8 @@ fn settle_auction_after_expiry_happy() {
         }))
         .unwrap();
 
-    // Sale should be removed
     let sale_id = Contract::make_sale_id(&"marketplace.near".parse().unwrap(), &tid);
     assert!(!contract.sales.contains_key(&sale_id));
-    // Token transferred to buyer
     let token = contract.scarces_by_id.get(&tid).unwrap();
     assert_eq!(token.owner_id, buyer());
 }
@@ -98,7 +90,6 @@ fn settle_auction_before_expiry_fails() {
     let mut contract = setup_contract();
     let tid = list_and_setup_auction(&mut contract, &owner());
 
-    // Place bid to start timer
     testing_env!(context_with_deposit(buyer(), 1_000).build());
     contract
         .execute(make_request(Action::PlaceBid {
@@ -107,7 +98,6 @@ fn settle_auction_before_expiry_fails() {
         }))
         .unwrap();
 
-    // Don't advance time → still active
     let err = contract
         .execute(make_request(Action::SettleAuction {
             token_id: tid.clone(),
@@ -121,7 +111,6 @@ fn settle_auction_no_bids_fails() {
     let mut contract = setup_contract();
     let tid = list_and_setup_auction(&mut contract, &owner());
 
-    // Foundation-style: no bids → no expiry → can't settle
     testing_env!(context(owner()).build());
     let err = contract
         .execute(make_request(Action::SettleAuction {
@@ -130,8 +119,6 @@ fn settle_auction_no_bids_fails() {
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidState(_)));
 }
-
-// ─── DelistScarce (external NFT delisting) ──────────────────────────────────
 
 #[test]
 fn delist_scarce_not_found_fails() {

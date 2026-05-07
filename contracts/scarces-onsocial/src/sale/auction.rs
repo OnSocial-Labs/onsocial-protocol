@@ -52,7 +52,6 @@ impl Contract {
             ));
         }
 
-        // State transition invariant: auction expiry may be deferred until first qualifying bid.
         if expires_at.is_none() && auction_duration_ns.is_none() {
             return Err(MarketplaceError::InvalidInput(
                 "Auction needs either expires_at or auction_duration_ns".into(),
@@ -102,7 +101,6 @@ impl Contract {
         let bytes_used = after.saturating_sub(before);
 
         let app_id = self.resolve_token_app_id(token_id, token_app_id.as_ref());
-        // Storage/accounting invariant: rollback auction sale if storage charge fails.
         if let Err(e) = self.charge_storage_waterfall(owner_id, bytes_used, app_id.as_ref()) {
             let _ = self.remove_sale(env::current_account_id(), token_id.to_string());
             return Err(e);
@@ -145,7 +143,6 @@ impl Contract {
             .ok_or_else(|| MarketplaceError::InvalidState("Not an auction listing".into()))?;
 
         if !force_settle {
-            // State transition invariant: pre-bid auctions have no expiry and cannot be settled by timeout path.
             let expires = sale.expires_at.ok_or_else(|| {
                 MarketplaceError::InvalidState("Auction has no expiry yet (no bids placed)".into())
             })?;
@@ -160,7 +157,6 @@ impl Contract {
         let winning_bid = auction.highest_bid.0;
         let winner = auction.highest_bidder.clone();
 
-        // Security boundary: remove sale state before external Promise side effects.
         self.remove_sale(env::current_account_id(), token_id.to_string())?;
 
         if winning_bid >= auction.reserve_price.0 && winning_bid > 0 {
@@ -254,7 +250,6 @@ impl Contract {
             ));
         }
 
-        // State transition invariant: the first qualifying bid initializes auction expiry.
         if sale.expires_at.is_none() {
             let duration = auction.auction_duration_ns.ok_or_else(|| {
                 MarketplaceError::InvalidState("Auction has no expiry and no duration".into())
@@ -296,7 +291,6 @@ impl Contract {
         auction.highest_bidder = Some(bidder.clone());
         auction.bid_count = auction.bid_count.saturating_add(1);
 
-        // Arithmetic invariant: anti-snipe extension uses saturating arithmetic to avoid overflow.
         if auction.anti_snipe_extension_ns > 0 {
             let time_left = expires.saturating_sub(env::block_timestamp());
             if time_left < auction.anti_snipe_extension_ns {

@@ -27,8 +27,6 @@ fn minimal_config(id: &str) -> CollectionConfig {
     }
 }
 
-// --- Create collection ---
-
 #[test]
 fn create_collection_happy_path() {
     let mut contract = new_contract();
@@ -56,8 +54,6 @@ fn create_collection_duplicate_id_fails() {
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidState(_)));
 }
-
-// --- ID validation ---
 
 #[test]
 fn create_collection_empty_id_fails() {
@@ -114,8 +110,6 @@ fn create_collection_id_too_long() {
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
 
-// --- Supply validation ---
-
 #[test]
 fn create_collection_zero_supply_fails() {
     let mut contract = new_contract();
@@ -134,8 +128,6 @@ fn create_collection_over_max_supply_fails() {
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
 
-// --- Time validation ---
-
 #[test]
 fn create_collection_end_before_start_fails() {
     let mut contract = new_contract();
@@ -146,15 +138,12 @@ fn create_collection_end_before_start_fails() {
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
 
-// --- Dutch auction validation ---
-
 #[test]
 fn create_collection_dutch_without_times_fails() {
     let mut contract = new_contract();
     let mut cfg = minimal_config("dutch");
     cfg.price_near = U128(100);
     cfg.start_price = Some(U128(1000));
-    // No start_time/end_time
     let err = contract.create_collection(&creator(), cfg).unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
@@ -164,14 +153,12 @@ fn create_collection_dutch_start_price_le_floor_fails() {
     let mut contract = new_contract();
     let mut cfg = minimal_config("dutch2");
     cfg.price_near = U128(1000);
-    cfg.start_price = Some(U128(500)); // less than floor
+    cfg.start_price = Some(U128(500));
     cfg.start_time = Some(1000);
     cfg.end_time = Some(2000);
     let err = contract.create_collection(&creator(), cfg).unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
-
-// --- max_per_wallet ---
 
 #[test]
 fn create_collection_zero_max_per_wallet_fails() {
@@ -181,8 +168,6 @@ fn create_collection_zero_max_per_wallet_fails() {
     let err = contract.create_collection(&creator(), cfg).unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
-
-// --- Creator tracking ---
 
 #[test]
 fn collection_tracked_by_creator() {
@@ -199,8 +184,6 @@ fn collection_tracked_by_creator() {
     assert!(creator_set.contains("c1"));
     assert!(creator_set.contains("c2"));
 }
-
-// --- Pause / Resume ---
 
 #[test]
 fn pause_and_resume_collection() {

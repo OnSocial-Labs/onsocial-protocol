@@ -4,8 +4,6 @@ use near_sdk::json_types::U128;
 use near_sdk::testing_env;
 use std::collections::HashMap;
 
-// --- Helpers ---
-
 fn setup_contract() -> Contract {
     new_contract()
 }
@@ -69,8 +67,6 @@ fn quick_mint_with_royalty(
         .to_string()
 }
 
-// --- nft_payout ---
-
 #[test]
 fn nft_payout_no_royalty() {
     let mut contract = setup_contract();
@@ -81,7 +77,6 @@ fn nft_payout_no_royalty() {
         .nft_payout(token_id, U128(1_000_000), None)
         .unwrap();
 
-    // All goes to owner when no royalty
     assert_eq!(payout.payout.len(), 1);
     assert_eq!(payout.payout[&buyer()].0, 1_000_000);
 }
@@ -90,13 +85,12 @@ fn nft_payout_no_royalty() {
 fn nft_payout_with_royalty() {
     let mut contract = setup_contract();
     let mut royalty = HashMap::new();
-    royalty.insert(creator(), 1000); // 10%
+    royalty.insert(creator(), 1000);
     let token_id = quick_mint_with_royalty(&mut contract, &buyer(), royalty);
 
     testing_env!(context(owner()).build());
     let payout = contract.nft_payout(token_id, U128(10_000), None).unwrap();
 
-    // Creator gets 10%, buyer (owner) gets 90%
     assert_eq!(payout.payout[&creator()].0, 1_000);
     assert_eq!(payout.payout[&buyer()].0, 9_000);
 }
@@ -119,21 +113,17 @@ fn nft_payout_max_len_respected() {
     let token_id = quick_mint_with_royalty(&mut contract, &buyer(), royalty);
 
     testing_env!(context(owner()).build());
-    // max_len_payout = Some(10) should succeed
     let payout = contract
         .nft_payout(token_id, U128(10_000), Some(10))
         .unwrap();
     assert!(payout.payout.len() <= 10);
 }
 
-// --- nft_transfer_payout ---
-
 #[test]
 fn nft_transfer_payout_happy() {
     let mut contract = setup_contract();
     let token_id = quick_mint(&mut contract, &buyer());
 
-    // Must be called by owner with 1 yocto
     testing_env!(context_with_deposit(buyer(), 1).build());
     let payout = contract
         .nft_transfer_payout(creator(), token_id.clone(), None, None, U128(1_000), None)
@@ -142,7 +132,6 @@ fn nft_transfer_payout_happy() {
     assert_eq!(payout.payout.len(), 1);
     assert_eq!(payout.payout[&buyer()].0, 1_000);
 
-    // Token should now be owned by creator
     let token = contract.nft_token(token_id).unwrap();
     assert_eq!(token.owner_id, creator());
 }

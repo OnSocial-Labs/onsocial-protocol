@@ -1,6 +1,6 @@
 # scarces-onsocial
 
-NFT marketplace and minting contract for the OnSocial protocol. Supports standalone mints, lazy collections, fixed-price sales, auctions, offers, and gasless execution via `onsocial-auth`.
+NFT marketplace and minting contract for the OnSocial protocol. Supports standalone mints, lazy collections, fixed-price sales, auctions, offers, and gasless execution via NEP-366 meta-transactions through the OnSocial relayer.
 
 ## Standards
 
@@ -23,7 +23,7 @@ NFT marketplace and minting contract for the OnSocial protocol. Supports standal
 - **Lazy listings** — Off-chain metadata, minted on first purchase
 - **Token lifecycle** — Renewable, revocable, redeemable, burnable, refundable tokens
 - **App pools** — Per-app storage sponsorship with moderators and spending caps
-- **Gasless auth** — All actions routed through `execute()` with NEAR Intents support
+- **Gasless auth** — All actions routed through `execute()`, signed by a session FunctionCall key and relayed via NEP-366 (`SignedDelegateAction`)
 - **Configurable fees** — Platform + app pool fee split in basis points
 
 ## Build
@@ -62,10 +62,16 @@ Requires 5 NEAR minimum deposit to seed the platform storage pool.
 All state-changing operations go through a single entry point:
 
 ```
-execute(Request { target_account, action, auth, options })
+execute(Request { action, options })
 ```
 
-The `action` enum is dispatched internally. Auth supports direct calls, signed payloads, and NEAR Intents executors.
+The `action` enum is dispatched internally. Auth is predecessor-trusted: for
+standard NEAR transactions the predecessor is the wallet account; for NEP-366
+meta-transactions the runtime sets `predecessor = signer = delegate.sender_id`,
+so `actor_id` is always the real user. Actions flagged by
+`Action::requires_confirmation()` require a 1 yoctoNEAR attached deposit
+(session FunctionCall keys cannot attach a deposit, so those actions are
+automatically restricted to wallet-signed transactions).
 
 ## API
 
@@ -226,9 +232,12 @@ The `action` enum is dispatched internally. Auth supports direct calls, signed p
 | `transfer_ownership(new_owner)` | Transfer contract ownership (1 yocto) |
 | `set_fee_recipient(account_id)` | Change fee recipient (1 yocto) |
 | `update_fee_config(patch)` | Update fee basis points (1 yocto) |
-| `add_intents_executor(executor)` | Authorize an intents executor |
-| `remove_intents_executor(executor)` | Remove an intents executor |
-| `update_contract()` | Deploy new WASM (self-upgrade) |
+| `set_wnear_account(account_id)` | Set the wNEAR FT contract used by `ft_on_transfer` |
+| `add_approved_nft_contract(account_id)` / `remove_approved_nft_contract(account_id)` | Allowlist external NFT contracts for approval-based listing |
+| `fund_platform_storage()` | Top up the platform storage pool |
+| `set_contract_metadata(...)` | Patch NEP-177 contract metadata |
+| `update_contract()` | Deploy new WASM (self-upgrade, runs `migrate`) |
+| `update_contract_from_hash(code_hash)` | Self-upgrade from a globally deployed code hash |
 
 ## Fee Structure
 
@@ -264,7 +273,7 @@ All events follow NEP-297 with `onsocial` standard prefix:
 - **Lazy listing**: `created`, `purchased`, `cancelled`
 - **Storage**: `deposit`, `withdraw`, `credit_unused`, `refund`, `prepaid_drawn`, `prepaid_restored`, `spending_cap_set`
 - **App pool**: `register`, `fund`, `withdraw`, `config_update`, `owner_transferred`, `moderator_added`, `moderator_removed`
-- **Contract**: `upgraded`, `owner_transferred`, `fee_recipient_changed`, `fee_config_updated`, `intents_executor_added/removed`
+- **Contract**: `upgraded`, `owner_transferred`, `fee_recipient_changed`, `fee_config_updated`, `wnear_account_set`, `approved_nft_contract_added/removed`, `platform_storage_funded`, `contract_metadata_updated`
 
 ## License
 

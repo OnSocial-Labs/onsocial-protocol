@@ -56,11 +56,15 @@ impl Contract {
             refunded: false,
             transferable: ovr.transferable,
             burnable: ovr.burnable,
-            app_id: ovr.app_id,
+            app_id: ovr.app_id.clone(),
         };
 
         self.scarces_by_id.insert(token_id.clone(), token);
         self.add_token_to_owner(&owner_id, &token_id);
+
+        if let Some(app) = self.resolve_token_app_id(&token_id, ovr.app_id.as_ref()) {
+            self.track_app_owner(&app, &owner_id);
+        }
 
         Ok(token_id)
     }
@@ -111,6 +115,9 @@ impl Contract {
         let bytes_used = self.storage_usage_flushed().saturating_sub(before);
         // Storage/accounting invariant: rollback token if storage charge fails.
         if let Err(e) = self.charge_storage_waterfall(actor_id, bytes_used, app_id.as_ref()) {
+            if let Some(app) = self.resolve_token_app_id(&token_id, app_id.as_ref()) {
+                self.untrack_app_owner(&app, actor_id);
+            }
             self.scarces_by_id.remove(&token_id);
             self.remove_token_from_owner(actor_id, &token_id);
             return Err(e);
@@ -177,45 +184,53 @@ impl Contract {
         let seat_str = seat_number.to_string();
         let timestamp_str = timestamp.to_string();
 
-        if let Some(ref mut title) = metadata.title {
-            *title = title
+        let app_id = self
+            .collections
+            .get(collection_id)
+            .and_then(|c| c.app_id.clone());
+        let (app_id_str, app_name, app_icon) = match app_id.as_ref() {
+            Some(app) => {
+                let pool_meta = self.app_pools.get(app).and_then(|p| p.metadata.clone());
+                (
+                    app.to_string(),
+                    Self::extract_metadata_string(pool_meta.as_deref(), "name").unwrap_or_default(),
+                    Self::extract_metadata_string(pool_meta.as_deref(), "icon").unwrap_or_default(),
+                )
+            }
+            None => (String::new(), String::new(), String::new()),
+        };
+
+        let apply = |s: &mut String| {
+            *s = s
                 .replace("{token_id}", token_id)
                 .replace("{index}", &index_str)
                 .replace("{seat_number}", &seat_str)
-                .replace("{collection_id}", collection_id);
+                .replace("{collection_id}", collection_id)
+                .replace("{app_id}", &app_id_str)
+                .replace("{app_name}", &app_name)
+                .replace("{app_icon}", &app_icon);
+        };
+
+        if let Some(ref mut title) = metadata.title {
+            apply(title);
         }
 
         if let Some(ref mut description) = metadata.description {
-            *description = description
-                .replace("{token_id}", token_id)
-                .replace("{index}", &index_str)
-                .replace("{seat_number}", &seat_str)
-                .replace("{collection_id}", collection_id)
-                .replace("{owner}", owner.as_str());
+            apply(description);
+            *description = description.replace("{owner}", owner.as_str());
         }
 
         if let Some(ref mut media) = metadata.media {
-            *media = media
-                .replace("{token_id}", token_id)
-                .replace("{index}", &index_str)
-                .replace("{seat_number}", &seat_str)
-                .replace("{collection_id}", collection_id);
+            apply(media);
         }
 
         if let Some(ref mut reference) = metadata.reference {
-            *reference = reference
-                .replace("{token_id}", token_id)
-                .replace("{index}", &index_str)
-                .replace("{seat_number}", &seat_str)
-                .replace("{collection_id}", collection_id);
+            apply(reference);
         }
 
         if let Some(ref mut extra) = metadata.extra {
+            apply(extra);
             *extra = extra
-                .replace("{token_id}", token_id)
-                .replace("{index}", &index_str)
-                .replace("{seat_number}", &seat_str)
-                .replace("{collection_id}", collection_id)
                 .replace("{owner}", owner.as_str())
                 .replace("{minted_at}", &timestamp_str);
         }
@@ -229,5 +244,11 @@ impl Contract {
         }
 
         Ok(metadata)
+    }
+
+    fn extract_metadata_string(metadata_json: Option<&str>, field: &str) -> Option<String> {
+        metadata_json
+            .and_then(|s| near_sdk::serde_json::from_str::<near_sdk::serde_json::Value>(s).ok())
+            .and_then(|v| v.get(field)?.as_str().map(|s| s.to_string()))
     }
 }

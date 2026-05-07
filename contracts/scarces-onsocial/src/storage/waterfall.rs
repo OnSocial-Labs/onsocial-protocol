@@ -3,7 +3,6 @@ use crate::*;
 use super::types::storage_byte_cost;
 
 impl Contract {
-    // Accounting invariant: `bytes_used` must match observed storage delta for correct tier attribution.
     pub(crate) fn charge_storage_waterfall(
         &mut self,
         account_id: &AccountId,
@@ -14,7 +13,6 @@ impl Contract {
             return Ok(());
         }
 
-        // --- Tier 1: App Pool ---
         if let Some(app) = app_id {
             if let Some(mut pool) = self.app_pools.remove(app) {
                 let usage_key = format!("{}:{}", account_id, app);
@@ -35,7 +33,6 @@ impl Contract {
                         return Ok(());
                     }
 
-                    // Attribution invariant: app-pool shortfall is charged to user tier, never platform tier.
                     let remaining_bytes = bytes_used - can_cover_bytes;
                     self.charge_user_storage(account_id, remaining_bytes)?;
                     return Ok(());
@@ -45,7 +42,6 @@ impl Contract {
             }
         }
 
-        // --- Tier 2: Platform Pool ---
         if app_id.is_none() {
             let cost = (bytes_used as u128) * storage_byte_cost();
             if self.platform_storage_balance >= cost {
@@ -61,12 +57,10 @@ impl Contract {
             }
         }
 
-        // --- Tier 3: User Balance ---
         self.charge_user_storage(account_id, bytes_used)?;
         Ok(())
     }
 
-    // Accounting invariant: release path reverses prior tier attribution and avoids over-credit.
     pub(crate) fn release_storage_waterfall(
         &mut self,
         account_id: &AccountId,
@@ -77,7 +71,6 @@ impl Contract {
             return;
         }
 
-        // --- Tier 1: credit app pool ---
         if let Some(app) = app_id {
             let usage_key = format!("{}:{}", account_id, app);
             if let Some(mut pool) = self.app_pools.remove(app) {
@@ -100,7 +93,6 @@ impl Contract {
                 }
                 return;
             }
-            // Persistence invariant: when app pool is missing, attribution is reconstructed from usage tracking.
             let pool_bytes = self.app_user_usage.get(&usage_key).copied().unwrap_or(0);
             let from_pool = pool_bytes.min(bytes_freed);
             let from_user = bytes_freed.saturating_sub(from_pool);
@@ -115,7 +107,6 @@ impl Contract {
             return;
         }
 
-        // Accounting invariant: tier2_used_bytes determines platform-vs-user release split.
         if let Some(mut user) = self.user_storage.remove(account_id) {
             let from_tier2 = user.tier2_used_bytes.min(bytes_freed);
             let from_tier3 = bytes_freed - from_tier2;
@@ -132,7 +123,6 @@ impl Contract {
         self.platform_storage_balance = self.platform_storage_balance.saturating_add(cost);
     }
 
-    // Accounting invariant: charge exact shortfall from pending_attached_balance after consuming free user balance.
     fn charge_user_storage(
         &mut self,
         account_id: &AccountId,

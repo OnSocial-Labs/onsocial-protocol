@@ -2,8 +2,6 @@ use crate::tests::test_utils::*;
 use crate::*;
 use std::collections::HashMap;
 
-// --- merge_royalties ---
-
 #[test]
 fn merge_both_none() {
     let contract = new_contract();
@@ -140,7 +138,7 @@ fn merge_shared_account_summed() {
         .unwrap()
         .unwrap();
     assert_eq!(result.len(), 1);
-    assert_eq!(*result.get(&shared).unwrap(), 500); // 200 + 300
+    assert_eq!(*result.get(&shared).unwrap(), 500);
 }
 
 #[test]
@@ -167,7 +165,6 @@ fn merge_exceeds_max_royalty_bps_fails() {
     );
 
     let mut creator_royalty = HashMap::new();
-    // 3000 + 2001 = 5001 > MAX_ROYALTY_BPS(5000)
     creator_royalty.insert("b.near".parse::<AccountId>().unwrap(), 2_001u32);
 
     let err = contract
@@ -200,7 +197,7 @@ fn merge_exactly_max_royalty_bps_ok() {
     );
 
     let mut creator_royalty = HashMap::new();
-    creator_royalty.insert("b.near".parse::<AccountId>().unwrap(), 2_500u32); // sum = 5000 exactly
+    creator_royalty.insert("b.near".parse::<AccountId>().unwrap(), 2_500u32);
 
     let result = contract
         .merge_royalties(Some(&app), Some(creator_royalty))
@@ -209,8 +206,6 @@ fn merge_exactly_max_royalty_bps_ok() {
     let total: u32 = result.values().sum();
     assert_eq!(total, MAX_ROYALTY_BPS);
 }
-
-// --- compute_payout ---
 
 fn make_token(royalty: Option<HashMap<AccountId, u32>>) -> Scarce {
     Scarce {
@@ -265,7 +260,7 @@ fn payout_single_royalty_recipient() {
     let recipient: AccountId = "artist.near".parse().unwrap();
 
     let mut royalty = HashMap::new();
-    royalty.insert(recipient.clone(), 1000u32); // 10%
+    royalty.insert(recipient.clone(), 1000u32);
 
     let token = make_token(Some(royalty));
     let balance: u128 = 10_000;
@@ -273,9 +268,8 @@ fn payout_single_royalty_recipient() {
         .compute_payout(&token, &seller, balance, 10)
         .unwrap();
 
-    let royalty_amt = balance * 1000 / 10_000; // 1000
+    let royalty_amt = balance * 1000 / 10_000;
     assert_eq!(payout.payout.get(&recipient).unwrap().0, royalty_amt);
-    // seller gets remainder
     assert_eq!(payout.payout.get(&seller).unwrap().0, balance - royalty_amt);
 }
 
@@ -285,7 +279,7 @@ fn payout_seller_is_also_royalty_recipient() {
     let seller: AccountId = "seller.near".parse().unwrap();
 
     let mut royalty = HashMap::new();
-    royalty.insert(seller.clone(), 500u32); // 5%
+    royalty.insert(seller.clone(), 500u32);
 
     let token = make_token(Some(royalty));
     let balance: u128 = 10_000;
@@ -293,9 +287,8 @@ fn payout_seller_is_also_royalty_recipient() {
         .compute_payout(&token, &seller, balance, 10)
         .unwrap();
 
-    // Seller's royalty share + remainder combined into one entry
-    let royalty_amt = balance * 500 / 10_000; // 500
-    let remainder = balance - royalty_amt; // 9500
+    let royalty_amt = balance * 500 / 10_000;
+    let remainder = balance - royalty_amt;
     assert_eq!(
         payout.payout.get(&seller).unwrap().0,
         royalty_amt + remainder
@@ -308,7 +301,6 @@ fn payout_too_many_recipients_fails() {
     let seller: AccountId = "seller.near".parse().unwrap();
 
     let mut royalty = HashMap::new();
-    // max_len = 3 but we'll have 3 royalty recipients + 1 owner = 4 > max_len
     for i in 0..3 {
         royalty.insert(format!("r{}.near", i).parse::<AccountId>().unwrap(), 100u32);
     }
@@ -325,7 +317,6 @@ fn payout_zero_balance() {
     let token = make_token(None);
 
     let payout = contract.compute_payout(&token, &seller, 0, 10).unwrap();
-    // 0 balance → empty or trivial payout
     let total: u128 = payout.payout.values().map(|v| v.0).sum();
     assert_eq!(total, 0);
 }

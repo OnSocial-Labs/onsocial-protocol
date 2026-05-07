@@ -281,38 +281,6 @@ async fn test_set_contract_metadata() -> Result<()> {
 }
 
 // =============================================================================
-// Intents Executor Management
-// =============================================================================
-
-#[tokio::test]
-async fn test_add_remove_intents_executor() -> Result<()> {
-    let worker = create_sandbox().await?;
-    let owner = worker.dev_create_account().await?;
-    let executor = worker.dev_create_account().await?;
-    let contract = deploy_scarces(&worker, &owner).await?;
-
-    // Add executor
-    owner
-        .call(contract.id(), "add_intents_executor")
-        .args_json(json!({ "executor": executor.id().to_string() }))
-        .deposit(ONE_YOCTO)
-        .transact()
-        .await?
-        .into_result()?;
-
-    // Remove executor
-    owner
-        .call(contract.id(), "remove_intents_executor")
-        .args_json(json!({ "executor": executor.id().to_string() }))
-        .deposit(ONE_YOCTO)
-        .transact()
-        .await?
-        .into_result()?;
-
-    Ok(())
-}
-
-// =============================================================================
 // wNEAR Account Setting
 // =============================================================================
 

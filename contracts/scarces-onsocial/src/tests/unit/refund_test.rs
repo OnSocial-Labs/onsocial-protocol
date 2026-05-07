@@ -3,8 +3,6 @@ use crate::*;
 use near_sdk::json_types::U128;
 use near_sdk::testing_env;
 
-// --- Helpers ---
-
 fn setup_contract() -> Contract {
     new_contract()
 }
@@ -51,8 +49,6 @@ fn mint_and_get_token(contract: &mut Contract) -> String {
     let col = contract.collections.get("refcol").unwrap();
     format!("refcol:{}", col.minted_count)
 }
-
-// --- cancel_collection ---
 
 #[test]
 fn cancel_collection_happy() {
@@ -123,8 +119,6 @@ fn cancel_collection_short_deadline_fails() {
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
 
-// --- claim_refund ---
-
 #[test]
 fn claim_refund_happy() {
     let mut contract = setup_contract();
@@ -170,7 +164,6 @@ fn claim_refund_not_token_owner_fails() {
         .cancel_collection(&creator(), "refcol", U128(500_000), None, 500_000)
         .unwrap();
 
-    // Wrong caller (creator is not the token holder)
     let err = contract
         .claim_refund(&creator(), &token_id, "refcol")
         .unwrap_err();
@@ -198,8 +191,6 @@ fn claim_refund_twice_fails() {
     assert!(matches!(err, MarketplaceError::InvalidState(_)));
 }
 
-// --- withdraw_unclaimed_refunds ---
-
 #[test]
 fn withdraw_unclaimed_before_deadline_fails() {
     let mut contract = setup_contract();
@@ -211,7 +202,6 @@ fn withdraw_unclaimed_before_deadline_fails() {
         .cancel_collection(&creator(), "refcol", U128(500_000), None, 500_000)
         .unwrap();
 
-    // Try immediately — deadline hasn't passed
     let err = contract
         .withdraw_unclaimed_refunds(&creator(), "refcol")
         .unwrap_err();

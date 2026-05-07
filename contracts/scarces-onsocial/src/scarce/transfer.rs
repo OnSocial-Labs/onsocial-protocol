@@ -110,6 +110,8 @@ impl Contract {
             return false;
         }
 
+        let app_for_index = self.resolve_token_app_id(&token_id, token.app_id.as_ref());
+
         self.remove_token_from_owner(&receiver_id, &token_id);
 
         token.owner_id = previous_owner_id.clone();
@@ -119,6 +121,13 @@ impl Contract {
 
         self.add_token_to_owner(&previous_owner_id, &token_id);
         self.scarces_by_id.insert(token_id.clone(), token);
+
+        if let Some(app) = app_for_index {
+            if previous_owner_id != receiver_id {
+                self.untrack_app_owner(&app, &receiver_id);
+                self.track_app_owner(&app, &previous_owner_id);
+            }
+        }
 
         events::emit_scarce_transfer(
             &receiver_id,
@@ -162,6 +171,7 @@ impl Contract {
 
         // State/indexing invariant: delist uses pre-transfer owner context.
         let old_owner_id = token.owner_id.clone();
+        let app_for_index = self.resolve_token_app_id(token_id, token.app_id.as_ref());
 
         if sender_id != &token.owner_id {
             if let Some(approved_id) = approval_id {
@@ -187,6 +197,13 @@ impl Contract {
 
         self.add_token_to_owner(receiver_id, token_id);
         self.scarces_by_id.insert(token_id.to_string(), token);
+
+        if let Some(app) = app_for_index {
+            if &old_owner_id != receiver_id {
+                self.untrack_app_owner(&app, &old_owner_id);
+                self.track_app_owner(&app, receiver_id);
+            }
+        }
 
         self.remove_sale_listing(token_id, &old_owner_id, "owner_changed");
         events::emit_scarce_transfer(

@@ -26,7 +26,6 @@ impl Contract {
         let is_before_start = collection.start_time.is_some_and(|s| now < s);
 
         if is_before_start {
-            // State transition invariant: allowlist phase permits minting before start_time under explicit allocation checks.
             if collection.banned {
                 return Err(MarketplaceError::InvalidState(
                     "Collection is banned".into(),
@@ -145,7 +144,6 @@ impl Contract {
             .map(|i| format!("{}:{}", collection_id, i + 1))
             .collect();
 
-        // State transition invariant: persist supply/revenue before mint side effects.
         let mut updated_collection = collection.clone();
         updated_collection.minted_count += quantity;
         updated_collection.total_revenue.0 += total_price;
@@ -172,7 +170,6 @@ impl Contract {
             Some(ovr),
         )?;
 
-        // Allocation invariant: allowlist and per-wallet enforcement reads this persisted counter.
         if is_before_start || collection.max_per_wallet.is_some() {
             let mint_key = format!("{}:{}", collection_id, buyer_id);
             let prev = self
@@ -187,7 +184,6 @@ impl Contract {
         let after = self.storage_usage_flushed();
         let bytes_used = after.saturating_sub(before);
 
-        // State/accounting invariant: rollback minted tokens if payment routing fails.
         let result = match self.route_primary_sale(
             total_price,
             bytes_used,
@@ -197,17 +193,17 @@ impl Contract {
         ) {
             Ok(r) => r,
             Err(e) => {
-                // Rollback: remove minted tokens
                 for tid in &token_ids {
+                    if let Some(app) = self.resolve_token_app_id(tid, app_id.as_ref()) {
+                        self.untrack_app_owner(&app, buyer_id);
+                    }
                     self.scarces_by_id.remove(tid);
                     self.remove_token_from_owner(buyer_id, tid);
                 }
-                // Rollback: restore collection counts
                 let mut restored = self.collections.get(&collection_id).unwrap().clone();
                 restored.minted_count -= quantity;
                 restored.total_revenue.0 -= total_price;
                 self.collections.insert(collection_id.clone(), restored);
-                // Rollback: restore mint counts
                 if is_before_start || collection.max_per_wallet.is_some() {
                     let mint_key = format!("{}:{}", collection_id, buyer_id);
                     let cur = self
@@ -226,7 +222,6 @@ impl Contract {
             }
         };
 
-        // Token accounting guarantee: credit overpayment to pending_attached_balance for final settlement.
         self.pending_attached_balance += deposit.saturating_sub(total_price);
 
         events::emit_collection_purchase(&events::CollectionPurchase {
@@ -298,7 +293,6 @@ impl Contract {
             .map(|i| format!("{}:{}", collection_id, i + 1))
             .collect();
 
-        // State transition invariant: persist minted_count before mint side effects.
         let mut updated_collection = collection;
         updated_collection.minted_count += quantity;
         self.collections
@@ -326,9 +320,11 @@ impl Contract {
         let after = self.storage_usage_flushed();
         let bytes_used = after.saturating_sub(before);
 
-        // Storage/accounting invariant: rollback minted tokens if storage charge fails.
         if let Err(e) = self.charge_storage_waterfall(actor_id, bytes_used, app_id.as_ref()) {
             for tid in &token_ids {
+                if let Some(app) = self.resolve_token_app_id(tid, app_id.as_ref()) {
+                    self.untrack_app_owner(&app, recipient);
+                }
                 self.scarces_by_id.remove(tid);
                 self.remove_token_from_owner(recipient, tid);
             }
@@ -390,7 +386,6 @@ impl Contract {
         let app_id = collection.app_id.clone();
         let creator_id = collection.creator_id.clone();
 
-        // State transition invariant: persist minted_count before mint side effects.
         let mut updated_collection = collection;
         updated_collection.minted_count += count;
         self.collections
@@ -428,9 +423,11 @@ impl Contract {
         let after = self.storage_usage_flushed();
         let bytes_used = after.saturating_sub(before);
 
-        // Storage/accounting invariant: rollback all airdropped tokens if storage charge fails.
         if let Err(e) = self.charge_storage_waterfall(actor_id, bytes_used, app_id.as_ref()) {
             for (i, tid) in token_ids.iter().enumerate() {
+                if let Some(app) = self.resolve_token_app_id(tid, app_id.as_ref()) {
+                    self.untrack_app_owner(&app, &receivers[i]);
+                }
                 self.scarces_by_id.remove(tid);
                 self.remove_token_from_owner(&receivers[i], tid);
             }

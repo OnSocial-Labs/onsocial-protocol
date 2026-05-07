@@ -3,9 +3,6 @@ use crate::*;
 use near_sdk::json_types::U128;
 use near_sdk::testing_env;
 
-// --- Helpers ---
-
-/// Standalone token (quick-mint style) for listing tests outside collections.
 fn make_standalone_token(contract: &mut Contract, owner_account: &AccountId) -> String {
     testing_env!(context(owner_account.clone()).build());
     let metadata = scarce::types::TokenMetadata {
@@ -32,8 +29,6 @@ fn make_standalone_token(contract: &mut Contract, owner_account: &AccountId) -> 
         .quick_mint(owner_account, metadata, options)
         .unwrap()
 }
-
-// --- list_native_scarce ---
 
 #[test]
 fn list_native_scarce_happy() {
@@ -105,14 +100,12 @@ fn list_native_scarce_past_expiry_fails() {
     let tid = make_standalone_token(&mut contract, &buyer());
     testing_env!(context(buyer()).build());
 
-    let past = 1_000_000_000_000_000_000u64; // before test block_timestamp
+    let past = 1_000_000_000_000_000_000u64;
     let err = contract
         .list_native_scarce(&buyer(), &tid, U128(1_000), Some(past))
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
-
-// --- delist_native_scarce ---
 
 #[test]
 fn delist_native_scarce_happy() {
@@ -152,8 +145,6 @@ fn delist_nonexistent_sale_fails() {
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::NotFound(_)));
 }
-
-// --- update_price ---
 
 #[test]
 fn update_price_happy() {
@@ -207,8 +198,6 @@ fn update_price_wrong_owner_fails() {
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
-
-// --- Auction listing ---
 
 #[test]
 fn auction_list_happy() {
@@ -285,15 +274,13 @@ fn auction_list_buy_now_below_reserve_fails() {
         expires_at: Some(2_000_000_000_000_000_000),
         auction_duration_ns: None,
         anti_snipe_extension_ns: 0,
-        buy_now_price: Some(U128(500)), // below reserve
+        buy_now_price: Some(U128(500)),
     };
     let err = contract
         .list_native_scarce_auction(&buyer(), &tid, params)
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
-
-// --- Auction cancel ---
 
 #[test]
 fn cancel_auction_no_bids_happy() {
@@ -339,8 +326,6 @@ fn cancel_auction_wrong_owner_fails() {
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
 
-// --- Sale index ---
-
 #[test]
 fn make_sale_id_format() {
     let contract_id: AccountId = "nft.near".parse().unwrap();
@@ -359,7 +344,6 @@ fn add_then_remove_sale_cleans_indexes() {
         .list_native_scarce(&buyer(), &tid, U128(1_000), None)
         .unwrap();
 
-    // Verify by_owner_id populated
     let owner_set = contract.by_owner_id.get(&buyer());
     assert!(owner_set.is_some());
 
@@ -369,13 +353,10 @@ fn add_then_remove_sale_cleans_indexes() {
     assert!(!contract.sales.contains_key(&sale_id));
 }
 
-// --- Soulbound listing gate ---
-
 #[test]
 fn list_soulbound_token_fails() {
     let mut contract = new_contract();
 
-    // Create a soulbound collection
     let config = CollectionConfig {
         collection_id: "soul".to_string(),
         total_supply: 10,
@@ -408,11 +389,8 @@ fn list_soulbound_token_fails() {
     let err = contract
         .list_native_scarce(&buyer(), "soul:1", U128(1_000), None)
         .unwrap_err();
-    // Soulbound check
     assert!(matches!(err, MarketplaceError::InvalidState(_)));
 }
-
-// --- Revoked token listing gate ---
 
 #[test]
 fn list_revoked_token_fails() {
@@ -446,7 +424,6 @@ fn list_revoked_token_fails() {
         .mint_from_collection(&creator(), "rev", 1, Some(&buyer()))
         .unwrap();
 
-    // Revoke it
     contract
         .revoke_token(&creator(), "rev:1", "rev", None)
         .unwrap();

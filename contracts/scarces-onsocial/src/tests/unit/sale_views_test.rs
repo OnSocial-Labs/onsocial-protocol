@@ -3,8 +3,6 @@ use crate::*;
 use near_sdk::json_types::U128;
 use near_sdk::testing_env;
 
-// --- Helpers ---
-
 fn setup_contract() -> Contract {
     new_contract()
 }
@@ -53,8 +51,6 @@ fn quick_mint_and_list(contract: &mut Contract, seller: &AccountId, price: u128)
     token_id
 }
 
-// --- get_sale ---
-
 #[test]
 fn get_sale_returns_listed() {
     let mut contract = setup_contract();
@@ -75,8 +71,6 @@ fn get_sale_returns_none_for_unlisted() {
     assert!(contract.get_sale(contract_id, "bad".into()).is_none());
 }
 
-// --- get_supply_sales ---
-
 #[test]
 fn get_supply_sales_increments() {
     let mut contract = setup_contract();
@@ -90,8 +84,6 @@ fn get_supply_sales_increments() {
     testing_env!(context(owner()).build());
     assert_eq!(contract.get_supply_sales(), 2);
 }
-
-// --- get_supply_by_owner_id ---
 
 #[test]
 fn get_supply_by_owner_zero() {
@@ -112,8 +104,6 @@ fn get_supply_by_owner_tracks() {
     assert_eq!(contract.get_supply_by_owner_id(creator()), 1);
 }
 
-// --- get_sales_by_owner_id ---
-
 #[test]
 fn get_sales_by_owner_empty() {
     let contract = setup_contract();
@@ -133,8 +123,6 @@ fn get_sales_by_owner_returns_correct() {
     assert_eq!(sales.len(), 2);
 }
 
-// --- get_sales ---
-
 #[test]
 fn get_sales_pagination() {
     let mut contract = setup_contract();
@@ -149,8 +137,6 @@ fn get_sales_pagination() {
     let page2 = contract.get_sales(Some(2), Some(10));
     assert_eq!(page2.len(), 3);
 }
-
-// --- is_sale_expired ---
 
 #[test]
 fn is_sale_expired_none_for_missing() {
@@ -174,8 +160,6 @@ fn is_sale_expired_false_for_no_expiry() {
     assert_eq!(contract.is_sale_expired(contract_id, token_id), Some(false));
 }
 
-// --- get_expired_sales ---
-
 #[test]
 fn get_expired_sales_empty_when_none() {
     let mut contract = setup_contract();
@@ -185,8 +169,6 @@ fn get_expired_sales_empty_when_none() {
     let expired = contract.get_expired_sales(None, None);
     assert!(expired.is_empty());
 }
-
-// --- get_auction / get_auctions ---
 
 #[test]
 fn get_auction_none_for_non_auction() {
@@ -202,7 +184,6 @@ fn get_auction_returns_auction_data() {
     let mut contract = setup_contract();
     testing_env!(context(buyer()).build());
 
-    // Quick mint
     let action = Action::QuickMint {
         metadata: scarce::types::TokenMetadata {
             title: Some("Auctionable".into()),
@@ -227,11 +208,10 @@ fn get_auction_returns_auction_data() {
         .unwrap()
         .to_string();
 
-    // List as auction
     let auction = AuctionListing {
         reserve_price: U128(1_000),
         min_bid_increment: U128(100),
-        expires_at: Some(2_000_000_000_000_000_000), // far future
+        expires_at: Some(2_000_000_000_000_000_000),
         auction_duration_ns: None,
         anti_snipe_extension_ns: 0,
         buy_now_price: None,

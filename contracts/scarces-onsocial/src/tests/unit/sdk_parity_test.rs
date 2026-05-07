@@ -1,12 +1,3 @@
-//! SDK ↔ contract parity round-trip test.
-//!
-//! Reads the JSON fixture written by `packages/onsocial-sdk` and asserts that
-//! every entry deserializes into a `protocol::Request` with the expected
-//! `Action` variant. This proves the TypeScript builders emit JSON the Rust
-//! contract types accept verbatim.
-//!
-//! Re-generate the fixture with: `pnpm --filter @onsocial/sdk test`.
-
 use std::collections::HashSet;
 
 use near_sdk::serde::Deserialize;
@@ -16,11 +7,7 @@ use crate::protocol::Request;
 
 const FIXTURE_JSON: &str = include_str!("../../../tests/fixtures/sdk-parity.json");
 
-/// Every Action variant tag the contract accepts. Must stay in sync with
-/// `Action` in `src/protocol/types.rs`. Adding a new variant on the Rust side
-/// without listing it here will fail this test.
 const ALL_ACTION_TYPES: &[&str] = &[
-    // tokens
     "quick_mint",
     "transfer_scarce",
     "batch_transfer",
@@ -32,7 +19,6 @@ const ALL_ACTION_TYPES: &[&str] = &[
     "revoke_token",
     "redeem_token",
     "claim_refund",
-    // collections
     "create_collection",
     "update_collection_price",
     "update_collection_timing",
@@ -46,7 +32,6 @@ const ALL_ACTION_TYPES: &[&str] = &[
     "set_collection_metadata",
     "set_collection_app_metadata",
     "withdraw_unclaimed_refunds",
-    // sale / auction
     "list_native_scarce",
     "delist_native_scarce",
     "list_native_scarce_auction",
@@ -54,17 +39,14 @@ const ALL_ACTION_TYPES: &[&str] = &[
     "cancel_auction",
     "delist_scarce",
     "update_price",
-    // offers
     "accept_offer",
     "cancel_offer",
     "accept_collection_offer",
     "cancel_collection_offer",
-    // lazy listings
     "create_lazy_listing",
     "cancel_lazy_listing",
     "update_lazy_listing_price",
     "update_lazy_listing_expiry",
-    // purchases
     "purchase_from_collection",
     "purchase_lazy_listing",
     "purchase_native_scarce",
@@ -72,7 +54,6 @@ const ALL_ACTION_TYPES: &[&str] = &[
     "make_offer",
     "make_collection_offer",
     "cancel_collection",
-    // pool / storage
     "fund_app_pool",
     "storage_deposit",
     "register_app",
@@ -80,7 +61,6 @@ const ALL_ACTION_TYPES: &[&str] = &[
     "storage_withdraw",
     "withdraw_app_pool",
     "withdraw_platform_storage",
-    // app admin
     "set_app_config",
     "transfer_app_ownership",
     "add_moderator",
@@ -169,4 +149,3 @@ fn sdk_fixture_round_trips_into_contract_request() {
         failures.join("\n - ")
     );
 }
-

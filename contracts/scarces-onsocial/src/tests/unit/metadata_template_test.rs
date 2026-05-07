@@ -31,8 +31,6 @@ fn setup_contract_with_collection(template: &str) -> Contract {
     contract
 }
 
-// --- Title substitution ---
-
 #[test]
 fn template_title_token_id() {
     let contract = setup_contract_with_collection(r#"{"title":"Token {token_id}"}"#);
@@ -55,7 +53,7 @@ fn template_title_seat_number() {
         .generate_metadata_from_template(
             r#"{"title":"Seat #{seat_number}"}"#,
             "col-1:5",
-            4, // index=4, seat_number=5
+            4,
             &buyer(),
             "col-1",
         )
@@ -93,8 +91,6 @@ fn template_title_collection_id() {
     assert_eq!(meta.title.unwrap(), "col-1 pass");
 }
 
-// --- Description substitution ---
-
 #[test]
 fn template_description_owner() {
     let contract = setup_contract_with_collection(r#"{"description":"Owned by {owner}"}"#);
@@ -109,8 +105,6 @@ fn template_description_owner() {
         .unwrap();
     assert_eq!(meta.description.unwrap(), format!("Owned by {}", buyer()));
 }
-
-// --- Media / Reference substitution ---
 
 #[test]
 fn template_media_substitution() {
@@ -144,8 +138,6 @@ fn template_reference_substitution() {
     assert_eq!(meta.reference.unwrap(), "https://api.io/col-1:7");
 }
 
-// --- Extra with minted_at ---
-
 #[test]
 fn template_extra_minted_at() {
     let contract = setup_contract_with_collection(r#"{"extra":"{\"minted_at\":\"{minted_at}\"}"}"#);
@@ -159,12 +151,9 @@ fn template_extra_minted_at() {
         )
         .unwrap();
     let extra = meta.extra.unwrap();
-    // Should contain the block timestamp, not the placeholder
     assert!(!extra.contains("{minted_at}"));
-    assert!(extra.contains("1700000000000000000")); // our test timestamp
+    assert!(extra.contains("1700000000000000000"));
 }
-
-// --- issued_at is auto-set ---
 
 #[test]
 fn template_issued_at_set() {
@@ -175,16 +164,13 @@ fn template_issued_at_set() {
     assert!(meta.issued_at.is_some());
 }
 
-// --- copies auto-filled from collection total_supply ---
-
 #[test]
 fn template_copies_auto_filled() {
     let contract = setup_contract_with_collection(r#"{"title":"t"}"#);
-    // template has no copies field → auto-filled
     let meta = contract
         .generate_metadata_from_template(r#"{"title":"t"}"#, "col-1:1", 0, &buyer(), "col-1")
         .unwrap();
-    assert_eq!(meta.copies, Some(100)); // total_supply
+    assert_eq!(meta.copies, Some(100));
 }
 
 #[test]
@@ -199,10 +185,8 @@ fn template_copies_not_overridden_when_set() {
             "col-1",
         )
         .unwrap();
-    assert_eq!(meta.copies, Some(5)); // kept from template
+    assert_eq!(meta.copies, Some(5));
 }
-
-// --- Invalid template ---
 
 #[test]
 fn template_invalid_json_fails() {
@@ -211,8 +195,6 @@ fn template_invalid_json_fails() {
         contract.generate_metadata_from_template("not json", "col-1:1", 0, &buyer(), "col-1");
     assert!(matches!(result, Err(MarketplaceError::InvalidInput(_))));
 }
-
-// --- Multiple placeholders in one field ---
 
 #[test]
 fn template_multiple_placeholders_in_title() {

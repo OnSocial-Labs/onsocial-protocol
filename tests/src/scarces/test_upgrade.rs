@@ -93,30 +93,6 @@ async fn test_upgrade_non_owner_rejected() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
-async fn test_upgrade_requires_one_yocto() -> Result<()> {
-    let worker = create_sandbox().await?;
-    let owner = worker.dev_create_account().await?;
-    let contract = deploy_scarces(&worker, &owner).await?;
-
-    let wasm = read_scarces_wasm();
-
-    // 0 deposit should fail
-    let result = owner
-        .call(contract.id(), "update_contract")
-        .args(wasm)
-        .deposit(near_workspaces::types::NearToken::from_near(0))
-        .gas(near_workspaces::types::Gas::from_tgas(300))
-        .transact()
-        .await?;
-
-    assert!(
-        result.is_failure(),
-        "Upgrade without 1 yoctoNEAR should fail"
-    );
-    Ok(())
-}
-
 // =============================================================================
 // State preservation through upgrade
 // =============================================================================

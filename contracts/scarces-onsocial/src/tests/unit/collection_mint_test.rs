@@ -36,8 +36,6 @@ fn setup_with_collection(supply: u32, mint_mode: MintMode) -> Contract {
     contract
 }
 
-// --- Happy path ---
-
 #[test]
 fn creator_mint_single() {
     let mut contract = setup_with_collection(10, MintMode::Open);
@@ -81,8 +79,6 @@ fn creator_mint_to_receiver() {
     assert_eq!(token.owner_id, buyer());
 }
 
-// --- Supply cap ---
-
 #[test]
 fn mint_exceeds_supply_fails() {
     let mut contract = setup_with_collection(3, MintMode::Open);
@@ -107,8 +103,6 @@ fn mint_exact_remaining_supply() {
     assert_eq!(col.minted_count, 3);
 }
 
-// --- Quantity validation ---
-
 #[test]
 fn mint_zero_quantity_fails() {
     let mut contract = setup_with_collection(10, MintMode::Open);
@@ -130,8 +124,6 @@ fn mint_exceeds_max_batch_fails() {
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
-
-// --- MintMode gates ---
 
 #[test]
 fn purchase_only_blocks_creator_mint() {
@@ -155,8 +147,6 @@ fn creator_only_allows_creator_mint() {
     assert_eq!(contract.collections.get("col").unwrap().minted_count, 1);
 }
 
-// --- Authority checks ---
-
 #[test]
 fn non_creator_cannot_mint() {
     let mut contract = setup_with_collection(10, MintMode::Open);
@@ -168,14 +158,11 @@ fn non_creator_cannot_mint() {
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
 
-// --- Paused / banned / cancelled gate ---
-
 #[test]
 fn paused_collection_blocks_mint() {
     let mut contract = setup_with_collection(10, MintMode::Open);
     testing_env!(context(creator()).build());
 
-    // Pause
     contract.pause_collection(&creator(), "col").unwrap();
 
     let err = contract
@@ -189,7 +176,6 @@ fn cancelled_collection_blocks_mint() {
     let mut contract = setup_with_collection(10, MintMode::Open);
     testing_env!(context(creator()).build());
 
-    // Cancel
     {
         let mut col = contract.collections.get("col").unwrap().clone();
         col.cancelled = true;
@@ -207,7 +193,6 @@ fn banned_collection_blocks_mint() {
     let mut contract = setup_with_collection(10, MintMode::Open);
     testing_env!(context(creator()).build());
 
-    // Ban
     {
         let mut col = contract.collections.get("col").unwrap().clone();
         col.banned = true;
@@ -219,8 +204,6 @@ fn banned_collection_blocks_mint() {
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidState(_)));
 }
-
-// --- Not-found collection ---
 
 #[test]
 fn mint_from_nonexistent_collection_fails() {

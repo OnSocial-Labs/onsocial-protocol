@@ -3,8 +3,6 @@ use crate::*;
 use near_sdk::json_types::U128;
 use near_sdk::testing_env;
 
-// --- Helpers ---
-
 fn setup_contract() -> Contract {
     new_contract()
 }
@@ -34,8 +32,6 @@ fn minimal_config(id: &str) -> CollectionConfig {
     }
 }
 
-/// Create a collection and mint a token into it, returning the token ID.
-/// Transfer to owner() so they hold the token.
 fn setup_collection_with_token(contract: &mut Contract, col_id: &str) -> String {
     testing_env!(context_with_deposit(creator(), 1).build());
     contract
@@ -50,9 +46,7 @@ fn setup_collection_with_token(contract: &mut Contract, col_id: &str) -> String 
             receiver_id: None,
         }))
         .unwrap();
-    // First token in collection
     let token_id = format!("{}:1", col_id);
-    // Transfer to owner so "owner()" is the token holder
     contract
         .execute(make_request(Action::TransferScarce {
             receiver_id: owner(),
@@ -64,8 +58,6 @@ fn setup_collection_with_token(contract: &mut Contract, col_id: &str) -> String 
 }
 
 const OFFER_AMOUNT: u128 = 5_000_000_000_000_000_000_000_000;
-
-// ─── MakeCollectionOffer ────────────────────────────────────────────────────
 
 #[test]
 fn make_collection_offer_happy() {
@@ -118,7 +110,7 @@ fn make_collection_offer_expired_fails() {
         }))
         .unwrap();
 
-    let past = 1_600_000_000_000_000_000u64; // before block_timestamp
+    let past = 1_600_000_000_000_000_000u64;
     testing_env!(context_with_deposit(buyer(), 1_000_000_000_000_000_000_000_000).build());
     let err = contract
         .execute(make_request(Action::MakeCollectionOffer {
@@ -129,8 +121,6 @@ fn make_collection_offer_expired_fails() {
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
-
-// ─── CancelCollectionOffer ──────────────────────────────────────────────────
 
 #[test]
 fn cancel_collection_offer_happy() {
@@ -178,14 +168,11 @@ fn cancel_collection_offer_not_found_fails() {
     assert!(matches!(err, MarketplaceError::NotFound(_)));
 }
 
-// ─── AcceptCollectionOffer ──────────────────────────────────────────────────
-
 #[test]
 fn accept_collection_offer_happy() {
     let mut contract = setup_contract();
     let tid = setup_collection_with_token(&mut contract, "accol");
 
-    // Buyer makes a collection-level offer
     testing_env!(context_with_deposit(buyer(), OFFER_AMOUNT).build());
     contract
         .execute(make_request(Action::MakeCollectionOffer {
@@ -195,7 +182,6 @@ fn accept_collection_offer_happy() {
         }))
         .unwrap();
 
-    // Owner accepts with the specific token
     testing_env!(context_with_deposit(owner(), 1).build());
     contract
         .execute(make_request(Action::AcceptCollectionOffer {
@@ -205,10 +191,8 @@ fn accept_collection_offer_happy() {
         }))
         .unwrap();
 
-    // Token transferred to buyer
     let token = contract.scarces_by_id.get(&tid).unwrap();
     assert_eq!(token.owner_id, buyer());
-    // Offer removed
     assert!(
         contract
             .get_collection_offer("accol".to_string(), buyer())
@@ -230,7 +214,6 @@ fn accept_collection_offer_wrong_owner_fails() {
         }))
         .unwrap();
 
-    // Creator is NOT the token owner (we transferred to owner())
     testing_env!(context_with_deposit(creator(), 1).build());
     let err = contract
         .execute(make_request(Action::AcceptCollectionOffer {
@@ -247,7 +230,6 @@ fn accept_collection_offer_own_offer_fails() {
     let mut contract = setup_contract();
     let tid = setup_collection_with_token(&mut contract, "accol3");
 
-    // Owner makes a collection offer and then tries to accept it
     testing_env!(context_with_deposit(owner(), OFFER_AMOUNT).build());
     contract
         .execute(make_request(Action::MakeCollectionOffer {
@@ -273,8 +255,7 @@ fn accept_collection_offer_expired_refunds() {
     let mut contract = setup_contract();
     let tid = setup_collection_with_token(&mut contract, "accol4");
 
-    // Offer with imminent expiry
-    let expires = 1_700_000_000_000_000_000u64 + 1_000_000_000; // 1 second from default
+    let expires = 1_700_000_000_000_000_000u64 + 1_000_000_000;
     testing_env!(context_with_deposit(buyer(), OFFER_AMOUNT).build());
     contract
         .execute(make_request(Action::MakeCollectionOffer {
@@ -284,10 +265,9 @@ fn accept_collection_offer_expired_refunds() {
         }))
         .unwrap();
 
-    // Advance time past expiry
     testing_env!(
         context_with_deposit(owner(), 1)
-            .block_timestamp(1_700_000_000_000_000_000 + 10_000_000_000) // 10 seconds later
+            .block_timestamp(1_700_000_000_000_000_000 + 10_000_000_000)
             .build()
     );
 
@@ -304,7 +284,6 @@ fn accept_collection_offer_expired_refunds() {
 #[test]
 fn accept_collection_offer_token_not_in_collection_fails() {
     let mut contract = setup_contract();
-    // Create collection but use a token from a different collection
     testing_env!(context_with_deposit(creator(), 1).build());
     contract
         .execute(make_request(Action::CreateCollection {

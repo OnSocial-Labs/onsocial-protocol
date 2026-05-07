@@ -193,6 +193,10 @@ impl Contract {
             );
         }
 
+        if let Some(ref app) = collection.app_id {
+            self.untrack_app_creator(app, &collection.creator_id);
+        }
+
         events::emit_collection_deleted(actor_id, collection_id, &collection.creator_id);
         Ok(())
     }

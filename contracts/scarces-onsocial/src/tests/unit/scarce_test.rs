@@ -26,8 +26,6 @@ fn mint_token(contract: &mut Contract, owner: &AccountId, token_id: &str) {
         .unwrap();
 }
 
-// --- mint ---
-
 #[test]
 fn mint_creates_token_and_tracks_owner() {
     let mut contract = new_contract();
@@ -99,8 +97,6 @@ fn mint_token_id_too_long() {
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
 
-// --- transfer ---
-
 #[test]
 fn transfer_changes_owner() {
     let mut contract = new_contract();
@@ -112,9 +108,7 @@ fn transfer_changes_owner() {
 
     let token = contract.scarces_by_id.get("t1").unwrap();
     assert_eq!(token.owner_id, buyer());
-    // Old owner no longer has token
     assert!(contract.scarces_per_owner.get(&owner()).is_none());
-    // New owner has token
     assert!(
         contract
             .scarces_per_owner
@@ -149,20 +143,16 @@ fn transfer_clears_approvals() {
     let mut contract = new_contract();
     mint_token(&mut contract, &owner(), "t1");
 
-    // Give buyer an approval
     contract.approve(&owner(), "t1", &buyer(), None).unwrap();
     let token = contract.scarces_by_id.get("t1").unwrap();
     assert!(!token.approved_account_ids.is_empty());
 
-    // Transfer clears them
     contract
         .transfer(&owner(), &creator(), "t1", None, None)
         .unwrap();
     let token = contract.scarces_by_id.get("t1").unwrap();
     assert!(token.approved_account_ids.is_empty());
 }
-
-// --- Soulbound ---
 
 #[test]
 fn soulbound_token_cannot_transfer() {
@@ -200,8 +190,6 @@ fn soulbound_token_cannot_transfer() {
     assert!(matches!(err, MarketplaceError::InvalidState(_)));
 }
 
-// --- Approval-based transfer ---
-
 #[test]
 fn approved_account_can_transfer() {
     let mut contract = new_contract();
@@ -236,8 +224,6 @@ fn invalid_approval_id_fails() {
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
 
-// --- Batch transfer ---
-
 #[test]
 fn batch_transfer_moves_all() {
     let mut contract = new_contract();
@@ -268,8 +254,6 @@ fn batch_transfer_empty_fails() {
     let err = contract.batch_transfer(&owner(), vec![]).unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
-
-// --- Quick mint ---
 
 #[test]
 fn quick_mint_increments_counter() {
@@ -306,8 +290,6 @@ fn quick_mint_increments_counter() {
     assert_eq!(contract.next_token_id, 1);
     assert!(contract.scarces_by_id.contains_key("s:0"));
 }
-
-// --- nft_token view ---
 
 #[test]
 fn nft_token_returns_correct_data() {

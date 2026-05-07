@@ -79,8 +79,6 @@ fn fixed_collection(price: u128) -> LazyCollection {
     }
 }
 
-// --- Fixed price ---
-
 #[test]
 fn fixed_price_returns_floor() {
     let ctx = context(owner());
@@ -88,8 +86,6 @@ fn fixed_price_returns_floor() {
     let col = fixed_collection(1_000_000);
     assert_eq!(compute_dutch_price(&col), 1_000_000);
 }
-
-// --- No start_price => floor ---
 
 #[test]
 fn no_start_price_returns_floor() {
@@ -99,8 +95,6 @@ fn no_start_price_returns_floor() {
     col.start_price = None;
     assert_eq!(compute_dutch_price(&col), 100);
 }
-
-// --- start_price <= floor => floor ---
 
 #[test]
 fn start_price_equal_floor_returns_floor() {
@@ -118,12 +112,10 @@ fn start_price_below_floor_returns_floor() {
     assert_eq!(compute_dutch_price(&col), 100);
 }
 
-// --- Before start => start_price ---
-
 #[test]
 fn before_start_returns_start_price() {
     let mut ctx = context(owner());
-    ctx.block_timestamp(500); // before start=1000
+    ctx.block_timestamp(500);
     testing_env!(ctx.build());
     let col = dutch_collection(100, 1000, 1000, 2000);
     assert_eq!(compute_dutch_price(&col), 1000);
@@ -132,18 +124,16 @@ fn before_start_returns_start_price() {
 #[test]
 fn at_start_returns_start_price() {
     let mut ctx = context(owner());
-    ctx.block_timestamp(1000); // at start
+    ctx.block_timestamp(1000);
     testing_env!(ctx.build());
     let col = dutch_collection(100, 1000, 1000, 2000);
     assert_eq!(compute_dutch_price(&col), 1000);
 }
 
-// --- After end => floor ---
-
 #[test]
 fn at_end_returns_floor() {
     let mut ctx = context(owner());
-    ctx.block_timestamp(2000); // at end
+    ctx.block_timestamp(2000);
     testing_env!(ctx.build());
     let col = dutch_collection(100, 1000, 1000, 2000);
     assert_eq!(compute_dutch_price(&col), 100);
@@ -158,14 +148,11 @@ fn after_end_returns_floor() {
     assert_eq!(compute_dutch_price(&col), 100);
 }
 
-// --- Midpoint ---
-
 #[test]
 fn midpoint_returns_average() {
     let mut ctx = context(owner());
-    ctx.block_timestamp(1500); // 50% of [1000..2000]
+    ctx.block_timestamp(1500);
     testing_env!(ctx.build());
-    // start=1000, floor=100, diff=900, 50% drop = 450 => 1000 - 450 = 550
     let col = dutch_collection(100, 1000, 1000, 2000);
     assert_eq!(compute_dutch_price(&col), 550);
 }
@@ -173,14 +160,11 @@ fn midpoint_returns_average() {
 #[test]
 fn quarter_returns_75_percent() {
     let mut ctx = context(owner());
-    ctx.block_timestamp(1250); // 25% of [1000..2000]
+    ctx.block_timestamp(1250);
     testing_env!(ctx.build());
-    // diff=900, 25% drop = 225 => 1000 - 225 = 775
     let col = dutch_collection(100, 1000, 1000, 2000);
     assert_eq!(compute_dutch_price(&col), 775);
 }
-
-// --- Missing times => floor ---
 
 #[test]
 fn no_start_time_returns_floor() {
@@ -200,18 +184,15 @@ fn no_end_time_returns_floor() {
     assert_eq!(compute_dutch_price(&col), 100);
 }
 
-// --- Large values (no overflow) ---
-
 #[test]
 fn large_values_no_overflow() {
     let mut ctx = context(owner());
     ctx.block_timestamp(50_000_000_000);
     testing_env!(ctx.build());
-    let floor = 1_000_000_000_000_000_000_000_000u128; // 1 NEAR
-    let start = 100_000_000_000_000_000_000_000_000u128; // 100 NEAR
+    let floor = 1_000_000_000_000_000_000_000_000u128;
+    let start = 100_000_000_000_000_000_000_000_000u128;
     let col = dutch_collection(floor, start, 0, 100_000_000_000);
     let price = compute_dutch_price(&col);
-    // 50% elapsed => midpoint between 100 NEAR and 1 NEAR
     let expected = start - (start - floor) / 2;
     assert_eq!(price, expected);
 }

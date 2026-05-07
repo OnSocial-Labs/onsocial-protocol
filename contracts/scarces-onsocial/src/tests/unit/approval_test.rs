@@ -2,8 +2,6 @@ use crate::tests::test_utils::*;
 use crate::*;
 use near_sdk::testing_env;
 
-// --- Helpers ---
-
 fn setup_contract() -> Contract {
     new_contract()
 }
@@ -35,8 +33,6 @@ fn mint_token_via_execute(contract: &mut Contract, token_owner: &AccountId) -> S
         .unwrap();
     result.as_str().unwrap().to_string()
 }
-
-// ─── ApproveScarce ──────────────────────────────────────────────────────────
 
 #[test]
 fn approve_scarce_happy() {
@@ -90,7 +86,6 @@ fn approve_scarce_token_not_found_fails() {
 #[test]
 fn approve_scarce_soulbound_fails() {
     let mut contract = setup_contract();
-    // Soulbound minting requires mint with overrides (no public Action)
     let ctx = MintContext {
         owner_id: owner(),
         creator_id: owner(),
@@ -128,8 +123,6 @@ fn approve_scarce_soulbound_fails() {
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidState(_)));
 }
-
-// ─── RevokeScarce ───────────────────────────────────────────────────────────
 
 #[test]
 fn revoke_scarce_happy() {
@@ -191,8 +184,6 @@ fn revoke_scarce_token_not_found_fails() {
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::NotFound(_)));
 }
-
-// ─── RevokeAllScarce ────────────────────────────────────────────────────────
 
 #[test]
 fn revoke_all_scarce_happy() {

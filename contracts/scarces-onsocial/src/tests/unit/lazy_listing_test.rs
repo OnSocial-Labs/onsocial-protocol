@@ -3,8 +3,6 @@ use crate::*;
 use near_sdk::json_types::U128;
 use near_sdk::testing_env;
 
-// --- Helpers ---
-
 fn make_lazy_listing_params(price: u128) -> LazyListing {
     LazyListing {
         metadata: scarce::types::TokenMetadata {
@@ -36,8 +34,6 @@ fn setup_contract() -> Contract {
     new_contract()
 }
 
-// --- create_lazy_listing ---
-
 #[test]
 fn create_lazy_listing_happy() {
     let mut contract = setup_contract();
@@ -68,7 +64,7 @@ fn create_lazy_listing_past_expiry_fails() {
     testing_env!(context(creator()).build());
 
     let mut params = make_lazy_listing_params(1_000);
-    params.expires_at = Some(1_000_000_000_000_000_000); // before default block_timestamp
+    params.expires_at = Some(1_000_000_000_000_000_000);
     let err = contract
         .create_lazy_listing(&creator(), params)
         .unwrap_err();
@@ -95,15 +91,13 @@ fn create_lazy_listing_invalid_royalty_fails() {
 
     let mut params = make_lazy_listing_params(1_000);
     let mut bad_royalty = std::collections::HashMap::new();
-    bad_royalty.insert("a.near".parse().unwrap(), 6_000u32); // over MAX_ROYALTY_BPS
+    bad_royalty.insert("a.near".parse().unwrap(), 6_000u32);
     params.options.royalty = Some(bad_royalty);
     let err = contract
         .create_lazy_listing(&creator(), params)
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
-
-// --- cancel_lazy_listing ---
 
 #[test]
 fn cancel_lazy_listing_happy() {
@@ -139,8 +133,6 @@ fn cancel_nonexistent_listing_fails() {
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::NotFound(_)));
 }
-
-// --- update_lazy_listing_expiry ---
 
 #[test]
 fn update_expiry_happy() {
@@ -188,8 +180,6 @@ fn update_expiry_wrong_creator_fails() {
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
-
-// --- update_lazy_listing_price ---
 
 #[test]
 fn update_price_happy() {

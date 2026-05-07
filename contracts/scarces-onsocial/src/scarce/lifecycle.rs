@@ -85,7 +85,6 @@ impl Contract {
                 let owner_id = token.owner_id.clone();
                 token.revoked_at = Some(env::block_timestamp());
                 token.revocation_memo = memo.clone();
-                // Invariant: revocation clears all delegated approvals.
                 token.approved_account_ids.clear();
                 self.scarces_by_id.insert(token_id.to_string(), token);
 
@@ -101,6 +100,12 @@ impl Contract {
                 );
             }
             RevocationMode::Burn => {
+                let app_for_index = self.resolve_token_app_id(
+                    token_id,
+                    self.scarces_by_id
+                        .get(token_id)
+                        .and_then(|t| t.app_id.as_ref()),
+                );
                 let token = self
                     .scarces_by_id
                     .remove(token_id)
@@ -110,8 +115,9 @@ impl Contract {
                 self.remove_token_from_owner(&owner_id, token_id);
                 self.remove_sale_listing(token_id, &owner_id, "burned");
 
-                // Invariant: minted_count is a monotonic high-water mark for token ID generation.
-                // Decrementing causes ID collisions on next mint.
+                if let Some(app) = app_for_index {
+                    self.untrack_app_owner(&app, &owner_id);
+                }
 
                 events::emit_token_revoked(
                     actor_id,
@@ -210,7 +216,6 @@ impl Contract {
         Ok(())
     }
 
-    // Security boundary: lifecycle authority restricted to collection creator.
     pub(crate) fn check_collection_authority(
         &self,
         actor_id: &AccountId,
@@ -259,17 +264,20 @@ impl Contract {
 
         let before = self.storage_usage_flushed();
 
+        let app_for_index = self.resolve_token_app_id(token_id, token_app_id.as_ref());
+
         self.scarces_by_id.remove(token_id);
 
         self.remove_token_from_owner(&owner_id, token_id);
         self.remove_sale_listing(token_id, &owner_id, "burned");
 
-        // Invariant: minted_count is a monotonic high-water mark for token ID generation.
-        // Decrementing causes ID collisions on next mint.
-
         let bytes_freed = before.saturating_sub(self.storage_usage_flushed());
         if bytes_freed > 0 {
             self.release_storage_waterfall(&owner_id, bytes_freed, token_app_id.as_ref());
+        }
+
+        if let Some(app) = app_for_index {
+            self.untrack_app_owner(&app, &owner_id);
         }
 
         events::emit_scarce_burned(&owner_id, token_id, Some(collection_id));
@@ -286,7 +294,6 @@ impl Contract {
                 .scarces_by_id
                 .get(token_id)
                 .ok_or_else(|| MarketplaceError::NotFound("Token not found".into()))?;
-            // Invariant: absent burnable flag defaults to burnable.
             if token.burnable == Some(false) {
                 return Err(MarketplaceError::InvalidState(
                     "Token is not burnable".into(),
@@ -302,6 +309,8 @@ impl Contract {
 
         let before = self.storage_usage_flushed();
 
+        let app_for_index = self.resolve_token_app_id(token_id, token_app_id.as_ref());
+
         self.scarces_by_id.remove(token_id);
 
         self.remove_token_from_owner(&owner_id, token_id);
@@ -310,6 +319,10 @@ impl Contract {
         let bytes_freed = before.saturating_sub(self.storage_usage_flushed());
         if bytes_freed > 0 {
             self.release_storage_waterfall(&owner_id, bytes_freed, token_app_id.as_ref());
+        }
+
+        if let Some(app) = app_for_index {
+            self.untrack_app_owner(&app, &owner_id);
         }
 
         events::emit_scarce_burned(&owner_id, token_id, None);

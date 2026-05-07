@@ -1,7 +1,5 @@
-// --- Test Modules ---
 pub mod test_utils;
 
-// --- Unit Tests ---
 pub mod unit {
     pub mod admin_test;
     pub mod app_pool_test;
@@ -28,8 +26,8 @@ pub mod unit {
     pub mod storage_test;
     pub mod validation_test;
 
-    // --- View & entrypoint coverage ---
     pub mod app_pool_views_test;
+    pub mod app_relations_test;
     pub mod collection_views_test;
     pub mod enumeration_test;
     pub mod ft_receiver_test;
