@@ -21,6 +21,9 @@ metadata_api() {
     -d "$payload"
 }
 
+echo "Dropping inconsistent Hasura metadata, if any..."
+metadata_api '{"type":"drop_inconsistent_metadata","args":{}}' >/dev/null
+
 track_relation() {
   local relation="$1"
   local payload
