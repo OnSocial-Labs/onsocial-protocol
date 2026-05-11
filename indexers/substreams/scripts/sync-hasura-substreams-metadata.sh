@@ -21,6 +21,37 @@ metadata_api() {
     -d "$payload"
 }
 
+track_relation() {
+  local relation="$1"
+  local payload
+  local response_file
+  local status
+
+  payload="{\"type\":\"pg_track_table\",\"args\":{\"source\":\"${SOURCE_NAME}\",\"table\":{\"schema\":\"public\",\"name\":\"${relation}\"}}}"
+  response_file="$(mktemp)"
+  status=$(curl -sS -o "$response_file" -w '%{http_code}' "$HASURA_METADATA_URL" \
+    -H 'Content-Type: application/json' \
+    -H "x-hasura-admin-secret: ${HASURA_ADMIN_SECRET}" \
+    -d "$payload")
+
+  if [[ "$status" =~ ^2 ]]; then
+    rm -f "$response_file"
+    return 0
+  fi
+
+  if grep -Eqi 'already[ _-]?(tracked|exists)|already-tracked|already-exists' "$response_file"; then
+    echo "skip: $relation already tracked (metadata race)"
+    rm -f "$response_file"
+    return 2
+  fi
+
+  echo "error: failed to track $relation (HTTP $status)" >&2
+  cat "$response_file" >&2
+  echo >&2
+  rm -f "$response_file"
+  return 1
+}
+
 echo "Exporting current Hasura metadata..."
 EXISTING_TRACKED=$(metadata_api '{"type":"export_metadata","args":{}}' | SOURCE_NAME="$SOURCE_NAME" python3 -c '
 import json
@@ -74,8 +105,16 @@ while IFS= read -r relation; do
   fi
 
   echo "track: $relation"
-  metadata_api "{\"type\":\"pg_track_table\",\"args\":{\"source\":\"${SOURCE_NAME}\",\"table\":{\"schema\":\"public\",\"name\":\"${relation}\"}}}" >/dev/null
-  created=$((created + 1))
+  if track_relation "$relation"; then
+    created=$((created + 1))
+  else
+    status=$?
+    if [ "$status" -eq 2 ]; then
+      skipped=$((skipped + 1))
+    else
+      exit "$status"
+    fi
+  fi
 done <<< "$PUBLIC_RELATIONS"
 
 echo "Reloading metadata cache..."
