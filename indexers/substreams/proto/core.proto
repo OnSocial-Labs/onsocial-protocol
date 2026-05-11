@@ -49,8 +49,8 @@ message DataUpdate {
   string group_path = 14;
   bool is_group_content = 15;
   
-  // Social graph target: any {account}/{relationship}/{target.near} path
-  // Extracted when parts[2] contains '.' (NEAR account), or parts[3] for graph/*
+  // Relationship target: any {account}/{relationship}/{target.near} path
+  // Extracted when parts[2] contains '.' (NEAR account)
   string target_account = 16;
   
   // Reference fields (extracted from value JSON)
@@ -83,6 +83,10 @@ message DataUpdate {
   string channel = 30;
   string kind = 31;
   string audiences = 32;
+
+  string actor_id = 33;
+  string payer_id = 34;
+  reserved 35;
 }
 
 // =============================================================================
@@ -120,7 +124,7 @@ message StorageUpdate {
   
   // Refund/auto-deposit
   string reason = 19;
-  string auth_type = 20;
+  reserved 20;
   string actor_id = 21;
   string payer_id = 22;
   string target_id = 23;
@@ -248,7 +252,7 @@ message ContractUpdate {
   string derived_id = 9;
   string derived_type = 10;
   string target_id = 11;
-  string auth_type = 12;
+  reserved 12;
   string actor_id = 13;
   string payer_id = 14;
   string extra_data = 15;        // JSON: event-specific payload (old_config, new_manager, etc.)

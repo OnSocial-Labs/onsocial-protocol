@@ -1,17 +1,7 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
-# pack.sh — Build per-contract substreams spkg packages
-#
-# Each contract needs its own spkg because the sink module + SQL schema
-# are embedded in the package. This script generates a temporary manifest
-# for each contract, packs it, and cleans up.
-#
-# Usage:
-#   ./pack.sh              # pack all contracts
-#   ./pack.sh core         # pack only core
-#   ./pack.sh core token   # pack core and token
-#
-# To add a new contract, add an entry to the CONTRACTS array below.
+# Build Substreams packages with embedded SQL sink schemas.
+# Optional args restrict packaging to matching contract variants.
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
@@ -19,9 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 # ---------------------------------------------------------------------------
-# CONTRACT REGISTRY
-# Each entry: "variant|db_out_module|schema_file"
-# To add a new contract, just add a line here.
+# CONTRACT REGISTRY: variant|db_out_module|schema_file
 # ---------------------------------------------------------------------------
 CONTRACTS=(
   "combined|combined_db_out|combined_schema.sql"

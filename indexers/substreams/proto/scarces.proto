@@ -44,8 +44,8 @@ message ScarcesEvent {
   string sender_id = 58;
   string receiver_id = 59;
   string account_id = 16;
-  string executor = 104;
   string contract_id = 105;
+  reserved 104;
 
   // --- NFT contract reference (cross-contract listings) ---
   string scarce_contract_id = 30;

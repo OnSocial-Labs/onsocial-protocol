@@ -15,6 +15,7 @@ include makefiles/docker.mk
 include makefiles/contracts.mk
 include makefiles/javascript.mk
 include makefiles/relayer.mk
+include makefiles/substreams.mk
 include makefiles/utilities.mk
 
 # =============================================================================
@@ -90,6 +91,10 @@ help:
 	@echo "  test-relayer                  # Test relayer with Redis"
 	@echo "  run-relayer                   # Run relayer service"
 	@echo "  lint-relayer                  # Lint relayer code"
+	@echo ""
+	@echo "$(PACKAGE) **Substreams Operations:**"
+	@echo "  check-substreams-sql          # Validate Substreams SQL in disposable Postgres"
+	@echo "  check-substreams              # Run Substreams validation checks"
 	@echo ""
 	@echo "$(TOOLS) **System Management:**"
 	@echo "  status                        # Check system status"

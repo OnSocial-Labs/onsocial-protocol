@@ -1,18 +1,14 @@
-//! Database Changes module for core-onsocial contract
-//!
-//! Converts core OnSocial events to DatabaseChanges format for PostgreSQL.
+//! Database changes writer for core-onsocial events.
 
 use crate::pb::core_onsocial::v1::Output;
 use substreams_database_change::pb::database::DatabaseChanges;
 use substreams_database_change::tables::Tables;
 
-/// Convert typed Output to DatabaseChanges for SQL sink
 #[substreams::handlers::map]
 pub fn core_db_out(output: Output) -> Result<DatabaseChanges, substreams::errors::Error> {
     Ok(core_db_out_impl(output))
 }
 
-/// Core logic shared by both per-contract and combined db_out.
 pub(crate) fn core_db_out_impl(output: Output) -> DatabaseChanges {
     let mut tables = Tables::new();
 
@@ -51,6 +47,8 @@ pub(crate) fn core_db_out_impl(output: Output) -> DatabaseChanges {
         row.set("channel", &update.channel);
         row.set("kind", &update.kind);
         row.set("audiences", &update.audiences);
+        row.set("actor_id", &update.actor_id);
+        row.set("payer_id", &update.payer_id);
     }
 
     // Process StorageUpdates
@@ -70,7 +68,6 @@ pub(crate) fn core_db_out_impl(output: Output) -> DatabaseChanges {
         row.set("pool_key", &update.pool_key);
         row.set("group_id", &update.group_id);
         row.set("reason", &update.reason);
-        row.set("auth_type", &update.auth_type);
         row.set("actor_id", &update.actor_id);
         row.set("payer_id", &update.payer_id);
         row.set("target_id", &update.target_id);
@@ -171,7 +168,6 @@ pub(crate) fn core_db_out_impl(output: Output) -> DatabaseChanges {
         row.set("extra_data", &update.extra_data);
     }
 
-    // Process ContractUpdates
     for update in output.contract_updates {
         let row = tables.create_row("contract_updates", &update.id);
 
@@ -185,13 +181,11 @@ pub(crate) fn core_db_out_impl(output: Output) -> DatabaseChanges {
         row.set("derived_id", &update.derived_id);
         row.set("derived_type", &update.derived_type);
         row.set("target_id", &update.target_id);
-        row.set("auth_type", &update.auth_type);
         row.set("actor_id", &update.actor_id);
         row.set("payer_id", &update.payer_id);
         row.set("extra_data", &update.extra_data);
     }
 
-    // Process PermissionUpdates
     for update in output.permission_updates {
         let row = tables.create_row("permission_updates", &update.id);
 

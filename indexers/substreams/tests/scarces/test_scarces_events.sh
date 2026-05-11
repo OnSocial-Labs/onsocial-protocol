@@ -44,7 +44,7 @@ test_scarces_schema() {
         scarcesEvents(limit: 1, orderBy: {blockHeight: DESC}) {
             id blockHeight blockTimestamp receiptId eventType operation author
             tokenId collectionId listingId ownerId creatorId buyerId sellerId
-            bidder winnerId senderId receiverId accountId executor contractId
+            bidder winnerId senderId receiverId accountId contractId
             scarceContractId
             amount price oldPrice newPrice bidAmount attemptedPrice
             marketplaceFee appPoolAmount appCommission creatorPayment revenue

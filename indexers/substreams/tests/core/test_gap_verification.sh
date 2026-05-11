@@ -2,8 +2,7 @@
 # =============================================================================
 # Core gap verification for live Hasura/Substreams indexing
 # Verifies the remaining high-value core testnet event proofs:
-# - CONTRACT_UPDATE: add/remove intents executor, update_config,
-#   enter_read_only, resume_live, update_manager
+# - CONTRACT_UPDATE: update_config, enter_read_only, resume_live, update_manager
 # - STORAGE_UPDATE: group_sponsor_spend
 # =============================================================================
 
@@ -13,7 +12,6 @@ source "$SCRIPT_DIR/../common.sh"
 export GAP_MANAGER="${GAP_MANAGER:-$SIGNER}"
 export GAP_MEMBER="${GAP_MEMBER:-}"
 export GAP_GROUP_ID="${GAP_GROUP_ID:-gap-sponsor-$(date +%s)}"
-export GAP_TEMP_EXECUTOR="${GAP_TEMP_EXECUTOR:-exec-gap-$(date +%s).testnet}"
 
 get_storage_balance_json() {
     local account_id="$1"
@@ -74,7 +72,7 @@ is_excluded_group_sponsor_member() {
     local account_id="$1"
     [[ "$account_id" == "$CONTRACT" ]] && return 0
     [[ "$account_id" == "$GAP_MANAGER" ]] && return 0
-    [[ "$account_id" =~ ^(boost|core|rewards|scarces|staking|token|shared_storage)\.onsocial\.testnet$ ]] && return 0
+    [[ "$account_id" =~ ^(boost|core|rewards|scarces|token|shared_storage)\.onsocial\.testnet$ ]] && return 0
     [[ "$account_id" =~ ^(governance|governance-seed|treasury|onsocial)\.testnet$ ]] && return 0
     [[ "$account_id" =~ ^(governance|governance-seed|treasury|onsocial)\.onsocial\.testnet$ ]] && return 0
     [[ "$account_id" =~ ^founder-vesting(-fast)?\.onsocial\.testnet$ ]] && return 0
@@ -320,7 +318,8 @@ get_current_manager() {
 get_update_config_args() {
     local config_json
     config_json=$(near view "$CONTRACT" get_config '{}' --networkId "$NETWORK")
-    printf '%s\n' "$config_json" | jq -c '{update:{intents_executors:.intents_executors}}'
+    # Build a no-op ConfigUpdate echoing the current max_batch_size to trigger an update_config event
+    printf '%s\n' "$config_json" | jq -c '{update:{max_batch_size:.max_batch_size}}'
 }
 
 get_create_group_args() {
@@ -357,7 +356,7 @@ test_gap_query() {
     log_test "Query gap-closing operations already indexed"
 
     local contract_result
-    contract_result=$(query_hasura '{ contractUpdates(where: {operation: {_in: ["add_intents_executor", "remove_intents_executor", "update_config", "enter_read_only", "resume_live", "update_manager"]}}, limit: 20, orderBy: {blockHeight: DESC}) { operation author blockHeight } }')
+    contract_result=$(query_hasura '{ contractUpdates(where: {operation: {_in: ["update_config", "enter_read_only", "resume_live", "update_manager"]}}, limit: 20, orderBy: {blockHeight: DESC}) { operation author blockHeight } }')
     echo "$contract_result" | jq '.data.contractUpdates'
 
     local storage_result
@@ -381,19 +380,6 @@ test_gap_write() {
     log_info "Using manager: $current_manager"
     log_info "Using member: $GAP_MEMBER"
     log_info "Using group id: $GAP_GROUP_ID"
-    log_info "Using temp executor: $GAP_TEMP_EXECUTOR"
-
-    log_test "CONTRACT_UPDATE (add_intents_executor)"
-    call_as_and_wait "$GAP_MANAGER" add_intents_executor \
-        "{\"executor\":\"$GAP_TEMP_EXECUTOR\"}" \
-        --depositYocto 1 || return 1
-    verify_contract_update add_intents_executor "$GAP_MANAGER" "$LAST_EVENT_BLOCK" || return 1
-
-    log_test "CONTRACT_UPDATE (remove_intents_executor)"
-    call_as_and_wait "$GAP_MANAGER" remove_intents_executor \
-        "{\"executor\":\"$GAP_TEMP_EXECUTOR\"}" \
-        --depositYocto 1 || return 1
-    verify_contract_update remove_intents_executor "$GAP_MANAGER" "$LAST_EVENT_BLOCK" || return 1
 
     log_test "CONTRACT_UPDATE (update_config)"
     local update_config_args
@@ -466,7 +452,6 @@ show_usage() {
     echo "  GAP_MANAGER       - Manager signer for admin calls (default: SIGNER)"
     echo "  GAP_MEMBER        - Member signer used for group_sponsor_spend verification"
     echo "  GAP_GROUP_ID      - Group id to create for sponsorship flow"
-    echo "  GAP_TEMP_EXECUTOR - Temporary executor account id for add/remove verification"
     echo ""
     echo "Example:"
     echo "  GAP_MEMBER=test04.onsocial.testnet ./core/test_gap_verification.sh write"

@@ -1,7 +1,4 @@
-//! Database Changes module for boost events
-//!
-//! Converts BoostOutput to DatabaseChanges for substreams-sink-sql.
-//! Writes to: boost_events, booster_state, boost_credit_purchases
+//! SQL sink writer for boost events.
 
 use crate::pb::boost::v1::boost_event::Payload;
 use crate::pb::boost::v1::*;

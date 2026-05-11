@@ -1,18 +1,9 @@
-//! Scarces event decoder
-//!
-//! Decodes NEP-297 events from scarces.onsocial contract logs.
-//! Event types: SCARCE_UPDATE, COLLECTION_UPDATE, LAZY_LISTING_UPDATE,
-//!              CONTRACT_UPDATE, OFFER_UPDATE, STORAGE_UPDATE, APP_POOL_UPDATE
-//!
-//! Uses a flat extraction approach: all known fields are pulled from the
-//! JSON `data[0]` object into named proto fields, with the full JSON
-//! preserved in `extra_data` so nothing is ever lost.
+//! Decoder for scarces event logs.
 
 use crate::pb::scarces::v1::*;
 use serde_json::Value;
 
-/// Known onsocial-standard event types emitted by the scarces contract.
-/// New event types still pass through (with operation + extra_data preserved).
+/// Unknown fields still fall through into `extra_data`.
 pub fn decode_scarces_event(
     json_data: &str,
     receipt_id: &str,
@@ -58,7 +49,6 @@ pub fn decode_scarces_event(
         sender_id: str_field(data, "sender_id"),
         receiver_id: str_field(data, "receiver_id"),
         account_id: str_field(data, "account_id"),
-        executor: str_field(data, "executor"),
         contract_id: str_field(data, "contract_id"),
 
         // NFT contract reference
@@ -146,10 +136,6 @@ pub fn decode_scarces_event(
     })
 }
 
-// =============================================================================
-// Helper Functions
-// =============================================================================
-
 fn str_field(data: &Value, key: &str) -> String {
     data.get(key)
         .and_then(|v| match v {
@@ -162,8 +148,7 @@ fn str_field(data: &Value, key: &str) -> String {
         .unwrap_or_default()
 }
 
-/// Try multiple keys in order, returning the first non-empty value.
-/// Used to handle field name mismatches between contract versions.
+/// Returns the first non-empty value across multiple key names.
 fn str_field_any(data: &Value, keys: &[&str]) -> String {
     for key in keys {
         let val = str_field(data, key);
@@ -194,7 +179,6 @@ fn u32_field(data: &Value, key: &str) -> u32 {
         .unwrap_or(0)
 }
 
-/// Serialize an array field as a JSON string for storage.
 fn json_array_field(data: &Value, key: &str) -> String {
     match data.get(key) {
         Some(v @ Value::Array(_)) => v.to_string(),

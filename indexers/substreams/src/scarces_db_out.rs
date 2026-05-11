@@ -1,11 +1,4 @@
-//! Database Changes module for scarces events
-//!
-//! Converts ScarcesOutput to DatabaseChanges for substreams-sink-sql.
-//! Writes to: scarces_events (all events in one normalized table)
-//!
-//! The flat schema mirrors every named proto field as a nullable SQL column.
-//! The `extra_data` JSON column preserves the full event payload so
-//! future fields are never lost.
+//! Database changes writer for scarces events.
 
 use crate::pb::scarces::v1::*;
 use substreams_database_change::pb::database::DatabaseChanges;
@@ -16,7 +9,6 @@ pub fn scarces_db_out(output: ScarcesOutput) -> Result<DatabaseChanges, substrea
     Ok(scarces_db_out_impl(output))
 }
 
-/// Core logic shared by both per-contract and combined db_out.
 pub(crate) fn scarces_db_out_impl(output: ScarcesOutput) -> DatabaseChanges {
     let mut tables = Tables::new();
 
@@ -51,7 +43,6 @@ pub(crate) fn write_scarces_event(tables: &mut Tables, e: &ScarcesEvent) {
     row.set("sender_id", &e.sender_id);
     row.set("receiver_id", &e.receiver_id);
     row.set("account_id", &e.account_id);
-    row.set("executor", &e.executor);
     row.set("contract_id", &e.contract_id);
 
     // NFT contract reference

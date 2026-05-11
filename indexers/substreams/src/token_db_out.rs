@@ -1,7 +1,4 @@
-//! Database Changes module for NEP-141 token events
-//!
-//! Converts TokenOutput to DatabaseChanges for substreams-sink-sql.
-//! Writes to: token_events, token_balances
+//! SQL sink writer for NEP-141 token events.
 
 use crate::pb::token::v1::token_event::Payload;
 use crate::pb::token::v1::*;
@@ -28,14 +25,12 @@ pub(crate) fn token_db_out_impl(output: TokenOutput) -> DatabaseChanges {
     let mut balance_accum: HashMap<String, BalanceAccum> = HashMap::new();
 
     for event in &output.events {
-        // 1. Write every event to token_events
         write_token_event(&mut tables, event);
 
-        // 2. Accumulate token_balances updates (dedup by account_id)
         accumulate_token_balances(&mut balance_accum, event);
     }
 
-    // 3. Flush one token_balances row per account (upsert: same account can appear across blocks)
+    // One upsert per touched account.
     for (account_id, state) in &balance_accum {
         let row = tables.upsert_row("token_balances", account_id);
         row.set("account_id", account_id);

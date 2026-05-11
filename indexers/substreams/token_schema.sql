@@ -22,11 +22,8 @@ CREATE TABLE IF NOT EXISTS token_events (
   extra_data TEXT
 );
 
--- Materialized view: last-known activity per account
--- NOTE: On-chain balances are authoritative (ft_balance_of RPC).
--- This table tracks event history, not running balances, because
--- substreams-sink-sql uses CREATE (not UPSERT) — a proper running
--- balance requires a store module or post-processing SQL trigger.
+-- Last indexed token activity per account.
+-- On-chain FT balances remain authoritative via ft_balance_of RPC.
 CREATE TABLE IF NOT EXISTS token_balances (
   account_id TEXT PRIMARY KEY,
   last_event_type TEXT,

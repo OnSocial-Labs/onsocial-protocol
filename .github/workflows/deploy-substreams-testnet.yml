@@ -1,11 +1,6 @@
 name: Deploy Substreams (Testnet)
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'indexers/substreams/**'
-      - '.github/workflows/deploy-substreams-testnet.yml'
   workflow_run:
     workflows: ["Substreams CI"]
     types: [completed]
@@ -73,7 +68,6 @@ jobs:
     environment:
       name: testnet
     if: >
-      github.event_name == 'push' ||
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
     steps:
@@ -170,9 +164,13 @@ jobs:
           mkdir -p $GITHUB_WORKSPACE/spkg-upload
           cp onsocial-events-${VER}-combined.spkg $GITHUB_WORKSPACE/spkg-upload/
           find . -maxdepth 1 -type f -name '*.sql' -exec cp {} $GITHUB_WORKSPACE/spkg-upload/ \;
+          if [ -d migrations ]; then
+            mkdir -p $GITHUB_WORKSPACE/spkg-upload/migrations
+            find migrations -maxdepth 1 -type f -name '*.sql' -exec cp {} $GITHUB_WORKSPACE/spkg-upload/migrations/ \;
+          fi
           cp scripts/sync-hasura-substreams-metadata.sh $GITHUB_WORKSPACE/spkg-upload/
           echo "Upload contents:"
-          ls -la $GITHUB_WORKSPACE/spkg-upload/
+          find $GITHUB_WORKSPACE/spkg-upload -maxdepth 2 -type f | sort
 
       - name: Upload spkg and schema
         uses: appleboy/scp-action@v0.1.7
@@ -180,7 +178,7 @@ jobs:
           host: ${{ env.TESTNET_SUBSTREAMS_DEPLOY_HOST }}
           username: root
           key: ${{ steps.ssh.outputs.key }}
-          source: spkg-upload/*
+          source: spkg-upload/*,spkg-upload/migrations/*
           target: /tmp/onsocial-spkg-upload/
           strip_components: 1
           overwrite: true
@@ -314,11 +312,21 @@ jobs:
             $PSQL < "${UPLOAD_DIR}/combined_schema.sql"
             echo "✓ Combined schema applied"
 
-            # Rebuild all managed derived views so definition changes in the SQL
-            # files are actually applied on deploy. The view files use
-            # CREATE MATERIALIZED VIEW IF NOT EXISTS, so re-applying without
-            # dropping would silently keep stale definitions.
-            echo "🧹 Rebuilding core and leaderboard materialized views"
+            if compgen -G "${UPLOAD_DIR}/migrations/*.sql" > /dev/null; then
+              echo "📝 Applying substreams migrations"
+              for migration in "${UPLOAD_DIR}"/migrations/*.sql; do
+                echo "  $(basename "$migration")"
+                $PSQL < "$migration"
+              done
+              echo "✓ Substreams migrations applied"
+            else
+              echo "ℹ️ No substreams migrations found"
+            fi
+
+            # Older deployments may have materialized versions of these derived
+            # views. Drop materialized views first so current CREATE OR REPLACE
+            # VIEW definitions can be applied cleanly.
+            echo "🧹 Rebuilding core and leaderboard derived views"
             $PSQL <<'SQLEOF'
             DO $$ DECLARE mv TEXT;
             BEGIN
@@ -347,6 +355,8 @@ jobs:
             mv "${UPLOAD_DIR}/${SPKG_NAME}" "${SPKG_DIR}/${SPKG_NAME}"
             cp "${UPLOAD_DIR}"/*.sql "${SPKG_DIR}/" 2>/dev/null || true
             cp "${UPLOAD_DIR}"/*.sh "${SPKG_DIR}/" 2>/dev/null || true
+            rm -rf "${SPKG_DIR}/migrations"
+            [ -d "${UPLOAD_DIR}/migrations" ] && cp -R "${UPLOAD_DIR}/migrations" "${SPKG_DIR}/migrations"
             rm -rf "$UPLOAD_DIR"
             echo "✓ Spkg swapped"
 

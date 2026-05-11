@@ -34,7 +34,7 @@ test_contract_query() {
 test_contract_validate_fields() {
     log_test "Validating ContractUpdate field mapping against existing data"
     
-    local result=$(query_hasura '{ contractUpdates(limit: 1, orderBy: {blockHeight: DESC}) { id operation author path partitionId blockHeight blockTimestamp receiptId derivedId derivedType targetId authType actorId payerId extraData } }')
+    local result=$(query_hasura '{ contractUpdates(limit: 1, orderBy: {blockHeight: DESC}) { id operation author path partitionId blockHeight blockTimestamp receiptId derivedId derivedType targetId actorId payerId extraData } }')
     
     if ! echo "$result" | jq -e '.data.contractUpdates[0]' >/dev/null 2>&1; then
         log_warn "No ContractUpdates found to validate"
@@ -90,7 +90,7 @@ test_contract_set() {
         "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"profile/$key\": \"test\"}}}}" \
         "0.01"
     
-    local result=$(query_hasura '{ contractUpdates(where: {operation: {_eq: "set"}}, limit: 1, orderBy: {blockHeight: DESC}) { id operation author path partitionId blockHeight blockTimestamp receiptId targetId authType actorId payerId } }')
+    local result=$(query_hasura '{ contractUpdates(where: {operation: {_eq: "set"}}, limit: 1, orderBy: {blockHeight: DESC}) { id operation author path partitionId blockHeight blockTimestamp receiptId targetId actorId payerId } }')
     
     if echo "$result" | jq -e '.data.contractUpdates[0]' >/dev/null 2>&1; then
         echo "Verifying ContractUpdate fields for set:"
@@ -133,30 +133,6 @@ test_contract_config() {
     fi
     
     test_passed "update_config check complete"
-    return 0
-}
-
-# =============================================================================
-# Test: CONTRACT_UPDATE (admin_change)
-# Note: Requires admin access
-# =============================================================================
-test_contract_admin() {
-    log_test "CONTRACT_UPDATE (intents_executor) - Requires admin privileges"
-    
-    log_warn "Skipping intents_executor test - requires admin privileges"
-    log_info "To test manually:"
-    echo "  near call $CONTRACT add_intents_executor '{\"accountId\": \"executor.testnet\"}' --accountId admin.testnet"
-    echo "  near call $CONTRACT remove_intents_executor '{\"accountId\": \"executor.testnet\"}' --accountId admin.testnet"
-    
-    # Query to see if any executor changes exist
-    local result=$(query_hasura '{ contractUpdates(where: {operation: {_ilike: "%intents%"}}, limit: 5, orderBy: {blockHeight: DESC}) { id operation author targetId } }')
-    
-    if echo "$result" | jq -e '.data.contractUpdates[0]' >/dev/null 2>&1; then
-        log_info "Found existing intents_executor events:"
-        echo "$result" | jq '.data.contractUpdates'
-    fi
-    
-    test_passed "intents_executor check complete"
     return 0
 }
 
@@ -239,7 +215,7 @@ test_contract_breakdown() {
     echo ""
     echo "Operations indexed:"
     
-    for op in "set" "update_config" "add_intents_executor" "remove_intents_executor" "update_manager" "enter_read_only" "resume_live" "activate_contract"; do
+    for op in "set" "update_config" "update_manager" "contract_upgrade" "wnear_account_set" "enter_read_only" "resume_live" "activate_contract"; do
         local result=$(query_hasura "{ contractUpdates(where: {operation: {_eq: \"$op\"}}, limit: 1) { id } }")
         local count=$(echo "$result" | jq '.data.contractUpdates | length // 0')
         if [[ "$count" -gt 0 ]]; then
@@ -304,7 +280,6 @@ case "${1:-query}" in
         test_contract_validate_fields
         test_contract_set
         test_contract_config
-        test_contract_admin
         test_contract_manager
         test_contract_status
         test_contract_partition
@@ -318,9 +293,6 @@ case "${1:-query}" in
         ;;
     config)
         test_contract_config
-        ;;
-    admin)
-        test_contract_admin
         ;;
     manager)
         test_contract_manager

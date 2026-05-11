@@ -1,18 +1,6 @@
 #!/usr/bin/env bash
-# capture_event_fixtures.sh — Fetch real EVENT_JSON logs from testnet transactions.
-#
-# Usage:
-#   ./scripts/capture_event_fixtures.sh <tx_hash> <signer_account_id>
-#
-# Example:
-#   ./scripts/capture_event_fixtures.sh 7svezQKXXLirHzWMD1rm9ixgg7Ab5GmLRmD126HxoW6A core.onsocial.testnet
-#
-# Requirements: curl, python3
-# Cost: FREE — uses public NEAR RPC, not StreamingFast.
-#
-# NOTE: NEAR RPC garbage-collects old transactions after ~2 epochs (~48h).
-#       For older txs, use an archival RPC endpoint:
-#         NEAR_RPC=https://archival-rpc.testnet.near.org ./scripts/capture_event_fixtures.sh ...
+# Capture EVENT_JSON logs from a NEAR transaction.
+# Args: <tx_hash> <signer_account_id>. Set NEAR_RPC for archival nodes.
 
 set -euo pipefail
 

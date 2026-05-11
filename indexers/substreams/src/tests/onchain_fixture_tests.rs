@@ -6,9 +6,7 @@
 //! Unlike the synthetic mock tests, every JSON string below was emitted by
 //! a real smart contract. The source tx hash is noted for provenance.
 //!
-//! To capture more fixtures:
-//!   NEAR_RPC=https://archival-rpc.testnet.near.org \
-//!     ./scripts/capture_event_fixtures.sh <tx_hash> <signer>
+//! Additional fixtures are captured with scripts/capture_event_fixtures.sh.
 
 use crate::block_walker::{block_context, for_each_event_log, for_each_event_log_multi};
 use crate::boost_decoder::decode_boost_event;
@@ -1197,31 +1195,6 @@ fn onchain_scarces_app_pool_update_register() {
     assert_eq!(e.owner_id, "test01.onsocial.testnet");
     assert_eq!(e.app_id, "test01.onsocial.testnet");
     assert_eq!(e.initial_balance, "1000000000000000000000000");
-}
-
-// =============================================================================
-// SCARCES — CONTRACT_UPDATE (real testnet event — add_intents_executor)
-// =============================================================================
-
-// Source: tx=Bm4ZTenmcS1G4NCjDVEuMrpAvok8Dmbfnt59238bE2NQ
-const REAL_SCARCES_CONTRACT_UPDATE: &str = r#"{"standard":"onsocial","version":"1.0.0","event":"CONTRACT_UPDATE","data":[{"operation":"add_intents_executor","author":"onsocial.testnet","executor":"test-executor.testnet"}]}"#;
-
-#[test]
-fn onchain_scarces_contract_update_add_executor() {
-    let block = MockBlockBuilder::new(245_000_022, 1_776_000_000)
-        .add_receipt(
-            "scarces.onsocial.testnet",
-            &[112, 113],
-            vec![REAL_SCARCES_CONTRACT_UPDATE],
-        )
-        .build();
-    let out = run_scarces(&block);
-    assert_eq!(out.events.len(), 1);
-    let e = &out.events[0];
-    assert_eq!(e.event_type, "CONTRACT_UPDATE");
-    assert_eq!(e.operation, "add_intents_executor");
-    assert_eq!(e.author, "onsocial.testnet");
-    assert_eq!(e.executor, "test-executor.testnet");
 }
 
 // =============================================================================

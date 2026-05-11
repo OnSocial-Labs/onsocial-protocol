@@ -1,87 +1,92 @@
--- ============================================================================
 -- OnSocial Notifications Schema
--- ============================================================================
--- Cross-contract unified notifications table.
--- Populated by a backend notification worker that polls the raw event tables
--- and fans out actionable events to target users.
---
--- This is NOT a materialized view — it's a write-ahead table that the
--- notification worker INSERT-s into, and the API reads from.
--- ============================================================================
+-- Backend-owned notification storage derived from indexed contract and app events.
+-- Substreams writes source event tables; the gateway notification worker writes here.
 
 CREATE TABLE IF NOT EXISTS notifications (
-  id BIGSERIAL PRIMARY KEY,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-
-  -- Who receives this notification
-  recipient TEXT NOT NULL,
-
-  -- Who triggered the action
-  actor TEXT NOT NULL,
-
-  -- Notification type (determines icon, copy, and deep-link in UI)
-  notification_type TEXT NOT NULL,
-  -- Core types (convention, not enforced — apps can add their own):
-  --   standing_new       — someone started standing with you
-  --   reply              — someone replied to your post
-  --   quote              — someone quoted your post
-  --   reaction           — someone reacted to your post
-  --   mention            — someone mentioned you in a post
-  --   reward_credited    — you received a reward credit
-  --   reward_claimed     — your claim succeeded
-  --   group_invite       — you were invited to a group
-  --   group_join_request — someone requested to join your group
-  --   group_proposal     — new proposal in your group
-  --   scarces_sold       — your Scarce was purchased
-  --   scarces_offer      — someone made an offer on your Scarce
-  --   boost_unlocked     — your boost lock expired
-  -- Apps extend freely: guild_joined, endorsement_new, delegate_new, etc.
-
-  -- Source contract (core, boost, rewards, scarces, token)
-  source_contract TEXT NOT NULL,
-
-  -- Link back to the source event
-  source_receipt_id TEXT,
-  source_block_height BIGINT,
-
-  -- Contextual data (varies by type)
-  -- e.g., post_id, group_id, token_id, amount, collection_id
-  context JSONB NOT NULL DEFAULT '{}',
-
-  -- Read state
-  read BOOLEAN NOT NULL DEFAULT false,
-  read_at TIMESTAMPTZ
+  id                   UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_account_id     TEXT        NOT NULL,
+  app_id               TEXT        NOT NULL DEFAULT 'default',
+  recipient            TEXT        NOT NULL,
+  actor                TEXT        NOT NULL,
+  notification_type    TEXT        NOT NULL,
+  source_contract      TEXT        NOT NULL,
+  source_receipt_id    TEXT,
+  source_block_height  BIGINT,
+  dedupe_key           TEXT        NOT NULL,
+  context              JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  read                 BOOLEAN     NOT NULL DEFAULT false,
+  read_at              TIMESTAMPTZ,
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Fast per-user queries (most common: "my unread notifications")
-CREATE INDEX IF NOT EXISTS idx_notifications_recipient_unread
-  ON notifications(recipient, created_at DESC) WHERE read = false;
+ALTER TABLE notifications
+  ADD COLUMN IF NOT EXISTS owner_account_id TEXT,
+  ADD COLUMN IF NOT EXISTS app_id TEXT NOT NULL DEFAULT 'default',
+  ADD COLUMN IF NOT EXISTS dedupe_key TEXT,
+  ADD COLUMN IF NOT EXISTS context JSONB NOT NULL DEFAULT '{}'::jsonb;
 
-CREATE INDEX IF NOT EXISTS idx_notifications_recipient_all
-  ON notifications(recipient, created_at DESC);
+UPDATE notifications
+SET owner_account_id = COALESCE(owner_account_id, recipient)
+WHERE owner_account_id IS NULL;
 
-CREATE INDEX IF NOT EXISTS idx_notifications_type
-  ON notifications(notification_type);
+UPDATE notifications
+SET dedupe_key = COALESCE(
+  dedupe_key,
+  CONCAT(
+    COALESCE(source_contract, 'unknown'),
+    ':',
+    COALESCE(source_receipt_id, id::text),
+    ':',
+    notification_type,
+    ':',
+    recipient
+  )
+)
+WHERE dedupe_key IS NULL;
 
-CREATE INDEX IF NOT EXISTS idx_notifications_source_block
-  ON notifications(source_contract, source_block_height);
+ALTER TABLE notifications
+  ALTER COLUMN owner_account_id SET NOT NULL,
+  ALTER COLUMN dedupe_key SET NOT NULL;
 
--- ────────────────────────────────────────────────────────────────────────────
--- Notification worker cursor tracking
--- ────────────────────────────────────────────────────────────────────────────
--- The worker stores the last-processed block_height per source table.
--- On each poll cycle, it queries rows > last_block_height, processes them,
--- then updates the cursor.
--- ────────────────────────────────────────────────────────────────────────────
+CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_dedupe
+  ON notifications(owner_account_id, app_id, dedupe_key);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_owner_recipient_unread
+  ON notifications(owner_account_id, app_id, recipient, created_at DESC)
+  WHERE read = false;
+
+CREATE INDEX IF NOT EXISTS idx_notifications_owner_recipient_all
+  ON notifications(owner_account_id, app_id, recipient, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_owner_type
+  ON notifications(owner_account_id, app_id, notification_type, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS notification_counts (
+  owner_account_id  TEXT    NOT NULL,
+  app_id            TEXT    NOT NULL DEFAULT 'default',
+  account_id        TEXT    NOT NULL,
+  unread_count      INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (owner_account_id, app_id, account_id)
+);
+
+ALTER TABLE notification_counts
+  ADD COLUMN IF NOT EXISTS owner_account_id TEXT,
+  ADD COLUMN IF NOT EXISTS app_id TEXT NOT NULL DEFAULT 'default';
+
+UPDATE notification_counts
+SET owner_account_id = COALESCE(owner_account_id, account_id)
+WHERE owner_account_id IS NULL;
+
+ALTER TABLE notification_counts
+  ALTER COLUMN owner_account_id SET NOT NULL;
 
 CREATE TABLE IF NOT EXISTS notification_cursors (
-  source_table TEXT PRIMARY KEY,
-  last_block_height BIGINT NOT NULL DEFAULT 0,
-  last_event_id TEXT NOT NULL DEFAULT '',
-  last_processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  source_table       TEXT        PRIMARY KEY,
+  last_block_height  BIGINT      NOT NULL DEFAULT 0,
+  last_event_id      TEXT        NOT NULL DEFAULT '',
+  last_processed_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Seed cursors for all source tables
 INSERT INTO notification_cursors (source_table) VALUES
   ('data_updates'),
   ('group_updates'),
@@ -90,30 +95,53 @@ INSERT INTO notification_cursors (source_table) VALUES
   ('scarces_events')
 ON CONFLICT (source_table) DO NOTHING;
 
--- ────────────────────────────────────────────────────────────────────────────
--- Notification count cache (per-user unread count)
--- ────────────────────────────────────────────────────────────────────────────
--- Updated by a trigger on INSERT/UPDATE to notifications.
--- The API reads this instead of COUNT(*) for badge numbers.
--- ────────────────────────────────────────────────────────────────────────────
-
-CREATE TABLE IF NOT EXISTS notification_counts (
-  account_id TEXT PRIMARY KEY,
-  unread_count INTEGER NOT NULL DEFAULT 0
+CREATE TABLE IF NOT EXISTS app_notification_events (
+  id                   UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  sequence             BIGSERIAL   NOT NULL,
+  owner_account_id     TEXT        NOT NULL,
+  app_id               TEXT        NOT NULL,
+  recipient            TEXT        NOT NULL,
+  actor                TEXT        NOT NULL,
+  event_type           TEXT        NOT NULL,
+  dedupe_key           TEXT        NOT NULL,
+  object_id            TEXT,
+  group_id             TEXT,
+  source_contract      TEXT        NOT NULL DEFAULT 'app',
+  source_receipt_id    TEXT,
+  source_block_height  BIGINT,
+  context              JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Trigger to maintain unread counts
+CREATE UNIQUE INDEX IF NOT EXISTS idx_app_notification_events_sequence
+  ON app_notification_events(sequence);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_app_notification_events_dedupe
+  ON app_notification_events(owner_account_id, app_id, recipient, dedupe_key);
+
+CREATE INDEX IF NOT EXISTS idx_app_notification_events_owner_app_sequence
+  ON app_notification_events(owner_account_id, app_id, sequence ASC);
+
+CREATE INDEX IF NOT EXISTS idx_app_notification_events_owner_app_event_type
+  ON app_notification_events(owner_account_id, app_id, event_type, created_at DESC);
+
+INSERT INTO notification_cursors (source_table, last_event_id) VALUES
+  ('app_notification_events', '00000000-0000-0000-0000-000000000000')
+ON CONFLICT (source_table) DO NOTHING;
+
 CREATE OR REPLACE FUNCTION update_notification_count() RETURNS TRIGGER AS $$
 BEGIN
   IF TG_OP = 'INSERT' THEN
-    INSERT INTO notification_counts (account_id, unread_count)
-    VALUES (NEW.recipient, 1)
-    ON CONFLICT (account_id) DO UPDATE
+    INSERT INTO notification_counts (owner_account_id, app_id, account_id, unread_count)
+    VALUES (NEW.owner_account_id, NEW.app_id, NEW.recipient, 1)
+    ON CONFLICT (owner_account_id, app_id, account_id) DO UPDATE
       SET unread_count = notification_counts.unread_count + 1;
   ELSIF TG_OP = 'UPDATE' AND OLD.read = false AND NEW.read = true THEN
     UPDATE notification_counts
     SET unread_count = GREATEST(unread_count - 1, 0)
-    WHERE account_id = NEW.recipient;
+    WHERE owner_account_id = NEW.owner_account_id
+      AND app_id = NEW.app_id
+      AND account_id = NEW.recipient;
   END IF;
   RETURN NEW;
 END;
@@ -124,23 +152,39 @@ CREATE TRIGGER trg_notification_count
   AFTER INSERT OR UPDATE OF read ON notifications
   FOR EACH ROW EXECUTE FUNCTION update_notification_count();
 
--- ────────────────────────────────────────────────────────────────────────────
--- Helper: mark all notifications read for a user
--- ────────────────────────────────────────────────────────────────────────────
-
-CREATE OR REPLACE FUNCTION mark_notifications_read(p_recipient TEXT) RETURNS INTEGER AS $$
+CREATE OR REPLACE FUNCTION mark_notifications_read(
+  p_owner_account_id TEXT,
+  p_app_id TEXT,
+  p_recipient TEXT
+) RETURNS INTEGER AS $$
 DECLARE
   affected INTEGER;
 BEGIN
   UPDATE notifications
   SET read = true, read_at = NOW()
-  WHERE recipient = p_recipient AND read = false;
+  WHERE owner_account_id = p_owner_account_id
+    AND app_id = p_app_id
+    AND recipient = p_recipient
+    AND read = false;
   GET DIAGNOSTICS affected = ROW_COUNT;
 
   UPDATE notification_counts
   SET unread_count = 0
-  WHERE account_id = p_recipient;
+  WHERE owner_account_id = p_owner_account_id
+    AND app_id = p_app_id
+    AND account_id = p_recipient;
 
   RETURN affected;
 END;
 $$ LANGUAGE plpgsql;
+
+COMMENT ON TABLE notifications IS 'Managed per-app notifications derived from indexed events.';
+COMMENT ON COLUMN notifications.owner_account_id IS 'Developer account that owns this notification namespace.';
+COMMENT ON COLUMN notifications.app_id IS 'Developer-defined app namespace used for tenant scoping.';
+COMMENT ON COLUMN notifications.dedupe_key IS 'Stable idempotency key preventing duplicate notifications.';
+COMMENT ON TABLE app_notification_events IS 'Developer-defined app events queued for managed notification fanout.';
+COMMENT ON COLUMN app_notification_events.dedupe_key IS 'Developer-supplied idempotency key scoped by owner, app, and recipient.';
+COMMENT ON COLUMN app_notification_events.context IS 'Developer-defined event payload forwarded in notification context.';
+COMMENT ON TABLE notification_counts IS 'Unread notification count cache keyed by developer app and recipient.';
+COMMENT ON TABLE notification_cursors IS 'Worker checkpoint state for notification fanout.';
+COMMENT ON COLUMN notification_cursors.last_event_id IS 'Stable tie-breaker for rows sharing the same last_block_height.';

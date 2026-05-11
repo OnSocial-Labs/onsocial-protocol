@@ -1,9 +1,8 @@
 -- =============================================================================
 -- OnSocial Combined Schema — All Contracts (self-contained)
 -- =============================================================================
--- This file contains ALL table definitions from all 5 contract schemas.
--- It is embedded in the combined spkg for substreams-sink-sql setup.
--- For manual apply:  psql "$DATABASE_URL" -f combined_schema.sql
+-- Embedded SQL schema for the combined substreams-sink-sql package.
+-- Contains the tables from core, boost, rewards, token, and scarces.
 -- =============================================================================
 
 -- ===================== core =====================
@@ -205,12 +204,7 @@ CREATE INDEX IF NOT EXISTS idx_data_updates_account_id ON data_updates(account_i
 CREATE INDEX IF NOT EXISTS idx_data_updates_block_height ON data_updates(block_height);
 CREATE INDEX IF NOT EXISTS idx_data_updates_data_type ON data_updates(data_type);
 
--- Generic flexibility: parse `value` (a TEXT JSON blob) into a sidecar JSONB
--- column so dApps writing custom data_types can filter on inner fields
--- (e.g. `where: {value_json: {_contains: {rating: 5}}}`). Rows whose value
--- is not a JSON object/array (legacy follows, plain strings, empty) are
--- left NULL and skipped by the partial GIN index. Additive — original
--- `value` column is untouched, every existing view keeps working.
+-- JSON object/array values are indexed without changing the raw `value` column.
 ALTER TABLE data_updates ADD COLUMN IF NOT EXISTS value_json jsonb
   GENERATED ALWAYS AS (
     CASE WHEN value ~ '^[\[\{]' THEN value::jsonb ELSE NULL END
@@ -221,9 +215,6 @@ CREATE INDEX IF NOT EXISTS idx_data_updates_value_json_gin
 
 ALTER TABLE data_updates ADD COLUMN IF NOT EXISTS actor_id TEXT;
 ALTER TABLE data_updates ADD COLUMN IF NOT EXISTS payer_id TEXT;
-ALTER TABLE data_updates DROP COLUMN IF EXISTS auth_type;
-ALTER TABLE storage_updates DROP COLUMN IF EXISTS auth_type;
-ALTER TABLE contract_updates DROP COLUMN IF EXISTS auth_type;
 CREATE INDEX IF NOT EXISTS idx_data_updates_actor_id ON data_updates(actor_id) WHERE actor_id IS NOT NULL AND actor_id != '';
 CREATE INDEX IF NOT EXISTS idx_data_updates_payer_id ON data_updates(payer_id) WHERE payer_id IS NOT NULL AND payer_id != '';
 
@@ -289,7 +280,7 @@ CREATE TABLE IF NOT EXISTS boost_events (
   extra_data TEXT
 );
 
--- Materialized view: current booster state (latest lock/extend/unlock per account)
+-- Sink-maintained booster state per account.
 CREATE TABLE IF NOT EXISTS booster_state (
   account_id TEXT PRIMARY KEY,
   locked_amount TEXT NOT NULL DEFAULT '0',
@@ -365,7 +356,7 @@ CREATE TABLE IF NOT EXISTS rewards_events (
   extra_data TEXT
 );
 
--- Materialized view: current reward state per user
+-- Sink-maintained reward state per account.
 CREATE TABLE IF NOT EXISTS user_reward_state (
   account_id TEXT PRIMARY KEY,
   total_earned TEXT NOT NULL DEFAULT '0',
@@ -381,6 +372,7 @@ CREATE INDEX IF NOT EXISTS idx_rewards_events_type ON rewards_events(event_type)
 CREATE INDEX IF NOT EXISTS idx_rewards_events_block ON rewards_events(block_height);
 CREATE INDEX IF NOT EXISTS idx_rewards_events_account_type ON rewards_events(account_id, event_type);
 CREATE INDEX IF NOT EXISTS idx_rewards_events_app ON rewards_events(app_id);
+CREATE INDEX IF NOT EXISTS idx_rewards_events_type_app_account ON rewards_events(event_type, app_id, account_id);
 
 -- ===================== token =====================
 
@@ -408,11 +400,8 @@ CREATE TABLE IF NOT EXISTS token_events (
   extra_data TEXT
 );
 
--- Materialized view: last-known activity per account
--- NOTE: On-chain balances are authoritative (ft_balance_of RPC).
--- This table tracks event history, not running balances, because
--- substreams-sink-sql uses CREATE (not UPSERT) — a proper running
--- balance requires a store module or post-processing SQL trigger.
+-- Last indexed token activity per account.
+-- On-chain FT balances remain authoritative via ft_balance_of RPC.
 CREATE TABLE IF NOT EXISTS token_balances (
   account_id TEXT PRIMARY KEY,
   last_event_type TEXT,
@@ -437,7 +426,7 @@ CREATE INDEX IF NOT EXISTS idx_token_events_new_owner ON token_events(new_owner_
 --   CONTRACT_UPDATE, OFFER_UPDATE, STORAGE_UPDATE, APP_POOL_UPDATE
 --
 -- Columns are nullable — only the fields relevant to each operation are populated.
--- extra_data (JSONB) preserves the full event payload for future-proofing.
+-- extra_data stores serialized event JSON for fields without typed columns.
 
 CREATE TABLE IF NOT EXISTS scarces_events (
   id TEXT PRIMARY KEY,
@@ -461,7 +450,6 @@ CREATE TABLE IF NOT EXISTS scarces_events (
   sender_id TEXT,
   receiver_id TEXT,
   account_id TEXT,
-  executor TEXT,
   contract_id TEXT,
 
   -- NFT contract reference (cross-contract listings)

@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS boost_events (
   extra_data TEXT
 );
 
--- Materialized view: current booster state (latest lock/extend/unlock per account)
+-- Sink-maintained booster state per account.
 CREATE TABLE IF NOT EXISTS booster_state (
   account_id TEXT PRIMARY KEY,
   locked_amount TEXT NOT NULL DEFAULT '0',

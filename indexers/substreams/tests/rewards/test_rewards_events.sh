@@ -2,7 +2,7 @@
 # =============================================================================
 # Rewards Event Tests for Hasura/PostgreSQL Indexer
 # Tests: REWARD_CREDITED, REWARD_CLAIMED, CLAIM_FAILED, POOL_DEPOSIT,
-#        OWNER_CHANGED, MAX_DAILY_UPDATED, EXECUTOR_ADDED, EXECUTOR_REMOVED,
+#        OWNER_CHANGED, MAX_DAILY_UPDATED, APP_REGISTERED, APP_UPDATED, APP_DEACTIVATED,
 #        CALLER_ADDED, CALLER_REMOVED, CONTRACT_UPGRADE
 # Queries rewardsEvents table
 # =============================================================================
@@ -41,7 +41,6 @@ result=$(query_hasura '{
     newOwner
     oldMax
     newMax
-    executor
     caller
     oldVersion
     newVersion
@@ -61,7 +60,7 @@ fi
 # ─────────────────────────────────────────────────────────────────────────────
 log_test "Rewards event type distribution"
 
-REWARDS_OPS="REWARD_CREDITED REWARD_CLAIMED CLAIM_FAILED POOL_DEPOSIT OWNER_CHANGED MAX_DAILY_UPDATED EXECUTOR_ADDED EXECUTOR_REMOVED CALLER_ADDED CALLER_REMOVED CONTRACT_UPGRADE"
+REWARDS_OPS="REWARD_CREDITED REWARD_CLAIMED CLAIM_FAILED POOL_DEPOSIT OWNER_CHANGED MAX_DAILY_UPDATED APP_REGISTERED APP_UPDATED APP_DEACTIVATED CALLER_ADDED CALLER_REMOVED CONTRACT_UPGRADE"
 
 for op in $REWARDS_OPS; do
     result=$(query_hasura "{ rewardsEventsAggregate(where: {eventType: {_eq: \"$op\"}}) { aggregate { count } } }")

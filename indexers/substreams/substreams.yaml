@@ -107,8 +107,8 @@ modules:
       type: proto:rewards.v1.RewardsOutput
     doc: |
       Extracts rewards contract events: credit, claim, pool deposits,
-      config changes, executor/caller management.
-      11 event types with success/failure tracking.
+      config changes, caller management.
+      12 event types with success/failure tracking.
 
   # Rewards database changes - for substreams-sink-sql
   - name: rewards_db_out

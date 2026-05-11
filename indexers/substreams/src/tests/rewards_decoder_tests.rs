@@ -3,7 +3,7 @@ use crate::rewards_decoder::decode_rewards_event;
 
 #[test]
 fn test_decode_reward_credited() {
-    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"REWARD_CREDITED","data":[{"amount":"1000000000000000000","source":"boost","credited_by":"executor.near","app_id":"portal","account_id":"alice.near"}]}"#;
+    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"REWARD_CREDITED","data":[{"amount":"1000000000000000000","source":"boost","credited_by":"caller.near","app_id":"portal","account_id":"alice.near"}]}"#;
     let event = decode_rewards_event(json, "receipt123", 100, 1000, 0).unwrap();
     assert_eq!(event.event_type, "REWARD_CREDITED");
     assert_eq!(event.account_id, "alice.near");
@@ -12,7 +12,7 @@ fn test_decode_reward_credited() {
         Payload::RewardCredited(p) => {
             assert_eq!(p.amount, "1000000000000000000");
             assert_eq!(p.source, "boost");
-            assert_eq!(p.credited_by, "executor.near");
+            assert_eq!(p.credited_by, "caller.near");
             assert_eq!(p.app_id, "portal");
         }
         _ => panic!("wrong payload"),
@@ -135,7 +135,7 @@ fn test_decode_event_id_format() {
 }
 
 #[test]
-fn test_decode_all_11_events() {
+fn test_decode_all_12_events() {
     let events = vec![
         (
             "REWARD_CREDITED",
@@ -155,14 +155,21 @@ fn test_decode_all_11_events() {
             "MAX_DAILY_UPDATED",
             r#"{"old_max":"1","new_max":"2","account_id":"a"}"#,
         ),
-        ("EXECUTOR_ADDED", r#"{"executor":"e","account_id":"a"}"#),
-        ("EXECUTOR_REMOVED", r#"{"executor":"e","account_id":"a"}"#),
         ("CALLER_ADDED", r#"{"caller":"c","account_id":"a"}"#),
         ("CALLER_REMOVED", r#"{"caller":"c","account_id":"a"}"#),
         (
             "CONTRACT_UPGRADE",
             r#"{"old_version":"1.0.0","new_version":"2.0.0","account_id":"a"}"#,
         ),
+        (
+            "APP_REGISTERED",
+            r#"{"app_id":"my_app","daily_cap":"100","reward_per_action":"10","total_budget":"1000","daily_budget":"100","account_id":"a"}"#,
+        ),
+        (
+            "APP_UPDATED",
+            r#"{"app_id":"my_app","daily_cap":"200","reward_per_action":"20","active":true,"total_budget":"2000","daily_budget":"200","account_id":"a"}"#,
+        ),
+        ("APP_DEACTIVATED", r#"{"app_id":"my_app","account_id":"a"}"#),
     ];
 
     for (event_type, data_json) in events {

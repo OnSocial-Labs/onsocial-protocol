@@ -4,14 +4,11 @@
 -- Layer 2: current-state entity views on top of the raw append-only
 -- data_updates event log.
 --
--- All core views are regular (non-materialized) views so that reads through
--- Hasura/OnAPI return live data with zero lag after substreams ingestion.
--- Performance relies on indexes on data_updates; at current scale the
--- DISTINCT ON queries execute in single-digit milliseconds.
+-- Core views are regular views so Hasura/OnAPI reads reflect indexed rows
+-- immediately after ingestion. Performance depends on the indexes below.
 --
--- Important semantic rule for current-state views:
---   1. dedupe across ALL operations first (set, remove, revoke, etc.)
---   2. then filter to active rows where needed
+-- Current-state views dedupe across all operations first, then filter to
+-- active rows where needed.
 --
 -- This avoids stale positive state surviving after a later tombstone event.
 -- Ordering includes receipt_id and id as deterministic tie-breakers so
@@ -134,7 +131,7 @@ FROM (
 WHERE operation = 'set';
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 3. standings_current — social graph (who stands with whom)
+-- 3. standings_current - standing relationships
 -- ────────────────────────────────────────────────────────────────────────────
 
 CREATE OR REPLACE VIEW standings_current AS
@@ -196,7 +193,7 @@ WHERE operation = 'set'
 GROUP BY post_owner, reaction_kind, SUBSTRING(path FROM '/reaction/[^/]+/[^/]+/(.+)$');
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 6. standing_counts — follower counts per account
+-- 6. standing_counts — incoming standing counts per account
 -- ────────────────────────────────────────────────────────────────────────────
 
 CREATE OR REPLACE VIEW standing_counts AS
@@ -254,7 +251,7 @@ WHERE ref_author IS NOT NULL
   AND ref_author != '';
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 9. edges_current — generic social graph (ALL relationship types)
+-- 9. edges_current - latest account-target relationships
 -- ────────────────────────────────────────────────────────────────────────────
 
 CREATE OR REPLACE VIEW edges_current AS
@@ -377,17 +374,3 @@ SELECT DISTINCT ON (account_id, path)
 FROM data_updates
 WHERE data_type = 'endorsement'
 ORDER BY account_id, path, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC;
-
--- ────────────────────────────────────────────────────────────────────────────
--- refresh_core_views() — no-op kept for backward compatibility
--- ────────────────────────────────────────────────────────────────────────────
--- Regular views are always live. This function is retained so that any
--- existing callers (backend workers, scripts) don't break.
--- ────────────────────────────────────────────────────────────────────────────
-
-CREATE OR REPLACE FUNCTION refresh_core_views() RETURNS void AS $$
-BEGIN
-  -- No-op: all core views are now regular (live) views.
-  RAISE NOTICE 'refresh_core_views() is a no-op — core views are live';
-END;
-$$ LANGUAGE plpgsql;

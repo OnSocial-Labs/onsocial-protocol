@@ -1,13 +1,4 @@
-//! Combined Database Changes module
-//!
-//! Converts CombinedOutput to a single DatabaseChanges for substreams-sink-sql.
-//! This delegates to each per-contract db_out writer, sharing a single Tables
-//! instance so all changes are emitted as one atomic batch.
-//!
-//! Tables written: data_updates, storage_updates, group_updates,
-//! contract_updates, permission_updates, boost_events, booster_state,
-//! boost_credit_purchases, rewards_events, user_reward_state,
-//! token_events, token_balances, scarces_events
+//! Combined database changes writer.
 
 use crate::boost_db_out;
 use crate::core_db_out;
@@ -17,7 +8,6 @@ use crate::scarces_db_out;
 use crate::token_db_out;
 use substreams_database_change::pb::database::DatabaseChanges;
 
-/// Convert CombinedOutput to DatabaseChanges for SQL sink
 #[substreams::handlers::map]
 pub fn combined_db_out(
     output: CombinedOutput,

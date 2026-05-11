@@ -1,8 +1,8 @@
 -- ============================================================================
 -- OnSocial Leaderboard, Reputation & Rankings
 -- ============================================================================
--- Materialized views for leaderboard rankings, reputation scores, and
--- per-partner / per-group activity metrics.
+-- Live views for leaderboard rankings, reputation scores, and per-partner /
+-- per-group activity metrics.
 --
 -- Depends on:
 --   boost_schema.sql       → booster_state
@@ -20,12 +20,13 @@
 --   6. content_activity        — posts, replies, reactions, active days
 --   7. scarces_activity         — scarce creation, sales, revenue
 --   8. reputation_scores       — composite reputation per user
---   9. leaderboard_by_app      — per-partner rankings
---  10. leaderboard_by_group    — per-community rankings
---  11. app_reputation          — per-dApp aggregate health score
+--   9. leaderboard_agent_features — deterministic rank-consumer signals
+--  10. leaderboard_by_app      — per-partner rankings
+--  11. leaderboard_by_group    — per-community rankings
+--  12. app_reputation          — per-dApp aggregate health score
 --
--- Refresh strategy: REFRESH MATERIALIZED VIEW CONCURRENTLY via pg_cron or
--- backend worker every 5–15 min for live rankings, plus a daily snapshot.
+-- Ranking views are regular live views. Use snapshot_leaderboard() only when
+-- persisting daily historical rankings.
 -- ============================================================================
 
 -- ────────────────────────────────────────────────────────────────────────────
@@ -86,8 +87,7 @@ LEFT JOIN claimed c ON c.account_id = e.account_id;
 -- ────────────────────────────────────────────────────────────────────────────
 -- 3. leaderboard_snapshot — periodic snapshots for historical rankings
 -- ────────────────────────────────────────────────────────────────────────────
--- The backend worker inserts rows into this table on a schedule (e.g. daily).
--- This is NOT a materialized view — it's a regular table for historical data.
+-- Backend-scheduled table for historical ranking snapshots.
 -- ────────────────────────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS leaderboard_snapshots (
@@ -137,10 +137,21 @@ GROUP BY account_id, DATE(TO_TIMESTAMP(block_timestamp / 1000000000));
 -- ────────────────────────────────────────────────────────────────────────────
 
 CREATE OR REPLACE VIEW reward_weights AS
+WITH accounts AS (
+  SELECT account_id FROM standing_counts
+  UNION
+  SELECT account_id FROM standing_out_counts
+  UNION
+  SELECT account_id FROM booster_state
+  UNION
+  SELECT account_id FROM leaderboard_rewards
+  UNION
+  SELECT account_id FROM posts_current
+)
 SELECT
-  r.account_id,
-  r.total_earned,
-  r.total_claimed,
+  a.account_id,
+  COALESCE(r.total_earned, 0)                     AS total_earned,
+  COALESCE(r.total_claimed, 0)                    AS total_claimed,
   COALESCE(s.standing_with_count, 0)               AS standing_with_count,
   COALESCE(b.effective_boost, '0')::NUMERIC         AS effective_boost,
   COALESCE(b.lock_months, 0)                        AS lock_months,
@@ -154,9 +165,11 @@ SELECT
   (1.0 + LN(GREATEST(COALESCE(s.standing_with_count, 0), 1)))
     * (1.0 + COALESCE(b.effective_boost, '0')::NUMERIC / 1e18)
                                                     AS reward_multiplier
-FROM leaderboard_rewards r
-LEFT JOIN standing_counts s ON s.account_id = r.account_id
-LEFT JOIN booster_state b ON b.account_id = r.account_id;
+FROM accounts a
+LEFT JOIN leaderboard_rewards r ON r.account_id = a.account_id
+LEFT JOIN standing_counts s ON s.account_id = a.account_id
+LEFT JOIN booster_state b ON b.account_id = a.account_id
+WHERE a.account_id IS NOT NULL AND a.account_id != '';
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 6. content_activity — per-user content creation and engagement metrics
@@ -202,30 +215,88 @@ GROUP BY p.account_id;
 -- ────────────────────────────────────────────────────────────────────────────
 
 CREATE OR REPLACE VIEW scarces_activity AS
+WITH activity AS (
+  -- Creation activity belongs to the owner/creator, not always the event author.
+  SELECT
+    COALESCE(NULLIF(owner_id, ''), NULLIF(creator_id, ''), NULLIF(author, '')) AS account_id,
+    CASE
+      WHEN operation IN ('mint', 'quick_mint', 'lazy_mint') THEN 1
+      WHEN event_type = 'COLLECTION_UPDATE' AND operation = 'create' THEN 1
+      WHEN event_type = 'LAZY_LISTING_UPDATE' AND operation = 'created' THEN 1
+      ELSE 0
+    END                                                         AS items_created,
+    0                                                           AS items_sold,
+    0::NUMERIC                                                  AS revenue_earned,
+    0                                                           AS items_purchased,
+    0::NUMERIC                                                  AS amount_spent,
+    CASE WHEN event_type = 'COLLECTION_UPDATE' AND operation = 'create'
+      THEN 1 ELSE 0 END                                         AS collections_created,
+    block_height
+  FROM scarces_events
+  WHERE operation IN ('mint', 'quick_mint', 'lazy_mint', 'create', 'created')
+
+  UNION ALL
+
+  -- Sales activity belongs to seller_id for secondary flows and creator_id for
+  -- primary collection/lazy-listing purchases.
+  SELECT
+    CASE
+      WHEN operation = 'auction_settled' THEN NULLIF(seller_id, '')
+      WHEN operation IN ('purchase', 'offer_accepted', 'collection_offer_accepted')
+        AND NULLIF(seller_id, '') IS NOT NULL THEN NULLIF(seller_id, '')
+      WHEN event_type = 'COLLECTION_UPDATE' AND operation = 'purchase'
+        THEN NULLIF(creator_id, '')
+      WHEN event_type = 'LAZY_LISTING_UPDATE' AND operation = 'purchased'
+        THEN NULLIF(creator_id, '')
+      ELSE NULL
+    END                                                         AS account_id,
+    0                                                           AS items_created,
+    GREATEST(COALESCE(quantity, 1), 1)                           AS items_sold,
+    COALESCE(NULLIF(creator_payment, '')::NUMERIC,
+             NULLIF(revenue, '')::NUMERIC,
+             NULLIF(price, '')::NUMERIC,
+             NULLIF(amount, '')::NUMERIC,
+             NULLIF(winning_bid, '')::NUMERIC,
+             0)                                                  AS revenue_earned,
+    0                                                           AS items_purchased,
+    0::NUMERIC                                                  AS amount_spent,
+    0                                                           AS collections_created,
+    block_height
+  FROM scarces_events
+  WHERE operation IN ('purchase', 'purchased', 'offer_accepted',
+                      'collection_offer_accepted', 'auction_settled')
+
+  UNION ALL
+
+  -- Purchase activity belongs to buyer_id, or winner_id for auctions.
+  SELECT
+    COALESCE(NULLIF(buyer_id, ''), NULLIF(winner_id, ''))        AS account_id,
+    0                                                           AS items_created,
+    0                                                           AS items_sold,
+    0::NUMERIC                                                  AS revenue_earned,
+    GREATEST(COALESCE(quantity, 1), 1)                           AS items_purchased,
+    COALESCE(NULLIF(price, '')::NUMERIC,
+             NULLIF(amount, '')::NUMERIC,
+             NULLIF(winning_bid, '')::NUMERIC,
+             0)                                                  AS amount_spent,
+    0                                                           AS collections_created,
+    block_height
+  FROM scarces_events
+  WHERE operation IN ('purchase', 'purchased', 'offer_accepted',
+                      'collection_offer_accepted', 'auction_settled')
+)
 SELECT
-  author                                                      AS account_id,
-  -- Creator metrics (mints, collections created)
-  COUNT(*) FILTER (WHERE operation IN ('mint', 'quick_mint',
-    'lazy_mint', 'create_collection'))                        AS items_created,
-  -- Seller metrics (author is the seller / initiator)
-  COUNT(*) FILTER (WHERE operation IN ('purchase',
-    'accept_offer', 'settle_auction')
-    AND seller_id = author)                                   AS items_sold,
-  COALESCE(SUM(CASE WHEN operation IN ('purchase', 'accept_offer',
-    'settle_auction') AND seller_id = author
-    THEN creator_payment::NUMERIC ELSE 0 END), 0)            AS revenue_earned,
-  -- Buyer metrics
-  COUNT(*) FILTER (WHERE operation = 'purchase'
-    AND buyer_id = author)                                    AS items_purchased,
-  COALESCE(SUM(CASE WHEN operation = 'purchase'
-    AND buyer_id = author
-    THEN price::NUMERIC ELSE 0 END), 0)                      AS amount_spent,
-  -- Collections
-  COUNT(DISTINCT collection_id) FILTER (
-    WHERE operation = 'create_collection')                    AS collections_created,
+  account_id,
+  SUM(items_created)::BIGINT                                  AS items_created,
+  SUM(items_sold)::BIGINT                                     AS items_sold,
+  SUM(revenue_earned)                                         AS revenue_earned,
+  SUM(items_purchased)::BIGINT                                AS items_purchased,
+  SUM(amount_spent)                                           AS amount_spent,
+  SUM(collections_created)::BIGINT                            AS collections_created,
   MAX(block_height)                                           AS last_scarces_block
-FROM scarces_events
-GROUP BY author;
+FROM activity
+WHERE account_id IS NOT NULL AND account_id != ''
+GROUP BY account_id;
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 8. reputation_scores — composite reputation score per user
@@ -318,7 +389,154 @@ LEFT JOIN content_activity   c  ON c.account_id  = a.account_id
 LEFT JOIN scarces_activity   n  ON n.account_id  = a.account_id;
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 9. leaderboard_by_app — per-partner/dApp leaderboard
+-- 9. leaderboard_agent_features — deterministic rank-consumer signals
+-- ────────────────────────────────────────────────────────────────────────────
+-- Machine-readable inputs for agents, ranking explainers, and moderation review.
+-- These are indexed-data heuristics, not identity, fraud, or quality judgments.
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE VIEW leaderboard_agent_features AS
+WITH base AS (
+  SELECT
+    rs.account_id,
+    rs.rank,
+    rs.reputation,
+    rs.social_score,
+    rs.commitment_score,
+    rs.quality_score,
+    rs.consistency_score,
+    rs.scarces_score,
+    rs.standing_with,
+    rs.standing_out,
+    rs.boost,
+    rs.lock_months,
+    rs.rewards_earned,
+    rs.total_posts,
+    rs.reply_count,
+    rs.reactions_received,
+    rs.avg_reactions,
+    rs.active_days,
+    rs.unique_conversations,
+    rs.scarces_created,
+    rs.scarces_sold,
+    rs.scarces_revenue_near,
+    GREATEST(
+      COALESCE(c.last_post_block, 0),
+      COALESCE(n.last_scarces_block, 0),
+      COALESCE(lr.last_credit_block, 0),
+      COALESCE(b.last_event_block, 0)
+    )                                                           AS last_activity_block,
+    (
+      COALESCE(rs.standing_with, 0)
+      + COALESCE(rs.standing_out, 0)
+      + COALESCE(rs.total_posts, 0)
+      + COALESCE(rs.reply_count, 0)
+      + COALESCE(rs.reactions_received, 0)
+      + COALESCE(rs.scarces_created, 0)
+      + COALESCE(rs.scarces_sold, 0)
+      + COALESCE(lr.credit_count, 0)
+    )::NUMERIC                                                 AS evidence_points,
+    (
+      CASE WHEN COALESCE(rs.standing_with, 0) + COALESCE(rs.standing_out, 0) > 0 THEN 1 ELSE 0 END
+      + CASE WHEN COALESCE(rs.boost, 0) > 0 THEN 1 ELSE 0 END
+      + CASE WHEN COALESCE(rs.rewards_earned, 0) > 0 THEN 1 ELSE 0 END
+      + CASE WHEN COALESCE(rs.total_posts, 0) + COALESCE(rs.reply_count, 0)
+                  + COALESCE(rs.reactions_received, 0) > 0 THEN 1 ELSE 0 END
+      + CASE WHEN COALESCE(rs.scarces_created, 0) + COALESCE(rs.scarces_sold, 0)
+                  + COALESCE(rs.scarces_revenue_near, 0) > 0 THEN 1 ELSE 0 END
+    )                                                           AS signal_sources
+  FROM reputation_scores rs
+  LEFT JOIN content_activity   c  ON c.account_id  = rs.account_id
+  LEFT JOIN scarces_activity   n  ON n.account_id  = rs.account_id
+  LEFT JOIN leaderboard_rewards lr ON lr.account_id = rs.account_id
+  LEFT JOIN booster_state      b  ON b.account_id  = rs.account_id
+), scored AS (
+  SELECT
+    base.*,
+    CASE
+      WHEN social_score >= commitment_score
+       AND social_score >= quality_score
+       AND social_score >= consistency_score
+       AND social_score >= scarces_score THEN 'social'
+      WHEN commitment_score >= quality_score
+       AND commitment_score >= consistency_score
+       AND commitment_score >= scarces_score THEN 'commitment'
+      WHEN quality_score >= consistency_score
+       AND quality_score >= scarces_score THEN 'quality'
+      WHEN consistency_score >= scarces_score THEN 'consistency'
+      ELSE 'scarces'
+    END                                                         AS primary_signal,
+    ROUND((
+      LEAST(LN(1 + GREATEST(evidence_points, 0)) / LN(101), 1.0) * 0.55
+      + LEAST(COALESCE(active_days, 0)::NUMERIC / 14.0, 1.0) * 0.25
+      + LEAST(COALESCE(signal_sources, 0)::NUMERIC / 3.0, 1.0) * 0.20
+    )::NUMERIC, 4)                                             AS confidence_score,
+    ARRAY_REMOVE(ARRAY[
+      CASE WHEN evidence_points < 5 THEN 'low_evidence' END,
+      CASE WHEN total_posts >= 10 AND active_days <= 1 THEN 'burst_content' END,
+      CASE WHEN total_posts <= 2 AND reactions_received >= 25 THEN 'thin_content_high_engagement' END,
+      CASE WHEN boost > 0 AND total_posts = 0 AND rewards_earned = 0
+             AND scarces_created = 0 AND scarces_sold = 0 THEN 'boost_only' END,
+      CASE WHEN standing_with >= 20 AND standing_out = 0 THEN 'one_way_social_signal' END,
+      CASE WHEN scarces_created + scarces_sold > 0 AND total_posts = 0
+             AND rewards_earned = 0 THEN 'marketplace_only' END
+    ], NULL)                                                    AS review_flags
+  FROM base
+)
+SELECT
+  account_id,
+  rank,
+  reputation,
+  primary_signal,
+  confidence_score,
+  CASE WHEN CARDINALITY(review_flags) > 0 THEN 'review' ELSE 'ok' END
+                                                                AS review_status,
+  review_flags,
+  signal_sources,
+  evidence_points,
+  last_activity_block,
+  social_score,
+  commitment_score,
+  quality_score,
+  consistency_score,
+  scarces_score,
+  standing_with,
+  standing_out,
+  boost,
+  lock_months,
+  rewards_earned,
+  total_posts,
+  reply_count,
+  reactions_received,
+  avg_reactions,
+  active_days,
+  unique_conversations,
+  scarces_created,
+  scarces_sold,
+  scarces_revenue_near,
+  jsonb_build_object(
+    'schema_version', 'leaderboard_agent_features.v1',
+    'score_kind', 'deterministic_indexed_signals',
+    'rank', rank,
+    'reputation', reputation,
+    'primary_signal', primary_signal,
+    'confidence_score', confidence_score,
+    'review_status', CASE WHEN CARDINALITY(review_flags) > 0 THEN 'review' ELSE 'ok' END,
+    'review_flags', review_flags,
+    'inputs', jsonb_build_object(
+      'social_score', social_score,
+      'commitment_score', commitment_score,
+      'quality_score', quality_score,
+      'consistency_score', consistency_score,
+      'scarces_score', scarces_score,
+      'signal_sources', signal_sources,
+      'evidence_points', evidence_points
+    )
+  )                                                             AS agent_context
+FROM scored;
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 10. leaderboard_by_app — per-partner/dApp leaderboard
 -- ────────────────────────────────────────────────────────────────────────────
 -- Ranks users within each registered app by total rewards earned + actions.
 -- Partners can query: WHERE app_id = 'my-app' ORDER BY rank
@@ -345,7 +563,7 @@ WHERE event_type = 'REWARD_CREDITED'
 GROUP BY app_id, account_id;
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 10. leaderboard_by_group — per-community leaderboard
+-- 11. leaderboard_by_group — per-community leaderboard
 -- ────────────────────────────────────────────────────────────────────────────
 -- Ranks users within each group by content contribution + engagement.
 -- Community admins can query: WHERE group_id = 'my-group' ORDER BY rank
@@ -379,58 +597,55 @@ WHERE p.group_id IS NOT NULL AND p.group_id != ''
 GROUP BY p.group_id, p.account_id;
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 11. app_reputation — per-partner/dApp aggregate reputation
+-- 12. app_reputation — per-partner/dApp aggregate reputation
 -- ────────────────────────────────────────────────────────────────────────────
 -- "Is this dApp healthy?" — user count, retention, total volume.
 -- Depends on: rewards_schema.sql (rewards_events), reputation_scores
 -- ────────────────────────────────────────────────────────────────────────────
 
 CREATE OR REPLACE VIEW app_reputation AS
+WITH app_events AS (
+  SELECT
+    app_id,
+    account_id,
+    amount::NUMERIC AS amount,
+    DATE(TO_TIMESTAMP(block_timestamp / 1e9)) AS activity_date
+  FROM rewards_events
+  WHERE event_type = 'REWARD_CREDITED'
+    AND app_id IS NOT NULL AND app_id != ''
+    AND amount IS NOT NULL AND amount != ''
+),
+app_totals AS (
+  SELECT
+    app_id,
+    SUM(amount) AS total_rewarded,
+    COUNT(*) AS total_actions,
+    COUNT(DISTINCT activity_date) AS active_days
+  FROM app_events
+  GROUP BY app_id
+),
+app_user_stats AS (
+  SELECT
+    app_id,
+    account_id,
+    COUNT(*) AS action_count,
+    COUNT(DISTINCT activity_date) AS active_days
+  FROM app_events
+  GROUP BY app_id, account_id
+)
 SELECT
-  re.app_id,
-  COUNT(DISTINCT re.account_id)                               AS total_users,
-  SUM(re.amount::NUMERIC)                                     AS total_rewarded,
-  COUNT(*)                                                    AS total_actions,
-  COUNT(DISTINCT DATE(TO_TIMESTAMP(re.block_timestamp / 1e9)))AS active_days,
-  -- Retention: users active on 2+ distinct days
-  COUNT(DISTINCT re.account_id) FILTER (
-    WHERE re.account_id IN (
-      SELECT r2.account_id
-      FROM rewards_events r2
-      WHERE r2.app_id = re.app_id
-        AND r2.event_type = 'REWARD_CREDITED'
-      GROUP BY r2.account_id
-      HAVING COUNT(DISTINCT DATE(TO_TIMESTAMP(r2.block_timestamp / 1e9))) >= 2
-    )
-  )                                                           AS returning_users,
-  -- Average reputation of the app's users
+  aus.app_id,
+  COUNT(*)                                                    AS total_users,
+  at.total_rewarded,
+  at.total_actions,
+  at.active_days,
+  COUNT(*) FILTER (WHERE aus.active_days >= 2)                AS returning_users,
   ROUND(AVG(rs.reputation), 4)                                AS avg_user_reputation,
-  RANK() OVER (ORDER BY SUM(re.amount::NUMERIC) DESC)        AS rank
-FROM rewards_events re
-LEFT JOIN reputation_scores rs ON rs.account_id = re.account_id
-WHERE re.event_type = 'REWARD_CREDITED'
-  AND re.app_id IS NOT NULL AND re.app_id != ''
-  AND re.amount IS NOT NULL AND re.amount != ''
-GROUP BY re.app_id;
-
--- ────────────────────────────────────────────────────────────────────────────
--- Refresh function
--- ────────────────────────────────────────────────────────────────────────────
--- Refreshes all leaderboard + reputation views. Call after refresh_core_views().
--- Order matters: content_activity & scarces_activity must come before reputation_scores.
---
--- Example pg_cron (every 5 min):
---   SELECT cron.schedule('refresh-leaderboard', '*/5 * * * *',
---     $$SELECT refresh_leaderboard_views()$$);
--- ────────────────────────────────────────────────────────────────────────────
-
-CREATE OR REPLACE FUNCTION refresh_leaderboard_views() RETURNS void AS $$
-BEGIN
-  -- No-op: all leaderboard/reputation views are now live views.
-  -- Kept for backward compatibility with any existing callers.
-  RAISE NOTICE 'refresh_leaderboard_views() is a no-op — views are live';
-END;
-$$ LANGUAGE plpgsql;
+  RANK() OVER (ORDER BY at.total_rewarded DESC)               AS rank
+FROM app_user_stats aus
+JOIN app_totals at ON at.app_id = aus.app_id
+LEFT JOIN reputation_scores rs ON rs.account_id = aus.account_id
+GROUP BY aus.app_id, at.total_rewarded, at.total_actions, at.active_days;
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- Snapshot function — call daily to persist historical rankings
@@ -450,14 +665,15 @@ BEGIN
      total_claimed, composite_score, rank)
   SELECT
     CURRENT_DATE,
-    account_id,
-    COALESCE(boost * 1e18, 0),
-    COALESCE(rewards_earned * 1e18, 0),
-    0,  -- total_claimed filled from reward state if needed
-    reputation,
-    rank
-  FROM reputation_scores
-  WHERE rank <= 1000  -- Top 1000 per day
+    rs.account_id,
+    COALESCE(rs.boost * 1e18, 0),
+    COALESCE(lr.total_earned, 0),
+    COALESCE(lr.total_claimed, 0),
+    rs.reputation,
+    rs.rank
+  FROM reputation_scores rs
+  LEFT JOIN leaderboard_rewards lr ON lr.account_id = rs.account_id
+  WHERE rs.rank <= 1000  -- Top 1000 per day
   ON CONFLICT (snapshot_date, account_id) DO NOTHING;
 END;
 $$ LANGUAGE plpgsql;

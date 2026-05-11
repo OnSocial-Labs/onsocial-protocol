@@ -44,6 +44,9 @@ jobs:
       - name: Cargo test
         run: cargo test
 
+      - name: Validate SQL schemas and views
+        run: bash scripts/validate_sql.sh
+
       - name: Build WASM
         run: cargo build --target wasm32-unknown-unknown --release
 

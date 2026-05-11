@@ -6,7 +6,7 @@
 --   CONTRACT_UPDATE, OFFER_UPDATE, STORAGE_UPDATE, APP_POOL_UPDATE
 --
 -- Columns are nullable — only the fields relevant to each operation are populated.
--- extra_data (JSONB) preserves the full event payload for future-proofing.
+-- extra_data stores serialized event JSON for fields without typed columns.
 
 CREATE TABLE IF NOT EXISTS scarces_events (
   id TEXT PRIMARY KEY,
@@ -30,7 +30,6 @@ CREATE TABLE IF NOT EXISTS scarces_events (
   sender_id TEXT,
   receiver_id TEXT,
   account_id TEXT,
-  executor TEXT,
   contract_id TEXT,
 
   -- NFT contract reference (cross-contract listings)

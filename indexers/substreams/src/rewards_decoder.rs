@@ -138,6 +138,13 @@ fn decode_payload(event_type: &str, data: &Value) -> Option<(bool, Payload)> {
             }),
         )),
 
+        "APP_DEACTIVATED" => Some((
+            true,
+            Payload::AppDeactivated(AppDeactivated {
+                app_id: str_field(data, "app_id"),
+            }),
+        )),
+
         _ => Some((
             true,
             Payload::UnknownEvent(UnknownEvent {

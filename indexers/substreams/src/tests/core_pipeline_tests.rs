@@ -114,8 +114,8 @@ fn core_data_update_profile() {
 }
 
 #[test]
-fn core_data_update_with_graph_target() {
-    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"DATA_UPDATE","data":[{"operation":"set","author":"alice.near","path":"alice.near/graph/follow/bob.near","value":""}]}"#;
+fn core_data_update_with_standing_target() {
+    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"DATA_UPDATE","data":[{"operation":"set","author":"alice.near","path":"alice.near/standing/bob.near","value":""}]}"#;
     let block = MockBlockBuilder::new(100, 1000)
         .add_receipt(CONTRACT, &[1], vec![json])
         .build();
@@ -334,7 +334,7 @@ fn core_group_update_proposal_vote() {
 
 #[test]
 fn core_contract_update_meta_tx() {
-    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"CONTRACT_UPDATE","data":[{"operation":"meta_tx","author":"relayer.near","target_id":"alice.near","auth_type":"delegate","actor_id":"alice.near","payer_id":"relayer.near"}]}"#;
+    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"CONTRACT_UPDATE","data":[{"operation":"meta_tx","author":"relayer.near","target_id":"alice.near","actor_id":"alice.near","payer_id":"relayer.near"}]}"#;
     let block = MockBlockBuilder::new(100, 1000)
         .add_receipt(CONTRACT, &[1], vec![json])
         .build();
@@ -344,7 +344,6 @@ fn core_contract_update_meta_tx() {
     let cu = &output.contract_updates[0];
     assert_eq!(cu.operation, "meta_tx");
     assert_eq!(cu.target_id, "alice.near");
-    assert_eq!(cu.auth_type, "delegate");
     assert!(cu.id.ends_with("-contract"));
 }
 

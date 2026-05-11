@@ -33,7 +33,9 @@ CREATE TABLE IF NOT EXISTS data_updates (
   reaction_kind TEXT,
   channel TEXT,
   kind TEXT,
-  audiences TEXT
+  audiences TEXT,
+  actor_id TEXT,
+  payer_id TEXT
 );
 
 CREATE TABLE IF NOT EXISTS storage_updates (
@@ -51,7 +53,6 @@ CREATE TABLE IF NOT EXISTS storage_updates (
   pool_key TEXT,
   group_id TEXT,
   reason TEXT,
-  auth_type TEXT,
   actor_id TEXT,
   payer_id TEXT,
   target_id TEXT,
@@ -163,7 +164,6 @@ CREATE TABLE IF NOT EXISTS contract_updates (
   derived_id TEXT,
   derived_type TEXT,
   target_id TEXT,
-  auth_type TEXT,
   actor_id TEXT,
   payer_id TEXT,
   extra_data TEXT
@@ -198,12 +198,7 @@ CREATE INDEX IF NOT EXISTS idx_data_updates_post_channel ON data_updates(channel
 CREATE INDEX IF NOT EXISTS idx_data_updates_post_kind ON data_updates(kind) WHERE data_type = 'post' AND kind IS NOT NULL AND kind != '';
 CREATE INDEX IF NOT EXISTS idx_data_updates_post_audiences ON data_updates(audiences) WHERE data_type = 'post' AND audiences IS NOT NULL AND audiences != '';
 
--- Generic flexibility: parse `value` (a TEXT JSON blob) into a sidecar JSONB
--- column so dApps writing custom data_types can filter on inner fields
--- (e.g. `where: {value_json: {_contains: {rating: 5}}}`). Rows whose value
--- is not a JSON object/array (legacy follows, plain strings, empty) are
--- left NULL and skipped by the partial GIN index. Additive — original
--- `value` column is untouched, every existing view keeps working.
+-- JSON object/array values are indexed without changing the raw `value` column.
 ALTER TABLE data_updates ADD COLUMN IF NOT EXISTS value_json jsonb
   GENERATED ALWAYS AS (
     CASE WHEN value ~ '^[\[\{]' THEN value::jsonb ELSE NULL END
@@ -211,6 +206,11 @@ ALTER TABLE data_updates ADD COLUMN IF NOT EXISTS value_json jsonb
 CREATE INDEX IF NOT EXISTS idx_data_updates_value_json_gin
   ON data_updates USING gin (value_json jsonb_path_ops)
   WHERE value_json IS NOT NULL;
+
+ALTER TABLE data_updates ADD COLUMN IF NOT EXISTS actor_id TEXT;
+ALTER TABLE data_updates ADD COLUMN IF NOT EXISTS payer_id TEXT;
+CREATE INDEX IF NOT EXISTS idx_data_updates_actor_id ON data_updates(actor_id) WHERE actor_id IS NOT NULL AND actor_id != '';
+CREATE INDEX IF NOT EXISTS idx_data_updates_payer_id ON data_updates(payer_id) WHERE payer_id IS NOT NULL AND payer_id != '';
 
 CREATE INDEX IF NOT EXISTS idx_storage_updates_author ON storage_updates(author);
 CREATE INDEX IF NOT EXISTS idx_storage_updates_block_height ON storage_updates(block_height);

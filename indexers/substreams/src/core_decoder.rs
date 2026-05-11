@@ -1,8 +1,6 @@
-//! NEP-297 JSON decoder for core-onsocial contract events
+//! NEP-297 JSON decoder for core-onsocial contract events.
 //!
 //! Format: `EVENT_JSON:{"standard":"onsocial","version":"1.0.0","event":"...","data":[...]}`
-//!
-//! No more Borsh decoding needed - just standard JSON parsing!
 
 use serde::Deserialize;
 use serde_json::Value;

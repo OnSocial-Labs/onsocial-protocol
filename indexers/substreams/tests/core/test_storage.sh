@@ -33,7 +33,7 @@ test_storage_query() {
 test_storage_validate_fields() {
     log_test "Validating StorageUpdate field mapping against existing data"
     
-    local result=$(query_hasura '{ storageUpdates(limit: 1, orderBy: {blockHeight: DESC}) { id operation author amount previousBalance newBalance reason partitionId blockHeight blockTimestamp receiptId targetId actorId payerId authType } }')
+    local result=$(query_hasura '{ storageUpdates(limit: 1, orderBy: {blockHeight: DESC}) { id operation author amount previousBalance newBalance reason partitionId blockHeight blockTimestamp receiptId targetId actorId payerId } }')
     
     if ! echo "$result" | jq -e '.data.storageUpdates[0]' >/dev/null 2>&1; then
         log_warn "No StorageUpdates found to validate"
@@ -86,7 +86,7 @@ test_storage_auto_deposit() {
         "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"profile/$key\": \"test\"}}}}" \
         "0.01"
     
-    local result=$(query_hasura '{ storageUpdates(limit: 1, orderBy: {blockHeight: DESC}) { id operation author amount previousBalance newBalance reason partitionId blockHeight blockTimestamp receiptId targetId actorId payerId authType } }')
+    local result=$(query_hasura '{ storageUpdates(limit: 1, orderBy: {blockHeight: DESC}) { id operation author amount previousBalance newBalance reason partitionId blockHeight blockTimestamp receiptId targetId actorId payerId } }')
     
     echo "Verifying StorageUpdate fields for auto_deposit:"
     local entry=".data.storageUpdates[0]"
@@ -110,7 +110,6 @@ test_storage_auto_deposit() {
     
     # Auth context
     assert_field "$result" "$entry.targetId" "$SIGNER" "targetId = signer"
-    assert_field "$result" "$entry.authType" "direct" "authType = direct"
     
     if [[ $ASSERTIONS_FAILED -eq 0 ]]; then
         test_passed "STORAGE_UPDATE (auto_deposit) - all fields validated"

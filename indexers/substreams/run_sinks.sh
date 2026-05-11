@@ -1,20 +1,9 @@
 #!/usr/bin/env bash
 # =============================================================================
-# run_sinks.sh — Launch OnSocial Substreams SQL sink (combined mode)
+# Run OnSocial Substreams SQL sinks.
 # =============================================================================
-# Runs a single combined sink that indexes all 5 contracts in one stream,
-# staying within the StreamingFast Scaling plan's concurrent stream limit.
-#
-# Usage:
-#   SUBSTREAMS_ENDPOINT=... DATABASE_URL=... ./run_sinks.sh          # testnet
-#   NEAR_NETWORK=mainnet SUBSTREAMS_ENDPOINT=... ./run_sinks.sh      # mainnet
-#   MODE=per-contract ./run_sinks.sh                                 # legacy 5-sink mode
-#
-# Environment:
-#   SUBSTREAMS_ENDPOINT  (required) e.g. mainnet.near.streamingfast.io:443
-#   DATABASE_URL         (optional) default: postgres://onsocial:onsocial@localhost:5432/onsocial
-#   NEAR_NETWORK         (optional) "testnet" (default) or "mainnet"
-#   MODE                 (optional) "combined" (default) or "per-contract"
+# Default mode indexes all contracts through one combined stream.
+# Required: SUBSTREAMS_ENDPOINT. Optional: DATABASE_URL, NEAR_NETWORK, MODE.
 # =============================================================================
 
 set -euo pipefail
@@ -26,10 +15,10 @@ DB_URL="${DATABASE_URL:-postgres://onsocial:onsocial@localhost:5432/onsocial}"
 NETWORK="${NEAR_NETWORK:-testnet}"
 MODE="${MODE:-combined}"
 
-# Extract version from substreams.yaml
+# Package version from substreams.yaml.
 VERSION=$(grep -m1 'version:' "$SCRIPT_DIR/substreams.yaml" | awk '{print $2}')
 
-# Set contract suffix based on network
+# Contract account suffix for testnet/mainnet.
 if [ "$NETWORK" = "mainnet" ]; then
   SUFFIX="near"
 else
@@ -48,6 +37,15 @@ echo ""
 echo ">>> Applying combined schema..."
 psql "$DB_URL" -f "$SCRIPT_DIR/combined_schema.sql" 2>/dev/null || true
 echo ""
+
+if compgen -G "$SCRIPT_DIR/migrations/*.sql" > /dev/null; then
+  echo ">>> Applying migrations..."
+  for migration in "$SCRIPT_DIR"/migrations/*.sql; do
+    echo "    $(basename "$migration")"
+    psql "$DB_URL" -f "$migration"
+  done
+  echo ""
+fi
 
 if [ "$MODE" = "combined" ]; then
   # =========================================================================
@@ -75,7 +73,7 @@ if [ "$MODE" = "combined" ]; then
 
 else
   # =========================================================================
-  # PER-CONTRACT MODE: 5 separate streams (legacy, uses 5 concurrent streams)
+  # PER-CONTRACT MODE: 5 separate streams (uses 5 concurrent streams)
   # =========================================================================
   CONTRACTS=(
     "core|map_core_output|core_db_out|core.onsocial.${SUFFIX}"

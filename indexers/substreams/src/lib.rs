@@ -1,19 +1,6 @@
-//! OnSocial Substreams Module
-//!
-//! Decodes NEP-297 JSON events from OnSocial NEAR contract logs.
-//! Each contract gets its own `map_*_output` handler that delegates
-//! block-walking to the shared `block_walker` module.
-//!
-//! Adding a new contract:
-//!   1. proto/<contract>.proto   — message types
-//!   2. src/<contract>_decoder.rs — event decoding
-//!   3. src/<contract>_db_out.rs  — DatabaseChanges mapping
-//!   4. Wire a `map_<contract>_output` handler below (5-10 lines)
-//!   5. substreams.yaml module + params + schema
+//! Substreams maps for OnSocial contract events.
 
-// The #[substreams::handlers::map] macro generates raw-pointer FFI glue
-// that clippy flags. This is safe — the substreams runtime guarantees
-// valid pointers.
+// The `#[substreams::handlers::map]` macro emits raw-pointer FFI glue.
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 
 mod block_walker;
@@ -53,12 +40,7 @@ use serde_json::Value;
 use substreams_near::pb::sf::near::r#type::v1::Block;
 use token_decoder::decode_token_events;
 
-// =============================================================================
-// Core-OnSocial Map Module
-// =============================================================================
-
-/// Process a single core-onsocial log line, appending decoded events to the accumulators.
-/// Shared by both `map_core_output` (per-contract) and `map_combined_output`.
+/// Decodes one core log line into the output accumulators.
 #[allow(clippy::too_many_arguments)]
 fn process_core_log(
     json_data: &str,
@@ -166,7 +148,6 @@ fn process_core_log(
     }
 }
 
-/// Core map module - routes onsocial-standard events to typed outputs
 #[substreams::handlers::map]
 fn map_core_output(params: String, block: Block) -> Result<Output, substreams::errors::Error> {
     let filter = parse_contract_filter(&params);
@@ -205,11 +186,6 @@ fn map_core_output(params: String, block: Block) -> Result<Output, substreams::e
     })
 }
 
-// =============================================================================
-// Boost Map Module
-// =============================================================================
-
-/// Boost map module - outputs typed boost events for DB sink
 #[substreams::handlers::map]
 fn map_boost_output(
     params: String,
@@ -239,11 +215,6 @@ fn map_boost_output(
     })
 }
 
-// =============================================================================
-// Rewards Map Module
-// =============================================================================
-
-/// Rewards map module - outputs typed rewards events for DB sink
 #[substreams::handlers::map]
 fn map_rewards_output(
     params: String,
@@ -273,11 +244,6 @@ fn map_rewards_output(
     })
 }
 
-// =============================================================================
-// Token (NEP-141) Map Module
-// =============================================================================
-
-/// Token map module - outputs typed NEP-141 events for DB sink
 #[substreams::handlers::map]
 fn map_token_output(
     params: String,
@@ -305,11 +271,6 @@ fn map_token_output(
     })
 }
 
-// =============================================================================
-// Scarces (NFT Marketplace) Map Module
-// =============================================================================
-
-/// Scarces map module - outputs typed marketplace events for DB sink
 #[substreams::handlers::map]
 fn map_scarces_output(
     params: String,
@@ -339,14 +300,7 @@ fn map_scarces_output(
     })
 }
 
-// =============================================================================
-// Combined Map Module — All contracts in a single stream
-// =============================================================================
-
-/// Combined map module — processes all 5 contracts in a single block pass.
-///
-/// Params format: `core=core.onsocial.testnet&boost=boost.onsocial.testnet&...`
-/// Each key is the contract label used to dispatch to the correct decoder.
+/// Processes all configured contracts in one block pass.
 #[substreams::handlers::map]
 fn map_combined_output(
     params: String,
@@ -466,10 +420,6 @@ fn map_combined_output(
     })
 }
 
-// =============================================================================
-// DATA_UPDATE Extraction
-// =============================================================================
-
 fn extract_data_update(
     data: &core_decoder::EventData,
     receipt_id: &str,
@@ -495,19 +445,9 @@ fn extract_data_update(
         is_group_content,
     );
 
-    // Target account for social graph paths.
-    // Generic rule: if parts[2] looks like a NEAR account (contains '.')
-    // for any relationship type (standing, reaction, endorsement, delegate,
-    // mentor, etc.), extract it as target_account.
-    // Special case: graph/follow/{target} at parts[3] for NEAR Social compat.
-    let target_account = if path_parts.len() >= 4 && path_parts.get(1) == Some(&"graph") {
-        // Legacy NEAR Social DB: {account}/graph/{verb}/{target}
-        path_parts
-            .get(3)
-            .filter(|s| s.contains('.'))
-            .map(|s| s.to_string())
-    } else if path_parts.len() >= 3 {
-        // Generic: {account}/{relationship}/{target}[/...]
+    // Target account for OnSocial relationship paths such as
+    // {account}/standing/{target.near} or {account}/reaction/{target.near}/...
+    let target_account = if path_parts.len() >= 3 {
         path_parts
             .get(2)
             .filter(|s| s.contains('.'))
@@ -575,6 +515,8 @@ fn extract_data_update(
         channel: channel.unwrap_or_default(),
         kind: kind.unwrap_or_default(),
         audiences: audiences.unwrap_or_default(),
+        actor_id: get_string(&data.extra, "actor_id").unwrap_or_default(),
+        payer_id: get_string(&data.extra, "payer_id").unwrap_or_default(),
     })
 }
 
@@ -761,10 +703,6 @@ fn extract_feed_meta(value: &Option<Value>) -> (Option<String>, Option<String>, 
     (channel, kind, audiences)
 }
 
-// =============================================================================
-// STORAGE_UPDATE Extraction
-// =============================================================================
-
 fn extract_storage_update(
     data: &core_decoder::EventData,
     receipt_id: &str,
@@ -795,7 +733,6 @@ fn extract_storage_update(
         remaining_allowance: get_string(&data.extra, "remaining_allowance").unwrap_or_default(),
         pool_account: get_string(&data.extra, "pool_account").unwrap_or_default(),
         reason: get_string(&data.extra, "reason").unwrap_or_default(),
-        auth_type: get_string(&data.extra, "auth_type").unwrap_or_default(),
         actor_id: get_string(&data.extra, "actor_id").unwrap_or_default(),
         payer_id: get_string(&data.extra, "payer_id").unwrap_or_default(),
         target_id: get_string(&data.extra, "target_id").unwrap_or_default(),
@@ -811,10 +748,6 @@ fn extract_storage_update(
         extra_data: serde_json::to_string(&data.extra).unwrap_or_default(),
     })
 }
-
-// =============================================================================
-// GROUP_UPDATE Extraction
-// =============================================================================
 
 fn extract_group_update(
     data: &core_decoder::EventData,
@@ -949,12 +882,10 @@ fn synthesize_data_update_from_group_update(
         channel: channel.unwrap_or_default(),
         kind: kind.unwrap_or_default(),
         audiences: audiences.unwrap_or_default(),
+        actor_id: get_string(&data.extra, "actor_id").unwrap_or_default(),
+        payer_id: get_string(&data.extra, "payer_id").unwrap_or_default(),
     })
 }
-
-// =============================================================================
-// CONTRACT_UPDATE Extraction
-// =============================================================================
 
 fn extract_contract_update(
     data: &core_decoder::EventData,
@@ -966,17 +897,20 @@ fn extract_contract_update(
 ) -> Option<ContractUpdate> {
     let id = format!("{}-{}-{}-contract", receipt_id, log_index, data_index);
 
-    // Capture event-specific fields (old_config, new_manager, executor, etc.) as JSON
+    // Capture event-specific fields emitted by core CONTRACT_UPDATE operations
+    // (`update_config`, `update_manager`, `contract_upgrade`, status changes
+    // `enter_read_only`/`resume_live`/`activate_contract`, and `wnear_account_set`)
+    // as a JSON blob. `set` (meta_tx) emits `actor_id`/`payer_id` which are already
+    // promoted to first-class columns above.
     let extra_keys: Vec<&str> = vec![
         "old_config",
         "new_config",
         "old_manager",
         "new_manager",
-        "executor",
+        "old_version",
+        "new_version",
         "previous",
         "new",
-        "public_key",
-        "nonce",
         "wnear_account_id",
     ];
     let extra_data = {
@@ -1005,16 +939,11 @@ fn extract_contract_update(
         derived_id: get_string(&data.extra, "id").unwrap_or_default(),
         derived_type: get_string(&data.extra, "type").unwrap_or_default(),
         target_id: get_string(&data.extra, "target_id").unwrap_or_default(),
-        auth_type: get_string(&data.extra, "auth_type").unwrap_or_default(),
         actor_id: get_string(&data.extra, "actor_id").unwrap_or_default(),
         payer_id: get_string(&data.extra, "payer_id").unwrap_or_default(),
         extra_data,
     })
 }
-
-// =============================================================================
-// PERMISSION_UPDATE Extraction
-// =============================================================================
 
 fn extract_permission_update(
     data: &core_decoder::EventData,
@@ -1046,10 +975,6 @@ fn extract_permission_update(
         permission_nonce: get_u64(&data.extra, "permission_nonce").unwrap_or(0),
     })
 }
-
-// =============================================================================
-// Helper Functions
-// =============================================================================
 
 fn get_string(extra: &serde_json::Map<String, Value>, key: &str) -> Option<String> {
     extra.get(key).and_then(|v| match v {

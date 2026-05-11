@@ -154,6 +154,13 @@ make test-all-contracts  # Run all tests
 |--------|-------------|
 | `keys-relayer` | Setup relayer cryptographic keys |
 
+### 📊 **Substreams Indexer**
+
+| Target | Description |
+|--------|-------------|
+| `check-substreams-sql` | Validate Substreams schemas, migrations, and views in a disposable PostgreSQL 16 container |
+| `check-substreams` | Run Substreams validation checks |
+
 ### 🔴 **Redis Management (for Relayer)**
 
 | Target | Description |

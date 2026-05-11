@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS rewards_events (
   extra_data TEXT
 );
 
--- Materialized view: current reward state per user
+-- Sink-maintained reward state per account.
 CREATE TABLE IF NOT EXISTS user_reward_state (
   account_id TEXT PRIMARY KEY,
   total_earned TEXT NOT NULL DEFAULT '0',
@@ -55,3 +55,4 @@ CREATE INDEX IF NOT EXISTS idx_rewards_events_type ON rewards_events(event_type)
 CREATE INDEX IF NOT EXISTS idx_rewards_events_block ON rewards_events(block_height);
 CREATE INDEX IF NOT EXISTS idx_rewards_events_account_type ON rewards_events(account_id, event_type);
 CREATE INDEX IF NOT EXISTS idx_rewards_events_app ON rewards_events(app_id);
+CREATE INDEX IF NOT EXISTS idx_rewards_events_type_app_account ON rewards_events(event_type, app_id, account_id);

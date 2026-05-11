@@ -1,37 +1,27 @@
-//! Shared block-walking utilities for all Substreams map modules.
-//!
-//! Eliminates the duplicated shard → receipt → outcome → log iteration
-//! that every per-contract handler previously copied.
+//! Shared EVENT_JSON block walkers.
 
 use substreams_near::pb::sf::near::r#type::v1::Block;
 
 const EVENT_JSON_PREFIX: &str = "EVENT_JSON:";
 
-/// Parsed block header metadata shared across all handlers.
 pub struct BlockContext {
     pub block_height: u64,
     pub block_timestamp: u64,
     pub block_hash: String,
 }
 
-/// A single EVENT_JSON log line with its receipt context.
 pub struct EventLog<'a> {
     pub receipt_id: String,
     pub json_data: &'a str,
     pub log_index: usize,
 }
 
-/// Extract the contract_id filter from Substreams params string.
-///
-/// Params format: `contract_id=core.onsocial.testnet`
+/// Extracts the `contract_id` filter from params.
 pub fn parse_contract_filter(params: &str) -> Option<String> {
     params.split('=').nth(1).map(|s| s.trim().to_string())
 }
 
-/// Parse multiple contract filters from a combined params string.
-///
-/// Format: `core=core.onsocial.testnet&boost=boost.onsocial.testnet&...`
-/// Returns a Vec of (label, contract_id) pairs.
+/// Extracts labeled contract filters from combined params.
 pub fn parse_multi_contract_filter(params: &str) -> Vec<(String, String)> {
     params
         .split('&')
@@ -48,7 +38,6 @@ pub fn parse_multi_contract_filter(params: &str) -> Vec<(String, String)> {
         .collect()
 }
 
-/// Extract block metadata from block header.
 pub fn block_context(block: &Block) -> BlockContext {
     BlockContext {
         block_height: block.header.as_ref().map(|h| h.height).unwrap_or(0),
@@ -66,16 +55,7 @@ pub fn block_context(block: &Block) -> BlockContext {
     }
 }
 
-/// Iterate all EVENT_JSON log lines from a block, filtered by contract_id.
-///
-/// This is the single place that walks shards → receipts → outcomes → logs.
-/// Each map handler calls this and only provides its own decode logic.
-///
-/// ```ignore
-/// for_each_event_log(&block, filter.as_deref(), |log| {
-///     // decode log.json_data into typed events
-/// });
-/// ```
+/// Iterates EVENT_JSON logs for one optional contract filter.
 pub fn for_each_event_log<F>(block: &Block, contract_filter: Option<&str>, mut callback: F)
 where
     F: FnMut(EventLog<'_>),
@@ -124,7 +104,6 @@ where
     }
 }
 
-/// A single EVENT_JSON log line with its receipt context and the matched contract label.
 pub struct LabeledEventLog<'a> {
     pub label: &'a str,
     pub receipt_id: String,
@@ -132,10 +111,7 @@ pub struct LabeledEventLog<'a> {
     pub log_index: usize,
 }
 
-/// Iterate all EVENT_JSON log lines from a block, matched against multiple contracts.
-///
-/// `contracts` is a slice of (label, contract_id) pairs.
-/// The callback receives a `LabeledEventLog` containing the label of the matched contract.
+/// Iterates EVENT_JSON logs matched against multiple contracts.
 pub fn for_each_event_log_multi<'a, F>(
     block: &'a Block,
     contracts: &'a [(String, String)],
@@ -143,7 +119,6 @@ pub fn for_each_event_log_multi<'a, F>(
 ) where
     F: FnMut(LabeledEventLog<'a>),
 {
-    // Build a lookup from contract_id → label
     let contract_map: std::collections::HashMap<&str, &str> = contracts
         .iter()
         .map(|(label, id)| (id.as_str(), label.as_str()))

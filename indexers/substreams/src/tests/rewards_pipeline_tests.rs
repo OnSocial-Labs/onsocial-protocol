@@ -36,7 +36,7 @@ fn run_rewards_pipeline(block: &substreams_near::pb::sf::near::r#type::v1::Block
 
 #[test]
 fn rewards_credit_full_pipeline() {
-    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"REWARD_CREDITED","data":[{"amount":"1000000000000000000","source":"boost","credited_by":"executor.near","app_id":"portal","account_id":"alice.near"}]}"#;
+    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"REWARD_CREDITED","data":[{"amount":"1000000000000000000","source":"boost","credited_by":"caller.near","app_id":"portal","account_id":"alice.near"}]}"#;
     let block = MockBlockBuilder::new(238_800_000, 1_700_000_000)
         .add_receipt(CONTRACT, &[10, 20], vec![json])
         .build();
@@ -53,7 +53,7 @@ fn rewards_credit_full_pipeline() {
         Payload::RewardCredited(p) => {
             assert_eq!(p.amount, "1000000000000000000");
             assert_eq!(p.source, "boost");
-            assert_eq!(p.credited_by, "executor.near");
+            assert_eq!(p.credited_by, "caller.near");
             assert_eq!(p.app_id, "portal");
         }
         _ => panic!("Expected RewardCredited payload"),
@@ -105,7 +105,7 @@ fn rewards_pool_deposit_full_pipeline() {
 }
 
 #[test]
-fn rewards_all_11_events_through_pipeline() {
+fn rewards_all_12_events_through_pipeline() {
     let events = vec![
         r#"{"standard":"onsocial","version":"1.0.0","event":"REWARD_CREDITED","data":[{"amount":"1","source":"boost","credited_by":"e","app_id":"p","account_id":"a"}]}"#,
         r#"{"standard":"onsocial","version":"1.0.0","event":"REWARD_CLAIMED","data":[{"amount":"1","account_id":"a"}]}"#,
@@ -113,11 +113,12 @@ fn rewards_all_11_events_through_pipeline() {
         r#"{"standard":"onsocial","version":"1.0.0","event":"POOL_DEPOSIT","data":[{"amount":"1","new_balance":"1","account_id":"a"}]}"#,
         r#"{"standard":"onsocial","version":"1.0.0","event":"OWNER_CHANGED","data":[{"old_owner":"a","new_owner":"b","account_id":"a"}]}"#,
         r#"{"standard":"onsocial","version":"1.0.0","event":"MAX_DAILY_UPDATED","data":[{"old_max":"1","new_max":"2","account_id":"a"}]}"#,
-        r#"{"standard":"onsocial","version":"1.0.0","event":"EXECUTOR_ADDED","data":[{"executor":"e","account_id":"a"}]}"#,
-        r#"{"standard":"onsocial","version":"1.0.0","event":"EXECUTOR_REMOVED","data":[{"executor":"e","account_id":"a"}]}"#,
         r#"{"standard":"onsocial","version":"1.0.0","event":"CALLER_ADDED","data":[{"caller":"c","account_id":"a"}]}"#,
         r#"{"standard":"onsocial","version":"1.0.0","event":"CALLER_REMOVED","data":[{"caller":"c","account_id":"a"}]}"#,
         r#"{"standard":"onsocial","version":"1.0.0","event":"CONTRACT_UPGRADE","data":[{"old_version":"1.0.0","new_version":"2.0.0","account_id":"a"}]}"#,
+        r#"{"standard":"onsocial","version":"1.0.0","event":"APP_REGISTERED","data":[{"app_id":"my_app","daily_cap":"100","reward_per_action":"10","total_budget":"1000","daily_budget":"100","account_id":"a"}]}"#,
+        r#"{"standard":"onsocial","version":"1.0.0","event":"APP_UPDATED","data":[{"app_id":"my_app","daily_cap":"200","reward_per_action":"20","active":true,"total_budget":"2000","daily_budget":"200","account_id":"a"}]}"#,
+        r#"{"standard":"onsocial","version":"1.0.0","event":"APP_DEACTIVATED","data":[{"app_id":"my_app","account_id":"a"}]}"#,
     ];
 
     let block = MockBlockBuilder::new(100, 1000)
@@ -127,8 +128,8 @@ fn rewards_all_11_events_through_pipeline() {
     let output = run_rewards_pipeline(&block);
     assert_eq!(
         output.events.len(),
-        11,
-        "All 11 rewards event types should decode"
+        12,
+        "All 12 rewards event types should decode"
     );
 }
 

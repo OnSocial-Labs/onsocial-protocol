@@ -44,7 +44,7 @@ fn test_write_rewards_event_columns() {
         Payload::RewardCredited(RewardCredited {
             amount: "1000000000000000000".to_string(),
             source: "boost".to_string(),
-            credited_by: "executor.near".to_string(),
+            credited_by: "caller.near".to_string(),
             app_id: "portal".to_string(),
         }),
     );
@@ -88,7 +88,7 @@ fn test_accumulate_user_state_credit() {
         Payload::RewardCredited(RewardCredited {
             amount: "5000".to_string(),
             source: "boost".to_string(),
-            credited_by: "executor.near".to_string(),
+            credited_by: "caller.near".to_string(),
             app_id: "portal".to_string(),
         }),
     );

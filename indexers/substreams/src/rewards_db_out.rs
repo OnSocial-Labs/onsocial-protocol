@@ -1,7 +1,4 @@
-//! Database Changes module for rewards events
-//!
-//! Converts RewardsOutput to DatabaseChanges for substreams-sink-sql.
-//! Writes to: rewards_events, user_reward_state
+//! SQL sink writer for rewards events.
 
 use crate::pb::rewards::v1::rewards_event::Payload;
 use crate::pb::rewards::v1::*;
@@ -126,6 +123,9 @@ pub(crate) fn write_rewards_event(tables: &mut Tables, event: &RewardsEvent) {
                 })
                 .to_string(),
             );
+        }
+        Some(Payload::AppDeactivated(p)) => {
+            row.set("app_id", &p.app_id);
         }
         Some(Payload::UnknownEvent(p)) => {
             row.set("extra_data", &p.extra_data);
