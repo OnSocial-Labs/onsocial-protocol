@@ -24,6 +24,49 @@ metadata_api() {
 echo "Dropping inconsistent Hasura metadata, if any..."
 metadata_api '{"type":"drop_inconsistent_metadata","args":{}}' >/dev/null
 
+drop_select_permission() {
+  local relation="$1"
+  local role="$2"
+  local payload
+  local response_file
+  local status
+
+  payload="{\"type\":\"pg_drop_select_permission\",\"args\":{\"source\":\"${SOURCE_NAME}\",\"table\":{\"schema\":\"public\",\"name\":\"${relation}\"},\"role\":\"${role}\"}}"
+  response_file="$(mktemp)"
+  status=$(curl -sS -o "$response_file" -w '%{http_code}' "$HASURA_METADATA_URL" \
+    -H 'Content-Type: application/json' \
+    -H "x-hasura-admin-secret: ${HASURA_ADMIN_SECRET}" \
+    -d "$payload")
+
+  if [[ "$status" =~ ^2 ]]; then
+    echo "drop: ${relation} ${role} select permission"
+    rm -f "$response_file"
+    return 0
+  fi
+
+  if grep -Eqi 'not[ _-]?(found|exist)|does not exist|not tracked|not-tracked' "$response_file"; then
+    rm -f "$response_file"
+    return 0
+  fi
+
+  echo "error: failed to drop ${relation} ${role} select permission (HTTP $status)" >&2
+  cat "$response_file" >&2
+  echo >&2
+  rm -f "$response_file"
+  return 1
+}
+
+# Older gateway permission metadata can reference columns that the upgraded
+# Substreams schemas intentionally removed (for example scarces_events.executor).
+# Hasura may not flag those permissions as inconsistent until the next metadata
+# mutation, so drop them explicitly before tracking any newly deployed views.
+echo "Dropping stale Substreams select permissions, if present..."
+for stale_relation in scarces_events rewards_events; do
+  for role in free pro scale service; do
+    drop_select_permission "$stale_relation" "$role"
+  done
+done
+
 track_relation() {
   local relation="$1"
   local payload
