@@ -21,81 +21,57 @@ metadata_api() {
     -d "$payload"
 }
 
-echo "Dropping inconsistent Hasura metadata, if any..."
-metadata_api '{"type":"drop_inconsistent_metadata","args":{}}' >/dev/null
-
-drop_select_permission() {
-  local relation="$1"
-  local role="$2"
-  local payload
-  local response_file
-  local status
-
-  payload="{\"type\":\"pg_drop_select_permission\",\"args\":{\"source\":\"${SOURCE_NAME}\",\"table\":{\"schema\":\"public\",\"name\":\"${relation}\"},\"role\":\"${role}\"}}"
-  response_file="$(mktemp)"
-  status=$(curl -sS -o "$response_file" -w '%{http_code}' "$HASURA_METADATA_URL" \
-    -H 'Content-Type: application/json' \
-    -H "x-hasura-admin-secret: ${HASURA_ADMIN_SECRET}" \
-    -d "$payload")
-
-  if [[ "$status" =~ ^2 ]]; then
-    echo "drop: ${relation} ${role} select permission"
-    rm -f "$response_file"
-    return 0
+cleanup_inconsistent_metadata() {
+  echo "Reloading Hasura metadata to surface schema drift..."
+  if ! metadata_api '{"type":"reload_metadata","args":{"reload_remote_schemas":true,"reload_sources":true,"recreate_event_triggers":false}}' >/dev/null; then
+    echo "warn: reload_metadata returned non-zero before cleanup; continuing" >&2
   fi
 
-  if grep -Eqi 'not[ _-]?(found|exist)|does not exist|not tracked|not-tracked' "$response_file"; then
-    rm -f "$response_file"
-    return 0
-  fi
-
-  echo "error: failed to drop ${relation} ${role} select permission (HTTP $status)" >&2
-  cat "$response_file" >&2
-  echo >&2
-  rm -f "$response_file"
-  return 1
+  echo "Dropping inconsistent Hasura metadata, if any..."
+  metadata_api '{"type":"drop_inconsistent_metadata","args":{}}' >/dev/null
 }
 
-# Older gateway permission metadata can reference columns that the upgraded
-# Substreams schemas intentionally removed (for example scarces_events.executor).
-# Hasura may not flag those permissions as inconsistent until the next metadata
-# mutation, so drop them explicitly before tracking any newly deployed views.
-echo "Dropping stale Substreams select permissions, if present..."
-for stale_relation in scarces_events rewards_events; do
-  for role in free pro scale service; do
-    drop_select_permission "$stale_relation" "$role"
-  done
-done
+cleanup_inconsistent_metadata
 
 track_relation() {
   local relation="$1"
   local payload
   local response_file
   local status
+  local attempt
 
   payload="{\"type\":\"pg_track_table\",\"args\":{\"source\":\"${SOURCE_NAME}\",\"table\":{\"schema\":\"public\",\"name\":\"${relation}\"}}}"
-  response_file="$(mktemp)"
-  status=$(curl -sS -o "$response_file" -w '%{http_code}' "$HASURA_METADATA_URL" \
-    -H 'Content-Type: application/json' \
-    -H "x-hasura-admin-secret: ${HASURA_ADMIN_SECRET}" \
-    -d "$payload")
+  for attempt in 1 2; do
+    response_file="$(mktemp)"
+    status=$(curl -sS -o "$response_file" -w '%{http_code}' "$HASURA_METADATA_URL" \
+      -H 'Content-Type: application/json' \
+      -H "x-hasura-admin-secret: ${HASURA_ADMIN_SECRET}" \
+      -d "$payload")
 
-  if [[ "$status" =~ ^2 ]]; then
+    if [[ "$status" =~ ^2 ]]; then
+      rm -f "$response_file"
+      return 0
+    fi
+
+    if grep -Eqi 'already[ _-]?(tracked|exists)|already-tracked|already-exists' "$response_file"; then
+      echo "skip: $relation already tracked (metadata race)"
+      rm -f "$response_file"
+      return 2
+    fi
+
+    if [ "$attempt" -eq 1 ] && grep -Eqi 'inconsistent metadata|cannot continue due to new inconsistent metadata|column "[^"]+" does not exist' "$response_file"; then
+      echo "metadata drift surfaced while tracking ${relation}; cleaning and retrying"
+      rm -f "$response_file"
+      cleanup_inconsistent_metadata
+      continue
+    fi
+
+    echo "error: failed to track $relation (HTTP $status)" >&2
+    cat "$response_file" >&2
+    echo >&2
     rm -f "$response_file"
-    return 0
-  fi
-
-  if grep -Eqi 'already[ _-]?(tracked|exists)|already-tracked|already-exists' "$response_file"; then
-    echo "skip: $relation already tracked (metadata race)"
-    rm -f "$response_file"
-    return 2
-  fi
-
-  echo "error: failed to track $relation (HTTP $status)" >&2
-  cat "$response_file" >&2
-  echo >&2
-  rm -f "$response_file"
-  return 1
+    return 1
+  done
 }
 
 echo "Exporting current Hasura metadata..."
