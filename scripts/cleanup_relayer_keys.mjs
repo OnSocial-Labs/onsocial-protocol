@@ -2,6 +2,13 @@
 /**
  * Batch-delete stale function-call access keys from the relayer account.
  *
+ * LEGACY ONLY: the current NEP-366 `/execute_delegate` relayer uses
+ * FullAccess delegate signer lanes. This script only applies to old
+ * FunctionCall pool keys and is opt-in to avoid accidental use.
+ *
+ * To run intentionally, set:
+ *   ALLOW_LEGACY_FC_KEY_REGISTRATION=1
+ *
  * DYNAMIC: fetches active KMS pool keys from GCP at runtime — no hardcoded
  * key lists to keep in sync.
  *
@@ -17,6 +24,13 @@
 import { Account, JsonRpcProvider, PublicKey, actions } from 'near-api-js';
 import { KmsSigner } from './lib/kms-signer.mjs';
 import { execSync } from 'child_process';
+
+if (process.env.ALLOW_LEGACY_FC_KEY_REGISTRATION !== '1') {
+  console.error('cleanup_relayer_keys.mjs is legacy FunctionCall-key tooling.');
+  console.error('The current NEP-366 relayer uses FullAccess delegate signer lanes.');
+  console.error('Set ALLOW_LEGACY_FC_KEY_REGISTRATION=1 only if you intentionally need legacy FunctionCall cleanup.');
+  process.exit(1);
+}
 
 const NETWORK = process.env.NEAR_NETWORK || 'testnet';
 const IS_MAINNET = NETWORK === 'mainnet';

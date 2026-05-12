@@ -1,6 +1,8 @@
 # OnSocial Relayer
 
-A minimal relayer for gasless transactions on NEAR. Forwards pre-signed requests to the OnSocial contract, which verifies signatures on-chain.
+A NEP-366 relayer for gasless transactions on NEAR. It accepts pre-signed
+`SignedDelegateAction` payloads, validates the inner call shape, and pays gas
+for the outer `Action::Delegate(...)` transaction.
 
 ## Quick Start
 
@@ -33,8 +35,9 @@ export LAVA_API_KEY=your-lava-key
 export RELAYER_ALLOWED_CONTRACTS=core.onsocial.near,scarces.onsocial.near,rewards.onsocial.near
 ```
 
-`RELAYER_ALLOWED_CONTRACTS` is the canonical contract allowlist. Every relayed
-request must set `target_account`, and that target must be present in this list.
+`RELAYER_ALLOWED_CONTRACTS` is the canonical inner receiver allowlist. Every
+relayed `SignedDelegateAction` must set `delegate_action.receiver_id` to one of
+these contracts.
 
 RPC resolution order:
 
@@ -68,24 +71,63 @@ Health check with metrics.
 }
 ```
 
-### `POST /execute`
+### `POST /execute_delegate`
 
-Forward a signed request to the contract.
+Relay a NEP-366 `SignedDelegateAction` (gasless meta-transaction). The user's
+session key signs the inner `FunctionCall`; the relayer signs and broadcasts
+the outer `Action::Delegate(...)`.
+
+The outer delegate transaction is signed with the relayer admin/full-access
+delegate signer pool. Contract-scoped FunctionCall pool keys cannot authorize
+NEP-366 `Action::Delegate` transactions because those transactions are not
+FunctionCall actions.
+
+For multi-instance KMS deployments, each relayer instance must have a stable
+`RELAYER_INSTANCE_NAME` (`relayer-0`, `relayer-1`, etc.). The relayer derives
+per-instance KMS delegate keys from that name, keeping nonce lanes separate
+while both hosts serve the same `/execute_delegate` endpoint.
+
+Production default is 50 FullAccess delegate signer lanes per instance:
 
 ```bash
-curl -X POST http://localhost:3040/execute \
+export RELAYER_DELEGATE_POOL_SIZE=50
+```
+
+The relayer self-heals the pool at startup by creating or reusing KMS keys named
+`delegate-{RELAYER_INSTANCE_NAME}-key-{i}` and registering their public keys
+on-chain as FullAccess keys. To pre-create the KMS keys before deployment, run:
+
+```bash
+scripts/ensure_delegate_kms_keys.sh --network mainnet --pool-size 50
+```
+
+For additional instances, pass an explicit instance/keyring list:
+
+```bash
+scripts/ensure_delegate_kms_keys.sh \
+  --network mainnet \
+  --pool-size 50 \
+  --instances relayer-0:relayer-keys-mainnet,relayer-1:relayer-keys-mainnet-1,relayer-2:relayer-keys-mainnet-2
+```
+
+After both delegate relayers are deployed and `/ready` is green, old relayer
+FunctionCall keys can be removed from the relayer account. Preview first:
+
+```bash
+node scripts/cleanup_legacy_relayer_fc_keys.mjs --network mainnet
+```
+
+Apply only after verifying both delegate instances have their expected active
+delegate key count:
+
+```bash
+node scripts/cleanup_legacy_relayer_fc_keys.mjs --network mainnet --apply
+```
+
+```bash
+curl -X POST 'http://localhost:3040/execute_delegate?wait=true' \
   -H "Content-Type: application/json" \
-  -d '{
-    "target_account": "alice.near",
-    "action": { "type": "set", "data": { "profile/name": "Alice" } },
-    "auth": {
-      "type": "signed_payload",
-      "public_key": "ed25519:...",
-      "nonce": "1",
-      "expires_at_ms": "0",
-      "signature": "base64..."
-    }
-  }'
+  -d '{ "signed_delegate": "<base64 borsh SignedDelegateAction>" }'
 ```
 
 Response:

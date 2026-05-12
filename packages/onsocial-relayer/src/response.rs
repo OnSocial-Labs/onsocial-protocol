@@ -109,12 +109,13 @@ impl TxStatusResponse {
 
 #[derive(Serialize)]
 pub struct KeyPoolStats {
+    /// Full-access delegate signer lanes available for `/execute_delegate`.
     pub active_keys: usize,
     pub warm_keys: usize,
     pub draining_keys: usize,
     pub total_in_flight: u32,
     pub per_key_load: f32,
-    /// Per-contract active key counts.
+    /// Retained for response compatibility. Delegate lanes are not contract-scoped.
     pub per_contract: std::collections::HashMap<String, usize>,
 }
 

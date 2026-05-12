@@ -6,7 +6,7 @@
 #   1. Add relayer-N in docker-compose.yml (copy relayer-1 block, new keyring)
 #   2. Add relayer-N:3040 to the reverse_proxy list below
 #   3. Create KMS keyring: gcloud kms keyrings create relayer-keys-inst-N ...
-#   4. Run: node scripts/register_kms_keys.mjs --keyring relayer-keys-inst-N
+#   4. Deploy with RELAYER_INSTANCE_NAME=relayer-N; the relayer provisions delegate keys
 
 :3040 {
 	reverse_proxy relayer-0:3040 relayer-1:3040 {

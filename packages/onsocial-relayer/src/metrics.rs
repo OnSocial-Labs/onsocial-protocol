@@ -121,13 +121,13 @@ relayer_rpc_failovers_total {rpc_failovers}\n\
 # HELP relayer_rpc_errors_total RPC errors.\n\
 # TYPE relayer_rpc_errors_total counter\n\
 relayer_rpc_errors_total {rpc_errors}\n\
-# HELP relayer_key_pool_active Active signing keys.\n\
+# HELP relayer_key_pool_active Active full-access delegate signing keys.\n\
 # TYPE relayer_key_pool_active gauge\n\
 relayer_key_pool_active {pool_active}\n\
-# HELP relayer_key_pool_warm Pre-warmed spare keys.\n\
+# HELP relayer_key_pool_warm Pre-warmed spare delegate keys.\n\
 # TYPE relayer_key_pool_warm gauge\n\
 relayer_key_pool_warm {pool_warm}\n\
-# HELP relayer_key_pool_in_flight In-flight TXs across all keys.\n\
+# HELP relayer_key_pool_in_flight In-flight delegate TXs across all keys.\n\
 # TYPE relayer_key_pool_in_flight gauge\n\
 relayer_key_pool_in_flight {pool_in_flight}\n"
         )

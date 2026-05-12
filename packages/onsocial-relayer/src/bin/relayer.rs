@@ -2,7 +2,6 @@
 
 use onsocial_relayer::{create_router, AppState, Config};
 use std::sync::Arc;
-use tokio_util::sync::CancellationToken;
 use tracing::{error, info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -45,7 +44,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         info!("API key auth enabled");
     } else {
-        warn!("RELAYER_API_KEY not set — /execute is unprotected (dev mode)");
+        warn!("RELAYER_API_KEY not set — /execute_delegate is unprotected (dev mode)");
     }
 
     info!(contracts = ?config.allowed_contracts, rpc = %config.rpc_url, mode = ?config.signer_mode, "Configuration loaded");
@@ -53,16 +52,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bind_address = config.bind_address.clone();
     let state = Arc::new(AppState::new(config).await?);
 
-    info!(active_keys = state.key_pool.active_count(), "Relayer ready");
-
-    let cancel = CancellationToken::new();
-
-    let pool = Arc::clone(&state.key_pool);
-    let state_bg = Arc::clone(&state);
-    let cancel_bg = cancel.clone();
-    tokio::spawn(async move {
-        pool.run_autoscaler(&state_bg.rpc, cancel_bg).await;
-    });
+    info!(
+        delegate_active_keys = state.key_pool.active_delegate_count(),
+        "Relayer ready"
+    );
 
     let app = create_router(state.clone());
 
@@ -74,13 +67,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_graceful_shutdown(shutdown_signal())
         .await?;
 
-    // --- Graceful shutdown: cancel autoscaler, drain TXs, persist keys ---
+    // --- Graceful shutdown: drain TXs, persist local delegate keys ---
     info!("HTTP server stopped, draining in-flight transactions...");
-    cancel.cancel();
 
     let drain_deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(30);
     loop {
-        let in_flight = state.key_pool.total_in_flight();
+        let in_flight = state.key_pool.delegate_total_in_flight();
         if in_flight == 0 {
             info!("All in-flight transactions drained");
             break;

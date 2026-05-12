@@ -1,12 +1,18 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Provision a new contract for relayer routing
+# Legacy FunctionCall-key provisioning for pre-NEP-366 relayer routing
 # =============================================================================
 #
-# Automates the 3 manual steps required BEFORE pushing code changes:
+# LEGACY ONLY: the current `/execute_delegate` relayer path uses FullAccess
+# delegate signer lanes and contract/method allowlists. It does not need
+# per-contract FunctionCall pool keys.
+#
+# To run this legacy script intentionally, set:
+#   ALLOW_LEGACY_FC_KEY_REGISTRATION=1
+#
+# Automates the manual steps required BEFORE pushing code changes:
 #   1. Create KMS pool keys in GCP (one per keyring per contract)
 #   2. Register those keys on-chain as FunctionCall access keys
-#   3. Register the relayer as an intents executor on the contract
 #
 # After running this script, update docker-compose.yml:
 #   - Bump GCP_KMS_POOL_SIZE (shown at the end)
@@ -28,7 +34,6 @@
 #   --dry-run                     Show what would be done without executing
 #   --skip-kms                    Skip KMS key creation (keys already exist)
 #   --skip-register               Skip on-chain key registration
-#   --skip-executor               Skip intents executor registration
 #
 # Prerequisites:
 #   - gcloud CLI authenticated (`gcloud auth login`)
@@ -59,13 +64,16 @@ error() { echo -e "${RED}❌ $1${NC}"; exit 1; }
 step()  { echo -e "\n${BLUE}${BOLD}── $1 ──${NC}"; }
 dry()   { echo -e "${YELLOW}  [dry-run] $1${NC}"; }
 
+if [[ "${ALLOW_LEGACY_FC_KEY_REGISTRATION:-}" != "1" ]]; then
+  error "provision_contract.sh is legacy FunctionCall-key tooling. Use the NEP-366 /execute_delegate relayer with RELAYER_DELEGATE_POOL_SIZE instead."
+fi
+
 # ── Parse arguments ────────────────────────────────────────────────
 CONTRACT_ACCOUNT="${1:-}"
 KEYS_PER_INSTANCE=3
 DRY_RUN=false
 SKIP_KMS=false
 SKIP_REGISTER=false
-SKIP_EXECUTOR=false
 NETWORK=""
 
 shift || true
@@ -76,7 +84,6 @@ while [[ $# -gt 0 ]]; do
     --dry-run)        DRY_RUN=true; shift ;;
     --skip-kms)       SKIP_KMS=true; shift ;;
     --skip-register)  SKIP_REGISTER=true; shift ;;
-    --skip-executor)  SKIP_EXECUTOR=true; shift ;;
     *)                error "Unknown option: $1" ;;
   esac
 done
@@ -371,101 +378,9 @@ else
   warn "Skipping on-chain key registration (--skip-register)"
 fi
 
-# ── Step 5: Register relayer as intents executor ──────────────────
-if ! $SKIP_EXECUTOR; then
-  step "Step 5: Registering relayer as intents executor on $CONTRACT_ACCOUNT"
-  
-  if $DRY_RUN; then
-    dry "Would call $CONTRACT_ACCOUNT.add_intents_executor({executor: '$RELAYER_ACCOUNT'})"
-  else
-    # Check if already an executor by querying contract info  
-    IS_EXECUTOR=$(node -e "
-      const resp = await fetch('$RPC_URL', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0', id: 1, method: 'query',
-          params: {
-            request_type: 'call_function',
-            finality: 'final',
-            account_id: '$CONTRACT_ACCOUNT',
-            method_name: 'get_contract_info',
-            args_base64: Buffer.from('{}').toString('base64')
-          }
-        })
-      });
-      const data = await resp.json();
-      if (data.result?.result) {
-        const info = JSON.parse(Buffer.from(data.result.result).toString());
-        const executors = info.intents_executors || [];
-        console.log(executors.includes('$RELAYER_ACCOUNT') ? 'YES' : 'NO');
-      } else {
-        console.log('UNKNOWN');
-      }
-    " 2>/dev/null || echo "UNKNOWN")
-    
-    if [[ "$IS_EXECUTOR" == "YES" ]]; then
-      info "$RELAYER_ACCOUNT is already an intents executor on $CONTRACT_ACCOUNT"
-    elif [[ "$IS_EXECUTOR" == "NO" || "$IS_EXECUTOR" == "UNKNOWN" ]]; then
-      echo "  Calling add_intents_executor..."
-      
-      # Find contract owner credentials
-      CREDS_FILE="$HOME/.near-credentials/$NETWORK/$CONTRACT_OWNER.json"
-      if [[ ! -f "$CREDS_FILE" ]]; then
-        CREDS_FILE="$HOME/.near-credentials/$NETWORK/$CONTRACT_ACCOUNT.json"
-      fi
-      if [[ ! -f "$CREDS_FILE" ]]; then
-        warn "No credentials found for $CONTRACT_OWNER or $CONTRACT_ACCOUNT"
-        warn "Manually run: near call $CONTRACT_ACCOUNT add_intents_executor '{\"executor\": \"$RELAYER_ACCOUNT\"}' --accountId $CONTRACT_OWNER --networkId $NETWORK"
-      else
-        RESULT=$(node -e "
-          import { readFileSync } from 'fs';
-          import { Account, JsonRpcProvider, InMemorySigner, KeyStore } from 'near-api-js';
-          import { InMemoryKeyStore } from 'near-api-js/lib/key_stores/index.js';
-          import { KeyPair } from 'near-api-js/lib/utils/key_pair.js';
-          
-          const creds = JSON.parse(readFileSync('$CREDS_FILE', 'utf8'));
-          const keyStore = new InMemoryKeyStore();
-          await keyStore.setKey('$NETWORK', '$CONTRACT_OWNER', KeyPair.fromString(creds.private_key));
-          
-          const provider = new JsonRpcProvider({ url: '$RPC_URL' });
-          const signer = new InMemorySigner(keyStore);
-          const account = new Account('$CONTRACT_OWNER', provider, signer);
-          
-          try {
-            const result = await account.functionCall({
-              contractId: '$CONTRACT_ACCOUNT',
-              methodName: 'add_intents_executor',
-              args: { executor: '$RELAYER_ACCOUNT' },
-              gas: BigInt('30000000000000'),
-            });
-            console.log('OK:' + result.transaction.hash);
-          } catch (err) {
-            if (err.message?.includes('already') || err.message?.includes('Already')) {
-              console.log('EXISTS');
-            } else {
-              console.log('FAIL:' + err.message);
-            }
-          }
-        " 2>/dev/null || echo "FAIL:node error")
-        
-        if [[ "$RESULT" == OK:* ]]; then
-          info "Registered as executor (TX: ${RESULT#OK:})"
-        elif [[ "$RESULT" == "EXISTS" ]]; then
-          info "Already registered as executor"
-        else
-          warn "Executor registration failed: ${RESULT#FAIL:}"
-          warn "Manually run: near call $CONTRACT_ACCOUNT add_intents_executor '{\"executor\": \"$RELAYER_ACCOUNT\"}' --accountId $CONTRACT_OWNER --networkId $NETWORK"
-        fi
-      fi
-    fi
-  fi
-else
-  warn "Skipping executor registration (--skip-executor)"
-fi
 
-# ── Step 6: Verify on-chain state ─────────────────────────────────
-step "Step 6: Verifying on-chain access keys"
+# ── Step 5: Verify on-chain state ─────────────────────────────────
+step "Step 5: Verifying on-chain access keys"
 
 if ! $DRY_RUN; then
   node -e "

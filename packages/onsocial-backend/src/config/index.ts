@@ -54,6 +54,17 @@ export const config = {
     ((process.env.NEAR_NETWORK || 'testnet') === 'mainnet'
       ? 'relayer.onsocial.near'
       : 'relayer.onsocial.testnet'),
+  rewardsDelegateAccount:
+    process.env.REWARDS_DELEGATE_ACCOUNT ||
+    process.env.RELAYER_DELEGATE_ACCOUNT ||
+    process.env.RELAYER_ACCOUNT ||
+    ((process.env.NEAR_NETWORK || 'testnet') === 'mainnet'
+      ? 'relayer.onsocial.near'
+      : 'relayer.onsocial.testnet'),
+  rewardsDelegatePrivateKey:
+    process.env.REWARDS_DELEGATE_PRIVATE_KEY ||
+    process.env.RELAYER_DELEGATE_PRIVATE_KEY ||
+    '',
 
   // Postgres
   databaseUrl:

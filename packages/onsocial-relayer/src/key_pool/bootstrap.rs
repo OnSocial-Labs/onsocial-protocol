@@ -6,6 +6,7 @@ use crate::rpc::RpcClient;
 use crate::signer::RelayerSigner;
 use near_crypto::{PublicKey, SecretKey};
 use near_primitives::types::AccountId;
+use near_primitives::views::AccessKeyPermissionView;
 use std::sync::atomic::Ordering;
 use tracing::{info, warn};
 
@@ -61,6 +62,7 @@ pub async fn bootstrap_pool_from_chain(
     stored_keys: Vec<(SecretKey, PublicKey)>,
 ) -> Result<KeyPool, crate::Error> {
     let mut signers_with_nonces: Vec<(RelayerSigner, u64, AccountId)> = Vec::new();
+    let mut delegate_signers: Vec<(RelayerSigner, u64)> = Vec::new();
 
     for (secret_key, public_key) in &stored_keys {
         match rpc
@@ -69,33 +71,33 @@ pub async fn bootstrap_pool_from_chain(
         {
             Ok(ak) => {
                 // Detect which contract this key is authorized for.
-                let target = match &ak.permission {
-                    near_primitives::views::AccessKeyPermissionView::FunctionCall {
-                        receiver_id,
-                        ..
-                    } => match receiver_id.parse::<AccountId>() {
-                        Ok(id) => id,
-                        Err(e) => {
-                            warn!(
-                                key = %public_key,
-                                receiver = %receiver_id,
-                                error = %e,
-                                "Skipping key with unparseable receiver_id"
-                            );
-                            continue;
-                        }
-                    },
-                    near_primitives::views::AccessKeyPermissionView::FullAccess => {
-                        warn!(key = %public_key, "Skipping FullAccess key during bootstrap");
-                        continue;
-                    }
-                };
-
                 let signer = near_crypto::InMemorySigner::from_secret_key(
                     pool_config.account_id.clone(),
                     secret_key.clone(),
                 );
                 let relayer_signer = RelayerSigner::Local { signer };
+
+                let target = match &ak.permission {
+                    AccessKeyPermissionView::FunctionCall { receiver_id, .. } => {
+                        match receiver_id.parse::<AccountId>() {
+                            Ok(id) => id,
+                            Err(e) => {
+                                warn!(
+                                    key = %public_key,
+                                    receiver = %receiver_id,
+                                    error = %e,
+                                    "Skipping key with unparseable receiver_id"
+                                );
+                                continue;
+                            }
+                        }
+                    }
+                    AccessKeyPermissionView::FullAccess => {
+                        delegate_signers.push((relayer_signer, ak.nonce));
+                        info!(key = %public_key, nonce = ak.nonce, "Synced full-access delegate key from chain");
+                        continue;
+                    }
+                };
                 signers_with_nonces.push((relayer_signer, ak.nonce, target.clone()));
                 info!(key = %public_key, nonce = ak.nonce, contract = %target, "Synced key from chain");
             }
@@ -111,7 +113,28 @@ pub async fn bootstrap_pool_from_chain(
         "Bootstrap complete"
     );
 
-    Ok(KeyPool::new(pool_config, signers_with_nonces))
+    let admin_access_key = rpc
+        .query_access_key(
+            &pool_config.account_id,
+            &pool_config.admin_signer.public_key(),
+        )
+        .await
+        .map_err(|e| crate::Error::KeyPool(format!("admin access_key query: {e}")))?;
+    if !matches!(
+        &admin_access_key.permission,
+        AccessKeyPermissionView::FullAccess
+    ) {
+        return Err(crate::Error::Config(
+            "NEP-366 delegate signer provisioning requires the relayer admin signer to be a FullAccess key"
+                .into(),
+        ));
+    }
+
+    Ok(KeyPool::new(
+        pool_config,
+        signers_with_nonces,
+        delegate_signers,
+    ))
 }
 
 #[cfg(test)]

@@ -6,7 +6,7 @@
 //! ## Endpoints
 //! - `GET  /health`     - Pool/KMS/RPC status
 //! - `GET  /ready`      - Readiness probe (503 until bootstrapped)
-//! - `POST /execute`    - Relay signed request to contract
+//! - `POST /execute_delegate` - Relay NEP-366 SignedDelegateAction
 //! - `GET  /tx/:hash`   - Query TX status
 //! - `GET  /metrics`    - Prometheus metrics
 

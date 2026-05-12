@@ -23,6 +23,10 @@ pub struct Config {
     #[serde(default = "defaults::relayer_account_id")]
     pub relayer_account_id: String,
 
+    /// Stable instance name used to partition KMS signer lanes across replicas.
+    #[serde(default = "defaults::instance_name")]
+    pub instance_name: String,
+
     #[serde(default = "defaults::keys_path")]
     pub keys_path: String,
 
@@ -42,6 +46,10 @@ pub struct Config {
     #[serde(default = "defaults::pool_store_path")]
     pub pool_store_path: String,
 
+    /// Number of full-access signer lanes dedicated to NEP-366 delegate relay.
+    #[serde(default = "defaults::delegate_pool_size")]
+    pub delegate_pool_size: u32,
+
     // --- KMS configuration (signer_mode = kms) ---
     #[serde(default)]
     pub signer_mode: SignerMode,
@@ -54,9 +62,6 @@ pub struct Config {
 
     #[serde(default = "defaults::gcp_kms_keyring")]
     pub gcp_kms_keyring: String,
-
-    #[serde(default = "defaults::gcp_kms_pool_size")]
-    pub gcp_kms_pool_size: u32,
 
     #[serde(default = "defaults::gcp_kms_admin_key")]
     pub gcp_kms_admin_key: String,
@@ -78,17 +83,18 @@ impl Default for Config {
             rpc_url: defaults::rpc_url(),
             fallback_rpc_url: defaults::fallback_rpc_url(),
             relayer_account_id: defaults::relayer_account_id(),
+            instance_name: defaults::instance_name(),
             keys_path: defaults::keys_path(),
             bind_address: defaults::bind_address(),
             gas_tgas: defaults::gas_tgas(),
             storage_deposit: defaults::storage_deposit(),
             admin_key_path: defaults::admin_key_path(),
             pool_store_path: defaults::pool_store_path(),
+            delegate_pool_size: defaults::delegate_pool_size(),
             signer_mode: SignerMode::default(),
             gcp_kms_project: defaults::gcp_kms_project(),
             gcp_kms_location: defaults::gcp_kms_location(),
             gcp_kms_keyring: defaults::gcp_kms_keyring(),
-            gcp_kms_pool_size: defaults::gcp_kms_pool_size(),
             gcp_kms_admin_key: defaults::gcp_kms_admin_key(),
             allowed_methods: defaults::allowed_methods(),
             allowed_contracts: defaults::allowed_contracts(),
@@ -261,6 +267,10 @@ mod defaults {
         })
     }
 
+    pub fn instance_name() -> String {
+        std::env::var("RELAYER_INSTANCE_NAME").unwrap_or_else(|_| "relayer".into())
+    }
+
     pub fn keys_path() -> String {
         let net = network();
         if net.contains("mainnet") {
@@ -294,6 +304,15 @@ mod defaults {
         std::env::var("RELAYER_POOL_STORE_PATH").unwrap_or_else(|_| "./data/pool_keys.enc".into())
     }
 
+    pub fn delegate_pool_size() -> u32 {
+        let default_size = 50;
+        std::env::var("RELAYER_DELEGATE_POOL_SIZE")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(default_size)
+            .max(1)
+    }
+
     pub fn gcp_kms_project() -> String {
         std::env::var("GCP_KMS_PROJECT").unwrap_or_default()
     }
@@ -306,24 +325,17 @@ mod defaults {
         std::env::var("GCP_KMS_KEYRING").unwrap_or_default()
     }
 
-    pub fn gcp_kms_pool_size() -> u32 {
-        let default_size = if network().contains("mainnet") {
-            50
-        } else {
-            30
-        };
-        std::env::var("GCP_KMS_POOL_SIZE")
-            .ok()
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(default_size)
-    }
-
     pub fn gcp_kms_admin_key() -> String {
         std::env::var("GCP_KMS_ADMIN_KEY").unwrap_or_else(|_| "admin-key".into())
     }
 
     pub fn allowed_methods() -> Vec<String> {
-        vec!["execute".into()]
+        // `execute_admin` is permitted so wallet-popup-signed delegates that
+        // perform privileged writes (set_permission, set_key_permission,
+        // reserved Set keys) can be relayed. Session FunctionCall keys are
+        // still scoped to `execute` only at the access-key level, which
+        // enforces "admin actions require a wallet" end to end.
+        vec!["execute".into(), "execute_admin".into()]
     }
 
     pub fn allowed_contracts() -> Vec<String> {

@@ -1,10 +1,13 @@
 #!/bin/bash
 # =============================================================================
-# Create GCP KMS keyrings for the NEAR relayer (testnet or mainnet)
+# Create GCP KMS keyrings for the NEP-366 NEAR relayer (testnet or mainnet)
 # =============================================================================
-# Creates keyrings (one per relayer instance) with:
-#   - 1 admin key (FullAccess, used for add/delete key TXs)
-#   - N pool keys (signed client transactions)
+# Creates keyrings (one per relayer instance) with one admin key.
+#
+# Delegate signer lanes can be pre-created with:
+#   scripts/ensure_delegate_kms_keys.sh --network "$NEAR_NETWORK" --pool-size 50
+# They are registered on-chain by the relayer at startup as FullAccess keys.
+# Do not create/register legacy `pool-key-*` FunctionCall keys for `/execute_delegate`.
 #
 # Network-aware: set NEAR_NETWORK=mainnet to target mainnet keyrings.
 #
@@ -33,13 +36,6 @@ NC='\033[0m'
 NETWORK="${NEAR_NETWORK:-testnet}"
 PROJECT="${GCP_KMS_PROJECT:-onsocial-protocol}"
 LOCATION="${GCP_KMS_LOCATION:-global}"
-DEFAULT_POOL_SIZE="30"
-
-if [ "$NETWORK" = "mainnet" ]; then
-  DEFAULT_POOL_SIZE="50"
-fi
-
-POOL_SIZE="${GCP_KMS_POOL_SIZE:-$DEFAULT_POOL_SIZE}"
 DRY_RUN=false
 
 if [ "${1:-}" = "--dry-run" ]; then
@@ -64,7 +60,7 @@ echo "============================================"
 echo " GCP KMS Setup ($NETWORK)"
 echo " Project:  $PROJECT"
 echo " Location: $LOCATION"
-echo " Pool:     $POOL_SIZE keys per keyring"
+echo " Model:    NEP-366 delegate relayer"
 echo " Keyrings: ${KEYRINGS[*]}"
 echo "============================================"
 echo ""
@@ -104,27 +100,6 @@ for KEYRING in "${KEYRINGS[@]}"; do
     fi
   fi
 
-  # Pool keys
-  for i in $(seq 0 $((POOL_SIZE - 1))); do
-    KEY_NAME="pool-key-$i"
-    if $DRY_RUN; then
-      echo "  [dry-run] Create key: $KEY_NAME (ED25519, SIGN_VERIFY, SOFTWARE)"
-    else
-      if gcloud kms keys describe "$KEY_NAME" \
-          --keyring="$KEYRING" --location="$LOCATION" --project="$PROJECT" &>/dev/null; then
-        echo "  ⚠ $KEY_NAME already exists"
-      else
-        gcloud kms keys create "$KEY_NAME" \
-          --keyring="$KEYRING" \
-          --location="$LOCATION" \
-          --project="$PROJECT" \
-          --purpose="asymmetric-signing" \
-          --default-algorithm="ec-sign-ed25519"
-        echo "  ✅ $KEY_NAME created"
-      fi
-    fi
-  done
-
   echo ""
 done
 
@@ -142,9 +117,11 @@ if ! $DRY_RUN; then
   echo ""
   echo "  2. Ensure admin keys have FullAccess on the relayer account"
   echo ""
-  echo "  3. Register pool keys:"
-  echo "     NEAR_NETWORK=$NETWORK node scripts/register_kms_keys.mjs"
+  echo "  3. Optional pre-create delegate signer keys:"
+  echo "     scripts/ensure_delegate_kms_keys.sh --network $NETWORK --pool-size 50"
   echo ""
-  echo "  4. Verify on-chain:"
-  echo "     NEAR_NETWORK=$NETWORK node scripts/register_kms_keys.mjs --dry-run"
+  echo "  4. Deploy/start each relayer with a stable RELAYER_INSTANCE_NAME"
+  echo "     The relayer registers delegate-{instance}-key-* FullAccess lanes on-chain."
+  echo ""
+  echo "  5. Verify /ready and /health show active delegate keys on each instance"
 fi
