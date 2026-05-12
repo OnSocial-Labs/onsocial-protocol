@@ -1,0 +1,535 @@
+[
+  {
+    "name": "core_data_update_profile",
+    "contract": "core",
+    "receiver_id": "core.onsocial.testnet",
+    "block_height": 239416067,
+    "block_timestamp": 1772000000,
+    "receipt_seed": [1, 2, 3],
+    "logs": [
+      {
+        "standard": "onsocial",
+        "version": "1.0.0",
+        "event": "DATA_UPDATE",
+        "data": [
+          {
+            "operation": "set",
+            "author": "test01.onsocial.testnet",
+            "partition_id": 3797,
+            "path": "test01.onsocial.testnet/profile/jwt_test",
+            "id": "jwt_test",
+            "type": "profile",
+            "value": "JWT gasless write at 2026-03-03T16:20:01.000Z"
+          }
+        ]
+      }
+    ],
+    "expected_table_counts": { "data_updates": 1 },
+    "expected_rows": [
+      {
+        "table": "data_updates",
+        "fields": {
+          "block_height": "239416067",
+          "operation": "set",
+          "author": "test01.onsocial.testnet",
+          "partition_id": "3797",
+          "path": "test01.onsocial.testnet/profile/jwt_test",
+          "account_id": "test01.onsocial.testnet",
+          "data_type": "profile",
+          "data_id": "jwt_test",
+          "value": "JWT gasless write at 2026-03-03T16:20:01.000Z"
+        }
+      }
+    ]
+  },
+  {
+    "name": "core_storage_update_tip",
+    "contract": "core",
+    "receiver_id": "core.onsocial.testnet",
+    "block_height": 239245143,
+    "block_timestamp": 1772000000,
+    "receipt_seed": [4, 5, 6],
+    "logs": [
+      {
+        "standard": "onsocial",
+        "version": "1.0.0",
+        "event": "STORAGE_UPDATE",
+        "data": [
+          {
+            "operation": "storage_tip",
+            "author": "test01.onsocial.testnet",
+            "partition_id": 3797,
+            "target_id": "test02.onsocial.testnet",
+            "amount": "1000000000000000000000",
+            "sender_previous_balance": "13669000000000000000000019",
+            "sender_new_balance": "13668000000000000000000019",
+            "recipient_previous_balance": "1190000000000000000000003",
+            "recipient_new_balance": "1191000000000000000000003"
+          }
+        ]
+      }
+    ],
+    "expected_table_counts": { "storage_updates": 1 },
+    "expected_rows": [
+      {
+        "table": "storage_updates",
+        "fields": {
+          "block_height": "239245143",
+          "operation": "storage_tip",
+          "author": "test01.onsocial.testnet",
+          "partition_id": "3797",
+          "target_id": "test02.onsocial.testnet",
+          "amount": "1000000000000000000000"
+        }
+      }
+    ]
+  },
+  {
+    "name": "core_group_update_add_member",
+    "contract": "core",
+    "receiver_id": "core.onsocial.testnet",
+    "block_height": 239239773,
+    "block_timestamp": 1772000000,
+    "receipt_seed": [7, 8],
+    "logs": [
+      {
+        "standard": "onsocial",
+        "version": "1.0.0",
+        "event": "GROUP_UPDATE",
+        "data": [
+          {
+            "operation": "add_member",
+            "author": "test01.onsocial.testnet",
+            "partition_id": 1561,
+            "target_id": "test02.onsocial.testnet",
+            "path": "groups/vote-test/members/test02.onsocial.testnet",
+            "id": "test02.onsocial.testnet",
+            "type": "members",
+            "group_id": "vote-test",
+            "group_path": "members/test02.onsocial.testnet",
+            "is_group_content": true,
+            "value": { "level": 0, "joined_at": "1772454720920968222" },
+            "member_nonce": 1,
+            "member_nonce_path": "groups/vote-test/member_nonces/test02.onsocial.testnet",
+            "default_permissions": [{ "path": "content", "level": 1 }]
+          }
+        ]
+      }
+    ],
+    "expected_table_counts": { "group_updates": 1 },
+    "expected_rows": [
+      {
+        "table": "group_updates",
+        "fields": {
+          "operation": "add_member",
+          "author": "test01.onsocial.testnet",
+          "partition_id": "1561",
+          "group_id": "vote-test",
+          "member_id": "test02.onsocial.testnet",
+          "member_nonce": "1",
+          "member_nonce_path": "groups/vote-test/member_nonces/test02.onsocial.testnet"
+        }
+      }
+    ]
+  },
+  {
+    "name": "core_contract_update_meta_tx",
+    "contract": "core",
+    "receiver_id": "core.onsocial.testnet",
+    "block_height": 239409202,
+    "block_timestamp": 1772000000,
+    "receipt_seed": [13, 14],
+    "logs": [
+      {
+        "standard": "onsocial",
+        "version": "1.0.0",
+        "event": "CONTRACT_UPDATE",
+        "data": [
+          {
+            "operation": "set",
+            "author": "relayer.onsocial.testnet",
+            "partition_id": 3797,
+            "path": "test01.onsocial.testnet/meta_tx",
+            "id": "meta_tx",
+            "type": "meta_tx",
+            "target_id": "test01.onsocial.testnet",
+            "actor_id": "test01.onsocial.testnet",
+            "payer_id": "relayer.onsocial.testnet"
+          }
+        ]
+      }
+    ],
+    "expected_table_counts": { "contract_updates": 1 },
+    "expected_rows": [
+      {
+        "table": "contract_updates",
+        "fields": {
+          "operation": "set",
+          "author": "relayer.onsocial.testnet",
+          "partition_id": "3797",
+          "target_id": "test01.onsocial.testnet",
+          "actor_id": "test01.onsocial.testnet",
+          "payer_id": "relayer.onsocial.testnet"
+        }
+      }
+    ]
+  },
+  {
+    "name": "core_permission_update_grant",
+    "contract": "core",
+    "receiver_id": "core.onsocial.testnet",
+    "block_height": 239239773,
+    "block_timestamp": 1772000000,
+    "receipt_seed": [15, 16],
+    "logs": [
+      {
+        "standard": "onsocial",
+        "version": "1.0.0",
+        "event": "PERMISSION_UPDATE",
+        "data": [
+          {
+            "operation": "grant",
+            "author": "test01.onsocial.testnet",
+            "partition_id": 1561,
+            "target_id": "test02.onsocial.testnet",
+            "path": "groups/vote-test/content",
+            "id": "content",
+            "type": "content",
+            "group_id": "vote-test",
+            "group_path": "content",
+            "is_group_content": true,
+            "level": 1,
+            "expires_at": "0",
+            "permission_nonce": 1
+          }
+        ]
+      }
+    ],
+    "expected_table_counts": { "permission_updates": 1 },
+    "expected_rows": [
+      {
+        "table": "permission_updates",
+        "fields": {
+          "operation": "grant",
+          "author": "test01.onsocial.testnet",
+          "partition_id": "1561",
+          "target_id": "test02.onsocial.testnet",
+          "level": "1",
+          "permission_nonce": "1"
+        }
+      }
+    ]
+  },
+  {
+    "name": "boost_lock_state",
+    "contract": "boost",
+    "receiver_id": "boost.onsocial.testnet",
+    "block_height": 244426030,
+    "block_timestamp": 1775000000,
+    "receipt_seed": [30, 31],
+    "logs": [
+      {
+        "standard": "onsocial",
+        "version": "1.0.0",
+        "event": "BOOST_LOCK",
+        "data": [
+          {
+            "amount": "1000000000000000000",
+            "months": 1,
+            "effective_boost": "4200000000000000000",
+            "account_id": "test06.onsocial.testnet"
+          }
+        ]
+      }
+    ],
+    "expected_table_counts": { "boost_events": 1, "booster_state": 1 },
+    "expected_rows": [
+      {
+        "table": "boost_events",
+        "fields": {
+          "event_type": "BOOST_LOCK",
+          "account_id": "test06.onsocial.testnet",
+          "success": "true",
+          "amount": "1000000000000000000",
+          "months": "1",
+          "effective_boost": "4200000000000000000"
+        }
+      },
+      {
+        "table": "booster_state",
+        "fields": {
+          "account_id": "test06.onsocial.testnet",
+          "last_event_type": "BOOST_LOCK",
+          "last_event_block": "244426030",
+          "locked_amount": "1000000000000000000",
+          "lock_months": "1",
+          "effective_boost": "4200000000000000000"
+        }
+      }
+    ]
+  },
+  {
+    "name": "boost_credits_purchase_history",
+    "contract": "boost",
+    "receiver_id": "boost.onsocial.testnet",
+    "block_height": 245000012,
+    "block_timestamp": 1776000000,
+    "receipt_seed": [92, 93],
+    "logs": [
+      {
+        "standard": "onsocial",
+        "version": "1.0.0",
+        "event": "CREDITS_PURCHASE",
+        "data": [
+          {
+            "amount": "1000000000000000000",
+            "infra_share": "600000000000000000",
+            "rewards_share": "400000000000000000",
+            "account_id": "test01.onsocial.testnet"
+          }
+        ]
+      }
+    ],
+    "expected_table_counts": { "boost_events": 1, "booster_state": 1, "boost_credit_purchases": 1 },
+    "expected_rows": [
+      {
+        "table": "boost_events",
+        "fields": {
+          "event_type": "CREDITS_PURCHASE",
+          "account_id": "test01.onsocial.testnet",
+          "amount": "1000000000000000000",
+          "infra_share": "600000000000000000",
+          "rewards_share": "400000000000000000"
+        }
+      },
+      {
+        "table": "boost_credit_purchases",
+        "fields": {
+          "account_id": "test01.onsocial.testnet",
+          "amount": "1000000000000000000",
+          "infra_share": "600000000000000000",
+          "rewards_share": "400000000000000000"
+        }
+      },
+      {
+        "table": "booster_state",
+        "fields": {
+          "account_id": "test01.onsocial.testnet",
+          "last_event_type": "CREDITS_PURCHASE",
+          "total_credits_purchased": "1000000000000000000"
+        }
+      }
+    ]
+  },
+  {
+    "name": "rewards_reward_credited_state",
+    "contract": "rewards",
+    "receiver_id": "rewards.onsocial.testnet",
+    "block_height": 245000007,
+    "block_timestamp": 1776000000,
+    "receipt_seed": [82, 83],
+    "logs": [
+      {
+        "standard": "onsocial",
+        "version": "1.0.0",
+        "event": "REWARD_CREDITED",
+        "data": [
+          {
+            "amount": "100000000000000000",
+            "source": "engagement",
+            "credited_by": "governance.onsocial.testnet",
+            "app_id": "test_community_02",
+            "account_id": "test03.onsocial.testnet"
+          }
+        ]
+      }
+    ],
+    "expected_table_counts": { "rewards_events": 1, "user_reward_state": 1 },
+    "expected_rows": [
+      {
+        "table": "rewards_events",
+        "fields": {
+          "event_type": "REWARD_CREDITED",
+          "account_id": "test03.onsocial.testnet",
+          "success": "true",
+          "amount": "100000000000000000",
+          "source": "engagement",
+          "credited_by": "governance.onsocial.testnet",
+          "app_id": "test_community_02"
+        }
+      },
+      {
+        "table": "user_reward_state",
+        "fields": {
+          "account_id": "test03.onsocial.testnet",
+          "total_earned": "100000000000000000",
+          "last_credit_block": "245000007"
+        }
+      }
+    ]
+  },
+  {
+    "name": "rewards_reward_claimed_state",
+    "contract": "rewards",
+    "receiver_id": "rewards.onsocial.testnet",
+    "block_height": 245000008,
+    "block_timestamp": 1776000000,
+    "receipt_seed": [84, 85],
+    "logs": [
+      {
+        "standard": "onsocial",
+        "version": "1.0.0",
+        "event": "REWARD_CLAIMED",
+        "data": [
+          {
+            "amount": "100000000000000000",
+            "account_id": "test01.onsocial.testnet"
+          }
+        ]
+      }
+    ],
+    "expected_table_counts": { "rewards_events": 1, "user_reward_state": 1 },
+    "expected_rows": [
+      {
+        "table": "rewards_events",
+        "fields": {
+          "event_type": "REWARD_CLAIMED",
+          "account_id": "test01.onsocial.testnet",
+          "amount": "100000000000000000"
+        }
+      },
+      {
+        "table": "user_reward_state",
+        "fields": {
+          "account_id": "test01.onsocial.testnet",
+          "total_claimed": "100000000000000000",
+          "last_claim_block": "245000008"
+        }
+      }
+    ]
+  },
+  {
+    "name": "token_ft_transfer_balances",
+    "contract": "token",
+    "receiver_id": "token.onsocial.testnet",
+    "block_height": 244683113,
+    "block_timestamp": 1775000000,
+    "receipt_seed": [50, 51],
+    "logs": [
+      {
+        "standard": "nep141",
+        "version": "1.0.0",
+        "event": "ft_transfer",
+        "data": [
+          {
+            "old_owner_id": "boost.onsocial.testnet",
+            "new_owner_id": "greenghost.onsocial.testnet",
+            "amount": "1823675236833784553922"
+          }
+        ]
+      }
+    ],
+    "expected_table_counts": { "token_events": 1, "token_balances": 2 },
+    "expected_rows": [
+      {
+        "table": "token_events",
+        "fields": {
+          "event_type": "ft_transfer",
+          "old_owner_id": "boost.onsocial.testnet",
+          "new_owner_id": "greenghost.onsocial.testnet",
+          "amount": "1823675236833784553922"
+        }
+      },
+      {
+        "table": "token_balances",
+        "fields": {
+          "account_id": "boost.onsocial.testnet",
+          "last_event_type": "ft_transfer_out",
+          "last_event_block": "244683113"
+        }
+      },
+      {
+        "table": "token_balances",
+        "fields": {
+          "account_id": "greenghost.onsocial.testnet",
+          "last_event_type": "ft_transfer_in",
+          "last_event_block": "244683113"
+        }
+      }
+    ]
+  },
+  {
+    "name": "scarces_storage_deposit",
+    "contract": "scarces",
+    "receiver_id": "scarces.onsocial.testnet",
+    "block_height": 245000016,
+    "block_timestamp": 1776000000,
+    "receipt_seed": [100, 101],
+    "logs": [
+      {
+        "standard": "onsocial",
+        "version": "1.0.0",
+        "event": "STORAGE_UPDATE",
+        "data": [
+          {
+            "operation": "storage_deposit",
+            "author": "test01.onsocial.testnet",
+            "account_id": "test01.onsocial.testnet",
+            "deposit": "100000000000000000000000",
+            "new_balance": "2350000000000000000000014"
+          }
+        ]
+      }
+    ],
+    "expected_table_counts": { "scarces_events": 1 },
+    "expected_rows": [
+      {
+        "table": "scarces_events",
+        "fields": {
+          "event_type": "STORAGE_UPDATE",
+          "operation": "storage_deposit",
+          "author": "test01.onsocial.testnet",
+          "account_id": "test01.onsocial.testnet",
+          "deposit": "100000000000000000000000",
+          "new_balance": "2350000000000000000000014"
+        }
+      }
+    ]
+  },
+  {
+    "name": "scarces_quick_mint",
+    "contract": "scarces",
+    "receiver_id": "scarces.onsocial.testnet",
+    "block_height": 245000017,
+    "block_timestamp": 1776000000,
+    "receipt_seed": [102, 103],
+    "logs": [
+      {
+        "standard": "onsocial",
+        "version": "1.0.0",
+        "event": "SCARCE_UPDATE",
+        "data": [
+          {
+            "operation": "quick_mint",
+            "author": "test01.onsocial.testnet",
+            "token_id": "s:15",
+            "owner_id": "test01.onsocial.testnet"
+          }
+        ]
+      }
+    ],
+    "expected_table_counts": { "scarces_events": 1 },
+    "expected_rows": [
+      {
+        "table": "scarces_events",
+        "fields": {
+          "event_type": "SCARCE_UPDATE",
+          "operation": "quick_mint",
+          "author": "test01.onsocial.testnet",
+          "token_id": "s:15",
+          "owner_id": "test01.onsocial.testnet"
+        }
+      }
+    ]
+  }
+]

@@ -158,6 +158,9 @@ make test-all-contracts  # Run all tests
 
 | Target | Description |
 |--------|-------------|
+| `check-substreams-events` | Validate the indexed event manifest against current contract emitters |
+| `check-substreams-schema` | Validate Substreams DB writes against combined and standalone SQL schemas |
+| `check-substreams-rust` | Run Substreams Rust correctness tests |
 | `check-substreams-sql` | Validate Substreams schemas, migrations, and views in a disposable PostgreSQL 16 container |
 | `check-substreams` | Run Substreams validation checks |
 

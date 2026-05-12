@@ -8,6 +8,9 @@ mod scarces_decoder_tests;
 mod token_db_out_tests;
 mod token_decoder_tests;
 
+mod event_manifest_tests;
+mod golden_db_fixture_tests;
+
 // Integration tests: mock Block → block_walker → decoder → typed output
 mod block_walker_tests;
 mod boost_pipeline_tests;

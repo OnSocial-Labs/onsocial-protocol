@@ -1,141 +1,55 @@
-# Substreams Tests
+# Substreams Test Fixtures
 
-Test suite for the OnSocial Substreams indexer (PostgreSQL + Hasura).
+This directory intentionally contains only deterministic test inputs used by the
+Substreams correctness gates. It does not contain live Hasura/testnet scripts.
 
-## Directory Structure
+## Files
 
 ```
 tests/
-  common.sh              # Shared helpers (env, queries, assertions)
-  run_all.sh             # Runner for all contracts
-  test_health.sh         # Cross-contract health & schema checks
-  coverage_report.sh     # Operation coverage across all contracts
-
-  core/                  # Core contract (onsocial NEP-297)
-    test_data.sh         # DATA_UPDATE events
-    test_storage.sh      # STORAGE_UPDATE events
-    test_group.sh        # GROUP_UPDATE events
-    test_contract.sh     # CONTRACT_UPDATE events
-    test_permission.sh   # PERMISSION_UPDATE events
-    test_gap_verification.sh # Executes and verifies remaining core readiness proofs
-
-  boost/                 # Boost contract
-    test_boost_events.sh      # Boost event types
-    test_booster_state.sh     # Booster state view
-    test_credit_purchases.sh  # Boost credit purchase history
-
-  rewards/               # Rewards contract
-    test_rewards_events.sh    # Reward event types
-    test_user_reward_state.sh # User reward state view
-
-  token/                 # Token contract (NEP-141)
-    test_token_events.sh      # ft_mint, ft_burn, ft_transfer
-    test_token_balances.sh    # Token balance tracking
-
-  scarces/               # Scarces contract (NFT marketplace)
-    test_scarces_events.sh    # Scarces event read tests
-    test_scarces_write.sh     # Scarces event write tests
+  event_manifest.json     # Indexed event surface expected from contract emitters
+  golden_db_fixtures.json # EVENT_JSON fixtures with expected DatabaseChanges rows
 ```
 
-## Setup
+## Gates
 
-1. **Environment Variables** - Set these in the root `.env` file or export them:
-   ```bash
-  export HASURA_URL="http://localhost:8080"
-   export HASURA_ADMIN_SECRET="your_admin_secret_here"
-   export CONTRACT="core.onsocial.testnet"
-   export SIGNER="onsocial.testnet"
-   export NETWORK="testnet"
-   ```
-
-  `HASURA_URL` must point to a reachable Hasura instance for the indexed testnet DB.
-  There is no safe public default here. Use an SSH tunnel or the actual deployed endpoint.
-
-2. **Load Environment** (from project root):
-   ```bash
-   source .env
-   ```
-
-## Running Tests
-
-All test files support three modes:
-- `query` - Read-only tests (default, safe)
-- `write` - Tests that write to contract
-- `all` - Run all tests
-
-### Run All Tests
+Static event-surface drift check:
 
 ```bash
-./run_all.sh                         # All contracts, query mode
-./run_all.sh query core              # Core contract only
-./run_all.sh query 'core boost'      # Core + boost
-./run_all.sh all                     # Full suite, all contracts
+python3 ../scripts/check_event_manifest.py
 ```
 
-### Individual Test Files
+This compares `event_manifest.json` with current contract event emitters.
+
+Golden DB mapping fixtures:
 
 ```bash
-# Core contract tests
-./core/test_data.sh query
-./core/test_data.sh post_state
-./core/test_data.sh standing_state
-./core/test_data.sh reaction_state
-./core/test_storage.sh query
-./core/test_group.sh query
-./core/test_contract.sh query
-./core/test_permission.sh query
-./core/test_gap_verification.sh query
-GAP_MEMBER=test04.onsocial.testnet ./core/test_gap_verification.sh write
-
-# Boost contract tests
-./boost/test_boost_events.sh query
-./boost/test_booster_state.sh query
-./boost/test_credit_purchases.sh query
-
-# Rewards contract tests
-./rewards/test_rewards_events.sh query
-./rewards/test_user_reward_state.sh query
-
-# Token contract tests
-./token/test_token_events.sh query
-./token/test_token_balances.sh query
-./token/test_token_events.sh write
-./token/test_token_balances.sh write
-
-# Cross-contract
-./test_health.sh
-./coverage_report.sh
+cargo test golden_db
 ```
 
-### Coverage Report
+These fixtures drive real EVENT_JSON through decoder and DB writer code and
+assert the expected sink rows without Hasura, RPC, funded accounts, or shared
+testnet state.
+
+Full production Substreams check from the repository root:
 
 ```bash
-./coverage_report.sh         # Show operation coverage across all contracts
+make check-substreams
 ```
 
-## Test Features
+That target runs event-surface drift validation, DB writer/schema/fixture parity,
+the Rust test suite, and disposable PostgreSQL SQL validation.
 
-- **Smart Waiting** - Polls indexer until block is synced (no arbitrary delays)
-- **Full Field Validation** - Validates all schema fields
-- **State View Verification** - Confirms latest-op-wins behavior for current views after tombstones
-- **Block Extraction** - Extracts block height from EVENT_JSON
-- **Assertions Tracking** - Counts passed/failed assertions
-- **Formatted Output** - Color-coded test results
+## Adding A Contract
 
-## Current-State Semantics
+Add the contract to each deterministic layer in the same change:
 
-Core `*_current` and derived aggregate views are intended to model latest effective state,
-not just the latest positive write. For delete-style operations, the test suite now includes
-explicit checks that:
+- Substreams modules and DB output writer.
+- Combined and standalone SQL schemas.
+- `INDEXED_CONTRACTS` in `../scripts/check_db_schema_parity.py`.
+- `event_manifest.json` and `../scripts/check_event_manifest.py` emitter extraction.
+- Golden EVENT_JSON fixtures for every new sink table written by the DB output.
+- Rust decoder, pipeline, and DB output tests.
 
-- removed posts disappear from `postsCurrent`
-- removed standings disappear from `standingsCurrent`
-- removed reactions remain observable as tombstones in `reactionsCurrent` while disappearing from `reactionCounts`
-
-These tests are meant to be run after applying schema/view updates in the indexed database.
-
-## Security
-
-- Never commit `.env` files
-- Use `.env.example` for documentation
-- The `HASURA_ADMIN_SECRET` is required and has no default
+`make check-substreams` fails if the DB writer, SQL schema, fixture table
+coverage, Rust tests, or event manifest drift out of sync.

@@ -1,0 +1,150 @@
+{
+  "version": 1,
+  "indexed_contracts": {
+    "core": {
+      "event_types": [
+        "DATA_UPDATE",
+        "STORAGE_UPDATE",
+        "PERMISSION_UPDATE",
+        "GROUP_UPDATE",
+        "CONTRACT_UPDATE"
+      ]
+    },
+    "boost": {
+      "event_types": [
+        "BOOST_LOCK",
+        "BOOST_EXTEND",
+        "BOOST_UNLOCK",
+        "REWARDS_RELEASED",
+        "REWARDS_CLAIM",
+        "CREDITS_PURCHASE",
+        "SCHEDULED_FUND",
+        "INFRA_WITHDRAW",
+        "OWNER_CHANGED",
+        "CONTRACT_UPGRADE",
+        "STORAGE_DEPOSIT",
+        "UNLOCK_FAILED",
+        "CLAIM_FAILED",
+        "WITHDRAW_INFRA_FAILED"
+      ]
+    },
+    "rewards": {
+      "event_types": [
+        "REWARD_CREDITED",
+        "REWARD_CLAIMED",
+        "CLAIM_FAILED",
+        "POOL_DEPOSIT",
+        "OWNER_CHANGED",
+        "MAX_DAILY_UPDATED",
+        "CALLER_ADDED",
+        "CALLER_REMOVED",
+        "CONTRACT_UPGRADE",
+        "APP_REGISTERED",
+        "APP_UPDATED",
+        "APP_DEACTIVATED"
+      ]
+    },
+    "token": {
+      "event_types": [
+        "ft_mint",
+        "ft_burn",
+        "ft_transfer"
+      ]
+    },
+    "scarces": {
+      "graphql_table": "scarcesEvents",
+      "events": {
+        "SCARCE_UPDATE": [
+          "list",
+          "delist",
+          "update_price",
+          "purchase",
+          "purchase_failed",
+          "transfer",
+          "list_native",
+          "delist_native",
+          "auto_delist",
+          "renew",
+          "revoke",
+          "redeem",
+          "burn",
+          "approval_granted",
+          "approval_revoked",
+          "all_approvals_revoked",
+          "auction_created",
+          "auction_bid",
+          "auction_settled",
+          "auction_cancelled",
+          "quick_mint"
+        ],
+        "COLLECTION_UPDATE": [
+          "create",
+          "purchase",
+          "metadata_update",
+          "app_metadata_update",
+          "creator_mint",
+          "airdrop",
+          "cancel",
+          "refund_claimed",
+          "refund_pool_withdrawn",
+          "delete",
+          "pause",
+          "resume",
+          "ban",
+          "unban",
+          "allowlist_update",
+          "allowlist_remove",
+          "price_update",
+          "timing_update"
+        ],
+        "LAZY_LISTING_UPDATE": [
+          "created",
+          "purchased",
+          "cancelled",
+          "expired",
+          "expiry_updated",
+          "price_updated"
+        ],
+        "OFFER_UPDATE": [
+          "offer_made",
+          "offer_cancelled",
+          "offer_accepted",
+          "collection_offer_made",
+          "collection_offer_cancelled",
+          "collection_offer_accepted"
+        ],
+        "APP_POOL_UPDATE": [
+          "register",
+          "fund",
+          "withdraw",
+          "config_update",
+          "owner_transferred",
+          "moderator_added",
+          "moderator_removed"
+        ],
+        "STORAGE_UPDATE": [
+          "storage_deposit",
+          "storage_withdraw",
+          "credit_unused_deposit",
+          "refund_unused_deposit",
+          "prepaid_balance_drawn",
+          "prepaid_balance_restored",
+          "spending_cap_set",
+          "wnear_deposit",
+          "wnear_unwrap_failed"
+        ],
+        "CONTRACT_UPDATE": [
+          "contract_upgrade",
+          "owner_transferred",
+          "fee_recipient_changed",
+          "fee_config_updated",
+          "contract_metadata_updated",
+          "approved_nft_contract_added",
+          "approved_nft_contract_removed",
+          "wnear_account_set",
+          "platform_storage_funded"
+        ]
+      }
+    }
+  }
+}

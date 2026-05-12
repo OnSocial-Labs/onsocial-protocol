@@ -147,6 +147,24 @@ Rust unit / pipeline tests:
 cargo test
 ```
 
+Repo-level production checks:
+
+```bash
+make check-substreams
+```
+
+Contract/Substreams event surface validation:
+
+```bash
+python3 scripts/check_event_manifest.py
+```
+
+Database writer/schema parity validation:
+
+```bash
+python3 scripts/check_db_schema_parity.py
+```
+
 SQL schema and view validation against a clean disposable PostgreSQL 16 database:
 
 ```bash
@@ -159,13 +177,8 @@ This applies the combined deploy schema, migrations, core views, leaderboard
 views, and the standalone package schemas without touching a persistent local
 database.
 
-End-to-end Hasura/PostgreSQL verification scripts (live testnet):
-
-```bash
-HASURA_URL=... HASURA_ADMIN_SECRET=... ./tests/run_all.sh
-```
-
-See [`tests/README.md`](tests/README.md) for details.
+See [`tests/README.md`](tests/README.md) for the deterministic fixture inputs
+used by the Rust and static checks.
 
 ## Verifying the Manifest
 
