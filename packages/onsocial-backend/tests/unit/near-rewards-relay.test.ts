@@ -1,8 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const TEST_SECRET_KEY =
-  '***REMOVED***';
-
 vi.mock('../../src/logger.js', () => ({
   logger: {
     info: vi.fn(),
@@ -19,41 +16,41 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-function setDelegateEnv() {
+function setRewardsRelayEnv() {
   vi.stubEnv('NODE_ENV', 'test');
   vi.stubEnv('TELEGRAM_BOT_TOKEN', 'test-token');
   vi.stubEnv('RELAYER_URL', 'http://relayer.local');
   vi.stubEnv('RELAYER_API_KEY', 'relayer-api-key');
   vi.stubEnv('NEAR_RPC_URL', 'http://rpc.local');
   vi.stubEnv('REWARDS_CONTRACT', 'rewards.testnet');
-  vi.stubEnv('REWARDS_DELEGATE_ACCOUNT', 'backend.testnet');
-  vi.stubEnv('REWARDS_DELEGATE_PRIVATE_KEY', TEST_SECRET_KEY);
 }
 
-describe('backend rewards delegate relay', () => {
+describe('backend rewards service relay', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     vi.clearAllMocks();
-    setDelegateEnv();
+    setRewardsRelayEnv();
   });
 
-  it('credits rewards through /execute_delegate', async () => {
+  it('credits rewards through /execute_rewards', async () => {
     const fetchMock = vi.fn(
       async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
-        if (url === 'http://rpc.local') {
-          return jsonResponse({ result: { nonce: 41 } });
-        }
-        if (url === 'http://relayer.local/latest_block') {
-          return jsonResponse({ block_height: 1000 });
-        }
-        if (url === 'http://relayer.local/execute_delegate?wait=true') {
+        if (url === 'http://relayer.local/execute_rewards?wait=true') {
           const body = JSON.parse(String(init?.body)) as {
-            signed_delegate?: string;
+            action?: Record<string, unknown>;
           };
-          expect(body.signed_delegate).toMatch(/^[A-Za-z0-9+/]+=*$/);
+          expect(body).toEqual({
+            action: {
+              type: 'credit_reward',
+              account_id: 'alice.testnet',
+              amount: '100000000000000000',
+              source: 'telegram:message',
+              app_id: 'onsocial_telegram',
+            },
+          });
           expect((init?.headers as Record<string, string>)['X-Api-Key']).toBe(
             'relayer-api-key'
           );
@@ -78,31 +75,37 @@ describe('backend rewards delegate relay', () => {
 
     expect(txHash).toBe('txhash123');
     const urls = fetchMock.mock.calls.map(([input]) => String(input));
-    expect(urls).toContain('http://relayer.local/execute_delegate?wait=true');
+    expect(urls).toContain('http://relayer.local/execute_rewards?wait=true');
+    expect(urls.some((url) => url.includes('/execute_delegate'))).toBe(false);
     expect(urls.some((url) => url.includes('/execute?wait=true'))).toBe(false);
   });
 
-  it('returns claim relayer errors without falling back to direct auth', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
-      if (url === 'http://rpc.local') {
-        return jsonResponse({ result: { nonce: 9 } });
+  it('returns claim relayer errors without local signing fallback', async () => {
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url === 'http://relayer.local/execute_rewards?wait=true') {
+          const body = JSON.parse(String(init?.body)) as {
+            action?: Record<string, unknown>;
+          };
+          expect(body).toEqual({
+            action: {
+              type: 'claim',
+              account_id: 'alice.testnet',
+            },
+          });
+          return jsonResponse(
+            {
+              success: false,
+              status: 'rejected',
+              error: 'Relayer rewards contract is not allowlisted',
+            },
+            500
+          );
+        }
+        throw new Error(`unexpected fetch: ${url}`);
       }
-      if (url === 'http://relayer.local/latest_block') {
-        return jsonResponse({ block_height: 2000 });
-      }
-      if (url === 'http://relayer.local/execute_delegate?wait=true') {
-        return jsonResponse(
-          {
-            success: false,
-            status: 'rejected',
-            error: 'Inner receiver not allowed',
-          },
-          400
-        );
-      }
-      throw new Error(`unexpected fetch: ${url}`);
-    });
+    );
     vi.stubGlobal('fetch', fetchMock);
 
     const { claimOnChain } = await import('../../src/services/near.js');
@@ -110,10 +113,11 @@ describe('backend rewards delegate relay', () => {
 
     expect(result).toEqual({
       success: false,
-      error: 'Inner receiver not allowed',
+      error: 'Relayer rewards contract is not allowlisted',
     });
     const urls = fetchMock.mock.calls.map(([input]) => String(input));
-    expect(urls).toContain('http://relayer.local/execute_delegate?wait=true');
+    expect(urls).toContain('http://relayer.local/execute_rewards?wait=true');
+    expect(urls.some((url) => url.includes('/execute_delegate'))).toBe(false);
     expect(urls.some((url) => url.includes('/execute?wait=true'))).toBe(false);
   });
 });

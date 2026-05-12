@@ -245,8 +245,6 @@ services:
       NEAR_NETWORK: ${NEAR_NETWORK:-testnet}
       RELAYER_URL: ${RELAYER_URL:-http://relayer-lb:3040}
       RELAYER_API_KEY: ${RELAYER_API_KEY}
-      REWARDS_DELEGATE_ACCOUNT: ${REWARDS_DELEGATE_ACCOUNT:-relayer.onsocial.testnet}
-      REWARDS_DELEGATE_PRIVATE_KEY: ${REWARDS_DELEGATE_PRIVATE_KEY}
       WEBHOOK_URL: https://${PUBLIC_DOMAIN}/webhooks/telegram
       ADMIN_SECRET: ${ADMIN_SECRET}
     depends_on:

@@ -154,9 +154,6 @@ importers:
       grammy:
         specifier: ^1.35.0
         version: 1.41.1(encoding@0.1.13)
-      near-api-js:
-        specifier: ^7.1.0
-        version: 7.1.0
       pg:
         specifier: ^8.16.0
         version: 8.19.0

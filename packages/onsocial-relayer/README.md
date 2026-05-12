@@ -139,6 +139,25 @@ Response:
 }
 ```
 
+### `POST /execute_rewards`
+
+Private service endpoint for Telegram/backend rewards actions. It is protected
+by the same `RELAYER_API_KEY` middleware as `/execute_delegate`, but it does not
+accept arbitrary contract calls or user-signed delegates. The relayer always
+submits a direct zero-deposit `execute` FunctionCall to
+`RELAYER_REWARDS_CONTRACT_ID` using the FullAccess KMS lane pool.
+
+```bash
+curl -X POST 'http://localhost:3040/execute_rewards?wait=true' \
+  -H "Content-Type: application/json" \
+  -H "X-Api-Key: $RELAYER_API_KEY" \
+  -d '{ "action": { "type": "claim", "account_id": "alice.testnet" } }'
+```
+
+`RELAYER_REWARDS_CONTRACT_ID` defaults to `rewards.onsocial.near` on mainnet
+and `rewards.onsocial.testnet` on testnet. It must also be present in
+`RELAYER_ALLOWED_CONTRACTS`.
+
 ## Deployment
 
 ### Hetzner (Production)
