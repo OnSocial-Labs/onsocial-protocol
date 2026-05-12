@@ -245,6 +245,8 @@ services:
       NEAR_NETWORK: ${NEAR_NETWORK:-testnet}
       RELAYER_URL: ${RELAYER_URL:-http://relayer-lb:3040}
       RELAYER_API_KEY: ${RELAYER_API_KEY}
+      REWARDS_DELEGATE_ACCOUNT: ${REWARDS_DELEGATE_ACCOUNT:-relayer.onsocial.testnet}
+      REWARDS_DELEGATE_PRIVATE_KEY: ${REWARDS_DELEGATE_PRIVATE_KEY}
       WEBHOOK_URL: https://${PUBLIC_DOMAIN}/webhooks/telegram
       ADMIN_SECRET: ${ADMIN_SECRET}
     depends_on:
@@ -293,6 +295,7 @@ services:
     environment: &relayer-env
       RUST_LOG: info
       RELAYER_SIGNER_MODE: kms
+      RELAYER_INSTANCE_NAME: relayer-0
       RELAYER_ACCOUNT_ID: ${RELAYER_ACCOUNT_ID:-relayer.onsocial.testnet}
       RELAYER_ALLOWED_CONTRACTS: ${RELAYER_ALLOWED_CONTRACTS:-core.onsocial.testnet,scarces.onsocial.testnet,rewards.onsocial.testnet}
       RELAYER_API_KEY: ${RELAYER_API_KEY}
@@ -300,12 +303,10 @@ services:
       GCP_KMS_PROJECT: ${GCP_KMS_PROJECT:-onsocial-protocol}
       GCP_KMS_LOCATION: ${GCP_KMS_LOCATION:-global}
       GCP_KMS_ADMIN_KEY: admin-key
-      # ── Key pool sizing ──────────────────────────────────────────
-      # Pool size = keys_per_contract × num_contracts (all equal).
-      # Round-robin allocation: pool-key-{i} → contracts[i % N].
-      # Scale: increase pool size, create KMS keys, run register script.
-      GCP_KMS_POOL_SIZE: ${GCP_KMS_POOL_SIZE:-30}
-      RELAYER_MIN_KEYS: ${RELAYER_MIN_KEYS:-30}
+      # NEP-366 delegate signer lanes are full-access keys created and
+      # registered by the relayer at startup per RELAYER_INSTANCE_NAME.
+      RELAYER_DELEGATE_POOL_SIZE: ${RELAYER_DELEGATE_POOL_SIZE:-50}
+      RELAYER_MIN_KEYS: ${RELAYER_MIN_KEYS:-50}
       # allowed_contracts defaults are set in config.rs (core + scarces + rewards per network)
       GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/gcp-sa.json
       # Instance 0 uses the original keyring
@@ -326,6 +327,7 @@ services:
     container_name: relayer-1
     environment:
       <<: *relayer-env
+      RELAYER_INSTANCE_NAME: relayer-1
       # Instance 1 uses a separate keyring (separate admin key → no nonce conflicts)
       GCP_KMS_KEYRING: ${GCP_KMS_KEYRING_1:-relayer-keys-inst-1}
 

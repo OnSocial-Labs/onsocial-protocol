@@ -60,14 +60,15 @@ impl KeyPool {
                     );
                 }
 
-                // KMS: cannot create keys at runtime — ops must pre-provision.
+                // Legacy FunctionCall pool path. The active NEP-366 endpoint uses
+                // the delegate signer pool provisioned by `ensure_delegate_pool`.
                 if self.active_count_for(target) == 0 {
                     if self.is_kms_mode() {
                         error!(
                             contract = %target,
                             "CRITICAL: KMS contract has zero keys and zero warm keys. \
-                             This should never happen — keys are never deleted in KMS mode. \
-                             Run: node scripts/register_kms_keys.mjs {target} && restart relayer"
+                             Legacy FunctionCall pool keys are unavailable; use `/execute_delegate` \
+                             with the FullAccess delegate signer pool."
                         );
                     } else {
                         let need = (self.config.min_keys / num_contracts).max(1);
@@ -108,7 +109,7 @@ impl KeyPool {
                             active = active_now,
                             per_key_load = load,
                             "KMS pool exhausted — all keys active, no warm keys to promote. \
-                             Increase GCP_KMS_POOL_SIZE and re-provision to handle higher load."
+                             Increase RELAYER_DELEGATE_POOL_SIZE for the active delegate path."
                         );
                     }
                 } else {

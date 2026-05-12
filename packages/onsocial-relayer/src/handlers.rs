@@ -4,13 +4,13 @@ use crate::metrics::METRICS;
 use crate::middleware::RequestId;
 use crate::response::{ExecuteResponse, HealthResponse, KeyPoolStats, TxStatusResponse};
 use crate::state::AppState;
+use crate::Error;
 use axum::extract::{FromRequest, Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
-use near_gas::NearGas;
 use near_primitives::hash::CryptoHash;
-use near_primitives::transaction::{Action, FunctionCallAction};
+use near_primitives::transaction::Action;
 use near_primitives::views::FinalExecutionStatus;
 use serde::Deserialize;
 use serde_json::Value;
@@ -18,7 +18,7 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use tracing::{error, info, warn};
 
-/// Query parameters for the `/execute` endpoint.
+/// Query parameters for the `/execute_delegate` endpoint.
 #[derive(Deserialize, Default)]
 pub struct ExecuteParams {
     /// `wait=true` → `broadcast_tx_commit` (synchronous, confirmed result).
@@ -28,7 +28,9 @@ pub struct ExecuteParams {
 
 /// Readiness probe. 200 once pool has active keys.
 pub async fn ready(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    if !state.ready.load(Ordering::Relaxed) && state.key_pool.active_count() > 0 {
+    if !state.ready.load(Ordering::Relaxed)
+        && state.key_pool.active_delegate_count() >= state.config.delegate_pool_size.max(1) as usize
+    {
         state.ready.store(true, Ordering::Relaxed);
     }
 
@@ -42,9 +44,9 @@ pub async fn ready(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 /// Prometheus metrics.
 pub async fn metrics(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let body = METRICS.render(
-        state.key_pool.active_count(),
-        state.key_pool.warm_count(),
-        state.key_pool.total_in_flight(),
+        state.key_pool.active_delegate_count(),
+        0,
+        state.key_pool.delegate_total_in_flight(),
     );
     (
         [(
@@ -73,7 +75,7 @@ pub async fn health(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 
     let rpc_status = state.rpc.health_check().await.unwrap_or("unavailable");
 
-    let status = if rpc_status == "unavailable" || pool.active_count() == 0 {
+    let status = if rpc_status == "unavailable" || pool.active_delegate_count() == 0 {
         "unavailable"
     } else if kms_status == "degraded" || rpc_status == "degraded" {
         "degraded"
@@ -95,26 +97,53 @@ pub async fn health(State(state): State<Arc<AppState>>) -> impl IntoResponse {
         failovers: state.rpc.failover_count(),
         rpc_status,
         key_pool: KeyPoolStats {
-            active_keys: pool.active_count(),
-            warm_keys: pool.warm_count(),
-            draining_keys: pool.draining_count(),
-            total_in_flight: pool.total_in_flight(),
-            per_key_load: pool.per_key_load(),
-            per_contract: state
-                .allowed_contracts
-                .iter()
-                .map(|c| (c.to_string(), pool.active_count_for(c)))
-                .collect(),
+            active_keys: pool.active_delegate_count(),
+            warm_keys: 0,
+            draining_keys: 0,
+            total_in_flight: pool.delegate_total_in_flight(),
+            per_key_load: pool.delegate_per_key_load(),
+            per_contract: std::collections::HashMap::new(),
         },
     })
 }
 
-/// Forward a request to the contract's `execute()` method.
-pub async fn execute(
+// ---------------------------------------------------------------------------
+// /execute_delegate — NEP-366 meta-transaction relay.
+//
+// Body: { "signed_delegate": "<base64 borsh SignedDelegateAction>" }
+// Query: ?wait=true (optional, broadcast_tx_commit)
+//
+// Per NEP-366 the OUTER transaction must be:
+//   signer  = relayer
+//   receiver = delegate.sender_id  (= the user account)
+//   actions = [Action::Delegate(signed_delegate)]
+//
+// On-chain, the runtime expands this into an inner receipt
+//   predecessor = signer = sender = user
+// so contracts that call `env::signer_account_id()` see the real user
+// (and explorers attribute the call to the user account).
+//
+// We allow-list the inner `delegate.receiver_id` against
+// `state.allowed_contracts` so users cannot use our relayer to call
+// arbitrary contracts.
+// ---------------------------------------------------------------------------
+
+#[derive(Deserialize)]
+pub struct ExecuteDelegateBody {
+    /// Base64 standard encoding of `borsh(SignedDelegateAction)`.
+    pub signed_delegate: String,
+}
+
+pub async fn execute_delegate(
     State(state): State<Arc<AppState>>,
     Query(params): Query<ExecuteParams>,
     request_parts: axum::extract::Request,
 ) -> (StatusCode, Json<ExecuteResponse>) {
+    use crate::key_pool::FullAccessTxOutcome;
+    use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
+    use near_primitives::action::delegate::SignedDelegateAction;
+    use near_primitives::borsh::BorshDeserialize;
+
     let start = std::time::Instant::now();
     METRICS.tx_total.fetch_add(1, Ordering::Relaxed);
     state.request_count.fetch_add(1, Ordering::Relaxed);
@@ -125,336 +154,213 @@ pub async fn execute(
         .map(|r| r.0.clone())
         .unwrap_or_default();
 
-    let request: Value = match axum::Json::<Value>::from_request(request_parts, &state).await {
-        Ok(axum::Json(v)) => v,
-        Err(e) => {
-            METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
-            warn!(req_id = %req_id, error = %e, "Invalid JSON body");
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(ExecuteResponse::err("Invalid JSON body", None)),
-            );
-        }
-    };
-
-    let action_type = request
-        .get("action")
-        .and_then(|a| a.get("type"))
-        .and_then(|t| t.as_str())
-        .unwrap_or("unknown");
-
-    info!(req_id = %req_id, action = action_type, "Relaying request");
-
-    // Validate request structure
-    if !request.is_object() {
-        METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
-        warn!(req_id = %req_id, "Invalid request format");
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(ExecuteResponse::err("Request must be a JSON object", None)),
-        );
-    }
-
-    if request.get("action").is_none() {
-        METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(ExecuteResponse::err("Missing 'action' field", None)),
-        );
-    }
-
-    // Route to correct contract; `target_account` is required.
-    let contract_id = match request.get("target_account").and_then(|v| v.as_str()) {
-        Some(ta) => {
-            let parsed = match ta.parse::<near_primitives::types::AccountId>() {
-                Ok(id) => id,
-                Err(_) => {
-                    METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
-                    return (
-                        StatusCode::BAD_REQUEST,
-                        Json(ExecuteResponse::err(
-                            format!("Invalid target_account: {ta}"),
-                            None,
-                        )),
-                    );
-                }
-            };
-            if !state.allowed_contracts.contains(&parsed) {
+    let body: ExecuteDelegateBody =
+        match axum::Json::<ExecuteDelegateBody>::from_request(request_parts, &state).await {
+            Ok(axum::Json(v)) => v,
+            Err(e) => {
                 METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
+                warn!(req_id = %req_id, error = %e, "Invalid delegate body");
                 return (
                     StatusCode::BAD_REQUEST,
                     Json(ExecuteResponse::err(
-                        format!("Contract not allowed: {parsed}"),
+                        "Body must be { signed_delegate: <base64> }",
                         None,
                     )),
                 );
             }
-            parsed
-        }
-        None => {
+        };
+
+    let bytes = match B64.decode(body.signed_delegate.as_bytes()) {
+        Ok(b) => b,
+        Err(e) => {
             METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
+            warn!(req_id = %req_id, error = %e, "signed_delegate base64 decode failed");
             return (
                 StatusCode::BAD_REQUEST,
-                Json(ExecuteResponse::err("Missing 'target_account' field", None)),
+                Json(ExecuteResponse::err(
+                    "signed_delegate is not valid base64",
+                    None,
+                )),
             );
         }
     };
-    info!(req_id = %req_id, contract = %contract_id, "Routing to contract");
 
-    let gas = NearGas::from_tgas(state.config.gas_tgas);
-    let deposit = state.config.storage_deposit;
-
-    let guard = match state.key_pool.acquire(&contract_id) {
-        Ok(g) => g,
+    let signed_delegate: SignedDelegateAction = match SignedDelegateAction::try_from_slice(&bytes) {
+        Ok(sd) => sd,
         Err(e) => {
             METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
-            error!(req_id = %req_id, error = %e, "Key pool exhausted");
+            warn!(req_id = %req_id, error = %e, "signed_delegate borsh decode failed");
             return (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(ExecuteResponse::err("Relayer busy, try again", None)),
+                StatusCode::BAD_REQUEST,
+                Json(ExecuteResponse::err(
+                    "signed_delegate is not a valid borsh SignedDelegateAction",
+                    None,
+                )),
             );
         }
     };
 
-    let block_hash = match state.rpc.latest_block_hash().await {
-        Ok(h) => h,
-        Err(e) => {
+    // Verify user signature locally so we don't waste a relayer nonce on a
+    // doomed tx (the protocol re-verifies on-chain).
+    if !signed_delegate.verify() {
+        METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
+        warn!(req_id = %req_id, "delegate signature verification failed");
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(ExecuteResponse::err(
+                "Invalid signature on SignedDelegateAction",
+                None,
+            )),
+        );
+    }
+
+    let inner_receiver = signed_delegate.delegate_action.receiver_id.clone();
+    let inner_sender = signed_delegate.delegate_action.sender_id.clone();
+
+    if !state.allowed_contracts.contains(&inner_receiver) {
+        METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
+        warn!(
+            req_id = %req_id,
+            receiver = %inner_receiver,
+            "delegate inner receiver not in allowlist"
+        );
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ExecuteResponse::err(
+                format!("Inner receiver not allowed: {inner_receiver}"),
+                None,
+            )),
+        );
+    }
+
+    // ── Inner-action shape check ────────────────────────────────────────
+    // Sessions only ever submit `execute` FunctionCalls with zero deposit.
+    // Reject anything else so a stolen session key cannot be coerced into
+    // calling other methods or attaching value through the relayer.
+    if signed_delegate.delegate_action.actions.is_empty() {
+        METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
+        warn!(req_id = %req_id, "delegate has no inner actions");
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ExecuteResponse::err(
+                "Delegate must contain at least one action",
+                None,
+            )),
+        );
+    }
+    for nda in &signed_delegate.delegate_action.actions {
+        let action: Action = nda.clone().into();
+        let fc = match &action {
+            Action::FunctionCall(fc) => fc.as_ref(),
+            other => {
+                METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
+                warn!(
+                    req_id = %req_id,
+                    kind = ?std::mem::discriminant(other),
+                    "delegate inner action is not a FunctionCall"
+                );
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ExecuteResponse::err(
+                        "Only FunctionCall inner actions are allowed",
+                        None,
+                    )),
+                );
+            }
+        };
+        if !state.allowed_methods.iter().any(|m| m == &fc.method_name) {
             METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
-            error!(req_id = %req_id, error = %e, "Failed to get block hash");
+            warn!(
+                req_id = %req_id,
+                method = %fc.method_name,
+                allowed = ?state.allowed_methods,
+                "delegate inner method not in allowlist"
+            );
             return (
-                StatusCode::BAD_GATEWAY,
-                Json(ExecuteResponse::err("RPC temporarily unavailable", None)),
+                StatusCode::BAD_REQUEST,
+                Json(ExecuteResponse::err(
+                    format!("Inner method not allowed: {}", fc.method_name),
+                    None,
+                )),
             );
         }
-    };
+        if fc.deposit != 0 {
+            METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
+            warn!(
+                req_id = %req_id,
+                deposit = %fc.deposit,
+                "delegate inner action carries a deposit"
+            );
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ExecuteResponse::err("Inner action deposit must be 0", None)),
+            );
+        }
+    }
 
-    // Hold per-key lock for nonce ordering.
-    let _submit_guard = guard.lock_submit().await;
+    info!(
+        req_id = %req_id,
+        sender = %inner_sender,
+        receiver = %inner_receiver,
+        actions = signed_delegate.delegate_action.actions.len(),
+        "Relaying NEP-366 delegate"
+    );
 
-    let actions = build_execute_actions(&request, gas, deposit);
-    let signed_tx = match guard
-        .signer()
-        .sign_transaction(guard.nonce, &contract_id, block_hash, actions)
+    let actions: Vec<Action> = vec![Action::Delegate(Box::new(signed_delegate))];
+    let submitted = match state
+        .key_pool
+        .submit_delegate_transaction(&state.rpc, &inner_sender, actions, params.wait)
         .await
     {
-        Ok(tx) => tx,
+        Ok(outcome) => outcome,
         Err(e) => {
             METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
-            error!(req_id = %req_id, error = %e, "Transaction signing failed");
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ExecuteResponse::err("Transaction signing failed", None)),
-            );
+            let (status, public_error) = match &e {
+                Error::Config(_) => (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Relayer delegate signer is not configured correctly",
+                ),
+                Error::Rpc(_) => (StatusCode::BAD_GATEWAY, "RPC temporarily unavailable"),
+                Error::KeyPool(_) => (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "Relayer delegate signer is temporarily unavailable",
+                ),
+            };
+            error!(req_id = %req_id, error = %e, "Delegate tx submission failed");
+            return (status, Json(ExecuteResponse::err(public_error, None)));
         }
     };
 
-    if params.wait {
-        match state.rpc.send_signed_tx(signed_tx).await {
-            Ok(outcome) => {
-                METRICS.tx_success.fetch_add(1, Ordering::Relaxed);
-                METRICS.record_tx_duration(start);
-                let hash = format!("{}", outcome.transaction_outcome.id);
-                match &outcome.status {
-                    FinalExecutionStatus::SuccessValue(bytes) => {
-                        let value: Option<Value> = serde_json::from_slice(bytes).ok();
-                        info!(req_id = %req_id, tx_hash = %hash, "TX committed (success)");
-                        (StatusCode::OK, Json(ExecuteResponse::success(hash, value)))
-                    }
-                    FinalExecutionStatus::Failure(e) => {
-                        let err_msg = format!("{e:?}");
-                        warn!(req_id = %req_id, tx_hash = %hash, error = %err_msg, "TX committed (failure)");
-                        (
-                            StatusCode::OK,
-                            Json(ExecuteResponse::failure(hash, err_msg)),
-                        )
-                    }
-                    _ => {
-                        info!(req_id = %req_id, tx_hash = %hash, "TX committed (pending status)");
-                        (StatusCode::ACCEPTED, Json(ExecuteResponse::pending(hash)))
-                    }
+    METRICS.tx_success.fetch_add(1, Ordering::Relaxed);
+    METRICS.record_tx_duration(start);
+
+    match submitted {
+        FullAccessTxOutcome::Committed(outcome) => {
+            let hash = format!("{}", outcome.transaction_outcome.id);
+            match &outcome.status {
+                FinalExecutionStatus::SuccessValue(bytes) => {
+                    let value: Option<Value> = serde_json::from_slice(bytes).ok();
+                    info!(req_id = %req_id, tx_hash = %hash, "Delegate TX committed (success)");
+                    (StatusCode::OK, Json(ExecuteResponse::success(hash, value)))
                 }
-            }
-            Err(e) => {
-                let err_str = format!("{e}");
-
-                // Nonce error — re-sync and retry once
-                if err_str.contains("InvalidNonce") || err_str.contains("nonce") {
-                    METRICS.nonce_retries.fetch_add(1, Ordering::Relaxed);
-                    warn!(req_id = %req_id, "Nonce error on commit, re-syncing and retrying");
-                    let pk = guard.public_key();
-                    let _ = state.key_pool.handle_nonce_error(&pk, &state.rpc).await;
-
-                    if let Some(result) = retry_after_nonce_error_sync(
-                        &state,
-                        &contract_id,
-                        &request,
-                        gas,
-                        deposit,
-                        block_hash,
+                FinalExecutionStatus::Failure(e) => {
+                    let err_msg = format!("{e:?}");
+                    warn!(req_id = %req_id, tx_hash = %hash, error = %err_msg, "Delegate TX committed (failure)");
+                    (
+                        StatusCode::OK,
+                        Json(ExecuteResponse::failure(hash, err_msg)),
                     )
-                    .await
-                    {
-                        METRICS.tx_success.fetch_add(1, Ordering::Relaxed);
-                        METRICS.record_tx_duration(start);
-                        return result;
-                    }
                 }
-
-                METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
-                METRICS.record_tx_duration(start);
-                error!(req_id = %req_id, error = %e, "Commit broadcast failed");
-                (
-                    StatusCode::BAD_GATEWAY,
-                    Json(ExecuteResponse::err("Transaction broadcast failed", None)),
-                )
+                _ => (StatusCode::ACCEPTED, Json(ExecuteResponse::pending(hash))),
             }
         }
-    } else {
-        match state.rpc.send_tx_async(signed_tx).await {
-            Ok(tx_hash) => {
-                METRICS.tx_success.fetch_add(1, Ordering::Relaxed);
-                METRICS.record_tx_duration(start);
-                info!(req_id = %req_id, tx_hash = %tx_hash, "TX submitted (async)");
-                (
-                    StatusCode::ACCEPTED,
-                    Json(ExecuteResponse::pending(tx_hash.to_string())),
-                )
-            }
-            Err(e) => {
-                let err_str = format!("{e}");
-
-                // Nonce error — re-sync nonce, re-sign, and retry once
-                if err_str.contains("InvalidNonce") || err_str.contains("nonce") {
-                    METRICS.nonce_retries.fetch_add(1, Ordering::Relaxed);
-                    warn!(req_id = %req_id, "Nonce error on async send, re-syncing and retrying");
-                    let pk = guard.public_key();
-                    let _ = state.key_pool.handle_nonce_error(&pk, &state.rpc).await;
-
-                    if let Some(result) = retry_after_nonce_error(
-                        &state,
-                        &contract_id,
-                        &request,
-                        gas,
-                        deposit,
-                        block_hash,
-                        &contract_id,
-                    )
-                    .await
-                    {
-                        METRICS.tx_success.fetch_add(1, Ordering::Relaxed);
-                        METRICS.record_tx_duration(start);
-                        return result;
-                    }
-                }
-
-                METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
-                METRICS.record_tx_duration(start);
-                error!(req_id = %req_id, error = %e, "Async broadcast failed");
-                (
-                    StatusCode::BAD_GATEWAY,
-                    Json(ExecuteResponse::err("Transaction broadcast failed", None)),
-                )
-            }
+        FullAccessTxOutcome::Submitted(tx_hash) => {
+            info!(req_id = %req_id, tx_hash = %tx_hash, "Delegate TX submitted (async)");
+            (
+                StatusCode::ACCEPTED,
+                Json(ExecuteResponse::pending(tx_hash.to_string())),
+            )
         }
-    }
-}
-
-/// Build the FunctionCall actions for a relayed execute request.
-///
-/// `target_account` is stripped from the contract args because the relayer
-/// uses it only for routing (choosing the receiver contract).  The contract's
-/// `execute` method defaults `target_account` to `actor_id` when absent,
-/// which puts data under the correct user namespace.
-fn build_execute_actions(request: &Value, gas: NearGas, deposit: u128) -> Vec<Action> {
-    let mut contract_request = request.clone();
-    if let Some(obj) = contract_request.as_object_mut() {
-        obj.remove("target_account");
-    }
-    let args =
-        serde_json::to_vec(&serde_json::json!({ "request": contract_request })).unwrap_or_default();
-
-    vec![Action::FunctionCall(Box::new(FunctionCallAction {
-        method_name: "execute".to_string(),
-        args,
-        gas: gas.as_gas(),
-        deposit,
-    }))]
-}
-
-/// Retry once after nonce re-sync (async mode).
-async fn retry_after_nonce_error(
-    state: &AppState,
-    contract_id: &near_primitives::types::AccountId,
-    request: &Value,
-    gas: NearGas,
-    deposit: u128,
-    fallback_block_hash: CryptoHash,
-    target_contract: &near_primitives::types::AccountId,
-) -> Option<(StatusCode, Json<ExecuteResponse>)> {
-    let retry_guard = state.key_pool.acquire(target_contract).ok()?;
-    let _submit = retry_guard.lock_submit().await;
-    let bh = state
-        .rpc
-        .latest_block_hash()
-        .await
-        .unwrap_or(fallback_block_hash);
-    let retry_actions = build_execute_actions(request, gas, deposit);
-
-    let retry_tx = retry_guard
-        .signer()
-        .sign_transaction(retry_guard.nonce, contract_id, bh, retry_actions)
-        .await
-        .ok()?;
-
-    let tx_hash = state.rpc.send_tx_async(retry_tx).await.ok()?;
-    info!(tx_hash = %tx_hash, "TX retry succeeded after nonce re-sync");
-    Some((
-        StatusCode::ACCEPTED,
-        Json(ExecuteResponse::pending(tx_hash.to_string())),
-    ))
-}
-
-/// Retry once after nonce re-sync (sync/commit mode).
-async fn retry_after_nonce_error_sync(
-    state: &AppState,
-    contract_id: &near_primitives::types::AccountId,
-    request: &Value,
-    gas: NearGas,
-    deposit: u128,
-    fallback_block_hash: CryptoHash,
-) -> Option<(StatusCode, Json<ExecuteResponse>)> {
-    let retry_guard = state.key_pool.acquire(contract_id).ok()?;
-    let _submit = retry_guard.lock_submit().await;
-    let bh = state
-        .rpc
-        .latest_block_hash()
-        .await
-        .unwrap_or(fallback_block_hash);
-    let retry_actions = build_execute_actions(request, gas, deposit);
-
-    let retry_tx = retry_guard
-        .signer()
-        .sign_transaction(retry_guard.nonce, contract_id, bh, retry_actions)
-        .await
-        .ok()?;
-
-    let outcome = state.rpc.send_signed_tx(retry_tx).await.ok()?;
-    let hash = format!("{}", outcome.transaction_outcome.id);
-    match &outcome.status {
-        FinalExecutionStatus::SuccessValue(bytes) => {
-            let value: Option<Value> = serde_json::from_slice(bytes).ok();
-            info!(tx_hash = %hash, "TX commit retry succeeded");
-            Some((StatusCode::OK, Json(ExecuteResponse::success(hash, value))))
-        }
-        FinalExecutionStatus::Failure(e) => {
-            let err_msg = format!("{e:?}");
-            warn!(tx_hash = %hash, error = %err_msg, "TX commit retry failed on-chain");
-            Some((
-                StatusCode::OK,
-                Json(ExecuteResponse::failure(hash, err_msg)),
-            ))
-        }
-        _ => Some((StatusCode::ACCEPTED, Json(ExecuteResponse::pending(hash)))),
     }
 }
 
@@ -509,6 +415,27 @@ pub async fn tx_status(
                     Json(TxStatusResponse::err("RPC temporarily unavailable")),
                 )
             }
+        }
+    }
+}
+
+/// `GET /latest_block` — finalized block hash + height. Used by SDK
+/// clients to compute `max_block_height` for NEP-366 SignedDelegateAction.
+pub async fn latest_block(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    match state.rpc.latest_block().await {
+        Ok((hash, height)) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "block_hash": hash.to_string(),
+                "block_height": height,
+            })),
+        ),
+        Err(e) => {
+            error!(error = %e, "latest_block RPC error");
+            (
+                StatusCode::BAD_GATEWAY,
+                Json(serde_json::json!({"error": "RPC temporarily unavailable"})),
+            )
         }
     }
 }

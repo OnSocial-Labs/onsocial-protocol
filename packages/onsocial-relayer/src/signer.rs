@@ -6,6 +6,7 @@ use near_primitives::transaction::{Action, SignedTransaction, Transaction, Trans
 use near_primitives::types::{AccountId, Nonce};
 
 /// Signing backend for the relayer.
+#[derive(Clone)]
 pub enum RelayerSigner {
     Local {
         signer: near_crypto::Signer,

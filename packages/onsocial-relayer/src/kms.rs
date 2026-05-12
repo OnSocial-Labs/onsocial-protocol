@@ -457,6 +457,20 @@ mod inner {
             key_id: &str,
             account_id: &AccountId,
         ) -> Result<KmsKeyRef, crate::Error> {
+            match self
+                .init_key_ref(project, location, keyring, key_id, 1, account_id)
+                .await
+            {
+                Ok(key_ref) => {
+                    info!(key_id, "KMS key already exists, using pre-created key");
+                    self.record_mgmt_success();
+                    return Ok(key_ref);
+                }
+                Err(e) => {
+                    debug!(key_id, error = %e, "KMS key not available before create attempt");
+                }
+            }
+
             if self.is_mgmt_circuit_open() {
                 return Err(crate::Error::Rpc(
                     "KMS management circuit breaker open — cannot create key".into(),

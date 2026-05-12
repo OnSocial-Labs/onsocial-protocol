@@ -17,6 +17,9 @@ pub struct AppState {
     pub rpc: RpcClient,
     pub key_pool: Arc<KeyPool>,
     pub allowed_contracts: Vec<near_primitives::types::AccountId>,
+    /// Inner FunctionCall methods accepted on `/execute_delegate` delegates
+    /// (e.g. `execute`, `execute_admin`). Sourced from `config.allowed_methods`.
+    pub allowed_methods: Vec<String>,
     pub start_time: Instant,
     pub request_count: AtomicU64,
     /// `/ready` returns 503 until `min_keys` are active.
@@ -51,8 +54,23 @@ impl AppState {
 
         info!(contracts = ?allowed_contracts, "Allowed contracts");
 
+        // Validate the inner-method allowlist up front so an empty list can
+        // never silently reject every delegate.
+        let allowed_methods: Vec<String> = config
+            .allowed_methods
+            .iter()
+            .map(|m| m.trim().to_string())
+            .filter(|m| !m.is_empty())
+            .collect();
+        if allowed_methods.is_empty() {
+            return Err(crate::Error::Config(
+                "No valid methods configured in RELAYER_ALLOWED_METHODS".into(),
+            ));
+        }
+        info!(methods = ?allowed_methods, "Allowed inner methods");
+
         let scaling = ScalingConfig::default();
-        let scaling_min_keys = scaling.min_keys as usize;
+        let delegate_min_keys = config.delegate_pool_size.max(1) as usize;
 
         let key_pool = match config.signer_mode {
             SignerMode::Kms => {
@@ -116,23 +134,28 @@ impl AppState {
 
         let key_pool = Arc::new(key_pool);
 
-        // Provision keys for every allowed contract before accepting traffic.
-        if let Err(e) = key_pool.ensure_contracts_covered(&rpc).await {
-            warn!(error = %e, "Failed to provision keys for all contracts — autoscaler will retry");
+        if let Err(e) = key_pool
+            .ensure_delegate_pool(&rpc, config.delegate_pool_size)
+            .await
+        {
+            warn!(error = %e, "Failed to provision delegate signers");
         }
 
         info!(
-            active = key_pool.active_count(),
+            delegate_active = key_pool.active_delegate_count(),
+            delegate_target = config.delegate_pool_size,
             mode = ?config.signer_mode,
-            "Relayer ready with key pool"
+            "Relayer ready with delegate signer pool"
         );
 
-        // Mark ready once we meet the minimum key threshold.
-        let ready = std::sync::atomic::AtomicBool::new(key_pool.active_count() >= scaling_min_keys);
+        let ready = std::sync::atomic::AtomicBool::new(
+            key_pool.active_delegate_count() >= delegate_min_keys,
+        );
 
         Ok(Self {
             rpc,
             allowed_contracts,
+            allowed_methods,
             config,
             key_pool,
             start_time: Instant::now(),
@@ -231,7 +254,7 @@ async fn bootstrap_kms_pool(
         project = %config.gcp_kms_project,
         location = %config.gcp_kms_location,
         keyring = %config.gcp_kms_keyring,
-        pool_size = config.gcp_kms_pool_size,
+        delegate_pool_size = config.delegate_pool_size,
         admin_key = %config.gcp_kms_admin_key,
         "Initializing GCP Cloud KMS"
     );
@@ -266,150 +289,29 @@ async fn bootstrap_kms_pool(
         client: Arc::clone(&kms_client),
     };
 
-    // --- Pool keys (function-call, round-robin across contracts) ---
-    let first_contract = allowed_contracts
-        .first()
-        .cloned()
-        .unwrap_or_else(|| account_id.clone());
-
-    // Bootstrap each KMS key: resolve public key, sync on-chain nonce.
-    let mut pool_signers: Vec<(RelayerSigner, u64, near_primitives::types::AccountId, bool)> =
-        Vec::new();
-    const BOOTSTRAP_MAX_RETRIES: u32 = 3;
-    const BOOTSTRAP_BASE_DELAY_MS: u64 = 2000;
-
-    for i in 0..config.gcp_kms_pool_size {
-        let key_name = format!("pool-key-{i}");
-        let mut last_err = None;
-
-        for attempt in 0..BOOTSTRAP_MAX_RETRIES {
-            if attempt > 0 {
-                let delay =
-                    std::time::Duration::from_millis(BOOTSTRAP_BASE_DELAY_MS * 2u64.pow(attempt));
-                warn!(
-                    key = i,
-                    attempt,
-                    delay_ms = delay.as_millis() as u64,
-                    "Retrying KMS key init"
-                );
-                tokio::time::sleep(delay).await;
-            }
-
-            match kms_client
-                .init_key_ref(
-                    &config.gcp_kms_project,
-                    &config.gcp_kms_location,
-                    &config.gcp_kms_keyring,
-                    &key_name,
-                    1, // version
-                    account_id,
-                )
-                .await
-            {
-                Ok(key_ref) => {
-                    // Query on-chain access key for nonce and target contract.
-                    let (nonce, target, on_chain) =
-                        match rpc.query_access_key(account_id, &key_ref.public_key).await {
-                            Ok(ak) => {
-                                let contract = match &ak.permission {
-                                    near_primitives::views::AccessKeyPermissionView::FunctionCall {
-                                        receiver_id,
-                                        ..
-                                    } => receiver_id
-                                        .parse::<near_primitives::types::AccountId>()
-                                        .unwrap_or_else(|_| first_contract.clone()),
-                                    _ => first_contract.clone(),
-                                };
-                                (ak.nonce, contract, true)
-                            }
-                            Err(_) => {
-                                // Key in KMS but not on-chain; assign round-robin.
-                                let contract_idx = i as usize % allowed_contracts.len().max(1);
-                                let target = allowed_contracts
-                                    .get(contract_idx)
-                                    .cloned()
-                                    .unwrap_or_else(|| first_contract.clone());
-                                info!(
-                                    key = %key_ref.public_key,
-                                    contract = %target,
-                                    "KMS key not registered on-chain — will register at bootstrap"
-                                );
-                                (0, target, false)
-                            }
-                        };
-
-                    info!(
-                        key = i,
-                        public_key = %key_ref.public_key,
-                        nonce = nonce,
-                        contract = %target,
-                        on_chain = on_chain,
-                        "KMS pool key ready"
-                    );
-
-                    let signer = RelayerSigner::Kms {
-                        key_ref,
-                        client: Arc::clone(&kms_client),
-                    };
-
-                    pool_signers.push((signer, nonce, target, on_chain));
-                    last_err = None;
-                    break;
-                }
-                Err(e) => {
-                    warn!(key = i, attempt, error = %e, "KMS key init failed");
-                    last_err = Some(e);
-                }
-            }
-        }
-
-        if let Some(e) = last_err {
-            return Err(crate::Error::Config(format!(
-                "Failed to init KMS pool-key-{i} after {BOOTSTRAP_MAX_RETRIES} attempts: {e}"
-            )));
-        }
-    }
-
-    if pool_signers.is_empty() {
+    let admin_access_key = rpc
+        .query_access_key(account_id, &admin_signer.public_key())
+        .await
+        .map_err(|e| crate::Error::KeyPool(format!("admin access_key query: {e}")))?;
+    if !matches!(
+        &admin_access_key.permission,
+        near_primitives::views::AccessKeyPermissionView::FullAccess
+    ) {
         return Err(crate::Error::Config(
-            "No KMS pool keys could be initialized".into(),
+            "NEP-366 delegate signer provisioning requires the KMS admin signer to be a FullAccess key".into(),
         ));
     }
 
-    // Separate on-chain (ACTIVE) from unregistered (needs AddKey)
-    let mut active_signers: Vec<(RelayerSigner, u64, near_primitives::types::AccountId)> =
-        Vec::new();
-    let mut unregistered_signers: Vec<(RelayerSigner, u64, near_primitives::types::AccountId)> =
-        Vec::new();
-    let active_count_boot = pool_signers
-        .iter()
-        .filter(|(_, _, _, on_chain)| *on_chain)
-        .count();
-    let unreg_count_boot = pool_signers.len() - active_count_boot;
-
-    for (signer, nonce, target, on_chain) in pool_signers {
-        if on_chain {
-            active_signers.push((signer, nonce, target));
-        } else {
-            unregistered_signers.push((signer, nonce, target));
-        }
-    }
-
-    info!(
-        active = active_count_boot,
-        unregistered = unreg_count_boot,
-        "KMS pool bootstrap: on-chain vs pending"
-    );
-
     let store = KeyStore::new_plaintext("/dev/null".into());
 
-    // KMS autoscaler never calls createKey; next_index is for local fallback.
     let kms_context = crate::key_pool::KmsContext {
         client: Arc::clone(&kms_client),
         project: config.gcp_kms_project.clone(),
         location: config.gcp_kms_location.clone(),
         keyring: config.gcp_kms_keyring.clone(),
-        next_index: std::sync::atomic::AtomicU32::new(config.gcp_kms_pool_size),
+        delegate_key_prefix: delegate_key_prefix(&config.instance_name),
+        next_index: std::sync::atomic::AtomicU32::new(0),
+        next_delegate_index: std::sync::atomic::AtomicU32::new(0),
     };
 
     let pool_config = PoolConfig {
@@ -421,9 +323,7 @@ async fn bootstrap_kms_pool(
         allowed_methods: config.allowed_methods.clone(),
     };
 
-    let pool = KeyPool::new(pool_config, active_signers)
-        .with_kms(kms_context)
-        .with_unregistered(unregistered_signers);
+    let pool = KeyPool::new(pool_config, Vec::new(), Vec::new()).with_kms(kms_context);
 
     Ok((pool, Some(kms_client)))
 }
@@ -486,4 +386,25 @@ fn parse_keys_json(json: &str) -> Result<Signer, crate::Error> {
             .map_err(|e| crate::Error::Config(format!("Invalid account: {e}")))?,
         secret_key,
     ))
+}
+
+#[cfg(feature = "gcp")]
+fn delegate_key_prefix(instance_name: &str) -> String {
+    let mut sanitized = String::with_capacity(instance_name.len());
+    for ch in instance_name.chars() {
+        if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
+            sanitized.push(ch);
+        } else {
+            sanitized.push('-');
+        }
+    }
+
+    let sanitized = sanitized.trim_matches('-');
+    let sanitized = if sanitized.is_empty() {
+        "relayer"
+    } else {
+        sanitized
+    };
+
+    format!("delegate-{sanitized}")
 }

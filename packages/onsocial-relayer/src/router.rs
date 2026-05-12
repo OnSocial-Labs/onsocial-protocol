@@ -24,7 +24,7 @@ pub fn create(state: Arc<AppState>) -> Router {
         .allow_headers(Any);
 
     let execute_route = Router::new()
-        .route("/execute", post(handlers::execute))
+        .route("/execute_delegate", post(handlers::execute_delegate))
         .layer(middleware::from_fn(api_key_auth))
         .layer(ConcurrencyLimitLayer::new(MAX_CONCURRENT_EXECUTE));
 
@@ -32,6 +32,7 @@ pub fn create(state: Arc<AppState>) -> Router {
         .route("/health", get(handlers::health))
         .route("/ready", get(handlers::ready))
         .route("/metrics", get(handlers::metrics))
+        .route("/latest_block", get(handlers::latest_block))
         .route("/tx/{tx_hash}", get(handlers::tx_status));
 
     public_routes

@@ -116,6 +116,28 @@ impl RpcClient {
         Ok(hash)
     }
 
+    /// Latest finalized block hash + height. Not cached (used only by
+    /// NEP-366 delegate flows; client typically caches the result).
+    pub async fn latest_block(&self) -> Result<(CryptoHash, u64), crate::Error> {
+        let req = || methods::block::RpcBlockRequest {
+            block_reference: BlockReference::Finality(Finality::Final),
+        };
+        let block = match self.active().call(req()).await {
+            Ok(b) => {
+                self.record_success();
+                b
+            }
+            Err(e) => {
+                self.record_failure();
+                warn!(error = %e, "Primary RPC latest_block failed, trying fallback");
+                self.fallback.call(req()).await.map_err(|e2| {
+                    crate::Error::Rpc(format!("latest_block failed: primary={e}, fallback={e2}"))
+                })?
+            }
+        };
+        Ok((block.header.hash, block.header.height))
+    }
+
     /// Query access key nonce. Automatic failover.
     pub async fn query_access_key(
         &self,

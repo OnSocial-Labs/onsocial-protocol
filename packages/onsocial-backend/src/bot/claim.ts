@@ -9,7 +9,7 @@
 import { InlineKeyboard } from 'grammy';
 import type { CommandContext, Context } from 'grammy';
 import { getUserLink } from '../db/queries.js';
-import { viewClaimable } from '../services/near.js';
+import { claimOnChain, viewClaimable } from '../services/near.js';
 import { formatSocial } from './balance.js';
 import { config } from '../config/index.js';
 import { logger } from '../logger.js';
@@ -92,52 +92,10 @@ export async function handleClaim(ctx: CommandContext<Context>): Promise<void> {
 }
 
 /**
- * Execute the actual claim via the relayer (synchronous / confirmed).
- *
- * Uses `?wait=true` so the relayer waits for `broadcast_tx_commit`.
- * We know the claim either succeeded on-chain or failed — no ambiguity.
+ * Execute the actual claim through the shared backend rewards delegate flow.
  */
 export async function executeClaim(
   accountId: string
 ): Promise<{ success: boolean; txHash?: string; error?: string }> {
-  const request = {
-    target_account: config.rewardsContract,
-    action: { type: 'claim' },
-    auth: {
-      type: 'intent',
-      actor_id: accountId,
-      intent: {},
-    },
-  };
-
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-  if (config.relayerApiKey) {
-    headers['X-Api-Key'] = config.relayerApiKey;
-  }
-
-  const response = await fetch(`${config.relayerUrl}/execute?wait=true`, {
-    method: 'POST',
-    headers,
-    signal: AbortSignal.timeout(30_000),
-    body: JSON.stringify(request),
-  });
-
-  const data = (await response.json()) as {
-    success: boolean;
-    status?: string;
-    tx_hash?: string;
-    error?: string;
-  };
-
-  if (!data.success) {
-    return {
-      success: false,
-      error:
-        data.error || `Relayer returned ${response.status} (${data.status})`,
-    };
-  }
-
-  return { success: true, txHash: data.tx_hash };
+  return claimOnChain(accountId);
 }

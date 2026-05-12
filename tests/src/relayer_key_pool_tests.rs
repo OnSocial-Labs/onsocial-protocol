@@ -54,6 +54,7 @@ fn build_pool(
     KeyPool::new(
         pool_config,
         vec![], // start empty — scale_up will add keys
+        vec![], // no delegate signers needed for FunctionCall-key pool tests
     )
 }
 

@@ -2,6 +2,14 @@
 /**
  * Register KMS pool keys as FunctionCall access keys on the relayer account.
  *
+ * LEGACY ONLY: this is the pre-NEP-366 direct FunctionCall-key model. The
+ * current relayer `/execute_delegate` path uses FullAccess delegate signer
+ * lanes named `delegate-{RELAYER_INSTANCE_NAME}-key-{i}` and provisions them
+ * itself at startup. Do not run this for the production delegate relayer.
+ *
+ * To run this legacy script intentionally, set:
+ *   ALLOW_LEGACY_FC_KEY_REGISTRATION=1
+ *
  * DYNAMIC: fetches public keys from KMS at runtime. No hardcoded keys.
  * Distributes keys evenly across contracts using round-robin.
  *
@@ -24,6 +32,13 @@
 import { Account, JsonRpcProvider } from 'near-api-js';
 import { KmsSigner } from './lib/kms-signer.mjs';
 import { execSync } from 'child_process';
+
+if (process.env.ALLOW_LEGACY_FC_KEY_REGISTRATION !== '1') {
+  console.error('register_kms_keys.mjs is legacy FunctionCall-key tooling.');
+  console.error('The current NEP-366 relayer auto-provisions FullAccess delegate signer lanes at startup.');
+  console.error('Set ALLOW_LEGACY_FC_KEY_REGISTRATION=1 only if you intentionally need legacy FunctionCall keys.');
+  process.exit(1);
+}
 
 const NETWORK = process.env.NEAR_NETWORK || 'testnet';
 const IS_MAINNET = NETWORK === 'mainnet';
