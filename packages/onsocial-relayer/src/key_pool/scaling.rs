@@ -25,15 +25,34 @@ impl KeyPool {
         }
 
         let deficit = (desired - active) as u32;
-        #[cfg(feature = "gcp")]
-        if let Some(ref kms) = self.kms {
-            self.provision_kms_delegate_keys(rpc, kms, deficit).await?;
-            return Ok(());
+        let used_kms = {
+            #[cfg(feature = "gcp")]
+            {
+                if let Some(ref kms) = self.kms {
+                    self.provision_kms_delegate_keys(rpc, kms, deficit).await?;
+                    true
+                } else {
+                    false
+                }
+            }
+            #[cfg(not(feature = "gcp"))]
+            {
+                false
+            }
+        };
+
+        if !used_kms {
+            self.provision_local_delegate_keys(rpc, deficit).await?;
+            if let Err(e) = self.persist_keys() {
+                warn!(error = %e, "Failed to persist delegate key store after scale-up");
+            }
         }
 
-        self.provision_local_delegate_keys(rpc, deficit).await?;
-        if let Err(e) = self.persist_keys() {
-            warn!(error = %e, "Failed to persist delegate key store after scale-up");
+        let active_after = self.active_delegate_count();
+        if active_after < desired {
+            return Err(crate::Error::KeyPool(format!(
+                "delegate signer pool under-provisioned after sync: active={active_after}, desired={desired}"
+            )));
         }
         Ok(())
     }
@@ -92,35 +111,21 @@ impl KeyPool {
         );
 
         for (secret_key, public_key) in &new_keys {
-            let mut nonce = None;
-            for attempt in 0..3 {
-                match rpc.query_access_key(&self.account_id, public_key).await {
-                    Ok(ak) => {
-                        if !matches!(&ak.permission, AccessKeyPermissionView::FullAccess) {
-                            return Err(crate::Error::KeyPool(format!(
-                                "delegate key {public_key} was registered without FullAccess"
-                            )));
-                        }
-                        nonce = Some(ak.nonce);
-                        break;
-                    }
-                    Err(e) => {
-                        if attempt < 2 {
-                            tokio::time::sleep(Duration::from_millis(500)).await;
-                        } else {
-                            warn!(key = %public_key, error = %e, "Delegate key added on-chain but nonce sync failed");
-                        }
-                    }
+            let nonce = match self.sync_full_access_delegate_nonce(rpc, public_key).await {
+                Ok(nonce) => nonce,
+                Err(e) => {
+                    warn!(key = %public_key, error = %e, "Skipping delegate key until nonce can be synced");
+                    continue;
                 }
-            }
+            };
 
             let signer = near_crypto::InMemorySigner::from_secret_key(
                 self.account_id.clone(),
                 secret_key.clone(),
             );
             let relayer_signer = RelayerSigner::Local { signer };
-            self.insert_delegate_signer(relayer_signer, nonce.unwrap_or(0));
-            info!(key = %public_key, nonce = nonce.unwrap_or(0), "New local delegate signer added to pool");
+            self.insert_delegate_signer(relayer_signer, nonce);
+            info!(key = %public_key, nonce, "New local delegate signer added to pool");
         }
 
         Ok(())
@@ -195,25 +200,15 @@ impl KeyPool {
             );
 
             for key_ref in to_register {
-                let nonce = match rpc
-                    .query_access_key(&self.account_id, &key_ref.public_key)
+                match self
+                    .sync_full_access_delegate_nonce(rpc, &key_ref.public_key)
                     .await
                 {
-                    Ok(ak) => {
-                        if !matches!(&ak.permission, AccessKeyPermissionView::FullAccess) {
-                            return Err(crate::Error::KeyPool(format!(
-                                "KMS delegate key {} was registered without FullAccess",
-                                key_ref.public_key
-                            )));
-                        }
-                        ak.nonce
-                    }
+                    Ok(nonce) => active_refs.push((key_ref, nonce)),
                     Err(e) => {
-                        warn!(key = %key_ref.public_key, error = %e, "KMS delegate key registered but nonce sync failed");
-                        0
+                        warn!(key = %key_ref.public_key, error = %e, "Skipping KMS delegate key until nonce can be synced");
                     }
-                };
-                active_refs.push((key_ref, nonce));
+                }
             }
         }
 
@@ -228,6 +223,47 @@ impl KeyPool {
         }
 
         Ok(())
+    }
+
+    async fn sync_full_access_delegate_nonce(
+        &self,
+        rpc: &RpcClient,
+        public_key: &PublicKey,
+    ) -> Result<u64, crate::Error> {
+        const MAX_ATTEMPTS: u32 = 10;
+
+        for attempt in 1..=MAX_ATTEMPTS {
+            match rpc.query_access_key(&self.account_id, public_key).await {
+                Ok(access_key) => {
+                    if !matches!(&access_key.permission, AccessKeyPermissionView::FullAccess) {
+                        return Err(crate::Error::KeyPool(format!(
+                            "delegate key {public_key} exists on-chain without FullAccess"
+                        )));
+                    }
+                    return Ok(access_key.nonce);
+                }
+                Err(error) if attempt < MAX_ATTEMPTS => {
+                    let delay_ms = 500 * u64::from(attempt).min(6);
+                    warn!(
+                        key = %public_key,
+                        attempt,
+                        delay_ms,
+                        error = %error,
+                        "Delegate key nonce not visible yet; retrying"
+                    );
+                    tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+                }
+                Err(error) => {
+                    return Err(crate::Error::Rpc(format!(
+                        "delegate key nonce sync failed after {MAX_ATTEMPTS} attempts: {error}"
+                    )));
+                }
+            }
+        }
+
+        Err(crate::Error::Rpc(
+            "delegate key nonce sync failed unexpectedly".into(),
+        ))
     }
 
     fn insert_delegate_signer(&self, signer: RelayerSigner, nonce: u64) {

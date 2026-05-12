@@ -12,7 +12,7 @@ use crate::config::ScalingConfig;
 use crate::key_store::KeyStore;
 use crate::signer::RelayerSigner;
 use near_primitives::hash::CryptoHash;
-use near_primitives::transaction::Action;
+use near_primitives::transaction::{Action, SignedTransaction};
 use near_primitives::types::AccountId;
 use near_primitives::views::{AccessKeyPermissionView, FinalExecutionOutcomeView};
 use slot::{now_secs, ACTIVE, DRAINING, WARMUP};
@@ -367,13 +367,64 @@ impl KeyPool {
         let key_guard = self.acquire_delegate()?;
         let _submit_guard = key_guard.lock_submit().await;
 
-        let block_hash = rpc.latest_block_hash().await?;
-        let signed_tx = key_guard
-            .signer()
-            .sign_transaction(key_guard.nonce, receiver_id, block_hash, actions)
-            .await
-            .map_err(|e| crate::Error::KeyPool(format!("Delegate TX signing failed: {e}")))?;
+        let signed_tx = self
+            .sign_delegate_tx(
+                &key_guard,
+                rpc,
+                receiver_id,
+                actions.clone(),
+                key_guard.nonce,
+            )
+            .await?;
 
+        match Self::submit_signed_delegate_tx(rpc, signed_tx, wait).await {
+            Ok(outcome) => Ok(outcome),
+            Err(error) if Self::is_nonce_error(&error) => {
+                tracing::warn!(
+                    key = %key_guard.public_key(),
+                    error = %error,
+                    "Delegate signer nonce drift detected; resyncing and retrying once"
+                );
+                let public_key = key_guard.public_key();
+                let access_key = rpc.query_access_key(&self.account_id, &public_key).await?;
+                if !matches!(&access_key.permission, AccessKeyPermissionView::FullAccess) {
+                    return Err(crate::Error::Config(
+                        "delegate signer key is no longer FullAccess".into(),
+                    ));
+                }
+
+                let retry_nonce = access_key.nonce + 1;
+                key_guard.slot.nonce.store(retry_nonce, Ordering::SeqCst);
+                let retry_tx = self
+                    .sign_delegate_tx(&key_guard, rpc, receiver_id, actions, retry_nonce)
+                    .await?;
+                Self::submit_signed_delegate_tx(rpc, retry_tx, wait).await
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    async fn sign_delegate_tx(
+        &self,
+        key_guard: &KeyGuard,
+        rpc: &crate::rpc::RpcClient,
+        receiver_id: &AccountId,
+        actions: Vec<Action>,
+        nonce: u64,
+    ) -> Result<SignedTransaction, crate::Error> {
+        let block_hash = rpc.latest_block_hash().await?;
+        key_guard
+            .signer()
+            .sign_transaction(nonce, receiver_id, block_hash, actions)
+            .await
+            .map_err(|e| crate::Error::KeyPool(format!("Delegate TX signing failed: {e}")))
+    }
+
+    async fn submit_signed_delegate_tx(
+        rpc: &crate::rpc::RpcClient,
+        signed_tx: SignedTransaction,
+        wait: bool,
+    ) -> Result<FullAccessTxOutcome, crate::Error> {
         if wait {
             rpc.send_signed_tx(signed_tx)
                 .await
@@ -384,6 +435,11 @@ impl KeyPool {
                 .await
                 .map(FullAccessTxOutcome::Submitted)
         }
+    }
+
+    fn is_nonce_error(error: &crate::Error) -> bool {
+        let message = error.to_string();
+        message.contains("InvalidNonce") || message.contains("nonce")
     }
 
     /// Sign and submit a transaction with the relayer's full-access admin key.
