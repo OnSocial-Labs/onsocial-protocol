@@ -11,10 +11,15 @@
 // integrations of its own.
 // ---------------------------------------------------------------------------
 
-import type { HttpClient } from '../http.js';
-import { resolveContractId } from '../contracts.js';
+import type { HttpClient } from '../internal/http.js';
+import { resolveContractId } from '../internal/contracts.js';
 import { NEAR, type NearAmount } from '../near-amount.js';
 import { SignerRequiredError } from '../errors.js';
+import {
+  signAndRelay,
+  type SessionGetter,
+  type BroadcastGetter,
+} from '../internal/session-bridge.js';
 import type {
   OnChainStorageBalance,
   PlatformPoolInfo,
@@ -122,7 +127,9 @@ export class StorageAccountModule {
 
   constructor(
     private readonly _http: HttpClient,
-    private readonly _defaultSigner?: TransactionSigner
+    private readonly _getSession: SessionGetter,
+    private readonly _defaultSigner?: TransactionSigner,
+    private readonly _getBroadcast?: BroadcastGetter
   ) {
     this._coreContract = resolveContractId(_http.network, 'core');
   }
@@ -350,9 +357,14 @@ export class StorageAccountModule {
     opts?: WriteOptions
   ): Promise<RelayResponse> {
     const action = { type: 'set', data: { [storagePath]: value } };
-    const tx = await this._http.post<RelayResponse>(
-      '/relay/execute?wait=true',
-      { action, target_account: this._coreContract }
+    const broadcast = this._getBroadcast?.();
+    const tx = await signAndRelay(
+      this._http,
+      this._getSession(),
+      action,
+      this._coreContract,
+      `storageAccount.${storagePath}`,
+      { wait: true, ...(broadcast !== undefined && { broadcast }) }
     );
     opts?.onSubmitted?.(tx);
     opts?.onConfirmed?.(tx);

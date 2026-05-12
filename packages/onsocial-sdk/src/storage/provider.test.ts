@@ -6,7 +6,7 @@ import {
   resolveStorageProvider,
   type StorageProvider,
 } from './provider.js';
-import type { HttpClient } from '../http.js';
+import type { HttpClient } from '../internal/http.js';
 
 function mockHttp(overrides: Record<string, unknown> = {}): HttpClient {
   return {
@@ -113,9 +113,7 @@ describe('GatewayProvider', () => {
 
   it('returns the mainnet OnSocial CDN URL on mainnet', () => {
     const gw = new GatewayProvider(mockHttp({ network: 'mainnet' }));
-    expect(gw.url('bafy123')).toBe(
-      'https://cdn.onsocial.id/ipfs/bafy123'
-    );
+    expect(gw.url('bafy123')).toBe('https://cdn.onsocial.id/ipfs/bafy123');
   });
 });
 

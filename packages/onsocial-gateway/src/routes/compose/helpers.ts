@@ -6,13 +6,7 @@
 import type { Request, Response } from 'express';
 import type { UploadedFile } from '../../services/compose/index.js';
 import type { SimpleActionResult } from '../../services/compose/shared.js';
-import {
-  ComposeError,
-  relayExecute,
-  intentAuth,
-  extractTxHash,
-  logger,
-} from '../../services/compose/shared.js';
+import { ComposeError, logger } from '../../services/compose/shared.js';
 
 // ---------------------------------------------------------------------------
 // Actor passthrough — resolves the effective actor identity.
@@ -21,7 +15,7 @@ import {
 // ---------------------------------------------------------------------------
 
 /**
- * Resolve the effective actor ID for intent auth.
+ * Resolve the effective actor ID for compose actions.
  * API-key callers may pass `actor_id` in the body to act on behalf of an end-user.
  */
 export function resolveActorId(req: Request): string {
@@ -34,56 +28,19 @@ export function resolveActorId(req: Request): string {
 }
 
 // ---------------------------------------------------------------------------
-// DRY action-handler factory
+// DRY prepare-handler factory
 // ---------------------------------------------------------------------------
 
 type BuildFn = (body: Record<string, unknown>) => SimpleActionResult;
 
 /**
- * Create relay + prepare handlers for a simple (non-upload) compose action.
+ * Create a prepare handler for a simple (non-upload) compose action.
  *
- * - **relay**: Builds the action, relays via intent auth, returns `{ txHash }`.
- * - **prepare**: Builds the action, returns `{ action, target_account }` for SDK signing.
+ * Returns `{ prepare }` whose handler builds the action and responds with
+ * `{ action, target_account }`. The SDK signs the action with the user's
+ * session key and posts it to `/relay/delegate`.
  */
 export function actionHandlers(buildFn: BuildFn, label: string) {
-  const relay = async (req: Request, res: Response): Promise<void> => {
-    const accountId = req.auth!.accountId;
-    const effectiveActorId = resolveActorId(req);
-    // wait=true tells the relayer to use broadcast_tx_commit and report the
-    // on-chain outcome. We pass through { success, status, error } so the
-    // SDK's RelayExecutionError detection fires on inner-action panics
-    // instead of returning a misleadingly-truthy txHash.
-    const wait = req.query.wait === 'true' || req.query.wait === '1';
-    try {
-      const built = buildFn(req.body as Record<string, unknown>);
-      const result = await relayExecute(
-        intentAuth(effectiveActorId),
-        built.action,
-        built.targetAccount,
-        { wait }
-      );
-      if (!result.ok) throw new ComposeError(result.status, result.data);
-      const data =
-        typeof result.data === 'object' && result.data !== null
-          ? (result.data as Record<string, unknown>)
-          : {};
-      const out: Record<string, unknown> = {
-        txHash: extractTxHash(result.data),
-      };
-      if ('success' in data) out.success = data.success;
-      if ('status' in data) out.status = data.status;
-      if ('error' in data) out.error = data.error;
-      res.status(200).json(out);
-    } catch (error) {
-      if (error instanceof ComposeError) {
-        res.status(error.status).json({ error: error.details });
-        return;
-      }
-      logger.error({ error, accountId }, `Compose ${label} failed`);
-      res.status(500).json({ error: `Compose ${label} failed` });
-    }
-  };
-
   const prepare = async (req: Request, res: Response): Promise<void> => {
     try {
       const built = buildFn(req.body as Record<string, unknown>);
@@ -104,7 +61,7 @@ export function actionHandlers(buildFn: BuildFn, label: string) {
     }
   };
 
-  return { relay, prepare };
+  return { prepare };
 }
 
 /** Parse a JSON string or passthrough an object. Returns undefined on bad input. */

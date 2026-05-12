@@ -106,27 +106,45 @@ const SCARCES_EVENT_FIELDS = `
 `;
 
 // ── Operation taxonomy ─────────────────────────────────────────────────────
-// The literal `operation` strings emitted by the scarces contract. Exported
-// for callers that want to filter via {@link ScarcesQuery.events} or
-// `os.query.graphql`.
+// SSoT for scarces (eventType, operation) taxonomy lives in
+// `./scarces-events.ts` and is guarded by `./scarces-events.parity.test.ts`.
 
-const MINT_OPS = ['quick_mint', 'mint', 'mint_from_collection'];
-const PURCHASE_OPS = ['purchase'];
-const LIST_OPS = ['list'];
-const DELIST_OPS = ['delist'];
-const TRANSFER_OPS = ['transfer'];
-const BURN_OPS = ['burn'];
-const COLLECTION_CREATE_OPS = ['create'];
-const COLLECTION_PURCHASE_OPS = ['purchase'];
-const LAZY_CREATE_OPS = ['created'];
-const LAZY_PURCHASE_OPS = ['purchased'];
-const AUCTION_CREATE_OPS = ['auction_created'];
-const AUCTION_BID_OPS = ['auction_bid'];
-const AUCTION_SETTLE_OPS = ['auction_settled', 'auction_buy_now'];
-const OFFER_MADE_OPS = ['offer_made'];
-const OFFER_ACCEPTED_OPS = ['offer_accepted'];
-const APP_REGISTER_OPS = ['register'];
-const APP_FUND_OPS = ['fund'];
+import {
+  SCARCES_EVENT_TYPES,
+  SCARCE_OPERATIONS,
+  COLLECTION_OPERATIONS,
+  LAZY_LISTING_OPERATIONS,
+  OFFER_OPERATIONS,
+  APP_POOL_OPERATIONS,
+  type ScarcesEventType,
+} from './scarces-events.js';
+
+// SCARCE_UPDATE family — `quick_mint` is the only mint op emitted on this
+// family; collection-driven mints fire under COLLECTION_UPDATE (`creator_mint`,
+// `purchase`).
+const MINT_OPS = ['quick_mint'] as const;
+const PURCHASE_OPS = ['purchase'] as const;
+const LIST_OPS = ['list', 'list_native'] as const;
+const DELIST_OPS = ['delist', 'delist_native', 'auto_delist'] as const;
+const TRANSFER_OPS = ['transfer'] as const;
+const BURN_OPS = ['burn'] as const;
+// COLLECTION_UPDATE family
+const COLLECTION_CREATE_OPS = ['create'] as const;
+const COLLECTION_PURCHASE_OPS = ['purchase'] as const;
+const COLLECTION_MINT_OPS = ['creator_mint'] as const;
+// LAZY_LISTING_UPDATE family
+const LAZY_CREATE_OPS = ['created'] as const;
+const LAZY_PURCHASE_OPS = ['purchased'] as const;
+// SCARCE_UPDATE auctions
+const AUCTION_CREATE_OPS = ['auction_created'] as const;
+const AUCTION_BID_OPS = ['auction_bid'] as const;
+const AUCTION_SETTLE_OPS = ['auction_settled'] as const;
+// OFFER_UPDATE family
+const OFFER_MADE_OPS = ['offer_made'] as const;
+const OFFER_ACCEPTED_OPS = ['offer_accepted'] as const;
+// APP_POOL_UPDATE family
+const APP_REGISTER_OPS = ['register'] as const;
+const APP_FUND_OPS = ['fund'] as const;
 
 export const SCARCES_OPERATIONS = {
   MINT: MINT_OPS,
@@ -137,6 +155,7 @@ export const SCARCES_OPERATIONS = {
   BURN: BURN_OPS,
   COLLECTION_CREATE: COLLECTION_CREATE_OPS,
   COLLECTION_PURCHASE: COLLECTION_PURCHASE_OPS,
+  COLLECTION_MINT: COLLECTION_MINT_OPS,
   LAZY_CREATE: LAZY_CREATE_OPS,
   LAZY_PURCHASE: LAZY_PURCHASE_OPS,
   AUCTION_CREATE: AUCTION_CREATE_OPS,
@@ -146,18 +165,16 @@ export const SCARCES_OPERATIONS = {
   OFFER_ACCEPTED: OFFER_ACCEPTED_OPS,
   APP_REGISTER: APP_REGISTER_OPS,
   APP_FUND: APP_FUND_OPS,
+  // Full per-family lists (every operation the contract emits) — handy for
+  // building exhaustive feed queries via `events()`.
+  ALL_SCARCE: SCARCE_OPERATIONS,
+  ALL_COLLECTION: COLLECTION_OPERATIONS,
+  ALL_LAZY_LISTING: LAZY_LISTING_OPERATIONS,
+  ALL_OFFER: OFFER_OPERATIONS,
+  ALL_APP_POOL: APP_POOL_OPERATIONS,
 } as const;
 
-/** Top-level event families emitted by the scarces contract. */
-export const SCARCES_EVENT_TYPES = {
-  SCARCE: 'SCARCE_UPDATE',
-  COLLECTION: 'COLLECTION_UPDATE',
-  LAZY_LISTING: 'LAZY_LISTING_UPDATE',
-  OFFER: 'OFFER_UPDATE',
-  APP_POOL: 'APP_POOL_UPDATE',
-  STORAGE: 'STORAGE_UPDATE',
-  CONTRACT: 'CONTRACT_UPDATE',
-} as const;
+export { SCARCES_EVENT_TYPES, type ScarcesEventType };
 
 export class ScarcesQuery {
   constructor(private _q: QueryModule) {}
@@ -177,8 +194,8 @@ export class ScarcesQuery {
    */
   async events(
     opts: {
-      eventType?: string | string[];
-      operation?: string | string[];
+      eventType?: string | readonly string[];
+      operation?: string | readonly string[];
       tokenId?: string;
       collectionId?: string;
       listingId?: string;
@@ -205,7 +222,7 @@ export class ScarcesQuery {
     const addIn = (
       col: string,
       key: string,
-      vals: unknown[],
+      vals: readonly unknown[],
       gqlType: string
     ) => {
       wheres.push(`${col}: {_in: $${key}}`);

@@ -248,7 +248,7 @@ export type PostKind = (typeof POST_KINDS)[number];
 /** Reserved audience tokens. `accounts:<csv>` and `group:<gid>` are prefixes. */
 export const AUDIENCES = {
   public: 'public',
-  followers: 'followers',
+  standing: 'standing',
   group: (groupId: string) => `group:${groupId}`,
   accounts: (ids: string[]) => `accounts:${ids.join(',')}`,
 } as const;
@@ -603,7 +603,7 @@ export interface SaveV1 {
 // Endorsements (weighted directed vouch)
 // ───────────────────────────────────────────────────────────────────────────
 //
-// Stronger / more directional than `standing` (which is a binary follow-style
+// Stronger / more directional than `standing` (which is a binary relationship
 // signal). An endorsement says "I vouch for this account" with optional topic
 // scoping and a 1-5 weight. Apps that want a binary vouch can ignore weight.
 //

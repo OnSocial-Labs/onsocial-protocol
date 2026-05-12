@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { EndorsementsModule } from './endorsements.js';
-import type { SocialModule } from '../social.js';
+import type { SocialModule } from './social.js';
 import type { QueryModule } from '../query/index.js';
 
 function makeMod(opts: { existingEndorsement?: unknown } = {}) {

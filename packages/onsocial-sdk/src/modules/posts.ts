@@ -14,7 +14,7 @@
 // `kind`, and `audiences` (the substreams-indexed feed columns).
 // ---------------------------------------------------------------------------
 
-import type { SocialModule } from '../social.js';
+import type { SocialModule } from './social.js';
 import type { GroupsModule } from './groups.js';
 import type {
   GroupPostRef,
@@ -23,6 +23,19 @@ import type {
   RelayResponse,
 } from '../types.js';
 
+/**
+ * Post + reply + quote authoring (top-level feed and group feeds).
+ *
+ * All write methods require an attached session (or `defaultBroadcast: 'wallet'`)
+ * and route through the relayer.
+ *
+ * @throws {SessionRequiredError} If no session is attached and broadcast is not `'wallet'`.
+ * @throws {RelayExecutionError} If the relayed transaction reverts on chain.
+ *
+ * `create()` and `reply()` accept inline `File`/`Blob` media when a
+ * `StorageProvider` is configured on `OnSocial`; otherwise the gateway
+ * uploads on the dev's behalf.
+ */
 export class PostsModule {
   constructor(
     private _social: SocialModule,

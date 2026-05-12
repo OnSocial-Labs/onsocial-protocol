@@ -16,9 +16,10 @@
  * All routes require JWT authentication. Rate limiting is handled by the
  * gateway-wide middleware (60/min free, 600/min pro) — no per-route metering.
  *
- * Every action has two endpoint variants:
- *   POST /compose/{action}         — relay via intent auth (gasless, server-side)
- *   POST /compose/prepare/{action} — return action JSON for SDK/wallet signing
+ * Every action follows the same prepare→sign→relay pattern:
+ *   POST /compose/prepare/{action} — returns action JSON; the SDK signs it
+ *                                    with the user's session key (or wallet)
+ *                                    and POSTs to /relay/delegate.
  */
 
 import { Router } from 'express';

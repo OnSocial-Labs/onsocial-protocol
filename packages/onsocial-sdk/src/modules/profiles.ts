@@ -18,7 +18,7 @@
 //   • Banner support: `os.profiles.update({ banner: file })` auto-uploads.
 // ---------------------------------------------------------------------------
 
-import type { SocialModule } from '../social.js';
+import type { SocialModule } from './social.js';
 import type { QueryModule } from '../query/index.js';
 import type { StorageProvider } from '../storage/provider.js';
 import type { ProfileData, RelayResponse } from '../types.js';
@@ -110,6 +110,15 @@ function rowsToProfile(
   return out;
 }
 
+/**
+ * Profile read + update.
+ *
+ * `update()` auto-uploads `avatar` / `banner` when they are `File`/`Blob`
+ * values and a `StorageProvider` is configured on `OnSocial` (otherwise
+ * the gateway uploads on the dev's behalf).
+ *
+ * @throws {SessionRequiredError} On `update()` when no session is attached and broadcast is not `'wallet'`.
+ */
 export class ProfilesModule {
   constructor(
     private _social: SocialModule,
@@ -146,6 +155,10 @@ export class ProfilesModule {
    * Fetch a single profile as a materialised object (one row instead of
    * one-row-per-field). Returns `null` if the account has no profile
    * fields.
+   *
+   * **This is the right method for app code.** For raw indexer rows (one
+   * per field, with block height / timestamp / operation metadata) use
+   * `os.query.profiles.get(accountId)` instead.
    *
    * ```ts
    * const me = await os.profiles.get('alice.near');
@@ -184,8 +197,8 @@ export class ProfilesModule {
   }
 
   /**
-  * Resolve a profile's avatar to a hosted CDN URL (e.g.
-  * `https://cdn.onsocial.id/ipfs/<cid>`). Returns the raw value
+   * Resolve a profile's avatar to a hosted CDN URL (e.g.
+   * `https://cdn.onsocial.id/ipfs/<cid>`). Returns the raw value
    * unchanged if it isn't an `ipfs://` reference, and `null` if no avatar
    * is set.
    */

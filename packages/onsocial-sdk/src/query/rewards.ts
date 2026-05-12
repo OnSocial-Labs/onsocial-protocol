@@ -40,7 +40,7 @@ export interface RewardsEventRow {
   amount: string | null;
   /** Free-text label passed by the caller on credit (e.g. `engagement`). */
   source: string | null;
-  /** Account that signed the credit (owner, executor, or app caller). */
+  /** Account that signed the credit (owner, direct caller, or app caller). */
   creditedBy: string | null;
   /** App scope for app-budgeted credits, null for global credits. */
   appId: string | null;
@@ -57,8 +57,7 @@ export interface RewardsEventRow {
   oldMax: string | null;
   newMax: string | null;
 
-  // ── Executor / caller add/remove ───────────────────────────────────────
-  executor: string | null;
+  // ── Caller add/remove ──────────────────────────────────────────────────
   caller: string | null;
 
   // ── Contract upgrade ───────────────────────────────────────────────────
@@ -99,7 +98,6 @@ const REWARDS_EVENT_FIELDS = `
   newOwner
   oldMax
   newMax
-  executor
   caller
   oldVersion
   newVersion
@@ -115,24 +113,13 @@ const USER_REWARD_STATE_FIELDS = `
   updatedAt
 `;
 
-/**
- * Literal `event_type` strings emitted by the rewards contract. Exported for
- * callers that want to filter via {@link RewardsQuery.events} or
- * `os.query.graphql`.
- */
-export const REWARDS_EVENT_TYPES = {
-  REWARD_CREDITED: 'REWARD_CREDITED',
-  REWARD_CLAIMED: 'REWARD_CLAIMED',
-  CLAIM_FAILED: 'CLAIM_FAILED',
-  POOL_DEPOSIT: 'POOL_DEPOSIT',
-  OWNER_CHANGED: 'OWNER_CHANGED',
-  MAX_DAILY_UPDATED: 'MAX_DAILY_UPDATED',
-  EXECUTOR_ADDED: 'EXECUTOR_ADDED',
-  EXECUTOR_REMOVED: 'EXECUTOR_REMOVED',
-  CALLER_ADDED: 'CALLER_ADDED',
-  CALLER_REMOVED: 'CALLER_REMOVED',
-  CONTRACT_UPGRADE: 'CONTRACT_UPGRADE',
-} as const;
+// SSoT for rewards event types lives in `./rewards-events.ts` and is
+// guarded by `./rewards-events.parity.test.ts`.
+export {
+  REWARDS_EVENT_TYPES,
+  type RewardsEventType,
+} from './rewards-events.js';
+import { REWARDS_EVENT_TYPES } from './rewards-events.js';
 
 export class RewardsQuery {
   constructor(private _q: QueryModule) {}
@@ -309,8 +296,8 @@ export class RewardsQuery {
   }
 
   /**
-   * Credits issued by a specific caller (owner, executor, or authorized app
-   * caller), newest first.
+   * Credits issued by a specific caller (owner, direct caller, or authorized
+   * app caller), newest first.
    */
   async creditsBy(
     creditedBy: string,

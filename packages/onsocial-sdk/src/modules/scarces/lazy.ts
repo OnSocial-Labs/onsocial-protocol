@@ -3,21 +3,43 @@
 // StorageProvider for direct upload (mirrors `tokens.mint`).
 // ---------------------------------------------------------------------------
 
-import type { HttpClient } from '../../http.js';
+import type { HttpClient } from '../../internal/http.js';
 import type { StorageProvider } from '../../storage/provider.js';
 import type {
   LazyListingOptions,
   MintResponse,
   RelayResponse,
 } from '../../types.js';
+import {
+  composeAndSign,
+  composeFormAndSign,
+  signAndRelay,
+  type SessionGetter,
+  type BroadcastGetter,
+} from '../../internal/session-bridge.js';
+import { resolveContractId } from '../../internal/contracts.js';
 import { buildCreateLazyListingAction } from '../../builders/scarces/lazy.js';
 import { hasLocalUpload, resolveScarceMedia } from './_media.js';
+import { SCARCES_VERBS } from './verbs.js';
 
 export class ScarcesLazyApi {
+  private _scarcesContract: string;
+
   constructor(
     private _http: HttpClient,
-    private _storage?: StorageProvider
-  ) {}
+    private _getSession: SessionGetter,
+    private _storage?: StorageProvider,
+    private _getBroadcast?: BroadcastGetter
+  ) {
+    this._scarcesContract = resolveContractId(_http.network, 'scarces');
+  }
+
+  private _broadcastOpts():
+    | { broadcast: ReturnType<BroadcastGetter> }
+    | undefined {
+    const b = this._getBroadcast?.();
+    return b !== undefined ? { broadcast: b } : undefined;
+  }
 
   /**
    * Create a lazy listing (deferred-mint on purchase).
@@ -41,9 +63,19 @@ export class ScarcesLazyApi {
         ...(mediaCid ? { mediaCid } : {}),
         ...(mediaHash ? { mediaHash } : {}),
       });
-      return this._http.post<MintResponse>('/relay/execute', { action });
+      const broadcast = this._getBroadcast?.();
+      return signAndRelay(
+        this._http,
+        this._getSession(),
+        action as Record<string, unknown>,
+        this._scarcesContract,
+        'scarces.lazy.create',
+        broadcast !== undefined ? { broadcast } : undefined
+      ) as Promise<MintResponse>;
     }
 
+    // FormData upload route — gateway uploads media + builds the action,
+    // SDK signs with the session key and relays via /relay/delegate.
     const form = new FormData();
     form.append('title', opts.title);
     form.append('priceNear', opts.priceNear);
@@ -66,24 +98,77 @@ export class ScarcesLazyApi {
     if (opts.cardTitleAlign) form.append('cardTitleAlign', opts.cardTitleAlign);
     if (opts.cardPhotoCid) form.append('cardPhotoCid', opts.cardPhotoCid);
     if (opts.image) form.append('image', opts.image);
-    return this._http.requestForm<MintResponse>(
-      'POST',
-      '/compose/lazy-list',
-      form
+
+    const result = await composeFormAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.LAZY_LIST,
+      form,
+      'scarces.lazy.create',
+      this._broadcastOpts()
     );
+    return {
+      ...result.relay,
+      ...(result.media && { media: result.media }),
+      ...(result.metadata && { metadata: result.metadata }),
+    } as MintResponse;
   }
 
   /** Purchase a lazy listing (mint-on-buy). */
   async purchase(listingId: string): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/compose/purchase-lazy-listing', {
-      listingId,
-    });
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.PURCHASE_LAZY_LIST,
+      {
+        listingId,
+      },
+      'scarces.purchaseLazyList',
+      this._broadcastOpts()
+    );
   }
 
   /** Cancel a lazy listing (creator only). */
   async cancel(listingId: string): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/compose/cancel-lazy-list', {
-      listingId,
-    });
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.CANCEL_LAZY_LIST,
+      {
+        listingId,
+      },
+      'scarces.cancelLazyList',
+      this._broadcastOpts()
+    );
+  }
+
+  /** Update the price of a lazy listing (creator only). */
+  async updatePrice(
+    listingId: string,
+    newPriceNear: string
+  ): Promise<RelayResponse> {
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.UPDATE_LAZY_LIST_PRICE,
+      { listingId, newPriceNear },
+      'scarces.updateLazyListPrice',
+      this._broadcastOpts()
+    );
+  }
+
+  /** Update the expiry timestamp (ns) of a lazy listing (creator only). */
+  async updateExpiry(
+    listingId: string,
+    newExpiresAt: number
+  ): Promise<RelayResponse> {
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.UPDATE_LAZY_LIST_EXPIRY,
+      { listingId, newExpiresAt },
+      'scarces.updateLazyListExpiry',
+      this._broadcastOpts()
+    );
   }
 }

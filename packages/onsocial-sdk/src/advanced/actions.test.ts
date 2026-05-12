@@ -74,7 +74,10 @@ describe('advanced action helpers', () => {
       app_id: 'chat',
     });
 
-    expect(buildRewardsClaimAction()).toEqual({ type: 'claim' });
+    expect(buildRewardsClaimAction('alice.near')).toEqual({
+      type: 'claim',
+      account_id: 'alice.near',
+    });
   });
 
   it('builds canonical scarces actions', () => {
@@ -126,12 +129,12 @@ describe('advanced action helpers', () => {
       },
     });
 
-    expect(prepareRewardsRequest(buildRewardsClaimAction(), 'mainnet')).toEqual(
-      {
-        targetAccount: 'rewards.onsocial.near',
-        action: { type: 'claim' },
-      }
-    );
+    expect(
+      prepareRewardsRequest(buildRewardsClaimAction('alice.near'), 'mainnet')
+    ).toEqual({
+      targetAccount: 'rewards.onsocial.near',
+      action: { type: 'claim', account_id: 'alice.near' },
+    });
 
     expect(
       prepareScarcesRequest(

@@ -7,9 +7,6 @@ import {
   type UploadResult,
   ComposeError,
   uploadToLighthouse,
-  intentAuth,
-  relayExecute,
-  extractTxHash,
   resolveCoreTarget,
   logger,
 } from './shared.js';
@@ -120,8 +117,7 @@ export function validatePath(path: string, accountId?: string): string | null {
  * the value, and returns the action object without relaying.
  *
  * Used by:
- *   - composeSet()           → intent auth (server/API-key callers)
- *   - /compose/prepare/set   → returns action for SDK signing (signed_payload)
+ *   - /compose/prepare/set   → returns action for SDK NEP-366 signing
  */
 export async function buildSetAction(
   accountId: string,
@@ -199,40 +195,5 @@ export async function buildSetAction(
     action,
     targetAccount: req.targetAccount || resolveCoreTarget(),
     uploads,
-  };
-}
-
-/**
- * Compose: Set — uploads files, builds action, relays via intent auth.
- * For signed-payload flow, use buildSetAction() + /relay/signed instead.
- */
-export async function composeSet(
-  accountId: string,
-  req: ComposeSetRequest,
-  files: UploadedFile[],
-  opts: { wait?: boolean } = {}
-): Promise<ComposeSetResult> {
-  const built = await buildSetAction(accountId, req, files);
-  const relay = await relayExecute(
-    intentAuth(accountId),
-    built.action,
-    built.targetAccount,
-    { wait: opts.wait }
-  );
-  if (!relay.ok) {
-    throw new ComposeError(relay.status, relay.data);
-  }
-
-  const data =
-    typeof relay.data === 'object' && relay.data !== null
-      ? (relay.data as Record<string, unknown>)
-      : {};
-  return {
-    txHash: extractTxHash(relay.data),
-    path: req.path,
-    uploads: built.uploads,
-    ...('success' in data && { success: data.success as boolean }),
-    ...('status' in data && { status: data.status as string }),
-    ...('error' in data && { error: data.error as string }),
   };
 }

@@ -2,8 +2,7 @@
  * Compose: Token lifecycle — transfer, burn, renew, redeem, revoke, refund.
  *
  * All builders produce a `SimpleActionResult` (action JSON + targetAccount).
- * The gateway relays via intent auth; the relayer handles wNEAR deposits
- * and NEAR Intents so users never need a wallet confirmation.
+ * `/compose/prepare/<verb>` returns that action for SDK NEP-366 signing.
  */
 
 import {

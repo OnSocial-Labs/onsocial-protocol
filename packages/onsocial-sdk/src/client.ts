@@ -8,39 +8,43 @@ import type {
   MintResponse,
   RelayResponse,
 } from './types.js';
-import { HttpClient } from './http.js';
-import { AuthModule } from './auth.js';
-import { SocialModule, resolvePostMedia } from './social.js';
+import { HttpClient } from './internal/http.js';
+import { AuthModule } from './internal/auth.js';
+import { SocialModule, resolvePostMedia } from './modules/social.js';
 import { ScarcesModule } from './modules/scarces/index.js';
-import { RewardsModule } from './rewards.js';
+import { RewardsModule } from './modules/rewards.js';
 import { QueryModule } from './query/index.js';
-import { StorageModule } from './storage.js';
+import { SubscribeModule } from './modules/subscribe/index.js';
+import { StorageModule } from './storage/module.js';
 import { EndorsementsModule } from './modules/endorsements.js';
 import { AttestationsModule } from './modules/attestations.js';
 import {
   resolveStorageProvider,
   type StorageConfig,
 } from './storage/provider.js';
-import { WebhooksModule } from './webhooks.js';
-import { NotificationsModule } from './notifications.js';
+import { WebhooksModule } from './modules/webhooks.js';
+import { NotificationsModule } from './modules/notifications.js';
 import { GroupsModule } from './modules/groups.js';
 import { PostsModule } from './modules/posts.js';
 import { ProfilesModule } from './modules/profiles.js';
 import { ReactionsModule } from './modules/reactions.js';
 import { SavesModule } from './modules/saves.js';
-import { PermissionsModule } from './permissions.js';
-import { ChainModule } from './chain.js';
-import { TokenModule } from './token.js';
-import { BoostModule } from './boost.js';
-import { PagesModule } from './pages.js';
+import { PermissionsModule } from './modules/permissions.js';
+import { ChainModule } from './modules/chain.js';
+import { TokenModule } from './modules/token.js';
+import { BoostModule } from './modules/boost.js';
+import { PagesModule } from './modules/pages.js';
 import { StandingsModule } from './modules/standings.js';
 import { StorageAccountModule } from './modules/storage-account.js';
+import type { Session } from './advanced/session.js';
+import { composeAndSign, signAndRelay } from './internal/session-bridge.js';
+import { resolveContractId } from './internal/contracts.js';
 import type {
   ContentNamespace,
   EconomyNamespace,
   PlatformNamespace,
   RawNamespace,
-} from './namespaces.js';
+} from './internal/namespaces.js';
 
 // ── Execute types ───────────────────────────────────────────────────────────
 
@@ -52,19 +56,32 @@ export interface ExecuteAction {
 
 /** Options for `os.execute()`. */
 export interface ExecuteOptions {
-  /** Override target account (defaults to JWT identity). */
+  /**
+   * Override the inner `request.target_account` (namespace selector inside
+   * the contract). Defaults to the session signer (the delegate sender).
+   * Has no effect for non-core contracts.
+   */
   targetAccount?: string;
-  /** Contract-level options (e.g. refund_unused_deposit). */
+  /**
+   * Override the on-chain contract receiver (e.g. `core.onsocial.testnet`,
+   * `scarces.onsocial.testnet`). Defaults to the resolved core contract
+   * for the configured network.
+   */
+  targetContract?: string;
+  /** Contract-level options (e.g. `refund_unused_deposit`). */
   options?: Record<string, unknown>;
   /**
-   * Wait for the on-chain receipt before resolving and throw if the
-   * transaction reverted. When false (default) the relayer returns
-   * `pending` after broadcast and the SDK never sees the on-chain outcome.
-   *
-   * Set to `true` for permission grants, governance writes, or any flow
-   * where a silent on-chain revert would corrupt downstream state.
+   * Wait for the on-chain receipt and throw `RelayExecutionError` on revert.
+   * Use for permission grants, governance writes, or any flow where a silent
+   * on-chain revert would corrupt downstream state.
    */
   wait?: boolean;
+  /**
+   * Override the broadcast target for this call. Defaults to
+   * `OnSocialConfig.defaultBroadcast` (which itself defaults to `'gateway'`).
+   * See `BroadcastTarget` in `./types.js`.
+   */
+  broadcast?: import('./types.js').BroadcastTarget;
 }
 
 /** Options for `os.mintPost()`. */
@@ -90,15 +107,6 @@ export interface MintPostResult {
   mint: MintResponse;
   /** Present only when `priceNear` was set. */
   listing?: RelayResponse;
-}
-
-/** Signed-payload auth for `os.submit()`. */
-export interface SignedAuth {
-  type: 'signed_payload';
-  public_key: string;
-  nonce: string;
-  expires_at_ms: string;
-  signature: string;
 }
 
 /**
@@ -230,6 +238,8 @@ export class OnSocial {
   readonly rewards: RewardsModule;
   /** Query indexed data via GraphQL. */
   readonly query: QueryModule;
+  /** Polling subscriptions over indexed data (live feeds). */
+  readonly subscribe: SubscribeModule;
   /** IPFS storage (upload files and JSON). */
   readonly storage: StorageModule;
   /** Webhook endpoints (pro tier+). */
@@ -287,14 +297,14 @@ export class OnSocial {
    */
   readonly platform: PlatformNamespace;
   /**
-   * Escape-hatch namespace for granular control — `execute`, `submit`,
-   * raw NEAR Social KV, and the underlying HTTP client. Use when the
+   * Escape-hatch namespace for granular control — `execute`, raw OnSocial KV,
+   * and the underlying HTTP client. Use when the
    * opinionated namespaces don't model what you need yet.
    *
    * ```ts
    * await os.raw.execute({ type: 'create_proposal', group_id: 'dao', … });
    * await os.raw.social.set('alice.near/mygame/score-42', { points: 9000 });
-   * await os.raw.http.post('/relay/custom', payload);
+   * await os.raw.http.post('/data/custom', payload);
    * ```
    */
   readonly raw: RawNamespace;
@@ -302,29 +312,123 @@ export class OnSocial {
   /** The underlying HTTP client (for advanced usage). */
   readonly http: HttpClient;
 
+  /**
+   * The currently attached session, or `null`. Set via `attachSession()`.
+   *
+   * SDK write methods (anything posting to `/compose/<verb>` historically)
+   * require an attached session and will throw `SessionRequiredError`
+   * otherwise.
+   */
+  private _session: Session | null = null;
+
+  /** Default broadcast target for writes; overridable per-call. */
+  private readonly _defaultBroadcast?: import('./types.js').BroadcastTarget;
+
+  /** Optional injected finality block-height provider (for self-hosted setups with no gateway). */
+  private readonly _latestBlockHeightProvider?: () => Promise<
+    bigint | number | string
+  >;
+
+  /**
+   * Attach a session key for subsequent gasless writes. Once attached, every
+   * SDK write method signs with this session key and posts to `/relay/delegate`
+   * (no per-action wallet popup).
+   *
+   * Apps should call this after the user has granted the on-chain session
+   * key (see `buildSessionGrant` in `@onsocial/sdk/advanced`).
+   */
+  attachSession(session: Session): void {
+    this._session = session;
+  }
+
+  /** Remove the attached session. Subsequent writes will throw. */
+  detachSession(): void {
+    this._session = null;
+  }
+
+  /** Currently attached session, or `null`. */
+  get session(): Session | null {
+    return this._session;
+  }
+
+  /**
+   * Internal: prepare→sign→relay pipeline for compose verbs. Called by the
+   * SDK module methods that previously POSTed directly to `/compose/<verb>`.
+   *
+   * Honors the client's `defaultBroadcast` so callers can route every
+   * compose write through gateway, an external relayer, or the user's
+   * wallet without per-method plumbing.
+   *
+   * Throws `SessionRequiredError` if no session is attached AND broadcast
+   * is not `{ kind: 'wallet' }`.
+   */
+  _composeAndSign(
+    verb: string,
+    body: unknown,
+    methodLabel?: string
+  ): Promise<RelayResponse> {
+    const broadcast = this._defaultBroadcast;
+    return composeAndSign(
+      this.http,
+      this._session,
+      verb,
+      body,
+      methodLabel,
+      broadcast !== undefined ? { broadcast } : undefined
+    );
+  }
+
   constructor(config: OnSocialConfig = {}) {
     this.http = new HttpClient(config);
+    this._defaultBroadcast = config.defaultBroadcast;
+    this._latestBlockHeightProvider = config.latestBlockHeightProvider;
     const storageProvider = resolveStorageProvider(
       config.storage as StorageConfig | undefined,
       this.http
     );
+    const getBroadcast = () => this._defaultBroadcast;
     this.auth = new AuthModule(this.http);
-    this.social = new SocialModule(this.http, storageProvider);
-    this.scarces = new ScarcesModule(this.http, this.social, storageProvider);
-    this.rewards = new RewardsModule(this.http);
+    this.social = new SocialModule(
+      this.http,
+      () => this._session,
+      storageProvider,
+      getBroadcast
+    );
     this.query = new QueryModule(this.http);
+    this.subscribe = new SubscribeModule(this.query);
+    this.scarces = new ScarcesModule(
+      this.http,
+      () => this._session,
+      this.social,
+      storageProvider,
+      getBroadcast,
+      this.query
+    );
+    this.rewards = new RewardsModule(this.http);
     this.storage = new StorageModule(this.http, storageProvider);
     this.webhooks = new WebhooksModule(this.http, config.appId);
     this.notifications = new NotificationsModule(this.http, config.appId);
-    this.groups = new GroupsModule(this.http, (p) =>
-      resolvePostMedia(p, storageProvider)
+    this.groups = new GroupsModule(
+      this.http,
+      () => this._session,
+      (p) => resolvePostMedia(p, storageProvider),
+      getBroadcast
     );
-    this.permissions = new PermissionsModule(this.http);
+    this.permissions = new PermissionsModule(
+      this.http,
+      () => this._session,
+      getBroadcast
+    );
     this.chain = new ChainModule(this.http);
     this.token = new TokenModule(this.http);
     this.boost = new BoostModule(this.http);
-    this.storageAccount = new StorageAccountModule(this.http, config.signer);
-    this.pages = new PagesModule(this.http);
+    this.storageAccount = new StorageAccountModule(
+      this.http,
+      () => this._session,
+      config.signer,
+      getBroadcast
+    );
+    this.pages = new PagesModule(this.http, () => this._session, getBroadcast);
     this.posts = new PostsModule(this.social, this.groups);
     this.profiles = new ProfilesModule(
       this.social,
@@ -363,7 +467,6 @@ export class OnSocial {
     };
     this.raw = {
       execute: (action, opts) => this.execute(action, opts),
-      submit: (action, opts) => this.submit(action, opts),
       social: this.social,
       http: this.http,
     };
@@ -372,78 +475,51 @@ export class OnSocial {
   // ── Generic execute ─────────────────────────────────────────────────────
 
   /**
-   * Execute any action via the gateway relayer (intent auth — gasless).
+   * Execute any action via the gateway relayer (NEP-366 SignedDelegateAction —
+   * gasless). Requires an attached session (`os.attachSession(...)`).
    *
    * Works with every contract action: core (groups, governance, permissions),
    * scarces (all 50+ variants), and any future action types.
    *
    * ```ts
-   * // Groups
+   * // Defaults to the resolved core contract for the network.
    * await os.execute({ type: 'create_group', group_id: 'dao', config: {...} });
    *
-   * // Governance
-   * await os.execute({ type: 'create_proposal', group_id: 'dao', ... });
+   * // Send to a different contract (e.g. scarces).
+   * await os.execute(
+   *   { type: 'quick_mint', metadata: {...} },
+   *   { targetContract: 'scarces.onsocial.testnet' }
+   * );
    *
-   * // Any scarces action
-   * await os.execute({ type: 'quick_mint', metadata: {...} });
-   *
-   * // With options
-   * await os.execute(action, { targetAccount: 'other.near' });
+   * // Wait for finality so on-chain reverts surface as RelayExecutionError.
+   * await os.execute(action, { wait: true });
    * ```
    */
   async execute(
     action: ExecuteAction,
     opts?: ExecuteOptions
   ): Promise<RelayResponse> {
-    const path = opts?.wait ? '/relay/execute?wait=true' : '/relay/execute';
-    return this.http.post<RelayResponse>(path, {
+    const targetContract =
+      opts?.targetContract ?? resolveContractId(this.http.network, 'core');
+    const broadcast = opts?.broadcast ?? this._defaultBroadcast;
+    return signAndRelay(
+      this.http,
+      this._session,
       action,
-      ...(opts?.targetAccount && { target_account: opts.targetAccount }),
-      ...(opts?.options && { options: opts.options }),
-    });
-  }
-
-  /**
-   * Submit a pre-signed action via the gateway relayer (signed-payload auth).
-   *
-   * Use this when you've built and signed the action client-side (e.g. via
-   * `buildSigningPayload` + wallet signature from `@onsocial/sdk/advanced`).
-   *
-   * ```ts
-   * import { buildPostAction, buildSigningPayload, buildSigningMessage }
-   *   from '@onsocial/sdk/advanced';
-   *
-   * const action = buildPostAction({ text: 'gm' });
-   * const payload = buildSigningPayload({ targetAccount, publicKey, nonce, expiresAtMs, action });
-   * const message = buildSigningMessage(targetAccount, payload);
-   * const signature = await wallet.signMessage(message);
-   *
-   * await os.submit(action, {
-   *   targetAccount: 'alice.near',
-   *   auth: {
-   *     type: 'signed_payload',
-   *     public_key: publicKey,
-   *     nonce: String(nonce),
-   *     expires_at_ms: String(expiresAtMs),
-   *     signature,
-   *   },
-   * });
-   * ```
-   */
-  async submit(
-    action: ExecuteAction,
-    opts: {
-      targetAccount: string;
-      auth: SignedAuth;
-      options?: Record<string, unknown>;
-    }
-  ): Promise<RelayResponse> {
-    return this.http.post<RelayResponse>('/relay/signed', {
-      target_account: opts.targetAccount,
-      action,
-      auth: opts.auth,
-      ...(opts.options && { options: opts.options }),
-    });
+      targetContract,
+      `execute(${action.type})`,
+      {
+        ...(opts?.targetAccount !== undefined && {
+          targetAccount: opts.targetAccount,
+        }),
+        ...(opts?.options !== undefined && { requestOptions: opts.options }),
+        ...(opts?.wait !== undefined && { wait: opts.wait }),
+        ...(broadcast !== undefined && { broadcast }),
+        ...(this._latestBlockHeightProvider !== undefined && {
+          latestBlockHeightProvider: this._latestBlockHeightProvider,
+        }),
+      }
+    );
   }
 
   // ── Social commerce ─────────────────────────────────────────────────────

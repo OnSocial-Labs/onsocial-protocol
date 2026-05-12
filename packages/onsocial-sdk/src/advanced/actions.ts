@@ -21,7 +21,7 @@ import {
   CONTRACTS,
   resolveContractId,
   type ContractName,
-} from '../contracts.js';
+} from '../internal/contracts.js';
 import {
   buildGroupPostSetData,
   buildPostSetData,
@@ -41,11 +41,11 @@ import {
   type SaveBuildInput,
   type EndorsementBuildInput,
   type AttestationBuildInput,
-} from '../social.js';
+} from '../modules/social.js';
 import {
   buildClaimAction as buildClaimRewardActionInternal,
   buildCreditRewardAction as buildCreditRewardActionInternal,
-} from '../rewards.js';
+} from '../modules/rewards.js';
 import {
   buildCreateCollectionAction as buildCreateCollectionActionInternal,
   buildCreateLazyListingAction as buildCreateLazyListingActionInternal,
@@ -370,7 +370,7 @@ export type RewardsAction =
       source?: string;
       app_id?: string;
     }
-  | { type: 'claim' };
+  | { type: 'claim'; account_id: string };
 
 // ── Union of all actions ────────────────────────────────────────────────────
 
@@ -397,7 +397,6 @@ export interface RequestOptions {
 export interface RequestEnvelope<T extends Action = Action> {
   target_account?: string;
   action: T;
-  auth?: Record<string, unknown>;
   options?: RequestOptions;
 }
 
@@ -410,19 +409,17 @@ export function buildOptions(opts: RequestOptions): RequestOptions {
 }
 
 /**
- * Build a full contract `Request` envelope (target + action + optional auth/options).
+ * Build a full contract `Request` envelope (target + action + optional options).
  * Use this when you need to send the raw `execute` payload to a contract.
  */
 export function buildRequest<T extends Action>(input: {
   action: T;
   targetAccount?: string;
-  auth?: Record<string, unknown>;
   options?: RequestOptions;
 }): RequestEnvelope<T> {
   const env: RequestEnvelope<T> = { action: input.action };
   if (input.targetAccount !== undefined)
     env.target_account = input.targetAccount;
-  if (input.auth !== undefined) env.auth = input.auth;
   if (input.options !== undefined) env.options = input.options;
   return env;
 }
@@ -527,8 +524,8 @@ export function buildRewardsCreditAction(
   return buildCreditRewardActionInternal(req);
 }
 
-export function buildRewardsClaimAction(): RewardsAction {
-  return buildClaimRewardActionInternal();
+export function buildRewardsClaimAction(accountId: string): RewardsAction {
+  return buildClaimRewardActionInternal(accountId);
 }
 
 export function buildScarcesQuickMintAction(opts: MintOptions): ScarcesAction {
@@ -797,11 +794,14 @@ export function buildExpireProposalAction(
 
 // ── Permission action builders ──────────────────────────────────────────────
 
-/** Permission level constants matching contract domain values. */
+/**
+ * Permission level constants matching the on-chain contract values in
+ * `contracts/core-onsocial/src/domain/groups/permissions/kv/types.rs`.
+ */
 export const PERMISSION_LEVEL = {
   NONE: 0,
-  READ: 1,
-  WRITE: 2,
+  WRITE: 1,
+  MODERATE: 2,
   MANAGE: 3,
 } as const;
 

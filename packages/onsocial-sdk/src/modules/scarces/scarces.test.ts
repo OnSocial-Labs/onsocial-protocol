@@ -1,20 +1,93 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ScarcesModule } from './index.js';
-import type { HttpClient } from '../../http.js';
+import { SCARCES_VERBS } from './verbs.js';
+import type { HttpClient } from '../../internal/http.js';
 import type { StorageProvider } from '../../storage/provider.js';
+
+// ---------------------------------------------------------------------------
+// Harness — every write now goes through session-bridge:
+//   - simple compose verbs   : POST /compose/prepare/<verb> then /relay/delegate
+//   - client-built actions   : POST /relay/delegate (signAndRelay)
+//   - FormData upload routes : POST /compose/prepare/<verb> (multipart) then
+//                              /relay/delegate (composeFormAndSign).
+// ---------------------------------------------------------------------------
 
 interface HttpMock {
   requestForm: ReturnType<typeof vi.fn>;
   post: ReturnType<typeof vi.fn>;
   get: ReturnType<typeof vi.fn>;
+  network: 'mainnet';
 }
 
 function makeHttp(): HttpMock {
-  return {
-    requestForm: vi.fn().mockResolvedValue({ txHash: 'tok-form' }),
-    post: vi.fn().mockResolvedValue({ ok: true, txHash: 'tok-json' }),
-    get: vi.fn(),
+  const mock: HttpMock = {
+    requestForm: vi.fn(async (_method: string, path: string) => {
+      if (path.startsWith('/compose/prepare/')) {
+        const verb = path.replace('/compose/prepare/', '');
+        const action: Record<string, unknown> = {
+          type:
+            verb === 'mint'
+              ? 'quick_mint'
+              : verb === 'create-collection'
+                ? 'create_collection'
+                : verb === 'lazy-list'
+                  ? 'create_lazy_listing'
+                  : 'prepared_stub',
+          metadata: { media: 'ipfs://bafyServer' },
+        };
+        return {
+          action,
+          target_account: 'scarces.onsocial.near',
+          media: {
+            cid: 'bafyServer',
+            url: 'https://gw/bafyServer',
+            size: 100,
+            hash: 'h',
+          },
+        };
+      }
+      throw new Error(`unexpected requestForm ${path}`);
+    }),
+    post: vi.fn(async (path: string) => {
+      if (path.startsWith('/compose/prepare/')) {
+        return {
+          action: { type: 'prepared_stub' },
+          target_account: 'scarces.onsocial.near',
+        };
+      }
+      if (path === '/relay/delegate') return { ok: true, txHash: 'tok-signed' };
+      throw new Error(`unexpected POST ${path}`);
+    }),
+    get: vi.fn(async (path: string) => {
+      if (path === '/relay/latest-block') return { block_height: 100 };
+      throw new Error(`unexpected GET ${path}`);
+    }),
+    network: 'mainnet',
   };
+  return mock;
+}
+
+function makeSessionGetter() {
+  const signed: Array<{
+    action: Record<string, unknown>;
+    targetAccount: string;
+  }> = [];
+  const session = {
+    signComposeDelegate: vi.fn(
+      async (args: {
+        action: Record<string, unknown>;
+        targetContract: string;
+      }) => {
+        signed.push({
+          action: args.action,
+          targetAccount: args.targetContract,
+        });
+        return { base64: 'BASE64_DELEGATE_BLOB', nonce: 1 };
+      }
+    ),
+  };
+  const getter = () => session as never;
+  return { getter, signed };
 }
 
 function asHttp(h: HttpMock): HttpClient {
@@ -33,9 +106,28 @@ function makeStorage(): StorageProvider {
   } as unknown as StorageProvider;
 }
 
+function prepareCallPaths(post: ReturnType<typeof vi.fn>): string[] {
+  return (post.mock.calls as unknown as Array<[string, unknown]>)
+    .map(([p]) => p)
+    .filter((p) => p.startsWith('/compose/prepare/'));
+}
+
+function prepareBodyFor(
+  post: ReturnType<typeof vi.fn>,
+  verb: string
+): Record<string, unknown> {
+  const calls = post.mock.calls as unknown as Array<
+    [string, Record<string, unknown>]
+  >;
+  const call = calls.find(([p]) => p === `/compose/prepare/${verb}`);
+  if (!call) throw new Error(`no /compose/prepare/${verb} call`);
+  return call[1];
+}
+
 describe('ScarcesModule wiring', () => {
   it('exposes the eight sub-namespaces', () => {
-    const mod = new ScarcesModule(asHttp(makeHttp()));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(makeHttp()), getter);
     expect(mod.tokens).toBeDefined();
     expect(mod.collections).toBeDefined();
     expect(mod.market).toBeDefined();
@@ -47,51 +139,66 @@ describe('ScarcesModule wiring', () => {
   });
 });
 
-describe('ScarcesModule.tokens — gateway compose path (no storage)', () => {
-  it('mint without storage routes through /compose/mint as multipart', async () => {
+describe('ScarcesModule.tokens — gateway upload route (no storage)', () => {
+  it('mint without storage routes through /compose/prepare/mint then /relay/delegate', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter, signed } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     const result = await mod.tokens.mint({ title: 'Genesis' });
     expect(http.requestForm).toHaveBeenCalledWith(
       'POST',
-      '/compose/mint',
+      '/compose/prepare/mint',
       expect.any(FormData)
     );
-    expect(result.txHash).toBe('tok-form');
+    expect(signed[0].action.type).toBe('quick_mint');
+    expect(signed[0].targetAccount).toBe('scarces.onsocial.near');
+    expect(http.post).toHaveBeenCalledWith(
+      '/relay/delegate',
+      expect.objectContaining({ signed_delegate: 'BASE64_DELEGATE_BLOB' })
+    );
+    expect(result.txHash).toBe('tok-signed');
+    expect(result.media?.cid).toBe('bafyServer');
   });
 
-  it('transfer / burn / batchTransfer hit the /compose/* fallback', async () => {
+  it('transfer / burn / batchTransfer go through compose/prepare/<verb>', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.tokens.transfer('1', 'b.near');
     await mod.tokens.burn('2');
     await mod.tokens.batchTransfer([{ token_id: '1', receiver_id: 'b.near' }]);
-    expect(http.post).toHaveBeenNthCalledWith(1, '/compose/transfer', {
+    expect(prepareCallPaths(http.post)).toEqual([
+      '/compose/prepare/transfer',
+      '/compose/prepare/burn',
+      '/compose/prepare/batch-transfer',
+    ]);
+    expect(prepareBodyFor(http.post, 'transfer')).toEqual({
       tokenId: '1',
       receiverId: 'b.near',
       memo: undefined,
     });
-    expect(http.post).toHaveBeenNthCalledWith(2, '/compose/burn', {
+    expect(prepareBodyFor(http.post, 'burn')).toEqual({
       tokenId: '2',
       collectionId: undefined,
     });
-    expect(http.post).toHaveBeenNthCalledWith(3, '/compose/batch-transfer', {
+    expect(prepareBodyFor(http.post, 'batch-transfer')).toEqual({
       transfers: [{ token_id: '1', receiver_id: 'b.near' }],
     });
   });
 });
 
 describe('ScarcesModule.tokens — local-upload path (storage configured)', () => {
-  it('mint with image + storage uploads locally and submits via /relay/execute', async () => {
+  it('mint with image + storage uploads locally and submits via /relay/delegate', async () => {
     const http = makeHttp();
     const storage = makeStorage();
-    const mod = new ScarcesModule(asHttp(http), undefined, storage);
+    const { getter, signed } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter, undefined, storage);
     const file = new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' });
     await mod.tokens.mint({ title: 'Local', image: file });
 
     expect(storage.upload).toHaveBeenCalledTimes(1);
     expect(http.requestForm).not.toHaveBeenCalled();
-    expect(http.post).toHaveBeenCalledWith('/relay/execute', {
+    expect(signed[0]).toEqual({
       action: {
         type: 'quick_mint',
         metadata: {
@@ -99,23 +206,31 @@ describe('ScarcesModule.tokens — local-upload path (storage configured)', () =
           media: 'ipfs://bafyUploaded',
         },
       },
+      targetAccount: 'scarces.onsocial.near',
     });
   });
 
-  it('mint with mediaCid and no image stays on /compose path (no storage call)', async () => {
+  it('mint with mediaCid and no image stays on the multipart prepare path', async () => {
     const http = makeHttp();
     const storage = makeStorage();
-    const mod = new ScarcesModule(asHttp(http), undefined, storage);
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter, undefined, storage);
     await mod.tokens.mint({ title: 'PreUploaded', mediaCid: 'bafyExisting' });
     expect(storage.upload).not.toHaveBeenCalled();
     expect(http.requestForm).toHaveBeenCalledTimes(1);
+    expect(http.requestForm).toHaveBeenCalledWith(
+      'POST',
+      '/compose/prepare/mint',
+      expect.any(FormData)
+    );
   });
 });
 
 describe('ScarcesModule.collections', () => {
-  it('create without storage routes through /compose/create-collection', async () => {
+  it('create without storage routes through /compose/prepare/create-collection then /relay/delegate', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter, signed } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.collections.create({
       collectionId: 'g',
       totalSupply: 10,
@@ -123,15 +238,18 @@ describe('ScarcesModule.collections', () => {
     });
     expect(http.requestForm).toHaveBeenCalledWith(
       'POST',
-      '/compose/create-collection',
+      '/compose/prepare/create-collection',
       expect.any(FormData)
     );
+    expect(signed[0].action.type).toBe('create_collection');
+    expect(signed[0].targetAccount).toBe('scarces.onsocial.near');
   });
 
   it('create with image + storage uploads locally and submits the action', async () => {
     const http = makeHttp();
     const storage = makeStorage();
-    const mod = new ScarcesModule(asHttp(http), undefined, storage);
+    const { getter, signed } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter, undefined, storage);
     const file = new Blob([new Uint8Array([1])], { type: 'image/png' });
     await mod.collections.create({
       collectionId: 'g',
@@ -141,53 +259,55 @@ describe('ScarcesModule.collections', () => {
       image: file,
     });
     expect(storage.upload).toHaveBeenCalledTimes(1);
-    const call = http.post.mock.calls[0];
-    expect(call[0]).toBe('/relay/execute');
-    expect(call[1].action.type).toBe('create_collection');
-    expect(call[1].action.collection_id).toBe('g');
+    expect(signed[0].action.type).toBe('create_collection');
+    expect((signed[0].action as Record<string, unknown>).collection_id).toBe(
+      'g'
+    );
+    expect(signed[0].targetAccount).toBe('scarces.onsocial.near');
   });
 
-  it('mintFrom / purchaseFrom / airdrop / pause / resume / delete go through /compose/*', async () => {
+  it('mintFrom / purchaseFrom / airdrop / pause / resume / delete go through compose/prepare/*', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.collections.mintFrom('g', 1);
     await mod.collections.purchaseFrom('g', '1', 1);
     await mod.collections.airdrop('g', ['a.near']);
     await mod.collections.pause('g');
     await mod.collections.resume('g');
     await mod.collections.delete('g');
-    const calls = http.post.mock.calls.map((c) => c[0]);
-    expect(calls).toEqual([
-      '/compose/mint-from-collection',
-      '/compose/purchase-from-collection',
-      '/compose/airdrop-from-collection',
-      '/compose/pause-collection',
-      '/compose/resume-collection',
-      '/compose/delete-collection',
+    expect(prepareCallPaths(http.post)).toEqual([
+      '/compose/prepare/mint-from-collection',
+      '/compose/prepare/purchase-from-collection',
+      '/compose/prepare/airdrop-from-collection',
+      '/compose/prepare/pause-collection',
+      '/compose/prepare/resume-collection',
+      '/compose/prepare/delete-collection',
     ]);
   });
 });
 
 describe('ScarcesModule.market', () => {
-  it('sell / delist / purchase route through /compose/*', async () => {
+  it('sell / delist / purchase route through compose/prepare/*', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.market.sell({ tokenId: '1', priceNear: '1' });
     await mod.market.delist('1');
     await mod.market.purchase('1');
-    const calls = http.post.mock.calls.map((c) => c[0]);
-    expect(calls).toEqual([
-      '/compose/list-native-scarce',
-      '/compose/delist-native-scarce',
-      '/compose/purchase-native-scarce',
+    expect(prepareCallPaths(http.post)).toEqual([
+      '/compose/prepare/list-native-scarce',
+      '/compose/prepare/delist-native-scarce',
+      '/compose/prepare/purchase-native-scarce',
     ]);
   });
 });
 
 describe('ScarcesModule.auctions', () => {
-  it('start / placeBid / settle / cancel route through /compose/*', async () => {
+  it('start / placeBid / settle / cancel route through compose/prepare/*', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.auctions.start({
       tokenId: '1',
       reservePriceNear: '1',
@@ -196,120 +316,134 @@ describe('ScarcesModule.auctions', () => {
     await mod.auctions.placeBid('1', '1');
     await mod.auctions.settle('1');
     await mod.auctions.cancel('1');
-    const calls = http.post.mock.calls.map((c) => c[0]);
-    expect(calls).toEqual([
-      '/compose/list-auction',
-      '/compose/place-bid',
-      '/compose/settle-auction',
-      '/compose/cancel-auction',
+    expect(prepareCallPaths(http.post)).toEqual([
+      '/compose/prepare/list-auction',
+      '/compose/prepare/place-bid',
+      '/compose/prepare/settle-auction',
+      '/compose/prepare/cancel-auction',
     ]);
   });
 });
 
 describe('ScarcesModule.offers', () => {
-  it('make / cancel / accept (token + collection) route through /compose/*', async () => {
+  it('make / cancel / accept (token + collection) route through compose/prepare/*', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.offers.make({ tokenId: '1', amountNear: '1' });
     await mod.offers.cancel('1');
     await mod.offers.accept('1', 'b.near');
     await mod.offers.makeCollection({ collectionId: 'g', amountNear: '1' });
     await mod.offers.cancelCollection('g');
     await mod.offers.acceptCollection('g', '1', 'b.near');
-    const calls = http.post.mock.calls.map((c) => c[0]);
-    expect(calls).toEqual([
-      '/compose/make-offer',
-      '/compose/cancel-offer',
-      '/compose/accept-offer',
-      '/compose/make-collection-offer',
-      '/compose/cancel-collection-offer',
-      '/compose/accept-collection-offer',
+    expect(prepareCallPaths(http.post)).toEqual([
+      '/compose/prepare/make-offer',
+      '/compose/prepare/cancel-offer',
+      '/compose/prepare/accept-offer',
+      '/compose/prepare/make-collection-offer',
+      '/compose/prepare/cancel-collection-offer',
+      '/compose/prepare/accept-collection-offer',
     ]);
   });
 });
 
 describe('ScarcesModule.lazy', () => {
-  it('create without storage routes through /compose/lazy-list', async () => {
+  it('create without storage routes through /compose/prepare/lazy-list then /relay/delegate', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter, signed } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.lazy.create({ title: 'L', priceNear: '5' });
     expect(http.requestForm).toHaveBeenCalledWith(
       'POST',
-      '/compose/lazy-list',
+      '/compose/prepare/lazy-list',
       expect.any(FormData)
     );
+    expect(signed[0].action.type).toBe('create_lazy_listing');
+    expect(signed[0].targetAccount).toBe('scarces.onsocial.near');
   });
 
   it('create with image + storage uploads locally and submits action', async () => {
     const http = makeHttp();
     const storage = makeStorage();
-    const mod = new ScarcesModule(asHttp(http), undefined, storage);
+    const { getter, signed } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter, undefined, storage);
     const file = new Blob([new Uint8Array([1])], { type: 'image/png' });
     await mod.lazy.create({ title: 'L', priceNear: '5', image: file });
     expect(storage.upload).toHaveBeenCalledTimes(1);
-    const call = http.post.mock.calls[0];
-    expect(call[0]).toBe('/relay/execute');
-    expect(call[1].action.type).toBe('create_lazy_listing');
-    expect(call[1].action.metadata.media).toBe('ipfs://bafyUploaded');
+    expect(signed[0].action.type).toBe('create_lazy_listing');
+    expect(
+      (
+        (signed[0].action as Record<string, unknown>).metadata as Record<
+          string,
+          unknown
+        >
+      ).media
+    ).toBe('ipfs://bafyUploaded');
   });
 
-  it('purchase routes through /compose/purchase-lazy-listing', async () => {
+  it('purchase routes through /compose/prepare/purchase-lazy-list', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.lazy.purchase('abc');
-    expect(http.post).toHaveBeenCalledWith('/compose/purchase-lazy-listing', {
-      listingId: 'abc',
-    });
+    expect(prepareBodyFor(http.post, SCARCES_VERBS.PURCHASE_LAZY_LIST)).toEqual(
+      { listingId: 'abc' }
+    );
   });
 
-  it('cancel routes through /compose/cancel-lazy-list', async () => {
+  it('cancel routes through /compose/prepare/cancel-lazy-list', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.lazy.cancel('abc');
-    expect(http.post).toHaveBeenCalledWith('/compose/cancel-lazy-list', {
+    expect(prepareBodyFor(http.post, 'cancel-lazy-list')).toEqual({
       listingId: 'abc',
     });
   });
 });
 
 describe('ScarcesModule.tokens — lifecycle helpers', () => {
-  it('renew routes through /compose/renew-token', async () => {
+  it('renew', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.tokens.renew('t1', 'col1', 1234);
-    expect(http.post).toHaveBeenCalledWith('/compose/renew-token', {
+    expect(prepareBodyFor(http.post, 'renew-token')).toEqual({
       tokenId: 't1',
       collectionId: 'col1',
       newExpiresAt: 1234,
     });
   });
 
-  it('redeem routes through /compose/redeem-token', async () => {
+  it('redeem', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.tokens.redeem('t1', 'col1');
-    expect(http.post).toHaveBeenCalledWith('/compose/redeem-token', {
+    expect(prepareBodyFor(http.post, 'redeem-token')).toEqual({
       tokenId: 't1',
       collectionId: 'col1',
     });
   });
 
-  it('revoke routes through /compose/revoke-token', async () => {
+  it('revoke', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.tokens.revoke('t1', 'col1', 'spam');
-    expect(http.post).toHaveBeenCalledWith('/compose/revoke-token', {
+    expect(prepareBodyFor(http.post, 'revoke-token')).toEqual({
       tokenId: 't1',
       collectionId: 'col1',
       memo: 'spam',
     });
   });
 
-  it('claimRefund routes through /compose/claim-refund', async () => {
+  it('claimRefund', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.tokens.claimRefund('t1', 'col1');
-    expect(http.post).toHaveBeenCalledWith('/compose/claim-refund', {
+    expect(prepareBodyFor(http.post, 'claim-refund')).toEqual({
       tokenId: 't1',
       collectionId: 'col1',
     });
@@ -317,107 +451,118 @@ describe('ScarcesModule.tokens — lifecycle helpers', () => {
 });
 
 describe('ScarcesModule.collections — management helpers', () => {
-  it('updatePrice routes through /compose/update-collection-price', async () => {
+  it('updatePrice', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.collections.updatePrice('col1', '2.5');
-    expect(http.post).toHaveBeenCalledWith('/compose/update-collection-price', {
+    expect(prepareBodyFor(http.post, 'update-collection-price')).toEqual({
       collectionId: 'col1',
       newPriceNear: '2.5',
     });
   });
 
-  it('updateTiming routes through /compose/update-collection-timing', async () => {
+  it('updateTiming', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.collections.updateTiming('col1', { startTime: 1, endTime: 2 });
-    expect(http.post).toHaveBeenCalledWith(
-      '/compose/update-collection-timing',
-      { collectionId: 'col1', startTime: 1, endTime: 2 }
-    );
+    expect(prepareBodyFor(http.post, 'update-collection-timing')).toEqual({
+      collectionId: 'col1',
+      startTime: 1,
+      endTime: 2,
+    });
   });
 
-  it('setAllowlist routes through /compose/set-allowlist', async () => {
+  it('setAllowlist', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.collections.setAllowlist('col1', [
       { account_id: 'alice.near', allocation: 3 },
     ]);
-    expect(http.post).toHaveBeenCalledWith('/compose/set-allowlist', {
+    expect(prepareBodyFor(http.post, 'set-allowlist')).toEqual({
       collectionId: 'col1',
       entries: [{ account_id: 'alice.near', allocation: 3 }],
     });
   });
 
-  it('removeFromAllowlist routes through /compose/remove-from-allowlist', async () => {
+  it('removeFromAllowlist', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.collections.removeFromAllowlist('col1', ['a.near', 'b.near']);
-    expect(http.post).toHaveBeenCalledWith('/compose/remove-from-allowlist', {
+    expect(prepareBodyFor(http.post, 'remove-from-allowlist')).toEqual({
       collectionId: 'col1',
       accounts: ['a.near', 'b.near'],
     });
   });
 
-  it('setMetadata routes through /compose/set-collection-metadata', async () => {
+  it('setMetadata', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.collections.setMetadata('col1', '{"x":1}');
-    expect(http.post).toHaveBeenCalledWith('/compose/set-collection-metadata', {
+    expect(prepareBodyFor(http.post, 'set-collection-metadata')).toEqual({
       collectionId: 'col1',
       metadata: '{"x":1}',
     });
   });
 
-  it('setAppMetadata routes through /compose/set-collection-app-metadata', async () => {
+  it('setAppMetadata', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.collections.setAppMetadata('app1', 'col1', null);
-    expect(http.post).toHaveBeenCalledWith(
-      '/compose/set-collection-app-metadata',
-      { appId: 'app1', collectionId: 'col1', metadata: null }
-    );
+    expect(prepareBodyFor(http.post, 'set-collection-app-metadata')).toEqual({
+      appId: 'app1',
+      collectionId: 'col1',
+      metadata: null,
+    });
   });
 
-  it('cancel routes through /compose/cancel-collection', async () => {
+  it('cancel', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.collections.cancel('col1', '0.5', 99);
-    expect(http.post).toHaveBeenCalledWith('/compose/cancel-collection', {
+    expect(prepareBodyFor(http.post, 'cancel-collection')).toEqual({
       collectionId: 'col1',
       refundPerTokenNear: '0.5',
       refundDeadlineNs: 99,
     });
   });
 
-  it('withdrawUnclaimedRefunds routes through /compose/withdraw-unclaimed-refunds', async () => {
+  it('withdrawUnclaimedRefunds', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.collections.withdrawUnclaimedRefunds('col1');
-    expect(http.post).toHaveBeenCalledWith(
-      '/compose/withdraw-unclaimed-refunds',
-      { collectionId: 'col1' }
-    );
+    expect(prepareBodyFor(http.post, 'withdraw-unclaimed-refunds')).toEqual({
+      collectionId: 'col1',
+    });
   });
 });
 
 describe('ScarcesModule.market — management helpers', () => {
-  it('updateSalePrice routes through /compose/update-sale-price', async () => {
+  it('updateSalePrice', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.market.updateSalePrice('scarces.near', 't1', '7');
-    expect(http.post).toHaveBeenCalledWith('/compose/update-sale-price', {
+    expect(prepareBodyFor(http.post, 'update-sale-price')).toEqual({
       scarceContractId: 'scarces.near',
       tokenId: 't1',
       priceNear: '7',
     });
   });
 
-  it('delistExternal routes through /compose/delist-external-scarce', async () => {
+  it('delistExternal', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.market.delistExternal('scarces.near', 't1');
-    expect(http.post).toHaveBeenCalledWith('/compose/delist-external-scarce', {
+    expect(prepareBodyFor(http.post, 'delist-external-scarce')).toEqual({
       scarceContractId: 'scarces.near',
       tokenId: 't1',
     });
@@ -425,92 +570,101 @@ describe('ScarcesModule.market — management helpers', () => {
 });
 
 describe('ScarcesModule.apps', () => {
-  it('register routes through /compose/register-app', async () => {
+  it('register', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.apps.register('app1', { primarySaleBps: 250, curated: true });
-    expect(http.post).toHaveBeenCalledWith('/compose/register-app', {
+    expect(prepareBodyFor(http.post, 'register-app')).toEqual({
       appId: 'app1',
       primarySaleBps: 250,
       curated: true,
     });
   });
 
-  it('setConfig routes through /compose/set-app-config', async () => {
+  it('setConfig', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.apps.setConfig('app1', { metadata: 'x' });
-    expect(http.post).toHaveBeenCalledWith('/compose/set-app-config', {
+    expect(prepareBodyFor(http.post, 'set-app-config')).toEqual({
       appId: 'app1',
       metadata: 'x',
     });
   });
 
-  it('fundPool routes through /compose/fund-app-pool', async () => {
+  it('fundPool', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.apps.fundPool('app1');
-    expect(http.post).toHaveBeenCalledWith('/compose/fund-app-pool', {
+    expect(prepareBodyFor(http.post, 'fund-app-pool')).toEqual({
       appId: 'app1',
     });
   });
 
-  it('withdrawPool routes through /compose/withdraw-app-pool', async () => {
+  it('withdrawPool', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.apps.withdrawPool('app1', '1');
-    expect(http.post).toHaveBeenCalledWith('/compose/withdraw-app-pool', {
+    expect(prepareBodyFor(http.post, 'withdraw-app-pool')).toEqual({
       appId: 'app1',
       amountNear: '1',
     });
   });
 
-  it('transferOwnership routes through /compose/transfer-app-ownership', async () => {
+  it('transferOwnership', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.apps.transferOwnership('app1', 'new.near');
-    expect(http.post).toHaveBeenCalledWith('/compose/transfer-app-ownership', {
+    expect(prepareBodyFor(http.post, 'transfer-app-ownership')).toEqual({
       appId: 'app1',
       newOwner: 'new.near',
     });
   });
 
-  it('addModerator routes through /compose/add-moderator', async () => {
+  it('addModerator', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.apps.addModerator('app1', 'mod.near');
-    expect(http.post).toHaveBeenCalledWith('/compose/add-moderator', {
+    expect(prepareBodyFor(http.post, 'add-moderator')).toEqual({
       appId: 'app1',
       accountId: 'mod.near',
     });
   });
 
-  it('removeModerator routes through /compose/remove-moderator', async () => {
+  it('removeModerator', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.apps.removeModerator('app1', 'mod.near');
-    expect(http.post).toHaveBeenCalledWith('/compose/remove-moderator', {
+    expect(prepareBodyFor(http.post, 'remove-moderator')).toEqual({
       appId: 'app1',
       accountId: 'mod.near',
     });
   });
 
-  it('banCollection routes through /compose/ban-collection', async () => {
+  it('banCollection', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.apps.banCollection('app1', 'col1', 'spam');
-    expect(http.post).toHaveBeenCalledWith('/compose/ban-collection', {
+    expect(prepareBodyFor(http.post, 'ban-collection')).toEqual({
       appId: 'app1',
       collectionId: 'col1',
       reason: 'spam',
     });
   });
 
-  it('unbanCollection routes through /compose/unban-collection', async () => {
+  it('unbanCollection', async () => {
     const http = makeHttp();
-    const mod = new ScarcesModule(asHttp(http));
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
     await mod.apps.unbanCollection('app1', 'col1');
-    expect(http.post).toHaveBeenCalledWith('/compose/unban-collection', {
+    expect(prepareBodyFor(http.post, 'unban-collection')).toEqual({
       appId: 'app1',
       collectionId: 'col1',
     });

@@ -390,8 +390,8 @@ describe('normalizeAudiences', () => {
   });
   it('drops non-string entries', () => {
     expect(
-      normalizeAudiences(['public', 1, null, 'followers'] as unknown)
-    ).toEqual(['public', 'followers']);
+      normalizeAudiences(['public', 1, null, 'standing'] as unknown)
+    ).toEqual(['public', 'standing']);
   });
   it('returns undefined when nothing valid remains', () => {
     expect(normalizeAudiences([])).toBeUndefined();
@@ -399,7 +399,7 @@ describe('normalizeAudiences', () => {
   });
   it('AUDIENCES helpers build canonical strings', () => {
     expect(AUDIENCES.public).toBe('public');
-    expect(AUDIENCES.followers).toBe('followers');
+    expect(AUDIENCES.standing).toBe('standing');
     expect(AUDIENCES.group('devs')).toBe('group:devs');
     expect(AUDIENCES.accounts(['a.near', 'b.near'])).toBe(
       'accounts:a.near,b.near'

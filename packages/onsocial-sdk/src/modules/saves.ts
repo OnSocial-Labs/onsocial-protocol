@@ -17,11 +17,11 @@
 // and reads default to that identity unless an explicit `viewer` is given.
 // ---------------------------------------------------------------------------
 
-import type { SocialModule } from '../social.js';
+import type { SocialModule } from './social.js';
 import type { QueryModule } from '../query/index.js';
 import type { PostRef, RelayResponse, SaveRecord } from '../types.js';
 import type { PostRow } from '../query/index.js';
-import type { SaveBuildInput } from '../social.js';
+import type { SaveBuildInput } from './social.js';
 
 /**
  * Anything that identifies a post. Accepts:
@@ -42,6 +42,11 @@ function toContentPath(target: SaveTarget): string {
   throw new Error('saves: target must be a PostRef, PostRow, or content path');
 }
 
+/**
+ * Saves / bookmarks (`add` / `remove` / `toggle` / `has` / `get` / `list`).
+ *
+ * @throws {SessionRequiredError} On writes when no session is attached and broadcast is not `'wallet'`.
+ */
 export class SavesModule {
   constructor(
     private _social: SocialModule,

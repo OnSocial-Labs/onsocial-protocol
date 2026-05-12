@@ -61,6 +61,19 @@ export interface OnSocialConfig {
     | { provider: 'lighthouse'; apiKey: string }
     | { provider: 'custom'; impl: unknown }
     | unknown;
+  /**
+   * Default broadcast target for `os.execute()` and other write paths.
+   * Defaults to `'gateway'`. Can be overridden per call via
+   * `ExecuteOptions.broadcast`.
+   */
+  defaultBroadcast?: BroadcastTarget;
+  /**
+   * Optional override for the finality block-height lookup used when signing
+   * NEP-366 delegate actions. Defaults to GET `${gatewayUrl}/relay/latest-block`.
+   * Provide a function (e.g. one that hits a public NEAR RPC's `block`
+   * method) when running fully self-hosted with no OnSocial gateway.
+   */
+  latestBlockHeightProvider?: () => Promise<bigint | number | string>;
 }
 
 // ── Auth ────────────────────────────────────────────────────────────────────
@@ -86,6 +99,78 @@ export interface AuthInfo {
 }
 
 // ── Relay / Compose ─────────────────────────────────────────────────────────
+
+/**
+ * Wallet-broadcast signer — for `BroadcastTarget` `kind: 'wallet'`. Builds a
+ * regular NEAR `SignedTransaction` with the wallet's account as signer (so the
+ * **user pays gas**, no relayer involved). The signature shape mirrors
+ * `near-wallet-selector`'s `signAndSendTransaction({ receiverId, actions })`
+ * so any wallet adapter can satisfy it without an extra adapter layer.
+ *
+ * Implementations should:
+ *   • sign + broadcast the transaction with the user's wallet,
+ *   • return at least `{ txHash }` if a hash is available (any other fields
+ *     are passed through into the resulting `RelayResponse.raw`).
+ */
+export type WalletBroadcastSigner = (req: {
+  receiverId: string;
+  actions: Array<{
+    type: 'FunctionCall';
+    methodName: string;
+    args: Record<string, unknown>;
+    gas: string;
+    deposit: string;
+  }>;
+}) => Promise<{
+  txHash?: string;
+  transaction?: { hash?: string };
+  [k: string]: unknown;
+}>;
+
+/**
+ * Where to broadcast a NEP-366 SignedDelegateAction (or, for `kind: 'wallet'`,
+ * a regular `SignedTransaction` signed by the user's wallet).
+ *
+ *   • `'gateway'` (default) — POST `{ signed_delegate }` to
+ *     `${gatewayUrl}/relay/delegate`. Authenticated, metered, indexers/billing
+ *     handled by the OnSocial gateway.
+ *
+ *   • `{ kind: 'relayer', url, apiKey?, headers? }` — POST the same payload
+ *     directly to any NEP-366-compatible relayer endpoint (your own, a
+ *     third-party, a self-hosted [packages/onsocial-relayer](packages/onsocial-relayer/)
+ *     instance). The signed delegate bytes are standard NEP-366; only the
+ *     transport changes. `apiKey` is sent as `X-Api-Key`; `headers` are merged
+ *     after.
+ *
+ *   • `{ kind: 'wallet', signer, gas?, deposit? }` — **no relayer at all**.
+ *     The action is wrapped as `execute({ request })` and handed to the
+ *     wallet, which signs + broadcasts as a regular transaction (the user
+ *     pays gas). Does NOT require an attached `Session`. Useful for fully
+ *     self-hosted dApps or wallet-pays power-user flows.
+ *
+ * Set per-call via `ExecuteOptions.broadcast` or globally via
+ * `OnSocialConfig.defaultBroadcast`.
+ */
+export type BroadcastTarget =
+  | 'gateway'
+  | {
+      kind: 'relayer';
+      /** Absolute URL of the upstream relayer's `/execute_delegate` endpoint. */
+      url: string;
+      /** Optional `X-Api-Key` for the upstream relayer. */
+      apiKey?: string;
+      /** Extra request headers (merged after `X-Api-Key`). */
+      headers?: Record<string, string>;
+    }
+  | {
+      kind: 'wallet';
+      /** User-pays signer; see `WalletBroadcastSigner`. */
+      signer: WalletBroadcastSigner;
+      /** Override gas (yoctoGas, default 300 TGas). */
+      gas?: bigint | string;
+      /** Override attached deposit (yoctoNEAR, default 0). */
+      deposit?: bigint | string;
+    };
 
 export interface RelayResponse {
   /** Present when the backend returns a transaction or receipt hash. */
@@ -157,7 +242,7 @@ export interface PostData {
   text: string;
   /**
    * Existing media refs. Accepts:
-   *   • `string` — a pre-resolved URL or `ipfs://<cid>` (legacy convenience).
+   *   • `string` — a pre-resolved URL or `ipfs://<cid>` convenience.
    *   • `MediaRef` — a fully-populated `{ cid, mime, size?, width?, height?, ... }`.
    * `files` (below) produce MediaRef entries and are merged into this array.
    */
@@ -171,9 +256,9 @@ export interface PostData {
    */
   files?: Array<Blob | File>;
   /**
-   * Legacy single-file attachment. The SDK uploads it to IPFS via the
-   * configured StorageProvider and prepends `ipfs://<cid>` to `media[]`.
-   * Prefer `files: [...]` for new code.
+   * Single-file attachment. The SDK uploads it to IPFS via the configured
+   * StorageProvider and prepends `ipfs://<cid>` to `media[]`. Prefer
+   * `files: [...]` for new code.
    */
   image?: Blob | File;
   tags?: string[];
@@ -613,7 +698,6 @@ export interface GovernanceConfig {
   platform_onboarding_bytes: number;
   platform_daily_refill_bytes: number;
   platform_allowance_max_bytes: number;
-  intents_executors: string[];
 }
 
 export interface ContractInfo {

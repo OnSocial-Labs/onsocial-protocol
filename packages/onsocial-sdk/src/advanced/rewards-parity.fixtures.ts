@@ -53,8 +53,8 @@ export function getRewardsParityCases(
     },
     {
       name: 'claim',
-      action: buildRewardsClaimAction(),
-      expectedAction: { type: 'claim' },
+      action: buildRewardsClaimAction('alice.near'),
+      expectedAction: { type: 'claim', account_id: 'alice.near' },
     },
   ];
 

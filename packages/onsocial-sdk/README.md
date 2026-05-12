@@ -4,6 +4,42 @@ Gateway-first TypeScript SDK for OnSocial Protocol.
 
 Use it to write social data, work with groups and governance, query indexed feeds and threads, upload media, mint Scarces, manage permissions, and call protocol services without dealing with raw contract payloads.
 
+## Module index
+
+Every module hangs off a single `OnSocial` instance. Use this table to find the namespace for what you want to do; full method docs live in JSDoc on hover.
+
+| Namespace                | Purpose                                                                | Primary methods                                                             |
+| ------------------------ | ---------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `os.profiles`            | Read & update profiles                                                 | `update`, `get`, `getMany`, `avatarUrl`, `bannerUrl`                        |
+| `os.posts`               | Authoring posts, replies, quotes (top-level + group)                   | `create`, `reply`, `quote`, `groupPost`, `groupReply`, `groupQuote`         |
+| `os.reactions`           | Add / remove / toggle reactions; counts                                | `add`, `remove`, `toggle`, `summary`                                        |
+| `os.saves`               | Bookmarks                                                              | `add`, `remove`, `toggle`, `has`, `get`, `list`                             |
+| `os.endorsements`        | Topic endorsements / weights                                           | `add`, `remove`, `toggle`, `get`, `listGiven`, `listReceived`               |
+| `os.attestations`        | Verifiable claims                                                      | `add`, `revoke`, `get`                                                      |
+| `os.standings`           | Follow-style "stand with" edges                                        | `add`, `remove`, `toggle`, `has`, `listOutgoing`, `listIncoming`, `counts`  |
+| `os.groups`              | Groups + group feeds, governance                                       | `create`, `join`, `leave`, `post`, `reply`, `quote`, `isMember`, `execute`  |
+| `os.pages`               | Curated content collections                                            | `create`, `addItem`, `removeItem`, `setVisibility`, `setConfig`             |
+| `os.permissions`         | Grant / check / revoke permissions                                     | `grant`, `revoke`, `get`, `hasGroupAdmin`, …                                |
+| `os.scarces.tokens`      | Scarce (NFT) primitives                                                | `mint`, `transfer`, `burn`, `renew`, `redeem`, `revoke`, `claimRefund`      |
+| `os.scarces.collections` | Drops, allowlists, refunds                                             | `create`, `mintFromCollection`, `purchaseFromCollection`, `setAllowlist`, … |
+| `os.scarces.market`      | Secondary market                                                       | `list`, `delist`, `purchase`, `updatePrice`                                 |
+| `os.scarces.auctions`    | English auctions                                                       | `list`, `placeBid`, `settle`, `cancel`                                      |
+| `os.scarces.offers`      | Offers on tokens / collections                                         | `make`, `cancel`, `accept`, `makeCollectionOffer`, …                        |
+| `os.scarces.lazy`        | Deferred-mint listings                                                 | `create`, `purchase`, `cancel`                                              |
+| `os.scarces.apps`        | App pools, moderators, admin                                           | `register`, `setConfig`, `fundPool`, `addModerator`, …                      |
+| `os.boost`               | Boost credits + booster state                                          | `purchase`, `boost`, `state`, `events`                                      |
+| `os.rewards`             | Partner rewards                                                        | `claim`, `state`, `events`                                                  |
+| `os.token`               | OnSocial token transfers + state                                       | `transfer`, `balance`, `events`                                             |
+| `os.storageAccount`      | Storage balances, sponsorships, pools                                  | `balance`, `withdraw`, `tip`, `sponsor`, `fundPlatform`, …                  |
+| `os.chain`               | On-chain reads (status, version, config)                               | `getContractStatus`, `getVersion`, `getGovernanceConfig`, `getContractInfo` |
+| `os.query.*`             | Raw indexer (Hasura) reads — feed, threads, groups, scarces, events, … | `feed.*`, `threads.*`, `groups.*`, `scarces.*`, `events.*`                  |
+| `os.social`              | Low-level NEAR-Social KV primitives                                    | `set`, `get`, `getOne`, `listKeys`, `countKeys`                             |
+| `os.raw.*`               | Direct contract calls (escape hatch)                                   | varies                                                                      |
+
+> Naming convention: data CRUD modules use `add` / `remove` / `toggle` / `get` / `list`. Authoring modules (`posts`, `profiles`, `pages`) use the natural verb (`create`, `update`, `setVisibility`).
+
+See [docs/CHEATSHEET.md](./docs/CHEATSHEET.md) for a one-page noun → method lookup.
+
 ## Install
 
 ```bash
@@ -24,14 +60,19 @@ const os = new OnSocial({
 
 ### Configuration
 
-| Option       | Description                                    |
-| ------------ | ---------------------------------------------- |
-| `network`    | `mainnet` or `testnet`. Defaults to `mainnet`. |
-| `gatewayUrl` | Override the default gateway base URL.         |
-| `apiKey`     | Server-side API key for gateway auth.          |
-| `actorId`    | Account to write as when using API-key auth.   |
-| `appId`      | Default app namespace for notifications.       |
-| `fetch`      | Custom fetch implementation.                   |
+| Option             | Description                                                                                                                       |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `network`          | `mainnet` or `testnet`. Defaults to `mainnet`.                                                                                    |
+| `gatewayUrl`       | Override the default gateway base URL.                                                                                            |
+| `apiKey`           | Server-side API key for gateway auth.                                                                                             |
+| `actorId`          | Account to write as when using API-key auth.                                                                                      |
+| `appId`            | Default app namespace for notifications.                                                                                          |
+| `fetch`            | Custom fetch implementation.                                                                                                      |
+| `session`          | `Session` instance (for gasless session-key writes).                                                                              |
+| `defaultBroadcast` | `'gateway'` (default) \| `{ kind: 'relayer', url, apiKey? }` \| `{ kind: 'wallet', signer }` — applies to **every** write method. |
+| `storage`          | `StorageProvider` (defaults to gateway-hosted IPFS upload).                                                                       |
+
+Per-call override: `os.withBroadcast({ kind: 'wallet', signer }).posts.create(...)`.
 
 ## Authentication
 
@@ -57,18 +98,12 @@ console.log(session.tier);
 
 ## Quick Start
 
-### Social
+### Profiles & posts
 
 ```ts
-await os.social.setProfile({
-  name: 'Alice',
-  bio: 'Builder',
-});
+await os.profiles.update({ name: 'Alice', bio: 'Builder' });
 
-await os.social.post({
-  text: 'Hello OnSocial',
-  tags: ['intro'],
-});
+await os.posts.create({ text: 'Hello OnSocial', tags: ['intro'] });
 ```
 
 ### Groups
@@ -261,19 +296,19 @@ await os.platform.notifications.list();
 
 ### Cross-cutting
 
-| Module      | Purpose                                                       |
-| ----------- | ------------------------------------------------------------- |
-| `os.auth`   | Login, refresh, session management                            |
-| `os.groups` | Group lifecycle, membership, governance, group content        |
-| `os.chain`  | On-chain storage balance, nonces, governance config           |
-| `os.social` | Raw NEAR Social KV (`set` / `get` / `listKeys` / `countKeys`) |
+| Module      | Purpose                                                    |
+| ----------- | ---------------------------------------------------------- |
+| `os.auth`   | Login, refresh, session management                         |
+| `os.groups` | Group lifecycle, membership, governance, group content     |
+| `os.chain`  | On-chain storage balance, nonces, governance config        |
+| `os.social` | Raw OnSocial KV (`set` / `get` / `listKeys` / `countKeys`) |
 
 ## Going Lower-Level
 
-The opinionated namespaces above cover the common app cases. When you need granular control — an action the SDK hasn't wrapped yet, a custom NEAR Social path, a pre-signed payload from a wallet, or a direct gateway call — reach for `os.raw`.
+The opinionated namespaces above cover the common app cases. When you need granular control — an action the SDK hasn't wrapped yet, a custom OnSocial KV path, a wallet-paid broadcast, or a direct gateway call — reach for `os.raw`.
 
 ```ts
-// Any contract action via the gateway relayer (intent auth — gasless).
+// Any contract action via the configured broadcast path.
 // Same as os.execute(...) at the top level.
 await os.raw.execute({
   type: 'create_proposal',
@@ -281,48 +316,40 @@ await os.raw.execute({
   proposal: { title: 'Promote Bob', kind: 'AddMember', member_id: 'bob.near' },
 });
 
-// Submit a pre-signed payload (e.g. from a wallet signature).
-import { buildPostAction, buildSigningPayload, buildSigningMessage }
-  from '@onsocial/sdk/advanced';
+// Wallet-paid broadcast, no relayer/session required.
+await os.raw.execute(
+  { type: 'set', data: { 'profile/name': 'Alice' } },
+  {
+    broadcast: {
+      kind: 'wallet',
+      signer: wallet.signAndSendTransaction,
+    },
+  }
+);
 
-const action  = buildPostAction({ text: 'gm' });
-const payload = buildSigningPayload({ targetAccount, publicKey, nonce, expiresAtMs, action });
-const message = buildSigningMessage(targetAccount, payload);
-const signature = await wallet.signMessage(message);
-
-await os.raw.submit(action, {
-  targetAccount,
-  auth: {
-    type: 'signed_payload',
-    public_key: publicKey,
-    nonce: String(nonce),
-    expires_at_ms: String(expiresAtMs),
-    signature,
-  },
-});
-
-// Raw NEAR Social KV.
+// Raw OnSocial KV.
 await os.raw.social.set('alice.near/widget/myWidget', { code: '...' });
 const entry = await os.raw.social.getOne('widget/myWidget', 'alice.near');
 
 // Direct gateway HTTP if you need an endpoint we don't model yet.
-const result = await os.raw.http.post('/relay/custom', { ... });
+const result = await os.raw.http.post('/data/custom', { ... });
 ```
 
-For full protocol primitives — typed `Action` builders, signing helpers, the `DirectRelay` (bypass the gateway entirely), `paths`, and `CONTRACTS` — import from the `/advanced` entry point:
+For full protocol primitives — typed `Action` builders, NEP-366 session helpers, `paths`, and `CONTRACTS` — import from the `/advanced` entry point:
 
 ```ts
 import {
   buildPostAction,
   buildCreateProposalAction,
-  buildSigningPayload,
-  DirectRelay,
+  buildSignedDelegate,
+  Session,
   paths,
   CONTRACTS,
 } from '@onsocial/sdk/advanced';
+});
 ```
 
-See [`examples/`](./examples) for runnable samples covering feeds, groups, scarces, signed payloads, and webhooks.
+See [`examples/`](./examples) for runnable samples covering feeds, groups, scarces, session keys, and webhooks.
 
 ## Build Any dApp
 

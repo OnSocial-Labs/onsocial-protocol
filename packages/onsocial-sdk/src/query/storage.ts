@@ -38,7 +38,7 @@ export class StorageQuery {
   constructor(private _q: QueryModule) {}
 
   /**
-   * Tips sent by an account (operation = "tip", actorId = sender).
+   * Tips sent by an account (operation = "storage_tip", actorId = sender).
    *
    * ```ts
    * const sent = await os.query.storage.tipsSent('alice.near', { limit: 20 });
@@ -51,7 +51,7 @@ export class StorageQuery {
     const res = await this._q.graphql<{ storageUpdates: StorageEventRow[] }>({
       query: `query TipsSent($id: String!, $limit: Int!) {
         storageUpdates(
-          where: { operation: {_eq: "tip"}, actorId: {_eq: $id} },
+          where: { operation: {_eq: "storage_tip"}, actorId: {_eq: $id} },
           limit: $limit,
           orderBy: [{blockHeight: DESC}]
         ) { ${STORAGE_EVENT_FIELDS} }
@@ -62,7 +62,7 @@ export class StorageQuery {
   }
 
   /**
-   * Tips received by an account (operation = "tip", targetId = recipient).
+   * Tips received by an account (operation = "storage_tip", targetId = recipient).
    *
    * ```ts
    * const received = await os.query.storage.tipsReceived('bob.near');
@@ -75,7 +75,7 @@ export class StorageQuery {
     const res = await this._q.graphql<{ storageUpdates: StorageEventRow[] }>({
       query: `query TipsReceived($id: String!, $limit: Int!) {
         storageUpdates(
-          where: { operation: {_eq: "tip"}, targetId: {_eq: $id} },
+          where: { operation: {_eq: "storage_tip"}, targetId: {_eq: $id} },
           limit: $limit,
           orderBy: [{blockHeight: DESC}]
         ) { ${STORAGE_EVENT_FIELDS} }
@@ -121,7 +121,7 @@ export class StorageQuery {
    * Useful for activity feeds (e.g. "recent tips on the network").
    *
    * ```ts
-   * const recent = await os.query.storage.byOperation('tip', { limit: 25 });
+   * const recent = await os.query.storage.byOperation('storage_tip', { limit: 25 });
    * ```
    */
   async byOperation(

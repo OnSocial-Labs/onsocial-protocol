@@ -1,5 +1,5 @@
 /**
- * Tests for shared compose utilities: Lighthouse upload, ComposeError, intentAuth.
+ * Tests for shared compose utilities: Lighthouse upload, ComposeError.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -13,7 +13,6 @@ import {
 import {
   uploadToLighthouse,
   uploadJsonToLighthouse,
-  intentAuth,
   ComposeError,
   validateRoyalty,
 } from '../../../src/services/compose/index.js';
@@ -90,17 +89,6 @@ describe('ComposeError', () => {
   it('handles string details', () => {
     const err = new ComposeError(400, 'Bad request');
     expect(err.message).toBe('Bad request');
-  });
-});
-
-describe('intentAuth', () => {
-  it('builds an intent auth block', () => {
-    const auth = intentAuth('alice.testnet');
-    expect(auth).toEqual({
-      type: 'intent',
-      actor_id: 'alice.testnet',
-      intent: {},
-    });
   });
 });
 

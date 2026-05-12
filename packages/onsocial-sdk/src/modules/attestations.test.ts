@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AttestationsModule } from './attestations.js';
-import type { SocialModule } from '../social.js';
+import type { SocialModule } from './social.js';
 import type { QueryModule } from '../query/index.js';
 
 function makeMod() {

@@ -1,24 +1,70 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, beforeEach, vi } from 'vitest';
 import {
   StorageAccountModule,
   type TransactionSigner,
 } from './storage-account.js';
 import { NEAR } from '../near-amount.js';
 import { SignerRequiredError } from '../errors.js';
+import { __resetLatestBlockCache } from '../internal/session-bridge.js';
+
+beforeEach(() => {
+  __resetLatestBlockCache();
+});
 
 function makeMod(overrides: {
   post?: ReturnType<typeof vi.fn>;
   get?: ReturnType<typeof vi.fn>;
   actorId?: string | null;
   signer?: TransactionSigner;
+  /** When provided, the spy receives every signComposeDelegate(...) call. */
+  signed?: Array<{
+    action: Record<string, unknown>;
+    targetContract: string;
+  }>;
+  /** Pass null to simulate no attached session (forces SessionRequiredError). */
+  noSession?: boolean;
 }) {
+  const get =
+    overrides.get ??
+    vi.fn(async (path: string) => {
+      if (path === '/relay/latest-block') return { block_height: 100 };
+      return null;
+    });
+  const post =
+    overrides.post ??
+    vi.fn(async (path: string) => {
+      if (path === '/relay/delegate?wait=true') return { txHash: 'tx_signed' };
+      return { txHash: 'tx' };
+    });
   const http = {
-    post: overrides.post ?? vi.fn().mockResolvedValue({ txHash: 'tx' }),
-    get: overrides.get ?? vi.fn().mockResolvedValue(null),
+    post,
+    get,
     network: 'mainnet',
     actorId: overrides.actorId ?? null,
   };
-  return new StorageAccountModule(http as never, overrides.signer);
+
+  const session = overrides.noSession
+    ? null
+    : ({
+        signComposeDelegate: vi.fn(
+          async (args: {
+            action: Record<string, unknown>;
+            targetContract: string;
+          }) => {
+            overrides.signed?.push({
+              action: args.action,
+              targetContract: args.targetContract,
+            });
+            return { base64: 'BASE64_DELEGATE_BLOB', nonce: 1 };
+          }
+        ),
+      } as never);
+
+  return new StorageAccountModule(
+    http as never,
+    () => session,
+    overrides.signer
+  );
 }
 
 describe('StorageAccountModule reads', () => {
@@ -74,34 +120,47 @@ describe('StorageAccountModule reads', () => {
 });
 
 describe('StorageAccountModule gasless writes', () => {
+  const CORE = 'core.onsocial.near';
+
   it('withdraw() with no amount sends empty value object', async () => {
-    const post = vi.fn().mockResolvedValue({ txHash: 'tx-w' });
-    const mod = makeMod({ post });
+    const signed: Array<{
+      action: Record<string, unknown>;
+      targetContract: string;
+    }> = [];
+    const mod = makeMod({ signed });
     await mod.withdraw();
-    expect(post).toHaveBeenCalledWith('/relay/execute?wait=true', {
-      action: { type: 'set', data: { 'storage/withdraw': {} } },
-      target_account: 'core.onsocial.near',
-    });
+    expect(signed).toEqual([
+      {
+        action: { type: 'set', data: { 'storage/withdraw': {} } },
+        targetContract: CORE,
+      },
+    ]);
   });
 
   it('withdraw(amount) attaches yocto string', async () => {
-    const post = vi.fn().mockResolvedValue({ txHash: 'tx-w' });
-    const mod = makeMod({ post });
+    const signed: Array<{
+      action: Record<string, unknown>;
+      targetContract: string;
+    }> = [];
+    const mod = makeMod({ signed });
     await mod.withdraw(NEAR('0.5'));
-    expect(post).toHaveBeenCalledWith('/relay/execute?wait=true', {
+    expect(signed[0]).toEqual({
       action: {
         type: 'set',
         data: { 'storage/withdraw': { amount: '500000000000000000000000' } },
       },
-      target_account: 'core.onsocial.near',
+      targetContract: CORE,
     });
   });
 
   it('tip emits storage/tip with target_id and amount', async () => {
-    const post = vi.fn().mockResolvedValue({ txHash: 'tx-t' });
-    const mod = makeMod({ post });
+    const signed: Array<{
+      action: Record<string, unknown>;
+      targetContract: string;
+    }> = [];
+    const mod = makeMod({ signed });
     await mod.tip('bob.near', NEAR('0.001'));
-    expect(post).toHaveBeenCalledWith('/relay/execute?wait=true', {
+    expect(signed[0]).toEqual({
       action: {
         type: 'set',
         data: {
@@ -111,32 +170,38 @@ describe('StorageAccountModule gasless writes', () => {
           },
         },
       },
-      target_account: 'core.onsocial.near',
+      targetContract: CORE,
     });
   });
 
   it('sponsor / unsponsor map to share_storage / return_shared_storage', async () => {
-    const post = vi.fn().mockResolvedValue({ txHash: 'tx' });
-    const mod = makeMod({ post });
+    const signed: Array<{
+      action: Record<string, unknown>;
+      targetContract: string;
+    }> = [];
+    const mod = makeMod({ signed });
     await mod.sponsor('bob.near', { maxBytes: 4096 });
     await mod.unsponsor();
-    expect(post.mock.calls[0][1].action.data).toEqual({
+    expect((signed[0].action as { data: unknown }).data).toEqual({
       'storage/share_storage': { target_id: 'bob.near', max_bytes: 4096 },
     });
-    expect(post.mock.calls[1][1].action.data).toEqual({
+    expect((signed[1].action as { data: unknown }).data).toEqual({
       'storage/return_shared_storage': {},
     });
   });
 
   it('setSponsorQuota and setSponsorDefault snake_case the args', async () => {
-    const post = vi.fn().mockResolvedValue({ txHash: 'tx' });
-    const mod = makeMod({ post });
+    const signed: Array<{
+      action: Record<string, unknown>;
+      targetContract: string;
+    }> = [];
+    const mod = makeMod({ signed });
     await mod.setSponsorQuota('cool-cats', 'bob.near', {
       enabled: true,
       dailyRefillBytes: 100,
       allowanceMaxBytes: 1000,
     });
-    expect(post.mock.calls[0][1].action.data).toEqual({
+    expect((signed[0].action as { data: unknown }).data).toEqual({
       'storage/group_sponsor_quota_set': {
         group_id: 'cool-cats',
         target_id: 'bob.near',
@@ -151,7 +216,7 @@ describe('StorageAccountModule gasless writes', () => {
       dailyRefillBytes: 0,
       allowanceMaxBytes: 0,
     });
-    expect(post.mock.calls[1][1].action.data).toEqual({
+    expect((signed[1].action as { data: unknown }).data).toEqual({
       'storage/group_sponsor_default_set': {
         group_id: 'cool-cats',
         enabled: false,

@@ -18,7 +18,7 @@
 // `@onsocial/sdk/advanced` (for signing + submitting directly to NEAR).
 // ---------------------------------------------------------------------------
 
-import type { HttpClient } from '../http.js';
+import type { HttpClient } from '../internal/http.js';
 import type { MediaRef } from '../schema/v1.js';
 
 const ONSOCIAL_CDN_BASE: Record<string, string> = {

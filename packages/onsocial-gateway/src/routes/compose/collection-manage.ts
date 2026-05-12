@@ -34,7 +34,6 @@ const updatePrice = actionHandlers(
     }),
   'update-collection-price'
 );
-collectionManageRouter.post('/update-collection-price', updatePrice.relay);
 collectionManageRouter.post(
   '/prepare/update-collection-price',
   updatePrice.prepare
@@ -51,7 +50,6 @@ const updateTiming = actionHandlers(
     }),
   'update-collection-timing'
 );
-collectionManageRouter.post('/update-collection-timing', updateTiming.relay);
 collectionManageRouter.post(
   '/prepare/update-collection-timing',
   updateTiming.prepare
@@ -68,7 +66,6 @@ const mintFromCol = actionHandlers(
     }),
   'mint-from-collection'
 );
-collectionManageRouter.post('/mint-from-collection', mintFromCol.relay);
 collectionManageRouter.post(
   '/prepare/mint-from-collection',
   mintFromCol.prepare
@@ -84,7 +81,6 @@ const airdrop = actionHandlers(
     }),
   'airdrop-from-collection'
 );
-collectionManageRouter.post('/airdrop-from-collection', airdrop.relay);
 collectionManageRouter.post(
   '/prepare/airdrop-from-collection',
   airdrop.prepare
@@ -101,7 +97,6 @@ const purchaseCol = actionHandlers(
     }),
   'purchase-from-collection'
 );
-collectionManageRouter.post('/purchase-from-collection', purchaseCol.relay);
 collectionManageRouter.post(
   '/prepare/purchase-from-collection',
   purchaseCol.prepare
@@ -116,7 +111,6 @@ const pause = actionHandlers(
     }),
   'pause-collection'
 );
-collectionManageRouter.post('/pause-collection', pause.relay);
 collectionManageRouter.post('/prepare/pause-collection', pause.prepare);
 
 // ── Resume Collection ───────────────────────────────────────────────────────
@@ -128,7 +122,6 @@ const resume = actionHandlers(
     }),
   'resume-collection'
 );
-collectionManageRouter.post('/resume-collection', resume.relay);
 collectionManageRouter.post('/prepare/resume-collection', resume.prepare);
 
 // ── Delete Collection ───────────────────────────────────────────────────────
@@ -140,7 +133,6 @@ const del = actionHandlers(
     }),
   'delete-collection'
 );
-collectionManageRouter.post('/delete-collection', del.relay);
 collectionManageRouter.post('/prepare/delete-collection', del.prepare);
 
 // ── Cancel Collection ───────────────────────────────────────────────────────
@@ -155,7 +147,6 @@ const cancel = actionHandlers(
     }),
   'cancel-collection'
 );
-collectionManageRouter.post('/cancel-collection', cancel.relay);
 collectionManageRouter.post('/prepare/cancel-collection', cancel.prepare);
 
 // ── Withdraw Unclaimed Refunds ──────────────────────────────────────────────
@@ -166,10 +157,6 @@ const withdrawRefunds = actionHandlers(
       targetAccount: b.targetAccount ? String(b.targetAccount) : undefined,
     }),
   'withdraw-unclaimed-refunds'
-);
-collectionManageRouter.post(
-  '/withdraw-unclaimed-refunds',
-  withdrawRefunds.relay
 );
 collectionManageRouter.post(
   '/prepare/withdraw-unclaimed-refunds',
@@ -189,7 +176,6 @@ const setAl = actionHandlers(
     }),
   'set-allowlist'
 );
-collectionManageRouter.post('/set-allowlist', setAl.relay);
 collectionManageRouter.post('/prepare/set-allowlist', setAl.prepare);
 
 // ── Remove from Allowlist ───────────────────────────────────────────────────
@@ -202,7 +188,6 @@ const removeAl = actionHandlers(
     }),
   'remove-from-allowlist'
 );
-collectionManageRouter.post('/remove-from-allowlist', removeAl.relay);
 collectionManageRouter.post('/prepare/remove-from-allowlist', removeAl.prepare);
 
 // ── Set Collection Metadata ─────────────────────────────────────────────────
@@ -215,7 +200,6 @@ const setMeta = actionHandlers(
     }),
   'set-collection-metadata'
 );
-collectionManageRouter.post('/set-collection-metadata', setMeta.relay);
 collectionManageRouter.post(
   '/prepare/set-collection-metadata',
   setMeta.prepare
@@ -232,7 +216,6 @@ const setAppMeta = actionHandlers(
     }),
   'set-collection-app-metadata'
 );
-collectionManageRouter.post('/set-collection-app-metadata', setAppMeta.relay);
 collectionManageRouter.post(
   '/prepare/set-collection-app-metadata',
   setAppMeta.prepare

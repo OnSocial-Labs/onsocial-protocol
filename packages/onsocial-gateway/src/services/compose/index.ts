@@ -26,7 +26,6 @@ export {
   ComposeError,
   uploadToLighthouse,
   uploadJsonToLighthouse,
-  intentAuth,
   validateRoyalty,
   resolveScarcesTarget,
   nearToYocto,
@@ -43,7 +42,6 @@ export {
   type SetActionResult,
   validatePath,
   buildSetAction,
-  composeSet,
 } from './set.js';
 
 // Mint (scarces contract)
@@ -52,7 +50,6 @@ export {
   type ComposeMintResult,
   type MintActionResult,
   buildMintAction,
-  composeMint,
 } from './mint.js';
 
 // Create Collection (scarces contract)
@@ -61,7 +58,6 @@ export {
   type ComposeCreateCollectionResult,
   type CreateCollectionActionResult,
   buildCreateCollectionAction,
-  composeCreateCollection,
 } from './collection.js';
 
 // Lazy Listing (scarces contract — deferred-mint marketplace)
@@ -70,7 +66,6 @@ export {
   type ComposeLazyListResult,
   type LazyListActionResult,
   type LazyListingSimpleResult,
-  composeLazyList,
   buildLazyListAction,
   buildCancelLazyListingAction,
   buildUpdateLazyListingPriceAction,

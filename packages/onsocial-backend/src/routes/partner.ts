@@ -172,7 +172,7 @@ router.post('/claim', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Execute gasless claim via relayer (intent auth)
+    // Execute gasless claim through the relayer.
     const result = await claimOnChain(account_id);
     if (!result.success) {
       res.status(502).json({ success: false, error: result.error });

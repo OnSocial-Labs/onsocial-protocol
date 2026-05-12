@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { SocialModule, resolvePostMedia } from '../social.js';
+import { SocialModule, resolvePostMedia } from './social.js';
 import type { StorageProvider } from '../storage/provider.js';
 
 function makeProvider(): StorageProvider & { uploads: Array<Blob | File> } {
@@ -46,7 +46,7 @@ describe('resolvePostMedia', () => {
     ]);
   });
 
-  it('prepends image:File as ipfs:// string (legacy path)', async () => {
+  it('prepends image:File as ipfs:// string', async () => {
     const provider = makeProvider();
     const img = new File(['img'], 'x.png', { type: 'image/png' });
     const out = await resolvePostMedia(
@@ -98,13 +98,37 @@ describe('resolvePostMedia', () => {
 
 describe('SocialModule.post with files[]', () => {
   it('uploads each file via the provider and writes MediaRef entries', async () => {
-    const postSpy = vi.fn().mockResolvedValue({ txHash: 'tx' });
+    const postSpy = vi.fn(async (path: string) => {
+      if (path.startsWith('/compose/prepare/')) {
+        const calls = postSpy.mock.calls as unknown as Array<
+          [string, Record<string, unknown>]
+        >;
+        const last = calls[calls.length - 1][1];
+        return {
+          action: { type: 'set', __body: last },
+          target_account: 'core.onsocial.testnet',
+        };
+      }
+      if (path === '/relay/delegate') return { txHash: 'tx' };
+      throw new Error(`unexpected POST ${path}`);
+    });
+    const session = {
+      signComposeDelegate: vi.fn(async () => ({
+        base64: 'BASE64_DELEGATE_BLOB',
+        nonce: 1,
+      })),
+    };
     const provider = makeProvider();
     const social = new SocialModule(
       {
+        get: vi.fn(async (path: string) => {
+          if (path === '/relay/latest-block') return { block_height: 100 };
+          throw new Error(`unexpected GET ${path}`);
+        }),
         post: postSpy,
         network: 'testnet',
       } as never,
+      () => session as never,
       provider
     );
     const audio = new File(['a'], 'a.mp3', { type: 'audio/mpeg' });
@@ -116,7 +140,12 @@ describe('SocialModule.post with files[]', () => {
     );
 
     expect(provider.upload).toHaveBeenCalledTimes(2);
-    const [, body] = postSpy.mock.calls[0];
+    const calls = postSpy.mock.calls as unknown as Array<
+      [string, { path: string; value: string }]
+    >;
+    const prepCall = calls.find(([p]) => p === '/compose/prepare/set');
+    expect(prepCall).toBeDefined();
+    const body = prepCall![1];
     expect(body.path).toBe('post/p-1');
     const stored = JSON.parse(body.value);
     expect(stored.media).toEqual([

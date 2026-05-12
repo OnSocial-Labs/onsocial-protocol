@@ -38,7 +38,6 @@ const register = actionHandlers(
     }),
   'register-app'
 );
-appRouter.post('/register-app', register.relay);
 appRouter.post('/prepare/register-app', register.prepare);
 
 // ── Set App Config ──────────────────────────────────────────────────────────
@@ -56,7 +55,6 @@ const setConfig = actionHandlers(
     }),
   'set-app-config'
 );
-appRouter.post('/set-app-config', setConfig.relay);
 appRouter.post('/prepare/set-app-config', setConfig.prepare);
 
 // ── Fund App Pool ───────────────────────────────────────────────────────────
@@ -68,7 +66,6 @@ const fund = actionHandlers(
     }),
   'fund-app-pool'
 );
-appRouter.post('/fund-app-pool', fund.relay);
 appRouter.post('/prepare/fund-app-pool', fund.prepare);
 
 // ── Withdraw App Pool ───────────────────────────────────────────────────────
@@ -81,7 +78,6 @@ const withdraw = actionHandlers(
     }),
   'withdraw-app-pool'
 );
-appRouter.post('/withdraw-app-pool', withdraw.relay);
 appRouter.post('/prepare/withdraw-app-pool', withdraw.prepare);
 
 // ── Transfer App Ownership ──────────────────────────────────────────────────
@@ -94,7 +90,6 @@ const transferOwn = actionHandlers(
     }),
   'transfer-app-ownership'
 );
-appRouter.post('/transfer-app-ownership', transferOwn.relay);
 appRouter.post('/prepare/transfer-app-ownership', transferOwn.prepare);
 
 // ── Add Moderator ───────────────────────────────────────────────────────────
@@ -107,7 +102,6 @@ const addMod = actionHandlers(
     }),
   'add-moderator'
 );
-appRouter.post('/add-moderator', addMod.relay);
 appRouter.post('/prepare/add-moderator', addMod.prepare);
 
 // ── Remove Moderator ────────────────────────────────────────────────────────
@@ -120,7 +114,6 @@ const removeMod = actionHandlers(
     }),
   'remove-moderator'
 );
-appRouter.post('/remove-moderator', removeMod.relay);
 appRouter.post('/prepare/remove-moderator', removeMod.prepare);
 
 // ── Ban Collection ──────────────────────────────────────────────────────────
@@ -134,7 +127,6 @@ const ban = actionHandlers(
     }),
   'ban-collection'
 );
-appRouter.post('/ban-collection', ban.relay);
 appRouter.post('/prepare/ban-collection', ban.prepare);
 
 // ── Unban Collection ────────────────────────────────────────────────────────
@@ -147,7 +139,6 @@ const unban = actionHandlers(
     }),
   'unban-collection'
 );
-appRouter.post('/unban-collection', unban.relay);
 appRouter.post('/prepare/unban-collection', unban.prepare);
 
 // ── Storage Deposit ─────────────────────────────────────────────────────────
@@ -159,7 +150,6 @@ const storageDep = actionHandlers(
     }),
   'storage-deposit'
 );
-appRouter.post('/storage-deposit', storageDep.relay);
 appRouter.post('/prepare/storage-deposit', storageDep.prepare);
 
 // ── Storage Withdraw ────────────────────────────────────────────────────────
@@ -170,7 +160,6 @@ const storageWith = actionHandlers(
     }),
   'storage-withdraw'
 );
-appRouter.post('/storage-withdraw', storageWith.relay);
 appRouter.post('/prepare/storage-withdraw', storageWith.prepare);
 
 // ── Withdraw Platform Storage ───────────────────────────────────────────────
@@ -182,7 +171,6 @@ const platWith = actionHandlers(
     }),
   'withdraw-platform-storage'
 );
-appRouter.post('/withdraw-platform-storage', platWith.relay);
 appRouter.post('/prepare/withdraw-platform-storage', platWith.prepare);
 
 // ── Set Spending Cap ────────────────────────────────────────────────────────
@@ -194,5 +182,4 @@ const cap = actionHandlers(
     }),
   'set-spending-cap'
 );
-appRouter.post('/set-spending-cap', cap.relay);
 appRouter.post('/prepare/set-spending-cap', cap.prepare);

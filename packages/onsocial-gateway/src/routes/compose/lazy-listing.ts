@@ -1,9 +1,7 @@
 /**
  * Compose routes: Lazy Listing — list content for deferred-mint purchase.
  *
- * POST /lazy-list                        — Upload + relay via intent auth
- * POST /prepare/lazy-list                — Build action for SDK signing
- * POST /cancel-lazy-list                 — Cancel a listing (creator only)
+ * POST /prepare/lazy-list                — Upload media + build action; SDK signs.
  * POST /prepare/cancel-lazy-list         — Build cancel action for SDK signing
  * POST /prepare/update-lazy-list-price   — Build update-price action for SDK signing
  * POST /prepare/update-lazy-list-expiry  — Build update-expiry action for SDK signing
@@ -15,7 +13,6 @@ import type { Request, Response } from 'express';
 import multer from 'multer';
 import { logger } from '../../logger.js';
 import {
-  composeLazyList,
   buildLazyListAction,
   buildCancelLazyListingAction,
   buildUpdateLazyListingPriceAction,
@@ -36,152 +33,6 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 1024 * 1024 * 1024, files: 50 },
 });
-
-// ---------------------------------------------------------------------------
-// POST /compose/lazy-list — Create a lazy listing (list without pre-minting)
-//
-// multipart/form-data:
-//   Fields: title (required), priceNear (required, e.g. "5"),
-//           description, mediaCid, mediaHash, extra (JSON), royalty (JSON),
-//           appId, transferable, burnable, expiresAt, targetAccount
-//   Files:  image (single file — used only when mediaCid is not provided)
-//
-// The token is minted directly to the buyer when purchased.
-// ---------------------------------------------------------------------------
-lazyListingRouter.post(
-  '/lazy-list',
-  upload.single('image'),
-  async (req: Request, res: Response) => {
-    const effectiveActorId = resolveActorId(req);
-
-    try {
-      const {
-        title,
-        description,
-        priceNear,
-        extra,
-        mediaCid,
-        mediaHash,
-        royalty,
-        appId,
-        transferable,
-        burnable,
-        expiresAt,
-        targetAccount,
-        skipAutoMedia,
-        creator,
-        cardBg,
-        cardFont,
-        cardMarkColor,
-        cardMarkShape,
-        cardTitleAlign,
-      } = req.body;
-
-      if (!title || typeof title !== 'string') {
-        res.status(400).json({ error: 'Missing required field: title' });
-        return;
-      }
-      if (!priceNear || typeof priceNear !== 'string') {
-        res.status(400).json({ error: 'Missing required field: priceNear' });
-        return;
-      }
-
-      const parsedExtra = parseJsonField(extra);
-      if (typeof extra === 'string' && parsedExtra === undefined) {
-        res.status(400).json({ error: 'Invalid JSON in extra field' });
-        return;
-      }
-
-      const parsedRoyalty = parseJsonField<Record<string, number>>(royalty);
-      if (typeof royalty === 'string' && parsedRoyalty === undefined) {
-        res.status(400).json({ error: 'Invalid JSON in royalty field' });
-        return;
-      }
-
-      const parsedCreator = parseJsonField<{
-        accountId: string;
-        displayName?: string;
-      }>(creator);
-      if (typeof creator === 'string' && parsedCreator === undefined) {
-        res.status(400).json({ error: 'Invalid JSON in creator field' });
-        return;
-      }
-
-      const imageFile = extractImageFile(req.file);
-      const wait = req.query.wait === 'true' || req.query.wait === '1';
-      const skipAuto =
-        skipAutoMedia === true ||
-        skipAutoMedia === 'true' ||
-        skipAutoMedia === '1';
-
-      const result = await composeLazyList(
-        effectiveActorId,
-        {
-          title,
-          priceNear,
-          ...(description && { description }),
-          ...(parsedExtra && { extra: parsedExtra }),
-          ...(mediaCid && { mediaCid }),
-          ...(mediaHash && { mediaHash }),
-          ...(parsedRoyalty && { royalty: parsedRoyalty }),
-          ...(appId && { appId }),
-          ...(parseBool(transferable) != null && {
-            transferable: parseBool(transferable)!,
-          }),
-          ...(parseBool(burnable) != null && {
-            burnable: parseBool(burnable)!,
-          }),
-          ...(expiresAt && { expiresAt: parseInt(expiresAt, 10) }),
-          ...(targetAccount && { targetAccount }),
-          ...(skipAuto && { skipAutoMedia: true }),
-          ...(parsedCreator && { creator: parsedCreator }),
-          ...(typeof cardBg === 'string' && cardBg && { cardBg }),
-          ...(typeof cardFont === 'string' && cardFont && { cardFont }),
-          ...(typeof cardMarkColor === 'string' &&
-            cardMarkColor && { cardMarkColor }),
-          ...(typeof cardMarkShape === 'string' &&
-            cardMarkShape && { cardMarkShape }),
-          ...(typeof cardTitleAlign === 'string' &&
-            cardTitleAlign && { cardTitleAlign }),
-        },
-        imageFile,
-        { wait }
-      );
-
-      res.status(201).json({
-        txHash: result.txHash,
-        ...(result.success !== undefined && { success: result.success }),
-        ...(result.status !== undefined && { status: result.status }),
-        ...(result.error !== undefined && { error: result.error }),
-        media: result.media
-          ? {
-              cid: result.media.cid,
-              url: result.media.url,
-              size: result.media.size,
-              hash: result.media.hash,
-            }
-          : undefined,
-        metadata: result.metadata
-          ? {
-              cid: result.metadata.cid,
-              url: result.metadata.url,
-              size: result.metadata.size,
-            }
-          : undefined,
-      });
-    } catch (error) {
-      if (error instanceof ComposeError) {
-        res.status(error.status).json({ error: error.details });
-        return;
-      }
-      logger.error(
-        { error, accountId: req.auth!.accountId },
-        'Compose lazy-list failed'
-      );
-      res.status(500).json({ error: 'Compose lazy-list failed' });
-    }
-  }
-);
 
 // ---------------------------------------------------------------------------
 // POST /compose/prepare/lazy-list — Build lazy-list action without relaying
@@ -314,61 +165,6 @@ lazyListingRouter.post(
         'Compose prepare/lazy-list failed'
       );
       res.status(500).json({ error: 'Compose prepare/lazy-list failed' });
-    }
-  }
-);
-
-// ---------------------------------------------------------------------------
-// POST /compose/cancel-lazy-list — Cancel a lazy listing (creator only)
-//   JSON body: { listingId: string, targetAccount?: string }
-// ---------------------------------------------------------------------------
-lazyListingRouter.post(
-  '/cancel-lazy-list',
-  async (req: Request, res: Response) => {
-    const effectiveActorId = resolveActorId(req);
-
-    try {
-      const { listingId, targetAccount } = req.body;
-      if (!listingId || typeof listingId !== 'string') {
-        res.status(400).json({ error: 'Missing required field: listingId' });
-        return;
-      }
-
-      const built = buildCancelLazyListingAction(listingId, targetAccount);
-      const { relayExecute, intentAuth, extractTxHash } = await import(
-        '../../services/compose/shared.js'
-      );
-      const wait = req.query.wait === 'true' || req.query.wait === '1';
-      const relay = await relayExecute(
-        intentAuth(effectiveActorId),
-        built.action,
-        built.targetAccount,
-        { wait }
-      );
-      if (!relay.ok) {
-        throw new ComposeError(relay.status, relay.data);
-      }
-
-      const data =
-        typeof relay.data === 'object' && relay.data !== null
-          ? (relay.data as Record<string, unknown>)
-          : {};
-      res.status(200).json({
-        txHash: extractTxHash(relay.data),
-        ...('success' in data && { success: data.success }),
-        ...('status' in data && { status: data.status }),
-        ...('error' in data && { error: data.error }),
-      });
-    } catch (error) {
-      if (error instanceof ComposeError) {
-        res.status(error.status).json({ error: error.details });
-        return;
-      }
-      logger.error(
-        { error, accountId: req.auth!.accountId },
-        'Compose cancel-lazy-list failed'
-      );
-      res.status(500).json({ error: 'Compose cancel-lazy-list failed' });
     }
   }
 );

@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// builders — pure NEAR Social `Set` payload builders
+// builders — pure OnSocial `Set` payload builders
 //
 // These functions take typed input (PostData, ReactionData, …) and return
 // `SocialSetData` (a flat path → value map) ready to be wrapped in a

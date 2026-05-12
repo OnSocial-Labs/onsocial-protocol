@@ -25,39 +25,13 @@ export interface AuthRequest extends Request {
 }
 
 // ---------------------------------------------------------------------------
-// Contract auth types — how the smart contract verifies the caller
+// Contract auth
 //
-//   JWT (user has key) ──→ SignedPayload  (user proves intent per-action)
-//   API Key (server)   ──→ Intent         (whitelisted relayer acts on behalf)
-//   AI Agent token     ──→ Intent         (whitelisted relayer acts on behalf)
+// All contract writes are NEP-366 SignedDelegateActions submitted via
+// `/relay/delegate`. The user's session key signs the inner FunctionCall
+// and the relayer broadcasts as `Action::Delegate(...)`. From the contract's
+// view, `predecessor_account_id == signer_id == delegate.sender_id`.
 //
-// The caller doesn't choose — the auth method on the request determines
-// the trust model automatically.
+// The gateway never impersonates users — the legacy Direct/Intent/DelegateAction
+// passthroughs have been removed.
 // ---------------------------------------------------------------------------
-
-/** Intent auth — relayer is whitelisted as an intents_executor on the contract. */
-export interface IntentAuth {
-  type: 'intent';
-  actor_id: string;
-  intent: Record<string, unknown>;
-}
-
-/** Signed payload auth — user signs the action off-chain with their NEAR key. */
-export interface SignedPayloadAuth {
-  type: 'signed_payload';
-  actor_id: string;
-  public_key: string;
-  nonce: string;
-  expires_at_ms: string;
-  signature: string;
-}
-
-/** Delegate action auth — NEP-366 meta-transaction (pro tier). */
-export interface DelegateActionAuth {
-  type: 'delegate_action';
-  actor_id: string;
-  delegate_action: Record<string, unknown>;
-}
-
-/** Union of all contract auth modes. */
-export type ContractAuth = IntentAuth | SignedPayloadAuth | DelegateActionAuth;

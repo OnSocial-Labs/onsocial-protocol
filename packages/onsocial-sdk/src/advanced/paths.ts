@@ -5,7 +5,7 @@
 // and a batch-merge helper for composing multi-key Set actions.
 // ---------------------------------------------------------------------------
 
-import type { SocialSetData } from '../social.js';
+import type { SocialSetData } from '../modules/social.js';
 
 /** Path keys reserved by the base social schema. Apps SHOULD NOT write here. */
 export const RESERVED_PREFIXES = [

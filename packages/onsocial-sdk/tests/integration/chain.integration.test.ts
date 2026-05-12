@@ -64,13 +64,6 @@ describe('chain', () => {
     );
   });
 
-  it('should return a numeric nonce for the account public key', async () => {
-    const nonce = await os.chain.getNonce(ACCOUNT_ID, publicKey);
-
-    expect(nonce).toMatch(/^\d+$/);
-    expect(Number(nonce)).toBeGreaterThan(0);
-  });
-
   it('should return the contract status and version', async () => {
     const [status, version] = await Promise.all([
       os.chain.getContractStatus(),
@@ -82,7 +75,7 @@ describe('chain', () => {
   });
 
   it('should return governance config limits', async () => {
-    const config = await os.chain.getConfig();
+    const config = await os.chain.getGovernanceConfig();
 
     expect(config.max_key_length).toBeGreaterThan(0);
     expect(config.max_path_depth).toBeGreaterThan(0);
@@ -91,8 +84,6 @@ describe('chain', () => {
     expect(config.platform_onboarding_bytes).toBeGreaterThan(0);
     expect(config.platform_daily_refill_bytes).toBeGreaterThan(0);
     expect(config.platform_allowance_max_bytes).toBeGreaterThan(0);
-    expect(Array.isArray(config.intents_executors)).toBe(true);
-    expect(config.intents_executors.length).toBeGreaterThan(0);
   });
 
   it('should expose contract info consistent with status and config views', async () => {
@@ -100,7 +91,7 @@ describe('chain', () => {
       os.chain.getContractInfo(),
       os.chain.getContractStatus(),
       os.chain.getVersion(),
-      os.chain.getConfig(),
+      os.chain.getGovernanceConfig(),
     ]);
 
     expect(info.manager).toBeTruthy();

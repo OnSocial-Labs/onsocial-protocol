@@ -25,7 +25,7 @@ export interface ExtractedPost {
   media: Array<string | MediaRef>;
 }
 
-/** Treat as image when MIME is missing (legacy posts) or starts with `image/`. */
+/** Treat as image when MIME is missing or starts with `image/`. */
 function isImageMime(mime: string | undefined): boolean {
   if (!mime) return true;
   return /^image\//i.test(mime);
@@ -61,7 +61,7 @@ export function extractPostMedia(
   const mediaCids: string[] = [];
   for (const entry of rawMedia) {
     if (typeof entry === 'string') {
-      // Legacy string-only entries: assume image (no MIME info available).
+      // String-only entries have no MIME info, so assume image.
       if (entry.startsWith('ipfs://')) {
         mediaCids.push(entry.slice('ipfs://'.length));
       }

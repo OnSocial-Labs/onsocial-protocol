@@ -28,7 +28,7 @@
 // For unindexed or one-off queries, drop down to `os.query.graphql<T>(...)`.
 // ---------------------------------------------------------------------------
 
-import type { HttpClient } from '../http.js';
+import type { HttpClient } from '../internal/http.js';
 import type { GraphQLRequest, GraphQLResponse, QueryLimits } from '../types.js';
 
 import { GraphQLValidationError } from './_shared.js';
@@ -73,7 +73,12 @@ export { PERMISSION_OPERATIONS } from './permissions.js';
 export type { GovernanceEventRow } from './governance.js';
 export { GOVERNANCE_OPERATIONS } from './governance.js';
 export type { ScarcesEventRow } from './scarces.js';
-export { SCARCES_OPERATIONS, SCARCES_EVENT_TYPES } from './scarces.js';
+export { SCARCES_OPERATIONS } from './scarces.js';
+export {
+  SCARCES_EVENT_TYPES,
+  SCARCES_CONTRACT_EVENTS,
+  type ScarcesEventType,
+} from './scarces-events.js';
 export type { RewardsEventRow, UserRewardStateRow } from './rewards.js';
 export { REWARDS_EVENT_TYPES } from './rewards.js';
 export type { TokenEventRow, TokenAccountActivityRow } from './token.js';

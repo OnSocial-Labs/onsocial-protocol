@@ -75,10 +75,10 @@ describe('extractPostMedia', () => {
     expect(out.mediaCids).toEqual(['bafyA', 'bafyB', 'bafyC']);
   });
 
-  it('treats string-only entries as image (legacy posts have no MIME)', () => {
+  it('treats string-only entries as image when MIME is unavailable', () => {
     const out = extractPostMedia(
-      JSON.stringify({ text: 'legacy', media: ['ipfs://legacyOne'] })
+      JSON.stringify({ text: 'old-format', media: ['ipfs://oldFormatOne'] })
     );
-    expect(out.mediaCids).toEqual(['legacyOne']);
+    expect(out.mediaCids).toEqual(['oldFormatOne']);
   });
 });

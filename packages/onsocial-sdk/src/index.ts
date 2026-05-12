@@ -6,14 +6,14 @@ export { OnSocial } from './client.js';
 export type {
   ExecuteAction,
   ExecuteOptions,
-  SignedAuth,
   MintPostOptions,
   MintPostResult,
 } from './client.js';
-export { OnSocialError, RelayExecutionError } from './http.js';
+export { OnSocialError, RelayExecutionError } from './internal/http.js';
+export { SessionRequiredError } from './internal/session-bridge.js';
 
 // Modules (for advanced composition)
-export { AuthModule } from './auth.js';
+export { AuthModule } from './internal/auth.js';
 export {
   SocialModule,
   resolvePostMedia,
@@ -35,14 +35,14 @@ export {
   buildEndorsementRemoveData,
   buildAttestationSetData,
   buildAttestationRemoveData,
-} from './social.js';
+} from './modules/social.js';
 export type {
   SaveBuildInput,
   EndorsementBuildInput,
   EndorsementWeightInput,
   AttestationBuildInput,
   AttestationSignatureInput,
-} from './social.js';
+} from './modules/social.js';
 export { ScarcesModule } from './modules/scarces/index.js';
 export {
   ScarcesTokensApi,
@@ -54,6 +54,7 @@ export {
   ScarcesFromPostApi,
   ScarcesAppsApi,
 } from './modules/scarces/index.js';
+export type { PostScarceEmbed } from './modules/scarces/from-post.js';
 export type {
   AppConfigInput,
   AllowlistEntry,
@@ -95,9 +96,22 @@ export type {
   BatchTransferEntry,
   TokenMetadata,
 } from './builders/scarces/index.js';
-export { RewardsModule } from './rewards.js';
-export { buildClaimAction, buildCreditRewardAction } from './rewards.js';
+export { RewardsModule } from './modules/rewards.js';
+export {
+  buildClaimAction,
+  buildCreditRewardAction,
+} from './modules/rewards.js';
 export { QueryModule } from './query/index.js';
+export {
+  SubscribeModule,
+  ScarcesSubscribeApi,
+} from './modules/subscribe/index.js';
+export type {
+  Unsubscribe,
+  SubscriptionInfo,
+  SubscriptionHandler,
+  SubscribeOptions,
+} from './modules/subscribe/index.js';
 export type {
   PostRow,
   ReactionRow,
@@ -123,8 +137,10 @@ export {
   REWARDS_EVENT_TYPES,
   TOKEN_EVENT_TYPES,
   BOOST_EVENT_TYPES,
+  SCARCES_OPERATIONS,
+  SCARCES_EVENT_TYPES,
 } from './query/index.js';
-export { StorageModule } from './storage.js';
+export { StorageModule } from './storage/module.js';
 export {
   GatewayProvider,
   LighthouseProvider,
@@ -138,9 +154,12 @@ export type {
   UploadedJson,
   UploadOptions,
 } from './storage/provider.js';
-export { WebhooksModule, verifyWebhookSignature } from './webhooks.js';
-export type { WebhookEndpoint, CreateWebhookParams } from './webhooks.js';
-export { NotificationsModule } from './notifications.js';
+export { WebhooksModule, verifyWebhookSignature } from './modules/webhooks.js';
+export type {
+  WebhookEndpoint,
+  CreateWebhookParams,
+} from './modules/webhooks.js';
+export { NotificationsModule } from './modules/notifications.js';
 export type {
   Notification,
   ListNotificationsParams,
@@ -149,7 +168,7 @@ export type {
   SendEventsParams,
   NotificationRule,
   CreateRuleParams,
-} from './notifications.js';
+} from './modules/notifications.js';
 export { GroupsModule } from './modules/groups.js';
 export { PostsModule } from './modules/posts.js';
 export { ProfilesModule } from './modules/profiles.js';
@@ -167,19 +186,19 @@ export { EndorsementsModule } from './modules/endorsements.js';
 export type { EndorsementListItem } from './modules/endorsements.js';
 export { AttestationsModule } from './modules/attestations.js';
 export type { AttestationListItem } from './modules/attestations.js';
-export { PermissionsModule } from './permissions.js';
-export { PERMISSION, type PermissionName } from './permissions.js';
-export { ChainModule } from './chain.js';
-export { TokenModule } from './token.js';
-export type { FtMetadata, FtStorageBalance } from './token.js';
-export { BoostModule } from './boost.js';
+export { PermissionsModule } from './modules/permissions.js';
+export { PERMISSION, type PermissionName } from './modules/permissions.js';
+export { ChainModule } from './modules/chain.js';
+export { TokenModule } from './modules/token.js';
+export type { FtMetadata, FtStorageBalance } from './modules/token.js';
+export { BoostModule } from './modules/boost.js';
 export type {
   BoostAccountView,
   BoostContractStats,
   BoostLockStatus,
   BoostRewardRate,
-} from './boost.js';
-export { PagesModule } from './pages.js';
+} from './modules/boost.js';
+export { PagesModule } from './modules/pages.js';
 export { StandingsModule } from './modules/standings.js';
 export {
   StorageAccountModule,
@@ -201,7 +220,7 @@ export type {
   EconomyNamespace,
   PlatformNamespace,
   RawNamespace,
-} from './namespaces.js';
+} from './internal/namespaces.js';
 
 // Base Social Schema v1 — promotable shared spec
 export {
@@ -270,6 +289,8 @@ export type {
   LoginRequest,
   LoginResponse,
   AuthInfo,
+  BroadcastTarget,
+  WalletBroadcastSigner,
   RelayResponse,
   PrepareResponse,
   UploadResult,

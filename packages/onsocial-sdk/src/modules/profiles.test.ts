@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ProfilesModule } from './profiles.js';
-import type { SocialModule } from '../social.js';
+import type { SocialModule } from './social.js';
 import type { QueryModule } from '../query/index.js';
 import type { StorageProvider } from '../storage/provider.js';
 

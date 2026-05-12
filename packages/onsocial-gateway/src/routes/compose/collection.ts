@@ -1,8 +1,7 @@
 /**
  * Compose routes: Collection — create Scarces collections with auto-uploaded images.
  *
- * POST /create-collection          — Upload + relay via intent auth
- * POST /prepare/create-collection  — Upload only, return action for SDK signing
+ * POST /prepare/create-collection  — Upload image + build action; SDK signs and posts /relay/delegate.
  */
 
 import { Router } from 'express';
@@ -10,7 +9,6 @@ import type { Request, Response } from 'express';
 import multer from 'multer';
 import { logger } from '../../logger.js';
 import {
-  composeCreateCollection,
   buildCreateCollectionAction,
   ComposeError,
 } from '../../services/compose/index.js';
@@ -112,90 +110,6 @@ function buildCreateCollectionReq(body: Record<string, unknown>) {
     parsedRoyalty,
   };
 }
-
-// ---------------------------------------------------------------------------
-// POST /compose/create-collection — Create Scarces collection with auto-uploaded image
-//
-// multipart/form-data:
-//   Fields: collectionId (required), totalSupply (required), title (required),
-//           priceNear (optional, defaults to "0" for free; e.g. "1.5"), description, extra (JSON),
-//           startTime, endTime, royalty (JSON), appId, renewable, maxRedeems,
-//           mintMode, maxPerWallet, metadata, startPrice, allowlistPrice,
-//           transferable, burnable, targetAccount
-//   Files:  image (single file — collection cover art)
-//
-// Examples:
-//   // Ticket collection
-//   FormData: collectionId="nearcon-2026", totalSupply=1000,
-//             title="NEARCON 2026 Ticket", priceNear="5", image=<file>
-//
-//   // Free membership
-//   FormData: collectionId="premium-members", totalSupply=500,
-//             title="Premium Membership", priceNear="0", mintMode="creator_only"
-// ---------------------------------------------------------------------------
-collectionRouter.post(
-  '/create-collection',
-  upload.single('image'),
-  async (req: Request, res: Response) => {
-    const effectiveActorId = resolveActorId(req);
-
-    try {
-      if (!validateCreateCollectionBody(req.body, res)) return;
-
-      const { extra, royalty } = req.body;
-
-      // Validate JSON fields
-      if (typeof extra === 'string' && parseJsonField(extra) === undefined) {
-        res.status(400).json({ error: 'Invalid JSON in extra field' });
-        return;
-      }
-      if (
-        typeof royalty === 'string' &&
-        parseJsonField(royalty) === undefined
-      ) {
-        res.status(400).json({ error: 'Invalid JSON in royalty field' });
-        return;
-      }
-
-      const { req: collectionReq } = buildCreateCollectionReq(req.body);
-      const imageFile = extractImageFile(req.file);
-      const wait = req.query.wait === 'true' || req.query.wait === '1';
-
-      const result = await composeCreateCollection(
-        effectiveActorId,
-        collectionReq,
-        imageFile,
-        { wait }
-      );
-
-      res.status(201).json({
-        txHash: result.txHash,
-        collectionId: req.body.collectionId,
-        ...(result.success !== undefined && { success: result.success }),
-        ...(result.status !== undefined && { status: result.status }),
-        ...(result.error !== undefined && { error: result.error }),
-        media: result.media
-          ? {
-              cid: result.media.cid,
-              url: result.media.url,
-              size: result.media.size,
-              hash: result.media.hash,
-            }
-          : undefined,
-      });
-    } catch (error) {
-      if (error instanceof ComposeError) {
-        res.status(error.status).json({ error: error.details });
-        return;
-      }
-      logger.error(
-        { error, accountId: req.auth!.accountId },
-        'Compose create-collection failed'
-      );
-      res.status(500).json({ error: 'Compose create-collection failed' });
-    }
-  }
-);
 
 // ---------------------------------------------------------------------------
 // POST /compose/prepare/create-collection — Build create-collection action

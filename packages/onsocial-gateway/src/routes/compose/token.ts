@@ -30,7 +30,6 @@ const transfer = actionHandlers(
     }),
   'transfer'
 );
-tokenRouter.post('/transfer', transfer.relay);
 tokenRouter.post('/prepare/transfer', transfer.prepare);
 
 // ── Batch Transfer ──────────────────────────────────────────────────────────
@@ -46,7 +45,6 @@ const batchTransfer = actionHandlers(
     }),
   'batch-transfer'
 );
-tokenRouter.post('/batch-transfer', batchTransfer.relay);
 tokenRouter.post('/prepare/batch-transfer', batchTransfer.prepare);
 
 // ── Burn ────────────────────────────────────────────────────────────────────
@@ -59,7 +57,6 @@ const burn = actionHandlers(
     }),
   'burn'
 );
-tokenRouter.post('/burn', burn.relay);
 tokenRouter.post('/prepare/burn', burn.prepare);
 
 // ── Renew Token ─────────────────────────────────────────────────────────────
@@ -73,7 +70,6 @@ const renew = actionHandlers(
     }),
   'renew-token'
 );
-tokenRouter.post('/renew-token', renew.relay);
 tokenRouter.post('/prepare/renew-token', renew.prepare);
 
 // ── Redeem Token ────────────────────────────────────────────────────────────
@@ -86,7 +82,6 @@ const redeem = actionHandlers(
     }),
   'redeem-token'
 );
-tokenRouter.post('/redeem-token', redeem.relay);
 tokenRouter.post('/prepare/redeem-token', redeem.prepare);
 
 // ── Revoke Token ────────────────────────────────────────────────────────────
@@ -100,7 +95,6 @@ const revokeToken = actionHandlers(
     }),
   'revoke-token'
 );
-tokenRouter.post('/revoke-token', revokeToken.relay);
 tokenRouter.post('/prepare/revoke-token', revokeToken.prepare);
 
 // ── Claim Refund ────────────────────────────────────────────────────────────
@@ -113,5 +107,4 @@ const claimRefund = actionHandlers(
     }),
   'claim-refund'
 );
-tokenRouter.post('/claim-refund', claimRefund.relay);
 tokenRouter.post('/prepare/claim-refund', claimRefund.prepare);

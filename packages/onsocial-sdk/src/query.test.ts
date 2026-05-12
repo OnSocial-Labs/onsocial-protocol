@@ -860,7 +860,7 @@ describe('QueryModule', () => {
 
   describe('storage.*', () => {
     const sampleEvent = {
-      operation: 'tip',
+      operation: 'storage_tip',
       actorId: 'a.near',
       targetId: 'b.near',
       amount: '1000',
@@ -882,7 +882,7 @@ describe('QueryModule', () => {
         (fetch.mock.calls[0][1] as RequestInit).body as string
       );
       expect(body.variables).toEqual({ id: 'a.near', limit: 10 });
-      expect(body.query).toMatch(/operation: \{_eq: "tip"\}/);
+      expect(body.query).toMatch(/operation: \{_eq: "storage_tip"\}/);
       expect(body.query).toMatch(/actorId: \{_eq: \$id\}/);
     });
 
@@ -1355,7 +1355,7 @@ describe('QueryModule', () => {
       );
       expect(body.variables).toMatchObject({
         eventType: 'SCARCE_UPDATE',
-        operation: ['quick_mint', 'mint', 'mint_from_collection'],
+        operation: ['quick_mint'],
         limit: 25,
       });
     });
@@ -1370,7 +1370,7 @@ describe('QueryModule', () => {
       expect(body.variables).toMatchObject({
         author: 'a.near',
         eventType: 'SCARCE_UPDATE',
-        operation: ['quick_mint', 'mint', 'mint_from_collection'],
+        operation: ['quick_mint'],
       });
     });
 
@@ -1470,7 +1470,6 @@ describe('QueryModule', () => {
       newOwner: null,
       oldMax: null,
       newMax: null,
-      executor: null,
       caller: null,
       oldVersion: null,
       newVersion: null,

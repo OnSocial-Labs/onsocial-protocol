@@ -8,7 +8,6 @@ import lighthouse from '@lighthouse-web3/sdk';
 import { createHash } from 'node:crypto';
 import { config } from '../../config/index.js';
 import { logger } from '../../logger.js';
-import type { ContractAuth, IntentAuth } from '../../types/index.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -304,65 +303,10 @@ export function nearToYocto(near: string): string {
 // ---------------------------------------------------------------------------
 // Relay helpers
 // ---------------------------------------------------------------------------
-
-function relayHeaders(): Record<string, string> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-  if (config.relayApiKey) {
-    headers['X-Api-Key'] = config.relayApiKey;
-  }
-  return headers;
-}
-
-/** Build an intent auth block (gateway acts on behalf of user via relayer). */
-export function intentAuth(actorId: string): IntentAuth {
-  return { type: 'intent', actor_id: actorId, intent: {} };
-}
-
-export async function relayExecute(
-  auth: ContractAuth,
-  action: Record<string, unknown>,
-  targetAccount: string,
-  opts: { wait?: boolean } = {}
-): Promise<{ ok: boolean; status: number; data: unknown }> {
-  const contractRequest = {
-    target_account: targetAccount,
-    action,
-    auth,
-  };
-
-  // wait=true → relayer uses broadcast_tx_commit and surfaces inner-action
-  // failures as { success: false, status: 'failure', error, tx_hash } instead
-  // of fire-and-forget pending. Required for compose writes whose callers
-  // (SDK, integration tests) need to know the on-chain outcome.
-  const url = opts.wait
-    ? `${config.relayUrl}/execute?wait=true`
-    : `${config.relayUrl}/execute`;
-  const timeoutMs = opts.wait ? 90_000 : 30_000;
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: relayHeaders(),
-    signal: AbortSignal.timeout(timeoutMs),
-    body: JSON.stringify(contractRequest),
-  });
-
-  let data: unknown;
-  try {
-    data = await response.json();
-  } catch {
-    const text = await response.text().catch(() => '(empty)');
-    data = { error: 'Relay returned non-JSON response', raw: text };
-  }
-  return { ok: response.ok, status: response.status, data };
-}
-
-export function extractTxHash(data: unknown): string {
-  if (typeof data === 'object' && data !== null && 'tx_hash' in data) {
-    return String((data as Record<string, unknown>).tx_hash);
-  }
-  return '';
-}
+//
+// All compose routes now respond as `prepare` only (return `{ action,
+// target_account }`) — the SDK signs and posts to `/relay/delegate`. The
+// gateway no longer relays compose actions on the user's behalf, so the
+// previous `relayExecute` / `intentAuth` / `extractTxHash` helpers are gone.
 
 export { logger };

@@ -11,7 +11,7 @@ import type { MediaRef, Embed } from '../schema/v1.js';
 import type { PostData } from '../types.js';
 
 /**
- * Shape of a NEAR Social `Set` payload — a flat map of slash-keyed paths
+ * Shape of an OnSocial `Set` payload — a flat map of slash-keyed paths
  * to JSON-serialisable values (or `null` to delete).
  */
 export type SocialSetData = Record<string, unknown>;

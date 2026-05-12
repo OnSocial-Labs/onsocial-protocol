@@ -29,7 +29,6 @@ const list = actionHandlers(
     }),
   'list-native-scarce'
 );
-marketplaceRouter.post('/list-native-scarce', list.relay);
 marketplaceRouter.post('/prepare/list-native-scarce', list.prepare);
 
 // ── Delist Native Scarce ────────────────────────────────────────────────────
@@ -41,7 +40,6 @@ const delist = actionHandlers(
     }),
   'delist-native-scarce'
 );
-marketplaceRouter.post('/delist-native-scarce', delist.relay);
 marketplaceRouter.post('/prepare/delist-native-scarce', delist.prepare);
 
 // ── Delist External Scarce ──────────────────────────────────────────────────
@@ -54,7 +52,6 @@ const delistExt = actionHandlers(
     }),
   'delist-external-scarce'
 );
-marketplaceRouter.post('/delist-external-scarce', delistExt.relay);
 marketplaceRouter.post('/prepare/delist-external-scarce', delistExt.prepare);
 
 // ── Update Sale Price ───────────────────────────────────────────────────────
@@ -68,7 +65,6 @@ const updatePrice = actionHandlers(
     }),
   'update-sale-price'
 );
-marketplaceRouter.post('/update-sale-price', updatePrice.relay);
 marketplaceRouter.post('/prepare/update-sale-price', updatePrice.prepare);
 
 // ── List Auction ────────────────────────────────────────────────────────────
@@ -92,7 +88,6 @@ const listAuction = actionHandlers(
     }),
   'list-auction'
 );
-marketplaceRouter.post('/list-auction', listAuction.relay);
 marketplaceRouter.post('/prepare/list-auction', listAuction.prepare);
 
 // ── Settle Auction ──────────────────────────────────────────────────────────
@@ -104,7 +99,6 @@ const settle = actionHandlers(
     }),
   'settle-auction'
 );
-marketplaceRouter.post('/settle-auction', settle.relay);
 marketplaceRouter.post('/prepare/settle-auction', settle.prepare);
 
 // ── Cancel Auction ──────────────────────────────────────────────────────────
@@ -116,7 +110,6 @@ const cancelAuction = actionHandlers(
     }),
   'cancel-auction'
 );
-marketplaceRouter.post('/cancel-auction', cancelAuction.relay);
 marketplaceRouter.post('/prepare/cancel-auction', cancelAuction.prepare);
 
 // ── Purchase Native Scarce ──────────────────────────────────────────────────
@@ -128,7 +121,6 @@ const purchase = actionHandlers(
     }),
   'purchase-native-scarce'
 );
-marketplaceRouter.post('/purchase-native-scarce', purchase.relay);
 marketplaceRouter.post('/prepare/purchase-native-scarce', purchase.prepare);
 
 // ── Place Bid ───────────────────────────────────────────────────────────────
@@ -141,5 +133,4 @@ const bid = actionHandlers(
     }),
   'place-bid'
 );
-marketplaceRouter.post('/place-bid', bid.relay);
 marketplaceRouter.post('/prepare/place-bid', bid.prepare);

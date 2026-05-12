@@ -2,9 +2,18 @@
 // Collections — create, mintFrom, purchaseFrom, airdrop, pause, resume, delete.
 // ---------------------------------------------------------------------------
 
-import type { HttpClient } from '../../http.js';
+import type { HttpClient } from '../../internal/http.js';
 import type { StorageProvider } from '../../storage/provider.js';
 import type { CollectionOptions, RelayResponse } from '../../types.js';
+import {
+  composeAndSign,
+  composeFormAndSign,
+  signAndRelay,
+  type SessionGetter,
+  type BroadcastGetter,
+} from '../../internal/session-bridge.js';
+import { SCARCES_VERBS } from './verbs.js';
+import { resolveContractId } from '../../internal/contracts.js';
 import { buildCreateCollectionAction } from '../../builders/scarces/collections.js';
 import { hasLocalUpload, resolveScarceMedia } from './_media.js';
 
@@ -15,10 +24,23 @@ export interface AllowlistEntry {
 }
 
 export class ScarcesCollectionsApi {
+  private _scarcesContract: string;
+
   constructor(
     private _http: HttpClient,
-    private _storage?: StorageProvider
-  ) {}
+    private _getSession: SessionGetter,
+    private _storage?: StorageProvider,
+    private _getBroadcast?: BroadcastGetter
+  ) {
+    this._scarcesContract = resolveContractId(_http.network, 'scarces');
+  }
+
+  private _broadcastOpts():
+    | { broadcast: ReturnType<BroadcastGetter> }
+    | undefined {
+    const b = this._getBroadcast?.();
+    return b !== undefined ? { broadcast: b } : undefined;
+  }
 
   /**
    * Create a collection for batch / drop minting.
@@ -43,9 +65,19 @@ export class ScarcesCollectionsApi {
         ...(mediaCid ? { mediaCid } : {}),
         ...(mediaHash ? { mediaHash } : {}),
       });
-      return this._http.post<RelayResponse>('/relay/execute', { action });
+      const broadcast = this._getBroadcast?.();
+      return signAndRelay(
+        this._http,
+        this._getSession(),
+        action as Record<string, unknown>,
+        this._scarcesContract,
+        'scarces.collections.create',
+        broadcast !== undefined ? { broadcast } : undefined
+      );
     }
 
+    // FormData upload route — gateway uploads media + builds the action,
+    // SDK signs with the session key and relays via /relay/delegate.
     const form = new FormData();
     form.append('collectionId', opts.collectionId);
     form.append('totalSupply', String(opts.totalSupply));
@@ -69,11 +101,16 @@ export class ScarcesCollectionsApi {
     if (opts.mediaCid) form.append('mediaCid', opts.mediaCid);
     if (opts.mediaHash) form.append('mediaHash', opts.mediaHash);
     if (opts.image) form.append('image', opts.image);
-    return this._http.requestForm<RelayResponse>(
-      'POST',
-      '/compose/create-collection',
-      form
+
+    const result = await composeFormAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.CREATE_COLLECTION,
+      form,
+      'scarces.collections.create',
+      this._broadcastOpts()
     );
+    return result.relay;
   }
 
   /** Mint from an existing collection. */
@@ -82,11 +119,18 @@ export class ScarcesCollectionsApi {
     quantity = 1,
     receiverId?: string
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/compose/mint-from-collection', {
-      collectionId,
-      quantity,
-      receiverId,
-    });
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.MINT_FROM_COLLECTION,
+      {
+        collectionId,
+        quantity,
+        receiverId,
+      },
+      'scarces.mintFromCollection',
+      this._broadcastOpts()
+    );
   }
 
   /** Purchase from a collection (pay priceNear per token). */
@@ -95,11 +139,18 @@ export class ScarcesCollectionsApi {
     maxPricePerTokenNear: string,
     quantity = 1
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/compose/purchase-from-collection', {
-      collectionId,
-      quantity,
-      maxPricePerTokenNear,
-    });
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.PURCHASE_FROM_COLLECTION,
+      {
+        collectionId,
+        quantity,
+        maxPricePerTokenNear,
+      },
+      'scarces.purchaseFromCollection',
+      this._broadcastOpts()
+    );
   }
 
   /** Airdrop scarces from a collection to multiple receivers. */
@@ -107,31 +158,59 @@ export class ScarcesCollectionsApi {
     collectionId: string,
     receivers: string[]
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/compose/airdrop-from-collection', {
-      collectionId,
-      receivers,
-    });
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.AIRDROP_FROM_COLLECTION,
+      {
+        collectionId,
+        receivers,
+      },
+      'scarces.airdropFromCollection',
+      this._broadcastOpts()
+    );
   }
 
   /** Pause minting on a collection. */
   async pause(collectionId: string): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/compose/pause-collection', {
-      collectionId,
-    });
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.PAUSE_COLLECTION,
+      {
+        collectionId,
+      },
+      'scarces.pauseCollection',
+      this._broadcastOpts()
+    );
   }
 
   /** Resume minting on a collection. */
   async resume(collectionId: string): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/compose/resume-collection', {
-      collectionId,
-    });
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.RESUME_COLLECTION,
+      {
+        collectionId,
+      },
+      'scarces.resumeCollection',
+      this._broadcastOpts()
+    );
   }
 
   /** Delete a collection (must be empty). */
   async delete(collectionId: string): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/compose/delete-collection', {
-      collectionId,
-    });
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.DELETE_COLLECTION,
+      {
+        collectionId,
+      },
+      'scarces.deleteCollection',
+      this._broadcastOpts()
+    );
   }
 
   /** Update the per-token price of a collection (creator only). */
@@ -139,10 +218,17 @@ export class ScarcesCollectionsApi {
     collectionId: string,
     newPriceNear: string
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/compose/update-collection-price', {
-      collectionId,
-      newPriceNear,
-    });
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.UPDATE_COLLECTION_PRICE,
+      {
+        collectionId,
+        newPriceNear,
+      },
+      'scarces.updateCollectionPrice',
+      this._broadcastOpts()
+    );
   }
 
   /** Update collection start/end timestamps (ns). */
@@ -150,11 +236,18 @@ export class ScarcesCollectionsApi {
     collectionId: string,
     opts: { startTime?: number; endTime?: number }
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/compose/update-collection-timing', {
-      collectionId,
-      startTime: opts.startTime,
-      endTime: opts.endTime,
-    });
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.UPDATE_COLLECTION_TIMING,
+      {
+        collectionId,
+        startTime: opts.startTime,
+        endTime: opts.endTime,
+      },
+      'scarces.updateCollectionTiming',
+      this._broadcastOpts()
+    );
   }
 
   /** Replace the collection allowlist with `entries`. */
@@ -162,10 +255,17 @@ export class ScarcesCollectionsApi {
     collectionId: string,
     entries: AllowlistEntry[]
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/compose/set-allowlist', {
-      collectionId,
-      entries,
-    });
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.SET_ALLOWLIST,
+      {
+        collectionId,
+        entries,
+      },
+      'scarces.setAllowlist',
+      this._broadcastOpts()
+    );
   }
 
   /** Remove specific accounts from the collection allowlist. */
@@ -173,10 +273,17 @@ export class ScarcesCollectionsApi {
     collectionId: string,
     accounts: string[]
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/compose/remove-from-allowlist', {
-      collectionId,
-      accounts,
-    });
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.REMOVE_FROM_ALLOWLIST,
+      {
+        collectionId,
+        accounts,
+      },
+      'scarces.removeFromAllowlist',
+      this._broadcastOpts()
+    );
   }
 
   /** Set or clear the collection's freeform metadata blob. */
@@ -184,10 +291,17 @@ export class ScarcesCollectionsApi {
     collectionId: string,
     metadata: string | null
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/compose/set-collection-metadata', {
-      collectionId,
-      metadata,
-    });
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.SET_COLLECTION_METADATA,
+      {
+        collectionId,
+        metadata,
+      },
+      'scarces.setCollectionMetadata',
+      this._broadcastOpts()
+    );
   }
 
   /** Set or clear the per-app metadata for a collection (app owner). */
@@ -196,9 +310,13 @@ export class ScarcesCollectionsApi {
     collectionId: string,
     metadata: string | null
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>(
-      '/compose/set-collection-app-metadata',
-      { appId, collectionId, metadata }
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.SET_COLLECTION_APP_METADATA,
+      { appId, collectionId, metadata },
+      'scarces.setCollectionAppMetadata',
+      this._broadcastOpts()
     );
   }
 
@@ -208,18 +326,29 @@ export class ScarcesCollectionsApi {
     refundPerTokenNear: string,
     refundDeadlineNs?: number
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/compose/cancel-collection', {
-      collectionId,
-      refundPerTokenNear,
-      refundDeadlineNs,
-    });
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.CANCEL_COLLECTION,
+      {
+        collectionId,
+        refundPerTokenNear,
+        refundDeadlineNs,
+      },
+      'scarces.cancelCollection',
+      this._broadcastOpts()
+    );
   }
 
   /** After the refund window, reclaim unclaimed refund balances (creator). */
   async withdrawUnclaimedRefunds(collectionId: string): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>(
-      '/compose/withdraw-unclaimed-refunds',
-      { collectionId }
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.WITHDRAW_UNCLAIMED_REFUNDS,
+      { collectionId },
+      'scarces.withdrawUnclaimedRefunds',
+      this._broadcastOpts()
     );
   }
 }

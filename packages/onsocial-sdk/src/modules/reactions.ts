@@ -16,7 +16,7 @@
 // (matching the contract / ReactionV1 escape hatch).
 // ---------------------------------------------------------------------------
 
-import type { SocialModule } from '../social.js';
+import type { SocialModule } from './social.js';
 import type { QueryModule } from '../query/index.js';
 import type { PostRef, RelayResponse } from '../types.js';
 import type { ReactionKind } from '../schema/v1.js';
@@ -46,6 +46,11 @@ function toRef(target: ReactionTarget | PostRef): PostRef {
   return { author: target.author, postId: target.postId };
 }
 
+/**
+ * Reactions (`add` / `remove` / `toggle` / `summary`).
+ *
+ * @throws {SessionRequiredError} On writes when no session is attached and broadcast is not `'wallet'`.
+ */
 export class ReactionsModule {
   constructor(
     private _social: SocialModule,

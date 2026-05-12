@@ -13,9 +13,6 @@ import {
   uploadToLighthouse,
   uploadJsonToLighthouse,
   inlineSvgAsDataUri,
-  intentAuth,
-  relayExecute,
-  extractTxHash,
   logger,
   validateRoyalty,
   nearToYocto,
@@ -136,8 +133,7 @@ function resolveTarget(override?: string): string {
  * returns the action object without relaying.
  *
  * Used by:
- *   - composeLazyList()            → intent auth (server/API-key callers)
- *   - /compose/prepare/lazy-list   → returns action for SDK signing
+ *   - /compose/prepare/lazy-list   → returns action for SDK NEP-366 signing
  */
 export async function buildLazyListAction(
   accountId: string,
@@ -307,40 +303,6 @@ export async function buildLazyListAction(
     targetAccount: resolveTarget(req.targetAccount),
     media,
     metadata,
-  };
-}
-
-/**
- * Compose: Create Lazy Listing — uploads media/metadata, builds action, relays.
- */
-export async function composeLazyList(
-  accountId: string,
-  req: ComposeLazyListRequest,
-  imageFile?: UploadedFile,
-  opts: { wait?: boolean } = {}
-): Promise<ComposeLazyListResult> {
-  const built = await buildLazyListAction(accountId, req, imageFile);
-  const relay = await relayExecute(
-    intentAuth(accountId),
-    built.action,
-    built.targetAccount,
-    { wait: opts.wait }
-  );
-  if (!relay.ok) {
-    throw new ComposeError(relay.status, relay.data);
-  }
-
-  const data =
-    typeof relay.data === 'object' && relay.data !== null
-      ? (relay.data as Record<string, unknown>)
-      : {};
-  return {
-    txHash: extractTxHash(relay.data),
-    media: built.media,
-    metadata: built.metadata,
-    ...('success' in data && { success: data.success as boolean }),
-    ...('status' in data && { status: data.status as string }),
-    ...('error' in data && { error: data.error as string }),
   };
 }
 

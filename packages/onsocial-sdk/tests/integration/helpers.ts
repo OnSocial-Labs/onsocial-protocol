@@ -11,6 +11,7 @@ import * as crypto from 'node:crypto';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { OnSocial } from '../../src/client.js';
+import { Session } from '../../src/advanced/session.js';
 
 // ── Environment ────────────────────────────────────────────────────────────
 
@@ -20,6 +21,11 @@ export const ACCOUNT_ID = process.env.ACCOUNT_ID || 'test01.onsocial.testnet';
 export const CREDS_FILE =
   process.env.CREDS_FILE ||
   path.join(process.env.HOME!, `.near-credentials/testnet/${ACCOUNT_ID}.json`);
+export const NEAR_RPC_URL =
+  process.env.NEAR_RPC_URL || 'https://rpc.testnet.near.org';
+export const INTEGRATION_SETUP_TIMEOUT_MS = Number(
+  process.env.INTEGRATION_SETUP_TIMEOUT_MS || 60_000
+);
 
 function resolveRootEnvVar(name: string): string | undefined {
   if (process.env[name]) return process.env[name];
@@ -128,6 +134,19 @@ export function signNep413(
   return Buffer.from(sig).toString('base64');
 }
 
+function signEd25519Digest(message: Uint8Array, secretKey: Buffer): Uint8Array {
+  const seed = secretKey.subarray(0, 32);
+  const sig = crypto.sign(null, Buffer.from(message), {
+    key: Buffer.concat([
+      Buffer.from('302e020100300506032b657004220420', 'hex'),
+      seed,
+    ]),
+    format: 'der',
+    type: 'pkcs8',
+  });
+  return Uint8Array.from(sig);
+}
+
 // ── Client factory ─────────────────────────────────────────────────────────
 
 let _sessionClient: OnSocial | null = null;
@@ -143,6 +162,133 @@ function credsFileForAccount(accountId: string): string {
   return path.join(path.dirname(CREDS_FILE), `${accountId}.json`);
 }
 
+async function fetchAccessKeyNonce(
+  accountId: string,
+  publicKey: string
+): Promise<number> {
+  const response = await fetch(NEAR_RPC_URL, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 'onsocial-sdk-integration-access-key',
+      method: 'query',
+      params: {
+        request_type: 'view_access_key',
+        finality: 'final',
+        account_id: accountId,
+        public_key: publicKey,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `NEAR RPC access-key query failed: ${response.status} ${response.statusText}`
+    );
+  }
+
+  const body = (await response.json()) as {
+    error?: { message?: string; data?: unknown };
+    result?: { nonce?: number };
+  };
+  if (body.error) {
+    throw new Error(
+      `NEAR RPC access-key query failed: ${body.error.message ?? JSON.stringify(body.error)}`
+    );
+  }
+
+  const nonce = body.result?.nonce;
+  if (!Number.isSafeInteger(nonce)) {
+    throw new Error(`NEAR RPC returned an unsafe access-key nonce: ${nonce}`);
+  }
+  return nonce;
+}
+
+async function fetchLatestBlockHeightFromRpc(): Promise<bigint> {
+  const response = await fetch(NEAR_RPC_URL, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 'onsocial-sdk-integration-latest-block',
+      method: 'block',
+      params: { finality: 'final' },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `NEAR RPC latest-block query failed: ${response.status} ${response.statusText}`
+    );
+  }
+
+  const body = (await response.json()) as {
+    error?: { message?: string; data?: unknown };
+    result?: { header?: { height?: number | string } };
+  };
+  if (body.error) {
+    throw new Error(
+      `NEAR RPC latest-block query failed: ${body.error.message ?? JSON.stringify(body.error)}`
+    );
+  }
+
+  const height = body.result?.header?.height;
+  if (height === undefined) {
+    throw new Error('NEAR RPC latest-block query returned no block height');
+  }
+  return BigInt(height);
+}
+
+/**
+ * Attach a NEP-366 delegate signer to an integration client.
+ *
+ * The signer uses the account key from the local NEAR credentials file. That
+ * keeps the test lane focused on the SDK -> SignedDelegateAction ->
+ * `/relay/delegate` path without mutating the account's access-key set on each
+ * run. Product tests for wallet onboarding still live in the unit coverage for
+ * `bootstrapSession` and should be backed by a wallet/e2e suite separately.
+ */
+export async function attachCredentialDelegateSession(
+  os: OnSocial,
+  accountId = ACCOUNT_ID,
+  opts: { required?: boolean } = {}
+): Promise<boolean> {
+  if (os.session) return true;
+
+  const required = opts.required ?? true;
+  const credsPath = credsFileForAccount(accountId);
+  if (!fs.existsSync(credsPath)) {
+    if (!required) return false;
+    throw new Error(
+      `NEAR credentials are required for delegate integration tests: ${credsPath}`
+    );
+  }
+
+  try {
+    const keypair = loadKeypair(credsPath);
+    const nonce = await fetchAccessKeyNonce(accountId, keypair.publicKey);
+    os.attachSession(
+      new Session({
+        network: 'testnet',
+        accountId,
+        contract: 'core',
+        key: {
+          publicKey: keypair.publicKey,
+          sign: (message) => signEd25519Digest(message, keypair.secretKey),
+        },
+        startingNonce: nonce + 1,
+        remainingAllowanceYocto: null,
+        gasTgas: 300,
+      })
+    );
+    return true;
+  } catch (err) {
+    if (!required) return false;
+    throw err;
+  }
+}
+
 /**
  * Returns a JWT-authenticated session client.
  * Used internally to create/revoke API keys (key management requires JWT).
@@ -155,6 +301,7 @@ export async function getSessionClient(): Promise<OnSocial> {
   const os = new OnSocial({
     gatewayUrl: GATEWAY_URL,
     network: 'testnet',
+    latestBlockHeightProvider: fetchLatestBlockHeightFromRpc,
   });
 
   const challengeRes = await os.http.post<{
@@ -187,6 +334,7 @@ async function getSessionClientForAccount(
   const os = new OnSocial({
     gatewayUrl: GATEWAY_URL,
     network: 'testnet',
+    latestBlockHeightProvider: fetchLatestBlockHeightFromRpc,
   });
 
   const challengeRes = await os.http.post<{
@@ -229,6 +377,10 @@ export async function getClient(): Promise<OnSocial> {
       network: 'testnet',
       apiKey: envKey,
       actorId: ACCOUNT_ID,
+      latestBlockHeightProvider: fetchLatestBlockHeightFromRpc,
+    });
+    await attachCredentialDelegateSession(_apiKeyClient, ACCOUNT_ID, {
+      required: false,
     });
     return _apiKeyClient;
   }
@@ -255,7 +407,9 @@ export async function getClient(): Promise<OnSocial> {
     gatewayUrl: GATEWAY_URL,
     network: 'testnet',
     apiKey: result.key,
+    latestBlockHeightProvider: fetchLatestBlockHeightFromRpc,
   });
+  await attachCredentialDelegateSession(_apiKeyClient, ACCOUNT_ID);
 
   return _apiKeyClient;
 }
@@ -274,6 +428,10 @@ export async function getClientForAccount(
       network: 'testnet',
       apiKey: SERVICE_KEY,
       actorId: accountId,
+      latestBlockHeightProvider: fetchLatestBlockHeightFromRpc,
+    });
+    await attachCredentialDelegateSession(client, accountId, {
+      required: false,
     });
     _apiKeyClientsByAccount.set(accountId, client);
     return client;
@@ -302,7 +460,9 @@ export async function getClientForAccount(
     gatewayUrl: GATEWAY_URL,
     network: 'testnet',
     apiKey: result.key,
+    latestBlockHeightProvider: fetchLatestBlockHeightFromRpc,
   });
+  await attachCredentialDelegateSession(client, accountId);
 
   _apiKeyClientsByAccount.set(accountId, client);
   return client;
@@ -321,6 +481,7 @@ export function getPartnerClient(): OnSocial {
     gatewayUrl: GATEWAY_URL,
     network: 'testnet',
     apiKey: PARTNER_KEY,
+    latestBlockHeightProvider: fetchLatestBlockHeightFromRpc,
   });
 
   return _partnerClient;

@@ -15,10 +15,15 @@
 //   const { incoming, outgoing } = await os.standings.counts('alice.near')
 // ---------------------------------------------------------------------------
 
-import type { SocialModule } from '../social.js';
+import type { SocialModule } from './social.js';
 import type { QueryModule } from '../query/index.js';
 import type { RelayResponse } from '../types.js';
 
+/**
+ * Standings — "I stand with you" relationship edges.
+ *
+ * @throws {SessionRequiredError} On writes when no session is attached and broadcast is not `'wallet'`.
+ */
 export class StandingsModule {
   constructor(
     private _social: SocialModule,

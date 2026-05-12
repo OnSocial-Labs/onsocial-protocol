@@ -2,10 +2,81 @@ import { describe, expect, it, vi } from 'vitest';
 import { GroupsModule } from './groups.js';
 import { groupConfigV1 } from '../schema/v1.js';
 
-describe('GroupsModule transport', () => {
-  it('posts create_group to /relay/execute with the provided config', async () => {
-    const post = vi.fn().mockResolvedValue({ txHash: 'tx-create' });
-    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
+// ---------------------------------------------------------------------------
+// Test harness
+// ---------------------------------------------------------------------------
+//
+// All write methods in GroupsModule now go through the session-bridge:
+//   - direct actions (create/join/vote/...) use signAndRelay() which calls
+//     session.signComposeDelegate(...) then POST /relay/delegate
+//   - compose verbs (group post/reply/quote) use composeAndSign() which
+//     POSTs /compose/prepare/<verb> first, then signs the returned action
+//     via session.signComposeDelegate(...), then POST /relay/delegate
+//
+// We assert against the **signed action** and **target account** captured by
+// the session.signComposeDelegate() spy — that's the contract-facing shape
+// that matters. Transport details (which endpoint, in what order) are covered
+// by session-bridge.test.ts.
+// ---------------------------------------------------------------------------
+
+interface HarnessOpts {
+  network?: 'mainnet' | 'testnet';
+  /** What the gateway returns from /compose/prepare/<verb>. */
+  prepareResponse?: { action: Record<string, unknown>; target_account: string };
+}
+
+function makeHarness(opts: HarnessOpts = {}) {
+  const network = opts.network ?? 'mainnet';
+  const signed: Array<{
+    action: Record<string, unknown>;
+    targetAccount: string;
+  }> = [];
+
+  const post = vi.fn(async (path: string) => {
+    if (path.startsWith('/compose/prepare/')) {
+      return (
+        opts.prepareResponse ?? {
+          action: { type: 'prepared_stub' },
+          target_account:
+            network === 'mainnet'
+              ? 'core.onsocial.near'
+              : 'core.onsocial.testnet',
+        }
+      );
+    }
+    if (path === '/relay/delegate') return { txHash: 'tx_signed' };
+    throw new Error(`unexpected POST ${path}`);
+  });
+  const get = vi.fn(async (path: string): Promise<unknown> => {
+    if (path === '/relay/latest-block') return { block_height: 100 };
+    throw new Error(`unexpected GET ${path}`);
+  });
+
+  const session = {
+    signComposeDelegate: vi.fn(
+      async (args: {
+        action: Record<string, unknown>;
+        targetContract: string;
+      }) => {
+        signed.push({
+          action: args.action,
+          targetAccount: args.targetContract,
+        });
+        return { base64: 'BASE64_DELEGATE_BLOB', nonce: 1 };
+      }
+    ),
+  };
+
+  const http = { post, get, network } as never;
+  const groups = new GroupsModule(http, () => session as never);
+  return { groups, post, get, signed };
+}
+
+const CORE_MAINNET = 'core.onsocial.near';
+
+describe('GroupsModule lifecycle (signed actions)', () => {
+  it('signs create_group with provided config', async () => {
+    const { groups, signed } = makeHarness();
     const config = groupConfigV1({
       name: 'Builders',
       description: 'Core contributors',
@@ -16,131 +87,113 @@ describe('GroupsModule transport', () => {
 
     await groups.create('dao', config);
 
-    expect(post).toHaveBeenCalledWith('/relay/execute', {
-      action: {
-        type: 'create_group',
-        group_id: 'dao',
-        config: {
-          v: 1,
-          name: 'Builders',
-          description: 'Core contributors',
-          is_private: false,
-          member_driven: true,
-          tags: ['builders', 'core'],
+    expect(signed).toEqual([
+      {
+        action: {
+          type: 'create_group',
+          group_id: 'dao',
+          config: {
+            v: 1,
+            name: 'Builders',
+            description: 'Core contributors',
+            is_private: false,
+            member_driven: true,
+            tags: ['builders', 'core'],
+          },
         },
+        targetAccount: CORE_MAINNET,
       },
-      target_account: 'core.onsocial.near',
-    });
+    ]);
   });
 
-  it('posts add_group_member to /relay/execute with group and member ids', async () => {
-    const post = vi.fn().mockResolvedValue({ txHash: 'tx-add-member' });
-    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
-
+  it('signs add_group_member with group and member ids', async () => {
+    const { groups, signed } = makeHarness();
     await groups.addMember('dao', 'bob.near');
-
-    expect(post).toHaveBeenCalledWith('/relay/execute', {
+    expect(signed[0]).toEqual({
       action: {
         type: 'add_group_member',
         group_id: 'dao',
         member_id: 'bob.near',
       },
-      target_account: 'core.onsocial.near',
+      targetAccount: CORE_MAINNET,
     });
   });
+});
 
+describe('GroupsModule view reads', () => {
   it('encodes group and member ids when reading membership state', async () => {
-    const get = vi.fn().mockResolvedValue(true);
-    const groups = new GroupsModule({ get, network: 'mainnet' } as never);
+    const { groups, get } = makeHarness();
+    get.mockResolvedValue(true);
 
     const result = await groups.isMember('dao/core', 'bob+mod.near');
-
     expect(result).toBe(true);
     expect(get).toHaveBeenCalledWith(
       '/data/group-is-member?groupId=dao%2Fcore&memberId=bob%2Bmod.near'
     );
   });
+});
 
+describe('GroupsModule governance proposals (signed actions)', () => {
   it('builds invite-member proposals with optional message', async () => {
-    const post = vi.fn().mockResolvedValue({ txHash: 'tx-invite' });
-    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
-
+    const { groups, signed } = makeHarness();
     await groups.proposeInviteMember('dao', 'eve.near', {
       message: 'Would strengthen the moderation bench',
       autoVote: true,
     });
-
-    expect(post).toHaveBeenCalledWith('/relay/execute', {
-      action: {
-        type: 'create_proposal',
-        group_id: 'dao',
-        proposal_type: 'member_invite',
-        changes: {
-          target_user: 'eve.near',
-          message: 'Would strengthen the moderation bench',
-        },
-        auto_vote: true,
+    expect(signed[0].action).toEqual({
+      type: 'create_proposal',
+      group_id: 'dao',
+      proposal_type: 'member_invite',
+      changes: {
+        target_user: 'eve.near',
+        message: 'Would strengthen the moderation bench',
       },
-      target_account: 'core.onsocial.near',
+      auto_vote: true,
     });
   });
 
   it('builds remove-member proposals as group_update changes', async () => {
-    const post = vi.fn().mockResolvedValue({ txHash: 'tx-remove' });
-    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
-
+    const { groups, signed } = makeHarness();
     await groups.proposeRemoveMember('dao', 'bob.near', {
       reason: 'Inactive for six months',
       description: 'Trim inactive members',
     });
-
-    expect(post).toHaveBeenCalledWith('/relay/execute', {
-      action: {
-        type: 'create_proposal',
-        group_id: 'dao',
-        proposal_type: 'group_update',
-        changes: {
-          update_type: 'remove_member',
-          target_user: 'bob.near',
-          reason: 'Inactive for six months',
-        },
-        description: 'Trim inactive members',
+    expect(signed[0].action).toEqual({
+      type: 'create_proposal',
+      group_id: 'dao',
+      proposal_type: 'group_update',
+      changes: {
+        update_type: 'remove_member',
+        target_user: 'bob.near',
+        reason: 'Inactive for six months',
       },
-      target_account: 'core.onsocial.near',
+      description: 'Trim inactive members',
     });
   });
 
   it('builds transfer-ownership proposals with remove_old_owner override', async () => {
-    const post = vi.fn().mockResolvedValue({ txHash: 'tx-transfer-proposal' });
-    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
-
+    const { groups, signed } = makeHarness();
     await groups.proposeTransferOwnership('dao', 'carol.near', {
       removeOldOwner: false,
       reason: 'Rotate ownership to the elected lead',
       autoVote: true,
     });
-
-    expect(post).toHaveBeenCalledWith('/relay/execute', {
-      action: {
-        type: 'create_proposal',
-        group_id: 'dao',
-        proposal_type: 'group_update',
-        changes: {
-          update_type: 'transfer_ownership',
-          new_owner: 'carol.near',
-          remove_old_owner: false,
-          reason: 'Rotate ownership to the elected lead',
-        },
-        auto_vote: true,
+    expect(signed[0].action).toEqual({
+      type: 'create_proposal',
+      group_id: 'dao',
+      proposal_type: 'group_update',
+      changes: {
+        update_type: 'transfer_ownership',
+        new_owner: 'carol.near',
+        remove_old_owner: false,
+        reason: 'Rotate ownership to the elected lead',
       },
-      target_account: 'core.onsocial.near',
+      auto_vote: true,
     });
   });
 
   it('builds custom proposals with normalized custom_data payload', async () => {
-    const post = vi.fn().mockResolvedValue({ txHash: 'tx-custom' });
-    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
-
+    const { groups, signed } = makeHarness();
     await groups.proposeCustom(
       'dao',
       {
@@ -150,186 +203,69 @@ describe('GroupsModule transport', () => {
       },
       { description: 'Treasury decision' }
     );
-
-    expect(post).toHaveBeenCalledWith('/relay/execute', {
-      action: {
-        type: 'create_proposal',
-        group_id: 'dao',
-        proposal_type: 'custom_proposal',
-        changes: {
-          title: 'Fund indexer migration',
-          description: 'Approve budget for the next migration window',
-          custom_data: { budgetNear: '250', owner: 'ops.near' },
-        },
-        description: 'Treasury decision',
+    expect(signed[0].action).toEqual({
+      type: 'create_proposal',
+      group_id: 'dao',
+      proposal_type: 'custom_proposal',
+      changes: {
+        title: 'Fund indexer migration',
+        description: 'Approve budget for the next migration window',
+        custom_data: { budgetNear: '250', owner: 'ops.near' },
       },
-      target_account: 'core.onsocial.near',
-    });
-  });
-
-  it('writes group replies to /compose/set with parent metadata', async () => {
-    const post = vi.fn().mockResolvedValue({ txHash: 'tx-group-reply' });
-    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
-
-    await groups.reply(
-      'dao',
-      'alice.near/groups/dao/content/post/root',
-      { text: 'reply in group' },
-      'reply-1'
-    );
-
-    expect(post).toHaveBeenCalledTimes(1);
-    const [, request] = post.mock.calls[0];
-    expect(request.path).toBe('groups/dao/content/post/reply-1');
-    expect(request.targetAccount).toBe('core.onsocial.near');
-    expect(JSON.parse(request.value)).toMatchObject({
-      v: 1,
-      text: 'reply in group',
-      parent: 'alice.near/groups/dao/content/post/root',
-      parentType: 'post',
-    });
-    expect(JSON.parse(request.value).timestamp).toEqual(expect.any(Number));
-  });
-
-  it('writes group quotes to /compose/set with ref metadata', async () => {
-    const post = vi.fn().mockResolvedValue({ txHash: 'tx-group-quote' });
-    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
-
-    await groups.quote(
-      'dao',
-      'alice.near/groups/dao/content/post/root',
-      { text: 'quote in group' },
-      'quote-1'
-    );
-
-    expect(post).toHaveBeenCalledTimes(1);
-    const [, request] = post.mock.calls[0];
-    expect(request.path).toBe('groups/dao/content/post/quote-1');
-    expect(request.targetAccount).toBe('core.onsocial.near');
-    expect(JSON.parse(request.value)).toMatchObject({
-      v: 1,
-      text: 'quote in group',
-      ref: 'alice.near/groups/dao/content/post/root',
-      refAuthor: 'alice.near',
-      refType: 'quote',
-    });
-    expect(JSON.parse(request.value).timestamp).toEqual(expect.any(Number));
-  });
-
-  it('writes typed group-post replies without requiring a raw path', async () => {
-    const post = vi.fn().mockResolvedValue({ txHash: 'tx-group-reply-ref' });
-    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
-
-    await groups.replyToPost(
-      'dao',
-      { author: 'alice.near', groupId: 'dao', postId: 'root' },
-      { text: 'reply via ref' },
-      'reply-ref-1'
-    );
-
-    const [, request] = post.mock.calls[0];
-    expect(request.path).toBe('groups/dao/content/post/reply-ref-1');
-    expect(JSON.parse(request.value)).toMatchObject({
-      parent: 'alice.near/groups/dao/content/post/root',
-      parentType: 'post',
-      text: 'reply via ref',
-    });
-  });
-
-  it('writes typed group-post quotes without requiring a raw path', async () => {
-    const post = vi.fn().mockResolvedValue({ txHash: 'tx-group-quote-ref' });
-    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
-
-    await groups.quotePost(
-      'dao',
-      { author: 'alice.near', groupId: 'dao', postId: 'root' },
-      { text: 'quote via ref' },
-      'quote-ref-1'
-    );
-
-    const [, request] = post.mock.calls[0];
-    expect(request.path).toBe('groups/dao/content/post/quote-ref-1');
-    expect(JSON.parse(request.value)).toMatchObject({
-      ref: 'alice.near/groups/dao/content/post/root',
-      refAuthor: 'alice.near',
-      refType: 'quote',
-      text: 'quote via ref',
+      description: 'Treasury decision',
     });
   });
 
   it('builds ban proposals as group_update changes with reason', async () => {
-    const post = vi.fn().mockResolvedValue({ txHash: 'tx-ban' });
-    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
-
+    const { groups, signed } = makeHarness();
     await groups.proposeBan('dao', 'mallory.near', {
       reason: 'Repeated abuse',
     });
-
-    expect(post).toHaveBeenCalledWith('/relay/execute', {
-      action: {
-        type: 'create_proposal',
-        group_id: 'dao',
-        proposal_type: 'group_update',
-        changes: {
-          update_type: 'ban',
-          target_user: 'mallory.near',
-          reason: 'Repeated abuse',
-        },
+    expect(signed[0].action).toEqual({
+      type: 'create_proposal',
+      group_id: 'dao',
+      proposal_type: 'group_update',
+      changes: {
+        update_type: 'ban',
+        target_user: 'mallory.near',
+        reason: 'Repeated abuse',
       },
-      target_account: 'core.onsocial.near',
     });
   });
 
   it('builds unban proposals as group_update changes', async () => {
-    const post = vi.fn().mockResolvedValue({ txHash: 'tx-unban' });
-    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
-
+    const { groups, signed } = makeHarness();
     await groups.proposeUnban('dao', 'mallory.near');
-
-    expect(post).toHaveBeenCalledWith('/relay/execute', {
-      action: {
-        type: 'create_proposal',
-        group_id: 'dao',
-        proposal_type: 'group_update',
-        changes: {
-          update_type: 'unban',
-          target_user: 'mallory.near',
-        },
-      },
-      target_account: 'core.onsocial.near',
+    expect(signed[0].action).toEqual({
+      type: 'create_proposal',
+      group_id: 'dao',
+      proposal_type: 'group_update',
+      changes: { update_type: 'unban', target_user: 'mallory.near' },
     });
   });
 
   it('builds metadata-update proposals carrying the metadata payload', async () => {
-    const post = vi.fn().mockResolvedValue({ txHash: 'tx-meta' });
-    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
-
+    const { groups, signed } = makeHarness();
     await groups.proposeMetadataUpdate(
       'dao',
       { name: 'Builders DAO', description: 'New tagline' },
       { reason: 'Rebrand', autoVote: true }
     );
-
-    expect(post).toHaveBeenCalledWith('/relay/execute', {
-      action: {
-        type: 'create_proposal',
-        group_id: 'dao',
-        proposal_type: 'group_update',
-        changes: {
-          update_type: 'metadata',
-          metadata: { name: 'Builders DAO', description: 'New tagline' },
-          reason: 'Rebrand',
-        },
-        auto_vote: true,
+    expect(signed[0].action).toEqual({
+      type: 'create_proposal',
+      group_id: 'dao',
+      proposal_type: 'group_update',
+      changes: {
+        update_type: 'metadata',
+        metadata: { name: 'Builders DAO', description: 'New tagline' },
+        reason: 'Rebrand',
       },
-      target_account: 'core.onsocial.near',
+      auto_vote: true,
     });
   });
 
   it('builds voting-config-change proposals with snake_case keys + stringified period', async () => {
-    const post = vi.fn().mockResolvedValue({ txHash: 'tx-vcc' });
-    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
-
+    const { groups, signed } = makeHarness();
     await groups.proposeVotingConfigChange(
       'dao',
       {
@@ -339,120 +275,216 @@ describe('GroupsModule transport', () => {
       },
       { reason: 'Tighten consensus' }
     );
-
-    expect(post).toHaveBeenCalledWith('/relay/execute', {
-      action: {
-        type: 'create_proposal',
-        group_id: 'dao',
-        proposal_type: 'voting_config_change',
-        changes: {
-          participation_quorum_bps: 7500,
-          majority_threshold_bps: 6000,
-          voting_period: '604800000000000',
-          reason: 'Tighten consensus',
-        },
+    expect(signed[0].action).toEqual({
+      type: 'create_proposal',
+      group_id: 'dao',
+      proposal_type: 'voting_config_change',
+      changes: {
+        participation_quorum_bps: 7500,
+        majority_threshold_bps: 6000,
+        voting_period: '604800000000000',
+        reason: 'Tighten consensus',
       },
-      target_account: 'core.onsocial.near',
     });
   });
 
   it('voting-config-change omits unspecified fields', async () => {
-    const post = vi.fn().mockResolvedValue({ txHash: 'tx-vcc-partial' });
-    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
-
+    const { groups, signed } = makeHarness();
     await groups.proposeVotingConfigChange('dao', {
       participationQuorumBps: 5000,
     });
-
-    expect(post).toHaveBeenCalledWith('/relay/execute', {
-      action: {
-        type: 'create_proposal',
-        group_id: 'dao',
-        proposal_type: 'voting_config_change',
-        changes: { participation_quorum_bps: 5000 },
-      },
-      target_account: 'core.onsocial.near',
+    expect(signed[0].action).toEqual({
+      type: 'create_proposal',
+      group_id: 'dao',
+      proposal_type: 'voting_config_change',
+      changes: { participation_quorum_bps: 5000 },
     });
   });
 
   it('builds permission-change proposals with optional reason', async () => {
-    const post = vi.fn().mockResolvedValue({ txHash: 'tx-pc' });
-    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
-
+    const { groups, signed } = makeHarness();
     await groups.proposePermissionChange('dao', {
       targetUser: 'bob.near',
       level: 2,
       reason: 'Promote to moderator',
     });
-
-    expect(post).toHaveBeenCalledWith('/relay/execute', {
-      action: {
-        type: 'create_proposal',
-        group_id: 'dao',
-        proposal_type: 'permission_change',
-        changes: {
-          target_user: 'bob.near',
-          level: 2,
-          reason: 'Promote to moderator',
-        },
+    expect(signed[0].action).toEqual({
+      type: 'create_proposal',
+      group_id: 'dao',
+      proposal_type: 'permission_change',
+      changes: {
+        target_user: 'bob.near',
+        level: 2,
+        reason: 'Promote to moderator',
       },
-      target_account: 'core.onsocial.near',
     });
   });
 
   it('permission-change omits reason when not provided', async () => {
-    const post = vi.fn().mockResolvedValue({ txHash: 'tx-pc2' });
-    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
-
+    const { groups, signed } = makeHarness();
     await groups.proposePermissionChange('dao', {
       targetUser: 'bob.near',
       level: 0,
     });
-
-    expect(post).toHaveBeenCalledWith('/relay/execute', {
-      action: {
-        type: 'create_proposal',
-        group_id: 'dao',
-        proposal_type: 'permission_change',
-        changes: { target_user: 'bob.near', level: 0 },
-      },
-      target_account: 'core.onsocial.near',
+    expect(signed[0].action).toEqual({
+      type: 'create_proposal',
+      group_id: 'dao',
+      proposal_type: 'permission_change',
+      changes: { target_user: 'bob.near', level: 0 },
     });
   });
 
   it('builds join-request proposals with optional message', async () => {
-    const post = vi.fn().mockResolvedValue({ txHash: 'tx-jr' });
-    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
-
+    const { groups, signed } = makeHarness();
     await groups.proposeJoinRequest('dao', 'alice.near', {
       message: 'I want in',
     });
-
-    expect(post).toHaveBeenCalledWith('/relay/execute', {
-      action: {
-        type: 'create_proposal',
-        group_id: 'dao',
-        proposal_type: 'join_request',
-        changes: { requester: 'alice.near', message: 'I want in' },
-      },
-      target_account: 'core.onsocial.near',
+    expect(signed[0].action).toEqual({
+      type: 'create_proposal',
+      group_id: 'dao',
+      proposal_type: 'join_request',
+      changes: { requester: 'alice.near', message: 'I want in' },
     });
   });
 
   it('join-request omits message when not provided', async () => {
-    const post = vi.fn().mockResolvedValue({ txHash: 'tx-jr2' });
-    const groups = new GroupsModule({ post, network: 'mainnet' } as never);
-
+    const { groups, signed } = makeHarness();
     await groups.proposeJoinRequest('dao', 'alice.near');
-
-    expect(post).toHaveBeenCalledWith('/relay/execute', {
-      action: {
-        type: 'create_proposal',
-        group_id: 'dao',
-        proposal_type: 'join_request',
-        changes: { requester: 'alice.near' },
-      },
-      target_account: 'core.onsocial.near',
+    expect(signed[0].action).toEqual({
+      type: 'create_proposal',
+      group_id: 'dao',
+      proposal_type: 'join_request',
+      changes: { requester: 'alice.near' },
     });
+  });
+});
+
+describe('GroupsModule group content (compose/prepare → sign → relay)', () => {
+  it('sends group reply as compose/prepare/set body and signs the returned action', async () => {
+    const preparedAction = {
+      type: 'set',
+      data: {
+        'groups/dao/content/post/reply-1': '{"v":1,"text":"reply in group"}',
+      },
+    };
+    const { groups, post, signed } = makeHarness({
+      prepareResponse: {
+        action: preparedAction,
+        target_account: CORE_MAINNET,
+      },
+    });
+
+    await groups.reply(
+      'dao',
+      'alice.near/groups/dao/content/post/root',
+      { text: 'reply in group' },
+      'reply-1'
+    );
+
+    // First HTTP call: /compose/prepare/set with the SDK-built body.
+    const prepCall = post.mock.calls.find(
+      (call) =>
+        (call as unknown as [string, unknown])[0] === '/compose/prepare/set'
+    ) as unknown as
+      | [string, { path: string; value: string; targetAccount: string }]
+      | undefined;
+    expect(prepCall).toBeDefined();
+    const body = prepCall![1];
+    expect(body.path).toBe('groups/dao/content/post/reply-1');
+    expect(body.targetAccount).toBe(CORE_MAINNET);
+    expect(JSON.parse(body.value)).toMatchObject({
+      v: 1,
+      text: 'reply in group',
+      parent: 'alice.near/groups/dao/content/post/root',
+      parentType: 'post',
+    });
+
+    // Then session signs the gateway-returned action.
+    expect(signed[0].action).toEqual(preparedAction);
+    expect(signed[0].targetAccount).toBe(CORE_MAINNET);
+  });
+
+  it('sends group quote as compose/prepare/set body', async () => {
+    const { groups, post, signed } = makeHarness();
+    await groups.quote(
+      'dao',
+      'alice.near/groups/dao/content/post/root',
+      { text: 'quote in group' },
+      'quote-1'
+    );
+
+    const prepCall = post.mock.calls.find(
+      (call) =>
+        (call as unknown as [string, unknown])[0] === '/compose/prepare/set'
+    ) as unknown as
+      | [string, { path: string; value: string; targetAccount: string }]
+      | undefined;
+    const body = prepCall![1];
+    expect(body.path).toBe('groups/dao/content/post/quote-1');
+    expect(body.targetAccount).toBe(CORE_MAINNET);
+    expect(JSON.parse(body.value)).toMatchObject({
+      v: 1,
+      text: 'quote in group',
+      ref: 'alice.near/groups/dao/content/post/root',
+      refAuthor: 'alice.near',
+      refType: 'quote',
+    });
+    expect(signed.length).toBe(1);
+  });
+
+  it('replyToPost resolves typed parent ref to the raw path', async () => {
+    const { groups, post } = makeHarness();
+    await groups.replyToPost(
+      'dao',
+      { author: 'alice.near', groupId: 'dao', postId: 'root' },
+      { text: 'reply via ref' },
+      'reply-ref-1'
+    );
+    const prepCall = post.mock.calls.find(
+      (call) =>
+        (call as unknown as [string, unknown])[0] === '/compose/prepare/set'
+    ) as unknown as [string, { path: string; value: string }] | undefined;
+    const body = prepCall![1];
+    expect(body.path).toBe('groups/dao/content/post/reply-ref-1');
+    expect(JSON.parse(body.value)).toMatchObject({
+      parent: 'alice.near/groups/dao/content/post/root',
+      parentType: 'post',
+      text: 'reply via ref',
+    });
+  });
+
+  it('quotePost resolves typed ref to the raw path', async () => {
+    const { groups, post } = makeHarness();
+    await groups.quotePost(
+      'dao',
+      { author: 'alice.near', groupId: 'dao', postId: 'root' },
+      { text: 'quote via ref' },
+      'quote-ref-1'
+    );
+    const prepCall = post.mock.calls.find(
+      (call) =>
+        (call as unknown as [string, unknown])[0] === '/compose/prepare/set'
+    ) as unknown as [string, { path: string; value: string }] | undefined;
+    const body = prepCall![1];
+    expect(body.path).toBe('groups/dao/content/post/quote-ref-1');
+    expect(JSON.parse(body.value)).toMatchObject({
+      ref: 'alice.near/groups/dao/content/post/root',
+      refAuthor: 'alice.near',
+      refType: 'quote',
+      text: 'quote via ref',
+    });
+  });
+});
+
+describe('GroupsModule session enforcement', () => {
+  it('throws SessionRequiredError when no session is attached', async () => {
+    const post = vi.fn();
+    const http = { post, network: 'mainnet' } as never;
+    const groups = new GroupsModule(http, () => null);
+
+    await expect(groups.join('dao')).rejects.toMatchObject({
+      code: 'SESSION_REQUIRED',
+    });
+    expect(post).not.toHaveBeenCalled();
   });
 });

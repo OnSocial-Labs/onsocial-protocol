@@ -23,7 +23,6 @@ const approve = actionHandlers(
     }),
   'approve'
 );
-approvalRouter.post('/approve', approve.relay);
 approvalRouter.post('/prepare/approve', approve.prepare);
 
 // ── Revoke Approval ─────────────────────────────────────────────────────────
@@ -36,7 +35,6 @@ const revokeApproval = actionHandlers(
     }),
   'revoke-approval'
 );
-approvalRouter.post('/revoke-approval', revokeApproval.relay);
 approvalRouter.post('/prepare/revoke-approval', revokeApproval.prepare);
 
 // ── Revoke All Approvals ────────────────────────────────────────────────────
@@ -48,5 +46,4 @@ const revokeAll = actionHandlers(
     }),
   'revoke-all-approvals'
 );
-approvalRouter.post('/revoke-all-approvals', revokeAll.relay);
 approvalRouter.post('/prepare/revoke-all-approvals', revokeAll.prepare);

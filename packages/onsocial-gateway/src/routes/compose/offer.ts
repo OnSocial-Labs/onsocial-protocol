@@ -26,7 +26,6 @@ const makeOffer = actionHandlers(
     }),
   'make-offer'
 );
-offerRouter.post('/make-offer', makeOffer.relay);
 offerRouter.post('/prepare/make-offer', makeOffer.prepare);
 
 // ── Cancel Offer ────────────────────────────────────────────────────────────
@@ -38,7 +37,6 @@ const cancelOffer = actionHandlers(
     }),
   'cancel-offer'
 );
-offerRouter.post('/cancel-offer', cancelOffer.relay);
 offerRouter.post('/prepare/cancel-offer', cancelOffer.prepare);
 
 // ── Accept Offer ────────────────────────────────────────────────────────────
@@ -51,7 +49,6 @@ const acceptOffer = actionHandlers(
     }),
   'accept-offer'
 );
-offerRouter.post('/accept-offer', acceptOffer.relay);
 offerRouter.post('/prepare/accept-offer', acceptOffer.prepare);
 
 // ── Make Collection Offer ───────────────────────────────────────────────────
@@ -65,7 +62,6 @@ const makeColOffer = actionHandlers(
     }),
   'make-collection-offer'
 );
-offerRouter.post('/make-collection-offer', makeColOffer.relay);
 offerRouter.post('/prepare/make-collection-offer', makeColOffer.prepare);
 
 // ── Cancel Collection Offer ─────────────────────────────────────────────────
@@ -77,7 +73,6 @@ const cancelColOffer = actionHandlers(
     }),
   'cancel-collection-offer'
 );
-offerRouter.post('/cancel-collection-offer', cancelColOffer.relay);
 offerRouter.post('/prepare/cancel-collection-offer', cancelColOffer.prepare);
 
 // ── Accept Collection Offer ─────────────────────────────────────────────────
@@ -91,5 +86,4 @@ const acceptColOffer = actionHandlers(
     }),
   'accept-collection-offer'
 );
-offerRouter.post('/accept-collection-offer', acceptColOffer.relay);
 offerRouter.post('/prepare/accept-collection-offer', acceptColOffer.prepare);

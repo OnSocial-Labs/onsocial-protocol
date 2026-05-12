@@ -1,17 +1,11 @@
 // ---------------------------------------------------------------------------
 // @onsocial/sdk/advanced — power-user exports
 //
-// Signing, typed actions, direct relayer, and contract IDs.
+// Typed actions, session helpers, NEP-366 encoding, and contract IDs.
 // ---------------------------------------------------------------------------
 
-// Signing
-export {
-  DOMAIN_PREFIX,
-  canonicalize,
-  buildSigningPayload,
-  buildSigningMessage,
-} from './signing.js';
-export type { SigningPayloadInput } from './signing.js';
+// Session key types
+export type { SignerFn, SessionKey } from './session-key.js';
 
 // Typed actions
 export type {
@@ -102,10 +96,6 @@ export {
 } from './paths.js';
 export type { ValidatePathOptions, MergeOptions } from './paths.js';
 
-// Direct relayer
-export { DirectRelay } from './relay.js';
-export type { RelayerConfig, SignedRequest } from './relay.js';
-
 // Boost ft_on_transfer msg builders (boost has no `Action` enum)
 export {
   BOOST_LOCK_PERIODS,
@@ -115,3 +105,59 @@ export {
   encodeBoostFtMsg,
 } from './boost-msg.js';
 export type { BoostFtMsg, BoostLockPeriod } from './boost-msg.js';
+
+// Session API — high-level wrapper for "sign once in wallet, tap to confirm
+// in app" UX. Composes the lower-level onboarding helpers + NEP-366 delegate
+// signer.
+export {
+  Session,
+  buildSessionGrant,
+  buildSessionRevoke,
+  buildSessionOnboardingActions,
+  SessionScopeError,
+  NeedsWalletConfirmationError,
+} from './session.js';
+export type {
+  SessionContract,
+  FunctionCallKeyLimits,
+  BuildSessionGrantInput,
+  OnboardingPlan,
+  SessionConfig,
+  SessionOnboardingInput,
+} from './session.js';
+
+// NEP-366 SignedDelegateAction — gasless meta-tx encoder. Used by
+// Session.signDelegate() to produce the base64 blob for /relay/delegate.
+export { buildSignedDelegate, parseEd25519PublicKey } from './nep366.js';
+export type {
+  DelegateInnerAction,
+  AccessKey as DelegateAccessKey,
+  BuildSignedDelegateInput,
+  BuildSignedDelegateResult,
+} from './nep366.js';
+
+// Session bootstrap — one-call onboarding (gen key + wallet popup + persist).
+export {
+  bootstrapSession,
+  restoreSession,
+  revokeSession,
+  generateEd25519Key,
+  restoreEd25519Key,
+  base58Encode,
+  planToWalletTransactions,
+  sessionId,
+  MemoryKeyStore,
+  localStorageKeyStore,
+  nearConnectAdapter,
+} from './bootstrap.js';
+export type {
+  WalletAdapter,
+  KeyStore,
+  StoredSession,
+  GeneratedSessionKey,
+  NearAction,
+  NearConnectWalletLike,
+  BootstrapSessionInput,
+  RestoreSessionInput,
+  RevokeSessionInput,
+} from './bootstrap.js';

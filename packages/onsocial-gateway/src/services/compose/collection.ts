@@ -8,9 +8,6 @@ import {
   type UploadResult,
   ComposeError,
   uploadToLighthouse,
-  intentAuth,
-  relayExecute,
-  extractTxHash,
   logger,
   validateRoyalty,
   MAX_METADATA_LEN,
@@ -99,8 +96,7 @@ export interface CreateCollectionActionResult {
  * object without relaying.
  *
  * Used by:
- *   - composeCreateCollection()           → intent auth (server/API-key callers)
- *   - /compose/prepare/create-collection  → returns action for SDK signing
+ *   - /compose/prepare/create-collection  → returns action for SDK NEP-366 signing
  */
 export async function buildCreateCollectionAction(
   accountId: string,
@@ -264,38 +260,4 @@ export async function buildCreateCollectionAction(
       : 'scarces.onsocial.testnet');
 
   return { action, targetAccount, media };
-}
-
-/**
- * Compose: Create Collection — uploads image, builds action, relays via intent auth.
- * For signed-payload flow, use buildCreateCollectionAction() + /relay/signed instead.
- */
-export async function composeCreateCollection(
-  accountId: string,
-  req: ComposeCreateCollectionRequest,
-  imageFile?: UploadedFile,
-  opts: { wait?: boolean } = {}
-): Promise<ComposeCreateCollectionResult> {
-  const built = await buildCreateCollectionAction(accountId, req, imageFile);
-  const relay = await relayExecute(
-    intentAuth(accountId),
-    built.action,
-    built.targetAccount,
-    { wait: opts.wait }
-  );
-  if (!relay.ok) {
-    throw new ComposeError(relay.status, relay.data);
-  }
-
-  const data =
-    typeof relay.data === 'object' && relay.data !== null
-      ? (relay.data as Record<string, unknown>)
-      : {};
-  return {
-    txHash: extractTxHash(relay.data),
-    media: built.media,
-    ...('success' in data && { success: data.success as boolean }),
-    ...('status' in data && { status: data.status as string }),
-    ...('error' in data && { error: data.error as string }),
-  };
 }

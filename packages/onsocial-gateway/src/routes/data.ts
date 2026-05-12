@@ -32,6 +32,11 @@ const boostContract =
     ? 'boost.onsocial.near'
     : 'boost.onsocial.testnet';
 
+const scarcesContract =
+  config.nearNetwork === 'mainnet'
+    ? 'scarces.onsocial.near'
+    : 'scarces.onsocial.testnet';
+
 interface CallFunctionResult {
   result: number[];
   logs: string[];
@@ -101,6 +106,14 @@ function boostView(
   buildArgs: (q: Request['query']) => Record<string, unknown> | string
 ): void {
   contractView(routePath, boostContract, methodName, buildArgs);
+}
+
+function scarcesView(
+  routePath: string,
+  methodName: string,
+  buildArgs: (q: Request['query']) => Record<string, unknown> | string
+): void {
+  contractView(routePath, scarcesContract, methodName, buildArgs);
 }
 
 function requireStr(q: Request['query'], name: string): string | null {
@@ -498,14 +511,6 @@ coreView('/platform-allowance', 'get_platform_allowance', (q) => {
   return { account_id: accountId };
 });
 
-coreView('/nonce', 'get_nonce', (q) => {
-  const accountId = requireStr(q, 'accountId');
-  const publicKey = requireStr(q, 'publicKey');
-  if (!accountId) return 'Missing required query param: accountId';
-  if (!publicKey) return 'Missing required query param: publicKey';
-  return { account_id: accountId, public_key: publicKey };
-});
-
 // ===========================================================================
 // Contract info views
 // ===========================================================================
@@ -559,6 +564,17 @@ boostView(
   () => ({})
 );
 boostView('/boost-storage-balance', 'storage_balance_of', (q) => {
+  const accountId = requireStr(q, 'accountId');
+  if (!accountId) return 'Missing required query param: accountId';
+  return { account_id: accountId };
+});
+
+// ===========================================================================
+// Scarces contract views
+// ===========================================================================
+
+/** Per-account storage balance on scarces (yoctoNEAR string). */
+scarcesView('/scarces-storage-balance', 'storage_balance_of', (q) => {
   const accountId = requireStr(q, 'accountId');
   if (!accountId) return 'Missing required query param: accountId';
   return { account_id: accountId };

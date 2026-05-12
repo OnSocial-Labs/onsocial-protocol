@@ -2,24 +2,46 @@
 // Tokens — mint, transfer, batch transfer, burn.
 // ---------------------------------------------------------------------------
 
-import type { HttpClient } from '../../http.js';
+import type { HttpClient } from '../../internal/http.js';
 import type { StorageProvider } from '../../storage/provider.js';
 import type { MintOptions, MintResponse, RelayResponse } from '../../types.js';
+import {
+  composeAndSign,
+  composeFormAndSign,
+  signAndRelay,
+  type SessionGetter,
+  type BroadcastGetter,
+} from '../../internal/session-bridge.js';
+import { SCARCES_VERBS } from './verbs.js';
+import { resolveContractId } from '../../internal/contracts.js';
 import { buildQuickMintAction } from '../../builders/scarces/tokens.js';
 import { hasLocalUpload, resolveScarceMedia } from './_media.js';
 
 export class ScarcesTokensApi {
+  private _scarcesContract: string;
+
   constructor(
     private _http: HttpClient,
-    private _storage?: StorageProvider
-  ) {}
+    private _getSession: SessionGetter,
+    private _storage?: StorageProvider,
+    private _getBroadcast?: BroadcastGetter
+  ) {
+    this._scarcesContract = resolveContractId(_http.network, 'scarces');
+  }
+
+  private _broadcastOpts():
+    | { broadcast: ReturnType<BroadcastGetter> }
+    | undefined {
+    const b = this._getBroadcast?.();
+    return b !== undefined ? { broadcast: b } : undefined;
+  }
 
   /**
    * Mint a scarce (NFT). When a `StorageProvider` is configured and `image`
    * is a `File`/`Blob`, the bytes are uploaded locally via that provider
-   * and the action is submitted directly to `/relay/execute`. Otherwise the
-   * call falls through to the gateway's `/compose/mint` endpoint, which
-   * uploads on the dev's behalf.
+   * and the action is signed with the attached session and relayed via
+   * `/relay/delegate`. Otherwise the call falls through to the gateway's
+   * `/compose/mint` endpoint, which uploads on the dev's behalf.
    *
    * ```ts
    * await os.scarces.tokens.mint({ title: 'My Art', image: file });
@@ -36,9 +58,19 @@ export class ScarcesTokensApi {
         ...(mediaCid ? { mediaCid } : {}),
         ...(mediaHash ? { mediaHash } : {}),
       });
-      return this._http.post<MintResponse>('/relay/execute', { action });
+      const broadcast = this._getBroadcast?.();
+      return signAndRelay(
+        this._http,
+        this._getSession(),
+        action as Record<string, unknown>,
+        this._scarcesContract,
+        'scarces.tokens.mint',
+        broadcast !== undefined ? { broadcast } : undefined
+      ) as Promise<MintResponse>;
     }
 
+    // FormData upload route — gateway uploads media + builds the action,
+    // SDK signs with the session key and relays via /relay/delegate.
     const form = new FormData();
     form.append('title', opts.title);
     if (opts.description) form.append('description', opts.description);
@@ -59,7 +91,20 @@ export class ScarcesTokensApi {
     if (opts.cardTitleAlign) form.append('cardTitleAlign', opts.cardTitleAlign);
     if (opts.cardPhotoCid) form.append('cardPhotoCid', opts.cardPhotoCid);
     if (opts.image) form.append('image', opts.image);
-    return this._http.requestForm<MintResponse>('POST', '/compose/mint', form);
+
+    const result = await composeFormAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.MINT,
+      form,
+      'scarces.tokens.mint',
+      this._broadcastOpts()
+    );
+    return {
+      ...result.relay,
+      ...(result.media && { media: result.media }),
+      ...(result.metadata && { metadata: result.metadata }),
+    } as MintResponse;
   }
 
   /** Transfer a scarce to another account. */
@@ -68,28 +113,49 @@ export class ScarcesTokensApi {
     receiverId: string,
     memo?: string
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/compose/transfer', {
-      tokenId,
-      receiverId,
-      memo,
-    });
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.TRANSFER,
+      {
+        tokenId,
+        receiverId,
+        memo,
+      },
+      'scarces.transfer',
+      this._broadcastOpts()
+    );
   }
 
   /** Batch transfer multiple scarces in one tx. */
   async batchTransfer(
     transfers: Array<{ receiver_id: string; token_id: string; memo?: string }>
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/compose/batch-transfer', {
-      transfers,
-    });
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.BATCH_TRANSFER,
+      {
+        transfers,
+      },
+      'scarces.batchTransfer',
+      this._broadcastOpts()
+    );
   }
 
   /** Burn a scarce. */
   async burn(tokenId: string, collectionId?: string): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/compose/burn', {
-      tokenId,
-      collectionId,
-    });
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.BURN,
+      {
+        tokenId,
+        collectionId,
+      },
+      'scarces.burn',
+      this._broadcastOpts()
+    );
   }
 
   /** Renew a token's expiry (collection must allow renewal). */
@@ -98,19 +164,33 @@ export class ScarcesTokensApi {
     collectionId: string,
     newExpiresAt: number
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/compose/renew-token', {
-      tokenId,
-      collectionId,
-      newExpiresAt,
-    });
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.RENEW_TOKEN,
+      {
+        tokenId,
+        collectionId,
+        newExpiresAt,
+      },
+      'scarces.renewToken',
+      this._broadcastOpts()
+    );
   }
 
   /** Redeem a token (e.g. for goods/services off-chain). */
   async redeem(tokenId: string, collectionId: string): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/compose/redeem-token', {
-      tokenId,
-      collectionId,
-    });
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.REDEEM_TOKEN,
+      {
+        tokenId,
+        collectionId,
+      },
+      'scarces.redeemToken',
+      this._broadcastOpts()
+    );
   }
 
   /** Revoke a token (creator/moderator). Mode is configured at collection level. */
@@ -119,11 +199,18 @@ export class ScarcesTokensApi {
     collectionId: string,
     memo?: string
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/compose/revoke-token', {
-      tokenId,
-      collectionId,
-      memo,
-    });
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.REVOKE_TOKEN,
+      {
+        tokenId,
+        collectionId,
+        memo,
+      },
+      'scarces.revokeToken',
+      this._broadcastOpts()
+    );
   }
 
   /** Claim a refund for a cancelled-collection token. */
@@ -131,9 +218,16 @@ export class ScarcesTokensApi {
     tokenId: string,
     collectionId: string
   ): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/compose/claim-refund', {
-      tokenId,
-      collectionId,
-    });
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.CLAIM_REFUND,
+      {
+        tokenId,
+        collectionId,
+      },
+      'scarces.claimRefund',
+      this._broadcastOpts()
+    );
   }
 }

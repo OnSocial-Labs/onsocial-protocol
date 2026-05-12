@@ -7,8 +7,7 @@
 // concerns live in the module facade (`src/modules/scarces/*`).
 //
 // Re-exported from `@onsocial/sdk/advanced` for power users who want to
-// build actions client-side, sign them, and submit via `os.raw.submit` or
-// `os.raw.execute`.
+// build actions client-side and submit them through `os.raw.execute`.
 // ---------------------------------------------------------------------------
 
 export {

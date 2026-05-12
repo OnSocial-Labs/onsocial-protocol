@@ -1,5 +1,5 @@
 /**
- * Tests for /relay routes — intent, signed, and delegate relay proxies.
+ * Tests for /relay routes — execute (Direct), delegate (NEP-366), and latest-block.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -50,7 +50,9 @@ const JWT_SECRET = 'test-secret-key-at-least-32-chars-long!!';
 function createApp() {
   const app = express();
   app.use(express.json());
-  // Simulate auth middleware injecting req.auth
+  // Simulate auth middleware injecting req.auth.
+  // - "Bearer <jwt>"  → method = jwt
+  // - "X-Api-Key: ..." (or query/body actorId) → method = apikey
   app.use((req, _res, next) => {
     const authHeader = req.headers.authorization;
     if (authHeader?.startsWith('Bearer ')) {
@@ -68,6 +70,14 @@ function createApp() {
       } catch {
         // leave auth undefined
       }
+    } else if (req.headers['x-api-key']) {
+      req.auth = {
+        accountId: 'svc.testnet',
+        method: 'apikey' as const,
+        tier: 'pro' as const,
+        iat: 0,
+        exp: 0,
+      };
     }
     next();
   });
@@ -91,256 +101,128 @@ function relayFailure() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// POST /relay/execute
-// ═══════════════════════════════════════════════════════════════════════════
-
-describe('POST /relay/execute', () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it('relays an intent action with JWT actor_id', async () => {
-    relaySuccess('tx_intent_1');
-    const token = makeToken('alice.testnet');
-
-    const res = await request(createApp())
-      .post('/relay/execute')
-      .set('Authorization', `Bearer ${token}`)
-      .send({ action: { type: 'set', data: { 'profile/bio': 'hello' } } });
-
-    expect(res.status).toBe(200);
-    expect(res.body.tx_hash).toBe('tx_intent_1');
-
-    // Verify relayer received correct payload
-    const relayBody = JSON.parse(mockFetch.mock.calls[0][1].body);
-    expect(relayBody.auth.type).toBe('intent');
-    expect(relayBody.auth.actor_id).toBe('alice.testnet');
-    expect(relayBody.target_account).toBe('alice.testnet');
-    expect(relayBody.action.type).toBe('set');
-  });
-
-  it('returns 400 when action is missing', async () => {
-    const token = makeToken('alice.testnet');
-
-    const res = await request(createApp())
-      .post('/relay/execute')
-      .set('Authorization', `Bearer ${token}`)
-      .send({});
-
-    expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/action/i);
-  });
-
-  it('returns 400 when action.type is missing', async () => {
-    const token = makeToken('alice.testnet');
-
-    const res = await request(createApp())
-      .post('/relay/execute')
-      .set('Authorization', `Bearer ${token}`)
-      .send({ action: {} });
-
-    expect(res.status).toBe(400);
-  });
-
-  it('returns 401 without auth', async () => {
-    const res = await request(createApp())
-      .post('/relay/execute')
-      .send({ action: { type: 'set', data: {} } });
-
-    expect(res.status).toBe(401);
-  });
-
-  it('returns 502 when relayer is unreachable', async () => {
-    relayFailure();
-    const token = makeToken('alice.testnet');
-
-    const res = await request(createApp())
-      .post('/relay/execute')
-      .set('Authorization', `Bearer ${token}`)
-      .send({ action: { type: 'set', data: {} } });
-
-    expect(res.status).toBe(502);
-    expect(res.body.error).toMatch(/relay/i);
-  });
-
-  it('includes relay API key header', async () => {
-    relaySuccess('tx_2');
-    const token = makeToken('alice.testnet');
-
-    await request(createApp())
-      .post('/relay/execute')
-      .set('Authorization', `Bearer ${token}`)
-      .send({ action: { type: 'set', data: {} } });
-
-    const headers = mockFetch.mock.calls[0][1].headers;
-    expect(headers['X-Api-Key']).toBe('test-relay-key');
-  });
-
-  it('allows target_account override', async () => {
-    relaySuccess('tx_3');
-    const token = makeToken('alice.testnet');
-
-    await request(createApp())
-      .post('/relay/execute')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        action: { type: 'set', data: {} },
-        target_account: 'bob.testnet',
-      });
-
-    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
-    expect(body.target_account).toBe('bob.testnet');
-    // actor_id still locked to JWT identity
-    expect(body.auth.actor_id).toBe('alice.testnet');
-  });
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
-// POST /relay/signed
-// ═══════════════════════════════════════════════════════════════════════════
-
-describe('POST /relay/signed', () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  const validSignedBody = {
-    target_account: 'alice.testnet',
-    action: { type: 'set', data: {} },
-    auth: {
-      type: 'signed_payload',
-      public_key: 'ed25519:abc123',
-      nonce: '1',
-      expires_at_ms: '9999999999999',
-      signature: 'base64sig==',
-    },
-  };
-
-  it('relays a signed payload action', async () => {
-    relaySuccess('tx_signed_1');
-    const token = makeToken('alice.testnet');
-
-    const res = await request(createApp())
-      .post('/relay/signed')
-      .set('Authorization', `Bearer ${token}`)
-      .send(validSignedBody);
-
-    expect(res.status).toBe(200);
-    expect(res.body.tx_hash).toBe('tx_signed_1');
-
-    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
-    expect(body.auth.type).toBe('signed_payload');
-    expect(body.auth.public_key).toBe('ed25519:abc123');
-  });
-
-  it('returns 400 when target_account is missing', async () => {
-    const token = makeToken('alice.testnet');
-    const { target_account: _omit, ...body } = validSignedBody;
-    void _omit;
-
-    const res = await request(createApp())
-      .post('/relay/signed')
-      .set('Authorization', `Bearer ${token}`)
-      .send(body);
-
-    expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/target_account/i);
-  });
-
-  it('returns 400 when auth.type is not signed_payload', async () => {
-    const token = makeToken('alice.testnet');
-
-    const res = await request(createApp())
-      .post('/relay/signed')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        ...validSignedBody,
-        auth: { type: 'intent' },
-      });
-
-    expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/signed_payload/);
-  });
-
-  it('returns 400 when auth fields are incomplete', async () => {
-    const token = makeToken('alice.testnet');
-
-    const res = await request(createApp())
-      .post('/relay/signed')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        ...validSignedBody,
-        auth: { type: 'signed_payload', public_key: 'ed25519:abc' },
-      });
-
-    expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/required/i);
-  });
-
-  it('returns 502 when relayer is unreachable', async () => {
-    relayFailure();
-    const token = makeToken('alice.testnet');
-
-    const res = await request(createApp())
-      .post('/relay/signed')
-      .set('Authorization', `Bearer ${token}`)
-      .send(validSignedBody);
-
-    expect(res.status).toBe(502);
-  });
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
-// POST /relay/delegate
+// POST /relay/delegate (NEP-366)
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('POST /relay/delegate', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('returns 400 when auth.type is not delegate_action', async () => {
-    // Simulate pro tier in auth
-    const app = express();
-    app.use(express.json());
-    app.use((req, _res, next) => {
-      req.auth = {
-        accountId: 'pro.testnet',
-        method: 'jwt' as const,
-        tier: 'pro' as const,
-        iat: 0,
-        exp: 0,
-      };
-      next();
-    });
-    app.use('/relay', relayRouter);
+  it('returns 400 when signed_delegate is missing', async () => {
+    const token = makeToken('alice.testnet');
 
-    const res = await request(app)
+    const res = await request(createApp())
       .post('/relay/delegate')
-      .send({
-        target_account: 'pro.testnet',
-        action: { type: 'set', data: {} },
-        auth: { type: 'wrong_type' },
-      });
+      .set('Authorization', `Bearer ${token}`)
+      .send({});
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/delegate_action/);
+    expect(res.body.error).toMatch(/signed_delegate/i);
   });
 
-  it('returns 400 when fields are missing', async () => {
-    const app = express();
-    app.use(express.json());
-    app.use((req, _res, next) => {
-      req.auth = {
-        accountId: 'pro.testnet',
-        method: 'jwt' as const,
-        tier: 'pro' as const,
-        iat: 0,
-        exp: 0,
-      };
-      next();
-    });
-    app.use('/relay', relayRouter);
+  it('returns 400 when signed_delegate is not a string', async () => {
+    const token = makeToken('alice.testnet');
 
-    const res = await request(app)
+    const res = await request(createApp())
       .post('/relay/delegate')
-      .send({ target_account: 'pro.testnet' });
+      .set('Authorization', `Bearer ${token}`)
+      .send({ signed_delegate: 12345 });
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/required/i);
+  });
+
+  it('forwards base64 signed_delegate to relayer /execute_delegate', async () => {
+    relaySuccess('delegate-tx-hash');
+    const token = makeToken('alice.testnet');
+
+    const res = await request(createApp())
+      .post('/relay/delegate')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ signed_delegate: 'AAAA' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.tx_hash).toBe('delegate-tx-hash');
+
+    const [url, init] = mockFetch.mock.calls[0];
+    expect(url).toBe('http://localhost:3030/execute_delegate');
+    expect((init as { method: string }).method).toBe('POST');
+    const body = JSON.parse((init as { body: string }).body);
+    expect(body).toEqual({ signed_delegate: 'AAAA' });
+  });
+
+  it('passes through ?wait=true', async () => {
+    relaySuccess('committed-hash');
+    const token = makeToken('alice.testnet');
+
+    await request(createApp())
+      .post('/relay/delegate?wait=true')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ signed_delegate: 'AAAA' });
+
+    const [url] = mockFetch.mock.calls[0];
+    expect(url).toBe('http://localhost:3030/execute_delegate?wait=true');
+  });
+
+  it('forwards options when present', async () => {
+    relaySuccess('h');
+    const token = makeToken('alice.testnet');
+
+    await request(createApp())
+      .post('/relay/delegate')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ signed_delegate: 'AAAA', options: { topup_yocto: '100' } });
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
+    expect(body.options).toEqual({ topup_yocto: '100' });
+  });
+
+  it('returns 502 when relayer is unreachable', async () => {
+    relayFailure();
+    const token = makeToken('alice.testnet');
+
+    const res = await request(createApp())
+      .post('/relay/delegate')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ signed_delegate: 'AAAA' });
+
+    expect(res.status).toBe(502);
+  });
+
+  it('rejects unauthenticated requests', async () => {
+    const res = await request(createApp())
+      .post('/relay/delegate')
+      .send({ signed_delegate: 'AAAA' });
+
+    expect(res.status).toBe(401);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GET /relay/latest-block
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('GET /relay/latest-block', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('proxies the upstream relayer /latest_block (no auth required)', async () => {
+    mockFetch.mockResolvedValueOnce({
+      status: 200,
+      json: async () => ({ block_hash: 'AbCdEf', block_height: 123_456 }),
+    });
+
+    const res = await request(createApp()).get('/relay/latest-block');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ block_hash: 'AbCdEf', block_height: 123_456 });
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://localhost:3030/latest_block',
+      expect.any(Object)
+    );
+  });
+
+  it('returns 502 when upstream is unreachable', async () => {
+    mockFetch.mockRejectedValueOnce(new Error('connection refused'));
+    const res = await request(createApp()).get('/relay/latest-block');
+    expect(res.status).toBe(502);
+    expect(res.body.error).toBe('Upstream unavailable');
   });
 });

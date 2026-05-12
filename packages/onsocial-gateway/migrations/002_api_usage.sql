@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS api_usage (
   key_prefix    TEXT,                           -- NULL for JWT-only requests
   account_id    TEXT        NOT NULL,           -- key owner / JWT accountId
   actor_id      TEXT,                           -- end-user (actor passthrough), NULL if same as account_id
-  endpoint      TEXT        NOT NULL,           -- e.g. "/relay/execute", "/compose/set"
+  endpoint      TEXT        NOT NULL,           -- e.g. "/relay/delegate", "/compose/set"
   method        TEXT        NOT NULL DEFAULT 'POST',
   status_code   SMALLINT    NOT NULL,
   response_ms   INTEGER     NOT NULL DEFAULT 0,
@@ -38,7 +38,7 @@ COMMENT ON TABLE  api_usage IS 'Per-request usage metering for developer dashboa
 COMMENT ON COLUMN api_usage.key_prefix  IS 'First 20 chars of the API key used (NULL for JWT requests)';
 COMMENT ON COLUMN api_usage.account_id  IS 'NEAR account that owns the key / JWT identity';
 COMMENT ON COLUMN api_usage.actor_id    IS 'End-user identity from actor passthrough (NULL if same as account_id)';
-COMMENT ON COLUMN api_usage.endpoint    IS 'Request path, e.g. /relay/execute';
+COMMENT ON COLUMN api_usage.endpoint    IS 'Request path, e.g. /relay/delegate';
 COMMENT ON COLUMN api_usage.method      IS 'HTTP method (GET, POST, etc.)';
 COMMENT ON COLUMN api_usage.status_code IS 'HTTP response status code';
 COMMENT ON COLUMN api_usage.response_ms IS 'Response time in milliseconds';

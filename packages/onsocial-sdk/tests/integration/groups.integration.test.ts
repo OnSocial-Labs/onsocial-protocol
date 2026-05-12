@@ -11,6 +11,7 @@ import {
   confirmIndexed,
   getClient,
   getClientForAccount,
+  INTEGRATION_SETUP_TIMEOUT_MS,
   testId,
 } from './helpers.js';
 
@@ -35,7 +36,7 @@ describe('groups', () => {
     rejectRequesterOs = await getClientForAccount(rejectRequesterId);
     cancelRequesterOs = await getClientForAccount(cancelRequesterId);
     groupCountBefore = await os.query.stats.groupCount();
-  });
+  }, INTEGRATION_SETUP_TIMEOUT_MS);
 
   describe('create', () => {
     it('should create a group', async () => {

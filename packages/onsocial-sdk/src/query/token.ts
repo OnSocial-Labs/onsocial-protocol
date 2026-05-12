@@ -77,16 +77,10 @@ const TOKEN_BALANCE_FIELDS = `
   updatedAt
 `;
 
-/**
- * Literal `event_type` strings emitted by the token contract. Exported for
- * callers that want to filter via {@link TokenQuery.events} or
- * `os.query.graphql`.
- */
-export const TOKEN_EVENT_TYPES = {
-  FT_MINT: 'ft_mint',
-  FT_BURN: 'ft_burn',
-  FT_TRANSFER: 'ft_transfer',
-} as const;
+// SSoT for token (NEP-141) event types lives in `./token-events.ts` and is
+// guarded by `./token-events.parity.test.ts`.
+export { TOKEN_EVENT_TYPES, type TokenEventType } from './token-events.js';
+import { TOKEN_EVENT_TYPES } from './token-events.js';
 
 export class TokenQuery {
   constructor(private _q: QueryModule) {}

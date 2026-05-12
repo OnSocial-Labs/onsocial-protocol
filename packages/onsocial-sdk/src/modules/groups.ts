@@ -2,8 +2,14 @@
 // OnSocial SDK — groups module (lifecycle, membership, governance)
 // ---------------------------------------------------------------------------
 
-import type { HttpClient } from '../http.js';
-import { resolveContractId } from '../contracts.js';
+import type { HttpClient } from '../internal/http.js';
+import { resolveContractId } from '../internal/contracts.js';
+import {
+  composeAndSign,
+  signAndRelay,
+  type SessionGetter,
+  type BroadcastGetter,
+} from '../internal/session-bridge.js';
 import type { GroupConfigV1 } from '../schema/v1.js';
 import type {
   CustomProposalInput,
@@ -26,7 +32,7 @@ import {
   buildGroupPostPath,
   buildGroupQuoteSetData,
   buildGroupReplySetData,
-} from '../social.js';
+} from './social.js';
 
 /**
  * Groups — lifecycle, membership, governance, and group content.
@@ -52,6 +58,9 @@ import {
  * const stats = await os.groups.getStats('dao');
  * const isMember = await os.groups.isMember('dao', 'bob.near');
  * ```
+ *
+ * @throws {SessionRequiredError} On writes when no session is attached and broadcast is not `'wallet'`.
+ * @throws {RelayExecutionError} If the relayed transaction reverts on chain.
  */
 export class GroupsModule {
   private _coreContract: string;
@@ -59,17 +68,34 @@ export class GroupsModule {
 
   constructor(
     private _http: HttpClient,
-    resolveMedia?: (post: PostData) => Promise<PostData>
+    private _getSession: SessionGetter,
+    resolveMedia?: (post: PostData) => Promise<PostData>,
+    private _getBroadcast?: BroadcastGetter
   ) {
     this._coreContract = resolveContractId(_http.network, 'core');
     this._resolveMedia = resolveMedia ?? ((p) => Promise.resolve(p));
   }
 
-  private execute(action: Record<string, unknown>): Promise<RelayResponse> {
-    return this._http.post<RelayResponse>('/relay/execute', {
+  private execute(
+    action: Record<string, unknown>,
+    methodLabel?: string
+  ): Promise<RelayResponse> {
+    const broadcast = this._getBroadcast?.();
+    return signAndRelay(
+      this._http,
+      this._getSession(),
       action,
-      target_account: this._coreContract,
-    });
+      this._coreContract,
+      methodLabel ?? `groups.${String(action.type ?? 'unknown')}`,
+      broadcast !== undefined ? { broadcast } : undefined
+    );
+  }
+
+  private _broadcastOpts():
+    | { broadcast: ReturnType<BroadcastGetter> }
+    | undefined {
+    const b = this._getBroadcast?.();
+    return b !== undefined ? { broadcast: b } : undefined;
   }
 
   private normalizeConfig(config: GroupConfigV1): Record<string, unknown> {
@@ -202,11 +228,18 @@ export class GroupsModule {
     const data = buildGroupPostSetData(groupId, resolved, id);
     const entries = Object.entries(data);
     const [path, value] = entries[0];
-    return this._http.post<RelayResponse>('/compose/set', {
-      path,
-      value: JSON.stringify(value),
-      targetAccount: this._coreContract,
-    });
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      'set',
+      {
+        path,
+        value: JSON.stringify(value),
+        targetAccount: this._coreContract,
+      },
+      'groups.post',
+      this._broadcastOpts()
+    );
   }
 
   async reply(
@@ -219,11 +252,18 @@ export class GroupsModule {
     const resolved = await this._resolveMedia(post);
     const data = buildGroupReplySetData(groupId, parentPath, resolved, id);
     const [path, value] = Object.entries(data)[0];
-    return this._http.post<RelayResponse>('/compose/set', {
-      path,
-      value: JSON.stringify(value),
-      targetAccount: this._coreContract,
-    });
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      'set',
+      {
+        path,
+        value: JSON.stringify(value),
+        targetAccount: this._coreContract,
+      },
+      'groups.reply',
+      this._broadcastOpts()
+    );
   }
 
   async replyToPost(
@@ -245,11 +285,18 @@ export class GroupsModule {
     const resolved = await this._resolveMedia(post);
     const data = buildGroupQuoteSetData(groupId, refPath, resolved, id);
     const [path, value] = Object.entries(data)[0];
-    return this._http.post<RelayResponse>('/compose/set', {
-      path,
-      value: JSON.stringify(value),
-      targetAccount: this._coreContract,
-    });
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      'set',
+      {
+        path,
+        value: JSON.stringify(value),
+        targetAccount: this._coreContract,
+      },
+      'groups.quote',
+      this._broadcastOpts()
+    );
   }
 
   async quotePost(

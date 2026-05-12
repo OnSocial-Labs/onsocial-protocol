@@ -157,26 +157,11 @@ const CREDIT_PURCHASE_FIELDS = `
 `;
 
 /**
- * Literal `event_type` strings emitted by the boost contract. Exported for
- * callers that want to filter via {@link BoostQuery.events} or
- * `os.query.graphql`.
+ * Literal `event_type` strings emitted by the boost contract. Re-exported
+ * from {@link ./boost-events.ts} (the SSoT, used by the parity test).
  */
-export const BOOST_EVENT_TYPES = {
-  BOOST_LOCK: 'BOOST_LOCK',
-  BOOST_EXTEND: 'BOOST_EXTEND',
-  BOOST_UNLOCK: 'BOOST_UNLOCK',
-  UNLOCK_FAILED: 'UNLOCK_FAILED',
-  REWARDS_CLAIM: 'REWARDS_CLAIM',
-  CLAIM_FAILED: 'CLAIM_FAILED',
-  REWARDS_RELEASED: 'REWARDS_RELEASED',
-  CREDITS_PURCHASE: 'CREDITS_PURCHASE',
-  SCHEDULED_FUND: 'SCHEDULED_FUND',
-  STORAGE_DEPOSIT: 'STORAGE_DEPOSIT',
-  INFRA_WITHDRAW: 'INFRA_WITHDRAW',
-  WITHDRAW_INFRA_FAILED: 'WITHDRAW_INFRA_FAILED',
-  OWNER_CHANGED: 'OWNER_CHANGED',
-  CONTRACT_UPGRADE: 'CONTRACT_UPGRADE',
-} as const;
+export { BOOST_EVENT_TYPES, type BoostEventType } from './boost-events.js';
+import { BOOST_EVENT_TYPES } from './boost-events.js';
 
 export class BoostQuery {
   constructor(private _q: QueryModule) {}

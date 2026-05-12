@@ -21,7 +21,7 @@
 // not explicitly provided.
 // ---------------------------------------------------------------------------
 
-import type { SocialModule, AttestationBuildInput } from '../social.js';
+import type { SocialModule, AttestationBuildInput } from './social.js';
 import type { QueryModule } from '../query/index.js';
 import type { AttestationRecord, RelayResponse } from '../types.js';
 
@@ -75,6 +75,11 @@ function parseAttestationValue(
   };
 }
 
+/**
+ * Attestations / claims (`add` / `revoke` / `get`).
+ *
+ * @throws {SessionRequiredError} On writes when no session is attached and broadcast is not `'wallet'`.
+ */
 export class AttestationsModule {
   constructor(
     private _social: SocialModule,

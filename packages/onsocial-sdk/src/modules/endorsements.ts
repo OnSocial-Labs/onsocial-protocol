@@ -18,7 +18,7 @@
 // not explicitly provided.
 // ---------------------------------------------------------------------------
 
-import type { SocialModule, EndorsementBuildInput } from '../social.js';
+import type { SocialModule, EndorsementBuildInput } from './social.js';
 import type { QueryModule } from '../query/index.js';
 import type { EndorsementRecord, RelayResponse } from '../types.js';
 
@@ -53,6 +53,11 @@ function parseEndorsementValue(
   };
 }
 
+/**
+ * Endorsements (`add` / `remove` / `toggle` / `get` / `listGiven` / `listReceived`).
+ *
+ * @throws {SessionRequiredError} On writes when no session is attached and broadcast is not `'wallet'`.
+ */
 export class EndorsementsModule {
   constructor(
     private _social: SocialModule,

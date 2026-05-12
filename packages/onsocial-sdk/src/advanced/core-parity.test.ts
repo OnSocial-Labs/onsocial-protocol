@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildSigningMessage, buildSigningPayload } from './signing.js';
 import {
   ALL_CORE_ACTION_TYPES,
   getCoreParityCases,
 } from './core-parity.fixtures.js';
-import { prepareCoreRequest } from './actions.js';
+import { buildRequest, prepareCoreRequest } from './actions.js';
 
 describe('core contract parity suite', () => {
   const cases = getCoreParityCases('testnet');
@@ -36,22 +35,17 @@ describe('core contract parity suite', () => {
     ).toEqual([]);
   });
 
-  it('builds a deterministic signing payload for prepared core requests', () => {
+  it('builds a deterministic execute request for prepared core requests', () => {
     const request = prepareCoreRequest(cases[0].action, 'testnet');
 
-    const payload = buildSigningPayload({
-      targetAccount: request.targetAccount,
-      publicKey: 'ed25519:test-key',
-      nonce: 7,
-      expiresAtMs: 1700000000000,
+    const payload = buildRequest({
       action: request.action,
+      targetAccount: 'alice.testnet',
+      options: { refund_unused_deposit: true },
     });
 
     expect(payload).toEqual({
-      target_account: 'core.onsocial.testnet',
-      public_key: 'ed25519:test-key',
-      nonce: '7',
-      expires_at_ms: '1700000000000',
+      target_account: 'alice.testnet',
       action: {
         data: {
           'profile/bio': 'Builder',
@@ -60,18 +54,7 @@ describe('core contract parity suite', () => {
         },
         type: 'set',
       },
-      delegate_action: null,
+      options: { refund_unused_deposit: true },
     });
-
-    const message = new TextDecoder().decode(
-      buildSigningMessage(request.targetAccount, payload)
-    );
-
-    expect(
-      message.startsWith('onsocial:execute:v1:core.onsocial.testnet')
-    ).toBe(true);
-    expect(message.includes('"target_account":"core.onsocial.testnet"')).toBe(
-      true
-    );
   });
 });

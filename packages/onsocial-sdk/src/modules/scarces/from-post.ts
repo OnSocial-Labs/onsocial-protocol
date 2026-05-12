@@ -17,9 +17,11 @@ import {
   type MintFromPostOptions,
   type PostSource,
 } from '../../builders/scarces/from-post.js';
-import type { SocialModule } from '../../social.js';
+import type { SocialModule } from '../social.js';
 import type { ScarcesTokensApi } from './tokens.js';
 import type { ScarcesLazyApi } from './lazy.js';
+import type { QueryModule } from '../../query/index.js';
+import type { ScarcesEventRow } from '../../query/scarces.js';
 
 /** Title length above which we hard-truncate (keeps wallet grids tidy). */
 const TITLE_MAX = 80;
@@ -59,8 +61,8 @@ function deriveTitle(text: string): string {
     return firstLine;
   }
   if (trimmed.length <= TITLE_MAX) return trimmed;
-  // Hard-truncate. Try to end on a word boundary so we don't leave a
-  // half-word followed by the wallet's own ellipsis.
+  // Hard-truncate. Try to end on a word boundary so the wallet ellipsis
+  // does not attach to a half-word.
   const window = trimmed.slice(0, TITLE_MAX);
   const lastSpace = window.lastIndexOf(' ');
   // Only honor the word boundary if it leaves at least half the title.
@@ -68,11 +70,33 @@ function deriveTitle(text: string): string {
   return window.trimEnd();
 }
 
+/**
+ * Snapshot of the trade-state of a scarce minted from a given post.
+ * Returned by {@link ScarcesFromPostApi.embed}.
+ */
+export interface PostScarceEmbed {
+  /** High-level state, easy to switch on for in-feed rendering. */
+  status: 'none' | 'lazy_listing' | 'listed' | 'auction' | 'sold' | 'minted';
+  /** Token id, if a real (non-lazy) NFT exists. */
+  tokenId?: string;
+  /** Listing id (fixed-price market or lazy listing). */
+  listingId?: string;
+  /** Active auction id, if any. */
+  auctionId?: string;
+  /** Current asking / bid price in NEAR (string, decimal). */
+  priceNear?: string;
+  /** Latest event row used to derive `status` (for debugging / extra fields). */
+  latest?: ScarcesEventRow;
+  /** All matching events (most recent first), capped by `limit`. */
+  events: ScarcesEventRow[];
+}
+
 export class ScarcesFromPostApi {
   constructor(
     private _tokens: ScarcesTokensApi,
     private _lazy: ScarcesLazyApi,
-    private _social?: SocialModule
+    private _social?: SocialModule,
+    private _query?: QueryModule
   ) {}
 
   /**
@@ -185,6 +209,99 @@ export class ScarcesFromPostApi {
     });
   }
 
+  /**
+   * One-shot lookup of the trade-state of any scarce minted (or lazily
+   * listed) from this post. Returns `{status: 'none', events: []}` when
+   * the post has never been turned into a scarce.
+   *
+   * Designed for in-feed rendering — call once per post when the card
+   * mounts and switch on `embed.status` to decide which CTA to show
+   * (`Buy`, `Bid`, `Sold out`, `Mint`).
+   *
+   * ```ts
+   * const e = await os.scarces.fromPost.embed(post);
+   * if (e.status === 'lazy_listing') showBuy(e.priceNear, e.listingId);
+   * else if (e.status === 'auction') showBid(e.auctionId, e.priceNear);
+   * else if (e.status === 'none') showMintCTA();
+   * ```
+   */
+  async embed(
+    post: PostSource,
+    opts: { limit?: number } = {}
+  ): Promise<PostScarceEmbed> {
+    if (!this._query) {
+      throw new Error(
+        'scarces.fromPost.embed: requires a QueryModule. Construct via the OnSocial client (which wires this automatically).'
+      );
+    }
+    const { author, postId } = postCoords(post);
+    const wantPath = `${author}/post/${postId}`;
+    const limit = opts.limit ?? 50;
+    // Filter server-side by author; we cannot _eq inside extraData (TEXT)
+    // through Hasura without JSONB, so we narrow by author and parse on
+    // the client. Author scoping keeps this cheap (one creator's events).
+    const all = await this._query.scarces.events({ author, limit });
+    const matched = all.filter((row) => {
+      if (!row.extraData) return false;
+      try {
+        const obj = JSON.parse(row.extraData) as {
+          sourcePost?: { path?: string; postId?: string; author?: string };
+        };
+        const sp = obj?.sourcePost;
+        if (!sp) return false;
+        if (sp.path && sp.path === wantPath) return true;
+        return sp.author === author && sp.postId === postId;
+      } catch {
+        return false;
+      }
+    });
+    if (matched.length === 0) return { status: 'none', events: [] };
+
+    const latest = matched[0]!;
+    const out: PostScarceEmbed = {
+      status: 'minted',
+      events: matched,
+      latest,
+    };
+    if (latest.tokenId) out.tokenId = latest.tokenId;
+    if (latest.listingId) out.listingId = latest.listingId;
+
+    // Derive a coarse status from the most recent event's type/operation.
+    // We deliberately keep this lossy & cheap; callers that need precise
+    // sub-states (e.g. partially-sold-out lazy listings) should use the
+    // dedicated ScarcesQuery helpers.
+    const op = (latest.operation ?? '').toLowerCase();
+    const et = (latest.eventType ?? '').toLowerCase();
+    if (et.includes('auction') || op.includes('bid')) {
+      out.status = 'auction';
+    } else if (
+      et.includes('lazy') ||
+      op === 'lazy_create' ||
+      op === 'create_lazy_listing'
+    ) {
+      out.status = 'lazy_listing';
+    } else if (et.includes('listing') || op === 'list' || op === 'sell') {
+      out.status = 'listed';
+    } else if (op === 'purchase' || op === 'buy' || op === 'sold_out') {
+      out.status = 'sold';
+    }
+    // Pull a price out of extraData if present (best-effort).
+    try {
+      const extra = latest.extraData
+        ? (JSON.parse(latest.extraData) as Record<string, unknown>)
+        : null;
+      const p =
+        extra && typeof extra === 'object'
+          ? ((extra['priceNear'] as string | undefined) ??
+            (extra['price_near'] as string | undefined))
+          : undefined;
+      if (p) out.priceNear = p;
+    } catch {
+      /* noop */
+    }
+    return out;
+  }
+
   private async _readPost(post: PostSource): Promise<ExtractedPost> {
     if (isPostRow(post)) {
       return extractPostMedia(post.value);
@@ -213,8 +330,7 @@ export class ScarcesFromPostApi {
     // like a trailing tag or a second sentence — is signal worth
     // surfacing in the wallet detail view.
     const explicitDescription = opts.description;
-    const fallbackDescription =
-      !text || text === title ? undefined : text;
+    const fallbackDescription = !text || text === title ? undefined : text;
     const description = explicitDescription ?? fallbackDescription;
 
     // ── Media routing ──────────────────────────────────────────────

@@ -12,7 +12,6 @@ import {
 } from './helpers.js';
 import {
   buildCreateCollectionAction,
-  composeCreateCollection,
   ComposeError,
 } from '../../../src/services/compose/index.js';
 
@@ -289,38 +288,5 @@ describe('buildCreateCollectionAction', () => {
     );
 
     expect(result.targetAccount).toBe('my-nft.testnet');
-  });
-});
-
-describe('composeCreateCollection', () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it('creates collection and relays via intent auth', async () => {
-    mockLighthouseUpload('QmCover', 3000);
-    mockRelaySuccess('col_tx_123');
-
-    const result = await composeCreateCollection(
-      'creator.testnet',
-      {
-        collectionId: 'my-collection',
-        totalSupply: 100,
-        title: 'My Collection',
-        priceNear: '1',
-      },
-      makeFile({ originalname: 'cover.jpg' })
-    );
-
-    expect(result.txHash).toBe('col_tx_123');
-    expect(result.media).toBeDefined();
-    expect(result.media!.cid).toBe('QmCover');
-
-    // Verify relay was called with intent auth
-    expect(mockFetch).toHaveBeenCalledWith(
-      'http://localhost:3030/execute',
-      expect.objectContaining({
-        method: 'POST',
-        body: expect.stringContaining('"type":"intent"'),
-      })
-    );
   });
 });

@@ -3,7 +3,7 @@
 // Accessed as `os.query.stats.<method>()`.
 // ---------------------------------------------------------------------------
 
-import type { HttpClient } from '../http.js';
+import type { HttpClient } from '../internal/http.js';
 import type { QueryModule } from './index.js';
 
 export interface EdgeCount {

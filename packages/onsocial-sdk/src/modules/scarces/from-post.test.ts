@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ScarcesModule } from './index.js';
-import type { SocialModule } from '../../social.js';
+import type { SocialModule } from '../social.js';
 import type { MintFromPostOptions } from '../../builders/scarces/from-post.js';
 
 const ROW = {
@@ -18,9 +18,47 @@ const ROW = {
 };
 
 function makeMod(opts: { social?: boolean } = {}) {
-  const requestForm = vi.fn().mockResolvedValue({ txHash: 'minted' });
-  const post = vi.fn().mockResolvedValue({ txHash: 'lazy' });
-  const http = { requestForm, post, get: vi.fn() } as never;
+  const requestForm = vi.fn(
+    async (_method: string, path: string, _form: FormData) => {
+      if (path.startsWith('/compose/prepare/')) {
+        return {
+          action: {
+            type: path.endsWith('/lazy-list')
+              ? 'create_lazy_listing'
+              : 'quick_mint',
+            metadata: {},
+          },
+          target_account: 'scarces.onsocial.near',
+          media: {
+            cid: 'bafyServer',
+            url: 'https://gw/bafyServer',
+            size: 1,
+            hash: 'h',
+          },
+        };
+      }
+      return { txHash: 'minted' };
+    }
+  );
+  const post = vi.fn(async (path: string) => {
+    if (path.startsWith('/compose/prepare/')) {
+      return {
+        action: { type: 'stub' },
+        target_account: 'scarces.onsocial.near',
+      };
+    }
+    if (path === '/relay/delegate') return { txHash: 'lazy' };
+    return { txHash: 'lazy' };
+  });
+  const http = {
+    requestForm,
+    post,
+    get: vi.fn(async (path: string) => {
+      if (path === '/relay/latest-block') return { block_height: 100 };
+      throw new Error(`unexpected GET ${path}`);
+    }),
+    network: 'mainnet',
+  } as never;
 
   const getOne = vi.fn().mockResolvedValue({
     value: JSON.stringify({
@@ -32,7 +70,15 @@ function makeMod(opts: { social?: boolean } = {}) {
     ? ({ getOne } as unknown as SocialModule)
     : undefined;
 
-  const mod = new ScarcesModule(http, social);
+  const session = {
+    signComposeDelegate: vi.fn(async () => ({
+      base64: 'BASE64_DELEGATE_BLOB',
+      nonce: 1,
+    })),
+  };
+  const getSession = (() => session) as never;
+
+  const mod = new ScarcesModule(http, getSession, social);
   return { mod, spies: { requestForm, post, getOne } };
 }
 
@@ -81,7 +127,9 @@ describe('ScarcesModule.fromPost.mint', () => {
     expect(title.endsWith(' ')).toBe(false);
     // Must end on a complete word from the source.
     expect(text.startsWith(title)).toBe(true);
-    expect(text[title.length] === ' ' || title.length === text.length).toBe(true);
+    expect(text[title.length] === ' ' || title.length === text.length).toBe(
+      true
+    );
   });
 
   it('uses first sentence as title when post has multiple sentences', async () => {
@@ -189,7 +237,7 @@ describe('ScarcesModule.fromPost.mint', () => {
 
   it('does not add extra.gallery when post has only one image', async () => {
     const { mod, spies } = makeMod();
-    // ROW has two images (a MediaRef + a legacy ipfs:// string); use a
+    // ROW has two images (a MediaRef + an ipfs:// string); use a
     // single-image fixture to exercise the no-gallery branch.
     const singleImage = {
       ...ROW,
@@ -302,7 +350,7 @@ describe('ScarcesModule.fromPost.list', () => {
       royalty: { 'alice.near': 1000 },
     });
     const [, endpoint, form] = spies.requestForm.mock.calls[0];
-    expect(endpoint).toBe('/compose/lazy-list');
+    expect(endpoint).toBe('/compose/prepare/lazy-list');
     expect(form.get('priceNear')).toBe('5');
     expect(form.get('mediaCid')).toBe('bafyMedia1');
     expect(form.get('title')).toBe('hello world');
