@@ -25,6 +25,7 @@ pub fn create(state: Arc<AppState>) -> Router {
 
     let execute_route = Router::new()
         .route("/execute_delegate", post(handlers::execute_delegate))
+        .route("/execute_rewards", post(handlers::execute_rewards))
         .layer(middleware::from_fn(api_key_auth))
         .layer(ConcurrencyLimitLayer::new(MAX_CONCURRENT_EXECUTE));
 

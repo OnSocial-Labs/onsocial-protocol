@@ -69,6 +69,10 @@ pub struct Config {
     #[serde(default = "defaults::allowed_methods")]
     pub allowed_methods: Vec<String>,
 
+    /// Rewards contract used by the private service relay endpoint.
+    #[serde(default = "defaults::rewards_contract_id")]
+    pub rewards_contract_id: String,
+
     /// Canonical contract allowlist.
     #[serde(
         default = "defaults::allowed_contracts",
@@ -97,6 +101,7 @@ impl Default for Config {
             gcp_kms_keyring: defaults::gcp_kms_keyring(),
             gcp_kms_admin_key: defaults::gcp_kms_admin_key(),
             allowed_methods: defaults::allowed_methods(),
+            rewards_contract_id: defaults::rewards_contract_id(),
             allowed_contracts: defaults::allowed_contracts(),
         }
     }
@@ -338,9 +343,26 @@ mod defaults {
         vec!["execute".into(), "execute_admin".into()]
     }
 
+    pub fn rewards_contract_id() -> String {
+        std::env::var("RELAYER_REWARDS_CONTRACT_ID")
+            .or_else(|_| std::env::var("REWARDS_CONTRACT"))
+            .unwrap_or_else(|_| rewards_contract_id_for_network(&network()))
+    }
+
+    pub(super) fn rewards_contract_id_for_network(network: &str) -> String {
+        if network.contains("mainnet") {
+            "rewards.onsocial.near".into()
+        } else {
+            "rewards.onsocial.testnet".into()
+        }
+    }
+
     pub fn allowed_contracts() -> Vec<String> {
-        let net = network();
-        if net.contains("mainnet") {
+        allowed_contracts_for_network(&network())
+    }
+
+    pub(super) fn allowed_contracts_for_network(network: &str) -> Vec<String> {
+        if network.contains("mainnet") {
             vec!["rewards.onsocial.near".into()]
         } else {
             vec![
@@ -393,7 +415,7 @@ mod tests {
 
     #[test]
     fn default_allowed_contracts_include_all_testnet_contracts() {
-        let contracts = defaults::allowed_contracts();
+        let contracts = defaults::allowed_contracts_for_network("testnet");
 
         assert!(contracts
             .iter()
@@ -408,16 +430,33 @@ mod tests {
 
     #[test]
     fn default_allowed_contracts_only_include_rewards_on_mainnet() {
-        unsafe {
-            std::env::set_var("NEAR_NETWORK", "mainnet");
-        }
-
-        let contracts = defaults::allowed_contracts();
+        let contracts = defaults::allowed_contracts_for_network("mainnet");
 
         assert_eq!(contracts, vec!["rewards.onsocial.near".to_string()]);
+    }
+
+    #[test]
+    fn default_rewards_contract_tracks_network() {
+        assert_eq!(
+            defaults::rewards_contract_id_for_network("mainnet"),
+            "rewards.onsocial.near"
+        );
+        assert_eq!(
+            defaults::rewards_contract_id_for_network("testnet"),
+            "rewards.onsocial.testnet"
+        );
+    }
+
+    #[test]
+    fn rewards_contract_prefers_explicit_override() {
+        unsafe {
+            std::env::set_var("RELAYER_REWARDS_CONTRACT_ID", "custom-rewards.testnet");
+        }
+
+        assert_eq!(defaults::rewards_contract_id(), "custom-rewards.testnet");
 
         unsafe {
-            std::env::remove_var("NEAR_NETWORK");
+            std::env::remove_var("RELAYER_REWARDS_CONTRACT_ID");
         }
     }
 

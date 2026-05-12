@@ -1,5 +1,6 @@
 //! HTTP request handlers.
 
+use crate::key_pool::FullAccessTxOutcome;
 use crate::metrics::METRICS;
 use crate::middleware::RequestId;
 use crate::response::{ExecuteResponse, HealthResponse, KeyPoolStats, TxStatusResponse};
@@ -9,16 +10,18 @@ use axum::extract::{FromRequest, Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
+use near_gas::NearGas;
 use near_primitives::hash::CryptoHash;
-use near_primitives::transaction::Action;
+use near_primitives::transaction::{Action, FunctionCallAction};
+use near_primitives::types::AccountId;
 use near_primitives::views::FinalExecutionStatus;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use tracing::{error, info, warn};
 
-/// Query parameters for the `/execute_delegate` endpoint.
+/// Query parameters for protected execution endpoints.
 #[derive(Deserialize, Default)]
 pub struct ExecuteParams {
     /// `wait=true` → `broadcast_tx_commit` (synchronous, confirmed result).
@@ -134,12 +137,32 @@ pub struct ExecuteDelegateBody {
     pub signed_delegate: String,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum RewardsServiceAction {
+    CreditReward {
+        account_id: AccountId,
+        amount: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        source: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        app_id: Option<String>,
+    },
+    Claim {
+        account_id: AccountId,
+    },
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ExecuteRewardsBody {
+    pub action: RewardsServiceAction,
+}
+
 pub async fn execute_delegate(
     State(state): State<Arc<AppState>>,
     Query(params): Query<ExecuteParams>,
     request_parts: axum::extract::Request,
 ) -> (StatusCode, Json<ExecuteResponse>) {
-    use crate::key_pool::FullAccessTxOutcome;
     use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
     use near_primitives::action::delegate::SignedDelegateAction;
     use near_primitives::borsh::BorshDeserialize;
@@ -334,18 +357,174 @@ pub async fn execute_delegate(
     METRICS.tx_success.fetch_add(1, Ordering::Relaxed);
     METRICS.record_tx_duration(start);
 
+    full_access_tx_response(&req_id, "delegate", submitted)
+}
+
+// ---------------------------------------------------------------------------
+// /execute_rewards — private service relay for rewards contract actions.
+//
+// Body: { "action": { "type": "credit_reward" | "claim", ... } }
+// Query: ?wait=true (optional, broadcast_tx_commit)
+//
+// This is intentionally narrower than the old generic `/execute` endpoint:
+// it always calls the configured rewards contract's `execute` method with
+// zero deposit and only accepts the rewards action enum. The direct transaction
+// is signed by the relayer account through the same FullAccess KMS lane pool
+// used for NEP-366 outer transactions, so the rewards contract sees
+// `env::predecessor_account_id() == relayer.onsocial.*`.
+// ---------------------------------------------------------------------------
+pub async fn execute_rewards(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<ExecuteParams>,
+    request_parts: axum::extract::Request,
+) -> (StatusCode, Json<ExecuteResponse>) {
+    let start = std::time::Instant::now();
+    METRICS.tx_total.fetch_add(1, Ordering::Relaxed);
+    state.request_count.fetch_add(1, Ordering::Relaxed);
+
+    let req_id = request_parts
+        .extensions()
+        .get::<RequestId>()
+        .map(|r| r.0.clone())
+        .unwrap_or_default();
+
+    let body: ExecuteRewardsBody =
+        match axum::Json::<ExecuteRewardsBody>::from_request(request_parts, &state).await {
+            Ok(axum::Json(v)) => v,
+            Err(e) => {
+                METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
+                warn!(req_id = %req_id, error = %e, "Invalid rewards body");
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ExecuteResponse::err(
+                        "Body must be { action: <rewards action> }",
+                        None,
+                    )),
+                );
+            }
+        };
+
+    if let Err(error) = validate_rewards_action(&body.action) {
+        METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
+        warn!(req_id = %req_id, error = %error, "Invalid rewards action");
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ExecuteResponse::err(error, None)),
+        );
+    }
+
+    let rewards_contract = match state.config.rewards_contract_id.parse::<AccountId>() {
+        Ok(account_id) => account_id,
+        Err(e) => {
+            METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
+            error!(req_id = %req_id, error = %e, contract = %state.config.rewards_contract_id, "Invalid rewards contract config");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ExecuteResponse::err(
+                    "Relayer rewards contract is not configured correctly",
+                    None,
+                )),
+            );
+        }
+    };
+
+    if !state.allowed_contracts.contains(&rewards_contract) {
+        METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
+        error!(req_id = %req_id, contract = %rewards_contract, "Rewards contract not in allowlist");
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ExecuteResponse::err(
+                "Relayer rewards contract is not allowlisted",
+                None,
+            )),
+        );
+    }
+
+    let action_type = match &body.action {
+        RewardsServiceAction::CreditReward { .. } => "credit_reward",
+        RewardsServiceAction::Claim { .. } => "claim",
+    };
+    info!(req_id = %req_id, action = action_type, contract = %rewards_contract, "Relaying rewards service action");
+
+    let actions = build_rewards_execute_actions(&body.action, state.config.gas_tgas);
+    let submitted = match state
+        .key_pool
+        .submit_delegate_transaction(&state.rpc, &rewards_contract, actions, params.wait)
+        .await
+    {
+        Ok(outcome) => outcome,
+        Err(e) => {
+            METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
+            let (status, public_error) = match &e {
+                Error::Config(_) => (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Relayer rewards signer is not configured correctly",
+                ),
+                Error::Rpc(_) => (StatusCode::BAD_GATEWAY, "RPC temporarily unavailable"),
+                Error::KeyPool(_) => (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "Relayer rewards signer is temporarily unavailable",
+                ),
+            };
+            error!(req_id = %req_id, error = %e, "Rewards tx submission failed");
+            return (status, Json(ExecuteResponse::err(public_error, None)));
+        }
+    };
+
+    METRICS.tx_success.fetch_add(1, Ordering::Relaxed);
+    METRICS.record_tx_duration(start);
+
+    full_access_tx_response(&req_id, "rewards", submitted)
+}
+
+fn validate_rewards_action(action: &RewardsServiceAction) -> Result<(), String> {
+    match action {
+        RewardsServiceAction::CreditReward { amount, .. } => {
+            let parsed = amount
+                .parse::<u128>()
+                .map_err(|_| "credit_reward amount must be a decimal u128 string".to_string())?;
+            if parsed == 0 {
+                return Err("credit_reward amount must be greater than 0".to_string());
+            }
+        }
+        RewardsServiceAction::Claim { .. } => {}
+    }
+    Ok(())
+}
+
+fn build_rewards_execute_actions(action: &RewardsServiceAction, gas_tgas: u64) -> Vec<Action> {
+    let args = serde_json::to_vec(&serde_json::json!({
+        "request": {
+            "action": action,
+        }
+    }))
+    .unwrap_or_default();
+
+    vec![Action::FunctionCall(Box::new(FunctionCallAction {
+        method_name: "execute".to_string(),
+        args,
+        gas: NearGas::from_tgas(gas_tgas).as_gas(),
+        deposit: 0,
+    }))]
+}
+
+fn full_access_tx_response(
+    req_id: &str,
+    kind: &str,
+    submitted: FullAccessTxOutcome,
+) -> (StatusCode, Json<ExecuteResponse>) {
     match submitted {
         FullAccessTxOutcome::Committed(outcome) => {
             let hash = format!("{}", outcome.transaction_outcome.id);
             match &outcome.status {
                 FinalExecutionStatus::SuccessValue(bytes) => {
                     let value: Option<Value> = serde_json::from_slice(bytes).ok();
-                    info!(req_id = %req_id, tx_hash = %hash, "Delegate TX committed (success)");
+                    info!(req_id = %req_id, tx_hash = %hash, kind = %kind, "TX committed (success)");
                     (StatusCode::OK, Json(ExecuteResponse::success(hash, value)))
                 }
                 FinalExecutionStatus::Failure(e) => {
                     let err_msg = format!("{e:?}");
-                    warn!(req_id = %req_id, tx_hash = %hash, error = %err_msg, "Delegate TX committed (failure)");
+                    warn!(req_id = %req_id, tx_hash = %hash, kind = %kind, error = %err_msg, "TX committed (failure)");
                     (
                         StatusCode::OK,
                         Json(ExecuteResponse::failure(hash, err_msg)),
@@ -355,7 +534,7 @@ pub async fn execute_delegate(
             }
         }
         FullAccessTxOutcome::Submitted(tx_hash) => {
-            info!(req_id = %req_id, tx_hash = %tx_hash, "Delegate TX submitted (async)");
+            info!(req_id = %req_id, tx_hash = %tx_hash, kind = %kind, "TX submitted (async)");
             (
                 StatusCode::ACCEPTED,
                 Json(ExecuteResponse::pending(tx_hash.to_string())),
@@ -437,5 +616,43 @@ pub async fn latest_block(State(state): State<Arc<AppState>>) -> impl IntoRespon
                 Json(serde_json::json!({"error": "RPC temporarily unavailable"})),
             )
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rewards_action_validation_rejects_bad_credit_amount() {
+        let action = RewardsServiceAction::CreditReward {
+            account_id: "alice.testnet".parse().unwrap(),
+            amount: "0".to_string(),
+            source: Some("telegram".to_string()),
+            app_id: Some("onsocial_telegram".to_string()),
+        };
+
+        assert_eq!(
+            validate_rewards_action(&action),
+            Err("credit_reward amount must be greater than 0".to_string())
+        );
+    }
+
+    #[test]
+    fn rewards_execute_action_wraps_claim_account_id() {
+        let action = RewardsServiceAction::Claim {
+            account_id: "alice.testnet".parse().unwrap(),
+        };
+
+        let actions = build_rewards_execute_actions(&action, 100);
+        let Action::FunctionCall(fc) = &actions[0] else {
+            panic!("expected FunctionCall");
+        };
+
+        assert_eq!(fc.method_name, "execute");
+        assert_eq!(fc.deposit, 0);
+        let args: Value = serde_json::from_slice(&fc.args).unwrap();
+        assert_eq!(args["request"]["action"]["type"], "claim");
+        assert_eq!(args["request"]["action"]["account_id"], "alice.testnet");
     }
 }

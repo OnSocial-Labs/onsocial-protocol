@@ -4,10 +4,10 @@
 
 import { config } from '../config/index.js';
 import { logger } from '../logger.js';
-import { relayRewardsAction, type RewardsDelegateAction } from './delegate.js';
+import { relayRewardsAction, type RewardsAction } from './rewards-relay.js';
 
 /**
- * Credit a reward on-chain via a server-signed NEP-366 delegate.
+ * Credit a reward on-chain via the private rewards relayer endpoint.
  *
  * Uses `?wait=true` so the relayer waits for `broadcast_tx_commit`,
  * giving us ground truth — the credit either landed on-chain or we
@@ -21,7 +21,7 @@ export async function creditOnChain(
   source: string,
   appId?: string
 ): Promise<string> {
-  const action: RewardsDelegateAction = {
+  const action: RewardsAction = {
     type: 'credit_reward',
     account_id: accountId,
     amount,
@@ -53,7 +53,7 @@ export async function creditOnChain(
 }
 
 /**
- * Execute a gasless claim for a NEAR user via a server-signed NEP-366 delegate.
+ * Execute a gasless claim for a NEAR user via the private rewards relayer endpoint.
  *
  * Returns the tx hash on success.
  */
