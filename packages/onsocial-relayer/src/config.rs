@@ -1,7 +1,6 @@
 //! Relayer configuration.
 
 use serde::{Deserialize, Deserializer};
-use std::time::Duration;
 
 /// Signing backend.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Default)]
@@ -36,21 +35,17 @@ pub struct Config {
     #[serde(default = "defaults::gas_tgas")]
     pub gas_tgas: u64,
 
-    /// yoctoNEAR deposit. FunctionCall keys cannot attach deposits (NEAR restriction).
-    #[serde(default = "defaults::storage_deposit")]
-    pub storage_deposit: u128,
-
     #[serde(default = "defaults::admin_key_path")]
     pub admin_key_path: String,
 
-    #[serde(default = "defaults::pool_store_path")]
-    pub pool_store_path: String,
+    /// Local delegate signer store path used only in local signing mode.
+    #[serde(default = "defaults::delegate_store_path")]
+    pub delegate_store_path: String,
 
-    /// Number of full-access signer lanes dedicated to NEP-366 delegate relay.
+    /// Number of FullAccess signer lanes dedicated to relayer submissions.
     #[serde(default = "defaults::delegate_pool_size")]
     pub delegate_pool_size: u32,
 
-    // --- KMS configuration (signer_mode = kms) ---
     #[serde(default)]
     pub signer_mode: SignerMode,
 
@@ -91,9 +86,8 @@ impl Default for Config {
             keys_path: defaults::keys_path(),
             bind_address: defaults::bind_address(),
             gas_tgas: defaults::gas_tgas(),
-            storage_deposit: defaults::storage_deposit(),
             admin_key_path: defaults::admin_key_path(),
-            pool_store_path: defaults::pool_store_path(),
+            delegate_store_path: defaults::delegate_store_path(),
             delegate_pool_size: defaults::delegate_pool_size(),
             signer_mode: SignerMode::default(),
             gcp_kms_project: defaults::gcp_kms_project(),
@@ -129,76 +123,6 @@ where
             .map(ToOwned::to_owned)
             .collect(),
     })
-}
-
-/// Autoscaling thresholds for the key pool.
-#[derive(Debug, Clone)]
-pub struct ScalingConfig {
-    pub min_keys: u32,
-    pub max_keys: u32,
-    /// Scale-up threshold: avg in-flight per key.
-    pub scale_up_per_key: f32,
-    pub scale_down_per_key: f32,
-    pub scale_down_idle: Duration,
-    pub cooldown: Duration,
-    pub batch_size: u32,
-    pub max_key_age: Duration,
-    /// Pre-warmed spare keys. 0 = disabled.
-    pub warm_buffer: u32,
-}
-
-impl Default for ScalingConfig {
-    fn default() -> Self {
-        let mut cfg = Self {
-            min_keys: std::env::var("RELAYER_MIN_KEYS")
-                .ok()
-                .and_then(|v| v.parse().ok())
-                .unwrap_or(9),
-            max_keys: std::env::var("RELAYER_MAX_KEYS")
-                .ok()
-                .and_then(|v| v.parse().ok())
-                .unwrap_or(200),
-            scale_up_per_key: std::env::var("RELAYER_SCALE_UP_PER_KEY")
-                .ok()
-                .and_then(|v| v.parse().ok())
-                .unwrap_or(10.0),
-            scale_down_per_key: std::env::var("RELAYER_SCALE_DOWN_PER_KEY")
-                .ok()
-                .and_then(|v| v.parse().ok())
-                .unwrap_or(2.0),
-            scale_down_idle: Duration::from_secs(300),
-            cooldown: Duration::from_secs(30),
-            batch_size: 5,
-            warm_buffer: std::env::var("RELAYER_WARM_BUFFER")
-                .ok()
-                .and_then(|v| v.parse().ok())
-                .unwrap_or(2),
-            max_key_age: Duration::from_secs(
-                std::env::var("RELAYER_MAX_KEY_AGE")
-                    .ok()
-                    .and_then(|v| v.parse().ok())
-                    .unwrap_or(86400),
-            ),
-        };
-        if cfg.max_keys < cfg.min_keys {
-            tracing::warn!(
-                min_keys = cfg.min_keys,
-                max_keys = cfg.max_keys,
-                "max_keys < min_keys — clamping max_keys to min_keys"
-            );
-            cfg.max_keys = cfg.min_keys;
-        }
-        const ABSOLUTE_MAX: u32 = 200;
-        if cfg.max_keys > ABSOLUTE_MAX {
-            tracing::warn!(
-                max_keys = cfg.max_keys,
-                cap = ABSOLUTE_MAX,
-                "max_keys exceeds absolute cap — clamping"
-            );
-            cfg.max_keys = ABSOLUTE_MAX;
-        }
-        cfg
-    }
 }
 
 mod defaults {
@@ -293,20 +217,14 @@ mod defaults {
         100
     }
 
-    pub fn storage_deposit() -> u128 {
-        std::env::var("RELAYER_STORAGE_DEPOSIT")
-            .ok()
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(0)
-    }
-
     pub fn admin_key_path() -> String {
         std::env::var("RELAYER_ADMIN_KEY_PATH")
             .unwrap_or_else(|_| "./account_keys/relayer-admin.json".into())
     }
 
-    pub fn pool_store_path() -> String {
-        std::env::var("RELAYER_POOL_STORE_PATH").unwrap_or_else(|_| "./data/pool_keys.enc".into())
+    pub fn delegate_store_path() -> String {
+        std::env::var("RELAYER_DELEGATE_STORE_PATH")
+            .unwrap_or_else(|_| "./data/delegate_signers.enc".into())
     }
 
     pub fn delegate_pool_size() -> u32 {
@@ -335,11 +253,6 @@ mod defaults {
     }
 
     pub fn allowed_methods() -> Vec<String> {
-        // `execute_admin` is permitted so wallet-popup-signed delegates that
-        // perform privileged writes (set_permission, set_key_permission,
-        // reserved Set keys) can be relayed. Session FunctionCall keys are
-        // still scoped to `execute` only at the access-key level, which
-        // enforces "admin actions require a wallet" end to end.
         vec!["execute".into(), "execute_admin".into()]
     }
 

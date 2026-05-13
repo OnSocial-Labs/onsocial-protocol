@@ -7,7 +7,6 @@
 # Delegate signer lanes can be pre-created with:
 #   scripts/ensure_delegate_kms_keys.sh --network "$NEAR_NETWORK" --pool-size 50
 # They are registered on-chain by the relayer at startup as FullAccess keys.
-# Do not create/register legacy `pool-key-*` FunctionCall keys for `/execute_delegate`.
 #
 # Network-aware: set NEAR_NETWORK=mainnet to target mainnet keyrings.
 #
