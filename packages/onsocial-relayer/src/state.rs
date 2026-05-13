@@ -1,6 +1,6 @@
 //! Shared application state initialization.
 
-use crate::config::{Config, ScalingConfig, SignerMode};
+use crate::config::{Config, SignerMode};
 use crate::key_pool::{bootstrap_pool_from_chain, KeyPool, PoolConfig};
 use crate::key_store::KeyStore;
 use crate::rpc::RpcClient;
@@ -17,12 +17,11 @@ pub struct AppState {
     pub rpc: RpcClient,
     pub key_pool: Arc<KeyPool>,
     pub allowed_contracts: Vec<near_primitives::types::AccountId>,
-    /// Inner FunctionCall methods accepted on `/execute_delegate` delegates
-    /// (e.g. `execute`, `execute_admin`). Sourced from `config.allowed_methods`.
+    /// Inner FunctionCall methods accepted on `/execute_delegate` delegates.
     pub allowed_methods: Vec<String>,
     pub start_time: Instant,
     pub request_count: AtomicU64,
-    /// `/ready` returns 503 until `min_keys` are active.
+    /// `/ready` returns 503 until the delegate signer pool reaches its target size.
     pub ready: std::sync::atomic::AtomicBool,
     #[cfg(feature = "gcp")]
     pub kms_client: Option<Arc<crate::kms::KmsClient>>,
@@ -32,14 +31,14 @@ impl AppState {
     pub async fn new(config: Config) -> Result<Self, crate::Error> {
         let rpc = RpcClient::new(&config.rpc_url, &config.fallback_rpc_url);
 
-        // Parse the canonical allowlist.
         let allowed_contracts: Vec<near_primitives::types::AccountId> = config
             .allowed_contracts
             .iter()
-            .filter_map(|s| {
-                s.parse()
+            .filter_map(|contract| {
+                contract
+                    .parse()
                     .map_err(|e| {
-                        warn!(contract = %s, error = %e, "Ignoring invalid allowed_contract");
+                        warn!(contract = %contract, error = %e, "Ignoring invalid allowed contract");
                         e
                     })
                     .ok()
@@ -54,13 +53,11 @@ impl AppState {
 
         info!(contracts = ?allowed_contracts, "Allowed contracts");
 
-        // Validate the inner-method allowlist up front so an empty list can
-        // never silently reject every delegate.
         let allowed_methods: Vec<String> = config
             .allowed_methods
             .iter()
-            .map(|m| m.trim().to_string())
-            .filter(|m| !m.is_empty())
+            .map(|method| method.trim().to_string())
+            .filter(|method| !method.is_empty())
             .collect();
         if allowed_methods.is_empty() {
             return Err(crate::Error::Config(
@@ -69,9 +66,7 @@ impl AppState {
         }
         info!(methods = ?allowed_methods, "Allowed inner methods");
 
-        let scaling = ScalingConfig::default();
-        let delegate_min_keys = config.delegate_pool_size.max(1) as usize;
-
+        let delegate_target = config.delegate_pool_size.max(1) as usize;
         let key_pool = match config.signer_mode {
             SignerMode::Kms => {
                 #[cfg(not(feature = "gcp"))]
@@ -89,9 +84,8 @@ impl AppState {
                         config.relayer_account_id.parse().map_err(|e| {
                             crate::Error::Config(format!("Invalid RELAYER_ACCOUNT_ID: {e}"))
                         })?;
-                    info!(account = %account_id, mode = "kms", "Bootstrapping KMS pool");
-                    bootstrap_kms_pool(&config, &rpc, &account_id, &allowed_contracts, scaling)
-                        .await?
+                    info!(account = %account_id, mode = "kms", "Bootstrapping KMS delegate pool");
+                    bootstrap_kms_pool(&config, &rpc, &account_id).await?
                 }
             }
             SignerMode::Local => {
@@ -104,27 +98,11 @@ impl AppState {
 
                 #[cfg(feature = "gcp")]
                 let result = {
-                    let pool = bootstrap_local_pool(
-                        &config,
-                        &rpc,
-                        &account_id,
-                        &allowed_contracts,
-                        admin,
-                        scaling,
-                    )
-                    .await?;
+                    let pool = bootstrap_local_pool(&config, &rpc, &account_id, admin).await?;
                     (pool, None)
                 };
                 #[cfg(not(feature = "gcp"))]
-                let result = bootstrap_local_pool(
-                    &config,
-                    &rpc,
-                    &account_id,
-                    &allowed_contracts,
-                    admin,
-                    scaling,
-                )
-                .await?;
+                let result = bootstrap_local_pool(&config, &rpc, &account_id, admin).await?;
                 result
             }
         };
@@ -148,9 +126,8 @@ impl AppState {
             "Relayer ready with delegate signer pool"
         );
 
-        let ready = std::sync::atomic::AtomicBool::new(
-            key_pool.active_delegate_count() >= delegate_min_keys,
-        );
+        let ready =
+            std::sync::atomic::AtomicBool::new(key_pool.active_delegate_count() >= delegate_target);
 
         Ok(Self {
             rpc,
@@ -171,57 +148,29 @@ async fn bootstrap_local_pool(
     config: &Config,
     rpc: &RpcClient,
     account_id: &near_primitives::types::AccountId,
-    allowed_contracts: &[near_primitives::types::AccountId],
     admin_signer: RelayerSigner,
-    scaling: ScalingConfig,
 ) -> Result<KeyPool, crate::Error> {
     let store = if let Ok(enc_key) = std::env::var("RELAYER_KEY_ENCRYPTION_SECRET") {
-        KeyStore::new_encrypted(config.pool_store_path.clone().into(), &enc_key)?
+        KeyStore::new_encrypted(config.delegate_store_path.clone().into(), &enc_key)?
     } else {
-        warn!("No RELAYER_KEY_ENCRYPTION_SECRET set — using plaintext key store (dev mode)");
-        KeyStore::new_plaintext(config.pool_store_path.clone().into())
+        warn!("No RELAYER_KEY_ENCRYPTION_SECRET set - using plaintext key store (dev mode)");
+        KeyStore::new_plaintext(config.delegate_store_path.clone().into())
     };
 
-    let stored_pairs = store.load()?;
-    let stored_keys: Vec<(SecretKey, near_crypto::PublicKey)> = stored_pairs
+    let stored_keys: Vec<(SecretKey, near_crypto::PublicKey)> = store
+        .load()?
         .into_iter()
         .filter_map(|(_pk_str, sk_str)| {
-            let sk: SecretKey = sk_str.parse().ok()?;
-            let pk = sk.public_key();
-            Some((sk, pk))
+            let secret_key: SecretKey = sk_str.parse().ok()?;
+            let public_key = secret_key.public_key();
+            Some((secret_key, public_key))
         })
         .collect();
 
-    // Fall back to legacy single key if no pool keys stored
-    let stored_keys = if stored_keys.is_empty() {
-        info!("No pool keys stored, checking for legacy single key");
-        match load_legacy_signer(config) {
-            Ok(signer) => match &signer {
-                Signer::InMemory(ims) => {
-                    info!(key = %ims.public_key, "Using legacy key as initial pool key");
-                    vec![(ims.secret_key.clone(), ims.public_key.clone())]
-                }
-                _ => {
-                    warn!("Unsupported signer variant, pool starts cold");
-                    vec![]
-                }
-            },
-            Err(e) => {
-                warn!(error = %e, "No legacy key found, pool starts cold");
-                vec![]
-            }
-        }
-    } else {
-        stored_keys
-    };
-
     let pool_config = PoolConfig {
         account_id: account_id.clone(),
-        allowed_contracts: allowed_contracts.to_vec(),
         admin_signer,
-        scaling,
         store,
-        allowed_methods: config.allowed_methods.clone(),
     };
 
     bootstrap_pool_from_chain(rpc, pool_config, stored_keys).await
@@ -233,11 +182,8 @@ async fn bootstrap_kms_pool(
     config: &Config,
     rpc: &RpcClient,
     account_id: &near_primitives::types::AccountId,
-    allowed_contracts: &[near_primitives::types::AccountId],
-    scaling: ScalingConfig,
 ) -> Result<(KeyPool, Option<Arc<crate::kms::KmsClient>>), crate::Error> {
     use crate::kms::KmsClient;
-    use crate::signer::RelayerSigner;
 
     if config.gcp_kms_project.is_empty() {
         return Err(crate::Error::Config(
@@ -261,7 +207,6 @@ async fn bootstrap_kms_pool(
 
     let kms_client = Arc::new(KmsClient::new()?);
 
-    // --- Admin key (full-access, for AddKey/DeleteKey) ---
     let admin_key_ref = kms_client
         .init_key_ref(
             &config.gcp_kms_project,
@@ -298,32 +243,28 @@ async fn bootstrap_kms_pool(
         near_primitives::views::AccessKeyPermissionView::FullAccess
     ) {
         return Err(crate::Error::Config(
-            "NEP-366 delegate signer provisioning requires the KMS admin signer to be a FullAccess key".into(),
+            "delegate signer provisioning requires the KMS admin signer to be a FullAccess key"
+                .into(),
         ));
     }
 
     let store = KeyStore::new_plaintext("/dev/null".into());
-
     let kms_context = crate::key_pool::KmsContext {
         client: Arc::clone(&kms_client),
         project: config.gcp_kms_project.clone(),
         location: config.gcp_kms_location.clone(),
         keyring: config.gcp_kms_keyring.clone(),
         delegate_key_prefix: delegate_key_prefix(&config.instance_name),
-        next_index: std::sync::atomic::AtomicU32::new(0),
         next_delegate_index: std::sync::atomic::AtomicU32::new(0),
     };
 
     let pool_config = PoolConfig {
         account_id: account_id.clone(),
-        allowed_contracts: allowed_contracts.to_vec(),
         admin_signer,
-        scaling,
         store,
-        allowed_methods: config.allowed_methods.clone(),
     };
 
-    let pool = KeyPool::new(pool_config, Vec::new(), Vec::new()).with_kms(kms_context);
+    let pool = KeyPool::new(pool_config, Vec::new()).with_kms(kms_context);
 
     Ok((pool, Some(kms_client)))
 }
@@ -343,15 +284,6 @@ fn load_admin_key(config: &Config) -> Result<Signer, crate::Error> {
         let json = std::fs::read_to_string(&config.keys_path)
             .map_err(|e| crate::Error::Config(format!("Failed to read key: {e}")))?;
         parse_keys_json(&json)
-    }
-}
-
-fn load_legacy_signer(config: &Config) -> Result<Signer, crate::Error> {
-    if let Ok(keys_json) = std::env::var("RELAYER_KEYS_JSON") {
-        parse_keys_json(&keys_json)
-    } else {
-        near_crypto::InMemorySigner::from_file(config.keys_path.as_ref())
-            .map_err(|e| crate::Error::Config(format!("Failed to load key: {e}")))
     }
 }
 

@@ -1,42 +1,30 @@
-//! Key slot and RAII guard types.
+//! Delegate signer slot and RAII guard types.
 
 use crate::signer::RelayerSigner;
 use near_crypto::PublicKey;
-use near_primitives::types::AccountId;
 use std::sync::atomic::{AtomicU32, AtomicU64, AtomicU8, Ordering};
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex as AsyncMutex;
 
-// Key states
-pub(crate) const WARMUP: u8 = 0;
 pub(crate) const ACTIVE: u8 = 1;
-pub(crate) const DRAINING: u8 = 2;
-pub(crate) const DEAD: u8 = 3;
 
 pub struct KeySlot {
     pub(crate) signer: RelayerSigner,
-    pub(crate) target_contract: AccountId,
     pub(crate) state: AtomicU8,
     pub(crate) in_flight: AtomicU32,
     /// Incremented atomically; never queries chain mid-flight.
     pub(crate) nonce: AtomicU64,
-    pub(crate) last_used: AtomicU64,
-    pub(crate) created_at: u64,
-    /// Serializes RPC submissions per-key to preserve nonce ordering.
+    /// Serializes RPC submissions per key to preserve nonce ordering.
     pub submit_lock: AsyncMutex<()>,
 }
 
 impl KeySlot {
-    pub(crate) fn new(signer: RelayerSigner, nonce: u64, target_contract: AccountId) -> Self {
+    pub(crate) fn new(signer: RelayerSigner, nonce: u64) -> Self {
         Self {
             signer,
-            target_contract,
-            state: AtomicU8::new(WARMUP),
+            state: AtomicU8::new(ACTIVE),
             in_flight: AtomicU32::new(0),
             nonce: AtomicU64::new(nonce),
-            last_used: AtomicU64::new(0),
-            created_at: now_secs(),
             submit_lock: AsyncMutex::new(()),
         }
     }
@@ -71,11 +59,4 @@ impl Drop for KeyGuard {
     fn drop(&mut self) {
         self.slot.in_flight.fetch_sub(1, Ordering::Relaxed);
     }
-}
-
-pub(crate) fn now_secs() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs()
 }

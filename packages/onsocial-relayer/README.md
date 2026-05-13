@@ -77,10 +77,8 @@ Relay a NEP-366 `SignedDelegateAction` (gasless meta-transaction). The user's
 session key signs the inner `FunctionCall`; the relayer signs and broadcasts
 the outer `Action::Delegate(...)`.
 
-The outer delegate transaction is signed with the relayer admin/full-access
-delegate signer pool. Contract-scoped FunctionCall pool keys cannot authorize
-NEP-366 `Action::Delegate` transactions because those transactions are not
-FunctionCall actions.
+The outer delegate transaction is signed with the relayer FullAccess delegate
+signer pool, with each signer lane keeping its own nonce sequence.
 
 For multi-instance KMS deployments, each relayer instance must have a stable
 `RELAYER_INSTANCE_NAME` (`relayer-0`, `relayer-1`, etc.). The relayer derives
@@ -108,20 +106,6 @@ scripts/ensure_delegate_kms_keys.sh \
   --network mainnet \
   --pool-size 50 \
   --instances relayer-0:relayer-keys-mainnet,relayer-1:relayer-keys-mainnet-1,relayer-2:relayer-keys-mainnet-2
-```
-
-After both delegate relayers are deployed and `/ready` is green, old relayer
-FunctionCall keys can be removed from the relayer account. Preview first:
-
-```bash
-node scripts/cleanup_legacy_relayer_fc_keys.mjs --network mainnet
-```
-
-Apply only after verifying both delegate instances have their expected active
-delegate key count:
-
-```bash
-node scripts/cleanup_legacy_relayer_fc_keys.mjs --network mainnet --apply
 ```
 
 ```bash

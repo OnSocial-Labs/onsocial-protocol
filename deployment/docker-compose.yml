@@ -304,7 +304,6 @@ services:
       # NEP-366 delegate signer lanes are full-access keys created and
       # registered by the relayer at startup per RELAYER_INSTANCE_NAME.
       RELAYER_DELEGATE_POOL_SIZE: ${RELAYER_DELEGATE_POOL_SIZE:-50}
-      RELAYER_MIN_KEYS: ${RELAYER_MIN_KEYS:-50}
       # allowed_contracts defaults are set in config.rs (core + scarces + rewards per network)
       GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/gcp-sa.json
       # Instance 0 uses the original keyring
