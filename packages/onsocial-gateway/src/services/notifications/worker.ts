@@ -181,6 +181,15 @@ function normalizeText(value: DbScalar): string | null {
   return null;
 }
 
+function isUndefinedTableError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: string }).code === '42P01'
+  );
+}
+
 function normalizeAccountId(value: DbScalar): string | null {
   const normalized = normalizeText(value);
   return normalized ? normalized.toLowerCase() : null;
@@ -838,10 +847,11 @@ export class NotificationWorker {
       notificationId: string;
       notification: NotificationInsert;
     }> = [];
+    let cursor: CursorRow | null = null;
 
     await this.client.query('BEGIN');
     try {
-      const cursor = await getCursor(this.client, sourceTable);
+      cursor = await getCursor(this.client, sourceTable);
       const rows = await this.fetchRows(sourceTable, cursor);
 
       if (rows.length === 0) {
@@ -911,6 +921,23 @@ export class NotificationWorker {
       };
     } catch (error) {
       await this.client.query('ROLLBACK');
+      if (isUndefinedTableError(error)) {
+        logger.warn(
+          { sourceTable, error },
+          'Notification source table missing; skipping source table'
+        );
+        return {
+          sourceTable,
+          processedRows: 0,
+          insertedNotifications: 0,
+          lastBlockHeight: String(cursor?.last_block_height ?? '0'),
+          lastEventId:
+            cursor?.last_event_id ??
+            (sourceTable === 'app_notification_events'
+              ? APP_NOTIFICATION_CURSOR_FLOOR_UUID
+              : ''),
+        };
+      }
       throw error;
     }
   }

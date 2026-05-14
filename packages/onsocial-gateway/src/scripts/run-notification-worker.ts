@@ -77,7 +77,19 @@ async function ensureNotifyTriggers(client: Client): Promise<void> {
     $$ LANGUAGE plpgsql;
   `);
 
+  const missingTables: string[] = [];
+
   for (const table of NOTIFY_TABLES) {
+    const tableExists = await client.query<{ regclass: string | null }>(
+      'SELECT to_regclass($1) AS regclass',
+      [table]
+    );
+
+    if (!tableExists.rows[0]?.regclass) {
+      missingTables.push(table);
+      continue;
+    }
+
     const triggerName = `idx_event_notify_${table}`;
     await client.query(`
       DROP TRIGGER IF EXISTS ${triggerName} ON ${table};
@@ -89,7 +101,11 @@ async function ensureNotifyTriggers(client: Client): Promise<void> {
   }
 
   logger.info(
-    { tables: NOTIFY_TABLES.length, channel: LISTEN_CHANNEL },
+    {
+      tables: NOTIFY_TABLES.length - missingTables.length,
+      missingTables,
+      channel: LISTEN_CHANNEL,
+    },
     'LISTEN/NOTIFY triggers installed'
   );
 }

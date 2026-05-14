@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import type { Client } from 'pg';
+import { describe, expect, it, vi } from 'vitest';
 import {
+  NotificationWorker,
   mapAppNotificationEventNotifications,
   mapDataUpdateNotifications,
   mapGroupInviteNotification,
@@ -146,6 +148,45 @@ describe('mapDataUpdateNotifications', () => {
     expect(reactionNotifications[0]?.recipient).toBe('bob.testnet');
     expect(standingNotifications).toHaveLength(1);
     expect(standingNotifications[0]?.notificationType).toBe('standing_new');
+  });
+});
+
+describe('NotificationWorker', () => {
+  it('skips missing indexer source tables instead of crashing', async () => {
+    const query = vi.fn(async (sql: string) => {
+      if (sql === 'BEGIN' || sql === 'ROLLBACK') return { rows: [] };
+      if (sql.includes('INSERT INTO notification_cursors')) return { rows: [] };
+      if (sql.includes('SELECT source_table')) {
+        return {
+          rows: [
+            {
+              source_table: 'data_updates',
+              last_block_height: 12,
+              last_event_id: 'du-12',
+            },
+          ],
+        };
+      }
+      if (sql.includes('FROM data_updates')) {
+        throw Object.assign(
+          new Error('relation "data_updates" does not exist'),
+          {
+            code: '42P01',
+          }
+        );
+      }
+      throw new Error(`Unexpected query: ${sql}`);
+    });
+    const worker = new NotificationWorker({ query } as unknown as Client);
+
+    await expect(worker.processSourceTable('data_updates')).resolves.toEqual({
+      sourceTable: 'data_updates',
+      processedRows: 0,
+      insertedNotifications: 0,
+      lastBlockHeight: '12',
+      lastEventId: 'du-12',
+    });
+    expect(query).toHaveBeenCalledWith('ROLLBACK');
   });
 });
 
