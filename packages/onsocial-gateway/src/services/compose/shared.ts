@@ -66,25 +66,62 @@ function getApiKey(): string {
 // Per-upload storage tier sent to the pinning provider.
 const STORAGE_TYPE = process.env.LIGHTHOUSE_STORAGE_TYPE || 'annual';
 const uploadOpts = { headers: { storageType: STORAGE_TYPE } };
+const VERIFY_CID_RETRIES = Number(process.env.LIGHTHOUSE_VERIFY_RETRIES || 6);
+const VERIFY_CID_BASE_DELAY_MS = Number(
+  process.env.LIGHTHOUSE_VERIFY_BASE_DELAY_MS || 1_000
+);
+const VERIFY_CID_MAX_DELAY_MS = Number(
+  process.env.LIGHTHOUSE_VERIFY_MAX_DELAY_MS || 15_000
+);
+
+function retryAfterDelayMs(response: Response, attempt: number): number {
+  const retryAfter = response.headers.get('retry-after');
+  if (retryAfter) {
+    const seconds = Number(retryAfter);
+    if (Number.isFinite(seconds)) return Math.max(0, seconds * 1_000);
+
+    const dateMs = Date.parse(retryAfter);
+    if (Number.isFinite(dateMs)) return Math.max(0, dateMs - Date.now());
+  }
+
+  return Math.min(
+    VERIFY_CID_MAX_DELAY_MS,
+    VERIFY_CID_BASE_DELAY_MS * 2 ** attempt
+  );
+}
 
 /**
  * Verify a freshly-uploaded CID is retrievable through the configured
  * gateway before the caller commits an on-chain reference to it.
  */
-export async function verifyCidLive(cid: string, retries = 3): Promise<void> {
+export async function verifyCidLive(
+  cid: string,
+  retries = VERIFY_CID_RETRIES
+): Promise<void> {
   let lastErr: unknown;
   for (let i = 0; i < retries; i++) {
     try {
       const res = await fetch(gatewayUrl(cid), {
         method: 'HEAD',
-        signal: AbortSignal.timeout(5_000),
+        signal: AbortSignal.timeout(10_000),
       });
       if (res.ok) return;
       lastErr = `HEAD ${cid} → ${res.status}`;
+      if (i + 1 < retries) {
+        await new Promise((r) => setTimeout(r, retryAfterDelayMs(res, i)));
+        continue;
+      }
     } catch (err) {
       lastErr = err;
     }
-    await new Promise((r) => setTimeout(r, 500 * 2 ** i));
+    if (i + 1 < retries) {
+      await new Promise((r) =>
+        setTimeout(
+          r,
+          Math.min(VERIFY_CID_MAX_DELAY_MS, VERIFY_CID_BASE_DELAY_MS * 2 ** i)
+        )
+      );
+    }
   }
   throw new ComposeError(
     502,
