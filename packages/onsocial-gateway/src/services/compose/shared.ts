@@ -73,6 +73,28 @@ const VERIFY_CID_BASE_DELAY_MS = Number(
 const VERIFY_CID_MAX_DELAY_MS = Number(
   process.env.LIGHTHOUSE_VERIFY_MAX_DELAY_MS || 15_000
 );
+const VERIFY_CID_FALLBACK_GATEWAY_BASES = (
+  process.env.LIGHTHOUSE_VERIFY_FALLBACK_GATEWAYS ||
+  'https://gateway.lighthouse.storage/ipfs'
+)
+  .split(',')
+  .map((base) => base.trim())
+  .filter(Boolean);
+
+function gatewayUrlFromBase(base: string, cid: string): string {
+  return `${base.replace(/\/+$/, '')}/${cid}`;
+}
+
+function cidVerificationUrls(cid: string): string[] {
+  return [
+    ...new Set([
+      gatewayUrl(cid),
+      ...VERIFY_CID_FALLBACK_GATEWAY_BASES.map((base) =>
+        gatewayUrlFromBase(base, cid)
+      ),
+    ]),
+  ];
+}
 
 function retryAfterDelayMs(response: Response, attempt: number): number {
   const retryAfter = response.headers.get('retry-after');
@@ -99,28 +121,37 @@ export async function verifyCidLive(
   retries = VERIFY_CID_RETRIES
 ): Promise<void> {
   let lastErr: unknown;
+  const urls = cidVerificationUrls(cid);
   for (let i = 0; i < retries; i++) {
-    try {
-      const res = await fetch(gatewayUrl(cid), {
-        method: 'HEAD',
-        signal: AbortSignal.timeout(10_000),
-      });
-      if (res.ok) return;
-      lastErr = `HEAD ${cid} → ${res.status}`;
-      if (i + 1 < retries) {
-        await new Promise((r) => setTimeout(r, retryAfterDelayMs(res, i)));
-        continue;
+    let delayMs = Math.min(
+      VERIFY_CID_MAX_DELAY_MS,
+      VERIFY_CID_BASE_DELAY_MS * 2 ** i
+    );
+
+    for (const [urlIndex, url] of urls.entries()) {
+      try {
+        const res = await fetch(url, {
+          method: 'HEAD',
+          signal: AbortSignal.timeout(10_000),
+        });
+        if (res.ok) {
+          if (urlIndex > 0) {
+            logger.warn(
+              { cid, primaryGateway: urls[0], verifiedGateway: url, lastErr },
+              'CID verified through fallback IPFS gateway'
+            );
+          }
+          return;
+        }
+        lastErr = `HEAD ${url} → ${res.status}`;
+        delayMs = Math.max(delayMs, retryAfterDelayMs(res, i));
+      } catch (err) {
+        lastErr = err;
       }
-    } catch (err) {
-      lastErr = err;
     }
+
     if (i + 1 < retries) {
-      await new Promise((r) =>
-        setTimeout(
-          r,
-          Math.min(VERIFY_CID_MAX_DELAY_MS, VERIFY_CID_BASE_DELAY_MS * 2 ** i)
-        )
-      );
+      await new Promise((r) => setTimeout(r, delayMs));
     }
   }
   throw new ComposeError(
