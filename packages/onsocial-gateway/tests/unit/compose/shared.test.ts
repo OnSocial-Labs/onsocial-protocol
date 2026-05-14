@@ -8,6 +8,7 @@ import {
   mockUploadText,
   mockLighthouseUpload,
   mockLighthouseText,
+  mockFetch,
   makeFile,
 } from './helpers.js';
 import {
@@ -74,6 +75,47 @@ describe('uploadJsonToLighthouse', () => {
       'https://test-gw.lighthouseweb3.xyz/ipfs/QmJsonCid789'
     );
     expect(result.hash).toBeTruthy();
+  });
+});
+
+describe('verifyCidLive', () => {
+  beforeEach(() => mockFetch.mockReset());
+
+  it('accepts a CID verified through the fallback gateway', async () => {
+    const { verifyCidLive } = await vi.importActual<
+      typeof import('../../../src/services/compose/shared.js')
+    >('../../../src/services/compose/shared.js');
+
+    mockFetch
+      .mockResolvedValueOnce(new Response('', { status: 429 }))
+      .mockResolvedValueOnce(new Response('', { status: 200 }));
+
+    await verifyCidLive('QmFallbackCid', 1);
+
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      1,
+      'https://test-gw.lighthouseweb3.xyz/ipfs/QmFallbackCid',
+      expect.objectContaining({ method: 'HEAD' })
+    );
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      2,
+      'https://gateway.lighthouse.storage/ipfs/QmFallbackCid',
+      expect.objectContaining({ method: 'HEAD' })
+    );
+  });
+
+  it('throws after every verification gateway fails', async () => {
+    const { verifyCidLive } = await vi.importActual<
+      typeof import('../../../src/services/compose/shared.js')
+    >('../../../src/services/compose/shared.js');
+
+    mockFetch
+      .mockResolvedValueOnce(new Response('', { status: 429 }))
+      .mockResolvedValueOnce(new Response('', { status: 404 }));
+
+    await expect(verifyCidLive('QmMissingCid', 1)).rejects.toMatchObject({
+      status: 502,
+    });
   });
 });
 
