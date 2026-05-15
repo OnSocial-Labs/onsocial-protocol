@@ -137,9 +137,9 @@ describe('LighthouseProvider', () => {
     expect(() => new LighthouseProvider('')).toThrow(/apiKey/);
   });
 
-  it('POSTs to node.lighthouse.storage with Bearer auth', async () => {
+  it('POSTs named files to Lighthouse upload host with Bearer auth', async () => {
     const fetchMock = vi.fn(
-      async () =>
+      async (_url: Parameters<typeof fetch>[0], _init?: RequestInit) =>
         ({
           ok: true,
           json: async () => ({
@@ -157,7 +157,7 @@ describe('LighthouseProvider', () => {
       size: 77,
     });
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://node.lighthouse.storage/api/v0/add',
+      'https://upload.lighthouse.storage/api/v0/add?cid-version=1',
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({
@@ -165,6 +165,11 @@ describe('LighthouseProvider', () => {
         }),
       })
     );
+    const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    const form = request.body as FormData;
+    const uploaded = form.get('file') as File;
+    expect(uploaded.name).toBe('upload.txt');
+    expect(uploaded.type).toBe('text/plain');
   });
 
   it('throws on non-2xx', async () => {

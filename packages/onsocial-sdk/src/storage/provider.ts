@@ -182,9 +182,9 @@ export class GatewayProvider implements StorageProvider {
  */
 export class LighthouseProvider implements StorageProvider {
   private static readonly ENDPOINT =
-    'https://node.lighthouse.storage/api/v0/add';
+    'https://upload.lighthouse.storage/api/v0/add?cid-version=1';
   private static readonly JSON_ENDPOINT =
-    'https://node.lighthouse.storage/api/v0/add';
+    'https://upload.lighthouse.storage/api/v0/add?cid-version=1';
   private static readonly GATEWAY = 'https://gateway.lighthouse.storage/ipfs';
 
   constructor(
@@ -204,7 +204,9 @@ export class LighthouseProvider implements StorageProvider {
     const form = new FormData();
     const name =
       opts?.filename ??
-      (file instanceof File && file.name ? file.name : 'upload');
+      (typeof File !== 'undefined' && file instanceof File && file.name
+        ? file.name
+        : defaultUploadFilename(probed.mime));
     form.append('file', file, name);
     const res = await this._fetch(LighthouseProvider.ENDPOINT, {
       method: 'POST',
