@@ -138,9 +138,7 @@ mod eval_tests {
         let mut contract = init_live_contract();
         let alice = test_account(0);
 
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         contract
             .execute(create_group_request("extract_test".to_string(), json!({})))
             .unwrap();
@@ -187,9 +185,7 @@ mod eval_tests {
         let mut contract = init_live_contract();
         let alice = test_account(0);
 
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         contract
             .execute(create_group_request("owner_test".to_string(), json!({})))
             .unwrap();
@@ -211,9 +207,7 @@ mod eval_tests {
         let alice = test_account(0);
         let bob = test_account(1);
 
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         contract
             .execute(create_group_request("member_test".to_string(), json!({})))
             .unwrap();
@@ -267,9 +261,7 @@ mod eval_tests {
         let mut contract = init_live_contract();
         let alice = test_account(0);
 
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         contract
             .execute(create_group_request(
                 "perm_level_test".to_string(),
@@ -293,9 +285,7 @@ mod eval_tests {
         let alice = test_account(0);
         let bob = test_account(1);
 
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         contract
             .execute(create_group_request(
                 "non_member_level".to_string(),

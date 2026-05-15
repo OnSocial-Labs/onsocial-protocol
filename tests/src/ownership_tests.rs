@@ -368,7 +368,7 @@ async fn test_owner_cannot_be_blacklisted() -> anyhow::Result<()> {
 
     // Grant Bob MANAGE permission
     let grant_manage = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set_permission", "grantee": bob.id().to_string(), "path": "groups/blacklist_owner_test/config", "level": 3, "expires_at": null }
@@ -472,7 +472,7 @@ async fn test_owner_cannot_be_removed_by_manage() -> anyhow::Result<()> {
 
     // Grant Bob MANAGE permission
     let grant_manage = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set_permission", "grantee": bob.id().to_string(), "path": "groups/remove_owner_test/config", "level": 3, "expires_at": null }
@@ -733,7 +733,7 @@ async fn test_is_owner_in_permission_granting() -> anyhow::Result<()> {
 
     // Alice (owner) can grant permissions
     let owner_grant = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set_permission", "grantee": bob.id().to_string(), "path": "groups/perm_grant_test/content", "level": 1, "expires_at": null }
@@ -748,7 +748,7 @@ async fn test_is_owner_in_permission_granting() -> anyhow::Result<()> {
 
     // Bob (non-owner, no MANAGE) cannot grant to Charlie
     let non_owner_grant = bob
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set_permission", "grantee": charlie.id().to_string(), "path": "groups/perm_grant_test/content", "level": 1, "expires_at": null }

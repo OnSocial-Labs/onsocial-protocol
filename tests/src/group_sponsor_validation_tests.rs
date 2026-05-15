@@ -100,7 +100,7 @@ async fn test_group_sponsor_quota_set_missing_enabled_fails() -> anyhow::Result<
 
     // Missing `enabled` field - should fail after fix
     let res = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -112,8 +112,7 @@ async fn test_group_sponsor_quota_set_missing_enabled_fails() -> anyhow::Result<
                         "allowance_max_bytes": 10000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -149,7 +148,7 @@ async fn test_group_sponsor_default_set_missing_enabled_fails() -> anyhow::Resul
 
     // Missing `enabled` field - should fail after fix
     let res = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -160,8 +159,7 @@ async fn test_group_sponsor_default_set_missing_enabled_fails() -> anyhow::Resul
                         "allowance_max_bytes": 10000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -203,7 +201,7 @@ async fn test_group_sponsor_quota_set_unauthorized_user_fails() -> anyhow::Resul
 
     // Stranger (not owner, not manager) tries to set quota - should fail
     let res = stranger
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -216,8 +214,7 @@ async fn test_group_sponsor_quota_set_unauthorized_user_fails() -> anyhow::Resul
                         "allowance_max_bytes": 10000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -254,7 +251,7 @@ async fn test_group_sponsor_default_set_unauthorized_user_fails() -> anyhow::Res
 
     // Stranger (not owner, not manager) tries to set default - should fail
     let res = stranger
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -266,8 +263,7 @@ async fn test_group_sponsor_default_set_unauthorized_user_fails() -> anyhow::Res
                         "allowance_max_bytes": 10000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -308,7 +304,7 @@ async fn test_group_sponsor_quota_set_enabled_with_zero_allowance_fails() -> any
 
     // enabled=true but allowance_max_bytes=0 - should fail
     let res = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -321,8 +317,7 @@ async fn test_group_sponsor_quota_set_enabled_with_zero_allowance_fails() -> any
                         "allowance_max_bytes": 0
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -358,7 +353,7 @@ async fn test_group_sponsor_default_set_enabled_with_zero_allowance_fails() -> a
 
     // enabled=true but allowance_max_bytes=0 - should fail
     let res = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -370,8 +365,7 @@ async fn test_group_sponsor_default_set_enabled_with_zero_allowance_fails() -> a
                         "allowance_max_bytes": 0
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -409,7 +403,7 @@ async fn test_group_sponsor_quota_set_nonexistent_group_fails() -> anyhow::Resul
 
     // Group does not exist
     let res = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -422,8 +416,7 @@ async fn test_group_sponsor_quota_set_nonexistent_group_fails() -> anyhow::Resul
                         "allowance_max_bytes": 10000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -456,7 +449,7 @@ async fn test_group_sponsor_default_set_nonexistent_group_fails() -> anyhow::Res
 
     // Group does not exist
     let res = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -468,8 +461,7 @@ async fn test_group_sponsor_default_set_nonexistent_group_fails() -> anyhow::Res
                         "allowance_max_bytes": 10000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -509,7 +501,7 @@ async fn test_group_sponsor_quota_set_emits_correct_event() -> anyhow::Result<()
     create_group(&contract, &owner, group_id).await?;
 
     let res = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -522,8 +514,7 @@ async fn test_group_sponsor_quota_set_emits_correct_event() -> anyhow::Result<()
                         "allowance_max_bytes": 10000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -560,7 +551,7 @@ async fn test_group_sponsor_default_set_emits_correct_event() -> anyhow::Result<
     create_group(&contract, &owner, group_id).await?;
 
     let res = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -572,8 +563,7 @@ async fn test_group_sponsor_default_set_emits_correct_event() -> anyhow::Result<
                         "allowance_max_bytes": 10000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -616,7 +606,7 @@ async fn test_group_sponsor_quota_set_disabled_zeros_allowance() -> anyhow::Resu
 
     // First enable with a quota
     let res1 = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -629,8 +619,7 @@ async fn test_group_sponsor_quota_set_disabled_zeros_allowance() -> anyhow::Resu
                         "allowance_max_bytes": 10000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -645,7 +634,7 @@ async fn test_group_sponsor_quota_set_disabled_zeros_allowance() -> anyhow::Resu
 
     // Now disable - allowance should be zeroed
     let res2 = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -658,8 +647,7 @@ async fn test_group_sponsor_quota_set_disabled_zeros_allowance() -> anyhow::Resu
                         "allowance_max_bytes": 10000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -701,7 +689,7 @@ async fn test_group_sponsor_quota_set_missing_group_id_fails() -> anyhow::Result
 
     // Missing `group_id` field - should fail
     let res = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -713,8 +701,7 @@ async fn test_group_sponsor_quota_set_missing_group_id_fails() -> anyhow::Result
                         "allowance_max_bytes": 10000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -747,7 +734,7 @@ async fn test_group_sponsor_default_set_missing_group_id_fails() -> anyhow::Resu
 
     // Missing `group_id` field - should fail
     let res = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -758,8 +745,7 @@ async fn test_group_sponsor_default_set_missing_group_id_fails() -> anyhow::Resu
                         "allowance_max_bytes": 10000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -800,7 +786,7 @@ async fn test_group_sponsor_quota_set_missing_daily_refill_bytes_fails() -> anyh
 
     // Missing `daily_refill_bytes` field - should fail
     let res = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -812,8 +798,7 @@ async fn test_group_sponsor_quota_set_missing_daily_refill_bytes_fails() -> anyh
                         "allowance_max_bytes": 10000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -849,7 +834,7 @@ async fn test_group_sponsor_default_set_missing_daily_refill_bytes_fails() -> an
 
     // Missing `daily_refill_bytes` field - should fail
     let res = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -860,8 +845,7 @@ async fn test_group_sponsor_default_set_missing_daily_refill_bytes_fails() -> an
                         "allowance_max_bytes": 10000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -902,7 +886,7 @@ async fn test_group_sponsor_quota_set_missing_allowance_max_bytes_fails() -> any
 
     // Missing `allowance_max_bytes` field - should fail
     let res = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -914,8 +898,7 @@ async fn test_group_sponsor_quota_set_missing_allowance_max_bytes_fails() -> any
                         "daily_refill_bytes": 1000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -951,7 +934,7 @@ async fn test_group_sponsor_default_set_missing_allowance_max_bytes_fails() -> a
 
     // Missing `allowance_max_bytes` field - should fail
     let res = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -962,8 +945,7 @@ async fn test_group_sponsor_default_set_missing_allowance_max_bytes_fails() -> a
                         "daily_refill_bytes": 1000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -1003,7 +985,7 @@ async fn test_group_sponsor_quota_set_missing_target_id_fails() -> anyhow::Resul
 
     // Missing `target_id` field - should fail
     let res = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -1015,8 +997,7 @@ async fn test_group_sponsor_quota_set_missing_target_id_fails() -> anyhow::Resul
                         "allowance_max_bytes": 10000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -1070,7 +1051,7 @@ async fn grant_manage_permission_on_group(
     // Grant MANAGE permission (level 3) on the group config path
     let permission_path = format!("{}/groups/{}/config", owner.id(), group_id);
     let grant_res = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -1081,8 +1062,7 @@ async fn grant_manage_permission_on_group(
                         "level": 3
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -1113,7 +1093,7 @@ async fn test_group_sponsor_quota_set_authorized_manager_succeeds() -> anyhow::R
 
     // Manager (not owner) sets quota - should succeed
     let res = manager
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -1126,8 +1106,7 @@ async fn test_group_sponsor_quota_set_authorized_manager_succeeds() -> anyhow::R
                         "allowance_max_bytes": 10000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -1168,7 +1147,7 @@ async fn test_group_sponsor_default_set_authorized_manager_succeeds() -> anyhow:
 
     // Manager (not owner) sets default - should succeed
     let res = manager
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -1180,8 +1159,7 @@ async fn test_group_sponsor_default_set_authorized_manager_succeeds() -> anyhow:
                         "allowance_max_bytes": 10000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))

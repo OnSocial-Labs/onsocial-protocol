@@ -1,7 +1,7 @@
 use anyhow::Result;
 use near_workspaces::types::{Gas, NearToken};
 use near_workspaces::{Account, Contract};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::utils::{get_wasm_path, setup_sandbox};
 
@@ -102,15 +102,14 @@ async fn test_set_permission_saves_unused_attached_deposit_to_storage_balance() 
     // Pre-deposit storage so the permission write is paid from user balance,
     // not from the attached deposit of the permission call.
     alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": {
                     "storage/deposit": { "amount": ONE_NEAR.as_yoctonear().to_string() }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -122,7 +121,7 @@ async fn test_set_permission_saves_unused_attached_deposit_to_storage_balance() 
     // First grant: creates the permission entry (may consume some storage balance).
     let owner_path = format!("{}/profile/", alice.id());
     alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set_permission", "grantee": bob.id(), "path": owner_path, "level": 1, "expires_at": null }
@@ -151,7 +150,7 @@ async fn test_set_permission_saves_unused_attached_deposit_to_storage_balance() 
     // Repeat the exact same grant, but attach a deposit. This should not increase
     // storage usage, so the attached deposit should be fully unused and saved.
     let res = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set_permission", "grantee": bob.id(), "path": format!("{}/profile/", alice.id()), "level": 1, "expires_at": null }
@@ -259,8 +258,7 @@ async fn test_set_blocked_in_readonly_mode() -> Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "profile/name": "Alice"  } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -313,8 +311,7 @@ async fn test_set_blocked_in_genesis_mode() -> Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "profile/name": "Alice"  } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -434,8 +431,7 @@ async fn test_contract_readonly_error_message_format() -> Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "profile/name": "Test" } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -508,8 +504,7 @@ async fn test_permission_denied_error_message_includes_operation_and_path() -> R
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "profile/name": "Alice" } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -528,8 +523,7 @@ async fn test_permission_denied_error_message_includes_operation_and_path() -> R
             "request": {
                 "target_account": alice.id().to_string(),
                 "action": { "type": "set", "data": { "profile/hacked": "by bob" } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -611,15 +605,14 @@ async fn test_insufficient_storage_error_message_includes_balance_details() -> R
     // Deposit tiny amount
     let tiny_deposit = NearToken::from_yoctonear(1_000_000_000_000_000_000u128); // 0.001 NEAR
     let deposit_res = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": {
                     "storage/deposit": { "amount": tiny_deposit.as_yoctonear().to_string() }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(tiny_deposit)
@@ -636,8 +629,7 @@ async fn test_insufficient_storage_error_message_includes_balance_details() -> R
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "profile/bio": large_data } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -682,8 +674,7 @@ async fn test_set_succeeds_after_resume_from_readonly() -> Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "profile/name": "Alice"  } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -708,8 +699,7 @@ async fn test_set_succeeds_after_resume_from_readonly() -> Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "profile/bio": "Should fail"  } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -737,8 +727,7 @@ async fn test_set_succeeds_after_resume_from_readonly() -> Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "profile/bio": "Now it works"  } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)

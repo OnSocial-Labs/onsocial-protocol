@@ -132,7 +132,7 @@ async fn fund_group_pool_and_set_default_quota(
     allowance_max_bytes: u64,
 ) -> anyhow::Result<()> {
     let res = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -148,8 +148,7 @@ async fn fund_group_pool_and_set_default_quota(
                         "allowance_max_bytes": allowance_max_bytes
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(pool_deposit)
@@ -172,7 +171,7 @@ async fn fund_platform_pool(
     amount: NearToken,
 ) -> anyhow::Result<()> {
     let res = funder
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -181,8 +180,7 @@ async fn fund_platform_pool(
                         "amount": amount.as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(amount)
@@ -203,15 +201,14 @@ async fn deposit_personal_storage(
     amount: NearToken,
 ) -> anyhow::Result<()> {
     let res = user
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": amount.as_yoctonear().to_string()}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(amount)
@@ -233,7 +230,7 @@ async fn update_group_default_quota(
     allowance_max_bytes: u64,
 ) -> anyhow::Result<()> {
     let res = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -245,8 +242,7 @@ async fn update_group_default_quota(
                         "allowance_max_bytes": allowance_max_bytes
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -271,7 +267,7 @@ async fn set_member_quota_override(
     allowance_max_bytes: u64,
 ) -> anyhow::Result<()> {
     let res = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -284,8 +280,7 @@ async fn set_member_quota_override(
                         "allowance_max_bytes": allowance_max_bytes
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -354,8 +349,7 @@ async fn test_group_sponsored_delete_refund_is_bounded_and_idempotent() -> anyho
                 "action": { "type": "set", "data": {
                     key.clone(): {"text": large_text}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -388,8 +382,7 @@ async fn test_group_sponsored_delete_refund_is_bounded_and_idempotent() -> anyho
                 "action": { "type": "set", "data": {
                     key.clone(): serde_json::Value::Null
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -422,8 +415,7 @@ async fn test_group_sponsored_delete_refund_is_bounded_and_idempotent() -> anyho
                 "action": { "type": "set", "data": {
                     key.clone(): serde_json::Value::Null
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -485,8 +477,7 @@ async fn test_group_default_quota_sponsors_group_write_and_emits_spend_event() -
                 "action": { "type": "set", "data": {
                     key: {"text": "hello"}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -512,8 +503,8 @@ async fn test_group_default_quota_sponsors_group_write_and_emits_spend_event() -
 }
 
 #[tokio::test]
-async fn test_group_default_quota_blocks_without_deposit_but_allows_attached_deposit_fallback(
-) -> anyhow::Result<()> {
+async fn test_group_default_quota_blocks_without_deposit_but_allows_attached_deposit_fallback()
+-> anyhow::Result<()> {
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
@@ -541,8 +532,7 @@ async fn test_group_default_quota_blocks_without_deposit_but_allows_attached_dep
                 "action": { "type": "set", "data": {
                     blocked_key: {"text": "hello"}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -564,8 +554,7 @@ async fn test_group_default_quota_blocks_without_deposit_but_allows_attached_dep
                 "action": { "type": "set", "data": {
                     fallback_key: {"text": "hello"}
                 } },
-                "options": {"refund_unused_deposit": true},
-                "auth": null
+                "options": {"refund_unused_deposit": true}
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -625,8 +614,7 @@ async fn test_group_pool_insufficient_blocks_even_when_quota_allows() -> anyhow:
                 "action": { "type": "set", "data": {
                     key: {"text": large_data}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -667,15 +655,14 @@ async fn test_single_set_can_use_group_sponsorship_and_personal_balance() -> any
 
     // Pre-fund member personal balance in a prior tx so the next tx can run with 0 attached deposit.
     let deposit_res = member
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": ONE_NEAR.as_yoctonear().to_string()}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -702,8 +689,7 @@ async fn test_single_set_can_use_group_sponsorship_and_personal_balance() -> any
                     group_key: {"text": "hello"},
                     profile_key: "Member"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -764,8 +750,7 @@ async fn test_group_write_uses_platform_pool_before_group_pool_when_available() 
                 "action": { "type": "set", "data": {
                     key: {"text": "hello"}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -808,8 +793,8 @@ async fn test_group_write_uses_platform_pool_before_group_pool_when_available() 
 }
 
 #[tokio::test]
-async fn test_group_pool_exhausted_falls_back_to_personal_balance_with_zero_attached_deposit(
-) -> anyhow::Result<()> {
+async fn test_group_pool_exhausted_falls_back_to_personal_balance_with_zero_attached_deposit()
+-> anyhow::Result<()> {
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
@@ -844,8 +829,7 @@ async fn test_group_pool_exhausted_falls_back_to_personal_balance_with_zero_atta
                 "action": { "type": "set", "data": {
                     key: {"text": "hello"}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -913,8 +897,7 @@ async fn test_group_sponsored_update_to_smaller_refunds_group_pool_bytes() -> an
                 "action": { "type": "set", "data": {
                     key.clone(): {"text": "x".repeat(1500)}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -946,8 +929,7 @@ async fn test_group_sponsored_update_to_smaller_refunds_group_pool_bytes() -> an
                 "action": { "type": "set", "data": {
                     key.clone(): {"text": "small"}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -1009,8 +991,7 @@ async fn test_group_pool_refund_is_isolated_per_payer_for_same_group() -> anyhow
                 "action": { "type": "set", "data": {
                     key1.clone(): {"text": "x".repeat(800)}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -1027,8 +1008,7 @@ async fn test_group_pool_refund_is_isolated_per_payer_for_same_group() -> anyhow
                 "action": { "type": "set", "data": {
                     key2: {"text": "x".repeat(800)}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -1067,8 +1047,7 @@ async fn test_group_pool_refund_is_isolated_per_payer_for_same_group() -> anyhow
                 "action": { "type": "set", "data": {
                     key1.clone(): serde_json::Value::Null
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -1107,8 +1086,8 @@ async fn test_group_pool_refund_is_isolated_per_payer_for_same_group() -> anyhow
 }
 
 #[tokio::test]
-async fn test_group_default_update_applies_without_clamping_existing_member_allowance(
-) -> anyhow::Result<()> {
+async fn test_group_default_update_applies_without_clamping_existing_member_allowance()
+-> anyhow::Result<()> {
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
@@ -1140,8 +1119,7 @@ async fn test_group_default_update_applies_without_clamping_existing_member_allo
                 "action": { "type": "set", "data": {
                     key1: {"text": "hello"}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -1168,8 +1146,7 @@ async fn test_group_default_update_applies_without_clamping_existing_member_allo
                 "action": { "type": "set", "data": {
                     key2: {"text": "hello"}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -1228,8 +1205,7 @@ async fn test_author_prefixed_group_path_is_sponsored_by_group_pool() -> anyhow:
                 "action": { "type": "set", "data": {
                     key: {"text": "hello"}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -1308,8 +1284,7 @@ async fn test_per_user_override_quota_takes_precedence_over_default_policy() -> 
                 "action": { "type": "set", "data": {
                     blocked_key: {"text": "hello"}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -1331,8 +1306,7 @@ async fn test_per_user_override_quota_takes_precedence_over_default_policy() -> 
                 "action": { "type": "set", "data": {
                     fallback_key: {"text": "hello"}
                 } },
-                "options": {"refund_unused_deposit": true},
-                "auth": null
+                "options": {"refund_unused_deposit": true}
             }
         }))
         .deposit(ONE_NEAR)
@@ -1382,7 +1356,7 @@ async fn test_failed_multi_operation_set_does_not_persist_partial_state() -> any
     // We assert the first write does NOT persist.
     let key = author_group_key(&member, group_id, "content/posts/should_not_persist");
     let res = member
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -1390,8 +1364,7 @@ async fn test_failed_multi_operation_set_does_not_persist_partial_state() -> any
                     key.clone(): {"text": "hello"},
                     "storage/group_sponsor_default_set": {"group_id": group_id}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -1467,9 +1440,8 @@ async fn test_quota_exhaustion_mid_batch_falls_back_to_attached_deposit() -> any
                     small_key.clone(): {"text": "a"},
                     large_key.clone(): {"text": large_text}
                 } },
-                "options": {"refund_unused_deposit": true},
+                "options": {"refund_unused_deposit": true}
                 // Keep events on: payload is moderate; this also exercises the normal pipeline.
-                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1513,8 +1485,8 @@ async fn test_quota_exhaustion_mid_batch_falls_back_to_attached_deposit() -> any
 }
 
 #[tokio::test]
-async fn test_single_set_can_use_author_prefixed_group_sponsorship_and_personal_balance(
-) -> anyhow::Result<()> {
+async fn test_single_set_can_use_author_prefixed_group_sponsorship_and_personal_balance()
+-> anyhow::Result<()> {
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
@@ -1550,8 +1522,7 @@ async fn test_single_set_can_use_author_prefixed_group_sponsorship_and_personal_
                     group_key: {"text": "hello"},
                     profile_key: "Member"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))

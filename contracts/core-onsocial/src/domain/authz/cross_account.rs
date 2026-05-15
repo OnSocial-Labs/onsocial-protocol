@@ -2,7 +2,7 @@ use near_sdk::serde_json::Value;
 use near_sdk::{AccountId, PublicKey};
 
 use crate::validation::Path;
-use crate::{SocialError, invalid_input, permission_denied, state::SocialPlatform};
+use crate::{SocialError, permission_denied, state::SocialPlatform};
 
 /// Validates write permissions for cross-account operations.
 /// - DataPath: Requires write permission (account-based or key-based).
@@ -12,8 +12,7 @@ pub fn validate_cross_account_permissions_simple(
     data: &Value,
     target_account: &AccountId,
     actor_id: &AccountId,
-    actor_pk: Option<&PublicKey>,
-    require_key_for_group_paths: bool,
+    actor_pk: &PublicKey,
 ) -> Result<(), SocialError> {
     let data_obj = crate::protocol::operation::require_non_empty_object(data)?;
 
@@ -34,49 +33,21 @@ pub fn validate_cross_account_permissions_simple(
                         .unwrap_or_else(|| target_account.as_str().to_string());
 
                 let can_write = if is_group_path {
-                    let account_ok = crate::domain::groups::permissions::kv::can_write(
+                    crate::domain::groups::permissions::kv::can_write(
                         platform,
                         &path_owner,
                         actor_id.as_str(),
                         full_path,
-                    );
-                    if !account_ok {
-                        false
-                    } else if require_key_for_group_paths {
-                        let Some(pk) = actor_pk else {
-                            return Err(invalid_input!(
-                                "actor_pk required for signed-payload group write"
-                            ));
-                        };
-                        crate::domain::groups::permissions::kv::has_permissions_for_key(
-                            platform,
-                            actor_id.as_str(),
-                            pk,
-                            full_path,
-                            crate::domain::groups::permissions::kv::types::WRITE,
-                        )
-                    } else {
-                        true
-                    }
+                    )
                 } else {
-                    match actor_pk {
-                        Some(pk) => {
-                            crate::domain::groups::permissions::kv::has_permissions_or_key_for_actor(
-                                platform,
-                                &path_owner,
-                                full_path,
-                                crate::domain::groups::permissions::kv::types::WRITE,
-                                actor_id.as_str(),
-                                pk,
-                            )
-                        }
-                        None => crate::domain::groups::permissions::kv::can_write(
-                            platform,
-                            &path_owner,
-                            actor_id.as_str(),
-                            full_path,
-                        ),
-                    }
+                    crate::domain::groups::permissions::kv::has_permissions_or_key_for_actor(
+                        platform,
+                        &path_owner,
+                        full_path,
+                        crate::domain::groups::permissions::kv::types::WRITE,
+                        actor_id.as_str(),
+                        actor_pk,
+                    )
                 };
 
                 if !can_write {

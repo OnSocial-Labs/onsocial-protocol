@@ -144,7 +144,7 @@ async fn test_share_storage_updates_pool_used_bytes() -> Result<()> {
     // Step 1: Alice deposits to her shared pool
     println!("\n   Step 1: Alice deposits 1 NEAR to her shared pool...");
     let deposit_result = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -154,8 +154,7 @@ async fn test_share_storage_updates_pool_used_bytes() -> Result<()> {
                         "amount": NearToken::from_near(1).as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -189,7 +188,7 @@ async fn test_share_storage_updates_pool_used_bytes() -> Result<()> {
     // Step 3: Alice shares storage with Bob
     println!("\n   Step 2: Alice shares 5000 bytes with Bob...");
     let share_result = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -199,8 +198,7 @@ async fn test_share_storage_updates_pool_used_bytes() -> Result<()> {
                         "max_bytes": 5000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -282,7 +280,7 @@ async fn test_return_storage_credits_pool_used_bytes() -> Result<()> {
     // Setup: Alice deposits and shares with Bob
     println!("\n   Setup: Alice deposits and shares with Bob...");
     let _ = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -292,8 +290,7 @@ async fn test_return_storage_credits_pool_used_bytes() -> Result<()> {
                         "amount": NearToken::from_near(1).as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -302,7 +299,7 @@ async fn test_return_storage_credits_pool_used_bytes() -> Result<()> {
         .await?;
 
     let _ = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -312,8 +309,7 @@ async fn test_return_storage_credits_pool_used_bytes() -> Result<()> {
                         "max_bytes": 5000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -342,15 +338,14 @@ async fn test_return_storage_credits_pool_used_bytes() -> Result<()> {
     // Bob returns shared storage
     println!("\n   Bob returns shared storage...");
     let return_result = bob
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": {
                     "storage/return_shared_storage": {}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -435,7 +430,7 @@ async fn test_share_storage_rejects_duplicate_allocation() -> Result<()> {
     // Setup: Alice deposits and shares with Bob
     println!("\n   Setup: Alice deposits and shares with Bob...");
     let _ = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -445,8 +440,7 @@ async fn test_share_storage_rejects_duplicate_allocation() -> Result<()> {
                         "amount": NearToken::from_near(1).as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -455,7 +449,7 @@ async fn test_share_storage_rejects_duplicate_allocation() -> Result<()> {
         .await?;
 
     let first_share = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -465,8 +459,7 @@ async fn test_share_storage_rejects_duplicate_allocation() -> Result<()> {
                         "max_bytes": 5000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -479,7 +472,7 @@ async fn test_share_storage_rejects_duplicate_allocation() -> Result<()> {
     // Try to share again with same target
     println!("\n   Attempting second share to same target...");
     let second_share = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -489,8 +482,7 @@ async fn test_share_storage_rejects_duplicate_allocation() -> Result<()> {
                         "max_bytes": 3000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -550,7 +542,7 @@ async fn test_share_storage_rejects_below_minimum_bytes() -> Result<()> {
     // Setup: Alice deposits
     println!("\n   Setup: Alice deposits...");
     let _ = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -560,8 +552,7 @@ async fn test_share_storage_rejects_below_minimum_bytes() -> Result<()> {
                         "amount": NearToken::from_near(1).as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -573,7 +564,7 @@ async fn test_share_storage_rejects_below_minimum_bytes() -> Result<()> {
     // Try to share with max_bytes = 1000 (below MIN_SHARED_STORAGE_BYTES = 2000)
     println!("\n   Attempting share with max_bytes=1000 (below minimum 2000)...");
     let share_result = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -583,8 +574,7 @@ async fn test_share_storage_rejects_below_minimum_bytes() -> Result<()> {
                         "max_bytes": 1000  // Below MIN_SHARED_STORAGE_BYTES (2000)
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -644,7 +634,7 @@ async fn test_return_storage_emits_correct_event() -> Result<()> {
     // Setup: Alice deposits and shares with Bob
     println!("\n   Setup: Alice deposits and shares with Bob...");
     let _ = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -654,8 +644,7 @@ async fn test_return_storage_emits_correct_event() -> Result<()> {
                         "amount": NearToken::from_near(1).as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -664,7 +653,7 @@ async fn test_return_storage_emits_correct_event() -> Result<()> {
         .await?;
 
     let _ = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -674,8 +663,7 @@ async fn test_return_storage_emits_correct_event() -> Result<()> {
                         "max_bytes": 5000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -687,15 +675,14 @@ async fn test_return_storage_emits_correct_event() -> Result<()> {
     // Bob returns shared storage
     println!("\n   Bob returns shared storage...");
     let return_result = bob
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": {
                     "storage/return_shared_storage": {}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -777,7 +764,7 @@ async fn test_share_storage_verifies_capacity_after_overhead() -> Result<()> {
     // 0.001 NEAR ≈ 100 bytes at current rates (10^19 yocto/byte)
     println!("\n   Setup: Alice deposits minimal amount (0.001 NEAR)...");
     let deposit_result = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -787,8 +774,7 @@ async fn test_share_storage_verifies_capacity_after_overhead() -> Result<()> {
                         "amount": NearToken::from_millinear(1).as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_millinear(1))
@@ -820,7 +806,7 @@ async fn test_share_storage_verifies_capacity_after_overhead() -> Result<()> {
         // Try to allocate more than available capacity
         println!("\n   Attempting to share more bytes than pool capacity...");
         let share_result = alice
-            .call(contract.id(), "execute")
+            .call(contract.id(), "execute_admin")
             .args_json(json!({
                 "request": {
                     "target_account": null,
@@ -830,8 +816,7 @@ async fn test_share_storage_verifies_capacity_after_overhead() -> Result<()> {
                             "max_bytes": 999999  // More than 0.001 NEAR can support
                         }
                     } },
-                    "options": null,
-                    "auth": null
+                    "options": null
                 }
             }))
             .deposit(NearToken::from_yoctonear(1))
@@ -876,7 +861,7 @@ async fn test_share_storage_increases_contract_storage_usage() -> Result<()> {
     // Step 1: Alice deposits to her shared pool
     println!("\n   Step 1: Alice deposits 1 NEAR to her shared pool...");
     let deposit_result = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -886,8 +871,7 @@ async fn test_share_storage_increases_contract_storage_usage() -> Result<()> {
                         "amount": NearToken::from_near(1).as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -912,7 +896,7 @@ async fn test_share_storage_increases_contract_storage_usage() -> Result<()> {
     // Step 3: Alice shares storage with Bob
     println!("\n   Step 2: Alice shares 5000 bytes with Bob...");
     let share_result = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -922,8 +906,7 @@ async fn test_share_storage_increases_contract_storage_usage() -> Result<()> {
                         "max_bytes": 5000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -1015,7 +998,7 @@ async fn test_shared_storage_lifecycle_write_delete_returns_to_pool() -> Result<
     // =========================================================================
     println!("\n   Step 1: Alice deposits 1 NEAR to shared pool...");
     let deposit_result = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -1025,8 +1008,7 @@ async fn test_shared_storage_lifecycle_write_delete_returns_to_pool() -> Result<
                         "amount": NearToken::from_near(1).as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -1042,7 +1024,7 @@ async fn test_shared_storage_lifecycle_write_delete_returns_to_pool() -> Result<
 
     println!("\n   Step 2: Alice shares 50000 bytes with Bob...");
     let share_result = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -1052,8 +1034,7 @@ async fn test_shared_storage_lifecycle_write_delete_returns_to_pool() -> Result<
                         "max_bytes": 50000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -1093,8 +1074,7 @@ async fn test_shared_storage_lifecycle_write_delete_returns_to_pool() -> Result<
                         "timestamp": 1730000000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .gas(Gas::from_tgas(150))
@@ -1155,8 +1135,7 @@ async fn test_shared_storage_lifecycle_write_delete_returns_to_pool() -> Result<
                     "profile/bio": null,
                     "posts/1": null
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .gas(Gas::from_tgas(150))
@@ -1269,7 +1248,7 @@ async fn test_shared_storage_multiple_users_write_delete_lifecycle() -> Result<(
 
     // Alice deposits
     let _ = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -1279,8 +1258,7 @@ async fn test_shared_storage_multiple_users_write_delete_lifecycle() -> Result<(
                         "amount": NearToken::from_near(2).as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_near(2))
@@ -1290,7 +1268,7 @@ async fn test_shared_storage_multiple_users_write_delete_lifecycle() -> Result<(
 
     // Share with Bob
     let _ = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -1300,8 +1278,7 @@ async fn test_shared_storage_multiple_users_write_delete_lifecycle() -> Result<(
                         "max_bytes": 50000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -1311,7 +1288,7 @@ async fn test_shared_storage_multiple_users_write_delete_lifecycle() -> Result<(
 
     // Share with Carol
     let _ = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -1321,8 +1298,7 @@ async fn test_shared_storage_multiple_users_write_delete_lifecycle() -> Result<(
                         "max_bytes": 50000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -1355,8 +1331,7 @@ async fn test_shared_storage_multiple_users_write_delete_lifecycle() -> Result<(
                     "profile/name": "Bob",
                     "posts/1": { "text": "Bob's post using shared storage", "ts": 1 }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .gas(Gas::from_tgas(150))
@@ -1372,8 +1347,7 @@ async fn test_shared_storage_multiple_users_write_delete_lifecycle() -> Result<(
                     "profile/name": "Carol",
                     "posts/1": { "text": "Carol's post using shared storage", "ts": 1 }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .gas(Gas::from_tgas(150))
@@ -1434,8 +1408,7 @@ async fn test_shared_storage_multiple_users_write_delete_lifecycle() -> Result<(
                     "profile/name": null,
                     "posts/1": null
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .gas(Gas::from_tgas(150))
@@ -1546,7 +1519,7 @@ async fn test_share_storage_event_matches_view_data() -> Result<()> {
     // Alice deposits to pool
     println!("\n   Step 1: Alice deposits 1 NEAR...");
     let _ = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -1556,8 +1529,7 @@ async fn test_share_storage_event_matches_view_data() -> Result<()> {
                         "amount": NearToken::from_near(1).as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -1585,7 +1557,7 @@ async fn test_share_storage_event_matches_view_data() -> Result<()> {
     // Alice shares with Bob - capture the transaction result for events
     println!("\n   Step 2: Alice shares 10000 bytes with Bob...");
     let share_result = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -1595,8 +1567,7 @@ async fn test_share_storage_event_matches_view_data() -> Result<()> {
                         "max_bytes": 10000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -1734,7 +1705,7 @@ async fn test_return_storage_event_matches_view_data() -> Result<()> {
 
     // Alice deposits
     let _ = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -1744,8 +1715,7 @@ async fn test_return_storage_event_matches_view_data() -> Result<()> {
                         "amount": NearToken::from_near(1).as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -1755,7 +1725,7 @@ async fn test_return_storage_event_matches_view_data() -> Result<()> {
 
     // Alice shares with Bob
     let _ = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -1765,8 +1735,7 @@ async fn test_return_storage_event_matches_view_data() -> Result<()> {
                         "max_bytes": 10000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -1811,15 +1780,14 @@ async fn test_return_storage_event_matches_view_data() -> Result<()> {
     // Bob returns shared storage (immediately, without using it)
     println!("\n   Bob returns shared storage...");
     let return_result = bob
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": {
                     "storage/return_shared_storage": {}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -1964,7 +1932,7 @@ async fn test_share_storage_rollback_on_overhead_capacity_failure() -> Result<()
     // We use the minimum so capacity is tight enough to test rollback behavior
     println!("\n   Step 1: Alice deposits minimum amount (0.1 NEAR / ~10KB)...");
     let deposit_result = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -1974,8 +1942,7 @@ async fn test_share_storage_rollback_on_overhead_capacity_failure() -> Result<()
                         "amount": NearToken::from_millinear(100).as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_millinear(100))
@@ -2005,7 +1972,7 @@ async fn test_share_storage_rollback_on_overhead_capacity_failure() -> Result<()
     );
 
     let share_bob = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -2015,8 +1982,7 @@ async fn test_share_storage_rollback_on_overhead_capacity_failure() -> Result<()
                         "max_bytes": first_share_bytes
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -2068,7 +2034,7 @@ async fn test_share_storage_rollback_on_overhead_capacity_failure() -> Result<()
     // Step 5: Attempt second share with Carol - should fail on capacity
     println!("\n   Step 3: Attempting second share with Carol (should fail)...");
     let share_carol = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -2078,8 +2044,7 @@ async fn test_share_storage_rollback_on_overhead_capacity_failure() -> Result<()
                         "max_bytes": 2500  // Just above minimum, should exhaust capacity
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -2089,7 +2054,9 @@ async fn test_share_storage_rollback_on_overhead_capacity_failure() -> Result<()
 
     // The share may succeed or fail depending on exact capacity
     if share_carol.is_success() {
-        println!("   ⓘ Second share succeeded (capacity was sufficient). Test inconclusive for rollback.");
+        println!(
+            "   ⓘ Second share succeeded (capacity was sufficient). Test inconclusive for rollback."
+        );
         return Ok(());
     }
     println!("   ✓ Second share failed as expected");
@@ -2176,7 +2143,7 @@ async fn test_share_storage_nonexistent_pool_distinct_error() -> Result<()> {
     // Attempt to share storage without having a pool
     println!("\n   Attempting to share without a pool...");
     let share_result = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -2186,8 +2153,7 @@ async fn test_share_storage_nonexistent_pool_distinct_error() -> Result<()> {
                         "max_bytes": 5000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -2252,7 +2218,7 @@ async fn test_return_storage_validates_before_mutation() -> Result<()> {
     // Step 1: Alice creates pool and shares with Bob
     println!("\n   Setup: Alice deposits and shares with Bob...");
     let _ = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -2262,8 +2228,7 @@ async fn test_return_storage_validates_before_mutation() -> Result<()> {
                         "amount": NearToken::from_near(1).as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -2272,7 +2237,7 @@ async fn test_return_storage_validates_before_mutation() -> Result<()> {
         .await?;
 
     let _ = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -2282,8 +2247,7 @@ async fn test_return_storage_validates_before_mutation() -> Result<()> {
                         "max_bytes": 50000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -2306,8 +2270,7 @@ async fn test_return_storage_validates_before_mutation() -> Result<()> {
                     "posts/2": { "text": "Post 2 content", "ts": 2 },
                     "posts/3": { "text": "Post 3 content", "ts": 3 }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .gas(Gas::from_tgas(150))
@@ -2358,15 +2321,14 @@ async fn test_return_storage_validates_before_mutation() -> Result<()> {
     // If Bob has no personal balance, this should fail
     println!("\n   Step 2: Bob attempts to return shared storage...");
     let return_result = bob
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": {
                     "storage/return_shared_storage": {}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -2454,7 +2416,7 @@ async fn test_share_storage_self_share_rejected() -> Result<()> {
     // Alice creates pool
     println!("\n   Setup: Alice deposits to create pool...");
     let _ = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -2464,8 +2426,7 @@ async fn test_share_storage_self_share_rejected() -> Result<()> {
                         "amount": NearToken::from_near(1).as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -2477,7 +2438,7 @@ async fn test_share_storage_self_share_rejected() -> Result<()> {
     // Alice attempts to share with herself
     println!("\n   Attempting self-share...");
     let share_result = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -2487,8 +2448,7 @@ async fn test_share_storage_self_share_rejected() -> Result<()> {
                         "max_bytes": 5000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -2542,7 +2502,7 @@ async fn test_share_storage_rejects_invalid_target_id() -> Result<()> {
     // Step 1: Alice deposits to her shared pool
     println!("\n   Step 1: Alice deposits 1 NEAR to her shared pool...");
     let deposit_result = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -2552,8 +2512,7 @@ async fn test_share_storage_rejects_invalid_target_id() -> Result<()> {
                         "amount": NearToken::from_near(1).as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -2567,7 +2526,7 @@ async fn test_share_storage_rejects_invalid_target_id() -> Result<()> {
     // Step 2: Try to share with invalid target_id
     println!("\n   Step 2: Try share_storage with invalid target_id format...");
     let share_result = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -2577,8 +2536,7 @@ async fn test_share_storage_rejects_invalid_target_id() -> Result<()> {
                         "max_bytes": 5000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -2635,7 +2593,7 @@ async fn test_shared_pool_deposit_rejects_invalid_pool_id() -> Result<()> {
     // Try to deposit to shared pool with invalid pool_id
     println!("\n   Step 1: Try shared_pool_deposit with invalid pool_id format...");
     let deposit_result = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -2645,8 +2603,7 @@ async fn test_shared_pool_deposit_rejects_invalid_pool_id() -> Result<()> {
                         "amount": NearToken::from_near(1).as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -2719,7 +2676,7 @@ async fn test_group_sponsor_quota_set_rejects_invalid_target_id() -> Result<()> 
     // Step 2: Try to set sponsor quota with invalid target_id
     println!("\n   Step 2: Try group_sponsor_quota_set with invalid target_id...");
     let quota_set = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -2732,8 +2689,7 @@ async fn test_group_sponsor_quota_set_rejects_invalid_target_id() -> Result<()> 
                         "allowance_max_bytes": 5000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -2804,15 +2760,14 @@ async fn test_return_shared_storage_rejects_when_no_allocation() -> Result<()> {
     // Attempt to return shared storage without having any
     println!("\n   Attempting to return non-existent shared storage...");
     let return_result = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": {
                     "storage/return_shared_storage": {}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -2874,7 +2829,7 @@ async fn test_return_shared_storage_rejects_when_pool_deleted() -> Result<()> {
     // Step 1: Alice creates pool and shares with Bob
     println!("\n   Step 1: Alice deposits and shares with Bob...");
     let _ = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -2884,8 +2839,7 @@ async fn test_return_shared_storage_rejects_when_pool_deleted() -> Result<()> {
                         "amount": NearToken::from_near(1).as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -2894,7 +2848,7 @@ async fn test_return_shared_storage_rejects_when_pool_deleted() -> Result<()> {
         .await?;
 
     let share_result = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -2904,8 +2858,7 @@ async fn test_return_shared_storage_rejects_when_pool_deleted() -> Result<()> {
                         "max_bytes": 5000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -2928,7 +2881,7 @@ async fn test_return_shared_storage_rejects_when_pool_deleted() -> Result<()> {
     // Step 2: Alice withdraws all funds from pool (deletes pool)
     println!("\n   Step 2: Alice withdraws all funds from pool...");
     let withdraw_result = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -2938,8 +2891,7 @@ async fn test_return_shared_storage_rejects_when_pool_deleted() -> Result<()> {
                         "amount": NearToken::from_near(1).as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -2972,15 +2924,14 @@ async fn test_return_shared_storage_rejects_when_pool_deleted() -> Result<()> {
     // Step 3: Bob attempts to return shared storage (pool no longer exists)
     println!("\n   Step 3: Bob attempts to return shared storage...");
     let return_result = bob
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": {
                     "storage/return_shared_storage": {}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))

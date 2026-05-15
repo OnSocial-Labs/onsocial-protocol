@@ -31,9 +31,7 @@ mod voting_proposal_types_tests {
         let bob = test_account(1);
 
         // Create member-driven group
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         let config = json!({
             "member_driven": true,
             "is_private": true,
@@ -76,9 +74,7 @@ mod voting_proposal_types_tests {
         let non_member = test_account(3);
 
         // Create member-driven group
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         let config = json!({
             "member_driven": true,
             "is_private": true,
@@ -169,9 +165,7 @@ mod voting_proposal_types_tests {
         let charlie = test_account(2); // Member who votes
 
         // Create member-driven group
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         let config = json!({
             "member_driven": true,
             "is_private": true,
@@ -238,9 +232,7 @@ mod voting_proposal_types_tests {
         let dave = test_account(3);
 
         // Create member-driven group with 4 members
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         let config = json!({
             "member_driven": true,
             "is_private": true,
@@ -312,9 +304,7 @@ mod voting_proposal_types_tests {
         let bob = test_account(1);
 
         // Create member-driven group
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         let config = json!({"member_driven": true, "is_private": true});
         contract
             .execute(create_group_request("validation_test".to_string(), config))
@@ -371,9 +361,7 @@ mod voting_proposal_types_tests {
         let charlie = test_account(2); // Member who votes
 
         // Create member-driven group
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         let config = json!({
             "member_driven": true,
             "is_private": true,
@@ -408,9 +396,7 @@ mod voting_proposal_types_tests {
             .to_string();
 
         // Charlie votes YES to approve grant (alice already voted YES automatically)
-        testing_env!(
-            get_context_with_deposit(charlie.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::ten_near()).build());
         contract
             .execute(vote_proposal_request(
                 "revoke_test".to_string(),
@@ -479,9 +465,7 @@ mod voting_proposal_types_tests {
         let charlie = test_account(2);
 
         // Create member-driven group
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         let config = json!({"member_driven": true, "is_private": true});
         contract
             .execute(create_group_request("edge_revoke".to_string(), config))
@@ -549,9 +533,7 @@ mod voting_proposal_types_tests {
         let dave = test_account(3); // Member
 
         // Create member-driven group with 4 members
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         let config = json!({
             "member_driven": true,
             "is_private": true,
@@ -669,9 +651,7 @@ mod voting_proposal_types_tests {
         let charlie = test_account(2); // Member
 
         // Create member-driven group with 3 members
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         let config = json!({
             "member_driven": true,
             "is_private": true,
@@ -777,9 +757,7 @@ mod voting_proposal_types_tests {
         let charlie = test_account(2); // Member
 
         // Create member-driven group with 3 members
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         let config = json!({
             "member_driven": true,
             "is_private": true,
@@ -898,9 +876,7 @@ mod voting_proposal_types_tests {
         let eve = test_account(4); // Member
 
         // Create member-driven group with 5 members
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         let config = json!({
             "member_driven": true,
             "is_private": true,
@@ -1115,9 +1091,7 @@ mod voting_proposal_types_tests {
         let dave = test_account(3); // Member who votes
 
         // Create member-driven group with 4 members
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         let config = json!({
             "member_driven": true,
             "is_private": true,
@@ -1296,9 +1270,7 @@ mod voting_proposal_types_tests {
         let eve = test_account(4); // Member who doesn't vote
 
         // Create member-driven group with 5 members
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         let config = json!({
             "member_driven": true,
             "is_private": true,
@@ -1523,9 +1495,7 @@ mod voting_proposal_types_tests {
         let bob = test_account(1); // Member who votes
 
         // Create member-driven group
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         let config = json!({"member_driven": true, "is_private": true});
         contract
             .execute(create_group_request("metadata_test".to_string(), config))
@@ -1848,9 +1818,7 @@ mod voting_proposal_types_tests {
         let bob = test_account(1); // Member
 
         // Create member-driven group
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         let config = json!({"member_driven": true, "is_private": true});
         contract
             .execute(create_group_request("edge_cases_test".to_string(), config))
