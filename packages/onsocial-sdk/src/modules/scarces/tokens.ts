@@ -2,7 +2,7 @@
 // Tokens — mint, transfer, batch transfer, burn.
 // ---------------------------------------------------------------------------
 
-import type { HttpClient } from '../../internal/http.js';
+import { OnSocialError, type HttpClient } from '../../internal/http.js';
 import type { StorageProvider } from '../../storage/provider.js';
 import type { MintOptions, MintResponse, RelayResponse } from '../../types.js';
 import {
@@ -16,6 +16,52 @@ import { SCARCES_VERBS } from './verbs.js';
 import { resolveContractId } from '../../internal/contracts.js';
 import { buildQuickMintAction } from '../../builders/scarces/tokens.js';
 import { hasLocalUpload, resolveScarceMedia } from './_media.js';
+
+export interface ScarceTokenMetadata {
+  title?: string | null;
+  description?: string | null;
+  media?: string | null;
+  media_hash?: string | null;
+  copies?: number | null;
+  issued_at?: number | null;
+  expires_at?: number | null;
+  starts_at?: number | null;
+  updated_at?: number | null;
+  extra?: string | null;
+  reference?: string | null;
+  reference_hash?: string | null;
+  [key: string]: unknown;
+}
+
+export interface ScarceTokenView {
+  token_id: string;
+  owner_id: string;
+  metadata?: ScarceTokenMetadata | null;
+  approved_account_ids?: Record<string, number> | null;
+}
+
+const RPC_URLS = {
+  mainnet: 'https://free.rpc.fastnear.com',
+  testnet: 'https://rpc.testnet.near.org',
+} as const;
+
+function encodeBase64Json(value: unknown): string {
+  const bytes = new TextEncoder().encode(JSON.stringify(value));
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return globalThis.btoa(binary);
+}
+
+function decodeJsonBytes<T>(bytes: number[]): T {
+  const text = new TextDecoder().decode(Uint8Array.from(bytes));
+  return JSON.parse(text) as T;
+}
+
+function shouldFallbackToPublicRpc(err: unknown): boolean {
+  return (
+    err instanceof OnSocialError && [404, 502, 503, 504].includes(err.status)
+  );
+}
 
 export class ScarcesTokensApi {
   private _scarcesContract: string;
@@ -34,6 +80,59 @@ export class ScarcesTokensApi {
     | undefined {
     const b = this._getBroadcast?.();
     return b !== undefined ? { broadcast: b } : undefined;
+  }
+
+  /** Read a native scarce token's NEP-171 metadata. */
+  async get(tokenId: string): Promise<ScarceTokenView | null> {
+    const params = new URLSearchParams({ tokenId });
+    try {
+      return await this._http.get<ScarceTokenView | null>(
+        `/data/scarces-token?${params}`
+      );
+    } catch (err) {
+      if (!shouldFallbackToPublicRpc(err)) throw err;
+      return this._getViaPublicRpc(tokenId);
+    }
+  }
+
+  private async _getViaPublicRpc(
+    tokenId: string
+  ): Promise<ScarceTokenView | null> {
+    const response = await globalThis.fetch(RPC_URLS[this._http.network], {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 'onsocial-sdk-scarces-token',
+        method: 'query',
+        params: {
+          request_type: 'call_function',
+          finality: 'final',
+          account_id: this._scarcesContract,
+          method_name: 'nft_token',
+          args_base64: encodeBase64Json({ token_id: tokenId }),
+        },
+      }),
+    });
+    if (!response.ok) {
+      throw new Error(
+        `NEAR RPC nft_token failed: ${response.status} ${response.statusText}`
+      );
+    }
+    const body = (await response.json()) as {
+      error?: { message?: string };
+      result?: { result?: number[] };
+    };
+    if (body.error) {
+      throw new Error(
+        `NEAR RPC nft_token failed: ${body.error.message ?? JSON.stringify(body.error)}`
+      );
+    }
+    const result = body.result?.result;
+    if (!Array.isArray(result)) {
+      throw new Error('NEAR RPC nft_token returned no result bytes');
+    }
+    return decodeJsonBytes<ScarceTokenView | null>(result);
   }
 
   /**

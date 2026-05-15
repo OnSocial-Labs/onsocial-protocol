@@ -2,12 +2,7 @@
 // OnSocial SDK — main client
 // ---------------------------------------------------------------------------
 
-import type {
-  OnSocialConfig,
-  MintOptions,
-  MintResponse,
-  RelayResponse,
-} from './types.js';
+import type { OnSocialConfig, MintResponse, RelayResponse } from './types.js';
 import { HttpClient } from './internal/http.js';
 import { AuthModule } from './internal/auth.js';
 import { SocialModule, resolvePostMedia } from './modules/social.js';
@@ -86,7 +81,7 @@ export interface ExecuteOptions {
 
 /** Options for `os.mintPost()`. */
 export interface MintPostOptions {
-  /** Override NFT title (default: post text truncated to 100 chars). */
+  /** Override NFT title (default: concise title derived from the post text). */
   title?: string;
   /** Override NFT description. */
   description?: string;
@@ -107,6 +102,28 @@ export interface MintPostResult {
   mint: MintResponse;
   /** Present only when `priceNear` was set. */
   listing?: RelayResponse;
+}
+
+function findMintedTokenId(value: unknown, depth = 0): string | undefined {
+  if (depth > 4 || value == null) return undefined;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findMintedTokenId(item, depth + 1);
+      if (found) return found;
+    }
+    return undefined;
+  }
+  if (typeof value !== 'object') return undefined;
+
+  const record = value as Record<string, unknown>;
+  const direct = record.tokenId ?? record.token_id;
+  if (typeof direct === 'string' && direct) return direct;
+
+  for (const nested of Object.values(record)) {
+    const found = findMintedTokenId(nested, depth + 1);
+    if (found) return found;
+  }
+  return undefined;
 }
 
 /**
@@ -154,12 +171,17 @@ export interface MintPostResult {
  * ```ts
  * import { OnSocial, NEAR, PERMISSION } from '@onsocial/sdk';
  *
- * const os = new OnSocial({ network: 'mainnet' });
+ * const os = new OnSocial({
+ *   network: 'mainnet',
+ *   apiKey: process.env.ONSOCIAL_API_KEY!,
+ *   actorId,
+ * });
+ * os.attachSession(session);
  *
  * // ── Auth ─────────────────────────────────────────────────────────────
  * await os.auth.login({ accountId, message, signature, publicKey });
  *
- * // ── Social writes (gasless via relayer) ──────────────────────────────
+ * // ── Social writes (session-signed via gateway delegate relay) ────────
  * await os.profiles.set({ name: 'Alice', bio: 'Builder' });
  * await os.posts.create({ text: 'Hello OnSocial!' });
  * await os.standings.standWith('bob.near');
@@ -184,8 +206,9 @@ export interface MintPostResult {
  * });
  * const canWrite = await os.permissions.has(owner, grantee, 'profile/', 1);
  *
- * // ── Storage account (gasless tips/withdraws, signer-funded deposits) ─
+ * // ── Storage account (reads + wallet-signed storage admin writes) ─────
  * const balance = await os.storageAccount.balance();
+ * // Requires defaultBroadcast: { kind: 'wallet', signer } on the client.
  * await os.storageAccount.tip('bob.near', NEAR('0.001'));
  * await os.storageAccount.withdraw(NEAR('0.05'));
  * await os.storageAccount.sponsor('bob.near', { maxBytes: 4096 });
@@ -258,8 +281,7 @@ export class OnSocial {
   readonly boost: BoostModule;
   /**
    * Storage account — best-in-class wrapper for on-chain Storage record
-   * operations (balance reads, gasless writes via the relayer, and
-   * deposit-funded writes via an optional signer).
+   * operations (balance reads plus wallet-signed `execute_admin` writes).
    */
   readonly storageAccount: StorageAccountModule;
   /** Pages — configure and read onsocial.id page data. */
@@ -321,7 +343,7 @@ export class OnSocial {
    */
   private _session: Session | null = null;
 
-  /** Default broadcast target for writes; overridable per-call. */
+  /** Advanced broadcast override. Unset means canonical gateway delegate path. */
   private readonly _defaultBroadcast?: import('./types.js').BroadcastTarget;
 
   /** Optional injected finality block-height provider (for self-hosted setups with no gateway). */
@@ -330,9 +352,9 @@ export class OnSocial {
   >;
 
   /**
-   * Attach a session key for subsequent gasless writes. Once attached, every
-   * SDK write method signs with this session key and posts to `/relay/delegate`
-   * (no per-action wallet popup).
+   * Attach a session key for subsequent gateway-relayed writes. Once attached,
+   * every normal SDK write signs a NEP-366 delegate with this session and posts
+   * it to the gateway's `/relay/delegate` endpoint.
    *
    * Apps should call this after the user has granted the on-chain session
    * key (see `buildSessionGrant` in `@onsocial/sdk/advanced`).
@@ -355,9 +377,8 @@ export class OnSocial {
    * Internal: prepare→sign→relay pipeline for compose verbs. Called by the
    * SDK module methods that previously POSTed directly to `/compose/<verb>`.
    *
-   * Honors the client's `defaultBroadcast` so callers can route every
-   * compose write through gateway, an external relayer, or the user's
-   * wallet without per-method plumbing.
+   * Uses the canonical gateway delegate path unless an advanced broadcast
+   * override explicitly routes to a self-hosted relayer or wallet-paid flow.
    *
    * Throws `SessionRequiredError` if no session is attached AND broadcast
    * is not `{ kind: 'wallet' }`.
@@ -475,8 +496,9 @@ export class OnSocial {
   // ── Generic execute ─────────────────────────────────────────────────────
 
   /**
-   * Execute any action via the gateway relayer (NEP-366 SignedDelegateAction —
-   * gasless). Requires an attached session (`os.attachSession(...)`).
+   * Execute any action through the canonical gateway delegate path
+   * (NEP-366 SignedDelegateAction). Requires an attached session
+   * (`os.attachSession(...)`).
    *
    * Works with every contract action: core (groups, governance, permissions),
    * scarces (all 50+ variants), and any future action types.
@@ -547,49 +569,23 @@ export class OnSocial {
     postId: string,
     opts: MintPostOptions = {}
   ): Promise<MintPostResult> {
-    // Read the post content for NFT metadata
-    const entry = await this.social.getOne(`post/${postId}`, postAuthor);
-    let text = '';
-    if (entry.value) {
-      try {
-        const parsed =
-          typeof entry.value === 'string'
-            ? JSON.parse(entry.value)
-            : entry.value;
-        text = parsed.text ?? '';
-      } catch {
-        text = String(entry.value);
-      }
-    }
-
-    const title =
-      opts.title ??
-      ((text.length > 100 ? text.slice(0, 97) + '...' : text) ||
-        `Post ${postId}`);
-    const mintOpts: MintOptions = {
-      title,
-      description: opts.description ?? text,
-      copies: opts.copies,
-      royalty: opts.royalty,
-      image: opts.image,
-      mediaCid: opts.mediaCid,
-      extra: {
-        postAuthor,
-        postId,
-        postPath: `${postAuthor}/post/${postId}`,
-        mintedAt: Date.now(),
-      },
-    };
-
-    const mint = await this.scarces.tokens.mint(mintOpts);
+    const { priceNear, ...mintOpts } = opts;
+    const mint = await this.scarces.fromPost.mint(
+      { author: postAuthor, postId },
+      mintOpts
+    );
     const result: MintPostResult = { mint };
 
-    // Auto-list if price specified
-    if (opts.priceNear && mint.txHash) {
-      // txHash contains the token ID from the mint response
+    if (priceNear) {
+      const tokenId = findMintedTokenId(mint);
+      if (!tokenId) {
+        throw new Error(
+          'os.mintPost(..., { priceNear }) could not determine the minted token id from the relay response; mint first, then list with os.scarces.market.sell({ tokenId, priceNear }).'
+        );
+      }
       result.listing = await this.scarces.market.sell({
-        tokenId: mint.txHash,
-        priceNear: opts.priceNear,
+        tokenId,
+        priceNear,
       });
     }
 

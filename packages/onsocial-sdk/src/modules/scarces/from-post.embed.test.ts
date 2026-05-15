@@ -43,15 +43,21 @@ function row(over: Partial<ScarcesEventRow>): ScarcesEventRow {
   } as ScarcesEventRow;
 }
 
-function makeApi(events: ScarcesEventRow[]) {
+function makeApi(
+  events: ScarcesEventRow[],
+  tokensById: Record<string, unknown> = {}
+) {
   const eventsFn = vi.fn(async (_opts: unknown) => events);
   const query = {
     scarces: { events: eventsFn },
   } as unknown as QueryModule;
-  const tokens = {} as ScarcesTokensApi;
+  const tokenGetFn = vi.fn(
+    async (tokenId: string) => tokensById[tokenId] ?? null
+  );
+  const tokens = { get: tokenGetFn } as unknown as ScarcesTokensApi;
   const lazy = {} as ScarcesLazyApi;
   const api = new ScarcesFromPostApi(tokens, lazy, undefined, query);
-  return { api, eventsFn };
+  return { api, eventsFn, tokenGetFn };
 }
 
 const POST = { author: 'alice.near', postId: '42' };
@@ -140,6 +146,80 @@ describe('ScarcesFromPostApi.embed', () => {
       row({ extraData: null }),
       row({ extraData: '{not json' }),
     ]);
+    expect((await api.embed(POST)).status).toBe('none');
+  });
+
+  it('falls back to token metadata sourcePost when event extraData is compact', async () => {
+    const { api, tokenGetFn } = makeApi(
+      [
+        row({
+          operation: 'quick_mint',
+          tokenId: 's:1',
+          extraData: JSON.stringify({
+            author: 'alice.near',
+            operation: 'quick_mint',
+            owner_id: 'alice.near',
+            token_id: 's:1',
+          }),
+        }),
+      ],
+      {
+        's:1': {
+          token_id: 's:1',
+          owner_id: 'alice.near',
+          metadata: {
+            extra: JSON.stringify({
+              sourcePost: { path: 'alice.near/post/42' },
+            }),
+          },
+        },
+      }
+    );
+
+    const r = await api.embed(POST);
+
+    expect(tokenGetFn).toHaveBeenCalledWith('s:1');
+    expect(r.status).toBe('minted');
+    expect(r.tokenId).toBe('s:1');
+  });
+
+  it('matches legacy os.mintPost metadata during token fallback', async () => {
+    const { api } = makeApi(
+      [row({ operation: 'quick_mint', tokenId: 's:1', extraData: null })],
+      {
+        's:1': {
+          token_id: 's:1',
+          owner_id: 'alice.near',
+          metadata: {
+            extra: JSON.stringify({
+              postAuthor: 'alice.near',
+              postId: '42',
+              postPath: 'alice.near/post/42',
+            }),
+          },
+        },
+      }
+    );
+
+    expect((await api.embed(POST)).status).toBe('minted');
+  });
+
+  it('ignores compact events when token metadata points at another post', async () => {
+    const { api } = makeApi(
+      [row({ operation: 'quick_mint', tokenId: 's:1', extraData: null })],
+      {
+        's:1': {
+          token_id: 's:1',
+          owner_id: 'alice.near',
+          metadata: {
+            extra: JSON.stringify({
+              sourcePost: { path: 'alice.near/post/99' },
+            }),
+          },
+        },
+      }
+    );
+
     expect((await api.embed(POST)).status).toBe('none');
   });
 

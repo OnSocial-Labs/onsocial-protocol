@@ -89,7 +89,11 @@ export class ScarcesModule {
   }
 }
 
-export { ScarcesTokensApi } from './tokens.js';
+export {
+  ScarcesTokensApi,
+  type ScarceTokenMetadata,
+  type ScarceTokenView,
+} from './tokens.js';
 export { ScarcesCollectionsApi } from './collections.js';
 export { ScarcesMarketApi } from './market.js';
 export { ScarcesAuctionsApi } from './auctions.js';

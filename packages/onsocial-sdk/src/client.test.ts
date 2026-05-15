@@ -458,7 +458,11 @@ describe('OnSocial.mintPost', () => {
       {
         requested_key: 'post/123',
         full_key: 'alice.near/post/123',
-        value: '{"text":"gm onchain","v":1}',
+        value: JSON.stringify({
+          text: 'gm onchain',
+          v: 1,
+          media: [{ cid: 'bafy-post-media', mime: 'image/png', size: 70 }],
+        }),
         deleted: false,
         corrupted: false,
       },
@@ -484,11 +488,14 @@ describe('OnSocial.mintPost', () => {
     expect(fetch.mock.calls[1][0]).toContain('/compose/prepare/mint');
     const form = fetch.mock.calls[1][1].body as FormData;
     expect(form.get('title')).toBe('gm onchain');
-    expect(form.get('description')).toBe('gm onchain');
+    expect(form.get('description')).toBeNull();
+    expect(form.get('mediaCid')).toBe('bafy-post-media');
     const extra = JSON.parse(form.get('extra') as string);
-    expect(extra.postAuthor).toBe('alice.near');
-    expect(extra.postId).toBe('123');
-    expect(extra.postPath).toBe('alice.near/post/123');
+    expect(extra.sourcePost).toEqual({
+      author: 'alice.near',
+      postId: '123',
+      path: 'alice.near/post/123',
+    });
 
     // Third call: /relay/latest-block; Fourth call: /relay/delegate
     expect(fetch.mock.calls[2][0]).toContain('/relay/latest-block');
@@ -515,7 +522,7 @@ describe('OnSocial.mintPost', () => {
       // mint: /relay/latest-block (GET; cached for list call below)
       { block_height: 100 },
       // mint: /relay/delegate
-      { txHash: 'token99' },
+      { txHash: 'mint-tx', tokenId: 's:999' },
       // list: prepare
       {
         action: { type: 'list_native_scarce', token_id: 'token99' },
@@ -541,13 +548,16 @@ describe('OnSocial.mintPost', () => {
     expect(fetch.mock.calls[4][0]).toContain(
       '/compose/prepare/list-native-scarce'
     );
+    expect(JSON.parse(fetch.mock.calls[4][1].body as string).tokenId).toBe(
+      's:999'
+    );
     expect(fetch.mock.calls[5][0]).toContain('/relay/delegate');
 
-    expect(result.mint.txHash).toBe('token99');
+    expect(result.mint.txHash).toBe('mint-tx');
     expect(result.listing?.txHash).toBe('listing-tx');
   });
 
-  it('truncates long post text to 100 chars for title', async () => {
+  it('derives a compact title from long post text', async () => {
     const longText = 'a'.repeat(200);
     const fetch = multiFetch(
       {
@@ -571,8 +581,8 @@ describe('OnSocial.mintPost', () => {
 
     const form = fetch.mock.calls[1][1].body as FormData;
     const title = form.get('title') as string;
-    expect(title.length).toBe(100);
-    expect(title.endsWith('...')).toBe(true);
+    expect(title.length).toBe(80);
+    expect(title).toBe('a'.repeat(80));
     // Description keeps the full text
     expect(form.get('description')).toBe(longText);
   });

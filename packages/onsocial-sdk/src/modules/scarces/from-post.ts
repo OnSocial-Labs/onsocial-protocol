@@ -18,7 +18,7 @@ import {
   type PostSource,
 } from '../../builders/scarces/from-post.js';
 import type { SocialModule } from '../social.js';
-import type { ScarcesTokensApi } from './tokens.js';
+import type { ScarcesTokensApi, ScarceTokenView } from './tokens.js';
 import type { ScarcesLazyApi } from './lazy.js';
 import type { QueryModule } from '../../query/index.js';
 import type { ScarcesEventRow } from '../../query/scarces.js';
@@ -68,6 +68,76 @@ function deriveTitle(text: string): string {
   // Only honor the word boundary if it leaves at least half the title.
   if (lastSpace >= TITLE_MAX / 2) return window.slice(0, lastSpace).trimEnd();
   return window.trimEnd();
+}
+
+interface SourcePostLink {
+  author?: string;
+  postId?: string;
+  path?: string;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function parseJsonObject(value: unknown): Record<string, unknown> | null {
+  if (typeof value === 'string') {
+    try {
+      return asRecord(JSON.parse(value));
+    } catch {
+      return null;
+    }
+  }
+  return asRecord(value);
+}
+
+function stringField(
+  obj: Record<string, unknown>,
+  key: string
+): string | undefined {
+  const value = obj[key];
+  return typeof value === 'string' && value ? value : undefined;
+}
+
+function sourcePostFromObject(
+  obj: Record<string, unknown>
+): SourcePostLink | null {
+  const nested = asRecord(obj.sourcePost);
+  if (nested) {
+    return {
+      author: stringField(nested, 'author'),
+      postId: stringField(nested, 'postId'),
+      path: stringField(nested, 'path'),
+    };
+  }
+
+  const author = stringField(obj, 'postAuthor');
+  const postId = stringField(obj, 'postId');
+  const path = stringField(obj, 'postPath');
+  if (author || postId || path) return { author, postId, path };
+  return null;
+}
+
+function sourcePostFromJson(value: unknown): SourcePostLink | null {
+  const parsed = parseJsonObject(value);
+  return parsed ? sourcePostFromObject(parsed) : null;
+}
+
+function sourcePostMatches(
+  sourcePost: SourcePostLink | null,
+  author: string,
+  postId: string,
+  wantPath: string
+): boolean {
+  if (!sourcePost) return false;
+  if (sourcePost.path && sourcePost.path === wantPath) return true;
+  return sourcePost.author === author && sourcePost.postId === postId;
+}
+
+function tokenSourcePost(token: ScarceTokenView | null): SourcePostLink | null {
+  return sourcePostFromJson(token?.metadata?.extra ?? null);
 }
 
 /**
@@ -241,20 +311,17 @@ export class ScarcesFromPostApi {
     // through Hasura without JSONB, so we narrow by author and parse on
     // the client. Author scoping keeps this cheap (one creator's events).
     const all = await this._query.scarces.events({ author, limit });
-    const matched = all.filter((row) => {
-      if (!row.extraData) return false;
-      try {
-        const obj = JSON.parse(row.extraData) as {
-          sourcePost?: { path?: string; postId?: string; author?: string };
-        };
-        const sp = obj?.sourcePost;
-        if (!sp) return false;
-        if (sp.path && sp.path === wantPath) return true;
-        return sp.author === author && sp.postId === postId;
-      } catch {
-        return false;
-      }
-    });
+    let matched = all.filter((row) =>
+      sourcePostMatches(
+        sourcePostFromJson(row.extraData),
+        author,
+        postId,
+        wantPath
+      )
+    );
+    if (matched.length === 0) {
+      matched = await this._matchByTokenMetadata(all, author, postId, wantPath);
+    }
     if (matched.length === 0) return { status: 'none', events: [] };
 
     const latest = matched[0]!;
@@ -300,6 +367,44 @@ export class ScarcesFromPostApi {
       /* noop */
     }
     return out;
+  }
+
+  private async _matchByTokenMetadata(
+    rows: ScarcesEventRow[],
+    author: string,
+    postId: string,
+    wantPath: string
+  ): Promise<ScarcesEventRow[]> {
+    const tokenIds = [
+      ...new Set(
+        rows
+          .map((row) => row.tokenId)
+          .filter((tokenId): tokenId is string => !!tokenId)
+      ),
+    ];
+    if (tokenIds.length === 0) return [];
+
+    const checks = await Promise.all(
+      tokenIds.map(async (tokenId) => {
+        try {
+          const token = await this._tokens.get(tokenId);
+          return [
+            tokenId,
+            sourcePostMatches(tokenSourcePost(token), author, postId, wantPath),
+          ] as const;
+        } catch {
+          return [tokenId, false] as const;
+        }
+      })
+    );
+
+    const matchedTokenIds = new Set(
+      checks.filter(([, ok]) => ok).map(([tokenId]) => tokenId)
+    );
+    if (matchedTokenIds.size === 0) return [];
+    return rows.filter(
+      (row) => row.tokenId !== null && matchedTokenIds.has(row.tokenId)
+    );
   }
 
   private async _readPost(post: PostSource): Promise<ExtractedPost> {
