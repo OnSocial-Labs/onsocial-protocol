@@ -116,6 +116,7 @@ export class NeedsWalletConfirmationError extends Error {
       | 'wrong_receiver'
       | 'wrong_method'
       | 'session_expired'
+      | 'attached_deposit_required'
   ) {
     super(message);
     this.name = 'NeedsWalletConfirmationError';
@@ -207,6 +208,8 @@ export interface SessionConfig {
   remainingAllowanceYocto?: string | null;
   gasTgas?: number;
   depositYocto?: string;
+  /** True only when the delegate signer key is known to be FullAccess. */
+  canAttachDeposit?: boolean;
 }
 
 /** Stateful helper for one `(account, contract, key)` tuple. */
@@ -221,6 +224,7 @@ export class Session {
   private remainingAllowance: bigint | null;
   private readonly gasTgas: number;
   private readonly depositYocto: string;
+  private readonly canAttachDeposit: boolean;
 
   constructor(cfg: SessionConfig) {
     const resolved =
@@ -234,6 +238,7 @@ export class Session {
     this.key = cfg.key;
     this.gasTgas = cfg.gasTgas ?? 100;
     this.depositYocto = cfg.depositYocto ?? '0';
+    this.canAttachDeposit = cfg.canAttachDeposit ?? false;
     this.nonce = cfg.startingNonce ?? 1;
     this.defaultTtlMs = cfg.defaultTtlMs ?? 5 * 60 * 1000;
     this.remainingAllowance =
@@ -255,6 +260,10 @@ export class Session {
 
   get ttlMs(): number {
     return this.defaultTtlMs;
+  }
+
+  get supportsAttachedDeposit(): boolean {
+    return this.canAttachDeposit;
   }
 
   /** Signs a delegate for one or more inner actions and advances the nonce. */
@@ -287,6 +296,8 @@ export class Session {
     maxBlockHeight: bigint | string;
     /** Override the inner FunctionCall method. Defaults to `execute`. */
     methodName?: string;
+    /** Override the inner FunctionCall attached deposit for this call. */
+    depositYocto?: bigint | string;
   }): Promise<{ base64: string; nonce: number }> {
     const receiverId = opts.targetContract ?? this.contractId;
     const request: Record<string, unknown> = { action: opts.action };
@@ -296,12 +307,20 @@ export class Session {
     if (opts.requestOptions !== undefined) {
       request.options = opts.requestOptions;
     }
+    const deposit = BigInt(opts.depositYocto ?? this.depositYocto);
+    if (deposit > 0n && !this.canAttachDeposit) {
+      throw new NeedsWalletConfirmationError(
+        'attached deposits require a FullAccess delegate signer or wallet confirmation',
+        'attached_deposit_required'
+      );
+    }
+
     const inner: DelegateInnerAction = {
       type: 'FunctionCall',
       methodName: opts.methodName ?? 'execute',
       args: new TextEncoder().encode(JSON.stringify({ request })),
       gas: BigInt(this.gasTgas) * 1_000_000_000_000n,
-      deposit: BigInt(this.depositYocto),
+      deposit,
     };
     return this.signDelegate([inner], {
       maxBlockHeight: opts.maxBlockHeight,

@@ -47,7 +47,7 @@ function makeMod(opts: { social?: boolean } = {}) {
         target_account: 'scarces.onsocial.near',
       };
     }
-    if (path === '/relay/delegate') return { txHash: 'lazy' };
+    if (path.startsWith('/relay/delegate')) return { txHash: 'lazy' };
     return { txHash: 'lazy' };
   });
   const http = {

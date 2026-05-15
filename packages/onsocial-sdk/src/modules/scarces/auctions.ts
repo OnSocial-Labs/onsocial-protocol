@@ -10,6 +10,7 @@ import {
   type BroadcastGetter,
 } from '../../internal/session-bridge.js';
 import { SCARCES_VERBS } from './verbs.js';
+import { scarcesRelayOptions } from './_relay.js';
 
 export class ScarcesAuctionsApi {
   constructor(
@@ -18,11 +19,8 @@ export class ScarcesAuctionsApi {
     private _getBroadcast?: BroadcastGetter
   ) {}
 
-  private _broadcastOpts():
-    | { broadcast: ReturnType<BroadcastGetter> }
-    | undefined {
-    const b = this._getBroadcast?.();
-    return b !== undefined ? { broadcast: b } : undefined;
+  private _relayOpts(opts?: { confirmation?: boolean }) {
+    return scarcesRelayOptions(this._getBroadcast, opts);
   }
 
   /**
@@ -44,7 +42,7 @@ export class ScarcesAuctionsApi {
       SCARCES_VERBS.LIST_AUCTION,
       opts,
       'scarces.listAuction',
-      this._broadcastOpts()
+      this._relayOpts()
     );
   }
 
@@ -59,7 +57,7 @@ export class ScarcesAuctionsApi {
         amountNear,
       },
       'scarces.placeBid',
-      this._broadcastOpts()
+      this._relayOpts()
     );
   }
 
@@ -73,7 +71,7 @@ export class ScarcesAuctionsApi {
         tokenId,
       },
       'scarces.settleAuction',
-      this._broadcastOpts()
+      this._relayOpts()
     );
   }
 
@@ -87,7 +85,7 @@ export class ScarcesAuctionsApi {
         tokenId,
       },
       'scarces.cancelAuction',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 }

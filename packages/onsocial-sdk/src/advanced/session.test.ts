@@ -161,6 +161,41 @@ describe('Session runtime', () => {
     expect(session.currentNonce).toBe(6);
   });
 
+  it('rejects attached deposits for FunctionCall-key sessions', async () => {
+    const session = new Session({
+      network: 'mainnet',
+      accountId: 'alice.near',
+      contract: 'scarces',
+      key: fakeKey('ed25519:11111111111111111111111111111111'),
+    });
+
+    await expect(
+      session.signComposeDelegate({
+        action: { type: 'accept_transfer', token_id: 't' },
+        maxBlockHeight: 1234n,
+        depositYocto: '1',
+      })
+    ).rejects.toMatchObject({ reason: 'attached_deposit_required' });
+  });
+
+  it('allows attached deposits when the delegate signer is FullAccess-capable', async () => {
+    const session = new Session({
+      network: 'mainnet',
+      accountId: 'alice.near',
+      contract: 'scarces',
+      key: fakeKey('ed25519:11111111111111111111111111111111'),
+      canAttachDeposit: true,
+    });
+
+    await expect(
+      session.signComposeDelegate({
+        action: { type: 'accept_transfer', token_id: 't' },
+        maxBlockHeight: 1234n,
+        depositYocto: '1',
+      })
+    ).resolves.toMatchObject({ nonce: 1 });
+  });
+
   it('debitAllowance throws when budget exhausted and leaves balance untouched', () => {
     const session = new Session({
       network: 'mainnet',

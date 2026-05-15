@@ -21,6 +21,7 @@ import { resolveContractId } from '../../internal/contracts.js';
 import { buildCreateLazyListingAction } from '../../builders/scarces/lazy.js';
 import { hasLocalUpload, resolveScarceMedia } from './_media.js';
 import { SCARCES_VERBS } from './verbs.js';
+import { scarcesRelayOptions } from './_relay.js';
 
 export class ScarcesLazyApi {
   private _scarcesContract: string;
@@ -34,11 +35,8 @@ export class ScarcesLazyApi {
     this._scarcesContract = resolveContractId(_http.network, 'scarces');
   }
 
-  private _broadcastOpts():
-    | { broadcast: ReturnType<BroadcastGetter> }
-    | undefined {
-    const b = this._getBroadcast?.();
-    return b !== undefined ? { broadcast: b } : undefined;
+  private _relayOpts(opts?: { confirmation?: boolean }) {
+    return scarcesRelayOptions(this._getBroadcast, opts);
   }
 
   /**
@@ -63,14 +61,13 @@ export class ScarcesLazyApi {
         ...(mediaCid ? { mediaCid } : {}),
         ...(mediaHash ? { mediaHash } : {}),
       });
-      const broadcast = this._getBroadcast?.();
       return signAndRelay(
         this._http,
         this._getSession(),
         action as Record<string, unknown>,
         this._scarcesContract,
         'scarces.lazy.create',
-        broadcast !== undefined ? { broadcast } : undefined
+        this._relayOpts()
       ) as Promise<MintResponse>;
     }
 
@@ -105,7 +102,7 @@ export class ScarcesLazyApi {
       SCARCES_VERBS.LAZY_LIST,
       form,
       'scarces.lazy.create',
-      this._broadcastOpts()
+      this._relayOpts()
     );
     return {
       ...result.relay,
@@ -124,7 +121,7 @@ export class ScarcesLazyApi {
         listingId,
       },
       'scarces.purchaseLazyList',
-      this._broadcastOpts()
+      this._relayOpts()
     );
   }
 
@@ -138,7 +135,7 @@ export class ScarcesLazyApi {
         listingId,
       },
       'scarces.cancelLazyList',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -153,7 +150,7 @@ export class ScarcesLazyApi {
       SCARCES_VERBS.UPDATE_LAZY_LIST_PRICE,
       { listingId, newPriceNear },
       'scarces.updateLazyListPrice',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -168,7 +165,7 @@ export class ScarcesLazyApi {
       SCARCES_VERBS.UPDATE_LAZY_LIST_EXPIRY,
       { listingId, newExpiresAt },
       'scarces.updateLazyListExpiry',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 }

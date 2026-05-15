@@ -2,10 +2,18 @@
 // session-bridge tests — verifies prepare→sign→relay/signed pipeline
 // ---------------------------------------------------------------------------
 
-import { describe, expect, it, vi } from 'vitest';
-import { composeAndSign, SessionRequiredError } from './session-bridge.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  __resetLatestBlockCache,
+  composeAndSign,
+  SessionRequiredError,
+} from './session-bridge.js';
 import type { Session } from '../advanced/session.js';
 import type { HttpClient } from './http.js';
+
+beforeEach(() => {
+  __resetLatestBlockCache();
+});
 
 function makeHttp(responses: Record<string, unknown>): HttpClient {
   return {
@@ -98,6 +106,28 @@ describe('composeAndSign', () => {
     await composeAndSign(http, session, 'noop', undefined);
     expect(http.post).toHaveBeenNthCalledWith(1, '/compose/prepare/noop', {});
   });
+
+  it('passes prepared deposit hints into the delegated FunctionCall', async () => {
+    const http = makeHttp({
+      '/compose/prepare/set-confirmed': {
+        action: { type: 'set_confirmed' },
+        target_account: 'core.onsocial.testnet',
+        deposit_yocto: '1',
+      },
+      '/relay/latest-block': { block_height: 1 },
+      '/relay/delegate': { txHash: 'tx' },
+    });
+    const session = makeSession();
+
+    await composeAndSign(http, session, 'set-confirmed', {});
+
+    expect(session.signComposeDelegate).toHaveBeenCalledWith({
+      action: { type: 'set_confirmed' },
+      targetContract: 'core.onsocial.testnet',
+      maxBlockHeight: 1001n,
+      depositYocto: '1',
+    });
+  });
 });
 
 describe('composeAndSign — delegate mode', () => {
@@ -160,6 +190,7 @@ describe('composeAndSign — delegate mode', () => {
       contract: 'core',
       contractId: 'core.onsocial.testnet',
       key: { publicKey: key.publicKey, sign: key.sign },
+      canAttachDeposit: true,
     });
 
     let postedBlob = '';
@@ -192,7 +223,8 @@ describe('composeAndSign — delegate mode', () => {
       session,
       'set',
       { path: 'profile/name', value: 'Alice' },
-      'social.set'
+      'social.set',
+      { depositYocto: '1' }
     );
 
     expect(postedBlob).not.toBe('');
@@ -218,6 +250,11 @@ describe('composeAndSign — delegate mode', () => {
       ).getBigUint64(0, true);
       off += 8;
       return v;
+    };
+    const u128 = () => {
+      const lo = u64();
+      const hi = u64();
+      return lo + (hi << 64n);
     };
     const str = () => {
       const n = u32();
@@ -247,6 +284,7 @@ describe('composeAndSign — delegate mode', () => {
     });
     const gas = u64();
     expect(gas).toBe(100n * 1_000_000_000_000n);
+    expect(u128()).toBe(1n);
   });
 });
 
@@ -336,6 +374,26 @@ describe('composeAndSign — broadcast routing', () => {
       gas: '100000000000000',
       deposit: '1',
     });
+  });
+
+  it('wallet target: uses per-call deposit when target does not override it', async () => {
+    const http = makeHttp({
+      '/compose/prepare/set-confirmed': {
+        action: { type: 'set_confirmed' },
+        target_account: 'core.onsocial.testnet',
+      },
+    });
+    const signer = vi.fn(async () => ({ txHash: 'tx_wallet' }));
+
+    await composeAndSign(http, null, 'set-confirmed', {}, 'x', {
+      broadcast: { kind: 'wallet', signer },
+      depositYocto: '1',
+    });
+
+    const firstCall = (
+      signer.mock.calls as unknown as [{ actions: { deposit: string }[] }][]
+    )[0]!;
+    expect(firstCall[0].actions[0]?.deposit).toBe('1');
   });
 
   it('relayer target: posts signed_delegate to external URL with X-Api-Key', async () => {

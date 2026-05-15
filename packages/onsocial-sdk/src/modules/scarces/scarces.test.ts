@@ -55,7 +55,9 @@ function makeHttp(): HttpMock {
           target_account: 'scarces.onsocial.near',
         };
       }
-      if (path === '/relay/delegate') return { ok: true, txHash: 'tok-signed' };
+      if (path.startsWith('/relay/delegate')) {
+        return { ok: true, txHash: 'tok-signed' };
+      }
       throw new Error(`unexpected POST ${path}`);
     }),
     get: vi.fn(async (path: string) => {
@@ -71,16 +73,21 @@ function makeSessionGetter() {
   const signed: Array<{
     action: Record<string, unknown>;
     targetAccount: string;
+    depositYocto?: string;
   }> = [];
   const session = {
     signComposeDelegate: vi.fn(
       async (args: {
         action: Record<string, unknown>;
         targetContract: string;
+        depositYocto?: string | bigint;
       }) => {
         signed.push({
           action: args.action,
           targetAccount: args.targetContract,
+          ...(args.depositYocto !== undefined && {
+            depositYocto: String(args.depositYocto),
+          }),
         });
         return { base64: 'BASE64_DELEGATE_BLOB', nonce: 1 };
       }
@@ -152,8 +159,9 @@ describe('ScarcesModule.tokens — gateway upload route (no storage)', () => {
     );
     expect(signed[0].action.type).toBe('quick_mint');
     expect(signed[0].targetAccount).toBe('scarces.onsocial.near');
+    expect(signed[0].depositYocto).toBeUndefined();
     expect(http.post).toHaveBeenCalledWith(
-      '/relay/delegate',
+      '/relay/delegate?wait=true',
       expect.objectContaining({ signed_delegate: 'BASE64_DELEGATE_BLOB' })
     );
     expect(result.txHash).toBe('tok-signed');
@@ -162,11 +170,12 @@ describe('ScarcesModule.tokens — gateway upload route (no storage)', () => {
 
   it('transfer / burn / batchTransfer go through compose/prepare/<verb>', async () => {
     const http = makeHttp();
-    const { getter } = makeSessionGetter();
+    const { getter, signed } = makeSessionGetter();
     const mod = new ScarcesModule(asHttp(http), getter);
     await mod.tokens.transfer('1', 'b.near');
     await mod.tokens.burn('2');
     await mod.tokens.batchTransfer([{ token_id: '1', receiver_id: 'b.near' }]);
+    expect(signed.map((s) => s.depositYocto)).toEqual(['1', '1', '1']);
     expect(prepareCallPaths(http.post)).toEqual([
       '/compose/prepare/transfer',
       '/compose/prepare/burn',
@@ -242,6 +251,7 @@ describe('ScarcesModule.collections', () => {
       expect.any(FormData)
     );
     expect(signed[0].action.type).toBe('create_collection');
+    expect(signed[0].depositYocto).toBeUndefined();
     expect(signed[0].targetAccount).toBe('scarces.onsocial.near');
   });
 
@@ -268,7 +278,7 @@ describe('ScarcesModule.collections', () => {
 
   it('mintFrom / purchaseFrom / airdrop / pause / resume / delete go through compose/prepare/*', async () => {
     const http = makeHttp();
-    const { getter } = makeSessionGetter();
+    const { getter, signed } = makeSessionGetter();
     const mod = new ScarcesModule(asHttp(http), getter);
     await mod.collections.mintFrom('g', 1);
     await mod.collections.purchaseFrom('g', '1', 1);
@@ -276,6 +286,14 @@ describe('ScarcesModule.collections', () => {
     await mod.collections.pause('g');
     await mod.collections.resume('g');
     await mod.collections.delete('g');
+    expect(signed.map((s) => s.depositYocto)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      '1',
+      '1',
+      '1',
+    ]);
     expect(prepareCallPaths(http.post)).toEqual([
       '/compose/prepare/mint-from-collection',
       '/compose/prepare/purchase-from-collection',
@@ -453,9 +471,10 @@ describe('ScarcesModule.tokens — lifecycle helpers', () => {
 describe('ScarcesModule.collections — management helpers', () => {
   it('updatePrice', async () => {
     const http = makeHttp();
-    const { getter } = makeSessionGetter();
+    const { getter, signed } = makeSessionGetter();
     const mod = new ScarcesModule(asHttp(http), getter);
     await mod.collections.updatePrice('col1', '2.5');
+    expect(signed[0].depositYocto).toBe('1');
     expect(prepareBodyFor(http.post, 'update-collection-price')).toEqual({
       collectionId: 'col1',
       newPriceNear: '2.5',
@@ -584,9 +603,10 @@ describe('ScarcesModule.apps', () => {
 
   it('setConfig', async () => {
     const http = makeHttp();
-    const { getter } = makeSessionGetter();
+    const { getter, signed } = makeSessionGetter();
     const mod = new ScarcesModule(asHttp(http), getter);
     await mod.apps.setConfig('app1', { metadata: 'x' });
+    expect(signed[0].depositYocto).toBe('1');
     expect(prepareBodyFor(http.post, 'set-app-config')).toEqual({
       appId: 'app1',
       metadata: 'x',
@@ -627,9 +647,10 @@ describe('ScarcesModule.apps', () => {
 
   it('addModerator', async () => {
     const http = makeHttp();
-    const { getter } = makeSessionGetter();
+    const { getter, signed } = makeSessionGetter();
     const mod = new ScarcesModule(asHttp(http), getter);
     await mod.apps.addModerator('app1', 'mod.near');
+    expect(signed[0].depositYocto).toBe('1');
     expect(prepareBodyFor(http.post, 'add-moderator')).toEqual({
       appId: 'app1',
       accountId: 'mod.near',

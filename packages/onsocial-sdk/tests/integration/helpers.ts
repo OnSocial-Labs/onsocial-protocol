@@ -368,6 +368,7 @@ export async function attachCredentialDelegateSession(
         startingNonce: nonce + 1,
         remainingAllowanceYocto: null,
         gasTgas: 300,
+        canAttachDeposit: true,
       })
     );
     return true;

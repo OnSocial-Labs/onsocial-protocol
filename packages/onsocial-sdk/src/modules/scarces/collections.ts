@@ -16,6 +16,7 @@ import { SCARCES_VERBS } from './verbs.js';
 import { resolveContractId } from '../../internal/contracts.js';
 import { buildCreateCollectionAction } from '../../builders/scarces/collections.js';
 import { hasLocalUpload, resolveScarceMedia } from './_media.js';
+import { scarcesRelayOptions } from './_relay.js';
 
 /** Allowlist entry as accepted by the scarces contract. */
 export interface AllowlistEntry {
@@ -35,11 +36,8 @@ export class ScarcesCollectionsApi {
     this._scarcesContract = resolveContractId(_http.network, 'scarces');
   }
 
-  private _broadcastOpts():
-    | { broadcast: ReturnType<BroadcastGetter> }
-    | undefined {
-    const b = this._getBroadcast?.();
-    return b !== undefined ? { broadcast: b } : undefined;
+  private _relayOpts(opts?: { confirmation?: boolean }) {
+    return scarcesRelayOptions(this._getBroadcast, opts);
   }
 
   /**
@@ -65,14 +63,13 @@ export class ScarcesCollectionsApi {
         ...(mediaCid ? { mediaCid } : {}),
         ...(mediaHash ? { mediaHash } : {}),
       });
-      const broadcast = this._getBroadcast?.();
       return signAndRelay(
         this._http,
         this._getSession(),
         action as Record<string, unknown>,
         this._scarcesContract,
         'scarces.collections.create',
-        broadcast !== undefined ? { broadcast } : undefined
+        this._relayOpts()
       );
     }
 
@@ -108,7 +105,7 @@ export class ScarcesCollectionsApi {
       SCARCES_VERBS.CREATE_COLLECTION,
       form,
       'scarces.collections.create',
-      this._broadcastOpts()
+      this._relayOpts()
     );
     return result.relay;
   }
@@ -129,7 +126,7 @@ export class ScarcesCollectionsApi {
         receiverId,
       },
       'scarces.mintFromCollection',
-      this._broadcastOpts()
+      this._relayOpts()
     );
   }
 
@@ -149,7 +146,7 @@ export class ScarcesCollectionsApi {
         maxPricePerTokenNear,
       },
       'scarces.purchaseFromCollection',
-      this._broadcastOpts()
+      this._relayOpts()
     );
   }
 
@@ -167,7 +164,7 @@ export class ScarcesCollectionsApi {
         receivers,
       },
       'scarces.airdropFromCollection',
-      this._broadcastOpts()
+      this._relayOpts()
     );
   }
 
@@ -181,7 +178,7 @@ export class ScarcesCollectionsApi {
         collectionId,
       },
       'scarces.pauseCollection',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -195,7 +192,7 @@ export class ScarcesCollectionsApi {
         collectionId,
       },
       'scarces.resumeCollection',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -209,7 +206,7 @@ export class ScarcesCollectionsApi {
         collectionId,
       },
       'scarces.deleteCollection',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -227,7 +224,7 @@ export class ScarcesCollectionsApi {
         newPriceNear,
       },
       'scarces.updateCollectionPrice',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -246,7 +243,7 @@ export class ScarcesCollectionsApi {
         endTime: opts.endTime,
       },
       'scarces.updateCollectionTiming',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -264,7 +261,7 @@ export class ScarcesCollectionsApi {
         entries,
       },
       'scarces.setAllowlist',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -282,7 +279,7 @@ export class ScarcesCollectionsApi {
         accounts,
       },
       'scarces.removeFromAllowlist',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -300,7 +297,7 @@ export class ScarcesCollectionsApi {
         metadata,
       },
       'scarces.setCollectionMetadata',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -316,7 +313,7 @@ export class ScarcesCollectionsApi {
       SCARCES_VERBS.SET_COLLECTION_APP_METADATA,
       { appId, collectionId, metadata },
       'scarces.setCollectionAppMetadata',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -336,7 +333,7 @@ export class ScarcesCollectionsApi {
         refundDeadlineNs,
       },
       'scarces.cancelCollection',
-      this._broadcastOpts()
+      this._relayOpts()
     );
   }
 
@@ -348,7 +345,7 @@ export class ScarcesCollectionsApi {
       SCARCES_VERBS.WITHDRAW_UNCLAIMED_REFUNDS,
       { collectionId },
       'scarces.withdrawUnclaimedRefunds',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 }
