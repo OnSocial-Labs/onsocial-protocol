@@ -65,7 +65,10 @@ export interface ExecuteOptions {
   targetContract?: string;
   /** Contract-level options (e.g. `refund_unused_deposit`). */
   options?: Record<string, unknown>;
-  /** Inner FunctionCall attached deposit in yoctoNEAR. */
+  /**
+   * Inner FunctionCall attached deposit in yoctoNEAR. Gateway relay only
+   * supports 0 or 1 yoctoNEAR; use wallet broadcast for larger value deposits.
+   */
   depositYocto?: bigint | string;
   /**
    * Wait for the on-chain receipt and throw `RelayExecutionError` on revert.

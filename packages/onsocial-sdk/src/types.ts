@@ -67,6 +67,10 @@ export interface OnSocialConfig {
    * `SignedDelegateAction`, posts it to the authenticated gateway
    * `/relay/delegate` endpoint, and the gateway forwards it to the private
    * relayer.
+  *
+  * The gateway relayer is for 0-deposit calls and 1 yoctoNEAR confirmation
+  * calls. Use wallet broadcast for storage top-ups, direct value deposits,
+  * and admin flows that must be paid or confirmed by the user's wallet.
    *
    * Direct relayer and wallet broadcasts are for self-hosted, diagnostics, or
    * explicit wallet-paid/admin flows. They are not the normal OnAPI path.
@@ -141,7 +145,9 @@ export type WalletBroadcastSigner = (req: {
  * to the private relayer.
  *
  *   • `'gateway'` (default) — canonical OnAPI path. Authenticated, metered,
- *     indexed, and billed by the OnSocial gateway.
+ *     indexed, and billed by the OnSocial gateway. Supports 0-deposit calls
+ *     plus 1 yoctoNEAR confirmation deposits when the delegate signer can
+ *     attach deposits.
  *
  *   • `{ kind: 'relayer', url, apiKey?, headers? }` — advanced/self-hosted
  *     mode. POST the same payload directly to a NEP-366-compatible relayer
@@ -153,6 +159,7 @@ export type WalletBroadcastSigner = (req: {
  *     fallback/admin mode. The action is wrapped as a contract FunctionCall
  *     (`execute` by default, or `execute_admin` for admin modules) and handed
  *     to the wallet. The user pays gas and no relayer/session is involved.
+ *     Use this for storage top-ups and attached NEAR value transfers.
  *
  * Set per-call via `ExecuteOptions.broadcast` or globally via
  * `OnSocialConfig.defaultBroadcast`.

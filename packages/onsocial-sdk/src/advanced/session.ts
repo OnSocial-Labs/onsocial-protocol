@@ -116,7 +116,8 @@ export class NeedsWalletConfirmationError extends Error {
       | 'wrong_receiver'
       | 'wrong_method'
       | 'session_expired'
-      | 'attached_deposit_required'
+        | 'attached_deposit_required'
+        | 'value_deposit_required'
   ) {
     super(message);
     this.name = 'NeedsWalletConfirmationError';
