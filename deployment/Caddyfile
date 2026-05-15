@@ -70,11 +70,11 @@ __SERVER_NAMES__ {
 }
 
 # ---------- IPFS gateway proxy (cdn.{testnet.,}onsocial.id) ----------
-# Brand-stable IPFS gateway under our own domain. Reverse-proxies to the
-# Lighthouse per-account subdomain so users (and on-chain `media` URLs)
-# never reference Lighthouse-owned hostnames directly. If we ever change
-# storage providers, only the upstream below has to change — every NFT
-# already minted keeps resolving.
+# Brand-stable IPFS gateway under our own domain. Reverse-proxies to a
+# configured IPFS gateway upstream so users (and on-chain `media` URLs)
+# never reference provider-owned hostnames directly. If we ever change
+# storage or gateway providers, only the upstream below has to change —
+# every already-written CID keeps resolving.
 #
 # Caddy automatically caches responses at the OS-page-cache layer; for a
 # proper HTTP cache (disk-backed, becomes a de-facto second pin) build the

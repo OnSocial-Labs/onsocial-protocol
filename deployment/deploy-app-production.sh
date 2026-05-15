@@ -542,8 +542,8 @@ ssh "${SSH_OPTIONS[@]}" "root@$SERVER_IP" bash -s "$IMAGE_TAG" "$DEPLOY_TARGET" 
 
   cdn_upstream_value() {
     # Per-account dedicated Lighthouse subdomain (visible in dashboard).
-    # Override via LIGHTHOUSE_CDN_UPSTREAM if Lighthouse rotates the host.
-    echo "${LIGHTHOUSE_CDN_UPSTREAM:-statistical-barnacle-3ny44.lighthouseweb3.xyz}"
+    # Override via LIGHTHOUSE_CDN_UPSTREAM if the IPFS gateway provider changes.
+    echo "${LIGHTHOUSE_CDN_UPSTREAM:-ipfs.io}"
   }
 
   render_caddyfile() {
