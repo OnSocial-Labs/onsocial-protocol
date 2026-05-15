@@ -21,7 +21,7 @@ mod grants_tests {
 
         // Create group
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute(create_group_request(
@@ -82,7 +82,7 @@ mod grants_tests {
 
         // Create group
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute(create_group_request(
@@ -149,7 +149,7 @@ mod grants_tests {
 
         // Create group
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute(create_group_request(
@@ -194,7 +194,7 @@ mod grants_tests {
         let bob = test_account(1);
 
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
 
         let mut event_batch = EventBatch::new();
@@ -235,7 +235,7 @@ mod grants_tests {
 
         // Create group and add Bob as member
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute(create_group_request("revoke_test".to_string(), json!({})))
@@ -270,7 +270,7 @@ mod grants_tests {
 
         // Create group and add Bob as member
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute(create_group_request(
@@ -340,7 +340,7 @@ mod grants_tests {
 
         // Create group and add Bob as member
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute(create_group_request("expiry_test".to_string(), json!({})))
@@ -386,7 +386,7 @@ mod grants_tests {
         let bob = test_account(1);
 
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
 
         // Deposit storage for alice

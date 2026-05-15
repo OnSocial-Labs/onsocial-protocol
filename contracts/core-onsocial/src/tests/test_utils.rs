@@ -97,7 +97,7 @@ pub fn test_account(index: usize) -> AccountId {
     format!("{}.near", base_name).parse().unwrap()
 }
 
-/// Convert the contract's ordered `get` response into a legacy `key -> value` map.
+/// Convert the contract's ordered `get` response into a `key -> value` map.
 ///
 /// This keeps tests concise while the public ABI uses ordered `EntryView`.
 #[cfg(test)]
@@ -662,9 +662,9 @@ pub mod test_deposits {
         crate::constants::MIN_PROPOSAL_DEPOSIT
     }
 
-    /// Legacy: 10 NEAR (kept for backward compatibility)
-    /// Use specific functions above for more accurate deposits
-    pub fn legacy_10_near() -> u128 {
+    /// 10 NEAR deposit for broad test setup.
+    /// Use specific functions above for more accurate deposits.
+    pub fn ten_near() -> u128 {
         10_000_000_000_000_000_000_000_000
     }
 }

@@ -23,7 +23,7 @@ mod io_operations_tests {
     // ========================================================================
     // This is CRITICAL for proposal execution: when a proposal executes changes
     // to group content, the storage cost should be charged to the proposal
-    // executor (execution_payer), not the contract caller (predecessor).
+    // execution payer, not the contract caller (predecessor).
 
     #[test]
     fn test_execution_payer_affects_group_storage_accounting() {

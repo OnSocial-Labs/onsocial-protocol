@@ -32,7 +32,7 @@ mod voting_proposal_types_tests {
 
         // Create member-driven group
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({
             "member_driven": true,
@@ -77,7 +77,7 @@ mod voting_proposal_types_tests {
 
         // Create member-driven group
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({
             "member_driven": true,
@@ -170,7 +170,7 @@ mod voting_proposal_types_tests {
 
         // Create member-driven group
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({
             "member_driven": true,
@@ -239,7 +239,7 @@ mod voting_proposal_types_tests {
 
         // Create member-driven group with 4 members
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({
             "member_driven": true,
@@ -313,7 +313,7 @@ mod voting_proposal_types_tests {
 
         // Create member-driven group
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({"member_driven": true, "is_private": true});
         contract
@@ -372,7 +372,7 @@ mod voting_proposal_types_tests {
 
         // Create member-driven group
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({
             "member_driven": true,
@@ -409,7 +409,7 @@ mod voting_proposal_types_tests {
 
         // Charlie votes YES to approve grant (alice already voted YES automatically)
         testing_env!(
-            get_context_with_deposit(charlie.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(charlie.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute(vote_proposal_request(
@@ -480,7 +480,7 @@ mod voting_proposal_types_tests {
 
         // Create member-driven group
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({"member_driven": true, "is_private": true});
         contract
@@ -550,7 +550,7 @@ mod voting_proposal_types_tests {
 
         // Create member-driven group with 4 members
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({
             "member_driven": true,
@@ -670,7 +670,7 @@ mod voting_proposal_types_tests {
 
         // Create member-driven group with 3 members
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({
             "member_driven": true,
@@ -778,7 +778,7 @@ mod voting_proposal_types_tests {
 
         // Create member-driven group with 3 members
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({
             "member_driven": true,
@@ -899,7 +899,7 @@ mod voting_proposal_types_tests {
 
         // Create member-driven group with 5 members
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({
             "member_driven": true,
@@ -1116,7 +1116,7 @@ mod voting_proposal_types_tests {
 
         // Create member-driven group with 4 members
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({
             "member_driven": true,
@@ -1297,7 +1297,7 @@ mod voting_proposal_types_tests {
 
         // Create member-driven group with 5 members
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({
             "member_driven": true,
@@ -1524,7 +1524,7 @@ mod voting_proposal_types_tests {
 
         // Create member-driven group
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({"member_driven": true, "is_private": true});
         contract
@@ -1849,7 +1849,7 @@ mod voting_proposal_types_tests {
 
         // Create member-driven group
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({"member_driven": true, "is_private": true});
         contract

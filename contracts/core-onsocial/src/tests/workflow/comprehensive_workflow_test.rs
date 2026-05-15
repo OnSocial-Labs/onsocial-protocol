@@ -546,7 +546,7 @@ mod comprehensive_integration_tests {
         let result = contract.execute(set_request(json!({
             "profile/name": "Alice",  // Valid
             "profile/bio": "Developer",  // Valid
-            // The following would fail if we tried to write to Bob's account
+            // This would fail if we tried to write to Bob's account
             // "bob.testnet/posts/hack": "Invalid",  // Would fail
         })));
         // Valid operations should succeed
@@ -640,44 +640,47 @@ mod comprehensive_integration_tests {
         println!("✓ Social media post lifecycle test passed");
     }
     #[test]
-    fn test_friend_follower_management() {
+    fn test_standing_relationship_management() {
         let mut contract = init_live_contract();
         let alice = test_account(1);
         let bob = test_account(2);
         let charlie = test_account(3);
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        // Alice adds friends
+        // Alice adds standing relationships
         contract
             .execute(set_request(json!({
-                format!("friends/{}", bob): {
-                    "status": "friend",
+                format!("standing/{}", bob): {
+                    "status": "standing",
                     "since": 1234567890
                 },
-                format!("friends/{}", charlie): {
-                    "status": "friend",
+                format!("standing/{}", charlie): {
+                    "status": "standing",
                     "since": 1234567891
                 }
             })))
             .unwrap();
-        // Alice adds followers
+        // Alice adds additional standing relationships
         contract
             .execute(set_request(json!({
-                "followers/user1": {"since": 1234567900},
-                "followers/user2": {"since": 1234567901},
+                "standing/user1.near": {"since": 1234567900},
+                "standing/user2.near": {"since": 1234567901},
             })))
             .unwrap();
-        // Alice unfriends Bob
+        // Alice removes standing with Bob
         contract
             .execute(set_request(json!({
-                format!("friends/{}", bob): null
+                format!("standing/{}", bob): null
             })))
             .unwrap();
-        // Verify friend list
-        let keys = vec![format!("{}/friends/{}", alice, charlie)];
+        // Verify standing list
+        let keys = vec![format!("{}/standing/{}", alice, charlie)];
         let retrieved = contract_get_values_map(&contract, keys, None);
-        assert!(!retrieved.is_empty(), "Charlie should still be a friend");
-        println!("✓ Friend/follower management test passed");
+        assert!(
+            !retrieved.is_empty(),
+            "Alice should still stand with Charlie"
+        );
+        println!("✓ Standing relationship management test passed");
     }
     #[test]
     fn test_content_moderation_flow() {

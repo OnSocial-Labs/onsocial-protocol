@@ -127,7 +127,7 @@ mod voting_group_updates_tests {
 
         // Create member-driven group
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({"member_driven": true, "is_private": true});
         contract
@@ -160,7 +160,7 @@ mod voting_group_updates_tests {
         // Charlie votes NO to reject (alice voted YES automatically)
         // 1 YES, 1 NO = needs more votes, let bob vote NO too
         testing_env!(
-            get_context_with_deposit(charlie.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(charlie.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute(vote_proposal_request(
@@ -172,7 +172,7 @@ mod voting_group_updates_tests {
 
         // Bob votes NO (he doesn't want to be banned!)
         testing_env!(
-            get_context_with_deposit(bob.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(bob.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute(vote_proposal_request(
@@ -218,7 +218,7 @@ mod voting_group_updates_tests {
 
         // Create member-driven group
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({"member_driven": true, "is_private": true});
         contract
@@ -257,7 +257,7 @@ mod voting_group_updates_tests {
         // Charlie votes YES to reach threshold (alice already voted YES)
         // 2 YES out of 3 = 66% participation, 100% approval = executes
         testing_env!(
-            get_context_with_deposit(charlie.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(charlie.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute(vote_proposal_request(
@@ -291,7 +291,7 @@ mod voting_group_updates_tests {
 
         // Create member-driven group
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({"member_driven": true, "is_private": true});
         contract
@@ -304,7 +304,7 @@ mod voting_group_updates_tests {
 
         // Try to create ban proposal targeting owner (alice)
         testing_env!(
-            get_context_with_deposit(bob.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(bob.clone(), test_deposits::ten_near()).build()
         );
         let ban_owner_proposal = json!({
             "update_type": "ban",
@@ -326,7 +326,7 @@ mod voting_group_updates_tests {
         // Charlie votes YES (bob already voted YES)
         // 2 YES out of 3 = should reach threshold and try to execute
         testing_env!(
-            get_context_with_deposit(charlie.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(charlie.clone(), test_deposits::ten_near()).build()
         );
         let vote_result = contract.execute(vote_proposal_request(
             "owner_protect".to_string(),
@@ -366,7 +366,7 @@ mod voting_group_updates_tests {
 
         // Create member-driven group with only alice (owner auto-votes YES = 100% = instant execution)
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({"member_driven": true, "is_private": true});
         contract
@@ -403,7 +403,7 @@ mod voting_group_updates_tests {
 
         // Charlie votes YES to execute (2 YES out of 3 = 66% participation, 100% approval)
         testing_env!(
-            get_context_with_deposit(charlie.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(charlie.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute(vote_proposal_request(
@@ -451,7 +451,7 @@ mod voting_group_updates_tests {
 
         // Bob tries to vote
         testing_env!(
-            get_context_with_deposit(bob.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(bob.clone(), test_deposits::ten_near()).build()
         );
         let vote_result = contract.execute(vote_proposal_request(
             "restrict_banned".to_string(),
@@ -481,7 +481,7 @@ mod voting_group_updates_tests {
 
         // Create member-driven group with only alice (1 member = instant execution on proposals)
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({"member_driven": true, "is_private": true});
         contract
@@ -518,7 +518,7 @@ mod voting_group_updates_tests {
 
         // Charlie votes YES to execute ban (2 YES out of 3 = 66% participation, 100% approval)
         testing_env!(
-            get_context_with_deposit(charlie.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(charlie.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute(vote_proposal_request(
@@ -561,7 +561,7 @@ mod voting_group_updates_tests {
 
         // Charlie votes YES to execute unban (2 YES out of 2 remaining = 100%)
         testing_env!(
-            get_context_with_deposit(charlie.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(charlie.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute(vote_proposal_request(
@@ -585,7 +585,7 @@ mod voting_group_updates_tests {
 
         // Step 6: Verify bob CAN now rejoin via join request
         testing_env!(
-            get_context_with_deposit(bob.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(bob.clone(), test_deposits::ten_near()).build()
         );
         let rejoin_result = contract.execute(join_group_request("unban_test".to_string()));
         assert!(
@@ -608,7 +608,7 @@ mod voting_group_updates_tests {
 
         // Create member-driven group with only alice initially (1 member = instant execution)
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({"member_driven": true, "is_private": true});
         contract
@@ -643,7 +643,7 @@ mod voting_group_updates_tests {
 
         // Charlie votes YES to execute ban
         testing_env!(
-            get_context_with_deposit(charlie.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(charlie.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute(vote_proposal_request(
@@ -685,7 +685,7 @@ mod voting_group_updates_tests {
 
         // Charlie votes YES to execute unban
         testing_env!(
-            get_context_with_deposit(charlie.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(charlie.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute(vote_proposal_request(
@@ -707,7 +707,7 @@ mod voting_group_updates_tests {
 
         // Bob must explicitly rejoin
         testing_env!(
-            get_context_with_deposit(bob.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(bob.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute(join_group_request("no_auto_readd".to_string()))
@@ -726,7 +726,7 @@ mod voting_group_updates_tests {
 
         // Create member-driven group
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({"member_driven": true, "is_private": true});
         contract
@@ -791,7 +791,7 @@ mod voting_group_updates_tests {
 
         // Step 1: Create member-driven group
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({"member_driven": true, "is_private": true});
         contract
@@ -824,7 +824,7 @@ mod voting_group_updates_tests {
         // Step 2: Charlie (non-owner member) creates transfer ownership proposal
         // This demonstrates democratic governance - any member can propose ownership transfer
         testing_env!(
-            get_context_with_deposit(charlie.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(charlie.clone(), test_deposits::ten_near()).build()
         );
         let transfer_proposal = json!({
             "update_type": "transfer_ownership",
@@ -848,7 +848,7 @@ mod voting_group_updates_tests {
         // Note: Charlie already voted YES automatically when creating the proposal
         // 2 YES votes out of 3 members = 66% participation, 100% approval = EXECUTES IMMEDIATELY
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute(vote_proposal_request(
@@ -912,7 +912,7 @@ mod voting_group_updates_tests {
 
         // Create member-driven group with alice and bob
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({"member_driven": true, "is_private": true});
         contract
@@ -939,7 +939,7 @@ mod voting_group_updates_tests {
 
         // Try to create proposal to transfer ownership to non-member charlie
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let transfer_proposal = json!({
             "update_type": "transfer_ownership",
@@ -992,7 +992,7 @@ mod voting_group_updates_tests {
 
         // Create member-driven group
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({"member_driven": true, "is_private": true});
         contract
@@ -1016,7 +1016,7 @@ mod voting_group_updates_tests {
         // Create transfer ownership proposal WITH remove_old_owner = false
         // This tells the contract to keep alice as a regular member
         testing_env!(
-            get_context_with_deposit(charlie.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(charlie.clone(), test_deposits::ten_near()).build()
         );
         let transfer_proposal = json!({
             "update_type": "transfer_ownership",
@@ -1038,7 +1038,7 @@ mod voting_group_updates_tests {
 
         // Alice votes YES (2/3 = 66% participation, 100% approval = executes)
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute(vote_proposal_request(
@@ -1067,7 +1067,7 @@ mod voting_group_updates_tests {
         // Verify alice lost owner status but retained membership
         // Alice should still be able to create proposals (she's still a member)
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let test_proposal = json!({"update_type": "metadata", "changes": {"description": "Alice can still propose!"}});
         let alice_proposal_result = contract.execute(create_proposal_request(
@@ -1084,7 +1084,7 @@ mod voting_group_updates_tests {
         // Verify alice can still vote (she's still a member)
         let bob_proposal = json!({"update_type": "metadata", "changes": {"name": "Test"}});
         testing_env!(
-            get_context_with_deposit(bob.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(bob.clone(), test_deposits::ten_near()).build()
         );
         let bob_proposal_id = contract
             .execute(create_proposal_request(
@@ -1099,7 +1099,7 @@ mod voting_group_updates_tests {
             .to_string();
 
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let alice_vote_result = contract.execute(vote_proposal_request(
             "owner_stays".to_string(),
@@ -1127,7 +1127,7 @@ mod voting_group_updates_tests {
 
         // Create member-driven group
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({"member_driven": true, "is_private": true});
         contract
@@ -1139,7 +1139,7 @@ mod voting_group_updates_tests {
 
         // Try to create proposal to transfer ownership to self (alice → alice)
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let self_transfer_proposal = json!({
             "update_type": "transfer_ownership",
@@ -1161,7 +1161,7 @@ mod voting_group_updates_tests {
         // Bob votes YES to reach threshold (alice already voted YES)
         // 2 YES out of 2 = 100% participation, 100% approval = should try to execute
         testing_env!(
-            get_context_with_deposit(bob.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(bob.clone(), test_deposits::ten_near()).build()
         );
         let vote_result = contract.execute(vote_proposal_request(
             "self_transfer".to_string(),
@@ -1208,7 +1208,7 @@ mod voting_group_updates_tests {
 
         // Create member-driven group
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({"member_driven": true, "is_private": true});
         contract
@@ -1246,7 +1246,7 @@ mod voting_group_updates_tests {
         // Bob votes YES to approve (alice already voted YES automatically)
         // 2 YES votes out of 2 members = 100% participation, 100% approval
         testing_env!(
-            get_context_with_deposit(bob.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(bob.clone(), test_deposits::ten_near()).build()
         );
         let vote_result = contract.execute(vote_proposal_request(
             "meta_update".to_string(),
@@ -1299,7 +1299,7 @@ mod voting_group_updates_tests {
 
         // Create member-driven group (must be private)
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({"member_driven": true, "is_private": true});
         contract
@@ -1342,7 +1342,7 @@ mod voting_group_updates_tests {
         // Bob votes YES, which would normally execute the proposal.
         // Execution must fail and must not mutate group privacy.
         testing_env!(
-            get_context_with_deposit(bob.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(bob.clone(), test_deposits::ten_near()).build()
         );
         let vote_result = contract.execute(vote_proposal_request(
             "meta_privacy_invariant".to_string(),
@@ -1376,7 +1376,7 @@ mod voting_group_updates_tests {
 
         // Create member-driven group with initial metadata
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({
             "member_driven": true,
@@ -1424,7 +1424,7 @@ mod voting_group_updates_tests {
         // Bob and Charlie vote NO to reject (alice voted YES automatically)
         // 1 YES, 2 NO = proposal rejected
         testing_env!(
-            get_context_with_deposit(bob.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(bob.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute(vote_proposal_request(
@@ -1435,7 +1435,7 @@ mod voting_group_updates_tests {
             .unwrap();
 
         testing_env!(
-            get_context_with_deposit(charlie.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(charlie.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute(vote_proposal_request(
@@ -1487,7 +1487,7 @@ mod voting_group_updates_tests {
 
         // Create member-driven group
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({"member_driven": true, "is_private": true});
         contract
@@ -1564,7 +1564,7 @@ mod voting_group_updates_tests {
 
         // Create member-driven group
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({"member_driven": true, "is_private": true});
         contract
@@ -1608,7 +1608,7 @@ mod voting_group_updates_tests {
         // With 3 members (alice, bob, charlie), 2 YES votes = 66% participation, 100% approval
         // This reaches the 51% participation quorum and >50% approval threshold, so it auto-executes
         let mut bob_context =
-            get_context_with_deposit(bob.clone(), test_deposits::legacy_10_near());
+            get_context_with_deposit(bob.clone(), test_deposits::ten_near());
         bob_context.block_timestamp(env::block_timestamp() + 1000);
         testing_env!(bob_context.build());
         contract
@@ -1658,7 +1658,7 @@ mod voting_group_updates_tests {
 
         // Bob votes YES (alice already voted YES)
         let mut bob_context2 =
-            get_context_with_deposit(bob.clone(), test_deposits::legacy_10_near());
+            get_context_with_deposit(bob.clone(), test_deposits::ten_near());
         bob_context2.block_timestamp(env::block_timestamp() + 4000);
         testing_env!(bob_context2.build());
         contract
@@ -1685,7 +1685,7 @@ mod voting_group_updates_tests {
 
         // Charlie requests to join again (creates a join proposal automatically)
         let mut charlie_context2 =
-            get_context_with_deposit(charlie.clone(), test_deposits::legacy_10_near());
+            get_context_with_deposit(charlie.clone(), test_deposits::ten_near());
         charlie_context2.block_timestamp(env::block_timestamp() + 5000);
         testing_env!(charlie_context2.build());
 
@@ -1716,7 +1716,7 @@ mod voting_group_updates_tests {
 
         // Create member-driven group owned by alice
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({"member_driven": true, "is_private": true});
         contract
@@ -1762,7 +1762,7 @@ mod voting_group_updates_tests {
         // Bob votes YES (alice already voted)
         // With 3 members, 2 YES votes = 66% participation, 100% approval -> auto-executes
         let mut bob_context1 =
-            get_context_with_deposit(bob.clone(), test_deposits::legacy_10_near());
+            get_context_with_deposit(bob.clone(), test_deposits::ten_near());
         bob_context1.block_timestamp(env::block_timestamp() + 1000);
         testing_env!(bob_context1.build());
         contract
@@ -1816,7 +1816,7 @@ mod voting_group_updates_tests {
         // Alice votes YES (bob already voted)
         // With 3 members, 2 YES votes = 66% participation, 100% approval -> auto-executes
         let mut alice_context2 =
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near());
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near());
         alice_context2.block_timestamp(env::block_timestamp() + 4000);
         testing_env!(alice_context2.build());
         contract
@@ -1847,7 +1847,7 @@ mod voting_group_updates_tests {
 
         // Charlie needs deposit to create proposal as owner
         let mut charlie_context3 =
-            get_context_with_deposit(charlie.clone(), test_deposits::legacy_10_near());
+            get_context_with_deposit(charlie.clone(), test_deposits::ten_near());
         charlie_context3.block_timestamp(env::block_timestamp() + 6000);
         testing_env!(charlie_context3.build());
 
@@ -1872,7 +1872,7 @@ mod voting_group_updates_tests {
         // Bob votes YES (charlie already voted)
         // With 3 members, 2 YES votes = 66% participation, 100% approval -> auto-executes
         let mut bob_context3 =
-            get_context_with_deposit(bob.clone(), test_deposits::legacy_10_near());
+            get_context_with_deposit(bob.clone(), test_deposits::ten_near());
         bob_context3.block_timestamp(env::block_timestamp() + 7000);
         testing_env!(bob_context3.build());
         contract
@@ -1923,7 +1923,7 @@ mod voting_group_updates_tests {
 
         // Create traditional group (not member-driven) for direct ownership transfer testing
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({"member_driven": false, "is_private": true});
         contract
@@ -1952,7 +1952,7 @@ mod voting_group_updates_tests {
 
         // Alice (owner) grants Charlie MODERATE permission to approve joins
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute_admin(set_permission_request(
@@ -1977,7 +1977,7 @@ mod voting_group_updates_tests {
 
         // Alice transfers ownership to Bob
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute(transfer_group_ownership_request(
