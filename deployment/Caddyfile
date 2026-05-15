@@ -96,8 +96,8 @@ __CDN_DOMAIN__ {
 
 		rate_limit {
 			zone cdn_per_ip {
-				key    {remote_host}
-				events 60
+				key    {http.request.header.CF-Connecting-IP}{remote_host}
+				events 600
 				window 1s
 			}
 		}

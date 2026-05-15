@@ -7,7 +7,8 @@ import {
   ACCOUNT_ID,
   confirmDirect,
   confirmIndexed,
-  getClient,
+  getRelayedClient,
+  integrationFetch,
   testAudioBlob,
   testImageBlob,
   testId,
@@ -20,7 +21,7 @@ describe('social', () => {
   const imagePostId = testId();
 
   beforeAll(async () => {
-    os = await getClient();
+    os = await getRelayedClient();
   });
 
   // ── Post ──────────────────────────────────────────────────────────────
@@ -553,6 +554,31 @@ describe('social', () => {
       if (!profile) throw new Error('profile avatar missing from index');
       expect(profile.avatar).toMatch(/^ipfs:\/\//);
     }, 25_000);
+
+    it('should resolve the indexed avatar to a fetchable image URL', async () => {
+      const profile = await confirmIndexed(
+        async () => {
+          const value = await os.profiles.get(ACCOUNT_ID);
+          return typeof value?.avatar === 'string' &&
+            value.avatar.startsWith('ipfs://') &&
+            value.extra[avatarField] === 'blob-avatar-test'
+            ? value
+            : null;
+        },
+        'profile avatar materialised URL',
+        { timeoutMs: 20_000, intervalMs: 2_000 }
+      );
+
+      if (!profile) throw new Error('profile avatar missing from profile API');
+      const avatarUrl = os.profiles.avatarUrl(profile);
+      expect(avatarUrl).toBeTruthy();
+      expect(avatarUrl).toContain('/ipfs/');
+      expect(avatarUrl).toContain(profile.avatar!.slice('ipfs://'.length));
+
+      const resp = await integrationFetch(avatarUrl!, { method: 'HEAD' });
+      expect(resp.ok).toBe(true);
+      expect(resp.headers.get('content-type')).toContain('image');
+    }, 60_000);
   });
 
   // ── Direct Reads ─────────────────────────────────────────────────────
