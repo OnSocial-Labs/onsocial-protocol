@@ -23,6 +23,93 @@ function makeOs(body: unknown) {
   return { os, fetch };
 }
 
+function makeOsWithGraph(handler: (body: Record<string, unknown>) => unknown) {
+  const fetch = vi
+    .fn()
+    .mockImplementation((_input: unknown, init?: RequestInit) => {
+      const rawBody = typeof init?.body === 'string' ? init.body : '{}';
+      const body = JSON.parse(rawBody) as Record<string, unknown>;
+      const responseBody = handler(body);
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: () => Promise.resolve(responseBody),
+        text: () => Promise.resolve(JSON.stringify(responseBody)),
+      });
+    });
+  const os = new OnSocial({
+    gatewayUrl: 'https://g.test',
+    fetch,
+    apiKey: 'test-key',
+  });
+  return { os, fetch };
+}
+
+function replyRow(
+  replyAuthor: string,
+  replyId: string,
+  parentPath: string,
+  blockHeight: number,
+  groupId?: string
+) {
+  return {
+    replyAuthor,
+    replyId,
+    value: JSON.stringify({ v: 1, text: replyId }),
+    blockHeight,
+    blockTimestamp: blockHeight * 10,
+    groupId,
+    parentAuthor: parentPath.split('/')[0],
+    parentPath,
+    parentType: 'post',
+  };
+}
+
+function quoteRow(
+  quoteAuthor: string,
+  quoteId: string,
+  refPath: string,
+  blockHeight: number,
+  groupId?: string
+) {
+  return {
+    quoteAuthor,
+    quoteId,
+    value: JSON.stringify({ v: 1, text: quoteId }),
+    blockHeight,
+    blockTimestamp: blockHeight * 10,
+    groupId,
+    refAuthor: refPath.split('/')[0],
+    refPath,
+    refType: 'quote',
+  };
+}
+
+function makeThreadGraph(opts: {
+  repliesByParent?: Record<string, Array<Record<string, unknown>>>;
+  quotesByRef?: Record<string, Array<Record<string, unknown>>>;
+}) {
+  return makeOsWithGraph((body) => {
+    const variables = body.variables as Record<string, unknown>;
+    const offset = Number(variables.offset ?? 0);
+    const limit = Number(variables.limit ?? 100);
+    const query = String(body.query ?? '');
+
+    if (query.includes('threadReplies')) {
+      const rows = opts.repliesByParent?.[String(variables.parentPath)] ?? [];
+      return { data: { threadReplies: rows.slice(offset, offset + limit) } };
+    }
+
+    if (query.includes('quotes')) {
+      const rows = opts.quotesByRef?.[String(variables.refPath)] ?? [];
+      return { data: { quotes: rows.slice(offset, offset + limit) } };
+    }
+
+    return { data: {} };
+  });
+}
+
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 describe('QueryModule', () => {
@@ -528,6 +615,127 @@ describe('QueryModule', () => {
     });
   });
 
+  describe('getThreadTree()', () => {
+    it('walks nested replies, quote replies, and quote-of-quote branches', async () => {
+      const rootPath = 'alice.near/post/root';
+      const r1Path = 'bob.near/post/r1';
+      const q1Path = 'carol.near/post/q1';
+      const { os } = makeThreadGraph({
+        repliesByParent: {
+          [rootPath]: [replyRow('bob.near', 'r1', rootPath, 11)],
+          [r1Path]: [replyRow('dan.near', 'r2', r1Path, 12)],
+          [q1Path]: [replyRow('erin.near', 'qr1', q1Path, 14)],
+        },
+        quotesByRef: {
+          [rootPath]: [quoteRow('carol.near', 'q1', rootPath, 13)],
+          [q1Path]: [quoteRow('fay.near', 'q2', q1Path, 15)],
+        },
+      });
+
+      const tree = await os.query.threads.tree('alice.near', 'root', {
+        depth: 3,
+        pageSize: 10,
+      });
+
+      expect(tree.rootPath).toBe(rootPath);
+      expect(tree.truncated).toBe(false);
+      expect(tree.replies[0].post.postId).toBe('r1');
+      expect(tree.replies[0].replies[0].post.postId).toBe('r2');
+      expect(tree.quotes[0].post.postId).toBe('q1');
+      expect(tree.quotes[0].post.refPath).toBe(rootPath);
+      expect(tree.quotes[0].replies[0].post.postId).toBe('qr1');
+      expect(tree.quotes[0].replies[0].post.parentPath).toBe(q1Path);
+      expect(tree.quotes[0].quotes[0].post.postId).toBe('q2');
+      expect(tree.quotes[0].quotes[0].post.refPath).toBe(q1Path);
+      expect(tree.flat.map((node) => node.post.postId)).toEqual([
+        'r1',
+        'r2',
+        'q1',
+        'qr1',
+        'q2',
+      ]);
+    });
+
+    it('honors depth=1 for immediate children only', async () => {
+      const rootPath = 'alice.near/post/root';
+      const r1Path = 'bob.near/post/r1';
+      const q1Path = 'carol.near/post/q1';
+      const { os, fetch } = makeThreadGraph({
+        repliesByParent: {
+          [rootPath]: [replyRow('bob.near', 'r1', rootPath, 11)],
+          [r1Path]: [replyRow('dan.near', 'r2', r1Path, 12)],
+          [q1Path]: [replyRow('erin.near', 'qr1', q1Path, 14)],
+        },
+        quotesByRef: {
+          [rootPath]: [quoteRow('carol.near', 'q1', rootPath, 13)],
+        },
+      });
+
+      const tree = await os.query.threads.tree('alice.near', 'root', {
+        depth: 1,
+      });
+
+      expect(tree.replies[0].replies).toEqual([]);
+      expect(tree.quotes[0].replies).toEqual([]);
+      expect(tree.flat.map((node) => node.post.postId)).toEqual(['r1', 'q1']);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('paginates long sibling lists while building shallow trees', async () => {
+      const rootPath = 'alice.near/post/root';
+      const { os, fetch } = makeThreadGraph({
+        repliesByParent: {
+          [rootPath]: [
+            replyRow('bob.near', 'r1', rootPath, 11),
+            replyRow('bob.near', 'r2', rootPath, 12),
+            replyRow('bob.near', 'r3', rootPath, 13),
+          ],
+        },
+      });
+
+      const tree = await os.query.threads.tree('alice.near', 'root', {
+        depth: 1,
+        includeQuotes: false,
+        pageSize: 2,
+        replyLimit: 10,
+      });
+
+      expect(tree.replies.map((node) => node.post.postId)).toEqual([
+        'r1',
+        'r2',
+        'r3',
+      ]);
+      const offsets = fetch.mock.calls.map((call) => {
+        const body = JSON.parse(
+          String((call as unknown as [unknown, RequestInit])[1].body)
+        );
+        return body.variables.offset;
+      });
+      expect(offsets).toEqual([0, 2]);
+    });
+
+    it('stops expansion at maxNodes and reports truncation', async () => {
+      const rootPath = 'alice.near/post/root';
+      const { os } = makeThreadGraph({
+        repliesByParent: {
+          [rootPath]: [
+            replyRow('bob.near', 'r1', rootPath, 11),
+            replyRow('bob.near', 'r2', rootPath, 12),
+          ],
+        },
+      });
+
+      const tree = await os.query.threads.tree('alice.near', 'root', {
+        depth: 1,
+        includeQuotes: false,
+        maxNodes: 1,
+      });
+
+      expect(tree.truncated).toBe(true);
+      expect(tree.flat.map((node) => node.post.postId)).toEqual(['r1']);
+    });
+  });
+
   describe('getQuotesForGroupPost()', () => {
     it('accepts a typed GroupPostRef', async () => {
       const { os, fetch } = makeOs({ data: { quotes: [] } });
@@ -543,6 +751,31 @@ describe('QueryModule', () => {
         'alice.near/groups/dao/content/post/root'
       );
       expect(body.variables.refAuthor).toBe('alice.near');
+    });
+  });
+
+  describe('getGroupThreadTree()', () => {
+    it('uses the full group content path for typed refs', async () => {
+      const parentPath = 'alice.near/groups/dao/content/post/root';
+      const { os, fetch } = makeThreadGraph({
+        repliesByParent: {
+          [parentPath]: [replyRow('bob.near', 'r1', parentPath, 11, 'dao')],
+        },
+      });
+
+      const tree = await os.query.groups.threadTree(
+        { author: 'alice.near', groupId: 'dao', postId: 'root' },
+        { depth: 1, includeQuotes: false }
+      );
+
+      expect(tree.rootPath).toBe(parentPath);
+      expect(tree.replies[0].path).toBe('bob.near/groups/dao/content/post/r1');
+      const body = JSON.parse(
+        String(
+          (fetch.mock.calls[0] as unknown as [unknown, RequestInit])[1].body
+        )
+      );
+      expect(body.variables.parentPath).toBe(parentPath);
     });
   });
 

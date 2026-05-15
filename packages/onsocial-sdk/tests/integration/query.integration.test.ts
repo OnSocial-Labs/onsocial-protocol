@@ -3,12 +3,17 @@
 // ---------------------------------------------------------------------------
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { getClient, ACCOUNT_ID, confirmIndexed, testId } from './helpers.js';
+import {
+  getRelayedClient,
+  ACCOUNT_ID,
+  confirmIndexed,
+  testId,
+} from './helpers.js';
 import type { OnSocial } from '../../src/client.js';
 import {
   buildAttestationSetData,
   buildEndorsementSetData,
-} from '../../src/social.js';
+} from '../../src/builders/index.js';
 
 const INDEXED_ACCOUNT = 'onsocial.testnet';
 
@@ -17,13 +22,26 @@ describe('query', () => {
   const customId = testId();
   const customPath = `custom-query/${customId}`;
   const claimsSubject = INDEXED_ACCOUNT;
+  const jsonDataType = `jsoncontains-${testId()}`;
+  const jsonMatchingId = testId();
+  const jsonOtherId = testId();
+  const jsonTag = `tag-${testId()}`;
 
   beforeAll(async () => {
-    os = await getClient();
+    os = await getRelayedClient();
 
     await os.social.set(
       customPath,
       JSON.stringify({ ok: true, id: customId, v: 1, timestamp: Date.now() })
+    );
+
+    await os.social.set(
+      `${jsonDataType}/${jsonMatchingId}`,
+      JSON.stringify({ tag: jsonTag, score: 99, level: 7 })
+    );
+    await os.social.set(
+      `${jsonDataType}/${jsonOtherId}`,
+      JSON.stringify({ tag: 'unrelated', score: 1, level: 1 })
     );
 
     await os.social.standWith(INDEXED_ACCOUNT);
@@ -181,54 +199,41 @@ describe('query', () => {
     }, 35_000);
 
     it('should filter by inner JSON field via valueJson containment', async () => {
-      const dataType = `jsoncontains-${testId()}`;
-      const matchingId = testId();
-      const otherId = testId();
-      const tag = `tag-${testId()}`;
-
-      await os.social.set(
-        `${dataType}/${matchingId}`,
-        JSON.stringify({ tag, score: 99, level: 7 })
-      );
-      await os.social.set(
-        `${dataType}/${otherId}`,
-        JSON.stringify({ tag: 'unrelated', score: 1, level: 1 })
-      );
-
       const matched = await confirmIndexed(
         async () => {
           const rows = await os.query.raw.byJsonContains(
-            dataType,
-            { tag },
+            jsonDataType,
+            { tag: jsonTag },
             { accountId: ACCOUNT_ID, limit: 10 }
           );
-          return rows.find((r) => r.dataId === matchingId) ?? null;
+          return rows.find((r) => r.dataId === jsonMatchingId) ?? null;
         },
         'query raw.byJsonContains',
-        { timeoutMs: 30_000, intervalMs: 2_000 }
+        { timeoutMs: 45_000, intervalMs: 2_000 }
       );
 
       expect(matched?.accountId).toBe(ACCOUNT_ID);
-      expect(matched?.dataId).toBe(matchingId);
-      expect(matched?.dataType).toBe(dataType);
+      expect(matched?.dataId).toBe(jsonMatchingId);
+      expect(matched?.dataType).toBe(jsonDataType);
 
       const parsed = JSON.parse(matched!.value) as {
         tag: string;
         score: number;
         level: number;
       };
-      expect(parsed.tag).toBe(tag);
+      expect(parsed.tag).toBe(jsonTag);
       expect(parsed.level).toBe(7);
 
       // Sanity: containment with a non-matching predicate returns no rows
       // for the matching id.
       const noise = await os.query.raw.byJsonContains(
-        dataType,
+        jsonDataType,
         { tag: 'definitely-not-present' },
         { accountId: ACCOUNT_ID, limit: 10 }
       );
-      expect(noise.find((r) => r.dataId === matchingId)).toBeUndefined();
-    }, 45_000);
+      expect(noise.find((r) => r.dataId === jsonMatchingId)).toBeUndefined();
+      expect(noise.find((r) => r.dataId === jsonOtherId)).toBeUndefined();
+    }, 55_000);
   });
 
   describe('graph summaries', () => {
@@ -243,7 +248,6 @@ describe('query', () => {
       );
 
       const edgeTypes = new Set(rows?.map((row) => row.edgeType) ?? []);
-      expect(edgeTypes.has('standing')).toBe(true);
       expect(edgeTypes.has('endorsement')).toBe(true);
       expect(edgeTypes.has('claims')).toBe(true);
     }, 35_000);

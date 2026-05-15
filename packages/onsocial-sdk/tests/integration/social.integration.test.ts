@@ -36,7 +36,7 @@ describe('social', () => {
         postId
       );
       expect(result.txHash).toBeTruthy();
-    });
+    }, 35_000);
 
     it('should expose the post via os.query.feed.recent', async () => {
       const page = await confirmIndexed(

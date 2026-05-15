@@ -9,8 +9,7 @@ import {
   ACCOUNT_ID,
   confirmDirect,
   confirmIndexed,
-  getClient,
-  getClientForAccount,
+  getRelayedClient,
   INTEGRATION_SETUP_TIMEOUT_MS,
   testId,
 } from './helpers.js';
@@ -31,10 +30,10 @@ describe('groups', () => {
   let groupCountBefore = 0;
 
   beforeAll(async () => {
-    os = await getClient();
-    requesterOs = await getClientForAccount(requesterId);
-    rejectRequesterOs = await getClientForAccount(rejectRequesterId);
-    cancelRequesterOs = await getClientForAccount(cancelRequesterId);
+    os = await getRelayedClient();
+    requesterOs = await getRelayedClient(requesterId);
+    rejectRequesterOs = await getRelayedClient(rejectRequesterId);
+    cancelRequesterOs = await getRelayedClient(cancelRequesterId);
     groupCountBefore = await os.query.stats.groupCount();
   }, INTEGRATION_SETUP_TIMEOUT_MS);
 

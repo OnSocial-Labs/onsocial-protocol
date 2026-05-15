@@ -4,14 +4,19 @@
 
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { OnSocial } from '../../src/client.js';
-import { ACCOUNT_ID, confirmDirect, getClient, testId } from './helpers.js';
+import {
+  ACCOUNT_ID,
+  confirmDirect,
+  getRelayedClient,
+  testId,
+} from './helpers.js';
 
 describe('pages', () => {
   let os: OnSocial;
   const tagline = `SDK page ${testId()}`;
 
   beforeAll(async () => {
-    os = await getClient();
+    os = await getRelayedClient();
   });
 
   it('should set the full page config', async () => {

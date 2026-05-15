@@ -15,7 +15,7 @@ export interface OnSocialConfig {
   network?: Network;
   /** Gateway base URL override. Derived from network when omitted. */
   gatewayUrl?: string;
-  /** API key for server-side usage (X-API-Key header). */
+  /** OnAPI key for gateway auth (sent as X-API-Key). */
   apiKey?: string;
   /**
    * Actor ID for API-key auth — the end-user account that owns the data.
@@ -62,9 +62,14 @@ export interface OnSocialConfig {
     | { provider: 'custom'; impl: unknown }
     | unknown;
   /**
-   * Default broadcast target for `os.execute()` and other write paths.
-   * Defaults to `'gateway'`. Can be overridden per call via
-   * `ExecuteOptions.broadcast`.
+   * Advanced broadcast override for `os.execute()` and other write paths.
+   * Leave unset for the canonical OnSocial path: SDK signs a NEP-366
+   * `SignedDelegateAction`, posts it to the authenticated gateway
+   * `/relay/delegate` endpoint, and the gateway forwards it to the private
+   * relayer.
+   *
+   * Direct relayer and wallet broadcasts are for self-hosted, diagnostics, or
+   * explicit wallet-paid/admin flows. They are not the normal OnAPI path.
    */
   defaultBroadcast?: BroadcastTarget;
   /**
@@ -128,25 +133,26 @@ export type WalletBroadcastSigner = (req: {
 }>;
 
 /**
- * Where to broadcast a NEP-366 SignedDelegateAction (or, for `kind: 'wallet'`,
- * a regular `SignedTransaction` signed by the user's wallet).
+ * Advanced broadcast target for a write.
  *
- *   • `'gateway'` (default) — POST `{ signed_delegate }` to
- *     `${gatewayUrl}/relay/delegate`. Authenticated, metered, indexers/billing
- *     handled by the OnSocial gateway.
+ * Normal OnSocial apps should leave this unset. The SDK then uses `'gateway'`:
+ * it signs a NEP-366 `SignedDelegateAction`, POSTs it to
+ * `${gatewayUrl}/relay/delegate` with gateway auth, and the gateway forwards it
+ * to the private relayer.
  *
- *   • `{ kind: 'relayer', url, apiKey?, headers? }` — POST the same payload
- *     directly to any NEP-366-compatible relayer endpoint (your own, a
- *     third-party, a self-hosted [packages/onsocial-relayer](packages/onsocial-relayer/)
- *     instance). The signed delegate bytes are standard NEP-366; only the
+ *   • `'gateway'` (default) — canonical OnAPI path. Authenticated, metered,
+ *     indexed, and billed by the OnSocial gateway.
+ *
+ *   • `{ kind: 'relayer', url, apiKey?, headers? }` — advanced/self-hosted
+ *     mode. POST the same payload directly to a NEP-366-compatible relayer
+ *     endpoint. The signed delegate bytes are standard NEP-366; only the
  *     transport changes. `apiKey` is sent as `X-Api-Key`; `headers` are merged
  *     after.
  *
- *   • `{ kind: 'wallet', signer, gas?, deposit? }` — **no relayer at all**.
- *     The action is wrapped as `execute({ request })` and handed to the
- *     wallet, which signs + broadcasts as a regular transaction (the user
- *     pays gas). Does NOT require an attached `Session`. Useful for fully
- *     self-hosted dApps or wallet-pays power-user flows.
+ *   • `{ kind: 'wallet', signer, gas?, deposit? }` — explicit wallet-paid
+ *     fallback/admin mode. The action is wrapped as a contract FunctionCall
+ *     (`execute` by default, or `execute_admin` for admin modules) and handed
+ *     to the wallet. The user pays gas and no relayer/session is involved.
  *
  * Set per-call via `ExecuteOptions.broadcast` or globally via
  * `OnSocialConfig.defaultBroadcast`.

@@ -6,6 +6,7 @@ import {
 import { NEAR } from '../near-amount.js';
 import { SignerRequiredError } from '../errors.js';
 import { __resetLatestBlockCache } from '../internal/session-bridge.js';
+import { NeedsWalletConfirmationError } from '../advanced/session.js';
 
 beforeEach(() => {
   __resetLatestBlockCache();
@@ -23,6 +24,7 @@ function makeMod(overrides: {
   }>;
   /** Pass null to simulate no attached session (forces SessionRequiredError). */
   noSession?: boolean;
+  walletSigner?: ReturnType<typeof vi.fn>;
 }) {
   const get =
     overrides.get ??
@@ -63,7 +65,10 @@ function makeMod(overrides: {
   return new StorageAccountModule(
     http as never,
     () => session,
-    overrides.signer
+    overrides.signer,
+    overrides.walletSigner
+      ? () => ({ kind: 'wallet', signer: overrides.walletSigner }) as never
+      : undefined
   );
 }
 
@@ -119,95 +124,112 @@ describe('StorageAccountModule reads', () => {
   });
 });
 
-describe('StorageAccountModule gasless writes', () => {
+describe('StorageAccountModule wallet admin writes', () => {
   const CORE = 'core.onsocial.near';
 
-  it('withdraw() with no amount sends empty value object', async () => {
-    const signed: Array<{
-      action: Record<string, unknown>;
-      targetContract: string;
-    }> = [];
-    const mod = makeMod({ signed });
+  it('throws NeedsWalletConfirmationError without wallet broadcast', async () => {
+    const mod = makeMod({});
+    await expect(mod.withdraw()).rejects.toBeInstanceOf(
+      NeedsWalletConfirmationError
+    );
+    await expect(mod.tip('bob.near', NEAR('0.001'))).rejects.toBeInstanceOf(
+      NeedsWalletConfirmationError
+    );
+  });
+
+  it('withdraw() routes an execute_admin wallet transaction with empty value object', async () => {
+    const walletSigner = vi.fn().mockResolvedValue({ txHash: 'tx-w' });
+    const mod = makeMod({ walletSigner, noSession: true });
     await mod.withdraw();
-    expect(signed).toEqual([
-      {
-        action: { type: 'set', data: { 'storage/withdraw': {} } },
-        targetContract: CORE,
-      },
-    ]);
+    expect(walletSigner).toHaveBeenCalledWith({
+      receiverId: CORE,
+      actions: [
+        {
+          type: 'FunctionCall',
+          methodName: 'execute_admin',
+          args: {
+            request: {
+              action: { type: 'set', data: { 'storage/withdraw': {} } },
+            },
+          },
+          gas: '300000000000000',
+          deposit: '0',
+        },
+      ],
+    });
   });
 
   it('withdraw(amount) attaches yocto string', async () => {
-    const signed: Array<{
-      action: Record<string, unknown>;
-      targetContract: string;
-    }> = [];
-    const mod = makeMod({ signed });
+    const walletSigner = vi.fn().mockResolvedValue({ txHash: 'tx-w' });
+    const mod = makeMod({ walletSigner, noSession: true });
     await mod.withdraw(NEAR('0.5'));
-    expect(signed[0]).toEqual({
-      action: {
-        type: 'set',
-        data: { 'storage/withdraw': { amount: '500000000000000000000000' } },
+    const call = walletSigner.mock.calls[0][0];
+    expect(call.actions[0].args.request.action).toEqual({
+      type: 'set',
+      data: {
+        'storage/withdraw': { amount: '500000000000000000000000' },
       },
-      targetContract: CORE,
     });
   });
 
   it('tip emits storage/tip with target_id and amount', async () => {
-    const signed: Array<{
-      action: Record<string, unknown>;
-      targetContract: string;
-    }> = [];
-    const mod = makeMod({ signed });
+    const walletSigner = vi.fn().mockResolvedValue({ txHash: 'tx-w' });
+    const mod = makeMod({ walletSigner, noSession: true });
     await mod.tip('bob.near', NEAR('0.001'));
-    expect(signed[0]).toEqual({
-      action: {
-        type: 'set',
-        data: {
-          'storage/tip': {
-            target_id: 'bob.near',
-            amount: '1000000000000000000000',
-          },
+    expect(
+      walletSigner.mock.calls[0][0].actions[0].args.request.action
+    ).toEqual({
+      type: 'set',
+      data: {
+        'storage/tip': {
+          target_id: 'bob.near',
+          amount: '1000000000000000000000',
         },
       },
-      targetContract: CORE,
     });
   });
 
   it('sponsor / unsponsor map to share_storage / return_shared_storage', async () => {
-    const signed: Array<{
-      action: Record<string, unknown>;
-      targetContract: string;
-    }> = [];
-    const mod = makeMod({ signed });
+    const walletSigner = vi.fn().mockResolvedValue({ txHash: 'tx-w' });
+    const mod = makeMod({ walletSigner, noSession: true });
     await mod.sponsor('bob.near', { maxBytes: 4096 });
     await mod.unsponsor();
-    expect((signed[0].action as { data: unknown }).data).toEqual({
-      'storage/share_storage': { target_id: 'bob.near', max_bytes: 4096 },
+    expect(
+      walletSigner.mock.calls[0][0].actions[0].args.request.action
+    ).toEqual({
+      type: 'set',
+      data: {
+        'storage/share_storage': { target_id: 'bob.near', max_bytes: 4096 },
+      },
     });
-    expect((signed[1].action as { data: unknown }).data).toEqual({
-      'storage/return_shared_storage': {},
+    expect(
+      walletSigner.mock.calls[1][0].actions[0].args.request.action
+    ).toEqual({
+      type: 'set',
+      data: { 'storage/return_shared_storage': {} },
     });
   });
 
   it('setSponsorQuota and setSponsorDefault snake_case the args', async () => {
-    const signed: Array<{
-      action: Record<string, unknown>;
-      targetContract: string;
-    }> = [];
-    const mod = makeMod({ signed });
+    const walletSigner = vi.fn().mockResolvedValue({ txHash: 'tx-w' });
+    const mod = makeMod({ walletSigner, noSession: true });
     await mod.setSponsorQuota('cool-cats', 'bob.near', {
       enabled: true,
       dailyRefillBytes: 100,
       allowanceMaxBytes: 1000,
     });
-    expect((signed[0].action as { data: unknown }).data).toEqual({
-      'storage/group_sponsor_quota_set': {
-        group_id: 'cool-cats',
-        target_id: 'bob.near',
-        enabled: true,
-        daily_refill_bytes: 100,
-        allowance_max_bytes: 1000,
+    expect(
+      walletSigner.mock.calls[0][0].actions[0].args.request.action
+    ).toEqual({
+      type: 'set',
+      data: {
+        'storage/group_sponsor_quota_set': {
+          group_id: 'cool-cats',
+          target_id: 'bob.near',
+          enabled: true,
+          daily_refill_bytes: 100,
+          allowance_max_bytes: 1000,
+        },
       },
     });
 
@@ -216,12 +238,17 @@ describe('StorageAccountModule gasless writes', () => {
       dailyRefillBytes: 0,
       allowanceMaxBytes: 0,
     });
-    expect((signed[1].action as { data: unknown }).data).toEqual({
-      'storage/group_sponsor_default_set': {
-        group_id: 'cool-cats',
-        enabled: false,
-        daily_refill_bytes: 0,
-        allowance_max_bytes: 0,
+    expect(
+      walletSigner.mock.calls[1][0].actions[0].args.request.action
+    ).toEqual({
+      type: 'set',
+      data: {
+        'storage/group_sponsor_default_set': {
+          group_id: 'cool-cats',
+          enabled: false,
+          daily_refill_bytes: 0,
+          allowance_max_bytes: 0,
+        },
       },
     });
   });
@@ -229,11 +256,19 @@ describe('StorageAccountModule gasless writes', () => {
   it('fires onSubmitted/onConfirmed observers', async () => {
     const onSubmitted = vi.fn();
     const onConfirmed = vi.fn();
-    const post = vi.fn().mockResolvedValue({ txHash: 'tx-w' });
-    const mod = makeMod({ post });
+    const walletSigner = vi.fn().mockResolvedValue({ txHash: 'tx-w' });
+    const mod = makeMod({ walletSigner, noSession: true });
     await mod.withdraw(undefined, { onSubmitted, onConfirmed });
-    expect(onSubmitted).toHaveBeenCalledWith({ txHash: 'tx-w' });
-    expect(onConfirmed).toHaveBeenCalledWith({ txHash: 'tx-w' });
+    expect(onSubmitted).toHaveBeenCalledWith({
+      txHash: 'tx-w',
+      ok: true,
+      raw: { txHash: 'tx-w' },
+    });
+    expect(onConfirmed).toHaveBeenCalledWith({
+      txHash: 'tx-w',
+      ok: true,
+      raw: { txHash: 'tx-w' },
+    });
   });
 });
 
@@ -245,7 +280,7 @@ describe('StorageAccountModule deposit-funded writes', () => {
       code: 'SIGNER_REQUIRED',
       payload: {
         receiverId: 'core.onsocial.near',
-        methodName: 'execute',
+        methodName: 'execute_admin',
         deposit: '100000000000000000000000',
         gas: '300000000000000',
         args: {
@@ -271,7 +306,7 @@ describe('StorageAccountModule deposit-funded writes', () => {
     expect(r.txHash).toBe('tx-d');
     expect(signer.signAndSendTransaction).toHaveBeenCalledWith({
       receiverId: 'core.onsocial.near',
-      methodName: 'execute',
+      methodName: 'execute_admin',
       args: {
         request: {
           action: {
@@ -295,6 +330,7 @@ describe('StorageAccountModule deposit-funded writes', () => {
     await mod.fundGroupPool('cool-cats', NEAR('1'));
     expect(signer.signAndSendTransaction).toHaveBeenCalledWith(
       expect.objectContaining({
+        methodName: 'execute_admin',
         deposit: '1000000000000000000000000',
         args: {
           request: {

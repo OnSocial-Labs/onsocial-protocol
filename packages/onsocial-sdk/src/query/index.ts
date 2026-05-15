@@ -63,6 +63,12 @@ export type {
   FeedFilter,
   GroupFeedFilter,
 } from './types.js';
+export type {
+  ThreadEdge,
+  ThreadNode,
+  ThreadTree,
+  ThreadTreeOptions,
+} from './threads.js';
 export type { SaveRow } from './saves.js';
 export type { EndorsementRow } from './endorsements.js';
 export type { ClaimRow } from './attestations.js';

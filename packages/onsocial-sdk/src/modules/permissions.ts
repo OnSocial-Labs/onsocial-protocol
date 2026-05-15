@@ -58,22 +58,12 @@ export class PermissionsModule {
   }
 
   /**
-   * Send a permission write through the NEP-366 delegate path with
-   * `wait=true` so the SDK throws `RelayExecutionError` if the transaction
-   * reverts on chain (e.g. attempting a direct grant on a member-driven
-   * group's `groups/{id}/...` paths, which the contract intentionally
-   * rejects).
-   *
-   * Without this, callers would see a plausible `success: true, tx_hash: ...`
-   * response while the chain silently rejected the grant — corrupting any
-   * subsequent logic that assumed the permission landed.
-   *
    * Privileged actions (`set_permission`, `set_key_permission`) are routed
    * through the contract's `execute_admin` entrypoint. Session FunctionCall
-   * keys are scoped to `execute` only, so these calls require a wallet
-   * broadcast target (FullAccess key / wallet popup); session-relayed admin
-   * grants will be rejected by the user's access key. Governance actions
-   * (proposals, votes) keep the regular `execute` path.
+   * keys are scoped to `execute` only, so these calls require an explicit
+   * wallet-paid broadcast target; session-relayed admin grants will be
+   * rejected by the user's access key. Governance actions (proposals, votes)
+   * keep the regular `execute` path.
    */
   private execute(action: Record<string, unknown>): Promise<RelayResponse> {
     const type = String(action.type ?? '');
@@ -115,10 +105,9 @@ export class PermissionsModule {
    * Grant a path-scoped permission directly via `set_permission`.
    *
    * **Member-driven groups:** When `path` targets `groups/{id}/...` and the
-   * group has `member_driven: true`, this call will be **rejected on-chain**
-   * and surface as a `RelayExecutionError`. Use
-   * `os.groups.proposePermissionGrant(groupId, ...)` instead so the change
-   * passes through governance.
+   * group has `member_driven: true`, use `grantOrPropose()` so the SDK files
+   * a governance proposal instead. Direct grants use `execute_admin`, so they
+   * require an explicit wallet broadcast target.
    *
    * Use `os.groups.isMemberDriven(groupId)` to detect which mode applies.
    */

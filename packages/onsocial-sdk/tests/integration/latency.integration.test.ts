@@ -2,13 +2,13 @@
 // Latency benchmark: write → substreams read (via OnAPI)
 // ---------------------------------------------------------------------------
 import { describe, it, expect, beforeAll } from 'vitest';
-import { getClient, ACCOUNT_ID, testId } from './helpers.js';
+import { getRelayedClient, ACCOUNT_ID, testId } from './helpers.js';
 import type { OnSocial } from '../../src/client.js';
 
 describe('latency', () => {
   let os: OnSocial;
   beforeAll(async () => {
-    os = await getClient();
+    os = await getRelayedClient();
   });
 
   it('post: write → substreams read', async () => {
