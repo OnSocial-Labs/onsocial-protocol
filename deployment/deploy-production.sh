@@ -135,7 +135,7 @@ CDN_DOMAIN="cdn.onsocial.id"
 if [[ "$PUBLIC_DOMAIN" = "testnet.onsocial.id" ]]; then
   CDN_DOMAIN="cdn.testnet.onsocial.id"
 fi
-CDN_UPSTREAM="${LIGHTHOUSE_CDN_UPSTREAM:-ipfs.io}"
+CDN_UPSTREAM="${LIGHTHOUSE_CDN_UPSTREAM:-gateway.lighthouse.storage}"
 sed \
   -e "s/__SERVER_NAMES__/$SERVER_NAMES/g" \
   -e "s/__PAGES_HOST_PATTERNS__/$PAGES_HOST_PATTERNS/g" \
