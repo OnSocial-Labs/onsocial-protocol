@@ -16,6 +16,7 @@ import { SCARCES_VERBS } from './verbs.js';
 import { resolveContractId } from '../../internal/contracts.js';
 import { buildQuickMintAction } from '../../builders/scarces/tokens.js';
 import { hasLocalUpload, resolveScarceMedia } from './_media.js';
+import { scarcesRelayOptions } from './_relay.js';
 
 export interface ScarceTokenMetadata {
   title?: string | null;
@@ -75,11 +76,8 @@ export class ScarcesTokensApi {
     this._scarcesContract = resolveContractId(_http.network, 'scarces');
   }
 
-  private _broadcastOpts():
-    | { broadcast: ReturnType<BroadcastGetter> }
-    | undefined {
-    const b = this._getBroadcast?.();
-    return b !== undefined ? { broadcast: b } : undefined;
+  private _relayOpts(opts?: { confirmation?: boolean }) {
+    return scarcesRelayOptions(this._getBroadcast, opts);
   }
 
   /** Read a native scarce token's NEP-171 metadata. */
@@ -157,14 +155,13 @@ export class ScarcesTokensApi {
         ...(mediaCid ? { mediaCid } : {}),
         ...(mediaHash ? { mediaHash } : {}),
       });
-      const broadcast = this._getBroadcast?.();
       return signAndRelay(
         this._http,
         this._getSession(),
         action as Record<string, unknown>,
         this._scarcesContract,
         'scarces.tokens.mint',
-        broadcast !== undefined ? { broadcast } : undefined
+        this._relayOpts()
       ) as Promise<MintResponse>;
     }
 
@@ -197,7 +194,7 @@ export class ScarcesTokensApi {
       SCARCES_VERBS.MINT,
       form,
       'scarces.tokens.mint',
-      this._broadcastOpts()
+      this._relayOpts()
     );
     return {
       ...result.relay,
@@ -222,7 +219,7 @@ export class ScarcesTokensApi {
         memo,
       },
       'scarces.transfer',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -238,7 +235,7 @@ export class ScarcesTokensApi {
         transfers,
       },
       'scarces.batchTransfer',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -253,7 +250,7 @@ export class ScarcesTokensApi {
         collectionId,
       },
       'scarces.burn',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -273,7 +270,7 @@ export class ScarcesTokensApi {
         newExpiresAt,
       },
       'scarces.renewToken',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -288,7 +285,7 @@ export class ScarcesTokensApi {
         collectionId,
       },
       'scarces.redeemToken',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -308,7 +305,7 @@ export class ScarcesTokensApi {
         memo,
       },
       'scarces.revokeToken',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -326,7 +323,7 @@ export class ScarcesTokensApi {
         collectionId,
       },
       'scarces.claimRefund',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 }

@@ -10,6 +10,7 @@ import {
   type BroadcastGetter,
 } from '../../internal/session-bridge.js';
 import { SCARCES_VERBS } from './verbs.js';
+import { scarcesRelayOptions } from './_relay.js';
 
 export class ScarcesApprovalsApi {
   constructor(
@@ -18,11 +19,8 @@ export class ScarcesApprovalsApi {
     private _getBroadcast?: BroadcastGetter
   ) {}
 
-  private _broadcastOpts():
-    | { broadcast: ReturnType<BroadcastGetter> }
-    | undefined {
-    const b = this._getBroadcast?.();
-    return b !== undefined ? { broadcast: b } : undefined;
+  private _relayOpts(opts?: { confirmation?: boolean }) {
+    return scarcesRelayOptions(this._getBroadcast, opts);
   }
 
   /**
@@ -44,7 +42,7 @@ export class ScarcesApprovalsApi {
       SCARCES_VERBS.APPROVE,
       { tokenId, accountId, ...(msg !== undefined ? { msg } : {}) },
       'scarces.approve',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -56,7 +54,7 @@ export class ScarcesApprovalsApi {
       SCARCES_VERBS.REVOKE_APPROVAL,
       { tokenId, accountId },
       'scarces.revokeApproval',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -68,7 +66,7 @@ export class ScarcesApprovalsApi {
       SCARCES_VERBS.REVOKE_ALL_APPROVALS,
       { tokenId },
       'scarces.revokeAllApprovals',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 }

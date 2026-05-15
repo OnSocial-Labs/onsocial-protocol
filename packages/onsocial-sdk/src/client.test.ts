@@ -35,6 +35,7 @@ function fakeSession(
     targetContract: string;
     targetAccount?: string;
     requestOptions?: Record<string, unknown>;
+    depositYocto?: string;
   }>
 ) {
   return {
@@ -44,6 +45,7 @@ function fakeSession(
         targetContract?: string;
         targetAccount?: string;
         requestOptions?: Record<string, unknown>;
+        depositYocto?: string | bigint;
       }) => {
         capture?.push({
           action: args.action,
@@ -53,6 +55,9 @@ function fakeSession(
           }),
           ...(args.requestOptions !== undefined && {
             requestOptions: args.requestOptions,
+          }),
+          ...(args.depositYocto !== undefined && {
+            depositYocto: String(args.depositYocto),
           }),
         });
         return { base64: 'BASE64_DELEGATE_BLOB', nonce: 1 };
@@ -110,6 +115,7 @@ describe('OnSocial.execute', () => {
       targetContract: string;
       targetAccount?: string;
       requestOptions?: Record<string, unknown>;
+      depositYocto?: string;
     }> = [];
     os.attachSession(fakeSession(captured));
 
@@ -119,6 +125,7 @@ describe('OnSocial.execute', () => {
         targetAccount: 'alice.near',
         targetContract: 'core.onsocial.testnet',
         options: { refund_unused_deposit: true },
+        depositYocto: '1',
       }
     );
 
@@ -127,6 +134,7 @@ describe('OnSocial.execute', () => {
       targetContract: 'core.onsocial.testnet',
       targetAccount: 'alice.near',
       requestOptions: { refund_unused_deposit: true },
+      depositYocto: '1',
     });
   });
 

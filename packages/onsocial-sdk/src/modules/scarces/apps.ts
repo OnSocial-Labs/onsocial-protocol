@@ -11,6 +11,7 @@ import {
   type BroadcastGetter,
 } from '../../internal/session-bridge.js';
 import { SCARCES_VERBS } from './verbs.js';
+import { scarcesRelayOptions } from './_relay.js';
 
 /** Optional config fields for `register` and `setConfig`. */
 export interface AppConfigInput {
@@ -28,11 +29,8 @@ export class ScarcesAppsApi {
     private _getBroadcast?: BroadcastGetter
   ) {}
 
-  private _broadcastOpts():
-    | { broadcast: ReturnType<BroadcastGetter> }
-    | undefined {
-    const b = this._getBroadcast?.();
-    return b !== undefined ? { broadcast: b } : undefined;
+  private _relayOpts(opts?: { confirmation?: boolean }) {
+    return scarcesRelayOptions(this._getBroadcast, opts);
   }
 
   /** Register a new app. Caller becomes the initial owner. */
@@ -49,7 +47,7 @@ export class ScarcesAppsApi {
         ...config,
       },
       'scarces.registerApp',
-      this._broadcastOpts()
+      this._relayOpts()
     );
   }
 
@@ -67,7 +65,7 @@ export class ScarcesAppsApi {
         ...config,
       },
       'scarces.setAppConfig',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -79,7 +77,7 @@ export class ScarcesAppsApi {
       SCARCES_VERBS.FUND_APP_POOL,
       { appId },
       'scarces.fundAppPool',
-      this._broadcastOpts()
+      this._relayOpts()
     );
   }
 
@@ -97,7 +95,7 @@ export class ScarcesAppsApi {
         amountNear,
       },
       'scarces.withdrawAppPool',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -115,7 +113,7 @@ export class ScarcesAppsApi {
         newOwner,
       },
       'scarces.transferAppOwnership',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -130,7 +128,7 @@ export class ScarcesAppsApi {
         accountId,
       },
       'scarces.addModerator',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -148,7 +146,7 @@ export class ScarcesAppsApi {
         accountId,
       },
       'scarces.removeModerator',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -168,7 +166,7 @@ export class ScarcesAppsApi {
         reason,
       },
       'scarces.banCollection',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -186,7 +184,7 @@ export class ScarcesAppsApi {
         collectionId,
       },
       'scarces.unbanCollection',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 }

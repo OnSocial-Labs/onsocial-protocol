@@ -49,6 +49,7 @@ export async function composeAndSign(
     broadcast?: BroadcastTarget;
     wait?: boolean;
     methodName?: string;
+    depositYocto?: bigint | string;
   }
 ): Promise<RelayResponse> {
   const target = opts?.broadcast ?? 'gateway';
@@ -74,7 +75,7 @@ export async function composeAndSign(
     prepared.action,
     prepared.target_account,
     methodLabel,
-    opts
+    mergePreparedOptions(opts, prepared)
   );
 }
 
@@ -93,6 +94,8 @@ export async function signAndRelay(
     latestBlockHeightProvider?: LatestBlockHeightProvider;
     /** Inner FunctionCall method (`execute` or `execute_admin`). Default `execute`. */
     methodName?: string;
+    /** Inner FunctionCall attached deposit in yoctoNEAR. */
+    depositYocto?: bigint | string;
   }
 ): Promise<RelayResponse> {
   const target = opts?.broadcast ?? 'gateway';
@@ -136,6 +139,7 @@ export async function composeFormAndSign<T = RelayResponse>(
     broadcast?: BroadcastTarget;
     wait?: boolean;
     methodName?: string;
+    depositYocto?: bigint | string;
   }
 ): Promise<FormPrepareResult<T>> {
   const target = opts?.broadcast ?? 'gateway';
@@ -163,7 +167,7 @@ export async function composeFormAndSign<T = RelayResponse>(
     prepared.action,
     prepared.target_account,
     methodLabel,
-    opts
+    mergePreparedOptions(opts, prepared)
   )) as unknown as T;
 
   return {
@@ -230,6 +234,7 @@ async function relayDelegate<T>(
     broadcast?: BroadcastTarget;
     latestBlockHeightProvider?: LatestBlockHeightProvider;
     methodName?: string;
+    depositYocto?: bigint | string;
   }
 ): Promise<T> {
   const latest = await getLatestBlockHeight(
@@ -247,6 +252,9 @@ async function relayDelegate<T>(
       requestOptions: opts.requestOptions,
     }),
     ...(opts?.methodName !== undefined && { methodName: opts.methodName }),
+    ...(opts?.depositYocto !== undefined && {
+      depositYocto: opts.depositYocto,
+    }),
   });
 
   const target: BroadcastTarget = opts?.broadcast ?? 'gateway';
@@ -298,6 +306,7 @@ async function broadcastViaWallet(
     targetAccount?: string;
     requestOptions?: Record<string, unknown>;
     methodName?: string;
+    depositYocto?: bigint | string;
   }
 ): Promise<RelayResponse> {
   const request: Record<string, unknown> = { action };
@@ -316,7 +325,7 @@ async function broadcastViaWallet(
         methodName: opts?.methodName ?? 'execute',
         args: { request },
         gas: String(target.gas ?? DEFAULT_FUNCTION_CALL_GAS),
-        deposit: String(target.deposit ?? '0'),
+        deposit: String(target.deposit ?? opts?.depositYocto ?? '0'),
       },
     ],
   });
@@ -331,4 +340,34 @@ async function broadcastViaWallet(
     ok: true,
     raw: result,
   };
+}
+
+function mergePreparedOptions<T extends { depositYocto?: bigint | string }>(
+  opts: T | undefined,
+  prepared: PrepareResponse
+): T | undefined {
+  if (opts?.depositYocto !== undefined) return opts;
+  const depositYocto = preparedDepositYocto(prepared);
+  if (depositYocto === undefined) return opts;
+  return { ...opts, depositYocto } as T;
+}
+
+function preparedDepositYocto(prepared: PrepareResponse): string | undefined {
+  const record = prepared as Record<string, unknown>;
+  return (
+    parseYocto(record.deposit_yocto) ??
+    parseYocto(record.depositYocto) ??
+    parseYocto(record.attached_deposit_yocto) ??
+    parseYocto(record.attachedDepositYocto)
+  );
+}
+
+function parseYocto(value: unknown): string | undefined {
+  if (typeof value === 'bigint' && value >= 0n) return value.toString();
+  if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) {
+    return String(value);
+  }
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return /^\d+$/.test(trimmed) ? trimmed : undefined;
 }

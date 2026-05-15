@@ -14,6 +14,7 @@ import {
   type BroadcastGetter,
 } from '../../internal/session-bridge.js';
 import { SCARCES_VERBS } from './verbs.js';
+import { scarcesRelayOptions } from './_relay.js';
 
 export class ScarcesOffersApi {
   constructor(
@@ -22,11 +23,8 @@ export class ScarcesOffersApi {
     private _getBroadcast?: BroadcastGetter
   ) {}
 
-  private _broadcastOpts():
-    | { broadcast: ReturnType<BroadcastGetter> }
-    | undefined {
-    const b = this._getBroadcast?.();
-    return b !== undefined ? { broadcast: b } : undefined;
+  private _relayOpts(opts?: { confirmation?: boolean }) {
+    return scarcesRelayOptions(this._getBroadcast, opts);
   }
 
   /** Make an offer on a specific scarce. */
@@ -37,7 +35,7 @@ export class ScarcesOffersApi {
       SCARCES_VERBS.MAKE_OFFER,
       opts,
       'scarces.makeOffer',
-      this._broadcastOpts()
+      this._relayOpts()
     );
   }
 
@@ -51,7 +49,7 @@ export class ScarcesOffersApi {
         tokenId,
       },
       'scarces.cancelOffer',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -66,7 +64,7 @@ export class ScarcesOffersApi {
         buyerId,
       },
       'scarces.acceptOffer',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -78,7 +76,7 @@ export class ScarcesOffersApi {
       SCARCES_VERBS.MAKE_COLLECTION_OFFER,
       opts,
       'scarces.makeCollectionOffer',
-      this._broadcastOpts()
+      this._relayOpts()
     );
   }
 
@@ -92,7 +90,7 @@ export class ScarcesOffersApi {
         collectionId,
       },
       'scarces.cancelCollectionOffer',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -112,7 +110,7 @@ export class ScarcesOffersApi {
         buyerId,
       },
       'scarces.acceptCollectionOffer',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 }

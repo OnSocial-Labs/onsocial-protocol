@@ -65,6 +65,8 @@ export interface ExecuteOptions {
   targetContract?: string;
   /** Contract-level options (e.g. `refund_unused_deposit`). */
   options?: Record<string, unknown>;
+  /** Inner FunctionCall attached deposit in yoctoNEAR. */
+  depositYocto?: bigint | string;
   /**
    * Wait for the on-chain receipt and throw `RelayExecutionError` on revert.
    * Use for permission grants, governance writes, or any flow where a silent
@@ -535,6 +537,9 @@ export class OnSocial {
           targetAccount: opts.targetAccount,
         }),
         ...(opts?.options !== undefined && { requestOptions: opts.options }),
+        ...(opts?.depositYocto !== undefined && {
+          depositYocto: opts.depositYocto,
+        }),
         ...(opts?.wait !== undefined && { wait: opts.wait }),
         ...(broadcast !== undefined && { broadcast }),
         ...(this._latestBlockHeightProvider !== undefined && {

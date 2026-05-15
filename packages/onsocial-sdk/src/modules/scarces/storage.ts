@@ -11,6 +11,7 @@ import {
   type BroadcastGetter,
 } from '../../internal/session-bridge.js';
 import { SCARCES_VERBS } from './verbs.js';
+import { scarcesRelayOptions } from './_relay.js';
 
 export class ScarcesStorageApi {
   constructor(
@@ -19,11 +20,8 @@ export class ScarcesStorageApi {
     private _getBroadcast?: BroadcastGetter
   ) {}
 
-  private _broadcastOpts():
-    | { broadcast: ReturnType<BroadcastGetter> }
-    | undefined {
-    const b = this._getBroadcast?.();
-    return b !== undefined ? { broadcast: b } : undefined;
+  private _relayOpts(opts?: { confirmation?: boolean; depositYocto?: string }) {
+    return scarcesRelayOptions(this._getBroadcast, opts);
   }
 
   /**
@@ -47,7 +45,7 @@ export class ScarcesStorageApi {
         ...(accountId ? { accountId } : {}),
       },
       'scarces.storage.deposit',
-      this._broadcastOpts()
+      this._relayOpts({ depositYocto: nearToYocto(amountNear).toString() })
     );
   }
 
@@ -59,7 +57,7 @@ export class ScarcesStorageApi {
       SCARCES_VERBS.STORAGE_WITHDRAW,
       amountNear !== undefined ? { amountNear } : {},
       'scarces.storage.withdraw',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -74,7 +72,7 @@ export class ScarcesStorageApi {
       SCARCES_VERBS.SET_SPENDING_CAP,
       { amount },
       'scarces.storage.setSpendingCap',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -89,7 +87,7 @@ export class ScarcesStorageApi {
       SCARCES_VERBS.WITHDRAW_PLATFORM_STORAGE,
       { amountNear },
       'scarces.storage.withdrawPlatformStorage',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 

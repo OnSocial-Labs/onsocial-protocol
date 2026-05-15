@@ -29,6 +29,30 @@ pub struct ExecuteParams {
     pub wait: bool,
 }
 
+const MAX_DELEGATE_INNER_DEPOSIT_YOCTO: u128 = 1;
+
+fn validate_delegate_inner_action(
+    action: &Action,
+    allowed_methods: &[String],
+) -> Result<(), String> {
+    let fc = match action {
+        Action::FunctionCall(fc) => fc.as_ref(),
+        _ => return Err("Only FunctionCall inner actions are allowed".to_string()),
+    };
+
+    if !allowed_methods.iter().any(|m| m == &fc.method_name) {
+        return Err(format!("Inner method not allowed: {}", fc.method_name));
+    }
+
+    if fc.deposit > MAX_DELEGATE_INNER_DEPOSIT_YOCTO {
+        return Err(format!(
+            "Inner action deposit exceeds max {MAX_DELEGATE_INNER_DEPOSIT_YOCTO} yoctoNEAR"
+        ));
+    }
+
+    Ok(())
+}
+
 /// Readiness probe. 200 once pool has active keys.
 pub async fn ready(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     if !state.ready.load(Ordering::Relaxed)
@@ -257,9 +281,10 @@ pub async fn execute_delegate(
     }
 
     // ── Inner-action shape check ────────────────────────────────────────
-    // Sessions only ever submit `execute` FunctionCalls with zero deposit.
-    // Reject anything else so a stolen session key cannot be coerced into
-    // calling other methods or attaching value through the relayer.
+    // Sessions only submit allowlisted FunctionCalls. Permit the standard
+    // 1-yocto confirmation deposit, but reject value-bearing deposits so a
+    // stolen session key cannot be coerced into spending user funds through
+    // the relayer.
     if signed_delegate.delegate_action.actions.is_empty() {
         METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
         warn!(req_id = %req_id, "delegate has no inner actions");
@@ -273,50 +298,17 @@ pub async fn execute_delegate(
     }
     for nda in &signed_delegate.delegate_action.actions {
         let action: Action = nda.clone().into();
-        let fc = match &action {
-            Action::FunctionCall(fc) => fc.as_ref(),
-            other => {
-                METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
-                warn!(
-                    req_id = %req_id,
-                    kind = ?std::mem::discriminant(other),
-                    "delegate inner action is not a FunctionCall"
-                );
-                return (
-                    StatusCode::BAD_REQUEST,
-                    Json(ExecuteResponse::err(
-                        "Only FunctionCall inner actions are allowed",
-                        None,
-                    )),
-                );
-            }
-        };
-        if !state.allowed_methods.iter().any(|m| m == &fc.method_name) {
+        if let Err(message) = validate_delegate_inner_action(&action, &state.allowed_methods) {
             METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
             warn!(
                 req_id = %req_id,
-                method = %fc.method_name,
+                error = %message,
                 allowed = ?state.allowed_methods,
-                "delegate inner method not in allowlist"
+                "delegate inner action rejected"
             );
             return (
                 StatusCode::BAD_REQUEST,
-                Json(ExecuteResponse::err(
-                    format!("Inner method not allowed: {}", fc.method_name),
-                    None,
-                )),
-            );
-        }
-        if fc.deposit != 0 {
-            METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
-            warn!(
-                req_id = %req_id,
-                deposit = %fc.deposit,
-                "delegate inner action carries a deposit"
-            );
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(ExecuteResponse::err("Inner action deposit must be 0", None)),
+                Json(ExecuteResponse::err(message, None)),
             );
         }
     }
@@ -654,5 +646,47 @@ mod tests {
         let args: Value = serde_json::from_slice(&fc.args).unwrap();
         assert_eq!(args["request"]["action"]["type"], "claim");
         assert_eq!(args["request"]["action"]["account_id"], "alice.testnet");
+    }
+
+    #[test]
+    fn delegate_validation_allows_one_yocto_confirmation_deposit() {
+        let action = Action::FunctionCall(Box::new(FunctionCallAction {
+            method_name: "execute".to_string(),
+            args: vec![],
+            gas: 100_000_000_000_000,
+            deposit: 1,
+        }));
+
+        assert!(validate_delegate_inner_action(&action, &["execute".to_string()]).is_ok());
+    }
+
+    #[test]
+    fn delegate_validation_rejects_value_bearing_deposits() {
+        let action = Action::FunctionCall(Box::new(FunctionCallAction {
+            method_name: "execute".to_string(),
+            args: vec![],
+            gas: 100_000_000_000_000,
+            deposit: 2,
+        }));
+
+        assert_eq!(
+            validate_delegate_inner_action(&action, &["execute".to_string()]),
+            Err("Inner action deposit exceeds max 1 yoctoNEAR".to_string())
+        );
+    }
+
+    #[test]
+    fn delegate_validation_rejects_non_allowlisted_methods() {
+        let action = Action::FunctionCall(Box::new(FunctionCallAction {
+            method_name: "danger".to_string(),
+            args: vec![],
+            gas: 100_000_000_000_000,
+            deposit: 0,
+        }));
+
+        assert_eq!(
+            validate_delegate_inner_action(&action, &["execute".to_string()]),
+            Err("Inner method not allowed: danger".to_string())
+        );
     }
 }

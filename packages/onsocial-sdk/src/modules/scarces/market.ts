@@ -10,6 +10,7 @@ import {
   type BroadcastGetter,
 } from '../../internal/session-bridge.js';
 import { SCARCES_VERBS } from './verbs.js';
+import { scarcesRelayOptions } from './_relay.js';
 
 export class ScarcesMarketApi {
   constructor(
@@ -18,11 +19,8 @@ export class ScarcesMarketApi {
     private _getBroadcast?: BroadcastGetter
   ) {}
 
-  private _broadcastOpts():
-    | { broadcast: ReturnType<BroadcastGetter> }
-    | undefined {
-    const b = this._getBroadcast?.();
-    return b !== undefined ? { broadcast: b } : undefined;
+  private _relayOpts(opts?: { confirmation?: boolean }) {
+    return scarcesRelayOptions(this._getBroadcast, opts);
   }
 
   /**
@@ -40,7 +38,7 @@ export class ScarcesMarketApi {
       SCARCES_VERBS.LIST_NATIVE_SCARCE,
       opts,
       'scarces.listNativeScarce',
-      this._broadcastOpts()
+      this._relayOpts()
     );
   }
 
@@ -54,7 +52,7 @@ export class ScarcesMarketApi {
         tokenId,
       },
       'scarces.delistNativeScarce',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -68,7 +66,7 @@ export class ScarcesMarketApi {
         tokenId,
       },
       'scarces.purchaseNativeScarce',
-      this._broadcastOpts()
+      this._relayOpts()
     );
   }
 
@@ -88,7 +86,7 @@ export class ScarcesMarketApi {
         priceNear,
       },
       'scarces.updateSalePrice',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 
@@ -106,7 +104,7 @@ export class ScarcesMarketApi {
         tokenId,
       },
       'scarces.delistExternalScarce',
-      this._broadcastOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 }
