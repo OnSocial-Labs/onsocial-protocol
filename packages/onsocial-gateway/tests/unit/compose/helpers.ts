@@ -37,6 +37,10 @@ vi.mock('../../../src/logger.js', () => ({
   },
 }));
 
+vi.mock('../../../src/services/storage/lighthouse-upload.js', () => ({
+  uploadNamedBufferToLighthouse: vi.fn(),
+}));
+
 // Stub verifyCidLive in tests — it would otherwise issue a real HEAD via the
 // (mocked) global fetch, consuming a call slot and confusing assertions on
 // `mockFetch.mock.calls[0]`. The real function is exercised in integration
@@ -54,10 +58,12 @@ vi.mock('../../../src/services/compose/shared.js', async (importActual) => {
 // ---------------------------------------------------------------------------
 
 import lighthouse from '@lighthouse-web3/sdk';
+import { uploadNamedBufferToLighthouse } from '../../../src/services/storage/lighthouse-upload.js';
 import type { UploadedFile } from '../../../src/services/compose/index.js';
 
 export const mockUploadBuffer = vi.mocked(lighthouse.uploadBuffer);
 export const mockUploadText = vi.mocked(lighthouse.uploadText);
+export const mockUploadNamedBuffer = vi.mocked(uploadNamedBufferToLighthouse);
 
 // Mock global fetch for relay calls
 export const mockFetch = vi.fn();
@@ -79,7 +85,11 @@ export function makeFile(overrides: Partial<UploadedFile> = {}): UploadedFile {
 }
 
 export function mockLighthouseUpload(cid = 'QmTestCid123', size = 15) {
-  mockUploadBuffer.mockResolvedValue({ data: { Hash: cid, Size: size } });
+  mockUploadNamedBuffer.mockResolvedValue({
+    Hash: cid,
+    Size: size,
+    Name: 'photo.jpg',
+  });
 }
 
 export function mockLighthouseText(cid = 'QmMetaCid456', size = 200) {

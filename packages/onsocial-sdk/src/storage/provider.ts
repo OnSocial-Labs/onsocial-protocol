@@ -61,6 +61,28 @@ export interface UploadOptions {
   filename?: string;
 }
 
+const MIME_EXTENSIONS: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+  'image/svg+xml': 'svg',
+  'audio/mpeg': 'mp3',
+  'audio/mp4': 'm4a',
+  'audio/ogg': 'ogg',
+  'audio/wav': 'wav',
+  'video/mp4': 'mp4',
+  'video/webm': 'webm',
+  'application/json': 'json',
+  'text/plain': 'txt',
+};
+
+function defaultUploadFilename(mime: string): string {
+  const ext = MIME_EXTENSIONS[mime.toLowerCase()];
+  return ext ? `upload.${ext}` : 'upload';
+}
+
 // ── probeFile ──────────────────────────────────────────────────────────────
 
 /**
@@ -94,7 +116,9 @@ export class GatewayProvider implements StorageProvider {
     const form = new FormData();
     const name =
       _opts?.filename ??
-      (file instanceof File && file.name ? file.name : 'upload');
+      (typeof File !== 'undefined' && file instanceof File && file.name
+        ? file.name
+        : defaultUploadFilename(probed.mime));
     form.append('file', file, name);
     const res = await this._http.requestForm<{
       cid: string;
