@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
-  mockUploadBuffer,
+  mockUploadNamedBuffer,
   mockUploadText,
   mockLighthouseUpload,
   mockLighthouseText,
@@ -26,11 +26,13 @@ describe('uploadToLighthouse', () => {
 
     const result = await uploadToLighthouse(makeFile());
 
-    expect(mockUploadBuffer).toHaveBeenCalledWith(
-      expect.any(Buffer),
-      'test-lighthouse-key',
-      { headers: { storageType: 'annual' } }
-    );
+    expect(mockUploadNamedBuffer).toHaveBeenCalledWith({
+      buffer: expect.any(Buffer),
+      apiKey: 'test-lighthouse-key',
+      filename: 'photo.jpg',
+      mime: 'image/jpeg',
+      storageType: 'annual',
+    });
     expect(result.cid).toBe('QmPhoto123');
     expect(result.size).toBe(1024);
     expect(result.url).toBe(

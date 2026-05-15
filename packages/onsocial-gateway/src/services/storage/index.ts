@@ -4,6 +4,7 @@ import lighthouse from '@lighthouse-web3/sdk';
 import { config } from '../../config/index.js';
 import { logger } from '../../logger.js';
 import { requireAuth } from '../../middleware/index.js';
+import { uploadNamedBufferToLighthouse } from './lighthouse-upload.js';
 
 const router = Router();
 
@@ -13,6 +14,7 @@ const upload = multer({
   limits: { fileSize: maxFileSize },
   storage: multer.memoryStorage(),
 });
+const STORAGE_TYPE = process.env.LIGHTHOUSE_STORAGE_TYPE || 'annual';
 
 const getApiKey = (): string => {
   const key = config.lighthouseApiKey;
@@ -42,11 +44,19 @@ router.post(
     }
 
     try {
-      const result = await lighthouse.uploadBuffer(
-        req.file.buffer,
-        getApiKey()
-      );
-      res.json({ cid: result.data.Hash, size: result.data.Size });
+      const result = await uploadNamedBufferToLighthouse({
+        buffer: req.file.buffer,
+        apiKey: getApiKey(),
+        filename: req.file.originalname,
+        mime: req.file.mimetype,
+        storageType: STORAGE_TYPE,
+      });
+      res.json({
+        cid: result.Hash,
+        size: result.Size ?? req.file.size,
+        mime: req.file.mimetype,
+        name: result.Name ?? req.file.originalname,
+      });
     } catch (error) {
       logger.error({ error }, 'Upload error');
       res.status(500).json({ error: 'Upload failed' });

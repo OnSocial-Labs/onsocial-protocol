@@ -8,6 +8,7 @@ import lighthouse from '@lighthouse-web3/sdk';
 import { createHash } from 'node:crypto';
 import { config } from '../../config/index.js';
 import { logger } from '../../logger.js';
+import { uploadNamedBufferToLighthouse } from '../storage/lighthouse-upload.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -163,17 +164,19 @@ export async function verifyCidLive(
 export async function uploadToLighthouse(
   file: UploadedFile
 ): Promise<UploadResult> {
-  const result = await lighthouse.uploadBuffer(
-    file.buffer,
-    getApiKey(),
-    uploadOpts
-  );
-  const cid = result.data.Hash;
+  const result = await uploadNamedBufferToLighthouse({
+    buffer: file.buffer,
+    apiKey: getApiKey(),
+    filename: file.originalname,
+    mime: file.mimetype,
+    storageType: STORAGE_TYPE,
+  });
+  const cid = result.Hash;
   const hash = createHash('sha256').update(file.buffer).digest('base64');
 
   return {
     cid,
-    size: Number(result.data.Size),
+    size: Number(result.Size ?? file.size),
     url: gatewayUrl(cid),
     hash,
   };

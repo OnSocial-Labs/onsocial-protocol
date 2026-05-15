@@ -51,6 +51,21 @@ describe('GatewayProvider', () => {
       '/storage/upload',
       expect.any(FormData)
     );
+    const form = vi.mocked(http.requestForm).mock.calls[0]?.[2] as FormData;
+    const uploaded = form.get('file') as File;
+    expect(uploaded.name).toBe('upload.webp');
+    expect(uploaded.type).toBe('image/webp');
+  });
+
+  it('preserves File names when uploading through the gateway', async () => {
+    const http = mockHttp();
+    const gw = new GatewayProvider(http);
+    await gw.upload(new File(['x'], 'avatar.png', { type: 'image/png' }));
+
+    const form = vi.mocked(http.requestForm).mock.calls[0]?.[2] as FormData;
+    const uploaded = form.get('file') as File;
+    expect(uploaded.name).toBe('avatar.png');
+    expect(uploaded.type).toBe('image/png');
   });
 
   it('falls back to probed mime/size if gateway omits them', async () => {
