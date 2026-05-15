@@ -138,6 +138,28 @@ cache-clean:
 	fi
 	@echo "$(SUCCESS)All caches cleaned$(RESET)"
 
+# Trim stale Rust build artifacts (older than DAYS, default 7) without
+# destroying the incremental cache. Keeps cached rebuilds fast but stops
+# target/ from snowballing toward the 19 GB it reached previously.
+# Usage:
+#   make trim-build-cache              # delete artifacts not used in 7 days
+#   make trim-build-cache DAYS=3       # tighter trim
+#   make trim-build-cache DAYS=0       # full clean (equivalent to cargo clean)
+DAYS ?= 7
+.PHONY: trim-build-cache
+trim-build-cache: build-docker-contracts
+	@echo "$(CLEAN) Trimming Rust build artifacts older than $(DAYS) day(s)..."
+ifeq ($(DAYS),0)
+	$(call docker_run_contracts,cargo clean)
+else
+	$(call docker_run_contracts,cargo sweep --time $(DAYS) --recursive /code)
+endif
+	@if command -v fstrim >/dev/null 2>&1; then \
+		echo "$(CLEAN) Returning freed blocks to host (fstrim)..."; \
+		sudo -n fstrim -av 2>/dev/null || echo "$(WARNING)fstrim skipped (sudo required or unsupported FS)$(RESET)"; \
+	fi
+	@echo "$(SUCCESS)Build cache trimmed$(RESET)"
+
 # =============================================================================
 # CLEANUP TARGETS
 # =============================================================================
