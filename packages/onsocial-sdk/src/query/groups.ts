@@ -11,6 +11,7 @@ import type {
   Paginated,
   PostRow,
 } from './types.js';
+import type { ThreadTree, ThreadTreeOptions } from './threads.js';
 import {
   POST_ROW_FIELDS,
   audienceLikeValue,
@@ -154,6 +155,16 @@ export class GroupsQuery {
     opts: { limit?: number } = {}
   ): Promise<PostRow[]> {
     return this._q.threads.repliesByPath(groupPostPathValue(rootPath), opts);
+  }
+
+  /**
+   * Recursive reply/quote tree for a group post by reference or full path.
+   */
+  threadTree(
+    rootPath: string | GroupPostRef,
+    opts: ThreadTreeOptions = {}
+  ): Promise<ThreadTree> {
+    return this._q.threads.treeByPath(groupPostPathValue(rootPath), opts);
   }
 
   /**

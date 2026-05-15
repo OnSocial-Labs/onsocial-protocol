@@ -33,10 +33,10 @@ export type { PrepareResponse } from '../types.js';
  *
  * The HTTP `/compose/prepare/<verb>` call is always made against the gateway
  * (that is where action-building lives). Once the action is prepared, the
- * broadcast leg honors `opts.broadcast` exactly like `signAndRelay`:
+ * broadcast leg defaults to the canonical OnAPI lane:
  *   • `'gateway'` (default)  → POST `/relay/delegate` with a SignedDelegateAction
- *   • `{ kind: 'relayer' }`  → POST to an external relayer URL
- *   • `{ kind: 'wallet' }`   → user's wallet signs a regular FunctionCall
+ *   • `{ kind: 'relayer' }`  → advanced/self-hosted direct relayer URL
+ *   • `{ kind: 'wallet' }`   → explicit wallet-paid/admin FunctionCall
  *                              (no Session required for this branch)
  */
 export async function composeAndSign(
@@ -97,8 +97,8 @@ export async function signAndRelay(
 ): Promise<RelayResponse> {
   const target = opts?.broadcast ?? 'gateway';
 
-  // Wallet mode: skip NEP-366 entirely, hand a regular FunctionCall to the
-  // wallet (user pays gas). Does NOT require an attached Session.
+  // Advanced wallet mode skips NEP-366 entirely and hands a regular
+  // FunctionCall to the wallet. The user pays gas and no Session is required.
   if (typeof target === 'object' && target.kind === 'wallet') {
     return broadcastViaWallet(action, targetContract, target, opts);
   }

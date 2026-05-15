@@ -44,7 +44,7 @@ export class SignerRequiredError extends StorageAccountError {
    */
   readonly payload: {
     receiverId: string;
-    methodName: 'execute';
+    methodName: 'execute' | 'execute_admin';
     args: Record<string, unknown>;
     deposit: NearAmount;
     /** Suggested gas in yocto. */

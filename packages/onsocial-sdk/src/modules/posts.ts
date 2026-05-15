@@ -26,8 +26,9 @@ import type {
 /**
  * Post + reply + quote authoring (top-level feed and group feeds).
  *
- * All write methods require an attached session (or `defaultBroadcast: 'wallet'`)
- * and route through the relayer.
+ * Normal write methods require an attached session and route through the
+ * gateway delegate relay. Wallet broadcast is only for explicit wallet-paid
+ * fallback/admin flows.
  *
  * @throws {SessionRequiredError} If no session is attached and broadcast is not `'wallet'`.
  * @throws {RelayExecutionError} If the relayed transaction reverts on chain.
@@ -46,8 +47,9 @@ export class PostsModule {
    * Create a post.
    *
    * Auto-uploads anything passed in `files: File[]` or `image: File` via the
-   * client's configured StorageProvider, then writes the post via the gateway
-   * relayer. Feed metadata (`channel`, `kind`, `audiences`) is normalised.
+   * client's configured StorageProvider, then writes the post through the
+   * canonical gateway delegate path. Feed metadata (`channel`, `kind`,
+   * `audiences`) is normalised.
    *
    * ```ts
    * await os.posts.create({ text: 'gm' });

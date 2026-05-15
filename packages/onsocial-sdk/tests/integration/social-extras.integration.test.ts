@@ -9,7 +9,7 @@ import {
   ACCOUNT_ID,
   confirmDirect,
   confirmIndexed,
-  getClient,
+  getRelayedClient,
   testId,
 } from './helpers.js';
 import type { OnSocial } from '../../src/client.js';
@@ -18,7 +18,7 @@ describe('social-extras', () => {
   let os: OnSocial;
 
   beforeAll(async () => {
-    os = await getClient();
+    os = await getRelayedClient();
   });
 
   // ── Saves (private bookmarks) ─────────────────────────────────────────

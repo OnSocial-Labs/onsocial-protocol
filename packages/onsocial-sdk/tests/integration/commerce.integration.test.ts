@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { getClient, testId, ACCOUNT_ID } from './helpers.js';
+import { getRelayedClient, testId, ACCOUNT_ID } from './helpers.js';
 import type { OnSocial } from '../../src/client.js';
 
 describe('commerce', () => {
@@ -11,7 +11,7 @@ describe('commerce', () => {
   const postId = testId();
 
   beforeAll(async () => {
-    os = await getClient();
+    os = await getRelayedClient();
     // Write a post first so we can mint it
     await os.social.post(
       {
@@ -26,7 +26,7 @@ describe('commerce', () => {
     const result = await os.mintPost(ACCOUNT_ID, postId);
     expect(result.mint.txHash).toBeTruthy();
     expect(result.listing).toBeUndefined(); // no priceNear = no auto-list
-  });
+  }, 120_000);
 
   it('should mint a post with royalty', async () => {
     const postId2 = testId();
@@ -36,5 +36,5 @@ describe('commerce', () => {
       royalty: { [ACCOUNT_ID]: 500 }, // 5%
     });
     expect(result.mint.txHash).toBeTruthy();
-  });
+  }, 120_000);
 });

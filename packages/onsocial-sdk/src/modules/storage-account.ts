@@ -1,20 +1,21 @@
 // ---------------------------------------------------------------------------
 // OnSocial SDK — storage-account module
 //
-// On-chain Storage record management: reads, gasless writes via the relayer,
-// and deposit-funded writes that require a signer.
+// On-chain Storage record management: reads and storage-admin writes that
+// require a wallet-signed transaction.
 //
-// The "100% works through the relayer" methods are first-class. Methods that
-// require attached NEAR (deposit, fundPlatform, fundGroupPool, fundSharedPool)
-// throw `SignerRequiredError` with a payload the caller can hand to any
-// wallet adapter — completing the operation without the SDK shipping wallet
-// integrations of its own.
+// Contract storage operations are reserved `execute_admin` actions. The SDK
+// therefore never attempts to send them through a session FunctionCall key.
+// Deposit-funded methods throw `SignerRequiredError` with a payload the caller
+// can hand to any wallet adapter; zero-deposit admin methods require a wallet
+// broadcast target on the client.
 // ---------------------------------------------------------------------------
 
 import type { HttpClient } from '../internal/http.js';
 import { resolveContractId } from '../internal/contracts.js';
 import { NEAR, type NearAmount } from '../near-amount.js';
 import { SignerRequiredError } from '../errors.js';
+import { NeedsWalletConfirmationError } from '../advanced/session.js';
 import {
   signAndRelay,
   type SessionGetter,
@@ -47,7 +48,7 @@ export interface TxObserver {
 }
 
 /**
- * Options accepted by every gasless write — currently just observability.
+ * Options accepted by storage admin writes — currently just observability.
  */
 export type WriteOptions = TxObserver;
 
@@ -68,7 +69,7 @@ export interface TransactionSigner {
   /** Sign and broadcast a function call to `receiverId`. */
   signAndSendTransaction(req: {
     receiverId: string;
-    methodName: 'execute';
+    methodName: 'execute' | 'execute_admin';
     args: Record<string, unknown>;
     deposit: NearAmount;
     gas: string;
@@ -87,10 +88,10 @@ function toAmount(input: AmountInput): NearAmount {
  *
  * **Reads** are pure HTTP view calls.
  *
- * **Gasless writes** (`withdraw`, `tip`, `sponsor`, `unsponsor`,
- *  `setSponsorQuota`, `setSponsorDefault`) go through the relayer with
- *  `wait=true` so on-chain reverts surface as `RelayExecutionError` rather
- *  than silently succeeding.
+ * **Storage admin writes** (`withdraw`, `tip`, `sponsor`, `unsponsor`,
+ *  `setSponsorQuota`, `setSponsorDefault`) are contract-reserved operations.
+ *  They route through `execute_admin`, so they require an explicit wallet
+ *  broadcast target (`defaultBroadcast: { kind: 'wallet', signer }`).
  *
  * **Deposit-funded writes** (`deposit`, `fundPlatform`, `fundGroupPool`,
  *  `fundSharedPool`) require a `signer` — either configured per call via
@@ -107,7 +108,8 @@ function toAmount(input: AmountInput): NearAmount {
  * const alice = await os.storageAccount.balance('alice.testnet');
  * const pool = await os.storageAccount.groupPool('cool-cats');
  *
- * // Gasless writes (relayer)
+ * // Wallet-signed storage admin writes require
+ * // defaultBroadcast: { kind: 'wallet', signer } on the client.
  * await os.storageAccount.withdraw(NEAR('0.05'));
  * await os.storageAccount.tip('bob.testnet', NEAR('0.001'));
  * await os.storageAccount.sponsor('bob.testnet', { maxBytes: 4096 });
@@ -193,7 +195,7 @@ export class StorageAccountModule {
     return balance?.shared_storage ?? null;
   }
 
-  // ── Gasless writes (relayer) ──────────────────────────────────────────
+  // ── Wallet-signed storage admin writes ────────────────────────────────
 
   /**
    * Withdraw available balance to the caller. Omit `amount` to withdraw all
@@ -202,7 +204,7 @@ export class StorageAccountModule {
   withdraw(amount?: AmountInput, opts?: WriteOptions): Promise<RelayResponse> {
     const data: Record<string, unknown> = {};
     if (amount !== undefined) data.amount = toAmount(amount);
-    return this._gaslessSet('storage/withdraw', data, opts);
+    return this._adminSet('storage/withdraw', data, opts);
   }
 
   /** Move balance from caller's storage record to another account's. */
@@ -211,7 +213,7 @@ export class StorageAccountModule {
     amount: AmountInput,
     opts?: WriteOptions
   ): Promise<RelayResponse> {
-    return this._gaslessSet(
+    return this._adminSet(
       'storage/tip',
       { target_id: targetId, amount: toAmount(amount) },
       opts
@@ -227,7 +229,7 @@ export class StorageAccountModule {
     args: { maxBytes: number },
     opts?: WriteOptions
   ): Promise<RelayResponse> {
-    return this._gaslessSet(
+    return this._adminSet(
       'storage/share_storage',
       { target_id: targetId, max_bytes: args.maxBytes },
       opts
@@ -236,7 +238,7 @@ export class StorageAccountModule {
 
   /** Release the caller's currently received sponsorship allocation. */
   unsponsor(opts?: WriteOptions): Promise<RelayResponse> {
-    return this._gaslessSet('storage/return_shared_storage', {}, opts);
+    return this._adminSet('storage/return_shared_storage', {}, opts);
   }
 
   /**
@@ -253,7 +255,7 @@ export class StorageAccountModule {
     },
     opts?: WriteOptions
   ): Promise<RelayResponse> {
-    return this._gaslessSet(
+    return this._adminSet(
       'storage/group_sponsor_quota_set',
       {
         group_id: groupId,
@@ -276,7 +278,7 @@ export class StorageAccountModule {
     },
     opts?: WriteOptions
   ): Promise<RelayResponse> {
-    return this._gaslessSet(
+    return this._adminSet(
       'storage/group_sponsor_default_set',
       {
         group_id: groupId,
@@ -351,20 +353,28 @@ export class StorageAccountModule {
 
   // ── Internals ─────────────────────────────────────────────────────────
 
-  private async _gaslessSet(
+  private async _adminSet(
     storagePath: string,
     value: Record<string, unknown>,
     opts?: WriteOptions
   ): Promise<RelayResponse> {
     const action = { type: 'set', data: { [storagePath]: value } };
     const broadcast = this._getBroadcast?.();
+    if (typeof broadcast !== 'object' || broadcast.kind !== 'wallet') {
+      throw new NeedsWalletConfirmationError(
+        `storageAccount.${storagePath} requires a wallet-signed transaction (execute_admin / FullAccess key). ` +
+          `Configure OnSocial with { defaultBroadcast: { kind: 'wallet', signer } } before calling storage admin methods.`,
+        'wrong_method'
+      );
+    }
+
     const tx = await signAndRelay(
       this._http,
       this._getSession(),
       action,
       this._coreContract,
       `storageAccount.${storagePath}`,
-      { wait: true, ...(broadcast !== undefined && { broadcast }) }
+      { wait: true, methodName: 'execute_admin', broadcast }
     );
     opts?.onSubmitted?.(tx);
     opts?.onConfirmed?.(tx);
@@ -383,12 +393,12 @@ export class StorageAccountModule {
     const signer = opts?.signer ?? this._defaultSigner;
     if (!signer) {
       throw new SignerRequiredError(
-        `${storagePath} requires an attached deposit and cannot be relayed gasless. ` +
+        `${storagePath} requires an attached deposit and cannot use the session-relayed path. ` +
           `Configure a signer on the OnSocial client or pass { signer } to this call. ` +
           `The wallet-ready payload is on err.payload.`,
         {
           receiverId: this._coreContract,
-          methodName: 'execute',
+          methodName: 'execute_admin',
           args,
           deposit,
           gas: DEFAULT_DEPOSIT_GAS,
@@ -398,7 +408,7 @@ export class StorageAccountModule {
 
     const tx = await signer.signAndSendTransaction({
       receiverId: this._coreContract,
-      methodName: 'execute',
+      methodName: 'execute_admin',
       args,
       deposit,
       gas: DEFAULT_DEPOSIT_GAS,

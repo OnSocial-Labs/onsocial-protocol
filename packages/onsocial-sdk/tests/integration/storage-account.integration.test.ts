@@ -3,37 +3,27 @@
 //
 // Covers:
 //   - Reads against core.onsocial.testnet (balance/pools/allowance/sponsorship)
-//   - Gasless writes via the relayer with `wait=true`:
-//       * withdraw → confirmed by balance delta on the next read
-//       * tip      → confirmed by balance delta on BOTH sides + indexed event
-//   - On-chain error pass-through (tip-to-self, withdraw over-amount)
+//   - Storage admin writes clearly requiring a wallet `execute_admin` broadcast
 //   - SignerRequiredError shape check for deposit-funded writes
+//   - Regular session-relayed social writes still confirmed by direct/indexed reads
 //
 // Not covered here:
 //   - sponsor / unsponsor / setSponsor* — each account has a single outgoing
 //     sponsor slot that would clobber existing testnet state; covered by the
 //     contract's unit tests in storage_tip_test / sponsor tests.
-//   - deposit / fundPlatform / fundGroupPool / fundSharedPool — require
-//     attached NEAR; can only be triggered from a wallet signer.
-//
-// Money safety: tip + withdraw use 1000 yocto-NEAR each (1e-21 NEAR).
+//   - Successful storage admin writes — require a live wallet FullAccess signer.
 // ---------------------------------------------------------------------------
 
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { OnSocial } from '../../src/client.js';
-import {
-  ACCOUNT_ID,
-  confirmDirect,
-  getClient,
-  getClientForAccount,
-} from './helpers.js';
+import { ACCOUNT_ID, confirmDirect, getRelayedClient } from './helpers.js';
 import { NEAR } from '../../src/near-amount.js';
 import { SignerRequiredError } from '../../src/errors.js';
+import { NeedsWalletConfirmationError } from '../../src/advanced/session.js';
 
 // Sender for write tests — test03 is provisioned with idle balance headroom.
 // (test01/02 are storage-saturated; their available_balance() is 0.)
 const WRITE_SENDER = 'test03.onsocial.testnet';
-const TIP_RECIPIENT = 'test01.onsocial.testnet';
 const DUST_YOCTO = 1000n;
 const DUST_AMOUNT = NEAR.fromYocto(DUST_YOCTO);
 
@@ -42,8 +32,8 @@ describe('storageAccount', () => {
   let senderOs: OnSocial;
 
   beforeAll(async () => {
-    os = await getClient();
-    senderOs = await getClientForAccount(WRITE_SENDER);
+    os = await getRelayedClient();
+    senderOs = await getRelayedClient(WRITE_SENDER);
   });
 
   describe('reads', () => {
@@ -112,7 +102,7 @@ describe('storageAccount', () => {
         const e = err as SignerRequiredError;
         expect(e.code).toBe('SIGNER_REQUIRED');
         expect(e.payload.receiverId).toBe('core.onsocial.testnet');
-        expect(e.payload.methodName).toBe('execute');
+        expect(e.payload.methodName).toBe('execute_admin');
         expect(e.payload.deposit).toBe('100000000000000000000000');
         expect(e.payload.gas).toBe('300000000000000');
         expect(e.payload.args).toEqual({
@@ -145,122 +135,31 @@ describe('storageAccount', () => {
     });
   });
 
-  describe('gasless writes — full on-chain flow', () => {
-    it('withdraw moves dust from balance to wallet (delta confirmed on-chain)', async () => {
+  describe('storage admin writes', () => {
+    it('tip requires an explicit wallet broadcast instead of a session relay', async () => {
       const before = await os.storageAccount.balance(WRITE_SENDER);
       if (!before)
         throw new Error(`${WRITE_SENDER} must have a storage record`);
-      const beforeBal = BigInt(before.balance);
 
-      await senderOs.storageAccount.withdraw(DUST_AMOUNT);
-
-      const after = await confirmDirect(async () => {
-        const b = await os.storageAccount.balance(WRITE_SENDER);
-        return b && BigInt(b.balance) === beforeBal - DUST_YOCTO ? b : null;
-      }, 'withdraw balance delta');
-
-      expect(BigInt(after!.balance)).toBe(beforeBal - DUST_YOCTO);
-    }, 30_000);
-
-    it('tip transfers dust from sender to recipient (both deltas confirmed on-chain)', async () => {
-      const [senderBefore, recipientBefore] = await Promise.all([
-        os.storageAccount.balance(WRITE_SENDER),
-        os.storageAccount.balance(TIP_RECIPIENT),
-      ]);
-      if (!senderBefore)
-        throw new Error(`${WRITE_SENDER} must have a storage record`);
-      if (!recipientBefore)
-        throw new Error(`${TIP_RECIPIENT} must have a storage record`);
-
-      const senderBeforeBal = BigInt(senderBefore.balance);
-      const recipientBeforeBal = BigInt(recipientBefore.balance);
-
-      await senderOs.storageAccount.tip(TIP_RECIPIENT, DUST_AMOUNT);
-
-      const [senderAfter, recipientAfter] = await Promise.all([
-        confirmDirect(async () => {
-          const b = await os.storageAccount.balance(WRITE_SENDER);
-          return b && BigInt(b.balance) === senderBeforeBal - DUST_YOCTO
-            ? b
-            : null;
-        }, 'tip sender delta'),
-        confirmDirect(async () => {
-          const b = await os.storageAccount.balance(TIP_RECIPIENT);
-          return b && BigInt(b.balance) === recipientBeforeBal + DUST_YOCTO
-            ? b
-            : null;
-        }, 'tip recipient delta'),
-      ]);
-
-      expect(BigInt(senderAfter!.balance)).toBe(senderBeforeBal - DUST_YOCTO);
-      expect(BigInt(recipientAfter!.balance)).toBe(
-        recipientBeforeBal + DUST_YOCTO
-      );
-    }, 45_000);
-
-    it('tip surfaces as a "tip" storage_updates event in the indexer (when caught up)', async () => {
-      // Move another dust unit so we have a fresh recent event to find.
-      await senderOs.storageAccount.tip(TIP_RECIPIENT, DUST_AMOUNT);
-
-      // Lenient: the testnet substreams pipeline is currently behind, so
-      // a freshly-emitted tip event won't always show up in time. We assert
-      // the *query path* round-trips and — if the row is found — that its
-      // shape matches. A miss inside the timeout is treated as an indexer
-      // lag, not a test failure (tracked separately).
-      let event:
-        | Awaited<ReturnType<typeof os.query.storage.tipsSent>>[number]
-        | null = null;
-
-      const deadline = Date.now() + 20_000;
-      while (Date.now() < deadline) {
-        // Use the typed helper — same surface devs would use.
-        const rows = await os.query.storage.tipsSent(WRITE_SENDER, {
-          limit: 1,
-        });
-        event = rows.find((r) => r.targetId === TIP_RECIPIENT) ?? null;
-        if (event) break;
-        await new Promise((r) => setTimeout(r, 3000));
-      }
-
-      if (event) {
-        expect(event.operation).toBe('tip');
-        expect(event.actorId).toBe(WRITE_SENDER);
-        expect(event.targetId).toBe(TIP_RECIPIENT);
-        expect(BigInt(event.amount)).toBeGreaterThanOrEqual(DUST_YOCTO);
-      } else {
-        // Indexer lag — confirm the typed query path itself is healthy.
-        const sanity = await os.query.storage.history(WRITE_SENDER, {
-          limit: 1,
-        });
-        expect(Array.isArray(sanity)).toBe(true);
-        console.warn(
-          `[storageAccount] tip event indexed lookup missed within 20s — ` +
-            `substreams lag, not a SDK regression`
-        );
-      }
-    }, 30_000);
-
-    it('tip to self is rejected by the contract with "Cannot tip yourself"', async () => {
       await expect(
-        senderOs.storageAccount.tip(WRITE_SENDER, DUST_AMOUNT)
-      ).rejects.toThrow(/Cannot tip yourself/i);
-    }, 25_000);
+        senderOs.storageAccount.tip(ACCOUNT_ID, DUST_AMOUNT)
+      ).rejects.toBeInstanceOf(NeedsWalletConfirmationError);
 
-    it('withdraw exceeding available balance is rejected by the contract', async () => {
+      const after = await os.storageAccount.balance(WRITE_SENDER);
+      expect(after?.balance).toBe(before.balance);
+    });
+
+    it('withdraw requires an explicit wallet broadcast instead of a session relay', async () => {
       await expect(
-        senderOs.storageAccount.withdraw(NEAR('999999'))
-      ).rejects.toThrow(/exceeds available|insufficient/i);
-    }, 25_000);
+        senderOs.storageAccount.withdraw(DUST_AMOUNT)
+      ).rejects.toBeInstanceOf(NeedsWalletConfirmationError);
+    });
 
-    it('observers fire on submit and confirmation for a successful write', async () => {
-      const events: string[] = [];
-      await senderOs.storageAccount.tip(TIP_RECIPIENT, DUST_AMOUNT, {
-        onSubmitted: () => events.push('submitted'),
-        onConfirmed: () => events.push('confirmed'),
-      });
-      expect(events).toContain('submitted');
-      expect(events).toContain('confirmed');
-    }, 30_000);
+    it('sponsor requires an explicit wallet broadcast instead of a session relay', async () => {
+      await expect(
+        senderOs.storageAccount.sponsor(ACCOUNT_ID, { maxBytes: 1024 })
+      ).rejects.toBeInstanceOf(NeedsWalletConfirmationError);
+    });
   });
 
   describe('atomic batch writes via os.social.set({...})', () => {
@@ -279,7 +178,7 @@ describe('storageAccount', () => {
       for (const [key, expected] of Object.entries(paths)) {
         const entry = await confirmDirect(async () => {
           const e = await os.social.getOne(key, WRITE_SENDER);
-          return e?.value !== undefined ? e : null;
+          return e?.value === expected ? e : null;
         }, `social batch ${key}`);
         expect(entry!.value).toBe(expected);
       }

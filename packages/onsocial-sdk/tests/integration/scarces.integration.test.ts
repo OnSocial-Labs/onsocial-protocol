@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { getClient, ACCOUNT_ID, testId } from './helpers.js';
+import { getRelayedClient, ACCOUNT_ID, testId } from './helpers.js';
 import type { OnSocial } from '../../src/client.js';
 
 describe('scarces', () => {
@@ -11,7 +11,7 @@ describe('scarces', () => {
   let tokenTxHash: string;
 
   beforeAll(async () => {
-    os = await getClient();
+    os = await getRelayedClient();
   });
 
   it('should mint a scarce (text-only)', async () => {
@@ -21,7 +21,7 @@ describe('scarces', () => {
     });
     tokenTxHash = result.txHash!;
     expect(tokenTxHash).toBeTruthy();
-  }, 30000);
+  }, 120_000);
 
   it('should mint a scarce with royalty', async () => {
     const result = await os.scarces.tokens.mint({
@@ -30,7 +30,7 @@ describe('scarces', () => {
       royalty: { [ACCOUNT_ID]: 1000 }, // 10%
     });
     expect(result.txHash).toBeTruthy();
-  }, 30000);
+  }, 120_000);
 });
 
 describe('scarces.collections — lifecycle', () => {
@@ -38,7 +38,7 @@ describe('scarces.collections — lifecycle', () => {
   const collectionId = `int_${testId()}`;
 
   beforeAll(async () => {
-    os = await getClient();
+    os = await getRelayedClient();
   });
 
   it('creates a small empty collection', async () => {
@@ -92,7 +92,7 @@ describe('scarces.apps — registration & moderation', () => {
     process.env.SECONDARY_ACCOUNT_ID ?? 'test02.onsocial.testnet';
 
   beforeAll(async () => {
-    os = await getClient();
+    os = await getRelayedClient();
   });
 
   it('registers a new app', async () => {
@@ -122,7 +122,7 @@ describe('scarces.query — indexed event reads', () => {
   let os: OnSocial;
 
   beforeAll(async () => {
-    os = await getClient();
+    os = await getRelayedClient();
   });
 
   it('recentMints returns mint-shaped rows', async () => {

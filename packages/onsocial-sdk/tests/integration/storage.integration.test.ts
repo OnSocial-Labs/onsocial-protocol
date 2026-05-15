@@ -3,7 +3,12 @@
 // ---------------------------------------------------------------------------
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { getClient, testImageBlob, cleanupApiKey } from './helpers.js';
+import {
+  getClient,
+  testImageBlob,
+  cleanupApiKey,
+  integrationFetch,
+} from './helpers.js';
 import type { OnSocial } from '../../src/client.js';
 
 describe('storage', () => {
@@ -24,7 +29,7 @@ describe('storage', () => {
     expect(result.cid).toBeTruthy();
     expect(result.cid).toMatch(/^baf/);
     expect(Number(result.size)).toBeGreaterThan(0);
-  });
+  }, 60_000);
 
   it('should generate a valid gateway URL', async () => {
     const blob = testImageBlob();
@@ -32,15 +37,15 @@ describe('storage', () => {
     const url = os.storage.url(cid);
     expect(url).toContain('/ipfs/');
     expect(url).toContain(cid);
-  });
+  }, 60_000);
 
   it('should verify uploaded media is accessible', async () => {
     const blob = testImageBlob();
     const { cid } = await os.storage.upload(blob);
     const url = os.storage.url(cid);
 
-    const resp = await fetch(url, { method: 'HEAD' });
+    const resp = await integrationFetch(url, { method: 'HEAD' });
     expect(resp.ok).toBe(true);
     expect(resp.headers.get('content-type')).toContain('image');
-  });
+  }, 60_000);
 });

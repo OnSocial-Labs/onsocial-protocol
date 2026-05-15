@@ -7,160 +7,36 @@ import type { OnSocial } from '../../src/client.js';
 import {
   ACCOUNT_ID,
   confirmDirect,
-  confirmIndexed,
-  getClient,
-  getClientForAccount,
+  getRelayedClient,
   getKeypair,
 } from './helpers.js';
+import { NeedsWalletConfirmationError } from '../../src/advanced/session.js';
 
 describe('permissions', () => {
   let os: OnSocial;
 
   beforeAll(async () => {
-    os = await getClient();
+    os = await getRelayedClient();
   });
 
   describe('account permissions', () => {
     const grantee = 'onsocial.testnet';
     const path = `sdk_permissions_${Date.now()}_${Math.random().toString(36).slice(2, 8)}/`;
 
-    it('should grant a permission to another account', async () => {
-      const result = await os.permissions.grant(grantee, path, 1);
-      expect(result).toBeTruthy();
+    it('grant requires an explicit wallet broadcast', async () => {
+      await expect(
+        os.permissions.grant(grantee, path, 1)
+      ).rejects.toBeInstanceOf(NeedsWalletConfirmationError);
+      expect(await os.permissions.has(ACCOUNT_ID, grantee, path, 1)).toBe(
+        false
+      );
     });
 
-    it('should expose the granted permission via read endpoints', async () => {
-      const allowed = await confirmDirect(
-        async () =>
-          (await os.permissions.has(
-            'test01.onsocial.testnet',
-            grantee,
-            path,
-            1
-          ))
-            ? true
-            : null,
-        'account permission'
+    it('revoke requires an explicit wallet broadcast', async () => {
+      await expect(os.permissions.revoke(grantee, path)).rejects.toBeInstanceOf(
+        NeedsWalletConfirmationError
       );
-
-      expect(allowed).toBe(true);
-      expect(
-        await os.permissions.get('test01.onsocial.testnet', grantee, path)
-      ).toBe(1);
-    }, 25_000);
-
-    it('should emit a grant event via indexed permissionUpdates', async () => {
-      const result = await confirmIndexed(async () => {
-        const value = await os.query.graphql<{
-          permissionUpdates: Array<{
-            operation: string;
-            author: string;
-            targetId: string;
-            path: string;
-            level: number;
-          }>;
-        }>({
-          query: `query PermissionGrant($author: String!, $grantee: String!, $path: String!) {
-              permissionUpdates(
-                where: {
-                  author: {_eq: $author},
-                  targetId: {_eq: $grantee},
-                  path: {_eq: $path},
-                  operation: {_eq: "grant"}
-                },
-                limit: 1,
-                orderBy: [{blockHeight: DESC}]
-              ) {
-                operation
-                author
-                targetId
-                path
-                level
-              }
-            }`,
-          variables: {
-            author: ACCOUNT_ID,
-            grantee,
-            path: `${ACCOUNT_ID}/${path}`,
-          },
-        });
-        const rows = value.data?.permissionUpdates ?? [];
-        return rows[0] ?? null;
-      }, 'permission grant event');
-
-      expect(result?.operation).toBe('grant');
-      expect(result?.author).toBe(ACCOUNT_ID);
-      expect(result?.targetId).toBe(grantee);
-      expect(result?.path).toBe(`${ACCOUNT_ID}/${path}`);
-      expect(result?.level).toBe(1);
-    }, 35_000);
-
-    it('should revoke the granted account permission', async () => {
-      const result = await os.permissions.grant(grantee, path, 0);
-      expect(result).toBeTruthy();
     });
-
-    it('should expose the revoked account permission via read endpoints', async () => {
-      const revoked = await confirmDirect(
-        async () =>
-          !(await os.permissions.has(ACCOUNT_ID, grantee, path, 1))
-            ? true
-            : null,
-        'account permission revoked'
-      );
-
-      expect(revoked).toBe(true);
-      expect(await os.permissions.get(ACCOUNT_ID, grantee, path)).toBe(0);
-    }, 25_000);
-
-    it('should emit a revoke event via indexed permissionUpdates', async () => {
-      const result = await confirmIndexed(async () => {
-        const value = await os.query.graphql<{
-          permissionUpdates: Array<{
-            operation: string;
-            author: string;
-            targetId: string;
-            path: string;
-            level: number;
-            deleted: boolean;
-          }>;
-        }>({
-          query: `query PermissionRevoke($author: String!, $grantee: String!, $path: String!) {
-              permissionUpdates(
-                where: {
-                  author: {_eq: $author},
-                  targetId: {_eq: $grantee},
-                  path: {_eq: $path},
-                  operation: {_eq: "revoke"}
-                },
-                limit: 1,
-                orderBy: [{blockHeight: DESC}]
-              ) {
-                operation
-                author
-                targetId
-                path
-                level
-                deleted
-              }
-            }`,
-          variables: {
-            author: ACCOUNT_ID,
-            grantee,
-            path: `${ACCOUNT_ID}/${path}`,
-          },
-        });
-        const rows = value.data?.permissionUpdates ?? [];
-        return rows[0] ?? null;
-      }, 'permission revoke event');
-
-      expect(result?.operation).toBe('revoke');
-      expect(result?.author).toBe(ACCOUNT_ID);
-      expect(result?.targetId).toBe(grantee);
-      expect(result?.path).toBe(`${ACCOUNT_ID}/${path}`);
-      expect(result?.level).toBe(0);
-      expect(result?.deleted).toBe(true);
-    }, 35_000);
   });
 
   describe('group role permissions', () => {
@@ -222,217 +98,28 @@ describe('permissions', () => {
       expect(state?.memberModerate).toBe(false);
     }, 25_000);
 
-    it('should delegate MODERATE permission on the group config path', async () => {
-      const result = await os.permissions.grant(moderatorId, configPath, 2);
-      expect(result).toBeTruthy();
+    it('direct group permission delegation requires wallet broadcast', async () => {
+      await expect(
+        os.permissions.grant(moderatorId, configPath, 2)
+      ).rejects.toBeInstanceOf(NeedsWalletConfirmationError);
     });
-
-    it('should expose the delegated moderator as moderate but not admin', async () => {
-      const state = await confirmDirect(async () => {
-        const [isAdmin, canModerate, level] = await Promise.all([
-          os.permissions.hasGroupAdmin(groupId, moderatorId),
-          os.permissions.hasGroupModerate(groupId, moderatorId),
-          os.permissions.get(ACCOUNT_ID, moderatorId, configPath),
-        ]);
-
-        return !isAdmin && canModerate && level === 2
-          ? { isAdmin, canModerate, level }
-          : null;
-      }, 'delegated moderator role permissions');
-
-      expect(state?.isAdmin).toBe(false);
-      expect(state?.canModerate).toBe(true);
-      expect(state?.level).toBe(2);
-    }, 25_000);
-
-    it('should emit an indexed permission grant for the delegated moderator config path', async () => {
-      const result = await confirmIndexed(async () => {
-        const value = await os.query.graphql<{
-          permissionUpdates: Array<{
-            operation: string;
-            author: string;
-            targetId: string;
-            path: string;
-            level: number;
-          }>;
-        }>({
-          query: `query GroupConfigPermissionGrant($author: String!, $grantee: String!, $path: String!) {
-              permissionUpdates(
-                where: {
-                  author: {_eq: $author},
-                  targetId: {_eq: $grantee},
-                  path: {_eq: $path},
-                  operation: {_eq: "grant"}
-                },
-                limit: 1,
-                orderBy: [{blockHeight: DESC}]
-              ) {
-                operation
-                author
-                targetId
-                path
-                level
-              }
-            }`,
-          variables: {
-            author: ACCOUNT_ID,
-            grantee: moderatorId,
-            path: configPath,
-          },
-        });
-        return value.data?.permissionUpdates?.[0] ?? null;
-      }, 'group config permission grant event');
-
-      expect(result?.operation).toBe('grant');
-      expect(result?.author).toBe(ACCOUNT_ID);
-      expect(result?.targetId).toBe(moderatorId);
-      expect(result?.path).toBe(configPath);
-      expect(result?.level).toBe(2);
-    }, 35_000);
   });
 
   describe('key permissions', () => {
     const { publicKey } = getKeypair();
     const path = `sdk_key_permissions_${Date.now()}_${Math.random().toString(36).slice(2, 8)}/`;
 
-    it('should grant a permission to a public key', async () => {
-      const result = await os.permissions.grantKey(publicKey, path, 1);
-      expect(result).toBeTruthy();
+    it('grantKey requires an explicit wallet broadcast', async () => {
+      await expect(
+        os.permissions.grantKey(publicKey, path, 1)
+      ).rejects.toBeInstanceOf(NeedsWalletConfirmationError);
     });
 
-    it('should expose the granted key permission via read endpoints', async () => {
-      const allowed = await confirmDirect(
-        async () =>
-          (await os.permissions.hasKeyPermission(
-            'test01.onsocial.testnet',
-            publicKey,
-            path,
-            1
-          ))
-            ? true
-            : null,
-        'key permission'
-      );
-
-      expect(allowed).toBe(true);
-      expect(
-        await os.permissions.getKeyPermissions(
-          'test01.onsocial.testnet',
-          publicKey,
-          path
-        )
-      ).toBe(1);
-    }, 25_000);
-
-    it('should emit a key grant event via indexed permissionUpdates', async () => {
-      const result = await confirmIndexed(async () => {
-        const value = await os.query.graphql<{
-          permissionUpdates: Array<{
-            operation: string;
-            author: string;
-            path: string;
-            level: number;
-            targetId: string;
-          }>;
-        }>({
-          query: `query KeyPermissionGrant($author: String!, $path: String!) {
-              permissionUpdates(
-                where: {
-                  author: {_eq: $author},
-                  path: {_eq: $path},
-                  operation: {_in: ["grant_key", "key_grant"]}
-                },
-                limit: 1,
-                orderBy: [{blockHeight: DESC}]
-              ) {
-                operation
-                author
-                path
-                level
-                targetId
-              }
-            }`,
-          variables: { author: ACCOUNT_ID, path: `${ACCOUNT_ID}/${path}` },
-        });
-        const rows = value.data?.permissionUpdates ?? [];
-        return rows[0] ?? null;
-      }, 'key permission grant event');
-
-      expect(['grant_key', 'key_grant']).toContain(result?.operation ?? '');
-      expect(result?.author).toBe(ACCOUNT_ID);
-      expect(result?.path).toBe(`${ACCOUNT_ID}/${path}`);
-      expect(result?.level).toBe(1);
-      expect(result?.targetId ?? '').toBe('');
-    }, 35_000);
-
-    it('should revoke the granted key permission', async () => {
-      const result = await os.permissions.grantKey(publicKey, path, 0);
-      expect(result).toBeTruthy();
+    it('revokeKey requires an explicit wallet broadcast', async () => {
+      await expect(
+        os.permissions.revokeKey(publicKey, path)
+      ).rejects.toBeInstanceOf(NeedsWalletConfirmationError);
     });
-
-    it('should expose the revoked key permission via read endpoints', async () => {
-      const revoked = await confirmDirect(
-        async () =>
-          !(await os.permissions.hasKeyPermission(
-            ACCOUNT_ID,
-            publicKey,
-            path,
-            1
-          ))
-            ? true
-            : null,
-        'key permission revoked'
-      );
-
-      expect(revoked).toBe(true);
-      expect(
-        await os.permissions.getKeyPermissions(ACCOUNT_ID, publicKey, path)
-      ).toBe(0);
-    }, 25_000);
-
-    it('should emit a key revoke event via indexed permissionUpdates', async () => {
-      const result = await confirmIndexed(async () => {
-        const value = await os.query.graphql<{
-          permissionUpdates: Array<{
-            operation: string;
-            author: string;
-            path: string;
-            level: number;
-            targetId: string;
-            deleted: boolean;
-          }>;
-        }>({
-          query: `query KeyPermissionRevoke($author: String!, $path: String!) {
-              permissionUpdates(
-                where: {
-                  author: {_eq: $author},
-                  path: {_eq: $path},
-                  operation: {_in: ["revoke_key", "key_revoke"]}
-                },
-                limit: 1,
-                orderBy: [{blockHeight: DESC}]
-              ) {
-                operation
-                author
-                path
-                level
-                targetId
-                deleted
-              }
-            }`,
-          variables: { author: ACCOUNT_ID, path: `${ACCOUNT_ID}/${path}` },
-        });
-        const rows = value.data?.permissionUpdates ?? [];
-        return rows[0] ?? null;
-      }, 'key permission revoke event');
-
-      expect(['revoke_key', 'key_revoke']).toContain(result?.operation ?? '');
-      expect(result?.author).toBe(ACCOUNT_ID);
-      expect(result?.path).toBe(`${ACCOUNT_ID}/${path}`);
-      expect(result?.level).toBe(0);
-      expect(result?.targetId ?? '').toBe('');
-      expect(result?.deleted).toBe(true);
-    }, 35_000);
   });
 
   describe('member-driven group permission routing', () => {
@@ -446,7 +133,7 @@ describe('permissions', () => {
     let senderOs: OnSocial;
 
     beforeAll(async () => {
-      senderOs = await getClientForAccount(WRITE_SENDER);
+      senderOs = await getRelayedClient(WRITE_SENDER);
     });
 
     it('creates a member-driven group', async () => {
@@ -469,12 +156,10 @@ describe('permissions', () => {
       expect(flag).toBe(true);
     }, 25_000);
 
-    it('direct grant() on a groups/{id}/... path is rejected on-chain', async () => {
-      // Member-driven groups force governance — even the owner cannot grant
-      // directly. The SDK uses wait=true so the on-chain revert surfaces here.
+    it('direct grant() on a groups/{id}/... path requires wallet broadcast', async () => {
       await expect(
         senderOs.permissions.grant(grantee, targetPath, 1)
-      ).rejects.toThrow(/member-driven|governance|proposal/i);
+      ).rejects.toBeInstanceOf(NeedsWalletConfirmationError);
     }, 25_000);
 
     it('grantOrPropose auto-files a path_permission_grant proposal instead', async () => {

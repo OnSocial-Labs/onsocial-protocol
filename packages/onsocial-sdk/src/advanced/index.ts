@@ -126,7 +126,7 @@ export type {
   SessionOnboardingInput,
 } from './session.js';
 
-// NEP-366 SignedDelegateAction — gasless meta-tx encoder. Used by
+// NEP-366 SignedDelegateAction encoder. Used by
 // Session.signDelegate() to produce the base64 blob for /relay/delegate.
 export { buildSignedDelegate, parseEd25519PublicKey } from './nep366.js';
 export type {
@@ -136,7 +136,7 @@ export type {
   BuildSignedDelegateResult,
 } from './nep366.js';
 
-// Session bootstrap — one-call onboarding (gen key + wallet popup + persist).
+// Session bootstrap — one-call onboarding (gen key + one-time wallet approval + persist).
 export {
   bootstrapSession,
   restoreSession,

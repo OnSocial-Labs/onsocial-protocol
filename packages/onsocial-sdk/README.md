@@ -48,7 +48,11 @@ npm install @onsocial/sdk
 
 ## Initialize
 
-Reads can work without authentication. Writes require either a JWT session or API-key auth.
+Reads can work without authentication. Writes use the canonical OnSocial lane:
+authenticate to the gateway with a JWT or OnAPI key, attach a NEP-366 session,
+then let the SDK sign and submit through `${gatewayUrl}/relay/delegate`. The
+gateway forwards the signed delegate to the private relayer; apps do not talk to
+the relayer directly in normal production usage.
 
 ```ts
 import { OnSocial } from '@onsocial/sdk';
@@ -60,19 +64,38 @@ const os = new OnSocial({
 
 ### Configuration
 
-| Option             | Description                                                                                                                       |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| `network`          | `mainnet` or `testnet`. Defaults to `mainnet`.                                                                                    |
-| `gatewayUrl`       | Override the default gateway base URL.                                                                                            |
-| `apiKey`           | Server-side API key for gateway auth.                                                                                             |
-| `actorId`          | Account to write as when using API-key auth.                                                                                      |
-| `appId`            | Default app namespace for notifications.                                                                                          |
-| `fetch`            | Custom fetch implementation.                                                                                                      |
-| `session`          | `Session` instance (for gasless session-key writes).                                                                              |
-| `defaultBroadcast` | `'gateway'` (default) \| `{ kind: 'relayer', url, apiKey? }` \| `{ kind: 'wallet', signer }` — applies to **every** write method. |
-| `storage`          | `StorageProvider` (defaults to gateway-hosted IPFS upload).                                                                       |
+| Option             | Description                                                                                                                                   |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `network`          | `mainnet` or `testnet`. Defaults to `mainnet`.                                                                                                |
+| `gatewayUrl`       | Override the default gateway base URL.                                                                                                        |
+| `apiKey`           | Server-side OnAPI key for gateway auth.                                                                                                       |
+| `actorId`          | End-user account to write as when using API-key auth.                                                                                         |
+| `appId`            | Default app namespace for notifications.                                                                                                      |
+| `fetch`            | Custom fetch implementation.                                                                                                                  |
+| `session`          | `Session` instance used to sign NEP-366 delegate writes.                                                                                      |
+| `defaultBroadcast` | Advanced override. Leave unset for the canonical gateway delegate path. Direct relayer and wallet modes are for self-hosted/admin flows only. |
+| `storage`          | `StorageProvider` (defaults to gateway-hosted IPFS upload).                                                                                   |
 
-Per-call override: `os.withBroadcast({ kind: 'wallet', signer }).posts.create(...)`.
+Per-call broadcast overrides are intentionally advanced. Regular apps should use
+the default gateway path and only pass a wallet signer for explicit wallet-paid
+or admin flows.
+
+### Canonical write flow
+
+```ts
+import { OnSocial } from '@onsocial/sdk';
+
+const os = new OnSocial({
+  network: 'mainnet',
+  apiKey: process.env.ONSOCIAL_API_KEY!,
+  actorId: 'alice.near',
+});
+
+// Attach the Session returned by your one-time onboarding flow.
+os.attachSession(session);
+
+await os.posts.create({ text: 'Hello OnSocial' });
+```
 
 ## Authentication
 
@@ -305,7 +328,7 @@ await os.platform.notifications.list();
 
 ## Going Lower-Level
 
-The opinionated namespaces above cover the common app cases. When you need granular control — an action the SDK hasn't wrapped yet, a custom OnSocial KV path, a wallet-paid broadcast, or a direct gateway call — reach for `os.raw`.
+The opinionated namespaces above cover the common app cases. When you need granular control — an action the SDK hasn't wrapped yet, a custom OnSocial KV path, or a direct gateway call — reach for `os.raw`.
 
 ```ts
 // Any contract action via the configured broadcast path.
@@ -316,7 +339,7 @@ await os.raw.execute({
   proposal: { title: 'Promote Bob', kind: 'AddMember', member_id: 'bob.near' },
 });
 
-// Wallet-paid broadcast, no relayer/session required.
+// Advanced: wallet-paid admin/fallback broadcast, no relayer/session required.
 await os.raw.execute(
   { type: 'set', data: { 'profile/name': 'Alice' } },
   {
@@ -404,7 +427,7 @@ Substreams indexes every `Action::Set` write into the raw `data_updates` table k
 
 - Indexed reads come from gateway-backed GraphQL views, not direct contract state reads.
 - Group content is read through indexed post/thread/quote surfaces, including group feeds and conversations.
-- For server-side API-key writes, set both `apiKey` and `actorId`.
+- For server-side OnAPI writes, set `apiKey`, `actorId`, and attach a session before calling write methods.
 
 ## License
 

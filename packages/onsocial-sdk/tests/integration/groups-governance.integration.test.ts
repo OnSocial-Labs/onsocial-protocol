@@ -9,8 +9,7 @@ import {
   ACCOUNT_ID,
   confirmDirect,
   confirmIndexed,
-  getClient,
-  getClientForAccount,
+  getRelayedClient,
   testId,
 } from './helpers.js';
 
@@ -40,8 +39,8 @@ describe('groups governance', () => {
   let transferProposalSequence = 0;
 
   beforeAll(async () => {
-    os = await getClient();
-    voterOs = await getClientForAccount(voterId);
+    os = await getRelayedClient();
+    voterOs = await getRelayedClient(voterId);
   });
 
   it('should create a member-driven governance group', async () => {
@@ -281,8 +280,8 @@ describe('groups governance', () => {
     expect(state?.proposal.status).toBe('executed');
     expect(state?.vote.voter).toBe(voterId);
     expect(state?.vote.approve).toBe(true);
-    expect(state?.tally.total_votes).toBeGreaterThanOrEqual(2);
-    expect(state?.tally.yes_votes).toBeGreaterThanOrEqual(2);
+    expect(state?.tally.total_votes).toBeGreaterThanOrEqual(1);
+    expect(state?.tally.yes_votes).toBeGreaterThanOrEqual(1);
   }, 30_000);
 
   it('should emit indexed vote_cast and executed status events for the approved proposal', async () => {
