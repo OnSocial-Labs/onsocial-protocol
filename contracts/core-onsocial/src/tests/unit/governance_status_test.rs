@@ -23,7 +23,7 @@ mod governance_status_tests {
 
         // Create member-driven group.
         testing_env!(
-            get_context_with_deposit(owner.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(owner.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute(create_group_request(
@@ -97,7 +97,7 @@ mod governance_status_tests {
 
         // Create member-driven group.
         testing_env!(
-            get_context_with_deposit(owner.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(owner.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute(create_group_request(

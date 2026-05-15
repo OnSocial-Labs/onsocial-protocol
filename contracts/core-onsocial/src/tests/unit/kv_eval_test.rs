@@ -139,7 +139,7 @@ mod eval_tests {
         let alice = test_account(0);
 
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute(create_group_request("extract_test".to_string(), json!({})))
@@ -188,7 +188,7 @@ mod eval_tests {
         let alice = test_account(0);
 
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute(create_group_request("owner_test".to_string(), json!({})))
@@ -212,7 +212,7 @@ mod eval_tests {
         let bob = test_account(1);
 
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute(create_group_request("member_test".to_string(), json!({})))
@@ -268,7 +268,7 @@ mod eval_tests {
         let alice = test_account(0);
 
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute(create_group_request(
@@ -294,7 +294,7 @@ mod eval_tests {
         let bob = test_account(1);
 
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute(create_group_request(

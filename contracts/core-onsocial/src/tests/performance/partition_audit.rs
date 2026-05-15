@@ -475,7 +475,7 @@ mod partition_audit_tests {
 
     #[test]
     fn test_permission_path_format_validation() {
-        // Verify that permission paths follow expected format with simple keys
+        // Verify that permission paths match the expected format with simple keys
         println!("=== Permission Path Format Validation ===");
 
         let test_scenarios = vec![
@@ -542,7 +542,7 @@ mod partition_audit_tests {
             );
         }
 
-        println!("\n✓ All permission paths follow expected format");
+        println!("\n✓ All permission paths match expected format");
         println!("✓ All storage keys use simple readable format");
         println!("\n=== Permission Path Format Validation PASSED ===");
     }
@@ -616,7 +616,7 @@ mod partition_audit_tests {
 
         // Create a group
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({"member_driven": false, "is_private": true});
         contract
@@ -639,7 +639,7 @@ mod partition_audit_tests {
 
         // Grant permission to Charlie
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute_admin(set_permission_request(
@@ -690,7 +690,7 @@ mod partition_audit_tests {
 
         // Create group
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({"member_driven": false, "is_private": false});
         contract
@@ -766,7 +766,7 @@ mod partition_audit_tests {
 
         // Create group
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({"member_driven": false, "is_private": true});
         contract
@@ -789,7 +789,7 @@ mod partition_audit_tests {
 
         // Grant Charlie MODERATE permission BEFORE transfer
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute_admin(set_permission_request(
@@ -819,7 +819,7 @@ mod partition_audit_tests {
 
         // Transfer ownership to Bob
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute(transfer_group_ownership_request(
@@ -905,7 +905,7 @@ mod partition_audit_tests {
 
         // 1. Create multiple groups
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         contract
             .execute(create_group_request(

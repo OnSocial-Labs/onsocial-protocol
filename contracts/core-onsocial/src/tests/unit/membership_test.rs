@@ -18,7 +18,7 @@ mod membership_tests {
         let bob = accounts(1);
 
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
 
         // Create group
@@ -47,7 +47,7 @@ mod membership_tests {
         let bob = accounts(1);
 
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
 
         // Create group but don't set any nonce for bob
@@ -72,7 +72,7 @@ mod membership_tests {
         let bob = accounts(1);
 
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
 
         // Create group
@@ -107,7 +107,7 @@ mod membership_tests {
         let bob = accounts(1);
 
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
 
         // Create group
@@ -142,7 +142,7 @@ mod membership_tests {
         let bob = accounts(1);
 
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
 
         // Create group
@@ -176,7 +176,7 @@ mod membership_tests {
         let bob = accounts(1);
 
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
 
         // Create group
@@ -236,7 +236,7 @@ mod membership_tests {
         let bob = accounts(1);
 
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
 
         // Create group but don't add bob
@@ -276,7 +276,7 @@ mod membership_tests {
         let bob = accounts(1);
 
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
 
         // Create group but don't add bob
@@ -311,7 +311,7 @@ mod membership_tests {
         let bob = accounts(1);
 
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
 
         // Create group
@@ -353,7 +353,7 @@ mod membership_tests {
         let bob = accounts(1);
 
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
 
         // Create group
@@ -399,7 +399,7 @@ mod membership_tests {
         let bob = accounts(1);
 
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
 
         // Create group
@@ -440,7 +440,7 @@ mod membership_tests {
         let bob = accounts(1);
 
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
 
         // Create group
@@ -516,7 +516,7 @@ mod membership_tests {
         let alice = accounts(0);
 
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
 
         // Create group
@@ -556,7 +556,7 @@ mod membership_tests {
         let alice = accounts(0);
 
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
 
         // Create group - owner should be auto-added as member
@@ -580,7 +580,7 @@ mod membership_tests {
         let alice = accounts(0);
 
         testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
 
         // Create group - owner should have nonce set

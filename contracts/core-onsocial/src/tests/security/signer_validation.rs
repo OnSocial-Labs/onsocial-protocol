@@ -33,7 +33,7 @@ mod signer_validation_core_tests {
         );
     }
     // NOTE: The previous test_malicious_contract_blocked_by_signer_check asserted
-    // the signer-trust model ("permissions follow the signer"). Under the new
+    // the signer-trust model ("permissions are bound to the signer"). Under the new
     // predecessor-trust model, when alice grants a contract permission, that
     // contract may use the permission whenever invoked — this is the standard
     // NEAR cross-contract trust model. Users must only grant permissions to
@@ -270,7 +270,7 @@ mod signer_validation_core_tests {
         let owner = test_account(0);
         let alice = test_account(1);
         // Create group and add alice
-        let context = get_context_with_deposit(owner.clone(), test_deposits::legacy_10_near());
+        let context = get_context_with_deposit(owner.clone(), test_deposits::ten_near());
         testing_env!(context.build());
 
         contract
@@ -311,7 +311,7 @@ mod signer_validation_core_tests {
     #[test]
     fn test_group_write_through_external_contract_with_permission() {
         // NOTE: The previous test_group_write_through_external_contract_with_permission
-        // asserted that a member's group permission follows the SIGNER through an
+        // asserted that a member's group permission tracks the SIGNER through an
         // intermediary contract. Under predecessor-trust, the publishing contract
         // would need its own group permission to write group paths — this is the
         // standard NEAR model and matches how groups treat any caller uniformly.
@@ -500,8 +500,8 @@ mod signer_validation_core_tests {
         let mut contract = init_live_contract();
         let alice = test_account(0);
         let verification_service = test_account(1);
-        // Step 1: Alice grants permission and allocates storage (use legacy 10 NEAR for sufficient storage)
-        let context = get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near());
+        // Step 1: Alice grants permission and allocates storage (use 10 NEAR for sufficient storage)
+        let context = get_context_with_deposit(alice.clone(), test_deposits::ten_near());
         testing_env!(context.build());
         // Explicitly allocate storage for alice
         contract
@@ -719,7 +719,7 @@ mod signer_validation_core_tests {
         let alice = test_account(0);
         let staking_contract = test_account(1);
         // Step 1: Alice pre-grants permission to staking contract
-        let context = get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near());
+        let context = get_context_with_deposit(alice.clone(), test_deposits::ten_near());
         testing_env!(context.build());
         contract
             .execute_admin(set_request(json!({
@@ -877,7 +877,7 @@ mod signer_validation_core_tests {
         let owner = test_account(0);
         let service = test_account(1);
         // Allocate storage
-        let context = get_context_with_deposit(owner.clone(), test_deposits::legacy_10_near());
+        let context = get_context_with_deposit(owner.clone(), test_deposits::ten_near());
         testing_env!(context.build());
         contract
             .execute_admin(set_request(json!({
@@ -952,7 +952,7 @@ mod signer_validation_core_tests {
         let service_storage_before = contract.get_storage_balance(service.clone());
         assert!(service_storage_before.is_none() || service_storage_before.unwrap().balance.0 == 0);
         // Alice grants permission to service
-        let context = get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near());
+        let context = get_context_with_deposit(alice.clone(), test_deposits::ten_near());
         testing_env!(context.build());
 
         contract
@@ -1074,7 +1074,7 @@ mod signer_validation_core_tests {
             .unwrap();
         let alice_storage = contract.get_storage_balance(alice.clone()).unwrap();
         // Scenario 2: Bob grants permission to service, service uses set_for() with attached deposit
-        let context = get_context_with_deposit(bob.clone(), test_deposits::legacy_10_near());
+        let context = get_context_with_deposit(bob.clone(), test_deposits::ten_near());
         testing_env!(context.build());
         contract
             .execute_admin(set_request(json!({

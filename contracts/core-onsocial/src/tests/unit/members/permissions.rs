@@ -1092,7 +1092,7 @@ mod permission_tests {
 
         // Create member-driven group
         near_sdk::testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({
             "member_driven": true,
@@ -1234,7 +1234,7 @@ mod permission_tests {
 
         // Create member-driven group
         near_sdk::testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({
             "member_driven": true,
@@ -1386,7 +1386,7 @@ mod permission_tests {
 
         // Create member-driven group
         near_sdk::testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({
             "member_driven": true,
@@ -1453,7 +1453,7 @@ mod permission_tests {
 
         // Create member-driven group
         near_sdk::testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
         );
         let config = json!({
             "member_driven": true,

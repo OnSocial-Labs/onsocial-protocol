@@ -347,7 +347,7 @@
           "type": "set_permission",
           "grantee": "bob.near",
           "path": "profile",
-          "level": 2,
+          "level": 1,
           "expires_at": "1700000000000"
         }
       }
@@ -361,7 +361,7 @@
           "type": "set_key_permission",
           "public_key": "ed25519:11111111111111111111111111111111",
           "path": "profile",
-          "level": 2,
+          "level": 1,
           "expires_at": "1700000000000"
         }
       }
