@@ -58,6 +58,8 @@ export type { PostScarceEmbed } from './modules/scarces/from-post.js';
 export type {
   AppConfigInput,
   AllowlistEntry,
+  ScarceTokenMetadata,
+  ScarceTokenView,
 } from './modules/scarces/index.js';
 export {
   buildQuickMintAction,

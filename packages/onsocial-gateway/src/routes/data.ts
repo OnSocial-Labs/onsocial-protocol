@@ -580,6 +580,13 @@ scarcesView('/scarces-storage-balance', 'storage_balance_of', (q) => {
   return { account_id: accountId };
 });
 
+/** NEP-171 token metadata/status for a single native scarce. */
+scarcesView('/scarces-token', 'nft_token', (q) => {
+  const tokenId = requireStr(q, 'tokenId');
+  if (!tokenId) return 'Missing required query param: tokenId';
+  return { token_id: tokenId };
+});
+
 // ===========================================================================
 // Page data — aggregated endpoint for onsocial.id renderer
 // ===========================================================================
