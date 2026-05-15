@@ -82,8 +82,6 @@ COMPONENT_MAP = {
     "packages/onsocial-rpc": "RPC package",
     "packages/onsocial-intents": "NEAR Intents integration",
     "indexers/substreams": "Substreams indexer",
-    "crates/onsocial-types": "shared types crate",
-    "crates/onsocial-auth": "auth crate",
     "tests": "integration tests",
 }
 
