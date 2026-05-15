@@ -99,6 +99,15 @@ interface BoostEventRow {
   receipt_id: string | null;
   account_id: string | null;
   event_type: string | null;
+  success: boolean | null;
+  amount: string | null;
+  effective_boost: string | null;
+  months: string | number | null;
+  new_months: string | number | null;
+  new_effective_boost: string | null;
+  infra_share: string | null;
+  rewards_share: string | null;
+  deposit: string | null;
 }
 
 interface ScarcesEventRow {
@@ -664,7 +673,9 @@ function getSelectSql(sourceTable: SourceTable): string {
       `;
     case 'boost_events':
       return `
-        SELECT id, block_height, block_timestamp, receipt_id, account_id, event_type
+        SELECT id, block_height, block_timestamp, receipt_id, account_id, event_type,
+               success, amount, effective_boost, months, new_months,
+               new_effective_boost, infra_share, rewards_share, deposit
         FROM boost_events
         WHERE (block_height > $1 OR (block_height = $1 AND id > $2))
         ORDER BY block_height ASC, id ASC
@@ -797,8 +808,57 @@ async function resolveOwnerAccountId(
   return app?.ownerAccountId ?? null;
 }
 
-function mapBoostEventNotifications(_row: BoostEventRow): NotificationInsert[] {
-  return [];
+export function mapBoostEventNotifications(
+  row: BoostEventRow
+): NotificationInsert[] {
+  if (row.success === false) {
+    return [];
+  }
+
+  const recipient = normalizeAccountId(row.account_id);
+  const eventType = normalizeText(row.event_type);
+  if (!recipient || !eventType) {
+    return [];
+  }
+
+  const notificationTypeByEvent: Partial<Record<string, NotificationType>> = {
+    BOOST_LOCK: 'boost_locked',
+    BOOST_EXTEND: 'boost_extended',
+    BOOST_UNLOCK: 'boost_unlocked',
+    REWARDS_CLAIM: 'boost_reward_claimed',
+    CREDITS_PURCHASE: 'boost_credits_purchased',
+    STORAGE_DEPOSIT: 'boost_storage_deposited',
+  };
+  const notificationType = notificationTypeByEvent[eventType];
+  if (!notificationType) {
+    return [];
+  }
+
+  return [
+    {
+      ownerAccountId: recipient,
+      appId: 'default',
+      recipient,
+      actor: recipient,
+      notificationType,
+      sourceContract: 'boost',
+      sourceReceiptId: normalizeText(row.receipt_id),
+      sourceBlockHeight: row.block_height,
+      dedupeKey: `${row.id}:${notificationType}:${recipient}`,
+      context: compactContext({
+        eventType,
+        amount: normalizeText(row.amount),
+        effectiveBoost: normalizeText(row.effective_boost),
+        months: normalizeText(row.months),
+        newMonths: normalizeText(row.new_months),
+        newEffectiveBoost: normalizeText(row.new_effective_boost),
+        infraShare: normalizeText(row.infra_share),
+        rewardsShare: normalizeText(row.rewards_share),
+        deposit: normalizeText(row.deposit),
+      }),
+      createdAt: toIsoFromNanoseconds(row.block_timestamp),
+    },
+  ];
 }
 
 export class NotificationWorker {

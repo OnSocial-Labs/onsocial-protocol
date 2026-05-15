@@ -17,6 +17,13 @@ PROJECT="${GCP_PROJECT:-onsocial-protocol}"
 NEAR_NETWORK="${NEAR_NETWORK:-testnet}"
 DEFAULT_DELEGATE_POOL_SIZE="50"
 TELEGRAM_BOT_SECRET_NAME="TELEGRAM_BOT_TOKEN_TESTNET"
+GCLOUD_BIN="${GCLOUD_BIN:-gcloud}"
+
+if ! command -v "$GCLOUD_BIN" >/dev/null 2>&1; then
+  if [ -x "$HOME/google-cloud-sdk/bin/gcloud" ]; then
+    GCLOUD_BIN="$HOME/google-cloud-sdk/bin/gcloud"
+  fi
+fi
 
 if [ "$NEAR_NETWORK" = "mainnet" ]; then
   TELEGRAM_BOT_SECRET_NAME="TELEGRAM_BOT_TOKEN_MAINNET"
@@ -71,7 +78,7 @@ fetch_secret() {
   local err
 
   err_file="$(mktemp)"
-  if value="$(gcloud secrets versions access latest --secret="$name" --project="$PROJECT" 2>"$err_file")"; then
+  if value="$($GCLOUD_BIN secrets versions access latest --secret="$name" --project="$PROJECT" 2>"$err_file")"; then
     rm -f "$err_file"
     printf '%s' "$value"
     return 0

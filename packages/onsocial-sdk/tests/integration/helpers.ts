@@ -12,20 +12,100 @@ import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { OnSocial } from '../../src/client.js';
 import { Session } from '../../src/advanced/session.js';
+import type { Network } from '../../src/types.js';
 
 // ── Environment ────────────────────────────────────────────────────────────
 
+const NETWORK_GATEWAY_URLS: Record<Network, string> = {
+  mainnet: 'https://api.onsocial.id',
+  testnet: 'https://testnet.onsocial.id',
+};
+
+const NETWORK_RPC_URLS: Record<Network, string> = {
+  mainnet: 'https://free.rpc.fastnear.com',
+  testnet: 'https://rpc.testnet.near.org',
+};
+
+const DEFAULT_ACCOUNT_IDS: Record<Network, string | undefined> = {
+  mainnet: undefined,
+  testnet: 'test01.onsocial.testnet',
+};
+
+function resolveIntegrationNetwork(): Network {
+  const raw = (process.env.ONSOCIAL_NETWORK ?? process.env.NETWORK ?? 'testnet')
+    .trim()
+    .toLowerCase();
+  if (raw === 'mainnet' || raw === 'testnet') return raw;
+  throw new Error(
+    `Unsupported integration network: ${raw}. Expected mainnet or testnet.`
+  );
+}
+
+function resolveAccountId(network: Network): string {
+  const accountId = process.env.ACCOUNT_ID ?? DEFAULT_ACCOUNT_IDS[network];
+  if (!accountId) {
+    throw new Error(
+      'ACCOUNT_ID is required when running SDK integration tests outside testnet'
+    );
+  }
+  return accountId;
+}
+
+export const INTEGRATION_NETWORK = resolveIntegrationNetwork();
 export const GATEWAY_URL =
-  process.env.GATEWAY_URL || 'https://testnet.onsocial.id';
-export const ACCOUNT_ID = process.env.ACCOUNT_ID || 'test01.onsocial.testnet';
+  process.env.GATEWAY_URL || NETWORK_GATEWAY_URLS[INTEGRATION_NETWORK];
+export const ACCOUNT_ID = resolveAccountId(INTEGRATION_NETWORK);
 export const CREDS_FILE =
   process.env.CREDS_FILE ||
-  path.join(process.env.HOME!, `.near-credentials/testnet/${ACCOUNT_ID}.json`);
+  path.join(
+    process.env.HOME!,
+    `.near-credentials/${INTEGRATION_NETWORK}/${ACCOUNT_ID}.json`
+  );
 export const NEAR_RPC_URL =
-  process.env.NEAR_RPC_URL || 'https://rpc.testnet.near.org';
+  process.env.NEAR_RPC_URL || NETWORK_RPC_URLS[INTEGRATION_NETWORK];
 export const INTEGRATION_SETUP_TIMEOUT_MS = Number(
   process.env.INTEGRATION_SETUP_TIMEOUT_MS || 60_000
 );
+
+const INTEGRATION_FETCH_MAX_ATTEMPTS = Number(
+  process.env.INTEGRATION_FETCH_MAX_ATTEMPTS || 5
+);
+const INTEGRATION_FETCH_BASE_DELAY_MS = Number(
+  process.env.INTEGRATION_FETCH_BASE_DELAY_MS || 1_000
+);
+const RETRYABLE_HTTP_STATUSES = new Set([429, 502, 503, 504]);
+
+function retryAfterDelayMs(response: Response, attempt: number): number {
+  const retryAfter = response.headers.get('retry-after');
+  if (retryAfter) {
+    const seconds = Number(retryAfter);
+    if (Number.isFinite(seconds)) return Math.max(0, seconds * 1_000);
+
+    const dateMs = Date.parse(retryAfter);
+    if (Number.isFinite(dateMs)) return Math.max(0, dateMs - Date.now());
+  }
+
+  const backoff = INTEGRATION_FETCH_BASE_DELAY_MS * 2 ** attempt;
+  const jitter = Math.floor(Math.random() * 250);
+  return Math.min(15_000, backoff + jitter);
+}
+
+export const integrationFetch: typeof globalThis.fetch = async (
+  input,
+  init
+) => {
+  for (let attempt = 0; ; attempt++) {
+    const response = await globalThis.fetch(input, init);
+    const shouldRetry =
+      RETRYABLE_HTTP_STATUSES.has(response.status) &&
+      attempt + 1 < INTEGRATION_FETCH_MAX_ATTEMPTS;
+
+    if (!shouldRetry) return response;
+    await new Promise((resolve) =>
+      setTimeout(resolve, retryAfterDelayMs(response, attempt))
+    );
+  }
+};
 
 function resolveRootEnvVar(name: string): string | undefined {
   if (process.env[name]) return process.env[name];
@@ -58,11 +138,19 @@ function resolveRootEnvVar(name: string): string | undefined {
 
 /** Resolve service API key: env var → GSM secret → undefined (fallback to NEP-413). */
 function resolveServiceKey(): string | undefined {
+  const networkKey =
+    process.env[`ONSOCIAL_${INTEGRATION_NETWORK.toUpperCase()}_API_KEY`];
+  if (networkKey) return networkKey;
   if (process.env.ONSOCIAL_API_KEY) return process.env.ONSOCIAL_API_KEY;
   try {
     const gcloud = path.join(process.env.HOME!, 'google-cloud-sdk/bin/gcloud');
+    const secretName =
+      process.env.ONSOCIAL_SERVICE_ONAPI_KEY_SECRET ||
+      (INTEGRATION_NETWORK === 'mainnet'
+        ? 'ONSOCIAL_MAINNET_SERVICE_ONAPI_KEY'
+        : 'ONSOCIAL_SERVICE_ONAPI_KEY');
     return execSync(
-      `${gcloud} secrets versions access latest --secret=ONSOCIAL_SERVICE_ONAPI_KEY`,
+      `${gcloud} secrets versions access latest --secret=${secretName}`,
       { encoding: 'utf8', timeout: 10_000, stdio: ['pipe', 'pipe', 'pipe'] }
     ).trim();
   } catch {
@@ -270,7 +358,7 @@ export async function attachCredentialDelegateSession(
     const nonce = await fetchAccessKeyNonce(accountId, keypair.publicKey);
     os.attachSession(
       new Session({
-        network: 'testnet',
+        network: INTEGRATION_NETWORK,
         accountId,
         contract: 'core',
         key: {
@@ -292,7 +380,9 @@ export async function attachCredentialDelegateSession(
 /**
  * Returns a JWT-authenticated session client.
  * Used internally to create/revoke API keys (key management requires JWT).
- * Exported for auth test only — all other tests should use `getClient()`.
+ * Exported for auth test only. Read/auth tests can use `getClient()`;
+ * write tests should use `getRelayedClient()` so a delegate session is
+ * required.
  */
 export async function getSessionClient(): Promise<OnSocial> {
   if (_sessionClient) return _sessionClient;
@@ -300,7 +390,8 @@ export async function getSessionClient(): Promise<OnSocial> {
   _keypair = loadKeypair(CREDS_FILE);
   const os = new OnSocial({
     gatewayUrl: GATEWAY_URL,
-    network: 'testnet',
+    network: INTEGRATION_NETWORK,
+    fetch: integrationFetch,
     latestBlockHeightProvider: fetchLatestBlockHeightFromRpc,
   });
 
@@ -333,7 +424,8 @@ async function getSessionClientForAccount(
   const keypair = loadKeypair(credsFileForAccount(accountId));
   const os = new OnSocial({
     gatewayUrl: GATEWAY_URL,
-    network: 'testnet',
+    network: INTEGRATION_NETWORK,
+    fetch: integrationFetch,
     latestBlockHeightProvider: fetchLatestBlockHeightFromRpc,
   });
 
@@ -374,9 +466,10 @@ export async function getClient(): Promise<OnSocial> {
     _apiKeyInfo = { key: envKey, prefix: 'env' };
     _apiKeyClient = new OnSocial({
       gatewayUrl: GATEWAY_URL,
-      network: 'testnet',
+      network: INTEGRATION_NETWORK,
       apiKey: envKey,
       actorId: ACCOUNT_ID,
+      fetch: integrationFetch,
       latestBlockHeightProvider: fetchLatestBlockHeightFromRpc,
     });
     await attachCredentialDelegateSession(_apiKeyClient, ACCOUNT_ID, {
@@ -405,8 +498,9 @@ export async function getClient(): Promise<OnSocial> {
 
   _apiKeyClient = new OnSocial({
     gatewayUrl: GATEWAY_URL,
-    network: 'testnet',
+    network: INTEGRATION_NETWORK,
     apiKey: result.key,
+    fetch: integrationFetch,
     latestBlockHeightProvider: fetchLatestBlockHeightFromRpc,
   });
   await attachCredentialDelegateSession(_apiKeyClient, ACCOUNT_ID);
@@ -425,9 +519,10 @@ export async function getClientForAccount(
   if (SERVICE_KEY) {
     const client = new OnSocial({
       gatewayUrl: GATEWAY_URL,
-      network: 'testnet',
+      network: INTEGRATION_NETWORK,
       apiKey: SERVICE_KEY,
       actorId: accountId,
+      fetch: integrationFetch,
       latestBlockHeightProvider: fetchLatestBlockHeightFromRpc,
     });
     await attachCredentialDelegateSession(client, accountId, {
@@ -458,13 +553,36 @@ export async function getClientForAccount(
 
   const client = new OnSocial({
     gatewayUrl: GATEWAY_URL,
-    network: 'testnet',
+    network: INTEGRATION_NETWORK,
     apiKey: result.key,
+    fetch: integrationFetch,
     latestBlockHeightProvider: fetchLatestBlockHeightFromRpc,
   });
   await attachCredentialDelegateSession(client, accountId);
 
   _apiKeyClientsByAccount.set(accountId, client);
+  return client;
+}
+
+/**
+ * Returns the canonical write-test client: OnAPI-authenticated and backed by
+ * a required NEP-366 delegate session. Use this for integration tests that
+ * should behave like a real app user writing through the gateway relay.
+ */
+export async function getRelayedClient(
+  accountId = ACCOUNT_ID
+): Promise<OnSocial> {
+  const client =
+    accountId === ACCOUNT_ID
+      ? await getClient()
+      : await getClientForAccount(accountId);
+
+  await attachCredentialDelegateSession(client, accountId, { required: true });
+  if (!client.session) {
+    throw new Error(
+      `A delegate session is required for relayed integration writes: ${accountId}`
+    );
+  }
   return client;
 }
 
@@ -479,8 +597,9 @@ export function getPartnerClient(): OnSocial {
 
   _partnerClient = new OnSocial({
     gatewayUrl: GATEWAY_URL,
-    network: 'testnet',
+    network: INTEGRATION_NETWORK,
     apiKey: PARTNER_KEY,
+    fetch: integrationFetch,
     latestBlockHeightProvider: fetchLatestBlockHeightFromRpc,
   });
 
