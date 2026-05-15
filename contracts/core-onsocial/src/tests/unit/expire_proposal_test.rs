@@ -28,9 +28,7 @@ mod expire_proposal_tests {
         let bob = accounts(1);
         let third = accounts(2);
 
-        testing_env!(
-            get_context_with_deposit(owner.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(owner.clone(), test_deposits::ten_near()).build());
         contract
             .execute(create_group_request(
                 "expg".to_string(),

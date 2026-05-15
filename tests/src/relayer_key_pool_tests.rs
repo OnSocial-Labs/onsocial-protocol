@@ -1,13 +1,15 @@
 //! Integration tests for the relayer FullAccess delegate signer pool.
 
 use anyhow::Result;
-use near_crypto::SecretKey;
-use near_primitives::views::AccessKeyPermissionView;
+use near_crypto::{PublicKey, SecretKey};
+use near_primitives::types::AccountId;
+use near_primitives::views::{AccessKeyPermissionView, AccessKeyView};
 use near_workspaces::types::NearToken;
 use onsocial_relayer::key_pool::{KeyPool, PoolConfig};
 use onsocial_relayer::key_store::KeyStore;
 use onsocial_relayer::rpc::RpcClient;
 use onsocial_relayer::signer::RelayerSigner;
+use std::time::Duration;
 
 use crate::utils::setup_sandbox;
 
@@ -38,6 +40,36 @@ fn build_pool(account_id: &str, admin_secret: &SecretKey) -> KeyPool {
     KeyPool::new(pool_config, vec![])
 }
 
+async fn wait_for_full_access_key(
+    rpc: &RpcClient,
+    account_id: &AccountId,
+    public_key: &PublicKey,
+) -> Result<AccessKeyView> {
+    const MAX_ATTEMPTS: u32 = 20;
+
+    for attempt in 1..=MAX_ATTEMPTS {
+        match rpc.query_access_key(account_id, public_key).await {
+            Ok(access_key) => {
+                assert!(matches!(
+                    access_key.permission,
+                    AccessKeyPermissionView::FullAccess
+                ));
+                return Ok(access_key);
+            }
+            Err(error) if attempt < MAX_ATTEMPTS => {
+                let delay_ms = 250 * u64::from(attempt).min(8);
+                eprintln!(
+                    "admin access key not visible yet for {account_id} ({attempt}/{MAX_ATTEMPTS}): {error}"
+                );
+                tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+            }
+            Err(error) => return Err(error.into()),
+        }
+    }
+
+    unreachable!("bounded retry loop returns on success or final error")
+}
+
 #[tokio::test]
 async fn test_ensure_delegate_pool_registers_full_access_keys_on_chain() -> Result<()> {
     let worker = setup_sandbox().await?;
@@ -51,7 +83,9 @@ async fn test_ensure_delegate_pool_registers_full_access_keys_on_chain() -> Resu
         .await?
         .into_result()?;
 
+    let relayer_id: AccountId = relayer.id().as_str().parse()?;
     let admin_secret = convert_secret_key(relayer.secret_key());
+    wait_for_full_access_key(&rpc, &relayer_id, &admin_secret.public_key()).await?;
     let pool = build_pool(relayer.id().as_str(), &admin_secret);
 
     pool.ensure_delegate_pool(&rpc, 3).await?;
@@ -59,7 +93,7 @@ async fn test_ensure_delegate_pool_registers_full_access_keys_on_chain() -> Resu
 
     let guard = pool.acquire_delegate()?;
     let access_key = rpc
-        .query_access_key(&relayer.id().as_str().parse()?, &guard.public_key())
+        .query_access_key(&relayer_id, &guard.public_key())
         .await?;
     assert!(matches!(
         access_key.permission,
@@ -82,7 +116,9 @@ async fn test_ensure_delegate_pool_is_idempotent_once_target_met() -> Result<()>
         .await?
         .into_result()?;
 
+    let relayer_id: AccountId = relayer.id().as_str().parse()?;
     let admin_secret = convert_secret_key(relayer.secret_key());
+    wait_for_full_access_key(&rpc, &relayer_id, &admin_secret.public_key()).await?;
     let pool = build_pool(relayer.id().as_str(), &admin_secret);
 
     pool.ensure_delegate_pool(&rpc, 2).await?;
@@ -106,7 +142,9 @@ async fn test_delegate_guard_releases_in_flight() -> Result<()> {
         .await?
         .into_result()?;
 
+    let relayer_id: AccountId = relayer.id().as_str().parse()?;
     let admin_secret = convert_secret_key(relayer.secret_key());
+    wait_for_full_access_key(&rpc, &relayer_id, &admin_secret.public_key()).await?;
     let pool = build_pool(relayer.id().as_str(), &admin_secret);
 
     pool.ensure_delegate_pool(&rpc, 1).await?;

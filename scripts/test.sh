@@ -179,8 +179,9 @@ test_integration() {
                 if [ -n "$test_filter" ]; then
                     run_integration_test "$test_filter"
                 else
-                    # Run core-onsocial tests only: skip other contract-specific test modules
-                    run_integration_test "" "--skip token_onsocial_tests --skip staking_onsocial_tests --skip staking_gas_profiling_tests --skip boost_onsocial_tests --skip scarces:: --skip rewards::"
+                    # Run core-onsocial tests only: skip other contract-specific and relayer-only modules
+                    # (their WASM artifacts aren't built when targeting core-onsocial, or they don't exercise core).
+                    run_integration_test "" "--skip token_onsocial_tests --skip staking_onsocial_tests --skip staking_gas_profiling_tests --skip boost_onsocial_tests --skip scarces:: --skip rewards:: --skip intents_onsocial_tests --skip vesting:: --skip relayer_key_pool_tests --skip storage_batch_tests::test_update_config_via_manager_contract"
                 fi
                 local test_exit_code=$?
                 

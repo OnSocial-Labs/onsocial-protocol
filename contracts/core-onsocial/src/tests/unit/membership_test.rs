@@ -17,9 +17,7 @@ mod membership_tests {
         let alice = accounts(0);
         let bob = accounts(1);
 
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
 
         // Create group
         contract
@@ -46,9 +44,7 @@ mod membership_tests {
         let alice = accounts(0);
         let bob = accounts(1);
 
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
 
         // Create group but don't set any nonce for bob
         contract
@@ -71,9 +67,7 @@ mod membership_tests {
         let alice = accounts(0);
         let bob = accounts(1);
 
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
 
         // Create group
         contract
@@ -106,9 +100,7 @@ mod membership_tests {
         let alice = accounts(0);
         let bob = accounts(1);
 
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
 
         // Create group
         contract
@@ -141,9 +133,7 @@ mod membership_tests {
         let alice = accounts(0);
         let bob = accounts(1);
 
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
 
         // Create group
         contract
@@ -175,9 +165,7 @@ mod membership_tests {
         let alice = accounts(0);
         let bob = accounts(1);
 
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
 
         // Create group
         contract
@@ -235,9 +223,7 @@ mod membership_tests {
         let alice = accounts(0);
         let bob = accounts(1);
 
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
 
         // Create group but don't add bob
         contract
@@ -275,9 +261,7 @@ mod membership_tests {
         let alice = accounts(0);
         let bob = accounts(1);
 
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
 
         // Create group but don't add bob
         contract
@@ -310,9 +294,7 @@ mod membership_tests {
         let alice = accounts(0);
         let bob = accounts(1);
 
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
 
         // Create group
         contract
@@ -352,9 +334,7 @@ mod membership_tests {
         let alice = accounts(0);
         let bob = accounts(1);
 
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
 
         // Create group
         contract
@@ -398,9 +378,7 @@ mod membership_tests {
         let alice = accounts(0);
         let bob = accounts(1);
 
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
 
         // Create group
         contract
@@ -439,9 +417,7 @@ mod membership_tests {
         let alice = accounts(0);
         let bob = accounts(1);
 
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
 
         // Create group
         contract
@@ -515,9 +491,7 @@ mod membership_tests {
         let mut contract = init_live_contract();
         let alice = accounts(0);
 
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
 
         // Create group
         contract
@@ -555,9 +529,7 @@ mod membership_tests {
         let mut contract = init_live_contract();
         let alice = accounts(0);
 
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
 
         // Create group - owner should be auto-added as member
         contract
@@ -579,9 +551,7 @@ mod membership_tests {
         let mut contract = init_live_contract();
         let alice = accounts(0);
 
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
 
         // Create group - owner should have nonce set
         contract

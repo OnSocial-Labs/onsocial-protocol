@@ -21,7 +21,7 @@ impl SocialPlatform {
         // Auth is predecessor-trusted: for standard transactions and NEP-366
         // inner receipts the signer's public key is the access key used to
         // submit the (outer) transaction.
-        let actor_pk = Some(env::signer_account_pk());
+        let actor_pk = env::signer_account_pk();
 
         let verified = VerifiedContext {
             actor_id: ctx.actor_id.clone(),
@@ -34,8 +34,7 @@ impl SocialPlatform {
             &data,
             target_account,
             &verified.actor_id,
-            actor_pk.as_ref(),
-            false,
+            &actor_pk,
         )?;
 
         let mut event_batch = EventBatch::new();

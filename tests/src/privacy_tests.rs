@@ -13,7 +13,7 @@
 
 use near_workspaces::types::NearToken;
 use near_workspaces::{Account, Contract};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const ONE_NEAR: NearToken = NearToken::from_near(1);
 const TEN_NEAR: NearToken = NearToken::from_near(10);

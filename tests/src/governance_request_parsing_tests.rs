@@ -6,7 +6,7 @@
 
 use near_workspaces::types::NearToken;
 use near_workspaces::{Account, Contract};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::path::Path;
 
 use crate::utils::entry_value;

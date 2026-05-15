@@ -120,7 +120,7 @@ async fn test_nonce_invalidates_stale_permissions_on_rejoin() -> anyhow::Result<
 
     // Alice grants Bob MANAGE on group config
     let grant_manage = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set_permission", "grantee": bob.id(), "path": "groups/nonce_test/config", "level": MANAGE, "expires_at": null }
@@ -337,7 +337,7 @@ async fn test_manager_can_remove_regular_members() -> anyhow::Result<()> {
 
     // Grant manager MANAGE permission on group config
     let grant_manage = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set_permission", "grantee": manager.id(), "path": "groups/manager_remove_test/config", "level": MANAGE, "expires_at": null }
@@ -547,7 +547,7 @@ async fn test_blacklisted_granter_cannot_add_members() -> anyhow::Result<()> {
     assert!(add_manager.is_success(), "Add manager should succeed");
 
     let grant_manage = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set_permission", "grantee": manager.id(), "path": "groups/blacklisted_granter_test/config", "level": MANAGE, "expires_at": null }
@@ -943,7 +943,7 @@ async fn test_admin_can_blacklist_regular_members() -> anyhow::Result<()> {
     assert!(add_admin.is_success(), "Add admin should succeed");
 
     let grant_manage = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set_permission", "grantee": admin.id(), "path": "groups/admin_blacklist_test/config", "level": MANAGE, "expires_at": null }
@@ -3240,7 +3240,7 @@ async fn test_moderator_can_add_members_with_limited_levels() -> anyhow::Result<
 
     // Grant MODERATE (not MANAGE) on group config
     let grant_moderate = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set_permission", "grantee": moderator.id(), "path": "groups/mod_add_test/config", "level": MODERATE, "expires_at": null }
@@ -3301,7 +3301,7 @@ async fn test_moderator_can_add_members_with_limited_levels() -> anyhow::Result<
     // Test 2: Moderator cannot grant MANAGE permission (set_permission requires MANAGE to delegate)
     // This is a separate path from can_grant_permissions, but related security check
     let grant_manage_fail = moderator
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set_permission", "grantee": target1.id(), "path": "groups/mod_add_test/config", "level": MANAGE, "expires_at": null }
@@ -3566,7 +3566,7 @@ async fn test_can_grant_permissions_member_driven_blocked() -> anyhow::Result<()
     // This should fail because can_grant_permissions returns false
     if is_bob_member {
         let direct_permission = alice
-            .call(contract.id(), "execute")
+            .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set_permission", "grantee": bob.id(), "path": "groups/member_driven_grant_test/config", "level": MANAGE, "expires_at": null }

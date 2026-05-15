@@ -22,9 +22,7 @@ mod governance_status_tests {
         let bob = test_account(1);
 
         // Create member-driven group.
-        testing_env!(
-            get_context_with_deposit(owner.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(owner.clone(), test_deposits::ten_near()).build());
         contract
             .execute(create_group_request(
                 "status_missing".to_string(),
@@ -96,9 +94,7 @@ mod governance_status_tests {
         let bob = test_account(1);
 
         // Create member-driven group.
-        testing_env!(
-            get_context_with_deposit(owner.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(owner.clone(), test_deposits::ten_near()).build());
         contract
             .execute(create_group_request(
                 "status_invalid".to_string(),

@@ -15,7 +15,7 @@
 use anyhow::Result;
 use near_workspaces::types::{Gas, NearToken};
 use near_workspaces::{Account, Contract};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const ONE_NEAR: NearToken = NearToken::from_near(1);
 const TEN_NEAR: NearToken = NearToken::from_near(10);
@@ -201,7 +201,7 @@ async fn test_available_balance_with_zero_locked() -> Result<()> {
     // Alice deposits 1 NEAR
     let deposit_amount = NearToken::from_near(1);
     let res = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -210,8 +210,7 @@ async fn test_available_balance_with_zero_locked() -> Result<()> {
                         "amount": deposit_amount.as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(deposit_amount)
@@ -354,15 +353,14 @@ async fn test_available_balance_with_partial_lock() -> Result<()> {
 
     // Try to withdraw all balance (should fail due to lock)
     let withdraw_all = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": {
                     "storage/withdraw": {"amount": balance_after.to_string()}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .gas(Gas::from_tgas(50))
@@ -397,7 +395,7 @@ async fn test_covered_bytes_from_shared_pool() -> Result<()> {
     // Sponsor deposits to shared pool
     let pool_deposit = NearToken::from_near(2);
     let deposit_res = sponsor
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -407,8 +405,7 @@ async fn test_covered_bytes_from_shared_pool() -> Result<()> {
                         "amount": pool_deposit.as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(pool_deposit)
@@ -420,7 +417,7 @@ async fn test_covered_bytes_from_shared_pool() -> Result<()> {
     // Sponsor shares storage with user
     let share_bytes = 10_000u64;
     let share_res = sponsor
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -430,8 +427,7 @@ async fn test_covered_bytes_from_shared_pool() -> Result<()> {
                         "max_bytes": share_bytes
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -450,8 +446,7 @@ async fn test_covered_bytes_from_shared_pool() -> Result<()> {
                     "profile/name": "Shared User",
                     "profile/bio": "Using sponsored storage"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -520,7 +515,7 @@ async fn test_covered_bytes_from_group_pool() -> Result<()> {
     // Owner deposits to group pool AND sets default quota
     let pool_deposit = NearToken::from_near(2);
     let deposit_res = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -536,8 +531,7 @@ async fn test_covered_bytes_from_group_pool() -> Result<()> {
                         "allowance_max_bytes": 100000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(pool_deposit)
@@ -553,7 +547,7 @@ async fn test_covered_bytes_from_group_pool() -> Result<()> {
     // Note: Member deposits personal storage as fallback for this test.
     // In practice, group pool alone could cover writes if properly configured.
     let _ = member
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -562,8 +556,7 @@ async fn test_covered_bytes_from_group_pool() -> Result<()> {
                         "amount": NearToken::from_millinear(100).as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_millinear(100))
@@ -581,8 +574,7 @@ async fn test_covered_bytes_from_group_pool() -> Result<()> {
                 "action": { "type": "set", "data": {
                     write_key: {"text": "Group post using pool storage", "author": member.id().to_string()}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -644,7 +636,7 @@ async fn test_platform_allowance_initial_grant() -> Result<()> {
     let platform_deposit = NearToken::from_near(5);
     let deposit_res = contract
         .as_account()
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -653,8 +645,7 @@ async fn test_platform_allowance_initial_grant() -> Result<()> {
                         "amount": platform_deposit.as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(platform_deposit)
@@ -676,8 +667,7 @@ async fn test_platform_allowance_initial_grant() -> Result<()> {
                 "action": { "type": "set", "data": {
                     "profile/name": "Platform User"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -734,7 +724,7 @@ async fn test_platform_sponsorship_requires_funded_pool() -> Result<()> {
     // Platform pool is NOT funded in this test
     // User deposits personal storage and writes
     let deposit_res = user
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -743,8 +733,7 @@ async fn test_platform_sponsorship_requires_funded_pool() -> Result<()> {
                         "amount": ONE_NEAR.as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -761,8 +750,7 @@ async fn test_platform_sponsorship_requires_funded_pool() -> Result<()> {
                 "action": { "type": "set", "data": {
                     "profile/name": "Unsponsored User"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -806,7 +794,7 @@ async fn test_platform_sponsorship_granted_to_all_when_pool_funded() -> Result<(
     let platform_deposit = NearToken::from_near(5);
     let _ = contract
         .as_account()
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -815,8 +803,7 @@ async fn test_platform_sponsorship_granted_to_all_when_pool_funded() -> Result<(
                         "amount": platform_deposit.as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(platform_deposit)
@@ -826,7 +813,7 @@ async fn test_platform_sponsorship_granted_to_all_when_pool_funded() -> Result<(
 
     // User deposits 1 NEAR personal storage (they're "rich")
     let _ = user
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -835,8 +822,7 @@ async fn test_platform_sponsorship_granted_to_all_when_pool_funded() -> Result<(
                         "amount": ONE_NEAR.as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -853,8 +839,7 @@ async fn test_platform_sponsorship_granted_to_all_when_pool_funded() -> Result<(
                 "action": { "type": "set", "data": {
                     "profile/name": "Rich User"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -899,7 +884,7 @@ async fn test_platform_allowance_consumed_on_writes() -> Result<()> {
     let platform_deposit = NearToken::from_near(5);
     let _ = contract
         .as_account()
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -908,8 +893,7 @@ async fn test_platform_allowance_consumed_on_writes() -> Result<()> {
                         "amount": platform_deposit.as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(platform_deposit)
@@ -919,7 +903,7 @@ async fn test_platform_allowance_consumed_on_writes() -> Result<()> {
 
     let _ = contract
         .as_account()
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -928,8 +912,7 @@ async fn test_platform_allowance_consumed_on_writes() -> Result<()> {
                         "account_id": user.id().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -946,8 +929,7 @@ async fn test_platform_allowance_consumed_on_writes() -> Result<()> {
                 "action": { "type": "set", "data": {
                     "profile/name": "Consumer"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -969,8 +951,7 @@ async fn test_platform_allowance_consumed_on_writes() -> Result<()> {
                 "action": { "type": "set", "data": {
                     "profile/bio": "A longer bio that consumes more storage allowance bytes"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -1014,7 +995,7 @@ async fn test_shared_storage_respects_max_bytes() -> Result<()> {
     // Sponsor creates pool and shares LIMITED bytes
     let pool_deposit = NearToken::from_near(1);
     let _ = sponsor
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -1024,8 +1005,7 @@ async fn test_shared_storage_respects_max_bytes() -> Result<()> {
                         "amount": pool_deposit.as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(pool_deposit)
@@ -1036,7 +1016,7 @@ async fn test_shared_storage_respects_max_bytes() -> Result<()> {
     // Share only 100 bytes (very limited)
     let max_bytes = 100u64;
     let _ = sponsor
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -1046,8 +1026,7 @@ async fn test_shared_storage_respects_max_bytes() -> Result<()> {
                         "max_bytes": max_bytes
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -1058,7 +1037,7 @@ async fn test_shared_storage_respects_max_bytes() -> Result<()> {
     // User tries to write data that exceeds max_bytes (should need personal storage)
     // User needs to deposit personal storage first
     let _ = user
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -1067,8 +1046,7 @@ async fn test_shared_storage_respects_max_bytes() -> Result<()> {
                         "amount": ONE_NEAR.as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1086,8 +1064,7 @@ async fn test_shared_storage_respects_max_bytes() -> Result<()> {
                 "action": { "type": "set", "data": {
                     "profile/bio": large_bio
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -1175,7 +1152,7 @@ async fn test_shared_storage_path_validation_group() -> Result<()> {
     // Deposit to group-a pool AND set default quota
     let pool_deposit = NearToken::from_near(2);
     let _ = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -1191,8 +1168,7 @@ async fn test_shared_storage_path_validation_group() -> Result<()> {
                         "allowance_max_bytes": 100000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(pool_deposit)
@@ -1204,7 +1180,7 @@ async fn test_shared_storage_path_validation_group() -> Result<()> {
     // In production, if group pool + quota are set BEFORE the member's first write,
     // the group pool alone would be sufficient. Here we add a safety buffer.
     let _ = member
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -1213,8 +1189,7 @@ async fn test_shared_storage_path_validation_group() -> Result<()> {
                         "amount": ONE_NEAR.as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1232,8 +1207,7 @@ async fn test_shared_storage_path_validation_group() -> Result<()> {
                 "action": { "type": "set", "data": {
                     write_a_key: {"text": "Post in group A", "author": member.id().to_string()}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -1254,7 +1228,7 @@ async fn test_shared_storage_path_validation_group() -> Result<()> {
 
     // Member must have personal storage for group-b (no pool)
     let _ = member
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -1263,8 +1237,7 @@ async fn test_shared_storage_path_validation_group() -> Result<()> {
                         "amount": ONE_NEAR.as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1282,8 +1255,7 @@ async fn test_shared_storage_path_validation_group() -> Result<()> {
                 "action": { "type": "set", "data": {
                     write_b_key: {"text": "Post in group B", "author": member.id().to_string()}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -1333,7 +1305,7 @@ async fn test_shared_storage_non_group_path_validation() -> Result<()> {
     // Sponsor creates regular (non-group) shared pool
     let pool_deposit = NearToken::from_near(2);
     let _ = sponsor
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -1343,8 +1315,7 @@ async fn test_shared_storage_non_group_path_validation() -> Result<()> {
                         "amount": pool_deposit.as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(pool_deposit)
@@ -1354,7 +1325,7 @@ async fn test_shared_storage_non_group_path_validation() -> Result<()> {
 
     // Share with user
     let _ = sponsor
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -1364,8 +1335,7 @@ async fn test_shared_storage_non_group_path_validation() -> Result<()> {
                         "max_bytes": 10000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -1382,8 +1352,7 @@ async fn test_shared_storage_non_group_path_validation() -> Result<()> {
                 "action": { "type": "set", "data": {
                     "profile/name": "User with sponsor"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -1433,7 +1402,7 @@ async fn test_assert_storage_covered_blocks_underfunded_writes() -> Result<()> {
     // Deposit tiny amount (not enough for meaningful storage)
     let tiny_deposit = NearToken::from_yoctonear(1_000_000_000_000_000_000u128); // 0.001 NEAR
     let deposit_res = user
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -1442,8 +1411,7 @@ async fn test_assert_storage_covered_blocks_underfunded_writes() -> Result<()> {
                         "amount": tiny_deposit.as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(tiny_deposit)
@@ -1462,8 +1430,7 @@ async fn test_assert_storage_covered_blocks_underfunded_writes() -> Result<()> {
                 "action": { "type": "set", "data": {
                     "profile/bio": large_data
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -1510,7 +1477,7 @@ async fn test_platform_sponsorship_reactivates_when_pool_refunded() -> Result<()
     let small_deposit = NearToken::from_millinear(100); // 0.1 NEAR = 10KB capacity (minimum)
     let deposit_res = contract
         .as_account()
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -1519,8 +1486,7 @@ async fn test_platform_sponsorship_reactivates_when_pool_refunded() -> Result<()
                         "amount": small_deposit.as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(small_deposit)
@@ -1542,8 +1508,7 @@ async fn test_platform_sponsorship_reactivates_when_pool_refunded() -> Result<()
                 "action": { "type": "set", "data": {
                     "profile/name": "Test User"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -1567,7 +1532,7 @@ async fn test_platform_sponsorship_reactivates_when_pool_refunded() -> Result<()
     // User needs personal balance to continue when pool runs dry
     let personal_deposit = NearToken::from_near(1);
     let deposit_res = user
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -1576,8 +1541,7 @@ async fn test_platform_sponsorship_reactivates_when_pool_refunded() -> Result<()
                         "amount": personal_deposit.as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(personal_deposit)
@@ -1597,8 +1561,7 @@ async fn test_platform_sponsorship_reactivates_when_pool_refunded() -> Result<()
                     "action": { "type": "set", "data": {
                         format!("data/large{}", i): large_data
                     } },
-                    "options": null,
-                    "auth": null
+                    "options": null
                 }
             }))
             .deposit(NearToken::from_yoctonear(1))
@@ -1627,7 +1590,7 @@ async fn test_platform_sponsorship_reactivates_when_pool_refunded() -> Result<()
     let refund_amount = NearToken::from_near(1);
     let refund_res = contract
         .as_account()
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -1636,8 +1599,7 @@ async fn test_platform_sponsorship_reactivates_when_pool_refunded() -> Result<()
                         "amount": refund_amount.as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(refund_amount)
@@ -1659,8 +1621,7 @@ async fn test_platform_sponsorship_reactivates_when_pool_refunded() -> Result<()
                 "action": { "type": "set", "data": {
                     "profile/status": "Reactivated!"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))

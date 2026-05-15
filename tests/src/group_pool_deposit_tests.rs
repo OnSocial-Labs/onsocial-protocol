@@ -132,7 +132,7 @@ async fn test_group_pool_deposit_non_owner_fails() -> anyhow::Result<()> {
 
     let deposit_amount = NearToken::from_near(1);
     let res = non_owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -142,8 +142,7 @@ async fn test_group_pool_deposit_non_owner_fails() -> anyhow::Result<()> {
                         "amount": deposit_amount.as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(deposit_amount)
@@ -176,7 +175,7 @@ async fn test_group_pool_deposit_insufficient_attached_balance_fails() -> anyhow
     let deposit_amount = NearToken::from_near(5);
     let attached_amount = NearToken::from_near(1);
     let res = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -186,8 +185,7 @@ async fn test_group_pool_deposit_insufficient_attached_balance_fails() -> anyhow
                         "amount": deposit_amount.as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(attached_amount)
@@ -220,7 +218,7 @@ async fn test_group_pool_deposit_missing_group_id_fails() -> anyhow::Result<()> 
 
     let deposit_amount = NearToken::from_near(1);
     let res = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -229,8 +227,7 @@ async fn test_group_pool_deposit_missing_group_id_fails() -> anyhow::Result<()> 
                         "amount": deposit_amount.as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(deposit_amount)
@@ -261,7 +258,7 @@ async fn test_group_pool_deposit_missing_amount_fails() -> anyhow::Result<()> {
     create_group(&contract, &owner, group_id).await?;
 
     let res = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -270,8 +267,7 @@ async fn test_group_pool_deposit_missing_amount_fails() -> anyhow::Result<()> {
                         "group_id": group_id
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -302,7 +298,7 @@ async fn test_group_pool_deposit_zero_amount_fails() -> anyhow::Result<()> {
     create_group(&contract, &owner, group_id).await?;
 
     let res = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -312,8 +308,7 @@ async fn test_group_pool_deposit_zero_amount_fails() -> anyhow::Result<()> {
                         "amount": "0"
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -346,7 +341,7 @@ async fn test_group_pool_deposit_below_minimum_fails() -> anyhow::Result<()> {
     // Try to deposit 0.05 NEAR (below ~0.1 NEAR / 10KB minimum)
     let below_min = NearToken::from_millinear(50);
     let res = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -356,8 +351,7 @@ async fn test_group_pool_deposit_below_minimum_fails() -> anyhow::Result<()> {
                         "amount": below_min.as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(below_min)
@@ -386,7 +380,7 @@ async fn test_group_pool_deposit_nonexistent_group_fails() -> anyhow::Result<()>
 
     let deposit_amount = NearToken::from_near(1);
     let res = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -396,8 +390,7 @@ async fn test_group_pool_deposit_nonexistent_group_fails() -> anyhow::Result<()>
                         "amount": deposit_amount.as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(deposit_amount)
@@ -433,7 +426,7 @@ async fn test_group_pool_deposit_emits_created_event_on_first_deposit() -> anyho
 
     let deposit_amount = NearToken::from_near(1);
     let res = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -443,8 +436,7 @@ async fn test_group_pool_deposit_emits_created_event_on_first_deposit() -> anyho
                         "amount": deposit_amount.as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(deposit_amount)
@@ -482,7 +474,7 @@ async fn test_group_pool_deposit_emits_deposit_event_with_correct_fields() -> an
 
     let deposit_amount = NearToken::from_near(1);
     let res = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -492,8 +484,7 @@ async fn test_group_pool_deposit_emits_deposit_event_with_correct_fields() -> an
                         "amount": deposit_amount.as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(deposit_amount)
@@ -553,7 +544,7 @@ async fn test_group_pool_deposit_updates_pool_balance_correctly() -> anyhow::Res
 
     let deposit_amount = NearToken::from_near(2);
     let res = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -563,8 +554,7 @@ async fn test_group_pool_deposit_updates_pool_balance_correctly() -> anyhow::Res
                         "amount": deposit_amount.as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(deposit_amount)
@@ -607,7 +597,7 @@ async fn test_group_pool_deposit_multiple_deposits_accumulate() -> anyhow::Resul
 
     let first_deposit = NearToken::from_near(1);
     let res1 = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -617,8 +607,7 @@ async fn test_group_pool_deposit_multiple_deposits_accumulate() -> anyhow::Resul
                         "amount": first_deposit.as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(first_deposit)
@@ -633,7 +622,7 @@ async fn test_group_pool_deposit_multiple_deposits_accumulate() -> anyhow::Resul
 
     let second_deposit = NearToken::from_near(2);
     let res2 = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -643,8 +632,7 @@ async fn test_group_pool_deposit_multiple_deposits_accumulate() -> anyhow::Resul
                         "amount": second_deposit.as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(second_deposit)
@@ -696,7 +684,7 @@ async fn test_group_pool_deposit_manager_with_manage_permission_succeeds() -> an
 
     let permission_path = format!("{}/groups/{}/config", owner.id(), group_id);
     let grant_res = owner
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -707,8 +695,7 @@ async fn test_group_pool_deposit_manager_with_manage_permission_succeeds() -> an
                         "level": 3
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -723,7 +710,7 @@ async fn test_group_pool_deposit_manager_with_manage_permission_succeeds() -> an
 
     let deposit_amount = NearToken::from_near(1);
     let res = manager
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -733,8 +720,7 @@ async fn test_group_pool_deposit_manager_with_manage_permission_succeeds() -> an
                         "amount": deposit_amount.as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(deposit_amount)

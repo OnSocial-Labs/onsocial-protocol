@@ -5,7 +5,7 @@
 
 use near_workspaces::types::NearToken;
 use near_workspaces::{Account, Contract};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::path::Path;
 
 use crate::core_onsocial_tests::find_events_by_operation;
@@ -6313,15 +6313,14 @@ async fn test_proposer_deposit_requirements_and_locking() -> anyhow::Result<()> 
     // Withdraw all of Alice's storage balance so she starts fresh
     // (previous group operations auto-deposited NEAR to her storage)
     let withdraw_all = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": {
                     "storage/withdraw": {}
                 } },
-                "options": { "refund_unused_deposit": true },
-                "auth": null
+                "options": { "refund_unused_deposit": true }
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -6733,15 +6732,14 @@ async fn test_locked_balance_blocks_withdraw() -> anyhow::Result<()> {
     println!("\n📦 TEST 2: Attempt to withdraw all balance (including locked)...");
 
     let withdraw_result = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": {
                     "storage/withdraw": {"amount": (balance_after as u128).to_string()}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -6775,15 +6773,14 @@ async fn test_locked_balance_blocks_withdraw() -> anyhow::Result<()> {
     // Withdraw a small amount (less than available)
     let small_withdraw = NearToken::from_millinear(10).as_yoctonear(); // 0.01 NEAR
     let partial_withdraw_result = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": {
                     "storage/withdraw": {"amount": small_withdraw.to_string()}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(50))
@@ -6850,15 +6847,14 @@ async fn test_locked_balance_blocks_withdraw() -> anyhow::Result<()> {
 
     // Try a small withdrawal
     let withdraw_result = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": {
                     "storage/withdraw": {"amount": NearToken::from_millinear(10).as_yoctonear().to_string()}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -6997,8 +6993,7 @@ async fn test_locked_balance_prevents_spending() -> anyhow::Result<()> {
                 "action": { "type": "set", "data": {
                     "profile/test_data": "x".repeat(1000) // ~1KB of data
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_millinear(10)) // Small deposit
@@ -9082,7 +9077,9 @@ async fn test_voting_period_expiration_rejects_late_votes() -> anyhow::Result<()
     println!("   ✓ Vote succeeded before expiration");
 
     println!("✅ Voting period configuration correctly applied");
-    println!("   Note: Full expiration behavior tested in unit tests (time manipulation not available in sandbox)");
+    println!(
+        "   Note: Full expiration behavior tested in unit tests (time manipulation not available in sandbox)"
+    );
     Ok(())
 }
 
@@ -11047,7 +11044,9 @@ async fn test_group_update_type_all_variants_round_trip() -> anyhow::Result<()> 
         .get("proposal_type")
         .and_then(|v| v.as_str());
     assert_eq!(event_proposal_type, Some("group_update_transfer_ownership"));
-    println!("   ✓ transfer_ownership → parse() → ProposalType::name() → 'group_update_transfer_ownership' ✓");
+    println!(
+        "   ✓ transfer_ownership → parse() → ProposalType::name() → 'group_update_transfer_ownership' ✓"
+    );
 
     println!("✅ All 6 GroupUpdateType variants verified for bidirectional consistency");
     Ok(())

@@ -1,7 +1,7 @@
 use anyhow::Result;
 use near_workspaces::types::{Gas, NearToken};
 use near_workspaces::{Account, Contract};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::utils::{get_wasm_path, setup_sandbox};
 

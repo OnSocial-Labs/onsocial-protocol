@@ -20,9 +20,7 @@ mod grants_tests {
         let bob = test_account(1); // member without nonce
 
         // Create group
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         contract
             .execute(create_group_request(
                 "nonce_missing_test".to_string(),
@@ -81,9 +79,7 @@ mod grants_tests {
         let bob = test_account(1); // member with zero nonce
 
         // Create group
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         contract
             .execute(create_group_request(
                 "nonce_zero_test".to_string(),
@@ -148,9 +144,7 @@ mod grants_tests {
         let bob = test_account(1); // non-member
 
         // Create group
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         contract
             .execute(create_group_request(
                 "non_member_test".to_string(),
@@ -193,9 +187,7 @@ mod grants_tests {
         let alice = test_account(0);
         let bob = test_account(1);
 
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
 
         let mut event_batch = EventBatch::new();
 
@@ -234,9 +226,7 @@ mod grants_tests {
         let bob = test_account(1);
 
         // Create group and add Bob as member
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         contract
             .execute(create_group_request("revoke_test".to_string(), json!({})))
             .unwrap();
@@ -269,9 +259,7 @@ mod grants_tests {
         let bob = test_account(1);
 
         // Create group and add Bob as member
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         contract
             .execute(create_group_request(
                 "revoke_exists_test".to_string(),
@@ -339,9 +327,7 @@ mod grants_tests {
         let bob = test_account(1);
 
         // Create group and add Bob as member
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         contract
             .execute(create_group_request("expiry_test".to_string(), json!({})))
             .unwrap();
@@ -385,9 +371,7 @@ mod grants_tests {
         let alice = test_account(0);
         let bob = test_account(1);
 
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
 
         // Deposit storage for alice
         contract

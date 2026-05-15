@@ -11,7 +11,7 @@
 
 use near_workspaces::types::NearToken;
 use near_workspaces::{Account, Contract};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::path::Path;
 
 const ONE_NEAR: NearToken = NearToken::from_near(1);
@@ -118,15 +118,14 @@ async fn test_create_proposal_zero_deposit_fails() -> anyhow::Result<()> {
     // Withdraw all storage so alice has 0 available balance
     // (group creation auto-deposits 1 NEAR to storage via prepare_group_storage)
     let withdraw_all = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": {
                     "storage/withdraw": {}
                 } },
-                "options": { "refund_unused_deposit": true },
-                "auth": null
+                "options": { "refund_unused_deposit": true }
             }
         }))
         .deposit(NearToken::from_yoctonear(0))
@@ -214,15 +213,14 @@ async fn test_create_proposal_insufficient_deposit_fails() -> anyhow::Result<()>
     // Withdraw all storage so alice has 0 available balance
     // (group creation auto-deposits 1 NEAR to storage via prepare_group_storage)
     let withdraw_all = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": {
                     "storage/withdraw": {}
                 } },
-                "options": { "refund_unused_deposit": true },
-                "auth": null
+                "options": { "refund_unused_deposit": true }
             }
         }))
         .deposit(NearToken::from_yoctonear(0))

@@ -7,7 +7,7 @@
 
 use near_workspaces::types::NearToken;
 use near_workspaces::{Account, Contract};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::path::Path;
 
 use crate::core_onsocial_tests::find_events_by_operation;
@@ -72,8 +72,8 @@ async fn create_user(root: &Account, name: &str, balance: NearToken) -> anyhow::
 /// proposal status is updated to "rejected" instead of staying "active".
 /// This validates the fix in votes.rs that updates status before propagating error.
 #[tokio::test]
-async fn test_join_request_execution_failure_unlocks_deposit_and_updates_status(
-) -> anyhow::Result<()> {
+async fn test_join_request_execution_failure_unlocks_deposit_and_updates_status()
+-> anyhow::Result<()> {
     println!("\n=== Test: Execution Failure Updates Status to Rejected ===");
 
     let worker = near_workspaces::sandbox().await?;

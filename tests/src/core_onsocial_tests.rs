@@ -10,7 +10,7 @@
 use near_workspaces::types::NearToken;
 use near_workspaces::{Account, Contract};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::path::Path;
 
 use crate::utils::{entry_value, entry_value_str};
@@ -427,8 +427,7 @@ async fn test_set_and_get_profile_data() -> anyhow::Result<()> {
                     "profile/name": "Alice",
                     "profile/bio": "Hello from the sandbox!"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -505,8 +504,7 @@ async fn test_set_complex_nested_data() -> anyhow::Result<()> {
                     "posts/2/title": "Second Post",
                     "posts/2/content": "Another post content"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -684,8 +682,7 @@ async fn test_get_with_relative_key_resolution() -> anyhow::Result<()> {
                 "action": { "type": "set", "data": {
                     "profile/status": "active"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -791,8 +788,7 @@ async fn test_get_one_normalizes_leading_slashes() -> anyhow::Result<()> {
                 "action": { "type": "set", "data": {
                     "profile/test": "value123"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1003,7 +999,7 @@ async fn test_group_membership() -> anyhow::Result<()> {
 
     // Grant Bob MODERATE on join_requests so he can add members (member-only) via delegation.
     let grant_bob_join_requests_moderate = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set_permission", "grantee": bob.id(), "path": "groups/delegation_test/join_requests", "level": 2, "expires_at": null }
@@ -1113,8 +1109,7 @@ async fn test_has_permission() -> anyhow::Result<()> {
                 "action": { "type": "set", "data": {
                     "profile/name": "Alice"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1197,8 +1192,7 @@ async fn test_storage_balance() -> anyhow::Result<()> {
                 "action": { "type": "set", "data": {
                     "profile/name": "Alice"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1249,8 +1243,7 @@ async fn test_events_emitted_on_set() -> anyhow::Result<()> {
                 "action": { "type": "set", "data": {
                     "profile/name": "Alice"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1296,8 +1289,7 @@ async fn test_event_partition_consistency_across_batch() -> anyhow::Result<()> {
                     "settings/theme": "dark",
                     "data/items/1": "first"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1464,14 +1456,13 @@ async fn test_event_partition_fallback_to_account_id() -> anyhow::Result<()> {
     // storage_deposit events are emitted WITHOUT a path field (see deposit.rs:55-65)
     // This triggers the fallback to account_id for partition calculation
     let deposit_result = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set", "data": {
                     "storage/deposit": { "amount": ONE_NEAR.as_yoctonear().to_string() }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1555,8 +1546,7 @@ async fn test_unauthorized_write_fails() -> anyhow::Result<()> {
                 "action": { "type": "set", "data": {
                     "profile/name": "Alice"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1575,8 +1565,7 @@ async fn test_unauthorized_write_fails() -> anyhow::Result<()> {
                 "action": { "type": "set", "data": {
                     "profile/name": "Hacked!"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1717,8 +1706,7 @@ async fn test_real_transaction_flow_social_platform() -> anyhow::Result<()> {
                     "settings/theme": "dark",
                     "settings/notifications": "true"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1842,8 +1830,7 @@ async fn test_real_transaction_flow_social_platform() -> anyhow::Result<()> {
                     "groups/rust_devs/content/posts/1/author": bob.id().to_string(),
                     "groups/rust_devs/content/posts/1/timestamp": "1733400000000"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -2027,8 +2014,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                     "settings/theme": "dark",
                     "settings/language": "en"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -2160,8 +2146,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .args_json(json!({
             "request": {
                 "action": { "type": "set", "data": large_batch },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -2247,8 +2232,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                     "profile/company": "NEAR Foundation",  // NEW key
                     "profile/role": "Lead Developer"  // NEW key
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -2304,8 +2288,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                         "updated": "2025-12-05"
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -2330,8 +2313,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                     "profile/github": null,
                     "settings/language": null
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -2409,8 +2391,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                 "action": { "type": "set", "data": {
                     "test/extra_check": "test_value_123"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -2494,8 +2475,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                 "action": { "type": "set", "data": {
                     "test/small": "x"  // Very small data
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_near(2)) // Deposit 2 NEAR
@@ -2578,8 +2558,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                     "delta/test2": "value2",
                     "delta/test3": "value3"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -2682,7 +2661,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let withdraw_amount = NearToken::from_near(1).as_yoctonear();
 
     let withdraw_result = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set", "data": {
@@ -2690,8 +2669,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                         "amount": withdraw_amount.to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1)) // Minimal deposit for the call
@@ -2762,7 +2740,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
 
     // Alice grants Bob permission to write to her profile
     let grant_result = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set", "data": {
@@ -2772,8 +2750,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                         "level": 1  // WRITE permission
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -2802,8 +2779,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                 "action": { "type": "set", "data": {
                     "delegated/message": "Hello from Bob!"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -2866,8 +2842,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                     "delta/test2": null,
                     "delta/test3": null
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -2911,8 +2886,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                 "action": { "type": "set", "data": {
                     "profile/hacked": "Unauthorized!"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -2954,7 +2928,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
 
     // Revoke Bob's permission using the set API with permission/revoke
     let revoke_result = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set", "data": {
@@ -2963,8 +2937,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                         "path": format!("{}/delegated", alice.id())
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -2987,8 +2960,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                 "action": { "type": "set", "data": {
                     "delegated/after_revoke": "Should fail!"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -3019,8 +2991,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                 "action": { "type": "set", "data": {
                     "public/readme": "Carol's public space"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -3031,7 +3002,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
 
     // Carol grants write permission to Bob for her /public path
     let wildcard_grant = carol
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set", "data": {
@@ -3041,8 +3012,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                         "level": 1  // WRITE permission
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -3064,8 +3034,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                     "public/posts/post2": "Second post by Bob",
                     "public/comments/c1": "A comment"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -3115,8 +3084,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                     "123/test": "shard test 3",
                     "___/test": "shard test 4"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -3186,8 +3154,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                 "action": { "type": "set", "data": {
                     "large/dataset": large_json
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -3571,8 +3538,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                 "action": { "type": "set", "data": {
                     "pause_test/before": "written before pause"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -4465,7 +4431,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
 
     // Grant mod1 moderator permissions over join_requests (delegation path)
     let grant_mod1_join_requests = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set_permission", "grantee": mod1.id().to_string(), "path": "groups/private-club/join_requests", "level": 2, "expires_at": null }
@@ -5839,8 +5805,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                 "action": { "type": "set", "data": {
                     "huge/data": "x".repeat(10000)  // 10KB of data
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1)) // Almost no deposit
@@ -5922,7 +5887,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
 
     // Roles are granted via set_permission (path-based)
     let grant_david_manage = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set_permission", "grantee": david.id().to_string(), "path": "groups/test-community/config", "level": 3, "expires_at": null }
@@ -6097,7 +6062,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
 
     // Grant MANAGE via set_permission
     let grant_manager_manage = owner_prot
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set_permission", "grantee": manager_user.id().to_string(), "path": "groups/owner-protect-group/config", "level": 3, "expires_at": null }
@@ -6980,7 +6945,10 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(is_oscar_blacklisted_after, "Oscar should be blacklisted after proposal execution (from_governance=true bypassed restriction)");
+    assert!(
+        is_oscar_blacklisted_after,
+        "Oscar should be blacklisted after proposal execution (from_governance=true bypassed restriction)"
+    );
     println!("      ✓ GOVERNANCE BYPASS VERIFIED: Oscar blacklisted via proposal execution");
     println!("      ✓ from_governance=true allowed blacklist action in member-driven group");
 
@@ -7206,7 +7174,9 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         unblacklist_md_attempt.is_success(),
         "unblacklist_group_member should create unban proposal"
     );
-    println!("      ✓ Member-driven group: unblacklist_group_member creates unban proposal (not direct unblacklist)");
+    println!(
+        "      ✓ Member-driven group: unblacklist_group_member creates unban proposal (not direct unblacklist)"
+    );
 
     // --- RESTRICTION 5: remove_group_member creates proposal (except self-removal via leave_group) ---
     println!("\n   📝 Testing remove_group_member restriction...");
@@ -7299,7 +7269,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
 
     // First, Alice grants Bob permission to write on her behalf using the data pattern
     let grant_write_for = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set", "data": {
@@ -7309,8 +7279,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                         "level": 1  // WRITE permission = 1
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -7334,8 +7303,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                 "action": { "type": "set", "data": {
                     "relayed/message": "Written by Bob on behalf of Alice"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -7383,8 +7351,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                 "action": { "type": "set", "data": {
                     "relayed/unauthorized": "Should fail"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -7625,7 +7592,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
 
     // First, Alice needs to create a shared storage pool
     let create_pool = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -7635,8 +7602,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                         "amount": "1000000000000000000000000"  // 1 NEAR in yoctoNEAR
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -7658,7 +7624,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
 
     // Now Alice shares storage with Eve from her pool
     let share_storage = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -7668,8 +7634,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                         "max_bytes": 10000
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1)) // Minimal deposit
@@ -7706,8 +7671,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                 "action": { "type": "set", "data": {
                     "profile/name": "Eve (sponsored)"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1)) // Minimal deposit
@@ -7742,8 +7706,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                     "action": { "type": "set", "data": {
                         "test/readonly_check": "should_fail"
                     } },
-                    "options": null,
-                    "auth": null
+                    "options": null
                 }
             }))
             .deposit(ONE_NEAR)
@@ -7774,7 +7737,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
 
     // Carol grants Dan permission using the direct API
     let set_perm_direct = carol
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set_permission", "grantee": dan.id().to_string(), "path": format!("{}/direct", carol.id()), "level": 1 }// WRITE, "expires_at": null
@@ -7815,7 +7778,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let past_timestamp = 1000000000000000000u64; // Way in the past (nanoseconds)
 
     let set_perm_expired = carol
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set_permission", "grantee": eve.id().to_string(), "path": format!("{}/expired", carol.id()), "level": 1, "expires_at": past_timestamp.to_string() }
@@ -7844,7 +7807,9 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         if !eve_has_perm {
             println!("   ✓ Expired permission correctly returns false");
         } else {
-            println!("   ⚠ Expired permission still returns true (expiration may not be checked on read)");
+            println!(
+                "   ⚠ Expired permission still returns true (expiration may not be checked on read)"
+            );
         }
     } else {
         println!("   ⚠ Permission with past expiration was rejected");
@@ -7857,15 +7822,14 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
 
     // Eve returns the shared storage that Alice gave her in Test 49
     let return_storage = eve
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": {
                     "storage/return_shared_storage": {}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -7920,8 +7884,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                 "action": { "type": "set", "data": {
                     "": "should fail"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(50))
@@ -7947,8 +7910,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                 "action": { "type": "set", "data": {
                     "profile/../../../admin": "traversal attack"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(50))
@@ -7988,8 +7950,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                 "action": { "type": "set", "data": {
                     &deep_path: "deep value"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -8081,7 +8042,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     println!("\n🔒 TEST 60: Permission flags - zero value...");
 
     let zero_perm_result = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set_permission", "grantee": carol.id().to_string(), "path": "profile/zero_test", "level": 0, "expires_at": null }// No permissions at all
@@ -8106,7 +8067,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     println!("\n🔒 TEST 61: Permission flags - overflow value...");
 
     let overflow_perm_result = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set_permission", "grantee": carol.id().to_string(), "path": "profile/overflow_test", "level": 9999, "expires_at": null }// Way above u8 max
@@ -8280,8 +8241,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                 "action": { "type": "set", "data": {
                     "account/read_only": true
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(50))
@@ -8298,8 +8258,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                     "action": { "type": "set", "data": {
                         "profile/readonly_test": "should_fail"
                     } },
-                    "options": null,
-                    "auth": null
+                    "options": null
                 }
             }))
             .gas(near_workspaces::types::Gas::from_tgas(50))
@@ -8321,8 +8280,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                     "action": { "type": "set", "data": {
                         "account/read_only": false
                     } },
-                    "options": null,
-                    "auth": null
+                    "options": null
                 }
             }))
             .gas(near_workspaces::types::Gas::from_tgas(50))
@@ -8380,8 +8338,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": large_batch },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(300))
@@ -8400,15 +8357,14 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     println!("\n💰 TEST 69: Storage deposit via data API...");
 
     let storage_deposit_data = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": {
                     "storage/deposit": {}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(near_workspaces::types::NearToken::from_millinear(500))
@@ -8431,7 +8387,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     println!("\n💰 TEST 70: Storage withdraw via data API...");
 
     let storage_withdraw_data = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -8440,8 +8396,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                         "amount": "1000000000000000000000"  // 0.001 NEAR
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -8657,7 +8612,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     // Carol tries to grant Bob higher permissions than she has
     // First give Carol limited permission (read only = 1)
     let grant_carol = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set_permission", "grantee": carol.id().to_string(), "path": "profile/escalation_test", "level": 1, "expires_at": null }// Read only
@@ -8670,7 +8625,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     if grant_carol.is_success() {
         // Now Carol tries to grant Bob write permission (escalation)
         let escalate = carol
-            .call(contract.id(), "execute")
+            .call(contract.id(), "execute_admin")
             .args_json(json!({
                 "request": {
                     "action": { "type": "set_permission", "grantee": bob.id().to_string(), "path": format!("{}/profile/escalation_test", alice.id()), "level": 7, "expires_at": null }// Full RWX - more than Carol has
@@ -8800,8 +8755,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                 "action": { "type": "set", "data": {
                     "options_test/nested/deep": "value"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(50))
@@ -9255,8 +9209,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                 "action": { "type": "set", "data": {
                     "events/test_emission": { "purpose": "event_test" }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(near_workspaces::types::NearToken::from_millinear(10))
@@ -9290,7 +9243,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     println!("\n📡 TEST 89: PERMISSION_UPDATE event on grant...");
 
     let perm_grant = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set_permission", "grantee": bob.id().to_string(), "path": "events/perm_test", "level": 1, "expires_at": null }
@@ -9334,7 +9287,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     println!("\n📡 TEST 90: PERMISSION_UPDATE event on revoke...");
 
     let perm_revoke = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set_permission", "grantee": bob.id().to_string(), "path": "events/perm_test", "level": 0, "expires_at": null }
@@ -9588,15 +9541,14 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     println!("\n📡 TEST 97: STORAGE_UPDATE event on storage deposit...");
 
     let storage_dep = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": {
                     "storage/deposit": {}
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(near_workspaces::types::NearToken::from_millinear(100))
@@ -9754,8 +9706,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                         "field2": 123
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(near_workspaces::types::NearToken::from_millinear(10))
@@ -15397,8 +15348,7 @@ async fn test_view_state_prefix_query() -> anyhow::Result<()> {
                     "action": { "type": "set", "data": {
                         format!("posts/{}", i): format!("Alice's post {}", i)
                     } },
-                    "options": null,
-                    "auth": null
+                    "options": null
                 }
             }))
             .deposit(ONE_NEAR)
@@ -15419,8 +15369,7 @@ async fn test_view_state_prefix_query() -> anyhow::Result<()> {
                     "profile/name": "Alice",
                     "profile/bio": "Hello world"
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -15440,8 +15389,7 @@ async fn test_view_state_prefix_query() -> anyhow::Result<()> {
                     "action": { "type": "set", "data": {
                         format!("posts/{}", i): format!("Bob's post {}", i)
                     } },
-                    "options": null,
-                    "auth": null
+                    "options": null
                 }
             }))
             .deposit(ONE_NEAR)
@@ -15873,8 +15821,7 @@ async fn test_admin_update_config_blocked_in_readonly() -> anyhow::Result<()> {
                 "max_value_bytes": 10240,
                 "platform_onboarding_bytes": 10000,
                 "platform_daily_refill_bytes": 3000,
-                "platform_allowance_max_bytes": 6000,
-                "intents_executors": []
+                "platform_allowance_max_bytes": 6000
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -17534,7 +17481,7 @@ async fn test_valid_operation_keys_work() -> anyhow::Result<()> {
 
     // Test valid storage/deposit
     let deposit_result = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": { "type": "set", "data": {
@@ -17670,7 +17617,7 @@ async fn test_dispatch_return_values() -> anyhow::Result<()> {
     // 3. SetPermission (void) should return null
     println!("\n📦 TEST: SetPermission returns null...");
     let perm_result = alice
-        .call(contract.id(), "execute")
+        .call(contract.id(), "execute_admin")
         .args_json(json!({
             "request": {
                 "action": {
@@ -18527,7 +18474,7 @@ async fn test_first_write_emits_platform_sponsor_event() -> anyhow::Result<()> {
 
     // Fund the platform pool using execute API (manager = contract deployer account)
     let fund_result = contract
-        .call("execute")
+        .call("execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -18536,8 +18483,7 @@ async fn test_first_write_emits_platform_sponsor_event() -> anyhow::Result<()> {
                         "amount": NearToken::from_near(5).as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_near(5))
@@ -18735,7 +18681,7 @@ async fn test_second_write_does_not_emit_sponsor_event() -> anyhow::Result<()> {
 
     // Fund the platform pool
     let fund_result = contract
-        .call("execute")
+        .call("execute_admin")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -18744,8 +18690,7 @@ async fn test_second_write_does_not_emit_sponsor_event() -> anyhow::Result<()> {
                         "amount": NearToken::from_near(5).as_yoctonear().to_string()
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(NearToken::from_near(5))

@@ -14,7 +14,7 @@
 use near_workspaces::types::NearToken;
 use near_workspaces::{Account, Contract};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::path::Path;
 
 const ONE_NEAR: NearToken = NearToken::from_near(1);
@@ -228,8 +228,7 @@ async fn test_member_can_create_content() -> anyhow::Result<()> {
                 "action": { "type": "set", "data": {
                     "groups/devs/content/posts/hello": { "title": "Hello World", "body": "My first post" }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -265,8 +264,7 @@ async fn test_content_stored_at_user_owned_path() -> anyhow::Result<()> {
                 "action": { "type": "set", "data": {
                     "groups/devs/content/posts/hello": { "title": "Test Post" }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -341,8 +339,7 @@ async fn test_metadata_block_height() -> anyhow::Result<()> {
                 "action": { "type": "set", "data": {
                     "groups/mygroup/content/posts/1": { "title": "Test" }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -406,8 +403,7 @@ async fn test_content_metadata() -> anyhow::Result<()> {
                         }
                     }
                 } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -501,8 +497,7 @@ async fn test_member_can_update_own_content() -> anyhow::Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "groups/devs/content/posts/update": { "title": "Original" }  } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -517,8 +512,7 @@ async fn test_member_can_update_own_content() -> anyhow::Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "groups/devs/content/posts/update": { "title": "Updated" }  } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -574,8 +568,7 @@ async fn test_member_can_delete_own_content() -> anyhow::Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "groups/devs/content/posts/delete_me": { "title": "To Delete" }  } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -615,8 +608,7 @@ async fn test_member_can_delete_own_content() -> anyhow::Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "groups/devs/content/posts/delete_me": null  } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -680,8 +672,7 @@ async fn test_non_member_cannot_write() -> anyhow::Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "groups/private_group/content/posts/hack": { "title": "Unauthorized" }  } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -715,8 +706,7 @@ async fn test_owner_can_write_without_explicit_membership() -> anyhow::Result<()
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "groups/alice_group/content/posts/owner": { "title": "Owner Post" }  } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -757,8 +747,7 @@ async fn test_same_user_multiple_groups_no_collision() -> anyhow::Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "groups/group_a/content/posts/1": { "title": "Post in A" }  } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -771,8 +760,7 @@ async fn test_same_user_multiple_groups_no_collision() -> anyhow::Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "groups/group_b/content/posts/1": { "title": "Post in B" }  } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -838,8 +826,7 @@ async fn test_multiple_users_same_group_no_collision() -> anyhow::Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "groups/shared/content/posts/1": { "title": "Bob's Post" }  } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -852,8 +839,7 @@ async fn test_multiple_users_same_group_no_collision() -> anyhow::Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "groups/shared/content/posts/1": { "title": "Charlie's Post" }  } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -921,8 +907,7 @@ async fn test_cannot_write_to_groups_namespace_without_membership() -> anyhow::R
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "groups/protected/content/posts/hack": { "title": "Hacked!" }  } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -957,8 +942,7 @@ async fn test_cannot_write_to_nonexistent_group() -> anyhow::Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "groups/nonexistent/content/posts/1": { "title": "Ghost Post" }  } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -998,8 +982,7 @@ async fn test_content_creation_emits_event() -> anyhow::Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "groups/event_group/content/posts/1": { "title": "Event Test" }  } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1038,8 +1021,7 @@ async fn test_deletion_emits_event() -> anyhow::Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "groups/delete_event/content/posts/1": { "title": "To Delete" }  } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1054,8 +1036,7 @@ async fn test_deletion_emits_event() -> anyhow::Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "groups/delete_event/content/posts/1": null  } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1094,8 +1075,7 @@ async fn test_content_block_height_matches_event() -> anyhow::Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "groups/block_test/content/posts/1": { "title": "Block Height Test" }  } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1161,8 +1141,7 @@ async fn test_create_emits_create_operation() -> anyhow::Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "groups/op_test/content/posts/new": { "title": "New Post" }  } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1224,8 +1203,7 @@ async fn test_update_emits_update_operation() -> anyhow::Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "groups/op_test2/content/posts/1": { "title": "Original" }  } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1240,8 +1218,7 @@ async fn test_update_emits_update_operation() -> anyhow::Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "groups/op_test2/content/posts/1": { "title": "Updated" }  } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1311,8 +1288,7 @@ async fn test_user_cannot_modify_another_users_content() -> anyhow::Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "groups/shared_group/content/posts/bobs_post": { "title": "Bob's Original" }  } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1327,8 +1303,7 @@ async fn test_user_cannot_modify_another_users_content() -> anyhow::Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "groups/shared_group/content/posts/bobs_post": { "title": "Charlie's Attempt" }  } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1406,8 +1381,7 @@ async fn test_path_without_content_path_rejected() -> anyhow::Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "groups/mygroup": { "title": "Bad" }  } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1430,8 +1404,7 @@ async fn test_path_without_content_path_rejected() -> anyhow::Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "groups/mygroup/": { "title": "Bad" }  } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1851,8 +1824,7 @@ async fn test_cannot_write_to_config_namespace() -> anyhow::Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "groups/testgroup/config": { "owner": "attacker.near" } } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1873,8 +1845,7 @@ async fn test_cannot_write_to_config_namespace() -> anyhow::Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "groups/testgroup/config/malicious": { "data": "evil" } } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1916,8 +1887,7 @@ async fn test_delete_nonexistent_entry_is_idempotent() -> anyhow::Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "groups/idempotent_group/content/posts/never_existed": null } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1938,8 +1908,7 @@ async fn test_delete_nonexistent_entry_is_idempotent() -> anyhow::Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "groups/idempotent_group/content/posts/never_existed": null } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1987,8 +1956,7 @@ async fn test_double_delete_is_idempotent() -> anyhow::Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "groups/double_del_group/content/posts/to_delete": { "title": "Will be deleted" } } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -2003,8 +1971,7 @@ async fn test_double_delete_is_idempotent() -> anyhow::Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "groups/double_del_group/content/posts/to_delete": null } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -2029,8 +1996,7 @@ async fn test_double_delete_is_idempotent() -> anyhow::Result<()> {
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": { "groups/double_del_group/content/posts/to_delete": null } },
-                "options": null,
-                "auth": null
+                "options": null
             }
         }))
         .deposit(ONE_NEAR)

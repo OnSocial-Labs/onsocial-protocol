@@ -615,9 +615,7 @@ mod partition_audit_tests {
         println!("\n=== Contract Permission Storage Integration Test ===");
 
         // Create a group
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         let config = json!({"member_driven": false, "is_private": true});
         contract
             .execute(create_group_request("test_group".to_string(), config))
@@ -638,9 +636,7 @@ mod partition_audit_tests {
             .unwrap();
 
         // Grant permission to Charlie
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         contract
             .execute_admin(set_permission_request(
                 charlie.clone(),
@@ -689,9 +685,7 @@ mod partition_audit_tests {
         println!("\n=== Contract Group Data Storage Integration Test ===");
 
         // Create group
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         let config = json!({"member_driven": false, "is_private": false});
         contract
             .execute(create_group_request(
@@ -765,9 +759,7 @@ mod partition_audit_tests {
         println!("\n=== Contract Ownership Transfer Integration Test ===");
 
         // Create group
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         let config = json!({"member_driven": false, "is_private": true});
         contract
             .execute(create_group_request("transfer_test".to_string(), config))
@@ -788,9 +780,7 @@ mod partition_audit_tests {
             .unwrap();
 
         // Grant Charlie MODERATE permission BEFORE transfer
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         contract
             .execute_admin(set_permission_request(
                 charlie.clone(),
@@ -818,9 +808,7 @@ mod partition_audit_tests {
         println!("  Storage key: {}", key);
 
         // Transfer ownership to Bob
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         contract
             .execute(transfer_group_ownership_request(
                 "transfer_test".to_string(),
@@ -904,9 +892,7 @@ mod partition_audit_tests {
         println!("\n=== Contract Mixed Operations Partitioning Test ===");
 
         // 1. Create multiple groups
-        testing_env!(
-            get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build()
-        );
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::ten_near()).build());
         contract
             .execute(create_group_request(
                 "group1".to_string(),
