@@ -589,16 +589,16 @@ describe('social', () => {
     const secondPath = `${readNamespace}/beta`;
 
     it('should write direct-read fixture data', async () => {
-      const [first, second] = await Promise.all([
-        os.social.set(
-          firstPath,
-          JSON.stringify({ ok: true, slot: 'alpha', value: 'value-alpha' })
-        ),
-        os.social.set(secondPath, JSON.stringify({ ok: true, slot: 'beta' })),
-      ]);
+      const result = await os.social.set({
+        [firstPath]: JSON.stringify({
+          ok: true,
+          slot: 'alpha',
+          value: 'value-alpha',
+        }),
+        [secondPath]: JSON.stringify({ ok: true, slot: 'beta' }),
+      });
 
-      expect(first.txHash).toBeTruthy();
-      expect(second.txHash).toBeTruthy();
+      expect(result.txHash).toBeTruthy();
     }, 35_000);
 
     it('should read multiple entries via social.get', async () => {
