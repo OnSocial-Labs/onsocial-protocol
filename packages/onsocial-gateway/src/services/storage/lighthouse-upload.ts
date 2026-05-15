@@ -1,5 +1,5 @@
 const LIGHTHOUSE_NODE_URL =
-  process.env.LIGHTHOUSE_NODE_URL || 'https://node.lighthouse.storage';
+  process.env.LIGHTHOUSE_NODE_URL || 'https://upload.lighthouse.storage';
 
 const MIME_EXTENSIONS: Record<string, string> = {
   'image/jpeg': 'jpg',
