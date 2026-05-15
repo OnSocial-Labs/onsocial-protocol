@@ -3,8 +3,20 @@
 // ---------------------------------------------------------------------------
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { getClient, testId, confirmIndexed, ACCOUNT_ID } from './helpers.js';
+import {
+  getClient,
+  getRelayedClient,
+  testId,
+  confirmIndexed,
+  ACCOUNT_ID,
+  INTEGRATION_NETWORK,
+} from './helpers.js';
 import type { OnSocial } from '../../src/client.js';
+
+const PROTOCOL_NOTIFICATION_ACTOR_ID =
+  process.env.NOTIFICATION_ACTOR_ID ??
+  (INTEGRATION_NETWORK === 'testnet' ? 'test02.onsocial.testnet' : '');
+const protocolIt = PROTOCOL_NOTIFICATION_ACTOR_ID ? it : it.skip;
 
 describe('notifications', () => {
   let os: OnSocial;
@@ -21,6 +33,184 @@ describe('notifications', () => {
     expect(types.length).toBeGreaterThan(0);
     expect(types).toContain('app_event');
   });
+
+  // ── Canonical lifecycle ────────────────────────────────────────────────
+
+  it('should complete the app notification lifecycle through the worker', async () => {
+    const eventId = testId();
+    const eventType = `integration_lifecycle_${eventId}`;
+    const dedupeKey = `lifecycle:${eventId}`;
+    const fullDedupeKey = `${dedupeKey}:${ACCOUNT_ID}`;
+
+    expect(await os.notifications.unreadCount(ACCOUNT_ID, { eventType })).toBe(
+      0
+    );
+
+    const queued = await os.notifications.sendEvents({
+      appId: 'default',
+      events: [
+        {
+          recipient: ACCOUNT_ID,
+          eventType,
+          dedupeKey,
+          actor: 'system',
+          objectId: eventId,
+          context: {
+            source: 'sdk-notification-lifecycle',
+            networkSwitchReady: true,
+          },
+        },
+      ],
+    });
+    expect(queued).toHaveLength(1);
+
+    const match = await confirmIndexed(
+      async () => {
+        const res = await os.notifications.list({
+          appId: 'default',
+          recipient: ACCOUNT_ID,
+          eventType,
+          limit: 10,
+        });
+        return (
+          res.notifications.find(
+            (notification) => notification.dedupeKey === fullDedupeKey
+          ) ?? null
+        );
+      },
+      'app notification lifecycle',
+      { timeoutMs: 60_000, intervalMs: 3_000 }
+    );
+
+    if (!match) throw new Error('app notification lifecycle match missing');
+    expect(match.type).toBe('app_event');
+    expect(match.recipient).toBe(ACCOUNT_ID);
+    expect(match.read).toBe(false);
+    expect(match.context?.eventType).toBe(eventType);
+    expect(match.context?.objectId).toBe(eventId);
+    expect(match.context?.source).toBe('sdk-notification-lifecycle');
+
+    expect(await os.notifications.unreadCount(ACCOUNT_ID, { eventType })).toBe(
+      1
+    );
+
+    expect(
+      await os.notifications.markRead(ACCOUNT_ID, {
+        appId: 'default',
+        ids: [match.id],
+      })
+    ).toBe(1);
+
+    await confirmIndexed(
+      async () => {
+        const unread = await os.notifications.unreadCount(ACCOUNT_ID, {
+          eventType,
+        });
+        return unread === 0 ? true : null;
+      },
+      'app notification mark-read lifecycle',
+      { timeoutMs: 20_000, intervalMs: 2_000 }
+    );
+  }, 85_000);
+
+  protocolIt(
+    'should fan out an indexed reply notification through a developer rule',
+    async () => {
+      const parentOs = await getRelayedClient();
+      const actorOs = await getRelayedClient(PROTOCOL_NOTIFICATION_ACTOR_ID);
+      const parentId = testId();
+      const replyId = testId();
+      let ruleId: string | undefined;
+
+      try {
+        const rule = await os.notifications.createRule({
+          ruleType: 'recipient',
+          recipientAccountId: ACCOUNT_ID,
+          notificationTypes: ['reply'],
+        });
+        ruleId = rule.id;
+
+        await parentOs.social.post(
+          { text: `Notification parent ${parentId}` },
+          parentId
+        );
+
+        await confirmIndexed(
+          async () => {
+            const page = await parentOs.query.feed.recent({
+              author: ACCOUNT_ID,
+              limit: 20,
+            });
+            return page.items.some((item) => item.postId === parentId)
+              ? true
+              : null;
+          },
+          'notification parent post',
+          { timeoutMs: 45_000, intervalMs: 3_000 }
+        );
+
+        await actorOs.social.reply(
+          ACCOUNT_ID,
+          parentId,
+          { text: `Notification reply ${replyId}` },
+          replyId
+        );
+
+        await confirmIndexed(
+          async () => {
+            const replies = await os.query.threads.replies(
+              ACCOUNT_ID,
+              parentId
+            );
+            return replies.some((reply) => reply.postId === replyId)
+              ? true
+              : null;
+          },
+          'notification reply index',
+          { timeoutMs: 45_000, intervalMs: 3_000 }
+        );
+
+        const notification = await confirmIndexed(
+          async () => {
+            const res = await os.notifications.list({
+              appId: 'default',
+              recipient: ACCOUNT_ID,
+              type: 'reply',
+              limit: 50,
+            });
+            return (
+              res.notifications.find(
+                (entry) =>
+                  entry.type === 'reply' &&
+                  entry.actor === PROTOCOL_NOTIFICATION_ACTOR_ID &&
+                  entry.context?.postId === replyId &&
+                  entry.context?.parentPath === `${ACCOUNT_ID}/post/${parentId}`
+              ) ?? null
+            );
+          },
+          'protocol reply notification',
+          { timeoutMs: 90_000, intervalMs: 3_000 }
+        );
+
+        if (!notification) {
+          throw new Error('protocol reply notification missing');
+        }
+        expect(notification.recipient).toBe(ACCOUNT_ID);
+        expect(notification.source.contract).toBe('core');
+        expect(notification.read).toBe(false);
+
+        await os.notifications.markRead(ACCOUNT_ID, {
+          appId: 'default',
+          ids: [notification.id],
+        });
+      } finally {
+        if (ruleId) {
+          await os.notifications.deleteRule(ruleId).catch(() => {});
+        }
+      }
+    },
+    150_000
+  );
 
   // ── Send custom events ────────────────────────────────────────────────
 

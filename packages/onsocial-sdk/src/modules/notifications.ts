@@ -45,6 +45,10 @@ export interface NotificationEvent {
   actor?: string;
   objectId?: string;
   groupId?: string;
+  sourceContract?: string;
+  sourceReceiptId?: string;
+  sourceBlockHeight?: string | number;
+  createdAt?: string;
   context?: Record<string, unknown>;
 }
 

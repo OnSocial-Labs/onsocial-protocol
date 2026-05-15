@@ -146,7 +146,15 @@ describe('NotificationsModule.sendEvents', () => {
     });
     const m = new NotificationsModule(http, 'my-app');
     const events = [
-      { recipient: 'a.near', eventType: 'mention', dedupeKey: 'k1' },
+      {
+        recipient: 'a.near',
+        eventType: 'mention',
+        dedupeKey: 'k1',
+        sourceContract: 'custom-dapp',
+        sourceReceiptId: 'receipt-1',
+        sourceBlockHeight: 123,
+        createdAt: '2026-05-15T00:00:00.000Z',
+      },
       { recipient: 'b.near', eventType: 'reply', dedupeKey: 'k2' },
     ];
     const results = await m.sendEvents({ events });
