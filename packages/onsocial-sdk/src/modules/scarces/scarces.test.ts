@@ -76,6 +76,7 @@ function makeSessionGetter() {
     depositYocto?: string;
   }> = [];
   const session = {
+    supportsAttachedDeposit: true,
     signComposeDelegate: vi.fn(
       async (args: {
         action: Record<string, unknown>;

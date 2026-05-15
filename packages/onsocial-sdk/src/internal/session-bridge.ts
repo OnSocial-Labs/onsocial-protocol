@@ -1,7 +1,10 @@
 // Compose-to-delegate relay helpers.
 
 import type { HttpClient } from './http.js';
-import type { Session } from '../advanced/session.js';
+import {
+  NeedsWalletConfirmationError,
+  type Session,
+} from '../advanced/session.js';
 import type {
   BroadcastTarget,
   PrepareResponse,
@@ -13,6 +16,7 @@ export type LatestBlockHeightProvider = () => Promise<bigint | number | string>;
 
 /** Default per-call gas (300 TGas) when wallet mode does not specify one. */
 const DEFAULT_FUNCTION_CALL_GAS = '300000000000000';
+const GATEWAY_MAX_DELEGATE_DEPOSIT_YOCTO = 1n;
 
 export class SessionRequiredError extends Error {
   readonly code = 'SESSION_REQUIRED' as const;
@@ -109,6 +113,7 @@ export async function signAndRelay(
   if (!session) {
     throw new SessionRequiredError(methodLabel);
   }
+  assertDelegateBroadcastSupported(session, target, opts, methodLabel);
   return relayDelegate<RelayResponse>(
     http,
     session,
@@ -296,6 +301,57 @@ async function relayDelegate<T>(
 function appendWait(url: string, wait: boolean): string {
   if (!wait) return url;
   return url.includes('?') ? `${url}&wait=true` : `${url}?wait=true`;
+}
+
+function assertDelegateBroadcastSupported(
+  session: Session,
+  target: BroadcastTarget,
+  opts:
+    | {
+        depositYocto?: bigint | string;
+      }
+    | undefined,
+  methodLabel?: string
+): void {
+  const deposit = normalizeDepositYocto(opts?.depositYocto);
+  if (deposit === 0n) return;
+
+  const label = methodLabel ?? 'this SDK method';
+  if (target === 'gateway' && deposit > GATEWAY_MAX_DELEGATE_DEPOSIT_YOCTO) {
+    throw new NeedsWalletConfirmationError(
+      `${label} requires an attached deposit of ${deposit.toString()} yoctoNEAR. ` +
+        `The OnSocial gateway relayer only accepts 0-deposit calls and 1 yoctoNEAR confirmation deposits; ` +
+        `use { broadcast: { kind: 'wallet', signer } } or fund the contract prepaid balance for value-bearing scarces actions.`,
+      'value_deposit_required'
+    );
+  }
+
+  if (!session.supportsAttachedDeposit) {
+    const depositKind =
+      deposit === 1n
+        ? 'a 1 yoctoNEAR confirmation deposit'
+        : `an attached deposit of ${deposit.toString()} yoctoNEAR`;
+    throw new NeedsWalletConfirmationError(
+      `${label} requires ${depositKind}. NEAR FunctionCall session keys cannot attach NEAR; ` +
+        `use wallet broadcast or a FullAccess-capable delegate signer.`,
+      deposit === 1n
+        ? 'attached_deposit_required'
+        : 'value_deposit_required'
+    );
+  }
+}
+
+function normalizeDepositYocto(value: bigint | string | undefined): bigint {
+  if (value === undefined) return 0n;
+  if (typeof value === 'bigint') {
+    if (value < 0n) throw new Error('attached deposit cannot be negative');
+    return value;
+  }
+  const trimmed = value.trim();
+  if (!/^\d+$/.test(trimmed)) {
+    throw new Error(`Invalid attached deposit: ${value}`);
+  }
+  return BigInt(trimmed);
 }
 
 async function broadcastViaWallet(

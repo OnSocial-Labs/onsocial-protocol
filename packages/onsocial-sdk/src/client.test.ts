@@ -39,6 +39,7 @@ function fakeSession(
   }>
 ) {
   return {
+    supportsAttachedDeposit: true,
     signComposeDelegate: vi.fn(
       async (args: {
         action: Record<string, unknown>;

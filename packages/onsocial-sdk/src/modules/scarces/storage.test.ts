@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
+import { NeedsWalletConfirmationError } from '../../advanced/session.js';
 import { ScarcesStorageApi } from './storage.js';
 
 function makeApi(
   opts: {
     balanceYocto?: string | { total?: string };
     balanceShape?: 'string' | 'object';
+    wallet?: boolean;
   } = {}
 ) {
   const get = vi.fn(async (path: string) => {
@@ -36,8 +38,16 @@ function makeApi(
       nonce: 1,
     })),
   };
-  const api = new ScarcesStorageApi(http, () => session as never);
-  return { api, get, post };
+  const signer = vi.fn(async () => ({ txHash: 'wallet-deposit' }));
+  const getBroadcast = opts.wallet
+    ? () => ({ kind: 'wallet' as const, signer })
+    : undefined;
+  const api = new ScarcesStorageApi(
+    http,
+    () => session as never,
+    getBroadcast as never
+  );
+  return { api, get, post, signer };
 }
 
 describe('ScarcesStorageApi.balanceOf', () => {
@@ -85,8 +95,25 @@ describe('ScarcesStorageApi.ensure', () => {
     );
   });
 
-  it('deposits the delta when balance is below minNear', async () => {
+  it('requires wallet broadcast when balance top-up needs an attached deposit', async () => {
     const { api, post } = makeApi({ balanceYocto: HALF_NEAR });
+    await expect(api.ensure({ minNear: '1' })).rejects.toMatchObject({
+      reason: 'value_deposit_required',
+    });
+    await expect(api.ensure({ minNear: '1' })).rejects.toBeInstanceOf(
+      NeedsWalletConfirmationError
+    );
+    const prepCall = post.mock.calls.find(([p]) =>
+      String(p).includes('/compose/prepare/')
+    );
+    expect(prepCall).toBeDefined();
+  });
+
+  it('deposits the delta via wallet broadcast when balance is below minNear', async () => {
+    const { api, post, signer } = makeApi({
+      balanceYocto: HALF_NEAR,
+      wallet: true,
+    });
     const r = await api.ensure({ minNear: '1' });
     expect(r).not.toBeNull();
     // /compose/prepare/* should have been called with a deposit amount.
@@ -97,10 +124,19 @@ describe('ScarcesStorageApi.ensure', () => {
     const body = (prepCall as unknown as [string, { amountNear?: string }])[1];
     // Delta is 0.5 NEAR.
     expect(body.amountNear).toBe('0.5');
+    expect(signer).toHaveBeenCalledWith({
+      receiverId: 'scarces.onsocial.near',
+      actions: [
+        expect.objectContaining({
+          methodName: 'execute',
+          deposit: HALF_NEAR,
+        }),
+      ],
+    });
   });
 
   it('deposits full amount when current balance is zero', async () => {
-    const { api, post } = makeApi({ balanceYocto: '0' });
+    const { api, post } = makeApi({ balanceYocto: '0', wallet: true });
     await api.ensure({ minNear: '0.05' });
     const prepCall = post.mock.calls.find(([p]) =>
       String(p).includes('/compose/prepare/')

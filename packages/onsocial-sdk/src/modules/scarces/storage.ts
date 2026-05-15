@@ -27,6 +27,8 @@ export class ScarcesStorageApi {
   /**
    * Deposit NEAR into the caller's per-account storage balance on the
    * scarces contract. `amountNear` is the attached deposit (e.g. `'0.01'`).
+  * Requires wallet broadcast because the default gateway relayer only
+  * supports gas sponsorship and 1 yoctoNEAR confirmation deposits.
    *
    * ```ts
    * await os.scarces.storage.deposit('0.01');
@@ -115,6 +117,7 @@ export class ScarcesStorageApi {
    *
    * Use before a user's first offer / bid / lazy-purchase to avoid
    * `StorageError` from the contract.
+  * Requires wallet broadcast if a top-up is needed.
    *
    * ```ts
    * // Ensure ≥ 0.05 NEAR is on file before placing a first bid

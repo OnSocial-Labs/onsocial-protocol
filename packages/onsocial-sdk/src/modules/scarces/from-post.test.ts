@@ -71,6 +71,7 @@ function makeMod(opts: { social?: boolean } = {}) {
     : undefined;
 
   const session = {
+    supportsAttachedDeposit: true,
     signComposeDelegate: vi.fn(async () => ({
       base64: 'BASE64_DELEGATE_BLOB',
       nonce: 1,

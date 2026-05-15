@@ -8,7 +8,10 @@ import {
   composeAndSign,
   SessionRequiredError,
 } from './session-bridge.js';
-import type { Session } from '../advanced/session.js';
+import {
+  NeedsWalletConfirmationError,
+  type Session,
+} from '../advanced/session.js';
 import type { HttpClient } from './http.js';
 
 beforeEach(() => {
@@ -32,8 +35,9 @@ function makeHttp(responses: Record<string, unknown>): HttpClient {
   } as unknown as HttpClient;
 }
 
-function makeSession(): Session {
+function makeSession(opts: { supportsAttachedDeposit?: boolean } = {}): Session {
   return {
+    supportsAttachedDeposit: opts.supportsAttachedDeposit ?? false,
     signComposeDelegate: vi.fn(async () => ({
       base64: 'BASE64_DELEGATE_BLOB',
       nonce: 1,
@@ -58,7 +62,7 @@ describe('composeAndSign', () => {
       '/relay/latest-block': { block_height: 12345 },
       '/relay/delegate': { txHash: 'tx_abc' },
     });
-    const session = makeSession();
+    const session = makeSession({ supportsAttachedDeposit: true });
 
     const result = await composeAndSign(
       http,
@@ -87,7 +91,7 @@ describe('composeAndSign', () => {
     const http = makeHttp({
       '/compose/prepare/set': { target_account: 'x.testnet' },
     });
-    const session = makeSession();
+    const session = makeSession({ supportsAttachedDeposit: true });
     await expect(composeAndSign(http, session, 'set', {}, 'x')).rejects.toThrow(
       /did not return a valid action/
     );
@@ -117,7 +121,7 @@ describe('composeAndSign', () => {
       '/relay/latest-block': { block_height: 1 },
       '/relay/delegate': { txHash: 'tx' },
     });
-    const session = makeSession();
+    const session = makeSession({ supportsAttachedDeposit: true });
 
     await composeAndSign(http, session, 'set-confirmed', {});
 
@@ -127,6 +131,55 @@ describe('composeAndSign', () => {
       maxBlockHeight: 1001n,
       depositYocto: '1',
     });
+  });
+
+  it('rejects confirmation deposits for FunctionCall-key delegate sessions', async () => {
+    const http = makeHttp({
+      '/compose/prepare/set-confirmed': {
+        action: { type: 'set_confirmed' },
+        target_account: 'core.onsocial.testnet',
+        deposit_yocto: '1',
+      },
+    });
+    const session = makeSession();
+
+    await expect(
+      composeAndSign(http, session, 'set-confirmed', {}, 'core.setConfirmed')
+    ).rejects.toMatchObject({
+      code: 'NEEDS_WALLET_CONFIRMATION',
+      reason: 'attached_deposit_required',
+    });
+    await expect(
+      composeAndSign(http, session, 'set-confirmed', {}, 'core.setConfirmed')
+    ).rejects.toBeInstanceOf(NeedsWalletConfirmationError);
+    expect(http.get).not.toHaveBeenCalled();
+    expect(session.signComposeDelegate).not.toHaveBeenCalled();
+  });
+
+  it('rejects value deposits through the gateway delegate relayer', async () => {
+    const http = makeHttp({
+      '/compose/prepare/storage-deposit': {
+        action: { type: 'storage_deposit' },
+        target_account: 'scarces.onsocial.testnet',
+        deposit_yocto: '100000000000000000000000',
+      },
+    });
+    const session = makeSession({ supportsAttachedDeposit: true });
+
+    await expect(
+      composeAndSign(
+        http,
+        session,
+        'storage-deposit',
+        {},
+        'scarces.storage.deposit'
+      )
+    ).rejects.toMatchObject({
+      code: 'NEEDS_WALLET_CONFIRMATION',
+      reason: 'value_deposit_required',
+    });
+    expect(http.get).not.toHaveBeenCalled();
+    expect(session.signComposeDelegate).not.toHaveBeenCalled();
   });
 });
 
@@ -387,13 +440,15 @@ describe('composeAndSign — broadcast routing', () => {
 
     await composeAndSign(http, null, 'set-confirmed', {}, 'x', {
       broadcast: { kind: 'wallet', signer },
-      depositYocto: '1',
+      depositYocto: '100000000000000000000000',
     });
 
     const firstCall = (
       signer.mock.calls as unknown as [{ actions: { deposit: string }[] }][]
     )[0]!;
-    expect(firstCall[0].actions[0]?.deposit).toBe('1');
+    expect(firstCall[0].actions[0]?.deposit).toBe(
+      '100000000000000000000000'
+    );
   });
 
   it('relayer target: posts signed_delegate to external URL with X-Api-Key', async () => {
