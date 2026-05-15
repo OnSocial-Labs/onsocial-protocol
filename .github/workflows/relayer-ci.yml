@@ -4,12 +4,16 @@ on:
   push:
     branches: [main]
     paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
       - 'packages/onsocial-relayer/**'
       - 'crates/**'
       - '.github/workflows/relayer-ci.yml'
   pull_request:
     branches: [main]
     paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
       - 'packages/onsocial-relayer/**'
       - 'crates/**'
       - '.github/workflows/relayer-ci.yml'
@@ -39,7 +43,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             packages/onsocial-relayer/target
-          key: relayer-${{ runner.os }}-cargo-${{ hashFiles('packages/onsocial-relayer/Cargo.lock') }}
+          key: relayer-${{ runner.os }}-cargo-${{ hashFiles('Cargo.toml', 'Cargo.lock', 'packages/onsocial-relayer/Cargo.toml', 'packages/onsocial-relayer/Cargo.lock') }}
           restore-keys: relayer-${{ runner.os }}-cargo-
 
       - name: Clippy (all features)
