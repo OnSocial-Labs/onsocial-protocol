@@ -226,6 +226,11 @@ ENVEOF
   echo "# --- Secrets (from Google Secret Manager) ---" >> .env.production
   GCP_PROJECT="$GCP_PROJECT" NEAR_NETWORK="$NETWORK" ./pull-secrets.sh >> .env.production
 
+  if ! grep -q '^ADMIN_WALLETS=' .env.production; then
+    echo "❌ ADMIN_WALLETS missing from GSM output"
+    exit 1
+  fi
+
   # Verify no placeholders
   if grep -q "CHANGE_ME" .env.production; then
     echo "❌ .env.production has CHANGE_ME placeholders — some GSM secrets are missing"

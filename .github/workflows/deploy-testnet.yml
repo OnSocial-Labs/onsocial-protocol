@@ -119,8 +119,8 @@ jobs:
       - name: Authenticate to GCP (Workload Identity Federation)
         uses: google-github-actions/auth@v3
         with:
-          workload_identity_provider: "projects/87856119115/locations/global/workloadIdentityPools/github-ci/providers/github-oidc"
-          service_account: "github-ci-deploy@onsocial-protocol.iam.gserviceaccount.com"
+          workload_identity_provider: 'projects/87856119115/locations/global/workloadIdentityPools/github-ci/providers/github-oidc'
+          service_account: 'github-ci-deploy@onsocial-protocol.iam.gserviceaccount.com'
 
       - name: Fetch SSH key from Secret Manager
         id: ssh
@@ -145,6 +145,7 @@ jobs:
           chmod 600 /tmp/deploy_gsm.env
           grep -q '^TELEGRAM_BOT_TOKEN=' /tmp/deploy_gsm.env || { echo '❌ TELEGRAM_BOT_TOKEN missing in GSM output'; exit 1; }
           grep -q '^ADMIN_SECRET=' /tmp/deploy_gsm.env || { echo '❌ ADMIN_SECRET missing in GSM output'; exit 1; }
+          grep -q '^ADMIN_WALLETS=' /tmp/deploy_gsm.env || { echo '❌ ADMIN_WALLETS missing in GSM output'; exit 1; }
 
       - name: Sync config files to server
         run: |
@@ -371,6 +372,11 @@ jobs:
 
             if [ -z "${ADMIN_SECRET:-}" ]; then
               echo "❌ ADMIN_SECRET is not set after GSM refresh"
+              exit 1
+            fi
+
+            if [ -z "${ADMIN_WALLETS:-}" ]; then
+              echo "❌ ADMIN_WALLETS is not set after GSM refresh"
               exit 1
             fi
 
