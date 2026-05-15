@@ -70,6 +70,26 @@ describe('uploadNamedBufferToLighthouse', () => {
     expect(await uploaded.text()).toBe('test');
   });
 
+  it('defaults to the Lighthouse upload host used by the SDK', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ Hash: 'bafyDefaultHost', Size: '1' }), {
+          status: 200,
+        })
+    );
+
+    await uploadNamedBufferToLighthouse({
+      buffer: Buffer.from('x'),
+      apiKey: 'lh-key',
+      fetchImpl: fetchMock,
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://upload.lighthouse.storage/api/v0/add?cid-version=1',
+      expect.any(Object)
+    );
+  });
+
   it('surfaces Lighthouse errors with context', async () => {
     const fetchMock = vi.fn(
       async () =>
