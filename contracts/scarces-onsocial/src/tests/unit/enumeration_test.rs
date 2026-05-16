@@ -94,6 +94,19 @@ fn nft_tokens_returns_all() {
 }
 
 #[test]
+fn nft_tokens_default_limit_returns_all_remaining_tokens() {
+    let mut contract = setup_contract();
+    for token_number in 0..105 {
+        quick_mint(&mut contract, &buyer(), &format!("T{}", token_number));
+    }
+
+    testing_env!(context(owner()).build());
+    let tokens = contract.nft_tokens(None, None);
+
+    assert_eq!(tokens.len(), 105);
+}
+
+#[test]
 fn nft_tokens_pagination() {
     let mut contract = setup_contract();
     for i in 0..5 {
@@ -151,6 +164,19 @@ fn nft_tokens_for_owner_returns_owned() {
     let ids: Vec<_> = tokens.iter().map(|t| t.token_id.as_str()).collect();
     assert!(ids.contains(&id1.as_str()));
     assert!(ids.contains(&id2.as_str()));
+}
+
+#[test]
+fn nft_tokens_for_owner_default_limit_returns_all_remaining_tokens() {
+    let mut contract = setup_contract();
+    for token_number in 0..105 {
+        quick_mint(&mut contract, &buyer(), &format!("T{}", token_number));
+    }
+
+    testing_env!(context(owner()).build());
+    let tokens = contract.nft_tokens_for_owner(buyer(), None, None);
+
+    assert_eq!(tokens.len(), 105);
 }
 
 #[test]
