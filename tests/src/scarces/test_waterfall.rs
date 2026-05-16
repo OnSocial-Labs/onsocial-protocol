@@ -140,7 +140,11 @@ async fn test_tier1_app_pool_covers_mint_cost() -> Result<()> {
     assert!(
         pool_balance_after < pool_balance_before,
         "App pool balance should decrease after mint (before={}, after={}, used_bytes_before={}, used_bytes_after={}, max_user_bytes={:?})",
-        pool_balance_before, pool_balance_after, pool_before.used_bytes, pool_after.used_bytes, pool_after.max_user_bytes
+        pool_balance_before,
+        pool_balance_after,
+        pool_before.used_bytes,
+        pool_after.used_bytes,
+        pool_after.max_user_bytes
     );
     assert!(
         pool_after.used_bytes > 0,

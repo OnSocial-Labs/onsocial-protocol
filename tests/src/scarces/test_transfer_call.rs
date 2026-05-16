@@ -40,11 +40,11 @@ async fn mint_one(
 }
 
 // =============================================================================
-// nft_transfer_call — Another account as receiver
+// nft_transfer_call — failed receiver callback rollback
 // =============================================================================
 
 #[tokio::test]
-async fn test_nft_transfer_call_to_account() -> Result<()> {
+async fn test_nft_transfer_call_to_account_rolls_back() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
     let minter = worker.dev_create_account().await?;
     let token_id = mint_one(&contract, &minter).await?;
@@ -54,8 +54,7 @@ async fn test_nft_transfer_call_to_account() -> Result<()> {
         .await?
         .into_result()?;
 
-    // nft_transfer_call to a regular account (no nft_on_transfer impl)
-    // The call will succeed — receiver can't reject since it has no contract code
+    // A regular account has no `nft_on_transfer`, so NEP-171 requires resolver rollback.
     let _result = nft_transfer_call(
         &contract,
         &minter,
@@ -64,13 +63,12 @@ async fn test_nft_transfer_call_to_account() -> Result<()> {
         "hello",
     )
     .await?;
-    // Even if the callback fails, the transfer should still go through
-    // (receiver account without contract code = implicit accept)
+
     let token = nft_token(&contract, &token_id).await?.unwrap();
     assert_eq!(
         token.owner_id,
-        receiver.id().to_string(),
-        "Token should be owned by receiver"
+        minter.id().to_string(),
+        "Token should roll back to original owner when receiver callback fails"
     );
 
     Ok(())
@@ -182,11 +180,17 @@ async fn test_nft_transfer_call_updates_enumeration() -> Result<()> {
     )
     .await?;
 
-    // After transfer
+    // The receiver has no `nft_on_transfer`, so the resolver returns the token to the sender.
     let minter_supply = nft_supply_for_owner(&contract, &minter.id().to_string()).await?;
     let receiver_supply = nft_supply_for_owner(&contract, &receiver.id().to_string()).await?;
-    assert_eq!(minter_supply, "0", "Minter should have 0 tokens");
-    assert_eq!(receiver_supply, "1", "Receiver should have 1 token");
+    assert_eq!(
+        minter_supply, "1",
+        "Minter should keep the token after rollback"
+    );
+    assert_eq!(
+        receiver_supply, "0",
+        "Receiver should have no token after rollback"
+    );
 
     Ok(())
 }

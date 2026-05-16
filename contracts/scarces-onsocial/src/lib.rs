@@ -6,6 +6,7 @@ use near_sdk::{AccountId, Gas, NearToken, PanicOnDefault, Promise, PromiseOrValu
 pub mod constants;
 mod errors;
 mod guards;
+mod time;
 mod validation;
 
 mod events;
@@ -59,7 +60,7 @@ pub use validation::default_true;
         version = "0.1.0",
         link = "https://github.com/OnSocial-Labs/onsocial-protocol",
         standard(standard = "nep171", version = "1.2.0"),
-        standard(standard = "nep177", version = "2.0.0"),
+        standard(standard = "nep177", version = "1.0.0"),
         standard(standard = "nep178", version = "1.0.0"),
         standard(standard = "nep181", version = "1.0.0"),
         standard(standard = "nep199", version = "2.1.0"),

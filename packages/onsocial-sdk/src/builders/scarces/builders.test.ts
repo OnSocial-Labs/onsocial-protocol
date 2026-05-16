@@ -29,6 +29,8 @@ import {
   nearToYocto,
 } from './index.js';
 
+const HASH_32 = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
+
 describe('scarces builders — primitives', () => {
   it('converts NEAR to yocto', () => {
     expect(nearToYocto('1.5')).toBe('1500000000000000000000000');
@@ -42,7 +44,7 @@ describe('scarces builders — tokens', () => {
         title: 'Genesis',
         description: 'First',
         mediaCid: 'bafy123',
-        mediaHash: 'hash',
+        mediaHash: HASH_32,
         copies: 10,
         extra: { rarity: 'legendary' },
         royalty: { 'alice.near': 500 },
@@ -54,13 +56,29 @@ describe('scarces builders — tokens', () => {
         title: 'Genesis',
         description: 'First',
         media: 'ipfs://bafy123',
-        media_hash: 'hash',
+        media_hash: HASH_32,
         copies: 10,
         extra: JSON.stringify({ rarity: 'legendary' }),
       },
       royalty: { 'alice.near': 500 },
       app_id: 'onsocial',
     });
+  });
+
+  it('quick_mint requires mediaHash with mediaCid', () => {
+    expect(() =>
+      buildQuickMintAction({ title: 'Genesis', mediaCid: 'bafy123' })
+    ).toThrow(/mediaHash is required/);
+  });
+
+  it('quick_mint rejects non-sha256 mediaHash values', () => {
+    expect(() =>
+      buildQuickMintAction({
+        title: 'Genesis',
+        mediaCid: 'bafy123',
+        mediaHash: 'hash',
+      })
+    ).toThrow(/base64-encoded 32-byte/);
   });
 
   it('transfer_scarce includes optional memo', () => {
@@ -288,7 +306,7 @@ describe('scarces builders — lazy', () => {
         title: 'Limited Print',
         priceNear: '5',
         mediaCid: 'bafy456',
-        mediaHash: 'hash2',
+        mediaHash: HASH_32,
         appId: 'onsocial',
         transferable: true,
         burnable: false,
@@ -299,7 +317,7 @@ describe('scarces builders — lazy', () => {
       metadata: {
         title: 'Limited Print',
         media: 'ipfs://bafy456',
-        media_hash: 'hash2',
+        media_hash: HASH_32,
       },
       price: '5000000000000000000000000',
       app_id: 'onsocial',

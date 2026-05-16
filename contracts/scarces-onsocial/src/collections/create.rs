@@ -64,8 +64,9 @@ impl Contract {
             )));
         }
 
-        let _: TokenMetadata = serde_json::from_str(&metadata_template)
+        let parsed_template: TokenMetadata = serde_json::from_str(&metadata_template)
             .map_err(|_| MarketplaceError::InvalidInput("Invalid metadata template JSON".into()))?;
+        crate::validation::validate_token_metadata(&parsed_template)?;
 
         if let (Some(start), Some(end)) = (start_time, end_time) {
             if end <= start {

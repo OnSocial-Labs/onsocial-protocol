@@ -4,6 +4,8 @@ import { SCARCES_VERBS } from './verbs.js';
 import type { HttpClient } from '../../internal/http.js';
 import type { StorageProvider } from '../../storage/provider.js';
 
+const HASH_32_RE = /^[A-Za-z0-9+/]{43}=$/;
+
 // ---------------------------------------------------------------------------
 // Harness — every write now goes through session-bridge:
 //   - simple compose verbs   : POST /compose/prepare/<verb> then /relay/delegate
@@ -214,18 +216,24 @@ describe('ScarcesModule.tokens — local-upload path (storage configured)', () =
         metadata: {
           title: 'Local',
           media: 'ipfs://bafyUploaded',
+          media_hash: expect.stringMatching(HASH_32_RE),
         },
       },
       targetAccount: 'scarces.onsocial.near',
     });
   });
 
-  it('mint with mediaCid and no image stays on the multipart prepare path', async () => {
+  it('mint with mediaCid stays on the multipart prepare path even when image is present', async () => {
     const http = makeHttp();
     const storage = makeStorage();
     const { getter } = makeSessionGetter();
     const mod = new ScarcesModule(asHttp(http), getter, undefined, storage);
-    await mod.tokens.mint({ title: 'PreUploaded', mediaCid: 'bafyExisting' });
+    const file = new Blob([new Uint8Array([4, 5, 6])], { type: 'image/png' });
+    await mod.tokens.mint({
+      title: 'PreUploaded',
+      mediaCid: 'bafyExisting',
+      image: file,
+    });
     expect(storage.upload).not.toHaveBeenCalled();
     expect(http.requestForm).toHaveBeenCalledTimes(1);
     expect(http.requestForm).toHaveBeenCalledWith(
@@ -273,6 +281,13 @@ describe('ScarcesModule.collections', () => {
     expect(signed[0].action.type).toBe('create_collection');
     expect((signed[0].action as Record<string, unknown>).collection_id).toBe(
       'g'
+    );
+    const metadataTemplate = JSON.parse(
+      (signed[0].action as Record<string, unknown>).metadata_template as string
+    ) as Record<string, unknown>;
+    expect(metadataTemplate.media).toBe('ipfs://bafyUploaded');
+    expect(metadataTemplate.media_hash).toEqual(
+      expect.stringMatching(HASH_32_RE)
     );
     expect(signed[0].targetAccount).toBe('scarces.onsocial.near');
   });
@@ -398,6 +413,14 @@ describe('ScarcesModule.lazy', () => {
         >
       ).media
     ).toBe('ipfs://bafyUploaded');
+    expect(
+      (
+        (signed[0].action as Record<string, unknown>).metadata as Record<
+          string,
+          unknown
+        >
+      ).media_hash
+    ).toEqual(expect.stringMatching(HASH_32_RE));
   });
 
   it('purchase routes through /compose/prepare/purchase-lazy-list', async () => {

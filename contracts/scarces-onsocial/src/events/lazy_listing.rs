@@ -20,6 +20,7 @@ pub fn emit_lazy_listing_purchased(
     price: u128,
     result: &crate::fees::PrimarySaleResult,
 ) {
+    nep171::emit_mint(buyer_id.as_str(), &[token_id.to_string()], None);
     EventBuilder::new(LAZY_LISTING, "purchased", buyer_id)
         .field("buyer_id", buyer_id)
         .field("creator_id", creator_id)
@@ -31,7 +32,6 @@ pub fn emit_lazy_listing_purchased(
         .field("app_pool_amount", result.app_pool_amount)
         .field("app_commission", result.app_commission)
         .emit();
-    nep171::emit_mint(buyer_id.as_str(), &[token_id.to_string()], None);
 }
 
 pub fn emit_lazy_listing_cancelled(creator_id: &AccountId, listing_id: &str) {

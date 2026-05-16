@@ -145,7 +145,7 @@ export class ScarcesTokensApi {
    * ```
    */
   async mint(opts: MintOptions): Promise<MintResponse> {
-    if (hasLocalUpload(this._storage, opts.image)) {
+    if (hasLocalUpload(this._storage, opts.image, opts.mediaCid)) {
       const { mediaCid, mediaHash } = await resolveScarceMedia(
         opts,
         this._storage

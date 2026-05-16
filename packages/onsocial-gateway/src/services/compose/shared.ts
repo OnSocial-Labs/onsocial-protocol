@@ -58,6 +58,28 @@ export function ipfsUri(cid: string): string {
   return `ipfs://${cid}`;
 }
 
+export async function resolveExistingMediaCid(
+  cid: string,
+  mediaHash?: string
+): Promise<UploadResult> {
+  if (mediaHash) {
+    return {
+      cid,
+      size: 0,
+      url: gatewayUrl(cid),
+      hash: mediaHash,
+    };
+  }
+
+  const hashed = await fetchCidHash(cid);
+  return {
+    cid,
+    size: hashed.size,
+    url: gatewayUrl(cid),
+    hash: hashed.hash,
+  };
+}
+
 function getApiKey(): string {
   const key = config.lighthouseApiKey;
   if (!key) throw new Error('LIGHTHOUSE_API_KEY not configured');
@@ -158,6 +180,54 @@ export async function verifyCidLive(
   throw new ComposeError(
     502,
     `CID ${cid} not retrievable through gateway after ${retries} attempts: ${String(lastErr)}`
+  );
+}
+
+async function fetchCidHash(
+  cid: string,
+  retries = VERIFY_CID_RETRIES
+): Promise<{ size: number; hash: string }> {
+  let lastErr: unknown;
+  const urls = cidVerificationUrls(cid);
+  for (let attemptIndex = 0; attemptIndex < retries; attemptIndex++) {
+    let delayMs = Math.min(
+      VERIFY_CID_MAX_DELAY_MS,
+      VERIFY_CID_BASE_DELAY_MS * 2 ** attemptIndex
+    );
+
+    for (const [urlIndex, url] of urls.entries()) {
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          signal: AbortSignal.timeout(15_000),
+        });
+        if (response.ok) {
+          const buffer = Buffer.from(await response.arrayBuffer());
+          if (urlIndex > 0) {
+            logger.warn(
+              { cid, primaryGateway: urls[0], resolvedGateway: url, lastErr },
+              'CID bytes resolved through fallback IPFS gateway'
+            );
+          }
+          return {
+            size: buffer.byteLength,
+            hash: createHash('sha256').update(buffer).digest('base64'),
+          };
+        }
+        lastErr = `GET ${url} → ${response.status}`;
+        delayMs = Math.max(delayMs, retryAfterDelayMs(response, attemptIndex));
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+
+    if (attemptIndex + 1 < retries) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+  throw new ComposeError(
+    502,
+    `CID ${cid} bytes not retrievable through gateway after ${retries} attempts: ${String(lastErr)}`
   );
 }
 

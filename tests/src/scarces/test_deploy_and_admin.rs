@@ -27,7 +27,7 @@ async fn test_deploy_and_init_defaults() -> Result<()> {
 
     // Verify default contract metadata
     let meta = nft_metadata(&contract).await?;
-    assert_eq!(meta.spec, "nft-2.0.0");
+    assert_eq!(meta.spec, "nft-1.0.0");
     assert_eq!(meta.name, "OnSocial Scarces");
     assert_eq!(meta.symbol, "SCARCE");
 
@@ -57,7 +57,7 @@ async fn test_deploy_with_custom_metadata() -> Result<()> {
     let meta = nft_metadata(&contract).await?;
     assert_eq!(meta.name, "Test Collection");
     assert_eq!(meta.symbol, "TEST");
-    assert_eq!(meta.spec, "nft-2.0.0");
+    assert_eq!(meta.spec, "nft-1.0.0");
 
     Ok(())
 }
@@ -275,7 +275,7 @@ async fn test_set_contract_metadata() -> Result<()> {
     assert_eq!(meta.name, "Updated Scarces");
     assert_eq!(meta.symbol, "SCARCE2");
     // spec should remain unchanged
-    assert_eq!(meta.spec, "nft-2.0.0");
+    assert_eq!(meta.spec, "nft-1.0.0");
 
     Ok(())
 }

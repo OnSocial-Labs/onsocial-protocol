@@ -37,8 +37,8 @@ impl Contract {
         }
 
         let owner_id = token.owner_id.clone();
-        token.metadata.expires_at = Some(new_expires_at);
-        token.metadata.updated_at = Some(now);
+        token.metadata.expires_at = Some(crate::time::ns_to_ms_ceil(new_expires_at));
+        token.metadata.updated_at = Some(crate::time::now_ms());
         self.scarces_by_id.insert(token_id.to_string(), token);
 
         events::emit_token_renewed(actor_id, token_id, collection_id, &owner_id, new_expires_at);

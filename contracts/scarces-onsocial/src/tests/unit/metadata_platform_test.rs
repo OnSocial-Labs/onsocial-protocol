@@ -1,6 +1,8 @@
 use crate::tests::test_utils::*;
 use crate::*;
 use near_sdk::json_types::U128;
+use near_sdk::serde_json::Value;
+use near_sdk::test_utils::get_logs;
 use near_sdk::testing_env;
 
 fn setup_contract() -> Contract {
@@ -13,8 +15,49 @@ fn nft_metadata_returns_contract_metadata() {
     testing_env!(context(owner()).build());
 
     let meta = contract.nft_metadata();
-    assert_eq!(meta.spec, "nft-2.0.0");
+    assert_eq!(meta.spec, "nft-1.0.0");
     assert!(!meta.name.is_empty());
+}
+
+#[test]
+fn scarces_transfer_emits_standard_nep171_event_first() {
+    testing_env!(context(owner()).build());
+
+    crate::events::emit_scarce_transfer(&owner(), &owner(), &buyer(), "s:1", None);
+
+    let logs = get_logs();
+    let first = parse_event_json(&logs[0]);
+    assert_eq!(first["standard"], "nep171");
+    assert_eq!(first["version"], "1.2.0");
+    assert_eq!(first["event"], "nft_transfer");
+
+    let second = parse_event_json(&logs[1]);
+    assert_eq!(second["standard"], "onsocial");
+    assert_eq!(second["event"], "SCARCE_UPDATE");
+}
+
+#[test]
+fn scarces_metadata_update_events_use_nep171_current_version() {
+    testing_env!(context(owner()).build());
+
+    crate::events::nep171::emit_contract_metadata_update();
+    crate::events::nep171::emit_metadata_update(&["s:1"]);
+
+    let logs = get_logs();
+    let contract_update = parse_event_json(&logs[0]);
+    assert_eq!(contract_update["version"], "1.2.0");
+    assert_eq!(contract_update["event"], "contract_metadata_update");
+
+    let token_update = parse_event_json(&logs[1]);
+    assert_eq!(token_update["version"], "1.2.0");
+    assert_eq!(token_update["event"], "nft_metadata_update");
+}
+
+fn parse_event_json(log: &str) -> Value {
+    let json = log
+        .strip_prefix("EVENT_JSON:")
+        .expect("event log must use EVENT_JSON prefix");
+    near_sdk::serde_json::from_str(json).expect("event log must be valid JSON")
 }
 
 #[test]

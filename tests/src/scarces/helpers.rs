@@ -13,7 +13,7 @@ use anyhow::Result;
 use near_workspaces::types::NearToken;
 use near_workspaces::{Account, Contract};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::utils::get_wasm_path;
 
@@ -154,7 +154,7 @@ pub async fn deploy_scarces_with_metadata(
         .args_json(json!({
             "owner_id": owner.id().to_string(),
             "contract_metadata": {
-                "spec": "nft-2.0.0",
+                "spec": "nft-1.0.0",
                 "name": name,
                 "symbol": symbol,
             }
@@ -2513,4 +2513,3 @@ pub async fn ft_balance_of(ft_contract: &Contract, account_id: &str) -> Result<u
     let balance: String = serde_json::from_slice(&result.result)?;
     Ok(balance.parse()?)
 }
-

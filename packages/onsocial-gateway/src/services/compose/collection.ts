@@ -8,6 +8,7 @@ import {
   type UploadResult,
   ComposeError,
   uploadToLighthouse,
+  resolveExistingMediaCid,
   logger,
   validateRoyalty,
   MAX_METADATA_LEN,
@@ -194,12 +195,7 @@ export async function buildCreateCollectionAction(
 
   // 1. Resolve media: prefer caller-provided CID (BYO storage); else upload.
   if (req.mediaCid) {
-    media = {
-      cid: req.mediaCid,
-      url: `${config.lighthouseGatewayBase.replace(/\/+$/, '')}/${req.mediaCid}`,
-      size: 0,
-      hash: req.mediaHash ?? '',
-    };
+    media = await resolveExistingMediaCid(req.mediaCid, req.mediaHash);
   } else if (imageFile) {
     media = await uploadToLighthouse(imageFile);
     logger.info(

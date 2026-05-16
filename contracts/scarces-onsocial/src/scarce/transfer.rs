@@ -27,7 +27,6 @@ impl Contract {
         approval_id: Option<u64>,
         memo: Option<String>,
         msg: String,
-        gas_overrides: Option<GasOverrides>,
     ) -> Result<Promise, MarketplaceError> {
         check_one_yocto()?;
         let sender_id = env::predecessor_account_id();
@@ -41,17 +40,8 @@ impl Contract {
 
         self.transfer(&sender_id, &receiver_id, &token_id, approval_id, memo)?;
 
-        let overrides = gas_overrides.unwrap_or(GasOverrides {
-            receiver_tgas: None,
-            resolve_tgas: None,
-        });
-        if overrides.receiver_tgas.unwrap_or(0) > 300 || overrides.resolve_tgas.unwrap_or(0) > 300 {
-            return Err(MarketplaceError::InvalidInput(
-                "Gas override exceeds 300 TGas".into(),
-            ));
-        }
-        let receiver_gas = Gas::from_tgas(overrides.receiver_tgas.unwrap_or(DEFAULT_CALLBACK_GAS));
-        let resolve_gas = Gas::from_tgas(overrides.resolve_tgas.unwrap_or(DEFAULT_CALLBACK_GAS));
+        let receiver_gas = Gas::from_tgas(DEFAULT_CALLBACK_GAS);
+        let resolve_gas = Gas::from_tgas(DEFAULT_CALLBACK_GAS);
 
         Ok(
             external::ext_scarce_transfer_receiver::ext(receiver_id.clone())
@@ -83,13 +73,14 @@ impl Contract {
         token_id: String,
         approved_account_ids: Option<std::collections::HashMap<AccountId, u64>>,
     ) -> bool {
-        let should_revert = match env::promise_result_checked(0, 16) {
-            Ok(value) => near_sdk::serde_json::from_slice::<bool>(&value).unwrap_or(false),
-            Err(_) => false,
-        };
+        const MAX_RESULT_LENGTH: usize = "false".len();
+        let should_revert = env::promise_result_checked(0, MAX_RESULT_LENGTH)
+            .ok()
+            .and_then(|value| near_sdk::serde_json::from_slice::<bool>(&value).ok())
+            .unwrap_or(true);
 
         if !should_revert {
-            return false;
+            return true;
         }
 
         // State-transition guarantee: resolver must tolerate token mutation/deletion during callback window.
@@ -101,13 +92,13 @@ impl Contract {
                     "Cannot revert transfer: token {} no longer exists",
                     token_id
                 ));
-                return false;
+                return true;
             }
         };
 
         // State-transition guarantee: if ownership changed during callback window, keep current state.
         if token.owner_id != receiver_id {
-            return false;
+            return true;
         }
 
         let app_for_index = self.resolve_token_app_id(&token_id, token.app_id.as_ref());
@@ -137,7 +128,7 @@ impl Contract {
             Some("transfer reverted"),
         );
 
-        true
+        false
     }
 
     pub fn nft_token(&self, token_id: String) -> Option<external::Token> {

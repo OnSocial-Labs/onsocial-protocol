@@ -11,6 +11,8 @@ use serde_json::json;
 
 use super::helpers::*;
 
+const HASH_32: &str = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+
 // =============================================================================
 // Helper: setup a user with storage deposited
 // =============================================================================
@@ -82,6 +84,7 @@ async fn test_quick_mint_with_full_metadata() -> Result<()> {
         "title": "Detailed Scarce",
         "description": "A fully detailed NFT",
         "media": "https://example.com/image.png",
+        "media_hash": HASH_32,
         "extra": "{\"custom\": true}",
     });
 
