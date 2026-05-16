@@ -5,6 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   mockUploadBuffer,
+  mockCidBytes,
   mockFetch,
   mockLighthouseUpload,
   mockLighthouseText,
@@ -51,6 +52,7 @@ describe('buildLazyListAction', () => {
   });
 
   it('builds action with mediaCid', async () => {
+    const cidBytes = mockCidBytes('reused-media-bytes');
     mockLighthouseText('QmMeta', 200);
 
     const built = await buildLazyListAction(
@@ -60,11 +62,18 @@ describe('buildLazyListAction', () => {
     );
 
     expect(built.media!.cid).toBe('QmReused');
+    expect(built.media!.hash).toBe(cidBytes.hash);
+    expect(built.media!.size).toBe(cidBytes.size);
     expect(mockUploadBuffer).not.toHaveBeenCalled();
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://test-gw.lighthouseweb3.xyz/ipfs/QmReused',
+      expect.objectContaining({ method: 'GET' })
+    );
     const metadata = built.action.metadata as Record<string, unknown>;
     expect(metadata.media).toBe(
       'https://test-gw.lighthouseweb3.xyz/ipfs/QmReused'
     );
+    expect(metadata.media_hash).toBe(cidBytes.hash);
   });
 
   it('builds action without media', async () => {
