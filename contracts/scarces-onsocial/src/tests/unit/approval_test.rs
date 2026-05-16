@@ -53,6 +53,88 @@ fn approve_scarce_happy() {
 }
 
 #[test]
+fn approve_scarce_reapproval_increments_id() {
+    let mut contract = setup_contract();
+    let tid = mint_token_via_execute(&mut contract, &owner());
+
+    testing_env!(context_with_deposit(owner(), 1).build());
+    contract
+        .execute(make_request(Action::ApproveScarce {
+            token_id: tid.clone(),
+            account_id: buyer(),
+            msg: None,
+        }))
+        .unwrap();
+    let first = *contract
+        .scarces_by_id
+        .get(&tid)
+        .unwrap()
+        .approved_account_ids
+        .get(&buyer())
+        .unwrap();
+
+    contract
+        .execute(make_request(Action::ApproveScarce {
+            token_id: tid.clone(),
+            account_id: buyer(),
+            msg: None,
+        }))
+        .unwrap();
+    let second = *contract
+        .scarces_by_id
+        .get(&tid)
+        .unwrap()
+        .approved_account_ids
+        .get(&buyer())
+        .unwrap();
+
+    assert!(second > first);
+}
+
+#[test]
+fn approve_scarce_rejects_too_many_approvals() {
+    let mut contract = setup_contract();
+    let tid = mint_token_via_execute(&mut contract, &owner());
+    testing_env!(context_with_deposit(owner(), 1).build());
+
+    for index in 0..MAX_APPROVED_ACCOUNT_IDS_PER_TOKEN {
+        contract
+            .execute(make_request(Action::ApproveScarce {
+                token_id: tid.clone(),
+                account_id: format!("approved{}.testnet", index).parse().unwrap(),
+                msg: None,
+            }))
+            .unwrap();
+    }
+
+    let err = contract
+        .execute(make_request(Action::ApproveScarce {
+            token_id: tid,
+            account_id: "overflow.testnet".parse().unwrap(),
+            msg: None,
+        }))
+        .unwrap_err();
+    assert!(matches!(err, MarketplaceError::InvalidInput(_)));
+}
+
+#[test]
+fn approve_scarce_rejects_non_json_safe_approval_id() {
+    let mut contract = setup_contract();
+    let tid = mint_token_via_execute(&mut contract, &owner());
+    contract.next_approval_id = MAX_APPROVAL_ID_JSON_SAFE + 1;
+    testing_env!(context_with_deposit(owner(), 1).build());
+
+    let err = contract
+        .execute(make_request(Action::ApproveScarce {
+            token_id: tid,
+            account_id: buyer(),
+            msg: None,
+        }))
+        .unwrap_err();
+    assert!(matches!(err, MarketplaceError::InvalidInput(_)));
+}
+
+#[test]
 fn approve_scarce_not_owner_fails() {
     let mut contract = setup_contract();
     let tid = mint_token_via_execute(&mut contract, &owner());

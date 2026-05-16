@@ -10,7 +10,6 @@ impl Contract {
         token_id: String,
         account_id: AccountId,
         msg: Option<String>,
-        callback_gas_tgas: Option<u64>,
     ) -> Result<Option<Promise>, MarketplaceError> {
         check_at_least_one_yocto()?;
 
@@ -28,11 +27,9 @@ impl Contract {
         }
 
         self.check_transferable(&token, &token_id, "approve")?;
+        Self::check_approval_capacity(&token, &account_id)?;
 
-        let approval_id = self.next_approval_id;
-        self.next_approval_id = self.next_approval_id.checked_add(1).ok_or_else(|| {
-            MarketplaceError::InternalError("Approval ID counter overflow".into())
-        })?;
+        let approval_id = self.take_next_approval_id()?;
 
         let before = self.storage_usage_flushed();
         let mut token = token;
@@ -53,15 +50,9 @@ impl Contract {
         events::emit_approval_granted(&owner_id, &token_id, &account_id, approval_id);
 
         if let Some(msg_str) = msg {
-            // Security boundary: cap caller-supplied gas to bounded callback execution.
-            let callback_gas = Gas::from_tgas(
-                callback_gas_tgas
-                    .unwrap_or(DEFAULT_CALLBACK_GAS)
-                    .min(MAX_RESOLVE_PURCHASE_GAS),
-            );
             Ok(Some(
                 external::ext_scarce_approval_receiver::ext(account_id)
-                    .with_static_gas(callback_gas)
+                    .with_static_gas(Gas::from_tgas(DEFAULT_CALLBACK_GAS))
                     .nft_on_approve(token_id, owner_id, approval_id, msg_str),
             ))
         } else {
@@ -155,6 +146,34 @@ impl Contract {
 }
 
 impl Contract {
+    fn check_approval_capacity(
+        token: &Scarce,
+        account_id: &AccountId,
+    ) -> Result<(), MarketplaceError> {
+        if !token.approved_account_ids.contains_key(account_id)
+            && token.approved_account_ids.len() >= MAX_APPROVED_ACCOUNT_IDS_PER_TOKEN
+        {
+            return Err(MarketplaceError::InvalidInput(format!(
+                "Cannot approve more than {} accounts for one token",
+                MAX_APPROVED_ACCOUNT_IDS_PER_TOKEN
+            )));
+        }
+        Ok(())
+    }
+
+    fn take_next_approval_id(&mut self) -> Result<u64, MarketplaceError> {
+        let approval_id = self.next_approval_id;
+        if approval_id > MAX_APPROVAL_ID_JSON_SAFE {
+            return Err(MarketplaceError::InvalidInput(
+                "Approval ID counter exceeds JSON-safe integer range".into(),
+            ));
+        }
+        self.next_approval_id = self.next_approval_id.checked_add(1).ok_or_else(|| {
+            MarketplaceError::InternalError("Approval ID counter overflow".into())
+        })?;
+        Ok(approval_id)
+    }
+
     pub(crate) fn approve(
         &mut self,
         actor_id: &AccountId,
@@ -173,10 +192,8 @@ impl Contract {
             ));
         }
         self.check_transferable(&token, token_id, "approve")?;
-        let approval_id = self.next_approval_id;
-        self.next_approval_id = self.next_approval_id.checked_add(1).ok_or_else(|| {
-            MarketplaceError::InternalError("Approval ID counter overflow".into())
-        })?;
+        Self::check_approval_capacity(&token, account_id)?;
+        let approval_id = self.take_next_approval_id()?;
 
         let before = self.storage_usage_flushed();
         token

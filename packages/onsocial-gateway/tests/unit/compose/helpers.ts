@@ -5,6 +5,7 @@
  */
 
 import { vi } from 'vitest';
+import { createHash } from 'node:crypto';
 
 // ---------------------------------------------------------------------------
 // Mocks — must be hoisted before all imports
@@ -110,4 +111,21 @@ export function mockRelayFailure(status = 500, error = 'Contract error') {
     status,
     json: () => Promise.resolve({ error }),
   });
+}
+
+export function mockCidBytes(bytes: Buffer | string = 'cid-bytes') {
+  const buffer = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
+  const hash = createHash('sha256').update(buffer).digest('base64');
+
+  mockFetch.mockResolvedValueOnce({
+    ok: true,
+    status: 200,
+    arrayBuffer: async () =>
+      buffer.buffer.slice(
+        buffer.byteOffset,
+        buffer.byteOffset + buffer.byteLength
+      ),
+  });
+
+  return { size: buffer.byteLength, hash };
 }
