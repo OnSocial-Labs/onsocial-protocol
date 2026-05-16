@@ -55,7 +55,8 @@ fn renew_happy_path() {
         .unwrap();
 
     let token = contract.scarces_by_id.get(&tid).unwrap();
-    assert_eq!(token.metadata.expires_at, Some(future));
+    assert_eq!(token.metadata.expires_at, Some(2_000_000_000_000));
+    assert_eq!(token.metadata.updated_at, Some(1_700_000_000_000));
 }
 
 #[test]

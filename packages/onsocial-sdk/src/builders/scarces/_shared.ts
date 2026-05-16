@@ -44,6 +44,13 @@ export function buildTokenMetadata(opts: {
   copies?: number;
   extra?: Record<string, unknown>;
 }): TokenMetadata {
+  if (opts.mediaCid && !opts.mediaHash) {
+    throw new Error('mediaHash is required when mediaCid is provided');
+  }
+  if (opts.mediaHash) {
+    assertBase64Sha256Hash(opts.mediaHash, 'mediaHash');
+  }
+
   return {
     title: opts.title,
     ...(opts.description ? { description: opts.description } : {}),
@@ -52,4 +59,12 @@ export function buildTokenMetadata(opts: {
     ...(opts.copies != null ? { copies: opts.copies } : {}),
     ...(opts.extra ? { extra: JSON.stringify(opts.extra) } : {}),
   };
+}
+
+function assertBase64Sha256Hash(value: string, fieldName: string): void {
+  if (!/^[A-Za-z0-9+/]{43}=$/.test(value)) {
+    throw new Error(
+      `${fieldName} must be a base64-encoded 32-byte SHA-256 hash`
+    );
+  }
 }

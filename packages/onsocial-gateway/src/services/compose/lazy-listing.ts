@@ -13,6 +13,7 @@ import {
   uploadToLighthouse,
   uploadJsonToLighthouse,
   inlineSvgAsDataUri,
+  resolveExistingMediaCid,
   logger,
   validateRoyalty,
   nearToYocto,
@@ -152,12 +153,7 @@ export async function buildLazyListAction(
   let media: UploadResult | undefined;
 
   if (req.mediaCid) {
-    media = {
-      cid: req.mediaCid,
-      size: 0,
-      url: `${config.lighthouseGatewayBase.replace(/\/+$/, '')}/${req.mediaCid}`,
-      hash: req.mediaHash || '',
-    };
+    media = await resolveExistingMediaCid(req.mediaCid, req.mediaHash);
     logger.info(
       { accountId, cid: media.cid },
       'Compose lazy-list: reusing existing media CID'

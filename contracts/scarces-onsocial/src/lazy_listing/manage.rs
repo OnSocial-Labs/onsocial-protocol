@@ -19,6 +19,7 @@ impl Contract {
             expires_at,
         } = params;
         let price = price.0;
+        crate::validation::validate_token_metadata(&metadata)?;
 
         let metadata_json = near_sdk::serde_json::to_string(&metadata)
             .map_err(|_| MarketplaceError::InternalError("Failed to serialize metadata".into()))?;

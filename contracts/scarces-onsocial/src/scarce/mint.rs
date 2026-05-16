@@ -17,6 +17,12 @@ impl Contract {
             )));
         }
 
+        let mut metadata = metadata;
+        if metadata.issued_at.is_none() {
+            metadata.issued_at = Some(crate::time::now_ms());
+        }
+        crate::validation::validate_token_metadata(&metadata)?;
+
         let metadata_json = serde_json::to_string(&metadata)
             .map_err(|_| MarketplaceError::InternalError("Failed to serialize metadata".into()))?;
         let metadata_size = metadata_json.len();
@@ -178,7 +184,7 @@ impl Contract {
             .map_err(|_| MarketplaceError::InvalidInput("Invalid metadata template".into()))?;
 
         let seat_number = index + 1;
-        let timestamp = env::block_timestamp();
+        let timestamp = crate::time::now_ms();
 
         let index_str = index.to_string();
         let seat_str = seat_number.to_string();
@@ -243,6 +249,7 @@ impl Contract {
             }
         }
 
+        crate::validation::validate_token_metadata(&metadata)?;
         Ok(metadata)
     }
 

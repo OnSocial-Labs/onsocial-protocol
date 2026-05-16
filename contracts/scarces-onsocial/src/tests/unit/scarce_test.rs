@@ -35,6 +35,7 @@ fn mint_creates_token_and_tracks_owner() {
     let token = contract.scarces_by_id.get("t1").unwrap();
     assert_eq!(token.owner_id, owner());
     assert_eq!(token.creator_id, owner());
+    assert_eq!(token.metadata.issued_at, Some(1_700_000_000_000));
 
     let owner_tokens = contract.scarces_per_owner.get(&owner()).unwrap();
     assert!(owner_tokens.contains("t1"));

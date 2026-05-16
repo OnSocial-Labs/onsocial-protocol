@@ -431,8 +431,16 @@ async fn test_unknown_app_returns_empty() -> Result<()> {
     let bogus = "no-such-app.testnet";
     assert_eq!(get_app_creator_count(&contract, bogus).await?, 0);
     assert_eq!(get_app_owner_count(&contract, bogus).await?, 0);
-    assert!(get_app_creators(&contract, bogus, None, None).await?.is_empty());
-    assert!(get_app_owners(&contract, bogus, None, None).await?.is_empty());
+    assert!(
+        get_app_creators(&contract, bogus, None, None)
+            .await?
+            .is_empty()
+    );
+    assert!(
+        get_app_owners(&contract, bogus, None, None)
+            .await?
+            .is_empty()
+    );
     assert!(!is_app_creator(&contract, bogus, "alice.testnet").await?);
     assert!(!is_app_owner(&contract, bogus, "alice.testnet").await?);
     Ok(())

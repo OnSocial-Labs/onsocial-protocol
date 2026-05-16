@@ -26,6 +26,9 @@ impl Contract {
             PLATFORM_STORAGE_MIN_RESERVE,
             PLATFORM_STORAGE_MIN_RESERVE / 1_000_000_000_000_000_000_000_000,
         );
+        let contract_metadata =
+            crate::validation::normalize_contract_metadata(contract_metadata.unwrap_or_default())
+                .unwrap_or_else(|err| env::panic_str(&err.to_string()));
         Self {
             version: env!("CARGO_PKG_VERSION").to_string(),
             fee_recipient: owner_id.clone(),
@@ -54,7 +57,7 @@ impl Contract {
             offers: IterableMap::new(StorageKey::Offers),
             collection_offers: IterableMap::new(StorageKey::CollectionOffers),
             lazy_listings: IterableMap::new(StorageKey::LazyListings),
-            contract_metadata: contract_metadata.unwrap_or_default(),
+            contract_metadata,
             approved_nft_contracts: IterableSet::new(StorageKey::ApprovedNftContracts),
             wnear_account_id: None,
             pending_attached_balance: 0,
@@ -114,24 +117,27 @@ impl Contract {
     ) -> Result<(), MarketplaceError> {
         crate::guards::check_one_yocto()?;
         self.check_contract_owner(&env::predecessor_account_id())?;
+        let mut metadata = self.contract_metadata.clone();
         if let Some(n) = name {
-            self.contract_metadata.name = n;
+            metadata.name = n;
         }
         if let Some(s) = symbol {
-            self.contract_metadata.symbol = s;
+            metadata.symbol = s;
         }
         if let Some(v) = icon {
-            self.contract_metadata.icon = v;
+            metadata.icon = v;
         }
         if let Some(v) = base_uri {
-            self.contract_metadata.base_uri = v;
+            metadata.base_uri = v;
         }
         if let Some(v) = reference {
-            self.contract_metadata.reference = v;
+            metadata.reference = v;
         }
         if let Some(v) = reference_hash {
-            self.contract_metadata.reference_hash = v;
+            metadata.reference_hash = v;
         }
+        crate::validation::validate_contract_metadata(&metadata)?;
+        self.contract_metadata = metadata;
         events::emit_contract_metadata_updated(
             &self.owner_id,
             &self.contract_metadata.name,

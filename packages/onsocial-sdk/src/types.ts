@@ -67,10 +67,10 @@ export interface OnSocialConfig {
    * `SignedDelegateAction`, posts it to the authenticated gateway
    * `/relay/delegate` endpoint, and the gateway forwards it to the private
    * relayer.
-  *
-  * The gateway relayer is for 0-deposit calls and 1 yoctoNEAR confirmation
-  * calls. Use wallet broadcast for storage top-ups, direct value deposits,
-  * and admin flows that must be paid or confirmed by the user's wallet.
+   *
+   * The gateway relayer is for 0-deposit calls and 1 yoctoNEAR confirmation
+   * calls. Use wallet broadcast for storage top-ups, direct value deposits,
+   * and admin flows that must be paid or confirmed by the user's wallet.
    *
    * Direct relayer and wallet broadcasts are for self-hosted, diagnostics, or
    * explicit wallet-paid/admin flows. They are not the normal OnAPI path.
@@ -343,11 +343,7 @@ export interface MintOptions {
   image?: Blob | File;
   /** Pre-uploaded IPFS CID — bypasses gateway upload (BYO storage). */
   mediaCid?: string;
-  /**
-   * Optional NEP-177 `media_hash` (raw sha256 of the file bytes, base64).
-   * Usually safe to omit when using `ipfs://` URLs since CIDs are already
-   * content-addressed; provide only when targeting strict NEP-177 verifiers.
-   */
+  /** NEP-177 `media_hash` (raw sha256 of the media bytes, base64). Required with `mediaCid`; upload flows compute it automatically. */
   mediaHash?: string;
   copies?: number;
   collectionId?: string;
@@ -415,11 +411,7 @@ export interface CollectionOptions {
   image?: Blob | File;
   /** Pre-uploaded IPFS CID — bypasses gateway upload (BYO storage). */
   mediaCid?: string;
-  /**
-   * Optional NEP-177 `media_hash` (raw sha256 of the file bytes, base64).
-   * Usually safe to omit when using `ipfs://` URLs since CIDs are already
-   * content-addressed; provide only when targeting strict NEP-177 verifiers.
-   */
+  /** NEP-177 `media_hash` (raw sha256 of the media bytes, base64). Required with `mediaCid`; upload flows compute it automatically. */
   mediaHash?: string;
   priceNear?: string;
   description?: string;
@@ -454,11 +446,7 @@ export interface LazyListingOptions {
   priceNear: string;
   image?: Blob | File;
   mediaCid?: string;
-  /**
-   * Optional NEP-177 `media_hash` (raw sha256 of the file bytes, base64).
-   * Usually safe to omit when using `ipfs://` URLs since CIDs are already
-   * content-addressed; provide only when targeting strict NEP-177 verifiers.
-   */
+  /** NEP-177 `media_hash` (raw sha256 of the media bytes, base64). Required with `mediaCid`; upload flows compute it automatically. */
   mediaHash?: string;
   description?: string;
   royalty?: Record<string, number>;

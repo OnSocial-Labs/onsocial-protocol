@@ -42,6 +42,7 @@ impl Contract {
         let mut contract: Self = env::state_read().expect("State read failed");
         let old_version = contract.version.clone();
         contract.version = env!("CARGO_PKG_VERSION").to_string();
+        contract.contract_metadata.spec = NFT_METADATA_SPEC.to_string();
 
         events::emit_contract_upgraded(&env::current_account_id(), &old_version, &contract.version);
 

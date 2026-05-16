@@ -12,6 +12,7 @@ import {
   uploadSvgToLighthouse,
   inlineSvgAsDataUri,
   fetchImageAsDataUri,
+  resolveExistingMediaCid,
   logger,
   validateRoyalty,
   MAX_METADATA_LEN,
@@ -157,12 +158,7 @@ export async function buildMintAction(
       // /compose/set). Render through our configured public gateway —
       // operators should point this at `cdn.onsocial.id` so the URL on-chain
       // is brand-stable and provider-swappable via DNS.
-      media = {
-        cid: req.mediaCid,
-        size: 0,
-        url: gatewayUrl(req.mediaCid),
-        hash: req.mediaHash || '',
-      };
+      media = await resolveExistingMediaCid(req.mediaCid, req.mediaHash);
       logger.info(
         { accountId, cid: media.cid },
         'Compose mint: reusing existing media CID'

@@ -20,6 +20,8 @@ use serde_json::json;
 
 use super::helpers::*;
 
+const HASH_32: &str = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+
 // =============================================================================
 // Shared Setup
 // =============================================================================
@@ -58,7 +60,8 @@ fn default_template() -> serde_json::Value {
     json!({
         "title": "Rollback Test #{token_index}",
         "description": "testing rollback",
-        "media": "https://example.com/img.png"
+        "media": "https://example.com/img.png",
+        "media_hash": HASH_32
     })
 }
 

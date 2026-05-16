@@ -3,14 +3,22 @@
 // ---------------------------------------------------------------------------
 
 import type { CollectionOptions } from '../../types.js';
-import { nearToYocto, parseOptionalU64 } from './_shared.js';
+import {
+  buildTokenMetadata,
+  nearToYocto,
+  parseOptionalU64,
+} from './_shared.js';
 
 export function buildCreateCollectionAction(opts: CollectionOptions) {
-  const metadataTemplate = JSON.stringify({
-    title: opts.title,
-    ...(opts.description ? { description: opts.description } : {}),
-    ...(opts.extra ? { extra: JSON.stringify(opts.extra) } : {}),
-  });
+  const metadataTemplate = JSON.stringify(
+    buildTokenMetadata({
+      title: opts.title,
+      ...(opts.description ? { description: opts.description } : {}),
+      ...(opts.mediaCid ? { mediaCid: opts.mediaCid } : {}),
+      ...(opts.mediaHash ? { mediaHash: opts.mediaHash } : {}),
+      ...(opts.extra ? { extra: opts.extra } : {}),
+    })
+  );
 
   return {
     type: 'create_collection' as const,

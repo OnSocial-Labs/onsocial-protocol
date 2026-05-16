@@ -263,7 +263,7 @@ automatically restricted to wallet-signed transactions).
 
 ## Events
 
-All events follow NEP-297 with `onsocial` standard prefix:
+All events use NEP-297 with `onsocial` standard prefix:
 
 - **Token**: `mint`, `transfer`, `burn`, `metadata_update`, `contract_metadata_update`
 - **Scarce**: `list`, `delist`, `purchase`, `price_update`, `renewed`, `revoked`, `redeemed`, `burned`, `approval`, `auto_delist`

@@ -53,7 +53,7 @@ export class ScarcesCollectionsApi {
    * ```
    */
   async create(opts: CollectionOptions): Promise<RelayResponse> {
-    if (hasLocalUpload(this._storage, opts.image)) {
+    if (hasLocalUpload(this._storage, opts.image, opts.mediaCid)) {
       const { mediaCid, mediaHash } = await resolveScarceMedia(
         opts,
         this._storage

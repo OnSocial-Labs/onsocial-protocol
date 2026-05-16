@@ -21,7 +21,7 @@ impl Contract {
         if token
             .metadata
             .expires_at
-            .is_some_and(|exp| env::block_timestamp() >= exp)
+            .is_some_and(|exp| crate::time::now_ms() >= exp)
         {
             return false;
         }
@@ -64,7 +64,7 @@ impl Contract {
         let is_expired = token
             .metadata
             .expires_at
-            .is_some_and(|exp| env::block_timestamp() >= exp);
+            .is_some_and(|exp| crate::time::now_ms() >= exp);
         let is_revoked = token.revoked_at.is_some();
 
         Some(TokenStatus {

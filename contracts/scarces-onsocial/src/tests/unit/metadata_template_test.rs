@@ -2,6 +2,8 @@ use crate::tests::test_utils::*;
 use crate::*;
 use near_sdk::json_types::U128;
 
+const HASH_32: &str = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+
 fn setup_contract_with_collection(template: &str) -> Contract {
     let mut contract = new_contract();
 
@@ -108,32 +110,26 @@ fn template_description_owner() {
 
 #[test]
 fn template_media_substitution() {
-    let contract = setup_contract_with_collection(
-        r#"{"media":"https://img.io/{collection_id}/{seat_number}.png"}"#,
+    let template = format!(
+        r#"{{"media":"https://img.io/{{collection_id}}/{{seat_number}}.png","media_hash":"{}"}}"#,
+        HASH_32
     );
+    let contract = setup_contract_with_collection(&template);
     let meta = contract
-        .generate_metadata_from_template(
-            r#"{"media":"https://img.io/{collection_id}/{seat_number}.png"}"#,
-            "col-1:3",
-            2,
-            &buyer(),
-            "col-1",
-        )
+        .generate_metadata_from_template(&template, "col-1:3", 2, &buyer(), "col-1")
         .unwrap();
     assert_eq!(meta.media.unwrap(), "https://img.io/col-1/3.png");
 }
 
 #[test]
 fn template_reference_substitution() {
-    let contract = setup_contract_with_collection(r#"{"reference":"https://api.io/{token_id}"}"#);
+    let template = format!(
+        r#"{{"reference":"https://api.io/{{token_id}}","reference_hash":"{}"}}"#,
+        HASH_32
+    );
+    let contract = setup_contract_with_collection(&template);
     let meta = contract
-        .generate_metadata_from_template(
-            r#"{"reference":"https://api.io/{token_id}"}"#,
-            "col-1:7",
-            6,
-            &buyer(),
-            "col-1",
-        )
+        .generate_metadata_from_template(&template, "col-1:7", 6, &buyer(), "col-1")
         .unwrap();
     assert_eq!(meta.reference.unwrap(), "https://api.io/col-1:7");
 }
@@ -152,7 +148,7 @@ fn template_extra_minted_at() {
         .unwrap();
     let extra = meta.extra.unwrap();
     assert!(!extra.contains("{minted_at}"));
-    assert!(extra.contains("1700000000000000000"));
+    assert!(extra.contains("1700000000000"));
 }
 
 #[test]
@@ -161,7 +157,7 @@ fn template_issued_at_set() {
     let meta = contract
         .generate_metadata_from_template(r#"{"title":"t"}"#, "col-1:1", 0, &buyer(), "col-1")
         .unwrap();
-    assert!(meta.issued_at.is_some());
+    assert_eq!(meta.issued_at, Some(1_700_000_000_000));
 }
 
 #[test]

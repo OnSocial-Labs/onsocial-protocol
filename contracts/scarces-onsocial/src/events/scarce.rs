@@ -99,13 +99,6 @@ pub fn emit_scarce_transfer(
     token_id: &str,
     memo: Option<&str>,
 ) {
-    EventBuilder::new(SCARCE, "transfer", sender_id)
-        .field("sender_id", sender_id)
-        .field("old_owner_id", old_owner_id)
-        .field("receiver_id", receiver_id)
-        .field("token_id", token_id)
-        .field_opt("memo", memo)
-        .emit();
     let authorized = if sender_id != old_owner_id {
         Some(sender_id.as_str())
     } else {
@@ -118,6 +111,13 @@ pub fn emit_scarce_transfer(
         authorized,
         memo,
     );
+    EventBuilder::new(SCARCE, "transfer", sender_id)
+        .field("sender_id", sender_id)
+        .field("old_owner_id", old_owner_id)
+        .field("receiver_id", receiver_id)
+        .field("token_id", token_id)
+        .field_opt("memo", memo)
+        .emit();
 }
 
 pub fn emit_native_scarce_listed(owner_id: &AccountId, token_id: &str, price: U128) {
@@ -200,12 +200,12 @@ pub fn emit_token_redeemed(
 }
 
 pub fn emit_scarce_burned(owner_id: &AccountId, token_id: &str, collection_id: Option<&str>) {
+    nep171::emit_burn(owner_id.as_str(), &[token_id], None, None);
     EventBuilder::new(SCARCE, "burn", owner_id)
         .field("owner_id", owner_id)
         .field("token_id", token_id)
         .field_opt("collection_id", collection_id)
         .emit();
-    nep171::emit_burn(owner_id.as_str(), &[token_id], None, None);
 }
 
 pub fn emit_approval_granted(
@@ -298,9 +298,9 @@ pub fn emit_auction_cancelled(actor_id: &AccountId, token_id: &str, reason: &str
 }
 
 pub fn emit_quick_mint(actor_id: &AccountId, token_id: &str) {
+    nep171::emit_mint(actor_id.as_str(), &[token_id.to_string()], None);
     EventBuilder::new(SCARCE, "quick_mint", actor_id)
         .field("token_id", token_id)
         .field("owner_id", actor_id)
         .emit();
-    nep171::emit_mint(actor_id.as_str(), &[token_id.to_string()], None);
 }
