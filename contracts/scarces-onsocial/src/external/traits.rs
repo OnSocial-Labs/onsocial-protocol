@@ -83,7 +83,7 @@ pub trait ExtSelf {
     fn resolve_purchase(
         &mut self,
         buyer_id: AccountId,
-        price: U128,
+        payout_context: crate::PurchasePayoutContext,
         deposit: U128,
         scarce_contract_id: AccountId,
         token_id: String,

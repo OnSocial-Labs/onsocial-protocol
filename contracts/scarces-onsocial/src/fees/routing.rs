@@ -75,7 +75,7 @@ impl Contract {
         let amount_after_fee = sale_price.saturating_sub(total_fee);
 
         if let Some(ref token) = token_clone {
-            let payout = self.compute_payout(token, seller_id, amount_after_fee, 10)?;
+            let payout = self.compute_payout(token, seller_id, amount_after_fee, Some(10))?;
             self.distribute_payout(&payout, amount_after_fee, seller_id);
         } else if amount_after_fee > 0 {
             let _ = Promise::new(seller_id.clone())
@@ -157,27 +157,34 @@ impl Contract {
         0
     }
 
-    // Token accounting guarantee: rounding remainder is sent to fee recipient; zero-total payout falls back to seller.
+    // Token accounting guarantee: unallocated payout remainder is sent to fee recipient; zero-total payout falls back to seller.
     pub(crate) fn distribute_payout(
         &self,
         payout: &Payout,
         amount_after_fee: u128,
         fallback_recipient: &AccountId,
     ) {
-        let total_payout: u128 = payout.payout.values().map(|a| a.0).sum();
+        let Some(total_payout) = Self::payout_total(payout) else {
+            if amount_after_fee > 0 {
+                let _ = Promise::new(fallback_recipient.clone())
+                    .transfer(NearToken::from_yoctonear(amount_after_fee));
+            }
+            return;
+        };
+        if total_payout > amount_after_fee {
+            if amount_after_fee > 0 {
+                let _ = Promise::new(fallback_recipient.clone())
+                    .transfer(NearToken::from_yoctonear(amount_after_fee));
+            }
+            return;
+        }
         if total_payout > 0 {
             let mut actual_distributed: u128 = 0;
             for (receiver, amount) in payout.payout.iter() {
                 if amount.0 > 0 {
-                    let scaled_amount = (primitive_types::U256::from(amount.0)
-                        * primitive_types::U256::from(amount_after_fee)
-                        / primitive_types::U256::from(total_payout))
-                    .as_u128();
-                    if scaled_amount > 0 {
-                        let _ = Promise::new(receiver.clone())
-                            .transfer(NearToken::from_yoctonear(scaled_amount));
-                        actual_distributed += scaled_amount;
-                    }
+                    let _ = Promise::new(receiver.clone())
+                        .transfer(NearToken::from_yoctonear(amount.0));
+                    actual_distributed += amount.0;
                 }
             }
             let remaining = amount_after_fee.saturating_sub(actual_distributed);

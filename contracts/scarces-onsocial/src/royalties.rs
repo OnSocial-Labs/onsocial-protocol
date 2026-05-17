@@ -39,35 +39,33 @@ impl Contract {
         token: &Scarce,
         seller_id: &AccountId,
         balance: u128,
-        max_len: u32,
+        max_len: Option<u32>,
     ) -> Result<Payout, MarketplaceError> {
         let mut payout_map = HashMap::new();
         let mut total_royalty: u128 = 0;
 
         if let Some(royalty) = &token.royalty {
-            let seller_in_royalty = royalty.contains_key(seller_id);
-            let distinct_entries = if seller_in_royalty {
-                royalty.len() as u32
-            } else {
-                royalty.len() as u32 + 1
-            };
-            if distinct_entries > max_len {
-                return Err(MarketplaceError::InvalidInput(
-                    "Royalty recipients + owner exceed max_len_payout".to_string(),
-                ));
-            }
             for (account, bps) in royalty.iter() {
-                let amount = balance.checked_mul(*bps as u128).ok_or_else(|| {
-                    MarketplaceError::InternalError("Royalty payout overflow".to_string())
-                })? / 10_000;
+                let amount = (primitive_types::U256::from(balance)
+                    * primitive_types::U256::from(*bps)
+                    / primitive_types::U256::from(10_000u32))
+                .as_u128();
                 if amount > 0 {
                     payout_map.insert(account.clone(), U128(amount));
-                    total_royalty += amount;
+                    total_royalty = total_royalty.checked_add(amount).ok_or_else(|| {
+                        MarketplaceError::InternalError("Royalty payout overflow".to_string())
+                    })?;
                 }
             }
         }
 
-        let owner_amount = balance.saturating_sub(total_royalty);
+        if total_royalty > balance {
+            return Err(MarketplaceError::InvalidInput(
+                "Royalty payout exceeds balance".to_string(),
+            ));
+        }
+
+        let owner_amount = balance - total_royalty;
         if owner_amount > 0 {
             payout_map
                 .entry(seller_id.clone())
@@ -75,7 +73,22 @@ impl Contract {
                 .or_insert(U128(owner_amount));
         }
 
+        if let Some(max_len) = max_len {
+            if payout_map.len() > max_len as usize {
+                return Err(MarketplaceError::InvalidInput(
+                    "Payout exceeds max_len_payout".to_string(),
+                ));
+            }
+        }
+
         Ok(Payout { payout: payout_map })
+    }
+
+    pub(crate) fn payout_total(payout: &Payout) -> Option<u128> {
+        payout
+            .payout
+            .values()
+            .try_fold(0u128, |total, amount| total.checked_add(amount.0))
     }
 }
 #[near(serializers = [json])]

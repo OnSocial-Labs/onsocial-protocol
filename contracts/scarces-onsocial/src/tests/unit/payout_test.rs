@@ -120,6 +120,48 @@ fn nft_payout_max_len_respected() {
 }
 
 #[test]
+fn nft_payout_without_max_len_allows_full_mapping() {
+    let mut contract = setup_contract();
+    let mut royalty = HashMap::new();
+    for index in 0..10 {
+        royalty.insert(
+            format!("royalty{}.near", index)
+                .parse::<AccountId>()
+                .unwrap(),
+            100,
+        );
+    }
+    let token_id = quick_mint_with_royalty(&mut contract, &buyer(), royalty);
+
+    testing_env!(context(owner()).build());
+    let payout = contract.nft_payout(token_id, U128(100_000), None).unwrap();
+    let total: u128 = payout.payout.values().map(|amount| amount.0).sum();
+
+    assert_eq!(payout.payout.len(), 11);
+    assert_eq!(total, 100_000);
+}
+
+#[test]
+fn nft_payout_rejects_mapping_longer_than_max_len() {
+    let mut contract = setup_contract();
+    let mut royalty = HashMap::new();
+    for index in 0..10 {
+        royalty.insert(
+            format!("royalty{}.near", index)
+                .parse::<AccountId>()
+                .unwrap(),
+            100,
+        );
+    }
+    let token_id = quick_mint_with_royalty(&mut contract, &buyer(), royalty);
+
+    testing_env!(context(owner()).build());
+    let result = contract.nft_payout(token_id, U128(100_000), Some(10));
+
+    assert!(matches!(result, Err(MarketplaceError::InvalidInput(_))));
+}
+
+#[test]
 fn nft_transfer_payout_happy() {
     let mut contract = setup_contract();
     let token_id = quick_mint(&mut contract, &buyer());
@@ -134,6 +176,26 @@ fn nft_transfer_payout_happy() {
 
     let token = contract.nft_token(token_id).unwrap();
     assert_eq!(token.owner_id, creator());
+}
+
+#[test]
+fn nft_transfer_payout_with_royalty_returns_split() {
+    let mut contract = setup_contract();
+    let mut royalty = HashMap::new();
+    royalty.insert(creator(), 1500);
+    let token_id = quick_mint_with_royalty(&mut contract, &buyer(), royalty);
+
+    testing_env!(context_with_deposit(buyer(), 1).build());
+    let payout = contract
+        .nft_transfer_payout(owner(), token_id.clone(), None, None, U128(10_000), None)
+        .unwrap();
+
+    assert_eq!(payout.payout.len(), 2);
+    assert_eq!(payout.payout[&creator()].0, 1_500);
+    assert_eq!(payout.payout[&buyer()].0, 8_500);
+
+    let token = contract.nft_token(token_id).unwrap();
+    assert_eq!(token.owner_id, owner());
 }
 
 #[test]

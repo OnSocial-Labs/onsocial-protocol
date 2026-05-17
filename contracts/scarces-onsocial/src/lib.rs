@@ -47,7 +47,9 @@ pub use lazy_listing::{LazyListing, LazyListingRecord};
 pub use offer::{CollectionOffer, Offer};
 pub use protocol::{Action, Options, Request};
 pub use royalties::Payout;
-pub use sale::{AuctionListing, AuctionState, AuctionView, GasOverrides, Sale, SaleType};
+pub use sale::{
+    AuctionListing, AuctionState, AuctionView, GasOverrides, PurchasePayoutContext, Sale, SaleType,
+};
 pub use scarce::types::{
     MintContext, RedeemInfo, Scarce, ScarceOptions, ScarceOverrides, TokenMetadata, TokenStatus,
 };
