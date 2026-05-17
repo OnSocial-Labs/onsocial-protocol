@@ -31,6 +31,7 @@ pub fn emit_lazy_listing_purchased(
         .field("marketplace_fee", result.revenue)
         .field("app_pool_amount", result.app_pool_amount)
         .field("app_commission", result.app_commission)
+        .field_opt("app_id", result.app_id.as_ref())
         .emit();
 }
 

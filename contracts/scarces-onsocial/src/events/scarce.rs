@@ -54,23 +54,27 @@ pub fn emit_scarce_update_price(
         .emit();
 }
 
-pub fn emit_scarce_purchase(
-    buyer_id: &AccountId,
-    seller_id: &AccountId,
-    scarce_contract_id: &AccountId,
-    token_id: &str,
-    price: U128,
-    marketplace_fee: u128,
-    app_pool_amount: u128,
-) {
-    EventBuilder::new(SCARCE, "purchase", buyer_id)
-        .field("buyer_id", buyer_id)
-        .field("seller_id", seller_id)
-        .field("scarce_contract_id", scarce_contract_id)
-        .field("token_id", token_id)
-        .field("price", price)
-        .field("marketplace_fee", marketplace_fee)
-        .field("app_pool_amount", app_pool_amount)
+pub struct ScarcePurchase<'a> {
+    pub buyer_id: &'a AccountId,
+    pub seller_id: &'a AccountId,
+    pub scarce_contract_id: &'a AccountId,
+    pub token_id: &'a str,
+    pub price: U128,
+    pub marketplace_fee: u128,
+    pub app_pool_amount: u128,
+    pub app_id: Option<&'a AccountId>,
+}
+
+pub fn emit_scarce_purchase(e: &ScarcePurchase) {
+    EventBuilder::new(SCARCE, "purchase", e.buyer_id)
+        .field("buyer_id", e.buyer_id)
+        .field("seller_id", e.seller_id)
+        .field("scarce_contract_id", e.scarce_contract_id)
+        .field("token_id", e.token_id)
+        .field("price", e.price)
+        .field("marketplace_fee", e.marketplace_fee)
+        .field("app_pool_amount", e.app_pool_amount)
+        .field_opt("app_id", e.app_id)
         .emit();
 }
 
@@ -150,13 +154,13 @@ pub fn emit_token_renewed(
     owner_id: &AccountId,
     new_expires_at: u64,
 ) {
+    nep171::emit_metadata_update(&[token_id]);
     EventBuilder::new(SCARCE, "renew", actor_id)
         .field("token_id", token_id)
         .field("collection_id", collection_id)
         .field("owner_id", owner_id)
         .field("new_expires_at", new_expires_at)
         .emit();
-    nep171::emit_metadata_update(&[token_id]);
 }
 
 pub fn emit_token_revoked(
@@ -167,6 +171,11 @@ pub fn emit_token_revoked(
     mode: &str,
     memo: Option<&str>,
 ) {
+    match mode {
+        "invalidate" => nep171::emit_metadata_update(&[token_id]),
+        "burn" => nep171::emit_burn(owner_id.as_str(), &[token_id], None, memo),
+        _ => {}
+    }
     EventBuilder::new(SCARCE, "revoke", actor_id)
         .field("token_id", token_id)
         .field("collection_id", collection_id)
@@ -174,11 +183,6 @@ pub fn emit_token_revoked(
         .field("mode", mode)
         .field_opt("memo", memo)
         .emit();
-    match mode {
-        "invalidate" => nep171::emit_metadata_update(&[token_id]),
-        "burn" => nep171::emit_burn(owner_id.as_str(), &[token_id], None, memo),
-        _ => {}
-    }
 }
 
 pub fn emit_token_redeemed(
@@ -189,6 +193,7 @@ pub fn emit_token_redeemed(
     redeem_count: u32,
     max_redeems: u32,
 ) {
+    nep171::emit_metadata_update(&[token_id]);
     EventBuilder::new(SCARCE, "redeem", actor_id)
         .field("token_id", token_id)
         .field("collection_id", collection_id)
@@ -196,7 +201,6 @@ pub fn emit_token_redeemed(
         .field("redeem_count", redeem_count)
         .field("max_redeems", max_redeems)
         .emit();
-    nep171::emit_metadata_update(&[token_id]);
 }
 
 pub fn emit_scarce_burned(owner_id: &AccountId, token_id: &str, collection_id: Option<&str>) {
@@ -278,6 +282,7 @@ pub fn emit_auction_settled(
     winning_bid: u128,
     revenue: u128,
     app_pool_amount: u128,
+    app_id: Option<&AccountId>,
 ) {
     EventBuilder::new(SCARCE, "auction_settled", winner_id)
         .field("winner_id", winner_id)
@@ -286,6 +291,7 @@ pub fn emit_auction_settled(
         .field("winning_bid", winning_bid)
         .field("revenue", revenue)
         .field("app_pool_amount", app_pool_amount)
+        .field_opt("app_id", app_id)
         .emit();
 }
 

@@ -50,6 +50,7 @@ pub fn emit_contract_metadata_updated(
     base_uri: Option<&str>,
     reference: Option<&str>,
 ) {
+    nep171::emit_contract_metadata_update();
     EventBuilder::new(CONTRACT, "contract_metadata_updated", owner_id)
         .field("name", name)
         .field("symbol", symbol)
@@ -57,7 +58,6 @@ pub fn emit_contract_metadata_updated(
         .field_opt("base_uri", base_uri)
         .field_opt("reference", reference)
         .emit();
-    nep171::emit_contract_metadata_update();
 }
 
 pub fn emit_approved_nft_contract_added(owner_id: &AccountId, contract_id: &AccountId) {

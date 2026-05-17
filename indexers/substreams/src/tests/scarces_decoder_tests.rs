@@ -84,7 +84,7 @@ fn test_decode_scarce_list() {
 
 #[test]
 fn test_decode_scarce_purchase() {
-    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"SCARCE_UPDATE","data":[{"operation":"purchase","author":"buyer.near","buyer_id":"buyer.near","seller_id":"seller.near","scarce_contract_id":"nft.example.near","token_id":"t1","price":"5000000000000000000000000","marketplace_fee":"250000000000000000000000","app_pool_amount":"100000000000000000000000"}]}"#;
+    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"SCARCE_UPDATE","data":[{"operation":"purchase","author":"buyer.near","buyer_id":"buyer.near","seller_id":"seller.near","scarce_contract_id":"nft.example.near","token_id":"t1","price":"5000000000000000000000000","marketplace_fee":"250000000000000000000000","app_pool_amount":"100000000000000000000000","app_id":"app.near"}]}"#;
     let event = decode_scarces_event(json, "r", 1, 1, 0).unwrap();
     assert_eq!(event.operation, "purchase");
     assert_eq!(event.buyer_id, "buyer.near");
@@ -93,6 +93,7 @@ fn test_decode_scarce_purchase() {
     assert_eq!(event.price, "5000000000000000000000000");
     assert_eq!(event.marketplace_fee, "250000000000000000000000");
     assert_eq!(event.app_pool_amount, "100000000000000000000000");
+    assert_eq!(event.app_id, "app.near");
 }
 
 #[test]
@@ -132,10 +133,11 @@ fn test_decode_collection_create() {
 
 #[test]
 fn test_decode_collection_purchase() {
-    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"COLLECTION_UPDATE","data":[{"operation":"purchase","author":"buyer.near","buyer_id":"buyer.near","creator_id":"creator.near","collection_id":"col-1","quantity":2,"total_price":"2000","marketplace_fee":"100","app_pool_amount":"50","app_commission":"25","token_ids":["t1","t2"]}]}"#;
+    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"COLLECTION_UPDATE","data":[{"operation":"purchase","author":"buyer.near","buyer_id":"buyer.near","creator_id":"creator.near","collection_id":"col-1","quantity":2,"total_price":"2000","marketplace_fee":"100","app_pool_amount":"50","app_commission":"25","app_id":"app.near","token_ids":["t1","t2"]}]}"#;
     let event = decode_scarces_event(json, "r", 1, 1, 0).unwrap();
     assert_eq!(event.quantity, 2);
     assert_eq!(event.app_commission, "25");
+    assert_eq!(event.app_id, "app.near");
     assert!(event.token_ids.contains("t1"));
 }
 
@@ -153,10 +155,11 @@ fn test_decode_lazy_listing_created() {
 
 #[test]
 fn test_decode_lazy_listing_purchased() {
-    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"LAZY_LISTING_UPDATE","data":[{"operation":"purchased","author":"buyer.near","buyer_id":"buyer.near","creator_id":"creator.near","listing_id":"ll-1","token_id":"t1","price":"3000","creator_payment":"2800","marketplace_fee":"100","app_pool_amount":"50","app_commission":"50"}]}"#;
+    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"LAZY_LISTING_UPDATE","data":[{"operation":"purchased","author":"buyer.near","buyer_id":"buyer.near","creator_id":"creator.near","listing_id":"ll-1","token_id":"t1","price":"3000","creator_payment":"2800","marketplace_fee":"100","app_pool_amount":"50","app_commission":"50","app_id":"app.near"}]}"#;
     let event = decode_scarces_event(json, "r", 1, 1, 0).unwrap();
     assert_eq!(event.creator_payment, "2800");
     assert_eq!(event.token_id, "t1");
+    assert_eq!(event.app_id, "app.near");
 }
 
 // ─── OFFER_UPDATE operations ───────────────────────────────────────
@@ -173,11 +176,12 @@ fn test_decode_offer_made() {
 
 #[test]
 fn test_decode_offer_accepted() {
-    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"OFFER_UPDATE","data":[{"operation":"offer_accepted","author":"seller.near","buyer_id":"bob.near","seller_id":"seller.near","token_id":"t1","amount":"5000","marketplace_fee":"250","app_pool_amount":"100"}]}"#;
+    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"OFFER_UPDATE","data":[{"operation":"offer_accepted","author":"seller.near","buyer_id":"bob.near","seller_id":"seller.near","token_id":"t1","amount":"5000","marketplace_fee":"250","app_pool_amount":"100","app_id":"app.near"}]}"#;
     let event = decode_scarces_event(json, "r", 1, 1, 0).unwrap();
     assert_eq!(event.buyer_id, "bob.near");
     assert_eq!(event.seller_id, "seller.near");
     assert_eq!(event.marketplace_fee, "250");
+    assert_eq!(event.app_id, "app.near");
 }
 
 // ─── CONTRACT_UPDATE operations ────────────────────────────────────

@@ -46,6 +46,7 @@ impl Contract {
                 app_pool_amount: app_amt,
                 app_commission,
                 creator_payment,
+                app_id: app_id.cloned(),
             })
         } else {
             Ok(PrimarySaleResult {
@@ -53,6 +54,7 @@ impl Contract {
                 app_pool_amount: 0,
                 app_commission: 0,
                 creator_payment: 0,
+                app_id: app_id.cloned(),
             })
         }
     }
@@ -87,6 +89,7 @@ impl Contract {
             app_pool_amount,
             app_commission: 0,
             creator_payment: 0,
+            app_id,
         })
     }
 

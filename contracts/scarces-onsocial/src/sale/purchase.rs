@@ -193,15 +193,16 @@ impl Contract {
                 .transfer(NearToken::from_yoctonear(amount_after_fee));
         }
 
-        events::emit_scarce_purchase(
-            &buyer_id,
-            &seller_id,
-            &scarce_contract_id,
-            &token_id,
-            U128(payout_context.price.0),
-            revenue,
+        events::emit_scarce_purchase(&events::ScarcePurchase {
+            buyer_id: &buyer_id,
+            seller_id: &seller_id,
+            scarce_contract_id: &scarce_contract_id,
+            token_id: &token_id,
+            price: U128(payout_context.price.0),
+            marketplace_fee: revenue,
             app_pool_amount,
-        );
+            app_id: None,
+        });
 
         crate::fees::refund_excess(&buyer_id, deposit.0, payout_context.price.0);
 
@@ -313,15 +314,17 @@ impl Contract {
         // Token accounting guarantee: credit overpayment to pending_attached_balance for final settlement.
         self.pending_attached_balance += deposit.saturating_sub(price);
 
-        events::emit_scarce_purchase(
+        let current_contract = env::current_account_id();
+        events::emit_scarce_purchase(&events::ScarcePurchase {
             buyer_id,
-            &seller_id,
-            &env::current_account_id(),
-            &token_id,
-            U128(price),
-            result.revenue,
-            result.app_pool_amount,
-        );
+            seller_id: &seller_id,
+            scarce_contract_id: &current_contract,
+            token_id: &token_id,
+            price: U128(price),
+            marketplace_fee: result.revenue,
+            app_pool_amount: result.app_pool_amount,
+            app_id: result.app_id.as_ref(),
+        });
         Ok(())
     }
 }

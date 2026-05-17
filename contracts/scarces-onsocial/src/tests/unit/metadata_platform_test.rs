@@ -53,6 +53,47 @@ fn scarces_metadata_update_events_use_nep171_current_version() {
     assert_eq!(token_update["event"], "nft_metadata_update");
 }
 
+#[test]
+fn contract_metadata_wrapper_emits_standard_nep171_event_first() {
+    testing_env!(context(owner()).build());
+
+    crate::events::emit_contract_metadata_updated(
+        &owner(),
+        "OnSocial Scarces",
+        "SCARCE",
+        None,
+        None,
+        None,
+    );
+
+    let logs = get_logs();
+    let first = parse_event_json(&logs[0]);
+    assert_eq!(first["standard"], "nep171");
+    assert_eq!(first["event"], "contract_metadata_update");
+
+    let second = parse_event_json(&logs[1]);
+    assert_eq!(second["standard"], "onsocial");
+    assert_eq!(second["event"], "CONTRACT_UPDATE");
+    assert_eq!(second["data"][0]["operation"], "contract_metadata_updated");
+}
+
+#[test]
+fn token_metadata_wrappers_emit_standard_nep171_event_first() {
+    testing_env!(context(owner()).build());
+
+    crate::events::emit_token_renewed(&owner(), "s:1", "c:1", &owner(), 1_800_000_000);
+
+    let logs = get_logs();
+    let first = parse_event_json(&logs[0]);
+    assert_eq!(first["standard"], "nep171");
+    assert_eq!(first["event"], "nft_metadata_update");
+
+    let second = parse_event_json(&logs[1]);
+    assert_eq!(second["standard"], "onsocial");
+    assert_eq!(second["event"], "SCARCE_UPDATE");
+    assert_eq!(second["data"][0]["operation"], "renew");
+}
+
 fn parse_event_json(log: &str) -> Value {
     let json = log
         .strip_prefix("EVENT_JSON:")

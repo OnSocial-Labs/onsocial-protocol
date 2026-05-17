@@ -5,6 +5,7 @@ pub(crate) struct PrimarySaleResult {
     pub app_pool_amount: u128,
     pub app_commission: u128,
     pub creator_payment: u128,
+    pub app_id: Option<AccountId>,
 }
 
 #[near(serializers = [borsh, json])]
