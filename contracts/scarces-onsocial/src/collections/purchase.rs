@@ -233,6 +233,7 @@ impl Contract {
             marketplace_fee: U128(result.revenue),
             app_pool_amount: U128(result.app_pool_amount),
             app_commission: U128(result.app_commission),
+            app_id: result.app_id.as_ref(),
             token_ids: &token_ids,
         });
         Ok(())

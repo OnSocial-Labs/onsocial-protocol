@@ -181,6 +181,7 @@ impl Contract {
                 winning_bid,
                 result.revenue,
                 result.app_pool_amount,
+                result.app_id.as_ref(),
             );
         } else {
             if let Some(bidder) = winner {

@@ -28,6 +28,7 @@ pub struct CollectionPurchase<'a> {
     pub marketplace_fee: U128,
     pub app_pool_amount: U128,
     pub app_commission: U128,
+    pub app_id: Option<&'a AccountId>,
     pub token_ids: &'a [String],
 }
 
@@ -42,6 +43,7 @@ pub fn emit_collection_purchase(e: &CollectionPurchase) {
         .field("marketplace_fee", e.marketplace_fee)
         .field("app_pool_amount", e.app_pool_amount)
         .field("app_commission", e.app_commission)
+        .field_opt("app_id", e.app_id)
         .field("token_ids", e.token_ids)
         .emit();
 }

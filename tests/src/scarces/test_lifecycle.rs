@@ -38,6 +38,12 @@ async fn user(
     Ok(u)
 }
 
+async fn platform_storage_balance(contract: &near_workspaces::Contract) -> Result<u128> {
+    let result = contract.view("get_platform_storage_balance").await?;
+    let balance: String = serde_json::from_slice(&result.result)?;
+    Ok(balance.parse()?)
+}
+
 // =============================================================================
 // 1. Soulbound — standalone token (transferable: false)
 // =============================================================================
@@ -546,7 +552,7 @@ async fn test_soulbound_and_non_burnable_standalone() -> Result<()> {
 
 #[tokio::test]
 async fn test_royalty_payout_on_secondary_sale() -> Result<()> {
-    let (worker, _owner, contract) = setup().await?;
+    let (worker, owner, contract) = setup().await?;
     let creator = user(&worker, &contract).await?;
     let buyer = user(&worker, &contract).await?;
     let artist = worker.dev_create_account().await?;
@@ -569,8 +575,9 @@ async fn test_royalty_payout_on_secondary_sale() -> Result<()> {
     let token_id = &tokens[0].token_id;
 
     // Verify payout view before sale
-    let balance_str = "1000000000000000000000000"; // 1 NEAR
-    let payout = nft_payout(&contract, token_id, balance_str, None).await?;
+    let sale_price: u128 = 1_000_000_000_000_000_000_000_000;
+    let balance_str = sale_price.to_string();
+    let payout = nft_payout(&contract, token_id, &balance_str, None).await?;
     assert_eq!(payout.payout.len(), 2, "seller + artist");
 
     let artist_cut: u128 = payout
@@ -590,7 +597,7 @@ async fn test_royalty_payout_on_secondary_sale() -> Result<()> {
     assert_eq!(seller_cut, 900_000_000_000_000_000_000_000u128);
 
     // List for 1 NEAR
-    list_native_scarce(&contract, &creator, token_id, balance_str, DEPOSIT_STORAGE)
+    list_native_scarce(&contract, &creator, token_id, &balance_str, DEPOSIT_STORAGE)
         .await?
         .into_result()?;
 
@@ -599,7 +606,19 @@ async fn test_royalty_payout_on_secondary_sale() -> Result<()> {
     assert!(sale.is_some(), "sale should be listed");
 
     // Buyer purchases
-    let _creator_balance_before = creator.view_account().await?.balance;
+    let fee_config = get_fee_config(&contract).await?;
+    let total_fee = sale_price * fee_config.total_fee_bps as u128 / 10_000;
+    let platform_fee = sale_price * fee_config.platform_storage_fee_bps as u128 / 10_000;
+    let fee_recipient_commission = total_fee - platform_fee;
+    let amount_after_fee = sale_price - total_fee;
+    let expected_artist_royalty = amount_after_fee * 1000 / 10_000;
+    let expected_seller_payout = amount_after_fee - expected_artist_royalty;
+
+    let seller_balance_before = creator.view_account().await?.balance.as_yoctonear();
+    let artist_balance_before = artist.view_account().await?.balance.as_yoctonear();
+    let fee_recipient_balance_before = owner.view_account().await?.balance.as_yoctonear();
+    let platform_balance_before = platform_storage_balance(&contract).await?;
+
     purchase_native_scarce(
         &contract,
         &buyer,
@@ -609,6 +628,31 @@ async fn test_royalty_payout_on_secondary_sale() -> Result<()> {
     .await?
     .into_result()?;
 
+    let seller_balance_after = creator.view_account().await?.balance.as_yoctonear();
+    let artist_balance_after = artist.view_account().await?.balance.as_yoctonear();
+    let fee_recipient_balance_after = owner.view_account().await?.balance.as_yoctonear();
+    let platform_balance_after = platform_storage_balance(&contract).await?;
+
+    assert_eq!(
+        artist_balance_after - artist_balance_before,
+        expected_artist_royalty,
+        "artist receives royalty on the post-fee resale balance"
+    );
+    assert_eq!(
+        seller_balance_after - seller_balance_before,
+        expected_seller_payout,
+        "seller receives the post-fee residual after royalties"
+    );
+    assert_eq!(
+        fee_recipient_balance_after - fee_recipient_balance_before,
+        fee_recipient_commission,
+        "fee recipient receives platform resale commission"
+    );
+    assert!(
+        platform_balance_after >= platform_balance_before + platform_fee,
+        "platform storage balance receives at least the storage fee share"
+    );
+
     // Token transferred to buyer
     let token = nft_token(&contract, token_id).await?.unwrap();
     assert_eq!(token.owner_id, buyer.id().to_string());
@@ -616,6 +660,138 @@ async fn test_royalty_payout_on_secondary_sale() -> Result<()> {
     // Sale removed
     let sale = get_sale(&contract, token_id).await?;
     assert!(sale.is_none(), "sale should be cleared after purchase");
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_app_id_resale_pays_royalties_and_sponsor_pool() -> Result<()> {
+    let (worker, owner, contract) = setup().await?;
+    let app_owner = user(&worker, &contract).await?;
+    let creator = user(&worker, &contract).await?;
+    let buyer = user(&worker, &contract).await?;
+    let artist = worker.dev_create_account().await?;
+    let app_artist = worker.dev_create_account().await?;
+    let app_id = app_owner.id().to_string();
+
+    register_app(&contract, &app_owner, &app_id, DEPOSIT_LARGE)
+        .await?
+        .into_result()?;
+    set_app_config(
+        &contract,
+        &app_owner,
+        &app_id,
+        json!({
+            "default_royalty": { app_artist.id().to_string(): 500 },
+            "primary_sale_bps": 700,
+        }),
+        ONE_YOCTO,
+    )
+    .await?
+    .into_result()?;
+
+    quick_mint_full(
+        &contract,
+        &creator,
+        json!({ "title": "App-tagged resale" }),
+        Some(json!({ artist.id().to_string(): 1000 })),
+        Some(&app_id),
+        true,
+        true,
+        DEPOSIT_LARGE,
+    )
+    .await?
+    .into_result()?;
+
+    let tokens = nft_tokens_for_owner(&contract, &creator.id().to_string(), None, Some(1)).await?;
+    let token_id = &tokens[0].token_id;
+
+    let sale_price: u128 = 1_000_000_000_000_000_000_000_000;
+    let balance_str = sale_price.to_string();
+    let full_balance_payout = nft_payout(&contract, token_id, &balance_str, None).await?;
+    assert_eq!(full_balance_payout.payout.len(), 3, "seller + artist + app royalty");
+    assert_eq!(
+        full_balance_payout
+            .payout
+            .get(&artist.id().to_string())
+            .unwrap()
+            .parse::<u128>()?,
+        100_000_000_000_000_000_000_000u128,
+    );
+    assert_eq!(
+        full_balance_payout
+            .payout
+            .get(&app_artist.id().to_string())
+            .unwrap()
+            .parse::<u128>()?,
+        50_000_000_000_000_000_000_000u128,
+    );
+
+    list_native_scarce(&contract, &creator, token_id, &balance_str, DEPOSIT_STORAGE)
+        .await?
+        .into_result()?;
+
+    let fee_config = get_fee_config(&contract).await?;
+    let total_fee = sale_price * fee_config.total_fee_bps as u128 / 10_000;
+    let app_pool_fee = sale_price * fee_config.app_pool_fee_bps as u128 / 10_000;
+    let fee_recipient_commission = total_fee - app_pool_fee;
+    let amount_after_fee = sale_price - total_fee;
+    let expected_artist_royalty = amount_after_fee * 1000 / 10_000;
+    let expected_app_royalty = amount_after_fee * 500 / 10_000;
+    let expected_seller_payout = amount_after_fee - expected_artist_royalty - expected_app_royalty;
+
+    let seller_balance_before = creator.view_account().await?.balance.as_yoctonear();
+    let artist_balance_before = artist.view_account().await?.balance.as_yoctonear();
+    let app_artist_balance_before = app_artist.view_account().await?.balance.as_yoctonear();
+    let fee_recipient_balance_before = owner.view_account().await?.balance.as_yoctonear();
+    let app_pool_balance_before = get_app_pool(&contract, &app_id)
+        .await?
+        .unwrap()
+        .balance
+        .parse::<u128>()?;
+    let platform_balance_before = platform_storage_balance(&contract).await?;
+
+    purchase_native_scarce(
+        &contract,
+        &buyer,
+        token_id,
+        near_workspaces::types::NearToken::from_near(2),
+    )
+    .await?
+    .into_result()?;
+
+    let seller_balance_after = creator.view_account().await?.balance.as_yoctonear();
+    let artist_balance_after = artist.view_account().await?.balance.as_yoctonear();
+    let app_artist_balance_after = app_artist.view_account().await?.balance.as_yoctonear();
+    let fee_recipient_balance_after = owner.view_account().await?.balance.as_yoctonear();
+    let app_pool_balance_after = get_app_pool(&contract, &app_id)
+        .await?
+        .unwrap()
+        .balance
+        .parse::<u128>()?;
+    let platform_balance_after = platform_storage_balance(&contract).await?;
+
+    assert_eq!(artist_balance_after - artist_balance_before, expected_artist_royalty);
+    assert_eq!(
+        app_artist_balance_after - app_artist_balance_before,
+        expected_app_royalty
+    );
+    assert_eq!(seller_balance_after - seller_balance_before, expected_seller_payout);
+    assert_eq!(
+        fee_recipient_balance_after - fee_recipient_balance_before,
+        fee_recipient_commission
+    );
+    assert!(
+        app_pool_balance_after >= app_pool_balance_before + app_pool_fee,
+        "app pool receives the sponsor share from the app-tagged resale"
+    );
+    assert_eq!(
+        platform_balance_after, platform_balance_before,
+        "app-tagged resale routes the storage-sponsor fee to the app pool, not platform storage"
+    );
+
+    let token = nft_token(&contract, token_id).await?.unwrap();
+    assert_eq!(token.owner_id, buyer.id().to_string());
 
     Ok(())
 }
