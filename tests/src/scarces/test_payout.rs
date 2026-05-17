@@ -279,7 +279,24 @@ async fn test_nft_transfer_payout_returns_correct_split() -> Result<()> {
         None,
     )
     .await?;
-    result.into_result()?;
+    let outcome = result.into_result()?;
+
+    let returned_payout: Payout = outcome.json()?;
+    assert_eq!(returned_payout.payout.len(), 2);
+
+    let artist_amount: u128 = returned_payout
+        .payout
+        .get(&artist.id().to_string())
+        .unwrap()
+        .parse()?;
+    let seller_amount: u128 = returned_payout
+        .payout
+        .get(&minter.id().to_string())
+        .unwrap()
+        .parse()?;
+
+    assert_eq!(artist_amount, 100_000_000_000_000_000_000_000u128);
+    assert_eq!(seller_amount, 900_000_000_000_000_000_000_000u128);
 
     // Token ownership transferred
     let token = nft_token(&contract, token_id).await?.unwrap();

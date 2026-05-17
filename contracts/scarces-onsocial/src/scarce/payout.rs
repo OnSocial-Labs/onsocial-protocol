@@ -14,12 +14,7 @@ impl Contract {
             .scarces_by_id
             .get(&token_id)
             .ok_or_else(|| MarketplaceError::NotFound(format!("Token not found: {}", token_id)))?;
-        self.compute_payout(
-            token,
-            &token.owner_id,
-            balance.0,
-            max_len_payout.unwrap_or(10),
-        )
+        self.compute_payout(token, &token.owner_id, balance.0, max_len_payout)
     }
 
     #[payable]
@@ -42,12 +37,7 @@ impl Contract {
             .get(&token_id)
             .ok_or_else(|| MarketplaceError::NotFound(format!("Token not found: {}", token_id)))?
             .clone();
-        let payout = self.compute_payout(
-            &token,
-            &token.owner_id,
-            balance.0,
-            max_len_payout.unwrap_or(10),
-        )?;
+        let payout = self.compute_payout(&token, &token.owner_id, balance.0, max_len_payout)?;
 
         self.transfer(&sender_id, &receiver_id, &token_id, approval_id, memo)?;
 

@@ -78,7 +78,7 @@ impl Contract {
         let bytes_freed = before_remove.saturating_sub(self.storage_usage_flushed());
         self.release_storage_waterfall(&owner_id, bytes_freed, None);
 
-        let max_payout_recipients = max_len_payout.unwrap_or(10).min(20);
+        let max_payout_recipients = max_len_payout.unwrap_or(10).clamp(10, 20);
         let transfer_gas = scarce_transfer_gas_tgas.unwrap_or(DEFAULT_SCARCE_TRANSFER_GAS);
         let default_resolve_gas = if max_payout_recipients <= 10 {
             DEFAULT_RESOLVE_PURCHASE_GAS
@@ -86,6 +86,8 @@ impl Contract {
             MAX_RESOLVE_PURCHASE_GAS
         };
         let resolve_gas = resolve_purchase_gas_tgas.unwrap_or(default_resolve_gas);
+        let (total_fee, _, _, _) = self.calculate_fee_split(price, None);
+        let payout_balance = price.saturating_sub(total_fee);
 
         Ok(ext_scarce_contract::ext(contract_id.clone())
             .with_static_gas(Gas::from_tgas(transfer_gas))
@@ -95,7 +97,7 @@ impl Contract {
                 tok_id.clone(),
                 Some(approval_id),
                 Some("Purchased from OnSocial Marketplace".to_string()),
-                U128(price),
+                U128(payout_balance),
                 Some(max_payout_recipients),
             )
             .then(
@@ -103,7 +105,11 @@ impl Contract {
                     .with_static_gas(Gas::from_tgas(resolve_gas))
                     .resolve_purchase(
                         buyer_id,
-                        U128(price),
+                        PurchasePayoutContext {
+                            price: U128(price),
+                            payout_balance: U128(payout_balance),
+                            max_len_payout: max_payout_recipients,
+                        },
                         U128(deposit),
                         contract_id,
                         tok_id,
@@ -116,7 +122,7 @@ impl Contract {
     pub fn resolve_purchase(
         &mut self,
         buyer_id: AccountId,
-        price: U128,
+        payout_context: PurchasePayoutContext,
         deposit: U128,
         scarce_contract_id: AccountId,
         token_id: String,
@@ -131,13 +137,28 @@ impl Contract {
                             "Warning: empty payout from NFT contract, paying seller directly",
                         );
                         None
+                    } else if payout.payout.len() > payout_context.max_len_payout as usize {
+                        env::log_str(
+                            "Warning: payout exceeds max_len_payout, paying seller directly",
+                        );
+                        None
                     } else {
-                        let total_payout: u128 = payout.payout.values().map(|a| a.0).sum();
-                        if total_payout > price.0 {
-                            env::log_str("Warning: payout exceeds price, paying seller directly");
-                            None
-                        } else {
-                            Some(payout)
+                        match Self::payout_total(&payout) {
+                            Some(total_payout)
+                                if total_payout > payout_context.payout_balance.0 =>
+                            {
+                                env::log_str(
+                                    "Warning: payout exceeds balance, paying seller directly",
+                                );
+                                None
+                            }
+                            Some(_) => Some(payout),
+                            None => {
+                                env::log_str(
+                                    "Warning: payout sum overflow, paying seller directly",
+                                );
+                                None
+                            }
                         }
                     }
                 } else {
@@ -151,7 +172,7 @@ impl Contract {
                     &seller_id,
                     &scarce_contract_id,
                     &token_id,
-                    price,
+                    U128(payout_context.price.0),
                     "scarce_transfer_failed",
                 );
                 if deposit.0 > 0 {
@@ -162,9 +183,8 @@ impl Contract {
             }
         };
 
-        let (total_fee, _, _, _) = self.calculate_fee_split(price.0, None);
-        let (revenue, app_pool_amount) = self.route_fee(price.0, None);
-        let amount_after_fee = price.0.saturating_sub(total_fee);
+        let (revenue, app_pool_amount) = self.route_fee(payout_context.price.0, None);
+        let amount_after_fee = payout_context.payout_balance.0;
 
         if let Some(payout) = payout_option {
             self.distribute_payout(&payout, amount_after_fee, &seller_id);
@@ -178,14 +198,14 @@ impl Contract {
             &seller_id,
             &scarce_contract_id,
             &token_id,
-            price,
+            U128(payout_context.price.0),
             revenue,
             app_pool_amount,
         );
 
-        crate::fees::refund_excess(&buyer_id, deposit.0, price.0);
+        crate::fees::refund_excess(&buyer_id, deposit.0, payout_context.price.0);
 
-        price
+        U128(payout_context.price.0)
     }
 }
 

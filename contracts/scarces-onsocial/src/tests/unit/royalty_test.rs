@@ -247,7 +247,7 @@ fn payout_no_royalty_all_to_seller() {
     let token = make_token(None);
 
     let payout = contract
-        .compute_payout(&token, &seller, 1_000_000, 10)
+        .compute_payout(&token, &seller, 1_000_000, Some(10))
         .unwrap();
     assert_eq!(payout.payout.len(), 1);
     assert_eq!(payout.payout.get(&seller).unwrap().0, 1_000_000);
@@ -265,7 +265,7 @@ fn payout_single_royalty_recipient() {
     let token = make_token(Some(royalty));
     let balance: u128 = 10_000;
     let payout = contract
-        .compute_payout(&token, &seller, balance, 10)
+        .compute_payout(&token, &seller, balance, Some(10))
         .unwrap();
 
     let royalty_amt = balance * 1000 / 10_000;
@@ -284,7 +284,7 @@ fn payout_seller_is_also_royalty_recipient() {
     let token = make_token(Some(royalty));
     let balance: u128 = 10_000;
     let payout = contract
-        .compute_payout(&token, &seller, balance, 10)
+        .compute_payout(&token, &seller, balance, Some(10))
         .unwrap();
 
     let royalty_amt = balance * 500 / 10_000;
@@ -306,7 +306,7 @@ fn payout_too_many_recipients_fails() {
     }
 
     let token = make_token(Some(royalty));
-    let result = contract.compute_payout(&token, &seller, 10_000, 3);
+    let result = contract.compute_payout(&token, &seller, 10_000, Some(3));
     assert!(matches!(result, Err(MarketplaceError::InvalidInput(_))));
 }
 
@@ -316,7 +316,29 @@ fn payout_zero_balance() {
     let seller: AccountId = "seller.near".parse().unwrap();
     let token = make_token(None);
 
-    let payout = contract.compute_payout(&token, &seller, 0, 10).unwrap();
+    let payout = contract
+        .compute_payout(&token, &seller, 0, Some(10))
+        .unwrap();
     let total: u128 = payout.payout.values().map(|v| v.0).sum();
     assert_eq!(total, 0);
+}
+
+#[test]
+fn payout_large_balance_does_not_overflow() {
+    let contract = new_contract();
+    let seller: AccountId = "seller.near".parse().unwrap();
+    let recipient: AccountId = "artist.near".parse().unwrap();
+
+    let mut royalty = HashMap::new();
+    royalty.insert(recipient.clone(), 5000u32);
+
+    let token = make_token(Some(royalty));
+    let payout = contract
+        .compute_payout(&token, &seller, u128::MAX, Some(10))
+        .unwrap();
+    let total = Contract::payout_total(&payout).unwrap();
+
+    assert_eq!(total, u128::MAX);
+    assert!(payout.payout.get(&recipient).unwrap().0 > 0);
+    assert!(payout.payout.get(&seller).unwrap().0 > 0);
 }

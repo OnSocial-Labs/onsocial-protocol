@@ -78,3 +78,11 @@ pub struct GasOverrides {
     #[serde(default)]
     pub resolve_tgas: Option<u64>,
 }
+
+#[near(serializers = [json])]
+#[derive(Clone)]
+pub struct PurchasePayoutContext {
+    pub price: U128,
+    pub payout_balance: U128,
+    pub max_len_payout: u32,
+}
