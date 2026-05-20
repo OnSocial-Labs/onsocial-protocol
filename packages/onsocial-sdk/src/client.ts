@@ -28,6 +28,7 @@ import { PermissionsModule } from './modules/permissions.js';
 import { ChainModule } from './modules/chain.js';
 import { TokenModule } from './modules/token.js';
 import { BoostModule } from './modules/boost.js';
+import { SocialSpendModule } from './modules/social-spend.js';
 import { PagesModule } from './modules/pages.js';
 import { StandingsModule } from './modules/standings.js';
 import { StorageAccountModule } from './modules/storage-account.js';
@@ -155,6 +156,7 @@ function findMintedTokenId(value: unknown, depth = 0): string | undefined {
  * | `os.storageAccount`   | On-chain Storage record (balance, tip, withdraw, sponsor)    |
  * | `os.scarces`          | NFTs (mint, collections, market, offers)                     |
  * | `os.rewards`          | Credit / claim / balance                                     |
+ * | `os.socialSpend`      | SOCIAL spend + season/target claim transaction helpers       |
  * | `os.storage`          | IPFS file/JSON upload                                        |
  * | `os.pages`            | onsocial.id page configuration                               |
  * | `os.chain`            | On-chain storage + contract introspection                    |
@@ -284,6 +286,8 @@ export class OnSocial {
   readonly token: TokenModule;
   /** Boost — boost contract view reads (account, lock status, reward rate). */
   readonly boost: BoostModule;
+  /** Social Spend — SOCIAL spend and claim transaction helpers. */
+  readonly socialSpend: SocialSpendModule;
   /**
    * Storage account — best-in-class wrapper for on-chain Storage record
    * operations (balance reads plus wallet-signed `execute_admin` writes).
@@ -342,9 +346,8 @@ export class OnSocial {
   /**
    * The currently attached session, or `null`. Set via `attachSession()`.
    *
-   * SDK write methods (anything posting to `/compose/<verb>` historically)
-   * require an attached session and will throw `SessionRequiredError`
-   * otherwise.
+   * SDK write methods that use the compose prepare→sign→relay flow require
+   * an attached session and will throw `SessionRequiredError` otherwise.
    */
   private _session: Session | null = null;
 
@@ -379,8 +382,8 @@ export class OnSocial {
   }
 
   /**
-   * Internal: prepare→sign→relay pipeline for compose verbs. Called by the
-   * SDK module methods that previously POSTed directly to `/compose/<verb>`.
+   * Internal: prepare→sign→relay pipeline for compose verbs. Called by SDK
+   * module methods that build actions through the gateway before signing.
    *
    * Uses the canonical gateway delegate path unless an advanced broadcast
    * override explicitly routes to a self-hosted relayer or wallet-paid flow.
@@ -448,6 +451,7 @@ export class OnSocial {
     this.chain = new ChainModule(this.http);
     this.token = new TokenModule(this.http);
     this.boost = new BoostModule(this.http);
+    this.socialSpend = new SocialSpendModule(this.http, getBroadcast);
     this.storageAccount = new StorageAccountModule(
       this.http,
       () => this._session,
@@ -483,6 +487,7 @@ export class OnSocial {
       rewards: this.rewards,
       token: this.token,
       boost: this.boost,
+      socialSpend: this.socialSpend,
     };
     this.platform = {
       storage: this.storage,

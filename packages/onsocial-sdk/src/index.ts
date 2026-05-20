@@ -204,6 +204,26 @@ export type {
   BoostLockStatus,
   BoostRewardRate,
 } from './modules/boost.js';
+export {
+  SocialSpendModule,
+  SocialSpendSignerRequiredError,
+  buildSocialSpendClaimSeasonRewardTransaction,
+  buildSocialSpendClaimTargetBalanceTransaction,
+  buildSocialSpendFtTransferCallArgs,
+  buildSocialSpendMsg,
+  buildSocialSpendTransaction,
+} from './modules/social-spend.js';
+export type {
+  SocialSpendAction,
+  SocialSpendAmount,
+  SocialSpendClaimSeasonRewardInput,
+  SocialSpendClaimTargetBalanceInput,
+  SocialSpendDefaultAction,
+  SocialSpendFtTransferCallArgs,
+  SocialSpendInput,
+  SocialSpendMsg,
+  SocialSpendSendOptions,
+} from './modules/social-spend.js';
 export { PagesModule } from './modules/pages.js';
 export { StandingsModule } from './modules/standings.js';
 export {

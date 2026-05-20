@@ -6,6 +6,7 @@ export const CONTRACTS = {
     scarces: 'scarces.onsocial.near',
     rewards: 'rewards.onsocial.near',
     boost: 'boost.onsocial.near',
+    socialSpend: 'social-spend.onsocial.near',
     token: 'token.onsocial.near',
   },
   testnet: {
@@ -13,6 +14,7 @@ export const CONTRACTS = {
     scarces: 'scarces.onsocial.testnet',
     rewards: 'rewards.onsocial.testnet',
     boost: 'boost.onsocial.testnet',
+    socialSpend: 'social-spend.onsocial.testnet',
     token: 'token.onsocial.testnet',
   },
 } as const;

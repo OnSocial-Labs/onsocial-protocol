@@ -25,6 +25,7 @@ import type { ScarcesModule } from '../modules/scarces/index.js';
 import type { RewardsModule } from '../modules/rewards.js';
 import type { TokenModule } from '../modules/token.js';
 import type { BoostModule } from '../modules/boost.js';
+import type { SocialSpendModule } from '../modules/social-spend.js';
 import type { StorageModule } from '../storage/module.js';
 import type { PermissionsModule } from '../modules/permissions.js';
 import type { NotificationsModule } from '../modules/notifications.js';
@@ -66,12 +67,14 @@ export interface ContentNamespace {
  * - `rewards` — credit / claim / balance
  * - `token`   — SOCIAL fungible-token (NEP-141) view reads
  * - `boost`   — boost contract view reads (account, lock status, reward rate)
+ * - `socialSpend` — SOCIAL token spend and claim transaction helpers
  */
 export interface EconomyNamespace {
   readonly scarces: ScarcesModule;
   readonly rewards: RewardsModule;
   readonly token: TokenModule;
   readonly boost: BoostModule;
+  readonly socialSpend: SocialSpendModule;
 }
 
 /**
