@@ -49,7 +49,7 @@ fi
 
 if [ "$MODE" = "combined" ]; then
   # =========================================================================
-  # COMBINED MODE: 1 stream for all 5 contracts (recommended)
+  # COMBINED MODE: 1 stream for all contracts (recommended)
   # =========================================================================
   SPKG="$SCRIPT_DIR/onsocial-events-${VERSION}-combined.spkg"
   if [ ! -f "$SPKG" ]; then
@@ -58,7 +58,7 @@ if [ "$MODE" = "combined" ]; then
     exit 1
   fi
 
-  PARAMS="core=core.onsocial.${SUFFIX}&boost=boost.onsocial.${SUFFIX}&rewards=rewards.onsocial.${SUFFIX}&token=token.onsocial.${SUFFIX}&scarces=scarces.onsocial.${SUFFIX}"
+  PARAMS="core=core.onsocial.${SUFFIX}&boost=boost.onsocial.${SUFFIX}&rewards=rewards.onsocial.${SUFFIX}&token=token.onsocial.${SUFFIX}&scarces=scarces.onsocial.${SUFFIX}&social_spend=social-spend.onsocial.${SUFFIX}"
 
   echo ">>> Starting combined sink → all contracts"
   echo "    Params: $PARAMS"
@@ -73,7 +73,7 @@ if [ "$MODE" = "combined" ]; then
 
 else
   # =========================================================================
-  # PER-CONTRACT MODE: 5 separate streams (uses 5 concurrent streams)
+  # PER-CONTRACT MODE: separate streams per contract
   # =========================================================================
   CONTRACTS=(
     "core|map_core_output|core_db_out|core.onsocial.${SUFFIX}"
@@ -81,6 +81,7 @@ else
     "rewards|map_rewards_output|rewards_db_out|rewards.onsocial.${SUFFIX}"
     "token|map_token_output|token_db_out|token.onsocial.${SUFFIX}"
     "scarces|map_scarces_output|scarces_db_out|scarces.onsocial.${SUFFIX}"
+    "social-spend|map_social_spend_output|social_spend_db_out|social-spend.onsocial.${SUFFIX}"
   )
 
   PIDS=()

@@ -40,6 +40,13 @@ pub mod scarces {
     }
 }
 
+/// Social-spend contract events
+pub mod social_spend {
+    pub mod v1 {
+        include!(concat!(env!("OUT_DIR"), "/social_spend.v1.rs"));
+    }
+}
+
 /// Combined output wrapping all contract types
 pub mod combined {
     pub mod v1 {

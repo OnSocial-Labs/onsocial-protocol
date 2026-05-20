@@ -6,12 +6,15 @@ use crate::pb::boost::v1::BoostOutput;
 use crate::pb::core_onsocial::v1::Output;
 use crate::pb::rewards::v1::RewardsOutput;
 use crate::pb::scarces::v1::ScarcesOutput;
+use crate::pb::social_spend::v1::SocialSpendOutput;
 use crate::pb::token::v1::TokenOutput;
 use crate::process_core_log;
 use crate::rewards_db_out::rewards_db_out_impl;
 use crate::rewards_decoder::decode_rewards_event;
 use crate::scarces_db_out::scarces_db_out_impl;
 use crate::scarces_decoder::decode_scarces_event;
+use crate::social_spend_db_out::social_spend_db_out_impl;
+use crate::social_spend_decoder::decode_social_spend_event;
 use crate::tests::mock_block::MockBlockBuilder;
 use crate::token_db_out::token_db_out_impl;
 use crate::token_decoder::decode_token_events;
@@ -146,6 +149,29 @@ fn run_scarces(block: &substreams_near::pb::sf::near::r#type::v1::Block) -> Scar
     }
 }
 
+fn run_social_spend(block: &substreams_near::pb::sf::near::r#type::v1::Block) -> SocialSpendOutput {
+    let ctx = block_context(block);
+    let mut events = Vec::new();
+    for_each_event_log(block, Some("social-spend.onsocial.testnet"), |log| {
+        if let Some(event) = decode_social_spend_event(
+            log.json_data,
+            &log.receipt_id,
+            ctx.block_height,
+            ctx.block_timestamp,
+            log.log_index,
+        ) {
+            events.push(event);
+        }
+    });
+
+    SocialSpendOutput {
+        events,
+        block_height: ctx.block_height,
+        block_timestamp: ctx.block_timestamp,
+        block_hash: ctx.block_hash,
+    }
+}
+
 fn fixture_name(fixture: &Value) -> &str {
     fixture["name"].as_str().unwrap()
 }
@@ -193,6 +219,7 @@ fn changes_for_fixture(fixture: &Value) -> DatabaseChanges {
         "rewards" => rewards_db_out_impl(run_rewards(&block)),
         "token" => token_db_out_impl(run_token(&block)),
         "scarces" => scarces_db_out_impl(run_scarces(&block)),
+        "social-spend" => social_spend_db_out_impl(run_social_spend(&block)),
         other => panic!("{}: unsupported contract {}", fixture_name(fixture), other),
     }
 }
@@ -270,6 +297,7 @@ fn golden_db_fixtures_cover_all_sink_tables() {
         "token_events",
         "token_balances",
         "scarces_events",
+        "social_spend_events",
     ]);
 
     let mut covered_tables = BTreeSet::new();

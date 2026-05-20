@@ -18,6 +18,7 @@ CONTRACTS=(
   "rewards|rewards_db_out|rewards_schema.sql"
   "token|token_db_out|token_schema.sql"
   "scarces|scarces_db_out|scarces_schema.sql"
+  "social-spend|social_spend_db_out|social_spend_schema.sql"
 )
 
 # Extract version from substreams.yaml

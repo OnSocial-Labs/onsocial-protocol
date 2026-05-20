@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package social_spend.v1;
+
+// =============================================================================
+// TOP-LEVEL OUTPUT - All social-spend contract events per block
+// =============================================================================
+
+message SocialSpendOutput {
+  repeated SocialSpendEvent events = 1;
+  uint64 block_height = 2;
+  uint64 block_timestamp = 3;
+  string block_hash = 4;
+}
+
+// =============================================================================
+// SOCIAL SPEND EVENT - Sparse, forward-compatible row shape
+// =============================================================================
+
+message SocialSpendEvent {
+  string id = 1;
+  uint64 block_height = 2;
+  uint64 block_timestamp = 3;
+  string receipt_id = 4;
+  string account_id = 5;
+  string event_type = 6;
+  bool success = 7;
+
+  // Spend routing
+  string spender_id = 10;
+  string amount = 11;
+  string app_id = 12;
+  string action = 13;
+  string target_type = 14;
+  string target_id = 15;
+  string season_id = 16;
+  string tag = 17;
+  string recipient_id = 18;
+  string treasury_amount = 19;
+  string season_amount = 20;
+  string target_amount = 21;
+  string metadata = 22;
+
+  // Season / settlement config
+  string label = 30;
+  bool active = 31;
+  uint64 starts_at_ns = 32;
+  uint64 ends_at_ns = 33;
+  uint64 claim_starts_at_ns = 34;
+  string root = 35;
+  string total_amount = 36;
+
+  // Admin/config events
+  bool paused = 40;
+  string old_treasury_id = 41;
+  string treasury_id = 42;
+  string settlement_publisher = 43;
+  string owner_id = 44;
+  string old_version = 45;
+  string new_version = 46;
+
+  // Full JSON catch-all for forward compatibility.
+  string extra_data = 60;
+}

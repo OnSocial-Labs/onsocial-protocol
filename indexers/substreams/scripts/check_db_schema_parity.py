@@ -17,6 +17,7 @@ INDEXED_CONTRACTS = [
     ("rewards", "rewards_db_out.rs", "rewards_schema.sql"),
     ("token", "token_db_out.rs", "token_schema.sql"),
     ("scarces", "scarces_db_out.rs", "scarces_schema.sql"),
+    ("social-spend", "social_spend_db_out.rs", "social_spend_schema.sql"),
 ]
 
 DB_OUT_FILES = [SUBSTREAMS_DIR / "src" / db_out for _, db_out, _ in INDEXED_CONTRACTS]

@@ -104,6 +104,13 @@ def extract_scarces_operations() -> dict[str, list[str]]:
     return {event_type: ordered_unique(values) for event_type, values in operations.items()}
 
 
+def extract_social_spend_event_types() -> list[str]:
+    source = read(REPO_ROOT / "contracts" / "social-spend-onsocial" / "src" / "lib.rs")
+    return ordered_unique(
+        re.findall(r'\bemit\(\s*"([A-Z][A-Z0-9_]+)"', source, flags=re.S)
+    )
+
+
 def main() -> int:
     manifest = json.loads(read(MANIFEST_PATH))["indexed_contracts"]
     errors: list[str] = []
@@ -114,6 +121,13 @@ def main() -> int:
         compare("rewards event types", manifest["rewards"]["event_types"], extract_rewards_event_types())
     )
     errors.extend(compare("token event types", manifest["token"]["event_types"], extract_token_event_types()))
+    errors.extend(
+        compare(
+            "social-spend event types",
+            manifest["social-spend"]["event_types"],
+            extract_social_spend_event_types(),
+        )
+    )
 
     scarces_expected = manifest["scarces"]["events"]
     scarces_actual = extract_scarces_operations()

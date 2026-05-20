@@ -51,6 +51,22 @@
         "ft_transfer"
       ]
     },
+    "social-spend": {
+      "event_types": [
+        "ACTION_CONFIG_REMOVED",
+        "SEASON_CONFIG_SET",
+        "PAUSE_UPDATED",
+        "TREASURY_UPDATED",
+        "SETTLEMENT_PUBLISHER_UPDATED",
+        "OWNER_CHANGED",
+        "CONTRACT_UPGRADE",
+        "SEASON_ROOT_PUBLISHED",
+        "SOCIAL_TRANSFERRED",
+        "SOCIAL_TRANSFER_FAILED",
+        "ACTION_CONFIG_SET",
+        "SOCIAL_SPENT"
+      ]
+    },
     "scarces": {
       "graphql_table": "scarcesEvents",
       "events": {

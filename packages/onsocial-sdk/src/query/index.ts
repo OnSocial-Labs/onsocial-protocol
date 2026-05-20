@@ -23,6 +23,7 @@
 //   os.query.rewards.creditsTo('alice.near')
 //   os.query.token.transfersTo('alice.near')
 //   os.query.boost.topBoosters({ limit: 10 })
+//   os.query.socialSpend.seasonActivity('season0')
 //   os.query.raw.byType('vegancert')
 //
 // For unindexed or one-off queries, drop down to `os.query.graphql<T>(...)`.
@@ -51,6 +52,7 @@ import { ScarcesQuery } from './scarces.js';
 import { RewardsQuery } from './rewards.js';
 import { TokenQuery } from './token.js';
 import { BoostQuery } from './boost.js';
+import { SocialSpendQuery } from './social-spend.js';
 import { RawQuery } from './raw.js';
 
 export { GraphQLValidationError } from './_shared.js';
@@ -95,6 +97,9 @@ export type {
   BoostCreditPurchaseRow,
 } from './boost.js';
 export { BOOST_EVENT_TYPES } from './boost.js';
+export type { SocialSpendEventRow } from './social-spend.js';
+export { SOCIAL_SPEND_EVENT_TYPES } from './social-spend.js';
+export type { SocialSpendEventType } from './social-spend-events.js';
 export type { DataRow } from './raw.js';
 
 export class QueryModule {
@@ -119,6 +124,7 @@ export class QueryModule {
   readonly rewards: RewardsQuery;
   readonly token: TokenQuery;
   readonly boost: BoostQuery;
+  readonly socialSpend: SocialSpendQuery;
   readonly raw: RawQuery;
 
   constructor(http: HttpClient) {
@@ -141,6 +147,7 @@ export class QueryModule {
     this.rewards = new RewardsQuery(this);
     this.token = new TokenQuery(this);
     this.boost = new BoostQuery(this);
+    this.socialSpend = new SocialSpendQuery(this);
     this.raw = new RawQuery(this);
   }
 

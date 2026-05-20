@@ -5,6 +5,7 @@ use crate::core_db_out;
 use crate::pb::combined::v1::CombinedOutput;
 use crate::rewards_db_out;
 use crate::scarces_db_out;
+use crate::social_spend_db_out;
 use crate::token_db_out;
 use substreams_database_change::pb::database::DatabaseChanges;
 
@@ -33,6 +34,12 @@ pub fn combined_db_out(
     if let Some(scarces) = output.scarces {
         let scarces_changes = scarces_db_out::scarces_db_out_impl(scarces);
         changes.table_changes.extend(scarces_changes.table_changes);
+    }
+    if let Some(social_spend) = output.social_spend {
+        let social_spend_changes = social_spend_db_out::social_spend_db_out_impl(social_spend);
+        changes
+            .table_changes
+            .extend(social_spend_changes.table_changes);
     }
 
     Ok(changes)

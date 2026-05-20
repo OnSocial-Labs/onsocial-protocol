@@ -14,6 +14,8 @@ mod rewards_db_out;
 mod rewards_decoder;
 mod scarces_db_out;
 mod scarces_decoder;
+mod social_spend_db_out;
+mod social_spend_decoder;
 mod token_db_out;
 mod token_decoder;
 
@@ -33,10 +35,12 @@ use pb::core_onsocial::v1::{
 };
 use pb::rewards::v1::RewardsOutput;
 use pb::scarces::v1::ScarcesOutput;
+use pb::social_spend::v1::SocialSpendOutput;
 use pb::token::v1::TokenOutput;
 use rewards_decoder::decode_rewards_event;
 use scarces_decoder::decode_scarces_event;
 use serde_json::Value;
+use social_spend_decoder::decode_social_spend_event;
 use substreams_near::pb::sf::near::r#type::v1::Block;
 use token_decoder::decode_token_events;
 
@@ -300,6 +304,35 @@ fn map_scarces_output(
     })
 }
 
+#[substreams::handlers::map]
+fn map_social_spend_output(
+    params: String,
+    block: Block,
+) -> Result<SocialSpendOutput, substreams::errors::Error> {
+    let filter = parse_contract_filter(&params);
+    let ctx = block_context(&block);
+    let mut events = Vec::new();
+
+    for_each_event_log(&block, filter.as_deref(), |log| {
+        if let Some(event) = decode_social_spend_event(
+            log.json_data,
+            &log.receipt_id,
+            ctx.block_height,
+            ctx.block_timestamp,
+            log.log_index,
+        ) {
+            events.push(event);
+        }
+    });
+
+    Ok(SocialSpendOutput {
+        events,
+        block_height: ctx.block_height,
+        block_timestamp: ctx.block_timestamp,
+        block_hash: ctx.block_hash,
+    })
+}
+
 /// Processes all configured contracts in one block pass.
 #[substreams::handlers::map]
 fn map_combined_output(
@@ -321,6 +354,7 @@ fn map_combined_output(
     let mut rewards_events = Vec::new();
     let mut token_events = Vec::new();
     let mut scarces_events = Vec::new();
+    let mut social_spend_events = Vec::new();
 
     for_each_event_log_multi(&block, &contracts, |log| match log.label {
         "core" => {
@@ -379,6 +413,17 @@ fn map_combined_output(
                 scarces_events.push(event);
             }
         }
+        "social_spend" => {
+            if let Some(event) = decode_social_spend_event(
+                log.json_data,
+                &log.receipt_id,
+                ctx.block_height,
+                ctx.block_timestamp,
+                log.log_index,
+            ) {
+                social_spend_events.push(event);
+            }
+        }
         _ => {}
     });
 
@@ -413,6 +458,12 @@ fn map_combined_output(
         }),
         scarces: Some(ScarcesOutput {
             events: scarces_events,
+            block_height: ctx.block_height,
+            block_timestamp: ctx.block_timestamp,
+            block_hash: ctx.block_hash.clone(),
+        }),
+        social_spend: Some(SocialSpendOutput {
+            events: social_spend_events,
             block_height: ctx.block_height,
             block_timestamp: ctx.block_timestamp,
             block_hash: ctx.block_hash.clone(),

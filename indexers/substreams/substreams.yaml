@@ -23,6 +23,7 @@ protobuf:
     - rewards.proto
     - token.proto
     - scarces.proto
+    - social_spend.proto
     - combined.proto
     - sf/substreams/sink/database/v1/database.proto
     - sf/substreams/sink/sql/v1/service.proto
@@ -182,6 +183,35 @@ modules:
       Writes to: scarces_events.
 
   # =========================================================================
+  # SOCIAL SPEND CONTRACT MODULES
+  # =========================================================================
+
+  # Social spend events - typed output
+  - name: map_social_spend_output
+    kind: map
+    initialBlock: 251120000
+    inputs:
+      - params: string
+      - source: sf.near.type.v1.Block
+    output:
+      type: proto:social_spend.v1.SocialSpendOutput
+    doc: |
+      Extracts social-spend contract events: spends, season configs,
+      settlement roots, payouts, and admin changes.
+
+  # Social spend database changes - for substreams-sink-sql
+  - name: social_spend_db_out
+    kind: map
+    initialBlock: 251120000
+    inputs:
+      - map: map_social_spend_output
+    output:
+      type: proto:sf.substreams.sink.database.v1.DatabaseChanges
+    doc: |
+      Converts SocialSpendOutput to DatabaseChanges for SQL sink.
+      Writes to: social_spend_events.
+
+  # =========================================================================
   # COMBINED (ALL CONTRACTS) MODULES
   # =========================================================================
 
@@ -217,7 +247,8 @@ params:
   map_rewards_output: "contract_id=rewards.onsocial.testnet"
   map_token_output: "contract_id=token.onsocial.testnet"
   map_scarces_output: "contract_id=scarces.onsocial.testnet"
-  map_combined_output: "core=core.onsocial.testnet&boost=boost.onsocial.testnet&rewards=rewards.onsocial.testnet&token=token.onsocial.testnet&scarces=scarces.onsocial.testnet"
+  map_social_spend_output: "contract_id=social-spend.onsocial.testnet"
+  map_combined_output: "core=core.onsocial.testnet&boost=boost.onsocial.testnet&rewards=rewards.onsocial.testnet&token=token.onsocial.testnet&scarces=scarces.onsocial.testnet&social_spend=social-spend.onsocial.testnet"
 
 # ---------------------------------------------------------------------------
 # SINK DEPLOYMENT

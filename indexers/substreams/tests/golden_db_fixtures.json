@@ -531,5 +531,57 @@
         }
       }
     ]
+  },
+  {
+    "name": "social_spend_join_rally",
+    "contract": "social-spend",
+    "receiver_id": "social-spend.onsocial.testnet",
+    "block_height": 251129100,
+    "block_timestamp": 1779272000,
+    "receipt_seed": [110, 111],
+    "logs": [
+      {
+        "standard": "onsocial",
+        "version": "1.0.0",
+        "event": "SOCIAL_SPENT",
+        "data": [
+          {
+            "spender_id": "onsocial.testnet",
+            "amount": "1000000000000000000",
+            "app_id": "portal",
+            "action": "join_rally",
+            "target_type": "rally",
+            "target_id": "season0",
+            "treasury_amount": "100000000000000000",
+            "season_amount": "900000000000000000",
+            "target_amount": "0",
+            "season_id": "season0",
+            "tag": "first-spend",
+            "metadata": { "source": "copilot-testnet-smoke" },
+            "account_id": "onsocial.testnet"
+          }
+        ]
+      }
+    ],
+    "expected_table_counts": { "social_spend_events": 1 },
+    "expected_rows": [
+      {
+        "table": "social_spend_events",
+        "fields": {
+          "event_type": "SOCIAL_SPENT",
+          "account_id": "onsocial.testnet",
+          "spender_id": "onsocial.testnet",
+          "amount": "1000000000000000000",
+          "app_id": "portal",
+          "action": "join_rally",
+          "target_type": "rally",
+          "target_id": "season0",
+          "season_id": "season0",
+          "treasury_amount": "100000000000000000",
+          "season_amount": "900000000000000000",
+          "target_amount": "0"
+        }
+      }
+    ]
   }
 ]
