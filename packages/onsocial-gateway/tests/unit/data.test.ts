@@ -443,6 +443,7 @@ describe('Boost views', () => {
     );
     expect(res.status).toBe(200);
     expect(mockRpcQuery.mock.calls[0][0].method_name).toBe('get_reward_rate');
+    expect(mockRpcQuery.mock.calls[0][0].finality).toBe('final');
   });
 
   it('GET /data/boost-storage-subsidy-available', async () => {

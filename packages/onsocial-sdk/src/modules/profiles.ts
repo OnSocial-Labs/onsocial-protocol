@@ -129,12 +129,12 @@ export class ProfilesModule {
   /**
    * Create or update the current user's profile.
    *
-   * `avatar` and `banner` accept either a string (URL/CID) or a `File`/`Blob`
-   * — the SDK uploads any file to IPFS via the configured StorageProvider
-   * and stores `ipfs://<cid>` in its place.
+   * Any profile field can be a string (URL/CID) or a `File`/`Blob` — the SDK
+   * uploads files to IPFS via the configured StorageProvider and stores
+   * `ipfs://<cid>` in their place.
    *
-   * Anything else passed (e.g. `pronouns`, `location`) is written under
-   * `profile/<key>` verbatim, JSON-encoded only if it isn't a string.
+   * Custom fields (e.g. `pronouns`, `location`, `galleryCover`) are written
+   * under `profile/<key>`, JSON-encoded only if they aren't strings or files.
    *
    * ```ts
    * await os.profiles.update({ name: 'Alice', bio: 'Builder' });
@@ -144,6 +144,7 @@ export class ProfilesModule {
    *   links: { twitter: '@alice', github: 'alice' },
    *   tags: ['near', 'rust'],
    *   pronouns: 'they/them',
+   *   galleryCover: file,
    * });
    * ```
    */

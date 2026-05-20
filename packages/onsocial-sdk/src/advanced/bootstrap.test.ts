@@ -61,7 +61,7 @@ describe('planToWalletTransactions', () => {
     expect(txs[0].actions[0].type).toBe('AddKey');
   });
 
-  it('emits AddKey + execute_admin txs for core sessions, summing storage deposit', () => {
+  it('emits AddKey + valid execute_admin actions for core sessions', () => {
     const plan = buildSessionGrant({
       network: 'mainnet',
       accountId: 'alice.near',
@@ -76,12 +76,41 @@ describe('planToWalletTransactions', () => {
     expect(txs).toHaveLength(2);
     expect(txs[0].actions[0].type).toBe('AddKey');
     expect(txs[1].receiverId).toBe(plan.accessKey.receiverId);
-    const fc = txs[1].actions[0];
-    expect(fc.type).toBe('FunctionCall');
-    if (fc.type !== 'FunctionCall') throw new Error('unreachable');
-    expect(fc.params.methodName).toBe('execute_admin');
-    expect(fc.params.deposit).toBe('5000000000000000000000');
-    expect(fc.params.gas).toBe('100000000000000');
+    expect(txs[1].actions).toHaveLength(2);
+
+    const storage = txs[1].actions[0];
+    expect(storage.type).toBe('FunctionCall');
+    if (storage.type !== 'FunctionCall') throw new Error('unreachable');
+    expect(storage.params.methodName).toBe('execute_admin');
+    expect(storage.params.deposit).toBe('5000000000000000000000');
+    expect(storage.params.gas).toBe('100000000000000');
+    expect(storage.params.args).toEqual({
+      request: {
+        action: {
+          type: 'set',
+          data: {
+            'storage/deposit': { amount: '5000000000000000000000' },
+          },
+        },
+      },
+    });
+
+    const keyPermission = txs[1].actions[1];
+    expect(keyPermission.type).toBe('FunctionCall');
+    if (keyPermission.type !== 'FunctionCall') throw new Error('unreachable');
+    expect(keyPermission.params.methodName).toBe('execute_admin');
+    expect(keyPermission.params.deposit).toBe('0');
+    expect(keyPermission.params.args).toEqual({
+      request: {
+        action: {
+          type: 'set_key_permission',
+          public_key: 'ed25519:11111111111111111111111111111111',
+          path: 'apps/myapp/',
+          level: 1,
+          expires_at: '1700086400000',
+        },
+      },
+    });
   });
 });
 
@@ -183,9 +212,11 @@ describe.skipIf(!hasEd25519)(
         path: 'apps/myapp/',
         functionCallKey: { allowanceYocto: '250000000000000000000000' },
         store,
+        startingNonce: 12_345,
       });
 
       expect(session.accountId).toBe('alice.near');
+      expect(session.currentNonce).toBe(12_345);
       expect(sent).toHaveLength(2);
       expect(sent[0].receiverId).toBe('alice.near');
       expect(sent[1].receiverId).toBe(session.contractId);
@@ -196,6 +227,7 @@ describe.skipIf(!hasEd25519)(
       );
       expect(stored).not.toBeNull();
       expect(stored!.publicKey).toBe(session.key.publicKey);
+      expect(stored!.lastNonce).toBe(12_344);
 
       // Restore — same public key, no popup
       const restored = await restoreSession({
@@ -225,6 +257,23 @@ describe.skipIf(!hasEd25519)(
         accountId: 'alice.near',
       });
       expect(sent).toHaveLength(2); // DeleteKey + execute(set_key_permission level=0)
+      const revokeActions = sent[1].actions as Array<{
+        type: string;
+        params: Record<string, unknown>;
+      }>;
+      expect(revokeActions).toHaveLength(1);
+      expect(revokeActions[0].type).toBe('FunctionCall');
+      expect(revokeActions[0].params.args).toEqual({
+        request: {
+          action: {
+            type: 'set_key_permission',
+            public_key: session.key.publicKey,
+            path: 'apps/myapp/',
+            level: 0,
+            expires_at: '0',
+          },
+        },
+      });
       expect(
         await store.get(sessionId('alice.near', 'core', 'apps/myapp/'))
       ).toBeNull();

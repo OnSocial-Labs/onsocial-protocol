@@ -35,9 +35,12 @@ function makeHttp(responses: Record<string, unknown>): HttpClient {
   } as unknown as HttpClient;
 }
 
-function makeSession(opts: { supportsAttachedDeposit?: boolean } = {}): Session {
+function makeSession(
+  opts: { supportsAttachedDeposit?: boolean } = {}
+): Session {
   return {
     supportsAttachedDeposit: opts.supportsAttachedDeposit ?? false,
+    ensureNonceAboveAccessKeyFloor: vi.fn(),
     signComposeDelegate: vi.fn(async () => ({
       base64: 'BASE64_DELEGATE_BLOB',
       nonce: 1,
@@ -85,6 +88,32 @@ describe('composeAndSign', () => {
       targetContract: 'core.onsocial.testnet',
       maxBlockHeight: 12345n + 1000n,
     });
+    expect(session.ensureNonceAboveAccessKeyFloor).toHaveBeenCalledWith(12345n);
+  });
+
+  it('bumps the delegate nonce floor from latest block height before signing', async () => {
+    const http = makeHttp({
+      '/compose/prepare/set': {
+        action: { type: 'set', data: { 'profile/name': 'Alice' } },
+        target_account: 'core.onsocial.testnet',
+      },
+      '/relay/latest-block': { block_height: 251173172 },
+      '/relay/delegate': { txHash: 'tx_abc' },
+    });
+    const session = makeSession({ supportsAttachedDeposit: true });
+
+    await composeAndSign(
+      http,
+      session,
+      'set',
+      { path: 'profile/name', value: 'Alice' },
+      'social.set'
+    );
+
+    expect(session.ensureNonceAboveAccessKeyFloor).toHaveBeenCalledWith(
+      251173172n
+    );
+    expect(session.signComposeDelegate).toHaveBeenCalledOnce();
   });
 
   it('throws when prepare response has no action', async () => {
@@ -446,9 +475,7 @@ describe('composeAndSign — broadcast routing', () => {
     const firstCall = (
       signer.mock.calls as unknown as [{ actions: { deposit: string }[] }][]
     )[0]!;
-    expect(firstCall[0].actions[0]?.deposit).toBe(
-      '100000000000000000000000'
-    );
+    expect(firstCall[0].actions[0]?.deposit).toBe('100000000000000000000000');
   });
 
   it('relayer target: posts signed_delegate to external URL with X-Api-Key', async () => {

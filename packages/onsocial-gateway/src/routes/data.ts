@@ -74,7 +74,7 @@ function contractView(
         args_base64: Buffer.from(JSON.stringify(argsOrError)).toString(
           'base64'
         ),
-        finality: 'optimistic',
+        finality: 'final',
       });
       res.json(decodeResult(raw));
     } catch (err) {

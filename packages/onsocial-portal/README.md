@@ -91,7 +91,14 @@ Mainnet / production:
 NEXT_PUBLIC_NEAR_NETWORK=mainnet
 NEXT_PUBLIC_API_URL=https://api.onsocial.id
 NEXT_PUBLIC_BACKEND_URL=https://api.onsocial.id
+ONSOCIAL_API_KEY=onsocial_...
 ```
+
+`ONSOCIAL_API_KEY` is server-only. It is used by portal API routes to create
+the OnSocial SDK client for indexed `os.query` reads and other trusted server
+calls. Do not expose it as a `NEXT_PUBLIC_*` value. In Vercel, configure it as
+a secret/environment variable for the portal deployment. `GATEWAY_SERVICE_KEY`
+is still accepted as a legacy fallback.
 
 For local development, switch the values in `.env.local` instead of adding a UI
 network toggle. The shared config automatically drives wallet network,

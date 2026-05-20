@@ -1,6 +1,6 @@
 'use client';
 
-import { AnimatePresence } from 'framer-motion';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Wallet,
@@ -9,8 +9,10 @@ import {
   RefreshCw,
   User,
   ExternalLink,
+  PenLine,
 } from 'lucide-react';
 import { useWallet } from '@/contexts/wallet-context';
+import { ProfileEditor } from '@/components/profile-editor';
 import { cn } from '@/lib/utils';
 import {
   floatingPanelDividerClass,
@@ -23,6 +25,7 @@ import {
   utilityIconTransition,
 } from '@/components/ui/utility-button';
 import { useDropdown } from '@/hooks/use-dropdown';
+import { useProfile } from '@/hooks/use-profile';
 import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/near-network';
 
 interface WalletButtonProps {
@@ -37,16 +40,34 @@ export function WalletButton({
   disconnectedLabel,
 }: WalletButtonProps) {
   const { accountId, isConnected, connect, disconnect } = useWallet();
-  const menu = useDropdown();
+  const profileState = useProfile();
+  const [profileEditorOpen, setProfileEditorOpen] = useState(false);
+  const [profileEditorKey, setProfileEditorKey] = useState(0);
+  const {
+    isOpen: menuOpen,
+    close: closeMenu,
+    toggle: toggleMenu,
+    containerRef: menuRef,
+  } = useDropdown();
 
   const handleDisconnect = async () => {
     await disconnect();
-    menu.close();
+    closeMenu();
   };
 
   const handleSwitchWallet = async () => {
-    menu.close();
+    closeMenu();
     await connect();
+  };
+
+  const openProfileEditor = () => {
+    setProfileEditorKey((current) => current + 1);
+    setProfileEditorOpen(true);
+  };
+
+  const handleProfileAction = () => {
+    closeMenu();
+    openProfileEditor();
   };
 
   const compactDisconnectedButtonClass = disconnectedLabel
@@ -131,20 +152,20 @@ export function WalletButton({
   }
 
   return (
-    <div className="relative" ref={menu.containerRef}>
+    <div className="relative" ref={menuRef}>
       <button
-        onClick={menu.toggle}
+        onClick={toggleMenu}
         className={cn(
           compact
             ? cn(
                 utilityButtonClass,
                 'border border-border/45 bg-background/70 text-foreground shadow-[0_12px_30px_-18px_rgba(15,23,42,0.34)] hover:border-border/70 hover:shadow-[0_14px_34px_-18px_var(--portal-green-shadow)]',
-                menu.isOpen && utilityButtonActiveClass
+                menuOpen && utilityButtonActiveClass
               )
             : 'flex items-center gap-2 rounded-full border border-border/40 bg-background/65 px-3 py-2 text-muted-foreground shadow-[0_10px_30px_-18px_rgba(15,23,42,0.34)] backdrop-blur-md transition-all duration-300 hover:bg-background/80 hover:text-foreground'
         )}
-        aria-label={menu.isOpen ? 'Close wallet menu' : 'Open wallet menu'}
-        aria-expanded={menu.isOpen}
+        aria-label={menuOpen ? 'Close wallet menu' : 'Open wallet menu'}
+        aria-expanded={menuOpen}
         aria-haspopup="menu"
       >
         {compact ? (
@@ -162,35 +183,71 @@ export function WalletButton({
               </span>
             </div>
             <ChevronDown
-              className={`w-4 h-4 text-muted-foreground transition-transform ${menu.isOpen ? 'rotate-180' : ''}`}
+              className={`w-4 h-4 text-muted-foreground transition-transform ${menuOpen ? 'rotate-180' : ''}`}
             />
           </>
         )}
       </button>
 
       <FloatingPanelMenu
-        open={menu.isOpen}
+        open={menuOpen}
         align={menuAlign === 'left' ? 'left' : 'right'}
         offsetClass="mt-1"
         className="w-56 md:w-64"
       >
         <div className="border-b border-fade-section px-3 py-2.5 md:px-4 md:py-3">
-          <p className="mb-0.5 text-[11px] md:text-xs text-muted-foreground/70">
-            Connected Account
-          </p>
-          <p className="truncate text-[13px] md:text-sm font-medium text-foreground">
-            {accountId}
-          </p>
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/50 bg-muted/30 text-muted-foreground">
+              {profileState.avatarUrl ? (
+                <img
+                  src={profileState.avatarUrl}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <User className="h-4 w-4" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="mb-0.5 text-[11px] md:text-xs text-muted-foreground/70">
+                {profileState.hasProfile
+                  ? 'OnSocial Profile'
+                  : 'Connected Account'}
+              </p>
+              <p className="truncate text-[13px] md:text-sm font-medium text-foreground">
+                {profileState.profile?.name ?? accountId}
+              </p>
+              {profileState.profile?.name ? (
+                <p className="truncate text-[11px] text-muted-foreground/55">
+                  {accountId}
+                </p>
+              ) : null}
+            </div>
+          </div>
         </div>
 
         <div className="space-y-0.5 p-1 md:p-1.5">
+          <button
+            onClick={handleProfileAction}
+            className={cn(
+              floatingPanelItemClass,
+              !profileState.hasProfile &&
+                'portal-green-surface border border-[var(--portal-green-border)] text-foreground'
+            )}
+          >
+            <PenLine className="h-3.5 w-3.5 md:h-4 md:w-4" />
+            <span>
+              {profileState.hasProfile ? 'Edit Profile' : 'Create Profile'}
+            </span>
+          </button>
+
           <button
             onClick={() => {
               window.open(
                 `${ACTIVE_NEAR_EXPLORER_URL}/address/${accountId}`,
                 '_blank'
               );
-              menu.close();
+              closeMenu();
             }}
             className={floatingPanelItemClass}
           >
@@ -221,6 +278,20 @@ export function WalletButton({
           </button>
         </div>
       </FloatingPanelMenu>
+
+      <ProfileEditor
+        key={profileEditorKey}
+        open={profileEditorOpen}
+        accountId={accountId}
+        profile={profileState.profile}
+        avatarUrl={profileState.avatarUrl}
+        isSaving={profileState.isSaving}
+        isAuthorizingSession={profileState.isAuthorizingSession}
+        hasSocialSession={profileState.hasSocialSession}
+        error={profileState.error}
+        onOpenChange={setProfileEditorOpen}
+        onSave={profileState.saveProfile}
+      />
     </div>
   );
 }

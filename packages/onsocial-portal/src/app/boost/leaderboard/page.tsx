@@ -18,11 +18,7 @@ import { Button, buttonArrowLeftClass } from '@/components/ui/button';
 import { PortalBadge } from '@/components/ui/portal-badge';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
 import { SurfacePanel } from '@/components/ui/surface-panel';
-import {
-  BOOST_CONTRACT,
-  viewContractAt,
-  type BoostStats,
-} from '@/lib/near-rpc';
+import { createPortalOnSocialClient } from '@/lib/onsocial-client';
 import {
   fetchInfluenceBoard,
   fetchReputationBoard,
@@ -40,6 +36,9 @@ import {
   type EarnerEntry,
 } from '@/lib/leaderboard';
 import { cn } from '@/lib/utils';
+import type { BoostContractStats as BoostStats } from '@onsocial/sdk';
+
+const os = createPortalOnSocialClient();
 
 // ─── Track Definitions ──────────────────────────────────────────
 type TrackId = 'influence' | 'reputation' | 'earners';
@@ -356,7 +355,8 @@ export default function BoostLeaderboardPage() {
 
   useEffect(() => {
     let cancelled = false;
-    viewContractAt<BoostStats>(BOOST_CONTRACT, 'get_stats', {})
+    os.boost
+      .getStats()
       .then((r) => {
         if (!cancelled) setStats(r);
       })

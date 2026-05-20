@@ -246,6 +246,7 @@ async function relayDelegate<T>(
     http,
     opts?.latestBlockHeightProvider
   );
+  session.ensureNonceAboveAccessKeyFloor?.(latest);
   const { base64 } = await session.signComposeDelegate({
     action,
     targetContract,
@@ -334,9 +335,7 @@ function assertDelegateBroadcastSupported(
     throw new NeedsWalletConfirmationError(
       `${label} requires ${depositKind}. NEAR FunctionCall session keys cannot attach NEAR; ` +
         `use wallet broadcast or a FullAccess-capable delegate signer.`,
-      deposit === 1n
-        ? 'attached_deposit_required'
-        : 'value_deposit_required'
+      deposit === 1n ? 'attached_deposit_required' : 'value_deposit_required'
     );
   }
 }

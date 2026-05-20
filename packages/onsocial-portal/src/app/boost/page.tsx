@@ -23,7 +23,6 @@ import {
 } from 'lucide-react';
 import { useWallet } from '@/contexts/wallet-context';
 import { PageShell } from '@/components/layout/page-shell';
-import { SectionHeader } from '@/components/layout/section-header';
 import { Button } from '@/components/ui/button';
 import { BoostSocialLayer } from '@/components/boost/boost-social-layer';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
@@ -36,18 +35,20 @@ import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedbac
 import {
   BOOST_CONTRACT,
   extractNearTransactionHashes,
-  viewContractAt,
   yoctoToSocial,
   socialToYocto,
   TOKEN_CONTRACT,
-  type BoostAccountView,
-  type BoostLockStatus,
-  type BoostStats,
-  type BoostRewardRate,
 } from '@/lib/near-rpc';
+import { createPortalOnSocialClient } from '@/lib/onsocial-client';
 import { portalColors } from '@/lib/portal-colors';
 import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/portal-config';
 import { cn } from '@/lib/utils';
+import type {
+  BoostAccountView,
+  BoostContractStats as BoostStats,
+  BoostLockStatus,
+  BoostRewardRate,
+} from '@onsocial/sdk';
 
 // ─── Lock Periods (matches VALID_LOCK_PERIODS in contract) ──
 const LOCK_PERIODS = [
@@ -88,13 +89,11 @@ const LOCK_PERIODS = [
   },
 ];
 
-interface TokenMetadataView {
-  icon?: string | null;
-  symbol: string;
-}
+const os = createPortalOnSocialClient();
 
 const STAKE_AMOUNT_MAX_DECIMALS = 18;
 const MIN_STAKE_AMOUNT = '0.01';
+type BoostAction = 'stake' | 'claim' | 'unlock' | 'renew' | `extend:${number}`;
 
 // ─── Helpers ─────────────────────────────────────────────────
 
@@ -274,12 +273,12 @@ export default function BoostPage() {
 
   // ── Live reward counter ──
   const [liveClaimable, setLiveClaimable] = useState(0);
+  const liveClaimableRef = useRef(0);
 
   // ── Transaction state ──
   const [txPending, setTxPending] = useState(false);
-  const [pendingAction, setPendingAction] = useState<
-    null | 'stake' | 'claim' | 'unlock' | 'renew' | `extend:${number}`
-  >(null);
+  const [pendingAction, setPendingAction] = useState<BoostAction | null>(null);
+  const lastConfirmedActionRef = useRef<BoostAction | null>(null);
   const { txResult, setTxResult, clearTxResult, trackTransaction } =
     useNearTransactionFeedback(accountId);
 
@@ -355,13 +354,15 @@ export default function BoostPage() {
 
   // Always fetch stats (public data)
   useEffect(() => {
-    viewContractAt<BoostStats>(BOOST_CONTRACT, 'get_stats', {})
+    os.boost
+      .getStats()
       .then((s) => s && setStats(s))
       .catch(() => {});
   }, [refreshKey]);
 
   useEffect(() => {
-    viewContractAt<TokenMetadataView>(TOKEN_CONTRACT, 'ft_metadata', {})
+    os.token
+      .metadata()
       .then((metadata) => {
         if (metadata?.icon) {
           setTokenIconSrc(metadata.icon);
@@ -387,18 +388,10 @@ export default function BoostPage() {
     }
 
     Promise.all([
-      viewContractAt<BoostAccountView>(BOOST_CONTRACT, 'get_account', {
-        account_id: accountId,
-      }),
-      viewContractAt<BoostRewardRate>(BOOST_CONTRACT, 'get_reward_rate', {
-        account_id: accountId,
-      }),
-      viewContractAt<BoostLockStatus>(BOOST_CONTRACT, 'get_lock_status', {
-        account_id: accountId,
-      }),
-      viewContractAt<string>(TOKEN_CONTRACT, 'ft_balance_of', {
-        account_id: accountId,
-      }),
+      os.boost.getAccount(accountId),
+      os.boost.getRewardRate(accountId),
+      os.boost.getLockStatus(accountId),
+      os.token.balanceOf(accountId),
     ])
       .then(([acct, rate, status, bal]) => {
         loadedAccountIdRef.current = accountId;
@@ -422,30 +415,42 @@ export default function BoostPage() {
   }, [accountId, refreshKey]);
 
   // ── Live reward counter ──
+  const setLiveClaimableValue = useCallback((value: number) => {
+    liveClaimableRef.current = value;
+    setLiveClaimable(value);
+  }, []);
+
   useEffect(() => {
     if (!rewardRate) {
-      setLiveClaimable(0);
+      setLiveClaimableValue(0);
       return;
     }
 
     const initial = parseFloat(yoctoToSocial(rewardRate.claimable_now));
     const perSec = parseFloat(yoctoToSocial(rewardRate.rewards_per_second));
+    const allowResetDown =
+      lastConfirmedActionRef.current === 'claim' ||
+      lastConfirmedActionRef.current === 'unlock';
+    lastConfirmedActionRef.current = null;
+    const startValue = allowResetDown
+      ? initial
+      : Math.max(initial, liveClaimableRef.current);
 
     if (perSec <= 0) {
-      setLiveClaimable(initial);
+      setLiveClaimableValue(startValue);
       return;
     }
 
     const start = Date.now();
-    setLiveClaimable(initial);
+    setLiveClaimableValue(startValue);
 
     const interval = setInterval(() => {
       const elapsed = (Date.now() - start) / 1000;
-      setLiveClaimable(initial + perSec * elapsed);
+      setLiveClaimableValue(startValue + perSec * elapsed);
     }, 100);
 
     return () => clearInterval(interval);
-  }, [rewardRate]);
+  }, [rewardRate, setLiveClaimableValue]);
 
   // ── Transaction Helpers ──
 
@@ -460,7 +465,7 @@ export default function BoostPage() {
 
   const runTx = useCallback(
     async (
-      action: 'stake' | 'claim' | 'unlock' | 'renew' | `extend:${number}`,
+      action: BoostAction,
       messages: {
         submitted: string;
         success: string;
@@ -486,6 +491,7 @@ export default function BoostPage() {
           failureMessage: messages.failure,
         });
         if (confirmed) {
+          lastConfirmedActionRef.current = action;
           afterTx();
         }
       } catch (e) {

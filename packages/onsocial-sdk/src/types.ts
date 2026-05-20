@@ -248,6 +248,10 @@ export interface ProfileData {
   banner?: string | Blob | File;
   links?: Record<string, string>;
   tags?: string[];
+  /**
+   * Custom profile fields are written under `profile/<key>`. File-like values
+   * are uploaded by `os.profiles.update` and replaced with `ipfs://<cid>`.
+   */
   [key: string]: unknown;
 }
 

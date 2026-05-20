@@ -343,6 +343,9 @@ export function planToWalletTransactions(
   plan: OnboardingPlan,
   opts: { gasTgas?: number } = {}
 ): Array<{ receiverId: string; actions: NearAction[] }> {
+  const gas = String(
+    BigInt(opts.gasTgas ?? DEFAULT_GRANT_GAS_TGAS) * 1_000_000_000_000n
+  );
   const txs: Array<{ receiverId: string; actions: NearAction[] }> = [
     {
       receiverId: plan.accountId,
@@ -367,36 +370,50 @@ export function planToWalletTransactions(
   ];
 
   if (plan.coreActions.length > 0) {
-    const deposit = sumStorageDeposit(plan.coreActions);
-    const gas = String(
-      BigInt(opts.gasTgas ?? DEFAULT_GRANT_GAS_TGAS) * 1_000_000_000_000n
-    );
     txs.push({
       receiverId: plan.accessKey.receiverId,
-      actions: [
-        {
-          type: 'FunctionCall',
-          params: {
-            // Session-key grants and reserved storage/* writes are admin-only
-            // on core; they must go through `execute_admin`.
-            methodName: 'execute_admin',
-            args: { request: { actions: plan.coreActions } },
-            gas,
-            deposit,
-          },
-        },
-      ],
+      actions: plan.coreActions.map((action) =>
+        coreExecuteAdminFunctionCall(
+          action,
+          gas,
+          storageDepositForAction(action)
+        )
+      ),
     });
   }
 
   return txs;
 }
 
-function sumStorageDeposit(coreActions: CoreAction[]): string {
+function coreExecuteAdminFunctionCall(
+  action: CoreAction,
+  gas: string,
+  deposit: string
+): NearAction {
+  return {
+    type: 'FunctionCall',
+    params: {
+      // Session-key grants and reserved storage/* writes are admin-only on core.
+      methodName: 'execute_admin',
+      args: { request: { action } },
+      gas,
+      deposit,
+    },
+  };
+}
+
+function storageDepositForAction(action: CoreAction): string {
   let total = 0n;
-  for (const a of coreActions) {
-    if (a.type === 'set' && typeof a.data === 'object' && a.data !== null) {
-      const d = (a.data as Record<string, unknown>)['storage/deposit'];
+  if (
+    action.type === 'set' &&
+    typeof action.data === 'object' &&
+    action.data !== null
+  ) {
+    for (const [key, value] of Object.entries(
+      action.data as Record<string, unknown>
+    )) {
+      if (key !== 'storage/deposit') continue;
+      const d = value;
       if (d && typeof d === 'object') {
         const amt = (d as { amount?: unknown }).amount;
         if (typeof amt === 'string') total += BigInt(amt);
@@ -416,6 +433,8 @@ export interface BootstrapSessionInput
   store?: KeyStore;
   /** TGas attached to the bootstrap `execute_admin` FunctionCall. Default 100. */
   grantGasTgas?: number;
+  /** First delegate nonce for the new session key. Defaults to `Date.now()`. */
+  startingNonce?: number;
 }
 
 /** Generates, grants, persists, and returns a session. */
@@ -450,6 +469,11 @@ export async function bootstrapSession(
     throw new Error(`unknown contract ${input.contract}`);
   }
 
+  const initialNonce = Math.max(
+    1,
+    Math.floor(input.startingNonce ?? Date.now())
+  );
+
   const stored: StoredSession = {
     v: 2,
     accountId,
@@ -459,7 +483,7 @@ export async function bootstrapSession(
     publicKey: generated.publicKey,
     secretSeedB64u: generated.secretSeedB64u,
     path: input.path,
-    lastNonce: 0,
+    lastNonce: initialNonce - 1,
     expiresAtMs: plan.expiresAtMs,
   };
   if (input.store) {
@@ -475,7 +499,7 @@ export async function bootstrapSession(
     contract: input.contract,
     contractId: input.contractId,
     key: { publicKey: generated.publicKey, sign: generated.sign },
-    startingNonce: 1,
+    startingNonce: initialNonce,
     remainingAllowanceYocto: input.functionCallKey.allowanceYocto,
   });
 }
@@ -507,7 +531,8 @@ export async function restoreSession(
     contract: stored.contract,
     contractId: stored.contractId,
     key,
-    startingNonce: input.startingNonce ?? stored.lastNonce + 1,
+    startingNonce:
+      input.startingNonce ?? Math.max(stored.lastNonce + 1, Date.now()),
     remainingAllowanceYocto: input.remainingAllowanceYocto,
   });
 }
@@ -543,23 +568,14 @@ export async function revokeSession(input: RevokeSessionInput): Promise<void> {
     const contractId =
       input.contractId ?? resolveContractId(input.network, input.contract);
     if (!contractId) throw new Error(`unknown contract ${input.contract}`);
+    const gas = String(
+      BigInt(input.gasTgas ?? DEFAULT_GRANT_GAS_TGAS) * 1_000_000_000_000n
+    );
     txs.push({
       receiverId: contractId,
-      actions: [
-        {
-          type: 'FunctionCall',
-          params: {
-            // Revoking a session key permission is an admin action.
-            methodName: 'execute_admin',
-            args: { request: { actions: coreActions } },
-            gas: String(
-              BigInt(input.gasTgas ?? DEFAULT_GRANT_GAS_TGAS) *
-                1_000_000_000_000n
-            ),
-            deposit: '0',
-          },
-        },
-      ],
+      actions: coreActions.map((action) =>
+        coreExecuteAdminFunctionCall(action, gas, '0')
+      ),
     });
   }
 

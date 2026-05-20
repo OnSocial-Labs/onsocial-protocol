@@ -195,14 +195,13 @@ export class SocialModule {
   /** @internal Use `os.profiles.update()`. */
   async setProfile(profile: ProfileData): Promise<RelayResponse> {
     let resolved: ProfileData = profile;
-    if (isFileLike(profile.avatar)) {
-      const url = await this._uploadFile(profile.avatar);
-      resolved = { ...resolved, avatar: url };
+
+    for (const [fieldName, value] of Object.entries(profile)) {
+      if (!isFileLike(value)) continue;
+      const url = await this._uploadFile(value);
+      resolved = { ...resolved, [fieldName]: url };
     }
-    if (isFileLike(resolved.banner)) {
-      const url = await this._uploadFile(resolved.banner);
-      resolved = { ...resolved, banner: url };
-    }
+
     const data = buildProfileSetData(resolved);
 
     return this._composeSet(

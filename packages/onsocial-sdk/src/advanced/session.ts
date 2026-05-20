@@ -116,8 +116,8 @@ export class NeedsWalletConfirmationError extends Error {
       | 'wrong_receiver'
       | 'wrong_method'
       | 'session_expired'
-        | 'attached_deposit_required'
-        | 'value_deposit_required'
+      | 'attached_deposit_required'
+      | 'value_deposit_required'
   ) {
     super(message);
     this.name = 'NeedsWalletConfirmationError';
@@ -265,6 +265,23 @@ export class Session {
 
   get supportsAttachedDeposit(): boolean {
     return this.canAttachDeposit;
+  }
+
+  /** Ensure the next delegate nonce is above NEAR's block-height access-key floor. */
+  ensureNonceAboveAccessKeyFloor(
+    latestBlockHeight: bigint | number | string
+  ): void {
+    const floor = BigInt(latestBlockHeight) * 1_000_000n;
+    const next = floor + 1n;
+    if (next > BigInt(Number.MAX_SAFE_INTEGER)) {
+      throw new SessionScopeError(
+        `computed delegate nonce ${next.toString()} exceeds JavaScript safe integer range`
+      );
+    }
+    const nextNumber = Number(next);
+    if (this.nonce < nextNumber) {
+      this.nonce = nextNumber;
+    }
   }
 
   /** Signs a delegate for one or more inner actions and advances the nonce. */

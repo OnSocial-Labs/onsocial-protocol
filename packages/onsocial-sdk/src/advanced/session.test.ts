@@ -161,6 +161,20 @@ describe('Session runtime', () => {
     expect(session.currentNonce).toBe(6);
   });
 
+  it('bumps nonce above the NEAR access-key block-height floor', () => {
+    const session = new Session({
+      network: 'testnet',
+      accountId: 'alice.testnet',
+      contract: 'core',
+      key: fakeKey(),
+      startingNonce: 1_779_296_611_546,
+    });
+
+    session.ensureNonceAboveAccessKeyFloor(251_173_172n);
+
+    expect(session.currentNonce).toBe(251_173_172_000_001);
+  });
+
   it('rejects attached deposits for FunctionCall-key sessions', async () => {
     const session = new Session({
       network: 'mainnet',

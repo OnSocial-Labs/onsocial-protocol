@@ -214,6 +214,31 @@ describe('SocialModule transport (session-bridge)', () => {
     );
   });
 
+  it('uploads custom profile Blob fields before writing profile data', async () => {
+    const requestForm = vi
+      .fn()
+      .mockResolvedValueOnce({ cid: 'bafyAvatar' })
+      .mockResolvedValueOnce({ cid: 'bafyBanner' })
+      .mockResolvedValueOnce({ cid: 'bafyGallery' });
+    const { social, post } = makeHarness({ requestForm });
+
+    await social.setProfile({
+      avatar: new Blob(['avatar'], { type: 'image/png' }),
+      banner: new Blob(['banner'], { type: 'image/png' }),
+      galleryCover: new Blob(['cover'], { type: 'image/webp' }),
+    });
+
+    expect(requestForm).toHaveBeenCalledTimes(3);
+    const body = findPrepBody(post);
+    expect(body.value).toEqual(
+      expect.objectContaining({
+        'profile/avatar': 'ipfs://bafyAvatar',
+        'profile/banner': 'ipfs://bafyBanner',
+        'profile/galleryCover': 'ipfs://bafyGallery',
+      })
+    );
+  });
+
   it('passes through avatar string without uploading', async () => {
     const requestForm = vi.fn();
     const { social, post } = makeHarness({ requestForm });

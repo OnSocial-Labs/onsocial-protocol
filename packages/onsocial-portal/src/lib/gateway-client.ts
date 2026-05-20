@@ -1,8 +1,4 @@
-import { ACTIVE_API_URL } from '@/lib/portal-config';
-
-const GATEWAY_URL = `${ACTIVE_API_URL.replace(/\/$/, '')}/graph/query`;
-
-const GATEWAY_API_KEY = process.env.GATEWAY_SERVICE_KEY ?? '';
+import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
 
 /**
  * Execute a GraphQL query via the gateway's /graph/query endpoint,
@@ -12,35 +8,18 @@ const GATEWAY_API_KEY = process.env.GATEWAY_SERVICE_KEY ?? '';
  */
 export async function gatewayQuery<T = Record<string, unknown>>(
   query: string,
-  variables?: Record<string, unknown>,
+  variables?: Record<string, unknown>
 ): Promise<T> {
-  if (!GATEWAY_API_KEY) {
-    throw new Error(
-      'GATEWAY_SERVICE_KEY is not set — portal cannot query the gateway',
-    );
-  }
-
-  const res = await fetch(GATEWAY_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-API-Key': GATEWAY_API_KEY,
-    },
-    body: JSON.stringify({ query, variables }),
-    cache: 'no-store',
-  });
-
-  if (!res.ok) {
-    throw new Error(`Gateway returned ${res.status}`);
-  }
-
-  const body = await res.json();
+  const os = createPortalServerOnSocialClient();
+  const body = await os.query.graphql<T>({ query, variables });
 
   if (body.errors) {
     throw new Error(
-      `GraphQL error: ${body.errors.map((e: { message: string }) => e.message).join(', ')}`,
+      `GraphQL error: ${body.errors
+        .map((e: { message: string }) => e.message)
+        .join(', ')}`
     );
   }
 
-  return body.data as T;
+  return (body.data ?? {}) as T;
 }

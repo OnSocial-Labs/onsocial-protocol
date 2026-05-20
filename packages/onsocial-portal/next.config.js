@@ -1,3 +1,8 @@
+const path = require('path');
+const { loadEnvConfig } = require('@next/env');
+
+loadEnvConfig(path.resolve(__dirname, '../..'));
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   distDir: process.env.NEXT_DIST_DIR || '.next',
