@@ -68,6 +68,10 @@ pub struct Config {
     #[serde(default = "defaults::rewards_contract_id")]
     pub rewards_contract_id: String,
 
+    /// Social-spend contract used by the private settlement publisher endpoint.
+    #[serde(default = "defaults::social_spend_contract_id")]
+    pub social_spend_contract_id: String,
+
     /// Canonical contract allowlist.
     #[serde(
         default = "defaults::allowed_contracts",
@@ -96,6 +100,7 @@ impl Default for Config {
             gcp_kms_admin_key: defaults::gcp_kms_admin_key(),
             allowed_methods: defaults::allowed_methods(),
             rewards_contract_id: defaults::rewards_contract_id(),
+            social_spend_contract_id: defaults::social_spend_contract_id(),
             allowed_contracts: defaults::allowed_contracts(),
         }
     }
@@ -270,6 +275,20 @@ mod defaults {
         }
     }
 
+    pub fn social_spend_contract_id() -> String {
+        std::env::var("RELAYER_SOCIAL_SPEND_CONTRACT_ID")
+            .or_else(|_| std::env::var("SOCIAL_SPEND_CONTRACT"))
+            .unwrap_or_else(|_| social_spend_contract_id_for_network(&network()))
+    }
+
+    pub(super) fn social_spend_contract_id_for_network(network: &str) -> String {
+        if network.contains("mainnet") {
+            "social-spend.onsocial.near".into()
+        } else {
+            "social-spend.onsocial.testnet".into()
+        }
+    }
+
     pub fn allowed_contracts() -> Vec<String> {
         allowed_contracts_for_network(&network())
     }
@@ -361,6 +380,18 @@ mod tests {
     }
 
     #[test]
+    fn default_social_spend_contract_tracks_network() {
+        assert_eq!(
+            defaults::social_spend_contract_id_for_network("mainnet"),
+            "social-spend.onsocial.near"
+        );
+        assert_eq!(
+            defaults::social_spend_contract_id_for_network("testnet"),
+            "social-spend.onsocial.testnet"
+        );
+    }
+
+    #[test]
     fn rewards_contract_prefers_explicit_override() {
         unsafe {
             std::env::set_var("RELAYER_REWARDS_CONTRACT_ID", "custom-rewards.testnet");
@@ -370,6 +401,25 @@ mod tests {
 
         unsafe {
             std::env::remove_var("RELAYER_REWARDS_CONTRACT_ID");
+        }
+    }
+
+    #[test]
+    fn social_spend_contract_prefers_explicit_override() {
+        unsafe {
+            std::env::set_var(
+                "RELAYER_SOCIAL_SPEND_CONTRACT_ID",
+                "custom-social-spend.testnet",
+            );
+        }
+
+        assert_eq!(
+            defaults::social_spend_contract_id(),
+            "custom-social-spend.testnet"
+        );
+
+        unsafe {
+            std::env::remove_var("RELAYER_SOCIAL_SPEND_CONTRACT_ID");
         }
     }
 

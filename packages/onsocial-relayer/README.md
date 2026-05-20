@@ -142,6 +142,30 @@ curl -X POST 'http://localhost:3040/execute_rewards?wait=true' \
 and `rewards.onsocial.testnet` on testnet. It must also be present in
 `RELAYER_ALLOWED_CONTRACTS`.
 
+### `POST /execute_social_spend_settlement`
+
+Private service endpoint for publishing social-spend season settlement roots.
+It is protected by `RELAYER_API_KEY` and only submits a direct 1-yoctoNEAR
+`publish_season_root` call to `RELAYER_SOCIAL_SPEND_CONTRACT_ID` using the
+FullAccess KMS lane pool.
+
+```bash
+curl -X POST 'http://localhost:3040/execute_social_spend_settlement?wait=true' \
+  -H "Content-Type: application/json" \
+  -H "X-Api-Key: $RELAYER_API_KEY" \
+  -d '{
+    "season_id": "season0",
+    "root": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    "total_amount": "900000000000000000",
+    "active": true
+  }'
+```
+
+`RELAYER_SOCIAL_SPEND_CONTRACT_ID` defaults to `social-spend.onsocial.near` on
+mainnet and `social-spend.onsocial.testnet` on testnet. Normal spends and user
+claims do not go through the relayer; this endpoint is only for the authorized
+season root publisher role.
+
 ## Deployment
 
 ### Hetzner (Production)

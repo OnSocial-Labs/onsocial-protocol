@@ -10,6 +10,7 @@ use axum::extract::{FromRequest, Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
+use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
 use near_gas::NearGas;
 use near_primitives::hash::CryptoHash;
 use near_primitives::transaction::{Action, FunctionCallAction};
@@ -180,6 +181,14 @@ pub enum RewardsServiceAction {
 #[derive(Debug, Deserialize)]
 pub struct ExecuteRewardsBody {
     pub action: RewardsServiceAction,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct SocialSpendSettlementRequest {
+    pub season_id: String,
+    pub root: String,
+    pub total_amount: String,
+    pub active: bool,
 }
 
 pub async fn execute_delegate(
@@ -469,6 +478,113 @@ pub async fn execute_rewards(
     full_access_tx_response(&req_id, "rewards", submitted)
 }
 
+// ---------------------------------------------------------------------------
+// /execute_social_spend_settlement — private settlement publisher.
+//
+// Body: { "season_id", "root", "total_amount", "active" }
+// Query: ?wait=true (optional, broadcast_tx_commit)
+//
+// This endpoint is intentionally narrow: it can only call
+// `publish_season_root` on the configured social-spend contract with exactly
+// 1 yoctoNEAR. The proof/indexer service owns reward math; relayer only owns
+// the authorized settlement-publisher signature.
+// ---------------------------------------------------------------------------
+pub async fn execute_social_spend_settlement(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<ExecuteParams>,
+    request_parts: axum::extract::Request,
+) -> (StatusCode, Json<ExecuteResponse>) {
+    let start = std::time::Instant::now();
+    METRICS.tx_total.fetch_add(1, Ordering::Relaxed);
+    state.request_count.fetch_add(1, Ordering::Relaxed);
+
+    let req_id = request_parts
+        .extensions()
+        .get::<RequestId>()
+        .map(|r| r.0.clone())
+        .unwrap_or_default();
+
+    let body: SocialSpendSettlementRequest =
+        match axum::Json::<SocialSpendSettlementRequest>::from_request(request_parts, &state).await
+        {
+            Ok(axum::Json(v)) => v,
+            Err(e) => {
+                METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
+                warn!(req_id = %req_id, error = %e, "Invalid social-spend settlement body");
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ExecuteResponse::err(
+                        "Body must be { season_id, root, total_amount, active }",
+                        None,
+                    )),
+                );
+            }
+        };
+
+    if let Err(error) = validate_social_spend_settlement(&body) {
+        METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
+        warn!(req_id = %req_id, error = %error, "Invalid social-spend settlement");
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ExecuteResponse::err(error, None)),
+        );
+    }
+
+    let social_spend_contract = match state.config.social_spend_contract_id.parse::<AccountId>() {
+        Ok(account_id) => account_id,
+        Err(e) => {
+            METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
+            error!(req_id = %req_id, error = %e, contract = %state.config.social_spend_contract_id, "Invalid social-spend contract config");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ExecuteResponse::err(
+                    "Relayer social-spend contract is not configured correctly",
+                    None,
+                )),
+            );
+        }
+    };
+
+    info!(
+        req_id = %req_id,
+        contract = %social_spend_contract,
+        season_id = %body.season_id,
+        total_amount = %body.total_amount,
+        active = body.active,
+        "Relaying social-spend settlement root"
+    );
+
+    let actions = build_social_spend_settlement_actions(&body, state.config.gas_tgas);
+    let submitted = match state
+        .key_pool
+        .submit_delegate_transaction(&state.rpc, &social_spend_contract, actions, params.wait)
+        .await
+    {
+        Ok(outcome) => outcome,
+        Err(e) => {
+            METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
+            let (status, public_error) = match &e {
+                Error::Config(_) => (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Relayer social-spend signer is not configured correctly",
+                ),
+                Error::Rpc(_) => (StatusCode::BAD_GATEWAY, "RPC temporarily unavailable"),
+                Error::KeyPool(_) => (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "Relayer social-spend signer is temporarily unavailable",
+                ),
+            };
+            error!(req_id = %req_id, error = %e, "Social-spend settlement tx submission failed");
+            return (status, Json(ExecuteResponse::err(public_error, None)));
+        }
+    };
+
+    METRICS.tx_success.fetch_add(1, Ordering::Relaxed);
+    METRICS.record_tx_duration(start);
+
+    full_access_tx_response(&req_id, "social_spend_settlement", submitted)
+}
+
 fn validate_rewards_action(action: &RewardsServiceAction) -> Result<(), String> {
     match action {
         RewardsServiceAction::CreditReward { amount, .. } => {
@@ -497,6 +613,58 @@ fn build_rewards_execute_actions(action: &RewardsServiceAction, gas_tgas: u64) -
         args,
         gas: NearGas::from_tgas(gas_tgas).as_gas(),
         deposit: 0,
+    }))]
+}
+
+fn validate_social_spend_settlement(
+    settlement: &SocialSpendSettlementRequest,
+) -> Result<(), String> {
+    if settlement.season_id.is_empty() || settlement.season_id.len() > 64 {
+        return Err("season_id must be 1-64 characters".to_string());
+    }
+    if !settlement
+        .season_id
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '_')
+    {
+        return Err("season_id may only contain ASCII letters, numbers, '-' and '_'".to_string());
+    }
+
+    let root = B64
+        .decode(settlement.root.as_bytes())
+        .map_err(|_| "root must be valid base64".to_string())?;
+    if root.len() != 32 {
+        return Err("root must decode to exactly 32 bytes".to_string());
+    }
+
+    let total_amount = settlement
+        .total_amount
+        .parse::<u128>()
+        .map_err(|_| "total_amount must be a decimal u128 string".to_string())?;
+    if total_amount == 0 {
+        return Err("total_amount must be greater than 0".to_string());
+    }
+
+    Ok(())
+}
+
+fn build_social_spend_settlement_actions(
+    settlement: &SocialSpendSettlementRequest,
+    gas_tgas: u64,
+) -> Vec<Action> {
+    let args = serde_json::to_vec(&serde_json::json!({
+        "season_id": settlement.season_id,
+        "root": settlement.root,
+        "total_amount": settlement.total_amount,
+        "active": settlement.active,
+    }))
+    .unwrap_or_default();
+
+    vec![Action::FunctionCall(Box::new(FunctionCallAction {
+        method_name: "publish_season_root".to_string(),
+        args,
+        gas: NearGas::from_tgas(gas_tgas).as_gas(),
+        deposit: 1,
     }))]
 }
 
@@ -646,6 +814,45 @@ mod tests {
         let args: Value = serde_json::from_slice(&fc.args).unwrap();
         assert_eq!(args["request"]["action"]["type"], "claim");
         assert_eq!(args["request"]["action"]["account_id"], "alice.testnet");
+    }
+
+    #[test]
+    fn social_spend_settlement_validation_rejects_bad_root() {
+        let settlement = SocialSpendSettlementRequest {
+            season_id: "season0".to_string(),
+            root: "not-base64".to_string(),
+            total_amount: "100".to_string(),
+            active: true,
+        };
+
+        assert_eq!(
+            validate_social_spend_settlement(&settlement),
+            Err("root must be valid base64".to_string())
+        );
+    }
+
+    #[test]
+    fn social_spend_settlement_action_calls_publish_root_with_one_yocto() {
+        let settlement = SocialSpendSettlementRequest {
+            season_id: "season0".to_string(),
+            root: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=".to_string(),
+            total_amount: "900000000000000000".to_string(),
+            active: true,
+        };
+
+        assert!(validate_social_spend_settlement(&settlement).is_ok());
+        let actions = build_social_spend_settlement_actions(&settlement, 100);
+        let Action::FunctionCall(fc) = &actions[0] else {
+            panic!("expected FunctionCall");
+        };
+
+        assert_eq!(fc.method_name, "publish_season_root");
+        assert_eq!(fc.deposit, 1);
+        let args: Value = serde_json::from_slice(&fc.args).unwrap();
+        assert_eq!(args["season_id"], "season0");
+        assert_eq!(args["root"], "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
+        assert_eq!(args["total_amount"], "900000000000000000");
+        assert_eq!(args["active"], true);
     }
 
     #[test]

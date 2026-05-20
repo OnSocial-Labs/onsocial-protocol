@@ -7,6 +7,7 @@
 //! - `GET  /health`     - Pool/KMS/RPC status
 //! - `GET  /ready`      - Readiness probe (503 until bootstrapped)
 //! - `POST /execute_delegate` - Relay NEP-366 SignedDelegateAction
+//! - `POST /execute_social_spend_settlement` - Publish social-spend season root
 //! - `GET  /tx/:hash`   - Query TX status
 //! - `GET  /metrics`    - Prometheus metrics
 
