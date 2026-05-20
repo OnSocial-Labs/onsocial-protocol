@@ -12,6 +12,12 @@
         "init": "new '{\"token_id\": \"token.${AUTH_ACCOUNT}\", \"owner_id\": \"${AUTH_ACCOUNT}\"}'"
     },
     {
+        "name": "social-spend-onsocial",
+        "id": "social-spend.${AUTH_ACCOUNT}",
+        "account": "${AUTH_ACCOUNT}",
+        "init": "new '{\"owner_id\": \"${AUTH_ACCOUNT}\", \"social_token\": \"token.${AUTH_ACCOUNT}\", \"treasury_id\": \"${AUTH_ACCOUNT}\"}'"
+    },
+    {
         "name": "staking-onsocial",
         "id": "staking.${AUTH_ACCOUNT}",
         "account": "${AUTH_ACCOUNT}",
