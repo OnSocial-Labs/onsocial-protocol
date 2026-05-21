@@ -35,6 +35,11 @@ export interface ProfileSaveResult {
   response: RelayResponse;
 }
 
+export interface StandingUpdateResult {
+  applied: boolean;
+  response: RelayResponse;
+}
+
 interface PortalProfileResponse {
   accountId: string;
   profile: MaterialisedProfile | null;
@@ -258,11 +263,13 @@ export function useProfile() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUpdatingStanding, setIsUpdatingStanding] = useState(false);
   const [isAuthorizingSession, setIsAuthorizingSession] = useState(false);
   const [hasSocialSession, setHasSocialSession] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const latestLoadRef = useRef(0);
   const latestIndexedRefreshRef = useRef(0);
+  const activeAccountIdRef = useRef<string | null>(null);
   const optimisticMediaUrlsRef = useRef<Record<string, string>>({});
 
   const revokeOptimisticMediaUrl = useCallback((field: string) => {
@@ -316,6 +323,20 @@ export function useProfile() {
     };
   }, []);
 
+  useEffect(() => {
+    if (activeAccountIdRef.current === accountId) return;
+
+    activeAccountIdRef.current = accountId ?? null;
+    latestLoadRef.current += 1;
+    latestIndexedRefreshRef.current += 1;
+    resolveCanonicalMediaPreviews();
+    setProfile(null);
+    setIndexedProfile(null);
+    setResolvedAvatarUrl(null);
+    setError(null);
+    setHasSocialSession(false);
+  }, [accountId, resolveCanonicalMediaPreviews, setResolvedAvatarUrl]);
+
   const createClient = useCallback(
     () => createPortalOnSocialClient({ gatewayUrl: PORTAL_ONAPI_PROXY_URL }),
     []
@@ -361,7 +382,9 @@ export function useProfile() {
     setIsAuthorizingSession(true);
     try {
       const session = await bootstrapSession({
-        wallet: nearConnectAdapter(wallet, accountId),
+        wallet: nearConnectAdapter(wallet, accountId, {
+          network: ACTIVE_NEAR_NETWORK,
+        }),
         accountId,
         network: ACTIVE_NEAR_NETWORK,
         contract: 'core',
@@ -492,12 +515,17 @@ export function useProfile() {
           payload.banner = banner;
         }
 
+        const currentProfile =
+          profile?.accountId === accountId ? profile : null;
         const response = await os.profiles.update(payload);
-        const expected = buildProfileRefreshExpectation(payload, profile);
+        const expected = buildProfileRefreshExpectation(
+          payload,
+          currentProfile
+        );
         const optimisticMediaPreviews = createOptimisticMediaPreviews(payload);
         const optimisticProfile = buildOptimisticProfile(
           accountId,
-          profile,
+          currentProfile,
           expected,
           optimisticMediaPreviews
         );
@@ -533,18 +561,58 @@ export function useProfile() {
     ]
   );
 
+  const updateStanding = useCallback(
+    async (
+      targetAccount: string,
+      shouldStand: boolean
+    ): Promise<StandingUpdateResult> => {
+      if (!accountId || !isConnected || !wallet) {
+        throw new Error('Connect your wallet before updating standing.');
+      }
+      if (targetAccount === accountId) {
+        throw new Error('You cannot stand with your own account.');
+      }
+
+      setIsUpdatingStanding(true);
+      setError(null);
+
+      try {
+        const os = createClient();
+        const session = await getSocialSession();
+        os.attachSession(session);
+        const response = shouldStand
+          ? await os.standings.add(targetAccount)
+          : await os.standings.remove(targetAccount);
+        return { applied: shouldStand, response };
+      } catch (err) {
+        const message = getErrorMessage(err);
+        setError(message);
+        throw new Error(message);
+      } finally {
+        setIsUpdatingStanding(false);
+      }
+    },
+    [accountId, createClient, getSocialSession, isConnected, wallet]
+  );
+
+  const visibleProfile = profile?.accountId === accountId ? profile : null;
+  const visibleIndexedProfile = visibleProfile ? indexedProfile : null;
+  const visibleAvatarUrl = visibleProfile ? avatarUrl : null;
+
   return {
     accountId,
-    profile,
-    indexedProfile,
-    avatarUrl,
-    hasProfile: hasProfileFields(profile),
+    profile: visibleProfile,
+    indexedProfile: visibleIndexedProfile,
+    avatarUrl: visibleAvatarUrl,
+    hasProfile: hasProfileFields(visibleProfile),
     isLoading,
     isSaving,
+    isUpdatingStanding,
     isAuthorizingSession,
     hasSocialSession,
     error,
     refreshProfile: loadProfile,
     saveProfile,
+    updateStanding,
   };
 }

@@ -7,12 +7,15 @@ import {
   ChevronDown,
   LogOut,
   RefreshCw,
+  Search,
   User,
   ExternalLink,
   PenLine,
 } from 'lucide-react';
 import { useWallet } from '@/contexts/wallet-context';
+import { ProfileDiscoveryModal } from '@/components/profile-discovery-modal';
 import { ProfileEditor } from '@/components/profile-editor';
+import { ProfileModal } from '@/components/profile-modal';
 import { cn } from '@/lib/utils';
 import {
   floatingPanelDividerClass,
@@ -43,6 +46,11 @@ export function WalletButton({
   const profileState = useProfile();
   const [profileEditorOpen, setProfileEditorOpen] = useState(false);
   const [profileEditorKey, setProfileEditorKey] = useState(0);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [profileModalAccountId, setProfileModalAccountId] = useState<
+    string | null
+  >(null);
+  const [profileDiscoveryOpen, setProfileDiscoveryOpen] = useState(false);
   const {
     isOpen: menuOpen,
     close: closeMenu,
@@ -63,6 +71,19 @@ export function WalletButton({
   const openProfileEditor = () => {
     setProfileEditorKey((current) => current + 1);
     setProfileEditorOpen(true);
+  };
+
+  const openProfileModal = (targetAccountId: string | null = accountId) => {
+    if (!targetAccountId) return;
+    closeMenu();
+    setProfileDiscoveryOpen(false);
+    setProfileModalAccountId(targetAccountId);
+    setProfileModalOpen(true);
+  };
+
+  const openProfileDiscovery = () => {
+    closeMenu();
+    setProfileDiscoveryOpen(true);
   };
 
   const handleProfileAction = () => {
@@ -195,7 +216,11 @@ export function WalletButton({
         offsetClass="mt-1"
         className="w-56 md:w-64"
       >
-        <div className="border-b border-fade-section px-3 py-2.5 md:px-4 md:py-3">
+        <button
+          type="button"
+          onClick={() => openProfileModal(accountId)}
+          className="w-full border-b border-fade-section px-3 py-2.5 text-left transition-colors hover:bg-muted/18 focus-visible:bg-muted/24 focus-visible:outline-none md:px-4 md:py-3"
+        >
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/50 bg-muted/30 text-muted-foreground">
               {profileState.avatarUrl ? (
@@ -224,7 +249,7 @@ export function WalletButton({
               ) : null}
             </div>
           </div>
-        </div>
+        </button>
 
         <div className="space-y-0.5 p-1 md:p-1.5">
           <button
@@ -239,6 +264,14 @@ export function WalletButton({
             <span>
               {profileState.hasProfile ? 'Edit Profile' : 'Create Profile'}
             </span>
+          </button>
+
+          <button
+            onClick={openProfileDiscovery}
+            className={floatingPanelItemClass}
+          >
+            <Search className="h-3.5 w-3.5 md:h-4 md:w-4" />
+            <span>Discover Profiles</span>
           </button>
 
           <button
@@ -291,6 +324,29 @@ export function WalletButton({
         error={profileState.error}
         onOpenChange={setProfileEditorOpen}
         onSave={profileState.saveProfile}
+      />
+
+      <ProfileModal
+        open={profileModalOpen}
+        accountId={profileModalAccountId ?? accountId}
+        viewerAccountId={accountId}
+        selfProfile={profileState.profile}
+        selfAvatarUrl={profileState.avatarUrl}
+        hasSocialSession={profileState.hasSocialSession}
+        isUpdatingStanding={profileState.isUpdatingStanding}
+        onOpenChange={(open) => {
+          setProfileModalOpen(open);
+          if (!open) setProfileModalAccountId(null);
+        }}
+        onEditProfile={openProfileEditor}
+        onSelectAccount={(targetAccountId) => openProfileModal(targetAccountId)}
+        onUpdateStanding={profileState.updateStanding}
+      />
+
+      <ProfileDiscoveryModal
+        open={profileDiscoveryOpen}
+        onOpenChange={setProfileDiscoveryOpen}
+        onSelectAccount={(targetAccountId) => openProfileModal(targetAccountId)}
       />
     </div>
   );

@@ -5,6 +5,25 @@
 
 import type { QueryModule } from './index.js';
 
+export interface ProfileSearchRow {
+  accountId: string;
+  name: string | null;
+  bio: string | null;
+  avatar: string | null;
+  banner: string | null;
+  standingCount: number;
+  standingWithCount: number;
+  lastProfileBlock: number;
+  lastProfileTimestamp: number;
+  lastActivityBlock: number;
+}
+
+export interface ProfileSearchOptions {
+  query?: string;
+  limit?: number;
+  offset?: number;
+}
+
 export class ProfilesQuery {
   constructor(private _q: QueryModule) {}
 
@@ -39,5 +58,38 @@ export class ProfilesQuery {
     const out: Record<string, string> = {};
     for (const row of rows) out[row.field] = row.value;
     return out;
+  }
+
+  /**
+   * Search discoverable profiles by account id, display name, or bio.
+   * Empty query returns recently active profiles, ordered by standing signal.
+   *
+   * ```ts
+   * const profiles = await os.query.profiles.search({ query: 'alice' });
+   * ```
+   */
+  async search(opts: ProfileSearchOptions = {}): Promise<ProfileSearchRow[]> {
+    const query = opts.query?.trim();
+    const filter = query ? 'where: {searchText: {_ilike: $pattern}}, ' : '';
+    const variableDecl = query ? ', $pattern: String!' : '';
+    const res = await this._q.graphql<{ profileSearch: ProfileSearchRow[] }>({
+      query: `query ProfileSearch($limit: Int!, $offset: Int!${variableDecl}) {
+        profileSearch(
+          ${filter}
+          limit: $limit,
+          offset: $offset,
+          orderBy: [{standingCount: DESC}, {lastActivityBlock: DESC}]
+        ) {
+          accountId name bio avatar banner standingCount standingWithCount
+          lastProfileBlock lastProfileTimestamp lastActivityBlock
+        }
+      }`,
+      variables: {
+        limit: opts.limit ?? 20,
+        offset: opts.offset ?? 0,
+        ...(query ? { pattern: `%${query}%` } : {}),
+      },
+    });
+    return res.data?.profileSearch ?? [];
   }
 }

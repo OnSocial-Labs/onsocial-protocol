@@ -22,6 +22,19 @@ interface IntrospectionType {
 const SDK_EXPECTED_SCHEMA: Record<string, string[]> = {
   // query.ts → getProfile
   profilesCurrent: ['accountId', 'field', 'value', 'blockHeight'],
+  // query.profiles.search
+  profileSearch: [
+    'accountId',
+    'name',
+    'bio',
+    'avatar',
+    'banner',
+    'standingCount',
+    'standingWithCount',
+    'lastProfileBlock',
+    'lastProfileTimestamp',
+    'lastActivityBlock',
+  ],
   // query.ts → getPosts, getFeed, getFilteredFeed, getGroupFeed
   postsCurrent: [
     'accountId',

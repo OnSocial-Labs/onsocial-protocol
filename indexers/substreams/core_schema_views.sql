@@ -217,6 +217,58 @@ FROM standings_current
 GROUP BY account_id;
 
 -- ────────────────────────────────────────────────────────────────────────────
+-- 6b. profile_search — one row per profile for discovery/search
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE VIEW profile_search AS
+WITH active_profile_fields AS (
+  SELECT
+    account_id,
+    field,
+    value,
+    block_height,
+    block_timestamp
+  FROM profiles_current
+  WHERE operation = 'set'
+    AND value IS NOT NULL
+),
+profile_rows AS (
+  SELECT
+    account_id,
+    MAX(value) FILTER (WHERE field = 'name')   AS name,
+    MAX(value) FILTER (WHERE field = 'bio')    AS bio,
+    MAX(value) FILTER (WHERE field = 'avatar') AS avatar,
+    MAX(value) FILTER (WHERE field = 'banner') AS banner,
+    MAX(block_height)                          AS last_profile_block,
+    MAX(block_timestamp)                       AS last_profile_timestamp
+  FROM active_profile_fields
+  GROUP BY account_id
+)
+SELECT
+  p.account_id,
+  p.name,
+  p.bio,
+  p.avatar,
+  p.banner,
+  COALESCE(sc.standing_with_count, 0)         AS standing_count,
+  COALESCE(soc.standing_with_others_count, 0) AS standing_with_count,
+  p.last_profile_block,
+  p.last_profile_timestamp,
+  GREATEST(
+    COALESCE(p.last_profile_block, 0),
+    COALESCE(sc.last_standing_block, 0),
+    COALESCE(soc.last_standing_block, 0)
+  ) AS last_activity_block,
+  LOWER(CONCAT_WS(' ', p.account_id, p.name, p.bio)) AS search_text
+FROM profile_rows p
+LEFT JOIN standing_counts sc ON sc.account_id = p.account_id
+LEFT JOIN standing_out_counts soc ON soc.account_id = p.account_id
+WHERE p.name IS NOT NULL
+   OR p.bio IS NOT NULL
+   OR p.avatar IS NOT NULL
+   OR p.banner IS NOT NULL;
+
+-- ────────────────────────────────────────────────────────────────────────────
 -- 7. thread_replies — posts that are replies
 -- ────────────────────────────────────────────────────────────────────────────
 

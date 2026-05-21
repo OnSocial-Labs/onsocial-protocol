@@ -158,6 +158,38 @@ describe('QueryModule', () => {
       const { os } = makeOs({ data: { profilesCurrent: [] } });
       expect(await os.query.profiles.get('ghost.near')).toBeNull();
     });
+
+    it('searches discoverable profile rows', async () => {
+      const rows = [
+        {
+          accountId: 'alice.near',
+          name: 'Alice',
+          bio: 'Building on NEAR',
+          avatar: 'ipfs://bafyAlice',
+          banner: null,
+          standingCount: 12,
+          standingWithCount: 3,
+          lastProfileBlock: 100,
+          lastProfileTimestamp: 1000,
+          lastActivityBlock: 120,
+        },
+      ];
+      const { os, fetch } = makeOs({ data: { profileSearch: rows } });
+
+      await expect(
+        os.query.profiles.search({ query: 'alice', limit: 10 })
+      ).resolves.toEqual(rows);
+      const body = JSON.parse(
+        String((fetch.mock.calls[0]?.[1] as RequestInit | undefined)?.body)
+      ) as { variables: Record<string, unknown>; query: string };
+      expect(body.variables).toMatchObject({
+        pattern: '%alice%',
+        limit: 10,
+        offset: 0,
+      });
+      expect(body.query).toContain('profileSearch');
+      expect(body.query).toContain('searchText');
+    });
   });
 
   describe('getPosts()', () => {
