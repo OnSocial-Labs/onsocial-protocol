@@ -64,6 +64,10 @@ CREATE INDEX IF NOT EXISTS idx_data_updates_reaction_dedup
 CREATE INDEX IF NOT EXISTS idx_data_updates_claims_dedup
   ON data_updates(account_id, path, block_height DESC) WHERE data_type = 'claims';
 
+CREATE INDEX IF NOT EXISTS idx_data_updates_graph_edge_dedup
+  ON data_updates(path, block_height DESC)
+  WHERE data_type IN ('standing', 'reaction', 'endorsement', 'claims');
+
 -- ────────────────────────────────────────────────────────────────────────────
 -- 1. profiles_current — latest profile fields per account
 -- ────────────────────────────────────────────────────────────────────────────
@@ -251,37 +255,103 @@ WHERE ref_author IS NOT NULL
   AND ref_author != '';
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 9. edges_current - latest account-target relationships
+-- 9. edges_current - latest unified social graph relationships
 -- ────────────────────────────────────────────────────────────────────────────
 
 CREATE OR REPLACE VIEW edges_current AS
-SELECT DISTINCT ON (account_id, data_type, target_account)
-  account_id                   AS source,
-  target_account               AS target,
-  data_type                    AS edge_type,
+WITH graph_updates AS (
+  SELECT
+    path                                                               AS edge_id,
+    account_id                                                         AS source_account,
+    CASE
+      WHEN data_type = 'claims' THEN NULLIF(split_part(path, '/', 3), '')
+      ELSE COALESCE(NULLIF(target_account, ''), NULLIF(split_part(path, '/', 3), ''))
+    END                                                                AS target_account,
+    CASE
+      WHEN data_type = 'reaction' THEN 'content'
+      ELSE 'account'
+    END                                                                AS target_type,
+    CASE
+      WHEN data_type = 'reaction'
+        THEN regexp_replace(path, '^[^/]+/reaction/[^/]+/[^/]+/', '')
+      ELSE ''
+    END                                                                AS target_path,
+    data_type                                                          AS edge_type,
+    COALESCE(
+      CASE
+        WHEN data_type = 'reaction' THEN NULLIF(reaction_kind, '')
+        WHEN data_type = 'endorsement' THEN NULLIF(split_part(path, '/', 4), '')
+        WHEN data_type = 'claims' THEN NULLIF(split_part(path, '/', 4), '')
+        ELSE NULL
+      END,
+      ''
+    )                                                                  AS edge_kind,
+    value,
+    block_height,
+    block_timestamp,
+    operation,
+    group_id,
+    receipt_id,
+    id
+  FROM data_updates
+  WHERE data_type IN ('standing', 'reaction', 'endorsement', 'claims')
+    AND account_id IS NOT NULL
+    AND account_id != ''
+    AND path IS NOT NULL
+    AND path != ''
+), latest AS (
+  SELECT DISTINCT ON (edge_id)
+    edge_id,
+    source_account,
+    target_account,
+    target_type,
+    target_path,
+    edge_type,
+    edge_kind,
+    value,
+    block_height,
+    block_timestamp,
+    operation,
+    group_id,
+    receipt_id,
+    id
+  FROM graph_updates
+  WHERE target_account IS NOT NULL
+    AND target_account != ''
+  ORDER BY edge_id, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC
+)
+SELECT
+  edge_id,
+  source_account,
+  target_account,
+  target_type,
+  target_path,
+  edge_type,
+  edge_kind,
+  source_account                                                     AS source,
+  target_account                                                     AS target,
   value,
   block_height,
   block_timestamp,
   operation,
   group_id
-FROM data_updates
-WHERE target_account IS NOT NULL
-  AND target_account != ''
-ORDER BY account_id, data_type, target_account, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC;
+FROM latest
+WHERE operation = 'set';
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 10. edge_counts — per (account, edge_type) counts
+-- 10. edge_counts — inbound graph counts per account/type/kind
 -- ────────────────────────────────────────────────────────────────────────────
 
 CREATE OR REPLACE VIEW edge_counts AS
 SELECT
-  target                       AS account_id,
+  target_account               AS account_id,
+  target_type,
   edge_type,
+  edge_kind,
   COUNT(*)                     AS inbound_count,
   MAX(block_height)            AS last_block
 FROM edges_current
-WHERE operation = 'set'
-GROUP BY target, edge_type;
+GROUP BY target_account, target_type, edge_type, edge_kind;
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 11. claims_current — latest attestation per (issuer, subject, type, claimId)

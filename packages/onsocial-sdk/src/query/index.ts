@@ -10,6 +10,7 @@
 //   os.query.groups.feed({ groupId: 'dao' })
 //   os.query.profiles.get('alice.near')
 //   os.query.reactions.counts('alice.near', 'post/123')
+//   os.query.graph.incoming('alice.near')
 //   os.query.standings.outgoing('alice.near')
 //   os.query.saves.list('alice.near')
 //   os.query.endorsements.given('alice.near')
@@ -39,6 +40,7 @@ import { ThreadsQuery } from './threads.js';
 import { GroupsQuery } from './groups.js';
 import { ProfilesQuery } from './profiles.js';
 import { ReactionsQuery } from './reactions.js';
+import { GraphQuery } from './graph.js';
 import { StandingsQuery } from './standings.js';
 import { SavesQuery } from './saves.js';
 import { EndorsementsQuery } from './endorsements.js';
@@ -74,6 +76,12 @@ export type {
 export type { SaveRow } from './saves.js';
 export type { EndorsementRow } from './endorsements.js';
 export type { ClaimRow } from './attestations.js';
+export type {
+  GraphCountFilter,
+  GraphEdgeCountRow,
+  GraphEdgeFilter,
+  GraphEdgeRow,
+} from './graph.js';
 export type { EdgeCount, LeaderboardEntry, TokenStats } from './stats.js';
 export type { StorageEventRow } from './storage.js';
 export type { PermissionEventRow } from './permissions.js';
@@ -111,6 +119,7 @@ export class QueryModule {
   readonly groups: GroupsQuery;
   readonly profiles: ProfilesQuery;
   readonly reactions: ReactionsQuery;
+  readonly graph: GraphQuery;
   readonly standings: StandingsQuery;
   readonly saves: SavesQuery;
   readonly endorsements: EndorsementsQuery;
@@ -134,6 +143,7 @@ export class QueryModule {
     this.groups = new GroupsQuery(this);
     this.profiles = new ProfilesQuery(this);
     this.reactions = new ReactionsQuery(this);
+    this.graph = new GraphQuery(this);
     this.standings = new StandingsQuery(this);
     this.saves = new SavesQuery(this);
     this.endorsements = new EndorsementsQuery(this);

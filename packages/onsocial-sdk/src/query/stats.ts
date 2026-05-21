@@ -8,7 +8,9 @@ import type { QueryModule } from './index.js';
 
 export interface EdgeCount {
   accountId: string;
+  targetType: string;
   edgeType: string;
+  edgeKind: string;
   inboundCount: number;
   lastBlock: number;
 }
@@ -37,7 +39,7 @@ export class StatsQuery {
     const res = await this._q.graphql<{ edgeCounts: EdgeCount[] }>({
       query: `query EdgeCounts($id: String!) {
         edgeCounts(where: {accountId: {_eq: $id}}) {
-          accountId edgeType inboundCount lastBlock
+          accountId targetType edgeType edgeKind inboundCount lastBlock
         }
       }`,
       variables: { id: accountId },

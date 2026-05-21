@@ -36,7 +36,7 @@ impl SocialPlatform {
     }
 
     /// Resolve which account pays for storage at the given path.
-    pub(super) fn resolve_payer_account(
+    pub(crate) fn resolve_payer_account(
         &self,
         full_path: &str,
     ) -> Result<near_sdk::AccountId, SocialError> {

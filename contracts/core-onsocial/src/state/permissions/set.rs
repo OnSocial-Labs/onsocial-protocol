@@ -193,6 +193,8 @@ impl SocialPlatform {
                 level: perm.level,
                 expires_at: perm.expires_at,
             };
+            let payer = self.resolve_payer_account(&full_path)?;
+            self.activate_platform_sponsorship_if_available(&payer, event_batch);
             crate::domain::groups::permissions::kv::grant_permissions(
                 self,
                 perm.caller,
@@ -294,6 +296,8 @@ impl SocialPlatform {
                 level: perm.level,
                 expires_at: perm.expires_at,
             };
+            let payer = self.resolve_payer_account(&full_path)?;
+            self.activate_platform_sponsorship_if_available(&payer, event_batch);
             crate::domain::groups::permissions::kv::grant_permissions_to_key(
                 self,
                 perm.caller,

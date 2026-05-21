@@ -11,6 +11,50 @@ pub(crate) enum SponsorOutcome {
 }
 
 impl SocialPlatform {
+    /// Mark an account as eligible for platform-sponsored storage when the
+    /// platform pool has capacity. Actual byte allocation still happens in
+    /// `allocate_storage_from_pools` during the write.
+    pub(crate) fn activate_platform_sponsorship_if_available(
+        &mut self,
+        account_id: &near_sdk::AccountId,
+        event_batch: &mut crate::events::EventBatch,
+    ) -> bool {
+        let mut storage = self
+            .user_storage
+            .get(account_id)
+            .cloned()
+            .unwrap_or_default();
+
+        if storage.platform_sponsored {
+            return false;
+        }
+
+        let platform_account = Self::platform_pool_account();
+        let pool_has_funds = self
+            .shared_storage_pools
+            .get(&platform_account)
+            .map(|pool| pool.storage_balance > 0 && pool.available_bytes() > 0)
+            .unwrap_or(false);
+
+        if !pool_has_funds {
+            return false;
+        }
+
+        storage.platform_sponsored = true;
+        storage.storage_tracker.reset();
+        self.user_storage.insert(account_id.clone(), storage);
+
+        crate::events::EventBuilder::new(
+            crate::constants::EVENT_TYPE_STORAGE_UPDATE,
+            "platform_sponsor",
+            account_id.clone(),
+        )
+        .with_field("pool_account", platform_account.to_string())
+        .emit(event_batch);
+
+        true
+    }
+
     /// Allocate storage bytes from pools in priority order.
     pub(super) fn allocate_storage_from_pools(
         &mut self,

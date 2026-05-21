@@ -57,7 +57,30 @@ const SDK_EXPECTED_SCHEMA: Record<string, string[]> = {
   // query.ts → getQuotes
   quotes: ['quoteAuthor', 'quoteId', 'refAuthor', 'refPath', 'blockHeight'],
   // query.ts → edges
-  edgeCounts: ['accountId', 'edgeType', 'inboundCount'],
+  edgesCurrent: [
+    'edgeId',
+    'sourceAccount',
+    'targetAccount',
+    'targetType',
+    'targetPath',
+    'edgeType',
+    'edgeKind',
+    'source',
+    'target',
+    'value',
+    'blockHeight',
+    'blockTimestamp',
+    'operation',
+    'groupId',
+  ],
+  edgeCounts: [
+    'accountId',
+    'targetType',
+    'edgeType',
+    'edgeKind',
+    'inboundCount',
+    'lastBlock',
+  ],
   // query.ts → raw data
   dataUpdates: ['accountId', 'path', 'value', 'operation', 'blockHeight'],
   // query.ts → hashtags

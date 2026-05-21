@@ -2,6 +2,27 @@
 mod test_enhanced_permissions {
     use crate::domain::groups::permissions::kv::types::{FULL_ACCESS, MANAGE, WRITE};
     use crate::tests::test_utils::*;
+    use crate::{Action, Options, PublicKey, Request};
+    use near_sdk::json_types::U64;
+    use near_sdk::{NearToken, testing_env};
+    use std::str::FromStr;
+
+    fn fund_platform_pool(contract: &mut crate::Contract, donor: &near_sdk::AccountId) {
+        let mut event_batch = crate::events::EventBatch::new();
+        contract
+            .platform
+            .platform_pool_deposit_internal(
+                NearToken::from_near(1).as_yoctonear(),
+                donor,
+                &mut event_batch,
+            )
+            .unwrap();
+    }
+
+    fn test_public_key() -> PublicKey {
+        PublicKey::from_str("ed25519:DcA2MzgpJbrUATQLLceocVckhhAqrkingax4oJ9kZ847")
+            .expect("valid public key")
+    }
 
     #[test]
     fn test_simple_permission_check() {
@@ -121,6 +142,78 @@ mod test_enhanced_permissions {
 
         // Now grantee should not have write permission again
         assert!(!contract.has_permission(owner.clone(), grantee.clone(), test_path.clone(), WRITE));
+    }
+
+    #[test]
+    fn test_key_permission_grant_uses_platform_pool_for_first_time_account() {
+        let owner = test_account(0);
+        let context = get_context(owner.clone());
+        testing_env!(context.build());
+        let mut contract = init_live_contract();
+        fund_platform_pool(&mut contract, &owner);
+
+        let public_key = test_public_key();
+        let grant_path = "profile/".to_string();
+        let full_path = format!("{}/{grant_path}", owner.as_str());
+
+        let context = get_context(owner.clone());
+        testing_env!(context.build());
+
+        contract
+            .execute_admin(Request {
+                target_account: None,
+                action: Action::SetKeyPermission {
+                    public_key: public_key.clone(),
+                    path: grant_path,
+                    level: WRITE,
+                    expires_at: Some(U64(TEST_BASE_TIMESTAMP + 1_000_000_000)),
+                },
+                options: Some(Options::default()),
+            })
+            .unwrap();
+
+        assert!(contract.has_key_permission(owner.clone(), public_key, full_path, WRITE));
+
+        let storage = contract.get_storage_balance(owner).unwrap();
+        assert!(storage.platform_sponsored);
+        assert!(storage.platform_pool_used_bytes > 0);
+        assert_eq!(storage.balance.0, 0);
+    }
+
+    #[test]
+    fn test_permission_grant_uses_platform_pool_for_first_time_account() {
+        let owner = test_account(0);
+        let grantee = test_account(1);
+        let context = get_context(owner.clone());
+        testing_env!(context.build());
+        let mut contract = init_live_contract();
+        fund_platform_pool(&mut contract, &owner);
+
+        let grant_path = "profile/".to_string();
+        let full_path = format!("{}/{grant_path}", owner.as_str());
+
+        let context = get_context(owner.clone());
+        testing_env!(context.build());
+
+        contract
+            .execute_admin(Request {
+                target_account: None,
+                action: Action::SetPermission {
+                    grantee: grantee.clone(),
+                    path: grant_path,
+                    level: WRITE,
+                    expires_at: Some(U64(TEST_BASE_TIMESTAMP + 1_000_000_000)),
+                },
+                options: Some(Options::default()),
+            })
+            .unwrap();
+
+        assert!(contract.has_permission(owner.clone(), grantee, full_path, WRITE));
+
+        let storage = contract.get_storage_balance(owner).unwrap();
+        assert!(storage.platform_sponsored);
+        assert!(storage.platform_pool_used_bytes > 0);
+        assert_eq!(storage.balance.0, 0);
     }
 
     #[test]

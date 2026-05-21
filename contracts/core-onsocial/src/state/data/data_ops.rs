@@ -156,25 +156,10 @@ impl SocialPlatform {
             let has_shared = storage.shared_storage.is_some();
             let has_personal_balance = storage.balance.0 > 0;
 
-            let platform_account = Self::platform_pool_account();
-            let pool_has_funds = self
-                .shared_storage_pools
-                .get(&platform_account)
-                .map(|pool| pool.storage_balance > 0 && pool.available_bytes() > 0)
-                .unwrap_or(false);
-
-            if pool_has_funds && !already_sponsored {
-                storage.platform_sponsored = true;
-                storage.storage_tracker.reset();
-                self.user_storage.insert(account_id.clone(), storage);
-
-                crate::events::EventBuilder::new(
-                    crate::constants::EVENT_TYPE_STORAGE_UPDATE,
-                    "platform_sponsor",
-                    account_id.clone(),
-                )
-                .with_field("pool_account", platform_account.to_string())
-                .emit(ctx.event_batch);
+            if !already_sponsored
+                && self.activate_platform_sponsorship_if_available(account_id, ctx.event_batch)
+            {
+                // Sponsorship is now initialized; allocation happens during the write.
             } else if !(already_sponsored || has_shared || has_personal_balance)
                 && *ctx.attached_balance > 0
             {

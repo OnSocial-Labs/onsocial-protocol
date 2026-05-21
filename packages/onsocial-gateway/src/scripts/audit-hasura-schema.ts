@@ -15,9 +15,11 @@ const repoRoot = path.resolve(scriptDir, '../../../..');
 const schemaDir = path.join(repoRoot, 'indexers', 'substreams');
 
 const RELATION_REGEX =
-  /CREATE\s+(?:MATERIALIZED\s+VIEW|VIEW|TABLE)\s+IF\s+NOT\s+EXISTS\s+([a-z_][a-z0-9_]*)/g;
+  /CREATE\s+(?:OR\s+REPLACE\s+)?(?:(?:MATERIALIZED\s+)?VIEW|TABLE)(?:\s+IF\s+NOT\s+EXISTS)?\s+([a-z_][a-z0-9_]*)/g;
 const TABLE_BLOCK_REGEX =
   /CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+([a-z_][a-z0-9_]*)\s*\(([\s\S]*?)\);/g;
+const ALTER_ADD_COLUMN_REGEX =
+  /ALTER\s+TABLE\s+([a-z_][a-z0-9_]*)\s+ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+([a-z_][a-z0-9_]*)/g;
 const SKIPPED_TABLE_TOKENS = new Set([
   'primary',
   'unique',
@@ -51,6 +53,15 @@ function parseTableColumns(sql: string): Map<string, string[]> {
       columns.push(token);
     }
 
+    tables.set(tableName, columns);
+  }
+
+  for (const match of sql.matchAll(ALTER_ADD_COLUMN_REGEX)) {
+    const [, tableName, columnName] = match;
+    const columns = tables.get(tableName) ?? [];
+    if (!columns.includes(columnName)) {
+      columns.push(columnName);
+    }
     tables.set(tableName, columns);
   }
 

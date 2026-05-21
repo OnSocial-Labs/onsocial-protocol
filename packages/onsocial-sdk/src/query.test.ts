@@ -941,6 +941,98 @@ describe('QueryModule', () => {
     });
   });
 
+  describe('graph edges', () => {
+    it('queries outgoing graph edges with typed filters', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          edgesCurrent: [
+            {
+              edgeId: 'alice.near/reaction/bob.near/like/post/p1',
+              sourceAccount: 'alice.near',
+              targetAccount: 'bob.near',
+              targetType: 'content',
+              targetPath: 'post/p1',
+              edgeType: 'reaction',
+              edgeKind: 'like',
+              source: 'alice.near',
+              target: 'bob.near',
+              value: '{"v":1,"type":"like"}',
+              blockHeight: 10,
+              blockTimestamp: 100,
+              operation: 'set',
+              groupId: null,
+            },
+          ],
+        },
+      });
+
+      const rows = await os.query.graph.outgoing('alice.near', {
+        edgeType: 'reaction',
+        edgeKind: 'like',
+      });
+
+      expect(rows[0].targetPath).toBe('post/p1');
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('edgesCurrent');
+      expect(body.query).toContain('sourceAccount: {_eq: $sourceAccount}');
+      expect(body.query).toContain('edgeKind: {_eq: $edgeKind}');
+      expect(body.variables).toMatchObject({
+        sourceAccount: 'alice.near',
+        edgeType: 'reaction',
+        edgeKind: 'like',
+        limit: 100,
+        offset: 0,
+      });
+    });
+
+    it('queries content graph edges', async () => {
+      const { os, fetch } = makeOs({ data: { edgesCurrent: [] } });
+
+      await os.query.graph.forContent('bob.near', 'post/p1', {
+        edgeType: 'reaction',
+      });
+
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.variables).toMatchObject({
+        targetAccount: 'bob.near',
+        targetPath: 'post/p1',
+        targetType: 'content',
+        edgeType: 'reaction',
+      });
+    });
+
+    it('queries graph edge counts with kind-aware grouping', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          edgeCounts: [
+            {
+              accountId: 'bob.near',
+              targetType: 'content',
+              edgeType: 'reaction',
+              edgeKind: 'like',
+              inboundCount: 3,
+              lastBlock: 42,
+            },
+          ],
+        },
+      });
+
+      const rows = await os.query.graph.counts('bob.near', {
+        edgeType: 'reaction',
+        edgeKind: 'like',
+      });
+
+      expect(rows[0]).toMatchObject({
+        edgeType: 'reaction',
+        edgeKind: 'like',
+        inboundCount: 3,
+      });
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('edgeCounts');
+      expect(body.query).toContain('edgeKind: {_eq: $edgeKind}');
+    });
+  });
+
   // ── Hashtags ───────────────────────────────────────────────────────────
 
   describe('getPostsByHashtag()', () => {

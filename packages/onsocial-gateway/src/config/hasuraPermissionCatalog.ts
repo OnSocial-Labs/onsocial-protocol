@@ -37,6 +37,11 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
       'writes',
       'extra_data',
       'reaction_kind',
+      'channel',
+      'kind',
+      'audiences',
+      'actor_id',
+      'payer_id',
     ],
   },
   {
@@ -285,6 +290,12 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
   {
     name: 'edges_current',
     columns: [
+      'edge_id',
+      'source_account',
+      'target_account',
+      'target_type',
+      'target_path',
+      'edge_kind',
       'source',
       'target',
       'edge_type',
@@ -297,7 +308,14 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
   },
   {
     name: 'edge_counts',
-    columns: ['account_id', 'edge_type', 'inbound_count', 'last_block'],
+    columns: [
+      'account_id',
+      'target_type',
+      'edge_type',
+      'edge_kind',
+      'inbound_count',
+      'last_block',
+    ],
   },
   {
     name: 'claims_current',
@@ -763,6 +781,7 @@ export const ADMIN_ONLY_TABLES = [
 ];
 
 export const INTENTIONALLY_UNEXPOSED_RELATIONS = [
+  'leaderboard_agent_features',
   'leaderboard_snapshots',
   'reward_weights',
 ];

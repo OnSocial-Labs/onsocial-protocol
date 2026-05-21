@@ -841,6 +841,93 @@ async fn test_session_key_first_write_uses_platform_sponsorship_no_deposit() -> 
     Ok(())
 }
 
+#[tokio::test]
+async fn test_key_permission_grant_uses_platform_sponsorship_no_deposit() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let fund_amount = NearToken::from_near(5);
+    let res = root
+        .call(contract.id(), "execute_admin")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "storage/platform_pool_deposit": { "amount": fund_amount.as_yoctonear().to_string() }
+                } },
+                "options": null
+            }
+        }))
+        .deposit(fund_amount)
+        .gas(near_workspaces::types::Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(
+        res.is_success(),
+        "Expected platform pool funding to succeed: {:?}",
+        res.failures()
+    );
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    let storage_before: serde_json::Value = contract
+        .view("get_storage_balance")
+        .args_json(json!({"account_id": alice.id()}))
+        .await?
+        .json()?;
+    assert!(
+        storage_before.is_null(),
+        "Fresh user should not have preallocated contract storage"
+    );
+
+    let session_sk = SecretKey::from_random(KeyType::ED25519);
+    let session_pk = session_sk.public_key();
+
+    let res = alice
+        .call(contract.id(), "execute_admin")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": session_pk, "path": "profile/", "level": 1, "expires_at": null }
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(near_workspaces::types::Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(
+        res.is_success(),
+        "Expected first set_key_permission to succeed with 0 deposit when platform pool is funded: {:?}",
+        res.failures()
+    );
+
+    let allowance_info: serde_json::Value = contract
+        .view("get_platform_allowance")
+        .args_json(json!({"account_id": alice.id()}))
+        .await?
+        .json()?;
+    let is_sponsored = allowance_info
+        .get("is_platform_sponsored")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    assert!(
+        is_sponsored,
+        "Expected first permission grant to activate platform sponsorship"
+    );
+
+    let level: u8 = contract
+        .view("get_key_permissions")
+        .args_json(json!({
+            "owner": alice.id(),
+            "public_key": session_pk,
+            "path": "profile/"
+        }))
+        .await?
+        .json()?;
+    assert_eq!(level, 1, "Expected WRITE key permission to be stored");
+
+    Ok(())
+}
+
 // =============================================================================
 // Key Permission Edge Cases
 // =============================================================================
