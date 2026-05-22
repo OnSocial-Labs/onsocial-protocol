@@ -185,7 +185,10 @@ export function reputationTier(rank: number): {
 }
 
 /** Percent bar width (0–100) for a value against the leader */
-export function pctOfLeader(value: string | number, leader: string | number): number {
+export function pctOfLeader(
+  value: string | number,
+  leader: string | number
+): number {
   const v = Number.parseFloat(String(value));
   const l = Number.parseFloat(String(leader));
   if (!Number.isFinite(v) || !Number.isFinite(l) || l === 0) return 0;

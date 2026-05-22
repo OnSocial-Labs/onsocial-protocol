@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Check, ExternalLink, RefreshCw, X } from 'lucide-react';
@@ -22,7 +22,6 @@ export function TransactionFeedbackToast({
   onClose: () => void;
 }) {
   const onCloseRef = useRef(onClose);
-  const [dismissKey, setDismissKey] = useState(0);
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -30,7 +29,6 @@ export function TransactionFeedbackToast({
 
   useEffect(() => {
     if (!result || result.type === 'pending') return;
-    setDismissKey((k) => k + 1);
     const timeout = DISMISS_MS[result.type];
     const timer = window.setTimeout(() => onCloseRef.current(), timeout);
     return () => window.clearTimeout(timer);
@@ -40,6 +38,9 @@ export function TransactionFeedbackToast({
 
   const duration =
     result && result.type !== 'pending' ? DISMISS_MS[result.type] : 0;
+  const dismissKey = result
+    ? `${result.type}:${result.msg}:${result.explorerHref ?? ''}`
+    : 'none';
 
   return createPortal(
     <AnimatePresence initial={false}>

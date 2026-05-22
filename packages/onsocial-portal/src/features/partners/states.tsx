@@ -24,7 +24,6 @@ import { useWallet } from '@/contexts/wallet-context';
 import { Button, buttonArrowLeftClass } from '@/components/ui/button';
 import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
 import { PortalBadge } from '@/components/ui/portal-badge';
-import { SurfacePanel } from '@/components/ui/surface-panel';
 import { OnChainConfigSummary } from '@/components/data/on-chain-config-summary';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
 import {
@@ -146,7 +145,9 @@ export function PendingState({
   const explorerHref = proposal?.tx_hash
     ? `${ACTIVE_NEAR_EXPLORER_URL}/txns/${proposal.tx_hash}`
     : null;
-  const governanceHref = isGovernance ? `/governance/${encodeURIComponent(appId)}` : null;
+  const governanceHref = isGovernance
+    ? `/governance/${encodeURIComponent(appId)}`
+    : null;
 
   return (
     <div className="px-1 py-2 text-center md:px-2 md:py-3">
@@ -289,7 +290,7 @@ export function PendingState({
 
 export function GovernanceEligibilityState({
   appId: _appId,
-  label,
+  label: _label,
   eligibility,
   proposalBondDisplay = '1',
   proposalBond = '0',
@@ -322,12 +323,6 @@ export function GovernanceEligibilityState({
   const delegatedWeight = formatSocialAmount(
     eligibility?.delegatedWeight ?? '0'
   );
-  const remainingWeight = formatSocialAmount(
-    eligibility?.remainingToThreshold ?? '0'
-  );
-  const availableToDelegate = formatSocialAmount(
-    eligibility?.availableToDelegate ?? '0'
-  );
   const walletBalance = formatSocialAmount(eligibility?.walletBalance ?? '0');
   const depositNeeded = formatSocialAmount(eligibility?.depositNeeded ?? '0');
   const delegateNeeded = formatSocialAmount(eligibility?.delegateNeeded ?? '0');
@@ -335,17 +330,11 @@ export function GovernanceEligibilityState({
     eligibility?.availableToWithdraw ?? '0'
   );
   const nearBalance = formatNearAmount(eligibility?.nearBalance ?? '0');
-  const nearStorageNeeded = formatNearAmount(
-    eligibility?.nearStorageNeeded ?? '0'
-  );
   const registrationStorageReserve = formatNearAmount(
     eligibility?.registrationStorageDeposit ?? '0'
   );
   const canCoverDeposit = eligibility
     ? BigInt(eligibility.walletBalance) >= BigInt(eligibility.depositNeeded)
-    : false;
-  const canCoverStorage = eligibility
-    ? BigInt(eligibility.nearBalance) >= BigInt(eligibility.nearStorageNeeded)
     : false;
   const canCoverProposalBond = eligibility
     ? BigInt(eligibility.nearBalance) >= BigInt(proposalBond)
@@ -757,8 +746,7 @@ export function ApprovedDashboard({
               {registration.appId}
             </span>
             {' · '}
-            Label:{' '}
-            <span className="text-foreground">{registration.label}</span>
+            Label: <span className="text-foreground">{registration.label}</span>
           </p>
           <div className="relative">
             <code className="portal-green-text block break-all rounded-[1rem] border border-border/50 bg-background/50 px-3 py-2.5 pr-[4.5rem] font-mono text-xs md:px-4 md:py-3 md:text-sm select-none">
@@ -979,7 +967,10 @@ export function ApprovedDashboard({
                       >
                         <div className="space-y-4">
                           <SetupStepHeader step={1} title="Install" />
-                          <CodeBlock code={installSnippet(tab)} language="bash" />
+                          <CodeBlock
+                            code={installSnippet(tab)}
+                            language="bash"
+                          />
                         </div>
 
                         <div className="mt-6 space-y-4">
@@ -1011,7 +1002,10 @@ export function ApprovedDashboard({
                           />
                           {tab === 'bot' && (
                             <p className="text-xs text-muted-foreground">
-                              A <code className="portal-blue-text">BOT_TOKEN</code>{' '}
+                              A{' '}
+                              <code className="portal-blue-text">
+                                BOT_TOKEN
+                              </code>{' '}
                               comes from{' '}
                               <a
                                 href="https://t.me/BotFather"
@@ -1029,10 +1023,14 @@ export function ApprovedDashboard({
                         <div className="mt-6 space-y-4">
                           <SetupStepHeader
                             step={3}
-                            title={tab === 'bot' ? 'Create bot.ts' : 'Use the SDK'}
+                            title={
+                              tab === 'bot' ? 'Create bot.ts' : 'Use the SDK'
+                            }
                           />
                           <CodeBlock
-                            code={tab === 'bot' ? botSnippet() : sdkOnlySnippet()}
+                            code={
+                              tab === 'bot' ? botSnippet() : sdkOnlySnippet()
+                            }
                           />
                         </div>
 
@@ -1095,7 +1093,8 @@ export function ApprovedDashboard({
                               Preview
                             </p>
                             <p className="mb-4 text-xs text-muted-foreground">
-                              How your bot looks in Telegram — fully branded, zero custom code.
+                              How your bot looks in Telegram — fully branded,
+                              zero custom code.
                             </p>
                             <div className="grid gap-4 sm:grid-cols-2">
                               <div>
@@ -1103,17 +1102,22 @@ export function ApprovedDashboard({
                                   /start
                                 </p>
                                 <div className="rounded-[1rem] border border-white/5 bg-[#151827] p-3 text-sm font-mono leading-relaxed text-gray-200 shadow-inner shadow-black/10 space-y-1">
-                                  <p>🤝 OnSocial stands with {registration.label}</p>
+                                  <p>
+                                    🤝 OnSocial stands with {registration.label}
+                                  </p>
                                   <p className="mt-2">👋 Welcome!</p>
                                   <p className="mt-2 text-gray-400">
-                                    Earn 0.1 SOCIAL per message (up to 1/day) for being active
-                                    in the group.
+                                    Earn 0.1 SOCIAL per message (up to 1/day)
+                                    for being active in the group.
                                   </p>
                                   <p className="mt-1 text-gray-400">
-                                    Tap below to link your NEAR account and start earning 👇
+                                    Tap below to link your NEAR account and
+                                    start earning 👇
                                   </p>
                                   <div className="mt-3 flex gap-2">
-                                    <PreviewPill accent="blue">🔗 Link Account</PreviewPill>
+                                    <PreviewPill accent="blue">
+                                      🔗 Link Account
+                                    </PreviewPill>
                                     <PreviewPill>❓ How it works</PreviewPill>
                                   </div>
                                 </div>
@@ -1123,21 +1127,31 @@ export function ApprovedDashboard({
                                   /balance
                                 </p>
                                 <div className="rounded-[1rem] border border-white/5 bg-[#151827] p-3 text-sm font-mono leading-relaxed text-gray-200 shadow-inner shadow-black/10 space-y-1">
-                                  <p>🤝 OnSocial stands with {registration.label}</p>
+                                  <p>
+                                    🤝 OnSocial stands with {registration.label}
+                                  </p>
                                   <p className="mt-2">
                                     ⭐ Rewards for{' '}
-                                    <span className="portal-green-text">alice.near</span>
+                                    <span className="portal-green-text">
+                                      alice.near
+                                    </span>
                                   </p>
-                                  <p className="mt-2">💎 Unclaimed: 12.5 SOCIAL</p>
+                                  <p className="mt-2">
+                                    💎 Unclaimed: 12.5 SOCIAL
+                                  </p>
                                   <p className="portal-green-text text-xs">
                                     (ready to claim!)
                                   </p>
                                   <p className="mt-1 text-gray-400">
                                     📈 Daily progress: 0.5 / 1 SOCIAL
                                   </p>
-                                  <p className="mt-1">🏆 Total earned: 42 SOCIAL</p>
+                                  <p className="mt-1">
+                                    🏆 Total earned: 42 SOCIAL
+                                  </p>
                                   <div className="mt-3 flex gap-2">
-                                    <PreviewPill accent="purple">💎 Claim</PreviewPill>
+                                    <PreviewPill accent="purple">
+                                      💎 Claim
+                                    </PreviewPill>
                                     <PreviewPill>🔄 Refresh</PreviewPill>
                                   </div>
                                 </div>
@@ -1150,8 +1164,8 @@ export function ApprovedDashboard({
                   </>
                 ) : (
                   <div className="portal-blue-panel rounded-[1rem] border px-4 py-4 text-sm">
-                    Reveal the full key to unlock the setup guide, .env downloads, and
-                    key rotation.
+                    Reveal the full key to unlock the setup guide, .env
+                    downloads, and key rotation.
                   </div>
                 )}
               </div>

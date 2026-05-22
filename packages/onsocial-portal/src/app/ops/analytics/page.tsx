@@ -203,17 +203,48 @@ function renderDrilldownPanel(
         </p>
       ) : null}
 
-      <SurfacePanel radius="xl" tone="deep" padding="none" className="mt-6 overflow-hidden">
+      <SurfacePanel
+        radius="xl"
+        tone="deep"
+        padding="none"
+        className="mt-6 overflow-hidden"
+      >
         <StatStrip columns={4} mobileColumns={2}>
-          <StatStripCell label="Posts" value={formatCount(drilldown.totals.posts)} showDivider />
-          <StatStripCell label="Reactions" value={formatCount(drilldown.totals.reactions)} showDivider />
-          <StatStripCell label="Claims" value={formatCount(drilldown.totals.claims)} showDivider />
-          <StatStripCell label="Groups" value={formatCount(drilldown.totals.groups)} />
+          <StatStripCell
+            label="Posts"
+            value={formatCount(drilldown.totals.posts)}
+            showDivider
+          />
+          <StatStripCell
+            label="Reactions"
+            value={formatCount(drilldown.totals.reactions)}
+            showDivider
+          />
+          <StatStripCell
+            label="Claims"
+            value={formatCount(drilldown.totals.claims)}
+            showDivider
+          />
+          <StatStripCell
+            label="Groups"
+            value={formatCount(drilldown.totals.groups)}
+          />
         </StatStrip>
         <StatStrip columns={3} mobileColumns={1}>
-          <StatStripCell label="Permissions" value={formatCount(drilldown.totals.permissions)} showDivider />
-          <StatStripCell label="Contracts" value={formatCount(drilldown.totals.contracts)} showDivider />
-          <StatStripCell label="Total" value={formatCount(drilldown.totals.total)} />
+          <StatStripCell
+            label="Permissions"
+            value={formatCount(drilldown.totals.permissions)}
+            showDivider
+          />
+          <StatStripCell
+            label="Contracts"
+            value={formatCount(drilldown.totals.contracts)}
+            showDivider
+          />
+          <StatStripCell
+            label="Total"
+            value={formatCount(drilldown.totals.total)}
+          />
         </StatStrip>
       </SurfacePanel>
 
@@ -247,7 +278,9 @@ function renderDrilldownPanel(
 
       <div className="mt-6 space-y-3">
         {isLoading ? (
-          <p className="text-sm text-muted-foreground">Refreshing drilldown...</p>
+          <p className="text-sm text-muted-foreground">
+            Refreshing drilldown...
+          </p>
         ) : drilldown.recent.length > 0 ? (
           drilldown.recent.map((event, index) => (
             <div
@@ -263,11 +296,14 @@ function renderDrilldownPanel(
                     {event.actor}
                     {event.detail ? ` · ${event.detail}` : ''}
                     {event.operation ? ` · ${event.operation}` : ''}
-                    {event.partitionId != null ? ` · partition ${event.partitionId}` : ''}
+                    {event.partitionId != null
+                      ? ` · partition ${event.partitionId}`
+                      : ''}
                   </p>
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  #{formatCount(event.blockHeight)} · {formatTimestamp(event.blockTimestamp)}
+                  #{formatCount(event.blockHeight)} ·{' '}
+                  {formatTimestamp(event.blockTimestamp)}
                 </div>
               </div>
             </div>
@@ -283,15 +319,21 @@ function renderDrilldownPanel(
 }
 
 export default function OpsAnalyticsPage() {
-  const { accountId, connect, isConnected, isLoading: walletLoading } =
-    useWallet();
+  const {
+    accountId,
+    connect,
+    isConnected,
+    isLoading: walletLoading,
+  } = useWallet();
   const { authError, ensureAuth, isAuthenticating, jwt } = useGatewayAuth();
 
   const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedFocus, setSelectedFocus] = useState<AnalyticsDrilldownFocus | null>(null);
-  const [selectedStream, setSelectedStream] = useState<AnalyticsDrilldownStream>('all');
+  const [selectedFocus, setSelectedFocus] =
+    useState<AnalyticsDrilldownFocus | null>(null);
+  const [selectedStream, setSelectedStream] =
+    useState<AnalyticsDrilldownStream>('all');
   const [selectedLimit, setSelectedLimit] = useState(DEFAULT_DRILLDOWN_LIMIT);
   const [drilldown, setDrilldown] = useState<AnalyticsDrilldown | null>(null);
   const [drilldownError, setDrilldownError] = useState<string | null>(null);
@@ -406,7 +448,8 @@ export default function OpsAnalyticsPage() {
               Admin-gated gateway view
             </h2>
             <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              This page reads from the new gateway analytics endpoint and only resolves for admin or service-tier identities.
+              This page reads from the new gateway analytics endpoint and only
+              resolves for admin or service-tier identities.
             </p>
           </div>
 
@@ -464,29 +507,92 @@ export default function OpsAnalyticsPage() {
       {overview ? (
         <>
           <SectionHeader badge="Network Footprint" className="mb-4" />
-          <SurfacePanel radius="xl" tone="soft" padding="none" className="mb-6 overflow-hidden">
+          <SurfacePanel
+            radius="xl"
+            tone="soft"
+            padding="none"
+            className="mb-6 overflow-hidden"
+          >
             <StatStrip columns={5} mobileColumns={2}>
-              <StatStripCell label="Profiles" value={formatCount(overview.totals.profiles)} showDivider />
-              <StatStripCell label="Posts" value={formatCount(overview.totals.posts)} showDivider />
-              <StatStripCell label="Reactions" value={formatCount(overview.totals.reactions)} showDivider />
-              <StatStripCell label="Claims" value={formatCount(overview.totals.claims)} showDivider />
-              <StatStripCell label="Groups" value={formatCount(overview.totals.groups)} />
+              <StatStripCell
+                label="Profiles"
+                value={formatCount(overview.totals.profiles)}
+                showDivider
+              />
+              <StatStripCell
+                label="Posts"
+                value={formatCount(overview.totals.posts)}
+                showDivider
+              />
+              <StatStripCell
+                label="Reactions"
+                value={formatCount(overview.totals.reactions)}
+                showDivider
+              />
+              <StatStripCell
+                label="Claims"
+                value={formatCount(overview.totals.claims)}
+                showDivider
+              />
+              <StatStripCell
+                label="Groups"
+                value={formatCount(overview.totals.groups)}
+              />
             </StatStrip>
           </SurfacePanel>
 
           <SectionHeader badge="Recent Activity" className="mb-4" />
-          <SurfacePanel radius="xl" tone="soft" padding="none" className="mb-6 overflow-hidden">
+          <SurfacePanel
+            radius="xl"
+            tone="soft"
+            padding="none"
+            className="mb-6 overflow-hidden"
+          >
             <StatStrip columns={4} mobileColumns={2}>
-              <StatStripCell label="New Profiles" value={formatCount(overview.recent24h.profiles)} icon={Lock} showDivider />
-              <StatStripCell label="Posts" value={formatCount(overview.recent24h.posts)} icon={Activity} showDivider />
-              <StatStripCell label="Reactions" value={formatCount(overview.recent24h.reactions)} icon={RefreshCcw} showDivider />
-              <StatStripCell label="Groups" value={formatCount(overview.recent24h.groups)} icon={Database} />
+              <StatStripCell
+                label="New Profiles"
+                value={formatCount(overview.recent24h.profiles)}
+                icon={Lock}
+                showDivider
+              />
+              <StatStripCell
+                label="Posts"
+                value={formatCount(overview.recent24h.posts)}
+                icon={Activity}
+                showDivider
+              />
+              <StatStripCell
+                label="Reactions"
+                value={formatCount(overview.recent24h.reactions)}
+                icon={RefreshCcw}
+                showDivider
+              />
+              <StatStripCell
+                label="Groups"
+                value={formatCount(overview.recent24h.groups)}
+                icon={Database}
+              />
             </StatStrip>
             <StatStrip columns={4} mobileColumns={2}>
-              <StatStripCell label="Claims" value={formatCount(overview.recent24h.claims)} showDivider />
-              <StatStripCell label="Permissions" value={formatCount(overview.recent24h.permissionChanges)} showDivider />
-              <StatStripCell label="Storage" value={formatCount(overview.recent24h.storageWrites)} showDivider />
-              <StatStripCell label="Contracts" value={formatCount(overview.recent24h.contractEvents)} />
+              <StatStripCell
+                label="Claims"
+                value={formatCount(overview.recent24h.claims)}
+                showDivider
+              />
+              <StatStripCell
+                label="Permissions"
+                value={formatCount(overview.recent24h.permissionChanges)}
+                showDivider
+              />
+              <StatStripCell
+                label="Storage"
+                value={formatCount(overview.recent24h.storageWrites)}
+                showDivider
+              />
+              <StatStripCell
+                label="Contracts"
+                value={formatCount(overview.recent24h.contractEvents)}
+              />
             </StatStrip>
           </SurfacePanel>
 
@@ -504,35 +610,45 @@ export default function OpsAnalyticsPage() {
               overview.breakdowns.topPostAuthors,
               'No recent posts in the current sample window.',
               handleSelectAccount,
-              selectedFocus?.type === 'account' ? selectedFocus.accountId : undefined
+              selectedFocus?.type === 'account'
+                ? selectedFocus.accountId
+                : undefined
             )}
             {renderActorList(
               'Top reaction authors',
               overview.breakdowns.topReactionAuthors,
               'No recent reactions in the current sample window.',
               handleSelectAccount,
-              selectedFocus?.type === 'account' ? selectedFocus.accountId : undefined
+              selectedFocus?.type === 'account'
+                ? selectedFocus.accountId
+                : undefined
             )}
             {renderActorList(
               'Top claim issuers',
               overview.breakdowns.topClaimIssuers,
               'No recent claims in the current sample window.',
               handleSelectAccount,
-              selectedFocus?.type === 'account' ? selectedFocus.accountId : undefined
+              selectedFocus?.type === 'account'
+                ? selectedFocus.accountId
+                : undefined
             )}
             {renderActorList(
               'Top group authors',
               overview.breakdowns.topGroupAuthors,
               'No recent group updates in the current sample window.',
               handleSelectAccount,
-              selectedFocus?.type === 'account' ? selectedFocus.accountId : undefined
+              selectedFocus?.type === 'account'
+                ? selectedFocus.accountId
+                : undefined
             )}
           </div>
 
           <SectionHeader badge="Partition Heat" className="mb-4 mt-8" />
           <SurfacePanel radius="xl" tone="soft" padding="roomy">
             <p className="text-sm text-muted-foreground">
-              Ranked from the latest {formatCount(overview.sampleLimit)} rows sampled per indexed stream over the last {overview.windowHours} hours.
+              Ranked from the latest {formatCount(overview.sampleLimit)} rows
+              sampled per indexed stream over the last {overview.windowHours}{' '}
+              hours.
             </p>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               {renderPartitionList(
@@ -545,46 +661,49 @@ export default function OpsAnalyticsPage() {
             </div>
           </SurfacePanel>
 
-          {drilldown || drilldownError ?
-            renderDrilldownPanel(
-              drilldown ?? {
-                generatedAt: new Date().toISOString(),
-                windowHours: overview.windowHours,
-                focus: selectedFocus ?? { type: 'account', accountId: 'unknown' },
-                stream: selectedStream,
-                requestedLimit: selectedLimit,
-                hasMore: false,
-                totals: {
-                  posts: 0,
-                  reactions: 0,
-                  claims: 0,
-                  groups: 0,
-                  permissions: 0,
-                  contracts: 0,
-                  total: 0,
+          {drilldown || drilldownError
+            ? renderDrilldownPanel(
+                drilldown ?? {
+                  generatedAt: new Date().toISOString(),
+                  windowHours: overview.windowHours,
+                  focus: selectedFocus ?? {
+                    type: 'account',
+                    accountId: 'unknown',
+                  },
+                  stream: selectedStream,
+                  requestedLimit: selectedLimit,
+                  hasMore: false,
+                  totals: {
+                    posts: 0,
+                    reactions: 0,
+                    claims: 0,
+                    groups: 0,
+                    permissions: 0,
+                    contracts: 0,
+                    total: 0,
+                  },
+                  latestByStream: {
+                    posts: null,
+                    reactions: null,
+                    claims: null,
+                    groups: null,
+                    permissions: null,
+                    contracts: null,
+                  },
+                  recent: [],
                 },
-                latestByStream: {
-                  posts: null,
-                  reactions: null,
-                  claims: null,
-                  groups: null,
-                  permissions: null,
-                  contracts: null,
+                isDrilldownLoading,
+                drilldownError,
+                () => {
+                  setSelectedFocus(null);
+                  setSelectedStream('all');
+                  setSelectedLimit(DEFAULT_DRILLDOWN_LIMIT);
+                  setDrilldown(null);
+                  setDrilldownError(null);
                 },
-                recent: [],
-              },
-              isDrilldownLoading,
-              drilldownError,
-              () => {
-                setSelectedFocus(null);
-                setSelectedStream('all');
-                setSelectedLimit(DEFAULT_DRILLDOWN_LIMIT);
-                setDrilldown(null);
-                setDrilldownError(null);
-              },
-              handleSelectStream
-            )
-          : null}
+                handleSelectStream
+              )
+            : null}
 
           {drilldown?.hasMore ? (
             <div className="mt-4 flex justify-center">
@@ -602,7 +721,8 @@ export default function OpsAnalyticsPage() {
           ) : null}
 
           <p className="mt-6 text-sm text-muted-foreground">
-            Snapshot generated at {new Date(overview.generatedAt).toLocaleString()}.
+            Snapshot generated at{' '}
+            {new Date(overview.generatedAt).toLocaleString()}.
           </p>
         </>
       ) : (

@@ -70,8 +70,7 @@ export const SecondaryPageHeader = forwardRef<
   const centered = align === 'center';
   const badgeKey = useId();
   const reduceMotion = useReducedMotion();
-  const { setPageBadge, clearPageBadge } =
-    useMobilePageContext();
+  const { setPageBadge, clearPageBadge } = useMobilePageContext();
 
   useEffect(() => {
     setPageBadge({ key: badgeKey, badge, badgeAccent });

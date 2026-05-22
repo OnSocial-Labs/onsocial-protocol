@@ -143,17 +143,17 @@ export default function RootLayout({
             <RuntimeConfigWarnings />
             <WalletProvider network={ACTIVE_NEAR_NETWORK}>
               <GatewayAuthProvider>
-              <MobilePageProvider>
-              <NavVisibilityProvider>
-                <Suspense>
-                  <SmoothScrollProvider>
-                    <Navigation />
-                    <main className="safe-x">{children}</main>
-                    <Footer />
-                  </SmoothScrollProvider>
-                </Suspense>
-              </NavVisibilityProvider>
-              </MobilePageProvider>
+                <MobilePageProvider>
+                  <NavVisibilityProvider>
+                    <Suspense>
+                      <SmoothScrollProvider>
+                        <Navigation />
+                        <main className="safe-x">{children}</main>
+                        <Footer />
+                      </SmoothScrollProvider>
+                    </Suspense>
+                  </NavVisibilityProvider>
+                </MobilePageProvider>
               </GatewayAuthProvider>
             </WalletProvider>
           </ThemeProvider>

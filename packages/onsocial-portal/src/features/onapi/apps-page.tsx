@@ -2,14 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import {
-  AlertTriangle,
-  Boxes,
-  Plus,
-  RefreshCw,
-  Trash2,
-  X,
-} from 'lucide-react';
+import { AlertTriangle, Boxes, Plus, RefreshCw, Trash2, X } from 'lucide-react';
 import { useWallet } from '@/contexts/wallet-context';
 import { useGatewayAuth } from '@/contexts/gateway-auth-context';
 import { useMobilePageContext } from '@/components/providers/mobile-page-context';
@@ -44,11 +37,7 @@ function friendlyError(raw: string): string {
 }
 
 export default function OnApiAppsPage() {
-  const {
-    isConnected,
-    isLoading: walletLoading,
-    connect,
-  } = useWallet();
+  const { isConnected, isLoading: walletLoading, connect } = useWallet();
   const {
     jwt,
     isAuthenticating: authLoading,
@@ -244,11 +233,7 @@ export default function OnApiAppsPage() {
                     value={appIdInput}
                     onChange={(e) => setAppIdInput(e.target.value)}
                     onKeyDown={(e) => {
-                      if (
-                        e.key === 'Enter' &&
-                        appIdValid &&
-                        !creating
-                      ) {
+                      if (e.key === 'Enter' && appIdValid && !creating) {
                         e.preventDefault();
                         handleCreate();
                       }
@@ -361,14 +346,11 @@ export default function OnApiAppsPage() {
                       </code>
                       <p className="mt-0.5 text-[10px] text-muted-foreground">
                         Created{' '}
-                        {new Date(app.createdAt).toLocaleDateString(
-                          undefined,
-                          {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                          }
-                        )}
+                        {new Date(app.createdAt).toLocaleDateString(undefined, {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                        })}
                       </p>
                     </div>
 
@@ -422,7 +404,9 @@ export default function OnApiAppsPage() {
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/40" />
             <div className="space-y-1.5 text-xs text-muted-foreground">
               <p>
-                <strong className="text-foreground/70">What are app namespaces?</strong>{' '}
+                <strong className="text-foreground/70">
+                  What are app namespaces?
+                </strong>{' '}
                 They isolate notification events, rules, and webhooks. Use
                 separate namespaces for different products (e.g.{' '}
                 <code className="portal-blue-text">my-tg-bot</code>,{' '}
@@ -438,10 +422,7 @@ export default function OnApiAppsPage() {
         </SurfacePanel>
       </motion.div>
 
-      <TransactionFeedbackToast
-        result={toast}
-        onClose={() => setToast(null)}
-      />
+      <TransactionFeedbackToast result={toast} onClose={() => setToast(null)} />
     </PageShell>
   );
 }

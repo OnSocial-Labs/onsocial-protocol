@@ -195,7 +195,7 @@ function buildUndelegateChunks(entries: string[], amount: bigint) {
 }
 
 export function GovernancePositionPanel() {
-  const { accountId, wallet, connect } = useWallet();
+  const { accountId, wallet } = useWallet();
   const [eligibility, setEligibility] =
     useState<GovernanceEligibilitySnapshot | null>(null);
   const [loading, setLoading] = useState(false);
@@ -482,11 +482,7 @@ export function GovernancePositionPanel() {
         value: formatSocial(eligibility?.delegatedWeight ?? '0'),
       },
     ],
-    [
-      eligibility?.walletBalance,
-      eligibility?.voteAmount,
-      eligibility?.delegatedWeight,
-    ]
+    [eligibility]
   );
 
   const statusRow = useMemo(() => {
@@ -538,11 +534,8 @@ export function GovernancePositionPanel() {
     eligibility?.availableToWithdraw,
     eligibility?.canPropose,
     eligibility?.cooldownLockedAmount,
-    eligibility?.delegatedWeight,
     eligibility?.remainingToThreshold,
     eligibility?.requiredWeight,
-    eligibility?.voteAmount,
-    eligibility?.walletBalance,
     undelegatedYocto,
     withdrawableYocto,
   ]);
@@ -645,9 +638,7 @@ export function GovernancePositionPanel() {
         );
 
         if (delegationTxHashes.length === 0) {
-          throw new Error(
-            'Delegation returned no transaction hash.'
-          );
+          throw new Error('Delegation returned no transaction hash.');
         }
 
         const delegationConfirmed = await trackTransaction({
@@ -703,9 +694,7 @@ export function GovernancePositionPanel() {
       setTxResult({
         type: 'error',
         msg:
-          nextError instanceof Error
-            ? nextError.message
-            : 'Delegation failed.',
+          nextError instanceof Error ? nextError.message : 'Delegation failed.',
       });
     } finally {
       setActingMode(null);
@@ -775,9 +764,7 @@ export function GovernancePositionPanel() {
       );
 
       if (!undelegateTxHash) {
-        throw new Error(
-          'Undelegation returned no transaction hash.'
-        );
+        throw new Error('Undelegation returned no transaction hash.');
       }
 
       const undelegateConfirmed = await trackTransaction({
@@ -858,6 +845,7 @@ export function GovernancePositionPanel() {
       const withdrawTxHash = await withdrawGovernanceTokens(
         wallet,
         eligibility.stakingContractId,
+        accountId,
         amountYocto.toString()
       );
 
@@ -882,9 +870,7 @@ export function GovernancePositionPanel() {
       setTxResult({
         type: 'error',
         msg:
-          nextError instanceof Error
-            ? nextError.message
-            : 'Withdrawal failed.',
+          nextError instanceof Error ? nextError.message : 'Withdrawal failed.',
       });
     } finally {
       setActingMode(null);

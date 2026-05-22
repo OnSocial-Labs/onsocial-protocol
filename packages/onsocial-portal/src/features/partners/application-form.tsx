@@ -246,7 +246,13 @@ export function ApplicationForm({
   );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const audienceMenu = useDropdown();
+  const {
+    isOpen: audienceMenuOpen,
+    open: openAudienceDropdown,
+    close: closeAudienceDropdown,
+    toggle: toggleAudienceDropdown,
+    containerRef: audienceMenuRef,
+  } = useDropdown();
   const audienceTriggerRef = useRef<HTMLButtonElement | null>(null);
   const audienceOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
@@ -304,7 +310,7 @@ export function ApplicationForm({
     setShowTelegramFeedback(Boolean(initialValues?.telegramHandle));
     setShowXFeedback(Boolean(initialValues?.xHandle));
     setAppIdAvailability({ state: 'idle', appId: '', message: '' });
-    audienceMenu.close();
+    closeAudienceDropdown();
     setAudienceActiveIndex(
       AUDIENCE_BANDS.indexOf(
         AUDIENCE_BANDS.includes(
@@ -318,7 +324,7 @@ export function ApplicationForm({
     );
     setSubmitting(false);
     setError('');
-  }, [initialValues]);
+  }, [initialValues, closeAudienceDropdown]);
 
   const toSlug = (value: string) =>
     value
@@ -437,11 +443,11 @@ export function ApplicationForm({
 
   const openAudienceMenu = (index = selectedAudienceIndex) => {
     setAudienceActiveIndex(index >= 0 ? index : 0);
-    audienceMenu.open();
+    openAudienceDropdown();
   };
 
   const closeAudienceMenu = () => {
-    audienceMenu.close();
+    closeAudienceDropdown();
     audienceTriggerRef.current?.focus();
   };
 
@@ -457,7 +463,7 @@ export function ApplicationForm({
   };
 
   useEffect(() => {
-    if (!audienceMenu.isOpen) {
+    if (!audienceMenuOpen) {
       return;
     }
 
@@ -473,7 +479,7 @@ export function ApplicationForm({
     return () => {
       window.cancelAnimationFrame(frame);
     };
-  }, [audienceActiveIndex, audienceMenu.isOpen]);
+  }, [audienceActiveIndex, audienceMenuOpen]);
 
   useEffect(() => {
     if (!labelReady || !accountId) {
@@ -663,7 +669,10 @@ export function ApplicationForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mx-auto max-w-xl space-y-4 md:space-y-6">
+    <form
+      onSubmit={handleSubmit}
+      className="mx-auto max-w-xl space-y-4 md:space-y-6"
+    >
       <SurfacePanel
         radius="xl"
         tone="subtle"
@@ -851,11 +860,11 @@ export function ApplicationForm({
             <label className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
               Community Size
             </label>
-            <div className="relative" ref={audienceMenu.containerRef}>
+            <div className="relative" ref={audienceMenuRef}>
               <button
                 ref={audienceTriggerRef}
                 type="button"
-                onClick={audienceMenu.toggle}
+                onClick={toggleAudienceDropdown}
                 onKeyDown={(event) => {
                   if (event.key === 'ArrowDown') {
                     event.preventDefault();
@@ -874,19 +883,19 @@ export function ApplicationForm({
                   }
                 }}
                 aria-haspopup="listbox"
-                aria-expanded={audienceMenu.isOpen}
+                aria-expanded={audienceMenuOpen}
                 className="portal-blue-focus flex w-full items-center justify-between rounded-2xl border border-border/60 px-4 py-3.5 text-left text-sm outline-none"
               >
                 <span>{audienceBand}</span>
                 <ChevronDown
                   className={`h-4 w-4 text-muted-foreground transition-transform ${
-                    audienceMenu.isOpen ? 'rotate-180' : ''
+                    audienceMenuOpen ? 'rotate-180' : ''
                   }`}
                 />
               </button>
 
               <FloatingPanelMenu
-                open={audienceMenu.isOpen}
+                open={audienceMenuOpen}
                 align="full"
                 className="space-y-0.5 p-1 md:p-1.5"
                 role="listbox"
@@ -915,7 +924,7 @@ export function ApplicationForm({
                     event.preventDefault();
                     closeAudienceMenu();
                   } else if (event.key === 'Tab') {
-                    audienceMenu.close();
+                    closeAudienceDropdown();
                   }
                 }}
               >

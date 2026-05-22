@@ -29,6 +29,22 @@ const DAO_ADD_PROPOSAL_GAS = '300000000000000';
 const GOVERNANCE_STAKING_GAS = '80000000000000';
 const GOVERNANCE_TOKEN_TRANSFER_GAS = '100000000000000';
 
+async function getVerifiedSignerId(
+  wallet: NearWalletBase,
+  accountId: string
+): Promise<string> {
+  const accounts = await wallet.getAccounts({ network: ACTIVE_NEAR_NETWORK });
+  const accountIds = accounts.map((account) => account.accountId);
+
+  if (!accountIds.includes(accountId)) {
+    throw new Error(
+      `Wallet account mismatch. Portal is connected as ${accountId}, but the wallet is using ${accountIds.join(', ') || 'no account'}. Switch the wallet account or reconnect before signing.`
+    );
+  }
+
+  return accountId;
+}
+
 function decodeProposalId(result: unknown): number | null {
   const successValue = (result as { status?: { SuccessValue?: string } })
     ?.status?.SuccessValue;
@@ -176,6 +192,7 @@ export async function reopenApplication(
 
 export async function submitDirectGovernanceProposal(
   wallet: NearWalletBase,
+  accountId: string,
   proposal: GovernanceProposal
 ): Promise<{ proposalId: number | null; txHash: string | null }> {
   if (!proposal.payload) {
@@ -186,9 +203,11 @@ export async function submitDirectGovernanceProposal(
   const proposalBond =
     (await getGovernanceProposalBond(daoAccountId).catch(() => null)) ??
     GOVERNANCE_PROPOSAL_BOND;
+  const signerId = await getVerifiedSignerId(wallet, accountId);
 
   const result = await wallet.signAndSendTransaction({
     network: ACTIVE_NEAR_NETWORK,
+    signerId,
     receiverId: daoAccountId,
     actions: [
       {
@@ -215,8 +234,10 @@ export async function registerGovernanceAccount(
   accountId: string,
   storageDeposit: string
 ): Promise<string | null> {
+  const signerId = await getVerifiedSignerId(wallet, accountId);
   const result = await wallet.signAndSendTransaction({
     network: ACTIVE_NEAR_NETWORK,
+    signerId,
     receiverId: stakingContractId,
     actions: [
       {
@@ -239,11 +260,14 @@ export async function registerGovernanceAccount(
 
 export async function depositGovernanceTokens(
   wallet: NearWalletBase,
+  accountId: string,
   stakingContractId: string,
   amount: string
 ): Promise<string | null> {
+  const signerId = await getVerifiedSignerId(wallet, accountId);
   const result = await wallet.signAndSendTransaction({
     network: ACTIVE_NEAR_NETWORK,
+    signerId,
     receiverId: TOKEN_CONTRACT,
     actions: [
       {
@@ -279,6 +303,7 @@ export async function prepareGovernanceDelegation(
     delegateAmount?: string;
   }
 ): Promise<string[]> {
+  const signerId = await getVerifiedSignerId(wallet, accountId);
   const transactions: Array<{
     receiverId: string;
     actions: Array<{
@@ -361,6 +386,7 @@ export async function prepareGovernanceDelegation(
     const [transaction] = transactions;
     const result = await wallet.signAndSendTransaction({
       network: ACTIVE_NEAR_NETWORK,
+      signerId,
       receiverId: transaction.receiverId,
       actions: transaction.actions,
     });
@@ -370,6 +396,7 @@ export async function prepareGovernanceDelegation(
 
   const result = await wallet.signAndSendTransactions({
     network: ACTIVE_NEAR_NETWORK,
+    signerId,
     transactions,
   });
 
@@ -440,8 +467,10 @@ export async function selfDelegateGovernanceTokens(
   accountId: string,
   amount: string
 ): Promise<string | null> {
+  const signerId = await getVerifiedSignerId(wallet, accountId);
   const result = await wallet.signAndSendTransaction({
     network: ACTIVE_NEAR_NETWORK,
+    signerId,
     receiverId: stakingContractId,
     actions: [
       {
@@ -468,8 +497,10 @@ export async function undelegateGovernanceTokens(
   accountId: string,
   amount: string
 ): Promise<string | null> {
+  const signerId = await getVerifiedSignerId(wallet, accountId);
   const result = await wallet.signAndSendTransaction({
     network: ACTIVE_NEAR_NETWORK,
+    signerId,
     receiverId: stakingContractId,
     actions: [
       {
@@ -504,8 +535,10 @@ export async function undelegateGovernanceEntries(
     return null;
   }
 
+  const signerId = await getVerifiedSignerId(wallet, accountId);
   const result = await wallet.signAndSendTransaction({
     network: ACTIVE_NEAR_NETWORK,
+    signerId,
     receiverId: stakingContractId,
     actions: normalizedAmounts.map((amount) => ({
       type: 'FunctionCall' as const,
@@ -527,10 +560,13 @@ export async function undelegateGovernanceEntries(
 export async function withdrawGovernanceTokens(
   wallet: NearWalletBase,
   stakingContractId: string,
+  accountId: string,
   amount: string
 ): Promise<string | null> {
+  const signerId = await getVerifiedSignerId(wallet, accountId);
   const result = await wallet.signAndSendTransaction({
     network: ACTIVE_NEAR_NETWORK,
+    signerId,
     receiverId: stakingContractId,
     actions: [
       {

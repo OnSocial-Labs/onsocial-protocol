@@ -16,10 +16,7 @@ export default function GovernanceManagePage() {
 
   return (
     <PageShell className="max-w-5xl">
-      <SecondaryPageHeader
-        badge="Account"
-        badgeAccent="blue"
-      />
+      <SecondaryPageHeader badge="Account" badgeAccent="blue" />
 
       <GovernancePositionPanel />
     </PageShell>

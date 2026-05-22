@@ -43,11 +43,17 @@ export function Footer() {
           </p>
           <p className="text-[0.6rem] text-muted-foreground/35">
             Services by{' '}
-            <Link href="/about" className="transition-colors hover:text-[var(--portal-purple)]">
+            <Link
+              href="/about"
+              className="transition-colors hover:text-[var(--portal-purple)]"
+            >
               OnSocial Labs
             </Link>
             {' · Protocol governed by '}
-            <Link href="/governance" className="transition-colors hover:text-[var(--portal-blue)]">
+            <Link
+              href="/governance"
+              className="transition-colors hover:text-[var(--portal-blue)]"
+            >
               DAO
             </Link>
           </p>

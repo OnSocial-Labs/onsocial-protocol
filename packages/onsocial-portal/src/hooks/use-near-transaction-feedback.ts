@@ -65,10 +65,7 @@ export function useNearTransactionFeedback(
         if (!result.ok) {
           setTxResult({
             type: 'error',
-            msg:
-              result.errorMessage ??
-              failureMessage ??
-              'Transaction failed.',
+            msg: result.errorMessage ?? failureMessage ?? 'Transaction failed.',
             explorerHref,
           });
           return false;

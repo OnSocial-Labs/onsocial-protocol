@@ -388,6 +388,7 @@ export default function PartnersPage() {
     try {
       const { proposalId, txHash } = await submitDirectGovernanceProposal(
         wallet,
+        accountId,
         pendingApp.proposal
       );
 
@@ -722,6 +723,7 @@ export default function PartnersPage() {
       const txHash = await withdrawGovernanceTokens(
         wallet,
         currentEligibility.stakingContractId,
+        accountId,
         currentEligibility.availableToWithdraw
       );
 
@@ -746,8 +748,7 @@ export default function PartnersPage() {
     } catch (err) {
       setTxResult({
         type: 'error',
-        msg:
-          err instanceof Error ? err.message : 'Withdrawal failed.',
+        msg: err instanceof Error ? err.message : 'Withdrawal failed.',
       });
     } finally {
       setProposalSubmitting(false);

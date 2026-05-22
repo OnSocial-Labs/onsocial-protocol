@@ -17,10 +17,7 @@ import { PageShell } from '@/components/layout/page-shell';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
 import { SectionHeader } from '@/components/layout/section-header';
 import { PortalBadge } from '@/components/ui/portal-badge';
-import {
-  InsetDividerGroup,
-  InsetDividerItem,
-} from '@/components/ui/inset-divider-group';
+import { InsetDividerGroup } from '@/components/ui/inset-divider-group';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
@@ -36,11 +33,7 @@ import {
   ACTIVE_NEAR_NETWORK,
   NEAR_ACCOUNT_SUFFIX,
 } from '@/lib/portal-config';
-import {
-  portalColors,
-  portalFrameStyle,
-  type PortalAccent,
-} from '@/lib/portal-colors';
+import { portalColors, type PortalAccent } from '@/lib/portal-colors';
 
 const NETWORK = ACTIVE_NEAR_NETWORK;
 const API_URL = ACTIVE_API_URL;
@@ -716,7 +709,11 @@ export default function TransparencyPage() {
         transition={{ duration: 0.5, delay: 0.08 }}
         className="mb-8"
       >
-        <SectionHeader badge="Supply Overview" align="center" className="mb-4" />
+        <SectionHeader
+          badge="Supply Overview"
+          align="center"
+          className="mb-4"
+        />
         <StatStrip>
           <StatStripCell label="Total Supply" showDivider>
             <a

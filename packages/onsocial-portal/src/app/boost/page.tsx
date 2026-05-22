@@ -7,7 +7,12 @@ import {
   useLayoutEffect,
   useCallback,
 } from 'react';
-import { motion, useInView, AnimatePresence } from 'framer-motion';
+import {
+  motion,
+  useInView,
+  AnimatePresence,
+  useReducedMotion,
+} from 'framer-motion';
 import {
   Calendar,
   Info,
@@ -31,6 +36,7 @@ import { PulsingDots } from '@/components/ui/pulsing-dots';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
+import { CollectCelebration } from '@/components/ui/collect-celebration';
 import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
 import {
   BOOST_CONTRACT,
@@ -41,7 +47,10 @@ import {
 } from '@/lib/near-rpc';
 import { createPortalOnSocialClient } from '@/lib/onsocial-client';
 import { portalColors } from '@/lib/portal-colors';
-import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/portal-config';
+import {
+  ACTIVE_NEAR_EXPLORER_URL,
+  ACTIVE_NEAR_NETWORK,
+} from '@/lib/portal-config';
 import { cn } from '@/lib/utils';
 import type {
   BoostAccountView,
@@ -93,7 +102,14 @@ const os = createPortalOnSocialClient();
 
 const STAKE_AMOUNT_MAX_DECIMALS = 18;
 const MIN_STAKE_AMOUNT = '0.01';
+const SOCIAL_DECIMALS = 18;
+const YOCTO_PER_SOCIAL = 10n ** BigInt(SOCIAL_DECIMALS);
+const LIVE_COUNTER_FRACTION_DIGITS = 6;
+const REWARD_RATE_FRACTION_DIGITS = 8;
+const CLAIM_CELEBRATION_TIMEOUT_MS = 2100;
+const REDUCED_MOTION_CLAIM_CELEBRATION_TIMEOUT_MS = 1400;
 type BoostAction = 'stake' | 'claim' | 'unlock' | 'renew' | `extend:${number}`;
+type ClaimCelebration = { id: number; amountYocto: bigint };
 
 // ─── Helpers ─────────────────────────────────────────────────
 
@@ -146,8 +162,38 @@ function finalizeStakeAmountInput(raw: string): string {
   return trimmedFraction ? `${whole}.${trimmedFraction}` : whole;
 }
 
+function parseYocto(value: string | null | undefined): bigint {
+  if (!value) return 0n;
+  try {
+    return BigInt(value);
+  } catch {
+    return 0n;
+  }
+}
+
 function addThousandsSeparators(whole: string): string {
   return whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+function formatYoctoSocialFixed(
+  value: bigint,
+  fractionDigits = LIVE_COUNTER_FRACTION_DIGITS
+): string {
+  const digits = Math.max(0, Math.min(SOCIAL_DECIMALS, fractionDigits));
+  const sign = value < 0n ? '-' : '';
+  const absolute = value < 0n ? -value : value;
+  const whole = absolute / YOCTO_PER_SOCIAL;
+
+  if (digits === 0) {
+    return `${sign}${addThousandsSeparators(whole.toString())}`;
+  }
+
+  const fractionDivisor = 10n ** BigInt(SOCIAL_DECIMALS - digits);
+  const fraction = ((absolute % YOCTO_PER_SOCIAL) / fractionDivisor)
+    .toString()
+    .padStart(digits, '0');
+
+  return `${sign}${addThousandsSeparators(whole.toString())}.${fraction}`;
 }
 
 function formatDecimalString(value: string, maxDec = 4): string {
@@ -256,28 +302,48 @@ export default function BoostPage() {
   const heroRef = useRef(null);
   const loadedAccountIdRef = useRef<string | null>(null);
   const isInView = useInView(heroRef, { once: true, amount: 0.1 });
+  const reduceMotion = useReducedMotion();
 
   // ── Calculator state ──
   const [selectedPeriod, setSelectedPeriod] = useState(2); // default 12mo
   const [stakeAmount, setStakeAmount] = useState('');
 
   // ── On-chain data ──
-  const [account, setAccount] = useState<BoostAccountView | null>(null);
-  const [lockStatus, setLockStatus] = useState<BoostLockStatus | null>(null);
+  const [loadedAccount, setLoadedAccount] = useState<BoostAccountView | null>(
+    null
+  );
+  const [loadedLockStatus, setLoadedLockStatus] =
+    useState<BoostLockStatus | null>(null);
   const [stats, setStats] = useState<BoostStats | null>(null);
-  const [rewardRate, setRewardRate] = useState<BoostRewardRate | null>(null);
-  const [tokenBalance, setTokenBalance] = useState('0');
+  const [loadedRewardRate, setLoadedRewardRate] =
+    useState<BoostRewardRate | null>(null);
+  const [loadedTokenBalance, setLoadedTokenBalance] = useState('0');
   const [tokenIconSrc, setTokenIconSrc] = useState<string | null>(null);
   const [dataLoading, setDataLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   // ── Live reward counter ──
-  const [liveClaimable, setLiveClaimable] = useState(0);
-  const liveClaimableRef = useRef(0);
+  const [liveClaimableYocto, setLiveClaimableYocto] = useState(0n);
+  const liveClaimableYoctoRef = useRef(0n);
+  const liveCounterPausedRef = useRef(false);
+  const hasLoadedAccountData =
+    accountId !== null && loadedAccountIdRef.current === accountId;
+  const account = hasLoadedAccountData ? loadedAccount : null;
+  const lockStatus = hasLoadedAccountData ? loadedLockStatus : null;
+  const rewardRate = hasLoadedAccountData ? loadedRewardRate : null;
+  const tokenBalance = hasLoadedAccountData ? loadedTokenBalance : '0';
+  const visibleLiveClaimableYocto = hasLoadedAccountData
+    ? liveClaimableYocto
+    : 0n;
 
   // ── Transaction state ──
   const [txPending, setTxPending] = useState(false);
   const [pendingAction, setPendingAction] = useState<BoostAction | null>(null);
+  const [claimCelebration, setClaimCelebration] =
+    useState<ClaimCelebration | null>(null);
+  const claimCelebrationTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
   const lastConfirmedActionRef = useRef<BoostAction | null>(null);
   const { txResult, setTxResult, clearTxResult, trackTransaction } =
     useNearTransactionFeedback(accountId);
@@ -338,6 +404,49 @@ export default function BoostPage() {
           : hasStake
             ? 'Increase'
             : `Commit for ${period.label}`;
+  const claimCelebrationDurationSeconds = reduceMotion ? 1.15 : 1.75;
+
+  const clearClaimCelebration = useCallback(() => {
+    if (claimCelebrationTimeoutRef.current) {
+      clearTimeout(claimCelebrationTimeoutRef.current);
+      claimCelebrationTimeoutRef.current = null;
+    }
+    setClaimCelebration(null);
+  }, []);
+
+  const triggerClaimCelebration = useCallback(
+    (amountYocto: bigint) => {
+      if (amountYocto <= 0n) return;
+
+      if (claimCelebrationTimeoutRef.current) {
+        clearTimeout(claimCelebrationTimeoutRef.current);
+      }
+
+      const id = Date.now();
+      setClaimCelebration({ id, amountYocto });
+      claimCelebrationTimeoutRef.current = setTimeout(
+        () => {
+          setClaimCelebration((current) =>
+            current?.id === id ? null : current
+          );
+          claimCelebrationTimeoutRef.current = null;
+        },
+        reduceMotion
+          ? REDUCED_MOTION_CLAIM_CELEBRATION_TIMEOUT_MS
+          : CLAIM_CELEBRATION_TIMEOUT_MS
+      );
+    },
+    [reduceMotion]
+  );
+
+  useEffect(
+    () => () => {
+      if (claimCelebrationTimeoutRef.current) {
+        clearTimeout(claimCelebrationTimeoutRef.current);
+      }
+    },
+    []
+  );
 
   useLayoutEffect(() => {
     if (accountId) return;
@@ -346,9 +455,10 @@ export default function BoostPage() {
     setSelectedPeriod(2);
     setShowExtend(false);
     setShowRenew(false);
+    clearClaimCelebration();
     clearTxResult();
     setDataLoading(false);
-  }, [accountId, clearTxResult]);
+  }, [accountId, clearClaimCelebration, clearTxResult]);
 
   // ── Data Fetching ──
 
@@ -371,34 +481,60 @@ export default function BoostPage() {
       .catch(() => {});
   }, []);
 
+  // ── Live reward counter ──
+  const setLiveClaimableYoctoValue = useCallback((value: bigint) => {
+    liveClaimableYoctoRef.current = value;
+    setLiveClaimableYocto(value);
+  }, []);
+
   // Fetch user data when connected
   useEffect(() => {
     if (!accountId) {
-      setAccount(null);
-      setLockStatus(null);
-      setRewardRate(null);
-      setTokenBalance('0');
+      setLoadedAccount(null);
+      setLoadedLockStatus(null);
+      setLoadedRewardRate(null);
+      setLoadedTokenBalance('0');
+      setLiveClaimableYoctoValue(0n);
       loadedAccountIdRef.current = null;
+      setDataLoading(false);
       return;
     }
 
-    const isInitialLoadForAccount = loadedAccountIdRef.current !== accountId;
+    let cancelled = false;
+    const requestedAccountId = accountId;
+    const isInitialLoadForAccount =
+      loadedAccountIdRef.current !== requestedAccountId;
+
     if (isInitialLoadForAccount) {
+      setLoadedAccount(null);
+      setLoadedLockStatus(null);
+      setLoadedRewardRate(null);
+      setLoadedTokenBalance('0');
+      setStakeAmount('');
+      setSelectedPeriod(2);
+      setShowExtend(false);
+      setShowRenew(false);
+      clearClaimCelebration();
+      setLiveClaimableYoctoValue(0n);
+      liveCounterPausedRef.current = false;
+      lastConfirmedActionRef.current = null;
       setDataLoading(true);
     }
 
     Promise.all([
-      os.boost.getAccount(accountId),
-      os.boost.getRewardRate(accountId),
-      os.boost.getLockStatus(accountId),
-      os.token.balanceOf(accountId),
+      os.boost.getAccount(requestedAccountId),
+      os.boost.getRewardRate(requestedAccountId),
+      os.boost.getLockStatus(requestedAccountId),
+      os.token.balanceOf(requestedAccountId),
     ])
       .then(([acct, rate, status, bal]) => {
-        loadedAccountIdRef.current = accountId;
-        setAccount(acct);
-        setRewardRate(rate);
-        setLockStatus(status);
-        setTokenBalance(bal ?? '0');
+        if (cancelled) return;
+
+        loadedAccountIdRef.current = requestedAccountId;
+        setLoadedAccount(acct);
+        setLoadedRewardRate(rate);
+        setLoadedLockStatus(status);
+        setLoadedTokenBalance(bal ?? '0');
 
         // Auto-select current lock period
         if (acct && BigInt(acct.locked_amount) > 0n) {
@@ -406,51 +542,62 @@ export default function BoostPage() {
           if (idx >= 0) setSelectedPeriod(idx);
         }
       })
-      .catch(console.error)
+      .catch((error) => {
+        if (!cancelled) console.error(error);
+      })
       .finally(() => {
-        if (isInitialLoadForAccount) {
+        if (!cancelled && isInitialLoadForAccount) {
           setDataLoading(false);
         }
       });
-  }, [accountId, refreshKey]);
-
-  // ── Live reward counter ──
-  const setLiveClaimableValue = useCallback((value: number) => {
-    liveClaimableRef.current = value;
-    setLiveClaimable(value);
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    accountId,
+    clearClaimCelebration,
+    refreshKey,
+    setLiveClaimableYoctoValue,
+  ]);
 
   useEffect(() => {
     if (!rewardRate) {
-      setLiveClaimableValue(0);
+      setLiveClaimableYoctoValue(0n);
       return;
     }
 
-    const initial = parseFloat(yoctoToSocial(rewardRate.claimable_now));
-    const perSec = parseFloat(yoctoToSocial(rewardRate.rewards_per_second));
+    const initial = parseYocto(rewardRate.claimable_now);
+    const perSecondYocto = parseYocto(rewardRate.rewards_per_second);
     const allowResetDown =
       lastConfirmedActionRef.current === 'claim' ||
       lastConfirmedActionRef.current === 'unlock';
     lastConfirmedActionRef.current = null;
+    liveCounterPausedRef.current = false;
     const startValue = allowResetDown
       ? initial
-      : Math.max(initial, liveClaimableRef.current);
+      : initial > liveClaimableYoctoRef.current
+        ? initial
+        : liveClaimableYoctoRef.current;
 
-    if (perSec <= 0) {
-      setLiveClaimableValue(startValue);
+    if (perSecondYocto <= 0n) {
+      setLiveClaimableYoctoValue(startValue);
       return;
     }
 
     const start = Date.now();
-    setLiveClaimableValue(startValue);
+    setLiveClaimableYoctoValue(startValue);
 
     const interval = setInterval(() => {
-      const elapsed = (Date.now() - start) / 1000;
-      setLiveClaimableValue(startValue + perSec * elapsed);
+      if (liveCounterPausedRef.current) return;
+
+      const elapsedMs = BigInt(Date.now() - start);
+      setLiveClaimableYoctoValue(
+        startValue + (perSecondYocto * elapsedMs) / 1000n
+      );
     }, 100);
 
     return () => clearInterval(interval);
-  }, [rewardRate, setLiveClaimableValue]);
+  }, [rewardRate, setLiveClaimableYoctoValue]);
 
   // ── Transaction Helpers ──
 
@@ -463,6 +610,23 @@ export default function BoostPage() {
     setTimeout(() => setRefreshKey((k) => k + 1), 4000);
   }, []);
 
+  const getVerifiedSignerId = useCallback(async (): Promise<string> => {
+    if (!wallet || !accountId) {
+      throw new Error('Connect your wallet before boosting.');
+    }
+
+    const accounts = await wallet.getAccounts({ network: ACTIVE_NEAR_NETWORK });
+    const walletAccountIds = accounts.map((account) => account.accountId);
+
+    if (!walletAccountIds.includes(accountId)) {
+      throw new Error(
+        `Wallet account mismatch. Portal is connected as ${accountId}, but the wallet is using ${walletAccountIds.join(', ') || 'no account'}. Switch the wallet account or reconnect before signing.`
+      );
+    }
+
+    return accountId;
+  }, [accountId, wallet]);
+
   const runTx = useCallback(
     async (
       action: BoostAction,
@@ -471,13 +635,14 @@ export default function BoostPage() {
         success: string;
         failure: string;
       },
-      fn: () => Promise<unknown>
+      fn: (signerId: string) => Promise<unknown>
     ) => {
       setTxPending(true);
       setPendingAction(action);
       clearTxResult();
       try {
-        const result = await fn();
+        const signerId = await getVerifiedSignerId();
+        const result = await fn(signerId);
         const txHashes = extractNearTransactionHashes(result);
         if (txHashes.length === 0) {
           throw new Error(
@@ -492,6 +657,12 @@ export default function BoostPage() {
         });
         if (confirmed) {
           lastConfirmedActionRef.current = action;
+          if (action === 'claim') {
+            const claimedYocto = liveClaimableYoctoRef.current;
+            liveCounterPausedRef.current = true;
+            triggerClaimCelebration(claimedYocto);
+            setLiveClaimableYoctoValue(0n);
+          }
           afterTx();
         }
       } catch (e) {
@@ -504,7 +675,15 @@ export default function BoostPage() {
         setPendingAction(null);
       }
     },
-    [afterTx, clearTxResult, setTxResult, trackTransaction]
+    [
+      afterTx,
+      clearTxResult,
+      getVerifiedSignerId,
+      setLiveClaimableYoctoValue,
+      setTxResult,
+      trackTransaction,
+      triggerClaimCelebration,
+    ]
   );
 
   // ── Actions ──
@@ -539,8 +718,10 @@ export default function BoostPage() {
           : `Committed ${normalizedStakeAmount} SOCIAL for ${period.label}.`,
         failure: 'Boost update failed.',
       },
-      async () => {
+      async (signerId) => {
         const result = await wallet.signAndSendTransaction({
+          network: ACTIVE_NEAR_NETWORK,
+          signerId,
           receiverId: TOKEN_CONTRACT,
           actions: [
             {
@@ -576,8 +757,10 @@ export default function BoostPage() {
         success: 'Balance collected!',
         failure: 'Collection failed.',
       },
-      async () =>
+      async (signerId) =>
         wallet.signAndSendTransaction({
+          network: ACTIVE_NEAR_NETWORK,
+          signerId,
           receiverId: BOOST_CONTRACT,
           actions: [
             {
@@ -603,8 +786,10 @@ export default function BoostPage() {
         success: 'Position released and returned!',
         failure: 'Release failed.',
       },
-      async () =>
+      async (signerId) =>
         wallet.signAndSendTransaction({
+          network: ACTIVE_NEAR_NETWORK,
+          signerId,
           receiverId: BOOST_CONTRACT,
           actions: [
             {
@@ -631,8 +816,10 @@ export default function BoostPage() {
         success: `Extended to ${lp?.label ?? months + ' months'}.`,
         failure: 'Extension failed.',
       },
-      async () => {
+      async (signerId) => {
         const result = await wallet.signAndSendTransaction({
+          network: ACTIVE_NEAR_NETWORK,
+          signerId,
           receiverId: BOOST_CONTRACT,
           actions: [
             {
@@ -661,8 +848,10 @@ export default function BoostPage() {
         success: 'Commitment renewed!',
         failure: 'Renewal failed.',
       },
-      async () => {
+      async (signerId) => {
         const result = await wallet.signAndSendTransaction({
+          network: ACTIVE_NEAR_NETWORK,
+          signerId,
           receiverId: BOOST_CONTRACT,
           actions: [
             {
@@ -706,6 +895,13 @@ export default function BoostPage() {
   const perSecond = rewardRate
     ? parseFloat(yoctoToSocial(rewardRate.rewards_per_second))
     : 0;
+  const perSecondYocto = rewardRate
+    ? parseYocto(rewardRate.rewards_per_second)
+    : 0n;
+  const perSecondDisplay = formatYoctoSocialFixed(
+    perSecondYocto,
+    REWARD_RATE_FRACTION_DIGITS
+  );
   const dailyRewardEstimate = perSecond > 0 ? perSecond * 86400 : 0;
   const publicWeeklyReleaseYocto =
     stats?.active_weekly_rate_bps !== null &&
@@ -828,43 +1024,82 @@ export default function BoostPage() {
                     </div>
 
                     {/* ── Collectible Balance ── */}
-                    <div className="mt-4 flex flex-col items-center py-2 text-center">
-                      <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                        Ready to Collect
-                      </span>
-                      <p className="portal-green-text mt-1 font-mono text-3xl font-bold tabular-nums tracking-[-0.03em] md:text-4xl">
-                        {liveClaimable.toLocaleString('en-US', {
-                          minimumFractionDigits: 6,
-                          maximumFractionDigits: 6,
-                        })}
-                      </p>
-                      <span className="portal-green-text mt-0.5 text-[10px] font-medium uppercase tracking-[0.16em] opacity-70">
-                        $SOCIAL
-                      </span>
-                      {perSecond > 0 && (
-                        <p className="mt-1 font-mono text-[11px] text-muted-foreground">
-                          +{perSecond.toFixed(8)}/sec
-                        </p>
-                      )}
-                      <Button
-                        onClick={handleClaim}
-                        disabled={txPending || liveClaimable <= 0}
-                        variant="accent"
-                        size="sm"
-                        className="mt-3 min-w-[8rem] justify-center"
-                        loading={txPending && pendingAction === 'claim'}
+                    <div className="relative mt-4 flex flex-col items-center overflow-hidden rounded-2xl px-4 py-3 text-center">
+                      <CollectCelebration
+                        active={Boolean(claimCelebration)}
+                        celebrationKey={claimCelebration?.id ?? 'idle'}
+                        reduceMotion={reduceMotion}
+                        durationSeconds={claimCelebrationDurationSeconds}
+                        icon={<Gift className="h-3 w-3" />}
                       >
-                        <Gift className="h-3.5 w-3.5" />
-                        Collect
-                      </Button>
-                      {account.rewards_claimed !== '0' && (
-                        <p className="mt-2 text-[11px] text-muted-foreground">
-                          Collected{' '}
-                          <span className="portal-green-text font-mono font-semibold tracking-tight">
-                            {formatSocial(account.rewards_claimed)}
-                          </span>
+                        +
+                        {claimCelebration
+                          ? formatYoctoSocialFixed(claimCelebration.amountYocto)
+                          : '0'}
+                      </CollectCelebration>
+                      <motion.div
+                        aria-hidden={claimCelebration ? true : undefined}
+                        animate={
+                          claimCelebration && !reduceMotion
+                            ? {
+                                opacity: 0,
+                                scale: 0.9,
+                                y: -10,
+                                filter: 'blur(5px)',
+                              }
+                            : claimCelebration
+                              ? { opacity: 0, scale: 0.96 }
+                              : {
+                                  opacity: 1,
+                                  scale: 1,
+                                  y: 0,
+                                  filter: 'blur(0px)',
+                                }
+                        }
+                        transition={{
+                          duration: claimCelebration ? 0.32 : 0.36,
+                          ease: claimCelebration
+                            ? [0.4, 0, 1, 1]
+                            : [0.22, 1, 0.36, 1],
+                        }}
+                        className="flex flex-col items-center"
+                      >
+                        <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                          Ready to Collect
+                        </span>
+                        <p className="portal-green-text mt-1 font-mono text-3xl font-bold tabular-nums tracking-[-0.03em] md:text-4xl">
+                          {formatYoctoSocialFixed(visibleLiveClaimableYocto)}
                         </p>
-                      )}
+                        <span className="portal-green-text mt-0.5 text-[10px] font-medium uppercase tracking-[0.16em] opacity-70">
+                          $SOCIAL
+                        </span>
+                        {perSecond > 0 && (
+                          <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+                            +{perSecondDisplay}/sec
+                          </p>
+                        )}
+                        <Button
+                          onClick={handleClaim}
+                          disabled={
+                            txPending || visibleLiveClaimableYocto <= 0n
+                          }
+                          variant="accent"
+                          size="sm"
+                          className="mt-3 min-w-[8rem] justify-center"
+                          loading={txPending && pendingAction === 'claim'}
+                        >
+                          <Gift className="h-3.5 w-3.5" />
+                          Collect
+                        </Button>
+                        {account.rewards_claimed !== '0' && (
+                          <p className="mt-2 text-[11px] text-muted-foreground">
+                            Collected{' '}
+                            <span className="portal-green-text font-mono font-semibold tracking-tight">
+                              {formatSocial(account.rewards_claimed)}
+                            </span>
+                          </p>
+                        )}
+                      </motion.div>
                     </div>
 
                     {/* ── Stats ── */}

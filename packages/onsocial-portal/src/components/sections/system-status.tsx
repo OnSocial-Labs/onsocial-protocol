@@ -15,7 +15,6 @@ import {
   viewAccount,
   viewContractAt,
 } from '@/lib/near-rpc';
-import { portalColors } from '@/lib/portal-colors';
 import { ACTIVE_API_URL } from '@/lib/portal-config';
 
 /* ── Types ── */
@@ -227,15 +226,21 @@ export function SystemStatus() {
   }, []);
 
   useEffect(() => {
-    void checkServices();
+    const initial = window.setTimeout(checkServices, 0);
     const interval = setInterval(checkServices, 30_000);
-    return () => clearInterval(interval);
+    return () => {
+      window.clearTimeout(initial);
+      clearInterval(interval);
+    };
   }, [checkServices]);
 
   useEffect(() => {
-    void checkContracts();
+    const initial = window.setTimeout(checkContracts, 0);
     const interval = setInterval(checkContracts, 60_000);
-    return () => clearInterval(interval);
+    return () => {
+      window.clearTimeout(initial);
+      clearInterval(interval);
+    };
   }, [checkContracts]);
 
   const allUp =
