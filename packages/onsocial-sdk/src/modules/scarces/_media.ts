@@ -11,8 +11,8 @@
 //     hash the existing CID bytes when `mediaHash` is not provided.
 //   • If `image` is a Blob/File and a StorageProvider is configured →
 //     upload, return `{ mediaCid: uploaded.cid, mediaHash: sha256(image) }`.
-//   • If neither → returns empty object (caller may still hit the
-//     `/compose/<verb>` fallback path which uploads server-side).
+//   • If neither → returns empty object; the caller may still use the
+//     gateway prepare route, which can upload server-side from FormData.
 // ---------------------------------------------------------------------------
 
 import type { StorageProvider } from '../../storage/provider.js';

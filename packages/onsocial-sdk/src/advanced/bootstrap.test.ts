@@ -147,13 +147,21 @@ describe('nearConnectAdapter', () => {
   it('forwards transactions and uses the explicit accountId', async () => {
     const wallet = {
       signAndSendTransactions: vi.fn(async () => 'ok'),
+      getAccounts: vi.fn(async () => [{ accountId: 'alice.near' }]),
     };
-    const adapter = nearConnectAdapter(wallet, 'alice.near');
+    const adapter = nearConnectAdapter(wallet, 'alice.near', {
+      network: 'testnet',
+    });
     expect(await adapter.accountId()).toBe('alice.near');
+    expect(wallet.getAccounts).toHaveBeenCalledWith({ network: 'testnet' });
 
     const txs = { transactions: [{ receiverId: 'x.near', actions: [] }] };
     await adapter.signAndSendTransactions(txs);
-    expect(wallet.signAndSendTransactions).toHaveBeenCalledWith(txs);
+    expect(wallet.signAndSendTransactions).toHaveBeenCalledWith({
+      network: 'testnet',
+      signerId: 'alice.near',
+      ...txs,
+    });
   });
 
   it('falls back to wallet.getAccounts() when accountId is null', async () => {

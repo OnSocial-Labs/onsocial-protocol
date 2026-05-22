@@ -137,8 +137,9 @@ export class ScarcesTokensApi {
    * Mint a scarce (NFT). When a `StorageProvider` is configured and `image`
    * is a `File`/`Blob`, the bytes are uploaded locally via that provider
    * and the action is signed with the attached session and relayed via
-   * `/relay/delegate`. Otherwise the call falls through to the gateway's
-   * `/compose/mint` endpoint, which uploads on the dev's behalf.
+   * `/relay/delegate`. Otherwise the call uses the gateway's
+   * `/compose/prepare/mint` flow, which uploads on the dev's behalf before
+   * the SDK signs and relays the prepared action.
    *
    * ```ts
    * await os.scarces.tokens.mint({ title: 'My Art', image: file });

@@ -23,8 +23,9 @@
 // When the OnSocial client has a `StorageProvider` configured (e.g. Lighthouse),
 // file-bearing methods (`tokens.mint`, `collections.create`, `lazy.create`)
 // upload locally and sign+relay the resulting action via `/relay/delegate`.
-// Otherwise they fall through to the gateway's `/compose/<verb>` endpoint
-// (zero-config — the gateway uploads via its own Lighthouse account).
+// Otherwise they use the gateway's `/compose/prepare/<verb>` flow
+// (zero-config — the gateway uploads via its own Lighthouse account), then
+// sign+relay the prepared action via `/relay/delegate`.
 // ---------------------------------------------------------------------------
 
 import type { HttpClient } from '../../internal/http.js';

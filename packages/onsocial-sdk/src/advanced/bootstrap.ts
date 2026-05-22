@@ -58,33 +58,67 @@ export interface WalletAdapter {
 
 export interface NearConnectWalletLike {
   signAndSendTransactions(params: {
+    network?: Network;
+    signerId?: string;
     transactions: Array<{ receiverId: string; actions: NearAction[] }>;
   }): Promise<unknown>;
-  getAccounts?(): Promise<Array<{ accountId: string }>>;
+  getAccounts?(data?: {
+    network?: Network;
+  }): Promise<Array<{ accountId: string }>>;
 }
 
 /** Wraps a wallet-selector-compatible wallet as a `WalletAdapter`. */
 export function nearConnectAdapter(
   wallet: NearConnectWalletLike | null | undefined,
-  accountId: string | null | undefined
+  accountId: string | null | undefined,
+  options: { network?: Network } = {}
 ): WalletAdapter {
   if (!wallet) {
     throw new Error(
       'nearConnectAdapter: wallet is null — user is not signed in'
     );
   }
-  return {
-    accountId: async () => {
-      if (accountId) return accountId;
-      const accounts = (await wallet.getAccounts?.()) ?? [];
-      const id = accounts[0]?.accountId;
-      if (!id) {
-        throw new Error('nearConnectAdapter: no signed-in accountId available');
+
+  const accountLookupArgs = options.network
+    ? { network: options.network }
+    : undefined;
+  const transactionNetworkArgs = options.network
+    ? { network: options.network }
+    : {};
+
+  const resolveAccountId = async (): Promise<string> => {
+    const accounts = (await wallet.getAccounts?.(accountLookupArgs)) ?? [];
+
+    if (accountId) {
+      if (
+        accounts.length > 0 &&
+        !accounts.some((account) => account.accountId === accountId)
+      ) {
+        throw new Error(
+          `nearConnectAdapter: wallet is not signed in as ${accountId}`
+        );
       }
-      return id;
+
+      return accountId;
+    }
+
+    const id = accounts[0]?.accountId;
+    if (!id) {
+      throw new Error('nearConnectAdapter: no signed-in accountId available');
+    }
+    return id;
+  };
+
+  return {
+    accountId: resolveAccountId,
+    signAndSendTransactions: async ({ transactions }) => {
+      const signerId = await resolveAccountId();
+      return wallet.signAndSendTransactions({
+        ...transactionNetworkArgs,
+        signerId,
+        transactions,
+      });
     },
-    signAndSendTransactions: ({ transactions }) =>
-      wallet.signAndSendTransactions({ transactions }),
   };
 }
 
