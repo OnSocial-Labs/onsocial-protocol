@@ -408,8 +408,8 @@ importers:
   packages/onsocial-portal:
     dependencies:
       '@hot-labs/near-connect':
-        specifier: ^0.11.0
-        version: 0.11.1
+        specifier: ^0.11.4
+        version: 0.11.4
       '@monaco-editor/react':
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.54.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -1235,8 +1235,8 @@ packages:
   '@hapi/topo@5.1.0':
     resolution: {integrity: sha512-foQZKJig7Ob0BMAYBfcJk8d77QtOe7Wo4ox7ff1lQYoNNAb6jwcY1ncdoy2e9wQZzvNy7ODZCYJkK8kzmcAnAg==}
 
-  '@hot-labs/near-connect@0.11.1':
-    resolution: {integrity: sha512-pREyFIGuC5CapWD0p1FkAJSB32AS5qM/7h4OtgRm6K2lZnUZtT6w8dnvs7Tn8vHmi4IASGRdTdpoYvQZ3nstUA==}
+  '@hot-labs/near-connect@0.11.4':
+    resolution: {integrity: sha512-exAL1gqysyCHewcMO334YJ3ddTPg3j9EyVM9novz5Jx4fLbG/YSYBlkYMjMNB8E9K/4I7BiemjOw9bQ+h80hEA==}
 
   '@humanfs/core@0.19.1':
     resolution: {integrity: sha512-5DyQ4+1JEUzejeK1JGICcideyfUbGixgS9jNgex5nqkW+cY7WZhxBigmieN5Qnw9ZosSNVC9KQKyb+GUaGyKUA==}
@@ -5751,7 +5751,7 @@ snapshots:
     dependencies:
       '@hapi/hoek': 9.3.0
 
-  '@hot-labs/near-connect@0.11.1': {}
+  '@hot-labs/near-connect@0.11.4': {}
 
   '@humanfs/core@0.19.1': {}
 
