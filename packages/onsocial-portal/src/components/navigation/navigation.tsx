@@ -4,7 +4,19 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { Activity, ArrowLeft, ArrowUpRight, ChevronDown, Eye, Flame, Handshake, Landmark, Key, Package, Play } from 'lucide-react';
+import {
+  Activity,
+  ArrowLeft,
+  ArrowUpRight,
+  ChevronDown,
+  Eye,
+  Flame,
+  Handshake,
+  Landmark,
+  Key,
+  Package,
+  Play,
+} from 'lucide-react';
 import { BrandLogo } from '@/components/brand-logo';
 import { PwaInstallButton } from '@/components/pwa-install-button';
 import { useMobilePageContext } from '@/components/providers/mobile-page-context';
@@ -30,7 +42,6 @@ import {
   getDesktopViewportScale,
   getMobileNavMetrics,
   interpolateMetric,
-  MOBILE_NAV_MAX_WIDTH,
   MOBILE_NAV_MIN_WIDTH,
 } from '@/lib/nav-metrics';
 import { cn } from '@/lib/utils';
@@ -63,10 +74,30 @@ const baseNavGroups: NavGroup[] = [
     attribution: 'Governed by DAO',
     accent: 'blue',
     items: [
-      { label: 'Transparency', href: '/transparency', description: 'Token supply & on-chain proof', icon: Eye },
-      { label: 'Boost', href: '/boost', description: 'Influence staking & rewards', icon: Flame },
-      { label: 'Partners', href: '/partners', description: 'Ecosystem collaborations', icon: Handshake },
-      { label: 'Governance', href: '/governance', description: 'Proposals & on-chain voting', icon: Landmark },
+      {
+        label: 'Transparency',
+        href: '/transparency',
+        description: 'Token supply & on-chain proof',
+        icon: Eye,
+      },
+      {
+        label: 'Boost',
+        href: '/boost',
+        description: 'Influence staking & rewards',
+        icon: Flame,
+      },
+      {
+        label: 'Partners',
+        href: '/partners',
+        description: 'Ecosystem collaborations',
+        icon: Handshake,
+      },
+      {
+        label: 'Governance',
+        href: '/governance',
+        description: 'Proposals & on-chain voting',
+        icon: Landmark,
+      },
     ],
   },
   {
@@ -74,9 +105,24 @@ const baseNavGroups: NavGroup[] = [
     attribution: 'By OnSocial Labs',
     accent: 'purple',
     items: [
-      { label: 'OnAPI', href: '/onapi', description: 'API access & subscriptions', icon: Key },
-      { label: 'SDK', href: '/sdk', description: 'Build with OnSocial', icon: Package },
-      { label: 'Playground', href: '/playground', description: 'Interactive code sandbox', icon: Play },
+      {
+        label: 'OnAPI',
+        href: '/onapi',
+        description: 'API access & subscriptions',
+        icon: Key,
+      },
+      {
+        label: 'SDK',
+        href: '/sdk',
+        description: 'Build with OnSocial',
+        icon: Package,
+      },
+      {
+        label: 'Playground',
+        href: '/playground',
+        description: 'Interactive code sandbox',
+        icon: Play,
+      },
     ],
   },
 ];
@@ -153,41 +199,43 @@ export function Navigation() {
   const protocolDropdown = useDropdown();
   const servicesDropdown = useDropdown();
   const internalDropdown = useDropdown();
-  const mobileContextDropdown = useDropdown();
-  const desktopContextDropdown = useDropdown();
+  const {
+    isOpen: mobileContextOpen,
+    close: closeMobileContext,
+    toggle: toggleMobileContext,
+    containerRef: mobileContextRef,
+  } = useDropdown();
+  const {
+    isOpen: desktopContextOpen,
+    close: closeDesktopContext,
+    toggle: toggleDesktopContext,
+    containerRef: desktopContextRef,
+  } = useDropdown();
   const groupDropdowns = useMemo(
     () => [protocolDropdown, servicesDropdown, internalDropdown],
     [protocolDropdown, servicesDropdown, internalDropdown]
   );
   const pathname = usePathname();
   const reduceMotion = useReducedMotion();
-  const { handoffProgress, pageBadge, navBack } = useMobilePageContext();
+  const { pageBadge, navBack } = useMobilePageContext();
   const router = useRouter();
   const showInternalOps = isGovernanceWallet(accountId) || Boolean(jwt);
   const navGroups = useMemo(
     () =>
-      showInternalOps
-        ? [...baseNavGroups, internalOpsGroup]
-        : baseNavGroups,
+      showInternalOps ? [...baseNavGroups, internalOpsGroup] : baseNavGroups,
     [showInternalOps]
-  );
-  const navItems = useMemo(
-    () =>
-      navGroups.flatMap((group) =>
-        group.items.map((item) => ({
-          label: item.label,
-          href: item.href,
-          isAnchor: false,
-        }))
-      ),
-    [navGroups]
   );
   const isOpen = openPathname === pathname;
   const activeGroup = useMemo(() => {
     if (pathname === '/') return null;
-    return navGroups.find((g) =>
-      g.items.some((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
-    ) ?? null;
+    return (
+      navGroups.find((g) =>
+        g.items.some(
+          (item) =>
+            pathname === item.href || pathname.startsWith(`${item.href}/`)
+        )
+      ) ?? null
+    );
   }, [pathname, navGroups]);
   const homepageSection = useMemo(
     () =>
@@ -244,7 +292,7 @@ export function Navigation() {
       cancelAnimationFrame(frameId);
       window.removeEventListener('scroll', handleScroll);
     };
-  }, []);
+  }, [setNavHidden]);
 
   useEffect(() => {
     if (pathname !== '/') {
@@ -289,28 +337,23 @@ export function Navigation() {
 
   const closeProtocol = protocolDropdown.close;
   const closeServices = servicesDropdown.close;
-  const closeMobileContext = mobileContextDropdown.close;
-  const closeDesktopContext = desktopContextDropdown.close;
   useEffect(() => {
     closeProtocol();
     closeServices();
     closeMobileContext();
     closeDesktopContext();
-  }, [pathname, closeProtocol, closeServices, closeMobileContext, closeDesktopContext]);
+  }, [
+    pathname,
+    closeProtocol,
+    closeServices,
+    closeMobileContext,
+    closeDesktopContext,
+  ]);
 
-  // Mobile always starts compact (1); desktop stays expanded (0)
-  const effectiveCompactProgress = isDesktopViewport ? 0 : 1;
   // When mobile menu is open or interacting with dropdown, don't hide
-  const effectiveNavHidden = !isDesktopViewport && navHidden && !isOpen && !mobileContextDropdown.isOpen;
-  const effectiveHandoffProgress = isOpen
-    ? 1
-    : reduceMotion
-      ? handoffProgress >= 0.6
-        ? 1
-        : 0
-      : handoffProgress;
+  const effectiveNavHidden =
+    !isDesktopViewport && navHidden && !isOpen && !mobileContextOpen;
   const {
-    mobileViewportScale,
     topInset: mobileTopInset,
     height: mobileNavHeight,
     radius: mobileNavRadius,
@@ -319,7 +362,6 @@ export function Navigation() {
     menuPaddingX: mobileMenuPaddingX,
     menuPaddingY: mobileMenuPaddingY,
     badgeMaxWidth: mobileBadgeMaxWidth,
-    menuGap: mobileMenuGap,
     menuTop: mobileMenuTop,
   } = getMobileNavMetrics(viewportWidth);
   const {
@@ -330,11 +372,6 @@ export function Navigation() {
   const desktopViewportScale = getDesktopViewportScale(viewportWidth);
   const compactMobileHeader = !isDesktopViewport;
   const mobileContainerInsetClass = 'px-4';
-  const dockedBadgeProgress =
-    pageBadge && !isDesktopViewport
-      ? Math.min(1, Math.max(0, (effectiveHandoffProgress - 0.18) / 0.82))
-      : 0;
-  const dockedBadgeOpacity = dockedBadgeProgress;
   const homepageBadgeVisible = pathname === '/' && !isDesktopViewport;
   const mobileBadge = pathname === '/' ? homepageSection : pageBadge;
   const mobileBadgeAccent =
@@ -344,7 +381,11 @@ export function Navigation() {
   const mobileBadgeOpacity =
     pathname === '/' ? (homepageBadgeVisible ? 1 : 0) : pageBadge ? 1 : 0;
   const desktopNavGap = interpolateMetric(10, 16, desktopViewportScale);
-  const desktopNavFontSize = interpolateMetric(12.75, 13.5, desktopViewportScale);
+  const desktopNavFontSize = interpolateMetric(
+    12.75,
+    13.5,
+    desktopViewportScale
+  );
   const desktopActionGap = interpolateMetric(8, 10, desktopViewportScale);
   const desktopNavSidePadding = interpolateMetric(2, 6, desktopViewportScale);
   const showDesktopBadge = viewportWidth >= 1180;
@@ -355,7 +396,7 @@ export function Navigation() {
   };
 
   const toggleMenu = () => {
-    mobileContextDropdown.close();
+    closeMobileContext();
     setOpenPathname((current) => (current === pathname ? null : pathname));
   };
 
@@ -384,7 +425,7 @@ export function Navigation() {
         duration: 0.5,
         exitDistance: 12,
       })}
-      className="fixed top-0 left-0 right-0 z-50 bg-transparent will-change-transform"
+      className="fixed top-0 left-0 right-0 z-50 bg-transparent"
       animate={{
         opacity: 1,
         y: effectiveNavHidden ? -(mobileTopInset + mobileNavHeight + 8) : 0,
@@ -397,10 +438,7 @@ export function Navigation() {
       {isOpen && !isDesktopViewport ? <MobileMenuScrollLock /> : null}
 
       <div
-        className={cn(
-          'container mx-auto md:pt-2',
-          mobileContainerInsetClass
-        )}
+        className={cn('container mx-auto md:pt-2', mobileContainerInsetClass)}
         style={{
           paddingTop: `${isDesktopViewport ? desktopTopInset : mobileTopInset}px`,
         }}
@@ -408,10 +446,10 @@ export function Navigation() {
         <motion.nav
           ref={navRef}
           className={cn(
-            'relative z-30 flex items-center justify-between overflow-visible border px-4 shadow-[0_22px_56px_-30px_rgba(15,23,42,0.46)] transition-[border-color,background-color,backdrop-filter] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] md:mx-auto md:h-14 md:max-w-6xl md:rounded-[22px] md:border-border/45 md:bg-background/72 md:px-4 md:shadow-[0_24px_64px_-34px_rgba(15,23,42,0.32)] md:backdrop-blur-xl xl:max-w-[76rem]',
+            'relative z-30 flex items-center justify-between overflow-visible border px-4 shadow-[0_22px_56px_-30px_rgba(15,23,42,0.46)] transition-[border-color,background-color,backdrop-filter] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] md:mx-auto md:h-14 md:max-w-6xl md:rounded-[22px] md:border-border/45 md:bg-background/82 md:px-4 md:shadow-[0_24px_64px_-34px_rgba(15,23,42,0.32)] md:backdrop-blur-md xl:max-w-[76rem]',
             compactMobileHeader
-              ? 'border-border/35 bg-background/55 backdrop-blur-2xl'
-              : 'border-border/45 bg-background/72 backdrop-blur-xl'
+              ? 'border-border/35 bg-background/75 backdrop-blur-lg'
+              : 'border-border/45 bg-background/82 backdrop-blur-md'
           )}
           style={{
             height: `${isDesktopViewport ? desktopNavHeight : mobileNavHeight}px`,
@@ -429,38 +467,38 @@ export function Navigation() {
               {navBack.label}
             </button>
           ) : (
-          <Link
-            ref={logoRef}
-            href="/"
-            onClick={(e) => {
-              // If on homepage, scroll to top smoothly
-              if (window.location.pathname === '/') {
-                e.preventDefault();
-                window.scrollTo({
-                  top: 0,
-                  behavior: 'smooth',
-                });
-              }
-              closeMenu();
-            }}
-            className="flex items-center"
-          >
-            <div
-              style={{
-                height: `${mobileLogoSize}px`,
-                width: `${mobileLogoSize}px`,
+            <Link
+              ref={logoRef}
+              href="/"
+              onClick={(e) => {
+                // If on homepage, scroll to top smoothly
+                if (window.location.pathname === '/') {
+                  e.preventDefault();
+                  window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth',
+                  });
+                }
+                closeMenu();
               }}
+              className="flex items-center"
             >
-              <BrandLogo className="h-full w-full" />
-            </div>
-          </Link>
+              <div
+                style={{
+                  height: `${mobileLogoSize}px`,
+                  width: `${mobileLogoSize}px`,
+                }}
+              >
+                <BrandLogo className="h-full w-full" />
+              </div>
+            </Link>
           )}
 
           <div className="flex min-w-0 flex-1 justify-center px-3 md:hidden">
             <div
               className="relative flex min-w-0 h-9 items-center"
               style={{ maxWidth: `${mobileBadgeMaxWidth}px` }}
-              ref={mobileContextDropdown.containerRef}
+              ref={mobileContextRef}
             >
               {mobileBadge ? (
                 <div
@@ -474,9 +512,11 @@ export function Navigation() {
                     type="button"
                     onClick={() => {
                       if (pathname === '/') {
-                        document.getElementById(homepageSection.id)?.scrollIntoView({ behavior: 'smooth' });
+                        document
+                          .getElementById(homepageSection.id)
+                          ?.scrollIntoView({ behavior: 'smooth' });
                       } else if (activeGroup) {
-                        mobileContextDropdown.toggle();
+                        toggleMobileContext();
                       }
                     }}
                     className="group inline-flex h-9 max-w-full items-center"
@@ -498,7 +538,7 @@ export function Navigation() {
                         <ChevronDown
                           className={cn(
                             'ml-1 inline-block h-2.5 w-2.5 opacity-40 transition-transform',
-                            mobileContextDropdown.isOpen && 'rotate-180'
+                            mobileContextOpen && 'rotate-180'
                           )}
                         />
                       ) : null}
@@ -510,7 +550,7 @@ export function Navigation() {
               {/* Context switcher: sibling pages in same group */}
               {activeGroup ? (
                 <FloatingPanelMenu
-                  open={mobileContextDropdown.isOpen}
+                  open={mobileContextOpen}
                   align="center"
                   offsetClass="mt-1"
                   className="w-[15rem]"
@@ -530,7 +570,7 @@ export function Navigation() {
                         <Link
                           key={item.href}
                           href={item.href}
-                          onClick={mobileContextDropdown.close}
+                          onClick={closeMobileContext}
                           className={cn(
                             floatingPanelItemClass,
                             '!gap-3',
@@ -543,11 +583,17 @@ export function Navigation() {
                         >
                           <span
                             className="shrink-0"
-                            style={active ? { color: portalColors[activeGroup.accent] } : undefined}
+                            style={
+                              active
+                                ? { color: portalColors[activeGroup.accent] }
+                                : undefined
+                            }
                           >
                             <ItemIcon className="h-4 w-4" />
                           </span>
-                          <span className="text-[13px] font-medium">{item.label}</span>
+                          <span className="text-[13px] font-medium">
+                            {item.label}
+                          </span>
                         </Link>
                       );
                     })}
@@ -571,7 +617,7 @@ export function Navigation() {
                 'shrink-0 whitespace-nowrap transition-colors',
                 pathname === '/'
                   ? 'font-medium text-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
+                  : 'text-foreground/65 hover:text-foreground'
               )}
               style={{ fontSize: `${desktopNavFontSize}px` }}
               aria-current={pathname === '/' ? 'page' : undefined}
@@ -605,7 +651,7 @@ export function Navigation() {
                       'inline-flex h-10 items-center gap-1 whitespace-nowrap transition-colors',
                       dropdown.isOpen || groupIsActive
                         ? 'font-medium text-foreground'
-                        : 'text-muted-foreground hover:text-foreground'
+                        : 'text-foreground/65 hover:text-foreground'
                     )}
                     style={{ fontSize: `${desktopNavFontSize}px` }}
                     aria-expanded={dropdown.isOpen}
@@ -636,47 +682,51 @@ export function Navigation() {
                       {group.items.map((item, itemIndex) => {
                         const ItemIcon = item.icon;
                         return (
-                        <motion.div
-                          key={item.href}
-                          {...fadeUpMotion(!!reduceMotion, {
-                            distance: 6,
-                            exitDistance: 4,
-                            duration: 0.18,
-                            delay: itemIndex * 0.022,
-                          })}
-                        >
-                          <Link
-                            href={item.href}
-                            onClick={dropdown.close}
-                            className={cn(
-                              floatingPanelItemClass,
-                              '!gap-3',
-                              isActiveItem(item.href)
-                                ? floatingPanelItemSelectedClass
-                                : 'text-muted-foreground'
-                            )}
-                            role="menuitem"
-                            tabIndex={dropdown.isOpen ? 0 : -1}
-                            aria-current={
-                              isActiveItem(item.href) ? 'page' : undefined
-                            }
+                          <motion.div
+                            key={item.href}
+                            {...fadeUpMotion(!!reduceMotion, {
+                              distance: 6,
+                              exitDistance: 4,
+                              duration: 0.18,
+                              delay: itemIndex * 0.022,
+                            })}
                           >
-                            <span
-                              className="shrink-0"
-                              style={isActiveItem(item.href) ? { color: portalColors[group.accent] } : undefined}
+                            <Link
+                              href={item.href}
+                              onClick={dropdown.close}
+                              className={cn(
+                                floatingPanelItemClass,
+                                '!gap-3',
+                                isActiveItem(item.href)
+                                  ? floatingPanelItemSelectedClass
+                                  : 'text-muted-foreground'
+                              )}
+                              role="menuitem"
+                              tabIndex={dropdown.isOpen ? 0 : -1}
+                              aria-current={
+                                isActiveItem(item.href) ? 'page' : undefined
+                              }
                             >
-                              <ItemIcon className="h-4 w-4" />
-                            </span>
-                            <div className="min-w-0">
-                              <span className="block text-[13px] font-medium text-foreground">
-                                {item.label}
+                              <span
+                                className="shrink-0"
+                                style={
+                                  isActiveItem(item.href)
+                                    ? { color: portalColors[group.accent] }
+                                    : undefined
+                                }
+                              >
+                                <ItemIcon className="h-4 w-4" />
                               </span>
-                              <span className="block text-[11px] leading-tight text-muted-foreground/50">
-                                {item.description}
-                              </span>
-                            </div>
-                          </Link>
-                        </motion.div>
+                              <div className="min-w-0">
+                                <span className="block text-[13px] font-medium text-foreground">
+                                  {item.label}
+                                </span>
+                                <span className="block text-[11px] leading-tight text-muted-foreground/50">
+                                  {item.description}
+                                </span>
+                              </div>
+                            </Link>
+                          </motion.div>
                         );
                       })}
                     </div>
@@ -690,7 +740,7 @@ export function Navigation() {
               href="https://onsocial.id"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground"
+              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-foreground/65 transition-colors hover:text-foreground"
               style={{ fontSize: `${desktopNavFontSize}px` }}
             >
               App
@@ -707,7 +757,7 @@ export function Navigation() {
             {showDesktopBadge ? (
               <div
                 className="relative flex h-10 min-w-[96px] max-w-[180px] items-center justify-center"
-                ref={desktopContextDropdown.containerRef}
+                ref={desktopContextRef}
               >
                 {pathname === '/' ? (
                   <motion.div
@@ -722,9 +772,11 @@ export function Navigation() {
                     <button
                       type="button"
                       onClick={() => {
-                        document.getElementById(homepageSection.id)?.scrollIntoView({ behavior: 'smooth' });
+                        document
+                          .getElementById(homepageSection.id)
+                          ?.scrollIntoView({ behavior: 'smooth' });
                       }}
-                        className="group flex h-10 w-full items-center justify-center"
+                      className="group flex h-10 w-full items-center justify-center"
                     >
                       <PortalBadge
                         accent={homepageSection.accent}
@@ -750,9 +802,9 @@ export function Navigation() {
                     <button
                       type="button"
                       onClick={() => {
-                        if (activeGroup) desktopContextDropdown.toggle();
+                        if (activeGroup) toggleDesktopContext();
                       }}
-                        className="group flex h-10 w-full items-center justify-center"
+                      className="group flex h-10 w-full items-center justify-center"
                     >
                       <PortalBadge
                         accent={pageBadge.badgeAccent}
@@ -769,7 +821,7 @@ export function Navigation() {
                           <ChevronDown
                             className={cn(
                               'ml-1 inline-block h-2.5 w-2.5 opacity-40 transition-transform',
-                              desktopContextDropdown.isOpen && 'rotate-180'
+                              desktopContextOpen && 'rotate-180'
                             )}
                           />
                         ) : null}
@@ -783,7 +835,7 @@ export function Navigation() {
                 {/* Desktop context switcher */}
                 {activeGroup ? (
                   <FloatingPanelMenu
-                    open={desktopContextDropdown.isOpen}
+                    open={desktopContextOpen}
                     align="center"
                     offsetClass="mt-1"
                     className="w-[15rem]"
@@ -803,7 +855,7 @@ export function Navigation() {
                           <Link
                             key={item.href}
                             href={item.href}
-                            onClick={desktopContextDropdown.close}
+                            onClick={closeDesktopContext}
                             className={cn(
                               floatingPanelItemClass,
                               '!gap-3',
@@ -816,11 +868,17 @@ export function Navigation() {
                           >
                             <span
                               className="shrink-0"
-                              style={active ? { color: portalColors[activeGroup.accent] } : undefined}
+                              style={
+                                active
+                                  ? { color: portalColors[activeGroup.accent] }
+                                  : undefined
+                              }
                             >
                               <ItemIcon className="h-4 w-4" />
                             </span>
-                            <span className="text-[13px] font-medium">{item.label}</span>
+                            <span className="text-[13px] font-medium">
+                              {item.label}
+                            </span>
                           </Link>
                         );
                       })}
@@ -882,7 +940,6 @@ export function Navigation() {
               </span>
             </button>
           </div>
-
         </motion.nav>
       </div>
 
@@ -931,146 +988,152 @@ export function Navigation() {
                   }}
                 >
                   <div className="relative z-10 space-y-1">
-                  {/* Home */}
-                  <motion.div
-                    {...fadeUpMotion(!!reduceMotion, {
-                      distance: 12,
-                      duration: 0.24,
-                      delay: 0.02,
-                    })}
-                  >
-                    <Link
-                      href="/"
-                      onClick={closeMenu}
-                      className={cn(
-                        floatingPanelItemClass,
-                        'px-3 py-2 text-[14px]',
-                        pathname === '/'
-                          ? floatingPanelItemSelectedClass
-                          : 'text-muted-foreground'
-                      )}
-                      aria-current={pathname === '/' ? 'page' : undefined}
+                    {/* Home */}
+                    <motion.div
+                      {...fadeUpMotion(!!reduceMotion, {
+                        distance: 12,
+                        duration: 0.24,
+                        delay: 0.02,
+                      })}
                     >
-                      Home
-                    </Link>
-                  </motion.div>
+                      <Link
+                        href="/"
+                        onClick={closeMenu}
+                        className={cn(
+                          floatingPanelItemClass,
+                          'px-3 py-2 text-[14px]',
+                          pathname === '/'
+                            ? floatingPanelItemSelectedClass
+                            : 'text-muted-foreground'
+                        )}
+                        aria-current={pathname === '/' ? 'page' : undefined}
+                      >
+                        Home
+                      </Link>
+                    </motion.div>
 
-                  {/* Grouped sections */}
-                  {navGroups.map((group, groupIndex) => {
-                    const baseDelay = 0.05 + groupIndex * 0.08;
-                    return (
-                      <div key={group.label}>
-                        <motion.div
-                          {...fadeUpMotion(!!reduceMotion, {
-                            distance: 12,
-                            duration: 0.24,
-                            delay: baseDelay,
-                          })}
-                          className="mt-3 mb-1"
-                        >
-                          <div className="flex items-center gap-2 px-3">
-                            <span
-                              className="text-[0.6rem] font-semibold uppercase tracking-[0.16em]"
-                              style={{ color: portalColors[group.accent] }}
-                            >
-                              {group.label}
-                            </span>
-                            {group.attribution ? (
-                              <span className="text-[0.55rem] tracking-wide text-muted-foreground/30">
-                                {group.attribution}
-                              </span>
-                            ) : null}
-                          </div>
-                        </motion.div>
-                        <div className="space-y-1">
-                          {group.items.map((item, itemIndex) => {
-                            const ItemIcon = item.icon;
-                            const active = isActiveItem(item.href);
-                            return (
-                              <motion.div
-                                key={item.href}
-                                {...fadeUpMotion(!!reduceMotion, {
-                                  distance: 12,
-                                  duration: 0.24,
-                                  delay: baseDelay + 0.02 + itemIndex * 0.026,
-                                })}
+                    {/* Grouped sections */}
+                    {navGroups.map((group, groupIndex) => {
+                      const baseDelay = 0.05 + groupIndex * 0.08;
+                      return (
+                        <div key={group.label}>
+                          <motion.div
+                            {...fadeUpMotion(!!reduceMotion, {
+                              distance: 12,
+                              duration: 0.24,
+                              delay: baseDelay,
+                            })}
+                            className="mt-3 mb-1"
+                          >
+                            <div className="flex items-center gap-2 px-3">
+                              <span
+                                className="text-[0.6rem] font-semibold uppercase tracking-[0.16em]"
+                                style={{ color: portalColors[group.accent] }}
                               >
-                                <Link
-                                  href={item.href}
-                                  onClick={closeMenu}
-                                  className={cn(
-                                    'group flex items-center gap-2.5 rounded-xl px-3 py-2 transition-colors',
-                                    active
-                                      ? 'bg-[var(--portal-slate-frame-bg)] text-foreground'
-                                      : 'text-muted-foreground hover:bg-[var(--portal-slate-bg)] hover:text-foreground'
-                                  )}
-                                  aria-current={active ? 'page' : undefined}
+                                {group.label}
+                              </span>
+                              {group.attribution ? (
+                                <span className="text-[0.55rem] tracking-wide text-muted-foreground/30">
+                                  {group.attribution}
+                                </span>
+                              ) : null}
+                            </div>
+                          </motion.div>
+                          <div className="space-y-1">
+                            {group.items.map((item, itemIndex) => {
+                              const ItemIcon = item.icon;
+                              const active = isActiveItem(item.href);
+                              return (
+                                <motion.div
+                                  key={item.href}
+                                  {...fadeUpMotion(!!reduceMotion, {
+                                    distance: 12,
+                                    duration: 0.24,
+                                    delay: baseDelay + 0.02 + itemIndex * 0.026,
+                                  })}
                                 >
-                                  <span
-                                    className="shrink-0 transition-colors"
-                                    style={active ? { color: portalColors[group.accent] } : undefined}
+                                  <Link
+                                    href={item.href}
+                                    onClick={closeMenu}
+                                    className={cn(
+                                      'group flex items-center gap-2.5 rounded-xl px-3 py-2 transition-colors',
+                                      active
+                                        ? 'bg-[var(--portal-slate-frame-bg)] text-foreground'
+                                        : 'text-muted-foreground hover:bg-[var(--portal-slate-bg)] hover:text-foreground'
+                                    )}
+                                    aria-current={active ? 'page' : undefined}
                                   >
-                                    <ItemIcon className="h-4 w-4" />
-                                  </span>
-                                  <div className="min-w-0 flex-1">
-                                    <span className="block text-[14px] font-medium leading-snug">
-                                      {item.label}
+                                    <span
+                                      className="shrink-0 transition-colors"
+                                      style={
+                                        active
+                                          ? {
+                                              color: portalColors[group.accent],
+                                            }
+                                          : undefined
+                                      }
+                                    >
+                                      <ItemIcon className="h-4 w-4" />
                                     </span>
-                                    <span className="block text-[11px] leading-tight text-muted-foreground/50">
-                                      {item.description}
-                                    </span>
-                                  </div>
-                                </Link>
-                              </motion.div>
-                            );
-                          })}
+                                    <div className="min-w-0 flex-1">
+                                      <span className="block text-[14px] font-medium leading-snug">
+                                        {item.label}
+                                      </span>
+                                      <span className="block text-[11px] leading-tight text-muted-foreground/50">
+                                        {item.description}
+                                      </span>
+                                    </div>
+                                  </Link>
+                                </motion.div>
+                              );
+                            })}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-
-                  {/* App external link */}
-                  <motion.div
-                    {...fadeUpMotion(!!reduceMotion, {
-                      distance: 12,
-                      duration: 0.24,
-                      delay: 0.05 + navGroups.length * 0.08 + 0.04,
+                      );
                     })}
-                    className="mt-3"
-                  >
-                    <Link
-                      href="https://onsocial.id"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={closeMenu}
-                      className={cn(
-                        floatingPanelItemClass,
-                        'px-3 py-2 text-[14px] text-muted-foreground'
-                      )}
-                    >
-                      App
-                      <ArrowUpRight className="h-3.5 w-3.5 opacity-40" />
-                    </Link>
-                  </motion.div>
 
-                  <motion.div
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{
-                      delay: 0.05 + navGroups.length * 0.08 + 0.09,
-                      duration: 0.24,
-                      ease: [0.22, 1, 0.36, 1],
-                    }}
-                    className="mt-3 border-t border-fade-section pt-3"
-                  >
-                    <div className="flex flex-wrap items-center gap-3">
-                      <span className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                        Theme
-                      </span>
-                      <ThemeToggle />
-                      <PwaInstallButton className="ml-auto text-xs" />
-                    </div>
-                  </motion.div>
+                    {/* App external link */}
+                    <motion.div
+                      {...fadeUpMotion(!!reduceMotion, {
+                        distance: 12,
+                        duration: 0.24,
+                        delay: 0.05 + navGroups.length * 0.08 + 0.04,
+                      })}
+                      className="mt-3"
+                    >
+                      <Link
+                        href="https://onsocial.id"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={closeMenu}
+                        className={cn(
+                          floatingPanelItemClass,
+                          'px-3 py-2 text-[14px] text-muted-foreground'
+                        )}
+                      >
+                        App
+                        <ArrowUpRight className="h-3.5 w-3.5 opacity-40" />
+                      </Link>
+                    </motion.div>
+
+                    <motion.div
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{
+                        delay: 0.05 + navGroups.length * 0.08 + 0.09,
+                        duration: 0.24,
+                        ease: [0.22, 1, 0.36, 1],
+                      }}
+                      className="mt-3 border-t border-fade-section pt-3"
+                    >
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                          Theme
+                        </span>
+                        <ThemeToggle />
+                        <PwaInstallButton className="ml-auto text-xs" />
+                      </div>
+                    </motion.div>
                   </div>
                 </div>
               </div>

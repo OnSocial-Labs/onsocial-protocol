@@ -57,7 +57,7 @@ export interface SubscribeResult {
 async function gw<T>(
   path: string,
   jwt: string,
-  init?: RequestInit,
+  init?: RequestInit
 ): Promise<T> {
   const res = await fetch(`${GATEWAY_BASE}${path}`, {
     ...init,
@@ -71,7 +71,7 @@ async function gw<T>(
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(
-      (body as { error?: string }).error ?? `Request failed (${res.status})`,
+      (body as { error?: string }).error ?? `Request failed (${res.status})`
     );
   }
 
@@ -97,9 +97,11 @@ export async function fetchPlans(jwt: string): Promise<PlanInfo[]> {
 }
 
 /** Fetch current subscription for signed-in account */
-export async function fetchSubscription(
-  jwt: string,
-): Promise<{ subscription: SubscriptionInfo | null; tier: string; admin?: boolean }> {
+export async function fetchSubscription(jwt: string): Promise<{
+  subscription: SubscriptionInfo | null;
+  tier: string;
+  admin?: boolean;
+}> {
   return gw('/developer/subscription', jwt);
 }
 
@@ -107,7 +109,7 @@ export async function fetchSubscription(
 export async function subscribe(
   jwt: string,
   tier: string,
-  email?: string,
+  email?: string
 ): Promise<SubscribeResult> {
   return gw('/developer/subscribe', jwt, {
     method: 'POST',

@@ -218,7 +218,9 @@ export interface DeveloperAppInfo {
   createdAt: string;
 }
 
-export async function listDeveloperApps(jwt: string): Promise<DeveloperAppInfo[]> {
+export async function listDeveloperApps(
+  jwt: string
+): Promise<DeveloperAppInfo[]> {
   const res = await fetch(`${GATEWAY_BASE}/developer/apps`, {
     headers: { Authorization: `Bearer ${jwt}` },
   });

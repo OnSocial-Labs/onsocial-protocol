@@ -269,77 +269,79 @@ export function CTA() {
                   </p>
                 </div>
 
-              <div className="pt-4">
-                {rewardsNetworkLoading ? (
-                  <div className="flex min-h-16 items-center justify-center">
-                    <PulsingDots size="md" />
-                  </div>
-                ) : networkRewardsStats.length ? (
-                  <StatStrip>
-                    {networkRewardsStats.map((stat, index) => (
-                      <StatStripCell
-                        key={stat.label}
-                        label={stat.label}
-                        showDivider={index < networkRewardsStats.length - 1}
-                      >
-                        <p className={stat.valueClassName}>{stat.value}</p>
-                      </StatStripCell>
-                    ))}
-                  </StatStrip>
-                ) : null}
+                <div className="pt-4">
+                  {rewardsNetworkLoading ? (
+                    <div className="flex min-h-16 items-center justify-center">
+                      <PulsingDots size="md" />
+                    </div>
+                  ) : networkRewardsStats.length ? (
+                    <StatStrip>
+                      {networkRewardsStats.map((stat, index) => (
+                        <StatStripCell
+                          key={stat.label}
+                          label={stat.label}
+                          showDivider={index < networkRewardsStats.length - 1}
+                        >
+                          <p className={stat.valueClassName}>{stat.value}</p>
+                        </StatStripCell>
+                      ))}
+                    </StatStrip>
+                  ) : null}
 
-                {topRewardApp || isConnected ? (
-                  <div className="mt-3 px-1 pt-3">
-                    {isConnected && rewardsLoading ? (
-                      <div className="flex min-h-10 items-center justify-center">
-                        <PulsingDots size="sm" />
-                      </div>
-                    ) : (
-                      <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs leading-relaxed text-muted-foreground">
-                        {topRewardApp ? (
-                          <>
-                            <span className="uppercase tracking-[0.14em]">
-                              Top App
-                            </span>
-                            <span className="portal-purple-text min-w-0 truncate font-medium tracking-[-0.02em]">
-                              {topRewardApp.label}
-                            </span>
-                          </>
-                        ) : null}
+                  {topRewardApp || isConnected ? (
+                    <div className="mt-3 px-1 pt-3">
+                      {isConnected && rewardsLoading ? (
+                        <div className="flex min-h-10 items-center justify-center">
+                          <PulsingDots size="sm" />
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs leading-relaxed text-muted-foreground">
+                          {topRewardApp ? (
+                            <>
+                              <span className="uppercase tracking-[0.14em]">
+                                Top App
+                              </span>
+                              <span className="portal-purple-text min-w-0 truncate font-medium tracking-[-0.02em]">
+                                {topRewardApp.label}
+                              </span>
+                            </>
+                          ) : null}
 
-                        {topRewardApp && isConnected && hasPersonalRewards ? (
-                          <span className="text-border">·</span>
-                        ) : null}
-
-                        {isConnected &&
-                        rewardsOverview &&
-                        hasPersonalRewards ? (
-                          <>
-                            <span className="uppercase tracking-[0.14em]">
-                              Yours
-                            </span>
-                            <span>
-                              <span className="portal-slate-text font-mono font-semibold tracking-tight">
-                                {formatCompactSocial(
-                                  rewardsOverview.total_earned
-                                )}
-                              </span>{' '}
-                              collected
-                            </span>
+                          {topRewardApp && isConnected && hasPersonalRewards ? (
                             <span className="text-border">·</span>
-                            <span>
-                              <span className="portal-purple-text font-mono font-semibold tracking-tight">
-                                {formatCompactSocial(rewardsOverview.claimable)}
-                              </span>{' '}
-                              ready
-                            </span>
-                          </>
-                        ) : null}
-                      </div>
-                    )}
-                  </div>
-                ) : null}
-              </div>
+                          ) : null}
+
+                          {isConnected &&
+                          rewardsOverview &&
+                          hasPersonalRewards ? (
+                            <>
+                              <span className="uppercase tracking-[0.14em]">
+                                Yours
+                              </span>
+                              <span>
+                                <span className="portal-slate-text font-mono font-semibold tracking-tight">
+                                  {formatCompactSocial(
+                                    rewardsOverview.total_earned
+                                  )}
+                                </span>{' '}
+                                collected
+                              </span>
+                              <span className="text-border">·</span>
+                              <span>
+                                <span className="portal-purple-text font-mono font-semibold tracking-tight">
+                                  {formatCompactSocial(
+                                    rewardsOverview.claimable
+                                  )}
+                                </span>{' '}
+                                ready
+                              </span>
+                            </>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
               </motion.div>
             </SurfacePanel>
           </Link>
@@ -369,25 +371,25 @@ export function CTA() {
                   </p>
                 </div>
 
-              <div className="pt-4">
-                {boostLoading ? (
-                  <div className="flex min-h-16 items-center justify-center">
-                    <PulsingDots size="md" />
-                  </div>
-                ) : (
-                  <StatStrip>
-                    {boostPreviewStats.map((stat, index) => (
-                      <StatStripCell
-                        key={stat.label}
-                        label={stat.label}
-                        showDivider={index < boostPreviewStats.length - 1}
-                      >
-                        <p className={stat.valueClassName}>{stat.value}</p>
-                      </StatStripCell>
-                    ))}
-                  </StatStrip>
-                )}
-              </div>
+                <div className="pt-4">
+                  {boostLoading ? (
+                    <div className="flex min-h-16 items-center justify-center">
+                      <PulsingDots size="md" />
+                    </div>
+                  ) : (
+                    <StatStrip>
+                      {boostPreviewStats.map((stat, index) => (
+                        <StatStripCell
+                          key={stat.label}
+                          label={stat.label}
+                          showDivider={index < boostPreviewStats.length - 1}
+                        >
+                          <p className={stat.valueClassName}>{stat.value}</p>
+                        </StatStripCell>
+                      ))}
+                    </StatStrip>
+                  )}
+                </div>
               </motion.div>
             </SurfacePanel>
           </Link>

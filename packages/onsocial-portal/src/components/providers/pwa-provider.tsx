@@ -44,18 +44,15 @@ function isStandaloneMode(): boolean {
 export function PwaProvider({ children }: { children: ReactNode }) {
   const deferredPromptRef = useRef<BeforeInstallPromptEvent | null>(null);
   const [canInstall, setCanInstall] = useState(false);
-  const [isInstalled, setIsInstalled] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(() => isStandaloneMode());
 
   useEffect(() => {
-    setIsInstalled(isStandaloneMode());
-
     const mediaQuery = window.matchMedia('(display-mode: standalone)');
 
     const syncStandaloneState = () => {
       setIsInstalled(isStandaloneMode());
     };
 
-    syncStandaloneState();
     mediaQuery.addEventListener('change', syncStandaloneState);
 
     return () => {

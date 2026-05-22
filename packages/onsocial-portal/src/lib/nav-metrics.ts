@@ -54,11 +54,14 @@ export function getDesktopNavMetrics() {
     topInset: DESKTOP_NAV_TOP_INSET,
     height: DESKTOP_NAV_HEIGHT,
     radius: DESKTOP_NAV_RADIUS,
-    railTop:
-      DESKTOP_NAV_TOP_INSET + DESKTOP_NAV_HEIGHT + DESKTOP_NAV_TOP_INSET,
+    railTop: DESKTOP_NAV_TOP_INSET + DESKTOP_NAV_HEIGHT + DESKTOP_NAV_TOP_INSET,
   };
 }
 
-export function interpolateMetric(start: number, end: number, progress: number) {
+export function interpolateMetric(
+  start: number,
+  end: number,
+  progress: number
+) {
   return interpolate(start, end, progress);
 }

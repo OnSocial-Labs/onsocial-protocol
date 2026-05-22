@@ -57,7 +57,12 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function BillingPage() {
   const { accountId, isConnected, connect } = useWallet();
-  const { jwt, isAuthenticating: authLoading, authError, ensureAuth } = useGatewayAuth();
+  const {
+    jwt,
+    isAuthenticating: authLoading,
+    authError,
+    ensureAuth,
+  } = useGatewayAuth();
   const { setNavBack } = useMobilePageContext();
   const searchParams = useSearchParams();
   const reduceMotion = useReducedMotion();
@@ -84,7 +89,9 @@ export default function BillingPage() {
 
   // Data
   const [plans, setPlans] = useState<PlanInfo[]>([]);
-  const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
+  const [subscription, setSubscription] = useState<SubscriptionInfo | null>(
+    null
+  );
   const [currentTier, setCurrentTier] = useState<string>('free');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -112,7 +119,10 @@ export default function BillingPage() {
     try {
       const [planList, subData] = await Promise.all([
         fetchPlans(jwt),
-        fetchSubscription(jwt).catch(() => ({ subscription: null, tier: 'free' as string })),
+        fetchSubscription(jwt).catch(() => ({
+          subscription: null,
+          tier: 'free' as string,
+        })),
       ]);
       setPlans(planList);
       setSubscription(subData.subscription);
@@ -136,7 +146,8 @@ export default function BillingPage() {
     tierRank(requestedTier) <= tierRank(currentTier) && !alreadyOnTier;
 
   const emailValid = EMAIL_RE.test(billingEmail.trim());
-  const showEmailHint = emailTouched && billingEmail.trim().length > 0 && !emailValid;
+  const showEmailHint =
+    emailTouched && billingEmail.trim().length > 0 && !emailValid;
 
   // ── Subscribe ─────────────────────────────────────────────────
 
@@ -146,7 +157,10 @@ export default function BillingPage() {
     setError(null);
     try {
       const token = await ensureAuth();
-      if (!token) { setUpgrading(false); return; }
+      if (!token) {
+        setUpgrading(false);
+        return;
+      }
       const result = await subscribe(token, requestedTier, billingEmail.trim());
       window.location.href = result.checkoutUrl;
     } catch (err) {
@@ -195,10 +209,7 @@ export default function BillingPage() {
 
   return (
     <PageShell className="max-w-xl space-y-6">
-      <SecondaryPageHeader
-        badge="Billing"
-        badgeAccent="purple"
-      />
+      <SecondaryPageHeader badge="Billing" badgeAccent="purple" />
 
       {/* ── Auth loading ──────────────────────────────────── */}
       {authLoading && (
@@ -215,7 +226,9 @@ export default function BillingPage() {
         <div className="flex items-center gap-3 rounded-lg border border-border/30 bg-background/30 px-4 py-2.5">
           <AlertTriangle className="h-4 w-4 portal-amber-text shrink-0" />
           <p className="flex-1 text-xs text-foreground">{authError}</p>
-          <Button onClick={ensureAuth} variant="outline" size="xs">Retry</Button>
+          <Button onClick={ensureAuth} variant="outline" size="xs">
+            Retry
+          </Button>
         </div>
       )}
 
@@ -230,7 +243,10 @@ export default function BillingPage() {
             <p className="flex-1 text-sm font-medium portal-green-text">
               Payment complete — your plan is active. Next, create your API key.
             </p>
-            <button onClick={() => setCheckoutSuccess(false)} className="text-muted-foreground hover:text-foreground">
+            <button
+              onClick={() => setCheckoutSuccess(false)}
+              className="text-muted-foreground hover:text-foreground"
+            >
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -248,83 +264,117 @@ export default function BillingPage() {
 
       {/* ── Error (network / server) ───────────────────── */}
       {error && (
-        <div className="portal-amber-panel rounded-lg px-4 py-3 text-sm">{error}</div>
+        <div className="portal-amber-panel rounded-lg px-4 py-3 text-sm">
+          {error}
+        </div>
       )}
 
       {/* ── Loading ───────────────────────────────────────── */}
       {loading && (
-        <div className="py-12 text-center"><PulsingDots size="md" /></div>
+        <div className="py-12 text-center">
+          <PulsingDots size="md" />
+        </div>
       )}
 
       {/* ── Active subscription management ────────────────── */}
-      {!loading && subscription && !['expired', 'pending'].includes(subscription.status) && (
-        <motion.div
-          {...fadeUpMotion(!!reduceMotion, { distance: 12 })}
-        >
-          <SurfacePanel radius="xl" tone="soft" padding="roomy">
-            <div className="flex items-center gap-3 mb-3">
-              <PortalBadge accent={tierAccent(subscription.tier)} size="sm">
-                {subscription.tier}
-              </PortalBadge>
-              <span className="text-sm text-muted-foreground">
-                {subscription.status === 'active' ? 'Active' : subscription.status === 'cancelled' ? 'Cancelling' : 'Past due'}
-              </span>
-              {subscription.promotionCode && (
-                <PortalBadge accent="amber" size="xs">
-                  {subscription.promotionCode}
-                  {subscription.promotionCyclesRemaining > 0
-                    && ` · ${subscription.promotionCyclesRemaining} left`}
+      {!loading &&
+        subscription &&
+        !['expired', 'pending'].includes(subscription.status) && (
+          <motion.div {...fadeUpMotion(!!reduceMotion, { distance: 12 })}>
+            <SurfacePanel radius="xl" tone="soft" padding="roomy">
+              <div className="flex items-center gap-3 mb-3">
+                <PortalBadge accent={tierAccent(subscription.tier)} size="sm">
+                  {subscription.tier}
                 </PortalBadge>
-              )}
-            </div>
-
-            <StatStrip columns={2}>
-              <StatStripCell label="Period" showDivider>
-                {new Date(subscription.currentPeriodStart).toLocaleDateString()}
-                {' → '}
-                {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
-              </StatStripCell>
-              <StatStripCell label={subscription.status === 'cancelled' ? 'Expires' : 'Renews'}>
-                {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
-              </StatStripCell>
-            </StatStrip>
-
-            {subscription.status === 'active' && (
-              <div className="mt-4">
-                {confirmCancel ? (
-                  <div className="flex items-center gap-2">
-                    <p className="flex-1 text-xs text-muted-foreground">
-                      Access continues until {new Date(subscription.currentPeriodEnd).toLocaleDateString()}. Sure?
-                    </p>
-                    <Button variant="destructive" size="xs" loading={cancelling} onClick={handleCancel}>
-                      Confirm
-                    </Button>
-                    <Button variant="ghost" size="xs" onClick={() => setConfirmCancel(false)}>
-                      Keep
-                    </Button>
-                  </div>
-                ) : (
-                  <Button variant="outline" size="sm" onClick={() => setConfirmCancel(true)} className="text-muted-foreground">
-                    Cancel renewal
-                  </Button>
+                <span className="text-sm text-muted-foreground">
+                  {subscription.status === 'active'
+                    ? 'Active'
+                    : subscription.status === 'cancelled'
+                      ? 'Cancelling'
+                      : 'Past due'}
+                </span>
+                {subscription.promotionCode && (
+                  <PortalBadge accent="amber" size="xs">
+                    {subscription.promotionCode}
+                    {subscription.promotionCyclesRemaining > 0 &&
+                      ` · ${subscription.promotionCyclesRemaining} left`}
+                  </PortalBadge>
                 )}
               </div>
-            )}
 
-            {subscription.status === 'cancelled' && (
-              <p className="mt-3 text-xs text-muted-foreground">
-                Your {subscription.tier} access continues until {new Date(subscription.currentPeriodEnd).toLocaleDateString()}, then reverts to free.
-              </p>
-            )}
+              <StatStrip columns={2}>
+                <StatStripCell label="Period" showDivider>
+                  {new Date(
+                    subscription.currentPeriodStart
+                  ).toLocaleDateString()}
+                  {' → '}
+                  {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                </StatStripCell>
+                <StatStripCell
+                  label={
+                    subscription.status === 'cancelled' ? 'Expires' : 'Renews'
+                  }
+                >
+                  {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                </StatStripCell>
+              </StatStrip>
 
-            {subscription.status === 'past_due' && (
-              <p className="mt-3 text-xs portal-red-text">
-                Payment failed. Subscribe again to keep your plan.
-              </p>
-            )}
-          </SurfacePanel>
-        </motion.div>
-      )}
+              {subscription.status === 'active' && (
+                <div className="mt-4">
+                  {confirmCancel ? (
+                    <div className="flex items-center gap-2">
+                      <p className="flex-1 text-xs text-muted-foreground">
+                        Access continues until{' '}
+                        {new Date(
+                          subscription.currentPeriodEnd
+                        ).toLocaleDateString()}
+                        . Sure?
+                      </p>
+                      <Button
+                        variant="destructive"
+                        size="xs"
+                        loading={cancelling}
+                        onClick={handleCancel}
+                      >
+                        Confirm
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        onClick={() => setConfirmCancel(false)}
+                      >
+                        Keep
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setConfirmCancel(true)}
+                      className="text-muted-foreground"
+                    >
+                      Cancel renewal
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              {subscription.status === 'cancelled' && (
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Your {subscription.tier} access continues until{' '}
+                  {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                  , then reverts to free.
+                </p>
+              )}
+
+              {subscription.status === 'past_due' && (
+                <p className="mt-3 text-xs portal-red-text">
+                  Payment failed. Subscribe again to keep your plan.
+                </p>
+              )}
+            </SurfacePanel>
+          </motion.div>
+        )}
 
       {/* ── Upgrade checkout (only when not already on this tier) ── */}
       {!loading && targetPlan && !alreadyOnTier && !requiresCancelFirst && (
@@ -342,8 +392,14 @@ export default function BillingPage() {
           >
             {/* Plan summary */}
             <div className="flex items-center gap-3 mb-1">
-              <Zap className="h-5 w-5" style={{ color: portalColors[accent] }} />
-              <h3 className="text-lg font-bold tracking-[-0.02em]" style={{ color: portalColors[accent] }}>
+              <Zap
+                className="h-5 w-5"
+                style={{ color: portalColors[accent] }}
+              />
+              <h3
+                className="text-lg font-bold tracking-[-0.02em]"
+                style={{ color: portalColors[accent] }}
+              >
                 {targetPlan.name}
               </h3>
             </div>
@@ -354,9 +410,14 @@ export default function BillingPage() {
                     ${(targetPlan.amountMinor / 100).toFixed(0)}
                   </span>
                   <span className="text-3xl font-bold tracking-[-0.03em]">
-                    ${(targetPlan.promotion.discountedAmountMinor / 100).toFixed(0)}
+                    $
+                    {(targetPlan.promotion.discountedAmountMinor / 100).toFixed(
+                      0
+                    )}
                   </span>
-                  <span className="text-sm text-muted-foreground">/{targetPlan.interval}</span>
+                  <span className="text-sm text-muted-foreground">
+                    /{targetPlan.interval}
+                  </span>
                   <span className="ml-2 text-xs font-medium portal-green-text">
                     {targetPlan.promotion.discountPercent}% off
                     {targetPlan.promotion.durationCycles > 0
@@ -369,7 +430,9 @@ export default function BillingPage() {
                   <span className="text-3xl font-bold tracking-[-0.03em]">
                     ${(targetPlan.amountMinor / 100).toFixed(0)}
                   </span>
-                  <span className="text-sm text-muted-foreground">/{targetPlan.interval}</span>
+                  <span className="text-sm text-muted-foreground">
+                    /{targetPlan.interval}
+                  </span>
                 </>
               )}
             </div>
@@ -395,15 +458,27 @@ export default function BillingPage() {
                 borderTone="subtle"
                 padding="none"
                 className="flex items-center gap-3 px-4 py-3 transition-[border-color] duration-150 ease focus-within:border-[var(--_focus-accent)]"
-                style={{ '--_focus-accent': `color-mix(in srgb, ${portalColors[accent]} 50%, transparent)` } as React.CSSProperties}
+                style={
+                  {
+                    '--_focus-accent': `color-mix(in srgb, ${portalColors[accent]} 50%, transparent)`,
+                  } as React.CSSProperties
+                }
               >
                 <input
                   id="billing-email"
                   type="email"
                   value={billingEmail}
-                  onChange={(e) => { setBillingEmail(e.target.value); setEmailTouched(false); }}
+                  onChange={(e) => {
+                    setBillingEmail(e.target.value);
+                    setEmailTouched(false);
+                  }}
                   onBlur={() => setEmailTouched(true)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      e.currentTarget.blur();
+                    }
+                  }}
                   placeholder="Billing email"
                   autoFocus
                   className="min-w-0 flex-1 bg-transparent text-sm font-medium tracking-[-0.01em] outline-none placeholder:text-muted-foreground/50"
@@ -414,7 +489,10 @@ export default function BillingPage() {
                   {showEmailHint && (
                     <motion.div
                       key="email-hint"
-                      {...fadeUpMotion(!!reduceMotion, { distance: 4, duration: 0.18 })}
+                      {...fadeUpMotion(!!reduceMotion, {
+                        distance: 4,
+                        duration: 0.18,
+                      })}
                       className="flex items-start gap-2 text-xs text-amber-500/90"
                     >
                       <Info className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
@@ -434,7 +512,8 @@ export default function BillingPage() {
                 Continue to checkout
               </Button>
               <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
-                Checkout first, then create your API key right after payment. Billed monthly via Revolut. Cancel anytime.
+                Checkout first, then create your API key right after payment.
+                Billed monthly via Revolut. Cancel anytime.
               </p>
             </div>
           </SurfacePanel>
@@ -458,7 +537,8 @@ export default function BillingPage() {
       {/* ── Lower-tier flow notice ───────────────────────── */}
       {!loading && requiresCancelFirst && (
         <div className="text-center text-sm text-muted-foreground">
-          You&apos;re on a higher plan. Cancel renewal first, keep access until it ends, then buy this plan later if you still need it.
+          You&apos;re on a higher plan. Cancel renewal first, keep access until
+          it ends, then buy this plan later if you still need it.
         </div>
       )}
     </PageShell>

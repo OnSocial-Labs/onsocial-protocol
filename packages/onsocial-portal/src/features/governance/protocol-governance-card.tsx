@@ -1,10 +1,16 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { useEffect, useRef, useState, useCallback } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  type CSSProperties,
+} from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ExternalLink } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, ExternalLink } from 'lucide-react';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
 import { useWallet } from '@/contexts/wallet-context';
@@ -68,27 +74,22 @@ function DescriptionClamp({ text }: { text: string }) {
   );
 }
 
-function _getProposalStatusAccent(status: string | null | undefined) {
-  switch (status?.toLowerCase()) {
-    case 'approved':
-      return 'green' as const;
-    case 'rejected':
-    case 'removed':
-      return 'red' as const;
-    case 'expired':
-    case 'failed':
-      return 'amber' as const;
-    default:
-      return 'blue' as const;
-  }
+function governanceCardStyle(stripColor: string): CSSProperties {
+  return {
+    borderLeftColor: stripColor,
+    borderTopColor: stripColor,
+    '--_accent-border': stripColor,
+  } as CSSProperties;
 }
 
 export function ProtocolGovernanceCard({
   app,
   onGovernanceUpdated,
+  interactive = true,
 }: {
   app: Application;
   onGovernanceUpdated?: () => void | Promise<void>;
+  interactive?: boolean;
 }) {
   const { wallet, accountId, isConnected } = useWallet();
   const router = useRouter();
@@ -260,7 +261,13 @@ export function ProtocolGovernanceCard({
   });
 
   async function handleGovernanceAction(action: GovernanceDaoAction) {
-    if (!wallet || !daoAccountId || liveProposalId === null || !liveProposal) {
+    if (
+      !wallet ||
+      !accountId ||
+      !daoAccountId ||
+      liveProposalId === null ||
+      !liveProposal
+    ) {
       setTxResult({
         type: 'error',
         msg: 'Connect a guardian wallet to continue.',
@@ -275,6 +282,7 @@ export function ProtocolGovernanceCard({
     try {
       const txHash = await actOnGovernanceProposal(
         wallet,
+        accountId,
         liveProposalId,
         action,
         liveProposal.kind,
@@ -321,8 +329,7 @@ export function ProtocolGovernanceCard({
     } catch (error) {
       setTxResult({
         type: 'error',
-        msg:
-          error instanceof Error ? error.message : 'Action failed.',
+        msg: error instanceof Error ? error.message : 'Action failed.',
       });
     } finally {
       setActionLoading(null);
@@ -383,9 +390,11 @@ export function ProtocolGovernanceCard({
         tone="solid"
         borderTone="strong"
         padding="roomy"
-        className="relative cursor-pointer overflow-hidden border-l-[3px] border-t-[3px] transition-[transform,box-shadow] duration-200 [@media(hover:hover)]:hover:-translate-y-0.5 [@media(hover:hover)]:hover:shadow-lg shadow-[0_1px_0_rgba(255,255,255,0.02)_inset]"
-        style={{ borderLeftColor: stripColor, borderTopColor: stripColor }}
-        onClick={handleCardClick}
+        className={`relative overflow-hidden border-l-[3px] border-t-[3px] shadow-[0_1px_0_rgba(255,255,255,0.02)_inset] ${
+          interactive ? 'group/card cursor-pointer' : ''
+        }`}
+        style={governanceCardStyle(stripColor)}
+        onClick={interactive ? handleCardClick : undefined}
       >
         {liveProposalId !== null && (
           <div
@@ -423,9 +432,15 @@ export function ProtocolGovernanceCard({
             {liveStatusStyle && (
               <div className="shrink-0 text-right">
                 <span
-                  className={`text-[11px] font-semibold uppercase tracking-wide ${liveStatusStyle.badgeText}`}
+                  className={`inline-flex items-center justify-end gap-1.5 text-[11px] font-semibold uppercase tracking-wide ${liveStatusStyle.badgeText}`}
                 >
                   {liveStatusStyle.label}
+                  {interactive && (
+                    <ArrowUpRight
+                      aria-hidden="true"
+                      className="h-3 w-3 opacity-70 transition-all duration-200 group-hover/card:-translate-y-0.5 group-hover/card:translate-x-0.5 group-hover/card:opacity-100 group-has-[a:hover]/card:translate-x-0 group-has-[a:hover]/card:translate-y-0 group-has-[a:hover]/card:opacity-70 group-has-[button:hover]/card:translate-x-0 group-has-[button:hover]/card:translate-y-0 group-has-[button:hover]/card:opacity-70"
+                    />
+                  )}
                 </span>
                 {reviewExpiry && (
                   <div
@@ -442,14 +457,22 @@ export function ProtocolGovernanceCard({
           </div>
         )}
         <div className="border-b border-fade-section pb-4">
-          <Link
-            href={`/governance/${encodeURIComponent(app.app_id)}`}
-            className="group"
-          >
-            <h3 className="text-lg font-semibold tracking-[-0.02em] text-foreground transition-colors group-hover:text-foreground/80">
-              {app.label}
-            </h3>
-          </Link>
+          <div className="flex items-start justify-between gap-3">
+            {interactive ? (
+              <Link
+                href={`/governance/${encodeURIComponent(app.app_id)}`}
+                className="group min-w-0"
+              >
+                <h3 className="text-lg font-semibold tracking-[-0.02em] text-foreground transition-colors group-hover:text-foreground/80">
+                  {app.label}
+                </h3>
+              </Link>
+            ) : (
+              <h3 className="text-lg font-semibold tracking-[-0.02em] text-foreground transition-colors group-hover:text-foreground/80">
+                {app.label}
+              </h3>
+            )}
+          </div>
           {targetAccount && (
             <p className="mt-0.5 break-all font-mono text-xs text-muted-foreground">
               {targetAccount}
@@ -498,7 +521,7 @@ export function ProtocolGovernanceCard({
                   type="button"
                   onClick={() => setTechnicalDetailsOpen((open) => !open)}
                   aria-expanded={technicalDetailsOpen}
-                  className="group -mx-1 flex w-full items-center justify-between gap-3 rounded-md px-1 py-1 text-left transition-colors hover:bg-foreground/[0.03]"
+                  className="group flex w-full items-center justify-between gap-3 rounded-[0.75rem] px-3 py-2 text-left transition-colors hover:bg-foreground/[0.03] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60"
                 >
                   <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground transition-colors group-hover:text-foreground/80">
                     Raw proposal

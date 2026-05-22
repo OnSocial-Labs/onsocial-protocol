@@ -1,6 +1,12 @@
 'use client';
 
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 
 interface NavVisibilityContextValue {
   navHidden: boolean;
@@ -15,10 +21,7 @@ const NavVisibilityContext = createContext<NavVisibilityContextValue>({
 export function NavVisibilityProvider({ children }: { children: ReactNode }) {
   const [navHidden, setNavHidden] = useState(false);
 
-  const value = useMemo(
-    () => ({ navHidden, setNavHidden }),
-    [navHidden]
-  );
+  const value = useMemo(() => ({ navHidden, setNavHidden }), [navHidden]);
 
   return (
     <NavVisibilityContext.Provider value={value}>

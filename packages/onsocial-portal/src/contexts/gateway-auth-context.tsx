@@ -156,68 +156,69 @@ export function GatewayAuthProvider({ children }: { children: ReactNode }) {
     if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
   }, []);
 
-  const runAuthFlow = useCallback(async (
-    options?: { silent?: boolean }
-  ): Promise<string | null> => {
-    const silent = options?.silent ?? false;
+  const runAuthFlow = useCallback(
+    async (options?: { silent?: boolean }): Promise<string | null> => {
+      const silent = options?.silent ?? false;
 
-    // Already have a valid token
-    if (jwt && isTokenValid(jwt)) return jwt;
+      // Already have a valid token
+      if (jwt && isTokenValid(jwt)) return jwt;
 
-    // Try silent refresh first (cookie-based, no popup)
-    try {
-      const result = await gatewayRefresh();
-      if (result) {
-        const payload = decodePayload(result.token);
-        if (payload?.accountId === accountId) {
-          setJwt(result.token);
-          scheduleRefresh(result.token);
-          return result.token;
-        }
-      }
-    } catch {
-      // Refresh failed — fall through to wallet sign
-    }
-
-    // Need wallet to sign
-    if (!wallet || !accountId) {
-      if (!silent) {
-        setAuthError('Connect your wallet first');
-      }
-      return null;
-    }
-
-    // Deduplicate: if already authenticating, wait for the same promise
-    if (authPromiseRef.current) {
-      return authPromiseRef.current;
-    }
-
-    const promise = (async () => {
-      setIsAuthenticating(true);
-      if (!silent) {
-        setAuthError(null);
-      }
+      // Try silent refresh first (cookie-based, no popup)
       try {
-        const token = await gatewayLogin(wallet, accountId);
-        setJwt(token);
-        scheduleRefresh(token);
-        return token;
-      } catch (err) {
-        const msg =
-          err instanceof Error ? err.message : 'Authentication failed';
+        const result = await gatewayRefresh();
+        if (result) {
+          const payload = decodePayload(result.token);
+          if (payload?.accountId === accountId) {
+            setJwt(result.token);
+            scheduleRefresh(result.token);
+            return result.token;
+          }
+        }
+      } catch {
+        // Refresh failed — fall through to wallet sign
+      }
+
+      // Need wallet to sign
+      if (!wallet || !accountId) {
         if (!silent) {
-          setAuthError(msg);
+          setAuthError('Connect your wallet first');
         }
         return null;
-      } finally {
-        setIsAuthenticating(false);
-        authPromiseRef.current = null;
       }
-    })();
 
-    authPromiseRef.current = promise;
-    return promise;
-  }, [jwt, wallet, accountId, scheduleRefresh]);
+      // Deduplicate: if already authenticating, wait for the same promise
+      if (authPromiseRef.current) {
+        return authPromiseRef.current;
+      }
+
+      const promise = (async () => {
+        setIsAuthenticating(true);
+        if (!silent) {
+          setAuthError(null);
+        }
+        try {
+          const token = await gatewayLogin(wallet, accountId);
+          setJwt(token);
+          scheduleRefresh(token);
+          return token;
+        } catch (err) {
+          const msg =
+            err instanceof Error ? err.message : 'Authentication failed';
+          if (!silent) {
+            setAuthError(msg);
+          }
+          return null;
+        } finally {
+          setIsAuthenticating(false);
+          authPromiseRef.current = null;
+        }
+      })();
+
+      authPromiseRef.current = promise;
+      return promise;
+    },
+    [jwt, wallet, accountId, scheduleRefresh]
+  );
 
   // Core auth function — deduplicates concurrent calls
   const ensureAuth = useCallback(async (): Promise<string | null> => {

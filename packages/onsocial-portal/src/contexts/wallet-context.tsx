@@ -12,6 +12,8 @@ import React, {
 import { NearConnector } from '@hot-labs/near-connect';
 import type { NearWalletBase } from '@hot-labs/near-connect';
 
+const PORTAL_WALLET_ACCOUNT_KEY = 'onsocial.portal.wallet.accountId';
+
 // ---------------------------------------------------------------------------
 // Context types
 // ---------------------------------------------------------------------------
@@ -42,6 +44,40 @@ function getErrorMessage(error: unknown): string {
 function isIgnorableWalletError(error: unknown): boolean {
   const message = getErrorMessage(error);
   return message === 'Iframe not loaded' || message === 'User rejected';
+}
+
+function readStoredWalletAccountId(): string | null {
+  try {
+    return window.localStorage.getItem(PORTAL_WALLET_ACCOUNT_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredWalletAccountId(accountId: string | null): void {
+  try {
+    if (accountId) {
+      window.localStorage.setItem(PORTAL_WALLET_ACCOUNT_KEY, accountId);
+    } else {
+      window.localStorage.removeItem(PORTAL_WALLET_ACCOUNT_KEY);
+    }
+  } catch {
+    // Keep wallet state working even when storage is unavailable.
+  }
+}
+
+function pickRestoredAccountId(
+  accounts: Array<{ accountId: string }>,
+  preferredAccountId: string | null
+): string | null {
+  if (preferredAccountId) {
+    const restoredAccount = accounts.find(
+      (account) => account.accountId === preferredAccountId
+    );
+    if (restoredAccount) return restoredAccount.accountId;
+  }
+
+  return accounts.length === 1 ? accounts[0].accountId : null;
 }
 
 const WalletContext = createContext<WalletContextType>({
@@ -90,39 +126,45 @@ export function WalletProvider({
     connectorRef.current = connector;
 
     // Listen for sign-in
-    connector.on('wallet:signIn', async (t) => {
-      try {
-        const w = await connector.wallet();
-        setWallet(w);
-        setAccountId(t.accounts[0]?.accountId ?? null);
-      } catch {
-        // ignore
-      }
+    connector.on('wallet:signIn', (event) => {
+      const nextAccountId = event.accounts[0]?.accountId ?? null;
+      setWallet(nextAccountId ? event.wallet : null);
+      setAccountId(nextAccountId);
+      writeStoredWalletAccountId(nextAccountId);
     });
 
     // Listen for sign-out
     connector.on('wallet:signOut', () => {
       setWallet(null);
       setAccountId(null);
+      writeStoredWalletAccountId(null);
     });
 
     // Auto-connect (check if already signed in)
+    let cancelled = false;
+
     (async () => {
       try {
-        const w = await connector.wallet();
-        const accounts = await w.getAccounts();
-        if (accounts.length > 0) {
-          setWallet(w);
-          setAccountId(accounts[0].accountId);
+        const { wallet: connectedWallet, accounts } =
+          await connector.getConnectedWallet();
+        if (!cancelled) {
+          const nextAccountId = pickRestoredAccountId(
+            accounts,
+            readStoredWalletAccountId()
+          );
+          setWallet(nextAccountId ? connectedWallet : null);
+          setAccountId(nextAccountId);
+          writeStoredWalletAccountId(nextAccountId);
         }
       } catch {
         // not signed in – that's fine
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     })();
 
     return () => {
+      cancelled = true;
       connector.removeAllListeners();
     };
   }, [network]);
@@ -161,7 +203,16 @@ export function WalletProvider({
 
     const connectPromise: Promise<void> = c
       .connect()
-      .then(() => undefined)
+      .then(async (connectedWallet) => {
+        const accounts = await connectedWallet.getAccounts({ network });
+        const nextAccountId = pickRestoredAccountId(
+          accounts,
+          readStoredWalletAccountId()
+        );
+        setWallet(nextAccountId ? connectedWallet : null);
+        setAccountId(nextAccountId);
+        writeStoredWalletAccountId(nextAccountId);
+      })
       .catch((error) => {
         if (isIgnorableWalletError(error)) return;
         throw error;
@@ -172,7 +223,7 @@ export function WalletProvider({
 
     connectPromiseRef.current = connectPromise;
     await connectPromise;
-  }, []);
+  }, [network]);
 
   const disconnect = useCallback(async () => {
     const c = connectorRef.current;
@@ -180,6 +231,7 @@ export function WalletProvider({
     await c.disconnect();
     setWallet(null);
     setAccountId(null);
+    writeStoredWalletAccountId(null);
   }, []);
 
   // ---- value ----

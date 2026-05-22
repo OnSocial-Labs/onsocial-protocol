@@ -13,6 +13,22 @@ import type {
 
 const DAO_ACT_PROPOSAL_GAS = '300000000000000';
 
+async function getVerifiedSignerId(
+  wallet: NearWalletBase,
+  accountId: string
+): Promise<string> {
+  const accounts = await wallet.getAccounts({ network: ACTIVE_NEAR_NETWORK });
+  const accountIds = accounts.map((account) => account.accountId);
+
+  if (!accountIds.includes(accountId)) {
+    throw new Error(
+      `Wallet account mismatch. Portal is connected as ${accountId}, but the wallet is using ${accountIds.join(', ') || 'no account'}. Switch the wallet account or reconnect before signing.`
+    );
+  }
+
+  return accountId;
+}
+
 async function readJsonResponse<T>(res: Response): Promise<T> {
   const raw = await res.text();
   if (!raw.trim()) {
@@ -62,13 +78,16 @@ export async function fetchDaoProposal(
 
 export async function actOnGovernanceProposal(
   wallet: NearWalletBase,
+  accountId: string,
   proposalId: number,
   action: GovernanceDaoAction,
   proposalKind: Record<string, unknown>,
   daoAccountId = GOVERNANCE_DAO_ACCOUNT
 ): Promise<string | null> {
+  const signerId = await getVerifiedSignerId(wallet, accountId);
   const result = await wallet.signAndSendTransaction({
     network: ACTIVE_NEAR_NETWORK,
+    signerId,
     receiverId: daoAccountId,
     actions: [
       {

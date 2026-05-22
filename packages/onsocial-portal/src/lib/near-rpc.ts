@@ -501,16 +501,6 @@ function readBorshBytes(
   };
 }
 
-function readU128LE(bytes: Uint8Array, offset: number): bigint {
-  let value = 0n;
-
-  for (let index = 0; index < 16; index += 1) {
-    value += BigInt(bytes[offset + index] ?? 0) << BigInt(index * 8);
-  }
-
-  return value;
-}
-
 function readU64LE(bytes: Uint8Array, offset: number): bigint {
   let value = 0n;
 

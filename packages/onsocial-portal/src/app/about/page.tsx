@@ -63,8 +63,8 @@ export default function AboutPage() {
       />
 
       <p className="mb-6 text-sm leading-relaxed text-muted-foreground">
-        OnSocial Labs builds services and tools on top of the OnSocial
-        protocol. The protocol is governed independently by its{' '}
+        OnSocial Labs builds services and tools on top of the OnSocial protocol.
+        The protocol is governed independently by its{' '}
         <Link
           href="/governance"
           className="text-foreground/70 underline decoration-border underline-offset-2 transition-colors hover:text-foreground"

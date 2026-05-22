@@ -1,10 +1,16 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  type CSSProperties,
+} from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronDown, Globe } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, Globe } from 'lucide-react';
 import { FaXTwitter } from 'react-icons/fa6';
 import { RiTelegram2Line } from 'react-icons/ri';
 import { SurfacePanel } from '@/components/ui/surface-panel';
@@ -91,18 +97,29 @@ function DescriptionClamp({ text }: { text: string }) {
   );
 }
 
+function governanceCardStyle(stripColor: string): CSSProperties {
+  return {
+    borderLeftColor: stripColor,
+    borderTopColor: stripColor,
+    '--_accent-border': stripColor,
+  } as CSSProperties;
+}
+
 export function GovernanceCard({
   app,
   onGovernanceUpdated,
+  interactive = true,
 }: {
   app: Application;
   onGovernanceUpdated?: () => void | Promise<void>;
+  interactive?: boolean;
 }) {
   if (app.governance_scope === 'protocol') {
     return (
       <ProtocolGovernanceCard
         app={app}
         onGovernanceUpdated={onGovernanceUpdated}
+        interactive={interactive}
       />
     );
   }
@@ -111,6 +128,7 @@ export function GovernanceCard({
     <PartnerGovernanceCard
       app={app}
       onGovernanceUpdated={onGovernanceUpdated}
+      interactive={interactive}
     />
   );
 }
@@ -118,9 +136,11 @@ export function GovernanceCard({
 function PartnerGovernanceCard({
   app,
   onGovernanceUpdated,
+  interactive = true,
 }: {
   app: Application;
   onGovernanceUpdated?: () => void | Promise<void>;
+  interactive?: boolean;
 }) {
   const { wallet, accountId, isConnected } = useWallet();
   const router = useRouter();
@@ -379,7 +399,13 @@ function PartnerGovernanceCard({
           : rawGuardianDecisionSummary;
 
   async function handleGovernanceAction(action: GovernanceDaoAction) {
-    if (!wallet || !daoAccountId || liveProposalId === null || !liveProposal) {
+    if (
+      !wallet ||
+      !accountId ||
+      !daoAccountId ||
+      liveProposalId === null ||
+      !liveProposal
+    ) {
       setTxResult({
         type: 'error',
         msg: 'Connect a guardian wallet to continue.',
@@ -394,6 +420,7 @@ function PartnerGovernanceCard({
     try {
       const txHash = await actOnGovernanceProposal(
         wallet,
+        accountId,
         liveProposalId,
         action,
         liveProposal.kind,
@@ -440,8 +467,7 @@ function PartnerGovernanceCard({
     } catch (error) {
       setTxResult({
         type: 'error',
-        msg:
-          error instanceof Error ? error.message : 'Action failed.',
+        msg: error instanceof Error ? error.message : 'Action failed.',
       });
     } finally {
       setActionLoading(null);
@@ -478,10 +504,7 @@ function PartnerGovernanceCard({
     } catch (error) {
       setTxResult({
         type: 'error',
-        msg:
-          error instanceof Error
-            ? error.message
-            : 'Reopen failed.',
+        msg: error instanceof Error ? error.message : 'Reopen failed.',
       });
     } finally {
       setReopenLoading(false);
@@ -533,9 +556,11 @@ function PartnerGovernanceCard({
         tone="solid"
         borderTone="strong"
         padding="roomy"
-        className="relative cursor-pointer overflow-hidden border-l-[3px] border-t-[3px] transition-[transform,box-shadow] duration-200 [@media(hover:hover)]:hover:-translate-y-0.5 [@media(hover:hover)]:hover:shadow-lg shadow-[0_1px_0_rgba(255,255,255,0.02)_inset]"
-        style={{ borderLeftColor: stripColor, borderTopColor: stripColor }}
-        onClick={handleCardClick}
+        className={`relative overflow-hidden border-l-[3px] border-t-[3px] shadow-[0_1px_0_rgba(255,255,255,0.02)_inset] ${
+          interactive ? 'group/card cursor-pointer' : ''
+        }`}
+        style={governanceCardStyle(stripColor)}
+        onClick={interactive ? handleCardClick : undefined}
       >
         {liveProposalId !== null ? (
           <div
@@ -573,9 +598,15 @@ function PartnerGovernanceCard({
             {liveStatusStyle && (
               <div className="shrink-0 text-right">
                 <span
-                  className={`text-[11px] font-semibold uppercase tracking-wide ${liveStatusStyle.badgeText}`}
+                  className={`inline-flex items-center justify-end gap-1.5 text-[11px] font-semibold uppercase tracking-wide ${liveStatusStyle.badgeText}`}
                 >
                   {liveStatusStyle.label}
+                  {interactive && (
+                    <ArrowUpRight
+                      aria-hidden="true"
+                      className="h-3 w-3 opacity-70 transition-all duration-200 group-hover/card:-translate-y-0.5 group-hover/card:translate-x-0.5 group-hover/card:opacity-100 group-has-[a:hover]/card:translate-x-0 group-has-[a:hover]/card:translate-y-0 group-has-[a:hover]/card:opacity-70 group-has-[button:hover]/card:translate-x-0 group-has-[button:hover]/card:translate-y-0 group-has-[button:hover]/card:opacity-70"
+                    />
+                  )}
                 </span>
                 {reviewExpiry && (
                   <div
@@ -609,60 +640,74 @@ function PartnerGovernanceCard({
                 )}
               </div>
               <span
-                className={`text-[11px] font-semibold uppercase tracking-wide ${fallbackBadgeText}`}
+                className={`inline-flex items-center justify-end gap-1.5 text-[11px] font-semibold uppercase tracking-wide ${fallbackBadgeText}`}
               >
                 {fallbackMetaLabel}
+                {interactive && (
+                  <ArrowUpRight
+                    aria-hidden="true"
+                    className="h-3 w-3 opacity-70 transition-all duration-200 group-hover/card:-translate-y-0.5 group-hover/card:translate-x-0.5 group-hover/card:opacity-100 group-has-[a:hover]/card:translate-x-0 group-has-[a:hover]/card:translate-y-0 group-has-[a:hover]/card:opacity-70 group-has-[button:hover]/card:translate-x-0 group-has-[button:hover]/card:translate-y-0 group-has-[button:hover]/card:opacity-70"
+                  />
+                )}
               </span>
             </div>
           )
         )}
         <div className="border-b border-fade-section pb-4">
           <div className="flex items-center justify-between gap-3">
-            <Link
-              href={`/governance/${encodeURIComponent(app.app_id)}`}
-              className="group"
-            >
+            {interactive ? (
+              <Link
+                href={`/governance/${encodeURIComponent(app.app_id)}`}
+                className="group min-w-0"
+              >
+                <h3 className="text-lg font-semibold tracking-[-0.02em] text-foreground transition-colors group-hover:text-foreground/80">
+                  {app.label}
+                </h3>
+              </Link>
+            ) : (
               <h3 className="text-lg font-semibold tracking-[-0.02em] text-foreground transition-colors group-hover:text-foreground/80">
                 {app.label}
               </h3>
-            </Link>
-            {(app.website_url || app.telegram_handle || app.x_handle) && (
-              <div className="flex items-center gap-2">
-                {app.website_url && (
-                  <a
-                    href={app.website_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title="Website"
-                    className="text-muted-foreground transition-all hover:text-[var(--portal-green)] hover:brightness-125 hover:scale-110"
-                  >
-                    <Globe className="h-[18px] w-[18px]" />
-                  </a>
-                )}
-                {app.telegram_handle && (
-                  <a
-                    href={buildHandleUrl(app.telegram_handle, 'telegram')}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title="Telegram"
-                    className="text-muted-foreground transition-all hover:text-[#26A5E4] hover:brightness-125 hover:scale-110"
-                  >
-                    <RiTelegram2Line className="h-[18px] w-[18px]" />
-                  </a>
-                )}
-                {app.x_handle && (
-                  <a
-                    href={buildHandleUrl(app.x_handle, 'x')}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title="X"
-                    className="text-muted-foreground transition-all hover:text-foreground hover:brightness-125 hover:scale-110"
-                  >
-                    <FaXTwitter className="h-[18px] w-[18px]" />
-                  </a>
-                )}
-              </div>
             )}
+            <div className="flex shrink-0 items-center gap-2">
+              {(app.website_url || app.telegram_handle || app.x_handle) && (
+                <div className="flex items-center gap-2">
+                  {app.website_url && (
+                    <a
+                      href={app.website_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Website"
+                      className="text-muted-foreground transition-all hover:scale-110 hover:text-[var(--portal-green)] hover:brightness-125"
+                    >
+                      <Globe className="h-[18px] w-[18px]" />
+                    </a>
+                  )}
+                  {app.telegram_handle && (
+                    <a
+                      href={buildHandleUrl(app.telegram_handle, 'telegram')}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Telegram"
+                      className="text-muted-foreground transition-all hover:scale-110 hover:text-[#26A5E4] hover:brightness-125"
+                    >
+                      <RiTelegram2Line className="h-[18px] w-[18px]" />
+                    </a>
+                  )}
+                  {app.x_handle && (
+                    <a
+                      href={buildHandleUrl(app.x_handle, 'x')}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="X"
+                      className="text-muted-foreground transition-all hover:scale-110 hover:text-white hover:brightness-125"
+                    >
+                      <FaXTwitter className="h-[18px] w-[18px]" />
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
           <p className="mt-0.5 break-all font-mono text-xs text-muted-foreground">
             {app.app_id}
@@ -714,103 +759,106 @@ function PartnerGovernanceCard({
               className="overflow-hidden"
             >
               <div className="mt-4">
-            <GovernanceLiveSummary
-              liveProposal={liveProposal}
-              liveProposalId={liveProposalId}
-              liveStatusStyle={liveStatusStyle}
-              statusSummary={statusSummary}
-              currentVote={currentVote}
-              resolvedOutcomeLabel={resolvedOutcomeLabel}
-              functionCallSummary={functionCallSummary}
-              submissionTime={submissionTime}
-              reviewExpiry={reviewExpiry}
-              votingProgress={votingProgress}
-              activeVotingRole={activeVotingRole}
-              rejectVotes={rejectVotes}
-              removeVotes={removeVotes}
-              approveVotes={approveVotes}
-              confirmedAction={confirmedAction}
-            />
+                <GovernanceLiveSummary
+                  liveProposal={liveProposal}
+                  liveProposalId={liveProposalId}
+                  liveStatusStyle={liveStatusStyle}
+                  statusSummary={statusSummary}
+                  currentVote={currentVote}
+                  resolvedOutcomeLabel={resolvedOutcomeLabel}
+                  functionCallSummary={functionCallSummary}
+                  submissionTime={submissionTime}
+                  reviewExpiry={reviewExpiry}
+                  votingProgress={votingProgress}
+                  activeVotingRole={activeVotingRole}
+                  rejectVotes={rejectVotes}
+                  removeVotes={removeVotes}
+                  approveVotes={approveVotes}
+                  confirmedAction={confirmedAction}
+                />
 
-            <GovernanceVoteActivity
-              voteEntries={voteEntries}
-              accountId={accountId}
-              latestActionLink={latestActionLink}
-              activeVotingRole={activeVotingRole}
-            />
+                <GovernanceVoteActivity
+                  voteEntries={voteEntries}
+                  accountId={accountId}
+                  latestActionLink={latestActionLink}
+                  activeVotingRole={activeVotingRole}
+                />
 
-            {functionCallSummary && (
-              <GovernanceReviewTerms
-                functionCallSummary={functionCallSummary}
-                proposalSummaryText={proposalSummaryText}
-                rewardPerActionValue={rewardPerActionValue}
-                dailyCapValue={dailyCapValue}
-                dailyBudgetValue={dailyBudgetValue}
-                totalBudgetValue={totalBudgetValue}
-                attachedDepositValue={attachedDepositValue}
-                authorizedCallers={authorizedCallers}
-              />
-            )}
-
-            {rawDaoProposal && (
-              <div className="mt-3 border-t border-fade-detail pt-3">
-                <button
-                  type="button"
-                  onClick={() => setRawProposalOpen((open) => !open)}
-                  aria-expanded={rawProposalOpen}
-                  className="group -mx-1 flex w-full items-center justify-between gap-3 rounded-md px-1 py-1 text-left transition-colors hover:bg-foreground/[0.03]"
-                >
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground transition-colors group-hover:text-foreground/80">
-                    Raw proposal
-                  </p>
-                  <ChevronDown
-                    className={`h-3.5 w-3.5 text-muted-foreground transition-[color,transform] duration-200 group-hover:text-foreground/80 ${rawProposalOpen ? 'rotate-180' : ''}`}
+                {functionCallSummary && (
+                  <GovernanceReviewTerms
+                    functionCallSummary={functionCallSummary}
+                    proposalSummaryText={proposalSummaryText}
+                    rewardPerActionValue={rewardPerActionValue}
+                    dailyCapValue={dailyCapValue}
+                    dailyBudgetValue={dailyBudgetValue}
+                    totalBudgetValue={totalBudgetValue}
+                    attachedDepositValue={attachedDepositValue}
+                    authorizedCallers={authorizedCallers}
                   />
-                </button>
+                )}
 
-                <AnimatePresence initial={false}>
-                  {rawProposalOpen ? (
-                    <motion.div
-                      key="raw-proposal"
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-                      className="overflow-hidden"
+                {rawDaoProposal && (
+                  <div className="mt-3 border-t border-fade-detail pt-3">
+                    <button
+                      type="button"
+                      onClick={() => setRawProposalOpen((open) => !open)}
+                      aria-expanded={rawProposalOpen}
+                      className="group flex w-full items-center justify-between gap-3 rounded-[0.75rem] px-3 py-2 text-left transition-colors hover:bg-foreground/[0.03] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60"
                     >
-                      <pre className="mt-3 overflow-x-auto rounded-[1rem] border border-border/30 bg-background/70 p-4 text-xs leading-6">
-                        <code>{renderHighlightedJson(rawDaoProposal)}</code>
-                      </pre>
-                    </motion.div>
-                  ) : null}
-                </AnimatePresence>
-              </div>
-            )}
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground transition-colors group-hover:text-foreground/80">
+                        Raw proposal
+                      </p>
+                      <ChevronDown
+                        className={`h-3.5 w-3.5 text-muted-foreground transition-[color,transform] duration-200 group-hover:text-foreground/80 ${rawProposalOpen ? 'rotate-180' : ''}`}
+                      />
+                    </button>
 
-            <GovernanceGuardianActions
-              accountId={accountId}
-              connectedRole={connectedRole}
-              guardianDecisionSummary={guardianDecisionSummary}
-              canApprove={canApprove}
-              canReject={canReject}
-              canRemove={canRemove}
-              canFinalize={canFinalize}
-              finalizeLabel={finalizeLabel}
-              currentVote={currentVote}
-              actionLoading={actionLoading}
-              onAction={(action) => {
-                void handleGovernanceAction(action);
-              }}
-              onAdvancedRemove={handleAdvancedRemove}
-              resolvedOutcomeLabel={resolvedOutcomeLabel}
-              proposalTxHref={proposalTxHref}
-              onsocialTelegramUrl={ONSOCIAL_TELEGRAM_URL}
-              canReopen={canReopen}
-              reopenLoading={reopenLoading}
-              onReopen={() => {
-                void handleReopen();
-              }}
-            />
+                    <AnimatePresence initial={false}>
+                      {rawProposalOpen ? (
+                        <motion.div
+                          key="raw-proposal"
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{
+                            duration: 0.3,
+                            ease: [0.25, 0.1, 0.25, 1],
+                          }}
+                          className="overflow-hidden"
+                        >
+                          <pre className="mt-3 overflow-x-auto rounded-[1rem] border border-border/30 bg-background/70 p-4 text-xs leading-6">
+                            <code>{renderHighlightedJson(rawDaoProposal)}</code>
+                          </pre>
+                        </motion.div>
+                      ) : null}
+                    </AnimatePresence>
+                  </div>
+                )}
+
+                <GovernanceGuardianActions
+                  accountId={accountId}
+                  connectedRole={connectedRole}
+                  guardianDecisionSummary={guardianDecisionSummary}
+                  canApprove={canApprove}
+                  canReject={canReject}
+                  canRemove={canRemove}
+                  canFinalize={canFinalize}
+                  finalizeLabel={finalizeLabel}
+                  currentVote={currentVote}
+                  actionLoading={actionLoading}
+                  onAction={(action) => {
+                    void handleGovernanceAction(action);
+                  }}
+                  onAdvancedRemove={handleAdvancedRemove}
+                  resolvedOutcomeLabel={resolvedOutcomeLabel}
+                  proposalTxHref={proposalTxHref}
+                  onsocialTelegramUrl={ONSOCIAL_TELEGRAM_URL}
+                  canReopen={canReopen}
+                  reopenLoading={reopenLoading}
+                  onReopen={() => {
+                    void handleReopen();
+                  }}
+                />
               </div>
             </motion.div>
           )}

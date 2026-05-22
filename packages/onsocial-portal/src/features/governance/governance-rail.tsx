@@ -52,7 +52,12 @@ export function GovernanceRail({
   statusFilter,
   visibleStatusOptions,
 }: GovernanceRailProps) {
-  const statusMenu = useDropdown();
+  const {
+    isOpen: statusMenuOpen,
+    close: closeStatusMenu,
+    toggle: toggleStatusMenu,
+    containerRef: statusMenuRef,
+  } = useDropdown();
   const isMobile = useIsMobile();
   const { navHidden } = useNavVisibility();
   const [viewportWidth, setViewportWidth] = useState(MOBILE_NAV_MIN_WIDTH);
@@ -187,19 +192,19 @@ export function GovernanceRail({
         </div>
 
         <div className="flex items-center gap-2 md:hidden">
-          <div className="relative" ref={statusMenu.containerRef}>
+          <div className="relative" ref={statusMenuRef}>
             <button
               type="button"
-              onClick={statusMenu.toggle}
+              onClick={toggleStatusMenu}
               aria-haspopup="listbox"
-              aria-expanded={statusMenu.isOpen}
+              aria-expanded={statusMenuOpen}
               aria-label={
-                statusMenu.isOpen
+                statusMenuOpen
                   ? 'Close status filter menu'
                   : 'Open status filter menu'
               }
               className={`flex h-8 items-center gap-2 rounded-full border border-border/40 px-3 text-xs text-muted-foreground shadow-[0_10px_30px_-18px_rgba(15,23,42,0.34)] backdrop-blur-md transition-all duration-300 hover:bg-background/80 hover:text-foreground ${
-                statusMenu.isOpen
+                statusMenuOpen
                   ? 'bg-background/88 text-foreground shadow-[0_12px_32px_-18px_rgba(15,23,42,0.38)]'
                   : 'bg-background/65'
               }`}
@@ -212,13 +217,13 @@ export function GovernanceRail({
                   {statusCounts[statusFilter]}
                 </span>
                 <ChevronDown
-                  className={`h-3.5 w-3.5 shrink-0 transition-transform ${statusMenu.isOpen ? 'rotate-180' : ''}`}
+                  className={`h-3.5 w-3.5 shrink-0 transition-transform ${statusMenuOpen ? 'rotate-180' : ''}`}
                 />
               </span>
             </button>
 
             <FloatingPanelMenu
-              open={statusMenu.isOpen}
+              open={statusMenuOpen}
               align="left"
               className="w-56 md:w-64"
               role="listbox"
@@ -245,7 +250,7 @@ export function GovernanceRail({
                       aria-selected={selected}
                       onClick={() => {
                         onStatusChange(option.value);
-                        statusMenu.close();
+                        closeStatusMenu();
                       }}
                       className={`group ${floatingPanelItemClass} justify-between ${
                         selected ? floatingPanelItemSelectedClass : ''

@@ -45,10 +45,7 @@ export default function GovernanceProposalPage() {
 
   return (
     <PageShell className="max-w-4xl">
-      <SecondaryPageHeader
-        badge="Proposal"
-        badgeAccent="blue"
-      />
+      <SecondaryPageHeader badge="Proposal" badgeAccent="blue" />
 
       {error && (
         <p className="portal-red-panel portal-red-text rounded-[1rem] border px-4 py-3 text-center text-sm">
@@ -80,7 +77,13 @@ export default function GovernanceProposalPage() {
         </SurfacePanel>
       )}
 
-      {app && <GovernanceCard app={app} onGovernanceUpdated={loadApp} />}
+      {app && (
+        <GovernanceCard
+          app={app}
+          onGovernanceUpdated={loadApp}
+          interactive={false}
+        />
+      )}
     </PageShell>
   );
 }

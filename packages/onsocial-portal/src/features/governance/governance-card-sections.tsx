@@ -13,7 +13,7 @@ import {
   XCircle,
   Vote,
 } from 'lucide-react';
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useState } from 'react';
 import { FaXTwitter } from 'react-icons/fa6';
 import { RiTelegram2Line } from 'react-icons/ri';
 import { Button } from '@/components/ui/button';
@@ -93,7 +93,12 @@ export function GovernanceLiveSummary({
   rejectVotes: string;
   removeVotes: string;
   approveVotes: string;
-  confirmedAction?: 'VoteApprove' | 'VoteReject' | 'VoteRemove' | 'Finalize' | null;
+  confirmedAction?:
+    | 'VoteApprove'
+    | 'VoteReject'
+    | 'VoteRemove'
+    | 'Finalize'
+    | null;
 }) {
   const totalWeight = votingProgress.totalWeight ?? 0;
   const isResolved = Boolean(resolvedOutcomeLabel);
@@ -320,7 +325,7 @@ export function GovernanceReviewTerms({
         type="button"
         onClick={() => setDetailsOpen((open) => !open)}
         aria-expanded={detailsOpen}
-        className="group -mx-1 flex w-full items-center justify-between gap-3 rounded-md px-1 py-1 text-left transition-colors hover:bg-foreground/[0.03]"
+        className="group flex w-full items-center justify-between gap-3 rounded-[0.75rem] px-3 py-2 text-left transition-colors hover:bg-foreground/[0.03] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60"
       >
         <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground transition-colors group-hover:text-foreground/80">
           Terms
@@ -404,7 +409,7 @@ export function GovernanceReviewTerms({
 }
 
 export function GovernanceGuardianActions({
-  accountId,
+  accountId: _accountId,
   connectedRole,
   guardianDecisionSummary,
   canApprove,
@@ -586,11 +591,9 @@ export function ShareProposal({
   label: string;
 }) {
   const [copied, setCopied] = useState(false);
-  const [canNativeShare, setCanNativeShare] = useState(false);
-
-  useEffect(() => {
-    setCanNativeShare(typeof navigator !== 'undefined' && !!navigator.share);
-  }, []);
+  const [canNativeShare] = useState(
+    () => typeof navigator !== 'undefined' && !!navigator.share
+  );
 
   const getUrl = useCallback(
     () => `${window.location.origin}/governance/${encodeURIComponent(appId)}`,
