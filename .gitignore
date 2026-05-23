@@ -142,9 +142,3 @@ deployment/.Caddyfile.generated
 deployment/cloud-init-mainnet-private-runner.rendered.yaml
 .vercel
 .env*.local
-
-# Temporary tool output
-clippy_output.txt
-lint_output.txt
-docker_patch.patch
-scrub_key.sh

@@ -130,6 +130,9 @@
     --portal-red-frame-bg: rgb(248 113 113 / 0.08);
     --portal-red-bg: rgb(248 113 113 / 0.06);
     --portal-red-shadow: rgb(248 113 113 / 0.24);
+    --portal-overlay-shadow:
+      0 12px 24px -10px rgb(15 23 42 / 0.14),
+      0 28px 64px -18px rgb(15 23 42 / 0.22);
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
     --border: 0 0% 90%;
@@ -204,6 +207,7 @@
     --portal-red-frame-bg: rgb(248 113 113 / 0.08);
     --portal-red-bg: rgb(248 113 113 / 0.06);
     --portal-red-shadow: rgb(248 113 113 / 0.26);
+    --portal-overlay-shadow: 0 21px 51px -25px rgb(15 23 42 / 0.525);
     --destructive: 0 62% 55%;
     --destructive-foreground: 0 0% 95%;
     --border: 0 0% 14%;

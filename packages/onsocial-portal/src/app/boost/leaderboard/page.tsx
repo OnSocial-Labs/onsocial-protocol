@@ -709,9 +709,9 @@ export default function BoostLeaderboardPage() {
             How reputation works
           </p>
           <p className="mx-auto mb-4 max-w-lg text-center text-xs text-muted-foreground">
-            Your reputation is the product of five scores — each one multiplies
-            the others. Even small gains in a weak area can dramatically boost
-            your rank.
+            Reputation combines five indexed signals. Each signal is softened so
+            first contributions count, while large totals do not overwhelm the
+            whole score.
           </p>
           <div className="grid gap-3 md:grid-cols-5">
             <SurfacePanel
@@ -723,7 +723,7 @@ export default function BoostLeaderboardPage() {
               <Crown className="mx-auto mb-1 h-4 w-4 portal-purple-text" />
               <p className="text-xs font-semibold">Standing</p>
               <p className="mt-0.5 text-[10px] text-muted-foreground">
-                Grow your standing — people standing with you
+                People choosing to stand with you
               </p>
             </SurfacePanel>
             <SurfacePanel
@@ -735,7 +735,7 @@ export default function BoostLeaderboardPage() {
               <Flame className="mx-auto mb-1 h-4 w-4 portal-amber-text" />
               <p className="text-xs font-semibold">Commitment</p>
               <p className="mt-0.5 text-[10px] text-muted-foreground">
-                Lock SOCIAL tokens — longer locks = bigger multiplier
+                SOCIAL locked with softened scaling
               </p>
             </SurfacePanel>
             <SurfacePanel
@@ -759,7 +759,7 @@ export default function BoostLeaderboardPage() {
               <TrendingUp className="mx-auto mb-1 h-4 w-4 portal-green-text" />
               <p className="text-xs font-semibold">Consistency</p>
               <p className="mt-0.5 text-[10px] text-muted-foreground">
-                Be active every day — each day adds to your score
+                Active days with diminishing returns
               </p>
             </SurfacePanel>
             <SurfacePanel
@@ -794,18 +794,18 @@ export default function BoostLeaderboardPage() {
           className="p-6 text-center md:p-8"
         >
           <p className="mb-2 text-lg font-semibold">
-            Every action multiplies your reputation
+            Build visible protocol signal
           </p>
           <p className="mx-auto mb-4 max-w-lg text-sm text-muted-foreground">
-            Locking tokens doesn&apos;t just earn rewards — it multiplies your
-            entire reputation score. Earned SOCIAL from participating? Lock it
-            to amplify everything you&apos;ve built.
+            Reputation rewards connection, commitment, useful content,
+            consistency, and marketplace creation. Locking SOCIAL strengthens one
+            signal without replacing the others.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             <Button asChild>
               <Link href="/boost">
                 <Flame className="mr-1.5 h-4 w-4" />
-                Lock & Multiply
+                Strengthen Commitment
               </Link>
             </Button>
           </div>

@@ -6,7 +6,7 @@ type SkeletonProps = HTMLAttributes<HTMLDivElement>;
 export function Skeleton({ className, ...props }: SkeletonProps) {
   return (
     <div
-      className={cn('animate-pulse rounded-full bg-white/8', className)}
+      className={cn('animate-pulse rounded-full bg-foreground/[0.08]', className)}
       {...props}
     />
   );
@@ -29,7 +29,7 @@ export function SkeletonText({
         <Skeleton
           key={index}
           className={cn(
-            'h-3 rounded-full bg-white/6',
+            'h-3 rounded-full bg-foreground/[0.06]',
             widths?.[index] ?? (index === lines - 1 ? 'w-4/5' : 'w-full'),
             lineClassName
           )}
@@ -62,7 +62,7 @@ export function StatGridSkeleton({
           )}
         >
           <Skeleton className="h-3 w-16 rounded-full" />
-          <Skeleton className="h-7 w-24 rounded-full bg-white/10" />
+          <Skeleton className="h-7 w-24 rounded-full bg-foreground/10" />
         </div>
       ))}
     </div>
@@ -89,10 +89,10 @@ export function PanelSkeleton({
       <div className="flex items-center justify-between gap-4">
         <Skeleton className="h-4 w-32 rounded-full" />
         {showAction ? (
-          <Skeleton className="h-8 w-20 rounded-full bg-white/6" />
+          <Skeleton className="h-8 w-20 rounded-full bg-foreground/[0.06]" />
         ) : null}
       </div>
-      <Skeleton className="h-7 w-3/5 rounded-full bg-white/9" />
+      <Skeleton className="h-7 w-3/5 rounded-full bg-foreground/[0.09]" />
       <SkeletonText lines={detailLines} />
       {statBlocks > 0 ? <StatGridSkeleton items={statBlocks} /> : null}
     </div>
@@ -112,14 +112,14 @@ export function FormSkeleton({
         <div key={index} className="space-y-2">
           <Skeleton className="h-3 w-24 rounded-full" />
           <div className="rounded-[1rem] border border-border/30 bg-background/20 p-4">
-            <Skeleton className="h-4 w-2/5 rounded-full bg-white/7" />
-            <Skeleton className="mt-3 h-3 w-full rounded-full bg-white/5" />
+            <Skeleton className="h-4 w-2/5 rounded-full bg-foreground/[0.07]" />
+            <Skeleton className="mt-3 h-3 w-full rounded-full bg-foreground/5" />
           </div>
         </div>
       ))}
       <div className="flex gap-3 pt-2">
-        <Skeleton className="h-10 w-28 rounded-full bg-white/10" />
-        <Skeleton className="h-10 w-24 rounded-full bg-white/6" />
+        <Skeleton className="h-10 w-28 rounded-full bg-foreground/10" />
+        <Skeleton className="h-10 w-24 rounded-full bg-foreground/[0.06]" />
       </div>
     </div>
   );
@@ -141,11 +141,11 @@ export function TableSkeleton({
         >
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1 space-y-2.5">
-              <Skeleton className="h-5 w-2/5 rounded-full bg-white/10" />
-              <Skeleton className="h-3 w-full rounded-full bg-white/6" />
-              <Skeleton className="h-3 w-3/4 rounded-full bg-white/6" />
+              <Skeleton className="h-5 w-2/5 rounded-full bg-foreground/10" />
+              <Skeleton className="h-3 w-full rounded-full bg-foreground/[0.06]" />
+              <Skeleton className="h-3 w-3/4 rounded-full bg-foreground/[0.06]" />
             </div>
-            <Skeleton className="h-8 w-16 rounded-full bg-white/7" />
+            <Skeleton className="h-8 w-16 rounded-full bg-foreground/[0.07]" />
           </div>
         </div>
       ))}

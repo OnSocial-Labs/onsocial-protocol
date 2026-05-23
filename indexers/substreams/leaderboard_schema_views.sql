@@ -306,11 +306,11 @@ GROUP BY account_id;
 --             content_activity, scarces_activity
 --
 -- Formula:
---   social      = 1 + ln(max(standing_with, 1))
---   commitment  = 1 + effective_boost / 1e18
+--   social      = 1 + ln(1 + standing_with)
+--   commitment  = 1 + ln(1 + effective_boost / 1e18)
 --   quality     = 1 + avg_reactions_per_post / 10
---   consistency = 1 + active_days / 30
---   scarces     = 1 + ln(max(items_created + items_sold, 1)) / 10
+--   consistency = 1 + ln(1 + active_days) / ln(31)
+--   scarces     = 1 + ln(1 + items_created + items_sold) / 10
 --   reputation  = social × commitment × quality × consistency × scarces
 -- ────────────────────────────────────────────────────────────────────────────
 
@@ -335,35 +335,35 @@ SELECT
   COALESCE(n.revenue_earned, 0) / 1e24                        AS scarces_revenue_near,
 
   -- Dimension scores (exposed for debugging / per-dimension leaderboards)
-  ROUND((1.0 + LN(GREATEST(COALESCE(s.standing_with_count, 0), 1)))::NUMERIC, 4)
+  ROUND((1.0 + LN(1.0 + COALESCE(s.standing_with_count, 0)))::NUMERIC, 4)
                                                               AS social_score,
-  ROUND((1.0 + COALESCE(b.effective_boost, '0')::NUMERIC / 1e18)::NUMERIC, 4)
+  ROUND((1.0 + LN(1.0 + COALESCE(b.effective_boost, '0')::NUMERIC / 1e18))::NUMERIC, 4)
                                                               AS commitment_score,
   ROUND((1.0 + COALESCE(c.avg_reactions_per_post, 0)::NUMERIC / 10.0), 4)
                                                               AS quality_score,
-  ROUND((1.0 + COALESCE(c.active_days, 0)::NUMERIC / 30.0), 4)
+  ROUND((1.0 + LN(1.0 + COALESCE(c.active_days, 0)::NUMERIC) / LN(31.0)), 4)
                                                               AS consistency_score,
-  ROUND((1.0 + LN(GREATEST(COALESCE(n.items_created, 0)
-                          + COALESCE(n.items_sold, 0), 1))::NUMERIC / 10.0), 4)
+  ROUND((1.0 + LN(1.0 + COALESCE(n.items_created, 0)::NUMERIC
+                      + COALESCE(n.items_sold, 0)::NUMERIC) / 10.0), 4)
                                                               AS scarces_score,
 
   -- Composite reputation
   ROUND((
-    (1.0 + LN(GREATEST(COALESCE(s.standing_with_count, 0), 1)))
-    * (1.0 + COALESCE(b.effective_boost, '0')::NUMERIC / 1e18)
+    (1.0 + LN(1.0 + COALESCE(s.standing_with_count, 0)))
+    * (1.0 + LN(1.0 + COALESCE(b.effective_boost, '0')::NUMERIC / 1e18))
     * (1.0 + COALESCE(c.avg_reactions_per_post, 0)::NUMERIC / 10.0)
-    * (1.0 + COALESCE(c.active_days, 0)::NUMERIC / 30.0)
-    * (1.0 + LN(GREATEST(COALESCE(n.items_created, 0)
-                        + COALESCE(n.items_sold, 0), 1))::NUMERIC / 10.0)
+    * (1.0 + LN(1.0 + COALESCE(c.active_days, 0)::NUMERIC) / LN(31.0))
+    * (1.0 + LN(1.0 + COALESCE(n.items_created, 0)::NUMERIC
+                    + COALESCE(n.items_sold, 0)::NUMERIC) / 10.0)
   )::NUMERIC, 4)                                              AS reputation,
 
   RANK() OVER (ORDER BY
-    (1.0 + LN(GREATEST(COALESCE(s.standing_with_count, 0), 1)))
-    * (1.0 + COALESCE(b.effective_boost, '0')::NUMERIC / 1e18)
+    (1.0 + LN(1.0 + COALESCE(s.standing_with_count, 0)))
+    * (1.0 + LN(1.0 + COALESCE(b.effective_boost, '0')::NUMERIC / 1e18))
     * (1.0 + COALESCE(c.avg_reactions_per_post, 0)::NUMERIC / 10.0)
-    * (1.0 + COALESCE(c.active_days, 0)::NUMERIC / 30.0)
-    * (1.0 + LN(GREATEST(COALESCE(n.items_created, 0)
-                        + COALESCE(n.items_sold, 0), 1))::NUMERIC / 10.0)
+    * (1.0 + LN(1.0 + COALESCE(c.active_days, 0)::NUMERIC) / LN(31.0))
+    * (1.0 + LN(1.0 + COALESCE(n.items_created, 0)::NUMERIC
+                    + COALESCE(n.items_sold, 0)::NUMERIC) / 10.0)
     DESC
   )                                                           AS rank
 

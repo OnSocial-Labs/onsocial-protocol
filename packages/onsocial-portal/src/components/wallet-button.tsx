@@ -86,6 +86,12 @@ export function WalletButton({
     setProfileDiscoveryOpen(true);
   };
 
+  const openProfileDiscoveryFromProfile = () => {
+    setProfileModalOpen(false);
+    setProfileModalAccountId(null);
+    setProfileDiscoveryOpen(true);
+  };
+
   const handleProfileAction = () => {
     closeMenu();
     openProfileEditor();
@@ -340,13 +346,16 @@ export function WalletButton({
         }}
         onEditProfile={openProfileEditor}
         onSelectAccount={(targetAccountId) => openProfileModal(targetAccountId)}
+        onDiscoverProfiles={openProfileDiscoveryFromProfile}
         onUpdateStanding={profileState.updateStanding}
       />
 
       <ProfileDiscoveryModal
         open={profileDiscoveryOpen}
+        viewerAccountId={accountId}
         onOpenChange={setProfileDiscoveryOpen}
         onSelectAccount={(targetAccountId) => openProfileModal(targetAccountId)}
+        onUpdateStanding={profileState.updateStanding}
       />
     </div>
   );

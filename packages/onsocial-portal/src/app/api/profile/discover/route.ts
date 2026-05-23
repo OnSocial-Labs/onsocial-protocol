@@ -11,6 +11,7 @@ interface ProfileDiscoverResult {
   avatarUrl: string | null;
   standingCount: number;
   standingWithCount: number;
+  viewerStanding: boolean;
 }
 
 interface ProfileDiscoverResponse {
@@ -34,6 +35,10 @@ function getLimit(request: NextRequest): number {
   return Math.min(MAX_LIMIT, Math.floor(rawLimit));
 }
 
+function getViewerAccountId(request: NextRequest): string | null {
+  return request.nextUrl.searchParams.get('viewerAccountId')?.trim() || null;
+}
+
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === 'string') return error;
@@ -43,10 +48,20 @@ function getErrorMessage(error: unknown): string {
 export async function GET(request: NextRequest) {
   const query = getQuery(request);
   const limit = getLimit(request);
+  const viewerAccountId = getViewerAccountId(request);
 
   try {
     const os = createPortalServerOnSocialClient();
-    const profileRows = await os.query.profiles.search({ query, limit });
+    const [profileRows, viewerOutgoingIds] = await Promise.all([
+      os.query.profiles.search({ query, limit }),
+      viewerAccountId
+        ? os.standings
+            .listOutgoing(viewerAccountId, { limit: 1000 })
+            .catch(() => [])
+        : Promise.resolve([]),
+    ]);
+    const viewerOutgoingSet = new Set(viewerOutgoingIds);
+
     const results = profileRows.map((row) => {
       const profile: MaterialisedProfile = {
         accountId: row.accountId,
@@ -64,6 +79,7 @@ export async function GET(request: NextRequest) {
         avatarUrl: os.profiles.avatarUrl(profile),
         standingCount: row.standingCount,
         standingWithCount: row.standingWithCount,
+        viewerStanding: viewerOutgoingSet.has(row.accountId),
       } satisfies ProfileDiscoverResult;
     });
 

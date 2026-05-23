@@ -45,10 +45,10 @@ const Editor = dynamic(() => import('@monaco-editor/react'), {
   loading: () => (
     <div className="flex h-full items-center justify-center bg-muted/10 text-muted-foreground">
       <div className="w-full space-y-3 px-6">
-        <div className="h-4 w-28 rounded-full bg-white/8 animate-pulse" />
-        <div className="h-3 w-full rounded-full bg-white/6 animate-pulse" />
-        <div className="h-3 w-11/12 rounded-full bg-white/6 animate-pulse" />
-        <div className="h-3 w-4/5 rounded-full bg-white/6 animate-pulse" />
+        <div className="h-4 w-28 rounded-full bg-foreground/[0.08] animate-pulse" />
+        <div className="h-3 w-full rounded-full bg-foreground/[0.06] animate-pulse" />
+        <div className="h-3 w-11/12 rounded-full bg-foreground/[0.06] animate-pulse" />
+        <div className="h-3 w-4/5 rounded-full bg-foreground/[0.06] animate-pulse" />
         <div className="mt-5 flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-muted-foreground/80">
           <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
           Loading editor

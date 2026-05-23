@@ -946,7 +946,7 @@ export function GovernancePositionPanel() {
             <div className="rounded-[1.25rem] border border-border/35 bg-background/20 p-4">
               <div className="flex items-center justify-between gap-4">
                 <Skeleton className="h-4 w-28 rounded-full" />
-                <Skeleton className="h-4 w-24 rounded-full bg-white/6" />
+                <Skeleton className="h-4 w-24 rounded-full bg-foreground/[0.06]" />
               </div>
             </div>
             <div className="rounded-[1.5rem] border border-border/40 bg-background/35 p-4 md:p-5">

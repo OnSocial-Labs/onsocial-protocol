@@ -3,9 +3,11 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { Camera, Check, Loader2, X } from 'lucide-react';
+import { Camera, Check, X } from 'lucide-react';
 import type { MaterialisedProfile } from '@onsocial/sdk';
 import { Button } from '@/components/ui/button';
+import { portalElevatedShadowClass } from '@/components/ui/floating-panel';
+import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
 import type { ProfileSaveInput, ProfileSaveResult } from '@/hooks/use-profile';
 import { fadeMotion, scaleFadeMotion } from '@/lib/motion';
 import { cn } from '@/lib/utils';
@@ -74,6 +76,8 @@ export function ProfileEditor({
       : 'Create profile'
     : 'Authorize & save';
   const nameReady = name.trim().length > 0;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useBodyScrollLock(open, scrollRef);
 
   useEffect(() => {
     if (!open) return;
@@ -114,6 +118,7 @@ export function ProfileEditor({
       {open ? (
         <motion.div
           {...fadeMotion(reduceMotion ? 0 : 0.18)}
+          data-lenis-prevent
           className="fixed inset-0 z-[2147483646] flex items-center justify-center px-4 py-6"
         >
           <button
@@ -136,9 +141,12 @@ export function ProfileEditor({
             role="dialog"
             aria-modal="true"
             aria-labelledby="profile-editor-title"
-            className="relative w-full max-w-md overflow-hidden rounded-2xl border border-border/67 bg-background/98 shadow-[0_26px_80px_-34px_rgba(15,23,42,0.72)]"
+            className={cn(
+              'relative flex h-[min(720px,calc(100vh-2rem))] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-border/67 bg-background/98',
+              portalElevatedShadowClass
+            )}
           >
-            <div className="flex items-start justify-between gap-4 border-b border-fade-section px-4 py-4 md:px-5">
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-fade-section px-4 py-4 md:px-5">
               <div className="min-w-0">
                 <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground/60">
                   {accountId ?? 'Wallet'}
@@ -162,7 +170,10 @@ export function ProfileEditor({
               </button>
             </div>
 
-            <div className="space-y-5 px-4 py-5 md:px-5">
+            <div
+              ref={scrollRef}
+              className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-5 md:px-5"
+            >
               <div className="flex items-center gap-4">
                 <button
                   type="button"
@@ -239,7 +250,7 @@ export function ProfileEditor({
                   maxLength={180}
                   rows={4}
                   className="min-h-24 w-full resize-none rounded-xl border border-border/50 bg-background/55 px-3 py-2.5 text-sm leading-relaxed text-foreground outline-none transition-colors placeholder:text-muted-foreground/45 focus:border-border"
-                  placeholder="What are you building?"
+                  placeholder="Say something about yourself"
                 />
               </label>
 
@@ -251,13 +262,13 @@ export function ProfileEditor({
 
               {!hasSocialSession ? (
                 <p className="rounded-xl border border-border/45 bg-muted/22 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-                  One approval creates a scoped OnSocial session for profile and
-                  social actions.
+                  One approval unlocks your profile and social actions for this
+                  session.
                 </p>
               ) : null}
             </div>
 
-            <div className="flex items-center justify-end gap-2 border-t border-fade-section px-4 py-4 md:px-5">
+            <div className="flex shrink-0 items-center justify-end gap-2 border-t border-fade-section px-4 py-4 md:px-5">
               <Button
                 type="button"
                 variant="outline"
@@ -272,22 +283,13 @@ export function ProfileEditor({
                 variant={saved ? 'accent' : 'default'}
                 size="sm"
                 disabled={!nameReady || isSaving}
+                loading={isAuthorizingSession || isSaving}
                 className={cn(saved && 'pointer-events-none')}
               >
                 {saved ? (
                   <>
                     <Check className="h-4 w-4" />
                     Saved
-                  </>
-                ) : isAuthorizingSession ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Authorizing
-                  </>
-                ) : isSaving ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Saving
                   </>
                 ) : (
                   submitLabel

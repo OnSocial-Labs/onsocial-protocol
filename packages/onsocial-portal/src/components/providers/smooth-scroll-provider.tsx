@@ -70,8 +70,23 @@ export function SmoothScrollProvider({
       lerp: 0.1,
       duration: 1.5,
       smoothWheel: true,
+      prevent: (node) =>
+        node instanceof Element && node.closest('[data-lenis-prevent]') !== null,
     });
     lenisRef.current = lenis;
+
+    const handleScrollLock = (event: Event) => {
+      const locked = Boolean(
+        (event as CustomEvent<{ locked?: boolean }>).detail?.locked
+      );
+      if (locked) {
+        lenis.stop();
+      } else {
+        lenis.start();
+      }
+    };
+
+    window.addEventListener('onsocial:scroll-lock', handleScrollLock);
 
     if ('scrollRestoration' in window.history) {
       window.history.scrollRestoration = 'manual';
@@ -87,6 +102,7 @@ export function SmoothScrollProvider({
     return () => {
       clearPendingRestore();
 
+      window.removeEventListener('onsocial:scroll-lock', handleScrollLock);
       lenisRef.current = null;
       lenis.destroy();
 

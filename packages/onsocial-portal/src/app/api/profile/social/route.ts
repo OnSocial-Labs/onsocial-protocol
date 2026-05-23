@@ -8,6 +8,7 @@ interface StandingAccountSummary {
   accountId: string;
   name: string | null;
   avatarUrl: string | null;
+  viewerStanding: boolean;
 }
 
 interface ProfileSocialResponse {
@@ -54,18 +55,22 @@ export async function GET(request: NextRequest) {
 
   try {
     const os = createPortalServerOnSocialClient();
-    const [counts, outgoingIds, incomingIds, viewerStanding] =
+    const [counts, outgoingIds, incomingIds, viewerOutgoingIds] =
       await Promise.all([
         os.standings.counts(accountId),
         os.standings.listOutgoing(accountId, { limit: STANDING_LIST_LIMIT }),
         os.standings.listIncoming(accountId, { limit: STANDING_LIST_LIMIT }),
-        viewerAccountId && viewerAccountId !== accountId
+        viewerAccountId
           ? os.standings
               .listOutgoing(viewerAccountId, { limit: 1000 })
-              .then((ids) => ids.includes(accountId))
-              .catch(() => false)
-          : Promise.resolve(false),
+              .catch(() => [])
+          : Promise.resolve([]),
       ]);
+    const viewerOutgoingSet = new Set(viewerOutgoingIds);
+    const viewerStanding =
+      Boolean(viewerAccountId) &&
+      viewerAccountId !== accountId &&
+      viewerOutgoingSet.has(accountId);
 
     const uniqueAccountIds = Array.from(
       new Set([...outgoingIds, ...incomingIds])
@@ -78,6 +83,7 @@ export async function GET(request: NextRequest) {
         accountId: id,
         name: profile?.name ?? null,
         avatarUrl: os.profiles.avatarUrl(profile),
+        viewerStanding: viewerOutgoingSet.has(id),
       };
     };
 

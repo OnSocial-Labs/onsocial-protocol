@@ -29,50 +29,74 @@ export interface SearchInputProps
   value: string;
   onValueChange: (value: string) => void;
   containerClassName?: string;
+  clearAriaLabel?: string;
 }
 
-function SearchInput({
-  value,
-  onValueChange,
-  size,
-  className,
-  containerClassName,
-  placeholder = 'Search',
-  'aria-label': ariaLabel,
-  ...props
-}: SearchInputProps) {
-  return (
-    <label className={cn(searchInputVariants({ size }), containerClassName)}>
-      <Search className="h-4 w-4 shrink-0" />
-      <input
-        type="text"
-        inputMode="search"
-        enterKeyHint="search"
-        value={value}
-        onChange={(event) => onValueChange(event.target.value)}
-        aria-label={ariaLabel ?? placeholder}
-        placeholder={placeholder}
-        className={cn(
-          'h-full min-w-0 flex-1 bg-transparent pr-1 text-sm text-foreground outline-none placeholder:text-muted-foreground',
-          className
-        )}
-        {...props}
-      />
-      <span className="flex h-6 w-6 shrink-0 items-center justify-center">
-        {value ? (
-          <button
-            type="button"
-            onClick={() => onValueChange('')}
-            className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-transparent text-muted-foreground transition-colors hover:border-border/40 hover:bg-background/60 hover:text-foreground"
-            aria-label="Clear search"
-            title="Clear search"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        ) : null}
-      </span>
-    </label>
-  );
-}
+const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
+  function SearchInput(
+    {
+      value,
+      onValueChange,
+      size,
+      className,
+      containerClassName,
+      placeholder = 'Search',
+      clearAriaLabel = 'Clear search',
+      'aria-label': ariaLabel,
+      ...props
+    },
+    ref
+  ) {
+    const inputRef = React.useRef<HTMLInputElement>(null);
+    const setInputRef = React.useCallback(
+      (node: HTMLInputElement | null) => {
+        inputRef.current = node;
+        if (typeof ref === 'function') {
+          ref(node);
+        } else if (ref) {
+          ref.current = node;
+        }
+      },
+      [ref]
+    );
+
+    return (
+      <label className={cn(searchInputVariants({ size }), containerClassName)}>
+        <Search className="h-4 w-4 shrink-0" />
+        <input
+          ref={setInputRef}
+          type="text"
+          inputMode="search"
+          enterKeyHint="search"
+          value={value}
+          onChange={(event) => onValueChange(event.target.value)}
+          aria-label={ariaLabel ?? placeholder}
+          placeholder={placeholder}
+          className={cn(
+            'h-full min-w-0 flex-1 bg-transparent pr-1 text-sm text-foreground outline-none placeholder:text-muted-foreground',
+            className
+          )}
+          {...props}
+        />
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center">
+          {value ? (
+            <button
+              type="button"
+              onClick={() => {
+                onValueChange('');
+                inputRef.current?.focus();
+              }}
+              className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-transparent text-muted-foreground transition-colors hover:border-border/40 hover:bg-background/60 hover:text-foreground"
+              aria-label={clearAriaLabel}
+              title={clearAriaLabel}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
+        </span>
+      </label>
+    );
+  }
+);
 
 export { SearchInput, searchInputVariants };
