@@ -15,6 +15,7 @@ const buttonVariants = cva(
         default: 'border portal-blue-surface',
         secondary: 'border portal-purple-surface',
         accent: 'border portal-green-surface',
+        endorsement: 'border portal-gold-surface',
         destructive: 'border portal-red-surface',
         outline:
           'border border-border/50 bg-transparent text-muted-foreground hover:border-border hover:text-foreground',

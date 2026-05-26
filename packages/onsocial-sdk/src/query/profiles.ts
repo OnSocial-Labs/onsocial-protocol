@@ -13,6 +13,10 @@ export interface ProfileSearchRow {
   banner: string | null;
   standingCount: number;
   standingWithCount: number;
+  mutualStandingCount: number;
+  endorsementsReceivedCount: number;
+  endorsementsGivenCount: number;
+  firstProfileTimestamp: number | null;
   lastProfileBlock: number;
   lastProfileTimestamp: number;
   lastActivityBlock: number;
@@ -80,7 +84,10 @@ export class ProfilesQuery {
           offset: $offset,
           orderBy: [{standingCount: DESC}, {lastActivityBlock: DESC}]
         ) {
-          accountId name bio avatar banner standingCount standingWithCount
+          accountId name bio avatar banner
+          standingCount standingWithCount mutualStandingCount
+          endorsementsReceivedCount endorsementsGivenCount
+          firstProfileTimestamp
           lastProfileBlock lastProfileTimestamp lastActivityBlock
         }
       }`,

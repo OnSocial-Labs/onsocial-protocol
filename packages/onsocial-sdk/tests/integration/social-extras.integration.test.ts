@@ -129,7 +129,7 @@ describe('social-extras', () => {
     }, 25_000);
   });
 
-  // ── Endorsements (weighted directed vouch) ────────────────────────────
+  // ── Endorsements (directed contextual vouch) ──────────────────────────
 
   describe('endorsements', () => {
     const endorseTarget = 'onsocial.testnet';
@@ -168,11 +168,10 @@ describe('social-extras', () => {
       expect(received.some((r) => r.issuer === ACCOUNT_ID)).toBe(true);
     }, 35_000);
 
-    it('should endorse with weight and topic', async () => {
+    it('should endorse with topic and note', async () => {
       const topicId = `rust-${testId()}`;
       const result = await os.social.endorse(endorseTarget, {
         topic: topicId,
-        weight: 5,
         note: 'excellent rust dev',
       });
       expect(result.txHash).toBeTruthy();
@@ -197,7 +196,6 @@ describe('social-extras', () => {
       const val =
         typeof entry.value === 'string' ? JSON.parse(entry.value) : entry.value;
       expect(val.topic).toBe(topicId);
-      expect(val.weight).toBe(5);
       expect(val.note).toBe('excellent rust dev');
     }, 25_000);
 

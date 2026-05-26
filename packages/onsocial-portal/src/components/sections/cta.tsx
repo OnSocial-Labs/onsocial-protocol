@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Coins, Handshake } from 'lucide-react';
 import { useWallet } from '@/contexts/wallet-context';
-import { ArrowUpRight } from 'lucide-react';
+import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
 import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
 import { SurfacePanel } from '@/components/ui/surface-panel';
@@ -262,7 +262,7 @@ export function CTA() {
                   <span className="portal-purple-text inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em]">
                     <Handshake className="portal-purple-icon h-3.5 w-3.5" />
                     Collab
-                    <ArrowUpRight className="h-3 w-3 opacity-40 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                    <ProtocolMotionArrow className="h-3 w-3" />
                   </span>
                   <p className="text-sm leading-relaxed text-muted-foreground">
                     Social activity rewards — in your Telegram group.
@@ -364,7 +364,7 @@ export function CTA() {
                   <span className="portal-blue-text inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em]">
                     <Coins className="portal-blue-icon h-3.5 w-3.5" />
                     Boost
-                    <ArrowUpRight className="h-3 w-3 opacity-40 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                    <ProtocolMotionArrow className="h-3 w-3" />
                   </span>
                   <p className="text-sm leading-relaxed text-muted-foreground">
                     Lock SOCIAL to grow influence and collect rewards.

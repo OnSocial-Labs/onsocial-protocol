@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { Camera, Check, X } from 'lucide-react';
+import { Camera, Check } from 'lucide-react';
 import type { MaterialisedProfile } from '@onsocial/sdk';
 import { Button } from '@/components/ui/button';
 import { portalElevatedShadowClass } from '@/components/ui/floating-panel';
+import { ModalCloseButton } from '@/components/ui/modal-close-button';
+import { ModalHeader } from '@/components/ui/modal-header';
 import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
 import type { ProfileSaveInput, ProfileSaveResult } from '@/hooks/use-profile';
 import { fadeMotion, scaleFadeMotion } from '@/lib/motion';
@@ -146,29 +148,19 @@ export function ProfileEditor({
               portalElevatedShadowClass
             )}
           >
-            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-fade-section px-4 py-4 md:px-5">
-              <div className="min-w-0">
-                <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground/60">
-                  {accountId ?? 'Wallet'}
-                </p>
-                <h2
-                  id="profile-editor-title"
-                  className="mt-1 text-lg font-semibold text-foreground"
-                >
-                  {title}
-                </h2>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => onOpenChange(false)}
-                disabled={isSaving}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border/45 text-muted-foreground transition-colors hover:border-border hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
-                aria-label="Close profile editor"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+            <ModalHeader
+              titleId="profile-editor-title"
+              eyebrow={accountId ?? 'Wallet'}
+              title={title}
+              bordered
+              actions={
+                <ModalCloseButton
+                  ariaLabel="Close profile editor"
+                  onClick={() => onOpenChange(false)}
+                  disabled={isSaving}
+                />
+              }
+            />
 
             <div
               ref={scrollRef}

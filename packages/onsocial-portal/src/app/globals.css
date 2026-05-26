@@ -115,6 +115,13 @@
     --portal-amber-frame-bg: rgb(251 191 36 / 0.12);
     --portal-amber-bg: rgb(251 191 36 / 0.1);
     --portal-amber-shadow: rgb(251 191 36 / 0.24);
+    --portal-gold: #946f2d;
+    --portal-gold-accent: rgb(148 111 45 / 0.3);
+    --portal-gold-text: rgb(148 111 45 / 0.85);
+    --portal-gold-bg: rgb(148 111 45 / 0.035);
+    --portal-gold-border: rgb(148 111 45 / 0.2);
+    --portal-gold-border-strong: rgb(148 111 45 / 0.4);
+    --portal-gold-shadow: rgb(148 111 45 / 0.18);
     --portal-pink: #ec4899;
     --portal-pink-frame-border: rgb(236 72 153 / 0.35);
     --portal-pink-frame-bg: rgb(236 72 153 / 0.08);
@@ -123,6 +130,8 @@
     --portal-slate-frame-border: rgb(107 114 128 / 0.35);
     --portal-slate-frame-bg: rgb(107 114 128 / 0.08);
     --portal-slate-bg: rgb(107 114 128 / 0.06);
+    --portal-slate-border-strong: rgb(107 114 128 / 0.55);
+    --portal-slate-shadow: rgb(100 116 139 / 0.16);
     --portal-red: #f87171;
     --portal-red-border: rgb(248 113 113 / 0.48);
     --portal-red-border-strong: rgb(248 113 113 / 0.65);
@@ -192,6 +201,13 @@
     --portal-amber-frame-bg: rgb(251 191 36 / 0.14);
     --portal-amber-bg: rgb(251 191 36 / 0.12);
     --portal-amber-shadow: rgb(251 191 36 / 0.26);
+    --portal-gold: #c9a04e;
+    --portal-gold-accent: rgb(201 160 78 / 0.35);
+    --portal-gold-text: rgb(201 160 78 / 0.85);
+    --portal-gold-bg: rgb(201 160 78 / 0.04);
+    --portal-gold-border: rgb(201 160 78 / 0.2);
+    --portal-gold-border-strong: rgb(201 160 78 / 0.45);
+    --portal-gold-shadow: rgb(201 160 78 / 0.22);
     --portal-pink: #ec4899;
     --portal-pink-frame-border: rgb(236 72 153 / 0.35);
     --portal-pink-frame-bg: rgb(236 72 153 / 0.08);
@@ -200,6 +216,8 @@
     --portal-slate-frame-border: rgb(107 114 128 / 0.35);
     --portal-slate-frame-bg: rgb(107 114 128 / 0.08);
     --portal-slate-bg: rgb(107 114 128 / 0.06);
+    --portal-slate-border-strong: rgb(148 163 184 / 0.45);
+    --portal-slate-shadow: rgb(148 163 184 / 0.18);
     --portal-red: #f87171;
     --portal-red-border: rgb(248 113 113 / 0.48);
     --portal-red-border-strong: rgb(248 113 113 / 0.65);
@@ -456,6 +474,26 @@
     0 2px 4px -2px var(--portal-amber-shadow);
 }
 
+.portal-gold-surface {
+  border-color: var(--portal-gold-border);
+  background-color: var(--portal-gold-bg);
+  color: var(--portal-gold);
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.portal-gold-surface:hover,
+.portal-gold-surface:focus-visible {
+  border-color: var(--portal-gold-border-strong);
+  color: var(--portal-gold);
+  box-shadow:
+    0 4px 6px -1px var(--portal-gold-shadow),
+    0 2px 4px -2px var(--portal-gold-shadow);
+}
+
 .portal-green-icon {
   color: var(--portal-green);
 }
@@ -579,6 +617,17 @@ textarea:-webkit-autofill:focus {
 
 .portal-blue-focus:focus-within {
   border-color: var(--portal-blue-focus-border);
+}
+
+.portal-field-focus {
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease;
+}
+
+.portal-field-focus:focus-within {
+  border-color: hsl(var(--border));
+  background-color: hsl(var(--background) / 0.6);
 }
 
 .portal-neutral-control {

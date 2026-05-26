@@ -348,6 +348,8 @@ export function WalletButton({
         onSelectAccount={(targetAccountId) => openProfileModal(targetAccountId)}
         onDiscoverProfiles={openProfileDiscoveryFromProfile}
         onUpdateStanding={profileState.updateStanding}
+        onEndorse={profileState.endorse}
+        onRemoveEndorsement={profileState.removeEndorsement}
       />
 
       <ProfileDiscoveryModal
@@ -356,6 +358,8 @@ export function WalletButton({
         onOpenChange={setProfileDiscoveryOpen}
         onSelectAccount={(targetAccountId) => openProfileModal(targetAccountId)}
         onUpdateStanding={profileState.updateStanding}
+        onEndorse={profileState.endorse}
+        onRemoveEndorsement={profileState.removeEndorsement}
       />
     </div>
   );

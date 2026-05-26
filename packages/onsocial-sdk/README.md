@@ -14,7 +14,7 @@ Every module hangs off a single `OnSocial` instance. Use this table to find the 
 | `os.posts`               | Authoring posts, replies, quotes (top-level + group)                   | `create`, `reply`, `quote`, `groupPost`, `groupReply`, `groupQuote`         |
 | `os.reactions`           | Add / remove / toggle reactions; counts                                | `add`, `remove`, `toggle`, `summary`                                        |
 | `os.saves`               | Bookmarks                                                              | `add`, `remove`, `toggle`, `has`, `get`, `list`                             |
-| `os.endorsements`        | Topic endorsements / weights                                           | `add`, `remove`, `toggle`, `get`, `listGiven`, `listReceived`               |
+| `os.endorsements`        | Topic-scoped public vouches                                            | `add`, `remove`, `toggle`, `get`, `listGiven`, `listReceived`               |
 | `os.attestations`        | Verifiable claims                                                      | `add`, `revoke`, `get`                                                      |
 | `os.standings`           | Follow-style "stand with" edges                                        | `add`, `remove`, `toggle`, `has`, `listOutgoing`, `listIncoming`, `counts`  |
 | `os.groups`              | Groups + group feeds, governance                                       | `create`, `join`, `leave`, `post`, `reply`, `quote`, `isMember`, `execute`  |
@@ -277,7 +277,7 @@ The SDK is organised into three discoverable namespaces plus a few cross-cutting
 | `posts`        | Create posts, replies, quotes — including group variants      |
 | `reactions`    | `add` / `remove` / `toggle` / `summary`                       |
 | `saves`        | Bookmark posts (`add` / `remove` / `toggle` / `has` / `list`) |
-| `endorsements` | Weighted directed vouches                                     |
+| `endorsements` | Directed contextual vouches                                   |
 | `attestations` | Verifiable typed claims                                       |
 | `standings`    | Account ↔ account "stand with" graph                         |
 | `feed`         | Indexed GraphQL reads (alias of `os.query`)                   |

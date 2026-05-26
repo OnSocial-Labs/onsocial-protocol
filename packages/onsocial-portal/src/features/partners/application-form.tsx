@@ -719,7 +719,7 @@ export function ApplicationForm({
             <label className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
               Name
             </label>
-            <div className="flex items-center rounded-2xl border border-border/60">
+            <div className="portal-field-focus flex items-center rounded-2xl border border-border/40 bg-background/45">
               <input
                 type="text"
                 value={label}
@@ -747,7 +747,7 @@ export function ApplicationForm({
                 onBlur={commitLabelInput}
                 placeholder="OnSocial"
                 maxLength={MAX_LABEL_LEN}
-                className="portal-blue-focus w-full bg-transparent px-4 py-3.5 text-sm outline-none"
+                className="w-full bg-transparent px-4 py-3.5 text-sm outline-none"
                 required
               />
               {appId && (
@@ -805,7 +805,7 @@ export function ApplicationForm({
             <label className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
               About your community
             </label>
-            <div className="relative rounded-2xl border border-border/60">
+            <div className="portal-field-focus relative rounded-2xl border border-border/40 bg-background/45">
               <textarea
                 value={description}
                 onChange={(e) => {
@@ -822,7 +822,7 @@ export function ApplicationForm({
                 placeholder="Describe what your community builds and the value it creates."
                 rows={3}
                 maxLength={MAX_DESCRIPTION_LEN}
-                className="portal-blue-focus w-full resize-none rounded-2xl bg-transparent px-4 pt-3.5 pb-7 text-sm outline-none"
+                className="w-full resize-none rounded-2xl bg-transparent px-4 pt-3.5 pb-7 text-sm outline-none"
               />
               <span
                 className={`pointer-events-none absolute right-3 bottom-2 text-[10px] tabular-nums tracking-wide ${
@@ -884,7 +884,11 @@ export function ApplicationForm({
                 }}
                 aria-haspopup="listbox"
                 aria-expanded={audienceMenuOpen}
-                className="portal-blue-focus flex w-full items-center justify-between rounded-2xl border border-border/60 px-4 py-3.5 text-left text-sm outline-none"
+                className={`portal-field-focus flex w-full items-center justify-between rounded-2xl border px-4 py-3.5 text-left text-sm outline-none ${
+                  audienceMenuOpen
+                    ? 'border-border bg-background/60'
+                    : 'border-border/40 bg-background/45'
+                }`}
               >
                 <span>{audienceBand}</span>
                 <ChevronDown
@@ -980,7 +984,7 @@ export function ApplicationForm({
             <label className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
               Website
             </label>
-            <div className="flex items-center rounded-2xl border border-border/60">
+            <div className="portal-field-focus flex items-center rounded-2xl border border-border/40 bg-background/45">
               <span className="border-r border-border/60 px-3 text-sm text-muted-foreground">
                 https://
               </span>
@@ -1010,7 +1014,7 @@ export function ApplicationForm({
                   }
                 }}
                 placeholder="example.com"
-                className="portal-blue-focus w-full bg-transparent px-4 py-3.5 text-sm outline-none"
+                className="w-full bg-transparent px-4 py-3.5 text-sm outline-none"
               />
               {websiteFeedbackVisible && (
                 <span className="shrink-0 pr-3">
@@ -1032,7 +1036,7 @@ export function ApplicationForm({
             <label className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
               Telegram
             </label>
-            <div className="flex items-center rounded-2xl border border-border/60">
+            <div className="portal-field-focus flex items-center rounded-2xl border border-border/40 bg-background/45">
               <span className="border-r border-border/60 px-3 text-sm text-muted-foreground">
                 t.me/
               </span>
@@ -1063,7 +1067,7 @@ export function ApplicationForm({
                   }
                 }}
                 placeholder="handle"
-                className="portal-blue-focus w-full bg-transparent px-4 py-3.5 text-sm outline-none"
+                className="w-full bg-transparent px-4 py-3.5 text-sm outline-none"
               />
               {telegramFeedbackVisible && (
                 <span className="shrink-0 pr-3">
@@ -1085,7 +1089,7 @@ export function ApplicationForm({
             <label className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
               X
             </label>
-            <div className="flex items-center rounded-2xl border border-border/60">
+            <div className="portal-field-focus flex items-center rounded-2xl border border-border/40 bg-background/45">
               <span className="border-r border-border/60 px-3 text-sm text-muted-foreground">
                 x.com/
               </span>
@@ -1114,7 +1118,7 @@ export function ApplicationForm({
                   }
                 }}
                 placeholder="handle"
-                className="portal-blue-focus w-full bg-transparent px-4 py-3.5 text-sm outline-none"
+                className="w-full bg-transparent px-4 py-3.5 text-sm outline-none"
               />
               {xFeedbackVisible && (
                 <span className="shrink-0 pr-3">

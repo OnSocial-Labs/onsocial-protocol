@@ -33,13 +33,13 @@ export {
   buildSaveRemoveData,
   buildEndorsementSetData,
   buildEndorsementRemoveData,
+  normalizeEndorsementTopic,
   buildAttestationSetData,
   buildAttestationRemoveData,
 } from './modules/social.js';
 export type {
   SaveBuildInput,
   EndorsementBuildInput,
-  EndorsementWeightInput,
   AttestationBuildInput,
   AttestationSignatureInput,
 } from './modules/social.js';
@@ -302,7 +302,6 @@ export type {
   GroupConfigV1,
   SaveV1,
   EndorsementV1,
-  EndorsementWeight,
   AttestationV1,
   AttestationSignature,
 } from './schema/v1.js';

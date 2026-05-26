@@ -1,12 +1,12 @@
 // ---------------------------------------------------------------------------
 // OnSocial SDK — endorsements module
 //
-// The single, blessed entry point for weighted directed vouches between
+// The single, blessed entry point for directed contextual vouches between
 // accounts. Wraps `os.social.endorse` / `unendorse` / `getEndorsement`
 // for writes + `os.query.endorsements.given` / `received`
 // for materialised reads:
 //
-//   await os.endorsements.add('bob.near', { topic: 'rust', weight: 5 });
+//   await os.endorsements.add('bob.near', { topic: 'rust', note: 'Shipped cleanly.' });
 //   await os.endorsements.remove('bob.near', { topic: 'rust' });
 //   const { applied } = await os.endorsements.toggle('bob.near');
 //   const got = await os.endorsements.get('bob.near');
@@ -69,7 +69,10 @@ export class EndorsementsModule {
    *
    * ```ts
    * await os.endorsements.add('bob.near');
-   * await os.endorsements.add('bob.near', { topic: 'rust', weight: 5 });
+   * await os.endorsements.add('bob.near', {
+   *   topic: 'rust',
+   *   note: 'Shipped cleanly under load.',
+   * });
    * ```
    */
   add(target: string, input?: EndorsementBuildInput): Promise<RelayResponse> {
@@ -99,7 +102,8 @@ export class EndorsementsModule {
    *
    * ```ts
    * const { applied } = await os.endorsements.toggle('bob.near', {
-   *   topic: 'rust', weight: 5,
+   *   topic: 'rust',
+   *   note: 'Shipped cleanly under load.',
    * });
    * setEndorsed(applied);
    * ```

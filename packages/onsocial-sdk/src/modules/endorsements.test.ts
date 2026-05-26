@@ -19,7 +19,12 @@ function makeMod(opts: { existingEndorsement?: unknown } = {}) {
     {
       issuer: 'alice.near',
       target: 'bob.near',
-      value: JSON.stringify({ v: 1, since: 1000, weight: 4, topic: 'rust' }),
+      value: JSON.stringify({
+        v: 1,
+        since: 1000,
+        topic: 'rust',
+        note: 'shipped cleanly',
+      }),
       blockHeight: 100,
       blockTimestamp: 1700000000,
       operation: 'set',
@@ -29,7 +34,7 @@ function makeMod(opts: { existingEndorsement?: unknown } = {}) {
     {
       issuer: 'alice.near',
       target: 'bob.near',
-      value: JSON.stringify({ v: 1, since: 2000, weight: 5 }),
+      value: JSON.stringify({ v: 1, since: 2000 }),
       blockHeight: 101,
       blockTimestamp: 1700000100,
       operation: 'set',
@@ -54,10 +59,13 @@ function makeMod(opts: { existingEndorsement?: unknown } = {}) {
 describe('EndorsementsModule', () => {
   it('add forwards to social.endorse', async () => {
     const { mod, spies } = makeMod();
-    await mod.add('bob.near', { topic: 'rust', weight: 5 });
+    await mod.add('bob.near', {
+      topic: 'rust',
+      note: 'shipped cleanly',
+    });
     expect(spies.endorse).toHaveBeenCalledWith('bob.near', {
       topic: 'rust',
-      weight: 5,
+      note: 'shipped cleanly',
     });
   });
 
@@ -101,8 +109,8 @@ describe('EndorsementsModule', () => {
     expect(out[0]).toMatchObject({
       issuer: 'alice.near',
       target: 'bob.near',
-      weight: 4,
       topic: 'rust',
+      note: 'shipped cleanly',
       blockHeight: 100,
       blockTimestamp: 1700000000,
     });
@@ -115,7 +123,6 @@ describe('EndorsementsModule', () => {
     expect(out[0]).toMatchObject({
       issuer: 'alice.near',
       target: 'bob.near',
-      weight: 5,
       blockHeight: 101,
     });
   });

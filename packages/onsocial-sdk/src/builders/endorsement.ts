@@ -1,19 +1,28 @@
 // ---------------------------------------------------------------------------
-// builders/endorsement — weighted directed vouch payloads
+// builders/endorsement — directed contextual vouch payloads
 // ---------------------------------------------------------------------------
 
 import { SCHEMA_VERSION } from '../schema/v1.js';
 import type { SocialSetData } from './_shared.js';
 
-export type EndorsementWeightInput = 1 | 2 | 3 | 4 | 5;
-
 export interface EndorsementBuildInput {
   topic?: string;
-  weight?: EndorsementWeightInput;
   note?: string;
   expiresAt?: number;
   /** Override timestamp (defaults to Date.now()). */
   now?: number;
+}
+
+export function normalizeEndorsementTopic(topic?: string): string | undefined {
+  const normalized = (topic ?? '')
+    .trim()
+    .replace(/\s+/gu, '-')
+    .replace(/[^A-Za-z0-9_.-]+/gu, '-')
+    .replace(/-+/gu, '-')
+    .replace(/^[.-]+|[.-]+$/gu, '')
+    .slice(0, 40);
+
+  return normalized || undefined;
 }
 
 /**
@@ -24,16 +33,16 @@ export function buildEndorsementSetData(
   targetAccount: string,
   input: EndorsementBuildInput = {}
 ): SocialSetData {
+  const topic = normalizeEndorsementTopic(input.topic);
   const value: Record<string, unknown> = {
     v: SCHEMA_VERSION,
     since: input.now ?? Date.now(),
   };
-  if (input.topic !== undefined) value.topic = input.topic;
-  if (input.weight !== undefined) value.weight = input.weight;
+  if (topic !== undefined) value.topic = topic;
   if (input.note !== undefined) value.note = input.note;
   if (input.expiresAt !== undefined) value.expiresAt = input.expiresAt;
-  const path = input.topic
-    ? `endorsement/${targetAccount}/${input.topic}`
+  const path = topic
+    ? `endorsement/${targetAccount}/${topic}`
     : `endorsement/${targetAccount}`;
   return { [path]: value };
 }
@@ -42,8 +51,9 @@ export function buildEndorsementRemoveData(
   targetAccount: string,
   topic?: string
 ): SocialSetData {
-  const path = topic
-    ? `endorsement/${targetAccount}/${topic}`
+  const normalizedTopic = normalizeEndorsementTopic(topic);
+  const path = normalizedTopic
+    ? `endorsement/${targetAccount}/${normalizedTopic}`
     : `endorsement/${targetAccount}`;
   return { [path]: null };
 }

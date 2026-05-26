@@ -6,7 +6,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   Activity,
-  ArrowLeft,
   ArrowUpRight,
   ChevronDown,
   Eye,
@@ -21,6 +20,7 @@ import { BrandLogo } from '@/components/brand-logo';
 import { PwaInstallButton } from '@/components/pwa-install-button';
 import { useMobilePageContext } from '@/components/providers/mobile-page-context';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { BackButton } from '@/components/ui/back-button';
 import { PortalBadge } from '@/components/ui/portal-badge';
 import type { PortalAccent } from '@/lib/portal-colors';
 import { portalColors } from '@/lib/portal-colors';
@@ -458,14 +458,10 @@ export function Navigation() {
         >
           {/* Logo / Back */}
           {navBack ? (
-            <button
-              type="button"
+            <BackButton
               onClick={() => router.back()}
-              className="group inline-flex h-8 items-center gap-1.5 rounded-full border border-border/50 bg-transparent px-3 text-sm font-medium text-muted-foreground transition-colors hover:border-border hover:text-foreground"
-            >
-              <ArrowLeft className="h-4 w-4 shrink-0 transition-transform duration-200 group-hover:-translate-x-0.5 motion-reduce:transform-none" />
-              {navBack.label}
-            </button>
+              ariaLabel={navBack.label || 'Go back'}
+            />
           ) : (
             <Link
               ref={logoRef}

@@ -50,6 +50,9 @@ tarpaulin-report.html
 # Logs and debug
 *.log
 debug/
+clippy_output.txt
+lint_output.txt
+docker_patch.patch
 
 # Backup and temp files
 *.tmp
@@ -126,7 +129,7 @@ examples/
 contracts/**/*.md
 !contracts/**/README.md
 
-# Ignore package internal docs  
+# Ignore package internal docs
 packages/**/*.md
 !packages/**/README.md
 

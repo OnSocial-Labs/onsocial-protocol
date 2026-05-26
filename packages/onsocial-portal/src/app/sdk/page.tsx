@@ -6,7 +6,6 @@ import type { CSSProperties } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   ArrowRight,
-  ArrowUpRight,
   BookOpen,
   Boxes,
   CheckCircle2,
@@ -27,6 +26,7 @@ import { PageShell } from '@/components/layout/page-shell';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
 import { SectionHeader } from '@/components/layout/section-header';
 import { PortalBadge } from '@/components/ui/portal-badge';
+import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { portalColors, type PortalAccent } from '@/lib/portal-colors';
 
@@ -738,7 +738,7 @@ export default function SDKPage() {
                   <PortalBadge accent={recipe.accent} size="sm">
                     <span className="inline-flex items-center gap-1">
                       Open
-                      <ArrowUpRight className="h-3 w-3 opacity-60 transition-all duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:opacity-100" />
+                      <ProtocolMotionArrow className="h-3 w-3" />
                     </span>
                   </PortalBadge>
                 </div>
@@ -809,7 +809,7 @@ export default function SDKPage() {
                         <PortalBadge accent={family.accent} size="sm">
                           <span className="inline-flex items-center gap-1">
                             Guide
-                            <ArrowUpRight className="h-3 w-3 opacity-60 transition-all duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:opacity-100" />
+                            <ProtocolMotionArrow className="h-3 w-3" />
                           </span>
                         </PortalBadge>
                       </div>

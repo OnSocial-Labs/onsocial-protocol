@@ -43,7 +43,7 @@ import type { ExecuteAction, ExecuteOptions } from '../client.js';
  * - `posts`     — create posts, replies, quotes (incl. group variants)
  * - `reactions` — add / remove / toggle / summary
  * - `saves`     — bookmark posts
- * - `endorsements` — directed weighted vouches
+ * - `endorsements` — directed contextual vouches
  * - `attestations` — verifiable typed claims
  * - `standings` — account ↔ account "stand with" graph
  * - `feed`      — indexed reads (alias of `os.query`)

@@ -11,6 +11,10 @@ interface ProfileDiscoverResult {
   avatarUrl: string | null;
   standingCount: number;
   standingWithCount: number;
+  mutualStandingCount: number;
+  endorsementsReceivedCount: number;
+  endorsementsGivenCount: number;
+  firstProfileTimestamp: number | null;
   viewerStanding: boolean;
 }
 
@@ -79,6 +83,10 @@ export async function GET(request: NextRequest) {
         avatarUrl: os.profiles.avatarUrl(profile),
         standingCount: row.standingCount,
         standingWithCount: row.standingWithCount,
+        mutualStandingCount: row.mutualStandingCount,
+        endorsementsReceivedCount: row.endorsementsReceivedCount,
+        endorsementsGivenCount: row.endorsementsGivenCount,
+        firstProfileTimestamp: row.firstProfileTimestamp,
         viewerStanding: viewerOutgoingSet.has(row.accountId),
       } satisfies ProfileDiscoverResult;
     });

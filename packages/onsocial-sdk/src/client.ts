@@ -256,7 +256,7 @@ export class OnSocial {
   readonly reactions: ReactionsModule;
   /** Saves — add / remove / toggle / list bookmarks; accepts post objects directly. */
   readonly saves: SavesModule;
-  /** Endorsements — weighted directed vouches with toggle + materialised lists. */
+  /** Endorsements — directed contextual vouches with toggle + materialised lists. */
   readonly endorsements: EndorsementsModule;
   /** Attestations — verifiable typed claims with auto-claimId issue + lists. */
   readonly attestations: AttestationsModule;

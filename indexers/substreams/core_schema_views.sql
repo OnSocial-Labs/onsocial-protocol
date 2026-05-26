@@ -243,6 +243,61 @@ profile_rows AS (
     MAX(block_timestamp)                       AS last_profile_timestamp
   FROM active_profile_fields
   GROUP BY account_id
+),
+profile_since AS (
+  SELECT
+    account_id,
+    MIN(block_timestamp) AS first_profile_timestamp
+  FROM data_updates
+  WHERE data_type = 'profile'
+    AND operation = 'set'
+    AND value IS NOT NULL
+    AND data_id IN ('name', 'bio', 'avatar', 'banner')
+  GROUP BY account_id
+),
+mutual_standing_counts AS (
+  SELECT
+    s.account_id,
+    COUNT(*) AS mutual_standing_count
+  FROM standings_current s
+  JOIN standings_current reverse_s
+    ON reverse_s.account_id = s.target_account
+   AND reverse_s.target_account = s.account_id
+  GROUP BY s.account_id
+),
+endorsement_latest AS (
+  SELECT DISTINCT ON (account_id, path)
+    account_id      AS issuer,
+    target_account  AS target,
+    block_height,
+    operation
+  FROM data_updates
+  WHERE data_type = 'endorsement'
+    AND account_id IS NOT NULL
+    AND account_id != ''
+    AND target_account IS NOT NULL
+    AND target_account != ''
+    AND path IS NOT NULL
+    AND path != ''
+  ORDER BY account_id, path, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC
+),
+endorsement_received_counts AS (
+  SELECT
+    target AS account_id,
+    COUNT(*)          AS endorsements_received_count,
+    MAX(block_height) AS last_endorsement_block
+  FROM endorsement_latest
+  WHERE operation = 'set'
+  GROUP BY target
+),
+endorsement_given_counts AS (
+  SELECT
+    issuer AS account_id,
+    COUNT(*)          AS endorsements_given_count,
+    MAX(block_height) AS last_endorsement_block
+  FROM endorsement_latest
+  WHERE operation = 'set'
+  GROUP BY issuer
 )
 SELECT
   p.account_id,
@@ -252,17 +307,27 @@ SELECT
   p.banner,
   COALESCE(sc.standing_with_count, 0)         AS standing_count,
   COALESCE(soc.standing_with_others_count, 0) AS standing_with_count,
+  COALESCE(msc.mutual_standing_count, 0)      AS mutual_standing_count,
+  COALESCE(erc.endorsements_received_count, 0) AS endorsements_received_count,
+  COALESCE(egc.endorsements_given_count, 0)   AS endorsements_given_count,
+  ps.first_profile_timestamp,
   p.last_profile_block,
   p.last_profile_timestamp,
   GREATEST(
     COALESCE(p.last_profile_block, 0),
     COALESCE(sc.last_standing_block, 0),
-    COALESCE(soc.last_standing_block, 0)
+    COALESCE(soc.last_standing_block, 0),
+    COALESCE(erc.last_endorsement_block, 0),
+    COALESCE(egc.last_endorsement_block, 0)
   ) AS last_activity_block,
   LOWER(CONCAT_WS(' ', p.account_id, p.name, p.bio)) AS search_text
 FROM profile_rows p
+LEFT JOIN profile_since ps ON ps.account_id = p.account_id
 LEFT JOIN standing_counts sc ON sc.account_id = p.account_id
 LEFT JOIN standing_out_counts soc ON soc.account_id = p.account_id
+LEFT JOIN mutual_standing_counts msc ON msc.account_id = p.account_id
+LEFT JOIN endorsement_received_counts erc ON erc.account_id = p.account_id
+LEFT JOIN endorsement_given_counts egc ON egc.account_id = p.account_id
 WHERE p.name IS NOT NULL
    OR p.bio IS NOT NULL
    OR p.avatar IS NOT NULL

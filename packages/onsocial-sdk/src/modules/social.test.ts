@@ -6,6 +6,8 @@ import {
   buildReactionSetData,
   buildStandingRemoveData,
   buildStandingSetData,
+  buildEndorsementSetData,
+  normalizeEndorsementTopic,
 } from './social.js';
 
 describe('social set-data builders', () => {
@@ -53,6 +55,26 @@ describe('social set-data builders', () => {
       buildReactionSetData('bob.near', 'post/123', { type: 'like' })
     ).toEqual({
       'reaction/bob.near/like/post/123': { v: 1, type: 'like' },
+    });
+  });
+
+  it('normalizes endorsement topics before writing path segments', () => {
+    expect(normalizeEndorsementTopic('AI Research / Ops!')).toBe(
+      'AI-Research-Ops'
+    );
+    expect(
+      buildEndorsementSetData('bob.near', {
+        topic: 'AI Research / Ops!',
+        note: 'Thoughtful research and clean operational follow-through.',
+        now: 42,
+      })
+    ).toEqual({
+      'endorsement/bob.near/AI-Research-Ops': {
+        v: 1,
+        since: 42,
+        topic: 'AI-Research-Ops',
+        note: 'Thoughtful research and clean operational follow-through.',
+      },
     });
   });
 });
@@ -378,7 +400,12 @@ describe('SocialModule typed reads', () => {
       .mockResolvedValueOnce({
         requested_key: 'endorsement/bob.near/rust',
         full_key: 'alice.near/endorsement/bob.near/rust',
-        value: { v: 1, since: 1710000001000, topic: 'rust', weight: 5 },
+        value: {
+          v: 1,
+          since: 1710000001000,
+          topic: 'rust',
+          note: 'shipped cleanly',
+        },
         deleted: false,
         corrupted: false,
       })
@@ -409,7 +436,7 @@ describe('SocialModule typed reads', () => {
       v: 1,
       since: 1710000001000,
       topic: 'rust',
-      weight: 5,
+      note: 'shipped cleanly',
     });
     await expect(
       social.getAttestation('bob.near', 'skill', 'claim-1', 'alice.near')

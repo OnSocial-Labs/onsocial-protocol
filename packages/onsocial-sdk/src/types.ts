@@ -313,7 +313,6 @@ export interface EndorsementRecord {
   v: number;
   since: number;
   topic?: string;
-  weight?: 1 | 2 | 3 | 4 | 5;
   note?: string;
   expiresAt?: number;
   [key: string]: unknown;

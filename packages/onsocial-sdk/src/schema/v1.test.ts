@@ -237,19 +237,15 @@ describe('EndorsementV1', () => {
     expect(validateEndorsementV1(e)).toBeNull();
   });
 
-  it('accepts topic + weight', () => {
-    const e = endorsementV1({ topic: 'rust', weight: 5, note: 'great' });
-    expect(e.weight).toBe(5);
+  it('accepts topic + note', () => {
+    const e = endorsementV1({ topic: 'rust', note: 'great' });
+    expect(e.topic).toBe('rust');
+    expect(e.note).toBe('great');
     expect(validateEndorsementV1(e)).toBeNull();
   });
 
-  it('rejects out-of-range weight', () => {
-    expect(validateEndorsementV1({ v: 1, since: 1, weight: 7 })).toMatch(
-      /weight/
-    );
-    expect(validateEndorsementV1({ v: 1, since: 1, weight: 0 })).toMatch(
-      /weight/
-    );
+  it('tolerates legacy weight metadata', () => {
+    expect(validateEndorsementV1({ v: 1, since: 1, weight: 7 })).toBeNull();
   });
 });
 

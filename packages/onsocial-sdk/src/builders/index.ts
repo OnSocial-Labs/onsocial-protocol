@@ -41,11 +41,9 @@ export type { SaveBuildInput } from './save.js';
 export {
   buildEndorsementSetData,
   buildEndorsementRemoveData,
+  normalizeEndorsementTopic,
 } from './endorsement.js';
-export type {
-  EndorsementBuildInput,
-  EndorsementWeightInput,
-} from './endorsement.js';
+export type { EndorsementBuildInput } from './endorsement.js';
 
 export {
   buildAttestationSetData,

@@ -3,14 +3,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { User, UserMinus, UserPlus, X } from 'lucide-react';
+import { User } from 'lucide-react';
 import type { MaterialisedProfile } from '@onsocial/sdk';
 import { portalElevatedShadowClass } from '@/components/ui/floating-panel';
+import { ModalCloseButton } from '@/components/ui/modal-close-button';
+import { ModalHeader } from '@/components/ui/modal-header';
+import { profileActionButtonClass } from '@/components/ui/profile-action-pill';
+import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
 import { SearchInput } from '@/components/ui/search-input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
 import { fadeMotion, scaleFadeMotion } from '@/lib/motion';
+import { ACTIVE_API_URL } from '@/lib/portal-config';
 import { cn } from '@/lib/utils';
 
 interface ProfileDiscoverResult {
@@ -19,6 +24,10 @@ interface ProfileDiscoverResult {
   avatarUrl: string | null;
   standingCount: number;
   standingWithCount: number;
+  mutualStandingCount: number;
+  endorsementsReceivedCount: number;
+  endorsementsGivenCount: number;
+  firstProfileTimestamp: number | null;
   viewerStanding: boolean;
 }
 
@@ -27,15 +36,27 @@ interface ProfileDiscoverResponse {
   results: ProfileDiscoverResult[];
 }
 
+interface ProtocolPulseResponse {
+  totals?: {
+    profiles?: number;
+  };
+}
+
 interface ProfileDiscoveryModalProps {
   open: boolean;
   viewerAccountId: string | null;
+  totalProfiles?: number | null;
   onOpenChange: (open: boolean) => void;
   onSelectAccount: (accountId: string) => void;
   onUpdateStanding?: (
     accountId: string,
     shouldStand: boolean
   ) => Promise<unknown>;
+  onEndorse?: (
+    target: string,
+    input: import('@onsocial/sdk').EndorsementBuildInput
+  ) => Promise<unknown>;
+  onRemoveEndorsement?: (target: string, topic?: string) => Promise<unknown>;
 }
 
 function getErrorMessage(error: unknown): string {
@@ -52,8 +73,41 @@ function displayName(result: ProfileDiscoverResult): string {
   return result.profile?.name?.trim() || cleanHandle(result.accountId);
 }
 
+function profileBio(result: ProfileDiscoverResult): string | null {
+  const bio = result.profile?.bio?.trim();
+  return bio || null;
+}
+
 function formatCount(count: number): string {
-  return new Intl.NumberFormat('en', { notation: 'compact' }).format(count);
+  const numericCount = Number(count);
+  if (!Number.isFinite(numericCount)) return '0';
+
+  return new Intl.NumberFormat('en-US', {
+    maximumFractionDigits:
+      Math.abs(numericCount) >= 1000 && Math.abs(numericCount) < 100000
+        ? 1
+        : 0,
+    notation: Math.abs(numericCount) >= 1000 ? 'compact' : 'standard',
+  }).format(numericCount);
+}
+
+function normalizeTimestamp(value?: number | null): number | null {
+  if (!value || !Number.isFinite(value) || value <= 0) return null;
+  if (value > 1_000_000_000_000_000) return Math.floor(value / 1_000_000);
+  if (value < 1_000_000_000_000) return value * 1000;
+  return value;
+}
+
+function profileSinceLabel(timestamp?: number | null): string | null {
+  const normalized = normalizeTimestamp(timestamp);
+  if (!normalized) return null;
+
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    year: 'numeric',
+  })
+    .format(new Date(normalized))
+    .toUpperCase();
 }
 
 async function fetchProfileDiscovery(
@@ -135,6 +189,7 @@ function DiscoveryResultsSkeleton() {
 export function ProfileDiscoveryModal({
   open,
   viewerAccountId,
+  totalProfiles = null,
   onOpenChange,
   onSelectAccount,
   onUpdateStanding,
@@ -143,14 +198,44 @@ export function ProfileDiscoveryModal({
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<ProfileDiscoverResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [protocolProfileTotal, setProtocolProfileTotal] = useState<
+    number | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
   const [pendingStandingAccountId, setPendingStandingAccountId] = useState<
     string | null
   >(null);
   const latestLoadRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const title = query.trim() ? 'Profile search' : 'Discover profiles';
+  const trimmedQuery = query.trim();
+  const profileTotal = totalProfiles ?? protocolProfileTotal;
+  const discoveryMeta =
+    typeof profileTotal === 'number' && profileTotal > 0
+      ? `${formatCount(profileTotal)} IDENTITIES ON THE GRAPH`
+      : undefined;
   useBodyScrollLock(open, scrollRef);
+
+  useEffect(() => {
+    if (!open || totalProfiles != null || protocolProfileTotal != null) return;
+
+    const controller = new AbortController();
+    fetch(`${ACTIVE_API_URL}/graph/protocol-pulse`, {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: ProtocolPulseResponse | null) => {
+        const count = data?.totals?.profiles;
+        if (typeof count === 'number' && Number.isFinite(count) && count > 0) {
+          setProtocolProfileTotal(count);
+        }
+      })
+      .catch(() => {
+        // The profile list still works without the protocol-wide total.
+      });
+
+    return () => controller.abort();
+  }, [open, protocolProfileTotal, totalProfiles]);
 
   useEffect(() => {
     if (!open) {
@@ -198,9 +283,9 @@ export function ProfileDiscoveryModal({
 
   const emptyLabel = useMemo(() => {
     if (isLoading) return 'Finding profiles...';
-    if (query.trim()) return 'No matching profiles yet.';
+    if (trimmedQuery) return 'No matching profiles yet.';
     return 'No profiles found yet.';
-  }, [isLoading, query]);
+  }, [isLoading, trimmedQuery]);
 
   const handleStanding = async (
     result: ProfileDiscoverResult,
@@ -273,28 +358,20 @@ export function ProfileDiscoveryModal({
               portalElevatedShadowClass
             )}
           >
-            <div className="shrink-0 space-y-4 px-4 py-5 md:px-5">
-              <button
-                type="button"
-                onClick={() => onOpenChange(false)}
-                className="absolute right-3 top-3 z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border/45 text-muted-foreground transition-colors hover:border-border hover:text-foreground"
-                aria-label="Close profile discovery"
-              >
-                <X className="h-4 w-4" />
-              </button>
+            <ModalHeader
+              titleId="profile-discovery-title"
+              title="Discover profiles"
+              description={discoveryMeta}
+              descriptionVariant="meta"
+              actions={
+                <ModalCloseButton
+                  ariaLabel="Close profile discovery"
+                  onClick={() => onOpenChange(false)}
+                />
+              }
+            />
 
-              <div className="min-w-0 pr-10">
-                <h2
-                  id="profile-discovery-title"
-                  className="truncate text-xl font-semibold text-foreground"
-                >
-                  {title}
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground/60">
-                  Find anyone on OnSocial.
-                </p>
-              </div>
-
+            <div className="shrink-0 px-4 pb-4 md:px-5">
               <SearchInput
                 value={query}
                 onValueChange={setQuery}
@@ -328,11 +405,15 @@ export function ProfileDiscoveryModal({
                   <motion.div
                     key={`results-${query}`}
                     {...fadeMotion(reduceMotion ? 0 : 0.14)}
-                    className="space-y-1.5"
+                    className="divide-y divide-fade-item"
                   >
                     {results.map((result) => {
                       const viewerStandsWithResult = Boolean(
                         result.viewerStanding
+                      );
+                      const bio = profileBio(result);
+                      const sinceLabel = profileSinceLabel(
+                        result.firstProfileTimestamp
                       );
                       const canUpdateStanding =
                         Boolean(viewerAccountId) &&
@@ -345,7 +426,7 @@ export function ProfileDiscoveryModal({
                         <motion.div
                           key={result.accountId}
                           initial={false}
-                          className="group flex w-full min-w-0 items-center gap-3 rounded-xl border border-transparent px-2.5 py-2.5 text-left transition-colors hover:bg-[var(--portal-slate-bg)] hover:text-foreground"
+                          className="flex w-full min-w-0 items-start gap-3 rounded-xl px-2.5 py-2.5 text-left transition-colors hover:bg-[var(--portal-slate-bg)] focus-within:bg-[var(--portal-slate-bg)]"
                         >
                           <button
                             type="button"
@@ -353,28 +434,118 @@ export function ProfileDiscoveryModal({
                               onOpenChange(false);
                               onSelectAccount(result.accountId);
                             }}
-                            className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--portal-blue-focus-border)]"
+                            className="group flex min-w-0 flex-1 items-start gap-3 rounded-lg text-left focus-visible:outline-none"
                           >
                             <ProfileAvatar
                               avatarUrl={result.avatarUrl}
-                              className="h-9 w-9"
+                              className="mt-0.5 h-9 w-9"
                             />
                             <span className="min-w-0 flex-1">
                               <span className="block truncate text-[13px] font-medium text-foreground">
                                 {displayName(result)}
                               </span>
                               <span className="block truncate text-[11px] text-muted-foreground/55">
-                                {result.accountId}
+                                @{result.accountId}
                               </span>
-                              <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground/70">
-                                <span>
-                                  {formatCount(result.standingCount)} stand with
-                                  them
+                              {bio ? (
+                                <span className="mt-0.5 block truncate text-[11px] text-muted-foreground/60">
+                                  {bio}
                                 </span>
-                                <span>
-                                  They stand with{' '}
-                                  {formatCount(result.standingWithCount)}
+                              ) : null}
+                              <span className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-muted-foreground/65">
+                                <span
+                                  className="inline-flex items-center gap-1 whitespace-nowrap"
+                                  aria-label={`${formatCount(result.standingCount)} stand with them`}
+                                  title="Stand with them"
+                                >
+                                  <ProtocolMotionArrow className="h-2.5 w-2.5 text-muted-foreground/55" />
+                                  <span
+                                    className={cn(
+                                      'font-semibold tabular-nums text-foreground/80',
+                                      result.standingCount === 0 &&
+                                        'opacity-40'
+                                    )}
+                                  >
+                                    {formatCount(result.standingCount)}
+                                  </span>
                                 </span>
+                                <span
+                                  className="inline-flex items-center gap-1 whitespace-nowrap"
+                                  aria-label={`They stand with ${formatCount(result.standingWithCount)}`}
+                                  title="They stand with"
+                                >
+                                  <span
+                                    className={cn(
+                                      'font-semibold tabular-nums text-foreground/80',
+                                      result.standingWithCount === 0 &&
+                                        'opacity-40'
+                                    )}
+                                  >
+                                    {formatCount(result.standingWithCount)}
+                                  </span>
+                                  <ProtocolMotionArrow className="h-2.5 w-2.5 text-muted-foreground/55" />
+                                </span>
+                                <span
+                                  className="inline-flex items-center gap-1 whitespace-nowrap"
+                                  aria-label={`${formatCount(result.mutualStandingCount)} solidarity connections`}
+                                  title="Solidarity"
+                                >
+                                  <ProtocolMotionArrow
+                                    direction="in"
+                                    className="h-2 w-2 text-[var(--portal-purple)]/65"
+                                  />
+                                  <span
+                                    className={cn(
+                                      'font-semibold tabular-nums text-[var(--portal-purple)]/85',
+                                      result.mutualStandingCount === 0 &&
+                                        'opacity-40'
+                                    )}
+                                  >
+                                    {formatCount(result.mutualStandingCount)}
+                                  </span>
+                                  <ProtocolMotionArrow className="h-2 w-2 text-[var(--portal-purple)]/65" />
+                                </span>
+                                <span
+                                  className="inline-flex items-center gap-1 whitespace-nowrap"
+                                  aria-label={`${formatCount(result.endorsementsReceivedCount)} endorsements received and ${formatCount(result.endorsementsGivenCount)} given`}
+                                  title="Endorsements"
+                                >
+                                  <ProtocolMotionArrow className="h-2.5 w-2.5 text-[var(--portal-gold)]/65" />
+                                  <span
+                                    className={cn(
+                                      'font-semibold tabular-nums text-[var(--portal-gold)]/85',
+                                      result.endorsementsReceivedCount === 0 &&
+                                        'opacity-40'
+                                    )}
+                                  >
+                                    {formatCount(
+                                      result.endorsementsReceivedCount
+                                    )}
+                                  </span>
+                                  <span
+                                    className={cn(
+                                      'font-semibold tabular-nums text-[var(--portal-gold)]/85',
+                                      result.endorsementsGivenCount === 0 &&
+                                        'opacity-40'
+                                    )}
+                                  >
+                                    {formatCount(result.endorsementsGivenCount)}
+                                  </span>
+                                  <ProtocolMotionArrow className="h-2.5 w-2.5 text-[var(--portal-gold)]/65" />
+                                </span>
+                                {sinceLabel ? (
+                                  <span
+                                    className="whitespace-nowrap text-[9px] font-medium uppercase tracking-[0.14em] text-muted-foreground/45"
+                                    title="Profile since"
+                                  >
+                                    Since {sinceLabel}
+                                  </span>
+                                ) : null}
+                                {result.viewerStanding ? (
+                                  <span className="text-[9px] font-medium uppercase tracking-[0.14em] text-[var(--portal-blue)]/75">
+                                    You stand
+                                  </span>
+                                ) : null}
                               </span>
                             </span>
                           </button>
@@ -383,10 +554,9 @@ export function ProfileDiscoveryModal({
                             isPending ? (
                               <span
                                 className={cn(
-                                  'flex h-7 min-w-[80px] shrink-0 items-center justify-center rounded-full',
-                                  viewerStandsWithResult
-                                    ? 'border border-border/50 bg-transparent text-muted-foreground'
-                                    : 'border portal-green-surface'
+                                  profileActionButtonClass(
+                                    viewerStandsWithResult ? 'slate' : 'blue'
+                                  )
                                 )}
                                 aria-label={
                                   viewerStandsWithResult
@@ -407,10 +577,9 @@ export function ProfileDiscoveryModal({
                                   )
                                 }
                                 className={cn(
-                                  'inline-flex h-7 min-w-[80px] shrink-0 items-center justify-center gap-1 rounded-full border px-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 disabled:pointer-events-none disabled:opacity-50',
-                                  viewerStandsWithResult
-                                    ? 'border-border/50 bg-transparent text-muted-foreground hover:border-border hover:text-foreground focus-visible:ring-border/50'
-                                    : 'portal-green-surface focus-visible:ring-[var(--portal-green-border)]'
+                                  profileActionButtonClass(
+                                    viewerStandsWithResult ? 'slate' : 'blue'
+                                  )
                                 )}
                                 aria-label={
                                   viewerStandsWithResult
@@ -418,17 +587,7 @@ export function ProfileDiscoveryModal({
                                     : `Stand with ${displayName(result)}`
                                 }
                               >
-                                {viewerStandsWithResult ? (
-                                  <>
-                                    <UserMinus className="h-3 w-3" />
-                                    Step back
-                                  </>
-                                ) : (
-                                  <>
-                                    <UserPlus className="h-3 w-3" />
-                                    Stand
-                                  </>
-                                )}
+                                {viewerStandsWithResult ? 'Step back' : 'Stand'}
                               </button>
                             )
                           ) : null}

@@ -600,17 +600,17 @@ export interface SaveV1 {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// Endorsements (weighted directed vouch)
+// Endorsements (directed contextual vouch)
 // ───────────────────────────────────────────────────────────────────────────
 //
 // Stronger / more directional than `standing` (which is a binary relationship
 // signal). An endorsement says "I vouch for this account" with optional topic
-// scoping and a 1-5 weight. Apps that want a binary vouch can ignore weight.
+// scoping and a public note. Signal strength is intended to be derived from
+// issuer reputation, topic fit, graph quality, freshness, and optional
+// stake-backed flows rather than from a manual rating field.
 //
 // Path: `endorsement/<targetAccount>` or `endorsement/<targetAccount>/<topic>`.
 // ───────────────────────────────────────────────────────────────────────────
-
-export type EndorsementWeight = 1 | 2 | 3 | 4 | 5;
 
 export interface EndorsementV1 {
   v: 1;
@@ -618,8 +618,6 @@ export interface EndorsementV1 {
   since: number;
   /** Optional topic / skill / domain scope (free string). */
   topic?: string;
-  /** 1 (weakest) to 5 (strongest); apps may ignore. */
-  weight?: EndorsementWeight;
   /** Optional public note. */
   note?: string;
   /** Optional expiry (unix ms); past this the endorsement is considered stale. */
@@ -695,11 +693,6 @@ export function validateEndorsementV1(e: unknown): string | null {
   if (!isNum(e.since)) return 'endorsement.since required (unix ms)';
   if (e.topic !== undefined && !isStr(e.topic))
     return 'endorsement.topic must be string';
-  if (e.weight !== undefined) {
-    if (!isNum(e.weight) || ![1, 2, 3, 4, 5].includes(e.weight as number)) {
-      return 'endorsement.weight must be 1, 2, 3, 4, or 5';
-    }
-  }
   if (e.note !== undefined && !isStr(e.note))
     return 'endorsement.note must be string';
   if (e.expiresAt !== undefined && !isNum(e.expiresAt)) {

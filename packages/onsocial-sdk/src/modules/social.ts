@@ -89,6 +89,7 @@ export {
   buildSaveRemoveData,
   buildEndorsementSetData,
   buildEndorsementRemoveData,
+  normalizeEndorsementTopic,
   buildAttestationSetData,
   buildAttestationRemoveData,
   resolvePostMedia,
@@ -97,7 +98,6 @@ export type {
   SocialSetData,
   SaveBuildInput,
   EndorsementBuildInput,
-  EndorsementWeightInput,
   AttestationBuildInput,
   AttestationSignatureInput,
 } from '../builders/index.js';

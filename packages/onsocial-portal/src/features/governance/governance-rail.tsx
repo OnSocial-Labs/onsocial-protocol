@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, Plus, RefreshCw, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { FilterPill } from '@/components/ui/filter-pill';
 import { SearchInput } from '@/components/ui/search-input';
 import {
   floatingPanelItemClass,
   floatingPanelItemSelectedClass,
 } from '@/components/ui/floating-panel';
 import { FloatingPanelMenu } from '@/components/ui/floating-panel-menu';
-import { cn } from '@/lib/utils';
 import { useDropdown } from '@/hooks/use-dropdown';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
@@ -297,32 +297,15 @@ export function GovernanceRail({
                 const count = statusCounts[option.value];
 
                 return (
-                  <Button
+                  <FilterPill
                     key={option.value}
-                    type="button"
-                    variant={isActive ? 'outline' : 'ghost'}
-                    size="xs"
+                    active={isActive}
+                    label={option.label}
+                    count={count}
                     onClick={() => {
                       onStatusChange(option.value);
                     }}
-                    className={cn(
-                      'gap-1.5',
-                      isActive
-                        ? 'border-border/60 bg-background font-medium text-foreground shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]'
-                        : 'border-transparent text-muted-foreground hover:border-border/40 hover:text-foreground'
-                    )}
-                  >
-                    <span>{option.label}</span>
-                    <span
-                      className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full border px-1 text-[10px] font-medium tabular-nums leading-none ${
-                        isActive
-                          ? 'border-border/40 bg-background/60 text-foreground/70'
-                          : 'border-transparent text-muted-foreground/80'
-                      }`}
-                    >
-                      {count}
-                    </span>
-                  </Button>
+                  />
                 );
               })}
             </div>

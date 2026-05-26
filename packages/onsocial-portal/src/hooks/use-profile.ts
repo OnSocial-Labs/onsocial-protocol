@@ -5,6 +5,7 @@ import type {
   MaterialisedProfile,
   ProfileData,
   RelayResponse,
+  EndorsementBuildInput,
 } from '@onsocial/sdk';
 import {
   bootstrapSession,
@@ -595,6 +596,56 @@ export function useProfile() {
     [accountId, createClient, getSocialSession, isConnected, wallet]
   );
 
+  const endorse = useCallback(
+    async (
+      targetAccount: string,
+      input: EndorsementBuildInput = {}
+    ): Promise<RelayResponse> => {
+      if (!accountId || !isConnected || !wallet) {
+        throw new Error('Connect your wallet before endorsing.');
+      }
+      if (targetAccount === accountId) {
+        throw new Error('You cannot endorse your own account.');
+      }
+
+      setError(null);
+
+      try {
+        const os = createClient();
+        const session = await getSocialSession();
+        os.attachSession(session);
+        return await os.endorsements.add(targetAccount, input);
+      } catch (err) {
+        const message = getErrorMessage(err);
+        setError(message);
+        throw new Error(message);
+      }
+    },
+    [accountId, createClient, getSocialSession, isConnected, wallet]
+  );
+
+  const removeEndorsement = useCallback(
+    async (targetAccount: string, topic?: string): Promise<RelayResponse> => {
+      if (!accountId || !isConnected || !wallet) {
+        throw new Error('Connect your wallet before managing endorsements.');
+      }
+
+      setError(null);
+
+      try {
+        const os = createClient();
+        const session = await getSocialSession();
+        os.attachSession(session);
+        return await os.endorsements.remove(targetAccount, { topic });
+      } catch (err) {
+        const message = getErrorMessage(err);
+        setError(message);
+        throw new Error(message);
+      }
+    },
+    [accountId, createClient, getSocialSession, isConnected, wallet]
+  );
+
   const visibleProfile = profile?.accountId === accountId ? profile : null;
   const visibleIndexedProfile = visibleProfile ? indexedProfile : null;
   const visibleAvatarUrl = visibleProfile ? avatarUrl : null;
@@ -614,5 +665,7 @@ export function useProfile() {
     refreshProfile: loadProfile,
     saveProfile,
     updateStanding,
+    endorse,
+    removeEndorsement,
   };
 }
