@@ -307,10 +307,6 @@ SELECT
   p.banner,
   COALESCE(sc.standing_with_count, 0)         AS standing_count,
   COALESCE(soc.standing_with_others_count, 0) AS standing_with_count,
-  COALESCE(msc.mutual_standing_count, 0)      AS mutual_standing_count,
-  COALESCE(erc.endorsements_received_count, 0) AS endorsements_received_count,
-  COALESCE(egc.endorsements_given_count, 0)   AS endorsements_given_count,
-  ps.first_profile_timestamp,
   p.last_profile_block,
   p.last_profile_timestamp,
   GREATEST(
@@ -320,7 +316,11 @@ SELECT
     COALESCE(erc.last_endorsement_block, 0),
     COALESCE(egc.last_endorsement_block, 0)
   ) AS last_activity_block,
-  LOWER(CONCAT_WS(' ', p.account_id, p.name, p.bio)) AS search_text
+  LOWER(CONCAT_WS(' ', p.account_id, p.name, p.bio)) AS search_text,
+  COALESCE(msc.mutual_standing_count, 0)      AS mutual_standing_count,
+  COALESCE(erc.endorsements_received_count, 0) AS endorsements_received_count,
+  COALESCE(egc.endorsements_given_count, 0)   AS endorsements_given_count,
+  ps.first_profile_timestamp
 FROM profile_rows p
 LEFT JOIN profile_since ps ON ps.account_id = p.account_id
 LEFT JOIN standing_counts sc ON sc.account_id = p.account_id
