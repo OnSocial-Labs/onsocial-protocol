@@ -223,6 +223,22 @@ jobs:
             upsert_env "HASURA_GRAPHQL_CORS_DOMAIN" "https://testnet.onsocial.id,http://localhost:3000"
             upsert_env "NEARBLOCKS_API_URL" "https://api-testnet.nearblocks.io"
 
+            if ! grep -q '^ONSOCIAL_PORTAL_REWARDS_API_KEY=.\+' .env.production 2>/dev/null; then
+              echo "Fetching ONSOCIAL_PORTAL_REWARDS_API_KEY from GSM on server..."
+              PORTAL_REWARDS_KEY="$(
+                gcloud secrets versions access latest \
+                  --secret=ONSOCIAL_PORTAL_REWARDS_API_KEY \
+                  --project=onsocial-protocol 2>/dev/null \
+                  | tr -d '\r\n' \
+                  | sed 's/[[:space:]]*$//' \
+                  || true
+              )"
+              if [ -n "$PORTAL_REWARDS_KEY" ]; then
+                upsert_env "ONSOCIAL_PORTAL_REWARDS_API_KEY" "$PORTAL_REWARDS_KEY"
+              fi
+            fi
+            upsert_env "ONSOCIAL_PORTAL_REWARDS_APP_ID" "onsocial_portal"
+
             # ── Health check helpers ─────────────────────────────────
             check_health() {
               local name="$1" url="$2" retries="${3:-20}" delay="${4:-3}"
