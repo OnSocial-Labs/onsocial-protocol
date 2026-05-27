@@ -146,7 +146,9 @@ jobs:
           grep -q '^TELEGRAM_BOT_TOKEN=' /tmp/deploy_gsm.env || { echo '❌ TELEGRAM_BOT_TOKEN missing in GSM output'; exit 1; }
           grep -q '^ADMIN_SECRET=' /tmp/deploy_gsm.env || { echo '❌ ADMIN_SECRET missing in GSM output'; exit 1; }
           grep -q '^ADMIN_WALLETS=' /tmp/deploy_gsm.env || { echo '❌ ADMIN_WALLETS missing in GSM output'; exit 1; }
-          grep -q '^ONSOCIAL_PORTAL_REWARDS_API_KEY=' /tmp/deploy_gsm.env || { echo '❌ ONSOCIAL_PORTAL_REWARDS_API_KEY missing in GSM output'; exit 1; }
+          if ! grep -q '^ONSOCIAL_PORTAL_REWARDS_API_KEY=' /tmp/deploy_gsm.env; then
+            echo '⚠️  ONSOCIAL_PORTAL_REWARDS_API_KEY missing in CI GSM output (CI SA may lack access; server .env.production keeps existing value)'
+          fi
 
       - name: Sync config files to server
         run: |
