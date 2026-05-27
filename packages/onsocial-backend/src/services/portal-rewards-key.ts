@@ -3,7 +3,8 @@ import { query } from '../db/index.js';
 import { logger } from '../logger.js';
 
 export async function ensurePortalRewardsPartnerKey(): Promise<void> {
-  if (!config.portalRewardsApiKey) {
+  const apiKey = config.portalRewardsApiKey.trim();
+  if (!apiKey) {
     logger.warn(
       'ONSOCIAL_PORTAL_REWARDS_API_KEY is not set; Portal reward credits will be rejected'
     );
@@ -41,7 +42,7 @@ export async function ensurePortalRewardsPartnerKey(): Promise<void> {
          status = 'approved',
          admin_notes = EXCLUDED.admin_notes,
          reviewed_at = now()`,
-    [config.portalRewardsApiKey, config.portalRewardsAppId]
+    [apiKey, config.portalRewardsAppId]
   );
 
   logger.info(

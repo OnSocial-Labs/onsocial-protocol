@@ -146,6 +146,7 @@ jobs:
           grep -q '^TELEGRAM_BOT_TOKEN=' /tmp/deploy_gsm.env || { echo '❌ TELEGRAM_BOT_TOKEN missing in GSM output'; exit 1; }
           grep -q '^ADMIN_SECRET=' /tmp/deploy_gsm.env || { echo '❌ ADMIN_SECRET missing in GSM output'; exit 1; }
           grep -q '^ADMIN_WALLETS=' /tmp/deploy_gsm.env || { echo '❌ ADMIN_WALLETS missing in GSM output'; exit 1; }
+          grep -q '^ONSOCIAL_PORTAL_REWARDS_API_KEY=' /tmp/deploy_gsm.env || { echo '❌ ONSOCIAL_PORTAL_REWARDS_API_KEY missing in GSM output'; exit 1; }
 
       - name: Sync config files to server
         run: |
@@ -380,9 +381,14 @@ jobs:
               exit 1
             fi
 
+            if [ -z "${ONSOCIAL_PORTAL_REWARDS_API_KEY:-}" ]; then
+              echo "❌ ONSOCIAL_PORTAL_REWARDS_API_KEY is not set after GSM refresh"
+              exit 1
+            fi
+
             # ── Backend (Telegram rewards bot) ───────────────────────
             echo "Rolling backend..."
-            docker compose up -d --no-deps backend </dev/null
+            docker compose up -d --force-recreate --no-deps backend </dev/null
             if ! check_container_health "backend" "backend" "http://localhost:4001/health" 24 5; then
               print_service_logs "backend"
               echo "❌ Backend health check failed — rolling back"

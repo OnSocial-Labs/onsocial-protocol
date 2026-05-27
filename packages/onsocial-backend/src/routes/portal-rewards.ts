@@ -51,8 +51,14 @@ function normalizeAccountId(value: unknown): string | null {
 
 function normalizeTopic(value: unknown): string | null {
   if (typeof value !== 'string') return null;
-  const topic = value.trim().toLowerCase().replace(/\s+/g, '-').slice(0, 64);
-  return topic || null;
+  const normalized = value
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^A-Za-z0-9_.-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^[.-]+|[.-]+$/g, '')
+    .slice(0, 40);
+  return normalized || null;
 }
 
 function getRewardDay(): string {
@@ -121,7 +127,9 @@ function signedMessageMatchesRequest({
     parsed.account_id === accountId &&
     parsed.action === action &&
     (parsed.target_account_id ?? null) === targetAccountId &&
-    (parsed.topic ?? null) === topic
+    normalizeTopic(
+      typeof parsed.topic === 'string' ? parsed.topic : undefined
+    ) === topic
   );
 }
 

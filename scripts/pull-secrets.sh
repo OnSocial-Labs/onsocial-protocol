@@ -81,6 +81,11 @@ fetch_secret() {
   err_file="$(mktemp)"
   if value="$($GCLOUD_BIN secrets versions access latest --secret="$name" --project="$PROJECT" 2>"$err_file")"; then
     rm -f "$err_file"
+    # GSM values often include a trailing newline; strip whitespace for env files.
+    value="${value//$'\r'/}"
+    value="${value//$'\n'/}"
+    value="${value%"${value##*[![:space:]]}"}"
+    value="${value#"${value%%[![:space:]]*}"}"
     printf '%s' "$value"
     return 0
   fi

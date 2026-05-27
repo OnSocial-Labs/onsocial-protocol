@@ -17,7 +17,7 @@ import {
 import { useWallet } from '@/contexts/wallet-context';
 import { createPortalOnSocialClient } from '@/lib/onsocial-client';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/portal-config';
-import { creditPortalReward } from '@/lib/portal-rewards';
+import { creditPortalReward, creditPortalSocialReward } from '@/lib/portal-rewards';
 
 const SOCIAL_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const SOCIAL_SESSION_ALLOWANCE_YOCTO = '250000000000000000000000';
@@ -556,7 +556,7 @@ export function useProfileState() {
         const currentProfile =
           profile?.accountId === accountId ? profile : null;
         const response = await os.profiles.update(payload, { wait: true });
-        creditPortalReward({
+        creditPortalSocialReward({
           accountId,
           action: 'profile_created',
           proof: { txHash: response.txHash },
@@ -634,7 +634,7 @@ export function useProfileState() {
           ? await os.standings.add(targetAccount, { wait: true })
           : await os.standings.remove(targetAccount, { wait: true });
         if (shouldStand) {
-          creditPortalReward({
+          creditPortalSocialReward({
             accountId,
             action: 'stand_given',
             targetAccountId: targetAccount,
@@ -685,7 +685,7 @@ export function useProfileState() {
         const response = await os.endorsements.add(targetAccount, input, {
           wait: true,
         });
-        creditPortalReward({
+        creditPortalSocialReward({
           accountId,
           action: 'endorsement_given',
           targetAccountId: targetAccount,

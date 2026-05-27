@@ -18,7 +18,10 @@ async function refreshCache(): Promise<void> {
   );
   const fresh = new Map<string, string>();
   for (const row of rows) {
-    fresh.set(row.api_key, row.app_id);
+    const apiKey = row.api_key.trim();
+    if (apiKey) {
+      fresh.set(apiKey, row.app_id);
+    }
   }
   keyCache = fresh;
   lastRefresh = Date.now();
@@ -58,9 +61,11 @@ export async function partnerAuth(
   }
 
   // Extract key from header
-  const provided =
+  const provided = (
     req.headers['x-api-key']?.toString() ||
-    req.headers.authorization?.replace(/^Bearer\s+/i, '');
+    req.headers.authorization?.replace(/^Bearer\s+/i, '') ||
+    ''
+  ).trim();
 
   if (!provided) {
     res.status(401).json({ success: false, error: 'Missing API key' });

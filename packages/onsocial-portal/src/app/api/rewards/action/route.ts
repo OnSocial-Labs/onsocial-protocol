@@ -2,12 +2,14 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { ACTIVE_BACKEND_URL } from '@/lib/portal-config';
 import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
 import type { MaterialisedProfile } from '@onsocial/sdk';
+import { normalizeEndorsementTopic } from '@onsocial/sdk';
 
 const ACCOUNT_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{1,63}$/;
 const RETRY_DELAYS_MS = [0, 1200, 2400, 3600];
 
 const REWARD_ACTIONS = new Set([
   'profile_created',
+  'daily_active',
   'stand_given',
   'mutual_stand_created',
   'endorsement_given',
@@ -23,7 +25,8 @@ interface RewardActionRequest {
 }
 
 function getRewardsApiKey(): string | undefined {
-  return process.env.ONSOCIAL_PORTAL_REWARDS_API_KEY ?? process.env.ONSOCIAL_API_KEY;
+  const key = process.env.ONSOCIAL_PORTAL_REWARDS_API_KEY?.trim();
+  return key || undefined;
 }
 
 function getErrorMessage(error: unknown): string {
@@ -38,8 +41,13 @@ function normalizeAccountId(value: unknown): string | null {
 
 function normalizeTopic(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
-  const topic = value.trim().toLowerCase().replace(/\s+/g, '-').slice(0, 64);
-  return topic || undefined;
+  return normalizeEndorsementTopic(value);
+}
+
+function hasOnChainProof(proof: unknown): boolean {
+  if (!proof || typeof proof !== 'object') return false;
+  const txHash = (proof as { txHash?: unknown }).txHash;
+  return typeof txHash === 'string' && txHash.trim().length > 0;
 }
 
 function hasAuthShape(value: unknown): boolean {
@@ -132,6 +140,9 @@ export async function POST(request: NextRequest) {
   try {
     const os = createPortalServerOnSocialClient();
     const eligible = await verifyWithRetry(async () => {
+      if (action === 'daily_active') {
+        return hasOnChainProof(body.proof);
+      }
       if (action === 'profile_created') {
         return hasProfileFields(await os.profiles.get(accountId));
       }
@@ -196,6 +207,18 @@ export async function POST(request: NextRequest) {
     });
 
     const data = (await response.json().catch(() => ({}))) as unknown;
+    if (
+      process.env.NODE_ENV === 'development' &&
+      response.status === 401 &&
+      typeof data === 'object' &&
+      data !== null &&
+      (data as { error?: string }).error === 'Invalid API key'
+    ) {
+      console.warn('[rewards/action] backend rejected portal rewards API key', {
+        backendUrl: ACTIVE_BACKEND_URL,
+        keyPrefix: `${apiKey.slice(0, 12)}…`,
+      });
+    }
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
     return NextResponse.json(
