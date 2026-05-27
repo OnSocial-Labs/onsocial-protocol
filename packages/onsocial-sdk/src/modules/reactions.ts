@@ -69,20 +69,27 @@ export class ReactionsModule {
   add(
     post: ReactionTarget | PostRef,
     kind: ReactionInput,
-    extra?: { emoji?: string }
+    extra?: { emoji?: string },
+    opts?: { wait?: boolean }
   ): Promise<RelayResponse> {
-    return this._social.reactToPost(toRef(post), {
+    const reaction = {
       type: kind,
       ...(extra?.emoji ? { emoji: extra.emoji } : {}),
-    });
+    };
+    return opts
+      ? this._social.reactToPost(toRef(post), reaction, opts)
+      : this._social.reactToPost(toRef(post), reaction);
   }
 
   /** Remove a previously-set reaction by kind. */
   remove(
     post: ReactionTarget | PostRef,
-    kind: ReactionInput
+    kind: ReactionInput,
+    opts?: { wait?: boolean }
   ): Promise<RelayResponse> {
-    return this._social.unreactFromPost(toRef(post), kind);
+    return opts
+      ? this._social.unreactFromPost(toRef(post), kind, opts)
+      : this._social.unreactFromPost(toRef(post), kind);
   }
 
   /**
@@ -100,15 +107,16 @@ export class ReactionsModule {
   async toggle(
     post: ReactionTarget | PostRef,
     kind: ReactionInput,
-    opts: ToggleOptions
+    opts: ToggleOptions & { wait?: boolean }
   ): Promise<{ response: RelayResponse; applied: boolean }> {
     const summary = await this.summary(post, { viewer: opts.viewer });
     const isSet = summary.viewerReacted.includes(kind);
+    const waitOpts = opts.wait != null ? { wait: opts.wait } : undefined;
     if (isSet) {
-      const response = await this.remove(post, kind);
+      const response = await this.remove(post, kind, waitOpts);
       return { response, applied: false };
     }
-    const response = await this.add(post, kind, { emoji: opts.emoji });
+    const response = await this.add(post, kind, { emoji: opts.emoji }, waitOpts);
     return { response, applied: true };
   }
 

@@ -3,9 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { PenLine } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ModalCloseButton } from '@/components/ui/modal-close-button';
 import { ModalHeader } from '@/components/ui/modal-header';
+import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
+import { profileActionButtonClass } from '@/components/ui/profile-action-pill';
 import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
 import { SearchInput } from '@/components/ui/search-input';
 import { portalElevatedShadowClass } from '@/components/ui/floating-panel';
@@ -24,10 +27,17 @@ import { EndorseModal } from './endorse-modal';
 
 export type EndorsementsModalMode = 'received' | 'given';
 
+type EnrichedEndorsementListItem = EndorsementListItem & {
+  issuerName?: string | null;
+  issuerAvatarUrl?: string | null;
+  targetName?: string | null;
+  targetAvatarUrl?: string | null;
+};
+
 interface RemoteEndorsements {
   accountId: string;
-  received: EndorsementListItem[];
-  given: EndorsementListItem[];
+  received: EnrichedEndorsementListItem[];
+  given: EnrichedEndorsementListItem[];
 }
 
 interface EndorsementsModalProps {
@@ -38,25 +48,27 @@ interface EndorsementsModalProps {
   targetAccountId: string;
   targetDisplayName: string;
   targetAvatarUrl?: string | null;
-  endorsements: EndorsementListItem[];
+  endorsements: EnrichedEndorsementListItem[];
   viewerAccountId: string | null;
   onSelectAccount?: (accountId: string) => void;
   canEndorse?: boolean;
-  existingEndorsement?: {
-    topic?: string;
-    note?: string;
-  } | null;
   isSavingEndorsement?: boolean;
-  onEndorse?: (input: EndorsementBuildInput) => Promise<unknown>;
-  onRemoveEndorsement?: (topic?: string) => Promise<unknown>;
-  focusedEndorsement?: EndorsementListItem | null;
+  onEndorse?: (
+    targetAccountId: string,
+    input: EndorsementBuildInput
+  ) => Promise<unknown>;
+  onRemoveEndorsement?: (
+    targetAccountId: string,
+    topic?: string
+  ) => Promise<unknown>;
+  focusedEndorsement?: EnrichedEndorsementListItem | null;
   onClearFocusedEndorsement?: () => void;
   initialTopic?: string | null;
 }
 
 function isSameEndorsement(
-  a: EndorsementListItem,
-  b: EndorsementListItem
+  a: EnrichedEndorsementListItem,
+  b: EnrichedEndorsementListItem
 ): boolean {
   return (
     a.issuer === b.issuer &&
@@ -65,7 +77,9 @@ function isSameEndorsement(
   );
 }
 
-function uniqueTargetCount(endorsements: EndorsementListItem[]): number {
+function uniqueTargetCount(
+  endorsements: EnrichedEndorsementListItem[]
+): number {
   return new Set(endorsements.map((item) => item.target)).size;
 }
 
@@ -81,7 +95,6 @@ export function EndorsementsModal({
   viewerAccountId,
   onSelectAccount,
   canEndorse = false,
-  existingEndorsement = null,
   isSavingEndorsement = false,
   onEndorse,
   onRemoveEndorsement,
@@ -95,13 +108,44 @@ export function EndorsementsModal({
   const [remoteEndorsements, setRemoteEndorsements] =
     useState<RemoteEndorsements | null>(null);
   const [internalFocusedEndorsement, setInternalFocusedEndorsement] =
-    useState<EndorsementListItem | null>(null);
+    useState<EnrichedEndorsementListItem | null>(null);
 
   const [endorseOpen, setEndorseOpen] = useState(false);
+  const [editingFromList, setEditingFromList] =
+    useState<EnrichedEndorsementListItem | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   useBodyScrollLock(open, scrollRef);
   const effectiveFocusedEndorsement =
     focusedEndorsement ?? internalFocusedEndorsement;
+
+  const knownEndorsements =
+    remoteEndorsements?.accountId === targetAccountId
+      ? [...remoteEndorsements.received, ...remoteEndorsements.given]
+      : endorsements;
+  const modalTargetAccountId = editingFromList?.target ?? targetAccountId;
+  const modalTargetDisplayName = editingFromList
+    ? cleanHandle(editingFromList.target)
+    : targetDisplayName;
+  const modalTargetAvatarUrl = editingFromList
+    ? editingFromList.target === targetAccountId
+      ? targetAvatarUrl
+      : editingFromList.targetAvatarUrl ?? null
+    : targetAvatarUrl;
+
+  const viewerExistingTopics = useMemo(
+    () =>
+      viewerAccountId
+        ? knownEndorsements
+            .filter(
+              (e) =>
+                e.issuer === viewerAccountId &&
+                e.target === modalTargetAccountId
+            )
+            .map((e) => normalizeEndorsementTopic(e.topic ?? ''))
+            .filter(Boolean)
+        : [],
+    [knownEndorsements, modalTargetAccountId, viewerAccountId]
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -223,18 +267,18 @@ export function EndorsementsModal({
     query.trim().length > 0 ||
     !!effectiveFocusedEndorsement;
   const targetCount = uniqueTargetCount(source);
+  const endorsementCountLabel = `${source.length.toLocaleString()} ${
+    source.length === 1 ? 'ENDORSEMENT' : 'ENDORSEMENTS'
+  }`;
+  const targetCountLabel = `${targetCount.toLocaleString()} ${
+    targetCount === 1 ? 'ACCOUNT' : 'ACCOUNTS'
+  }`;
   const endorsementMeta =
     mode === 'received'
-      ? `${source.length.toLocaleString()} PUBLIC ${
-          source.length === 1 ? 'ENDORSEMENT' : 'ENDORSEMENTS'
-        }`
+      ? `${endorsementCountLabel} RECEIVED`
       : isSelf
-        ? `YOU ENDORSE ${targetCount.toLocaleString()} ${
-            targetCount === 1 ? 'ACCOUNT' : 'ACCOUNTS'
-          }`
-        : `THEY ENDORSE ${targetCount.toLocaleString()} ${
-            targetCount === 1 ? 'ACCOUNT' : 'ACCOUNTS'
-          }`;
+        ? `YOU GAVE ${endorsementCountLabel} · ${targetCountLabel}`
+        : `THEY GAVE ${endorsementCountLabel} · ${targetCountLabel}`;
 
   const handleSelect = (accountId: string) => {
     closeModal();
@@ -247,7 +291,7 @@ export function EndorsementsModal({
   };
 
   const handleRowClick = (
-    endorsement: EndorsementListItem,
+    endorsement: EnrichedEndorsementListItem,
     accountId: string
   ) => {
     if (effectiveFocusedEndorsement) {
@@ -264,7 +308,85 @@ export function EndorsementsModal({
 
   const handleEndorseSubmit = async (input: EndorsementBuildInput) => {
     if (!onEndorse) return;
-    await onEndorse(input);
+    const writeTarget = editingFromList?.target ?? targetAccountId;
+    await onEndorse(writeTarget, input);
+    if (viewerAccountId) {
+      const normalizedTopic = normalizeEndorsementTopic(input.topic ?? '');
+      const optimistic: EnrichedEndorsementListItem = {
+        issuer: viewerAccountId,
+        target: writeTarget,
+        v: 1,
+        since: Date.now(),
+        topic: input.topic,
+        note: input.note,
+        expiresAt: input.expiresAt,
+        blockHeight: 0,
+        blockTimestamp: Date.now(),
+        issuerAvatarUrl: editingFromList?.issuerAvatarUrl ?? null,
+        targetAvatarUrl:
+          editingFromList?.target === writeTarget
+            ? editingFromList.targetAvatarUrl
+            : writeTarget === targetAccountId
+              ? targetAvatarUrl
+              : null,
+      };
+      setRemoteEndorsements((current) => {
+        if (current?.accountId !== targetAccountId) return current;
+        const replaceMatching = (list: EnrichedEndorsementListItem[]) => [
+          optimistic,
+          ...list.filter(
+            (item) =>
+              !(
+                item.issuer === viewerAccountId &&
+                item.target === writeTarget &&
+                normalizeEndorsementTopic(item.topic ?? '') === normalizedTopic
+              )
+          ),
+        ];
+        return {
+          ...current,
+          received:
+            writeTarget === targetAccountId
+              ? replaceMatching(current.received)
+              : current.received,
+          given:
+            viewerAccountId === targetAccountId
+              ? replaceMatching(current.given)
+              : current.given,
+        };
+      });
+    }
+    setEndorseOpen(false);
+  };
+
+  const handleRemoveEndorsement = async (topic?: string) => {
+    if (!onRemoveEndorsement || !viewerAccountId) return;
+    const writeTarget = editingFromList?.target ?? targetAccountId;
+    await onRemoveEndorsement(writeTarget, topic);
+    const normalizedTopic = normalizeEndorsementTopic(topic ?? '');
+    setRemoteEndorsements((current) => {
+      if (current?.accountId !== targetAccountId) return current;
+      const removeMatching = (list: EnrichedEndorsementListItem[]) =>
+        list.filter(
+          (item) =>
+            !(
+              item.issuer === viewerAccountId &&
+              item.target === writeTarget &&
+              normalizeEndorsementTopic(item.topic ?? '') === normalizedTopic
+            )
+        );
+      return {
+        ...current,
+        received:
+          writeTarget === targetAccountId
+            ? removeMatching(current.received)
+            : current.received,
+        given:
+          viewerAccountId === targetAccountId
+            ? removeMatching(current.given)
+            : current.given,
+      };
+    });
     setEndorseOpen(false);
   };
 
@@ -314,17 +436,13 @@ export function EndorsementsModal({
                       <button
                         type="button"
                         onClick={() => {
+                          setEditingFromList(null);
                           closeModal();
                           setEndorseOpen(true);
                         }}
-                        className={cn(
-                          'flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-1',
-                          existingEndorsement
-                            ? 'border-border/45 text-muted-foreground hover:border-border hover:text-foreground focus-visible:ring-[var(--portal-blue-focus-border)]'
-                            : 'portal-gold-surface focus-visible:ring-[var(--portal-gold-accent)]'
-                        )}
+                        className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors portal-gold-surface focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--portal-gold-accent)]"
                       >
-                        {existingEndorsement ? 'Update' : 'Endorse'}
+                        Endorse
                       </button>
                     ) : null}
                     <ModalCloseButton
@@ -341,7 +459,7 @@ export function EndorsementsModal({
                     value={query}
                     onValueChange={setQuery}
                     placeholder="Search people, topics, or notes"
-                    size="lg"
+                    size="sm"
                     autoFocus
                     maxLength={80}
                     clearAriaLabel="Clear endorsements search"
@@ -431,7 +549,7 @@ export function EndorsementsModal({
                 className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-5 md:px-5"
               >
                 {filtered.length === 0 ? (
-                  <div className="rounded-xl border border-border/45 bg-muted/18 px-3 py-6 text-center text-sm text-muted-foreground">
+                  <div className="px-3 py-6 text-center text-sm text-muted-foreground/65">
                     No matching endorsements.
                   </div>
                 ) : (
@@ -441,9 +559,15 @@ export function EndorsementsModal({
                         mode === 'received' ? rec.issuer : rec.target;
                       const accountLabel = cleanHandle(accountId);
                       const isMine = accountId === viewerAccountId;
+                      const canUpdateThisEndorsement =
+                        rec.issuer === viewerAccountId &&
+                        Boolean(onEndorse);
                       const timeLabel = formatEndorsementTime(
                         endorsementTimestamp(rec)
                       );
+                      const timeDescription = timeLabel
+                        ? `Endorsement ${timeLabel}`
+                        : undefined;
                       const issuerInitial =
                         cleanHandle(rec.issuer).slice(0, 1).toUpperCase() ||
                         '?';
@@ -454,9 +578,15 @@ export function EndorsementsModal({
                             '?';
                       const issuerIsVariable = mode === 'received';
                       const issuerAvatarUrl =
-                        !issuerIsVariable ? targetAvatarUrl : null;
+                        rec.issuerAvatarUrl ??
+                        (!issuerIsVariable && rec.issuer === targetAccountId
+                          ? targetAvatarUrl
+                          : null);
                       const targetAvatarSource =
-                        issuerIsVariable ? targetAvatarUrl : null;
+                        rec.targetAvatarUrl ??
+                        (issuerIsVariable && rec.target === targetAccountId
+                          ? targetAvatarUrl
+                          : null);
 
                       return (
                         <div
@@ -481,32 +611,40 @@ export function EndorsementsModal({
                             className="mt-0.5 flex shrink-0 items-center gap-1"
                             aria-hidden="true"
                           >
-                            {issuerIsVariable ? (
-                              <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--portal-gold-border)] bg-[var(--portal-gold-bg)] text-sm font-semibold text-[var(--portal-gold)]">
-                                {issuerInitial}
-                              </div>
-                            ) : issuerAvatarUrl ? (
+                            {issuerAvatarUrl ? (
                               <img
                                 src={issuerAvatarUrl}
                                 alt=""
-                                className="h-5 w-5 rounded-full border border-border/40 object-cover opacity-80"
+                                className={
+                                  issuerIsVariable
+                                    ? 'h-9 w-9 rounded-full border border-[var(--portal-gold-border)] object-cover'
+                                    : 'h-5 w-5 rounded-full border border-border/40 object-cover opacity-80'
+                                }
                               />
+                            ) : issuerIsVariable ? (
+                              <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--portal-gold-border)] bg-[var(--portal-gold-bg)] text-sm font-semibold text-[var(--portal-gold)]">
+                                {issuerInitial}
+                              </div>
                             ) : (
                               <div className="flex h-5 w-5 items-center justify-center rounded-full border border-border/40 bg-muted/30 text-[9px] font-semibold text-muted-foreground/80">
                                 {issuerInitial}
                               </div>
                             )}
                             <ProtocolMotionArrow className="h-3 w-3 text-[var(--portal-gold)]/70" />
-                            {!issuerIsVariable ? (
-                              <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--portal-gold-border)] bg-[var(--portal-gold-bg)] text-sm font-semibold text-[var(--portal-gold)]">
-                                {targetInitialChar}
-                              </div>
-                            ) : targetAvatarSource ? (
+                            {targetAvatarSource ? (
                               <img
                                 src={targetAvatarSource}
                                 alt=""
-                                className="h-5 w-5 rounded-full border border-border/40 object-cover opacity-80"
+                                className={
+                                  !issuerIsVariable
+                                    ? 'h-9 w-9 rounded-full border border-[var(--portal-gold-border)] object-cover'
+                                    : 'h-5 w-5 rounded-full border border-border/40 object-cover opacity-80'
+                                }
                               />
+                            ) : !issuerIsVariable ? (
+                              <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--portal-gold-border)] bg-[var(--portal-gold-bg)] text-sm font-semibold text-[var(--portal-gold)]">
+                                {targetInitialChar}
+                              </div>
                             ) : (
                               <div className="flex h-5 w-5 items-center justify-center rounded-full border border-border/40 bg-muted/30 text-[9px] font-semibold text-muted-foreground/80">
                                 {targetInitialChar}
@@ -528,15 +666,36 @@ export function EndorsementsModal({
                                   )}
                                 </div>
                                 <div className="mt-0.5 truncate text-[11px] text-muted-foreground/55">
-                                  @{accountId}
+                                  {mode === 'received' ? 'From' : 'To'} @
+                                  {accountId}
                                 </div>
                               </div>
 
-                              <div className="flex shrink-0 items-center gap-2">
+                              <div className="flex shrink-0 flex-col items-end gap-1">
                                 {timeLabel ? (
-                                  <span className="pt-px text-right text-[10px] tabular-nums text-muted-foreground/55">
+                                  <PortalHoverTooltip
+                                    className="text-right text-[10px] tabular-nums text-muted-foreground/55"
+                                    aria-label={timeDescription}
+                                    stopPropagation
+                                    tooltip={timeDescription}
+                                  >
                                     {timeLabel}
-                                  </span>
+                                  </PortalHoverTooltip>
+                                ) : null}
+                                {canUpdateThisEndorsement ? (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditingFromList(rec);
+                                      setEndorseOpen(true);
+                                    }}
+                                    className={profileActionButtonClass('gold')}
+                                    aria-label={`Update endorsement for ${humanizeEndorsementTopic(rec.topic) || 'general'}`}
+                                  >
+                                    <PenLine className="h-2.5 w-2.5" strokeWidth={2.5} />
+                                    Update
+                                  </button>
                                 ) : null}
                               </div>
                             </div>
@@ -571,16 +730,25 @@ export function EndorsementsModal({
         ) : null}
       </AnimatePresence>
       <EndorseModal
+        key={editingFromList ? `edit:${editingFromList.topic ?? ''}` : 'new'}
         open={endorseOpen}
-        onOpenChange={setEndorseOpen}
-        targetAccountId={targetAccountId}
-        targetDisplayName={targetDisplayName}
-        targetAvatarUrl={targetAvatarUrl}
+        onOpenChange={(open) => {
+          setEndorseOpen(open);
+          if (!open) setEditingFromList(null);
+        }}
+        targetAccountId={modalTargetAccountId}
+        targetDisplayName={modalTargetDisplayName}
+        targetAvatarUrl={modalTargetAvatarUrl}
         issuerAccountId={viewerAccountId}
-        existing={existingEndorsement}
+        existing={
+          editingFromList
+            ? { topic: editingFromList.topic, note: editingFromList.note }
+            : null
+        }
+        existingTopics={viewerExistingTopics}
         isSaving={isSavingEndorsement}
         onSubmit={handleEndorseSubmit}
-        onRemove={onRemoveEndorsement}
+        onRemove={editingFromList ? handleRemoveEndorsement : undefined}
       />
     </>,
     document.body

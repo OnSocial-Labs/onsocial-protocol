@@ -11,6 +11,7 @@ const headerGlowColors: Record<PortalAccent, string> = {
   blue: 'rgb(96 165 250 / 0.18)',
   green: 'rgb(74 222 128 / 0.14)',
   purple: 'rgb(192 132 252 / 0.16)',
+  gold: 'rgb(212 162 30 / 0.18)',
   amber: 'rgb(251 191 36 / 0.18)',
   pink: 'rgb(236 72 153 / 0.16)',
   slate: 'rgb(107 114 128 / 0.12)',

@@ -65,6 +65,11 @@ export const config = {
 
   /** On-chain app identifier used when crediting rewards. */
   appId: process.env.ONSOCIAL_APP_ID || 'onsocial_telegram',
+  /** Internal Portal rewards partner key, loaded from GSM/deploy env. */
+  portalRewardsApiKey: process.env.ONSOCIAL_PORTAL_REWARDS_API_KEY || '',
+  /** Internal Portal rewards app identifier. */
+  portalRewardsAppId:
+    process.env.ONSOCIAL_PORTAL_REWARDS_APP_ID || 'onsocial_portal',
 
   // Reward amounts (SOCIAL tokens, decimal)
   rewards: {

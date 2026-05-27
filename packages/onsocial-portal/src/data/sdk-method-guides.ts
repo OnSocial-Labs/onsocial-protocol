@@ -259,7 +259,7 @@ const history = await os.query.permissions.history(accountId, { limit: 20 });`,
     slug: 'indexed-reads',
     title: 'Indexed reads',
     badge: 'Queries',
-    accent: 'amber',
+    accent: 'gold',
     summary:
       'Use typed query modules for feeds, threads, group timelines, reactions, permissions, storage events, discovery, and analytics once indexer lag is acceptable.',
     bestFor: [

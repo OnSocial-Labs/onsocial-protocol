@@ -127,7 +127,7 @@ const result = await os.posts.create({ text: 'gm OnSocial' }, postId);
 
 const fresh = await os.social.getOne(\`post/\${postId}\`, accountId);
 const feed = await os.query.feed.recent({ author: accountId });`,
-    accent: 'amber',
+    accent: 'gold',
     icon: Database,
   },
 ];
@@ -163,7 +163,7 @@ const DECISIONS: Decision[] = [
     wallet: 'One approval for the whole batch',
     auth: 'Wallet/session capable of the write',
     method: 'os.social.set({ ...buildPostSetData(), ...buildReplySetData() })',
-    accent: 'amber',
+    accent: 'gold',
   },
   {
     choice: 'Backend/API key flow',
@@ -207,7 +207,7 @@ const BUILD_PATHS: BuildPath[] = [
   {
     title: 'Advanced session or relayer',
     icon: Route,
-    accent: 'amber',
+    accent: 'gold',
     bestFor:
       'Apps that want lower-friction repeat actions, custom relayers, or atomic composition.',
     steps: [
@@ -317,7 +317,7 @@ const PLAYGROUND_RECIPES: Recipe[] = [
     ],
     badges: ['Batched', 'Indexed read'],
     note: 'Demonstrates one transaction for root plus reply, then the indexed conversation view.',
-    accent: 'amber',
+    accent: 'gold',
     href: '/playground?example=reply-to-post',
   },
   {
@@ -401,7 +401,7 @@ const METHOD_FAMILIES: MethodFamily[] = [
   {
     title: 'Indexed reads',
     icon: Database,
-    accent: 'amber',
+    accent: 'gold',
     summary:
       'Typed GraphQL helpers for product surfaces that need lists, history, discovery, or analytics.',
     methods: [

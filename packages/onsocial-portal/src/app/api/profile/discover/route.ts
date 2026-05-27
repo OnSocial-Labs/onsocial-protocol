@@ -15,7 +15,18 @@ interface ProfileDiscoverResult {
   endorsementsReceivedCount: number;
   endorsementsGivenCount: number;
   firstProfileTimestamp: number | null;
+  standingSince: number | null;
+  standingBlockTimestamp: number | null;
   viewerStanding: boolean;
+  theyStandWithViewer: boolean;
+  targetEndorsedViewer: boolean;
+}
+
+interface StandingListItem {
+  accountId: string;
+  targetAccount: string;
+  since: number | null;
+  blockTimestamp: number;
 }
 
 interface ProfileDiscoverResponse {
@@ -49,6 +60,44 @@ function getErrorMessage(error: unknown): string {
   return 'Profile discovery failed';
 }
 
+function parseStandingSince(raw: string | null | undefined): number | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { since?: unknown };
+    return typeof parsed.since === 'number' ? parsed.since : null;
+  } catch {
+    return null;
+  }
+}
+
+async function listViewerStandingRows(
+  os: ReturnType<typeof createPortalServerOnSocialClient>,
+  viewerAccountId: string
+): Promise<StandingListItem[]> {
+  const res = await os.query.graphql<{
+    standingsCurrent: Array<{
+      accountId: string;
+      targetAccount: string;
+      value: string | null;
+      blockTimestamp: number;
+    }>;
+  }>({
+    query: `query ViewerStandingRows($id: String!) {
+      standingsCurrent(where: {accountId: {_eq: $id}}, limit: 1000) {
+        accountId targetAccount value blockTimestamp
+      }
+    }`,
+    variables: { id: viewerAccountId },
+  });
+
+  return (res.data?.standingsCurrent ?? []).map((row) => ({
+    accountId: row.accountId,
+    targetAccount: row.targetAccount,
+    since: parseStandingSince(row.value),
+    blockTimestamp: Number(row.blockTimestamp) || 0,
+  }));
+}
+
 export async function GET(request: NextRequest) {
   const query = getQuery(request);
   const limit = getLimit(request);
@@ -56,15 +105,37 @@ export async function GET(request: NextRequest) {
 
   try {
     const os = createPortalServerOnSocialClient();
-    const [profileRows, viewerOutgoingIds] = await Promise.all([
+    const [
+      profileRows,
+      viewerOutgoingRows,
+      viewerIncomingIds,
+      viewerReceivedEndorsements,
+    ] = await Promise.all([
       os.query.profiles.search({ query, limit }),
       viewerAccountId
+        ? listViewerStandingRows(os, viewerAccountId).catch(() => [])
+        : Promise.resolve([]),
+      viewerAccountId
         ? os.standings
-            .listOutgoing(viewerAccountId, { limit: 1000 })
+            .listIncoming(viewerAccountId, { limit: 1000 })
+            .catch(() => [])
+        : Promise.resolve([]),
+      viewerAccountId
+        ? os.endorsements
+            .listReceived(viewerAccountId, { limit: 1000 })
             .catch(() => [])
         : Promise.resolve([]),
     ]);
-    const viewerOutgoingSet = new Set(viewerOutgoingIds);
+    const viewerOutgoingSet = new Set(
+      viewerOutgoingRows.map((row) => row.targetAccount)
+    );
+    const viewerOutgoingByTarget = new Map(
+      viewerOutgoingRows.map((row) => [row.targetAccount, row])
+    );
+    const viewerIncomingSet = new Set(viewerIncomingIds);
+    const viewerEndorsementIssuerSet = new Set(
+      viewerReceivedEndorsements.map((endorsement) => endorsement.issuer)
+    );
 
     const results = profileRows.map((row) => {
       const profile: MaterialisedProfile = {
@@ -77,6 +148,7 @@ export async function GET(request: NextRequest) {
         lastUpdatedAt: row.lastProfileTimestamp,
         extra: {},
       };
+      const viewerStandingRow = viewerOutgoingByTarget.get(row.accountId);
       return {
         accountId: row.accountId,
         profile,
@@ -87,7 +159,11 @@ export async function GET(request: NextRequest) {
         endorsementsReceivedCount: row.endorsementsReceivedCount,
         endorsementsGivenCount: row.endorsementsGivenCount,
         firstProfileTimestamp: row.firstProfileTimestamp,
+        standingSince: viewerStandingRow?.since ?? null,
+        standingBlockTimestamp: viewerStandingRow?.blockTimestamp ?? null,
         viewerStanding: viewerOutgoingSet.has(row.accountId),
+        theyStandWithViewer: viewerIncomingSet.has(row.accountId),
+        targetEndorsedViewer: viewerEndorsementIssuerSet.has(row.accountId),
       } satisfies ProfileDiscoverResult;
     });
 

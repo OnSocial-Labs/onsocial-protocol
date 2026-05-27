@@ -5,7 +5,7 @@ import { ProfileDiscoveryModal } from '@/components/profile-discovery-modal';
 import { ProfileModal } from '@/components/profile-modal';
 import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
 import { useWallet } from '@/contexts/wallet-context';
-import { useProfile } from '@/hooks/use-profile';
+import { useProfile } from '@/contexts/profile-context';
 import { ACTIVE_API_URL } from '@/lib/portal-config';
 
 interface ProtocolPulse {
@@ -155,8 +155,8 @@ export function HeroProtocolPulse() {
         viewerAccountId={accountId}
         selfProfile={profileState.profile}
         selfAvatarUrl={profileState.avatarUrl}
+        selfBannerUrl={profileState.bannerUrl}
         hasSocialSession={profileState.hasSocialSession}
-        isUpdatingStanding={profileState.isUpdatingStanding}
         onOpenChange={(open) => {
           setProfileModalOpen(open);
           if (!open) setProfileModalAccountId(null);

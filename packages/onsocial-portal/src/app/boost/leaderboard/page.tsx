@@ -47,7 +47,7 @@ const TRACKS: {
   id: TrackId;
   label: string;
   icon: typeof Crown;
-  accent: 'purple' | 'amber' | 'green';
+  accent: 'purple' | 'gold' | 'green';
   description: string;
 }[] = [
   {
@@ -61,7 +61,7 @@ const TRACKS: {
     id: 'reputation',
     label: 'Reputation',
     icon: Shield,
-    accent: 'amber',
+    accent: 'gold',
     description: 'Composite score from activity, commitment & quality',
   },
   {
@@ -221,7 +221,7 @@ function ReputationRow({
             initial={{ width: 0 }}
             animate={{ width: `${pct}%` }}
             transition={{ duration: 0.6, ease: 'easeOut' }}
-            className="h-full rounded-full bg-[var(--portal-amber)]"
+            className="h-full rounded-full bg-[var(--portal-gold)]"
           />
         </div>
       </div>
@@ -305,7 +305,7 @@ function ScoreBreakdown({ entry }: { entry: ReputationEntry }) {
       label: 'Quality',
       value: entry.qualityScore,
       icon: Shield,
-      accent: 'amber',
+      accent: 'gold',
     },
     {
       label: 'Consistency',
@@ -732,7 +732,7 @@ export default function BoostLeaderboardPage() {
               padding="snug"
               className="text-center"
             >
-              <Flame className="mx-auto mb-1 h-4 w-4 portal-amber-text" />
+              <Flame className="mx-auto mb-1 h-4 w-4 portal-gold-text" />
               <p className="text-xs font-semibold">Commitment</p>
               <p className="mt-0.5 text-[10px] text-muted-foreground">
                 SOCIAL locked with softened scaling

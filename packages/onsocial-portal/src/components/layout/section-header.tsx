@@ -9,6 +9,7 @@ const accentTextClass: Record<PortalAccent, string> = {
   blue: 'portal-blue-text',
   green: 'portal-green-text',
   purple: 'portal-purple-text',
+  gold: 'portal-gold-text',
   amber: 'portal-amber-text',
   red: 'portal-red-text',
   slate: 'text-muted-foreground',

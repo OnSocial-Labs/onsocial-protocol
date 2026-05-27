@@ -84,7 +84,7 @@ const LIVE_ALLOCATION_ACCOUNTS = [
   {
     label: 'Founder Vesting',
     account: allocationAccount('founder-vesting'),
-    accent: 'amber' as PortalAccent,
+    accent: 'gold' as PortalAccent,
     desc: 'Founder allocation under long-term vesting.',
   },
 ];

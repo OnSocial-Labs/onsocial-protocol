@@ -294,7 +294,7 @@ export default function BillingPage() {
                       : 'Past due'}
                 </span>
                 {subscription.promotionCode && (
-                  <PortalBadge accent="amber" size="xs">
+                  <PortalBadge accent="gold" size="xs">
                     {subscription.promotionCode}
                     {subscription.promotionCyclesRemaining > 0 &&
                       ` · ${subscription.promotionCyclesRemaining} left`}

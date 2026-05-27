@@ -164,8 +164,8 @@ export function commitmentLabel(months: number): string {
 
 export function commitmentAccent(
   months: number
-): 'amber' | 'purple' | 'blue' | 'green' | 'slate' {
-  if (months >= 48) return 'amber';
+): 'gold' | 'purple' | 'blue' | 'green' | 'slate' {
+  if (months >= 48) return 'gold';
   if (months >= 24) return 'purple';
   if (months >= 12) return 'blue';
   if (months >= 6) return 'green';
@@ -175,9 +175,9 @@ export function commitmentAccent(
 /** Maps a reputation rank → tier name */
 export function reputationTier(rank: number): {
   label: string;
-  accent: 'amber' | 'purple' | 'blue' | 'green' | 'slate';
+  accent: 'gold' | 'purple' | 'blue' | 'green' | 'slate';
 } {
-  if (rank <= 1) return { label: 'Legend', accent: 'amber' };
+  if (rank <= 1) return { label: 'Legend', accent: 'gold' };
   if (rank <= 3) return { label: 'Elite', accent: 'purple' };
   if (rank <= 10) return { label: 'Rising', accent: 'blue' };
   if (rank <= 25) return { label: 'Active', accent: 'green' };

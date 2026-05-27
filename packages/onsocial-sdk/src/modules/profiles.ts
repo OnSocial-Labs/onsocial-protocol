@@ -148,8 +148,13 @@ export class ProfilesModule {
    * });
    * ```
    */
-  update(profile: ProfileData): Promise<RelayResponse> {
-    return this._social.setProfile(profile);
+  update(
+    profile: ProfileData,
+    opts?: { wait?: boolean }
+  ): Promise<RelayResponse> {
+    return opts
+      ? this._social.setProfile(profile, opts)
+      : this._social.setProfile(profile);
   }
 
   /**

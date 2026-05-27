@@ -31,7 +31,7 @@ function getCommitmentTier(months: number | null) {
   if (months >= 48) {
     return {
       label: 'Citadel',
-      accent: 'amber' as const,
+      accent: 'gold' as const,
       summary: 'Long-horizon presence with the strongest conviction signal.',
     };
   }
@@ -90,7 +90,7 @@ export function BoostSocialLayer({
           </PortalBadge>
         </div>
         <div className="flex items-center gap-1.5 rounded-full bg-background/30 px-3 py-1.5 text-xs text-muted-foreground">
-          <Flame className="portal-amber-icon h-3 w-3" />
+          <Flame className="portal-gold-icon h-3 w-3" />
           <span className="font-mono font-semibold text-foreground">
             {activeWeeklyRateBps !== null
               ? `${(activeWeeklyRateBps / 100).toFixed(2)}%`

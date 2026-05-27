@@ -138,6 +138,38 @@ export async function accountExists(accountId: string): Promise<boolean> {
   }
 }
 
+/** Check if an access key currently exists for an account. */
+export async function accessKeyExists(
+  accountId: string,
+  publicKey: string
+): Promise<boolean> {
+  try {
+    const response = await fetch(config.nearRpcUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(5_000),
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 'check-access-key',
+        method: 'query',
+        params: {
+          request_type: 'view_access_key',
+          finality: 'final',
+          account_id: accountId,
+          public_key: publicKey,
+        },
+      }),
+    });
+    const data = (await response.json()) as {
+      result?: unknown;
+      error?: unknown;
+    };
+    return Boolean(data.result && !data.error);
+  } catch {
+    return false;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Generic NEAR RPC view calls
 // ---------------------------------------------------------------------------

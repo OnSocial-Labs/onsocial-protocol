@@ -13,6 +13,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowUpRight, ChevronDown, Globe } from 'lucide-react';
 import { FaXTwitter } from 'react-icons/fa6';
 import { RiTelegram2Line } from 'react-icons/ri';
+import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
 import { useWallet } from '@/contexts/wallet-context';
@@ -677,10 +678,12 @@ function PartnerGovernanceCard({
                       href={app.website_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      title="Website"
                       className="text-muted-foreground transition-all hover:scale-110 hover:text-[var(--portal-green)] hover:brightness-125"
+                      aria-label="Website"
                     >
-                      <Globe className="h-[18px] w-[18px]" />
+                      <PortalHoverTooltip tooltip="Website">
+                        <Globe className="h-[18px] w-[18px]" />
+                      </PortalHoverTooltip>
                     </a>
                   )}
                   {app.telegram_handle && (
@@ -688,10 +691,12 @@ function PartnerGovernanceCard({
                       href={buildHandleUrl(app.telegram_handle, 'telegram')}
                       target="_blank"
                       rel="noopener noreferrer"
-                      title="Telegram"
                       className="text-muted-foreground transition-all hover:scale-110 hover:text-[#26A5E4] hover:brightness-125"
+                      aria-label="Telegram"
                     >
-                      <RiTelegram2Line className="h-[18px] w-[18px]" />
+                      <PortalHoverTooltip tooltip="Telegram">
+                        <RiTelegram2Line className="h-[18px] w-[18px]" />
+                      </PortalHoverTooltip>
                     </a>
                   )}
                   {app.x_handle && (
@@ -699,10 +704,12 @@ function PartnerGovernanceCard({
                       href={buildHandleUrl(app.x_handle, 'x')}
                       target="_blank"
                       rel="noopener noreferrer"
-                      title="X"
-                      className="text-muted-foreground transition-all hover:scale-110 hover:text-white hover:brightness-125"
+                      className="text-muted-foreground transition-all hover:scale-110 hover:text-foreground hover:brightness-125"
+                      aria-label="X"
                     >
-                      <FaXTwitter className="h-[18px] w-[18px]" />
+                      <PortalHoverTooltip tooltip="X">
+                        <FaXTwitter className="h-[18px] w-[18px]" />
+                      </PortalHoverTooltip>
                     </a>
                   )}
                 </div>

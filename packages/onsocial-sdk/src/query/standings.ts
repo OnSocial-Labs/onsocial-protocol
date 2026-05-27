@@ -5,6 +5,24 @@
 
 import type { QueryModule } from './index.js';
 
+export interface StandingListItem {
+  accountId: string;
+  targetAccount: string;
+  since: number | null;
+  blockHeight: number;
+  blockTimestamp: number;
+}
+
+function parseStandingSince(raw: string | null | undefined): number | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { since?: unknown };
+    return typeof parsed.since === 'number' ? parsed.since : null;
+  } catch {
+    return null;
+  }
+}
+
 export class StandingsQuery {
   constructor(private _q: QueryModule) {}
 
@@ -20,20 +38,37 @@ export class StandingsQuery {
     accountId: string,
     opts: { limit?: number } = {}
   ): Promise<string[]> {
+    const rows = await this.outgoingDetailed(accountId, opts);
+    return rows.map((r) => r.targetAccount);
+  }
+
+  async outgoingDetailed(
+    accountId: string,
+    opts: { limit?: number } = {}
+  ): Promise<StandingListItem[]> {
     const res = await this._q.graphql<{
       standingsCurrent: Array<{
         accountId: string;
         targetAccount: string;
+        value: string | null;
+        blockHeight: number;
+        blockTimestamp: number;
       }>;
     }>({
       query: `query Standings($id: String!, $limit: Int!) {
         standingsCurrent(where: {accountId: {_eq: $id}}, limit: $limit) {
-          accountId targetAccount
+          accountId targetAccount value blockHeight blockTimestamp
         }
       }`,
       variables: { id: accountId, limit: opts.limit ?? 100 },
     });
-    return (res.data?.standingsCurrent ?? []).map((r) => r.targetAccount);
+    return (res.data?.standingsCurrent ?? []).map((r) => ({
+      accountId: r.accountId,
+      targetAccount: r.targetAccount,
+      since: parseStandingSince(r.value),
+      blockHeight: Number(r.blockHeight) || 0,
+      blockTimestamp: Number(r.blockTimestamp) || 0,
+    }));
   }
 
   /**
@@ -48,20 +83,37 @@ export class StandingsQuery {
     accountId: string,
     opts: { limit?: number } = {}
   ): Promise<string[]> {
+    const rows = await this.incomingDetailed(accountId, opts);
+    return rows.map((r) => r.accountId);
+  }
+
+  async incomingDetailed(
+    accountId: string,
+    opts: { limit?: number } = {}
+  ): Promise<StandingListItem[]> {
     const res = await this._q.graphql<{
       standingsCurrent: Array<{
         accountId: string;
         targetAccount: string;
+        value: string | null;
+        blockHeight: number;
+        blockTimestamp: number;
       }>;
     }>({
       query: `query Standers($id: String!, $limit: Int!) {
         standingsCurrent(where: {targetAccount: {_eq: $id}}, limit: $limit) {
-          accountId targetAccount
+          accountId targetAccount value blockHeight blockTimestamp
         }
       }`,
       variables: { id: accountId, limit: opts.limit ?? 100 },
     });
-    return (res.data?.standingsCurrent ?? []).map((r) => r.accountId);
+    return (res.data?.standingsCurrent ?? []).map((r) => ({
+      accountId: r.accountId,
+      targetAccount: r.targetAccount,
+      since: parseStandingSince(r.value),
+      blockHeight: Number(r.blockHeight) || 0,
+      blockTimestamp: Number(r.blockTimestamp) || 0,
+    }));
   }
 
   /**

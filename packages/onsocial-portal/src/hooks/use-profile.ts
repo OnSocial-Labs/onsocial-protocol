@@ -17,6 +17,7 @@ import {
 import { useWallet } from '@/contexts/wallet-context';
 import { createPortalOnSocialClient } from '@/lib/onsocial-client';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/portal-config';
+import { creditPortalReward } from '@/lib/portal-rewards';
 
 const SOCIAL_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const SOCIAL_SESSION_ALLOWANCE_YOCTO = '250000000000000000000000';
@@ -46,6 +47,7 @@ interface PortalProfileResponse {
   profile: MaterialisedProfile | null;
   indexedProfile: Record<string, string> | null;
   avatarUrl: string | null;
+  bannerUrl: string | null;
 }
 
 interface ProfileRefreshExpectation {
@@ -251,10 +253,11 @@ async function fetchPortalProfile(
     profile: body?.profile ?? null,
     indexedProfile: body?.indexedProfile ?? null,
     avatarUrl: body?.avatarUrl ?? null,
+    bannerUrl: body?.bannerUrl ?? null,
   };
 }
 
-export function useProfile() {
+export function useProfileState() {
   const { accountId, wallet, isConnected } = useWallet();
   const [profile, setProfile] = useState<MaterialisedProfile | null>(null);
   const [indexedProfile, setIndexedProfile] = useState<Record<
@@ -262,9 +265,12 @@ export function useProfile() {
     string
   > | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [bannerUrl, setBannerUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUpdatingStanding, setIsUpdatingStanding] = useState(false);
+  const standingCountRef = useRef(0);
+  const cachedSessionRef = useRef<{ accountId: string; session: Session } | null>(null);
   const [isAuthorizingSession, setIsAuthorizingSession] = useState(false);
   const [hasSocialSession, setHasSocialSession] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -285,6 +291,13 @@ export function useProfile() {
     (nextAvatarUrl: string | null) => {
       revokeOptimisticMediaUrl('avatar');
       setAvatarUrl(nextAvatarUrl);
+    },
+    [revokeOptimisticMediaUrl]
+  );
+  const setResolvedBannerUrl = useCallback(
+    (nextBannerUrl: string | null) => {
+      revokeOptimisticMediaUrl('banner');
+      setBannerUrl(nextBannerUrl);
     },
     [revokeOptimisticMediaUrl]
   );
@@ -334,9 +347,16 @@ export function useProfile() {
     setProfile(null);
     setIndexedProfile(null);
     setResolvedAvatarUrl(null);
+    setResolvedBannerUrl(null);
     setError(null);
     setHasSocialSession(false);
-  }, [accountId, resolveCanonicalMediaPreviews, setResolvedAvatarUrl]);
+    cachedSessionRef.current = null;
+  }, [
+    accountId,
+    resolveCanonicalMediaPreviews,
+    setResolvedAvatarUrl,
+    setResolvedBannerUrl,
+  ]);
 
   const createClient = useCallback(
     () => createPortalOnSocialClient({ gatewayUrl: PORTAL_ONAPI_PROXY_URL }),
@@ -355,7 +375,12 @@ export function useProfile() {
 
     void restoreSocialSession(accountId)
       .then((restored) => {
-        if (!cancelled) setHasSocialSession(Boolean(restored));
+        if (!cancelled) {
+          setHasSocialSession(Boolean(restored));
+          if (restored) {
+            cachedSessionRef.current = { accountId, session: restored };
+          }
+        }
       })
       .catch(() => {
         if (!cancelled) setHasSocialSession(false);
@@ -373,9 +398,16 @@ export function useProfile() {
       );
     }
 
+    const cached = cachedSessionRef.current;
+    if (cached && cached.accountId === accountId) {
+      setHasSocialSession(true);
+      return cached.session;
+    }
+
     const restored = await restoreSocialSession(accountId);
 
     if (restored) {
+      cachedSessionRef.current = { accountId, session: restored };
       setHasSocialSession(true);
       return restored;
     }
@@ -398,6 +430,7 @@ export function useProfile() {
         storageDepositYocto: '0',
         store: getSocialSessionStore(),
       });
+      cachedSessionRef.current = { accountId, session };
       setHasSocialSession(true);
       return session;
     } finally {
@@ -410,6 +443,7 @@ export function useProfile() {
       setProfile(null);
       setIndexedProfile(null);
       setResolvedAvatarUrl(null);
+      setResolvedBannerUrl(null);
       setError(null);
       setIsLoading(false);
       return null;
@@ -426,6 +460,7 @@ export function useProfile() {
         setProfile(result.profile);
         setIndexedProfile(result.indexedProfile);
         setResolvedAvatarUrl(result.avatarUrl);
+        setResolvedBannerUrl(result.bannerUrl);
       }
       return result.profile;
     } catch (err) {
@@ -434,6 +469,7 @@ export function useProfile() {
         setProfile(null);
         setIndexedProfile(null);
         setResolvedAvatarUrl(null);
+        setResolvedBannerUrl(null);
       }
       return null;
     } finally {
@@ -441,7 +477,7 @@ export function useProfile() {
         setIsLoading(false);
       }
     }
-  }, [accountId, isConnected, setResolvedAvatarUrl]);
+  }, [accountId, isConnected, setResolvedAvatarUrl, setResolvedBannerUrl]);
 
   useEffect(() => {
     void loadProfile();
@@ -466,6 +502,7 @@ export function useProfile() {
               setIndexedProfile(result.indexedProfile);
               resolveCanonicalMediaPreviews();
               setResolvedAvatarUrl(result.avatarUrl);
+              setResolvedBannerUrl(result.bannerUrl);
               return;
             }
           } catch {
@@ -474,7 +511,7 @@ export function useProfile() {
         }
       })();
     },
-    [resolveCanonicalMediaPreviews, setResolvedAvatarUrl]
+    [resolveCanonicalMediaPreviews, setResolvedAvatarUrl, setResolvedBannerUrl]
   );
 
   const saveProfile = useCallback(
@@ -518,7 +555,13 @@ export function useProfile() {
 
         const currentProfile =
           profile?.accountId === accountId ? profile : null;
-        const response = await os.profiles.update(payload);
+        const response = await os.profiles.update(payload, { wait: true });
+        creditPortalReward({
+          accountId,
+          action: 'profile_created',
+          proof: { txHash: response.txHash },
+          session,
+        });
         const expected = buildProfileRefreshExpectation(
           payload,
           currentProfile
@@ -539,6 +582,11 @@ export function useProfile() {
         } else if (typeof avatar === 'string') {
           setResolvedAvatarUrl(os.profiles.avatarUrl(optimisticProfile));
         }
+        if (optimisticMediaPreviews.banner) {
+          setBannerUrl(optimisticMediaPreviews.banner);
+        } else if (typeof banner === 'string') {
+          setResolvedBannerUrl(os.profiles.bannerUrl(optimisticProfile));
+        }
         refreshIndexedProfileWhenReady(accountId, expected);
         return { profile: optimisticProfile, response };
       } catch (err) {
@@ -557,6 +605,7 @@ export function useProfile() {
       isConnected,
       profile,
       refreshIndexedProfileWhenReady,
+      setResolvedBannerUrl,
       setResolvedAvatarUrl,
       wallet,
     ]
@@ -573,7 +622,7 @@ export function useProfile() {
       if (targetAccount === accountId) {
         throw new Error('You cannot stand with your own account.');
       }
-
+      standingCountRef.current += 1;
       setIsUpdatingStanding(true);
       setError(null);
 
@@ -582,15 +631,34 @@ export function useProfile() {
         const session = await getSocialSession();
         os.attachSession(session);
         const response = shouldStand
-          ? await os.standings.add(targetAccount)
-          : await os.standings.remove(targetAccount);
+          ? await os.standings.add(targetAccount, { wait: true })
+          : await os.standings.remove(targetAccount, { wait: true });
+        if (shouldStand) {
+          creditPortalReward({
+            accountId,
+            action: 'stand_given',
+            targetAccountId: targetAccount,
+            proof: { txHash: response.txHash },
+            session,
+          });
+          creditPortalReward({
+            accountId,
+            action: 'mutual_stand_created',
+            targetAccountId: targetAccount,
+            proof: { txHash: response.txHash },
+            session,
+          });
+        }
         return { applied: shouldStand, response };
       } catch (err) {
         const message = getErrorMessage(err);
         setError(message);
         throw new Error(message);
       } finally {
-        setIsUpdatingStanding(false);
+        standingCountRef.current -= 1;
+        if (standingCountRef.current === 0) {
+          setIsUpdatingStanding(false);
+        }
       }
     },
     [accountId, createClient, getSocialSession, isConnected, wallet]
@@ -614,7 +682,18 @@ export function useProfile() {
         const os = createClient();
         const session = await getSocialSession();
         os.attachSession(session);
-        return await os.endorsements.add(targetAccount, input);
+        const response = await os.endorsements.add(targetAccount, input, {
+          wait: true,
+        });
+        creditPortalReward({
+          accountId,
+          action: 'endorsement_given',
+          targetAccountId: targetAccount,
+          topic: input.topic,
+          proof: { txHash: response.txHash },
+          session,
+        });
+        return response;
       } catch (err) {
         const message = getErrorMessage(err);
         setError(message);
@@ -636,7 +715,7 @@ export function useProfile() {
         const os = createClient();
         const session = await getSocialSession();
         os.attachSession(session);
-        return await os.endorsements.remove(targetAccount, { topic });
+        return await os.endorsements.remove(targetAccount, { topic, wait: true });
       } catch (err) {
         const message = getErrorMessage(err);
         setError(message);
@@ -649,12 +728,14 @@ export function useProfile() {
   const visibleProfile = profile?.accountId === accountId ? profile : null;
   const visibleIndexedProfile = visibleProfile ? indexedProfile : null;
   const visibleAvatarUrl = visibleProfile ? avatarUrl : null;
+  const visibleBannerUrl = visibleProfile ? bannerUrl : null;
 
   return {
     accountId,
     profile: visibleProfile,
     indexedProfile: visibleIndexedProfile,
     avatarUrl: visibleAvatarUrl,
+    bannerUrl: visibleBannerUrl,
     hasProfile: hasProfileFields(visibleProfile),
     isLoading,
     isSaving,

@@ -62,13 +62,21 @@ export class SavesModule {
    * await os.saves.add(postRow, { folder: 'inspiration', note: 'reread' });
    * ```
    */
-  add(target: SaveTarget, input?: SaveBuildInput): Promise<RelayResponse> {
-    return this._social.save(toContentPath(target), input);
+  add(
+    target: SaveTarget,
+    input?: SaveBuildInput,
+    opts?: { wait?: boolean }
+  ): Promise<RelayResponse> {
+    return opts
+      ? this._social.save(toContentPath(target), input, opts)
+      : this._social.save(toContentPath(target), input);
   }
 
   /** Remove a saved bookmark. */
-  remove(target: SaveTarget): Promise<RelayResponse> {
-    return this._social.unsave(toContentPath(target));
+  remove(target: SaveTarget, opts?: { wait?: boolean }): Promise<RelayResponse> {
+    return opts
+      ? this._social.unsave(toContentPath(target), opts)
+      : this._social.unsave(toContentPath(target));
   }
 
   /**
@@ -111,14 +119,15 @@ export class SavesModule {
    */
   async toggle(
     target: SaveTarget,
-    opts: { viewer?: string; input?: SaveBuildInput } = {}
+    opts: { viewer?: string; input?: SaveBuildInput; wait?: boolean } = {}
   ): Promise<{ response: RelayResponse; applied: boolean }> {
     const exists = await this.has(target, { viewer: opts.viewer });
+    const waitOpts = opts.wait != null ? { wait: opts.wait } : undefined;
     if (exists) {
-      const response = await this.remove(target);
+      const response = await this.remove(target, waitOpts);
       return { response, applied: false };
     }
-    const response = await this.add(target, opts.input);
+    const response = await this.add(target, opts.input, waitOpts);
     return { response, applied: true };
   }
 

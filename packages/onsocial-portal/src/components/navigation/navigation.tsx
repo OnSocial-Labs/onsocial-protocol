@@ -131,7 +131,7 @@ const baseNavGroups: NavGroup[] = [
 const internalOpsGroup: NavGroup = {
   label: 'Internal',
   attribution: 'Ops only',
-  accent: 'amber',
+  accent: 'gold',
   items: [
     {
       label: 'Ops Analytics',

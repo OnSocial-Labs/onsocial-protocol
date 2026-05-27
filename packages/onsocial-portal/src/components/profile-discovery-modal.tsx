@@ -8,9 +8,11 @@ import type { MaterialisedProfile } from '@onsocial/sdk';
 import { portalElevatedShadowClass } from '@/components/ui/floating-panel';
 import { ModalCloseButton } from '@/components/ui/modal-close-button';
 import { ModalHeader } from '@/components/ui/modal-header';
+import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import { profileActionButtonClass } from '@/components/ui/profile-action-pill';
 import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
+import { RelationshipSignal } from '@/components/ui/relationship-signal';
 import { SearchInput } from '@/components/ui/search-input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
@@ -28,7 +30,11 @@ interface ProfileDiscoverResult {
   endorsementsReceivedCount: number;
   endorsementsGivenCount: number;
   firstProfileTimestamp: number | null;
+  standingSince?: number | null;
+  standingBlockTimestamp?: number | null;
   viewerStanding: boolean;
+  theyStandWithViewer: boolean;
+  targetEndorsedViewer: boolean;
 }
 
 interface ProfileDiscoverResponse {
@@ -91,23 +97,41 @@ function formatCount(count: number): string {
   }).format(numericCount);
 }
 
-function normalizeTimestamp(value?: number | null): number | null {
+function normalizeSocialTimestamp(value?: number | null): number | null {
   if (!value || !Number.isFinite(value) || value <= 0) return null;
   if (value > 1_000_000_000_000_000) return Math.floor(value / 1_000_000);
   if (value < 1_000_000_000_000) return value * 1000;
   return value;
 }
 
-function profileSinceLabel(timestamp?: number | null): string | null {
-  const normalized = normalizeTimestamp(timestamp);
-  if (!normalized) return null;
-
-  return new Intl.DateTimeFormat('en-US', {
+function formatRelativeTime(timestamp: number | null): string {
+  if (!timestamp) return '';
+  const diff = Math.max(0, Date.now() - timestamp);
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.floor(hr / 24);
+  if (day < 7) return `${day}d ago`;
+  return new Intl.DateTimeFormat(undefined, {
     month: 'short',
-    year: 'numeric',
-  })
-    .format(new Date(normalized))
-    .toUpperCase();
+    day: 'numeric',
+  }).format(new Date(timestamp));
+}
+
+function standingTimeMeta(
+  result: ProfileDiscoverResult
+): { label: string; description: string } | null {
+  const since = normalizeSocialTimestamp(result.standingSince);
+  if (since) {
+    const label = formatRelativeTime(since);
+    return { label, description: `Standing since ${label}` };
+  }
+  const added = normalizeSocialTimestamp(result.standingBlockTimestamp);
+  if (!added) return null;
+  const label = formatRelativeTime(added);
+  return { label, description: `Standing added ${label}` };
 }
 
 async function fetchProfileDiscovery(
@@ -138,6 +162,8 @@ async function fetchProfileDiscovery(
     results: (body?.results ?? []).map((result) => ({
       ...result,
       viewerStanding: Boolean(result.viewerStanding),
+      theyStandWithViewer: Boolean(result.theyStandWithViewer),
+      targetEndorsedViewer: Boolean(result.targetEndorsedViewer),
     })),
   };
 }
@@ -202,9 +228,9 @@ export function ProfileDiscoveryModal({
     number | null
   >(null);
   const [error, setError] = useState<string | null>(null);
-  const [pendingStandingAccountId, setPendingStandingAccountId] = useState<
-    string | null
-  >(null);
+  const [pendingStandingIds, setPendingStandingIds] = useState<Set<string>>(
+    () => new Set()
+  );
   const latestLoadRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const trimmedQuery = query.trim();
@@ -292,19 +318,26 @@ export function ProfileDiscoveryModal({
     shouldStand: boolean
   ) => {
     if (!viewerAccountId || viewerAccountId === result.accountId) return;
-    if (!onUpdateStanding || pendingStandingAccountId) return;
+    if (!onUpdateStanding || pendingStandingIds.has(result.accountId)) return;
 
     setError(null);
-    setPendingStandingAccountId(result.accountId);
+    setPendingStandingIds((prev) => new Set(prev).add(result.accountId));
 
     try {
       await onUpdateStanding(result.accountId, shouldStand);
+      const now = Date.now();
       setResults((current) =>
         current.map((item) =>
           item.accountId === result.accountId
             ? {
                 ...item,
                 viewerStanding: shouldStand,
+                standingSince: shouldStand
+                  ? (item.standingSince ?? now)
+                  : null,
+                standingBlockTimestamp: shouldStand
+                  ? (item.standingBlockTimestamp ?? now)
+                  : null,
                 standingCount: Math.max(
                   0,
                   item.standingCount +
@@ -321,7 +354,11 @@ export function ProfileDiscoveryModal({
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
-      setPendingStandingAccountId(null);
+      setPendingStandingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(result.accountId);
+        return next;
+      });
     }
   };
 
@@ -376,7 +413,7 @@ export function ProfileDiscoveryModal({
                 value={query}
                 onValueChange={setQuery}
                 placeholder="Search names or accounts"
-                size="lg"
+                size="sm"
                 autoFocus
                 maxLength={80}
                 clearAriaLabel="Clear profile search"
@@ -412,15 +449,26 @@ export function ProfileDiscoveryModal({
                         result.viewerStanding
                       );
                       const bio = profileBio(result);
-                      const sinceLabel = profileSinceLabel(
-                        result.firstProfileTimestamp
-                      );
                       const canUpdateStanding =
                         Boolean(viewerAccountId) &&
                         viewerAccountId !== result.accountId &&
                         Boolean(onUpdateStanding);
                       const isPending =
-                        pendingStandingAccountId === result.accountId;
+                        pendingStandingIds.has(result.accountId);
+                      const canShowViewerRelationship =
+                        Boolean(viewerAccountId) &&
+                        viewerAccountId !== result.accountId;
+                      const theyStandWithViewer =
+                        canShowViewerRelationship &&
+                        Boolean(result.theyStandWithViewer);
+                      const sharedSolidarity =
+                        viewerStandsWithResult && theyStandWithViewer;
+                      const showEndorsedYou =
+                        canShowViewerRelationship &&
+                        Boolean(result.targetEndorsedViewer);
+                      const timeMeta = viewerStandsWithResult
+                        ? standingTimeMeta(result)
+                        : null;
 
                       return (
                         <motion.div
@@ -438,9 +486,35 @@ export function ProfileDiscoveryModal({
                           >
                             <ProfileAvatar
                               avatarUrl={result.avatarUrl}
-                              className="mt-0.5 h-9 w-9"
+                              className="mt-0.5 h-9 w-9 transition-shadow group-hover:ring-1 group-hover:ring-foreground/15"
                             />
                             <span className="min-w-0 flex-1">
+                              {sharedSolidarity ||
+                              theyStandWithViewer ||
+                              showEndorsedYou ? (
+                                <span className="mb-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                                  {sharedSolidarity ? (
+                                    <RelationshipSignal
+                                      label="Solidarity"
+                                      tone="purple"
+                                      title="You both stand with each other"
+                                    />
+                                  ) : theyStandWithViewer ? (
+                                    <RelationshipSignal
+                                      label="Stands with you"
+                                      tone="blue"
+                                      title="This account stands with you"
+                                    />
+                                  ) : null}
+                                  {showEndorsedYou ? (
+                                    <RelationshipSignal
+                                      label="Endorsed you"
+                                      tone="gold"
+                                      title="This account has endorsed you"
+                                    />
+                                  ) : null}
+                                </span>
+                              ) : null}
                               <span className="block truncate text-[13px] font-medium text-foreground">
                                 {displayName(result)}
                               </span>
@@ -452,46 +526,62 @@ export function ProfileDiscoveryModal({
                                   {bio}
                                 </span>
                               ) : null}
-                              <span className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-muted-foreground/65">
-                                <span
+                              <span className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-muted-foreground/65">
+                                <PortalHoverTooltip
                                   className="inline-flex items-center gap-1 whitespace-nowrap"
                                   aria-label={`${formatCount(result.standingCount)} stand with them`}
-                                  title="Stand with them"
+                                  stopPropagation
+                                  tooltip="Stand with them"
                                 >
-                                  <ProtocolMotionArrow className="h-2.5 w-2.5 text-muted-foreground/55" />
+                                  <ProtocolMotionArrow
+                                    static
+                                    className="h-2.5 w-2.5 text-[var(--portal-blue)]/55"
+                                  />
                                   <span
                                     className={cn(
-                                      'font-semibold tabular-nums text-foreground/80',
+                                      'font-semibold tabular-nums text-[var(--portal-blue)]/85',
                                       result.standingCount === 0 &&
                                         'opacity-40'
                                     )}
                                   >
                                     {formatCount(result.standingCount)}
                                   </span>
-                                </span>
-                                <span
+                                </PortalHoverTooltip>
+                                <PortalHoverTooltip
                                   className="inline-flex items-center gap-1 whitespace-nowrap"
                                   aria-label={`They stand with ${formatCount(result.standingWithCount)}`}
-                                  title="They stand with"
+                                  stopPropagation
+                                  tooltip="They stand with"
                                 >
                                   <span
                                     className={cn(
-                                      'font-semibold tabular-nums text-foreground/80',
+                                      'font-semibold tabular-nums text-[var(--portal-blue)]/85',
                                       result.standingWithCount === 0 &&
                                         'opacity-40'
                                     )}
                                   >
                                     {formatCount(result.standingWithCount)}
                                   </span>
-                                  <ProtocolMotionArrow className="h-2.5 w-2.5 text-muted-foreground/55" />
-                                </span>
+                                  <ProtocolMotionArrow
+                                    static
+                                    className="h-2.5 w-2.5 text-[var(--portal-blue)]/55"
+                                  />
+                                </PortalHoverTooltip>
                                 <span
+                                  className="text-muted-foreground/25"
+                                  aria-hidden="true"
+                                >
+                                  ·
+                                </span>
+                                <PortalHoverTooltip
                                   className="inline-flex items-center gap-1 whitespace-nowrap"
                                   aria-label={`${formatCount(result.mutualStandingCount)} solidarity connections`}
-                                  title="Solidarity"
+                                  stopPropagation
+                                  tooltip="Solidarity"
                                 >
                                   <ProtocolMotionArrow
                                     direction="in"
+                                    static
                                     className="h-2 w-2 text-[var(--portal-purple)]/65"
                                   />
                                   <span
@@ -503,14 +593,27 @@ export function ProfileDiscoveryModal({
                                   >
                                     {formatCount(result.mutualStandingCount)}
                                   </span>
-                                  <ProtocolMotionArrow className="h-2 w-2 text-[var(--portal-purple)]/65" />
-                                </span>
+                                  <ProtocolMotionArrow
+                                    static
+                                    className="h-2 w-2 text-[var(--portal-purple)]/65"
+                                  />
+                                </PortalHoverTooltip>
                                 <span
+                                  className="text-muted-foreground/25"
+                                  aria-hidden="true"
+                                >
+                                  ·
+                                </span>
+                                <PortalHoverTooltip
                                   className="inline-flex items-center gap-1 whitespace-nowrap"
                                   aria-label={`${formatCount(result.endorsementsReceivedCount)} endorsements received and ${formatCount(result.endorsementsGivenCount)} given`}
-                                  title="Endorsements"
+                                  stopPropagation
+                                  tooltip="Endorsements"
                                 >
-                                  <ProtocolMotionArrow className="h-2.5 w-2.5 text-[var(--portal-gold)]/65" />
+                                  <ProtocolMotionArrow
+                                    static
+                                    className="h-2.5 w-2.5 text-[var(--portal-gold)]/65"
+                                  />
                                   <span
                                     className={cn(
                                       'font-semibold tabular-nums text-[var(--portal-gold)]/85',
@@ -531,65 +634,93 @@ export function ProfileDiscoveryModal({
                                   >
                                     {formatCount(result.endorsementsGivenCount)}
                                   </span>
-                                  <ProtocolMotionArrow className="h-2.5 w-2.5 text-[var(--portal-gold)]/65" />
-                                </span>
-                                {sinceLabel ? (
-                                  <span
-                                    className="whitespace-nowrap text-[9px] font-medium uppercase tracking-[0.14em] text-muted-foreground/45"
-                                    title="Profile since"
-                                  >
-                                    Since {sinceLabel}
-                                  </span>
-                                ) : null}
-                                {result.viewerStanding ? (
-                                  <span className="text-[9px] font-medium uppercase tracking-[0.14em] text-[var(--portal-blue)]/75">
-                                    You stand
-                                  </span>
-                                ) : null}
+                                  <ProtocolMotionArrow
+                                    static
+                                    className="h-2.5 w-2.5 text-[var(--portal-gold)]/65"
+                                  />
+                                </PortalHoverTooltip>
                               </span>
                             </span>
                           </button>
 
-                          {canUpdateStanding ? (
-                            isPending ? (
-                              <span
+                          {canUpdateStanding || timeMeta ? (
+                            <span className="flex shrink-0 flex-col items-end gap-1">
+                              <PortalHoverTooltip
                                 className={cn(
-                                  profileActionButtonClass(
-                                    viewerStandsWithResult ? 'slate' : 'blue'
-                                  )
+                                  'text-right text-[10px] tabular-nums text-muted-foreground/50',
+                                  !timeMeta && 'invisible'
                                 )}
-                                aria-label={
-                                  viewerStandsWithResult
-                                    ? 'Stepping back'
-                                    : 'Standing'
-                                }
+                                aria-hidden={!timeMeta}
+                                aria-label={timeMeta?.description}
+                                stopPropagation
+                                tooltip={timeMeta?.description}
                               >
-                                <PulsingDots size="sm" />
-                              </span>
-                            ) : (
-                              <button
-                                type="button"
-                                disabled={Boolean(pendingStandingAccountId)}
-                                onClick={() =>
-                                  handleStanding(
-                                    result,
-                                    !viewerStandsWithResult
-                                  )
-                                }
-                                className={cn(
-                                  profileActionButtonClass(
-                                    viewerStandsWithResult ? 'slate' : 'blue'
-                                  )
-                                )}
-                                aria-label={
-                                  viewerStandsWithResult
-                                    ? `Step back from ${displayName(result)}`
-                                    : `Stand with ${displayName(result)}`
-                                }
-                              >
-                                {viewerStandsWithResult ? 'Step back' : 'Stand'}
-                              </button>
-                            )
+                                {timeMeta?.label || '0d ago'}
+                              </PortalHoverTooltip>
+                              {canUpdateStanding ? (
+                                isPending ? (
+                                  <span
+                                    className={cn(
+                                      'shrink-0',
+                                      profileActionButtonClass(
+                                        viewerStandsWithResult
+                                          ? 'slate'
+                                          : 'blue'
+                                      )
+                                    )}
+                                    aria-label={
+                                      viewerStandsWithResult
+                                        ? 'Stepping back'
+                                        : 'Standing'
+                                    }
+                                  >
+                                    <PulsingDots size="sm" />
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    disabled={isPending}
+                                    onClick={() =>
+                                      handleStanding(
+                                        result,
+                                        !viewerStandsWithResult
+                                      )
+                                    }
+                                    className={cn(
+                                      'shrink-0',
+                                      profileActionButtonClass(
+                                        viewerStandsWithResult
+                                          ? 'slate'
+                                          : 'blue'
+                                      )
+                                    )}
+                                    aria-label={
+                                      viewerStandsWithResult
+                                        ? `Step back from ${displayName(result)}`
+                                        : `Stand with ${displayName(result)}`
+                                    }
+                                  >
+                                    {viewerStandsWithResult ? (
+                                      <>
+                                        <span className="inline-flex items-center gap-1 group-hover:hidden group-focus-visible:hidden">
+                                          <ProtocolMotionArrow className="h-2.5 w-2.5 text-[var(--portal-blue)]/50" />
+                                          Standing
+                                        </span>
+                                        <span className="hidden items-center gap-1 group-hover:inline-flex group-focus-visible:inline-flex">
+                                          <ProtocolMotionArrow direction="left" className="h-2.5 w-2.5" />
+                                          Step back
+                                        </span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <ProtocolMotionArrow className="h-2.5 w-2.5" />
+                                        Stand
+                                      </>
+                                    )}
+                                  </button>
+                                )
+                              ) : null}
+                            </span>
                           ) : null}
                         </motion.div>
                       );
@@ -599,7 +730,7 @@ export function ProfileDiscoveryModal({
                   <motion.div
                     key={`empty-${emptyLabel}`}
                     {...fadeMotion(reduceMotion ? 0 : 0.14)}
-                    className="rounded-xl border border-border/45 bg-muted/18 px-3 py-6 text-center text-sm text-muted-foreground"
+                    className="px-3 py-6 text-center text-sm text-muted-foreground/65"
                   >
                     {emptyLabel}
                   </motion.div>

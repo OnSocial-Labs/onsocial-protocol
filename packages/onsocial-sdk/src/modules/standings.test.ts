@@ -15,12 +15,36 @@ function makeSocial(opts: { existing?: string[] } = {}) {
 
 function makeQuery(outgoing: string[] = []) {
   const out = vi.fn().mockResolvedValue(outgoing);
+  const outDetailed = vi.fn().mockResolvedValue([
+    {
+      accountId: 'alice.near',
+      targetAccount: 'bob.near',
+      since: 1,
+      blockHeight: 10,
+      blockTimestamp: 100,
+    },
+  ]);
   const inc = vi.fn().mockResolvedValue(['carol.near']);
+  const incDetailed = vi.fn().mockResolvedValue([
+    {
+      accountId: 'carol.near',
+      targetAccount: 'alice.near',
+      since: 2,
+      blockHeight: 11,
+      blockTimestamp: 110,
+    },
+  ]);
   const counts = vi.fn().mockResolvedValue({ incoming: 1, outgoing: 2 });
   return {
-    spies: { out, inc, counts },
+    spies: { out, outDetailed, inc, incDetailed, counts },
     mod: {
-      standings: { outgoing: out, incoming: inc, counts },
+      standings: {
+        outgoing: out,
+        outgoingDetailed: outDetailed,
+        incoming: inc,
+        incomingDetailed: incDetailed,
+        counts,
+      },
     } as unknown as QueryModule,
   };
 }
@@ -94,6 +118,24 @@ describe('StandingsModule list / counts', () => {
     const inc = await s.listIncoming('alice.near');
     expect(query.spies.inc).toHaveBeenCalledWith('alice.near', {});
     expect(inc).toEqual(['carol.near']);
+  });
+
+  it('listOutgoingDetailed forwards to query.standings.outgoingDetailed', async () => {
+    const query = makeQuery();
+    const s = new StandingsModule(makeSocial().mod, query.mod);
+    const out = await s.listOutgoingDetailed('alice.near', { limit: 10 });
+    expect(query.spies.outDetailed).toHaveBeenCalledWith('alice.near', {
+      limit: 10,
+    });
+    expect(out[0]?.targetAccount).toBe('bob.near');
+  });
+
+  it('listIncomingDetailed forwards to query.standings.incomingDetailed', async () => {
+    const query = makeQuery();
+    const s = new StandingsModule(makeSocial().mod, query.mod);
+    const inc = await s.listIncomingDetailed('alice.near');
+    expect(query.spies.incDetailed).toHaveBeenCalledWith('alice.near', {});
+    expect(inc[0]?.accountId).toBe('carol.near');
   });
 
   it('counts forwards to query.standings.counts', async () => {

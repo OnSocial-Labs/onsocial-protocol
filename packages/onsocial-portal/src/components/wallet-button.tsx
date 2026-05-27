@@ -28,7 +28,7 @@ import {
   utilityIconTransition,
 } from '@/components/ui/utility-button';
 import { useDropdown } from '@/hooks/use-dropdown';
-import { useProfile } from '@/hooks/use-profile';
+import { useProfile } from '@/contexts/profile-context';
 import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/near-network';
 
 interface WalletButtonProps {
@@ -324,6 +324,7 @@ export function WalletButton({
         accountId={accountId}
         profile={profileState.profile}
         avatarUrl={profileState.avatarUrl}
+        bannerUrl={profileState.bannerUrl}
         isSaving={profileState.isSaving}
         isAuthorizingSession={profileState.isAuthorizingSession}
         hasSocialSession={profileState.hasSocialSession}
@@ -338,8 +339,8 @@ export function WalletButton({
         viewerAccountId={accountId}
         selfProfile={profileState.profile}
         selfAvatarUrl={profileState.avatarUrl}
+        selfBannerUrl={profileState.bannerUrl}
         hasSocialSession={profileState.hasSocialSession}
-        isUpdatingStanding={profileState.isUpdatingStanding}
         onOpenChange={(open) => {
           setProfileModalOpen(open);
           if (!open) setProfileModalAccountId(null);

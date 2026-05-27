@@ -11,6 +11,7 @@ const portalBadgeVariants = cva(
         blue: 'portal-blue-badge',
         green: 'portal-green-badge',
         purple: 'portal-purple-badge',
+        gold: 'portal-gold-badge',
         amber: 'portal-amber-badge',
         red: 'portal-red-badge',
         slate: 'portal-slate-badge',

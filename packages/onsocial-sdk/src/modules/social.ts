@@ -177,7 +177,8 @@ export class SocialModule {
 
   private _composeSet(
     body: { path: string; value: unknown; targetAccount: string },
-    methodLabel: string
+    methodLabel: string,
+    extraOpts?: { wait?: boolean }
   ): Promise<RelayResponse> {
     return composeAndSign(
       this._http,
@@ -185,7 +186,7 @@ export class SocialModule {
       'set',
       body,
       methodLabel,
-      this._broadcastOpts()
+      { ...this._broadcastOpts(), ...extraOpts }
     );
   }
 
@@ -193,7 +194,10 @@ export class SocialModule {
   // Prefer `os.profiles.update()` for app code.
 
   /** @internal Use `os.profiles.update()`. */
-  async setProfile(profile: ProfileData): Promise<RelayResponse> {
+  async setProfile(
+    profile: ProfileData,
+    opts?: { wait?: boolean }
+  ): Promise<RelayResponse> {
     let resolved: ProfileData = profile;
 
     for (const [fieldName, value] of Object.entries(profile)) {
@@ -210,7 +214,8 @@ export class SocialModule {
         value: data,
         targetAccount: this._coreContract,
       },
-      'social.setProfile'
+      'social.setProfile',
+      opts
     );
   }
 
@@ -218,7 +223,11 @@ export class SocialModule {
   // Prefer `os.posts.create() / .reply() / .quote()` for app code.
 
   /** @internal Use `os.posts.create()`. */
-  async post(post: PostData, postId?: string): Promise<RelayResponse> {
+  async post(
+    post: PostData,
+    postId?: string,
+    opts?: { wait?: boolean }
+  ): Promise<RelayResponse> {
     const resolved = await resolvePostMedia(post, this._storage);
     const id = postId ?? Date.now().toString();
     const [path, value] = getSingleEntry(buildPostSetData(resolved, id));
@@ -228,7 +237,8 @@ export class SocialModule {
         value: encodeComposeValue(value),
         targetAccount: this._coreContract,
       },
-      'social.post'
+      'social.post',
+      opts
     );
   }
 
@@ -237,7 +247,8 @@ export class SocialModule {
     parentAuthor: string,
     parentId: string,
     post: PostData,
-    replyId?: string
+    replyId?: string,
+    opts?: { wait?: boolean }
   ): Promise<RelayResponse> {
     const id = replyId ?? Date.now().toString();
     const resolved = await resolvePostMedia(post, this._storage);
@@ -250,7 +261,8 @@ export class SocialModule {
         value: encodeComposeValue(value),
         targetAccount: this._coreContract,
       },
-      'social.reply'
+      'social.reply',
+      opts
     );
   }
 
@@ -258,9 +270,10 @@ export class SocialModule {
   async replyToPost(
     post: PostRef,
     reply: PostData,
-    replyId?: string
+    replyId?: string,
+    opts?: { wait?: boolean }
   ): Promise<RelayResponse> {
-    return this.reply(post.author, post.postId, reply, replyId);
+    return this.reply(post.author, post.postId, reply, replyId, opts);
   }
 
   /** @internal Use `os.posts.quote()`. */
@@ -268,7 +281,8 @@ export class SocialModule {
     refAuthor: string,
     refPath: string,
     post: PostData,
-    quoteId?: string
+    quoteId?: string,
+    opts?: { wait?: boolean }
   ): Promise<RelayResponse> {
     const id = quoteId ?? Date.now().toString();
     const resolved = await resolvePostMedia(post, this._storage);
@@ -281,7 +295,8 @@ export class SocialModule {
         value: encodeComposeValue(value),
         targetAccount: this._coreContract,
       },
-      'social.quote'
+      'social.quote',
+      opts
     );
   }
 
@@ -289,16 +304,20 @@ export class SocialModule {
   async quotePost(
     post: PostRef,
     quote: PostData,
-    quoteId?: string
+    quoteId?: string,
+    opts?: { wait?: boolean }
   ): Promise<RelayResponse> {
-    return this.quote(post.author, `post/${post.postId}`, quote, quoteId);
+    return this.quote(post.author, `post/${post.postId}`, quote, quoteId, opts);
   }
 
   // ── Standings ───────────────────────────────────────────────────────────
   // Prefer `os.standings.add() / .remove() / .toggle() / .has()` for app code.
 
   /** @internal Use `os.standings.add()`. */
-  async standWith(targetAccount: string): Promise<RelayResponse> {
+  async standWith(
+    targetAccount: string,
+    opts?: { wait?: boolean }
+  ): Promise<RelayResponse> {
     const [path, value] = getSingleEntry(buildStandingSetData(targetAccount));
     return this._composeSet(
       {
@@ -306,12 +325,16 @@ export class SocialModule {
         value: encodeComposeValue(value),
         targetAccount: this._coreContract,
       },
-      'social.standWith'
+      'social.standWith',
+      opts
     );
   }
 
   /** @internal Use `os.standings.remove()`. */
-  async unstand(targetAccount: string): Promise<RelayResponse> {
+  async unstand(
+    targetAccount: string,
+    opts?: { wait?: boolean }
+  ): Promise<RelayResponse> {
     const [path, value] = getSingleEntry(
       buildStandingRemoveData(targetAccount)
     );
@@ -321,7 +344,8 @@ export class SocialModule {
         value: encodeComposeValue(value),
         targetAccount: this._coreContract,
       },
-      'social.unstand'
+      'social.unstand',
+      opts
     );
   }
 
@@ -332,7 +356,8 @@ export class SocialModule {
   async react(
     ownerAccount: string,
     contentPath: string,
-    reaction: ReactionData
+    reaction: ReactionData,
+    opts?: { wait?: boolean }
   ): Promise<RelayResponse> {
     const [path, value] = getSingleEntry(
       buildReactionSetData(ownerAccount, contentPath, reaction)
@@ -343,23 +368,26 @@ export class SocialModule {
         value: encodeComposeValue(value),
         targetAccount: this._coreContract,
       },
-      'social.react'
+      'social.react',
+      opts
     );
   }
 
   /** @internal Use `os.reactions.add()`. */
   async reactToPost(
     post: PostRef,
-    reaction: ReactionData
+    reaction: ReactionData,
+    opts?: { wait?: boolean }
   ): Promise<RelayResponse> {
-    return this.react(post.author, `post/${post.postId}`, reaction);
+    return this.react(post.author, `post/${post.postId}`, reaction, opts);
   }
 
   /** @internal Use `os.reactions.remove()`. */
   async unreact(
     ownerAccount: string,
     kind: string,
-    contentPath: string
+    contentPath: string,
+    opts?: { wait?: boolean }
   ): Promise<RelayResponse> {
     const [path, value] = getSingleEntry(
       buildReactionRemoveData(ownerAccount, kind, contentPath)
@@ -370,13 +398,18 @@ export class SocialModule {
         value: encodeComposeValue(value),
         targetAccount: this._coreContract,
       },
-      'social.unreact'
+      'social.unreact',
+      opts
     );
   }
 
   /** @internal Use `os.reactions.remove()`. */
-  async unreactFromPost(post: PostRef, kind: string): Promise<RelayResponse> {
-    return this.unreact(post.author, kind, `post/${post.postId}`);
+  async unreactFromPost(
+    post: PostRef,
+    kind: string,
+    opts?: { wait?: boolean }
+  ): Promise<RelayResponse> {
+    return this.unreact(post.author, kind, `post/${post.postId}`, opts);
   }
 
   // ── Saves (bookmarks) ────────────────────────────────────────────────
@@ -385,7 +418,8 @@ export class SocialModule {
   /** @internal Use `os.saves.add()`. */
   async save(
     contentPath: string,
-    input?: SaveBuildInput
+    input?: SaveBuildInput,
+    opts?: { wait?: boolean }
   ): Promise<RelayResponse> {
     const [path, value] = getSingleEntry(buildSaveSetData(contentPath, input));
     return this._composeSet(
@@ -394,7 +428,8 @@ export class SocialModule {
         value: encodeComposeValue(value),
         targetAccount: this._coreContract,
       },
-      'social.save'
+      'social.save',
+      opts
     );
   }
 
@@ -410,7 +445,10 @@ export class SocialModule {
   }
 
   /** @internal Use `os.saves.remove()`. */
-  async unsave(contentPath: string): Promise<RelayResponse> {
+  async unsave(
+    contentPath: string,
+    opts?: { wait?: boolean }
+  ): Promise<RelayResponse> {
     const [path, value] = getSingleEntry(buildSaveRemoveData(contentPath));
     return this._composeSet(
       {
@@ -418,7 +456,8 @@ export class SocialModule {
         value: encodeComposeValue(value),
         targetAccount: this._coreContract,
       },
-      'social.unsave'
+      'social.unsave',
+      opts
     );
   }
 
@@ -428,7 +467,8 @@ export class SocialModule {
   /** @internal Use `os.endorsements.add()`. */
   async endorse(
     targetAccount: string,
-    input?: EndorsementBuildInput
+    input?: EndorsementBuildInput,
+    opts?: { wait?: boolean }
   ): Promise<RelayResponse> {
     const [path, value] = getSingleEntry(
       buildEndorsementSetData(targetAccount, input)
@@ -439,7 +479,8 @@ export class SocialModule {
         value: encodeComposeValue(value),
         targetAccount: this._coreContract,
       },
-      'social.endorse'
+      'social.endorse',
+      opts
     );
   }
 
@@ -461,7 +502,8 @@ export class SocialModule {
   /** @internal Use `os.endorsements.remove()`. */
   async unendorse(
     targetAccount: string,
-    topic?: string
+    topic?: string,
+    opts?: { wait?: boolean }
   ): Promise<RelayResponse> {
     const [path, value] = getSingleEntry(
       buildEndorsementRemoveData(targetAccount, topic)
@@ -472,7 +514,8 @@ export class SocialModule {
         value: encodeComposeValue(value),
         targetAccount: this._coreContract,
       },
-      'social.unendorse'
+      'social.unendorse',
+      opts
     );
   }
 
@@ -482,7 +525,8 @@ export class SocialModule {
   /** @internal Use `os.attestations.add()`. */
   async attest(
     claimId: string,
-    input: AttestationBuildInput
+    input: AttestationBuildInput,
+    opts?: { wait?: boolean }
   ): Promise<RelayResponse> {
     const [path, value] = getSingleEntry(
       buildAttestationSetData(claimId, input)
@@ -493,7 +537,8 @@ export class SocialModule {
         value: encodeComposeValue(value),
         targetAccount: this._coreContract,
       },
-      'social.attest'
+      'social.attest',
+      opts
     );
   }
 
@@ -520,7 +565,8 @@ export class SocialModule {
   async revokeAttestation(
     subject: string,
     type: string,
-    claimId: string
+    claimId: string,
+    opts?: { wait?: boolean }
   ): Promise<RelayResponse> {
     const [path, value] = getSingleEntry(
       buildAttestationRemoveData(subject, type, claimId)
@@ -531,7 +577,8 @@ export class SocialModule {
         value: encodeComposeValue(value),
         targetAccount: this._coreContract,
       },
-      'social.revokeAttestation'
+      'social.revokeAttestation',
+      opts
     );
   }
 
@@ -552,22 +599,25 @@ export class SocialModule {
    * });
    * ```
    */
-  async set(path: string, value: unknown): Promise<RelayResponse>;
-  async set(entries: Record<string, unknown>): Promise<RelayResponse>;
+  async set(path: string, value: unknown, opts?: { wait?: boolean }): Promise<RelayResponse>;
+  async set(entries: Record<string, unknown>, opts?: { wait?: boolean }): Promise<RelayResponse>;
   async set(
     pathOrEntries: string | Record<string, unknown>,
-    value?: unknown
+    valueOrOpts?: unknown,
+    maybeOpts?: { wait?: boolean }
   ): Promise<RelayResponse> {
     if (typeof pathOrEntries === 'string') {
       return this._composeSet(
         {
           path: pathOrEntries,
-          value: encodeComposeValue(value),
+          value: encodeComposeValue(valueOrOpts),
           targetAccount: this._coreContract,
         },
-        'social.set'
+        'social.set',
+        maybeOpts
       );
     }
+    const opts = valueOrOpts as { wait?: boolean } | undefined;
     const entries = Object.entries(pathOrEntries);
     if (entries.length === 0) {
       throw new Error('social.set() requires at least one entry');
@@ -580,11 +630,10 @@ export class SocialModule {
           value: encodeComposeValue(val),
           targetAccount: this._coreContract,
         },
-        'social.set'
+        'social.set',
+        opts
       );
     }
-    // Multi-entry: route through generic execute so we get a single
-    // Action::Set { data: { path1: value1, … } } in one transaction.
     const action = { type: 'set', data: pathOrEntries };
     return signAndRelay(
       this._http,
@@ -592,7 +641,7 @@ export class SocialModule {
       action,
       this._coreContract,
       'social.set',
-      this._broadcastOpts()
+      { ...this._broadcastOpts(), ...opts }
     );
   }
 

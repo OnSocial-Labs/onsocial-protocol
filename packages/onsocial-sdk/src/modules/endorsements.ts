@@ -75,8 +75,14 @@ export class EndorsementsModule {
    * });
    * ```
    */
-  add(target: string, input?: EndorsementBuildInput): Promise<RelayResponse> {
-    return this._social.endorse(target, input);
+  add(
+    target: string,
+    input?: EndorsementBuildInput,
+    opts?: { wait?: boolean }
+  ): Promise<RelayResponse> {
+    return opts
+      ? this._social.endorse(target, input, opts)
+      : this._social.endorse(target, input);
   }
 
   /**
@@ -89,9 +95,11 @@ export class EndorsementsModule {
    */
   remove(
     target: string,
-    opts: { topic?: string } = {}
+    opts: { topic?: string; wait?: boolean } = {}
   ): Promise<RelayResponse> {
-    return this._social.unendorse(target, opts.topic);
+    return opts.wait != null
+      ? this._social.unendorse(target, opts.topic, { wait: opts.wait })
+      : this._social.unendorse(target, opts.topic);
   }
 
   /**
@@ -110,16 +118,21 @@ export class EndorsementsModule {
    */
   async toggle(
     target: string,
-    input: EndorsementBuildInput = {}
+    input: EndorsementBuildInput = {},
+    opts?: { wait?: boolean }
   ): Promise<{ response: RelayResponse; applied: boolean }> {
     const existing = await this._social.getEndorsement(target, {
       topic: input.topic,
     });
     if (existing) {
-      const response = await this._social.unendorse(target, input.topic);
+      const response = opts
+        ? await this._social.unendorse(target, input.topic, opts)
+        : await this._social.unendorse(target, input.topic);
       return { response, applied: false };
     }
-    const response = await this._social.endorse(target, input);
+    const response = opts
+      ? await this._social.endorse(target, input, opts)
+      : await this._social.endorse(target, input);
     return { response, applied: true };
   }
 

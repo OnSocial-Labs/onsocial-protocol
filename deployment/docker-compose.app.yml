@@ -181,6 +181,8 @@ services:
       RELAYER_API_KEY: ${RELAYER_API_KEY}
       WEBHOOK_URL: https://${PUBLIC_DOMAIN}/webhooks/telegram
       ADMIN_SECRET: ${ADMIN_SECRET}
+      ONSOCIAL_PORTAL_REWARDS_API_KEY: ${ONSOCIAL_PORTAL_REWARDS_API_KEY}
+      ONSOCIAL_PORTAL_REWARDS_APP_ID: ${ONSOCIAL_PORTAL_REWARDS_APP_ID:-onsocial_portal}
     depends_on:
       relayer-lb:
         condition: service_started
@@ -210,6 +212,8 @@ services:
       RELAYER_API_KEY: ${RELAYER_API_KEY}
       WEBHOOK_URL: https://${PUBLIC_DOMAIN}/webhooks/telegram
       ADMIN_SECRET: ${ADMIN_SECRET}
+      ONSOCIAL_PORTAL_REWARDS_API_KEY: ${ONSOCIAL_PORTAL_REWARDS_API_KEY}
+      ONSOCIAL_PORTAL_REWARDS_APP_ID: ${ONSOCIAL_PORTAL_REWARDS_APP_ID:-onsocial_portal}
     depends_on:
       relayer-lb:
         condition: service_started

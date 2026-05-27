@@ -8,7 +8,9 @@ import { close as closeDb } from './db/index.js';
 import governanceRoutes from './routes/governance.js';
 import partnerRoutes from './routes/partner.js';
 import partnerGovernanceRoutes from './routes/partner-governance.js';
+import portalRewardsRoutes from './routes/portal-rewards.js';
 import { initPartnerKeyCache } from './middleware/partnerAuth.js';
+import { ensurePortalRewardsPartnerKey } from './services/portal-rewards-key.js';
 
 const app = express();
 
@@ -83,6 +85,7 @@ app.post('/webhooks/telegram', webhookHandler);
 // partnerRoutes applies partnerAuth to all /v1/* sub-routes.
 app.use('/v1/governance', governanceRoutes);
 app.use('/v1/partners', partnerGovernanceRoutes);
+app.use('/v1/portal', portalRewardsRoutes);
 app.use('/v1', partnerRoutes);
 
 // ---------------------------------------------------------------------------
@@ -119,6 +122,9 @@ const server = app.listen(config.port, async () => {
     },
     'onsocial-backend started'
   );
+
+  // Ensure internal Portal rewards key exists before auth cache is warmed.
+  await ensurePortalRewardsPartnerKey();
 
   // Pre-warm partner API key cache
   await initPartnerKeyCache();

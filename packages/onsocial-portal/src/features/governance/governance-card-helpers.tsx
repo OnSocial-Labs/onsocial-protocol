@@ -1,6 +1,6 @@
-import React, { Fragment, useCallback, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import React, { Fragment } from 'react';
 import { CheckCircle2, Vote, XCircle, type LucideIcon } from 'lucide-react';
+import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import { fetchDaoPolicy, fetchDaoProposal } from '@/features/governance/api';
 import type {
   GovernanceDaoAction,
@@ -327,45 +327,14 @@ export function HoverTimestamp({
   absolute: string;
   className?: string;
 }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const [show, setShow] = useState(false);
-  const [pos, setPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-
-  const open = useCallback(() => {
-    if (ref.current) {
-      const rect = ref.current.getBoundingClientRect();
-      setPos({ x: rect.left + rect.width / 2, y: rect.bottom });
-    }
-    setShow(true);
-  }, []);
-
-  const close = useCallback(() => setShow(false), []);
-
   return (
-    <>
-      <span
-        ref={ref}
-        className={`cursor-help ${className ?? ''}`.trim()}
-        onMouseEnter={open}
-        onMouseLeave={close}
-        onFocus={open}
-        onBlur={close}
-        tabIndex={0}
-      >
-        {relative}
-      </span>
-      {show &&
-        typeof document !== 'undefined' &&
-        createPortal(
-          <span
-            className="pointer-events-none fixed z-[9999] w-max max-w-[16rem] -translate-x-1/2 rounded-xl border border-border/60 bg-background/95 px-3 py-2 text-xs font-normal text-muted-foreground shadow-lg backdrop-blur-sm"
-            style={{ left: pos.x, top: pos.y + 8 }}
-          >
-            {absolute}
-          </span>,
-          document.body
-        )}
-    </>
+    <PortalHoverTooltip
+      className={className}
+      tooltip={absolute}
+      aria-label={absolute}
+    >
+      {relative}
+    </PortalHoverTooltip>
   );
 }
 

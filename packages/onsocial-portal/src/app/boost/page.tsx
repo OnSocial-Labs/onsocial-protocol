@@ -94,7 +94,7 @@ const LOCK_PERIODS = [
     bonus: 50,
     label: '48 Months',
     short: '48mo',
-    color: portalColors.amber,
+    color: portalColors.gold,
   },
 ];
 
@@ -1007,7 +1007,7 @@ export default function BoostPage() {
                       </h2>
                       <div className="flex items-center gap-2">
                         {canUnlock ? (
-                          <PortalBadge accent="amber" size="sm">
+                          <PortalBadge accent="gold" size="sm">
                             Complete
                           </PortalBadge>
                         ) : (
@@ -1135,7 +1135,7 @@ export default function BoostPage() {
                               className={cn(
                                 'text-sm font-semibold tracking-tight',
                                 item.label === 'Release'
-                                  ? 'portal-amber-text'
+                                  ? 'portal-gold-text'
                                   : 'portal-purple-text'
                               )}
                             >

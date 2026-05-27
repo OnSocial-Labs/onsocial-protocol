@@ -111,10 +111,13 @@ export class AttestationsModule {
    */
   async issue(
     input: AttestationBuildInput,
-    opts: { claimId?: string } = {}
+    opts: { claimId?: string; wait?: boolean } = {}
   ): Promise<{ response: RelayResponse; claimId: string }> {
     const claimId = opts.claimId ?? generateClaimId();
-    const response = await this._social.attest(claimId, input);
+    const waitOpts = opts.wait != null ? { wait: opts.wait } : undefined;
+    const response = waitOpts
+      ? await this._social.attest(claimId, input, waitOpts)
+      : await this._social.attest(claimId, input);
     return { response, claimId };
   }
 
@@ -128,9 +131,12 @@ export class AttestationsModule {
   revoke(
     subject: string,
     type: string,
-    claimId: string
+    claimId: string,
+    opts?: { wait?: boolean }
   ): Promise<RelayResponse> {
-    return this._social.revokeAttestation(subject, type, claimId);
+    return opts
+      ? this._social.revokeAttestation(subject, type, claimId, opts)
+      : this._social.revokeAttestation(subject, type, claimId);
   }
 
   /**

@@ -61,26 +61,38 @@ export class PostsModule {
    * });
    * ```
    */
-  create(post: PostData, postId?: string): Promise<RelayResponse> {
-    return this._social.post(post, postId);
+  create(
+    post: PostData,
+    postId?: string,
+    opts?: { wait?: boolean }
+  ): Promise<RelayResponse> {
+    return opts
+      ? this._social.post(post, postId, opts)
+      : this._social.post(post, postId);
   }
 
   /** Reply to another post. */
   reply(
     parent: PostRef,
     reply: PostData,
-    replyId?: string
+    replyId?: string,
+    opts?: { wait?: boolean }
   ): Promise<RelayResponse> {
-    return this._social.replyToPost(parent, reply, replyId);
+    return opts
+      ? this._social.replyToPost(parent, reply, replyId, opts)
+      : this._social.replyToPost(parent, reply, replyId);
   }
 
   /** Quote another post. */
   quote(
     ref: PostRef,
     quote: PostData,
-    quoteId?: string
+    quoteId?: string,
+    opts?: { wait?: boolean }
   ): Promise<RelayResponse> {
-    return this._social.quotePost(ref, quote, quoteId);
+    return opts
+      ? this._social.quotePost(ref, quote, quoteId, opts)
+      : this._social.quotePost(ref, quote, quoteId);
   }
 
   /** Post into a group. */

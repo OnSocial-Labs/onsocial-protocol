@@ -1,16 +1,18 @@
-export type ProfileActionPillTone = 'blue' | 'purple' | 'slate';
+export type ProfileActionPillTone = 'blue' | 'purple' | 'gold' | 'slate';
 
 export const profileActionButtonBaseClass =
-  'inline-flex h-7 min-w-[88px] shrink-0 items-center justify-center rounded-full border px-2.5 text-xs font-medium shadow-none transition-[border-color,background-color,color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-1 disabled:pointer-events-none disabled:opacity-50 md:h-7 md:px-2.5';
+  'group inline-flex shrink-0 items-center gap-1 rounded-lg border border-transparent px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.16em] transition-all duration-150 hover:border-border/40 hover:bg-background/50 hover:backdrop-blur-sm active:scale-95 active:opacity-80 focus-visible:outline-none focus-visible:ring-1 disabled:pointer-events-none disabled:opacity-50';
 
 export function profileActionToneClass(tone: ProfileActionPillTone): string {
   switch (tone) {
     case 'blue':
-      return 'border-[var(--portal-blue-frame-border)] bg-[var(--portal-blue-bg)] text-[var(--portal-blue)] hover:border-[var(--portal-blue-border-strong)] hover:bg-[var(--portal-blue-frame-bg)] hover:text-[var(--portal-blue)] hover:shadow-[0_4px_6px_-1px_var(--portal-blue-shadow),0_2px_4px_-2px_var(--portal-blue-shadow)] focus-visible:ring-[var(--portal-blue-border)] focus-visible:shadow-[0_4px_6px_-1px_var(--portal-blue-shadow),0_2px_4px_-2px_var(--portal-blue-shadow)]';
+      return 'text-[var(--portal-blue)]/75 hover:text-[var(--portal-blue)] active:text-[var(--portal-blue)] focus-visible:ring-[var(--portal-blue-border)]';
     case 'purple':
-      return 'border-[var(--portal-purple-frame-border)] bg-[var(--portal-purple-bg)] text-[var(--portal-purple)] hover:border-[var(--portal-purple-border-strong)] hover:bg-[var(--portal-purple-frame-bg)] hover:text-[var(--portal-purple)] hover:shadow-[0_4px_6px_-1px_var(--portal-purple-shadow),0_2px_4px_-2px_var(--portal-purple-shadow)] focus-visible:ring-[var(--portal-purple-border)] focus-visible:shadow-[0_4px_6px_-1px_var(--portal-purple-shadow),0_2px_4px_-2px_var(--portal-purple-shadow)]';
+      return 'text-[var(--portal-purple)]/75 hover:text-[var(--portal-purple)] active:text-[var(--portal-purple)] focus-visible:ring-[var(--portal-purple-border)]';
+    case 'gold':
+      return 'text-[var(--portal-gold)]/75 hover:text-[var(--portal-gold)] active:text-[var(--portal-gold)] focus-visible:ring-[var(--portal-gold-border)]';
     case 'slate':
-      return 'border-[var(--portal-slate-frame-border)] bg-[var(--portal-slate-bg)] text-[var(--portal-slate)] hover:border-[var(--portal-slate-border-strong)] hover:bg-[var(--portal-slate-frame-bg)] hover:text-[var(--portal-slate)] hover:shadow-[0_4px_6px_-1px_var(--portal-slate-shadow),0_2px_4px_-2px_var(--portal-slate-shadow)] focus-visible:ring-[var(--portal-slate-border-strong)] focus-visible:shadow-[0_4px_6px_-1px_var(--portal-slate-shadow),0_2px_4px_-2px_var(--portal-slate-shadow)]';
+      return 'text-muted-foreground/55 hover:text-muted-foreground/80 active:text-muted-foreground/80 focus-visible:ring-[var(--portal-slate-border-strong)]';
   }
 }
 

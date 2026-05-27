@@ -17,6 +17,7 @@
 
 import type { SocialModule } from './social.js';
 import type { QueryModule } from '../query/index.js';
+import type { StandingListItem } from '../query/standings.js';
 import type { RelayResponse } from '../types.js';
 
 /**
@@ -38,13 +39,23 @@ export class StandingsModule {
    * await os.standings.add('bob.near');
    * ```
    */
-  add(targetAccount: string): Promise<RelayResponse> {
-    return this._social.standWith(targetAccount);
+  add(
+    targetAccount: string,
+    opts?: { wait?: boolean }
+  ): Promise<RelayResponse> {
+    return opts
+      ? this._social.standWith(targetAccount, opts)
+      : this._social.standWith(targetAccount);
   }
 
   /** Remove a standing. */
-  remove(targetAccount: string): Promise<RelayResponse> {
-    return this._social.unstand(targetAccount);
+  remove(
+    targetAccount: string,
+    opts?: { wait?: boolean }
+  ): Promise<RelayResponse> {
+    return opts
+      ? this._social.unstand(targetAccount, opts)
+      : this._social.unstand(targetAccount);
   }
 
   /**
@@ -68,14 +79,15 @@ export class StandingsModule {
    */
   async toggle(
     targetAccount: string,
-    opts: { viewer: string }
+    opts: { viewer: string; wait?: boolean }
   ): Promise<{ response: RelayResponse; applied: boolean }> {
     const exists = await this.has(opts.viewer, targetAccount);
+    const waitOpts = opts.wait != null ? { wait: opts.wait } : undefined;
     if (exists) {
-      const response = await this.remove(targetAccount);
+      const response = await this.remove(targetAccount, waitOpts);
       return { response, applied: false };
     }
-    const response = await this.add(targetAccount);
+    const response = await this.add(targetAccount, waitOpts);
     return { response, applied: true };
   }
 
@@ -93,6 +105,13 @@ export class StandingsModule {
     return this._query.standings.outgoing(accountId, opts);
   }
 
+  listOutgoingDetailed(
+    accountId: string,
+    opts: { limit?: number } = {}
+  ): Promise<StandingListItem[]> {
+    return this._query.standings.outgoingDetailed(accountId, opts);
+  }
+
   /**
    * Accounts that stand with `accountId` (inbound edges).
    *
@@ -105,6 +124,13 @@ export class StandingsModule {
     opts: { limit?: number } = {}
   ): Promise<string[]> {
     return this._query.standings.incoming(accountId, opts);
+  }
+
+  listIncomingDetailed(
+    accountId: string,
+    opts: { limit?: number } = {}
+  ): Promise<StandingListItem[]> {
+    return this._query.standings.incomingDetailed(accountId, opts);
   }
 
   /**

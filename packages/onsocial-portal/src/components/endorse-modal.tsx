@@ -27,6 +27,7 @@ interface EndorseModalProps {
     topic?: string;
     note?: string;
   } | null;
+  existingTopics?: string[];
   isSaving?: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (input: EndorsementBuildInput) => Promise<unknown>;
@@ -55,6 +56,7 @@ export function EndorseModal({
   targetAvatarUrl = null,
   issuerAccountId = null,
   existing,
+  existingTopics = [],
   isSaving = false,
   onOpenChange,
   onSubmit,
@@ -88,6 +90,11 @@ export function EndorseModal({
       .toUpperCase() || '?';
   const topicReady = normalizedTopic.length >= TOPIC_MIN;
   const noteReady = trimmedNote.length >= NOTE_MIN;
+  const isTopicTaken =
+    !isEditing &&
+    existingTopics.some(
+      (t) => normalizeEndorsementTopic(t) === normalizedTopic
+    );
   const canSubmit = topicReady && noteReady;
 
   const primaryActionFullLabel = endorsementActionFullLabel(targetAccountId);
@@ -182,7 +189,11 @@ export function EndorseModal({
             <div className="flex items-start justify-between gap-4 px-5 pt-5">
               <div className="min-w-0 flex-1">
                 <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/55">
-                  {isEditing ? 'Update endorsement' : 'Public endorsement'}
+                  {isEditing
+                    ? 'Update endorsement'
+                    : isTopicTaken
+                      ? 'Update endorsement'
+                      : 'Public endorsement'}
                 </div>
                 <div className="mt-2 flex min-w-0 items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/50 bg-muted/30 text-sm font-semibold text-muted-foreground">
@@ -249,7 +260,7 @@ export function EndorseModal({
                         {issuerHandle}
                       </div>
                       <div className="mt-0.5 truncate text-[10px] text-muted-foreground/50">
-                        {issuerLabel}
+                        From {issuerLabel}
                       </div>
                     </div>
                     <span className="shrink-0 pt-px text-right text-[10px] tabular-nums text-muted-foreground/45">
@@ -314,7 +325,12 @@ export function EndorseModal({
                   </span>
                 </div>
                 <div className="mt-1 min-h-[14px] text-[10px] text-muted-foreground/55">
-                  {normalizedTopic && normalizedTopic !== trimmedTopic ? (
+                  {isTopicTaken ? (
+                    <span className="text-[var(--portal-gold)]">
+                      You already endorsed for this topic — submitting will
+                      update it
+                    </span>
+                  ) : normalizedTopic && normalizedTopic !== trimmedTopic ? (
                     <>
                       On-chain topic:{' '}
                       <span className="font-mono text-muted-foreground/80">
@@ -430,7 +446,7 @@ export function EndorseModal({
                     : 'Add a topic and a short reason to endorse'
                 }
               >
-                {isEditing ? 'Update' : 'Endorse'}
+                {isEditing || isTopicTaken ? 'Update' : 'Endorse'}
               </Button>
             </div>
 
