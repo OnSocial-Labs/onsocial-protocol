@@ -86,8 +86,10 @@ app.post('/webhooks/telegram', webhookHandler);
 // partnerRoutes applies partnerAuth to all /v1/* sub-routes.
 app.use('/v1/governance', governanceRoutes);
 app.use('/v1/partners', partnerGovernanceRoutes);
-app.use('/v1/portal', portalRewardsRoutes);
+// Welcome NEAR routes MUST be registered before portal rewards routes because
+// portalRewards applies partnerAuth to every /v1/portal request on that router.
 app.use('/v1/portal', welcomeNearRoutes);
+app.use('/v1/portal', portalRewardsRoutes);
 app.use('/v1', partnerRoutes);
 
 // ---------------------------------------------------------------------------
