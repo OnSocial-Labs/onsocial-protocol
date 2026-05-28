@@ -6,12 +6,11 @@ import { pool, query } from '../db/index.js';
 import { logger } from '../logger.js';
 import { partnerAuth } from '../middleware/partnerAuth.js';
 import { accessKeyExists, creditOnChain } from '../services/near.js';
+import { evaluateAppCredit } from '../services/app-reward-limits.js';
 
 const router = Router();
 
 const ACCOUNT_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{1,63}$/;
-const REWARD_AMOUNT = '100000000000000000'; // 0.1 SOCIAL, 18 decimals.
-const DAILY_CAP = 1_000_000_000_000_000_000n; // 1 SOCIAL.
 const AUTH_MAX_AGE_MS = 10 * 60 * 1000;
 const BASE58_ALPHABET =
   '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
@@ -264,6 +263,21 @@ router.post(
       return;
     }
 
+    const creditDecision = await evaluateAppCredit(accountId, appId);
+    if (!creditDecision.allowed) {
+      res.json({
+        success: true,
+        credited: false,
+        capped: true,
+        reason: creditDecision.reason,
+        daily_remaining:
+          creditDecision.headroom?.dailyRemainingYocto.toString() ?? '0',
+      });
+      return;
+    }
+
+    const rewardAmount = creditDecision.amountYocto.toString();
+
     const rewardDay = getRewardDay();
     const idempotencyKey = buildIdempotencyKey({
       action,
@@ -333,32 +347,6 @@ router.post(
         return;
       }
 
-      const dailyRows = await client.query<{ amount: string }>(
-        `SELECT amount FROM portal_reward_events
-       WHERE app_id = $1
-         AND account_id = $2
-         AND reward_day = $3::date
-         AND status = 'credited'`,
-        [appId, accountId, rewardDay]
-      );
-      const dailyTotal = dailyRows.rows.reduce((total, row) => {
-        try {
-          return total + BigInt(row.amount);
-        } catch {
-          return total;
-        }
-      }, 0n);
-      if (dailyTotal + BigInt(REWARD_AMOUNT) > DAILY_CAP) {
-        await client.query('COMMIT');
-        res.json({
-          success: true,
-          credited: false,
-          capped: true,
-          reason: 'daily_cap',
-        });
-        return;
-      }
-
       const inserted = await client.query<{ id: string }>(
         `INSERT INTO portal_reward_events (
          app_id,
@@ -382,7 +370,7 @@ router.post(
           topic,
           rewardDay,
           idempotencyKey,
-          REWARD_AMOUNT,
+          rewardAmount,
           source,
           JSON.stringify(body.proof ?? {}),
         ]
@@ -404,9 +392,34 @@ router.post(
     }
 
     try {
+      const refreshedDecision = await evaluateAppCredit(
+        accountId,
+        appId,
+        creditDecision.amountYocto
+      );
+      if (!refreshedDecision.allowed) {
+        if (eventId) {
+          await query(
+            `UPDATE portal_reward_events
+           SET status = 'failed',
+               error = $2,
+               updated_at = now()
+           WHERE id = $1`,
+            [eventId, refreshedDecision.reason]
+          );
+        }
+        res.json({
+          success: true,
+          credited: false,
+          capped: true,
+          reason: refreshedDecision.reason,
+        });
+        return;
+      }
+
       const txHash = await creditOnChain(
         accountId,
-        REWARD_AMOUNT,
+        refreshedDecision.amountYocto.toString(),
         source,
         appId
       );
@@ -425,7 +438,7 @@ router.post(
         success: true,
         credited: true,
         action,
-        amount: REWARD_AMOUNT,
+        amount: refreshedDecision.amountYocto.toString(),
         tx_hash: txHash,
       });
     } catch (error) {

@@ -73,6 +73,22 @@ export const config = {
   portalRewardsAppId:
     process.env.ONSOCIAL_PORTAL_REWARDS_APP_ID || 'onsocial_portal',
 
+  /** One-time welcome NEAR drip for session bootstrap gas. */
+  welcomeNear: {
+    enabled:
+      (process.env.WELCOME_NEAR_ENABLED ?? 'true').toLowerCase() !== 'false',
+    thresholdYocto:
+      process.env.WELCOME_NEAR_THRESHOLD_YOCTO ??
+      ((process.env.NEAR_NETWORK || 'testnet') === 'mainnet'
+        ? '100000000000000000000'
+        : '50000000000000000000'),
+    amountYocto:
+      process.env.WELCOME_NEAR_AMOUNT_YOCTO ??
+      ((process.env.NEAR_NETWORK || 'testnet') === 'mainnet'
+        ? '500000000000000000000'
+        : '200000000000000000000'),
+  },
+
   // Reward amounts (SOCIAL tokens, decimal)
   rewards: {
     /** Amount credited per qualifying group message. */

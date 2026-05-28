@@ -26,6 +26,10 @@ import { Skeleton, SkeletonText } from '@/components/ui/skeleton';
 import { NetworkModal, type NetworkAccount } from '@/components/network-modal';
 import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import {
+  TransactionFeedbackToast,
+  type TransactionFeedback,
+} from '@/components/ui/transaction-feedback-toast';
+import {
   ProfileEndorsements,
   type EndorsementsModalIntent,
 } from '@/components/profile-endorsements';
@@ -45,6 +49,11 @@ import {
   type ProfileSocialLinkKind,
 } from '@/lib/profile-links';
 import { cn } from '@/lib/utils';
+import {
+  reportWalletActionFailure,
+  isWalletUserCancellation,
+  isWalletCancellationMessage,
+} from '@/lib/wallet-errors';
 
 interface PortalProfileResponse {
   accountId: string;
@@ -496,9 +505,13 @@ function ProfileIdentityLoading() {
 function AccountAvatar({
   avatarUrl,
   className,
+  placeholderIconClassName = 'h-4 w-4',
+  placeholderIconStrokeWidth = 2,
 }: {
   avatarUrl: string | null;
   className?: string;
+  placeholderIconClassName?: string;
+  placeholderIconStrokeWidth?: number;
 }) {
   return (
     <div
@@ -510,7 +523,10 @@ function AccountAvatar({
       {avatarUrl ? (
         <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
       ) : (
-        <User className="h-4 w-4" />
+        <User
+          className={placeholderIconClassName}
+          strokeWidth={placeholderIconStrokeWidth}
+        />
       )}
     </div>
   );
@@ -1678,7 +1694,9 @@ export function ProfileModal({
   const [hasProfileLoaded, setHasProfileLoaded] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [socialError, setSocialError] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionToast, setActionToast] = useState<TransactionFeedback | null>(
+    null
+  );
   const [pendingStandingAction, setPendingStandingAction] = useState<
     'stand' | 'step-back' | null
   >(null);
@@ -1800,7 +1818,7 @@ export function ProfileModal({
     if (!open || !accountId) return;
 
     let cancelled = false;
-    setActionError(null);
+    setActionToast(null);
 
     if (isSelf && selfProfile) {
       setProfile(selfProfile);
@@ -1881,7 +1899,7 @@ export function ProfileModal({
   ) => {
     if (!viewerAccountId || account.accountId === viewerAccountId) return;
 
-    setActionError(null);
+    setActionToast(null);
 
     try {
       await onUpdateStanding(account.accountId, shouldStand);
@@ -1918,7 +1936,10 @@ export function ProfileModal({
         };
       });
     } catch (error) {
-      setActionError(getErrorMessage(error));
+      if (isWalletUserCancellation(error)) throw error;
+      reportWalletActionFailure(error, (msg) =>
+        setActionToast({ type: 'error', msg })
+      );
       throw error;
     }
   };
@@ -1930,7 +1951,7 @@ export function ProfileModal({
 
     const nextStanding = !viewerStanding;
 
-    setActionError(null);
+    setActionToast(null);
     setPendingStandingAction(nextStanding ? 'stand' : 'step-back');
 
     try {
@@ -1970,7 +1991,11 @@ export function ProfileModal({
         };
       });
     } catch (error) {
-      setActionError(getErrorMessage(error));
+      if (!isWalletUserCancellation(error)) {
+        reportWalletActionFailure(error, (msg) =>
+          setActionToast({ type: 'error', msg })
+        );
+      }
     } finally {
       setPendingStandingAction(null);
     }
@@ -1989,9 +2014,11 @@ export function ProfileModal({
 
   if (typeof document === 'undefined') return null;
 
-  return createPortal(
-    <AnimatePresence initial={false}>
-      {open && accountId ? (
+  return (
+    <>
+      {createPortal(
+        <AnimatePresence initial={false}>
+          {open && accountId ? (
         <motion.div
           {...fadeMotion(reduceMotion ? 0 : 0.18)}
           data-lenis-prevent
@@ -2078,6 +2105,8 @@ export function ProfileModal({
                       <AccountAvatar
                         avatarUrl={avatarUrl}
                         className="h-20 w-20 md:h-24 md:w-24 rounded-2xl !border-[3px] !border-background shadow-lg"
+                        placeholderIconClassName="h-6 w-6"
+                        placeholderIconStrokeWidth={2.5}
                       />
                       <div className="min-w-0 flex-1 pt-10 pr-8">
                         <div className="flex min-w-0 items-start justify-between gap-2">
@@ -2278,9 +2307,12 @@ export function ProfileModal({
                 </>
               )}
 
-              {profileError || socialError || actionError ? (
+              {(profileError && !isWalletCancellationMessage(profileError)) ||
+              (socialError && !isWalletCancellationMessage(socialError)) ? (
                 <p className="mx-4 mt-4 mb-5 rounded-xl border border-[var(--portal-red-border)] bg-[var(--portal-red-bg)] px-3 py-2 text-xs leading-relaxed text-[var(--portal-red)] md:mx-5">
-                  {actionError ?? profileError ?? socialError}
+                  {profileError && !isWalletCancellationMessage(profileError)
+                    ? profileError
+                    : socialError}
                 </p>
               ) : null}
             </div>
@@ -2329,7 +2361,13 @@ export function ProfileModal({
           />
         </motion.div>
       ) : null}
-    </AnimatePresence>,
-    document.body
+        </AnimatePresence>,
+        document.body
+      )}
+      <TransactionFeedbackToast
+        result={actionToast}
+        onClose={() => setActionToast(null)}
+      />
+    </>
   );
 }

@@ -9,6 +9,7 @@ import governanceRoutes from './routes/governance.js';
 import partnerRoutes from './routes/partner.js';
 import partnerGovernanceRoutes from './routes/partner-governance.js';
 import portalRewardsRoutes from './routes/portal-rewards.js';
+import welcomeNearRoutes from './routes/welcome-near.js';
 import { initPartnerKeyCache } from './middleware/partnerAuth.js';
 import { ensurePortalRewardsPartnerKey } from './services/portal-rewards-key.js';
 
@@ -86,6 +87,7 @@ app.post('/webhooks/telegram', webhookHandler);
 app.use('/v1/governance', governanceRoutes);
 app.use('/v1/partners', partnerGovernanceRoutes);
 app.use('/v1/portal', portalRewardsRoutes);
+app.use('/v1/portal', welcomeNearRoutes);
 app.use('/v1', partnerRoutes);
 
 // ---------------------------------------------------------------------------

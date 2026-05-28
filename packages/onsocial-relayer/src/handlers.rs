@@ -13,7 +13,7 @@ use axum::Json;
 use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
 use near_gas::NearGas;
 use near_primitives::hash::CryptoHash;
-use near_primitives::transaction::{Action, FunctionCallAction};
+use near_primitives::transaction::{Action, FunctionCallAction, TransferAction};
 use near_primitives::types::AccountId;
 use near_primitives::views::FinalExecutionStatus;
 use serde::{Deserialize, Serialize};
@@ -476,6 +476,150 @@ pub async fn execute_rewards(
     METRICS.record_tx_duration(start);
 
     full_access_tx_response(&req_id, "rewards", submitted)
+}
+
+// ---------------------------------------------------------------------------
+// /execute_transfer — private service endpoint for welcome NEAR drips.
+//
+// Body: { "recipient_id": "...", "amount_yocto": "..." }
+// Query: ?wait=true (optional, broadcast_tx_commit)
+//
+// Transfers NEAR from the relayer account to a user wallet. Amount is capped
+// server-side to prevent abuse if backend credentials leak.
+// ---------------------------------------------------------------------------
+
+const MAX_TRANSFER_YOCTO: u128 = 1_000_000_000_000_000_000_000; // 0.001 NEAR
+
+#[derive(Deserialize)]
+pub struct ExecuteTransferBody {
+    pub recipient_id: String,
+    pub amount_yocto: String,
+}
+
+pub async fn execute_transfer(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<ExecuteParams>,
+    request_parts: axum::extract::Request,
+) -> (StatusCode, Json<ExecuteResponse>) {
+    let start = std::time::Instant::now();
+    METRICS.tx_total.fetch_add(1, Ordering::Relaxed);
+    state.request_count.fetch_add(1, Ordering::Relaxed);
+
+    let req_id = request_parts
+        .extensions()
+        .get::<RequestId>()
+        .map(|r| r.0.clone())
+        .unwrap_or_default();
+
+    let body: ExecuteTransferBody =
+        match axum::Json::<ExecuteTransferBody>::from_request(request_parts, &state).await {
+            Ok(axum::Json(v)) => v,
+            Err(e) => {
+                METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
+                warn!(req_id = %req_id, error = %e, "Invalid transfer body");
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ExecuteResponse::err(
+                        "Body must be { recipient_id, amount_yocto }",
+                        None,
+                    )),
+                );
+            }
+        };
+
+    let recipient_id = match body.recipient_id.parse::<AccountId>() {
+        Ok(account_id) => account_id,
+        Err(e) => {
+            METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
+            warn!(req_id = %req_id, error = %e, recipient = %body.recipient_id, "Invalid transfer recipient");
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ExecuteResponse::err("Invalid recipient_id", None)),
+            );
+        }
+    };
+
+    let amount_yocto = match body.amount_yocto.parse::<u128>() {
+        Err(_) => {
+            METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ExecuteResponse::err("Invalid amount_yocto", None)),
+            );
+        }
+        Ok(0) => {
+            METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ExecuteResponse::err(
+                    "Transfer amount must be positive",
+                    None,
+                )),
+            );
+        }
+        Ok(amount) if amount > MAX_TRANSFER_YOCTO => {
+            METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ExecuteResponse::err(
+                    "Transfer amount exceeds relayer cap",
+                    None,
+                )),
+            );
+        }
+        Ok(amount) => amount,
+    };
+
+    if recipient_id == *state.key_pool.relayer_account() {
+        METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ExecuteResponse::err(
+                "Cannot transfer to relayer account",
+                None,
+            )),
+        );
+    }
+
+    info!(
+        req_id = %req_id,
+        recipient = %recipient_id,
+        amount_yocto = %amount_yocto,
+        "Relaying welcome NEAR transfer"
+    );
+
+    let actions = vec![Action::Transfer(TransferAction {
+        deposit: amount_yocto,
+    })];
+
+    let submitted = match state
+        .key_pool
+        .submit_delegate_transaction(&state.rpc, &recipient_id, actions, params.wait)
+        .await
+    {
+        Ok(outcome) => outcome,
+        Err(e) => {
+            METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
+            let (status, public_error) = match &e {
+                Error::Config(_) => (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Relayer transfer signer is not configured correctly",
+                ),
+                Error::Rpc(_) => (StatusCode::BAD_GATEWAY, "RPC temporarily unavailable"),
+                Error::KeyPool(_) => (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "Relayer transfer signer is temporarily unavailable",
+                ),
+            };
+            error!(req_id = %req_id, error = %e, "Transfer tx submission failed");
+            return (status, Json(ExecuteResponse::err(public_error, None)));
+        }
+    };
+
+    METRICS.tx_success.fetch_add(1, Ordering::Relaxed);
+    METRICS.record_tx_duration(start);
+
+    full_access_tx_response(&req_id, "transfer", submitted)
 }
 
 // ---------------------------------------------------------------------------

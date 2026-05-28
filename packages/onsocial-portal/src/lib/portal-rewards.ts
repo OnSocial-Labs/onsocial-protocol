@@ -1,12 +1,9 @@
 import type { Session } from '@onsocial/sdk/advanced';
 import { normalizeEndorsementTopic } from '@onsocial/sdk';
+import type { PortalRewardAction } from '@/lib/portal-reward-constants';
+import { emitPortalRewardCredited } from '@/lib/portal-reward-events';
 
-export type PortalRewardAction =
-  | 'profile_created'
-  | 'daily_active'
-  | 'stand_given'
-  | 'mutual_stand_created'
-  | 'endorsement_given';
+export type { PortalRewardAction };
 
 type SocialPortalRewardAction = Exclude<PortalRewardAction, 'daily_active'>;
 
@@ -17,6 +14,15 @@ interface CreditPortalRewardInput {
   topic?: string | null;
   proof?: Record<string, unknown>;
   session: Session;
+}
+
+interface PortalRewardActionResponse {
+  success?: boolean;
+  credited?: boolean;
+  amount?: string;
+  error?: string;
+  detail?: string;
+  eligible?: boolean;
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -42,14 +48,44 @@ function normalizeTopic(value: string | null | undefined): string | null {
   return normalizeEndorsementTopic(value) ?? null;
 }
 
-function dispatchPortalReward({
+function handleRewardResponse(
+  response: Response,
+  data: PortalRewardActionResponse | null,
+  action: PortalRewardAction,
+  targetAccountId: string | null,
+  topic: string | null
+): void {
+  if (data?.credited && data.amount) {
+    emitPortalRewardCredited({
+      amountYocto: data.amount,
+      action,
+      targetAccountId,
+      topic,
+    });
+    return;
+  }
+
+  if (!response.ok) {
+    console.warn('[portal-rewards] reward request failed', {
+      status: response.status,
+      action,
+      error: data?.error ?? data?.detail ?? 'unknown',
+      detail: data?.detail,
+      eligible: data?.eligible,
+      credited: data?.credited,
+      body: data,
+    });
+  }
+}
+
+async function dispatchPortalReward({
   accountId,
   action,
   targetAccountId,
   topic,
   proof,
   session,
-}: CreditPortalRewardInput): void {
+}: CreditPortalRewardInput): Promise<void> {
   if (typeof window === 'undefined' || !accountId) return;
 
   const normalizedAccountId = normalizeAccountId(accountId);
@@ -58,60 +94,47 @@ function dispatchPortalReward({
   const normalizedTargetAccountId = normalizeAccountId(targetAccountId);
   const normalizedTopic = normalizeTopic(topic);
 
-  (async () => {
-    const message = JSON.stringify({
+  const message = JSON.stringify({
+    account_id: normalizedAccountId,
+    action,
+    target_account_id: normalizedTargetAccountId,
+    topic: normalizedTopic,
+    tx_hash: getTxHash(proof),
+    issued_at: Date.now(),
+  });
+  const signature = await session.key.sign(new TextEncoder().encode(message));
+
+  const response = await fetch('/api/rewards/action', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
       account_id: normalizedAccountId,
       action,
       target_account_id: normalizedTargetAccountId,
       topic: normalizedTopic,
-      tx_hash: getTxHash(proof),
-      issued_at: Date.now(),
-    });
-    const signature = await session.key.sign(
-      new TextEncoder().encode(message)
-    );
+      proof,
+      auth: {
+        public_key: session.key.publicKey,
+        signature: bytesToBase64(signature),
+        message,
+      },
+    }),
+  });
 
-    const response = await fetch('/api/rewards/action', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        account_id: normalizedAccountId,
-        action,
-        target_account_id: normalizedTargetAccountId,
-        topic: normalizedTopic,
-        proof,
-        auth: {
-          public_key: session.key.publicKey,
-          signature: bytesToBase64(signature),
-          message,
-        },
-      }),
-    });
+  const data = (await response.json().catch(() => null)) as
+    | PortalRewardActionResponse
+    | null;
+  handleRewardResponse(response, data, action, normalizedTargetAccountId, normalizedTopic);
+}
 
-    if (!response.ok) {
-      const detail = (await response.json().catch(() => null)) as {
-        error?: string;
-        detail?: string;
-        eligible?: boolean;
-        credited?: boolean;
-      } | null;
-      console.warn('[portal-rewards] reward request failed', {
-        status: response.status,
-        action,
-        error: detail?.error ?? detail?.detail ?? 'unknown',
-        detail: detail?.detail,
-        eligible: detail?.eligible,
-        credited: detail?.credited,
-        body: detail,
-      });
-    }
-  })().catch(() => {
+function dispatchPortalRewardSafe(input: CreditPortalRewardInput): void {
+  void dispatchPortalReward(input).catch(() => {
     // Rewards must never block the confirmed social action UX.
   });
 }
 
 export function creditPortalReward(input: CreditPortalRewardInput): void {
-  dispatchPortalReward(input);
+  dispatchPortalRewardSafe(input);
 }
 
 /** Credit a social action and the once-per-day active bonus (first on-chain action of the day). */
@@ -120,8 +143,8 @@ export function creditPortalSocialReward(
     action: SocialPortalRewardAction;
   }
 ): void {
-  dispatchPortalReward(input);
-  dispatchPortalReward({
+  dispatchPortalRewardSafe(input);
+  dispatchPortalRewardSafe({
     accountId: input.accountId,
     action: 'daily_active',
     proof: input.proof,

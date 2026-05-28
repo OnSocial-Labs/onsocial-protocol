@@ -108,6 +108,8 @@ const LIVE_COUNTER_FRACTION_DIGITS = 6;
 const REWARD_RATE_FRACTION_DIGITS = 8;
 const CLAIM_CELEBRATION_TIMEOUT_MS = 2100;
 const REDUCED_MOTION_CLAIM_CELEBRATION_TIMEOUT_MS = 1400;
+/** Ignore projected-view dust when not actively accruing (0.0001 SOCIAL). */
+const BOOST_CLAIM_DUST_YOCTO = 100_000_000_000_000_000n;
 type BoostAction = 'stake' | 'claim' | 'unlock' | 'renew' | `extend:${number}`;
 type ClaimCelebration = { id: number; amountYocto: bigint };
 
@@ -267,6 +269,136 @@ function periodIndex(months: number): number {
   return LOCK_PERIODS.findIndex((lp) => lp.months === months);
 }
 
+function normalizeBoostClaimableYocto(
+  claimableYocto: bigint,
+  rewardsPerSecondYocto: bigint
+): bigint {
+  if (
+    rewardsPerSecondYocto === 0n &&
+    claimableYocto > 0n &&
+    claimableYocto < BOOST_CLAIM_DUST_YOCTO
+  ) {
+    return 0n;
+  }
+  return claimableYocto;
+}
+
+function BoostCollectSection({
+  visibleLiveClaimableYocto,
+  perSecond,
+  perSecondDisplay,
+  claimCelebration,
+  claimCelebrationDurationSeconds,
+  reduceMotion,
+  txPending,
+  pendingAction,
+  onClaim,
+  rewardsClaimed,
+  hint,
+  className,
+}: {
+  visibleLiveClaimableYocto: bigint;
+  perSecond: number;
+  perSecondDisplay: string;
+  claimCelebration: ClaimCelebration | null;
+  claimCelebrationDurationSeconds: number;
+  reduceMotion: boolean | null;
+  txPending: boolean;
+  pendingAction: BoostAction | null;
+  onClaim: () => void;
+  rewardsClaimed: string;
+  hint?: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        'relative flex flex-col items-center overflow-hidden rounded-2xl px-4 py-3 text-center',
+        className
+      )}
+    >
+      <CollectCelebration
+        active={Boolean(claimCelebration)}
+        celebrationKey={claimCelebration?.id ?? 'idle'}
+        reduceMotion={reduceMotion}
+        durationSeconds={claimCelebrationDurationSeconds}
+        icon={<Gift className="h-3 w-3" />}
+      >
+        +
+        {claimCelebration
+          ? formatYoctoSocialFixed(claimCelebration.amountYocto)
+          : '0'}
+      </CollectCelebration>
+      <motion.div
+        aria-hidden={claimCelebration ? true : undefined}
+        animate={
+          claimCelebration && !reduceMotion
+            ? {
+                opacity: 0,
+                scale: 0.9,
+                y: -10,
+                filter: 'blur(5px)',
+              }
+            : claimCelebration
+              ? { opacity: 0, scale: 0.96 }
+              : {
+                  opacity: 1,
+                  scale: 1,
+                  y: 0,
+                  filter: 'blur(0px)',
+                }
+        }
+        transition={{
+          duration: claimCelebration ? 0.32 : 0.36,
+          ease: claimCelebration ? [0.4, 0, 1, 1] : [0.22, 1, 0.36, 1],
+        }}
+        className="flex flex-col items-center"
+      >
+        <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+          Ready to Collect
+        </span>
+        <p className="portal-green-text mt-1 font-mono text-3xl font-bold tabular-nums tracking-[-0.03em] md:text-4xl">
+          {formatYoctoSocialFixed(visibleLiveClaimableYocto)}
+        </p>
+        <span className="portal-green-text mt-0.5 text-[10px] font-medium uppercase tracking-[0.16em] opacity-70">
+          $SOCIAL
+        </span>
+        {perSecond > 0 && (
+          <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+            +{perSecondDisplay}/sec
+          </p>
+        )}
+        <Button
+          onClick={onClaim}
+          disabled={
+            txPending || visibleLiveClaimableYocto < BOOST_CLAIM_DUST_YOCTO
+          }
+          variant="accent"
+          size="sm"
+          className="mt-3 min-w-[8rem] justify-center"
+          loading={txPending && pendingAction === 'claim'}
+        >
+          <Gift className="h-3.5 w-3.5" />
+          Collect
+        </Button>
+        {rewardsClaimed !== '0' && (
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Collected{' '}
+            <span className="portal-green-text font-mono font-semibold tracking-tight">
+              {formatSocial(rewardsClaimed)}
+            </span>
+          </p>
+        )}
+        {hint ? (
+          <p className="mt-2 max-w-xs text-[11px] leading-relaxed text-muted-foreground">
+            {hint}
+          </p>
+        ) : null}
+      </motion.div>
+    </div>
+  );
+}
+
 function BoostMechanicCard({
   icon: Icon,
   title,
@@ -360,6 +492,9 @@ export default function BoostPage() {
   const minimumStakeYocto = BigInt(socialToYocto(MIN_STAKE_AMOUNT));
   const effectiveStakeYocto = applyLockBonus(stakeAmountYocto, period.bonus);
   const hasStake = account && BigInt(account.locked_amount) > 0n;
+  const hasUnclaimedRewards =
+    hasLoadedAccountData &&
+    visibleLiveClaimableYocto >= BOOST_CLAIM_DUST_YOCTO;
   const lockedAmountYocto = hasStake ? BigInt(account.locked_amount) : 0n;
   const newTotalLockedYocto = lockedAmountYocto + stakeAmountYocto;
   const newEffectiveStakeYocto = applyLockBonus(
@@ -532,7 +667,17 @@ export default function BoostPage() {
 
         loadedAccountIdRef.current = requestedAccountId;
         setLoadedAccount(acct);
-        setLoadedRewardRate(rate);
+        setLoadedRewardRate(
+          rate
+            ? {
+                ...rate,
+                claimable_now: normalizeBoostClaimableYocto(
+                  parseYocto(rate.claimable_now),
+                  parseYocto(rate.rewards_per_second)
+                ).toString(),
+              }
+            : rate
+        );
         setLoadedLockStatus(status);
         setLoadedTokenBalance(bal ?? '0');
 
@@ -566,7 +711,10 @@ export default function BoostPage() {
       return;
     }
 
-    const initial = parseYocto(rewardRate.claimable_now);
+    const initial = normalizeBoostClaimableYocto(
+      parseYocto(rewardRate.claimable_now),
+      parseYocto(rewardRate.rewards_per_second)
+    );
     const perSecondYocto = parseYocto(rewardRate.rewards_per_second);
     const allowResetDown =
       lastConfirmedActionRef.current === 'claim' ||
@@ -662,6 +810,9 @@ export default function BoostPage() {
             liveCounterPausedRef.current = true;
             triggerClaimCelebration(claimedYocto);
             setLiveClaimableYoctoValue(0n);
+            setLoadedRewardRate((prev) =>
+              prev ? { ...prev, claimable_now: '0' } : prev
+            );
           }
           afterTx();
         }
@@ -1023,84 +1174,21 @@ export default function BoostPage() {
                       </div>
                     </div>
 
-                    {/* ── Collectible Balance ── */}
-                    <div className="relative mt-4 flex flex-col items-center overflow-hidden rounded-2xl px-4 py-3 text-center">
-                      <CollectCelebration
-                        active={Boolean(claimCelebration)}
-                        celebrationKey={claimCelebration?.id ?? 'idle'}
-                        reduceMotion={reduceMotion}
-                        durationSeconds={claimCelebrationDurationSeconds}
-                        icon={<Gift className="h-3 w-3" />}
-                      >
-                        +
-                        {claimCelebration
-                          ? formatYoctoSocialFixed(claimCelebration.amountYocto)
-                          : '0'}
-                      </CollectCelebration>
-                      <motion.div
-                        aria-hidden={claimCelebration ? true : undefined}
-                        animate={
-                          claimCelebration && !reduceMotion
-                            ? {
-                                opacity: 0,
-                                scale: 0.9,
-                                y: -10,
-                                filter: 'blur(5px)',
-                              }
-                            : claimCelebration
-                              ? { opacity: 0, scale: 0.96 }
-                              : {
-                                  opacity: 1,
-                                  scale: 1,
-                                  y: 0,
-                                  filter: 'blur(0px)',
-                                }
-                        }
-                        transition={{
-                          duration: claimCelebration ? 0.32 : 0.36,
-                          ease: claimCelebration
-                            ? [0.4, 0, 1, 1]
-                            : [0.22, 1, 0.36, 1],
-                        }}
-                        className="flex flex-col items-center"
-                      >
-                        <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                          Ready to Collect
-                        </span>
-                        <p className="portal-green-text mt-1 font-mono text-3xl font-bold tabular-nums tracking-[-0.03em] md:text-4xl">
-                          {formatYoctoSocialFixed(visibleLiveClaimableYocto)}
-                        </p>
-                        <span className="portal-green-text mt-0.5 text-[10px] font-medium uppercase tracking-[0.16em] opacity-70">
-                          $SOCIAL
-                        </span>
-                        {perSecond > 0 && (
-                          <p className="mt-1 font-mono text-[11px] text-muted-foreground">
-                            +{perSecondDisplay}/sec
-                          </p>
-                        )}
-                        <Button
-                          onClick={handleClaim}
-                          disabled={
-                            txPending || visibleLiveClaimableYocto <= 0n
-                          }
-                          variant="accent"
-                          size="sm"
-                          className="mt-3 min-w-[8rem] justify-center"
-                          loading={txPending && pendingAction === 'claim'}
-                        >
-                          <Gift className="h-3.5 w-3.5" />
-                          Collect
-                        </Button>
-                        {account.rewards_claimed !== '0' && (
-                          <p className="mt-2 text-[11px] text-muted-foreground">
-                            Collected{' '}
-                            <span className="portal-green-text font-mono font-semibold tracking-tight">
-                              {formatSocial(account.rewards_claimed)}
-                            </span>
-                          </p>
-                        )}
-                      </motion.div>
-                    </div>
+                    <BoostCollectSection
+                      className="mt-4"
+                      visibleLiveClaimableYocto={visibleLiveClaimableYocto}
+                      perSecond={perSecond}
+                      perSecondDisplay={perSecondDisplay}
+                      claimCelebration={claimCelebration}
+                      claimCelebrationDurationSeconds={
+                        claimCelebrationDurationSeconds
+                      }
+                      reduceMotion={reduceMotion}
+                      txPending={txPending}
+                      pendingAction={pendingAction}
+                      onClaim={handleClaim}
+                      rewardsClaimed={account.rewards_claimed}
+                    />
 
                     {/* ── Stats ── */}
                     <StatStrip groupClassName="mt-2">
@@ -1267,6 +1355,46 @@ export default function BoostPage() {
                         </motion.div>
                       )}
                     </AnimatePresence>
+                  </SurfacePanel>
+                </motion.div>
+              ) : hasUnclaimedRewards && account ? (
+                <motion.div
+                  key="position-unclaimed"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.28 }}
+                  className="h-full"
+                >
+                  <SurfacePanel
+                    radius="xl"
+                    tone="soft"
+                    className="h-full p-4 md:p-5"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <h2 className="text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                        Unclaimed Rewards
+                      </h2>
+                      <PortalBadge accent="gold" size="sm">
+                        Released
+                      </PortalBadge>
+                    </div>
+                    <BoostCollectSection
+                      className="mt-4"
+                      visibleLiveClaimableYocto={visibleLiveClaimableYocto}
+                      perSecond={perSecond}
+                      perSecondDisplay={perSecondDisplay}
+                      claimCelebration={claimCelebration}
+                      claimCelebrationDurationSeconds={
+                        claimCelebrationDurationSeconds
+                      }
+                      reduceMotion={reduceMotion}
+                      txPending={txPending}
+                      pendingAction={pendingAction}
+                      onClaim={handleClaim}
+                      rewardsClaimed={account.rewards_claimed}
+                      hint="From your completed commitment. Collect anytime, then commit again below."
+                    />
                   </SurfacePanel>
                 </motion.div>
               ) : (

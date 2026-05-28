@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Mock dependencies BEFORE importing the module under test
@@ -15,6 +15,10 @@ vi.mock('../../src/services/near.js', () => ({
 
 // partnerAuth — pass through with a configurable app_id
 let testAppId = 'test_partner';
+
+afterEach(() => {
+  testAppId = 'test_partner';
+});
 vi.mock('../../src/middleware/partnerAuth.js', () => ({
   partnerAuth: (
     req: Record<string, unknown>,
@@ -67,6 +71,28 @@ describe('POST /v1/reward', () => {
     vi.clearAllMocks();
   });
 
+  function mockCreditHeadroom(amount = '100000000000000000') {
+    mockViewContract.mockImplementation((method: string) => {
+      if (method === 'get_app_config') {
+        return Promise.resolve({
+          reward_per_action: amount,
+          daily_cap: '1000000000000000000',
+          active: true,
+        });
+      }
+      if (method === 'get_user_rewards_overview') {
+        return Promise.resolve({
+          app: {
+            app_active: true,
+            daily_earned: '0',
+            daily_remaining: '1000000000000000000',
+          },
+        });
+      }
+      return Promise.resolve(null);
+    });
+  }
+
   it('rejects when account_id is missing', async () => {
     const app = buildApp();
     const res = await request(app)
@@ -88,6 +114,7 @@ describe('POST /v1/reward', () => {
   });
 
   it('passes explicit amount directly to creditOnChain', async () => {
+    mockCreditHeadroom('100000000000000000');
     mockCreditOnChain.mockResolvedValue('txhash123');
     const app = buildApp();
 
@@ -106,14 +133,14 @@ describe('POST /v1/reward', () => {
       'message',
       'test_partner'
     );
-    // Should NOT call viewContract when amount is explicit
-    expect(mockViewContract).not.toHaveBeenCalled();
+    expect(mockViewContract).toHaveBeenCalledWith('get_user_rewards_overview', {
+      account_id: 'alice.testnet',
+      app_id: 'test_partner',
+    });
   });
 
   it('resolves amount from on-chain config when not provided', async () => {
-    mockViewContract.mockResolvedValue({
-      reward_per_action: '100000000000000000', // 0.1 SOCIAL
-    });
+    mockCreditHeadroom('100000000000000000');
     mockCreditOnChain.mockResolvedValue('txhash456');
     const app = buildApp();
 
@@ -149,32 +176,39 @@ describe('POST /v1/reward', () => {
     expect(res.body.error).toBe('Could not resolve reward amount');
   });
 
-  it('caches resolved reward amount', async () => {
-    const savedAppId = testAppId;
-    testAppId = 'cache_test_' + Date.now();
-    mockViewContract.mockResolvedValue({
-      reward_per_action: '100000000000000000',
-    });
+  it('caches resolved reward amount from partner route', async () => {
+    const cacheAppId = 'cache_test_' + Date.now();
+    testAppId = cacheAppId;
+    mockCreditHeadroom('100000000000000000');
     mockCreditOnChain.mockResolvedValue('tx1');
     const app = buildApp();
 
-    // First call — triggers viewContract for this app_id
     await request(app)
       .post('/v1/reward')
       .send({ account_id: 'alice.testnet', source: 'message' });
-    expect(mockViewContract).toHaveBeenCalledTimes(1);
 
-    // Second call — should use cache, no extra viewContract call
+    const configCalls = mockViewContract.mock.calls.filter(
+      ([method]) => method === 'get_app_config'
+    );
+    expect(configCalls.length).toBeGreaterThanOrEqual(1);
+
     vi.clearAllMocks();
+    mockCreditHeadroom('100000000000000000');
     mockCreditOnChain.mockResolvedValue('tx2');
+
     await request(app)
       .post('/v1/reward')
       .send({ account_id: 'bob.testnet', source: 'message' });
-    expect(mockViewContract).not.toHaveBeenCalled();
-    testAppId = savedAppId;
+
+    expect(
+      mockViewContract.mock.calls.filter(
+        ([method]) => method === 'get_app_config'
+      )
+    ).toHaveLength(0);
   });
 
   it('returns 502 when creditOnChain throws', async () => {
+    mockCreditHeadroom('100000000000000000');
     mockCreditOnChain.mockRejectedValue(new Error('relayer down'));
     const app = buildApp();
 

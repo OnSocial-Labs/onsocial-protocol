@@ -8,6 +8,8 @@ import { Check, ExternalLink, RefreshCw, X } from 'lucide-react';
 export type TransactionFeedback = {
   type: 'pending' | 'success' | 'error';
   msg: string;
+  eyebrow?: string;
+  subtitle?: string;
   pendingPhase?: 'wallet' | 'chain';
   explorerHref?: string | null;
 };
@@ -39,7 +41,7 @@ export function TransactionFeedbackToast({
   const duration =
     result && result.type !== 'pending' ? DISMISS_MS[result.type] : 0;
   const dismissKey = result
-    ? `${result.type}:${result.msg}:${result.explorerHref ?? ''}`
+    ? `${result.type}:${result.eyebrow ?? ''}:${result.msg}:${result.subtitle ?? ''}:${result.explorerHref ?? ''}`
     : 'none';
 
   return createPortal(
@@ -94,7 +96,11 @@ export function TransactionFeedbackToast({
 
               {/* ── content ── */}
               <div className="min-w-0 flex-1">
-                {result.type === 'pending' && result.pendingPhase ? (
+                {result.eyebrow ? (
+                  <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground/70">
+                    {result.eyebrow}
+                  </span>
+                ) : result.type === 'pending' && result.pendingPhase ? (
                   <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground/70">
                     {result.pendingPhase === 'wallet'
                       ? 'Waiting For Wallet'
@@ -104,6 +110,11 @@ export function TransactionFeedbackToast({
                 <span className="block text-[13px] leading-snug font-medium">
                   {result.msg}
                 </span>
+                {result.subtitle ? (
+                  <span className="mt-1 block text-[11px] leading-snug text-muted-foreground/80">
+                    {result.subtitle}
+                  </span>
+                ) : null}
                 {result.explorerHref && (
                   <a
                     href={result.explorerHref}

@@ -11,6 +11,10 @@ import React, {
 } from 'react';
 import { NearConnector } from '@hot-labs/near-connect';
 import type { NearWalletBase } from '@hot-labs/near-connect';
+import {
+  getRawErrorMessage,
+  isIgnorableWalletError,
+} from '@/lib/wallet-errors';
 
 const PORTAL_WALLET_ACCOUNT_KEY = 'onsocial.portal.wallet.accountId';
 
@@ -36,14 +40,11 @@ interface WalletContextType {
 }
 
 function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === 'string') return error;
-  return '';
+  return getRawErrorMessage(error);
 }
 
-function isIgnorableWalletError(error: unknown): boolean {
-  const message = getErrorMessage(error);
-  return message === 'Iframe not loaded' || message === 'User rejected';
+function isIgnorableConnectError(error: unknown): boolean {
+  return isIgnorableWalletError(error);
 }
 
 function readStoredWalletAccountId(): string | null {
@@ -171,12 +172,12 @@ export function WalletProvider({
 
   useEffect(() => {
     function handleWindowError(event: ErrorEvent) {
-      if (!isIgnorableWalletError(event.error ?? event.message)) return;
+      if (!isIgnorableConnectError(event.error ?? event.message)) return;
       event.preventDefault();
     }
 
     function handleUnhandledRejection(event: PromiseRejectionEvent) {
-      if (!isIgnorableWalletError(event.reason)) return;
+      if (!isIgnorableConnectError(event.reason)) return;
       event.preventDefault();
     }
 
@@ -214,7 +215,7 @@ export function WalletProvider({
         writeStoredWalletAccountId(nextAccountId);
       })
       .catch((error) => {
-        if (isIgnorableWalletError(error)) return;
+        if (isIgnorableConnectError(error)) return;
         throw error;
       })
       .finally(() => {

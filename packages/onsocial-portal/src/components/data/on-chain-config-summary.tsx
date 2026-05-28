@@ -37,12 +37,23 @@ function ProgressRow({
   );
 }
 
+function TermsRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-0.5 text-xs sm:flex-row sm:items-baseline sm:justify-between sm:gap-2">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-mono text-foreground">{value} SOCIAL</span>
+    </div>
+  );
+}
+
 export function OnChainConfigSummary({
   config,
   showUsageMetrics = true,
+  showUserRewardTerms = true,
 }: {
   config: OnChainAppConfig;
   showUsageMetrics?: boolean;
+  showUserRewardTerms?: boolean;
 }) {
   const totalUsed = parseFloat(yoctoToSocial(config.total_credited));
   const totalBudget = parseFloat(yoctoToSocial(config.total_budget));
@@ -73,6 +84,18 @@ export function OnChainConfigSummary({
 
   return (
     <div className="space-y-2">
+      {showUserRewardTerms && (
+        <>
+          <TermsRow
+            label="Per Action"
+            value={yoctoToSocial(config.reward_per_action)}
+          />
+          <TermsRow
+            label="Max / User / Day"
+            value={yoctoToSocial(config.daily_cap)}
+          />
+        </>
+      )}
       {showUsageMetrics && (
         <>
           <ProgressRow

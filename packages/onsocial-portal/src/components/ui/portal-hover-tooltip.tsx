@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type HTMLAttributes,
@@ -15,6 +16,48 @@ interface PortalHoverTooltipProps extends HTMLAttributes<HTMLSpanElement> {
   children: ReactNode;
   stopPropagation?: boolean;
   tooltip?: ReactNode;
+}
+
+const TOOLTIP_MARGIN = 12;
+const TOOLTIP_GAP = 7;
+
+type TooltipPlacement = 'top' | 'bottom';
+
+interface TooltipPosition {
+  x: number;
+  y: number;
+  placement: TooltipPlacement;
+}
+
+function measureTooltipPosition(
+  anchor: DOMRect,
+  tip: DOMRect
+): TooltipPosition {
+  const halfWidth = tip.width / 2;
+  let x = anchor.left + anchor.width / 2;
+  x = Math.min(
+    window.innerWidth - TOOLTIP_MARGIN - halfWidth,
+    Math.max(TOOLTIP_MARGIN + halfWidth, x)
+  );
+
+  const fitsBelow =
+    anchor.bottom + TOOLTIP_GAP + tip.height <=
+    window.innerHeight - TOOLTIP_MARGIN;
+  const fitsAbove =
+    anchor.top - TOOLTIP_GAP - tip.height >= TOOLTIP_MARGIN;
+
+  let placement: TooltipPlacement = 'bottom';
+  if (!fitsBelow && fitsAbove) {
+    placement = 'top';
+  } else if (!fitsBelow && !fitsAbove) {
+    placement =
+      anchor.top > window.innerHeight - anchor.bottom ? 'top' : 'bottom';
+  }
+
+  const y =
+    placement === 'top' ? anchor.top - TOOLTIP_GAP : anchor.bottom + TOOLTIP_GAP;
+
+  return { x, y, placement };
 }
 
 export function PortalHoverTooltip({
@@ -32,37 +75,47 @@ export function PortalHoverTooltip({
   ...props
 }: PortalHoverTooltipProps) {
   const ref = useRef<HTMLSpanElement>(null);
+  const tooltipRef = useRef<HTMLSpanElement>(null);
   const [open, setOpen] = useState(false);
   const [openedByTouch, setOpenedByTouch] = useState(false);
-  const [position, setPosition] = useState<{
-    x: number;
-    y: number;
-    placement: 'top' | 'bottom';
-  }>({ x: 0, y: 0, placement: 'bottom' });
+  const [position, setPosition] = useState<TooltipPosition>({
+    x: 0,
+    y: 0,
+    placement: 'bottom',
+  });
 
-  const showTooltip = useCallback((touch = false) => {
-    if (!tooltip) return;
-    if (ref.current) {
+  const updatePosition = useCallback(() => {
+    if (!ref.current || !tooltipRef.current) return;
+    const anchor = ref.current.getBoundingClientRect();
+    const tip = tooltipRef.current.getBoundingClientRect();
+    setPosition(measureTooltipPosition(anchor, tip));
+  }, []);
+
+  const showTooltip = useCallback(
+    (touch = false) => {
+      if (!tooltip || !ref.current) return;
+
       const rect = ref.current.getBoundingClientRect();
-      const x = Math.min(
-        window.innerWidth - 12,
-        Math.max(12, rect.left + rect.width / 2)
-      );
-      const opensAbove = rect.bottom > window.innerHeight - 72;
       setPosition({
-        x,
-        y: opensAbove ? rect.top : rect.bottom,
-        placement: opensAbove ? 'top' : 'bottom',
+        x: rect.left + rect.width / 2,
+        y: rect.bottom + TOOLTIP_GAP,
+        placement: 'bottom',
       });
-    }
-    setOpenedByTouch(touch);
-    setOpen(true);
-  }, [tooltip]);
+      setOpenedByTouch(touch);
+      setOpen(true);
+    },
+    [tooltip]
+  );
 
   const hideTooltip = useCallback(() => {
     setOpen(false);
     setOpenedByTouch(false);
   }, []);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    updatePosition();
+  }, [open, tooltip, updatePosition]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -74,10 +127,14 @@ export function PortalHoverTooltip({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') hideTooltip();
     };
+    const handleViewportChange = () => {
+      updatePosition();
+    };
 
     document.addEventListener('pointerdown', handlePointerDown);
     window.addEventListener('scroll', hideTooltip, true);
     window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('resize', handleViewportChange);
     const timeout = openedByTouch
       ? window.setTimeout(hideTooltip, 2800)
       : undefined;
@@ -86,9 +143,10 @@ export function PortalHoverTooltip({
       document.removeEventListener('pointerdown', handlePointerDown);
       window.removeEventListener('scroll', hideTooltip, true);
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('resize', handleViewportChange);
       if (timeout) window.clearTimeout(timeout);
     };
-  }, [hideTooltip, open, openedByTouch]);
+  }, [hideTooltip, open, openedByTouch, updatePosition]);
 
   return (
     <>
@@ -132,13 +190,11 @@ export function PortalHoverTooltip({
         typeof document !== 'undefined' &&
         createPortal(
           <span
-            className="pointer-events-none fixed z-[2147483647] w-max max-w-[15rem] -translate-x-1/2 rounded-lg border border-border/55 bg-background/95 px-2.5 py-1.5 text-[11px] font-normal leading-snug text-muted-foreground shadow-[0_14px_36px_-22px_rgba(15,23,42,0.65)] backdrop-blur-md"
+            ref={tooltipRef}
+            className="pointer-events-none fixed z-[2147483647] w-max max-w-[15rem] rounded-lg border border-border/55 bg-background/95 px-2.5 py-1.5 text-[11px] font-normal leading-snug text-muted-foreground shadow-[0_14px_36px_-22px_rgba(15,23,42,0.65)] backdrop-blur-md"
             style={{
               left: position.x,
-              top:
-                position.placement === 'top'
-                  ? position.y - 7
-                  : position.y + 7,
+              top: position.y,
               transform:
                 position.placement === 'top'
                   ? 'translate(-50%, -100%)'

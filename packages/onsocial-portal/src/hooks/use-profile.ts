@@ -18,6 +18,8 @@ import { useWallet } from '@/contexts/wallet-context';
 import { createPortalOnSocialClient } from '@/lib/onsocial-client';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/portal-config';
 import { creditPortalReward, creditPortalSocialReward } from '@/lib/portal-rewards';
+import { rethrowWalletActionError } from '@/lib/wallet-errors';
+import { ensureWelcomeNear } from '@/lib/welcome-near';
 
 const SOCIAL_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const SOCIAL_SESSION_ALLOWANCE_YOCTO = '250000000000000000000000';
@@ -210,6 +212,59 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+const AVATAR_CACHE_STORAGE_KEY = 'onsocial.portal.avatarUrls';
+const avatarUrlMemoryCache = new Map<string, string>();
+
+function isPersistableAvatarUrl(url: string): boolean {
+  return url.startsWith('http://') || url.startsWith('https://');
+}
+
+function readCachedAvatarUrl(accountId: string): string | null {
+  const fromMemory = avatarUrlMemoryCache.get(accountId);
+  if (fromMemory) return fromMemory;
+
+  if (typeof sessionStorage === 'undefined') return null;
+
+  try {
+    const parsed = JSON.parse(
+      sessionStorage.getItem(AVATAR_CACHE_STORAGE_KEY) ?? '{}'
+    ) as Record<string, string>;
+    const url = parsed[accountId];
+    if (url && isPersistableAvatarUrl(url)) {
+      avatarUrlMemoryCache.set(accountId, url);
+      return url;
+    }
+  } catch {
+    // Ignore corrupt cache entries.
+  }
+
+  return null;
+}
+
+function writeCachedAvatarUrl(accountId: string, url: string | null): void {
+  if (url && isPersistableAvatarUrl(url)) {
+    avatarUrlMemoryCache.set(accountId, url);
+  } else {
+    avatarUrlMemoryCache.delete(accountId);
+  }
+
+  if (typeof sessionStorage === 'undefined') return;
+
+  try {
+    const parsed = JSON.parse(
+      sessionStorage.getItem(AVATAR_CACHE_STORAGE_KEY) ?? '{}'
+    ) as Record<string, string>;
+    if (url && isPersistableAvatarUrl(url)) {
+      parsed[accountId] = url;
+    } else {
+      delete parsed[accountId];
+    }
+    sessionStorage.setItem(AVATAR_CACHE_STORAGE_KEY, JSON.stringify(parsed));
+  } catch {
+    // Ignore quota / privacy errors.
+  }
+}
+
 function getSocialSessionPath(accountId: string): string {
   return `${accountId}/`;
 }
@@ -346,7 +401,7 @@ export function useProfileState() {
     resolveCanonicalMediaPreviews();
     setProfile(null);
     setIndexedProfile(null);
-    setResolvedAvatarUrl(null);
+    setResolvedAvatarUrl(accountId ? readCachedAvatarUrl(accountId) : null);
     setResolvedBannerUrl(null);
     setError(null);
     setHasSocialSession(false);
@@ -414,6 +469,7 @@ export function useProfileState() {
 
     setIsAuthorizingSession(true);
     try {
+      await ensureWelcomeNear(wallet, accountId);
       const session = await bootstrapSession({
         wallet: nearConnectAdapter(wallet, accountId, {
           network: ACTIVE_NEAR_NETWORK,
@@ -461,6 +517,7 @@ export function useProfileState() {
         setIndexedProfile(result.indexedProfile);
         setResolvedAvatarUrl(result.avatarUrl);
         setResolvedBannerUrl(result.bannerUrl);
+        writeCachedAvatarUrl(accountId, result.avatarUrl);
       }
       return result.profile;
     } catch (err) {
@@ -503,6 +560,7 @@ export function useProfileState() {
               resolveCanonicalMediaPreviews();
               setResolvedAvatarUrl(result.avatarUrl);
               setResolvedBannerUrl(result.bannerUrl);
+              writeCachedAvatarUrl(accountId, result.avatarUrl);
               return;
             }
           } catch {
@@ -590,9 +648,7 @@ export function useProfileState() {
         refreshIndexedProfileWhenReady(accountId, expected);
         return { profile: optimisticProfile, response };
       } catch (err) {
-        const message = getErrorMessage(err);
-        setError(message);
-        throw new Error(message);
+        rethrowWalletActionError(err);
       } finally {
         setIsSaving(false);
       }
@@ -651,9 +707,7 @@ export function useProfileState() {
         }
         return { applied: shouldStand, response };
       } catch (err) {
-        const message = getErrorMessage(err);
-        setError(message);
-        throw new Error(message);
+        rethrowWalletActionError(err);
       } finally {
         standingCountRef.current -= 1;
         if (standingCountRef.current === 0) {
@@ -695,9 +749,7 @@ export function useProfileState() {
         });
         return response;
       } catch (err) {
-        const message = getErrorMessage(err);
-        setError(message);
-        throw new Error(message);
+        rethrowWalletActionError(err);
       }
     },
     [accountId, createClient, getSocialSession, isConnected, wallet]
@@ -717,9 +769,7 @@ export function useProfileState() {
         os.attachSession(session);
         return await os.endorsements.remove(targetAccount, { topic, wait: true });
       } catch (err) {
-        const message = getErrorMessage(err);
-        setError(message);
-        throw new Error(message);
+        rethrowWalletActionError(err);
       }
     },
     [accountId, createClient, getSocialSession, isConnected, wallet]
@@ -727,7 +777,14 @@ export function useProfileState() {
 
   const visibleProfile = profile?.accountId === accountId ? profile : null;
   const visibleIndexedProfile = visibleProfile ? indexedProfile : null;
-  const visibleAvatarUrl = visibleProfile ? avatarUrl : null;
+  const isVisibleAccount =
+    Boolean(accountId) &&
+    (activeAccountIdRef.current === accountId ||
+      activeAccountIdRef.current === null);
+  const visibleAvatarUrl =
+    isVisibleAccount && accountId
+      ? avatarUrl ?? readCachedAvatarUrl(accountId)
+      : null;
   const visibleBannerUrl = visibleProfile ? bannerUrl : null;
 
   return {

@@ -6,8 +6,13 @@ import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { ModalCloseButton } from '@/components/ui/modal-close-button';
 import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
+import {
+  TransactionFeedbackToast,
+  type TransactionFeedback,
+} from '@/components/ui/transaction-feedback-toast';
 import { fadeMotion, scaleFadeMotion } from '@/lib/motion';
 import { portalElevatedShadowClass } from '@/components/ui/floating-panel';
+import { reportWalletActionFailure, isWalletUserCancellation } from '@/lib/wallet-errors';
 import { cn } from '@/lib/utils';
 import {
   cleanHandle,
@@ -66,6 +71,9 @@ export function EndorseModal({
   const [topic, setTopic] = useState(humanizeEndorsementTopic(existing?.topic));
   const [note, setNote] = useState(existing?.note ?? '');
   const [error, setError] = useState<string | null>(null);
+  const [actionToast, setActionToast] = useState<TransactionFeedback | null>(
+    null
+  );
 
   const isEditing = !!existing;
   const trimmedTopic = topic.trim();
@@ -134,8 +142,9 @@ export function EndorseModal({
       await onSubmit(input);
       handleOpenChange(false);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Failed to submit endorsement'
+      if (isWalletUserCancellation(err)) return;
+      reportWalletActionFailure(err, (msg) =>
+        setActionToast({ type: 'error', msg })
       );
     }
   };
@@ -147,17 +156,20 @@ export function EndorseModal({
       await onRemove(normalizedTopic || undefined);
       handleOpenChange(false);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Failed to remove endorsement'
+      if (isWalletUserCancellation(err)) return;
+      reportWalletActionFailure(err, (msg) =>
+        setActionToast({ type: 'error', msg })
       );
     }
   };
 
   if (typeof document === 'undefined') return null;
 
-  return createPortal(
-    <AnimatePresence initial={false}>
-      {open && (
+  return (
+    <>
+      {createPortal(
+        <AnimatePresence initial={false}>
+          {open && (
         <motion.div
           key="endorse-modal"
           {...fadeMotion(reduceMotion ? 0 : 0.18)}
@@ -457,7 +469,13 @@ export function EndorseModal({
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>,
-    document.body
+        </AnimatePresence>,
+        document.body
+      )}
+      <TransactionFeedbackToast
+        result={actionToast}
+        onClose={() => setActionToast(null)}
+      />
+    </>
   );
 }

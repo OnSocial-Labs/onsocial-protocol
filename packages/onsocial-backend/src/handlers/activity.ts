@@ -4,6 +4,7 @@
 
 import { InlineKeyboard } from 'grammy';
 import type { Context } from 'grammy';
+import { getAppConfig } from '../bot/appConfig.js';
 import { config } from '../config/index.js';
 import { getAccountByTelegramId } from '../db/queries.js';
 import {
@@ -109,10 +110,12 @@ async function trackPendingActivity(
     if (Date.now() - lastTime.getTime() < cooldownMs) return;
   }
 
-  // Daily cap (each pending record = one messageReward)
+  // Daily cap (each pending record = one message reward from on-chain config)
   const todayCount = await getPendingDailyCount(telegramId);
-  const todayTotal = todayCount * config.rewards.messageReward;
-  if (todayTotal + config.rewards.messageReward > config.rewards.dailyCap) {
+  const { messageReward, dailyCap } = await getAppConfig();
+  const messageRewardNum = Number.parseFloat(messageReward);
+  const todayTotal = todayCount * messageRewardNum;
+  if (todayTotal + messageRewardNum > dailyCap) {
     return;
   }
 
@@ -137,7 +140,6 @@ async function trackPendingActivity(
         `https://t.me/${config.botUsername}?start=link`
       );
 
-      const { getAppConfig } = await import('../bot/appConfig.js');
       const { messageReward, dailyCap } = await getAppConfig();
       const rateHint =
         messageReward && dailyCap

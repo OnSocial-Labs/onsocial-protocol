@@ -26,6 +26,7 @@ pub fn create(state: Arc<AppState>) -> Router {
     let execute_route = Router::new()
         .route("/execute_delegate", post(handlers::execute_delegate))
         .route("/execute_rewards", post(handlers::execute_rewards))
+        .route("/execute_transfer", post(handlers::execute_transfer))
         .route(
             "/execute_social_spend_settlement",
             post(handlers::execute_social_spend_settlement),

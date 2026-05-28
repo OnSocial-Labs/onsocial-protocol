@@ -5,6 +5,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { partnerAuth } from '../middleware/partnerAuth.js';
+import { evaluateAppCredit } from '../services/app-reward-limits.js';
 import { claimOnChain, creditOnChain, viewContract } from '../services/near.js';
 import { logger } from '../logger.js';
 
@@ -71,9 +72,25 @@ router.post('/reward', async (req: Request, res: Response): Promise<void> => {
       amount = resolved;
     }
 
+    const decision = await evaluateAppCredit(
+      body.account_id,
+      appId,
+      BigInt(amount)
+    );
+    if (!decision.allowed) {
+      res.status(429).json({
+        success: false,
+        error: decision.reason,
+        app_id: appId,
+        daily_remaining:
+          decision.headroom?.dailyRemainingYocto.toString() ?? '0',
+      });
+      return;
+    }
+
     const txHash = await creditOnChain(
       body.account_id,
-      amount,
+      decision.amountYocto.toString(),
       body.source,
       appId
     );

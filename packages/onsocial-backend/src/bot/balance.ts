@@ -10,8 +10,17 @@ import { InlineKeyboard } from 'grammy';
 import type { CommandContext, Context } from 'grammy';
 import { getUserLink } from '../db/queries.js';
 import { viewUserReward, viewContract } from '../services/near.js';
+import { socialDecimalToYocto } from '../services/app-reward-limits.js';
 import { config } from '../config/index.js';
 import { logger } from '../logger.js';
+
+/** Shared with portal wallet — one claim pool across OnSocial apps and partners. */
+export const REWARD_ECOSYSTEM_CLAIM_HINT =
+  'Includes rewards from OnSocial apps and partners';
+
+/** Clarifies that the daily bar is scoped to the Telegram bot app only. */
+export const REWARD_TELEGRAM_DAILY_SCOPE_HINT =
+  'Daily progress is for this Telegram group only';
 
 export async function handleBalance(
   ctx: CommandContext<Context>
@@ -69,9 +78,12 @@ export async function buildBalanceText(accountId: string): Promise<string> {
   ]);
 
   // On-chain daily cap (source of truth); fall back to local config
+  const dailyCapYocto = appConfig
+    ? BigInt(appConfig.daily_cap)
+    : socialDecimalToYocto(config.rewards.dailyCap);
   const dailyCap = appConfig
-    ? Number(BigInt(appConfig.daily_cap)) / 1e18
-    : config.rewards.dailyCap;
+    ? formatSocial(appConfig.daily_cap)
+    : String(config.rewards.dailyCap);
 
   // User has never been credited
   if (!reward) {
@@ -88,24 +100,15 @@ export async function buildBalanceText(accountId: string): Promise<string> {
   const unclaimed = formatSocial(reward.claimable);
   const totalEarned = formatSocial(reward.total_earned);
 
-  // Daily progress from per-app reward (more accurate than global)
+  // Daily progress is per-app (telegram). Do not fall back to global daily_earned.
   const currentDay = Math.floor(Date.now() / 86_400_000);
-  const dayRolledOver = appReward
-    ? appReward.last_day < currentDay
-    : reward.last_day < currentDay;
-  const effectiveDailyEarned = dayRolledOver
-    ? '0'
-    : appReward
-      ? appReward.daily_earned
-      : reward.daily_earned;
+  const dayRolledOver = appReward ? appReward.last_day < currentDay : false;
+  const effectiveDailyEarned =
+    appReward && !dayRolledOver ? appReward.daily_earned : '0';
 
   const dailyEarned = formatSocial(effectiveDailyEarned);
 
-  // Check if daily cap is reached
-  const dailyEarnedNum = dayRolledOver
-    ? 0
-    : Number(effectiveDailyEarned) / 1e18;
-  const capReached = dailyEarnedNum >= dailyCap;
+  const capReached = BigInt(effectiveDailyEarned) >= dailyCapYocto;
 
   // Show countdown to reset only when cap is reached
   let dailySuffix = '';
@@ -127,18 +130,24 @@ export async function buildBalanceText(accountId: string): Promise<string> {
   // Show per-app vs global earned when user earns from multiple apps
   const appEarned = appReward ? formatSocial(appReward.total_earned) : '0';
   const multiApp = appReward && appReward.total_earned !== reward.total_earned;
+  const showEcosystemClaimHint = claimableBig > 0n || multiApp;
 
   const earnedLines = multiApp
-    ? `⭐ Earned with OnSocial: ${appEarned} SOCIAL\n\n` +
+    ? `⭐ Earned in this group: ${appEarned} SOCIAL\n\n` +
       `🏆 Total earned: ${totalEarned} SOCIAL`
     : `🏆 Total earned: ${totalEarned} SOCIAL`;
+
+  const ecosystemClaimHint = showEcosystemClaimHint
+    ? `\n${REWARD_ECOSYSTEM_CLAIM_HINT}.`
+    : '';
 
   return (
     `🤝 Powered by OnSocial\n\n` +
     `⭐ Rewards for ${accountId}\n\n` +
     `💎 Unclaimed: ${unclaimed} SOCIAL\n` +
-    `${unclaimedHint}\n\n` +
-    `📈 Daily progress: ${dailyEarned} / ${dailyCap} SOCIAL${dailySuffix}\n\n` +
+    `${unclaimedHint}${ecosystemClaimHint}\n\n` +
+    `📈 Daily progress: ${dailyEarned} / ${dailyCap} SOCIAL${dailySuffix}\n` +
+    `(${REWARD_TELEGRAM_DAILY_SCOPE_HINT}.)\n\n` +
     `${earnedLines}`
   );
 }

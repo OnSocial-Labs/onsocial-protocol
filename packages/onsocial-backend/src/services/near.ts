@@ -107,6 +107,39 @@ export async function viewUserReward(accountId: string): Promise<{
   } | null>('get_user_reward', { account_id: accountId });
 }
 
+/** View an account's liquid NEAR balance in yoctoNEAR. */
+export async function viewAccountBalance(
+  accountId: string
+): Promise<string | null> {
+  try {
+    const response = await fetch(config.nearRpcUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(5_000),
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 'view-balance',
+        method: 'query',
+        params: {
+          request_type: 'view_account',
+          finality: 'final',
+          account_id: accountId,
+        },
+      }),
+    });
+    const data = (await response.json()) as {
+      result?: { amount?: string };
+      error?: unknown;
+    };
+    if (!data.result || data.error) {
+      return null;
+    }
+    return typeof data.result.amount === 'string' ? data.result.amount : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Check if a NEAR account exists on-chain via RPC.
  */

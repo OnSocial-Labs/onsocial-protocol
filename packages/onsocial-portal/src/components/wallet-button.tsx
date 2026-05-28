@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Wallet,
@@ -10,12 +10,12 @@ import {
   Search,
   User,
   ExternalLink,
-  PenLine,
 } from 'lucide-react';
 import { useWallet } from '@/contexts/wallet-context';
 import { ProfileDiscoveryModal } from '@/components/profile-discovery-modal';
 import { ProfileEditor } from '@/components/profile-editor';
 import { ProfileModal } from '@/components/profile-modal';
+import { PortalRewardsRulesModal } from '@/components/portal-rewards-rules-modal';
 import { cn } from '@/lib/utils';
 import {
   floatingPanelDividerClass,
@@ -29,12 +29,47 @@ import {
 } from '@/components/ui/utility-button';
 import { useDropdown } from '@/hooks/use-dropdown';
 import { useProfile } from '@/contexts/profile-context';
+import { usePortalRewards } from '@/contexts/portal-rewards-context';
+import { formatSocialCompact } from '@/lib/leaderboard';
+import {
+  REWARD_ECOSYSTEM_CLAIM_HINT,
+  REWARD_ECOSYSTEM_CLAIM_HINT_COMPACT,
+} from '@/lib/portal-reward-constants';
+import { profileActionButtonClass } from '@/components/ui/profile-action-pill';
 import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/near-network';
+import { walletLabelFromAccountId } from '@/lib/wallet-label';
 
 interface WalletButtonProps {
   compact?: boolean;
   menuAlign?: 'left' | 'right';
   disconnectedLabel?: string;
+}
+
+function WalletAvatar({
+  avatarUrl,
+  isLoading = false,
+  className,
+}: {
+  avatarUrl: string | null;
+  isLoading?: boolean;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        'flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/50 bg-muted/30 text-muted-foreground',
+        className
+      )}
+    >
+      {avatarUrl ? (
+        <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+      ) : isLoading ? (
+        <div className="h-full w-full animate-pulse bg-muted/50" aria-hidden />
+      ) : (
+        <User className="h-4 w-4" />
+      )}
+    </div>
+  );
 }
 
 export function WalletButton({
@@ -44,6 +79,15 @@ export function WalletButton({
 }: WalletButtonProps) {
   const { accountId, isConnected, connect, disconnect } = useWallet();
   const profileState = useProfile();
+  const {
+    claimableYocto,
+    canClaim,
+    claiming,
+    loading: rewardsLoading,
+    remainingToClaimYocto,
+    claimRewards,
+    refreshBalance,
+  } = usePortalRewards();
   const [profileEditorOpen, setProfileEditorOpen] = useState(false);
   const [profileEditorKey, setProfileEditorKey] = useState(0);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
@@ -51,12 +95,18 @@ export function WalletButton({
     string | null
   >(null);
   const [profileDiscoveryOpen, setProfileDiscoveryOpen] = useState(false);
+  const [rewardsRulesOpen, setRewardsRulesOpen] = useState(false);
   const {
     isOpen: menuOpen,
     close: closeMenu,
     toggle: toggleMenu,
     containerRef: menuRef,
   } = useDropdown();
+
+  useEffect(() => {
+    if (!menuOpen || !accountId) return;
+    void refreshBalance({ silent: true });
+  }, [accountId, menuOpen, refreshBalance]);
 
   const handleDisconnect = async () => {
     await disconnect();
@@ -96,6 +146,19 @@ export function WalletButton({
     closeMenu();
     openProfileEditor();
   };
+
+  const openRewardsRules = () => {
+    closeMenu();
+    setRewardsRulesOpen(true);
+  };
+
+  const walletLabel = accountId ? walletLabelFromAccountId(accountId) : '';
+  const displayName = profileState.profile?.name ?? walletLabel;
+  const hasProfileName = Boolean(profileState.profile?.name?.trim());
+  const hasProfile = profileState.hasProfile;
+  const profilePrimaryLabel = hasProfileName
+    ? profileState.profile?.name
+    : walletLabel;
 
   const compactDisconnectedButtonClass = disconnectedLabel
     ? 'group relative inline-flex h-9 w-auto items-center justify-center gap-2.5 rounded-full border border-border/45 bg-background/70 px-3 pr-3.5 text-muted-foreground backdrop-blur-md transition-all duration-300 hover:border-border/70 hover:bg-background/84 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-background md:h-10 md:px-3.5 md:pr-4'
@@ -179,38 +242,40 @@ export function WalletButton({
   }
 
   return (
-    <div className="relative" ref={menuRef}>
+    <div className="relative inline-flex shrink-0 items-center" ref={menuRef}>
       <button
         onClick={toggleMenu}
         className={cn(
           compact
             ? cn(
                 utilityButtonClass,
-                'border border-border/45 bg-background/70 text-foreground shadow-[0_12px_30px_-18px_rgba(15,23,42,0.34)] hover:border-border/70 hover:shadow-[0_14px_34px_-18px_var(--portal-green-shadow)]',
+                'overflow-hidden border border-border/45 bg-background/70 p-0 text-foreground shadow-[0_12px_30px_-18px_rgba(15,23,42,0.34)] hover:border-border/70 hover:bg-background/84',
                 menuOpen && utilityButtonActiveClass
               )
-            : 'flex items-center gap-2 rounded-full border border-border/40 bg-background/65 px-3 py-2 text-muted-foreground shadow-[0_10px_30px_-18px_rgba(15,23,42,0.34)] backdrop-blur-md transition-all duration-300 hover:bg-background/80 hover:text-foreground'
+            : 'flex items-center gap-2 rounded-full border border-border/40 bg-background/65 px-2 py-1.5 text-muted-foreground shadow-[0_10px_30px_-18px_rgba(15,23,42,0.34)] backdrop-blur-md transition-all duration-300 hover:bg-background/80 hover:text-foreground'
         )}
         aria-label={menuOpen ? 'Close wallet menu' : 'Open wallet menu'}
         aria-expanded={menuOpen}
         aria-haspopup="menu"
       >
         {compact ? (
-          <span className="relative flex h-5 w-5 items-center justify-center">
-            <span className="absolute h-4 w-4 rounded-full border border-[var(--portal-green-border)] bg-[var(--portal-green-bg)] shadow-[0_0_0_5px_var(--portal-green-shadow)] opacity-70 transition-transform duration-300 group-hover:scale-110" />
-            <span className="relative h-2.5 w-2.5 rounded-full bg-[var(--portal-green)] shadow-[0_0_14px_var(--portal-green-shadow)] animate-pulse transition-transform duration-300 group-hover:scale-110" />
-          </span>
+          <WalletAvatar
+            avatarUrl={profileState.avatarUrl}
+            isLoading={profileState.isLoading}
+            className="h-full w-full border-0"
+          />
         ) : (
           <>
-            <div className="flex items-center gap-2">
-              <div className="portal-green-dot h-2 w-2 rounded-full animate-pulse"></div>
-              <Wallet className="h-4 w-4" />
-              <span className="text-foreground text-sm font-medium max-w-[100px] truncate hidden sm:block">
-                {accountId}
-              </span>
-            </div>
+            <WalletAvatar
+              avatarUrl={profileState.avatarUrl}
+              isLoading={profileState.isLoading}
+              className="h-8 w-8"
+            />
+            <span className="max-w-[100px] truncate text-sm font-medium text-foreground hidden sm:block">
+              {displayName}
+            </span>
             <ChevronDown
-              className={`w-4 h-4 text-muted-foreground transition-transform ${menuOpen ? 'rotate-180' : ''}`}
+              className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${menuOpen ? 'rotate-180' : ''}`}
             />
           </>
         )}
@@ -222,56 +287,103 @@ export function WalletButton({
         offsetClass="mt-1"
         className="w-56 md:w-64"
       >
-        <button
-          type="button"
-          onClick={() => openProfileModal(accountId)}
-          className="w-full border-b border-fade-section px-3 py-2.5 text-left transition-colors hover:bg-muted/18 focus-visible:bg-muted/24 focus-visible:outline-none md:px-4 md:py-3"
-        >
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/50 bg-muted/30 text-muted-foreground">
-              {profileState.avatarUrl ? (
-                <img
-                  src={profileState.avatarUrl}
-                  alt=""
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <User className="h-4 w-4" />
-              )}
+        <div className="border-b border-fade-section p-1 md:p-1.5">
+          <div className="rounded-lg px-2.5 py-1.5 transition-colors hover:bg-[var(--portal-slate-bg)] md:rounded-xl md:px-3 md:py-2.5">
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground/60">
+                Profile
+              </p>
             </div>
-            <div className="min-w-0">
-              <p className="mb-0.5 text-[11px] md:text-xs text-muted-foreground/70">
-                {profileState.hasProfile
-                  ? 'OnSocial Profile'
-                  : 'Connected Account'}
-              </p>
-              <p className="truncate text-[13px] md:text-sm font-medium text-foreground">
-                {profileState.profile?.name ?? accountId}
-              </p>
-              {profileState.profile?.name ? (
-                <p className="truncate text-[11px] text-muted-foreground/55">
-                  {accountId}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => openProfileModal(accountId)}
+                className="min-w-0 flex-1 truncate text-left focus-visible:outline-none"
+              >
+                <p
+                  className={cn(
+                    'truncate text-[13px] leading-tight md:text-sm',
+                    hasProfileName
+                      ? 'font-medium text-foreground'
+                      : 'font-medium text-muted-foreground/75'
+                  )}
+                >
+                  {profilePrimaryLabel}
                 </p>
+              </button>
+              <button
+                type="button"
+                onClick={handleProfileAction}
+                className={profileActionButtonClass(hasProfile ? 'slate' : 'blue')}
+              >
+                {hasProfile ? 'Edit' : 'Create'}
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => openProfileModal(accountId)}
+              className="mt-0.5 block w-full truncate text-left font-mono text-[11px] leading-tight text-muted-foreground/50 focus-visible:outline-none"
+            >
+              {accountId}
+            </button>
+          </div>
+        </div>
+
+        <div className="border-b border-fade-section px-3 py-2.5 md:px-4">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground/60">
+                  Rewards
+                </p>
+                <button
+                  type="button"
+                  onClick={openRewardsRules}
+                  className="shrink-0 text-[9px] text-muted-foreground/50 transition-colors hover:text-muted-foreground/80 focus-visible:outline-none"
+                >
+                  How it works
+                </button>
+              </div>
+              {rewardsLoading ? (
+                <p className="font-mono text-[13px] font-medium text-foreground">
+                  …
+                </p>
+              ) : claimableYocto > 0n ? (
+                <>
+                  <p
+                    className="mb-1 text-[9px] text-muted-foreground/45"
+                    title={REWARD_ECOSYSTEM_CLAIM_HINT}
+                  >
+                    {REWARD_ECOSYSTEM_CLAIM_HINT_COMPACT}
+                  </p>
+                  <p className="font-mono text-[13px] font-medium text-foreground">
+                    {formatSocialCompact(claimableYocto.toString())} ready
+                  </p>
+                  {!canClaim ? (
+                    <p className="mt-0.5 text-[10px] text-muted-foreground/55">
+                      {formatSocialCompact(remainingToClaimYocto.toString())} to
+                      claim
+                    </p>
+                  ) : null}
+                </>
               ) : null}
             </div>
+            {canClaim ? (
+              <button
+                type="button"
+                onClick={() => {
+                  void claimRewards();
+                }}
+                disabled={claiming}
+                className={profileActionButtonClass('green')}
+              >
+                {claiming ? '…' : 'Claim'}
+              </button>
+            ) : null}
           </div>
-        </button>
+        </div>
 
         <div className="space-y-0.5 p-1 md:p-1.5">
-          <button
-            onClick={handleProfileAction}
-            className={cn(
-              floatingPanelItemClass,
-              !profileState.hasProfile &&
-                'portal-green-surface border border-[var(--portal-green-border)] text-foreground'
-            )}
-          >
-            <PenLine className="h-3.5 w-3.5 md:h-4 md:w-4" />
-            <span>
-              {profileState.hasProfile ? 'Edit Profile' : 'Create Profile'}
-            </span>
-          </button>
-
           <button
             onClick={openProfileDiscovery}
             className={floatingPanelItemClass}
@@ -361,6 +473,11 @@ export function WalletButton({
         onUpdateStanding={profileState.updateStanding}
         onEndorse={profileState.endorse}
         onRemoveEndorsement={profileState.removeEndorsement}
+      />
+
+      <PortalRewardsRulesModal
+        open={rewardsRulesOpen}
+        onOpenChange={setRewardsRulesOpen}
       />
     </div>
   );

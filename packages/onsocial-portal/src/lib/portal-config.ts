@@ -88,6 +88,16 @@ export const RELAYER_ACCOUNT =
 export const NEAR_ACCOUNT_SUFFIX =
   ACTIVE_NEAR_NETWORK === 'mainnet' ? 'onsocial.near' : 'onsocial.testnet';
 
+/** Minimum liquid NEAR before requesting a welcome drip (yoctoNEAR). */
+export const WELCOME_NEAR_THRESHOLD_YOCTO =
+  process.env.NEXT_PUBLIC_WELCOME_NEAR_THRESHOLD_YOCTO ??
+  (ACTIVE_NEAR_NETWORK === 'mainnet'
+    ? '100000000000000000000'
+    : '50000000000000000000');
+
+export const WELCOME_NEAR_ENABLED =
+  process.env.NEXT_PUBLIC_WELCOME_NEAR_ENABLED !== 'false';
+
 const apiEnvironment = classifyEnvironmentHost(getHostname(ACTIVE_API_URL));
 const backendEnvironment = classifyEnvironmentHost(
   getHostname(ACTIVE_BACKEND_URL)

@@ -3,11 +3,15 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { Camera, Check, Github, Globe, Image as ImageIcon } from 'lucide-react';
+import { Camera, Check, Github, Globe } from 'lucide-react';
 import type { MaterialisedProfile } from '@onsocial/sdk';
 import { Button } from '@/components/ui/button';
 import { portalElevatedShadowClass } from '@/components/ui/floating-panel';
 import { ModalCloseButton } from '@/components/ui/modal-close-button';
+import {
+  TransactionFeedbackToast,
+  type TransactionFeedback,
+} from '@/components/ui/transaction-feedback-toast';
 import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
 import type { ProfileSaveInput, ProfileSaveResult } from '@/contexts/profile-context';
 import {
@@ -18,6 +22,7 @@ import {
   type ProfileSocialLinkKind,
 } from '@/lib/profile-links';
 import { fadeMotion, scaleFadeMotion } from '@/lib/motion';
+import { reportWalletActionFailure, isWalletUserCancellation, isWalletCancellationMessage } from '@/lib/wallet-errors';
 import { cn } from '@/lib/utils';
 
 interface ProfileEditorProps {
@@ -91,6 +96,32 @@ function getInitialLinks(
   };
 }
 
+function profileMediaEmptyFillClass(roundedClass?: string): string {
+  return cn(
+    'absolute inset-0 bg-muted/45 dark:bg-muted/25',
+    roundedClass
+  );
+}
+
+function profileMediaOverlayClass(
+  hasMedia: boolean,
+  roundedClass?: string
+): string {
+  return cn(
+    'absolute inset-0 flex items-center justify-center transition-all duration-200',
+    roundedClass,
+    hasMedia
+      ? 'bg-black/22 text-white/50 group-hover:bg-black/40 group-hover:text-white/90 group-hover:backdrop-blur-[2px]'
+      : cn(
+          'text-muted-foreground/45',
+          // Light: darker rest → lighter hover, dark camera (mirror of dark mode).
+          'group-hover:bg-white/45 group-hover:text-foreground/75',
+          // Dark: lighter rest → darker hover, white camera.
+          'dark:group-hover:bg-black/22 dark:group-hover:text-white/90'
+        )
+  );
+}
+
 export function ProfileEditor({
   open,
   accountId,
@@ -114,13 +145,19 @@ export function ProfileEditor({
   );
   const [avatar, setAvatar] = useState<File | null>(null);
   const [banner, setBanner] = useState<File | null>(null);
-  const [localError, setLocalError] = useState<string | null>(null);
+  const [actionToast, setActionToast] = useState<TransactionFeedback | null>(
+    null
+  );
   const [saved, setSaved] = useState(false);
   const previewUrl = useObjectUrl(avatar);
   const bannerPreviewUrl = useObjectUrl(banner);
   const displayAvatarUrl = previewUrl ?? avatarUrl;
   const displayBannerUrl = bannerPreviewUrl ?? bannerUrl;
-  const title = profile ? 'Edit profile' : 'Create profile';
+  const headerTitle = useMemo(() => {
+    const trimmedName = name.trim();
+    if (trimmedName) return trimmedName;
+    return profile ? 'Edit profile' : 'Create profile';
+  }, [name, profile]);
   const submitLabel = hasSocialSession
     ? profile
       ? 'Save profile'
@@ -161,7 +198,7 @@ export function ProfileEditor({
     event.preventDefault();
     if (!nameReady || isSaving) return;
 
-    setLocalError(null);
+    setActionToast(null);
     try {
       const normalizedLinks = normalizeProfileLinksInput(links, profile?.links);
       const shouldSaveLinks =
@@ -179,15 +216,20 @@ export function ProfileEditor({
       setSaved(true);
     } catch (err) {
       setSaved(false);
-      setLocalError(err instanceof Error ? err.message : 'Profile save failed');
+      if (isWalletUserCancellation(err)) return;
+      reportWalletActionFailure(err, (msg) =>
+        setActionToast({ type: 'error', msg })
+      );
     }
   };
 
   if (typeof document === 'undefined') return null;
 
-  return createPortal(
-    <AnimatePresence initial={false}>
-      {open ? (
+  return (
+    <>
+      {createPortal(
+        <AnimatePresence initial={false}>
+          {open ? (
         <motion.div
           {...fadeMotion(reduceMotion ? 0 : 0.18)}
           data-lenis-prevent
@@ -232,62 +274,84 @@ export function ProfileEditor({
               className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
             >
               <section className="pb-2">
-                <button
-                  type="button"
-                  onClick={() => bannerInputRef.current?.click()}
-                  className="group relative flex aspect-[5/1] w-full cursor-pointer items-center justify-center overflow-hidden bg-muted/25 text-muted-foreground"
-                  aria-label="Choose profile banner"
-                >
-                  {displayBannerUrl ? (
-                    <img
-                      src={displayBannerUrl}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <span className="flex items-center gap-2 text-xs">
-                      <ImageIcon className="h-4 w-4" />
-                      Add a cover image
-                    </span>
-                  )}
-                  <span className="absolute inset-0 flex items-center justify-center bg-black/22 text-white/50 transition-all duration-200 group-hover:bg-black/40 group-hover:text-white/90 group-hover:backdrop-blur-[2px]">
-                    <Camera className="h-6 w-6 transition-transform duration-200 group-hover:scale-110" strokeWidth={2.5} />
-                  </span>
-                </button>
-
-                <div className="relative -mt-7 flex items-end gap-3 px-4 md:px-5">
+                <div className="relative pb-3">
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="group relative flex h-20 w-20 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-2xl !border-[3px] !border-background bg-muted/30 text-muted-foreground shadow-lg md:h-24 md:w-24"
-                    aria-label="Choose avatar"
+                    onClick={() => bannerInputRef.current?.click()}
+                    className="group relative flex aspect-[5/1] w-full cursor-pointer items-center justify-center overflow-hidden bg-background text-muted-foreground"
+                    aria-label="Choose profile banner"
                   >
-                    {displayAvatarUrl ? (
+                    {!displayBannerUrl ? (
+                      <span aria-hidden className={profileMediaEmptyFillClass()} />
+                    ) : null}
+                    {displayBannerUrl ? (
                       <img
-                        src={displayAvatarUrl}
+                        src={displayBannerUrl}
                         alt=""
-                        className="h-full w-full object-cover"
+                        className="relative h-full w-full object-cover"
                       />
-                    ) : (
-                      <Camera className="h-6 w-6" />
-                    )}
-                    <span className="absolute inset-0 flex items-center justify-center rounded-[13px] bg-black/22 text-white/50 transition-all duration-200 group-hover:bg-black/40 group-hover:text-white/90 group-hover:backdrop-blur-[2px]">
-                      <Camera className="h-6 w-6 transition-transform duration-200 group-hover:scale-110" strokeWidth={2.5} />
+                    ) : null}
+                    <span
+                      className={profileMediaOverlayClass(Boolean(displayBannerUrl))}
+                    >
+                      <Camera
+                        className="h-6 w-6 transition-transform duration-200 group-hover:scale-110"
+                        strokeWidth={2.5}
+                      />
                     </span>
                   </button>
+                  <p className="pointer-events-none absolute inset-x-4 bottom-0 text-right text-[9px] tabular-nums leading-none text-muted-foreground/45 md:inset-x-5 sm:text-[10px]">
+                    1500&times;300
+                  </p>
+                </div>
 
-                  <div className="min-w-0 flex-1 pb-1">
+                <div className="relative z-10 -mt-8 flex items-start gap-3.5 px-4 md:px-5">
+                  <div className="flex shrink-0 flex-col items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="group relative flex h-20 w-20 cursor-pointer items-center justify-center overflow-hidden rounded-2xl !border-[3px] !border-background bg-background text-muted-foreground shadow-lg md:h-24 md:w-24"
+                      aria-label="Choose avatar"
+                    >
+                      {!displayAvatarUrl ? (
+                        <span
+                          aria-hidden
+                          className={profileMediaEmptyFillClass('rounded-[13px]')}
+                        />
+                      ) : null}
+                      {displayAvatarUrl ? (
+                        <img
+                          src={displayAvatarUrl}
+                          alt=""
+                          className="relative h-full w-full object-cover"
+                        />
+                      ) : null}
+                      <span
+                        className={profileMediaOverlayClass(
+                          Boolean(displayAvatarUrl),
+                          'rounded-[13px]'
+                        )}
+                      >
+                        <Camera
+                          className="h-6 w-6 transition-transform duration-200 group-hover:scale-110"
+                          strokeWidth={2.5}
+                        />
+                      </span>
+                    </button>
+                    <span className="text-[9px] tabular-nums leading-none text-muted-foreground/45 sm:text-[10px]">
+                      512&times;512
+                    </span>
+                  </div>
+
+                  <div className="min-w-0 flex-1 pb-1 pt-10 pr-10">
                     <h2
                       id="profile-editor-title"
                       className="truncate text-lg font-semibold leading-tight text-foreground"
                     >
-                      {title}
+                      {headerTitle}
                     </h2>
                     <p className="mt-0.5 truncate text-[13px] text-muted-foreground/55">
                       {accountId ? `@${accountId}` : 'Wallet'}
-                    </p>
-                    <p className="mt-0.5 text-[10px] text-muted-foreground/50">
-                      Avatar: 512 &times; 512px &middot; Banner: 1500 &times; 300px
                     </p>
                   </div>
                 </div>
@@ -427,9 +491,9 @@ export function ProfileEditor({
                   </div>
                 </div>
 
-                {localError || error ? (
+                {error && !isWalletCancellationMessage(error) ? (
                   <p className="rounded-xl border border-[var(--portal-red-border)] bg-[var(--portal-red-bg)] px-3 py-2 text-xs leading-relaxed text-[var(--portal-red)]">
-                    {localError ?? error}
+                    {error}
                   </p>
                 ) : null}
 
@@ -442,7 +506,15 @@ export function ProfileEditor({
               </div>
             </div>
 
-            <div className="flex shrink-0 items-center justify-end gap-2 border-t border-fade-section px-4 py-4 md:px-5">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-t border-fade-section px-4 py-4 md:px-5">
+              {!profile ? (
+                <p className="text-[11px] leading-snug text-muted-foreground/60">
+                  Saving your profile earns SOCIAL rewards.
+                </p>
+              ) : (
+                <span aria-hidden />
+              )}
+              <div className="flex items-center gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -469,11 +541,18 @@ export function ProfileEditor({
                   submitLabel
                 )}
               </Button>
+              </div>
             </div>
           </motion.form>
         </motion.div>
-      ) : null}
-    </AnimatePresence>,
-    document.body
+          ) : null}
+        </AnimatePresence>,
+        document.body
+      )}
+      <TransactionFeedbackToast
+        result={actionToast}
+        onClose={() => setActionToast(null)}
+      />
+    </>
   );
 }
