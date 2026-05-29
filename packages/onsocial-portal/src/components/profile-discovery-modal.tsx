@@ -51,6 +51,7 @@ interface ProtocolPulseResponse {
 interface ProfileDiscoveryModalProps {
   open: boolean;
   viewerAccountId: string | null;
+  hasSocialSession?: boolean;
   totalProfiles?: number | null;
   onOpenChange: (open: boolean) => void;
   onSelectAccount: (accountId: string) => void;
@@ -215,6 +216,7 @@ function DiscoveryResultsSkeleton() {
 export function ProfileDiscoveryModal({
   open,
   viewerAccountId,
+  hasSocialSession = false,
   totalProfiles = null,
   onOpenChange,
   onSelectAccount,
@@ -697,7 +699,9 @@ export function ProfileDiscoveryModal({
                                     aria-label={
                                       viewerStandsWithResult
                                         ? `Step back from ${displayName(result)}`
-                                        : `Stand with ${displayName(result)}`
+                                        : hasSocialSession
+                                          ? `Stand with ${displayName(result)}`
+                                          : `Authorize and stand with ${displayName(result)}`
                                     }
                                   >
                                     {viewerStandsWithResult ? (
@@ -714,7 +718,9 @@ export function ProfileDiscoveryModal({
                                     ) : (
                                       <>
                                         <ProtocolMotionArrow className="h-2.5 w-2.5" />
-                                        Stand
+                                        {hasSocialSession
+                                          ? 'Stand with'
+                                          : 'Authorize & stand'}
                                       </>
                                     )}
                                   </button>

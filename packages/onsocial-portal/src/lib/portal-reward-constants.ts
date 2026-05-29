@@ -31,7 +31,7 @@ export const REWARD_ECOSYSTEM_CLAIM_HINT_COMPACT = 'OnSocial + partners';
 export const REWARD_TELEGRAM_DAILY_SCOPE_HINT =
   'Daily progress is for this Telegram group only';
 
-export const PORTAL_REWARD_AGGREGATE_MS = 400;
+export const PORTAL_REWARD_AGGREGATE_MS = 800;
 
 /** Delays for re-reading on-chain claimable after a credit lands. */
 export const PORTAL_REWARD_REFRESH_DELAYS_MS = [0, 750, 2_000] as const;

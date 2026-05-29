@@ -469,6 +469,7 @@ export function WalletButton({
       <ProfileDiscoveryModal
         open={profileDiscoveryOpen}
         viewerAccountId={accountId}
+        hasSocialSession={profileState.hasSocialSession}
         onOpenChange={setProfileDiscoveryOpen}
         onSelectAccount={(targetAccountId) => openProfileModal(targetAccountId)}
         onUpdateStanding={profileState.updateStanding}

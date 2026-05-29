@@ -948,6 +948,7 @@ function StanceDetailModal({
   isSelf,
   social,
   viewerAccountId,
+  hasSocialSession = false,
   onClose,
   onSelectAccount,
   onDiscoverProfiles,
@@ -959,6 +960,7 @@ function StanceDetailModal({
   isSelf: boolean;
   social: ProfileSocialResponse;
   viewerAccountId: string | null;
+  hasSocialSession?: boolean;
   onClose: () => void;
   onSelectAccount?: (accountId: string) => void;
   onDiscoverProfiles?: () => void;
@@ -1113,6 +1115,7 @@ function StanceDetailModal({
             >
               <StandingList
                 accounts={filteredAccounts}
+                hasSocialSession={hasSocialSession}
                 emptyLabel={query.trim() ? 'No matching profiles.' : emptyLabel}
                 emptyCta={
                   !query.trim() && kind === 'outgoing' && onDiscoverProfiles ? (
@@ -1163,6 +1166,7 @@ function StandingList({
   emptyLabel,
   emptyCta,
   viewerAccountId,
+  hasSocialSession = false,
   pendingStandingIds,
   onSelectAccount,
   onUpdateStanding,
@@ -1171,6 +1175,7 @@ function StandingList({
   emptyLabel: string;
   emptyCta?: ReactNode;
   viewerAccountId: string | null;
+  hasSocialSession?: boolean;
   pendingStandingIds?: Set<string>;
   onSelectAccount?: (accountId: string) => void;
   onUpdateStanding?: (
@@ -1390,7 +1395,9 @@ function StandingList({
                     aria-label={
                       viewerStandsWithAccount
                         ? `Step back from ${accountLabel(account)}`
-                        : `Stand with ${accountLabel(account)}`
+                        : hasSocialSession
+                          ? `Stand with ${accountLabel(account)}`
+                          : `Authorize and stand with ${accountLabel(account)}`
                     }
                   >
                     {viewerStandsWithAccount ? (
@@ -1407,7 +1414,9 @@ function StandingList({
                     ) : (
                       <>
                         <ProtocolMotionArrow className="h-2.5 w-2.5" />
-                        Stand
+                        {hasSocialSession
+                          ? 'Stand with'
+                          : 'Authorize & stand'}
                       </>
                     )}
                   </button>
@@ -2350,7 +2359,7 @@ export function ProfileModal({
               isSelf={isSelf}
               social={social}
               viewerAccountId={viewerAccountId}
-              
+              hasSocialSession={hasSocialSession}
               onClose={() => setStanceDetail(null)}
               onSelectAccount={onSelectAccount}
               onDiscoverProfiles={onDiscoverProfiles}

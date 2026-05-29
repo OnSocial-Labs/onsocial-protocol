@@ -139,6 +139,7 @@ export function HeroProtocolPulse() {
       <ProfileDiscoveryModal
         open={profileDiscoveryOpen}
         viewerAccountId={accountId}
+        hasSocialSession={profileState.hasSocialSession}
         totalProfiles={pulse.totals.profiles}
         onOpenChange={setProfileDiscoveryOpen}
         onSelectAccount={openProfileModal}

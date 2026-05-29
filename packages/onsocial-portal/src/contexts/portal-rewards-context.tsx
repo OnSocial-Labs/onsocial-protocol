@@ -12,6 +12,7 @@ import {
 } from 'react';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
 import type { TransactionFeedback } from '@/components/ui/transaction-feedback-toast';
+import { useProfile } from '@/contexts/profile-context';
 import { useWallet } from '@/contexts/wallet-context';
 import { formatSocialCompact } from '@/lib/leaderboard';
 import {
@@ -61,6 +62,7 @@ function parseYocto(value: string | undefined): bigint {
 
 export function PortalRewardsProvider({ children }: { children: ReactNode }) {
   const { accountId } = useWallet();
+  const { isUpdatingStanding } = useProfile();
   const [overview, setOverview] =
     useState<RewardsUserRewardsOverviewView | null>(null);
   const [pendingCreditYocto, setPendingCreditYocto] = useState(0n);
@@ -74,6 +76,7 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
   }>({ total: 0n, events: [], timer: null });
   const refreshGenerationRef = useRef(0);
   const chainClaimableRef = useRef(0n);
+  const wasUpdatingStandingRef = useRef(false);
 
   const reconcilePendingCredit = useCallback((claimable: bigint) => {
     const delta = claimable - chainClaimableRef.current;
@@ -161,6 +164,28 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
     [fetchOverview]
   );
 
+  const flushAggregatedRewardToast = useCallback(() => {
+    if (aggregateRef.current.timer) {
+      clearTimeout(aggregateRef.current.timer);
+      aggregateRef.current.timer = null;
+    }
+
+    const total = aggregateRef.current.total;
+    const events = aggregateRef.current.events;
+    aggregateRef.current.total = 0n;
+    aggregateRef.current.events = [];
+
+    if (total <= 0n) return;
+
+    const reasons = compressPortalRewardToastReasons(events);
+    setToast({
+      type: 'success',
+      msg: `+${formatSocialCompact(total.toString())} SOCIAL`,
+      subtitle: reasons.length > 0 ? reasons.join(' · ') : undefined,
+    });
+    void refreshBalanceWithRetry({ silent: true });
+  }, [refreshBalanceWithRetry]);
+
   useEffect(() => {
     void refreshBalance();
   }, [refreshBalance]);
@@ -186,24 +211,17 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
       }
 
       aggregateRef.current.timer = setTimeout(() => {
-        const total = aggregateRef.current.total;
-        const events = aggregateRef.current.events;
-        aggregateRef.current.total = 0n;
-        aggregateRef.current.events = [];
-        aggregateRef.current.timer = null;
-
-        if (total <= 0n) return;
-
-        const reasons = compressPortalRewardToastReasons(events);
-        setToast({
-          type: 'success',
-          msg: `+${formatSocialCompact(total.toString())} SOCIAL`,
-          subtitle: reasons.length > 0 ? reasons.join(' · ') : undefined,
-        });
-        void refreshBalanceWithRetry({ silent: true });
+        flushAggregatedRewardToast();
       }, PORTAL_REWARD_AGGREGATE_MS);
     });
-  }, [refreshBalanceWithRetry]);
+  }, [flushAggregatedRewardToast]);
+
+  useEffect(() => {
+    if (wasUpdatingStandingRef.current && !isUpdatingStanding) {
+      flushAggregatedRewardToast();
+    }
+    wasUpdatingStandingRef.current = isUpdatingStanding;
+  }, [flushAggregatedRewardToast, isUpdatingStanding]);
 
   useEffect(() => {
     return () => {

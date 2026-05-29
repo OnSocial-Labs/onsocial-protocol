@@ -144,8 +144,8 @@ export default function RootLayout({
           >
             <RuntimeConfigWarnings />
             <WalletProvider network={ACTIVE_NEAR_NETWORK}>
-              <PortalRewardsProvider>
               <ProfileProvider>
+              <PortalRewardsProvider>
               <GatewayAuthProvider>
                 <MobilePageProvider>
                   <NavVisibilityProvider>
@@ -159,8 +159,8 @@ export default function RootLayout({
                   </NavVisibilityProvider>
                 </MobilePageProvider>
               </GatewayAuthProvider>
-              </ProfileProvider>
               </PortalRewardsProvider>
+              </ProfileProvider>
             </WalletProvider>
           </ThemeProvider>
         </PwaProvider>
