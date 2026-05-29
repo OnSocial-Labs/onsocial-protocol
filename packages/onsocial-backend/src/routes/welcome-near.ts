@@ -5,11 +5,7 @@ import { pool, query } from '../db/index.js';
 import { logger } from '../logger.js';
 import { partnerAuth } from '../middleware/partnerAuth.js';
 import { relayWelcomeNearTransfer } from '../services/welcome-near-relay.js';
-import {
-  accountNeedsWelcomeNear,
-  buildWelcomeNearChallenge,
-  verifyWelcomeNearAuth,
-} from '../services/welcome-near.js';
+import { accountNeedsWelcomeNear } from '../services/welcome-near.js';
 
 const router = Router();
 
@@ -20,28 +16,6 @@ function normalizeAccountId(value: unknown): string | null {
   const accountId = value.trim().toLowerCase();
   return ACCOUNT_ID_PATTERN.test(accountId) ? accountId : null;
 }
-
-router.post(
-  '/welcome-near/challenge',
-  async (req: Request, res: Response): Promise<void> => {
-    const accountId = normalizeAccountId(req.body?.account_id);
-    if (!accountId) {
-      res.status(400).json({ success: false, error: 'account_id is required' });
-      return;
-    }
-
-    if (!config.welcomeNear.enabled) {
-      res.json({ success: true, enabled: false });
-      return;
-    }
-
-    res.json({
-      success: true,
-      enabled: true,
-      challenge: buildWelcomeNearChallenge(accountId),
-    });
-  }
-);
 
 router.use(partnerAuth);
 
@@ -57,12 +31,6 @@ router.post(
     }
 
     const accountId = normalizeAccountId(req.body?.account_id);
-    const publicKey =
-      typeof req.body?.public_key === 'string' ? req.body.public_key : '';
-    const signature =
-      typeof req.body?.signature === 'string' ? req.body.signature : '';
-    const message =
-      typeof req.body?.message === 'string' ? req.body.message : '';
 
     if (!accountId) {
       res.status(400).json({ success: false, error: 'account_id is required' });
@@ -71,28 +39,6 @@ router.post(
 
     if (!config.welcomeNear.enabled) {
       res.json({ success: true, dripped: false, enabled: false });
-      return;
-    }
-
-    if (!publicKey || !signature || !message) {
-      res.status(401).json({
-        success: false,
-        error: 'public_key, signature, and message are required',
-      });
-      return;
-    }
-
-    const verification = await verifyWelcomeNearAuth({
-      accountId,
-      publicKey,
-      signature,
-      message,
-    });
-    if (!verification.valid) {
-      res.status(401).json({
-        success: false,
-        error: verification.error ?? 'Invalid welcome NEAR auth',
-      });
       return;
     }
 
@@ -144,7 +90,7 @@ router.post(
          ) VALUES ($1, $2, $3, $4, 'pending')
          ON CONFLICT (account_id) DO NOTHING
          RETURNING id`,
-        [accountId, amountYocto, config.nearNetwork, publicKey]
+        [accountId, amountYocto, config.nearNetwork, 'portal']
       );
 
       if (insert.rowCount === 0) {

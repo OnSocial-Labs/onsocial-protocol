@@ -116,6 +116,7 @@ interface ProfileModalProps {
   selfAvatarUrl: string | null;
   selfBannerUrl: string | null;
   hasSocialSession?: boolean;
+  isAuthorizingSession?: boolean;
   onOpenChange: (open: boolean) => void;
   onEditProfile: () => void;
   onSelectAccount?: (accountId: string) => void;
@@ -1661,6 +1662,7 @@ export function ProfileModal({
   selfAvatarUrl,
   selfBannerUrl,
   hasSocialSession = false,
+  isAuthorizingSession = false,
   onOpenChange,
   onEditProfile,
   onSelectAccount,
@@ -1954,6 +1956,15 @@ export function ProfileModal({
     setActionToast(null);
     setPendingStandingAction(nextStanding ? 'stand' : 'step-back');
 
+    if (nextStanding && !hasSocialSession) {
+      setActionToast({
+        type: 'pending',
+        eyebrow: 'Authorize & stand',
+        msg: 'Approve the OnSocial session transaction in your wallet to finish.',
+        pendingPhase: 'wallet',
+      });
+    }
+
     try {
       await onUpdateStanding(accountId, nextStanding);
       const now = Date.now();
@@ -1990,6 +2001,7 @@ export function ProfileModal({
           incoming: updatedIncoming,
         };
       });
+      setActionToast(null);
     } catch (error) {
       if (!isWalletUserCancellation(error)) {
         reportWalletActionFailure(error, (msg) =>
@@ -2000,6 +2012,19 @@ export function ProfileModal({
       setPendingStandingAction(null);
     }
   };
+
+  useEffect(() => {
+    if (!pendingStandingAction || hasSocialSession || !isAuthorizingSession) {
+      return;
+    }
+
+    setActionToast({
+      type: 'pending',
+      eyebrow: 'Authorize session',
+      msg: 'Open your wallet extension and approve the OnSocial session transaction.',
+      pendingPhase: 'wallet',
+    });
+  }, [hasSocialSession, isAuthorizingSession, pendingStandingAction]);
 
   const openEndorsementsModal = useCallback(
     (mode: EndorsementsModalIntent['mode'], topic?: string) => {

@@ -20,9 +20,11 @@ import { ACTIVE_NEAR_NETWORK } from '@/lib/portal-config';
 import { creditPortalReward, creditPortalSocialReward } from '@/lib/portal-rewards';
 import { rethrowWalletActionError } from '@/lib/wallet-errors';
 import { ensureWelcomeNear } from '@/lib/welcome-near';
+import { withWalletTimeout } from '@/lib/wallet-timeout';
 
 const SOCIAL_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const SOCIAL_SESSION_ALLOWANCE_YOCTO = '250000000000000000000000';
+const SESSION_BOOTSTRAP_TIMEOUT_MS = 120_000;
 const INDEXED_PROFILE_REFRESH_DELAYS_MS = [750, 2_000, 5_000] as const;
 const PORTAL_ONAPI_PROXY_URL = '/api/onapi';
 
@@ -470,22 +472,26 @@ export function useProfileState() {
     setIsAuthorizingSession(true);
     try {
       await ensureWelcomeNear(wallet, accountId);
-      const session = await bootstrapSession({
-        wallet: nearConnectAdapter(wallet, accountId, {
+      const session = await withWalletTimeout(
+        bootstrapSession({
+          wallet: nearConnectAdapter(wallet, accountId, {
+            network: ACTIVE_NEAR_NETWORK,
+          }),
+          accountId,
           network: ACTIVE_NEAR_NETWORK,
+          contract: 'core',
+          path: getSocialSessionPath(accountId),
+          ttlMs: SOCIAL_SESSION_TTL_MS,
+          functionCallKey: {
+            methodNames: ['execute'],
+            allowanceYocto: SOCIAL_SESSION_ALLOWANCE_YOCTO,
+          },
+          storageDepositYocto: '0',
+          store: getSocialSessionStore(),
         }),
-        accountId,
-        network: ACTIVE_NEAR_NETWORK,
-        contract: 'core',
-        path: getSocialSessionPath(accountId),
-        ttlMs: SOCIAL_SESSION_TTL_MS,
-        functionCallKey: {
-          methodNames: ['execute'],
-          allowanceYocto: SOCIAL_SESSION_ALLOWANCE_YOCTO,
-        },
-        storageDepositYocto: '0',
-        store: getSocialSessionStore(),
-      });
+        SESSION_BOOTSTRAP_TIMEOUT_MS,
+        'Session authorization timed out. Open your wallet extension and approve the OnSocial session transaction, then try again.'
+      );
       cachedSessionRef.current = { accountId, session };
       setHasSocialSession(true);
       return session;

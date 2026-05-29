@@ -7,17 +7,7 @@ import {
 import { viewAccount } from '@/lib/near-rpc';
 
 const BALANCE_POLL_DELAYS_MS = [500, 1_000, 2_000, 3_000, 5_000] as const;
-
-interface WelcomeNearChallengeResponse {
-  success?: boolean;
-  enabled?: boolean;
-  challenge?: {
-    message: string;
-    recipient: string;
-    nonce: string;
-  };
-  error?: string;
-}
+const REQUEST_TIMEOUT_MS = 30_000;
 
 interface WelcomeNearResponse {
   success?: boolean;
@@ -29,10 +19,6 @@ interface WelcomeNearResponse {
   tx_hash?: string;
   error?: string;
   detail?: string;
-}
-
-function decodeBase64ToBytes(value: string): Uint8Array {
-  return Uint8Array.from(atob(value), (char) => char.charCodeAt(0));
 }
 
 function getSpendableBalanceYocto(
@@ -64,10 +50,10 @@ async function waitForWelcomeBalance(accountId: string): Promise<boolean> {
   return hasSufficientWelcomeBalance(accountId);
 }
 
-async function getVerifiedSignerId(
+async function assertWalletAccount(
   wallet: NearWalletBase,
   accountId: string
-): Promise<string> {
+): Promise<void> {
   const accounts = await wallet.getAccounts({ network: ACTIVE_NEAR_NETWORK });
   const accountIds = accounts.map((account) => account.accountId);
 
@@ -76,13 +62,11 @@ async function getVerifiedSignerId(
       `Wallet account mismatch. Portal is connected as ${accountId}, but the wallet is using ${accountIds.join(', ') || 'no account'}. Switch the wallet account or reconnect before signing.`
     );
   }
-
-  return accountId;
 }
 
 /**
  * Ensure the connected wallet has enough NEAR for session bootstrap gas.
- * Requests a one-time welcome drip when balance is below the deployment threshold.
+ * Requests a one-time welcome drip from the portal backend when balance is low.
  */
 export async function ensureWelcomeNear(
   wallet: NearWalletBase,
@@ -96,51 +80,13 @@ export async function ensureWelcomeNear(
     return;
   }
 
-  if (typeof wallet.signMessage !== 'function') {
-    throw new Error(
-      'Your wallet does not support message signing, which is required to receive welcome NEAR for session setup.'
-    );
-  }
-
-  await getVerifiedSignerId(wallet, accountId);
-
-  const challengeRes = await fetch('/api/onboarding/welcome-near/challenge', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ account_id: accountId }),
-  });
-  const challengeData =
-    (await challengeRes.json()) as WelcomeNearChallengeResponse;
-
-  if (!challengeRes.ok) {
-    throw new Error(challengeData.error ?? 'Failed to prepare welcome NEAR');
-  }
-
-  if (challengeData.enabled === false) {
-    return;
-  }
-
-  if (!challengeData.challenge) {
-    throw new Error('Welcome NEAR challenge missing from backend response');
-  }
-
-  const signed = await wallet.signMessage({
-    network: ACTIVE_NEAR_NETWORK,
-    signerId: accountId,
-    message: challengeData.challenge.message,
-    recipient: challengeData.challenge.recipient,
-    nonce: decodeBase64ToBytes(challengeData.challenge.nonce),
-  });
+  await assertWalletAccount(wallet, accountId);
 
   const dripRes = await fetch('/api/onboarding/welcome-near', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      account_id: signed.accountId,
-      public_key: signed.publicKey,
-      signature: signed.signature,
-      message: challengeData.challenge.message,
-    }),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    body: JSON.stringify({ account_id: accountId }),
   });
   const dripData = (await dripRes.json()) as WelcomeNearResponse;
 

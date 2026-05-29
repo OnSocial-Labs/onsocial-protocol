@@ -14,13 +14,6 @@ function normalizeAccountId(value: unknown): string | null {
   return ACCOUNT_ID_PATTERN.test(accountId) ? accountId : null;
 }
 
-interface WelcomeNearRequest {
-  account_id?: unknown;
-  public_key?: unknown;
-  signature?: unknown;
-  message?: unknown;
-}
-
 export async function POST(request: NextRequest) {
   const apiKey = getRewardsApiKey();
   if (!apiKey) {
@@ -30,9 +23,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let body: WelcomeNearRequest;
+  let body: { account_id?: unknown };
   try {
-    body = (await request.json()) as WelcomeNearRequest;
+    body = (await request.json()) as { account_id?: unknown };
   } catch {
     return NextResponse.json(
       { success: false, error: 'Invalid JSON body' },
@@ -41,18 +34,9 @@ export async function POST(request: NextRequest) {
   }
 
   const accountId = normalizeAccountId(body.account_id);
-  const publicKey =
-    typeof body.public_key === 'string' ? body.public_key.trim() : '';
-  const signature =
-    typeof body.signature === 'string' ? body.signature.trim() : '';
-  const message = typeof body.message === 'string' ? body.message : '';
-
-  if (!accountId || !publicKey || !signature || !message) {
+  if (!accountId) {
     return NextResponse.json(
-      {
-        success: false,
-        error: 'account_id, public_key, signature, and message are required',
-      },
+      { success: false, error: 'account_id is required' },
       { status: 400 }
     );
   }
@@ -65,12 +49,7 @@ export async function POST(request: NextRequest) {
         'X-Api-Key': apiKey,
       },
       cache: 'no-store',
-      body: JSON.stringify({
-        account_id: accountId,
-        public_key: publicKey,
-        signature,
-        message,
-      }),
+      body: JSON.stringify({ account_id: accountId }),
     });
 
     const data = (await response.json().catch(() => ({}))) as unknown;

@@ -453,6 +453,7 @@ export function WalletButton({
         selfAvatarUrl={profileState.avatarUrl}
         selfBannerUrl={profileState.bannerUrl}
         hasSocialSession={profileState.hasSocialSession}
+        isAuthorizingSession={profileState.isAuthorizingSession}
         onOpenChange={(open) => {
           setProfileModalOpen(open);
           if (!open) setProfileModalAccountId(null);
