@@ -73,20 +73,21 @@ export const config = {
   portalRewardsAppId:
     process.env.ONSOCIAL_PORTAL_REWARDS_APP_ID || 'onsocial_portal',
 
-  /** One-time welcome NEAR drip for session bootstrap gas. */
+  /** Welcome NEAR drip so new wallets can sign session bootstrap (AddKey + 100 TGas). */
   welcomeNear: {
     enabled:
       (process.env.WELCOME_NEAR_ENABLED ?? 'true').toLowerCase() !== 'false',
+    /** Skip drip when liquid balance is at or above this (yoctoNEAR). */
     thresholdYocto:
       process.env.WELCOME_NEAR_THRESHOLD_YOCTO ??
-      ((process.env.NEAR_NETWORK || 'testnet') === 'mainnet'
-        ? '100000000000000000000'
-        : '50000000000000000000'),
-    amountYocto:
-      process.env.WELCOME_NEAR_AMOUNT_YOCTO ??
-      ((process.env.NEAR_NETWORK || 'testnet') === 'mainnet'
-        ? '500000000000000000000'
-        : '200000000000000000000'),
+      '12000000000000000000000', // 0.012 NEAR — wallets reserve ~0.01 N for 100 TGas
+    /** Top up accounts to this target balance when below threshold. */
+    targetBalanceYocto:
+      process.env.WELCOME_NEAR_TARGET_BALANCE_YOCTO ??
+      '15000000000000000000000', // 0.015 NEAR
+    /** Max single drip (must stay within relayer execute_transfer cap). */
+    maxDripYocto:
+      process.env.WELCOME_NEAR_MAX_DRIP_YOCTO ?? '25000000000000000000000', // 0.025 NEAR
   },
 
   // Reward amounts (SOCIAL tokens, decimal)

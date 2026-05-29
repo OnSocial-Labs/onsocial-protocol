@@ -5,7 +5,11 @@ import { pool, query } from '../db/index.js';
 import { logger } from '../logger.js';
 import { partnerAuth } from '../middleware/partnerAuth.js';
 import { relayWelcomeNearTransfer } from '../services/welcome-near-relay.js';
-import { accountNeedsWelcomeNear } from '../services/welcome-near.js';
+import {
+  accountNeedsWelcomeNear,
+  welcomeNearTopUpAmountYocto,
+} from '../services/welcome-near.js';
+import { viewAccountBalance } from '../services/near.js';
 
 const router = Router();
 
@@ -42,6 +46,27 @@ router.post(
       return;
     }
 
+    const needsDrip = await accountNeedsWelcomeNear(accountId);
+    if (!needsDrip) {
+      res.json({
+        success: true,
+        dripped: false,
+        sufficient_balance: true,
+      });
+      return;
+    }
+
+    const balanceYocto = await viewAccountBalance(accountId);
+    const amountYocto = welcomeNearTopUpAmountYocto(balanceYocto);
+    if (!amountYocto) {
+      res.json({
+        success: true,
+        dripped: false,
+        sufficient_balance: true,
+      });
+      return;
+    }
+
     const existing = await query<{
       status: string;
       transfer_tx_hash: string | null;
@@ -53,67 +78,43 @@ router.post(
       [accountId]
     );
 
-    if (existing.rows.length > 0) {
-      const row = existing.rows[0];
-      res.json({
-        success: true,
-        dripped: row.status === 'completed',
-        already_received: true,
-        amount_yocto: row.amount_yocto,
-        tx_hash: row.transfer_tx_hash,
-      });
-      return;
-    }
-
-    const needsDrip = await accountNeedsWelcomeNear(accountId);
-    if (!needsDrip) {
-      res.json({
-        success: true,
-        dripped: false,
-        sufficient_balance: true,
-      });
-      return;
-    }
-
-    const amountYocto = config.welcomeNear.amountYocto;
     const client = await pool.connect();
 
     try {
       await client.query('BEGIN');
-      const insert = await client.query<{ id: string }>(
-        `INSERT INTO portal_welcome_near_events (
-           account_id,
-           amount_yocto,
-           network,
-           public_key,
-           status
-         ) VALUES ($1, $2, $3, $4, 'pending')
-         ON CONFLICT (account_id) DO NOTHING
-         RETURNING id`,
-        [accountId, amountYocto, config.nearNetwork, 'portal']
-      );
 
-      if (insert.rowCount === 0) {
-        await client.query('ROLLBACK');
-        const raced = await query<{
-          status: string;
-          transfer_tx_hash: string | null;
-          amount_yocto: string;
-        }>(
-          `SELECT status, transfer_tx_hash, amount_yocto
-           FROM portal_welcome_near_events
-           WHERE account_id = $1`,
-          [accountId]
+      if (existing.rows.length === 0) {
+        const insert = await client.query<{ id: string }>(
+          `INSERT INTO portal_welcome_near_events (
+             account_id,
+             amount_yocto,
+             network,
+             public_key,
+             status
+           ) VALUES ($1, $2, $3, $4, 'pending')
+           ON CONFLICT (account_id) DO NOTHING
+           RETURNING id`,
+          [accountId, amountYocto, config.nearNetwork, 'portal']
         );
-        const row = raced.rows[0];
-        res.json({
-          success: true,
-          dripped: row?.status === 'completed',
-          already_received: true,
-          amount_yocto: row?.amount_yocto,
-          tx_hash: row?.transfer_tx_hash,
-        });
-        return;
+
+        if (insert.rowCount === 0) {
+          await client.query('ROLLBACK');
+          res.status(409).json({
+            success: false,
+            error: 'Welcome NEAR drip already in progress',
+          });
+          return;
+        }
+      } else {
+        await client.query(
+          `UPDATE portal_welcome_near_events
+           SET status = 'pending',
+               amount_yocto = $2,
+               error = NULL,
+               updated_at = now()
+           WHERE account_id = $1`,
+          [accountId, amountYocto]
+        );
       }
 
       const relay = await relayWelcomeNearTransfer(accountId, amountYocto);
@@ -150,6 +151,7 @@ router.post(
         dripped: true,
         amount_yocto: amountYocto,
         tx_hash: relay.tx_hash,
+        topped_up: existing.rows.length > 0,
       });
     } catch (error) {
       await client.query('ROLLBACK');

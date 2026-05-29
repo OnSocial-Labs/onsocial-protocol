@@ -488,7 +488,7 @@ pub async fn execute_rewards(
 // server-side to prevent abuse if backend credentials leak.
 // ---------------------------------------------------------------------------
 
-const MAX_TRANSFER_YOCTO: u128 = 1_000_000_000_000_000_000_000; // 0.001 NEAR
+const MAX_TRANSFER_YOCTO: u128 = 25_000_000_000_000_000_000_000; // 0.025 NEAR
 
 #[derive(Deserialize)]
 pub struct ExecuteTransferBody {

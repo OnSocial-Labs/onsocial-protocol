@@ -96,14 +96,10 @@ export async function ensureWelcomeNear(
     );
   }
 
-  if (
-    dripData.sufficient_balance ||
-    dripData.already_received ||
-    !dripData.dripped
-  ) {
+  if (dripData.sufficient_balance || !dripData.dripped) {
     if (!(await hasSufficientWelcomeBalance(accountId))) {
       throw new Error(
-        'Your wallet still needs a small amount of NEAR to authorize OnSocial. Add a little NEAR and try again.'
+        'Your wallet needs about 0.012 NEAR to authorize OnSocial. Add a little NEAR or wait a moment and try again.'
       );
     }
     return;
