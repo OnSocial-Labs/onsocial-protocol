@@ -77,17 +77,16 @@ export const config = {
   welcomeNear: {
     enabled:
       (process.env.WELCOME_NEAR_ENABLED ?? 'true').toLowerCase() !== 'false',
-    /** Skip drip when liquid balance is at or above this (yoctoNEAR). */
+    /** Skip drip when liquid balance is at or above this (yoctoNEAR, default 0.012 NEAR). */
     thresholdYocto:
-      process.env.WELCOME_NEAR_THRESHOLD_YOCTO ??
-      '12000000000000000000000', // 0.012 NEAR — wallets reserve ~0.01 N for 100 TGas
-    /** Top up accounts to this target balance when below threshold. */
+      process.env.WELCOME_NEAR_THRESHOLD_YOCTO ?? '12000000000000000000000',
+    /** Top up accounts to this target balance when below threshold (default 0.015 NEAR). */
     targetBalanceYocto:
       process.env.WELCOME_NEAR_TARGET_BALANCE_YOCTO ??
-      '15000000000000000000000', // 0.015 NEAR
-    /** Max single drip (must stay within relayer execute_transfer cap). */
+      '15000000000000000000000',
+    /** Max single drip; must stay within relayer execute_transfer cap (default 0.025 NEAR). */
     maxDripYocto:
-      process.env.WELCOME_NEAR_MAX_DRIP_YOCTO ?? '25000000000000000000000', // 0.025 NEAR
+      process.env.WELCOME_NEAR_MAX_DRIP_YOCTO ?? '25000000000000000000000',
   },
 
   // Reward amounts (SOCIAL tokens, decimal)

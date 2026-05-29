@@ -39,7 +39,12 @@ export function welcomeNearTopUpAmountYocto(
   const maxDrip = parseYocto(config.welcomeNear.maxDripYocto);
   const liquid = parseYocto(balanceYocto ?? '0');
 
-  if (threshold == null || target == null || maxDrip == null || liquid == null) {
+  if (
+    threshold == null ||
+    target == null ||
+    maxDrip == null ||
+    liquid == null
+  ) {
     return null;
   }
 
