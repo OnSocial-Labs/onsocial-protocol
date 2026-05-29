@@ -10,6 +10,7 @@ import {
 import type { Network } from '../types.js';
 import type { SessionKey } from './session-key.js';
 import { buildSignedDelegate, type DelegateInnerAction } from './nep366.js';
+import type { KeyStore, StoredSession } from './session-store.js';
 
 export interface SessionOnboardingInput {
   sessionPublicKey: string;
@@ -198,6 +199,11 @@ export function buildSessionGrant(
   };
 }
 
+export interface SessionPersistence {
+  store: KeyStore;
+  sessionId: string;
+}
+
 export interface SessionConfig {
   network: Network;
   accountId: string;
@@ -211,6 +217,8 @@ export interface SessionConfig {
   depositYocto?: string;
   /** True only when the delegate signer key is known to be FullAccess. */
   canAttachDeposit?: boolean;
+  /** Persist successful relay nonces into the session KeyStore. */
+  persistence?: SessionPersistence;
 }
 
 /** Stateful helper for one `(account, contract, key)` tuple. */
@@ -219,6 +227,7 @@ export class Session {
   readonly contract: SessionContract;
   readonly contractId: string;
   readonly key: SessionKey;
+  readonly network: Network;
 
   private nonce: number;
   private readonly defaultTtlMs: number;
@@ -226,6 +235,7 @@ export class Session {
   private readonly gasTgas: number;
   private readonly depositYocto: string;
   private readonly canAttachDeposit: boolean;
+  private readonly persistence?: SessionPersistence;
 
   constructor(cfg: SessionConfig) {
     const resolved =
@@ -234,9 +244,11 @@ export class Session {
       throw new SessionScopeError(`Unknown contract ${cfg.contract}`);
     }
     this.accountId = cfg.accountId;
+    this.network = cfg.network;
     this.contract = cfg.contract;
     this.contractId = resolved;
     this.key = cfg.key;
+    this.persistence = cfg.persistence;
     this.gasTgas = cfg.gasTgas ?? 100;
     this.depositYocto = cfg.depositYocto ?? '0';
     this.canAttachDeposit = cfg.canAttachDeposit ?? false;
@@ -361,6 +373,26 @@ export class Session {
 
   rewindNonce(): void {
     this.nonce = Math.max(1, this.nonce - 1);
+  }
+
+  /** Force the next signed delegate to use this nonce (chain resync / retry). */
+  forceNextNonce(nextNonce: number): void {
+    if (!Number.isSafeInteger(nextNonce) || nextNonce < 1) {
+      throw new SessionScopeError(`invalid delegate nonce: ${nextNonce}`);
+    }
+    this.nonce = nextNonce;
+  }
+
+  /** Record a successful on-chain delegate nonce in the session store. */
+  async persistRelayNonce(usedNonce: number): Promise<void> {
+    if (!this.persistence) return;
+    const stored = await this.persistence.store.get(this.persistence.sessionId);
+    if (!stored) return;
+    const next: StoredSession = {
+      ...stored,
+      lastNonce: Math.max(stored.lastNonce, usedNonce),
+    };
+    await this.persistence.store.set(this.persistence.sessionId, next);
   }
 }
 

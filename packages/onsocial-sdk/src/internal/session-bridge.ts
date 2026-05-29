@@ -7,9 +7,16 @@ import {
 } from '../advanced/session.js';
 import type {
   BroadcastTarget,
+  Network,
   PrepareResponse,
   RelayResponse,
 } from '../types.js';
+import {
+  isDelegateNonceError,
+  resyncSessionDelegateNonce,
+  runSerializedSessionRelay,
+  type AccessKeyNonceProvider,
+} from './session-relay.js';
 
 /** Optional injected provider for the finality block-height. */
 export type LatestBlockHeightProvider = () => Promise<bigint | number | string>;
@@ -79,7 +86,7 @@ export async function composeAndSign(
     prepared.action,
     prepared.target_account,
     methodLabel,
-    mergePreparedOptions(opts, prepared)
+    mergePreparedOptions(opts, prepared, http.network)
   );
 }
 
@@ -96,6 +103,8 @@ export async function signAndRelay(
     wait?: boolean;
     broadcast?: BroadcastTarget;
     latestBlockHeightProvider?: LatestBlockHeightProvider;
+    accessKeyNonceProvider?: AccessKeyNonceProvider;
+    network?: Network;
     /** Inner FunctionCall method (`execute` or `execute_admin`). Default `execute`. */
     methodName?: string;
     /** Inner FunctionCall attached deposit in yoctoNEAR. */
@@ -114,13 +123,10 @@ export async function signAndRelay(
     throw new SessionRequiredError(methodLabel);
   }
   assertDelegateBroadcastSupported(session, target, opts, methodLabel);
-  return relayDelegate<RelayResponse>(
-    http,
-    session,
-    action,
-    targetContract,
-    opts
-  );
+  return relayDelegate<RelayResponse>(http, session, action, targetContract, {
+    ...opts,
+    network: opts?.network ?? http.network,
+  });
 }
 
 export interface FormPrepareResult<T = RelayResponse> {
@@ -172,7 +178,7 @@ export async function composeFormAndSign<T = RelayResponse>(
     prepared.action,
     prepared.target_account,
     methodLabel,
-    mergePreparedOptions(opts, prepared)
+    mergePreparedOptions(opts, prepared, http.network)
   )) as unknown as T;
 
   return {
@@ -199,6 +205,8 @@ const LATEST_BLOCK_TTL_MS = 5_000;
 export function __resetLatestBlockCache(): void {
   __latestBlockCache = null;
 }
+
+export { __resetSessionRelayQueues } from './session-relay.js';
 
 /** Fetches the finalized block height (from the gateway, or an injected provider). */
 async function getLatestBlockHeight(
@@ -238,31 +246,84 @@ async function relayDelegate<T>(
     wait?: boolean;
     broadcast?: BroadcastTarget;
     latestBlockHeightProvider?: LatestBlockHeightProvider;
+    accessKeyNonceProvider?: AccessKeyNonceProvider;
+    network?: Network;
     methodName?: string;
     depositYocto?: bigint | string;
   }
 ): Promise<T> {
-  const latest = await getLatestBlockHeight(
-    http,
-    opts?.latestBlockHeightProvider
+  return runSerializedSessionRelay(session, () =>
+    relayDelegateOnce<T>(http, session, action, targetContract, opts)
   );
-  session.ensureNonceAboveAccessKeyFloor?.(latest);
-  const { base64 } = await session.signComposeDelegate({
-    action,
-    targetContract,
-    maxBlockHeight: latest + DELEGATE_BLOCK_TTL,
-    ...(opts?.targetAccount !== undefined && {
-      targetAccount: opts.targetAccount,
-    }),
-    ...(opts?.requestOptions !== undefined && {
-      requestOptions: opts.requestOptions,
-    }),
-    ...(opts?.methodName !== undefined && { methodName: opts.methodName }),
-    ...(opts?.depositYocto !== undefined && {
-      depositYocto: opts.depositYocto,
-    }),
-  });
+}
 
+async function relayDelegateOnce<T>(
+  http: HttpClient,
+  session: Session,
+  action: Record<string, unknown>,
+  targetContract: string,
+  opts?: {
+    targetAccount?: string;
+    requestOptions?: Record<string, unknown>;
+    wait?: boolean;
+    broadcast?: BroadcastTarget;
+    latestBlockHeightProvider?: LatestBlockHeightProvider;
+    accessKeyNonceProvider?: AccessKeyNonceProvider;
+    network?: Network;
+    methodName?: string;
+    depositYocto?: bigint | string;
+  }
+): Promise<T> {
+  let retried = false;
+
+  while (true) {
+    try {
+      const latest = await getLatestBlockHeight(
+        http,
+        opts?.latestBlockHeightProvider
+      );
+      session.ensureNonceAboveAccessKeyFloor?.(latest);
+      const { base64, nonce } = await session.signComposeDelegate({
+        action,
+        targetContract,
+        maxBlockHeight: latest + DELEGATE_BLOCK_TTL,
+        ...(opts?.targetAccount !== undefined && {
+          targetAccount: opts.targetAccount,
+        }),
+        ...(opts?.requestOptions !== undefined && {
+          requestOptions: opts.requestOptions,
+        }),
+        ...(opts?.methodName !== undefined && { methodName: opts.methodName }),
+        ...(opts?.depositYocto !== undefined && {
+          depositYocto: opts.depositYocto,
+        }),
+      });
+
+      const result = await postSignedDelegate<T>(http, base64, opts);
+      await session.persistRelayNonce?.(nonce);
+      return result;
+    } catch (error) {
+      if (!retried && isDelegateNonceError(error)) {
+        retried = true;
+        await resyncSessionDelegateNonce(session, error, {
+          network: opts?.network ?? session.network,
+          accessKeyNonceProvider: opts?.accessKeyNonceProvider,
+        });
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+
+async function postSignedDelegate<T>(
+  http: HttpClient,
+  base64: string,
+  opts?: {
+    wait?: boolean;
+    broadcast?: BroadcastTarget;
+  }
+): Promise<T> {
   const target: BroadcastTarget = opts?.broadcast ?? 'gateway';
   const payload = { signed_delegate: base64 };
 
@@ -399,12 +460,18 @@ async function broadcastViaWallet(
 
 function mergePreparedOptions<T extends { depositYocto?: bigint | string }>(
   opts: T | undefined,
-  prepared: PrepareResponse
-): T | undefined {
-  if (opts?.depositYocto !== undefined) return opts;
-  const depositYocto = preparedDepositYocto(prepared);
-  if (depositYocto === undefined) return opts;
-  return { ...opts, depositYocto } as T;
+  prepared: PrepareResponse,
+  network: Network
+): T & { network: Network } {
+  const depositYocto =
+    opts?.depositYocto !== undefined
+      ? opts.depositYocto
+      : preparedDepositYocto(prepared);
+  return {
+    ...(opts ?? ({} as T)),
+    network,
+    ...(depositYocto !== undefined ? { depositYocto } : {}),
+  } as T & { network: Network };
 }
 
 function preparedDepositYocto(prepared: PrepareResponse): string | undefined {

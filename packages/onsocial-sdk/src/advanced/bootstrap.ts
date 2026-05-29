@@ -11,6 +11,9 @@ import {
 import { resolveContractId, type CoreAction } from './actions.js';
 import type { Network } from '../types.js';
 import type { SessionKey, SignerFn } from './session-key.js';
+import type { KeyStore, StoredSession } from './session-store.js';
+
+export type { KeyStore, StoredSession } from './session-store.js';
 
 /** Wallet action shape used during bootstrap and revoke flows. */
 export type NearAction =
@@ -120,26 +123,6 @@ export function nearConnectAdapter(
       });
     },
   };
-}
-
-/** Serialized session metadata. */
-export interface StoredSession {
-  v: 2;
-  accountId: string;
-  contract: SessionContract;
-  contractId: string;
-  network: Network;
-  publicKey: string;
-  secretSeedB64u: string;
-  path?: string;
-  lastNonce: number;
-  expiresAtMs?: number;
-}
-
-export interface KeyStore {
-  get(id: string): Promise<StoredSession | null>;
-  set(id: string, value: StoredSession): Promise<void>;
-  delete(id: string): Promise<void>;
 }
 
 /** In-memory store. */
@@ -527,6 +510,14 @@ export async function bootstrapSession(
     );
   }
 
+  const persistence =
+    input.store != null
+      ? {
+          store: input.store,
+          sessionId: sessionId(accountId, input.contract, input.path),
+        }
+      : undefined;
+
   return new Session({
     network: input.network,
     accountId,
@@ -535,6 +526,7 @@ export async function bootstrapSession(
     key: { publicKey: generated.publicKey, sign: generated.sign },
     startingNonce: initialNonce,
     remainingAllowanceYocto: input.functionCallKey.allowanceYocto,
+    persistence,
   });
 }
 
@@ -568,6 +560,10 @@ export async function restoreSession(
     startingNonce:
       input.startingNonce ?? Math.max(stored.lastNonce + 1, Date.now()),
     remainingAllowanceYocto: input.remainingAllowanceYocto,
+    persistence: {
+      store: input.store,
+      sessionId: id,
+    },
   });
 }
 

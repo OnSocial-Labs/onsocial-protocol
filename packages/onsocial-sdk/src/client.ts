@@ -359,6 +359,11 @@ export class OnSocial {
     bigint | number | string
   >;
 
+  private readonly _accessKeyNonceProvider?: (
+    accountId: string,
+    publicKey: string
+  ) => Promise<number>;
+
   /**
    * Attach a session key for subsequent gateway-relayed writes. Once attached,
    * every normal SDK write signs a NEP-366 delegate with this session and posts
@@ -403,14 +408,38 @@ export class OnSocial {
       verb,
       body,
       methodLabel,
-      broadcast !== undefined ? { broadcast } : undefined
+      this._delegateRelayOpts(broadcast)
     );
+  }
+
+  private _delegateRelayOpts(
+    broadcast?: import('./types.js').BroadcastTarget
+  ): {
+    broadcast?: import('./types.js').BroadcastTarget;
+    network: import('./types.js').Network;
+    latestBlockHeightProvider?: () => Promise<bigint | number | string>;
+    accessKeyNonceProvider?: (
+      accountId: string,
+      publicKey: string
+    ) => Promise<number>;
+  } {
+    return {
+      ...(broadcast !== undefined ? { broadcast } : {}),
+      network: this.http.network,
+      ...(this._latestBlockHeightProvider !== undefined && {
+        latestBlockHeightProvider: this._latestBlockHeightProvider,
+      }),
+      ...(this._accessKeyNonceProvider !== undefined && {
+        accessKeyNonceProvider: this._accessKeyNonceProvider,
+      }),
+    };
   }
 
   constructor(config: OnSocialConfig = {}) {
     this.http = new HttpClient(config);
     this._defaultBroadcast = config.defaultBroadcast;
     this._latestBlockHeightProvider = config.latestBlockHeightProvider;
+    this._accessKeyNonceProvider = config.accessKeyNonceProvider;
     const storageProvider = resolveStorageProvider(
       config.storage as StorageConfig | undefined,
       this.http
@@ -549,10 +578,7 @@ export class OnSocial {
           depositYocto: opts.depositYocto,
         }),
         ...(opts?.wait !== undefined && { wait: opts.wait }),
-        ...(broadcast !== undefined && { broadcast }),
-        ...(this._latestBlockHeightProvider !== undefined && {
-          latestBlockHeightProvider: this._latestBlockHeightProvider,
-        }),
+        ...this._delegateRelayOpts(broadcast),
       }
     );
   }

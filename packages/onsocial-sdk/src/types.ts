@@ -83,6 +83,14 @@ export interface OnSocialConfig {
    * method) when running fully self-hosted with no OnSocial gateway.
    */
   latestBlockHeightProvider?: () => Promise<bigint | number | string>;
+  /**
+   * Optional override for syncing the session access-key nonce before a
+   * delegate nonce retry. Defaults to NEAR RPC `view_access_key`.
+   */
+  accessKeyNonceProvider?: (
+    accountId: string,
+    publicKey: string
+  ) => Promise<number>;
 }
 
 // ── Auth ────────────────────────────────────────────────────────────────────

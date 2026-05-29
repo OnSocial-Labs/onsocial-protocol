@@ -249,6 +249,18 @@ describe('Session runtime', () => {
     session.rewindNonce();
     expect(session.currentNonce).toBe(1);
   });
+
+  it('forceNextNonce sets the next delegate nonce for retry', () => {
+    const session = new Session({
+      network: 'mainnet',
+      accountId: 'alice.near',
+      contract: 'core',
+      key: fakeKey(),
+      startingNonce: 12,
+    });
+    session.forceNextNonce(99);
+    expect(session.currentNonce).toBe(99);
+  });
 });
 
 describe('buildSessionRevoke', () => {

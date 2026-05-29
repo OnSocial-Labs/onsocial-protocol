@@ -5,6 +5,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   __resetLatestBlockCache,
+  __resetSessionRelayQueues,
   composeAndSign,
   SessionRequiredError,
 } from './session-bridge.js';
@@ -16,6 +17,7 @@ import type { HttpClient } from './http.js';
 
 beforeEach(() => {
   __resetLatestBlockCache();
+  __resetSessionRelayQueues();
 });
 
 function makeHttp(responses: Record<string, unknown>): HttpClient {
