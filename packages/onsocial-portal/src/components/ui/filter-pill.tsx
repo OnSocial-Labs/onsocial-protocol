@@ -2,7 +2,10 @@ import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from 'react';
 import { portalColors, type PortalAccent } from '@/lib/portal-colors';
 import { cn } from '@/lib/utils';
 
-type FilterPillProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> & {
+type FilterPillProps = Omit<
+  ButtonHTMLAttributes<HTMLButtonElement>,
+  'children'
+> & {
   active?: boolean;
   label: ReactNode;
   count?: ReactNode;

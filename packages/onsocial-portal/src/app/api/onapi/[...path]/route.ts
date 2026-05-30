@@ -18,6 +18,9 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
   { method: 'POST', path: 'compose/prepare/set', body: 'json' },
   { method: 'GET', path: 'relay/latest-block', body: 'none' },
   { method: 'POST', path: 'relay/delegate', body: 'json' },
+  // On-chain reads used by the SDK (e.g. endorsement move conflict check).
+  { method: 'GET', path: 'data/get-one', body: 'none' },
+  { method: 'GET', path: 'data/get', body: 'none' },
 ];
 
 const FORWARDED_RESPONSE_HEADERS = ['content-type', 'cache-control'] as const;

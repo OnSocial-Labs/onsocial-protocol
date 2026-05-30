@@ -15,10 +15,12 @@ import type { TransactionFeedback } from '@/components/ui/transaction-feedback-t
 import { useProfile } from '@/contexts/profile-context';
 import { useWallet } from '@/contexts/wallet-context';
 import { formatSocialCompact } from '@/lib/leaderboard';
+import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/portal-config';
 import {
   PORTAL_REWARD_AGGREGATE_MS,
   PORTAL_REWARD_MIN_CLAIM_YOCTO,
   PORTAL_REWARD_REFRESH_DELAYS_MS,
+  PORTAL_REWARDS_APP_ID,
   compressPortalRewardToastReasons,
 } from '@/lib/portal-reward-constants';
 import { onPortalRewardCredited } from '@/lib/portal-reward-events';
@@ -37,6 +39,9 @@ interface RefreshBalanceOptions {
 interface PortalRewardsContextValue {
   claimableYocto: bigint;
   totalEarnedYocto: bigint;
+  /** Portal app daily progress (portal credits do not bump global_daily_earned). */
+  portalDailyEarnedYocto: bigint;
+  portalDailyCapYocto: bigint;
   globalDailyEarnedYocto: bigint;
   globalDailyRemainingYocto: bigint;
   canClaim: boolean;
@@ -58,6 +63,11 @@ function parseYocto(value: string | undefined): bigint {
   } catch {
     return 0n;
   }
+}
+
+function nearblocksTxHref(txHash: string | null | undefined): string | null {
+  const hash = typeof txHash === 'string' ? txHash.trim() : '';
+  return hash ? `${ACTIVE_NEAR_EXPLORER_URL}/txns/${hash}` : null;
 }
 
 export function PortalRewardsProvider({ children }: { children: ReactNode }) {
@@ -98,7 +108,7 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
     const nextOverview = await viewContractAt<RewardsUserRewardsOverviewView>(
       REWARDS_CONTRACT,
       'get_user_rewards_overview',
-      { account_id: accountId }
+      { account_id: accountId, app_id: PORTAL_REWARDS_APP_ID }
     );
     setOverview(nextOverview);
     const claimable = parseYocto(nextOverview?.claimable);
@@ -224,9 +234,10 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
   }, [flushAggregatedRewardToast, isUpdatingStanding]);
 
   useEffect(() => {
+    const aggregate = aggregateRef.current;
     return () => {
-      if (aggregateRef.current.timer) {
-        clearTimeout(aggregateRef.current.timer);
+      if (aggregate.timer) {
+        clearTimeout(aggregate.timer);
       }
     };
   }, []);
@@ -272,6 +283,7 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
       setToast({
         type: 'success',
         msg: `${formatSocialCompact(claimed.toString())} SOCIAL claimed`,
+        explorerHref: nearblocksTxHref(data.tx_hash),
       });
       await refreshBalanceWithRetry({ silent: true });
     } catch (error) {
@@ -309,6 +321,17 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
     [overview?.global_daily_remaining]
   );
 
+  const portalDailyEarnedYocto = useMemo(
+    () => parseYocto(overview?.app?.daily_earned),
+    [overview?.app?.daily_earned]
+  );
+
+  const portalDailyCapYocto = useMemo(() => {
+    const earned = parseYocto(overview?.app?.daily_earned);
+    const remaining = parseYocto(overview?.app?.daily_remaining);
+    return earned + remaining;
+  }, [overview?.app?.daily_earned, overview?.app?.daily_remaining]);
+
   const canClaim = claimableYocto >= PORTAL_REWARD_MIN_CLAIM_YOCTO;
   const remainingToClaimYocto = canClaim
     ? 0n
@@ -320,6 +343,8 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
     () => ({
       claimableYocto,
       totalEarnedYocto,
+      portalDailyEarnedYocto,
+      portalDailyCapYocto,
       globalDailyEarnedYocto,
       globalDailyRemainingYocto,
       canClaim,
@@ -338,6 +363,8 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
       globalDailyEarnedYocto,
       globalDailyRemainingYocto,
       loading,
+      portalDailyCapYocto,
+      portalDailyEarnedYocto,
       refreshBalance,
       refreshBalanceWithRetry,
       remainingToClaimYocto,
@@ -348,10 +375,7 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
   return (
     <PortalRewardsContext.Provider value={value}>
       {children}
-      <TransactionFeedbackToast
-        result={toast}
-        onClose={() => setToast(null)}
-      />
+      <TransactionFeedbackToast result={toast} onClose={() => setToast(null)} />
     </PortalRewardsContext.Provider>
   );
 }
@@ -359,7 +383,9 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
 export function usePortalRewards(): PortalRewardsContextValue {
   const context = useContext(PortalRewardsContext);
   if (!context) {
-    throw new Error('usePortalRewards must be used within PortalRewardsProvider');
+    throw new Error(
+      'usePortalRewards must be used within PortalRewardsProvider'
+    );
   }
   return context;
 }

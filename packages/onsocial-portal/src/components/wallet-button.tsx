@@ -1,25 +1,26 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, type MouseEvent } from 'react';
 import { motion } from 'framer-motion';
-import {
-  Wallet,
-  ChevronDown,
-  LogOut,
-  RefreshCw,
-  Search,
-  User,
-  ExternalLink,
-} from 'lucide-react';
+import { Wallet, ChevronDown, User, Copy, Check } from 'lucide-react';
 import { useWallet } from '@/contexts/wallet-context';
 import { ProfileDiscoveryModal } from '@/components/profile-discovery-modal';
 import { ProfileEditor } from '@/components/profile-editor';
 import { ProfileModal } from '@/components/profile-modal';
 import { PortalRewardsRulesModal } from '@/components/portal-rewards-rules-modal';
+import { WalletAssetsModal } from '@/components/wallet-assets-modal';
+import { WalletRewardsSection } from '@/components/wallet-rewards-panel';
+import { WalletPlatformStorageStrip } from '@/components/platform-storage-allowance-summary';
+import { WalletMenuActionDock } from '@/components/wallet-menu-actions';
 import { cn } from '@/lib/utils';
 import {
-  floatingPanelDividerClass,
-  floatingPanelItemClass,
+  walletMenuCardClass,
+  walletMenuInnerDividerClass,
+  walletMenuPanelWidthClass,
+  walletMenuProfileHoverClass,
+  walletMenuIdentityNameClass,
+  walletMenuIdentityHandleClass,
+  walletMenuSectionShellClass,
 } from '@/components/ui/floating-panel';
 import { FloatingPanelMenu } from '@/components/ui/floating-panel-menu';
 import {
@@ -30,12 +31,15 @@ import {
 import { useDropdown } from '@/hooks/use-dropdown';
 import { useProfile } from '@/contexts/profile-context';
 import { usePortalRewards } from '@/contexts/portal-rewards-context';
-import { formatSocialCompact } from '@/lib/leaderboard';
+import { useSocialWalletBalance } from '@/hooks/use-social-wallet-balance';
+import { usePlatformStorageSummary } from '@/hooks/use-platform-storage-summary';
 import {
-  REWARD_ECOSYSTEM_CLAIM_HINT,
-  REWARD_ECOSYSTEM_CLAIM_HINT_COMPACT,
-} from '@/lib/portal-reward-constants';
+  walletDropdownAccessoryButtonClass,
+  walletDropdownAccessoryIconClass,
+  walletDropdownAccessoryIconStroke,
+} from '@/components/ui/inline-icon-button';
 import { profileActionButtonClass } from '@/components/ui/profile-action-pill';
+import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
 import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/near-network';
 import { walletLabelFromAccountId } from '@/lib/wallet-label';
 
@@ -72,6 +76,130 @@ function WalletAvatar({
   );
 }
 
+function WalletAccountCopyButton({ accountId }: { accountId: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(accountId);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard unavailable — no UI spam.
+    }
+  };
+
+  const copyLabel = copied ? 'Account ID copied' : 'Copy account ID';
+
+  return (
+    <button
+      type="button"
+      onClick={(event) => {
+        void handleCopy(event);
+      }}
+      className={cn(
+        walletDropdownAccessoryButtonClass,
+        'pointer-events-auto shrink-0',
+        copied &&
+          'text-[var(--portal-green)] hover:border-[var(--portal-green-border)]/40 hover:bg-[var(--portal-green-bg)] hover:text-[var(--portal-green)] active:text-[var(--portal-green)] focus-visible:ring-[var(--portal-green-border)]'
+      )}
+      aria-label={copyLabel}
+    >
+      {copied ? (
+        <Check
+          className={walletDropdownAccessoryIconClass}
+          strokeWidth={walletDropdownAccessoryIconStroke}
+        />
+      ) : (
+        <Copy
+          className={walletDropdownAccessoryIconClass}
+          strokeWidth={walletDropdownAccessoryIconStroke}
+        />
+      )}
+    </button>
+  );
+}
+
+function WalletMenuIdentity({
+  profilePrimaryLabel,
+  hasProfileName,
+  accountId,
+  hasProfile,
+  onOpenProfile,
+  onEdit,
+}: {
+  profilePrimaryLabel: string | undefined;
+  hasProfileName: boolean;
+  accountId: string | null;
+  hasProfile: boolean;
+  onOpenProfile: () => void;
+  onEdit: () => void;
+}) {
+  return (
+    <div className="group/identity relative -mx-2 -mt-1.5 px-2 pt-1.5 pb-1 md:-mx-2.5 md:-mt-2 md:px-2.5 md:pt-2 md:pb-1.5">
+      <button
+        type="button"
+        onClick={onOpenProfile}
+        className={cn(
+          'absolute inset-0 z-0 rounded-lg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--portal-gold-accent)] md:rounded-xl',
+          walletMenuProfileHoverClass,
+          'group-hover/identity:bg-[var(--portal-slate-bg)]'
+        )}
+        aria-label="Open profile"
+      />
+      <div className="relative z-10 space-y-0.5 pointer-events-none">
+        <div className="flex items-center justify-between gap-2">
+          <p
+            className={cn(
+              'min-w-0 flex-1 truncate transition-colors',
+              walletMenuIdentityNameClass,
+              hasProfileName
+                ? 'text-foreground'
+                : 'text-muted-foreground/75 group-hover/identity:text-muted-foreground/90'
+            )}
+          >
+            {profilePrimaryLabel}
+          </p>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onEdit();
+            }}
+            className={cn(
+              profileActionButtonClass(hasProfile ? 'slate' : 'blue'),
+              'pointer-events-auto shrink-0 self-center'
+            )}
+          >
+            {hasProfile ? (
+              'Edit'
+            ) : (
+              <>
+                <ProtocolMotionArrow className="h-2.5 w-2.5" />
+                Create
+              </>
+            )}
+          </button>
+        </div>
+        {accountId ? (
+          <div className="flex items-center justify-between gap-2">
+            <p
+              className={cn(
+                'min-w-0 flex-1 truncate transition-colors group-hover/identity:text-muted-foreground/75',
+                walletMenuIdentityHandleClass
+              )}
+            >
+              @{accountId}
+            </p>
+            <WalletAccountCopyButton accountId={accountId} />
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export function WalletButton({
   compact = false,
   menuAlign = 'right',
@@ -96,17 +224,29 @@ export function WalletButton({
   >(null);
   const [profileDiscoveryOpen, setProfileDiscoveryOpen] = useState(false);
   const [rewardsRulesOpen, setRewardsRulesOpen] = useState(false);
+  const [walletAssetsOpen, setWalletAssetsOpen] = useState(false);
+  const [walletBalanceRefreshKey, setWalletBalanceRefreshKey] = useState(0);
+  const {
+    balanceYocto: walletBalanceYocto,
+    hasLoadedBalance: walletHasLoadedBalance,
+    loading: walletBalanceLoading,
+    error: walletBalanceError,
+  } = useSocialWalletBalance(accountId, walletBalanceRefreshKey);
   const {
     isOpen: menuOpen,
     close: closeMenu,
     toggle: toggleMenu,
     containerRef: menuRef,
   } = useDropdown();
+  const platformStorage = usePlatformStorageSummary(accountId, menuOpen);
 
-  useEffect(() => {
-    if (!menuOpen || !accountId) return;
-    void refreshBalance({ silent: true });
-  }, [accountId, menuOpen, refreshBalance]);
+  const handleMenuToggle = () => {
+    if (!menuOpen && accountId) {
+      void refreshBalance({ silent: true });
+      setWalletBalanceRefreshKey((key) => key + 1);
+    }
+    toggleMenu();
+  };
 
   const handleDisconnect = async () => {
     await disconnect();
@@ -150,6 +290,11 @@ export function WalletButton({
   const openRewardsRules = () => {
     closeMenu();
     setRewardsRulesOpen(true);
+  };
+
+  const openWalletAssets = () => {
+    closeMenu();
+    setWalletAssetsOpen(true);
   };
 
   const walletLabel = accountId ? walletLabelFromAccountId(accountId) : '';
@@ -244,7 +389,7 @@ export function WalletButton({
   return (
     <div className="relative inline-flex shrink-0 items-center" ref={menuRef}>
       <button
-        onClick={toggleMenu}
+        onClick={handleMenuToggle}
         className={cn(
           compact
             ? cn(
@@ -285,148 +430,72 @@ export function WalletButton({
         open={menuOpen}
         align={menuAlign === 'left' ? 'left' : 'right'}
         offsetClass="mt-1"
-        className="w-56 md:w-64"
+        className={walletMenuPanelWidthClass}
       >
-        <div className="border-b border-fade-section p-1 md:p-1.5">
-          <div className="rounded-lg px-2.5 py-1.5 transition-colors hover:bg-[var(--portal-slate-bg)] md:rounded-xl md:px-3 md:py-2.5">
-            <div className="mb-1 flex items-center justify-between gap-2">
-              <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground/60">
-                Profile
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => openProfileModal(accountId)}
-                className="min-w-0 flex-1 truncate text-left focus-visible:outline-none"
-              >
-                <p
-                  className={cn(
-                    'truncate text-[13px] leading-tight md:text-sm',
-                    hasProfileName
-                      ? 'font-medium text-foreground'
-                      : 'font-medium text-muted-foreground/75'
-                  )}
-                >
-                  {profilePrimaryLabel}
-                </p>
-              </button>
-              <button
-                type="button"
-                onClick={handleProfileAction}
-                className={profileActionButtonClass(hasProfile ? 'slate' : 'blue')}
-              >
-                {hasProfile ? 'Edit' : 'Create'}
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={() => openProfileModal(accountId)}
-              className="mt-0.5 block w-full truncate text-left font-mono text-[11px] leading-tight text-muted-foreground/50 focus-visible:outline-none"
-            >
-              {accountId}
-            </button>
-          </div>
-        </div>
+        <div className={walletMenuSectionShellClass}>
+          <div className={walletMenuCardClass}>
+            <WalletMenuIdentity
+              profilePrimaryLabel={profilePrimaryLabel}
+              hasProfileName={hasProfileName}
+              accountId={accountId}
+              hasProfile={hasProfile}
+              onOpenProfile={() => openProfileModal(accountId)}
+              onEdit={handleProfileAction}
+            />
 
-        <div className="border-b border-fade-section px-3 py-2.5 md:px-4">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0 flex-1">
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground/60">
-                  Rewards
-                </p>
-                <button
-                  type="button"
-                  onClick={openRewardsRules}
-                  className="shrink-0 text-[9px] text-muted-foreground/50 transition-colors hover:text-muted-foreground/80 focus-visible:outline-none"
-                >
-                  How it works
-                </button>
-              </div>
-              {rewardsLoading ? (
-                <p className="font-mono text-[13px] font-medium text-foreground">
-                  …
-                </p>
-              ) : claimableYocto > 0n ? (
-                <>
-                  <p
-                    className="mb-1 text-[9px] text-muted-foreground/45"
-                    title={REWARD_ECOSYSTEM_CLAIM_HINT}
-                  >
-                    {REWARD_ECOSYSTEM_CLAIM_HINT_COMPACT}
-                  </p>
-                  <p className="font-mono text-[13px] font-medium text-foreground">
-                    {formatSocialCompact(claimableYocto.toString())} ready
-                  </p>
-                  {!canClaim ? (
-                    <p className="mt-0.5 text-[10px] text-muted-foreground/55">
-                      {formatSocialCompact(remainingToClaimYocto.toString())} to
-                      claim
-                    </p>
-                  ) : null}
-                </>
-              ) : null}
-            </div>
-            {canClaim ? (
-              <button
-                type="button"
-                onClick={() => {
-                  void claimRewards();
+            <div
+              className={walletMenuInnerDividerClass}
+              role="separator"
+              aria-hidden
+            />
+
+            <div className="space-y-1.5 md:space-y-2">
+              <WalletRewardsSection
+                compact
+                walletBalanceYocto={walletBalanceYocto}
+                walletBalanceLoading={walletBalanceLoading}
+                walletBalanceError={walletBalanceError}
+                walletHasLoadedBalance={walletHasLoadedBalance}
+                claimableYocto={claimableYocto}
+                canClaim={canClaim}
+                claiming={claiming}
+                rewardsLoading={rewardsLoading}
+                remainingToClaimYocto={remainingToClaimYocto}
+                onClaim={async () => {
+                  await claimRewards();
+                  setWalletBalanceRefreshKey((key) => key + 1);
                 }}
-                disabled={claiming}
-                className={profileActionButtonClass('green')}
-              >
-                {claiming ? '…' : 'Claim'}
-              </button>
-            ) : null}
+                onOpenRules={openRewardsRules}
+                onOpenAssets={openWalletAssets}
+              />
+
+              <WalletPlatformStorageStrip
+                compact
+                loading={platformStorage.loading}
+                error={platformStorage.error}
+                summary={platformStorage.summary}
+              />
+            </div>
+
+            <div
+              className={walletMenuInnerDividerClass}
+              role="separator"
+              aria-hidden
+            />
+
+            <WalletMenuActionDock
+              onDiscover={openProfileDiscovery}
+              onExplorer={() => {
+                window.open(
+                  `${ACTIVE_NEAR_EXPLORER_URL}/address/${accountId}`,
+                  '_blank'
+                );
+                closeMenu();
+              }}
+              onSwitch={handleSwitchWallet}
+              onDisconnect={handleDisconnect}
+            />
           </div>
-        </div>
-
-        <div className="space-y-0.5 p-1 md:p-1.5">
-          <button
-            onClick={openProfileDiscovery}
-            className={floatingPanelItemClass}
-          >
-            <Search className="h-3.5 w-3.5 md:h-4 md:w-4" />
-            <span>Discover Profiles</span>
-          </button>
-
-          <button
-            onClick={() => {
-              window.open(
-                `${ACTIVE_NEAR_EXPLORER_URL}/address/${accountId}`,
-                '_blank'
-              );
-              closeMenu();
-            }}
-            className={floatingPanelItemClass}
-          >
-            <User className="h-3.5 w-3.5 md:h-4 md:w-4" />
-            <span>View on Explorer</span>
-            <ExternalLink className="ml-auto h-3 w-3 opacity-40" />
-          </button>
-
-          <button
-            onClick={handleSwitchWallet}
-            className={floatingPanelItemClass}
-          >
-            <RefreshCw className="h-3.5 w-3.5 md:h-4 md:w-4" />
-            <span>Switch Wallet</span>
-          </button>
-
-          <div className={floatingPanelDividerClass}></div>
-
-          <button
-            onClick={handleDisconnect}
-            className={cn(
-              floatingPanelItemClass,
-              'text-[var(--portal-red)] hover:bg-[var(--portal-red-bg)] hover:text-[var(--portal-red)] focus-visible:bg-[var(--portal-red-bg)] focus-visible:text-[var(--portal-red)]'
-            )}
-          >
-            <LogOut className="h-3.5 w-3.5 md:h-4 md:w-4 text-[var(--portal-red)]" />
-            <span>Disconnect</span>
-          </button>
         </div>
       </FloatingPanelMenu>
 
@@ -479,7 +548,14 @@ export function WalletButton({
 
       <PortalRewardsRulesModal
         open={rewardsRulesOpen}
+        accountId={accountId}
         onOpenChange={setRewardsRulesOpen}
+      />
+
+      <WalletAssetsModal
+        open={walletAssetsOpen}
+        onOpenChange={setWalletAssetsOpen}
+        accountId={accountId}
       />
     </div>
   );

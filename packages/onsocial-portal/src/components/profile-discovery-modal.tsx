@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { User } from 'lucide-react';
@@ -39,8 +39,13 @@ interface ProfileDiscoverResult {
 
 interface ProfileDiscoverResponse {
   query: string;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
   results: ProfileDiscoverResult[];
 }
+
+const DISCOVERY_PAGE_SIZE = 24;
 
 interface ProtocolPulseResponse {
   totals?: {
@@ -61,7 +66,7 @@ interface ProfileDiscoveryModalProps {
   ) => Promise<unknown>;
   onEndorse?: (
     target: string,
-    input: import('@onsocial/sdk').EndorsementBuildInput
+    input: import('@/lib/endorsements').EndorsementSubmitInput
   ) => Promise<unknown>;
   onRemoveEndorsement?: (target: string, topic?: string) => Promise<unknown>;
 }
@@ -91,9 +96,7 @@ function formatCount(count: number): string {
 
   return new Intl.NumberFormat('en-US', {
     maximumFractionDigits:
-      Math.abs(numericCount) >= 1000 && Math.abs(numericCount) < 100000
-        ? 1
-        : 0,
+      Math.abs(numericCount) >= 1000 && Math.abs(numericCount) < 100000 ? 1 : 0,
     notation: Math.abs(numericCount) >= 1000 ? 'compact' : 'standard',
   }).format(numericCount);
 }
@@ -135,11 +138,42 @@ function standingTimeMeta(
   return { label, description: `Standing added ${label}` };
 }
 
+function mergeDiscoverResults(
+  current: ProfileDiscoverResult[],
+  incoming: ProfileDiscoverResult[]
+): ProfileDiscoverResult[] {
+  if (incoming.length === 0) return current;
+
+  const seen = new Set(current.map((result) => result.accountId));
+  const merged = [...current];
+  for (const result of incoming) {
+    if (seen.has(result.accountId)) continue;
+    seen.add(result.accountId);
+    merged.push(result);
+  }
+  return merged;
+}
+
+function normalizeDiscoverResults(
+  results: ProfileDiscoverResult[] | undefined
+): ProfileDiscoverResult[] {
+  return (results ?? []).map((result) => ({
+    ...result,
+    viewerStanding: Boolean(result.viewerStanding),
+    theyStandWithViewer: Boolean(result.theyStandWithViewer),
+    targetEndorsedViewer: Boolean(result.targetEndorsedViewer),
+  }));
+}
+
 async function fetchProfileDiscovery(
   query: string,
-  viewerAccountId: string | null
+  viewerAccountId: string | null,
+  offset: number
 ): Promise<ProfileDiscoverResponse> {
-  const search = new URLSearchParams({ limit: '12' });
+  const search = new URLSearchParams({
+    limit: String(DISCOVERY_PAGE_SIZE),
+    offset: String(offset),
+  });
   if (query.trim()) search.set('q', query.trim());
   if (viewerAccountId) search.set('viewerAccountId', viewerAccountId);
 
@@ -160,12 +194,10 @@ async function fetchProfileDiscovery(
 
   return {
     query: body?.query ?? query,
-    results: (body?.results ?? []).map((result) => ({
-      ...result,
-      viewerStanding: Boolean(result.viewerStanding),
-      theyStandWithViewer: Boolean(result.theyStandWithViewer),
-      targetEndorsedViewer: Boolean(result.targetEndorsedViewer),
-    })),
+    limit: body?.limit ?? DISCOVERY_PAGE_SIZE,
+    offset: body?.offset ?? offset,
+    hasMore: Boolean(body?.hasMore),
+    results: normalizeDiscoverResults(body?.results),
   };
 }
 
@@ -195,7 +227,7 @@ function ProfileAvatar({
 function DiscoveryResultsSkeleton() {
   return (
     <div className="space-y-1.5">
-      {Array.from({ length: 6 }).map((_, index) => (
+      {Array.from({ length: 8 }).map((_, index) => (
         <div
           key={index}
           className="flex items-center gap-3 rounded-xl px-2.5 py-2.5"
@@ -225,7 +257,9 @@ export function ProfileDiscoveryModal({
   const reduceMotion = useReducedMotion();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<ProfileDiscoverResult[]>([]);
+  const [hasMore, setHasMore] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [protocolProfileTotal, setProtocolProfileTotal] = useState<
     number | null
   >(null);
@@ -235,12 +269,27 @@ export function ProfileDiscoveryModal({
   );
   const latestLoadRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
   const trimmedQuery = query.trim();
   const profileTotal = totalProfiles ?? protocolProfileTotal;
   const discoveryMeta =
     typeof profileTotal === 'number' && profileTotal > 0
       ? `${formatCount(profileTotal)} IDENTITIES ON THE GRAPH`
       : undefined;
+  const resultsSummary = useMemo(() => {
+    if (results.length === 0) return null;
+
+    const shown = formatCount(results.length);
+    if (trimmedQuery) {
+      return hasMore
+        ? `Showing ${shown} matching profiles`
+        : `${shown} matching profile${results.length === 1 ? '' : 's'}`;
+    }
+    if (typeof profileTotal === 'number' && profileTotal > 0) {
+      return `Showing ${shown} of ${formatCount(profileTotal)}`;
+    }
+    return `Showing ${shown}`;
+  }, [hasMore, profileTotal, results.length, trimmedQuery]);
   useBodyScrollLock(open, scrollRef);
 
   useEffect(() => {
@@ -276,17 +325,21 @@ export function ProfileDiscoveryModal({
     const timeout = window.setTimeout(
       () => {
         setIsLoading(true);
+        setIsLoadingMore(false);
         setError(null);
+        setHasMore(false);
 
-        void fetchProfileDiscovery(query, viewerAccountId)
+        void fetchProfileDiscovery(query, viewerAccountId, 0)
           .then((response) => {
             if (latestLoadRef.current !== loadId) return;
             setResults(response.results);
+            setHasMore(response.hasMore);
           })
           .catch((err) => {
             if (latestLoadRef.current !== loadId) return;
             setError(getErrorMessage(err));
             setResults([]);
+            setHasMore(false);
           })
           .finally(() => {
             if (latestLoadRef.current === loadId) setIsLoading(false);
@@ -297,6 +350,59 @@ export function ProfileDiscoveryModal({
 
     return () => window.clearTimeout(timeout);
   }, [open, query, viewerAccountId]);
+
+  const loadMore = useCallback(async () => {
+    if (!open || isLoading || isLoadingMore || !hasMore) return;
+
+    const loadId = latestLoadRef.current;
+    const offset = results.length;
+    setIsLoadingMore(true);
+    setError(null);
+
+    try {
+      const response = await fetchProfileDiscovery(
+        query,
+        viewerAccountId,
+        offset
+      );
+      if (latestLoadRef.current !== loadId) return;
+      setResults((current) => mergeDiscoverResults(current, response.results));
+      setHasMore(response.hasMore);
+    } catch (err) {
+      if (latestLoadRef.current !== loadId) return;
+      setError(getErrorMessage(err));
+    } finally {
+      if (latestLoadRef.current === loadId) setIsLoadingMore(false);
+    }
+  }, [
+    hasMore,
+    isLoading,
+    isLoadingMore,
+    open,
+    query,
+    results.length,
+    viewerAccountId,
+  ]);
+
+  useEffect(() => {
+    if (!open || !hasMore || isLoading || isLoadingMore) return;
+
+    const sentinel = loadMoreSentinelRef.current;
+    const root = scrollRef.current;
+    if (!sentinel || !root) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          void loadMore();
+        }
+      },
+      { root, rootMargin: '160px', threshold: 0 }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, isLoading, isLoadingMore, loadMore, open, results.length]);
 
   useEffect(() => {
     if (!open) return;
@@ -334,9 +440,7 @@ export function ProfileDiscoveryModal({
             ? {
                 ...item,
                 viewerStanding: shouldStand,
-                standingSince: shouldStand
-                  ? (item.standingSince ?? now)
-                  : null,
+                standingSince: shouldStand ? (item.standingSince ?? now) : null,
                 standingBlockTimestamp: shouldStand
                   ? (item.standingBlockTimestamp ?? now)
                   : null,
@@ -455,8 +559,9 @@ export function ProfileDiscoveryModal({
                         Boolean(viewerAccountId) &&
                         viewerAccountId !== result.accountId &&
                         Boolean(onUpdateStanding);
-                      const isPending =
-                        pendingStandingIds.has(result.accountId);
+                      const isPending = pendingStandingIds.has(
+                        result.accountId
+                      );
                       const canShowViewerRelationship =
                         Boolean(viewerAccountId) &&
                         viewerAccountId !== result.accountId;
@@ -542,8 +647,7 @@ export function ProfileDiscoveryModal({
                                   <span
                                     className={cn(
                                       'font-semibold tabular-nums text-[var(--portal-blue)]/85',
-                                      result.standingCount === 0 &&
-                                        'opacity-40'
+                                      result.standingCount === 0 && 'opacity-40'
                                     )}
                                   >
                                     {formatCount(result.standingCount)}
@@ -711,7 +815,10 @@ export function ProfileDiscoveryModal({
                                           Standing
                                         </span>
                                         <span className="hidden items-center gap-1 group-hover:inline-flex group-focus-visible:inline-flex">
-                                          <ProtocolMotionArrow direction="left" className="h-2.5 w-2.5" />
+                                          <ProtocolMotionArrow
+                                            direction="left"
+                                            className="h-2.5 w-2.5"
+                                          />
                                           Step back
                                         </span>
                                       </>
@@ -731,6 +838,28 @@ export function ProfileDiscoveryModal({
                         </motion.div>
                       );
                     })}
+                    <div
+                      ref={loadMoreSentinelRef}
+                      className="h-px w-full"
+                      aria-hidden
+                    />
+                    {resultsSummary || isLoadingMore ? (
+                      <div className="px-2.5 py-3 text-center">
+                        {resultsSummary ? (
+                          <p className="text-[11px] text-muted-foreground/55">
+                            {resultsSummary}
+                            {isLoadingMore ? (
+                              <span className="text-muted-foreground/40">
+                                {' '}
+                                · Loading more…
+                              </span>
+                            ) : null}
+                          </p>
+                        ) : isLoadingMore ? (
+                          <PulsingDots size="sm" className="mx-auto" />
+                        ) : null}
+                      </div>
+                    ) : null}
                   </motion.div>
                 ) : (
                   <motion.div

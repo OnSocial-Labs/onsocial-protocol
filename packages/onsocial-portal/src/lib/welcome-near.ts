@@ -27,7 +27,7 @@ function getSpendableBalanceYocto(
   return BigInt(account.amount || '0') - BigInt(account.locked || '0');
 }
 
-async function hasSufficientWelcomeBalance(
+export async function accountHasSufficientWelcomeBalance(
   accountId: string
 ): Promise<boolean> {
   const account = await viewAccount(accountId);
@@ -35,7 +35,23 @@ async function hasSufficientWelcomeBalance(
     return false;
   }
 
-  return getSpendableBalanceYocto(account) >= BigInt(WELCOME_NEAR_THRESHOLD_YOCTO);
+  return (
+    getSpendableBalanceYocto(account) >= BigInt(WELCOME_NEAR_THRESHOLD_YOCTO)
+  );
+}
+
+async function hasSufficientWelcomeBalance(
+  accountId: string
+): Promise<boolean> {
+  return accountHasSufficientWelcomeBalance(accountId);
+}
+
+/** True when welcome drip may be needed before session bootstrap gas. */
+export async function accountNeedsWelcomeNearFunding(
+  accountId: string
+): Promise<boolean> {
+  if (!WELCOME_NEAR_ENABLED) return false;
+  return !(await accountHasSufficientWelcomeBalance(accountId));
 }
 
 async function waitForWelcomeBalance(accountId: string): Promise<boolean> {
@@ -50,7 +66,7 @@ async function waitForWelcomeBalance(accountId: string): Promise<boolean> {
   return hasSufficientWelcomeBalance(accountId);
 }
 
-async function assertWalletAccount(
+export async function assertWalletAccount(
   wallet: NearWalletBase,
   accountId: string
 ): Promise<void> {

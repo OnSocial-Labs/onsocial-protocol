@@ -1,6 +1,8 @@
 import * as React from 'react';
 import { Search, X } from 'lucide-react';
 import { cva, type VariantProps } from 'class-variance-authority';
+import { inlineAccessoryIconButtonClass } from '@/components/ui/inline-icon-button';
+import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import { cn } from '@/lib/utils';
 
 const searchInputVariants = cva(
@@ -80,18 +82,19 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
         />
         <span className="flex h-6 w-6 shrink-0 items-center justify-center">
           {value ? (
-            <button
-              type="button"
-              onClick={() => {
-                onValueChange('');
-                inputRef.current?.focus();
-              }}
-              className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-transparent text-muted-foreground transition-colors hover:border-border/40 hover:bg-background/60 hover:text-foreground"
-              aria-label={clearAriaLabel}
-              title={clearAriaLabel}
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
+            <PortalHoverTooltip tooltip={clearAriaLabel}>
+              <button
+                type="button"
+                onClick={() => {
+                  onValueChange('');
+                  inputRef.current?.focus();
+                }}
+                className={inlineAccessoryIconButtonClass('md')}
+                aria-label={clearAriaLabel}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </PortalHoverTooltip>
           ) : null}
         </span>
       </label>

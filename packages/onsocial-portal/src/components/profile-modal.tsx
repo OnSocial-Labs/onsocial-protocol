@@ -13,9 +13,19 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Github, Globe, PenLine, Plus, User } from 'lucide-react';
 import { FaXTwitter } from 'react-icons/fa6';
 import { RiTelegram2Line } from 'react-icons/ri';
-import type { MaterialisedProfile, EndorsementBuildInput } from '@onsocial/sdk';
-import { portalElevatedShadowClass } from '@/components/ui/floating-panel';
+import type { MaterialisedProfile } from '@onsocial/sdk';
+import type { EndorsementSubmitInput } from '@/lib/endorsements';
+import { PROFILE_SEARCH_MIN_QUERY_LENGTH } from '@/lib/profile-account-search';
+import {
+  compactModalBodyClass,
+  compactModalShellClass,
+  portalElevatedShadowClass,
+} from '@/components/ui/floating-panel';
 import { ModalCloseButton } from '@/components/ui/modal-close-button';
+import {
+  ModalFactRow,
+  ModalFactSection,
+} from '@/components/ui/modal-fact-list';
 import { ModalHeader } from '@/components/ui/modal-header';
 import { profileActionButtonClass } from '@/components/ui/profile-action-pill';
 import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
@@ -24,6 +34,7 @@ import { RelationshipSignal } from '@/components/ui/relationship-signal';
 import { SearchInput } from '@/components/ui/search-input';
 import { Skeleton, SkeletonText } from '@/components/ui/skeleton';
 import { NetworkModal, type NetworkAccount } from '@/components/network-modal';
+import { PlatformStorageAllowanceSummary } from '@/components/platform-storage-allowance-summary';
 import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import {
   TransactionFeedbackToast,
@@ -34,6 +45,8 @@ import {
   type EndorsementsModalIntent,
 } from '@/components/profile-endorsements';
 import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
+import { usePlatformStorageSummary } from '@/hooks/use-platform-storage-summary';
+import { PLATFORM_STORAGE_LABEL } from '@/lib/platform-storage-display';
 import type { StandingUpdateResult } from '@/contexts/profile-context';
 import {
   commitmentLabel,
@@ -98,10 +111,13 @@ interface ProfileSocialResponse {
   counts: {
     incoming: number;
     outgoing: number;
+    mutual: number;
   };
   incoming: StandingAccountSummary[];
   outgoing: StandingAccountSummary[];
 }
+
+const STANCE_PAGE_SIZE = 24;
 
 interface ProfileSignalsResponse {
   accountId: string;
@@ -127,7 +143,7 @@ interface ProfileModalProps {
   ) => Promise<StandingUpdateResult>;
   onEndorse?: (
     target: string,
-    input: EndorsementBuildInput
+    input: EndorsementSubmitInput
   ) => Promise<unknown>;
   onRemoveEndorsement?: (target: string, topic?: string) => Promise<unknown>;
 }
@@ -214,9 +230,94 @@ async function fetchProfileSocial(
     counts: {
       incoming: Number(body?.counts?.incoming ?? 0),
       outgoing: Number(body?.counts?.outgoing ?? 0),
+      mutual: Number(body?.counts?.mutual ?? 0),
     },
     incoming: normalizeAccounts(body?.incoming),
     outgoing: normalizeAccounts(body?.outgoing),
+  };
+}
+
+interface ProfileSocialStandingsResponse {
+  accountId: string;
+  direction: StanceDetailKind;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+  total: number;
+  accounts: StandingAccountSummary[];
+}
+
+function mergeStandingAccounts(
+  current: StandingAccountSummary[],
+  incoming: StandingAccountSummary[]
+): StandingAccountSummary[] {
+  if (incoming.length === 0) return current;
+
+  const seen = new Set(current.map((account) => account.accountId));
+  const merged = [...current];
+  for (const account of incoming) {
+    if (seen.has(account.accountId)) continue;
+    seen.add(account.accountId);
+    merged.push(account);
+  }
+  return merged;
+}
+
+async function fetchProfileSocialStandings(
+  accountId: string,
+  viewerAccountId: string | null,
+  direction: StanceDetailKind,
+  offset: number,
+  q = ''
+): Promise<ProfileSocialStandingsResponse> {
+  const search = new URLSearchParams({
+    accountId,
+    direction,
+    limit: String(STANCE_PAGE_SIZE),
+    offset: String(offset),
+  });
+  if (viewerAccountId) search.set('viewerAccountId', viewerAccountId);
+  const normalizedQuery = q.trim();
+  if (normalizedQuery.length >= PROFILE_SEARCH_MIN_QUERY_LENGTH) {
+    search.set('q', normalizedQuery);
+  }
+
+  const response = await fetch(
+    `/api/profile/social/standings?${search.toString()}`,
+    { cache: 'no-store' }
+  );
+  const body = (await response.json().catch(() => null)) as
+    | (Partial<ProfileSocialStandingsResponse> & {
+        error?: string;
+        detail?: string;
+      })
+    | null;
+
+  if (!response.ok) {
+    throw new Error(
+      body?.detail ??
+        body?.error ??
+        `Social standings query failed (${response.status})`
+    );
+  }
+
+  return {
+    accountId,
+    direction,
+    limit: body?.limit ?? STANCE_PAGE_SIZE,
+    offset: body?.offset ?? offset,
+    hasMore: Boolean(body?.hasMore),
+    total: Number(body?.total ?? 0),
+    accounts: (body?.accounts ?? []).map((account) => ({
+      ...account,
+      standingCount: Number(account.standingCount ?? 0),
+      standingWithCount: Number(account.standingWithCount ?? 0),
+      mutualStandingCount: Number(account.mutualStandingCount ?? 0),
+      endorsementsReceivedCount: Number(account.endorsementsReceivedCount ?? 0),
+      endorsementsGivenCount: Number(account.endorsementsGivenCount ?? 0),
+      viewerStanding: Boolean(account.viewerStanding),
+      theyStandWithViewer: Boolean(account.theyStandWithViewer),
+    })),
   };
 }
 
@@ -557,11 +658,7 @@ function SocialProofStrip({
 }) {
   const incomingCount = social.counts.incoming;
   const outgoingCount = social.counts.outgoing;
-
-  const mutualCount = useMemo(() => {
-    const outgoingSet = new Set(social.outgoing.map((a) => a.accountId));
-    return social.incoming.filter((a) => outgoingSet.has(a.accountId)).length;
-  }, [social]);
+  const mutualCount = social.counts.mutual;
 
   const previewAccounts = useMemo(() => {
     const seen = new Set<string>();
@@ -576,11 +673,14 @@ function SocialProofStrip({
     return result;
   }, [social]);
 
-  const overflowCount =
-    social.incoming.length +
-    social.outgoing.length -
-    mutualCount -
-    previewAccounts.length;
+  const uniqueNetworkCount = Math.max(
+    0,
+    incomingCount + outgoingCount - mutualCount
+  );
+  const overflowCount = Math.max(
+    0,
+    uniqueNetworkCount - previewAccounts.length
+  );
 
   const metricBtn =
     'group inline-flex items-center gap-1 rounded-md px-1 py-0.5 transition-colors focus-visible:outline-none focus-visible:ring-1';
@@ -789,7 +889,6 @@ function SocialProofStrip({
           </div>
         </div>
       </div>
-
     </div>
   );
 }
@@ -946,7 +1045,8 @@ function StanceDetailModal({
   kind,
   title,
   isSelf,
-  social,
+  accountId,
+  counts,
   viewerAccountId,
   hasSocialSession = false,
   onClose,
@@ -958,7 +1058,8 @@ function StanceDetailModal({
   kind: StanceDetailKind;
   title: string;
   isSelf: boolean;
-  social: ProfileSocialResponse;
+  accountId: string;
+  counts: ProfileSocialResponse['counts'];
   viewerAccountId: string | null;
   hasSocialSession?: boolean;
   onClose: () => void;
@@ -971,46 +1072,167 @@ function StanceDetailModal({
 }) {
   const reduceMotion = useReducedMotion();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
+  const latestLoadRef = useRef(0);
+  const [query, setQuery] = useState('');
+  const [accounts, setAccounts] = useState<StandingAccountSummary[]>([]);
+  const [listTotal, setListTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [pendingStandingIds, setPendingStandingIds] = useState<Set<string>>(
     () => new Set()
   );
-  const [query, setQuery] = useState('');
   useBodyScrollLock(open, scrollRef);
 
-  const mutualAccountsList = useMemo(() => {
-    const outgoingSet = new Set(social.outgoing.map((a) => a.accountId));
-    return social.incoming.filter((a) => outgoingSet.has(a.accountId));
-  }, [social]);
-
-  const accounts: StandingAccountSummary[] =
-    kind === 'incoming'
-      ? social.incoming
+  const serverSearchActive =
+    query.trim().length >= PROFILE_SEARCH_MIN_QUERY_LENGTH;
+  const searchQueryForFetch = serverSearchActive ? query.trim() : '';
+  const totalCount = serverSearchActive
+    ? listTotal
+    : kind === 'incoming'
+      ? counts.incoming
       : kind === 'outgoing'
-        ? social.outgoing
-        : mutualAccountsList;
+        ? counts.outgoing
+        : counts.mutual;
 
   useEffect(() => {
     if (open) setQuery('');
   }, [kind, open]);
 
+  useEffect(() => {
+    if (!open) {
+      latestLoadRef.current += 1;
+      return;
+    }
+
+    const loadId = latestLoadRef.current + 1;
+    latestLoadRef.current = loadId;
+    const timeout = window.setTimeout(
+      () => {
+        setIsLoading(true);
+        setIsLoadingMore(false);
+        setLoadError(null);
+        setHasMore(false);
+
+        void fetchProfileSocialStandings(
+          accountId,
+          viewerAccountId,
+          kind,
+          0,
+          searchQueryForFetch
+        )
+          .then((response) => {
+            if (latestLoadRef.current !== loadId) return;
+            setAccounts(response.accounts);
+            setHasMore(response.hasMore);
+            setListTotal(response.total);
+          })
+          .catch((error) => {
+            if (latestLoadRef.current !== loadId) return;
+            setLoadError(getErrorMessage(error));
+            setAccounts([]);
+            setHasMore(false);
+            setListTotal(0);
+          })
+          .finally(() => {
+            if (latestLoadRef.current === loadId) setIsLoading(false);
+          });
+      },
+      serverSearchActive ? 220 : 0
+    );
+
+    return () => window.clearTimeout(timeout);
+  }, [
+    accountId,
+    kind,
+    open,
+    searchQueryForFetch,
+    serverSearchActive,
+    viewerAccountId,
+  ]);
+
+  const loadMore = useCallback(async () => {
+    if (!open || isLoading || isLoadingMore || !hasMore) return;
+
+    const loadId = latestLoadRef.current;
+    const offset = accounts.length;
+    setIsLoadingMore(true);
+    setLoadError(null);
+
+    try {
+      const response = await fetchProfileSocialStandings(
+        accountId,
+        viewerAccountId,
+        kind,
+        offset,
+        searchQueryForFetch
+      );
+      if (latestLoadRef.current !== loadId) return;
+      setAccounts((current) =>
+        mergeStandingAccounts(current, response.accounts)
+      );
+      setHasMore(response.hasMore);
+      setListTotal(response.total);
+    } catch (error) {
+      if (latestLoadRef.current !== loadId) return;
+      setLoadError(getErrorMessage(error));
+    } finally {
+      if (latestLoadRef.current === loadId) setIsLoadingMore(false);
+    }
+  }, [
+    accountId,
+    accounts.length,
+    hasMore,
+    isLoading,
+    isLoadingMore,
+    kind,
+    open,
+    searchQueryForFetch,
+    viewerAccountId,
+  ]);
+
+  useEffect(() => {
+    if (!open || !hasMore || isLoading || isLoadingMore) return;
+
+    const sentinel = loadMoreSentinelRef.current;
+    const root = scrollRef.current;
+    if (!sentinel || !root) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          void loadMore();
+        }
+      },
+      { root, rootMargin: '160px', threshold: 0 }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [accounts.length, hasMore, isLoading, isLoadingMore, loadMore, open]);
+
   const filteredAccounts = useMemo(() => {
+    if (serverSearchActive) return accounts;
+
     const normalizedQuery = query.trim().toLowerCase();
     if (!normalizedQuery) return accounts;
 
     return accounts.filter((account: StandingAccountSummary) => {
       const label = accountLabel(account).toLowerCase();
-      const accountId = account.accountId.toLowerCase();
+      const accountIdLabel = account.accountId.toLowerCase();
       const bio = account.bio?.toLowerCase() ?? '';
       return (
         label.includes(normalizedQuery) ||
-        accountId.includes(normalizedQuery) ||
+        accountIdLabel.includes(normalizedQuery) ||
         bio.includes(normalizedQuery)
       );
     });
-  }, [accounts, query]);
+  }, [accounts, query, serverSearchActive]);
 
-  const accountCountLabel = formatCount(accounts.length);
-  const standingVerb = accounts.length === 1 ? 'STANDS' : 'STAND';
+  const accountCountLabel = formatCount(totalCount);
+  const standingVerb = totalCount === 1 ? 'STANDS' : 'STAND';
   const modalMeta =
     kind === 'mutual'
       ? `${accountCountLabel} IN SOLIDARITY`
@@ -1022,7 +1244,44 @@ function StanceDetailModal({
           ? `YOU STAND WITH ${accountCountLabel}`
           : `THEY STAND WITH ${accountCountLabel}`;
   const modalCloseLabel = `Close ${title} standing details`;
-  const canDiscoverFromHeader = Boolean(onDiscoverProfiles) && kind !== 'incoming';
+  const canDiscoverFromHeader =
+    Boolean(onDiscoverProfiles) && kind !== 'incoming';
+  const resultsSummary = useMemo(() => {
+    if (filteredAccounts.length === 0 && isLoading) return null;
+
+    const shown = formatCount(
+      serverSearchActive || query.trim()
+        ? filteredAccounts.length
+        : accounts.length
+    );
+    if (serverSearchActive) {
+      if (totalCount > 0) {
+        return hasMore
+          ? `Showing ${shown} of ${formatCount(totalCount)} matching profiles`
+          : `${formatCount(totalCount)} matching profile${totalCount === 1 ? '' : 's'}`;
+      }
+      return hasMore
+        ? `Showing ${shown} matching profiles`
+        : `${shown} matching profile${filteredAccounts.length === 1 ? '' : 's'}`;
+    }
+    if (query.trim()) {
+      return hasMore
+        ? `Showing ${shown} matching profiles`
+        : `${shown} matching profile${filteredAccounts.length === 1 ? '' : 's'}`;
+    }
+    if (totalCount > 0) {
+      return `Showing ${shown} of ${formatCount(totalCount)}`;
+    }
+    return `Showing ${shown}`;
+  }, [
+    accounts.length,
+    filteredAccounts.length,
+    hasMore,
+    isLoading,
+    query,
+    serverSearchActive,
+    totalCount,
+  ]);
 
   const emptyLabel =
     kind === 'mutual'
@@ -1096,7 +1355,7 @@ function StanceDetailModal({
               }
             />
 
-            {accounts.length > 0 ? (
+            {totalCount > 0 ? (
               <div className="shrink-0 px-4 pb-4 md:px-5">
                 <SearchInput
                   value={query}
@@ -1109,50 +1368,129 @@ function StanceDetailModal({
               </div>
             ) : null}
 
+            {loadError ? (
+              <p className="mx-4 mb-3 rounded-xl border border-[var(--portal-red-border)] bg-[var(--portal-red-bg)] px-3 py-2 text-xs leading-relaxed text-[var(--portal-red)] md:mx-5">
+                {loadError}
+              </p>
+            ) : null}
+
             <div
               ref={scrollRef}
               className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-5 md:px-5"
             >
-              <StandingList
-                accounts={filteredAccounts}
-                hasSocialSession={hasSocialSession}
-                emptyLabel={query.trim() ? 'No matching profiles.' : emptyLabel}
-                emptyCta={
-                  !query.trim() && kind === 'outgoing' && onDiscoverProfiles ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onClose();
-                        onDiscoverProfiles();
-                      }}
-                      className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--portal-blue)] transition-colors hover:text-[var(--portal-blue-hover)]"
+              {isLoading && accounts.length === 0 ? (
+                <div className="space-y-1.5" aria-hidden>
+                  {Array.from({ length: 6 }).map((_, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-3 rounded-xl px-2.5 py-2.5"
                     >
-                      Find someone to stand with
-                    </button>
-                  ) : undefined
-                }
-                onSelectAccount={(accountId) => {
-                  onClose();
-                  onSelectAccount?.(accountId);
-                }}
-                viewerAccountId={viewerAccountId}
-                pendingStandingIds={pendingStandingIds}
-                onUpdateStanding={async (account, shouldStand) => {
-                  if (!onUpdateAccountStanding || pendingStandingIds.has(account.accountId)) return;
-                  setPendingStandingIds((prev) => new Set(prev).add(account.accountId));
-                  try {
-                    await onUpdateAccountStanding(account, shouldStand);
-                  } catch {
-                    // The parent surfaces the transaction error in the profile modal.
-                  } finally {
-                    setPendingStandingIds((prev) => {
-                      const next = new Set(prev);
-                      next.delete(account.accountId);
-                      return next;
-                    });
-                  }
-                }}
-              />
+                      <Skeleton className="h-9 w-9 shrink-0 rounded-full bg-foreground/[0.08]" />
+                      <span className="min-w-0 flex-1 space-y-2">
+                        <Skeleton className="h-4 w-36 max-w-full bg-foreground/[0.08]" />
+                        <Skeleton className="h-3 w-48 max-w-full bg-foreground/5" />
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <>
+                  <StandingList
+                    accounts={filteredAccounts}
+                    hasSocialSession={hasSocialSession}
+                    emptyLabel={
+                      query.trim() ? 'No matching profiles.' : emptyLabel
+                    }
+                    emptyCta={
+                      !query.trim() &&
+                      kind === 'outgoing' &&
+                      onDiscoverProfiles ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onClose();
+                            onDiscoverProfiles();
+                          }}
+                          className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--portal-blue)] transition-colors hover:text-[var(--portal-blue-hover)]"
+                        >
+                          Find someone to stand with
+                        </button>
+                      ) : undefined
+                    }
+                    onSelectAccount={(selectedAccountId) => {
+                      onClose();
+                      onSelectAccount?.(selectedAccountId);
+                    }}
+                    viewerAccountId={viewerAccountId}
+                    pendingStandingIds={pendingStandingIds}
+                    onUpdateStanding={async (account, shouldStand) => {
+                      if (
+                        !onUpdateAccountStanding ||
+                        pendingStandingIds.has(account.accountId)
+                      ) {
+                        return;
+                      }
+                      setPendingStandingIds((prev) =>
+                        new Set(prev).add(account.accountId)
+                      );
+                      try {
+                        await onUpdateAccountStanding(account, shouldStand);
+                        setAccounts((current) =>
+                          current.map((item) =>
+                            item.accountId === account.accountId
+                              ? {
+                                  ...item,
+                                  viewerStanding: shouldStand,
+                                  standingSince: shouldStand
+                                    ? (item.standingSince ?? Date.now())
+                                    : null,
+                                  standingBlockTimestamp: shouldStand
+                                    ? (item.standingBlockTimestamp ??
+                                      Date.now())
+                                    : null,
+                                }
+                              : item
+                          )
+                        );
+                      } catch {
+                        // The parent surfaces the transaction error in the profile modal.
+                      } finally {
+                        setPendingStandingIds((prev) => {
+                          const next = new Set(prev);
+                          next.delete(account.accountId);
+                          return next;
+                        });
+                      }
+                    }}
+                  />
+                  {!query.trim() && filteredAccounts.length > 0 ? (
+                    <>
+                      <div
+                        ref={loadMoreSentinelRef}
+                        className="h-px w-full"
+                        aria-hidden
+                      />
+                      {resultsSummary || isLoadingMore ? (
+                        <div className="px-2.5 py-3 text-center">
+                          {resultsSummary ? (
+                            <p className="text-[11px] text-muted-foreground/55">
+                              {resultsSummary}
+                              {isLoadingMore ? (
+                                <span className="text-muted-foreground/40">
+                                  {' '}
+                                  · Loading more…
+                                </span>
+                              ) : null}
+                            </p>
+                          ) : isLoadingMore ? (
+                            <PulsingDots size="sm" className="mx-auto" />
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </>
+                  ) : null}
+                </>
+              )}
             </div>
           </motion.div>
         </motion.div>
@@ -1194,7 +1532,8 @@ function StandingList({
           Boolean(viewerAccountId) &&
           viewerAccountId !== account.accountId &&
           Boolean(onUpdateStanding);
-        const isRowPending = pendingStandingIds?.has(account.accountId) ?? false;
+        const isRowPending =
+          pendingStandingIds?.has(account.accountId) ?? false;
         const viewerStandsWithAccount = Boolean(account.viewerStanding);
         const canShowViewerRelationship =
           Boolean(viewerAccountId) && viewerAccountId !== account.accountId;
@@ -1302,8 +1641,7 @@ function StandingList({
                     <span
                       className={cn(
                         'font-semibold tabular-nums text-[var(--portal-purple)]/85',
-                        (account.mutualStandingCount ?? 0) === 0 &&
-                          'opacity-40'
+                        (account.mutualStandingCount ?? 0) === 0 && 'opacity-40'
                       )}
                     >
                       {formatCount(account.mutualStandingCount ?? 0)}
@@ -1407,16 +1745,17 @@ function StandingList({
                           Standing
                         </span>
                         <span className="hidden items-center gap-1 group-hover:inline-flex group-focus-visible:inline-flex">
-                          <ProtocolMotionArrow direction="left" className="h-2.5 w-2.5" />
+                          <ProtocolMotionArrow
+                            direction="left"
+                            className="h-2.5 w-2.5"
+                          />
                           Step back
                         </span>
                       </>
                     ) : (
                       <>
                         <ProtocolMotionArrow className="h-2.5 w-2.5" />
-                        {hasSocialSession
-                          ? 'Stand with'
-                          : 'Authorize & stand'}
+                        {hasSocialSession ? 'Stand with' : 'Authorize & stand'}
                       </>
                     )}
                   </button>
@@ -1427,34 +1766,6 @@ function StandingList({
         );
       })}
     </div>
-  );
-}
-
-function AccountFactRow({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between gap-4 py-1.5 text-[12px]">
-      <dt className="text-muted-foreground/58">{label}</dt>
-      <dd className="max-w-[60%] truncate text-right font-medium text-foreground/86">
-        {value}
-      </dd>
-    </div>
-  );
-}
-
-function AccountFactSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <section>
-      <h3 className="mb-1 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground/45">
-        {title}
-      </h3>
-      <dl className="divide-y divide-fade-item">{children}</dl>
-    </section>
   );
 }
 
@@ -1473,7 +1784,7 @@ function AccountFactsModal({
   onOpenChange,
   accountId,
   displayName,
-  avatarUrl,
+  avatarUrl: _avatarUrl,
   profile,
   latestProfileUpdateFields,
   joinedLabel,
@@ -1496,6 +1807,8 @@ function AccountFactsModal({
   nearAccountCreation?: PortalProfileResponse['nearAccountCreation'];
 }) {
   const reduceMotion = useReducedMotion();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useBodyScrollLock(open, scrollRef);
   const lastProfileUpdate = profileDateLabel(profile?.lastUpdatedAt);
   const updatedFieldsLabel =
     latestProfileUpdateFields.length > 0
@@ -1515,6 +1828,8 @@ function AccountFactsModal({
     ? formatBytes(nearAccount.storageUsage)
     : 'Unavailable';
 
+  const platformStorage = usePlatformStorageSummary(accountId, open);
+
   useEffect(() => {
     if (!open) return;
 
@@ -1532,7 +1847,7 @@ function AccountFactsModal({
     <AnimatePresence initial={false}>
       {open ? (
         <motion.div
-          {...fadeMotion(reduceMotion ? 0 : 0.16)}
+          {...fadeMotion(reduceMotion ? 0 : 0.18)}
           data-lenis-prevent
           className="fixed inset-0 z-[2147483646] flex items-center justify-center px-4 py-6"
         >
@@ -1545,25 +1860,32 @@ function AccountFactsModal({
 
           <motion.div
             {...scaleFadeMotion(!!reduceMotion, {
-              y: 12,
+              y: 14,
               scale: 0.98,
-              duration: 0.2,
+              duration: 0.22,
               exitY: 8,
               exitScale: 0.99,
             })}
             role="dialog"
             aria-modal="true"
             aria-labelledby="account-facts-title"
-            className={cn(
-              'relative flex w-full max-w-md flex-col overflow-hidden rounded-2xl border border-border/67 bg-background/98',
-              portalElevatedShadowClass
-            )}
+            className={cn(compactModalShellClass, portalElevatedShadowClass)}
           >
             <ModalHeader
               titleId="account-facts-title"
               title="Account facts"
-              description={accountId}
+              description={
+                <>
+                  <span className="font-medium text-foreground/80">
+                    {displayName}
+                  </span>
+                  <span className="text-muted-foreground/45"> · </span>
+                  <span>@{accountId}</span>
+                </>
+              }
               descriptionVariant="meta"
+              bordered
+              className="pb-3"
               actions={
                 <ModalCloseButton
                   ariaLabel="Close account facts"
@@ -1572,88 +1894,115 @@ function AccountFactsModal({
               }
             />
 
-            <div className="space-y-5 px-4 pb-5 md:px-5">
-              <div className="flex items-center gap-3">
-                <AccountAvatar avatarUrl={avatarUrl} className="h-10 w-10" />
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-foreground">
-                    {displayName}
-                  </p>
-                  <p className="truncate text-[12px] text-muted-foreground/55">
-                    @{accountId}
-                  </p>
-                </div>
+            <div ref={scrollRef} className={compactModalBodyClass}>
+              <div className="divide-y divide-fade-section">
+                <section className="py-3">
+                  <ModalFactSection dense title="OnSocial">
+                    <ModalFactRow
+                      dense
+                      label="Joined"
+                      value={joinedLabel ?? 'Unavailable'}
+                    />
+                    <ModalFactRow
+                      dense
+                      label="Last update"
+                      value={lastProfileUpdate ?? 'Unavailable'}
+                    />
+                    {updatedFieldsLabel ? (
+                      <ModalFactRow
+                        dense
+                        label="Fields"
+                        value={updatedFieldsLabel}
+                        multiline
+                      />
+                    ) : null}
+                  </ModalFactSection>
+                </section>
+
+                <section className="py-3">
+                  <h3 className="mb-1 text-[9px] font-medium uppercase tracking-[0.16em] text-muted-foreground/45">
+                    {PLATFORM_STORAGE_LABEL}
+                  </h3>
+                  <PlatformStorageAllowanceSummary
+                    variant="accountFacts"
+                    loading={platformStorage.loading}
+                    error={platformStorage.error}
+                    summary={platformStorage.summary}
+                  />
+                </section>
+
+                <section className="py-3">
+                  <ModalFactSection dense title="Profile">
+                    <ModalFactRow
+                      dense
+                      label="Name"
+                      value={fieldStatus(profile?.name)}
+                    />
+                    <ModalFactRow
+                      dense
+                      label="Bio"
+                      value={fieldStatus(profile?.bio)}
+                    />
+                    <ModalFactRow
+                      dense
+                      label="Avatar"
+                      value={fieldStatus(profile?.avatar)}
+                    />
+                    <ModalFactRow
+                      dense
+                      label="Banner"
+                      value={fieldStatus(profile?.banner)}
+                    />
+                    <ModalFactRow
+                      dense
+                      label="Links"
+                      value={linkStatus(profile?.links)}
+                    />
+                  </ModalFactSection>
+                </section>
+
+                <section className="py-3">
+                  <ModalFactSection dense title="NEAR">
+                    <ModalFactRow
+                      dense
+                      label="Network"
+                      value={
+                        network
+                          ? network[0].toUpperCase() + network.slice(1)
+                          : 'Unavailable'
+                      }
+                    />
+                    {accountCreatedLabel ? (
+                      <ModalFactRow
+                        dense
+                        label="Created"
+                        value={
+                          accountCreatedUrl ? (
+                            <a
+                              href={accountCreatedUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="group inline-flex items-center gap-1 text-[var(--portal-blue)] transition-colors hover:text-[var(--portal-blue-hover)]"
+                            >
+                              {accountCreatedLabel}
+                              <ProtocolMotionArrow className="h-2.5 w-2.5" />
+                            </a>
+                          ) : (
+                            accountCreatedLabel
+                          )
+                        }
+                      />
+                    ) : null}
+                    <ModalFactRow dense label="Type" value={accountType} />
+                    <ModalFactRow
+                      dense
+                      label="Storage used"
+                      value={storageUsed}
+                      valueMono
+                    />
+                  </ModalFactSection>
+                </section>
               </div>
-
-              <AccountFactSection title="OnSocial">
-                <AccountFactRow
-                  label="Joined OnSocial"
-                  value={joinedLabel ?? 'Unavailable'}
-                />
-                <AccountFactRow
-                  label="Last profile update"
-                  value={lastProfileUpdate ?? 'Unavailable'}
-                />
-                {updatedFieldsLabel ? (
-                  <AccountFactRow
-                    label="Updated fields"
-                    value={updatedFieldsLabel}
-                  />
-                ) : null}
-              </AccountFactSection>
-
-              <AccountFactSection title="Profile content">
-                <AccountFactRow
-                  label="Name"
-                  value={fieldStatus(profile?.name)}
-                />
-                <AccountFactRow label="Bio" value={fieldStatus(profile?.bio)} />
-                <AccountFactRow
-                  label="Avatar"
-                  value={fieldStatus(profile?.avatar)}
-                />
-                <AccountFactRow
-                  label="Banner"
-                  value={fieldStatus(profile?.banner)}
-                />
-                <AccountFactRow
-                  label="Links"
-                  value={linkStatus(profile?.links)}
-                />
-              </AccountFactSection>
-
-              <AccountFactSection title="NEAR">
-                <AccountFactRow
-                  label="Network"
-                  value={
-                    network
-                      ? network[0].toUpperCase() + network.slice(1)
-                      : 'Unavailable'
-                  }
-                />
-                {accountCreatedLabel ? (
-                  <AccountFactRow
-                    label="Account created"
-                    value={
-                      accountCreatedUrl ? (
-                        <a
-                          href={accountCreatedUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="group inline-flex items-center gap-1 text-[var(--portal-blue)] transition-colors hover:text-[var(--portal-blue-hover)]"
-                        >
-                          {accountCreatedLabel}
-                          <ProtocolMotionArrow className="h-2.5 w-2.5" />
-                        </a>
-                      ) : (
-                        accountCreatedLabel
-                      )
-                    }
-                  />
-                ) : null}
-                <AccountFactRow label="Account type" value={accountType} />
-                <AccountFactRow label="NEAR storage used" value={storageUsed} />
-              </AccountFactSection>
             </div>
           </motion.div>
         </motion.div>
@@ -2053,348 +2402,361 @@ export function ProfileModal({
       {createPortal(
         <AnimatePresence initial={false}>
           {open && accountId ? (
-        <motion.div
-          {...fadeMotion(reduceMotion ? 0 : 0.18)}
-          data-lenis-prevent
-          className="fixed inset-0 z-[2147483645] flex items-center justify-center px-4 py-6"
-        >
-          <button
-            type="button"
-            className="absolute inset-0 bg-background/72 backdrop-blur-md"
-            aria-label="Close profile"
-            onClick={() => onOpenChange(false)}
-          />
-
-          <motion.div
-            {...scaleFadeMotion(!!reduceMotion, {
-              y: 16,
-              scale: 0.98,
-              duration: 0.22,
-              exitY: 10,
-              exitScale: 0.99,
-            })}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="profile-modal-title"
-            className={cn(
-              'relative flex h-[min(760px,calc(100vh-2rem))] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border/67 bg-background/98',
-              portalElevatedShadowClass
-            )}
-          >
-            <div
-              ref={scrollRef}
-              className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+            <motion.div
+              {...fadeMotion(reduceMotion ? 0 : 0.18)}
+              data-lenis-prevent
+              className="fixed inset-0 z-[2147483645] flex items-center justify-center px-4 py-6"
             >
-              <div className="absolute right-3 top-3 z-10 flex items-center gap-1.5">
-                {isSelf && hasProfileLoaded ? (
-                  <button
-                    type="button"
-                    onClick={onEditProfile}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/18 bg-black/20 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_12px_28px_-20px_rgba(0,0,0,0.56)] backdrop-blur-xl backdrop-saturate-150 transition-colors hover:border-white/28 hover:bg-black/30 hover:text-white"
-                    aria-label="Edit profile"
-                  >
-                    <PortalHoverTooltip tooltip="Edit profile">
-                      <PenLine className="h-4 w-4" />
-                    </PortalHoverTooltip>
-                  </button>
-                ) : null}
-                <ModalCloseButton
-                  ariaLabel="Close profile"
-                  onClick={() => onOpenChange(false)}
-                  className="border-white/18 bg-black/20 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_12px_28px_-20px_rgba(0,0,0,0.56)] backdrop-blur-xl backdrop-saturate-150 hover:border-white/28 hover:bg-black/30 hover:text-white"
-                />
-              </div>
+              <button
+                type="button"
+                className="absolute inset-0 bg-background/72 backdrop-blur-md"
+                aria-label="Close profile"
+                onClick={() => onOpenChange(false)}
+              />
 
-              {!hasProfileLoaded ? (
-                <>
-                  <h2 id="profile-modal-title" className="sr-only">
-                    Profile
-                  </h2>
-                  <ProfileIdentityLoading />
-                </>
-              ) : (
-                <>
-                  <div className="relative aspect-[5/1] shrink-0 overflow-hidden">
-                    {bannerUrl ? (
-                      <img
-                        src={bannerUrl}
-                        alt=""
-                        className="absolute inset-0 h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div
-                        className="absolute inset-0"
-                        style={{
-                          background: accountGradient(accountId),
-                        }}
-                      />
-                    )}
-                    {!bannerUrl ? (
-                      <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[hsl(var(--background)/0.98)] to-transparent" />
+              <motion.div
+                {...scaleFadeMotion(!!reduceMotion, {
+                  y: 16,
+                  scale: 0.98,
+                  duration: 0.22,
+                  exitY: 10,
+                  exitScale: 0.99,
+                })}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="profile-modal-title"
+                className={cn(
+                  'relative flex h-[min(760px,calc(100vh-2rem))] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border/67 bg-background/98',
+                  portalElevatedShadowClass
+                )}
+              >
+                <div
+                  ref={scrollRef}
+                  className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+                >
+                  <div className="absolute right-3 top-3 z-10 flex items-center gap-1.5">
+                    {isSelf && hasProfileLoaded ? (
+                      <button
+                        type="button"
+                        onClick={onEditProfile}
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/18 bg-black/20 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_12px_28px_-20px_rgba(0,0,0,0.56)] backdrop-blur-xl backdrop-saturate-150 transition-colors hover:border-white/28 hover:bg-black/30 hover:text-white"
+                        aria-label="Edit profile"
+                      >
+                        <PortalHoverTooltip tooltip="Edit profile">
+                          <PenLine className="h-4 w-4" />
+                        </PortalHoverTooltip>
+                      </button>
                     ) : null}
-                  </div>
-
-                  <div className="relative -mt-8 space-y-3 px-4 pb-5 md:px-5">
-                    <div className="flex items-start gap-3.5">
-                      <AccountAvatar
-                        avatarUrl={avatarUrl}
-                        className="h-20 w-20 md:h-24 md:w-24 rounded-2xl !border-[3px] !border-background shadow-lg"
-                        placeholderIconClassName="h-6 w-6"
-                        placeholderIconStrokeWidth={2.5}
-                      />
-                      <div className="min-w-0 flex-1 pt-10 pr-8">
-                        <div className="flex min-w-0 items-start justify-between gap-2">
-                          <h2
-                            id="profile-modal-title"
-                            className="min-w-0 truncate text-lg font-semibold leading-tight text-foreground"
-                          >
-                            {title}
-                          </h2>
-                          {profileLinks.length > 0 ? (
-                            <span className="inline-flex shrink-0 items-center gap-1">
-                              {profileLinks.map((item) => (
-                                <a
-                                  key={item.key}
-                                  href={item.href}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className={cn(
-                                    'text-muted-foreground transition-all hover:scale-110 hover:brightness-125 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60',
-                                    item.kind === 'website' &&
-                                      'hover:text-[var(--portal-blue)]',
-                                    item.kind === 'telegram' &&
-                                      'hover:text-[#26A5E4]',
-                                    item.kind === 'x' && 'hover:text-foreground',
-                                    item.kind === 'github' &&
-                                      'hover:text-[var(--portal-purple)]'
-                                  )}
-                                  aria-label={`${item.label}: ${item.display}`}
-                                >
-                                  <PortalHoverTooltip
-                                    tooltip={`${item.label}: ${item.display}`}
-                                  >
-                                    <ProfileLinkIcon
-                                      kind={item.kind}
-                                      className="h-[18px] w-[18px]"
-                                    />
-                                  </PortalHoverTooltip>
-                                </a>
-                              ))}
-                            </span>
-                          ) : null}
-                        </div>
-                        <p className="mt-0.5 truncate text-[13px] text-muted-foreground/55">
-                          @{accountId}
-                        </p>
-                      </div>
-                    </div>
-
-                    {bio ? (
-                      <p className="text-sm leading-relaxed text-muted-foreground">
-                        {bio}
-                      </p>
-                    ) : null}
-
-                    {!socialReady ? (
-                      <div className="space-y-2">
-                        <div className="flex items-start gap-6">
-                          <div className="space-y-1.5">
-                            <Skeleton className="h-2 w-14" />
-                            <div className="flex gap-1.5">
-                              <Skeleton className="h-4 w-8 rounded" />
-                              <Skeleton className="h-4 w-8 rounded" />
-                              <Skeleton className="h-4 w-6 rounded" />
-                            </div>
-                          </div>
-                          <div className="space-y-1.5">
-                            <Skeleton className="h-2 w-20" />
-                            <div className="flex gap-1.5">
-                              <Skeleton className="h-4 w-8 rounded" />
-                              <Skeleton className="h-4 w-8 rounded" />
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex -space-x-1">
-                          {Array.from({ length: 4 }).map((_, i) => (
-                            <Skeleton
-                              key={i}
-                              className="h-5 w-5 rounded-full"
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    ) : social ? (
-                      <SocialProofStrip
-                        social={social}
-                        endorsementCount={endorsementCount}
-                        givenEndorsementCount={givenEndorsementCount}
-                        isSelf={isSelf}
-                        meta={
-                          joinedLabel || canStand ? (
-                            <span className="inline-flex flex-wrap items-center gap-2">
-                              {joinedLabel ? (
-                                <button
-                                  type="button"
-                                  onClick={() => setAccountFactsOpen(true)}
-                                  className="group inline-flex items-center gap-1 rounded-md text-[11px] font-medium text-muted-foreground/55 transition-colors hover:text-muted-foreground/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60"
-                                  aria-label={`View account facts for ${title}`}
-                                >
-                                  Joined {joinedLabel}
-                                  <ProtocolMotionArrow className="h-2.5 w-2.5" />
-                                </button>
-                              ) : null}
-                              {joinedLabel && canStand ? (
-                                <span className="h-1 w-1 rounded-full bg-muted-foreground/25" />
-                              ) : null}
-                              {canStand ? (
-                                pendingStandingAction ? (
-                                  <span
-                                    className={cn(
-                                      profileActionButtonClass(
-                                        pendingStandingAction === 'stand'
-                                          ? 'blue'
-                                          : 'slate'
-                                      )
-                                    )}
-                                    aria-live="polite"
-                                    aria-label={
-                                      viewerStanding
-                                        ? 'Stepping back'
-                                        : 'Confirming stance'
-                                    }
-                                  >
-                                    <PulsingDots size="sm" />
-                                  </span>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    className={cn(
-                                      profileActionButtonClass(
-                                        viewerStanding ? 'slate' : 'blue'
-                                      )
-                                    )}
-                                    disabled={!canStand || Boolean(pendingStandingAction)}
-                                    onClick={handleStanding}
-                                    aria-label={
-                                      viewerStanding
-                                        ? `Step back from ${title}`
-                                        : `Stand with ${title}`
-                                    }
-                                    title={
-                                      viewerStanding
-                                        ? `Step back from ${title}`
-                                        : `Stand with ${title}`
-                                    }
-                                  >
-                                    {viewerStanding ? (
-                                      <>
-                                        <span className="inline-flex items-center gap-1 group-hover:hidden group-focus-visible:hidden">
-                                          <ProtocolMotionArrow className="h-2.5 w-2.5 text-[var(--portal-blue)]/50" />
-                                          Standing
-                                        </span>
-                                        <span className="hidden items-center gap-1 group-hover:inline-flex group-focus-visible:inline-flex">
-                                          <ProtocolMotionArrow direction="left" className="h-2.5 w-2.5" />
-                                          Step back
-                                        </span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <ProtocolMotionArrow className="h-2.5 w-2.5" />
-                                        {hasSocialSession
-                                          ? 'Stand with'
-                                          : 'Authorize & stand'}
-                                      </>
-                                    )}
-                                  </button>
-                                )
-                              ) : null}
-                            </span>
-                          ) : null
-                        }
-                        onOpenStanceDetail={setStanceDetail}
-                        onOpenNetwork={() => setNetworkOpen(true)}
-                        onOpenEndorsements={openEndorsementsModal}
-                      />
-                    ) : null}
-
-                    {profileSignals?.reputation ? (
-                      <ProfileSignalsCard
-                        reputation={profileSignals.reputation}
-                      />
-                    ) : null}
-
-                    <ProfileEndorsements
-                      accountId={accountId}
-                      viewerAccountId={viewerAccountId}
-                      targetDisplayName={title}
-                      targetAvatarUrl={avatarUrl}
-                      selfAvatarUrl={selfAvatarUrl}
-                      hasSocialSession={hasSocialSession}
-                      onEndorse={onEndorse}
-                      onRemoveEndorsement={onRemoveEndorsement}
-                      onSelectAccount={onSelectAccount}
-                      onEndorsementCountChange={setEndorsementCount}
-                      onGivenCountChange={setGivenEndorsementCount}
-                      endorsementsModalIntent={endorsementsModalIntent}
+                    <ModalCloseButton
+                      ariaLabel="Close profile"
+                      onClick={() => onOpenChange(false)}
+                      className="border-white/18 bg-black/20 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_12px_28px_-20px_rgba(0,0,0,0.56)] backdrop-blur-xl backdrop-saturate-150 hover:border-white/28 hover:bg-black/30 hover:text-white"
                     />
                   </div>
-                </>
-              )}
 
-              {(profileError && !isWalletCancellationMessage(profileError)) ||
-              (socialError && !isWalletCancellationMessage(socialError)) ? (
-                <p className="mx-4 mt-4 mb-5 rounded-xl border border-[var(--portal-red-border)] bg-[var(--portal-red-bg)] px-3 py-2 text-xs leading-relaxed text-[var(--portal-red)] md:mx-5">
-                  {profileError && !isWalletCancellationMessage(profileError)
-                    ? profileError
-                    : socialError}
-                </p>
+                  {!hasProfileLoaded ? (
+                    <>
+                      <h2 id="profile-modal-title" className="sr-only">
+                        Profile
+                      </h2>
+                      <ProfileIdentityLoading />
+                    </>
+                  ) : (
+                    <>
+                      <div className="relative aspect-[5/1] shrink-0 overflow-hidden">
+                        {bannerUrl ? (
+                          <img
+                            src={bannerUrl}
+                            alt=""
+                            className="absolute inset-0 h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div
+                            className="absolute inset-0"
+                            style={{
+                              background: accountGradient(accountId),
+                            }}
+                          />
+                        )}
+                        {!bannerUrl ? (
+                          <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[hsl(var(--background)/0.98)] to-transparent" />
+                        ) : null}
+                      </div>
+
+                      <div className="relative -mt-8 space-y-3 px-4 pb-5 md:px-5">
+                        <div className="flex items-start gap-3.5">
+                          <AccountAvatar
+                            avatarUrl={avatarUrl}
+                            className="h-20 w-20 md:h-24 md:w-24 rounded-2xl !border-[3px] !border-background shadow-lg"
+                            placeholderIconClassName="h-6 w-6"
+                            placeholderIconStrokeWidth={2.5}
+                          />
+                          <div className="min-w-0 flex-1 pt-10 pr-8">
+                            <div className="flex min-w-0 items-start justify-between gap-2">
+                              <h2
+                                id="profile-modal-title"
+                                className="min-w-0 truncate text-lg font-semibold leading-tight text-foreground"
+                              >
+                                {title}
+                              </h2>
+                              {profileLinks.length > 0 ? (
+                                <span className="inline-flex shrink-0 items-center gap-1">
+                                  {profileLinks.map((item) => (
+                                    <a
+                                      key={item.key}
+                                      href={item.href}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className={cn(
+                                        'text-muted-foreground transition-all hover:scale-110 hover:brightness-125 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60',
+                                        item.kind === 'website' &&
+                                          'hover:text-[var(--portal-blue)]',
+                                        item.kind === 'telegram' &&
+                                          'hover:text-[#26A5E4]',
+                                        item.kind === 'x' &&
+                                          'hover:text-foreground',
+                                        item.kind === 'github' &&
+                                          'hover:text-[var(--portal-purple)]'
+                                      )}
+                                      aria-label={`${item.label}: ${item.display}`}
+                                    >
+                                      <PortalHoverTooltip
+                                        tooltip={`${item.label}: ${item.display}`}
+                                      >
+                                        <ProfileLinkIcon
+                                          kind={item.kind}
+                                          className="h-[18px] w-[18px]"
+                                        />
+                                      </PortalHoverTooltip>
+                                    </a>
+                                  ))}
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="mt-0.5 truncate text-[13px] text-muted-foreground/55">
+                              @{accountId}
+                            </p>
+                          </div>
+                        </div>
+
+                        {bio ? (
+                          <p className="text-sm leading-relaxed text-muted-foreground">
+                            {bio}
+                          </p>
+                        ) : null}
+
+                        {!socialReady ? (
+                          <div className="space-y-2">
+                            <div className="flex items-start gap-6">
+                              <div className="space-y-1.5">
+                                <Skeleton className="h-2 w-14" />
+                                <div className="flex gap-1.5">
+                                  <Skeleton className="h-4 w-8 rounded" />
+                                  <Skeleton className="h-4 w-8 rounded" />
+                                  <Skeleton className="h-4 w-6 rounded" />
+                                </div>
+                              </div>
+                              <div className="space-y-1.5">
+                                <Skeleton className="h-2 w-20" />
+                                <div className="flex gap-1.5">
+                                  <Skeleton className="h-4 w-8 rounded" />
+                                  <Skeleton className="h-4 w-8 rounded" />
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex -space-x-1">
+                              {Array.from({ length: 4 }).map((_, i) => (
+                                <Skeleton
+                                  key={i}
+                                  className="h-5 w-5 rounded-full"
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        ) : social ? (
+                          <SocialProofStrip
+                            social={social}
+                            endorsementCount={endorsementCount}
+                            givenEndorsementCount={givenEndorsementCount}
+                            isSelf={isSelf}
+                            meta={
+                              joinedLabel || canStand ? (
+                                <span className="inline-flex flex-wrap items-center gap-2">
+                                  {joinedLabel ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => setAccountFactsOpen(true)}
+                                      className="group inline-flex items-center gap-1 rounded-md text-[11px] font-medium text-muted-foreground/55 transition-colors hover:text-muted-foreground/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60"
+                                      aria-label={`View account facts for ${title}`}
+                                    >
+                                      Joined {joinedLabel}
+                                      <ProtocolMotionArrow className="h-2.5 w-2.5" />
+                                    </button>
+                                  ) : null}
+                                  {joinedLabel && canStand ? (
+                                    <span className="h-1 w-1 rounded-full bg-muted-foreground/25" />
+                                  ) : null}
+                                  {canStand ? (
+                                    pendingStandingAction ? (
+                                      <span
+                                        className={cn(
+                                          profileActionButtonClass(
+                                            pendingStandingAction === 'stand'
+                                              ? 'blue'
+                                              : 'slate'
+                                          )
+                                        )}
+                                        aria-live="polite"
+                                        aria-label={
+                                          viewerStanding
+                                            ? 'Stepping back'
+                                            : 'Confirming stance'
+                                        }
+                                      >
+                                        <PulsingDots size="sm" />
+                                      </span>
+                                    ) : (
+                                      <PortalHoverTooltip
+                                        tooltip={
+                                          viewerStanding
+                                            ? `Step back from ${title}`
+                                            : `Stand with ${title}`
+                                        }
+                                      >
+                                        <button
+                                          type="button"
+                                          className={cn(
+                                            profileActionButtonClass(
+                                              viewerStanding ? 'slate' : 'blue'
+                                            )
+                                          )}
+                                          disabled={
+                                            !canStand ||
+                                            Boolean(pendingStandingAction)
+                                          }
+                                          onClick={handleStanding}
+                                          aria-label={
+                                            viewerStanding
+                                              ? `Step back from ${title}`
+                                              : `Stand with ${title}`
+                                          }
+                                        >
+                                          {viewerStanding ? (
+                                            <>
+                                              <span className="inline-flex items-center gap-1 group-hover:hidden group-focus-visible:hidden">
+                                                <ProtocolMotionArrow className="h-2.5 w-2.5 text-[var(--portal-blue)]/50" />
+                                                Standing
+                                              </span>
+                                              <span className="hidden items-center gap-1 group-hover:inline-flex group-focus-visible:inline-flex">
+                                                <ProtocolMotionArrow
+                                                  direction="left"
+                                                  className="h-2.5 w-2.5"
+                                                />
+                                                Step back
+                                              </span>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <ProtocolMotionArrow className="h-2.5 w-2.5" />
+                                              {hasSocialSession
+                                                ? 'Stand with'
+                                                : 'Authorize & stand'}
+                                            </>
+                                          )}
+                                        </button>
+                                      </PortalHoverTooltip>
+                                    )
+                                  ) : null}
+                                </span>
+                              ) : null
+                            }
+                            onOpenStanceDetail={setStanceDetail}
+                            onOpenNetwork={() => setNetworkOpen(true)}
+                            onOpenEndorsements={openEndorsementsModal}
+                          />
+                        ) : null}
+
+                        {profileSignals?.reputation ? (
+                          <ProfileSignalsCard
+                            reputation={profileSignals.reputation}
+                          />
+                        ) : null}
+
+                        <ProfileEndorsements
+                          accountId={accountId}
+                          viewerAccountId={viewerAccountId}
+                          targetDisplayName={title}
+                          targetAvatarUrl={avatarUrl}
+                          selfAvatarUrl={selfAvatarUrl}
+                          hasSocialSession={hasSocialSession}
+                          onEndorse={onEndorse}
+                          onRemoveEndorsement={onRemoveEndorsement}
+                          onSelectAccount={onSelectAccount}
+                          onEndorsementCountChange={setEndorsementCount}
+                          onGivenCountChange={setGivenEndorsementCount}
+                          endorsementsModalIntent={endorsementsModalIntent}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {(profileError &&
+                    !isWalletCancellationMessage(profileError)) ||
+                  (socialError && !isWalletCancellationMessage(socialError)) ? (
+                    <p className="mx-4 mt-4 mb-5 rounded-xl border border-[var(--portal-red-border)] bg-[var(--portal-red-bg)] px-3 py-2 text-xs leading-relaxed text-[var(--portal-red)] md:mx-5">
+                      {profileError &&
+                      !isWalletCancellationMessage(profileError)
+                        ? profileError
+                        : socialError}
+                    </p>
+                  ) : null}
+                </div>
+              </motion.div>
+              {social ? (
+                <StanceDetailModal
+                  open={stanceDetail !== null}
+                  kind={stanceDetail ?? 'incoming'}
+                  title={title}
+                  isSelf={isSelf}
+                  accountId={social.accountId}
+                  counts={social.counts}
+                  viewerAccountId={viewerAccountId}
+                  hasSocialSession={hasSocialSession}
+                  onClose={() => setStanceDetail(null)}
+                  onSelectAccount={onSelectAccount}
+                  onDiscoverProfiles={onDiscoverProfiles}
+                  onUpdateAccountStanding={handleAccountStanding}
+                />
               ) : null}
-            </div>
-          </motion.div>
-          {social ? (
-            <StanceDetailModal
-              open={stanceDetail !== null}
-              kind={stanceDetail ?? 'incoming'}
-              title={title}
-              isSelf={isSelf}
-              social={social}
-              viewerAccountId={viewerAccountId}
-              hasSocialSession={hasSocialSession}
-              onClose={() => setStanceDetail(null)}
-              onSelectAccount={onSelectAccount}
-              onDiscoverProfiles={onDiscoverProfiles}
-              onUpdateAccountStanding={handleAccountStanding}
-            />
+              <NetworkModal
+                open={networkOpen}
+                centerAccountId={accountId}
+                centerAvatarUrl={avatarUrl}
+                centerDisplayName={title}
+                accounts={networkAccounts}
+                isSelf={isSelf}
+                onClose={() => setNetworkOpen(false)}
+                onSelectAccount={(id) => {
+                  setNetworkOpen(false);
+                  onSelectAccount?.(id);
+                }}
+              />
+              <AccountFactsModal
+                open={accountFactsOpen}
+                onOpenChange={setAccountFactsOpen}
+                accountId={accountId}
+                displayName={title}
+                avatarUrl={avatarUrl}
+                profile={profile}
+                latestProfileUpdateFields={latestProfileUpdateFields}
+                joinedLabel={joinedLabel}
+                network={profileNetwork}
+                nearAccount={nearAccount}
+                nearAccountExplorerUrl={nearAccountExplorerUrl}
+                nearAccountCreation={nearAccountCreation}
+              />
+            </motion.div>
           ) : null}
-          <NetworkModal
-            open={networkOpen}
-            centerAccountId={accountId}
-            centerAvatarUrl={avatarUrl}
-            centerDisplayName={title}
-            accounts={networkAccounts}
-            isSelf={isSelf}
-            onClose={() => setNetworkOpen(false)}
-            onSelectAccount={(id) => {
-              setNetworkOpen(false);
-              onSelectAccount?.(id);
-            }}
-          />
-          <AccountFactsModal
-            open={accountFactsOpen}
-            onOpenChange={setAccountFactsOpen}
-            accountId={accountId}
-            displayName={title}
-            avatarUrl={avatarUrl}
-            profile={profile}
-            latestProfileUpdateFields={latestProfileUpdateFields}
-            joinedLabel={joinedLabel}
-            network={profileNetwork}
-            nearAccount={nearAccount}
-            nearAccountExplorerUrl={nearAccountExplorerUrl}
-            nearAccountCreation={nearAccountCreation}
-          />
-        </motion.div>
-      ) : null}
         </AnimatePresence>,
         document.body
       )}

@@ -5,26 +5,23 @@ import type {
   MaterialisedProfile,
   ProfileData,
   RelayResponse,
-  EndorsementBuildInput,
 } from '@onsocial/sdk';
 import {
-  bootstrapSession,
-  localStorageKeyStore,
-  nearConnectAdapter,
-  restoreSession,
-  type Session,
-} from '@onsocial/sdk/advanced';
+  upsertEndorsement,
+  type EndorsementSubmitInput,
+} from '@/lib/endorsements';
+import type { Session } from '@onsocial/sdk/advanced';
 import { useWallet } from '@/contexts/wallet-context';
 import { createPortalOnSocialClient } from '@/lib/onsocial-client';
-import { ACTIVE_NEAR_NETWORK } from '@/lib/portal-config';
-import { creditPortalReward, creditPortalSocialReward } from '@/lib/portal-rewards';
+import {
+  creditPortalReward,
+  creditPortalSocialReward,
+} from '@/lib/portal-rewards';
+import {
+  ensurePortalSocialSession,
+  restorePortalSocialSession,
+} from '@/lib/portal-social-session';
 import { rethrowWalletActionError } from '@/lib/wallet-errors';
-import { ensureWelcomeNear } from '@/lib/welcome-near';
-import { withWalletTimeout } from '@/lib/wallet-timeout';
-
-const SOCIAL_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const SOCIAL_SESSION_ALLOWANCE_YOCTO = '250000000000000000000000';
-const SESSION_BOOTSTRAP_TIMEOUT_MS = 120_000;
 const INDEXED_PROFILE_REFRESH_DELAYS_MS = [750, 2_000, 5_000] as const;
 const PORTAL_ONAPI_PROXY_URL = '/api/onapi';
 
@@ -267,27 +264,6 @@ function writeCachedAvatarUrl(accountId: string, url: string | null): void {
   }
 }
 
-function getSocialSessionPath(accountId: string): string {
-  return `${accountId}/`;
-}
-
-function getSocialSessionStore() {
-  return localStorageKeyStore('onsocial.portal.session.');
-}
-
-async function restoreSocialSession(
-  accountId: string
-): Promise<Session | null> {
-  return restoreSession({
-    store: getSocialSessionStore(),
-    accountId,
-    contract: 'core',
-    path: getSocialSessionPath(accountId),
-    startingNonce: Date.now(),
-    remainingAllowanceYocto: SOCIAL_SESSION_ALLOWANCE_YOCTO,
-  });
-}
-
 async function fetchPortalProfile(
   accountId: string
 ): Promise<PortalProfileResponse> {
@@ -315,7 +291,7 @@ async function fetchPortalProfile(
 }
 
 export function useProfileState() {
-  const { accountId, wallet, isConnected } = useWallet();
+  const { accountId, isConnected, getSigningWallet } = useWallet();
   const [profile, setProfile] = useState<MaterialisedProfile | null>(null);
   const [indexedProfile, setIndexedProfile] = useState<Record<
     string,
@@ -327,7 +303,10 @@ export function useProfileState() {
   const [isSaving, setIsSaving] = useState(false);
   const [isUpdatingStanding, setIsUpdatingStanding] = useState(false);
   const standingCountRef = useRef(0);
-  const cachedSessionRef = useRef<{ accountId: string; session: Session } | null>(null);
+  const cachedSessionRef = useRef<{
+    accountId: string;
+    session: Session;
+  } | null>(null);
   const [isAuthorizingSession, setIsAuthorizingSession] = useState(false);
   const [hasSocialSession, setHasSocialSession] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -430,7 +409,7 @@ export function useProfileState() {
       };
     }
 
-    void restoreSocialSession(accountId)
+    void restorePortalSocialSession(accountId)
       .then((restored) => {
         if (!cancelled) {
           setHasSocialSession(Boolean(restored));
@@ -449,7 +428,7 @@ export function useProfileState() {
   }, [accountId, isConnected]);
 
   const getSocialSession = useCallback(async (): Promise<Session> => {
-    if (!accountId || !wallet) {
+    if (!accountId || !isConnected) {
       throw new Error(
         'Connect your wallet before authorizing an OnSocial session.'
       );
@@ -461,8 +440,7 @@ export function useProfileState() {
       return cached.session;
     }
 
-    const restored = await restoreSocialSession(accountId);
-
+    const restored = await restorePortalSocialSession(accountId);
     if (restored) {
       cachedSessionRef.current = { accountId, session: restored };
       setHasSocialSession(true);
@@ -471,34 +449,17 @@ export function useProfileState() {
 
     setIsAuthorizingSession(true);
     try {
-      await ensureWelcomeNear(wallet, accountId);
-      const session = await withWalletTimeout(
-        bootstrapSession({
-          wallet: nearConnectAdapter(wallet, accountId, {
-            network: ACTIVE_NEAR_NETWORK,
-          }),
-          accountId,
-          network: ACTIVE_NEAR_NETWORK,
-          contract: 'core',
-          path: getSocialSessionPath(accountId),
-          ttlMs: SOCIAL_SESSION_TTL_MS,
-          functionCallKey: {
-            methodNames: ['execute'],
-            allowanceYocto: SOCIAL_SESSION_ALLOWANCE_YOCTO,
-          },
-          storageDepositYocto: '0',
-          store: getSocialSessionStore(),
-        }),
-        SESSION_BOOTSTRAP_TIMEOUT_MS,
-        'Session authorization timed out. Open your wallet extension and approve the OnSocial session transaction, then try again.'
-      );
+      const session = await ensurePortalSocialSession({
+        accountId,
+        getSigningWallet,
+      });
       cachedSessionRef.current = { accountId, session };
       setHasSocialSession(true);
       return session;
     } finally {
       setIsAuthorizingSession(false);
     }
-  }, [accountId, wallet]);
+  }, [accountId, getSigningWallet, isConnected]);
 
   const loadProfile = useCallback(async () => {
     if (!accountId || !isConnected) {
@@ -580,7 +541,7 @@ export function useProfileState() {
 
   const saveProfile = useCallback(
     async (input: ProfileSaveInput): Promise<ProfileSaveResult> => {
-      if (!accountId || !isConnected || !wallet) {
+      if (!accountId || !isConnected) {
         throw new Error('Connect your wallet before saving a profile.');
       }
 
@@ -669,7 +630,6 @@ export function useProfileState() {
       refreshIndexedProfileWhenReady,
       setResolvedBannerUrl,
       setResolvedAvatarUrl,
-      wallet,
     ]
   );
 
@@ -678,7 +638,7 @@ export function useProfileState() {
       targetAccount: string,
       shouldStand: boolean
     ): Promise<StandingUpdateResult> => {
-      if (!accountId || !isConnected || !wallet) {
+      if (!accountId || !isConnected) {
         throw new Error('Connect your wallet before updating standing.');
       }
       if (targetAccount === accountId) {
@@ -721,15 +681,15 @@ export function useProfileState() {
         }
       }
     },
-    [accountId, createClient, getSocialSession, isConnected, wallet]
+    [accountId, createClient, getSocialSession, isConnected]
   );
 
   const endorse = useCallback(
     async (
       targetAccount: string,
-      input: EndorsementBuildInput = {}
+      input: EndorsementSubmitInput = {}
     ): Promise<RelayResponse> => {
-      if (!accountId || !isConnected || !wallet) {
+      if (!accountId || !isConnected) {
         throw new Error('Connect your wallet before endorsing.');
       }
       if (targetAccount === accountId) {
@@ -738,18 +698,23 @@ export function useProfileState() {
 
       setError(null);
 
+      const { previousTopic, ...buildInput } = input;
+
       try {
         const os = createClient();
         const session = await getSocialSession();
         os.attachSession(session);
-        const response = await os.endorsements.add(targetAccount, input, {
-          wait: true,
-        });
+        const response = await upsertEndorsement(
+          os.endorsements,
+          targetAccount,
+          buildInput,
+          { previousTopic, wait: true, accountId }
+        );
         creditPortalSocialReward({
           accountId,
           action: 'endorsement_given',
           targetAccountId: targetAccount,
-          topic: input.topic,
+          topic: buildInput.topic,
           proof: { txHash: response.txHash },
           session,
         });
@@ -758,12 +723,12 @@ export function useProfileState() {
         rethrowWalletActionError(err);
       }
     },
-    [accountId, createClient, getSocialSession, isConnected, wallet]
+    [accountId, createClient, getSocialSession, isConnected]
   );
 
   const removeEndorsement = useCallback(
     async (targetAccount: string, topic?: string): Promise<RelayResponse> => {
-      if (!accountId || !isConnected || !wallet) {
+      if (!accountId || !isConnected) {
         throw new Error('Connect your wallet before managing endorsements.');
       }
 
@@ -773,12 +738,15 @@ export function useProfileState() {
         const os = createClient();
         const session = await getSocialSession();
         os.attachSession(session);
-        return await os.endorsements.remove(targetAccount, { topic, wait: true });
+        return await os.endorsements.remove(targetAccount, {
+          topic,
+          wait: true,
+        });
       } catch (err) {
         rethrowWalletActionError(err);
       }
     },
-    [accountId, createClient, getSocialSession, isConnected, wallet]
+    [accountId, createClient, getSocialSession, isConnected]
   );
 
   const visibleProfile = profile?.accountId === accountId ? profile : null;
@@ -789,7 +757,7 @@ export function useProfileState() {
       activeAccountIdRef.current === null);
   const visibleAvatarUrl =
     isVisibleAccount && accountId
-      ? avatarUrl ?? readCachedAvatarUrl(accountId)
+      ? (avatarUrl ?? readCachedAvatarUrl(accountId))
       : null;
   const visibleBannerUrl = visibleProfile ? bannerUrl : null;
 

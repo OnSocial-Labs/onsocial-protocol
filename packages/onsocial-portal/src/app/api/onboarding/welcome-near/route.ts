@@ -42,15 +42,18 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const response = await fetch(`${ACTIVE_BACKEND_URL}/v1/portal/welcome-near`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Api-Key': apiKey,
-      },
-      cache: 'no-store',
-      body: JSON.stringify({ account_id: accountId }),
-    });
+    const response = await fetch(
+      `${ACTIVE_BACKEND_URL}/v1/portal/welcome-near`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Api-Key': apiKey,
+        },
+        cache: 'no-store',
+        body: JSON.stringify({ account_id: accountId }),
+      }
+    );
 
     const data = (await response.json().catch(() => ({}))) as unknown;
     return NextResponse.json(data, { status: response.status });

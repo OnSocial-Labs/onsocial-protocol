@@ -31,11 +31,15 @@ interface StandingListItem {
 
 interface ProfileDiscoverResponse {
   query: string;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
   results: ProfileDiscoverResult[];
 }
 
-const DEFAULT_LIMIT = 12;
+const DEFAULT_LIMIT = 24;
 const MAX_LIMIT = 24;
+const MAX_OFFSET = 10_000;
 const MAX_QUERY_LENGTH = 80;
 
 function getQuery(request: NextRequest): string {
@@ -48,6 +52,12 @@ function getLimit(request: NextRequest): number {
   const rawLimit = Number(request.nextUrl.searchParams.get('limit'));
   if (!Number.isFinite(rawLimit) || rawLimit <= 0) return DEFAULT_LIMIT;
   return Math.min(MAX_LIMIT, Math.floor(rawLimit));
+}
+
+function getOffset(request: NextRequest): number {
+  const rawOffset = Number(request.nextUrl.searchParams.get('offset'));
+  if (!Number.isFinite(rawOffset) || rawOffset < 0) return 0;
+  return Math.min(MAX_OFFSET, Math.floor(rawOffset));
 }
 
 function getViewerAccountId(request: NextRequest): string | null {
@@ -101,6 +111,7 @@ async function listViewerStandingRows(
 export async function GET(request: NextRequest) {
   const query = getQuery(request);
   const limit = getLimit(request);
+  const offset = getOffset(request);
   const viewerAccountId = getViewerAccountId(request);
 
   try {
@@ -111,7 +122,7 @@ export async function GET(request: NextRequest) {
       viewerIncomingIds,
       viewerReceivedEndorsements,
     ] = await Promise.all([
-      os.query.profiles.search({ query, limit }),
+      os.query.profiles.search({ query, limit, offset }),
       viewerAccountId
         ? listViewerStandingRows(os, viewerAccountId).catch(() => [])
         : Promise.resolve([]),
@@ -167,7 +178,13 @@ export async function GET(request: NextRequest) {
       } satisfies ProfileDiscoverResult;
     });
 
-    const response: ProfileDiscoverResponse = { query, results };
+    const response: ProfileDiscoverResponse = {
+      query,
+      limit,
+      offset,
+      hasMore: profileRows.length === limit,
+      results,
+    };
 
     return NextResponse.json(response, {
       headers: { 'Cache-Control': 'no-store' },

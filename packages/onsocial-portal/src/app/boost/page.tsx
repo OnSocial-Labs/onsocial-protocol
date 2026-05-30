@@ -430,7 +430,8 @@ function BoostMechanicCard({
 // ─── Page ────────────────────────────────────────────────────
 
 export default function BoostPage() {
-  const { wallet, accountId, isConnected, connect } = useWallet();
+  const { wallet, accountId, isConnected, connect, getSigningWallet } =
+    useWallet();
   const heroRef = useRef(null);
   const loadedAccountIdRef = useRef<string | null>(null);
   const isInView = useInView(heroRef, { once: true, amount: 0.1 });
@@ -493,8 +494,7 @@ export default function BoostPage() {
   const effectiveStakeYocto = applyLockBonus(stakeAmountYocto, period.bonus);
   const hasStake = account && BigInt(account.locked_amount) > 0n;
   const hasUnclaimedRewards =
-    hasLoadedAccountData &&
-    visibleLiveClaimableYocto >= BOOST_CLAIM_DUST_YOCTO;
+    hasLoadedAccountData && visibleLiveClaimableYocto >= BOOST_CLAIM_DUST_YOCTO;
   const lockedAmountYocto = hasStake ? BigInt(account.locked_amount) : 0n;
   const newTotalLockedYocto = lockedAmountYocto + stakeAmountYocto;
   const newEffectiveStakeYocto = applyLockBonus(
@@ -758,23 +758,6 @@ export default function BoostPage() {
     setTimeout(() => setRefreshKey((k) => k + 1), 4000);
   }, []);
 
-  const getVerifiedSignerId = useCallback(async (): Promise<string> => {
-    if (!wallet || !accountId) {
-      throw new Error('Connect your wallet before boosting.');
-    }
-
-    const accounts = await wallet.getAccounts({ network: ACTIVE_NEAR_NETWORK });
-    const walletAccountIds = accounts.map((account) => account.accountId);
-
-    if (!walletAccountIds.includes(accountId)) {
-      throw new Error(
-        `Wallet account mismatch. Portal is connected as ${accountId}, but the wallet is using ${walletAccountIds.join(', ') || 'no account'}. Switch the wallet account or reconnect before signing.`
-      );
-    }
-
-    return accountId;
-  }, [accountId, wallet]);
-
   const runTx = useCallback(
     async (
       action: BoostAction,
@@ -783,14 +766,27 @@ export default function BoostPage() {
         success: string;
         failure: string;
       },
-      fn: (signerId: string) => Promise<unknown>
+      fn: (
+        signingWallet: NonNullable<typeof wallet>,
+        signerId: string
+      ) => Promise<unknown>
     ) => {
       setTxPending(true);
       setPendingAction(action);
       clearTxResult();
       try {
-        const signerId = await getVerifiedSignerId();
-        const result = await fn(signerId);
+        const { wallet: signingWallet, accountId: signingAccountId } =
+          await getSigningWallet();
+        const accounts = await signingWallet.getAccounts({
+          network: ACTIVE_NEAR_NETWORK,
+        });
+        const walletAccountIds = accounts.map((account) => account.accountId);
+        if (!walletAccountIds.includes(signingAccountId)) {
+          throw new Error(
+            `Wallet account mismatch. Portal is connected as ${signingAccountId}, but the wallet is using ${walletAccountIds.join(', ') || 'no account'}. Switch the wallet account or reconnect before signing.`
+          );
+        }
+        const result = await fn(signingWallet, signingAccountId);
         const txHashes = extractNearTransactionHashes(result);
         if (txHashes.length === 0) {
           throw new Error(
@@ -829,7 +825,7 @@ export default function BoostPage() {
     [
       afterTx,
       clearTxResult,
-      getVerifiedSignerId,
+      getSigningWallet,
       setLiveClaimableYoctoValue,
       setTxResult,
       trackTransaction,
@@ -869,8 +865,8 @@ export default function BoostPage() {
           : `Committed ${normalizedStakeAmount} SOCIAL for ${period.label}.`,
         failure: 'Boost update failed.',
       },
-      async (signerId) => {
-        const result = await wallet.signAndSendTransaction({
+      async (signingWallet, signerId) => {
+        const result = await signingWallet.signAndSendTransaction({
           network: ACTIVE_NEAR_NETWORK,
           signerId,
           receiverId: TOKEN_CONTRACT,
@@ -908,8 +904,8 @@ export default function BoostPage() {
         success: 'Balance collected!',
         failure: 'Collection failed.',
       },
-      async (signerId) =>
-        wallet.signAndSendTransaction({
+      async (signingWallet, signerId) =>
+        signingWallet.signAndSendTransaction({
           network: ACTIVE_NEAR_NETWORK,
           signerId,
           receiverId: BOOST_CONTRACT,
@@ -937,8 +933,8 @@ export default function BoostPage() {
         success: 'Position released and returned!',
         failure: 'Release failed.',
       },
-      async (signerId) =>
-        wallet.signAndSendTransaction({
+      async (signingWallet, signerId) =>
+        signingWallet.signAndSendTransaction({
           network: ACTIVE_NEAR_NETWORK,
           signerId,
           receiverId: BOOST_CONTRACT,
@@ -967,8 +963,8 @@ export default function BoostPage() {
         success: `Extended to ${lp?.label ?? months + ' months'}.`,
         failure: 'Extension failed.',
       },
-      async (signerId) => {
-        const result = await wallet.signAndSendTransaction({
+      async (signingWallet, signerId) => {
+        const result = await signingWallet.signAndSendTransaction({
           network: ACTIVE_NEAR_NETWORK,
           signerId,
           receiverId: BOOST_CONTRACT,
@@ -999,8 +995,8 @@ export default function BoostPage() {
         success: 'Commitment renewed!',
         failure: 'Renewal failed.',
       },
-      async (signerId) => {
-        const result = await wallet.signAndSendTransaction({
+      async (signingWallet, signerId) => {
+        const result = await signingWallet.signAndSendTransaction({
           network: ACTIVE_NEAR_NETWORK,
           signerId,
           receiverId: BOOST_CONTRACT,

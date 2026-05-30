@@ -71,7 +71,8 @@ export function SmoothScrollProvider({
       duration: 1.5,
       smoothWheel: true,
       prevent: (node) =>
-        node instanceof Element && node.closest('[data-lenis-prevent]') !== null,
+        node instanceof Element &&
+        node.closest('[data-lenis-prevent]') !== null,
     });
     lenisRef.current = lenis;
 

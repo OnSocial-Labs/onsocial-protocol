@@ -15,6 +15,7 @@ import {
 import { PageShell } from '@/components/layout/page-shell';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
 import { Button, buttonArrowLeftClass } from '@/components/ui/button';
+import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import { PortalBadge } from '@/components/ui/portal-badge';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
 import { SurfacePanel } from '@/components/ui/surface-panel';
@@ -613,15 +614,18 @@ export default function BoostLeaderboardPage() {
               );
             })}
 
-            <button
-              onClick={() => setRefreshKey((k) => k + 1)}
-              className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-background/25 px-2.5 py-1.5 text-[11px] uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:border-border/60 hover:text-foreground/80"
-              title="Refresh data"
-            >
-              <RefreshCw
-                className={cn('h-3 w-3', boardLoading && 'animate-spin')}
-              />
-            </button>
+            <PortalHoverTooltip tooltip="Refresh data" className="ml-auto">
+              <button
+                type="button"
+                onClick={() => setRefreshKey((k) => k + 1)}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-background/25 px-2.5 py-1.5 text-[11px] uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:border-border/60 hover:text-foreground/80"
+                aria-label="Refresh data"
+              >
+                <RefreshCw
+                  className={cn('h-3 w-3', boardLoading && 'animate-spin')}
+                />
+              </button>
+            </PortalHoverTooltip>
           </div>
 
           <p className="mb-5 text-xs text-muted-foreground">
@@ -798,8 +802,8 @@ export default function BoostLeaderboardPage() {
           </p>
           <p className="mx-auto mb-4 max-w-lg text-sm text-muted-foreground">
             Reputation rewards connection, commitment, useful content,
-            consistency, and marketplace creation. Locking SOCIAL strengthens one
-            signal without replacing the others.
+            consistency, and marketplace creation. Locking SOCIAL strengthens
+            one signal without replacing the others.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             <Button asChild>

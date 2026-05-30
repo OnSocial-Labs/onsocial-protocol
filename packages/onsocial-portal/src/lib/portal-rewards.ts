@@ -121,10 +121,16 @@ async function dispatchPortalReward({
     }),
   });
 
-  const data = (await response.json().catch(() => null)) as
-    | PortalRewardActionResponse
-    | null;
-  handleRewardResponse(response, data, action, normalizedTargetAccountId, normalizedTopic);
+  const data = (await response
+    .json()
+    .catch(() => null)) as PortalRewardActionResponse | null;
+  handleRewardResponse(
+    response,
+    data,
+    action,
+    normalizedTargetAccountId,
+    normalizedTopic
+  );
 }
 
 function dispatchPortalRewardSafe(input: CreditPortalRewardInput): void {

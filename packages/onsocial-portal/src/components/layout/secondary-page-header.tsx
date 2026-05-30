@@ -8,14 +8,14 @@ import { fadeUpMotion } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
 const headerGlowColors: Record<PortalAccent, string> = {
-  blue: 'rgb(96 165 250 / 0.18)',
-  green: 'rgb(74 222 128 / 0.14)',
-  purple: 'rgb(192 132 252 / 0.16)',
-  gold: 'rgb(212 162 30 / 0.18)',
-  amber: 'rgb(251 191 36 / 0.18)',
-  pink: 'rgb(236 72 153 / 0.16)',
-  slate: 'rgb(107 114 128 / 0.12)',
-  red: 'rgb(248 113 113 / 0.16)',
+  blue: 'var(--portal-blue-glow)',
+  green: 'var(--portal-green-glow)',
+  purple: 'var(--portal-purple-glow)',
+  gold: 'var(--portal-gold-glow)',
+  amber: 'var(--portal-amber-glow)',
+  pink: 'var(--portal-pink-glow)',
+  slate: 'var(--portal-slate-glow)',
+  red: 'var(--portal-red-glow)',
 };
 
 const glowPositions = ['24% 18%', '52% 20%', '80% 24%'] as const;

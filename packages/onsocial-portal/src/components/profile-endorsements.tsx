@@ -15,9 +15,11 @@ import {
   endorsementTimestamp,
   formatEndorsementTime,
   humanizeEndorsementTopic,
+  mergeEndorsementsAfterUpsert,
   normalizeEndorsementTopic,
+  type EndorsementSubmitInput,
 } from '@/lib/endorsements';
-import type { EndorsementBuildInput, EndorsementListItem } from '@onsocial/sdk';
+import type { EndorsementListItem } from '@onsocial/sdk';
 
 type EndorsementItem = EndorsementListItem & {
   issuerName?: string | null;
@@ -49,7 +51,7 @@ interface ProfileEndorsementsProps {
   hasSocialSession?: boolean;
   onEndorse?: (
     target: string,
-    input: EndorsementBuildInput
+    input: EndorsementSubmitInput
   ) => Promise<unknown>;
   onRemoveEndorsement?: (target: string, topic?: string) => Promise<unknown>;
   onSelectAccount?: (accountId: string) => void;
@@ -76,6 +78,13 @@ export function ProfileEndorsements({
   const [givenEndorsements, setGivenEndorsements] = useState<EndorsementItem[]>(
     []
   );
+  const [endorsementCounts, setEndorsementCounts] = useState({
+    received: 0,
+    given: 0,
+  });
+  const [viewerToTargetEndorsements, setViewerToTargetEndorsements] = useState<
+    EndorsementItem[]
+  >([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [endorseModalOpen, setEndorseModalOpen] = useState(false);
@@ -105,28 +114,31 @@ export function ProfileEndorsements({
 
     setIsLoading(true);
     try {
+      const search = new URLSearchParams({ accountId });
+      if (viewerAccountId) search.set('viewerAccountId', viewerAccountId);
+
       const res = await fetch(
-        `/api/profile/endorsements?accountId=${encodeURIComponent(accountId)}`,
+        `/api/profile/endorsements?${search.toString()}`,
         {
           cache: 'no-store',
         }
       );
       if (res.ok) {
         const data = (await res.json()) as {
+          counts?: { received?: number; given?: number };
           received?: EndorsementItem[];
           given?: EndorsementItem[];
+          viewerToTarget?: EndorsementItem[];
         };
         const list = data.received ?? [];
         setEndorsements(list);
         setGivenEndorsements(data.given ?? []);
-
-        if (viewerAccountId) {
-          setMyEndorsements(
-            list.filter((e) => e.issuer === viewerAccountId)
-          );
-        } else {
-          setMyEndorsements([]);
-        }
+        setEndorsementCounts({
+          received: Number(data.counts?.received ?? list.length),
+          given: Number(data.counts?.given ?? data.given?.length ?? 0),
+        });
+        setViewerToTargetEndorsements(data.viewerToTarget ?? []);
+        setMyEndorsements(data.viewerToTarget ?? []);
       }
     } catch {
       // Endorsements are a secondary profile signal; keep the profile usable.
@@ -140,10 +152,10 @@ export function ProfileEndorsements({
   }, [loadEndorsements]);
 
   useEffect(() => {
-    onEndorsementCountChange?.(endorsements.length);
-  }, [endorsements.length, onEndorsementCountChange]);
+    onEndorsementCountChange?.(endorsementCounts.received);
+  }, [endorsementCounts.received, onEndorsementCountChange]);
 
-  const handleEndorseSubmit = async (input: EndorsementBuildInput) => {
+  const handleEndorseSubmit = async (input: EndorsementSubmitInput) => {
     if (!accountId) throw new Error('Profile account is not ready.');
     if (!viewerAccountId)
       throw new Error('Connect your wallet before endorsing.');
@@ -152,38 +164,45 @@ export function ProfileEndorsements({
 
     setIsSaving(true);
     try {
+      const { previousTopic, ...buildInput } = input;
       await onEndorse(accountId, input);
       const optimistic: EndorsementItem = {
         issuer: viewerAccountId,
         target: accountId,
         v: 1,
         since: Date.now(),
-        topic: input.topic,
-        note: input.note,
-        expiresAt: input.expiresAt,
+        topic: buildInput.topic,
+        note: buildInput.note,
+        expiresAt: buildInput.expiresAt,
         blockHeight: 0,
         blockTimestamp: Date.now(),
         issuerAvatarUrl: selfAvatarUrl,
         targetAvatarUrl,
       };
-      const normalizedNew = normalizeEndorsementTopic(input.topic ?? '');
-      setMyEndorsements((prev) => [
-        optimistic,
-        ...prev.filter(
-          (item) =>
-            normalizeEndorsementTopic(item.topic ?? '') !== normalizedNew
-        ),
-      ]);
-      setEndorsements((current) => [
-        optimistic,
-        ...current.filter(
-          (item) =>
-            !(
-              item.issuer === viewerAccountId &&
-              normalizeEndorsementTopic(item.topic ?? '') === normalizedNew
-            )
-        ),
-      ]);
+      setMyEndorsements((prev) =>
+        mergeEndorsementsAfterUpsert(prev, {
+          issuer: viewerAccountId,
+          target: accountId,
+          previousTopic,
+          next: optimistic,
+        })
+      );
+      setViewerToTargetEndorsements((prev) =>
+        mergeEndorsementsAfterUpsert(prev, {
+          issuer: viewerAccountId,
+          target: accountId,
+          previousTopic,
+          next: optimistic,
+        })
+      );
+      setEndorsements((current) =>
+        mergeEndorsementsAfterUpsert(current, {
+          issuer: viewerAccountId,
+          target: accountId,
+          previousTopic,
+          next: optimistic,
+        })
+      );
       setEditingEndorsement(null);
       window.setTimeout(() => void loadEndorsements(), 2500);
     } finally {
@@ -210,6 +229,12 @@ export function ProfileEndorsements({
             normalizeEndorsementTopic(item.topic ?? '') !== normalizedTopic
         )
       );
+      setViewerToTargetEndorsements((prev) =>
+        prev.filter(
+          (item) =>
+            normalizeEndorsementTopic(item.topic ?? '') !== normalizedTopic
+        )
+      );
       setEndorsements((current) =>
         current.filter(
           (item) =>
@@ -228,7 +253,7 @@ export function ProfileEndorsements({
 
   const handleModalEndorseSubmit = async (
     target: string,
-    input: EndorsementBuildInput
+    input: EndorsementSubmitInput
   ) => {
     if (target === accountId) {
       return handleEndorseSubmit(input);
@@ -242,31 +267,28 @@ export function ProfileEndorsements({
 
     setIsSaving(true);
     try {
+      const { previousTopic, ...buildInput } = input;
       await onEndorse(target, input);
-      const normalizedNew = normalizeEndorsementTopic(input.topic ?? '');
       const optimistic: EndorsementItem = {
         issuer: viewerAccountId,
         target,
         v: 1,
         since: Date.now(),
-        topic: input.topic,
-        note: input.note,
-        expiresAt: input.expiresAt,
+        topic: buildInput.topic,
+        note: buildInput.note,
+        expiresAt: buildInput.expiresAt,
         blockHeight: 0,
         blockTimestamp: Date.now(),
         issuerAvatarUrl: selfAvatarUrl,
       };
-      setGivenEndorsements((current) => [
-        optimistic,
-        ...current.filter(
-          (item) =>
-            !(
-              item.issuer === viewerAccountId &&
-              item.target === target &&
-              normalizeEndorsementTopic(item.topic ?? '') === normalizedNew
-            )
-        ),
-      ]);
+      setGivenEndorsements((current) =>
+        mergeEndorsementsAfterUpsert(current, {
+          issuer: viewerAccountId,
+          target,
+          previousTopic,
+          next: optimistic,
+        })
+      );
       window.setTimeout(() => void loadEndorsements(), 2500);
     } finally {
       setIsSaving(false);
@@ -316,7 +338,7 @@ export function ProfileEndorsements({
   const givenAccountCount = useMemo(() => {
     return new Set(givenEndorsements.map((item) => item.target)).size;
   }, [givenEndorsements]);
-  const givenEndorsementCount = givenEndorsements.length;
+  const givenEndorsementCount = endorsementCounts.given;
 
   useEffect(() => {
     onGivenCountChange?.(givenEndorsementCount);
@@ -370,14 +392,14 @@ export function ProfileEndorsements({
           </span>
 
           <div className="flex shrink-0 items-center gap-1.5">
-            {rankedEndorsements.length > 1 ? (
+            {endorsementCounts.received > 1 ? (
               <Button
                 type="button"
                 size="xs"
                 variant="outline"
                 onClick={openAllEndorsements}
                 className="gap-1.5 px-2.5"
-                aria-label={`View all ${formatCount(rankedEndorsements.length)} endorsements`}
+                aria-label={`View all ${formatCount(endorsementCounts.received)} endorsements`}
               >
                 View all
                 <ProtocolMotionArrow className="h-3 w-3" />
@@ -464,8 +486,7 @@ export function ProfileEndorsements({
                       />
                     ) : (
                       <div className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--portal-gold-border)] bg-[var(--portal-gold-bg)] text-xs font-semibold text-[var(--portal-gold)]">
-                        {cleanHandle(e.issuer).slice(0, 1).toUpperCase() ||
-                          '?'}
+                        {cleanHandle(e.issuer).slice(0, 1).toUpperCase() || '?'}
                       </div>
                     )}
                     <ProtocolMotionArrow className="h-3 w-3 text-[var(--portal-gold)]/70" />
@@ -483,60 +504,59 @@ export function ProfileEndorsements({
                   </div>
 
                   <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex min-w-0 items-center gap-1.5 text-[12px]">
-                        <span
-                          className="truncate font-medium text-foreground/90"
-                          title={e.issuer}
-                        >
-                          {cleanHandle(e.issuer)}
-                        </span>
-
-                        {viewerAccountId === e.issuer ? (
-                          <span className="rounded-full border border-[var(--portal-gold-border)] bg-[var(--portal-gold-bg)] px-1.5 py-px text-[9px] font-semibold text-[var(--portal-gold)]">
-                            You
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex min-w-0 items-center gap-1.5 text-[12px]">
+                          <span
+                            className="truncate font-medium text-foreground/90"
+                            title={e.issuer}
+                          >
+                            {cleanHandle(e.issuer)}
                           </span>
-                        ) : null}
+
+                          {viewerAccountId === e.issuer ? (
+                            <span className="rounded-full border border-[var(--portal-gold-border)] bg-[var(--portal-gold-bg)] px-1.5 py-px text-[9px] font-semibold text-[var(--portal-gold)]">
+                              You
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="mt-0.5 truncate text-[10px] text-muted-foreground/50">
+                          From @{e.issuer}
+                        </div>
                       </div>
-                      <div className="mt-0.5 truncate text-[10px] text-muted-foreground/50">
-                        From @{e.issuer}
-                      </div>
+
+                      {timeLabel ? (
+                        <PortalHoverTooltip
+                          className="shrink-0 pt-px text-right text-[10px] tabular-nums text-muted-foreground/45"
+                          aria-label={timeDescription}
+                          stopPropagation
+                          tooltip={timeDescription}
+                        >
+                          {timeLabel}
+                        </PortalHoverTooltip>
+                      ) : null}
                     </div>
 
-                    {timeLabel ? (
-                      <PortalHoverTooltip
-                        className="shrink-0 pt-px text-right text-[10px] tabular-nums text-muted-foreground/45"
-                        aria-label={timeDescription}
-                        stopPropagation
-                        tooltip={timeDescription}
-                      >
-                        {timeLabel}
-                      </PortalHoverTooltip>
-                    ) : null}
-                  </div>
-
-                  <div className="mt-2 text-[11px] leading-snug">
-                    <div className="font-medium text-[var(--portal-gold-text)]">
-                      For{' '}
-                      {e.topic
-                        ? humanizeEndorsementTopic(e.topic)
-                        : 'this endorsement'}
+                    <div className="mt-2 text-[11px] leading-snug">
+                      <div className="font-medium text-[var(--portal-gold-text)]">
+                        For{' '}
+                        {e.topic
+                          ? humanizeEndorsementTopic(e.topic)
+                          : 'this endorsement'}
+                      </div>
+                      {secondaryText ? (
+                        <p
+                          className="mt-1 line-clamp-2 text-muted-foreground/65"
+                          title={secondaryText}
+                        >
+                          &ldquo;{secondaryText}&rdquo;
+                        </p>
+                      ) : null}
                     </div>
-                    {secondaryText ? (
-                      <p
-                        className="mt-1 line-clamp-2 text-muted-foreground/65"
-                        title={secondaryText}
-                      >
-                        &ldquo;{secondaryText}&rdquo;
-                      </p>
-                    ) : null}
-                  </div>
                   </div>
                 </button>
               );
             })}
-
           </div>
         ) : (
           <div className="mt-2 text-[12px] text-muted-foreground/60">
@@ -626,6 +646,8 @@ export function ProfileEndorsements({
         endorsements={
           endorsementsMode === 'received' ? endorsements : givenEndorsements
         }
+        endorsementCounts={endorsementCounts}
+        viewerToTargetEndorsements={viewerToTargetEndorsements}
         viewerAccountId={viewerAccountId}
         onSelectAccount={onSelectAccount}
         canEndorse={endorsementsMode === 'received' && canAddNew}

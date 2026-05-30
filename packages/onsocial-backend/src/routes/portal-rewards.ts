@@ -2,28 +2,21 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import nacl from 'tweetnacl';
 import { config } from '../config/index.js';
+import type { PoolClient } from 'pg';
 import { pool, query } from '../db/index.js';
 import { logger } from '../logger.js';
 import { partnerAuth } from '../middleware/partnerAuth.js';
 import { accessKeyExists, creditOnChain } from '../services/near.js';
 import { evaluateAppCredit } from '../services/app-reward-limits.js';
+import {
+  ACTION_CONFIG,
+  buildIdempotencyKey,
+  isPortalRewardAction,
+  requiresTargetAccount,
+  type PortalRewardAction,
+} from '../services/portal-reward-policy.js';
 
 const router = Router();
-
-const ACCOUNT_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{1,63}$/;
-const AUTH_MAX_AGE_MS = 10 * 60 * 1000;
-const BASE58_ALPHABET =
-  '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-
-const ACTION_CONFIG = {
-  profile_created: { cap: 1, scope: 'once' },
-  daily_active: { cap: 1, scope: 'daily' },
-  stand_given: { cap: 3, scope: 'daily_target' },
-  mutual_stand_created: { cap: 3, scope: 'daily_target' },
-  endorsement_given: { cap: 3, scope: 'daily_target_topic' },
-} as const;
-
-type PortalRewardAction = keyof typeof ACTION_CONFIG;
 
 interface PortalRewardActionBody {
   account_id?: unknown;
@@ -38,9 +31,10 @@ interface PortalRewardActionBody {
   };
 }
 
-function isPortalRewardAction(value: unknown): value is PortalRewardAction {
-  return typeof value === 'string' && value in ACTION_CONFIG;
-}
+const ACCOUNT_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{1,63}$/;
+const AUTH_MAX_AGE_MS = 10 * 60 * 1000;
+const BASE58_ALPHABET =
+  '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 
 function normalizeAccountId(value: unknown): string | null {
   if (typeof value !== 'string') return null;
@@ -177,29 +171,47 @@ async function verifyRewardAuth({
   return accessKeyExists(accountId, publicKey);
 }
 
-function buildIdempotencyKey({
-  action,
-  accountId,
-  appId,
-  rewardDay,
-  targetAccountId,
-  topic,
-}: {
-  action: PortalRewardAction;
-  accountId: string;
-  appId: string;
-  rewardDay: string;
-  targetAccountId: string | null;
-  topic: string | null;
-}): string {
-  const cfg = ACTION_CONFIG[action];
-  if (cfg.scope === 'once') return `${appId}:${accountId}:${action}`;
-  if (cfg.scope === 'daily')
-    return `${appId}:${accountId}:${rewardDay}:${action}`;
-  if (cfg.scope === 'daily_target') {
-    return `${appId}:${accountId}:${rewardDay}:${action}:${targetAccountId ?? ''}`;
+async function hasPriorTargetCredit(
+  client: PoolClient,
+  {
+    appId,
+    accountId,
+    action,
+    targetAccountId,
+    topic,
+  }: {
+    appId: string;
+    accountId: string;
+    action: PortalRewardAction;
+    targetAccountId: string;
+    topic: string | null;
   }
-  return `${appId}:${accountId}:${rewardDay}:${action}:${targetAccountId ?? ''}:${topic ?? ''}`;
+): Promise<boolean> {
+  const cfg = ACTION_CONFIG[action];
+  const result =
+    cfg.scope === 'target_topic_once'
+      ? await client.query<{ id: string }>(
+          `SELECT id FROM portal_reward_events
+         WHERE app_id = $1
+           AND account_id = $2
+           AND action = $3
+           AND target_account_id = $4
+           AND topic IS NOT DISTINCT FROM $5
+           AND status = 'credited'
+         LIMIT 1`,
+          [appId, accountId, action, targetAccountId, topic]
+        )
+      : await client.query<{ id: string }>(
+          `SELECT id FROM portal_reward_events
+         WHERE app_id = $1
+           AND account_id = $2
+           AND action = $3
+           AND target_account_id = $4
+           AND status = 'credited'
+         LIMIT 1`,
+          [appId, accountId, action, targetAccountId]
+        );
+  return Boolean(result.rows[0]);
 }
 
 router.use(partnerAuth);
@@ -233,10 +245,7 @@ router.post(
     }
 
     const cfg = ACTION_CONFIG[action];
-    if (
-      (cfg.scope === 'daily_target' || cfg.scope === 'daily_target_topic') &&
-      !targetAccountId
-    ) {
+    if (requiresTargetAccount(action) && !targetAccountId) {
       res
         .status(400)
         .json({ success: false, error: 'target_account_id is required' });
@@ -325,6 +334,27 @@ router.post(
         await client.query('DELETE FROM portal_reward_events WHERE id = $1', [
           existing.rows[0].id,
         ]);
+      }
+
+      if (targetAccountId && requiresTargetAccount(action)) {
+        if (
+          await hasPriorTargetCredit(client, {
+            appId,
+            accountId,
+            action,
+            targetAccountId,
+            topic,
+          })
+        ) {
+          await client.query('COMMIT');
+          res.json({
+            success: true,
+            credited: false,
+            duplicate: true,
+            reason: 'prior_target_credit',
+          });
+          return;
+        }
       }
 
       const actionCount = await client.query<{ count: string }>(

@@ -6,6 +6,7 @@ import { RefreshCw } from 'lucide-react';
 import { SectionHeader } from '@/components/layout/section-header';
 import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
 import { Button } from '@/components/ui/button';
+import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import {
   PanelSkeleton,
   StatGridSkeleton,
@@ -915,22 +916,26 @@ export function GovernancePositionPanel() {
             />
           </div>
           {accountId ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={() => {
-                void loadEligibility();
-              }}
-              disabled={loading}
-              title={loading ? 'Refreshing balances' : 'Refresh balances'}
-              aria-label="Refresh balances"
-              className="h-8 w-8 shrink-0 rounded-full border-border/40 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground"
+            <PortalHoverTooltip
+              tooltip={loading ? 'Refreshing balances' : 'Refresh balances'}
+              className="shrink-0"
             >
-              <RefreshCw
-                className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}
-              />
-            </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  void loadEligibility();
+                }}
+                disabled={loading}
+                aria-label="Refresh balances"
+                className="h-8 w-8 rounded-full border-border/40 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}
+                />
+              </Button>
+            </PortalHoverTooltip>
           ) : null}
         </div>
 

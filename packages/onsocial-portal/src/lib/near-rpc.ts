@@ -160,7 +160,9 @@ export interface NearAccountView {
   storage_usage: number;
 }
 
-function getSpendableNearBalance(account: NearAccountView | null): string {
+export function getSpendableNearBalance(
+  account: NearAccountView | null
+): string {
   if (!account) {
     return '0';
   }
@@ -544,6 +546,51 @@ async function getGovernanceCooldownDurationNs(
 
 const SOCIAL_DECIMALS = 18;
 const NEAR_DECIMALS = 24;
+
+/** Normalize `ft_balance_of` view output (string or NEAR U128 `{ "0": "…" }`). */
+export function normalizeFtBalanceYocto(value: unknown): bigint {
+  if (value == null) return 0n;
+  if (typeof value === 'string') {
+    try {
+      return BigInt(value);
+    } catch {
+      return 0n;
+    }
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return BigInt(Math.trunc(value));
+  }
+  if (typeof value === 'object') {
+    const u128 =
+      value !== null && '0' in value && (value as { 0?: unknown })['0'] != null
+        ? String((value as { 0: unknown })['0'])
+        : null;
+    if (u128) {
+      try {
+        return BigInt(u128);
+      } catch {
+        return 0n;
+      }
+    }
+  }
+  try {
+    return BigInt(String(value));
+  } catch {
+    return 0n;
+  }
+}
+
+/** On-chain SOCIAL (NEP-141) wallet balance for an account. */
+export async function getSocialWalletBalanceYocto(
+  accountId: string
+): Promise<bigint> {
+  const balance = await tryViewContractAt<unknown>(
+    TOKEN_CONTRACT,
+    'ft_balance_of',
+    { account_id: accountId }
+  );
+  return normalizeFtBalanceYocto(balance);
+}
 
 /** Convert yocto-SOCIAL (18 decimals) to human-readable string. */
 export function yoctoToSocial(yocto: string): string {

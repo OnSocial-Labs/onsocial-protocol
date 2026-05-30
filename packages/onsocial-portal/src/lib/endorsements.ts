@@ -7,7 +7,115 @@
 // and optional stake-backed flows, not from a manual rating picker.
 // ---------------------------------------------------------------------------
 
-import type { EndorsementListItem } from '@onsocial/sdk';
+import type {
+  EndorsementBuildInput,
+  EndorsementListItem,
+  RelayResponse,
+} from '@onsocial/sdk';
+
+/** Portal write payload — `previousTopic` enables move-on-edit. */
+export type EndorsementSubmitInput = EndorsementBuildInput & {
+  previousTopic?: string;
+};
+
+export class EndorsementTopicConflictError extends Error {
+  readonly code = 'ENDORSEMENT_TOPIC_CONFLICT';
+
+  constructor(
+    public readonly target: string,
+    public readonly topic: string
+  ) {
+    super(
+      `You already endorsed ${target} for ${topic}. Edit that endorsement instead.`
+    );
+    this.name = 'EndorsementTopicConflictError';
+  }
+}
+
+type EndorsementWriter = {
+  add: (
+    target: string,
+    input?: EndorsementBuildInput,
+    opts?: { wait?: boolean }
+  ) => Promise<RelayResponse>;
+  remove: (
+    target: string,
+    opts?: { topic?: string; wait?: boolean }
+  ) => Promise<RelayResponse>;
+  get: (
+    target: string,
+    opts?: { topic?: string; issuer?: string }
+  ) => Promise<{ target: string } | null>;
+};
+
+/**
+ * Add or update an endorsement. When `previousTopic` is set and the normalized
+ * topic changes, withdraws the old path before writing the new one.
+ */
+export async function upsertEndorsement(
+  endorsements: EndorsementWriter,
+  target: string,
+  input: EndorsementBuildInput,
+  opts: {
+    previousTopic?: string;
+    wait?: boolean;
+    /** Connected account — required for on-chain conflict checks via the proxy. */
+    accountId?: string;
+  } = {}
+): Promise<RelayResponse> {
+  const newTopic = normalizeEndorsementTopic(input.topic ?? '');
+  const prevTopic = normalizeEndorsementTopic(opts.previousTopic ?? '');
+  const topicMoved = opts.previousTopic !== undefined && prevTopic !== newTopic;
+
+  if (topicMoved) {
+    const existingAtNew = opts.accountId
+      ? await endorsements.get(target, {
+          topic: input.topic,
+          issuer: opts.accountId,
+        })
+      : null;
+    if (existingAtNew) {
+      throw new EndorsementTopicConflictError(target, newTopic || 'general');
+    }
+
+    const wait = opts.wait === true;
+    await endorsements.remove(target, { topic: opts.previousTopic, wait });
+    return endorsements.add(target, input, wait ? { wait: true } : undefined);
+  }
+
+  return endorsements.add(
+    target,
+    input,
+    opts.wait ? { wait: true } : undefined
+  );
+}
+
+export function mergeEndorsementsAfterUpsert<T extends EndorsementListItem>(
+  list: readonly T[],
+  opts: {
+    issuer: string;
+    target: string;
+    previousTopic?: string;
+    next: T;
+  }
+): T[] {
+  const newTopic = normalizeEndorsementTopic(opts.next.topic ?? '');
+  const prevTopic = normalizeEndorsementTopic(opts.previousTopic ?? '');
+  return [
+    opts.next,
+    ...list.filter((item) => {
+      if (item.issuer !== opts.issuer || item.target !== opts.target) {
+        return true;
+      }
+      const itemTopic = normalizeEndorsementTopic(item.topic ?? '');
+      if (itemTopic === newTopic) return false;
+      if (prevTopic && itemTopic === prevTopic && prevTopic !== newTopic) {
+        return false;
+      }
+      return true;
+    }),
+  ];
+}
 
 /**
  * Action verb for a button label, e.g. "Endorse @bob for Rust".

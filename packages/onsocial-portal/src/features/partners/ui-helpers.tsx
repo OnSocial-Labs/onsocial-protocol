@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import { portalColors } from '@/lib/portal-colors';
 
 export function CopyButton({
@@ -26,19 +27,26 @@ export function CopyButton({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const copyHint = copied ? 'Copied' : 'Copy to clipboard';
+
   return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      className={`p-1.5 rounded-md bg-muted/50 hover:bg-muted/80 transition-colors text-muted-foreground hover:text-foreground ${extraClass ?? 'absolute top-3 right-3'}`}
-      title="Copy to clipboard"
+    <PortalHoverTooltip
+      tooltip={copyHint}
+      className={extraClass ?? 'absolute top-3 right-3'}
     >
-      {copied ? (
-        <Check className="w-4 h-4" style={{ color: portalColors.green }} />
-      ) : (
-        <Copy className="w-4 h-4" />
-      )}
-    </button>
+      <button
+        type="button"
+        onClick={handleCopy}
+        className="rounded-md bg-muted/50 p-1.5 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+        aria-label={copyHint}
+      >
+        {copied ? (
+          <Check className="w-4 h-4" style={{ color: portalColors.green }} />
+        ) : (
+          <Copy className="w-4 h-4" />
+        )}
+      </button>
+    </PortalHoverTooltip>
   );
 }
 

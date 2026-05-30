@@ -75,7 +75,9 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function verifyWithRetry(check: () => Promise<boolean>): Promise<boolean> {
+async function verifyWithRetry(
+  check: () => Promise<boolean>
+): Promise<boolean> {
   for (const delay of RETRY_DELAYS_MS) {
     if (delay) await sleep(delay);
     if (await check()) return true;
@@ -189,22 +191,25 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const response = await fetch(`${ACTIVE_BACKEND_URL}/v1/portal/reward-action`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Api-Key': apiKey,
-      },
-      cache: 'no-store',
-      body: JSON.stringify({
-        account_id: accountId,
-        action,
-        target_account_id: targetAccountId,
-        topic,
-        proof: body.proof ?? {},
-        auth: body.auth,
-      }),
-    });
+    const response = await fetch(
+      `${ACTIVE_BACKEND_URL}/v1/portal/reward-action`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Api-Key': apiKey,
+        },
+        cache: 'no-store',
+        body: JSON.stringify({
+          account_id: accountId,
+          action,
+          target_account_id: targetAccountId,
+          topic,
+          proof: body.proof ?? {},
+          auth: body.auth,
+        }),
+      }
+    );
 
     const data = (await response.json().catch(() => ({}))) as unknown;
     if (

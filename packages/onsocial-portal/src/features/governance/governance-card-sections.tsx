@@ -17,6 +17,7 @@ import { useCallback, useState } from 'react';
 import { FaXTwitter } from 'react-icons/fa6';
 import { RiTelegram2Line } from 'react-icons/ri';
 import { Button } from '@/components/ui/button';
+import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import {
   getCounterToneClass,
   getVoteToneClass,
@@ -211,13 +212,18 @@ export function GovernanceLiveSummary({
                   />
                 ) : null}
               </div>
-              {showMarker && (
-                <div
-                  className="absolute top-0 h-2 w-px bg-foreground/30"
+              {showMarker ? (
+                <PortalHoverTooltip
+                  tooltip={`Threshold: ${votingProgress.threshold}/${totalWeight}`}
+                  className="absolute top-0 h-2 w-px"
                   style={{ left: `${thresholdPct}%` }}
-                  title={`Threshold: ${votingProgress.threshold}/${totalWeight}`}
-                />
-              )}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="block h-2 w-px bg-foreground/30"
+                  />
+                </PortalHoverTooltip>
+              ) : null}
             </div>
           );
         })()}
@@ -632,65 +638,77 @@ export function ShareProposal({
       {canNativeShare ? (
         /* ── Mobile / native share sheet ── */
         <>
-          <button
-            type="button"
-            onClick={handleNativeShare}
-            className="text-muted-foreground transition-all hover:text-foreground hover:brightness-125 hover:scale-110"
-            title="Share proposal"
-          >
-            <Share2 className="h-4 w-4" />
-          </button>
+          <PortalHoverTooltip tooltip="Share proposal">
+            <button
+              type="button"
+              onClick={handleNativeShare}
+              className="text-muted-foreground transition-all hover:text-foreground hover:brightness-125 hover:scale-110"
+              aria-label="Share proposal"
+            >
+              <Share2 className="h-4 w-4" />
+            </button>
+          </PortalHoverTooltip>
 
-          <button
-            type="button"
-            onClick={handleCopy}
-            className="text-muted-foreground transition-all hover:text-foreground hover:brightness-125 hover:scale-110"
-            title="Copy link"
-          >
-            <Link2 className={`h-4 w-4 ${copied ? 'text-green-400' : ''}`} />
-          </button>
+          <PortalHoverTooltip tooltip="Copy link">
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="text-muted-foreground transition-all hover:text-foreground hover:brightness-125 hover:scale-110"
+              aria-label="Copy link"
+            >
+              <Link2 className={`h-4 w-4 ${copied ? 'text-green-400' : ''}`} />
+            </button>
+          </PortalHoverTooltip>
         </>
       ) : (
         /* ── Desktop fallback: individual icons ── */
         <>
-          <a
-            href={`https://x.com/intent/tweet?text=${encodeURIComponent(xText)}&url=${encodeURIComponent(getUrl())}`}
-            target="_blank"
-            rel="noreferrer"
-            className="text-muted-foreground transition-all hover:text-foreground hover:brightness-125 hover:scale-110"
-            title="Share on X"
-          >
-            <FaXTwitter className="h-4 w-4" />
-          </a>
+          <PortalHoverTooltip tooltip="Share on X">
+            <a
+              href={`https://x.com/intent/tweet?text=${encodeURIComponent(xText)}&url=${encodeURIComponent(getUrl())}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex text-muted-foreground transition-all hover:text-foreground hover:brightness-125 hover:scale-110"
+              aria-label="Share on X"
+            >
+              <FaXTwitter className="h-4 w-4" />
+            </a>
+          </PortalHoverTooltip>
 
-          <a
-            href={`https://t.me/share/url?url=${encodeURIComponent(getUrl())}&text=${encodeURIComponent(tgText)}`}
-            target="_blank"
-            rel="noreferrer"
-            className="text-muted-foreground transition-all hover:text-[#26A5E4] hover:brightness-125 hover:scale-110"
-            title="Share on Telegram"
-          >
-            <RiTelegram2Line className="h-4 w-4" />
-          </a>
+          <PortalHoverTooltip tooltip="Share on Telegram">
+            <a
+              href={`https://t.me/share/url?url=${encodeURIComponent(getUrl())}&text=${encodeURIComponent(tgText)}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex text-muted-foreground transition-all hover:text-[#26A5E4] hover:brightness-125 hover:scale-110"
+              aria-label="Share on Telegram"
+            >
+              <RiTelegram2Line className="h-4 w-4" />
+            </a>
+          </PortalHoverTooltip>
 
-          <a
-            href={`mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`}
-            target="_blank"
-            rel="noreferrer"
-            className="text-muted-foreground transition-all hover:text-foreground hover:brightness-125 hover:scale-110"
-            title="Share via email"
-          >
-            <Mail className="h-4 w-4" />
-          </a>
+          <PortalHoverTooltip tooltip="Share via email">
+            <a
+              href={`mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex text-muted-foreground transition-all hover:text-foreground hover:brightness-125 hover:scale-110"
+              aria-label="Share via email"
+            >
+              <Mail className="h-4 w-4" />
+            </a>
+          </PortalHoverTooltip>
 
-          <button
-            type="button"
-            onClick={handleCopy}
-            className="text-muted-foreground transition-all hover:text-foreground hover:brightness-125 hover:scale-110"
-            title="Copy link"
-          >
-            <Link2 className={`h-4 w-4 ${copied ? 'text-green-400' : ''}`} />
-          </button>
+          <PortalHoverTooltip tooltip="Copy link">
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="text-muted-foreground transition-all hover:text-foreground hover:brightness-125 hover:scale-110"
+              aria-label="Copy link"
+            >
+              <Link2 className={`h-4 w-4 ${copied ? 'text-green-400' : ''}`} />
+            </button>
+          </PortalHoverTooltip>
         </>
       )}
 

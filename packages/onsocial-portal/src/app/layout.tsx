@@ -1,8 +1,8 @@
 import { Suspense } from 'react';
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
 import Script from 'next/script';
 import './globals.css';
+import { portalFontVariableClassName } from '@/lib/portal-fonts';
 import { RuntimeConfigWarnings } from '@/components/providers/runtime-config-warnings';
 import { MobilePageProvider } from '@/components/providers/mobile-page-context';
 import { NavVisibilityProvider } from '@/components/providers/nav-visibility-context';
@@ -17,7 +17,6 @@ import { Navigation } from '@/components/navigation/navigation';
 import { Footer } from '@/components/footer';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/near-network';
 
-const inter = Inter({ subsets: ['latin'] });
 const isMainnet = ACTIVE_NEAR_NETWORK === 'mainnet';
 const applicationName = isMainnet
   ? 'OnSocial Portal'
@@ -74,8 +73,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} overflow-x-hidden`}>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={portalFontVariableClassName}
+    >
+      <body className="overflow-x-hidden font-sans antialiased">
         {process.env.NODE_ENV !== 'production' ? (
           <Script id="onsocial-dev-sw-reset" strategy="beforeInteractive">
             {`
@@ -145,21 +148,21 @@ export default function RootLayout({
             <RuntimeConfigWarnings />
             <WalletProvider network={ACTIVE_NEAR_NETWORK}>
               <ProfileProvider>
-              <PortalRewardsProvider>
-              <GatewayAuthProvider>
-                <MobilePageProvider>
-                  <NavVisibilityProvider>
-                    <Suspense>
-                      <SmoothScrollProvider>
-                        <Navigation />
-                        <main className="safe-x">{children}</main>
-                        <Footer />
-                      </SmoothScrollProvider>
-                    </Suspense>
-                  </NavVisibilityProvider>
-                </MobilePageProvider>
-              </GatewayAuthProvider>
-              </PortalRewardsProvider>
+                <PortalRewardsProvider>
+                  <GatewayAuthProvider>
+                    <MobilePageProvider>
+                      <NavVisibilityProvider>
+                        <Suspense>
+                          <SmoothScrollProvider>
+                            <Navigation />
+                            <main className="safe-x">{children}</main>
+                            <Footer />
+                          </SmoothScrollProvider>
+                        </Suspense>
+                      </NavVisibilityProvider>
+                    </MobilePageProvider>
+                  </GatewayAuthProvider>
+                </PortalRewardsProvider>
               </ProfileProvider>
             </WalletProvider>
           </ThemeProvider>

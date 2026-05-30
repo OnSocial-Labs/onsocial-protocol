@@ -1,7 +1,7 @@
 'use client';
 
 import type { CSSProperties } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   AnimatePresence,
@@ -357,6 +357,43 @@ export function NetworkModal({
   onClose,
   onSelectAccount,
 }: NetworkModalProps) {
+  const [sessionKey, setSessionKey] = useState(0);
+
+  const handleClose = useCallback(() => {
+    onClose();
+    setSessionKey((key) => key + 1);
+  }, [onClose]);
+
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <AnimatePresence initial={false}>
+      {open ? (
+        <NetworkModalContent
+          key={sessionKey}
+          centerAccountId={centerAccountId}
+          centerAvatarUrl={centerAvatarUrl}
+          centerDisplayName={centerDisplayName}
+          accounts={accounts}
+          isSelf={isSelf}
+          onClose={handleClose}
+          onSelectAccount={onSelectAccount}
+        />
+      ) : null}
+    </AnimatePresence>,
+    document.body
+  );
+}
+
+function NetworkModalContent({
+  centerAccountId,
+  centerAvatarUrl,
+  centerDisplayName,
+  accounts,
+  isSelf,
+  onClose,
+  onSelectAccount,
+}: Omit<NetworkModalProps, 'open'>) {
   const reduceMotion = useReducedMotion();
   const scrollRef = useRef<HTMLDivElement>(null);
   const {
@@ -368,18 +405,9 @@ export function NetworkModal({
   const [filter, setFilter] = useState<FilterKind>('all');
   const [query, setQuery] = useState('');
   const [stageSize, setStageSize] = useState(STAGE_SIZE);
-  useBodyScrollLock(open, scrollRef);
+  useBodyScrollLock(true, scrollRef);
 
   useEffect(() => {
-    if (open) {
-      setFilter('all');
-      setQuery('');
-      closeFilterMenu();
-    }
-  }, [closeFilterMenu, open]);
-
-  useEffect(() => {
-    if (!open) return;
     const updateStageSize = () => {
       const viewportPadding = window.innerWidth < 640 ? 48 : 96;
       const availableWidth = Math.max(
@@ -392,10 +420,9 @@ export function NetworkModal({
     updateStageSize();
     window.addEventListener('resize', updateStageSize);
     return () => window.removeEventListener('resize', updateStageSize);
-  }, [open]);
+  }, []);
 
   useEffect(() => {
-    if (!open) return;
     const handleKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       if (filterMenuOpen) {
@@ -406,7 +433,7 @@ export function NetworkModal({
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [closeFilterMenu, filterMenuOpen, onClose, open]);
+  }, [closeFilterMenu, filterMenuOpen, onClose]);
 
   const counts = useMemo(() => {
     let mutual = 0;
@@ -509,217 +536,207 @@ export function NetworkModal({
     filterOptions.find((option) => option.id === filter) ?? filterOptions[0];
   const stageScale = stageSize / STAGE_SIZE;
 
-  if (typeof document === 'undefined') return null;
+  return (
+    <motion.div
+      {...fadeMotion(reduceMotion ? 0 : 0.2)}
+      data-lenis-prevent
+      className="fixed inset-0 z-[2147483647] flex items-center justify-center px-4 py-6"
+    >
+      <button
+        type="button"
+        className="absolute inset-0 bg-background/80 backdrop-blur-xl"
+        aria-label="Close network"
+        onClick={onClose}
+      />
 
-  return createPortal(
-    <AnimatePresence initial={false}>
-      {open ? (
-        <motion.div
-          {...fadeMotion(reduceMotion ? 0 : 0.2)}
-          data-lenis-prevent
-          className="fixed inset-0 z-[2147483647] flex items-center justify-center px-4 py-6"
-        >
-          <button
-            type="button"
-            className="absolute inset-0 bg-background/80 backdrop-blur-xl"
-            aria-label="Close network"
-            onClick={onClose}
-          />
+      <motion.div
+        {...scaleFadeMotion(!!reduceMotion, {
+          y: 16,
+          scale: 0.97,
+          duration: 0.24,
+          exitY: 10,
+          exitScale: 0.98,
+        })}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="network-modal-title"
+        className={cn(
+          'relative flex h-[min(720px,calc(100vh-2rem))] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-border/67 bg-background/98',
+          portalElevatedShadowClass
+        )}
+      >
+        <ModalHeader
+          titleId="network-modal-title"
+          title={isSelf ? 'Your network' : `${centerDisplayName}'s network`}
+          description={networkMeta}
+          descriptionVariant="meta"
+          actions={
+            <ModalCloseButton ariaLabel="Close network" onClick={onClose} />
+          }
+        />
 
-          <motion.div
-            {...scaleFadeMotion(!!reduceMotion, {
-              y: 16,
-              scale: 0.97,
-              duration: 0.24,
-              exitY: 10,
-              exitScale: 0.98,
-            })}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="network-modal-title"
-            className={cn(
-              'relative flex h-[min(720px,calc(100vh-2rem))] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-border/67 bg-background/98',
-              portalElevatedShadowClass
-            )}
-          >
-            <ModalHeader
-              titleId="network-modal-title"
-              title={isSelf ? 'Your network' : `${centerDisplayName}'s network`}
-              description={networkMeta}
-              descriptionVariant="meta"
-              actions={
-                <ModalCloseButton
-                  ariaLabel="Close network"
-                  onClick={onClose}
-                />
-              }
-            />
-
-            <div className="shrink-0 space-y-3 px-5 pb-3">
-              <div className="flex items-center gap-2">
-                <div className="relative shrink-0" ref={filterMenuRef}>
-                  <button
-                    type="button"
-                    onClick={toggleFilterMenu}
-                    aria-haspopup="listbox"
-                    aria-expanded={filterMenuOpen}
-                    aria-label={
-                      filterMenuOpen
-                        ? 'Close relationship filter menu'
-                        : 'Open relationship filter menu'
-                    }
+        <div className="shrink-0 space-y-3 px-5 pb-3">
+          <div className="flex items-center gap-2">
+            <div className="relative shrink-0" ref={filterMenuRef}>
+              <button
+                type="button"
+                onClick={toggleFilterMenu}
+                aria-haspopup="listbox"
+                aria-expanded={filterMenuOpen}
+                aria-label={
+                  filterMenuOpen
+                    ? 'Close relationship filter menu'
+                    : 'Open relationship filter menu'
+                }
+                className={cn(
+                  'flex h-8 max-w-[11.5rem] items-center gap-2 rounded-full border border-border/40 bg-background/65 px-3 text-xs text-muted-foreground shadow-[0_10px_30px_-18px_rgba(15,23,42,0.34)] backdrop-blur-md transition-all duration-300 hover:bg-background/80 hover:text-foreground',
+                  filterMenuOpen &&
+                    'bg-background/88 text-foreground shadow-[0_12px_32px_-18px_rgba(15,23,42,0.38)]'
+                )}
+              >
+                <span className="min-w-0 truncate text-foreground/88">
+                  {activeFilterOption.label}
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span
                     className={cn(
-                      'flex h-8 max-w-[11.5rem] items-center gap-2 rounded-full border border-border/40 bg-background/65 px-3 text-xs text-muted-foreground shadow-[0_10px_30px_-18px_rgba(15,23,42,0.34)] backdrop-blur-md transition-all duration-300 hover:bg-background/80 hover:text-foreground',
-                      filterMenuOpen &&
-                        'bg-background/88 text-foreground shadow-[0_12px_32px_-18px_rgba(15,23,42,0.38)]'
+                      'inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full border border-border/35 bg-background/55 px-1 text-[10px] font-semibold tabular-nums leading-none text-muted-foreground/90',
+                      filterCountAccentClass(activeFilterOption.countAccent)
                     )}
                   >
-                    <span className="min-w-0 truncate text-foreground/88">
-                      {activeFilterOption.label}
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <span
-                        className={cn(
-                          'inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full border border-border/35 bg-background/55 px-1 text-[10px] font-semibold tabular-nums leading-none text-muted-foreground/90',
-                          filterCountAccentClass(activeFilterOption.countAccent)
-                        )}
-                      >
-                        {activeFilterOption.count}
-                      </span>
-                      <ChevronDown
-                        className={cn(
-                          'h-3.5 w-3.5 shrink-0 transition-transform',
-                          filterMenuOpen && 'rotate-180'
-                        )}
-                      />
-                    </span>
-                  </button>
+                    {activeFilterOption.count}
+                  </span>
+                  <ChevronDown
+                    className={cn(
+                      'h-3.5 w-3.5 shrink-0 transition-transform',
+                      filterMenuOpen && 'rotate-180'
+                    )}
+                  />
+                </span>
+              </button>
 
-                  <FloatingPanelMenu
-                    open={filterMenuOpen}
-                    align="left"
-                    className="w-60"
-                    role="listbox"
-                    aria-label="Filter network by relationship"
-                  >
-                    <div className="border-b border-fade-section px-3 py-2.5">
-                      <p className="mb-0.5 whitespace-nowrap text-[11px] text-muted-foreground/70">
-                        Relationship
-                      </p>
-                      <p className="whitespace-nowrap text-[13px] font-medium text-foreground">
-                        {activeFilterOption.label}
-                      </p>
-                    </div>
-
-                    <div className="space-y-0.5 p-1.5">
-                      {filterOptions.map((option) => {
-                        const selected = option.id === filter;
-                        return (
-                          <button
-                            key={option.id}
-                            type="button"
-                            role="option"
-                            aria-selected={selected}
-                            onClick={() => {
-                              setFilter(option.id);
-                              closeFilterMenu();
-                            }}
-                            className={cn(
-                              'group justify-between',
-                              floatingPanelItemClass,
-                              selected && floatingPanelItemSelectedClass
-                            )}
-                          >
-                            <span>{option.label}</span>
-                            <span
-                              className={cn(
-                                'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold tabular-nums leading-none transition-colors',
-                                selected
-                                  ? 'border-border/45 bg-background/70 text-foreground/80'
-                                  : 'border-border/35 bg-background/40 text-muted-foreground/90 group-hover:border-border/45 group-hover:bg-background/60 group-hover:text-foreground/80',
-                                filterCountAccentClass(option.countAccent)
-                              )}
-                            >
-                              {option.count}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </FloatingPanelMenu>
+              <FloatingPanelMenu
+                open={filterMenuOpen}
+                align="left"
+                className="w-60"
+                role="listbox"
+                aria-label="Filter network by relationship"
+              >
+                <div className="border-b border-fade-section px-3 py-2.5">
+                  <p className="mb-0.5 whitespace-nowrap text-[11px] text-muted-foreground/70">
+                    Relationship
+                  </p>
+                  <p className="whitespace-nowrap text-[13px] font-medium text-foreground">
+                    {activeFilterOption.label}
+                  </p>
                 </div>
 
-                <SearchInput
-                  value={query}
-                  onValueChange={setQuery}
-                  placeholder="Search"
-                  size="sm"
-                  maxLength={80}
-                  containerClassName="min-w-0 flex-1"
-                  clearAriaLabel="Clear network search"
+                <div className="space-y-0.5 p-1.5">
+                  {filterOptions.map((option) => {
+                    const selected = option.id === filter;
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        role="option"
+                        aria-selected={selected}
+                        onClick={() => {
+                          setFilter(option.id);
+                          closeFilterMenu();
+                        }}
+                        className={cn(
+                          'group justify-between',
+                          floatingPanelItemClass,
+                          selected && floatingPanelItemSelectedClass
+                        )}
+                      >
+                        <span>{option.label}</span>
+                        <span
+                          className={cn(
+                            'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold tabular-nums leading-none transition-colors',
+                            selected
+                              ? 'border-border/45 bg-background/70 text-foreground/80'
+                              : 'border-border/35 bg-background/40 text-muted-foreground/90 group-hover:border-border/45 group-hover:bg-background/60 group-hover:text-foreground/80',
+                            filterCountAccentClass(option.countAccent)
+                          )}
+                        >
+                          {option.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </FloatingPanelMenu>
+            </div>
+
+            <SearchInput
+              value={query}
+              onValueChange={setQuery}
+              placeholder="Search"
+              size="sm"
+              maxLength={80}
+              containerClassName="min-w-0 flex-1"
+              clearAriaLabel="Clear network search"
+            />
+          </div>
+        </div>
+
+        <div
+          ref={scrollRef}
+          className="relative min-h-0 flex-1 overflow-hidden"
+        >
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                'radial-gradient(circle at 50% 50%, hsl(var(--foreground) / 0.05), transparent 70%)',
+            }}
+          />
+
+          <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
+            <div
+              className="relative"
+              style={{ width: stageSize, height: stageSize }}
+            >
+              <div
+                className="absolute left-1/2 top-1/2"
+                style={{
+                  width: STAGE_SIZE,
+                  height: STAGE_SIZE,
+                  transform: `translate(-50%, -50%) scale(${stageScale})`,
+                  transformOrigin: 'center',
+                }}
+              >
+                {placedNodes.map((node, index) => (
+                  <NetworkOrbitNode
+                    key={node.account.accountId}
+                    node={node}
+                    index={index}
+                    dimmed={isDimmed(node.account)}
+                    reduceMotion={Boolean(reduceMotion)}
+                    onSelectAccount={onSelectAccount}
+                  />
+                ))}
+
+                <CenterNetworkAccount
+                  accountId={centerAccountId}
+                  avatarUrl={centerAvatarUrl}
+                  displayName={centerDisplayName}
+                  onSelectAccount={onSelectAccount}
                 />
               </div>
             </div>
+          </div>
 
-            <div
-              ref={scrollRef}
-              className="relative min-h-0 flex-1 overflow-hidden"
-            >
-              <div
-                className="pointer-events-none absolute inset-0"
-                style={{
-                  background:
-                    'radial-gradient(circle at 50% 50%, hsl(var(--foreground) / 0.05), transparent 70%)',
-                }}
-              />
-
-              <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
-                <div
-                  className="relative"
-                  style={{ width: stageSize, height: stageSize }}
-                >
-                  <div
-                    className="absolute left-1/2 top-1/2"
-                    style={{
-                      width: STAGE_SIZE,
-                      height: STAGE_SIZE,
-                      transform: `translate(-50%, -50%) scale(${stageScale})`,
-                      transformOrigin: 'center',
-                    }}
-                  >
-                    {placedNodes.map((node, index) => (
-                      <NetworkOrbitNode
-                        key={node.account.accountId}
-                        node={node}
-                        index={index}
-                        dimmed={isDimmed(node.account)}
-                        reduceMotion={Boolean(reduceMotion)}
-                        onSelectAccount={onSelectAccount}
-                      />
-                    ))}
-
-                    <CenterNetworkAccount
-                      accountId={centerAccountId}
-                      avatarUrl={centerAvatarUrl}
-                      displayName={centerDisplayName}
-                      onSelectAccount={onSelectAccount}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {accounts.length === 0 ? (
-                <div className="absolute inset-x-0 bottom-12 px-6 text-center text-[12px] text-muted-foreground/55">
-                  {isSelf
-                    ? 'No standing connections yet. Stand with someone to start your network.'
-                    : `${centerDisplayName} has no standing connections yet.`}
-                </div>
-              ) : null}
+          {accounts.length === 0 ? (
+            <div className="absolute inset-x-0 bottom-12 px-6 text-center text-[12px] text-muted-foreground/55">
+              {isSelf
+                ? 'No standing connections yet. Stand with someone to start your network.'
+                : `${centerDisplayName} has no standing connections yet.`}
             </div>
-          </motion.div>
-        </motion.div>
-      ) : null}
-    </AnimatePresence>,
-    document.body
+          ) : null}
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }

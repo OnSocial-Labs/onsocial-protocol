@@ -43,8 +43,7 @@ function measureTooltipPosition(
   const fitsBelow =
     anchor.bottom + TOOLTIP_GAP + tip.height <=
     window.innerHeight - TOOLTIP_MARGIN;
-  const fitsAbove =
-    anchor.top - TOOLTIP_GAP - tip.height >= TOOLTIP_MARGIN;
+  const fitsAbove = anchor.top - TOOLTIP_GAP - tip.height >= TOOLTIP_MARGIN;
 
   let placement: TooltipPlacement = 'bottom';
   if (!fitsBelow && fitsAbove) {
@@ -55,7 +54,9 @@ function measureTooltipPosition(
   }
 
   const y =
-    placement === 'top' ? anchor.top - TOOLTIP_GAP : anchor.bottom + TOOLTIP_GAP;
+    placement === 'top'
+      ? anchor.top - TOOLTIP_GAP
+      : anchor.bottom + TOOLTIP_GAP;
 
   return { x, y, placement };
 }

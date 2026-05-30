@@ -11,16 +11,18 @@ import React, {
 } from 'react';
 import { NearConnector } from '@hot-labs/near-connect';
 import type { NearWalletBase } from '@hot-labs/near-connect';
-import {
-  getRawErrorMessage,
-  isIgnorableWalletError,
-} from '@/lib/wallet-errors';
+import { isIgnorableWalletError } from '@/lib/wallet-errors';
 
 const PORTAL_WALLET_ACCOUNT_KEY = 'onsocial.portal.wallet.accountId';
 
 // ---------------------------------------------------------------------------
 // Context types
 // ---------------------------------------------------------------------------
+
+interface SigningWallet {
+  wallet: NearWalletBase;
+  accountId: string;
+}
 
 interface WalletContextType {
   /** The NearConnector instance (replaces old selector + modal). */
@@ -37,10 +39,12 @@ interface WalletContextType {
   connect: () => Promise<void>;
   /** Disconnect the current wallet. */
   disconnect: () => Promise<void>;
-}
-
-function getErrorMessage(error: unknown): string {
-  return getRawErrorMessage(error);
+  /**
+   * Resolve a live wallet instance for signing (reconnects if needed).
+   * Call this at the start of a user-initiated sign flow so the extension popup
+   * still opens under the browser's user-gesture rules.
+   */
+  getSigningWallet: () => Promise<SigningWallet>;
 }
 
 function isIgnorableConnectError(error: unknown): boolean {
@@ -89,6 +93,9 @@ const WalletContext = createContext<WalletContextType>({
   isLoading: true,
   connect: async () => {},
   disconnect: async () => {},
+  getSigningWallet: async () => {
+    throw new Error('WalletProvider is not mounted');
+  },
 });
 
 export function useWallet() {
@@ -235,6 +242,49 @@ export function WalletProvider({
     writeStoredWalletAccountId(null);
   }, []);
 
+  const getSigningWallet = useCallback(async (): Promise<SigningWallet> => {
+    const c = connectorRef.current;
+    if (!c) {
+      throw new Error('Wallet is still loading. Try again in a moment.');
+    }
+
+    const preferredAccountId = accountId ?? readStoredWalletAccountId();
+
+    try {
+      const { wallet: connectedWallet, accounts } =
+        await c.getConnectedWallet();
+      const resolvedAccountId = pickRestoredAccountId(
+        accounts,
+        preferredAccountId
+      );
+      if (connectedWallet && resolvedAccountId) {
+        setWallet(connectedWallet);
+        setAccountId(resolvedAccountId);
+        writeStoredWalletAccountId(resolvedAccountId);
+        return { wallet: connectedWallet, accountId: resolvedAccountId };
+      }
+    } catch {
+      // Fall through to an explicit connect().
+    }
+
+    const connectedWallet = await c.connect();
+    const accounts = await connectedWallet.getAccounts({ network });
+    const resolvedAccountId = pickRestoredAccountId(
+      accounts,
+      preferredAccountId
+    );
+    if (!resolvedAccountId) {
+      throw new Error(
+        'Select a wallet account, then press Authorize & save again.'
+      );
+    }
+
+    setWallet(connectedWallet);
+    setAccountId(resolvedAccountId);
+    writeStoredWalletAccountId(resolvedAccountId);
+    return { wallet: connectedWallet, accountId: resolvedAccountId };
+  }, [accountId, network]);
+
   // ---- value ----
   const value: WalletContextType = {
     connector: connectorRef.current,
@@ -244,6 +294,7 @@ export function WalletProvider({
     isLoading,
     connect,
     disconnect,
+    getSigningWallet,
   };
 
   return (

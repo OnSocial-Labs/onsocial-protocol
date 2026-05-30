@@ -45,7 +45,9 @@ export function isWalletUserCancellation(error: unknown): boolean {
   );
 }
 
-export function isWalletCancellationMessage(message: string | null | undefined): boolean {
+export function isWalletCancellationMessage(
+  message: string | null | undefined
+): boolean {
   if (!message?.trim()) return false;
   return isWalletUserCancellation(new Error(message));
 }

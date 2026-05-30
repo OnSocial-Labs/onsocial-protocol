@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, Plus, RefreshCw, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import { FilterPill } from '@/components/ui/filter-pill';
 import { SearchInput } from '@/components/ui/search-input';
 import {
@@ -138,20 +139,23 @@ export function GovernanceRail({
                   <Settings2 className="h-4 w-4" />
                 </Link>
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={onRefresh}
-                disabled={loading}
-                title={loading ? 'Refreshing proposals' : 'Refresh proposals'}
-                aria-label="Refresh proposals"
-                className="h-8 w-8 rounded-full border-border/40 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground"
+              <PortalHoverTooltip
+                tooltip={loading ? 'Refreshing proposals' : 'Refresh proposals'}
               >
-                <RefreshCw
-                  className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}
-                />
-              </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={onRefresh}
+                  disabled={loading}
+                  aria-label="Refresh proposals"
+                  className="h-8 w-8 rounded-full border-border/40 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground"
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}
+                  />
+                </Button>
+              </PortalHoverTooltip>
             </div>
 
             <div className="hidden items-center gap-2 md:flex">
@@ -173,20 +177,23 @@ export function GovernanceRail({
                 </Link>
               </Button>
 
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={onRefresh}
-                disabled={loading}
-                title={loading ? 'Refreshing proposals' : 'Refresh proposals'}
-                aria-label="Refresh proposals"
-                className="h-8 w-8 rounded-full border-border/40 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground md:h-9 md:w-9"
+              <PortalHoverTooltip
+                tooltip={loading ? 'Refreshing proposals' : 'Refresh proposals'}
               >
-                <RefreshCw
-                  className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}
-                />
-              </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={onRefresh}
+                  disabled={loading}
+                  aria-label="Refresh proposals"
+                  className="h-8 w-8 rounded-full border-border/40 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground md:h-9 md:w-9"
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}
+                  />
+                </Button>
+              </PortalHoverTooltip>
             </div>
           </div>
         </div>

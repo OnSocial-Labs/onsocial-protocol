@@ -3,6 +3,7 @@
 import { Download } from 'lucide-react';
 import { usePwa } from '@/components/providers/pwa-provider';
 import { Button } from '@/components/ui/button';
+import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import { cn } from '@/lib/utils';
 
 type PwaInstallButtonProps = {
@@ -21,22 +22,23 @@ export function PwaInstallButton({
   }
 
   return (
-    <Button
-      type="button"
-      variant="outline"
-      size={compact ? 'icon' : 'sm'}
-      onClick={() => {
-        void install();
-      }}
-      className={cn(
-        'border-border/45 bg-background/70 shadow-[0_12px_30px_-18px_rgba(15,23,42,0.34)] hover:border-border/70 hover:bg-background/84',
-        className
-      )}
-      aria-label="Install OnSocial Portal"
-      title="Install OnSocial Portal"
-    >
-      <Download className="h-4 w-4" />
-      {compact ? null : <span>Install</span>}
-    </Button>
+    <PortalHoverTooltip tooltip="Install OnSocial Portal">
+      <Button
+        type="button"
+        variant="outline"
+        size={compact ? 'icon' : 'sm'}
+        onClick={() => {
+          void install();
+        }}
+        className={cn(
+          'border-border/45 bg-background/70 shadow-[0_12px_30px_-18px_rgba(15,23,42,0.34)] hover:border-border/70 hover:bg-background/84',
+          className
+        )}
+        aria-label="Install OnSocial Portal"
+      >
+        <Download className="h-4 w-4" />
+        {compact ? null : <span>Install</span>}
+      </Button>
+    </PortalHoverTooltip>
   );
 }

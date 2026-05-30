@@ -22,6 +22,7 @@ import {
 import { RiTelegram2Line } from 'react-icons/ri';
 import { useWallet } from '@/contexts/wallet-context';
 import { Button, buttonArrowLeftClass } from '@/components/ui/button';
+import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
 import { PortalBadge } from '@/components/ui/portal-badge';
 import { OnChainConfigSummary } from '@/components/data/on-chain-config-summary';
@@ -439,24 +440,27 @@ export function GovernanceEligibilityState({
               In Progress
             </PortalBadge>
           )}
-          {onRefresh && (
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={onRefresh}
-              disabled={acting || refreshPending}
-              title={
+          {onRefresh ? (
+            <PortalHoverTooltip
+              tooltip={
                 refreshPending ? 'Refreshing balances' : 'Refresh balances'
               }
-              aria-label="Refresh balances"
-              className="h-8 w-8 rounded-full border-border/40 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground"
             >
-              <RefreshCw
-                className={`h-4 w-4 ${refreshPending ? 'animate-spin' : ''}`}
-              />
-            </Button>
-          )}
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={onRefresh}
+                disabled={acting || refreshPending}
+                aria-label="Refresh balances"
+                className="h-8 w-8 rounded-full border-border/40 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${refreshPending ? 'animate-spin' : ''}`}
+                />
+              </Button>
+            </PortalHoverTooltip>
+          ) : null}
         </div>
       </div>
 
@@ -728,17 +732,19 @@ export function ApprovedDashboard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-1">
             <h3 className="font-semibold tracking-[-0.02em]">SOCIAL key</h3>
-            <Button
-              onClick={() => setShowRotateConfirm(true)}
-              variant="secondary"
-              size="sm"
-              className="gap-1.5 text-xs"
-              title="Rotate API key"
-              disabled={!hasApiKey}
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              Rotate
-            </Button>
+            <PortalHoverTooltip tooltip="Rotate API key">
+              <Button
+                onClick={() => setShowRotateConfirm(true)}
+                variant="secondary"
+                size="sm"
+                className="gap-1.5 text-xs"
+                disabled={!hasApiKey}
+                aria-label="Rotate API key"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                Rotate
+              </Button>
+            </PortalHoverTooltip>
           </div>
           <p className="text-xs text-muted-foreground mb-3">
             App:{' '}
@@ -754,17 +760,22 @@ export function ApprovedDashboard({
             </code>
             {hasApiKey && (
               <div className="absolute top-2.5 right-2.5 flex items-center gap-1">
-                <button
-                  onClick={() => setKeyRevealed((value) => !value)}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-muted/50 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
-                  title={keyRevealed ? 'Hide key' : 'Reveal key'}
+                <PortalHoverTooltip
+                  tooltip={keyRevealed ? 'Hide key' : 'Reveal key'}
                 >
-                  {keyRevealed ? (
-                    <EyeOff className="w-4 h-4" />
-                  ) : (
-                    <Eye className="w-4 h-4" />
-                  )}
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => setKeyRevealed((value) => !value)}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-muted/50 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+                    aria-label={keyRevealed ? 'Hide key' : 'Reveal key'}
+                  >
+                    {keyRevealed ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </PortalHoverTooltip>
                 <CopyButton
                   text={registration.apiKey!}
                   className="inline-flex h-7 w-7 items-center justify-center"

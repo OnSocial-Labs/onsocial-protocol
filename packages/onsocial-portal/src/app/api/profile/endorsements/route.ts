@@ -1,22 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
-import type { EndorsementListItem } from '@onsocial/sdk';
+import { normalizeProfileSearchQuery } from '@/lib/profile-account-search';
+import {
+  ENDORSEMENT_MAX_OFFSET,
+  ENDORSEMENT_PAGE_SIZE,
+  type EndorsementListMode,
+  loadEndorsementPreview,
+  listEndorsementsPage,
+} from '@/lib/profile-endorsements-server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-interface EnrichedEndorsementListItem extends EndorsementListItem {
-  issuerName: string | null;
-  issuerAvatarUrl: string | null;
-  targetName: string | null;
-  targetAvatarUrl: string | null;
-}
-
-interface ProfileEndorsementsResponse {
-  accountId: string;
-  received: EnrichedEndorsementListItem[];
-  given: EnrichedEndorsementListItem[];
-}
 
 const ACCOUNT_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{1,63}$/;
 const REVALIDATE_SECONDS = 30;
@@ -26,6 +20,31 @@ function getAccountId(request: NextRequest): string | null {
   if (!accountId) return null;
   if (!ACCOUNT_ID_PATTERN.test(accountId)) return null;
   return accountId;
+}
+
+function getViewerAccountId(request: NextRequest): string | null {
+  const accountId = request.nextUrl.searchParams.get('viewerAccountId')?.trim();
+  if (!accountId) return null;
+  if (!ACCOUNT_ID_PATTERN.test(accountId)) return null;
+  return accountId;
+}
+
+function getMode(request: NextRequest): EndorsementListMode | null {
+  const mode = request.nextUrl.searchParams.get('mode')?.trim();
+  if (mode === 'received' || mode === 'given') return mode;
+  return null;
+}
+
+function getLimit(request: NextRequest): number {
+  const rawLimit = Number(request.nextUrl.searchParams.get('limit'));
+  if (!Number.isFinite(rawLimit) || rawLimit <= 0) return ENDORSEMENT_PAGE_SIZE;
+  return Math.min(ENDORSEMENT_PAGE_SIZE, Math.floor(rawLimit));
+}
+
+function getOffset(request: NextRequest): number {
+  const rawOffset = Number(request.nextUrl.searchParams.get('offset'));
+  if (!Number.isFinite(rawOffset) || rawOffset < 0) return 0;
+  return Math.min(ENDORSEMENT_MAX_OFFSET, Math.floor(rawOffset));
 }
 
 function getErrorMessage(error: unknown): string {
@@ -43,49 +62,66 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const mode = getMode(request);
+
   try {
     const os = createPortalServerOnSocialClient();
-    const [received, given] = await Promise.all([
-      os.endorsements.listReceived(accountId, { limit: 100 }),
-      os.endorsements.listGiven(accountId, { limit: 100 }),
-    ]);
-    const participantIds = Array.from(
-      new Set(
-        [...received, ...given].flatMap((endorsement) => [
-          endorsement.issuer,
-          endorsement.target,
-        ])
-      )
-    );
-    const profiles = await os.profiles.getMany(participantIds);
-    const enrich = (
-      endorsement: EndorsementListItem
-    ): EnrichedEndorsementListItem => {
-      const issuerProfile = profiles[endorsement.issuer] ?? null;
-      const targetProfile = profiles[endorsement.target] ?? null;
-      return {
-        ...endorsement,
-        issuerName: issuerProfile?.name ?? null,
-        issuerAvatarUrl: os.profiles.avatarUrl(issuerProfile),
-        targetName: targetProfile?.name ?? null,
-        targetAvatarUrl: os.profiles.avatarUrl(targetProfile),
-      };
-    };
 
-    const response: ProfileEndorsementsResponse = {
+    if (mode) {
+      const limit = getLimit(request);
+      const offset = getOffset(request);
+      const q = normalizeProfileSearchQuery(
+        request.nextUrl.searchParams.get('q')
+      );
+      const page = await listEndorsementsPage(
+        os,
+        accountId,
+        mode,
+        limit,
+        offset,
+        q
+      );
+
+      return NextResponse.json(
+        {
+          accountId,
+          mode,
+          limit,
+          offset,
+          hasMore: page.hasMore,
+          total: page.total,
+          endorsements: page.endorsements,
+          ...(q ? { q } : {}),
+        },
+        { headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+
+    const preview = await loadEndorsementPreview(
+      os,
       accountId,
-      received: received.map(enrich),
-      given: given.map(enrich),
-    };
+      getViewerAccountId(request)
+    );
 
-    return NextResponse.json(response, {
-      headers: {
-        'Cache-Control': `public, s-maxage=${REVALIDATE_SECONDS}, stale-while-revalidate=${REVALIDATE_SECONDS * 3}`,
+    return NextResponse.json(
+      {
+        accountId,
+        counts: preview.counts,
+        received: preview.received,
+        given: preview.given,
+        viewerToTarget: preview.viewerToTarget,
       },
-    });
+      {
+        headers: {
+          'Cache-Control': `public, s-maxage=${REVALIDATE_SECONDS}, stale-while-revalidate=${REVALIDATE_SECONDS * 3}`,
+        },
+      }
+    );
   } catch (error) {
     const detail = getErrorMessage(error);
-    const missingKey = detail.includes('ONSOCIAL_API_KEY') || detail.includes('GATEWAY_SERVICE_KEY');
+    const missingKey =
+      detail.includes('ONSOCIAL_API_KEY') ||
+      detail.includes('GATEWAY_SERVICE_KEY');
 
     return NextResponse.json(
       {
