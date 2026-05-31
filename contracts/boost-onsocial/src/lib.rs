@@ -93,6 +93,12 @@ pub struct PendingUnlock {
     pub old_locked: u128,
     pub old_unlock_at: u64,
     pub old_lock_months: u64,
+    pub old_last_update_time: u64,
+    pub old_boost_seconds: u128,
+    pub old_rewards_claimed: u128,
+    pub old_total_boost_seconds: u128,
+    pub old_total_rewards_released: u128,
+    pub final_rewards: u128,
 }
 
 #[near(serializers = [json])]
@@ -553,19 +559,42 @@ impl OnsocialBoost {
 
         let amount = account.locked_amount;
         let effective = account.tracked_effective_boost;
+        let final_rewards = self.calculate_claimable_internal(&account, false);
+        let settled_reward_share = u256_mul_div(
+            self.total_rewards_released,
+            account.boost_seconds,
+            self.total_boost_seconds,
+        );
+        let transfer_amount = amount.saturating_add(final_rewards);
         let old_account = account.clone();
 
         self.total_locked = self.total_locked.saturating_sub(amount);
         self.total_effective_boost = self.total_effective_boost.saturating_sub(effective);
+        self.total_boost_seconds = self
+            .total_boost_seconds
+            .saturating_sub(old_account.boost_seconds);
+        self.total_rewards_released = self
+            .total_rewards_released
+            .saturating_sub(settled_reward_share);
 
         self.pending_unlocks.insert(
             account_id.clone(),
             PendingUnlock {
-                amount,
+                amount: transfer_amount,
                 boost: effective,
                 old_locked: old_account.locked_amount,
                 old_unlock_at: old_account.unlock_at,
                 old_lock_months: old_account.lock_months,
+                old_last_update_time: old_account.last_update_time,
+                old_boost_seconds: old_account.boost_seconds,
+                old_rewards_claimed: old_account.rewards_claimed,
+                old_total_boost_seconds: self
+                    .total_boost_seconds
+                    .saturating_add(old_account.boost_seconds),
+                old_total_rewards_released: self
+                    .total_rewards_released
+                    .saturating_add(settled_reward_share),
+                final_rewards,
             },
         );
 
@@ -573,12 +602,14 @@ impl OnsocialBoost {
         account.locked_amount = 0;
         account.unlock_at = 0;
         account.lock_months = 0;
+        account.boost_seconds = 0;
+        account.rewards_claimed = 0;
         account.tracked_effective_boost = 0;
         self.accounts.insert(account_id.clone(), account);
 
         Ok(self.ft_transfer_with_callback(
             account_id.clone(),
-            amount,
+            transfer_amount,
             "on_unlock_callback",
             serde_json::json!({ "account_id": account_id }),
         ))
@@ -600,7 +631,9 @@ impl OnsocialBoost {
                 "BOOST_UNLOCK",
                 &account_id,
                 serde_json::json!({
-                    "amount": pending.amount.to_string()
+                    "amount": pending.old_locked.to_string(),
+                    "rewards": pending.final_rewards.to_string(),
+                    "total_transfer": pending.amount.to_string()
                 }),
             );
         } else {
@@ -608,10 +641,15 @@ impl OnsocialBoost {
             account.locked_amount = pending.old_locked;
             account.unlock_at = pending.old_unlock_at;
             account.lock_months = pending.old_lock_months;
+            account.last_update_time = pending.old_last_update_time;
+            account.boost_seconds = pending.old_boost_seconds;
+            account.rewards_claimed = pending.old_rewards_claimed;
             account.tracked_effective_boost = pending.boost;
             self.accounts.insert(account_id.clone(), account);
-            self.total_locked += pending.amount;
+            self.total_locked = self.total_locked.saturating_add(pending.old_locked);
             self.total_effective_boost += pending.boost;
+            self.total_boost_seconds = pending.old_total_boost_seconds;
+            self.total_rewards_released = pending.old_total_rewards_released;
             self.emit_event(
                 "UNLOCK_FAILED",
                 &account_id,
@@ -976,7 +1014,8 @@ impl OnsocialBoost {
     pub fn get_reward_rate(&self, account_id: AccountId) -> RewardRateInfo {
         let account = self.accounts.get(&account_id).cloned().unwrap_or_default();
         let effective = self.effective_boost(&account);
-        let claimable = self.calculate_claimable(&account);
+        // Match claim_rewards(): only count rewards already released on-chain.
+        let claimable = self.calculate_claimable_internal(&account, false);
         let now = env::block_timestamp();
         let projected_released = self.project_total_released();
         let release_delta = projected_released.saturating_sub(self.total_rewards_released);

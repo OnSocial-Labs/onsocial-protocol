@@ -148,6 +148,76 @@ fn fund_pool_at(contract: &mut OnsocialBoost, amount: u128, timestamp: u64) {
         .unwrap();
 }
 
+fn pending_unlock_fixture() -> PendingUnlock {
+    PendingUnlock {
+        amount: 10 * ONE_SOCIAL,
+        boost: 11 * ONE_SOCIAL,
+        old_locked: 10 * ONE_SOCIAL,
+        old_unlock_at: 1,
+        old_lock_months: 6,
+        old_last_update_time: 1,
+        old_boost_seconds: 0,
+        old_rewards_claimed: 0,
+        old_total_boost_seconds: 0,
+        old_total_rewards_released: 0,
+        final_rewards: 0,
+    }
+}
+
+fn simulate_unlock_state(contract: &mut OnsocialBoost, account_id: &str) -> PendingUnlock {
+    let account_id: AccountId = account_id.parse().unwrap();
+    contract.sync_account(&account_id);
+
+    let account = contract.accounts.get(&account_id).cloned().unwrap();
+    let amount = account.locked_amount;
+    let effective = account.tracked_effective_boost;
+    let final_rewards = contract.calculate_claimable_internal(&account, false);
+    let settled_reward_share = u256_mul_div(
+        contract.total_rewards_released,
+        account.boost_seconds,
+        contract.total_boost_seconds,
+    );
+    let old_total_boost_seconds = contract.total_boost_seconds;
+    let old_total_rewards_released = contract.total_rewards_released;
+
+    contract.total_locked = contract.total_locked.saturating_sub(amount);
+    contract.total_effective_boost = contract.total_effective_boost.saturating_sub(effective);
+    contract.total_boost_seconds = contract
+        .total_boost_seconds
+        .saturating_sub(account.boost_seconds);
+    contract.total_rewards_released = contract
+        .total_rewards_released
+        .saturating_sub(settled_reward_share);
+
+    let pending = PendingUnlock {
+        amount: amount.saturating_add(final_rewards),
+        boost: effective,
+        old_locked: account.locked_amount,
+        old_unlock_at: account.unlock_at,
+        old_lock_months: account.lock_months,
+        old_last_update_time: account.last_update_time,
+        old_boost_seconds: account.boost_seconds,
+        old_rewards_claimed: account.rewards_claimed,
+        old_total_boost_seconds,
+        old_total_rewards_released,
+        final_rewards,
+    };
+    contract
+        .pending_unlocks
+        .insert(account_id.clone(), pending.clone());
+
+    let mut account = account;
+    account.locked_amount = 0;
+    account.unlock_at = 0;
+    account.lock_months = 0;
+    account.boost_seconds = 0;
+    account.rewards_claimed = 0;
+    account.tracked_effective_boost = 0;
+    contract.accounts.insert(account_id, account);
+
+    pending
+}
+
 fn purchase_credits(contract: &mut OnsocialBoost, sender: &str, amount: u128) {
     let context = get_context(TEST_TOKEN_ID);
     testing_env!(context.build());
@@ -1900,46 +1970,7 @@ fn test_bug_unlock_callback_missing_tracked_effective_boost_restore() {
     testing_env!(context.build());
 
     // Step 3: Simulate what unlock() does (before the transfer)
-    // This mimics the state change in unlock() at lines 401-427
-    contract.sync_account(&"alice.near".parse().unwrap());
-
-    let account_before_unlock = contract
-        .accounts
-        .get(&"alice.near".parse::<AccountId>().unwrap())
-        .cloned()
-        .unwrap();
-    let amount = account_before_unlock.locked_amount;
-    let effective = account_before_unlock.tracked_effective_boost;
-
-    // Save old values for callback
-    let old_locked = account_before_unlock.locked_amount;
-    let old_unlock_at = account_before_unlock.unlock_at;
-    let old_lock_months = account_before_unlock.lock_months;
-
-    // Perform state changes (what unlock() does)
-    contract.total_locked = contract.total_locked.saturating_sub(amount);
-    contract.total_effective_boost = contract.total_effective_boost.saturating_sub(effective);
-
-    // Insert pending unlock (new pattern)
-    contract.pending_unlocks.insert(
-        "alice.near".parse().unwrap(),
-        PendingUnlock {
-            amount,
-            boost: effective,
-            old_locked,
-            old_unlock_at,
-            old_lock_months,
-        },
-    );
-
-    let mut account = account_before_unlock.clone();
-    account.locked_amount = 0;
-    account.unlock_at = 0;
-    account.lock_months = 0;
-    account.tracked_effective_boost = 0; // ← This gets set to 0
-    contract
-        .accounts
-        .insert("alice.near".parse().unwrap(), account);
+    let pending = simulate_unlock_state(&mut contract, "alice.near");
 
     // Verify state after unlock (before transfer)
     assert_eq!(
@@ -1976,6 +2007,22 @@ fn test_bug_unlock_callback_missing_tracked_effective_boost_restore() {
     assert_eq!(
         account_after_restore.tracked_effective_boost, expected_effective,
         "FIX VERIFIED: tracked_effective_boost is properly restored after failed unlock"
+    );
+    assert_eq!(
+        account_after_restore.boost_seconds, pending.old_boost_seconds,
+        "boost_seconds should be restored after failed unlock"
+    );
+    assert_eq!(
+        account_after_restore.rewards_claimed, pending.old_rewards_claimed,
+        "rewards_claimed should be restored after failed unlock"
+    );
+    assert_eq!(
+        contract.total_boost_seconds, pending.old_total_boost_seconds,
+        "total_boost_seconds should be restored after failed unlock"
+    );
+    assert_eq!(
+        contract.total_rewards_released, pending.old_total_rewards_released,
+        "total_rewards_released should be restored after failed unlock"
     );
 
     // And total_effective_boost was restored
@@ -2036,43 +2083,7 @@ fn test_bug_unlock_callback_reward_dilution() {
     testing_env!(context.build());
 
     // Simulate Alice's unlock() state changes (before transfer)
-    contract.sync_account(&"alice.near".parse().unwrap());
-
-    let alice_account = contract
-        .accounts
-        .get(&"alice.near".parse::<AccountId>().unwrap())
-        .cloned()
-        .unwrap();
-    let amount = alice_account.locked_amount;
-    let effective = alice_account.tracked_effective_boost;
-    let old_locked = alice_account.locked_amount;
-    let old_unlock_at = alice_account.unlock_at;
-    let old_lock_months = alice_account.lock_months;
-
-    // unlock() state changes
-    contract.total_locked = contract.total_locked.saturating_sub(amount);
-    contract.total_effective_boost = contract.total_effective_boost.saturating_sub(effective);
-
-    // Insert pending unlock (new pattern)
-    contract.pending_unlocks.insert(
-        "alice.near".parse().unwrap(),
-        PendingUnlock {
-            amount,
-            boost: effective,
-            old_locked,
-            old_unlock_at,
-            old_lock_months,
-        },
-    );
-
-    let mut account = alice_account.clone();
-    account.locked_amount = 0;
-    account.unlock_at = 0;
-    account.lock_months = 0;
-    account.tracked_effective_boost = 0;
-    contract
-        .accounts
-        .insert("alice.near".parse().unwrap(), account);
+    simulate_unlock_state(&mut contract, "alice.near");
 
     // Call the ACTUAL callback with failure result (tests the fix)
     let mut context = get_context("boost.near");
@@ -2157,44 +2168,7 @@ fn test_unlock_callback_success_path() {
     testing_env!(context.build());
 
     // Step 3: Simulate what unlock() does (before the transfer)
-    contract.sync_account(&"alice.near".parse().unwrap());
-
-    let account_before = contract
-        .accounts
-        .get(&"alice.near".parse::<AccountId>().unwrap())
-        .cloned()
-        .unwrap();
-    let amount = account_before.locked_amount;
-    let effective = account_before.tracked_effective_boost;
-    let old_locked = account_before.locked_amount;
-    let old_unlock_at = account_before.unlock_at;
-    let old_lock_months = account_before.lock_months;
-
-    // unlock() state changes (optimistic)
-    contract.total_locked = contract.total_locked.saturating_sub(amount);
-    contract.total_effective_boost = contract.total_effective_boost.saturating_sub(effective);
-
-    // Store pending unlock for potential rollback
-    contract.pending_unlocks.insert(
-        "alice.near".parse().unwrap(),
-        PendingUnlock {
-            amount,
-            boost: effective,
-            old_locked,
-            old_unlock_at,
-            old_lock_months,
-        },
-    );
-
-    // Clear account's locked state
-    let mut account = account_before.clone();
-    account.locked_amount = 0;
-    account.unlock_at = 0;
-    account.lock_months = 0;
-    account.tracked_effective_boost = 0;
-    contract
-        .accounts
-        .insert("alice.near".parse().unwrap(), account);
+    simulate_unlock_state(&mut contract, "alice.near");
 
     // Verify state after unlock (before callback)
     assert_eq!(
@@ -2255,10 +2229,14 @@ fn test_unlock_callback_success_path() {
         "pending_unlocks should be cleared after successful callback"
     );
 
-    // boost_seconds should be preserved (user can still claim past rewards)
-    assert!(
-        account_after.boost_seconds > 0,
-        "boost_seconds should be preserved for reward claims"
+    // Unlock settles rewards and clears future participation.
+    assert_eq!(
+        account_after.boost_seconds, 0,
+        "boost_seconds should be cleared after reward settlement"
+    );
+    assert_eq!(
+        account_after.rewards_claimed, 0,
+        "rewards_claimed should be reset after reward settlement"
     );
 }
 
@@ -2717,139 +2695,115 @@ fn test_ft_on_transfer_rejects_zero_amount() {
 }
 
 // =============================================================================
-// REWARDS AFTER UNLOCK TESTS
+// UNLOCK REWARD SETTLEMENT TESTS
 // =============================================================================
 
-/// Test that users can claim rewards after unlocking their stake
+/// Unlock settles rewards earned up to release and clears future participation.
 #[test]
-fn test_claim_rewards_after_full_unlock() {
+fn test_unlock_settles_rewards_and_clears_future_claims() {
     let mut contract = setup_contract();
     setup_with_storage(&mut contract, "alice.near");
 
     let start_time = 1_000_000_000_000_000_000u64;
-
-    // Fund pool and stake
     fund_pool_at(&mut contract, 1000 * ONE_SOCIAL, start_time);
     lock_tokens_at(&mut contract, "alice.near", ONE_SOCIAL, 1, start_time);
 
-    // Advance 1 week - accumulate rewards
-    let week1 = start_time + WEEK_NS;
-    let mut context = get_context("alice.near");
-    context.block_timestamp(week1);
-    testing_env!(context.build());
-    contract.poke();
-
-    // Check accrued rewards
-    let account = contract.get_account("alice.near".parse().unwrap());
-    let rewards_before_unlock = account.claimable_rewards.0;
-    assert!(rewards_before_unlock > 0, "Should have rewards");
-
-    // Advance past lock expiry and simulate unlock
     let after_lock = start_time + MONTH_NS + NS_PER_SEC;
     let mut context = get_context("alice.near");
     context.block_timestamp(after_lock);
     testing_env!(context.build());
 
-    // Manually simulate unlock (can't test Promise in unit tests)
-    contract.sync_account(&"alice.near".parse().unwrap());
-    let mut alice_account = contract
-        .accounts
-        .get(&"alice.near".parse::<AccountId>().unwrap())
-        .cloned()
-        .unwrap();
-    let old_stake_seconds = alice_account.boost_seconds;
-    let old_rewards_claimed = alice_account.rewards_claimed;
-
-    // Simulate unlock
-    contract.total_locked = 0;
-    contract.total_effective_boost = 0;
-    alice_account.locked_amount = 0;
-    alice_account.tracked_effective_boost = 0;
-    // Keep boost_seconds and rewards_claimed!
-    contract
-        .accounts
-        .insert("alice.near".parse().unwrap(), alice_account);
-
-    // Verify boost_seconds preserved
-    let alice_after = contract
-        .accounts
-        .get(&"alice.near".parse::<AccountId>().unwrap())
-        .cloned()
-        .unwrap();
-    assert_eq!(
-        alice_after.boost_seconds, old_stake_seconds,
-        "boost_seconds should be preserved"
-    );
-    assert_eq!(
-        alice_after.rewards_claimed, old_rewards_claimed,
-        "rewards_claimed should be preserved"
-    );
-
-    // User can still see claimable rewards
-    let account_view = contract.get_account("alice.near".parse().unwrap());
+    let pending = simulate_unlock_state(&mut contract, "alice.near");
     assert!(
-        account_view.claimable_rewards.0 > 0,
-        "Should still have claimable rewards after unlock"
+        pending.final_rewards > 0,
+        "unlock should settle earned rewards"
+    );
+    assert_eq!(
+        pending.amount,
+        pending.old_locked + pending.final_rewards,
+        "unlock transfer should include stake plus final rewards"
+    );
+
+    let mut context = get_context("boost.near");
+    context.predecessor_account_id("boost.near".parse().unwrap());
+    context.current_account_id("boost.near".parse().unwrap());
+    context.block_timestamp(after_lock);
+    testing_env!(context.build());
+    contract.on_unlock_callback(Ok(()), "alice.near".parse().unwrap());
+
+    let account = contract.get_account("alice.near".parse().unwrap());
+    assert_eq!(account.locked_amount.0, 0);
+    assert_eq!(account.effective_boost.0, 0);
+    assert_eq!(account.boost_seconds.0, 0);
+    assert_eq!(account.rewards_claimed.0, 0);
+    assert_eq!(account.claimable_rewards.0, 0);
+
+    let mut context = get_context("alice.near");
+    context.block_timestamp(after_lock + WEEK_NS);
+    testing_env!(context.build());
+    assert!(
+        matches!(contract.claim_rewards(), Err(BoostError::NothingToClaim)),
+        "claim_rewards after unlock should have nothing left to claim"
     );
 }
 
-/// Test that boost_seconds and rewards_claimed survive unlock
+/// Removing a settled user should not change remaining users' accrued share.
 #[test]
-fn test_rewards_preserved_through_unlock() {
+fn test_unlock_rebases_reward_accounting_for_remaining_users() {
     let mut contract = setup_contract();
     setup_with_storage(&mut contract, "alice.near");
+    setup_with_storage(&mut contract, "bob.near");
 
     let start_time = 1_000_000_000_000_000_000u64;
-
     fund_pool_at(&mut contract, 1000 * ONE_SOCIAL, start_time);
     lock_tokens_at(&mut contract, "alice.near", ONE_SOCIAL, 1, start_time);
+    lock_tokens_at(&mut contract, "bob.near", ONE_SOCIAL, 1, start_time);
 
-    // Accumulate for 2 weeks
-    let week2 = start_time + 2 * WEEK_NS;
-    let mut context = get_context("alice.near");
-    context.block_timestamp(week2);
-    testing_env!(context.build());
-    contract.sync_account(&"alice.near".parse().unwrap());
-
-    let alice = contract
-        .accounts
-        .get(&"alice.near".parse::<AccountId>().unwrap())
-        .cloned()
-        .unwrap();
-    let ss_before = alice.boost_seconds;
-    assert!(ss_before > 0, "Should have boost-seconds");
-
-    // Simulate unlock (preserves boost_seconds/rewards_claimed)
     let after_lock = start_time + MONTH_NS + NS_PER_SEC;
+    let mut context = get_context("bob.near");
+    context.block_timestamp(after_lock);
+    testing_env!(context.build());
+    let bob_before = contract.get_account("bob.near".parse().unwrap());
+    assert!(bob_before.claimable_rewards.0 > 0);
+
     let mut context = get_context("alice.near");
     context.block_timestamp(after_lock);
     testing_env!(context.build());
+    simulate_unlock_state(&mut contract, "alice.near");
 
-    contract.sync_account(&"alice.near".parse().unwrap());
-    let mut alice = contract
-        .accounts
-        .get(&"alice.near".parse::<AccountId>().unwrap())
-        .cloned()
-        .unwrap();
+    let mut context = get_context("boost.near");
+    context.predecessor_account_id("boost.near".parse().unwrap());
+    context.current_account_id("boost.near".parse().unwrap());
+    context.block_timestamp(after_lock);
+    testing_env!(context.build());
+    contract.on_unlock_callback(Ok(()), "alice.near".parse().unwrap());
 
-    // What unlock() does:
-    alice.locked_amount = 0;
-    alice.unlock_at = 0;
-    alice.lock_months = 0;
-    alice.tracked_effective_boost = 0;
-    // boost_seconds and rewards_claimed are NOT reset!
-    contract
-        .accounts
-        .insert("alice.near".parse().unwrap(), alice);
-
-    let alice_after = contract
-        .accounts
-        .get(&"alice.near".parse::<AccountId>().unwrap())
-        .cloned()
-        .unwrap();
+    let bob_after = contract.get_account("bob.near".parse().unwrap());
+    let bob_diff = bob_after
+        .claimable_rewards
+        .0
+        .abs_diff(bob_before.claimable_rewards.0);
     assert!(
-        alice_after.boost_seconds >= ss_before,
-        "boost_seconds should be preserved/accumulated"
+        bob_diff <= 1,
+        "rebasing should preserve remaining users' already-earned share within 1 yocto, diff={}",
+        bob_diff
+    );
+
+    let later = after_lock + WEEK_NS;
+    let mut context = get_context("anyone.near");
+    context.block_timestamp(later);
+    testing_env!(context.build());
+    contract.poke();
+
+    let alice_after = contract.get_account("alice.near".parse().unwrap());
+    let bob_later = contract.get_account("bob.near".parse().unwrap());
+    assert_eq!(
+        alice_after.claimable_rewards.0, 0,
+        "settled user should not receive future releases"
+    );
+    assert!(
+        bob_later.claimable_rewards.0 > bob_after.claimable_rewards.0,
+        "remaining active user should continue earning future releases"
     );
 }
 
@@ -4126,16 +4080,9 @@ fn test_lock_blocked_while_unlock_pending() {
     setup_with_storage(&mut contract, "alice.near");
     lock_tokens(&mut contract, "alice.near", 10 * ONE_SOCIAL, 6);
 
-    contract.pending_unlocks.insert(
-        "alice.near".parse().unwrap(),
-        PendingUnlock {
-            amount: 10 * ONE_SOCIAL,
-            boost: 11 * ONE_SOCIAL,
-            old_locked: 10 * ONE_SOCIAL,
-            old_unlock_at: 1,
-            old_lock_months: 6,
-        },
-    );
+    contract
+        .pending_unlocks
+        .insert("alice.near".parse().unwrap(), pending_unlock_fixture());
 
     assert!(
         contract
@@ -4151,16 +4098,9 @@ fn test_extend_blocked_while_unlock_pending() {
     setup_with_storage(&mut contract, "alice.near");
     lock_tokens(&mut contract, "alice.near", 10 * ONE_SOCIAL, 6);
 
-    contract.pending_unlocks.insert(
-        "alice.near".parse().unwrap(),
-        PendingUnlock {
-            amount: 10 * ONE_SOCIAL,
-            boost: 11 * ONE_SOCIAL,
-            old_locked: 10 * ONE_SOCIAL,
-            old_unlock_at: 1,
-            old_lock_months: 6,
-        },
-    );
+    contract
+        .pending_unlocks
+        .insert("alice.near".parse().unwrap(), pending_unlock_fixture());
 
     assert!(
         contract
@@ -4176,16 +4116,9 @@ fn test_renew_blocked_while_unlock_pending() {
     setup_with_storage(&mut contract, "alice.near");
     lock_tokens(&mut contract, "alice.near", 10 * ONE_SOCIAL, 6);
 
-    contract.pending_unlocks.insert(
-        "alice.near".parse().unwrap(),
-        PendingUnlock {
-            amount: 10 * ONE_SOCIAL,
-            boost: 11 * ONE_SOCIAL,
-            old_locked: 10 * ONE_SOCIAL,
-            old_unlock_at: 1,
-            old_lock_months: 6,
-        },
-    );
+    contract
+        .pending_unlocks
+        .insert("alice.near".parse().unwrap(), pending_unlock_fixture());
 
     assert!(
         contract
@@ -4202,16 +4135,9 @@ fn test_claim_blocked_while_unlock_pending() {
     lock_tokens(&mut contract, "alice.near", 10 * ONE_SOCIAL, 6);
     fund_pool(&mut contract, 1_000 * ONE_SOCIAL);
 
-    contract.pending_unlocks.insert(
-        "alice.near".parse().unwrap(),
-        PendingUnlock {
-            amount: 10 * ONE_SOCIAL,
-            boost: 11 * ONE_SOCIAL,
-            old_locked: 10 * ONE_SOCIAL,
-            old_unlock_at: 1,
-            old_lock_months: 6,
-        },
-    );
+    contract
+        .pending_unlocks
+        .insert("alice.near".parse().unwrap(), pending_unlock_fixture());
 
     assert!(
         contract

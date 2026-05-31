@@ -144,7 +144,7 @@ async function main() {
     console.log('Querying contract version...');
     const versionMethod = contractName === 'core-onsocial'
       ? 'get_version'
-      : contractName === 'staking-onsocial'
+      : ['boost-onsocial', 'staking-onsocial'].includes(contractName)
         ? 'get_stats'
         : 'get_contract_info';
     const viewResult = await provider.query({
