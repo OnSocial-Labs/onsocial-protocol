@@ -122,7 +122,7 @@ const TOKEN_UTILITY = [
     eyebrow: 'Governance',
     label: 'Public Governance',
     desc: 'Track proposals and review governance in the open.',
-    accent: 'slate' as PortalAccent,
+    accent: 'neutral' as PortalAccent,
     href: '/governance',
     ctaLabel: 'Open Governance',
   },
@@ -294,7 +294,7 @@ function MiniTokenIcon({
   return (
     <span
       aria-label={label}
-      className={`inline-flex h-4 w-4 items-center justify-center rounded-full border border-border/50 bg-muted/40 text-[8px] font-bold uppercase text-foreground/80 ${className}`.trim()}
+      className={`inline-flex h-4 w-4 items-center justify-center rounded-full border border-border/50 bg-muted/40 portal-type-micro font-bold uppercase text-foreground/80 ${className}`.trim()}
     >
       {label.slice(0, 1)}
     </span>
@@ -393,7 +393,7 @@ export default function TransparencyPage() {
     {
       label: 'Other Holders',
       account: 'other-holders',
-      accent: 'slate' as PortalAccent,
+      accent: 'neutral' as PortalAccent,
       desc: 'Current supply held outside the tracked protocol allocation accounts.',
       balance: untrackedBalance,
       balanceDisplay: formatWholeTokenAmount(untrackedBalance.toString()),
@@ -648,13 +648,13 @@ export default function TransparencyPage() {
                 accent="blue"
                 size="icon"
                 weight="semibold"
-                className="h-6 w-6 text-[11px]"
+                className="h-6 w-6 portal-type-label"
               >
                 {tokenSymbol.slice(0, 1)}
               </PortalBadge>
             )}
             <PortalBadge
-              accent="slate"
+              accent="neutral"
               size="sm"
               casing="uppercase"
               tracking="tight"
@@ -781,10 +781,10 @@ export default function TransparencyPage() {
                       backgroundColor: portalColors[activeDistribution.accent],
                     }}
                   />
-                  <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-foreground/85">
+                  <span className="portal-eyebrow text-foreground/85">
                     {activeDistribution.label}
                   </span>
-                  <span className="rounded-full border border-border/50 bg-muted/30 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+                  <span className="rounded-full border border-border/50 bg-muted/30 px-2 py-0.5 font-mono portal-type-label text-muted-foreground">
                     {activeDistribution.balanceDisplay} ·{' '}
                     {activeDistribution.pctOfSupplyDisplay}%
                   </span>
@@ -875,7 +875,7 @@ export default function TransparencyPage() {
                             {item.label}
                           </p>
                           <span className="whitespace-nowrap text-xs text-muted-foreground">
-                            <span className="font-mono text-foreground/80">
+                            <span className="font-mono text-portal-neutral">
                               {pctOfSupplyDisplay}%
                             </span>{' '}
                             of current supply
@@ -993,7 +993,7 @@ export default function TransparencyPage() {
                       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
                         <span className="inline-flex items-center gap-1 leading-none">
                           <span>SOCIAL</span>
-                          <span className="font-mono text-foreground/80">
+                          <span className="font-mono text-portal-neutral">
                             {!marketLiquidityLoaded
                               ? '...'
                               : (pool?.socialAmount ?? '--')}
@@ -1008,7 +1008,7 @@ export default function TransparencyPage() {
                         </span>
                         <span className="inline-flex items-center gap-1 leading-none">
                           <span>LP</span>
-                          <span className="font-mono text-foreground/80">
+                          <span className="font-mono text-portal-neutral">
                             {!marketLiquidityLoaded
                               ? '...'
                               : (pool?.lpShares ?? '--')}
@@ -1055,7 +1055,7 @@ export default function TransparencyPage() {
               const content = (
                 <>
                   <div className="min-w-0">
-                    <p className="mb-1 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                    <p className="mb-1 portal-eyebrow-wide text-muted-foreground">
                       {u.eyebrow}
                     </p>
                     <div className="mb-1.5 flex items-center gap-2.5">
@@ -1063,7 +1063,7 @@ export default function TransparencyPage() {
                         className="h-3.5 w-3.5 flex-shrink-0"
                         style={{ color: portalColors[u.accent] }}
                       />
-                      <h3 className="text-[15px] font-semibold tracking-[-0.02em]">
+                      <h3 className="portal-type-lead font-semibold tracking-[-0.02em]">
                         {u.label}
                       </h3>
                       {u.href ? (

@@ -9,7 +9,6 @@ import {
   motion,
   useMotionValue,
   useReducedMotion,
-  useTransform,
 } from 'framer-motion';
 import { ChevronDown, User } from 'lucide-react';
 import {
@@ -113,10 +112,9 @@ function nodeMotion(index: number) {
   };
 }
 
-function lineCoordinates(node: PlacedNode, yOffset: number) {
-  const nodeCenterY = node.y + yOffset;
+function lineCoordinates(node: PlacedNode) {
   const dx = node.x - CENTER;
-  const dy = nodeCenterY - CENTER;
+  const dy = node.y - CENTER;
   const length = Math.hypot(dx, dy) || 1;
   const unitX = dx / length;
   const unitY = dy / length;
@@ -127,8 +125,50 @@ function lineCoordinates(node: PlacedNode, yOffset: number) {
     x1: CENTER + unitX * startRadius,
     y1: CENTER + unitY * startRadius,
     x2: node.x - unitX * endRadius,
-    y2: nodeCenterY - unitY * endRadius,
+    y2: node.y - unitY * endRadius,
   };
+}
+
+function NetworkConnectionLines({
+  nodes,
+  isDimmed,
+}: {
+  nodes: PlacedNode[];
+  isDimmed: (account: NetworkAccount) => boolean;
+}) {
+  return (
+    <svg
+      className="pointer-events-none absolute inset-0 z-0"
+      width={STAGE_SIZE}
+      height={STAGE_SIZE}
+      viewBox={`0 0 ${STAGE_SIZE} ${STAGE_SIZE}`}
+      aria-hidden="true"
+    >
+      {nodes.map((node, index) => {
+        const { x1, y1, x2, y2 } = lineCoordinates(node);
+        const isMutual = node.account.kind === 'mutual';
+        const dimmed = isDimmed(node.account);
+        const { baseDelay } = nodeMotion(index);
+
+        return (
+          <motion.line
+            key={node.account.accountId}
+            x1={x1}
+            y1={y1}
+            x2={x2}
+            y2={y2}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: baseDelay, duration: 0.3 }}
+            stroke={isMutual ? 'var(--portal-purple)' : 'var(--portal-blue)'}
+            strokeOpacity={dimmed ? 0.05 : isMutual ? 0.34 : 0.18}
+            strokeWidth={1}
+            className="transition-[stroke-opacity] duration-300"
+          />
+        );
+      })}
+    </svg>
+  );
 }
 
 function filterCountAccentClass(accent?: NetworkFilterOption['countAccent']) {
@@ -139,7 +179,7 @@ function filterCountAccentClass(accent?: NetworkFilterOption['countAccent']) {
 
 function NetworkNodeLabel({ children }: { children: string }) {
   return (
-    <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1.5 -translate-x-1/2 max-w-[140px] truncate rounded-md border border-border/45 bg-background/95 px-2 py-0.5 text-[10px] font-medium text-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+    <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1.5 -translate-x-1/2 max-w-[140px] truncate rounded-md border border-border/45 bg-background/95 px-2 py-0.5 portal-type-caption font-medium text-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
       {children}
     </span>
   );
@@ -161,22 +201,6 @@ function NetworkOrbitNode({
   const isMutual = node.account.kind === 'mutual';
   const { baseDelay, idleDuration, idlePhase } = nodeMotion(index);
   const yOffset = useMotionValue(0);
-  const lineX1 = useTransform(
-    yOffset,
-    (offset) => lineCoordinates(node, offset).x1
-  );
-  const lineY1 = useTransform(
-    yOffset,
-    (offset) => lineCoordinates(node, offset).y1
-  );
-  const lineX2 = useTransform(
-    yOffset,
-    (offset) => lineCoordinates(node, offset).x2
-  );
-  const lineY2 = useTransform(
-    yOffset,
-    (offset) => lineCoordinates(node, offset).y2
-  );
 
   useEffect(() => {
     if (reduceMotion) {
@@ -195,34 +219,11 @@ function NetworkOrbitNode({
   }, [baseDelay, idleDuration, idlePhase, reduceMotion, yOffset]);
 
   return (
-    <>
-      <svg
-        className="pointer-events-none absolute inset-0"
-        width={STAGE_SIZE}
-        height={STAGE_SIZE}
-        viewBox={`0 0 ${STAGE_SIZE} ${STAGE_SIZE}`}
-        aria-hidden="true"
-      >
-        <motion.line
-          x1={lineX1}
-          y1={lineY1}
-          x2={lineX2}
-          y2={lineY2}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: baseDelay, duration: 0.3 }}
-          stroke={isMutual ? 'var(--portal-purple)' : 'var(--portal-blue)'}
-          strokeOpacity={dimmed ? 0.05 : isMutual ? 0.34 : 0.18}
-          strokeWidth={1}
-          className="transition-[stroke-opacity] duration-300"
-        />
-      </svg>
-
-      <motion.button
-        key={node.account.accountId}
-        type="button"
-        onClick={() => onSelectAccount?.(node.account.accountId)}
-        className="group absolute z-10 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--portal-blue-focus-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+    <motion.button
+      key={node.account.accountId}
+      type="button"
+      onClick={() => onSelectAccount?.(node.account.accountId)}
+      className="group absolute z-10 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--portal-blue-focus-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         style={{
           left: node.x,
           top: node.y,
@@ -271,7 +272,6 @@ function NetworkOrbitNode({
         </div>
         <NetworkNodeLabel>{displayLabel(node.account)}</NetworkNodeLabel>
       </motion.button>
-    </>
   );
 }
 
@@ -479,7 +479,11 @@ function NetworkModalContent({
         outer,
         OUTER_RADIUS,
         OUTER_AVATAR,
-        outer.length > 0 ? Math.PI / outer.length : 0
+        inner.length > 0
+          ? Math.PI / inner.length
+          : outer.length > 0
+            ? Math.PI / outer.length
+            : 0
       ),
     ];
   }, [accounts]);
@@ -600,7 +604,7 @@ function NetworkModalContent({
                 <span className="inline-flex items-center gap-1.5">
                   <span
                     className={cn(
-                      'inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full border border-border/35 bg-background/55 px-1 text-[10px] font-semibold tabular-nums leading-none text-muted-foreground/90',
+                      'inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full border border-border/35 bg-background/55 px-1 portal-type-caption font-semibold tabular-nums leading-none text-muted-foreground/90',
                       filterCountAccentClass(activeFilterOption.countAccent)
                     )}
                   >
@@ -623,10 +627,10 @@ function NetworkModalContent({
                 aria-label="Filter network by relationship"
               >
                 <div className="border-b border-fade-section px-3 py-2.5">
-                  <p className="mb-0.5 whitespace-nowrap text-[11px] text-muted-foreground/70">
+                  <p className="mb-0.5 whitespace-nowrap portal-type-label text-muted-foreground/70">
                     Relationship
                   </p>
-                  <p className="whitespace-nowrap text-[13px] font-medium text-foreground">
+                  <p className="whitespace-nowrap portal-type-body font-medium text-foreground">
                     {activeFilterOption.label}
                   </p>
                 </div>
@@ -653,7 +657,7 @@ function NetworkModalContent({
                         <span>{option.label}</span>
                         <span
                           className={cn(
-                            'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold tabular-nums leading-none transition-colors',
+                            'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border portal-type-caption font-semibold tabular-nums leading-none transition-colors',
                             selected
                               ? 'border-border/45 bg-background/70 text-foreground/80'
                               : 'border-border/35 bg-background/40 text-muted-foreground/90 group-hover:border-border/45 group-hover:bg-background/60 group-hover:text-foreground/80',
@@ -707,6 +711,11 @@ function NetworkModalContent({
                   transformOrigin: 'center',
                 }}
               >
+                <NetworkConnectionLines
+                  nodes={placedNodes}
+                  isDimmed={isDimmed}
+                />
+
                 {placedNodes.map((node, index) => (
                   <NetworkOrbitNode
                     key={node.account.accountId}
@@ -729,7 +738,7 @@ function NetworkModalContent({
           </div>
 
           {accounts.length === 0 ? (
-            <div className="absolute inset-x-0 bottom-12 px-6 text-center text-[12px] text-muted-foreground/55">
+            <div className="absolute inset-x-0 bottom-12 px-6 text-center portal-type-body-sm text-muted-foreground/55">
               {isSelf
                 ? 'No standing connections yet. Stand with someone to start your network.'
                 : `${centerDisplayName} has no standing connections yet.`}

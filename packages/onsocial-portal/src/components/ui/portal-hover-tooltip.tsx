@@ -192,7 +192,7 @@ export function PortalHoverTooltip({
         createPortal(
           <span
             ref={tooltipRef}
-            className="pointer-events-none fixed z-[2147483647] w-max max-w-[15rem] rounded-lg border border-border/55 bg-background/95 px-2.5 py-1.5 text-[11px] font-normal leading-snug text-muted-foreground shadow-[0_14px_36px_-22px_rgba(15,23,42,0.65)] backdrop-blur-md"
+            className="pointer-events-none fixed z-[2147483647] w-max max-w-[15rem] rounded-lg border border-border/55 bg-background/95 px-2.5 py-1.5 portal-type-label font-normal leading-snug text-muted-foreground shadow-[0_14px_36px_-22px_rgba(15,23,42,0.65)] backdrop-blur-md"
             style={{
               left: position.x,
               top: position.y,

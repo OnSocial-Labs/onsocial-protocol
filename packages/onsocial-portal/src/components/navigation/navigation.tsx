@@ -15,6 +15,8 @@ import {
   Key,
   Package,
   Play,
+  Search,
+  User,
 } from 'lucide-react';
 import { BrandLogo } from '@/components/brand-logo';
 import { PwaInstallButton } from '@/components/pwa-install-button';
@@ -37,6 +39,7 @@ import {
 } from '@/components/ui/floating-panel';
 import { FloatingPanelMenu } from '@/components/ui/floating-panel-menu';
 import { fadeMotion, fadeUpMotion, scaleFadeMotion } from '@/lib/motion';
+import { resolveRouteNavBack } from '@/lib/nav-back-route';
 import {
   getDesktopNavMetrics,
   getDesktopViewportScale,
@@ -50,7 +53,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useNavVisibility } from '@/components/providers/nav-visibility-context';
 import { useWallet } from '@/contexts/wallet-context';
 import { useGatewayAuth } from '@/contexts/gateway-auth-context';
-import { isGovernanceWallet } from '@/lib/portal-config';
+import { isGovernanceWallet, getPortalProfileUrl } from '@/lib/portal-config';
 
 /* ── Grouped navigation structure ────────────────────────────── */
 
@@ -143,13 +146,25 @@ const internalOpsGroup: NavGroup = {
 };
 
 const homepageSections = [
-  { id: 'hero', label: 'Home', accent: 'slate' as const },
+  { id: 'hero', label: 'Home', accent: 'neutral' as const },
   { id: 'paths', label: 'Paths', accent: 'purple' as const },
   { id: 'protocol', label: 'Protocol', accent: 'blue' as const },
   { id: 'status', label: 'Status', accent: 'green' as const },
 ];
 
 const SCROLL_HIDE_THRESHOLD = 12;
+
+function isSocialRoute(pathname: string) {
+  return pathname === '/discover' || pathname.startsWith('/u/');
+}
+
+function isGroupActive(group: NavGroup, pathname: string, isActiveItem: (href: string) => boolean) {
+  if (group.label === 'Social') {
+    return isSocialRoute(pathname);
+  }
+
+  return group.items.some((item) => isActiveItem(item.href));
+}
 
 function MobileMenuScrollLock() {
   useEffect(() => {
@@ -197,6 +212,7 @@ export function Navigation() {
   const desktopActionsRef = useRef<HTMLDivElement | null>(null);
   const mobileMenuScrollRef = useRef<HTMLDivElement | null>(null);
   const protocolDropdown = useDropdown();
+  const socialDropdown = useDropdown();
   const servicesDropdown = useDropdown();
   const internalDropdown = useDropdown();
   const {
@@ -211,30 +227,72 @@ export function Navigation() {
     toggle: toggleDesktopContext,
     containerRef: desktopContextRef,
   } = useDropdown();
+  const dropdownByGroupLabel = useMemo(
+    () => ({
+      Protocol: protocolDropdown,
+      Social: socialDropdown,
+      Services: servicesDropdown,
+      Internal: internalDropdown,
+    }),
+    [protocolDropdown, socialDropdown, servicesDropdown, internalDropdown]
+  );
   const groupDropdowns = useMemo(
-    () => [protocolDropdown, servicesDropdown, internalDropdown],
-    [protocolDropdown, servicesDropdown, internalDropdown]
+    () => [protocolDropdown, socialDropdown, servicesDropdown, internalDropdown],
+    [protocolDropdown, socialDropdown, servicesDropdown, internalDropdown]
   );
   const pathname = usePathname();
   const reduceMotion = useReducedMotion();
   const { pageBadge, navBack } = useMobilePageContext();
+  const effectiveNavBack = navBack ?? resolveRouteNavBack(pathname);
   const router = useRouter();
   const showInternalOps = isGovernanceWallet(accountId) || Boolean(jwt);
+  const socialGroup = useMemo((): NavGroup => {
+    const items: NavGroupItem[] = [
+      {
+        label: 'Discover profiles',
+        href: '/discover',
+        description: 'Browse identities on the graph',
+        icon: Search,
+      },
+    ];
+
+    if (accountId) {
+      items.push({
+        label: 'Your profile',
+        href: getPortalProfileUrl(accountId),
+        description: 'Open your portal profile',
+        icon: User,
+      });
+    }
+
+    return {
+      label: 'Social',
+      accent: 'blue',
+      items,
+    };
+  }, [accountId]);
   const navGroups = useMemo(
-    () =>
-      showInternalOps ? [...baseNavGroups, internalOpsGroup] : baseNavGroups,
-    [showInternalOps]
+    () => [
+      baseNavGroups[0],
+      socialGroup,
+      baseNavGroups[1],
+      ...(showInternalOps ? [internalOpsGroup] : []),
+    ],
+    [showInternalOps, socialGroup]
   );
   const isOpen = openPathname === pathname;
+  const isActiveItem = (href: string) => {
+    if (href === '/') {
+      return pathname === '/';
+    }
+
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
   const activeGroup = useMemo(() => {
     if (pathname === '/') return null;
     return (
-      navGroups.find((g) =>
-        g.items.some(
-          (item) =>
-            pathname === item.href || pathname.startsWith(`${item.href}/`)
-        )
-      ) ?? null
+      navGroups.find((group) => isGroupActive(group, pathname, isActiveItem)) ??
+      null
     );
   }, [pathname, navGroups]);
   const homepageSection = useMemo(
@@ -400,14 +458,6 @@ export function Navigation() {
     setOpenPathname((current) => (current === pathname ? null : pathname));
   };
 
-  const isActiveItem = (href: string) => {
-    if (href === '/') {
-      return pathname === '/';
-    }
-
-    return pathname === href || pathname.startsWith(`${href}/`);
-  };
-
   const handleMobileMenuWheel = (event: React.WheelEvent<HTMLDivElement>) => {
     const container = mobileMenuScrollRef.current;
     if (!container || container.scrollHeight <= container.clientHeight) {
@@ -456,39 +506,39 @@ export function Navigation() {
             borderRadius: `${isDesktopViewport ? desktopNavRadius : mobileNavRadius}px`,
           }}
         >
-          {/* Logo / Back */}
-          {navBack ? (
-            <BackButton
-              onClick={() => router.back()}
-              ariaLabel={navBack.label || 'Go back'}
-            />
-          ) : (
-            <Link
-              ref={logoRef}
-              href="/"
-              onClick={(e) => {
-                // If on homepage, scroll to top smoothly
-                if (window.location.pathname === '/') {
-                  e.preventDefault();
-                  window.scrollTo({
-                    top: 0,
-                    behavior: 'smooth',
-                  });
-                }
-                closeMenu();
-              }}
-              className="flex items-center"
-            >
-              <div
-                style={{
-                  height: `${mobileLogoSize}px`,
-                  width: `${mobileLogoSize}px`,
+          {/* Logo / Back — route hint avoids logo flash before useEffect registers back */}
+          <div
+            className="flex shrink-0 items-center justify-center"
+            style={{
+              height: `${mobileLogoSize}px`,
+              width: `${mobileLogoSize}px`,
+            }}
+          >
+            {effectiveNavBack ? (
+              <BackButton
+                onClick={() => router.back()}
+                ariaLabel={effectiveNavBack.label || 'Go back'}
+              />
+            ) : (
+              <Link
+                ref={logoRef}
+                href="/"
+                onClick={(e) => {
+                  if (window.location.pathname === '/') {
+                    e.preventDefault();
+                    window.scrollTo({
+                      top: 0,
+                      behavior: 'smooth',
+                    });
+                  }
+                  closeMenu();
                 }}
+                className="flex h-full w-full items-center justify-center"
               >
                 <BrandLogo className="h-full w-full" />
-              </div>
-            </Link>
-          )}
+              </Link>
+            )}
+          </div>
 
           <div className="flex min-w-0 flex-1 justify-center px-3 md:hidden">
             <div
@@ -518,12 +568,12 @@ export function Navigation() {
                     className="group inline-flex h-9 max-w-full items-center"
                   >
                     <PortalBadge
-                      accent={mobileBadgeAccent ?? 'slate'}
+                      accent={mobileBadgeAccent ?? 'neutral'}
                       size="sm"
                       casing="uppercase"
                       tracking="normal"
                       className={cn(
-                        'max-w-full truncate whitespace-nowrap border-white/10 bg-white/6 px-3.5 py-1.5 text-[10px] transition-all',
+                        'max-w-full truncate whitespace-nowrap border-white/10 bg-white/6 px-3.5 py-1.5 portal-type-caption transition-all',
                         activeGroup
                           ? 'group-hover:border-white/20 group-active:scale-[0.97]'
                           : 'group-active:scale-[0.97]'
@@ -554,7 +604,7 @@ export function Navigation() {
                 >
                   <div className="p-1.5 space-y-0.5">
                     <p
-                      className="px-3 pb-1 pt-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.16em]"
+                      className="px-3 pb-1 pt-0.5 portal-eyebrow-wide font-semibold"
                       style={{ color: portalColors[activeGroup.accent] }}
                     >
                       {activeGroup.label}
@@ -587,7 +637,7 @@ export function Navigation() {
                           >
                             <ItemIcon className="h-4 w-4" />
                           </span>
-                          <span className="text-[13px] font-medium">
+                          <span className="portal-type-body font-medium">
                             {item.label}
                           </span>
                         </Link>
@@ -623,10 +673,12 @@ export function Navigation() {
 
             {/* Group dropdowns */}
             {navGroups.map((group, groupIndex) => {
-              const dropdown = groupDropdowns[groupIndex];
-              const groupIsActive = group.items.some((item) =>
-                isActiveItem(item.href)
-              );
+              const dropdown = dropdownByGroupLabel[
+                group.label as keyof typeof dropdownByGroupLabel
+              ];
+              if (!dropdown) return null;
+
+              const groupIsActive = isGroupActive(group, pathname, isActiveItem);
 
               return (
                 <div
@@ -671,7 +723,7 @@ export function Navigation() {
                   >
                     <div className="p-1.5 space-y-0.5">
                       {group.attribution ? (
-                        <p className="px-3 pb-1 pt-0.5 text-[0.6rem] uppercase tracking-[0.16em] text-muted-foreground/50">
+                        <p className="px-3 pb-1 pt-0.5 portal-eyebrow-wide text-muted-foreground/50">
                           {group.attribution}
                         </p>
                       ) : null}
@@ -714,10 +766,10 @@ export function Navigation() {
                                 <ItemIcon className="h-4 w-4" />
                               </span>
                               <div className="min-w-0">
-                                <span className="block text-[13px] font-medium text-foreground">
+                                <span className="block portal-type-body font-medium text-foreground">
                                   {item.label}
                                 </span>
-                                <span className="block text-[11px] leading-tight text-muted-foreground/50">
+                                <span className="block portal-type-label leading-tight text-muted-foreground/50">
                                   {item.description}
                                 </span>
                               </div>
@@ -779,7 +831,7 @@ export function Navigation() {
                         size="sm"
                         casing="uppercase"
                         tracking="normal"
-                        className="w-full justify-center border-white/10 bg-white/6 px-3 py-1.5 text-[10px] transition-all group-active:scale-[0.97]"
+                        className="w-full justify-center border-white/10 bg-white/6 px-3 py-1.5 portal-type-caption transition-all group-active:scale-[0.97]"
                       >
                         {homepageSection.label}
                       </PortalBadge>
@@ -808,7 +860,7 @@ export function Navigation() {
                         casing="uppercase"
                         tracking="normal"
                         className={cn(
-                          'w-full justify-center border-white/10 bg-white/6 px-3 py-1.5 text-[10px] transition-all group-active:scale-[0.97]',
+                          'w-full justify-center border-white/10 bg-white/6 px-3 py-1.5 portal-type-caption transition-all group-active:scale-[0.97]',
                           activeGroup && 'group-hover:border-white/20'
                         )}
                       >
@@ -839,7 +891,7 @@ export function Navigation() {
                   >
                     <div className="p-1.5 space-y-0.5">
                       <p
-                        className="px-3 pb-1 pt-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.16em]"
+                        className="px-3 pb-1 pt-0.5 portal-eyebrow-wide font-semibold"
                         style={{ color: portalColors[activeGroup.accent] }}
                       >
                         {activeGroup.label}
@@ -872,7 +924,7 @@ export function Navigation() {
                             >
                               <ItemIcon className="h-4 w-4" />
                             </span>
-                            <span className="text-[13px] font-medium">
+                            <span className="portal-type-body font-medium">
                               {item.label}
                             </span>
                           </Link>
@@ -997,7 +1049,7 @@ export function Navigation() {
                         onClick={closeMenu}
                         className={cn(
                           floatingPanelItemClass,
-                          'px-3 py-2 text-[14px]',
+                          'px-3 py-2 portal-type-lead',
                           pathname === '/'
                             ? floatingPanelItemSelectedClass
                             : 'text-muted-foreground'
@@ -1023,13 +1075,13 @@ export function Navigation() {
                           >
                             <div className="flex items-center gap-2 px-3">
                               <span
-                                className="text-[0.6rem] font-semibold uppercase tracking-[0.16em]"
+                                className="portal-eyebrow-wide font-semibold"
                                 style={{ color: portalColors[group.accent] }}
                               >
                                 {group.label}
                               </span>
                               {group.attribution ? (
-                                <span className="text-[0.55rem] tracking-wide text-muted-foreground/30">
+                                <span className="portal-type-micro tracking-wide text-muted-foreground/30">
                                   {group.attribution}
                                 </span>
                               ) : null}
@@ -1054,8 +1106,8 @@ export function Navigation() {
                                     className={cn(
                                       'group flex items-center gap-2.5 rounded-xl px-3 py-2 transition-colors',
                                       active
-                                        ? 'bg-[var(--portal-slate-frame-bg)] text-foreground'
-                                        : 'text-muted-foreground hover:bg-[var(--portal-slate-bg)] hover:text-foreground'
+                                        ? 'bg-[var(--portal-neutral-frame-bg)] text-foreground'
+                                        : 'text-muted-foreground hover:bg-[var(--portal-neutral-bg)] hover:text-foreground'
                                     )}
                                     aria-current={active ? 'page' : undefined}
                                   >
@@ -1072,10 +1124,10 @@ export function Navigation() {
                                       <ItemIcon className="h-4 w-4" />
                                     </span>
                                     <div className="min-w-0 flex-1">
-                                      <span className="block text-[14px] font-medium leading-snug">
+                                      <span className="block portal-type-lead font-medium leading-snug">
                                         {item.label}
                                       </span>
-                                      <span className="block text-[11px] leading-tight text-muted-foreground/50">
+                                      <span className="block portal-type-label leading-tight text-muted-foreground/50">
                                         {item.description}
                                       </span>
                                     </div>
@@ -1104,7 +1156,7 @@ export function Navigation() {
                         onClick={closeMenu}
                         className={cn(
                           floatingPanelItemClass,
-                          'px-3 py-2 text-[14px] text-muted-foreground'
+                          'px-3 py-2 portal-type-lead text-muted-foreground'
                         )}
                       >
                         App

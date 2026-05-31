@@ -91,7 +91,7 @@ export function StatStripCell({
     >
       <span
         className={cn(
-          'text-[10px] uppercase tracking-[0.14em] text-muted-foreground md:text-[11px]',
+          'portal-eyebrow text-muted-foreground',
           Icon && 'flex items-center justify-center gap-1.5'
         )}
       >
@@ -104,7 +104,8 @@ export function StatStripCell({
         <p
           className={cn(
             'mt-1 truncate font-mono text-sm font-bold md:text-base',
-            valueClassName ?? 'text-foreground/80'
+            valueClassName ??
+              'text-portal-neutral font-semibold tracking-tight'
           )}
         >
           {value}

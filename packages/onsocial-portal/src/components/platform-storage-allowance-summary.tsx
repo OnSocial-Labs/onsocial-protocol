@@ -33,7 +33,7 @@ function AllowanceProgressBar({
         <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
           {formatCompactBytes(summary.availableBytes)}
         </span>
-        <span className="font-mono text-[11px] tabular-nums text-muted-foreground/55">
+        <span className="font-mono portal-type-label tabular-nums text-muted-foreground/55">
           / {formatCompactBytes(summary.maxBufferBytes)} buffer
         </span>
       </div>
@@ -89,19 +89,19 @@ export function PlatformStorageAllowanceSummary({
   }
 
   if (error) {
-    return <p className="py-1 text-[12px] text-muted-foreground/55">{error}</p>;
+    return <p className="py-1 portal-type-body-sm text-muted-foreground/55">{error}</p>;
   }
 
   if (!summary) {
     return (
-      <p className="py-1 text-[12px] text-muted-foreground/55">Unavailable</p>
+      <p className="py-1 portal-type-body-sm text-muted-foreground/55">Unavailable</p>
     );
   }
 
   if (summary.phase === 'inactive') {
     return (
       <div className="space-y-2 py-0.5">
-        <p className="text-[12px] leading-snug text-muted-foreground/65">
+        <p className="portal-type-body-sm leading-snug text-muted-foreground/65">
           {PLATFORM_STORAGE_INACTIVE_HINT}
         </p>
         <dl className="divide-y divide-fade-item">
@@ -121,7 +121,7 @@ export function PlatformStorageAllowanceSummary({
             valueMono
           />
         </dl>
-        <p className="text-[11px] leading-snug text-muted-foreground/45">
+        <p className="portal-type-label leading-snug text-muted-foreground/45">
           {PLATFORM_STORAGE_REFILL_HINT}
         </p>
       </div>
@@ -151,12 +151,12 @@ export function PlatformStorageAllowanceSummary({
       </dl>
 
       {summary.phase === 'exhausted' ? (
-        <p className="pt-1 text-[11px] leading-snug text-[var(--portal-amber)]">
+        <p className="pt-1 portal-type-label leading-snug text-[var(--portal-amber)]">
           Buffer empty — refills over time, or deposit NEAR for immediate
           storage.
         </p>
       ) : (
-        <p className="pt-1 text-[11px] leading-snug text-muted-foreground/45">
+        <p className="pt-1 portal-type-label leading-snug text-muted-foreground/45">
           {PLATFORM_STORAGE_REFILL_HINT}
         </p>
       )}
@@ -199,7 +199,7 @@ export function WalletPlatformStorageStrip({
       <p
         className={cn(
           'leading-snug text-muted-foreground/50',
-          compact ? 'text-[9px] md:text-[10px]' : 'text-[10px] md:text-[11px]'
+          compact ? 'portal-type-micro md:portal-type-caption' : 'portal-type-caption'
         )}
       >
         {PLATFORM_STORAGE_LABEL} · activates on first save
@@ -219,7 +219,7 @@ export function WalletPlatformStorageStrip({
       <div className="space-y-0.5">
         <div className="flex items-center gap-1.5">
           {!hideLabel ? (
-            <span className="shrink-0 text-[9px] font-medium text-muted-foreground/50 md:text-[10px]">
+            <span className="shrink-0 portal-type-micro font-medium text-muted-foreground/50 md:portal-type-caption">
               {PLATFORM_STORAGE_LABEL}
             </span>
           ) : null}
@@ -247,7 +247,7 @@ export function WalletPlatformStorageStrip({
           </div>
           <span
             className={cn(
-              'shrink-0 font-mono text-[9px] tabular-nums leading-none md:text-[10px]',
+              'shrink-0 font-mono portal-type-micro tabular-nums leading-none md:portal-type-caption',
               empty || summary.phase === 'exhausted'
                 ? 'text-[var(--portal-amber)]'
                 : low
@@ -258,7 +258,7 @@ export function WalletPlatformStorageStrip({
             {ratioLabel}
           </span>
         </div>
-        <p className="text-[9px] leading-none text-muted-foreground/40 md:text-[10px]">
+        <p className="portal-type-micro leading-none text-muted-foreground/40 md:portal-type-caption">
           {metaLabel}
         </p>
       </div>
@@ -268,12 +268,12 @@ export function WalletPlatformStorageStrip({
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] font-medium text-muted-foreground/55 md:text-[11px]">
+        <span className="portal-type-caption font-medium text-muted-foreground/55">
           {PLATFORM_STORAGE_LABEL}
         </span>
         <span
           className={cn(
-            'font-mono text-[10px] tabular-nums leading-none md:text-[11px]',
+            'font-mono portal-type-caption tabular-nums leading-none',
             empty || summary.phase === 'exhausted'
               ? 'text-[var(--portal-amber)]'
               : low
@@ -308,7 +308,7 @@ export function WalletPlatformStorageStrip({
         </div>
       </div>
 
-      <p className="text-[10px] leading-snug text-muted-foreground/45 md:text-[11px]">
+      <p className="portal-type-caption leading-snug text-muted-foreground/45">
         {metaLabel}
       </p>
     </div>

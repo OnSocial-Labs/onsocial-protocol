@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { useMobilePageContext } from '@/components/providers/mobile-page-context';
 import type { PortalAccent } from '@/lib/portal-colors';
 import { fadeUpMotion } from '@/lib/motion';
+import { resolveNavBadgeLabel } from '@/lib/nav-badge-label';
 import { cn } from '@/lib/utils';
 
 const headerGlowColors: Record<PortalAccent, string> = {
@@ -14,7 +15,7 @@ const headerGlowColors: Record<PortalAccent, string> = {
   gold: 'var(--portal-gold-glow)',
   amber: 'var(--portal-amber-glow)',
   pink: 'var(--portal-pink-glow)',
-  slate: 'var(--portal-slate-glow)',
+  neutral: 'var(--portal-neutral-glow)',
   red: 'var(--portal-red-glow)',
 };
 
@@ -72,14 +73,19 @@ export const SecondaryPageHeader = forwardRef<
   const badgeKey = useId();
   const reduceMotion = useReducedMotion();
   const { setPageBadge, clearPageBadge } = useMobilePageContext();
+  const badgeLabel = resolveNavBadgeLabel(badge);
 
   useEffect(() => {
-    setPageBadge({ key: badgeKey, badge, badgeAccent });
+    setPageBadge({
+      key: badgeKey,
+      badge: badgeLabel,
+      badgeAccent,
+    });
 
     return () => {
       clearPageBadge(badgeKey);
     };
-  }, [badge, badgeAccent, badgeKey, clearPageBadge, setPageBadge]);
+  }, [badgeAccent, badgeKey, badgeLabel, clearPageBadge, setPageBadge]);
 
   return (
     <motion.div

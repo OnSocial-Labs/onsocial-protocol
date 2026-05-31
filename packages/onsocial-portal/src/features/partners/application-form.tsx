@@ -684,23 +684,23 @@ export function ApplicationForm({
         </h2>
         <StatStrip columns={2}>
           <StatStripCell label="Delegate" showDivider>
-            <p className="mt-1 truncate font-mono text-sm font-bold text-foreground/80 md:text-base">
+            <p className="mt-1 truncate font-mono text-sm font-bold text-portal-neutral md:text-base">
               {governanceThresholdDisplay ?? '100'}
-              <span className="ml-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              <span className="ml-1 portal-type-caption font-medium uppercase tracking-wider text-muted-foreground">
                 SOCIAL
               </span>
             </p>
           </StatStripCell>
           <StatStripCell label="Bond">
-            <p className="mt-1 truncate font-mono text-sm font-bold text-foreground/80 md:text-base">
+            <p className="mt-1 truncate font-mono text-sm font-bold text-portal-neutral md:text-base">
               {proposalBondDisplay ?? '0.1'}
-              <span className="ml-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              <span className="ml-1 portal-type-caption font-medium uppercase tracking-wider text-muted-foreground">
                 NEAR
               </span>
             </p>
           </StatStripCell>
         </StatStrip>
-        <p className="mt-2.5 text-center text-[11px] text-muted-foreground/70">
+        <p className="mt-2.5 text-center portal-type-label text-muted-foreground/70">
           Submitted as a DAO proposal · requires package integration
         </p>
       </SurfacePanel>
@@ -825,7 +825,7 @@ export function ApplicationForm({
                 className="w-full resize-none rounded-2xl bg-transparent px-4 pt-3.5 pb-7 text-sm outline-none"
               />
               <span
-                className={`pointer-events-none absolute right-3 bottom-2 text-[10px] tabular-nums tracking-wide ${
+                className={`pointer-events-none absolute right-3 bottom-2 portal-type-caption tabular-nums tracking-wide ${
                   descriptionLength < MIN_DESCRIPTION_LEN && hasDescription
                     ? 'text-amber-600'
                     : descriptionLength >= DESCRIPTION_WARNING_THRESHOLD

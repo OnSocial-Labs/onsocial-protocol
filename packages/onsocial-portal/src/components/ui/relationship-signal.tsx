@@ -14,7 +14,7 @@ export function RelationshipSignal({
 }) {
   return (
     <PortalHoverTooltip
-      className="inline-flex items-center gap-1.5 whitespace-nowrap text-[9px] font-medium uppercase tracking-[0.14em] text-muted-foreground/70"
+      className="inline-flex items-center gap-1.5 whitespace-nowrap portal-type-micro font-medium uppercase tracking-[0.14em] text-muted-foreground/70"
       aria-label={title}
       stopPropagation
       tooltip={title}

@@ -1039,7 +1039,7 @@ export function GovernancePositionPanel() {
               >
                 <motion.p
                   layout="position"
-                  className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground"
+                  className="portal-type-label font-medium uppercase tracking-[0.16em] text-muted-foreground"
                 >
                   {actionConfig.title}
                 </motion.p>
@@ -1049,7 +1049,7 @@ export function GovernancePositionPanel() {
                     <div className="mb-2 flex items-center justify-between gap-3">
                       <label
                         htmlFor="governance-amount-input"
-                        className="block text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground"
+                        className="block portal-type-label font-medium uppercase tracking-[0.16em] text-muted-foreground"
                       >
                         Amount
                       </label>

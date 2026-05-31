@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import { ModalCloseButton } from '@/components/ui/modal-close-button';
-import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
+import { EndorsementRecord } from '@/components/ui/endorsement-flow';
 import {
   TransactionFeedbackToast,
   type TransactionFeedback,
@@ -33,6 +33,7 @@ interface EndorseModalProps {
   targetDisplayName: string;
   targetAvatarUrl?: string | null;
   issuerAccountId?: string | null;
+  issuerAvatarUrl?: string | null;
   existing?: {
     topic?: string;
     note?: string;
@@ -65,6 +66,7 @@ export function EndorseModal({
   targetDisplayName,
   targetAvatarUrl = null,
   issuerAccountId = null,
+  issuerAvatarUrl = null,
   existing,
   existingTopics = [],
   isSaving = false,
@@ -92,13 +94,6 @@ export function EndorseModal({
   const topicLength = topic.length;
   const noteLength = note.length;
   const handle = cleanHandle(targetAccountId);
-  const issuerHandle = issuerAccountId ? cleanHandle(issuerAccountId) : 'You';
-  const issuerLabel = issuerAccountId ? `@${issuerAccountId}` : 'Your account';
-  const issuerInitial =
-    (issuerAccountId ? cleanHandle(issuerAccountId) : 'You')
-      .trim()
-      .slice(0, 1)
-      .toUpperCase() || '?';
   const displayName = targetDisplayName || `@${handle}`;
   const avatarInitial =
     (displayName === `@${handle}` ? handle : displayName)
@@ -224,7 +219,7 @@ export function EndorseModal({
               >
                 <div className="flex items-start justify-between gap-4 px-5 pt-5">
                   <div className="min-w-0 flex-1">
-                    <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/55">
+                    <div className="portal-eyebrow text-muted-foreground/55">
                       {isEditing || isTopicOverwrite
                         ? 'Update endorsement'
                         : 'Public endorsement'}
@@ -248,7 +243,7 @@ export function EndorseModal({
                         >
                           {displayName}
                         </h3>
-                        <p className="mt-0.5 truncate text-xs portal-slate-text opacity-70">
+                        <p className="mt-0.5 truncate text-xs text-portal-neutral opacity-70">
                           @{targetAccountId}
                         </p>
                       </div>
@@ -262,63 +257,29 @@ export function EndorseModal({
                 </div>
 
                 <div className="mt-4 px-5" aria-live="polite">
-                  <div className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                  <div className="portal-eyebrow text-muted-foreground/50">
                     Preview
                   </div>
-                  <div className="mt-2 flex items-start gap-3 px-1 py-2.5 leading-snug">
-                    <div
-                      className="mt-0.5 flex shrink-0 items-center gap-1"
-                      aria-hidden="true"
-                    >
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--portal-gold-border)] bg-[var(--portal-gold-bg)] text-xs font-semibold text-[var(--portal-gold)]">
-                        {issuerInitial}
-                      </div>
-                      <ProtocolMotionArrow className="h-3 w-3 text-[var(--portal-gold)]/70" />
-                      {targetAvatarUrl ? (
-                        <img
-                          src={targetAvatarUrl}
-                          alt=""
-                          className="h-5 w-5 rounded-full border border-border/40 object-cover opacity-80"
-                        />
-                      ) : (
-                        <div className="flex h-5 w-5 items-center justify-center rounded-full border border-border/40 bg-muted/30 text-[9px] font-semibold text-muted-foreground/80">
-                          {avatarInitial}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="truncate text-[12px] font-medium text-foreground/90">
-                            {issuerHandle}
-                          </div>
-                          <div className="mt-0.5 truncate text-[10px] text-muted-foreground/50">
-                            From {issuerLabel}
-                          </div>
-                        </div>
-                        <span className="shrink-0 pt-px text-right text-[10px] tabular-nums text-muted-foreground/45">
+                  <div className="group mt-2 px-1 py-2">
+                    <EndorsementRecord
+                      issuer={issuerAccountId ?? ''}
+                      target={targetAccountId}
+                      targetName={targetDisplayName}
+                      issuerAvatarUrl={issuerAvatarUrl}
+                      targetAvatarUrl={targetAvatarUrl}
+                      viewerAccountId={issuerAccountId}
+                      topic={topicPreview || undefined}
+                      note={trimmedNote || undefined}
+                      issuerLabelOverride={
+                        issuerAccountId ? undefined : 'You'
+                      }
+                      hideIssuerHandle={!issuerAccountId}
+                      timeLabel={
+                        <span className="text-right portal-type-caption tabular-nums text-muted-foreground/40">
                           just now
                         </span>
-                      </div>
-
-                      {(topicPreview || trimmedNote) && (
-                        <div className="mt-2 text-[11px] leading-snug">
-                          {topicPreview ? (
-                            <div className="font-medium text-[var(--portal-gold-text)]">
-                              For {topicPreview}
-                            </div>
-                          ) : null}
-                          {trimmedNote ? (
-                            <div className="mt-1 text-muted-foreground/65">
-                              <span className="line-clamp-2">
-                                &ldquo;{trimmedNote}&rdquo;
-                              </span>
-                            </div>
-                          ) : null}
-                        </div>
-                      )}
-                    </div>
+                      }
+                    />
                   </div>
                 </div>
 
@@ -326,7 +287,7 @@ export function EndorseModal({
                   <div>
                     <label
                       htmlFor="endorse-topic"
-                      className="text-xs font-medium portal-slate-text uppercase tracking-[0.08em]"
+                      className="text-xs font-medium text-portal-neutral uppercase tracking-[0.08em]"
                     >
                       For
                     </label>
@@ -345,7 +306,7 @@ export function EndorseModal({
                         aria-required="true"
                       />
                       <span
-                        className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] tabular-nums tracking-wide ${
+                        className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 portal-type-caption tabular-nums tracking-wide ${
                           topicLength > 0 && topicLength < TOPIC_MIN
                             ? 'text-amber-600'
                             : topicLength >= TOPIC_WARNING_THRESHOLD
@@ -358,7 +319,7 @@ export function EndorseModal({
                           : `${topicLength} / ${TOPIC_MAX}`}
                       </span>
                     </div>
-                    <div className="mt-1 min-h-[14px] text-[10px] text-muted-foreground/55">
+                    <div className="mt-1 min-h-[14px] portal-type-caption text-muted-foreground/55">
                       {isTopicCollision ? (
                         <span className="text-[var(--portal-red)]">
                           You already endorsed for this topic — edit that
@@ -387,7 +348,7 @@ export function EndorseModal({
                       )}
                     </div>
                     <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                      <span className="mr-0.5 text-[10px] text-muted-foreground/50">
+                      <span className="mr-0.5 portal-type-caption text-muted-foreground/50">
                         e.g.
                       </span>
                       {SUGGESTED_TOPICS.map((t) => {
@@ -403,7 +364,7 @@ export function EndorseModal({
                             }}
                             aria-pressed={active}
                             className={cn(
-                              'rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors',
+                              'rounded-full border px-2 py-0.5 portal-type-label font-medium transition-colors',
                               active
                                 ? 'border-border/60 bg-background text-foreground shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]'
                                 : 'border-transparent text-muted-foreground hover:border-border/40 hover:text-foreground'
@@ -419,7 +380,7 @@ export function EndorseModal({
                   <div>
                     <label
                       htmlFor="endorse-note"
-                      className="text-xs font-medium portal-slate-text uppercase tracking-[0.08em]"
+                      className="text-xs font-medium text-portal-neutral uppercase tracking-[0.08em]"
                     >
                       Why
                     </label>
@@ -439,7 +400,7 @@ export function EndorseModal({
                         aria-required="true"
                       />
                       <span
-                        className={`pointer-events-none absolute right-3 bottom-2 text-[10px] tabular-nums tracking-wide ${
+                        className={`pointer-events-none absolute right-3 bottom-2 portal-type-caption tabular-nums tracking-wide ${
                           noteLength > 0 && noteLength < NOTE_MIN
                             ? 'text-amber-600'
                             : noteLength >= NOTE_WARNING_THRESHOLD
@@ -499,7 +460,7 @@ export function EndorseModal({
                   </PortalHoverTooltip>
                 </div>
 
-                <p className="border-t border-fade-section px-5 py-3 text-center text-[10px] portal-slate-text opacity-60">
+                <p className="border-t border-fade-section px-5 py-3 text-center portal-type-caption text-portal-neutral opacity-60">
                   Public on-chain. You can update or withdraw this endorsement
                   anytime.
                 </p>

@@ -1,7 +1,9 @@
-import { GeistMono } from 'geist/font/mono';
-import { GeistSans } from 'geist/font/sans';
+import { DM_Sans } from 'next/font/google';
 
-export const portalFontVariableClassName = [
-  GeistSans.variable,
-  GeistMono.variable,
-].join(' ');
+export const DmSans = DM_Sans({
+  subsets: ['latin'],
+  variable: '--font-dm-sans',
+  display: 'swap',
+});
+
+export const portalFontVariableClassName = DmSans.variable;

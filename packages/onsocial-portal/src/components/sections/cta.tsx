@@ -182,7 +182,7 @@ export function CTA() {
           label: 'Locked',
           value: formatCompactSocial(boostStats.total_locked),
           valueClassName:
-            'portal-slate-text mt-1 font-mono text-sm font-semibold tracking-tight md:text-base',
+            'text-portal-neutral mt-1 font-mono text-sm font-semibold tracking-tight md:text-base',
         },
         {
           label: 'Pool',
@@ -194,7 +194,7 @@ export function CTA() {
           label: 'Distributed',
           value: formatCompactSocial(boostStats.total_rewards_released),
           valueClassName:
-            'portal-slate-text mt-1 font-mono text-sm font-semibold tracking-tight md:text-base',
+            'text-portal-neutral mt-1 font-mono text-sm font-semibold tracking-tight md:text-base',
         },
       ]
     : [];
@@ -219,7 +219,7 @@ export function CTA() {
             'en-US'
           ),
           valueClassName:
-            'portal-slate-text mt-1 font-mono text-sm font-semibold tracking-tight md:text-base',
+            'text-portal-neutral mt-1 font-mono text-sm font-semibold tracking-tight md:text-base',
         },
       ]
     : [];
@@ -319,7 +319,7 @@ export function CTA() {
                                 Yours
                               </span>
                               <span>
-                                <span className="portal-slate-text font-mono font-semibold tracking-tight">
+                                <span className="text-portal-neutral font-mono font-semibold tracking-tight">
                                   {formatCompactSocial(
                                     rewardsOverview.total_earned
                                   )}

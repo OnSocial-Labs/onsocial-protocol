@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, Plus, RefreshCw, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,13 +10,7 @@ import {
 } from '@/components/ui/floating-panel';
 import { FloatingPanelMenu } from '@/components/ui/floating-panel-menu';
 import { useDropdown } from '@/hooks/use-dropdown';
-import { useIsMobile } from '@/hooks/use-mobile';
-import {
-  getDesktopNavMetrics,
-  getMobileNavMetrics,
-  MOBILE_NAV_MIN_WIDTH,
-} from '@/lib/nav-metrics';
-import { useNavVisibility } from '@/components/providers/nav-visibility-context';
+import { useNavStickyTop } from '@/hooks/use-nav-sticky-top';
 import type {
   GovernanceLane,
   GovernanceStatusFilter,
@@ -59,35 +52,7 @@ export function GovernanceRail({
     toggle: toggleStatusMenu,
     containerRef: statusMenuRef,
   } = useDropdown();
-  const isMobile = useIsMobile();
-  const { navHidden } = useNavVisibility();
-  const [viewportWidth, setViewportWidth] = useState(MOBILE_NAV_MIN_WIDTH);
-
-  useEffect(() => {
-    const syncViewportWidth = () => {
-      setViewportWidth(window.innerWidth);
-    };
-
-    syncViewportWidth();
-    window.addEventListener('resize', syncViewportWidth);
-
-    return () => {
-      window.removeEventListener('resize', syncViewportWidth);
-    };
-  }, []);
-
-  const { topInset: mobileTopInset, height: mobileNavHeight } =
-    getMobileNavMetrics(viewportWidth);
-  const { railTop: desktopRailTop } = getDesktopNavMetrics();
-
-  // Desktop keeps a fixed top below the static nav.
-  // Mobile uses the same inset as the nav itself when hidden,
-  // and the nav bottom plus that same inset when visible.
-  const stickyTop = isMobile
-    ? navHidden
-      ? `${mobileTopInset}px`
-      : `${mobileTopInset + mobileNavHeight + mobileTopInset}px`
-    : `${desktopRailTop}px`;
+  const stickyTop = useNavStickyTop();
 
   const activeStatusOption =
     visibleStatusOptions.find((option) => option.value === statusFilter) ??
@@ -220,7 +185,7 @@ export function GovernanceRail({
                 {activeStatusOption?.label ?? 'Status'}
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full border border-border/35 bg-background/55 px-1 text-[10px] font-medium tabular-nums leading-none text-muted-foreground/90">
+                <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full border border-border/35 bg-background/55 px-1 portal-type-caption font-medium tabular-nums leading-none text-muted-foreground/90">
                   {statusCounts[statusFilter]}
                 </span>
                 <ChevronDown
@@ -237,10 +202,10 @@ export function GovernanceRail({
               aria-label="Filter proposals by status"
             >
               <div className="border-b border-fade-section px-3 py-2.5 md:px-4 md:py-3">
-                <p className="mb-0.5 whitespace-nowrap text-[11px] md:text-xs text-muted-foreground/70">
+                <p className="mb-0.5 whitespace-nowrap portal-type-label md:text-xs text-muted-foreground/70">
                   Proposal Status
                 </p>
-                <p className="whitespace-nowrap text-[13px] md:text-sm font-medium text-foreground">
+                <p className="whitespace-nowrap portal-type-body font-medium text-foreground">
                   {activeStatusOption?.label ?? 'Status'}
                 </p>
               </div>
@@ -265,7 +230,7 @@ export function GovernanceRail({
                     >
                       <span>{option.label}</span>
                       <span
-                        className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[10px] font-medium tabular-nums leading-none transition-colors ${
+                        className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border portal-type-caption font-medium tabular-nums leading-none transition-colors ${
                           selected
                             ? 'border-border/45 bg-background/70 text-foreground/80'
                             : 'border-border/35 bg-background/40 text-muted-foreground/90 group-hover:border-border/45 group-hover:bg-background/60 group-hover:text-foreground/80'

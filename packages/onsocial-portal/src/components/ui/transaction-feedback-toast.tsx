@@ -97,21 +97,21 @@ export function TransactionFeedbackToast({
               {/* ── content ── */}
               <div className="min-w-0 flex-1">
                 {result.eyebrow ? (
-                  <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground/70">
+                  <span className="mb-0.5 block portal-eyebrow-wide text-muted-foreground/70">
                     {result.eyebrow}
                   </span>
                 ) : result.type === 'pending' && result.pendingPhase ? (
-                  <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground/70">
+                  <span className="mb-0.5 block portal-eyebrow-wide text-muted-foreground/70">
                     {result.pendingPhase === 'wallet'
                       ? 'Waiting For Wallet'
                       : 'Confirming On-Chain'}
                   </span>
                 ) : null}
-                <span className="block text-[13px] leading-snug font-medium">
+                <span className="block portal-type-body leading-snug font-medium">
                   {result.msg}
                 </span>
                 {result.subtitle ? (
-                  <span className="mt-1 block text-[11px] leading-snug text-muted-foreground/80">
+                  <span className="mt-1 block portal-type-label leading-snug text-muted-foreground/80">
                     {result.subtitle}
                   </span>
                 ) : null}
@@ -120,7 +120,7 @@ export function TransactionFeedbackToast({
                     href={result.explorerHref}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="portal-action-link mt-1 inline-flex items-center gap-1 text-[11px]"
+                    className="portal-action-link mt-1 inline-flex items-center gap-1 portal-type-label"
                   >
                     View on Nearblocks
                     <ExternalLink className="h-2.5 w-2.5" />

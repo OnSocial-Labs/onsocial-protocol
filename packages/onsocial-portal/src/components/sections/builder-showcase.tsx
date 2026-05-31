@@ -104,7 +104,7 @@ export function BuilderShowcase() {
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {useCase.apis.map((api) => (
-                      <PortalBadge key={api} accent="slate" size="xs">
+                      <PortalBadge key={api} accent="neutral" size="xs">
                         {api}
                       </PortalBadge>
                     ))}

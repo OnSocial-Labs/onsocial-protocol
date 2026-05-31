@@ -9,7 +9,7 @@ export const section = {
   container: 'w-full mx-auto max-w-6xl px-4',
   /** Section heading: centered, uppercase, muted */
   heading:
-    'mb-5 text-center text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground',
+    'mb-5 text-center portal-eyebrow-wide text-muted-foreground',
   /** Card grid */
   grid: 'grid gap-4 md:grid-cols-2',
   /** Card internal padding */

@@ -1,7 +1,12 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { profileActionButtonClass } from '@/components/ui/profile-action-pill';
+import {
+  profileSocialStandingToggleClass,
+  profileSocialStandingToggleStateClass,
+  walletMenuActionButtonClass,
+} from '@/components/ui/profile-action-pill';
+import { PulsingDots } from '@/components/ui/pulsing-dots';
 import { cn } from '@/lib/utils';
 
 interface RewardsClaimButtonProps {
@@ -20,7 +25,6 @@ export function RewardsClaimButton({
   canClaim,
   claiming,
   appearance = 'modal',
-  compact = false,
   ariaLabel,
   disabled = false,
   onClick,
@@ -37,14 +41,32 @@ export function RewardsClaimButton({
         disabled={isDisabled}
         aria-busy={claiming || undefined}
         aria-label={ariaLabel}
-        className={cn(
-          profileActionButtonClass(canClaim ? 'green' : 'slate'),
-          compact
-            ? 'h-[1.35rem] min-w-[2.85rem] shrink-0 justify-center px-1.5 text-[9px] tracking-[0.12em] md:min-w-[3rem]'
-            : 'h-[1.5rem] min-w-[3.1rem] shrink-0 justify-center px-1.5 text-[9px] tracking-[0.14em] md:h-[1.75rem] md:min-w-[3.5rem] md:px-2 md:text-[10px]'
+        className={walletMenuActionButtonClass(
+          canClaim ? 'claim-ready' : 'claim'
         )}
       >
-        {claiming ? '…' : 'Claim'}
+        <span className={profileSocialStandingToggleClass}>
+          <span
+            className={cn(
+              profileSocialStandingToggleStateClass,
+              'justify-center',
+              claiming && 'invisible'
+            )}
+            aria-hidden={claiming}
+          >
+            Claim
+          </span>
+          <span
+            className={cn(
+              profileSocialStandingToggleStateClass,
+              'justify-center text-current opacity-70',
+              !claiming && 'invisible'
+            )}
+            aria-hidden={!claiming}
+          >
+            <PulsingDots size="sm" />
+          </span>
+        </span>
       </button>
     );
   }

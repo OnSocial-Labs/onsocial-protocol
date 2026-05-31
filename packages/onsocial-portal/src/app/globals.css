@@ -24,6 +24,7 @@
   --color-popover-foreground: hsl(var(--popover-foreground));
   --color-card: hsl(var(--card));
   --color-card-foreground: hsl(var(--card-foreground));
+  --color-portal-neutral: var(--portal-neutral);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -66,10 +67,13 @@
   }
 }
 
+:root {
+  --portal-font-sans: var(--font-dm-sans);
+  --portal-font-mono: var(--font-dm-sans);
+}
+
 @layer base {
   :root {
-    --portal-font-sans: var(--font-geist-sans);
-    --portal-font-mono: var(--font-geist-mono);
     --background: 0 0% 100%;
     --foreground: 0 0% 9%;
     --card: 0 0% 100%;
@@ -80,12 +84,20 @@
     --primary-foreground: 0 0% 100%;
     --secondary: 0 0% 96%;
     --secondary-foreground: 0 0% 9%;
-    --muted: 220 4% 95%;
-    --muted-foreground: 220 2% 44%;
+    --muted: 220 6% 96%;
+    --muted-foreground: 220 4% 45%;
     --accent: 0 0% 96%;
     --accent-foreground: 0 0% 9%;
-    --portal-link: #71717a;
-    --portal-link-hover: #52525b;
+    --portal-neutral: #64748b;
+    --portal-neutral-frame-border: rgb(100 116 139 / 0.35);
+    --portal-neutral-frame-bg: rgb(100 116 139 / 0.08);
+    --portal-neutral-bg: rgb(100 116 139 / 0.06);
+    --portal-neutral-border-strong: rgb(100 116 139 / 0.55);
+    --portal-neutral-shadow: rgb(100 116 139 / 0.16);
+    --portal-neutral-glow: rgb(100 116 139 / 0.12);
+    --portal-neutral-hover: #475569;
+    --portal-link: var(--portal-neutral);
+    --portal-link-hover: var(--portal-neutral-hover);
     --portal-action-link: #111827;
     --portal-action-link-hover: #60a5fa;
     --portal-blue: #60a5fa;
@@ -138,13 +150,6 @@
     --portal-pink-frame-bg: rgb(236 72 153 / 0.08);
     --portal-pink-bg: rgb(236 72 153 / 0.06);
     --portal-pink-glow: rgb(236 72 153 / 0.16);
-    --portal-slate: #71717a;
-    --portal-slate-frame-border: rgb(113 113 122 / 0.35);
-    --portal-slate-frame-bg: rgb(113 113 122 / 0.08);
-    --portal-slate-bg: rgb(113 113 122 / 0.06);
-    --portal-slate-border-strong: rgb(113 113 122 / 0.55);
-    --portal-slate-shadow: rgb(113 113 122 / 0.16);
-    --portal-slate-glow: rgb(113 113 122 / 0.12);
     --portal-red: #f87171;
     --portal-red-border: rgb(248 113 113 / 0.48);
     --portal-red-border-strong: rgb(248 113 113 / 0.65);
@@ -158,8 +163,8 @@
       0 28px 64px -18px rgb(15 23 42 / 0.22);
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 90%;
-    --input: 0 0% 90%;
+    --border: 220 8% 91%;
+    --input: 220 8% 91%;
     --ring: 0 0% 9%;
     --radius: 0.5rem;
     color-scheme: light;
@@ -176,12 +181,20 @@
     --primary-foreground: 0 0% 0%;
     --secondary: 0 0% 10%;
     --secondary-foreground: 0 0% 95%;
-    --muted: 220 3% 11%;
-    --muted-foreground: 220 2% 61%;
+    --muted: 220 5% 11%;
+    --muted-foreground: 220 6% 67%;
     --accent: 0 0% 10%;
     --accent-foreground: 0 0% 95%;
-    --portal-link: #a1a1aa;
-    --portal-link-hover: #d4d4d8;
+    --portal-neutral: #94a3b8;
+    --portal-neutral-frame-border: rgb(148 163 184 / 0.35);
+    --portal-neutral-frame-bg: rgb(148 163 184 / 0.08);
+    --portal-neutral-bg: rgb(148 163 184 / 0.06);
+    --portal-neutral-border-strong: rgb(148 163 184 / 0.45);
+    --portal-neutral-shadow: rgb(148 163 184 / 0.18);
+    --portal-neutral-glow: rgb(148 163 184 / 0.12);
+    --portal-neutral-hover: #cbd5e1;
+    --portal-link: var(--portal-neutral);
+    --portal-link-hover: var(--portal-neutral-hover);
     --portal-action-link: #e5e7eb;
     --portal-action-link-hover: #93c5fd;
     --portal-blue: #60a5fa;
@@ -234,13 +247,6 @@
     --portal-pink-frame-bg: rgb(236 72 153 / 0.08);
     --portal-pink-bg: rgb(236 72 153 / 0.06);
     --portal-pink-glow: rgb(236 72 153 / 0.16);
-    --portal-slate: #71717a;
-    --portal-slate-frame-border: rgb(113 113 122 / 0.35);
-    --portal-slate-frame-bg: rgb(113 113 122 / 0.08);
-    --portal-slate-bg: rgb(113 113 122 / 0.06);
-    --portal-slate-border-strong: rgb(113 113 122 / 0.45);
-    --portal-slate-shadow: rgb(113 113 122 / 0.18);
-    --portal-slate-glow: rgb(113 113 122 / 0.12);
     --portal-red: #f87171;
     --portal-red-border: rgb(248 113 113 / 0.48);
     --portal-red-border-strong: rgb(248 113 113 / 0.65);
@@ -252,8 +258,8 @@
     --portal-overlay-shadow: 0 21px 51px -25px rgb(15 23 42 / 0.525);
     --destructive: 0 62% 55%;
     --destructive-foreground: 0 0% 95%;
-    --border: 0 0% 14%;
-    --input: 0 0% 14%;
+    --border: 220 6% 16%;
+    --input: 220 6% 16%;
     --ring: 0 0% 100%;
     color-scheme: dark;
   }
@@ -280,6 +286,7 @@
     scrollbar-gutter: stable;
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--foreground) / 0.12) transparent;
+    font-size: 100%;
   }
 
   /* Webkit (Chrome, Safari, Edge) custom scrollbar */
@@ -436,10 +443,10 @@
   color: var(--portal-gold);
 }
 
-.portal-slate-badge {
-  border-color: var(--portal-slate-frame-border);
-  background-color: var(--portal-slate-bg);
-  color: var(--portal-slate);
+.portal-neutral-badge {
+  border-color: var(--portal-neutral-frame-border);
+  background-color: var(--portal-neutral-bg);
+  color: var(--portal-neutral);
 }
 
 .portal-red-badge {
@@ -480,9 +487,9 @@
     0 2px 4px -2px var(--portal-green-shadow);
 }
 
-.portal-slate-surface {
-  border-color: var(--portal-slate-frame-border);
-  background-color: var(--portal-slate-frame-bg);
+.portal-neutral-surface {
+  border-color: var(--portal-neutral-frame-border);
+  background-color: var(--portal-neutral-frame-bg);
   color: hsl(var(--foreground));
   transition:
     border-color 150ms ease,
@@ -574,12 +581,12 @@
   color: var(--portal-pink);
 }
 
-.portal-slate-text {
-  color: var(--portal-slate);
+.portal-neutral-text {
+  @apply text-portal-neutral;
 }
 
-.portal-slate-icon {
-  color: var(--portal-slate);
+.portal-neutral-icon {
+  @apply text-portal-neutral;
 }
 
 .portal-red-text {
@@ -703,6 +710,74 @@ textarea:-webkit-autofill:focus {
 /* Smooth scroll */
 html.lenis {
   height: auto;
+}
+
+/* ── Portal typography scale (rem-based, fixed sizes matching pre-refactor px) ── */
+
+@source inline("portal-type-micro portal-type-caption portal-type-label portal-type-body-sm portal-type-body portal-type-lead portal-type-display portal-eyebrow portal-eyebrow-wide");
+
+@layer components {
+  .portal-type-micro {
+    font-size: 0.625rem;
+    line-height: 1.2;
+  }
+
+  .portal-type-caption {
+    font-size: 0.625rem;
+    line-height: 1.35;
+  }
+
+  .portal-type-label {
+    font-size: 0.6875rem;
+    line-height: 1.4;
+  }
+
+  .portal-type-body-sm {
+    font-size: 0.75rem;
+    line-height: 1.45;
+  }
+
+  .portal-type-body {
+    font-size: 0.8125rem;
+    line-height: 1.45;
+  }
+
+  .portal-type-lead {
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  .portal-type-display {
+    font-size: 1.3125rem;
+    line-height: 1.15;
+    letter-spacing: -0.025em;
+  }
+
+  .portal-eyebrow {
+    font-size: 0.625rem;
+    line-height: 1.35;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .portal-eyebrow-wide {
+    font-size: 0.625rem;
+    line-height: 1.35;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  @media (width >= 768px) {
+    .portal-type-body {
+      font-size: 0.875rem;
+    }
+
+    .portal-type-lead {
+      font-size: 1rem;
+    }
+  }
 }
 
 /* ── Mobile-first utilities ── */

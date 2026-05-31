@@ -9,13 +9,13 @@ import {
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { Github, Globe, PenLine, Plus, User } from 'lucide-react';
+import { Github, Globe, PenLine, User } from 'lucide-react';
 import { FaXTwitter } from 'react-icons/fa6';
 import { RiTelegram2Line } from 'react-icons/ri';
 import type { MaterialisedProfile } from '@onsocial/sdk';
 import type { EndorsementSubmitInput } from '@/lib/endorsements';
-import { PROFILE_SEARCH_MIN_QUERY_LENGTH } from '@/lib/profile-account-search';
 import {
   compactModalBodyClass,
   compactModalShellClass,
@@ -27,11 +27,16 @@ import {
   ModalFactSection,
 } from '@/components/ui/modal-fact-list';
 import { ModalHeader } from '@/components/ui/modal-header';
-import { profileActionButtonClass } from '@/components/ui/profile-action-pill';
+import {
+  profileSocialStandingButtonClass,
+  profileSocialMetaRowClass,
+  profileSocialMetaRowItemClass,
+} from '@/components/ui/profile-action-pill';
+import {
+  ProfileSocialStandingPending,
+  ProfileSocialStandingToggle,
+} from '@/components/ui/profile-social-standing-toggle';
 import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
-import { PulsingDots } from '@/components/ui/pulsing-dots';
-import { RelationshipSignal } from '@/components/ui/relationship-signal';
-import { SearchInput } from '@/components/ui/search-input';
 import { Skeleton, SkeletonText } from '@/components/ui/skeleton';
 import { NetworkModal, type NetworkAccount } from '@/components/network-modal';
 import { PlatformStorageAllowanceSummary } from '@/components/platform-storage-allowance-summary';
@@ -40,10 +45,7 @@ import {
   TransactionFeedbackToast,
   type TransactionFeedback,
 } from '@/components/ui/transaction-feedback-toast';
-import {
-  ProfileEndorsements,
-  type EndorsementsModalIntent,
-} from '@/components/profile-endorsements';
+import { ProfileEndorsements } from '@/components/profile-endorsements';
 import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
 import { usePlatformStorageSummary } from '@/hooks/use-platform-storage-summary';
 import { PLATFORM_STORAGE_LABEL } from '@/lib/platform-storage-display';
@@ -56,6 +58,22 @@ import {
   type ReputationEntry,
 } from '@/lib/leaderboard';
 import { fadeMotion, scaleFadeMotion } from '@/lib/motion';
+import { formatProfilePageNavLabel } from '@/lib/nav-badge-label';
+import {
+  getPortalEndorsementsUrl,
+  getPortalStandUrl,
+  type PortalEndorsementsMode,
+} from '@/lib/portal-config';
+import {
+  type StandingAccountSummary,
+  type StanceDetailKind,
+} from '@/lib/profile-social-standings';
+import {
+  profilePageBannerSurfaceClass,
+  profilePageHorizontalPaddingClass,
+  profilePageMobileContentMarginClass,
+  profilePageMobileGutterClass,
+} from '@/lib/profile-page-layout';
 import {
   buildProfileLinkUrl,
   normalizeWebsiteForDisplay,
@@ -88,22 +106,6 @@ interface PortalProfileResponse {
   } | null;
 }
 
-interface StandingAccountSummary {
-  accountId: string;
-  name: string | null;
-  bio?: string | null;
-  avatarUrl: string | null;
-  standingSince?: number | null;
-  standingBlockTimestamp?: number | null;
-  standingCount?: number;
-  standingWithCount?: number;
-  mutualStandingCount?: number;
-  endorsementsReceivedCount?: number;
-  endorsementsGivenCount?: number;
-  viewerStanding?: boolean;
-  theyStandWithViewer?: boolean;
-}
-
 interface ProfileSocialResponse {
   accountId: string;
   viewerAccountId: string | null;
@@ -117,7 +119,20 @@ interface ProfileSocialResponse {
   outgoing: StandingAccountSummary[];
 }
 
-const STANCE_PAGE_SIZE = 24;
+const socialMetricBtnClass =
+  'group inline-flex items-center gap-1 rounded-md px-1 py-0.5 transition-colors focus-visible:outline-none focus-visible:ring-1';
+
+const profileIdentityLayoutClass =
+  '[--profile-avatar-size:5rem] md:[--profile-avatar-size:6rem]';
+
+const profileIdentityOverlapClass =
+  '-mt-[calc(var(--profile-avatar-size)/2)]';
+
+const profileIdentityAvatarSizeClass =
+  'h-[var(--profile-avatar-size)] w-[var(--profile-avatar-size)]';
+
+const profileIdentityTextClass =
+  'min-w-0 flex-1 space-y-0.5 pb-1 pt-[calc(var(--profile-avatar-size)/2+0.375rem)]';
 
 interface ProfileSignalsResponse {
   accountId: string;
@@ -133,10 +148,12 @@ interface ProfileModalProps {
   selfBannerUrl: string | null;
   hasSocialSession?: boolean;
   isAuthorizingSession?: boolean;
+  variant?: 'modal' | 'page';
   onOpenChange: (open: boolean) => void;
   onEditProfile: () => void;
   onSelectAccount?: (accountId: string) => void;
   onDiscoverProfiles?: () => void;
+  onPageNavLabel?: (label: string) => void;
   onUpdateStanding: (
     accountId: string,
     shouldStand: boolean
@@ -147,8 +164,6 @@ interface ProfileModalProps {
   ) => Promise<unknown>;
   onRemoveEndorsement?: (target: string, topic?: string) => Promise<unknown>;
 }
-
-type StanceDetailKind = 'incoming' | 'outgoing' | 'mutual';
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -234,90 +249,6 @@ async function fetchProfileSocial(
     },
     incoming: normalizeAccounts(body?.incoming),
     outgoing: normalizeAccounts(body?.outgoing),
-  };
-}
-
-interface ProfileSocialStandingsResponse {
-  accountId: string;
-  direction: StanceDetailKind;
-  limit: number;
-  offset: number;
-  hasMore: boolean;
-  total: number;
-  accounts: StandingAccountSummary[];
-}
-
-function mergeStandingAccounts(
-  current: StandingAccountSummary[],
-  incoming: StandingAccountSummary[]
-): StandingAccountSummary[] {
-  if (incoming.length === 0) return current;
-
-  const seen = new Set(current.map((account) => account.accountId));
-  const merged = [...current];
-  for (const account of incoming) {
-    if (seen.has(account.accountId)) continue;
-    seen.add(account.accountId);
-    merged.push(account);
-  }
-  return merged;
-}
-
-async function fetchProfileSocialStandings(
-  accountId: string,
-  viewerAccountId: string | null,
-  direction: StanceDetailKind,
-  offset: number,
-  q = ''
-): Promise<ProfileSocialStandingsResponse> {
-  const search = new URLSearchParams({
-    accountId,
-    direction,
-    limit: String(STANCE_PAGE_SIZE),
-    offset: String(offset),
-  });
-  if (viewerAccountId) search.set('viewerAccountId', viewerAccountId);
-  const normalizedQuery = q.trim();
-  if (normalizedQuery.length >= PROFILE_SEARCH_MIN_QUERY_LENGTH) {
-    search.set('q', normalizedQuery);
-  }
-
-  const response = await fetch(
-    `/api/profile/social/standings?${search.toString()}`,
-    { cache: 'no-store' }
-  );
-  const body = (await response.json().catch(() => null)) as
-    | (Partial<ProfileSocialStandingsResponse> & {
-        error?: string;
-        detail?: string;
-      })
-    | null;
-
-  if (!response.ok) {
-    throw new Error(
-      body?.detail ??
-        body?.error ??
-        `Social standings query failed (${response.status})`
-    );
-  }
-
-  return {
-    accountId,
-    direction,
-    limit: body?.limit ?? STANCE_PAGE_SIZE,
-    offset: body?.offset ?? offset,
-    hasMore: Boolean(body?.hasMore),
-    total: Number(body?.total ?? 0),
-    accounts: (body?.accounts ?? []).map((account) => ({
-      ...account,
-      standingCount: Number(account.standingCount ?? 0),
-      standingWithCount: Number(account.standingWithCount ?? 0),
-      mutualStandingCount: Number(account.mutualStandingCount ?? 0),
-      endorsementsReceivedCount: Number(account.endorsementsReceivedCount ?? 0),
-      endorsementsGivenCount: Number(account.endorsementsGivenCount ?? 0),
-      viewerStanding: Boolean(account.viewerStanding),
-      theyStandWithViewer: Boolean(account.theyStandWithViewer),
-    })),
   };
 }
 
@@ -491,47 +422,6 @@ function toFiniteNumber(value: string | number): number {
   return Number.isFinite(numericValue) ? numericValue : 0;
 }
 
-function accountLabel(account: StandingAccountSummary): string {
-  return account.name?.trim() || cleanHandle(account.accountId);
-}
-
-function normalizeSocialTimestamp(value?: number | null): number | null {
-  if (!value || !Number.isFinite(value) || value <= 0) return null;
-  if (value > 1_000_000_000_000_000) return Math.floor(value / 1_000_000);
-  if (value < 1_000_000_000_000) return value * 1000;
-  return value;
-}
-
-function formatRelativeTime(timestamp: number | null): string {
-  if (!timestamp) return '';
-  const diff = Math.max(0, Date.now() - timestamp);
-  const min = Math.floor(diff / 60000);
-  if (min < 1) return 'just now';
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const day = Math.floor(hr / 24);
-  if (day < 7) return `${day}d ago`;
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-  }).format(new Date(timestamp));
-}
-
-function standingTimeMeta(
-  account: StandingAccountSummary
-): { label: string; description: string } | null {
-  const since = normalizeSocialTimestamp(account.standingSince);
-  if (since) {
-    const label = formatRelativeTime(since);
-    return { label, description: `Standing since ${label}` };
-  }
-  const added = normalizeSocialTimestamp(account.standingBlockTimestamp);
-  if (!added) return null;
-  const label = formatRelativeTime(added);
-  return { label, description: `Standing added ${label}` };
-}
-
 function accountGradient(accountId: string): string {
   let hash = 0;
   for (let i = 0; i < accountId.length; i++) {
@@ -542,29 +432,33 @@ function accountGradient(accountId: string): string {
   return `linear-gradient(135deg, hsl(${h1} 45% 60% / 0.14), hsl(${h2} 35% 55% / 0.08), transparent 80%)`;
 }
 
-function EmptyState({
-  children,
-  cta,
-}: {
-  children: ReactNode;
-  cta?: ReactNode;
-}) {
-  return (
-    <div className="px-3 py-5 text-center text-xs text-muted-foreground/65">
-      {children}
-      {cta ? <div className="mt-2">{cta}</div> : null}
-    </div>
-  );
-}
-
-function ProfileIdentityLoading() {
+function ProfileIdentityLoading({ fullPage = false }: { fullPage?: boolean }) {
   return (
     <>
-      <div className="aspect-[5/1] bg-foreground/[0.03]" />
-      <div className="-mt-10 space-y-3 px-4 pb-5 md:px-5">
-        <div className="flex items-end gap-3.5">
-          <Skeleton className="h-20 w-20 md:h-24 md:w-24 shrink-0 rounded-2xl !border-[3px] !border-background" />
-          <div className="min-w-0 flex-1 space-y-1.5 pb-1">
+      <div
+        className={cn(
+          'aspect-[5/1] w-full bg-foreground/[0.03]',
+          fullPage && profilePageBannerSurfaceClass
+        )}
+      />
+      <div
+        className={cn(
+          'relative z-10 space-y-3 pb-5 md:px-5',
+          profileIdentityLayoutClass,
+          profileIdentityOverlapClass,
+          fullPage
+            ? cn('pb-12', profilePageHorizontalPaddingClass)
+            : 'px-4 pb-5 md:px-5'
+        )}
+      >
+        <div className="flex items-start gap-3.5">
+          <Skeleton
+            className={cn(
+              'shrink-0 rounded-2xl !border-[3px] !border-background',
+              profileIdentityAvatarSizeClass
+            )}
+          />
+          <div className={cn(profileIdentityTextClass, 'space-y-1.5')}>
             <Skeleton className="h-5 w-36 max-w-full bg-foreground/10" />
             <Skeleton className="h-3 w-48 max-w-full bg-foreground/[0.06]" />
           </div>
@@ -651,10 +545,7 @@ function SocialProofStrip({
   meta?: ReactNode;
   onOpenStanceDetail: (kind: StanceDetailKind) => void;
   onOpenNetwork: () => void;
-  onOpenEndorsements: (
-    mode: EndorsementsModalIntent['mode'],
-    topic?: string
-  ) => void;
+  onOpenEndorsements: (mode: PortalEndorsementsMode, topic?: string) => void;
 }) {
   const incomingCount = social.counts.incoming;
   const outgoingCount = social.counts.outgoing;
@@ -682,20 +573,22 @@ function SocialProofStrip({
     uniqueNetworkCount - previewAccounts.length
   );
 
-  const metricBtn =
-    'group inline-flex items-center gap-1 rounded-md px-1 py-0.5 transition-colors focus-visible:outline-none focus-visible:ring-1';
+  const metricBtn = socialMetricBtnClass;
   const columnLabel =
-    'text-[9px] font-medium uppercase tracking-[0.16em] text-muted-foreground/45';
+    'portal-type-label font-medium text-muted-foreground/55';
 
   return (
     <div>
       {meta || previewAccounts.length > 0 ? (
-        <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+        <div className={profileSocialMetaRowClass}>
           {previewAccounts.length > 0 ? (
             <button
               type="button"
               onClick={onOpenNetwork}
-              className="group inline-flex items-center gap-2 rounded-md py-0.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60"
+              className={cn(
+                profileSocialMetaRowItemClass,
+                'group gap-2 rounded-md text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60'
+              )}
               aria-label={
                 isSelf ? 'View your standing network' : 'View standing network'
               }
@@ -724,7 +617,7 @@ function SocialProofStrip({
                     />
                   ))}
                   {overflowCount > 0 ? (
-                    <span className="pl-1 text-[9px] font-medium tabular-nums text-muted-foreground/45 transition-colors group-hover:text-muted-foreground/70">
+                    <span className="pl-1 portal-type-label font-medium tabular-nums text-muted-foreground/55 transition-colors group-hover:text-muted-foreground/70">
                       +{formatCount(overflowCount)}
                     </span>
                   ) : null}
@@ -732,16 +625,13 @@ function SocialProofStrip({
               </PortalHoverTooltip>
             </button>
           ) : null}
-          {meta && previewAccounts.length > 0 ? (
-            <span className="h-1 w-1 rounded-full bg-muted-foreground/25" />
-          ) : null}
           {meta}
         </div>
       ) : null}
       <div className="flex flex-wrap items-start gap-x-5 gap-y-3">
         <div>
           <div className={columnLabel}>Standing</div>
-          <div className="mt-1 flex items-center gap-1.5 whitespace-nowrap text-[12px]">
+          <div className="mt-1 flex items-center gap-1.5 whitespace-nowrap portal-type-body-sm">
             <button
               type="button"
               onClick={() => onOpenStanceDetail('incoming')}
@@ -803,7 +693,7 @@ function SocialProofStrip({
 
         <div>
           <div className={columnLabel}>Solidarity</div>
-          <div className="mt-1 flex items-center whitespace-nowrap text-[12px]">
+          <div className="mt-1 flex items-center whitespace-nowrap portal-type-body-sm">
             <button
               type="button"
               onClick={() => onOpenStanceDetail('mutual')}
@@ -819,7 +709,7 @@ function SocialProofStrip({
               >
                 <ProtocolMotionArrow
                   direction="in"
-                  className="h-2 w-2 text-[var(--portal-purple)]"
+                  className="h-2.5 w-2.5 text-[var(--portal-purple)]"
                 />
                 <span
                   className={cn(
@@ -829,7 +719,7 @@ function SocialProofStrip({
                 >
                   {formatCount(mutualCount)}
                 </span>
-                <ProtocolMotionArrow className="h-2 w-2 text-[var(--portal-purple)]" />
+                <ProtocolMotionArrow className="h-2.5 w-2.5 text-[var(--portal-purple)]" />
               </PortalHoverTooltip>
             </button>
           </div>
@@ -837,7 +727,7 @@ function SocialProofStrip({
 
         <div>
           <div className={columnLabel}>Endorsements</div>
-          <div className="mt-1 flex items-center gap-1.5 whitespace-nowrap text-[12px]">
+          <div className="mt-1 flex items-center gap-1.5 whitespace-nowrap portal-type-body-sm">
             <button
               type="button"
               onClick={() => onOpenEndorsements('received')}
@@ -937,13 +827,13 @@ function ProfileSignalsCard({ reputation }: { reputation: ReputationEntry }) {
       <div className="pt-3.5 pb-1">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-[21px] font-semibold tabular-nums tracking-[-0.025em] text-foreground">
+            <span className="portal-type-display font-semibold tabular-nums tracking-[-0.025em] text-foreground">
               {formatReputation(reputation.reputation)}
             </span>
 
             <span
               className={cn(
-                'rounded-full border px-2 py-px text-[10px] font-medium',
+                'rounded-full border px-2 py-px portal-type-caption font-medium',
                 tier.accent === 'gold'
                   ? 'portal-gold-badge text-[var(--portal-gold)]'
                   : tier.accent === 'purple'
@@ -952,26 +842,26 @@ function ProfileSignalsCard({ reputation }: { reputation: ReputationEntry }) {
                       ? 'portal-blue-badge text-[var(--portal-blue)]'
                       : tier.accent === 'green'
                         ? 'portal-green-badge text-[var(--portal-green)]'
-                        : 'portal-slate-badge text-[var(--portal-slate)]'
+                        : 'portal-neutral-badge text-[var(--portal-neutral)]'
               )}
             >
               {tier.label}
             </span>
 
             {Number.isFinite(rank) && rank > 0 && (
-              <span className="text-[10px] text-muted-foreground/65 tabular-nums">
+              <span className="portal-type-caption text-muted-foreground/65 tabular-nums">
                 #{formatCount(rank)}
               </span>
             )}
           </div>
 
-          <span className="shrink-0 rounded-full border portal-blue-badge px-2 py-px text-[10px] font-medium text-[var(--portal-blue)]">
+          <span className="shrink-0 rounded-full border portal-blue-badge px-2 py-px portal-type-caption font-medium text-[var(--portal-blue)]">
             {profileSignalLabel}
           </span>
         </div>
 
         {/* Elegant single-line social proof */}
-        <div className="mt-1.5 text-[12px] text-muted-foreground/70">
+        <div className="mt-1.5 portal-type-body-sm text-muted-foreground/70">
           {formatCount(toFiniteNumber(reputation.totalPosts))} posts ·{' '}
           {formatCount(toFiniteNumber(reputation.reactionsReceived))} reactions
           · {formatCount(toFiniteNumber(reputation.activeDays))} active days ·{' '}
@@ -980,7 +870,7 @@ function ProfileSignalsCard({ reputation }: { reputation: ReputationEntry }) {
 
         {/* Reputation personality mix — refined and human */}
         <div className="mt-3">
-          <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/50 mb-1.5">
+          <div className="portal-eyebrow text-muted-foreground/50 mb-1.5">
             Reputation mix
           </div>
 
@@ -995,7 +885,7 @@ function ProfileSignalsCard({ reputation }: { reputation: ReputationEntry }) {
               return (
                 <div
                   key={dimension.label}
-                  className="flex items-center gap-2 text-[11px]"
+                  className="flex items-center gap-2 portal-type-label"
                 >
                   <span className="w-16 shrink-0 text-muted-foreground/70">
                     {dimension.label}
@@ -1020,14 +910,14 @@ function ProfileSignalsCard({ reputation }: { reputation: ReputationEntry }) {
         {/* Recognized for — elegant and minimal */}
         {signalBadges.length > 0 && (
           <div className="mt-3">
-            <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/50 mb-1">
+            <div className="portal-eyebrow text-muted-foreground/50 mb-1">
               Recognized for
             </div>
             <div className="flex flex-wrap gap-1">
               {signalBadges.slice(0, 3).map((badge) => (
                 <span
                   key={badge}
-                  className="rounded-full border border-border/30 bg-background/50 px-2 py-px text-[10px] text-muted-foreground/80"
+                  className="rounded-full border border-border/30 bg-background/50 px-2 py-px portal-type-caption text-muted-foreground/80"
                 >
                   {badge}
                 </span>
@@ -1040,734 +930,6 @@ function ProfileSignalsCard({ reputation }: { reputation: ReputationEntry }) {
   );
 }
 
-function StanceDetailModal({
-  open,
-  kind,
-  title,
-  isSelf,
-  accountId,
-  counts,
-  viewerAccountId,
-  hasSocialSession = false,
-  onClose,
-  onSelectAccount,
-  onDiscoverProfiles,
-  onUpdateAccountStanding,
-}: {
-  open: boolean;
-  kind: StanceDetailKind;
-  title: string;
-  isSelf: boolean;
-  accountId: string;
-  counts: ProfileSocialResponse['counts'];
-  viewerAccountId: string | null;
-  hasSocialSession?: boolean;
-  onClose: () => void;
-  onSelectAccount?: (accountId: string) => void;
-  onDiscoverProfiles?: () => void;
-  onUpdateAccountStanding?: (
-    account: StandingAccountSummary,
-    shouldStand: boolean
-  ) => Promise<void>;
-}) {
-  const reduceMotion = useReducedMotion();
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
-  const latestLoadRef = useRef(0);
-  const [query, setQuery] = useState('');
-  const [accounts, setAccounts] = useState<StandingAccountSummary[]>([]);
-  const [listTotal, setListTotal] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [pendingStandingIds, setPendingStandingIds] = useState<Set<string>>(
-    () => new Set()
-  );
-  useBodyScrollLock(open, scrollRef);
-
-  const serverSearchActive =
-    query.trim().length >= PROFILE_SEARCH_MIN_QUERY_LENGTH;
-  const searchQueryForFetch = serverSearchActive ? query.trim() : '';
-  const totalCount = serverSearchActive
-    ? listTotal
-    : kind === 'incoming'
-      ? counts.incoming
-      : kind === 'outgoing'
-        ? counts.outgoing
-        : counts.mutual;
-
-  useEffect(() => {
-    if (open) setQuery('');
-  }, [kind, open]);
-
-  useEffect(() => {
-    if (!open) {
-      latestLoadRef.current += 1;
-      return;
-    }
-
-    const loadId = latestLoadRef.current + 1;
-    latestLoadRef.current = loadId;
-    const timeout = window.setTimeout(
-      () => {
-        setIsLoading(true);
-        setIsLoadingMore(false);
-        setLoadError(null);
-        setHasMore(false);
-
-        void fetchProfileSocialStandings(
-          accountId,
-          viewerAccountId,
-          kind,
-          0,
-          searchQueryForFetch
-        )
-          .then((response) => {
-            if (latestLoadRef.current !== loadId) return;
-            setAccounts(response.accounts);
-            setHasMore(response.hasMore);
-            setListTotal(response.total);
-          })
-          .catch((error) => {
-            if (latestLoadRef.current !== loadId) return;
-            setLoadError(getErrorMessage(error));
-            setAccounts([]);
-            setHasMore(false);
-            setListTotal(0);
-          })
-          .finally(() => {
-            if (latestLoadRef.current === loadId) setIsLoading(false);
-          });
-      },
-      serverSearchActive ? 220 : 0
-    );
-
-    return () => window.clearTimeout(timeout);
-  }, [
-    accountId,
-    kind,
-    open,
-    searchQueryForFetch,
-    serverSearchActive,
-    viewerAccountId,
-  ]);
-
-  const loadMore = useCallback(async () => {
-    if (!open || isLoading || isLoadingMore || !hasMore) return;
-
-    const loadId = latestLoadRef.current;
-    const offset = accounts.length;
-    setIsLoadingMore(true);
-    setLoadError(null);
-
-    try {
-      const response = await fetchProfileSocialStandings(
-        accountId,
-        viewerAccountId,
-        kind,
-        offset,
-        searchQueryForFetch
-      );
-      if (latestLoadRef.current !== loadId) return;
-      setAccounts((current) =>
-        mergeStandingAccounts(current, response.accounts)
-      );
-      setHasMore(response.hasMore);
-      setListTotal(response.total);
-    } catch (error) {
-      if (latestLoadRef.current !== loadId) return;
-      setLoadError(getErrorMessage(error));
-    } finally {
-      if (latestLoadRef.current === loadId) setIsLoadingMore(false);
-    }
-  }, [
-    accountId,
-    accounts.length,
-    hasMore,
-    isLoading,
-    isLoadingMore,
-    kind,
-    open,
-    searchQueryForFetch,
-    viewerAccountId,
-  ]);
-
-  useEffect(() => {
-    if (!open || !hasMore || isLoading || isLoadingMore) return;
-
-    const sentinel = loadMoreSentinelRef.current;
-    const root = scrollRef.current;
-    if (!sentinel || !root) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          void loadMore();
-        }
-      },
-      { root, rootMargin: '160px', threshold: 0 }
-    );
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [accounts.length, hasMore, isLoading, isLoadingMore, loadMore, open]);
-
-  const filteredAccounts = useMemo(() => {
-    if (serverSearchActive) return accounts;
-
-    const normalizedQuery = query.trim().toLowerCase();
-    if (!normalizedQuery) return accounts;
-
-    return accounts.filter((account: StandingAccountSummary) => {
-      const label = accountLabel(account).toLowerCase();
-      const accountIdLabel = account.accountId.toLowerCase();
-      const bio = account.bio?.toLowerCase() ?? '';
-      return (
-        label.includes(normalizedQuery) ||
-        accountIdLabel.includes(normalizedQuery) ||
-        bio.includes(normalizedQuery)
-      );
-    });
-  }, [accounts, query, serverSearchActive]);
-
-  const accountCountLabel = formatCount(totalCount);
-  const standingVerb = totalCount === 1 ? 'STANDS' : 'STAND';
-  const modalMeta =
-    kind === 'mutual'
-      ? `${accountCountLabel} IN SOLIDARITY`
-      : kind === 'incoming'
-        ? isSelf
-          ? `${accountCountLabel} ${standingVerb} WITH YOU`
-          : `${accountCountLabel} ${standingVerb} WITH THEM`
-        : isSelf
-          ? `YOU STAND WITH ${accountCountLabel}`
-          : `THEY STAND WITH ${accountCountLabel}`;
-  const modalCloseLabel = `Close ${title} standing details`;
-  const canDiscoverFromHeader =
-    Boolean(onDiscoverProfiles) && kind !== 'incoming';
-  const resultsSummary = useMemo(() => {
-    if (filteredAccounts.length === 0 && isLoading) return null;
-
-    const shown = formatCount(
-      serverSearchActive || query.trim()
-        ? filteredAccounts.length
-        : accounts.length
-    );
-    if (serverSearchActive) {
-      if (totalCount > 0) {
-        return hasMore
-          ? `Showing ${shown} of ${formatCount(totalCount)} matching profiles`
-          : `${formatCount(totalCount)} matching profile${totalCount === 1 ? '' : 's'}`;
-      }
-      return hasMore
-        ? `Showing ${shown} matching profiles`
-        : `${shown} matching profile${filteredAccounts.length === 1 ? '' : 's'}`;
-    }
-    if (query.trim()) {
-      return hasMore
-        ? `Showing ${shown} matching profiles`
-        : `${shown} matching profile${filteredAccounts.length === 1 ? '' : 's'}`;
-    }
-    if (totalCount > 0) {
-      return `Showing ${shown} of ${formatCount(totalCount)}`;
-    }
-    return `Showing ${shown}`;
-  }, [
-    accounts.length,
-    filteredAccounts.length,
-    hasMore,
-    isLoading,
-    query,
-    serverSearchActive,
-    totalCount,
-  ]);
-
-  const emptyLabel =
-    kind === 'mutual'
-      ? 'No solidarity yet.'
-      : kind === 'incoming'
-        ? isSelf
-          ? 'No one stands with you yet.'
-          : `No one stands with ${title} yet.`
-        : isSelf
-          ? 'You do not stand with anyone yet.'
-          : `${title} does not stand with anyone yet.`;
-
-  return (
-    <AnimatePresence initial={false}>
-      {open ? (
-        <motion.div
-          {...fadeMotion(reduceMotion ? 0 : 0.16)}
-          data-lenis-prevent
-          className="fixed inset-0 z-[2147483646] flex items-center justify-center px-4 py-6"
-        >
-          <button
-            type="button"
-            className="absolute inset-0 bg-background/72 backdrop-blur-md"
-            aria-label={modalCloseLabel}
-            onClick={onClose}
-          />
-
-          <motion.div
-            {...scaleFadeMotion(!!reduceMotion, {
-              y: 14,
-              scale: 0.98,
-              duration: 0.2,
-              exitY: 8,
-              exitScale: 0.99,
-            })}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="stance-detail-title"
-            className={cn(
-              'relative flex h-[min(720px,calc(100vh-2rem))] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-border/67 bg-background/98',
-              portalElevatedShadowClass
-            )}
-          >
-            <ModalHeader
-              titleId="stance-detail-title"
-              title={title}
-              description={modalMeta}
-              descriptionVariant="meta"
-              actions={
-                <>
-                  {canDiscoverFromHeader ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onClose();
-                        onDiscoverProfiles?.();
-                      }}
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border/45 text-muted-foreground transition-colors hover:border-border hover:text-foreground"
-                      aria-label="Discover profiles"
-                    >
-                      <PortalHoverTooltip tooltip="Discover profiles">
-                        <Plus className="h-4 w-4" strokeWidth={2.5} />
-                      </PortalHoverTooltip>
-                    </button>
-                  ) : null}
-                  <ModalCloseButton
-                    ariaLabel={modalCloseLabel}
-                    onClick={onClose}
-                  />
-                </>
-              }
-            />
-
-            {totalCount > 0 ? (
-              <div className="shrink-0 px-4 pb-4 md:px-5">
-                <SearchInput
-                  value={query}
-                  onValueChange={setQuery}
-                  placeholder="Search profiles"
-                  size="sm"
-                  maxLength={80}
-                  clearAriaLabel="Clear profile search"
-                />
-              </div>
-            ) : null}
-
-            {loadError ? (
-              <p className="mx-4 mb-3 rounded-xl border border-[var(--portal-red-border)] bg-[var(--portal-red-bg)] px-3 py-2 text-xs leading-relaxed text-[var(--portal-red)] md:mx-5">
-                {loadError}
-              </p>
-            ) : null}
-
-            <div
-              ref={scrollRef}
-              className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-5 md:px-5"
-            >
-              {isLoading && accounts.length === 0 ? (
-                <div className="space-y-1.5" aria-hidden>
-                  {Array.from({ length: 6 }).map((_, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center gap-3 rounded-xl px-2.5 py-2.5"
-                    >
-                      <Skeleton className="h-9 w-9 shrink-0 rounded-full bg-foreground/[0.08]" />
-                      <span className="min-w-0 flex-1 space-y-2">
-                        <Skeleton className="h-4 w-36 max-w-full bg-foreground/[0.08]" />
-                        <Skeleton className="h-3 w-48 max-w-full bg-foreground/5" />
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <>
-                  <StandingList
-                    accounts={filteredAccounts}
-                    hasSocialSession={hasSocialSession}
-                    emptyLabel={
-                      query.trim() ? 'No matching profiles.' : emptyLabel
-                    }
-                    emptyCta={
-                      !query.trim() &&
-                      kind === 'outgoing' &&
-                      onDiscoverProfiles ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onClose();
-                            onDiscoverProfiles();
-                          }}
-                          className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--portal-blue)] transition-colors hover:text-[var(--portal-blue-hover)]"
-                        >
-                          Find someone to stand with
-                        </button>
-                      ) : undefined
-                    }
-                    onSelectAccount={(selectedAccountId) => {
-                      onClose();
-                      onSelectAccount?.(selectedAccountId);
-                    }}
-                    viewerAccountId={viewerAccountId}
-                    pendingStandingIds={pendingStandingIds}
-                    onUpdateStanding={async (account, shouldStand) => {
-                      if (
-                        !onUpdateAccountStanding ||
-                        pendingStandingIds.has(account.accountId)
-                      ) {
-                        return;
-                      }
-                      setPendingStandingIds((prev) =>
-                        new Set(prev).add(account.accountId)
-                      );
-                      try {
-                        await onUpdateAccountStanding(account, shouldStand);
-                        setAccounts((current) =>
-                          current.map((item) =>
-                            item.accountId === account.accountId
-                              ? {
-                                  ...item,
-                                  viewerStanding: shouldStand,
-                                  standingSince: shouldStand
-                                    ? (item.standingSince ?? Date.now())
-                                    : null,
-                                  standingBlockTimestamp: shouldStand
-                                    ? (item.standingBlockTimestamp ??
-                                      Date.now())
-                                    : null,
-                                }
-                              : item
-                          )
-                        );
-                      } catch {
-                        // The parent surfaces the transaction error in the profile modal.
-                      } finally {
-                        setPendingStandingIds((prev) => {
-                          const next = new Set(prev);
-                          next.delete(account.accountId);
-                          return next;
-                        });
-                      }
-                    }}
-                  />
-                  {!query.trim() && filteredAccounts.length > 0 ? (
-                    <>
-                      <div
-                        ref={loadMoreSentinelRef}
-                        className="h-px w-full"
-                        aria-hidden
-                      />
-                      {resultsSummary || isLoadingMore ? (
-                        <div className="px-2.5 py-3 text-center">
-                          {resultsSummary ? (
-                            <p className="text-[11px] text-muted-foreground/55">
-                              {resultsSummary}
-                              {isLoadingMore ? (
-                                <span className="text-muted-foreground/40">
-                                  {' '}
-                                  · Loading more…
-                                </span>
-                              ) : null}
-                            </p>
-                          ) : isLoadingMore ? (
-                            <PulsingDots size="sm" className="mx-auto" />
-                          ) : null}
-                        </div>
-                      ) : null}
-                    </>
-                  ) : null}
-                </>
-              )}
-            </div>
-          </motion.div>
-        </motion.div>
-      ) : null}
-    </AnimatePresence>
-  );
-}
-
-function StandingList({
-  accounts,
-  emptyLabel,
-  emptyCta,
-  viewerAccountId,
-  hasSocialSession = false,
-  pendingStandingIds,
-  onSelectAccount,
-  onUpdateStanding,
-}: {
-  accounts: StandingAccountSummary[];
-  emptyLabel: string;
-  emptyCta?: ReactNode;
-  viewerAccountId: string | null;
-  hasSocialSession?: boolean;
-  pendingStandingIds?: Set<string>;
-  onSelectAccount?: (accountId: string) => void;
-  onUpdateStanding?: (
-    account: StandingAccountSummary,
-    shouldStand: boolean
-  ) => Promise<void>;
-}) {
-  if (accounts.length === 0) {
-    return <EmptyState cta={emptyCta}>{emptyLabel}</EmptyState>;
-  }
-
-  return (
-    <div className="divide-y divide-fade-item">
-      {accounts.map((account) => {
-        const canUpdateStanding =
-          Boolean(viewerAccountId) &&
-          viewerAccountId !== account.accountId &&
-          Boolean(onUpdateStanding);
-        const isRowPending =
-          pendingStandingIds?.has(account.accountId) ?? false;
-        const viewerStandsWithAccount = Boolean(account.viewerStanding);
-        const canShowViewerRelationship =
-          Boolean(viewerAccountId) && viewerAccountId !== account.accountId;
-        const theyStandWithViewer =
-          canShowViewerRelationship && Boolean(account.theyStandWithViewer);
-        const sharedSolidarity = viewerStandsWithAccount && theyStandWithViewer;
-        const bio = account.bio?.trim();
-        const timeMeta = standingTimeMeta(account);
-        return (
-          <div
-            key={account.accountId}
-            className="flex w-full min-w-0 items-start gap-3 rounded-xl px-2.5 py-2.5 text-left transition-colors hover:bg-[var(--portal-slate-bg)] focus-within:bg-[var(--portal-slate-bg)]"
-          >
-            <button
-              type="button"
-              onClick={() => onSelectAccount?.(account.accountId)}
-              className="group flex min-w-0 flex-1 items-start gap-3 rounded-lg text-left focus-visible:outline-none"
-            >
-              <AccountAvatar
-                avatarUrl={account.avatarUrl}
-                className="mt-0.5 h-9 w-9 transition-shadow group-hover:ring-1 group-hover:ring-foreground/15"
-              />
-              <span className="min-w-0 flex-1">
-                {sharedSolidarity || theyStandWithViewer ? (
-                  <span className="mb-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                    {sharedSolidarity ? (
-                      <RelationshipSignal
-                        label="Solidarity"
-                        tone="purple"
-                        title="You both stand with each other"
-                      />
-                    ) : (
-                      <RelationshipSignal
-                        label="Stands with you"
-                        tone="blue"
-                        title="This account stands with you"
-                      />
-                    )}
-                  </span>
-                ) : null}
-                <span className="block truncate text-[13px] font-medium text-foreground">
-                  {accountLabel(account)}
-                </span>
-                <span className="block truncate text-[11px] text-muted-foreground/55">
-                  @{account.accountId}
-                </span>
-                {bio ? (
-                  <span className="mt-0.5 block truncate text-[11px] text-muted-foreground/60">
-                    {bio}
-                  </span>
-                ) : null}
-                <span className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-muted-foreground/65">
-                  <PortalHoverTooltip
-                    className="inline-flex items-center gap-1 whitespace-nowrap"
-                    aria-label={`${formatCount(account.standingCount ?? 0)} stand with them`}
-                    stopPropagation
-                    tooltip="Stand with them"
-                  >
-                    <ProtocolMotionArrow
-                      static
-                      className="h-2.5 w-2.5 text-[var(--portal-blue)]/55"
-                    />
-                    <span
-                      className={cn(
-                        'font-semibold tabular-nums text-[var(--portal-blue)]/85',
-                        (account.standingCount ?? 0) === 0 && 'opacity-40'
-                      )}
-                    >
-                      {formatCount(account.standingCount ?? 0)}
-                    </span>
-                  </PortalHoverTooltip>
-                  <PortalHoverTooltip
-                    className="inline-flex items-center gap-1 whitespace-nowrap"
-                    aria-label={`They stand with ${formatCount(account.standingWithCount ?? 0)}`}
-                    stopPropagation
-                    tooltip="They stand with"
-                  >
-                    <span
-                      className={cn(
-                        'font-semibold tabular-nums text-[var(--portal-blue)]/85',
-                        (account.standingWithCount ?? 0) === 0 && 'opacity-40'
-                      )}
-                    >
-                      {formatCount(account.standingWithCount ?? 0)}
-                    </span>
-                    <ProtocolMotionArrow
-                      static
-                      className="h-2.5 w-2.5 text-[var(--portal-blue)]/55"
-                    />
-                  </PortalHoverTooltip>
-                  <span className="text-muted-foreground/25" aria-hidden="true">
-                    ·
-                  </span>
-                  <PortalHoverTooltip
-                    className="inline-flex items-center gap-1 whitespace-nowrap"
-                    aria-label={`${formatCount(account.mutualStandingCount ?? 0)} solidarity connections`}
-                    stopPropagation
-                    tooltip="Solidarity"
-                  >
-                    <ProtocolMotionArrow
-                      direction="in"
-                      static
-                      className="h-2 w-2 text-[var(--portal-purple)]/65"
-                    />
-                    <span
-                      className={cn(
-                        'font-semibold tabular-nums text-[var(--portal-purple)]/85',
-                        (account.mutualStandingCount ?? 0) === 0 && 'opacity-40'
-                      )}
-                    >
-                      {formatCount(account.mutualStandingCount ?? 0)}
-                    </span>
-                    <ProtocolMotionArrow
-                      static
-                      className="h-2 w-2 text-[var(--portal-purple)]/65"
-                    />
-                  </PortalHoverTooltip>
-                  <span className="text-muted-foreground/25" aria-hidden="true">
-                    ·
-                  </span>
-                  <PortalHoverTooltip
-                    className="inline-flex items-center gap-1 whitespace-nowrap"
-                    aria-label={`${formatCount(account.endorsementsReceivedCount ?? 0)} endorsements received and ${formatCount(account.endorsementsGivenCount ?? 0)} given`}
-                    stopPropagation
-                    tooltip="Endorsements"
-                  >
-                    <ProtocolMotionArrow
-                      static
-                      className="h-2.5 w-2.5 text-[var(--portal-gold)]/65"
-                    />
-                    <span
-                      className={cn(
-                        'font-semibold tabular-nums text-[var(--portal-gold)]/85',
-                        (account.endorsementsReceivedCount ?? 0) === 0 &&
-                          'opacity-40'
-                      )}
-                    >
-                      {formatCount(account.endorsementsReceivedCount ?? 0)}
-                    </span>
-                    <span
-                      className={cn(
-                        'font-semibold tabular-nums text-[var(--portal-gold)]/85',
-                        (account.endorsementsGivenCount ?? 0) === 0 &&
-                          'opacity-40'
-                      )}
-                    >
-                      {formatCount(account.endorsementsGivenCount ?? 0)}
-                    </span>
-                    <ProtocolMotionArrow
-                      static
-                      className="h-2.5 w-2.5 text-[var(--portal-gold)]/65"
-                    />
-                  </PortalHoverTooltip>
-                </span>
-              </span>
-            </button>
-
-            <span className="flex shrink-0 flex-col items-end gap-1">
-              <PortalHoverTooltip
-                className={cn(
-                  'text-right text-[10px] tabular-nums text-muted-foreground/50',
-                  !timeMeta && 'invisible'
-                )}
-                aria-hidden={!timeMeta}
-                aria-label={timeMeta?.description}
-                stopPropagation
-                tooltip={timeMeta?.description}
-              >
-                {timeMeta?.label || '0d ago'}
-              </PortalHoverTooltip>
-              {canUpdateStanding ? (
-                isRowPending ? (
-                  <span
-                    className={cn(
-                      profileActionButtonClass(
-                        viewerStandsWithAccount ? 'slate' : 'blue'
-                      )
-                    )}
-                    aria-label={
-                      viewerStandsWithAccount ? 'Stepping back' : 'Standing'
-                    }
-                  >
-                    <PulsingDots size="sm" />
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={isRowPending}
-                    onClick={() =>
-                      onUpdateStanding?.(account, !viewerStandsWithAccount)
-                    }
-                    className={cn(
-                      profileActionButtonClass(
-                        viewerStandsWithAccount ? 'slate' : 'blue'
-                      )
-                    )}
-                    aria-label={
-                      viewerStandsWithAccount
-                        ? `Step back from ${accountLabel(account)}`
-                        : hasSocialSession
-                          ? `Stand with ${accountLabel(account)}`
-                          : `Authorize and stand with ${accountLabel(account)}`
-                    }
-                  >
-                    {viewerStandsWithAccount ? (
-                      <>
-                        <span className="inline-flex items-center gap-1 group-hover:hidden group-focus-visible:hidden">
-                          <ProtocolMotionArrow className="h-2.5 w-2.5 text-[var(--portal-blue)]/50" />
-                          Standing
-                        </span>
-                        <span className="hidden items-center gap-1 group-hover:inline-flex group-focus-visible:inline-flex">
-                          <ProtocolMotionArrow
-                            direction="left"
-                            className="h-2.5 w-2.5"
-                          />
-                          Step back
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <ProtocolMotionArrow className="h-2.5 w-2.5" />
-                        {hasSocialSession ? 'Stand with' : 'Authorize & stand'}
-                      </>
-                    )}
-                  </button>
-                )
-              ) : null}
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 function fieldStatus(value?: string | null): string {
   return value?.trim() ? 'Set' : 'Not set';
@@ -1920,7 +1082,7 @@ function AccountFactsModal({
                 </section>
 
                 <section className="py-3">
-                  <h3 className="mb-1 text-[9px] font-medium uppercase tracking-[0.16em] text-muted-foreground/45">
+                  <h3 className="mb-1 portal-eyebrow-wide text-muted-foreground/45">
                     {PLATFORM_STORAGE_LABEL}
                   </h3>
                   <PlatformStorageAllowanceSummary
@@ -2021,15 +1183,20 @@ export function ProfileModal({
   selfBannerUrl,
   hasSocialSession = false,
   isAuthorizingSession = false,
+  variant = 'modal',
   onOpenChange,
   onEditProfile,
   onSelectAccount,
   onDiscoverProfiles,
+  onPageNavLabel,
   onUpdateStanding,
   onEndorse,
   onRemoveEndorsement,
 }: ProfileModalProps) {
+  const isPage = variant === 'page';
+  const active = Boolean(accountId) && (isPage || open);
   const reduceMotion = useReducedMotion();
+  const router = useRouter();
   const [profile, setProfile] = useState<MaterialisedProfile | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [bannerUrl, setBannerUrl] = useState<string | null>(null);
@@ -2062,18 +1229,13 @@ export function ProfileModal({
   >(null);
   const [endorsementCount, setEndorsementCount] = useState(0);
   const [givenEndorsementCount, setGivenEndorsementCount] = useState(0);
-  const [endorsementsModalIntent, setEndorsementsModalIntent] =
-    useState<EndorsementsModalIntent | null>(null);
   const [networkOpen, setNetworkOpen] = useState(false);
   const [accountFactsOpen, setAccountFactsOpen] = useState(false);
-  const [stanceDetail, setStanceDetail] = useState<StanceDetailKind | null>(
-    null
-  );
   const latestSocialLoadRef = useRef(0);
   const latestSignalsLoadRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const isSelf = Boolean(accountId && viewerAccountId === accountId);
-  useBodyScrollLock(open && Boolean(accountId), scrollRef);
+  useBodyScrollLock(!isPage && active, scrollRef);
   const title = displayName(profile, accountId);
   const bio = profile?.bio?.trim();
   const profileLinks = profileLinkItems(profile?.links);
@@ -2081,6 +1243,26 @@ export function ProfileModal({
   const canStand = Boolean(accountId && viewerAccountId && !isSelf);
   const viewerStanding = Boolean(social?.viewerStanding);
   const socialReady = Boolean(social || socialError);
+
+  useEffect(() => {
+    if (!isPage || !accountId || !onPageNavLabel) return;
+
+    onPageNavLabel(
+      formatProfilePageNavLabel({
+        isSelf,
+        accountId,
+        displayName: title,
+        profileLoaded: hasProfileLoaded,
+      })
+    );
+  }, [
+    accountId,
+    hasProfileLoaded,
+    isPage,
+    isSelf,
+    onPageNavLabel,
+    title,
+  ]);
 
   const networkAccounts: NetworkAccount[] = useMemo(() => {
     if (!social) return [];
@@ -2156,26 +1338,23 @@ export function ProfileModal({
   }, [accountId]);
 
   useEffect(() => {
-    if (!open || !accountId) {
+    if (!active || !accountId) {
       latestSocialLoadRef.current += 1;
       latestSignalsLoadRef.current += 1;
-      setStanceDetail(null);
       return;
     }
 
-    setStanceDetail(null);
     setSocial(null);
     setProfileSignals(null);
     setSocialError(null);
     setEndorsementCount(0);
     setGivenEndorsementCount(0);
-    setEndorsementsModalIntent(null);
     setNetworkOpen(false);
     setAccountFactsOpen(false);
-  }, [accountId, open]);
+  }, [accountId, active]);
 
   useEffect(() => {
-    if (!open || !accountId) return;
+    if (!active || !accountId) return;
 
     let cancelled = false;
     setActionToast(null);
@@ -2232,16 +1411,16 @@ export function ProfileModal({
     return () => {
       cancelled = true;
     };
-  }, [accountId, isSelf, open, selfAvatarUrl, selfBannerUrl, selfProfile]);
+  }, [accountId, isSelf, active, selfAvatarUrl, selfBannerUrl, selfProfile]);
 
   useEffect(() => {
-    if (!open || !accountId) return;
+    if (!active || !accountId) return;
     void refreshSocial();
     void refreshProfileSignals();
-  }, [accountId, open, refreshProfileSignals, refreshSocial]);
+  }, [accountId, active, refreshProfileSignals, refreshSocial]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!isPage && !open) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -2252,57 +1431,6 @@ export function ProfileModal({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onOpenChange, open]);
-
-  const handleAccountStanding = async (
-    account: StandingAccountSummary,
-    shouldStand: boolean
-  ) => {
-    if (!viewerAccountId || account.accountId === viewerAccountId) return;
-
-    setActionToast(null);
-
-    try {
-      await onUpdateStanding(account.accountId, shouldStand);
-      const now = Date.now();
-
-      setSocial((prev: ProfileSocialResponse | null) => {
-        if (!prev) return prev;
-        const updateList = (list: StandingAccountSummary[]) =>
-          list.map((a) =>
-            a.accountId === account.accountId
-              ? {
-                  ...a,
-                  viewerStanding: shouldStand,
-                  standingSince: shouldStand ? (a.standingSince ?? now) : null,
-                  standingBlockTimestamp: shouldStand
-                    ? (a.standingBlockTimestamp ?? now)
-                    : null,
-                }
-              : a
-          );
-        const delta = shouldStand ? 1 : -1;
-        const isTarget = account.accountId === prev.accountId;
-        return {
-          ...prev,
-          viewerStanding: isTarget ? shouldStand : prev.viewerStanding,
-          counts: isTarget
-            ? {
-                ...prev.counts,
-                incoming: Math.max(0, prev.counts.incoming + delta),
-              }
-            : prev.counts,
-          incoming: updateList(prev.incoming),
-          outgoing: updateList(prev.outgoing),
-        };
-      });
-    } catch (error) {
-      if (isWalletUserCancellation(error)) throw error;
-      reportWalletActionFailure(error, (msg) =>
-        setActionToast({ type: 'error', msg })
-      );
-      throw error;
-    }
-  };
 
   const handleStanding = async () => {
     if (!accountId || !viewerAccountId || !canStand || pendingStandingAction) {
@@ -2384,86 +1512,64 @@ export function ProfileModal({
     });
   }, [hasSocialSession, isAuthorizingSession, pendingStandingAction]);
 
-  const openEndorsementsModal = useCallback(
-    (mode: EndorsementsModalIntent['mode'], topic?: string) => {
-      setEndorsementsModalIntent((current) => ({
-        mode,
-        topic: topic ?? null,
-        nonce: (current?.nonce ?? 0) + 1,
-      }));
+  const openEndorsementsPage = useCallback(
+    (mode: PortalEndorsementsMode, topic?: string) => {
+      if (!accountId) return;
+      router.push(getPortalEndorsementsUrl(accountId, { mode, topic }));
     },
-    []
+    [accountId, router]
   );
 
-  if (typeof document === 'undefined') return null;
+  const openStanceDetailPage = useCallback(
+    (kind: StanceDetailKind) => {
+      if (!accountId) return;
+      router.push(getPortalStandUrl(accountId, kind));
+    },
+    [accountId, router]
+  );
 
-  return (
-    <>
-      {createPortal(
-        <AnimatePresence initial={false}>
-          {open && accountId ? (
-            <motion.div
-              {...fadeMotion(reduceMotion ? 0 : 0.18)}
-              data-lenis-prevent
-              className="fixed inset-0 z-[2147483645] flex items-center justify-center px-4 py-6"
-            >
+  if (typeof document === 'undefined' && !isPage) return null;
+
+  const profileScrollBody =
+    accountId && active ? (
+      <>
+        {!isPage ? (
+          <div className="absolute right-3 top-3 z-10 flex items-center gap-1.5">
+            {isSelf && hasProfileLoaded ? (
               <button
                 type="button"
-                className="absolute inset-0 bg-background/72 backdrop-blur-md"
-                aria-label="Close profile"
-                onClick={() => onOpenChange(false)}
-              />
-
-              <motion.div
-                {...scaleFadeMotion(!!reduceMotion, {
-                  y: 16,
-                  scale: 0.98,
-                  duration: 0.22,
-                  exitY: 10,
-                  exitScale: 0.99,
-                })}
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="profile-modal-title"
-                className={cn(
-                  'relative flex h-[min(760px,calc(100vh-2rem))] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border/67 bg-background/98',
-                  portalElevatedShadowClass
-                )}
+                onClick={onEditProfile}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/18 bg-black/20 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_12px_28px_-20px_rgba(0,0,0,0.56)] backdrop-blur-xl backdrop-saturate-150 transition-colors hover:border-white/28 hover:bg-black/30 hover:text-white"
+                aria-label="Edit profile"
               >
-                <div
-                  ref={scrollRef}
-                  className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
-                >
-                  <div className="absolute right-3 top-3 z-10 flex items-center gap-1.5">
-                    {isSelf && hasProfileLoaded ? (
-                      <button
-                        type="button"
-                        onClick={onEditProfile}
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/18 bg-black/20 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_12px_28px_-20px_rgba(0,0,0,0.56)] backdrop-blur-xl backdrop-saturate-150 transition-colors hover:border-white/28 hover:bg-black/30 hover:text-white"
-                        aria-label="Edit profile"
-                      >
-                        <PortalHoverTooltip tooltip="Edit profile">
-                          <PenLine className="h-4 w-4" />
-                        </PortalHoverTooltip>
-                      </button>
-                    ) : null}
-                    <ModalCloseButton
-                      ariaLabel="Close profile"
-                      onClick={() => onOpenChange(false)}
-                      className="border-white/18 bg-black/20 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_12px_28px_-20px_rgba(0,0,0,0.56)] backdrop-blur-xl backdrop-saturate-150 hover:border-white/28 hover:bg-black/30 hover:text-white"
-                    />
-                  </div>
+                <PortalHoverTooltip tooltip="Edit profile">
+                  <PenLine className="h-4 w-4" />
+                </PortalHoverTooltip>
+              </button>
+            ) : null}
+            <ModalCloseButton
+              ariaLabel="Close profile"
+              onClick={() => onOpenChange(false)}
+              className="border-white/18 bg-black/20 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_12px_28px_-20px_rgba(0,0,0,0.56)] backdrop-blur-xl backdrop-saturate-150 hover:border-white/28 hover:bg-black/30 hover:text-white"
+            />
+          </div>
+        ) : null}
 
                   {!hasProfileLoaded ? (
                     <>
                       <h2 id="profile-modal-title" className="sr-only">
                         Profile
                       </h2>
-                      <ProfileIdentityLoading />
+                      <ProfileIdentityLoading fullPage={isPage} />
                     </>
                   ) : (
                     <>
-                      <div className="relative aspect-[5/1] shrink-0 overflow-hidden">
+                      <div
+                        className={cn(
+                          'relative aspect-[5/1] w-full shrink-0 overflow-hidden',
+                          isPage && profilePageBannerSurfaceClass
+                        )}
+                      >
                         {bannerUrl ? (
                           <img
                             src={bannerUrl}
@@ -2483,24 +1589,46 @@ export function ProfileModal({
                         ) : null}
                       </div>
 
-                      <div className="relative -mt-8 space-y-3 px-4 pb-5 md:px-5">
-                        <div className="flex items-start gap-3.5">
+                      <div
+                        className={cn(
+                          'relative z-10 space-y-3 pb-5 md:pb-5',
+                          profileIdentityLayoutClass,
+                          profileIdentityOverlapClass,
+                          isPage
+                            ? cn('pb-12', profilePageHorizontalPaddingClass)
+                            : 'px-4 md:px-5'
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            'flex items-start gap-3.5',
+                            !isPage && 'pr-8'
+                          )}
+                        >
                           <AccountAvatar
                             avatarUrl={avatarUrl}
-                            className="h-20 w-20 md:h-24 md:w-24 rounded-2xl !border-[3px] !border-background shadow-lg"
+                            className={cn(
+                              'shrink-0 rounded-2xl !border-[3px] !border-background shadow-lg',
+                              profileIdentityAvatarSizeClass
+                            )}
                             placeholderIconClassName="h-6 w-6"
                             placeholderIconStrokeWidth={2.5}
                           />
-                          <div className="min-w-0 flex-1 pt-10 pr-8">
-                            <div className="flex min-w-0 items-start justify-between gap-2">
+                          <div className={profileIdentityTextClass}>
+                            <div className="flex items-center gap-3">
                               <h2
                                 id="profile-modal-title"
-                                className="min-w-0 truncate text-lg font-semibold leading-tight text-foreground"
+                                className={cn(
+                                  'min-w-0 flex-1 truncate font-semibold leading-tight text-foreground',
+                                  isPage
+                                    ? 'text-xl md:text-2xl'
+                                    : 'text-lg'
+                                )}
                               >
                                 {title}
                               </h2>
                               {profileLinks.length > 0 ? (
-                                <span className="inline-flex shrink-0 items-center gap-1">
+                                <div className="flex shrink-0 items-center gap-2">
                                   {profileLinks.map((item) => (
                                     <a
                                       key={item.key}
@@ -2508,7 +1636,7 @@ export function ProfileModal({
                                       target="_blank"
                                       rel="noreferrer"
                                       className={cn(
-                                        'text-muted-foreground transition-all hover:scale-110 hover:brightness-125 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60',
+                                        'text-muted-foreground/70 transition-all hover:scale-110 hover:brightness-125 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60',
                                         item.kind === 'website' &&
                                           'hover:text-[var(--portal-blue)]',
                                         item.kind === 'telegram' &&
@@ -2525,15 +1653,15 @@ export function ProfileModal({
                                       >
                                         <ProfileLinkIcon
                                           kind={item.kind}
-                                          className="h-[18px] w-[18px]"
+                                          className="h-4 w-4 shrink-0 md:h-[18px] md:w-[18px]"
                                         />
                                       </PortalHoverTooltip>
                                     </a>
                                   ))}
-                                </span>
+                                </div>
                               ) : null}
                             </div>
-                            <p className="mt-0.5 truncate text-[13px] text-muted-foreground/55">
+                            <p className="truncate portal-type-lead text-muted-foreground/55">
                               @{accountId}
                             </p>
                           </div>
@@ -2581,30 +1709,32 @@ export function ProfileModal({
                             isSelf={isSelf}
                             meta={
                               joinedLabel || canStand ? (
-                                <span className="inline-flex flex-wrap items-center gap-2">
+                                <>
                                   {joinedLabel ? (
                                     <button
                                       type="button"
                                       onClick={() => setAccountFactsOpen(true)}
-                                      className="group inline-flex items-center gap-1 rounded-md text-[11px] font-medium text-muted-foreground/55 transition-colors hover:text-muted-foreground/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60"
+                                      className={cn(
+                                        socialMetricBtnClass,
+                                        profileSocialMetaRowItemClass,
+                                        'portal-type-label font-medium text-muted-foreground/55 focus-visible:ring-border/60'
+                                      )}
                                       aria-label={`View account facts for ${title}`}
                                     >
-                                      Joined {joinedLabel}
-                                      <ProtocolMotionArrow className="h-2.5 w-2.5" />
+                                      <PortalHoverTooltip
+                                        className="inline-flex items-center gap-1"
+                                        tooltip="Account facts"
+                                      >
+                                        <span>Joined {joinedLabel}</span>
+                                        <ProtocolMotionArrow className="h-2.5 w-2.5 text-muted-foreground/55" />
+                                      </PortalHoverTooltip>
                                     </button>
-                                  ) : null}
-                                  {joinedLabel && canStand ? (
-                                    <span className="h-1 w-1 rounded-full bg-muted-foreground/25" />
                                   ) : null}
                                   {canStand ? (
                                     pendingStandingAction ? (
                                       <span
-                                        className={cn(
-                                          profileActionButtonClass(
-                                            pendingStandingAction === 'stand'
-                                              ? 'blue'
-                                              : 'slate'
-                                          )
+                                        className={profileSocialStandingButtonClass(
+                                          viewerStanding
                                         )}
                                         aria-live="polite"
                                         aria-label={
@@ -2613,10 +1743,14 @@ export function ProfileModal({
                                             : 'Confirming stance'
                                         }
                                       >
-                                        <PulsingDots size="sm" />
+                                        <ProfileSocialStandingPending
+                                          active={viewerStanding}
+                                          hasSocialSession={hasSocialSession}
+                                        />
                                       </span>
                                     ) : (
                                       <PortalHoverTooltip
+                                        className={profileSocialMetaRowItemClass}
                                         tooltip={
                                           viewerStanding
                                             ? `Step back from ${title}`
@@ -2625,10 +1759,8 @@ export function ProfileModal({
                                       >
                                         <button
                                           type="button"
-                                          className={cn(
-                                            profileActionButtonClass(
-                                              viewerStanding ? 'slate' : 'blue'
-                                            )
+                                          className={profileSocialStandingButtonClass(
+                                            viewerStanding
                                           )}
                                           disabled={
                                             !canStand ||
@@ -2641,38 +1773,20 @@ export function ProfileModal({
                                               : `Stand with ${title}`
                                           }
                                         >
-                                          {viewerStanding ? (
-                                            <>
-                                              <span className="inline-flex items-center gap-1 group-hover:hidden group-focus-visible:hidden">
-                                                <ProtocolMotionArrow className="h-2.5 w-2.5 text-[var(--portal-blue)]/50" />
-                                                Standing
-                                              </span>
-                                              <span className="hidden items-center gap-1 group-hover:inline-flex group-focus-visible:inline-flex">
-                                                <ProtocolMotionArrow
-                                                  direction="left"
-                                                  className="h-2.5 w-2.5"
-                                                />
-                                                Step back
-                                              </span>
-                                            </>
-                                          ) : (
-                                            <>
-                                              <ProtocolMotionArrow className="h-2.5 w-2.5" />
-                                              {hasSocialSession
-                                                ? 'Stand with'
-                                                : 'Authorize & stand'}
-                                            </>
-                                          )}
+                                          <ProfileSocialStandingToggle
+                                            active={viewerStanding}
+                                            hasSocialSession={hasSocialSession}
+                                          />
                                         </button>
                                       </PortalHoverTooltip>
                                     )
                                   ) : null}
-                                </span>
+                                </>
                               ) : null
                             }
-                            onOpenStanceDetail={setStanceDetail}
+                            onOpenStanceDetail={openStanceDetailPage}
                             onOpenNetwork={() => setNetworkOpen(true)}
-                            onOpenEndorsements={openEndorsementsModal}
+                            onOpenEndorsements={openEndorsementsPage}
                           />
                         ) : null}
 
@@ -2694,7 +1808,6 @@ export function ProfileModal({
                           onSelectAccount={onSelectAccount}
                           onEndorsementCountChange={setEndorsementCount}
                           onGivenCountChange={setGivenEndorsementCount}
-                          endorsementsModalIntent={endorsementsModalIntent}
                         />
                       </div>
                     </>
@@ -2703,67 +1816,132 @@ export function ProfileModal({
                   {(profileError &&
                     !isWalletCancellationMessage(profileError)) ||
                   (socialError && !isWalletCancellationMessage(socialError)) ? (
-                    <p className="mx-4 mt-4 mb-5 rounded-xl border border-[var(--portal-red-border)] bg-[var(--portal-red-bg)] px-3 py-2 text-xs leading-relaxed text-[var(--portal-red)] md:mx-5">
+                    <p
+                      className={cn(
+                        'rounded-xl border border-[var(--portal-red-border)] bg-[var(--portal-red-bg)] px-3 py-2 text-xs leading-relaxed text-[var(--portal-red)]',
+                        isPage
+                          ? cn(
+                              'mx-4 mt-4 mb-5 md:mx-5',
+                              profilePageMobileContentMarginClass
+                            )
+                          : 'mx-4 mt-4 mb-5 md:mx-5'
+                      )}
+                    >
                       {profileError &&
                       !isWalletCancellationMessage(profileError)
                         ? profileError
                         : socialError}
                     </p>
                   ) : null}
+      </>
+    ) : null;
+
+  const profileAuxModals =
+    accountId && active ? (
+      <>
+        <NetworkModal
+          open={networkOpen}
+          centerAccountId={accountId}
+          centerAvatarUrl={avatarUrl}
+          centerDisplayName={title}
+          accounts={networkAccounts}
+          isSelf={isSelf}
+          onClose={() => setNetworkOpen(false)}
+          onSelectAccount={(id) => {
+            setNetworkOpen(false);
+            onSelectAccount?.(id);
+          }}
+        />
+        <AccountFactsModal
+          open={accountFactsOpen}
+          onOpenChange={setAccountFactsOpen}
+          accountId={accountId}
+          displayName={title}
+          avatarUrl={avatarUrl}
+          profile={profile}
+          latestProfileUpdateFields={latestProfileUpdateFields}
+          joinedLabel={joinedLabel}
+          network={profileNetwork}
+          nearAccount={nearAccount}
+          nearAccountExplorerUrl={nearAccountExplorerUrl}
+          nearAccountCreation={nearAccountCreation}
+        />
+      </>
+    ) : null;
+
+  const feedbackToast = (
+    <TransactionFeedbackToast
+      result={actionToast}
+      onClose={() => setActionToast(null)}
+    />
+  );
+
+  if (isPage) {
+    if (!accountId || !active) return null;
+
+    return (
+      <>
+        <div
+          className={cn(
+            'w-full min-w-0 overflow-x-clip',
+            profilePageMobileGutterClass
+          )}
+        >
+          {profileScrollBody}
+        </div>
+        {profileAuxModals}
+        {feedbackToast}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {createPortal(
+        <AnimatePresence initial={false}>
+          {active && accountId ? (
+            <motion.div
+              {...fadeMotion(reduceMotion ? 0 : 0.18)}
+              data-lenis-prevent
+              className="fixed inset-0 z-[2147483645] flex items-center justify-center px-4 py-6"
+            >
+              <button
+                type="button"
+                className="absolute inset-0 bg-background/72 backdrop-blur-md"
+                aria-label="Close profile"
+                onClick={() => onOpenChange(false)}
+              />
+
+              <motion.div
+                {...scaleFadeMotion(!!reduceMotion, {
+                  y: 16,
+                  scale: 0.98,
+                  duration: 0.22,
+                  exitY: 10,
+                  exitScale: 0.99,
+                })}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="profile-modal-title"
+                className={cn(
+                  'relative flex h-[min(760px,calc(100vh-2rem))] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border/67 bg-background/98',
+                  portalElevatedShadowClass
+                )}
+              >
+                <div
+                  ref={scrollRef}
+                  className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+                >
+                  {profileScrollBody}
                 </div>
               </motion.div>
-              {social ? (
-                <StanceDetailModal
-                  open={stanceDetail !== null}
-                  kind={stanceDetail ?? 'incoming'}
-                  title={title}
-                  isSelf={isSelf}
-                  accountId={social.accountId}
-                  counts={social.counts}
-                  viewerAccountId={viewerAccountId}
-                  hasSocialSession={hasSocialSession}
-                  onClose={() => setStanceDetail(null)}
-                  onSelectAccount={onSelectAccount}
-                  onDiscoverProfiles={onDiscoverProfiles}
-                  onUpdateAccountStanding={handleAccountStanding}
-                />
-              ) : null}
-              <NetworkModal
-                open={networkOpen}
-                centerAccountId={accountId}
-                centerAvatarUrl={avatarUrl}
-                centerDisplayName={title}
-                accounts={networkAccounts}
-                isSelf={isSelf}
-                onClose={() => setNetworkOpen(false)}
-                onSelectAccount={(id) => {
-                  setNetworkOpen(false);
-                  onSelectAccount?.(id);
-                }}
-              />
-              <AccountFactsModal
-                open={accountFactsOpen}
-                onOpenChange={setAccountFactsOpen}
-                accountId={accountId}
-                displayName={title}
-                avatarUrl={avatarUrl}
-                profile={profile}
-                latestProfileUpdateFields={latestProfileUpdateFields}
-                joinedLabel={joinedLabel}
-                network={profileNetwork}
-                nearAccount={nearAccount}
-                nearAccountExplorerUrl={nearAccountExplorerUrl}
-                nearAccountCreation={nearAccountCreation}
-              />
+              {profileAuxModals}
             </motion.div>
           ) : null}
         </AnimatePresence>,
         document.body
       )}
-      <TransactionFeedbackToast
-        result={actionToast}
-        onClose={() => setActionToast(null)}
-      />
+      {feedbackToast}
     </>
   );
 }

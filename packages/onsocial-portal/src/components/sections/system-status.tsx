@@ -122,7 +122,7 @@ function StatusRow({
         <div className="min-w-0">
           <span className="text-sm font-medium">{name}</span>
           {secondary ? (
-            <p className="truncate text-[11px] text-muted-foreground">
+            <p className="truncate portal-type-label text-muted-foreground">
               {secondary}
             </p>
           ) : null}

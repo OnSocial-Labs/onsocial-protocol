@@ -5,7 +5,7 @@ export const portalColors = {
   gold: 'var(--portal-gold)',
   amber: 'var(--portal-amber)',
   pink: 'var(--portal-pink)',
-  slate: 'var(--portal-slate)',
+  neutral: 'var(--portal-neutral)',
   red: 'var(--portal-red)',
 } as const;
 
@@ -16,7 +16,7 @@ export const portalFrameBorders = {
   gold: 'var(--portal-gold-frame-border)',
   amber: 'var(--portal-amber-frame-border)',
   pink: 'var(--portal-pink-frame-border)',
-  slate: 'var(--portal-slate-frame-border)',
+  neutral: 'var(--portal-neutral-frame-border)',
   red: 'var(--portal-red-frame-border)',
 } as const;
 
@@ -27,7 +27,7 @@ export const portalFrameBackgrounds = {
   gold: 'var(--portal-gold-frame-bg)',
   amber: 'var(--portal-amber-frame-bg)',
   pink: 'var(--portal-pink-frame-bg)',
-  slate: 'var(--portal-slate-frame-bg)',
+  neutral: 'var(--portal-neutral-frame-bg)',
   red: 'var(--portal-red-frame-bg)',
 } as const;
 
@@ -37,7 +37,7 @@ export const portalSurfaceClasses = {
   purple: 'portal-purple-surface',
   gold: 'portal-gold-surface',
   amber: 'portal-amber-surface',
-  slate: 'portal-slate-surface',
+  neutral: 'portal-neutral-surface',
   red: 'portal-red-surface',
 } as const;
 

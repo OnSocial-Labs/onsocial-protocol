@@ -54,6 +54,14 @@ const PROFILE_FIELDS_TO_DISPLAY = new Set([
   'links',
 ]);
 
+const JOINED_PROFILE_FIELDS = new Set([
+  'name',
+  'bio',
+  'avatar',
+  'banner',
+  'links',
+]);
+
 function profileFieldLabel(field: string): string {
   const labels: Record<string, string> = {
     name: 'Name',
@@ -114,6 +122,35 @@ interface ProfileFieldRow {
   blockHeight: number;
   blockTimestamp: number;
   operation: string;
+}
+
+function earliestProfileFieldTimestamp(rows: ProfileFieldRow[]): number | null {
+  let earliest: number | null = null;
+
+  for (const row of rows) {
+    if (row.operation !== 'set') continue;
+    if (!row.value?.trim()) continue;
+    if (!JOINED_PROFILE_FIELDS.has(row.field)) continue;
+
+    const timestamp = Number(row.blockTimestamp) || 0;
+    if (timestamp <= 0) continue;
+    if (earliest === null || timestamp < earliest) earliest = timestamp;
+  }
+
+  return earliest;
+}
+
+function resolveFirstProfileTimestamp(
+  indexedTimestamp: number | null | undefined,
+  profileFieldRows: ProfileFieldRow[],
+  nearAccountCreation: PortalProfileResponse['nearAccountCreation']
+): number | null {
+  if (indexedTimestamp) return indexedTimestamp;
+
+  const fromProfileFields = earliestProfileFieldTimestamp(profileFieldRows);
+  if (fromProfileFields) return fromProfileFields;
+
+  return nearAccountCreation?.blockTimestamp ?? null;
 }
 
 function nearBlocksApiBase(): string {
@@ -190,14 +227,26 @@ export async function GET(request: NextRequest) {
     const [
       profile,
       indexedProfile,
-      profileSearchRows,
+      profileSearchRow,
       profileFieldRowsResponse,
       nearAccount,
       nearAccountCreation,
     ] = await Promise.all([
       os.profiles.get(accountId),
       os.query.profiles.get(accountId),
-      os.query.profiles.search({ query: accountId, limit: 5 }).catch(() => []),
+      os.query
+        .graphql<{
+          profileSearch: Array<{ firstProfileTimestamp: number | null }>;
+        }>({
+          query: `query ProfileLookup($id: String!) {
+            profileSearch(where: {accountId: {_eq: $id}}, limit: 1) {
+              firstProfileTimestamp
+            }
+          }`,
+          variables: { id: accountId },
+        })
+        .then((res) => res.data?.profileSearch?.[0] ?? null)
+        .catch(() => null),
       os.query
         .graphql<{ profilesCurrent: ProfileFieldRow[] }>({
           query: `query ProfileFields($id: String!) {
@@ -211,8 +260,7 @@ export async function GET(request: NextRequest) {
       viewAccount(accountId).catch(() => null),
       fetchNearBlocksAccountCreation(accountId).catch(() => null),
     ]);
-    const profileSearchRow =
-      profileSearchRows.find((row) => row.accountId === accountId) ?? null;
+    const profileFieldRows = profileFieldRowsResponse.data?.profilesCurrent ?? [];
 
     const response: PortalProfileResponse = {
       accountId,
@@ -220,10 +268,12 @@ export async function GET(request: NextRequest) {
       indexedProfile,
       avatarUrl: os.profiles.avatarUrl(profile),
       bannerUrl: os.profiles.bannerUrl(profile),
-      firstProfileTimestamp: profileSearchRow?.firstProfileTimestamp ?? null,
-      latestProfileUpdateFields: latestProfileUpdateFields(
-        profileFieldRowsResponse.data?.profilesCurrent ?? []
+      firstProfileTimestamp: resolveFirstProfileTimestamp(
+        profileSearchRow?.firstProfileTimestamp,
+        profileFieldRows,
+        nearAccountCreation
       ),
+      latestProfileUpdateFields: latestProfileUpdateFields(profileFieldRows),
       network: ACTIVE_NEAR_NETWORK,
       nearAccount: nearAccount
         ? {

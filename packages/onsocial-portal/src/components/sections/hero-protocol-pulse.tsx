@@ -1,12 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ProfileDiscoveryModal } from '@/components/profile-discovery-modal';
-import { ProfileModal } from '@/components/profile-modal';
+import Link from 'next/link';
 import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
-import { useWallet } from '@/contexts/wallet-context';
-import { useProfile } from '@/contexts/profile-context';
 import { ACTIVE_API_URL } from '@/lib/portal-config';
+import { cn } from '@/lib/utils';
 
 interface ProtocolPulse {
   generatedAt: string;
@@ -48,15 +46,11 @@ function formatUpdatedAt(value: string): string {
   return `Live protocol pulse · updated ${diffHours}h ago`;
 }
 
+const pulseStatValueClass =
+  'text-portal-neutral font-mono text-sm font-semibold tracking-tight md:text-base';
+
 export function HeroProtocolPulse() {
-  const { accountId } = useWallet();
-  const profileState = useProfile();
   const [pulse, setPulse] = useState<ProtocolPulse | null>(null);
-  const [profileDiscoveryOpen, setProfileDiscoveryOpen] = useState(false);
-  const [profileModalOpen, setProfileModalOpen] = useState(false);
-  const [profileModalAccountId, setProfileModalAccountId] = useState<
-    string | null
-  >(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -95,80 +89,39 @@ export function HeroProtocolPulse() {
     return null;
   }
 
-  const openProfileModal = (targetAccountId: string) => {
-    setProfileDiscoveryOpen(false);
-    setProfileModalAccountId(targetAccountId);
-    setProfileModalOpen(true);
-  };
-
-  const openProfileDiscoveryFromProfile = () => {
-    setProfileModalOpen(false);
-    setProfileModalAccountId(null);
-    setProfileDiscoveryOpen(true);
-  };
-
   return (
-    <>
-      <div className="mx-auto mt-8 max-w-2xl rounded-[1.25rem] border border-border/40 bg-background/35 backdrop-blur-sm">
-        <StatStrip columns={3} mobileColumns={3}>
-          <StatStripCell label="Profiles" showDivider>
-            <button
-              type="button"
-              onClick={() => setProfileDiscoveryOpen(true)}
-              className="rounded-sm font-mono text-sm font-bold text-foreground/80 transition-colors hover:text-[var(--portal-blue)] focus-visible:text-[var(--portal-blue)] focus-visible:outline-none md:text-base"
-              aria-label={`Discover ${formatCompact(pulse.totals.profiles)} profiles`}
+    <div className="mx-auto mt-8 max-w-2xl rounded-[1.25rem] border border-border/40 bg-background/35 backdrop-blur-sm">
+      <StatStrip columns={3} mobileColumns={3}>
+        <StatStripCell label="Profiles" showDivider>
+          <Link
+            href="/discover"
+            className="group rounded-sm focus-visible:outline-none"
+            aria-label={`Discover ${formatCompact(pulse.totals.profiles)} profiles`}
+          >
+            <span
+              className={cn(
+                pulseStatValueClass,
+                'transition-colors group-hover:text-[var(--portal-blue)] group-focus-visible:text-[var(--portal-blue)]'
+              )}
             >
               {formatCompact(pulse.totals.profiles)}
-            </button>
-          </StatStripCell>
-          <StatStripCell
-            label={`Posts ${pulse.windowHours}h`}
-            value={formatCompact(pulse.recent24h.posts)}
-            showDivider
-          />
-          <StatStripCell
-            label="Groups"
-            value={formatCompact(pulse.totals.groups)}
-          />
-        </StatStrip>
-        <p className="px-4 py-3 text-center text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-          {formatUpdatedAt(pulse.generatedAt)}
-        </p>
-      </div>
-
-      <ProfileDiscoveryModal
-        open={profileDiscoveryOpen}
-        viewerAccountId={accountId}
-        hasSocialSession={profileState.hasSocialSession}
-        totalProfiles={pulse.totals.profiles}
-        onOpenChange={setProfileDiscoveryOpen}
-        onSelectAccount={openProfileModal}
-        onUpdateStanding={accountId ? profileState.updateStanding : undefined}
-        onEndorse={accountId ? profileState.endorse : undefined}
-        onRemoveEndorsement={
-          accountId ? profileState.removeEndorsement : undefined
-        }
-      />
-
-      <ProfileModal
-        open={profileModalOpen}
-        accountId={profileModalAccountId}
-        viewerAccountId={accountId}
-        selfProfile={profileState.profile}
-        selfAvatarUrl={profileState.avatarUrl}
-        selfBannerUrl={profileState.bannerUrl}
-        hasSocialSession={profileState.hasSocialSession}
-        onOpenChange={(open) => {
-          setProfileModalOpen(open);
-          if (!open) setProfileModalAccountId(null);
-        }}
-        onEditProfile={() => {}}
-        onSelectAccount={openProfileModal}
-        onDiscoverProfiles={openProfileDiscoveryFromProfile}
-        onUpdateStanding={profileState.updateStanding}
-        onEndorse={profileState.endorse}
-        onRemoveEndorsement={profileState.removeEndorsement}
-      />
-    </>
+            </span>
+          </Link>
+        </StatStripCell>
+        <StatStripCell label={`Posts ${pulse.windowHours}h`} showDivider>
+          <p className={cn('mt-1', pulseStatValueClass)}>
+            {formatCompact(pulse.recent24h.posts)}
+          </p>
+        </StatStripCell>
+        <StatStripCell label="Groups">
+          <p className={cn('mt-1', pulseStatValueClass)}>
+            {formatCompact(pulse.totals.groups)}
+          </p>
+        </StatStripCell>
+      </StatStrip>
+      <p className="px-4 py-3 text-center portal-eyebrow text-muted-foreground">
+        {formatUpdatedAt(pulse.generatedAt)}
+      </p>
+    </div>
   );
 }

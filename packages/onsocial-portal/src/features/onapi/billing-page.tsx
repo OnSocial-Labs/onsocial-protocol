@@ -43,7 +43,7 @@ const TIER_ACCENT: Record<string, PortalAccent> = {
 };
 
 function tierAccent(tier: string): PortalAccent {
-  return TIER_ACCENT[tier] ?? 'slate';
+  return TIER_ACCENT[tier] ?? 'neutral';
 }
 
 function tierRank(tier: string): number {
@@ -511,7 +511,7 @@ export default function BillingPage() {
               >
                 Continue to checkout
               </Button>
-              <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
+              <p className="text-center portal-type-label leading-relaxed text-muted-foreground">
                 Checkout first, then create your API key right after payment.
                 Billed monthly via Revolut. Cancel anytime.
               </p>

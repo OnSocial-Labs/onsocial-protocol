@@ -63,7 +63,14 @@ export function MobilePageProvider({ children }: { children: ReactNode }) {
 
   const setPageBadge = useCallback(
     (badge: MobilePageBadgeState) => {
-      setPageBadgeState({ pathname, badge });
+      setPageBadgeState((current) =>
+        current?.pathname === pathname &&
+        current.badge.key === badge.key &&
+        current.badge.badgeAccent === badge.badgeAccent &&
+        current.badge.badge === badge.badge
+          ? current
+          : { pathname, badge }
+      );
     },
     [pathname]
   );

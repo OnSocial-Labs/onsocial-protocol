@@ -56,7 +56,7 @@ function MethodList({ items }: { items: string[] }) {
       {items.map((item) => (
         <li
           key={item}
-          className="rounded-[0.75rem] border border-border/30 bg-background/35 px-3 py-2 font-mono text-xs text-foreground/80 md:text-sm"
+          className="rounded-[0.75rem] border border-border/30 bg-background/35 px-3 py-2 font-mono text-xs text-portal-neutral md:text-sm"
         >
           {item}
         </li>
@@ -71,7 +71,7 @@ function BuildOrder({ guide }: { guide: SdkMethodGuide }) {
       {guide.buildOrder.map((step, index) => (
         <li key={step} className="grid grid-cols-[auto_1fr] gap-3">
           <span
-            className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-border/40 text-[11px] font-semibold"
+            className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-border/40 portal-type-label font-semibold"
             style={{ color: portalColors[guide.accent] }}
           >
             {index + 1}
@@ -92,7 +92,7 @@ function FamilyGuideNav({ currentSlug }: { currentSlug: string }) {
       className="mb-8"
       aria-label="SDK method family guides"
     >
-      <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-center gap-x-2 gap-y-2 rounded-[1.25rem] border border-border/35 bg-background/30 px-3 py-3 text-[11px] uppercase tracking-[0.16em] text-muted-foreground sm:text-xs">
+      <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-center gap-x-2 gap-y-2 rounded-[1.25rem] border border-border/35 bg-background/30 px-3 py-3 portal-eyebrow-wide text-muted-foreground sm:text-xs">
         {SDK_METHOD_GUIDES.map((guide) => {
           const active = guide.slug === currentSlug;
           const baseClass =
@@ -139,7 +139,7 @@ function UnknownFamily() {
     <PageShell className="max-w-4xl">
       <SecondaryPageHeader
         badge="SDK"
-        badgeAccent="slate"
+        badgeAccent="neutral"
         title="SDK method family not found"
         description="Choose one of the current method family guides from the SDK reference."
       >

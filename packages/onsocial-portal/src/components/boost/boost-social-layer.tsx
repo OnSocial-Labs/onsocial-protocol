@@ -23,7 +23,7 @@ function getCommitmentTier(months: number | null) {
   if (!months) {
     return {
       label: 'Observer',
-      accent: 'slate' as const,
+      accent: 'neutral' as const,
       summary: 'Connect and commit to enter the field.',
     };
   }
@@ -62,7 +62,7 @@ function getCommitmentTier(months: number | null) {
 
   return {
     label: 'Spark',
-    accent: 'slate' as const,
+    accent: 'neutral' as const,
     summary: 'Short-form commitment suited for testing the arena.',
   };
 }

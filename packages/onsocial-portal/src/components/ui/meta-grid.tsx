@@ -34,7 +34,7 @@ export function MetaTerm({ className, ...props }: MetaTermProps) {
   return (
     <dt
       className={cn(
-        'text-[10px] uppercase tracking-[0.16em] text-muted-foreground',
+        'portal-eyebrow-wide text-muted-foreground',
         className
       )}
       {...props}

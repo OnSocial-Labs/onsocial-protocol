@@ -103,7 +103,7 @@ function RewardsStatusCard({
         <span className="font-mono text-lg font-semibold tabular-nums tracking-tight text-foreground">
           {claimLabel}
         </span>
-        <span className="text-[11px] font-medium text-muted-foreground/55">
+        <span className="portal-type-label font-medium text-muted-foreground/55">
           SOCIAL {canClaim ? 'ready to claim' : 'claimable'}
         </span>
       </div>
@@ -136,7 +136,7 @@ function RewardsStatusCard({
 
         <span
           className={cn(
-            'shrink-0 font-mono text-[11px] font-medium tabular-nums leading-none',
+            'shrink-0 font-mono portal-type-label font-medium tabular-nums leading-none',
             canClaim ? 'text-[var(--portal-green)]' : 'text-muted-foreground/50'
           )}
           aria-hidden
@@ -156,7 +156,7 @@ function RewardsStatusCard({
         />
       </div>
 
-      <p className="text-[11px] leading-snug text-muted-foreground/55">
+      <p className="portal-type-label leading-snug text-muted-foreground/55">
         {metaParts.join(' · ')}
       </p>
     </div>
@@ -287,7 +287,7 @@ export function PortalRewardsRulesModal({
                 ))}
               </ModalFactSection>
 
-              <p className="text-[11px] leading-relaxed text-muted-foreground/60">
+              <p className="portal-type-label leading-relaxed text-muted-foreground/60">
                 Claim at{' '}
                 <span className="font-mono tabular-nums text-foreground/75">
                   {minClaimLabel()} SOCIAL

@@ -17,3 +17,16 @@ export function walletLabelFromAccountId(accountId: string): string {
 
   return root.charAt(0).toUpperCase() + root.slice(1);
 }
+
+/** First token of profile name, or wallet label — for compact greetings. */
+export function walletGreetingName(
+  profileName: string | null | undefined,
+  accountId: string
+): string {
+  const trimmed = profileName?.trim();
+  if (trimmed) {
+    const first = trimmed.split(/\s+/)[0];
+    if (first) return first;
+  }
+  return walletLabelFromAccountId(accountId);
+}

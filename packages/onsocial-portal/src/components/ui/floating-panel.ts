@@ -11,16 +11,16 @@ export const compactModalBodyClass =
 export const floatingPanelClass = `rounded-xl md:rounded-2xl border border-border/67 bg-background/98 ${portalElevatedShadowClass}`;
 
 export const floatingPanelItemClass =
-  'w-full flex items-center gap-2 md:gap-3 rounded-lg md:rounded-xl px-2.5 py-1.5 md:px-3 md:py-2.5 text-[13px] md:text-sm text-muted-foreground transition-colors hover:bg-[var(--portal-slate-bg)] hover:text-foreground focus-visible:bg-[var(--portal-slate-bg)] focus-visible:text-foreground focus-visible:outline-none text-left';
+  'w-full flex items-center gap-2 md:gap-3 rounded-lg md:rounded-xl px-2.5 py-1.5 md:px-3 md:py-2.5 portal-type-body text-muted-foreground transition-colors hover:bg-[var(--portal-neutral-bg)] hover:text-foreground focus-visible:bg-[var(--portal-neutral-bg)] focus-visible:text-foreground focus-visible:outline-none text-left';
 
 /** Menu row with trailing ProtocolMotionArrow (e.g. View on Explorer). */
 export const floatingPanelItemWithMotionClass = `${floatingPanelItemClass} group`;
 
 export const floatingPanelItemActiveClass =
-  'bg-[var(--portal-slate-bg)] text-foreground';
+  'bg-[var(--portal-neutral-bg)] text-foreground';
 
 export const floatingPanelItemSelectedClass =
-  'bg-[var(--portal-slate-frame-bg)] text-foreground font-medium';
+  'bg-[var(--portal-neutral-frame-bg)] text-foreground font-medium';
 
 export const floatingPanelDividerClass =
   'h-px divider-section mx-1.5 md:mx-2 my-0.5';
@@ -35,7 +35,7 @@ export const walletMenuCardClass =
 export const walletMenuSectionContentClass = walletMenuCardClass;
 
 export const walletMenuSectionLabelClass =
-  'text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground/60';
+  'portal-eyebrow-wide text-muted-foreground/60';
 
 /** Inset divider inside the wallet menu card (matches portal divider-section). */
 export const walletMenuInnerDividerClass =
@@ -43,7 +43,19 @@ export const walletMenuInnerDividerClass =
 
 /** Profile hover row — same radius and vertical padding as floatingPanelItemClass. */
 export const walletMenuProfileHoverClass =
-  'rounded-lg transition-colors hover:bg-[var(--portal-slate-bg)] md:rounded-xl';
+  'rounded-lg transition-colors hover:bg-[var(--portal-neutral-bg)] md:rounded-xl';
+
+/** Wallet identity — eyebrow matches ModalHeader meta description. */
+export const walletMenuIdentityWelcomeClass =
+  'portal-eyebrow leading-none text-muted-foreground/60';
+
+/** Wallet identity — display name (profile or wallet label). */
+export const walletMenuIdentityNameClass =
+  'truncate portal-type-body font-semibold leading-tight tracking-tight';
+
+/** Wallet identity — NEAR account handle. */
+export const walletMenuIdentityHandleClass =
+  'min-w-0 truncate font-mono portal-type-caption leading-none text-muted-foreground/60';
 
 /** Icon row — flush with card; separated by walletMenuInnerDividerClass above. */
 export const walletMenuActionDockClass = 'flex items-center gap-0';
@@ -51,7 +63,7 @@ export const walletMenuActionDockClass = 'flex items-center gap-0';
 export const walletMenuActionDockGroupClass = 'grid min-w-0 flex-1 grid-cols-3';
 
 export const walletMenuActionDockButtonClass =
-  'inline-flex h-8 w-full items-center justify-center rounded-lg text-muted-foreground/65 transition-colors hover:bg-[var(--portal-slate-bg)] hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--portal-slate-border-strong)] md:h-9';
+  'inline-flex h-8 w-full items-center justify-center rounded-lg text-muted-foreground/65 transition-colors hover:bg-[var(--portal-neutral-bg)] hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--portal-neutral-border-strong)] md:h-9';
 
 export const walletMenuActionDockDisconnectClass =
   'text-[var(--portal-red)]/80 hover:bg-[var(--portal-red-bg)] hover:text-[var(--portal-red)] focus-visible:ring-[var(--portal-red-border)]';
@@ -62,19 +74,12 @@ export const walletMenuActionDockDividerClass =
 
 /** @deprecated Vertical action rows — use walletMenuActionDock instead. */
 export const walletMenuActionRowClass =
-  'flex w-full items-center gap-2 rounded-lg px-1 py-1 text-left text-[11px] text-muted-foreground/70 transition-colors hover:bg-[var(--portal-slate-bg)] hover:text-foreground focus-visible:bg-[var(--portal-slate-bg)] focus-visible:text-foreground focus-visible:outline-none md:py-1.5 md:text-[12px]';
+  'flex w-full items-center gap-2 rounded-lg px-1 py-1 text-left portal-type-label text-muted-foreground/70 transition-colors hover:bg-[var(--portal-neutral-bg)] hover:text-foreground focus-visible:bg-[var(--portal-neutral-bg)] focus-visible:text-foreground focus-visible:outline-none md:py-1.5';
 
 export const walletMenuActionIconClass = 'h-3 w-3 shrink-0 opacity-75';
 
 export const walletMenuDisconnectRowClass =
   'text-[var(--portal-red)]/85 hover:bg-[var(--portal-red-bg)] hover:text-[var(--portal-red)] focus-visible:bg-[var(--portal-red-bg)] focus-visible:text-[var(--portal-red)]';
-
-/** Identity block — mobile sizes feel right; scale up on desktop with the wider panel. */
-export const walletMenuIdentityNameClass =
-  'text-[13px] font-medium leading-tight md:text-sm';
-
-export const walletMenuIdentityHandleClass =
-  'text-[10px] leading-tight text-muted-foreground/55 md:text-[11px]';
 
 /** Compact wallet panel — fits dock + metrics without feeling wide. */
 export const walletMenuPanelWidthClass =

@@ -51,7 +51,7 @@ export function FilterPill({
       {count != null ? (
         <span
           className={cn(
-            'inline-flex h-5 min-w-5 items-center justify-center rounded-full border px-1 text-[10px] font-medium tabular-nums leading-none transition-colors',
+            'inline-flex h-5 min-w-5 items-center justify-center rounded-full border px-1 portal-type-caption font-medium tabular-nums leading-none transition-colors',
             active
               ? 'border-border/40 bg-background/60 text-foreground/70'
               : 'border-transparent text-muted-foreground/80',

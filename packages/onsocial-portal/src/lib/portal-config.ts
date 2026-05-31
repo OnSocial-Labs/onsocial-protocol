@@ -131,3 +131,61 @@ export function isGovernanceWallet(wallet: string | null | undefined): boolean {
 export function hasRuntimeConfigWarnings(): boolean {
   return PORTAL_RUNTIME_WARNINGS.length > 0;
 }
+
+export const PUBLIC_APP_URL =
+  process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ??
+  (ACTIVE_NEAR_NETWORK === 'mainnet'
+    ? 'https://onsocial.id'
+    : 'https://testnet.onsocial.id');
+
+export function getPublicAppPageUrl(accountId: string): string {
+  return `${PUBLIC_APP_URL}/@${encodeURIComponent(accountId)}`;
+}
+
+export function getPortalProfileUrl(accountId: string): string {
+  return `/u/${encodeURIComponent(accountId)}`;
+}
+
+export type PortalStandKind = 'incoming' | 'outgoing' | 'mutual';
+
+export function getPortalStandUrl(
+  accountId: string,
+  kind: PortalStandKind
+): string {
+  return `/u/${encodeURIComponent(accountId)}/stand/${kind}`;
+}
+
+export type PortalEndorsementsMode = 'received' | 'given';
+
+export interface PortalEndorsementsUrlParams {
+  mode?: PortalEndorsementsMode;
+  topic?: string | null;
+  issuer?: string | null;
+  target?: string | null;
+  q?: string | null;
+}
+
+export function getPortalEndorsementsUrl(
+  accountId: string,
+  params: PortalEndorsementsUrlParams = {}
+): string {
+  const search = new URLSearchParams();
+  if (params.mode) search.set('mode', params.mode);
+  if (params.topic?.trim()) search.set('topic', params.topic.trim());
+  if (params.issuer?.trim()) search.set('issuer', params.issuer.trim());
+  if (params.target?.trim()) search.set('target', params.target.trim());
+  if (params.q?.trim()) search.set('q', params.q.trim());
+  const qs = search.toString();
+  return `/u/${encodeURIComponent(accountId)}/endorsements${
+    qs ? `?${qs}` : ''
+  }`;
+}
+
+export function getPortalDiscoverUrl(): string {
+  return '/discover';
+}
+
+export function openPublicAppProfile(accountId: string): void {
+  if (typeof window === 'undefined') return;
+  window.location.assign(getPublicAppPageUrl(accountId));
+}

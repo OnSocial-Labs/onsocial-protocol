@@ -58,14 +58,14 @@ const PROTOCOL_LAYERS = [
     description:
       'Four on-chain auth models — direct calls, signed payloads, meta-transactions, and NEAR Intents.',
     icon: Shield,
-    accent: 'slate' as PortalAccent,
+    accent: 'neutral' as PortalAccent,
     contract: 'core-onsocial',
     capabilities: ['Meta-transactions', 'Signed payloads', 'Intents support'],
   },
 ] as const;
 
 const INFRA_FEATURES = [
-  { title: 'Gasless transactions', icon: Zap, accent: 'slate' as PortalAccent },
+  { title: 'Gasless transactions', icon: Zap, accent: 'neutral' as PortalAccent },
   {
     title: 'Sponsored storage',
     icon: Database,

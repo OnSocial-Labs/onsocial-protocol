@@ -410,7 +410,7 @@ const recentMints = await os.query.scarces.mintsBy(accountId, {
     slug: 'advanced-control',
     title: 'Advanced control',
     badge: 'Low level',
-    accent: 'slate',
+    accent: 'neutral',
     summary:
       'Drop below noun modules when you need atomic multi-path social writes, custom contract actions, raw reads, or self-hosted broadcast control.',
     bestFor: [

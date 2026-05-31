@@ -123,11 +123,11 @@ function PodiumCard({
         <p className="font-mono text-base font-bold tabular-nums tracking-tight md:text-lg">
           {primary}
         </p>
-        <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+        <p className="portal-eyebrow text-muted-foreground">
           {primaryLabel}
         </p>
         {secondary && (
-          <p className="mt-0.5 text-[10px] text-muted-foreground">
+          <p className="mt-0.5 portal-type-caption text-muted-foreground">
             {secondary} {secondaryLabel}
           </p>
         )}
@@ -173,7 +173,7 @@ function InfluenceRow({
         <p className="font-mono text-sm font-semibold tabular-nums tracking-tight">
           {formatSocialCompact(entry.effectiveBoost)}
         </p>
-        <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+        <p className="portal-eyebrow text-muted-foreground">
           Boost
         </p>
       </div>
@@ -204,7 +204,7 @@ function ReputationRow({
             {tier.label}
           </PortalBadge>
         </div>
-        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
+        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 portal-type-caption text-muted-foreground">
           {entry.standingWith > 0 && (
             <span>{entry.standingWith} stand with</span>
           )}
@@ -230,7 +230,7 @@ function ReputationRow({
         <p className="font-mono text-sm font-semibold tabular-nums tracking-tight">
           {formatReputation(entry.reputation)}
         </p>
-        <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+        <p className="portal-eyebrow text-muted-foreground">
           Rep
         </p>
       </div>
@@ -259,7 +259,7 @@ function EarnerRow({
             {truncateAccountId(entry.accountId, 26)}
           </p>
           {hasUnclaimed && (
-            <span className="inline-flex items-center gap-0.5 text-[10px] text-[var(--portal-green)]">
+            <span className="inline-flex items-center gap-0.5 portal-type-caption text-[var(--portal-green)]">
               <Zap className="h-2.5 w-2.5" />
               {formatSocialCompact(entry.unclaimed!)} claimable
             </span>
@@ -278,7 +278,7 @@ function EarnerRow({
         <p className="font-mono text-sm font-semibold tabular-nums tracking-tight">
           {formatSocialCompact(entry.totalEarned)}
         </p>
-        <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+        <p className="portal-eyebrow text-muted-foreground">
           Earned
         </p>
       </div>
@@ -332,7 +332,7 @@ function ScoreBreakdown({ entry }: { entry: ReputationEntry }) {
             <p className="font-mono text-xs font-semibold tabular-nums">
               {formatScore(s.value)}
             </p>
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground">
+            <p className="portal-type-micro uppercase tracking-wider text-muted-foreground">
               {s.label}
             </p>
           </div>
@@ -533,7 +533,7 @@ export default function BoostLeaderboardPage() {
           ) : (
             <>
               <SurfacePanel radius="md" tone="inset" padding="snug">
-                <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                <p className="portal-eyebrow-wide text-muted-foreground">
                   Ranked users
                 </p>
                 <p className="mt-2 font-mono text-2xl font-bold tabular-nums tracking-[-0.03em]">
@@ -544,7 +544,7 @@ export default function BoostLeaderboardPage() {
                 </p>
               </SurfacePanel>
               <SurfacePanel radius="md" tone="inset" padding="snug">
-                <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                <p className="portal-eyebrow-wide text-muted-foreground">
                   Top reputation
                 </p>
                 <p className="mt-2 font-mono text-2xl font-bold tabular-nums tracking-[-0.03em]">
@@ -557,7 +557,7 @@ export default function BoostLeaderboardPage() {
                 </p>
               </SurfacePanel>
               <SurfacePanel radius="md" tone="inset" padding="snug">
-                <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                <p className="portal-eyebrow-wide text-muted-foreground">
                   Total locked
                 </p>
                 <p className="mt-2 font-mono text-2xl font-bold tabular-nums tracking-[-0.03em]">
@@ -568,7 +568,7 @@ export default function BoostLeaderboardPage() {
                 </p>
               </SurfacePanel>
               <SurfacePanel radius="md" tone="inset" padding="snug">
-                <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                <p className="portal-eyebrow-wide text-muted-foreground">
                   Weekly rewards
                 </p>
                 <p className="mt-2 font-mono text-2xl font-bold tabular-nums tracking-[-0.03em]">
@@ -602,7 +602,7 @@ export default function BoostLeaderboardPage() {
                   key={track.id}
                   onClick={() => setActiveTrack(track.id)}
                   className={cn(
-                    'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.14em] transition-colors',
+                    'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 portal-eyebrow transition-colors',
                     isActive
                       ? `portal-${track.accent}-badge`
                       : 'border-border/40 bg-background/25 text-muted-foreground hover:border-border/60 hover:text-foreground/80'
@@ -618,7 +618,7 @@ export default function BoostLeaderboardPage() {
               <button
                 type="button"
                 onClick={() => setRefreshKey((k) => k + 1)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-background/25 px-2.5 py-1.5 text-[11px] uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:border-border/60 hover:text-foreground/80"
+                className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-background/25 px-2.5 py-1.5 portal-eyebrow text-muted-foreground transition-colors hover:border-border/60 hover:text-foreground/80"
                 aria-label="Refresh data"
               >
                 <RefreshCw
@@ -674,7 +674,7 @@ export default function BoostLeaderboardPage() {
                   {/* Score breakdown for #1 in reputation track */}
                   {activeTrack === 'reputation' && reputationData[0] && (
                     <div className="mb-4">
-                      <p className="mb-2 text-center text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                      <p className="mb-2 text-center portal-eyebrow-wide text-muted-foreground">
                         #1 score breakdown
                       </p>
                       <ScoreBreakdown entry={reputationData[0]} />
@@ -693,7 +693,7 @@ export default function BoostLeaderboardPage() {
           </AnimatePresence>
 
           {!boardLoading && trackData.length > 0 && (
-            <p className="mt-3 text-center text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+            <p className="mt-3 text-center portal-eyebrow text-muted-foreground">
               Showing {trackData.length} participant
               {trackData.length !== 1 ? 's' : ''}
             </p>
@@ -726,7 +726,7 @@ export default function BoostLeaderboardPage() {
             >
               <Crown className="mx-auto mb-1 h-4 w-4 portal-purple-text" />
               <p className="text-xs font-semibold">Standing</p>
-              <p className="mt-0.5 text-[10px] text-muted-foreground">
+              <p className="mt-0.5 portal-type-caption text-muted-foreground">
                 People choosing to stand with you
               </p>
             </SurfacePanel>
@@ -738,7 +738,7 @@ export default function BoostLeaderboardPage() {
             >
               <Flame className="mx-auto mb-1 h-4 w-4 portal-gold-text" />
               <p className="text-xs font-semibold">Commitment</p>
-              <p className="mt-0.5 text-[10px] text-muted-foreground">
+              <p className="mt-0.5 portal-type-caption text-muted-foreground">
                 SOCIAL locked with softened scaling
               </p>
             </SurfacePanel>
@@ -750,7 +750,7 @@ export default function BoostLeaderboardPage() {
             >
               <Shield className="mx-auto mb-1 h-4 w-4 portal-blue-text" />
               <p className="text-xs font-semibold">Quality</p>
-              <p className="mt-0.5 text-[10px] text-muted-foreground">
+              <p className="mt-0.5 portal-type-caption text-muted-foreground">
                 Create posts that earn reactions from others
               </p>
             </SurfacePanel>
@@ -762,7 +762,7 @@ export default function BoostLeaderboardPage() {
             >
               <TrendingUp className="mx-auto mb-1 h-4 w-4 portal-green-text" />
               <p className="text-xs font-semibold">Consistency</p>
-              <p className="mt-0.5 text-[10px] text-muted-foreground">
+              <p className="mt-0.5 portal-type-caption text-muted-foreground">
                 Active days with diminishing returns
               </p>
             </SurfacePanel>
@@ -774,12 +774,12 @@ export default function BoostLeaderboardPage() {
             >
               <Zap className="mx-auto mb-1 h-4 w-4 portal-pink-text" />
               <p className="text-xs font-semibold">Scarces</p>
-              <p className="mt-0.5 text-[10px] text-muted-foreground">
+              <p className="mt-0.5 portal-type-caption text-muted-foreground">
                 Create & sell digital collectibles on the marketplace
               </p>
             </SurfacePanel>
           </div>
-          <p className="mt-3 text-center text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+          <p className="mt-3 text-center portal-eyebrow text-muted-foreground">
             Reputation = Standing × Commitment × Quality × Consistency × Scarces
           </p>
         </SurfacePanel>

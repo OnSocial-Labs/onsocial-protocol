@@ -87,7 +87,7 @@ const TIER_ACCENT: Record<string, PortalAccent> = {
   scale: 'purple',
 };
 function tierAccent(tier: string): PortalAccent {
-  return TIER_ACCENT[tier] ?? 'green';
+  return TIER_ACCENT[tier] ?? 'neutral';
 }
 
 type OnApiUserData = {
@@ -243,7 +243,7 @@ export default function OnApiPage() {
                         </h3>
                         {isCurrent && (
                           <span
-                            className="text-[10px] font-medium uppercase tracking-[0.14em]"
+                            className="portal-eyebrow"
                             style={{ color: portalColors[tier.accent] }}
                           >
                             Current plan
@@ -305,16 +305,16 @@ export default function OnApiPage() {
                             <div className="h-px w-full divider-detail" />
                           )}
                           <div className="flex items-center justify-between py-2">
-                            <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                            <span className="portal-eyebrow text-muted-foreground">
                               {spec.label}
                             </span>
                             <span
-                              className={`font-mono text-[13px] font-semibold ${
+                              className={`font-mono portal-type-body font-semibold ${
                                 spec.accent === true
                                   ? 'portal-green-text'
                                   : spec.accent === false
                                     ? 'text-muted-foreground/60'
-                                    : 'text-foreground/80'
+                                    : 'text-portal-neutral'
                               }`}
                             >
                               {spec.val}
@@ -373,7 +373,7 @@ export default function OnApiPage() {
                 className="overflow-hidden transition-[border-color] duration-200 group-hover:border-border/70"
               >
                 <div className="flex items-center justify-between px-5 pt-4 pb-2">
-                  <h3 className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                  <h3 className="portal-eyebrow-wide text-muted-foreground">
                     Manage keys
                   </h3>
                   <ArrowUpRight className="h-3 w-3 text-muted-foreground/40 transition-all duration-200 group-hover:text-foreground/80 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
@@ -410,7 +410,7 @@ export default function OnApiPage() {
                           <code className="block truncate font-mono text-xs text-foreground">
                             {maskKey(k.prefix)}
                           </code>
-                          <p className="mt-0.5 text-[10px] text-muted-foreground">
+                          <p className="mt-0.5 portal-type-caption text-muted-foreground">
                             {k.label}
                           </p>
                         </div>
@@ -455,7 +455,7 @@ export default function OnApiPage() {
                 className="overflow-hidden transition-[border-color] duration-200 group-hover:border-border/70"
               >
                 <div className="flex items-center justify-between px-5 pt-4 pb-2">
-                  <h3 className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                  <h3 className="portal-eyebrow-wide text-muted-foreground">
                     App namespaces
                   </h3>
                   <ArrowUpRight className="h-3 w-3 text-muted-foreground/40 transition-all duration-200 group-hover:text-foreground/80 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
@@ -474,7 +474,7 @@ export default function OnApiPage() {
                           <code className="block truncate font-mono text-xs text-foreground">
                             {app.appId}
                           </code>
-                          <p className="mt-0.5 text-[10px] text-muted-foreground">
+                          <p className="mt-0.5 portal-type-caption text-muted-foreground">
                             {new Date(app.createdAt).toLocaleDateString(
                               undefined,
                               { month: 'short', day: 'numeric' }

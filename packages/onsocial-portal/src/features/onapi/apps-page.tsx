@@ -183,7 +183,7 @@ export default function OnApiAppsPage() {
               <p className="mb-1 text-sm font-medium text-foreground">
                 One more step
               </p>
-              <p className="mb-4 text-[11px] text-muted-foreground">
+              <p className="mb-4 portal-type-label text-muted-foreground">
                 Sign a message to open your session — no gas, no transaction.
               </p>
               <Button
@@ -266,7 +266,7 @@ export default function OnApiAppsPage() {
                   Cancel
                 </Button>
               </div>
-              <p className="mt-2 text-[10px] text-muted-foreground">
+              <p className="mt-2 portal-type-caption text-muted-foreground">
                 Lowercase letters, numbers, hyphens, underscores. 2-64
                 characters.
               </p>
@@ -286,7 +286,7 @@ export default function OnApiAppsPage() {
           className="overflow-hidden"
         >
           <div className="flex items-center justify-between px-4 pt-4 pb-2 md:px-5">
-            <h3 className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            <h3 className="portal-eyebrow-wide text-muted-foreground">
               {apps.length > 0 ? 'Your apps' : 'Get started'}
             </h3>
             <div className="flex items-center gap-2">
@@ -344,7 +344,7 @@ export default function OnApiAppsPage() {
                       <code className="block truncate font-mono text-sm font-medium text-foreground">
                         {app.appId}
                       </code>
-                      <p className="mt-0.5 text-[10px] text-muted-foreground">
+                      <p className="mt-0.5 portal-type-caption text-muted-foreground">
                         Created{' '}
                         {new Date(app.createdAt).toLocaleDateString(undefined, {
                           year: 'numeric',
@@ -356,7 +356,7 @@ export default function OnApiAppsPage() {
 
                     {/* delete — protected for "default" */}
                     {app.appId === 'default' ? (
-                      <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground/50">
+                      <span className="portal-eyebrow text-muted-foreground/50">
                         Default
                       </span>
                     ) : confirmDelete === app.appId ? (

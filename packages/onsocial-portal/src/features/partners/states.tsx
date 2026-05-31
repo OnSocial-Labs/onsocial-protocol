@@ -89,7 +89,7 @@ function PreviewPill({
       ? 'border-[color:var(--portal-blue-frame-border)] bg-[color:var(--portal-blue-frame-bg)] text-gray-100'
       : accent === 'purple'
         ? 'border-[color:var(--portal-purple-frame-border)] bg-[color:var(--portal-purple-frame-bg)] text-gray-100'
-        : 'border-white/10 bg-white/5 text-gray-300';
+        : 'border-[color:var(--portal-neutral-frame-border)] bg-[color:var(--portal-neutral-frame-bg)] text-[var(--portal-neutral)]';
 
   return (
     <span
@@ -152,7 +152,7 @@ export function PendingState({
 
   return (
     <div className="px-1 py-2 text-center md:px-2 md:py-3">
-      <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+      <p className="mb-3 portal-eyebrow text-muted-foreground">
         {isEligibility
           ? 'Eligibility'
           : isReady
@@ -436,7 +436,7 @@ export function GovernanceEligibilityState({
               Ready
             </PortalBadge>
           ) : (
-            <PortalBadge accent="slate" size="sm" className="h-8">
+            <PortalBadge accent="neutral" size="sm" className="h-8">
               In Progress
             </PortalBadge>
           )}
@@ -466,7 +466,7 @@ export function GovernanceEligibilityState({
 
       {/* ── Delegation Hero ── */}
       <div className="mt-4 flex flex-col items-center py-2 text-center">
-        <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+        <span className="portal-eyebrow text-muted-foreground">
           Delegated
         </span>
         <p
@@ -477,10 +477,10 @@ export function GovernanceEligibilityState({
         >
           {delegatedWeight}
         </p>
-        <span className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground opacity-70">
+        <span className="mt-0.5 portal-eyebrow-wide text-muted-foreground opacity-70">
           SOCIAL
         </span>
-        <p className="mt-1.5 max-w-xs text-[13px] text-muted-foreground">
+        <p className="mt-1.5 max-w-xs portal-type-body text-muted-foreground">
           {proposalSetupSummary}
         </p>
       </div>
@@ -488,7 +488,7 @@ export function GovernanceEligibilityState({
       {/* ── Metrics ── */}
       <StatStrip groupClassName="mt-2">
         <StatStripCell label="Threshold" showDivider>
-          <p className="portal-slate-text font-mono text-sm font-semibold tracking-tight md:text-base">
+          <p className="text-portal-neutral font-mono text-sm font-semibold tracking-tight md:text-base">
             {requiredWeight} SOCIAL
           </p>
         </StatStripCell>
@@ -521,7 +521,7 @@ export function GovernanceEligibilityState({
 
       {eligibility && (
         <div className="mt-4 border-t border-fade-detail pt-4">
-          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+          <p className="portal-eyebrow text-muted-foreground">
             What's next
           </p>
           <h4 className="mt-1.5 text-base font-semibold tracking-[-0.02em]">
@@ -1099,7 +1099,7 @@ export function ApprovedDashboard({
                         {/* ── Preview (inline within setup, bot tab only) ── */}
                         {tab === 'bot' && (
                           <div className="mt-6 border-t border-fade-detail pt-6">
-                            <p className="mb-1 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                            <p className="mb-1 portal-eyebrow text-muted-foreground">
                               <MessageSquare className="portal-blue-icon mr-1.5 inline h-3.5 w-3.5" />
                               Preview
                             </p>
@@ -1109,7 +1109,7 @@ export function ApprovedDashboard({
                             </p>
                             <div className="grid gap-4 sm:grid-cols-2">
                               <div>
-                                <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                                <p className="mb-2 portal-eyebrow text-muted-foreground">
                                   /start
                                 </p>
                                 <div className="rounded-[1rem] border border-white/5 bg-[#151827] p-3 text-sm font-mono leading-relaxed text-gray-200 shadow-inner shadow-black/10 space-y-1">
@@ -1134,7 +1134,7 @@ export function ApprovedDashboard({
                                 </div>
                               </div>
                               <div>
-                                <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                                <p className="mb-2 portal-eyebrow text-muted-foreground">
                                   /balance
                                 </p>
                                 <div className="rounded-[1rem] border border-white/5 bg-[#151827] p-3 text-sm font-mono leading-relaxed text-gray-200 shadow-inner shadow-black/10 space-y-1">

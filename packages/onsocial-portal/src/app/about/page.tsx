@@ -42,7 +42,7 @@ function DetailRow({
     <div className="flex items-start gap-3">
       <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/60" />
       <div className="min-w-0">
-        <p className="text-[0.7rem] uppercase tracking-widest text-muted-foreground/50">
+        <p className="portal-type-label uppercase tracking-widest text-muted-foreground/50">
           {label}
         </p>
         <div className="text-sm text-foreground/80">{children}</div>
@@ -56,7 +56,7 @@ export default function AboutPage() {
     <PageShell className="max-w-xl">
       <SecondaryPageHeader
         badge="About"
-        badgeAccent="slate"
+        badgeAccent="neutral"
         glowAccents={['blue', 'purple']}
         title="OnSocial"
         description="Decentralized social infrastructure on NEAR."
@@ -138,7 +138,7 @@ export default function AboutPage() {
         ))}
       </div>
 
-      <p className="mt-4 text-center text-[0.65rem] text-muted-foreground/40">
+      <p className="mt-4 text-center portal-type-caption text-muted-foreground/40">
         © {new Date().getFullYear()} OnSocial Labs
       </p>
     </PageShell>

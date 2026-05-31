@@ -12,7 +12,7 @@ const accentTextClass: Record<PortalAccent, string> = {
   gold: 'portal-gold-text',
   amber: 'portal-amber-text',
   red: 'portal-red-text',
-  slate: 'text-muted-foreground',
+  neutral: 'text-portal-neutral',
   pink: 'portal-pink-text',
 };
 
@@ -34,7 +34,7 @@ export function SectionHeader({
   badge,
   title,
   description,
-  badgeAccent = 'slate',
+  badgeAccent = 'neutral',
   appearance = 'label',
   size = 'default',
   align = 'start',
@@ -74,7 +74,7 @@ export function SectionHeader({
             <span
               className={cn(
                 compact
-                  ? 'text-[11px] font-medium uppercase tracking-[0.18em]'
+                  ? 'portal-eyebrow-wide'
                   : 'text-sm font-medium uppercase tracking-[0.18em]',
                 accentTextClass[badgeAccent]
               )}

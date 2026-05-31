@@ -97,15 +97,15 @@ export function WalletRewardsSection({
               onClick={onOpenAssets}
               className={cn(
                 walletMenuProfileHoverClass,
-                '-mx-1 min-w-0 px-1 py-0.5 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--portal-slate-border-strong)]'
+                '-mx-1 min-w-0 px-1 py-0.5 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--portal-neutral-border-strong)]'
               )}
               aria-label={`${walletLabel} SOCIAL — view wallet assets`}
             >
               <div className="flex items-baseline gap-1.5">
                 <span
                   className={cn(
-                    'portal-slate-text font-mono font-semibold leading-none tracking-tight tabular-nums',
-                    compact ? 'text-sm md:text-[15px]' : 'text-sm md:text-base',
+                    'text-portal-neutral font-mono font-semibold leading-none tracking-tight tabular-nums',
+                    compact ? 'portal-type-lead' : 'portal-type-lead',
                     walletBalanceLoading &&
                       walletHasLoadedBalance &&
                       'opacity-50'
@@ -113,7 +113,7 @@ export function WalletRewardsSection({
                 >
                   {walletLabel}
                 </span>
-                <span className="font-mono text-[10px] font-medium tabular-nums text-muted-foreground/55 md:text-[11px]">
+                <span className="font-mono portal-type-caption font-medium tabular-nums text-muted-foreground/55">
                   SOCIAL
                 </span>
               </div>
@@ -125,20 +125,20 @@ export function WalletRewardsSection({
             >
               <span
                 className={cn(
-                  'portal-slate-text font-mono font-semibold leading-none tracking-tight tabular-nums',
-                  compact ? 'text-sm md:text-[15px]' : 'text-sm md:text-base',
+                  'text-portal-neutral font-mono font-semibold leading-none tracking-tight tabular-nums',
+                  compact ? 'portal-type-lead' : 'portal-type-lead',
                   walletBalanceLoading && walletHasLoadedBalance && 'opacity-50'
                 )}
               >
                 {walletLabel}
               </span>
-              <span className="font-mono text-[10px] font-medium tabular-nums text-muted-foreground/55 md:text-[11px]">
+              <span className="font-mono portal-type-caption font-medium tabular-nums text-muted-foreground/55">
                 SOCIAL
               </span>
             </div>
           )}
           {walletBalanceError ? (
-            <p className="mt-1 text-[11px] text-[var(--portal-amber)]">
+            <p className="mt-1 portal-type-label text-[var(--portal-amber)]">
               {walletBalanceError}
             </p>
           ) : null}
@@ -204,7 +204,7 @@ export function WalletRewardsSection({
         {showRewardsDetail ? (
           <span
             className={cn(
-              'shrink-0 font-mono text-[10px] font-medium tabular-nums leading-none md:text-[11px]',
+              'shrink-0 font-mono portal-type-caption font-medium tabular-nums leading-none',
               canClaim
                 ? 'text-[var(--portal-green)]'
                 : 'text-muted-foreground/50'
@@ -233,7 +233,7 @@ export function WalletRewardsSection({
       </div>
 
       {showEmptyHint ? (
-        <p className="text-[10px] leading-snug text-muted-foreground/55 md:text-[11px]">
+        <p className="portal-type-caption leading-snug text-muted-foreground/55">
           {PORTAL_REWARD_EMPTY_HINT}
         </p>
       ) : null}

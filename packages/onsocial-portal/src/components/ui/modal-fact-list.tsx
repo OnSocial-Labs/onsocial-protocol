@@ -18,7 +18,7 @@ export function ModalFactRow({
     <div
       className={cn(
         'flex items-baseline justify-between gap-3',
-        dense ? 'py-1 text-[11px]' : 'py-1.5 text-[12px]'
+        dense ? 'py-1 portal-type-label' : 'py-1.5 portal-type-body-sm'
       )}
     >
       <dt className="text-muted-foreground/58">{label}</dt>
@@ -59,7 +59,7 @@ export function ModalFactSection({
         <h3
           className={cn(
             'font-medium uppercase tracking-[0.16em] text-muted-foreground/45',
-            dense ? 'text-[9px]' : 'text-[10px]'
+            dense ? 'portal-type-micro' : 'portal-type-caption'
           )}
         >
           {title}
@@ -68,7 +68,7 @@ export function ModalFactSection({
           <div
             className={cn(
               'shrink-0 text-muted-foreground/55',
-              dense ? 'text-[9px]' : 'text-[10px]'
+              dense ? 'portal-type-micro' : 'portal-type-caption'
             )}
           >
             {aside}

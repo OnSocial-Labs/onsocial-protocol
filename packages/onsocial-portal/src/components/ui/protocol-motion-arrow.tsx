@@ -24,10 +24,13 @@ export function ProtocolMotionArrow({
   return (
     <Icon
       aria-hidden="true"
+      // Heavier stroke + miter join keep the ↗ tip readable at small sizes.
+      strokeWidth={2.5}
+      strokeLinejoin="miter"
       className={cn(
         'shrink-0 motion-reduce:transform-none',
         isStatic
-          ? 'opacity-80'
+          ? undefined
           : 'opacity-40 transition-all duration-200 group-hover:opacity-100',
         direction === 'down'
           ? cn(

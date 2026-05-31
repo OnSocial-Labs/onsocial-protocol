@@ -1,15 +1,19 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
-import { Skeleton } from '@/components/ui/skeleton';
-import { EndorseModal } from './endorse-modal';
 import {
-  EndorsementsModal,
-  type EndorsementsModalMode,
-} from './endorsements-modal';
+  EndorsementRecord,
+  endorsementListRowClass,
+} from '@/components/ui/endorsement-flow';
+import { portalCompactActionPillClass } from '@/components/ui/profile-action-pill';
+import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
+import { getPortalEndorsementsUrl } from '@/lib/portal-config';
+import { EndorseModal } from './endorse-modal';
 import {
   cleanHandle,
   endorsementTimestamp,
@@ -27,12 +31,6 @@ type EndorsementItem = EndorsementListItem & {
   targetName?: string | null;
   targetAvatarUrl?: string | null;
 };
-
-export interface EndorsementsModalIntent {
-  mode: EndorsementsModalMode;
-  nonce: number;
-  topic?: string | null;
-}
 
 function formatCount(count: number): string {
   if (count < 1000) return String(count);
@@ -57,7 +55,6 @@ interface ProfileEndorsementsProps {
   onSelectAccount?: (accountId: string) => void;
   onEndorsementCountChange?: (count: number) => void;
   onGivenCountChange?: (count: number) => void;
-  endorsementsModalIntent?: EndorsementsModalIntent | null;
 }
 
 export function ProfileEndorsements({
@@ -72,8 +69,8 @@ export function ProfileEndorsements({
   onSelectAccount,
   onEndorsementCountChange,
   onGivenCountChange,
-  endorsementsModalIntent = null,
 }: ProfileEndorsementsProps) {
+  const router = useRouter();
   const [endorsements, setEndorsements] = useState<EndorsementItem[]>([]);
   const [givenEndorsements, setGivenEndorsements] = useState<EndorsementItem[]>(
     []
@@ -88,17 +85,9 @@ export function ProfileEndorsements({
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [endorseModalOpen, setEndorseModalOpen] = useState(false);
-  const [endorsementsModalOpen, setEndorsementsModalOpen] = useState(false);
-  const [endorsementsMode, setEndorsementsMode] =
-    useState<EndorsementsModalMode>('received');
   const [myEndorsements, setMyEndorsements] = useState<EndorsementItem[]>([]);
   const [editingEndorsement, setEditingEndorsement] =
     useState<EndorsementItem | null>(null);
-  const [focusedEndorsement, setFocusedEndorsement] =
-    useState<EndorsementItem | null>(null);
-  const [pendingInitialTopic, setPendingInitialTopic] = useState<string | null>(
-    null
-  );
 
   const MAX_ENDORSEMENTS_PER_TARGET = 5;
   const isSelf = viewerAccountId === accountId;
@@ -251,81 +240,6 @@ export function ProfileEndorsements({
     }
   };
 
-  const handleModalEndorseSubmit = async (
-    target: string,
-    input: EndorsementSubmitInput
-  ) => {
-    if (target === accountId) {
-      return handleEndorseSubmit(input);
-    }
-    if (!viewerAccountId) {
-      throw new Error('Connect your wallet before endorsing.');
-    }
-    if (!onEndorse) {
-      throw new Error('Endorsement writes are not available here.');
-    }
-
-    setIsSaving(true);
-    try {
-      const { previousTopic, ...buildInput } = input;
-      await onEndorse(target, input);
-      const optimistic: EndorsementItem = {
-        issuer: viewerAccountId,
-        target,
-        v: 1,
-        since: Date.now(),
-        topic: buildInput.topic,
-        note: buildInput.note,
-        expiresAt: buildInput.expiresAt,
-        blockHeight: 0,
-        blockTimestamp: Date.now(),
-        issuerAvatarUrl: selfAvatarUrl,
-      };
-      setGivenEndorsements((current) =>
-        mergeEndorsementsAfterUpsert(current, {
-          issuer: viewerAccountId,
-          target,
-          previousTopic,
-          next: optimistic,
-        })
-      );
-      window.setTimeout(() => void loadEndorsements(), 2500);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleModalRemove = async (target: string, topic?: string) => {
-    if (target === accountId) {
-      return handleRemove(topic);
-    }
-    if (!viewerAccountId) {
-      throw new Error('Connect your wallet before removing an endorsement.');
-    }
-    if (!onRemoveEndorsement) {
-      throw new Error('Endorsement removal is not available here.');
-    }
-
-    setIsSaving(true);
-    try {
-      await onRemoveEndorsement(target, topic);
-      const normalizedTopic = normalizeEndorsementTopic(topic ?? '');
-      setGivenEndorsements((current) =>
-        current.filter(
-          (item) =>
-            !(
-              item.issuer === viewerAccountId &&
-              item.target === target &&
-              normalizeEndorsementTopic(item.topic ?? '') === normalizedTopic
-            )
-        )
-      );
-      window.setTimeout(() => void loadEndorsements(), 2500);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const rankedEndorsements = useMemo(() => {
     return [...endorsements].sort((a, b) => {
       const aIsMine = viewerAccountId ? a.issuer === viewerAccountId : false;
@@ -344,14 +258,6 @@ export function ProfileEndorsements({
     onGivenCountChange?.(givenEndorsementCount);
   }, [givenEndorsementCount, onGivenCountChange]);
 
-  useEffect(() => {
-    if (!endorsementsModalIntent) return;
-    setFocusedEndorsement(null);
-    setEndorsementsMode(endorsementsModalIntent.mode);
-    setPendingInitialTopic(endorsementsModalIntent.topic ?? null);
-    setEndorsementsModalOpen(true);
-  }, [endorsementsModalIntent]);
-
   const givenSignalLabel =
     givenEndorsementCount === 1
       ? '1 endorsement'
@@ -366,17 +272,36 @@ export function ProfileEndorsements({
     0,
     PROFILE_SUMMARY_COUNT
   );
+
+  const openEndorsementsPage = useCallback(
+    (options?: {
+      issuer?: string;
+      target?: string;
+      topic?: string | null;
+    }) => {
+      if (!accountId) return;
+      router.push(
+        getPortalEndorsementsUrl(accountId, {
+          mode: 'received',
+          issuer: options?.issuer,
+          target: options?.target ?? accountId,
+          topic: options?.topic,
+        })
+      );
+    },
+    [accountId, router]
+  );
+
   const openEndorsementDetails = (endorsement: EndorsementItem) => {
-    setFocusedEndorsement(endorsement);
-    setEndorsementsMode('received');
-    setPendingInitialTopic(null);
-    setEndorsementsModalOpen(true);
+    openEndorsementsPage({
+      issuer: endorsement.issuer,
+      target: endorsement.target,
+      topic: endorsement.topic,
+    });
   };
+
   const openAllEndorsements = () => {
-    setFocusedEndorsement(null);
-    setEndorsementsMode('received');
-    setPendingInitialTopic(null);
-    setEndorsementsModalOpen(true);
+    openEndorsementsPage();
   };
 
   return (
@@ -385,7 +310,7 @@ export function ProfileEndorsements({
 
       <div className="pt-3.5">
         <div className="flex items-center justify-between gap-3">
-          <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/55">
+          <span className="portal-eyebrow text-muted-foreground/55">
             {rankedEndorsements.length > 0
               ? 'Latest endorsement'
               : 'Endorsements'}
@@ -424,15 +349,15 @@ export function ProfileEndorsements({
                 {endorseActionLabel}
               </Button>
             ) : canEndorse && atCap ? (
-              <span className="text-[11px] portal-slate-text opacity-70">
+              <span className="portal-type-label text-portal-neutral opacity-70">
                 {MAX_ENDORSEMENTS_PER_TARGET} topics max
               </span>
             ) : isSelf ? (
-              <span className="text-[11px] portal-slate-text opacity-70">
+              <span className="portal-type-label text-portal-neutral opacity-70">
                 Others can endorse you
               </span>
             ) : !viewerAccountId ? (
-              <span className="text-[11px] portal-slate-text opacity-70">
+              <span className="portal-type-label text-portal-neutral opacity-70">
                 Connect to endorse
               </span>
             ) : null}
@@ -440,25 +365,25 @@ export function ProfileEndorsements({
         </div>
 
         {isLoading && endorsements.length === 0 ? (
-          <div className="mt-3 space-y-2">
+          <div className="mt-3 space-y-1">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <Skeleton className="h-6 w-6 rounded-full" />
-                <div className="flex-1 space-y-1">
-                  <Skeleton className="h-3 w-24" />
-                  <Skeleton className="h-3 w-32" />
-                </div>
+              <div key={i} className="space-y-2 py-0.5 pl-2">
+                <Skeleton className="h-4 w-24 bg-foreground/[0.08]" />
+                <Skeleton className="h-3 w-full max-w-xs bg-foreground/5" />
+                <Skeleton className="h-px w-full divider-detail bg-foreground/5" />
+                <Skeleton className="h-3 w-40 bg-foreground/5" />
               </div>
             ))}
           </div>
         ) : visibleEndorsements.length > 0 ? (
-          <div className="mt-3 divide-y divide-fade-item">
+          <div className="mt-3 space-y-3">
             {visibleEndorsements.map((e, index) => {
               const secondaryText = e.note?.trim();
               const timeLabel = formatEndorsementTime(endorsementTimestamp(e));
               const timeDescription = timeLabel
                 ? `Endorsement ${timeLabel}`
                 : undefined;
+
               const issuerAvatarUrl =
                 e.issuerAvatarUrl ??
                 (e.issuer === viewerAccountId ? selfAvatarUrl : null);
@@ -467,106 +392,61 @@ export function ProfileEndorsements({
                 (e.target === accountId ? targetAvatarUrl : null);
 
               return (
-                <button
+                <div
                   key={`${e.issuer}:${e.topic ?? ''}:${e.blockHeight}:${index}`}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => openEndorsementDetails(e)}
-                  aria-label={`Endorsement from ${cleanHandle(e.issuer)} for ${targetDisplayName}`}
-                  className="group flex w-full items-start gap-3 rounded-xl px-2.5 py-2.5 text-left transition-colors hover:bg-[var(--portal-slate-bg)] focus-visible:bg-[var(--portal-slate-bg)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--portal-gold-accent)] disabled:pointer-events-none"
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      openEndorsementDetails(e);
+                    }
+                  }}
+                  aria-label={`Endorsement from ${cleanHandle(e.issuer)} to ${cleanHandle(e.target)}`}
+                  className={endorsementListRowClass}
                 >
-                  <div
-                    className="mt-0.5 flex shrink-0 items-center gap-1"
-                    aria-hidden="true"
-                  >
-                    {issuerAvatarUrl ? (
-                      <img
-                        src={issuerAvatarUrl}
-                        alt=""
-                        className="h-8 w-8 rounded-full border border-[var(--portal-gold-border)] object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--portal-gold-border)] bg-[var(--portal-gold-bg)] text-xs font-semibold text-[var(--portal-gold)]">
-                        {cleanHandle(e.issuer).slice(0, 1).toUpperCase() || '?'}
-                      </div>
-                    )}
-                    <ProtocolMotionArrow className="h-3 w-3 text-[var(--portal-gold)]/70" />
-                    {endorsementTargetAvatarUrl ? (
-                      <img
-                        src={endorsementTargetAvatarUrl}
-                        alt=""
-                        className="h-5 w-5 rounded-full border border-border/40 object-cover opacity-80"
-                      />
-                    ) : (
-                      <div className="flex h-5 w-5 items-center justify-center rounded-full border border-border/40 bg-muted/30 text-[9px] font-semibold text-muted-foreground/80">
-                        {(targetDisplayName || '?').slice(0, 1).toUpperCase()}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex min-w-0 items-center gap-1.5 text-[12px]">
-                          <span
-                            className="truncate font-medium text-foreground/90"
-                            title={e.issuer}
-                          >
-                            {cleanHandle(e.issuer)}
-                          </span>
-
-                          {viewerAccountId === e.issuer ? (
-                            <span className="rounded-full border border-[var(--portal-gold-border)] bg-[var(--portal-gold-bg)] px-1.5 py-px text-[9px] font-semibold text-[var(--portal-gold)]">
-                              You
-                            </span>
-                          ) : null}
-                        </div>
-                        <div className="mt-0.5 truncate text-[10px] text-muted-foreground/50">
-                          From @{e.issuer}
-                        </div>
-                      </div>
-
-                      {timeLabel ? (
+                  <EndorsementRecord
+                    issuer={e.issuer}
+                    target={e.target}
+                    issuerName={e.issuerName}
+                    targetName={
+                      e.targetName ??
+                      (e.target === accountId ? targetDisplayName : null)
+                    }
+                    issuerAvatarUrl={issuerAvatarUrl}
+                    targetAvatarUrl={endorsementTargetAvatarUrl}
+                    viewerAccountId={viewerAccountId}
+                    topic={e.topic}
+                    note={secondaryText}
+                    noteClamp={2}
+                    onSelectAccount={onSelectAccount}
+                    timeLabel={
+                      timeLabel ? (
                         <PortalHoverTooltip
-                          className="shrink-0 pt-px text-right text-[10px] tabular-nums text-muted-foreground/45"
+                          className="text-right portal-type-caption tabular-nums text-muted-foreground/40"
                           aria-label={timeDescription}
                           stopPropagation
                           tooltip={timeDescription}
                         >
                           {timeLabel}
                         </PortalHoverTooltip>
-                      ) : null}
-                    </div>
-
-                    <div className="mt-2 text-[11px] leading-snug">
-                      <div className="font-medium text-[var(--portal-gold-text)]">
-                        For{' '}
-                        {e.topic
-                          ? humanizeEndorsementTopic(e.topic)
-                          : 'this endorsement'}
-                      </div>
-                      {secondaryText ? (
-                        <p
-                          className="mt-1 line-clamp-2 text-muted-foreground/65"
-                          title={secondaryText}
-                        >
-                          &ldquo;{secondaryText}&rdquo;
-                        </p>
-                      ) : null}
-                    </div>
-                  </div>
-                </button>
+                      ) : undefined
+                    }
+                  />
+                </div>
               );
             })}
           </div>
         ) : (
-          <div className="mt-2 text-[12px] text-muted-foreground/60">
+          <div className="mt-2 portal-type-body-sm text-muted-foreground/60">
             No endorsements yet.
           </div>
         )}
 
         {myEndorsements.length > 0 ? (
           <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-            <span className="text-[10px] text-muted-foreground/45">
+            <span className="portal-type-caption text-muted-foreground/45">
               You endorsed for
             </span>
             {myEndorsements.map((e) => (
@@ -577,7 +457,10 @@ export function ProfileEndorsements({
                   setEditingEndorsement(e);
                   setEndorseModalOpen(true);
                 }}
-                className="rounded-full border border-[var(--portal-gold-border)] bg-[var(--portal-gold-bg)] px-2 py-0.5 text-[10px] font-medium text-[var(--portal-gold)] transition-colors hover:border-[var(--portal-gold-border-strong)] hover:bg-[var(--portal-gold-bg)]"
+                className={cn(
+                  portalCompactActionPillClass,
+                  'text-muted-foreground/70 hover:text-foreground'
+                )}
               >
                 {humanizeEndorsementTopic(e.topic) || 'General'}
               </button>
@@ -586,7 +469,7 @@ export function ProfileEndorsements({
         ) : null}
 
         {givenEndorsementCount > 0 ? (
-          <div className="mt-2 text-[11px] text-muted-foreground/50">
+          <div className="mt-2 portal-type-label text-muted-foreground/50">
             {isSelf ? 'You gave' : 'They gave'}{' '}
             <span className="font-medium text-muted-foreground/70">
               {givenSignalLabel}
@@ -626,38 +509,6 @@ export function ProfileEndorsements({
         }}
         onSubmit={handleEndorseSubmit}
         onRemove={editingEndorsement ? handleRemove : undefined}
-      />
-
-      <EndorsementsModal
-        open={endorsementsModalOpen}
-        onOpenChange={(open) => {
-          setEndorsementsModalOpen(open);
-          if (!open) {
-            setFocusedEndorsement(null);
-            setPendingInitialTopic(null);
-          }
-        }}
-        initialTopic={pendingInitialTopic}
-        mode={endorsementsMode}
-        isSelf={isSelf}
-        targetAccountId={accountId ?? ''}
-        targetDisplayName={targetDisplayName}
-        targetAvatarUrl={targetAvatarUrl}
-        endorsements={
-          endorsementsMode === 'received' ? endorsements : givenEndorsements
-        }
-        endorsementCounts={endorsementCounts}
-        viewerToTargetEndorsements={viewerToTargetEndorsements}
-        viewerAccountId={viewerAccountId}
-        onSelectAccount={onSelectAccount}
-        canEndorse={endorsementsMode === 'received' && canAddNew}
-        isSavingEndorsement={isSaving}
-        onEndorse={handleModalEndorseSubmit}
-        onRemoveEndorsement={handleModalRemove}
-        focusedEndorsement={
-          endorsementsMode === 'received' ? focusedEndorsement : null
-        }
-        onClearFocusedEndorsement={() => setFocusedEndorsement(null)}
       />
     </div>
   );

@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, type MouseEvent } from 'react';
+import { useEffect, useState, type MouseEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Wallet, ChevronDown, User, Copy, Check } from 'lucide-react';
 import { useWallet } from '@/contexts/wallet-context';
-import { ProfileDiscoveryModal } from '@/components/profile-discovery-modal';
 import { ProfileEditor } from '@/components/profile-editor';
-import { ProfileModal } from '@/components/profile-modal';
 import { PortalRewardsRulesModal } from '@/components/portal-rewards-rules-modal';
 import { WalletAssetsModal } from '@/components/wallet-assets-modal';
 import { WalletRewardsSection } from '@/components/wallet-rewards-panel';
@@ -20,6 +19,7 @@ import {
   walletMenuProfileHoverClass,
   walletMenuIdentityNameClass,
   walletMenuIdentityHandleClass,
+  walletMenuIdentityWelcomeClass,
   walletMenuSectionShellClass,
 } from '@/components/ui/floating-panel';
 import { FloatingPanelMenu } from '@/components/ui/floating-panel-menu';
@@ -38,10 +38,20 @@ import {
   walletDropdownAccessoryIconClass,
   walletDropdownAccessoryIconStroke,
 } from '@/components/ui/inline-icon-button';
-import { profileActionButtonClass } from '@/components/ui/profile-action-pill';
+import {
+  profileSocialStandingArrowClass,
+  walletMenuActionButtonClass,
+} from '@/components/ui/profile-action-pill';
+import { CompactActionPillPending } from '@/components/ui/profile-social-standing-toggle';
 import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
 import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/near-network';
+import { getPortalProfileUrl } from '@/lib/portal-config';
 import { walletLabelFromAccountId } from '@/lib/wallet-label';
+import {
+  markWalletMenuSeen,
+  walletMenuWelcomeLabel,
+  type WalletMenuWelcomeLabel,
+} from '@/lib/wallet-menu-welcome';
 
 interface WalletButtonProps {
   compact?: boolean;
@@ -122,45 +132,39 @@ function WalletAccountCopyButton({ accountId }: { accountId: string }) {
 }
 
 function WalletMenuIdentity({
+  welcomeLabel,
   profilePrimaryLabel,
   hasProfileName,
   accountId,
   hasProfile,
-  onOpenProfile,
+  profilePageUrl,
   onEdit,
 }: {
+  welcomeLabel: WalletMenuWelcomeLabel;
   profilePrimaryLabel: string | undefined;
   hasProfileName: boolean;
   accountId: string | null;
   hasProfile: boolean;
-  onOpenProfile: () => void;
+  profilePageUrl: string | null;
   onEdit: () => void;
 }) {
   return (
-    <div className="group/identity relative -mx-2 -mt-1.5 px-2 pt-1.5 pb-1 md:-mx-2.5 md:-mt-2 md:px-2.5 md:pt-2 md:pb-1.5">
-      <button
-        type="button"
-        onClick={onOpenProfile}
-        className={cn(
-          'absolute inset-0 z-0 rounded-lg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--portal-gold-accent)] md:rounded-xl',
-          walletMenuProfileHoverClass,
-          'group-hover/identity:bg-[var(--portal-slate-bg)]'
-        )}
-        aria-label="Open profile"
-      />
-      <div className="relative z-10 space-y-0.5 pointer-events-none">
+    <div className="group/identity relative -mx-2 px-2 py-1.5 md:-mx-2.5 md:px-2.5 md:py-2">
+      {profilePageUrl ? (
+        <a
+          href={profilePageUrl}
+          className={cn(
+            'absolute inset-0 z-0 rounded-lg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--portal-gold-accent)] md:rounded-xl',
+            walletMenuProfileHoverClass,
+            'group-hover/identity:bg-[var(--portal-neutral-bg)]'
+          )}
+          aria-label={`Open profile for ${profilePrimaryLabel ?? accountId ?? 'account'}`}
+          onClick={(event) => event.stopPropagation()}
+        />
+      ) : null}
+      <div className="relative z-10 pointer-events-none">
         <div className="flex items-center justify-between gap-2">
-          <p
-            className={cn(
-              'min-w-0 flex-1 truncate transition-colors',
-              walletMenuIdentityNameClass,
-              hasProfileName
-                ? 'text-foreground'
-                : 'text-muted-foreground/75 group-hover/identity:text-muted-foreground/90'
-            )}
-          >
-            {profilePrimaryLabel}
-          </p>
+          <p className={walletMenuIdentityWelcomeClass}>{welcomeLabel}</p>
           <button
             type="button"
             onClick={(event) => {
@@ -168,26 +172,42 @@ function WalletMenuIdentity({
               onEdit();
             }}
             className={cn(
-              profileActionButtonClass(hasProfile ? 'slate' : 'blue'),
-              'pointer-events-auto shrink-0 self-center'
+              walletMenuActionButtonClass(hasProfile ? 'edit' : 'create'),
+              'pointer-events-auto shrink-0'
             )}
           >
             {hasProfile ? (
               'Edit'
             ) : (
               <>
-                <ProtocolMotionArrow className="h-2.5 w-2.5" />
+                <ProtocolMotionArrow
+                  className={cn(
+                    profileSocialStandingArrowClass(),
+                    'opacity-100'
+                  )}
+                />
                 Create
               </>
             )}
           </button>
         </div>
+        <p
+          className={cn(
+            walletMenuIdentityNameClass,
+            'mt-0.5 leading-none transition-colors',
+            hasProfileName
+              ? 'text-foreground'
+              : 'text-muted-foreground/80 group-hover/identity:text-muted-foreground/90'
+          )}
+        >
+          {profilePrimaryLabel}
+        </p>
         {accountId ? (
-          <div className="flex items-center justify-between gap-2">
+          <div className="-mt-0.5 flex items-center gap-1.5">
             <p
               className={cn(
-                'min-w-0 flex-1 truncate transition-colors group-hover/identity:text-muted-foreground/75',
-                walletMenuIdentityHandleClass
+                walletMenuIdentityHandleClass,
+                'flex-1 transition-colors group-hover/identity:text-muted-foreground/70'
               )}
             >
               @{accountId}
@@ -205,6 +225,7 @@ export function WalletButton({
   menuAlign = 'right',
   disconnectedLabel,
 }: WalletButtonProps) {
+  const router = useRouter();
   const { accountId, isConnected, connect, disconnect } = useWallet();
   const profileState = useProfile();
   const {
@@ -218,11 +239,6 @@ export function WalletButton({
   } = usePortalRewards();
   const [profileEditorOpen, setProfileEditorOpen] = useState(false);
   const [profileEditorKey, setProfileEditorKey] = useState(0);
-  const [profileModalOpen, setProfileModalOpen] = useState(false);
-  const [profileModalAccountId, setProfileModalAccountId] = useState<
-    string | null
-  >(null);
-  const [profileDiscoveryOpen, setProfileDiscoveryOpen] = useState(false);
   const [rewardsRulesOpen, setRewardsRulesOpen] = useState(false);
   const [walletAssetsOpen, setWalletAssetsOpen] = useState(false);
   const [walletBalanceRefreshKey, setWalletBalanceRefreshKey] = useState(0);
@@ -239,6 +255,16 @@ export function WalletButton({
     containerRef: menuRef,
   } = useDropdown();
   const platformStorage = usePlatformStorageSummary(accountId, menuOpen);
+
+  const welcomeLabel: WalletMenuWelcomeLabel =
+    accountId && menuOpen ? walletMenuWelcomeLabel(accountId) : 'Welcome';
+
+  useEffect(() => {
+    if (!menuOpen || !accountId) return;
+    return () => {
+      markWalletMenuSeen(accountId);
+    };
+  }, [accountId, menuOpen]);
 
   const handleMenuToggle = () => {
     if (!menuOpen && accountId) {
@@ -263,23 +289,9 @@ export function WalletButton({
     setProfileEditorOpen(true);
   };
 
-  const openProfileModal = (targetAccountId: string | null = accountId) => {
-    if (!targetAccountId) return;
-    closeMenu();
-    setProfileDiscoveryOpen(false);
-    setProfileModalAccountId(targetAccountId);
-    setProfileModalOpen(true);
-  };
-
   const openProfileDiscovery = () => {
     closeMenu();
-    setProfileDiscoveryOpen(true);
-  };
-
-  const openProfileDiscoveryFromProfile = () => {
-    setProfileModalOpen(false);
-    setProfileModalAccountId(null);
-    setProfileDiscoveryOpen(true);
+    router.push('/discover');
   };
 
   const handleProfileAction = () => {
@@ -304,6 +316,7 @@ export function WalletButton({
   const profilePrimaryLabel = hasProfileName
     ? profileState.profile?.name
     : walletLabel;
+  const profilePageUrl = accountId ? getPortalProfileUrl(accountId) : null;
 
   const compactDisconnectedButtonClass = disconnectedLabel
     ? 'group relative inline-flex h-9 w-auto items-center justify-center gap-2.5 rounded-full border border-border/45 bg-background/70 px-3 pr-3.5 text-muted-foreground backdrop-blur-md transition-all duration-300 hover:border-border/70 hover:bg-background/84 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-background md:h-10 md:px-3.5 md:pr-4'
@@ -435,11 +448,12 @@ export function WalletButton({
         <div className={walletMenuSectionShellClass}>
           <div className={walletMenuCardClass}>
             <WalletMenuIdentity
+              welcomeLabel={welcomeLabel}
               profilePrimaryLabel={profilePrimaryLabel}
               hasProfileName={hasProfileName}
               accountId={accountId}
               hasProfile={hasProfile}
-              onOpenProfile={() => openProfileModal(accountId)}
+              profilePageUrl={profilePageUrl}
               onEdit={handleProfileAction}
             />
 
@@ -512,38 +526,6 @@ export function WalletButton({
         error={profileState.error}
         onOpenChange={setProfileEditorOpen}
         onSave={profileState.saveProfile}
-      />
-
-      <ProfileModal
-        open={profileModalOpen}
-        accountId={profileModalAccountId ?? accountId}
-        viewerAccountId={accountId}
-        selfProfile={profileState.profile}
-        selfAvatarUrl={profileState.avatarUrl}
-        selfBannerUrl={profileState.bannerUrl}
-        hasSocialSession={profileState.hasSocialSession}
-        isAuthorizingSession={profileState.isAuthorizingSession}
-        onOpenChange={(open) => {
-          setProfileModalOpen(open);
-          if (!open) setProfileModalAccountId(null);
-        }}
-        onEditProfile={openProfileEditor}
-        onSelectAccount={(targetAccountId) => openProfileModal(targetAccountId)}
-        onDiscoverProfiles={openProfileDiscoveryFromProfile}
-        onUpdateStanding={profileState.updateStanding}
-        onEndorse={profileState.endorse}
-        onRemoveEndorsement={profileState.removeEndorsement}
-      />
-
-      <ProfileDiscoveryModal
-        open={profileDiscoveryOpen}
-        viewerAccountId={accountId}
-        hasSocialSession={profileState.hasSocialSession}
-        onOpenChange={setProfileDiscoveryOpen}
-        onSelectAccount={(targetAccountId) => openProfileModal(targetAccountId)}
-        onUpdateStanding={profileState.updateStanding}
-        onEndorse={profileState.endorse}
-        onRemoveEndorsement={profileState.removeEndorsement}
       />
 
       <PortalRewardsRulesModal

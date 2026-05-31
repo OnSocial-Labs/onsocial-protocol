@@ -39,7 +39,7 @@ function formatTimestamp(value: string): string {
 function renderLatest(label: string, item: LatestIndexedSummary | null) {
   return (
     <div className="rounded-[1rem] border border-border/40 bg-background/40 p-4">
-      <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+      <p className="portal-eyebrow text-muted-foreground">
         {label}
       </p>
       <p className="mt-2 font-mono text-lg font-semibold text-foreground/85">
@@ -61,7 +61,7 @@ function renderActorList(
 ) {
   return (
     <SurfacePanel radius="xl" tone="soft" padding="roomy">
-      <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+      <p className="portal-eyebrow text-muted-foreground">
         {label}
       </p>
       <div className="mt-4 space-y-3">
@@ -178,7 +178,7 @@ function renderDrilldownPanel(
     <SurfacePanel radius="xl" tone="soft" padding="roomy" className="mt-8">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+          <p className="portal-eyebrow text-muted-foreground">
             Drilldown
           </p>
           <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em]">
@@ -441,7 +441,7 @@ export default function OpsAnalyticsPage() {
       <SurfacePanel radius="xl" tone="soft" padding="roomy" className="mb-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+            <p className="portal-eyebrow text-muted-foreground">
               Access
             </p>
             <h2 className="mt-2 text-xl font-semibold tracking-[-0.03em]">

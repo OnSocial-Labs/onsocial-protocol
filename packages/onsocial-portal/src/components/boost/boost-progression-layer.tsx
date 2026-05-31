@@ -58,10 +58,10 @@ export function BoostProgressionLayer({
             <StatStripCell
               label="Collected"
               icon={Gift}
-              iconClassName="portal-slate-icon"
+              iconClassName="portal-neutral-icon"
               showDivider
             >
-              <p className="portal-slate-text font-mono text-sm font-semibold tracking-tight md:text-base">
+              <p className="text-portal-neutral font-mono text-sm font-semibold tracking-tight md:text-base">
                 {isConnected ? totalEarnedDisplay : '—'}
               </p>
             </StatStripCell>
@@ -85,7 +85,7 @@ export function BoostProgressionLayer({
                 className={
                   isConnected && dailyEarnedDisplay !== '0'
                     ? 'portal-green-text text-sm font-semibold md:text-base'
-                    : 'portal-slate-text text-sm font-semibold md:text-base'
+                    : 'text-portal-neutral text-sm font-semibold md:text-base'
                 }
               >
                 {isConnected ? dailyEarnedDisplay : '—'}
@@ -96,7 +96,7 @@ export function BoostProgressionLayer({
               icon={Trophy}
               iconClassName="portal-purple-icon"
             >
-              <p className="portal-slate-text font-mono text-sm font-semibold tracking-tight md:text-base">
+              <p className="text-portal-neutral font-mono text-sm font-semibold tracking-tight md:text-base">
                 {isConnected ? dailyRemainingDisplay : '—'}
               </p>
             </StatStripCell>

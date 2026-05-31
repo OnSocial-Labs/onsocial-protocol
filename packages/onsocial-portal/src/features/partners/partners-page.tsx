@@ -809,7 +809,7 @@ export default function PartnersPage() {
           {(currentAppLabel || currentAppId) && (
             <div className="hidden items-center gap-2 sm:flex">
               {currentAppLabel && (
-                <PortalBadge accent="slate" size="sm">
+                <PortalBadge accent="neutral" size="sm">
                   {currentAppLabel}
                 </PortalBadge>
               )}
@@ -826,7 +826,7 @@ export default function PartnersPage() {
         {(currentAppLabel || currentAppId) && (
           <div className="mt-2 flex flex-wrap items-center gap-1.5 sm:hidden">
             {currentAppLabel && (
-              <PortalBadge accent="slate" size="sm">
+              <PortalBadge accent="neutral" size="sm">
                 {currentAppLabel}
               </PortalBadge>
             )}

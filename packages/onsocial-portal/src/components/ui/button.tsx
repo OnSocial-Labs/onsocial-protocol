@@ -26,7 +26,7 @@ const buttonVariants = cva(
         default: 'h-9 px-4 py-1.5 md:h-10 md:px-5 md:py-2',
         xs: 'h-7 px-2 text-xs md:px-2.5',
         sm: 'h-8 px-3 md:h-9 md:px-4',
-        lg: 'h-10 px-6 md:h-12 md:px-8 text-[15px]',
+        lg: 'h-10 px-6 md:h-12 md:px-8 portal-type-lead',
         cta: 'h-auto w-full py-3 text-sm font-semibold md:py-4 md:text-base',
         icon: 'h-9 w-9 md:h-10 md:w-10',
       },

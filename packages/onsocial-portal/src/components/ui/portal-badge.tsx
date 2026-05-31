@@ -14,13 +14,13 @@ const portalBadgeVariants = cva(
         gold: 'portal-gold-badge',
         amber: 'portal-amber-badge',
         red: 'portal-red-badge',
-        slate: 'portal-slate-badge',
+        neutral: 'portal-neutral-badge',
         pink: 'portal-pink-badge',
       },
       size: {
-        xs: 'px-2 py-0.5 text-[11px] md:px-2.5 md:py-1 md:text-xs',
-        sm: 'px-3 py-1 text-[11px]',
-        icon: 'h-5 w-5 p-0 text-[10px]',
+        xs: 'px-2 py-0.5 portal-type-label md:px-2.5 md:py-1',
+        sm: 'px-3 py-1 portal-type-label',
+        icon: 'h-5 w-5 p-0 portal-type-caption',
       },
       weight: {
         default: 'font-medium',

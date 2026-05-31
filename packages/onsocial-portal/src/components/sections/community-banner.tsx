@@ -19,7 +19,7 @@ export function CommunityBanner() {
         transition={{ duration: 0.5 }}
         className={section.container}
       >
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-center gap-x-3 gap-y-2 px-4 py-3 text-[11px] uppercase tracking-[0.18em] text-muted-foreground sm:text-xs">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-center gap-x-3 gap-y-2 px-4 py-3 portal-eyebrow-wide text-muted-foreground sm:text-xs">
           <a
             href="https://t.me/onsocialprotocol"
             target="_blank"
@@ -36,7 +36,7 @@ export function CommunityBanner() {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 transition-colors hover:text-foreground"
           >
-            <FaXTwitter className="portal-slate-icon h-3 w-3" />X
+            <FaXTwitter className="portal-neutral-icon h-3 w-3" />X
           </a>
           <span className="hidden text-border sm:inline">/</span>
           <a

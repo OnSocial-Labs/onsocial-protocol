@@ -27,7 +27,7 @@ export function Footer() {
             <Link
               href="/sdk"
               aria-label="Developer SDK"
-              className="font-mono text-[0.65rem] tracking-tight opacity-55 transition-[color,opacity] hover:text-[var(--portal-purple)] hover:opacity-100"
+              className="font-mono portal-type-caption tracking-tight opacity-55 transition-[color,opacity] hover:text-[var(--portal-purple)] hover:opacity-100"
             >
               {'</>'}
             </Link>
@@ -41,7 +41,7 @@ export function Footer() {
               NEAR
             </Link>
           </p>
-          <p className="text-[0.6rem] text-muted-foreground/35">
+          <p className="portal-type-caption text-muted-foreground/35">
             Services by{' '}
             <Link
               href="/about"

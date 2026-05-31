@@ -77,7 +77,7 @@ export function CollectCelebration({
           >
             <motion.div
               className={cn(
-                'portal-green-text flex items-center gap-1.5 rounded-full border border-[var(--portal-green-frame-border)] bg-background/95 px-3 py-1.5 font-mono text-[11px] font-semibold tabular-nums shadow-[0_18px_44px_-28px_var(--portal-green)] backdrop-blur-md',
+                'portal-green-text flex items-center gap-1.5 rounded-full border border-[var(--portal-green-frame-border)] bg-background/95 px-3 py-1.5 font-mono portal-type-label font-semibold tabular-nums shadow-[0_18px_44px_-28px_var(--portal-green)] backdrop-blur-md',
                 chipClassName
               )}
               initial={reduceMotion ? undefined : { y: 12, scale: 0.96 }}

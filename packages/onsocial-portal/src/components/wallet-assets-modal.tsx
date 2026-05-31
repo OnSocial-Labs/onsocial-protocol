@@ -59,10 +59,10 @@ function AssetRow({
           className="shrink-0"
         />
         <div className="min-w-0">
-          <p className="truncate text-[13px] font-medium text-foreground">
+          <p className="truncate portal-type-body font-medium text-foreground">
             {token.symbol}
           </p>
-          <p className="truncate text-[11px] text-muted-foreground/60">
+          <p className="truncate portal-type-label text-muted-foreground/60">
             {token.name}
           </p>
         </div>
@@ -73,7 +73,7 @@ function AssetRow({
         <p
           className={cn(
             'shrink-0 font-mono text-sm font-semibold tabular-nums tracking-tight',
-            error ? 'text-[var(--portal-amber)]' : 'portal-slate-text'
+            error ? 'text-[var(--portal-amber)]' : 'text-portal-neutral'
           )}
         >
           {balanceLabel}
@@ -161,7 +161,7 @@ function WalletAssetsModalBody({ accountId }: { accountId: string }) {
       </div>
 
       {error ? (
-        <p className="mt-3 text-[11px] text-[var(--portal-amber)]">{error}</p>
+        <p className="mt-3 portal-type-label text-[var(--portal-amber)]">{error}</p>
       ) : null}
     </>
   );

@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils';
 
 /** Trailing icon control inside compact rows (search clear, wallet copy, rewards help). */
 export const inlineAccessoryIconButtonBaseClass =
-  'inline-flex shrink-0 items-center justify-center rounded-full border border-transparent text-muted-foreground/55 transition-all duration-150 hover:border-border/40 hover:bg-background/50 hover:text-muted-foreground/80 hover:backdrop-blur-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--portal-slate-border-strong)] active:scale-95 active:opacity-80 active:text-muted-foreground/80';
+  'inline-flex shrink-0 items-center justify-center rounded-full border border-transparent text-muted-foreground/55 transition-all duration-150 hover:border-border/40 hover:bg-background/50 hover:text-muted-foreground/80 hover:backdrop-blur-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--portal-neutral-border-strong)] active:scale-95 active:opacity-80 active:text-muted-foreground/80';
 
 export const inlineAccessoryIconButtonSizeClass = {
   sm: 'h-5 w-5',

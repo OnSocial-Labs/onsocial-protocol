@@ -36,7 +36,7 @@ export function ModalHeader({
     >
       <div className="min-w-0 flex-1 pr-10">
         {eyebrow ? (
-          <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/55">
+          <div className="portal-eyebrow text-muted-foreground/55">
             {eyebrow}
           </div>
         ) : null}
@@ -54,8 +54,8 @@ export function ModalHeader({
           <p
             className={cn(
               descriptionVariant === 'meta'
-                ? 'mt-1 text-[10px] uppercase tracking-[0.14em] text-muted-foreground/55'
-                : 'mt-0.5 text-[12px] text-muted-foreground/70',
+                ? 'mt-1 portal-eyebrow text-muted-foreground/55'
+                : 'mt-0.5 portal-type-body-sm text-muted-foreground/70',
               descriptionClassName
             )}
           >

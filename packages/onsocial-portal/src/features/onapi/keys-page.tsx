@@ -118,7 +118,7 @@ function nextTierUp(tier: string): string | null {
 }
 
 function tierAccent(tier: string): PortalAccent {
-  return TIER_ACCENT[tier] ?? 'slate';
+  return TIER_ACCENT[tier] ?? 'neutral';
 }
 
 function tierRank(tier: string): number {
@@ -527,7 +527,7 @@ export default function OnApiKeysPage() {
               <p className="mb-1 text-sm font-medium text-foreground">
                 One more step
               </p>
-              <p className="mb-4 text-[11px] text-muted-foreground">
+              <p className="mb-4 portal-type-label text-muted-foreground">
                 Sign a message to open your session — no gas, no transaction.
               </p>
               <Button
@@ -605,10 +605,10 @@ export default function OnApiKeysPage() {
               >
                 {formatTierLabel(currentTier)}
               </span>
-              <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+              <span className="portal-eyebrow text-muted-foreground">
                 Current plan
               </span>
-              <span className="ml-auto font-mono text-[10px] tabular-nums text-muted-foreground">
+              <span className="ml-auto font-mono portal-type-caption tabular-nums text-muted-foreground">
                 {(usage?.today ?? 0).toLocaleString()} today ·{' '}
                 {(usage?.thisMonth ?? 0).toLocaleString()} /mo
               </span>
@@ -666,7 +666,7 @@ export default function OnApiKeysPage() {
               )}
               {subscription &&
                 !['expired', 'pending'].includes(subscription.status) && (
-                  <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                  <span className="portal-eyebrow text-muted-foreground">
                     {subscription.status === 'active'
                       ? 'Active'
                       : subscription.status === 'cancelled'
@@ -684,7 +684,7 @@ export default function OnApiKeysPage() {
               )}
               {subscription?.status === 'active' &&
                 subscription.currentPeriodEnd && (
-                  <span className="ml-auto text-[10px] tabular-nums text-muted-foreground/50">
+                  <span className="ml-auto portal-type-caption tabular-nums text-muted-foreground/50">
                     Renews{' '}
                     {new Date(
                       subscription.currentPeriodEnd
@@ -710,7 +710,7 @@ export default function OnApiKeysPage() {
                   </span>
                 </StatStripCell>
                 <StatStripCell label="Reqs this month">
-                  <span className="font-mono text-sm font-semibold tracking-tight portal-slate-text">
+                  <span className="font-mono text-sm font-semibold tracking-tight text-portal-neutral">
                     {(usage?.thisMonth ?? 0).toLocaleString()}
                   </span>
                 </StatStripCell>
@@ -746,7 +746,7 @@ export default function OnApiKeysPage() {
                     </div>
                     {showNudge && next && (
                       <div className="flex items-center justify-between pt-1.5">
-                        <span className="text-[10px] text-muted-foreground/60">
+                        <span className="portal-type-caption text-muted-foreground/60">
                           {pct >= 1
                             ? 'Daily limit reached'
                             : 'Nearing daily limit'}
@@ -830,7 +830,7 @@ export default function OnApiKeysPage() {
                           subscription.currentPeriodEnd
                         ).toLocaleDateString()}
                       </span>
-                      <span className="text-[11px] font-medium tracking-[0.08em] text-muted-foreground/50">
+                      <span className="portal-type-label font-medium tracking-[0.08em] text-muted-foreground/50">
                         then Free
                       </span>
                     </div>
@@ -852,7 +852,7 @@ export default function OnApiKeysPage() {
                     {formatTierLabel(subscription.graceTier)} limits until{' '}
                     {new Date(subscription.gracePeriodEnd).toLocaleDateString()}
                   </span>
-                  <span className="text-[11px] font-medium tracking-[0.08em] text-muted-foreground/50">
+                  <span className="portal-type-label font-medium tracking-[0.08em] text-muted-foreground/50">
                     then {formatTierLabel(subscription.tier)}
                   </span>
                 </div>
@@ -874,7 +874,7 @@ export default function OnApiKeysPage() {
                       <a
                         key={t}
                         href={`/onapi/keys?tier=${t}`}
-                        className="group/chip inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium tracking-[0.04em] transition-all duration-150 hover:shadow-sm"
+                        className="group/chip inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 portal-type-label font-medium tracking-[0.04em] transition-all duration-150 hover:shadow-sm"
                         style={{
                           color: portalColors[tierAccent(t)],
                           backgroundColor: `color-mix(in srgb, ${portalColors[tierAccent(t)]} 8%, transparent)`,
@@ -883,7 +883,7 @@ export default function OnApiKeysPage() {
                         }}
                       >
                         {formatTierLabel(t)}
-                        <span className="text-[10px] font-normal opacity-60">
+                        <span className="portal-type-caption font-normal opacity-60">
                           {TIER_LIMITS[t]}
                         </span>
                         <ArrowUpRight className="h-2.5 w-2.5 opacity-40 transition-all duration-150 group-hover/chip:opacity-100 group-hover/chip:translate-x-0.5 group-hover/chip:-translate-y-0.5" />
@@ -923,7 +923,7 @@ export default function OnApiKeysPage() {
                     >
                       {targetPlan.name}
                     </h3>
-                    <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                    <span className="portal-eyebrow text-muted-foreground">
                       {isDowngrade ? 'Downgrade' : 'Upgrade'}
                     </span>
                   </div>
@@ -1016,7 +1016,7 @@ export default function OnApiKeysPage() {
                         className="min-w-0 flex-1 bg-transparent text-sm font-medium tracking-[-0.01em] outline-none placeholder:text-muted-foreground/50"
                       />
                     </SurfacePanel>
-                    <p className="mt-1 px-0.5 text-[10px] tracking-[0.02em] text-muted-foreground/40">
+                    <p className="mt-1 px-0.5 portal-type-caption tracking-[0.02em] text-muted-foreground/40">
                       For receipts and payment updates
                     </p>
                   </div>
@@ -1030,7 +1030,7 @@ export default function OnApiKeysPage() {
                   >
                     {isDowngrade ? 'Switch to' : 'Upgrade to'} {targetPlan.name}
                   </Button>
-                  <p className="text-center text-[10px] tracking-[0.04em] text-muted-foreground/50">
+                  <p className="text-center portal-type-caption tracking-[0.04em] text-muted-foreground/50">
                     Powered by Revolut Pay
                   </p>
                 </div>
@@ -1148,7 +1148,7 @@ export default function OnApiKeysPage() {
               <CopyInline text={newKey.key} />
             </div>
 
-            <p className="mt-2 text-[10px] text-muted-foreground">
+            <p className="mt-2 portal-type-caption text-muted-foreground">
               Label: {newKey.label} · Prefix: {newKey.prefix}
             </p>
           </SurfacePanel>
@@ -1227,7 +1227,7 @@ export default function OnApiKeysPage() {
             className="overflow-hidden"
           >
             <div className="flex items-center justify-between px-4 pt-4 pb-2 md:px-5">
-              <h3 className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              <h3 className="portal-eyebrow-wide text-muted-foreground">
                 {hasKeys ? 'Your keys' : 'Get started'}
               </h3>
               <div className="flex items-center gap-2">
@@ -1306,7 +1306,7 @@ export default function OnApiKeysPage() {
                         Create
                       </Button>
                     </div>
-                    <p className="text-[11px] text-muted-foreground/50 text-center">
+                    <p className="portal-type-label text-muted-foreground/50 text-center">
                       Name it anything — e.g. &ldquo;production&rdquo; or
                       &ldquo;dev&rdquo;
                     </p>
@@ -1341,7 +1341,7 @@ export default function OnApiKeysPage() {
                         <code className="block truncate font-mono text-xs text-foreground">
                           {maskKey(keyInfo.prefix)}
                         </code>
-                        <p className="mt-0.5 text-[10px] text-muted-foreground">
+                        <p className="mt-0.5 portal-type-caption text-muted-foreground">
                           {keyInfo.label}
                         </p>
                       </div>
@@ -1434,7 +1434,7 @@ export default function OnApiKeysPage() {
               className="group flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
               aria-expanded={quickStartExpanded}
             >
-              <h3 className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              <h3 className="portal-eyebrow-wide text-muted-foreground">
                 Integration
               </h3>
               <ChevronDown
@@ -1453,7 +1453,7 @@ export default function OnApiKeysPage() {
                 >
                   <div className="h-px divider-section" />
                   <div className="space-y-3 px-5 pb-5 pt-4 text-xs text-muted-foreground">
-                    <pre className="overflow-x-auto rounded-lg border border-border/30 bg-background/40 px-3 py-2 font-mono text-[11px] leading-relaxed text-foreground">
+                    <pre className="overflow-x-auto rounded-lg border border-border/30 bg-background/40 px-3 py-2 font-mono portal-type-label leading-relaxed text-foreground">
                       {`import { OnSocial } from '@onsocial/sdk';
 const os = new OnSocial({ apiKey: 'onsocial_...' });`}
                     </pre>
@@ -1464,7 +1464,7 @@ const os = new OnSocial({ apiKey: 'onsocial_...' });`}
                         </span>
                       </StatStripCell>
                       <StatStripCell label="Tables">
-                        <span className="font-mono text-[11px] text-foreground">
+                        <span className="font-mono portal-type-label text-foreground">
                           data · groups · tokens · boost
                         </span>
                       </StatStripCell>

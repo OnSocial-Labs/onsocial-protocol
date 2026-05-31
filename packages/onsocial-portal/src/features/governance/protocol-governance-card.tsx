@@ -432,7 +432,7 @@ export function ProtocolGovernanceCard({
             {liveStatusStyle && (
               <div className="shrink-0 text-right">
                 <span
-                  className={`inline-flex items-center justify-end gap-1.5 text-[11px] font-semibold uppercase tracking-wide ${liveStatusStyle.badgeText}`}
+                  className={`inline-flex items-center justify-end gap-1.5 portal-type-label font-semibold uppercase tracking-wide ${liveStatusStyle.badgeText}`}
                 >
                   {liveStatusStyle.label}
                   {interactive && (
@@ -444,7 +444,7 @@ export function ProtocolGovernanceCard({
                 </span>
                 {reviewExpiry && (
                   <div
-                    className={`mt-0.5 text-[10px] ${reviewExpiry.expired ? 'portal-amber-text' : 'text-muted-foreground'}`}
+                    className={`mt-0.5 portal-type-caption ${reviewExpiry.expired ? 'portal-amber-text' : 'text-muted-foreground'}`}
                   >
                     <HoverTimestamp
                       relative={reviewExpiry.relative}
@@ -523,7 +523,7 @@ export function ProtocolGovernanceCard({
                   aria-expanded={technicalDetailsOpen}
                   className="group flex w-full items-center justify-between gap-3 rounded-[0.75rem] px-3 py-2 text-left transition-colors hover:bg-foreground/[0.03] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60"
                 >
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground transition-colors group-hover:text-foreground/80">
+                  <p className="portal-eyebrow-wide text-muted-foreground transition-colors group-hover:text-foreground/80">
                     Raw proposal
                   </p>
                   <ChevronDown

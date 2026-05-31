@@ -154,9 +154,13 @@ export default function RootLayout({
                       <NavVisibilityProvider>
                         <Suspense>
                           <SmoothScrollProvider>
-                            <Navigation />
-                            <main className="safe-x">{children}</main>
-                            <Footer />
+                            <div className="flex min-h-[100dvh] flex-col">
+                              <Navigation />
+                              <main className="safe-x flex flex-1 flex-col">
+                                {children}
+                              </main>
+                              <Footer />
+                            </div>
                           </SmoothScrollProvider>
                         </Suspense>
                       </NavVisibilityProvider>

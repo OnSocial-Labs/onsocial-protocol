@@ -309,7 +309,7 @@ export function ProfileEditor({
                           />
                         </span>
                       </button>
-                      <p className="pointer-events-none absolute inset-x-4 bottom-0 text-right text-[9px] tabular-nums leading-none text-muted-foreground/45 md:inset-x-5 sm:text-[10px]">
+                      <p className="pointer-events-none absolute inset-x-4 bottom-0 text-right portal-type-micro tabular-nums leading-none text-muted-foreground/45 md:inset-x-5">
                         1500&times;300
                       </p>
                     </div>
@@ -349,7 +349,7 @@ export function ProfileEditor({
                             />
                           </span>
                         </button>
-                        <span className="text-[9px] tabular-nums leading-none text-muted-foreground/45 sm:text-[10px]">
+                        <span className="portal-type-micro tabular-nums leading-none text-muted-foreground/45">
                           512&times;512
                         </span>
                       </div>
@@ -361,7 +361,7 @@ export function ProfileEditor({
                         >
                           {headerTitle}
                         </h2>
-                        <p className="mt-0.5 truncate text-[13px] text-muted-foreground/55">
+                        <p className="mt-0.5 truncate portal-type-body text-muted-foreground/55">
                           {accountId ? `@${accountId}` : 'Wallet'}
                         </p>
                       </div>
@@ -406,7 +406,7 @@ export function ProfileEditor({
                         placeholder="Display name"
                         aria-label="Display name"
                       />
-                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] tabular-nums tracking-wide text-muted-foreground/60">
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 portal-type-caption tabular-nums tracking-wide text-muted-foreground/60">
                         {name.length}/50
                       </span>
                     </div>
@@ -425,7 +425,7 @@ export function ProfileEditor({
                         placeholder="Bio"
                         aria-label="Bio"
                       />
-                      <span className="pointer-events-none absolute right-3 bottom-1.5 text-[10px] tabular-nums tracking-wide text-muted-foreground/60">
+                      <span className="pointer-events-none absolute right-3 bottom-1.5 portal-type-caption tabular-nums tracking-wide text-muted-foreground/60">
                         {characterCount}/180
                       </span>
                     </div>
@@ -520,7 +520,7 @@ export function ProfileEditor({
 
                 <div className="flex shrink-0 items-center justify-between gap-3 border-t border-fade-section px-4 py-4 md:px-5">
                   {!profile ? (
-                    <p className="text-[11px] leading-snug text-muted-foreground/60">
+                    <p className="portal-type-label leading-snug text-muted-foreground/60">
                       Saving your profile earns SOCIAL rewards.
                     </p>
                   ) : (

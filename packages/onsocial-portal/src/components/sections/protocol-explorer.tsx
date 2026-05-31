@@ -58,7 +58,7 @@ const PROTOCOL_ITEMS = [
       'Any auth model — keys, JWTs, or meta-tx',
     ],
     icon: Shield,
-    accent: 'slate' as PortalAccent,
+    accent: 'neutral' as PortalAccent,
     href: '/onapi',
     cta: 'Open OnApi',
   },

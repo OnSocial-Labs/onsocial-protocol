@@ -333,7 +333,7 @@ export function GovernanceReviewTerms({
         aria-expanded={detailsOpen}
         className="group flex w-full items-center justify-between gap-3 rounded-[0.75rem] px-3 py-2 text-left transition-colors hover:bg-foreground/[0.03] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60"
       >
-        <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground transition-colors group-hover:text-foreground/80">
+        <p className="portal-eyebrow-wide text-muted-foreground transition-colors group-hover:text-foreground/80">
           Terms
         </p>
         <ChevronDown
@@ -355,7 +355,7 @@ export function GovernanceReviewTerms({
               {rewardPerActionValue && (
                 <div className="flex items-baseline gap-2">
                   <dt className="text-muted-foreground">Per Action</dt>
-                  <dd className="ml-auto font-mono font-medium text-foreground/80">
+                  <dd className="ml-auto font-mono font-medium text-portal-neutral">
                     {rewardPerActionValue}
                   </dd>
                 </div>
@@ -363,7 +363,7 @@ export function GovernanceReviewTerms({
               {dailyCapValue && (
                 <div className="flex items-baseline gap-2">
                   <dt className="text-muted-foreground">Daily Cap</dt>
-                  <dd className="ml-auto font-mono font-medium text-foreground/80">
+                  <dd className="ml-auto font-mono font-medium text-portal-neutral">
                     {dailyCapValue}
                   </dd>
                 </div>
@@ -387,21 +387,21 @@ export function GovernanceReviewTerms({
               {attachedDepositValue && (
                 <div className="flex items-baseline gap-2">
                   <dt className="text-muted-foreground">Deposit</dt>
-                  <dd className="ml-auto font-mono font-medium text-foreground/80">
+                  <dd className="ml-auto font-mono font-medium text-portal-neutral">
                     {attachedDepositValue}
                   </dd>
                 </div>
               )}
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                 <dt className="shrink-0 text-muted-foreground">Contract</dt>
-                <dd className="ml-auto break-all font-mono font-medium text-foreground/80">
+                <dd className="ml-auto break-all font-mono font-medium text-portal-neutral">
                   {functionCallSummary.receiverId}
                 </dd>
               </div>
               {authorizedCallers.length > 0 && (
                 <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                   <dt className="shrink-0 text-muted-foreground">Callers</dt>
-                  <dd className="ml-auto break-all font-mono text-foreground/80">
+                  <dd className="ml-auto break-all font-mono text-portal-neutral">
                     {authorizedCallers.join(', ')}
                   </dd>
                 </div>
@@ -461,7 +461,7 @@ export function GovernanceGuardianActions({
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
           {connectedRole && (
-            <span className="shrink-0 inline-flex h-5 items-center rounded-full bg-foreground/5 px-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            <span className="shrink-0 inline-flex h-5 items-center rounded-full bg-foreground/5 px-2 portal-type-caption font-semibold uppercase tracking-widest text-muted-foreground">
               {connectedRole.name
                 ? formatRoleLabel(connectedRole.name)
                 : 'Guardian'}
@@ -565,7 +565,7 @@ export function GovernanceGuardianActions({
       )}
 
       {canFinalize && finalizeLabel === 'Retry' && (
-        <p className="mt-2 text-[11px] leading-snug text-muted-foreground/70">
+        <p className="mt-2 portal-type-label leading-snug text-muted-foreground/70">
           This one failed last time. Retrying will run the same on-chain action
           again &mdash; if the underlying issue isn&apos;t fixed, it&apos;ll
           fail again.

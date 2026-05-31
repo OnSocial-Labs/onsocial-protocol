@@ -24,7 +24,7 @@ function MiniRank({ rank }: { rank: number }) {
   if (rank === 2) return <span className="text-sm">🥈</span>;
   if (rank === 3) return <span className="text-sm">🥉</span>;
   return (
-    <span className="flex h-5 w-5 items-center justify-center rounded-full border border-border/40 bg-background/30 font-mono text-[10px] text-muted-foreground">
+    <span className="flex h-5 w-5 items-center justify-center rounded-full border border-border/40 bg-background/30 font-mono portal-type-caption text-muted-foreground">
       {rank}
     </span>
   );
@@ -76,7 +76,7 @@ export function LeaderboardPreview() {
             <div className="grid gap-4 md:grid-cols-3">
               {/* Influence */}
               <SurfacePanel radius="xl" tone="soft" className="p-4 md:p-5">
-                <div className="mb-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                <div className="mb-3 flex items-center gap-2 portal-eyebrow text-muted-foreground">
                   <Crown className="h-3.5 w-3.5" />
                   Top Influence
                 </div>
@@ -108,7 +108,7 @@ export function LeaderboardPreview() {
 
               {/* Reputation */}
               <SurfacePanel radius="xl" tone="soft" className="p-4 md:p-5">
-                <div className="mb-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                <div className="mb-3 flex items-center gap-2 portal-eyebrow text-muted-foreground">
                   <Shield className="h-3.5 w-3.5" />
                   Top Reputation
                 </div>
@@ -140,7 +140,7 @@ export function LeaderboardPreview() {
 
               {/* Earners */}
               <SurfacePanel radius="xl" tone="soft" className="p-4 md:p-5">
-                <div className="mb-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                <div className="mb-3 flex items-center gap-2 portal-eyebrow text-muted-foreground">
                   <TrendingUp className="h-3.5 w-3.5" />
                   Top Earners
                 </div>

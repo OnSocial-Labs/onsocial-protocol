@@ -66,7 +66,7 @@ const LOCK_PERIODS = [
     bonus: 5,
     label: '1 Month',
     short: '1mo',
-    color: portalColors.slate,
+    color: portalColors.neutral,
   },
   {
     months: 6,
@@ -104,11 +104,15 @@ const STAKE_AMOUNT_MAX_DECIMALS = 18;
 const MIN_STAKE_AMOUNT = '0.01';
 const SOCIAL_DECIMALS = 18;
 const YOCTO_PER_SOCIAL = 10n ** BigInt(SOCIAL_DECIMALS);
+/** Exact yocto math; display uses fewer digits for a calmer live counter. */
 const LIVE_COUNTER_FRACTION_DIGITS = 6;
-const REWARD_RATE_FRACTION_DIGITS = 8;
+const LIVE_COUNTER_DISPLAY_FRACTION_DIGITS = 4;
+const REWARD_RATE_FRACTION_DIGITS = 4;
+const LIVE_COUNTER_TICK_MS = 100;
+const BOOST_CHAIN_RESYNC_MS = 30_000;
 const CLAIM_CELEBRATION_TIMEOUT_MS = 2100;
 const REDUCED_MOTION_CLAIM_CELEBRATION_TIMEOUT_MS = 1400;
-/** Ignore projected-view dust when not actively accruing (0.0001 SOCIAL). */
+/** Hero collect panel hidden below this (0.0001 SOCIAL). */
 const BOOST_CLAIM_DUST_YOCTO = 100_000_000_000_000_000n;
 type BoostAction = 'stake' | 'claim' | 'unlock' | 'renew' | `extend:${number}`;
 type ClaimCelebration = { id: number; amountYocto: bigint };
@@ -198,6 +202,75 @@ function formatYoctoSocialFixed(
   return `${sign}${addThousandsSeparators(whole.toString())}.${fraction}`;
 }
 
+/** Split whole/fraction so the integer part stays visually steady while accruing. */
+function formatYoctoSocialParts(
+  value: bigint,
+  fractionDigits = LIVE_COUNTER_DISPLAY_FRACTION_DIGITS
+): { whole: string; fraction: string; full: string } {
+  const full = formatYoctoSocialFixed(value, fractionDigits);
+  if (fractionDigits === 0) {
+    return { whole: full, fraction: '', full };
+  }
+
+  const dotIndex = full.indexOf('.');
+  if (dotIndex === -1) {
+    const fraction = '0'.repeat(fractionDigits);
+    return {
+      whole: full,
+      fraction,
+      full: `${full}.${fraction}`,
+    };
+  }
+
+  return {
+    whole: full.slice(0, dotIndex),
+    fraction: full.slice(dotIndex + 1),
+    full,
+  };
+}
+
+function LiveClaimableAmount({
+  valueYocto,
+  fractionDigits,
+  isLiveAccruing,
+  className,
+}: {
+  valueYocto: bigint;
+  fractionDigits: number;
+  isLiveAccruing: boolean;
+  className?: string;
+}) {
+  const { whole, fraction, full } = formatYoctoSocialParts(
+    valueYocto,
+    fractionDigits
+  );
+
+  return (
+    <p
+      className={cn(className, 'flex w-full justify-center')}
+      aria-label={`${full} SOCIAL ready to collect`}
+    >
+      {isLiveAccruing && fractionDigits > 0 ? (
+        <span
+          className="inline-grid items-baseline tabular-nums"
+          style={{
+            gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr)',
+            width: '100%',
+          }}
+        >
+          <span className="min-w-0 justify-self-end text-right">{whole}</span>
+          <span className="justify-self-center opacity-90">.</span>
+          <span className="min-w-0 justify-self-start text-left opacity-90">
+            {fraction}
+          </span>
+        </span>
+      ) : (
+        <span>{full}</span>
+      )}
+    </p>
+  );
+}
+
 function formatDecimalString(value: string, maxDec = 4): string {
   const normalized = finalizeStakeAmountInput(value);
   if (!normalized) return '0';
@@ -285,7 +358,8 @@ function normalizeBoostClaimableYocto(
 
 function BoostCollectSection({
   visibleLiveClaimableYocto,
-  perSecond,
+  displayFractionDigits,
+  isLiveAccruing,
   perSecondDisplay,
   claimCelebration,
   claimCelebrationDurationSeconds,
@@ -298,7 +372,8 @@ function BoostCollectSection({
   className,
 }: {
   visibleLiveClaimableYocto: bigint;
-  perSecond: number;
+  displayFractionDigits: number;
+  isLiveAccruing: boolean;
   perSecondDisplay: string;
   claimCelebration: ClaimCelebration | null;
   claimCelebrationDurationSeconds: number;
@@ -326,7 +401,10 @@ function BoostCollectSection({
       >
         +
         {claimCelebration
-          ? formatYoctoSocialFixed(claimCelebration.amountYocto)
+          ? formatYoctoSocialFixed(
+              claimCelebration.amountYocto,
+              displayFractionDigits
+            )
           : '0'}
       </CollectCelebration>
       <motion.div
@@ -354,17 +432,20 @@ function BoostCollectSection({
         }}
         className="flex flex-col items-center"
       >
-        <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+        <span className="portal-eyebrow text-muted-foreground">
           Ready to Collect
         </span>
-        <p className="portal-green-text mt-1 font-mono text-3xl font-bold tabular-nums tracking-[-0.03em] md:text-4xl">
-          {formatYoctoSocialFixed(visibleLiveClaimableYocto)}
-        </p>
-        <span className="portal-green-text mt-0.5 text-[10px] font-medium uppercase tracking-[0.16em] opacity-70">
+        <LiveClaimableAmount
+          valueYocto={visibleLiveClaimableYocto}
+          fractionDigits={displayFractionDigits}
+          isLiveAccruing={isLiveAccruing}
+          className="portal-green-text mt-1 font-mono text-3xl font-bold tabular-nums tracking-[-0.03em] md:text-4xl"
+        />
+        <span className="portal-green-text mt-0.5 portal-eyebrow-wide opacity-70">
           $SOCIAL
         </span>
-        {perSecond > 0 && (
-          <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+        {isLiveAccruing && (
+          <p className="mt-1 font-mono portal-type-label text-muted-foreground">
             +{perSecondDisplay}/sec
           </p>
         )}
@@ -382,7 +463,7 @@ function BoostCollectSection({
           Collect
         </Button>
         {rewardsClaimed !== '0' && (
-          <p className="mt-2 text-[11px] text-muted-foreground">
+          <p className="mt-2 portal-type-label text-muted-foreground">
             Collected{' '}
             <span className="portal-green-text font-mono font-semibold tracking-tight">
               {formatSocial(rewardsClaimed)}
@@ -390,7 +471,7 @@ function BoostCollectSection({
           </p>
         )}
         {hint ? (
-          <p className="mt-2 max-w-xs text-[11px] leading-relaxed text-muted-foreground">
+          <p className="mt-2 max-w-xs portal-type-label leading-relaxed text-muted-foreground">
             {hint}
           </p>
         ) : null}
@@ -459,6 +540,7 @@ export default function BoostPage() {
   const [liveClaimableYocto, setLiveClaimableYocto] = useState(0n);
   const liveClaimableYoctoRef = useRef(0n);
   const liveCounterPausedRef = useRef(false);
+  const lastConfirmedActionRef = useRef<BoostAction | null>(null);
   const hasLoadedAccountData =
     accountId !== null && loadedAccountIdRef.current === accountId;
   const account = hasLoadedAccountData ? loadedAccount : null;
@@ -477,7 +559,6 @@ export default function BoostPage() {
   const claimCelebrationTimeoutRef = useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
-  const lastConfirmedActionRef = useRef<BoostAction | null>(null);
   const { txResult, setTxResult, clearTxResult, trackTransaction } =
     useNearTransactionFeedback(accountId);
 
@@ -493,8 +574,6 @@ export default function BoostPage() {
   const minimumStakeYocto = BigInt(socialToYocto(MIN_STAKE_AMOUNT));
   const effectiveStakeYocto = applyLockBonus(stakeAmountYocto, period.bonus);
   const hasStake = account && BigInt(account.locked_amount) > 0n;
-  const hasUnclaimedRewards =
-    hasLoadedAccountData && visibleLiveClaimableYocto >= BOOST_CLAIM_DUST_YOCTO;
   const lockedAmountYocto = hasStake ? BigInt(account.locked_amount) : 0n;
   const newTotalLockedYocto = lockedAmountYocto + stakeAmountYocto;
   const newEffectiveStakeYocto = applyLockBonus(
@@ -667,13 +746,15 @@ export default function BoostPage() {
 
         loadedAccountIdRef.current = requestedAccountId;
         setLoadedAccount(acct);
+        const chainClaimableYocto = parseYocto(rate?.claimable_now);
+        const perSecondYocto = parseYocto(rate?.rewards_per_second);
         setLoadedRewardRate(
           rate
             ? {
                 ...rate,
                 claimable_now: normalizeBoostClaimableYocto(
-                  parseYocto(rate.claimable_now),
-                  parseYocto(rate.rewards_per_second)
+                  chainClaimableYocto,
+                  perSecondYocto
                 ).toString(),
               }
             : rate
@@ -705,6 +786,17 @@ export default function BoostPage() {
     setLiveClaimableYoctoValue,
   ]);
 
+  // Re-anchor live counter to chain while connected.
+  useEffect(() => {
+    if (!accountId) return;
+
+    const interval = setInterval(() => {
+      setRefreshKey((key) => key + 1);
+    }, BOOST_CHAIN_RESYNC_MS);
+
+    return () => clearInterval(interval);
+  }, [accountId]);
+
   useEffect(() => {
     if (!rewardRate) {
       setLiveClaimableYoctoValue(0n);
@@ -721,11 +813,12 @@ export default function BoostPage() {
       lastConfirmedActionRef.current === 'unlock';
     lastConfirmedActionRef.current = null;
     liveCounterPausedRef.current = false;
-    const startValue = allowResetDown
-      ? initial
-      : initial > liveClaimableYoctoRef.current
+    const startValue =
+      allowResetDown || perSecondYocto <= 0n
         ? initial
-        : liveClaimableYoctoRef.current;
+        : initial > liveClaimableYoctoRef.current
+          ? initial
+          : liveClaimableYoctoRef.current;
 
     if (perSecondYocto <= 0n) {
       setLiveClaimableYoctoValue(startValue);
@@ -742,7 +835,7 @@ export default function BoostPage() {
       setLiveClaimableYoctoValue(
         startValue + (perSecondYocto * elapsedMs) / 1000n
       );
-    }, 100);
+    }, LIVE_COUNTER_TICK_MS);
 
     return () => clearInterval(interval);
   }, [rewardRate, setLiveClaimableYoctoValue]);
@@ -805,6 +898,8 @@ export default function BoostPage() {
             const claimedYocto = liveClaimableYoctoRef.current;
             liveCounterPausedRef.current = true;
             triggerClaimCelebration(claimedYocto);
+          }
+          if (action === 'claim' || action === 'unlock') {
             setLiveClaimableYoctoValue(0n);
             setLoadedRewardRate((prev) =>
               prev ? { ...prev, claimable_now: '0' } : prev
@@ -930,7 +1025,7 @@ export default function BoostPage() {
       'unlock',
       {
         submitted: 'Releasing…',
-        success: 'Position released and returned!',
+        success: 'Position released and rewards collected!',
         failure: 'Release failed.',
       },
       async (signingWallet, signerId) =>
@@ -1049,6 +1144,7 @@ export default function BoostPage() {
     perSecondYocto,
     REWARD_RATE_FRACTION_DIGITS
   );
+  const shouldLiveAccrueRewards = hasStake && perSecondYocto > 0n;
   const dailyRewardEstimate = perSecond > 0 ? perSecond * 86400 : 0;
   const publicWeeklyReleaseYocto =
     stats?.active_weekly_rate_bps !== null &&
@@ -1159,7 +1255,7 @@ export default function BoostPage() {
                           </PortalBadge>
                         ) : (
                           <PortalBadge
-                            accent="slate"
+                            accent="neutral"
                             size="sm"
                             className="gap-1.5"
                           >
@@ -1173,7 +1269,8 @@ export default function BoostPage() {
                     <BoostCollectSection
                       className="mt-4"
                       visibleLiveClaimableYocto={visibleLiveClaimableYocto}
-                      perSecond={perSecond}
+                      displayFractionDigits={LIVE_COUNTER_DISPLAY_FRACTION_DIGITS}
+                      isLiveAccruing={shouldLiveAccrueRewards}
                       perSecondDisplay={perSecondDisplay}
                       claimCelebration={claimCelebration}
                       claimCelebrationDurationSeconds={
@@ -1189,7 +1286,7 @@ export default function BoostPage() {
                     {/* ── Stats ── */}
                     <StatStrip groupClassName="mt-2">
                       <StatStripCell label="Locked" showDivider>
-                        <p className="portal-slate-text font-mono text-sm font-semibold tracking-tight md:text-base">
+                        <p className="text-portal-neutral font-mono text-sm font-semibold tracking-tight md:text-base">
                           {formatSocial(account.locked_amount)}
                         </p>
                       </StatStripCell>
@@ -1199,7 +1296,7 @@ export default function BoostPage() {
                         </p>
                       </StatStripCell>
                       <StatStripCell label="Period">
-                        <p className="portal-slate-text text-sm font-semibold md:text-base">
+                        <p className="text-portal-neutral text-sm font-semibold md:text-base">
                           {LOCK_PERIODS.find(
                             (period) => period.months === account.lock_months
                           )?.short ?? `${account.lock_months}mo`}
@@ -1231,7 +1328,7 @@ export default function BoostPage() {
                     )}
 
                     {isSoleReleaseContributor && (
-                      <p className="mt-2 text-center text-[11px] text-muted-foreground">
+                      <p className="mt-2 text-center portal-type-label text-muted-foreground">
                         You are the only contributor — receiving 100% of pool
                         release.
                       </p>
@@ -1248,7 +1345,7 @@ export default function BoostPage() {
                           loading={txPending && pendingAction === 'unlock'}
                         >
                           <Unlock className="h-3.5 w-3.5" />
-                          Release
+                          Release + Collect
                         </Button>
                       ) : (
                         <>
@@ -1353,46 +1450,6 @@ export default function BoostPage() {
                     </AnimatePresence>
                   </SurfacePanel>
                 </motion.div>
-              ) : hasUnclaimedRewards && account ? (
-                <motion.div
-                  key="position-unclaimed"
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.28 }}
-                  className="h-full"
-                >
-                  <SurfacePanel
-                    radius="xl"
-                    tone="soft"
-                    className="h-full p-4 md:p-5"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <h2 className="text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                        Unclaimed Rewards
-                      </h2>
-                      <PortalBadge accent="gold" size="sm">
-                        Released
-                      </PortalBadge>
-                    </div>
-                    <BoostCollectSection
-                      className="mt-4"
-                      visibleLiveClaimableYocto={visibleLiveClaimableYocto}
-                      perSecond={perSecond}
-                      perSecondDisplay={perSecondDisplay}
-                      claimCelebration={claimCelebration}
-                      claimCelebrationDurationSeconds={
-                        claimCelebrationDurationSeconds
-                      }
-                      reduceMotion={reduceMotion}
-                      txPending={txPending}
-                      pendingAction={pendingAction}
-                      onClaim={handleClaim}
-                      rewardsClaimed={account.rewards_claimed}
-                      hint="From your completed commitment. Collect anytime, then commit again below."
-                    />
-                  </SurfacePanel>
-                </motion.div>
               ) : (
                 <motion.div
                   key="position-empty"
@@ -1477,9 +1534,9 @@ export default function BoostPage() {
                   >
                     {hasStake && !lockExpired && index === currentPeriodIdx && (
                       <PortalBadge
-                        accent="slate"
+                        accent="neutral"
                         size="sm"
-                        className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[9px] sm:px-2 sm:text-[10px]"
+                        className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 px-1.5 py-0.5 portal-type-micro sm:px-2"
                       >
                         Current
                       </PortalBadge>
@@ -1697,10 +1754,10 @@ export default function BoostPage() {
             {stakeButtonLabel}
           </Button>
 
-          <p className="mt-3 text-center text-[11px] leading-relaxed text-muted-foreground">
+          <p className="mt-3 text-center portal-type-label leading-relaxed text-muted-foreground">
             {hasStake
-              ? 'Adding resets your commitment period. Balance remains collectable.'
-              : 'Your SOCIAL stays committed for the full period. Balance is collectable during commitment.'}
+              ? 'Adding resets your commitment period. Rewards stay collectable and settle when you release.'
+              : 'Your SOCIAL stays committed for the full period. Rewards are collectable during commitment and settle when you release.'}
           </p>
         </SurfacePanel>
       </motion.div>

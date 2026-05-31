@@ -8,8 +8,8 @@ interface TokenIconProps {
 }
 
 const sizeClass = {
-  sm: 'h-4 w-4 text-[8px]',
-  md: 'h-5 w-5 text-[9px]',
+  sm: 'h-4 w-4 portal-type-micro',
+  md: 'h-5 w-5 portal-type-micro',
 } as const;
 
 /** Circular token icon with letter fallback (matches transparency page). */

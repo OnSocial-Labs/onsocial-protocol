@@ -171,7 +171,7 @@ const DECISIONS: Decision[] = [
     wallet: 'No user wallet',
     auth: 'API key',
     method: 'os.rewards.credit, os.query.graphql, direct service calls',
-    accent: 'slate',
+    accent: 'neutral',
   },
 ];
 
@@ -345,7 +345,7 @@ const PLAYGROUND_RECIPES: Recipe[] = [
     methods: ['os.storageAccount.balance', 'os.storageAccount.deposit'],
     badges: ['Read', 'Wallet deposit'],
     note: 'Explains the storage balance every real write depends on.',
-    accent: 'slate',
+    accent: 'neutral',
     href: '/playground?example=check-storage',
   },
 ];
@@ -433,7 +433,7 @@ const METHOD_FAMILIES: MethodFamily[] = [
   {
     title: 'Advanced control',
     icon: Route,
-    accent: 'slate',
+    accent: 'neutral',
     summary:
       'Lower-level tools for custom apps, atomic batches, raw actions, and self-hosted infrastructure.',
     methods: [
@@ -489,7 +489,7 @@ function MethodList({ methods }: { methods: string[] }) {
       {methods.map((method) => (
         <li key={method} className="flex min-w-0 gap-2">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
-          <span className="break-words font-mono text-xs leading-5 text-foreground/80 md:text-[13px]">
+          <span className="break-words font-mono text-xs leading-5 text-portal-neutral">
             {method}
           </span>
         </li>
@@ -656,7 +656,7 @@ export default function SDKPage() {
           description="Most confusion comes from mixing these surfaces. Treat this as the decision table before choosing a method."
         />
         <div className="overflow-hidden rounded-[1.25rem] border border-border/45 bg-background/35">
-          <div className="grid grid-cols-12 border-b border-border/35 bg-muted/20 px-4 py-3 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+          <div className="grid grid-cols-12 border-b border-border/35 bg-muted/20 px-4 py-3 portal-eyebrow text-muted-foreground">
             <div className="col-span-12 md:col-span-3">Choice</div>
             <div className="hidden md:col-span-3 md:block">Use for</div>
             <div className="hidden md:col-span-2 md:block">Wallet</div>
@@ -680,13 +680,13 @@ export default function SDKPage() {
               <div className="col-span-12 text-sm leading-6 text-muted-foreground md:col-span-3">
                 {decision.use}
               </div>
-              <div className="col-span-6 text-sm text-foreground/80 md:col-span-2">
+              <div className="col-span-6 text-sm text-portal-neutral md:col-span-2">
                 {decision.wallet}
               </div>
-              <div className="col-span-6 text-sm text-foreground/80 md:col-span-2">
+              <div className="col-span-6 text-sm text-portal-neutral md:col-span-2">
                 {decision.auth}
               </div>
-              <div className="col-span-12 font-mono text-xs leading-5 text-foreground/80 md:col-span-2">
+              <div className="col-span-12 font-mono text-xs leading-5 text-portal-neutral md:col-span-2">
                 {decision.method}
               </div>
             </div>
@@ -746,7 +746,7 @@ export default function SDKPage() {
                   {recipe.badges.map((badge) => (
                     <span
                       key={badge}
-                      className="rounded-full border border-border/35 bg-background/45 px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
+                      className="rounded-full border border-border/35 bg-background/45 px-2.5 py-1 portal-type-label font-medium text-muted-foreground"
                     >
                       {badge}
                     </span>
@@ -889,7 +889,7 @@ await os.social.set({
       >
         <SectionHeader
           badge="Packages"
-          badgeAccent="slate"
+          badgeAccent="neutral"
           title="Installable surfaces"
           description="Use the unified SDK for protocol apps. The rewards package remains available for partner integrations that only need rewards."
         />
