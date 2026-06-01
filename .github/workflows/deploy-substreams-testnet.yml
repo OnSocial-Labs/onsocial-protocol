@@ -163,6 +163,7 @@ jobs:
         run: |
           mkdir -p $GITHUB_WORKSPACE/spkg-upload
           cp onsocial-events-${VER}-combined.spkg $GITHUB_WORKSPACE/spkg-upload/
+          cp onsocial-events-${VER}-social-spend.spkg $GITHUB_WORKSPACE/spkg-upload/
           find . -maxdepth 1 -type f -name '*.sql' -exec cp {} $GITHUB_WORKSPACE/spkg-upload/ \;
           if [ -d migrations ]; then
             mkdir -p $GITHUB_WORKSPACE/spkg-upload/migrations
@@ -208,7 +209,7 @@ jobs:
             HASURA_URL="http://127.0.0.1:8080/v1/graphql"
 
             echo "=== Substreams deploy: ${{ steps.sha.outputs.short }} (${VER}) ==="
-            echo "Mode: single combined stream (1 sink for all contracts)"
+            echo "Mode: single combined stream (1 sink for all contracts incl. social-spend)"
 
             # DB_URL from Google Secret Manager (passed via SUBSTREAMS_DB_URL env)
             DB_URL="${SUBSTREAMS_DB_URL:-}"
@@ -353,6 +354,11 @@ jobs:
             # Swap spkg
             [ -f "${SPKG_DIR}/${SPKG_NAME}" ] && cp "${SPKG_DIR}/${SPKG_NAME}" "${SPKG_DIR}/${SPKG_NAME}.prev"
             mv "${UPLOAD_DIR}/${SPKG_NAME}" "${SPKG_DIR}/${SPKG_NAME}"
+            SOCIAL_SPEND_SPKG="onsocial-events-${VER}-social-spend.spkg"
+            if [ -f "${UPLOAD_DIR}/${SOCIAL_SPEND_SPKG}" ]; then
+              mv "${UPLOAD_DIR}/${SOCIAL_SPEND_SPKG}" "${SPKG_DIR}/${SOCIAL_SPEND_SPKG}"
+              echo "✓ Social-spend spkg installed"
+            fi
             cp "${UPLOAD_DIR}"/*.sql "${SPKG_DIR}/" 2>/dev/null || true
             cp "${UPLOAD_DIR}"/*.sh "${SPKG_DIR}/" 2>/dev/null || true
             rm -rf "${SPKG_DIR}/migrations"
@@ -425,7 +431,7 @@ jobs:
             fi
 
             # Build the combined params string
-            PARAMS="core=core.onsocial.${NETWORK_SUFFIX}&boost=boost.onsocial.${NETWORK_SUFFIX}&rewards=rewards.onsocial.${NETWORK_SUFFIX}&token=token.onsocial.${NETWORK_SUFFIX}&scarces=scarces.onsocial.${NETWORK_SUFFIX}"
+            PARAMS="core=core.onsocial.${NETWORK_SUFFIX}&boost=boost.onsocial.${NETWORK_SUFFIX}&rewards=rewards.onsocial.${NETWORK_SUFFIX}&token=token.onsocial.${NETWORK_SUFFIX}&scarces=scarces.onsocial.${NETWORK_SUFFIX}&social_spend=social-spend.onsocial.${NETWORK_SUFFIX}"
 
             # Write sink secrets/config to root-only credential source files.
             install -d -m 700 /etc/onsocial/credentials/${SERVICE}
@@ -467,6 +473,25 @@ jobs:
               exit 1
             fi
             echo "✓ Systemd unit does not expose runtime environment secrets"
+
+            # One-time catch-up when social-spend was missing from combined params.
+            SOCIAL_SPEND_SPKG="${SPKG_DIR}/onsocial-events-${VER}-social-spend.spkg"
+            JOIN_COUNT=$($PSQL -tAc \
+              "SELECT COUNT(*) FROM social_spend_events WHERE action='join_rally' AND season_id='season-zero'" \
+              2>/dev/null | tr -d '[:space:]' || echo "0")
+            if [ "${JOIN_COUNT:-0}" = "0" ] && [ -f "$SOCIAL_SPEND_SPKG" ]; then
+              echo ">>> Backfilling social-spend (module initial block → head)..."
+              export SUBSTREAMS_API_TOKEN="${SUBSTREAMS_API_TOKEN}"
+              substreams-sink-sql run "$DB_URL" "$SOCIAL_SPEND_SPKG" \
+                -e "$ENDPOINT" \
+                -p "map_social_spend_output=contract_id=social-spend.onsocial.${NETWORK_SUFFIX}" \
+                --start-block 251120000 \
+                --on-module-hash-mistmatch warn \
+                || echo "⚠️  social-spend backfill returned non-zero (continuing)"
+              echo "✓ Social-spend backfill finished"
+            else
+              echo "ℹ️ Skipping social-spend backfill (join_count=${JOIN_COUNT:-?}, spkg=$([ -f "$SOCIAL_SPEND_SPKG" ] && echo yes || echo no))"
+            fi
 
             # Start sink
             systemctl start "$SERVICE"
