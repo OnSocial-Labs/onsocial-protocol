@@ -163,7 +163,6 @@ jobs:
         run: |
           mkdir -p $GITHUB_WORKSPACE/spkg-upload
           cp onsocial-events-${VER}-combined.spkg $GITHUB_WORKSPACE/spkg-upload/
-          cp onsocial-events-${VER}-social-spend.spkg $GITHUB_WORKSPACE/spkg-upload/
           find . -maxdepth 1 -type f -name '*.sql' -exec cp {} $GITHUB_WORKSPACE/spkg-upload/ \;
           if [ -d migrations ]; then
             mkdir -p $GITHUB_WORKSPACE/spkg-upload/migrations
@@ -354,11 +353,6 @@ jobs:
             # Swap spkg
             [ -f "${SPKG_DIR}/${SPKG_NAME}" ] && cp "${SPKG_DIR}/${SPKG_NAME}" "${SPKG_DIR}/${SPKG_NAME}.prev"
             mv "${UPLOAD_DIR}/${SPKG_NAME}" "${SPKG_DIR}/${SPKG_NAME}"
-            SOCIAL_SPEND_SPKG="onsocial-events-${VER}-social-spend.spkg"
-            if [ -f "${UPLOAD_DIR}/${SOCIAL_SPEND_SPKG}" ]; then
-              mv "${UPLOAD_DIR}/${SOCIAL_SPEND_SPKG}" "${SPKG_DIR}/${SOCIAL_SPEND_SPKG}"
-              echo "✓ Social-spend spkg installed"
-            fi
             cp "${UPLOAD_DIR}"/*.sql "${SPKG_DIR}/" 2>/dev/null || true
             cp "${UPLOAD_DIR}"/*.sh "${SPKG_DIR}/" 2>/dev/null || true
             rm -rf "${SPKG_DIR}/migrations"
@@ -473,50 +467,6 @@ jobs:
               exit 1
             fi
             echo "✓ Systemd unit does not expose runtime environment secrets"
-
-            # Catch-up when social-spend was missing from combined params (e.g. genesis joins).
-            SOCIAL_SPEND_SPKG="${SPKG_DIR}/onsocial-events-${VER}-social-spend.spkg"
-            JOIN_COUNT=$($PSQL -tAc \
-              "SELECT COUNT(*) FROM social_spend_events WHERE action='join_rally' AND season_id='season-zero'" \
-              2>/dev/null | tr -d '[:space:]' || echo "0")
-            echo "ℹ️ season-zero join_rally rows in indexer: ${JOIN_COUNT:-0}"
-            if [ "${JOIN_COUNT:-0}" = "0" ]; then
-              if [ ! -f "$SOCIAL_SPEND_SPKG" ]; then
-                echo "❌ Missing ${SOCIAL_SPEND_SPKG} — cannot backfill social-spend"
-                exit 1
-              fi
-              # Narrow window around first live joins (faster than full module initial block).
-              BACKFILL_START="${SOCIAL_SPEND_BACKFILL_START:-252940000}"
-              BACKFILL_STOP="${SOCIAL_SPEND_BACKFILL_STOP:-252950000}"
-              BACKFILL_CURSORS_TABLE="social_spend_backfill_cursors"
-              BACKFILL_HISTORY_TABLE="social_spend_backfill_history"
-              echo ">>> Backfilling social-spend blocks ${BACKFILL_START} → ${BACKFILL_STOP}..."
-              echo "    Isolated cursor table: ${BACKFILL_CURSORS_TABLE}"
-              $PSQL -c "DROP TABLE IF EXISTS ${BACKFILL_CURSORS_TABLE}, ${BACKFILL_HISTORY_TABLE}" >/dev/null
-              $PSQL -c "DELETE FROM social_spend_events WHERE block_height >= ${BACKFILL_START}::bigint AND block_height < ${BACKFILL_STOP}::bigint" >/dev/null
-              export SUBSTREAMS_API_TOKEN="${SUBSTREAMS_API_TOKEN}"
-              # Block range is a positional arg (this sink-sql build has no --start-block flag).
-              if ! substreams-sink-sql run "$DB_URL" "$SOCIAL_SPEND_SPKG" "${BACKFILL_START}:${BACKFILL_STOP}" \
-                -e "$ENDPOINT" \
-                -p "map_social_spend_output=contract_id=social-spend.onsocial.${NETWORK_SUFFIX}" \
-                --cursors-table "$BACKFILL_CURSORS_TABLE" \
-                --history-table "$BACKFILL_HISTORY_TABLE" \
-                --on-module-hash-mistmatch warn; then
-                echo "❌ social-spend backfill failed"
-                exit 1
-              fi
-              JOIN_COUNT=$($PSQL -tAc \
-                "SELECT COUNT(*) FROM social_spend_events WHERE action='join_rally' AND season_id='season-zero'" \
-                | tr -d '[:space:]')
-              echo "ℹ️ season-zero join_rally rows after backfill: ${JOIN_COUNT}"
-              if [ "${JOIN_COUNT:-0}" = "0" ]; then
-                echo "❌ Backfill finished but no season-zero joins indexed"
-                exit 1
-              fi
-              echo "✓ Social-spend backfill indexed ${JOIN_COUNT} join(s)"
-            else
-              echo "✓ Social-spend joins already indexed — skipping backfill"
-            fi
 
             # Start sink
             systemctl start "$SERVICE"
