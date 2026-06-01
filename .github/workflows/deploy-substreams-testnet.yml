@@ -474,23 +474,42 @@ jobs:
             fi
             echo "✓ Systemd unit does not expose runtime environment secrets"
 
-            # One-time catch-up when social-spend was missing from combined params.
+            # Catch-up when social-spend was missing from combined params (e.g. genesis joins).
             SOCIAL_SPEND_SPKG="${SPKG_DIR}/onsocial-events-${VER}-social-spend.spkg"
             JOIN_COUNT=$($PSQL -tAc \
               "SELECT COUNT(*) FROM social_spend_events WHERE action='join_rally' AND season_id='season-zero'" \
               2>/dev/null | tr -d '[:space:]' || echo "0")
-            if [ "${JOIN_COUNT:-0}" = "0" ] && [ -f "$SOCIAL_SPEND_SPKG" ]; then
-              echo ">>> Backfilling social-spend (module initial block → head)..."
+            echo "ℹ️ season-zero join_rally rows in indexer: ${JOIN_COUNT:-0}"
+            if [ "${JOIN_COUNT:-0}" = "0" ]; then
+              if [ ! -f "$SOCIAL_SPEND_SPKG" ]; then
+                echo "❌ Missing ${SOCIAL_SPEND_SPKG} — cannot backfill social-spend"
+                exit 1
+              fi
+              # Narrow window around first live joins (faster than full module initial block).
+              BACKFILL_START="${SOCIAL_SPEND_BACKFILL_START:-252940000}"
+              BACKFILL_STOP="${SOCIAL_SPEND_BACKFILL_STOP:-252950000}"
+              echo ">>> Backfilling social-spend blocks ${BACKFILL_START} → ${BACKFILL_STOP}..."
               export SUBSTREAMS_API_TOKEN="${SUBSTREAMS_API_TOKEN}"
-              substreams-sink-sql run "$DB_URL" "$SOCIAL_SPEND_SPKG" \
+              if ! substreams-sink-sql run "$DB_URL" "$SOCIAL_SPEND_SPKG" \
                 -e "$ENDPOINT" \
                 -p "map_social_spend_output=contract_id=social-spend.onsocial.${NETWORK_SUFFIX}" \
-                --start-block 251120000 \
-                --on-module-hash-mistmatch warn \
-                || echo "⚠️  social-spend backfill returned non-zero (continuing)"
-              echo "✓ Social-spend backfill finished"
+                --start-block "$BACKFILL_START" \
+                --stop-block "$BACKFILL_STOP" \
+                --on-module-hash-mistmatch warn; then
+                echo "❌ social-spend backfill failed"
+                exit 1
+              fi
+              JOIN_COUNT=$($PSQL -tAc \
+                "SELECT COUNT(*) FROM social_spend_events WHERE action='join_rally' AND season_id='season-zero'" \
+                | tr -d '[:space:]')
+              echo "ℹ️ season-zero join_rally rows after backfill: ${JOIN_COUNT}"
+              if [ "${JOIN_COUNT:-0}" = "0" ]; then
+                echo "❌ Backfill finished but no season-zero joins indexed"
+                exit 1
+              fi
+              echo "✓ Social-spend backfill indexed ${JOIN_COUNT} join(s)"
             else
-              echo "ℹ️ Skipping social-spend backfill (join_count=${JOIN_COUNT:-?}, spkg=$([ -f "$SOCIAL_SPEND_SPKG" ] && echo yes || echo no))"
+              echo "✓ Social-spend joins already indexed — skipping backfill"
             fi
 
             # Start sink
