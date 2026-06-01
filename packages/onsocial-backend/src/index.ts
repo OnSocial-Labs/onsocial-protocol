@@ -5,10 +5,12 @@ import { config } from './config/index.js';
 import { logger } from './logger.js';
 import { webhookHandler, setupWebhook, startPolling } from './bot/index.js';
 import { close as closeDb } from './db/index.js';
+import { closeIndexer } from './db/indexer.js';
 import governanceRoutes from './routes/governance.js';
 import partnerRoutes from './routes/partner.js';
 import partnerGovernanceRoutes from './routes/partner-governance.js';
 import portalRewardsRoutes from './routes/portal-rewards.js';
+import seasonsRoutes from './routes/seasons.js';
 import welcomeNearRoutes from './routes/welcome-near.js';
 import { initPartnerKeyCache } from './middleware/partnerAuth.js';
 import { ensurePortalRewardsPartnerKey } from './services/portal-rewards-key.js';
@@ -53,7 +55,10 @@ app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', origin);
   }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Api-Key');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'Content-Type, X-Api-Key, X-Admin-Key'
+  );
   if (req.method === 'OPTIONS') {
     res.status(204).end();
     return;
@@ -86,6 +91,7 @@ app.post('/webhooks/telegram', webhookHandler);
 // partnerRoutes applies partnerAuth to all /v1/* sub-routes.
 app.use('/v1/governance', governanceRoutes);
 app.use('/v1/partners', partnerGovernanceRoutes);
+app.use('/v1/seasons', seasonsRoutes);
 // Welcome NEAR routes MUST be registered before portal rewards routes because
 // portalRewards applies partnerAuth to every /v1/portal request on that router.
 app.use('/v1/portal', welcomeNearRoutes);
@@ -165,6 +171,7 @@ function shutdown(signal: string): void {
   server.close(async () => {
     try {
       await closeDb();
+      await closeIndexer();
     } catch (err) {
       logger.error({ err }, 'Error closing DB during shutdown');
     }

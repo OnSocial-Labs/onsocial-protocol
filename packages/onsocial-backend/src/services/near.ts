@@ -230,6 +230,15 @@ export async function viewContractAt<T = unknown>(
   return viewMethodAt<T>(accountId, methodName, args);
 }
 
+/** Public wrapper for view calls that need the unparsed JSON payload. */
+export async function viewContractRawAt(
+  accountId: string,
+  methodName: string,
+  args: Record<string, unknown>
+): Promise<string> {
+  return viewMethodRawAt(accountId, methodName, args);
+}
+
 /** Call a view method and return the raw UTF-8 string (before JSON.parse). */
 async function viewMethodRaw(
   methodName: string,

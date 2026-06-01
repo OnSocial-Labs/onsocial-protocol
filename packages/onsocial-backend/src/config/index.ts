@@ -39,6 +39,16 @@ export const config = {
     ((process.env.NEAR_NETWORK || 'testnet') === 'mainnet'
       ? 'rewards.onsocial.near'
       : 'rewards.onsocial.testnet'),
+  socialSpendContract:
+    process.env.SOCIAL_SPEND_CONTRACT ||
+    process.env.RELAYER_SOCIAL_SPEND_CONTRACT_ID ||
+    ((process.env.NEAR_NETWORK || 'testnet') === 'mainnet'
+      ? 'social-spend.onsocial.near'
+      : 'social-spend.onsocial.testnet'),
+  seasonSettlementAdminKey:
+    process.env.SEASON_SETTLEMENT_ADMIN_KEY ||
+    process.env.ONSOCIAL_SEASON_ADMIN_KEY ||
+    '',
   nearRpcUrl:
     process.env.NEAR_RPC_URL ||
     ((process.env.NEAR_NETWORK || 'testnet') === 'mainnet'
@@ -57,6 +67,11 @@ export const config = {
 
   // Postgres
   databaseUrl:
+    process.env.DATABASE_URL ||
+    'postgresql://postgres:postgres@localhost:5432/onsocial_backend',
+  /** Read-only indexer DB for Substreams materialized tables used by seasons. */
+  indexerDatabaseUrl:
+    process.env.INDEXER_DATABASE_URL ||
     process.env.DATABASE_URL ||
     'postgresql://postgres:postgres@localhost:5432/onsocial_backend',
 
