@@ -490,11 +490,10 @@ jobs:
               BACKFILL_STOP="${SOCIAL_SPEND_BACKFILL_STOP:-252950000}"
               echo ">>> Backfilling social-spend blocks ${BACKFILL_START} → ${BACKFILL_STOP}..."
               export SUBSTREAMS_API_TOKEN="${SUBSTREAMS_API_TOKEN}"
-              if ! substreams-sink-sql run "$DB_URL" "$SOCIAL_SPEND_SPKG" \
+              # Block range is a positional arg (this sink-sql build has no --start-block flag).
+              if ! substreams-sink-sql run "$DB_URL" "$SOCIAL_SPEND_SPKG" "${BACKFILL_START}:${BACKFILL_STOP}" \
                 -e "$ENDPOINT" \
                 -p "map_social_spend_output=contract_id=social-spend.onsocial.${NETWORK_SUFFIX}" \
-                --start-block "$BACKFILL_START" \
-                --stop-block "$BACKFILL_STOP" \
                 --on-module-hash-mistmatch warn; then
                 echo "❌ social-spend backfill failed"
                 exit 1
