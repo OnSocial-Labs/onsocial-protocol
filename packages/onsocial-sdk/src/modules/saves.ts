@@ -73,7 +73,10 @@ export class SavesModule {
   }
 
   /** Remove a saved bookmark. */
-  remove(target: SaveTarget, opts?: { wait?: boolean }): Promise<RelayResponse> {
+  remove(
+    target: SaveTarget,
+    opts?: { wait?: boolean }
+  ): Promise<RelayResponse> {
     return opts
       ? this._social.unsave(toContentPath(target), opts)
       : this._social.unsave(toContentPath(target));

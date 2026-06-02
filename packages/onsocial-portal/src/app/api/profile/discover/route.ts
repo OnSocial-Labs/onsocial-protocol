@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { MaterialisedProfile } from '@onsocial/sdk';
+import { loadDiscoverIndexPage } from '@/lib/profile-discover-index';
 import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
 
 export const runtime = 'nodejs';
@@ -20,13 +21,6 @@ interface ProfileDiscoverResult {
   viewerStanding: boolean;
   theyStandWithViewer: boolean;
   targetEndorsedViewer: boolean;
-}
-
-interface StandingListItem {
-  accountId: string;
-  targetAccount: string;
-  since: number | null;
-  blockTimestamp: number;
 }
 
 interface ProfileDiscoverResponse {
@@ -70,44 +64,6 @@ function getErrorMessage(error: unknown): string {
   return 'Profile discovery failed';
 }
 
-function parseStandingSince(raw: string | null | undefined): number | null {
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as { since?: unknown };
-    return typeof parsed.since === 'number' ? parsed.since : null;
-  } catch {
-    return null;
-  }
-}
-
-async function listViewerStandingRows(
-  os: ReturnType<typeof createPortalServerOnSocialClient>,
-  viewerAccountId: string
-): Promise<StandingListItem[]> {
-  const res = await os.query.graphql<{
-    standingsCurrent: Array<{
-      accountId: string;
-      targetAccount: string;
-      value: string | null;
-      blockTimestamp: number;
-    }>;
-  }>({
-    query: `query ViewerStandingRows($id: String!) {
-      standingsCurrent(where: {accountId: {_eq: $id}}, limit: 1000) {
-        accountId targetAccount value blockTimestamp
-      }
-    }`,
-    variables: { id: viewerAccountId },
-  });
-
-  return (res.data?.standingsCurrent ?? []).map((row) => ({
-    accountId: row.accountId,
-    targetAccount: row.targetAccount,
-    since: parseStandingSince(row.value),
-    blockTimestamp: Number(row.blockTimestamp) || 0,
-  }));
-}
-
 export async function GET(request: NextRequest) {
   const query = getQuery(request);
   const limit = getLimit(request);
@@ -116,36 +72,22 @@ export async function GET(request: NextRequest) {
 
   try {
     const os = createPortalServerOnSocialClient();
-    const [
-      profileRows,
-      viewerOutgoingRows,
-      viewerIncomingIds,
-      viewerReceivedEndorsements,
-    ] = await Promise.all([
-      os.query.profiles.search({ query, limit, offset }),
+    const { profiles: profileRows, viewer } = await loadDiscoverIndexPage(
+      query,
+      limit,
+      offset,
       viewerAccountId
-        ? listViewerStandingRows(os, viewerAccountId).catch(() => [])
-        : Promise.resolve([]),
-      viewerAccountId
-        ? os.standings
-            .listIncoming(viewerAccountId, { limit: 1000 })
-            .catch(() => [])
-        : Promise.resolve([]),
-      viewerAccountId
-        ? os.endorsements
-            .listReceived(viewerAccountId, { limit: 1000 })
-            .catch(() => [])
-        : Promise.resolve([]),
-    ]);
+    );
+
     const viewerOutgoingSet = new Set(
-      viewerOutgoingRows.map((row) => row.targetAccount)
+      viewer?.outgoing.map((row) => row.targetAccount) ?? []
     );
     const viewerOutgoingByTarget = new Map(
-      viewerOutgoingRows.map((row) => [row.targetAccount, row])
+      viewer?.outgoing.map((row) => [row.targetAccount, row]) ?? []
     );
-    const viewerIncomingSet = new Set(viewerIncomingIds);
+    const viewerIncomingSet = new Set(viewer?.incomingAccountIds ?? []);
     const viewerEndorsementIssuerSet = new Set(
-      viewerReceivedEndorsements.map((endorsement) => endorsement.issuer)
+      viewer?.endorsementIssuers ?? []
     );
 
     const results = profileRows.map((row) => {
@@ -191,7 +133,9 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     const detail = getErrorMessage(error);
-    const missingKey = detail.includes('ONSOCIAL_API_KEY');
+    const missingKey =
+      detail.includes('ONSOCIAL_API_KEY') ||
+      detail.includes('OnAPI key is not configured');
 
     return NextResponse.json(
       {

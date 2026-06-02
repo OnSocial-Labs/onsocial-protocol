@@ -8,6 +8,7 @@ export interface AnalyticsOverview {
   sampleLimit: number;
   totals: {
     profiles: number;
+    discoverableProfiles: number;
     posts: number;
     reactions: number;
     claims: number;

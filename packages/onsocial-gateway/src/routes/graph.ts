@@ -113,6 +113,14 @@ graphRouter.get('/token-stats', async (_req: Request, res: Response) => {
   }
 });
 
+// Graph routes below require OnAPI key or JWT — tier controls query depth and rate limits
+graphRouter.use(requireAuth);
+graphRouter.use(queryValidationMiddleware);
+
+/**
+ * GET /graph/protocol-pulse
+ * Curated protocol snapshot (cached analytics overview subset).
+ */
 graphRouter.get('/protocol-pulse', async (_req: Request, res: Response) => {
   try {
     const overview = await getAnalyticsOverview(ANALYTICS_VIEWER_ACCOUNT_ID);
@@ -122,10 +130,12 @@ graphRouter.get('/protocol-pulse', async (_req: Request, res: Response) => {
       windowHours: overview.windowHours,
       totals: {
         profiles: overview.totals.profiles,
+        discoverableProfiles: overview.totals.discoverableProfiles,
         groups: overview.totals.groups,
       },
       recent24h: {
         posts: overview.recent24h.posts,
+        reactions: overview.recent24h.reactions,
       },
     });
   } catch (error) {
@@ -133,10 +143,6 @@ graphRouter.get('/protocol-pulse', async (_req: Request, res: Response) => {
     res.status(502).json({ error: 'Failed to fetch protocol pulse' });
   }
 });
-
-// All remaining graph routes require JWT — tier controls query depth, complexity, and row limits
-graphRouter.use(requireAuth);
-graphRouter.use(queryValidationMiddleware);
 
 /**
  * GET /graph/limits

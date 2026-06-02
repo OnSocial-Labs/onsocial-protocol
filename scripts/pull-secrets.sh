@@ -43,7 +43,6 @@ SECRETS=(
   ADMIN_SECRET
   SEASON_SETTLEMENT_ADMIN_KEY
   ADMIN_WALLETS
-  GATEWAY_SERVICE_KEY
   ONSOCIAL_PORTAL_REWARDS_API_KEY
   REVOLUT_SECRET_KEY
   REVOLUT_PUBLIC_KEY
@@ -109,6 +108,23 @@ for name in "${SECRETS[@]}"; do
     echo "$name=$value"
   fi
 done
+
+# Canonical portal/gateway service OnAPI key (GSM name varies by network).
+service_onapi_secret() {
+  if [ "$NEAR_NETWORK" = "mainnet" ]; then
+    echo "ONSOCIAL_MAINNET_SERVICE_ONAPI_KEY"
+  else
+    echo "ONSOCIAL_SERVICE_ONAPI_KEY"
+  fi
+}
+
+SERVICE_ONAPI_KEY="$(fetch_secret "$(service_onapi_secret)" || true)"
+if [ -z "$SERVICE_ONAPI_KEY" ]; then
+  SERVICE_ONAPI_KEY="$(fetch_secret "GATEWAY_SERVICE_KEY" || true)"
+fi
+if [ -n "$SERVICE_ONAPI_KEY" ]; then
+  echo "ONSOCIAL_API_KEY=$SERVICE_ONAPI_KEY"
+fi
 
 value="$(fetch_secret "$TELEGRAM_BOT_SECRET_NAME" || true)"
 if [ -n "$value" ]; then

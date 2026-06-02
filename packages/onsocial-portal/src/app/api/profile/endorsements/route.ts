@@ -119,9 +119,7 @@ export async function GET(request: NextRequest) {
     );
   } catch (error) {
     const detail = getErrorMessage(error);
-    const missingKey =
-      detail.includes('ONSOCIAL_API_KEY') ||
-      detail.includes('GATEWAY_SERVICE_KEY');
+    const missingKey = detail.includes('ONSOCIAL_API_KEY');
 
     return NextResponse.json(
       {

@@ -75,6 +75,49 @@ describe('EndorsementsModule', () => {
     expect(spies.unendorse).toHaveBeenCalledWith('bob.near', 'rust');
   });
 
+  it('upsert overwrites when the topic is unchanged', async () => {
+    const { mod, spies } = makeMod();
+    await mod.upsert(
+      'bob.near',
+      { topic: 'rust', note: 'updated' },
+      { previousTopic: 'rust' }
+    );
+    expect(spies.unendorse).not.toHaveBeenCalled();
+    expect(spies.endorse).toHaveBeenCalledWith('bob.near', {
+      topic: 'rust',
+      note: 'updated',
+    });
+  });
+
+  it('upsert moves when the topic changes', async () => {
+    const { mod, spies } = makeMod({ existingEndorsement: null });
+    await mod.upsert(
+      'bob.near',
+      { topic: 'design', note: 'great eye' },
+      { previousTopic: 'rust' }
+    );
+    expect(spies.unendorse).toHaveBeenCalledWith('bob.near', 'rust');
+    expect(spies.endorse).toHaveBeenCalledWith('bob.near', {
+      topic: 'design',
+      note: 'great eye',
+    });
+  });
+
+  it('upsert rejects topic moves into an occupied slot', async () => {
+    const { mod, spies } = makeMod({
+      existingEndorsement: { target: 'bob.near', v: 1, since: 1 },
+    });
+    await expect(
+      mod.upsert(
+        'bob.near',
+        { topic: 'design', note: 'great eye' },
+        { previousTopic: 'rust' }
+      )
+    ).rejects.toMatchObject({ code: 'ENDORSEMENT_TOPIC_CONFLICT' });
+    expect(spies.unendorse).not.toHaveBeenCalled();
+    expect(spies.endorse).not.toHaveBeenCalled();
+  });
+
   it('toggle endorses when none exists', async () => {
     const { mod, spies } = makeMod({ existingEndorsement: null });
     const out = await mod.toggle('bob.near', { topic: 'rust' });

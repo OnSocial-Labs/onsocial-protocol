@@ -14,7 +14,7 @@ Every module hangs off a single `OnSocial` instance. Use this table to find the 
 | `os.posts`               | Authoring posts, replies, quotes (top-level + group)                   | `create`, `reply`, `quote`, `groupPost`, `groupReply`, `groupQuote`         |
 | `os.reactions`           | Add / remove / toggle reactions; counts                                | `add`, `remove`, `toggle`, `summary`                                        |
 | `os.saves`               | Bookmarks                                                              | `add`, `remove`, `toggle`, `has`, `get`, `list`                             |
-| `os.endorsements`        | Topic-scoped public vouches                                            | `add`, `remove`, `toggle`, `get`, `listGiven`, `listReceived`               |
+| `os.endorsements`        | Topic-scoped public vouches                                            | `add`, `upsert`, `remove`, `toggle`, `get`, `listGiven`, `listReceived`     |
 | `os.attestations`        | Verifiable claims                                                      | `add`, `revoke`, `get`                                                      |
 | `os.standings`           | Follow-style "stand with" edges                                        | `add`, `remove`, `toggle`, `has`, `listOutgoing`, `listIncoming`, `counts`  |
 | `os.groups`              | Groups + group feeds, governance                                       | `create`, `join`, `leave`, `post`, `reply`, `quote`, `isMember`, `execute`  |

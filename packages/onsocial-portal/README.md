@@ -99,16 +99,28 @@ ONSOCIAL_PORTAL_REWARDS_APP_ID=onsocial_portal
 `ONSOCIAL_API_KEY` is server-only. It is used by portal API routes to create
 the OnSocial SDK client for indexed `os.query` reads and other trusted server
 calls. Do not expose it as a `NEXT_PUBLIC_*` value. In Vercel, configure it as
-a secret/environment variable for the portal deployment. `GATEWAY_SERVICE_KEY`
-is still accepted as a legacy fallback.
+a secret/environment variable for the portal deployment (from GSM
+`ONSOCIAL_SERVICE_ONAPI_KEY`). `GATEWAY_SERVICE_KEY` is only a dev fallback and
+logs a deprecation warning.
 
 `ONSOCIAL_PORTAL_REWARDS_API_KEY` is also server-only. It must map to
 `ONSOCIAL_PORTAL_REWARDS_APP_ID` in the backend `partner_keys` table. Provision
 it with `bash scripts/provision-portal-rewards-key.sh` from the repo root, then
 add the same value to the Portal deployment environment.
 
-For local development, switch the values in `.env.local` instead of adding a UI
-network toggle. The shared config automatically drives wallet network,
+For local development, align `.env.local` with Google Secret Manager (same
+service OnAPI key as testnet gateway / portal server):
+
+```bash
+# from repo root (requires gcloud auth)
+NEAR_NETWORK=testnet ./scripts/sync-portal-env-from-gsm.sh
+```
+
+This sets `ONSOCIAL_API_KEY` from GSM secret `ONSOCIAL_SERVICE_ONAPI_KEY`
+(testnet) or `ONSOCIAL_MAINNET_SERVICE_ONAPI_KEY` (mainnet). Restart
+`pnpm --filter @onsocial/portal dev` after syncing.
+
+You can still edit `.env.local` manually; the shared config automatically drives wallet network,
 Nearblocks links, admin contract targets, relayer account selection, gateway
 health checks, transparency data, and partner backend calls.
 

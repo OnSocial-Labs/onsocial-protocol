@@ -7,6 +7,7 @@ vi.mock('../../src/config/index.js', () => ({
     hasuraAdminSecret: '',
     hasuraUrl: 'http://localhost:8080/v1/graphql',
     nodeEnv: 'test',
+    rateLimits: { free: 60, pro: 600, scale: 3000, service: 10000 },
   },
 }));
 
@@ -64,7 +65,7 @@ describe('api key service', () => {
     expect(keys[0].tier).toBe('service');
   });
 
-  it('uses the live account tier when authenticating an existing API key', async () => {
+  it('keeps the higher stored tier when the live account tier downgrades', async () => {
     const accountId = 'auth-live-tier.testnet';
     mockGetTierInfo
       .mockResolvedValueOnce({ tier: 'scale', rateLimit: 5000 })
@@ -78,7 +79,7 @@ describe('api key service', () => {
 
     const lookedUp = await lookupApiKey(created.rawKey);
     expect(lookedUp).not.toBeNull();
-    expect(lookedUp!.tier).toBe('free');
+    expect(lookedUp!.tier).toBe('scale');
   });
 
   it('shows the live account tier when listing existing API keys', async () => {

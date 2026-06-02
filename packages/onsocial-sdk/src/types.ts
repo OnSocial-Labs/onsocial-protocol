@@ -740,6 +740,13 @@ export interface PageTheme {
   accent?: string;
 }
 
+/** Active mood broadcast stored in `page/main.mood`. */
+export interface PageMoodConfig {
+  id?: string;
+  since?: number;
+  note?: string;
+}
+
 /** Page configuration stored at `{account}/page/main`. */
 export interface PageConfig {
   /** Template identifier — e.g. "minimal", "creator", "business". */
@@ -752,6 +759,8 @@ export interface PageConfig {
   tagline?: string;
   /** Custom CSS URL (premium feature). */
   customCss?: string;
+  /** Active mood — id, timestamp, optional note. */
+  mood?: PageMoodConfig;
 }
 
 /** Aggregated page data returned by the gateway `/data/page` endpoint. */

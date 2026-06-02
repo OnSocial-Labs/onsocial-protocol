@@ -10,6 +10,9 @@
 //   os.query.groups.feed({ groupId: 'dao' })
 //   os.query.profiles.get('alice.near')
 //   os.query.profiles.search({ query: 'alice' })
+//   os.query.profiles.discoverPage({ limit: 24, viewerAccountId: 'bob.near' })
+//   os.query.stats.protocolTotals()
+//   os.query.stats.protocolPulse()
 //   os.query.reactions.counts('alice.near', 'post/123')
 //   os.query.graph.incoming('alice.near')
 //   os.query.standings.outgoing('alice.near')
@@ -83,8 +86,21 @@ export type {
   GraphEdgeFilter,
   GraphEdgeRow,
 } from './graph.js';
-export type { ProfileSearchOptions, ProfileSearchRow } from './profiles.js';
-export type { EdgeCount, LeaderboardEntry, TokenStats } from './stats.js';
+export type {
+  ProfileDiscoverPageOptions,
+  ProfileDiscoverPageResult,
+  ProfileDiscoverStandingRow,
+  ProfileDiscoverViewerContext,
+  ProfileSearchOptions,
+  ProfileSearchRow,
+} from './profiles.js';
+export type {
+  EdgeCount,
+  LeaderboardEntry,
+  ProtocolPulse,
+  ProtocolTotals,
+  TokenStats,
+} from './stats.js';
 export type { StorageEventRow } from './storage.js';
 export type { PermissionEventRow } from './permissions.js';
 export { PERMISSION_OPERATIONS } from './permissions.js';

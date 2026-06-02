@@ -1,6 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { User } from 'lucide-react';
 import type { MaterialisedProfile } from '@onsocial/sdk';
@@ -17,11 +24,8 @@ import {
   ProfileListLoadMoreFooter,
   ProfileListSkeletonRows,
 } from '@/features/profile/profile-list-loading';
-import {
-  profileListResultRowClass,
-} from '@/features/profile/profile-list-row';
+import { profileListResultRowClass } from '@/features/profile/profile-list-row';
 import { fadeMotion } from '@/lib/motion';
-import { ACTIVE_API_URL } from '@/lib/portal-config';
 import { cn } from '@/lib/utils';
 
 export interface ProfileDiscoverResult {
@@ -49,10 +53,13 @@ interface ProfileDiscoverResponse {
   results: ProfileDiscoverResult[];
 }
 
+interface ProtocolPulseTotals {
+  discoverableProfiles?: number;
+  profiles?: number;
+}
+
 interface ProtocolPulseResponse {
-  totals?: {
-    profiles?: number;
-  };
+  totals?: ProtocolPulseTotals;
 }
 
 const DISCOVERY_PAGE_SIZE = 24;
@@ -266,9 +273,8 @@ export function ProfileDiscoveryPanel({
   const [hasMore, setHasMore] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [protocolProfileTotal, setProtocolProfileTotal] = useState<
-    number | null
-  >(null);
+  const [protocolPulseTotals, setProtocolPulseTotals] =
+    useState<ProtocolPulseTotals | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pendingStandingIds, setPendingStandingIds] = useState<Set<string>>(
     () => new Set()
@@ -277,7 +283,12 @@ export function ProfileDiscoveryPanel({
   const internalScrollRef = useRef<HTMLDivElement>(null);
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
   const trimmedQuery = query.trim();
-  const profileTotal = totalProfiles ?? protocolProfileTotal;
+  const discoverableTotal =
+    totalProfiles ??
+    protocolPulseTotals?.discoverableProfiles ??
+    protocolPulseTotals?.profiles ??
+    null;
+  const indexedProfileTotal = protocolPulseTotals?.profiles ?? null;
   const resultsSummary = useMemo(() => {
     if (results.length === 0) return null;
 
@@ -287,25 +298,47 @@ export function ProfileDiscoveryPanel({
         ? `Showing ${shown} matching profiles`
         : `${shown} matching profile${results.length === 1 ? '' : 's'}`;
     }
-    if (typeof profileTotal === 'number' && profileTotal > 0) {
-      return `Showing ${shown} of ${formatCount(profileTotal)}`;
+    if (typeof discoverableTotal === 'number' && discoverableTotal > 0) {
+      const ofDiscoverable = `Showing ${shown} of ${formatCount(discoverableTotal)} discoverable`;
+      if (
+        typeof indexedProfileTotal === 'number' &&
+        indexedProfileTotal > discoverableTotal
+      ) {
+        return `${ofDiscoverable} · ${formatCount(indexedProfileTotal)} indexed`;
+      }
+      return ofDiscoverable;
     }
     return `Showing ${shown}`;
-  }, [hasMore, profileTotal, results.length, trimmedQuery]);
+  }, [
+    discoverableTotal,
+    hasMore,
+    indexedProfileTotal,
+    results.length,
+    trimmedQuery,
+  ]);
 
   useEffect(() => {
-    if (!active || totalProfiles != null || protocolProfileTotal != null) return;
+    if (!active || totalProfiles != null || protocolPulseTotals != null) return;
 
     const controller = new AbortController();
-    fetch(`${ACTIVE_API_URL}/graph/protocol-pulse`, {
+    fetch('/api/graph/protocol-pulse', {
       cache: 'no-store',
       signal: controller.signal,
     })
       .then((response) => (response.ok ? response.json() : null))
       .then((data: ProtocolPulseResponse | null) => {
-        const count = data?.totals?.profiles;
-        if (typeof count === 'number' && Number.isFinite(count) && count > 0) {
-          setProtocolProfileTotal(count);
+        const totals = data?.totals;
+        if (!totals) return;
+        const discoverable = totals.discoverableProfiles ?? totals.profiles;
+        const indexed = totals.profiles;
+        if (
+          (typeof discoverable === 'number' && discoverable > 0) ||
+          (typeof indexed === 'number' && indexed > 0)
+        ) {
+          setProtocolPulseTotals({
+            discoverableProfiles: discoverable,
+            profiles: indexed,
+          });
         }
       })
       .catch(() => {
@@ -313,7 +346,7 @@ export function ProfileDiscoveryPanel({
       });
 
     return () => controller.abort();
-  }, [active, protocolProfileTotal, totalProfiles]);
+  }, [active, protocolPulseTotals, totalProfiles]);
 
   useEffect(() => {
     if (!active) {
@@ -504,7 +537,10 @@ export function ProfileDiscoveryPanel({
       >
         <AnimatePresence initial={false}>
           {isLoading && results.length === 0 ? (
-            <motion.div key="discover-loading" {...fadeMotion(reduceMotion ? 0 : 0.12)}>
+            <motion.div
+              key="discover-loading"
+              {...fadeMotion(reduceMotion ? 0 : 0.12)}
+            >
               <ProfileListSkeletonRows variant="discovery" count={8} />
             </motion.div>
           ) : results.length > 0 ? (
@@ -525,11 +561,13 @@ export function ProfileDiscoveryPanel({
                   Boolean(viewerAccountId) &&
                   viewerAccountId !== result.accountId;
                 const theyStandWithViewer =
-                  canShowViewerRelationship && Boolean(result.theyStandWithViewer);
+                  canShowViewerRelationship &&
+                  Boolean(result.theyStandWithViewer);
                 const sharedSolidarity =
                   viewerStandsWithResult && theyStandWithViewer;
                 const showEndorsedYou =
-                  canShowViewerRelationship && Boolean(result.targetEndorsedViewer);
+                  canShowViewerRelationship &&
+                  Boolean(result.targetEndorsedViewer);
                 const timeMeta = viewerStandsWithResult
                   ? standingTimeMeta(result)
                   : null;
@@ -626,7 +664,10 @@ export function ProfileDiscoveryPanel({
                               className="h-2.5 w-2.5 text-[var(--portal-blue)]/55"
                             />
                           </PortalHoverTooltip>
-                          <span className="text-muted-foreground/25" aria-hidden="true">
+                          <span
+                            className="text-muted-foreground/25"
+                            aria-hidden="true"
+                          >
                             ·
                           </span>
                           <PortalHoverTooltip
@@ -653,7 +694,10 @@ export function ProfileDiscoveryPanel({
                               className="h-2.5 w-2.5 text-[var(--portal-purple)]/65"
                             />
                           </PortalHoverTooltip>
-                          <span className="text-muted-foreground/25" aria-hidden="true">
+                          <span
+                            className="text-muted-foreground/25"
+                            aria-hidden="true"
+                          >
                             ·
                           </span>
                           <PortalHoverTooltip
@@ -669,7 +713,8 @@ export function ProfileDiscoveryPanel({
                             <span
                               className={cn(
                                 'font-semibold tabular-nums text-[var(--portal-gold)]/85',
-                                result.endorsementsReceivedCount === 0 && 'opacity-40'
+                                result.endorsementsReceivedCount === 0 &&
+                                  'opacity-40'
                               )}
                             >
                               {formatCount(result.endorsementsReceivedCount)}
@@ -684,7 +729,8 @@ export function ProfileDiscoveryPanel({
                             <span
                               className={cn(
                                 'font-semibold tabular-nums text-[var(--portal-gold)]/85',
-                                result.endorsementsGivenCount === 0 && 'opacity-40'
+                                result.endorsementsGivenCount === 0 &&
+                                  'opacity-40'
                               )}
                             >
                               {formatCount(result.endorsementsGivenCount)}
@@ -717,10 +763,14 @@ export function ProfileDiscoveryPanel({
                             <span
                               className={cn(
                                 'shrink-0',
-                                profileSocialStandingButtonClass(viewerStandsWithResult)
+                                profileSocialStandingButtonClass(
+                                  viewerStandsWithResult
+                                )
                               )}
                               aria-label={
-                                viewerStandsWithResult ? 'Stepping back' : 'Standing'
+                                viewerStandsWithResult
+                                  ? 'Stepping back'
+                                  : 'Standing'
                               }
                             >
                               <ProfileSocialStandingPending
@@ -737,7 +787,9 @@ export function ProfileDiscoveryPanel({
                               }
                               className={cn(
                                 'shrink-0',
-                                profileSocialStandingButtonClass(viewerStandsWithResult)
+                                profileSocialStandingButtonClass(
+                                  viewerStandsWithResult
+                                )
                               )}
                               aria-label={
                                 viewerStandsWithResult
@@ -781,10 +833,23 @@ export function ProfileDiscoveryPanel({
     </div>
   );
 }
-
 export function formatDiscoveryProfileTotal(
-  profileTotal: number | null | undefined
+  discoverableTotal: number | null | undefined,
+  indexedTotal?: number | null | undefined
 ): string | undefined {
-  if (typeof profileTotal !== 'number' || profileTotal <= 0) return undefined;
-  return `${formatCount(profileTotal)} identities on the graph`;
+  const discoverable =
+    typeof discoverableTotal === 'number' && discoverableTotal > 0
+      ? discoverableTotal
+      : null;
+  const indexed =
+    typeof indexedTotal === 'number' && indexedTotal > 0 ? indexedTotal : null;
+
+  if (!discoverable && !indexed) return undefined;
+  if (discoverable && indexed && indexed > discoverable) {
+    return `${formatCount(discoverable)} discoverable · ${formatCount(indexed)} indexed on the graph`;
+  }
+  if (discoverable) {
+    return `${formatCount(discoverable)} discoverable profiles`;
+  }
+  return `${formatCount(indexed!)} profiles on the graph`;
 }

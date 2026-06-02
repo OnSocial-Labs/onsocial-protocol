@@ -15,6 +15,12 @@ import { logger } from '../../logger.js';
 import { getTierInfo } from '../../tiers/index.js';
 import type { Tier } from '../../types/index.js';
 
+/** Prefer the higher rate-limit tier between the key record and live account tier. */
+function effectiveApiKeyTier(stored: Tier, accountTier: Tier): Tier {
+  const limits = config.rateLimits;
+  return limits[stored] >= limits[accountTier] ? stored : accountTier;
+}
+
 // --- Constants ---
 
 /** Maximum API keys per account (prevents abuse) */
@@ -367,8 +373,10 @@ export async function lookupApiKey(raw: string): Promise<ApiKeyRecord | null> {
     return null;
   }
 
-  const { tier } = await getTierInfo(record.accountId);
-  return { ...record, tier };
+  // Live account tier can change (subscription lapse); keep the higher of stored vs
+  // current so explicitly provisioned service keys (e.g. portal repair) stay valid.
+  const { tier: accountTier } = await getTierInfo(record.accountId);
+  return { ...record, tier: effectiveApiKeyTier(record.tier, accountTier) };
 }
 
 /**
@@ -380,11 +388,11 @@ export async function listApiKeys(
   Array<{ prefix: string; label: string; tier: Tier; createdAt: number }>
 > {
   const records = await store.listByAccount(accountId);
-  const { tier } = await getTierInfo(accountId);
+  const { tier: accountTier } = await getTierInfo(accountId);
   return records.map((r) => ({
     prefix: r.keyPrefix,
     label: r.label,
-    tier,
+    tier: effectiveApiKeyTier(r.tier, accountTier),
     createdAt: r.createdAt,
   }));
 }

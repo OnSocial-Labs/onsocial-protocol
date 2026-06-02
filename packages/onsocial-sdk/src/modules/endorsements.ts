@@ -7,6 +7,7 @@
 // for materialised reads:
 //
 //   await os.endorsements.add('bob.near', { topic: 'rust', note: 'Shipped cleanly.' });
+//   await os.endorsements.upsert('bob.near', { topic: 'design' }, { previousTopic: 'rust' });
 //   await os.endorsements.remove('bob.near', { topic: 'rust' });
 //   const { applied } = await os.endorsements.toggle('bob.near');
 //   const got = await os.endorsements.get('bob.near');
@@ -18,9 +19,25 @@
 // not explicitly provided.
 // ---------------------------------------------------------------------------
 
+import { normalizeEndorsementTopic } from '../builders/endorsement.js';
 import type { SocialModule, EndorsementBuildInput } from './social.js';
 import type { QueryModule } from '../query/index.js';
 import type { EndorsementRecord, RelayResponse } from '../types.js';
+
+/** Raised when moving an endorsement to a topic slot that already exists. */
+export class EndorsementTopicConflictError extends Error {
+  readonly code = 'ENDORSEMENT_TOPIC_CONFLICT';
+
+  constructor(
+    public readonly target: string,
+    public readonly topic: string
+  ) {
+    super(
+      `You already endorsed ${target} for ${topic}. Edit that endorsement instead.`
+    );
+    this.name = 'EndorsementTopicConflictError';
+  }
+}
 
 export interface EndorsementListItem extends EndorsementRecord {
   issuer: string;
@@ -100,6 +117,47 @@ export class EndorsementsModule {
     return opts.wait != null
       ? this._social.unendorse(target, opts.topic, { wait: opts.wait })
       : this._social.unendorse(target, opts.topic);
+  }
+
+  /**
+   * Add or update an endorsement. When `previousTopic` is supplied and the
+   * normalized topic changes, the prior path is withdrawn before writing the
+   * new one (move semantics). Re-endorsing the same topic overwrites in place.
+   *
+   * @throws {EndorsementTopicConflictError} When the topic changes to a slot
+   *   that already has an endorsement from the caller.
+   */
+  async upsert(
+    target: string,
+    input: EndorsementBuildInput = {},
+    opts: { previousTopic?: string; wait?: boolean } = {}
+  ): Promise<RelayResponse> {
+    const newTopic = normalizeEndorsementTopic(input.topic);
+    const prevTopic = normalizeEndorsementTopic(opts.previousTopic);
+    const topicMoved =
+      opts.previousTopic !== undefined && prevTopic !== newTopic;
+
+    if (topicMoved) {
+      const existingAtNew = newTopic
+        ? await this._social.getEndorsement(target, { topic: newTopic })
+        : await this._social.getEndorsement(target);
+      if (existingAtNew) {
+        throw new EndorsementTopicConflictError(target, newTopic ?? 'general');
+      }
+
+      if (opts.wait) {
+        await this._social.unendorse(target, opts.previousTopic, {
+          wait: true,
+        });
+        return this._social.endorse(target, input, { wait: true });
+      }
+      await this._social.unendorse(target, opts.previousTopic);
+      return this._social.endorse(target, input);
+    }
+
+    return opts.wait != null
+      ? this.add(target, input, { wait: opts.wait })
+      : this.add(target, input);
   }
 
   /**

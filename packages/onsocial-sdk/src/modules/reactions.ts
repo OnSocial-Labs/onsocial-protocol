@@ -116,7 +116,12 @@ export class ReactionsModule {
       const response = await this.remove(post, kind, waitOpts);
       return { response, applied: false };
     }
-    const response = await this.add(post, kind, { emoji: opts.emoji }, waitOpts);
+    const response = await this.add(
+      post,
+      kind,
+      { emoji: opts.emoji },
+      waitOpts
+    );
     return { response, applied: true };
   }
 

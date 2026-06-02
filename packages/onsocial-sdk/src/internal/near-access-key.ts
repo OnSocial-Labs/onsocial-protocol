@@ -41,9 +41,7 @@ export async function fetchAccessKeyNextNonce(
   };
 
   if (body.error) {
-    throw new Error(
-      body.error.message ?? 'NEAR RPC access-key query failed'
-    );
+    throw new Error(body.error.message ?? 'NEAR RPC access-key query failed');
   }
 
   const nonce = body.result?.nonce;

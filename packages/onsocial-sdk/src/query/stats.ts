@@ -28,6 +28,37 @@ export interface TokenStats {
   source: string;
 }
 
+/** Profile and group totals from indexed aggregates (matches pulse `totals`). */
+export interface ProtocolTotals {
+  /** Accounts with any indexed profile field. */
+  profiles: number;
+  /** Complete profiles in `profile_search` (Discover list). */
+  discoverableProfiles: number;
+  groups: number;
+}
+
+/** Curated protocol activity snapshot from `GET /graph/protocol-pulse` (requires OnAPI key). */
+export interface ProtocolPulse {
+  generatedAt: string;
+  windowHours: number;
+  totals: ProtocolTotals;
+  recent24h: {
+    posts: number;
+    reactions: number;
+  };
+}
+
+type AggregateCountNode = {
+  aggregate?: { count?: number | null } | null;
+};
+
+function readAggregateCount(
+  node: AggregateCountNode | null | undefined
+): number {
+  const count = node?.aggregate?.count;
+  return typeof count === 'number' && Number.isFinite(count) ? count : 0;
+}
+
 export class StatsQuery {
   constructor(
     private _q: QueryModule,
@@ -69,23 +100,73 @@ export class StatsQuery {
     return this._http.get<TokenStats>('/graph/token-stats');
   }
 
-  /** Total number of accounts that have created a profile. */
-  async profileCount(): Promise<number> {
+  /**
+   * Protocol totals via GraphQL aggregates (one round-trip, tier-aware).
+   * Aligns with `protocolPulse().totals` and internal analytics profile/group counts.
+   *
+   * ```ts
+   * const { profiles, groups } = await os.query.stats.protocolTotals();
+   * ```
+   */
+  async protocolTotals(): Promise<ProtocolTotals> {
     const res = await this._q.graphql<{
-      profilesCurrent: Array<{ accountId: string }>;
+      profilesTotal: AggregateCountNode;
+      discoverableProfilesTotal: AggregateCountNode;
+      groupsTotal: AggregateCountNode;
     }>({
-      query: `{ profilesCurrent(where: {value: {_isNull: false}}, distinctOn: [accountId]) { accountId } }`,
+      query: `query ProtocolTotals {
+        profilesTotal: profilesCurrentAggregate(where: {value: {_isNull: false}}) {
+          aggregate {
+            count(columns: [accountId], distinct: true)
+          }
+        }
+        discoverableProfilesTotal: profileSearchAggregate {
+          aggregate {
+            count
+          }
+        }
+        groupsTotal: groupUpdatesAggregate(where: {value: {_isNull: false}}) {
+          aggregate {
+            count(columns: [groupId], distinct: true)
+          }
+        }
+      }`,
     });
-    return res.data?.profilesCurrent?.length ?? 0;
+
+    return {
+      profiles: readAggregateCount(res.data?.profilesTotal),
+      discoverableProfiles: readAggregateCount(
+        res.data?.discoverableProfilesTotal
+      ),
+      groups: readAggregateCount(res.data?.groupsTotal),
+    };
   }
 
-  /** Total number of groups created. */
+  /**
+   * Protocol pulse — profile/group totals and recent post activity.
+   * Requires an OnAPI key or JWT session.
+   *
+   * ```ts
+   * const pulse = await os.query.stats.protocolPulse();
+   * ```
+   */
+  protocolPulse(): Promise<ProtocolPulse> {
+    return this._http.get<ProtocolPulse>('/graph/protocol-pulse');
+  }
+
+  /**
+   * Total indexed accounts with profile data.
+   * @deprecated Prefer {@link protocolTotals} — row-based counts were capped by tier limits.
+   */
+  async profileCount(): Promise<number> {
+    return (await this.protocolTotals()).profiles;
+  }
+
+  /**
+   * Total indexed groups.
+   * @deprecated Prefer {@link protocolTotals} — row-based counts were capped by tier limits.
+   */
   async groupCount(): Promise<number> {
-    const res = await this._q.graphql<{
-      groupUpdates: Array<{ groupId: string }>;
-    }>({
-      query: `{ groupUpdates(where: {value: {_isNull: false}}, distinctOn: [groupId]) { groupId } }`,
-    });
-    return res.data?.groupUpdates?.length ?? 0;
+    return (await this.protocolTotals()).groups;
   }
 }

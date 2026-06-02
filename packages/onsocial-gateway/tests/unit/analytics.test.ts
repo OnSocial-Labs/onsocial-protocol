@@ -70,7 +70,14 @@ describe('GET /developer/analytics/overview', () => {
     mockGetAnalyticsOverview.mockResolvedValue({
       generatedAt: '2025-01-01T00:00:00.000Z',
       windowHours: 24,
-      totals: { profiles: 12, posts: 34, reactions: 56, claims: 7, groups: 3 },
+      totals: {
+        profiles: 12,
+        discoverableProfiles: 9,
+        posts: 34,
+        reactions: 56,
+        claims: 7,
+        groups: 3,
+      },
       recent24h: {
         profiles: 2,
         posts: 5,
@@ -106,7 +113,14 @@ describe('GET /developer/analytics/overview', () => {
     mockGetAnalyticsOverview.mockResolvedValue({
       generatedAt: '2025-01-01T00:00:00.000Z',
       windowHours: 24,
-      totals: { profiles: 1, posts: 1, reactions: 1, claims: 1, groups: 1 },
+      totals: {
+        profiles: 1,
+        discoverableProfiles: 1,
+        posts: 1,
+        reactions: 1,
+        claims: 1,
+        groups: 1,
+      },
       recent24h: {
         profiles: 1,
         posts: 1,

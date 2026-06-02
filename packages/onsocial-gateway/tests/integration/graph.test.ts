@@ -33,6 +33,29 @@ describe('Gateway Graph Integration', () => {
     expect(res.status).toBe(401);
   });
 
+  it('should require auth for protocol pulse', async () => {
+    const res = await fetch(`${GATEWAY_URL}/graph/protocol-pulse`);
+    expect(res.status).toBe(401);
+  });
+
+  it('should return protocol pulse with auth', async () => {
+    const hdrs = await authHeaders();
+    const res = await fetch(`${GATEWAY_URL}/graph/protocol-pulse`, {
+      headers: hdrs,
+    });
+
+    expect(res.status).not.toBe(401);
+    if (res.ok) {
+      const data = await res.json();
+      expect(typeof data.generatedAt).toBe('string');
+      expect(typeof data.totals?.profiles).toBe('number');
+      expect(typeof data.totals?.discoverableProfiles).toBe('number');
+      expect(typeof data.totals?.groups).toBe('number');
+      expect(typeof data.recent24h?.posts).toBe('number');
+      expect(typeof data.recent24h?.reactions).toBe('number');
+    }
+  });
+
   it('should proxy GraphQL queries with auth', async () => {
     const hdrs = await authHeaders();
     const res = await fetch(`${GATEWAY_URL}/graph/query`, {

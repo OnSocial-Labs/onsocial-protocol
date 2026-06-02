@@ -28,6 +28,52 @@ export interface ProfileSearchOptions {
   offset?: number;
 }
 
+export interface ProfileDiscoverStandingRow {
+  accountId: string;
+  targetAccount: string;
+  since: number | null;
+  blockTimestamp: number;
+}
+
+export interface ProfileDiscoverViewerContext {
+  outgoing: ProfileDiscoverStandingRow[];
+  incomingAccountIds: string[];
+  endorsementIssuers: string[];
+}
+
+export interface ProfileDiscoverPageOptions {
+  query?: string;
+  limit?: number;
+  offset?: number;
+  /** When set, viewer graph context is loaded in the same GraphQL round-trip. */
+  viewerAccountId?: string;
+  /** Max standings/endorsement rows loaded for viewer context (default 1000). */
+  graphLimit?: number;
+}
+
+export interface ProfileDiscoverPageResult {
+  profiles: ProfileSearchRow[];
+  viewer: ProfileDiscoverViewerContext | null;
+}
+
+function parseStandingSince(raw: string | null | undefined): number | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { since?: unknown };
+    return typeof parsed.since === 'number' ? parsed.since : null;
+  } catch {
+    return null;
+  }
+}
+
+const PROFILE_SEARCH_FIELDS = `
+  accountId name bio avatar banner
+  standingCount standingWithCount mutualStandingCount
+  endorsementsReceivedCount endorsementsGivenCount
+  firstProfileTimestamp
+  lastProfileBlock lastProfileTimestamp lastActivityBlock
+`;
+
 export class ProfilesQuery {
   constructor(private _q: QueryModule) {}
 
@@ -65,6 +111,30 @@ export class ProfilesQuery {
   }
 
   /**
+   * Look up a single discoverable profile row by exact account id.
+   * Returns `null` when the account is not in the profile search index.
+   *
+   * ```ts
+   * const row = await os.query.profiles.lookup('alice.near');
+   * ```
+   */
+  async lookup(accountId: string): Promise<ProfileSearchRow | null> {
+    const res = await this._q.graphql<{ profileSearch: ProfileSearchRow[] }>({
+      query: `query ProfileLookup($id: String!) {
+        profileSearch(where: {accountId: {_eq: $id}}, limit: 1) {
+          accountId name bio avatar banner
+          standingCount standingWithCount mutualStandingCount
+          endorsementsReceivedCount endorsementsGivenCount
+          firstProfileTimestamp
+          lastProfileBlock lastProfileTimestamp lastActivityBlock
+        }
+      }`,
+      variables: { id: accountId },
+    });
+    return res.data?.profileSearch?.[0] ?? null;
+  }
+
+  /**
    * Search discoverable profiles by account id, display name, or bio.
    * Empty query returns recently active profiles, ordered by standing signal.
    *
@@ -84,11 +154,7 @@ export class ProfilesQuery {
           offset: $offset,
           orderBy: [{standingCount: DESC}, {lastActivityBlock: DESC}]
         ) {
-          accountId name bio avatar banner
-          standingCount standingWithCount mutualStandingCount
-          endorsementsReceivedCount endorsementsGivenCount
-          firstProfileTimestamp
-          lastProfileBlock lastProfileTimestamp lastActivityBlock
+          ${PROFILE_SEARCH_FIELDS}
         }
       }`,
       variables: {
@@ -98,5 +164,108 @@ export class ProfilesQuery {
       },
     });
     return res.data?.profileSearch ?? [];
+  }
+
+  /**
+   * Discover page — searchable profiles plus optional viewer graph context.
+   * Without `viewerAccountId`, delegates to {@link search} (one round-trip).
+   * With a viewer, batches profile search + standings + endorsements in one query.
+   *
+   * ```ts
+   * const page = await os.query.profiles.discoverPage({
+   *   query: 'alice',
+   *   limit: 24,
+   *   viewerAccountId: 'bob.near',
+   * });
+   * ```
+   */
+  async discoverPage(
+    opts: ProfileDiscoverPageOptions = {}
+  ): Promise<ProfileDiscoverPageResult> {
+    const limit = opts.limit ?? 20;
+    const offset = opts.offset ?? 0;
+    const viewerAccountId = opts.viewerAccountId?.trim();
+
+    if (!viewerAccountId) {
+      const profiles = await this.search({
+        query: opts.query,
+        limit,
+        offset,
+      });
+      return { profiles, viewer: null };
+    }
+
+    const query = opts.query?.trim();
+    const filter = query ? 'where: {searchText: {_ilike: $pattern}}, ' : '';
+    const variableDecl = query ? ', $pattern: String!' : '';
+    const graphLimit = opts.graphLimit ?? 1000;
+
+    const res = await this._q.graphql<{
+      profileSearch: ProfileSearchRow[];
+      outgoing: Array<{
+        accountId: string;
+        targetAccount: string;
+        value: string | null;
+        blockTimestamp: number;
+      }>;
+      incoming: Array<{ accountId: string }>;
+      endorsements: Array<{ issuer: string }>;
+    }>({
+      query: `query ProfileDiscover($viewerId: String!, $limit: Int!, $offset: Int!, $standingLimit: Int!, $endorsementLimit: Int!${variableDecl}) {
+        profileSearch(
+          ${filter}
+          limit: $limit,
+          offset: $offset,
+          orderBy: [{standingCount: DESC}, {lastActivityBlock: DESC}]
+        ) {
+          ${PROFILE_SEARCH_FIELDS}
+        }
+        outgoing: standingsCurrent(
+          where: {accountId: {_eq: $viewerId}},
+          limit: $standingLimit
+        ) {
+          accountId targetAccount value blockTimestamp
+        }
+        incoming: standingsCurrent(
+          where: {targetAccount: {_eq: $viewerId}},
+          limit: $standingLimit
+        ) {
+          accountId
+        }
+        endorsements: endorsementsCurrent(
+          where: {target: {_eq: $viewerId}, operation: {_eq: "set"}},
+          limit: $endorsementLimit,
+          orderBy: [{blockHeight: DESC}]
+        ) {
+          issuer
+        }
+      }`,
+      variables: {
+        viewerId: viewerAccountId,
+        limit,
+        offset,
+        standingLimit: graphLimit,
+        endorsementLimit: graphLimit,
+        ...(query ? { pattern: `%${query}%` } : {}),
+      },
+    });
+
+    return {
+      profiles: res.data?.profileSearch ?? [],
+      viewer: {
+        outgoing: (res.data?.outgoing ?? []).map((row) => ({
+          accountId: row.accountId,
+          targetAccount: row.targetAccount,
+          since: parseStandingSince(row.value),
+          blockTimestamp: Number(row.blockTimestamp) || 0,
+        })),
+        incomingAccountIds: (res.data?.incoming ?? []).map(
+          (row) => row.accountId
+        ),
+        endorsementIssuers: (res.data?.endorsements ?? []).map(
+          (row) => row.issuer
+        ),
+      },
+    };
   }
 }

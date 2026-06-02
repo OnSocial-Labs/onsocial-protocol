@@ -216,50 +216,98 @@ async function smokeTestServiceRole(): Promise<void> {
   // permission regressions that pass the bulk apply but break queries.
   console.log('🧪 Smoke testing service-role analytics query...');
 
-  const query = `query SmokeTest {
+  const serviceQuery = `query SmokeTestService {
     postsCurrentAggregate { aggregate { count } }
     reactionsCurrentAggregate { aggregate { count } }
     groupUpdatesAggregate { aggregate { count } }
+    profileSearch(limit: 1) { accountId }
   }`;
 
-  const headers: Record<string, string> = {
+  const serviceHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
     'x-hasura-role': 'service',
     'x-hasura-user-id': 'smoke-test',
   };
   if (config.hasuraAdminSecret) {
-    headers['x-hasura-admin-secret'] = config.hasuraAdminSecret;
+    serviceHeaders['x-hasura-admin-secret'] = config.hasuraAdminSecret;
   }
 
-  const response = await fetch(config.hasuraUrl, {
+  const serviceResponse = await fetch(config.hasuraUrl, {
     method: 'POST',
-    headers,
-    body: JSON.stringify({ query }),
+    headers: serviceHeaders,
+    body: JSON.stringify({ query: serviceQuery }),
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- GraphQL response shape is opaque
-  const body: any = await response.json().catch(() => ({}));
-  if (!response.ok) {
+  const serviceBody: any = await serviceResponse.json().catch(() => ({}));
+  if (!serviceResponse.ok) {
     throw new Error(
-      `Smoke test HTTP ${response.status}: ${JSON.stringify(body)}`
+      `Smoke test HTTP ${serviceResponse.status}: ${JSON.stringify(serviceBody)}`
     );
   }
-  if (body.errors?.length) {
+  if (serviceBody.errors?.length) {
     throw new Error(
-      `Smoke test GraphQL errors: ${body.errors.map((e: { message?: string }) => e.message ?? 'unknown').join('; ')}`
+      `Smoke test GraphQL errors: ${serviceBody.errors.map((e: { message?: string }) => e.message ?? 'unknown').join('; ')}`
     );
   }
-  if (typeof body.data?.postsCurrentAggregate?.aggregate?.count !== 'number') {
+  if (
+    typeof serviceBody.data?.postsCurrentAggregate?.aggregate?.count !==
+    'number'
+  ) {
     throw new Error(
-      `Smoke test: unexpected response shape: ${JSON.stringify(body)}`
+      `Smoke test: unexpected response shape: ${JSON.stringify(serviceBody)}`
+    );
+  }
+  if (!Array.isArray(serviceBody.data?.profileSearch)) {
+    throw new Error(
+      `Smoke test: profileSearch unavailable for service role — ${JSON.stringify(serviceBody.errors ?? serviceBody)}`
+    );
+  }
+
+  if (!config.hasuraAdminSecret) {
+    throw new Error(
+      'Smoke test: HASURA_ADMIN_SECRET required to verify api_keys'
+    );
+  }
+
+  const adminResponse = await fetch(config.hasuraUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-hasura-admin-secret': config.hasuraAdminSecret,
+    },
+    body: JSON.stringify({
+      query: `query SmokeTestAdmin {
+        apiKeysByPk(keyHash: "0000000000000000000000000000000000000000000000000000000000000000") {
+          keyHash
+        }
+      }`,
+    }),
+  });
+  const adminBody: { errors?: Array<{ message?: string }> } =
+    await adminResponse.json().catch(() => ({}));
+  if (!adminResponse.ok) {
+    throw new Error(
+      `Smoke test (admin) HTTP ${adminResponse.status}: ${JSON.stringify(adminBody)}`
+    );
+  }
+  if (
+    adminBody.errors?.some((e) =>
+      (e.message ?? '').includes("field 'apiKeysByPk' not found")
+    )
+  ) {
+    throw new Error(
+      'Smoke test: api_keys is not tracked in Hasura — run trackTables / repair-gateway-auth'
     );
   }
 
   console.log(
     `   ✓ service role can read aggregates ` +
-      `(posts=${body.data.postsCurrentAggregate.aggregate.count}, ` +
-      `reactions=${body.data.reactionsCurrentAggregate.aggregate.count}, ` +
-      `groups=${body.data.groupUpdatesAggregate.aggregate.count})\n`
+      `(posts=${serviceBody.data.postsCurrentAggregate.aggregate.count}, ` +
+      `reactions=${serviceBody.data.reactionsCurrentAggregate.aggregate.count}, ` +
+      `groups=${serviceBody.data.groupUpdatesAggregate.aggregate.count}, ` +
+      `profileSearch=${serviceBody.data.profileSearch.length}); ` +
+      `api_keys schema OK\n`
   );
 }
 

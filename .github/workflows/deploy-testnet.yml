@@ -146,9 +146,7 @@ jobs:
           grep -q '^TELEGRAM_BOT_TOKEN=' /tmp/deploy_gsm.env || { echo '❌ TELEGRAM_BOT_TOKEN missing in GSM output'; exit 1; }
           grep -q '^ADMIN_SECRET=' /tmp/deploy_gsm.env || { echo '❌ ADMIN_SECRET missing in GSM output'; exit 1; }
           grep -q '^ADMIN_WALLETS=' /tmp/deploy_gsm.env || { echo '❌ ADMIN_WALLETS missing in GSM output'; exit 1; }
-          if ! grep -q '^ONSOCIAL_PORTAL_REWARDS_API_KEY=' /tmp/deploy_gsm.env; then
-            echo '⚠️  ONSOCIAL_PORTAL_REWARDS_API_KEY missing in CI GSM output (CI SA may lack access; server .env.production keeps existing value)'
-          fi
+          grep -q '^ONSOCIAL_PORTAL_REWARDS_API_KEY=' /tmp/deploy_gsm.env || { echo '❌ ONSOCIAL_PORTAL_REWARDS_API_KEY missing in GSM output'; exit 1; }
 
       - name: Sync config files to server
         run: |
@@ -225,6 +223,10 @@ jobs:
 
             if ! grep -q '^ONSOCIAL_PORTAL_REWARDS_API_KEY=.\+' .env.production 2>/dev/null; then
               echo "Fetching ONSOCIAL_PORTAL_REWARDS_API_KEY from GSM on server..."
+              if [ -f /root/onsocial-gcp-key.json ]; then
+                gcloud auth activate-service-account --key-file=/root/onsocial-gcp-key.json >/dev/null 2>&1 || true
+              fi
+              gcloud config set project onsocial-protocol >/dev/null 2>&1 || true
               PORTAL_REWARDS_KEY="$(
                 gcloud secrets versions access latest \
                   --secret=ONSOCIAL_PORTAL_REWARDS_API_KEY \
@@ -341,6 +343,14 @@ jobs:
             DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
             docker compose exec -T -e DATABASE_URL="$DATABASE_URL" gateway \
               node packages/onsocial-gateway/dist/scripts/apply-migrations.js </dev/null
+
+            if [ -f /root/onsocial-protocol/scripts/repair-gateway-auth.sh ]; then
+              echo "Ensuring portal service API key is present..."
+              chmod +x /root/onsocial-protocol/scripts/repair-gateway-auth.sh
+              HASURA_ADMIN_SECRET="${HASURA_ADMIN_SECRET:-${ADMIN_SECRET:-}}" \
+              ONSOCIAL_API_KEY="${ONSOCIAL_API_KEY:-}" \
+              bash /root/onsocial-protocol/scripts/repair-gateway-auth.sh
+            fi
 
             # ── Sync Hasura permissions (reset → reconciles column drift) ─
             # Snapshots metadata, uses bulk metadata API (1 schema reload per

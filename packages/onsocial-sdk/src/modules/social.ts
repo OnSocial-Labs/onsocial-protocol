@@ -599,8 +599,15 @@ export class SocialModule {
    * });
    * ```
    */
-  async set(path: string, value: unknown, opts?: { wait?: boolean }): Promise<RelayResponse>;
-  async set(entries: Record<string, unknown>, opts?: { wait?: boolean }): Promise<RelayResponse>;
+  async set(
+    path: string,
+    value: unknown,
+    opts?: { wait?: boolean }
+  ): Promise<RelayResponse>;
+  async set(
+    entries: Record<string, unknown>,
+    opts?: { wait?: boolean }
+  ): Promise<RelayResponse>;
   async set(
     pathOrEntries: string | Record<string, unknown>,
     valueOrOpts?: unknown,

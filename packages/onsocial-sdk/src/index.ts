@@ -179,6 +179,14 @@ export { GroupsModule } from './modules/groups.js';
 export { PostsModule } from './modules/posts.js';
 export { ProfilesModule } from './modules/profiles.js';
 export type { MaterialisedProfile } from './modules/profiles.js';
+export type {
+  ProfileDiscoverPageOptions,
+  ProfileDiscoverPageResult,
+  ProfileDiscoverStandingRow,
+  ProfileDiscoverViewerContext,
+  ProfileSearchRow,
+} from './query/profiles.js';
+export type { ProtocolPulse, ProtocolTotals } from './query/stats.js';
 export { ReactionsModule } from './modules/reactions.js';
 export type {
   ReactionInput,
@@ -188,7 +196,10 @@ export type {
 } from './modules/reactions.js';
 export { SavesModule } from './modules/saves.js';
 export type { SaveTarget } from './modules/saves.js';
-export { EndorsementsModule } from './modules/endorsements.js';
+export {
+  EndorsementsModule,
+  EndorsementTopicConflictError,
+} from './modules/endorsements.js';
 export type { EndorsementListItem } from './modules/endorsements.js';
 export { AttestationsModule } from './modules/attestations.js';
 export type { AttestationListItem } from './modules/attestations.js';

@@ -9,6 +9,27 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = path.resolve(__dirname, '../../migrations');
 const LOCK_ID = 3489132401;
 
+/** Tables each migration is expected to create (for post–clean-deploy reconciliation). */
+const TABLES_BY_MIGRATION: Record<string, string[]> = {
+  '001_api_keys.sql': ['api_keys'],
+  '002_api_usage.sql': ['api_usage'],
+  '003_developer_subscriptions.sql': ['developer_subscriptions'],
+  '004_subscription_pending_status.sql': ['developer_subscriptions'],
+  '005_notifications.sql': [
+    'notifications',
+    'notification_counts',
+    'notification_cursors',
+  ],
+  '006_notification_cursor_offsets.sql': ['notification_cursors'],
+  '007_developer_apps.sql': ['developer_apps'],
+  '008_notification_rules_and_webhooks.sql': [
+    'developer_notification_rules',
+    'notification_webhook_endpoints',
+    'notification_delivery_attempts',
+  ],
+  '009_app_notification_events.sql': ['app_notification_events'],
+};
+
 function requireDatabaseUrl(): string {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
@@ -42,6 +63,51 @@ async function getAppliedFiles(client: Client): Promise<Set<string>> {
     'SELECT filename FROM schema_migrations ORDER BY filename'
   );
   return new Set(result.rows.map((row: { filename: string }) => row.filename));
+}
+
+async function tableExists(
+  client: Client,
+  tableName: string
+): Promise<boolean> {
+  const result = await client.query<{ reg: string | null }>(
+    `SELECT to_regclass($1) AS reg`,
+    [`public.${tableName}`]
+  );
+  return result.rows[0]?.reg !== null;
+}
+
+/** Re-apply migrations whose tables were dropped (e.g. substreams clean deploy). */
+async function reconcileOrphanedMigrations(
+  client: Client,
+  appliedFiles: Set<string>
+): Promise<number> {
+  let removed = 0;
+
+  for (const filename of appliedFiles) {
+    const tables = TABLES_BY_MIGRATION[filename];
+    if (!tables?.length) continue;
+
+    let missing = false;
+    for (const table of tables) {
+      if (!(await tableExists(client, table))) {
+        missing = true;
+        break;
+      }
+    }
+
+    if (!missing) continue;
+
+    await client.query('DELETE FROM schema_migrations WHERE filename = $1', [
+      filename,
+    ]);
+    appliedFiles.delete(filename);
+    removed++;
+    console.warn(
+      `⚠ ${filename} marked applied but table(s) missing — will re-apply`
+    );
+  }
+
+  return removed;
 }
 
 async function applyMigration(client: Client, filename: string): Promise<void> {
@@ -88,6 +154,10 @@ async function main(): Promise<void> {
 
     const files = getMigrationFiles();
     const appliedFiles = await getAppliedFiles(client);
+    const reconciled = await reconcileOrphanedMigrations(client, appliedFiles);
+    if (reconciled > 0) {
+      console.log(`   Reconciled ${reconciled} orphaned migration record(s)`);
+    }
     let appliedCount = 0;
 
     for (const file of files) {

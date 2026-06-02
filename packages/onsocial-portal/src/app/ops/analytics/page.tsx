@@ -39,9 +39,7 @@ function formatTimestamp(value: string): string {
 function renderLatest(label: string, item: LatestIndexedSummary | null) {
   return (
     <div className="rounded-[1rem] border border-border/40 bg-background/40 p-4">
-      <p className="portal-eyebrow text-muted-foreground">
-        {label}
-      </p>
+      <p className="portal-eyebrow text-muted-foreground">{label}</p>
       <p className="mt-2 font-mono text-lg font-semibold text-foreground/85">
         {item ? `#${formatCount(item.blockHeight)}` : 'No data'}
       </p>
@@ -61,9 +59,7 @@ function renderActorList(
 ) {
   return (
     <SurfacePanel radius="xl" tone="soft" padding="roomy">
-      <p className="portal-eyebrow text-muted-foreground">
-        {label}
-      </p>
+      <p className="portal-eyebrow text-muted-foreground">{label}</p>
       <div className="mt-4 space-y-3">
         {items.length > 0 ? (
           items.map((item) => (
@@ -178,9 +174,7 @@ function renderDrilldownPanel(
     <SurfacePanel radius="xl" tone="soft" padding="roomy" className="mt-8">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <p className="portal-eyebrow text-muted-foreground">
-            Drilldown
-          </p>
+          <p className="portal-eyebrow text-muted-foreground">Drilldown</p>
           <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em]">
             {title}
           </h3>
@@ -441,9 +435,7 @@ export default function OpsAnalyticsPage() {
       <SurfacePanel radius="xl" tone="soft" padding="roomy" className="mb-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="portal-eyebrow text-muted-foreground">
-              Access
-            </p>
+            <p className="portal-eyebrow text-muted-foreground">Access</p>
             <h2 className="mt-2 text-xl font-semibold tracking-[-0.03em]">
               Admin-gated gateway view
             </h2>
@@ -513,10 +505,15 @@ export default function OpsAnalyticsPage() {
             padding="none"
             className="mb-6 overflow-hidden"
           >
-            <StatStrip columns={5} mobileColumns={2}>
+            <StatStrip columns={6} mobileColumns={2}>
               <StatStripCell
                 label="Profiles"
                 value={formatCount(overview.totals.profiles)}
+                showDivider
+              />
+              <StatStripCell
+                label="Discoverable"
+                value={formatCount(overview.totals.discoverableProfiles)}
                 showDivider
               />
               <StatStripCell

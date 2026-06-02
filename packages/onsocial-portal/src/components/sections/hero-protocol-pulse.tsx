@@ -3,20 +3,13 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
-import { ACTIVE_API_URL } from '@/lib/portal-config';
 import { cn } from '@/lib/utils';
-
-interface ProtocolPulse {
-  generatedAt: string;
-  windowHours: number;
-  totals: {
-    profiles: number;
-    groups: number;
-  };
-  recent24h: {
-    posts: number;
-  };
-}
+import {
+  HERO_PROTOCOL_PULSE_METRICS,
+  metricLabel,
+  resolveProtocolPulseMetrics,
+  type ProtocolPulseSnapshot,
+} from '@/lib/protocol-pulse-metrics';
 
 function formatCompact(value: number): string {
   return new Intl.NumberFormat('en-US', {
@@ -49,21 +42,23 @@ function formatUpdatedAt(value: string): string {
 const pulseStatValueClass =
   'text-portal-neutral font-mono text-sm font-semibold tracking-tight md:text-base';
 
+const heroMetrics = resolveProtocolPulseMetrics(HERO_PROTOCOL_PULSE_METRICS);
+
 export function HeroProtocolPulse() {
-  const [pulse, setPulse] = useState<ProtocolPulse | null>(null);
+  const [pulse, setPulse] = useState<ProtocolPulseSnapshot | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadPulse() {
       try {
-        const res = await fetch(`${ACTIVE_API_URL}/graph/protocol-pulse`, {
+        const res = await fetch('/api/graph/protocol-pulse', {
           cache: 'no-store',
         });
         if (!res.ok) {
           throw new Error('Failed to load protocol pulse');
         }
-        const data = (await res.json()) as ProtocolPulse;
+        const data = (await res.json()) as ProtocolPulseSnapshot;
         if (!cancelled) {
           setPulse(data);
         }
@@ -91,33 +86,42 @@ export function HeroProtocolPulse() {
 
   return (
     <div className="mx-auto mt-8 max-w-2xl rounded-[1.25rem] border border-border/40 bg-background/35 backdrop-blur-sm">
-      <StatStrip columns={3} mobileColumns={3}>
-        <StatStripCell label="Profiles" showDivider>
-          <Link
-            href="/discover"
-            className="group rounded-sm focus-visible:outline-none"
-            aria-label={`Discover ${formatCompact(pulse.totals.profiles)} profiles`}
-          >
-            <span
-              className={cn(
-                pulseStatValueClass,
-                'transition-colors group-hover:text-[var(--portal-blue)] group-focus-visible:text-[var(--portal-blue)]'
+      <StatStrip columns={heroMetrics.length} mobileColumns={3}>
+        {heroMetrics.map((metric, index) => {
+          const raw = metric.value(pulse);
+          const formatted = formatCompact(raw);
+          const label = metricLabel(metric, pulse);
+          const isLast = index === heroMetrics.length - 1;
+          const valueNode = (
+            <span className={cn('mt-1', pulseStatValueClass)}>{formatted}</span>
+          );
+
+          return (
+            <StatStripCell key={metric.id} label={label} showDivider={!isLast}>
+              {metric.href ? (
+                <Link
+                  href={metric.href}
+                  className="group rounded-sm focus-visible:outline-none"
+                  aria-label={
+                    metric.ariaLabel?.(pulse, formatted) ??
+                    `${formatted} ${label}`
+                  }
+                >
+                  <span
+                    className={cn(
+                      pulseStatValueClass,
+                      'transition-colors group-hover:text-[var(--portal-blue)] group-focus-visible:text-[var(--portal-blue)]'
+                    )}
+                  >
+                    {formatted}
+                  </span>
+                </Link>
+              ) : (
+                valueNode
               )}
-            >
-              {formatCompact(pulse.totals.profiles)}
-            </span>
-          </Link>
-        </StatStripCell>
-        <StatStripCell label={`Posts ${pulse.windowHours}h`} showDivider>
-          <p className={cn('mt-1', pulseStatValueClass)}>
-            {formatCompact(pulse.recent24h.posts)}
-          </p>
-        </StatStripCell>
-        <StatStripCell label="Groups">
-          <p className={cn('mt-1', pulseStatValueClass)}>
-            {formatCompact(pulse.totals.groups)}
-          </p>
-        </StatStripCell>
+            </StatStripCell>
+          );
+        })}
       </StatStrip>
       <p className="px-4 py-3 text-center portal-eyebrow text-muted-foreground">
         {formatUpdatedAt(pulse.generatedAt)}

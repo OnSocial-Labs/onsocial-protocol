@@ -169,6 +169,7 @@ jobs:
             find migrations -maxdepth 1 -type f -name '*.sql' -exec cp {} $GITHUB_WORKSPACE/spkg-upload/migrations/ \;
           fi
           cp scripts/sync-hasura-substreams-metadata.sh $GITHUB_WORKSPACE/spkg-upload/
+          cp ../../scripts/repair-gateway-auth.sh $GITHUB_WORKSPACE/spkg-upload/
           echo "Upload contents:"
           find $GITHUB_WORKSPACE/spkg-upload -maxdepth 2 -type f | sort
 
@@ -228,6 +229,9 @@ jobs:
 
             # Helper: psql via Docker container (client not installed on host)
             PSQL="docker exec -i postgres psql -U onsocial -d onsocial_indexer"
+
+            # Gateway + notifications live in the same DB as the indexer — never drop/truncate these.
+            GATEWAY_PRESERVE_SQL="'api_keys','api_usage','developer_subscriptions','developer_apps','app_notification_events','developer_notification_rules','notifications','notification_webhook_endpoints','notification_delivery_attempts','notification_counts','notification_cursors'"
 
             # Legacy schema migration: early deployments only had core/token tables,
             # and later core schema revisions added columns without ALTER migrations.
@@ -296,16 +300,18 @@ jobs:
             # Schema: clean deploy drops everything; otherwise always apply the
             # current combined schema so new contract tables/indexes are present.
             if [ "$CLEAN_DEPLOY" = "true" ]; then
-              echo "🧹 Clean deploy — dropping all tables"
+              echo "🧹 Clean deploy — dropping indexer tables (preserving gateway auth tables)"
               $PSQL -c "
                 DO \$\$ DECLARE t TEXT;
                 BEGIN
                   FOR t IN SELECT tablename FROM pg_tables
-                    WHERE schemaname = 'public' AND tablename != 'schema_migrations'
-                  LOOP EXECUTE 'DROP TABLE IF EXISTS ' || t || ' CASCADE'; END LOOP;
+                    WHERE schemaname = 'public'
+                      AND tablename != 'schema_migrations'
+                      AND tablename NOT IN (${GATEWAY_PRESERVE_SQL})
+                  LOOP EXECUTE 'DROP TABLE IF EXISTS ' || quote_ident(t) || ' CASCADE'; END LOOP;
                 END \$\$;
               "
-              echo "✓ Tables dropped"
+              echo "✓ Indexer tables dropped (gateway tables preserved)"
             fi
 
             echo "📝 Applying combined schema"
@@ -404,21 +410,23 @@ jobs:
             if [ "$MAX_CURSOR_BLOCK" = "0" ]; then
               DATA_ROW_COUNT=$($PSQL -tAc \
                 "SELECT COALESCE(SUM(n_live_tup), 0)::bigint FROM pg_stat_user_tables
-                 WHERE relname NOT IN ('cursors', 'schema_migrations')" 2>/dev/null \
+                 WHERE relname NOT IN ('cursors', 'schema_migrations')
+                   AND relname NOT IN (${GATEWAY_PRESERVE_SQL})" 2>/dev/null \
                 | tr -d '[:space:]' || echo "0")
               if [ "$DATA_ROW_COUNT" != "0" ] && [ "$DATA_ROW_COUNT" != "" ]; then
-                echo "⚠️ No valid cursor (block_num=$MAX_CURSOR_BLOCK) but data tables hold ~$DATA_ROW_COUNT rows"
-                echo "   Truncating data tables to avoid duplicate-key errors on replay..."
-                $PSQL <<'SQLEOF'
-            DO $$ DECLARE t TEXT;
+                echo "⚠️ No valid cursor (block_num=$MAX_CURSOR_BLOCK) but indexer tables hold ~$DATA_ROW_COUNT rows"
+                echo "   Truncating indexer tables to avoid duplicate-key errors on replay..."
+                $PSQL <<SQLEOF
+            DO \$\$ DECLARE t TEXT;
             BEGIN
               FOR t IN SELECT tablename FROM pg_tables
                 WHERE schemaname = 'public'
                   AND tablename NOT IN ('cursors', 'schema_migrations')
+                  AND tablename NOT IN (${GATEWAY_PRESERVE_SQL})
               LOOP
                 EXECUTE 'TRUNCATE TABLE ' || quote_ident(t) || ' CASCADE';
               END LOOP;
-            END $$;
+            END \$\$;
             SQLEOF
                 echo "✓ Data tables truncated — sink will re-index from start block"
               fi
@@ -533,23 +541,61 @@ jobs:
             # but it may run before substreams finishes creating/tracking new
             # relations. Re-run it here to close that ordering gap.
             if [ -d /opt/onsocial ] && [ -f /opt/onsocial/docker-compose.yml ]; then
-              echo "🔐 Syncing gateway Hasura permissions after substreams metadata update..."
+              echo "🔐 Repairing gateway auth + syncing Hasura permissions..."
               (
                 cd /opt/onsocial
-                # Suppress "VAR is not set" docker-compose warnings — `exec`
-                # only needs to attach to the already-running container, but
-                # docker-compose still parses the entire compose file and
-                # warns about every variable referenced in it. Source .env
-                # if present so those references resolve to real values.
-                if [ -f .env ]; then
+                if [ -f .env.production ]; then
                   set -a
                   # shellcheck disable=SC1091
-                  . ./.env
+                  . ./.env.production
                   set +a
+                fi
+                if [ -f deploy_gsm.env ]; then
+                  set -a
+                  # shellcheck disable=SC1091
+                  . ./deploy_gsm.env
+                  set +a
+                fi
+                export HASURA_ADMIN_SECRET="${HASURA_ADMIN_SECRET:-${ADMIN_SECRET:-}}"
+                if [ -z "${HASURA_ADMIN_SECRET:-}" ] && command -v gcloud >/dev/null 2>&1; then
+                  HASURA_ADMIN_SECRET="$(
+                    gcloud secrets versions access latest \
+                      --secret=HASURA_ADMIN_SECRET \
+                      --project=onsocial-protocol 2>/dev/null \
+                      | tr -d '\r\n' || true
+                  )"
+                  export HASURA_ADMIN_SECRET
+                fi
+                if [ -z "${ONSOCIAL_API_KEY:-}" ] && command -v gcloud >/dev/null 2>&1; then
+                  for _onapi_secret in ONSOCIAL_SERVICE_ONAPI_KEY ONSOCIAL_API_KEY GATEWAY_SERVICE_KEY; do
+                    ONSOCIAL_API_KEY="$(
+                      gcloud secrets versions access latest \
+                        --secret="$_onapi_secret" \
+                        --project=onsocial-protocol 2>/dev/null \
+                        | tr -d '\r\n' || true
+                    )"
+                    [ -n "${ONSOCIAL_API_KEY:-}" ] && break
+                  done
+                  export ONSOCIAL_API_KEY
+                fi
+                REPAIR_SCRIPT="${SPKG_DIR}/repair-gateway-auth.sh"
+                if [ ! -f "$REPAIR_SCRIPT" ] && [ -f /root/onsocial-protocol/scripts/repair-gateway-auth.sh ]; then
+                  REPAIR_SCRIPT="/root/onsocial-protocol/scripts/repair-gateway-auth.sh"
+                fi
+                if [ -f "$REPAIR_SCRIPT" ]; then
+                  chmod +x "$REPAIR_SCRIPT"
+                  bash "$REPAIR_SCRIPT"
+                else
+                  echo "⚠️ repair-gateway-auth.sh not found — applying api_keys migration only"
+                  if [ -f /root/onsocial-protocol/packages/onsocial-gateway/migrations/001_api_keys.sql ]; then
+                    $PSQL < /root/onsocial-protocol/packages/onsocial-gateway/migrations/001_api_keys.sql
+                  fi
                 fi
                 if docker compose ps gateway >/dev/null 2>&1; then
                   mkdir -p /opt/onsocial/backups
-                  docker compose exec -T -e HASURA_BACKUP_DIR=/tmp gateway \
+                  docker compose exec -T -e HASURA_BACKUP_DIR=/tmp \
+                    -e HASURA_ADMIN_SECRET="${HASURA_ADMIN_SECRET}" \
+                    gateway \
                     node packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js sync
                   LATEST_SNAPSHOT=$(docker compose exec -T gateway sh -c 'ls -1t /tmp/hasura-metadata-*.json 2>/dev/null | head -1' | tr -d '\r')
                   if [ -n "$LATEST_SNAPSHOT" ]; then

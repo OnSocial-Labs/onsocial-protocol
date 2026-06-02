@@ -99,6 +99,7 @@ interface GroupDetailRow {
 
 interface AnalyticsOverviewQuery {
   profilesTotal?: AggregateCountNode;
+  discoverableProfilesTotal?: AggregateCountNode;
   postsTotal?: AggregateCountNode;
   reactionsTotal?: AggregateCountNode;
   claimsTotal?: AggregateCountNode;
@@ -214,6 +215,8 @@ export interface AnalyticsOverview {
   sampleLimit: number;
   totals: {
     profiles: number;
+    /** Rows in `profile_search` (complete discoverable profiles). */
+    discoverableProfiles: number;
     posts: number;
     reactions: number;
     claims: number;
@@ -481,6 +484,11 @@ function buildOverviewQuery(sinceNs: string): string {
     profilesTotal: profilesCurrentAggregate(where: {value: {_isNull: false}}) {
       aggregate {
         count(columns: [accountId], distinct: true)
+      }
+    }
+    discoverableProfilesTotal: profileSearchAggregate {
+      aggregate {
+        count
       }
     }
     postsTotal: postsCurrentAggregate {
@@ -764,6 +772,7 @@ export async function getAnalyticsOverview(
     sampleLimit: BREAKDOWN_SAMPLE_LIMIT,
     totals: {
       profiles: countOf(data.profilesTotal),
+      discoverableProfiles: countOf(data.discoverableProfilesTotal),
       posts: countOf(data.postsTotal),
       reactions: countOf(data.reactionsTotal),
       claims: countOf(data.claimsTotal),

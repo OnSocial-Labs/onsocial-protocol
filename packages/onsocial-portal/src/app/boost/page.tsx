@@ -1270,7 +1270,7 @@ export default function BoostPage() {
                       className="mt-4"
                       visibleLiveClaimableYocto={visibleLiveClaimableYocto}
                       displayFractionDigits={LIVE_COUNTER_DISPLAY_FRACTION_DIGITS}
-                      isLiveAccruing={shouldLiveAccrueRewards}
+                      isLiveAccruing={shouldLiveAccrueRewards === true}
                       perSecondDisplay={perSecondDisplay}
                       claimCelebration={claimCelebration}
                       claimCelebrationDurationSeconds={

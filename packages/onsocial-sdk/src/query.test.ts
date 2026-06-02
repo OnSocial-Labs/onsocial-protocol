@@ -159,6 +159,38 @@ describe('QueryModule', () => {
       expect(await os.query.profiles.get('ghost.near')).toBeNull();
     });
 
+    it('looks up a profile search row by exact account id', async () => {
+      const row = {
+        accountId: 'alice.near',
+        name: 'Alice',
+        bio: 'Building on NEAR',
+        avatar: 'ipfs://bafyAlice',
+        banner: null,
+        standingCount: 12,
+        standingWithCount: 3,
+        lastProfileBlock: 100,
+        lastProfileTimestamp: 1000,
+        lastActivityBlock: 120,
+      };
+      const { os, fetch } = makeOs({ data: { profileSearch: [row] } });
+
+      await expect(os.query.profiles.lookup('alice.near')).resolves.toEqual(
+        row
+      );
+      const body = JSON.parse(
+        String((fetch.mock.calls[0]?.[1] as RequestInit | undefined)?.body)
+      ) as { variables: Record<string, unknown>; query: string };
+      expect(body.variables).toMatchObject({ id: 'alice.near' });
+      expect(body.query).toContain('profileSearch');
+      expect(body.query).toContain('accountId');
+      expect(body.query).not.toContain('searchText');
+    });
+
+    it('returns null when profile search lookup misses', async () => {
+      const { os } = makeOs({ data: { profileSearch: [] } });
+      expect(await os.query.profiles.lookup('ghost.near')).toBeNull();
+    });
+
     it('searches discoverable profile rows', async () => {
       const rows = [
         {
@@ -189,6 +221,125 @@ describe('QueryModule', () => {
       });
       expect(body.query).toContain('profileSearch');
       expect(body.query).toContain('searchText');
+    });
+
+    it('discoverPage without viewer uses search (one round-trip)', async () => {
+      const rows = [
+        {
+          accountId: 'alice.near',
+          name: 'Alice',
+          bio: null,
+          avatar: null,
+          banner: null,
+          standingCount: 1,
+          standingWithCount: 0,
+          mutualStandingCount: 0,
+          endorsementsReceivedCount: 0,
+          endorsementsGivenCount: 0,
+          firstProfileTimestamp: null,
+          lastProfileBlock: 1,
+          lastProfileTimestamp: 1,
+          lastActivityBlock: 1,
+        },
+      ];
+      const { os, fetch } = makeOs({ data: { profileSearch: rows } });
+
+      const page = await os.query.profiles.discoverPage({ limit: 10 });
+      expect(page.profiles).toEqual(rows);
+      expect(page.viewer).toBeNull();
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('discoverPage with viewer batches graph context (one round-trip)', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          profileSearch: [],
+          outgoing: [
+            {
+              accountId: 'bob.near',
+              targetAccount: 'alice.near',
+              value: '{"since":42}',
+              blockTimestamp: 9,
+            },
+          ],
+          incoming: [{ accountId: 'carol.near' }],
+          endorsements: [{ issuer: 'dave.near' }],
+        },
+      });
+
+      const page = await os.query.profiles.discoverPage({
+        viewerAccountId: 'bob.near',
+        limit: 5,
+      });
+
+      expect(page.viewer?.outgoing[0]).toMatchObject({
+        targetAccount: 'alice.near',
+        since: 42,
+        blockTimestamp: 9,
+      });
+      expect(page.viewer?.incomingAccountIds).toEqual(['carol.near']);
+      expect(page.viewer?.endorsementIssuers).toEqual(['dave.near']);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      const body = JSON.parse(
+        String((fetch.mock.calls[0]?.[1] as RequestInit | undefined)?.body)
+      ) as { query: string };
+      expect(body.query).toContain('outgoing: standingsCurrent');
+      expect(body.query).toContain('endorsements: endorsementsCurrent');
+    });
+  });
+
+  describe('stats', () => {
+    it('protocolTotals reads profile and group aggregates', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          profilesTotal: { aggregate: { count: 42 } },
+          discoverableProfilesTotal: { aggregate: { count: 15 } },
+          groupsTotal: { aggregate: { count: 7 } },
+        },
+      });
+
+      await expect(os.query.stats.protocolTotals()).resolves.toEqual({
+        profiles: 42,
+        discoverableProfiles: 15,
+        groups: 7,
+      });
+      expect(fetch).toHaveBeenCalledTimes(1);
+      const body = JSON.parse(
+        String((fetch.mock.calls[0]?.[1] as RequestInit | undefined)?.body)
+      ) as { query: string };
+      expect(body.query).toContain('profilesCurrentAggregate');
+      expect(body.query).toContain('profileSearchAggregate');
+      expect(body.query).toContain('groupUpdatesAggregate');
+    });
+
+    it('protocolPulse fetches curated gateway snapshot', async () => {
+      const pulse = {
+        generatedAt: '2026-01-01T00:00:00.000Z',
+        windowHours: 24,
+        totals: { profiles: 10, discoverableProfiles: 8, groups: 2 },
+        recent24h: { posts: 3, reactions: 12 },
+      };
+      const fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: () => Promise.resolve(pulse),
+        text: () => Promise.resolve(JSON.stringify(pulse)),
+      });
+      const os = new OnSocial({
+        gatewayUrl: 'https://g.test',
+        fetch,
+        apiKey: 'test-key',
+      });
+
+      await expect(os.query.stats.protocolPulse()).resolves.toEqual(pulse);
+      expect(fetch).toHaveBeenCalledWith(
+        'https://g.test/graph/protocol-pulse',
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({ 'X-API-Key': 'test-key' }),
+        })
+      );
     });
   });
 
