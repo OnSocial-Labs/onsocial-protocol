@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { gatewayQuery } from '@/lib/gateway-client';
+import { loadPortalProfileSignals } from '@/lib/portal-profile-signals';
 import type { ReputationEntry } from '@/lib/leaderboard';
 
 export const runtime = 'nodejs';
@@ -36,43 +36,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const data = await gatewayQuery<{ reputationScores: ReputationEntry[] }>(
-      `query ProfileSignals($accountId: String!) {
-        reputationScores(
-          where: { accountId: { _eq: $accountId } }
-          limit: 1
-        ) {
-          accountId
-          standingWith
-          standingOut
-          boost
-          lockMonths
-          rewardsEarned
-          totalPosts
-          replyCount
-          reactionsReceived
-          avgReactions
-          activeDays
-          uniqueConversations
-          scarcesCreated
-          scarcesSold
-          scarcesRevenueNear
-          socialScore
-          commitmentScore
-          qualityScore
-          consistencyScore
-          scarcesScore
-          reputation
-          rank
-        }
-      }`,
-      { accountId }
-    );
-
-    const response: ProfileSignalsResponse = {
-      accountId,
-      reputation: data.reputationScores?.[0] ?? null,
-    };
+    const response: ProfileSignalsResponse =
+      await loadPortalProfileSignals(accountId);
 
     return NextResponse.json(response, {
       headers: {

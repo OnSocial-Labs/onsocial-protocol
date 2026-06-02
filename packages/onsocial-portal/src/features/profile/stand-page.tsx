@@ -1,7 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 import { PageShell } from '@/components/layout/page-shell';
 import { StandPagePanel } from '@/features/profile/stand-page-panel';
 import { useProfile } from '@/contexts/profile-context';
@@ -14,10 +13,7 @@ import {
   profilePageDiscoverColumnClass,
   profilePageMobileGutterClass,
 } from '@/lib/profile-page-layout';
-import {
-  getPortalProfileUrl,
-  type PortalStandKind,
-} from '@/lib/portal-config';
+import { type PortalStandKind } from '@/lib/portal-config';
 import { type StanceDetailKind } from '@/lib/profile-social-standings';
 import { cn } from '@/lib/utils';
 
@@ -31,7 +27,9 @@ function decodeRouteAccountId(raw: string | string[] | undefined): string {
   }
 }
 
-function parseStandKind(raw: string | string[] | undefined): StanceDetailKind | null {
+function parseStandKind(
+  raw: string | string[] | undefined
+): StanceDetailKind | null {
   const value = Array.isArray(raw) ? raw[0] : raw;
   if (value === 'incoming' || value === 'outgoing' || value === 'mutual') {
     return value;
@@ -47,10 +45,9 @@ async function fetchProfileMeta(accountId: string): Promise<{
     fetch(`/api/profile?accountId=${encodeURIComponent(accountId)}`, {
       cache: 'no-store',
     }),
-    fetch(
-      `/api/profile/social?accountId=${encodeURIComponent(accountId)}`,
-      { cache: 'no-store' }
-    ),
+    fetch(`/api/profile/social?accountId=${encodeURIComponent(accountId)}`, {
+      cache: 'no-store',
+    }),
   ]);
 
   const profileBody = (await profileRes.json().catch(() => null)) as {
@@ -78,7 +75,6 @@ export default function StandPage({
   accountId: string;
   kind: PortalStandKind;
 }) {
-  const router = useRouter();
   const { accountId: viewerAccountId } = useWallet();
   const profileState = useProfile();
 
@@ -136,13 +132,6 @@ export default function StandPage({
     };
   }, [accountId, kind]);
 
-  const navigateToProfile = useCallback(
-    (targetAccountId: string) => {
-      router.push(getPortalProfileUrl(targetAccountId));
-    },
-    [router]
-  );
-
   if (!accountId || !kind) {
     return (
       <PageShell size="standard">
@@ -157,10 +146,7 @@ export default function StandPage({
     <PageShell size="form" className="px-0">
       <div className={cn('w-full min-w-0', profilePageMobileGutterClass)}>
         <div
-          className={cn(
-            'flex flex-col pb-12',
-            profilePageDiscoverColumnClass
-          )}
+          className={cn('flex flex-col pb-12', profilePageDiscoverColumnClass)}
         >
           <StandPagePanel
             kind={kind}
@@ -171,7 +157,6 @@ export default function StandPage({
             metaLoaded={metaLoaded}
             viewerAccountId={viewerAccountId}
             hasSocialSession={profileState.hasSocialSession}
-            onSelectAccount={navigateToProfile}
             onUpdateAccountStanding={
               viewerAccountId
                 ? async (account, shouldStand) => {

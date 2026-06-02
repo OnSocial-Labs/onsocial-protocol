@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PageShell } from '@/components/layout/page-shell';
 import { ProfileModal } from '@/components/profile-modal';
@@ -9,7 +9,7 @@ import { useWallet } from '@/contexts/wallet-context';
 import { useNavBack } from '@/hooks/use-nav-back';
 import { usePageNavBadge } from '@/hooks/use-page-nav-badge';
 import { formatProfilePageNavLabel } from '@/lib/nav-badge-label';
-import { getPortalProfileUrl } from '@/lib/portal-config';
+import type { PortalProfileShell } from '@/lib/portal-profile-server';
 
 function decodeRouteAccountId(raw: string | string[] | undefined): string {
   const value = Array.isArray(raw) ? raw[0] : raw;
@@ -23,8 +23,10 @@ function decodeRouteAccountId(raw: string | string[] | undefined): string {
 
 export default function ProfilePage({
   accountId: accountIdParam,
+  initialShell = null,
 }: {
   accountId: string;
+  initialShell?: PortalProfileShell | null;
 }) {
   const router = useRouter();
   const { accountId: viewerAccountId } = useWallet();
@@ -53,13 +55,6 @@ export default function ProfilePage({
 
   usePageNavBadge(navBadgeLabel, 'blue');
 
-  const navigateToProfile = useCallback(
-    (targetAccountId: string) => {
-      router.push(getPortalProfileUrl(targetAccountId));
-    },
-    [router]
-  );
-
   if (!accountId) {
     return (
       <PageShell size="standard">
@@ -76,6 +71,7 @@ export default function ProfilePage({
         variant="page"
         open
         accountId={accountId}
+        initialShell={initialShell}
         viewerAccountId={viewerAccountId}
         selfProfile={profileState.profile}
         selfAvatarUrl={profileState.avatarUrl}
@@ -84,8 +80,6 @@ export default function ProfilePage({
         isAuthorizingSession={profileState.isAuthorizingSession}
         onOpenChange={() => router.push('/discover')}
         onEditProfile={() => {}}
-        onSelectAccount={navigateToProfile}
-        onDiscoverProfiles={() => router.push('/discover')}
         onPageNavLabel={setProfileNavLabel}
         onUpdateStanding={profileState.updateStanding}
         onEndorse={profileState.endorse}

@@ -15,6 +15,7 @@ import { Github, Globe, PenLine, User } from 'lucide-react';
 import { FaXTwitter } from 'react-icons/fa6';
 import { RiTelegram2Line } from 'react-icons/ri';
 import type { MaterialisedProfile } from '@onsocial/sdk';
+import type { PortalProfileShell } from '@/lib/portal-profile-server';
 import type { EndorsementSubmitInput } from '@/lib/endorsements';
 import {
   compactModalBodyClass,
@@ -125,8 +126,7 @@ const socialMetricBtnClass =
 const profileIdentityLayoutClass =
   '[--profile-avatar-size:5rem] md:[--profile-avatar-size:6rem]';
 
-const profileIdentityOverlapClass =
-  '-mt-[calc(var(--profile-avatar-size)/2)]';
+const profileIdentityOverlapClass = '-mt-[calc(var(--profile-avatar-size)/2)]';
 
 const profileIdentityAvatarSizeClass =
   'h-[var(--profile-avatar-size)] w-[var(--profile-avatar-size)]';
@@ -139,9 +139,25 @@ interface ProfileSignalsResponse {
   reputation: ReputationEntry | null;
 }
 
+interface PortalProfileBundleResponse {
+  accountId: string;
+  profile: MaterialisedProfile | null;
+  avatarUrl: string | null;
+  bannerUrl: string | null;
+  firstProfileTimestamp: number | null;
+  latestProfileUpdateFields: string[];
+  network?: PortalProfileResponse['network'];
+  nearAccount: PortalProfileResponse['nearAccount'];
+  nearAccountExplorerUrl?: string;
+  nearAccountCreation: PortalProfileResponse['nearAccountCreation'];
+  social?: ProfileSocialResponse;
+  signals?: ProfileSignalsResponse;
+}
+
 interface ProfileModalProps {
   open: boolean;
   accountId: string | null;
+  initialShell?: PortalProfileShell | null;
   viewerAccountId: string | null;
   selfProfile: MaterialisedProfile | null;
   selfAvatarUrl: string | null;
@@ -171,15 +187,26 @@ function getErrorMessage(error: unknown): string {
   return 'Profile request failed';
 }
 
-async function fetchPortalProfile(
-  accountId: string
-): Promise<PortalProfileResponse> {
-  const response = await fetch(
-    `/api/profile?accountId=${encodeURIComponent(accountId)}`,
-    { cache: 'no-store' }
-  );
+async function fetchPortalProfileBundle(
+  accountId: string,
+  viewerAccountId: string | null
+): Promise<PortalProfileBundleResponse> {
+  const search = new URLSearchParams({
+    accountId,
+    bundle: 'social,signals',
+  });
+  if (viewerAccountId) {
+    search.set('viewerAccountId', viewerAccountId);
+  }
+
+  const response = await fetch(`/api/profile?${search.toString()}`, {
+    cache: 'no-store',
+  });
   const body = (await response.json().catch(() => null)) as
-    | (Partial<PortalProfileResponse> & { error?: string; detail?: string })
+    | (Partial<PortalProfileBundleResponse> & {
+        error?: string;
+        detail?: string;
+      })
     | null;
 
   if (!response.ok) {
@@ -199,6 +226,8 @@ async function fetchPortalProfile(
     nearAccount: body?.nearAccount ?? null,
     nearAccountExplorerUrl: body?.nearAccountExplorerUrl,
     nearAccountCreation: body?.nearAccountCreation ?? null,
+    social: body?.social,
+    signals: body?.signals,
   };
 }
 
@@ -574,8 +603,7 @@ function SocialProofStrip({
   );
 
   const metricBtn = socialMetricBtnClass;
-  const columnLabel =
-    'portal-type-label font-medium text-muted-foreground/55';
+  const columnLabel = 'portal-type-label font-medium text-muted-foreground/55';
 
   return (
     <div>
@@ -930,7 +958,6 @@ function ProfileSignalsCard({ reputation }: { reputation: ReputationEntry }) {
   );
 }
 
-
 function fieldStatus(value?: string | null): string {
   return value?.trim() ? 'Set' : 'Not set';
 }
@@ -1174,9 +1201,43 @@ function AccountFactsModal({
   );
 }
 
+function applyProfileSocial(
+  body: ProfileSocialResponse | undefined
+): ProfileSocialResponse | null {
+  if (!body) return null;
+
+  const normalizeAccounts = (
+    accounts: StandingAccountSummary[] | undefined
+  ): StandingAccountSummary[] =>
+    (accounts ?? []).map((account) => ({
+      ...account,
+      standingCount: Number(account.standingCount ?? 0),
+      standingWithCount: Number(account.standingWithCount ?? 0),
+      mutualStandingCount: Number(account.mutualStandingCount ?? 0),
+      endorsementsReceivedCount: Number(account.endorsementsReceivedCount ?? 0),
+      endorsementsGivenCount: Number(account.endorsementsGivenCount ?? 0),
+      viewerStanding: Boolean(account.viewerStanding),
+      theyStandWithViewer: Boolean(account.theyStandWithViewer),
+    }));
+
+  return {
+    accountId: body.accountId,
+    viewerAccountId: body.viewerAccountId ?? null,
+    viewerStanding: Boolean(body.viewerStanding),
+    counts: {
+      incoming: Number(body.counts?.incoming ?? 0),
+      outgoing: Number(body.counts?.outgoing ?? 0),
+      mutual: Number(body.counts?.mutual ?? 0),
+    },
+    incoming: normalizeAccounts(body.incoming),
+    outgoing: normalizeAccounts(body.outgoing),
+  };
+}
+
 export function ProfileModal({
   open,
   accountId,
+  initialShell = null,
   viewerAccountId,
   selfProfile,
   selfAvatarUrl,
@@ -1255,14 +1316,7 @@ export function ProfileModal({
         profileLoaded: hasProfileLoaded,
       })
     );
-  }, [
-    accountId,
-    hasProfileLoaded,
-    isPage,
-    isSelf,
-    onPageNavLabel,
-    title,
-  ]);
+  }, [accountId, hasProfileLoaded, isPage, isSelf, onPageNavLabel, title]);
 
   const networkAccounts: NetworkAccount[] = useMemo(() => {
     if (!social) return [];
@@ -1370,6 +1424,17 @@ export function ProfileModal({
       setNearAccountExplorerUrl(undefined);
       setNearAccountCreation(null);
       setHasProfileLoaded(true);
+    } else if (initialShell?.accountId === accountId) {
+      setProfile(initialShell.profile);
+      setAvatarUrl(initialShell.avatarUrl);
+      setBannerUrl(initialShell.bannerUrl);
+      setFirstProfileTimestamp(null);
+      setLatestProfileUpdateFields([]);
+      setProfileNetwork(undefined);
+      setNearAccount(null);
+      setNearAccountExplorerUrl(undefined);
+      setNearAccountCreation(null);
+      setHasProfileLoaded(false);
     } else {
       setProfile(null);
       setAvatarUrl(null);
@@ -1384,8 +1449,11 @@ export function ProfileModal({
     }
 
     setProfileError(null);
+    setSocial(null);
+    setProfileSignals(null);
+    setSocialError(null);
 
-    void fetchPortalProfile(accountId)
+    void fetchPortalProfileBundle(accountId, viewerAccountId)
       .then((result) => {
         if (cancelled) return;
         setProfile(result.profile);
@@ -1397,6 +1465,14 @@ export function ProfileModal({
         setNearAccount(result.nearAccount ?? null);
         setNearAccountExplorerUrl(result.nearAccountExplorerUrl);
         setNearAccountCreation(result.nearAccountCreation ?? null);
+
+        const socialResult = applyProfileSocial(result.social);
+        if (socialResult) {
+          setSocial(socialResult);
+        }
+        if (result.signals) {
+          setProfileSignals(result.signals);
+        }
       })
       .catch((error) => {
         if (cancelled) return;
@@ -1411,13 +1487,16 @@ export function ProfileModal({
     return () => {
       cancelled = true;
     };
-  }, [accountId, isSelf, active, selfAvatarUrl, selfBannerUrl, selfProfile]);
-
-  useEffect(() => {
-    if (!active || !accountId) return;
-    void refreshSocial();
-    void refreshProfileSignals();
-  }, [accountId, active, refreshProfileSignals, refreshSocial]);
+  }, [
+    accountId,
+    active,
+    initialShell,
+    isSelf,
+    selfAvatarUrl,
+    selfBannerUrl,
+    selfProfile,
+    viewerAccountId,
+  ]);
 
   useEffect(() => {
     if (!isPage && !open) return;
@@ -1555,284 +1634,271 @@ export function ProfileModal({
           </div>
         ) : null}
 
-                  {!hasProfileLoaded ? (
-                    <>
-                      <h2 id="profile-modal-title" className="sr-only">
-                        Profile
-                      </h2>
-                      <ProfileIdentityLoading fullPage={isPage} />
-                    </>
-                  ) : (
-                    <>
-                      <div
-                        className={cn(
-                          'relative aspect-[5/1] w-full shrink-0 overflow-hidden',
-                          isPage && profilePageBannerSurfaceClass
-                        )}
-                      >
-                        {bannerUrl ? (
-                          <img
-                            src={bannerUrl}
-                            alt=""
-                            className="absolute inset-0 h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div
-                            className="absolute inset-0"
-                            style={{
-                              background: accountGradient(accountId),
-                            }}
-                          />
-                        )}
-                        {!bannerUrl ? (
-                          <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[hsl(var(--background)/0.98)] to-transparent" />
-                        ) : null}
-                      </div>
+        {!hasProfileLoaded ? (
+          <>
+            <h2 id="profile-modal-title" className="sr-only">
+              Profile
+            </h2>
+            <ProfileIdentityLoading fullPage={isPage} />
+          </>
+        ) : (
+          <>
+            <div
+              className={cn(
+                'relative aspect-[5/1] w-full shrink-0 overflow-hidden',
+                isPage && profilePageBannerSurfaceClass
+              )}
+            >
+              {bannerUrl ? (
+                <img
+                  src={bannerUrl}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+              ) : (
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    background: accountGradient(accountId),
+                  }}
+                />
+              )}
+              {!bannerUrl ? (
+                <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[hsl(var(--background)/0.98)] to-transparent" />
+              ) : null}
+            </div>
 
-                      <div
-                        className={cn(
-                          'relative z-10 space-y-3 pb-5 md:pb-5',
-                          profileIdentityLayoutClass,
-                          profileIdentityOverlapClass,
-                          isPage
-                            ? cn('pb-12', profilePageHorizontalPaddingClass)
-                            : 'px-4 md:px-5'
-                        )}
-                      >
-                        <div
-                          className={cn(
-                            'flex items-start gap-3.5',
-                            !isPage && 'pr-8'
-                          )}
-                        >
-                          <AccountAvatar
-                            avatarUrl={avatarUrl}
-                            className={cn(
-                              'shrink-0 rounded-2xl !border-[3px] !border-background shadow-lg',
-                              profileIdentityAvatarSizeClass
-                            )}
-                            placeholderIconClassName="h-6 w-6"
-                            placeholderIconStrokeWidth={2.5}
-                          />
-                          <div className={profileIdentityTextClass}>
-                            <div className="flex items-center gap-3">
-                              <h2
-                                id="profile-modal-title"
-                                className={cn(
-                                  'min-w-0 flex-1 truncate font-semibold leading-tight text-foreground',
-                                  isPage
-                                    ? 'text-xl md:text-2xl'
-                                    : 'text-lg'
-                                )}
-                              >
-                                {title}
-                              </h2>
-                              {profileLinks.length > 0 ? (
-                                <div className="flex shrink-0 items-center gap-2">
-                                  {profileLinks.map((item) => (
-                                    <a
-                                      key={item.key}
-                                      href={item.href}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className={cn(
-                                        'text-muted-foreground/70 transition-all hover:scale-110 hover:brightness-125 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60',
-                                        item.kind === 'website' &&
-                                          'hover:text-[var(--portal-blue)]',
-                                        item.kind === 'telegram' &&
-                                          'hover:text-[#26A5E4]',
-                                        item.kind === 'x' &&
-                                          'hover:text-foreground',
-                                        item.kind === 'github' &&
-                                          'hover:text-[var(--portal-purple)]'
-                                      )}
-                                      aria-label={`${item.label}: ${item.display}`}
-                                    >
-                                      <PortalHoverTooltip
-                                        tooltip={`${item.label}: ${item.display}`}
-                                      >
-                                        <ProfileLinkIcon
-                                          kind={item.kind}
-                                          className="h-4 w-4 shrink-0 md:h-[18px] md:w-[18px]"
-                                        />
-                                      </PortalHoverTooltip>
-                                    </a>
-                                  ))}
-                                </div>
-                              ) : null}
-                            </div>
-                            <p className="truncate portal-type-lead text-muted-foreground/55">
-                              @{accountId}
-                            </p>
-                          </div>
-                        </div>
-
-                        {bio ? (
-                          <p className="text-sm leading-relaxed text-muted-foreground">
-                            {bio}
-                          </p>
-                        ) : null}
-
-                        {!socialReady ? (
-                          <div className="space-y-2">
-                            <div className="flex items-start gap-6">
-                              <div className="space-y-1.5">
-                                <Skeleton className="h-2 w-14" />
-                                <div className="flex gap-1.5">
-                                  <Skeleton className="h-4 w-8 rounded" />
-                                  <Skeleton className="h-4 w-8 rounded" />
-                                  <Skeleton className="h-4 w-6 rounded" />
-                                </div>
-                              </div>
-                              <div className="space-y-1.5">
-                                <Skeleton className="h-2 w-20" />
-                                <div className="flex gap-1.5">
-                                  <Skeleton className="h-4 w-8 rounded" />
-                                  <Skeleton className="h-4 w-8 rounded" />
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex -space-x-1">
-                              {Array.from({ length: 4 }).map((_, i) => (
-                                <Skeleton
-                                  key={i}
-                                  className="h-5 w-5 rounded-full"
-                                />
-                              ))}
-                            </div>
-                          </div>
-                        ) : social ? (
-                          <SocialProofStrip
-                            social={social}
-                            endorsementCount={endorsementCount}
-                            givenEndorsementCount={givenEndorsementCount}
-                            isSelf={isSelf}
-                            meta={
-                              joinedLabel || canStand ? (
-                                <>
-                                  {joinedLabel ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => setAccountFactsOpen(true)}
-                                      className={cn(
-                                        socialMetricBtnClass,
-                                        profileSocialMetaRowItemClass,
-                                        'portal-type-label font-medium text-muted-foreground/55 focus-visible:ring-border/60'
-                                      )}
-                                      aria-label={`View account facts for ${title}`}
-                                    >
-                                      <PortalHoverTooltip
-                                        className="inline-flex items-center gap-1"
-                                        tooltip="Account facts"
-                                      >
-                                        <span>Joined {joinedLabel}</span>
-                                        <ProtocolMotionArrow className="h-2.5 w-2.5 text-muted-foreground/55" />
-                                      </PortalHoverTooltip>
-                                    </button>
-                                  ) : null}
-                                  {canStand ? (
-                                    pendingStandingAction ? (
-                                      <span
-                                        className={profileSocialStandingButtonClass(
-                                          viewerStanding
-                                        )}
-                                        aria-live="polite"
-                                        aria-label={
-                                          viewerStanding
-                                            ? 'Stepping back'
-                                            : 'Confirming stance'
-                                        }
-                                      >
-                                        <ProfileSocialStandingPending
-                                          active={viewerStanding}
-                                          hasSocialSession={hasSocialSession}
-                                        />
-                                      </span>
-                                    ) : (
-                                      <PortalHoverTooltip
-                                        className={profileSocialMetaRowItemClass}
-                                        tooltip={
-                                          viewerStanding
-                                            ? `Step back from ${title}`
-                                            : `Stand with ${title}`
-                                        }
-                                      >
-                                        <button
-                                          type="button"
-                                          className={profileSocialStandingButtonClass(
-                                            viewerStanding
-                                          )}
-                                          disabled={
-                                            !canStand ||
-                                            Boolean(pendingStandingAction)
-                                          }
-                                          onClick={handleStanding}
-                                          aria-label={
-                                            viewerStanding
-                                              ? `Step back from ${title}`
-                                              : `Stand with ${title}`
-                                          }
-                                        >
-                                          <ProfileSocialStandingToggle
-                                            active={viewerStanding}
-                                            hasSocialSession={hasSocialSession}
-                                          />
-                                        </button>
-                                      </PortalHoverTooltip>
-                                    )
-                                  ) : null}
-                                </>
-                              ) : null
-                            }
-                            onOpenStanceDetail={openStanceDetailPage}
-                            onOpenNetwork={() => setNetworkOpen(true)}
-                            onOpenEndorsements={openEndorsementsPage}
-                          />
-                        ) : null}
-
-                        {profileSignals?.reputation ? (
-                          <ProfileSignalsCard
-                            reputation={profileSignals.reputation}
-                          />
-                        ) : null}
-
-                        <ProfileEndorsements
-                          accountId={accountId}
-                          viewerAccountId={viewerAccountId}
-                          targetDisplayName={title}
-                          targetAvatarUrl={avatarUrl}
-                          selfAvatarUrl={selfAvatarUrl}
-                          hasSocialSession={hasSocialSession}
-                          onEndorse={onEndorse}
-                          onRemoveEndorsement={onRemoveEndorsement}
-                          onSelectAccount={onSelectAccount}
-                          onEndorsementCountChange={setEndorsementCount}
-                          onGivenCountChange={setGivenEndorsementCount}
-                        />
-                      </div>
-                    </>
+            <div
+              className={cn(
+                'relative z-10 space-y-3 pb-5 md:pb-5',
+                profileIdentityLayoutClass,
+                profileIdentityOverlapClass,
+                isPage
+                  ? cn('pb-12', profilePageHorizontalPaddingClass)
+                  : 'px-4 md:px-5'
+              )}
+            >
+              <div
+                className={cn('flex items-start gap-3.5', !isPage && 'pr-8')}
+              >
+                <AccountAvatar
+                  avatarUrl={avatarUrl}
+                  className={cn(
+                    'shrink-0 rounded-2xl !border-[3px] !border-background shadow-lg',
+                    profileIdentityAvatarSizeClass
                   )}
-
-                  {(profileError &&
-                    !isWalletCancellationMessage(profileError)) ||
-                  (socialError && !isWalletCancellationMessage(socialError)) ? (
-                    <p
+                  placeholderIconClassName="h-6 w-6"
+                  placeholderIconStrokeWidth={2.5}
+                />
+                <div className={profileIdentityTextClass}>
+                  <div className="flex items-center gap-3">
+                    <h2
+                      id="profile-modal-title"
                       className={cn(
-                        'rounded-xl border border-[var(--portal-red-border)] bg-[var(--portal-red-bg)] px-3 py-2 text-xs leading-relaxed text-[var(--portal-red)]',
-                        isPage
-                          ? cn(
-                              'mx-4 mt-4 mb-5 md:mx-5',
-                              profilePageMobileContentMarginClass
-                            )
-                          : 'mx-4 mt-4 mb-5 md:mx-5'
+                        'min-w-0 flex-1 truncate font-semibold leading-tight text-foreground',
+                        isPage ? 'text-xl md:text-2xl' : 'text-lg'
                       )}
                     >
-                      {profileError &&
-                      !isWalletCancellationMessage(profileError)
-                        ? profileError
-                        : socialError}
-                    </p>
-                  ) : null}
+                      {title}
+                    </h2>
+                    {profileLinks.length > 0 ? (
+                      <div className="flex shrink-0 items-center gap-2">
+                        {profileLinks.map((item) => (
+                          <a
+                            key={item.key}
+                            href={item.href}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={cn(
+                              'text-muted-foreground/70 transition-all hover:scale-110 hover:brightness-125 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60',
+                              item.kind === 'website' &&
+                                'hover:text-[var(--portal-blue)]',
+                              item.kind === 'telegram' &&
+                                'hover:text-[#26A5E4]',
+                              item.kind === 'x' && 'hover:text-foreground',
+                              item.kind === 'github' &&
+                                'hover:text-[var(--portal-purple)]'
+                            )}
+                            aria-label={`${item.label}: ${item.display}`}
+                          >
+                            <PortalHoverTooltip
+                              tooltip={`${item.label}: ${item.display}`}
+                            >
+                              <ProfileLinkIcon
+                                kind={item.kind}
+                                className="h-4 w-4 shrink-0 md:h-[18px] md:w-[18px]"
+                              />
+                            </PortalHoverTooltip>
+                          </a>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                  <p className="truncate portal-type-lead text-muted-foreground/55">
+                    @{accountId}
+                  </p>
+                </div>
+              </div>
+
+              {bio ? (
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  {bio}
+                </p>
+              ) : null}
+
+              {!socialReady ? (
+                <div className="space-y-2">
+                  <div className="flex items-start gap-6">
+                    <div className="space-y-1.5">
+                      <Skeleton className="h-2 w-14" />
+                      <div className="flex gap-1.5">
+                        <Skeleton className="h-4 w-8 rounded" />
+                        <Skeleton className="h-4 w-8 rounded" />
+                        <Skeleton className="h-4 w-6 rounded" />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Skeleton className="h-2 w-20" />
+                      <div className="flex gap-1.5">
+                        <Skeleton className="h-4 w-8 rounded" />
+                        <Skeleton className="h-4 w-8 rounded" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex -space-x-1">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <Skeleton key={i} className="h-5 w-5 rounded-full" />
+                    ))}
+                  </div>
+                </div>
+              ) : social ? (
+                <SocialProofStrip
+                  social={social}
+                  endorsementCount={endorsementCount}
+                  givenEndorsementCount={givenEndorsementCount}
+                  isSelf={isSelf}
+                  meta={
+                    joinedLabel || canStand ? (
+                      <>
+                        {joinedLabel ? (
+                          <button
+                            type="button"
+                            onClick={() => setAccountFactsOpen(true)}
+                            className={cn(
+                              socialMetricBtnClass,
+                              profileSocialMetaRowItemClass,
+                              'portal-type-label font-medium text-muted-foreground/55 focus-visible:ring-border/60'
+                            )}
+                            aria-label={`View account facts for ${title}`}
+                          >
+                            <PortalHoverTooltip
+                              className="inline-flex items-center gap-1"
+                              tooltip="Account facts"
+                            >
+                              <span>Joined {joinedLabel}</span>
+                              <ProtocolMotionArrow className="h-2.5 w-2.5 text-muted-foreground/55" />
+                            </PortalHoverTooltip>
+                          </button>
+                        ) : null}
+                        {canStand ? (
+                          pendingStandingAction ? (
+                            <span
+                              className={profileSocialStandingButtonClass(
+                                viewerStanding
+                              )}
+                              aria-live="polite"
+                              aria-label={
+                                viewerStanding
+                                  ? 'Stepping back'
+                                  : 'Confirming stance'
+                              }
+                            >
+                              <ProfileSocialStandingPending
+                                active={viewerStanding}
+                                hasSocialSession={hasSocialSession}
+                              />
+                            </span>
+                          ) : (
+                            <PortalHoverTooltip
+                              className={profileSocialMetaRowItemClass}
+                              tooltip={
+                                viewerStanding
+                                  ? `Step back from ${title}`
+                                  : `Stand with ${title}`
+                              }
+                            >
+                              <button
+                                type="button"
+                                className={profileSocialStandingButtonClass(
+                                  viewerStanding
+                                )}
+                                disabled={
+                                  !canStand || Boolean(pendingStandingAction)
+                                }
+                                onClick={handleStanding}
+                                aria-label={
+                                  viewerStanding
+                                    ? `Step back from ${title}`
+                                    : `Stand with ${title}`
+                                }
+                              >
+                                <ProfileSocialStandingToggle
+                                  active={viewerStanding}
+                                  hasSocialSession={hasSocialSession}
+                                />
+                              </button>
+                            </PortalHoverTooltip>
+                          )
+                        ) : null}
+                      </>
+                    ) : null
+                  }
+                  onOpenStanceDetail={openStanceDetailPage}
+                  onOpenNetwork={() => setNetworkOpen(true)}
+                  onOpenEndorsements={openEndorsementsPage}
+                />
+              ) : null}
+
+              {profileSignals?.reputation ? (
+                <ProfileSignalsCard reputation={profileSignals.reputation} />
+              ) : null}
+
+              <ProfileEndorsements
+                accountId={accountId}
+                viewerAccountId={viewerAccountId}
+                targetDisplayName={title}
+                targetAvatarUrl={avatarUrl}
+                selfAvatarUrl={selfAvatarUrl}
+                hasSocialSession={hasSocialSession}
+                onEndorse={onEndorse}
+                onRemoveEndorsement={onRemoveEndorsement}
+                pageLayout={isPage}
+                onSelectAccount={isPage ? undefined : onSelectAccount}
+                onEndorsementCountChange={setEndorsementCount}
+                onGivenCountChange={setGivenEndorsementCount}
+              />
+            </div>
+          </>
+        )}
+
+        {(profileError && !isWalletCancellationMessage(profileError)) ||
+        (socialError && !isWalletCancellationMessage(socialError)) ? (
+          <p
+            className={cn(
+              'rounded-xl border border-[var(--portal-red-border)] bg-[var(--portal-red-bg)] px-3 py-2 text-xs leading-relaxed text-[var(--portal-red)]',
+              isPage
+                ? cn(
+                    'mx-4 mt-4 mb-5 md:mx-5',
+                    profilePageMobileContentMarginClass
+                  )
+                : 'mx-4 mt-4 mb-5 md:mx-5'
+            )}
+          >
+            {profileError && !isWalletCancellationMessage(profileError)
+              ? profileError
+              : socialError}
+          </p>
+        ) : null}
       </>
     ) : null;
 
@@ -1846,11 +1912,16 @@ export function ProfileModal({
           centerDisplayName={title}
           accounts={networkAccounts}
           isSelf={isSelf}
+          pageLayout={isPage}
           onClose={() => setNetworkOpen(false)}
-          onSelectAccount={(id) => {
-            setNetworkOpen(false);
-            onSelectAccount?.(id);
-          }}
+          onSelectAccount={
+            isPage
+              ? undefined
+              : (id) => {
+                  setNetworkOpen(false);
+                  onSelectAccount?.(id);
+                }
+          }
         />
         <AccountFactsModal
           open={accountFactsOpen}

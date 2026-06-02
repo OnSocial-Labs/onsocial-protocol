@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react';
 import { cleanHandle, humanizeEndorsementTopic } from '@/lib/endorsements';
+import { ProfileGraphChipLink } from '@/lib/profile-graph-link';
 import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
 import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import { cn } from '@/lib/utils';
 
 /** Subtle gold hairline between quote and attribution. */
-const endorsementRecordDividerClass =
-  'h-px w-full bg-[var(--portal-gold)]/22';
+const endorsementRecordDividerClass = 'h-px w-full bg-[var(--portal-gold)]/22';
 
 /** Row shell — unified hover across topic, quote, attribution, and profile chips. */
 export const endorsementListRowClass =
@@ -54,7 +54,9 @@ function partyHasDistinctName(
   const trimmed = name?.trim();
   if (!trimmed) return false;
   const handle = cleanHandle(accountId);
-  return trimmed !== handle && trimmed !== `@${handle}` && trimmed !== accountId;
+  return (
+    trimmed !== handle && trimmed !== `@${handle}` && trimmed !== accountId
+  );
 }
 
 function partyInitial(
@@ -93,9 +95,7 @@ function EndorsementFlowMiniAvatar({
         alt=""
         className={cn(
           'h-5 w-5 shrink-0 rounded-full border object-cover',
-          active
-            ? 'border-[var(--portal-gold-border)]'
-            : 'border-border/40',
+          active ? 'border-[var(--portal-gold-border)]' : 'border-border/40',
           hoverRingClass
         )}
       />
@@ -125,6 +125,7 @@ function EndorsementPartyChip({
   avatarUrl,
   labelOverride,
   hideHandle = false,
+  pageLayout = false,
   onSelectAccount,
   className,
 }: {
@@ -134,6 +135,7 @@ function EndorsementPartyChip({
   avatarUrl?: string | null;
   labelOverride?: string;
   hideHandle?: boolean;
+  pageLayout?: boolean;
   onSelectAccount?: (accountId: string) => void;
   className?: string;
 }) {
@@ -142,7 +144,9 @@ function EndorsementPartyChip({
   );
   const handle = accountId ? `@${accountId}` : null;
   const hasDistinctName = partyHasDistinctName(accountId, name);
-  const isInteractive = Boolean(onSelectAccount && accountId);
+  const isInteractive = Boolean(
+    accountId && (pageLayout || onSelectAccount)
+  );
 
   const label = labelOverride
     ? labelOverride
@@ -205,34 +209,25 @@ function EndorsementPartyChip({
 
   if (isInteractive) {
     return (
-      <button
-        type="button"
+      <ProfileGraphChipLink
+        accountId={accountId}
+        pageLayout={pageLayout}
+        onNavigate={onSelectAccount}
         onClick={(event) => {
           event.stopPropagation();
-          onSelectAccount?.(accountId);
         }}
         onPointerDown={(event) => {
           event.stopPropagation();
         }}
-        aria-label={`Open profile for ${accountId}`}
-        className={cn(
-          'group/chip inline-flex min-w-0 items-center gap-1.5 rounded-md px-0.5 py-0.5 text-left',
-          'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--portal-gold-accent)]',
-          className
-        )}
+        className={cn('px-0.5 py-0.5', className)}
       >
-        {content}
-      </button>
+        <span aria-label={`Open profile for ${accountId}`}>{content}</span>
+      </ProfileGraphChipLink>
     );
   }
 
   return (
-    <span
-      className={cn(
-        'inline-flex min-w-0 items-center gap-1.5',
-        className
-      )}
-    >
+    <span className={cn('inline-flex min-w-0 items-center gap-1.5', className)}>
       {content}
     </span>
   );
@@ -248,6 +243,7 @@ function EndorsementFlowAttribution({
   viewerAccountId,
   issuerLabelOverride,
   hideIssuerHandle = false,
+  pageLayout = false,
   onSelectAccount,
   className,
 }: {
@@ -260,6 +256,7 @@ function EndorsementFlowAttribution({
   viewerAccountId?: string | null;
   issuerLabelOverride?: string;
   hideIssuerHandle?: boolean;
+  pageLayout?: boolean;
   onSelectAccount?: (accountId: string) => void;
   className?: string;
 }) {
@@ -285,6 +282,7 @@ function EndorsementFlowAttribution({
           avatarUrl={issuerAvatarUrl}
           labelOverride={issuerLabelOverride}
           hideHandle={hideIssuerHandle}
+          pageLayout={pageLayout}
           onSelectAccount={onSelectAccount}
           className="min-w-0 flex-1"
         />
@@ -294,6 +292,7 @@ function EndorsementFlowAttribution({
           name={targetName}
           viewerAccountId={viewerAccountId}
           avatarUrl={targetAvatarUrl}
+          pageLayout={pageLayout}
           onSelectAccount={onSelectAccount}
           className="min-w-0 flex-1"
         />
@@ -318,6 +317,7 @@ export function EndorsementRecord({
   issuerLabelOverride,
   hideIssuerHandle = false,
   noteClamp,
+  pageLayout = false,
   onSelectAccount,
   className,
 }: {
@@ -336,12 +336,11 @@ export function EndorsementRecord({
   hideIssuerHandle?: boolean;
   /** Clamp note lines in compact list surfaces. */
   noteClamp?: 2 | 3;
+  pageLayout?: boolean;
   onSelectAccount?: (accountId: string) => void;
   className?: string;
 }) {
-  const topicLabel = topic?.trim()
-    ? humanizeEndorsementTopic(topic)
-    : null;
+  const topicLabel = topic?.trim() ? humanizeEndorsementTopic(topic) : null;
   const trimmedNote = note?.trim();
 
   return (
@@ -392,6 +391,7 @@ export function EndorsementRecord({
         viewerAccountId={viewerAccountId}
         issuerLabelOverride={issuerLabelOverride}
         hideIssuerHandle={hideIssuerHandle}
+        pageLayout={pageLayout}
         onSelectAccount={onSelectAccount}
         className={!trimmedNote ? 'mt-2' : undefined}
       />

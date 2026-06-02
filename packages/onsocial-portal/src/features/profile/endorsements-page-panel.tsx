@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { PenLine } from 'lucide-react';
 import {
   EndorsementRecord,
@@ -30,7 +31,10 @@ import {
   type EndorsementSubmitInput,
 } from '@/lib/endorsements';
 import type { EndorsementListItem } from '@onsocial/sdk';
-import type { PortalEndorsementsMode } from '@/lib/portal-config';
+import {
+  getPortalProfileUrl,
+  type PortalEndorsementsMode,
+} from '@/lib/portal-config';
 import { cn } from '@/lib/utils';
 
 export type EnrichedEndorsementListItem = EndorsementListItem & {
@@ -147,6 +151,7 @@ export function EndorsementsPagePanel({
   canEndorse = false,
   isSavingEndorsement = false,
   endorsementCounts = null,
+  pageLayout = false,
   onSelectAccount,
   onEndorse,
   onRemoveEndorsement,
@@ -165,6 +170,7 @@ export function EndorsementsPagePanel({
   canEndorse?: boolean;
   isSavingEndorsement?: boolean;
   endorsementCounts?: { received: number; given: number } | null;
+  pageLayout?: boolean;
   onSelectAccount?: (accountId: string) => void;
   onEndorse?: (
     targetAccountId: string,
@@ -175,6 +181,20 @@ export function EndorsementsPagePanel({
     topic?: string
   ) => Promise<unknown>;
 }) {
+  const router = useRouter();
+  const openProfile = useCallback(
+    (accountId: string) => {
+      if (onSelectAccount) {
+        onSelectAccount(accountId);
+        return;
+      }
+      if (pageLayout) {
+        router.push(getPortalProfileUrl(accountId));
+      }
+    },
+    [onSelectAccount, pageLayout, router]
+  );
+
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
   const latestLoadRef = useRef(0);
   const [query, setQuery] = useState('');
@@ -388,10 +408,8 @@ export function EndorsementsPagePanel({
   const totalCount = total;
   const segmentCounts = {
     received:
-      endorsementCounts?.received ??
-      (mode === 'received' ? totalCount : 0),
-    given:
-      endorsementCounts?.given ?? (mode === 'given' ? totalCount : 0),
+      endorsementCounts?.received ?? (mode === 'received' ? totalCount : 0),
+    given: endorsementCounts?.given ?? (mode === 'given' ? totalCount : 0),
   };
 
   const viewOptions = useMemo(
@@ -531,7 +549,7 @@ export function EndorsementsPagePanel({
     accountId: string
   ) => {
     if (focusedEndorsement) {
-      onSelectAccount?.(accountId);
+      openProfile(accountId);
       return;
     }
 
@@ -550,8 +568,7 @@ export function EndorsementsPagePanel({
         ? 'You have not given any endorsements yet.'
         : `${targetDisplayName} has not given any endorsements yet.`;
 
-  const showListSkeleton =
-    (!metaLoaded || isLoading) && filtered.length === 0;
+  const showListSkeleton = (!metaLoaded || isLoading) && filtered.length === 0;
 
   return (
     <div className="flex flex-col gap-4">
@@ -705,7 +722,7 @@ export function EndorsementsPagePanel({
                   }}
                   className={endorsementListRowClass}
                   aria-label={
-                    focusedEndorsement && onSelectAccount
+                    focusedEndorsement && (pageLayout || onSelectAccount)
                       ? `Open profile for ${focusAccountId}`
                       : `Endorsement from ${cleanHandle(rec.issuer)} to ${cleanHandle(rec.target)}`
                   }
@@ -725,10 +742,9 @@ export function EndorsementsPagePanel({
                     viewerAccountId={viewerAccountId}
                     topic={rec.topic}
                     note={rec.note}
+                    pageLayout={pageLayout}
                     onSelectAccount={
-                      onSelectAccount
-                        ? (partyAccountId) => onSelectAccount(partyAccountId)
-                        : undefined
+                      pageLayout || onSelectAccount ? openProfile : undefined
                     }
                     timeLabel={
                       timeLabel ? (

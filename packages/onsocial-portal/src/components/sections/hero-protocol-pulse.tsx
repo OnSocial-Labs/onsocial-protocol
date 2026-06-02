@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
+import { HeroProtocolPulseSkeleton } from '@/components/sections/hero-protocol-pulse-skeleton';
 import { cn } from '@/lib/utils';
 import {
   HERO_PROTOCOL_PULSE_METRICS,
@@ -44,17 +45,24 @@ const pulseStatValueClass =
 
 const heroMetrics = resolveProtocolPulseMetrics(HERO_PROTOCOL_PULSE_METRICS);
 
-export function HeroProtocolPulse() {
-  const [pulse, setPulse] = useState<ProtocolPulseSnapshot | null>(null);
+const PULSE_REFRESH_MS = 60_000;
+
+export function HeroProtocolPulse({
+  initialPulse = null,
+}: {
+  initialPulse?: ProtocolPulseSnapshot | null;
+}) {
+  const [pulse, setPulse] = useState<ProtocolPulseSnapshot | null>(
+    initialPulse
+  );
+  const [isRefreshing, setIsRefreshing] = useState(!initialPulse);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadPulse() {
       try {
-        const res = await fetch('/api/graph/protocol-pulse', {
-          cache: 'no-store',
-        });
+        const res = await fetch('/api/graph/protocol-pulse');
         if (!res.ok) {
           throw new Error('Failed to load protocol pulse');
         }
@@ -63,8 +71,10 @@ export function HeroProtocolPulse() {
           setPulse(data);
         }
       } catch {
+        // Keep SSR initialPulse on refresh failure.
+      } finally {
         if (!cancelled) {
-          setPulse(null);
+          setIsRefreshing(false);
         }
       }
     }
@@ -72,7 +82,7 @@ export function HeroProtocolPulse() {
     void loadPulse();
     const interval = window.setInterval(() => {
       void loadPulse();
-    }, 60_000);
+    }, PULSE_REFRESH_MS);
 
     return () => {
       cancelled = true;
@@ -81,7 +91,7 @@ export function HeroProtocolPulse() {
   }, []);
 
   if (!pulse) {
-    return null;
+    return isRefreshing ? <HeroProtocolPulseSkeleton /> : null;
   }
 
   return (
@@ -101,6 +111,7 @@ export function HeroProtocolPulse() {
               {metric.href ? (
                 <Link
                   href={metric.href}
+                  prefetch
                   className="group rounded-sm focus-visible:outline-none"
                   aria-label={
                     metric.ariaLabel?.(pulse, formatted) ??

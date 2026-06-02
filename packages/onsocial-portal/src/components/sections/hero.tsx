@@ -2,9 +2,14 @@
 
 import { motion } from 'framer-motion';
 import { section } from '@/lib/section-styles';
+import type { ProtocolPulseSnapshot } from '@/lib/protocol-pulse-metrics';
 import { HeroProtocolPulse } from './hero-protocol-pulse';
 
-export function Hero() {
+export function Hero({
+  initialPulse = null,
+}: {
+  initialPulse?: ProtocolPulseSnapshot | null;
+}) {
   return (
     <section className="relative flex min-h-[64vh] items-center justify-center overflow-hidden pt-20 md:min-h-[72vh] md:pt-16">
       <div
@@ -64,7 +69,7 @@ export function Hero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
           >
-            <HeroProtocolPulse />
+            <HeroProtocolPulse initialPulse={initialPulse} />
           </motion.div>
         </div>
       </div>

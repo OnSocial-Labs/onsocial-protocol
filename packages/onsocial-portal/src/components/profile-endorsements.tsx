@@ -52,6 +52,7 @@ interface ProfileEndorsementsProps {
     input: EndorsementSubmitInput
   ) => Promise<unknown>;
   onRemoveEndorsement?: (target: string, topic?: string) => Promise<unknown>;
+  pageLayout?: boolean;
   onSelectAccount?: (accountId: string) => void;
   onEndorsementCountChange?: (count: number) => void;
   onGivenCountChange?: (count: number) => void;
@@ -66,6 +67,7 @@ export function ProfileEndorsements({
   hasSocialSession = false,
   onEndorse,
   onRemoveEndorsement,
+  pageLayout = false,
   onSelectAccount,
   onEndorsementCountChange,
   onGivenCountChange,
@@ -274,11 +276,7 @@ export function ProfileEndorsements({
   );
 
   const openEndorsementsPage = useCallback(
-    (options?: {
-      issuer?: string;
-      target?: string;
-      topic?: string | null;
-    }) => {
+    (options?: { issuer?: string; target?: string; topic?: string | null }) => {
       if (!accountId) return;
       router.push(
         getPortalEndorsementsUrl(accountId, {
@@ -420,7 +418,8 @@ export function ProfileEndorsements({
                     topic={e.topic}
                     note={secondaryText}
                     noteClamp={2}
-                    onSelectAccount={onSelectAccount}
+                    pageLayout={pageLayout}
+                    onSelectAccount={pageLayout ? undefined : onSelectAccount}
                     timeLabel={
                       timeLabel ? (
                         <PortalHoverTooltip

@@ -24,6 +24,8 @@ import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
 import { useDropdown } from '@/hooks/use-dropdown';
 import { cleanHandle } from '@/lib/endorsements';
 import { fadeMotion, scaleFadeMotion } from '@/lib/motion';
+import Link from 'next/link';
+import { getPortalProfileUrl } from '@/lib/portal-config';
 import { cn } from '@/lib/utils';
 
 export type NetworkAccountKind = 'mutual' | 'incoming' | 'outgoing';
@@ -43,6 +45,7 @@ interface NetworkModalProps {
   accounts: NetworkAccount[];
   isSelf: boolean;
   onClose: () => void;
+  pageLayout?: boolean;
   onSelectAccount?: (accountId: string) => void;
 }
 
@@ -190,12 +193,16 @@ function NetworkOrbitNode({
   index,
   dimmed,
   reduceMotion,
+  pageLayout = false,
+  onClose,
   onSelectAccount,
 }: {
   node: PlacedNode;
   index: number;
   dimmed: boolean;
   reduceMotion: boolean;
+  pageLayout?: boolean;
+  onClose?: () => void;
   onSelectAccount?: (accountId: string) => void;
 }) {
   const isMutual = node.account.kind === 'mutual';
@@ -218,60 +225,92 @@ function NetworkOrbitNode({
     return () => controls.stop();
   }, [baseDelay, idleDuration, idlePhase, reduceMotion, yOffset]);
 
-  return (
-    <motion.button
-      key={node.account.accountId}
-      type="button"
-      onClick={() => onSelectAccount?.(node.account.accountId)}
-      className="group absolute z-10 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--portal-blue-focus-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        style={{
-          left: node.x,
-          top: node.y,
-          width: node.size,
-          height: node.size,
-          marginLeft: -node.size / 2,
-          marginTop: -node.size / 2,
-          y: yOffset,
-        }}
+  const nodeClassName =
+    'group absolute z-10 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--portal-blue-focus-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-background';
+  const nodeStyle = {
+    left: node.x,
+    top: node.y,
+    width: node.size,
+    height: node.size,
+    marginLeft: -node.size / 2,
+    marginTop: -node.size / 2,
+  };
+  const avatarInner = (
+    <div
+      className={cn(
+        'h-full w-full overflow-hidden rounded-full border-2 bg-muted/40 transition-[border-color,box-shadow]',
+        isMutual
+          ? 'border-[var(--portal-purple)]/45 group-hover:border-[var(--portal-purple)] group-hover:shadow-[0_0_16px_color-mix(in_srgb,var(--portal-purple)_28%,transparent)]'
+          : 'border-[var(--portal-blue)]/35 group-hover:border-[var(--portal-blue)] group-hover:shadow-[0_0_16px_color-mix(in_srgb,var(--portal-blue)_24%,transparent)]'
+      )}
+    >
+      {node.account.avatarUrl ? (
+        <img
+          src={node.account.avatarUrl}
+          alt=""
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center">
+          <User className="h-4 w-4 text-muted-foreground" />
+        </div>
+      )}
+    </div>
+  );
+
+  if (pageLayout) {
+    return (
+      <motion.div
+        key={node.account.accountId}
+        className={nodeClassName}
+        style={{ ...nodeStyle, y: yOffset }}
         initial={{ scale: 0.92, opacity: 0 }}
-        animate={{
-          scale: 1,
-          opacity: dimmed ? 0.18 : 1,
-        }}
+        animate={{ scale: 1, opacity: dimmed ? 0.18 : 1 }}
         transition={{
           scale: {
             delay: baseDelay,
             duration: 0.32,
             ease: [0.22, 1, 0.36, 1],
           },
-          opacity: {
-            duration: 0.18,
-          },
+          opacity: { duration: 0.18 },
         }}
-        aria-label={`Open ${displayLabel(node.account)}`}
       >
-        <div
-          className={cn(
-            'h-full w-full overflow-hidden rounded-full border-2 bg-muted/40 transition-[border-color,box-shadow]',
-            isMutual
-              ? 'border-[var(--portal-purple)]/45 group-hover:border-[var(--portal-purple)] group-hover:shadow-[0_0_16px_color-mix(in_srgb,var(--portal-purple)_28%,transparent)]'
-              : 'border-[var(--portal-blue)]/35 group-hover:border-[var(--portal-blue)] group-hover:shadow-[0_0_16px_color-mix(in_srgb,var(--portal-blue)_24%,transparent)]'
-          )}
+        <Link
+          href={getPortalProfileUrl(node.account.accountId)}
+          prefetch
+          onClick={onClose}
+          className="block h-full w-full rounded-full"
+          aria-label={`Open ${displayLabel(node.account)}`}
         >
-          {node.account.avatarUrl ? (
-            <img
-              src={node.account.avatarUrl}
-              alt=""
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center">
-              <User className="h-4 w-4 text-muted-foreground" />
-            </div>
-          )}
-        </div>
+          {avatarInner}
+        </Link>
         <NetworkNodeLabel>{displayLabel(node.account)}</NetworkNodeLabel>
-      </motion.button>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.button
+      key={node.account.accountId}
+      type="button"
+      onClick={() => onSelectAccount?.(node.account.accountId)}
+      className={nodeClassName}
+      style={{ ...nodeStyle, y: yOffset }}
+      initial={{ scale: 0.92, opacity: 0 }}
+      animate={{ scale: 1, opacity: dimmed ? 0.18 : 1 }}
+      transition={{
+        scale: {
+          delay: baseDelay,
+          duration: 0.32,
+          ease: [0.22, 1, 0.36, 1],
+        },
+        opacity: { duration: 0.18 },
+      }}
+      aria-label={`Open ${displayLabel(node.account)}`}
+    >
+      {avatarInner}
+      <NetworkNodeLabel>{displayLabel(node.account)}</NetworkNodeLabel>
+    </motion.button>
   );
 }
 
@@ -279,14 +318,18 @@ function CenterNetworkAccount({
   accountId,
   avatarUrl,
   displayName,
+  pageLayout = false,
+  onClose,
   onSelectAccount,
 }: {
   accountId: string;
   avatarUrl: string | null;
   displayName: string;
+  pageLayout?: boolean;
+  onClose?: () => void;
   onSelectAccount?: (accountId: string) => void;
 }) {
-  const clickable = Boolean(onSelectAccount);
+  const clickable = Boolean(pageLayout || onSelectAccount);
   const identity = accountIdentity(accountId);
   const identityStyle = {
     '--center-identity': `hsl(${identity.primaryHue} 60% 60%)`,
@@ -334,6 +377,21 @@ function CenterNetworkAccount({
     );
   }
 
+  if (pageLayout) {
+    return (
+      <Link
+        href={getPortalProfileUrl(accountId)}
+        prefetch
+        onClick={onClose}
+        className={cn(sharedClassName, 'cursor-pointer')}
+        style={sharedStyle}
+        aria-label={`Open ${displayName}`}
+      >
+        {content}
+      </Link>
+    );
+  }
+
   return (
     <button
       type="button"
@@ -355,6 +413,7 @@ export function NetworkModal({
   accounts,
   isSelf,
   onClose,
+  pageLayout = false,
   onSelectAccount,
 }: NetworkModalProps) {
   const [sessionKey, setSessionKey] = useState(0);
@@ -377,6 +436,7 @@ export function NetworkModal({
           accounts={accounts}
           isSelf={isSelf}
           onClose={handleClose}
+          pageLayout={pageLayout}
           onSelectAccount={onSelectAccount}
         />
       ) : null}
@@ -392,6 +452,7 @@ function NetworkModalContent({
   accounts,
   isSelf,
   onClose,
+  pageLayout = false,
   onSelectAccount,
 }: Omit<NetworkModalProps, 'open'>) {
   const reduceMotion = useReducedMotion();
@@ -723,6 +784,8 @@ function NetworkModalContent({
                     index={index}
                     dimmed={isDimmed(node.account)}
                     reduceMotion={Boolean(reduceMotion)}
+                    pageLayout={pageLayout}
+                    onClose={onClose}
                     onSelectAccount={onSelectAccount}
                   />
                 ))}
@@ -731,6 +794,8 @@ function NetworkModalContent({
                   accountId={centerAccountId}
                   avatarUrl={centerAvatarUrl}
                   displayName={centerDisplayName}
+                  pageLayout={pageLayout}
+                  onClose={onClose}
                   onSelectAccount={onSelectAccount}
                 />
               </div>

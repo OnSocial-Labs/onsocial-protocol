@@ -16,6 +16,7 @@ import {
   formatProfileCount,
   type StandingAccountSummary,
 } from '@/lib/profile-social-standings';
+import { ProfileGraphRowLink } from '@/lib/profile-graph-link';
 import { cn } from '@/lib/utils';
 
 function accountLabel(account: StandingAccountSummary): string {
@@ -107,6 +108,7 @@ export function StandingList({
   onSelectAccount,
   onUpdateStanding,
   layout = 'modal',
+  pageLayout = layout === 'page',
 }: {
   accounts: StandingAccountSummary[];
   emptyLabel: string;
@@ -120,6 +122,8 @@ export function StandingList({
     shouldStand: boolean
   ) => Promise<void>;
   layout?: 'modal' | 'page';
+  /** When true, rows link to profile pages (page layout default). */
+  pageLayout?: boolean;
 }) {
   if (accounts.length === 0) {
     return <EmptyState cta={emptyCta}>{emptyLabel}</EmptyState>;
@@ -146,14 +150,11 @@ export function StandingList({
         const bio = account.bio?.trim();
         const timeMeta = standingTimeMeta(account);
         return (
-          <div
-            key={account.accountId}
-            className={profileListResultRowClass}
-          >
-            <button
-              type="button"
-              onClick={() => onSelectAccount?.(account.accountId)}
-              className="group flex min-w-0 flex-1 items-start gap-3 rounded-lg text-left focus-visible:outline-none"
+          <div key={account.accountId} className={profileListResultRowClass}>
+            <ProfileGraphRowLink
+              accountId={account.accountId}
+              pageLayout={pageLayout}
+              onNavigate={onSelectAccount}
             >
               <AccountAvatar
                 avatarUrl={account.avatarUrl}
@@ -274,7 +275,9 @@ export function StandingList({
                           'opacity-40'
                       )}
                     >
-                      {formatProfileCount(account.endorsementsReceivedCount ?? 0)}
+                      {formatProfileCount(
+                        account.endorsementsReceivedCount ?? 0
+                      )}
                     </span>
                   </PortalHoverTooltip>
                   <PortalHoverTooltip
@@ -299,7 +302,7 @@ export function StandingList({
                   </PortalHoverTooltip>
                 </span>
               </span>
-            </button>
+            </ProfileGraphRowLink>
 
             <span className="flex shrink-0 flex-col items-end gap-1">
               <PortalHoverTooltip
@@ -333,9 +336,11 @@ export function StandingList({
                   <button
                     type="button"
                     disabled={isRowPending}
-                    onClick={() =>
-                      onUpdateStanding?.(account, !viewerStandsWithAccount)
-                    }
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      event.preventDefault();
+                      void onUpdateStanding?.(account, !viewerStandsWithAccount);
+                    }}
                     className={profileSocialStandingButtonClass(
                       viewerStandsWithAccount
                     )}

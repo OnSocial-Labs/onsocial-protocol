@@ -4,11 +4,14 @@ import { ProtocolExplorer } from '@/components/sections/protocol-explorer';
 import { LeaderboardPreview } from '@/components/sections/leaderboard-preview';
 import { SystemStatus } from '@/components/sections/system-status';
 import { CTA } from '@/components/sections/cta';
+import { loadProtocolPulse } from '@/lib/protocol-pulse-server';
 
-export default function Home() {
+export default async function Home() {
+  const initialPulse = await loadProtocolPulse();
+
   return (
     <>
-      <Hero />
+      <Hero initialPulse={initialPulse} />
       <CommunityBanner />
       <CTA />
       <ProtocolExplorer />

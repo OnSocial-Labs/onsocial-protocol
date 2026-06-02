@@ -1,7 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 import { PageShell } from '@/components/layout/page-shell';
 import { EndorsementsPagePanel } from '@/features/profile/endorsements-page-panel';
 import { useProfile } from '@/contexts/profile-context';
@@ -14,10 +13,7 @@ import {
   profilePageDiscoverColumnClass,
   profilePageMobileGutterClass,
 } from '@/lib/profile-page-layout';
-import {
-  getPortalProfileUrl,
-  type PortalEndorsementsMode,
-} from '@/lib/portal-config';
+import { type PortalEndorsementsMode } from '@/lib/portal-config';
 import { cn } from '@/lib/utils';
 
 function decodeRouteAccountId(raw: string | string[] | undefined): string {
@@ -50,9 +46,12 @@ async function fetchProfileMeta(accountId: string): Promise<{
     fetch(`/api/profile?accountId=${encodeURIComponent(accountId)}`, {
       cache: 'no-store',
     }),
-    fetch(`/api/profile/endorsements?accountId=${encodeURIComponent(accountId)}`, {
-      cache: 'no-store',
-    }),
+    fetch(
+      `/api/profile/endorsements?accountId=${encodeURIComponent(accountId)}`,
+      {
+        cache: 'no-store',
+      }
+    ),
   ]);
 
   const body = (await profileRes.json().catch(() => null)) as {
@@ -94,7 +93,6 @@ export default function EndorsementsPage({
   issuer?: string;
   target?: string;
 }) {
-  const router = useRouter();
   const { accountId: viewerAccountId } = useWallet();
   const profileState = useProfile();
 
@@ -168,13 +166,6 @@ export default function EndorsementsPage({
     };
   }, [accountId]);
 
-  const navigateToProfile = useCallback(
-    (targetAccountId: string) => {
-      router.push(getPortalProfileUrl(targetAccountId));
-    },
-    [router]
-  );
-
   const canEndorseBase = Boolean(
     viewerAccountId && accountId && !isSelf && profileState.endorse
   );
@@ -193,10 +184,7 @@ export default function EndorsementsPage({
     <PageShell size="form" className="px-0">
       <div className={cn('w-full min-w-0', profilePageMobileGutterClass)}>
         <div
-          className={cn(
-            'flex flex-col pb-12',
-            profilePageDiscoverColumnClass
-          )}
+          className={cn('flex flex-col pb-12', profilePageDiscoverColumnClass)}
         >
           <EndorsementsPagePanel
             targetAccountId={accountId}
@@ -213,7 +201,7 @@ export default function EndorsementsPage({
             endorsementCounts={endorsementCounts}
             canEndorse={canEndorseBase}
             isSavingEndorsement={isSaving}
-            onSelectAccount={navigateToProfile}
+            pageLayout={true}
             onEndorse={
               profileState.endorse
                 ? async (target, input) => {

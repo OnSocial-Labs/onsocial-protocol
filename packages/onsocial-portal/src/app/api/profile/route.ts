@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { MaterialisedProfile } from '@onsocial/sdk';
 import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
+import { loadPortalProfileSocial } from '@/lib/portal-profile-social';
+import { loadPortalProfileSignals } from '@/lib/portal-profile-signals';
 import { viewAccount } from '@/lib/near-rpc';
 import {
   ACTIVE_NEAR_EXPLORER_URL,
@@ -38,6 +40,20 @@ function getAccountId(request: NextRequest): string | null {
   if (!accountId) return null;
   if (!ACCOUNT_ID_PATTERN.test(accountId)) return null;
   return accountId;
+}
+
+function getViewerAccountId(request: NextRequest): string | null {
+  const accountId = request.nextUrl.searchParams
+    .get('viewerAccountId')
+    ?.trim();
+  if (!accountId) return null;
+  if (!ACCOUNT_ID_PATTERN.test(accountId)) return null;
+  return accountId;
+}
+
+function wantsProfileBundle(request: NextRequest): boolean {
+  const bundle = request.nextUrl.searchParams.get('bundle')?.trim() ?? '';
+  return bundle.includes('social') || bundle.includes('signals');
 }
 
 function getErrorMessage(error: unknown): string {
@@ -215,6 +231,8 @@ async function fetchNearBlocksAccountCreation(accountId: string): Promise<{
 
 export async function GET(request: NextRequest) {
   const accountId = getAccountId(request);
+  const viewerAccountId = getViewerAccountId(request);
+  const includeBundle = wantsProfileBundle(request);
   if (!accountId) {
     return NextResponse.json(
       { error: 'A valid accountId query parameter is required' },
@@ -260,7 +278,8 @@ export async function GET(request: NextRequest) {
       viewAccount(accountId).catch(() => null),
       fetchNearBlocksAccountCreation(accountId).catch(() => null),
     ]);
-    const profileFieldRows = profileFieldRowsResponse.data?.profilesCurrent ?? [];
+    const profileFieldRows =
+      profileFieldRowsResponse.data?.profilesCurrent ?? [];
 
     const response: PortalProfileResponse = {
       accountId,
@@ -284,6 +303,17 @@ export async function GET(request: NextRequest) {
       nearAccountExplorerUrl: `${ACTIVE_NEAR_EXPLORER_URL}/address/${accountId}`,
       nearAccountCreation,
     };
+
+    if (includeBundle) {
+      const [social, signals] = await Promise.all([
+        loadPortalProfileSocial(os, accountId, viewerAccountId),
+        loadPortalProfileSignals(accountId),
+      ]);
+      return NextResponse.json(
+        { ...response, social, signals },
+        { headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
 
     return NextResponse.json(response, {
       headers: { 'Cache-Control': 'no-store' },
