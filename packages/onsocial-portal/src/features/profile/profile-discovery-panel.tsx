@@ -6,8 +6,10 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
   type RefObject,
 } from 'react';
+import Link from 'next/link';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { User } from 'lucide-react';
 import type { MaterialisedProfile } from '@onsocial/sdk';
@@ -26,6 +28,7 @@ import {
 } from '@/features/profile/profile-list-loading';
 import { profileListResultRowClass } from '@/features/profile/profile-list-row';
 import { fadeMotion } from '@/lib/motion';
+import { getPortalProfileUrl } from '@/lib/portal-config';
 import { cn } from '@/lib/utils';
 
 export interface ProfileDiscoverResult {
@@ -66,6 +69,43 @@ const DISCOVERY_PAGE_SIZE = 24;
 
 const discoveryResultRowClass = profileListResultRowClass;
 
+const discoveryProfileTargetClass =
+  'group flex min-w-0 flex-1 items-start gap-3 rounded-lg text-left focus-visible:outline-none';
+
+function DiscoveryProfileTarget({
+  accountId,
+  pageLayout,
+  onSelectAccount,
+  children,
+}: {
+  accountId: string;
+  pageLayout: boolean;
+  onSelectAccount?: (accountId: string) => void;
+  children: ReactNode;
+}) {
+  if (pageLayout) {
+    return (
+      <Link
+        href={getPortalProfileUrl(accountId)}
+        prefetch
+        className={discoveryProfileTargetClass}
+      >
+        {children}
+      </Link>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelectAccount?.(accountId)}
+      className={discoveryProfileTargetClass}
+    >
+      {children}
+    </button>
+  );
+}
+
 export interface ProfileDiscoveryPanelProps {
   active?: boolean;
   viewerAccountId: string | null;
@@ -74,7 +114,8 @@ export interface ProfileDiscoveryPanelProps {
   query?: string;
   onQueryChange?: (value: string) => void;
   showSearch?: boolean;
-  onSelectAccount: (accountId: string) => void;
+  /** Embedded/modal only — page layout uses Next.js Link for profile rows. */
+  onSelectAccount?: (accountId: string) => void;
   onUpdateStanding?: (
     accountId: string,
     shouldStand: boolean
@@ -188,7 +229,8 @@ function normalizeDiscoverResults(
 async function fetchProfileDiscovery(
   query: string,
   viewerAccountId: string | null,
-  offset: number
+  offset: number,
+  signal?: AbortSignal
 ): Promise<ProfileDiscoverResponse> {
   const search = new URLSearchParams({
     limit: String(DISCOVERY_PAGE_SIZE),
@@ -199,6 +241,7 @@ async function fetchProfileDiscovery(
 
   const response = await fetch(`/api/profile/discover?${search.toString()}`, {
     cache: 'no-store',
+    signal,
   });
   const body = (await response.json().catch(() => null)) as
     | (Partial<ProfileDiscoverResponse> & { error?: string; detail?: string })
@@ -354,6 +397,7 @@ export function ProfileDiscoveryPanel({
       return;
     }
 
+    const controller = new AbortController();
     const loadId = latestLoadRef.current + 1;
     latestLoadRef.current = loadId;
     const timeout = window.setTimeout(
@@ -363,7 +407,7 @@ export function ProfileDiscoveryPanel({
         setError(null);
         setHasMore(false);
 
-        void fetchProfileDiscovery(query, viewerAccountId, 0)
+        void fetchProfileDiscovery(query, viewerAccountId, 0, controller.signal)
           .then((response) => {
             if (latestLoadRef.current !== loadId) return;
             setResults(response.results);
@@ -371,6 +415,7 @@ export function ProfileDiscoveryPanel({
           })
           .catch((err) => {
             if (latestLoadRef.current !== loadId) return;
+            if (controller.signal.aborted) return;
             setError(getErrorMessage(err));
             setResults([]);
             setHasMore(false);
@@ -382,11 +427,20 @@ export function ProfileDiscoveryPanel({
       query.trim() ? 220 : 0
     );
 
-    return () => window.clearTimeout(timeout);
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
   }, [active, query, viewerAccountId]);
+
+  const loadMoreAbortRef = useRef<AbortController | null>(null);
 
   const loadMore = useCallback(async () => {
     if (!active || isLoading || isLoadingMore || !hasMore) return;
+
+    loadMoreAbortRef.current?.abort();
+    const controller = new AbortController();
+    loadMoreAbortRef.current = controller;
 
     const loadId = latestLoadRef.current;
     const offset = results.length;
@@ -397,13 +451,15 @@ export function ProfileDiscoveryPanel({
       const response = await fetchProfileDiscovery(
         query,
         viewerAccountId,
-        offset
+        offset,
+        controller.signal
       );
       if (latestLoadRef.current !== loadId) return;
       setResults((current) => mergeDiscoverResults(current, response.results));
       setHasMore(response.hasMore);
     } catch (err) {
       if (latestLoadRef.current !== loadId) return;
+      if (controller.signal.aborted) return;
       setError(getErrorMessage(err));
     } finally {
       if (latestLoadRef.current === loadId) setIsLoadingMore(false);
@@ -578,10 +634,10 @@ export function ProfileDiscoveryPanel({
                     initial={false}
                     className={discoveryResultRowClass}
                   >
-                    <button
-                      type="button"
-                      onClick={() => onSelectAccount(result.accountId)}
-                      className="group flex min-w-0 flex-1 items-start gap-3 rounded-lg text-left focus-visible:outline-none"
+                    <DiscoveryProfileTarget
+                      accountId={result.accountId}
+                      pageLayout={pageLayout}
+                      onSelectAccount={onSelectAccount}
                     >
                       <ProfileAvatar
                         avatarUrl={result.avatarUrl}
@@ -742,7 +798,7 @@ export function ProfileDiscoveryPanel({
                           </PortalHoverTooltip>
                         </span>
                       </span>
-                    </button>
+                    </DiscoveryProfileTarget>
 
                     {canUpdateStanding || timeMeta ? (
                       <span className="flex shrink-0 flex-col items-end gap-1">
@@ -782,9 +838,14 @@ export function ProfileDiscoveryPanel({
                             <button
                               type="button"
                               disabled={isPending}
-                              onClick={() =>
-                                handleStanding(result, !viewerStandsWithResult)
-                              }
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                event.preventDefault();
+                                void handleStanding(
+                                  result,
+                                  !viewerStandsWithResult
+                                );
+                              }}
                               className={cn(
                                 'shrink-0',
                                 profileSocialStandingButtonClass(

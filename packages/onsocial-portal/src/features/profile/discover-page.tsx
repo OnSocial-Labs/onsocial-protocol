@@ -1,7 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { PageShell } from '@/components/layout/page-shell';
 import {
   ProfileDiscoveryPanel,
@@ -15,11 +14,9 @@ import {
   profilePageDiscoverColumnClass,
   profilePageMobileGutterClass,
 } from '@/lib/profile-page-layout';
-import { getPortalProfileUrl } from '@/lib/portal-config';
 import { cn } from '@/lib/utils';
 
 export default function DiscoverPage() {
-  const router = useRouter();
   const { accountId } = useWallet();
   const profileState = useProfile();
   const [query, setQuery] = useState('');
@@ -27,18 +24,9 @@ export default function DiscoverPage() {
   useNavBack('Back');
   usePageNavBadge('Discover', 'blue');
 
-  const handleSelectAccount = useCallback(
-    (targetAccountId: string) => {
-      router.push(getPortalProfileUrl(targetAccountId));
-    },
-    [router]
-  );
-
   return (
     <PageShell size="form" className="px-0">
-      <div
-        className={cn('w-full min-w-0', profilePageMobileGutterClass)}
-      >
+      <div className={cn('w-full min-w-0', profilePageMobileGutterClass)}>
         <div
           className={cn(
             'flex flex-col gap-4 pb-12',
@@ -58,7 +46,6 @@ export default function DiscoverPage() {
             query={query}
             onQueryChange={setQuery}
             showSearch={false}
-            onSelectAccount={handleSelectAccount}
             onUpdateStanding={
               accountId ? profileState.updateStanding : undefined
             }
