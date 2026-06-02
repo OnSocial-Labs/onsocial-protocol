@@ -170,7 +170,10 @@ export default function SeasonZeroPage() {
       );
       const data = (await response.json()) as SeasonZeroStandingsResponse;
       if (!response.ok || !data.success) {
-        throw new Error(data.error ?? 'Could not load Season 0 standings.');
+        const body = data as { error?: string; detail?: string };
+        throw new Error(
+          body.detail ?? body.error ?? 'Could not load Season 0 standings.'
+        );
       }
       setStandings(data.standings ?? []);
       setTotal(data.total ?? 0);
