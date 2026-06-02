@@ -91,10 +91,10 @@ function ScoreBreakdown({ standing }: { standing: SeasonZeroStanding }) {
 
 function StandingRow({
   standing,
-  isCurrentUser,
+  isCurrentUser = false,
 }: {
   standing: SeasonZeroStanding;
-  isCurrentUser: boolean;
+  isCurrentUser?: boolean;
 }) {
   return (
     <SurfacePanel
@@ -152,6 +152,14 @@ export default function SeasonZeroPage() {
     [accountId, standings]
   );
 
+  const leaderboardStandings = useMemo(
+    () =>
+      accountId
+        ? standings.filter((standing) => standing.accountId !== accountId)
+        : standings,
+    [accountId, standings]
+  );
+
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -179,6 +187,13 @@ export default function SeasonZeroPage() {
     void refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      void refresh();
+    }, 60_000);
+    return () => window.clearInterval(interval);
+  }, [refresh]);
+
   return (
     <PageShell size="section">
       <SecondaryPageHeader
@@ -186,7 +201,7 @@ export default function SeasonZeroPage() {
         badgeAccent="gold"
         glowAccents={['gold', 'purple']}
         title="Genesis Rally"
-        description={`Join with ${GENESIS_RALLY_JOIN_SOCIAL_LABEL} SOCIAL, complete your profile, receive genuine endorsements and stands, then watch your rank update from indexed chain data.`}
+        description={`Join with ${GENESIS_RALLY_JOIN_SOCIAL_LABEL} SOCIAL, then earn points from profile updates, endorsements received, and stands received after your join is indexed. Standing with or endorsing others raises their score, not yours.`}
       />
 
       <div className="mx-auto max-w-5xl space-y-4">
@@ -203,8 +218,9 @@ export default function SeasonZeroPage() {
                   </h2>
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Read-only preview. Settlement and claims come after test flow
-                  validation.
+                  Scores use indexed chain data after your join timestamp.
+                  Refresh after others endorse or stand with you; the indexer
+                  may lag a few minutes.
                 </p>
               </div>
               <Button
@@ -263,12 +279,8 @@ export default function SeasonZeroPage() {
               </p>
             </SurfacePanel>
           ) : null}
-          {standings.map((standing) => (
-            <StandingRow
-              key={standing.accountId}
-              standing={standing}
-              isCurrentUser={standing.accountId === accountId}
-            />
+          {leaderboardStandings.map((standing) => (
+            <StandingRow key={standing.accountId} standing={standing} />
           ))}
         </div>
       </div>

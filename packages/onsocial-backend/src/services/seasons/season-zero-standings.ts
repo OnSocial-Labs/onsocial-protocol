@@ -213,6 +213,10 @@ export async function getSeasonZeroStandings(
     return { seasonId: SEASON_ZERO_ID, limit, offset, total: 0, standings: [] };
   }
 
+  const joinedAtNs = joined.rows.map((row) => row.joined_at_ns);
+  const joinWindowParams = [accounts, joinedAtNs] as const;
+  const scoreAfterJoin = !hasCutoff;
+
   const [profiles, endorsements, stands, support, boost] = await Promise.all([
     indexerQuery<ProfileRow>(
       hasCutoff
@@ -231,12 +235,29 @@ export async function getSeasonZeroStandings(
              ORDER BY account_id, data_id, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC
            ) latest
            WHERE operation = 'set'`
-        : `SELECT account_id, field, value
-           FROM profiles_current
-           WHERE account_id = ANY($1::text[])
-             AND operation = 'set'
-             AND field IN ('name', 'bio', 'avatar', 'links')`,
-      hasCutoff ? [accounts, cutoffParam] : [accounts]
+        : scoreAfterJoin
+          ? `SELECT account_id, field, value
+             FROM (
+               SELECT DISTINCT ON (du.account_id, du.data_id)
+                 du.account_id,
+                 du.data_id AS field,
+                 du.value,
+                 du.operation
+               FROM data_updates du
+               INNER JOIN UNNEST($1::text[], $2::text[]) AS j(account_id, joined_at_ns)
+                 ON j.account_id = du.account_id
+               WHERE du.data_type = 'profile'
+                 AND du.data_id IN ('name', 'bio', 'avatar', 'links')
+                 AND du.block_timestamp >= j.joined_at_ns::numeric
+               ORDER BY du.account_id, du.data_id, du.block_height DESC, du.block_timestamp DESC, du.receipt_id DESC, du.id DESC
+             ) latest
+             WHERE operation = 'set'`
+          : `SELECT account_id, field, value
+             FROM profiles_current
+             WHERE account_id = ANY($1::text[])
+               AND operation = 'set'
+               AND field IN ('name', 'bio', 'avatar', 'links')`,
+      hasCutoff ? [accounts, cutoffParam] : scoreAfterJoin ? [...joinWindowParams] : [accounts]
     ),
     indexerQuery<EndorsementRow>(
       hasCutoff
@@ -256,13 +277,22 @@ export async function getSeasonZeroStandings(
            WHERE operation = 'set'
              AND issuer IS NOT NULL
              AND issuer != target`
-        : `SELECT target, issuer, value
-           FROM endorsements_current
-           WHERE target = ANY($1::text[])
-             AND operation = 'set'
-             AND issuer IS NOT NULL
-             AND issuer != target`,
-      hasCutoff ? [accounts, cutoffParam] : [accounts]
+        : scoreAfterJoin
+          ? `SELECT e.target, e.issuer, e.value
+             FROM endorsements_current e
+             INNER JOIN UNNEST($1::text[], $2::text[]) AS j(account_id, joined_at_ns)
+               ON j.account_id = e.target
+             WHERE e.operation = 'set'
+               AND e.issuer IS NOT NULL
+               AND e.issuer != e.target
+               AND e.block_timestamp >= j.joined_at_ns::numeric`
+          : `SELECT target, issuer, value
+             FROM endorsements_current
+             WHERE target = ANY($1::text[])
+               AND operation = 'set'
+               AND issuer IS NOT NULL
+               AND issuer != target`,
+      hasCutoff ? [accounts, cutoffParam] : scoreAfterJoin ? [...joinWindowParams] : [accounts]
     ),
     indexerQuery<StandRow>(
       hasCutoff
@@ -293,35 +323,69 @@ export async function getSeasonZeroStandings(
             AND outgoing.target_account = incoming.account_id
            WHERE incoming.target_account = ANY($1::text[])
            GROUP BY incoming.target_account`
-        : `SELECT
-             incoming.target_account AS account_id,
-             COUNT(DISTINCT incoming.account_id)::text AS received_stands,
-             COUNT(DISTINCT incoming.account_id)
-               FILTER (WHERE outgoing.account_id IS NOT NULL)::text AS mutual_stands
-           FROM standings_current incoming
-           LEFT JOIN standings_current outgoing
-             ON outgoing.account_id = incoming.target_account
-            AND outgoing.target_account = incoming.account_id
-           WHERE incoming.target_account = ANY($1::text[])
-           GROUP BY incoming.target_account`,
-      hasCutoff ? [accounts, cutoffParam] : [accounts]
+        : scoreAfterJoin
+          ? `SELECT
+               incoming.target_account AS account_id,
+               COUNT(DISTINCT incoming.account_id)::text AS received_stands,
+               COUNT(DISTINCT incoming.account_id)
+                 FILTER (WHERE outgoing.account_id IS NOT NULL)::text AS mutual_stands
+             FROM standings_current incoming
+             INNER JOIN UNNEST($1::text[], $2::text[]) AS j(account_id, joined_at_ns)
+               ON j.account_id = incoming.target_account
+             LEFT JOIN standings_current outgoing
+               ON outgoing.account_id = incoming.target_account
+              AND outgoing.target_account = incoming.account_id
+              AND outgoing.operation = 'set'
+              AND outgoing.block_timestamp >= j.joined_at_ns::numeric
+             WHERE incoming.operation = 'set'
+               AND incoming.block_timestamp >= j.joined_at_ns::numeric
+             GROUP BY incoming.target_account`
+          : `SELECT
+               incoming.target_account AS account_id,
+               COUNT(DISTINCT incoming.account_id)::text AS received_stands,
+               COUNT(DISTINCT incoming.account_id)
+                 FILTER (WHERE outgoing.account_id IS NOT NULL)::text AS mutual_stands
+             FROM standings_current incoming
+             LEFT JOIN standings_current outgoing
+               ON outgoing.account_id = incoming.target_account
+              AND outgoing.target_account = incoming.account_id
+             WHERE incoming.target_account = ANY($1::text[])
+             GROUP BY incoming.target_account`,
+      hasCutoff ? [accounts, cutoffParam] : scoreAfterJoin ? [...joinWindowParams] : [accounts]
     ),
     indexerQuery<SupportRow>(
-      `SELECT
-         COALESCE(NULLIF(recipient_id, ''), target_id) AS account_id,
-         SUM(target_amount::numeric)::text AS support_received_yocto
-       FROM social_spend_events
-       WHERE event_type = 'SOCIAL_SPENT'
-         AND success = true
-         AND action = 'support_profile'
-         AND target_type = 'profile'
-         AND COALESCE(NULLIF(recipient_id, ''), target_id) = ANY($1::text[])
-         ${hasCutoff ? 'AND block_timestamp <= $2::numeric' : ''}
-       GROUP BY COALESCE(NULLIF(recipient_id, ''), target_id)`,
-      hasCutoff ? [accounts, cutoffParam] : [accounts]
+      scoreAfterJoin
+        ? `SELECT
+             COALESCE(NULLIF(s.recipient_id, ''), s.target_id) AS account_id,
+             SUM(s.target_amount::numeric)::text AS support_received_yocto
+           FROM social_spend_events s
+           INNER JOIN UNNEST($1::text[], $2::text[]) AS j(account_id, joined_at_ns)
+             ON j.account_id = COALESCE(NULLIF(s.recipient_id, ''), s.target_id)
+           WHERE s.event_type = 'SOCIAL_SPENT'
+             AND s.success = true
+             AND s.action = 'support_profile'
+             AND s.target_type = 'profile'
+             AND s.block_timestamp >= j.joined_at_ns::numeric
+           GROUP BY COALESCE(NULLIF(s.recipient_id, ''), s.target_id)`
+        : `SELECT
+             COALESCE(NULLIF(recipient_id, ''), target_id) AS account_id,
+             SUM(target_amount::numeric)::text AS support_received_yocto
+           FROM social_spend_events
+           WHERE event_type = 'SOCIAL_SPENT'
+             AND success = true
+             AND action = 'support_profile'
+             AND target_type = 'profile'
+             AND COALESCE(NULLIF(recipient_id, ''), target_id) = ANY($1::text[])
+             ${hasCutoff ? 'AND block_timestamp <= $2::numeric' : ''}
+           GROUP BY COALESCE(NULLIF(recipient_id, ''), target_id)`,
+      scoreAfterJoin
+        ? [...joinWindowParams]
+        : hasCutoff
+          ? [accounts, cutoffParam]
+          : [accounts]
     ),
     indexerQuery<BoostRow>(
-      hasCutoff
+      hasCutoff || scoreAfterJoin
         ? `SELECT
              account_id,
              CASE
@@ -330,22 +394,29 @@ export async function getSeasonZeroStandings(
                ELSE COALESCE(effective_boost, new_effective_boost, '0')
              END AS effective_boost
            FROM (
-             SELECT DISTINCT ON (account_id)
-               account_id,
-               event_type,
-               effective_boost,
-               new_effective_boost
-             FROM boost_events
-             WHERE account_id = ANY($1::text[])
-               AND success = true
-               AND event_type IN ('BOOST_LOCK', 'BOOST_EXTEND', 'BOOST_UNLOCK')
-               AND block_timestamp <= $2::numeric
-             ORDER BY account_id, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC
+             SELECT DISTINCT ON (be.account_id)
+               be.account_id,
+               be.event_type,
+               be.effective_boost,
+               be.new_effective_boost
+             FROM boost_events be
+             INNER JOIN UNNEST($1::text[], $2::text[]) AS j(account_id, joined_at_ns)
+               ON j.account_id = be.account_id
+             WHERE be.success = true
+               AND be.event_type IN ('BOOST_LOCK', 'BOOST_EXTEND', 'BOOST_UNLOCK')
+               AND be.block_timestamp ${
+                 hasCutoff ? '<= $3::numeric' : '>= j.joined_at_ns::numeric'
+               }
+             ORDER BY be.account_id, be.block_height DESC, be.block_timestamp DESC, be.receipt_id DESC, be.id DESC
            ) latest_boost`
         : `SELECT account_id, effective_boost
            FROM booster_state
            WHERE account_id = ANY($1::text[])`,
-      hasCutoff ? [accounts, cutoffParam] : [accounts]
+      hasCutoff
+        ? [accounts, joinedAtNs, cutoffParam]
+        : scoreAfterJoin
+          ? [...joinWindowParams]
+          : [accounts]
     ),
   ]);
 
@@ -421,11 +492,13 @@ export async function getSeasonZeroStandings(
       )
     : rankedStandings;
 
+  const page = standings.slice(offset, offset + limit);
+
   return {
     seasonId: SEASON_ZERO_ID,
     limit,
     offset,
-    total: standings.length,
-    standings: standings.slice(offset, offset + limit),
+    total: rankedStandings.length,
+    standings: page,
   };
 }
