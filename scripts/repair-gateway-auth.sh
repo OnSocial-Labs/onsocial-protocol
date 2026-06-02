@@ -6,14 +6,33 @@ set -euo pipefail
 PSQL="${PSQL:-docker exec -i postgres psql -U onsocial -d onsocial_indexer}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-MIGRATIONS_DIR="${REPO_ROOT}/packages/onsocial-gateway/migrations"
 HASURA_URL="${HASURA_URL:-http://127.0.0.1:8080/v1/graphql}"
 HASURA_METADATA_URL="${HASURA_METADATA_URL:-${HASURA_URL%/v1/graphql}/v1/metadata}"
 
-if [ ! -d "$MIGRATIONS_DIR" ]; then
-  echo "❌ Gateway migrations not found at $MIGRATIONS_DIR" >&2
+resolve_gateway_migrations_dir() {
+  if [ -n "${MIGRATIONS_DIR:-}" ] && [ -d "$MIGRATIONS_DIR" ]; then
+    printf '%s\n' "$MIGRATIONS_DIR"
+    return 0
+  fi
+  for candidate in \
+    "${SCRIPT_DIR}/gateway-migrations" \
+    "${REPO_ROOT}/packages/onsocial-gateway/migrations" \
+    "/root/onsocial-protocol/packages/onsocial-gateway/migrations" \
+    "/opt/onsocial/packages/onsocial-gateway/migrations"; do
+    if [ -d "$candidate" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+MIGRATIONS_DIR="$(resolve_gateway_migrations_dir || true)"
+if [ -z "$MIGRATIONS_DIR" ]; then
+  echo "❌ Gateway migrations not found (checked SCRIPT_DIR/gateway-migrations, repo clones)" >&2
   exit 1
 fi
+echo "Using gateway migrations: $MIGRATIONS_DIR"
 
 echo "=== Repair gateway auth (api_keys) ==="
 

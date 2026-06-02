@@ -170,6 +170,9 @@ jobs:
           fi
           cp scripts/sync-hasura-substreams-metadata.sh $GITHUB_WORKSPACE/spkg-upload/
           cp ../../scripts/repair-gateway-auth.sh $GITHUB_WORKSPACE/spkg-upload/
+          mkdir -p $GITHUB_WORKSPACE/spkg-upload/gateway-migrations
+          cp ../../packages/onsocial-gateway/migrations/*.sql \
+            $GITHUB_WORKSPACE/spkg-upload/gateway-migrations/
           echo "Upload contents:"
           find $GITHUB_WORKSPACE/spkg-upload -maxdepth 2 -type f | sort
 
@@ -179,7 +182,7 @@ jobs:
           host: ${{ env.TESTNET_SUBSTREAMS_DEPLOY_HOST }}
           username: root
           key: ${{ steps.ssh.outputs.key }}
-          source: spkg-upload/*,spkg-upload/migrations/*
+          source: spkg-upload/*,spkg-upload/migrations/*,spkg-upload/gateway-migrations/*
           target: /tmp/onsocial-spkg-upload/
           strip_components: 1
           overwrite: true
@@ -363,6 +366,9 @@ jobs:
             cp "${UPLOAD_DIR}"/*.sh "${SPKG_DIR}/" 2>/dev/null || true
             rm -rf "${SPKG_DIR}/migrations"
             [ -d "${UPLOAD_DIR}/migrations" ] && cp -R "${UPLOAD_DIR}/migrations" "${SPKG_DIR}/migrations"
+            rm -rf "${SPKG_DIR}/gateway-migrations"
+            [ -d "${UPLOAD_DIR}/gateway-migrations" ] && \
+              cp -R "${UPLOAD_DIR}/gateway-migrations" "${SPKG_DIR}/gateway-migrations"
             rm -rf "$UPLOAD_DIR"
             echo "✓ Spkg swapped"
 
