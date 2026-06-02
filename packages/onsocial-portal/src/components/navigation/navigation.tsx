@@ -11,6 +11,7 @@ import {
   Eye,
   Flame,
   Handshake,
+  Trophy,
   Landmark,
   Key,
   Package,
@@ -90,6 +91,12 @@ const baseNavGroups: NavGroup[] = [
         icon: Flame,
       },
       {
+        label: 'Genesis Rally',
+        href: '/season-zero',
+        description: 'Season 0 standings & join rally',
+        icon: Trophy,
+      },
+      {
         label: 'Partners',
         href: '/partners',
         description: 'Ecosystem collaborations',
@@ -158,7 +165,11 @@ function isSocialRoute(pathname: string) {
   return pathname === '/discover' || pathname.startsWith('/u/');
 }
 
-function isGroupActive(group: NavGroup, pathname: string, isActiveItem: (href: string) => boolean) {
+function isGroupActive(
+  group: NavGroup,
+  pathname: string,
+  isActiveItem: (href: string) => boolean
+) {
   if (group.label === 'Social') {
     return isSocialRoute(pathname);
   }
@@ -237,7 +248,12 @@ export function Navigation() {
     [protocolDropdown, socialDropdown, servicesDropdown, internalDropdown]
   );
   const groupDropdowns = useMemo(
-    () => [protocolDropdown, socialDropdown, servicesDropdown, internalDropdown],
+    () => [
+      protocolDropdown,
+      socialDropdown,
+      servicesDropdown,
+      internalDropdown,
+    ],
     [protocolDropdown, socialDropdown, servicesDropdown, internalDropdown]
   );
   const pathname = usePathname();
@@ -673,12 +689,17 @@ export function Navigation() {
 
             {/* Group dropdowns */}
             {navGroups.map((group, groupIndex) => {
-              const dropdown = dropdownByGroupLabel[
-                group.label as keyof typeof dropdownByGroupLabel
-              ];
+              const dropdown =
+                dropdownByGroupLabel[
+                  group.label as keyof typeof dropdownByGroupLabel
+                ];
               if (!dropdown) return null;
 
-              const groupIsActive = isGroupActive(group, pathname, isActiveItem);
+              const groupIsActive = isGroupActive(
+                group,
+                pathname,
+                isActiveItem
+              );
 
               return (
                 <div
