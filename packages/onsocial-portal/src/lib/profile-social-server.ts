@@ -31,15 +31,6 @@ export interface StandingListItem {
   blockTimestamp: number;
 }
 
-interface ProfileStats {
-  accountId: string;
-  standingCount: number;
-  standingWithCount: number;
-  mutualStandingCount: number;
-  endorsementsReceivedCount: number;
-  endorsementsGivenCount: number;
-}
-
 export const STANDING_PREVIEW_LIMIT = 8;
 export const STANDING_PAGE_SIZE = 24;
 export const STANDING_MAX_OFFSET = 10_000;
@@ -48,84 +39,26 @@ export type PortalOnSocialClient = ReturnType<
   typeof createPortalServerOnSocialClient
 >;
 
-export function parseStandingSince(
-  raw: string | null | undefined
-): number | null {
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as { since?: unknown };
-    return typeof parsed.since === 'number' ? parsed.since : null;
-  } catch {
-    return null;
-  }
-}
-
-export async function listStandingRows(
-  os: PortalOnSocialClient,
-  accountId: string,
-  direction: Exclude<StandingDirection, 'mutual'>,
-  limit: number,
-  offset = 0
-): Promise<StandingListItem[]> {
-  const where =
-    direction === 'incoming'
-      ? 'targetAccount: {_eq: $id}'
-      : 'accountId: {_eq: $id}';
-  const res = await os.query.graphql<{
-    standingsCurrent: Array<{
-      accountId: string;
-      targetAccount: string;
-      value: string | null;
-      blockHeight: number;
-      blockTimestamp: number;
-    }>;
-  }>({
-    query: `query StandingRows($id: String!, $limit: Int!, $offset: Int!) {
-      standingsCurrent(
-        where: {${where}},
-        limit: $limit,
-        offset: $offset,
-        orderBy: [{blockTimestamp: DESC}]
-      ) {
-        accountId targetAccount value blockHeight blockTimestamp
-      }
-    }`,
-    variables: { id: accountId, limit, offset },
-  });
-
-  return (res.data?.standingsCurrent ?? []).map((row) => ({
-    accountId: row.accountId,
-    targetAccount: row.targetAccount,
-    since: parseStandingSince(row.value),
-    blockHeight: Number(row.blockHeight) || 0,
-    blockTimestamp: Number(row.blockTimestamp) || 0,
-  }));
-}
-
 async function listProfileStats(
   os: PortalOnSocialClient,
   accountIds: string[]
-): Promise<Map<string, ProfileStats>> {
-  if (accountIds.length === 0) return new Map();
-
-  const res = await os.query.graphql<{
-    profileSearch: ProfileStats[];
-  }>({
-    query: `query ProfileStandingStats($ids: [String!], $limit: Int!) {
-      profileSearch(where: {accountId: {_in: $ids}}, limit: $limit) {
-        accountId
-        standingCount standingWithCount mutualStandingCount
-        endorsementsReceivedCount endorsementsGivenCount
-      }
-    }`,
-    variables: { ids: accountIds, limit: accountIds.length },
-  });
-
+): Promise<
+  Map<
+    string,
+    {
+      standingCount: number;
+      standingWithCount: number;
+      mutualStandingCount: number;
+      endorsementsReceivedCount: number;
+      endorsementsGivenCount: number;
+    }
+  >
+> {
+  const rows = await os.query.profiles.statsForAccounts(accountIds);
   return new Map(
-    (res.data?.profileSearch ?? []).map((row) => [
+    rows.map((row) => [
       row.accountId,
       {
-        accountId: row.accountId,
         standingCount: Number(row.standingCount) || 0,
         standingWithCount: Number(row.standingWithCount) || 0,
         mutualStandingCount: Number(row.mutualStandingCount) || 0,
@@ -140,100 +73,19 @@ export async function countMutualStandings(
   os: PortalOnSocialClient,
   accountId: string
 ): Promise<number> {
-  return os.query.standings.mutualCount(accountId);
+  return os.standings.mutualCount(accountId);
 }
 
-type StandingGraphqlRow = {
-  accountId: string;
-  targetAccount: string;
-  value: string | null;
-  blockHeight: number;
-  blockTimestamp: number;
-};
-
-function mapStandingGraphqlRow(row: StandingGraphqlRow): StandingListItem {
-  return {
-    accountId: row.accountId,
-    targetAccount: row.targetAccount,
-    since: parseStandingSince(row.value),
-    blockHeight: Number(row.blockHeight) || 0,
-    blockTimestamp: Number(row.blockTimestamp) || 0,
-  };
-}
-
-async function listFilteredStandingRows(
+async function listStandingRows(
   os: PortalOnSocialClient,
   accountId: string,
   direction: Exclude<StandingDirection, 'mutual'>,
-  participantIds: string[],
   limit: number,
   offset: number
-): Promise<{ rows: StandingListItem[]; total: number }> {
-  if (participantIds.length === 0) {
-    return { rows: [], total: 0 };
-  }
-
-  const participantField =
-    direction === 'incoming' ? 'accountId' : 'targetAccount';
-  const anchorField = direction === 'incoming' ? 'targetAccount' : 'accountId';
-
-  const [pageRes, countRes] = await Promise.all([
-    os.query.graphql<{ standingsCurrent: StandingGraphqlRow[] }>({
-      query: `query FilteredStandingRows($anchor: String!, $ids: [String!]!, $limit: Int!, $offset: Int!) {
-        standingsCurrent(
-          where: {${anchorField}: {_eq: $anchor}, ${participantField}: {_in: $ids}},
-          limit: $limit,
-          offset: $offset,
-          orderBy: [{blockTimestamp: DESC}]
-        ) {
-          accountId targetAccount value blockHeight blockTimestamp
-        }
-      }`,
-      variables: {
-        anchor: accountId,
-        ids: participantIds,
-        limit,
-        offset,
-      },
-    }),
-    os.query.graphql<{ standingsCurrent: Array<{ accountId: string }> }>({
-      query: `query FilteredStandingCount($anchor: String!, $ids: [String!]!) {
-        standingsCurrent(
-          where: {${anchorField}: {_eq: $anchor}, ${participantField}: {_in: $ids}}
-        ) {
-          accountId
-        }
-      }`,
-      variables: { anchor: accountId, ids: participantIds },
-    }),
-  ]);
-
-  return {
-    rows: (pageRes.data?.standingsCurrent ?? []).map(mapStandingGraphqlRow),
-    total: countRes.data?.standingsCurrent?.length ?? 0,
-  };
-}
-
-async function listMutualStandingRowsFiltered(
-  os: PortalOnSocialClient,
-  accountId: string,
-  participantIds: string[],
-  limit: number,
-  offset: number
-): Promise<{ rows: StandingListItem[]; total: number }> {
-  if (participantIds.length === 0) {
-    return { rows: [], total: 0 };
-  }
-
-  const [rows, total] = await Promise.all([
-    os.query.standings.mutualFilteredDetailed(accountId, participantIds, {
-      limit,
-      offset,
-    }),
-    os.query.standings.mutualFilteredCount(accountId, participantIds),
-  ]);
-
-  return { rows, total };
+): Promise<StandingListItem[]> {
+  return direction === 'incoming'
+    ? os.standings.listIncomingDetailed(accountId, { limit, offset })
+    : os.standings.listOutgoingDetailed(accountId, { limit, offset });
 }
 
 async function listMutualStandingRows(
@@ -242,7 +94,7 @@ async function listMutualStandingRows(
   limit: number,
   offset: number
 ): Promise<StandingListItem[]> {
-  return os.query.standings.mutualDetailed(accountId, { limit, offset });
+  return os.standings.mutualList(accountId, { limit, offset });
 }
 
 async function loadViewerContext(
@@ -271,9 +123,7 @@ async function loadViewerContext(
   ]);
 
   return {
-    viewerOutgoingSet: new Set(
-      outgoing.map((row: StandingListItem) => row.targetAccount)
-    ),
+    viewerOutgoingSet: new Set(outgoing.map((row) => row.targetAccount)),
     viewerIncomingSet: new Set(incoming),
   };
 }
@@ -348,21 +198,31 @@ export async function listStandingAccountsPage(
     const participantIds = await searchMatchingAccountIds(os, searchQuery);
     const filtered =
       direction === 'mutual'
-        ? await listMutualStandingRowsFiltered(
-            os,
-            accountId,
-            participantIds,
-            limit,
-            offset
-          )
-        : await listFilteredStandingRows(
-            os,
-            accountId,
-            direction,
-            participantIds,
-            limit,
-            offset
-          );
+        ? await (async () => {
+            const [rows, total] = await Promise.all([
+              os.query.standings.mutualFilteredDetailed(
+                accountId,
+                participantIds,
+                { limit, offset }
+              ),
+              os.query.standings.mutualFilteredCount(
+                accountId,
+                participantIds
+              ),
+            ]);
+            return { rows, total };
+          })()
+        : direction === 'incoming'
+          ? await os.query.standings.incomingFilteredPage(
+              accountId,
+              participantIds,
+              { limit, offset }
+            )
+          : await os.query.standings.outgoingFilteredPage(
+              accountId,
+              participantIds,
+              { limit, offset }
+            );
 
     const accounts = await buildStandingAccountSummaries(
       os,
@@ -404,3 +264,6 @@ export async function listStandingAccountsPage(
     total,
   };
 }
+
+// Re-export for any legacy imports (same implementation as SDK rows).
+export { listStandingRows };

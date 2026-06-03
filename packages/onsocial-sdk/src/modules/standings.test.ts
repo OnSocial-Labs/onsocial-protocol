@@ -38,8 +38,17 @@ function makeQuery(outgoing: string[] = []) {
     },
   ]);
   const counts = vi.fn().mockResolvedValue({ incoming: 1, outgoing: 2 });
+  const mutualDetailed = vi.fn().mockResolvedValue([]);
   return {
-    spies: { viewerStandsWith, out, outDetailed, inc, incDetailed, counts },
+    spies: {
+      viewerStandsWith,
+      out,
+      outDetailed,
+      inc,
+      incDetailed,
+      counts,
+      mutualDetailed,
+    },
     mod: {
       standings: {
         viewerStandsWith,
@@ -48,6 +57,7 @@ function makeQuery(outgoing: string[] = []) {
         incoming: inc,
         incomingDetailed: incDetailed,
         counts,
+        mutualDetailed,
       },
     } as unknown as QueryModule,
   };
@@ -153,5 +163,15 @@ describe('StandingsModule list / counts', () => {
     const c = await s.counts('alice.near');
     expect(query.spies.counts).toHaveBeenCalledWith('alice.near');
     expect(c).toEqual({ incoming: 1, outgoing: 2 });
+  });
+
+  it('mutualList forwards to query.standings.mutualDetailed', async () => {
+    const query = makeQuery();
+    const s = new StandingsModule(makeSocial().mod, query.mod);
+    await s.mutualList('alice.near', { limit: 24, offset: 0 });
+    expect(query.spies.mutualDetailed).toHaveBeenCalledWith('alice.near', {
+      limit: 24,
+      offset: 0,
+    });
   });
 });

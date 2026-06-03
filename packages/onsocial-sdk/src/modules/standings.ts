@@ -99,14 +99,14 @@ export class StandingsModule {
    */
   listOutgoing(
     accountId: string,
-    opts: { limit?: number } = {}
+    opts: { limit?: number; offset?: number } = {}
   ): Promise<string[]> {
     return this._query.standings.outgoing(accountId, opts);
   }
 
   listOutgoingDetailed(
     accountId: string,
-    opts: { limit?: number } = {}
+    opts: { limit?: number; offset?: number } = {}
   ): Promise<StandingListItem[]> {
     return this._query.standings.outgoingDetailed(accountId, opts);
   }
@@ -120,14 +120,14 @@ export class StandingsModule {
    */
   listIncoming(
     accountId: string,
-    opts: { limit?: number } = {}
+    opts: { limit?: number; offset?: number } = {}
   ): Promise<string[]> {
     return this._query.standings.incoming(accountId, opts);
   }
 
   listIncomingDetailed(
     accountId: string,
-    opts: { limit?: number } = {}
+    opts: { limit?: number; offset?: number } = {}
   ): Promise<StandingListItem[]> {
     return this._query.standings.incomingDetailed(accountId, opts);
   }
@@ -146,6 +146,14 @@ export class StandingsModule {
   /** Indexed mutual count (scales; does not scan the graph in app code). */
   mutualCount(accountId: string): Promise<number> {
     return this._query.standings.mutualCount(accountId);
+  }
+
+  /** Paginated mutual standing list (`mutual_standings_current`). */
+  mutualList(
+    accountId: string,
+    opts: { limit?: number; offset?: number } = {}
+  ): Promise<StandingListItem[]> {
+    return this._query.standings.mutualDetailed(accountId, opts);
   }
 
   viewerStandsWith(

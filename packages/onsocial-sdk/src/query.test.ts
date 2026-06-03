@@ -1181,6 +1181,93 @@ describe('QueryModule', () => {
     });
   });
 
+  describe('paginated standing lists', () => {
+    it('incomingDetailed passes limit and offset', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          standingsCurrent: [
+            {
+              accountId: 'bob.near',
+              targetAccount: 'alice.near',
+              value: '{"since":1}',
+              blockHeight: 1,
+              blockTimestamp: 2,
+            },
+          ],
+        },
+      });
+      await os.query.standings.incomingDetailed('alice.near', {
+        limit: 24,
+        offset: 48,
+      });
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.variables).toMatchObject({
+        id: 'alice.near',
+        limit: 24,
+        offset: 48,
+      });
+      expect(body.query).toContain('offset: $offset');
+    });
+
+    it('incomingFilteredPage uses standingsCurrentAggregate for total', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          standingsCurrent: [],
+          standingsCurrentAggregate: { aggregate: { count: 3 } },
+        },
+      });
+      const page = await os.query.standings.incomingFilteredPage(
+        'alice.near',
+        ['bob.near'],
+        { limit: 10, offset: 0 }
+      );
+      expect(page.total).toBe(3);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('endorsements query', () => {
+    it('counts reads profile_search endorsement fields', async () => {
+      const { os } = makeOs({
+        data: {
+          profileSearch: [
+            { endorsementsReceivedCount: 4, endorsementsGivenCount: 7 },
+          ],
+        },
+      });
+      await expect(os.query.endorsements.counts('alice.near')).resolves.toEqual(
+        { received: 4, given: 7 }
+      );
+    });
+
+    it('receivedFromIssuer filters issuer and target', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          endorsementsCurrent: [
+            {
+              issuer: 'bob.near',
+              target: 'alice.near',
+              value: '{"v":1,"since":1,"topic":"rust"}',
+              blockHeight: 1,
+              blockTimestamp: 2,
+              operation: 'set',
+            },
+          ],
+        },
+      });
+      const rows = await os.query.endorsements.receivedFromIssuer(
+        'bob.near',
+        'alice.near'
+      );
+      expect(rows).toHaveLength(1);
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.variables).toMatchObject({
+        issuer: 'bob.near',
+        target: 'alice.near',
+      });
+    });
+  });
+
   describe('graph edges', () => {
     it('queries outgoing graph edges with typed filters', async () => {
       const { os, fetch } = makeOs({

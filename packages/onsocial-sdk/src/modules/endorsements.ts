@@ -227,11 +227,7 @@ export class EndorsementsModule {
     opts: { limit?: number; offset?: number } = {}
   ): Promise<EndorsementListItem[]> {
     const rows = await this._query.endorsements.given(issuer, opts);
-    return rows.map((r) => ({
-      ...parseEndorsementValue(r.value, r.issuer, r.target),
-      blockHeight: r.blockHeight,
-      blockTimestamp: r.blockTimestamp,
-    }));
+    return rows.map((r) => materialiseEndorsementRow(r));
   }
 
   /**
@@ -247,10 +243,41 @@ export class EndorsementsModule {
     opts: { limit?: number; offset?: number } = {}
   ): Promise<EndorsementListItem[]> {
     const rows = await this._query.endorsements.received(target, opts);
-    return rows.map((r) => ({
-      ...parseEndorsementValue(r.value, r.issuer, r.target),
-      blockHeight: r.blockHeight,
-      blockTimestamp: r.blockTimestamp,
-    }));
+    return rows.map((r) => materialiseEndorsementRow(r));
   }
+
+  /** Indexed endorsement counts from `profile_search`. */
+  counts(accountId: string): Promise<{ received: number; given: number }> {
+    return this._query.endorsements.counts(accountId);
+  }
+
+  /**
+   * Endorsements the viewer has given to `target` (indexed point lookup).
+   */
+  async listFromViewerToTarget(
+    viewerAccountId: string,
+    targetAccountId: string,
+    opts: { limit?: number } = {}
+  ): Promise<EndorsementListItem[]> {
+    const rows = await this._query.endorsements.receivedFromIssuer(
+      viewerAccountId,
+      targetAccountId,
+      opts
+    );
+    return rows.map((r) => materialiseEndorsementRow(r));
+  }
+}
+
+function materialiseEndorsementRow(row: {
+  issuer: string;
+  target: string;
+  value: string;
+  blockHeight: number;
+  blockTimestamp: number;
+}): EndorsementListItem {
+  return {
+    ...parseEndorsementValue(row.value, row.issuer, row.target),
+    blockHeight: row.blockHeight,
+    blockTimestamp: row.blockTimestamp,
+  };
 }

@@ -25,17 +25,13 @@ export const ENDORSEMENT_MAX_OFFSET = 10_000;
 
 type PortalOnSocialClient = ReturnType<typeof createPortalServerOnSocialClient>;
 
-type EndorsementGraphqlRow = {
+function parseEndorsementRow(row: {
   issuer: string;
   target: string;
   value: string;
   blockHeight: number;
   blockTimestamp: number;
-};
-
-function parseEndorsementGraphqlRow(
-  row: EndorsementGraphqlRow
-): EndorsementListItem {
+}): EndorsementListItem {
   let parsed: Record<string, unknown> = {};
   try {
     parsed =
@@ -57,86 +53,11 @@ function parseEndorsementGraphqlRow(
   };
 }
 
-async function listFilteredEndorsementRows(
-  os: PortalOnSocialClient,
-  accountId: string,
-  mode: EndorsementListMode,
-  participantIds: string[],
-  limit: number,
-  offset: number
-): Promise<{ rows: EndorsementListItem[]; total: number }> {
-  if (participantIds.length === 0) {
-    return { rows: [], total: 0 };
-  }
-
-  const participantField = mode === 'received' ? 'issuer' : 'target';
-  const anchorField = mode === 'received' ? 'target' : 'issuer';
-
-  const [pageRes, countRes] = await Promise.all([
-    os.query.graphql<{ endorsementsCurrent: EndorsementGraphqlRow[] }>({
-      query: `query FilteredEndorsementRows($anchor: String!, $ids: [String!]!, $limit: Int!, $offset: Int!) {
-        endorsementsCurrent(
-          where: {${anchorField}: {_eq: $anchor}, ${participantField}: {_in: $ids}, operation: {_eq: "set"}},
-          limit: $limit,
-          offset: $offset,
-          orderBy: [{blockHeight: DESC}]
-        ) {
-          issuer target value blockHeight blockTimestamp
-        }
-      }`,
-      variables: {
-        anchor: accountId,
-        ids: participantIds,
-        limit,
-        offset,
-      },
-    }),
-    os.query.graphql<{ endorsementsCurrent: Array<{ issuer: string }> }>({
-      query: `query FilteredEndorsementCount($anchor: String!, $ids: [String!]!) {
-        endorsementsCurrent(
-          where: {${anchorField}: {_eq: $anchor}, ${participantField}: {_in: $ids}, operation: {_eq: "set"}}
-        ) {
-          issuer
-        }
-      }`,
-      variables: { anchor: accountId, ids: participantIds },
-    }),
-  ]);
-
-  return {
-    rows: (pageRes.data?.endorsementsCurrent ?? []).map(
-      parseEndorsementGraphqlRow
-    ),
-    total: countRes.data?.endorsementsCurrent?.length ?? 0,
-  };
-}
-
 export async function getEndorsementCounts(
   os: PortalOnSocialClient,
   accountId: string
 ): Promise<EndorsementCounts> {
-  const res = await os.query.graphql<{
-    profileSearch: Array<{
-      accountId: string;
-      endorsementsReceivedCount: number;
-      endorsementsGivenCount: number;
-    }>;
-  }>({
-    query: `query EndorsementCounts($id: String!) {
-      profileSearch(where: {accountId: {_eq: $id}}, limit: 1) {
-        accountId
-        endorsementsReceivedCount
-        endorsementsGivenCount
-      }
-    }`,
-    variables: { id: accountId },
-  });
-
-  const row = res.data?.profileSearch?.[0];
-  return {
-    received: Number(row?.endorsementsReceivedCount ?? 0),
-    given: Number(row?.endorsementsGivenCount ?? 0),
-  };
+  return os.endorsements.counts(accountId);
 }
 
 export async function enrichEndorsements(
@@ -171,11 +92,12 @@ export async function listViewerEndorsementsToTarget(
   viewerAccountId: string,
   targetAccountId: string
 ): Promise<EnrichedEndorsementListItem[]> {
-  const rows = await os.endorsements.listReceived(targetAccountId, {
-    limit: 100,
-  });
-  const viewerRows = rows.filter((row) => row.issuer === viewerAccountId);
-  return enrichEndorsements(os, viewerRows);
+  const rows = await os.endorsements.listFromViewerToTarget(
+    viewerAccountId,
+    targetAccountId,
+    { limit: 20 }
+  );
+  return enrichEndorsements(os, rows);
 }
 
 export async function listEndorsementsPage(
@@ -192,15 +114,22 @@ export async function listEndorsementsPage(
 }> {
   if (isProfileSearchQuery(searchQuery)) {
     const participantIds = await searchMatchingAccountIds(os, searchQuery);
-    const filtered = await listFilteredEndorsementRows(
+    const filtered =
+      mode === 'received'
+        ? await os.query.endorsements.receivedFilteredPage(
+            accountId,
+            participantIds,
+            { limit, offset }
+          )
+        : await os.query.endorsements.givenFilteredPage(
+            accountId,
+            participantIds,
+            { limit, offset }
+          );
+    const endorsements = await enrichEndorsements(
       os,
-      accountId,
-      mode,
-      participantIds,
-      limit,
-      offset
+      filtered.rows.map(parseEndorsementRow)
     );
-    const endorsements = await enrichEndorsements(os, filtered.rows);
 
     return {
       endorsements,

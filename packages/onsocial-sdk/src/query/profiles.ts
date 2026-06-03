@@ -133,6 +133,26 @@ export class ProfilesQuery {
   }
 
   /**
+   * Batch profile search stats for graph list enrichment.
+   */
+  async statsForAccounts(
+    accountIds: string[]
+  ): Promise<ProfileSearchRow[]> {
+    const ids = [...new Set(accountIds.map((id) => id.trim()).filter(Boolean))];
+    if (ids.length === 0) return [];
+
+    const res = await this._q.graphql<{ profileSearch: ProfileSearchRow[] }>({
+      query: `query ProfileStatsBatch($ids: [String!]!, $limit: Int!) {
+        profileSearch(where: {accountId: {_in: $ids}}, limit: $limit) {
+          ${PROFILE_SEARCH_FIELDS}
+        }
+      }`,
+      variables: { ids, limit: ids.length },
+    });
+    return res.data?.profileSearch ?? [];
+  }
+
+  /**
    * Search discoverable profiles by account id, display name, or bio.
    * Empty query returns recently active profiles, ordered by standing signal.
    *
@@ -204,7 +224,7 @@ export class ProfilesQuery {
     const [outgoing, incomingAccountIds, endorsementIssuers] = await Promise.all([
       this._q.standings.outgoingTargetsAmong(viewerAccountId, targetIds),
       this._q.standings.incomingSourcesAmong(viewerAccountId, targetIds),
-      this._q.standings.endorsementIssuersAmong(viewerAccountId, targetIds),
+      this._q.endorsements.issuersAmong(viewerAccountId, targetIds),
     ]);
 
     return {

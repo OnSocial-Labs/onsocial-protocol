@@ -13,6 +13,16 @@ export interface StandingListItem {
   blockTimestamp: number;
 }
 
+export interface StandingPageOptions {
+  limit?: number;
+  offset?: number;
+}
+
+export interface StandingFilteredPage {
+  rows: StandingListItem[];
+  total: number;
+}
+
 function parseStandingSince(raw: string | null | undefined): number | null {
   if (!raw) return null;
   try {
@@ -36,7 +46,7 @@ export class StandingsQuery {
    */
   async outgoing(
     accountId: string,
-    opts: { limit?: number } = {}
+    opts: StandingPageOptions = {}
   ): Promise<string[]> {
     const rows = await this.outgoingDetailed(accountId, opts);
     return rows.map((r) => r.targetAccount);
@@ -44,8 +54,10 @@ export class StandingsQuery {
 
   async outgoingDetailed(
     accountId: string,
-    opts: { limit?: number } = {}
+    opts: StandingPageOptions = {}
   ): Promise<StandingListItem[]> {
+    const limit = opts.limit ?? 100;
+    const offset = opts.offset ?? 0;
     const res = await this._q.graphql<{
       standingsCurrent: Array<{
         accountId: string;
@@ -55,12 +67,17 @@ export class StandingsQuery {
         blockTimestamp: number;
       }>;
     }>({
-      query: `query Standings($id: String!, $limit: Int!) {
-        standingsCurrent(where: {accountId: {_eq: $id}}, limit: $limit) {
+      query: `query Standings($id: String!, $limit: Int!, $offset: Int!) {
+        standingsCurrent(
+          where: {accountId: {_eq: $id}},
+          limit: $limit,
+          offset: $offset,
+          orderBy: [{blockTimestamp: DESC}]
+        ) {
           accountId targetAccount value blockHeight blockTimestamp
         }
       }`,
-      variables: { id: accountId, limit: opts.limit ?? 100 },
+      variables: { id: accountId, limit, offset },
     });
     return (res.data?.standingsCurrent ?? []).map((r) => ({
       accountId: r.accountId,
@@ -81,7 +98,7 @@ export class StandingsQuery {
    */
   async incoming(
     accountId: string,
-    opts: { limit?: number } = {}
+    opts: StandingPageOptions = {}
   ): Promise<string[]> {
     const rows = await this.incomingDetailed(accountId, opts);
     return rows.map((r) => r.accountId);
@@ -89,8 +106,10 @@ export class StandingsQuery {
 
   async incomingDetailed(
     accountId: string,
-    opts: { limit?: number } = {}
+    opts: StandingPageOptions = {}
   ): Promise<StandingListItem[]> {
+    const limit = opts.limit ?? 100;
+    const offset = opts.offset ?? 0;
     const res = await this._q.graphql<{
       standingsCurrent: Array<{
         accountId: string;
@@ -100,12 +119,17 @@ export class StandingsQuery {
         blockTimestamp: number;
       }>;
     }>({
-      query: `query Standers($id: String!, $limit: Int!) {
-        standingsCurrent(where: {targetAccount: {_eq: $id}}, limit: $limit) {
+      query: `query Standers($id: String!, $limit: Int!, $offset: Int!) {
+        standingsCurrent(
+          where: {targetAccount: {_eq: $id}},
+          limit: $limit,
+          offset: $offset,
+          orderBy: [{blockTimestamp: DESC}]
+        ) {
           accountId targetAccount value blockHeight blockTimestamp
         }
       }`,
-      variables: { id: accountId, limit: opts.limit ?? 100 },
+      variables: { id: accountId, limit, offset },
     });
     return (res.data?.standingsCurrent ?? []).map((r) => ({
       accountId: r.accountId,
@@ -281,34 +305,115 @@ export class StandingsQuery {
   }
 
   /**
-   * Issuers from `issuerAccountIds` that have a set endorsement for `viewerAccountId`.
+   * @deprecated Use `os.query.endorsements.issuersAmong`.
    */
   async endorsementIssuersAmong(
     viewerAccountId: string,
     issuerAccountIds: string[]
   ): Promise<string[]> {
-    const issuers = [
-      ...new Set(issuerAccountIds.map((id) => id.trim()).filter(Boolean)),
-    ];
-    if (issuers.length === 0) return [];
+    return this._q.endorsements.issuersAmong(
+      viewerAccountId,
+      issuerAccountIds
+    );
+  }
 
-    const res = await this._q.graphql<{
-      endorsementsCurrent: Array<{ issuer: string }>;
-    }>({
-      query: `query EndorsementIssuersAmong($viewer: String!, $issuers: [String!]!) {
-        endorsementsCurrent(
-          where: {
-            target: {_eq: $viewer},
-            issuer: {_in: $issuers},
-            operation: {_eq: "set"}
+  /**
+   * Paginated inbound stands limited to a participant set (profile search).
+   */
+  async incomingFilteredPage(
+    accountId: string,
+    participantAccountIds: string[],
+    opts: StandingPageOptions = {}
+  ): Promise<StandingFilteredPage> {
+    return this.filteredPage(accountId, 'incoming', participantAccountIds, opts);
+  }
+
+  /**
+   * Paginated outbound stands limited to a participant set (profile search).
+   */
+  async outgoingFilteredPage(
+    accountId: string,
+    participantAccountIds: string[],
+    opts: StandingPageOptions = {}
+  ): Promise<StandingFilteredPage> {
+    return this.filteredPage(accountId, 'outgoing', participantAccountIds, opts);
+  }
+
+  private async filteredPage(
+    accountId: string,
+    direction: 'incoming' | 'outgoing',
+    participantAccountIds: string[],
+    opts: StandingPageOptions
+  ): Promise<StandingFilteredPage> {
+    const participants = [
+      ...new Set(participantAccountIds.map((id) => id.trim()).filter(Boolean)),
+    ];
+    if (participants.length === 0) {
+      return { rows: [], total: 0 };
+    }
+
+    const limit = opts.limit ?? 100;
+    const offset = opts.offset ?? 0;
+    const participantField =
+      direction === 'incoming' ? 'accountId' : 'targetAccount';
+    const anchorField =
+      direction === 'incoming' ? 'targetAccount' : 'accountId';
+
+    const [pageRes, countRes] = await Promise.all([
+      this._q.graphql<{
+        standingsCurrent: Array<{
+          accountId: string;
+          targetAccount: string;
+          value: string | null;
+          blockHeight: number;
+          blockTimestamp: number;
+        }>;
+      }>({
+        query: `query FilteredStandingRows($anchor: String!, $ids: [String!]!, $limit: Int!, $offset: Int!) {
+          standingsCurrent(
+            where: {${anchorField}: {_eq: $anchor}, ${participantField}: {_in: $ids}},
+            limit: $limit,
+            offset: $offset,
+            orderBy: [{blockTimestamp: DESC}]
+          ) {
+            accountId targetAccount value blockHeight blockTimestamp
           }
-        ) {
-          issuer
-        }
-      }`,
-      variables: { viewer: viewerAccountId, issuers },
-    });
-    return (res.data?.endorsementsCurrent ?? []).map((r) => r.issuer);
+        }`,
+        variables: {
+          anchor: accountId,
+          ids: participants,
+          limit,
+          offset,
+        },
+      }),
+      this._q.graphql<{
+        standingsCurrentAggregate: { aggregate?: { count?: number } };
+      }>({
+        query: `query FilteredStandingCount($anchor: String!, $ids: [String!]!) {
+          standingsCurrentAggregate(
+            where: {${anchorField}: {_eq: $anchor}, ${participantField}: {_in: $ids}}
+          ) {
+            aggregate {
+              count
+            }
+          }
+        }`,
+        variables: { anchor: accountId, ids: participants },
+      }),
+    ]);
+
+    return {
+      rows: (pageRes.data?.standingsCurrent ?? []).map((r) => ({
+        accountId: r.accountId,
+        targetAccount: r.targetAccount,
+        since: parseStandingSince(r.value),
+        blockHeight: Number(r.blockHeight) || 0,
+        blockTimestamp: Number(r.blockTimestamp) || 0,
+      })),
+      total: Number(
+        countRes.data?.standingsCurrentAggregate?.aggregate?.count ?? 0
+      ),
+    };
   }
 
   /**
@@ -334,7 +439,7 @@ export class StandingsQuery {
    */
   async mutualDetailed(
     accountId: string,
-    opts: { limit?: number; offset?: number } = {}
+    opts: StandingPageOptions = {}
   ): Promise<StandingListItem[]> {
     const limit = opts.limit ?? 100;
     const offset = opts.offset ?? 0;
@@ -374,7 +479,7 @@ export class StandingsQuery {
   async mutualFilteredDetailed(
     accountId: string,
     mutualAccountIds: string[],
-    opts: { limit?: number; offset?: number } = {}
+    opts: StandingPageOptions = {}
   ): Promise<StandingListItem[]> {
     const participants = [
       ...new Set(mutualAccountIds.map((id) => id.trim()).filter(Boolean)),
