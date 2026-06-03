@@ -43,8 +43,6 @@ interface ProfileStats {
 export const STANDING_PREVIEW_LIMIT = 8;
 export const STANDING_PAGE_SIZE = 24;
 export const STANDING_MAX_OFFSET = 10_000;
-/** @deprecated Prefer indexed aggregates and paginated mutual_standings_current. */
-export const STANDING_ID_LIST_CAP = 5_000;
 
 export type PortalOnSocialClient = ReturnType<
   typeof createPortalServerOnSocialClient
@@ -142,16 +140,7 @@ export async function countMutualStandings(
   os: PortalOnSocialClient,
   accountId: string
 ): Promise<number> {
-  try {
-    return await os.query.standings.mutualCount(accountId);
-  } catch {
-    const [incoming, outgoing] = await Promise.all([
-      listStandingRows(os, accountId, 'incoming', STANDING_ID_LIST_CAP, 0),
-      listStandingRows(os, accountId, 'outgoing', STANDING_ID_LIST_CAP, 0),
-    ]);
-    const outgoingSet = new Set(outgoing.map((row) => row.targetAccount));
-    return incoming.filter((row) => outgoingSet.has(row.accountId)).length;
-  }
+  return os.query.standings.mutualCount(accountId);
 }
 
 type StandingGraphqlRow = {
@@ -253,19 +242,7 @@ async function listMutualStandingRows(
   limit: number,
   offset: number
 ): Promise<StandingListItem[]> {
-  try {
-    return await os.query.standings.mutualDetailed(accountId, { limit, offset });
-  } catch {
-    const [incoming, outgoing] = await Promise.all([
-      listStandingRows(os, accountId, 'incoming', STANDING_ID_LIST_CAP, 0),
-      listStandingRows(os, accountId, 'outgoing', STANDING_ID_LIST_CAP, 0),
-    ]);
-    const outgoingSet = new Set(outgoing.map((row) => row.targetAccount));
-    return incoming
-      .filter((row) => outgoingSet.has(row.accountId))
-      .sort((a, b) => b.blockTimestamp - a.blockTimestamp)
-      .slice(offset, offset + limit);
-  }
+  return os.query.standings.mutualDetailed(accountId, { limit, offset });
 }
 
 async function loadViewerContext(

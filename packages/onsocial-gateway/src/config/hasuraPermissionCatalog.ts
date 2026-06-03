@@ -245,6 +245,16 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
     ],
   },
   {
+    name: 'mutual_standings_current',
+    columns: [
+      'account_id',
+      'mutual_account',
+      'value',
+      'block_height',
+      'block_timestamp',
+    ],
+  },
+  {
     name: 'reactions_current',
     columns: [
       'account_id',

@@ -58,6 +58,14 @@ const SDK_EXPECTED_SCHEMA: Record<string, string[]> = {
   ],
   // query.ts → getStandingWith, getStanders
   standingsCurrent: ['accountId', 'targetAccount', 'blockHeight'],
+  // query.standings.mutualDetailed / mutualFiltered*
+  mutualStandingsCurrent: [
+    'accountId',
+    'mutualAccount',
+    'value',
+    'blockHeight',
+    'blockTimestamp',
+  ],
   // query.ts → getReactionCounts
   reactionCounts: ['reactionCount'],
   // query.ts → getStandingCounts
