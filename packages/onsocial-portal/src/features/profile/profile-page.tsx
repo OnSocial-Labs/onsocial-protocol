@@ -84,6 +84,10 @@ export default function ProfilePage({
         onUpdateStanding={profileState.updateStanding}
         onEndorse={profileState.endorse}
         onRemoveEndorsement={profileState.removeEndorsement}
+        onSupportProfile={profileState.supportProfile}
+        onClaimSupportBalance={profileState.claimSupportBalance}
+        isSupportingProfile={profileState.isSupportingProfile}
+        isClaimingSupportBalance={profileState.isClaimingSupportBalance}
       />
     </PageShell>
   );

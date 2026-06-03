@@ -11,7 +11,7 @@ import {
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { Github, Globe, PenLine, User } from 'lucide-react';
+import { Github, Globe, HeartHandshake, PenLine, User } from 'lucide-react';
 import { FaXTwitter } from 'react-icons/fa6';
 import { RiTelegram2Line } from 'react-icons/ri';
 import type { MaterialisedProfile } from '@onsocial/sdk';
@@ -29,9 +29,11 @@ import {
 } from '@/components/ui/modal-fact-list';
 import { ModalHeader } from '@/components/ui/modal-header';
 import {
+  profileActionButtonClass,
   profileSocialStandingButtonClass,
   profileSocialMetaRowClass,
   profileSocialMetaRowItemClass,
+  walletMenuActionButtonClass,
 } from '@/components/ui/profile-action-pill';
 import {
   ProfileSocialStandingPending,
@@ -47,6 +49,7 @@ import {
   type TransactionFeedback,
 } from '@/components/ui/transaction-feedback-toast';
 import { ProfileEndorsements } from '@/components/profile-endorsements';
+import { ProfileSupportModal } from '@/components/profile-support-modal';
 import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
 import { usePlatformStorageSummary } from '@/hooks/use-platform-storage-summary';
 import { PLATFORM_STORAGE_LABEL } from '@/lib/platform-storage-display';
@@ -86,6 +89,11 @@ import {
   isWalletUserCancellation,
   isWalletCancellationMessage,
 } from '@/lib/wallet-errors';
+import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
+import {
+  fetchProfileSupportBalanceYocto,
+  formatSupportBalanceLabel,
+} from '@/lib/social-spend-profile';
 
 interface PortalProfileResponse {
   accountId: string;
@@ -179,6 +187,13 @@ interface ProfileModalProps {
     input: EndorsementSubmitInput
   ) => Promise<unknown>;
   onRemoveEndorsement?: (target: string, topic?: string) => Promise<unknown>;
+  onSupportProfile?: (
+    targetAccount: string,
+    amountYocto: string
+  ) => Promise<string[]>;
+  onClaimSupportBalance?: () => Promise<string[]>;
+  isSupportingProfile?: boolean;
+  isClaimingSupportBalance?: boolean;
 }
 
 function getErrorMessage(error: unknown): string {
@@ -1253,6 +1268,10 @@ export function ProfileModal({
   onUpdateStanding,
   onEndorse,
   onRemoveEndorsement,
+  onSupportProfile,
+  onClaimSupportBalance,
+  isSupportingProfile = false,
+  isClaimingSupportBalance = false,
 }: ProfileModalProps) {
   const isPage = variant === 'page';
   const active = Boolean(accountId) && (isPage || open);
@@ -1292,6 +1311,14 @@ export function ProfileModal({
   const [givenEndorsementCount, setGivenEndorsementCount] = useState(0);
   const [networkOpen, setNetworkOpen] = useState(false);
   const [accountFactsOpen, setAccountFactsOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
+  const [claimableSupportYocto, setClaimableSupportYocto] = useState<bigint>(0n);
+  const {
+    txResult: claimTxResult,
+    setTxResult: setClaimTxResult,
+    clearTxResult: clearClaimTxResult,
+    trackTransaction: trackClaimTransaction,
+  } = useNearTransactionFeedback(viewerAccountId);
   const latestSocialLoadRef = useRef(0);
   const latestSignalsLoadRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -1302,6 +1329,12 @@ export function ProfileModal({
   const profileLinks = profileLinkItems(profile?.links);
   const joinedLabel = profileSinceLabel(firstProfileTimestamp);
   const canStand = Boolean(accountId && viewerAccountId && !isSelf);
+  const canSupport = Boolean(
+    accountId && viewerAccountId && !isSelf && onSupportProfile
+  );
+  const canClaimSupport = Boolean(
+    isSelf && accountId && onClaimSupportBalance && claimableSupportYocto > 0n
+  );
   const viewerStanding = Boolean(social?.viewerStanding);
   const socialReady = Boolean(social || socialError);
 
@@ -1405,7 +1438,56 @@ export function ProfileModal({
     setGivenEndorsementCount(0);
     setNetworkOpen(false);
     setAccountFactsOpen(false);
-  }, [accountId, active]);
+    setSupportOpen(false);
+    setClaimableSupportYocto(0n);
+    clearClaimTxResult();
+  }, [accountId, active, clearClaimTxResult]);
+
+  const refreshClaimableSupport = useCallback(async () => {
+    if (!isSelf || !accountId) {
+      setClaimableSupportYocto(0n);
+      return;
+    }
+    try {
+      const balance = await fetchProfileSupportBalanceYocto(accountId);
+      setClaimableSupportYocto(balance);
+    } catch {
+      setClaimableSupportYocto(0n);
+    }
+  }, [accountId, isSelf]);
+
+  useEffect(() => {
+    if (!active || !isSelf || !accountId) return;
+    void refreshClaimableSupport();
+  }, [accountId, active, isSelf, refreshClaimableSupport]);
+
+  const handleClaimSupport = useCallback(async () => {
+    if (!onClaimSupportBalance || isClaimingSupportBalance) return;
+
+    try {
+      const txHashes = await onClaimSupportBalance();
+      const confirmed = await trackClaimTransaction({
+        txHashes,
+        submittedMessage: 'Claiming support balance…',
+        successMessage: 'Support SOCIAL claimed to your wallet.',
+        failureMessage: 'Could not claim support balance.',
+      });
+      if (confirmed) {
+        window.setTimeout(() => void refreshClaimableSupport(), 4_000);
+      }
+    } catch (error) {
+      if (!isWalletUserCancellation(error)) {
+        reportWalletActionFailure(error, (msg) =>
+          setClaimTxResult({ type: 'error', msg })
+        );
+      }
+    }
+  }, [
+    isClaimingSupportBalance,
+    onClaimSupportBalance,
+    refreshClaimableSupport,
+    trackClaimTransaction,
+  ]);
 
   useEffect(() => {
     if (!active || !accountId) return;
@@ -1778,7 +1860,7 @@ export function ProfileModal({
                   givenEndorsementCount={givenEndorsementCount}
                   isSelf={isSelf}
                   meta={
-                    joinedLabel || canStand ? (
+                    joinedLabel || canStand || canSupport || canClaimSupport ? (
                       <>
                         {joinedLabel ? (
                           <button
@@ -1849,6 +1931,41 @@ export function ProfileModal({
                               </button>
                             </PortalHoverTooltip>
                           )
+                        ) : null}
+                        {canSupport ? (
+                          <PortalHoverTooltip
+                            className={profileSocialMetaRowItemClass}
+                            tooltip={`Send SOCIAL to ${title}`}
+                          >
+                            <button
+                              type="button"
+                              className={profileActionButtonClass('green')}
+                              disabled={isSupportingProfile}
+                              onClick={() => setSupportOpen(true)}
+                              aria-label={`Support ${title} with SOCIAL`}
+                            >
+                              <HeartHandshake className="h-3 w-3" />
+                              Support
+                            </button>
+                          </PortalHoverTooltip>
+                        ) : null}
+                        {canClaimSupport ? (
+                          <PortalHoverTooltip
+                            className={profileSocialMetaRowItemClass}
+                            tooltip="Withdraw SOCIAL others sent you"
+                          >
+                            <button
+                              type="button"
+                              className={walletMenuActionButtonClass('claim-ready')}
+                              disabled={isClaimingSupportBalance}
+                              onClick={() => void handleClaimSupport()}
+                              aria-label={`Claim ${formatSupportBalanceLabel(claimableSupportYocto)} SOCIAL support`}
+                            >
+                              Claim{' '}
+                              {formatSupportBalanceLabel(claimableSupportYocto)}{' '}
+                              SOCIAL
+                            </button>
+                          </PortalHoverTooltip>
                         ) : null}
                       </>
                     ) : null
@@ -1937,14 +2054,29 @@ export function ProfileModal({
           nearAccountExplorerUrl={nearAccountExplorerUrl}
           nearAccountCreation={nearAccountCreation}
         />
+        {canSupport && accountId && onSupportProfile ? (
+          <ProfileSupportModal
+            open={supportOpen}
+            targetAccountId={accountId}
+            targetDisplayName={title}
+            onOpenChange={setSupportOpen}
+            onSupport={onSupportProfile}
+          />
+        ) : null}
       </>
     ) : null;
 
   const feedbackToast = (
-    <TransactionFeedbackToast
-      result={actionToast}
-      onClose={() => setActionToast(null)}
-    />
+    <>
+      <TransactionFeedbackToast
+        result={actionToast}
+        onClose={() => setActionToast(null)}
+      />
+      <TransactionFeedbackToast
+        result={claimTxResult}
+        onClose={clearClaimTxResult}
+      />
+    </>
   );
 
   if (isPage) {

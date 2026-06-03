@@ -147,8 +147,8 @@ export function GenesisRallyStrip({ className }: { className?: string }) {
               </p>
             </div>
             <p className="text-sm leading-relaxed text-muted-foreground">
-              Join with SOCIAL, then earn points when others endorse or stand with
-              you after your join is indexed.
+              Join with SOCIAL, then earn points when others endorse, stand with,
+              or support you after your join is indexed.
             </p>
           </div>
 

@@ -22,6 +22,11 @@ import {
   restorePortalSocialSession,
 } from '@/lib/portal-social-session';
 import { rethrowWalletActionError } from '@/lib/wallet-errors';
+import {
+  buildClaimSupportBalanceTransaction,
+  buildSupportProfileTransaction,
+  sendPortalWalletTransaction,
+} from '@/lib/social-spend-profile';
 const INDEXED_PROFILE_REFRESH_DELAYS_MS = [750, 2_000, 5_000] as const;
 const PORTAL_ONAPI_PROXY_URL = '/api/onapi';
 
@@ -302,6 +307,9 @@ export function useProfileState() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUpdatingStanding, setIsUpdatingStanding] = useState(false);
+  const [isSupportingProfile, setIsSupportingProfile] = useState(false);
+  const [isClaimingSupportBalance, setIsClaimingSupportBalance] =
+    useState(false);
   const standingCountRef = useRef(0);
   const cachedSessionRef = useRef<{
     accountId: string;
@@ -726,6 +734,55 @@ export function useProfileState() {
     [accountId, createClient, getSocialSession, isConnected]
   );
 
+  const supportProfile = useCallback(
+    async (
+      targetAccount: string,
+      amountYocto: string
+    ): Promise<string[]> => {
+      if (!accountId || !isConnected) {
+        throw new Error('Connect your wallet before sending support.');
+      }
+      if (targetAccount === accountId) {
+        throw new Error('You cannot support your own profile.');
+      }
+
+      setError(null);
+      setIsSupportingProfile(true);
+
+      try {
+        return await sendPortalWalletTransaction(
+          getSigningWallet,
+          buildSupportProfileTransaction(targetAccount, amountYocto)
+        );
+      } catch (err) {
+        rethrowWalletActionError(err);
+      } finally {
+        setIsSupportingProfile(false);
+      }
+    },
+    [accountId, getSigningWallet, isConnected]
+  );
+
+  const claimSupportBalance = useCallback(async (): Promise<string[]> => {
+    if (!accountId || !isConnected) {
+      throw new Error('Connect your wallet before claiming support.');
+    }
+
+    setError(null);
+    setIsClaimingSupportBalance(true);
+
+    try {
+      return await sendPortalWalletTransaction(
+        getSigningWallet,
+        buildClaimSupportBalanceTransaction()
+      );
+    } catch (err) {
+      rethrowWalletActionError(err);
+    } finally {
+      setIsClaimingSupportBalance(false);
+    }
+  }, [accountId, getSigningWallet, isConnected]);
+
   const removeEndorsement = useCallback(
     async (targetAccount: string, topic?: string): Promise<RelayResponse> => {
       if (!accountId || !isConnected) {
@@ -771,6 +828,8 @@ export function useProfileState() {
     isLoading,
     isSaving,
     isUpdatingStanding,
+    isSupportingProfile,
+    isClaimingSupportBalance,
     isAuthorizingSession,
     hasSocialSession,
     error,
@@ -779,5 +838,7 @@ export function useProfileState() {
     updateStanding,
     endorse,
     removeEndorsement,
+    supportProfile,
+    claimSupportBalance,
   };
 }

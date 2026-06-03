@@ -204,7 +204,7 @@ export default function SeasonZeroPage() {
         badgeAccent="gold"
         glowAccents={['gold', 'purple']}
         title="Genesis Rally"
-        description={`Join with ${GENESIS_RALLY_JOIN_SOCIAL_LABEL} SOCIAL, then earn points from profile updates, endorsements received, and stands received after your join is indexed. Standing with or endorsing others raises their score, not yours.`}
+        description={`Join with ${GENESIS_RALLY_JOIN_SOCIAL_LABEL} SOCIAL, then earn points from profile updates, endorsements and stands received, and SOCIAL support sent to you after your join is indexed. Standing with, endorsing, or supporting others raises their score, not yours.`}
       />
 
       <div className="mx-auto max-w-5xl space-y-4">
