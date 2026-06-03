@@ -14,6 +14,9 @@ function makeSocial(opts: { existing?: string[] } = {}) {
 }
 
 function makeQuery(outgoing: string[] = []) {
+  const viewerStandsWith = vi.fn(
+    async (_viewer: string, target: string) => outgoing.includes(target)
+  );
   const out = vi.fn().mockResolvedValue(outgoing);
   const outDetailed = vi.fn().mockResolvedValue([
     {
@@ -36,9 +39,10 @@ function makeQuery(outgoing: string[] = []) {
   ]);
   const counts = vi.fn().mockResolvedValue({ incoming: 1, outgoing: 2 });
   return {
-    spies: { out, outDetailed, inc, incDetailed, counts },
+    spies: { viewerStandsWith, out, outDetailed, inc, incDetailed, counts },
     mod: {
       standings: {
+        viewerStandsWith,
         outgoing: out,
         outgoingDetailed: outDetailed,
         incoming: inc,
@@ -68,13 +72,18 @@ describe('StandingsModule.add / remove', () => {
 });
 
 describe('StandingsModule.has', () => {
-  it('returns true when target is in viewer outgoing list', async () => {
+  it('returns true when viewer stands with target', async () => {
     const { mod } = makeSocial();
-    const s = new StandingsModule(mod, makeQuery(['bob.near']).mod);
+    const q = makeQuery(['bob.near']);
+    const s = new StandingsModule(mod, q.mod);
     expect(await s.has('alice.near', 'bob.near')).toBe(true);
+    expect(q.spies.viewerStandsWith).toHaveBeenCalledWith(
+      'alice.near',
+      'bob.near'
+    );
   });
 
-  it('returns false when target is not in viewer outgoing list', async () => {
+  it('returns false when viewer does not stand with target', async () => {
     const { mod } = makeSocial();
     const s = new StandingsModule(mod, makeQuery(['carol.near']).mod);
     expect(await s.has('alice.near', 'bob.near')).toBe(false);

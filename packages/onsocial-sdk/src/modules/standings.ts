@@ -64,8 +64,7 @@ export class StandingsModule {
    * standers — pass it explicitly for a "does Alice stand with Bob?" check.
    */
   async has(viewer: string, targetAccount: string): Promise<boolean> {
-    const out = await this.listOutgoing(viewer);
-    return out.includes(targetAccount);
+    return this._query.standings.viewerStandsWith(viewer, targetAccount);
   }
 
   /**
@@ -142,5 +141,20 @@ export class StandingsModule {
    */
   counts(accountId: string): Promise<{ incoming: number; outgoing: number }> {
     return this._query.standings.counts(accountId);
+  }
+
+  /** Indexed mutual count (scales; does not scan the graph in app code). */
+  mutualCount(accountId: string): Promise<number> {
+    return this._query.standings.mutualCount(accountId);
+  }
+
+  viewerStandsWith(
+    viewerAccountId: string,
+    targetAccountId: string
+  ): Promise<boolean> {
+    return this._query.standings.viewerStandsWith(
+      viewerAccountId,
+      targetAccountId
+    );
   }
 }

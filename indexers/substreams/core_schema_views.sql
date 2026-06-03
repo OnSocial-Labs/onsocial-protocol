@@ -164,6 +164,25 @@ FROM (
 WHERE operation = 'set';
 
 -- ────────────────────────────────────────────────────────────────────────────
+-- 3b. mutual_standings_current — stands with a reciprocal edge (paginated reads)
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE VIEW mutual_standings_current AS
+SELECT
+  s.account_id,
+  s.target_account               AS mutual_account,
+  s.value,
+  s.block_height,
+  s.block_timestamp
+FROM standings_current s
+WHERE EXISTS (
+  SELECT 1
+  FROM standings_current r
+  WHERE r.account_id = s.target_account
+    AND r.target_account = s.account_id
+);
+
+-- ────────────────────────────────────────────────────────────────────────────
 -- 4. reactions_current — per-user reaction state on a target post
 -- ────────────────────────────────────────────────────────────────────────────
 

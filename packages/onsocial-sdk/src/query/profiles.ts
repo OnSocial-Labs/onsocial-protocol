@@ -45,10 +45,8 @@ export interface ProfileDiscoverPageOptions {
   query?: string;
   limit?: number;
   offset?: number;
-  /** When set, viewer graph context is loaded in the same GraphQL round-trip. */
+  /** When set, viewer graph context is batched for the returned profile page only. */
   viewerAccountId?: string;
-  /** Max standings/endorsement rows loaded for viewer context (default 1000). */
-  graphLimit?: number;
 }
 
 export interface ProfileDiscoverPageResult {
@@ -196,75 +194,30 @@ export class ProfilesQuery {
     }
 
     const query = opts.query?.trim();
-    const filter = query ? 'where: {searchText: {_ilike: $pattern}}, ' : '';
-    const variableDecl = query ? ', $pattern: String!' : '';
-    const graphLimit = opts.graphLimit ?? 1000;
+    const profiles = await this.search({ query, limit, offset });
+    const targetIds = profiles.map((row) => row.accountId);
 
-    const res = await this._q.graphql<{
-      profileSearch: ProfileSearchRow[];
-      outgoing: Array<{
-        accountId: string;
-        targetAccount: string;
-        value: string | null;
-        blockTimestamp: number;
-      }>;
-      incoming: Array<{ accountId: string }>;
-      endorsements: Array<{ issuer: string }>;
-    }>({
-      query: `query ProfileDiscover($viewerId: String!, $limit: Int!, $offset: Int!, $standingLimit: Int!, $endorsementLimit: Int!${variableDecl}) {
-        profileSearch(
-          ${filter}
-          limit: $limit,
-          offset: $offset,
-          orderBy: [{standingCount: DESC}, {lastActivityBlock: DESC}]
-        ) {
-          ${PROFILE_SEARCH_FIELDS}
-        }
-        outgoing: standingsCurrent(
-          where: {accountId: {_eq: $viewerId}},
-          limit: $standingLimit
-        ) {
-          accountId targetAccount value blockTimestamp
-        }
-        incoming: standingsCurrent(
-          where: {targetAccount: {_eq: $viewerId}},
-          limit: $standingLimit
-        ) {
-          accountId
-        }
-        endorsements: endorsementsCurrent(
-          where: {target: {_eq: $viewerId}, operation: {_eq: "set"}},
-          limit: $endorsementLimit,
-          orderBy: [{blockHeight: DESC}]
-        ) {
-          issuer
-        }
-      }`,
-      variables: {
-        viewerId: viewerAccountId,
-        limit,
-        offset,
-        standingLimit: graphLimit,
-        endorsementLimit: graphLimit,
-        ...(query ? { pattern: `%${query}%` } : {}),
-      },
-    });
+    if (targetIds.length === 0) {
+      return { profiles, viewer: { outgoing: [], incomingAccountIds: [], endorsementIssuers: [] } };
+    }
+
+    const [outgoing, incomingAccountIds, endorsementIssuers] = await Promise.all([
+      this._q.standings.outgoingTargetsAmong(viewerAccountId, targetIds),
+      this._q.standings.incomingSourcesAmong(viewerAccountId, targetIds),
+      this._q.standings.endorsementIssuersAmong(viewerAccountId, targetIds),
+    ]);
 
     return {
-      profiles: res.data?.profileSearch ?? [],
+      profiles,
       viewer: {
-        outgoing: (res.data?.outgoing ?? []).map((row) => ({
+        outgoing: outgoing.map((row) => ({
           accountId: row.accountId,
           targetAccount: row.targetAccount,
-          since: parseStandingSince(row.value),
-          blockTimestamp: Number(row.blockTimestamp) || 0,
+          since: row.since,
+          blockTimestamp: row.blockTimestamp,
         })),
-        incomingAccountIds: (res.data?.incoming ?? []).map(
-          (row) => row.accountId
-        ),
-        endorsementIssuers: (res.data?.endorsements ?? []).map(
-          (row) => row.issuer
-        ),
+        incomingAccountIds,
+        endorsementIssuers,
       },
     };
   }

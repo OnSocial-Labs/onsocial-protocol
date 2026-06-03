@@ -43,6 +43,7 @@ interface ProfileStats {
 export const STANDING_PREVIEW_LIMIT = 8;
 export const STANDING_PAGE_SIZE = 24;
 export const STANDING_MAX_OFFSET = 10_000;
+/** @deprecated Prefer indexed aggregates and paginated mutual_standings_current. */
 export const STANDING_ID_LIST_CAP = 5_000;
 
 export type PortalOnSocialClient = ReturnType<
@@ -141,12 +142,7 @@ export async function countMutualStandings(
   os: PortalOnSocialClient,
   accountId: string
 ): Promise<number> {
-  const [incoming, outgoing] = await Promise.all([
-    listStandingRows(os, accountId, 'incoming', STANDING_ID_LIST_CAP, 0),
-    listStandingRows(os, accountId, 'outgoing', STANDING_ID_LIST_CAP, 0),
-  ]);
-  const outgoingSet = new Set(outgoing.map((row) => row.targetAccount));
-  return incoming.filter((row) => outgoingSet.has(row.accountId)).length;
+  return os.query.standings.mutualCount(accountId);
 }
 
 type StandingGraphqlRow = {
@@ -231,31 +227,15 @@ async function listMutualStandingRowsFiltered(
     return { rows: [], total: 0 };
   }
 
-  const [incomingRes, outgoing] = await Promise.all([
-    os.query.graphql<{ standingsCurrent: StandingGraphqlRow[] }>({
-      query: `query FilteredMutualIncoming($anchor: String!, $ids: [String!]!) {
-        standingsCurrent(
-          where: {targetAccount: {_eq: $anchor}, accountId: {_in: $ids}},
-          orderBy: [{blockTimestamp: DESC}]
-        ) {
-          accountId targetAccount value blockHeight blockTimestamp
-        }
-      }`,
-      variables: { anchor: accountId, ids: participantIds },
+  const [rows, total] = await Promise.all([
+    os.query.standings.mutualFilteredDetailed(accountId, participantIds, {
+      limit,
+      offset,
     }),
-    listStandingRows(os, accountId, 'outgoing', STANDING_ID_LIST_CAP, 0),
+    os.query.standings.mutualFilteredCount(accountId, participantIds),
   ]);
 
-  const outgoingSet = new Set(outgoing.map((row) => row.targetAccount));
-  const mutualRows = (incomingRes.data?.standingsCurrent ?? [])
-    .map(mapStandingGraphqlRow)
-    .filter((row) => outgoingSet.has(row.accountId))
-    .sort((a, b) => b.blockTimestamp - a.blockTimestamp);
-
-  return {
-    rows: mutualRows.slice(offset, offset + limit),
-    total: mutualRows.length,
-  };
+  return { rows, total };
 }
 
 async function listMutualStandingRows(
@@ -264,43 +244,51 @@ async function listMutualStandingRows(
   limit: number,
   offset: number
 ): Promise<StandingListItem[]> {
-  const [incoming, outgoing] = await Promise.all([
-    listStandingRows(os, accountId, 'incoming', STANDING_ID_LIST_CAP, 0),
-    listStandingRows(os, accountId, 'outgoing', STANDING_ID_LIST_CAP, 0),
-  ]);
-  const outgoingSet = new Set(outgoing.map((row) => row.targetAccount));
-  return incoming
-    .filter((row) => outgoingSet.has(row.accountId))
-    .sort((a, b) => b.blockTimestamp - a.blockTimestamp)
-    .slice(offset, offset + limit);
+  try {
+    return await os.query.standings.mutualDetailed(accountId, { limit, offset });
+  } catch {
+    const [incoming, outgoing] = await Promise.all([
+      listStandingRows(os, accountId, 'incoming', STANDING_ID_LIST_CAP, 0),
+      listStandingRows(os, accountId, 'outgoing', STANDING_ID_LIST_CAP, 0),
+    ]);
+    const outgoingSet = new Set(outgoing.map((row) => row.targetAccount));
+    return incoming
+      .filter((row) => outgoingSet.has(row.accountId))
+      .sort((a, b) => b.blockTimestamp - a.blockTimestamp)
+      .slice(offset, offset + limit);
+  }
 }
 
 async function loadViewerContext(
   os: PortalOnSocialClient,
-  viewerAccountId: string | null
+  viewerAccountId: string | null,
+  peerAccountIds: string[]
 ) {
-  const [viewerOutgoingRows, viewerIncomingIds] = await Promise.all([
-    viewerAccountId
-      ? listStandingRows(
-          os,
-          viewerAccountId,
-          'outgoing',
-          STANDING_ID_LIST_CAP,
-          0
-        ).catch(() => [])
-      : Promise.resolve([]),
-    viewerAccountId
-      ? os.standings
-          .listIncoming(viewerAccountId, { limit: STANDING_ID_LIST_CAP })
-          .catch(() => [])
-      : Promise.resolve([]),
+  if (!viewerAccountId) {
+    return {
+      viewerOutgoingSet: new Set<string>(),
+      viewerIncomingSet: new Set<string>(),
+    };
+  }
+
+  const peers = [...new Set(peerAccountIds.filter(Boolean))];
+  if (peers.length === 0) {
+    return {
+      viewerOutgoingSet: new Set<string>(),
+      viewerIncomingSet: new Set<string>(),
+    };
+  }
+
+  const [outgoing, incoming] = await Promise.all([
+    os.query.standings.outgoingTargetsAmong(viewerAccountId, peers).catch(() => []),
+    os.query.standings.incomingSourcesAmong(viewerAccountId, peers).catch(() => []),
   ]);
 
   return {
     viewerOutgoingSet: new Set(
-      viewerOutgoingRows.map((row) => row.targetAccount)
+      outgoing.map((row: StandingListItem) => row.targetAccount)
     ),
-    viewerIncomingSet: new Set(viewerIncomingIds),
+    viewerIncomingSet: new Set(incoming),
   };
 }
 
@@ -321,7 +309,7 @@ export async function buildStandingAccountSummaries(
     await Promise.all([
       os.profiles.getMany(accountIds),
       listProfileStats(os, accountIds).catch(() => new Map()),
-      loadViewerContext(os, viewerAccountId),
+      loadViewerContext(os, viewerAccountId, accountIds),
     ]);
 
   return rows.map((row) => {

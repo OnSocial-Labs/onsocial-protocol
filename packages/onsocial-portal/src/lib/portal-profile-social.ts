@@ -4,7 +4,6 @@ type PortalOnSocial = ReturnType<typeof createPortalServerOnSocialClient>;
 import {
   STANDING_PREVIEW_LIMIT,
   buildStandingAccountSummaries,
-  countMutualStandings,
   listStandingRows,
 } from '@/lib/profile-social-server';
 
@@ -26,24 +25,16 @@ export async function loadPortalProfileSocial(
   accountId: string,
   viewerAccountId: string | null
 ): Promise<PortalProfileSocialPayload> {
-  const [counts, outgoingRows, incomingRows, mutualCount, viewerOutgoingIds] =
+  const [counts, outgoingRows, incomingRows, mutualCount, viewerStanding] =
     await Promise.all([
       os.standings.counts(accountId),
       listStandingRows(os, accountId, 'outgoing', STANDING_PREVIEW_LIMIT, 0),
       listStandingRows(os, accountId, 'incoming', STANDING_PREVIEW_LIMIT, 0),
-      countMutualStandings(os, accountId),
-      viewerAccountId
-        ? os.standings
-            .listOutgoing(viewerAccountId, { limit: 1000 })
-            .catch(() => [])
-        : Promise.resolve([]),
+      os.query.standings.mutualCount(accountId),
+      viewerAccountId && viewerAccountId !== accountId
+        ? os.query.standings.viewerStandsWith(viewerAccountId, accountId)
+        : Promise.resolve(false),
     ]);
-
-  const viewerOutgoingSet = new Set(viewerOutgoingIds);
-  const viewerStanding =
-    Boolean(viewerAccountId) &&
-    viewerAccountId !== accountId &&
-    viewerOutgoingSet.has(accountId);
 
   const [incoming, outgoing] = await Promise.all([
     buildStandingAccountSummaries(

@@ -250,20 +250,44 @@ describe('QueryModule', () => {
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
-    it('discoverPage with viewer batches graph context (one round-trip)', async () => {
+    it('discoverPage with viewer batches graph context for page targets only', async () => {
       const { os, fetch } = makeOs({
         data: {
-          profileSearch: [],
-          outgoing: [
+          profileSearch: [
             {
-              accountId: 'bob.near',
-              targetAccount: 'alice.near',
-              value: '{"since":42}',
-              blockTimestamp: 9,
+              accountId: 'carol.near',
+              name: 'Carol',
+              bio: null,
+              avatar: null,
+              banner: null,
+              standingCount: 1,
+              standingWithCount: 1,
+              mutualStandingCount: 0,
+              endorsementsReceivedCount: 0,
+              endorsementsGivenCount: 0,
+              firstProfileTimestamp: 1,
+              lastProfileBlock: 1,
+              lastProfileTimestamp: 1,
+              lastActivityBlock: 1,
             },
           ],
-          incoming: [{ accountId: 'carol.near' }],
-          endorsements: [{ issuer: 'dave.near' }],
+          standingsCurrent: [
+            {
+              accountId: 'bob.near',
+              targetAccount: 'carol.near',
+              value: '{"since":42}',
+              blockHeight: 1,
+              blockTimestamp: 9,
+            },
+            {
+              accountId: 'carol.near',
+              targetAccount: 'bob.near',
+              value: '{"since":7}',
+              blockHeight: 1,
+              blockTimestamp: 8,
+            },
+          ],
+          endorsementsCurrent: [{ issuer: 'carol.near' }],
         },
       });
 
@@ -272,19 +296,23 @@ describe('QueryModule', () => {
         limit: 5,
       });
 
+      expect(page.profiles).toHaveLength(1);
       expect(page.viewer?.outgoing[0]).toMatchObject({
-        targetAccount: 'alice.near',
+        targetAccount: 'carol.near',
         since: 42,
         blockTimestamp: 9,
       });
-      expect(page.viewer?.incomingAccountIds).toEqual(['carol.near']);
-      expect(page.viewer?.endorsementIssuers).toEqual(['dave.near']);
-      expect(fetch).toHaveBeenCalledTimes(1);
-      const body = JSON.parse(
-        String((fetch.mock.calls[0]?.[1] as RequestInit | undefined)?.body)
-      ) as { query: string };
-      expect(body.query).toContain('outgoing: standingsCurrent');
-      expect(body.query).toContain('endorsements: endorsementsCurrent');
+      expect(page.viewer?.incomingAccountIds).toContain('carol.near');
+      expect(page.viewer?.endorsementIssuers).toEqual(['carol.near']);
+      expect(fetch.mock.calls.length).toBeGreaterThanOrEqual(2);
+      const batched = fetch.mock.calls
+        .map((call) =>
+          JSON.parse(String((call[1] as RequestInit | undefined)?.body)) as {
+            query: string;
+          }
+        )
+        .find((body) => body.query.includes('OutgoingTargetsAmong'));
+      expect(batched?.query).toContain('targetAccount: {_in: $targets}');
     });
   });
 
@@ -1121,6 +1149,35 @@ describe('QueryModule', () => {
         incoming: 0,
         outgoing: 0,
       });
+    });
+  });
+
+  describe('viewerStandsWith()', () => {
+    it('returns true when an edge exists', async () => {
+      const { os } = makeOs({
+        data: { standingsCurrent: [{ accountId: 'bob.near' }] },
+      });
+      await expect(
+        os.query.standings.viewerStandsWith('bob.near', 'alice.near')
+      ).resolves.toBe(true);
+    });
+
+    it('returns false when no edge exists', async () => {
+      const { os } = makeOs({ data: { standingsCurrent: [] } });
+      await expect(
+        os.query.standings.viewerStandsWith('bob.near', 'alice.near')
+      ).resolves.toBe(false);
+    });
+  });
+
+  describe('mutualCount()', () => {
+    it('reads mutualStandingCount from profile_search', async () => {
+      const { os } = makeOs({
+        data: { profileSearch: [{ mutualStandingCount: 12 }] },
+      });
+      await expect(os.query.standings.mutualCount('alice.near')).resolves.toBe(
+        12
+      );
     });
   });
 
