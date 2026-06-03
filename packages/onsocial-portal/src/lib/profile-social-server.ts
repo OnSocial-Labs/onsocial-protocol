@@ -142,7 +142,16 @@ export async function countMutualStandings(
   os: PortalOnSocialClient,
   accountId: string
 ): Promise<number> {
-  return os.query.standings.mutualCount(accountId);
+  try {
+    return await os.query.standings.mutualCount(accountId);
+  } catch {
+    const [incoming, outgoing] = await Promise.all([
+      listStandingRows(os, accountId, 'incoming', STANDING_ID_LIST_CAP, 0),
+      listStandingRows(os, accountId, 'outgoing', STANDING_ID_LIST_CAP, 0),
+    ]);
+    const outgoingSet = new Set(outgoing.map((row) => row.targetAccount));
+    return incoming.filter((row) => outgoingSet.has(row.accountId)).length;
+  }
 }
 
 type StandingGraphqlRow = {
