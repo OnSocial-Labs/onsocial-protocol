@@ -338,10 +338,8 @@ export async function getSeasonZeroStandings(
            LEFT JOIN standings_current outgoing
              ON outgoing.account_id = incoming.target_account
             AND outgoing.target_account = incoming.account_id
-            AND outgoing.operation = 'set'
             AND outgoing.block_timestamp >= j.joined_at_ns
-           WHERE incoming.operation = 'set'
-             AND incoming.block_timestamp >= j.joined_at_ns
+           WHERE incoming.block_timestamp >= j.joined_at_ns
            GROUP BY incoming.target_account`,
       [...joinedParams]
     ),
