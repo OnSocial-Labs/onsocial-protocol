@@ -14,9 +14,9 @@ Every module hangs off a single `OnSocial` instance. Use this table to find the 
 | `os.posts`               | Authoring posts, replies, quotes (top-level + group)                   | `create`, `reply`, `quote`, `groupPost`, `groupReply`, `groupQuote`         |
 | `os.reactions`           | Add / remove / toggle reactions; counts                                | `add`, `remove`, `toggle`, `summary`                                        |
 | `os.saves`               | Bookmarks                                                              | `add`, `remove`, `toggle`, `has`, `get`, `list`                             |
-| `os.endorsements`        | Topic-scoped public vouches                                            | `add`, `upsert`, `remove`, `toggle`, `get`, `listGiven`, `listReceived`     |
+| `os.endorsements`        | Topic-scoped public vouches                                            | `add`, `upsert`, `remove`, `toggle`, `get`, `counts`, `listGiven`, `listReceived`, `listFromViewerToTarget` |
 | `os.attestations`        | Verifiable claims                                                      | `add`, `revoke`, `get`                                                      |
-| `os.standings`           | Follow-style "stand with" edges                                        | `add`, `remove`, `toggle`, `has`, `listOutgoing`, `listIncoming`, `counts`  |
+| `os.standings`           | "Stand with" graph (scaled reads)                                      | `add`, `remove`, `toggle`, `has`, `counts`, `mutualCount`, `mutualList`, `listIncomingDetailed`, `listOutgoingDetailed` |
 | `os.groups`              | Groups + group feeds, governance                                       | `create`, `join`, `leave`, `post`, `reply`, `quote`, `isMember`, `execute`  |
 | `os.pages`               | Curated content collections                                            | `create`, `addItem`, `removeItem`, `setVisibility`, `setConfig`             |
 | `os.permissions`         | Grant / check / revoke permissions                                     | `grant`, `revoke`, `get`, `hasGroupAdmin`, …                                |
@@ -32,13 +32,16 @@ Every module hangs off a single `OnSocial` instance. Use this table to find the 
 | `os.token`               | OnSocial token transfers + state                                       | `transfer`, `balance`, `events`                                             |
 | `os.storageAccount`      | Storage balances, sponsorships, pools                                  | `balance`, `withdraw`, `tip`, `sponsor`, `fundPlatform`, …                  |
 | `os.chain`               | On-chain reads (status, version, config)                               | `getContractStatus`, `getVersion`, `getGovernanceConfig`, `getContractInfo` |
-| `os.query.*`             | Raw indexer (Hasura) reads — feed, threads, groups, scarces, events, … | `feed.*`, `threads.*`, `groups.*`, `scarces.*`, `events.*`                  |
+| `os.query.*`             | Indexer (Hasura) reads — feeds, social graph, stats, …                 | `feed.*`, `profiles.discoverPage`, `standings.*`, `endorsements.*`, `scarces.*` |
 | `os.social`              | Low-level NEAR-Social KV primitives                                    | `set`, `get`, `getOne`, `listKeys`, `countKeys`                             |
 | `os.raw.*`               | Direct contract calls (escape hatch)                                   | varies                                                                      |
 
 > Naming convention: data CRUD modules use `add` / `remove` / `toggle` / `get` / `list`. Authoring modules (`posts`, `profiles`, `pages`) use the natural verb (`create`, `update`, `setVisibility`).
 
 See [docs/CHEATSHEET.md](./docs/CHEATSHEET.md) for a one-page noun → method lookup.
+
+For discover, standing lists, mutuals, and endorsements at scale, see
+[docs/SOCIAL_GRAPH.md](./docs/SOCIAL_GRAPH.md).
 
 ## Install
 
@@ -150,6 +153,27 @@ const feed = await os.query.feed.fromAccounts({ accountId: 'alice.near' });
 const posts = await os.query.feed.recent({ author: 'alice.near' });
 
 console.log(feed.items.length, posts.items.length);
+```
+
+### Social graph (discover, stands, endorsements)
+
+Use paginated reads and indexed counts — do not load full outgoing graphs.
+Full recipes: [docs/SOCIAL_GRAPH.md](./docs/SOCIAL_GRAPH.md).
+
+```ts
+const page = await os.query.profiles.discoverPage({
+  limit: 24,
+  offset: 0,
+  viewerAccountId: 'bob.near',
+});
+
+const { incoming, outgoing } = await os.standings.counts('alice.near');
+const mutual = await os.standings.mutualCount('alice.near');
+
+const rows = await os.standings.listIncomingDetailed('alice.near', {
+  limit: 24,
+  offset: 0,
+});
 ```
 
 ## Group Feeds And Threads

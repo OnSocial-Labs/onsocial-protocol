@@ -132,6 +132,7 @@ contracts/**/*.md
 # Ignore package internal docs
 packages/**/*.md
 !packages/**/README.md
+!packages/**/docs/*.md
 
 # Local files and directories
 .local
