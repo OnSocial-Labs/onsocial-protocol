@@ -249,10 +249,7 @@ export function scoreSeasonZero(input: SeasonZeroSignals): SeasonZeroScore {
     : 0;
 
   const solidarity = eligible
-    ? scoreSolidarityDaily(
-        daily.receivedStandsByDay,
-        daily.mutualStandsByDay
-      )
+    ? scoreSolidarityDaily(daily.receivedStandsByDay, daily.mutualStandsByDay)
     : 0;
 
   const support = eligible

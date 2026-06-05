@@ -136,9 +136,7 @@ function sortedDailyCounts<T>(
     .map(([, bucket]) => measure(bucket));
 }
 
-function endorsementDailySignals(
-  rows: EndorsementRow[]
-): Map<
+function endorsementDailySignals(rows: EndorsementRow[]): Map<
   string,
   SeasonZeroSocialDailySignals & {
     uniqueEndorsers: number;
@@ -161,7 +159,8 @@ function endorsementDailySignals(
     endorserDays.set(day, endorserSet);
     endorsersByTargetDay.set(row.target, endorserDays);
 
-    const seasonEndorsers = endorsersSeason.get(row.target) ?? new Set<string>();
+    const seasonEndorsers =
+      endorsersSeason.get(row.target) ?? new Set<string>();
     seasonEndorsers.add(row.issuer);
     endorsersSeason.set(row.target, seasonEndorsers);
 
@@ -203,9 +202,7 @@ function endorsementDailySignals(
   return result;
 }
 
-function standDailySignals(
-  rows: StandEventRow[]
-): Map<
+function standDailySignals(rows: StandEventRow[]): Map<
   string,
   SeasonZeroSocialDailySignals & {
     receivedStands: number;
@@ -216,7 +213,11 @@ function standDailySignals(
   const outgoingByStaker = new Map<string, Set<string>>();
 
   for (const row of rows) {
-    if (!row.target_account || !row.staker || row.target_account === row.staker) {
+    if (
+      !row.target_account ||
+      !row.staker ||
+      row.target_account === row.staker
+    ) {
       continue;
     }
     const incoming = incomingByTarget.get(row.target_account) ?? [];
@@ -238,7 +239,10 @@ function standDailySignals(
 
   for (const [accountId, incoming] of incomingByTarget) {
     const standsWith = outgoingByStaker.get(accountId) ?? new Set<string>();
-    const byDay = new Map<string, { received: Set<string>; mutual: Set<string> }>();
+    const byDay = new Map<
+      string,
+      { received: Set<string>; mutual: Set<string> }
+    >();
     const seasonReceived = new Set<string>();
     const seasonMutual = new Set<string>();
 
@@ -260,8 +264,14 @@ function standDailySignals(
     result.set(accountId, {
       endorsersByDay: [],
       topicsByDay: [],
-      receivedStandsByDay: sortedDailyCounts(byDay, (bucket) => bucket.received.size),
-      mutualStandsByDay: sortedDailyCounts(byDay, (bucket) => bucket.mutual.size),
+      receivedStandsByDay: sortedDailyCounts(
+        byDay,
+        (bucket) => bucket.received.size
+      ),
+      mutualStandsByDay: sortedDailyCounts(
+        byDay,
+        (bucket) => bucket.mutual.size
+      ),
       receivedStands: seasonReceived.size,
       mutualStands: seasonMutual.size,
     });
