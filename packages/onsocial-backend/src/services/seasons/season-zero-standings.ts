@@ -506,8 +506,7 @@ export async function getSeasonZeroStandings(
              incoming.block_timestamp::text AS block_timestamp
            FROM standings_current incoming
            INNER JOIN joined j ON j.account_id = incoming.target_account
-           WHERE incoming.operation = 'set'
-             AND incoming.block_timestamp >= j.joined_at_ns`,
+           WHERE incoming.block_timestamp >= j.joined_at_ns`,
       [...joinedParams]
     ),
     indexerQuery<SupportRow>(
