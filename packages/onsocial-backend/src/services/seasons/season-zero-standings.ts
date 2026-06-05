@@ -2,9 +2,11 @@ import { indexerQuery } from '../../db/indexer.js';
 import {
   SEASON_ZERO_ID,
   SEASON_ZERO_JOIN_RALLY_MIN_YOCTO,
+  SEASON_ZERO_SCORING_LIMITS,
   scoreSeasonZero,
   type SeasonZeroProfileSignals,
   type SeasonZeroScoreBreakdown,
+  type SeasonZeroSocialDailySignals,
 } from './season-zero-policy.js';
 
 interface JoinedRallyRow {
@@ -24,12 +26,13 @@ interface EndorsementRow {
   target: string;
   issuer: string;
   value: string | null;
+  block_timestamp: string;
 }
 
-interface StandRow {
-  account_id: string;
-  received_stands: string;
-  mutual_stands: string;
+interface StandEventRow {
+  target_account: string;
+  staker: string;
+  block_timestamp: string;
 }
 
 interface SupportRow {
@@ -67,6 +70,7 @@ export interface SeasonZeroStandingsResult {
   limit: number;
   offset: number;
   total: number;
+  scoring: typeof SEASON_ZERO_SCORING_LIMITS;
   standings: SeasonZeroStanding[];
 }
 
@@ -112,9 +116,189 @@ function endorsementTopic(raw: string | null): string | null {
   }
 }
 
-function toNumber(value: string | number | null | undefined): number {
-  const parsed = Number(value ?? 0);
-  return Number.isFinite(parsed) ? parsed : 0;
+function utcDayKey(blockTimestamp: string): string {
+  const ns = parseYoctoNs(blockTimestamp);
+  const sec = Number(ns / 1_000_000_000n);
+  return new Date(sec * 1000).toISOString().slice(0, 10);
+}
+
+function parseYoctoNs(value: string): bigint {
+  if (!/^\d+$/u.test(value)) return 0n;
+  return BigInt(value);
+}
+
+function sortedDailyCounts<T>(
+  buckets: Map<string, T>,
+  measure: (value: T) => number
+): number[] {
+  return [...buckets.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([, bucket]) => measure(bucket));
+}
+
+function endorsementDailySignals(
+  rows: EndorsementRow[]
+): Map<
+  string,
+  SeasonZeroSocialDailySignals & {
+    uniqueEndorsers: number;
+    endorsementTopics: number;
+  }
+> {
+  const endorsersByTargetDay = new Map<string, Map<string, Set<string>>>();
+  const topicsByTargetDay = new Map<string, Map<string, Set<string>>>();
+  const endorsersSeason = new Map<string, Set<string>>();
+  const topicsSeason = new Map<string, Set<string>>();
+
+  for (const row of rows) {
+    if (!row.target || !row.issuer || row.target === row.issuer) continue;
+    const day = utcDayKey(row.block_timestamp);
+
+    const endorserDays =
+      endorsersByTargetDay.get(row.target) ?? new Map<string, Set<string>>();
+    const endorserSet = endorserDays.get(day) ?? new Set<string>();
+    endorserSet.add(row.issuer);
+    endorserDays.set(day, endorserSet);
+    endorsersByTargetDay.set(row.target, endorserDays);
+
+    const seasonEndorsers = endorsersSeason.get(row.target) ?? new Set<string>();
+    seasonEndorsers.add(row.issuer);
+    endorsersSeason.set(row.target, seasonEndorsers);
+
+    const topic = endorsementTopic(row.value);
+    if (topic) {
+      const topicDays =
+        topicsByTargetDay.get(row.target) ?? new Map<string, Set<string>>();
+      const topicSet = topicDays.get(day) ?? new Set<string>();
+      topicSet.add(topic);
+      topicDays.set(day, topicSet);
+      topicsByTargetDay.set(row.target, topicDays);
+
+      const seasonTopics = topicsSeason.get(row.target) ?? new Set<string>();
+      seasonTopics.add(topic);
+      topicsSeason.set(row.target, seasonTopics);
+    }
+  }
+
+  const result = new Map<
+    string,
+    SeasonZeroSocialDailySignals & {
+      uniqueEndorsers: number;
+      endorsementTopics: number;
+    }
+  >();
+
+  for (const [accountId, endorserDays] of endorsersByTargetDay) {
+    const topicDays = topicsByTargetDay.get(accountId) ?? new Map();
+    result.set(accountId, {
+      endorsersByDay: sortedDailyCounts(endorserDays, (set) => set.size),
+      topicsByDay: sortedDailyCounts(topicDays, (set) => set.size),
+      receivedStandsByDay: [],
+      mutualStandsByDay: [],
+      uniqueEndorsers: endorsersSeason.get(accountId)?.size ?? 0,
+      endorsementTopics: topicsSeason.get(accountId)?.size ?? 0,
+    });
+  }
+
+  return result;
+}
+
+function standDailySignals(
+  rows: StandEventRow[]
+): Map<
+  string,
+  SeasonZeroSocialDailySignals & {
+    receivedStands: number;
+    mutualStands: number;
+  }
+> {
+  const incomingByTarget = new Map<string, StandEventRow[]>();
+  const outgoingByStaker = new Map<string, Set<string>>();
+
+  for (const row of rows) {
+    if (!row.target_account || !row.staker || row.target_account === row.staker) {
+      continue;
+    }
+    const incoming = incomingByTarget.get(row.target_account) ?? [];
+    incoming.push(row);
+    incomingByTarget.set(row.target_account, incoming);
+
+    const targets = outgoingByStaker.get(row.staker) ?? new Set<string>();
+    targets.add(row.target_account);
+    outgoingByStaker.set(row.staker, targets);
+  }
+
+  const result = new Map<
+    string,
+    SeasonZeroSocialDailySignals & {
+      receivedStands: number;
+      mutualStands: number;
+    }
+  >();
+
+  for (const [accountId, incoming] of incomingByTarget) {
+    const standsWith = outgoingByStaker.get(accountId) ?? new Set<string>();
+    const byDay = new Map<string, { received: Set<string>; mutual: Set<string> }>();
+    const seasonReceived = new Set<string>();
+    const seasonMutual = new Set<string>();
+
+    for (const event of incoming) {
+      const day = utcDayKey(event.block_timestamp);
+      const bucket = byDay.get(day) ?? {
+        received: new Set<string>(),
+        mutual: new Set<string>(),
+      };
+      bucket.received.add(event.staker);
+      seasonReceived.add(event.staker);
+      if (standsWith.has(event.staker)) {
+        bucket.mutual.add(event.staker);
+        seasonMutual.add(event.staker);
+      }
+      byDay.set(day, bucket);
+    }
+
+    result.set(accountId, {
+      endorsersByDay: [],
+      topicsByDay: [],
+      receivedStandsByDay: sortedDailyCounts(byDay, (bucket) => bucket.received.size),
+      mutualStandsByDay: sortedDailyCounts(byDay, (bucket) => bucket.mutual.size),
+      receivedStands: seasonReceived.size,
+      mutualStands: seasonMutual.size,
+    });
+  }
+
+  return result;
+}
+
+function mergeSocialSignals(
+  endorsement:
+    | (SeasonZeroSocialDailySignals & {
+        uniqueEndorsers: number;
+        endorsementTopics: number;
+      })
+    | undefined,
+  stands:
+    | (SeasonZeroSocialDailySignals & {
+        receivedStands: number;
+        mutualStands: number;
+      })
+    | undefined
+): SeasonZeroSocialDailySignals & {
+  uniqueEndorsers: number;
+  endorsementTopics: number;
+  receivedStands: number;
+  mutualStands: number;
+} {
+  return {
+    endorsersByDay: endorsement?.endorsersByDay ?? [],
+    topicsByDay: endorsement?.topicsByDay ?? [],
+    receivedStandsByDay: stands?.receivedStandsByDay ?? [],
+    mutualStandsByDay: stands?.mutualStandsByDay ?? [],
+    uniqueEndorsers: endorsement?.uniqueEndorsers ?? 0,
+    endorsementTopics: endorsement?.endorsementTopics ?? 0,
+    receivedStands: stands?.receivedStands ?? 0,
+    mutualStands: stands?.mutualStands ?? 0,
+  };
 }
 
 /** Participants who joined rally (optionally capped at settlement cutoff). */
@@ -170,39 +354,6 @@ function profileSignals(
   return profiles;
 }
 
-function endorsementSignals(
-  rows: EndorsementRow[]
-): Map<string, { uniqueEndorsers: number; endorsementTopics: number }> {
-  const endorsersByTarget = new Map<string, Set<string>>();
-  const topicsByTarget = new Map<string, Set<string>>();
-
-  for (const row of rows) {
-    if (!row.target || !row.issuer || row.target === row.issuer) continue;
-    const endorsers = endorsersByTarget.get(row.target) ?? new Set<string>();
-    endorsers.add(row.issuer);
-    endorsersByTarget.set(row.target, endorsers);
-
-    const topic = endorsementTopic(row.value);
-    if (topic) {
-      const topics = topicsByTarget.get(row.target) ?? new Set<string>();
-      topics.add(topic);
-      topicsByTarget.set(row.target, topics);
-    }
-  }
-
-  const result = new Map<
-    string,
-    { uniqueEndorsers: number; endorsementTopics: number }
-  >();
-  for (const [accountId, endorsers] of endorsersByTarget) {
-    result.set(accountId, {
-      uniqueEndorsers: endorsers.size,
-      endorsementTopics: topicsByTarget.get(accountId)?.size ?? 0,
-    });
-  }
-  return result;
-}
-
 export async function getSeasonZeroStandings(
   opts: SeasonZeroStandingsOptions = {}
 ): Promise<SeasonZeroStandingsResult> {
@@ -228,7 +379,14 @@ export async function getSeasonZeroStandings(
   );
 
   if (joined.rows.length === 0) {
-    return { seasonId: SEASON_ZERO_ID, limit, offset, total: 0, standings: [] };
+    return {
+      seasonId: SEASON_ZERO_ID,
+      limit,
+      offset,
+      total: 0,
+      scoring: SEASON_ZERO_SCORING_LIMITS,
+      standings: [],
+    };
   }
 
   const [profiles, endorsements, stands, support, boost] = await Promise.all([
@@ -271,13 +429,14 @@ export async function getSeasonZeroStandings(
     indexerQuery<EndorsementRow>(
       hasCutoff
         ? `WITH ${joinedRallyCte(true)}
-           SELECT target, issuer, value
+           SELECT target, issuer, value, block_timestamp::text AS block_timestamp
            FROM (
              SELECT DISTINCT ON (du.account_id, du.path)
                du.account_id AS issuer,
                du.target_account AS target,
                du.value,
-               du.operation
+               du.operation,
+               du.block_timestamp
              FROM data_updates du
              INNER JOIN joined j ON j.account_id = du.target_account
              WHERE du.data_type = 'endorsement'
@@ -288,7 +447,11 @@ export async function getSeasonZeroStandings(
              AND issuer IS NOT NULL
              AND issuer != target`
         : `WITH ${joinedRallyCte(false)}
-           SELECT e.target, e.issuer, e.value
+           SELECT
+             e.target,
+             e.issuer,
+             e.value,
+             e.block_timestamp::text AS block_timestamp
            FROM endorsements_current e
            INNER JOIN joined j ON j.account_id = e.target
            WHERE e.operation = 'set'
@@ -297,16 +460,20 @@ export async function getSeasonZeroStandings(
              AND e.block_timestamp >= j.joined_at_ns`,
       [...joinedParams]
     ),
-    indexerQuery<StandRow>(
+    indexerQuery<StandEventRow>(
       hasCutoff
         ? `WITH ${joinedRallyCte(true)},
            latest_stands AS (
-             SELECT *
+             SELECT
+               account_id AS staker,
+               target_account,
+               block_timestamp
              FROM (
                SELECT DISTINCT ON (du.account_id, du.target_account)
                  du.account_id,
                  du.target_account,
-                 du.operation
+                 du.operation,
+                 du.block_timestamp
                FROM data_updates du
                INNER JOIN joined j ON j.account_id = du.target_account
                WHERE du.data_type = 'standing'
@@ -318,29 +485,19 @@ export async function getSeasonZeroStandings(
              WHERE operation = 'set'
            )
            SELECT
-             incoming.target_account AS account_id,
-             COUNT(DISTINCT incoming.account_id)::text AS received_stands,
-             COUNT(DISTINCT incoming.account_id)
-               FILTER (WHERE outgoing.account_id IS NOT NULL)::text AS mutual_stands
-           FROM latest_stands incoming
-           LEFT JOIN latest_stands outgoing
-             ON outgoing.account_id = incoming.target_account
-            AND outgoing.target_account = incoming.account_id
-           GROUP BY incoming.target_account`
+             target_account,
+             staker,
+             block_timestamp::text AS block_timestamp
+           FROM latest_stands`
         : `WITH ${joinedRallyCte(false)}
            SELECT
-             incoming.target_account AS account_id,
-             COUNT(DISTINCT incoming.account_id)::text AS received_stands,
-             COUNT(DISTINCT incoming.account_id)
-               FILTER (WHERE outgoing.account_id IS NOT NULL)::text AS mutual_stands
+             incoming.target_account,
+             incoming.account_id AS staker,
+             incoming.block_timestamp::text AS block_timestamp
            FROM standings_current incoming
            INNER JOIN joined j ON j.account_id = incoming.target_account
-           LEFT JOIN standings_current outgoing
-             ON outgoing.account_id = incoming.target_account
-            AND outgoing.target_account = incoming.account_id
-            AND outgoing.block_timestamp >= j.joined_at_ns
-           WHERE incoming.block_timestamp >= j.joined_at_ns
-           GROUP BY incoming.target_account`,
+           WHERE incoming.operation = 'set'
+             AND incoming.block_timestamp >= j.joined_at_ns`,
       [...joinedParams]
     ),
     indexerQuery<SupportRow>(
@@ -386,10 +543,8 @@ export async function getSeasonZeroStandings(
   ]);
 
   const profileByAccount = profileSignals(profiles.rows);
-  const endorsementByAccount = endorsementSignals(endorsements.rows);
-  const standByAccount = new Map(
-    stands.rows.map((row) => [row.account_id, row])
-  );
+  const endorsementByAccount = endorsementDailySignals(endorsements.rows);
+  const standByAccount = standDailySignals(stands.rows);
   const supportByAccount = new Map(
     support.rows.map((row) => [row.account_id, row.support_received_yocto])
   );
@@ -407,23 +562,28 @@ export async function getSeasonZeroStandings(
           hasAvatar: false,
           linkCount: 0,
         } satisfies SeasonZeroProfileSignals);
-      const endorsement = endorsementByAccount.get(row.account_id) ?? {
-        uniqueEndorsers: 0,
-        endorsementTopics: 0,
-      };
-      const stand = standByAccount.get(row.account_id);
+      const social = mergeSocialSignals(
+        endorsementByAccount.get(row.account_id),
+        standByAccount.get(row.account_id)
+      );
       const supportReceivedYocto = supportByAccount.get(row.account_id) ?? '0';
       const effectiveBoostYocto = boostByAccount.get(row.account_id) ?? '0';
       const scored = scoreSeasonZero({
         accountId: row.account_id,
         joinAmountYocto: row.join_amount_yocto,
         profile,
-        uniqueEndorsers: endorsement.uniqueEndorsers,
-        endorsementTopics: endorsement.endorsementTopics,
-        receivedStands: toNumber(stand?.received_stands),
-        mutualStands: toNumber(stand?.mutual_stands),
+        uniqueEndorsers: social.uniqueEndorsers,
+        endorsementTopics: social.endorsementTopics,
+        receivedStands: social.receivedStands,
+        mutualStands: social.mutualStands,
         supportReceivedYocto,
         effectiveBoostYocto,
+        daily: {
+          endorsersByDay: social.endorsersByDay,
+          topicsByDay: social.topicsByDay,
+          receivedStandsByDay: social.receivedStandsByDay,
+          mutualStandsByDay: social.mutualStandsByDay,
+        },
       });
 
       return {
@@ -436,10 +596,10 @@ export async function getSeasonZeroStandings(
         breakdown: scored.breakdown,
         profile,
         signals: {
-          uniqueEndorsers: endorsement.uniqueEndorsers,
-          endorsementTopics: endorsement.endorsementTopics,
-          receivedStands: toNumber(stand?.received_stands),
-          mutualStands: toNumber(stand?.mutual_stands),
+          uniqueEndorsers: social.uniqueEndorsers,
+          endorsementTopics: social.endorsementTopics,
+          receivedStands: social.receivedStands,
+          mutualStands: social.mutualStands,
           supportReceivedYocto,
           effectiveBoostYocto,
         },
@@ -464,6 +624,7 @@ export async function getSeasonZeroStandings(
     limit,
     offset,
     total: rankedStandings.length,
+    scoring: SEASON_ZERO_SCORING_LIMITS,
     standings: page,
   };
 }

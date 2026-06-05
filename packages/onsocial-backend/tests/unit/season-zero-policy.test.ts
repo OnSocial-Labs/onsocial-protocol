@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   SEASON_ZERO_JOIN_RALLY_MIN_YOCTO,
+  SEASON_ZERO_SCORING_LIMITS,
   scoreSeasonZero,
   scoreSeasonZeroProfile,
 } from '../../src/services/seasons/season-zero-policy.js';
@@ -24,6 +25,12 @@ function baseSignals() {
     mutualStands: 1,
     supportReceivedYocto: 4n * ONE_SOCIAL,
     effectiveBoostYocto: 9n * ONE_SOCIAL,
+    daily: {
+      endorsersByDay: [2],
+      topicsByDay: [2],
+      receivedStandsByDay: [2],
+      mutualStandsByDay: [1],
+    },
   };
 }
 
@@ -53,24 +60,42 @@ describe('season-zero-policy', () => {
     ).toBe(350);
   });
 
-  it('applies capped social, support, and boost signals', () => {
+  it('applies daily and season caps on social signals', () => {
     const normal = scoreSeasonZero(baseSignals());
-    const farmed = scoreSeasonZero({
+    const burstDay = scoreSeasonZero({
       ...baseSignals(),
-      uniqueEndorsers: 10_000,
-      endorsementTopics: 10_000,
-      receivedStands: 10_000,
-      mutualStands: 10_000,
-      supportReceivedYocto: 10_000n * ONE_SOCIAL,
-      effectiveBoostYocto: 10_000n * ONE_SOCIAL,
+      daily: {
+        endorsersByDay: [100],
+        topicsByDay: [100],
+        receivedStandsByDay: [100],
+        mutualStandsByDay: [100],
+      },
+    });
+    const steadySeason = scoreSeasonZero({
+      ...baseSignals(),
+      daily: {
+        endorsersByDay: Array.from({ length: 20 }, () => 3),
+        topicsByDay: Array.from({ length: 20 }, () => 2),
+        receivedStandsByDay: Array.from({ length: 20 }, () => 4),
+        mutualStandsByDay: Array.from({ length: 20 }, () => 2),
+      },
     });
 
     expect(normal.breakdown.join).toBe(1_000);
-    expect(farmed.breakdown.endorsements).toBe(500);
-    expect(farmed.breakdown.solidarity).toBe(300);
-    expect(farmed.breakdown.support).toBe(300);
-    expect(farmed.breakdown.boost).toBe(300);
-    expect(farmed.breakdown.total).toBeLessThan(3_000);
+    expect(burstDay.breakdown.endorsements).toBe(200);
+    expect(burstDay.breakdown.solidarity).toBe(130);
+    expect(burstDay.breakdown.endorsements).toBeLessThan(
+      SEASON_ZERO_SCORING_LIMITS.endorsements.max
+    );
+    expect(steadySeason.breakdown.endorsements).toBe(
+      SEASON_ZERO_SCORING_LIMITS.endorsements.max
+    );
+    expect(steadySeason.breakdown.solidarity).toBe(
+      SEASON_ZERO_SCORING_LIMITS.solidarity.max
+    );
+    expect(steadySeason.breakdown.total).toBeLessThanOrEqual(
+      SEASON_ZERO_SCORING_LIMITS.totalMax
+    );
   });
 
   it('uses square-root weighting for spend-like signals', () => {
@@ -89,5 +114,33 @@ describe('season-zero-policy', () => {
       80
     );
     expect(nineSocial.breakdown.boost - fourSocial.breakdown.boost).toBe(60);
+  });
+
+  it('rewards consistent daily participation over a single burst day', () => {
+    const oneBurst = scoreSeasonZero({
+      ...baseSignals(),
+      daily: {
+        endorsersByDay: [3],
+        topicsByDay: [2],
+        receivedStandsByDay: [4],
+        mutualStandsByDay: [2],
+      },
+    });
+    const tenDays = scoreSeasonZero({
+      ...baseSignals(),
+      daily: {
+        endorsersByDay: Array.from({ length: 10 }, () => 3),
+        topicsByDay: Array.from({ length: 10 }, () => 2),
+        receivedStandsByDay: Array.from({ length: 10 }, () => 4),
+        mutualStandsByDay: Array.from({ length: 10 }, () => 2),
+      },
+    });
+
+    expect(tenDays.breakdown.endorsements).toBeGreaterThan(
+      oneBurst.breakdown.endorsements
+    );
+    expect(tenDays.breakdown.solidarity).toBeGreaterThan(
+      oneBurst.breakdown.solidarity
+    );
   });
 });
