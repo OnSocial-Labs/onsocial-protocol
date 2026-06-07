@@ -39,7 +39,7 @@ export function GovernanceAccountChip({
       prefetch
       onClick={(event) => event.stopPropagation()}
       className={cn(
-        'group/chip flex min-w-0 max-w-full items-center gap-2 overflow-hidden transition-opacity hover:opacity-90',
+        'group/chip inline-flex w-fit max-w-full min-w-0 items-center gap-2 overflow-hidden transition-opacity hover:opacity-90',
         className
       )}
       aria-label={`${displayName} @${accountId}`}

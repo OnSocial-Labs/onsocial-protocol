@@ -118,11 +118,13 @@ export function GovernanceProposalIdentityRow({
       )}
     >
       {subjectAccount ? (
-        <GovernanceAccountChip
-          accountId={subjectAccount}
-          dense
-          className="w-0 min-w-0 flex-1 overflow-hidden"
-        />
+        <div className="min-w-0 flex-1">
+          <GovernanceAccountChip
+            accountId={subjectAccount}
+            dense
+            className="max-w-full"
+          />
+        </div>
       ) : (
         <h3 className="min-w-0 flex-1 portal-type-lead font-semibold tracking-[-0.02em] text-foreground">
           {presentation.headline}
