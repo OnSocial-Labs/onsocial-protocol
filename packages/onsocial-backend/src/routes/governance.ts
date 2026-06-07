@@ -10,7 +10,8 @@ const router = Router();
 router.get('/feed', async (req: Request, res: Response): Promise<void> => {
   try {
     const scope = parseGovernanceFeedScope(req.query.scope);
-    const { applications, daoPolicy } = await getGovernanceFeedApplications(scope);
+    const { applications, daoPolicy } =
+      await getGovernanceFeedApplications(scope);
 
     res.json({
       success: true,

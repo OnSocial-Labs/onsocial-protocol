@@ -367,10 +367,7 @@ function formatDaoRoleDisplayName(roleId: string): string {
   return DAO_ROLE_DISPLAY_NAMES[normalized] ?? normalized;
 }
 
-function readKindStringField(
-  value: unknown,
-  field: string
-): string | null {
+function readKindStringField(value: unknown, field: string): string | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return null;
   }
@@ -396,9 +393,13 @@ function deriveProtocolProposalHeadline(
   }
 
   if (kindName === 'FunctionCall') {
-    const { receiverId, methodName, args } = getFunctionCallShape(proposal.kind);
+    const { receiverId, methodName, args } = getFunctionCallShape(
+      proposal.kind
+    );
     const config =
-      args?.config && typeof args.config === 'object' && !Array.isArray(args.config)
+      args?.config &&
+      typeof args.config === 'object' &&
+      !Array.isArray(args.config)
         ? (args.config as Record<string, unknown>)
         : null;
     const appLabel =
@@ -1017,9 +1018,7 @@ export async function getGovernanceFeedApplications(
     ...partnerItems,
     ...scannedPartnerItems,
     ...protocolItems,
-  ].map((app) =>
-    enrichApplicationProposalSnapshot(app, daoFeed.snapshotsById)
-  );
+  ].map((app) => enrichApplicationProposalSnapshot(app, daoFeed.snapshotsById));
 
   return {
     applications,
