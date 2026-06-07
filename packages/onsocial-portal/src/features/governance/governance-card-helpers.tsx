@@ -704,6 +704,22 @@ function isTerminalGovernanceProposalStatus(
   );
 }
 
+/** Voting is closed once the chain is terminal or the local review window elapsed. */
+function isGovernanceVotingClosed(
+  liveProposal: GovernanceDaoProposal | null,
+  reviewExpiry: { expired: boolean } | null
+): boolean {
+  if (!liveProposal) {
+    return false;
+  }
+
+  if (isTerminalGovernanceProposalStatus(liveProposal.status)) {
+    return true;
+  }
+
+  return liveProposal.status === 'InProgress' && !!reviewExpiry?.expired;
+}
+
 function readMembershipProposalMemberId(
   liveProposal: GovernanceDaoProposal | null
 ): MembershipProposalInfo | null {
@@ -796,12 +812,10 @@ function getVotingPoolSize(
 
 export function getEligibleVotersForProposal(
   role: GovernanceDaoRole | null,
-  liveProposal: GovernanceDaoProposal | null
+  liveProposal: GovernanceDaoProposal | null,
+  votingClosed = false
 ): string[] | null {
-  if (
-    liveProposal &&
-    isTerminalGovernanceProposalStatus(liveProposal.status)
-  ) {
+  if (liveProposal && (isTerminalGovernanceProposalStatus(liveProposal.status) || votingClosed)) {
     return Object.keys(liveProposal.votes ?? {})
       .map((account) => account.toLowerCase())
       .sort((left, right) => left.localeCompare(right));
@@ -868,7 +882,8 @@ function getVotingProgress(
   approveVotes: string,
   rejectVotes: string,
   removeVotes: string,
-  liveProposal: GovernanceDaoProposal | null
+  liveProposal: GovernanceDaoProposal | null,
+  votingClosed = false
 ): {
   threshold: number | null;
   totalWeight: number | null;
@@ -900,15 +915,14 @@ function getVotingProgress(
   const votePolicy = resolveVotePolicy(role, policy, proposalPolicyLabel);
   const currentPoolSize = getVotingPoolSize(role, liveProposal);
   const votesCast = approvals + rejects + removes;
-  const poolForThreshold =
+  const useHistoricalVotePool =
     liveProposal &&
-    isTerminalGovernanceProposalStatus(liveProposal.status) &&
+    (isTerminalGovernanceProposalStatus(liveProposal.status) || votingClosed) &&
     votesCast > 0 &&
     currentPoolSize !== null &&
     votesCast < currentPoolSize &&
-    !readMembershipProposalMemberId(liveProposal)
-      ? votesCast
-      : currentPoolSize;
+    !readMembershipProposalMemberId(liveProposal);
+  const poolForThreshold = useHistoricalVotePool ? votesCast : currentPoolSize;
 
   if (
     !votePolicy ||
@@ -936,11 +950,13 @@ function getVotingProgress(
     toThresholdWeight(votePolicy.threshold, poolForThreshold)
   );
   const displayTotalWeight =
-    liveProposal && isTerminalGovernanceProposalStatus(liveProposal.status)
+    liveProposal &&
+    (isTerminalGovernanceProposalStatus(liveProposal.status) || votingClosed)
       ? Math.max(votesCast, threshold)
       : currentPoolSize;
   const remainingVoters =
-    liveProposal && isTerminalGovernanceProposalStatus(liveProposal.status)
+    liveProposal &&
+    (isTerminalGovernanceProposalStatus(liveProposal.status) || votingClosed)
       ? 0
       : Math.max((currentPoolSize ?? 0) - votesCast, 0);
   const remaining = Math.max(threshold - approvals, 0);
@@ -955,7 +971,8 @@ function getVotingProgress(
     remainingVoters,
     remaining,
     approvalStillPossible:
-      liveProposal && isTerminalGovernanceProposalStatus(liveProposal.status)
+      liveProposal &&
+      (isTerminalGovernanceProposalStatus(liveProposal.status) || votingClosed)
         ? approvals >= threshold
         : approvals + remainingVoters >= threshold,
   };
@@ -1016,29 +1033,33 @@ export function deriveGovernanceCardView({
   const currentVote = accountId
     ? (liveProposal?.votes?.[accountId] ?? null)
     : null;
+  const reviewExpiry = getProposalExpiryTime({
+    proposal: liveProposal,
+    policy: daoPolicy,
+    nowMs,
+  });
+  const votingClosed = isGovernanceVotingClosed(liveProposal, reviewExpiry);
   const canApprove =
     !!connectedRole &&
     !!liveProposal &&
     liveProposal.status === 'InProgress' &&
+    !votingClosed &&
     !currentVote &&
     roleAllowsAction(connectedRole, proposalPolicyLabel, 'VoteApprove');
   const canReject =
     !!connectedRole &&
     !!liveProposal &&
     liveProposal.status === 'InProgress' &&
+    !votingClosed &&
     !currentVote &&
     roleAllowsAction(connectedRole, proposalPolicyLabel, 'VoteReject');
   const canRemove =
     !!connectedRole &&
     !!liveProposal &&
     liveProposal.status === 'InProgress' &&
+    !votingClosed &&
     !currentVote &&
     roleAllowsAction(connectedRole, proposalPolicyLabel, 'VoteRemove');
-  const reviewExpiry = getProposalExpiryTime({
-    proposal: liveProposal,
-    policy: daoPolicy,
-    nowMs,
-  });
   const canFinalize =
     !!connectedRole &&
     !!liveProposal &&
@@ -1061,11 +1082,13 @@ export function deriveGovernanceCardView({
     approveVotes,
     rejectVotes,
     removeVotes,
-    liveProposal
+    liveProposal,
+    votingClosed
   );
   const eligibleVoterAccounts = getEligibleVotersForProposal(
     activeVotingRole,
-    liveProposal
+    liveProposal,
+    votingClosed
   );
   const voteEntries = Object.entries(liveProposal?.votes ?? {}).sort(
     ([leftAccount], [rightAccount]) => {
