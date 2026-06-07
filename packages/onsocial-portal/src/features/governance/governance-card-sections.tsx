@@ -1,11 +1,14 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
+import { SurfacePanel } from '@/components/ui/surface-panel';
+import { Skeleton, SkeletonText } from '@/components/ui/skeleton';
 import {
   CheckCircle2,
   ChevronDown,
   Circle,
   ExternalLink,
+  Globe,
   Link2,
   Mail,
   RotateCcw,
@@ -19,14 +22,22 @@ import { RiTelegram2Line } from 'react-icons/ri';
 import { Button } from '@/components/ui/button';
 import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import {
+  buildHandleUrl,
   getCounterToneClass,
   getVoteToneClass,
 } from '@/features/governance/governance-card-helpers';
+import {
+  portalCollapseMotion,
+  portalCollapseTransition,
+} from '@/features/governance/governance-motion';
+import { cn } from '@/lib/utils';
 import type {
   GovernanceDaoAction,
   GovernanceDaoProposal,
   GovernanceDaoRole,
 } from '@/features/governance/types';
+import { GovernanceAccountChip } from '@/features/governance/governance-account-chip';
+import { buildGovernanceProposalPath } from '@/features/governance/page-utils';
 
 type LiveStatusStyle = {
   stripClass: string;
@@ -61,6 +72,74 @@ function formatRoleLabel(value: string): string {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+}
+
+export function GovernanceCardSkeleton({ className }: { className?: string }) {
+  return (
+    <SurfacePanel
+      radius="xl"
+      tone="solid"
+      borderTone="strong"
+      padding="roomy"
+      aria-hidden="true"
+      className={cn(
+        'relative overflow-hidden border-l-[3px] border-t-[3px] border-l-border/35 border-t-border/35',
+        className
+      )}
+    >
+      <div className="-mx-5 -mt-5 mb-3 flex items-center justify-between gap-3 px-5 py-2.5 md:-mx-6 md:-mt-6 md:px-6">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <Skeleton className="h-3.5 w-8 rounded-full bg-foreground/[0.08]" />
+          <Skeleton className="h-3.5 w-12 rounded-full bg-foreground/[0.06]" />
+          <Skeleton className="h-3.5 w-14 rounded-full bg-foreground/[0.06]" />
+        </div>
+        <Skeleton className="h-3.5 w-20 rounded-full bg-foreground/[0.08]" />
+      </div>
+
+      <div className="flex items-start justify-between gap-3 border-b border-fade-section pb-3.5">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <Skeleton className="h-9 w-9 shrink-0 rounded-full bg-foreground/[0.08]" />
+          <Skeleton className="h-4 w-[42%] max-w-48 rounded-full bg-foreground/[0.09]" />
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <Skeleton className="h-2.5 w-10 rounded-full bg-foreground/[0.05]" />
+          <Skeleton className="h-4 w-24 rounded-full bg-foreground/[0.08]" />
+        </div>
+      </div>
+
+      <SkeletonText
+        lines={2}
+        className="mt-3"
+        widths={['w-full', 'w-4/5']}
+        lineClassName="h-3 rounded-full bg-foreground/[0.06]"
+      />
+
+      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <Skeleton className="h-3.5 w-8 rounded-full bg-foreground/[0.07]" />
+        <Skeleton className="h-3.5 w-8 rounded-full bg-foreground/[0.06]" />
+        <Skeleton className="h-3.5 w-8 rounded-full bg-foreground/[0.06]" />
+        <Skeleton className="h-3.5 w-12 rounded-full bg-foreground/[0.08]" />
+      </div>
+    </SurfacePanel>
+  );
+}
+
+export function GovernanceCardVoteSkeleton({
+  className,
+}: {
+  className?: string;
+}) {
+  return (
+    <div className={cn('mt-4 space-y-2', className)} aria-hidden="true">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <Skeleton className="h-3.5 w-8 rounded-full bg-foreground/[0.07]" />
+        <Skeleton className="h-3.5 w-8 rounded-full bg-foreground/[0.06]" />
+        <Skeleton className="h-3.5 w-8 rounded-full bg-foreground/[0.06]" />
+        <Skeleton className="h-3.5 w-12 rounded-full bg-foreground/[0.08]" />
+      </div>
+      <Skeleton className="h-2 w-full rounded-full bg-foreground/[0.05]" />
+    </div>
+  );
 }
 
 export function GovernanceLiveSummary({
@@ -116,37 +195,56 @@ export function GovernanceLiveSummary({
     totalWeight > 0
       ? Math.max(100 - approvePercent - rejectPercent - removePercent, 0)
       : 0;
+  const resolvedThreshold = votingProgress.threshold ?? votingProgress.totalWeight;
   const resolvedPrimaryValue =
     liveProposal.status === 'Approved'
-      ? `${approveVotes}/${votingProgress.totalWeight ?? '0'}`
+      ? `${approveVotes}/${resolvedThreshold ?? '0'}`
       : liveProposal.status === 'Rejected'
-        ? `${rejectVotes}/${votingProgress.totalWeight ?? '0'}`
+        ? `${rejectVotes}/${resolvedThreshold ?? '0'}`
         : liveProposal.status === 'Removed'
-          ? `${removeVotes}/${votingProgress.totalWeight ?? '0'}`
+          ? `${removeVotes}/${resolvedThreshold ?? '0'}`
           : `${votingProgress.votesCast}/${votingProgress.totalWeight ?? '0'}`;
 
   return (
     <div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
         <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
-          <span
-            className={`inline-flex items-center gap-1 transition-all duration-500 ${getCounterToneClass('approve', approveVotes)} ${pulseApprove ? 'scale-110 brightness-125' : ''}`}
+          <motion.span
+            animate={
+              pulseApprove
+                ? { scale: 1.08, filter: 'brightness(1.15)' }
+                : { scale: 1, filter: 'brightness(1)' }
+            }
+            transition={portalCollapseTransition}
+            className={`inline-flex items-center gap-1 ${getCounterToneClass('approve', approveVotes)}`}
           >
             <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
             <span className="break-all">{approveVotes}</span>
-          </span>
-          <span
-            className={`inline-flex items-center gap-1 transition-all duration-500 ${getCounterToneClass('reject', rejectVotes)} ${pulseReject ? 'scale-110 brightness-125' : ''}`}
+          </motion.span>
+          <motion.span
+            animate={
+              pulseReject
+                ? { scale: 1.08, filter: 'brightness(1.15)' }
+                : { scale: 1, filter: 'brightness(1)' }
+            }
+            transition={portalCollapseTransition}
+            className={`inline-flex items-center gap-1 ${getCounterToneClass('reject', rejectVotes)}`}
           >
             <XCircle className="h-3.5 w-3.5 shrink-0" />
             <span className="break-all">{rejectVotes}</span>
-          </span>
-          <span
-            className={`inline-flex items-center gap-1 transition-all duration-500 ${getCounterToneClass('remove', removeVotes)} ${pulseRemove ? 'scale-110 brightness-125' : ''}`}
+          </motion.span>
+          <motion.span
+            animate={
+              pulseRemove
+                ? { scale: 1.08, filter: 'brightness(1.15)' }
+                : { scale: 1, filter: 'brightness(1)' }
+            }
+            transition={portalCollapseTransition}
+            className={`inline-flex items-center gap-1 ${getCounterToneClass('remove', removeVotes)}`}
           >
             <Vote className="h-3.5 w-3.5 shrink-0" />
             <span className="break-all">{removeVotes}</span>
-          </span>
+          </motion.span>
         </div>
         {votingProgress.threshold !== null && (
           <>
@@ -179,36 +277,38 @@ export function GovernanceLiveSummary({
             <div className="relative mt-2">
               <div className="flex h-2 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
                 {approvePercent > 0 ? (
-                  <div
-                    className="h-full shrink-0 transition-[width] duration-500 ease-out"
-                    style={{
-                      width: `${approvePercent}%`,
-                      backgroundColor: 'var(--portal-green)',
-                    }}
+                  <motion.div
+                    className="h-full shrink-0"
+                    initial={false}
+                    animate={{ width: `${approvePercent}%` }}
+                    transition={portalCollapseTransition}
+                    style={{ backgroundColor: 'var(--portal-green)' }}
                   />
                 ) : null}
                 {rejectPercent > 0 ? (
-                  <div
-                    className="h-full shrink-0 transition-[width] duration-500 ease-out"
-                    style={{
-                      width: `${rejectPercent}%`,
-                      backgroundColor: 'var(--portal-red)',
-                    }}
+                  <motion.div
+                    className="h-full shrink-0"
+                    initial={false}
+                    animate={{ width: `${rejectPercent}%` }}
+                    transition={portalCollapseTransition}
+                    style={{ backgroundColor: 'var(--portal-red)' }}
                   />
                 ) : null}
                 {removePercent > 0 ? (
-                  <div
-                    className="h-full shrink-0 transition-[width] duration-500 ease-out"
-                    style={{
-                      width: `${removePercent}%`,
-                      backgroundColor: 'var(--portal-amber)',
-                    }}
+                  <motion.div
+                    className="h-full shrink-0"
+                    initial={false}
+                    animate={{ width: `${removePercent}%` }}
+                    transition={portalCollapseTransition}
+                    style={{ backgroundColor: 'var(--portal-amber)' }}
                   />
                 ) : null}
                 {pendingPercent > 0 ? (
-                  <div
-                    className="h-full shrink-0 bg-black/10 transition-[width] duration-500 ease-out dark:bg-white/10"
-                    style={{ width: `${pendingPercent}%` }}
+                  <motion.div
+                    className="h-full shrink-0 bg-black/10 dark:bg-white/10"
+                    initial={false}
+                    animate={{ width: `${pendingPercent}%` }}
+                    transition={portalCollapseTransition}
                   />
                 ) : null}
               </div>
@@ -236,21 +336,23 @@ export function GovernanceVoteActivity({
   accountId,
   latestActionLink,
   activeVotingRole,
+  eligibleVoterAccounts = null,
 }: {
   voteEntries: Array<[string, string]>;
   accountId: string | null | undefined;
   latestActionLink: { label: string; href: string } | null;
   activeVotingRole: GovernanceDaoRole | null;
+  eligibleVoterAccounts?: string[] | null;
 }) {
-  const groupMembers = (activeVotingRole?.kind?.Group ?? []).map((m) =>
-    m.toLowerCase()
-  );
+  const voterPool =
+    eligibleVoterAccounts ??
+    (activeVotingRole?.kind?.Group ?? []).map((member) => member.toLowerCase());
   const voterSet = new Set(
     voteEntries.map(([account]) => account.toLowerCase())
   );
-  const abstainers = groupMembers
-    .filter((m) => !voterSet.has(m))
-    .sort((a, b) => a.localeCompare(b));
+  const abstainers = voterPool
+    .filter((member) => !voterSet.has(member))
+    .sort((left, right) => left.localeCompare(right));
 
   if (voteEntries.length === 0 && abstainers.length === 0) return null;
 
@@ -272,9 +374,11 @@ export function GovernanceVoteActivity({
             <VoteIcon
               className={`h-3.5 w-3.5 shrink-0 ${getVoteToneClass(voterChoice, accountId === voterAccount)}`}
             />
-            <span className="truncate font-mono text-muted-foreground">
-              {voterAccount}
-            </span>
+            <GovernanceAccountChip
+              accountId={voterAccount}
+              avatarClassName="h-5 w-5"
+              compact
+            />
           </div>
         );
       })}
@@ -284,9 +388,12 @@ export function GovernanceVoteActivity({
           className="inline-flex min-w-0 items-center gap-1.5 text-xs"
         >
           <Circle className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
-          <span className="truncate font-mono text-muted-foreground/50">
-            {account}
-          </span>
+          <GovernanceAccountChip
+            accountId={account}
+            avatarClassName="h-5 w-5"
+            compact
+            className="opacity-60"
+          />
         </div>
       ))}
       {latestActionLink && (
@@ -300,6 +407,117 @@ export function GovernanceVoteActivity({
           <ExternalLink className="h-3 w-3" />
         </a>
       )}
+    </div>
+  );
+}
+
+const GOVERNANCE_COLLAPSIBLE_TOGGLE_CLASS =
+  'group flex w-full min-h-9 items-center justify-between gap-3 rounded-[0.75rem] px-3 py-2 text-left transition-colors hover:bg-foreground/[0.03] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60';
+
+const GOVERNANCE_COLLAPSIBLE_CHEVRON_CLASS =
+  'h-3.5 w-3.5 shrink-0 text-muted-foreground transition-[color,transform] duration-200 group-hover:text-foreground/80';
+
+export function GovernanceCollapsiblePanel({
+  label,
+  isOpen,
+  onToggle,
+  children,
+}: {
+  label: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="mt-3 border-t border-fade-section pt-3">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+        className={GOVERNANCE_COLLAPSIBLE_TOGGLE_CLASS}
+      >
+        <p className="portal-eyebrow-wide text-muted-foreground transition-colors group-hover:text-foreground/80">
+          {label}
+        </p>
+        <ChevronDown
+          className={`${GOVERNANCE_COLLAPSIBLE_CHEVRON_CLASS} ${isOpen ? 'rotate-180' : ''}`}
+        />
+      </button>
+
+      <AnimatePresence initial={false}>
+        {isOpen ? (
+          <motion.div
+            key={`${label}-details`}
+            {...portalCollapseMotion}
+            className="overflow-hidden"
+          >
+            {children}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+export function PartnerProposalSocialLinks({
+  websiteUrl,
+  telegramHandle,
+  xHandle,
+  className,
+}: {
+  websiteUrl?: string | null;
+  telegramHandle?: string | null;
+  xHandle?: string | null;
+  className?: string;
+}) {
+  if (!websiteUrl && !telegramHandle && !xHandle) {
+    return null;
+  }
+
+  return (
+    <div className={cn('flex items-center gap-2.5', className)}>
+      {websiteUrl ? (
+        <a
+          href={websiteUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-muted-foreground transition-all hover:scale-110 hover:text-[var(--portal-green)] hover:brightness-125"
+          aria-label="Website"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <PortalHoverTooltip tooltip="Website">
+            <Globe className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
+          </PortalHoverTooltip>
+        </a>
+      ) : null}
+      {telegramHandle ? (
+        <a
+          href={buildHandleUrl(telegramHandle, 'telegram')}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-muted-foreground transition-all hover:scale-110 hover:text-[#26A5E4] hover:brightness-125"
+          aria-label="Telegram"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <PortalHoverTooltip tooltip="Telegram">
+            <RiTelegram2Line className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
+          </PortalHoverTooltip>
+        </a>
+      ) : null}
+      {xHandle ? (
+        <a
+          href={buildHandleUrl(xHandle, 'x')}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-muted-foreground transition-all hover:scale-110 hover:text-foreground hover:brightness-125"
+          aria-label="X"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <PortalHoverTooltip tooltip="X">
+            <FaXTwitter className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
+          </PortalHoverTooltip>
+        </a>
+      ) : null}
     </div>
   );
 }
@@ -326,32 +544,12 @@ export function GovernanceReviewTerms({
   const [detailsOpen, setDetailsOpen] = useState(false);
 
   return (
-    <div className="mt-3 border-t border-fade-section pt-3">
-      <button
-        type="button"
-        onClick={() => setDetailsOpen((open) => !open)}
-        aria-expanded={detailsOpen}
-        className="group flex w-full items-center justify-between gap-3 rounded-[0.75rem] px-3 py-2 text-left transition-colors hover:bg-foreground/[0.03] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60"
-      >
-        <p className="portal-eyebrow-wide text-muted-foreground transition-colors group-hover:text-foreground/80">
-          Terms
-        </p>
-        <ChevronDown
-          className={`h-3.5 w-3.5 text-muted-foreground transition-[color,transform] duration-200 group-hover:text-foreground/80 ${detailsOpen ? 'rotate-180' : ''}`}
-        />
-      </button>
-
-      <AnimatePresence initial={false}>
-        {detailsOpen ? (
-          <motion.div
-            key="review-terms-details"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-            className="overflow-hidden"
-          >
-            <dl className="mt-2 space-y-1 text-xs">
+    <GovernanceCollapsiblePanel
+      label="Terms"
+      isOpen={detailsOpen}
+      onToggle={() => setDetailsOpen((open) => !open)}
+    >
+      <dl className="mt-2 space-y-1 text-xs">
               {rewardPerActionValue && (
                 <div className="flex items-baseline gap-2">
                   <dt className="text-muted-foreground">Per Action</dt>
@@ -406,11 +604,8 @@ export function GovernanceReviewTerms({
                   </dd>
                 </div>
               )}
-            </dl>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-    </div>
+      </dl>
+    </GovernanceCollapsiblePanel>
   );
 }
 
@@ -592,9 +787,11 @@ export function GovernanceGuardianActions({
 export function ShareProposal({
   appId,
   label,
+  proposalId = null,
 }: {
   appId: string;
   label: string;
+  proposalId?: number | null;
 }) {
   const [copied, setCopied] = useState(false);
   const [canNativeShare] = useState(
@@ -602,8 +799,9 @@ export function ShareProposal({
   );
 
   const getUrl = useCallback(
-    () => `${window.location.origin}/governance/${encodeURIComponent(appId)}`,
-    [appId]
+    () =>
+      `${window.location.origin}${buildGovernanceProposalPath(appId, proposalId)}`,
+    [appId, proposalId]
   );
 
   const handleCopy = useCallback(async () => {
@@ -632,9 +830,7 @@ export function ShareProposal({
   const emailBody = `Hey, check out this governance proposal on OnSocial:\n\n"${label}"\n\n${getUrl()}`;
 
   return (
-    <div className="mt-3 flex items-center gap-2 border-t border-fade-detail pt-3">
-      <span className="mr-0.5 text-xs text-muted-foreground">Share</span>
-
+    <div className="mt-3 flex items-center justify-end gap-2.5 border-t border-fade-detail pt-3">
       {canNativeShare ? (
         /* ── Mobile / native share sheet ── */
         <>

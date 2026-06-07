@@ -162,9 +162,7 @@ export function ApprovedConfigPanel({
   return (
     <section className="mt-3 border-t border-fade-section pt-3">
       <div className="flex items-baseline gap-2">
-        <p className="portal-eyebrow-wide text-muted-foreground">
-          {title}
-        </p>
+        <p className="portal-eyebrow-wide text-muted-foreground">{title}</p>
         {!configLoading && onChainConfig && (
           <p className="text-xs text-muted-foreground">— {REWARDS_CONTRACT}</p>
         )}

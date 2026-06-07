@@ -6,6 +6,8 @@ export interface GovernanceProposal {
   dao_account: string | null;
   tx_hash: string | null;
   submitted_at: string | null;
+  kind?: Record<string, unknown> | null;
+  snapshot?: GovernanceDaoProposal | null;
   payload?: unknown;
 }
 
@@ -55,6 +57,7 @@ export interface GovernanceDaoRole {
 export interface GovernanceDaoPolicy {
   roles?: GovernanceDaoRole[];
   default_vote_policy?: GovernanceDaoVotePolicy;
+  proposal_bond?: string;
   proposal_period?: string;
 }
 

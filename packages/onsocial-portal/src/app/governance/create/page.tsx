@@ -4,9 +4,9 @@ import { useEffect } from 'react';
 import { PageShell } from '@/components/layout/page-shell';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
 import { useMobilePageContext } from '@/components/providers/mobile-page-context';
-import { GovernancePositionPanel } from '@/features/governance/governance-position-panel';
+import { GovernanceCreatePanel } from '@/features/governance/governance-create-panel';
 
-export default function GovernanceManagePage() {
+export default function GovernanceCreatePage() {
   const { setNavBack } = useMobilePageContext();
 
   useEffect(() => {
@@ -21,8 +21,7 @@ export default function GovernanceManagePage() {
         badgeAccent="blue"
         className="mb-4 py-1 md:mb-5 md:py-2"
       />
-
-      <GovernancePositionPanel />
+      <GovernanceCreatePanel />
     </PageShell>
   );
 }

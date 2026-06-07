@@ -21,6 +21,7 @@ import { SurfacePanel } from '@/components/ui/surface-panel';
 import { Button } from '@/components/ui/button';
 import { PortalBadge } from '@/components/ui/portal-badge';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
+import { BillingPanelSkeleton } from '@/components/ui/skeleton';
 import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
 import { portalColors, type PortalAccent } from '@/lib/portal-colors';
 import { fadeUpMotion } from '@/lib/motion';
@@ -271,9 +272,9 @@ export default function BillingPage() {
 
       {/* ── Loading ───────────────────────────────────────── */}
       {loading && (
-        <div className="py-12 text-center">
-          <PulsingDots size="md" />
-        </div>
+        <SurfacePanel radius="xl" tone="soft" padding="roomy">
+          <BillingPanelSkeleton />
+        </SurfacePanel>
       )}
 
       {/* ── Active subscription management ────────────────── */}

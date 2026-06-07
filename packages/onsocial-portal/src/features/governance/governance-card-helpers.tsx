@@ -685,6 +685,151 @@ function getRoleSize(role: GovernanceDaoRole): number | null {
   return null;
 }
 
+type MembershipProposalInfo = {
+  kind: 'add' | 'remove';
+  memberId: string;
+  roleId: string | null;
+};
+
+function isTerminalGovernanceProposalStatus(
+  status: GovernanceDaoProposal['status'] | string | null | undefined
+): boolean {
+  return (
+    status === 'Approved' ||
+    status === 'Rejected' ||
+    status === 'Removed' ||
+    status === 'Failed' ||
+    status === 'Expired' ||
+    status === 'Moved'
+  );
+}
+
+function readMembershipProposalMemberId(
+  liveProposal: GovernanceDaoProposal | null
+): MembershipProposalInfo | null {
+  if (!liveProposal?.kind) {
+    return null;
+  }
+
+  const kindKey = Object.keys(liveProposal.kind)[0];
+  if (kindKey !== 'AddMemberToRole' && kindKey !== 'RemoveMemberFromRole') {
+    return null;
+  }
+
+  const payload = liveProposal.kind[kindKey];
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  const memberId =
+    'member_id' in payload && typeof payload.member_id === 'string'
+      ? payload.member_id.trim().toLowerCase()
+      : null;
+  const roleId =
+    'role' in payload && typeof payload.role === 'string'
+      ? payload.role.trim()
+      : null;
+
+  if (!memberId) {
+    return null;
+  }
+
+  return {
+    kind: kindKey === 'AddMemberToRole' ? 'add' : 'remove',
+    memberId,
+    roleId,
+  };
+}
+
+function getProposalVotingRole(
+  liveProposal: GovernanceDaoProposal | null,
+  daoPolicy: GovernanceDaoPolicy | null,
+  connectedRole: GovernanceDaoRole | null,
+  proposalPolicyLabel: string
+): GovernanceDaoRole | null {
+  const membership = readMembershipProposalMemberId(liveProposal);
+  if (membership?.roleId && daoPolicy?.roles) {
+    const targetRole = daoPolicy.roles.find(
+      (role) => role.name === membership.roleId
+    );
+    if (targetRole) {
+      return targetRole;
+    }
+  }
+
+  return (
+    connectedRole ??
+    (daoPolicy?.roles ?? []).find((role) =>
+      roleAllowsAction(role, proposalPolicyLabel, 'VoteApprove')
+    ) ??
+    null
+  );
+}
+
+function getVotingPoolSize(
+  role: GovernanceDaoRole,
+  liveProposal: GovernanceDaoProposal | null
+): number | null {
+  const baseSize = getRoleSize(role);
+  if (baseSize === null) {
+    return null;
+  }
+
+  const membership = readMembershipProposalMemberId(liveProposal);
+  if (!membership) {
+    return baseSize;
+  }
+
+  const members = getGroupMembers(role);
+  const subjectInGroup = members.includes(membership.memberId);
+
+  if (membership.kind === 'add' && subjectInGroup) {
+    return Math.max(baseSize - 1, 0);
+  }
+
+  if (membership.kind === 'remove' && !subjectInGroup) {
+    return baseSize + 1;
+  }
+
+  return baseSize;
+}
+
+export function getEligibleVotersForProposal(
+  role: GovernanceDaoRole | null,
+  liveProposal: GovernanceDaoProposal | null
+): string[] | null {
+  if (
+    liveProposal &&
+    isTerminalGovernanceProposalStatus(liveProposal.status)
+  ) {
+    return Object.keys(liveProposal.votes ?? {})
+      .map((account) => account.toLowerCase())
+      .sort((left, right) => left.localeCompare(right));
+  }
+
+  if (!role?.kind?.Group) {
+    return null;
+  }
+
+  const members = getGroupMembers(role);
+  const membership = readMembershipProposalMemberId(liveProposal);
+  if (!membership) {
+    return members;
+  }
+
+  if (membership.kind === 'add') {
+    return members.filter((member) => member !== membership.memberId);
+  }
+
+  if (members.includes(membership.memberId)) {
+    return members;
+  }
+
+  return [...members, membership.memberId].sort((left, right) =>
+    left.localeCompare(right)
+  );
+}
+
 function resolveVotePolicy(
   role: GovernanceDaoRole,
   policy: GovernanceDaoPolicy | null,
@@ -722,7 +867,8 @@ function getVotingProgress(
   proposalPolicyLabel: string,
   approveVotes: string,
   rejectVotes: string,
-  removeVotes: string
+  removeVotes: string,
+  liveProposal: GovernanceDaoProposal | null
 ): {
   threshold: number | null;
   totalWeight: number | null;
@@ -752,24 +898,34 @@ function getVotingProgress(
   }
 
   const votePolicy = resolveVotePolicy(role, policy, proposalPolicyLabel);
-  const totalWeight = getRoleSize(role);
+  const currentPoolSize = getVotingPoolSize(role, liveProposal);
+  const votesCast = approvals + rejects + removes;
+  const poolForThreshold =
+    liveProposal &&
+    isTerminalGovernanceProposalStatus(liveProposal.status) &&
+    votesCast > 0 &&
+    currentPoolSize !== null &&
+    votesCast < currentPoolSize &&
+    !readMembershipProposalMemberId(liveProposal)
+      ? votesCast
+      : currentPoolSize;
 
   if (
     !votePolicy ||
     votePolicy.weight_kind !== 'RoleWeight' ||
-    totalWeight === null
+    poolForThreshold === null
   ) {
     return {
       threshold: null,
-      totalWeight,
+      totalWeight: currentPoolSize,
       approvals,
       rejects,
       removes,
-      votesCast: approvals + rejects + removes,
+      votesCast,
       remainingVoters:
-        totalWeight === null
+        currentPoolSize === null
           ? null
-          : totalWeight - (approvals + rejects + removes),
+          : currentPoolSize - votesCast,
       remaining: null,
       approvalStillPossible: null,
     };
@@ -777,22 +933,31 @@ function getVotingProgress(
 
   const threshold = Math.max(
     Number(votePolicy.quorum ?? '0'),
-    toThresholdWeight(votePolicy.threshold, totalWeight)
+    toThresholdWeight(votePolicy.threshold, poolForThreshold)
   );
-  const votesCast = approvals + rejects + removes;
-  const remainingVoters = Math.max(totalWeight - votesCast, 0);
+  const displayTotalWeight =
+    liveProposal && isTerminalGovernanceProposalStatus(liveProposal.status)
+      ? Math.max(votesCast, threshold)
+      : currentPoolSize;
+  const remainingVoters =
+    liveProposal && isTerminalGovernanceProposalStatus(liveProposal.status)
+      ? 0
+      : Math.max((currentPoolSize ?? 0) - votesCast, 0);
   const remaining = Math.max(threshold - approvals, 0);
 
   return {
     threshold,
-    totalWeight,
+    totalWeight: displayTotalWeight,
     approvals,
     rejects,
     removes,
     votesCast,
     remainingVoters,
     remaining,
-    approvalStillPossible: approvals + remainingVoters >= threshold,
+    approvalStillPossible:
+      liveProposal && isTerminalGovernanceProposalStatus(liveProposal.status)
+        ? approvals >= threshold
+        : approvals + remainingVoters >= threshold,
   };
 }
 
@@ -842,12 +1007,12 @@ export function deriveGovernanceCardView({
       ) ?? null)
     : null;
   const proposalPolicyLabel = getProposalPolicyLabel(liveProposal);
-  const activeVotingRole =
-    connectedRole ??
-    (daoPolicy?.roles ?? []).find((role) =>
-      roleAllowsAction(role, proposalPolicyLabel, 'VoteApprove')
-    ) ??
-    null;
+  const activeVotingRole = getProposalVotingRole(
+    liveProposal,
+    daoPolicy,
+    connectedRole,
+    proposalPolicyLabel
+  );
   const currentVote = accountId
     ? (liveProposal?.votes?.[accountId] ?? null)
     : null;
@@ -895,7 +1060,12 @@ export function deriveGovernanceCardView({
     proposalPolicyLabel,
     approveVotes,
     rejectVotes,
-    removeVotes
+    removeVotes,
+    liveProposal
+  );
+  const eligibleVoterAccounts = getEligibleVotersForProposal(
+    activeVotingRole,
+    liveProposal
   );
   const voteEntries = Object.entries(liveProposal?.votes ?? {}).sort(
     ([leftAccount], [rightAccount]) => {
@@ -1009,6 +1179,7 @@ export function deriveGovernanceCardView({
     rejectVotes,
     removeVotes,
     votingProgress,
+    eligibleVoterAccounts,
     voteEntries,
     submissionTime,
     reviewExpiry,

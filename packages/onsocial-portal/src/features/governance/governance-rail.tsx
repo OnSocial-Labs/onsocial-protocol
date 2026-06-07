@@ -100,7 +100,7 @@ export function GovernanceRail({
                 size="icon"
                 className="h-8 w-8 rounded-full border-border/40 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground"
               >
-                <Link href="/governance/manage" aria-label="Manage governance">
+                <Link href="/governance/manage" aria-label="Open position">
                   <Settings2 className="h-4 w-4" />
                 </Link>
               </Button>
@@ -125,7 +125,7 @@ export function GovernanceRail({
 
             <div className="hidden items-center gap-2 md:flex">
               <Button asChild size="sm" className="gap-2">
-                <Link href="/governance/manage">
+                <Link href="/governance/create">
                   <Plus className="h-4 w-4" />
                   <span>Create proposal</span>
                 </Link>
@@ -137,7 +137,7 @@ export function GovernanceRail({
                 size="icon"
                 className="h-8 w-8 rounded-full border-border/40 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground md:h-9 md:w-9"
               >
-                <Link href="/governance/manage" aria-label="Manage governance">
+                <Link href="/governance/manage" aria-label="Open position">
                   <Settings2 className="h-4 w-4" />
                 </Link>
               </Button>
@@ -254,7 +254,7 @@ export function GovernanceRail({
           />
 
           <Button asChild size="sm" className="shrink-0 gap-1.5">
-            <Link href="/governance/manage">
+            <Link href="/governance/create">
               <Plus className="h-3.5 w-3.5" />
               <span>Create</span>
             </Link>

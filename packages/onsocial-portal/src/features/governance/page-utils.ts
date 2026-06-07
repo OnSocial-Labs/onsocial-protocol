@@ -422,3 +422,50 @@ function buildGovernanceFeedItem(
       .toLowerCase(),
   };
 }
+
+export function parseGovernanceProposalId(
+  value: string | null
+): number | null {
+  if (!value) return null;
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    return null;
+  }
+
+  return parsed;
+}
+
+export function buildGovernanceProposalPath(
+  appId: string,
+  proposalId?: number | null
+): string {
+  const base = `/governance/${encodeURIComponent(appId)}`;
+  if (proposalId == null) return base;
+  return `${base}?proposal=${proposalId}`;
+}
+
+/** Pick the feed row that matches a proposal when app_id appears more than once. */
+export function resolveGovernanceApplication(
+  apps: Application[],
+  appId: string,
+  proposalId?: number | null
+): Application | null {
+  const matches = apps.filter((application) => application.app_id === appId);
+  if (matches.length === 0) return null;
+  if (matches.length === 1) return matches[0];
+
+  if (proposalId != null) {
+    const matchedProposal = matches.find(
+      (application) =>
+        application.governance_proposal?.proposal_id === proposalId
+    );
+    if (matchedProposal) return matchedProposal;
+  }
+
+  return (
+    matches.find(
+      (application) => application.governance_proposal?.proposal_id != null
+    ) ?? matches[0]
+  );
+}

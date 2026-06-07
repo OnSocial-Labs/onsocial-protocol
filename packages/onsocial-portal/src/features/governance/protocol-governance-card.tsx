@@ -1,16 +1,9 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import {
-  useEffect,
-  useRef,
-  useState,
-  useCallback,
-  type CSSProperties,
-} from 'react';
-import Link from 'next/link';
+import { useEffect, useState, useCallback, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowUpRight, ChevronDown, ExternalLink } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
 import { useWallet } from '@/contexts/wallet-context';
@@ -19,60 +12,43 @@ import {
   DAO_STATUS_STYLES,
   deriveGovernanceCardView,
   formatActionLabel,
-  HoverTimestamp,
-  loadLiveDaoState,
   renderHighlightedJson,
   safeJsonStringify,
 } from '@/features/governance/governance-card-helpers';
 import {
+  refreshGovernanceProposalAfterAction,
+  useGovernanceCardDaoState,
+} from '@/features/governance/use-governance-card-dao-state';
+import { GovernanceAccountChip } from '@/features/governance/governance-account-chip';
+import {
+  GovernanceCardVoteSkeleton,
+  GovernanceCollapsiblePanel,
   GovernanceGuardianActions,
   GovernanceLiveSummary,
   GovernanceVoteActivity,
   ShareProposal,
 } from '@/features/governance/governance-card-sections';
+import {
+  GovernanceProposalOnChainRefLabel,
+  GovernanceProposalSummary,
+} from '@/features/governance/governance-proposal-identity-row';
+import { GovernanceDescriptionClamp } from '@/features/governance/governance-description-clamp';
+import {
+  deriveProposalPresentationFromDaoProposal,
+  resolveBootstrapDaoProposal,
+} from '@/features/governance/governance-proposal-presentation';
+import { GovernanceProposalStrip } from '@/features/governance/governance-proposal-strip';
 import type {
   Application,
   GovernanceDaoAction,
   GovernanceDaoPolicy,
-  GovernanceDaoProposal,
 } from '@/features/governance/types';
 import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
 import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/portal-config';
+import { buildGovernanceProposalPath } from '@/features/governance/page-utils';
 
-const POST_ACTION_REFRESH_MS = 5_000;
 const POST_ACTION_REFRESH_WINDOW_MS = 60_000;
 const ONSOCIAL_TELEGRAM_URL = 'https://t.me/onsocialprotocol';
-
-function DescriptionClamp({ text }: { text: string }) {
-  const ref = useRef<HTMLParagraphElement>(null);
-  const [clamped, setClamped] = useState(true);
-  const [needsClamp, setNeedsClamp] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (el) setNeedsClamp(el.scrollHeight > el.clientHeight + 1);
-  }, [text]);
-
-  return (
-    <div className="mt-1.5">
-      <p
-        ref={ref}
-        className={`max-w-3xl text-xs text-muted-foreground ${clamped ? 'line-clamp-2' : ''}`}
-      >
-        {text}
-      </p>
-      {needsClamp && (
-        <button
-          type="button"
-          onClick={() => setClamped((c) => !c)}
-          className="mt-0.5 text-xs text-foreground/50 hover:text-foreground/70"
-        >
-          {clamped ? 'show more' : 'show less'}
-        </button>
-      )}
-    </div>
-  );
-}
 
 function governanceCardStyle(stripColor: string): CSSProperties {
   return {
@@ -84,10 +60,12 @@ function governanceCardStyle(stripColor: string): CSSProperties {
 
 export function ProtocolGovernanceCard({
   app,
+  feedDaoPolicy = null,
   onGovernanceUpdated,
   interactive = true,
 }: {
   app: Application;
+  feedDaoPolicy?: GovernanceDaoPolicy | null;
   onGovernanceUpdated?: () => void | Promise<void>;
   interactive?: boolean;
 }) {
@@ -103,15 +81,16 @@ export function ProtocolGovernanceCard({
         )
       )
         return;
-      router.push(`/governance/${encodeURIComponent(app.app_id)}`);
+      router.push(
+        buildGovernanceProposalPath(
+          app.app_id,
+          app.governance_proposal?.proposal_id ?? null
+        )
+      );
     },
-    [router, app.app_id]
+    [router, app.app_id, app.governance_proposal?.proposal_id]
   );
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const [daoPolicy, setDaoPolicy] = useState<GovernanceDaoPolicy | null>(null);
-  const [liveProposal, setLiveProposal] =
-    useState<GovernanceDaoProposal | null>(null);
-  const [daoLoading, setDaoLoading] = useState(false);
   const [actionLoading, setActionLoading] =
     useState<GovernanceDaoAction | null>(null);
   const [actionTxHash, setActionTxHash] = useState<string | null>(null);
@@ -124,12 +103,23 @@ export function ProtocolGovernanceCard({
   const { txResult, setTxResult, clearTxResult, trackTransaction } =
     useNearTransactionFeedback(accountId);
   const proposal = app.governance_proposal;
+  const {
+    daoAccountId,
+    liveProposalId,
+    daoPolicy,
+    liveProposal,
+    daoLoading,
+    setDaoPolicy,
+    setLiveProposal,
+  } = useGovernanceCardDaoState({
+    proposal,
+    feedDaoPolicy,
+    postActionRefreshUntil,
+    onPostActionRefreshComplete: () => setPostActionRefreshUntil(null),
+  });
   const proposalFallbackStyle = proposal?.status
     ? DAO_STATUS_STYLES[proposal.status]
     : undefined;
-  const daoAccountId = proposal?.dao_account ?? null;
-  const liveProposalId = proposal?.proposal_id ?? null;
-
   useEffect(() => {
     if (liveProposal?.status !== 'InProgress') {
       return;
@@ -144,87 +134,6 @@ export function ProtocolGovernanceCard({
     };
   }, [liveProposal?.status]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadDaoState() {
-      if (!daoAccountId || liveProposalId === null) {
-        if (!cancelled) {
-          setDaoPolicy(null);
-          setLiveProposal(null);
-          setDaoLoading(false);
-        }
-        return;
-      }
-
-      if (!cancelled) {
-        setDaoLoading(true);
-      }
-
-      try {
-        const resolvedDaoAccountId = daoAccountId;
-        const resolvedProposalId = liveProposalId;
-        const { policy, proposal: nextProposal } = await loadLiveDaoState(
-          resolvedDaoAccountId,
-          resolvedProposalId
-        );
-        if (!cancelled) {
-          setDaoPolicy(policy);
-          setLiveProposal(nextProposal);
-        }
-      } finally {
-        if (!cancelled) {
-          setDaoLoading(false);
-        }
-      }
-    }
-
-    void loadDaoState();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [daoAccountId, liveProposalId]);
-
-  useEffect(() => {
-    if (!daoAccountId || liveProposalId === null || !postActionRefreshUntil) {
-      return;
-    }
-
-    const resolvedDaoAccountId = daoAccountId;
-    const resolvedProposalId = liveProposalId;
-    const refreshUntil = postActionRefreshUntil;
-    let cancelled = false;
-
-    async function refreshLiveDaoState() {
-      try {
-        const { policy, proposal: nextProposal } = await loadLiveDaoState(
-          resolvedDaoAccountId,
-          resolvedProposalId
-        );
-        if (!cancelled) {
-          setDaoPolicy(policy);
-          setLiveProposal(nextProposal);
-        }
-      } finally {
-        if (!cancelled && Date.now() + POST_ACTION_REFRESH_MS >= refreshUntil) {
-          setPostActionRefreshUntil(null);
-        }
-      }
-    }
-
-    const timer = window.setInterval(() => {
-      void refreshLiveDaoState();
-    }, POST_ACTION_REFRESH_MS);
-
-    void refreshLiveDaoState();
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [daoAccountId, liveProposalId, postActionRefreshUntil]);
-
   const {
     connectedRole,
     activeVotingRole,
@@ -238,6 +147,7 @@ export function ProtocolGovernanceCard({
     rejectVotes,
     removeVotes,
     votingProgress,
+    eligibleVoterAccounts,
     voteEntries,
     submissionTime,
     reviewExpiry,
@@ -248,7 +158,6 @@ export function ProtocolGovernanceCard({
     resolvedOutcomeLabel,
     guardianDecisionSummary,
     finalizeLabel,
-    proposalKindLabel,
   } = deriveGovernanceCardView({
     accountId,
     isConnected,
@@ -309,10 +218,12 @@ export function ProtocolGovernanceCard({
       }
 
       try {
-        const { policy, proposal: nextProposal } = await loadLiveDaoState(
-          daoAccountId,
-          liveProposalId
-        );
+        const { policy, proposal: nextProposal } =
+          await refreshGovernanceProposalAfterAction({
+            daoAccountId,
+            proposalId: liveProposalId,
+            feedDaoPolicy,
+          });
         setDaoPolicy(policy);
         setLiveProposal(nextProposal);
         await onGovernanceUpdated?.();
@@ -349,10 +260,13 @@ export function ProtocolGovernanceCard({
     void handleGovernanceAction('VoteRemove');
   }
 
-  const targetAccount =
-    app.protocol_target_account ??
-    functionCallSummary?.receiverId ??
-    daoAccountId;
+  const presentation = deriveProposalPresentationFromDaoProposal(
+    liveProposal ?? resolveBootstrapDaoProposal(proposal),
+    {
+      label: app.label,
+      description: app.description ?? proposal?.description,
+    }
+  );
   const fallbackProposalHref = proposal?.tx_hash
     ? `${ACTIVE_NEAR_EXPLORER_URL}/txns/${proposal.tx_hash}`
     : null;
@@ -397,96 +311,45 @@ export function ProtocolGovernanceCard({
         onClick={interactive ? handleCardClick : undefined}
       >
         {liveProposalId !== null && (
-          <div
-            className={`-mx-5 -mt-5 md:-mx-6 md:-mt-6 mb-4 flex items-center justify-between gap-2 rounded-t-[calc(1.5rem-1px)] px-5 md:px-6 py-2.5 pb-4 font-mono text-xs ${liveStatusStyle?.badgeBg ?? proposalFallbackStyle?.badgeBg ?? 'bg-[var(--portal-blue-bg)]'}`}
-            style={{
-              maskImage: 'linear-gradient(to bottom, black 70%, transparent)',
-              WebkitMaskImage:
-                'linear-gradient(to bottom, black 70%, transparent)',
-            }}
-          >
-            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-              <span
-                className={`shrink-0 font-semibold ${liveStatusStyle?.badgeText ?? proposalFallbackStyle?.badgeText ?? 'portal-blue-text'}`}
-              >
-                #{liveProposalId}
-              </span>
-              {(functionCallSummary?.methodName ?? proposalKindLabel) && (
-                <>
-                  <span className="shrink-0 text-foreground/20">·</span>
-                  <span className="break-all font-medium text-foreground/60">
-                    {functionCallSummary?.methodName ?? proposalKindLabel}
-                  </span>
-                </>
-              )}
-              {submissionTime && (
-                <>
-                  <span className="shrink-0 text-foreground/20">·</span>
-                  <HoverTimestamp
-                    relative={submissionTime.relative}
-                    absolute={submissionTime.absolute}
-                  />
-                </>
-              )}
-            </div>
-            {liveStatusStyle && (
-              <div className="shrink-0 text-right">
-                <span
-                  className={`inline-flex items-center justify-end gap-1.5 portal-type-label font-semibold uppercase tracking-wide ${liveStatusStyle.badgeText}`}
-                >
-                  {liveStatusStyle.label}
-                  {interactive && (
-                    <ArrowUpRight
-                      aria-hidden="true"
-                      className="h-3 w-3 opacity-70 transition-all duration-200 group-hover/card:-translate-y-0.5 group-hover/card:translate-x-0.5 group-hover/card:opacity-100 group-has-[a:hover]/card:translate-x-0 group-has-[a:hover]/card:translate-y-0 group-has-[a:hover]/card:opacity-70 group-has-[button:hover]/card:translate-x-0 group-has-[button:hover]/card:translate-y-0 group-has-[button:hover]/card:opacity-70"
-                    />
-                  )}
-                </span>
-                {reviewExpiry && (
-                  <div
-                    className={`mt-0.5 portal-type-caption ${reviewExpiry.expired ? 'portal-amber-text' : 'text-muted-foreground'}`}
-                  >
-                    <HoverTimestamp
-                      relative={reviewExpiry.relative}
-                      absolute={reviewExpiry.absolute}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          <GovernanceProposalStrip
+            proposalId={liveProposalId}
+            actionBadge={presentation.actionBadge}
+            submissionTime={submissionTime}
+            statusStyle={liveStatusStyle ?? proposalFallbackStyle ?? null}
+            reviewExpiry={reviewExpiry}
+            interactive={interactive}
+          />
         )}
-        <div className="border-b border-fade-section pb-4">
-          <div className="flex items-start justify-between gap-3">
-            {interactive ? (
-              <Link
-                href={`/governance/${encodeURIComponent(app.app_id)}`}
-                className="group min-w-0"
-              >
-                <h3 className="text-lg font-semibold tracking-[-0.02em] text-foreground transition-colors group-hover:text-foreground/80">
-                  {app.label}
-                </h3>
-              </Link>
-            ) : (
-              <h3 className="text-lg font-semibold tracking-[-0.02em] text-foreground transition-colors group-hover:text-foreground/80">
-                {app.label}
-              </h3>
-            )}
-          </div>
-          {targetAccount && (
-            <p className="mt-0.5 break-all font-mono text-xs text-muted-foreground">
-              {targetAccount}
-            </p>
-          )}
+        <div className="border-b border-fade-section pb-3.5">
+          <GovernanceProposalSummary
+            presentation={presentation}
+            className={
+              interactive ? 'transition-opacity group-hover/card:opacity-90' : undefined
+            }
+          />
 
-          {app.description && <DescriptionClamp text={app.description} />}
+          {presentation.showProposerSeparately && presentation.proposer ? (
+            <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 portal-type-label text-muted-foreground">
+              <span className="shrink-0 portal-eyebrow">
+                Proposer
+              </span>
+              <GovernanceAccountChip
+                accountId={presentation.proposer}
+                avatarClassName="h-5 w-5"
+                compact
+              />
+            </div>
+          ) : null}
+
+          {presentation.onChainDescription ? (
+            <GovernanceDescriptionClamp
+              text={presentation.onChainDescription}
+              className="mt-1.5 sm:mt-2"
+            />
+          ) : null}
         </div>
 
-        {daoLoading && liveProposalId !== null && (
-          <p className="mt-4 text-xs text-muted-foreground">
-            Fetching live review status…
-          </p>
-        )}
+        {daoLoading && liveProposalId !== null && <GovernanceCardVoteSkeleton />}
 
         {!daoLoading && liveProposal && liveStatusStyle && (
           <div className="mt-4">
@@ -513,41 +376,26 @@ export function ProtocolGovernanceCard({
               accountId={accountId}
               latestActionLink={latestActionLink}
               activeVotingRole={activeVotingRole}
+              eligibleVoterAccounts={eligibleVoterAccounts}
             />
 
             {rawDaoProposal && (
-              <div className="mt-3 border-t border-fade-detail pt-3">
-                <button
-                  type="button"
-                  onClick={() => setTechnicalDetailsOpen((open) => !open)}
-                  aria-expanded={technicalDetailsOpen}
-                  className="group flex w-full items-center justify-between gap-3 rounded-[0.75rem] px-3 py-2 text-left transition-colors hover:bg-foreground/[0.03] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60"
-                >
-                  <p className="portal-eyebrow-wide text-muted-foreground transition-colors group-hover:text-foreground/80">
-                    Raw proposal
-                  </p>
-                  <ChevronDown
-                    className={`h-3.5 w-3.5 text-muted-foreground transition-[color,transform] duration-200 group-hover:text-foreground/80 ${technicalDetailsOpen ? 'rotate-180' : ''}`}
-                  />
-                </button>
-
-                <AnimatePresence initial={false}>
-                  {technicalDetailsOpen ? (
-                    <motion.div
-                      key="technical-details"
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-                      className="overflow-hidden"
-                    >
-                      <pre className="mt-3 overflow-x-auto rounded-[1rem] border border-border/30 bg-background/70 p-4 text-xs leading-6">
-                        <code>{renderHighlightedJson(rawDaoProposal)}</code>
-                      </pre>
-                    </motion.div>
-                  ) : null}
-                </AnimatePresence>
-              </div>
+              <GovernanceCollapsiblePanel
+                label="Raw proposal"
+                isOpen={technicalDetailsOpen}
+                onToggle={() => setTechnicalDetailsOpen((open) => !open)}
+              >
+                {presentation.onChainAction ? (
+                  <div className="mt-2 flex min-w-0 items-center overflow-hidden">
+                    <GovernanceProposalOnChainRefLabel
+                      presentation={presentation}
+                    />
+                  </div>
+                ) : null}
+                <pre className="mt-2 overflow-x-auto rounded-[1rem] border border-border/30 bg-background/70 p-4 text-xs leading-6">
+                  <code>{renderHighlightedJson(rawDaoProposal)}</code>
+                </pre>
+              </GovernanceCollapsiblePanel>
             )}
 
             <GovernanceGuardianActions
@@ -592,7 +440,11 @@ export function ProtocolGovernanceCard({
           </div>
         )}
 
-        <ShareProposal appId={app.app_id} label={app.label} />
+        <ShareProposal
+          appId={app.app_id}
+          label={presentation.headline}
+          proposalId={liveProposalId}
+        />
       </SurfacePanel>
     </>
   );

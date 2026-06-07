@@ -1,19 +1,31 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
 import { PageShell } from '@/components/layout/page-shell';
+import { RouteLoadingShell } from '@/components/layout/route-loading-shell';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
 import { useMobilePageContext } from '@/components/providers/mobile-page-context';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { fetchGovernanceFeed } from '@/features/governance/api';
 import { GovernanceCard } from '@/features/governance/governance-card';
-import type { Application } from '@/features/governance/types';
+import { GovernanceCardSkeleton } from '@/features/governance/governance-card-sections';
+import {
+  parseGovernanceProposalId,
+  resolveGovernanceApplication,
+} from '@/features/governance/page-utils';
+import type {
+  Application,
+  GovernanceDaoPolicy,
+} from '@/features/governance/types';
 
-export default function GovernanceProposalPage() {
+function GovernanceProposalPageContent() {
   const params = useParams<{ appId: string }>();
+  const searchParams = useSearchParams();
   const appId = decodeURIComponent(params.appId);
+  const proposalId = parseGovernanceProposalId(searchParams.get('proposal'));
   const [app, setApp] = useState<Application | null>(null);
+  const [daoPolicy, setDaoPolicy] = useState<GovernanceDaoPolicy | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const hasLoaded = useRef(false);
@@ -28,16 +40,18 @@ export default function GovernanceProposalPage() {
     if (!hasLoaded.current) setLoading(true);
     setError('');
     try {
-      const apps = await fetchGovernanceFeed();
-      const found = apps.find((a) => a.app_id === appId) ?? null;
+      const { applications, daoPolicy: nextDaoPolicy } =
+        await fetchGovernanceFeed();
+      const found = resolveGovernanceApplication(applications, appId, proposalId);
       setApp(found);
+      setDaoPolicy(nextDaoPolicy);
       hasLoaded.current = true;
     } catch {
       if (!hasLoaded.current) setError('Failed to load proposal.');
     } finally {
       setLoading(false);
     }
-  }, [appId]);
+  }, [appId, proposalId]);
 
   useEffect(() => {
     loadApp();
@@ -53,19 +67,7 @@ export default function GovernanceProposalPage() {
         </p>
       )}
 
-      {loading && !app && (
-        <SurfacePanel
-          radius="xl"
-          tone="solid"
-          borderTone="strong"
-          padding="roomy"
-          className="animate-pulse"
-        >
-          <div className="h-4 w-2/5 rounded bg-muted-foreground/10" />
-          <div className="mt-3 h-3 w-3/4 rounded bg-muted-foreground/10" />
-          <div className="mt-6 h-3 w-1/2 rounded bg-muted-foreground/10" />
-        </SurfacePanel>
-      )}
+      {loading && !app && <GovernanceCardSkeleton />}
 
       {!loading && !error && !app && (
         <SurfacePanel
@@ -80,10 +82,27 @@ export default function GovernanceProposalPage() {
       {app && (
         <GovernanceCard
           app={app}
+          feedDaoPolicy={daoPolicy}
           onGovernanceUpdated={loadApp}
           interactive={false}
         />
       )}
     </PageShell>
+  );
+}
+
+export default function GovernanceProposalPage() {
+  return (
+    <Suspense
+      fallback={
+        <RouteLoadingShell
+          size="form"
+          panelCount={1}
+          panelMinHeights={['18rem']}
+        />
+      }
+    >
+      <GovernanceProposalPageContent />
+    </Suspense>
   );
 }

@@ -84,6 +84,11 @@ function mockRpcViewResult(value: unknown) {
   };
 }
 
+const DAO_POLICY_FIXTURE = {
+  roles: [],
+  proposal_period: '604800000000000',
+};
+
 function encodeU32(value: number): Uint8Array {
   const buffer = new ArrayBuffer(4);
   new DataView(buffer).setUint32(0, value, true);
@@ -609,7 +614,8 @@ describe('GET /v1/governance/feed scoped results', () => {
             submission_time: '1773316924632618708',
           },
         ])
-      );
+      )
+      .mockResolvedValueOnce(mockRpcViewResult(DAO_POLICY_FIXTURE));
 
     const res = await request(buildApp()).get(
       '/v1/governance/feed?scope=protocol'
@@ -666,7 +672,8 @@ describe('GET /v1/governance/feed scoped results', () => {
             submission_time: '1773316924632618708',
           },
         ])
-      );
+      )
+      .mockResolvedValueOnce(mockRpcViewResult(DAO_POLICY_FIXTURE));
 
     const partnersRes = await request(buildApp()).get(
       '/v1/governance/feed?scope=partners'
@@ -719,7 +726,8 @@ describe('GET /v1/governance/feed scoped results', () => {
             submission_time: '1773316924632618708',
           },
         ])
-      );
+      )
+      .mockResolvedValueOnce(mockRpcViewResult(DAO_POLICY_FIXTURE));
 
     const protocolRes = await request(buildApp()).get(
       '/v1/governance/feed?scope=protocol'
@@ -765,7 +773,8 @@ describe('GET /v1/governance/feed scoped results', () => {
             submission_time: '1773316924632618708',
           },
         ])
-      );
+      )
+      .mockResolvedValueOnce(mockRpcViewResult(DAO_POLICY_FIXTURE));
 
     const res = await request(buildApp()).get(
       '/v1/governance/feed?scope=protocol'
@@ -841,7 +850,8 @@ describe('GET /v1/governance/feed scoped results', () => {
             'Test Community 03'
           ),
         ])
-      );
+      )
+      .mockResolvedValueOnce(mockRpcViewResult(DAO_POLICY_FIXTURE));
 
     const res = await request(buildApp()).get(
       '/v1/governance/feed?scope=partners'
@@ -894,7 +904,8 @@ describe('GET /v1/governance/feed scoped results', () => {
             'Test Community 03'
           ),
         ])
-      );
+      )
+      .mockResolvedValueOnce(mockRpcViewResult(DAO_POLICY_FIXTURE));
 
     const res = await request(buildApp()).get(
       '/v1/governance/feed?scope=partners'
@@ -932,7 +943,8 @@ describe('GET /v1/governance/feed scoped results', () => {
             'Test Community 03'
           ),
         ])
-      );
+      )
+      .mockResolvedValueOnce(mockRpcViewResult(DAO_POLICY_FIXTURE));
     // Secondary DB lookup for unmatched DAO app_ids
     mockQuery.mockResolvedValueOnce(
       makeRows([
@@ -1019,7 +1031,8 @@ describe('GET /v1/governance/feed scoped results', () => {
             submission_time: '1774560384669834575',
           },
         ])
-      );
+      )
+      .mockResolvedValueOnce(mockRpcViewResult(DAO_POLICY_FIXTURE));
 
     const res = await request(buildApp()).get(
       '/v1/governance/feed?scope=partners'
@@ -1058,7 +1071,8 @@ describe('GET /v1/governance/feed scoped results', () => {
             'Test Community 03'
           ),
         ])
-      );
+      )
+      .mockResolvedValueOnce(mockRpcViewResult(DAO_POLICY_FIXTURE));
     // Secondary lookup returns nothing — no DB entry
     mockQuery.mockResolvedValueOnce(makeRows([]));
 
@@ -1122,7 +1136,8 @@ describe('GET /v1/governance/feed', () => {
             submission_time: '1773316924632618708',
           },
         ])
-      );
+      )
+      .mockResolvedValueOnce(mockRpcViewResult(DAO_POLICY_FIXTURE));
 
     const res = await request(buildApp()).get('/v1/governance/feed');
 
@@ -1151,7 +1166,8 @@ describe('GET /v1/governance/feed', () => {
             submission_time: '1773316924632618708',
           },
         ])
-      );
+      )
+      .mockResolvedValueOnce(mockRpcViewResult(DAO_POLICY_FIXTURE));
 
     const res = await request(buildApp()).get(
       '/v1/governance/feed?scope=protocol'

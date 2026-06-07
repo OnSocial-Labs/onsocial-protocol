@@ -8,9 +8,8 @@ import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
 import { Button } from '@/components/ui/button';
 import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import {
-  PanelSkeleton,
-  StatGridSkeleton,
-  Skeleton,
+  CompactActionSkeleton,
+  StatStripSkeleton,
 } from '@/components/ui/skeleton';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
@@ -25,26 +24,14 @@ import {
 import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
 import {
   getGovernanceEligibility,
+  sanitizeSocialAmountInput,
   socialToYocto,
-  TOKEN_CONTRACT,
-  viewContractAt,
   yoctoToNear,
   yoctoToSocial,
   type GovernanceEligibilitySnapshot,
 } from '@/lib/near-rpc';
 
 type GovernanceActionMode = 'delegate' | 'undelegate' | 'withdraw';
-
-type ActionMetaItem = {
-  label: string;
-  value: string;
-  tone?: 'default' | 'muted';
-};
-
-type TokenMetadataView = {
-  icon?: string | null;
-  symbol?: string | null;
-};
 
 function formatSocial(value: string) {
   const numeric = Number(yoctoToSocial(value));
@@ -72,19 +59,6 @@ function formatNear(value: string) {
 
 function formatSocialShortfallMessage(value: bigint) {
   return `Add ${formatSocial(value.toString())} SOCIAL to continue with delegation.`;
-}
-
-function sanitizeAmountInput(value: string) {
-  const normalized = value.replace(/[^\d.]/g, '');
-  const [wholePart = '', ...fractionParts] = normalized.split('.');
-  const fractionPart = fractionParts.join('').slice(0, 18);
-  const whole = wholePart.replace(/^0+(?=\d)/, '');
-
-  if (fractionParts.length === 0) {
-    return whole;
-  }
-
-  return `${whole || '0'}.${fractionPart}`;
 }
 
 function formatCooldownRelative(value: string) {
@@ -246,10 +220,11 @@ export function GovernancePositionPanel() {
   }, [loadEligibility]);
 
   useEffect(() => {
-    viewContractAt<TokenMetadataView>(TOKEN_CONTRACT, 'ft_metadata', {})
-      .then((metadata) => {
-        if (metadata?.icon) {
-          setTokenIconSrc(metadata.icon);
+    fetch('/api/token/metadata', { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((body: { metadata?: { icon?: string | null } }) => {
+        if (body.metadata?.icon) {
+          setTokenIconSrc(body.metadata.icon);
         }
       })
       .catch(() => {
@@ -281,7 +256,6 @@ export function GovernancePositionPanel() {
   const actionConfig = useMemo(() => {
     if (!eligibility) {
       return {
-        title: 'Manage balance',
         info: 'Connect wallet to manage governance balances.',
         cta: 'Submit',
       };
@@ -290,8 +264,7 @@ export function GovernancePositionPanel() {
     if (actionMode === 'delegate') {
       if (eligibility.isInCooldown) {
         return {
-          title: 'Cooldown active',
-          info: `Undelegation triggered a cooldown. ${formatCooldownRelative(eligibility.nextActionTimestamp)}.`,
+          info: 'Delegation is paused until cooldown ends.',
           cta: 'Delegate',
         };
       }
@@ -317,7 +290,6 @@ export function GovernancePositionPanel() {
       }
 
       return {
-        title: 'Delegate SOCIAL',
         info,
         cta: 'Delegate',
       };
@@ -325,18 +297,16 @@ export function GovernancePositionPanel() {
 
     if (actionMode === 'undelegate') {
       return {
-        title: 'Undelegate SOCIAL',
-        info: 'Cooldown starts immediately after undelegation.',
+        info: 'Undelegation starts a cooldown before funds are ready.',
         cta: 'Undelegate',
       };
     }
 
     return {
-      title: 'Withdraw',
       info: eligibility.isInCooldown
-        ? 'Available after cooldown.'
+        ? 'Withdrawal opens after cooldown.'
         : BigInt(eligibility.availableToWithdraw) > 0n
-          ? `${formatSocial(eligibility.availableToWithdraw)} SOCIAL is ready to withdraw.`
+          ? 'Moves ready SOCIAL back to your wallet.'
           : 'No SOCIAL is ready to withdraw yet.',
       cta: 'Withdraw',
     };
@@ -366,7 +336,7 @@ export function GovernancePositionPanel() {
 
     if (actionMode === 'delegate') {
       if (eligibility.isInCooldown) {
-        return formatCooldownRelative(eligibility.nextActionTimestamp);
+        return 'Available after cooldown.';
       }
 
       if (amountYocto > maxForMode) {
@@ -406,7 +376,7 @@ export function GovernancePositionPanel() {
     }
 
     if (eligibility.isInCooldown) {
-      return formatCooldownRelative(eligibility.nextActionTimestamp);
+      return 'Available after cooldown.';
     }
 
     if (amountYocto > withdrawableYocto) {
@@ -424,119 +394,101 @@ export function GovernancePositionPanel() {
     withdrawableYocto,
   ]);
 
-  const actionMetaItems = useMemo<ActionMetaItem[]>(() => {
+  const actionMetaLine = useMemo(() => {
+    if (!eligibility) {
+      return null;
+    }
+
+    if (actionMode === 'undelegate') {
+      const cooldownDuration =
+        formatCooldownDuration(eligibility.cooldownDurationNs) ??
+        'on-chain cooldown';
+
+      return `${formatSocial(selfDelegatedYocto.toString())} SOCIAL delegated · ${cooldownDuration} after undelegation`;
+    }
+
+    if (
+      actionMode === 'withdraw' &&
+      withdrawableYocto > 0n &&
+      !eligibility.isInCooldown
+    ) {
+      return `${formatSocial(withdrawableYocto.toString())} SOCIAL ready to withdraw`;
+    }
+
+    return null;
+  }, [actionMode, eligibility, selfDelegatedYocto, withdrawableYocto]);
+
+  const positionOverviewItems = useMemo(() => {
     if (!eligibility) {
       return [];
     }
 
-    if (actionMode === 'delegate') {
-      return [];
-    }
-
-    if (actionMode === 'undelegate') {
-      const cooldownDuration = formatCooldownDuration(
-        eligibility.cooldownDurationNs
-      );
-
-      return [
-        {
-          label: 'Currently delegated',
-          value: `${formatSocial(selfDelegatedYocto.toString())} SOCIAL`,
-        },
-        {
-          label: 'Cooldown after action',
-          value: cooldownDuration ?? 'Set on-chain',
-          tone: 'muted',
-        },
-      ];
-    }
-
-    const items: ActionMetaItem[] = [];
-
-    if (withdrawableYocto > 0n) {
-      items.push({
-        label: 'Ready to withdraw',
-        value: `${formatSocial(withdrawableYocto.toString())} SOCIAL`,
-      });
-    }
-
-    if (eligibility.isInCooldown) {
-      items.push({
-        label: 'Next unlock',
-        value: formatCooldownRelative(eligibility.nextActionTimestamp),
-        tone: 'muted',
-      });
-    }
-
-    return items;
-  }, [actionMode, eligibility, selfDelegatedYocto, withdrawableYocto]);
-
-  const balanceRow = useMemo(
-    () => [
-      {
-        label: 'Wallet',
-        value: formatSocial(eligibility?.walletBalance ?? '0'),
-      },
-      { label: 'Staked', value: formatSocial(eligibility?.voteAmount ?? '0') },
-      {
-        label: 'Delegated',
-        value: formatSocial(eligibility?.delegatedWeight ?? '0'),
-      },
-    ],
-    [eligibility]
-  );
-
-  const statusRow = useMemo(() => {
     const items: Array<{
       label: string;
       value: string;
       valueClassName?: string;
-    }> = [];
+    }> = [
+      {
+        label: 'Wallet',
+        value: formatSocial(eligibility.walletBalance ?? '0'),
+      },
+      {
+        label: 'Staked',
+        value: formatSocial(eligibility.voteAmount ?? '0'),
+      },
+      {
+        label: 'Delegated',
+        value: formatSocial(eligibility.delegatedWeight ?? '0'),
+      },
+    ];
 
     if (cooldownLockedYocto > 0n) {
       items.push({
         label: 'In Cooldown',
-        value: formatSocial(eligibility?.cooldownLockedAmount ?? '0'),
+        value: formatSocial(eligibility.cooldownLockedAmount ?? '0'),
         valueClassName: 'portal-amber-text',
       });
     } else if (withdrawableYocto > 0n) {
       items.push({
         label: 'Withdrawable',
-        value: formatSocial(eligibility?.availableToWithdraw ?? '0'),
+        value: formatSocial(eligibility.availableToWithdraw ?? '0'),
         valueClassName: 'portal-green-text',
       });
     } else if (undelegatedYocto > 0n) {
       items.push({
         label: 'Undelegated',
-        value: formatSocial(eligibility?.availableToDelegate ?? '0'),
+        value: formatSocial(eligibility.availableToDelegate ?? '0'),
         valueClassName: 'portal-blue-text',
       });
     }
 
     items.push({
       label: 'Threshold',
-      value: `${formatSocial(eligibility?.requiredWeight ?? '0')} SOCIAL`,
+      value: `${formatSocial(eligibility.requiredWeight ?? '0')} SOCIAL`,
     });
 
     items.push({
       label: 'Status',
-      value: eligibility?.canPropose
+      value: eligibility.canPropose
         ? 'Eligible'
-        : `${formatSocial(eligibility?.remainingToThreshold ?? '0')} to go`,
-      valueClassName: eligibility?.canPropose
+        : `${formatSocial(eligibility.remainingToThreshold ?? '0')} to go`,
+      valueClassName: eligibility.canPropose
         ? 'portal-green-text'
         : 'portal-blue-text',
     });
 
+    if (eligibility.isInCooldown) {
+      items.push({
+        label: 'Unlock',
+        value: formatCooldownCountdown(eligibility.nextActionTimestamp),
+        valueClassName: 'portal-amber-text',
+      });
+    }
+
     return items;
   }, [
     cooldownLockedYocto,
-    eligibility?.availableToDelegate,
-    eligibility?.availableToWithdraw,
-    eligibility?.canPropose,
-    eligibility?.cooldownLockedAmount,
-    eligibility?.remainingToThreshold,
-    eligibility?.requiredWeight,
+    eligibility,
     undelegatedYocto,
     withdrawableYocto,
   ]);
@@ -946,60 +898,31 @@ export function GovernancePositionPanel() {
             </p>
           </div>
         ) : isInitialLoading ? (
-          <div className="mt-3 space-y-4 border-t border-fade-detail pt-3">
-            <StatGridSkeleton items={3} />
-            <div className="rounded-[1.25rem] border border-border/35 bg-background/20 p-4">
-              <div className="flex items-center justify-between gap-4">
-                <Skeleton className="h-4 w-28 rounded-full" />
-                <Skeleton className="h-4 w-24 rounded-full bg-foreground/[0.06]" />
-              </div>
-            </div>
-            <div className="rounded-[1.5rem] border border-border/40 bg-background/35 p-4 md:p-5">
-              <PanelSkeleton minHeight="13rem" detailLines={2} statBlocks={2} />
-            </div>
+          <div className="mx-auto mt-3 w-full min-w-0 max-w-xl border-t border-fade-detail pt-3">
+            <StatStripSkeleton
+              items={5}
+              columns={3}
+              groupClassName="mt-0"
+              showTopDivider={false}
+            />
+            <CompactActionSkeleton className="mt-3 pt-3" />
           </div>
         ) : eligibility ? (
-          <>
-            <StatStrip groupClassName="mt-3">
-              {balanceRow.map((item, index) => (
-                <StatStripCell
-                  key={item.label}
-                  label={item.label}
-                  value={item.value}
-                  showDivider={index < balanceRow.length - 1}
-                  size="md"
-                />
-              ))}
-            </StatStrip>
-            <StatStrip
-              columns={Math.min(statusRow.length, 3)}
-              groupClassName="border-t-0"
-            >
-              {statusRow.map((item, index) => (
+          <div className="mx-auto mt-3 w-full min-w-0 max-w-xl">
+            <StatStrip columns={3} groupClassName="mt-0">
+              {positionOverviewItems.map((item, index) => (
                 <StatStripCell
                   key={item.label}
                   label={item.label}
                   value={item.value}
                   valueClassName={item.valueClassName}
-                  showDivider={index < statusRow.length - 1}
-                  size="md"
+                  showDivider={index < positionOverviewItems.length - 1}
+                  size="sm"
                 />
               ))}
             </StatStrip>
-            {eligibility.isInCooldown ? (
-              <StatStrip columns={1} groupClassName="border-t-0">
-                <StatStripCell
-                  label="Unlock"
-                  value={formatCooldownCountdown(
-                    eligibility.nextActionTimestamp
-                  )}
-                  valueClassName="portal-amber-text"
-                  size="md"
-                />
-              </StatStrip>
-            ) : null}
 
-            <div className="mt-5 border-t border-fade-detail pt-5">
+            <div className="mt-3 pt-3">
               <div className="flex flex-wrap gap-2">
                 {(
                   [
@@ -1032,191 +955,145 @@ export function GovernancePositionPanel() {
                 })}
               </div>
 
-              <motion.div
-                layout
-                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                className="mt-4 rounded-[1.5rem] border border-border/40 bg-background/35 p-4 md:p-5"
-              >
-                <motion.p
-                  layout="position"
-                  className="portal-type-label font-medium uppercase tracking-[0.16em] text-muted-foreground"
-                >
-                  {actionConfig.title}
-                </motion.p>
-
-                <motion.div layout className="mt-4 flex flex-col gap-3">
-                  <motion.div layout className="flex-1">
-                    <div className="mb-2 flex items-center justify-between gap-3">
-                      <label
-                        htmlFor="governance-amount-input"
-                        className="block portal-type-label font-medium uppercase tracking-[0.16em] text-muted-foreground"
-                      >
-                        Amount
-                      </label>
-                      <div className="flex items-center justify-end gap-2">
-                        {showNeededShortcut ? (
-                          <Button
-                            type="button"
-                            onClick={setNeededAmount}
-                            variant="outline"
-                            size="xs"
-                          >
-                            Needed
-                          </Button>
-                        ) : null}
+              <div className="mt-3 flex flex-col gap-3">
+                <div>
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <label
+                      htmlFor="governance-amount-input"
+                      className="block portal-type-label font-medium uppercase tracking-[0.16em] text-muted-foreground"
+                    >
+                      Amount
+                    </label>
+                    <div className="flex items-center justify-end gap-2">
+                      {showNeededShortcut ? (
                         <Button
                           type="button"
-                          onClick={setMaxAmount}
+                          onClick={setNeededAmount}
                           variant="outline"
                           size="xs"
                         >
-                          Max
+                          Needed
                         </Button>
-                      </div>
+                      ) : null}
+                      <Button
+                        type="button"
+                        onClick={setMaxAmount}
+                        variant="outline"
+                        size="xs"
+                      >
+                        Max
+                      </Button>
                     </div>
-                    <SurfacePanel
-                      radius="md"
-                      tone="inset"
-                      borderTone="subtle"
-                      padding="none"
-                      className="portal-blue-focus flex items-center gap-3 px-4 py-3"
-                    >
-                      <input
-                        id="governance-amount-input"
-                        inputMode="decimal"
-                        placeholder="0"
-                        value={amountInput}
-                        onChange={(event) => {
-                          setAmountInput(
-                            sanitizeAmountInput(event.target.value)
-                          );
-                          setError('');
-                        }}
-                        className="min-w-0 flex-1 bg-transparent text-2xl font-semibold tracking-[-0.02em] outline-none placeholder:text-muted-foreground/50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none md:text-3xl"
-                      />
-                      <span className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground">
-                        {tokenIconSrc ? (
-                          <img
-                            src={tokenIconSrc}
-                            alt="SOCIAL"
-                            className="h-5 w-5 rounded-full object-cover"
-                            onError={() => setTokenIconSrc(null)}
-                          />
-                        ) : (
-                          <>
-                            <img
-                              src="/onsocial_icon.svg"
-                              alt="SOCIAL"
-                              className="h-5 w-5 rounded-full object-cover dark:hidden"
-                            />
-                            <img
-                              src="/onsocial_icon_dark.svg"
-                              alt="SOCIAL"
-                              className="hidden h-5 w-5 rounded-full object-cover dark:block"
-                            />
-                          </>
-                        )}
-                        SOCIAL
-                      </span>
-                    </SurfacePanel>
-                  </motion.div>
-
-                  <motion.div
-                    layout
-                    className="min-h-[4.75rem] rounded-[1rem] border border-border/40 bg-background/45 px-3 py-3 text-sm text-muted-foreground"
-                  >
-                    <AnimatePresence initial={false} mode="wait">
-                      {error ? (
-                        <motion.p
-                          key="governance-action-error"
-                          initial={{ opacity: 0, y: -4 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -4 }}
-                          transition={{ duration: 0.16, ease: 'easeOut' }}
-                          className="portal-red-text"
-                        >
-                          {error}
-                        </motion.p>
-                      ) : actionBlockedReason ? (
-                        <motion.p
-                          key={`governance-action-blocked-${actionMode}`}
-                          initial={{ opacity: 0, y: -4 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -4 }}
-                          transition={{ duration: 0.16, ease: 'easeOut' }}
-                        >
-                          {actionBlockedReason}
-                        </motion.p>
+                  </div>
+                  <div className="portal-field-focus flex items-center gap-2.5 rounded-2xl border border-border/40 bg-background/45 px-3 py-3 md:gap-3 md:px-4 md:py-3.5">
+                    <input
+                      id="governance-amount-input"
+                      inputMode="decimal"
+                      placeholder="0"
+                      value={amountInput}
+                      onChange={(event) => {
+                        setAmountInput(
+                          sanitizeSocialAmountInput(event.target.value)
+                        );
+                        setError('');
+                      }}
+                      className="min-w-0 flex-1 bg-transparent text-sm font-semibold tracking-[-0.02em] outline-none placeholder:text-muted-foreground/50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none md:text-base"
+                    />
+                    <span className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground">
+                      {tokenIconSrc ? (
+                        <img
+                          src={tokenIconSrc}
+                          alt=""
+                          aria-hidden
+                          className="h-5 w-5 rounded-full object-cover"
+                          onError={() => setTokenIconSrc(null)}
+                        />
                       ) : (
-                        <motion.p
-                          key={`governance-action-info-${actionMode}`}
-                          initial={{ opacity: 0, y: -4 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -4 }}
-                          transition={{ duration: 0.16, ease: 'easeOut' }}
-                        >
-                          {actionConfig.info}
-                        </motion.p>
-                      )}
-                    </AnimatePresence>
-                  </motion.div>
-
-                  <Button
-                    type="button"
-                    onClick={() => {
-                      void handleSubmit();
-                    }}
-                    disabled={
-                      !hasValidAmount ||
-                      maxForMode === 0n ||
-                      !!actionBlockedReason ||
-                      actingMode !== null ||
-                      (actionMode === 'delegate' &&
-                        !eligibility?.isInCooldown &&
-                        !!eligibility?.isRegistered &&
-                        BigInt(eligibility.delegateActionNearStorageNeeded) >
-                          0n)
-                    }
-                    loading={actingMode === actionMode}
-                    className="h-11 w-full"
-                  >
-                    {actionConfig.cta}
-                  </Button>
-                </motion.div>
-
-                <AnimatePresence initial={false}>
-                  {actionMetaItems.length > 0 ? (
-                    <motion.div
-                      layout
-                      key={`governance-action-meta-${actionMode}`}
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
-                      className="mt-4 overflow-hidden"
-                    >
-                      <StatStrip columns={Math.min(actionMetaItems.length, 3)}>
-                        {actionMetaItems.map((item, index) => (
-                          <StatStripCell
-                            key={item.label}
-                            label={item.label}
-                            value={item.value}
-                            valueClassName={
-                              item.tone === 'muted'
-                                ? 'text-muted-foreground font-mono'
-                                : 'text-foreground font-mono'
-                            }
-                            showDivider={index < actionMetaItems.length - 1}
-                            size="md"
+                        <>
+                          <img
+                            src="/onsocial_icon.svg"
+                            alt=""
+                            aria-hidden
+                            className="h-5 w-5 rounded-full object-cover dark:hidden"
                           />
-                        ))}
-                      </StatStrip>
-                    </motion.div>
-                  ) : null}
-                </AnimatePresence>
-              </motion.div>
+                          <img
+                            src="/onsocial_icon_dark.svg"
+                            alt=""
+                            aria-hidden
+                            className="hidden h-5 w-5 rounded-full object-cover dark:block"
+                          />
+                        </>
+                      )}
+                      SOCIAL
+                    </span>
+                  </div>
+                </div>
+
+                {actionMetaLine ? (
+                  <p className="text-xs text-muted-foreground">{actionMetaLine}</p>
+                ) : null}
+
+                <div className="min-h-[1.25rem] text-sm text-muted-foreground">
+                  <AnimatePresence initial={false} mode="wait">
+                    {error ? (
+                      <motion.p
+                        key="governance-action-error"
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, transition: { duration: 0 } }}
+                        transition={{ duration: 0.16, ease: 'easeOut' }}
+                        className="portal-red-text"
+                      >
+                        {error}
+                      </motion.p>
+                    ) : actionBlockedReason ? (
+                      <motion.p
+                        key={`governance-action-blocked-${actionMode}`}
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, transition: { duration: 0 } }}
+                        transition={{ duration: 0.16, ease: 'easeOut' }}
+                      >
+                        {actionBlockedReason}
+                      </motion.p>
+                    ) : (
+                      <motion.p
+                        key={`governance-action-info-${actionMode}`}
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, transition: { duration: 0 } }}
+                        transition={{ duration: 0.16, ease: 'easeOut' }}
+                      >
+                        {actionConfig.info}
+                      </motion.p>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                <Button
+                  type="button"
+                  onClick={() => {
+                    void handleSubmit();
+                  }}
+                  disabled={
+                    !hasValidAmount ||
+                    maxForMode === 0n ||
+                    !!actionBlockedReason ||
+                    actingMode !== null ||
+                    (actionMode === 'delegate' &&
+                      !eligibility?.isInCooldown &&
+                      !!eligibility?.isRegistered &&
+                      BigInt(eligibility.delegateActionNearStorageNeeded) >
+                        0n)
+                  }
+                  loading={actingMode === actionMode}
+                  className="h-11 w-full"
+                >
+                  {actionConfig.cta}
+                </Button>
+              </div>
             </div>
-          </>
+          </div>
         ) : null}
       </SurfacePanel>
     </>

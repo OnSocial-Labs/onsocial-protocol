@@ -20,6 +20,28 @@ type GovernanceDaoProposalRecord = {
   kind?: Record<string, unknown>;
   status?: string;
   submission_time?: string;
+  vote_counts?: Record<string, [string, string, string]>;
+  votes?: Record<string, string>;
+  last_actions_log?: Array<{ block_height: string }>;
+};
+
+type GovernanceDaoProposalSnapshot = {
+  id: number;
+  proposer: string;
+  description: string;
+  kind: Record<string, unknown>;
+  status: string;
+  vote_counts: Record<string, [string, string, string]>;
+  votes: Record<string, string>;
+  submission_time: string;
+  last_actions_log?: Array<{ block_height: string }>;
+};
+
+type GovernanceDaoPolicySnapshot = {
+  roles?: unknown[];
+  default_vote_policy?: unknown;
+  proposal_bond?: string;
+  proposal_period?: string;
 };
 
 type ProtocolGovernanceKind = 'upgrade' | 'treasury' | 'permissions' | 'config';
@@ -47,6 +69,8 @@ type PublicGovernanceApplication = {
     dao_account: string;
     tx_hash: string | null;
     submitted_at: string | null;
+    kind?: Record<string, unknown> | null;
+    snapshot?: GovernanceDaoProposalSnapshot | null;
   } | null;
 };
 
@@ -65,6 +89,88 @@ type GovernanceSyncRow = {
 
 function generateApiKey(): string {
   return `os_live_${randomBytes(32).toString('hex')}`;
+}
+
+function mapDaoProposalSnapshot(
+  proposal: GovernanceDaoProposalRecord
+): GovernanceDaoProposalSnapshot | null {
+  if (typeof proposal.id !== 'number' || proposal.id < 0) {
+    return null;
+  }
+
+  return {
+    id: proposal.id,
+    proposer: proposal.proposer ?? '',
+    description: proposal.description ?? '',
+    kind: proposal.kind ?? {},
+    status: proposal.status ?? 'Unknown',
+    vote_counts: proposal.vote_counts ?? {},
+    votes: proposal.votes ?? {},
+    submission_time: proposal.submission_time ?? '',
+    last_actions_log: proposal.last_actions_log,
+  };
+}
+
+function buildGovernanceProposalFromRecord(
+  proposal: GovernanceDaoProposalRecord,
+  overrides?: Partial<PublicGovernanceProposal>
+): PublicGovernanceProposal {
+  const description = proposal.description?.trim() || null;
+  const snapshot = mapDaoProposalSnapshot(proposal);
+
+  return {
+    proposal_id: proposal.id ?? null,
+    status: proposal.status ?? 'Unknown',
+    proposer: proposal.proposer ?? null,
+    description,
+    dao_account: config.governanceDao,
+    tx_hash: null,
+    submitted_at: proposal.submission_time ?? null,
+    kind: proposal.kind ?? null,
+    snapshot,
+    ...overrides,
+  };
+}
+
+function buildProposalSnapshotsById(
+  proposals: GovernanceDaoProposalRecord[]
+): Map<number, GovernanceDaoProposalSnapshot> {
+  const snapshots = new Map<number, GovernanceDaoProposalSnapshot>();
+
+  for (const proposal of proposals) {
+    const snapshot = mapDaoProposalSnapshot(proposal);
+    if (snapshot) {
+      snapshots.set(snapshot.id, snapshot);
+    }
+  }
+
+  return snapshots;
+}
+
+function enrichApplicationProposalSnapshot(
+  app: PublicGovernanceApplication,
+  snapshotsById: Map<number, GovernanceDaoProposalSnapshot>
+): PublicGovernanceApplication {
+  const proposal = app.governance_proposal;
+  const proposalId = proposal?.proposal_id;
+
+  if (!proposal || proposalId == null || proposal.snapshot) {
+    return app;
+  }
+
+  const snapshot = snapshotsById.get(proposalId);
+  if (!snapshot) {
+    return app;
+  }
+
+  return {
+    ...app,
+    governance_proposal: {
+      ...proposal,
+      kind: proposal.kind ?? snapshot.kind,
+      snapshot,
+    },
+  };
 }
 
 function parseGovernancePayload(
@@ -247,6 +353,131 @@ function containsStakingKeyword(value: string | null | undefined): boolean {
   return typeof value === 'string' && value.toLowerCase().includes('staking');
 }
 
+const DAO_ROLE_DISPLAY_NAMES: Record<string, string> = {
+  delegated_proposers: 'Delegated proposers',
+  guardians: 'Guardians',
+};
+
+function formatDaoRoleDisplayName(roleId: string): string {
+  const normalized = roleId.trim();
+  if (!normalized) {
+    return '';
+  }
+
+  return DAO_ROLE_DISPLAY_NAMES[normalized] ?? normalized;
+}
+
+function readKindStringField(
+  value: unknown,
+  field: string
+): string | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+
+  const raw = (value as Record<string, unknown>)[field];
+  return typeof raw === 'string' && raw.trim() ? raw.trim() : null;
+}
+
+function deriveProtocolProposalHeadline(
+  proposal: GovernanceDaoProposalRecord
+): string {
+  const kindName = getProposalKindName(proposal.kind);
+  const kindPayload = proposal.kind?.[kindName];
+  const descriptionLine = proposal.description?.trim().split('\n')[0]?.trim();
+
+  if (kindName === 'AddMemberToRole' || kindName === 'RemoveMemberFromRole') {
+    const roleId = readKindStringField(kindPayload, 'role');
+    const roleLabel = roleId ? formatDaoRoleDisplayName(roleId) : null;
+    const verb = kindName === 'AddMemberToRole' ? 'Add to' : 'Remove from';
+    if (roleLabel) {
+      return `${verb} ${roleLabel}`;
+    }
+  }
+
+  if (kindName === 'FunctionCall') {
+    const { receiverId, methodName, args } = getFunctionCallShape(proposal.kind);
+    const config =
+      args?.config && typeof args.config === 'object' && !Array.isArray(args.config)
+        ? (args.config as Record<string, unknown>)
+        : null;
+    const appLabel =
+      config && typeof config.label === 'string' ? config.label.trim() : null;
+    const appId =
+      config && typeof config.app_id === 'string' ? config.app_id.trim() : null;
+
+    if (methodName === 'register_app' && (appLabel || appId)) {
+      return appLabel ?? appId ?? descriptionLine ?? 'Partner proposal';
+    }
+
+    if (
+      methodName === 'update_contract' ||
+      methodName === 'update_contract_from_hash'
+    ) {
+      return receiverId
+        ? `Upgrade ${getProtocolSubject(receiverId)}`
+        : 'Upgrade contract';
+    }
+  }
+
+  if (kindName === 'Transfer') {
+    return 'Treasury transfer';
+  }
+
+  if (kindName === 'ChangePolicyRemoveRole') {
+    const roleId = readKindStringField(kindPayload, 'role');
+    const roleLabel = roleId ? formatDaoRoleDisplayName(roleId) : null;
+    if (roleLabel) {
+      return `Remove ${roleLabel}`;
+    }
+
+    return 'Remove DAO role';
+  }
+
+  if (kindName === 'ChangePolicyAddOrUpdateRole') {
+    const roleName =
+      kindPayload &&
+      typeof kindPayload === 'object' &&
+      'role' in kindPayload &&
+      kindPayload.role &&
+      typeof kindPayload.role === 'object'
+        ? readKindStringField(kindPayload.role, 'name')
+        : null;
+    const roleLabel = roleName ? formatDaoRoleDisplayName(roleName) : null;
+    const normalizedDescription = descriptionLine?.toLowerCase() ?? '';
+
+    if (
+      normalizedDescription.includes('permission') ||
+      normalizedDescription.includes('permissions')
+    ) {
+      return roleLabel
+        ? `Update ${roleLabel} permissions`
+        : 'Update DAO role permissions';
+    }
+
+    if (
+      normalizedDescription.startsWith('add ') &&
+      normalizedDescription.includes(' role')
+    ) {
+      return roleLabel ? `Add ${roleLabel} role` : 'Add DAO role';
+    }
+
+    if (roleLabel) {
+      return `Update ${roleLabel}`;
+    }
+  }
+
+  if (kindName === 'ChangePolicyUpdateParameters') {
+    return descriptionLine || 'Update DAO parameters';
+  }
+
+  if (kindName === 'ChangePolicyUpdateDefaultVotePolicy') {
+    return descriptionLine || 'Update vote policy';
+  }
+
+  return descriptionLine || 'Governance proposal';
+}
+
 function getProtocolSubject(accountId: string | null): string {
   if (!accountId) {
     return 'OnSocial protocol';
@@ -343,15 +574,9 @@ function mapPartnerProposalToFeedItem(
     x_handle: null,
     created_at: parseSubmissionTimeToIso(proposal.submission_time),
     governance_scope: 'partners',
-    governance_proposal: {
-      proposal_id: proposal.id ?? null,
-      status: proposal.status ?? 'Unknown',
-      proposer: proposal.proposer ?? null,
+    governance_proposal: buildGovernanceProposalFromRecord(proposal, {
       description,
-      dao_account: config.governanceDao,
-      tx_hash: null,
-      submitted_at: proposal.submission_time ?? null,
-    },
+    }),
   };
 }
 
@@ -446,8 +671,7 @@ function mapProtocolProposalToFeedItem(
   }
 
   const description = proposal.description?.trim() || null;
-  const label =
-    description?.split('\n')[0]?.trim() || `${classified.subject} proposal`;
+  const label = deriveProtocolProposalHeadline(proposal);
 
   return {
     app_id: `protocol-proposal-${proposal.id ?? 'unknown'}`,
@@ -469,22 +693,25 @@ function mapProtocolProposalToFeedItem(
     protocol_subject: classified.subject,
     protocol_target_account: classified.targetAccount,
     protocol_target_method: classified.targetMethod,
-    governance_proposal: {
-      proposal_id: proposal.id ?? null,
-      status: proposal.status ?? 'Unknown',
-      proposer: proposal.proposer ?? null,
+    governance_proposal: buildGovernanceProposalFromRecord(proposal, {
       description,
-      dao_account: config.governanceDao,
-      tx_hash: null,
-      submitted_at: proposal.submission_time ?? null,
-    },
+    }),
   };
 }
 
 async function fetchDaoGovernanceFeed(): Promise<{
   partnerItems: PublicGovernanceApplication[];
   protocolItems: PublicGovernanceApplication[];
+  daoPolicy: GovernanceDaoPolicySnapshot | null;
+  snapshotsById: Map<number, GovernanceDaoProposalSnapshot>;
 }> {
+  const empty = {
+    partnerItems: [],
+    protocolItems: [],
+    daoPolicy: null,
+    snapshotsById: new Map<number, GovernanceDaoProposalSnapshot>(),
+  };
+
   try {
     const lastProposalId = await viewContractAt<number>(
       config.governanceDao,
@@ -493,7 +720,7 @@ async function fetchDaoGovernanceFeed(): Promise<{
     );
 
     if (typeof lastProposalId !== 'number' || lastProposalId < 0) {
-      return { partnerItems: [], protocolItems: [] };
+      return empty;
     }
 
     const limit = Math.min(lastProposalId + 1, PROTOCOL_PROPOSAL_SCAN_LIMIT);
@@ -505,9 +732,16 @@ async function fetchDaoGovernanceFeed(): Promise<{
     );
 
     if (!Array.isArray(proposals)) {
-      return { partnerItems: [], protocolItems: [] };
+      return empty;
     }
 
+    const daoPolicy = await viewContractAt<GovernanceDaoPolicySnapshot>(
+      config.governanceDao,
+      'get_policy',
+      {}
+    ).catch(() => null);
+
+    const snapshotsById = buildProposalSnapshotsById(proposals);
     const partnerItems = proposals
       .map(mapPartnerProposalToFeedItem)
       .filter((item): item is PublicGovernanceApplication => item !== null)
@@ -517,9 +751,9 @@ async function fetchDaoGovernanceFeed(): Promise<{
       .filter((item): item is PublicGovernanceApplication => item !== null)
       .reverse();
 
-    return { partnerItems, protocolItems };
+    return { partnerItems, protocolItems, daoPolicy, snapshotsById };
   } catch {
-    return { partnerItems: [], protocolItems: [] };
+    return empty;
   }
 }
 
@@ -700,7 +934,10 @@ export function parseGovernanceFeedScope(value: unknown): GovernanceFeedScope {
 
 export async function getGovernanceFeedApplications(
   scope: GovernanceFeedScope = 'all'
-) {
+): Promise<{
+  applications: PublicGovernanceApplication[];
+  daoPolicy: GovernanceDaoPolicySnapshot | null;
+}> {
   const includePartners = scope === 'all' || scope === 'partners';
   const includeProtocol = scope === 'all' || scope === 'protocol';
 
@@ -742,7 +979,12 @@ export async function getGovernanceFeedApplications(
   const daoFeed =
     includePartners || includeProtocol
       ? await fetchDaoGovernanceFeed()
-      : { partnerItems: [], protocolItems: [] };
+      : {
+          partnerItems: [],
+          protocolItems: [],
+          daoPolicy: null,
+          snapshotsById: new Map<number, GovernanceDaoProposalSnapshot>(),
+        };
 
   // For DAO-scanned partner items that don't appear in the feed SQL
   // (e.g. app was reopened → partner reapplied → status is now
@@ -771,5 +1013,16 @@ export async function getGovernanceFeedApplications(
     : [];
   const protocolItems = includeProtocol ? daoFeed.protocolItems : [];
 
-  return [...partnerItems, ...scannedPartnerItems, ...protocolItems];
+  const applications = [
+    ...partnerItems,
+    ...scannedPartnerItems,
+    ...protocolItems,
+  ].map((app) =>
+    enrichApplicationProposalSnapshot(app, daoFeed.snapshotsById)
+  );
+
+  return {
+    applications,
+    daoPolicy: daoFeed.daoPolicy,
+  };
 }

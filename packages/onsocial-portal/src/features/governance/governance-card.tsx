@@ -2,18 +2,14 @@
 
 import {
   useEffect,
-  useRef,
+  useMemo,
   useState,
   useCallback,
   type CSSProperties,
 } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowUpRight, ChevronDown, Globe } from 'lucide-react';
-import { FaXTwitter } from 'react-icons/fa6';
-import { RiTelegram2Line } from 'react-icons/ri';
-import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
+import { ArrowUpRight } from 'lucide-react';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
 import { useWallet } from '@/contexts/wallet-context';
@@ -24,79 +20,55 @@ import {
 import { actOnGovernanceProposal } from '@/features/governance/api';
 import { reopenApplication } from '@/features/partners/api';
 import {
-  buildHandleUrl,
   DAO_STATUS_STYLES,
   deriveGovernanceCardView,
   formatActionLabel,
   formatIsoTimestamp,
   HoverTimestamp,
-  loadLiveDaoState,
   renderHighlightedJson,
   safeJsonStringify,
 } from '@/features/governance/governance-card-helpers';
 import {
+  refreshGovernanceProposalAfterAction,
+  useGovernanceCardDaoState,
+} from '@/features/governance/use-governance-card-dao-state';
+import {
+  GovernanceCardSkeleton,
+  GovernanceCardVoteSkeleton,
+  GovernanceCollapsiblePanel,
   GovernanceGuardianActions,
   GovernanceLiveSummary,
   GovernanceReviewTerms,
   GovernanceVoteActivity,
+  PartnerProposalSocialLinks,
   ShareProposal,
 } from '@/features/governance/governance-card-sections';
 import type {
   Application,
   GovernanceDaoAction,
   GovernanceDaoPolicy,
-  GovernanceDaoProposal,
-  GovernanceProposal,
 } from '@/features/governance/types';
-import { viewContract, type OnChainAppConfig } from '@/lib/near-rpc';
+import type { OnChainAppConfig } from '@/lib/near-rpc';
+import { fetchRewardsAppConfig } from '@/features/governance/api';
 import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
+import { GovernanceAccountChip } from '@/features/governance/governance-account-chip';
+import { GovernanceDescriptionClamp } from '@/features/governance/governance-description-clamp';
+import {
+  GovernanceProposalOnChainRefLabel,
+  GovernanceProposalSummary,
+} from '@/features/governance/governance-proposal-identity-row';
+import {
+  derivePartnerCardDescription,
+  deriveProposalPresentationFromDaoProposal,
+  resolveBootstrapDaoProposal,
+} from '@/features/governance/governance-proposal-presentation';
 import { ProtocolGovernanceCard } from '@/features/governance/protocol-governance-card';
+import { buildGovernanceProposalPath } from '@/features/governance/page-utils';
+import { portalCollapseMotion } from '@/features/governance/governance-motion';
+import { GovernanceProposalStrip } from '@/features/governance/governance-proposal-strip';
 
-const POST_ACTION_REFRESH_MS = 5_000;
 const POST_ACTION_REFRESH_WINDOW_MS = 60_000;
 const ONSOCIAL_TELEGRAM_URL = 'https://t.me/onsocialprotocol';
-
-function DescriptionClamp({ text }: { text: string }) {
-  const ref = useRef<HTMLParagraphElement>(null);
-  const [clamped, setClamped] = useState(true);
-  const [needsClamp, setNeedsClamp] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (el) setNeedsClamp(el.scrollHeight > el.clientHeight + 1);
-  }, [text]);
-
-  return (
-    <div className="mt-1.5">
-      <AnimatePresence initial={false}>
-        <motion.div
-          key={clamped ? 'clamped' : 'expanded'}
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-          exit={{ opacity: 0, height: 0 }}
-          transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-          className="overflow-hidden"
-        >
-          <p
-            ref={ref}
-            className={`max-w-3xl text-xs text-muted-foreground ${clamped ? 'line-clamp-2' : ''}`}
-          >
-            {text}
-          </p>
-        </motion.div>
-      </AnimatePresence>
-      {needsClamp && (
-        <button
-          type="button"
-          onClick={() => setClamped((c) => !c)}
-          className="mt-0.5 text-xs text-foreground/50 hover:text-foreground/70"
-        >
-          {clamped ? 'show more' : 'show less'}
-        </button>
-      )}
-    </div>
-  );
-}
 
 function governanceCardStyle(stripColor: string): CSSProperties {
   return {
@@ -108,10 +80,12 @@ function governanceCardStyle(stripColor: string): CSSProperties {
 
 export function GovernanceCard({
   app,
+  feedDaoPolicy = null,
   onGovernanceUpdated,
   interactive = true,
 }: {
   app: Application;
+  feedDaoPolicy?: GovernanceDaoPolicy | null;
   onGovernanceUpdated?: () => void | Promise<void>;
   interactive?: boolean;
 }) {
@@ -119,6 +93,7 @@ export function GovernanceCard({
     return (
       <ProtocolGovernanceCard
         app={app}
+        feedDaoPolicy={feedDaoPolicy}
         onGovernanceUpdated={onGovernanceUpdated}
         interactive={interactive}
       />
@@ -128,6 +103,7 @@ export function GovernanceCard({
   return (
     <PartnerGovernanceCard
       app={app}
+      feedDaoPolicy={feedDaoPolicy}
       onGovernanceUpdated={onGovernanceUpdated}
       interactive={interactive}
     />
@@ -136,10 +112,12 @@ export function GovernanceCard({
 
 function PartnerGovernanceCard({
   app,
+  feedDaoPolicy = null,
   onGovernanceUpdated,
   interactive = true,
 }: {
   app: Application;
+  feedDaoPolicy?: GovernanceDaoPolicy | null;
   onGovernanceUpdated?: () => void | Promise<void>;
   interactive?: boolean;
 }) {
@@ -155,19 +133,20 @@ function PartnerGovernanceCard({
         )
       )
         return;
-      router.push(`/governance/${encodeURIComponent(app.app_id)}`);
+      router.push(
+        buildGovernanceProposalPath(
+          app.app_id,
+          app.governance_proposal?.proposal_id ?? null
+        )
+      );
     },
-    [router, app.app_id]
+    [router, app.app_id, app.governance_proposal?.proposal_id]
   );
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [onChainConfig, setOnChainConfig] = useState<OnChainAppConfig | null>(
     null
   );
   const [configLoading, setConfigLoading] = useState(false);
-  const [daoPolicy, setDaoPolicy] = useState<GovernanceDaoPolicy | null>(null);
-  const [liveProposal, setLiveProposal] =
-    useState<GovernanceDaoProposal | null>(null);
-  const [daoLoading, setDaoLoading] = useState(false);
   const [actionLoading, setActionLoading] =
     useState<GovernanceDaoAction | null>(null);
   const [actionTxHash, setActionTxHash] = useState<string | null>(null);
@@ -183,14 +162,26 @@ function PartnerGovernanceCard({
   const [rawProposalOpen, setRawProposalOpen] = useState(false);
   const { txResult, setTxResult, clearTxResult, trackTransaction } =
     useNearTransactionFeedback(accountId);
-  const proposal: GovernanceProposal | null = app.governance_proposal;
+  const proposal = app.governance_proposal;
   const proposalFallbackStyle = proposal?.status
     ? DAO_STATUS_STYLES[proposal.status]
     : undefined;
-  const daoAccountId = proposal?.dao_account ?? null;
-  const liveProposalId = proposal?.proposal_id ?? null;
-  const hasDaoSource = !!daoAccountId && liveProposalId !== null;
-  const [daoSettled, setDaoSettled] = useState(!hasDaoSource);
+  const {
+    daoAccountId,
+    liveProposalId,
+    hasDaoSource,
+    daoPolicy,
+    liveProposal,
+    daoLoading,
+    daoSettled,
+    setDaoPolicy,
+    setLiveProposal,
+  } = useGovernanceCardDaoState({
+    proposal,
+    feedDaoPolicy,
+    postActionRefreshUntil,
+    onPostActionRefreshComplete: () => setPostActionRefreshUntil(null),
+  });
   const isAppWalletViewer =
     !!accountId &&
     !!app.wallet_id &&
@@ -227,9 +218,7 @@ function PartnerGovernanceCard({
       }
 
       try {
-        const config = await viewContract<OnChainAppConfig>('get_app_config', {
-          app_id: app.app_id,
-        });
+        const config = await fetchRewardsAppConfig(app.app_id);
         if (!cancelled) {
           setOnChainConfig(config);
         }
@@ -252,94 +241,6 @@ function PartnerGovernanceCard({
   }, [app.app_id, app.status]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function loadDaoState() {
-      if (!daoAccountId || liveProposalId === null) {
-        if (!cancelled) {
-          setDaoPolicy(null);
-          setLiveProposal(null);
-          setDaoLoading(false);
-        }
-        return;
-      }
-
-      if (!cancelled) {
-        setDaoLoading(true);
-      }
-
-      try {
-        const { policy, proposal: nextProposal } = await loadLiveDaoState(
-          daoAccountId,
-          liveProposalId
-        );
-        if (!cancelled) {
-          setDaoPolicy(policy);
-          setLiveProposal(nextProposal);
-        }
-      } finally {
-        if (!cancelled) {
-          setDaoLoading(false);
-          setDaoSettled(true);
-        }
-      }
-    }
-
-    void loadDaoState();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [daoAccountId, liveProposalId]);
-
-  useEffect(() => {
-    if (!daoAccountId || liveProposalId === null || !postActionRefreshUntil) {
-      return;
-    }
-
-    const resolvedDaoAccountId = daoAccountId;
-    const resolvedProposalId = liveProposalId;
-    const refreshUntil = postActionRefreshUntil;
-
-    if (Date.now() >= refreshUntil) {
-      setPostActionRefreshUntil(null);
-      return;
-    }
-
-    let cancelled = false;
-
-    async function refreshLiveDaoState() {
-      try {
-        const { policy, proposal: nextProposal } = await loadLiveDaoState(
-          resolvedDaoAccountId,
-          resolvedProposalId
-        );
-        if (!cancelled) {
-          setDaoPolicy(policy);
-          setLiveProposal(nextProposal);
-        }
-      } finally {
-        if (!cancelled) {
-          if (Date.now() + POST_ACTION_REFRESH_MS >= refreshUntil) {
-            setPostActionRefreshUntil(null);
-          }
-        }
-      }
-    }
-
-    const timer = window.setInterval(() => {
-      void refreshLiveDaoState();
-    }, POST_ACTION_REFRESH_MS);
-
-    void refreshLiveDaoState();
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [daoAccountId, liveProposalId, postActionRefreshUntil]);
-
-  useEffect(() => {
     setReopenState('idle');
   }, [app.app_id, app.status]);
 
@@ -356,6 +257,7 @@ function PartnerGovernanceCard({
     rejectVotes,
     removeVotes,
     votingProgress,
+    eligibleVoterAccounts,
     voteEntries,
     submissionTime,
     reviewExpiry,
@@ -448,10 +350,12 @@ function PartnerGovernanceCard({
       }
 
       try {
-        const { policy, proposal: nextProposal } = await loadLiveDaoState(
-          daoAccountId,
-          liveProposalId
-        );
+        const { policy, proposal: nextProposal } =
+          await refreshGovernanceProposalAfterAction({
+            daoAccountId,
+            proposalId: liveProposalId,
+            feedDaoPolicy,
+          });
         setDaoPolicy(policy);
         setLiveProposal(nextProposal);
         await onGovernanceUpdated?.();
@@ -544,12 +448,56 @@ function PartnerGovernanceCard({
   const fallbackMetaLabel = app.status === 'approved' ? 'Approved' : 'Rejected';
   const fallbackMetaTime = formatIsoTimestamp(app.reviewed_at);
 
+  const presentation = useMemo(() => {
+    const base = deriveProposalPresentationFromDaoProposal(
+      liveProposal ?? resolveBootstrapDaoProposal(proposal),
+      {
+        label: app.label,
+        description: app.description ?? proposal?.description,
+      }
+    );
+
+    if (base.actionBadge !== 'Partner') {
+      return base;
+    }
+
+    const subjectAccount =
+      app.wallet_id ?? base.subjectAccount ?? app.app_id;
+    const proposer = base.proposer?.trim() ?? null;
+
+    return {
+      ...base,
+      subjectAccount,
+      targetKind: 'community' as const,
+      targetValue: app.label,
+      showProposerSeparately:
+        !!proposer &&
+        !!subjectAccount &&
+        proposer.toLowerCase() !== subjectAccount.toLowerCase(),
+    };
+  }, [
+    liveProposal,
+    app.label,
+    app.description,
+    app.wallet_id,
+    app.app_id,
+    proposal?.description,
+  ]);
+
+  const descriptionText =
+    presentation.actionBadge === 'Partner'
+      ? derivePartnerCardDescription({
+          appDescription: app.description,
+          onChainDescription: presentation.onChainDescription,
+        })
+      : presentation.onChainDescription;
+
+  if (!daoSettled && hasDaoSource) {
+    return <GovernanceCardSkeleton />;
+  }
+
   return (
-    <div
-      className={`transition-opacity duration-300 ${
-        daoSettled ? 'opacity-100' : 'pointer-events-none opacity-0'
-      }`}
-    >
+    <>
       <TransactionFeedbackToast result={txResult} onClose={clearTxResult} />
       <SurfacePanel
         id={app.app_id}
@@ -564,68 +512,18 @@ function PartnerGovernanceCard({
         onClick={interactive ? handleCardClick : undefined}
       >
         {liveProposalId !== null ? (
-          <div
-            className={`-mx-5 -mt-5 md:-mx-6 md:-mt-6 mb-4 flex items-center justify-between gap-2 rounded-t-[calc(1.5rem-1px)] px-5 md:px-6 py-2.5 pb-4 font-mono text-xs ${liveStatusStyle?.badgeBg ?? proposalFallbackStyle?.badgeBg ?? 'bg-[var(--portal-blue-bg)]'}`}
-            style={{
-              maskImage: 'linear-gradient(to bottom, black 70%, transparent)',
-              WebkitMaskImage:
-                'linear-gradient(to bottom, black 70%, transparent)',
-            }}
-          >
-            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-              <span
-                className={`shrink-0 font-semibold ${liveStatusStyle?.badgeText ?? proposalFallbackStyle?.badgeText ?? 'portal-blue-text'}`}
-              >
-                #{liveProposalId}
-              </span>
-              {functionCallSummary?.methodName && (
-                <>
-                  <span className="shrink-0 text-foreground/20">·</span>
-                  <span className="break-all font-medium text-foreground/60">
-                    {functionCallSummary.methodName}
-                  </span>
-                </>
-              )}
-              {submissionTime && (
-                <>
-                  <span className="shrink-0 text-foreground/20">·</span>
-                  <HoverTimestamp
-                    relative={submissionTime.relative}
-                    absolute={submissionTime.absolute}
-                  />
-                </>
-              )}
-            </div>
-            {liveStatusStyle && (
-              <div className="shrink-0 text-right">
-                <span
-                  className={`inline-flex items-center justify-end gap-1.5 portal-type-label font-semibold uppercase tracking-wide ${liveStatusStyle.badgeText}`}
-                >
-                  {liveStatusStyle.label}
-                  {interactive && (
-                    <ArrowUpRight
-                      aria-hidden="true"
-                      className="h-3 w-3 opacity-70 transition-all duration-200 group-hover/card:-translate-y-0.5 group-hover/card:translate-x-0.5 group-hover/card:opacity-100 group-has-[a:hover]/card:translate-x-0 group-has-[a:hover]/card:translate-y-0 group-has-[a:hover]/card:opacity-70 group-has-[button:hover]/card:translate-x-0 group-has-[button:hover]/card:translate-y-0 group-has-[button:hover]/card:opacity-70"
-                    />
-                  )}
-                </span>
-                {reviewExpiry && (
-                  <div
-                    className={`mt-0.5 portal-type-caption ${reviewExpiry.expired ? 'portal-amber-text' : 'text-muted-foreground'}`}
-                  >
-                    <HoverTimestamp
-                      relative={reviewExpiry.relative}
-                      absolute={reviewExpiry.absolute}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          <GovernanceProposalStrip
+            proposalId={liveProposalId}
+            actionBadge={presentation.actionBadge}
+            submissionTime={submissionTime}
+            statusStyle={liveStatusStyle ?? proposalFallbackStyle ?? null}
+            reviewExpiry={reviewExpiry}
+            interactive={interactive}
+          />
         ) : (
           (app.status === 'approved' || app.status === 'rejected') && (
             <div
-              className={`-mx-5 -mt-5 md:-mx-6 md:-mt-6 mb-4 flex items-center justify-between gap-2 rounded-t-[calc(1.5rem-1px)] px-5 md:px-6 py-2.5 pb-4 font-mono text-xs ${fallbackBadgeBg}`}
+              className={`-mx-5 -mt-5 md:-mx-6 md:-mt-6 mb-4 flex items-center justify-between gap-2 rounded-t-[calc(1.5rem-1px)] px-5 md:px-6 py-2.5 pb-4 font-mono portal-type-body-sm ${fallbackBadgeBg}`}
               style={{
                 maskImage: 'linear-gradient(to bottom, black 70%, transparent)',
                 WebkitMaskImage:
@@ -654,79 +552,41 @@ function PartnerGovernanceCard({
             </div>
           )
         )}
-        <div className="border-b border-fade-section pb-4">
-          <div className="flex items-center justify-between gap-3">
-            {interactive ? (
-              <Link
-                href={`/governance/${encodeURIComponent(app.app_id)}`}
-                className="group min-w-0"
-              >
-                <h3 className="text-lg font-semibold tracking-[-0.02em] text-foreground transition-colors group-hover:text-foreground/80">
-                  {app.label}
-                </h3>
-              </Link>
-            ) : (
-              <h3 className="text-lg font-semibold tracking-[-0.02em] text-foreground transition-colors group-hover:text-foreground/80">
-                {app.label}
-              </h3>
-            )}
-            <div className="flex shrink-0 items-center gap-2">
-              {(app.website_url || app.telegram_handle || app.x_handle) && (
-                <div className="flex items-center gap-2">
-                  {app.website_url && (
-                    <a
-                      href={app.website_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-muted-foreground transition-all hover:scale-110 hover:text-[var(--portal-green)] hover:brightness-125"
-                      aria-label="Website"
-                    >
-                      <PortalHoverTooltip tooltip="Website">
-                        <Globe className="h-[18px] w-[18px]" />
-                      </PortalHoverTooltip>
-                    </a>
-                  )}
-                  {app.telegram_handle && (
-                    <a
-                      href={buildHandleUrl(app.telegram_handle, 'telegram')}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-muted-foreground transition-all hover:scale-110 hover:text-[#26A5E4] hover:brightness-125"
-                      aria-label="Telegram"
-                    >
-                      <PortalHoverTooltip tooltip="Telegram">
-                        <RiTelegram2Line className="h-[18px] w-[18px]" />
-                      </PortalHoverTooltip>
-                    </a>
-                  )}
-                  {app.x_handle && (
-                    <a
-                      href={buildHandleUrl(app.x_handle, 'x')}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-muted-foreground transition-all hover:scale-110 hover:text-foreground hover:brightness-125"
-                      aria-label="X"
-                    >
-                      <PortalHoverTooltip tooltip="X">
-                        <FaXTwitter className="h-[18px] w-[18px]" />
-                      </PortalHoverTooltip>
-                    </a>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-          <p className="mt-0.5 break-all font-mono text-xs text-muted-foreground">
-            {app.app_id}
-            {app.wallet_id && app.wallet_id !== app.app_id && (
-              <>
-                <span className="mx-1 text-border/50">·</span>
-                {app.wallet_id}
-              </>
-            )}
-          </p>
+        <div className="border-b border-fade-section pb-3.5">
+          <GovernanceProposalSummary
+            presentation={presentation}
+            className={
+              interactive ? 'transition-opacity group-hover/card:opacity-90' : undefined
+            }
+            targetFooter={
+              <PartnerProposalSocialLinks
+                websiteUrl={app.website_url}
+                telegramHandle={app.telegram_handle}
+                xHandle={app.x_handle}
+                className="mt-1 justify-end"
+              />
+            }
+          />
 
-          {app.description && <DescriptionClamp text={app.description} />}
+          {presentation.showProposerSeparately && presentation.proposer ? (
+            <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 portal-type-label text-muted-foreground">
+              <span className="shrink-0 portal-eyebrow">
+                Proposer
+              </span>
+              <GovernanceAccountChip
+                accountId={presentation.proposer}
+                avatarClassName="h-5 w-5"
+                compact
+              />
+            </div>
+          ) : null}
+
+          {descriptionText ? (
+            <GovernanceDescriptionClamp
+              text={descriptionText}
+              className="mt-1.5 sm:mt-2"
+            />
+          ) : null}
         </div>
 
         {!liveProposal && (
@@ -740,29 +600,13 @@ function PartnerGovernanceCard({
           </div>
         )}
 
-        <AnimatePresence initial={false}>
-          {daoLoading && liveProposalId !== null && (
-            <motion.p
-              key="dao-loading"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-              className="mt-4 overflow-hidden text-xs text-muted-foreground"
-            >
-              Fetching live review status…
-            </motion.p>
-          )}
-        </AnimatePresence>
+        {daoLoading && liveProposalId !== null && <GovernanceCardVoteSkeleton />}
 
         <AnimatePresence initial={false}>
           {!daoLoading && liveProposal && liveStatusStyle && (
             <motion.div
               key="live-summary"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
+              {...portalCollapseMotion}
               className="overflow-hidden"
             >
               <div className="mt-4">
@@ -789,6 +633,7 @@ function PartnerGovernanceCard({
                   accountId={accountId}
                   latestActionLink={latestActionLink}
                   activeVotingRole={activeVotingRole}
+                  eligibleVoterAccounts={eligibleVoterAccounts}
                 />
 
                 {functionCallSummary && (
@@ -805,41 +650,22 @@ function PartnerGovernanceCard({
                 )}
 
                 {rawDaoProposal && (
-                  <div className="mt-3 border-t border-fade-detail pt-3">
-                    <button
-                      type="button"
-                      onClick={() => setRawProposalOpen((open) => !open)}
-                      aria-expanded={rawProposalOpen}
-                      className="group flex w-full items-center justify-between gap-3 rounded-[0.75rem] px-3 py-2 text-left transition-colors hover:bg-foreground/[0.03] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60"
-                    >
-                      <p className="portal-eyebrow-wide text-muted-foreground transition-colors group-hover:text-foreground/80">
-                        Raw proposal
-                      </p>
-                      <ChevronDown
-                        className={`h-3.5 w-3.5 text-muted-foreground transition-[color,transform] duration-200 group-hover:text-foreground/80 ${rawProposalOpen ? 'rotate-180' : ''}`}
-                      />
-                    </button>
-
-                    <AnimatePresence initial={false}>
-                      {rawProposalOpen ? (
-                        <motion.div
-                          key="raw-proposal"
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          transition={{
-                            duration: 0.3,
-                            ease: [0.25, 0.1, 0.25, 1],
-                          }}
-                          className="overflow-hidden"
-                        >
-                          <pre className="mt-3 overflow-x-auto rounded-[1rem] border border-border/30 bg-background/70 p-4 text-xs leading-6">
-                            <code>{renderHighlightedJson(rawDaoProposal)}</code>
-                          </pre>
-                        </motion.div>
-                      ) : null}
-                    </AnimatePresence>
-                  </div>
+                  <GovernanceCollapsiblePanel
+                    label="Raw proposal"
+                    isOpen={rawProposalOpen}
+                    onToggle={() => setRawProposalOpen((open) => !open)}
+                  >
+                    {presentation.onChainAction ? (
+                      <div className="mt-2 flex min-w-0 items-center overflow-hidden">
+                        <GovernanceProposalOnChainRefLabel
+                          presentation={presentation}
+                        />
+                      </div>
+                    ) : null}
+                    <pre className="mt-2 overflow-x-auto rounded-[1rem] border border-border/30 bg-background/70 p-4 text-xs leading-6">
+                      <code>{renderHighlightedJson(rawDaoProposal)}</code>
+                    </pre>
+                  </GovernanceCollapsiblePanel>
                 )}
 
                 <GovernanceGuardianActions
@@ -879,8 +705,12 @@ function PartnerGovernanceCard({
           />
         )}
 
-        <ShareProposal appId={app.app_id} label={app.label} />
+        <ShareProposal
+          appId={app.app_id}
+          label={presentation.headline}
+          proposalId={liveProposalId}
+        />
       </SurfacePanel>
-    </div>
+    </>
   );
 }

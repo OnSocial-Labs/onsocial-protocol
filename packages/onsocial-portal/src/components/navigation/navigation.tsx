@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   Activity,
+  ArrowLeftRight,
   ArrowUpRight,
   ChevronDown,
   Eye,
@@ -17,6 +18,7 @@ import {
   Package,
   Play,
   Search,
+  Shield,
   User,
 } from 'lucide-react';
 import { BrandLogo } from '@/components/brand-logo';
@@ -85,6 +87,12 @@ const baseNavGroups: NavGroup[] = [
         icon: Eye,
       },
       {
+        label: 'Get SOCIAL',
+        href: '/swap',
+        description: 'Swap NEAR or USDC on Rhea',
+        icon: ArrowLeftRight,
+      },
+      {
         label: 'Boost',
         href: '/boost',
         description: 'Influence staking & rewards',
@@ -148,6 +156,12 @@ const internalOpsGroup: NavGroup = {
       href: '/ops/analytics',
       description: 'Internal graph and activity overview',
       icon: Activity,
+    },
+    {
+      label: 'Season 0 settlement',
+      href: '/season-zero/admin',
+      description: 'Finalize and publish Genesis Rally rewards',
+      icon: Shield,
     },
   ],
 };
@@ -297,20 +311,23 @@ export function Navigation() {
     [showInternalOps, socialGroup]
   );
   const isOpen = openPathname === pathname;
-  const isActiveItem = (href: string) => {
-    if (href === '/') {
-      return pathname === '/';
-    }
+  const isActiveItem = useCallback(
+    (href: string) => {
+      if (href === '/') {
+        return pathname === '/';
+      }
 
-    return pathname === href || pathname.startsWith(`${href}/`);
-  };
+      return pathname === href || pathname.startsWith(`${href}/`);
+    },
+    [pathname]
+  );
   const activeGroup = useMemo(() => {
     if (pathname === '/') return null;
     return (
       navGroups.find((group) => isGroupActive(group, pathname, isActiveItem)) ??
       null
     );
-  }, [pathname, navGroups]);
+  }, [isActiveItem, pathname, navGroups]);
   const homepageSection = useMemo(
     () =>
       pathname === '/'
@@ -881,7 +898,7 @@ export function Navigation() {
                         casing="uppercase"
                         tracking="normal"
                         className={cn(
-                          'w-full justify-center border-white/10 bg-white/6 px-3 py-1.5 portal-type-caption transition-all group-active:scale-[0.97]',
+                          'mx-auto min-w-0 max-w-[12rem] justify-center truncate whitespace-nowrap border-white/10 bg-white/6 px-3 py-1.5 portal-type-caption transition-all group-active:scale-[0.97]',
                           activeGroup && 'group-hover:border-white/20'
                         )}
                       >

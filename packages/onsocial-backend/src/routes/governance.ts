@@ -10,12 +10,13 @@ const router = Router();
 router.get('/feed', async (req: Request, res: Response): Promise<void> => {
   try {
     const scope = parseGovernanceFeedScope(req.query.scope);
-    const applications = await getGovernanceFeedApplications(scope);
+    const { applications, daoPolicy } = await getGovernanceFeedApplications(scope);
 
     res.json({
       success: true,
       scope,
       applications,
+      daoPolicy,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

@@ -8,8 +8,10 @@ import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
 import { SectionHeader } from '@/components/layout/section-header';
 import { Button } from '@/components/ui/button';
 import { SurfacePanel } from '@/components/ui/surface-panel';
-import { fetchDaoPolicy, fetchGovernanceFeed } from '@/features/governance/api';
+import { fetchGovernanceFeed } from '@/features/governance/api';
+import type { GovernanceDaoPolicy } from '@/features/governance/types';
 import { GovernanceCard } from '@/features/governance/governance-card';
+import { GovernanceCardSkeleton } from '@/features/governance/governance-card-sections';
 import { GovernanceRail } from '@/features/governance/governance-rail';
 import {
   buildGovernanceFeedItems,
@@ -34,6 +36,7 @@ function GovernancePageContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [apps, setApps] = useState<Application[]>([]);
+  const [daoPolicy, setDaoPolicy] = useState<GovernanceDaoPolicy | null>(null);
   const [proposalPeriodNs, setProposalPeriodNs] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -84,12 +87,11 @@ function GovernancePageContent() {
     if (!hasLoadedApps.current) setLoading(true);
     setError('');
     try {
-      const [data, policy] = await Promise.all([
-        fetchGovernanceFeed(),
-        fetchDaoPolicy(),
-      ]);
-      setApps(data);
-      setProposalPeriodNs(policy?.proposal_period ?? null);
+      const { applications, daoPolicy: nextDaoPolicy } =
+        await fetchGovernanceFeed();
+      setApps(applications);
+      setDaoPolicy(nextDaoPolicy);
+      setProposalPeriodNs(nextDaoPolicy?.proposal_period ?? null);
       hasLoadedApps.current = true;
     } catch {
       if (!hasLoadedApps.current) setError('Failed to load governance queue.');
@@ -235,19 +237,8 @@ function GovernancePageContent() {
 
           {isInitialLoading ? (
             <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <SurfacePanel
-                  key={i}
-                  radius="xl"
-                  tone="solid"
-                  borderTone="strong"
-                  padding="roomy"
-                  className="animate-pulse"
-                >
-                  <div className="h-4 w-2/5 rounded bg-muted-foreground/10" />
-                  <div className="mt-3 h-3 w-3/4 rounded bg-muted-foreground/10" />
-                  <div className="mt-6 h-3 w-1/2 rounded bg-muted-foreground/10" />
-                </SurfacePanel>
+              {Array.from({ length: 3 }).map((_, index) => (
+                <GovernanceCardSkeleton key={index} />
               ))}
             </div>
           ) : filteredItems.length === 0 ? (
@@ -272,6 +263,7 @@ function GovernancePageContent() {
                 <GovernanceCard
                   key={`${item.app.app_id}-${item.app.governance_proposal?.proposal_id ?? 'db'}`}
                   app={item.app}
+                  feedDaoPolicy={daoPolicy}
                   onGovernanceUpdated={loadApps}
                 />
               ))}

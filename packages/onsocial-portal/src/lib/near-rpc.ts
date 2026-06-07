@@ -2,8 +2,9 @@
 // failover, and circuit breaker. Browser-safe (native fetch, zero Node.js deps).
 
 import {
-  createNearRpc,
-  FALLBACK_RPC_URLS,
+  createBffNearRpcClient,
+  createConfiguredNearRpc,
+  resolveNearRpcBffEndpoint,
   type NearRpc,
   type Network,
 } from '@onsocial/rpc';
@@ -50,14 +51,24 @@ const GOVERNANCE_DELEGATION_STORAGE_BYTES_OVERHEAD = 16n;
 let _rpc: NearRpc | null = null;
 const _rpcsByNetwork: Partial<Record<Network, NearRpc>> = {};
 
+function createPortalNearRpc(network: Network): NearRpc {
+  if (typeof window !== 'undefined') {
+    return createBffNearRpcClient({
+      endpoint: resolveNearRpcBffEndpoint(),
+      network,
+    });
+  }
+  return createConfiguredNearRpc({
+    network,
+    publicOnly: false,
+    timeoutMs: 8_000,
+    maxRetries: 1,
+  });
+}
+
 function getRpc(): NearRpc {
   if (!_rpc) {
-    _rpc = createNearRpc({
-      primaryUrl: FALLBACK_RPC_URLS[NETWORK],
-      network: NETWORK,
-      timeoutMs: 8_000,
-      maxRetries: 2,
-    });
+    _rpc = createPortalNearRpc(NETWORK);
   }
   return _rpc;
 }
@@ -72,12 +83,7 @@ function getRpcForNetwork(network: Network): NearRpc {
     return existing;
   }
 
-  const rpc = createNearRpc({
-    primaryUrl: FALLBACK_RPC_URLS[network],
-    network,
-    timeoutMs: 8_000,
-    maxRetries: 2,
-  });
+  const rpc = createPortalNearRpc(network);
 
   _rpcsByNetwork[network] = rpc;
   return rpc;
@@ -217,9 +223,27 @@ const NEAR_TX_POLL_INTERVAL_MS = 1_500;
 const NEAR_TX_POLL_TIMEOUT_MS = 45_000;
 
 export function extractNearTransactionHash(result: unknown): string | null {
-  const outcome = result as NearTransactionStatusResponse;
+  if (typeof result === 'string') {
+    const trimmed = result.trim();
+    return trimmed.length >= 40 ? trimmed : null;
+  }
 
-  return outcome.transaction_outcome?.id ?? outcome.transaction?.hash ?? null;
+  if (!result || typeof result !== 'object') {
+    return null;
+  }
+
+  const outcome = result as NearTransactionStatusResponse & {
+    hash?: string;
+    transactionHash?: string;
+  };
+
+  return (
+    outcome.transaction_outcome?.id ??
+    outcome.transaction?.hash ??
+    outcome.hash ??
+    outcome.transactionHash ??
+    null
+  );
 }
 
 export function extractNearTransactionHashes(result: unknown): string[] {
@@ -321,6 +345,34 @@ function extractFailureMessage(value: unknown): string | null {
   }
 }
 
+function extractSwapFailureFromStatus(
+  status: NearTransactionStatusResponse
+): string | null {
+  const topLevelFailure = extractFailureMessage(
+    findFailure([status.status, status.receipts_outcome])
+  );
+  if (topLevelFailure) {
+    return topLevelFailure;
+  }
+
+  for (const receipt of status.receipts_outcome ?? []) {
+    const receiptFailure = extractFailureMessage(
+      findFailure(receipt.outcome?.status)
+    );
+    if (receiptFailure) {
+      return receiptFailure;
+    }
+
+    for (const log of receipt.outcome?.logs ?? []) {
+      if (/slippage error|e68:/i.test(log)) {
+        return log;
+      }
+    }
+  }
+
+  return null;
+}
+
 async function getNearTransactionStatus(
   txHash: string,
   accountId: string
@@ -369,9 +421,7 @@ export async function waitForNearTransactionConfirmation({
       continue;
     }
 
-    const failure = extractFailureMessage(
-      findFailure([status.status, status.receipts_outcome])
-    );
+    const failure = extractSwapFailureFromStatus(status);
 
     if (failure) {
       return {
@@ -610,10 +660,164 @@ export function yoctoToNear(yocto: string): string {
   return frac ? `${whole}.${frac}` : whole;
 }
 
+function normalizeDecimalSeparators(value: string): string {
+  const hasDot = value.includes('.');
+  const commaCount = (value.match(/,/g) ?? []).length;
+
+  if (!hasDot && commaCount === 1) {
+    return value.replace(',', '.');
+  }
+
+  return value.replace(/,/g, '');
+}
+
+/** Strip invalid characters and cap fractional digits for decimal amount inputs. */
+export function sanitizeDecimalAmountInput(
+  value: string,
+  maxFractionDigits: number
+): string {
+  const normalized = normalizeDecimalSeparators(value).replace(/[^\d.]/g, '');
+  const dotIndex = normalized.indexOf('.');
+  let wholePart = '';
+  let fractionPart = '';
+
+  if (dotIndex === -1) {
+    wholePart = normalized;
+  } else {
+    wholePart = normalized.slice(0, dotIndex);
+    fractionPart = normalized.slice(dotIndex + 1).replace(/\./g, '');
+  }
+
+  fractionPart = fractionPart.slice(0, maxFractionDigits);
+  const whole = wholePart.replace(/^0+(?=\d)/, '');
+
+  if (dotIndex === -1) {
+    return whole;
+  }
+
+  return `${whole || '0'}.${fractionPart}`;
+}
+
+export function sanitizeNearAmountInput(value: string): string {
+  return sanitizeDecimalAmountInput(value, NEAR_DECIMALS);
+}
+
+export function sanitizeSocialAmountInput(value: string): string {
+  return sanitizeDecimalAmountInput(value, SOCIAL_DECIMALS);
+}
+
+export function sanitizeIntegerInput(value: string): string {
+  return value.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+}
+
+export function isValidYoctoString(value: string): boolean {
+  return /^\d+$/.test(value);
+}
+
+export function tryParseYoctoBigInt(
+  value: string | null | undefined
+): bigint | null {
+  if (!value || !isValidYoctoString(value)) {
+    return null;
+  }
+
+  try {
+    return BigInt(value);
+  } catch {
+    return null;
+  }
+}
+
+/** Convert human-readable NEAR amount (e.g. "1.5") to yocto string. */
+export function nearToYocto(input: string): string {
+  const s = sanitizeNearAmountInput(input.trim());
+  if (!s || s === '0' || s === '0.') return '0';
+
+  const dotIdx = s.indexOf('.');
+  let whole: string;
+  let frac: string;
+
+  if (dotIdx === -1) {
+    whole = s;
+    frac = '';
+  } else {
+    whole = s.slice(0, dotIdx) || '0';
+    frac = s.slice(dotIdx + 1);
+  }
+
+  const padded = frac.padEnd(NEAR_DECIMALS, '0').slice(0, NEAR_DECIMALS);
+  const raw = whole + padded;
+  return raw.replace(/^0+/, '') || '0';
+}
+
+/** Upper bound for DAO proposal bond edits in the portal (NEAR). */
+export const MAX_PROPOSAL_BOND_NEAR = 100;
+
+const MAX_PROPOSAL_BOND_YOCTO = nearToYocto(String(MAX_PROPOSAL_BOND_NEAR));
+
+export function isProposalBondWithinMax(
+  yocto: string | null | undefined
+): boolean {
+  const parsed = tryParseYoctoBigInt(yocto);
+  const max = tryParseYoctoBigInt(MAX_PROPOSAL_BOND_YOCTO);
+  if (parsed == null || max == null) {
+    return false;
+  }
+
+  return parsed <= max;
+}
+
+export function sanitizeNearProposalBondInput(value: string): string {
+  const sanitized = sanitizeNearAmountInput(value);
+  if (!sanitized) {
+    return sanitized;
+  }
+
+  const yocto = nearToYocto(sanitized);
+  if (isProposalBondWithinMax(yocto)) {
+    return sanitized;
+  }
+
+  return yoctoToNear(MAX_PROPOSAL_BOND_YOCTO);
+}
+
+/** Upper bound for DAO proposal voting period edits in the portal (days). */
+export const MAX_PROPOSAL_PERIOD_DAYS = 28;
+
+export function isProposalPeriodDaysWithinMax(days: string): boolean {
+  const normalized = days.trim();
+  if (!normalized || !/^\d+$/.test(normalized)) {
+    return false;
+  }
+
+  try {
+    return BigInt(normalized) > 0n && BigInt(normalized) <= BigInt(MAX_PROPOSAL_PERIOD_DAYS);
+  } catch {
+    return false;
+  }
+}
+
+export function sanitizeProposalPeriodDaysInput(value: string): string {
+  const sanitized = sanitizeIntegerInput(value);
+  if (!sanitized) {
+    return sanitized;
+  }
+
+  try {
+    if (BigInt(sanitized) > BigInt(MAX_PROPOSAL_PERIOD_DAYS)) {
+      return String(MAX_PROPOSAL_PERIOD_DAYS);
+    }
+  } catch {
+    return sanitized;
+  }
+
+  return sanitized;
+}
+
 /** Convert human-readable SOCIAL amount (e.g. "0.1") to yocto string. */
 export function socialToYocto(input: string): string {
-  const s = input.trim();
-  if (!s || s === '0') return '0';
+  const s = sanitizeSocialAmountInput(input.trim());
+  if (!s || s === '0' || s === '0.') return '0';
 
   const dotIdx = s.indexOf('.');
   let whole: string;
@@ -818,13 +1022,15 @@ function getDelegationStorageCost(accountId: string): string {
 }
 
 function getGovernanceThreshold(policy: GovernancePolicy | null): string {
-  const proposerRole = policy?.roles?.find((role) => {
-    if (role.name === 'partner_proposers') {
-      return true;
-    }
-
-    return role.permissions?.includes('call:AddProposal') ?? false;
-  });
+  const roles = policy?.roles ?? [];
+  const proposerRole =
+    roles.find((role) => role.name === 'delegated_proposers') ??
+    roles.find(
+      (role) =>
+        role.kind?.Member != null &&
+        role.kind.Member !== '' &&
+        (role.permissions ?? []).includes('call:AddProposal')
+    );
 
   return proposerRole?.kind?.Member ?? DEFAULT_GOVERNANCE_PROPOSER_THRESHOLD;
 }
