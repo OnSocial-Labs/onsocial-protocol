@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   fetchDaoPolicy,
   fetchDaoProposal,
@@ -47,9 +47,12 @@ export function useGovernanceCardDaoState({
 }) {
   const daoAccountId = proposal?.dao_account ?? null;
   const liveProposalId = proposal?.proposal_id ?? null;
-  const feedSnapshot = getFeedProposalSnapshot(proposal);
+  const feedSnapshot = useMemo(
+    () => getFeedProposalSnapshot(proposal),
+    [proposal?.snapshot]
+  );
   const hasDaoSource = !!daoAccountId && liveProposalId !== null;
-  const hasBootstrap = hasFeedDaoBootstrap(proposal, feedDaoPolicy);
+  const hasBootstrap = !!feedSnapshot && !!feedDaoPolicy;
 
   const [daoPolicy, setDaoPolicy] = useState<GovernanceDaoPolicy | null>(
     hasBootstrap ? feedDaoPolicy : null
@@ -69,16 +72,6 @@ export function useGovernanceCardDaoState({
   }, [feedDaoPolicy]);
 
   useEffect(() => {
-    if (feedSnapshot) {
-      setLiveProposal(feedSnapshot);
-      if (feedDaoPolicy) {
-        setDaoSettled(true);
-        setDaoLoading(false);
-      }
-    }
-  }, [feedSnapshot, feedDaoPolicy]);
-
-  useEffect(() => {
     let cancelled = false;
 
     async function loadDaoState() {
@@ -92,10 +85,12 @@ export function useGovernanceCardDaoState({
         return;
       }
 
-      if (hasFeedDaoBootstrap(proposal, feedDaoPolicy)) {
+      if (hasBootstrap) {
         if (!cancelled) {
           setDaoPolicy(feedDaoPolicy);
-          setLiveProposal(getFeedProposalSnapshot(proposal));
+          if (feedSnapshot) {
+            setLiveProposal(feedSnapshot);
+          }
           setDaoLoading(false);
           setDaoSettled(true);
         }
@@ -130,7 +125,13 @@ export function useGovernanceCardDaoState({
     return () => {
       cancelled = true;
     };
-  }, [daoAccountId, liveProposalId, proposal, feedDaoPolicy]);
+  }, [
+    daoAccountId,
+    feedSnapshot,
+    feedDaoPolicy,
+    hasBootstrap,
+    liveProposalId,
+  ]);
 
   useEffect(() => {
     if (!daoAccountId || liveProposalId === null || !postActionRefreshUntil) {
