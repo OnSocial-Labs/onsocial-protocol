@@ -83,7 +83,10 @@ export function GovernanceDescriptionClamp({
 
       <button
         type="button"
-        onClick={() => setExpanded((open) => !open)}
+        onClick={(event) => {
+          event.stopPropagation();
+          setExpanded((open) => !open);
+        }}
         aria-expanded={expanded}
         className="mt-0.5 portal-type-label text-foreground/50 transition-colors hover:text-foreground/70"
       >

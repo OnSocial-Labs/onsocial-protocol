@@ -1,8 +1,7 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { useEffect, useState, useCallback, type CSSProperties } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
@@ -45,6 +44,10 @@ import type {
 } from '@/features/governance/types';
 import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
 import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/portal-config';
+import {
+  GOVERNANCE_CARD_INTERACTIVE_LAYER_CLASS,
+  GovernanceCardNavigationLink,
+} from '@/features/governance/governance-card-interaction';
 import { buildGovernanceProposalPath } from '@/features/governance/page-utils';
 
 const POST_ACTION_REFRESH_WINDOW_MS = 60_000;
@@ -70,25 +73,9 @@ export function ProtocolGovernanceCard({
   interactive?: boolean;
 }) {
   const { wallet, accountId, isConnected } = useWallet();
-  const router = useRouter();
-
-  const handleCardClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      const target = e.target as HTMLElement;
-      if (
-        target.closest(
-          'a, button, [role="button"], input, textarea, select, pre, code'
-        )
-      )
-        return;
-      router.push(
-        buildGovernanceProposalPath(
-          app.app_id,
-          app.governance_proposal?.proposal_id ?? null
-        )
-      );
-    },
-    [router, app.app_id, app.governance_proposal?.proposal_id]
+  const proposalHref = buildGovernanceProposalPath(
+    app.app_id,
+    app.governance_proposal?.proposal_id ?? null
   );
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [actionLoading, setActionLoading] =
@@ -308,8 +295,14 @@ export function ProtocolGovernanceCard({
           interactive ? 'group/card cursor-pointer' : ''
         }`}
         style={governanceCardStyle(stripColor)}
-        onClick={interactive ? handleCardClick : undefined}
       >
+        {interactive ? (
+          <GovernanceCardNavigationLink
+            href={proposalHref}
+            label={`View proposal ${app.label}`}
+          />
+        ) : null}
+        <div className={GOVERNANCE_CARD_INTERACTIVE_LAYER_CLASS}>
         {liveProposalId !== null && (
           <GovernanceProposalStrip
             proposalId={liveProposalId}
@@ -445,6 +438,7 @@ export function ProtocolGovernanceCard({
           label={presentation.headline}
           proposalId={liveProposalId}
         />
+        </div>
       </SurfacePanel>
     </>
   );

@@ -1,6 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { GovernanceAccountChip } from '@/features/governance/governance-account-chip';
+import { getPortalProfileUrl } from '@/lib/portal-config';
 import {
   PROPOSAL_TARGET_KIND_LABELS,
   type ProposalPresentation,
@@ -69,10 +71,13 @@ function GovernanceProposalTargetLine({
         className="flex min-w-0 max-w-full flex-col items-end gap-0.5"
       >
         <span className={valueClass}>{targetValue}</span>
-        {showContractAccountId ? (
-          <span className="max-w-full truncate font-mono portal-type-caption leading-none text-muted-foreground/65">
+        {showContractAccountId && targetAccountId ? (
+          <Link
+            href={getPortalProfileUrl(targetAccountId)}
+            className="max-w-full truncate font-mono portal-type-caption leading-none text-muted-foreground/65 transition-opacity hover:opacity-90"
+          >
             {targetAccountId}
-          </span>
+          </Link>
         ) : null}
       </PortalHoverTooltip>
       {footer}
