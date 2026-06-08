@@ -833,7 +833,8 @@ function getProposalVotingRole(
   liveProposal: GovernanceDaoProposal | null,
   daoPolicy: GovernanceDaoPolicy | null,
   connectedRole: GovernanceDaoRole | null,
-  proposalPolicyLabel: string
+  proposalPolicyLabel: string,
+  votingClosed = false
 ): GovernanceDaoRole | null {
   const membership = readMembershipProposalMemberId(liveProposal);
   if (membership?.roleId && daoPolicy?.roles) {
@@ -845,8 +846,11 @@ function getProposalVotingRole(
     }
   }
 
+  const preferVoteTimePolicyRole =
+    votingClosed && hasFrozenProposalPolicySnapshot(liveProposal);
+
   return (
-    connectedRole ??
+    (preferVoteTimePolicyRole ? null : connectedRole) ??
     (daoPolicy?.roles ?? []).find((role) =>
       roleAllowsAction(role, proposalPolicyLabel, 'VoteApprove')
     ) ??
@@ -1278,7 +1282,8 @@ export function deriveGovernanceCardView({
     liveProposal,
     effectiveDaoPolicy,
     connectedRole,
-    proposalPolicyLabel
+    proposalPolicyLabel,
+    votingClosed
   );
   const currentVote = accountId
     ? (liveProposal?.votes?.[accountId] ?? null)
