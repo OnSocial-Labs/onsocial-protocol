@@ -409,8 +409,28 @@ jobs:
               -e 's/__GATEWAY_UPSTREAM__/gateway:8080/g' \
               Caddyfile.template > Caddyfile
 
-            # ── Pull new images ──────────────────────────────────────
-            dc pull caddy gateway notification-worker relayer-0 relayer-1 backend pages </dev/null
+            # ── Pull new images (sequential + retry for GHCR egress blips) ─
+            pull_service_image() {
+              local service="$1"
+              local attempt=1
+              local max_attempts=5
+              while [ "$attempt" -le "$max_attempts" ]; do
+                echo "Pulling ${service} (attempt ${attempt}/${max_attempts})..."
+                if dc pull "$service" </dev/null; then
+                  return 0
+                fi
+                if [ "$attempt" -eq "$max_attempts" ]; then
+                  echo "❌ Failed to pull ${service} after ${max_attempts} attempts" >&2
+                  return 1
+                fi
+                echo "⚠️  Pull failed for ${service}; retrying in $((60 * attempt))s..."
+                sleep $((60 * attempt))
+                attempt=$((attempt + 1))
+              done
+            }
+            for service in caddy gateway notification-worker relayer-1 relayer-0 backend pages; do
+              pull_service_image "$service"
+            done
 
             # ── Rolling restart: relayer-1 → verify → relayer-0 → verify
             echo "Rolling relayer-1..."
