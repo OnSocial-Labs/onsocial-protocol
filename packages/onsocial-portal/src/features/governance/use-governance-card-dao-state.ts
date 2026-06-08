@@ -108,7 +108,8 @@ export function useGovernanceCardDaoState({
           try {
             const enrichedProposal = await fetchDaoProposal(
               liveProposalId,
-              daoAccountId
+              daoAccountId,
+              { live: true }
             );
             if (!cancelled) {
               setLiveProposal((current) =>

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { enrichDaoProposalWithResolvedAt } from '@/features/governance/governance-proposal-resolved-at.server';
 import { GOVERNANCE_DAO_ACCOUNT } from '@/lib/portal-config';
 import { loadDaoProposalFromBackend } from '@/lib/governance-proposal-backend';
 import {
@@ -53,13 +54,17 @@ export async function GET(request: NextRequest) {
     const proposalId = readProposalId(request);
     const cacheKey = `${daoAccountId}:${proposalId}`;
     const live = readLiveFlag(request);
-    const proposal = live
+    const loadedProposal = live
       ? await loadDaoProposalFromBackend(proposalId, daoAccountId, {
           live: true,
         })
       : await proposalCache.getOrLoad(cacheKey, () =>
           loadDaoProposalFromBackend(proposalId, daoAccountId)
         );
+    const proposal = await enrichDaoProposalWithResolvedAt(
+      loadedProposal,
+      daoAccountId
+    );
 
     return NextResponse.json(
       { proposal },

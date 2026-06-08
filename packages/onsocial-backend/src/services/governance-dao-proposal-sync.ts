@@ -201,7 +201,11 @@ export async function syncDaoProposalById(
       './governance-dao-proposal-store.js'
     );
     const cached = await loadDaoProposalSnapshot(daoAccountId, proposalId);
-    if (cached && isTerminalDaoProposalStatus(cached.status)) {
+    if (
+      cached &&
+      isTerminalDaoProposalStatus(cached.status) &&
+      cached.resolvedAt
+    ) {
       return cached.proposalSnapshot;
     }
   }
@@ -249,6 +253,34 @@ async function syncProposalRange(
   return synced;
 }
 
+const TERMINAL_RESOLVED_AT_REFRESH_LIMIT = 10;
+
+async function refreshTerminalProposalsMissingResolvedAt(
+  daoAccountId: string
+): Promise<void> {
+  const result = await query<{ proposal_id: string | number }>(
+    `SELECT proposal_id
+       FROM governance_dao_proposal_snapshots
+      WHERE dao_account_id = $1
+        AND status IN ('Approved', 'Rejected', 'Removed', 'Failed', 'Expired', 'Moved')
+        AND (resolved_at IS NULL OR resolved_at = '')
+      ORDER BY proposal_id ASC
+      LIMIT $2`,
+    [daoAccountId, TERMINAL_RESOLVED_AT_REFRESH_LIMIT]
+  );
+
+  await Promise.all(
+    result.rows.map(async (row) => {
+      const proposalId = Number(row.proposal_id);
+      if (!Number.isInteger(proposalId) || proposalId < 0) {
+        return;
+      }
+
+      await syncDaoProposalById(daoAccountId, proposalId, { live: true });
+    })
+  );
+}
+
 async function refreshOpenDaoProposals(daoAccountId: string): Promise<void> {
   const result = await query<{ proposal_id: string | number }>(
     `SELECT proposal_id
@@ -289,6 +321,7 @@ export async function syncDaoProposalsIncremental(
 
   if (fromIndex > lastProposalId) {
     await refreshOpenDaoProposals(daoAccountId);
+    await refreshTerminalProposalsMissingResolvedAt(daoAccountId);
     return { synced: 0, lastProposalId };
   }
 
@@ -298,6 +331,7 @@ export async function syncDaoProposalsIncremental(
     lastProposalId
   );
   await refreshOpenDaoProposals(daoAccountId);
+  await refreshTerminalProposalsMissingResolvedAt(daoAccountId);
   return { synced, lastProposalId };
 }
 
@@ -365,6 +399,7 @@ export function startDaoProposalBackfillInBackground(
       lastProposalId < 0 ||
       existingCount >= lastProposalId + 1
     ) {
+      await refreshTerminalProposalsMissingResolvedAt(daoAccountId);
       return;
     }
 
@@ -374,6 +409,7 @@ export function startDaoProposalBackfillInBackground(
     );
 
     const { synced } = await syncDaoProposalsBackfill(daoAccountId);
+    await refreshTerminalProposalsMissingResolvedAt(daoAccountId);
     logger.info(
       { daoAccountId, synced, lastProposalId },
       'DAO proposal backfill completed'

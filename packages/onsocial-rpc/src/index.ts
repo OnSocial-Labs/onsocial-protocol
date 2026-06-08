@@ -56,12 +56,20 @@ export function resolveNearArchivalRpcUrl(network: Network = 'testnet'): string 
 }
 
 export function isHistoricalBlockQuery(method: string, params: unknown): boolean {
-  if (method !== 'query' || !params || typeof params !== 'object') {
+  if (!params || typeof params !== 'object') {
     return false;
   }
 
-  const queryParams = params as Record<string, unknown>;
-  return queryParams.block_id != null || queryParams.block_hash != null;
+  const blockParams = params as Record<string, unknown>;
+  if (method === 'block') {
+    return blockParams.block_id != null || blockParams.block_hash != null;
+  }
+
+  if (method !== 'query') {
+    return false;
+  }
+
+  return blockParams.block_id != null || blockParams.block_hash != null;
 }
 
 export function isGarbageCollectedRpcError(
@@ -76,17 +84,22 @@ export function isGarbageCollectedRpcError(
       ? String((error.cause as { name?: string }).name ?? '')
       : '';
 
-  if (causeName === 'GARBAGE_COLLECTED_BLOCK') {
+  if (
+    causeName === 'GARBAGE_COLLECTED_BLOCK' ||
+    causeName === 'UNKNOWN_BLOCK'
+  ) {
     return true;
   }
 
   const data = typeof error.data === 'string' ? error.data : '';
   const message = error.message ?? '';
-  return /garbage collected/i.test(`${message} ${data}`);
+  return /garbage collected|unknown block/i.test(`${message} ${data}`);
 }
 
 function isGarbageCollectedRpcMessage(message: string): boolean {
-  return /GARBAGE_COLLECTED_BLOCK|garbage collected/i.test(message);
+  return /GARBAGE_COLLECTED_BLOCK|UNKNOWN_BLOCK|garbage collected|unknown block/i.test(
+    message
+  );
 }
 
 // --- URL resolution ---
@@ -265,14 +278,21 @@ export function createNearRpc(config: NearRpcConfig): NearRpc {
         if (res.status === 429) {
           throw new Error(`HTTP 429: rate limited by ${url}`);
         }
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-        }
 
         const json = (await res.json()) as NearRpcResponse;
 
+        if (!res.ok) {
+          if (json.error && isGarbageCollectedRpcError(json.error)) {
+            return json;
+          }
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+
         if (json.error) {
           const code = json.error.cause?.name ?? json.error.code;
+          if (isGarbageCollectedRpcError(json.error)) {
+            return json;
+          }
           if (isRateLimitedRpcError(code)) {
             throw new Error(
               `RPC rate limit [${code}]: ${json.error.message || JSON.stringify(json.error)}`,
