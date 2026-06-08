@@ -189,6 +189,85 @@ jobs:
               mv "$tmp" .env.production
             }
 
+            read_env_value() {
+              local key="$1"
+              grep -m1 "^${key}=" .env.production 2>/dev/null \
+                | cut -d= -f2- \
+                | tr -d '\r' \
+                | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' \
+                || true
+            }
+
+            activate_gcloud_on_server() {
+              if [ -f /root/onsocial-gcp-key.json ]; then
+                gcloud auth activate-service-account --key-file=/root/onsocial-gcp-key.json >/dev/null 2>&1 || true
+              fi
+              gcloud config set project onsocial-protocol >/dev/null 2>&1 || true
+            }
+
+            fetch_gsm_secret() {
+              local secret_name="$1"
+              gcloud secrets versions access latest \
+                --secret="$secret_name" \
+                --project=onsocial-protocol 2>/dev/null \
+                | tr -d '\r\n' \
+                | sed 's/[[:space:]]*$//' \
+                || true
+            }
+
+            merge_env_file() {
+              local src="$1"
+              while IFS= read -r line || [ -n "$line" ]; do
+                [ -z "$line" ] && continue
+                case "$line" in
+                  \#*) continue ;;
+                esac
+                local key="${line%%=*}"
+                local val="${line#*=}"
+                upsert_env "$key" "$val"
+              done < "$src"
+            }
+
+            ensure_env_key_from_gsm() {
+              local env_key="$1" secret_name="$2"
+              local required="${3:-1}"
+              if [ -n "$(read_env_value "$env_key")" ]; then
+                return 0
+              fi
+              echo "Fetching ${env_key} from GSM on server (${secret_name})..."
+              activate_gcloud_on_server
+              local value
+              value="$(fetch_gsm_secret "$secret_name")"
+              if [ -z "$value" ]; then
+                if [ "$required" = "0" ]; then
+                  echo "⚠️  ${env_key} not found in GSM (${secret_name})"
+                  return 0
+                fi
+                echo "❌ ${env_key} missing in .env.production and GSM fetch failed (${secret_name})"
+                exit 1
+              fi
+              upsert_env "$env_key" "$value"
+            }
+
+            ensure_required_deploy_secrets() {
+              ensure_env_key_from_gsm "TELEGRAM_BOT_TOKEN" "TELEGRAM_BOT_TOKEN_TESTNET"
+              ensure_env_key_from_gsm "ADMIN_SECRET" "ADMIN_SECRET"
+              ensure_env_key_from_gsm "ADMIN_WALLETS" "ADMIN_WALLETS"
+              ensure_env_key_from_gsm "ONSOCIAL_PORTAL_REWARDS_API_KEY" "ONSOCIAL_PORTAL_REWARDS_API_KEY"
+              ensure_env_key_from_gsm "SEASON_SETTLEMENT_ADMIN_KEY" "SEASON_SETTLEMENT_ADMIN_KEY" 0
+
+              for required in \
+                TELEGRAM_BOT_TOKEN \
+                ADMIN_SECRET \
+                ADMIN_WALLETS \
+                ONSOCIAL_PORTAL_REWARDS_API_KEY; do
+                if [ -z "$(read_env_value "$required")" ]; then
+                  echo "❌ ${required} missing or empty in .env.production after GSM refresh"
+                  exit 1
+                fi
+              done
+            }
+
             load_compose_env() {
               set -a
               # shellcheck disable=SC1091
@@ -198,14 +277,6 @@ jobs:
                 source .env.image
               fi
               set +a
-            }
-
-            require_env_file_key() {
-              local key="$1"
-              if ! grep -q "^${key}=.\\+" .env.production 2>/dev/null; then
-                echo "❌ ${key} missing or empty in .env.production after GSM refresh"
-                exit 1
-              fi
             }
 
             dc() {
@@ -218,15 +289,7 @@ jobs:
             fi
 
             if [ -f deploy_gsm.env ]; then
-              while IFS= read -r line; do
-                [ -z "$line" ] && continue
-                case "$line" in
-                  \#*) continue ;;
-                esac
-                key="${line%%=*}"
-                value="${line#*=}"
-                upsert_env "$key" "$value"
-              done < deploy_gsm.env
+              merge_env_file deploy_gsm.env
             else
               echo "⚠️  /opt/onsocial/deploy_gsm.env not found — GSM secrets not refreshed"
             fi
@@ -248,30 +311,8 @@ jobs:
             upsert_env "HASURA_GRAPHQL_CORS_DOMAIN" "https://testnet.onsocial.id,http://localhost:3000"
             upsert_env "NEARBLOCKS_API_URL" "https://api-testnet.nearblocks.io"
 
-            if ! grep -q '^ONSOCIAL_PORTAL_REWARDS_API_KEY=.\+' .env.production 2>/dev/null; then
-              echo "Fetching ONSOCIAL_PORTAL_REWARDS_API_KEY from GSM on server..."
-              if [ -f /root/onsocial-gcp-key.json ]; then
-                gcloud auth activate-service-account --key-file=/root/onsocial-gcp-key.json >/dev/null 2>&1 || true
-              fi
-              gcloud config set project onsocial-protocol >/dev/null 2>&1 || true
-              PORTAL_REWARDS_KEY="$(
-                gcloud secrets versions access latest \
-                  --secret=ONSOCIAL_PORTAL_REWARDS_API_KEY \
-                  --project=onsocial-protocol 2>/dev/null \
-                  | tr -d '\r\n' \
-                  | sed 's/[[:space:]]*$//' \
-                  || true
-              )"
-              if [ -n "$PORTAL_REWARDS_KEY" ]; then
-                upsert_env "ONSOCIAL_PORTAL_REWARDS_API_KEY" "$PORTAL_REWARDS_KEY"
-              fi
-            fi
             upsert_env "ONSOCIAL_PORTAL_REWARDS_APP_ID" "onsocial_portal"
-
-            require_env_file_key "TELEGRAM_BOT_TOKEN"
-            require_env_file_key "ADMIN_SECRET"
-            require_env_file_key "ADMIN_WALLETS"
-            require_env_file_key "ONSOCIAL_PORTAL_REWARDS_API_KEY"
+            ensure_required_deploy_secrets
             load_compose_env
 
             # ── Health check helpers ─────────────────────────────────
@@ -427,11 +468,8 @@ jobs:
               exit 1
             fi
 
+            ensure_required_deploy_secrets
             load_compose_env
-            require_env_file_key "TELEGRAM_BOT_TOKEN"
-            require_env_file_key "ADMIN_SECRET"
-            require_env_file_key "ADMIN_WALLETS"
-            require_env_file_key "ONSOCIAL_PORTAL_REWARDS_API_KEY"
 
             # ── Backend (Telegram rewards bot) ───────────────────────
             echo "Rolling backend..."
