@@ -3,6 +3,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { fetchDaoPolicy, fetchDaoProposal } from '@/features/governance/api';
 import {
+  ensureGovernanceProposalEventSource,
+  subscribeGovernanceProposalUpdates,
+} from '@/features/governance/governance-proposal-events-client';
+import {
   isTerminalGovernanceProposalStatus,
   mergeGovernanceProposalSnapshot,
   normalizeDaoProposalStatus,
@@ -46,6 +50,13 @@ function isInProgressGovernanceProposalStatus(
 ): boolean {
   const normalized = normalizeDaoProposalStatus(status);
   return normalized === 'InProgress';
+}
+
+async function loadDaoProposalFromDb(
+  proposalId: number,
+  daoAccountId: string
+): Promise<GovernanceDaoProposal | null> {
+  return fetchDaoProposal(proposalId, daoAccountId);
 }
 
 export function useGovernanceCardDaoState({
@@ -109,10 +120,9 @@ export function useGovernanceCardDaoState({
         }
 
         try {
-          const refreshedProposal = await fetchDaoProposal(
+          const refreshedProposal = await loadDaoProposalFromDb(
             liveProposalId,
-            daoAccountId,
-            { live: true }
+            daoAccountId
           );
           if (!cancelled) {
             setLiveProposal((current) =>
@@ -120,7 +130,7 @@ export function useGovernanceCardDaoState({
             );
           }
         } catch {
-          // Keep feed snapshot when live refresh fails.
+          // Keep feed snapshot when DB refresh fails.
         }
 
         return;
@@ -136,7 +146,7 @@ export function useGovernanceCardDaoState({
           feedDaoPolicy
             ? Promise.resolve(feedDaoPolicy)
             : fetchDaoPolicy(daoAccountId),
-          fetchDaoProposal(liveProposalId, daoAccountId),
+          loadDaoProposalFromDb(liveProposalId, daoAccountId),
         ]);
 
         if (!cancelled) {
@@ -161,6 +171,28 @@ export function useGovernanceCardDaoState({
   }, [daoAccountId, feedSnapshot, feedDaoPolicy, hasBootstrap, liveProposalId]);
 
   useEffect(() => {
+    if (!daoAccountId || liveProposalId === null) {
+      return;
+    }
+
+    ensureGovernanceProposalEventSource(daoAccountId);
+
+    return subscribeGovernanceProposalUpdates((updatedProposalId) => {
+      if (updatedProposalId !== liveProposalId) {
+        return;
+      }
+
+      void loadDaoProposalFromDb(liveProposalId, daoAccountId).then(
+        (nextProposal) => {
+          setLiveProposal((current) =>
+            mergeGovernanceProposalSnapshot(current, nextProposal)
+          );
+        }
+      );
+    });
+  }, [daoAccountId, liveProposalId]);
+
+  useEffect(() => {
     if (
       !daoAccountId ||
       liveProposalId === null ||
@@ -182,10 +214,9 @@ export function useGovernanceCardDaoState({
 
     async function pollInProgressProposal() {
       try {
-        const nextProposal = await fetchDaoProposal(
+        const nextProposal = await loadDaoProposalFromDb(
           resolvedProposalId,
-          resolvedDaoAccountId,
-          { live: true }
+          resolvedDaoAccountId
         );
         if (cancelled) {
           return;

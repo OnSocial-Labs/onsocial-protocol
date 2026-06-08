@@ -20,10 +20,16 @@ import { Button } from '@/components/ui/button';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import {
   applyGovernanceFeedApplications,
+  fetchDaoProposal,
   fetchGovernanceFeed,
   fetchGovernanceFeedBootstrap,
   readGovernanceFeedCache,
 } from '@/features/governance/api';
+import {
+  ensureGovernanceProposalEventSource,
+  subscribeGovernanceProposalUpdates,
+} from '@/features/governance/governance-proposal-events-client';
+import { GOVERNANCE_DAO_ACCOUNT } from '@/lib/portal-config';
 import type { GovernanceDaoPolicy } from '@/features/governance/types';
 import { GovernanceCard } from '@/features/governance/governance-card';
 import { GovernanceRail } from '@/features/governance/governance-rail';
@@ -39,6 +45,7 @@ import {
   parseLane,
   parsePage,
   parseStatusFilter,
+  patchGovernanceFeedApplicationSnapshot,
 } from '@/features/governance/page-utils';
 import type { Application } from '@/features/governance/types';
 import type {
@@ -177,6 +184,28 @@ function GovernancePageContent() {
   useEffect(() => {
     loadApps();
   }, [loadApps]);
+
+  useEffect(() => {
+    ensureGovernanceProposalEventSource(GOVERNANCE_DAO_ACCOUNT);
+
+    return subscribeGovernanceProposalUpdates((proposalId) => {
+      void fetchDaoProposal(proposalId, GOVERNANCE_DAO_ACCOUNT).then(
+        (snapshot) => {
+          if (!snapshot) {
+            return;
+          }
+
+          setApps((current) =>
+            patchGovernanceFeedApplicationSnapshot(
+              current,
+              proposalId,
+              snapshot
+            )
+          );
+        }
+      );
+    });
+  }, []);
 
   const feedItems = buildGovernanceFeedItems(apps, { proposalPeriodNs });
   const { laneItems, filteredItems, normalizedQuery } = filterGovernanceItems({

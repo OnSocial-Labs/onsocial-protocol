@@ -1,4 +1,3 @@
-import { GOVERNANCE_DAO_ACCOUNT } from '@/lib/portal-config';
 import {
   REWARDS_CONTRACT,
   viewContractAt,

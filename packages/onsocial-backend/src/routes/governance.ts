@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
+import { subscribeDaoProposalUpdates } from '../services/governance-proposal-events.js';
 import { config } from '../config/index.js';
 import {
   getGovernanceFeedApplications,
@@ -66,6 +67,49 @@ router.get('/feed', async (req: Request, res: Response): Promise<void> => {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     res.status(500).json({ success: false, error: msg });
+  }
+});
+
+router.get('/events', (req: Request, res: Response): void => {
+  try {
+    const daoAccountId = readDaoAccountId(req.query.daoAccountId);
+
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders?.();
+
+    res.write(`event: ready\ndata: ${JSON.stringify({ daoAccountId })}\n\n`);
+
+    const unsubscribe = subscribeDaoProposalUpdates((event) => {
+      if (event.daoAccountId !== daoAccountId) {
+        return;
+      }
+
+      res.write(
+        `event: proposal-updated\ndata: ${JSON.stringify({
+          daoAccountId: event.daoAccountId,
+          proposalId: event.proposalId,
+        })}\n\n`
+      );
+    });
+
+    const heartbeat = setInterval(() => {
+      res.write(': heartbeat\n\n');
+    }, 15_000);
+
+    req.on('close', () => {
+      unsubscribe();
+      clearInterval(heartbeat);
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!res.headersSent) {
+      res.status(400).json({ success: false, error: msg });
+      return;
+    }
+
+    res.end();
   }
 });
 

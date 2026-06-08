@@ -552,6 +552,32 @@ export function mergeGovernanceFeedApplication(
   };
 }
 
+/** Apply a fresh DAO snapshot onto every feed row for the same proposal id. */
+export function patchGovernanceFeedApplicationSnapshot(
+  apps: Application[],
+  proposalId: number,
+  snapshot: GovernanceDaoProposal
+): Application[] {
+  return apps.map((app) => {
+    if (app.governance_proposal?.proposal_id !== proposalId) {
+      return app;
+    }
+
+    if (!app.governance_proposal) {
+      return app;
+    }
+
+    return {
+      ...app,
+      governance_proposal: {
+        ...app.governance_proposal,
+        status: snapshot.status,
+        snapshot,
+      },
+    };
+  });
+}
+
 /** Merge a fast bootstrap list into the slower backend feed without losing snapshots. */
 export function mergeGovernanceFeedApplications(
   bootstrapApps: Application[],

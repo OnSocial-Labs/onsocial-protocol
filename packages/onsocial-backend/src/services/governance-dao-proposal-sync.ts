@@ -15,9 +15,18 @@ import {
   persistDaoProposalSnapshot,
   type PersistedDaoProposalSnapshot,
 } from './governance-dao-proposal-store.js';
+import { publishDaoProposalUpdated } from './governance-proposal-events.js';
 
 const SYNC_BATCH_SIZE = 50;
 const BACKFILL_BATCH_PAUSE_MS = 250;
+const LIVE_SYNC_COALESCE_MS = 4_000;
+const OPEN_PROPOSAL_FEED_REFRESH_TTL_MS = 30_000;
+
+const liveSyncInFlight = new Map<
+  string,
+  Promise<PersistedDaoProposalSnapshot | null>
+>();
+const lastLiveSyncAt = new Map<string, number>();
 
 type GovernanceDaoProposalRecord = {
   id?: number;
@@ -38,6 +47,48 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
+}
+
+function proposalSyncKey(daoAccountId: string, proposalId: number): string {
+  return `${daoAccountId}:${proposalId}`;
+}
+
+async function loadPersistedProposalSnapshot(
+  daoAccountId: string,
+  proposalId: number
+): Promise<PersistedDaoProposalSnapshot | null> {
+  const { loadDaoProposalSnapshot } = await import(
+    './governance-dao-proposal-store.js'
+  );
+  const cached = await loadDaoProposalSnapshot(daoAccountId, proposalId);
+  return cached?.proposalSnapshot ?? null;
+}
+
+async function fetchAndPersistDaoProposalFromChain(
+  daoAccountId: string,
+  proposalId: number,
+  opts: { publishUpdate?: boolean } = {}
+): Promise<PersistedDaoProposalSnapshot | null> {
+  const proposal = await viewContractAt<GovernanceDaoProposalRecord>(
+    daoAccountId,
+    'get_proposal',
+    { id: proposalId }
+  );
+
+  if (!proposal) {
+    return null;
+  }
+
+  const persisted = await enrichAndPersistProposal(daoAccountId, {
+    ...proposal,
+    id: proposal.id ?? proposalId,
+  });
+
+  if (persisted && opts.publishUpdate) {
+    publishDaoProposalUpdated({ daoAccountId, proposalId });
+  }
+
+  return persisted;
 }
 
 function normalizeDaoProposalStatus(
@@ -197,33 +248,47 @@ export async function syncDaoProposalById(
   }
 
   if (!opts.live) {
-    const { loadDaoProposalSnapshot } = await import(
-      './governance-dao-proposal-store.js'
+    const cached = await loadPersistedProposalSnapshot(
+      daoAccountId,
+      proposalId
     );
-    const cached = await loadDaoProposalSnapshot(daoAccountId, proposalId);
-    if (
-      cached &&
-      isTerminalDaoProposalStatus(cached.status) &&
-      cached.resolvedAt
-    ) {
-      return cached.proposalSnapshot;
+    if (cached) {
+      return cached;
     }
+  } else {
+    const syncKey = proposalSyncKey(daoAccountId, proposalId);
+    const now = Date.now();
+    const lastSyncedAt = lastLiveSyncAt.get(syncKey) ?? 0;
+
+    if (now - lastSyncedAt < LIVE_SYNC_COALESCE_MS) {
+      const cached = await loadPersistedProposalSnapshot(
+        daoAccountId,
+        proposalId
+      );
+      if (cached) {
+        return cached;
+      }
+    }
+
+    const inFlight = liveSyncInFlight.get(syncKey);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const syncPromise = fetchAndPersistDaoProposalFromChain(
+      daoAccountId,
+      proposalId,
+      { publishUpdate: true }
+    ).finally(() => {
+      liveSyncInFlight.delete(syncKey);
+      lastLiveSyncAt.set(syncKey, Date.now());
+    });
+
+    liveSyncInFlight.set(syncKey, syncPromise);
+    return syncPromise;
   }
 
-  const proposal = await viewContractAt<GovernanceDaoProposalRecord>(
-    daoAccountId,
-    'get_proposal',
-    { id: proposalId }
-  );
-
-  if (!proposal) {
-    return null;
-  }
-
-  return enrichAndPersistProposal(daoAccountId, {
-    ...proposal,
-    id: proposal.id ?? proposalId,
-  });
+  return fetchAndPersistDaoProposalFromChain(daoAccountId, proposalId);
 }
 
 async function syncProposalRange(
@@ -291,10 +356,18 @@ async function refreshOpenDaoProposals(daoAccountId: string): Promise<void> {
     [daoAccountId]
   );
 
+  const now = Date.now();
+
   await Promise.all(
     result.rows.map(async (row) => {
       const proposalId = Number(row.proposal_id);
       if (!Number.isInteger(proposalId) || proposalId < 0) {
+        return;
+      }
+
+      const syncKey = proposalSyncKey(daoAccountId, proposalId);
+      const lastSyncedAt = lastLiveSyncAt.get(syncKey) ?? 0;
+      if (now - lastSyncedAt < OPEN_PROPOSAL_FEED_REFRESH_TTL_MS) {
         return;
       }
 
