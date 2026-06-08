@@ -945,6 +945,8 @@ describe('GET /v1/governance/feed scoped results', () => {
         ])
       )
       .mockResolvedValueOnce(mockRpcViewResult(DAO_POLICY_FIXTURE));
+    // Persisted vote-time policy lookup during DAO scan enrichment
+    mockQuery.mockResolvedValueOnce(makeRows([]));
     // Secondary DB lookup for unmatched DAO app_ids
     mockQuery.mockResolvedValueOnce(
       makeRows([
@@ -1148,6 +1150,7 @@ describe('GET /v1/governance/feed', () => {
   });
 
   it('supports protocol-only scope', async () => {
+    mockQuery.mockResolvedValueOnce(makeRows([]));
     mockFetch
       .mockResolvedValueOnce(mockRpcViewResult(25))
       .mockResolvedValueOnce(
@@ -1177,7 +1180,7 @@ describe('GET /v1/governance/feed', () => {
     expect(res.body.scope).toBe('protocol');
     expect(res.body.applications).toHaveLength(1);
     expect(res.body.applications[0].governance_scope).toBe('protocol');
-    expect(mockQuery).not.toHaveBeenCalled();
+    expect(mockQuery).toHaveBeenCalledTimes(1);
   });
 });
 

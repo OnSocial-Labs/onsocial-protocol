@@ -4,6 +4,7 @@
 
 import { config } from '../config/index.js';
 import { logger } from '../logger.js';
+import { nearQueryCallFunctionRaw } from './near-rpc-client.js';
 import { relayRewardsAction, type RewardsAction } from './rewards-relay.js';
 
 /**
@@ -273,34 +274,5 @@ async function viewMethodRawAt(
   args: object,
   blockId?: number
 ): Promise<string> {
-  const response = await fetch(config.nearRpcUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    signal: AbortSignal.timeout(10_000),
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: 'backend',
-      method: 'query',
-      params: {
-        request_type: 'call_function',
-        ...(blockId != null ? { block_id: blockId } : { finality: 'final' }),
-        account_id: accountId,
-        method_name: methodName,
-        args_base64: Buffer.from(JSON.stringify(args)).toString('base64'),
-      },
-    }),
-  });
-
-  const rpcResult = (await response.json()) as {
-    result?: { result: number[] };
-    error?: unknown;
-  };
-
-  if (!rpcResult.result) {
-    throw new Error(
-      `RPC error calling ${methodName}: ${JSON.stringify(rpcResult.error)}`
-    );
-  }
-
-  return Buffer.from(rpcResult.result.result).toString();
+  return nearQueryCallFunctionRaw(accountId, methodName, args, blockId);
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowUpRight } from 'lucide-react';
+import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
 import { HoverTimestamp } from '@/features/governance/governance-card-helpers';
 import { portalCollapseTransition } from '@/features/governance/governance-motion';
 import { cn } from '@/lib/utils';
@@ -86,9 +86,10 @@ export function GovernanceProposalStrip({
               </motion.span>
             </AnimatePresence>
             {interactive ? (
-              <ArrowUpRight
-                aria-hidden="true"
-                className="h-3 w-3 opacity-70 transition-all duration-200 group-hover/card:-translate-y-0.5 group-hover/card:translate-x-0.5 group-hover/card:opacity-100 group-has-[a:hover]/card:translate-x-0 group-has-[a:hover]/card:translate-y-0 group-has-[a:hover]/card:opacity-70 group-has-[button:hover]/card:translate-x-0 group-has-[button:hover]/card:translate-y-0 group-has-[button:hover]/card:opacity-70"
+              <ProtocolMotionArrow
+                groupName="card"
+                resetOnNestedInteractiveHover
+                className="h-3 w-3"
               />
             ) : null}
           </span>

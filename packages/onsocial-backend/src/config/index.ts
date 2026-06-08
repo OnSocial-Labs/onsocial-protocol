@@ -54,6 +54,11 @@ export const config = {
     ((process.env.NEAR_NETWORK || 'testnet') === 'mainnet'
       ? 'https://free.rpc.fastnear.com'
       : 'https://test.rpc.fastnear.com'),
+  nearArchivalRpcUrl:
+    process.env.NEAR_ARCHIVAL_RPC_URL ||
+    ((process.env.NEAR_NETWORK || 'testnet') === 'mainnet'
+      ? 'https://archival-rpc.mainnet.near.org'
+      : 'https://archival-rpc.testnet.near.org'),
   governanceDao:
     process.env.GOVERNANCE_DAO_ACCOUNT ||
     ((process.env.NEAR_NETWORK || 'testnet') === 'mainnet'

@@ -3,11 +3,11 @@ import { query } from '../db/index.js';
 import { config } from '../config/index.js';
 import { viewContractAt } from './near.js';
 import {
-  loadDaoPolicySnapshotsByBlock,
-  readProposalSubmissionBlockHeight,
-  resolveProposalPolicySnapshot,
+  isTerminalDaoProposalStatus,
+  resolveProposalPolicySnapshotsForRecords,
   type GovernanceDaoPolicySnapshot,
 } from './governance-proposal-policy-snapshot.js';
+import { loadPersistedPolicySnapshotsByProposalIds } from './governance-proposal-policy-store.js';
 import {
   isRewardsAppRegistered,
   type GovernanceProposalPayload,
@@ -138,21 +138,18 @@ async function buildProposalSnapshotsById(
   proposals: GovernanceDaoProposalRecord[],
   daoAccountId: string
 ): Promise<Map<number, GovernanceDaoProposalSnapshot>> {
-  const blockHeights = proposals
-    .map((proposal) => readProposalSubmissionBlockHeight(proposal))
-    .filter((height): height is number => height !== null);
-  const policyByBlock = await loadDaoPolicySnapshotsByBlock(
+  const policyByProposalId = await resolveProposalPolicySnapshotsForRecords(
     daoAccountId,
-    blockHeights
+    proposals
   );
 
   const snapshots = new Map<number, GovernanceDaoProposalSnapshot>();
 
   for (const proposal of proposals) {
-    const policySnapshot = resolveProposalPolicySnapshot(
-      proposal,
-      policyByBlock
-    );
+    const policySnapshot =
+      typeof proposal.id === 'number'
+        ? (policyByProposalId.get(proposal.id) ?? null)
+        : null;
     const snapshot = mapDaoProposalSnapshot(proposal, policySnapshot);
     if (snapshot) {
       snapshots.set(snapshot.id, snapshot);
@@ -160,6 +157,95 @@ async function buildProposalSnapshotsById(
   }
 
   return snapshots;
+}
+
+function attachPersistedPolicySnapshot(
+  app: PublicGovernanceApplication,
+  policySnapshot: GovernanceDaoPolicySnapshot
+): PublicGovernanceApplication {
+  const proposal = app.governance_proposal;
+  if (!proposal || proposal.proposal_id == null) {
+    return app;
+  }
+
+  const currentSnapshot = proposal.snapshot;
+  const mergedSnapshot: GovernanceDaoProposalSnapshot = currentSnapshot
+    ? { ...currentSnapshot, policy_snapshot: policySnapshot }
+    : {
+        id: proposal.proposal_id,
+        proposer: proposal.proposer ?? '',
+        description: proposal.description ?? '',
+        kind: proposal.kind ?? {},
+        status: proposal.status,
+        vote_counts: {},
+        votes: {},
+        submission_time: proposal.submitted_at ?? '',
+        policy_snapshot: policySnapshot,
+      };
+
+  return {
+    ...app,
+    governance_proposal: {
+      ...proposal,
+      snapshot: mergedSnapshot,
+    },
+  };
+}
+
+async function hydrateDbOnlyPersistedPolicySnapshots(
+  applications: PublicGovernanceApplication[],
+  daoAccountId: string,
+  scannedProposalIds: Set<number>
+): Promise<PublicGovernanceApplication[]> {
+  const missingProposalIds = applications
+    .map((app) => {
+      const proposal = app.governance_proposal;
+      const proposalId = proposal?.proposal_id;
+      const status = proposal?.snapshot?.status ?? proposal?.status;
+
+      if (
+        proposalId == null ||
+        scannedProposalIds.has(proposalId) ||
+        !isTerminalDaoProposalStatus(status) ||
+        proposal?.snapshot?.policy_snapshot
+      ) {
+        return null;
+      }
+
+      return proposalId;
+    })
+    .filter((proposalId): proposalId is number => proposalId !== null);
+
+  if (missingProposalIds.length === 0) {
+    return applications;
+  }
+
+  const persistedByProposalId = await loadPersistedPolicySnapshotsByProposalIds(
+    daoAccountId,
+    missingProposalIds
+  );
+
+  if (persistedByProposalId.size === 0) {
+    return applications;
+  }
+
+  return applications.map((app) => {
+    const proposalId = app.governance_proposal?.proposal_id;
+    if (
+      proposalId == null ||
+      app.governance_proposal?.snapshot?.policy_snapshot ||
+      scannedProposalIds.has(proposalId)
+    ) {
+      return app;
+    }
+
+    const policySnapshot = persistedByProposalId.get(proposalId);
+    if (!policySnapshot) {
+      return app;
+    }
+
+    return attachPersistedPolicySnapshot(app, policySnapshot);
+  });
 }
 
 export function enrichApplicationProposalSnapshot(
@@ -735,12 +821,14 @@ async function fetchDaoGovernanceFeed(): Promise<{
   protocolItems: PublicGovernanceApplication[];
   daoPolicy: GovernanceDaoPolicySnapshot | null;
   snapshotsById: Map<number, GovernanceDaoProposalSnapshot>;
+  scannedProposalIds: Set<number>;
 }> {
   const empty = {
     partnerItems: [],
     protocolItems: [],
     daoPolicy: null,
     snapshotsById: new Map<number, GovernanceDaoProposalSnapshot>(),
+    scannedProposalIds: new Set<number>(),
   };
 
   try {
@@ -785,7 +873,19 @@ async function fetchDaoGovernanceFeed(): Promise<{
       .filter((item): item is PublicGovernanceApplication => item !== null)
       .reverse();
 
-    return { partnerItems, protocolItems, daoPolicy, snapshotsById };
+    const scannedProposalIds = new Set(
+      proposals
+        .map((proposal) => proposal.id)
+        .filter((proposalId): proposalId is number => typeof proposalId === 'number')
+    );
+
+    return {
+      partnerItems,
+      protocolItems,
+      daoPolicy,
+      snapshotsById,
+      scannedProposalIds,
+    };
   } catch {
     return empty;
   }
@@ -1018,6 +1118,7 @@ export async function getGovernanceFeedApplications(
           protocolItems: [],
           daoPolicy: null,
           snapshotsById: new Map<number, GovernanceDaoProposalSnapshot>(),
+          scannedProposalIds: new Set<number>(),
         };
 
   // For DAO-scanned partner items that don't appear in the feed SQL
@@ -1047,11 +1148,15 @@ export async function getGovernanceFeedApplications(
     : [];
   const protocolItems = includeProtocol ? daoFeed.protocolItems : [];
 
-  const applications = [
-    ...partnerItems,
-    ...scannedPartnerItems,
-    ...protocolItems,
-  ].map((app) => enrichApplicationProposalSnapshot(app, daoFeed.snapshotsById));
+  const applications = await hydrateDbOnlyPersistedPolicySnapshots(
+    [
+      ...partnerItems,
+      ...scannedPartnerItems,
+      ...protocolItems,
+    ].map((app) => enrichApplicationProposalSnapshot(app, daoFeed.snapshotsById)),
+    config.governanceDao,
+    daoFeed.scannedProposalIds
+  );
 
   return {
     applications,

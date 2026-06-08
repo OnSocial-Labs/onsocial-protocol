@@ -2,6 +2,10 @@ import {
   fetchWithRetry,
   getDaoPolicyAtBlockCached,
 } from './governance-policy-block-cache.js';
+import {
+  loadPersistedPolicySnapshotsByProposalIds,
+  persistProposalPolicySnapshot,
+} from './governance-proposal-policy-store.js';
 import { viewContractAtBlock } from './near.js';
 
 export type GovernanceDaoPolicySnapshot = {
@@ -88,4 +92,80 @@ export function resolveProposalPolicySnapshot(
   }
 
   return policyByBlock.get(blockHeight) ?? null;
+}
+
+type ProposalPolicySnapshotSource = {
+  id?: number;
+  status?: string;
+  last_actions_log?: Array<{ block_height?: string | number }>;
+};
+
+/** Load durable snapshots first, then RPC+archival, persisting new captures. */
+export async function resolveProposalPolicySnapshotsForRecords(
+  daoAccountId: string,
+  proposals: ProposalPolicySnapshotSource[]
+): Promise<Map<number, GovernanceDaoPolicySnapshot>> {
+  const terminalProposals = proposals.filter(
+    (proposal) =>
+      typeof proposal.id === 'number' &&
+      proposal.id >= 0 &&
+      isTerminalDaoProposalStatus(proposal.status)
+  );
+
+  const proposalIds = terminalProposals
+    .map((proposal) => proposal.id)
+    .filter((proposalId): proposalId is number => proposalId !== undefined);
+
+  const persistedByProposalId = await loadPersistedPolicySnapshotsByProposalIds(
+    daoAccountId,
+    proposalIds
+  );
+
+  const proposalsNeedingFetch = terminalProposals.filter(
+    (proposal) =>
+      typeof proposal.id === 'number' && !persistedByProposalId.has(proposal.id)
+  );
+
+  const blockHeights = proposalsNeedingFetch
+    .map((proposal) => readProposalSubmissionBlockHeight(proposal))
+    .filter((height): height is number => height !== null);
+
+  const policyByBlock = await loadDaoPolicySnapshotsByBlock(
+    daoAccountId,
+    blockHeights
+  );
+
+  const policyByProposalId = new Map<number, GovernanceDaoPolicySnapshot>(
+    persistedByProposalId
+  );
+  const persistTasks: Array<Promise<void>> = [];
+
+  for (const proposal of proposalsNeedingFetch) {
+    if (typeof proposal.id !== 'number') {
+      continue;
+    }
+
+    const policySnapshot = resolveProposalPolicySnapshot(proposal, policyByBlock);
+    if (!policySnapshot) {
+      continue;
+    }
+
+    policyByProposalId.set(proposal.id, policySnapshot);
+
+    const submissionBlockHeight = readProposalSubmissionBlockHeight(proposal);
+    if (submissionBlockHeight !== null) {
+      persistTasks.push(
+        persistProposalPolicySnapshot({
+          daoAccountId,
+          proposalId: proposal.id,
+          submissionBlockHeight,
+          policySnapshot,
+        })
+      );
+    }
+  }
+
+  await Promise.allSettled(persistTasks);
+
+  return policyByProposalId;
 }

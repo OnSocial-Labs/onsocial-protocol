@@ -1,4 +1,5 @@
 import { getDaoPolicyAtBlockCached } from '@/features/governance/governance-policy-block-cache';
+import { loadPersistedProposalPolicySnapshot } from '@/lib/governance-policy-snapshot-backend';
 import { viewContractAtBlock } from '@/lib/near-rpc';
 import type {
   GovernanceDaoPolicy,
@@ -92,6 +93,24 @@ export async function enrichDaoProposalWithPolicySnapshot(
     return null;
   }
 
+  if (
+    isTerminalDaoProposalStatus(proposal.status) &&
+    !proposal.policy_snapshot &&
+    typeof proposal.id === 'number'
+  ) {
+    const persistedPolicy = await loadPersistedProposalPolicySnapshot(
+      proposal.id,
+      daoAccountId
+    );
+
+    if (persistedPolicy) {
+      return {
+        ...proposal,
+        policy_snapshot: persistedPolicy,
+      };
+    }
+  }
+
   const [enriched] = await enrichDaoProposalsWithPolicySnapshots(
     [proposal],
     daoAccountId
@@ -130,7 +149,34 @@ export async function enrichDaoProposalsWithPolicySnapshots(
     return proposals;
   }
 
-  const blockHeights = proposals
+  const proposalsWithPersistedPolicy = await Promise.all(
+    proposals.map(async (proposal) => {
+      if (
+        proposal.policy_snapshot ||
+        !isTerminalDaoProposalStatus(proposal.status) ||
+        typeof proposal.id !== 'number'
+      ) {
+        return proposal;
+      }
+
+      const persistedPolicy = await loadPersistedProposalPolicySnapshot(
+        proposal.id,
+        daoAccountId
+      );
+
+      if (!persistedPolicy) {
+        return proposal;
+      }
+
+      return {
+        ...proposal,
+        policy_snapshot: persistedPolicy,
+      };
+    })
+  );
+
+  const blockHeights = proposalsWithPersistedPolicy
+    .filter((proposal) => !proposal.policy_snapshot)
     .map((proposal) => readProposalSubmissionBlockHeight(proposal))
     .filter((height): height is number => height !== null);
   const policyByBlock = await loadDaoPolicySnapshotsByBlock(
@@ -138,7 +184,11 @@ export async function enrichDaoProposalsWithPolicySnapshots(
     blockHeights
   );
 
-  return proposals.map((proposal) => {
+  return proposalsWithPersistedPolicy.map((proposal) => {
+    if (proposal.policy_snapshot) {
+      return proposal;
+    }
+
     const policySnapshot = resolveProposalPolicySnapshot(
       proposal,
       policyByBlock

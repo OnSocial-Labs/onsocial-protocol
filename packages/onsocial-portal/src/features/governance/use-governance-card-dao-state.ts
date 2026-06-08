@@ -94,6 +94,28 @@ export function useGovernanceCardDaoState({
           setDaoLoading(false);
           setDaoSettled(true);
         }
+
+        const needsPolicySnapshotBackfill =
+          !!feedSnapshot &&
+          isTerminalGovernanceProposalStatus(feedSnapshot.status) &&
+          !feedSnapshot.policy_snapshot;
+
+        if (needsPolicySnapshotBackfill) {
+          try {
+            const enrichedProposal = await fetchDaoProposal(
+              liveProposalId,
+              daoAccountId
+            );
+            if (!cancelled) {
+              setLiveProposal((current) =>
+                mergeGovernanceProposalSnapshot(current, enrichedProposal)
+              );
+            }
+          } catch {
+            // Keep feed snapshot; vote rule stays hidden when policy is unknown.
+          }
+        }
+
         return;
       }
 

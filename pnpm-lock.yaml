@@ -102,6 +102,12 @@ importers:
 
   packages/onsocial-app:
     dependencies:
+      '@hot-labs/near-connect':
+        specifier: ^0.11.4
+        version: 0.11.4
+      '@onsocial/sdk':
+        specifier: workspace:*
+        version: link:../onsocial-sdk
       next:
         specifier: ^16.1.6
         version: 16.1.6(@babel/core@7.29.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -145,6 +151,9 @@ importers:
 
   packages/onsocial-backend:
     dependencies:
+      '@onsocial/rpc':
+        specifier: workspace:*
+        version: link:../onsocial-rpc
       dotenv:
         specifier: ^17.2.3
         version: 17.2.3
