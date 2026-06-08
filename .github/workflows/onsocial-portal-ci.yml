@@ -5,12 +5,16 @@ on:
     branches: [main, master]
     paths:
       - 'packages/onsocial-portal/**'
+      - 'packages/onsocial-sdk/**'
+      - 'packages/onsocial-text-card/**'
       - 'packages/onsocial-rpc/**'
       - 'pnpm-lock.yaml'
       - '.github/workflows/onsocial-portal-ci.yml'
   pull_request:
     paths:
       - 'packages/onsocial-portal/**'
+      - 'packages/onsocial-sdk/**'
+      - 'packages/onsocial-text-card/**'
       - 'packages/onsocial-rpc/**'
       - 'pnpm-lock.yaml'
       - '.github/workflows/onsocial-portal-ci.yml'
@@ -43,8 +47,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build RPC dependency
-        run: pnpm --filter @onsocial/rpc build
+      - name: Build portal dependencies
+        run: pnpm --filter @onsocial/sdk... run build && pnpm --filter @onsocial/rpc run build
 
       - name: Lint
         run: pnpm --filter @onsocial/portal lint

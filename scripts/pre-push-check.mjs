@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * Runs lint, format, build, and test for packages affected by commits being pushed.
- * Direct path changes plus workspace dependents are checked (e.g. rpc → backend/portal/gateway).
+ * Checks directly changed packages only by default. Set PRE_PUSH_DEPENDENTS=1 to
+ * also check workspace dependents (e.g. rpc → backend/portal/gateway).
  * Invoked by .husky/pre-push and `pnpm check:push`.
  */
 import { execSync } from 'node:child_process';
@@ -106,8 +107,16 @@ function getDirectlyChangedPackages(changedFiles) {
   return changed;
 }
 
+function shouldExpandDependents() {
+  return (
+    process.env.PRE_PUSH_DEPENDENTS === '1' ||
+    process.env.PRE_PUSH_DEPENDENTS === 'true' ||
+    process.env.PRE_PUSH_DEPENDENTS === 'yes'
+  );
+}
+
 function expandWithDependents(changedPackageNames) {
-  if (process.env.PRE_PUSH_NO_DEPENDENTS === '1') {
+  if (!shouldExpandDependents()) {
     return new Set(changedPackageNames);
   }
 
