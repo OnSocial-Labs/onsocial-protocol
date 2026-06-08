@@ -21,6 +21,7 @@ const SYNC_BATCH_SIZE = 50;
 const BACKFILL_BATCH_PAUSE_MS = 250;
 const LIVE_SYNC_COALESCE_MS = 4_000;
 const OPEN_PROPOSAL_FEED_REFRESH_TTL_MS = 30_000;
+const OPEN_PROPOSAL_BACKGROUND_REFRESH_MS = 60_000;
 
 const liveSyncInFlight = new Map<
   string,
@@ -42,6 +43,8 @@ type GovernanceDaoProposalRecord = {
 
 let incrementalSyncInFlight: Promise<void> | null = null;
 let backfillInFlight: Promise<void> | null = null;
+let openProposalRefreshTimer: ReturnType<typeof setInterval> | null = null;
+let openProposalRefreshInFlight: Promise<void> | null = null;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -450,6 +453,46 @@ export async function ensureDaoProposalsSynced(
   }
 
   await incrementalSyncInFlight;
+}
+
+export function startOpenDaoProposalRefreshInBackground(
+  daoAccountId: string
+): void {
+  if (openProposalRefreshTimer) {
+    return;
+  }
+
+  const tick = () => {
+    if (openProposalRefreshInFlight) {
+      return;
+    }
+
+    openProposalRefreshInFlight = refreshOpenDaoProposals(daoAccountId)
+      .catch((error) => {
+        logger.warn(
+          { err: error, daoAccountId },
+          'Open DAO proposal background refresh failed'
+        );
+      })
+      .finally(() => {
+        openProposalRefreshInFlight = null;
+      });
+  };
+
+  openProposalRefreshTimer = setInterval(
+    tick,
+    OPEN_PROPOSAL_BACKGROUND_REFRESH_MS
+  );
+  openProposalRefreshTimer.unref();
+
+  void tick();
+}
+
+export function stopOpenDaoProposalRefreshInBackground(): void {
+  if (openProposalRefreshTimer) {
+    clearInterval(openProposalRefreshTimer);
+    openProposalRefreshTimer = null;
+  }
 }
 
 export function startDaoProposalBackfillInBackground(

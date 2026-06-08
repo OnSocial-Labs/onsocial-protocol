@@ -14,7 +14,11 @@ import seasonsRoutes from './routes/seasons.js';
 import welcomeNearRoutes from './routes/welcome-near.js';
 import { initPartnerKeyCache } from './middleware/partnerAuth.js';
 import { ensurePortalRewardsPartnerKey } from './services/portal-rewards-key.js';
-import { startDaoProposalBackfillInBackground } from './services/governance-dao-proposal-sync.js';
+import {
+  startDaoProposalBackfillInBackground,
+  startOpenDaoProposalRefreshInBackground,
+  stopOpenDaoProposalRefreshInBackground,
+} from './services/governance-dao-proposal-sync.js';
 
 const app = express();
 
@@ -141,6 +145,7 @@ const server = app.listen(config.port, async () => {
   await initPartnerKeyCache();
 
   startDaoProposalBackfillInBackground(config.governanceDao);
+  startOpenDaoProposalRefreshInBackground(config.governanceDao);
 
   // Telegram: webhook in production, long-polling in dev
   if (config.nodeEnv === 'production') {
@@ -171,6 +176,7 @@ const SHUTDOWN_TIMEOUT_MS = 15_000;
 
 function shutdown(signal: string): void {
   logger.info({ signal }, 'Shutdown signal received, draining connections...');
+  stopOpenDaoProposalRefreshInBackground();
   server.close(async () => {
     try {
       await closeDb();
