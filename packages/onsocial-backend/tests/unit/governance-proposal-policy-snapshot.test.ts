@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { loadPersistedPolicySnapshotsByProposalIds, persistProposalPolicySnapshot } =
-  vi.hoisted(() => ({
-    loadPersistedPolicySnapshotsByProposalIds: vi.fn(),
-    persistProposalPolicySnapshot: vi.fn(),
-  }));
+const {
+  loadPersistedPolicySnapshotsByProposalIds,
+  persistProposalPolicySnapshot,
+} = vi.hoisted(() => ({
+  loadPersistedPolicySnapshotsByProposalIds: vi.fn(),
+  persistProposalPolicySnapshot: vi.fn(),
+}));
 
 vi.mock('../../src/services/governance-proposal-policy-store.js', () => ({
   loadPersistedPolicySnapshotsByProposalIds,
@@ -64,13 +66,16 @@ describe('resolveProposalPolicySnapshotsForRecords', () => {
       new Map([[22, persistedPolicy]])
     );
 
-    const result = await resolveProposalPolicySnapshotsForRecords(daoAccountId, [
-      {
-        id: 22,
-        status: 'Approved',
-        last_actions_log: [{ block_height: '243788555' }],
-      },
-    ]);
+    const result = await resolveProposalPolicySnapshotsForRecords(
+      daoAccountId,
+      [
+        {
+          id: 22,
+          status: 'Approved',
+          last_actions_log: [{ block_height: '243788555' }],
+        },
+      ]
+    );
 
     expect(result.get(22)).toEqual(persistedPolicy);
     expect(persistProposalPolicySnapshot).not.toHaveBeenCalled();
@@ -80,13 +85,16 @@ describe('resolveProposalPolicySnapshotsForRecords', () => {
     const { viewContractAtBlock } = await import('../../src/services/near.js');
     vi.mocked(viewContractAtBlock).mockResolvedValue(fetchedPolicy);
 
-    const result = await resolveProposalPolicySnapshotsForRecords(daoAccountId, [
-      {
-        id: 38,
-        status: 'Approved',
-        last_actions_log: [{ block_height: '12345' }],
-      },
-    ]);
+    const result = await resolveProposalPolicySnapshotsForRecords(
+      daoAccountId,
+      [
+        {
+          id: 38,
+          status: 'Approved',
+          last_actions_log: [{ block_height: '12345' }],
+        },
+      ]
+    );
 
     expect(result.get(38)).toEqual(fetchedPolicy);
     expect(persistProposalPolicySnapshot).toHaveBeenCalledWith({

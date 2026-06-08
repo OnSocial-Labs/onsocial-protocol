@@ -876,7 +876,9 @@ async function fetchDaoGovernanceFeed(): Promise<{
     const scannedProposalIds = new Set(
       proposals
         .map((proposal) => proposal.id)
-        .filter((proposalId): proposalId is number => typeof proposalId === 'number')
+        .filter(
+          (proposalId): proposalId is number => typeof proposalId === 'number'
+        )
     );
 
     return {
@@ -1149,11 +1151,9 @@ export async function getGovernanceFeedApplications(
   const protocolItems = includeProtocol ? daoFeed.protocolItems : [];
 
   const applications = await hydrateDbOnlyPersistedPolicySnapshots(
-    [
-      ...partnerItems,
-      ...scannedPartnerItems,
-      ...protocolItems,
-    ].map((app) => enrichApplicationProposalSnapshot(app, daoFeed.snapshotsById)),
+    [...partnerItems, ...scannedPartnerItems, ...protocolItems].map((app) =>
+      enrichApplicationProposalSnapshot(app, daoFeed.snapshotsById)
+    ),
     config.governanceDao,
     daoFeed.scannedProposalIds
   );

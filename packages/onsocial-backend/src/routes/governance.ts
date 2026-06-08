@@ -11,7 +11,9 @@ const router = Router();
 
 function readProposalId(value: unknown): number | null {
   const proposalId =
-    typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+    typeof value === 'number'
+      ? value
+      : Number.parseInt(String(value ?? ''), 10);
 
   if (!Number.isInteger(proposalId) || proposalId < 0) {
     return null;

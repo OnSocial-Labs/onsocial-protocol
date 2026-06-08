@@ -145,7 +145,10 @@ export async function resolveProposalPolicySnapshotsForRecords(
       continue;
     }
 
-    const policySnapshot = resolveProposalPolicySnapshot(proposal, policyByBlock);
+    const policySnapshot = resolveProposalPolicySnapshot(
+      proposal,
+      policyByBlock
+    );
     if (!policySnapshot) {
       continue;
     }
