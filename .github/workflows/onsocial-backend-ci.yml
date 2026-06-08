@@ -5,12 +5,16 @@ on:
     branches: [main]
     paths:
       - 'packages/onsocial-backend/**'
+      - 'packages/onsocial-rpc/**'
+      - 'docker/Dockerfile.backend'
       - '.github/workflows/onsocial-backend-ci.yml'
       - 'pnpm-lock.yaml'
   pull_request:
     branches: [main]
     paths:
       - 'packages/onsocial-backend/**'
+      - 'packages/onsocial-rpc/**'
+      - 'docker/Dockerfile.backend'
       - '.github/workflows/onsocial-backend-ci.yml'
       - 'pnpm-lock.yaml'
   workflow_dispatch:
@@ -67,7 +71,7 @@ jobs:
         run: pnpm --filter onsocial-backend format:check
 
       - name: Build
-        run: pnpm --filter onsocial-backend build
+        run: pnpm --filter @onsocial/rpc build && pnpm --filter onsocial-backend build
 
       - name: Test
         run: pnpm --filter onsocial-backend test
