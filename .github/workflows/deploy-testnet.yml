@@ -143,10 +143,10 @@ jobs:
           PUBLIC_DOMAIN=testnet.onsocial.id \
           bash scripts/pull-secrets.sh > /tmp/deploy_gsm.env
           chmod 600 /tmp/deploy_gsm.env
-          grep -q '^TELEGRAM_BOT_TOKEN=' /tmp/deploy_gsm.env || { echo '❌ TELEGRAM_BOT_TOKEN missing in GSM output'; exit 1; }
-          grep -q '^ADMIN_SECRET=' /tmp/deploy_gsm.env || { echo '❌ ADMIN_SECRET missing in GSM output'; exit 1; }
-          grep -q '^ADMIN_WALLETS=' /tmp/deploy_gsm.env || { echo '❌ ADMIN_WALLETS missing in GSM output'; exit 1; }
-          grep -q '^ONSOCIAL_PORTAL_REWARDS_API_KEY=' /tmp/deploy_gsm.env || { echo '❌ ONSOCIAL_PORTAL_REWARDS_API_KEY missing in GSM output'; exit 1; }
+          grep -q '^TELEGRAM_BOT_TOKEN=.\+' /tmp/deploy_gsm.env || { echo '❌ TELEGRAM_BOT_TOKEN missing or empty in GSM output'; exit 1; }
+          grep -q '^ADMIN_SECRET=.\+' /tmp/deploy_gsm.env || { echo '❌ ADMIN_SECRET missing or empty in GSM output'; exit 1; }
+          grep -q '^ADMIN_WALLETS=.\+' /tmp/deploy_gsm.env || { echo '❌ ADMIN_WALLETS missing or empty in GSM output'; exit 1; }
+          grep -q '^ONSOCIAL_PORTAL_REWARDS_API_KEY=.\+' /tmp/deploy_gsm.env || { echo '❌ ONSOCIAL_PORTAL_REWARDS_API_KEY missing or empty in GSM output'; exit 1; }
 
       - name: Sync config files to server
         run: |
@@ -178,11 +178,38 @@ jobs:
 
             upsert_env() {
               local key="$1" value="$2"
-              if grep -q "^${key}=" .env.production; then
-                sed -i "s|^${key}=.*|${key}=${value}|" .env.production
-              else
-                printf '%s=%s\n' "$key" "$value" >> .env.production
+              local tmp
+              tmp="$(mktemp)"
+              awk -v k="$key" -v v="$value" '
+                BEGIN { done = 0 }
+                $0 ~ "^" k "=" { print k "=" v; done = 1; next }
+                { print }
+                END { if (!done) print k "=" v }
+              ' .env.production > "$tmp"
+              mv "$tmp" .env.production
+            }
+
+            load_compose_env() {
+              set -a
+              # shellcheck disable=SC1091
+              source .env.production
+              if [ -f .env.image ]; then
+                # shellcheck disable=SC1091
+                source .env.image
               fi
+              set +a
+            }
+
+            require_env_file_key() {
+              local key="$1"
+              if ! grep -q "^${key}=.\\+" .env.production 2>/dev/null; then
+                echo "❌ ${key} missing or empty in .env.production after GSM refresh"
+                exit 1
+              fi
+            }
+
+            dc() {
+              docker compose --env-file .env.production "$@"
             }
 
             if [ ! -f .env.production ]; then
@@ -241,6 +268,12 @@ jobs:
             fi
             upsert_env "ONSOCIAL_PORTAL_REWARDS_APP_ID" "onsocial_portal"
 
+            require_env_file_key "TELEGRAM_BOT_TOKEN"
+            require_env_file_key "ADMIN_SECRET"
+            require_env_file_key "ADMIN_WALLETS"
+            require_env_file_key "ONSOCIAL_PORTAL_REWARDS_API_KEY"
+            load_compose_env
+
             # ── Health check helpers ─────────────────────────────────
             check_health() {
               local name="$1" url="$2" retries="${3:-20}" delay="${4:-3}"
@@ -258,8 +291,8 @@ jobs:
             check_container_health() {
               local name="$1" service="$2" url="$3" retries="${4:-20}" delay="${5:-3}"
               for i in $(seq 1 "$retries"); do
-                if docker compose exec -T "$service" curl -sf --max-time 5 "$url" </dev/null > /dev/null 2>&1 \
-                || docker compose exec -T "$service" wget -qO- --timeout=5 "$url" </dev/null > /dev/null 2>&1; then
+                if dc exec -T "$service" curl -sf --max-time 5 "$url" </dev/null > /dev/null 2>&1 \
+                || dc exec -T "$service" wget -qO- --timeout=5 "$url" </dev/null > /dev/null 2>&1; then
                   echo "  ✅ $name healthy (attempt $i/$retries)"
                   return 0
                 fi
@@ -272,7 +305,7 @@ jobs:
             print_service_logs() {
               local service="$1"
               echo "----- ${service} logs (last 200 lines) -----"
-              docker compose logs --tail=200 "$service" </dev/null || true
+              dc logs --tail=200 "$service" </dev/null || true
               echo "----- end ${service} logs -----"
             }
 
@@ -281,12 +314,12 @@ jobs:
               local services="$1"
               if [ "$PREV_TAG" = "unknown" ]; then
                 echo "⚠️  No previous tag — cannot rollback, just restarting current"
-                docker compose up -d --no-deps $services </dev/null
+                dc up -d --no-deps $services </dev/null
               else
                 echo "IMAGE_TAG=$PREV_TAG" > .env.image
-                set -a && source .env.production && source .env.image && set +a
-                docker compose pull $services </dev/null || true
-                docker compose up -d --no-deps $services </dev/null
+                load_compose_env
+                dc pull $services </dev/null || true
+                dc up -d --no-deps $services </dev/null
               fi
             }
 
@@ -297,7 +330,7 @@ jobs:
 
             # ── Set new image tag ────────────────────────────────────
             echo "IMAGE_TAG=${{ steps.sha.outputs.short }}" > .env.image
-            set -a && source .env.production && source .env.image && set +a
+            load_compose_env
 
             # ── Render live Caddyfile from template ──────────────────
             sed \
@@ -310,11 +343,11 @@ jobs:
               Caddyfile.template > Caddyfile
 
             # ── Pull new images ──────────────────────────────────────
-            docker compose pull caddy gateway notification-worker relayer-0 relayer-1 backend pages </dev/null
+            dc pull caddy gateway notification-worker relayer-0 relayer-1 backend pages </dev/null
 
             # ── Rolling restart: relayer-1 → verify → relayer-0 → verify
             echo "Rolling relayer-1..."
-            docker compose up -d --no-deps relayer-1 </dev/null
+            dc up -d --no-deps relayer-1 </dev/null
             if ! check_container_health "relayer-1" "relayer-1" "http://localhost:3040/ready" 20 3; then
               echo "❌ relayer-1 health check failed — rolling back"
               rollback "relayer-1"
@@ -322,7 +355,7 @@ jobs:
             fi
 
             echo "Rolling relayer-0..."
-            docker compose up -d --no-deps relayer-0 </dev/null
+            dc up -d --no-deps relayer-0 </dev/null
             if ! check_container_health "relayer-0" "relayer-0" "http://localhost:3040/ready" 20 3; then
               echo "❌ relayer-0 health check failed — rolling back"
               rollback "relayer-0 relayer-1"
@@ -331,7 +364,7 @@ jobs:
 
             # ── Gateway restart → verify → then Caddy ────────────────
             echo "Rolling gateway..."
-            docker compose up -d --no-deps gateway </dev/null
+            dc up -d --no-deps gateway </dev/null
             if ! check_container_health "gateway" "gateway" "http://localhost:8080/health" 20 3; then
               echo "❌ Gateway health check failed — rolling back"
               rollback "gateway relayer-0 relayer-1"
@@ -341,7 +374,7 @@ jobs:
             # ── Run gateway SQL migrations (tracked + locked) ─────
             echo "Running gateway migrations..."
             DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
-            docker compose exec -T -e DATABASE_URL="$DATABASE_URL" gateway \
+            dc exec -T -e DATABASE_URL="$DATABASE_URL" gateway \
               node packages/onsocial-gateway/dist/scripts/apply-migrations.js </dev/null
 
             if [ -f /root/onsocial-protocol/scripts/repair-gateway-auth.sh ]; then
@@ -359,18 +392,18 @@ jobs:
             # smoke-test failure so the deploy fails loudly.
             echo "Syncing Hasura permissions..."
             mkdir -p /opt/onsocial/backups
-            docker compose exec -T \
+            dc exec -T \
               -e HASURA_BACKUP_DIR=/tmp \
               gateway \
               node packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js sync </dev/null
             # Pull the snapshot out of the container's tmpfs onto the host.
-            LATEST_SNAPSHOT=$(docker compose exec -T gateway sh -c 'ls -1t /tmp/hasura-metadata-*.json 2>/dev/null | head -1' </dev/null | tr -d '\r')
+            LATEST_SNAPSHOT=$(dc exec -T gateway sh -c 'ls -1t /tmp/hasura-metadata-*.json 2>/dev/null | head -1' </dev/null | tr -d '\r')
             if [ -n "$LATEST_SNAPSHOT" ]; then
               docker cp "gateway:$LATEST_SNAPSHOT" /opt/onsocial/backups/ 2>/dev/null || true
             fi
 
             echo "Restarting notification worker..."
-            docker compose up -d --no-deps notification-worker </dev/null
+            dc up -d --no-deps notification-worker </dev/null
             for i in $(seq 1 20); do
               status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' notification-worker </dev/null 2>/dev/null || true)"
               if [ "$status" = "healthy" ] || [ "$status" = "running" ]; then
@@ -387,36 +420,22 @@ jobs:
             done
 
             echo "Reloading caddy..."
-            docker compose up -d --no-deps caddy </dev/null
+            dc up -d --no-deps caddy </dev/null
             if ! check_health "caddy (public)" "https://testnet.onsocial.id/health" 10 5; then
               echo "❌ Public health check failed — rolling back"
               rollback "caddy gateway relayer-0 relayer-1"
               exit 1
             fi
 
-            if [ -z "${TELEGRAM_BOT_TOKEN:-}" ]; then
-              echo "❌ TELEGRAM_BOT_TOKEN is not set after GSM refresh"
-              exit 1
-            fi
-
-            if [ -z "${ADMIN_SECRET:-}" ]; then
-              echo "❌ ADMIN_SECRET is not set after GSM refresh"
-              exit 1
-            fi
-
-            if [ -z "${ADMIN_WALLETS:-}" ]; then
-              echo "❌ ADMIN_WALLETS is not set after GSM refresh"
-              exit 1
-            fi
-
-            if [ -z "${ONSOCIAL_PORTAL_REWARDS_API_KEY:-}" ]; then
-              echo "❌ ONSOCIAL_PORTAL_REWARDS_API_KEY is not set after GSM refresh"
-              exit 1
-            fi
+            load_compose_env
+            require_env_file_key "TELEGRAM_BOT_TOKEN"
+            require_env_file_key "ADMIN_SECRET"
+            require_env_file_key "ADMIN_WALLETS"
+            require_env_file_key "ONSOCIAL_PORTAL_REWARDS_API_KEY"
 
             # ── Backend (Telegram rewards bot) ───────────────────────
             echo "Rolling backend..."
-            docker compose up -d --force-recreate --no-deps backend </dev/null
+            dc up -d --force-recreate --no-deps backend </dev/null
             if ! check_container_health "backend" "backend" "http://localhost:4001/health" 24 5; then
               print_service_logs "backend"
               echo "❌ Backend health check failed — rolling back"
@@ -426,7 +445,7 @@ jobs:
 
             # ── Pages (profile page renderer) ────────────────────────
             echo "Rolling pages..."
-            docker compose up -d --no-deps pages </dev/null
+            dc up -d --no-deps pages </dev/null
             if ! check_container_health "pages" "pages" "http://localhost:3456/health" 15 3; then
               print_service_logs "pages"
               echo "⚠️  Pages health check failed (non-blocking)"
@@ -434,10 +453,10 @@ jobs:
 
             # ── Bring up any remaining services ──────────────────────
             FINAL_SERVICES="postgres hasura relayer-lb relayer-0 relayer-1 gateway notification-worker caddy backend pages"
-            docker compose up -d --no-deps $FINAL_SERVICES </dev/null
+            dc up -d --no-deps $FINAL_SERVICES </dev/null
 
             echo ""
-            docker compose ps --format "table {{.Name}}\t{{.Status}}" </dev/null
+            dc ps --format "table {{.Name}}\t{{.Status}}" </dev/null
             echo ""
             rm -f deploy_gsm.env
           REMOTE_SCRIPT
