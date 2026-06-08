@@ -1,7 +1,7 @@
 import {
   enrichDaoProposalWithPolicySnapshot,
   enrichDaoProposalsWithPolicySnapshots,
-} from '@/features/governance/governance-proposal-policy-snapshot';
+} from '@/features/governance/governance-proposal-policy-snapshot.server';
 import { GOVERNANCE_DAO_ACCOUNT } from '@/lib/portal-config';
 import {
   REWARDS_CONTRACT,
