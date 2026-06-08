@@ -194,6 +194,49 @@ export async function loadDaoProposalSnapshot(
   return row ? mapStoredRow(row) : null;
 }
 
+export async function loadRecentDaoProposalSnapshots(
+  daoAccountId: string,
+  limit: number
+): Promise<StoredDaoProposalRow[]> {
+  const safeLimit =
+    Number.isFinite(limit) && limit > 0 ? Math.min(Math.trunc(limit), 40) : 20;
+
+  const result = await query<{
+    dao_account_id: string;
+    proposal_id: string | number;
+    status: string;
+    submission_time: string;
+    submission_block_height: string | number | null;
+    resolved_block_height: string | number | null;
+    resolved_at: string | null;
+    proposal_snapshot: PersistedDaoProposalSnapshot;
+    policy_snapshot: GovernanceDaoPolicySnapshot | null;
+    synced_at: string | Date;
+    updated_at: string | Date;
+  }>(
+    `SELECT dao_account_id,
+            proposal_id,
+            status,
+            submission_time,
+            submission_block_height,
+            resolved_block_height,
+            resolved_at,
+            proposal_snapshot,
+            policy_snapshot,
+            synced_at,
+            updated_at
+       FROM governance_dao_proposal_snapshots
+      WHERE dao_account_id = $1
+      ORDER BY proposal_id DESC
+      LIMIT $2`,
+    [daoAccountId, safeLimit]
+  );
+
+  return result.rows
+    .map((row) => mapStoredRow(row))
+    .filter((row): row is StoredDaoProposalRow => row !== null);
+}
+
 export async function persistDaoProposalSnapshot({
   daoAccountId,
   proposal,

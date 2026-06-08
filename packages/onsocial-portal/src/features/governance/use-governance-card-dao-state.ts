@@ -13,7 +13,8 @@ import type {
   GovernanceProposal,
 } from '@/features/governance/types';
 
-const POST_ACTION_REFRESH_MS = 4_000;
+const POST_ACTION_REFRESH_MS = 2_000;
+const IN_PROGRESS_POLL_MS = 6_000;
 
 export function getFeedProposalSnapshot(
   proposal: GovernanceProposal | null | undefined
@@ -38,6 +39,13 @@ export function hasFeedDaoBootstrap(
   feedDaoPolicy: GovernanceDaoPolicy | null | undefined
 ): boolean {
   return !!getFeedProposalSnapshot(proposal) && !!feedDaoPolicy;
+}
+
+function isInProgressGovernanceProposalStatus(
+  status: GovernanceDaoProposal['status'] | string | null | undefined
+): boolean {
+  const normalized = normalizeDaoProposalStatus(status);
+  return normalized === 'InProgress';
 }
 
 export function useGovernanceCardDaoState({
@@ -100,25 +108,19 @@ export function useGovernanceCardDaoState({
           setDaoSettled(true);
         }
 
-        const shouldRefreshTerminalProposal =
-          !!feedSnapshot &&
-          isTerminalGovernanceProposalStatus(feedSnapshot.status);
-
-        if (shouldRefreshTerminalProposal) {
-          try {
-            const enrichedProposal = await fetchDaoProposal(
-              liveProposalId,
-              daoAccountId,
-              { live: true }
+        try {
+          const refreshedProposal = await fetchDaoProposal(
+            liveProposalId,
+            daoAccountId,
+            { live: true }
+          );
+          if (!cancelled) {
+            setLiveProposal((current) =>
+              mergeGovernanceProposalSnapshot(current, refreshedProposal)
             );
-            if (!cancelled) {
-              setLiveProposal((current) =>
-                mergeGovernanceProposalSnapshot(current, enrichedProposal)
-              );
-            }
-          } catch {
-            // Keep feed snapshot; vote rule stays hidden when policy is unknown.
           }
+        } catch {
+          // Keep feed snapshot when live refresh fails.
         }
 
         return;
@@ -157,6 +159,72 @@ export function useGovernanceCardDaoState({
       cancelled = true;
     };
   }, [daoAccountId, feedSnapshot, feedDaoPolicy, hasBootstrap, liveProposalId]);
+
+  useEffect(() => {
+    if (
+      !daoAccountId ||
+      liveProposalId === null ||
+      postActionRefreshUntil ||
+      !hasBootstrap
+    ) {
+      return;
+    }
+
+    const initialStatus = normalizeDaoProposalStatus(feedSnapshot?.status);
+    if (!isInProgressGovernanceProposalStatus(initialStatus)) {
+      return;
+    }
+
+    const resolvedProposalId = liveProposalId;
+    const resolvedDaoAccountId = daoAccountId;
+    let cancelled = false;
+    let timer: number | null = null;
+
+    async function pollInProgressProposal() {
+      try {
+        const nextProposal = await fetchDaoProposal(
+          resolvedProposalId,
+          resolvedDaoAccountId,
+          { live: true }
+        );
+        if (cancelled) {
+          return;
+        }
+
+        setLiveProposal((current) =>
+          mergeGovernanceProposalSnapshot(current, nextProposal)
+        );
+
+        if (
+          isTerminalGovernanceProposalStatus(nextProposal?.status) &&
+          timer !== null
+        ) {
+          window.clearInterval(timer);
+          timer = null;
+        }
+      } catch {
+        // Keep polling while the proposal remains open.
+      }
+    }
+
+    void pollInProgressProposal();
+    timer = window.setInterval(() => {
+      void pollInProgressProposal();
+    }, IN_PROGRESS_POLL_MS);
+
+    return () => {
+      cancelled = true;
+      if (timer !== null) {
+        window.clearInterval(timer);
+      }
+    };
+  }, [
+    daoAccountId,
+    feedSnapshot?.status,
+    hasBootstrap,
+    liveProposalId,
+    postActionRefreshUntil,
+  ]);
 
   useEffect(() => {
     if (!daoAccountId || liveProposalId === null || !postActionRefreshUntil) {

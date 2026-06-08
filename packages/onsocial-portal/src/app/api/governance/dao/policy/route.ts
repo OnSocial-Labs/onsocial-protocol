@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GOVERNANCE_DAO_ACCOUNT } from '@/lib/portal-config';
-import { loadDaoPolicy } from '@/lib/portal-governance-chain-server';
+import { loadDaoPolicyFromBackend } from '@/lib/governance-proposal-backend';
 import {
   createPortalRequestCache,
   isRateLimitError,
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
   try {
     const daoAccountId = readDaoAccountId(request);
     const policy = await policyCache.getOrLoad(daoAccountId, () =>
-      loadDaoPolicy(daoAccountId)
+      loadDaoPolicyFromBackend(daoAccountId)
     );
 
     return NextResponse.json(

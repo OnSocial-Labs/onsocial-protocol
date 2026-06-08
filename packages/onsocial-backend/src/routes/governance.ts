@@ -5,6 +5,8 @@ import {
   getGovernanceFeedApplications,
   parseGovernanceFeedScope,
 } from '../services/governance-feed.js';
+import { getDaoGovernanceRecent } from '../services/governance-dao-recent.js';
+import { getDaoGovernancePolicy } from '../services/governance-dao-policy.js';
 import { syncDaoProposalById } from '../services/governance-dao-proposal-sync.js';
 import { loadPersistedPolicySnapshot } from '../services/governance-proposal-policy-store.js';
 
@@ -21,6 +23,19 @@ function readProposalId(value: unknown): number | null {
   }
 
   return proposalId;
+}
+
+function readRecentLimit(value: unknown): number {
+  const parsed =
+    typeof value === 'number'
+      ? value
+      : Number.parseInt(String(value ?? ''), 10);
+
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return 20;
+  }
+
+  return Math.min(parsed, 40);
 }
 
 function readDaoAccountId(value: unknown): string {
@@ -51,6 +66,44 @@ router.get('/feed', async (req: Request, res: Response): Promise<void> => {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     res.status(500).json({ success: false, error: msg });
+  }
+});
+
+router.get('/recent', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const daoAccountId = readDaoAccountId(req.query.daoAccountId);
+    const limit = readRecentLimit(req.query.limit);
+    const { proposals, daoPolicy } = await getDaoGovernanceRecent(
+      daoAccountId,
+      limit
+    );
+
+    res.json({
+      success: true,
+      daoAccountId,
+      limit,
+      proposals,
+      daoPolicy,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(400).json({ success: false, error: msg });
+  }
+});
+
+router.get('/policy', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const daoAccountId = readDaoAccountId(req.query.daoAccountId);
+    const daoPolicy = await getDaoGovernancePolicy(daoAccountId);
+
+    res.json({
+      success: true,
+      daoAccountId,
+      daoPolicy,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(400).json({ success: false, error: msg });
   }
 });
 
