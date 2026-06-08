@@ -181,21 +181,36 @@ jobs:
               local tmp
               tmp="$(mktemp)"
               awk -v k="$key" -v v="$value" '
-                BEGIN { done = 0 }
-                $0 ~ "^" k "=" { print k "=" v; done = 1; next }
+                $0 ~ "^" k "=" { next }
                 { print }
-                END { if (!done) print k "=" v }
+                END { print k "=" v }
               ' .env.production > "$tmp"
               mv "$tmp" .env.production
             }
 
+            read_env_value_from_file() {
+              local file="$1" key="$2"
+              local line value
+              while IFS= read -r line; do
+                value="${line#*=}"
+                value="$(printf '%s' "$value" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+                if [ -n "$value" ]; then
+                  printf '%s' "$value"
+                  return 0
+                fi
+              done < <(grep "^${key}=" "$file" 2>/dev/null || true)
+              return 1
+            }
+
             read_env_value() {
-              local key="$1"
-              grep -m1 "^${key}=" .env.production 2>/dev/null \
-                | cut -d= -f2- \
-                | tr -d '\r' \
-                | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' \
-                || true
+              read_env_value_from_file .env.production "$1" || true
+            }
+
+            read_bundled_env_value() {
+              if [ ! -f deploy_gsm.env ]; then
+                return 1
+              fi
+              read_env_value_from_file deploy_gsm.env "$1"
             }
 
             activate_gcloud_on_server() {
@@ -231,19 +246,27 @@ jobs:
             ensure_env_key_from_gsm() {
               local env_key="$1" secret_name="$2"
               local required="${3:-1}"
+              local value bundled
+
               if [ -n "$(read_env_value "$env_key")" ]; then
                 return 0
               fi
+
+              bundled="$(read_bundled_env_value "$env_key" || true)"
+              if [ -n "$bundled" ]; then
+                echo "Applying ${env_key} from deploy_gsm.env bundle..."
+                upsert_env "$env_key" "$bundled"
+                return 0
+              fi
+
               echo "Fetching ${env_key} from GSM on server (${secret_name})..."
               activate_gcloud_on_server
-              local value
               value="$(fetch_gsm_secret "$secret_name")"
               if [ -z "$value" ]; then
                 if [ "$required" = "0" ]; then
-                  echo "⚠️  ${env_key} not found in GSM (${secret_name})"
                   return 0
                 fi
-                echo "❌ ${env_key} missing in .env.production and GSM fetch failed (${secret_name})"
+                echo "❌ ${env_key} missing in .env.production, deploy_gsm.env, and server GSM (${secret_name})"
                 exit 1
               fi
               upsert_env "$env_key" "$value"
@@ -254,7 +277,6 @@ jobs:
               ensure_env_key_from_gsm "ADMIN_SECRET" "ADMIN_SECRET"
               ensure_env_key_from_gsm "ADMIN_WALLETS" "ADMIN_WALLETS"
               ensure_env_key_from_gsm "ONSOCIAL_PORTAL_REWARDS_API_KEY" "ONSOCIAL_PORTAL_REWARDS_API_KEY"
-              ensure_env_key_from_gsm "SEASON_SETTLEMENT_ADMIN_KEY" "SEASON_SETTLEMENT_ADMIN_KEY" 0
 
               for required in \
                 TELEGRAM_BOT_TOKEN \
@@ -262,7 +284,11 @@ jobs:
                 ADMIN_WALLETS \
                 ONSOCIAL_PORTAL_REWARDS_API_KEY; do
                 if [ -z "$(read_env_value "$required")" ]; then
-                  echo "❌ ${required} missing or empty in .env.production after GSM refresh"
+                  if [ -f deploy_gsm.env ] && grep -q "^${required}=" deploy_gsm.env; then
+                    echo "❌ ${required} missing or empty in .env.production after GSM refresh (bundle line present but merge failed)"
+                  else
+                    echo "❌ ${required} missing or empty in .env.production after GSM refresh"
+                  fi
                   exit 1
                 fi
               done
