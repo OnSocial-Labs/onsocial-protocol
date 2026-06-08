@@ -33,6 +33,7 @@ import {
   ACTIVE_NEAR_NETWORK,
   NEAR_ACCOUNT_SUFFIX,
 } from '@/lib/portal-config';
+import { resolveFtTokenIcon } from '@/lib/token-metadata';
 import { portalColors, type PortalAccent } from '@/lib/portal-colors';
 
 const NETWORK = ACTIVE_NEAR_NETWORK;
@@ -545,7 +546,7 @@ export default function TransparencyPage() {
               {}
             ).catch(() => null);
           const pairedIcon =
-            pairedMetadata?.icon ??
+            resolveFtTokenIcon(pairedTokenId, pairedMetadata?.icon) ??
             (await fetchFallbackTokenIcon(pairedTokenId));
 
           return {

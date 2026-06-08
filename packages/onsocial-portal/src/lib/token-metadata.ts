@@ -8,9 +8,36 @@ export interface FtTokenMetadata {
   decimals: number;
 }
 
-/** Native NEAR has no ft_metadata; brand asset is network-agnostic (mainnet + testnet). */
-export const NEAR_TOKEN_ICON =
-  'https://assets.coingecko.com/coins/images/10353/small/near.jpg';
+/** wNEAR on NEAR mainnet — pool pairs and swap input resolve to {@link NEAR_TOKEN_ICON}. */
+export const WRAP_NEAR_TOKEN_ID = 'wrap.near';
+
+/**
+ * Native NEAR brand asset (served from portal public/).
+ * CoinGecko hotlink URLs return 403 in browsers — do not use them for NEAR/wNEAR.
+ */
+export const NEAR_TOKEN_ICON = '/near.svg';
+
+/** Legacy ft_metadata icon URLs that fail to load in the browser. */
+function isBrokenNearIconUrl(icon: string): boolean {
+  return (
+    icon.includes('coingecko.com/coins/images/10353') ||
+    icon.includes('assets.coingecko.com/coins/images/10353')
+  );
+}
+
+/** Resolve a display icon for an FT contract id (handles wNEAR + broken NEAR URLs). */
+export function resolveFtTokenIcon(
+  tokenId: string,
+  metadataIcon?: string | null
+): string | null {
+  if (tokenId === WRAP_NEAR_TOKEN_ID) {
+    return NEAR_TOKEN_ICON;
+  }
+  if (metadataIcon && isBrokenNearIconUrl(metadataIcon)) {
+    return NEAR_TOKEN_ICON;
+  }
+  return metadataIcon ?? null;
+}
 
 export const NEAR_TOKEN_DISPLAY: FtTokenMetadata = {
   symbol: 'NEAR',
@@ -46,6 +73,10 @@ const tokenIconFallbackCache = new Map<string, Promise<string | null>>();
 export async function fetchFallbackTokenIcon(
   tokenId: string
 ): Promise<string | null> {
+  if (tokenId === WRAP_NEAR_TOKEN_ID) {
+    return NEAR_TOKEN_ICON;
+  }
+
   if (ACTIVE_NEAR_NETWORK !== 'mainnet') {
     return null;
   }

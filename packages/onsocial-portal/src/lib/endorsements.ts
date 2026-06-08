@@ -126,8 +126,8 @@ export function endorsementActionFullLabel(account: string): string {
 
 export function cleanHandle(accountId: string): string {
   return accountId
-    .replace(/\.onsocial\.(testnet|near)$/u, '')
-    .replace(/\.(testnet|near)$/u, '');
+    .replace(/\.onsocial\.(testnet|near|tg)$/u, '')
+    .replace(/\.(testnet|near|tg)$/u, '');
 }
 
 export function normalizeEndorsementTopic(topic: string): string {

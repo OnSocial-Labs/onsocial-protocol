@@ -735,10 +735,7 @@ export function useProfileState() {
   );
 
   const supportProfile = useCallback(
-    async (
-      targetAccount: string,
-      amountYocto: string
-    ): Promise<string[]> => {
+    async (targetAccount: string, amountYocto: string): Promise<string[]> => {
       if (!accountId || !isConnected) {
         throw new Error('Connect your wallet before sending support.');
       }

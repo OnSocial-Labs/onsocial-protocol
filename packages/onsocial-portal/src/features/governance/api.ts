@@ -10,6 +10,7 @@ import {
   getGovernanceProposalBond,
   type OnChainAppConfig,
 } from '@/lib/near-rpc';
+import { buildGovernanceApplicationFromDaoProposal } from '@/features/governance/page-utils';
 import type {
   Application,
   GovernanceDaoAction,
@@ -62,24 +63,24 @@ async function readJsonResponse<T>(res: Response): Promise<T> {
   return JSON.parse(raw) as T;
 }
 
-export type GovernanceFeedResponse = {
-  applications: Application[];
-  daoPolicy: GovernanceDaoPolicy | null;
-};
+import {
+  fetchGovernanceFeedCached,
+  type GovernanceFeedResponse,
+} from '@/features/governance/governance-feed-client';
 
-export async function fetchGovernanceFeed(): Promise<GovernanceFeedResponse> {
-  const res = await fetch('/api/governance', { cache: 'no-store' });
-  if (!res.ok) throw new Error('Failed to fetch governance feed');
-  const data = await readJsonResponse<{
-    success: boolean;
-    applications: Application[];
-    daoPolicy?: GovernanceDaoPolicy | null;
-  }>(res);
+export type { GovernanceFeedResponse };
+export {
+  applyGovernanceFeedApplications,
+  fetchGovernanceFeedBootstrap,
+  fetchGovernanceFeedCached,
+  readGovernanceFeedCache,
+} from '@/features/governance/governance-feed-client';
 
-  return {
-    applications: data.applications,
-    daoPolicy: data.daoPolicy ?? null,
-  };
+export async function fetchGovernanceFeed(options?: {
+  onRevalidate?: (data: GovernanceFeedResponse) => void;
+  skipMemoryCache?: boolean;
+}): Promise<GovernanceFeedResponse> {
+  return fetchGovernanceFeedCached(options);
 }
 
 export async function fetchDaoPolicy(
@@ -99,6 +100,32 @@ export async function fetchDaoPolicy(
   } catch {
     return null;
   }
+}
+
+export async function fetchGovernanceProposalBootstrap(
+  appId: string,
+  proposalId: number
+): Promise<{
+  app: Application;
+  daoPolicy: GovernanceDaoPolicy;
+} | null> {
+  const [daoPolicy, liveProposal] = await Promise.all([
+    fetchDaoPolicy(),
+    fetchDaoProposal(proposalId),
+  ]);
+
+  if (!daoPolicy || !liveProposal) {
+    return null;
+  }
+
+  return {
+    app: buildGovernanceApplicationFromDaoProposal(
+      appId,
+      liveProposal,
+      proposalId
+    ),
+    daoPolicy,
+  };
 }
 
 export async function fetchDaoProposal(

@@ -83,7 +83,13 @@ function AssetRow({
   );
 }
 
-function WalletAssetsModalBody({ accountId }: { accountId: string }) {
+function WalletAssetsModalBody({
+  accountId,
+  open,
+}: {
+  accountId: string;
+  open: boolean;
+}) {
   const requestIdRef = useRef(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -104,6 +110,8 @@ function WalletAssetsModalBody({ accountId }: { accountId: string }) {
   const [hasLoaded, setHasLoaded] = useState(false);
 
   useEffect(() => {
+    if (!open) return;
+
     const requestId = ++requestIdRef.current;
 
     void fetch(
@@ -137,7 +145,7 @@ function WalletAssetsModalBody({ accountId }: { accountId: string }) {
           setLoading(false);
         }
       });
-  }, [accountId]);
+  }, [accountId, open]);
 
   const showLoading = loading && !hasLoaded;
   const nearLabel = error ? '—' : formatNearCompact(nearBalanceYocto);
@@ -161,7 +169,9 @@ function WalletAssetsModalBody({ accountId }: { accountId: string }) {
       </div>
 
       {error ? (
-        <p className="mt-3 portal-type-label text-[var(--portal-amber)]">{error}</p>
+        <p className="mt-3 portal-type-label text-[var(--portal-amber)]">
+          {error}
+        </p>
       ) : null}
     </>
   );
@@ -245,7 +255,11 @@ export function WalletAssetsModal({
                   Connect a wallet to view balances.
                 </p>
               ) : (
-                <WalletAssetsModalBody key={accountId} accountId={accountId} />
+                <WalletAssetsModalBody
+                  key={accountId}
+                  accountId={accountId}
+                  open={open}
+                />
               )}
             </div>
           </motion.div>

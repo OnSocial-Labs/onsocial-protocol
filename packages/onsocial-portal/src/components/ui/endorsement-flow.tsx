@@ -144,9 +144,7 @@ function EndorsementPartyChip({
   );
   const handle = accountId ? `@${accountId}` : null;
   const hasDistinctName = partyHasDistinctName(accountId, name);
-  const isInteractive = Boolean(
-    accountId && (pageLayout || onSelectAccount)
-  );
+  const isInteractive = Boolean(accountId && (pageLayout || onSelectAccount));
 
   const label = labelOverride
     ? labelOverride

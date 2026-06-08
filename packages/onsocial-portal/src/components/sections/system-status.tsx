@@ -5,16 +5,7 @@ import { Globe, FileCode2 } from 'lucide-react';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { section } from '@/lib/section-styles';
-import {
-  BOOST_CONTRACT,
-  CORE_CONTRACT,
-  REWARDS_CONTRACT,
-  SCARCES_CONTRACT,
-  TOKEN_CONTRACT,
-  VESTING_CONTRACT,
-  viewAccount,
-  viewContractAt,
-} from '@/lib/near-rpc';
+import type { PortalContractHealth } from '@/lib/portal-system-status-server';
 import { ACTIVE_API_URL } from '@/lib/portal-config';
 
 /* ── Types ── */
@@ -25,59 +16,9 @@ interface ServiceHealth {
   responseTime?: number;
 }
 
-interface ContractHealth {
-  name: string;
-  accountId: string;
-  status: 'up' | 'degraded' | 'down';
-  responseTime: number;
-}
-
-/* ── Contract probes ── */
-
-const CONTRACT_PROBES = [
-  {
-    name: 'Core',
-    accountId: CORE_CONTRACT,
-    probe: () =>
-      viewContractAt<{ version: string }>(CORE_CONTRACT, 'get_version', {}),
-  },
-  {
-    name: 'Boost',
-    accountId: BOOST_CONTRACT,
-    probe: () => viewContractAt(BOOST_CONTRACT, 'get_stats', {}),
-  },
-  {
-    name: 'Token',
-    accountId: TOKEN_CONTRACT,
-    probe: () => viewContractAt(TOKEN_CONTRACT, 'ft_metadata', {}),
-  },
-  {
-    name: 'Rewards',
-    accountId: REWARDS_CONTRACT,
-    probe: () => viewContractAt(REWARDS_CONTRACT, 'get_contract_info', {}),
-  },
-  {
-    name: 'Scarces',
-    accountId: SCARCES_CONTRACT,
-    probe: () => viewContractAt(SCARCES_CONTRACT, 'get_contract_info', {}),
-  },
-  {
-    name: 'Vesting',
-    accountId: VESTING_CONTRACT,
-    probe: () => viewContractAt(VESTING_CONTRACT, 'get_status', {}),
-  },
-] as const;
+type ContractHealth = PortalContractHealth;
 
 /* ── Helpers ── */
-
-function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
-  return Promise.race([
-    p,
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('timeout')), ms)
-    ),
-  ]);
-}
 
 function dotColor(
   status: string | null | undefined,
@@ -187,42 +128,23 @@ export function SystemStatus() {
   }, []);
 
   const checkContracts = useCallback(async () => {
-    const results = await Promise.all(
-      CONTRACT_PROBES.map(async ({ name, accountId, probe }) => {
-        const start = performance.now();
-        try {
-          const result = await withTimeout(probe(), 8000);
-          const elapsed = Math.round(performance.now() - start);
-          return {
-            name,
-            accountId,
-            status: (result === null ? 'degraded' : 'up') as 'up' | 'degraded',
-            responseTime: elapsed,
-          };
-        } catch {
-          const elapsed = Math.round(performance.now() - start);
-          try {
-            await withTimeout(viewAccount(accountId), 5000);
-            return {
-              name,
-              accountId,
-              status: 'degraded' as const,
-              responseTime: elapsed,
-            };
-          } catch {
-            return {
-              name,
-              accountId,
-              status: 'down' as const,
-              responseTime: elapsed,
-            };
-          }
-        }
-      })
-    );
+    try {
+      const response = await fetch('/api/system/status', { cache: 'no-store' });
+      const body = (await response.json().catch(() => null)) as {
+        contracts?: ContractHealth[];
+        error?: string;
+      } | null;
 
-    setContracts(results);
-    setContractsLoading(false);
+      if (!response.ok || !body?.contracts) {
+        setContracts([]);
+      } else {
+        setContracts(body.contracts);
+      }
+    } catch {
+      setContracts([]);
+    } finally {
+      setContractsLoading(false);
+    }
   }, []);
 
   useEffect(() => {

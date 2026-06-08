@@ -12,7 +12,10 @@ import {
   ProfileListFilterRail,
 } from '@/features/profile/profile-list-filter-rail';
 import { StandingList } from '@/features/profile/standing-list';
-import { PROFILE_SEARCH_MIN_QUERY_LENGTH } from '@/lib/profile-account-search';
+import {
+  normalizeProfileSearchQuery,
+  PROFILE_SEARCH_MIN_QUERY_LENGTH,
+} from '@/lib/profile-account-search';
 import { cleanHandle } from '@/lib/endorsements';
 import {
   fetchProfileSocialStandings,
@@ -21,7 +24,11 @@ import {
   type StandingAccountSummary,
   type StanceDetailKind,
 } from '@/lib/profile-social-standings';
-import { getPortalDiscoverUrl } from '@/lib/portal-config';
+import {
+  getPortalDiscoverUrl,
+  syncPortalStandUrl,
+  type PortalStandKind,
+} from '@/lib/portal-config';
 
 function accountLabel(account: StandingAccountSummary): string {
   return account.name?.trim() || cleanHandle(account.accountId);
@@ -40,6 +47,8 @@ export function StandPagePanel({
   isSelf,
   counts,
   metaLoaded = true,
+  initialQuery = '',
+  syncUrl = false,
   viewerAccountId,
   hasSocialSession = false,
   onSelectAccount,
@@ -51,6 +60,8 @@ export function StandPagePanel({
   isSelf: boolean;
   counts: { incoming: number; outgoing: number; mutual: number };
   metaLoaded?: boolean;
+  initialQuery?: string;
+  syncUrl?: boolean;
   viewerAccountId: string | null;
   hasSocialSession?: boolean;
   onSelectAccount?: (accountId: string) => void;
@@ -61,7 +72,12 @@ export function StandPagePanel({
 }) {
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
   const latestLoadRef = useRef(0);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery);
+
+  useEffect(() => {
+    setQuery(initialQuery);
+  }, [initialQuery]);
+
   const [accounts, setAccounts] = useState<StandingAccountSummary[]>([]);
   const [listTotal, setListTotal] = useState(0);
   const [hasMore, setHasMore] = useState(false);
@@ -72,9 +88,17 @@ export function StandPagePanel({
     () => new Set()
   );
 
+  const normalizedQuery = normalizeProfileSearchQuery(query);
   const serverSearchActive =
-    query.trim().length >= PROFILE_SEARCH_MIN_QUERY_LENGTH;
-  const searchQueryForFetch = serverSearchActive ? query.trim() : '';
+    normalizedQuery.length >= PROFILE_SEARCH_MIN_QUERY_LENGTH;
+  const searchQueryForFetch = serverSearchActive ? normalizedQuery : '';
+
+  useEffect(() => {
+    if (!syncUrl) return;
+    syncPortalStandUrl(accountId, kind as PortalStandKind, {
+      q: serverSearchActive ? normalizedQuery : null,
+    });
+  }, [accountId, kind, normalizedQuery, serverSearchActive, syncUrl]);
   const totalCount = serverSearchActive
     ? listTotal
     : kind === 'incoming'
@@ -122,7 +146,13 @@ export function StandPagePanel({
     );
 
     return () => window.clearTimeout(timeout);
-  }, [accountId, kind, searchQueryForFetch, serverSearchActive, viewerAccountId]);
+  }, [
+    accountId,
+    kind,
+    searchQueryForFetch,
+    serverSearchActive,
+    viewerAccountId,
+  ]);
 
   const loadMore = useCallback(async () => {
     if (isLoading || isLoadingMore || !hasMore) return;
@@ -290,9 +320,7 @@ export function StandPagePanel({
             layout="page"
             accounts={filteredAccounts}
             hasSocialSession={hasSocialSession}
-            emptyLabel={
-              query.trim() ? 'No matching profiles.' : emptyLabel
-            }
+            emptyLabel={query.trim() ? 'No matching profiles.' : emptyLabel}
             emptyCta={
               !query.trim() && kind === 'outgoing' ? (
                 <Link

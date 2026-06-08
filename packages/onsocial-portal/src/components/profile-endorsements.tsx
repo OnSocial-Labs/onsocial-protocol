@@ -13,6 +13,10 @@ import { portalCompactActionPillClass } from '@/components/ui/profile-action-pil
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getPortalEndorsementsUrl } from '@/lib/portal-config';
+import {
+  graphRoutePrefetchProps,
+  useProfileGraphRoutePrefetch,
+} from '@/lib/profile-graph-link';
 import { EndorseModal } from './endorse-modal';
 import {
   cleanHandle,
@@ -73,6 +77,9 @@ export function ProfileEndorsements({
   onGivenCountChange,
 }: ProfileEndorsementsProps) {
   const router = useRouter();
+  const { prefetchEndorsements } = useProfileGraphRoutePrefetch(
+    accountId ?? undefined
+  );
   const [endorsements, setEndorsements] = useState<EndorsementItem[]>([]);
   const [givenEndorsements, setGivenEndorsements] = useState<EndorsementItem[]>(
     []
@@ -321,6 +328,9 @@ export function ProfileEndorsements({
                 size="xs"
                 variant="outline"
                 onClick={openAllEndorsements}
+                {...graphRoutePrefetchProps(() =>
+                  prefetchEndorsements('received')
+                )}
                 className="gap-1.5 px-2.5"
                 aria-label={`View all ${formatCount(endorsementCounts.received)} endorsements`}
               >

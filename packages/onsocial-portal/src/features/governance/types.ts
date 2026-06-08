@@ -42,6 +42,8 @@ export interface GovernanceDaoProposal {
   last_actions_log?: Array<{
     block_height: string;
   }>;
+  /** Frozen DAO policy at proposal submission — used for resolved vote math. */
+  policy_snapshot?: GovernanceDaoPolicy | null;
 }
 
 export interface GovernanceDaoRole {

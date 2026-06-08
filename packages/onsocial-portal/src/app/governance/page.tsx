@@ -1,17 +1,31 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { PageShell } from '@/components/layout/page-shell';
-import { RouteLoadingShell } from '@/components/layout/route-loading-shell';
+import {
+  GovernanceCardSkeletonList,
+  GovernancePageLoadingShell,
+} from '@/features/governance/governance-page-loading-shell';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
 import { SectionHeader } from '@/components/layout/section-header';
 import { Button } from '@/components/ui/button';
 import { SurfacePanel } from '@/components/ui/surface-panel';
-import { fetchGovernanceFeed } from '@/features/governance/api';
+import {
+  applyGovernanceFeedApplications,
+  fetchGovernanceFeed,
+  fetchGovernanceFeedBootstrap,
+  readGovernanceFeedCache,
+} from '@/features/governance/api';
 import type { GovernanceDaoPolicy } from '@/features/governance/types';
 import { GovernanceCard } from '@/features/governance/governance-card';
-import { GovernanceCardSkeleton } from '@/features/governance/governance-card-sections';
 import { GovernanceRail } from '@/features/governance/governance-rail';
 import {
   buildGovernanceFeedItems,
@@ -39,6 +53,7 @@ function GovernancePageContent() {
   const [daoPolicy, setDaoPolicy] = useState<GovernanceDaoPolicy | null>(null);
   const [proposalPeriodNs, setProposalPeriodNs] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [activeLane, setActiveLane] = useState<GovernanceLane>(() =>
     parseLane(searchParams.get('lane'))
@@ -83,21 +98,80 @@ function GovernancePageContent() {
 
   const hasLoadedApps = useRef(false);
 
+  const applyFeed = useCallback(
+    (
+      bootstrapApps: Application[],
+      feed: {
+        applications: Application[];
+        daoPolicy: GovernanceDaoPolicy | null;
+      }
+    ) => {
+      const mergedApps = applyGovernanceFeedApplications(
+        bootstrapApps,
+        feed.applications
+      );
+      setApps(mergedApps);
+      setDaoPolicy(feed.daoPolicy);
+      setProposalPeriodNs(feed.daoPolicy?.proposal_period ?? null);
+    },
+    []
+  );
+
   const loadApps = useCallback(async () => {
-    if (!hasLoadedApps.current) setLoading(true);
+    const isRefresh = hasLoadedApps.current;
+    if (!isRefresh) setLoading(true);
+    else setRefreshing(true);
     setError('');
+
+    let bootstrapApps: Application[] = [];
+    let showedInterimData = false;
+
     try {
-      const { applications, daoPolicy: nextDaoPolicy } =
-        await fetchGovernanceFeed();
-      setApps(applications);
-      setDaoPolicy(nextDaoPolicy);
-      setProposalPeriodNs(nextDaoPolicy?.proposal_period ?? null);
+      const cachedFeed = !isRefresh ? readGovernanceFeedCache() : null;
+      if (cachedFeed) {
+        setApps(cachedFeed.applications);
+        setDaoPolicy(cachedFeed.daoPolicy);
+        setProposalPeriodNs(cachedFeed.daoPolicy?.proposal_period ?? null);
+        setLoading(false);
+        showedInterimData = true;
+      } else if (!isRefresh) {
+        const bootstrap = await fetchGovernanceFeedBootstrap();
+        if (bootstrap && bootstrap.applications.length > 0) {
+          bootstrapApps = bootstrap.applications;
+          setApps(bootstrapApps);
+          setDaoPolicy(bootstrap.daoPolicy);
+          setProposalPeriodNs(bootstrap.daoPolicy?.proposal_period ?? null);
+          setLoading(false);
+          showedInterimData = true;
+        }
+      }
+
+      const feed = await fetchGovernanceFeed({
+        skipMemoryCache: isRefresh,
+        onRevalidate: (freshFeed) => {
+          applyFeed(bootstrapApps, freshFeed);
+        },
+      });
+      applyFeed(bootstrapApps, feed);
       hasLoadedApps.current = true;
     } catch {
-      if (!hasLoadedApps.current) setError('Failed to load governance queue.');
+      if (!showedInterimData) setError('Failed to load governance queue.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  }, [applyFeed]);
+
+  useLayoutEffect(() => {
+    const cachedFeed = readGovernanceFeedCache();
+    if (!cachedFeed) {
+      return;
+    }
+
+    setApps(cachedFeed.applications);
+    setDaoPolicy(cachedFeed.daoPolicy);
+    setProposalPeriodNs(cachedFeed.daoPolicy?.proposal_period ?? null);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -189,7 +263,7 @@ function GovernancePageContent() {
           <GovernanceRail
             activeLane={activeLane}
             laneOptions={LANE_OPTIONS}
-            loading={loading}
+            loading={loading || refreshing}
             onLaneChange={(lane) => {
               handleFilterChange(() => setActiveLane(lane));
             }}
@@ -236,11 +310,7 @@ function GovernancePageContent() {
           )}
 
           {isInitialLoading ? (
-            <div className="space-y-4">
-              {Array.from({ length: 3 }).map((_, index) => (
-                <GovernanceCardSkeleton key={index} />
-              ))}
-            </div>
+            <GovernanceCardSkeletonList count={3} />
           ) : filteredItems.length === 0 ? (
             <SurfacePanel
               radius="xl"
@@ -313,16 +383,7 @@ function GovernancePageContent() {
 
 export default function GovernancePage() {
   return (
-    <Suspense
-      fallback={
-        <RouteLoadingShell
-          size="wide"
-          panelCount={2}
-          panelMinHeights={['12rem', '18rem']}
-          contentClassName="space-y-5"
-        />
-      }
-    >
+    <Suspense fallback={<GovernancePageLoadingShell cardCount={3} />}>
       <GovernancePageContent />
     </Suspense>
   );

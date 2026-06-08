@@ -10,7 +10,7 @@ import { PageShell } from '@/components/layout/page-shell';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { Button } from '@/components/ui/button';
-import { PulsingDots } from '@/components/ui/pulsing-dots';
+import { ListRowsSkeleton } from '@/components/ui/skeleton';
 import {
   TransactionFeedbackToast,
   type TransactionFeedback,
@@ -326,9 +326,7 @@ export default function OnApiAppsPage() {
               </p>
             </div>
           ) : loading && apps.length === 0 ? (
-            <div className="py-6 text-center">
-              <PulsingDots size="md" />
-            </div>
+            <ListRowsSkeleton rows={3} />
           ) : (
             <div>
               {apps.map((app, i) => (

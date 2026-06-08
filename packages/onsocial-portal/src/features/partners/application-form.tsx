@@ -7,7 +7,6 @@ import { useWallet } from '@/contexts/wallet-context';
 import { Button, buttonArrowRightClass } from '@/components/ui/button';
 import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
-import { SurfacePanel } from '@/components/ui/surface-panel';
 import {
   AUDIENCE_BANDS,
   PARTNER_AUDIENCE_BAND_BUDGETS,
@@ -25,24 +24,30 @@ import type {
   ApplicationFormData,
   ApplicationFormPrefill,
 } from '@/features/partners/types';
+import {
+  getBoundedNoteCounterClass,
+  getBoundedNoteCounterLabel,
+  getBoundedNoteError,
+  normalizeBoundedNote,
+  PROPOSAL_DESCRIPTION_LIMITS,
+} from '@/lib/bounded-note-field';
 
 const TELEGRAM_HANDLE_PATTERN = /^[A-Za-z0-9_]{5,32}$/;
 const X_HANDLE_PATTERN = /^[A-Za-z0-9_]{1,15}$/;
 const MAX_WEBSITE_URL_LEN = 255;
 const PROJECT_NAME_PATTERN =
   /^[A-Za-z0-9](?:[A-Za-z0-9 &.,'()/-]{0,98}[A-Za-z0-9])?$/;
-const DESCRIPTION_ALLOWED_PATTERN = /^[A-Za-z0-9 .,'"!?:;()&/\-\n]+$/;
+
+const fieldLabelClass =
+  'mb-2 block portal-type-label font-medium uppercase tracking-[0.16em] text-muted-foreground';
+
+const feedbackExit = { opacity: 0, transition: { duration: 0 } };
+const feedbackEnter = { opacity: 0, y: -4 };
+const feedbackAnimate = { opacity: 1, y: 0 };
+const feedbackTransition = { duration: 0.16, ease: 'easeOut' as const };
 
 function normalizeProjectName(value: string) {
   return value.replace(/\s+/g, ' ').trim();
-}
-
-function normalizeDescription(value: string) {
-  return value
-    .replace(/\r\n?/g, '\n')
-    .replace(/[^\S\n]+/g, ' ')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
 }
 
 function getProjectNameError(value: string) {
@@ -52,17 +57,6 @@ function getProjectNameError(value: string) {
   }
   if (!PROJECT_NAME_PATTERN.test(normalized)) {
     return 'Use letters, numbers, spaces, and simple punctuation only';
-  }
-  return '';
-}
-
-function getDescriptionError(value: string) {
-  const normalized = normalizeDescription(value);
-  if (!normalized) {
-    return '';
-  }
-  if (!DESCRIPTION_ALLOWED_PATTERN.test(normalized)) {
-    return 'Use letters, numbers, spaces, and basic punctuation only';
   }
   return '';
 }
@@ -336,13 +330,10 @@ export function ApplicationForm({
   const appId = toSlug(label);
   const MAX_LABEL_LEN = 100;
   const MAX_APP_ID_LEN = 64;
-  const MIN_DESCRIPTION_LEN = 20;
-  const MAX_DESCRIPTION_LEN = 280;
-  const DESCRIPTION_WARNING_THRESHOLD = 240;
   const normalizedLabel = normalizeProjectName(label);
-  const normalizedDescription = normalizeDescription(description);
+  const normalizedDescription = normalizeBoundedNote(description);
   const projectNameError = getProjectNameError(label);
-  const descriptionTextError = getDescriptionError(description);
+  const descriptionTextError = getBoundedNoteError(description);
   const descriptionLength = normalizedDescription.length;
   const hasDescription = normalizedDescription.length > 0;
   const hasAnyPublicLinkInput = Boolean(
@@ -419,8 +410,8 @@ export function ApplicationForm({
   const showLabelSuccess = showLabelFeedback && labelReady && appIdAvailable;
   const descriptionReady =
     !descriptionTextError &&
-    descriptionLength >= MIN_DESCRIPTION_LEN &&
-    descriptionLength <= MAX_DESCRIPTION_LEN;
+    descriptionLength >= PROPOSAL_DESCRIPTION_LIMITS.min &&
+    descriptionLength <= PROPOSAL_DESCRIPTION_LIMITS.max;
   const showMissingPublicLinkHint =
     !publicLinkRequirementMet &&
     (hasAnyPublicLinkInput || (labelReady && descriptionReady));
@@ -587,24 +578,11 @@ export function ApplicationForm({
       );
       return;
     }
-    if (!normalizedDescription) {
-      setError('Add a short project overview');
-      return;
-    }
     if (descriptionTextError) {
       setError(descriptionTextError);
       return;
     }
-    if (descriptionLength < MIN_DESCRIPTION_LEN) {
-      setError(
-        `Description is too short (min ${MIN_DESCRIPTION_LEN} characters)`
-      );
-      return;
-    }
-    if (descriptionLength > MAX_DESCRIPTION_LEN) {
-      setError(
-        `Description is too long (max ${MAX_DESCRIPTION_LEN} characters)`
-      );
+    if (!descriptionReady) {
       return;
     }
     if (!AUDIENCE_BANDS.includes(audienceBand)) {
@@ -669,471 +647,426 @@ export function ApplicationForm({
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="mx-auto max-w-xl space-y-4 md:space-y-6"
-    >
-      <SurfacePanel
-        radius="xl"
-        tone="subtle"
-        padding="none"
-        className="px-3 py-3 md:p-5"
-      >
-        <h2 className="mb-3 text-center text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          New Launch
-        </h2>
-        <StatStrip columns={2}>
-          <StatStripCell label="Delegate" showDivider>
-            <p className="mt-1 truncate font-mono text-sm font-bold text-portal-neutral md:text-base">
-              {governanceThresholdDisplay ?? '100'}
-              <span className="ml-1 portal-type-caption font-medium uppercase tracking-wider text-muted-foreground">
-                SOCIAL
+    <form onSubmit={handleSubmit} className="mx-auto w-full min-w-0 max-w-xl">
+      <StatStrip columns={2} showTopDivider={false}>
+        <StatStripCell
+          label="Delegate"
+          value={`${governanceThresholdDisplay ?? '100'} SOCIAL`}
+          showDivider
+          size="sm"
+        />
+        <StatStripCell
+          label="Bond"
+          value={`${proposalBondDisplay ?? '0.1'} NEAR`}
+          size="sm"
+        />
+      </StatStrip>
+      <p className="mt-2 text-xs text-muted-foreground">
+        Submitted as a DAO proposal · requires package integration
+      </p>
+
+      <div className="mt-3 space-y-3">
+        <p className="portal-eyebrow text-muted-foreground">Details</p>
+        <div>
+          <label htmlFor="partner-app-name" className={fieldLabelClass}>
+            Name
+          </label>
+          <div className="portal-field-focus flex min-w-0 items-center rounded-2xl border border-border/40 bg-background/45">
+            <input
+              id="partner-app-name"
+              type="text"
+              value={label}
+              onChange={(e) => {
+                const nextLabel = e.target.value;
+                const nextAppId = toSlug(nextLabel);
+
+                setLabel(nextLabel);
+                setShowLabelFeedback(false);
+
+                if (nextAppId !== appId) {
+                  setAppIdAvailability({
+                    state: 'idle',
+                    appId: '',
+                    message: '',
+                  });
+                }
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  event.currentTarget.blur();
+                }
+              }}
+              onBlur={commitLabelInput}
+              placeholder="OnSocial"
+              maxLength={MAX_LABEL_LEN}
+              className="min-w-0 w-full bg-transparent px-4 py-3 text-sm outline-none placeholder:text-muted-foreground/50 md:py-3.5"
+              required
+            />
+            {appId && (
+              <span className="shrink-0 pr-3">
+                {appIdChecking ? (
+                  <span className="inline-flex h-5 w-5 items-center justify-center text-muted-foreground">
+                    <PulsingDots size="sm" />
+                  </span>
+                ) : appIdTaken ? (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500/10 text-red-500">
+                    <X className="h-3 w-3" />
+                  </span>
+                ) : appIdAvailable ||
+                  (showLabelSuccess && !appIdAvailabilityError) ? (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/12 text-emerald-700">
+                    <Check className="h-3 w-3" />
+                  </span>
+                ) : null}
               </span>
-            </p>
-          </StatStripCell>
-          <StatStripCell label="Bond">
-            <p className="mt-1 truncate font-mono text-sm font-bold text-portal-neutral md:text-base">
-              {proposalBondDisplay ?? '0.1'}
-              <span className="ml-1 portal-type-caption font-medium uppercase tracking-wider text-muted-foreground">
-                NEAR
-              </span>
-            </p>
-          </StatStripCell>
-        </StatStrip>
-        <p className="mt-2.5 text-center portal-type-label text-muted-foreground/70">
-          Submitted as a DAO proposal · requires package integration
-        </p>
-      </SurfacePanel>
+            )}
+          </div>
+          <AnimatePresence initial={false} mode="wait">
+            {showLabelFeedback && label.trim() && projectNameError ? (
+              <motion.p
+                key="label-error"
+                initial={feedbackEnter}
+                animate={feedbackAnimate}
+                exit={feedbackExit}
+                transition={feedbackTransition}
+                className="mt-2 text-xs text-amber-600"
+              >
+                {projectNameError}
+              </motion.p>
+            ) : appId ? (
+              <motion.p
+                key="app-id-feedback"
+                initial={feedbackEnter}
+                animate={feedbackAnimate}
+                exit={feedbackExit}
+                transition={feedbackTransition}
+                className="mt-2 text-xs text-muted-foreground"
+              >
+                On-chain ID:{' '}
+                <span className="font-mono text-foreground/85">{appId}</span>
+                {appIdTaken && <span className="text-red-600"> · Taken</span>}
+                {appIdAvailabilityError && (
+                  <span className="text-amber-600"> · Couldn't verify</span>
+                )}
+              </motion.p>
+            ) : null}
+          </AnimatePresence>
+        </div>
 
-      <SurfacePanel
-        radius="xl"
-        tone="subtle"
-        padding="none"
-        className="px-3 py-3 md:p-5"
-      >
-        <h3 className="mb-4 text-center text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          Details
-        </h3>
-        <div className="space-y-4">
-          <div>
-            <label className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-              Name
-            </label>
-            <div className="portal-field-focus flex items-center rounded-2xl border border-border/40 bg-background/45">
-              <input
-                type="text"
-                value={label}
-                onChange={(e) => {
-                  const nextLabel = e.target.value;
-                  const nextAppId = toSlug(nextLabel);
-
-                  setLabel(nextLabel);
-                  setShowLabelFeedback(false);
-
-                  if (nextAppId !== appId) {
-                    setAppIdAvailability({
-                      state: 'idle',
-                      appId: '',
-                      message: '',
-                    });
-                  }
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    event.preventDefault();
-                    event.currentTarget.blur();
-                  }
-                }}
-                onBlur={commitLabelInput}
-                placeholder="OnSocial"
-                maxLength={MAX_LABEL_LEN}
-                className="w-full bg-transparent px-4 py-3.5 text-sm outline-none"
-                required
-              />
-              {appId && (
-                <span className="shrink-0 pr-3">
-                  {appIdChecking ? (
-                    <span className="inline-flex h-5 w-5 items-center justify-center text-muted-foreground">
-                      <PulsingDots size="sm" />
-                    </span>
-                  ) : appIdTaken ? (
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500/10 text-red-500">
-                      <X className="h-3 w-3" />
-                    </span>
-                  ) : appIdAvailable ||
-                    (showLabelSuccess && !appIdAvailabilityError) ? (
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/12 text-emerald-700">
-                      <Check className="h-3 w-3" />
-                    </span>
-                  ) : null}
-                </span>
+        <div>
+          <label htmlFor="partner-app-description" className={fieldLabelClass}>
+            About your community
+          </label>
+          <div className="portal-field-focus relative rounded-2xl border border-border/40 bg-background/45">
+            <textarea
+              id="partner-app-description"
+              value={description}
+              onChange={(e) => {
+                setDescription(e.target.value);
+                setShowDescriptionFeedback(false);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault();
+                  event.currentTarget.blur();
+                }
+              }}
+              onBlur={() => setShowDescriptionFeedback(true)}
+              placeholder="Community focus and value you create on NEAR"
+              rows={3}
+              maxLength={PROPOSAL_DESCRIPTION_LIMITS.max}
+              className="w-full resize-none rounded-2xl bg-transparent px-4 pt-3 pb-7 text-sm outline-none placeholder:text-muted-foreground/50 md:pt-3.5"
+            />
+            <span
+              className={`pointer-events-none absolute right-3 bottom-2 portal-type-caption tabular-nums tracking-wide ${getBoundedNoteCounterClass(
+                descriptionLength,
+                hasDescription,
+                PROPOSAL_DESCRIPTION_LIMITS
+              )}`}
+            >
+              {getBoundedNoteCounterLabel(
+                descriptionLength,
+                PROPOSAL_DESCRIPTION_LIMITS
               )}
-            </div>
-            <AnimatePresence initial={false} mode="wait">
-              {showLabelFeedback && label.trim() && projectNameError ? (
-                <motion.p
-                  key="label-error"
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.18, ease: 'easeOut' }}
-                  className="mt-2 text-xs text-amber-600"
-                >
-                  {projectNameError}
-                </motion.p>
-              ) : appId ? (
-                <motion.p
-                  key="app-id-feedback"
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.18, ease: 'easeOut' }}
-                  className="mt-2 text-xs text-muted-foreground"
-                >
-                  On-chain ID:{' '}
-                  <span className="font-mono text-foreground/85">{appId}</span>
-                  {appIdTaken && <span className="text-red-600"> · Taken</span>}
-                  {appIdAvailabilityError && (
-                    <span className="text-amber-600"> · Couldn't verify</span>
-                  )}
-                </motion.p>
-              ) : null}
-            </AnimatePresence>
+            </span>
           </div>
-
-          <div>
-            <label className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-              About your community
-            </label>
-            <div className="portal-field-focus relative rounded-2xl border border-border/40 bg-background/45">
-              <textarea
-                value={description}
-                onChange={(e) => {
-                  setDescription(e.target.value);
-                  setShowDescriptionFeedback(false);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && !event.shiftKey) {
-                    event.preventDefault();
-                    event.currentTarget.blur();
-                  }
-                }}
-                onBlur={() => setShowDescriptionFeedback(true)}
-                placeholder="Describe what your community builds and the value it creates."
-                rows={3}
-                maxLength={MAX_DESCRIPTION_LEN}
-                className="w-full resize-none rounded-2xl bg-transparent px-4 pt-3.5 pb-7 text-sm outline-none"
-              />
-              <span
-                className={`pointer-events-none absolute right-3 bottom-2 portal-type-caption tabular-nums tracking-wide ${
-                  descriptionLength < MIN_DESCRIPTION_LEN && hasDescription
-                    ? 'text-amber-600'
-                    : descriptionLength >= DESCRIPTION_WARNING_THRESHOLD
-                      ? 'text-amber-600'
-                      : 'text-muted-foreground/60'
-                }`}
+          <AnimatePresence initial={false}>
+            {showDescriptionFeedback &&
+            hasDescription &&
+            descriptionTextError ? (
+              <motion.p
+                key="description-error"
+                initial={feedbackEnter}
+                animate={feedbackAnimate}
+                exit={feedbackExit}
+                transition={feedbackTransition}
+                className="mt-2 text-xs text-amber-600"
               >
-                {descriptionLength < MIN_DESCRIPTION_LEN
-                  ? `${descriptionLength} / ${MIN_DESCRIPTION_LEN} min`
-                  : `${descriptionLength} / ${MAX_DESCRIPTION_LEN}`}
-              </span>
-            </div>
-            <AnimatePresence initial={false}>
-              {showDescriptionFeedback &&
-              hasDescription &&
-              descriptionTextError ? (
-                <motion.p
-                  key="description-error"
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.18, ease: 'easeOut' }}
-                  className="mt-2 text-xs text-amber-600"
-                >
-                  {descriptionTextError}
-                </motion.p>
-              ) : null}
-            </AnimatePresence>
-          </div>
+                {descriptionTextError}
+              </motion.p>
+            ) : null}
+          </AnimatePresence>
+        </div>
 
-          <div>
-            <label className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-              Community Size
-            </label>
-            <div className="relative" ref={audienceMenuRef}>
-              <button
-                ref={audienceTriggerRef}
-                type="button"
-                onClick={toggleAudienceDropdown}
-                onKeyDown={(event) => {
-                  if (event.key === 'ArrowDown') {
-                    event.preventDefault();
-                    openAudienceMenu(
-                      Math.min(
-                        selectedAudienceIndex + 1,
-                        AUDIENCE_BANDS.length - 1
-                      )
-                    );
-                  } else if (event.key === 'ArrowUp') {
-                    event.preventDefault();
-                    openAudienceMenu(Math.max(selectedAudienceIndex - 1, 0));
-                  } else if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    openAudienceMenu(selectedAudienceIndex);
-                  }
-                }}
-                aria-haspopup="listbox"
-                aria-expanded={audienceMenuOpen}
-                className={`portal-field-focus flex w-full items-center justify-between rounded-2xl border px-4 py-3.5 text-left text-sm outline-none ${
-                  audienceMenuOpen
-                    ? 'border-border bg-background/60'
-                    : 'border-border/40 bg-background/45'
-                }`}
-              >
-                <span>{audienceBand}</span>
-                <ChevronDown
-                  className={`h-4 w-4 text-muted-foreground transition-transform ${
-                    audienceMenuOpen ? 'rotate-180' : ''
-                  }`}
-                />
-              </button>
-
-              <FloatingPanelMenu
-                open={audienceMenuOpen}
-                align="full"
-                className="space-y-0.5 p-1 md:p-1.5"
-                role="listbox"
-                aria-label="Audience band"
-                onKeyDown={(event) => {
-                  if (event.key === 'ArrowDown') {
-                    event.preventDefault();
-                    setAudienceActiveIndex((current) =>
-                      Math.min(current + 1, AUDIENCE_BANDS.length - 1)
-                    );
-                  } else if (event.key === 'ArrowUp') {
-                    event.preventDefault();
-                    setAudienceActiveIndex((current) =>
-                      Math.max(current - 1, 0)
-                    );
-                  } else if (event.key === 'Home') {
-                    event.preventDefault();
-                    setAudienceActiveIndex(0);
-                  } else if (event.key === 'End') {
-                    event.preventDefault();
-                    setAudienceActiveIndex(AUDIENCE_BANDS.length - 1);
-                  } else if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    selectAudienceBandAtIndex(audienceActiveIndex);
-                  } else if (event.key === 'Escape') {
-                    event.preventDefault();
-                    closeAudienceMenu();
-                  } else if (event.key === 'Tab') {
-                    closeAudienceDropdown();
-                  }
-                }}
-              >
-                {AUDIENCE_BANDS.map((band, index) => {
-                  const selected = band === audienceBand;
-                  const active = index === audienceActiveIndex;
-
-                  return (
-                    <button
-                      ref={(element) => {
-                        audienceOptionRefs.current[index] = element;
-                      }}
-                      key={band}
-                      id={`audience-band-option-${index}`}
-                      type="button"
-                      role="option"
-                      aria-selected={selected}
-                      tabIndex={active ? 0 : -1}
-                      onClick={() => selectAudienceBandAtIndex(index)}
-                      onMouseEnter={() => setAudienceActiveIndex(index)}
-                      className={`${floatingPanelItemClass} justify-between ${
-                        selected
-                          ? floatingPanelItemSelectedClass
-                          : active
-                            ? floatingPanelItemActiveClass
-                            : ''
-                      }`}
-                    >
-                      <span>{band}</span>
-                      <span className="flex h-4 w-4 items-center justify-center">
-                        {selected && <Check className="h-4 w-4" />}
-                      </span>
-                    </button>
+        <div>
+          <label className={fieldLabelClass}>Community Size</label>
+          <div className="relative" ref={audienceMenuRef}>
+            <button
+              ref={audienceTriggerRef}
+              type="button"
+              onClick={toggleAudienceDropdown}
+              onKeyDown={(event) => {
+                if (event.key === 'ArrowDown') {
+                  event.preventDefault();
+                  openAudienceMenu(
+                    Math.min(
+                      selectedAudienceIndex + 1,
+                      AUDIENCE_BANDS.length - 1
+                    )
                   );
-                })}
-              </FloatingPanelMenu>
-            </div>
+                } else if (event.key === 'ArrowUp') {
+                  event.preventDefault();
+                  openAudienceMenu(Math.max(selectedAudienceIndex - 1, 0));
+                } else if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  openAudienceMenu(selectedAudienceIndex);
+                }
+              }}
+              aria-haspopup="listbox"
+              aria-expanded={audienceMenuOpen}
+              className={`portal-field-focus flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm outline-none md:py-3.5 ${
+                audienceMenuOpen
+                  ? 'border-border bg-background/60'
+                  : 'border-border/40 bg-background/45'
+              }`}
+            >
+              <span>{audienceBand}</span>
+              <ChevronDown
+                className={`h-4 w-4 text-muted-foreground transition-transform ${
+                  audienceMenuOpen ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+
+            <FloatingPanelMenu
+              open={audienceMenuOpen}
+              align="full"
+              className="space-y-0.5 p-1 md:p-1.5"
+              role="listbox"
+              aria-label="Audience band"
+              onKeyDown={(event) => {
+                if (event.key === 'ArrowDown') {
+                  event.preventDefault();
+                  setAudienceActiveIndex((current) =>
+                    Math.min(current + 1, AUDIENCE_BANDS.length - 1)
+                  );
+                } else if (event.key === 'ArrowUp') {
+                  event.preventDefault();
+                  setAudienceActiveIndex((current) => Math.max(current - 1, 0));
+                } else if (event.key === 'Home') {
+                  event.preventDefault();
+                  setAudienceActiveIndex(0);
+                } else if (event.key === 'End') {
+                  event.preventDefault();
+                  setAudienceActiveIndex(AUDIENCE_BANDS.length - 1);
+                } else if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  selectAudienceBandAtIndex(audienceActiveIndex);
+                } else if (event.key === 'Escape') {
+                  event.preventDefault();
+                  closeAudienceMenu();
+                } else if (event.key === 'Tab') {
+                  closeAudienceDropdown();
+                }
+              }}
+            >
+              {AUDIENCE_BANDS.map((band, index) => {
+                const selected = band === audienceBand;
+                const active = index === audienceActiveIndex;
+
+                return (
+                  <button
+                    ref={(element) => {
+                      audienceOptionRefs.current[index] = element;
+                    }}
+                    key={band}
+                    id={`audience-band-option-${index}`}
+                    type="button"
+                    role="option"
+                    aria-selected={selected}
+                    tabIndex={active ? 0 : -1}
+                    onClick={() => selectAudienceBandAtIndex(index)}
+                    onMouseEnter={() => setAudienceActiveIndex(index)}
+                    className={`${floatingPanelItemClass} justify-between ${
+                      selected
+                        ? floatingPanelItemSelectedClass
+                        : active
+                          ? floatingPanelItemActiveClass
+                          : ''
+                    }`}
+                  >
+                    <span>{band}</span>
+                    <span className="flex h-4 w-4 items-center justify-center">
+                      {selected && <Check className="h-4 w-4" />}
+                    </span>
+                  </button>
+                );
+              })}
+            </FloatingPanelMenu>
           </div>
         </div>
-      </SurfacePanel>
+      </div>
 
-      <SurfacePanel
-        radius="xl"
-        tone="subtle"
-        padding="none"
-        className="px-3 py-3 md:p-5"
-      >
-        <h3 className="mb-4 text-center text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          Links
-        </h3>
-        <div className="space-y-4">
-          <div>
-            <label className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-              Website
-            </label>
-            <div className="portal-field-focus flex items-center rounded-2xl border border-border/40 bg-background/45">
-              <span className="border-r border-border/60 px-3 text-sm text-muted-foreground">
-                https://
+      <div className="mt-3 space-y-3">
+        <p className="portal-eyebrow text-muted-foreground">Links</p>
+        <div>
+          <label className={fieldLabelClass}>Website</label>
+          <div className="portal-field-focus flex min-w-0 items-center rounded-2xl border border-border/40 bg-background/45">
+            <span className="shrink-0 border-r border-border/60 px-3 text-sm text-muted-foreground">
+              https://
+            </span>
+            <input
+              type="text"
+              value={websiteUrl}
+              onChange={(e) => {
+                setWebsiteUrl(stripWebsiteProtocol(e.target.value));
+                setShowWebsiteFeedback(false);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  event.currentTarget.blur();
+                }
+              }}
+              inputMode="url"
+              onBlur={() => {
+                setShowWebsiteFeedback(Boolean(websiteUrl.trim()));
+                if (!websiteUrl.trim()) {
+                  return;
+                }
+                try {
+                  setWebsiteUrl(normalizeWebsiteForDisplay(websiteUrl));
+                } catch {
+                  // Leave as-is; submit validation will show the error.
+                }
+              }}
+              placeholder="example.com"
+              className="min-w-0 w-full bg-transparent px-4 py-3 text-sm outline-none placeholder:text-muted-foreground/50 md:py-3.5"
+            />
+            {websiteFeedbackVisible && (
+              <span className="shrink-0 pr-3">
+                {websiteValid ? (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/12 text-emerald-700">
+                    <Check className="h-3 w-3" />
+                  </span>
+                ) : (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500/10 text-red-500">
+                    <X className="h-3 w-3" />
+                  </span>
+                )}
               </span>
-              <input
-                type="text"
-                value={websiteUrl}
-                onChange={(e) => {
-                  setWebsiteUrl(stripWebsiteProtocol(e.target.value));
-                  setShowWebsiteFeedback(false);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    event.preventDefault();
-                    event.currentTarget.blur();
-                  }
-                }}
-                inputMode="url"
-                onBlur={() => {
-                  setShowWebsiteFeedback(Boolean(websiteUrl.trim()));
-                  if (!websiteUrl.trim()) {
-                    return;
-                  }
-                  try {
-                    setWebsiteUrl(normalizeWebsiteForDisplay(websiteUrl));
-                  } catch {
-                    // Leave as-is; submit validation will show the error.
-                  }
-                }}
-                placeholder="example.com"
-                className="w-full bg-transparent px-4 py-3.5 text-sm outline-none"
-              />
-              {websiteFeedbackVisible && (
-                <span className="shrink-0 pr-3">
-                  {websiteValid ? (
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/12 text-emerald-700">
-                      <Check className="h-3 w-3" />
-                    </span>
-                  ) : (
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500/10 text-red-500">
-                      <X className="h-3 w-3" />
-                    </span>
-                  )}
-                </span>
-              )}
-            </div>
+            )}
           </div>
+        </div>
 
-          <div>
-            <label className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-              Telegram
-            </label>
-            <div className="portal-field-focus flex items-center rounded-2xl border border-border/40 bg-background/45">
-              <span className="border-r border-border/60 px-3 text-sm text-muted-foreground">
-                t.me/
+        <div>
+          <label className={fieldLabelClass}>Telegram</label>
+          <div className="portal-field-focus flex min-w-0 items-center rounded-2xl border border-border/40 bg-background/45">
+            <span className="shrink-0 border-r border-border/60 px-3 text-sm text-muted-foreground">
+              t.me/
+            </span>
+            <input
+              type="text"
+              value={telegramHandle}
+              onChange={(e) => {
+                setTelegramHandle(e.target.value);
+                setShowTelegramFeedback(false);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  event.currentTarget.blur();
+                }
+              }}
+              onBlur={() => {
+                setShowTelegramFeedback(Boolean(telegramHandle.trim()));
+                if (!telegramHandle.trim()) {
+                  return;
+                }
+                try {
+                  setTelegramHandle(
+                    normalizeHandleForDisplay(telegramHandle, 'telegram')
+                  );
+                } catch {
+                  // Leave as-is; submit validation will show the error.
+                }
+              }}
+              placeholder="handle"
+              className="min-w-0 w-full bg-transparent px-4 py-3 text-sm outline-none placeholder:text-muted-foreground/50 md:py-3.5"
+            />
+            {telegramFeedbackVisible && (
+              <span className="shrink-0 pr-3">
+                {telegramValid ? (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/12 text-emerald-700">
+                    <Check className="h-3 w-3" />
+                  </span>
+                ) : (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500/10 text-red-500">
+                    <X className="h-3 w-3" />
+                  </span>
+                )}
               </span>
-              <input
-                type="text"
-                value={telegramHandle}
-                onChange={(e) => {
-                  setTelegramHandle(e.target.value);
-                  setShowTelegramFeedback(false);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    event.preventDefault();
-                    event.currentTarget.blur();
-                  }
-                }}
-                onBlur={() => {
-                  setShowTelegramFeedback(Boolean(telegramHandle.trim()));
-                  if (!telegramHandle.trim()) {
-                    return;
-                  }
-                  try {
-                    setTelegramHandle(
-                      normalizeHandleForDisplay(telegramHandle, 'telegram')
-                    );
-                  } catch {
-                    // Leave as-is; submit validation will show the error.
-                  }
-                }}
-                placeholder="handle"
-                className="w-full bg-transparent px-4 py-3.5 text-sm outline-none"
-              />
-              {telegramFeedbackVisible && (
-                <span className="shrink-0 pr-3">
-                  {telegramValid ? (
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/12 text-emerald-700">
-                      <Check className="h-3 w-3" />
-                    </span>
-                  ) : (
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500/10 text-red-500">
-                      <X className="h-3 w-3" />
-                    </span>
-                  )}
-                </span>
-              )}
-            </div>
+            )}
           </div>
+        </div>
 
-          <div>
-            <label className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-              X
-            </label>
-            <div className="portal-field-focus flex items-center rounded-2xl border border-border/40 bg-background/45">
-              <span className="border-r border-border/60 px-3 text-sm text-muted-foreground">
-                x.com/
+        <div>
+          <label className={fieldLabelClass}>X</label>
+          <div className="portal-field-focus flex min-w-0 items-center rounded-2xl border border-border/40 bg-background/45">
+            <span className="shrink-0 border-r border-border/60 px-3 text-sm text-muted-foreground">
+              x.com/
+            </span>
+            <input
+              type="text"
+              value={xHandle}
+              onChange={(e) => {
+                setXHandle(e.target.value);
+                setShowXFeedback(false);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  event.currentTarget.blur();
+                }
+              }}
+              onBlur={() => {
+                setShowXFeedback(Boolean(xHandle.trim()));
+                if (!xHandle.trim()) {
+                  return;
+                }
+                try {
+                  setXHandle(normalizeHandleForDisplay(xHandle, 'x'));
+                } catch {
+                  // Leave as-is; submit validation will show the error.
+                }
+              }}
+              placeholder="handle"
+              className="min-w-0 w-full bg-transparent px-4 py-3 text-sm outline-none placeholder:text-muted-foreground/50 md:py-3.5"
+            />
+            {xFeedbackVisible && (
+              <span className="shrink-0 pr-3">
+                {xValid ? (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/12 text-emerald-700">
+                    <Check className="h-3 w-3" />
+                  </span>
+                ) : (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500/10 text-red-500">
+                    <X className="h-3 w-3" />
+                  </span>
+                )}
               </span>
-              <input
-                type="text"
-                value={xHandle}
-                onChange={(e) => {
-                  setXHandle(e.target.value);
-                  setShowXFeedback(false);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    event.preventDefault();
-                    event.currentTarget.blur();
-                  }
-                }}
-                onBlur={() => {
-                  setShowXFeedback(Boolean(xHandle.trim()));
-                  if (!xHandle.trim()) {
-                    return;
-                  }
-                  try {
-                    setXHandle(normalizeHandleForDisplay(xHandle, 'x'));
-                  } catch {
-                    // Leave as-is; submit validation will show the error.
-                  }
-                }}
-                placeholder="handle"
-                className="w-full bg-transparent px-4 py-3.5 text-sm outline-none"
-              />
-              {xFeedbackVisible && (
-                <span className="shrink-0 pr-3">
-                  {xValid ? (
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/12 text-emerald-700">
-                      <Check className="h-3 w-3" />
-                    </span>
-                  ) : (
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500/10 text-red-500">
-                      <X className="h-3 w-3" />
-                    </span>
-                  )}
-                </span>
-              )}
-            </div>
+            )}
           </div>
         </div>
 
@@ -1141,37 +1074,29 @@ export function ApplicationForm({
           {showMissingPublicLinkHint ? (
             <motion.p
               key="missing-public-link"
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.18, ease: 'easeOut' }}
-              className="mt-2 text-center text-xs text-amber-600"
+              initial={feedbackEnter}
+              animate={feedbackAnimate}
+              exit={feedbackExit}
+              transition={feedbackTransition}
+              className="text-xs text-amber-600"
             >
               At least one public link helps people recognize your community.
             </motion.p>
           ) : null}
         </AnimatePresence>
-      </SurfacePanel>
 
-      <SurfacePanel
-        radius="xl"
-        tone="subtle"
-        padding="none"
-        className="px-3 py-3 md:p-5"
-      >
-        <h3 className="mb-3 text-center text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          Launch Terms
-        </h3>
-        <StatStrip columns={4} mobileColumns={2}>
+        <StatStrip columns={4} groupClassName="mt-1" showBottomDivider={false}>
           <StatStripCell
             label="Per Action"
             value={PARTNER_PER_USER_TERMS.rewardPerAction}
             showDivider
+            size="sm"
           />
           <StatStripCell
             label="Max / Day"
             value={PARTNER_PER_USER_TERMS.dailyCap}
             showDivider
+            size="sm"
           />
           <StatStripCell
             label="Total Budget"
@@ -1180,6 +1105,7 @@ export function ApplicationForm({
             )}
             valueClassName="portal-blue-text"
             showDivider
+            size="sm"
           />
           <StatStripCell
             label="Daily Budget"
@@ -1187,35 +1113,37 @@ export function ApplicationForm({
               PARTNER_AUDIENCE_BAND_BUDGETS[audienceBand].dailyBudget
             )}
             valueClassName="portal-blue-text"
+            size="sm"
           />
         </StatStrip>
-      </SurfacePanel>
+      </div>
 
-      {error && (
-        <div className="portal-red-panel portal-red-text rounded-[1rem] border px-4 py-3 text-sm">
+      {error ? (
+        <div className="portal-red-panel portal-red-text mt-3 rounded-[1rem] border px-4 py-3 text-sm">
           {error}
         </div>
-      )}
+      ) : null}
 
-      <Button
-        type="submit"
-        disabled={
-          submitting ||
-          !appId ||
-          appIdPending ||
-          appIdTaken ||
-          !label ||
-          !description.trim() ||
-          descriptionLength < MIN_DESCRIPTION_LEN ||
-          !publicLinkRequirementMet
-        }
-        size="default"
-        className="w-full font-semibold disabled:opacity-50"
-        loading={submitting}
-      >
-        Continue to Draft
-        <ArrowRight className={`ml-2 h-4 w-4 ${buttonArrowRightClass}`} />
-      </Button>
+      <div className="mt-3 pt-3">
+        <Button
+          type="submit"
+          disabled={
+            submitting ||
+            !appId ||
+            appIdPending ||
+            appIdTaken ||
+            !label ||
+            !description.trim() ||
+            descriptionLength < PROPOSAL_DESCRIPTION_LIMITS.min ||
+            !publicLinkRequirementMet
+          }
+          className="h-11 w-full gap-1.5 font-semibold disabled:opacity-50"
+          loading={submitting}
+        >
+          Continue to Draft
+          <ArrowRight className={`ml-2 h-4 w-4 ${buttonArrowRightClass}`} />
+        </Button>
+      </div>
     </form>
   );
 }

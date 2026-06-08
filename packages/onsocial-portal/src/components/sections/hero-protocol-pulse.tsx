@@ -96,7 +96,11 @@ export function HeroProtocolPulse({
 
   return (
     <div className="mx-auto mt-8 max-w-2xl rounded-[1.25rem] border border-border/40 bg-background/35 backdrop-blur-sm">
-      <StatStrip columns={heroMetrics.length} mobileColumns={3}>
+      <StatStrip
+        columns={heroMetrics.length}
+        showTopDivider={false}
+        showBottomDivider={false}
+      >
         {heroMetrics.map((metric, index) => {
           const raw = metric.value(pulse);
           const formatted = formatCompact(raw);
@@ -134,7 +138,7 @@ export function HeroProtocolPulse({
           );
         })}
       </StatStrip>
-      <p className="px-4 py-3 text-center portal-eyebrow text-muted-foreground">
+      <p className="border-t border-fade-detail px-4 py-3 text-center portal-eyebrow text-muted-foreground">
         {formatUpdatedAt(pulse.generatedAt)}
       </p>
     </div>

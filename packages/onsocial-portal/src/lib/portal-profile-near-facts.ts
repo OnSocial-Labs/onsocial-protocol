@@ -60,9 +60,7 @@ async function fetchNearBlocksAccountCreation(accountId: string): Promise<{
 
   if (!response.ok) return null;
 
-  const body = (await response
-    .json()
-    .catch(() => null)) as {
+  const body = (await response.json().catch(() => null)) as {
     account?: Array<{
       created?: {
         block_timestamp?: string | number | null;

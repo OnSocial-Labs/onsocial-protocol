@@ -1,4 +1,10 @@
-import type { Application } from '@/features/governance/types';
+import { GOVERNANCE_DAO_ACCOUNT } from '@/lib/portal-config';
+import type {
+  Application,
+  GovernanceDaoProposal,
+  GovernanceScope,
+  ProtocolGovernanceKind,
+} from '@/features/governance/types';
 
 export type GovernanceLane = 'all' | 'partners' | 'protocol';
 
@@ -423,9 +429,7 @@ function buildGovernanceFeedItem(
   };
 }
 
-export function parseGovernanceProposalId(
-  value: string | null
-): number | null {
+export function parseGovernanceProposalId(value: string | null): number | null {
   if (!value) return null;
 
   const parsed = Number(value);
@@ -434,6 +438,146 @@ export function parseGovernanceProposalId(
   }
 
   return parsed;
+}
+
+/** Resolve proposal id from the query string or synthetic feed app ids. */
+export function resolveGovernanceProposalId(
+  appId: string,
+  proposalIdFromQuery: number | null
+): number | null {
+  if (proposalIdFromQuery != null) return proposalIdFromQuery;
+
+  const syntheticMatch = appId.match(/^(?:protocol|partner)-proposal-(\d+)$/);
+  if (!syntheticMatch) return null;
+
+  const parsed = Number(syntheticMatch[1]);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function resolveGovernanceScopeFromAppId(appId: string): GovernanceScope {
+  if (appId.startsWith('protocol-proposal-')) return 'protocol';
+  return 'partners';
+}
+
+function mapDaoProposalStatusToApplicationStatus(
+  status: GovernanceDaoProposal['status']
+): Application['status'] {
+  if (status === 'Approved') return 'approved';
+  if (status === 'Rejected' || status === 'Removed') return 'rejected';
+  return 'proposal_submitted';
+}
+
+export type GovernanceApplicationBootstrapOptions = {
+  scope?: GovernanceScope;
+  label?: string;
+  protocolKind?: ProtocolGovernanceKind | null;
+  protocolSubject?: string | null;
+  protocolTargetAccount?: string | null;
+  protocolTargetMethod?: string | null;
+};
+
+/** Minimal feed row for rendering a card before the full governance feed returns. */
+export function buildGovernanceApplicationFromDaoProposal(
+  appId: string,
+  liveProposal: GovernanceDaoProposal,
+  proposalId: number,
+  options?: GovernanceApplicationBootstrapOptions
+): Application {
+  const scope = options?.scope ?? resolveGovernanceScopeFromAppId(appId);
+  const description = liveProposal.description?.trim() || null;
+  const normalizedProposal: GovernanceDaoProposal = {
+    ...liveProposal,
+    id: liveProposal.id ?? proposalId,
+  };
+
+  return {
+    app_id: appId,
+    label: options?.label ?? description?.split('\n')[0]?.trim() ?? appId,
+    status: mapDaoProposalStatusToApplicationStatus(normalizedProposal.status),
+    wallet_id: null,
+    description,
+    website_url: null,
+    telegram_handle: null,
+    x_handle: null,
+    admin_notes: null,
+    created_at: '',
+    reviewed_at: null,
+    governance_scope: scope,
+    protocol_kind: options?.protocolKind ?? null,
+    protocol_subject: options?.protocolSubject ?? null,
+    protocol_target_account: options?.protocolTargetAccount ?? null,
+    protocol_target_method: options?.protocolTargetMethod ?? null,
+    governance_proposal: {
+      proposal_id: proposalId,
+      status: normalizedProposal.status,
+      proposer: liveProposal.proposer,
+      description,
+      dao_account: GOVERNANCE_DAO_ACCOUNT,
+      tx_hash: null,
+      submitted_at: null,
+      kind: liveProposal.kind,
+      snapshot: normalizedProposal,
+    },
+  };
+}
+
+/** Keep the fast bootstrap snapshot when the slower feed row omits it. */
+export function mergeGovernanceFeedApplication(
+  bootstrap: Application,
+  feedApp: Application | null
+): Application {
+  if (!feedApp) return bootstrap;
+
+  const feedSnapshot = feedApp.governance_proposal?.snapshot;
+  const bootstrapSnapshot = bootstrap.governance_proposal?.snapshot;
+
+  const mergedSnapshot = feedSnapshot ?? bootstrapSnapshot ?? null;
+
+  return {
+    ...feedApp,
+    governance_proposal: feedApp.governance_proposal
+      ? {
+          ...feedApp.governance_proposal,
+          snapshot: mergedSnapshot
+            ? {
+                ...mergedSnapshot,
+                policy_snapshot:
+                  feedSnapshot?.policy_snapshot ??
+                  bootstrapSnapshot?.policy_snapshot ??
+                  mergedSnapshot.policy_snapshot,
+              }
+            : null,
+        }
+      : bootstrap.governance_proposal,
+  };
+}
+
+/** Merge a fast bootstrap list into the slower backend feed without losing snapshots. */
+export function mergeGovernanceFeedApplications(
+  bootstrapApps: Application[],
+  feedApps: Application[]
+): Application[] {
+  if (feedApps.length === 0) {
+    return bootstrapApps;
+  }
+
+  const bootstrapByProposalId = new Map(
+    bootstrapApps
+      .filter((app) => app.governance_proposal?.proposal_id != null)
+      .map((app) => [app.governance_proposal!.proposal_id as number, app])
+  );
+
+  return feedApps.map((feedApp) => {
+    const proposalId = feedApp.governance_proposal?.proposal_id;
+    if (proposalId == null) {
+      return feedApp;
+    }
+
+    const bootstrap = bootstrapByProposalId.get(proposalId);
+    return bootstrap
+      ? mergeGovernanceFeedApplication(bootstrap, feedApp)
+      : feedApp;
+  });
 }
 
 export function buildGovernanceProposalPath(

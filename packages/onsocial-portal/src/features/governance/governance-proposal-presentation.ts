@@ -3,13 +3,12 @@ import { yoctoToNear, yoctoToSocial } from '@/lib/near-rpc';
 
 export type ProposalTargetKind = 'role' | 'community' | 'contract' | 'amount';
 
-export const PROPOSAL_TARGET_KIND_LABELS: Record<ProposalTargetKind, string> =
-  {
-    role: 'Role',
-    community: 'Community',
-    contract: 'Contract',
-    amount: 'Amount',
-  };
+export const PROPOSAL_TARGET_KIND_LABELS: Record<ProposalTargetKind, string> = {
+  role: 'Role',
+  community: 'Community',
+  contract: 'Contract',
+  amount: 'Amount',
+};
 
 function proposalTarget(
   targetKind: ProposalTargetKind | null,
@@ -25,8 +24,7 @@ function proposalTarget(
   return {
     targetKind: targetKind && trimmed ? targetKind : null,
     targetValue: trimmed,
-    targetAccountId:
-      targetKind === 'contract' && accountId ? accountId : null,
+    targetAccountId: targetKind === 'contract' && accountId ? accountId : null,
   };
 }
 
@@ -120,10 +118,7 @@ function getProposalKindKey(
   return keys[0] ?? null;
 }
 
-function readStringField(
-  value: unknown,
-  field: string
-): string | null {
+function readStringField(value: unknown, field: string): string | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return null;
   }
@@ -171,7 +166,9 @@ function getFunctionCallShape(kind: Record<string, unknown> | undefined): {
       ? decodeBase64Json(firstAction.args)
       : null;
   const config =
-    args?.config && typeof args.config === 'object' && !Array.isArray(args.config)
+    args?.config &&
+    typeof args.config === 'object' &&
+    !Array.isArray(args.config)
       ? (args.config as Record<string, unknown>)
       : null;
 
@@ -205,7 +202,9 @@ function formatMethodLabel(methodName: string | null): string | null {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-function firstDescriptionLine(description: string | null | undefined): string | null {
+function firstDescriptionLine(
+  description: string | null | undefined
+): string | null {
   const trimmed = description?.trim();
   if (!trimmed) {
     return null;
@@ -219,7 +218,11 @@ function readPolicyRolePayload(kindPayload: unknown): {
   permissions: string[];
   hasWildcard: boolean;
 } | null {
-  if (!kindPayload || typeof kindPayload !== 'object' || Array.isArray(kindPayload)) {
+  if (
+    !kindPayload ||
+    typeof kindPayload !== 'object' ||
+    Array.isArray(kindPayload)
+  ) {
     return null;
   }
 
@@ -236,7 +239,9 @@ function readPolicyRolePayload(kindPayload: unknown): {
   }
 
   const name = readStringField(role, 'name');
-  const permissions = Array.isArray((role as Record<string, unknown>).permissions)
+  const permissions = Array.isArray(
+    (role as Record<string, unknown>).permissions
+  )
     ? ((role as Record<string, unknown>).permissions as unknown[]).filter(
         (permission): permission is string => typeof permission === 'string'
       )
@@ -297,7 +302,10 @@ function classifyPolicyRoleUpdate({
 }
 
 function withProposerSubject(
-  presentation: Omit<PresentationCore, 'subjectAccount' | 'showProposerSeparately'>,
+  presentation: Omit<
+    PresentationCore,
+    'subjectAccount' | 'showProposerSeparately'
+  >,
   proposer: string | null
 ): PresentationCore {
   return {
@@ -483,7 +491,9 @@ export function deriveProposalPresentation({
       methodName === 'update_contract' ||
       methodName === 'update_contract_from_hash'
     ) {
-      headline = contractLabel ? `Upgrade ${contractLabel}` : 'Upgrade contract';
+      headline = contractLabel
+        ? `Upgrade ${contractLabel}`
+        : 'Upgrade contract';
       return finish(
         withContractCallSubject({
           headline,
@@ -556,16 +566,18 @@ export function deriveProposalPresentation({
       description: onChainDescription,
     });
 
-    return finish(withProposerSubject(
-      {
-        headline: classified.headline,
-        actionBadge: classified.actionBadge,
-        ...proposalTarget('role', roleLabel),
-        onChainDescription,
-        proposer: normalizedProposer,
-      },
-      normalizedProposer
-    ));
+    return finish(
+      withProposerSubject(
+        {
+          headline: classified.headline,
+          actionBadge: classified.actionBadge,
+          ...proposalTarget('role', roleLabel),
+          onChainDescription,
+          proposer: normalizedProposer,
+        },
+        normalizedProposer
+      )
+    );
   }
 
   if (kindKey === 'ChangePolicyRemoveRole') {
@@ -573,65 +585,75 @@ export function deriveProposalPresentation({
     const roleName = roleId ? formatDaoRoleDisplayName(roleId) : null;
     const headline = roleName ? `Remove ${roleName}` : 'Remove DAO role';
 
-    return finish(withProposerSubject(
-      {
-        headline,
-        actionBadge: 'Remove role',
-        ...proposalTarget('role', roleName),
-        onChainDescription,
-        proposer: normalizedProposer,
-      },
-      normalizedProposer
-    ));
+    return finish(
+      withProposerSubject(
+        {
+          headline,
+          actionBadge: 'Remove role',
+          ...proposalTarget('role', roleName),
+          onChainDescription,
+          proposer: normalizedProposer,
+        },
+        normalizedProposer
+      )
+    );
   }
 
   if (kindKey === 'ChangePolicyUpdateParameters') {
-    return finish(withProposerSubject(
-      {
-        headline:
-          firstDescriptionLine(onChainDescription) ?? 'Update DAO parameters',
-        actionBadge: 'Parameters',
-        targetKind: null,
-        targetValue: null,
-        targetAccountId: null,
-        onChainDescription,
-        proposer: normalizedProposer,
-      },
-      normalizedProposer
-    ));
+    return finish(
+      withProposerSubject(
+        {
+          headline:
+            firstDescriptionLine(onChainDescription) ?? 'Update DAO parameters',
+          actionBadge: 'Parameters',
+          targetKind: null,
+          targetValue: null,
+          targetAccountId: null,
+          onChainDescription,
+          proposer: normalizedProposer,
+        },
+        normalizedProposer
+      )
+    );
   }
 
   if (kindKey === 'ChangePolicyUpdateDefaultVotePolicy') {
-    return finish(withProposerSubject(
-      {
-        headline:
-          firstDescriptionLine(onChainDescription) ?? 'Update vote policy',
-        actionBadge: 'Vote policy',
-        targetKind: null,
-        targetValue: null,
-        targetAccountId: null,
-        onChainDescription,
-        proposer: normalizedProposer,
-      },
-      normalizedProposer
-    ));
+    return finish(
+      withProposerSubject(
+        {
+          headline:
+            firstDescriptionLine(onChainDescription) ?? 'Update vote policy',
+          actionBadge: 'Vote policy',
+          targetKind: null,
+          targetValue: null,
+          targetAccountId: null,
+          onChainDescription,
+          proposer: normalizedProposer,
+        },
+        normalizedProposer
+      )
+    );
   }
 
   if (kindKey === 'ChangePolicy' || kindKey === 'ChangeConfig') {
-    return finish(withProposerSubject(
-      {
-        headline:
-          firstDescriptionLine(onChainDescription) ??
-          (kindKey === 'ChangeConfig' ? 'Update config' : 'DAO policy change'),
-        actionBadge: actionBadge ?? 'Policy',
-        targetKind: null,
-        targetValue: null,
-        targetAccountId: null,
-        onChainDescription,
-        proposer: normalizedProposer,
-      },
-      normalizedProposer
-    ));
+    return finish(
+      withProposerSubject(
+        {
+          headline:
+            firstDescriptionLine(onChainDescription) ??
+            (kindKey === 'ChangeConfig'
+              ? 'Update config'
+              : 'DAO policy change'),
+          actionBadge: actionBadge ?? 'Policy',
+          targetKind: null,
+          targetValue: null,
+          targetAccountId: null,
+          onChainDescription,
+          proposer: normalizedProposer,
+        },
+        normalizedProposer
+      )
+    );
   }
 
   if (kindKey === 'Vote') {
@@ -652,18 +674,20 @@ export function deriveProposalPresentation({
   }
 
   if (kindKey === 'UpgradeSelf' || kindKey === 'UpgradeRemote') {
-    return finish(withProposerSubject(
-      {
-        headline: 'Upgrade contract',
-        actionBadge: actionBadge ?? 'Upgrade',
-        targetKind: null,
-        targetValue: null,
-        targetAccountId: null,
-        onChainDescription,
-        proposer: normalizedProposer,
-      },
-      normalizedProposer
-    ));
+    return finish(
+      withProposerSubject(
+        {
+          headline: 'Upgrade contract',
+          actionBadge: actionBadge ?? 'Upgrade',
+          targetKind: null,
+          targetValue: null,
+          targetAccountId: null,
+          onChainDescription,
+          proposer: normalizedProposer,
+        },
+        normalizedProposer
+      )
+    );
   }
 
   const genericHeadline =
@@ -706,10 +730,10 @@ export function derivePartnerCardDescription({
   const onChainText = onChainDescription?.trim();
   if (onChainText) {
     const descriptionField = onChainText.match(
-      /Description:\s*(.+?)(?:\.\s*(?:Reward per action|Daily cap|Total budget)|$)/i
+      /Description:\s*(.+?)(?:\s+Reward per action:|\s+Daily cap:|\s+Total budget:|$)/i
     );
     if (descriptionField?.[1]?.trim()) {
-      return descriptionField[1].trim();
+      return descriptionField[1].trim().replace(/\.\s*$/, '');
     }
   }
 
@@ -717,7 +741,10 @@ export function derivePartnerCardDescription({
 }
 
 function resolveFeedProposalKind(
-  feedProposal: { kind?: Record<string, unknown> | null; payload?: unknown } | null
+  feedProposal: {
+    kind?: Record<string, unknown> | null;
+    payload?: unknown;
+  } | null
 ): Record<string, unknown> | null {
   if (feedProposal?.kind && typeof feedProposal.kind === 'object') {
     return feedProposal.kind;

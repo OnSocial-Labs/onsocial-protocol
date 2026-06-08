@@ -26,22 +26,10 @@ const REPLACEMENTS = [
     /text-\[10px\]\s+font-medium\s+uppercase\s+tracking-\[0\.12em\]/g,
     'portal-eyebrow',
   ],
-  [
-    /text-\[10px\]\s+uppercase\s+tracking-\[0\.18em\]/g,
-    'portal-eyebrow-wide',
-  ],
-  [
-    /text-\[10px\]\s+uppercase\s+tracking-\[0\.16em\]/g,
-    'portal-eyebrow-wide',
-  ],
-  [
-    /text-\[10px\]\s+uppercase\s+tracking-\[0\.14em\]/g,
-    'portal-eyebrow',
-  ],
-  [
-    /text-\[10px\]\s+uppercase\s+tracking-\[0\.12em\]/g,
-    'portal-eyebrow',
-  ],
+  [/text-\[10px\]\s+uppercase\s+tracking-\[0\.18em\]/g, 'portal-eyebrow-wide'],
+  [/text-\[10px\]\s+uppercase\s+tracking-\[0\.16em\]/g, 'portal-eyebrow-wide'],
+  [/text-\[10px\]\s+uppercase\s+tracking-\[0\.14em\]/g, 'portal-eyebrow'],
+  [/text-\[10px\]\s+uppercase\s+tracking-\[0\.12em\]/g, 'portal-eyebrow'],
   [
     /text-\[11px\]\s+font-medium\s+uppercase\s+tracking-\[0\.18em\]/g,
     'portal-eyebrow-wide',
@@ -50,18 +38,9 @@ const REPLACEMENTS = [
     /text-\[11px\]\s+font-medium\s+uppercase\s+tracking-\[0\.14em\]/g,
     'portal-eyebrow',
   ],
-  [
-    /text-\[11px\]\s+uppercase\s+tracking-\[0\.18em\]/g,
-    'portal-eyebrow-wide',
-  ],
-  [
-    /text-\[11px\]\s+uppercase\s+tracking-\[0\.14em\]/g,
-    'portal-eyebrow',
-  ],
-  [
-    /text-\[11px\]\s+uppercase\s+tracking-\[0\.16em\]/g,
-    'portal-eyebrow-wide',
-  ],
+  [/text-\[11px\]\s+uppercase\s+tracking-\[0\.18em\]/g, 'portal-eyebrow-wide'],
+  [/text-\[11px\]\s+uppercase\s+tracking-\[0\.14em\]/g, 'portal-eyebrow'],
+  [/text-\[11px\]\s+uppercase\s+tracking-\[0\.16em\]/g, 'portal-eyebrow-wide'],
   // Redundant responsive bumps (token already scales at md)
   [/\s+md:text-\[11px\]/g, ''],
   [/\s+md:text-\[12px\]/g, ''],
@@ -69,7 +48,10 @@ const REPLACEMENTS = [
   [/\s+sm:text-\[10px\]/g, ''],
   // Composite responsive pairs → single token
   [/text-\[13px\]\s+md:text-sm/g, 'portal-type-body'],
-  [/text-\[13px\]\s+font-semibold\s+md:text-sm/g, 'portal-type-body font-semibold'],
+  [
+    /text-\[13px\]\s+font-semibold\s+md:text-sm/g,
+    'portal-type-body font-semibold',
+  ],
   [/text-sm\s+md:text-\[15px\]/g, 'portal-type-lead'],
   [/text-sm\s+md:text-base/g, 'portal-type-lead'],
   // Simple pixel sizes
@@ -120,8 +102,12 @@ for (const file of walk(ROOT)) {
     writeFileSync(file, next, 'utf8');
     totalFiles += 1;
     totalReplacements += fileReplacements;
-    console.log(`updated ${file.replace(ROOT + '/', '')} (${fileReplacements} replacements)`);
+    console.log(
+      `updated ${file.replace(ROOT + '/', '')} (${fileReplacements} replacements)`
+    );
   }
 }
 
-console.log(`\nDone: ${totalReplacements} replacements across ${totalFiles} files.`);
+console.log(
+  `\nDone: ${totalReplacements} replacements across ${totalFiles} files.`
+);

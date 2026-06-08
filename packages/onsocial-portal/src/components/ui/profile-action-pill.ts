@@ -8,8 +8,7 @@ export type ProfileActionPillTone =
   | 'green'
   | 'neutral';
 
-export const profileActionButtonBaseClass =
-  `group inline-flex shrink-0 items-center gap-1 rounded-lg border px-2 py-0.5 ${portalType.label} font-medium transition-all duration-150 hover:backdrop-blur-sm active:scale-[0.98] active:opacity-90 focus-visible:outline-none focus-visible:ring-1 disabled:pointer-events-none disabled:opacity-50`;
+export const profileActionButtonBaseClass = `group inline-flex shrink-0 items-center gap-1 rounded-lg border px-2 py-0.5 ${portalType.label} font-medium transition-all duration-150 hover:backdrop-blur-sm active:scale-[0.98] active:opacity-90 focus-visible:outline-none focus-visible:ring-1 disabled:pointer-events-none disabled:opacity-50`;
 
 export function profileActionToneClass(tone: ProfileActionPillTone): string {
   switch (tone) {
@@ -31,8 +30,7 @@ export function profileActionButtonClass(tone: ProfileActionPillTone): string {
 }
 
 /** Shared compact pill shell (layout only). */
-export const portalCompactPillShellClass =
-  `group inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-0.5 ${portalType.label} font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-1 active:scale-[0.98] active:opacity-90 disabled:pointer-events-none disabled:opacity-50`;
+export const portalCompactPillShellClass = `group inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-0.5 ${portalType.label} font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-1 active:scale-[0.98] active:opacity-90 disabled:pointer-events-none disabled:opacity-50`;
 
 /** Neutral rounded pill for wallet + profile compact actions. */
 export const portalCompactActionPillClass = cn(
@@ -40,7 +38,11 @@ export const portalCompactActionPillClass = cn(
   'portal-neutral-control focus-visible:ring-[var(--portal-neutral-border-strong)]'
 );
 
-export type WalletMenuActionVariant = 'edit' | 'create' | 'claim' | 'claim-ready';
+export type WalletMenuActionVariant =
+  | 'edit'
+  | 'create'
+  | 'claim'
+  | 'claim-ready';
 
 export function walletMenuActionButtonClass(
   variant: WalletMenuActionVariant

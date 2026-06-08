@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Github, Globe, HeartHandshake, PenLine, User } from 'lucide-react';
@@ -25,6 +26,7 @@ import {
 import { ModalCloseButton } from '@/components/ui/modal-close-button';
 import {
   ModalFactRow,
+  ModalFactValueSkeleton,
   ModalFactSection,
 } from '@/components/ui/modal-fact-list';
 import { ModalHeader } from '@/components/ui/modal-header';
@@ -40,7 +42,14 @@ import {
   ProfileSocialStandingToggle,
 } from '@/components/ui/profile-social-standing-toggle';
 import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
-import { Skeleton, SkeletonText } from '@/components/ui/skeleton';
+import {
+  ProfileIdentityLoading,
+  ProfileSocialStripSkeleton,
+  profileIdentityAvatarSizeClass,
+  profileIdentityLayoutClass,
+  profileIdentityOverlapClass,
+  profileIdentityTextClass,
+} from '@/features/profile/profile-identity-loading';
 import { NetworkModal, type NetworkAccount } from '@/components/network-modal';
 import { PlatformStorageAllowanceSummary } from '@/components/platform-storage-allowance-summary';
 import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
@@ -52,6 +61,7 @@ import { ProfileEndorsements } from '@/components/profile-endorsements';
 import { ProfileSupportModal } from '@/components/profile-support-modal';
 import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
 import { usePlatformStorageSummary } from '@/hooks/use-platform-storage-summary';
+import { useProfileNearFacts } from '@/hooks/use-profile-near-facts';
 import { PLATFORM_STORAGE_LABEL } from '@/lib/platform-storage-display';
 import type { StandingUpdateResult } from '@/contexts/profile-context';
 import {
@@ -65,13 +75,22 @@ import { fadeMotion, scaleFadeMotion } from '@/lib/motion';
 import { formatProfilePageNavLabel } from '@/lib/nav-badge-label';
 import {
   getPortalEndorsementsUrl,
+  getPortalNetworkUrl,
   getPortalStandUrl,
   type PortalEndorsementsMode,
 } from '@/lib/portal-config';
 import {
+  buildNetworkAccountsOrdered,
+  standingSummaryToNetworkSource,
+} from '@/lib/profile-network-accounts';
+import {
   type StandingAccountSummary,
   type StanceDetailKind,
 } from '@/lib/profile-social-standings';
+import {
+  graphRoutePrefetchProps,
+  useProfileGraphRoutePrefetch,
+} from '@/lib/profile-graph-link';
 import {
   profilePageBannerSurfaceClass,
   profilePageHorizontalPaddingClass,
@@ -103,16 +122,6 @@ interface PortalProfileResponse {
   firstProfileTimestamp: number | null;
   latestProfileUpdateFields: string[];
   network?: 'testnet' | 'mainnet';
-  nearAccount?: {
-    codeHash: string;
-    storageUsage: number;
-  } | null;
-  nearAccountExplorerUrl?: string;
-  nearAccountCreation?: {
-    blockTimestamp: number;
-    transactionHash: string | null;
-    explorerUrl: string | null;
-  } | null;
 }
 
 interface ProfileSocialResponse {
@@ -124,23 +133,13 @@ interface ProfileSocialResponse {
     outgoing: number;
     mutual: number;
   };
+  mutual: StandingAccountSummary[];
   incoming: StandingAccountSummary[];
   outgoing: StandingAccountSummary[];
 }
 
 const socialMetricBtnClass =
   'group inline-flex items-center gap-1 rounded-md px-1 py-0.5 transition-colors focus-visible:outline-none focus-visible:ring-1';
-
-const profileIdentityLayoutClass =
-  '[--profile-avatar-size:5rem] md:[--profile-avatar-size:6rem]';
-
-const profileIdentityOverlapClass = '-mt-[calc(var(--profile-avatar-size)/2)]';
-
-const profileIdentityAvatarSizeClass =
-  'h-[var(--profile-avatar-size)] w-[var(--profile-avatar-size)]';
-
-const profileIdentityTextClass =
-  'min-w-0 flex-1 space-y-0.5 pb-1 pt-[calc(var(--profile-avatar-size)/2+0.375rem)]';
 
 interface ProfileSignalsResponse {
   accountId: string;
@@ -155,9 +154,6 @@ interface PortalProfileBundleResponse {
   firstProfileTimestamp: number | null;
   latestProfileUpdateFields: string[];
   network?: PortalProfileResponse['network'];
-  nearAccount: PortalProfileResponse['nearAccount'];
-  nearAccountExplorerUrl?: string;
-  nearAccountCreation: PortalProfileResponse['nearAccountCreation'];
   social?: ProfileSocialResponse;
   signals?: ProfileSignalsResponse;
 }
@@ -202,6 +198,10 @@ function getErrorMessage(error: unknown): string {
   return 'Profile request failed';
 }
 
+function isProfileRateLimitMessage(message: string): boolean {
+  return /HTTP 429|rate limit|busy/i.test(message);
+}
+
 async function fetchPortalProfileBundle(
   accountId: string,
   viewerAccountId: string | null
@@ -214,36 +214,47 @@ async function fetchPortalProfileBundle(
     search.set('viewerAccountId', viewerAccountId);
   }
 
-  const response = await fetch(`/api/profile?${search.toString()}`, {
-    cache: 'no-store',
-  });
-  const body = (await response.json().catch(() => null)) as
-    | (Partial<PortalProfileBundleResponse> & {
-        error?: string;
-        detail?: string;
-      })
-    | null;
+  const url = `/api/profile?${search.toString()}`;
+  let lastError: Error | null = null;
 
-  if (!response.ok) {
-    throw new Error(
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt > 0) {
+      await new Promise((resolve) => {
+        window.setTimeout(resolve, 900);
+      });
+    }
+
+    const response = await fetch(url, { cache: 'no-store' });
+    const body = (await response.json().catch(() => null)) as
+      | (Partial<PortalProfileBundleResponse> & {
+          error?: string;
+          detail?: string;
+        })
+      | null;
+
+    if (response.ok) {
+      return {
+        accountId,
+        profile: body?.profile ?? null,
+        avatarUrl: body?.avatarUrl ?? null,
+        bannerUrl: body?.bannerUrl ?? null,
+        firstProfileTimestamp: body?.firstProfileTimestamp ?? null,
+        latestProfileUpdateFields: body?.latestProfileUpdateFields ?? [],
+        network: body?.network,
+        social: body?.social,
+        signals: body?.signals,
+      };
+    }
+
+    lastError = new Error(
       body?.detail ?? body?.error ?? `Profile query failed (${response.status})`
     );
+    if (response.status !== 429) {
+      throw lastError;
+    }
   }
 
-  return {
-    accountId,
-    profile: body?.profile ?? null,
-    avatarUrl: body?.avatarUrl ?? null,
-    bannerUrl: body?.bannerUrl ?? null,
-    firstProfileTimestamp: body?.firstProfileTimestamp ?? null,
-    latestProfileUpdateFields: body?.latestProfileUpdateFields ?? [],
-    network: body?.network,
-    nearAccount: body?.nearAccount ?? null,
-    nearAccountExplorerUrl: body?.nearAccountExplorerUrl,
-    nearAccountCreation: body?.nearAccountCreation ?? null,
-    social: body?.social,
-    signals: body?.signals,
-  };
+  throw lastError ?? new Error('Profile query failed (429)');
 }
 
 async function fetchProfileSocial(
@@ -291,6 +302,7 @@ async function fetchProfileSocial(
       outgoing: Number(body?.counts?.outgoing ?? 0),
       mutual: Number(body?.counts?.mutual ?? 0),
     },
+    mutual: normalizeAccounts(body?.mutual),
     incoming: normalizeAccounts(body?.incoming),
     outgoing: normalizeAccounts(body?.outgoing),
   };
@@ -330,7 +342,7 @@ function displayName(
 }
 
 function cleanHandle(accountId: string): string {
-  return accountId.replace(/\.(testnet|near)$/u, '');
+  return accountId.replace(/\.(testnet|near|tg)$/u, '');
 }
 
 function formatCount(count: number): string {
@@ -476,72 +488,6 @@ function accountGradient(accountId: string): string {
   return `linear-gradient(135deg, hsl(${h1} 45% 60% / 0.14), hsl(${h2} 35% 55% / 0.08), transparent 80%)`;
 }
 
-function ProfileIdentityLoading({ fullPage = false }: { fullPage?: boolean }) {
-  return (
-    <>
-      <div
-        className={cn(
-          'aspect-[5/1] w-full bg-foreground/[0.03]',
-          fullPage && profilePageBannerSurfaceClass
-        )}
-      />
-      <div
-        className={cn(
-          'relative z-10 space-y-3 pb-5 md:px-5',
-          profileIdentityLayoutClass,
-          profileIdentityOverlapClass,
-          fullPage
-            ? cn('pb-12', profilePageHorizontalPaddingClass)
-            : 'px-4 pb-5 md:px-5'
-        )}
-      >
-        <div className="flex items-start gap-3.5">
-          <Skeleton
-            className={cn(
-              'shrink-0 rounded-2xl !border-[3px] !border-background',
-              profileIdentityAvatarSizeClass
-            )}
-          />
-          <div className={cn(profileIdentityTextClass, 'space-y-1.5')}>
-            <Skeleton className="h-5 w-36 max-w-full bg-foreground/10" />
-            <Skeleton className="h-3 w-48 max-w-full bg-foreground/[0.06]" />
-          </div>
-        </div>
-        <SkeletonText
-          lines={2}
-          className="max-w-md"
-          widths={['w-full', 'w-3/5']}
-        />
-        <Skeleton className="h-7 w-28 rounded-full bg-foreground/[0.07]" />
-        <div className="space-y-2">
-          <div className="flex items-start gap-6">
-            <div className="space-y-1.5">
-              <Skeleton className="h-2 w-14" />
-              <div className="flex gap-1.5">
-                <Skeleton className="h-4 w-8 rounded" />
-                <Skeleton className="h-4 w-8 rounded" />
-                <Skeleton className="h-4 w-6 rounded" />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Skeleton className="h-2 w-20" />
-              <div className="flex gap-1.5">
-                <Skeleton className="h-4 w-8 rounded" />
-                <Skeleton className="h-4 w-8 rounded" />
-              </div>
-            </div>
-          </div>
-          <div className="flex -space-x-1">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-5 w-5 rounded-full" />
-            ))}
-          </div>
-        </div>
-      </div>
-    </>
-  );
-}
-
 function AccountAvatar({
   avatarUrl,
   className,
@@ -580,7 +526,11 @@ function SocialProofStrip({
   meta,
   onOpenStanceDetail,
   onOpenNetwork,
+  networkHref,
   onOpenEndorsements,
+  prefetchStandDetail,
+  prefetchNetwork,
+  prefetchEndorsementsPage,
 }: {
   social: ProfileSocialResponse;
   endorsementCount: number;
@@ -588,8 +538,12 @@ function SocialProofStrip({
   isSelf: boolean;
   meta?: ReactNode;
   onOpenStanceDetail: (kind: StanceDetailKind) => void;
-  onOpenNetwork: () => void;
+  onOpenNetwork?: () => void;
+  networkHref?: string;
   onOpenEndorsements: (mode: PortalEndorsementsMode, topic?: string) => void;
+  prefetchStandDetail?: (kind: StanceDetailKind) => void;
+  prefetchNetwork?: () => void;
+  prefetchEndorsementsPage?: (mode: PortalEndorsementsMode) => void;
 }) {
   const incomingCount = social.counts.incoming;
   const outgoingCount = social.counts.outgoing;
@@ -598,7 +552,11 @@ function SocialProofStrip({
   const previewAccounts = useMemo(() => {
     const seen = new Set<string>();
     const result: StandingAccountSummary[] = [];
-    for (const account of [...social.incoming, ...social.outgoing]) {
+    for (const account of [
+      ...social.mutual,
+      ...social.incoming,
+      ...social.outgoing,
+    ]) {
       if (!seen.has(account.accountId)) {
         seen.add(account.accountId);
         result.push(account);
@@ -619,54 +577,73 @@ function SocialProofStrip({
 
   const metricBtn = socialMetricBtnClass;
   const columnLabel = 'portal-type-label font-medium text-muted-foreground/55';
+  const networkControlClass = cn(
+    profileSocialMetaRowItemClass,
+    'group gap-2 rounded-md text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60'
+  );
+  const networkPreview = (
+    <PortalHoverTooltip
+      className="inline-flex items-center gap-2"
+      tooltip="Open network"
+    >
+      <span
+        className={cn(
+          columnLabel,
+          'transition-colors group-hover:text-muted-foreground/70'
+        )}
+      >
+        Network
+      </span>
+      <span className="flex items-center">
+        {previewAccounts.map((account, index) => (
+          <AccountAvatar
+            key={account.accountId}
+            avatarUrl={account.avatarUrl}
+            className={cn('h-5 w-5 border-background', index > 0 && '-ml-1.5')}
+          />
+        ))}
+        {overflowCount > 0 ? (
+          <span className="pl-1 portal-type-label font-medium tabular-nums text-muted-foreground/55 transition-colors group-hover:text-muted-foreground/70">
+            +{formatCount(overflowCount)}
+          </span>
+        ) : null}
+      </span>
+    </PortalHoverTooltip>
+  );
 
   return (
     <div>
       {meta || previewAccounts.length > 0 ? (
         <div className={profileSocialMetaRowClass}>
           {previewAccounts.length > 0 ? (
-            <button
-              type="button"
-              onClick={onOpenNetwork}
-              className={cn(
-                profileSocialMetaRowItemClass,
-                'group gap-2 rounded-md text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60'
-              )}
-              aria-label={
-                isSelf ? 'View your standing network' : 'View standing network'
-              }
-            >
-              <PortalHoverTooltip
-                className="inline-flex items-center gap-2"
-                tooltip="Open network"
+            networkHref ? (
+              <Link
+                href={networkHref}
+                prefetch
+                {...graphRoutePrefetchProps(prefetchNetwork)}
+                className={networkControlClass}
+                aria-label={
+                  isSelf
+                    ? 'View your standing network'
+                    : 'View standing network'
+                }
               >
-                <span
-                  className={cn(
-                    columnLabel,
-                    'transition-colors group-hover:text-muted-foreground/70'
-                  )}
-                >
-                  Network
-                </span>
-                <span className="flex items-center">
-                  {previewAccounts.map((account, index) => (
-                    <AccountAvatar
-                      key={account.accountId}
-                      avatarUrl={account.avatarUrl}
-                      className={cn(
-                        'h-5 w-5 border-background',
-                        index > 0 && '-ml-1.5'
-                      )}
-                    />
-                  ))}
-                  {overflowCount > 0 ? (
-                    <span className="pl-1 portal-type-label font-medium tabular-nums text-muted-foreground/55 transition-colors group-hover:text-muted-foreground/70">
-                      +{formatCount(overflowCount)}
-                    </span>
-                  ) : null}
-                </span>
-              </PortalHoverTooltip>
-            </button>
+                {networkPreview}
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={onOpenNetwork}
+                className={networkControlClass}
+                aria-label={
+                  isSelf
+                    ? 'View your standing network'
+                    : 'View standing network'
+                }
+              >
+                {networkPreview}
+              </button>
+            )
           ) : null}
           {meta}
         </div>
@@ -678,6 +655,9 @@ function SocialProofStrip({
             <button
               type="button"
               onClick={() => onOpenStanceDetail('incoming')}
+              {...graphRoutePrefetchProps(() =>
+                prefetchStandDetail?.('incoming')
+              )}
               className={cn(
                 metricBtn,
                 'focus-visible:ring-[var(--portal-blue-focus-border)]'
@@ -706,6 +686,9 @@ function SocialProofStrip({
             <button
               type="button"
               onClick={() => onOpenStanceDetail('outgoing')}
+              {...graphRoutePrefetchProps(() =>
+                prefetchStandDetail?.('outgoing')
+              )}
               className={cn(
                 metricBtn,
                 'focus-visible:ring-[var(--portal-blue-focus-border)]'
@@ -740,6 +723,9 @@ function SocialProofStrip({
             <button
               type="button"
               onClick={() => onOpenStanceDetail('mutual')}
+              {...graphRoutePrefetchProps(() =>
+                prefetchStandDetail?.('mutual')
+              )}
               className={cn(
                 metricBtn,
                 'focus-visible:ring-[var(--portal-purple-border)]'
@@ -774,6 +760,9 @@ function SocialProofStrip({
             <button
               type="button"
               onClick={() => onOpenEndorsements('received')}
+              {...graphRoutePrefetchProps(() =>
+                prefetchEndorsementsPage?.('received')
+              )}
               className={cn(
                 metricBtn,
                 'focus-visible:ring-[var(--portal-gold-accent)]'
@@ -798,6 +787,9 @@ function SocialProofStrip({
             <button
               type="button"
               onClick={() => onOpenEndorsements('given')}
+              {...graphRoutePrefetchProps(() =>
+                prefetchEndorsementsPage?.('given')
+              )}
               className={cn(
                 metricBtn,
                 'focus-visible:ring-[var(--portal-gold-accent)]'
@@ -993,9 +985,6 @@ function AccountFactsModal({
   latestProfileUpdateFields,
   joinedLabel,
   network,
-  nearAccount,
-  nearAccountExplorerUrl,
-  nearAccountCreation,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -1006,31 +995,61 @@ function AccountFactsModal({
   latestProfileUpdateFields: string[];
   joinedLabel: string | null;
   network?: 'testnet' | 'mainnet';
-  nearAccount?: PortalProfileResponse['nearAccount'];
-  nearAccountExplorerUrl?: string;
-  nearAccountCreation?: PortalProfileResponse['nearAccountCreation'];
 }) {
   const reduceMotion = useReducedMotion();
   const scrollRef = useRef<HTMLDivElement>(null);
   useBodyScrollLock(open, scrollRef);
+  const nearFacts = useProfileNearFacts(accountId, open);
   const lastProfileUpdate = profileDateLabel(profile?.lastUpdatedAt);
   const updatedFieldsLabel =
     latestProfileUpdateFields.length > 0
       ? latestProfileUpdateFields.join(' · ')
       : null;
+  const nearLoading = nearFacts.loading;
+  const nearAccount = nearFacts.facts?.nearAccount ?? null;
+  const nearAccountExplorerUrl = nearFacts.facts?.nearAccountExplorerUrl;
+  const nearAccountCreation = nearFacts.facts?.nearAccountCreation ?? null;
+  const nearUnavailable = nearFacts.error ? 'Unavailable' : 'Unavailable';
   const accountCreatedLabel = profileDateLabel(
     nearAccountCreation?.blockTimestamp
   );
   const accountCreatedUrl =
     nearAccountCreation?.explorerUrl ?? nearAccountExplorerUrl;
-  const accountType = nearAccount
-    ? nearAccount.codeHash === NEAR_EMPTY_CODE_HASH
-      ? 'User account'
-      : 'Contract account'
-    : 'Unavailable';
-  const storageUsed = nearAccount
-    ? formatBytes(nearAccount.storageUsage)
-    : 'Unavailable';
+  const accountType = nearLoading ? (
+    <ModalFactValueSkeleton wide />
+  ) : nearAccount ? (
+    nearAccount.codeHash === NEAR_EMPTY_CODE_HASH ? (
+      'User account'
+    ) : (
+      'Contract account'
+    )
+  ) : (
+    nearUnavailable
+  );
+  const storageUsed = nearLoading ? (
+    <ModalFactValueSkeleton />
+  ) : nearAccount ? (
+    formatBytes(nearAccount.storageUsage)
+  ) : (
+    nearUnavailable
+  );
+  const accountCreatedValue = nearLoading ? (
+    <ModalFactValueSkeleton wide />
+  ) : accountCreatedLabel ? (
+    accountCreatedUrl ? (
+      <a
+        href={accountCreatedUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="group inline-flex items-center gap-1 text-[var(--portal-blue)] transition-colors hover:text-[var(--portal-blue-hover)]"
+      >
+        {accountCreatedLabel}
+        <ProtocolMotionArrow className="h-2.5 w-2.5" />
+      </a>
+    ) : (
+      accountCreatedLabel
+    )
+  ) : null;
 
   const platformStorage = usePlatformStorageSummary(accountId, open);
 
@@ -1176,25 +1195,11 @@ function AccountFactsModal({
                           : 'Unavailable'
                       }
                     />
-                    {accountCreatedLabel ? (
+                    {accountCreatedValue ? (
                       <ModalFactRow
                         dense
                         label="Created"
-                        value={
-                          accountCreatedUrl ? (
-                            <a
-                              href={accountCreatedUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="group inline-flex items-center gap-1 text-[var(--portal-blue)] transition-colors hover:text-[var(--portal-blue-hover)]"
-                            >
-                              {accountCreatedLabel}
-                              <ProtocolMotionArrow className="h-2.5 w-2.5" />
-                            </a>
-                          ) : (
-                            accountCreatedLabel
-                          )
-                        }
+                        value={accountCreatedValue}
                       />
                     ) : null}
                     <ModalFactRow dense label="Type" value={accountType} />
@@ -1239,6 +1244,7 @@ function applyProfileSocial(
     accountId: body.accountId,
     viewerAccountId: body.viewerAccountId ?? null,
     viewerStanding: Boolean(body.viewerStanding),
+    mutual: normalizeAccounts(body.mutual),
     counts: {
       incoming: Number(body.counts?.incoming ?? 0),
       outgoing: Number(body.counts?.outgoing ?? 0),
@@ -1247,6 +1253,14 @@ function applyProfileSocial(
     incoming: normalizeAccounts(body.incoming),
     outgoing: normalizeAccounts(body.outgoing),
   };
+}
+
+function portalProfileShellForAccount(
+  shell: PortalProfileShell | null | undefined,
+  accountId: string | null
+): PortalProfileShell | null {
+  if (!shell || !accountId || shell.accountId !== accountId) return null;
+  return shell;
 }
 
 export function ProfileModal({
@@ -1277,9 +1291,20 @@ export function ProfileModal({
   const active = Boolean(accountId) && (isPage || open);
   const reduceMotion = useReducedMotion();
   const router = useRouter();
-  const [profile, setProfile] = useState<MaterialisedProfile | null>(null);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [bannerUrl, setBannerUrl] = useState<string | null>(null);
+  const shellForAccount = portalProfileShellForAccount(initialShell, accountId);
+  const { prefetchStand, prefetchEndorsements, prefetchNetwork } =
+    useProfileGraphRoutePrefetch(accountId ?? undefined);
+  const networkHref =
+    isPage && accountId ? getPortalNetworkUrl(accountId) : undefined;
+  const [profile, setProfile] = useState<MaterialisedProfile | null>(
+    () => shellForAccount?.profile ?? null
+  );
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(
+    () => shellForAccount?.avatarUrl ?? null
+  );
+  const [bannerUrl, setBannerUrl] = useState<string | null>(
+    () => shellForAccount?.bannerUrl ?? null
+  );
   const [firstProfileTimestamp, setFirstProfileTimestamp] = useState<
     number | null
   >(null);
@@ -1288,17 +1313,12 @@ export function ProfileModal({
   >([]);
   const [profileNetwork, setProfileNetwork] =
     useState<PortalProfileResponse['network']>(undefined);
-  const [nearAccount, setNearAccount] =
-    useState<PortalProfileResponse['nearAccount']>(null);
-  const [nearAccountExplorerUrl, setNearAccountExplorerUrl] = useState<
-    string | undefined
-  >(undefined);
-  const [nearAccountCreation, setNearAccountCreation] =
-    useState<PortalProfileResponse['nearAccountCreation']>(null);
   const [social, setSocial] = useState<ProfileSocialResponse | null>(null);
   const [profileSignals, setProfileSignals] =
     useState<ProfileSignalsResponse | null>(null);
-  const [hasProfileLoaded, setHasProfileLoaded] = useState(false);
+  const [hasProfileLoaded, setHasProfileLoaded] = useState(() =>
+    Boolean(shellForAccount)
+  );
   const [profileError, setProfileError] = useState<string | null>(null);
   const [socialError, setSocialError] = useState<string | null>(null);
   const [actionToast, setActionToast] = useState<TransactionFeedback | null>(
@@ -1312,7 +1332,8 @@ export function ProfileModal({
   const [networkOpen, setNetworkOpen] = useState(false);
   const [accountFactsOpen, setAccountFactsOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
-  const [claimableSupportYocto, setClaimableSupportYocto] = useState<bigint>(0n);
+  const [claimableSupportYocto, setClaimableSupportYocto] =
+    useState<bigint>(0n);
   const {
     txResult: claimTxResult,
     setTxResult: setClaimTxResult,
@@ -1353,44 +1374,11 @@ export function ProfileModal({
 
   const networkAccounts: NetworkAccount[] = useMemo(() => {
     if (!social) return [];
-    const outgoingIds = new Set(
-      social.outgoing.map((account) => account.accountId)
+    return buildNetworkAccountsOrdered(
+      social.mutual.map(standingSummaryToNetworkSource),
+      social.incoming.map(standingSummaryToNetworkSource),
+      social.outgoing.map(standingSummaryToNetworkSource)
     );
-    const seen = new Set<string>();
-    const result: NetworkAccount[] = [];
-
-    for (const account of social.incoming) {
-      if (!outgoingIds.has(account.accountId)) continue;
-      if (seen.has(account.accountId)) continue;
-      seen.add(account.accountId);
-      result.push({
-        accountId: account.accountId,
-        name: account.name,
-        avatarUrl: account.avatarUrl,
-        kind: 'mutual',
-      });
-    }
-    for (const account of social.incoming) {
-      if (seen.has(account.accountId)) continue;
-      seen.add(account.accountId);
-      result.push({
-        accountId: account.accountId,
-        name: account.name,
-        avatarUrl: account.avatarUrl,
-        kind: 'incoming',
-      });
-    }
-    for (const account of social.outgoing) {
-      if (seen.has(account.accountId)) continue;
-      seen.add(account.accountId);
-      result.push({
-        accountId: account.accountId,
-        name: account.name,
-        avatarUrl: account.avatarUrl,
-        kind: 'outgoing',
-      });
-    }
-    return result;
   }, [social]);
 
   const refreshSocial = useCallback(async () => {
@@ -1443,18 +1431,24 @@ export function ProfileModal({
     clearClaimTxResult();
   }, [accountId, active, clearClaimTxResult]);
 
-  const refreshClaimableSupport = useCallback(async () => {
-    if (!isSelf || !accountId) {
-      setClaimableSupportYocto(0n);
-      return;
-    }
-    try {
-      const balance = await fetchProfileSupportBalanceYocto(accountId);
-      setClaimableSupportYocto(balance);
-    } catch {
-      setClaimableSupportYocto(0n);
-    }
-  }, [accountId, isSelf]);
+  const refreshClaimableSupport = useCallback(
+    async (options: { fresh?: boolean } = {}) => {
+      if (!isSelf || !accountId) {
+        setClaimableSupportYocto(0n);
+        return;
+      }
+      try {
+        const balance = await fetchProfileSupportBalanceYocto(
+          accountId,
+          options
+        );
+        setClaimableSupportYocto(balance);
+      } catch {
+        setClaimableSupportYocto(0n);
+      }
+    },
+    [accountId, isSelf]
+  );
 
   useEffect(() => {
     if (!active || !isSelf || !accountId) return;
@@ -1473,7 +1467,10 @@ export function ProfileModal({
         failureMessage: 'Could not claim support balance.',
       });
       if (confirmed) {
-        window.setTimeout(() => void refreshClaimableSupport(), 4_000);
+        window.setTimeout(
+          () => void refreshClaimableSupport({ fresh: true }),
+          4_000
+        );
       }
     } catch (error) {
       if (!isWalletUserCancellation(error)) {
@@ -1502,9 +1499,6 @@ export function ProfileModal({
       setFirstProfileTimestamp(null);
       setLatestProfileUpdateFields([]);
       setProfileNetwork(undefined);
-      setNearAccount(null);
-      setNearAccountExplorerUrl(undefined);
-      setNearAccountCreation(null);
       setHasProfileLoaded(true);
     } else if (initialShell?.accountId === accountId) {
       setProfile(initialShell.profile);
@@ -1513,10 +1507,7 @@ export function ProfileModal({
       setFirstProfileTimestamp(null);
       setLatestProfileUpdateFields([]);
       setProfileNetwork(undefined);
-      setNearAccount(null);
-      setNearAccountExplorerUrl(undefined);
-      setNearAccountCreation(null);
-      setHasProfileLoaded(false);
+      setHasProfileLoaded(true);
     } else {
       setProfile(null);
       setAvatarUrl(null);
@@ -1524,9 +1515,6 @@ export function ProfileModal({
       setFirstProfileTimestamp(null);
       setLatestProfileUpdateFields([]);
       setProfileNetwork(undefined);
-      setNearAccount(null);
-      setNearAccountExplorerUrl(undefined);
-      setNearAccountCreation(null);
       setHasProfileLoaded(false);
     }
 
@@ -1544,9 +1532,6 @@ export function ProfileModal({
         setFirstProfileTimestamp(result.firstProfileTimestamp);
         setLatestProfileUpdateFields(result.latestProfileUpdateFields);
         setProfileNetwork(result.network);
-        setNearAccount(result.nearAccount ?? null);
-        setNearAccountExplorerUrl(result.nearAccountExplorerUrl);
-        setNearAccountCreation(result.nearAccountCreation ?? null);
 
         const socialResult = applyProfileSocial(result.social);
         if (socialResult) {
@@ -1558,7 +1543,14 @@ export function ProfileModal({
       })
       .catch((error) => {
         if (cancelled) return;
-        setProfileError(getErrorMessage(error));
+        const message = getErrorMessage(error);
+        const hasVisibleShell =
+          (initialShell?.accountId === accountId && initialShell.profile) ||
+          (isSelf && selfProfile);
+        if (isProfileRateLimitMessage(message) && hasVisibleShell) {
+          return;
+        }
+        setProfileError(message);
       })
       .finally(() => {
         if (!cancelled) {
@@ -1828,153 +1820,156 @@ export function ProfileModal({
                 </p>
               ) : null}
 
-              {!socialReady ? (
-                <div className="space-y-2">
-                  <div className="flex items-start gap-6">
-                    <div className="space-y-1.5">
-                      <Skeleton className="h-2 w-14" />
-                      <div className="flex gap-1.5">
-                        <Skeleton className="h-4 w-8 rounded" />
-                        <Skeleton className="h-4 w-8 rounded" />
-                        <Skeleton className="h-4 w-6 rounded" />
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Skeleton className="h-2 w-20" />
-                      <div className="flex gap-1.5">
-                        <Skeleton className="h-4 w-8 rounded" />
-                        <Skeleton className="h-4 w-8 rounded" />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex -space-x-1">
-                    {Array.from({ length: 4 }).map((_, i) => (
-                      <Skeleton key={i} className="h-5 w-5 rounded-full" />
-                    ))}
-                  </div>
-                </div>
-              ) : social ? (
-                <SocialProofStrip
-                  social={social}
-                  endorsementCount={endorsementCount}
-                  givenEndorsementCount={givenEndorsementCount}
-                  isSelf={isSelf}
-                  meta={
-                    joinedLabel || canStand || canSupport || canClaimSupport ? (
-                      <>
-                        {joinedLabel ? (
-                          <button
-                            type="button"
-                            onClick={() => setAccountFactsOpen(true)}
-                            className={cn(
-                              socialMetricBtnClass,
-                              profileSocialMetaRowItemClass,
-                              'portal-type-label font-medium text-muted-foreground/55 focus-visible:ring-border/60'
-                            )}
-                            aria-label={`View account facts for ${title}`}
-                          >
-                            <PortalHoverTooltip
-                              className="inline-flex items-center gap-1"
-                              tooltip="Account facts"
-                            >
-                              <span>Joined {joinedLabel}</span>
-                              <ProtocolMotionArrow className="h-2.5 w-2.5 text-muted-foreground/55" />
-                            </PortalHoverTooltip>
-                          </button>
-                        ) : null}
-                        {canStand ? (
-                          pendingStandingAction ? (
-                            <span
-                              className={profileSocialStandingButtonClass(
-                                viewerStanding
-                              )}
-                              aria-live="polite"
-                              aria-label={
-                                viewerStanding
-                                  ? 'Stepping back'
-                                  : 'Confirming stance'
-                              }
-                            >
-                              <ProfileSocialStandingPending
-                                active={viewerStanding}
-                                hasSocialSession={hasSocialSession}
-                              />
-                            </span>
-                          ) : (
-                            <PortalHoverTooltip
-                              className={profileSocialMetaRowItemClass}
-                              tooltip={
-                                viewerStanding
-                                  ? `Step back from ${title}`
-                                  : `Stand with ${title}`
-                              }
-                            >
+              <AnimatePresence initial={false} mode="wait">
+                {!socialReady ? (
+                  <motion.div
+                    key="profile-social-skeleton"
+                    {...fadeMotion(reduceMotion ? 0 : 0.12)}
+                  >
+                    <ProfileSocialStripSkeleton />
+                  </motion.div>
+                ) : social ? (
+                  <motion.div
+                    key="profile-social-strip"
+                    {...fadeMotion(reduceMotion ? 0 : 0.12)}
+                  >
+                    <SocialProofStrip
+                      social={social}
+                      endorsementCount={endorsementCount}
+                      givenEndorsementCount={givenEndorsementCount}
+                      isSelf={isSelf}
+                      meta={
+                        joinedLabel ||
+                        canStand ||
+                        canSupport ||
+                        canClaimSupport ? (
+                          <>
+                            {joinedLabel ? (
                               <button
                                 type="button"
-                                className={profileSocialStandingButtonClass(
-                                  viewerStanding
+                                onClick={() => setAccountFactsOpen(true)}
+                                className={cn(
+                                  socialMetricBtnClass,
+                                  profileSocialMetaRowItemClass,
+                                  'portal-type-label font-medium text-muted-foreground/55 focus-visible:ring-border/60'
                                 )}
-                                disabled={
-                                  !canStand || Boolean(pendingStandingAction)
-                                }
-                                onClick={handleStanding}
-                                aria-label={
-                                  viewerStanding
-                                    ? `Step back from ${title}`
-                                    : `Stand with ${title}`
-                                }
+                                aria-label={`View account facts for ${title}`}
                               >
-                                <ProfileSocialStandingToggle
-                                  active={viewerStanding}
-                                  hasSocialSession={hasSocialSession}
-                                />
+                                <PortalHoverTooltip
+                                  className="inline-flex items-center gap-1"
+                                  tooltip="Account facts"
+                                >
+                                  <span>Joined {joinedLabel}</span>
+                                  <ProtocolMotionArrow className="h-2.5 w-2.5 text-muted-foreground/55" />
+                                </PortalHoverTooltip>
                               </button>
-                            </PortalHoverTooltip>
-                          )
-                        ) : null}
-                        {canSupport ? (
-                          <PortalHoverTooltip
-                            className={profileSocialMetaRowItemClass}
-                            tooltip={`Send SOCIAL to ${title}`}
-                          >
-                            <button
-                              type="button"
-                              className={profileActionButtonClass('green')}
-                              disabled={isSupportingProfile}
-                              onClick={() => setSupportOpen(true)}
-                              aria-label={`Support ${title} with SOCIAL`}
-                            >
-                              <HeartHandshake className="h-3 w-3" />
-                              Support
-                            </button>
-                          </PortalHoverTooltip>
-                        ) : null}
-                        {canClaimSupport ? (
-                          <PortalHoverTooltip
-                            className={profileSocialMetaRowItemClass}
-                            tooltip="Withdraw SOCIAL others sent you"
-                          >
-                            <button
-                              type="button"
-                              className={walletMenuActionButtonClass('claim-ready')}
-                              disabled={isClaimingSupportBalance}
-                              onClick={() => void handleClaimSupport()}
-                              aria-label={`Claim ${formatSupportBalanceLabel(claimableSupportYocto)} SOCIAL support`}
-                            >
-                              Claim{' '}
-                              {formatSupportBalanceLabel(claimableSupportYocto)}{' '}
-                              SOCIAL
-                            </button>
-                          </PortalHoverTooltip>
-                        ) : null}
-                      </>
-                    ) : null
-                  }
-                  onOpenStanceDetail={openStanceDetailPage}
-                  onOpenNetwork={() => setNetworkOpen(true)}
-                  onOpenEndorsements={openEndorsementsPage}
-                />
-              ) : null}
+                            ) : null}
+                            {canStand ? (
+                              pendingStandingAction ? (
+                                <span
+                                  className={profileSocialStandingButtonClass(
+                                    viewerStanding
+                                  )}
+                                  aria-live="polite"
+                                  aria-label={
+                                    viewerStanding
+                                      ? 'Stepping back'
+                                      : 'Confirming stance'
+                                  }
+                                >
+                                  <ProfileSocialStandingPending
+                                    active={viewerStanding}
+                                    hasSocialSession={hasSocialSession}
+                                  />
+                                </span>
+                              ) : (
+                                <PortalHoverTooltip
+                                  className={profileSocialMetaRowItemClass}
+                                  tooltip={
+                                    viewerStanding
+                                      ? `Step back from ${title}`
+                                      : `Stand with ${title}`
+                                  }
+                                >
+                                  <button
+                                    type="button"
+                                    className={profileSocialStandingButtonClass(
+                                      viewerStanding
+                                    )}
+                                    disabled={
+                                      !canStand ||
+                                      Boolean(pendingStandingAction)
+                                    }
+                                    onClick={handleStanding}
+                                    aria-label={
+                                      viewerStanding
+                                        ? `Step back from ${title}`
+                                        : `Stand with ${title}`
+                                    }
+                                  >
+                                    <ProfileSocialStandingToggle
+                                      active={viewerStanding}
+                                      hasSocialSession={hasSocialSession}
+                                    />
+                                  </button>
+                                </PortalHoverTooltip>
+                              )
+                            ) : null}
+                            {canSupport ? (
+                              <PortalHoverTooltip
+                                className={profileSocialMetaRowItemClass}
+                                tooltip={`Send SOCIAL to ${title}`}
+                              >
+                                <button
+                                  type="button"
+                                  className={profileActionButtonClass('green')}
+                                  disabled={isSupportingProfile}
+                                  onClick={() => setSupportOpen(true)}
+                                  aria-label={`Support ${title} with SOCIAL`}
+                                >
+                                  <HeartHandshake className="h-3 w-3" />
+                                  Support
+                                </button>
+                              </PortalHoverTooltip>
+                            ) : null}
+                            {canClaimSupport ? (
+                              <PortalHoverTooltip
+                                className={profileSocialMetaRowItemClass}
+                                tooltip="Withdraw SOCIAL others sent you"
+                              >
+                                <button
+                                  type="button"
+                                  className={walletMenuActionButtonClass(
+                                    'claim-ready'
+                                  )}
+                                  disabled={isClaimingSupportBalance}
+                                  onClick={() => void handleClaimSupport()}
+                                  aria-label={`Claim ${formatSupportBalanceLabel(claimableSupportYocto)} SOCIAL support`}
+                                >
+                                  Claim{' '}
+                                  {formatSupportBalanceLabel(
+                                    claimableSupportYocto
+                                  )}{' '}
+                                  SOCIAL
+                                </button>
+                              </PortalHoverTooltip>
+                            ) : null}
+                          </>
+                        ) : null
+                      }
+                      onOpenStanceDetail={openStanceDetailPage}
+                      onOpenNetwork={
+                        networkHref ? undefined : () => setNetworkOpen(true)
+                      }
+                      networkHref={networkHref}
+                      onOpenEndorsements={openEndorsementsPage}
+                      prefetchStandDetail={prefetchStand}
+                      prefetchNetwork={prefetchNetwork}
+                      prefetchEndorsementsPage={prefetchEndorsements}
+                    />
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
 
               {profileSignals?.reputation ? (
                 <ProfileSignalsCard reputation={profileSignals.reputation} />
@@ -2022,24 +2017,23 @@ export function ProfileModal({
   const profileAuxModals =
     accountId && active ? (
       <>
-        <NetworkModal
-          open={networkOpen}
-          centerAccountId={accountId}
-          centerAvatarUrl={avatarUrl}
-          centerDisplayName={title}
-          accounts={networkAccounts}
-          isSelf={isSelf}
-          pageLayout={isPage}
-          onClose={() => setNetworkOpen(false)}
-          onSelectAccount={
-            isPage
-              ? undefined
-              : (id) => {
-                  setNetworkOpen(false);
-                  onSelectAccount?.(id);
-                }
-          }
-        />
+        {!isPage ? (
+          <NetworkModal
+            open={networkOpen}
+            centerAccountId={accountId}
+            centerAvatarUrl={avatarUrl}
+            centerDisplayName={title}
+            accounts={networkAccounts}
+            totalCounts={social?.counts}
+            viewerAccountId={viewerAccountId}
+            isSelf={isSelf}
+            onClose={() => setNetworkOpen(false)}
+            onSelectAccount={(id) => {
+              setNetworkOpen(false);
+              onSelectAccount?.(id);
+            }}
+          />
+        ) : null}
         <AccountFactsModal
           open={accountFactsOpen}
           onOpenChange={setAccountFactsOpen}
@@ -2050,9 +2044,6 @@ export function ProfileModal({
           latestProfileUpdateFields={latestProfileUpdateFields}
           joinedLabel={joinedLabel}
           network={profileNetwork}
-          nearAccount={nearAccount}
-          nearAccountExplorerUrl={nearAccountExplorerUrl}
-          nearAccountCreation={nearAccountCreation}
         />
         {canSupport && accountId && onSupportProfile ? (
           <ProfileSupportModal

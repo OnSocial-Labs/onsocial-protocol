@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Crown, Shield, TrendingUp, ArrowUpRight } from 'lucide-react';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { PortalBadge } from '@/components/ui/portal-badge';
+import { CompactStandingRankMark } from '@/components/ui/standing-rank-mark';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
 import { section } from '@/lib/section-styles';
 import {
@@ -18,17 +19,6 @@ import {
   reputationTier,
   type CompactLeaderboard,
 } from '@/lib/leaderboard';
-
-function MiniRank({ rank }: { rank: number }) {
-  if (rank === 1) return <span className="text-sm">🥇</span>;
-  if (rank === 2) return <span className="text-sm">🥈</span>;
-  if (rank === 3) return <span className="text-sm">🥉</span>;
-  return (
-    <span className="flex h-5 w-5 items-center justify-center rounded-full border border-border/40 bg-background/30 font-mono portal-type-caption text-muted-foreground">
-      {rank}
-    </span>
-  );
-}
 
 export function LeaderboardPreview() {
   const [data, setData] = useState<CompactLeaderboard | null>(null);
@@ -86,7 +76,7 @@ export function LeaderboardPreview() {
                       key={e.accountId}
                       className="flex items-center gap-2.5"
                     >
-                      <MiniRank rank={e.rank} />
+                      <CompactStandingRankMark rank={e.rank} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-mono text-xs text-foreground">
                           {truncateAccountId(e.accountId, 18)}
@@ -120,7 +110,7 @@ export function LeaderboardPreview() {
                         key={e.accountId}
                         className="flex items-center gap-2.5"
                       >
-                        <MiniRank rank={e.rank} />
+                        <CompactStandingRankMark rank={e.rank} />
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-mono text-xs text-foreground">
                             {truncateAccountId(e.accountId, 18)}
@@ -150,7 +140,7 @@ export function LeaderboardPreview() {
                       key={e.accountId}
                       className="flex items-center gap-2.5"
                     >
-                      <MiniRank rank={e.rank} />
+                      <CompactStandingRankMark rank={e.rank} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-mono text-xs text-foreground">
                           {truncateAccountId(e.accountId, 18)}

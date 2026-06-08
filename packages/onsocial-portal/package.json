@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "predev": "pnpm --filter @onsocial/sdk run build",
+    "predev": "pnpm --filter @onsocial/sdk --filter @onsocial/rpc run build",
     "dev": "next dev",
-    "prebuild": "pnpm --filter @onsocial/sdk run build",
+    "prebuild": "pnpm --filter @onsocial/sdk --filter @onsocial/rpc run build",
     "dev:local-sandbox": "PORT=3000 NEXT_DIST_DIR=.next-local-sandbox NEXT_PUBLIC_NEAR_NETWORK=testnet NEXT_PUBLIC_API_URL=http://localhost:4000 NEXT_PUBLIC_BACKEND_URL=http://localhost:4000 BACKEND_URL=http://localhost:4000 next dev -p 3000",
     "dev:testnet": "PORT=3000 NEXT_DIST_DIR=.next-testnet NEXT_PUBLIC_NEAR_NETWORK=testnet NEXT_PUBLIC_API_URL=https://testnet.onsocial.id NEXT_PUBLIC_BACKEND_URL=https://testnet.onsocial.id BACKEND_URL=https://testnet.onsocial.id next dev -p 3000",
     "dev:mainnet": "PORT=3001 NEXT_DIST_DIR=.next-mainnet NEXT_PUBLIC_NEAR_NETWORK=mainnet NEXT_PUBLIC_API_URL=https://api.onsocial.id NEXT_PUBLIC_BACKEND_URL=https://api.onsocial.id BACKEND_URL=https://api.onsocial.id next dev -p 3001",
@@ -22,6 +22,7 @@
     "@onsocial/rpc": "workspace:*",
     "@onsocial/sdk": "workspace:*",
     "@radix-ui/react-slot": "^1.2.4",
+    "@ref-finance/ref-sdk": "^1.5.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.35.2",
@@ -32,6 +33,7 @@
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-icons": "^5.6.0",
+    "server-only": "^0.0.1",
     "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {

@@ -13,7 +13,11 @@ export function HeroProtocolPulseSkeleton() {
       className="mx-auto mt-8 max-w-2xl rounded-[1.25rem] border border-border/40 bg-background/35 backdrop-blur-sm"
       aria-hidden
     >
-      <StatStrip columns={heroMetrics.length} mobileColumns={3}>
+      <StatStrip
+        columns={heroMetrics.length}
+        showTopDivider={false}
+        showBottomDivider={false}
+      >
         {heroMetrics.map((metric, index) => (
           <StatStripCell
             key={metric.id}
@@ -24,9 +28,9 @@ export function HeroProtocolPulseSkeleton() {
           </StatStripCell>
         ))}
       </StatStrip>
-      <p className="px-4 py-3 text-center">
+      <div className="border-t border-fade-detail px-4 py-3 text-center">
         <Skeleton className="mx-auto h-3 w-48 max-w-full rounded-md bg-foreground/5" />
-      </p>
+      </div>
     </div>
   );
 }

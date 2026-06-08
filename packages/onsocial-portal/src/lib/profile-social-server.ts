@@ -39,7 +39,7 @@ export type PortalOnSocialClient = ReturnType<
   typeof createPortalServerOnSocialClient
 >;
 
-async function listProfileStats(
+export async function listProfileStats(
   os: PortalOnSocialClient,
   accountIds: string[]
 ): Promise<
@@ -97,7 +97,7 @@ async function listMutualStandingRows(
   return os.standings.mutualList(accountId, { limit, offset });
 }
 
-async function loadViewerContext(
+export async function loadViewerContext(
   os: PortalOnSocialClient,
   viewerAccountId: string | null,
   peerAccountIds: string[]
@@ -118,8 +118,12 @@ async function loadViewerContext(
   }
 
   const [outgoing, incoming] = await Promise.all([
-    os.query.standings.outgoingTargetsAmong(viewerAccountId, peers).catch(() => []),
-    os.query.standings.incomingSourcesAmong(viewerAccountId, peers).catch(() => []),
+    os.query.standings
+      .outgoingTargetsAmong(viewerAccountId, peers)
+      .catch(() => []),
+    os.query.standings
+      .incomingSourcesAmong(viewerAccountId, peers)
+      .catch(() => []),
   ]);
 
   return {
@@ -128,26 +132,24 @@ async function loadViewerContext(
   };
 }
 
-export async function buildStandingAccountSummaries(
+export function mapStandingRowsToSummaries(
   os: PortalOnSocialClient,
   rows: StandingListItem[],
   direction: StandingDirection,
-  viewerAccountId: string | null
-): Promise<StandingAccountSummary[]> {
-  const accountIds = Array.from(
-    new Set(
-      rows.map((row) =>
-        direction === 'outgoing' ? row.targetAccount : row.accountId
-      )
-    )
-  );
-  const [profiles, profileStats, { viewerOutgoingSet, viewerIncomingSet }] =
-    await Promise.all([
-      os.profiles.getMany(accountIds),
-      listProfileStats(os, accountIds).catch(() => new Map()),
-      loadViewerContext(os, viewerAccountId, accountIds),
-    ]);
-
+  profiles: Record<string, MaterialisedProfile>,
+  profileStats: Map<
+    string,
+    {
+      standingCount: number;
+      standingWithCount: number;
+      mutualStandingCount: number;
+      endorsementsReceivedCount: number;
+      endorsementsGivenCount: number;
+    }
+  >,
+  viewerOutgoingSet: Set<string>,
+  viewerIncomingSet: Set<string>
+): StandingAccountSummary[] {
   return rows.map((row) => {
     const id = direction === 'outgoing' ? row.targetAccount : row.accountId;
     const profile = profiles[id] ?? null;
@@ -181,6 +183,37 @@ export async function buildStandingAccountSummaries(
   });
 }
 
+export async function buildStandingAccountSummaries(
+  os: PortalOnSocialClient,
+  rows: StandingListItem[],
+  direction: StandingDirection,
+  viewerAccountId: string | null
+): Promise<StandingAccountSummary[]> {
+  const accountIds = Array.from(
+    new Set(
+      rows.map((row) =>
+        direction === 'outgoing' ? row.targetAccount : row.accountId
+      )
+    )
+  );
+  const [profiles, profileStats, { viewerOutgoingSet, viewerIncomingSet }] =
+    await Promise.all([
+      os.profiles.getMany(accountIds),
+      listProfileStats(os, accountIds).catch(() => new Map()),
+      loadViewerContext(os, viewerAccountId, accountIds),
+    ]);
+
+  return mapStandingRowsToSummaries(
+    os,
+    rows,
+    direction,
+    profiles,
+    profileStats,
+    viewerOutgoingSet,
+    viewerIncomingSet
+  );
+}
+
 export async function listStandingAccountsPage(
   os: PortalOnSocialClient,
   accountId: string,
@@ -205,10 +238,7 @@ export async function listStandingAccountsPage(
                 participantIds,
                 { limit, offset }
               ),
-              os.query.standings.mutualFilteredCount(
-                accountId,
-                participantIds
-              ),
+              os.query.standings.mutualFilteredCount(accountId, participantIds),
             ]);
             return { rows, total };
           })()

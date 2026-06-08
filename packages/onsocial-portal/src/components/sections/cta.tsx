@@ -9,23 +9,10 @@ import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
 import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
 import { SurfacePanel } from '@/components/ui/surface-panel';
+import { GenesisRallyStrip } from '@/features/season/genesis-rally-strip';
+import type { LiveCtaPayload } from '@/lib/portal-live-cta-server';
 import { section } from '@/lib/section-styles';
-import {
-  BOOST_CONTRACT,
-  REWARDS_CONTRACT,
-  viewContractAt,
-  yoctoToSocial,
-  type BoostStats,
-  type RewardsAppConfigView,
-  type RewardsUserRewardsOverviewView,
-} from '@/lib/near-rpc';
-
-interface RewardsContractInfoView {
-  pool_balance: string;
-  total_credited: string;
-  total_claimed: string;
-  app_ids: string[];
-}
+import { yoctoToSocial } from '@/lib/near-rpc';
 
 function formatCompactSocial(yocto: string): string {
   const social = Number.parseFloat(yoctoToSocial(yocto));
@@ -40,49 +27,67 @@ function formatCompactSocial(yocto: string): string {
   });
 }
 
+async function fetchLiveCta(accountId: string | null): Promise<LiveCtaPayload> {
+  const search = new URLSearchParams();
+  if (accountId) search.set('accountId', accountId);
+
+  const query = search.toString();
+  const response = await fetch(
+    query ? `/api/live/cta?${query}` : '/api/live/cta',
+    { cache: 'no-store' }
+  );
+  const body = (await response.json().catch(() => null)) as
+    | (Partial<LiveCtaPayload> & { error?: string; detail?: string })
+    | null;
+
+  if (!response.ok) {
+    throw new Error(
+      body?.detail ??
+        body?.error ??
+        `Live section query failed (${response.status})`
+    );
+  }
+
+  return {
+    boost: body?.boost ?? null,
+    rewards: body?.rewards ?? null,
+    personal: body?.personal ?? null,
+  };
+}
+
 export function CTA() {
   const { accountId, isConnected } = useWallet();
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, amount: 0.3 });
-  const [boostStats, setBoostStats] = useState<BoostStats | null>(null);
-  const [boostLoading, setBoostLoading] = useState(true);
-  const [rewardsContractInfo, setRewardsContractInfo] =
-    useState<RewardsContractInfoView | null>(null);
-  const [rewardsNetworkLoading, setRewardsNetworkLoading] = useState(true);
-  const [rewardsLoading, setRewardsLoading] = useState(false);
-  const [rewardsOverview, setRewardsOverview] =
-    useState<RewardsUserRewardsOverviewView | null>(null);
-  const [topRewardApp, setTopRewardApp] = useState<{
-    label: string;
-    totalEarned: string;
-  } | null>(null);
+  const [liveData, setLiveData] = useState<LiveCtaPayload | null>(null);
+  const [networkLoading, setNetworkLoading] = useState(true);
+  const [personalLoading, setPersonalLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
-    Promise.all([
-      viewContractAt<BoostStats>(BOOST_CONTRACT, 'get_stats', {}),
-      viewContractAt<RewardsContractInfoView>(
-        REWARDS_CONTRACT,
-        'get_contract_info',
-        {}
-      ),
-    ])
-      .then(([stats, contractInfo]) => {
+    void fetchLiveCta(null)
+      .then((payload) => {
         if (!cancelled) {
-          setBoostStats(stats);
-          setRewardsContractInfo(contractInfo);
+          setLiveData((current) => ({
+            boost: payload.boost,
+            rewards: payload.rewards,
+            personal: current?.personal ?? null,
+          }));
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setRewardsContractInfo(null);
+          setLiveData((current) => ({
+            boost: null,
+            rewards: null,
+            personal: current?.personal ?? null,
+          }));
         }
       })
       .finally(() => {
         if (!cancelled) {
-          setBoostLoading(false);
-          setRewardsNetworkLoading(false);
+          setNetworkLoading(false);
         }
       });
 
@@ -93,81 +98,36 @@ export function CTA() {
 
   useEffect(() => {
     if (!accountId) {
-      setRewardsOverview(null);
-      setTopRewardApp(null);
-      setRewardsLoading(false);
+      setLiveData((current) =>
+        current ? { ...current, personal: null } : current
+      );
+      setPersonalLoading(false);
       return;
     }
 
     let cancelled = false;
-    setRewardsLoading(true);
+    setPersonalLoading(true);
 
-    Promise.all([
-      viewContractAt<RewardsUserRewardsOverviewView>(
-        REWARDS_CONTRACT,
-        'get_user_rewards_overview',
-        { account_id: accountId }
-      ),
-      viewContractAt<string[]>(REWARDS_CONTRACT, 'get_all_apps', {}),
-    ])
-      .then(async ([overview, appIds]) => {
-        if (cancelled) {
-          return;
+    void fetchLiveCta(accountId)
+      .then((payload) => {
+        if (!cancelled) {
+          setLiveData((current) => ({
+            boost: current?.boost ?? payload.boost,
+            rewards: current?.rewards ?? payload.rewards,
+            personal: payload.personal,
+          }));
         }
-
-        setRewardsOverview(overview);
-
-        const appList = appIds ?? [];
-        const appProgress = await Promise.all(
-          appList.map(async (appId) => {
-            const [config, appOverview] = await Promise.all([
-              viewContractAt<RewardsAppConfigView>(
-                REWARDS_CONTRACT,
-                'get_app_config',
-                { app_id: appId }
-              ),
-              viewContractAt<RewardsUserRewardsOverviewView>(
-                REWARDS_CONTRACT,
-                'get_user_rewards_overview',
-                { account_id: accountId, app_id: appId }
-              ),
-            ]);
-
-            return {
-              label: config?.label || appId,
-              totalEarned: appOverview?.app?.total_earned ?? '0',
-            };
-          })
-        );
-
-        if (cancelled) {
-          return;
-        }
-
-        const rankedApps = appProgress
-          .filter((app) => BigInt(app.totalEarned) > 0n)
-          .sort((left, right) => {
-            const leftTotal = BigInt(left.totalEarned);
-            const rightTotal = BigInt(right.totalEarned);
-
-            if (leftTotal === rightTotal) {
-              return left.label.localeCompare(right.label);
-            }
-
-            return rightTotal > leftTotal ? 1 : -1;
-          });
-
-        setTopRewardApp(rankedApps[0] ?? null);
       })
       .catch(() => {
         if (!cancelled) {
-          setRewardsOverview(null);
-          setTopRewardApp(null);
+          setLiveData((current) =>
+            current ? { ...current, personal: null } : current
+          );
         }
       })
       .finally(() => {
         if (!cancelled) {
-          setRewardsLoading(false);
+          setPersonalLoading(false);
         }
       });
 
@@ -176,60 +136,56 @@ export function CTA() {
     };
   }, [accountId]);
 
-  const boostPreviewStats = boostStats
+  const boostPreviewStats = liveData?.boost
     ? [
         {
           label: 'Locked',
-          value: formatCompactSocial(boostStats.total_locked),
+          value: formatCompactSocial(liveData.boost.totalLocked),
           valueClassName:
             'text-portal-neutral mt-1 font-mono text-sm font-semibold tracking-tight md:text-base',
         },
         {
           label: 'Pool',
-          value: formatCompactSocial(boostStats.scheduled_pool),
+          value: formatCompactSocial(liveData.boost.scheduledPool),
           valueClassName:
             'portal-blue-text mt-1 font-mono text-sm font-semibold tracking-tight md:text-base',
         },
         {
           label: 'Distributed',
-          value: formatCompactSocial(boostStats.total_rewards_released),
+          value: formatCompactSocial(liveData.boost.totalRewardsReleased),
           valueClassName:
             'text-portal-neutral mt-1 font-mono text-sm font-semibold tracking-tight md:text-base',
         },
       ]
     : [];
 
-  const networkRewardsStats = rewardsContractInfo
+  const networkRewardsStats = liveData?.rewards
     ? [
         {
           label: 'Distributed',
-          value: formatCompactSocial(rewardsContractInfo.total_credited),
+          value: formatCompactSocial(liveData.rewards.totalCredited),
           valueClassName:
             'portal-purple-text mt-1 font-mono text-sm font-semibold tracking-tight md:text-base',
         },
         {
           label: 'Pool',
-          value: formatCompactSocial(rewardsContractInfo.pool_balance),
+          value: formatCompactSocial(liveData.rewards.poolBalance),
           valueClassName:
             'portal-blue-text mt-1 font-mono text-sm font-semibold tracking-tight md:text-base',
         },
         {
           label: 'Apps',
-          value: (rewardsContractInfo.app_ids?.length ?? 0).toLocaleString(
-            'en-US'
-          ),
+          value: liveData.rewards.appCount.toLocaleString('en-US'),
           valueClassName:
             'text-portal-neutral mt-1 font-mono text-sm font-semibold tracking-tight md:text-base',
         },
       ]
     : [];
 
-  const claimableAmount = rewardsOverview
-    ? BigInt(rewardsOverview.claimable)
-    : 0n;
-  const totalEarnedAmount = rewardsOverview
-    ? BigInt(rewardsOverview.total_earned)
-    : 0n;
+  const personal = liveData?.personal;
+  const topRewardApp = personal?.topRewardApp ?? null;
+  const claimableAmount = personal ? BigInt(personal.claimable || '0') : 0n;
+  const totalEarnedAmount = personal ? BigInt(personal.totalEarned || '0') : 0n;
   const hasPersonalRewards = claimableAmount > 0n || totalEarnedAmount > 0n;
 
   return (
@@ -243,6 +199,15 @@ export function CTA() {
         >
           Live
         </motion.h2>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.5, delay: 0.05 }}
+          className="mb-4"
+        >
+          <GenesisRallyStrip variant="promo" />
+        </motion.div>
+
         <div className={section.grid}>
           <Link href="/partners" className="group">
             <SurfacePanel
@@ -270,7 +235,7 @@ export function CTA() {
                 </div>
 
                 <div className="pt-4">
-                  {rewardsNetworkLoading ? (
+                  {networkLoading ? (
                     <div className="flex min-h-16 items-center justify-center">
                       <PulsingDots size="md" />
                     </div>
@@ -290,7 +255,7 @@ export function CTA() {
 
                   {topRewardApp || isConnected ? (
                     <div className="mt-3 px-1 pt-3">
-                      {isConnected && rewardsLoading ? (
+                      {isConnected && personalLoading ? (
                         <div className="flex min-h-10 items-center justify-center">
                           <PulsingDots size="sm" />
                         </div>
@@ -311,27 +276,21 @@ export function CTA() {
                             <span className="text-border">·</span>
                           ) : null}
 
-                          {isConnected &&
-                          rewardsOverview &&
-                          hasPersonalRewards ? (
+                          {isConnected && personal && hasPersonalRewards ? (
                             <>
                               <span className="uppercase tracking-[0.14em]">
                                 Yours
                               </span>
                               <span>
                                 <span className="text-portal-neutral font-mono font-semibold tracking-tight">
-                                  {formatCompactSocial(
-                                    rewardsOverview.total_earned
-                                  )}
+                                  {formatCompactSocial(personal.totalEarned)}
                                 </span>{' '}
                                 collected
                               </span>
                               <span className="text-border">·</span>
                               <span>
                                 <span className="portal-purple-text font-mono font-semibold tracking-tight">
-                                  {formatCompactSocial(
-                                    rewardsOverview.claimable
-                                  )}
+                                  {formatCompactSocial(personal.claimable)}
                                 </span>{' '}
                                 ready
                               </span>
@@ -372,7 +331,7 @@ export function CTA() {
                 </div>
 
                 <div className="pt-4">
-                  {boostLoading ? (
+                  {networkLoading ? (
                     <div className="flex min-h-16 items-center justify-center">
                       <PulsingDots size="md" />
                     </div>

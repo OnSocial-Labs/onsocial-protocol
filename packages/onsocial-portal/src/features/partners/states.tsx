@@ -6,7 +6,6 @@ import { useEffect, useState } from 'react';
 import {
   AlertTriangle,
   ArrowLeft,
-  ArrowRight,
   ChevronDown,
   Code2,
   Clock,
@@ -22,13 +21,14 @@ import {
 import { RiTelegram2Line } from 'react-icons/ri';
 import { useWallet } from '@/contexts/wallet-context';
 import { Button, buttonArrowLeftClass } from '@/components/ui/button';
+import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
 import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
+import { StatStripSkeleton } from '@/components/ui/skeleton';
 import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
 import { PortalBadge } from '@/components/ui/portal-badge';
 import { OnChainConfigSummary } from '@/components/data/on-chain-config-summary';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
 import {
-  viewContract,
   yoctoToNear,
   yoctoToSocial,
   type GovernanceEligibilitySnapshot,
@@ -36,7 +36,12 @@ import {
 } from '@/lib/near-rpc';
 import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/portal-config';
 import { portalFrameStyle } from '@/lib/portal-colors';
-import { rotateKey } from '@/features/partners/api';
+import { fetchRewardsAppConfig } from '@/features/governance/api';
+import { buildGovernanceProposalPath } from '@/features/governance/page-utils';
+import {
+  buildGovernanceDelegationPlan,
+  rotateKey,
+} from '@/features/partners/api';
 import {
   botSnippet,
   envSnippet,
@@ -75,6 +80,44 @@ function formatNearAmount(value: string, maximumFractionDigits = 4): string {
   return new Intl.NumberFormat('en-US', {
     maximumFractionDigits,
   }).format(numeric);
+}
+
+function formatCooldownRelative(remainingNs: string) {
+  const ns = BigInt(remainingNs || '0');
+
+  if (ns <= 0n) {
+    return 'Ready now';
+  }
+
+  const remainingMs = Number(ns / 1_000_000n);
+
+  if (!Number.isFinite(remainingMs) || remainingMs <= 0) {
+    return 'Ready now';
+  }
+
+  const totalMinutes = Math.ceil(remainingMs / 60_000);
+  const totalHours = Math.ceil(remainingMs / 3_600_000);
+  const totalDays = Math.ceil(remainingMs / 86_400_000);
+
+  if (totalMinutes < 60) {
+    return `Unlocks in ${totalMinutes}m`;
+  }
+
+  if (totalHours < 24) {
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return minutes > 0
+      ? `Unlocks in ${hours}h ${minutes}m`
+      : `Unlocks in ${hours}h`;
+  }
+
+  if (totalDays < 7) {
+    const days = Math.floor(totalHours / 24);
+    const hours = totalHours % 24;
+    return hours > 0 ? `Unlocks in ${days}d ${hours}h` : `Unlocks in ${days}d`;
+  }
+
+  return `Unlocks in ${totalDays} days`;
 }
 
 function PreviewPill({
@@ -147,7 +190,7 @@ export function PendingState({
     ? `${ACTIVE_NEAR_EXPLORER_URL}/txns/${proposal.tx_hash}`
     : null;
   const governanceHref = isGovernance
-    ? `/governance/${encodeURIComponent(appId)}`
+    ? buildGovernanceProposalPath(appId, proposal?.proposal_id ?? null)
     : null;
 
   return (
@@ -343,11 +386,24 @@ export function GovernanceEligibilityState({
   const needsAdditionalStorage = eligibility
     ? BigInt(eligibility.nearStorageNeeded) > 0n
     : false;
-  const proposalSetupSummary = eligibility?.canPropose
-    ? `${delegatedWeight} SOCIAL delegated — you meet the ${requiredWeight} threshold.`
-    : `${requiredWeight} delegated SOCIAL needed to open the proposal.`;
+  const preparationPlan = eligibility
+    ? buildGovernanceDelegationPlan(
+        eligibility,
+        BigInt(eligibility.remainingToThreshold)
+      )
+    : null;
+  const delegationBlockedByCooldown = Boolean(
+    eligibility?.isInCooldown &&
+      preparationPlan &&
+      BigInt(preparationPlan.delegateAmount) > 0n
+  );
+  const depositOnlyDuringCooldown = Boolean(
+    preparationPlan?.depositOnlyDuringCooldown
+  );
+  const cooldownStatusLine = eligibility?.isInCooldown
+    ? formatCooldownRelative(eligibility.cooldownRemainingNs)
+    : null;
 
-  let nextActionTitle = 'Checking things out';
   let nextActionBody = 'Making sure everything is set before you can go live.';
   let nextActionLabel = 'Checking…';
   let nextActionNote = '';
@@ -358,7 +414,6 @@ export function GovernanceEligibilityState({
   if (eligibility) {
     if (eligibility.canPropose) {
       if (canCoverProposalBond) {
-        nextActionTitle = 'All set';
         nextActionBody =
           'Everything checks out \u2014 go ahead and open your proposal.';
         nextActionLabel = 'Open proposal';
@@ -367,8 +422,7 @@ export function GovernanceEligibilityState({
         nextActionDisabled = acting || !onSubmitProposal;
         nextActionKind = 'submit';
       } else {
-        nextActionTitle = `Need ${proposalBondDisplay} NEAR`;
-        nextActionBody = `The DAO requires a ${proposalBondDisplay} NEAR bond to open this proposal.`;
+        nextActionBody = `Add ${proposalBondDisplay} NEAR to your wallet for the proposal bond.`;
         nextActionLabel = `Need ${proposalBondDisplay} NEAR bond`;
         nextActionNote = '';
         nextActionHandler = undefined;
@@ -376,46 +430,52 @@ export function GovernanceEligibilityState({
         nextActionKind = null;
       }
     } else if (eligibility.isRegistered && needsAdditionalStorage) {
-      nextActionTitle = 'Storage is full';
       nextActionBody =
-        'No room for another delegation entry. Undelegate an existing one first.';
+        'Add NEAR for storage, or undelegate an existing entry to free a slot.';
       nextActionLabel = 'Refresh';
       nextActionNote = '';
       nextActionHandler = onRefresh;
       nextActionDisabled = acting || !onRefresh;
-      nextActionTitle = 'Add NEAR to continue';
     } else if (!eligibility.isRegistered || eligibility.depositNeeded !== '0') {
-      nextActionTitle = canCoverDeposit
-        ? 'Get governance ready'
-        : `Need ${depositNeeded} more SOCIAL`;
       nextActionBody = canCoverDeposit
         ? eligibility.isInCooldown
           ? eligibility.isRegistered
-            ? 'Stakes the required SOCIAL. Delegation unlocks after cooldown.'
-            : `Sets up staking, reserves ${registrationStorageReserve} NEAR for storage, and stakes your SOCIAL. Delegation unlocks after cooldown.`
+            ? 'Stakes SOCIAL now.'
+            : `Registers staking, reserves ${registrationStorageReserve} NEAR, and stakes SOCIAL.`
           : eligibility.isRegistered
             ? 'Stakes and delegates the required SOCIAL.'
-            : `Sets up staking, reserves ${registrationStorageReserve} NEAR for storage, stakes and delegates your SOCIAL.`
-        : `You need ${depositNeeded} more SOCIAL in your wallet before you can open this proposal.`;
+            : `Registers staking, reserves ${registrationStorageReserve} NEAR, and delegates the required SOCIAL.`
+        : `Add ${depositNeeded} more SOCIAL to your wallet first.`;
       nextActionLabel = canCoverDeposit
         ? 'Prepare governance'
         : `Add ${depositNeeded} SOCIAL`;
       nextActionNote = '';
       nextActionHandler = onPrepare;
-      nextActionDisabled = acting || !canCoverDeposit || !onPrepare;
+      nextActionDisabled =
+        acting ||
+        !canCoverDeposit ||
+        !onPrepare ||
+        (delegationBlockedByCooldown && !depositOnlyDuringCooldown);
       nextActionKind = canCoverDeposit ? 'prepare' : null;
     } else if (eligibility.delegateNeeded !== '0') {
-      nextActionTitle = `Delegate ${delegateNeeded} SOCIAL`;
-      nextActionBody = `Delegate your remaining ${delegateNeeded} SOCIAL to unlock proposal access.`;
-      nextActionLabel = `Delegate ${delegateNeeded} SOCIAL`;
-      nextActionNote = '';
-      nextActionHandler = onPrepare;
-      nextActionDisabled = acting || !onPrepare;
-      nextActionKind = 'prepare';
+      if (eligibility.isInCooldown) {
+        nextActionBody =
+          'Delegation is paused until cooldown ends. Refresh after it unlocks.';
+        nextActionLabel = `Delegate ${delegateNeeded} SOCIAL`;
+        nextActionNote = '';
+        nextActionHandler = onPrepare;
+        nextActionDisabled = true;
+        nextActionKind = 'prepare';
+      } else {
+        nextActionBody = `Delegate ${delegateNeeded} more SOCIAL to reach the threshold.`;
+        nextActionLabel = `Delegate ${delegateNeeded} SOCIAL`;
+        nextActionNote = '';
+        nextActionHandler = onPrepare;
+        nextActionDisabled = acting || !onPrepare;
+        nextActionKind = 'prepare';
+      }
     } else {
-      nextActionTitle = 'Almost there';
-      nextActionBody =
-        'Looks good — hit refresh to confirm your latest balance.';
+      nextActionBody = 'Looks good — refresh to confirm your latest balance.';
       nextActionLabel = 'Refresh';
       nextActionNote = '';
       nextActionHandler = onRefresh;
@@ -423,183 +483,167 @@ export function GovernanceEligibilityState({
     }
   }
 
+  const bondValue = canCoverProposalBond
+    ? `${proposalBondDisplay} NEAR`
+    : `${nearBalance} / ${proposalBondDisplay} NEAR`;
+
+  const actionHelper = (() => {
+    if (!eligibility) {
+      return { text: nextActionBody, tone: 'muted' as const };
+    }
+
+    if (delegationBlockedByCooldown) {
+      return {
+        text: `${nextActionBody} ${cooldownStatusLine ?? 'Delegation paused until cooldown ends.'}`,
+        tone: 'amber' as const,
+      };
+    }
+
+    if (depositOnlyDuringCooldown && nextActionKind === 'prepare') {
+      return {
+        text: `${nextActionBody} ${cooldownStatusLine ?? 'Cooldown active'}, then delegation completes.`,
+        tone: 'muted' as const,
+      };
+    }
+
+    return { text: nextActionBody, tone: 'muted' as const };
+  })();
+
   return (
-    <div className="px-1 py-2 md:px-2 md:py-3">
-      {/* ── Header ── */}
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          Proposal Setup
-        </h2>
-        <div className="flex items-center gap-2">
-          {eligibility?.canPropose ? (
-            <PortalBadge accent="green" size="sm" className="h-8">
-              Ready
-            </PortalBadge>
-          ) : (
-            <PortalBadge accent="neutral" size="sm" className="h-8">
-              In Progress
-            </PortalBadge>
-          )}
-          {onRefresh ? (
-            <PortalHoverTooltip
-              tooltip={
-                refreshPending ? 'Refreshing balances' : 'Refresh balances'
-              }
-            >
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={onRefresh}
-                disabled={acting || refreshPending}
-                aria-label="Refresh balances"
-                className="h-8 w-8 rounded-full border-border/40 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground"
-              >
-                <RefreshCw
-                  className={`h-4 w-4 ${refreshPending ? 'animate-spin' : ''}`}
-                />
-              </Button>
-            </PortalHoverTooltip>
+    <div className="mx-auto w-full min-w-0 max-w-xl">
+      {!eligibility ? (
+        <StatStripSkeleton columns={4} items={4} showTopDivider={false} />
+      ) : (
+        <StatStrip columns={4} showTopDivider={false}>
+          <StatStripCell
+            label="Delegated"
+            value={`${delegatedWeight} SOCIAL`}
+            valueClassName={
+              eligibility.canPropose ? 'portal-green-text' : 'portal-blue-text'
+            }
+            showDivider
+            size="sm"
+          />
+          <StatStripCell
+            label="Threshold"
+            value={`${requiredWeight} SOCIAL`}
+            showDivider
+            size="sm"
+          />
+          {!eligibility.canPropose ? (
+            <StatStripCell
+              label="Wallet"
+              value={walletBalance}
+              showDivider
+              size="sm"
+            />
           ) : null}
-        </div>
-      </div>
-
-      {/* ── Delegation Hero ── */}
-      <div className="mt-4 flex flex-col items-center py-2 text-center">
-        <span className="portal-eyebrow text-muted-foreground">
-          Delegated
-        </span>
-        <p
-          className={cn(
-            'mt-1 font-mono text-3xl font-bold tabular-nums tracking-[-0.03em] md:text-4xl',
-            eligibility?.canPropose ? 'portal-green-text' : 'portal-blue-text'
-          )}
-        >
-          {delegatedWeight}
-        </p>
-        <span className="mt-0.5 portal-eyebrow-wide text-muted-foreground opacity-70">
-          SOCIAL
-        </span>
-        <p className="mt-1.5 max-w-xs portal-type-body text-muted-foreground">
-          {proposalSetupSummary}
-        </p>
-      </div>
-
-      {/* ── Metrics ── */}
-      <StatStrip groupClassName="mt-2">
-        <StatStripCell label="Threshold" showDivider>
-          <p className="text-portal-neutral font-mono text-sm font-semibold tracking-tight md:text-base">
-            {requiredWeight} SOCIAL
-          </p>
-        </StatStripCell>
-        {eligibility && !eligibility.canPropose && (
-          <StatStripCell label="Wallet" showDivider>
-            <p className="font-mono text-sm font-semibold tracking-tight md:text-base">
-              {walletBalance}
-            </p>
-          </StatStripCell>
-        )}
-        <StatStripCell label="Bond">
-          <span
-            className={cn(
-              'font-mono text-sm font-medium tracking-tight md:text-base',
+          <StatStripCell
+            label="Bond"
+            value={bondValue}
+            valueClassName={
               canCoverProposalBond ? 'portal-green-text' : 'portal-amber-text'
-            )}
-          >
-            {canCoverProposalBond
-              ? `${proposalBondDisplay} NEAR`
-              : `${nearBalance} / ${proposalBondDisplay} NEAR`}
-          </span>
-        </StatStripCell>
-      </StatStrip>
+            }
+            size="sm"
+          />
+        </StatStrip>
+      )}
 
       {!eligibility && (
-        <div className="mt-6 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+        <div className="mt-3 flex items-center justify-center gap-2 text-sm text-muted-foreground">
           <PulsingDots size="sm" /> Checking things out…
         </div>
       )}
 
-      {eligibility && (
-        <div className="mt-4 border-t border-fade-detail pt-4">
+      {eligibility ? (
+        <div className="mt-3 space-y-3">
           <p className="portal-eyebrow text-muted-foreground">
-            What's next
+            What&apos;s next
           </p>
-          <h4 className="mt-1.5 text-base font-semibold tracking-[-0.02em]">
-            {nextActionTitle}
-          </h4>
-          <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">
-            {nextActionBody}
+          <p
+            className={cn(
+              'text-sm',
+              actionHelper.tone === 'amber'
+                ? 'text-amber-600'
+                : 'text-muted-foreground'
+            )}
+          >
+            {actionHelper.text}
           </p>
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-            {onCancel && (
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <Button
+              type="button"
+              onClick={nextActionHandler}
+              disabled={nextActionDisabled}
+              className="order-1 h-11 w-full gap-1.5 font-semibold disabled:opacity-50 sm:order-2 sm:w-auto"
+              loading={acting && actionKind === nextActionKind}
+            >
+              {nextActionLabel}
+            </Button>
+            {onCancel ? (
               <Button
                 type="button"
                 variant="outline"
                 onClick={onCancel}
                 disabled={acting}
-                size="default"
-                className="w-full sm:w-auto"
+                className="order-2 h-11 w-full gap-1.5 font-semibold disabled:opacity-50 sm:order-1 sm:w-auto"
                 loading={acting && actionKind === 'cancel'}
               >
                 <ArrowLeft className={`h-4 w-4 ${buttonArrowLeftClass}`} />
                 Back to form
               </Button>
-            )}
-            <Button
-              type="button"
-              onClick={nextActionHandler}
-              disabled={nextActionDisabled}
-              size="default"
-              className="w-full sm:w-auto"
-              loading={acting && actionKind === nextActionKind}
-            >
-              {nextActionLabel}
-            </Button>
+            ) : null}
             {eligibility.canPropose &&
-              eligibility.availableToWithdraw !== '0' &&
-              !eligibility.isInCooldown &&
-              onWithdrawExcess && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={onWithdrawExcess}
-                  disabled={acting}
-                  size="default"
-                  className="w-full sm:w-auto"
-                  loading={acting && actionKind === 'withdraw'}
-                >
-                  {`Withdraw ${withdrawableAmount} SOCIAL`}
-                </Button>
-              )}
+            eligibility.availableToWithdraw !== '0' &&
+            !eligibility.isInCooldown &&
+            onWithdrawExcess ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onWithdrawExcess}
+                disabled={acting}
+                className="order-3 h-11 w-full gap-1.5 font-semibold disabled:opacity-50 sm:w-auto"
+                loading={acting && actionKind === 'withdraw'}
+              >
+                {`Withdraw ${withdrawableAmount} SOCIAL`}
+              </Button>
+            ) : null}
           </div>
-          {nextActionNote && (
-            <p className="mt-2 text-xs text-muted-foreground">
+          {nextActionNote ? (
+            <p
+              className={cn(
+                'text-xs',
+                delegationBlockedByCooldown
+                  ? 'text-amber-600'
+                  : 'text-muted-foreground'
+              )}
+            >
               {nextActionNote}
             </p>
-          )}
+          ) : null}
         </div>
-      )}
+      ) : null}
 
-      {eligibility && (
-        <StatStrip groupClassName="mt-4">
-          <StatStripCell label="DAO" showDivider size="md">
+      {eligibility ? (
+        <StatStrip columns={3} groupClassName="mt-3" showBottomDivider={false}>
+          <StatStripCell label="DAO" showDivider size="sm">
             <a
               href={`${ACTIVE_NEAR_EXPLORER_URL}/address/${eligibility.daoAccountId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="portal-action-link inline-flex items-center gap-1.5 text-sm"
+              className="portal-action-link inline-flex items-center justify-center gap-1.5 text-sm"
             >
               View
               <ExternalLink className="h-3.5 w-3.5" />
             </a>
           </StatStripCell>
-          <StatStripCell label="Staking" showDivider size="md">
+          <StatStripCell label="Staking" showDivider size="sm">
             {eligibility.stakingContractId ? (
               <a
                 href={`${ACTIVE_NEAR_EXPLORER_URL}/address/${eligibility.stakingContractId}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="portal-action-link inline-flex items-center gap-1.5 text-sm"
+                className="portal-action-link inline-flex items-center justify-center gap-1.5 text-sm"
               >
                 View
                 <ExternalLink className="h-3.5 w-3.5" />
@@ -608,21 +652,23 @@ export function GovernanceEligibilityState({
               <span className="text-sm text-muted-foreground">Unavailable</span>
             )}
           </StatStripCell>
-          <StatStripCell label="Position" size="md">
+          <StatStripCell label="Position" size="sm">
             <Link
               href="/governance/manage"
-              className="portal-action-link inline-flex items-center gap-1.5 text-sm"
+              className="portal-action-link group inline-flex items-center justify-center gap-1.5 text-sm"
             >
               Manage
-              <ArrowRight className="h-3.5 w-3.5" />
+              <ProtocolMotionArrow className="h-3 w-3" />
             </Link>
           </StatStripCell>
         </StatStrip>
-      )}
+      ) : null}
 
-      {actionError && (
-        <p className="portal-red-text mt-4 text-sm">{actionError}</p>
-      )}
+      {actionError ? (
+        <div className="portal-red-panel portal-red-text mt-3 rounded-[1rem] border px-4 py-3 text-sm">
+          {actionError}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -693,9 +739,7 @@ export function ApprovedDashboard({
 
   useEffect(() => {
     setConfigLoading(true);
-    viewContract<OnChainAppConfig>('get_app_config', {
-      app_id: registration.appId,
-    })
+    fetchRewardsAppConfig(registration.appId)
       .then((cfg) => setOnChainConfig(cfg))
       .catch(() => {})
       .finally(() => setConfigLoading(false));

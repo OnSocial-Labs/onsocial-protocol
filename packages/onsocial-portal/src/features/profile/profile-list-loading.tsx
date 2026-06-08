@@ -7,7 +7,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { profileListResultSkeletonRowClass } from '@/features/profile/profile-list-row';
 import { cn } from '@/lib/utils';
 
-export type ProfileListSkeletonVariant = 'profile' | 'discovery' | 'endorsement';
+export type ProfileListSkeletonVariant =
+  | 'profile'
+  | 'discovery'
+  | 'endorsement';
 
 function ProfileListProfileSkeletonRow() {
   return (
@@ -62,8 +65,7 @@ export function ProfileListSkeletonRows({
         ? ProfileListEndorsementSkeletonRow
         : ProfileListProfileSkeletonRow;
 
-  const spacingClass =
-    variant === 'endorsement' ? 'space-y-1' : 'space-y-1.5';
+  const spacingClass = variant === 'endorsement' ? 'space-y-1' : 'space-y-1.5';
 
   return (
     <div className={cn(spacingClass, className)} aria-hidden>

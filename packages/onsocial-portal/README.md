@@ -120,6 +120,12 @@ This sets `ONSOCIAL_API_KEY` from GSM secret `ONSOCIAL_SERVICE_ONAPI_KEY`
 (testnet) or `ONSOCIAL_MAINNET_SERVICE_ONAPI_KEY` (mainnet). Restart
 `pnpm --filter @onsocial/portal dev` after syncing.
 
+The same sync can write `ADMIN_WALLETS` and `SEASON_SETTLEMENT_ADMIN_KEY` for
+Genesis Rally settlement ops. Authorized wallets use **Internal → Season 0
+settlement** (`/season-zero/admin`) to finalize and publish after the season
+ends. The admin key stays on the portal server and is forwarded to the backend
+as `x-admin-key`.
+
 You can still edit `.env.local` manually; the shared config automatically drives wallet network,
 Nearblocks links, admin contract targets, relayer account selection, gateway
 health checks, transparency data, and partner backend calls.

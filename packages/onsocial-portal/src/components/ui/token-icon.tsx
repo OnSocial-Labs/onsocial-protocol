@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 import { cn } from '@/lib/utils';
 
 interface TokenIconProps {
@@ -19,12 +21,19 @@ export function TokenIcon({
   className,
   size = 'sm',
 }: TokenIconProps) {
-  if (src) {
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [src]);
+
+  if (src && !imageFailed) {
     return (
       <img
         src={src}
         alt={label}
         className={cn('rounded-full object-cover', sizeClass[size], className)}
+        onError={() => setImageFailed(true)}
       />
     );
   }

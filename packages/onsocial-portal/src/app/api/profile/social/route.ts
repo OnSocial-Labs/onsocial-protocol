@@ -4,22 +4,16 @@ import {
   loadPortalProfileSocial,
   type PortalProfileSocialPayload,
 } from '@/lib/portal-profile-social';
+import {
+  createPortalRequestCache,
+  isRateLimitError,
+} from '@/lib/portal-request-cache';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-interface ProfileSocialResponse {
-  accountId: string;
-  viewerAccountId: string | null;
-  viewerStanding: boolean;
-  counts: {
-    incoming: number;
-    outgoing: number;
-    mutual: number;
-  };
-  incoming: PortalProfileSocialPayload['incoming'];
-  outgoing: PortalProfileSocialPayload['outgoing'];
-}
+const socialCache =
+  createPortalRequestCache<PortalProfileSocialPayload>(30_000);
 
 const ACCOUNT_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{1,63}$/;
 
@@ -50,16 +44,18 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const cacheKey = `${accountId}|${viewerAccountId ?? ''}`;
+
   try {
-    const os = createPortalServerOnSocialClient();
-    const response: ProfileSocialResponse = await loadPortalProfileSocial(
-      os,
-      accountId,
-      viewerAccountId
-    );
+    const response = await socialCache.getOrLoad(cacheKey, async () => {
+      const os = createPortalServerOnSocialClient();
+      return loadPortalProfileSocial(os, accountId, viewerAccountId);
+    });
 
     return NextResponse.json(response, {
-      headers: { 'Cache-Control': 'no-store' },
+      headers: {
+        'Cache-Control': 'private, max-age=30, stale-while-revalidate=60',
+      },
     });
   } catch (error) {
     const detail = getErrorMessage(error);
@@ -69,10 +65,12 @@ export async function GET(request: NextRequest) {
       {
         error: missingKey
           ? 'Portal OnAPI key is not configured'
-          : 'Social graph query failed',
+          : isRateLimitError(error)
+            ? 'Social graph is busy — try again shortly'
+            : 'Social graph query failed',
         detail,
       },
-      { status: missingKey ? 503 : 502 }
+      { status: missingKey ? 503 : isRateLimitError(error) ? 429 : 502 }
     );
   }
 }

@@ -1,5 +1,4 @@
 import { Hero } from '@/components/sections/hero';
-import { GenesisRallyHome } from '@/components/sections/genesis-rally-home';
 import { CommunityBanner } from '@/components/sections/community-banner';
 import { ProtocolExplorer } from '@/components/sections/protocol-explorer';
 import { LeaderboardPreview } from '@/components/sections/leaderboard-preview';
@@ -13,7 +12,6 @@ export default async function Home() {
   return (
     <>
       <Hero initialPulse={initialPulse} />
-      <GenesisRallyHome />
       <CommunityBanner />
       <CTA />
       <ProtocolExplorer />

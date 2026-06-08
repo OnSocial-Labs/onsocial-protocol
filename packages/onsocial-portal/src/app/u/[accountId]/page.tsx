@@ -23,7 +23,5 @@ export default async function Page({
     ? await loadPortalProfileShell(accountId)
     : null;
 
-  return (
-    <ProfilePage accountId={accountIdParam} initialShell={initialShell} />
-  );
+  return <ProfilePage accountId={accountIdParam} initialShell={initialShell} />;
 }

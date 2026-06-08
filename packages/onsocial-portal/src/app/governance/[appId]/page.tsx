@@ -7,12 +7,17 @@ import { RouteLoadingShell } from '@/components/layout/route-loading-shell';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
 import { useMobilePageContext } from '@/components/providers/mobile-page-context';
 import { SurfacePanel } from '@/components/ui/surface-panel';
-import { fetchGovernanceFeed } from '@/features/governance/api';
+import {
+  fetchGovernanceFeed,
+  fetchGovernanceProposalBootstrap,
+} from '@/features/governance/api';
 import { GovernanceCard } from '@/features/governance/governance-card';
 import { GovernanceCardSkeleton } from '@/features/governance/governance-card-sections';
 import {
+  mergeGovernanceFeedApplication,
   parseGovernanceProposalId,
   resolveGovernanceApplication,
+  resolveGovernanceProposalId,
 } from '@/features/governance/page-utils';
 import type {
   Application,
@@ -39,15 +44,64 @@ function GovernanceProposalPageContent() {
   const loadApp = useCallback(async () => {
     if (!hasLoaded.current) setLoading(true);
     setError('');
+
+    const resolvedProposalId = resolveGovernanceProposalId(appId, proposalId);
+    let bootstrapApp: Application | null = null;
+    let bootstrapPolicy: GovernanceDaoPolicy | null = null;
+
     try {
-      const { applications, daoPolicy: nextDaoPolicy } =
-        await fetchGovernanceFeed();
-      const found = resolveGovernanceApplication(applications, appId, proposalId);
-      setApp(found);
-      setDaoPolicy(nextDaoPolicy);
+      if (resolvedProposalId != null) {
+        const bootstrap = await fetchGovernanceProposalBootstrap(
+          appId,
+          resolvedProposalId
+        );
+        if (bootstrap) {
+          bootstrapApp = bootstrap.app;
+          bootstrapPolicy = bootstrap.daoPolicy;
+          setApp(bootstrapApp);
+          setDaoPolicy(bootstrapPolicy);
+          setLoading(false);
+        }
+      }
+
+      const { applications, daoPolicy: feedDaoPolicy } =
+        await fetchGovernanceFeed({
+          onRevalidate: (freshFeed) => {
+            const refreshed = resolveGovernanceApplication(
+              freshFeed.applications,
+              appId,
+              resolvedProposalId ?? proposalId
+            );
+            if (refreshed) {
+              setApp(
+                bootstrapApp
+                  ? mergeGovernanceFeedApplication(bootstrapApp, refreshed)
+                  : refreshed
+              );
+              setDaoPolicy(freshFeed.daoPolicy ?? bootstrapPolicy);
+            }
+          },
+        });
+      const fromFeed = resolveGovernanceApplication(
+        applications,
+        appId,
+        resolvedProposalId ?? proposalId
+      );
+
+      if (fromFeed) {
+        setApp(
+          bootstrapApp
+            ? mergeGovernanceFeedApplication(bootstrapApp, fromFeed)
+            : fromFeed
+        );
+        setDaoPolicy(feedDaoPolicy ?? bootstrapPolicy);
+      } else if (!bootstrapApp) {
+        setApp(null);
+      }
+
       hasLoaded.current = true;
     } catch {
-      if (!hasLoaded.current) setError('Failed to load proposal.');
+      if (!bootstrapApp) setError('Failed to load proposal.');
     } finally {
       setLoading(false);
     }

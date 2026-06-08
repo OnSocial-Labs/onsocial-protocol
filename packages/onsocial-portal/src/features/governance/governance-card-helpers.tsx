@@ -2,6 +2,11 @@ import React, { Fragment } from 'react';
 import { CheckCircle2, Vote, XCircle, type LucideIcon } from 'lucide-react';
 import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import { fetchDaoPolicy, fetchDaoProposal } from '@/features/governance/api';
+import {
+  hasFrozenProposalPolicySnapshot,
+  hasReliableVoteRuleContext,
+  resolveEffectiveDaoPolicy,
+} from '@/features/governance/governance-proposal-policy-snapshot';
 import type {
   GovernanceDaoAction,
   GovernanceDaoPolicy,
@@ -10,6 +15,7 @@ import type {
   GovernanceDaoVotePolicy,
   GovernanceProposal,
 } from '@/features/governance/types';
+import { isNearNamedAccountComplete } from '@/lib/portal-near-account';
 import { yoctoToSocial } from '@/lib/near-rpc';
 import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/portal-config';
 
@@ -417,10 +423,13 @@ function getFunctionCallSummary(proposal: GovernanceDaoProposal | null): {
     'gas' in firstAction && typeof firstAction.gas === 'string'
       ? firstAction.gas
       : null;
+  const rawArgs = 'args' in firstAction ? firstAction.args : null;
   const decodedArgs =
-    'args' in firstAction && typeof firstAction.args === 'string'
-      ? decodeBase64Json(firstAction.args)
-      : null;
+    typeof rawArgs === 'string'
+      ? decodeBase64Json(rawArgs)
+      : rawArgs && typeof rawArgs === 'object' && !Array.isArray(rawArgs)
+        ? (rawArgs as Record<string, unknown>)
+        : null;
   const config = decodedArgs?.config;
 
   return methodName
@@ -435,6 +444,69 @@ function getFunctionCallSummary(proposal: GovernanceDaoProposal | null): {
             : null,
       }
     : null;
+}
+
+function isRelayerServiceAccount(accountId: string): boolean {
+  return /relayer\.onsocial\./i.test(accountId);
+}
+
+function parseApplicantWalletFromDescription(
+  description: string | null | undefined
+): string | null {
+  const match = description?.match(
+    /Applicant wallet:\s*([a-z0-9][a-z0-9._-]*)/i
+  );
+  const candidate = match?.[1]?.trim().toLowerCase();
+  if (candidate && isNearNamedAccountComplete(candidate)) {
+    return candidate;
+  }
+  return null;
+}
+
+/** Partner community wallet from feed row or on-chain register_app config. */
+export function resolvePartnerWalletFromProposal(
+  appWalletId: string | null | undefined,
+  liveProposal: GovernanceDaoProposal | null | undefined
+): string | null {
+  const applicantWallet = parseApplicantWalletFromDescription(
+    liveProposal?.description
+  );
+  const fromFeed = appWalletId?.trim().toLowerCase() || null;
+
+  if (
+    fromFeed &&
+    isNearNamedAccountComplete(fromFeed) &&
+    (!isRelayerServiceAccount(fromFeed) || !applicantWallet)
+  ) {
+    return fromFeed;
+  }
+
+  if (applicantWallet) {
+    return applicantWallet;
+  }
+
+  if (fromFeed && isNearNamedAccountComplete(fromFeed)) {
+    return fromFeed;
+  }
+
+  const summary = getFunctionCallSummary(liveProposal ?? null);
+  const callers = summary?.config?.authorized_callers;
+  if (!Array.isArray(callers)) {
+    return null;
+  }
+
+  const normalizedCallers = callers
+    .filter((caller): caller is string => typeof caller === 'string')
+    .map((caller) => caller.trim().toLowerCase())
+    .filter(
+      (caller) => caller.length > 0 && isNearNamedAccountComplete(caller)
+    );
+
+  const communityCaller = normalizedCallers.find(
+    (caller) => !isRelayerServiceAccount(caller)
+  );
+
+  return communityCaller ?? normalizedCallers[0] ?? null;
 }
 
 function getStatusSummary(
@@ -691,7 +763,7 @@ type MembershipProposalInfo = {
   roleId: string | null;
 };
 
-function isTerminalGovernanceProposalStatus(
+export function isTerminalGovernanceProposalStatus(
   status: GovernanceDaoProposal['status'] | string | null | undefined
 ): boolean {
   return (
@@ -784,11 +856,21 @@ function getProposalVotingRole(
 
 function getVotingPoolSize(
   role: GovernanceDaoRole,
-  liveProposal: GovernanceDaoProposal | null
+  liveProposal: GovernanceDaoProposal | null,
+  votingClosed = false
 ): number | null {
   const baseSize = getRoleSize(role);
   if (baseSize === null) {
     return null;
+  }
+
+  if (
+    hasFrozenProposalPolicySnapshot(liveProposal) &&
+    votingClosed &&
+    liveProposal &&
+    isTerminalGovernanceProposalStatus(liveProposal.status)
+  ) {
+    return baseSize;
   }
 
   const membership = readMembershipProposalMemberId(liveProposal);
@@ -798,12 +880,31 @@ function getVotingPoolSize(
 
   const members = getGroupMembers(role);
   const subjectInGroup = members.includes(membership.memberId);
+  const votesCast = Object.keys(liveProposal?.votes ?? {}).length;
 
-  if (membership.kind === 'add' && subjectInGroup) {
-    return Math.max(baseSize - 1, 0);
+  if (membership.kind === 'add') {
+    // After an approved add, policy already includes the nominee — vote-time pool was smaller.
+    if (subjectInGroup && votingClosed && liveProposal?.status === 'Approved') {
+      return Math.max(baseSize - 1, 0);
+    }
+
+    return baseSize;
   }
 
-  if (membership.kind === 'remove' && !subjectInGroup) {
+  if (membership.kind === 'remove') {
+    if (subjectInGroup) {
+      return baseSize;
+    }
+
+    // Subject not in current policy (already removed or never joined).
+    if (votingClosed && liveProposal?.status === 'Approved') {
+      // Vote-time pool included the removed member. Only add them back when the
+      // current roster is still the pre-removal size (e.g. 2 guardians + leaver = 3).
+      // If someone joined later (same headcount, different members), baseSize already matches.
+      return baseSize <= votesCast ? baseSize + 1 : baseSize;
+    }
+
+    // In progress: subject still in the group at vote time, or edge-case removal nominee.
     return baseSize + 1;
   }
 
@@ -815,7 +916,10 @@ export function getEligibleVotersForProposal(
   liveProposal: GovernanceDaoProposal | null,
   votingClosed = false
 ): string[] | null {
-  if (liveProposal && (isTerminalGovernanceProposalStatus(liveProposal.status) || votingClosed)) {
+  if (
+    liveProposal &&
+    (isTerminalGovernanceProposalStatus(liveProposal.status) || votingClosed)
+  ) {
     return Object.keys(liveProposal.votes ?? {})
       .map((account) => account.toLowerCase())
       .sort((left, right) => left.localeCompare(right));
@@ -913,10 +1017,11 @@ function getVotingProgress(
   }
 
   const votePolicy = resolveVotePolicy(role, policy, proposalPolicyLabel);
-  const currentPoolSize = getVotingPoolSize(role, liveProposal);
+  const currentPoolSize = getVotingPoolSize(role, liveProposal, votingClosed);
   const votesCast = approvals + rejects + removes;
   const useHistoricalVotePool =
     liveProposal &&
+    !hasFrozenProposalPolicySnapshot(liveProposal) &&
     (isTerminalGovernanceProposalStatus(liveProposal.status) || votingClosed) &&
     votesCast > 0 &&
     currentPoolSize !== null &&
@@ -937,9 +1042,7 @@ function getVotingProgress(
       removes,
       votesCast,
       remainingVoters:
-        currentPoolSize === null
-          ? null
-          : currentPoolSize - votesCast,
+        currentPoolSize === null ? null : currentPoolSize - votesCast,
       remaining: null,
       approvalStillPossible: null,
     };
@@ -949,11 +1052,8 @@ function getVotingProgress(
     Number(votePolicy.quorum ?? '0'),
     toThresholdWeight(votePolicy.threshold, poolForThreshold)
   );
-  const displayTotalWeight =
-    liveProposal &&
-    (isTerminalGovernanceProposalStatus(liveProposal.status) || votingClosed)
-      ? Math.max(votesCast, threshold)
-      : currentPoolSize;
+  // Always scale the bar to the full voter pool — not votesCast/threshold after resolve.
+  const displayTotalWeight = currentPoolSize;
   const remainingVoters =
     liveProposal &&
     (isTerminalGovernanceProposalStatus(liveProposal.status) || votingClosed)
@@ -985,6 +1085,145 @@ function sumVotes(
   return Object.values(voteCounts ?? {}).reduce((total, counts) => {
     return (BigInt(total) + BigInt(counts[index] ?? '0')).toString();
   }, '0');
+}
+
+export function getGovernanceProposalVotesCast(
+  proposal: GovernanceDaoProposal | null | undefined
+): number {
+  if (!proposal) {
+    return 0;
+  }
+
+  return (
+    Number(sumVotes(proposal.vote_counts, 0)) +
+    Number(sumVotes(proposal.vote_counts, 1)) +
+    Number(sumVotes(proposal.vote_counts, 2))
+  );
+}
+
+export function shouldAdoptGovernanceProposalSnapshot(
+  current: GovernanceDaoProposal | null | undefined,
+  incoming: GovernanceDaoProposal | null | undefined
+): boolean {
+  if (!incoming) {
+    return false;
+  }
+
+  if (!current) {
+    return true;
+  }
+
+  const incomingTerminal = isTerminalGovernanceProposalStatus(incoming.status);
+  const currentTerminal = isTerminalGovernanceProposalStatus(current.status);
+
+  if (incomingTerminal && !currentTerminal) {
+    return true;
+  }
+
+  if (incoming.status !== current.status) {
+    return incomingTerminal;
+  }
+
+  return (
+    getGovernanceProposalVotesCast(incoming) >=
+    getGovernanceProposalVotesCast(current)
+  );
+}
+
+export function mergeGovernanceProposalSnapshot(
+  current: GovernanceDaoProposal | null | undefined,
+  incoming: GovernanceDaoProposal | null | undefined
+): GovernanceDaoProposal | null {
+  if (!incoming) {
+    return current ?? null;
+  }
+
+  if (!current || shouldAdoptGovernanceProposalSnapshot(current, incoming)) {
+    return {
+      ...incoming,
+      policy_snapshot:
+        incoming.policy_snapshot ?? current?.policy_snapshot ?? undefined,
+    };
+  }
+
+  return current;
+}
+
+function findConnectedDaoRole(
+  daoPolicy: GovernanceDaoPolicy | null | undefined,
+  accountId: string
+): GovernanceDaoRole | null {
+  const normalized = accountId.trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+
+  return (
+    (daoPolicy?.roles ?? []).find((role) =>
+      getGroupMembers(role).includes(normalized)
+    ) ?? null
+  );
+}
+
+export function applyOptimisticGovernanceVote({
+  proposal,
+  accountId,
+  action,
+  daoPolicy,
+}: {
+  proposal: GovernanceDaoProposal;
+  accountId: string;
+  action: Extract<
+    GovernanceDaoAction,
+    'VoteApprove' | 'VoteReject' | 'VoteRemove'
+  >;
+  daoPolicy: GovernanceDaoPolicy | null;
+}): GovernanceDaoProposal {
+  if (proposal.votes?.[accountId]) {
+    return proposal;
+  }
+
+  const connectedRole = findConnectedDaoRole(daoPolicy, accountId);
+  const proposalPolicyLabel = getProposalPolicyLabel(proposal);
+  const votingRole = getProposalVotingRole(
+    proposal,
+    daoPolicy,
+    connectedRole,
+    proposalPolicyLabel
+  );
+  const roleName = votingRole?.name?.trim();
+
+  if (!roleName) {
+    return proposal;
+  }
+
+  const voteLabel =
+    action === 'VoteApprove'
+      ? 'Approve'
+      : action === 'VoteReject'
+        ? 'Reject'
+        : 'Remove';
+  const voteIndex =
+    voteLabel === 'Approve' ? 0 : voteLabel === 'Reject' ? 1 : 2;
+  const vote_counts = { ...proposal.vote_counts };
+  const existing = vote_counts[roleName] ?? ['0', '0', '0'];
+  const nextCounts: [string, string, string] = [
+    existing[0] ?? '0',
+    existing[1] ?? '0',
+    existing[2] ?? '0',
+  ];
+
+  nextCounts[voteIndex] = (BigInt(nextCounts[voteIndex]) + 1n).toString();
+  vote_counts[roleName] = nextCounts;
+
+  return {
+    ...proposal,
+    votes: {
+      ...proposal.votes,
+      [accountId]: voteLabel,
+    },
+    vote_counts,
+  };
 }
 
 export async function loadLiveDaoState(
@@ -1023,22 +1262,27 @@ export function deriveGovernanceCardView({
         getGroupMembers(role).includes(accountId.toLowerCase())
       ) ?? null)
     : null;
-  const proposalPolicyLabel = getProposalPolicyLabel(liveProposal);
-  const activeVotingRole = getProposalVotingRole(
-    liveProposal,
-    daoPolicy,
-    connectedRole,
-    proposalPolicyLabel
-  );
-  const currentVote = accountId
-    ? (liveProposal?.votes?.[accountId] ?? null)
-    : null;
   const reviewExpiry = getProposalExpiryTime({
     proposal: liveProposal,
     policy: daoPolicy,
     nowMs,
   });
   const votingClosed = isGovernanceVotingClosed(liveProposal, reviewExpiry);
+  const effectiveDaoPolicy = resolveEffectiveDaoPolicy(
+    liveProposal,
+    daoPolicy,
+    votingClosed
+  );
+  const proposalPolicyLabel = getProposalPolicyLabel(liveProposal);
+  const activeVotingRole = getProposalVotingRole(
+    liveProposal,
+    effectiveDaoPolicy,
+    connectedRole,
+    proposalPolicyLabel
+  );
+  const currentVote = accountId
+    ? (liveProposal?.votes?.[accountId] ?? null)
+    : null;
   const canApprove =
     !!connectedRole &&
     !!liveProposal &&
@@ -1077,7 +1321,7 @@ export function deriveGovernanceCardView({
   const removeVotes = sumVotes(liveProposal?.vote_counts, 2);
   const votingProgress = getVotingProgress(
     activeVotingRole,
-    daoPolicy,
+    effectiveDaoPolicy,
     proposalPolicyLabel,
     approveVotes,
     rejectVotes,
@@ -1188,6 +1432,7 @@ export function deriveGovernanceCardView({
     ? (PROPOSAL_KIND_LABELS[proposalKindKey] ??
       proposalKindKey.replace(/([a-z])([A-Z])/g, '$1 $2'))
     : null;
+  const showVoteRule = hasReliableVoteRuleContext(liveProposal, votingClosed);
 
   return {
     connectedRole,
@@ -1222,5 +1467,6 @@ export function deriveGovernanceCardView({
     showUsageMetrics,
     finalizeLabel,
     proposalKindLabel,
+    showVoteRule,
   };
 }

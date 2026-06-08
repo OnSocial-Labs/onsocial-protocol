@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { PenLine, RefreshCw } from 'lucide-react';
 import { SectionHeader } from '@/components/layout/section-header';
 import { Button } from '@/components/ui/button';
@@ -137,8 +138,15 @@ function syncParameterInputs(
   };
 }
 
+function isDaoPolicyActionId(value: string): value is DaoPolicyActionId {
+  return DAO_POLICY_ACTION_OPTIONS.some((option) => option.id === value);
+}
+
 export function GovernancePolicyPanel() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedPolicyAction = searchParams.get('action');
+  const initialPolicyActionApplied = useRef(false);
   const { accountId, connect, wallet, isConnected } = useWallet();
   const { txResult, clearTxResult, setTxResult, trackTransaction } =
     useNearTransactionFeedback(accountId);
@@ -199,6 +207,7 @@ export function GovernancePolicyPanel() {
   useEffect(() => {
     setEligibility(null);
     setError('');
+    initialPolicyActionApplied.current = false;
     void loadContext();
   }, [accountId, loadContext]);
 
@@ -311,11 +320,14 @@ export function GovernancePolicyPanel() {
             ? permissionsRoleBaseline
             : undefined,
         selectedPermissions:
-          policyAction === 'update_permissions' ? selectedPermissions : undefined,
+          policyAction === 'update_permissions'
+            ? selectedPermissions
+            : undefined,
         permissionsChanged:
-          policyAction === 'update_permissions' ? permissionsChanged : undefined,
-        targetRoleId:
-          policyAction === 'remove_role' ? targetRoleId : undefined,
+          policyAction === 'update_permissions'
+            ? permissionsChanged
+            : undefined,
+        targetRoleId: policyAction === 'remove_role' ? targetRoleId : undefined,
       }),
     [
       addRoleAccessMode,
@@ -353,7 +365,9 @@ export function GovernancePolicyPanel() {
       return;
     }
 
-    setSelectedPermissions(filterEditablePermissions(permissionsRole.permissions));
+    setSelectedPermissions(
+      filterEditablePermissions(permissionsRole.permissions)
+    );
   }, [permissionsRole]);
 
   useEffect(() => {
@@ -363,7 +377,9 @@ export function GovernancePolicyPanel() {
     }
 
     const delegatedRole = findDelegatedProposersRole(daoPolicy);
-    setAddRolePermissions(filterEditablePermissions(delegatedRole?.permissions));
+    setAddRolePermissions(
+      filterEditablePermissions(delegatedRole?.permissions)
+    );
   }, [addRoleAccessMode, addRoleUsesCustomPermissions, daoPolicy]);
 
   useEffect(() => {
@@ -387,7 +403,9 @@ export function GovernancePolicyPanel() {
     }
 
     if (policyAction === 'update_permissions' && permissionsRoleId) {
-      setDescription(`Update ${permissionsRoleId} permissions on the OnSocial DAO.`);
+      setDescription(
+        `Update ${permissionsRoleId} permissions on the OnSocial DAO.`
+      );
     }
   }, [
     addRoleAccessMode,
@@ -428,10 +446,23 @@ export function GovernancePolicyPanel() {
       return;
     }
 
+    if (
+      !initialPolicyActionApplied.current &&
+      requestedPolicyAction &&
+      isDaoPolicyActionId(requestedPolicyAction) &&
+      availablePolicyActions.some(
+        (option) => option.id === requestedPolicyAction
+      )
+    ) {
+      setPolicyAction(requestedPolicyAction);
+      initialPolicyActionApplied.current = true;
+      return;
+    }
+
     if (!availablePolicyActions.some((option) => option.id === policyAction)) {
       setPolicyAction(availablePolicyActions[0].id);
     }
-  }, [availablePolicyActions, policyAction]);
+  }, [availablePolicyActions, policyAction, requestedPolicyAction]);
 
   const canCoverBond =
     eligibility != null &&
@@ -584,7 +615,11 @@ export function GovernancePolicyPanel() {
       }
     }
     if (policyAction === 'update_parameters') {
-      if (bondChanged && nextBondYocto && !isProposalBondWithinMax(nextBondYocto)) {
+      if (
+        bondChanged &&
+        nextBondYocto &&
+        !isProposalBondWithinMax(nextBondYocto)
+      ) {
         return `Proposal bond cannot exceed ${MAX_PROPOSAL_BOND_NEAR} NEAR.`;
       }
       if (
@@ -675,14 +710,20 @@ export function GovernancePolicyPanel() {
         actionId: policyAction,
         policy: daoPolicy,
         description: description.trim() || undefined,
-        proposalBondYocto: bondChanged ? (nextBondYocto ?? undefined) : undefined,
-        proposalPeriodNs: periodChanged ? (nextPeriodNs ?? undefined) : undefined,
+        proposalBondYocto: bondChanged
+          ? (nextBondYocto ?? undefined)
+          : undefined,
+        proposalPeriodNs: periodChanged
+          ? (nextPeriodNs ?? undefined)
+          : undefined,
         newRoleName,
         addRoleAccessMode,
         targetRoleId,
         permissionsRoleId,
         permissions:
-          policyAction === 'add_role' ? addRolePermissions : selectedPermissions,
+          policyAction === 'add_role'
+            ? addRolePermissions
+            : selectedPermissions,
       });
 
       const { proposalId, txHash } = await submitDaoProposal(
@@ -753,8 +794,7 @@ export function GovernancePolicyPanel() {
     wallet,
   ]);
 
-  const daoAccountId =
-    eligibility?.daoAccountId ?? GOVERNANCE_DAO_ACCOUNT;
+  const daoAccountId = eligibility?.daoAccountId ?? GOVERNANCE_DAO_ACCOUNT;
 
   return (
     <>
@@ -787,7 +827,10 @@ export function GovernancePolicyPanel() {
                   size="icon"
                   className="h-8 w-8 rounded-full border-border/40 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground"
                 >
-                  <Link href="/governance/create" aria-label="Open create proposal">
+                  <Link
+                    href="/governance/create"
+                    aria-label="Open create proposal"
+                  >
                     <PenLine className="h-4 w-4" />
                   </Link>
                 </Button>
@@ -856,7 +899,11 @@ export function GovernancePolicyPanel() {
                 showDivider
                 size="sm"
               />
-              <StatStripCell label="Roles" value={String(roleCount)} size="sm" />
+              <StatStripCell
+                label="Roles"
+                value={String(roleCount)}
+                size="sm"
+              />
             </StatStrip>
 
             <div className="mt-3">
@@ -1023,7 +1070,9 @@ export function GovernancePolicyPanel() {
                             value={bondNearInput}
                             onChange={(event) => {
                               setBondNearInput(
-                                sanitizeNearProposalBondInput(event.target.value)
+                                sanitizeNearProposalBondInput(
+                                  event.target.value
+                                )
                               );
                               setError('');
                             }}
@@ -1047,7 +1096,9 @@ export function GovernancePolicyPanel() {
                             value={periodDaysInput}
                             onChange={(event) => {
                               setPeriodDaysInput(
-                                sanitizeProposalPeriodDaysInput(event.target.value)
+                                sanitizeProposalPeriodDaysInput(
+                                  event.target.value
+                                )
                               );
                               setError('');
                             }}

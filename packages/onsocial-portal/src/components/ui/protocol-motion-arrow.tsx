@@ -12,14 +12,21 @@ interface ProtocolMotionArrowProps {
    * arrow is a static glyph rather than an affordance.
    */
   static?: boolean;
+  /**
+   * When true, render the arrow in its expanded/hover pose — full opacity and
+   * directional offset. Use for active flows (e.g. a live swap quote).
+   */
+  expanded?: boolean;
 }
 
 export function ProtocolMotionArrow({
   direction = 'up',
   className,
   static: isStatic = false,
+  expanded = false,
 }: ProtocolMotionArrowProps) {
   const Icon = direction === 'left' ? ArrowLeft : ArrowUpRight;
+  const motionEnabled = !isStatic;
 
   return (
     <Icon
@@ -29,26 +36,36 @@ export function ProtocolMotionArrow({
       strokeLinejoin="miter"
       className={cn(
         'shrink-0 motion-reduce:transform-none',
-        isStatic
-          ? undefined
-          : 'opacity-40 transition-all duration-200 group-hover:opacity-100',
+        motionEnabled && 'transition-all duration-200 group-hover:opacity-100',
+        motionEnabled && (expanded ? 'opacity-100' : 'opacity-40'),
         direction === 'down'
           ? cn(
               'rotate-90',
-              !isStatic &&
-                'group-hover:translate-x-0.5 group-hover:translate-y-0.5'
+              motionEnabled &&
+                (expanded
+                  ? 'translate-x-0.5 translate-y-0.5'
+                  : 'group-hover:translate-x-0.5 group-hover:translate-y-0.5')
             )
           : direction === 'in'
             ? cn(
                 'rotate-180',
-                !isStatic &&
-                  'group-hover:-translate-x-0.5 group-hover:translate-y-0.5'
+                motionEnabled &&
+                  (expanded
+                    ? '-translate-x-0.5 translate-y-0.5'
+                    : 'group-hover:-translate-x-0.5 group-hover:translate-y-0.5')
               )
             : direction === 'left'
-              ? cn(!isStatic && 'group-hover:-translate-x-0.5')
+              ? cn(
+                  motionEnabled &&
+                    (expanded
+                      ? '-translate-x-0.5'
+                      : 'group-hover:-translate-x-0.5')
+                )
               : cn(
-                  !isStatic &&
-                    'group-hover:translate-x-0.5 group-hover:-translate-y-0.5'
+                  motionEnabled &&
+                    (expanded
+                      ? 'translate-x-0.5 -translate-y-0.5'
+                      : 'group-hover:translate-x-0.5 group-hover:-translate-y-0.5')
                 ),
         className
       )}

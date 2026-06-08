@@ -266,7 +266,11 @@ function rolePermissionChips(role: GovernanceDaoRole): Array<{
     .filter((chip): chip is NonNullable<typeof chip> => chip != null);
 }
 
-export function PolicyRoleListShell({ children }: { children: React.ReactNode }) {
+export function PolicyRoleListShell({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <div className="overflow-hidden rounded-2xl border border-border/40 bg-background/45 divide-y divide-fade-detail">
       {children}
@@ -277,7 +281,8 @@ export function PolicyRoleListShell({ children }: { children: React.ReactNode })
 const proposeKindShellClass =
   'overflow-hidden rounded-2xl border border-border/40 bg-background/45';
 
-const segmentedBarClass = 'grid grid-cols-2 gap-0.5 bg-muted/10 p-1.5 sm:flex sm:flex-wrap';
+const segmentedBarClass =
+  'grid grid-cols-2 gap-0.5 bg-muted/10 p-1.5 sm:flex sm:flex-wrap';
 
 const proposeKindSegmentClass = (active: boolean) =>
   cn(
@@ -297,7 +302,11 @@ export function PolicyProposeKindPills({
   onChange: (id: DaoPolicyActionId) => void;
 }) {
   return (
-    <div className={proposeKindShellClass} role="group" aria-label="Policy proposal kind">
+    <div
+      className={proposeKindShellClass}
+      role="group"
+      aria-label="Policy proposal kind"
+    >
       <div className={segmentedBarClass}>
         {options.map((option) => {
           const active = value === option.id;
@@ -391,7 +400,10 @@ function DaoRoleSnapshotCard({
           <span className="text-[10px] text-muted-foreground">{meta}</span>
           {chips.length > 0 ? (
             <>
-              <span aria-hidden className="text-[10px] text-muted-foreground/35">
+              <span
+                aria-hidden
+                className="text-[10px] text-muted-foreground/35"
+              >
                 ·
               </span>
               {chips.map((chip) => (
@@ -575,8 +587,7 @@ export function DaoPermissionPicker({
   );
   const matchesBaseline = daoPermissionSetsEqual(permissions, baseline);
 
-  const signalingHint =
-    'On-chain Vote — text only, no execution';
+  const signalingHint = 'On-chain Vote — text only, no execution';
 
   const renderPermissionToggle = (
     option: { id: string; label: string },
@@ -594,7 +605,9 @@ export function DaoPermissionPicker({
       <Button
         key={option.id}
         type="button"
-        variant={tone === 'governance' ? 'outline' : active ? 'default' : 'outline'}
+        variant={
+          tone === 'governance' ? 'outline' : active ? 'default' : 'outline'
+        }
         size="xs"
         className={cn(className, locked && 'cursor-default opacity-90')}
         title={
@@ -636,13 +649,19 @@ export function DaoPermissionPicker({
         <Button
           type="button"
           variant={
-            daoPermissionSetsEqual(permissions, DAO_FULL_PUBLIC_PERMISSIONS_PRESET)
+            daoPermissionSetsEqual(
+              permissions,
+              DAO_FULL_PUBLIC_PERMISSIONS_PRESET
+            )
               ? 'default'
               : 'ghost'
           }
           size="xs"
           className={presetSegmentClass(
-            daoPermissionSetsEqual(permissions, DAO_FULL_PUBLIC_PERMISSIONS_PRESET)
+            daoPermissionSetsEqual(
+              permissions,
+              DAO_FULL_PUBLIC_PERMISSIONS_PRESET
+            )
           )}
           onClick={() => applyPreset(DAO_FULL_PUBLIC_PERMISSIONS_PRESET)}
         >

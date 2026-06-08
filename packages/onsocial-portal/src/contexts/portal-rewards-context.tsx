@@ -20,20 +20,17 @@ import {
   PORTAL_REWARD_AGGREGATE_MS,
   PORTAL_REWARD_MIN_CLAIM_YOCTO,
   PORTAL_REWARD_REFRESH_DELAYS_MS,
-  PORTAL_REWARDS_APP_ID,
   compressPortalRewardToastReasons,
 } from '@/lib/portal-reward-constants';
 import { onPortalRewardCredited } from '@/lib/portal-reward-events';
 import type { PortalRewardCreditEvent } from '@/lib/portal-reward-events';
-import {
-  REWARDS_CONTRACT,
-  viewContractAt,
-  type RewardsUserRewardsOverviewView,
-} from '@/lib/near-rpc';
+import type { RewardsUserRewardsOverviewView } from '@/lib/near-rpc';
 
 interface RefreshBalanceOptions {
   /** When true, keep showing the current balance instead of a loading placeholder. */
   silent?: boolean;
+  /** When true, bypass the server cache (e.g. after a credit lands on-chain). */
+  fresh?: boolean;
 }
 
 interface PortalRewardsContextValue {
@@ -98,23 +95,47 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const fetchOverview = useCallback(async (): Promise<bigint> => {
-    if (!accountId) {
-      setOverview(null);
-      chainClaimableRef.current = 0n;
-      return 0n;
-    }
+  const fetchOverview = useCallback(
+    async (
+      options: Pick<RefreshBalanceOptions, 'fresh'> = {}
+    ): Promise<bigint> => {
+      if (!accountId) {
+        setOverview(null);
+        chainClaimableRef.current = 0n;
+        return 0n;
+      }
 
-    const nextOverview = await viewContractAt<RewardsUserRewardsOverviewView>(
-      REWARDS_CONTRACT,
-      'get_user_rewards_overview',
-      { account_id: accountId, app_id: PORTAL_REWARDS_APP_ID }
-    );
-    setOverview(nextOverview);
-    const claimable = parseYocto(nextOverview?.claimable);
-    reconcilePendingCredit(claimable);
-    return claimable;
-  }, [accountId, reconcilePendingCredit]);
+      const search = new URLSearchParams({ accountId });
+      if (options.fresh) search.set('fresh', '1');
+
+      const response = await fetch(
+        `/api/rewards/overview?${search.toString()}`,
+        {
+          cache: 'no-store',
+        }
+      );
+      const body = (await response.json().catch(() => null)) as {
+        overview?: RewardsUserRewardsOverviewView | null;
+        error?: string;
+        detail?: string;
+      } | null;
+
+      if (!response.ok) {
+        throw new Error(
+          body?.detail ??
+            body?.error ??
+            `Rewards overview failed (${response.status})`
+        );
+      }
+
+      const nextOverview = body?.overview ?? null;
+      setOverview(nextOverview);
+      const claimable = parseYocto(nextOverview?.claimable);
+      reconcilePendingCredit(claimable);
+      return claimable;
+    },
+    [accountId, reconcilePendingCredit]
+  );
 
   const refreshBalance = useCallback(
     async (options: RefreshBalanceOptions = {}) => {
@@ -129,7 +150,7 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        await fetchOverview();
+        await fetchOverview({ fresh: options.fresh });
       } catch {
         setOverview(null);
       } finally {
@@ -159,7 +180,7 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
         }
 
         try {
-          await fetchOverview();
+          await fetchOverview({ fresh: options.fresh ?? true });
         } catch {
           if (!options.silent) {
             setOverview(null);

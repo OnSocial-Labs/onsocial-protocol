@@ -37,6 +37,19 @@ type LookupState =
   | { status: 'invalid'; accountId: string }
   | { status: 'error'; accountId: string; message: string };
 
+type CachedLookup = {
+  avatarUrl: string | null;
+  displayName: string | null;
+  fetchedAt: number;
+};
+
+const FRESH_MS = 120_000;
+const STALE_MS = 5 * 60_000;
+const PROFILE_LOOKUP_TIMEOUT_MS = 8_000;
+
+const memoryCache = new Map<string, CachedLookup>();
+const inFlight = new Map<string, Promise<CachedLookup | null>>();
+
 /** @deprecated Use isNearNamedAccountComplete from portal-near-account. */
 export function isMemberAccountReady(accountId: string): boolean {
   return isNearNamedAccountComplete(accountId);
@@ -56,11 +69,153 @@ const idleResult: MemberAccountLookupResult = {
   checking: false,
 };
 
+function readCachedLookup(accountId: string): CachedLookup | null {
+  const cached = memoryCache.get(accountId);
+  if (!cached) return null;
+  if (Date.now() - cached.fetchedAt >= STALE_MS) {
+    memoryCache.delete(accountId);
+    return null;
+  }
+  return cached;
+}
+
+function writeCachedLookup(
+  accountId: string,
+  value: Omit<CachedLookup, 'fetchedAt'>
+): CachedLookup {
+  const entry: CachedLookup = { ...value, fetchedAt: Date.now() };
+  memoryCache.set(accountId, entry);
+  return entry;
+}
+
+function toExistsState(accountId: string, cached: CachedLookup): LookupState {
+  return {
+    status: 'exists',
+    accountId,
+    avatarUrl: cached.avatarUrl,
+    displayName: cached.displayName,
+  };
+}
+
+function getInitialLookupState(accountId: string): LookupState {
+  if (!accountId || !isReadyToLookup(accountId)) {
+    return { status: 'idle', accountId: '' };
+  }
+
+  const cached = readCachedLookup(accountId);
+  if (cached) {
+    return toExistsState(accountId, cached);
+  }
+
+  return { status: 'checking', accountId };
+}
+
+async function fetchProfileChip(
+  accountId: string
+): Promise<Pick<CachedLookup, 'avatarUrl' | 'displayName'>> {
+  const profileResponse = await fetch(
+    `/api/profile?accountId=${encodeURIComponent(accountId)}`,
+    { signal: AbortSignal.timeout(PROFILE_LOOKUP_TIMEOUT_MS) }
+  );
+  const profileBody = (await profileResponse.json().catch(() => null)) as {
+    avatarUrl?: string | null;
+    profile?: { name?: string | null } | null;
+  } | null;
+
+  if (!profileResponse.ok || !profileBody) {
+    return { avatarUrl: null, displayName: null };
+  }
+
+  return {
+    avatarUrl: profileBody.avatarUrl ?? null,
+    displayName: profileBody.profile?.name?.trim() ?? null,
+  };
+}
+
+async function verifyNearAccountExists(accountId: string): Promise<boolean> {
+  const nearResponse = await fetch(
+    `/api/profile/near-facts?accountId=${encodeURIComponent(accountId)}`,
+    { signal: AbortSignal.timeout(PROFILE_LOOKUP_TIMEOUT_MS) }
+  );
+  const nearBody = (await nearResponse.json().catch(() => null)) as {
+    nearAccount?: { codeHash: string; storageUsage: number } | null;
+    error?: string;
+    detail?: string;
+  } | null;
+
+  if (!nearResponse.ok) {
+    throw new Error(
+      nearBody?.detail ?? nearBody?.error ?? 'Could not verify NEAR account'
+    );
+  }
+
+  return !!nearBody?.nearAccount;
+}
+
+async function loadMemberAccountLookup(
+  accountId: string,
+  options: { trustedAccount: boolean }
+): Promise<CachedLookup | null> {
+  const existing = inFlight.get(accountId);
+  if (existing) {
+    return existing;
+  }
+
+  const promise = (async () => {
+    try {
+      if (!options.trustedAccount) {
+        const exists = await verifyNearAccountExists(accountId);
+        if (!exists) {
+          return null;
+        }
+      }
+
+      const profile = await fetchProfileChip(accountId);
+      return writeCachedLookup(accountId, profile);
+    } catch (error) {
+      if (options.trustedAccount) {
+        return writeCachedLookup(accountId, {
+          avatarUrl: null,
+          displayName: null,
+        });
+      }
+
+      throw error;
+    } finally {
+      inFlight.delete(accountId);
+    }
+  })();
+
+  inFlight.set(accountId, promise);
+  return promise;
+}
+
+export function prefetchMemberAccountLookups(
+  accountIds: Iterable<string>,
+  options?: { trustedAccount?: boolean }
+): void {
+  const trustedAccount = options?.trustedAccount ?? false;
+
+  for (const rawAccountId of accountIds) {
+    const accountId = normalizeNearAccountId(rawAccountId);
+    if (!isReadyToLookup(accountId) || readCachedLookup(accountId)) {
+      continue;
+    }
+
+    void loadMemberAccountLookup(accountId, { trustedAccount });
+  }
+}
+
 export function useMemberAccountLookup(
-  rawMemberId: string
+  rawMemberId: string,
+  options?: { debounceMs?: number; trustedAccount?: boolean }
 ): MemberAccountLookupResult {
   const accountId = normalizeNearAccountId(rawMemberId);
-  const [state, setState] = useState<LookupState>({ status: 'idle', accountId: '' });
+  const debounceMs = options?.debounceMs ?? 300;
+  const trustedAccount = options?.trustedAccount ?? false;
+  const [state, setState] = useState<LookupState>(() =>
+    getInitialLookupState(accountId)
+  );
 
   useEffect(() => {
     if (!accountId) {
@@ -74,97 +229,73 @@ export function useMemberAccountLookup(
     }
 
     let cancelled = false;
-    const timeoutId = window.setTimeout(() => {
+    const cached = readCachedLookup(accountId);
+
+    if (cached) {
+      setState(toExistsState(accountId, cached));
+      const age = Date.now() - cached.fetchedAt;
+      if (age < FRESH_MS) {
+        return;
+      }
+    } else {
       setState({ status: 'checking', accountId });
+    }
 
-      void (async () => {
-        try {
-          const nearResponse = await fetch(
-            `/api/profile/near-facts?accountId=${encodeURIComponent(accountId)}`,
-            { cache: 'no-store' }
-          );
-          const nearBody = (await nearResponse.json().catch(() => null)) as {
-            nearAccount?: { codeHash: string; storageUsage: number } | null;
-            error?: string;
-            detail?: string;
-          } | null;
+    const timeoutId = window.setTimeout(
+      () => {
+        void (async () => {
+          try {
+            const result = await loadMemberAccountLookup(accountId, {
+              trustedAccount,
+            });
 
-          if (cancelled) {
-            return;
-          }
+            if (cancelled) {
+              return;
+            }
 
-          if (!nearResponse.ok) {
+            if (!result) {
+              setState({ status: 'not_found', accountId });
+              return;
+            }
+
+            setState(toExistsState(accountId, result));
+          } catch (error) {
+            if (cancelled) {
+              return;
+            }
+
+            if (trustedAccount) {
+              setState(
+                toExistsState(
+                  accountId,
+                  writeCachedLookup(accountId, {
+                    avatarUrl: null,
+                    displayName: null,
+                  })
+                )
+              );
+              return;
+            }
+
             setState({
               status: 'error',
               accountId,
               message:
-                nearBody?.detail ??
-                nearBody?.error ??
-                'Could not verify NEAR account',
+                error instanceof Error
+                  ? error.message
+                  : 'Could not verify NEAR account',
             });
-            return;
           }
-
-          if (!nearBody?.nearAccount) {
-            setState({ status: 'not_found', accountId });
-            return;
-          }
-
-          let avatarUrl: string | null = null;
-          let displayName: string | null = null;
-
-          try {
-            const profileResponse = await fetch(
-              `/api/profile?accountId=${encodeURIComponent(accountId)}`,
-              { cache: 'no-store' }
-            );
-            const profileBody = (await profileResponse.json().catch(
-              () => null
-            )) as {
-              avatarUrl?: string | null;
-              profile?: { name?: string | null } | null;
-            } | null;
-
-            if (profileResponse.ok && profileBody) {
-              avatarUrl = profileBody.avatarUrl ?? null;
-              displayName = profileBody.profile?.name?.trim() ?? null;
-            }
-          } catch {
-            // OnSocial profile is optional once the NEAR account exists.
-          }
-
-          if (cancelled) {
-            return;
-          }
-
-          setState({
-            status: 'exists',
-            accountId,
-            avatarUrl,
-            displayName,
-          });
-        } catch (error) {
-          if (cancelled) {
-            return;
-          }
-
-          setState({
-            status: 'error',
-            accountId,
-            message:
-              error instanceof Error
-                ? error.message
-                : 'Could not verify NEAR account',
-          });
-        }
-      })();
-    }, 300);
+        })();
+      },
+      cached ? 0 : debounceMs
+    );
 
     return () => {
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [accountId]);
+  }, [accountId, debounceMs, trustedAccount]);
 
   return useMemo(() => {
     if (!accountId) {
@@ -184,6 +315,19 @@ export function useMemberAccountLookup(
     }
 
     if (state.accountId !== accountId) {
+      const cached = readCachedLookup(accountId);
+      if (cached) {
+        return {
+          accountId,
+          status: 'exists',
+          avatarUrl: cached.avatarUrl,
+          displayName: cached.displayName,
+          message: null,
+          exists: true,
+          checking: false,
+        };
+      }
+
       return {
         accountId,
         status: 'checking',

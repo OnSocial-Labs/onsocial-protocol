@@ -26,6 +26,14 @@ import {
   normalizeEndorsementTopic,
   type EndorsementSubmitInput,
 } from '@/lib/endorsements';
+import {
+  ENDORSEMENT_NOTE_LIMITS,
+  getBoundedNoteCounterClass,
+  getBoundedNoteCounterLabel,
+  getBoundedNoteError,
+  isBoundedNoteReady,
+  normalizeBoundedNote,
+} from '@/lib/bounded-note-field';
 
 interface EndorseModalProps {
   open: boolean;
@@ -53,9 +61,6 @@ const SUGGESTED_TOPICS = [
   'Research',
 ];
 
-const NOTE_MAX = 240;
-const NOTE_MIN = 20;
-const NOTE_WARNING_THRESHOLD = 220;
 const TOPIC_MAX = 40;
 const TOPIC_MIN = 2;
 const TOPIC_WARNING_THRESHOLD = 36;
@@ -90,9 +95,12 @@ export function EndorseModal({
   const normalizedTopic = normalizeEndorsementTopic(topic);
   const topicMoved = isEditing && normalizedTopic !== originalNormalizedTopic;
   const topicPreview = humanizeEndorsementTopic(topic);
-  const trimmedNote = note.trim();
+  const normalizedNote = normalizeBoundedNote(note);
+  const noteTextError = getBoundedNoteError(note);
+  const trimmedNote = normalizedNote;
   const topicLength = topic.length;
-  const noteLength = note.length;
+  const noteLength = normalizedNote.length;
+  const hasNote = noteLength > 0;
   const handle = cleanHandle(targetAccountId);
   const displayName = targetDisplayName || `@${handle}`;
   const avatarInitial =
@@ -101,7 +109,7 @@ export function EndorseModal({
       .slice(0, 1)
       .toUpperCase() || '?';
   const topicReady = normalizedTopic.length >= TOPIC_MIN;
-  const noteReady = trimmedNote.length >= NOTE_MIN;
+  const noteReady = isBoundedNoteReady(note, ENDORSEMENT_NOTE_LIMITS);
   const topicAlreadyUsed = existingTopics.some(
     (t) => normalizeEndorsementTopic(t) === normalizedTopic
   );
@@ -127,16 +135,15 @@ export function EndorseModal({
 
   const handleSubmit = async () => {
     setError(null);
-    if (!topicReady && !noteReady) {
-      setError('Add a topic and a short reason to endorse.');
-      return;
-    }
     if (!topicReady) {
       setError(`Add a topic, at least ${TOPIC_MIN} characters.`);
       return;
     }
+    if (noteTextError) {
+      setError(noteTextError);
+      return;
+    }
     if (!noteReady) {
-      setError(`Add a short why, at least ${NOTE_MIN} characters.`);
       return;
     }
 
@@ -270,9 +277,7 @@ export function EndorseModal({
                       viewerAccountId={issuerAccountId}
                       topic={topicPreview || undefined}
                       note={trimmedNote || undefined}
-                      issuerLabelOverride={
-                        issuerAccountId ? undefined : 'You'
-                      }
+                      issuerLabelOverride={issuerAccountId ? undefined : 'You'}
                       hideIssuerHandle={!issuerAccountId}
                       timeLabel={
                         <span className="text-right portal-type-caption tabular-nums text-muted-foreground/40">
@@ -392,25 +397,24 @@ export function EndorseModal({
                           setNote(e.target.value);
                           setError(null);
                         }}
-                        placeholder="What makes them worth endorsing here?"
+                        placeholder="Concrete reason this endorsement matters"
                         rows={3}
-                        maxLength={NOTE_MAX}
+                        maxLength={ENDORSEMENT_NOTE_LIMITS.max}
                         className="w-full resize-none bg-transparent px-4 pt-3.5 pb-7 text-sm leading-snug outline-none"
                         required
                         aria-required="true"
                       />
                       <span
-                        className={`pointer-events-none absolute right-3 bottom-2 portal-type-caption tabular-nums tracking-wide ${
-                          noteLength > 0 && noteLength < NOTE_MIN
-                            ? 'text-amber-600'
-                            : noteLength >= NOTE_WARNING_THRESHOLD
-                              ? 'text-amber-600'
-                              : 'text-muted-foreground/60'
-                        }`}
+                        className={`pointer-events-none absolute right-3 bottom-2 portal-type-caption tabular-nums tracking-wide ${getBoundedNoteCounterClass(
+                          noteLength,
+                          hasNote,
+                          ENDORSEMENT_NOTE_LIMITS
+                        )}`}
                       >
-                        {noteLength < NOTE_MIN
-                          ? `${noteLength} / ${NOTE_MIN} min`
-                          : `${noteLength} / ${NOTE_MAX}`}
+                        {getBoundedNoteCounterLabel(
+                          noteLength,
+                          ENDORSEMENT_NOTE_LIMITS
+                        )}
                       </span>
                     </div>
                   </div>
@@ -438,7 +442,7 @@ export function EndorseModal({
                     tooltip={
                       canSubmit
                         ? primaryActionFullLabel
-                        : 'Add a topic and a short reason to endorse'
+                        : 'Complete the topic and why fields'
                     }
                     className="ml-auto"
                   >
@@ -452,7 +456,7 @@ export function EndorseModal({
                       aria-label={
                         canSubmit
                           ? primaryActionFullLabel
-                          : 'Add a topic and a short reason to endorse'
+                          : 'Complete the topic and why fields'
                       }
                     >
                       {isEditing || isTopicOverwrite ? 'Update' : 'Endorse'}

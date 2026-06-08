@@ -123,9 +123,7 @@ function PodiumCard({
         <p className="font-mono text-base font-bold tabular-nums tracking-tight md:text-lg">
           {primary}
         </p>
-        <p className="portal-eyebrow text-muted-foreground">
-          {primaryLabel}
-        </p>
+        <p className="portal-eyebrow text-muted-foreground">{primaryLabel}</p>
         {secondary && (
           <p className="mt-0.5 portal-type-caption text-muted-foreground">
             {secondary} {secondaryLabel}
@@ -173,9 +171,7 @@ function InfluenceRow({
         <p className="font-mono text-sm font-semibold tabular-nums tracking-tight">
           {formatSocialCompact(entry.effectiveBoost)}
         </p>
-        <p className="portal-eyebrow text-muted-foreground">
-          Boost
-        </p>
+        <p className="portal-eyebrow text-muted-foreground">Boost</p>
       </div>
     </div>
   );
@@ -230,9 +226,7 @@ function ReputationRow({
         <p className="font-mono text-sm font-semibold tabular-nums tracking-tight">
           {formatReputation(entry.reputation)}
         </p>
-        <p className="portal-eyebrow text-muted-foreground">
-          Rep
-        </p>
+        <p className="portal-eyebrow text-muted-foreground">Rep</p>
       </div>
     </div>
   );
@@ -278,9 +272,7 @@ function EarnerRow({
         <p className="font-mono text-sm font-semibold tabular-nums tracking-tight">
           {formatSocialCompact(entry.totalEarned)}
         </p>
-        <p className="portal-eyebrow text-muted-foreground">
-          Earned
-        </p>
+        <p className="portal-eyebrow text-muted-foreground">Earned</p>
       </div>
     </div>
   );

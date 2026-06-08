@@ -33,10 +33,7 @@ type MetaTermProps = React.HTMLAttributes<HTMLElement>;
 export function MetaTerm({ className, ...props }: MetaTermProps) {
   return (
     <dt
-      className={cn(
-        'portal-eyebrow-wide text-muted-foreground',
-        className
-      )}
+      className={cn('portal-eyebrow-wide text-muted-foreground', className)}
       {...props}
     />
   );

@@ -1,10 +1,13 @@
 import type { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
-
-type PortalOnSocial = ReturnType<typeof createPortalServerOnSocialClient>;
 import {
   STANDING_PREVIEW_LIMIT,
-  buildStandingAccountSummaries,
+  listProfileStats,
+  loadViewerContext,
+  mapStandingRowsToSummaries,
+  type StandingListItem,
 } from '@/lib/profile-social-server';
+
+type PortalOnSocial = ReturnType<typeof createPortalServerOnSocialClient>;
 
 export interface PortalProfileSocialPayload {
   accountId: string;
@@ -15,8 +18,18 @@ export interface PortalProfileSocialPayload {
     outgoing: number;
     mutual: number;
   };
-  incoming: Awaited<ReturnType<typeof buildStandingAccountSummaries>>;
-  outgoing: Awaited<ReturnType<typeof buildStandingAccountSummaries>>;
+  mutual: Awaited<ReturnType<typeof mapStandingRowsToSummaries>>;
+  incoming: Awaited<ReturnType<typeof mapStandingRowsToSummaries>>;
+  outgoing: Awaited<ReturnType<typeof mapStandingRowsToSummaries>>;
+}
+
+function peerAccountIdsFromRows(
+  rows: StandingListItem[],
+  direction: 'incoming' | 'outgoing' | 'mutual'
+): string[] {
+  return rows.map((row) =>
+    direction === 'outgoing' ? row.targetAccount : row.accountId
+  );
 }
 
 export async function loadPortalProfileSocial(
@@ -24,37 +37,75 @@ export async function loadPortalProfileSocial(
   accountId: string,
   viewerAccountId: string | null
 ): Promise<PortalProfileSocialPayload> {
-  const [counts, outgoingRows, incomingRows, mutualCount, viewerStanding] =
+  const [
+    counts,
+    outgoingRows,
+    incomingRows,
+    mutualRows,
+    mutualCount,
+    viewerStanding,
+  ] = await Promise.all([
+    os.standings.counts(accountId),
+    os.standings.listOutgoingDetailed(accountId, {
+      limit: STANDING_PREVIEW_LIMIT,
+      offset: 0,
+    }),
+    os.standings.listIncomingDetailed(accountId, {
+      limit: STANDING_PREVIEW_LIMIT,
+      offset: 0,
+    }),
+    os.standings.mutualList(accountId, {
+      limit: STANDING_PREVIEW_LIMIT,
+      offset: 0,
+    }),
+    os.query.standings.mutualCount(accountId),
+    viewerAccountId && viewerAccountId !== accountId
+      ? os.query.standings.viewerStandsWith(viewerAccountId, accountId)
+      : Promise.resolve(false),
+  ]);
+
+  const peerAccountIds = [
+    ...new Set([
+      ...peerAccountIdsFromRows(mutualRows as StandingListItem[], 'mutual'),
+      ...peerAccountIdsFromRows(incomingRows, 'incoming'),
+      ...peerAccountIdsFromRows(outgoingRows, 'outgoing'),
+    ]),
+  ];
+
+  const [profiles, profileStats, { viewerOutgoingSet, viewerIncomingSet }] =
     await Promise.all([
-      os.standings.counts(accountId),
-      os.standings.listOutgoingDetailed(accountId, {
-        limit: STANDING_PREVIEW_LIMIT,
-        offset: 0,
-      }),
-      os.standings.listIncomingDetailed(accountId, {
-        limit: STANDING_PREVIEW_LIMIT,
-        offset: 0,
-      }),
-      os.query.standings.mutualCount(accountId),
-      viewerAccountId && viewerAccountId !== accountId
-        ? os.query.standings.viewerStandsWith(viewerAccountId, accountId)
-        : Promise.resolve(false),
+      os.profiles.getMany(peerAccountIds),
+      listProfileStats(os, peerAccountIds).catch(() => new Map()),
+      loadViewerContext(os, viewerAccountId, peerAccountIds),
     ]);
 
-  const [incoming, outgoing] = await Promise.all([
-    buildStandingAccountSummaries(
-      os,
-      incomingRows,
-      'incoming',
-      viewerAccountId
-    ),
-    buildStandingAccountSummaries(
-      os,
-      outgoingRows,
-      'outgoing',
-      viewerAccountId
-    ),
-  ]);
+  const mutual = mapStandingRowsToSummaries(
+    os,
+    mutualRows as StandingListItem[],
+    'mutual',
+    profiles,
+    profileStats,
+    viewerOutgoingSet,
+    viewerIncomingSet
+  );
+  const incoming = mapStandingRowsToSummaries(
+    os,
+    incomingRows,
+    'incoming',
+    profiles,
+    profileStats,
+    viewerOutgoingSet,
+    viewerIncomingSet
+  );
+  const outgoing = mapStandingRowsToSummaries(
+    os,
+    outgoingRows,
+    'outgoing',
+    profiles,
+    profileStats,
+    viewerOutgoingSet,
+    viewerIncomingSet
+  );
 
   return {
     accountId,
@@ -65,6 +116,7 @@ export async function loadPortalProfileSocial(
       outgoing: counts.outgoing,
       mutual: mutualCount,
     },
+    mutual,
     incoming,
     outgoing,
   };

@@ -1,6 +1,26 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
+/** Value-side pulse placeholder for async fact rows (matches platform storage strip). */
+export function ModalFactValueSkeleton({
+  className,
+  wide = false,
+}: {
+  className?: string;
+  wide?: boolean;
+}) {
+  return (
+    <span
+      className={cn(
+        'inline-block h-3.5 animate-pulse rounded bg-muted/35',
+        wide ? 'w-24' : 'w-16',
+        className
+      )}
+      aria-hidden
+    />
+  );
+}
+
 export function ModalFactRow({
   label,
   value,

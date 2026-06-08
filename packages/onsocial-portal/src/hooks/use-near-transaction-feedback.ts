@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react';
 import type { TransactionFeedback } from '@/components/ui/transaction-feedback-toast';
 import { waitForNearTransactionBatchConfirmation } from '@/lib/near-rpc';
+import { humanizeSwapTransactionError } from '@/lib/portal-swap-quote';
 import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/portal-config';
 
 type TrackNearTransactionParams = {
@@ -10,7 +11,14 @@ type TrackNearTransactionParams = {
   submittedMessage: string;
   successMessage: string;
   failureMessage?: string;
+  onFailure?: (message: string) => void;
 };
+
+/** Prefer the culminating tx in a batch (e.g. swap after wNEAR deposit). */
+function resolveExplorerTxHash(hashes: string[]): string | null {
+  if (hashes.length === 0) return null;
+  return hashes.length > 1 ? hashes[hashes.length - 1]! : hashes[0]!;
+}
 
 export function useNearTransactionFeedback(
   accountId: string | null | undefined
@@ -27,17 +35,21 @@ export function useNearTransactionFeedback(
       submittedMessage,
       successMessage,
       failureMessage,
+      onFailure,
     }: TrackNearTransactionParams): Promise<boolean> => {
       const uniqueHashes = [...new Set(txHashes.filter(Boolean))];
-      const explorerHref = uniqueHashes[0]
-        ? `${ACTIVE_NEAR_EXPLORER_URL}/txns/${uniqueHashes[0]}`
+      const explorerTxHash = resolveExplorerTxHash(uniqueHashes);
+      const explorerHref = explorerTxHash
+        ? `${ACTIVE_NEAR_EXPLORER_URL}/txns/${explorerTxHash}`
         : null;
 
       if (!accountId) {
+        const msg = 'Connect wallet to continue.';
         setTxResult({
           type: 'error',
-          msg: 'Connect wallet to continue.',
+          msg,
         });
+        onFailure?.(msg);
         return false;
       }
 
@@ -63,11 +75,15 @@ export function useNearTransactionFeedback(
         });
 
         if (!result.ok) {
+          const msg = humanizeSwapTransactionError(
+            result.errorMessage ?? failureMessage ?? 'Transaction failed.'
+          );
           setTxResult({
             type: 'error',
-            msg: result.errorMessage ?? failureMessage ?? 'Transaction failed.',
+            msg,
             explorerHref,
           });
+          onFailure?.(msg);
           return false;
         }
 
@@ -78,14 +94,17 @@ export function useNearTransactionFeedback(
         });
         return true;
       } catch (error) {
+        const msg = humanizeSwapTransactionError(
+          error instanceof Error
+            ? error.message
+            : (failureMessage ?? 'Transaction failed.')
+        );
         setTxResult({
           type: 'error',
-          msg:
-            error instanceof Error
-              ? error.message
-              : (failureMessage ?? 'Transaction failed.'),
+          msg,
           explorerHref,
         });
+        onFailure?.(msg);
         return false;
       }
     },

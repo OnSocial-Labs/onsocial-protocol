@@ -148,11 +148,32 @@ export function getPortalProfileUrl(accountId: string): string {
 
 export type PortalStandKind = 'incoming' | 'outgoing' | 'mutual';
 
+export interface PortalStandUrlParams {
+  q?: string | null;
+}
+
 export function getPortalStandUrl(
   accountId: string,
-  kind: PortalStandKind
+  kind: PortalStandKind,
+  params: PortalStandUrlParams = {}
 ): string {
-  return `/u/${encodeURIComponent(accountId)}/stand/${kind}`;
+  const search = new URLSearchParams();
+  if (params.q?.trim()) search.set('q', params.q.trim());
+  const qs = search.toString();
+  return `/u/${encodeURIComponent(accountId)}/stand/${kind}${
+    qs ? `?${qs}` : ''
+  }`;
+}
+
+/** Update the stand list address bar without a full navigation. */
+export function syncPortalStandUrl(
+  accountId: string,
+  kind: PortalStandKind,
+  params: PortalStandUrlParams = {}
+): void {
+  if (typeof window === 'undefined') return;
+  const href = getPortalStandUrl(accountId, kind, params);
+  window.history.replaceState(window.history.state, '', href);
 }
 
 export type PortalEndorsementsMode = 'received' | 'given';
@@ -179,6 +200,36 @@ export function getPortalEndorsementsUrl(
   return `/u/${encodeURIComponent(accountId)}/endorsements${
     qs ? `?${qs}` : ''
   }`;
+}
+
+export type PortalNetworkFilter = 'all' | 'mutual' | 'incoming' | 'outgoing';
+
+export interface PortalNetworkUrlParams {
+  filter?: PortalNetworkFilter;
+  q?: string | null;
+}
+
+export function getPortalNetworkUrl(
+  accountId: string,
+  params: PortalNetworkUrlParams = {}
+): string {
+  const search = new URLSearchParams();
+  if (params.filter && params.filter !== 'all') {
+    search.set('filter', params.filter);
+  }
+  if (params.q?.trim()) search.set('q', params.q.trim());
+  const qs = search.toString();
+  return `/u/${encodeURIComponent(accountId)}/network${qs ? `?${qs}` : ''}`;
+}
+
+/** Update the address bar without remounting the network page (avoids full graph reload). */
+export function syncPortalNetworkUrl(
+  accountId: string,
+  params: PortalNetworkUrlParams = {}
+): void {
+  if (typeof window === 'undefined') return;
+  const href = getPortalNetworkUrl(accountId, params);
+  window.history.replaceState(window.history.state, '', href);
 }
 
 export function getPortalDiscoverUrl(): string {

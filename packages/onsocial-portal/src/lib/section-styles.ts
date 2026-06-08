@@ -8,8 +8,7 @@ export const section = {
   /** Container: full-width, centered, max-w-6xl with horizontal padding */
   container: 'w-full mx-auto max-w-6xl px-4',
   /** Section heading: centered, uppercase, muted */
-  heading:
-    'mb-5 text-center portal-eyebrow-wide text-muted-foreground',
+  heading: 'mb-5 text-center portal-eyebrow-wide text-muted-foreground',
   /** Card grid */
   grid: 'grid gap-4 md:grid-cols-2',
   /** Card internal padding */

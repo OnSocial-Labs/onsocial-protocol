@@ -42,3 +42,25 @@ export function nearAccountPlaceholder(): string {
 
   return 'account.testnet';
 }
+
+export function getNearAccountInputError(value: string): string {
+  const normalized = normalizeNearAccountId(value);
+  if (!normalized) {
+    return '';
+  }
+
+  if (!isValidPortalAccountId(normalized)) {
+    return 'Use lowercase letters, numbers, dots, dashes, and underscores only';
+  }
+
+  if (!isNearNamedAccountComplete(normalized)) {
+    return `Use a complete NEAR account (${nearAccountSuffixHint()})`;
+  }
+
+  return '';
+}
+
+export function isNearAccountInputReady(value: string): boolean {
+  const normalized = normalizeNearAccountId(value);
+  return Boolean(normalized) && !getNearAccountInputError(value);
+}

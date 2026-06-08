@@ -486,12 +486,7 @@ export function GovernancePositionPanel() {
     }
 
     return items;
-  }, [
-    cooldownLockedYocto,
-    eligibility,
-    undelegatedYocto,
-    withdrawableYocto,
-  ]);
+  }, [cooldownLockedYocto, eligibility, undelegatedYocto, withdrawableYocto]);
 
   const runDelegate = useCallback(async () => {
     if (!wallet || !accountId) {
@@ -1030,7 +1025,9 @@ export function GovernancePositionPanel() {
                 </div>
 
                 {actionMetaLine ? (
-                  <p className="text-xs text-muted-foreground">{actionMetaLine}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {actionMetaLine}
+                  </p>
                 ) : null}
 
                 <div className="min-h-[1.25rem] text-sm text-muted-foreground">
@@ -1083,8 +1080,7 @@ export function GovernancePositionPanel() {
                     (actionMode === 'delegate' &&
                       !eligibility?.isInCooldown &&
                       !!eligibility?.isRegistered &&
-                      BigInt(eligibility.delegateActionNearStorageNeeded) >
-                        0n)
+                      BigInt(eligibility.delegateActionNearStorageNeeded) > 0n)
                   }
                   loading={actingMode === actionMode}
                   className="h-11 w-full"

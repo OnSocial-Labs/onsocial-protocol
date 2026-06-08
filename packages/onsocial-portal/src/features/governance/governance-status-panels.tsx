@@ -14,7 +14,9 @@ import type {
   GovernanceCreationStatus,
   GovernanceProposal,
 } from '@/features/governance/types';
+import { cardDividerSection } from '@/components/ui/card-divider';
 import { REWARDS_CONTRACT, type OnChainAppConfig } from '@/lib/near-rpc';
+import { cn } from '@/lib/utils';
 import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/portal-config';
 
 export function StatusBadge({ status }: { status: string }) {
@@ -160,7 +162,7 @@ export function ApprovedConfigPanel({
       : 'Config pending';
 
   return (
-    <section className="mt-3 border-t border-fade-section pt-3">
+    <section className={cn('mt-3 border-t pt-3', cardDividerSection)}>
       <div className="flex items-baseline gap-2">
         <p className="portal-eyebrow-wide text-muted-foreground">{title}</p>
         {!configLoading && onChainConfig && (

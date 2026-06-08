@@ -32,7 +32,7 @@ import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { Button } from '@/components/ui/button';
 import { PortalBadge } from '@/components/ui/portal-badge';
-import { PulsingDots } from '@/components/ui/pulsing-dots';
+import { ListRowsSkeleton } from '@/components/ui/skeleton';
 import {
   TransactionFeedbackToast,
   type TransactionFeedback,
@@ -1262,9 +1262,7 @@ export default function OnApiKeysPage() {
             {keys.length === 0 ? (
               <div className="px-4 pb-5 pt-2 md:px-5">
                 {keysLoading ? (
-                  <div className="py-4 text-center">
-                    <PulsingDots size="md" />
-                  </div>
+                  <ListRowsSkeleton rows={2} />
                 ) : (
                   <div className="space-y-3">
                     <div className="flex gap-2 items-center">

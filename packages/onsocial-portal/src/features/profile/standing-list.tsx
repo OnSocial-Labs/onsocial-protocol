@@ -339,7 +339,10 @@ export function StandingList({
                     onClick={(event) => {
                       event.stopPropagation();
                       event.preventDefault();
-                      void onUpdateStanding?.(account, !viewerStandsWithAccount);
+                      void onUpdateStanding?.(
+                        account,
+                        !viewerStandsWithAccount
+                      );
                     }}
                     className={profileSocialStandingButtonClass(
                       viewerStandsWithAccount

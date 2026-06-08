@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { Activity, Database, Lock, RefreshCcw } from 'lucide-react';
 import { PageShell } from '@/components/layout/page-shell';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
@@ -267,7 +267,9 @@ function renderDrilldownPanel(
       </div>
 
       <div className="mt-6 grid gap-3 md:grid-cols-3">
-        {latestCards.map(([label, value]) => renderLatest(label, value))}
+        {latestCards.map(([label, value]) => (
+          <Fragment key={label}>{renderLatest(label, value)}</Fragment>
+        ))}
       </div>
 
       <div className="mt-6 space-y-3">

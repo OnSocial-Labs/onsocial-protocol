@@ -1,5 +1,6 @@
 import { yoctoToSocial, type OnChainAppConfig } from '@/lib/near-rpc';
 import { portalColors } from '@/lib/portal-colors';
+import { cn } from '@/lib/utils';
 
 function ProgressRow({
   label,
@@ -16,13 +17,13 @@ function ProgressRow({
 }) {
   return (
     <div>
-      <div className="mb-1 flex flex-col gap-0.5 text-xs sm:flex-row sm:items-baseline sm:justify-between sm:gap-2">
-        <span className="text-muted-foreground">{label}</span>
-        <span className="truncate font-mono text-foreground">
+      <div className="mb-1 flex items-baseline justify-between gap-3 text-xs">
+        <span className="shrink-0 text-muted-foreground">{label}</span>
+        <span className="min-w-0 truncate text-right font-mono text-foreground">
           {value}
-          {detail && (
-            <span className="ml-1 text-muted-foreground">{detail}</span>
-          )}
+          {detail ? (
+            <span className="text-muted-foreground"> {detail}</span>
+          ) : null}
         </span>
       </div>
       {typeof progress === 'number' && (
@@ -39,9 +40,11 @@ function ProgressRow({
 
 function TermsRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col gap-0.5 text-xs sm:flex-row sm:items-baseline sm:justify-between sm:gap-2">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-mono text-foreground">{value} SOCIAL</span>
+    <div className="flex items-baseline justify-between gap-3 text-xs">
+      <span className="shrink-0 text-muted-foreground">{label}</span>
+      <span className="truncate text-right font-mono text-foreground">
+        {value} SOCIAL
+      </span>
     </div>
   );
 }
@@ -83,44 +86,50 @@ export function OnChainConfigSummary({
         : portalColors.blue;
 
   return (
-    <div className="space-y-2">
-      {showUserRewardTerms && (
-        <>
+    <div className="space-y-3">
+      {showUserRewardTerms ? (
+        <div className="space-y-1.5">
+          <p className="portal-eyebrow text-muted-foreground/70">Per user</p>
           <TermsRow
-            label="Per Action"
+            label="Per action"
             value={yoctoToSocial(config.reward_per_action)}
           />
-          <TermsRow
-            label="Max / User / Day"
-            value={yoctoToSocial(config.daily_cap)}
-          />
-        </>
-      )}
-      {showUsageMetrics && (
-        <>
+          <TermsRow label="Max / day" value={yoctoToSocial(config.daily_cap)} />
+        </div>
+      ) : null}
+      {showUsageMetrics ? (
+        <div
+          className={cn(
+            'space-y-2',
+            showUserRewardTerms && 'border-t border-fade-detail pt-3'
+          )}
+        >
+          <p className="portal-eyebrow text-muted-foreground/70">App pool</p>
           <ProgressRow
-            label="Budget Used"
-            value={`${totalUsed.toLocaleString()} / ${totalBudget.toLocaleString()} SOCIAL`}
-            detail={`(${totalPct.toFixed(1)}%)`}
+            label="Total budget"
+            value={`${totalUsed.toLocaleString()} / ${totalBudget.toLocaleString()}`}
+            detail={`SOCIAL · ${totalPct.toFixed(1)}%`}
             accentColor={totalAccentColor}
             progress={totalPct}
           />
 
           <ProgressRow
-            label="Today's Spend"
+            label="Today"
             value={
               dailyUnlimited
                 ? `${dailySpent.toLocaleString()} SOCIAL`
-                : `${dailySpent.toLocaleString()} / ${dailyBudget.toLocaleString()} SOCIAL`
+                : `${dailySpent.toLocaleString()} / ${dailyBudget.toLocaleString()}`
             }
             detail={
-              dailyUnlimited ? '(no daily limit)' : `(${dailyPct.toFixed(1)}%)`
+              dailyUnlimited
+                ? '· no pool cap'
+                : `SOCIAL · ${dailyPct.toFixed(1)}%`
             }
             accentColor={dailyAccentColor}
             progress={dailyUnlimited ? undefined : dailyPct}
           />
-        </>
-      )}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -3,22 +3,26 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useState, type CSSProperties } from 'react';
 import { ExternalLink } from 'lucide-react';
+import { cardDividerSection } from '@/components/ui/card-divider';
 import { SurfacePanel } from '@/components/ui/surface-panel';
+import { cn } from '@/lib/utils';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
 import { useWallet } from '@/contexts/wallet-context';
 import { actOnGovernanceProposal } from '@/features/governance/api';
 import {
+  applyOptimisticGovernanceVote,
   DAO_STATUS_STYLES,
   deriveGovernanceCardView,
   formatActionLabel,
   renderHighlightedJson,
   safeJsonStringify,
+  mergeGovernanceProposalSnapshot,
 } from '@/features/governance/governance-card-helpers';
 import {
   refreshGovernanceProposalAfterAction,
   useGovernanceCardDaoState,
 } from '@/features/governance/use-governance-card-dao-state';
-import { GovernanceAccountChip } from '@/features/governance/governance-account-chip';
+import { prefetchGovernanceCardAccounts } from '@/features/governance/governance-account-chip';
 import {
   GovernanceCardVoteSkeleton,
   GovernanceCollapsiblePanel,
@@ -30,6 +34,7 @@ import {
 import {
   GovernanceProposalOnChainRefLabel,
   GovernanceProposalSummary,
+  GovernanceProposerRow,
 } from '@/features/governance/governance-proposal-identity-row';
 import { GovernanceDescriptionClamp } from '@/features/governance/governance-description-clamp';
 import {
@@ -50,7 +55,7 @@ import {
 } from '@/features/governance/governance-card-interaction';
 import { buildGovernanceProposalPath } from '@/features/governance/page-utils';
 
-const POST_ACTION_REFRESH_WINDOW_MS = 60_000;
+const POST_ACTION_REFRESH_WINDOW_MS = 20_000;
 const ONSOCIAL_TELEGRAM_URL = 'https://t.me/onsocialprotocol';
 
 function governanceCardStyle(stripColor: string): CSSProperties {
@@ -145,6 +150,7 @@ export function ProtocolGovernanceCard({
     resolvedOutcomeLabel,
     guardianDecisionSummary,
     finalizeLabel,
+    showVoteRule,
   } = deriveGovernanceCardView({
     accountId,
     isConnected,
@@ -204,26 +210,45 @@ export function ProtocolGovernanceCard({
         return;
       }
 
-      try {
-        const { policy, proposal: nextProposal } =
-          await refreshGovernanceProposalAfterAction({
-            daoAccountId,
-            proposalId: liveProposalId,
-            feedDaoPolicy,
-          });
-        setDaoPolicy(policy);
-        setLiveProposal(nextProposal);
-        await onGovernanceUpdated?.();
-      } catch {
-        setTxResult({
-          type: 'error',
-          msg: 'Action confirmed but DAO state failed to refresh.',
-        });
+      if (
+        action === 'VoteApprove' ||
+        action === 'VoteReject' ||
+        action === 'VoteRemove'
+      ) {
+        setLiveProposal(
+          applyOptimisticGovernanceVote({
+            proposal: liveProposal,
+            accountId,
+            action,
+            daoPolicy,
+          })
+        );
       }
 
       setConfirmedAction(action);
       setTimeout(() => setConfirmedAction(null), 3000);
       setPostActionRefreshUntil(Date.now() + POST_ACTION_REFRESH_WINDOW_MS);
+
+      void (async () => {
+        try {
+          const { policy, proposal: nextProposal } =
+            await refreshGovernanceProposalAfterAction({
+              daoAccountId,
+              proposalId: liveProposalId,
+              feedDaoPolicy,
+            });
+          setDaoPolicy(policy);
+          setLiveProposal((current) =>
+            mergeGovernanceProposalSnapshot(current, nextProposal)
+          );
+          void onGovernanceUpdated?.();
+        } catch {
+          setTxResult({
+            type: 'error',
+            msg: 'Action confirmed but DAO state failed to refresh.',
+          });
+        }
+      })();
     } catch (error) {
       setTxResult({
         type: 'error',
@@ -254,6 +279,25 @@ export function ProtocolGovernanceCard({
       description: app.description ?? proposal?.description,
     }
   );
+
+  useEffect(() => {
+    if (!liveProposal) {
+      return;
+    }
+
+    prefetchGovernanceCardAccounts([
+      presentation.subjectAccount,
+      presentation.proposer,
+      ...voteEntries.map(([voterAccount]) => voterAccount),
+      ...(eligibleVoterAccounts ?? []),
+    ]);
+  }, [
+    eligibleVoterAccounts,
+    liveProposal,
+    presentation.proposer,
+    presentation.subjectAccount,
+    voteEntries,
+  ]);
   const fallbackProposalHref = proposal?.tx_hash
     ? `${ACTIVE_NEAR_EXPLORER_URL}/txns/${proposal.tx_hash}`
     : null;
@@ -303,141 +347,143 @@ export function ProtocolGovernanceCard({
           />
         ) : null}
         <div className={GOVERNANCE_CARD_INTERACTIVE_LAYER_CLASS}>
-        {liveProposalId !== null && (
-          <GovernanceProposalStrip
-            proposalId={liveProposalId}
-            actionBadge={presentation.actionBadge}
-            submissionTime={submissionTime}
-            statusStyle={liveStatusStyle ?? proposalFallbackStyle ?? null}
-            reviewExpiry={reviewExpiry}
-            interactive={interactive}
-          />
-        )}
-        <div className="border-b border-fade-section pb-3.5">
-          <GovernanceProposalSummary
-            presentation={presentation}
-            className={
-              interactive ? 'transition-opacity group-hover/card:opacity-90' : undefined
-            }
-          />
+          {liveProposalId !== null && (
+            <GovernanceProposalStrip
+              proposalId={liveProposalId}
+              actionBadge={presentation.actionBadge}
+              submissionTime={submissionTime}
+              statusStyle={liveStatusStyle ?? proposalFallbackStyle ?? null}
+              reviewExpiry={reviewExpiry}
+              interactive={interactive}
+            />
+          )}
+          <div className="space-y-3 pb-3">
+            <GovernanceProposalSummary
+              presentation={presentation}
+              className={
+                interactive
+                  ? 'transition-opacity group-hover/card:opacity-90'
+                  : undefined
+              }
+            />
 
-          {presentation.showProposerSeparately && presentation.proposer ? (
-            <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 portal-type-label text-muted-foreground">
-              <span className="shrink-0 portal-eyebrow">
-                Proposer
-              </span>
-              <GovernanceAccountChip
-                accountId={presentation.proposer}
-                avatarClassName="h-5 w-5"
-                compact
+            {presentation.showProposerSeparately && presentation.proposer ? (
+              <GovernanceProposerRow proposer={presentation.proposer} />
+            ) : null}
+
+            {presentation.onChainDescription ? (
+              <GovernanceDescriptionClamp
+                text={presentation.onChainDescription}
+              />
+            ) : null}
+          </div>
+
+          {daoLoading && liveProposalId !== null && (
+            <div className={cn('mt-3 border-t pt-3', cardDividerSection)}>
+              <GovernanceCardVoteSkeleton className="mt-0" />
+            </div>
+          )}
+
+          {!daoLoading && liveProposal && liveStatusStyle && (
+            <div
+              className={cn('mt-3 space-y-3 border-t pt-3', cardDividerSection)}
+            >
+              <div className="space-y-2">
+                <GovernanceLiveSummary
+                  liveProposal={liveProposal}
+                  liveProposalId={liveProposalId}
+                  liveStatusStyle={liveStatusStyle}
+                  statusSummary={statusSummary}
+                  currentVote={currentVote}
+                  resolvedOutcomeLabel={resolvedOutcomeLabel}
+                  functionCallSummary={functionCallSummary}
+                  submissionTime={submissionTime}
+                  reviewExpiry={reviewExpiry}
+                  votingProgress={votingProgress}
+                  activeVotingRole={activeVotingRole}
+                  rejectVotes={rejectVotes}
+                  removeVotes={removeVotes}
+                  approveVotes={approveVotes}
+                  confirmedAction={confirmedAction}
+                  showVoteRule={showVoteRule}
+                />
+
+                <GovernanceVoteActivity
+                  voteEntries={voteEntries}
+                  accountId={accountId}
+                  latestActionLink={latestActionLink}
+                  activeVotingRole={activeVotingRole}
+                  eligibleVoterAccounts={eligibleVoterAccounts}
+                  defaultExpanded={!interactive}
+                />
+              </div>
+
+              {rawDaoProposal && (
+                <GovernanceCollapsiblePanel
+                  label="Raw proposal"
+                  isOpen={technicalDetailsOpen}
+                  onToggle={() => setTechnicalDetailsOpen((open) => !open)}
+                >
+                  {presentation.onChainAction ? (
+                    <div className="mt-2 flex min-w-0 items-center overflow-hidden">
+                      <GovernanceProposalOnChainRefLabel
+                        presentation={presentation}
+                      />
+                    </div>
+                  ) : null}
+                  <pre className="mt-2 overflow-x-auto rounded-[1rem] border border-border/30 bg-background/70 p-4 text-xs leading-6">
+                    <code>{renderHighlightedJson(rawDaoProposal)}</code>
+                  </pre>
+                </GovernanceCollapsiblePanel>
+              )}
+
+              <GovernanceGuardianActions
+                accountId={accountId}
+                connectedRole={connectedRole}
+                guardianDecisionSummary={guardianDecisionSummary}
+                canApprove={canApprove}
+                canReject={canReject}
+                canRemove={canRemove}
+                canFinalize={canFinalize}
+                finalizeLabel={finalizeLabel}
+                currentVote={currentVote}
+                actionLoading={actionLoading}
+                onAction={(action) => {
+                  void handleGovernanceAction(action);
+                }}
+                onAdvancedRemove={handleAdvancedRemove}
+                resolvedOutcomeLabel={resolvedOutcomeLabel}
+                proposalTxHref={proposalTxHref}
+                onsocialTelegramUrl={ONSOCIAL_TELEGRAM_URL}
               />
             </div>
-          ) : null}
+          )}
 
-          {presentation.onChainDescription ? (
-            <GovernanceDescriptionClamp
-              text={presentation.onChainDescription}
-              className="mt-1.5 sm:mt-2"
-            />
-          ) : null}
-        </div>
+          {!daoLoading && !liveProposal && proposal && (
+            <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+              <span>Live proposal could not be loaded.</span>
+              {proposal.proposal_id !== null && (
+                <span className="font-mono">#{proposal.proposal_id}</span>
+              )}
+              {fallbackProposalHref && (
+                <a
+                  href={fallbackProposalHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="portal-action-link inline-flex items-center gap-1.5 font-medium"
+                >
+                  View submission
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              )}
+            </div>
+          )}
 
-        {daoLoading && liveProposalId !== null && <GovernanceCardVoteSkeleton />}
-
-        {!daoLoading && liveProposal && liveStatusStyle && (
-          <div className="mt-4">
-            <GovernanceLiveSummary
-              liveProposal={liveProposal}
-              liveProposalId={liveProposalId}
-              liveStatusStyle={liveStatusStyle}
-              statusSummary={statusSummary}
-              currentVote={currentVote}
-              resolvedOutcomeLabel={resolvedOutcomeLabel}
-              functionCallSummary={functionCallSummary}
-              submissionTime={submissionTime}
-              reviewExpiry={reviewExpiry}
-              votingProgress={votingProgress}
-              activeVotingRole={activeVotingRole}
-              rejectVotes={rejectVotes}
-              removeVotes={removeVotes}
-              approveVotes={approveVotes}
-              confirmedAction={confirmedAction}
-            />
-
-            <GovernanceVoteActivity
-              voteEntries={voteEntries}
-              accountId={accountId}
-              latestActionLink={latestActionLink}
-              activeVotingRole={activeVotingRole}
-              eligibleVoterAccounts={eligibleVoterAccounts}
-            />
-
-            {rawDaoProposal && (
-              <GovernanceCollapsiblePanel
-                label="Raw proposal"
-                isOpen={technicalDetailsOpen}
-                onToggle={() => setTechnicalDetailsOpen((open) => !open)}
-              >
-                {presentation.onChainAction ? (
-                  <div className="mt-2 flex min-w-0 items-center overflow-hidden">
-                    <GovernanceProposalOnChainRefLabel
-                      presentation={presentation}
-                    />
-                  </div>
-                ) : null}
-                <pre className="mt-2 overflow-x-auto rounded-[1rem] border border-border/30 bg-background/70 p-4 text-xs leading-6">
-                  <code>{renderHighlightedJson(rawDaoProposal)}</code>
-                </pre>
-              </GovernanceCollapsiblePanel>
-            )}
-
-            <GovernanceGuardianActions
-              accountId={accountId}
-              connectedRole={connectedRole}
-              guardianDecisionSummary={guardianDecisionSummary}
-              canApprove={canApprove}
-              canReject={canReject}
-              canRemove={canRemove}
-              canFinalize={canFinalize}
-              finalizeLabel={finalizeLabel}
-              currentVote={currentVote}
-              actionLoading={actionLoading}
-              onAction={(action) => {
-                void handleGovernanceAction(action);
-              }}
-              onAdvancedRemove={handleAdvancedRemove}
-              resolvedOutcomeLabel={resolvedOutcomeLabel}
-              proposalTxHref={proposalTxHref}
-              onsocialTelegramUrl={ONSOCIAL_TELEGRAM_URL}
-            />
-          </div>
-        )}
-
-        {!daoLoading && !liveProposal && proposal && (
-          <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-            <span>Live proposal could not be loaded.</span>
-            {proposal.proposal_id !== null && (
-              <span className="font-mono">#{proposal.proposal_id}</span>
-            )}
-            {fallbackProposalHref && (
-              <a
-                href={fallbackProposalHref}
-                target="_blank"
-                rel="noreferrer"
-                className="portal-action-link inline-flex items-center gap-1.5 font-medium"
-              >
-                View submission
-                <ExternalLink className="h-3.5 w-3.5" />
-              </a>
-            )}
-          </div>
-        )}
-
-        <ShareProposal
-          appId={app.app_id}
-          label={presentation.headline}
-          proposalId={liveProposalId}
-        />
+          <ShareProposal
+            appId={app.app_id}
+            label={presentation.headline}
+            proposalId={liveProposalId}
+          />
         </div>
       </SurfacePanel>
     </>

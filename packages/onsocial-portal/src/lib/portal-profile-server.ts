@@ -33,3 +33,36 @@ export async function loadPortalProfileShell(
     return null;
   }
 }
+
+export async function loadPortalProfileShells(
+  accountIds: string[]
+): Promise<Map<string, PortalProfileShell>> {
+  const uniqueIds = [
+    ...new Set(
+      accountIds
+        .map((id) => id.trim().toLowerCase())
+        .filter((id) => isValidPortalAccountId(id))
+    ),
+  ];
+  if (uniqueIds.length === 0) return new Map();
+
+  try {
+    const os = createPortalServerOnSocialClient();
+    const profiles = await os.profiles.getMany(uniqueIds);
+    const shells = new Map<string, PortalProfileShell>();
+
+    for (const accountId of uniqueIds) {
+      const profile = profiles[accountId] ?? null;
+      shells.set(accountId, {
+        accountId,
+        profile,
+        avatarUrl: os.profiles.avatarUrl(profile),
+        bannerUrl: os.profiles.bannerUrl(profile),
+      });
+    }
+
+    return shells;
+  } catch {
+    return new Map();
+  }
+}

@@ -20,6 +20,18 @@ export function isProfileSearchQuery(
   );
 }
 
+/** True when a fetch was cancelled via AbortController (incl. "aborted without reason"). */
+export function isAbortLikeError(
+  error: unknown,
+  signal?: AbortSignal | null
+): boolean {
+  if (signal?.aborted) return true;
+  return (
+    (error instanceof DOMException || error instanceof Error) &&
+    error.name === 'AbortError'
+  );
+}
+
 export async function searchMatchingAccountIds(
   os: PortalOnSocialClient,
   query: string | null | undefined

@@ -1,7 +1,30 @@
+function readNestedMessage(value: unknown, depth = 0): string {
+  if (depth > 4 || value == null) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value !== 'object') return '';
+
+  const record = value as Record<string, unknown>;
+  for (const key of [
+    'message',
+    'error_message',
+    'errorMessage',
+    'reason',
+    'error',
+    'data',
+  ]) {
+    if (key in record) {
+      const nested = readNestedMessage(record[key], depth + 1);
+      if (nested.trim()) return nested;
+    }
+  }
+
+  return '';
+}
+
 export function getRawErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === 'string') return error;
-  return '';
+  return readNestedMessage(error);
 }
 
 export class WalletActionCancelledError extends Error {

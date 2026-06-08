@@ -1,17 +1,18 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { fetchDaoPolicy, fetchDaoProposal } from '@/features/governance/api';
 import {
-  fetchDaoPolicy,
-  fetchDaoProposal,
-} from '@/features/governance/api';
+  isTerminalGovernanceProposalStatus,
+  mergeGovernanceProposalSnapshot,
+} from '@/features/governance/governance-card-helpers';
 import type {
   GovernanceDaoPolicy,
   GovernanceDaoProposal,
   GovernanceProposal,
 } from '@/features/governance/types';
 
-const POST_ACTION_REFRESH_MS = 5_000;
+const POST_ACTION_REFRESH_MS = 4_000;
 
 export function getFeedProposalSnapshot(
   proposal: GovernanceProposal | null | undefined
@@ -57,12 +58,9 @@ export function useGovernanceCardDaoState({
   const [daoPolicy, setDaoPolicy] = useState<GovernanceDaoPolicy | null>(
     hasBootstrap ? feedDaoPolicy : null
   );
-  const [liveProposal, setLiveProposal] = useState<GovernanceDaoProposal | null>(
-    feedSnapshot
-  );
-  const [daoLoading, setDaoLoading] = useState(
-    hasDaoSource && !hasBootstrap
-  );
+  const [liveProposal, setLiveProposal] =
+    useState<GovernanceDaoProposal | null>(feedSnapshot);
+  const [daoLoading, setDaoLoading] = useState(hasDaoSource && !hasBootstrap);
   const [daoSettled, setDaoSettled] = useState(!hasDaoSource || hasBootstrap);
 
   useEffect(() => {
@@ -89,7 +87,9 @@ export function useGovernanceCardDaoState({
         if (!cancelled) {
           setDaoPolicy(feedDaoPolicy);
           if (feedSnapshot) {
-            setLiveProposal(feedSnapshot);
+            setLiveProposal((current) =>
+              mergeGovernanceProposalSnapshot(current, feedSnapshot)
+            );
           }
           setDaoLoading(false);
           setDaoSettled(true);
@@ -104,13 +104,17 @@ export function useGovernanceCardDaoState({
 
       try {
         const [policy, nextProposal] = await Promise.all([
-          feedDaoPolicy ? Promise.resolve(feedDaoPolicy) : fetchDaoPolicy(daoAccountId),
+          feedDaoPolicy
+            ? Promise.resolve(feedDaoPolicy)
+            : fetchDaoPolicy(daoAccountId),
           fetchDaoProposal(liveProposalId, daoAccountId),
         ]);
 
         if (!cancelled) {
           setDaoPolicy(policy);
-          setLiveProposal(nextProposal);
+          setLiveProposal((current) =>
+            mergeGovernanceProposalSnapshot(current, nextProposal)
+          );
         }
       } finally {
         if (!cancelled) {
@@ -125,13 +129,7 @@ export function useGovernanceCardDaoState({
     return () => {
       cancelled = true;
     };
-  }, [
-    daoAccountId,
-    feedSnapshot,
-    feedDaoPolicy,
-    hasBootstrap,
-    liveProposalId,
-  ]);
+  }, [daoAccountId, feedSnapshot, feedDaoPolicy, hasBootstrap, liveProposalId]);
 
   useEffect(() => {
     if (!daoAccountId || liveProposalId === null || !postActionRefreshUntil) {
@@ -150,7 +148,13 @@ export function useGovernanceCardDaoState({
           resolvedDaoAccountId
         );
         if (!cancelled) {
-          setLiveProposal(nextProposal);
+          setLiveProposal((current) =>
+            mergeGovernanceProposalSnapshot(current, nextProposal)
+          );
+
+          if (isTerminalGovernanceProposalStatus(nextProposal?.status)) {
+            onPostActionRefreshComplete?.();
+          }
         }
       } finally {
         if (!cancelled && Date.now() + POST_ACTION_REFRESH_MS >= refreshUntil) {
@@ -202,7 +206,9 @@ export async function refreshGovernanceProposalAfterAction({
   proposal: GovernanceDaoProposal | null;
 }> {
   const [policy, proposal] = await Promise.all([
-    feedDaoPolicy ? Promise.resolve(feedDaoPolicy) : fetchDaoPolicy(daoAccountId),
+    feedDaoPolicy
+      ? Promise.resolve(feedDaoPolicy)
+      : fetchDaoPolicy(daoAccountId),
     fetchDaoProposal(proposalId, daoAccountId),
   ]);
 

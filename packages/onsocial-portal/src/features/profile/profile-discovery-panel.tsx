@@ -139,7 +139,7 @@ function getErrorMessage(error: unknown): string {
 }
 
 function cleanHandle(accountId: string): string {
-  return accountId.replace(/\.(testnet|near)$/u, '');
+  return accountId.replace(/\.(testnet|near|tg)$/u, '');
 }
 
 function displayName(result: ProfileDiscoverResult): string {

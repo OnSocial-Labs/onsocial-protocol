@@ -89,12 +89,18 @@ export function PlatformStorageAllowanceSummary({
   }
 
   if (error) {
-    return <p className="py-1 portal-type-body-sm text-muted-foreground/55">{error}</p>;
+    return (
+      <p className="py-1 portal-type-body-sm text-muted-foreground/55">
+        {error}
+      </p>
+    );
   }
 
   if (!summary) {
     return (
-      <p className="py-1 portal-type-body-sm text-muted-foreground/55">Unavailable</p>
+      <p className="py-1 portal-type-body-sm text-muted-foreground/55">
+        Unavailable
+      </p>
     );
   }
 
@@ -199,7 +205,9 @@ export function WalletPlatformStorageStrip({
       <p
         className={cn(
           'leading-snug text-muted-foreground/50',
-          compact ? 'portal-type-micro md:portal-type-caption' : 'portal-type-caption'
+          compact
+            ? 'portal-type-micro md:portal-type-caption'
+            : 'portal-type-caption'
         )}
       >
         {PLATFORM_STORAGE_LABEL} · activates on first save

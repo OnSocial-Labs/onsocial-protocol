@@ -230,6 +230,16 @@ export async function viewContractAt<T = unknown>(
   return viewMethodAt<T>(accountId, methodName, args);
 }
 
+/** View contract state at a specific block height (historical). */
+export async function viewContractAtBlock<T = unknown>(
+  accountId: string,
+  methodName: string,
+  args: Record<string, unknown>,
+  blockHeight: number
+): Promise<T> {
+  return viewMethodAt<T>(accountId, methodName, args, blockHeight);
+}
+
 /** Public wrapper for view calls that need the unparsed JSON payload. */
 export async function viewContractRawAt(
   accountId: string,
@@ -250,16 +260,18 @@ async function viewMethodRaw(
 async function viewMethodAt<T>(
   accountId: string,
   methodName: string,
-  args: object
+  args: object,
+  blockId?: number
 ): Promise<T> {
-  const raw = await viewMethodRawAt(accountId, methodName, args);
+  const raw = await viewMethodRawAt(accountId, methodName, args, blockId);
   return JSON.parse(raw) as T;
 }
 
 async function viewMethodRawAt(
   accountId: string,
   methodName: string,
-  args: object
+  args: object,
+  blockId?: number
 ): Promise<string> {
   const response = await fetch(config.nearRpcUrl, {
     method: 'POST',
@@ -271,7 +283,7 @@ async function viewMethodRawAt(
       method: 'query',
       params: {
         request_type: 'call_function',
-        finality: 'final',
+        ...(blockId != null ? { block_id: blockId } : { finality: 'final' }),
         account_id: accountId,
         method_name: methodName,
         args_base64: Buffer.from(JSON.stringify(args)).toString('base64'),

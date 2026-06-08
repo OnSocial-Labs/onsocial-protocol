@@ -65,7 +65,11 @@ const PROTOCOL_LAYERS = [
 ] as const;
 
 const INFRA_FEATURES = [
-  { title: 'Gasless transactions', icon: Zap, accent: 'neutral' as PortalAccent },
+  {
+    title: 'Gasless transactions',
+    icon: Zap,
+    accent: 'neutral' as PortalAccent,
+  },
   {
     title: 'Sponsored storage',
     icon: Database,

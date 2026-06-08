@@ -1,9 +1,7 @@
 import { ACTIVE_NEAR_NETWORK } from '@/lib/portal-config';
 import {
   extractNearTransactionHashes,
-  normalizeFtBalanceYocto,
   socialToYocto,
-  viewContractAt,
   yoctoToSocial,
 } from '@/lib/near-rpc';
 import { createPortalOnSocialClient } from '@/lib/onsocial-client';
@@ -41,14 +39,35 @@ export function parseSupportAmountYocto(input: string): bigint {
 }
 
 export async function fetchProfileSupportBalanceYocto(
-  accountId: string
+  accountId: string,
+  options: { fresh?: boolean } = {}
 ): Promise<bigint> {
-  const raw = await viewContractAt<unknown>(
-    socialSpendContractId(),
-    'get_target_balance',
-    { account_id: accountId }
+  const search = new URLSearchParams({ accountId });
+  if (options.fresh) search.set('fresh', '1');
+
+  const response = await fetch(
+    `/api/profile/support-balance?${search.toString()}`,
+    { cache: 'no-store' }
   );
-  return normalizeFtBalanceYocto(raw);
+  const body = (await response.json().catch(() => null)) as {
+    balanceYocto?: string;
+    error?: string;
+    detail?: string;
+  } | null;
+
+  if (!response.ok) {
+    throw new Error(
+      body?.detail ??
+        body?.error ??
+        `Profile support balance failed (${response.status})`
+    );
+  }
+
+  try {
+    return BigInt(body?.balanceYocto ?? '0');
+  } catch {
+    return 0n;
+  }
 }
 
 export function formatSupportBalanceLabel(yocto: bigint): string {

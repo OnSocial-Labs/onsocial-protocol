@@ -1,72 +1,291 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
+import Link from 'next/link';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import { Sparkles } from 'lucide-react';
 import { useWallet } from '@/contexts/wallet-context';
+
+const SocialSwapModal = dynamic(
+  () =>
+    import('@/components/social-swap-modal').then((module) => ({
+      default: module.SocialSwapModal,
+    })),
+  { ssr: false }
+);
 import { Button } from '@/components/ui/button';
-import { PortalBadge } from '@/components/ui/portal-badge';
+import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
 import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
+import { useSocialWalletBalance } from '@/hooks/use-social-wallet-balance';
 import { createPortalOnSocialClient } from '@/lib/onsocial-client';
 import {
   GENESIS_RALLY_JOIN_SOCIAL_LABEL,
   GENESIS_RALLY_JOIN_YOCTO,
   GENESIS_SEASON_ID,
+  formatGenesisSocialBalanceDisplay,
 } from '@/lib/genesis-season';
 import { extractNearTransactionHashes } from '@/lib/near-rpc';
+import { PORTAL_SWAP_ENABLED } from '@/lib/portal-swap-config';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/portal-config';
+import { SeasonZeroMetricsRail } from '@/features/season/season-zero-metrics-rail';
+import {
+  StandingRow,
+  StandingRowSkeleton,
+  type SeasonZeroStanding,
+} from '@/features/season/season-zero-standing-row';
+import type {
+  SeasonZeroOnChainConfig,
+  SeasonZeroSettlementSummary,
+  SeasonZeroStatusPayload,
+} from '@/features/season/season-zero-types';
+import { resolveSeasonZeroLifecyclePhase } from '@/features/season/season-zero-types';
 import { cn } from '@/lib/utils';
 
 const os = createPortalOnSocialClient();
 
-interface SeasonZeroMeResponse {
-  success?: boolean;
-  standing?: { eligible?: boolean } | null;
+function rallyStatusPlaceholder() {
+  return (
+    <div
+      className="h-3.5 w-[13rem] max-w-full animate-pulse rounded-full bg-foreground/[0.06]"
+      aria-hidden
+    />
+  );
 }
 
-export function GenesisRallyStrip({ className }: { className?: string }) {
+function RallyActionSlot({
+  children,
+  wide = false,
+}: {
+  children: ReactNode;
+  wide?: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        'flex h-9 shrink-0 items-center justify-center',
+        wide ? 'min-w-0' : 'w-[7.25rem]'
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+function rallyActionPlaceholder() {
+  return (
+    <div
+      className="h-9 w-full animate-pulse rounded-full bg-foreground/[0.06]"
+      aria-hidden
+    />
+  );
+}
+
+interface SeasonZeroMeResponse {
+  success?: boolean;
+  standing?: SeasonZeroStanding | null;
+}
+
+interface PortalProfileResponse {
+  avatarUrl?: string | null;
+  profile?: { name?: string | null } | null;
+}
+
+export function GenesisRallyStrip({
+  className,
+  variant = 'page',
+  onChainConfig = null,
+  indexedPoolYocto,
+  settlement = null,
+  participantCount = 0,
+  myStanding: myStandingProp = null,
+  onParticipationChange,
+}: {
+  className?: string;
+  /** `promo` — home Live section. `page` — Season 0 hero (metrics + join). */
+  variant?: 'page' | 'promo';
+  onChainConfig?: SeasonZeroOnChainConfig | null;
+  indexedPoolYocto?: string;
+  settlement?: SeasonZeroSettlementSummary | null;
+  participantCount?: number;
+  /** When provided (e.g. from Season 0 page), avoids a duplicate standing fetch. */
+  myStanding?: SeasonZeroStanding | null;
+  /** Called after a successful join so the parent can refresh standings. */
+  onParticipationChange?: () => void;
+}) {
   const { accountId, connect, getSigningWallet, isConnected } = useWallet();
   const { txResult, setTxResult, clearTxResult, trackTransaction } =
     useNearTransactionFeedback(accountId);
   const [loading, setLoading] = useState(true);
   const [joined, setJoined] = useState(false);
+  const [fetchedMyStanding, setFetchedMyStanding] =
+    useState<SeasonZeroStanding | null>(null);
   const [joinPending, setJoinPending] = useState(false);
+  const [swapOpen, setSwapOpen] = useState(false);
+  const [balanceRefreshKey, setBalanceRefreshKey] = useState(0);
+  const [promoOnChainConfig, setPromoOnChainConfig] =
+    useState<SeasonZeroOnChainConfig | null>(null);
+  const [promoIndexedPoolYocto, setPromoIndexedPoolYocto] = useState('0');
+  const [promoSettlement, setPromoSettlement] =
+    useState<SeasonZeroSettlementSummary | null>(null);
+  const [promoParticipantCount, setPromoParticipantCount] = useState(0);
+
+  const {
+    balanceYocto,
+    hasLoadedBalance,
+    loading: balanceLoading,
+    refresh: refreshBalance,
+  } = useSocialWalletBalance(accountId, balanceRefreshKey);
+
+  const myStanding = myStandingProp ?? fetchedMyStanding;
 
   const refresh = useCallback(async () => {
+    if (myStandingProp) {
+      setJoined(myStandingProp.eligible !== false);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
-      const standing = accountId
-        ? await fetch(
-            `/api/seasons/${GENESIS_SEASON_ID}/me?account_id=${encodeURIComponent(accountId)}`,
-            { cache: 'no-store' }
-          )
-            .then(
-              (response) => response.json() as Promise<SeasonZeroMeResponse>
-            )
-            .catch(() => null)
-        : null;
-      setJoined(standing?.standing?.eligible === true);
+      if (!accountId) {
+        setJoined(false);
+        setFetchedMyStanding(null);
+        return;
+      }
+
+      const [meData, profileData] = await Promise.all([
+        fetch(
+          `/api/seasons/${GENESIS_SEASON_ID}/me?account_id=${encodeURIComponent(accountId)}`,
+          { cache: 'no-store' }
+        )
+          .then((response) => response.json() as Promise<SeasonZeroMeResponse>)
+          .catch(() => null),
+        fetch(`/api/profile?accountId=${encodeURIComponent(accountId)}`, {
+          cache: 'no-store',
+        })
+          .then((response) => response.json() as Promise<PortalProfileResponse>)
+          .catch(() => null),
+      ]);
+
+      const standing = meData?.standing ?? null;
+      const isJoined = standing?.eligible === true;
+      setJoined(isJoined);
+      setFetchedMyStanding(
+        isJoined && standing
+          ? {
+              ...standing,
+              accountId: standing.accountId ?? accountId,
+              displayName: profileData?.profile?.name ?? null,
+              avatarUrl: profileData?.avatarUrl ?? null,
+            }
+          : null
+      );
     } catch {
       setJoined(false);
+      setFetchedMyStanding(null);
     } finally {
       setLoading(false);
     }
-  }, [accountId]);
+  }, [accountId, myStandingProp]);
 
   useEffect(() => {
+    if (myStandingProp) {
+      setJoined(myStandingProp.eligible !== false);
+      setLoading(false);
+      return;
+    }
+
+    setJoined(false);
+    setFetchedMyStanding(null);
+    setLoading(true);
     void refresh();
-  }, [refresh]);
+  }, [accountId, myStandingProp, refresh]);
+
+  useEffect(() => {
+    if (variant !== 'promo') return;
+
+    let cancelled = false;
+
+    Promise.all([
+      fetch('/api/seasons/season-zero/status', { cache: 'no-store' }),
+      fetch('/api/seasons/season-zero/standings?limit=1', {
+        cache: 'no-store',
+      }),
+    ])
+      .then(async ([statusRes, standingsRes]) => {
+        if (cancelled) return;
+
+        const statusData = (await statusRes.json()) as SeasonZeroStatusPayload;
+        if (statusRes.ok && statusData.success !== false) {
+          setPromoOnChainConfig(statusData.onChainConfig ?? null);
+          setPromoIndexedPoolYocto(statusData.indexedPoolYocto ?? '0');
+          setPromoSettlement(statusData.settlement ?? null);
+        }
+
+        const standingsData = (await standingsRes.json()) as {
+          total?: number;
+        };
+        if (standingsRes.ok) {
+          setPromoParticipantCount(standingsData.total ?? 0);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPromoOnChainConfig(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [variant]);
+
+  const statusLoading = loading;
+  const hasEnoughSocial = balanceYocto >= GENESIS_RALLY_JOIN_YOCTO;
+  const showInsufficientBalance =
+    isConnected &&
+    hasLoadedBalance &&
+    !hasEnoughSocial &&
+    !joined &&
+    !statusLoading;
 
   const joinDisabled = useMemo(
-    () => joinPending || loading || joined,
-    [joinPending, joined, loading]
+    () =>
+      joinPending ||
+      joined ||
+      (isConnected && hasLoadedBalance && !hasEnoughSocial),
+    [hasEnoughSocial, hasLoadedBalance, isConnected, joinPending, joined]
   );
+
+  const joinButtonLabel = useMemo(() => {
+    if (!isConnected) return `Join · ${GENESIS_RALLY_JOIN_SOCIAL_LABEL} SOCIAL`;
+    if (!hasLoadedBalance || balanceLoading) return 'Checking balance…';
+    return `Join · ${GENESIS_RALLY_JOIN_SOCIAL_LABEL} SOCIAL`;
+  }, [balanceLoading, hasLoadedBalance, isConnected]);
+
+  const socialShortfallYocto = useMemo(() => {
+    if (!isConnected || !hasLoadedBalance || hasEnoughSocial) return 0n;
+    return GENESIS_RALLY_JOIN_YOCTO > balanceYocto
+      ? GENESIS_RALLY_JOIN_YOCTO - balanceYocto
+      : 0n;
+  }, [balanceYocto, hasEnoughSocial, hasLoadedBalance, isConnected]);
 
   const handleJoin = useCallback(async () => {
     if (joined || joinPending) return;
     if (!isConnected) {
       await connect();
+      return;
+    }
+    if (!hasEnoughSocial) {
+      setSwapOpen(true);
       return;
     }
 
@@ -107,7 +326,11 @@ export function GenesisRallyStrip({ className }: { className?: string }) {
 
       if (confirmed) {
         setJoined(true);
-        window.setTimeout(() => void refresh(), 4_000);
+        setBalanceRefreshKey((value) => value + 1);
+        window.setTimeout(() => {
+          void refresh();
+          onParticipationChange?.();
+        }, 4_000);
       }
     } catch (error) {
       setTxResult({
@@ -121,56 +344,246 @@ export function GenesisRallyStrip({ className }: { className?: string }) {
   }, [
     connect,
     getSigningWallet,
+    hasEnoughSocial,
     isConnected,
     joinPending,
     joined,
     refresh,
     setTxResult,
     trackTransaction,
+    onParticipationChange,
   ]);
+
+  const handleSwapSuccess = useCallback(() => {
+    setBalanceRefreshKey((value) => value + 1);
+    void refreshBalance();
+  }, [refreshBalance]);
+
+  const statusLabel = useMemo(() => {
+    if (joined) return 'In the rally';
+    if (!isConnected) return 'Connect to join';
+    if (!hasLoadedBalance || balanceLoading) return 'Checking balance…';
+    if (!hasEnoughSocial) {
+      return socialShortfallYocto > 0n
+        ? `Need ${formatGenesisSocialBalanceDisplay(socialShortfallYocto)} more`
+        : 'Need SOCIAL';
+    }
+    return 'Ready to join';
+  }, [
+    balanceLoading,
+    hasEnoughSocial,
+    hasLoadedBalance,
+    isConnected,
+    joined,
+    socialShortfallYocto,
+  ]);
+
+  const balanceStatusLine = (() => {
+    if (statusLoading) {
+      return (
+        <div className="flex h-5 min-h-5 items-center">
+          {rallyStatusPlaceholder()}
+        </div>
+      );
+    }
+
+    if (isConnected && (!hasLoadedBalance || balanceLoading)) {
+      return (
+        <div className="flex h-5 min-h-5 items-center">
+          {rallyStatusPlaceholder()}
+        </div>
+      );
+    }
+
+    return (
+      <p className="min-h-5 text-xs leading-5 text-muted-foreground">
+        {isConnected ? (
+          <>
+            <span className="font-mono font-semibold text-foreground">
+              {formatGenesisSocialBalanceDisplay(balanceYocto)}
+            </span>
+            <span className="text-muted-foreground/60"> SOCIAL</span>
+            <span className="text-border"> · </span>
+          </>
+        ) : null}
+        <span className="portal-gold-text font-mono">
+          {GENESIS_RALLY_JOIN_SOCIAL_LABEL}
+        </span>
+        <span className="text-muted-foreground/60"> entry</span>
+        {isConnected ? (
+          <>
+            <span className="text-border"> · </span>
+            <span className={cn(showInsufficientBalance && 'portal-gold-text')}>
+              {statusLabel}
+            </span>
+          </>
+        ) : null}
+      </p>
+    );
+  })();
+
+  const metricsOnChainConfig =
+    variant === 'promo' ? promoOnChainConfig : onChainConfig;
+  const metricsIndexedPoolYocto =
+    variant === 'promo' ? promoIndexedPoolYocto : indexedPoolYocto;
+  const metricsSettlement = variant === 'promo' ? promoSettlement : settlement;
+  const metricsParticipantCount =
+    variant === 'promo' ? promoParticipantCount : participantCount;
+
+  const seasonPhase = metricsOnChainConfig
+    ? resolveSeasonZeroLifecyclePhase(metricsOnChainConfig, metricsSettlement)
+    : null;
+  const seasonIsLive = seasonPhase === 'live';
+
+  const promoPanelClass = cn(
+    'group relative overflow-hidden transition-[border-color,box-shadow] duration-200',
+    'hover:border-[var(--portal-gold-border-strong)] hover:shadow-[0_0_20px_var(--portal-gold-shadow)]',
+    className
+  );
+
+  const pagePanelClass = cn(
+    'overflow-hidden',
+    seasonIsLive || !metricsOnChainConfig
+      ? 'portal-gold-panel border-[var(--portal-gold-border-strong)] shadow-[0_0_16px_var(--portal-gold-glow)]'
+      : 'border-border/40',
+    className
+  );
+
+  const getSocialLabel = PORTAL_SWAP_ENABLED
+    ? 'Get SOCIAL'
+    : 'How to get SOCIAL';
+
+  const joinActionButtons = showInsufficientBalance ? (
+    <RallyActionSlot wide>
+      <Button
+        size="sm"
+        variant="accent"
+        className="h-9 px-4"
+        onClick={() => setSwapOpen(true)}
+      >
+        {getSocialLabel}
+      </Button>
+    </RallyActionSlot>
+  ) : (
+    <RallyActionSlot>
+      <Button
+        size="sm"
+        variant="accent"
+        className="h-9 w-[7.25rem] px-4"
+        disabled={joinDisabled}
+        loading={
+          joinPending || (isConnected && (!hasLoadedBalance || balanceLoading))
+        }
+        onClick={() => void handleJoin()}
+      >
+        {joinButtonLabel}
+      </Button>
+    </RallyActionSlot>
+  );
+
+  const actionFooter = joined ? (
+    <div
+      className={cn(
+        'px-3 md:px-4',
+        metricsOnChainConfig && 'border-t border-fade-section',
+        variant === 'promo' && 'pointer-events-none relative z-[1]'
+      )}
+    >
+      {variant === 'promo' ? (
+        <p className="pt-2.5 text-center text-xs uppercase tracking-[0.14em] text-muted-foreground">
+          Yours
+        </p>
+      ) : null}
+      {statusLoading || !myStanding ? (
+        <StandingRowSkeleton />
+      ) : (
+        <StandingRow standing={myStanding} interactive={variant !== 'promo'} />
+      )}
+    </div>
+  ) : (
+    <div
+      className={cn(
+        'flex flex-col gap-2.5 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between md:px-4',
+        metricsOnChainConfig && 'border-t border-fade-section'
+      )}
+    >
+      <div
+        className={cn('min-w-0', variant === 'promo' && 'pointer-events-none')}
+      >
+        {balanceStatusLine}
+      </div>
+      <div
+        className={cn(
+          'flex shrink-0 flex-wrap items-center gap-2 self-start sm:self-center',
+          variant === 'promo' && 'pointer-events-auto relative z-[1]'
+        )}
+      >
+        {statusLoading ? (
+          <RallyActionSlot>{rallyActionPlaceholder()}</RallyActionSlot>
+        ) : (
+          joinActionButtons
+        )}
+      </div>
+    </div>
+  );
+
+  const stripBody = (
+    <>
+      {variant === 'promo' ? (
+        <Link
+          href="/season-zero"
+          prefetch
+          aria-label="Genesis Rally Season 0 standings"
+          className="absolute inset-0 z-0 rounded-[inherit] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--portal-gold-accent)]"
+        />
+      ) : null}
+
+      {variant === 'promo' ? (
+        <div className="pointer-events-none relative z-[1] flex justify-center px-3 py-2 md:px-4">
+          <span className="portal-gold-text inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] transition-opacity duration-200 group-hover:opacity-90">
+            <Sparkles className="portal-gold-icon h-3.5 w-3.5 shrink-0" />
+            Genesis Rally · Season 0
+            <ProtocolMotionArrow className="h-3 w-3" />
+          </span>
+        </div>
+      ) : null}
+
+      {metricsOnChainConfig ? (
+        <div
+          className={cn(
+            variant === 'promo' && 'pointer-events-none relative z-[1]'
+          )}
+        >
+          <SeasonZeroMetricsRail
+            onChainConfig={metricsOnChainConfig}
+            indexedPoolYocto={metricsIndexedPoolYocto}
+            settlement={metricsSettlement}
+            participantCount={metricsParticipantCount}
+          />
+        </div>
+      ) : null}
+
+      {actionFooter}
+    </>
+  );
 
   return (
     <>
       <TransactionFeedbackToast result={txResult} onClose={clearTxResult} />
+      <SocialSwapModal
+        open={swapOpen}
+        onOpenChange={setSwapOpen}
+        defaultTokenIn="near"
+        onSuccess={handleSwapSuccess}
+      />
       <SurfacePanel
         radius="xl"
-        tone="soft"
-        padding="snug"
-        className={cn('border-border/40', className)}
+        tone="solid"
+        borderTone="strong"
+        padding="none"
+        className={variant === 'promo' ? promoPanelClass : pagePanelClass}
       >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0 space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <Sparkles className="portal-gold-icon h-3.5 w-3.5 shrink-0" />
-              <p className="portal-eyebrow text-muted-foreground">
-                Genesis Rally · Season 0
-              </p>
-            </div>
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              Join with SOCIAL, then earn points when others endorse, stand with,
-              or support you after your join is indexed.
-            </p>
-          </div>
-
-          <div className="flex shrink-0 items-center gap-2 self-start sm:self-center">
-            {joined ? (
-              <PortalBadge accent="gold" size="sm">
-                Joined
-              </PortalBadge>
-            ) : (
-              <Button
-                size="sm"
-                variant="accent"
-                className="h-9 px-4"
-                disabled={joinDisabled}
-                loading={joinPending}
-                onClick={() => void handleJoin()}
-              >
-                Join · {GENESIS_RALLY_JOIN_SOCIAL_LABEL} SOCIAL
-              </Button>
-            )}
-          </div>
-        </div>
+        {stripBody}
       </SurfacePanel>
     </>
   );

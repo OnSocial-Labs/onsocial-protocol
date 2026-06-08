@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { loadPortalProfileSignals } from '@/lib/portal-profile-signals';
 import type { ReputationEntry } from '@/lib/leaderboard';
+import {
+  createPortalRequestCache,
+  isRateLimitError,
+} from '@/lib/portal-request-cache';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -12,6 +16,9 @@ interface ProfileSignalsResponse {
 
 const ACCOUNT_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{1,63}$/;
 const REVALIDATE_SECONDS = 30;
+const signalsCache = createPortalRequestCache<ProfileSignalsResponse>(
+  REVALIDATE_SECONDS * 1000
+);
 
 function getAccountId(request: NextRequest): string | null {
   const accountId = request.nextUrl.searchParams.get('accountId')?.trim();
@@ -36,22 +43,25 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const response: ProfileSignalsResponse =
-      await loadPortalProfileSignals(accountId);
+    const response = await signalsCache.getOrLoad(accountId, () =>
+      loadPortalProfileSignals(accountId)
+    );
 
     return NextResponse.json(response, {
       headers: {
-        'Cache-Control': `public, s-maxage=${REVALIDATE_SECONDS}, stale-while-revalidate=${REVALIDATE_SECONDS * 2}`,
+        'Cache-Control': `private, max-age=${REVALIDATE_SECONDS}, stale-while-revalidate=${REVALIDATE_SECONDS * 2}`,
       },
     });
   } catch (error) {
     const detail = getErrorMessage(error);
     return NextResponse.json(
       {
-        error: 'Profile signals query failed',
+        error: isRateLimitError(error)
+          ? 'Profile signals are busy — try again shortly'
+          : 'Profile signals query failed',
         detail,
       },
-      { status: 502 }
+      { status: isRateLimitError(error) ? 429 : 502 }
     );
   }
 }

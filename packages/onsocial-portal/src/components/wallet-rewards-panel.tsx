@@ -1,6 +1,7 @@
 'use client';
 
-import { CircleHelp } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowLeftRight, CircleHelp } from 'lucide-react';
 import { formatSocialCompact } from '@/lib/leaderboard';
 import {
   PORTAL_REWARD_EMPTY_HINT,
@@ -13,6 +14,7 @@ import {
 } from '@/components/ui/inline-icon-button';
 import { walletMenuProfileHoverClass } from '@/components/ui/floating-panel';
 import { RewardsClaimButton } from '@/components/rewards-claim-button';
+import { PORTAL_SWAP_ENABLED } from '@/lib/portal-swap-config';
 import { cn } from '@/lib/utils';
 
 interface WalletRewardsSectionProps {
@@ -144,17 +146,31 @@ export function WalletRewardsSection({
           ) : null}
         </div>
 
-        <button
-          type="button"
-          onClick={onOpenRules}
-          className={walletDropdownAccessoryButtonClass}
-          aria-label="How rewards work"
-        >
-          <CircleHelp
-            className={walletDropdownAccessoryIconClass}
-            strokeWidth={walletDropdownAccessoryIconStroke}
-          />
-        </button>
+        <div className="flex shrink-0 items-center gap-0.5">
+          {PORTAL_SWAP_ENABLED ? (
+            <Link
+              href="/swap"
+              className={walletDropdownAccessoryButtonClass}
+              aria-label="Get SOCIAL"
+            >
+              <ArrowLeftRight
+                className={walletDropdownAccessoryIconClass}
+                strokeWidth={walletDropdownAccessoryIconStroke}
+              />
+            </Link>
+          ) : null}
+          <button
+            type="button"
+            onClick={onOpenRules}
+            className={walletDropdownAccessoryButtonClass}
+            aria-label="How rewards work"
+          >
+            <CircleHelp
+              className={walletDropdownAccessoryIconClass}
+              strokeWidth={walletDropdownAccessoryIconStroke}
+            />
+          </button>
+        </div>
       </div>
 
       <div className="flex items-center gap-1.5 md:gap-2">

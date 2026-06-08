@@ -12,10 +12,7 @@ import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedbac
 import { useWallet } from '@/contexts/wallet-context';
 import { portalElevatedShadowClass } from '@/components/ui/floating-panel';
 import { fadeMotion, scaleFadeMotion } from '@/lib/motion';
-import {
-  getSocialWalletBalanceYocto,
-  yoctoToSocial,
-} from '@/lib/near-rpc';
+import { getSocialWalletBalanceYocto, yoctoToSocial } from '@/lib/near-rpc';
 import {
   parseSupportAmountYocto,
   SUPPORT_PROFILE_MIN_SOCIAL_LABEL,
@@ -103,10 +100,7 @@ export function ProfileSupportModal({
       return;
     }
 
-    if (
-      walletBalanceYocto != null &&
-      amountYocto > walletBalanceYocto
-    ) {
+    if (walletBalanceYocto != null && amountYocto > walletBalanceYocto) {
       setError('Insufficient SOCIAL wallet balance.');
       return;
     }

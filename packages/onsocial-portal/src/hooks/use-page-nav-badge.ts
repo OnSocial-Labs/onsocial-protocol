@@ -3,13 +3,21 @@
 import { useEffect, useId, type ReactNode } from 'react';
 import { useMobilePageContext } from '@/components/providers/mobile-page-context';
 import type { PortalAccent } from '@/lib/portal-colors';
-import { resolveNavBadgeLabel } from '@/lib/nav-badge-label';
+import {
+  resolveNavBadgeLabel,
+  truncateNavBadgeLabel,
+} from '@/lib/nav-badge-label';
 
 /** Show a section badge in the mobile navbar center (desktop context menu). */
-export function usePageNavBadge(badge: ReactNode, badgeAccent: PortalAccent): void {
+export function usePageNavBadge(
+  badge: ReactNode,
+  badgeAccent: PortalAccent
+): void {
   const badgeKey = useId();
   const { setPageBadge, clearPageBadge } = useMobilePageContext();
-  const badgeLabel = resolveNavBadgeLabel(badge);
+  const resolved = resolveNavBadgeLabel(badge);
+  const badgeLabel =
+    typeof resolved === 'string' ? truncateNavBadgeLabel(resolved) : resolved;
 
   useEffect(() => {
     setPageBadge({

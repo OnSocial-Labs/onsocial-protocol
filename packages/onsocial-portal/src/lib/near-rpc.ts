@@ -102,10 +102,21 @@ export async function viewContractAt<T>(
   method: string,
   args: Record<string, unknown> = {}
 ): Promise<T | null> {
+  return viewContractAtBlock<T>(contractId, method, args);
+}
+
+export async function viewContractAtBlock<T>(
+  contractId: string,
+  method: string,
+  args: Record<string, unknown> = {},
+  blockHeight?: number
+): Promise<T | null> {
   const rpc = getRpc();
   const res = await rpc.call<{ result?: number[] }>('query', {
     request_type: 'call_function',
-    finality: 'final',
+    ...(blockHeight != null
+      ? { block_id: blockHeight }
+      : { finality: 'final' }),
     account_id: contractId,
     method_name: method,
     args_base64: btoa(JSON.stringify(args)),
@@ -791,7 +802,10 @@ export function isProposalPeriodDaysWithinMax(days: string): boolean {
   }
 
   try {
-    return BigInt(normalized) > 0n && BigInt(normalized) <= BigInt(MAX_PROPOSAL_PERIOD_DAYS);
+    return (
+      BigInt(normalized) > 0n &&
+      BigInt(normalized) <= BigInt(MAX_PROPOSAL_PERIOD_DAYS)
+    );
   } catch {
     return false;
   }

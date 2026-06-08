@@ -1,7 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { GovernanceAccountChip } from '@/features/governance/governance-account-chip';
+import {
+  GovernanceAccountChip,
+  GovernanceAccountChipSkeleton,
+} from '@/features/governance/governance-account-chip';
 import { getPortalProfileUrl } from '@/lib/portal-config';
 import {
   PROPOSAL_TARGET_KIND_LABELS,
@@ -89,10 +92,12 @@ export function GovernanceProposalIdentityRow({
   presentation,
   className,
   targetFooter,
+  subjectLoading = false,
 }: {
   presentation: ProposalPresentation;
   className?: string;
   targetFooter?: React.ReactNode;
+  subjectLoading?: boolean;
 }) {
   const { subjectAccount, targetKind, targetValue, targetAccountId } =
     presentation;
@@ -117,7 +122,11 @@ export function GovernanceProposalIdentityRow({
         className
       )}
     >
-      {subjectAccount ? (
+      {subjectLoading ? (
+        <div className="min-w-0 flex-1">
+          <GovernanceAccountChipSkeleton dense className="max-w-full" />
+        </div>
+      ) : subjectAccount ? (
         <div className="min-w-0 flex-1">
           <GovernanceAccountChip
             accountId={subjectAccount}
@@ -179,20 +188,48 @@ export function GovernanceProposalOnChainRefLabel({
   );
 }
 
+export function GovernanceProposerRow({
+  proposer,
+  className,
+}: {
+  proposer: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        'flex min-w-0 flex-col gap-1.5 text-muted-foreground',
+        className
+      )}
+    >
+      <span className="portal-eyebrow leading-none">Proposer</span>
+      <GovernanceAccountChip
+        accountId={proposer}
+        avatarClassName="h-5 w-5"
+        compact
+        className="max-w-full"
+      />
+    </div>
+  );
+}
+
 export function GovernanceProposalSummary({
   presentation,
   className,
   targetFooter,
+  subjectLoading = false,
 }: {
   presentation: ProposalPresentation;
   className?: string;
   targetFooter?: React.ReactNode;
+  subjectLoading?: boolean;
 }) {
   return (
     <GovernanceProposalIdentityRow
       presentation={presentation}
       className={className}
       targetFooter={targetFooter}
+      subjectLoading={subjectLoading}
     />
   );
 }

@@ -68,12 +68,18 @@ async function fetchProfileMeta(accountId: string): Promise<{
   };
 }
 
+function readInitialQuery(raw: string | undefined): string {
+  return raw?.trim() ?? '';
+}
+
 export default function StandPage({
   accountId: accountIdParam,
   kind: kindParam,
+  q: qParam,
 }: {
   accountId: string;
   kind: PortalStandKind;
+  q?: string;
 }) {
   const { accountId: viewerAccountId } = useWallet();
   const profileState = useProfile();
@@ -83,6 +89,7 @@ export default function StandPage({
     [accountIdParam]
   );
   const kind = useMemo(() => parseStandKind(kindParam), [kindParam]);
+  const initialQuery = useMemo(() => readInitialQuery(qParam), [qParam]);
   const isSelf = Boolean(
     accountId && viewerAccountId && accountId === viewerAccountId
   );
@@ -149,12 +156,15 @@ export default function StandPage({
           className={cn('flex flex-col pb-12', profilePageDiscoverColumnClass)}
         >
           <StandPagePanel
+            key={`${accountId}-${kind}`}
             kind={kind}
             accountId={accountId}
             displayName={displayName}
             isSelf={isSelf}
             counts={counts}
             metaLoaded={metaLoaded}
+            initialQuery={initialQuery}
+            syncUrl
             viewerAccountId={viewerAccountId}
             hasSocialSession={profileState.hasSocialSession}
             onUpdateAccountStanding={

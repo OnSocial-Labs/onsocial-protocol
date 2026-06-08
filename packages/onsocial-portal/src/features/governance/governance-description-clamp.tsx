@@ -5,8 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { portalCollapseMotion } from '@/features/governance/governance-motion';
 import { cn } from '@/lib/utils';
 
-const DESCRIPTION_CLASS =
-  'max-w-3xl portal-type-body text-muted-foreground';
+const DESCRIPTION_CLASS = 'max-w-3xl portal-type-body text-muted-foreground';
 
 export function GovernanceDescriptionClamp({
   text,
@@ -32,7 +31,7 @@ export function GovernanceDescriptionClamp({
 
   if (!needsClamp) {
     return (
-      <div className={cn('relative', className ?? 'mt-1.5')}>
+      <div className={cn('relative', className)}>
         <p
           ref={measureRef}
           aria-hidden
@@ -49,7 +48,7 @@ export function GovernanceDescriptionClamp({
   }
 
   return (
-    <div className={cn('relative', className ?? 'mt-1.5')}>
+    <div className={cn('relative', className)}>
       <p
         ref={measureRef}
         aria-hidden
@@ -88,7 +87,7 @@ export function GovernanceDescriptionClamp({
           setExpanded((open) => !open);
         }}
         aria-expanded={expanded}
-        className="mt-0.5 portal-type-label text-foreground/50 transition-colors hover:text-foreground/70"
+        className="mt-1 portal-type-label text-foreground/50 transition-colors hover:text-foreground/70"
       >
         {expanded ? 'show less' : 'show more'}
       </button>

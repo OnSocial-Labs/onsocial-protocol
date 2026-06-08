@@ -2,6 +2,88 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 import { InsetDividerItem } from './inset-divider-group';
 
+/* ── layout context ─────────────────────────────────────────────── */
+
+interface StatStripLayoutContextValue {
+  index: number;
+  total: number;
+  columns: number;
+  mobileColumns?: number;
+}
+
+const StatStripLayoutContext =
+  React.createContext<StatStripLayoutContextValue | null>(null);
+
+type CellDividerState = {
+  showMobile: boolean;
+  showDesktop: boolean;
+};
+
+function resolveCellDividers(
+  layout: StatStripLayoutContextValue | null,
+  showDivider: boolean
+): CellDividerState {
+  if (!showDivider || !layout || layout.index >= layout.total - 1) {
+    return { showMobile: false, showDesktop: false };
+  }
+
+  const { index, columns, mobileColumns } = layout;
+  const mobileCols = mobileColumns ?? columns;
+
+  return {
+    showMobile: (index + 1) % mobileCols !== 0,
+    showDesktop: (index + 1) % columns !== 0,
+  };
+}
+
+function CellDividerSpans({
+  dividers,
+  dividerClassName,
+}: {
+  dividers: CellDividerState;
+  dividerClassName?: string;
+}) {
+  const verticalClass =
+    'absolute top-0 right-0 z-[1] h-full w-px divider-v-detail';
+
+  if (!dividers.showMobile && !dividers.showDesktop) {
+    return null;
+  }
+
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        verticalClass,
+        dividers.showMobile && !dividers.showDesktop && 'md:hidden',
+        !dividers.showMobile && dividers.showDesktop && 'max-md:hidden',
+        dividerClassName
+      )}
+    />
+  );
+}
+
+function shouldInsertRowBreak(
+  index: number,
+  columns: number,
+  mobileColumns?: number
+) {
+  if (index <= 0) {
+    return { mobile: false, desktop: false };
+  }
+
+  const needsDesktopRowBreak = index % columns === 0;
+  const needsMobileRowBreak =
+    mobileColumns != null &&
+    mobileColumns < columns &&
+    index % mobileColumns === 0;
+
+  return {
+    mobile: needsMobileRowBreak,
+    desktop: needsDesktopRowBreak,
+  };
+}
+
 /* ── container ──────────────────────────────────────────────────── */
 
 interface StatStripProps {
@@ -13,6 +95,15 @@ interface StatStripProps {
   className?: string;
   /** Extra classes on the outer wrapper. */
   groupClassName?: string;
+  /** Show the horizontal rule above the strip. Defaults to true. */
+  showTopDivider?: boolean;
+  /** Show the horizontal rule below the strip. Defaults to true. */
+  showBottomDivider?: boolean;
+}
+
+function resolveMobileColumns(columns: number, mobileColumns?: number) {
+  // Only collapse 4+ column strips on mobile; 3-across keeps vertical dividers intact.
+  return mobileColumns ?? (columns > 3 ? 2 : undefined);
 }
 
 export function StatStrip({
@@ -21,18 +112,80 @@ export function StatStrip({
   mobileColumns,
   className,
   groupClassName,
+  showTopDivider = true,
+  showBottomDivider = true,
 }: StatStripProps) {
+  const items = React.Children.toArray(children);
+  const resolvedMobileColumns = resolveMobileColumns(columns, mobileColumns);
+  const useMobileGrid =
+    resolvedMobileColumns != null && resolvedMobileColumns < columns;
+
   return (
     <div className={cn(groupClassName)}>
-      <div className="h-px w-full divider-section" />
+      {showTopDivider ? <div className="h-px w-full divider-section" /> : null}
       <div
-        className={cn('flex flex-wrap justify-center text-center', className)}
+        className={cn(
+          'stat-strip-cells w-full text-center',
+          useMobileGrid
+            ? 'flex flex-wrap justify-center max-md:grid max-md:justify-items-center max-md:[grid-template-columns:repeat(var(--stat-cols),minmax(0,1fr))]'
+            : 'flex flex-wrap justify-center',
+          className
+        )}
         style={{ '--stat-cols': columns } as React.CSSProperties}
-        {...(mobileColumns != null && { 'data-mobile-cols': mobileColumns })}
+        data-stat-cols={columns}
+        {...(useMobileGrid && {
+          'data-mobile-cols': resolvedMobileColumns,
+        })}
       >
-        {children}
+        {items.map((child, index) => (
+          <React.Fragment
+            key={
+              React.isValidElement(child) && child.key != null
+                ? String(child.key)
+                : index
+            }
+          >
+            {(() => {
+              const rowBreak = shouldInsertRowBreak(
+                index,
+                columns,
+                resolvedMobileColumns
+              );
+
+              if (!rowBreak.mobile && !rowBreak.desktop) {
+                return null;
+              }
+
+              return (
+                <div
+                  aria-hidden
+                  className={cn(
+                    'h-px w-full divider-section',
+                    rowBreak.mobile &&
+                      'max-md:col-span-full max-md:[grid-column:1/-1]',
+                    rowBreak.desktop && 'md:basis-full',
+                    rowBreak.mobile && !rowBreak.desktop && 'md:hidden',
+                    !rowBreak.mobile && rowBreak.desktop && 'max-md:hidden'
+                  )}
+                />
+              );
+            })()}
+            <StatStripLayoutContext.Provider
+              value={{
+                index,
+                total: items.length,
+                columns,
+                mobileColumns: resolvedMobileColumns,
+              }}
+            >
+              {child}
+            </StatStripLayoutContext.Provider>
+          </React.Fragment>
+        ))}
       </div>
-      <div className="h-px w-full divider-section" />
+      {showBottomDivider ? (
+        <div className="h-px w-full divider-section" />
+      ) : null}
     </div>
   );
 }
@@ -69,6 +222,12 @@ const sizeClasses = {
   md: 'px-3 py-3 md:px-4 md:py-3.5',
 } as const;
 
+const cellWidthStyle = {
+  flex: '0 0 calc(100% / var(--stat-cols))',
+  width: 'calc(100% / var(--stat-cols))',
+  maxWidth: 'calc(100% / var(--stat-cols))',
+} as React.CSSProperties;
+
 export function StatStripCell({
   label,
   value,
@@ -81,36 +240,63 @@ export function StatStripCell({
   dividerClassName,
   size = 'sm',
 }: StatStripCellProps) {
-  return (
-    <InsetDividerItem
-      className={sizeClasses[size]}
-      style={{ width: 'calc(100% / var(--stat-cols))' }}
-      showDivider={showDivider}
-      dividerMode={dividerMode}
-      dividerClassName={dividerClassName}
+  const layout = React.useContext(StatStripLayoutContext);
+  const dividers = resolveCellDividers(layout, showDivider);
+  const useLayoutDividers = layout != null;
+
+  const labelNode = (
+    <span
+      className={cn(
+        'portal-eyebrow break-words text-muted-foreground',
+        Icon && 'flex items-center justify-center gap-1.5'
+      )}
     >
-      <span
+      {Icon ? <Icon className={cn('h-3 w-3', iconClassName)} /> : null}
+      {label}
+    </span>
+  );
+
+  const valueNode =
+    children != null ? (
+      <div className="mt-1">{children}</div>
+    ) : (
+      <p
         className={cn(
-          'portal-eyebrow text-muted-foreground',
-          Icon && 'flex items-center justify-center gap-1.5'
+          'mt-1 break-words font-mono font-bold leading-snug',
+          size === 'sm' ? 'text-xs md:text-sm' : 'text-sm md:text-base',
+          valueClassName ?? 'text-portal-neutral font-semibold tracking-tight'
         )}
       >
-        {Icon ? <Icon className={cn('h-3 w-3', iconClassName)} /> : null}
-        {label}
-      </span>
-      {children != null ? (
-        <div className="mt-1">{children}</div>
-      ) : (
-        <p
-          className={cn(
-            'mt-1 truncate font-mono text-sm font-bold md:text-base',
-            valueClassName ??
-              'text-portal-neutral font-semibold tracking-tight'
-          )}
-        >
-          {value}
-        </p>
-      )}
-    </InsetDividerItem>
+        {value}
+      </p>
+    );
+
+  if (!useLayoutDividers) {
+    return (
+      <InsetDividerItem
+        className={sizeClasses[size]}
+        style={cellWidthStyle}
+        showDivider={showDivider}
+        dividerMode={dividerMode}
+        dividerClassName={dividerClassName}
+      >
+        {labelNode}
+        {valueNode}
+      </InsetDividerItem>
+    );
+  }
+
+  return (
+    <div
+      className={cn('relative min-w-0', sizeClasses[size])}
+      style={cellWidthStyle}
+    >
+      {labelNode}
+      {valueNode}
+      <CellDividerSpans
+        dividers={dividers}
+        dividerClassName={dividerClassName}
+      />
+    </div>
   );
 }

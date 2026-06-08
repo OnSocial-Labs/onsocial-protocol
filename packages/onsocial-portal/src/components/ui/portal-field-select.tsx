@@ -47,13 +47,7 @@ export function PortalFieldSelect({
   const triggerId = `portal-field-select-${fallbackId}`;
   const triggerRef = useRef<HTMLButtonElement>(null);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const {
-    isOpen,
-    open,
-    close,
-    toggle,
-    containerRef,
-  } = useDropdown();
+  const { isOpen, open, close, toggle, containerRef } = useDropdown();
 
   const selectedIndex = Math.max(
     0,

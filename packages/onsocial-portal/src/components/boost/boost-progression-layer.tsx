@@ -3,7 +3,7 @@
 import { CheckCircle2, Gift, Sparkles, Trophy } from 'lucide-react';
 import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
 import { PortalBadge } from '@/components/ui/portal-badge';
-import { PulsingDots } from '@/components/ui/pulsing-dots';
+import { StatStripSkeleton } from '@/components/ui/skeleton';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 
 type ProgressItem = {
@@ -50,8 +50,8 @@ export function BoostProgressionLayer({
 
       <div className="mt-4">
         {isLoading ? (
-          <div className="flex min-h-20 items-center justify-center border-t border-fade-section py-3">
-            <PulsingDots size="md" />
+          <div className="border-t border-fade-section pt-3">
+            <StatStripSkeleton columns={4} items={4} showTopDivider={false} />
           </div>
         ) : (
           <StatStrip columns={4}>

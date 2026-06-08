@@ -2,10 +2,17 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { RefreshCw } from 'lucide-react';
 import { PageShell } from '@/components/layout/page-shell';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
-import { PortalBadge } from '@/components/ui/portal-badge';
-import { FormSkeleton, PanelSkeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
+import {
+  EligibilityNextStepSkeleton,
+  FormSkeleton,
+  PanelSkeleton,
+  StatStripSkeleton,
+} from '@/components/ui/skeleton';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
 import { useWallet } from '@/contexts/wallet-context';
@@ -46,6 +53,7 @@ import {
 } from '@/lib/near-rpc';
 import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
 import { StepIndicator } from '@/features/partners/ui-helpers';
+import { cn } from '@/lib/utils';
 
 export default function PartnersPage() {
   type GovernanceEligibilityReady = GovernanceEligibilitySnapshot & {
@@ -775,182 +783,271 @@ export default function PartnersPage() {
   const currentStepTitle = STEPS[currentStep]?.title ?? 'Apply';
   const currentAppLabel = registration?.label ?? pendingApp?.label ?? null;
   const currentAppId = registration?.appId ?? pendingApp?.appId ?? null;
+  const showPartnersHero = step === 'apply' || step === 'submitting';
+
+  const handleRefreshEligibility = useCallback(async () => {
+    setPageError('');
+    setRefreshingGovernanceEligibility(true);
+    await refreshGovernanceEligibility().finally(() => {
+      setRefreshingGovernanceEligibility(false);
+    });
+  }, [refreshGovernanceEligibility]);
+
+  const hasAppMeta = Boolean(currentAppLabel || currentAppId);
+  const appMetaLine = hasAppMeta ? (
+    <span className="inline-flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground md:text-sm">
+      {currentAppLabel ? (
+        <span className="font-medium text-foreground">{currentAppLabel}</span>
+      ) : null}
+      {currentAppLabel && currentAppId ? (
+        <span aria-hidden="true" className="text-muted-foreground/40">
+          ·
+        </span>
+      ) : null}
+      {currentAppId ? (
+        currentAppLabel ? (
+          <span className="font-mono portal-blue-text">{currentAppId}</span>
+        ) : (
+          <span className="inline-flex items-center gap-1">
+            <span>App ID</span>
+            <span className="font-mono portal-blue-text">{currentAppId}</span>
+          </span>
+        )
+      ) : null}
+    </span>
+  ) : null;
+
+  const workflowStatus = (
+    <>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            Status
+          </h2>
+          <span className="text-muted-foreground/40">•</span>
+          <span className="text-sm font-medium text-foreground">
+            {currentStepTitle}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {appMetaLine && step !== 'eligibility' ? (
+            <div className="hidden min-w-0 sm:flex">{appMetaLine}</div>
+          ) : null}
+          {step === 'eligibility' ? (
+            <div className="flex shrink-0 items-center gap-2">
+              {governanceEligibility ? (
+                <span
+                  className={cn(
+                    'inline-flex h-8 shrink-0 items-center justify-center rounded-full border border-border/40 bg-transparent px-2.5 text-xs font-medium leading-none md:h-10 md:px-3 md:text-sm',
+                    governanceEligibility.canPropose
+                      ? 'portal-green-text'
+                      : 'text-muted-foreground'
+                  )}
+                >
+                  {governanceEligibility.canPropose ? 'Ready' : 'In Progress'}
+                </span>
+              ) : null}
+              <PortalHoverTooltip
+                tooltip={
+                  refreshingGovernanceEligibility
+                    ? 'Refreshing balances'
+                    : 'Refresh balances'
+                }
+                className="shrink-0"
+              >
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    void handleRefreshEligibility();
+                  }}
+                  disabled={
+                    proposalSubmitting || refreshingGovernanceEligibility
+                  }
+                  aria-label="Refresh balances"
+                  className="h-8 w-8 rounded-full border-border/40 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground"
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 ${refreshingGovernanceEligibility ? 'animate-spin' : ''}`}
+                  />
+                </Button>
+              </PortalHoverTooltip>
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      {appMetaLine ? (
+        <div
+          className={cn(
+            'mt-2 min-w-0',
+            step === 'eligibility' ? 'block' : 'sm:hidden'
+          )}
+        >
+          {appMetaLine}
+        </div>
+      ) : null}
+
+      <div className="mt-4 border-t border-fade-detail pt-4">
+        <StepIndicator steps={STEPS} current={currentStep} />
+      </div>
+    </>
+  );
 
   return (
     <PageShell className="max-w-5xl">
       <SecondaryPageHeader
         badge="Partners"
         badgeAccent="blue"
-        glowAccents={['blue', 'green']}
-        glowClassName="h-40 opacity-70"
-        contentClassName="max-w-3xl"
-        title="Launch community rewards with OnSocial"
-        description="Add community rewards to your Telegram or dapp with OnSocial handling the reward layer underneath."
+        className={showPartnersHero ? undefined : 'mb-4 py-1 md:mb-5 md:py-2'}
+        glowAccents={showPartnersHero ? ['blue', 'green'] : undefined}
+        glowClassName={showPartnersHero ? 'h-40 opacity-70' : undefined}
+        contentClassName={showPartnersHero ? 'max-w-3xl' : undefined}
+        title={
+          showPartnersHero
+            ? 'Launch community rewards with OnSocial'
+            : undefined
+        }
+        description={
+          showPartnersHero
+            ? 'Add community rewards to your Telegram or dapp with OnSocial handling the reward layer underneath.'
+            : undefined
+        }
       />
 
       <TransactionFeedbackToast result={txResult} onClose={clearTxResult} />
-
-      <SurfacePanel
-        radius="xl"
-        tone="soft"
-        className="mb-6 px-4 py-4 md:px-6 md:py-5"
-      >
-        {/* ── Header row ── */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
-              Status
-            </h2>
-            <span className="text-muted-foreground/40">•</span>
-            <span className="text-sm font-medium text-foreground">
-              {currentStepTitle}
-            </span>
-          </div>
-          {(currentAppLabel || currentAppId) && (
-            <div className="hidden items-center gap-2 sm:flex">
-              {currentAppLabel && (
-                <PortalBadge accent="neutral" size="sm">
-                  {currentAppLabel}
-                </PortalBadge>
-              )}
-              {currentAppId && (
-                <PortalBadge accent="blue" size="sm">
-                  ID {currentAppId}
-                </PortalBadge>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* ── Mobile badges ── */}
-        {(currentAppLabel || currentAppId) && (
-          <div className="mt-2 flex flex-wrap items-center gap-1.5 sm:hidden">
-            {currentAppLabel && (
-              <PortalBadge accent="neutral" size="sm">
-                {currentAppLabel}
-              </PortalBadge>
-            )}
-            {currentAppId && (
-              <PortalBadge accent="blue" size="sm">
-                ID {currentAppId}
-              </PortalBadge>
-            )}
-          </div>
-        )}
-
-        {/* ── Step indicator ── */}
-        <div className="mt-4 border-t border-fade-detail pt-4">
-          <StepIndicator steps={STEPS} current={currentStep} />
-        </div>
-      </SurfacePanel>
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
+        className="mb-6"
       >
-        <SurfacePanel radius="xl" tone="soft" padding="roomy">
-          {loading && (
-            <PanelSkeleton minHeight="16rem" detailLines={3} statBlocks={2} />
-          )}
-          {!loading && step === 'apply' && (
-            <ApplicationForm
-              onSubmit={handleApply}
-              initialValues={applicationFormPrefill}
-              governanceThresholdDisplay={governanceThresholdDisplay}
-              proposalBondDisplay={governanceProposalBondDisplay}
-            />
-          )}
-          {!loading && step === 'apply' && pageError && (
-            <p className="portal-red-panel portal-red-text mt-4 rounded-[1rem] border px-4 py-3 text-center text-sm">
-              {pageError}
-            </p>
-          )}
-          {step === 'submitting' && (
-            <div className="space-y-4">
-              <PanelSkeleton minHeight="8rem" detailLines={2} statBlocks={0} />
-              <FormSkeleton fields={3} />
-            </div>
-          )}
-          {step === 'pending' && pendingApp && (
-            <PendingState
-              appId={pendingApp.appId}
-              label={pendingApp.label}
-              phase="review"
-              proposal={pendingApp.proposal}
-              actionError={pageError}
-            />
-          )}
-          {step === 'eligibility' && pendingApp && (
-            <GovernanceEligibilityState
-              appId={pendingApp.appId}
-              label={pendingApp.label}
-              eligibility={governanceEligibility}
-              proposalBond={governanceProposalBond}
-              proposalBondDisplay={governanceProposalBondDisplay}
-              acting={proposalSubmitting}
-              refreshPending={refreshingGovernanceEligibility}
-              actionKind={governanceActionKind ?? undefined}
-              actionError={pageError}
-              onRefresh={async () => {
-                setPageError('');
-                setRefreshingGovernanceEligibility(true);
-                await refreshGovernanceEligibility().finally(() => {
-                  setRefreshingGovernanceEligibility(false);
-                });
-              }}
-              onPrepare={handlePrepareGovernance}
-              onSubmitProposal={
-                governanceEligibility?.canPropose
-                  ? handleSubmitProposal
-                  : undefined
-              }
-              onCancel={handleCancelApplication}
-              onWithdrawExcess={
-                governanceEligibility?.canPropose &&
-                governanceEligibility?.availableToWithdraw !== '0'
-                  ? handleWithdrawGovernanceExcess
-                  : undefined
-              }
-            />
-          )}
-          {step === 'governance' && pendingApp && (
-            <PendingState
-              appId={pendingApp.appId}
-              label={pendingApp.label}
-              phase={
-                pendingApp.proposal?.status === 'submitted'
-                  ? 'governance'
-                  : 'ready'
-              }
-              proposal={pendingApp.proposal}
-              acting={proposalSubmitting}
-              actionError={pageError}
-              onSubmitProposal={
-                pendingApp.proposal?.status === 'submitted'
-                  ? undefined
-                  : handleSubmitProposal
-              }
-            />
-          )}
-          {step === 'rejected' && pendingApp && (
-            <RejectedState appId={pendingApp.appId} label={pendingApp.label} />
-          )}
-          {step === 'approved' && registration && (
-            <ApprovedDashboard
-              registration={registration}
-              revealingKey={claimingKey}
-              actionError={pageError}
-              onRevealKey={async () => {
-                await handleClaimApiKey();
-              }}
-              onKeyRotated={(newKey) =>
-                setRegistration((prev) =>
-                  prev ? { ...prev, apiKey: newKey } : prev
-                )
-              }
-            />
-          )}
+        <SurfacePanel radius="xl" tone="soft" padding="none">
+          <div className="border-b border-fade-detail px-4 pb-3 pt-4 md:px-6 md:pt-5">
+            {workflowStatus}
+          </div>
+          <div className="px-4 py-4 md:px-6 md:py-5">
+            {loading &&
+              (step === 'eligibility' ? (
+                <div className="mx-auto w-full min-w-0 max-w-xl">
+                  <StatStripSkeleton
+                    columns={4}
+                    items={4}
+                    showTopDivider={false}
+                  />
+                  <EligibilityNextStepSkeleton className="mt-3" />
+                </div>
+              ) : step === 'apply' ? (
+                <FormSkeleton fields={4} />
+              ) : (
+                <PanelSkeleton
+                  minHeight="12rem"
+                  detailLines={2}
+                  statBlocks={0}
+                />
+              ))}
+            {!loading && step === 'apply' && (
+              <ApplicationForm
+                onSubmit={handleApply}
+                initialValues={applicationFormPrefill}
+                governanceThresholdDisplay={governanceThresholdDisplay}
+                proposalBondDisplay={governanceProposalBondDisplay}
+              />
+            )}
+            {!loading && step === 'apply' && pageError && (
+              <p className="portal-red-panel portal-red-text mt-4 rounded-[1rem] border px-4 py-3 text-center text-sm">
+                {pageError}
+              </p>
+            )}
+            {step === 'submitting' && (
+              <div className="space-y-4">
+                <PanelSkeleton
+                  minHeight="8rem"
+                  detailLines={2}
+                  statBlocks={0}
+                />
+                <FormSkeleton fields={3} />
+              </div>
+            )}
+            {step === 'pending' && pendingApp && (
+              <PendingState
+                appId={pendingApp.appId}
+                label={pendingApp.label}
+                phase="review"
+                proposal={pendingApp.proposal}
+                actionError={pageError}
+              />
+            )}
+            {step === 'eligibility' && pendingApp && (
+              <GovernanceEligibilityState
+                appId={pendingApp.appId}
+                label={pendingApp.label}
+                eligibility={governanceEligibility}
+                proposalBond={governanceProposalBond}
+                proposalBondDisplay={governanceProposalBondDisplay}
+                acting={proposalSubmitting}
+                refreshPending={refreshingGovernanceEligibility}
+                actionKind={governanceActionKind ?? undefined}
+                actionError={pageError}
+                onRefresh={handleRefreshEligibility}
+                onPrepare={handlePrepareGovernance}
+                onSubmitProposal={
+                  governanceEligibility?.canPropose
+                    ? handleSubmitProposal
+                    : undefined
+                }
+                onCancel={handleCancelApplication}
+                onWithdrawExcess={
+                  governanceEligibility?.canPropose &&
+                  governanceEligibility?.availableToWithdraw !== '0'
+                    ? handleWithdrawGovernanceExcess
+                    : undefined
+                }
+              />
+            )}
+            {step === 'governance' && pendingApp && (
+              <PendingState
+                appId={pendingApp.appId}
+                label={pendingApp.label}
+                phase={
+                  pendingApp.proposal?.status === 'submitted'
+                    ? 'governance'
+                    : 'ready'
+                }
+                proposal={pendingApp.proposal}
+                acting={proposalSubmitting}
+                actionError={pageError}
+                onSubmitProposal={
+                  pendingApp.proposal?.status === 'submitted'
+                    ? undefined
+                    : handleSubmitProposal
+                }
+              />
+            )}
+            {step === 'rejected' && pendingApp && (
+              <RejectedState
+                appId={pendingApp.appId}
+                label={pendingApp.label}
+              />
+            )}
+            {step === 'approved' && registration && (
+              <ApprovedDashboard
+                registration={registration}
+                revealingKey={claimingKey}
+                actionError={pageError}
+                onRevealKey={async () => {
+                  await handleClaimApiKey();
+                }}
+                onKeyRotated={(newKey) =>
+                  setRegistration((prev) =>
+                    prev ? { ...prev, apiKey: newKey } : prev
+                  )
+                }
+              />
+            )}
+          </div>
         </SurfacePanel>
       </motion.div>
     </PageShell>

@@ -19,8 +19,28 @@ export function findDaoRole(
   }
 
   return (
-    policy?.roles?.find((role) => role.name?.trim() === normalizedRoleId) ?? null
+    policy?.roles?.find((role) => role.name?.trim() === normalizedRoleId) ??
+    null
   );
+}
+
+export function getDaoGroupRoleMemberOptions(
+  policy: GovernanceDaoPolicy | null | undefined,
+  roleId: string,
+  options?: { excludeAccountId?: string }
+): string[] {
+  const role = findDaoRole(policy, roleId);
+  const exclude = normalizeAccountId(options?.excludeAccountId ?? '');
+
+  if (!role?.kind?.Group?.length) {
+    return [];
+  }
+
+  const members = role.kind.Group.map((member) => member.trim())
+    .filter((member): member is string => Boolean(member))
+    .filter((member) => !exclude || normalizeAccountId(member) !== exclude);
+
+  return [...new Set(members)].sort((left, right) => left.localeCompare(right));
 }
 
 export function isDaoRoleMember(
@@ -69,6 +89,47 @@ export function resolveCreatableProposalKinds(
   return kinds;
 }
 
+export function resolveCreatableProposalKindsForProposer(
+  policy: GovernanceDaoPolicy | null | undefined,
+  roleId: string,
+  proposerAccountId: string,
+  delegatedWeight: string,
+  membershipSubjectId?: string | null,
+  options?: { pinJoinRole?: boolean; pinLeaveRole?: boolean }
+): CreatableDaoProposalKind[] {
+  const proposer = proposerAccountId.trim();
+  const subject = (membershipSubjectId ?? proposerAccountId).trim();
+  const pinJoinRole = options?.pinJoinRole ?? false;
+  const pinLeaveRole = options?.pinLeaveRole ?? false;
+  const kinds: CreatableDaoProposalKind[] = [];
+
+  if (!proposer) {
+    return kinds;
+  }
+
+  if (roleId.trim()) {
+    if (
+      canProposeDaoKind(policy, proposer, delegatedWeight, 'join_role') &&
+      (pinJoinRole || !subject || !isDaoRoleMember(policy, roleId, subject))
+    ) {
+      kinds.push('join_role');
+    }
+
+    if (
+      canProposeDaoKind(policy, proposer, delegatedWeight, 'leave_role') &&
+      (pinLeaveRole || !subject || isDaoRoleMember(policy, roleId, subject))
+    ) {
+      kinds.push('leave_role');
+    }
+  }
+
+  if (canProposeDaoKind(policy, proposer, delegatedWeight, 'idea')) {
+    kinds.push('idea');
+  }
+
+  return kinds;
+}
+
 export function getProposalKindBlockReason(
   kind: CreatableDaoProposalKind,
   policy: GovernanceDaoPolicy | null | undefined,
@@ -100,6 +161,99 @@ export function getProposalKindBlockReason(
 }
 
 export type CreatableDaoProposalKind = 'join_role' | 'leave_role' | 'idea';
+
+export type CreatableDaoProposalAction =
+  | 'join_self'
+  | 'add_member'
+  | 'leave_self'
+  | 'remove_member'
+  | 'idea';
+
+export function proposalActionToKind(
+  action: CreatableDaoProposalAction
+): CreatableDaoProposalKind {
+  switch (action) {
+    case 'join_self':
+    case 'add_member':
+      return 'join_role';
+    case 'leave_self':
+    case 'remove_member':
+      return 'leave_role';
+    case 'idea':
+      return 'idea';
+  }
+}
+
+export function isProposalActionNomination(
+  action: CreatableDaoProposalAction
+): boolean {
+  return action === 'add_member' || action === 'remove_member';
+}
+
+export function resolveCreatableProposalActionsForProposer(
+  policy: GovernanceDaoPolicy | null | undefined,
+  roleId: string,
+  proposerAccountId: string,
+  delegatedWeight: string
+): CreatableDaoProposalAction[] {
+  const proposer = proposerAccountId.trim();
+  const actions: CreatableDaoProposalAction[] = [];
+
+  if (!proposer) {
+    return actions;
+  }
+
+  const normalizedRoleId = roleId.trim();
+  const proposerInRole =
+    normalizedRoleId.length > 0 &&
+    isDaoRoleMember(policy, normalizedRoleId, proposer);
+
+  if (
+    normalizedRoleId &&
+    canProposeDaoKind(policy, proposer, delegatedWeight, 'join_role')
+  ) {
+    if (!proposerInRole) {
+      actions.push('join_self');
+    }
+
+    // Nominating someone else does not require the proposer to be in the role.
+    actions.push('add_member');
+  }
+
+  if (
+    normalizedRoleId &&
+    canProposeDaoKind(policy, proposer, delegatedWeight, 'leave_role')
+  ) {
+    if (proposerInRole) {
+      actions.push('leave_self');
+    }
+
+    actions.push('remove_member');
+  }
+
+  if (canProposeDaoKind(policy, proposer, delegatedWeight, 'idea')) {
+    actions.push('idea');
+  }
+
+  return actions;
+}
+
+export function getProposalActionSubmitLabel(
+  action: CreatableDaoProposalAction
+): string {
+  switch (action) {
+    case 'join_self':
+      return 'Propose join';
+    case 'add_member':
+      return 'Add member';
+    case 'leave_self':
+      return 'Propose leave';
+    case 'remove_member':
+      return 'Remove member';
+    case 'idea':
+      return 'Propose idea';
+  }
+}
 
 const CREATABLE_KIND_POLICY_LABEL: Record<CreatableDaoProposalKind, string> = {
   join_role: 'add_member_to_role',
@@ -168,14 +322,14 @@ export function getDaoKindPermissionBlockReason(
   kind: CreatableDaoProposalKind
 ): string {
   if (kind === 'join_role') {
-    return 'Your wallet cannot propose join requests on the DAO yet. Membership proposal permission is missing from DAO policy.';
+    return 'You cannot propose join requests on the DAO yet. Membership proposal permission is missing from DAO policy.';
   }
 
   if (kind === 'leave_role') {
-    return 'Your wallet cannot propose leave requests on the DAO yet. Membership proposal permission is missing from DAO policy.';
+    return 'You cannot propose leave requests on the DAO yet. Membership proposal permission is missing from DAO policy.';
   }
 
-  return 'Your wallet cannot propose ideas on the DAO yet. Idea proposal permission is missing from DAO policy.';
+  return 'You cannot propose ideas on the DAO yet. Idea proposal permission is missing from DAO policy.';
 }
 
 /** Listed on a DAO role Group (e.g. guardians). */
@@ -393,7 +547,9 @@ export function matchDaoPermissionPreset(
     return 'all_public';
   }
 
-  if (permissionSetEquals(permissions, DAO_DELEGATED_ACTION_PERMISSIONS_PRESET)) {
+  if (
+    permissionSetEquals(permissions, DAO_DELEGATED_ACTION_PERMISSIONS_PRESET)
+  ) {
     return 'actions_only';
   }
 
@@ -488,9 +644,8 @@ export function getEditableDaoPolicyRoleOptions(
   roles: GovernanceDaoRole[] | undefined
 ): string[] {
   const names =
-    roles
-      ?.filter(isEditableDaoPolicyRole)
-      .map((role) => role.name!.trim()) ?? [];
+    roles?.filter(isEditableDaoPolicyRole).map((role) => role.name!.trim()) ??
+    [];
 
   return [...new Set(names)].sort((left, right) => left.localeCompare(right));
 }
@@ -521,7 +676,8 @@ export const DAO_GOVERNANCE_PERMISSION_OPTIONS = [
 ] as const;
 
 /** @deprecated Use DAO_GOVERNANCE_PERMISSION_OPTIONS */
-export const DAO_ADVANCED_PERMISSION_OPTIONS = DAO_GOVERNANCE_PERMISSION_OPTIONS;
+export const DAO_ADVANCED_PERMISSION_OPTIONS =
+  DAO_GOVERNANCE_PERMISSION_OPTIONS;
 
 export const DAO_GOVERNANCE_PERMISSION_IDS = new Set<string>(
   DAO_GOVERNANCE_PERMISSION_OPTIONS.map((option) => option.id)
@@ -730,12 +886,14 @@ export const DAO_POLICY_ACTION_OPTIONS: Array<{
   {
     id: 'add_role',
     label: 'Add role',
-    outcome: 'Name a new role — council (full access) or public (pick permissions).',
+    outcome:
+      'Name a new role — council (full access) or public (pick permissions).',
   },
   {
     id: 'remove_role',
     label: 'Remove role',
-    outcome: 'Remove a role. Council roles need another full-access role first.',
+    outcome:
+      'Remove a role. Council roles need another full-access role first.',
   },
 ];
 
@@ -755,7 +913,9 @@ export function getDaoPolicyActionHint(
       const threshold = context.socialThresholdLabel
         ? `≥${context.socialThresholdLabel} delegated SOCIAL`
         : 'the SOCIAL gate';
-      const summary = summarizeDaoPermissionsOnChain(context.addRolePermissions);
+      const summary = summarizeDaoPermissionsOnChain(
+        context.addRolePermissions
+      );
 
       if (!summary) {
         return `On-chain: ChangePolicyAddOrUpdateRole adds a Member role (${threshold}). Select permissions to set allowed proposal kinds.`;
@@ -805,8 +965,8 @@ export function getDaoPolicyActionHint(
   }
 
   return (
-    DAO_POLICY_ACTION_OPTIONS.find((option) => option.id === actionId)?.outcome ??
-    ''
+    DAO_POLICY_ACTION_OPTIONS.find((option) => option.id === actionId)
+      ?.outcome ?? ''
   );
 }
 
@@ -858,10 +1018,15 @@ export function buildDaoPolicyAddRolePayload({
 }): DaoProposalPayload {
   const normalizedNewRoleName = normalizeDaoRoleNameInput(newRoleName);
   if (!normalizedNewRoleName) {
-    throw new Error('Enter a valid role name (lowercase letters, numbers, underscores).');
+    throw new Error(
+      'Enter a valid role name (lowercase letters, numbers, underscores).'
+    );
   }
 
-  const resolvedPermissions = resolveAddRolePermissions(sourceRole, permissions);
+  const resolvedPermissions = resolveAddRolePermissions(
+    sourceRole,
+    permissions
+  );
   const accessLabel = roleHasWildcardPermissions(sourceRole)
     ? 'full access'
     : 'public permissions';
@@ -940,7 +1105,9 @@ export function buildDaoPolicyActionPayload({
         description,
       });
     case 'add_role': {
-      const normalizedNewRoleName = normalizeDaoRoleNameInput(newRoleName ?? '');
+      const normalizedNewRoleName = normalizeDaoRoleNameInput(
+        newRoleName ?? ''
+      );
       if (!normalizedNewRoleName) {
         throw new Error('Enter a valid new role name.');
       }
@@ -957,7 +1124,9 @@ export function buildDaoPolicyActionPayload({
 
       const sourceRole = resolveAddRoleSourceRole(policy, accessMode);
       if (!sourceRole) {
-        throw new Error('Could not resolve role structure for this access mode.');
+        throw new Error(
+          'Could not resolve role structure for this access mode.'
+        );
       }
 
       if (accessMode === 'custom' && !permissions?.length) {
@@ -1084,7 +1253,10 @@ export function buildDaoPolicyRoleUpdatePayload({
     throw new Error('Select at least one permission.');
   }
 
-  const mergedPermissions = preserveNonEditableRolePermissions(role, permissions);
+  const mergedPermissions = preserveNonEditableRolePermissions(
+    role,
+    permissions
+  );
 
   return {
     proposal: {
@@ -1105,30 +1277,159 @@ export function buildDaoPolicyRoleUpdatePayload({
   };
 }
 
-export const CREATABLE_DAO_IDEA_PROPOSAL_OPTION = {
-  kind: 'idea' as const,
-  label: 'Idea',
-  description: 'Raise an on-chain signaling proposal (no execution).',
-};
+export type CreatableDaoProposalActionGroup = 'membership' | 'signaling';
 
-export const CREATABLE_DAO_MEMBERSHIP_PROPOSAL_OPTIONS = [
+export const CREATABLE_DAO_PROPOSAL_ACTION_GROUPS: ReadonlyArray<{
+  id: CreatableDaoProposalActionGroup;
+  label: string;
+}> = [
+  { id: 'membership', label: 'Membership' },
+  { id: 'signaling', label: 'Signaling' },
+];
+
+export const CREATABLE_DAO_PROPOSAL_ACTIONS: ReadonlyArray<{
+  id: CreatableDaoProposalAction;
+  group: CreatableDaoProposalActionGroup;
+  label: string;
+  description: string;
+}> = [
   {
-    kind: 'join_role' as const,
+    id: 'join_self',
+    group: 'membership',
     label: 'Join role',
-    description: 'Add a wallet to a DAO role.',
+    description: 'Join a DAO role yourself.',
   },
   {
-    kind: 'leave_role' as const,
+    id: 'add_member',
+    group: 'membership',
+    label: 'Add member',
+    description: 'Nominate someone to join a DAO role.',
+  },
+  {
+    id: 'leave_self',
+    group: 'membership',
     label: 'Leave role',
-    description: 'Remove a wallet from a DAO role.',
+    description: 'Leave a DAO role yourself.',
+  },
+  {
+    id: 'remove_member',
+    group: 'membership',
+    label: 'Remove member',
+    description: 'Nominate a member to leave a DAO role.',
+  },
+  {
+    id: 'idea',
+    group: 'signaling',
+    label: 'Idea',
+    description: 'Signaling vote — no execution.',
   },
 ];
 
-/** Includes idea — enable on Create when idea UI ships. */
-export const CREATABLE_DAO_PROPOSAL_OPTIONS = [
-  ...CREATABLE_DAO_MEMBERSHIP_PROPOSAL_OPTIONS,
-  CREATABLE_DAO_IDEA_PROPOSAL_OPTION,
-];
+export type GovernanceCreateActionMenuItem =
+  | {
+      kind: 'section';
+      id: string;
+      label: string;
+    }
+  | {
+      kind: 'proposal';
+      id: CreatableDaoProposalAction;
+      label: string;
+      description: string;
+    }
+  | {
+      kind: 'policy_link';
+      id: DaoPolicyActionId;
+      label: string;
+      description: string;
+      href: string;
+    };
+
+export function buildGovernancePolicyActionPath(
+  actionId: DaoPolicyActionId
+): string {
+  return `/governance/policy?action=${actionId}`;
+}
+
+export function resolveAvailablePolicyActionsForProposer(
+  policy: GovernanceDaoPolicy | null | undefined,
+  proposerAccountId: string,
+  delegatedWeight: string
+): Array<(typeof DAO_POLICY_ACTION_OPTIONS)[number]> {
+  const proposer = proposerAccountId.trim();
+  if (!proposer || !canProposePolicyChange(policy, proposer, delegatedWeight)) {
+    return [];
+  }
+
+  return DAO_POLICY_ACTION_OPTIONS.filter((option) =>
+    canProposePolicyAction(policy, proposer, delegatedWeight, option.id)
+  );
+}
+
+export function buildGovernanceCreateActionMenuItems({
+  availableProposalActions,
+  availablePolicyActions = [],
+}: {
+  availableProposalActions: CreatableDaoProposalAction[];
+  availablePolicyActions?: Array<(typeof DAO_POLICY_ACTION_OPTIONS)[number]>;
+}): GovernanceCreateActionMenuItem[] {
+  const items: GovernanceCreateActionMenuItem[] = [];
+
+  for (const group of CREATABLE_DAO_PROPOSAL_ACTION_GROUPS) {
+    const proposalOptions = CREATABLE_DAO_PROPOSAL_ACTIONS.filter(
+      (option) =>
+        option.group === group.id &&
+        availableProposalActions.includes(option.id)
+    );
+
+    if (proposalOptions.length === 0) {
+      continue;
+    }
+
+    items.push({
+      kind: 'section',
+      id: group.id,
+      label: group.label,
+    });
+
+    for (const option of proposalOptions) {
+      items.push({
+        kind: 'proposal',
+        id: option.id,
+        label: option.label,
+        description: option.description,
+      });
+    }
+  }
+
+  if (availablePolicyActions.length > 0) {
+    items.push({
+      kind: 'section',
+      id: 'policy',
+      label: 'Policy',
+    });
+
+    for (const option of availablePolicyActions) {
+      items.push({
+        kind: 'policy_link',
+        id: option.id,
+        label: option.label,
+        description: option.outcome,
+        href: buildGovernancePolicyActionPath(option.id),
+      });
+    }
+  }
+
+  return items;
+}
+
+export function getCreatableDaoProposalActionOption(
+  actionId: CreatableDaoProposalAction
+) {
+  return CREATABLE_DAO_PROPOSAL_ACTIONS.find(
+    (option) => option.id === actionId
+  );
+}
 
 export function buildDaoIdeaProposalPayload({
   description,

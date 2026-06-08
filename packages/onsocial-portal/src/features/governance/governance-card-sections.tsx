@@ -19,6 +19,10 @@ import {
 import { useCallback, useState } from 'react';
 import { FaXTwitter } from 'react-icons/fa6';
 import { RiTelegram2Line } from 'react-icons/ri';
+import {
+  cardDividerDetail,
+  cardDividerSection,
+} from '@/components/ui/card-divider';
 import { Button } from '@/components/ui/button';
 import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import {
@@ -29,6 +33,7 @@ import {
 import {
   portalCollapseMotion,
   portalCollapseTransition,
+  portalVoteProgressTransition,
 } from '@/features/governance/governance-motion';
 import { cn } from '@/lib/utils';
 import type {
@@ -38,7 +43,6 @@ import type {
 } from '@/features/governance/types';
 import { GovernanceAccountChip } from '@/features/governance/governance-account-chip';
 import { buildGovernanceProposalPath } from '@/features/governance/page-utils';
-
 type LiveStatusStyle = {
   stripClass: string;
   textClass: string;
@@ -96,7 +100,7 @@ export function GovernanceCardSkeleton({ className }: { className?: string }) {
         <Skeleton className="h-3.5 w-20 rounded-full bg-foreground/[0.08]" />
       </div>
 
-      <div className="flex items-start justify-between gap-3 border-b border-fade-section pb-3.5">
+      <div className="flex items-start justify-between gap-3 pb-3.5">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <Skeleton className="h-9 w-9 shrink-0 rounded-full bg-foreground/[0.08]" />
           <Skeleton className="h-4 w-[42%] max-w-48 rounded-full bg-foreground/[0.09]" />
@@ -114,11 +118,13 @@ export function GovernanceCardSkeleton({ className }: { className?: string }) {
         lineClassName="h-3 rounded-full bg-foreground/[0.06]"
       />
 
-      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1">
-        <Skeleton className="h-3.5 w-8 rounded-full bg-foreground/[0.07]" />
-        <Skeleton className="h-3.5 w-8 rounded-full bg-foreground/[0.06]" />
-        <Skeleton className="h-3.5 w-8 rounded-full bg-foreground/[0.06]" />
-        <Skeleton className="h-3.5 w-12 rounded-full bg-foreground/[0.08]" />
+      <div className={cn('mt-3 border-t pt-3', cardDividerSection)}>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Skeleton className="h-3.5 w-8 rounded-full bg-foreground/[0.07]" />
+          <Skeleton className="h-3.5 w-8 rounded-full bg-foreground/[0.06]" />
+          <Skeleton className="h-3.5 w-8 rounded-full bg-foreground/[0.06]" />
+          <Skeleton className="h-3.5 w-12 rounded-full bg-foreground/[0.08]" />
+        </div>
       </div>
     </SurfacePanel>
   );
@@ -130,7 +136,7 @@ export function GovernanceCardVoteSkeleton({
   className?: string;
 }) {
   return (
-    <div className={cn('mt-4 space-y-2', className)} aria-hidden="true">
+    <div className={cn('space-y-2', className)} aria-hidden="true">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <Skeleton className="h-3.5 w-8 rounded-full bg-foreground/[0.07]" />
         <Skeleton className="h-3.5 w-8 rounded-full bg-foreground/[0.06]" />
@@ -143,12 +149,12 @@ export function GovernanceCardVoteSkeleton({
 }
 
 export function GovernanceLiveSummary({
-  liveProposal,
+  liveProposal: _liveProposal,
   liveProposalId: _liveProposalId,
-  liveStatusStyle,
+  liveStatusStyle: _liveStatusStyle,
   statusSummary: _statusSummary,
   currentVote: _currentVote,
-  resolvedOutcomeLabel,
+  resolvedOutcomeLabel: _resolvedOutcomeLabel,
   functionCallSummary: _functionCallSummary,
   submissionTime: _submissionTime,
   reviewExpiry: _reviewExpiry,
@@ -158,6 +164,7 @@ export function GovernanceLiveSummary({
   removeVotes,
   approveVotes,
   confirmedAction = null,
+  showVoteRule = true,
 }: {
   liveProposal: GovernanceDaoProposal;
   liveProposalId: number | null;
@@ -179,31 +186,36 @@ export function GovernanceLiveSummary({
     | 'VoteRemove'
     | 'Finalize'
     | null;
+  showVoteRule?: boolean;
 }) {
   const totalWeight = votingProgress.totalWeight ?? 0;
-  const isResolved = Boolean(resolvedOutcomeLabel);
+  const votesCast =
+    votingProgress.approvals + votingProgress.rejects + votingProgress.removes;
+  const barDenominator =
+    showVoteRule && totalWeight > 0
+      ? totalWeight
+      : votesCast > 0
+        ? votesCast
+        : 0;
   const pulseApprove = confirmedAction === 'VoteApprove';
   const pulseReject = confirmedAction === 'VoteReject';
   const pulseRemove = confirmedAction === 'VoteRemove';
   const approvePercent =
-    totalWeight > 0 ? (votingProgress.approvals / totalWeight) * 100 : 0;
+    barDenominator > 0 ? (votingProgress.approvals / barDenominator) * 100 : 0;
   const rejectPercent =
-    totalWeight > 0 ? (votingProgress.rejects / totalWeight) * 100 : 0;
+    barDenominator > 0 ? (votingProgress.rejects / barDenominator) * 100 : 0;
   const removePercent =
-    totalWeight > 0 ? (votingProgress.removes / totalWeight) * 100 : 0;
+    barDenominator > 0 ? (votingProgress.removes / barDenominator) * 100 : 0;
   const pendingPercent =
-    totalWeight > 0
+    showVoteRule && barDenominator > 0
       ? Math.max(100 - approvePercent - rejectPercent - removePercent, 0)
       : 0;
-  const resolvedThreshold = votingProgress.threshold ?? votingProgress.totalWeight;
-  const resolvedPrimaryValue =
-    liveProposal.status === 'Approved'
-      ? `${approveVotes}/${resolvedThreshold ?? '0'}`
-      : liveProposal.status === 'Rejected'
-        ? `${rejectVotes}/${resolvedThreshold ?? '0'}`
-        : liveProposal.status === 'Removed'
-          ? `${removeVotes}/${resolvedThreshold ?? '0'}`
-          : `${votingProgress.votesCast}/${votingProgress.totalWeight ?? '0'}`;
+  const voterPoolSize = votingProgress.totalWeight ?? 0;
+  const voteThreshold = votingProgress.threshold ?? 0;
+  const voteRuleLabel =
+    voterPoolSize > 0 && voteThreshold > 0
+      ? `${voteThreshold}/${voterPoolSize} required`
+      : null;
 
   return (
     <div>
@@ -246,75 +258,58 @@ export function GovernanceLiveSummary({
             <span className="break-all">{removeVotes}</span>
           </motion.span>
         </div>
-        {votingProgress.threshold !== null && (
+        {showVoteRule && votingProgress.threshold !== null && voteRuleLabel ? (
           <>
             <span className="text-border/40">·</span>
-            <span
-              className={`font-medium ${isResolved || votingProgress.remaining === 0 ? liveStatusStyle.textClass : votingProgress.approvalStillPossible === false ? 'portal-red-text' : 'text-muted-foreground'}`}
-            >
-              {isResolved
-                ? resolvedPrimaryValue
-                : votingProgress.remaining === 0
-                  ? 'Ready'
-                  : votingProgress.approvalStillPossible === false
-                    ? 'Can\u2019t pass'
-                    : `${votingProgress.remaining} to go`}
+            <span className="font-medium text-muted-foreground">
+              {voteRuleLabel}
             </span>
           </>
-        )}
+        ) : null}
       </div>
 
-      {votingProgress.threshold !== null &&
+      {barDenominator > 0 &&
         (() => {
           const thresholdPct =
-            totalWeight > 0
+            showVoteRule && votingProgress.threshold !== null && totalWeight > 0
               ? (votingProgress.threshold / totalWeight) * 100
               : 0;
-          const showMarker =
-            !isResolved && thresholdPct > 0 && thresholdPct < 100;
+          const showMarker = thresholdPct > 0 && thresholdPct < 100;
 
           return (
             <div className="relative mt-2">
               <div className="flex h-2 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
-                {approvePercent > 0 ? (
-                  <motion.div
-                    className="h-full shrink-0"
-                    initial={false}
-                    animate={{ width: `${approvePercent}%` }}
-                    transition={portalCollapseTransition}
-                    style={{ backgroundColor: 'var(--portal-green)' }}
-                  />
-                ) : null}
-                {rejectPercent > 0 ? (
-                  <motion.div
-                    className="h-full shrink-0"
-                    initial={false}
-                    animate={{ width: `${rejectPercent}%` }}
-                    transition={portalCollapseTransition}
-                    style={{ backgroundColor: 'var(--portal-red)' }}
-                  />
-                ) : null}
-                {removePercent > 0 ? (
-                  <motion.div
-                    className="h-full shrink-0"
-                    initial={false}
-                    animate={{ width: `${removePercent}%` }}
-                    transition={portalCollapseTransition}
-                    style={{ backgroundColor: 'var(--portal-amber)' }}
-                  />
-                ) : null}
-                {pendingPercent > 0 ? (
-                  <motion.div
-                    className="h-full shrink-0 bg-black/10 dark:bg-white/10"
-                    initial={false}
-                    animate={{ width: `${pendingPercent}%` }}
-                    transition={portalCollapseTransition}
-                  />
-                ) : null}
+                <motion.div
+                  className="h-full shrink-0"
+                  initial={false}
+                  animate={{ width: `${approvePercent}%` }}
+                  transition={portalVoteProgressTransition}
+                  style={{ backgroundColor: 'var(--portal-green)' }}
+                />
+                <motion.div
+                  className="h-full shrink-0"
+                  initial={false}
+                  animate={{ width: `${rejectPercent}%` }}
+                  transition={portalVoteProgressTransition}
+                  style={{ backgroundColor: 'var(--portal-red)' }}
+                />
+                <motion.div
+                  className="h-full shrink-0"
+                  initial={false}
+                  animate={{ width: `${removePercent}%` }}
+                  transition={portalVoteProgressTransition}
+                  style={{ backgroundColor: 'var(--portal-amber)' }}
+                />
+                <motion.div
+                  className="h-full shrink-0 bg-black/10 dark:bg-white/10"
+                  initial={false}
+                  animate={{ width: `${pendingPercent}%` }}
+                  transition={portalVoteProgressTransition}
+                />
               </div>
-              {showMarker ? (
+              {showVoteRule && showMarker ? (
                 <PortalHoverTooltip
-                  tooltip={`Threshold: ${votingProgress.threshold}/${totalWeight}`}
+                  tooltip={`${votingProgress.threshold}/${totalWeight} votes required`}
                   className="absolute top-0 h-2 w-px"
                   style={{ left: `${thresholdPct}%` }}
                 >
@@ -331,19 +326,74 @@ export function GovernanceLiveSummary({
   );
 }
 
+const GOVERNANCE_COLLAPSIBLE_TOGGLE_CLASS =
+  'group flex w-full min-h-8 items-center justify-between gap-3 rounded-[0.75rem] px-3 py-1.5 text-left transition-colors hover:bg-foreground/[0.03] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60';
+
+const GOVERNANCE_COLLAPSIBLE_CHEVRON_CLASS =
+  'h-3.5 w-3.5 shrink-0 text-muted-foreground transition-[color,transform] duration-200 group-hover:text-foreground/80';
+
+const VOTE_ACTIVITY_COLLAPSE_AT = 6;
+
+export function GovernanceCollapsiblePanel({
+  label,
+  isOpen,
+  onToggle,
+  children,
+}: {
+  label: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+        className={GOVERNANCE_COLLAPSIBLE_TOGGLE_CLASS}
+      >
+        <p className="portal-eyebrow-wide text-muted-foreground transition-colors group-hover:text-foreground/80">
+          {label}
+        </p>
+        <ChevronDown
+          className={`${GOVERNANCE_COLLAPSIBLE_CHEVRON_CLASS} ${isOpen ? 'rotate-180' : ''}`}
+        />
+      </button>
+
+      <AnimatePresence initial={false}>
+        {isOpen ? (
+          <motion.div
+            key={`${label}-details`}
+            {...portalCollapseMotion}
+            className="overflow-hidden"
+          >
+            {children}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export function GovernanceVoteActivity({
   voteEntries,
   accountId,
   latestActionLink,
   activeVotingRole,
   eligibleVoterAccounts = null,
+  className,
+  defaultExpanded = false,
 }: {
   voteEntries: Array<[string, string]>;
   accountId: string | null | undefined;
   latestActionLink: { label: string; href: string } | null;
   activeVotingRole: GovernanceDaoRole | null;
   eligibleVoterAccounts?: string[] | null;
+  className?: string;
+  defaultExpanded?: boolean;
 }) {
+  const [votesOpen, setVotesOpen] = useState(defaultExpanded);
   const voterPool =
     eligibleVoterAccounts ??
     (activeVotingRole?.kind?.Group ?? []).map((member) => member.toLowerCase());
@@ -356,14 +406,21 @@ export function GovernanceVoteActivity({
 
   if (voteEntries.length === 0 && abstainers.length === 0) return null;
 
+  const totalGuardians = voteEntries.length + abstainers.length;
+  const shouldCollapse = totalGuardians >= VOTE_ACTIVITY_COLLAPSE_AT;
+  const voteSummaryLabel =
+    abstainers.length === 0
+      ? `${voteEntries.length} voted`
+      : `${voteEntries.length}/${totalGuardians} voted`;
+
   const VOTE_ICONS: Record<string, typeof CheckCircle2> = {
     Approve: CheckCircle2,
     Reject: XCircle,
     Remove: Vote,
   };
 
-  return (
-    <div className="mt-3 flex flex-col gap-1.5">
+  const voteList = (
+    <>
       {voteEntries.map(([voterAccount, voterChoice]) => {
         const VoteIcon = VOTE_ICONS[voterChoice] ?? Vote;
         return (
@@ -407,55 +464,25 @@ export function GovernanceVoteActivity({
           <ExternalLink className="h-3 w-3" />
         </a>
       )}
-    </div>
+    </>
   );
-}
 
-const GOVERNANCE_COLLAPSIBLE_TOGGLE_CLASS =
-  'group flex w-full min-h-9 items-center justify-between gap-3 rounded-[0.75rem] px-3 py-2 text-left transition-colors hover:bg-foreground/[0.03] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60';
+  if (!shouldCollapse) {
+    return (
+      <div className={cn('flex flex-col gap-1.5', className)}>{voteList}</div>
+    );
+  }
 
-const GOVERNANCE_COLLAPSIBLE_CHEVRON_CLASS =
-  'h-3.5 w-3.5 shrink-0 text-muted-foreground transition-[color,transform] duration-200 group-hover:text-foreground/80';
-
-export function GovernanceCollapsiblePanel({
-  label,
-  isOpen,
-  onToggle,
-  children,
-}: {
-  label: string;
-  isOpen: boolean;
-  onToggle: () => void;
-  children: React.ReactNode;
-}) {
   return (
-    <div className="mt-3 border-t border-fade-section pt-3">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={isOpen}
-        className={GOVERNANCE_COLLAPSIBLE_TOGGLE_CLASS}
-      >
-        <p className="portal-eyebrow-wide text-muted-foreground transition-colors group-hover:text-foreground/80">
-          {label}
-        </p>
-        <ChevronDown
-          className={`${GOVERNANCE_COLLAPSIBLE_CHEVRON_CLASS} ${isOpen ? 'rotate-180' : ''}`}
-        />
-      </button>
-
-      <AnimatePresence initial={false}>
-        {isOpen ? (
-          <motion.div
-            key={`${label}-details`}
-            {...portalCollapseMotion}
-            className="overflow-hidden"
-          >
-            {children}
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-    </div>
+    <GovernanceCollapsiblePanel
+      label={`Guardian votes · ${voteSummaryLabel}`}
+      isOpen={votesOpen}
+      onToggle={() => setVotesOpen((open) => !open)}
+    >
+      <div className="mt-1 max-h-56 overflow-y-auto overscroll-contain pr-0.5">
+        <div className={cn('flex flex-col gap-1.5', className)}>{voteList}</div>
+      </div>
+    </GovernanceCollapsiblePanel>
   );
 }
 
@@ -550,60 +577,60 @@ export function GovernanceReviewTerms({
       onToggle={() => setDetailsOpen((open) => !open)}
     >
       <dl className="mt-2 space-y-1 text-xs">
-              {rewardPerActionValue && (
-                <div className="flex items-baseline gap-2">
-                  <dt className="text-muted-foreground">Per Action</dt>
-                  <dd className="ml-auto font-mono font-medium text-portal-neutral">
-                    {rewardPerActionValue}
-                  </dd>
-                </div>
-              )}
-              {dailyCapValue && (
-                <div className="flex items-baseline gap-2">
-                  <dt className="text-muted-foreground">Daily Cap</dt>
-                  <dd className="ml-auto font-mono font-medium text-portal-neutral">
-                    {dailyCapValue}
-                  </dd>
-                </div>
-              )}
-              {dailyBudgetValue && (
-                <div className="flex items-baseline gap-2">
-                  <dt className="text-muted-foreground">Daily Budget</dt>
-                  <dd className="ml-auto font-mono font-medium portal-blue-text">
-                    {dailyBudgetValue}
-                  </dd>
-                </div>
-              )}
-              {totalBudgetValue && (
-                <div className="flex items-baseline gap-2">
-                  <dt className="text-muted-foreground">Total Budget</dt>
-                  <dd className="ml-auto font-mono font-medium portal-blue-text">
-                    {totalBudgetValue}
-                  </dd>
-                </div>
-              )}
-              {attachedDepositValue && (
-                <div className="flex items-baseline gap-2">
-                  <dt className="text-muted-foreground">Deposit</dt>
-                  <dd className="ml-auto font-mono font-medium text-portal-neutral">
-                    {attachedDepositValue}
-                  </dd>
-                </div>
-              )}
-              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                <dt className="shrink-0 text-muted-foreground">Contract</dt>
-                <dd className="ml-auto break-all font-mono font-medium text-portal-neutral">
-                  {functionCallSummary.receiverId}
-                </dd>
-              </div>
-              {authorizedCallers.length > 0 && (
-                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                  <dt className="shrink-0 text-muted-foreground">Callers</dt>
-                  <dd className="ml-auto break-all font-mono text-portal-neutral">
-                    {authorizedCallers.join(', ')}
-                  </dd>
-                </div>
-              )}
+        {rewardPerActionValue && (
+          <div className="flex items-baseline gap-2">
+            <dt className="text-muted-foreground">Per Action</dt>
+            <dd className="ml-auto font-mono font-medium text-portal-neutral">
+              {rewardPerActionValue}
+            </dd>
+          </div>
+        )}
+        {dailyCapValue && (
+          <div className="flex items-baseline gap-2">
+            <dt className="text-muted-foreground">Daily Cap</dt>
+            <dd className="ml-auto font-mono font-medium text-portal-neutral">
+              {dailyCapValue}
+            </dd>
+          </div>
+        )}
+        {dailyBudgetValue && (
+          <div className="flex items-baseline gap-2">
+            <dt className="text-muted-foreground">Daily Budget</dt>
+            <dd className="ml-auto font-mono font-medium portal-blue-text">
+              {dailyBudgetValue}
+            </dd>
+          </div>
+        )}
+        {totalBudgetValue && (
+          <div className="flex items-baseline gap-2">
+            <dt className="text-muted-foreground">Total Budget</dt>
+            <dd className="ml-auto font-mono font-medium portal-blue-text">
+              {totalBudgetValue}
+            </dd>
+          </div>
+        )}
+        {attachedDepositValue && (
+          <div className="flex items-baseline gap-2">
+            <dt className="text-muted-foreground">Deposit</dt>
+            <dd className="ml-auto font-mono font-medium text-portal-neutral">
+              {attachedDepositValue}
+            </dd>
+          </div>
+        )}
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <dt className="shrink-0 text-muted-foreground">Contract</dt>
+          <dd className="ml-auto break-all font-mono font-medium text-portal-neutral">
+            {functionCallSummary.receiverId}
+          </dd>
+        </div>
+        {authorizedCallers.length > 0 && (
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <dt className="shrink-0 text-muted-foreground">Callers</dt>
+            <dd className="ml-auto break-all font-mono text-portal-neutral">
+              {authorizedCallers.join(', ')}
+            </dd>
+          </div>
+        )}
       </dl>
     </GovernanceCollapsiblePanel>
   );
@@ -650,9 +677,24 @@ export function GovernanceGuardianActions({
 }) {
   const hasActions =
     canApprove || canReject || canRemove || canFinalize || canReopen;
+  const showActionButtons = Boolean(connectedRole && hasActions);
+  const showRetryNote = canFinalize && finalizeLabel === 'Retry';
+  const showSubmissionTx =
+    !resolvedOutcomeLabel && !currentVote && Boolean(proposalTxHref);
+  const showOutcomeOnlySummary =
+    Boolean(resolvedOutcomeLabel) &&
+    !connectedRole &&
+    !showActionButtons &&
+    !currentVote &&
+    !showRetryNote &&
+    !showSubmissionTx;
+
+  if (showOutcomeOnlySummary) {
+    return null;
+  }
 
   return (
-    <div className="mt-3 border-t border-fade-section pt-3">
+    <div>
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
           {connectedRole && (
@@ -692,7 +734,7 @@ export function GovernanceGuardianActions({
         )}
       </div>
 
-      {connectedRole && hasActions && (
+      {showActionButtons && (
         <div className="mt-3 flex flex-wrap gap-2">
           {canApprove && (
             <Button
@@ -830,7 +872,12 @@ export function ShareProposal({
   const emailBody = `Hey, check out this governance proposal on OnSocial:\n\n"${label}"\n\n${getUrl()}`;
 
   return (
-    <div className="mt-3 flex items-center justify-end gap-2.5 border-t border-fade-detail pt-3">
+    <div
+      className={cn(
+        'mt-2 flex items-center justify-end gap-2.5 border-t pt-2.5',
+        cardDividerDetail
+      )}
+    >
       {canNativeShare ? (
         /* ── Mobile / native share sheet ── */
         <>

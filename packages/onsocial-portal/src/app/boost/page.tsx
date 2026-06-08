@@ -32,7 +32,7 @@ import { Button } from '@/components/ui/button';
 import { BoostSocialLayer } from '@/components/boost/boost-social-layer';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
 import { PortalBadge } from '@/components/ui/portal-badge';
-import { PulsingDots } from '@/components/ui/pulsing-dots';
+import { StatStripSkeleton } from '@/components/ui/skeleton';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
@@ -45,6 +45,7 @@ import {
   socialToYocto,
   TOKEN_CONTRACT,
 } from '@/lib/near-rpc';
+import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
 import { createPortalOnSocialClient } from '@/lib/onsocial-client';
 import { portalColors } from '@/lib/portal-colors';
 import {
@@ -119,55 +120,6 @@ type ClaimCelebration = { id: number; amountYocto: bigint };
 
 // ─── Helpers ─────────────────────────────────────────────────
 
-function normalizeStakeAmountInput(raw: string): string {
-  let value = raw
-    .replace(/,/g, '.')
-    .replace(/\s+/g, '')
-    .replace(/[^\d.]/g, '');
-  if (!value) return '';
-
-  const firstDotIndex = value.indexOf('.');
-  if (firstDotIndex >= 0) {
-    value =
-      value.slice(0, firstDotIndex + 1) +
-      value.slice(firstDotIndex + 1).replace(/\./g, '');
-  }
-
-  if (value.startsWith('.')) {
-    value = `0${value}`;
-  }
-
-  if (!value.includes('.') && /^0\d+$/.test(value)) {
-    value = `0.${value.slice(1)}`;
-  }
-
-  const hasTrailingDot = value.endsWith('.');
-  const [rawWhole = '0', rawFraction = ''] = value.split('.');
-  let whole = rawWhole.replace(/^0+(?=\d)/, '');
-  if (!whole) whole = '0';
-
-  const fraction = rawFraction.slice(0, STAKE_AMOUNT_MAX_DECIMALS);
-  if (hasTrailingDot && fraction.length === 0) {
-    return `${whole}.`;
-  }
-
-  return fraction ? `${whole}.${fraction}` : whole;
-}
-
-function finalizeStakeAmountInput(raw: string): string {
-  const normalized = normalizeStakeAmountInput(raw);
-  if (!normalized) return '';
-  if (normalized.endsWith('.')) return normalized.slice(0, -1);
-
-  if (!normalized.includes('.')) {
-    return normalized;
-  }
-
-  const [whole, fraction] = normalized.split('.');
-  const trimmedFraction = fraction.replace(/0+$/, '');
-  return trimmedFraction ? `${whole}.${trimmedFraction}` : whole;
-}
-
 function parseYocto(value: string | null | undefined): bigint {
   if (!value) return 0n;
   try {
@@ -229,6 +181,14 @@ function formatYoctoSocialParts(
   };
 }
 
+function LiveFractionDigit({ digit }: { digit: string }) {
+  return (
+    <span className="inline-block w-[0.6em] text-center" aria-hidden>
+      {digit}
+    </span>
+  );
+}
+
 function LiveClaimableAmount({
   valueYocto,
   fractionDigits,
@@ -247,21 +207,19 @@ function LiveClaimableAmount({
 
   return (
     <p
-      className={cn(className, 'flex w-full justify-center')}
+      className={cn(className, 'text-center')}
       aria-label={`${full} SOCIAL ready to collect`}
     >
       {isLiveAccruing && fractionDigits > 0 ? (
-        <span
-          className="inline-grid items-baseline tabular-nums"
-          style={{
-            gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr)',
-            width: '100%',
-          }}
-        >
-          <span className="min-w-0 justify-self-end text-right">{whole}</span>
-          <span className="justify-self-center opacity-90">.</span>
-          <span className="min-w-0 justify-self-start text-left opacity-90">
-            {fraction}
+        <span className="inline-flex flex-row flex-nowrap items-baseline justify-center whitespace-nowrap tabular-nums">
+          <span className="pr-px text-right font-bold tracking-[-0.03em]">
+            {whole}
+          </span>
+          <span className="font-bold leading-none opacity-90">.</span>
+          <span className="inline-flex flex-row flex-nowrap pl-px text-[0.62em] font-semibold leading-none tracking-[-0.01em] opacity-85">
+            {fraction.split('').map((digit, index) => (
+              <LiveFractionDigit key={`fraction-${index}`} digit={digit} />
+            ))}
           </span>
         </span>
       ) : (
@@ -272,7 +230,7 @@ function LiveClaimableAmount({
 }
 
 function formatDecimalString(value: string, maxDec = 4): string {
-  const normalized = finalizeStakeAmountInput(value);
+  const normalized = finalizeAmountInput(value, STAKE_AMOUNT_MAX_DECIMALS);
   if (!normalized) return '0';
 
   const [rawWhole = '0', rawFraction = ''] = normalized.split('.');
@@ -568,7 +526,10 @@ export default function BoostPage() {
 
   // ── Computed ──
   const period = LOCK_PERIODS[selectedPeriod];
-  const normalizedStakeAmount = finalizeStakeAmountInput(stakeAmount);
+  const normalizedStakeAmount = finalizeAmountInput(
+    stakeAmount,
+    STAKE_AMOUNT_MAX_DECIMALS
+  );
   const stakeAmountYocto = BigInt(socialToYocto(normalizedStakeAmount || '0'));
   const enteredStakeAmount = stakeAmountYocto > 0n;
   const minimumStakeYocto = BigInt(socialToYocto(MIN_STAKE_AMOUNT));
@@ -932,13 +893,17 @@ export default function BoostPage() {
 
   const handleStakeAmountChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
-      setStakeAmount(normalizeStakeAmountInput(event.target.value));
+      setStakeAmount(
+        normalizeAmountInput(event.target.value, STAKE_AMOUNT_MAX_DECIMALS)
+      );
     },
     []
   );
 
   const handleStakeAmountBlur = useCallback(() => {
-    setStakeAmount((current) => finalizeStakeAmountInput(current));
+    setStakeAmount((current) =>
+      finalizeAmountInput(current, STAKE_AMOUNT_MAX_DECIMALS)
+    );
   }, []);
 
   const handleStake = () => {
@@ -1224,9 +1189,17 @@ export default function BoostPage() {
                   <SurfacePanel
                     radius="xl"
                     tone="soft"
-                    className="flex h-full min-h-[19rem] items-center justify-center p-8 md:min-h-[17rem]"
+                    className="h-full min-h-[19rem] p-4 md:min-h-[17rem] md:p-5"
                   >
-                    <PulsingDots size="lg" />
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                      <div className="h-4 w-24 animate-pulse rounded-full bg-foreground/[0.08]" />
+                      <div className="h-8 w-8 animate-pulse rounded-full bg-foreground/[0.06]" />
+                    </div>
+                    <StatStripSkeleton
+                      items={3}
+                      columns={3}
+                      showTopDivider={false}
+                    />
                   </SurfacePanel>
                 </motion.div>
               ) : hasStake ? (
@@ -1269,7 +1242,9 @@ export default function BoostPage() {
                     <BoostCollectSection
                       className="mt-4"
                       visibleLiveClaimableYocto={visibleLiveClaimableYocto}
-                      displayFractionDigits={LIVE_COUNTER_DISPLAY_FRACTION_DIGITS}
+                      displayFractionDigits={
+                        LIVE_COUNTER_DISPLAY_FRACTION_DIGITS
+                      }
                       isLiveAccruing={shouldLiveAccrueRewards === true}
                       perSecondDisplay={perSecondDisplay}
                       claimCelebration={claimCelebration}
@@ -1584,8 +1559,9 @@ export default function BoostPage() {
                         size="xs"
                         onClick={() =>
                           setStakeAmount(
-                            finalizeStakeAmountInput(
-                              yoctoToSocial(tokenBalance)
+                            finalizeAmountInput(
+                              yoctoToSocial(tokenBalance),
+                              STAKE_AMOUNT_MAX_DECIMALS
                             )
                           )
                         }

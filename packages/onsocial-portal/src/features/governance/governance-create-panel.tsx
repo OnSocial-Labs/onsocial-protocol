@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronDown, RefreshCw, Settings2, User } from 'lucide-react';
+import { Check, ChevronDown, RefreshCw, Settings2 } from 'lucide-react';
 import { SectionHeader } from '@/components/layout/section-header';
 import { Button } from '@/components/ui/button';
 import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
@@ -13,7 +14,6 @@ import {
   CompactActionSkeleton,
   StatStripSkeleton,
 } from '@/components/ui/skeleton';
-import { PulsingDots } from '@/components/ui/pulsing-dots';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
 import {
@@ -22,24 +22,33 @@ import {
   floatingPanelItemSelectedClass,
 } from '@/components/ui/floating-panel';
 import { FloatingPanelMenu } from '@/components/ui/floating-panel-menu';
-import { InsetDividerItem } from '@/components/ui/inset-divider-group';
+import {
+  isNearAccountInputReady,
+  NearAccountField,
+  NearAccountPicker,
+} from '@/components/ui/near-account-field';
 import { useWallet } from '@/contexts/wallet-context';
 import { useDropdown } from '@/hooks/use-dropdown';
+import { fetchDaoPolicy, submitDaoProposal } from '@/features/governance/api';
 import {
-  fetchDaoPolicy,
-  submitDaoProposal,
-} from '@/features/governance/api';
-import {
+  buildDaoIdeaProposalPayload,
   buildDaoMemberProposalPayload,
+  buildGovernanceCreateActionMenuItems,
   buildProtocolProposalAppId,
-  CREATABLE_DAO_MEMBERSHIP_PROPOSAL_OPTIONS,
   canProposeDaoKind,
   canProposePolicyChange,
+  getCreatableDaoProposalActionOption,
   getCreatableDaoRoleOptions,
+  getDaoGroupRoleMemberOptions,
   getDaoKindPermissionBlockReason,
+  getProposalActionSubmitLabel,
   getProposalKindBlockReason,
-  resolveCreatableProposalKinds,
-  type CreatableDaoProposalKind,
+  isProposalActionNomination,
+  proposalActionToKind,
+  resolveAvailablePolicyActionsForProposer,
+  resolveCreatableProposalActionsForProposer,
+  type CreatableDaoProposalAction,
+  type GovernanceCreateActionMenuItem,
 } from '@/features/governance/governance-proposal-builders';
 import type { GovernanceDaoPolicy } from '@/features/governance/types';
 import { buildGovernanceProposalPath } from '@/features/governance/page-utils';
@@ -50,12 +59,32 @@ import {
   GOVERNANCE_DAO_ACCOUNT,
 } from '@/lib/portal-config';
 import {
+  getNearAccountInputError,
+  normalizeNearAccountId,
+} from '@/lib/portal-near-account';
+import {
   getGovernanceEligibility,
   getGovernanceProposalBond,
   yoctoToNear,
   yoctoToSocial,
   type GovernanceEligibilitySnapshot,
 } from '@/lib/near-rpc';
+import {
+  getBoundedNoteCounterClass,
+  getBoundedNoteCounterLabel,
+  getBoundedNoteError,
+  isBoundedNoteReady,
+  normalizeBoundedNote,
+  PROPOSAL_DESCRIPTION_LIMITS,
+} from '@/lib/bounded-note-field';
+
+const descriptionFeedbackExit = { opacity: 0, transition: { duration: 0 } };
+const descriptionFeedbackEnter = { opacity: 0, y: -4 };
+const descriptionFeedbackAnimate = { opacity: 1, y: 0 };
+const descriptionFeedbackTransition = {
+  duration: 0.16,
+  ease: 'easeOut' as const,
+};
 
 function formatSocial(value: string) {
   const numeric = Number(yoctoToSocial(value));
@@ -82,10 +111,12 @@ export function GovernanceCreatePanel() {
   const { txResult, clearTxResult, setTxResult, trackTransaction } =
     useNearTransactionFeedback(accountId);
 
-  const [proposalKind, setProposalKind] =
-    useState<CreatableDaoProposalKind>('join_role');
+  const [proposalAction, setProposalAction] =
+    useState<CreatableDaoProposalAction>('join_self');
   const [roleId, setRoleId] = useState('');
+  const [nominatedAccountInput, setNominatedAccountInput] = useState('');
   const [description, setDescription] = useState('');
+  const [showDescriptionFeedback, setShowDescriptionFeedback] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -105,7 +136,21 @@ export function GovernanceCreatePanel() {
     toggle: toggleRoleMenu,
     containerRef: roleMenuContainerRef,
   } = useDropdown();
+  const [actionActiveIndex, setActionActiveIndex] = useState(0);
+  const actionTriggerRef = useRef<HTMLButtonElement>(null);
+  const actionOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const {
+    isOpen: actionMenuOpen,
+    open: openActionMenu,
+    close: closeActionMenu,
+    toggle: toggleActionMenu,
+    containerRef: actionMenuContainerRef,
+  } = useDropdown();
 
+  const proposalKind = proposalActionToKind(proposalAction);
+  const isMembershipNomination = isProposalActionNomination(proposalAction);
+  const isAddMemberAction = proposalAction === 'add_member';
+  const isRemoveMemberAction = proposalAction === 'remove_member';
   const selectedRoleIndex = Math.max(
     0,
     roleOptions.findIndex((role) => role === roleId)
@@ -154,9 +199,24 @@ export function GovernanceCreatePanel() {
     void loadContext();
   }, [accountId, loadContext]);
 
-  const memberAccountId = accountId ?? '';
-  const memberLookup = useMemberAccountLookup(memberAccountId);
-
+  const proposerAccountId = accountId ?? '';
+  const subjectAccountId = useMemo(() => {
+    if (proposalAction === 'idea') {
+      return proposerAccountId;
+    }
+    if (isMembershipNomination) {
+      return normalizeNearAccountId(nominatedAccountInput);
+    }
+    return proposerAccountId;
+  }, [
+    isMembershipNomination,
+    nominatedAccountInput,
+    proposalAction,
+    proposerAccountId,
+  ]);
+  const subjectLookup = useMemberAccountLookup(subjectAccountId, {
+    trustedAccount: true,
+  });
   const isInitialLoading = loading && !eligibility;
   const thresholdDisplay = useMemo(() => {
     if (!eligibility) return '…';
@@ -170,9 +230,62 @@ export function GovernanceCreatePanel() {
   const canCoverBond =
     eligibility != null &&
     BigInt(eligibility.nearBalance) >= BigInt(proposalBond);
-  const availableProposalKinds = useMemo(
-    () => resolveCreatableProposalKinds(daoPolicy, roleId, memberAccountId),
-    [daoPolicy, memberAccountId, roleId]
+  const isMembershipProposal = proposalAction !== 'idea';
+  const availableProposalActions = useMemo(
+    () =>
+      resolveCreatableProposalActionsForProposer(
+        daoPolicy,
+        roleId,
+        proposerAccountId,
+        eligibility?.delegatedWeight ?? '0'
+      ),
+    [daoPolicy, eligibility?.delegatedWeight, proposerAccountId, roleId]
+  );
+  const availablePolicyActions = useMemo(
+    () =>
+      resolveAvailablePolicyActionsForProposer(
+        daoPolicy,
+        proposerAccountId,
+        eligibility?.delegatedWeight ?? '0'
+      ),
+    [daoPolicy, eligibility?.delegatedWeight, proposerAccountId]
+  );
+  const actionMenuItems = useMemo(
+    () =>
+      buildGovernanceCreateActionMenuItems({
+        availableProposalActions,
+        availablePolicyActions,
+      }),
+    [availablePolicyActions, availableProposalActions]
+  );
+  const selectableProposalMenuItems = useMemo(
+    () =>
+      actionMenuItems.filter(
+        (
+          item
+        ): item is Extract<
+          GovernanceCreateActionMenuItem,
+          { kind: 'proposal' }
+        > => item.kind === 'proposal'
+      ),
+    [actionMenuItems]
+  );
+  const selectedActionOption =
+    getCreatableDaoProposalActionOption(proposalAction);
+  const selectedActionIndex = Math.max(
+    0,
+    selectableProposalMenuItems.findIndex(
+      (option) => option.id === proposalAction
+    )
+  );
+  const showActionDropdown =
+    selectableProposalMenuItems.length + availablePolicyActions.length > 1;
+  const removableMemberOptions = useMemo(
+    () =>
+      getDaoGroupRoleMemberOptions(daoPolicy, roleId, {
+        excludeAccountId: proposerAccountId,
+      }),
+    [daoPolicy, proposerAccountId, roleId]
   );
   const membershipBlockReason = useMemo(
     () =>
@@ -180,71 +293,140 @@ export function GovernanceCreatePanel() {
         proposalKind,
         daoPolicy,
         roleId,
-        memberAccountId
+        subjectAccountId
       ),
-    [daoPolicy, memberAccountId, proposalKind, roleId]
+    [daoPolicy, proposalKind, roleId, subjectAccountId]
   );
-  const proposalKindAllowed = availableProposalKinds.includes(proposalKind);
+  const proposalActionAllowed =
+    availableProposalActions.includes(proposalAction);
   const canProposeMembershipKind =
     !!eligibility &&
-    !!memberAccountId &&
+    !!proposerAccountId &&
     canProposeDaoKind(
       daoPolicy,
-      memberAccountId,
+      proposerAccountId,
       eligibility.delegatedWeight,
       proposalKind
     );
+  const subjectReady = useMemo(() => {
+    if (isAddMemberAction) {
+      return isNearAccountInputReady(nominatedAccountInput);
+    }
+    if (isRemoveMemberAction) {
+      const normalizedSubject = normalizeNearAccountId(nominatedAccountInput);
+      return removableMemberOptions.some(
+        (member) => normalizeNearAccountId(member) === normalizedSubject
+      );
+    }
+    return subjectLookup.exists;
+  }, [
+    isAddMemberAction,
+    isRemoveMemberAction,
+    nominatedAccountInput,
+    removableMemberOptions,
+    subjectLookup.exists,
+  ]);
+  const normalizedDescription = normalizeBoundedNote(description);
+  const descriptionTextError = getBoundedNoteError(description);
+  const descriptionLength = normalizedDescription.length;
+  const hasDescription = descriptionLength > 0;
+  const descriptionReady = isBoundedNoteReady(
+    description,
+    PROPOSAL_DESCRIPTION_LIMITS
+  );
   const canSubmit =
     isConnected &&
     eligibility?.canPropose &&
     canCoverBond &&
-    roleId.trim().length > 0 &&
-    Boolean(memberAccountId) &&
-    memberLookup.exists &&
-    proposalKindAllowed &&
+    Boolean(proposerAccountId) &&
+    (isMembershipProposal ? roleId.trim().length > 0 && subjectReady : true) &&
+    proposalActionAllowed &&
     canProposeMembershipKind &&
+    descriptionReady &&
     !submitting;
 
   const blockedReason = useMemo(() => {
-    if (!isConnected) return 'Connect wallet to submit a proposal.';
+    if (!isConnected) return 'Connect your account to submit a proposal.';
     if (!eligibility) return '';
     if (!eligibility.canPropose) {
       return `Delegate ${formatSocial(eligibility.remainingToThreshold ?? '0')} more SOCIAL to reach the proposal threshold.`;
     }
     if (!canCoverBond) {
-      return `Add ${bondDisplay} NEAR to your wallet for the proposal bond.`;
+      return `Add ${bondDisplay} NEAR to your account for the proposal bond.`;
     }
-    if (membershipBlockReason) {
+    if (isRemoveMemberAction && removableMemberOptions.length === 0) {
+      return `No other members in ${roleId || 'this role'} to remove.`;
+    }
+    if (isMembershipProposal && membershipBlockReason) {
       return membershipBlockReason;
     }
     if (
       eligibility.canPropose &&
-      memberAccountId &&
+      proposerAccountId &&
       !canProposeMembershipKind
     ) {
       return getDaoKindPermissionBlockReason(proposalKind);
+    }
+    if (isMembershipNomination && nominatedAccountInput.trim()) {
+      const accountError = getNearAccountInputError(nominatedAccountInput);
+      if (accountError) {
+        return accountError;
+      }
+    }
+    if (hasDescription && descriptionTextError) {
+      return descriptionTextError;
     }
     return '';
   }, [
     bondDisplay,
     canCoverBond,
     canProposeMembershipKind,
+    descriptionTextError,
     eligibility,
+    hasDescription,
     isConnected,
-    memberAccountId,
+    isMembershipNomination,
+    isMembershipProposal,
+    isRemoveMemberAction,
     membershipBlockReason,
+    removableMemberOptions.length,
+    roleId,
+    nominatedAccountInput,
     proposalKind,
+    proposerAccountId,
+    subjectAccountId,
   ]);
 
   useEffect(() => {
-    if (availableProposalKinds.length === 0) {
+    if (!isRemoveMemberAction) {
       return;
     }
 
-    if (!availableProposalKinds.includes(proposalKind)) {
-      setProposalKind(availableProposalKinds[0]);
+    setNominatedAccountInput((current) => {
+      const normalizedCurrent = normalizeNearAccountId(current);
+      return (
+        removableMemberOptions.find(
+          (member) => normalizeNearAccountId(member) === normalizedCurrent
+        ) ??
+        removableMemberOptions[0] ??
+        ''
+      );
+    });
+  }, [isRemoveMemberAction, proposalAction, removableMemberOptions, roleId]);
+
+  useEffect(() => {
+    if (availableProposalActions.length === 0) {
+      return;
     }
-  }, [availableProposalKinds, proposalKind]);
+
+    if (!availableProposalActions.includes(proposalAction)) {
+      const fallback =
+        availableProposalActions.find((action) => action === 'idea') ??
+        availableProposalActions[0];
+      setProposalAction(fallback);
+      setNominatedAccountInput('');
+    }
+  }, [availableProposalActions, proposalAction]);
 
   const handleSubmit = useCallback(async () => {
     if (!wallet || !accountId) {
@@ -256,12 +438,14 @@ export function GovernanceCreatePanel() {
       proposalKind,
       daoPolicy,
       roleId,
-      memberAccountId
+      subjectAccountId
     );
     const permissionReason =
-      eligibility && memberAccountId && !canProposeDaoKind(
+      eligibility &&
+      proposerAccountId &&
+      !canProposeDaoKind(
         daoPolicy,
-        memberAccountId,
+        proposerAccountId,
         eligibility.delegatedWeight,
         proposalKind
       )
@@ -273,8 +457,13 @@ export function GovernanceCreatePanel() {
       return;
     }
 
-    if (membershipReason) {
+    if (isMembershipProposal && membershipReason) {
       setError(membershipReason);
+      return;
+    }
+
+    if (descriptionTextError) {
+      setError(descriptionTextError);
       return;
     }
 
@@ -283,22 +472,22 @@ export function GovernanceCreatePanel() {
       return;
     }
 
-    if (proposalKind !== 'join_role' && proposalKind !== 'leave_role') {
-      setError('Only join and leave membership proposals can be submitted here.');
-      return;
-    }
-
     setError('');
     clearTxResult();
     setSubmitting(true);
 
     try {
-      const payload = buildDaoMemberProposalPayload({
-        kind: proposalKind,
-        memberId: memberAccountId,
-        roleId,
-        description: description.trim() || undefined,
-      });
+      const payload =
+        proposalKind === 'idea'
+          ? buildDaoIdeaProposalPayload({
+              description: normalizedDescription,
+            })
+          : buildDaoMemberProposalPayload({
+              kind: proposalKind,
+              memberId: subjectAccountId,
+              roleId,
+              description: normalizedDescription,
+            });
 
       const { proposalId, txHash } = await submitDaoProposal(
         wallet,
@@ -350,19 +539,21 @@ export function GovernanceCreatePanel() {
     clearTxResult,
     connect,
     daoPolicy,
-    description,
+    descriptionTextError,
     eligibility,
-    memberAccountId,
+    normalizedDescription,
+    isMembershipProposal,
     proposalKind,
+    proposerAccountId,
     roleId,
+    subjectAccountId,
     router,
     setTxResult,
     trackTransaction,
     wallet,
   ]);
 
-  const daoAccountId =
-    eligibility?.daoAccountId ?? GOVERNANCE_DAO_ACCOUNT;
+  const daoAccountId = eligibility?.daoAccountId ?? GOVERNANCE_DAO_ACCOUNT;
   const showPolicySettings =
     !!eligibility &&
     canProposePolicyChange(
@@ -393,6 +584,29 @@ export function GovernanceCreatePanel() {
     closeRoleDropdown();
   };
 
+  const openActionDropdown = (index = selectedActionIndex) => {
+    setActionActiveIndex(index >= 0 ? index : 0);
+    openActionMenu();
+  };
+
+  const closeActionDropdown = () => {
+    closeActionMenu();
+    actionTriggerRef.current?.focus();
+  };
+
+  const selectActionAtIndex = (index: number) => {
+    const nextAction = selectableProposalMenuItems[index];
+    if (!nextAction) {
+      return;
+    }
+
+    setProposalAction(nextAction.id);
+    setActionActiveIndex(index);
+    setNominatedAccountInput('');
+    setError('');
+    closeActionDropdown();
+  };
+
   useEffect(() => {
     if (!roleMenuOpen) {
       return;
@@ -400,6 +614,14 @@ export function GovernanceCreatePanel() {
 
     roleOptionRefs.current[roleActiveIndex]?.focus();
   }, [roleActiveIndex, roleMenuOpen]);
+
+  useEffect(() => {
+    if (!actionMenuOpen) {
+      return;
+    }
+
+    actionOptionRefs.current[actionActiveIndex]?.focus();
+  }, [actionActiveIndex, actionMenuOpen]);
 
   return (
     <>
@@ -433,7 +655,10 @@ export function GovernanceCreatePanel() {
                     size="icon"
                     className="h-8 w-8 rounded-full border-border/40 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground"
                   >
-                    <Link href="/governance/policy" aria-label="Open DAO policy">
+                    <Link
+                      href="/governance/policy"
+                      aria-label="Open DAO policy"
+                    >
                       <Settings2 className="h-4 w-4" />
                     </Link>
                   </Button>
@@ -465,7 +690,7 @@ export function GovernanceCreatePanel() {
         {!accountId ? (
           <div className="mt-3 border-t border-fade-detail pt-3">
             <p className="text-sm text-muted-foreground">
-              Connect wallet to continue.
+              Connect your account to continue.
             </p>
             <Button
               type="button"
@@ -474,7 +699,7 @@ export function GovernanceCreatePanel() {
                 void connect();
               }}
             >
-              Connect wallet
+              Connect account
             </Button>
           </div>
         ) : isInitialLoading ? (
@@ -485,7 +710,7 @@ export function GovernanceCreatePanel() {
               groupClassName="mt-0"
               showTopDivider={false}
             />
-            <CompactActionSkeleton className="mt-3 pt-3" tabCount={2} />
+            <CompactActionSkeleton className="mt-3 pt-3" tabCount={3} />
           </div>
         ) : (
           <div className="mx-auto mt-3 w-full min-w-0 max-w-xl">
@@ -507,7 +732,11 @@ export function GovernanceCreatePanel() {
                 showDivider
                 size="sm"
               />
-              <StatStripCell label="Bond" value={`${bondDisplay} NEAR`} size="sm" />
+              <StatStripCell
+                label="Bond"
+                value={`${bondDisplay} NEAR`}
+                size="sm"
+              />
             </StatStrip>
 
             {!eligibility?.canPropose ? (
@@ -523,133 +752,167 @@ export function GovernanceCreatePanel() {
             ) : null}
 
             <div className="mt-3 space-y-3">
-              <div className="flex flex-wrap gap-2">
-                {CREATABLE_DAO_MEMBERSHIP_PROPOSAL_OPTIONS.map((option) => {
-                  const active = proposalKind === option.kind;
-                  const allowed = availableProposalKinds.includes(option.kind);
-
-                  return (
-                    <Button
-                      key={option.kind}
-                      type="button"
-                      variant={active ? 'default' : 'outline'}
-                      size="xs"
-                      disabled={!allowed}
-                      onClick={() => {
-                        setProposalKind(option.kind);
-                        setError('');
-                      }}
-                    >
-                      {option.label}
-                    </Button>
-                  );
-                })}
-              </div>
-
               <div>
                 <label
                   htmlFor={
-                    showRoleDropdown ? 'governance-create-role' : undefined
+                    showActionDropdown ? 'governance-create-action' : undefined
                   }
                   className={fieldLabelClass}
                 >
-                  Role
+                  Action
                 </label>
-                {roleOptions.length === 0 ? (
+                {selectableProposalMenuItems.length === 0 ? (
                   <div className="portal-field-focus rounded-2xl border border-border/40 bg-background/45 px-4 py-3 text-sm text-muted-foreground md:py-3.5">
-                    No membership roles available on this DAO yet.
+                    {availablePolicyActions.length > 0 ? (
+                      <p>
+                        No public proposal actions here. Open{' '}
+                        <Link
+                          href="/governance/policy"
+                          className="portal-action-link font-medium"
+                        >
+                          DAO policy
+                        </Link>{' '}
+                        to change permissions or parameters.
+                      </p>
+                    ) : (
+                      'No proposal actions available for your account on this DAO yet.'
+                    )}
                   </div>
-                ) : showRoleDropdown ? (
-                  <div className="relative" ref={roleMenuContainerRef}>
+                ) : showActionDropdown ? (
+                  <div className="relative" ref={actionMenuContainerRef}>
                     <button
-                      ref={roleTriggerRef}
-                      id="governance-create-role"
+                      ref={actionTriggerRef}
+                      id="governance-create-action"
                       type="button"
-                      onClick={toggleRoleMenu}
+                      onClick={toggleActionMenu}
                       onKeyDown={(event) => {
                         if (event.key === 'ArrowDown') {
                           event.preventDefault();
-                          openRoleDropdown(
+                          openActionDropdown(
                             Math.min(
-                              selectedRoleIndex + 1,
-                              roleOptions.length - 1
+                              selectedActionIndex + 1,
+                              selectableProposalMenuItems.length - 1
                             )
                           );
                         } else if (event.key === 'ArrowUp') {
                           event.preventDefault();
-                          openRoleDropdown(Math.max(selectedRoleIndex - 1, 0));
+                          openActionDropdown(
+                            Math.max(selectedActionIndex - 1, 0)
+                          );
                         } else if (event.key === 'Enter' || event.key === ' ') {
                           event.preventDefault();
-                          openRoleDropdown(selectedRoleIndex);
+                          openActionDropdown(selectedActionIndex);
                         }
                       }}
                       aria-haspopup="listbox"
-                      aria-expanded={roleMenuOpen}
+                      aria-expanded={actionMenuOpen}
                       className={`portal-field-focus flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm outline-none md:py-3.5 ${
-                        roleMenuOpen
+                        actionMenuOpen
                           ? 'border-border bg-background/60'
                           : 'border-border/40 bg-background/45'
                       }`}
                     >
-                      <span>{roleId}</span>
+                      <span>
+                        {selectedActionOption?.label ?? proposalAction}
+                      </span>
                       <ChevronDown
                         className={`h-4 w-4 text-muted-foreground transition-transform ${
-                          roleMenuOpen ? 'rotate-180' : ''
+                          actionMenuOpen ? 'rotate-180' : ''
                         }`}
                       />
                     </button>
 
                     <FloatingPanelMenu
-                      open={roleMenuOpen}
+                      open={actionMenuOpen}
                       align="full"
                       className="space-y-0.5 p-1 md:p-1.5"
                       role="listbox"
-                      aria-label="DAO role"
+                      aria-label="Proposal action"
                       onKeyDown={(event) => {
                         if (event.key === 'ArrowDown') {
                           event.preventDefault();
-                          setRoleActiveIndex((current) =>
-                            Math.min(current + 1, roleOptions.length - 1)
+                          setActionActiveIndex((current) =>
+                            Math.min(
+                              current + 1,
+                              selectableProposalMenuItems.length - 1
+                            )
                           );
                         } else if (event.key === 'ArrowUp') {
                           event.preventDefault();
-                          setRoleActiveIndex((current) =>
+                          setActionActiveIndex((current) =>
                             Math.max(current - 1, 0)
                           );
                         } else if (event.key === 'Home') {
                           event.preventDefault();
-                          setRoleActiveIndex(0);
+                          setActionActiveIndex(0);
                         } else if (event.key === 'End') {
                           event.preventDefault();
-                          setRoleActiveIndex(roleOptions.length - 1);
+                          setActionActiveIndex(
+                            selectableProposalMenuItems.length - 1
+                          );
                         } else if (event.key === 'Enter' || event.key === ' ') {
                           event.preventDefault();
-                          selectRoleAtIndex(roleActiveIndex);
+                          selectActionAtIndex(actionActiveIndex);
                         } else if (event.key === 'Escape') {
                           event.preventDefault();
-                          closeRoleDropdown();
+                          closeActionDropdown();
                         } else if (event.key === 'Tab') {
-                          closeRoleDropdown();
+                          closeActionDropdown();
                         }
                       }}
                     >
-                      {roleOptions.map((role, index) => {
-                        const selected = role === roleId;
-                        const active = index === roleActiveIndex;
+                      {actionMenuItems.map((item) => {
+                        if (item.kind === 'section') {
+                          return (
+                            <div
+                              key={item.id}
+                              className="px-3 pt-1.5 pb-0.5 first:pt-1"
+                              role="presentation"
+                            >
+                              <p className="portal-type-caption font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                                {item.label}
+                              </p>
+                            </div>
+                          );
+                        }
+
+                        if (item.kind === 'policy_link') {
+                          return (
+                            <Link
+                              key={item.id}
+                              href={item.href}
+                              role="option"
+                              onClick={() => closeActionDropdown()}
+                              className={`${floatingPanelItemClass} justify-between`}
+                            >
+                              <span>{item.label}</span>
+                              <ProtocolMotionArrow className="h-4 w-4 shrink-0 text-muted-foreground" />
+                            </Link>
+                          );
+                        }
+
+                        const proposalIndex =
+                          selectableProposalMenuItems.findIndex(
+                            (option) => option.id === item.id
+                          );
+                        const selected = item.id === proposalAction;
+                        const active = proposalIndex === actionActiveIndex;
 
                         return (
                           <button
                             ref={(element) => {
-                              roleOptionRefs.current[index] = element;
+                              actionOptionRefs.current[proposalIndex] = element;
                             }}
-                            key={role}
-                            id={`governance-create-role-option-${index}`}
+                            key={item.id}
+                            id={`governance-create-action-option-${proposalIndex}`}
                             type="button"
                             role="option"
                             aria-selected={selected}
                             tabIndex={active ? 0 : -1}
-                            onClick={() => selectRoleAtIndex(index)}
-                            onMouseEnter={() => setRoleActiveIndex(index)}
+                            onClick={() => selectActionAtIndex(proposalIndex)}
+                            onMouseEnter={() =>
+                              setActionActiveIndex(proposalIndex)
+                            }
                             className={`${floatingPanelItemClass} justify-between ${
                               selected
                                 ? floatingPanelItemSelectedClass
@@ -658,8 +921,8 @@ export function GovernanceCreatePanel() {
                                   : ''
                             }`}
                           >
-                            <span>{role}</span>
-                            <span className="flex h-4 w-4 items-center justify-center">
+                            <span>{item.label}</span>
+                            <span className="flex h-4 w-4 shrink-0 items-center justify-center">
                               {selected ? <Check className="h-4 w-4" /> : null}
                             </span>
                           </button>
@@ -669,74 +932,258 @@ export function GovernanceCreatePanel() {
                   </div>
                 ) : (
                   <div className="portal-field-focus rounded-2xl border border-border/40 bg-background/45 px-4 py-3 text-sm font-medium md:py-3.5">
-                    {roleId}
+                    {selectedActionOption?.label}
                   </div>
                 )}
               </div>
 
-              <div>
-                <p className={fieldLabelClass}>You</p>
-                <div
-                  id="governance-create-member"
-                  className="portal-field-focus flex min-w-0 items-center rounded-2xl border border-border/40 bg-background/45"
-                >
-                  <InsetDividerItem
-                    showDivider
-                    className="flex shrink-0 items-center py-2 pl-3 pr-3"
-                  >
-                    <span
-                      className={`flex h-7 w-7 items-center justify-center overflow-hidden rounded-full border border-border/50 bg-muted/30 text-muted-foreground transition-opacity ${
-                        memberLookup.checking ? 'opacity-60' : ''
-                      }`}
+              {isMembershipProposal ? (
+                <>
+                  <div>
+                    <label
+                      htmlFor={
+                        showRoleDropdown ? 'governance-create-role' : undefined
+                      }
+                      className={fieldLabelClass}
                     >
-                      {memberLookup.exists && memberLookup.avatarUrl ? (
-                        <img
-                          src={memberLookup.avatarUrl}
-                          alt=""
-                          className="h-full w-full object-cover"
+                      Role
+                    </label>
+                    {roleOptions.length === 0 ? (
+                      <div className="portal-field-focus rounded-2xl border border-border/40 bg-background/45 px-4 py-3 text-sm text-muted-foreground md:py-3.5">
+                        No membership roles available on this DAO yet.
+                      </div>
+                    ) : showRoleDropdown ? (
+                      <div className="relative" ref={roleMenuContainerRef}>
+                        <button
+                          ref={roleTriggerRef}
+                          id="governance-create-role"
+                          type="button"
+                          onClick={toggleRoleMenu}
+                          onKeyDown={(event) => {
+                            if (event.key === 'ArrowDown') {
+                              event.preventDefault();
+                              openRoleDropdown(
+                                Math.min(
+                                  selectedRoleIndex + 1,
+                                  roleOptions.length - 1
+                                )
+                              );
+                            } else if (event.key === 'ArrowUp') {
+                              event.preventDefault();
+                              openRoleDropdown(
+                                Math.max(selectedRoleIndex - 1, 0)
+                              );
+                            } else if (
+                              event.key === 'Enter' ||
+                              event.key === ' '
+                            ) {
+                              event.preventDefault();
+                              openRoleDropdown(selectedRoleIndex);
+                            }
+                          }}
+                          aria-haspopup="listbox"
+                          aria-expanded={roleMenuOpen}
+                          className={`portal-field-focus flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm outline-none md:py-3.5 ${
+                            roleMenuOpen
+                              ? 'border-border bg-background/60'
+                              : 'border-border/40 bg-background/45'
+                          }`}
+                        >
+                          <span>{roleId}</span>
+                          <ChevronDown
+                            className={`h-4 w-4 text-muted-foreground transition-transform ${
+                              roleMenuOpen ? 'rotate-180' : ''
+                            }`}
+                          />
+                        </button>
+
+                        <FloatingPanelMenu
+                          open={roleMenuOpen}
+                          align="full"
+                          className="space-y-0.5 p-1 md:p-1.5"
+                          role="listbox"
+                          aria-label="DAO role"
+                          onKeyDown={(event) => {
+                            if (event.key === 'ArrowDown') {
+                              event.preventDefault();
+                              setRoleActiveIndex((current) =>
+                                Math.min(current + 1, roleOptions.length - 1)
+                              );
+                            } else if (event.key === 'ArrowUp') {
+                              event.preventDefault();
+                              setRoleActiveIndex((current) =>
+                                Math.max(current - 1, 0)
+                              );
+                            } else if (event.key === 'Home') {
+                              event.preventDefault();
+                              setRoleActiveIndex(0);
+                            } else if (event.key === 'End') {
+                              event.preventDefault();
+                              setRoleActiveIndex(roleOptions.length - 1);
+                            } else if (
+                              event.key === 'Enter' ||
+                              event.key === ' '
+                            ) {
+                              event.preventDefault();
+                              selectRoleAtIndex(roleActiveIndex);
+                            } else if (event.key === 'Escape') {
+                              event.preventDefault();
+                              closeRoleDropdown();
+                            } else if (event.key === 'Tab') {
+                              closeRoleDropdown();
+                            }
+                          }}
+                        >
+                          {roleOptions.map((role, index) => {
+                            const selected = role === roleId;
+                            const active = index === roleActiveIndex;
+
+                            return (
+                              <button
+                                ref={(element) => {
+                                  roleOptionRefs.current[index] = element;
+                                }}
+                                key={role}
+                                id={`governance-create-role-option-${index}`}
+                                type="button"
+                                role="option"
+                                aria-selected={selected}
+                                tabIndex={active ? 0 : -1}
+                                onClick={() => selectRoleAtIndex(index)}
+                                onMouseEnter={() => setRoleActiveIndex(index)}
+                                className={`${floatingPanelItemClass} justify-between ${
+                                  selected
+                                    ? floatingPanelItemSelectedClass
+                                    : active
+                                      ? floatingPanelItemActiveClass
+                                      : ''
+                                }`}
+                              >
+                                <span>{role}</span>
+                                <span className="flex h-4 w-4 items-center justify-center">
+                                  {selected ? (
+                                    <Check className="h-4 w-4" />
+                                  ) : null}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </FloatingPanelMenu>
+                      </div>
+                    ) : (
+                      <div className="portal-field-focus rounded-2xl border border-border/40 bg-background/45 px-4 py-3 text-sm font-medium md:py-3.5">
+                        {roleId}
+                      </div>
+                    )}
+                  </div>
+
+                  {isAddMemberAction || isRemoveMemberAction ? (
+                    <div>
+                      <label
+                        htmlFor="governance-create-member"
+                        className={fieldLabelClass}
+                      >
+                        Member
+                      </label>
+                      {isRemoveMemberAction ? (
+                        <NearAccountPicker
+                          key={`${roleId}-remove`}
+                          id="governance-create-member"
+                          value={nominatedAccountInput}
+                          options={removableMemberOptions}
+                          placeholder="Select member"
+                          emptyLabel={`No other members in ${roleId || 'this role'} yet.`}
+                          onValueChange={(nextValue) => {
+                            setNominatedAccountInput(nextValue);
+                            setError('');
+                          }}
                         />
                       ) : (
-                        <User className="h-3.5 w-3.5" strokeWidth={2} />
+                        <NearAccountField
+                          key={proposalAction}
+                          id="governance-create-member"
+                          variant="editable"
+                          value={nominatedAccountInput}
+                          accountId={proposerAccountId}
+                          requirePortalProfile={false}
+                          onValueChange={(nextValue) => {
+                            setNominatedAccountInput(nextValue);
+                            setError('');
+                          }}
+                        />
                       )}
-                    </span>
-                  </InsetDividerItem>
-                  <span className="min-w-0 flex-1 truncate px-4 py-3 font-mono text-sm font-medium md:py-3.5 md:text-base">
-                    {memberAccountId}
-                  </span>
-                  <span className="shrink-0 pr-3">
-                    {memberLookup.checking ? (
-                      <span className="inline-flex h-5 w-5 items-center justify-center text-muted-foreground">
-                        <PulsingDots size="sm" />
-                      </span>
-                    ) : memberLookup.exists ? (
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/12 text-emerald-700">
-                        <Check className="h-3 w-3" />
-                      </span>
-                    ) : null}
-                  </span>
-                </div>
-              </div>
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
 
               <div>
                 <label
                   htmlFor="governance-create-description"
                   className={fieldLabelClass}
                 >
-                  Description
+                  {proposalAction === 'idea' ? 'Idea' : 'Description'}
                 </label>
-                <div className="portal-field-focus rounded-2xl border border-border/40 bg-background/45 px-3 py-3 md:px-4 md:py-3.5">
+                <div className="portal-field-focus relative rounded-2xl border border-border/40 bg-background/45">
                   <textarea
                     id="governance-create-description"
                     value={description}
                     onChange={(event) => {
                       setDescription(event.target.value);
+                      setShowDescriptionFeedback(false);
                       setError('');
                     }}
-                    rows={2}
-                    placeholder="Optional"
-                    className="w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && !event.shiftKey) {
+                        event.preventDefault();
+                        event.currentTarget.blur();
+                      }
+                    }}
+                    onBlur={() => setShowDescriptionFeedback(true)}
+                    placeholder={
+                      proposalAction === 'idea'
+                        ? 'What you want guardians to discuss or align on'
+                        : proposalAction === 'leave_self'
+                          ? 'Why you are stepping back from this role'
+                          : proposalAction === 'remove_member'
+                            ? `Why they should leave ${roleId || 'the role'}`
+                            : proposalAction === 'join_self'
+                              ? `Why you should join ${roleId || 'the role'}`
+                              : `Why they should join ${roleId || 'the role'}`
+                    }
+                    rows={3}
+                    maxLength={PROPOSAL_DESCRIPTION_LIMITS.max}
+                    className="w-full resize-none rounded-2xl bg-transparent px-4 pt-3 pb-7 text-sm outline-none placeholder:text-muted-foreground/50 md:pt-3.5"
                   />
+                  <span
+                    className={`pointer-events-none absolute right-3 bottom-2 portal-type-caption tabular-nums tracking-wide ${getBoundedNoteCounterClass(
+                      descriptionLength,
+                      hasDescription,
+                      PROPOSAL_DESCRIPTION_LIMITS
+                    )}`}
+                  >
+                    {getBoundedNoteCounterLabel(
+                      descriptionLength,
+                      PROPOSAL_DESCRIPTION_LIMITS
+                    )}
+                  </span>
                 </div>
+                <AnimatePresence initial={false}>
+                  {showDescriptionFeedback &&
+                  hasDescription &&
+                  descriptionTextError ? (
+                    <motion.p
+                      key="governance-create-description-error"
+                      initial={descriptionFeedbackEnter}
+                      animate={descriptionFeedbackAnimate}
+                      exit={descriptionFeedbackExit}
+                      transition={descriptionFeedbackTransition}
+                      className="mt-2 text-xs text-amber-600"
+                    >
+                      {descriptionTextError}
+                    </motion.p>
+                  ) : null}
+                </AnimatePresence>
               </div>
 
               {error || blockedReason ? (
@@ -758,7 +1205,7 @@ export function GovernanceCreatePanel() {
                   void handleSubmit();
                 }}
               >
-                {proposalKind === 'join_role' ? 'Propose join' : 'Propose leave'}
+                {getProposalActionSubmitLabel(proposalAction)}
               </Button>
             </div>
           </div>

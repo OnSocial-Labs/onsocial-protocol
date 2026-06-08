@@ -9,8 +9,7 @@ export const profilePageMobileGutterClass = 'max-md:px-4';
 export const profilePageMobileContentInsetClass = 'max-md:px-3';
 
 /** Profile identity / stance content (inset below banner on mobile). */
-export const profilePageHorizontalPaddingClass =
-  'px-4 md:px-5 max-md:px-3';
+export const profilePageHorizontalPaddingClass = 'px-4 md:px-5 max-md:px-3';
 
 /**
  * Discover column: full width inside the mobile gutter (matches banner width).

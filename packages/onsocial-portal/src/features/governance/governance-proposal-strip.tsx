@@ -35,8 +35,7 @@ export function GovernanceProposalStrip({
       )}
       style={{
         maskImage: 'linear-gradient(to bottom, black 70%, transparent)',
-        WebkitMaskImage:
-          'linear-gradient(to bottom, black 70%, transparent)',
+        WebkitMaskImage: 'linear-gradient(to bottom, black 70%, transparent)',
       }}
     >
       <div className="flex min-w-0 flex-1 items-center gap-x-2 overflow-hidden">
