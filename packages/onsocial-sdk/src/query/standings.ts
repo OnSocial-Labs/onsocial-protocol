@@ -311,10 +311,7 @@ export class StandingsQuery {
     viewerAccountId: string,
     issuerAccountIds: string[]
   ): Promise<string[]> {
-    return this._q.endorsements.issuersAmong(
-      viewerAccountId,
-      issuerAccountIds
-    );
+    return this._q.endorsements.issuersAmong(viewerAccountId, issuerAccountIds);
   }
 
   /**
@@ -325,7 +322,12 @@ export class StandingsQuery {
     participantAccountIds: string[],
     opts: StandingPageOptions = {}
   ): Promise<StandingFilteredPage> {
-    return this.filteredPage(accountId, 'incoming', participantAccountIds, opts);
+    return this.filteredPage(
+      accountId,
+      'incoming',
+      participantAccountIds,
+      opts
+    );
   }
 
   /**
@@ -336,7 +338,12 @@ export class StandingsQuery {
     participantAccountIds: string[],
     opts: StandingPageOptions = {}
   ): Promise<StandingFilteredPage> {
-    return this.filteredPage(accountId, 'outgoing', participantAccountIds, opts);
+    return this.filteredPage(
+      accountId,
+      'outgoing',
+      participantAccountIds,
+      opts
+    );
   }
 
   private async filteredPage(

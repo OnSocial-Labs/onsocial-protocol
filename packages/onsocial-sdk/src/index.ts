@@ -179,6 +179,7 @@ export { GroupsModule } from './modules/groups.js';
 export { PostsModule } from './modules/posts.js';
 export { ProfilesModule } from './modules/profiles.js';
 export type { MaterialisedProfile } from './modules/profiles.js';
+export { materialiseProfileFromRows } from './modules/profiles.js';
 export type {
   ProfileDiscoverPageOptions,
   ProfileDiscoverPageResult,

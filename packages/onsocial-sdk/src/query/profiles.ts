@@ -135,9 +135,7 @@ export class ProfilesQuery {
   /**
    * Batch profile search stats for graph list enrichment.
    */
-  async statsForAccounts(
-    accountIds: string[]
-  ): Promise<ProfileSearchRow[]> {
+  async statsForAccounts(accountIds: string[]): Promise<ProfileSearchRow[]> {
     const ids = [...new Set(accountIds.map((id) => id.trim()).filter(Boolean))];
     if (ids.length === 0) return [];
 
@@ -218,14 +216,22 @@ export class ProfilesQuery {
     const targetIds = profiles.map((row) => row.accountId);
 
     if (targetIds.length === 0) {
-      return { profiles, viewer: { outgoing: [], incomingAccountIds: [], endorsementIssuers: [] } };
+      return {
+        profiles,
+        viewer: {
+          outgoing: [],
+          incomingAccountIds: [],
+          endorsementIssuers: [],
+        },
+      };
     }
 
-    const [outgoing, incomingAccountIds, endorsementIssuers] = await Promise.all([
-      this._q.standings.outgoingTargetsAmong(viewerAccountId, targetIds),
-      this._q.standings.incomingSourcesAmong(viewerAccountId, targetIds),
-      this._q.endorsements.issuersAmong(viewerAccountId, targetIds),
-    ]);
+    const [outgoing, incomingAccountIds, endorsementIssuers] =
+      await Promise.all([
+        this._q.standings.outgoingTargetsAmong(viewerAccountId, targetIds),
+        this._q.standings.incomingSourcesAmong(viewerAccountId, targetIds),
+        this._q.endorsements.issuersAmong(viewerAccountId, targetIds),
+      ]);
 
     return {
       profiles,

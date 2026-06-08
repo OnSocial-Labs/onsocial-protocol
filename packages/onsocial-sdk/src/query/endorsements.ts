@@ -182,12 +182,7 @@ export class EndorsementsQuery {
     participantIssuerIds: string[],
     opts: EndorsementPageOptions = {}
   ): Promise<EndorsementFilteredPage> {
-    return this.filteredPage(
-      accountId,
-      'received',
-      participantIssuerIds,
-      opts
-    );
+    return this.filteredPage(accountId, 'received', participantIssuerIds, opts);
   }
 
   /**

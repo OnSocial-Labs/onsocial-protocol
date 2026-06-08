@@ -306,10 +306,11 @@ describe('QueryModule', () => {
       expect(page.viewer?.endorsementIssuers).toEqual(['carol.near']);
       expect(fetch.mock.calls.length).toBeGreaterThanOrEqual(2);
       const batched = fetch.mock.calls
-        .map((call) =>
-          JSON.parse(String((call[1] as RequestInit | undefined)?.body)) as {
-            query: string;
-          }
+        .map(
+          (call) =>
+            JSON.parse(String((call[1] as RequestInit | undefined)?.body)) as {
+              query: string;
+            }
         )
         .find((body) => body.query.includes('OutgoingTargetsAmong'));
       expect(batched?.query).toContain('targetAccount: {_in: $targets}');

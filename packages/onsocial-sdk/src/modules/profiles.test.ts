@@ -184,7 +184,7 @@ describe('ProfilesModule.get', () => {
 });
 
 describe('ProfilesModule.getMany', () => {
-  it('fetches profiles in parallel and skips missing accounts', async () => {
+  it('fetches profiles in one batched query and skips missing accounts', async () => {
     const rowsByAccount: Record<string, unknown[]> = {
       'a.near': [
         {
@@ -209,12 +209,17 @@ describe('ProfilesModule.getMany', () => {
       ],
     };
     const query = {
-      graphql: vi.fn(async (_q: { variables?: { id?: string } }) => ({
-        data: { profilesCurrent: rowsByAccount[_q.variables?.id ?? ''] ?? [] },
+      graphql: vi.fn(async (_q: { variables?: { ids?: string[] } }) => ({
+        data: {
+          profilesCurrent: (_q.variables?.ids ?? []).flatMap(
+            (id) => rowsByAccount[id] ?? []
+          ),
+        },
       })),
     } as unknown as QueryModule;
     const profiles = new ProfilesModule(makeSocial().mod, query, makeStorage());
     const out = await profiles.getMany(['a.near', 'b.near', 'c.near']);
+    expect(query.graphql).toHaveBeenCalledTimes(1);
     expect(Object.keys(out).sort()).toEqual(['a.near', 'c.near']);
     expect(out['a.near'].name).toBe('Alice');
     expect(out['c.near'].name).toBe('Carol');

@@ -8,33 +8,33 @@ Use it to write social data, work with groups and governance, query indexed feed
 
 Every module hangs off a single `OnSocial` instance. Use this table to find the namespace for what you want to do; full method docs live in JSDoc on hover.
 
-| Namespace                | Purpose                                                                | Primary methods                                                             |
-| ------------------------ | ---------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `os.profiles`            | Read & update profiles                                                 | `update`, `get`, `getMany`, `avatarUrl`, `bannerUrl`                        |
-| `os.posts`               | Authoring posts, replies, quotes (top-level + group)                   | `create`, `reply`, `quote`, `groupPost`, `groupReply`, `groupQuote`         |
-| `os.reactions`           | Add / remove / toggle reactions; counts                                | `add`, `remove`, `toggle`, `summary`                                        |
-| `os.saves`               | Bookmarks                                                              | `add`, `remove`, `toggle`, `has`, `get`, `list`                             |
-| `os.endorsements`        | Topic-scoped public vouches                                            | `add`, `upsert`, `remove`, `toggle`, `get`, `counts`, `listGiven`, `listReceived`, `listFromViewerToTarget` |
-| `os.attestations`        | Verifiable claims                                                      | `add`, `revoke`, `get`                                                      |
-| `os.standings`           | "Stand with" graph (scaled reads)                                      | `add`, `remove`, `toggle`, `has`, `counts`, `mutualCount`, `mutualList`, `listIncomingDetailed`, `listOutgoingDetailed` |
-| `os.groups`              | Groups + group feeds, governance                                       | `create`, `join`, `leave`, `post`, `reply`, `quote`, `isMember`, `execute`  |
-| `os.pages`               | Curated content collections                                            | `create`, `addItem`, `removeItem`, `setVisibility`, `setConfig`             |
-| `os.permissions`         | Grant / check / revoke permissions                                     | `grant`, `revoke`, `get`, `hasGroupAdmin`, …                                |
-| `os.scarces.tokens`      | Scarce (NFT) primitives                                                | `mint`, `transfer`, `burn`, `renew`, `redeem`, `revoke`, `claimRefund`      |
-| `os.scarces.collections` | Drops, allowlists, refunds                                             | `create`, `mintFromCollection`, `purchaseFromCollection`, `setAllowlist`, … |
-| `os.scarces.market`      | Secondary market                                                       | `list`, `delist`, `purchase`, `updatePrice`                                 |
-| `os.scarces.auctions`    | English auctions                                                       | `list`, `placeBid`, `settle`, `cancel`                                      |
-| `os.scarces.offers`      | Offers on tokens / collections                                         | `make`, `cancel`, `accept`, `makeCollectionOffer`, …                        |
-| `os.scarces.lazy`        | Deferred-mint listings                                                 | `create`, `purchase`, `cancel`                                              |
-| `os.scarces.apps`        | App pools, moderators, admin                                           | `register`, `setConfig`, `fundPool`, `addModerator`, …                      |
-| `os.boost`               | Boost credits + booster state                                          | `purchase`, `boost`, `state`, `events`                                      |
-| `os.rewards`             | Partner rewards                                                        | `claim`, `state`, `events`                                                  |
-| `os.token`               | OnSocial token transfers + state                                       | `transfer`, `balance`, `events`                                             |
-| `os.storageAccount`      | Storage balances, sponsorships, pools                                  | `balance`, `withdraw`, `tip`, `sponsor`, `fundPlatform`, …                  |
-| `os.chain`               | On-chain reads (status, version, config)                               | `getContractStatus`, `getVersion`, `getGovernanceConfig`, `getContractInfo` |
-| `os.query.*`             | Indexer (Hasura) reads — feeds, social graph, stats, …                 | `feed.*`, `profiles.discoverPage`, `standings.*`, `endorsements.*`, `scarces.*` |
-| `os.social`              | Low-level NEAR-Social KV primitives                                    | `set`, `get`, `getOne`, `listKeys`, `countKeys`                             |
-| `os.raw.*`               | Direct contract calls (escape hatch)                                   | varies                                                                      |
+| Namespace                | Purpose                                                | Primary methods                                                                                                         |
+| ------------------------ | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| `os.profiles`            | Read & update profiles                                 | `update`, `get`, `getMany`, `avatarUrl`, `bannerUrl`                                                                    |
+| `os.posts`               | Authoring posts, replies, quotes (top-level + group)   | `create`, `reply`, `quote`, `groupPost`, `groupReply`, `groupQuote`                                                     |
+| `os.reactions`           | Add / remove / toggle reactions; counts                | `add`, `remove`, `toggle`, `summary`                                                                                    |
+| `os.saves`               | Bookmarks                                              | `add`, `remove`, `toggle`, `has`, `get`, `list`                                                                         |
+| `os.endorsements`        | Topic-scoped public vouches                            | `add`, `upsert`, `remove`, `toggle`, `get`, `counts`, `listGiven`, `listReceived`, `listFromViewerToTarget`             |
+| `os.attestations`        | Verifiable claims                                      | `add`, `revoke`, `get`                                                                                                  |
+| `os.standings`           | "Stand with" graph (scaled reads)                      | `add`, `remove`, `toggle`, `has`, `counts`, `mutualCount`, `mutualList`, `listIncomingDetailed`, `listOutgoingDetailed` |
+| `os.groups`              | Groups + group feeds, governance                       | `create`, `join`, `leave`, `post`, `reply`, `quote`, `isMember`, `execute`                                              |
+| `os.pages`               | Curated content collections                            | `create`, `addItem`, `removeItem`, `setVisibility`, `setConfig`                                                         |
+| `os.permissions`         | Grant / check / revoke permissions                     | `grant`, `revoke`, `get`, `hasGroupAdmin`, …                                                                            |
+| `os.scarces.tokens`      | Scarce (NFT) primitives                                | `mint`, `transfer`, `burn`, `renew`, `redeem`, `revoke`, `claimRefund`                                                  |
+| `os.scarces.collections` | Drops, allowlists, refunds                             | `create`, `mintFromCollection`, `purchaseFromCollection`, `setAllowlist`, …                                             |
+| `os.scarces.market`      | Secondary market                                       | `list`, `delist`, `purchase`, `updatePrice`                                                                             |
+| `os.scarces.auctions`    | English auctions                                       | `list`, `placeBid`, `settle`, `cancel`                                                                                  |
+| `os.scarces.offers`      | Offers on tokens / collections                         | `make`, `cancel`, `accept`, `makeCollectionOffer`, …                                                                    |
+| `os.scarces.lazy`        | Deferred-mint listings                                 | `create`, `purchase`, `cancel`                                                                                          |
+| `os.scarces.apps`        | App pools, moderators, admin                           | `register`, `setConfig`, `fundPool`, `addModerator`, …                                                                  |
+| `os.boost`               | Boost credits + booster state                          | `purchase`, `boost`, `state`, `events`                                                                                  |
+| `os.rewards`             | Partner rewards                                        | `claim`, `state`, `events`                                                                                              |
+| `os.token`               | OnSocial token transfers + state                       | `transfer`, `balance`, `events`                                                                                         |
+| `os.storageAccount`      | Storage balances, sponsorships, pools                  | `balance`, `withdraw`, `tip`, `sponsor`, `fundPlatform`, …                                                              |
+| `os.chain`               | On-chain reads (status, version, config)               | `getContractStatus`, `getVersion`, `getGovernanceConfig`, `getContractInfo`                                             |
+| `os.query.*`             | Indexer (Hasura) reads — feeds, social graph, stats, … | `feed.*`, `profiles.discoverPage`, `standings.*`, `endorsements.*`, `scarces.*`                                         |
+| `os.social`              | Low-level NEAR-Social KV primitives                    | `set`, `get`, `getOne`, `listKeys`, `countKeys`                                                                         |
+| `os.raw.*`               | Direct contract calls (escape hatch)                   | varies                                                                                                                  |
 
 > Naming convention: data CRUD modules use `add` / `remove` / `toggle` / `get` / `list`. Authoring modules (`posts`, `profiles`, `pages`) use the natural verb (`create`, `update`, `setVisibility`).
 

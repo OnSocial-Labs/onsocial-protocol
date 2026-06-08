@@ -69,6 +69,14 @@ interface ProfileRow {
   operation: string;
 }
 
+export function materialiseProfileFromRows(
+  accountId: string,
+  rows: ProfileRow[]
+): MaterialisedProfile | null {
+  if (rows.length === 0) return null;
+  return rowsToProfile(accountId, rows);
+}
+
 function rowsToProfile(
   accountId: string,
   rows: ProfileRow[]
@@ -193,11 +201,31 @@ export class ProfilesModule {
   async getMany(
     accountIds: string[]
   ): Promise<Record<string, MaterialisedProfile>> {
-    const results = await Promise.all(accountIds.map((id) => this.get(id)));
+    const uniqueIds = [...new Set(accountIds.filter(Boolean))];
+    if (uniqueIds.length === 0) return {};
+
+    const res = await this._query.graphql<{ profilesCurrent: ProfileRow[] }>({
+      query: `query Profiles($ids: [String!]!) {
+        profilesCurrent(where: {accountId: {_in: $ids}}) {
+          accountId field value blockHeight blockTimestamp operation
+        }
+      }`,
+      variables: { ids: uniqueIds },
+    });
+
+    const rows = res.data?.profilesCurrent ?? [];
+    const rowsByAccount = new Map<string, ProfileRow[]>();
+    for (const row of rows) {
+      const bucket = rowsByAccount.get(row.accountId) ?? [];
+      bucket.push(row);
+      rowsByAccount.set(row.accountId, bucket);
+    }
+
     const map: Record<string, MaterialisedProfile> = {};
-    for (let i = 0; i < accountIds.length; i++) {
-      const p = results[i];
-      if (p) map[accountIds[i]] = p;
+    for (const accountId of uniqueIds) {
+      const accountRows = rowsByAccount.get(accountId);
+      if (!accountRows?.length) continue;
+      map[accountId] = rowsToProfile(accountId, accountRows);
     }
     return map;
   }

@@ -14,8 +14,8 @@ function makeSocial(opts: { existing?: string[] } = {}) {
 }
 
 function makeQuery(outgoing: string[] = []) {
-  const viewerStandsWith = vi.fn(
-    async (_viewer: string, target: string) => outgoing.includes(target)
+  const viewerStandsWith = vi.fn(async (_viewer: string, target: string) =>
+    outgoing.includes(target)
   );
   const out = vi.fn().mockResolvedValue(outgoing);
   const outDetailed = vi.fn().mockResolvedValue([
