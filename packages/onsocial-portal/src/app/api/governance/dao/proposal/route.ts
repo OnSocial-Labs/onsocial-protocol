@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GOVERNANCE_DAO_ACCOUNT } from '@/lib/portal-config';
-import { loadDaoProposal } from '@/lib/portal-governance-chain-server';
+import { loadDaoProposalFromBackend } from '@/lib/governance-proposal-backend';
 import {
   createPortalRequestCache,
   isRateLimitError,
@@ -27,6 +27,11 @@ function readDaoAccountId(request: NextRequest): string {
   return daoAccountId;
 }
 
+function readLiveFlag(request: NextRequest): boolean {
+  const raw = request.nextUrl.searchParams.get('live')?.trim().toLowerCase();
+  return raw === 'true' || raw === '1' || raw === 'yes';
+}
+
 function readProposalId(request: NextRequest): number {
   const raw = request.nextUrl.searchParams.get('proposalId')?.trim();
   const proposalId = Number.parseInt(raw ?? '', 10);
@@ -47,9 +52,14 @@ export async function GET(request: NextRequest) {
     const daoAccountId = readDaoAccountId(request);
     const proposalId = readProposalId(request);
     const cacheKey = `${daoAccountId}:${proposalId}`;
-    const proposal = await proposalCache.getOrLoad(cacheKey, () =>
-      loadDaoProposal(proposalId, daoAccountId)
-    );
+    const live = readLiveFlag(request);
+    const proposal = live
+      ? await loadDaoProposalFromBackend(proposalId, daoAccountId, {
+          live: true,
+        })
+      : await proposalCache.getOrLoad(cacheKey, () =>
+          loadDaoProposalFromBackend(proposalId, daoAccountId)
+        );
 
     return NextResponse.json(
       { proposal },

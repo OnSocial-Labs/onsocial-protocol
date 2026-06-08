@@ -5,6 +5,7 @@ import {
   getGovernanceFeedApplications,
   parseGovernanceFeedScope,
 } from '../services/governance-feed.js';
+import { syncDaoProposalById } from '../services/governance-dao-proposal-sync.js';
 import { loadPersistedPolicySnapshot } from '../services/governance-proposal-policy-store.js';
 
 const router = Router();
@@ -50,6 +51,40 @@ router.get('/feed', async (req: Request, res: Response): Promise<void> => {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     res.status(500).json({ success: false, error: msg });
+  }
+});
+
+router.get('/proposal', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const proposalId = readProposalId(req.query.proposalId);
+    if (proposalId === null) {
+      res.status(400).json({
+        success: false,
+        error: 'A valid proposalId query parameter is required',
+      });
+      return;
+    }
+
+    const daoAccountId = readDaoAccountId(req.query.daoAccountId);
+    const live =
+      req.query.live === 'true' ||
+      req.query.live === '1' ||
+      req.query.live === 'yes';
+
+    const proposal = await syncDaoProposalById(daoAccountId, proposalId, {
+      live,
+    });
+
+    res.json({
+      success: true,
+      daoAccountId,
+      proposalId,
+      live,
+      proposal,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(400).json({ success: false, error: msg });
   }
 });
 

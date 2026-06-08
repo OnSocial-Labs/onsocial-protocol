@@ -292,7 +292,26 @@ export function formatIsoTimestamp(
   }
 }
 
-function getProposalExpiryTime({
+export type GovernanceProposalStatusSubtitle = {
+  relative: string;
+  absolute: string;
+  tone: 'muted' | 'urgent';
+};
+
+const REVIEW_DEADLINE_STATUSES = new Set<GovernanceDaoProposal['status']>([
+  'InProgress',
+  'Expired',
+  'Failed',
+]);
+
+const RESOLVED_SUBTITLE_STATUSES = new Set<GovernanceDaoProposal['status']>([
+  'Approved',
+  'Rejected',
+  'Removed',
+  'Moved',
+]);
+
+function getProposalReviewDeadline({
   proposal,
   policy,
   nowMs,
@@ -301,13 +320,14 @@ function getProposalExpiryTime({
   policy: GovernanceDaoPolicy | null;
   nowMs: number;
 }): { relative: string; absolute: string; expired: boolean } | null {
-  if (!proposal || proposal.status !== 'InProgress') {
+  if (!proposal || !REVIEW_DEADLINE_STATUSES.has(proposal.status)) {
     return null;
   }
 
+  const timingPolicy = resolveProposalPolicyForTiming(proposal, policy);
   const submissionMs = parseNanosecondsToMilliseconds(proposal.submission_time);
   const proposalPeriodMs = parseNanosecondsToMilliseconds(
-    policy?.proposal_period
+    timingPolicy?.proposal_period
   );
 
   if (submissionMs === null || proposalPeriodMs === null) {
@@ -316,11 +336,69 @@ function getProposalExpiryTime({
 
   const expiresAtMs = submissionMs + proposalPeriodMs;
   const deltaMs = expiresAtMs - nowMs;
+  const expired =
+    deltaMs <= 0 ||
+    proposal.status === 'Expired' ||
+    proposal.status === 'Failed';
 
   return {
     relative: formatRelativeTimeFromDelta(deltaMs),
     absolute: new Date(expiresAtMs).toLocaleString(),
-    expired: deltaMs <= 0,
+    expired,
+  };
+}
+
+function getProposalStatusSubtitle({
+  proposal,
+  policy,
+  nowMs,
+}: {
+  proposal: GovernanceDaoProposal | null;
+  policy: GovernanceDaoPolicy | null;
+  nowMs: number;
+}): GovernanceProposalStatusSubtitle | null {
+  const normalizedProposal = normalizeGovernanceDaoProposal(proposal);
+  if (!normalizedProposal) {
+    return null;
+  }
+
+  if (REVIEW_DEADLINE_STATUSES.has(normalizedProposal.status)) {
+    const deadline = getProposalReviewDeadline({
+      proposal: normalizedProposal,
+      policy,
+      nowMs,
+    });
+    if (!deadline) {
+      return null;
+    }
+
+    return {
+      relative: deadline.relative,
+      absolute: deadline.absolute,
+      tone: deadline.expired ? 'urgent' : 'muted',
+    };
+  }
+
+  if (!RESOLVED_SUBTITLE_STATUSES.has(normalizedProposal.status)) {
+    return null;
+  }
+
+  const resolvedMs = parseNanosecondsToMilliseconds(
+    normalizedProposal.resolved_at
+  );
+  if (resolvedMs === null) {
+    return null;
+  }
+
+  const resolvedTime = formatRelativeTimestamp(resolvedMs);
+  if (!resolvedTime) {
+    return null;
+  }
+
+  return {
+    relative: resolvedTime.relative,
+    absolute: resolvedTime.absolute,
+    tone: 'muted',
   };
 }
 
@@ -763,23 +841,103 @@ type MembershipProposalInfo = {
   roleId: string | null;
 };
 
-export function isTerminalGovernanceProposalStatus(
+export function normalizeDaoProposalStatus(
   status: GovernanceDaoProposal['status'] | string | null | undefined
-): boolean {
-  return (
+): GovernanceDaoProposal['status'] | null {
+  if (!status) {
+    return null;
+  }
+
+  const normalized = status
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+
+  switch (normalized) {
+    case 'approved':
+    case 'executed':
+      return 'Approved';
+    case 'rejected':
+      return 'Rejected';
+    case 'removed':
+    case 'cancelled':
+    case 'canceled':
+      return 'Removed';
+    case 'expired':
+      return 'Expired';
+    case 'failed':
+    case 'executed_skipped':
+      return 'Failed';
+    case 'moved':
+      return 'Moved';
+    case 'inprogress':
+    case 'in_progress':
+    case 'active':
+    case 'submitted':
+    case 'draft':
+      return 'InProgress';
+    default:
+      break;
+  }
+
+  if (
     status === 'Approved' ||
     status === 'Rejected' ||
     status === 'Removed' ||
     status === 'Failed' ||
     status === 'Expired' ||
-    status === 'Moved'
+    status === 'Moved' ||
+    status === 'InProgress'
+  ) {
+    return status;
+  }
+
+  return null;
+}
+
+export function normalizeGovernanceDaoProposal(
+  proposal: GovernanceDaoProposal | null | undefined
+): GovernanceDaoProposal | null {
+  if (!proposal) {
+    return null;
+  }
+
+  const status = normalizeDaoProposalStatus(proposal.status);
+  if (!status || status === proposal.status) {
+    return proposal;
+  }
+
+  return {
+    ...proposal,
+    status,
+  };
+}
+
+export function isTerminalGovernanceProposalStatus(
+  status: GovernanceDaoProposal['status'] | string | null | undefined
+): boolean {
+  const normalized = normalizeDaoProposalStatus(status);
+  return (
+    normalized === 'Approved' ||
+    normalized === 'Rejected' ||
+    normalized === 'Removed' ||
+    normalized === 'Failed' ||
+    normalized === 'Expired' ||
+    normalized === 'Moved'
   );
+}
+
+function resolveProposalPolicyForTiming(
+  proposal: GovernanceDaoProposal | null,
+  policy: GovernanceDaoPolicy | null
+): GovernanceDaoPolicy | null {
+  return policy ?? proposal?.policy_snapshot ?? null;
 }
 
 /** Voting is closed once the chain is terminal or the local review window elapsed. */
 function isGovernanceVotingClosed(
   liveProposal: GovernanceDaoProposal | null,
-  reviewExpiry: { expired: boolean } | null
+  reviewDeadline: { expired: boolean } | null
 ): boolean {
   if (!liveProposal) {
     return false;
@@ -789,7 +947,7 @@ function isGovernanceVotingClosed(
     return true;
   }
 
-  return liveProposal.status === 'InProgress' && !!reviewExpiry?.expired;
+  return liveProposal.status === 'InProgress' && !!reviewDeadline?.expired;
 }
 
 function readMembershipProposalMemberId(
@@ -1139,18 +1297,44 @@ export function mergeGovernanceProposalSnapshot(
   incoming: GovernanceDaoProposal | null | undefined
 ): GovernanceDaoProposal | null {
   if (!incoming) {
-    return current ?? null;
+    return normalizeGovernanceDaoProposal(current);
   }
 
-  if (!current || shouldAdoptGovernanceProposalSnapshot(current, incoming)) {
+  const normalizedIncoming = normalizeGovernanceDaoProposal(incoming);
+  if (!normalizedIncoming) {
+    return normalizeGovernanceDaoProposal(current);
+  }
+
+  const normalizedCurrent = normalizeGovernanceDaoProposal(current);
+
+  if (
+    !normalizedCurrent ||
+    shouldAdoptGovernanceProposalSnapshot(normalizedCurrent, normalizedIncoming)
+  ) {
     return {
-      ...incoming,
+      ...normalizedIncoming,
       policy_snapshot:
-        incoming.policy_snapshot ?? current?.policy_snapshot ?? undefined,
+        normalizedIncoming.policy_snapshot ??
+        normalizedCurrent?.policy_snapshot ??
+        undefined,
+      resolved_at:
+        normalizedIncoming.resolved_at ??
+        normalizedCurrent?.resolved_at ??
+        undefined,
     };
   }
 
-  return current;
+  return {
+    ...normalizedCurrent,
+    policy_snapshot:
+      normalizedCurrent.policy_snapshot ??
+      normalizedIncoming.policy_snapshot ??
+      undefined,
+    resolved_at:
+      normalizedCurrent.resolved_at ??
+      normalizedIncoming.resolved_at ??
+      undefined,
+  };
 }
 
 function findConnectedDaoRole(
@@ -1266,20 +1450,29 @@ export function deriveGovernanceCardView({
         getGroupMembers(role).includes(accountId.toLowerCase())
       ) ?? null)
     : null;
-  const reviewExpiry = getProposalExpiryTime({
-    proposal: liveProposal,
+  const normalizedLiveProposal = normalizeGovernanceDaoProposal(liveProposal);
+  const reviewDeadline = getProposalReviewDeadline({
+    proposal: normalizedLiveProposal,
     policy: daoPolicy,
     nowMs,
   });
-  const votingClosed = isGovernanceVotingClosed(liveProposal, reviewExpiry);
+  const statusSubtitle = getProposalStatusSubtitle({
+    proposal: normalizedLiveProposal,
+    policy: daoPolicy,
+    nowMs,
+  });
+  const votingClosed = isGovernanceVotingClosed(
+    normalizedLiveProposal,
+    reviewDeadline
+  );
   const effectiveDaoPolicy = resolveEffectiveDaoPolicy(
-    liveProposal,
+    normalizedLiveProposal,
     daoPolicy,
     votingClosed
   );
-  const proposalPolicyLabel = getProposalPolicyLabel(liveProposal);
+  const proposalPolicyLabel = getProposalPolicyLabel(normalizedLiveProposal);
   const activeVotingRole = getProposalVotingRole(
-    liveProposal,
+    normalizedLiveProposal,
     effectiveDaoPolicy,
     connectedRole,
     proposalPolicyLabel,
@@ -1288,38 +1481,40 @@ export function deriveGovernanceCardView({
   const currentVote = accountId
     ? (liveProposal?.votes?.[accountId] ?? null)
     : null;
+  const proposalStatus = normalizedLiveProposal?.status ?? null;
   const canApprove =
     !!connectedRole &&
-    !!liveProposal &&
-    liveProposal.status === 'InProgress' &&
+    !!normalizedLiveProposal &&
+    proposalStatus === 'InProgress' &&
     !votingClosed &&
     !currentVote &&
     roleAllowsAction(connectedRole, proposalPolicyLabel, 'VoteApprove');
   const canReject =
     !!connectedRole &&
-    !!liveProposal &&
-    liveProposal.status === 'InProgress' &&
+    !!normalizedLiveProposal &&
+    proposalStatus === 'InProgress' &&
     !votingClosed &&
     !currentVote &&
     roleAllowsAction(connectedRole, proposalPolicyLabel, 'VoteReject');
   const canRemove =
     !!connectedRole &&
-    !!liveProposal &&
-    liveProposal.status === 'InProgress' &&
+    !!normalizedLiveProposal &&
+    proposalStatus === 'InProgress' &&
     !votingClosed &&
     !currentVote &&
     roleAllowsAction(connectedRole, proposalPolicyLabel, 'VoteRemove');
   const canFinalize =
     !!connectedRole &&
-    !!liveProposal &&
-    (liveProposal.status === 'Expired' ||
-      liveProposal.status === 'Failed' ||
-      (liveProposal.status === 'InProgress' && !!reviewExpiry?.expired)) &&
+    !!normalizedLiveProposal &&
+    (proposalStatus === 'Expired' ||
+      proposalStatus === 'Failed' ||
+      (proposalStatus === 'InProgress' && !!reviewDeadline?.expired)) &&
     roleAllowsAction(connectedRole, proposalPolicyLabel, 'Finalize');
-  const liveStatusStyle = liveProposal
-    ? reviewExpiry?.expired && liveProposal.status === 'InProgress'
+  const liveStatusStyle = normalizedLiveProposal
+    ? reviewDeadline?.expired && proposalStatus === 'InProgress'
       ? DAO_STATUS_STYLES.Expired
-      : (DAO_STATUS_STYLES[liveProposal.status] ?? DAO_STATUS_STYLES.InProgress)
+      : (DAO_STATUS_STYLES[proposalStatus ?? 'InProgress'] ??
+        DAO_STATUS_STYLES.InProgress)
     : null;
   const approveVotes = sumVotes(liveProposal?.vote_counts, 0);
   const rejectVotes = sumVotes(liveProposal?.vote_counts, 1);
@@ -1350,9 +1545,9 @@ export function deriveGovernanceCardView({
     liveProposal?.submission_time ?? proposal?.submitted_at
   );
   const effectiveStatus =
-    reviewExpiry?.expired && liveProposal?.status === 'InProgress'
+    reviewDeadline?.expired && proposalStatus === 'InProgress'
       ? 'Expired'
-      : (liveProposal?.status ?? null);
+      : proposalStatus;
   const statusSummary = liveProposal
     ? getStatusSummary(
         effectiveStatus ?? 'InProgress',
@@ -1407,14 +1602,14 @@ export function deriveGovernanceCardView({
   const latestActionLink = actionTxHref
     ? {
         label:
-          liveProposal?.status === 'Approved'
+          proposalStatus === 'Approved'
             ? 'Approval transaction'
             : 'Latest action',
         href: actionTxHref,
       }
     : null;
-  const resolvedOutcomeLabel = liveProposal
-    ? getResolvedOutcomeLabel(liveProposal.status)
+  const resolvedOutcomeLabel = proposalStatus
+    ? getResolvedOutcomeLabel(proposalStatus)
     : null;
   const guardianDecisionSummary = getGuardianDecisionSummary({
     isConnected,
@@ -1455,7 +1650,7 @@ export function deriveGovernanceCardView({
     eligibleVoterAccounts,
     voteEntries,
     submissionTime,
-    reviewExpiry,
+    statusSubtitle,
     statusSummary,
     functionCallSummary,
     rewardPerActionValue,

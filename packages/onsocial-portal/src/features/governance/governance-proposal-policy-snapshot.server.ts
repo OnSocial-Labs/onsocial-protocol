@@ -1,9 +1,7 @@
 import 'server-only';
 
 import { getDaoPolicyAtBlockCached } from '@/features/governance/governance-policy-block-cache';
-import {
-  readProposalSubmissionBlockHeight,
-} from '@/features/governance/governance-proposal-policy-snapshot';
+import { readProposalSubmissionBlockHeight } from '@/features/governance/governance-proposal-policy-snapshot';
 import { loadPersistedProposalPolicySnapshot } from '@/lib/governance-policy-snapshot-backend';
 import { viewContractAtBlock } from '@/lib/near-rpc';
 import type {

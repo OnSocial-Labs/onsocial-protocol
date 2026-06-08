@@ -60,7 +60,9 @@ function motionClasses({
   }
 
   if (groupName === 'card') {
-    const nestedOpacity = resetOnNestedInteractiveHover ? CARD_NESTED_RESET_OPACITY : [];
+    const nestedOpacity = resetOnNestedInteractiveHover
+      ? CARD_NESTED_RESET_OPACITY
+      : [];
     const nestedTranslate = resetOnNestedInteractiveHover
       ? CARD_NESTED_RESET_TRANSLATE
       : [];

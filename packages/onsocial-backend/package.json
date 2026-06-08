@@ -17,7 +17,8 @@
     "test": "vitest run tests/unit",
     "test:watch": "vitest tests/unit",
     "test:all": "vitest run",
-    "migrate": "node dist/db/migrate.js"
+    "migrate": "node dist/db/migrate.js",
+    "check": "pnpm lint && pnpm format:check && pnpm build && pnpm test"
   },
   "dependencies": {
     "@onsocial/rpc": "workspace:*",

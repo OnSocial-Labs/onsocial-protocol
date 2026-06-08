@@ -5,6 +5,7 @@ import { fetchDaoPolicy, fetchDaoProposal } from '@/features/governance/api';
 import {
   isTerminalGovernanceProposalStatus,
   mergeGovernanceProposalSnapshot,
+  normalizeDaoProposalStatus,
 } from '@/features/governance/governance-card-helpers';
 import type {
   GovernanceDaoPolicy,
@@ -22,9 +23,13 @@ export function getFeedProposalSnapshot(
     return null;
   }
 
+  const status =
+    normalizeDaoProposalStatus(snapshot.status) ??
+    (snapshot.status as GovernanceDaoProposal['status']);
+
   return {
     ...snapshot,
-    status: snapshot.status as GovernanceDaoProposal['status'],
+    status,
   };
 }
 
@@ -95,12 +100,11 @@ export function useGovernanceCardDaoState({
           setDaoSettled(true);
         }
 
-        const needsPolicySnapshotBackfill =
+        const shouldRefreshTerminalProposal =
           !!feedSnapshot &&
-          isTerminalGovernanceProposalStatus(feedSnapshot.status) &&
-          !feedSnapshot.policy_snapshot;
+          isTerminalGovernanceProposalStatus(feedSnapshot.status);
 
-        if (needsPolicySnapshotBackfill) {
+        if (shouldRefreshTerminalProposal) {
           try {
             const enrichedProposal = await fetchDaoProposal(
               liveProposalId,
@@ -167,7 +171,8 @@ export function useGovernanceCardDaoState({
       try {
         const nextProposal = await fetchDaoProposal(
           resolvedProposalId,
-          resolvedDaoAccountId
+          resolvedDaoAccountId,
+          { live: true }
         );
         if (!cancelled) {
           setLiveProposal((current) =>
@@ -231,7 +236,7 @@ export async function refreshGovernanceProposalAfterAction({
     feedDaoPolicy
       ? Promise.resolve(feedDaoPolicy)
       : fetchDaoPolicy(daoAccountId),
-    fetchDaoProposal(proposalId, daoAccountId),
+    fetchDaoProposal(proposalId, daoAccountId, { live: true }),
   ]);
 
   return { policy, proposal };

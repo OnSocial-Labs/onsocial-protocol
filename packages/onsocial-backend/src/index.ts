@@ -14,6 +14,7 @@ import seasonsRoutes from './routes/seasons.js';
 import welcomeNearRoutes from './routes/welcome-near.js';
 import { initPartnerKeyCache } from './middleware/partnerAuth.js';
 import { ensurePortalRewardsPartnerKey } from './services/portal-rewards-key.js';
+import { startDaoProposalBackfillInBackground } from './services/governance-dao-proposal-sync.js';
 
 const app = express();
 
@@ -138,6 +139,8 @@ const server = app.listen(config.port, async () => {
 
   // Pre-warm partner API key cache
   await initPartnerKeyCache();
+
+  startDaoProposalBackfillInBackground(config.governanceDao);
 
   // Telegram: webhook in production, long-polling in dev
   if (config.nodeEnv === 'production') {

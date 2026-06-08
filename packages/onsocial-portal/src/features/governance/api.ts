@@ -130,13 +130,17 @@ export async function fetchGovernanceProposalBootstrap(
 
 export async function fetchDaoProposal(
   proposalId: number,
-  daoAccountId = GOVERNANCE_DAO_ACCOUNT
+  daoAccountId = GOVERNANCE_DAO_ACCOUNT,
+  opts: { live?: boolean } = {}
 ): Promise<GovernanceDaoProposal | null> {
   try {
     const search = new URLSearchParams({
       daoAccountId,
       proposalId: String(proposalId),
     });
+    if (opts.live) {
+      search.set('live', 'true');
+    }
     const response = await fetch(
       `/api/governance/dao/proposal?${search.toString()}`,
       { cache: 'no-store' }

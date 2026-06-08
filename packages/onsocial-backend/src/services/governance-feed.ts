@@ -4,16 +4,16 @@ import { config } from '../config/index.js';
 import { viewContractAt } from './near.js';
 import {
   isTerminalDaoProposalStatus,
-  resolveProposalPolicySnapshotsForRecords,
   type GovernanceDaoPolicySnapshot,
 } from './governance-proposal-policy-snapshot.js';
+import { ensureDaoProposalsSynced } from './governance-dao-proposal-sync.js';
+import { loadAllDaoProposalSnapshots } from './governance-dao-proposal-store.js';
 import { loadPersistedPolicySnapshotsByProposalIds } from './governance-proposal-policy-store.js';
 import {
   isRewardsAppRegistered,
   type GovernanceProposalPayload,
 } from './governance-proposals.js';
 
-const PROTOCOL_PROPOSAL_SCAN_LIMIT = 100;
 const REJECTED_GOVERNANCE_STATUSES = new Set(['Rejected', 'Removed']);
 const REOPENED_GOVERNANCE_STATUSES = new Set(['Expired']);
 
@@ -40,6 +40,7 @@ type GovernanceDaoProposalSnapshot = {
   vote_counts: Record<string, [string, string, string]>;
   votes: Record<string, string>;
   submission_time: string;
+  resolved_at?: string | null;
   last_actions_log?: Array<{ block_height: string }>;
   policy_snapshot?: GovernanceDaoPolicySnapshot | null;
 };
@@ -132,31 +133,6 @@ function buildGovernanceProposalFromRecord(
     snapshot,
     ...overrides,
   };
-}
-
-async function buildProposalSnapshotsById(
-  proposals: GovernanceDaoProposalRecord[],
-  daoAccountId: string
-): Promise<Map<number, GovernanceDaoProposalSnapshot>> {
-  const policyByProposalId = await resolveProposalPolicySnapshotsForRecords(
-    daoAccountId,
-    proposals
-  );
-
-  const snapshots = new Map<number, GovernanceDaoProposalSnapshot>();
-
-  for (const proposal of proposals) {
-    const policySnapshot =
-      typeof proposal.id === 'number'
-        ? (policyByProposalId.get(proposal.id) ?? null)
-        : null;
-    const snapshot = mapDaoProposalSnapshot(proposal, policySnapshot);
-    if (snapshot) {
-      snapshots.set(snapshot.id, snapshot);
-    }
-  }
-
-  return snapshots;
 }
 
 function attachPersistedPolicySnapshot(
@@ -271,6 +247,8 @@ export function enrichApplicationProposalSnapshot(
         ...enrichedSnapshot,
         policy_snapshot:
           enrichedSnapshot.policy_snapshot ?? currentSnapshot.policy_snapshot,
+        resolved_at:
+          enrichedSnapshot.resolved_at ?? currentSnapshot.resolved_at,
         vote_counts:
           enrichedSnapshot.vote_counts ?? currentSnapshot.vote_counts,
         votes: enrichedSnapshot.votes ?? currentSnapshot.votes,
@@ -816,6 +794,22 @@ function mapProtocolProposalToFeedItem(
   };
 }
 
+function toGovernanceDaoProposalRecord(
+  snapshot: GovernanceDaoProposalSnapshot
+): GovernanceDaoProposalRecord {
+  return {
+    id: snapshot.id,
+    proposer: snapshot.proposer,
+    description: snapshot.description,
+    kind: snapshot.kind,
+    status: snapshot.status,
+    submission_time: snapshot.submission_time,
+    vote_counts: snapshot.vote_counts,
+    votes: snapshot.votes,
+    last_actions_log: snapshot.last_actions_log,
+  };
+}
+
 async function fetchDaoGovernanceFeed(): Promise<{
   partnerItems: PublicGovernanceApplication[];
   protocolItems: PublicGovernanceApplication[];
@@ -832,38 +826,42 @@ async function fetchDaoGovernanceFeed(): Promise<{
   };
 
   try {
-    const lastProposalId = await viewContractAt<number>(
-      config.governanceDao,
-      'get_last_proposal_id',
-      {}
-    );
+    await ensureDaoProposalsSynced(config.governanceDao);
 
-    if (typeof lastProposalId !== 'number' || lastProposalId < 0) {
-      return empty;
+    const [storedSnapshots, daoPolicy] = await Promise.all([
+      loadAllDaoProposalSnapshots(config.governanceDao),
+      viewContractAt<GovernanceDaoPolicySnapshot>(
+        config.governanceDao,
+        'get_policy',
+        {}
+      ).catch(() => null),
+    ]);
+
+    const snapshotsById = new Map<number, GovernanceDaoProposalSnapshot>();
+    const proposals: GovernanceDaoProposalRecord[] = [];
+
+    for (const stored of storedSnapshots) {
+      const snapshot: GovernanceDaoProposalSnapshot = {
+        id: stored.proposalId,
+        proposer: stored.proposalSnapshot.proposer,
+        description: stored.proposalSnapshot.description,
+        kind: stored.proposalSnapshot.kind,
+        status: stored.proposalSnapshot.status,
+        vote_counts: stored.proposalSnapshot.vote_counts,
+        votes: stored.proposalSnapshot.votes,
+        submission_time: stored.proposalSnapshot.submission_time,
+        resolved_at: stored.proposalSnapshot.resolved_at ?? stored.resolvedAt,
+        last_actions_log: stored.proposalSnapshot.last_actions_log,
+        policy_snapshot:
+          stored.policySnapshot ??
+          stored.proposalSnapshot.policy_snapshot ??
+          null,
+      };
+
+      snapshotsById.set(snapshot.id, snapshot);
+      proposals.push(toGovernanceDaoProposalRecord(snapshot));
     }
 
-    const limit = Math.min(lastProposalId + 1, PROTOCOL_PROPOSAL_SCAN_LIMIT);
-    const fromIndex = Math.max(0, lastProposalId + 1 - limit);
-    const proposals = await viewContractAt<GovernanceDaoProposalRecord[]>(
-      config.governanceDao,
-      'get_proposals',
-      { from_index: fromIndex, limit }
-    );
-
-    if (!Array.isArray(proposals)) {
-      return empty;
-    }
-
-    const daoPolicy = await viewContractAt<GovernanceDaoPolicySnapshot>(
-      config.governanceDao,
-      'get_policy',
-      {}
-    ).catch(() => null);
-
-    const snapshotsById = await buildProposalSnapshotsById(
-      proposals,
-      config.governanceDao
-    );
     const partnerItems = proposals
       .map(mapPartnerProposalToFeedItem)
       .filter((item): item is PublicGovernanceApplication => item !== null)

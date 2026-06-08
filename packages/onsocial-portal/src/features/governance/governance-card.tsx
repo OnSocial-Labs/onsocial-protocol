@@ -176,7 +176,7 @@ function PartnerGovernanceCard({
     accountId.toLowerCase() === app.wallet_id.toLowerCase();
 
   useEffect(() => {
-    if (liveProposal?.status !== 'InProgress') {
+    if (!liveProposal) {
       return;
     }
 
@@ -187,7 +187,7 @@ function PartnerGovernanceCard({
     return () => {
       window.clearInterval(timer);
     };
-  }, [liveProposal?.status]);
+  }, [liveProposal?.status, liveProposal?.resolved_at]);
 
   useEffect(() => {
     let cancelled = false;
@@ -248,7 +248,7 @@ function PartnerGovernanceCard({
     eligibleVoterAccounts,
     voteEntries,
     submissionTime,
-    reviewExpiry,
+    statusSubtitle,
     statusSummary,
     functionCallSummary,
     rewardPerActionValue,
@@ -434,6 +434,7 @@ function PartnerGovernanceCard({
         vote_counts: liveProposal.vote_counts,
         votes: liveProposal.votes,
         submission_time: liveProposal.submission_time,
+        resolved_at: liveProposal.resolved_at,
         last_actions_log: liveProposal.last_actions_log,
       })
     : null;
@@ -566,7 +567,7 @@ function PartnerGovernanceCard({
               actionBadge={presentation.actionBadge}
               submissionTime={submissionTime}
               statusStyle={liveStatusStyle ?? proposalFallbackStyle ?? null}
-              reviewExpiry={reviewExpiry}
+              statusSubtitle={statusSubtitle}
               interactive={interactive}
             />
           ) : (
@@ -670,7 +671,7 @@ function PartnerGovernanceCard({
                       resolvedOutcomeLabel={resolvedOutcomeLabel}
                       functionCallSummary={functionCallSummary}
                       submissionTime={submissionTime}
-                      reviewExpiry={reviewExpiry}
+                      statusSubtitle={statusSubtitle}
                       votingProgress={votingProgress}
                       activeVotingRole={activeVotingRole}
                       rejectVotes={rejectVotes}

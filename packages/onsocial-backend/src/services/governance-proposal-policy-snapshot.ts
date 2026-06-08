@@ -30,18 +30,34 @@ export function isTerminalDaoProposalStatus(
   return !!status && TERMINAL_DAO_PROPOSAL_STATUSES.has(status);
 }
 
+function readProposalActionBlockHeights(proposal: {
+  last_actions_log?: Array<{ block_height?: string | number }>;
+}): number[] {
+  return (proposal.last_actions_log ?? [])
+    .map((entry) => Number(entry.block_height))
+    .filter((height) => Number.isFinite(height) && height > 0);
+}
+
 export function readProposalSubmissionBlockHeight(proposal: {
   last_actions_log?: Array<{ block_height?: string | number }>;
 }): number | null {
-  const heights = (proposal.last_actions_log ?? [])
-    .map((entry) => Number(entry.block_height))
-    .filter((height) => Number.isFinite(height) && height > 0);
-
+  const heights = readProposalActionBlockHeights(proposal);
   if (heights.length === 0) {
     return null;
   }
 
   return Math.min(...heights);
+}
+
+export function readProposalLastActionBlockHeight(proposal: {
+  last_actions_log?: Array<{ block_height?: string | number }>;
+}): number | null {
+  const heights = readProposalActionBlockHeights(proposal);
+  if (heights.length === 0) {
+    return null;
+  }
+
+  return Math.max(...heights);
 }
 
 export async function loadDaoPolicySnapshotsByBlock(

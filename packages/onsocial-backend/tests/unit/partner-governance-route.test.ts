@@ -6,6 +6,8 @@ const mockQuery = vi.fn();
 const mockBuildRegisterAppGovernanceProposal = vi.fn();
 const mockIsRewardsAppRegistered = vi.fn();
 const mockFetch = vi.fn();
+const mockEnsureDaoProposalsSynced = vi.fn();
+const mockLoadAllDaoProposalSnapshots = vi.fn();
 
 vi.stubGlobal('fetch', mockFetch);
 
@@ -49,6 +51,18 @@ vi.mock('../../src/logger.js', () => ({
     debug: vi.fn(),
     fatal: vi.fn(),
   },
+}));
+
+vi.mock('../../src/services/governance-dao-proposal-sync.js', () => ({
+  ensureDaoProposalsSynced: (...args: unknown[]) =>
+    mockEnsureDaoProposalsSynced(...args),
+  syncDaoProposalById: vi.fn(),
+  startDaoProposalBackfillInBackground: vi.fn(),
+}));
+
+vi.mock('../../src/services/governance-dao-proposal-store.js', () => ({
+  loadAllDaoProposalSnapshots: (...args: unknown[]) =>
+    mockLoadAllDaoProposalSnapshots(...args),
 }));
 
 import express from 'express';
@@ -170,13 +184,64 @@ const DRAFT_PROPOSAL = {
   },
 };
 
+type DaoProposalFixture = {
+  id: number;
+  proposer: string;
+  description: string;
+  kind: Record<string, unknown>;
+  status: string;
+  submission_time: string;
+};
+
+function toStoredDaoProposalSnapshot(proposal: DaoProposalFixture) {
+  return {
+    daoAccountId: 'governance.onsocial.testnet',
+    proposalId: proposal.id,
+    status: proposal.status,
+    submissionTime: proposal.submission_time,
+    submissionBlockHeight: null,
+    resolvedBlockHeight: null,
+    resolvedAt: null,
+    proposalSnapshot: {
+      id: proposal.id,
+      proposer: proposal.proposer,
+      description: proposal.description,
+      kind: proposal.kind,
+      status: proposal.status,
+      vote_counts: {},
+      votes: {},
+      submission_time: proposal.submission_time,
+      resolved_at: null,
+      last_actions_log: [],
+      policy_snapshot: null,
+    },
+    policySnapshot: null,
+    syncedAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  };
+}
+
+function seedDaoProposalSnapshots(proposals: DaoProposalFixture[]) {
+  mockLoadAllDaoProposalSnapshots.mockResolvedValueOnce(
+    proposals.map(toStoredDaoProposalSnapshot)
+  );
+}
+
+function seedDaoPolicyFetch() {
+  mockFetch.mockResolvedValueOnce(mockRpcViewResult(DAO_POLICY_FIXTURE));
+}
+
 beforeEach(() => {
   mockQuery.mockReset();
   mockBuildRegisterAppGovernanceProposal.mockReset();
   mockIsRewardsAppRegistered.mockReset();
+  mockEnsureDaoProposalsSynced.mockReset();
+  mockLoadAllDaoProposalSnapshots.mockReset();
   mockQuery.mockResolvedValue(makeRows([]));
   mockBuildRegisterAppGovernanceProposal.mockReturnValue(DRAFT_PROPOSAL);
   mockIsRewardsAppRegistered.mockResolvedValue(false);
+  mockEnsureDaoProposalsSynced.mockResolvedValue(undefined);
+  mockLoadAllDaoProposalSnapshots.mockResolvedValue([]);
   mockFetch.mockReset();
 });
 
@@ -592,30 +657,26 @@ describe('GET /v1/governance/feed scoped results', () => {
 
   it('adds allowlisted protocol proposals to the public governance feed', async () => {
     mockQuery.mockResolvedValueOnce(makeRows([]));
-    mockFetch
-      .mockResolvedValueOnce(mockRpcViewResult(25))
-      .mockResolvedValueOnce(
-        mockRpcViewResult([
-          {
-            id: 25,
-            proposer: 'voter2.onsocial.testnet',
-            description: 'Upgrade boost contract to cleaned 1.0.0 artifact',
-            kind: {
-              FunctionCall: {
-                receiver_id: 'boost.onsocial.testnet',
-                actions: [
-                  {
-                    method_name: 'update_contract_from_hash',
-                  },
-                ],
+    seedDaoProposalSnapshots([
+      {
+        id: 25,
+        proposer: 'voter2.onsocial.testnet',
+        description: 'Upgrade boost contract to cleaned 1.0.0 artifact',
+        kind: {
+          FunctionCall: {
+            receiver_id: 'boost.onsocial.testnet',
+            actions: [
+              {
+                method_name: 'update_contract_from_hash',
               },
-            },
-            status: 'Approved',
-            submission_time: '1773316924632618708',
+            ],
           },
-        ])
-      )
-      .mockResolvedValueOnce(mockRpcViewResult(DAO_POLICY_FIXTURE));
+        },
+        status: 'Approved',
+        submission_time: '1773316924632618708',
+      },
+    ]);
+    seedDaoPolicyFetch();
 
     const res = await request(buildApp()).get(
       '/v1/governance/feed?scope=protocol'
@@ -640,40 +701,36 @@ describe('GET /v1/governance/feed scoped results', () => {
   });
 
   it('classifies rewards register_app proposals as partner governance, not protocol governance', async () => {
-    mockQuery.mockResolvedValueOnce(makeRows([]));
-    mockFetch
-      .mockResolvedValueOnce(mockRpcViewResult(27))
-      .mockResolvedValueOnce(
-        mockRpcViewResult([
-          {
-            id: 27,
-            proposer: 'guardian.onsocial.testnet',
-            description:
-              'Register community app Partner Alpha (partner_alpha) on rewards.onsocial.testnet.',
-            kind: {
-              FunctionCall: {
-                receiver_id: 'rewards.onsocial.testnet',
-                actions: [
-                  {
-                    method_name: 'register_app',
-                    args: Buffer.from(
-                      JSON.stringify({
-                        config: {
-                          app_id: 'partner_alpha',
-                          label: 'Partner Alpha',
-                        },
-                      })
-                    ).toString('base64'),
+    const partnerProposal = {
+      id: 27,
+      proposer: 'guardian.onsocial.testnet',
+      description:
+        'Register community app Partner Alpha (partner_alpha) on rewards.onsocial.testnet.',
+      kind: {
+        FunctionCall: {
+          receiver_id: 'rewards.onsocial.testnet',
+          actions: [
+            {
+              method_name: 'register_app',
+              args: Buffer.from(
+                JSON.stringify({
+                  config: {
+                    app_id: 'partner_alpha',
+                    label: 'Partner Alpha',
                   },
-                ],
-              },
+                })
+              ).toString('base64'),
             },
-            status: 'InProgress',
-            submission_time: '1773316924632618708',
-          },
-        ])
-      )
-      .mockResolvedValueOnce(mockRpcViewResult(DAO_POLICY_FIXTURE));
+          ],
+        },
+      },
+      status: 'InProgress',
+      submission_time: '1773316924632618708',
+    };
+
+    mockQuery.mockResolvedValueOnce(makeRows([]));
+    seedDaoProposalSnapshots([partnerProposal]);
+    seedDaoPolicyFetch();
 
     const partnersRes = await request(buildApp()).get(
       '/v1/governance/feed?scope=partners'
@@ -695,39 +752,8 @@ describe('GET /v1/governance/feed scoped results', () => {
     );
 
     mockQuery.mockResolvedValueOnce(makeRows([]));
-    mockFetch
-      .mockResolvedValueOnce(mockRpcViewResult(27))
-      .mockResolvedValueOnce(
-        mockRpcViewResult([
-          {
-            id: 27,
-            proposer: 'guardian.onsocial.testnet',
-            description:
-              'Register community app Partner Alpha (partner_alpha) on rewards.onsocial.testnet.',
-            kind: {
-              FunctionCall: {
-                receiver_id: 'rewards.onsocial.testnet',
-                actions: [
-                  {
-                    method_name: 'register_app',
-                    args: Buffer.from(
-                      JSON.stringify({
-                        config: {
-                          app_id: 'partner_alpha',
-                          label: 'Partner Alpha',
-                        },
-                      })
-                    ).toString('base64'),
-                  },
-                ],
-              },
-            },
-            status: 'InProgress',
-            submission_time: '1773316924632618708',
-          },
-        ])
-      )
-      .mockResolvedValueOnce(mockRpcViewResult(DAO_POLICY_FIXTURE));
+    seedDaoProposalSnapshots([partnerProposal]);
+    seedDaoPolicyFetch();
 
     const protocolRes = await request(buildApp()).get(
       '/v1/governance/feed?scope=protocol'
@@ -739,42 +765,38 @@ describe('GET /v1/governance/feed scoped results', () => {
 
   it('excludes staking governance from the public governance feed', async () => {
     mockQuery.mockResolvedValueOnce(makeRows([]));
-    mockFetch
-      .mockResolvedValueOnce(mockRpcViewResult(26))
-      .mockResolvedValueOnce(
-        mockRpcViewResult([
-          {
-            id: 0,
-            proposer: 'greenghost.onsocial.testnet',
-            description: 'Set governance staking contract',
-            kind: {
-              SetStakingContract: {
-                staking_id: 'staking-governance.onsocial.testnet',
-              },
-            },
-            status: 'Approved',
-            submission_time: '1773316571093161525',
+    seedDaoProposalSnapshots([
+      {
+        id: 0,
+        proposer: 'greenghost.onsocial.testnet',
+        description: 'Set governance staking contract',
+        kind: {
+          SetStakingContract: {
+            staking_id: 'staking-governance.onsocial.testnet',
           },
-          {
-            id: 25,
-            proposer: 'voter2.onsocial.testnet',
-            description: 'Upgrade boost contract to cleaned 1.0.0 artifact',
-            kind: {
-              FunctionCall: {
-                receiver_id: 'boost.onsocial.testnet',
-                actions: [
-                  {
-                    method_name: 'update_contract_from_hash',
-                  },
-                ],
+        },
+        status: 'Approved',
+        submission_time: '1773316571093161525',
+      },
+      {
+        id: 25,
+        proposer: 'voter2.onsocial.testnet',
+        description: 'Upgrade boost contract to cleaned 1.0.0 artifact',
+        kind: {
+          FunctionCall: {
+            receiver_id: 'boost.onsocial.testnet',
+            actions: [
+              {
+                method_name: 'update_contract_from_hash',
               },
-            },
-            status: 'Approved',
-            submission_time: '1773316924632618708',
+            ],
           },
-        ])
-      )
-      .mockResolvedValueOnce(mockRpcViewResult(DAO_POLICY_FIXTURE));
+        },
+        status: 'Approved',
+        submission_time: '1773316924632618708',
+      },
+    ]);
+    seedDaoPolicyFetch();
 
     const res = await request(buildApp()).get(
       '/v1/governance/feed?scope=protocol'
@@ -839,19 +861,14 @@ describe('GET /v1/governance/feed scoped results', () => {
         },
       ])
     );
-    // DAO scan returns same rejected proposal
-    mockFetch
-      .mockResolvedValueOnce(mockRpcViewResult(21))
-      .mockResolvedValueOnce(
-        mockRpcViewResult([
-          makeDaoRejectedPartnerProposal(
-            21,
-            'test_community_03',
-            'Test Community 03'
-          ),
-        ])
-      )
-      .mockResolvedValueOnce(mockRpcViewResult(DAO_POLICY_FIXTURE));
+    seedDaoProposalSnapshots([
+      makeDaoRejectedPartnerProposal(
+        21,
+        'test_community_03',
+        'Test Community 03'
+      ),
+    ]);
+    seedDaoPolicyFetch();
 
     const res = await request(buildApp()).get(
       '/v1/governance/feed?scope=partners'
@@ -893,19 +910,14 @@ describe('GET /v1/governance/feed scoped results', () => {
         },
       ])
     );
-    // DAO scan still returns the old rejected proposal
-    mockFetch
-      .mockResolvedValueOnce(mockRpcViewResult(21))
-      .mockResolvedValueOnce(
-        mockRpcViewResult([
-          makeDaoRejectedPartnerProposal(
-            21,
-            'test_community_03',
-            'Test Community 03'
-          ),
-        ])
-      )
-      .mockResolvedValueOnce(mockRpcViewResult(DAO_POLICY_FIXTURE));
+    seedDaoProposalSnapshots([
+      makeDaoRejectedPartnerProposal(
+        21,
+        'test_community_03',
+        'Test Community 03'
+      ),
+    ]);
+    seedDaoPolicyFetch();
 
     const res = await request(buildApp()).get(
       '/v1/governance/feed?scope=partners'
@@ -932,21 +944,14 @@ describe('GET /v1/governance/feed scoped results', () => {
     // item is absent from partnerItems. The dedup must do a secondary
     // lookup to discover the app has progressed past rejection.
     mockQuery.mockResolvedValueOnce(makeRows([])); // feed SQL: no matching rows
-    // DAO scan returns old rejected proposal
-    mockFetch
-      .mockResolvedValueOnce(mockRpcViewResult(21))
-      .mockResolvedValueOnce(
-        mockRpcViewResult([
-          makeDaoRejectedPartnerProposal(
-            21,
-            'test_community_03',
-            'Test Community 03'
-          ),
-        ])
-      )
-      .mockResolvedValueOnce(mockRpcViewResult(DAO_POLICY_FIXTURE));
-    // Persisted vote-time policy lookup during DAO scan enrichment
-    mockQuery.mockResolvedValueOnce(makeRows([]));
+    seedDaoProposalSnapshots([
+      makeDaoRejectedPartnerProposal(
+        21,
+        'test_community_03',
+        'Test Community 03'
+      ),
+    ]);
+    seedDaoPolicyFetch();
     // Secondary DB lookup for unmatched DAO app_ids
     mockQuery.mockResolvedValueOnce(
       makeRows([
@@ -996,45 +1001,40 @@ describe('GET /v1/governance/feed scoped results', () => {
         },
       ])
     );
-    // DAO scan returns BOTH the old rejected #21 and new in-progress #30
-    mockFetch
-      .mockResolvedValueOnce(mockRpcViewResult(30))
-      .mockResolvedValueOnce(
-        mockRpcViewResult([
-          makeDaoRejectedPartnerProposal(
-            21,
-            'test_community_03',
-            'Test Community 03'
-          ),
-          {
-            id: 30,
-            proposer: 'guardian.onsocial.testnet',
-            description:
-              'Register community app Test Community 03 (test_community_03) on rewards.onsocial.testnet.',
-            kind: {
-              FunctionCall: {
-                receiver_id: 'rewards.onsocial.testnet',
-                actions: [
-                  {
-                    method_name: 'register_app',
-                    args: Buffer.from(
-                      JSON.stringify({
-                        config: {
-                          app_id: 'test_community_03',
-                          label: 'Test Community 03',
-                        },
-                      })
-                    ).toString('base64'),
-                  },
-                ],
+    seedDaoProposalSnapshots([
+      makeDaoRejectedPartnerProposal(
+        21,
+        'test_community_03',
+        'Test Community 03'
+      ),
+      {
+        id: 30,
+        proposer: 'guardian.onsocial.testnet',
+        description:
+          'Register community app Test Community 03 (test_community_03) on rewards.onsocial.testnet.',
+        kind: {
+          FunctionCall: {
+            receiver_id: 'rewards.onsocial.testnet',
+            actions: [
+              {
+                method_name: 'register_app',
+                args: Buffer.from(
+                  JSON.stringify({
+                    config: {
+                      app_id: 'test_community_03',
+                      label: 'Test Community 03',
+                    },
+                  })
+                ).toString('base64'),
               },
-            },
-            status: 'InProgress',
-            submission_time: '1774560384669834575',
+            ],
           },
-        ])
-      )
-      .mockResolvedValueOnce(mockRpcViewResult(DAO_POLICY_FIXTURE));
+        },
+        status: 'InProgress',
+        submission_time: '1774560384669834575',
+      },
+    ]);
+    seedDaoPolicyFetch();
 
     const res = await request(buildApp()).get(
       '/v1/governance/feed?scope=partners'
@@ -1063,18 +1063,14 @@ describe('GET /v1/governance/feed scoped results', () => {
   it('keeps rejected DAO proposal visible when app has no DB entry at all', async () => {
     // No DB row (DAO-only proposal, not submitted through application flow)
     mockQuery.mockResolvedValueOnce(makeRows([])); // feed SQL: empty
-    mockFetch
-      .mockResolvedValueOnce(mockRpcViewResult(21))
-      .mockResolvedValueOnce(
-        mockRpcViewResult([
-          makeDaoRejectedPartnerProposal(
-            21,
-            'test_community_03',
-            'Test Community 03'
-          ),
-        ])
-      )
-      .mockResolvedValueOnce(mockRpcViewResult(DAO_POLICY_FIXTURE));
+    seedDaoProposalSnapshots([
+      makeDaoRejectedPartnerProposal(
+        21,
+        'test_community_03',
+        'Test Community 03'
+      ),
+    ]);
+    seedDaoPolicyFetch();
     // Secondary lookup returns nothing — no DB entry
     mockQuery.mockResolvedValueOnce(makeRows([]));
 
@@ -1120,26 +1116,22 @@ describe('GET /v1/governance/feed', () => {
         },
       ])
     );
-    mockFetch
-      .mockResolvedValueOnce(mockRpcViewResult(25))
-      .mockResolvedValueOnce(
-        mockRpcViewResult([
-          {
-            id: 25,
-            proposer: 'voter2.onsocial.testnet',
-            description: 'Upgrade boost contract to cleaned 1.0.0 artifact',
-            kind: {
-              FunctionCall: {
-                receiver_id: 'boost.onsocial.testnet',
-                actions: [{ method_name: 'update_contract_from_hash' }],
-              },
-            },
-            status: 'Approved',
-            submission_time: '1773316924632618708',
+    seedDaoProposalSnapshots([
+      {
+        id: 25,
+        proposer: 'voter2.onsocial.testnet',
+        description: 'Upgrade boost contract to cleaned 1.0.0 artifact',
+        kind: {
+          FunctionCall: {
+            receiver_id: 'boost.onsocial.testnet',
+            actions: [{ method_name: 'update_contract_from_hash' }],
           },
-        ])
-      )
-      .mockResolvedValueOnce(mockRpcViewResult(DAO_POLICY_FIXTURE));
+        },
+        status: 'Approved',
+        submission_time: '1773316924632618708',
+      },
+    ]);
+    seedDaoPolicyFetch();
 
     const res = await request(buildApp()).get('/v1/governance/feed');
 
@@ -1151,26 +1143,22 @@ describe('GET /v1/governance/feed', () => {
 
   it('supports protocol-only scope', async () => {
     mockQuery.mockResolvedValueOnce(makeRows([]));
-    mockFetch
-      .mockResolvedValueOnce(mockRpcViewResult(25))
-      .mockResolvedValueOnce(
-        mockRpcViewResult([
-          {
-            id: 25,
-            proposer: 'voter2.onsocial.testnet',
-            description: 'Upgrade boost contract to cleaned 1.0.0 artifact',
-            kind: {
-              FunctionCall: {
-                receiver_id: 'boost.onsocial.testnet',
-                actions: [{ method_name: 'update_contract_from_hash' }],
-              },
-            },
-            status: 'Approved',
-            submission_time: '1773316924632618708',
+    seedDaoProposalSnapshots([
+      {
+        id: 25,
+        proposer: 'voter2.onsocial.testnet',
+        description: 'Upgrade boost contract to cleaned 1.0.0 artifact',
+        kind: {
+          FunctionCall: {
+            receiver_id: 'boost.onsocial.testnet',
+            actions: [{ method_name: 'update_contract_from_hash' }],
           },
-        ])
-      )
-      .mockResolvedValueOnce(mockRpcViewResult(DAO_POLICY_FIXTURE));
+        },
+        status: 'Approved',
+        submission_time: '1773316924632618708',
+      },
+    ]);
+    seedDaoPolicyFetch();
 
     const res = await request(buildApp()).get(
       '/v1/governance/feed?scope=protocol'
@@ -1180,7 +1168,8 @@ describe('GET /v1/governance/feed', () => {
     expect(res.body.scope).toBe('protocol');
     expect(res.body.applications).toHaveLength(1);
     expect(res.body.applications[0].governance_scope).toBe('protocol');
-    expect(mockQuery).toHaveBeenCalledTimes(1);
+    expect(mockLoadAllDaoProposalSnapshots).toHaveBeenCalledTimes(1);
+    expect(mockQuery).not.toHaveBeenCalled();
   });
 });
 

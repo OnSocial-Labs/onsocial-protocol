@@ -2,7 +2,10 @@
 
 import { AnimatePresence, motion } from 'framer-motion';
 import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
-import { HoverTimestamp } from '@/features/governance/governance-card-helpers';
+import {
+  type GovernanceProposalStatusSubtitle,
+  HoverTimestamp,
+} from '@/features/governance/governance-card-helpers';
 import { portalCollapseTransition } from '@/features/governance/governance-motion';
 import { cn } from '@/lib/utils';
 
@@ -17,14 +20,14 @@ export function GovernanceProposalStrip({
   actionBadge,
   submissionTime,
   statusStyle,
-  reviewExpiry,
+  statusSubtitle,
   interactive = true,
 }: {
   proposalId: number;
   actionBadge: string | null;
   submissionTime: { relative: string; absolute: string } | null;
   statusStyle: StripStatusStyle | null;
-  reviewExpiry: { relative: string; absolute: string; expired: boolean } | null;
+  statusSubtitle: GovernanceProposalStatusSubtitle | null;
   interactive?: boolean;
 }) {
   return (
@@ -93,18 +96,18 @@ export function GovernanceProposalStrip({
               />
             ) : null}
           </span>
-          {reviewExpiry ? (
+          {statusSubtitle ? (
             <div
               className={cn(
                 'mt-0.5 portal-type-caption',
-                reviewExpiry.expired
+                statusSubtitle.tone === 'urgent'
                   ? 'portal-amber-text'
                   : 'text-muted-foreground'
               )}
             >
               <HoverTimestamp
-                relative={reviewExpiry.relative}
-                absolute={reviewExpiry.absolute}
+                relative={statusSubtitle.relative}
+                absolute={statusSubtitle.absolute}
               />
             </div>
           ) : null}

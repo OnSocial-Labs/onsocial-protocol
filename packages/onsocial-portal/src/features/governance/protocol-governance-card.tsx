@@ -113,7 +113,7 @@ export function ProtocolGovernanceCard({
     ? DAO_STATUS_STYLES[proposal.status]
     : undefined;
   useEffect(() => {
-    if (liveProposal?.status !== 'InProgress') {
+    if (!liveProposal) {
       return;
     }
 
@@ -124,7 +124,7 @@ export function ProtocolGovernanceCard({
     return () => {
       window.clearInterval(timer);
     };
-  }, [liveProposal?.status]);
+  }, [liveProposal?.status, liveProposal?.resolved_at]);
 
   const {
     connectedRole,
@@ -142,7 +142,7 @@ export function ProtocolGovernanceCard({
     eligibleVoterAccounts,
     voteEntries,
     submissionTime,
-    reviewExpiry,
+    statusSubtitle,
     statusSummary,
     functionCallSummary,
     proposalTxHref,
@@ -311,6 +311,7 @@ export function ProtocolGovernanceCard({
         vote_counts: liveProposal.vote_counts,
         votes: liveProposal.votes,
         submission_time: liveProposal.submission_time,
+        resolved_at: liveProposal.resolved_at,
         last_actions_log: liveProposal.last_actions_log,
       })
     : null;
@@ -353,7 +354,7 @@ export function ProtocolGovernanceCard({
               actionBadge={presentation.actionBadge}
               submissionTime={submissionTime}
               statusStyle={liveStatusStyle ?? proposalFallbackStyle ?? null}
-              reviewExpiry={reviewExpiry}
+              statusSubtitle={statusSubtitle}
               interactive={interactive}
             />
           )}
@@ -398,7 +399,7 @@ export function ProtocolGovernanceCard({
                   resolvedOutcomeLabel={resolvedOutcomeLabel}
                   functionCallSummary={functionCallSummary}
                   submissionTime={submissionTime}
-                  reviewExpiry={reviewExpiry}
+                  statusSubtitle={statusSubtitle}
                   votingProgress={votingProgress}
                   activeVotingRole={activeVotingRole}
                   rejectVotes={rejectVotes}

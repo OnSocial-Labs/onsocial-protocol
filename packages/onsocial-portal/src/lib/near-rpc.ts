@@ -105,6 +105,29 @@ export async function viewContractAt<T>(
   return viewContractAtBlock<T>(contractId, method, args);
 }
 
+export async function loadBlockTimestampNanoseconds(
+  blockHeight: number
+): Promise<string | null> {
+  if (!Number.isFinite(blockHeight) || blockHeight <= 0) {
+    return null;
+  }
+
+  try {
+    const rpc = getRpc();
+    const block = await rpc.call<{ header?: { timestamp?: number } }>('block', {
+      block_id: blockHeight,
+    });
+    const timestamp = block.result?.header?.timestamp;
+    if (typeof timestamp !== 'number' || timestamp <= 0) {
+      return null;
+    }
+
+    return String(timestamp);
+  } catch {
+    return null;
+  }
+}
+
 export async function viewContractAtBlock<T>(
   contractId: string,
   method: string,

@@ -39,6 +39,8 @@ export interface GovernanceDaoProposal {
   vote_counts: Record<string, [string, string, string]>;
   votes: Record<string, GovernanceDaoVote>;
   submission_time: string;
+  /** Nanosecond timestamp when the proposal reached a terminal status. */
+  resolved_at?: string | null;
   last_actions_log?: Array<{
     block_height: string;
   }>;

@@ -157,7 +157,7 @@ export function GovernanceLiveSummary({
   resolvedOutcomeLabel: _resolvedOutcomeLabel,
   functionCallSummary: _functionCallSummary,
   submissionTime: _submissionTime,
-  reviewExpiry: _reviewExpiry,
+  statusSubtitle: _statusSubtitle,
   votingProgress,
   activeVotingRole: _activeVotingRole,
   rejectVotes,
@@ -174,7 +174,11 @@ export function GovernanceLiveSummary({
   resolvedOutcomeLabel: string | null;
   functionCallSummary: FunctionCallSummary | null;
   submissionTime: { relative: string; absolute: string } | null;
-  reviewExpiry: { relative: string; absolute: string; expired: boolean } | null;
+  statusSubtitle: {
+    relative: string;
+    absolute: string;
+    tone: 'muted' | 'urgent';
+  } | null;
   votingProgress: VotingProgress;
   activeVotingRole: GovernanceDaoRole | null;
   rejectVotes: string;
