@@ -1,6 +1,7 @@
 # Check dependency versions before commit
 echo "🔍 Checking dependency synchronization..."
 node scripts/check-deps.js
+pnpm exec lint-staged
 
 # Auto-sync dependencies if there are mismatches
 if [ $? -ne 0 ]; then

@@ -45,6 +45,7 @@
     "lint": "make lint-all-js",
     "postinstall": "node scripts/sync-deps.js",
     "prepare": "husky",
+    "check:push": "node scripts/pre-push-check.mjs",
     "start": "pnpm -r run start",
     "sync-deps": "node scripts/sync-deps.js",
     "test": "make test-all-js",

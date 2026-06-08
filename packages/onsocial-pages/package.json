@@ -1,7 +1,7 @@
 {
   "name": "@onsocial/pages",
   "version": "0.1.0",
-  "description": "OnSocial Pages — edge function renderer for *.onsocial.id profile pages",
+  "description": "OnSocial Pages — subdomain router and account validation for *.onsocial.id",
   "type": "module",
   "main": "dist/worker.js",
   "types": "dist/worker.d.ts",
@@ -10,9 +10,10 @@
     "clean": "rm -rf dist",
     "lint": "eslint src",
     "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "pnpm lint && pnpm format:check && pnpm exec tsc --noEmit && pnpm test",
     "test": "vitest run",
-    "dev": "wrangler dev",
-    "dev:local": "npx tsx src/dev.ts"
+    "dev": "wrangler dev"
   },
   "devDependencies": {
     "@types/node": "^25.4.0",
