@@ -2,7 +2,6 @@ import {
   enrichDaoProposalWithPolicySnapshot,
   enrichDaoProposalsWithPolicySnapshots,
 } from '@/features/governance/governance-proposal-policy-snapshot.server';
-import { enrichDaoProposalWithResolvedAt } from '@/features/governance/governance-proposal-resolved-at.server';
 import { GOVERNANCE_DAO_ACCOUNT } from '@/lib/portal-config';
 import {
   REWARDS_CONTRACT,
@@ -32,12 +31,7 @@ export async function loadDaoProposal(
     { id: proposalId }
   ).catch(() => null);
 
-  const withPolicySnapshot = await enrichDaoProposalWithPolicySnapshot(
-    proposal,
-    daoAccountId
-  );
-
-  return enrichDaoProposalWithResolvedAt(withPolicySnapshot, daoAccountId);
+  return enrichDaoProposalWithPolicySnapshot(proposal, daoAccountId);
 }
 
 export async function loadDaoRecentProposals(
