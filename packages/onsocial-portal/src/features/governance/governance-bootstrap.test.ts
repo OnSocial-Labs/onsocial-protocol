@@ -46,6 +46,32 @@ describe('governance bootstrap proposal coverage', () => {
     expect(apps[1]?.protocol_kind).toBe('signaling');
   });
 
+  it('classifies treasury SetStakingContract proposals', () => {
+    const staking: GovernanceDaoProposal = {
+      id: 3,
+      proposer: 'alice.testnet',
+      description: 'Treasury DAO: set staking contract',
+      kind: {
+        SetStakingContract: {
+          staking_id: 'staking-treasury.onsocial.testnet',
+        },
+      },
+      status: 'Approved',
+      vote_counts: {},
+      votes: {},
+      submission_time: '3',
+    };
+
+    const apps = buildGovernanceApplicationsFromDaoProposals(
+      [staking],
+      'treasury.onsocial.testnet'
+    );
+
+    expect(apps).toHaveLength(1);
+    expect(apps[0]?.protocol_subject).toBe('Treasury staking');
+    expect(apps[0]?.protocol_kind).toBe('staking');
+  });
+
   it('fills missing proposal ids up to lastProposalId', () => {
     const apps = buildGovernanceApplicationsFromDaoProposals(
       [

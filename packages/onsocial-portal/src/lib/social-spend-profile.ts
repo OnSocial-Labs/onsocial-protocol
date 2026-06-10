@@ -17,6 +17,18 @@ export type PortalSocialSpendClaimTransaction = ReturnType<
   typeof os.socialSpend.buildClaimTargetBalanceTransaction
 >;
 
+/** On-chain routing for `support_profile` (1% treasury · 99% recipient). */
+export const SUPPORT_PROFILE_TREASURY_BPS = 100;
+export const SUPPORT_PROFILE_TARGET_BPS = 9_900;
+
+export function formatSupportProfileRecipientSharePercent(): string {
+  return `${SUPPORT_PROFILE_TARGET_BPS / 100}`;
+}
+
+export function formatSupportProfileTreasurySharePercent(): string {
+  return `${SUPPORT_PROFILE_TREASURY_BPS / 100}`;
+}
+
 /** Minimum `support_profile` spend (0.01 SOCIAL, 18 decimals). */
 export const SUPPORT_PROFILE_MIN_YOCTO = 10_000_000_000_000_000n;
 

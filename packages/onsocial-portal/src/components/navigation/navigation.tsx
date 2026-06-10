@@ -99,9 +99,9 @@ const baseNavGroups: NavGroup[] = [
         icon: Flame,
       },
       {
-        label: 'Genesis Rally',
-        href: '/season-zero',
-        description: 'Season 0 standings & join rally',
+        label: 'OnSocial Rally',
+        href: '/season',
+        description: 'Live standings, earn points, claim rewards',
         icon: Trophy,
       },
       {
@@ -158,9 +158,9 @@ const internalOpsGroup: NavGroup = {
       icon: Activity,
     },
     {
-      label: 'Season 0 settlement',
-      href: '/season-zero/admin',
-      description: 'Finalize and publish Genesis Rally rewards',
+      label: 'Season settlement',
+      href: '/season/admin',
+      description: 'Finalize and publish rally rewards',
       icon: Shield,
     },
   ],

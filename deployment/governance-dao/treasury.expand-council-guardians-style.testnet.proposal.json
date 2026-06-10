@@ -1,0 +1,20 @@
+{
+  "proposal": {
+    "description": "Treasury DAO: expand council to guardians-style full access with greenghost and voter2",
+    "kind": {
+      "ChangePolicyAddOrUpdateRole": {
+        "role": {
+          "name": "council",
+          "kind": {
+            "Group": [
+              "greenghost.onsocial.testnet",
+              "voter2.onsocial.testnet"
+            ]
+          },
+          "permissions": ["*:*"],
+          "vote_policy": {}
+        }
+      }
+    }
+  }
+}

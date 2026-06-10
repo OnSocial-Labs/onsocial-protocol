@@ -99,10 +99,16 @@ export function GovernanceProposalIdentityRow({
   targetFooter?: React.ReactNode;
   subjectLoading?: boolean;
 }) {
-  const { subjectAccount, targetKind, targetValue, targetAccountId } =
-    presentation;
+  const {
+    subjectAccount,
+    subjectEyebrow,
+    subjectText,
+    targetKind,
+    targetValue,
+    targetAccountId,
+  } = presentation;
 
-  if (!subjectAccount && !targetValue) {
+  if (!subjectAccount && !subjectText && !targetValue) {
     return (
       <h3
         className={cn(
@@ -128,11 +134,27 @@ export function GovernanceProposalIdentityRow({
         </div>
       ) : subjectAccount ? (
         <div className="min-w-0 flex-1">
+          {subjectEyebrow ? (
+            <span className="mb-0.5 block portal-eyebrow leading-none text-muted-foreground/70">
+              {subjectEyebrow}
+            </span>
+          ) : null}
           <GovernanceAccountChip
             accountId={subjectAccount}
             dense
             className="max-w-full"
           />
+        </div>
+      ) : subjectText ? (
+        <div className="min-w-0 flex-1">
+          {subjectEyebrow ? (
+            <span className="mb-0.5 block portal-eyebrow leading-none text-muted-foreground/70">
+              {subjectEyebrow}
+            </span>
+          ) : null}
+          <span className="portal-type-body font-semibold tracking-[-0.01em] text-foreground/90">
+            {subjectText}
+          </span>
         </div>
       ) : (
         <h3 className="min-w-0 flex-1 portal-type-lead font-semibold tracking-[-0.02em] text-foreground">
@@ -181,7 +203,7 @@ export function GovernanceProposalOnChainRefLabel({
       </PortalHoverTooltip>
       {presentation.onChainAction === 'vote' ? (
         <span className="shrink-0 portal-type-caption text-muted-foreground/50">
-          signaling
+          signal
         </span>
       ) : null}
     </>
@@ -190,9 +212,11 @@ export function GovernanceProposalOnChainRefLabel({
 
 export function GovernanceProposerRow({
   proposer,
+  asSelf = false,
   className,
 }: {
-  proposer: string;
+  proposer?: string;
+  asSelf?: boolean;
   className?: string;
 }) {
   return (
@@ -203,12 +227,18 @@ export function GovernanceProposerRow({
       )}
     >
       <span className="portal-eyebrow leading-none">Proposer</span>
-      <GovernanceAccountChip
-        accountId={proposer}
-        avatarClassName="h-5 w-5"
-        compact
-        className="max-w-full"
-      />
+      {asSelf ? (
+        <span className="portal-type-body font-semibold tracking-[-0.01em] text-foreground/90">
+          Self
+        </span>
+      ) : proposer ? (
+        <GovernanceAccountChip
+          accountId={proposer}
+          avatarClassName="h-5 w-5"
+          compact
+          className="max-w-full"
+        />
+      ) : null}
     </div>
   );
 }

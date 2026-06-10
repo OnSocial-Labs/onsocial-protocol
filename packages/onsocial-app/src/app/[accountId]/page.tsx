@@ -1,7 +1,14 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
-import { normalizeAccountRoute } from '@/lib/account-route';
-import { fetchPublicPageData, getActiveNearNetwork } from '@/lib/page-data';
+import { resolvePortfolioMood } from '@/lib/moods/resolve';
+import { displayName } from '@/lib/profile-display';
+import { fetchPublicPageData } from '@/lib/page-data';
+import { resolveAccountId, resolveAccountPage } from '@/lib/resolve-account';
+import { PortfolioIdentity } from '@/components/portfolio/portfolio-identity';
+import { PortfolioLinks } from '@/components/portfolio/portfolio-links';
+import { PortfolioOverview } from '@/components/portfolio/portfolio-overview';
+import { PortfolioShell } from '@/components/portfolio/portfolio-shell';
+import { PortfolioStats } from '@/components/portfolio/portfolio-stats';
+import { PortfolioTags } from '@/components/portfolio/portfolio-tags';
 
 type AccountPageProps = {
   params: Promise<{
@@ -9,56 +16,10 @@ type AccountPageProps = {
   }>;
 };
 
-function fallbackLabel(accountId: string): string {
-  return accountId.replace(/\.testnet$|\.near$/, '');
-}
-
-function displayName(accountId: string, profileName?: string): string {
-  const name = profileName?.trim();
-  return name || fallbackLabel(accountId);
-}
-
-function initials(label: string): string {
-  return label
-    .split(/[\s._-]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('');
-}
-
-function normalizeLink(url: string): string | null {
-  const trimmedUrl = url.trim();
-  if (!trimmedUrl) {
-    return null;
-  }
-
-  const candidate = /^https?:\/\//i.test(trimmedUrl)
-    ? trimmedUrl
-    : `https://${trimmedUrl}`;
-
-  try {
-    const parsedUrl = new URL(candidate);
-    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-      return null;
-    }
-
-    return parsedUrl.toString();
-  } catch {
-    return null;
-  }
-}
-
 export async function generateMetadata({
   params,
 }: AccountPageProps): Promise<Metadata> {
-  const { accountId: routeSegment } = await params;
-  const accountId = normalizeAccountRoute(routeSegment);
-
-  if (!accountId) {
-    return { title: 'OnSocial' };
-  }
-
+  const accountId = await resolveAccountId(params);
   const data = await fetchPublicPageData(accountId);
   const titleLabel = displayName(accountId, data?.profile.name);
   const description =
@@ -79,54 +40,30 @@ export async function generateMetadata({
 }
 
 export default async function AccountPage({ params }: AccountPageProps) {
-  const { accountId: routeSegment } = await params;
-  const accountId = normalizeAccountRoute(routeSegment);
-
-  if (!accountId) {
-    notFound();
-  }
-
-  const data = await fetchPublicPageData(accountId);
-
-  if (!data) {
-    notFound();
-  }
-
-  const titleLabel = displayName(accountId, data.profile.name);
-  const tagline = data.config.tagline?.trim() || data.profile.bio?.trim();
-  const avatarUrl = normalizeLink(data.profile.avatar ?? '');
-  const isActivated = data.activated ?? false;
-  const nearNetwork = getActiveNearNetwork();
+  const { accountId, data } = await resolveAccountPage(params);
+  const tagline = data.config.tagline?.trim();
+  const mood = resolvePortfolioMood(data.config);
 
   return (
-    <main className="gate">
-      <section className="profile-card animate-rise-in">
-        {avatarUrl ? (
-          <img
-            alt={titleLabel}
-            className="profile-avatar"
-            height={96}
-            src={avatarUrl}
-            width={96}
-          />
-        ) : (
-          <div className="profile-avatar profile-avatar-fallback">
-            {initials(titleLabel)}
-          </div>
-        )}
+    <PortfolioShell
+      mood={mood}
+      pageAccountId={accountId}
+      activated={Boolean(data.activated)}
+    >
+      <PortfolioIdentity
+        accountId={accountId}
+        profileName={data.profile.name}
+        bio={data.profile.bio}
+        tagline={tagline}
+        avatar={data.profile.avatar}
+        activated={data.activated}
+        mood={mood}
+      />
 
-        <h1 className="profile-name">{titleLabel}</h1>
-        <p className="profile-handle">@{accountId}</p>
-
-        {tagline ? <p className="profile-tagline">{tagline}</p> : null}
-
-        <div className="profile-status">
-          <span className="profile-dot" data-active={isActivated} />
-          <span>{isActivated ? 'Active' : 'Dormant'}</span>
-          <span className="profile-sep" />
-          <span>{nearNetwork}</span>
-        </div>
-      </section>
-    </main>
+      <PortfolioStats stats={data.stats} />
+      <PortfolioOverview accountId={accountId} data={data} />
+      <PortfolioLinks links={data.profile.links} />
+      <PortfolioTags tags={data.profile.tags} />
+    </PortfolioShell>
   );
 }

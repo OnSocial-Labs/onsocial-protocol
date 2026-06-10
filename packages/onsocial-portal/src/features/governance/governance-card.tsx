@@ -463,7 +463,8 @@ function PartnerGovernanceCard({
       {
         label: app.label,
         description: app.description ?? proposal?.description,
-      }
+      },
+      { protocolKind: app.protocol_kind ?? null }
     );
 
     if (base.actionBadge !== 'Partner') {
@@ -481,16 +482,19 @@ function PartnerGovernanceCard({
         ? subjectCandidate
         : null);
     const proposer = base.proposer?.trim() ?? null;
+    const proposerMatchesSubject =
+      !!proposer &&
+      !!subjectAccount &&
+      proposer.toLowerCase() === subjectAccount.toLowerCase();
 
     return {
       ...base,
       subjectAccount,
+      subjectEyebrow: proposerMatchesSubject ? 'Proposer' : base.subjectEyebrow,
       targetKind: 'community' as const,
       targetValue: app.label,
       showProposerSeparately:
-        !!proposer &&
-        !!subjectAccount &&
-        proposer.toLowerCase() !== subjectAccount.toLowerCase(),
+        !!proposer && !!subjectAccount && !proposerMatchesSubject,
     };
   }, [
     liveProposal,
@@ -499,6 +503,7 @@ function PartnerGovernanceCard({
     app.description,
     app.wallet_id,
     app.app_id,
+    app.protocol_kind,
     proposal?.description,
   ]);
 
@@ -622,8 +627,12 @@ function PartnerGovernanceCard({
               }
             />
 
-            {presentation.showProposerSeparately && presentation.proposer ? (
-              <GovernanceProposerRow proposer={presentation.proposer} />
+            {(presentation.showProposerSeparately && presentation.proposer) ||
+            presentation.showProposerAsSelf ? (
+              <GovernanceProposerRow
+                proposer={presentation.proposer ?? undefined}
+                asSelf={presentation.showProposerAsSelf}
+              />
             ) : null}
 
             {descriptionText ? (

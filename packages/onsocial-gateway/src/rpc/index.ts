@@ -5,7 +5,7 @@
 //   const result = await rpcQuery<{ keys: ... }>({ request_type: '...', ... });
 
 import {
-  createNearRpc,
+  createConfiguredNearRpc,
   type Network,
   type NearRpc,
   type NearRpcResponse,
@@ -21,9 +21,11 @@ const network = (config.nearNetwork as Network) || 'testnet';
  * Primary:   NEAR_RPC_URL env var (Lava in production)
  * Secondary: Built-in per-network endpoint (automatic failover)
  */
-export const nearRpc: NearRpc = createNearRpc({
-  primaryUrl: config.nearRpcUrl,
+export const nearRpc: NearRpc = createConfiguredNearRpc({
   network,
+  lavaApiKey: config.lavaApiKey,
+  primaryUrl: config.nearRpcUrl,
+  publicOnly: false,
   onLog: (
     level: 'info' | 'warn' | 'error',
     msg: string,

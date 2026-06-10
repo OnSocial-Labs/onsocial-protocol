@@ -1,0 +1,10 @@
+{
+  "proposal": {
+    "description": "Treasury DAO: remove public Everyone role so only council can propose",
+    "kind": {
+      "ChangePolicyRemoveRole": {
+        "role": "all"
+      }
+    }
+  }
+}

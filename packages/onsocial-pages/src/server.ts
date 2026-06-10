@@ -7,18 +7,20 @@
 //   Host: greenghost.testnet.onsocial.id → accountId = greenghost.testnet
 //   Host: greenghost.onsocial.id         → accountId = greenghost.near
 //
+// Validates account existence via the gateway, then redirects to the
+// canonical @accountId URL on PUBLIC_APP_URL.
+//
 // Environment:
-//   PORT             — listen port (default 3456)
-//   DATA_API_URL     — internal gateway base URL for server-side page data
-//   PUBLIC_APP_URL   — canonical app base URL for @accountId pages
-//   PUBLIC_PAGE_BASE_DOMAIN — base hostname for public pages
-//   CORE_CONTRACT    — core contract account ID
-//   NEAR_NETWORK     — "testnet" or "mainnet" (default: derived from CORE_CONTRACT)
+//   PORT                      — listen port (default 3456)
+//   DATA_API_URL              — internal gateway base URL
+//   PUBLIC_APP_URL            — canonical app base URL for @accountId pages
+//   PUBLIC_PAGE_BASE_DOMAIN   — base hostname for public pages
+//   CORE_CONTRACT             — core contract account ID
+//   NEAR_NETWORK              — "testnet" or "mainnet"
 // ---------------------------------------------------------------------------
 
 import http from 'node:http';
 import { resolvePageHost } from './server-utils.js';
-import type { PageData } from './types.js';
 
 const PORT = parseInt(process.env.PORT || '3456', 10);
 const CORE_CONTRACT = process.env.CORE_CONTRACT || 'core.onsocial.testnet';
@@ -57,23 +59,6 @@ const accountExistenceCache = new Map<
   string,
   { exists: boolean; expiresAt: number }
 >();
-
-async function fetchPageData(accountId: string): Promise<PageData> {
-  const resp = await fetch(
-    `${DATA_API_URL}/data/page?accountId=${encodeURIComponent(accountId)}`,
-    {
-      headers: { Accept: 'application/json' },
-      signal: AbortSignal.timeout(10_000),
-    }
-  );
-
-  if (!resp.ok) {
-    const details = await resp.text().catch(() => '');
-    throw new Error(`Data API error: ${resp.status} ${details}`.trim());
-  }
-
-  return (await resp.json()) as PageData;
-}
 
 async function accountExists(accountId: string): Promise<boolean> {
   const cacheKey = `${NEAR_NETWORK}:${accountId}`;
@@ -129,7 +114,6 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', `http://localhost:${PORT}`);
   const host = req.headers.host ?? '';
 
-  // Health check
   if (url.pathname === '/health') {
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ status: 'ok', network: NEAR_NETWORK }));
@@ -137,7 +121,6 @@ const server = http.createServer(async (req, res) => {
   }
 
   // Caddy on-demand TLS permission endpoint
-  // Caddy sends ?domain=<page-host> — return 200 to allow cert issuance
   if (url.pathname === '/caddy-ask') {
     const domain = url.searchParams.get('domain') ?? '';
     const resolution = resolvePageHost({
@@ -157,39 +140,6 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // JSON data endpoint (used by external consumers)
-  if (url.pathname === '/data/page') {
-    const accountId = url.searchParams.get('accountId');
-    if (!accountId) {
-      res.writeHead(400, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Missing accountId' }));
-      return;
-    }
-    try {
-      if (!(await accountExists(accountId))) {
-        res.writeHead(404, { 'content-type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Account not found' }));
-        return;
-      }
-
-      const data = await fetchPageData(accountId);
-      res.writeHead(200, {
-        'content-type': 'application/json',
-        'cache-control': 'public, max-age=30',
-      });
-      res.end(JSON.stringify(data));
-    } catch (err) {
-      res.writeHead(502, { 'content-type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          error: err instanceof Error ? err.message : String(err),
-        })
-      );
-    }
-    return;
-  }
-
-  // Dev mode fallback: ?account= query param
   const devAccount = url.searchParams.get('account');
   const resolution = devAccount
     ? null
@@ -202,7 +152,6 @@ const server = http.createServer(async (req, res) => {
   const accountId = devAccount || resolution?.accountId;
 
   if (!accountId) {
-    // Root domain or reserved subdomain → redirect
     res.writeHead(302, { Location: ROOT_REDIRECT_URL });
     res.end();
     return;
@@ -228,7 +177,7 @@ const server = http.createServer(async (req, res) => {
     });
     res.end();
   } catch (err) {
-    console.error('Failed to render page', {
+    console.error('Failed to redirect page request', {
       accountId,
       host,
       path: url.pathname,
@@ -250,5 +199,5 @@ server.listen(PORT, () => {
   console.log(`Network: ${NEAR_NETWORK} | Contract: ${CORE_CONTRACT}`);
   console.log(`Page domain: ${PUBLIC_PAGE_BASE_DOMAIN}`);
   console.log(`Canonical app: ${PUBLIC_APP_URL}`);
-  console.log(`Data API: ${DATA_API_URL}`);
+  console.log(`Gateway: ${DATA_API_URL}`);
 });

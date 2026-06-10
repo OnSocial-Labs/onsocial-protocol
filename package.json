@@ -58,6 +58,7 @@
   "packageManager": "pnpm@10.32.1",
   "dependencies": {
     "@near-js/accounts": "^2.5.1",
+    "@near-js/crypto": "^2.5.1",
     "@near-js/keystores": "^2.5.1",
     "@near-js/keystores-node": "^2.5.1",
     "@near-js/providers": "^2.5.1",

@@ -55,7 +55,9 @@ import {
 } from '@/features/profile/profile-identity-loading';
 import {
   GenesisRallyParticipantBadge,
+  ActiveRallyParticipantBadge,
   useSeasonZeroProfileBadge,
+  useActiveSeasonProfileBadge,
 } from '@/features/season/season-zero-participant-badge';
 import { NetworkModal, type NetworkAccount } from '@/components/network-modal';
 import { PlatformStorageAllowanceSummary } from '@/components/platform-storage-allowance-summary';
@@ -1406,6 +1408,7 @@ export function ProfileModal({
   const isPage = variant === 'page';
   const active = Boolean(accountId) && (isPage || open);
   const genesisRallyBadge = useSeasonZeroProfileBadge(accountId, active);
+  const activeRallyBadge = useActiveSeasonProfileBadge(accountId, active);
   const reduceMotion = useReducedMotion();
   const router = useRouter();
   const shellForAccount = portalProfileShellForAccount(initialShell, accountId);
@@ -1940,6 +1943,11 @@ export function ProfileModal({
                     >
                       {title}
                     </h2>
+                    {activeRallyBadge ? (
+                      <ActiveRallyParticipantBadge
+                        rank={activeRallyBadge.rank}
+                      />
+                    ) : null}
                     {genesisRallyBadge ? (
                       <GenesisRallyParticipantBadge
                         rank={genesisRallyBadge.rank}

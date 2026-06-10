@@ -10,6 +10,7 @@ import {
   isTerminalGovernanceProposalStatus,
   mergeGovernanceProposalSnapshot,
   normalizeDaoProposalStatus,
+  normalizeGovernanceDaoProposal,
 } from '@/features/governance/governance-card-helpers';
 import type {
   GovernanceDaoPolicy,
@@ -32,10 +33,10 @@ export function getFeedProposalSnapshot(
     normalizeDaoProposalStatus(snapshot.status) ??
     (snapshot.status as GovernanceDaoProposal['status']);
 
-  return {
+  return normalizeGovernanceDaoProposal({
     ...snapshot,
     status,
-  };
+  });
 }
 
 export function hasFeedDaoBootstrap(

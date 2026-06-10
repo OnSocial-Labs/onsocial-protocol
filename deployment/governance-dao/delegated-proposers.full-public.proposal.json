@@ -1,0 +1,22 @@
+{
+  "proposal": {
+    "description": "Allow delegated SOCIAL holders to propose partners, membership, and ideas",
+    "kind": {
+      "ChangePolicyAddOrUpdateRole": {
+        "role": {
+          "name": "delegated_proposers",
+          "kind": {
+            "Member": "100000000000000000000"
+          },
+          "permissions": [
+            "call:AddProposal",
+            "add_member_to_role:AddProposal",
+            "remove_member_from_role:AddProposal",
+            "vote:AddProposal"
+          ],
+          "vote_policy": {}
+        }
+      }
+    }
+  }
+}

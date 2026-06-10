@@ -13,11 +13,11 @@ import {
   previewSeasonSettlement,
   publishSeasonSettlement,
   SEASON_ZERO_SETTLEMENT_JOIN_MIN_YOCTO,
-} from '../services/seasons/season-zero-finalization.js';
+} from '../services/seasons/season-finalization.js';
 import {
   getSeasonStandings,
   type SeasonZeroStanding,
-} from '../services/seasons/season-zero-standings.js';
+} from '../services/seasons/season-standings.js';
 import { normalizeSeasonId } from '../services/seasons/season-registry.js';
 
 const router = Router();
@@ -99,10 +99,22 @@ router.get('/:seasonId/status', async (req: Request, res: Response) => {
   if (!seasonId) return;
 
   try {
-    const [onChainConfig, settlement, poolBreakdown] = await Promise.all([
-      getSeasonOnChainConfig(seasonId),
+    const onChainConfig = await getSeasonOnChainConfig(seasonId);
+    const endsAtNs =
+      onChainConfig && !onChainConfig.is_live && onChainConfig.ends_at_ns
+        ? onChainConfig.ends_at_ns.toString()
+        : undefined;
+    const [settlement, poolBreakdown] = await Promise.all([
       getSeasonSettlementSummary(seasonId),
-      getSeasonPoolBreakdown(seasonId),
+      getSeasonPoolBreakdown(
+        seasonId,
+        endsAtNs
+          ? {
+              joinCutoffTimestampNs: endsAtNs,
+              sponsorCutoffTimestampNs: endsAtNs,
+            }
+          : {}
+      ),
     ]);
     if (!onChainConfig) {
       res.status(404).json({

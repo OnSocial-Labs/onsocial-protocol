@@ -1,0 +1,14 @@
+{
+  "proposal": {
+    "description": "Treasury DAO: switch default vote policy from 1/2 to 50/100 majority",
+    "kind": {
+      "ChangePolicyUpdateDefaultVotePolicy": {
+        "vote_policy": {
+          "weight_kind": "RoleWeight",
+          "quorum": "0",
+          "threshold": [50, 100]
+        }
+      }
+    }
+  }
+}

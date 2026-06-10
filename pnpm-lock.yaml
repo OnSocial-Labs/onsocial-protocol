@@ -11,6 +11,9 @@ importers:
       '@near-js/accounts':
         specifier: ^2.5.1
         version: 2.5.1(416034e9b7fc6211b84ff398b6aca742)
+      '@near-js/crypto':
+        specifier: ^2.5.1
+        version: 2.5.1(@near-js/types@2.2.5)(@near-js/utils@2.1.0(@near-js/types@2.2.5))
       '@near-js/keystores':
         specifier: ^2.5.1
         version: 2.5.1(@near-js/crypto@2.5.1(@near-js/types@2.2.5)(@near-js/utils@2.1.0(@near-js/types@2.2.5)))(@near-js/types@2.2.5)

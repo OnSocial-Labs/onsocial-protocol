@@ -3,7 +3,17 @@ import type {
   GovernanceDaoRole,
   GovernanceDaoVotePolicy,
 } from '@/features/governance/types';
+import {
+  type GovernanceDaoBoard,
+  buildGovernancePathWithBoard,
+} from '@/features/governance/governance-dao-board';
 import { GOVERNANCE_DAO_ACCOUNT } from '@/lib/portal-config';
+import {
+  isProposerThresholdWithinBounds,
+  TOKEN_CONTRACT,
+  yoctoToNear,
+  yoctoToSocial,
+} from '@/lib/near-rpc';
 
 function normalizeAccountId(accountId: string): string {
   return accountId.trim().toLowerCase();
@@ -157,17 +167,35 @@ export function getProposalKindBlockReason(
     return '';
   }
 
+  if (kind === 'transfer') {
+    return '';
+  }
+
   return '';
 }
 
-export type CreatableDaoProposalKind = 'join_role' | 'leave_role' | 'idea';
+export type CreatableDaoProposalKind =
+  | 'join_role'
+  | 'leave_role'
+  | 'idea'
+  | 'transfer'
+  | 'transfer_ownership'
+  | 'withdraw_social_treasury'
+  | 'fund_season_pool';
 
 export type CreatableDaoProposalAction =
   | 'join_self'
   | 'add_member'
   | 'leave_self'
   | 'remove_member'
-  | 'idea';
+  | 'idea'
+  | 'transfer'
+  | 'transfer_ownership'
+  | 'withdraw_social_treasury'
+  | 'fund_season_pool';
+
+export const SOCIAL_SPEND_FUNCTION_CALL_GAS = 100_000_000_000_000;
+export const SOCIAL_SPEND_FUNCTION_CALL_DEPOSIT = '1';
 
 export function proposalActionToKind(
   action: CreatableDaoProposalAction
@@ -181,6 +209,14 @@ export function proposalActionToKind(
       return 'leave_role';
     case 'idea':
       return 'idea';
+    case 'transfer':
+      return 'transfer';
+    case 'transfer_ownership':
+      return 'transfer_ownership';
+    case 'withdraw_social_treasury':
+      return 'withdraw_social_treasury';
+    case 'fund_season_pool':
+      return 'fund_season_pool';
   }
 }
 
@@ -235,6 +271,33 @@ export function resolveCreatableProposalActionsForProposer(
     actions.push('idea');
   }
 
+  if (canProposeDaoKind(policy, proposer, delegatedWeight, 'transfer')) {
+    actions.push('transfer');
+  }
+
+  if (
+    canProposeDaoKind(policy, proposer, delegatedWeight, 'transfer_ownership')
+  ) {
+    actions.push('transfer_ownership');
+  }
+
+  if (
+    canProposeDaoKind(
+      policy,
+      proposer,
+      delegatedWeight,
+      'withdraw_social_treasury'
+    )
+  ) {
+    actions.push('withdraw_social_treasury');
+  }
+
+  if (
+    canProposeDaoKind(policy, proposer, delegatedWeight, 'fund_season_pool')
+  ) {
+    actions.push('fund_season_pool');
+  }
+
   return actions;
 }
 
@@ -251,7 +314,15 @@ export function getProposalActionSubmitLabel(
     case 'remove_member':
       return 'Remove member';
     case 'idea':
-      return 'Propose idea';
+      return 'Propose signal';
+    case 'transfer':
+      return 'Propose transfer';
+    case 'transfer_ownership':
+      return 'Propose ownership transfer';
+    case 'withdraw_social_treasury':
+      return 'Propose treasury sweep';
+    case 'fund_season_pool':
+      return 'Propose season funding';
   }
 }
 
@@ -259,6 +330,10 @@ const CREATABLE_KIND_POLICY_LABEL: Record<CreatableDaoProposalKind, string> = {
   join_role: 'add_member_to_role',
   leave_role: 'remove_member_from_role',
   idea: 'vote',
+  transfer: 'transfer',
+  transfer_ownership: 'call',
+  withdraw_social_treasury: 'call',
+  fund_season_pool: 'call',
 };
 
 function roleMatchesDelegatedUser(
@@ -329,7 +404,23 @@ export function getDaoKindPermissionBlockReason(
     return 'You cannot propose leave requests on the DAO yet. Membership proposal permission is missing from DAO policy.';
   }
 
-  return 'You cannot propose ideas on the DAO yet. Idea proposal permission is missing from DAO policy.';
+  if (kind === 'idea') {
+    return 'You cannot propose Signals on the DAO yet. Signal proposal permission is missing from DAO policy.';
+  }
+
+  if (kind === 'transfer') {
+    return 'You cannot propose transfers on the DAO yet. Transfer proposal permission is missing from DAO policy.';
+  }
+
+  if (kind === 'transfer_ownership') {
+    return 'You cannot propose contract ownership transfers on the DAO yet. Call proposal permission is missing from DAO policy.';
+  }
+
+  if (kind === 'withdraw_social_treasury' || kind === 'fund_season_pool') {
+    return 'You cannot propose social-spend treasury actions on the DAO yet. Call proposal permission is missing from DAO policy.';
+  }
+
+  return 'You cannot propose this action on the DAO yet.';
 }
 
 /** Listed on a DAO role Group (e.g. guardians). */
@@ -352,6 +443,7 @@ export function isDaoGroupMember(
 const POLICY_ACTION_PERMISSION_LABEL: Record<DaoPolicyActionId, string> = {
   update_permissions: 'policy_add_or_update_role',
   update_parameters: 'policy_update_parameters',
+  update_vote_policy: 'policy_update_default_vote_policy',
   add_role: 'policy_add_or_update_role',
   remove_role: 'policy_remove_role',
 };
@@ -379,6 +471,7 @@ export function canProposePolicyChange(
   const policyLabels = [
     'policy_add_or_update_role',
     'policy_update_parameters',
+    'policy_update_default_vote_policy',
     'policy_remove_role',
     'policy',
   ];
@@ -394,10 +487,12 @@ export function canProposePolicyChange(
 
 export const DELEGATED_PROPOSERS_ROLE_ID = 'delegated_proposers';
 
-/** On-chain role id → portal label. */
+/** On-chain role id → portal label (aligned across treasury + governance DAOs). */
 export const DAO_ROLE_DISPLAY_NAMES: Record<string, string> = {
   [DELEGATED_PROPOSERS_ROLE_ID]: 'Delegated proposers',
   guardians: 'Guardians',
+  council: 'Council',
+  all: 'Everyone',
 };
 
 export function isDelegatedProposersRoleId(roleId: string): boolean {
@@ -500,6 +595,19 @@ export function formatDaoRoleSelectLabel(roleId: string): string {
 
 export const DAO_IDEA_PROPOSAL_PERMISSION = 'vote:AddProposal';
 
+/** User-facing label for Vote-kind (text-only) DAO proposals. */
+export const DAO_SIGNAL_PROPOSAL_LABEL = 'Signal';
+
+export const DAO_SIGNAL_PROPOSAL_MENU_DESCRIPTION =
+  'Text-only — rules, strategy, ops, or direction. Nothing executes automatically.';
+
+export const DAO_SIGNAL_PROPOSAL_PLACEHOLDER = 'What should the DAO consider?';
+
+export const DAO_SIGNAL_PROPOSAL_PERMISSION_HINT =
+  'Signal (Vote — text only, no execution)';
+
+export const DAO_TRANSFER_PROPOSAL_PERMISSION = 'transfer:AddProposal';
+
 /** Partner + join + leave — actionable public proposals. */
 export const DAO_DELEGATED_ACTION_PERMISSIONS_PRESET = [
   'call:AddProposal',
@@ -513,11 +621,47 @@ export const DAO_FULL_PUBLIC_PERMISSIONS_PRESET = [
   DAO_IDEA_PROPOSAL_PERMISSION,
 ] as const;
 
+/** Wildcard *:AddProposal — every proposal kind the picker can express. */
+export const DAO_PROPOSE_ALL_PERMISSIONS_PRESET = [
+  ...DAO_FULL_PUBLIC_PERMISSIONS_PRESET,
+  'policy_add_or_update_role:AddProposal',
+  'policy_update_parameters:AddProposal',
+  DAO_TRANSFER_PROPOSAL_PERMISSION,
+] as const;
+
 /** @deprecated Use DAO_DELEGATED_ACTION_PERMISSIONS_PRESET */
 export const DAO_OPEN_MEMBERSHIP_PERMISSIONS_PRESET =
   DAO_DELEGATED_ACTION_PERMISSIONS_PRESET;
 
-export type DaoPermissionPresetId = 'all_public' | 'actions_only' | 'custom';
+export type DaoPermissionPresetId =
+  | 'all_public'
+  | 'actions_only'
+  | 'propose_all'
+  | 'custom';
+
+export const DAO_WILDCARD_ADD_PROPOSAL_PERMISSION = '*:AddProposal';
+
+export function roleHasWildcardAddProposal(
+  permissions: string[] | undefined
+): boolean {
+  return (permissions ?? []).includes(DAO_WILDCARD_ADD_PROPOSAL_PERMISSION);
+}
+
+/** Map on-chain permissions to the granular ids shown in the permission picker. */
+export function readPermissionPickerPermissions(
+  permissions: string[] | undefined
+): string[] {
+  const editable = filterEditablePermissions(permissions);
+  if (editable.length > 0) {
+    return editable;
+  }
+
+  if (roleHasWildcardAddProposal(permissions)) {
+    return [...DAO_PROPOSE_ALL_PERMISSIONS_PRESET];
+  }
+
+  return [];
+}
 
 export function daoPermissionSetsEqual(
   left: string[] | undefined,
@@ -543,12 +687,27 @@ function permissionSetEquals(
 export function matchDaoPermissionPreset(
   permissions: string[] | undefined
 ): DaoPermissionPresetId {
-  if (permissionSetEquals(permissions, DAO_FULL_PUBLIC_PERMISSIONS_PRESET)) {
+  const raw = permissions ?? [];
+  if (
+    filterEditablePermissions(raw).length === 0 &&
+    roleHasWildcardAddProposal(raw)
+  ) {
+    return 'propose_all';
+  }
+
+  const pickerPermissions = readPermissionPickerPermissions(raw);
+
+  if (
+    permissionSetEquals(pickerPermissions, DAO_FULL_PUBLIC_PERMISSIONS_PRESET)
+  ) {
     return 'all_public';
   }
 
   if (
-    permissionSetEquals(permissions, DAO_DELEGATED_ACTION_PERMISSIONS_PRESET)
+    permissionSetEquals(
+      pickerPermissions,
+      DAO_DELEGATED_ACTION_PERMISSIONS_PRESET
+    )
   ) {
     return 'actions_only';
   }
@@ -564,6 +723,8 @@ export function formatDaoPermissionPresetLabel(
       return 'All public';
     case 'actions_only':
       return 'Actions only';
+    case 'propose_all':
+      return 'Propose all';
     default:
       return 'Custom';
   }
@@ -574,6 +735,22 @@ export function roleHasWildcardPermissions(role: GovernanceDaoRole): boolean {
 }
 
 export const GUARDIANS_ROLE_ID = 'guardians';
+
+export const COUNCIL_VOTE_ROLE_IDS = ['guardians', 'council'] as const;
+
+export function resolveCouncilVotePoolSize(
+  policy: GovernanceDaoPolicy | null | undefined
+): number | null {
+  for (const roleId of COUNCIL_VOTE_ROLE_IDS) {
+    const role = findDaoRole(policy, roleId);
+    const group = role?.kind?.Group;
+    if (Array.isArray(group) && group.length > 0) {
+      return group.length;
+    }
+  }
+
+  return null;
+}
 
 export function isFullAccessDaoRole(role: GovernanceDaoRole): boolean {
   return roleHasWildcardPermissions(role);
@@ -637,17 +814,24 @@ export function isEditableDaoPolicyRole(role: GovernanceDaoRole): boolean {
     return false;
   }
 
-  return !roleHasWildcardPermissions(role);
+  if (roleHasWildcardPermissions(role)) {
+    return false;
+  }
+
+  if (isDaoCouncilRole(role)) {
+    return false;
+  }
+
+  return true;
 }
 
 export function getEditableDaoPolicyRoleOptions(
   roles: GovernanceDaoRole[] | undefined
 ): string[] {
-  const names =
-    roles?.filter(isEditableDaoPolicyRole).map((role) => role.name!.trim()) ??
-    [];
-
-  return [...new Set(names)].sort((left, right) => left.localeCompare(right));
+  return sortDaoPolicyRolesForDisplay(roles)
+    .filter(isEditableDaoPolicyRole)
+    .map((role) => role.name!.trim())
+    .filter(Boolean);
 }
 
 export function resolveDefaultEditablePolicyRole(
@@ -666,7 +850,8 @@ export const DAO_PUBLIC_PERMISSION_OPTIONS = [
   { id: 'call:AddProposal', label: 'Function call' },
   { id: 'add_member_to_role:AddProposal', label: 'Join' },
   { id: 'remove_member_from_role:AddProposal', label: 'Leave' },
-  { id: DAO_IDEA_PROPOSAL_PERMISSION, label: 'Signaling' },
+  { id: DAO_IDEA_PROPOSAL_PERMISSION, label: DAO_SIGNAL_PROPOSAL_LABEL },
+  { id: DAO_TRANSFER_PROPOSAL_PERMISSION, label: 'Transfer' },
 ] as const;
 
 /** Meta-permissions — can propose role or parameter policy changes. */
@@ -696,12 +881,169 @@ export function isDaoGroupRole(role: GovernanceDaoRole): boolean {
   return (role.kind?.Group?.length ?? 0) > 0;
 }
 
+export function isDaoCouncilRole(role: GovernanceDaoRole): boolean {
+  const name = role.name?.trim();
+  if (name && (COUNCIL_VOTE_ROLE_IDS as readonly string[]).includes(name)) {
+    return true;
+  }
+
+  if (roleHasWildcardPermissions(role) && isDaoGroupRole(role)) {
+    return true;
+  }
+
+  if (!isDaoGroupRole(role)) {
+    return false;
+  }
+
+  return (role.permissions ?? []).some((permission) =>
+    rolePermissionIsCouncilAction(permission)
+  );
+}
+
+function rolePermissionIsCouncilAction(permission: string): boolean {
+  if (permission === '*:*') {
+    return true;
+  }
+
+  return (
+    permission === '*:AddProposal' ||
+    permission.endsWith(':VoteApprove') ||
+    permission.endsWith(':VoteReject') ||
+    permission.endsWith(':VoteRemove') ||
+    permission.endsWith(':Finalize')
+  );
+}
+
+export type DaoRoleKind = 'council' | 'public' | 'gated';
+
+export function resolveDaoRoleKind(role: GovernanceDaoRole): DaoRoleKind {
+  if (isDaoCouncilRole(role) || roleHasWildcardPermissions(role)) {
+    return 'council';
+  }
+
+  if (role.kind?.Member) {
+    return 'gated';
+  }
+
+  return 'public';
+}
+
+export type DaoRolePermissionChip = {
+  key: string;
+  label: string;
+  tone: 'gold' | 'blue' | 'default';
+};
+
+function resolveRolePermissionChipLabel(
+  role: GovernanceDaoRole,
+  permission: string
+): { key: string; label: string; tone: DaoRolePermissionChip['tone'] } | null {
+  if (permission === '*:*') {
+    return { key: 'full-access', label: 'Full access', tone: 'gold' };
+  }
+
+  const editableLabel = DAO_EDITABLE_PERMISSION_OPTIONS.find(
+    (option) => option.id === permission
+  )?.label;
+  if (editableLabel) {
+    return {
+      key: permission,
+      label: editableLabel,
+      tone: DAO_GOVERNANCE_PERMISSION_IDS.has(permission) ? 'blue' : 'default',
+    };
+  }
+
+  if (permission === '*:AddProposal') {
+    return { key: 'propose-all', label: 'Propose all', tone: 'default' };
+  }
+
+  if (
+    permission.endsWith(':VoteApprove') ||
+    permission.endsWith(':VoteReject') ||
+    permission.endsWith(':VoteRemove')
+  ) {
+    return { key: 'vote', label: 'Vote', tone: 'gold' };
+  }
+
+  if (permission.endsWith(':Finalize')) {
+    return { key: 'finalize', label: 'Finalize', tone: 'gold' };
+  }
+
+  if (permission.endsWith(':AddProposal')) {
+    return {
+      key: permission,
+      label: 'Propose',
+      tone: roleHasWildcardPermissions(role) ? 'gold' : 'default',
+    };
+  }
+
+  return null;
+}
+
+export function buildDaoRolePermissionChips(
+  role: GovernanceDaoRole
+): DaoRolePermissionChip[] {
+  if (roleHasWildcardPermissions(role) || isDaoCouncilRole(role)) {
+    return [{ key: 'full-access', label: 'Full access', tone: 'gold' }];
+  }
+
+  const chips: DaoRolePermissionChip[] = [];
+  const seen = new Set<string>();
+
+  for (const permission of role.permissions ?? []) {
+    const chip = resolveRolePermissionChipLabel(role, permission);
+    if (!chip || seen.has(chip.key)) {
+      continue;
+    }
+
+    seen.add(chip.key);
+    chips.push(chip);
+  }
+
+  return chips;
+}
+
+export function compareDaoPolicyRolesForDisplay(
+  left: GovernanceDaoRole,
+  right: GovernanceDaoRole
+): number {
+  const kindOrder: Record<DaoRoleKind, number> = {
+    council: 0,
+    gated: 1,
+    public: 2,
+  };
+  const kindDelta =
+    kindOrder[resolveDaoRoleKind(left)] - kindOrder[resolveDaoRoleKind(right)];
+  if (kindDelta !== 0) {
+    return kindDelta;
+  }
+
+  const leftName = left.name?.trim() ?? '';
+  const rightName = right.name?.trim() ?? '';
+  const displayDelta = formatDaoRoleDisplayName(leftName).localeCompare(
+    formatDaoRoleDisplayName(rightName)
+  );
+  if (displayDelta !== 0) {
+    return displayDelta;
+  }
+
+  return leftName.localeCompare(rightName);
+}
+
+export function sortDaoPolicyRolesForDisplay(
+  roles: GovernanceDaoRole[] | undefined
+): GovernanceDaoRole[] {
+  return [...(roles ?? [])].sort(compareDaoPolicyRolesForDisplay);
+}
+
 function preserveNonEditableRolePermissions(
   role: GovernanceDaoRole,
   nextEditablePermissions: string[]
 ): string[] {
   const preserved = (role.permissions ?? []).filter(
-    (permission) => !DAO_EDITABLE_PERMISSION_IDS.has(permission)
+    (permission) =>
+      !DAO_EDITABLE_PERMISSION_IDS.has(permission) &&
+      permission !== DAO_WILDCARD_ADD_PROPOSAL_PERMISSION
   );
 
   return [...new Set([...preserved, ...nextEditablePermissions])];
@@ -717,7 +1059,7 @@ export function filterEditablePermissions(
 
 function permissionOnChainLabel(permissionId: string, label: string): string {
   if (permissionId === DAO_IDEA_PROPOSAL_PERMISSION) {
-    return 'Signaling (Vote — text only, no execution)';
+    return DAO_SIGNAL_PROPOSAL_PERMISSION_HINT;
   }
 
   if (permissionId === 'call:AddProposal') {
@@ -738,6 +1080,10 @@ function permissionOnChainLabel(permissionId: string, label: string): string {
 
   if (permissionId === 'policy_update_parameters:AddProposal') {
     return 'Parameter changes (ChangePolicyUpdateParameters)';
+  }
+
+  if (permissionId === DAO_TRANSFER_PROPOSAL_PERMISSION) {
+    return 'Transfer (Transfer)';
   }
 
   return label;
@@ -785,13 +1131,20 @@ export interface DaoPolicyActionHintContext {
   onChainPermissions?: string[];
   selectedPermissions?: string[];
   permissionsChanged?: boolean;
+  memberThresholdChanged?: boolean;
+  currentVoteThreshold?: [number, number] | null;
+  nextVoteThreshold?: [number, number] | null;
+  currentVoteQuorum?: string;
+  nextVoteQuorum?: string;
+  councilVotePoolSize?: number | null;
+  votePolicyChanged?: boolean;
 }
 
 export function rolePermissionsChanged(
   role: GovernanceDaoRole | null | undefined,
   nextPermissions: string[]
 ): boolean {
-  const current = new Set(filterEditablePermissions(role?.permissions));
+  const current = new Set(readPermissionPickerPermissions(role?.permissions));
   const next = new Set(nextPermissions);
 
   if (current.size !== next.size) {
@@ -799,6 +1152,33 @@ export function rolePermissionsChanged(
   }
 
   return [...next].some((permission) => !current.has(permission));
+}
+
+export function isDaoMemberWeightRole(role: GovernanceDaoRole): boolean {
+  return role.kind?.Member != null && role.kind.Member !== '';
+}
+
+export function readDaoRoleMemberThreshold(
+  role: GovernanceDaoRole | null | undefined
+): string | null {
+  const member = role?.kind?.Member;
+  if (member == null || member === '') {
+    return null;
+  }
+
+  return member;
+}
+
+export function roleMemberThresholdChanged(
+  role: GovernanceDaoRole | null | undefined,
+  nextThresholdSmallest: string | null | undefined
+): boolean {
+  const current = readDaoRoleMemberThreshold(role);
+  if (!current || !nextThresholdSmallest) {
+    return false;
+  }
+
+  return current !== nextThresholdSmallest.trim();
 }
 
 export type DaoProposalKind =
@@ -833,12 +1213,35 @@ export type DaoProposalKind =
       };
     }
   | {
+      ChangePolicyUpdateDefaultVotePolicy: {
+        vote_policy: GovernanceDaoVotePolicy;
+      };
+    }
+  | {
       ChangePolicyRemoveRole: {
         role: string;
       };
     }
   | {
       Vote: null;
+    }
+  | {
+      Transfer: {
+        token_id: string;
+        receiver_id: string;
+        amount: string;
+      };
+    }
+  | {
+      FunctionCall: {
+        receiver_id: string;
+        actions: Array<{
+          method_name: string;
+          args: string;
+          deposit: string;
+          gas: number;
+        }>;
+      };
     };
 
 export interface DaoProposalPayload {
@@ -865,8 +1268,401 @@ function serializeDaoRoleKind(
 export type DaoPolicyActionId =
   | 'update_permissions'
   | 'update_parameters'
+  | 'update_vote_policy'
   | 'add_role'
   | 'remove_role';
+
+export const DAO_VOTE_THRESHOLD_PRESETS = [
+  {
+    id: 'pct_25',
+    nameLabel: 'Low threshold',
+    percentLabel: '25%',
+    threshold: [25, 100] as [number, number],
+  },
+  {
+    id: 'pct_50',
+    nameLabel: 'Simple majority',
+    percentLabel: '50%',
+    threshold: [50, 100] as [number, number],
+  },
+  {
+    id: 'pct_75',
+    nameLabel: 'Supermajority',
+    percentLabel: '75%',
+    threshold: [75, 100] as [number, number],
+  },
+  {
+    id: 'pct_100',
+    nameLabel: 'Unanimous',
+    percentLabel: '100%',
+    threshold: [100, 100] as [number, number],
+  },
+] as const;
+
+export type DaoVoteThresholdPresetId =
+  (typeof DAO_VOTE_THRESHOLD_PRESETS)[number]['id'];
+
+export function formatVoteThresholdFraction(
+  threshold: [number, number]
+): string {
+  return `${threshold[0]}/${threshold[1]}`;
+}
+
+export function formatVoteThresholdOptionLabel(
+  preset: (typeof DAO_VOTE_THRESHOLD_PRESETS)[number],
+  threshold: [number, number] = preset.threshold
+): string {
+  return `${preset.nameLabel} · ${preset.percentLabel} · ${formatVoteThresholdFraction(threshold)}`;
+}
+
+export function votePolicyThresholdsEqual(
+  left: [number, number] | null | undefined,
+  right: [number, number] | null | undefined
+): boolean {
+  if (!left || !right) {
+    return false;
+  }
+
+  return left[0] * right[1] === right[0] * left[1];
+}
+
+export function resolveVoteThresholdPresetId(
+  threshold: [number, number] | null | undefined
+): DaoVoteThresholdPresetId | null {
+  if (!threshold) {
+    return null;
+  }
+
+  return (
+    DAO_VOTE_THRESHOLD_PRESETS.find((preset) =>
+      votePolicyThresholdsEqual(threshold, preset.threshold)
+    )?.id ?? null
+  );
+}
+
+export function resolveDaoVoteThresholdPreset(
+  presetId: DaoVoteThresholdPresetId | null | undefined
+): (typeof DAO_VOTE_THRESHOLD_PRESETS)[number] | null {
+  if (!presetId) {
+    return null;
+  }
+
+  return (
+    DAO_VOTE_THRESHOLD_PRESETS.find((preset) => preset.id === presetId) ?? null
+  );
+}
+
+export function readDefaultVotePolicyThreshold(
+  policy: GovernanceDaoVotePolicy | null | undefined
+): [number, number] | null {
+  const threshold = policy?.threshold;
+  if (!Array.isArray(threshold) || threshold.length !== 2) {
+    return null;
+  }
+
+  const [numerator, denominator] = threshold;
+  if (
+    !Number.isInteger(numerator) ||
+    !Number.isInteger(denominator) ||
+    numerator <= 0 ||
+    denominator <= 0 ||
+    numerator > denominator
+  ) {
+    return null;
+  }
+
+  return [numerator, denominator];
+}
+
+export function formatDefaultVotePolicyLabel(
+  threshold: [number, number] | null | undefined
+): string {
+  if (!threshold) {
+    return 'Unknown';
+  }
+
+  const matchedPreset = resolveDaoVoteThresholdPreset(
+    resolveVoteThresholdPresetId(threshold)
+  );
+  const fraction = formatVoteThresholdFraction(threshold);
+
+  if (matchedPreset) {
+    return formatVoteThresholdOptionLabel(matchedPreset, threshold);
+  }
+
+  return fraction;
+}
+
+export function defaultVotePolicyThresholdsEqual(
+  left: [number, number] | null | undefined,
+  right: [number, number] | null | undefined
+): boolean {
+  if (!left || !right) {
+    return false;
+  }
+
+  return left[0] === right[0] && left[1] === right[1];
+}
+
+export function readDefaultVotePolicyQuorum(
+  policy: GovernanceDaoVotePolicy | null | undefined
+): string {
+  const quorum = policy?.quorum?.trim();
+  if (!quorum || !/^\d+$/.test(quorum)) {
+    return '0';
+  }
+
+  return quorum;
+}
+
+export function computeRoleWeightApprovalFloor(
+  threshold: [number, number],
+  councilSize: number
+): number {
+  const [numerator, denominator] = threshold;
+  if (!denominator || councilSize <= 0) {
+    return 0;
+  }
+
+  return Math.min(
+    Math.floor((numerator * councilSize) / denominator) + 1,
+    councilSize
+  );
+}
+
+export function isVoteQuorumAllowed(
+  quorum: string,
+  councilSize: number | null
+): boolean {
+  if (quorum === '0') {
+    return true;
+  }
+
+  if (councilSize == null || councilSize <= 0) {
+    return false;
+  }
+
+  const numericQuorum = Number(quorum);
+  return (
+    Number.isInteger(numericQuorum) &&
+    numericQuorum >= 1 &&
+    numericQuorum <= councilSize
+  );
+}
+
+export interface DaoVoteQuorumOption {
+  quorum: string;
+  nameLabel: string;
+}
+
+export type VoteQuorumRiskLevel = 'none' | 'caution' | 'high';
+
+export interface VoteQuorumRisk {
+  level: VoteQuorumRiskLevel;
+  message: string | null;
+}
+
+export function resolveVoteQuorumRisk(
+  quorum: string,
+  councilSize: number | null
+): VoteQuorumRisk {
+  if (councilSize == null || councilSize <= 0) {
+    return { level: 'none', message: null };
+  }
+
+  const numericQuorum = Number(quorum);
+  if (!Number.isInteger(numericQuorum) || numericQuorum <= 0) {
+    return { level: 'none', message: null };
+  }
+
+  if (numericQuorum > councilSize) {
+    return {
+      level: 'high',
+      message:
+        'Minimum approvals already exceed council size. Lower this while enough members can still vote—or nothing may pass.',
+    };
+  }
+
+  if (numericQuorum === councilSize && councilSize > 1) {
+    return {
+      level: 'high',
+      message:
+        'Lower this before a council member leaves—otherwise you may not be able to change it later.',
+    };
+  }
+
+  if (councilSize >= 3 && numericQuorum === councilSize - 1) {
+    return {
+      level: 'caution',
+      message:
+        'Lower this before a member leaves—a smaller council may not be able to pass the vote to change it.',
+    };
+  }
+
+  if (councilSize <= 2 && numericQuorum > 0) {
+    return {
+      level: 'caution',
+      message:
+        'Add more council members first, or lower this before anyone leaves—you may not be able to change it later.',
+    };
+  }
+
+  return { level: 'none', message: null };
+}
+
+export function buildVoteQuorumNameLabel(
+  quorum: number,
+  councilSize: number | null
+): string {
+  if (quorum === 0) {
+    return 'None';
+  }
+
+  if (councilSize != null && quorum === councilSize) {
+    return 'All council';
+  }
+
+  if (quorum === 1) {
+    return 'At least 1 approval';
+  }
+
+  return `At least ${quorum} approvals`;
+}
+
+export function buildDaoQuorumPresetOptions(
+  councilSize: number | null,
+  threshold: [number, number] | null = null,
+  ensureQuorum?: string
+): DaoVoteQuorumOption[] {
+  if (councilSize == null || councilSize <= 0) {
+    return [{ quorum: '0', nameLabel: 'None' }];
+  }
+
+  const thresholdFloor =
+    threshold != null
+      ? computeRoleWeightApprovalFloor(threshold, councilSize)
+      : 1;
+
+  const options: DaoVoteQuorumOption[] = [{ quorum: '0', nameLabel: 'None' }];
+
+  for (let quorum = 1; quorum <= councilSize; quorum += 1) {
+    if (quorum < thresholdFloor) {
+      continue;
+    }
+
+    options.push({
+      quorum: String(quorum),
+      nameLabel: buildVoteQuorumNameLabel(quorum, councilSize),
+    });
+  }
+
+  const normalizedEnsureQuorum = ensureQuorum?.trim();
+  if (
+    normalizedEnsureQuorum &&
+    /^\d+$/.test(normalizedEnsureQuorum) &&
+    !options.some((option) => option.quorum === normalizedEnsureQuorum)
+  ) {
+    const numericQuorum = Number(normalizedEnsureQuorum);
+    if (numericQuorum > councilSize) {
+      options.push({
+        quorum: normalizedEnsureQuorum,
+        nameLabel: `Out of date · ${normalizedEnsureQuorum}`,
+      });
+    } else if (numericQuorum > 0) {
+      options.push({
+        quorum: normalizedEnsureQuorum,
+        nameLabel: buildVoteQuorumNameLabel(numericQuorum, councilSize),
+      });
+    }
+  }
+
+  return options.sort(
+    (left, right) => Number(left.quorum) - Number(right.quorum)
+  );
+}
+
+export function resolveSelectableVoteQuorum(
+  quorum: string | null | undefined,
+  councilSize: number | null,
+  threshold: [number, number] | null = null
+): string {
+  const normalized =
+    quorum?.trim() && /^\d+$/.test(quorum.trim()) ? quorum.trim() : '0';
+  const options = buildDaoQuorumPresetOptions(
+    councilSize,
+    threshold,
+    normalized
+  );
+
+  if (options.some((option) => option.quorum === normalized)) {
+    return normalized;
+  }
+
+  return '0';
+}
+
+export function formatVoteQuorumOptionLabel(
+  option: DaoVoteQuorumOption
+): string {
+  return `${option.nameLabel} · ${option.quorum}`;
+}
+
+export function formatDefaultVoteQuorumLabel(
+  quorum: string,
+  councilSize: number | null,
+  threshold: [number, number] | null = null
+): string {
+  const option = buildDaoQuorumPresetOptions(
+    councilSize,
+    threshold,
+    quorum
+  ).find((candidate) => candidate.quorum === quorum);
+
+  if (option) {
+    return formatVoteQuorumOptionLabel(option);
+  }
+
+  return `Custom · ${quorum}`;
+}
+
+export function votePolicyRulesChanged({
+  currentThreshold,
+  nextThreshold,
+  currentQuorum,
+  nextQuorum,
+}: {
+  currentThreshold: [number, number] | null | undefined;
+  nextThreshold: [number, number] | null | undefined;
+  currentQuorum: string;
+  nextQuorum: string;
+}): boolean {
+  const thresholdChanged =
+    nextThreshold != null &&
+    !defaultVotePolicyThresholdsEqual(currentThreshold, nextThreshold);
+  const quorumChanged = nextQuorum !== currentQuorum;
+
+  return thresholdChanged || quorumChanged;
+}
+
+export function parseVoteThresholdInputs(
+  numeratorInput: string,
+  denominatorInput: string
+): [number, number] | null {
+  const numerator = Number(numeratorInput.trim());
+  const denominator = Number(denominatorInput.trim());
+
+  if (
+    !Number.isInteger(numerator) ||
+    !Number.isInteger(denominator) ||
+    numerator <= 0 ||
+    denominator <= 0 ||
+    numerator > denominator
+  ) {
+    return null;
+  }
+
+  return [numerator, denominator];
+}
 
 export const DAO_POLICY_ACTION_OPTIONS: Array<{
   id: DaoPolicyActionId;
@@ -882,6 +1678,12 @@ export const DAO_POLICY_ACTION_OPTIONS: Array<{
     id: 'update_parameters',
     label: 'Parameters',
     outcome: 'Change proposal bond or voting period for future proposals.',
+  },
+  {
+    id: 'update_vote_policy',
+    label: 'Vote policy',
+    outcome:
+      'Change the default approval threshold and minimum approve floor for future proposals.',
   },
   {
     id: 'add_role',
@@ -941,7 +1743,15 @@ export function getDaoPolicyActionHint(
     const summary = summarizeDaoPermissionsOnChain(context.selectedPermissions);
 
     if (context.permissionsChanged) {
+      if (context.memberThresholdChanged && context.socialThresholdLabel) {
+        return `On-chain: ChangePolicyAddOrUpdateRole updates \`${context.permissionsRoleId}\` proposer threshold to ≥${context.socialThresholdLabel} delegated SOCIAL${summary ? ` and permissions to allow ${summary}` : ''}.`;
+      }
+
       return `On-chain: ChangePolicyAddOrUpdateRole updates \`${context.permissionsRoleId}\` to allow ${summary}.`;
+    }
+
+    if (context.memberThresholdChanged && context.socialThresholdLabel) {
+      return `On-chain: ChangePolicyAddOrUpdateRole updates \`${context.permissionsRoleId}\` proposer threshold to ≥${context.socialThresholdLabel} delegated SOCIAL.`;
     }
 
     if (onChainSummary) {
@@ -953,6 +1763,31 @@ export function getDaoPolicyActionHint(
 
   if (actionId === 'update_parameters') {
     return 'On-chain: ChangePolicyUpdateParameters updates proposal bond and voting period for future proposals.';
+  }
+
+  if (actionId === 'update_vote_policy') {
+    const currentThresholdLabel = formatDefaultVotePolicyLabel(
+      context?.currentVoteThreshold
+    );
+    const nextThresholdLabel = formatDefaultVotePolicyLabel(
+      context?.nextVoteThreshold
+    );
+    const currentQuorumLabel = formatDefaultVoteQuorumLabel(
+      context?.currentVoteQuorum ?? '0',
+      context?.councilVotePoolSize ?? null,
+      context?.currentVoteThreshold ?? null
+    );
+    const nextQuorumLabel = formatDefaultVoteQuorumLabel(
+      context?.nextVoteQuorum ?? '0',
+      context?.councilVotePoolSize ?? null,
+      context?.nextVoteThreshold ?? null
+    );
+
+    if (context?.votePolicyChanged && context?.nextVoteThreshold) {
+      return `On-chain: ChangePolicyUpdateDefaultVotePolicy updates default vote rules from ${currentThresholdLabel} · quorum ${currentQuorumLabel} to ${nextThresholdLabel} · quorum ${nextQuorumLabel}. Minimum approve floor uses whichever is stricter versus the approval threshold.`;
+    }
+
+    return `On-chain: ChangePolicyUpdateDefaultVotePolicy updates default vote rules (currently ${currentThresholdLabel} · quorum ${currentQuorumLabel}).`;
   }
 
   if (actionId === 'remove_role') {
@@ -973,12 +1808,9 @@ export function getDaoPolicyActionHint(
 export function getDaoPolicyRoleOptions(
   policy: GovernanceDaoPolicy | null | undefined
 ): string[] {
-  const names =
-    policy?.roles
-      ?.map((role) => role.name?.trim())
-      .filter((name): name is string => Boolean(name)) ?? [];
-
-  return [...new Set(names)].sort((left, right) => left.localeCompare(right));
+  return sortDaoPolicyRolesForDisplay(policy?.roles)
+    .map((role) => role.name?.trim())
+    .filter((name): name is string => Boolean(name));
 }
 
 export function normalizeDaoRoleNameInput(value: string): string | null {
@@ -1061,6 +1893,9 @@ export function buildDaoPolicyActionPayload({
   targetRoleId,
   permissionsRoleId,
   permissions,
+  memberThresholdSmallest,
+  votePolicyThreshold,
+  votePolicyQuorum,
 }: {
   actionId: DaoPolicyActionId;
   policy: GovernanceDaoPolicy | null | undefined;
@@ -1072,6 +1907,9 @@ export function buildDaoPolicyActionPayload({
   targetRoleId?: string;
   permissionsRoleId?: string;
   permissions?: string[];
+  memberThresholdSmallest?: string;
+  votePolicyThreshold?: [number, number];
+  votePolicyQuorum?: string;
 }): DaoProposalPayload {
   switch (actionId) {
     case 'update_permissions': {
@@ -1088,14 +1926,35 @@ export function buildDaoPolicyActionPayload({
         throw new Error('Select at least one permission.');
       }
 
-      if (!rolePermissionsChanged(role, permissions)) {
-        throw new Error('Change permissions before submitting.');
+      const permissionsDirty = rolePermissionsChanged(role, permissions);
+      const thresholdDirty = roleMemberThresholdChanged(
+        role,
+        memberThresholdSmallest
+      );
+
+      if (!permissionsDirty && !thresholdDirty) {
+        throw new Error(
+          'Change permissions or proposer threshold before submitting.'
+        );
+      }
+
+      if (
+        thresholdDirty &&
+        (!memberThresholdSmallest ||
+          !isProposerThresholdWithinBounds(memberThresholdSmallest))
+      ) {
+        throw new Error(
+          'Proposer threshold must be between 1 and 10,000 SOCIAL.'
+        );
       }
 
       return buildDaoPolicyRoleUpdatePayload({
         role,
         permissions,
         description,
+        memberThresholdSmallest: thresholdDirty
+          ? memberThresholdSmallest
+          : undefined,
       });
     }
     case 'update_parameters':
@@ -1104,6 +1963,44 @@ export function buildDaoPolicyActionPayload({
         proposalPeriodNs,
         description,
       });
+    case 'update_vote_policy': {
+      if (!votePolicyThreshold) {
+        throw new Error('Choose a valid vote threshold.');
+      }
+
+      const currentThreshold = readDefaultVotePolicyThreshold(
+        policy?.default_vote_policy
+      );
+      const currentQuorum = readDefaultVotePolicyQuorum(
+        policy?.default_vote_policy
+      );
+      const nextQuorum = votePolicyQuorum ?? currentQuorum;
+      const councilSize = resolveCouncilVotePoolSize(policy);
+
+      if (!isVoteQuorumAllowed(nextQuorum, councilSize)) {
+        throw new Error(
+          'Choose a minimum approval floor that fits the current council size.'
+        );
+      }
+
+      if (
+        !votePolicyRulesChanged({
+          currentThreshold,
+          nextThreshold: votePolicyThreshold,
+          currentQuorum,
+          nextQuorum,
+        })
+      ) {
+        throw new Error('Change vote rules before submitting.');
+      }
+
+      return buildDaoPolicyDefaultVotePolicyUpdatePayload({
+        threshold: votePolicyThreshold,
+        weightKind: policy?.default_vote_policy?.weight_kind ?? 'RoleWeight',
+        quorum: nextQuorum,
+        description,
+      });
+    }
     case 'add_role': {
       const normalizedNewRoleName = normalizeDaoRoleNameInput(
         newRoleName ?? ''
@@ -1195,6 +2092,42 @@ export function buildDaoPolicyRemoveRolePayload({
   };
 }
 
+export function buildDaoPolicyDefaultVotePolicyUpdatePayload({
+  threshold,
+  weightKind = 'RoleWeight',
+  quorum = '0',
+  description,
+}: {
+  threshold: [number, number];
+  weightKind?: GovernanceDaoVotePolicy['weight_kind'];
+  quorum?: string;
+  description?: string;
+}): DaoProposalPayload {
+  if (threshold[0] <= 0 || threshold[1] <= 0 || threshold[0] > threshold[1]) {
+    throw new Error('Vote threshold must be a valid fraction.');
+  }
+
+  const thresholdLabel = formatDefaultVotePolicyLabel(threshold);
+  const quorumLabel = formatDefaultVoteQuorumLabel(quorum, null, threshold);
+
+  return {
+    proposal: {
+      description:
+        description?.trim() ||
+        `Update default vote policy to ${thresholdLabel} · quorum ${quorumLabel}.`,
+      kind: {
+        ChangePolicyUpdateDefaultVotePolicy: {
+          vote_policy: {
+            weight_kind: weightKind,
+            quorum,
+            threshold,
+          },
+        },
+      },
+    },
+  };
+}
+
 export function buildDaoPolicyParametersUpdatePayload({
   proposalBondYocto,
   proposalPeriodNs,
@@ -1239,10 +2172,12 @@ export function buildDaoPolicyRoleUpdatePayload({
   role,
   permissions,
   description,
+  memberThresholdSmallest,
 }: {
   role: GovernanceDaoRole;
   permissions: string[];
   description?: string;
+  memberThresholdSmallest?: string;
 }): DaoProposalPayload {
   const roleName = role.name?.trim();
   if (!roleName) {
@@ -1258,6 +2193,12 @@ export function buildDaoPolicyRoleUpdatePayload({
     permissions
   );
 
+  const normalizedThreshold = memberThresholdSmallest?.trim();
+  const kind =
+    normalizedThreshold && isDaoMemberWeightRole(role)
+      ? { Member: normalizedThreshold }
+      : serializeDaoRoleKind(role);
+
   return {
     proposal: {
       description:
@@ -1267,7 +2208,7 @@ export function buildDaoPolicyRoleUpdatePayload({
         ChangePolicyAddOrUpdateRole: {
           role: {
             name: roleName,
-            kind: serializeDaoRoleKind(role),
+            kind,
             permissions: mergedPermissions,
             vote_policy: role.vote_policy ?? {},
           },
@@ -1277,14 +2218,20 @@ export function buildDaoPolicyRoleUpdatePayload({
   };
 }
 
-export type CreatableDaoProposalActionGroup = 'membership' | 'signaling';
+export type CreatableDaoProposalActionGroup =
+  | 'membership'
+  | 'signaling'
+  | 'treasury'
+  | 'contracts';
 
 export const CREATABLE_DAO_PROPOSAL_ACTION_GROUPS: ReadonlyArray<{
   id: CreatableDaoProposalActionGroup;
   label: string;
 }> = [
   { id: 'membership', label: 'Membership' },
-  { id: 'signaling', label: 'Signaling' },
+  { id: 'signaling', label: 'Community' },
+  { id: 'treasury', label: 'Treasury' },
+  { id: 'contracts', label: 'Contracts' },
 ];
 
 export const CREATABLE_DAO_PROPOSAL_ACTIONS: ReadonlyArray<{
@@ -1320,8 +2267,35 @@ export const CREATABLE_DAO_PROPOSAL_ACTIONS: ReadonlyArray<{
   {
     id: 'idea',
     group: 'signaling',
-    label: 'Idea',
-    description: 'Signaling vote — no execution.',
+    label: DAO_SIGNAL_PROPOSAL_LABEL,
+    description: DAO_SIGNAL_PROPOSAL_MENU_DESCRIPTION,
+  },
+  {
+    id: 'transfer',
+    group: 'treasury',
+    label: 'Transfer',
+    description: 'Send NEAR from the DAO to a recipient account.',
+  },
+  {
+    id: 'withdraw_social_treasury',
+    group: 'treasury',
+    label: 'Sweep social fees',
+    description:
+      'Withdraw accrued rally and support fees from social-spend to the treasury account.',
+  },
+  {
+    id: 'fund_season_pool',
+    group: 'treasury',
+    label: 'Fund rally pool',
+    description:
+      'Fund a live rally pool from the social-spend fee pot or the DAO SOCIAL balance.',
+  },
+  {
+    id: 'transfer_ownership',
+    group: 'contracts',
+    label: 'Transfer ownership',
+    description:
+      'Transfer admin ownership of a DAO-managed protocol contract to a new account.',
   },
 ];
 
@@ -1346,9 +2320,12 @@ export type GovernanceCreateActionMenuItem =
     };
 
 export function buildGovernancePolicyActionPath(
-  actionId: DaoPolicyActionId
+  actionId: DaoPolicyActionId,
+  board: GovernanceDaoBoard = 'governance'
 ): string {
-  return `/governance/policy?action=${actionId}`;
+  return buildGovernancePathWithBoard('/governance/policy', board, {
+    action: actionId,
+  });
 }
 
 export function resolveAvailablePolicyActionsForProposer(
@@ -1369,9 +2346,11 @@ export function resolveAvailablePolicyActionsForProposer(
 export function buildGovernanceCreateActionMenuItems({
   availableProposalActions,
   availablePolicyActions = [],
+  daoBoard = 'governance',
 }: {
   availableProposalActions: CreatableDaoProposalAction[];
   availablePolicyActions?: Array<(typeof DAO_POLICY_ACTION_OPTIONS)[number]>;
+  daoBoard?: GovernanceDaoBoard;
 }): GovernanceCreateActionMenuItem[] {
   const items: GovernanceCreateActionMenuItem[] = [];
 
@@ -1415,7 +2394,7 @@ export function buildGovernanceCreateActionMenuItems({
         id: option.id,
         label: option.label,
         description: option.outcome,
-        href: buildGovernancePolicyActionPath(option.id),
+        href: buildGovernancePolicyActionPath(option.id, daoBoard),
       });
     }
   }
@@ -1438,7 +2417,7 @@ export function buildDaoIdeaProposalPayload({
 }): DaoProposalPayload {
   const proposalDescription = description?.trim();
   if (!proposalDescription) {
-    throw new Error('Idea description is required.');
+    throw new Error('Signal description is required.');
   }
 
   return {
@@ -1470,7 +2449,7 @@ export function buildDaoMemberProposalPayload({
   roleId,
   description,
 }: {
-  kind: Exclude<CreatableDaoProposalKind, 'idea'>;
+  kind: Exclude<CreatableDaoProposalKind, 'idea' | 'transfer'>;
   memberId: string;
   roleId: string;
   description?: string;
@@ -1513,6 +2492,330 @@ export function buildDaoMemberProposalPayload({
         RemoveMemberFromRole: {
           member_id: normalizedMember,
           role: normalizedRole,
+        },
+      },
+    },
+  };
+}
+
+function encodeFunctionCallArgs(args: Record<string, string>): string {
+  return btoa(JSON.stringify(args));
+}
+
+export type FundSeasonPoolSource = 'contract_treasury' | 'dao_wallet';
+
+export const FUND_SEASON_POOL_SOURCE_OPTIONS: Array<{
+  value: FundSeasonPoolSource;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: 'contract_treasury',
+    label: 'Social-spend fee pot',
+    description:
+      'Uses accrued join/support fees still held on the social-spend contract.',
+  },
+  {
+    value: 'dao_wallet',
+    label: 'Treasury DAO balance',
+    description:
+      'Sends SOCIAL from this DAO wallet into the rally pool in one transaction.',
+  },
+];
+
+function buildFundSeasonPoolTransferMsg(seasonId: string): string {
+  return JSON.stringify({
+    v: 1,
+    action: 'fund_season_pool',
+    season_id: seasonId,
+  });
+}
+
+export function buildDaoTransferOwnershipProposalPayload({
+  contractId,
+  contractLabel,
+  newOwnerId,
+  transferMethod,
+  transferArgField,
+  gas,
+  deposit,
+  description,
+}: {
+  contractId: string;
+  contractLabel?: string;
+  newOwnerId: string;
+  transferMethod: string;
+  transferArgField: 'new_owner' | 'owner_id';
+  gas: number;
+  deposit: string;
+  description?: string;
+}): DaoProposalPayload {
+  const normalizedContractId = contractId.trim();
+  if (!normalizedContractId) {
+    throw new Error('Contract is required.');
+  }
+
+  const normalizedNewOwner = newOwnerId.trim();
+  if (!normalizedNewOwner) {
+    throw new Error('New owner account is required.');
+  }
+
+  const assetLabel = contractLabel?.trim() || normalizedContractId;
+  const proposalDescription =
+    description?.trim() ||
+    `Transfer ${assetLabel} ownership to ${normalizedNewOwner}.`;
+
+  return {
+    proposal: {
+      description: proposalDescription,
+      kind: {
+        FunctionCall: {
+          receiver_id: normalizedContractId,
+          actions: [
+            {
+              method_name: transferMethod,
+              args: encodeFunctionCallArgs({
+                [transferArgField]: normalizedNewOwner,
+              }),
+              deposit,
+              gas,
+            },
+          ],
+        },
+      },
+    },
+  };
+}
+
+export function buildDaoWithdrawSocialTreasuryPayload({
+  contractId,
+  amountYocto,
+  description,
+}: {
+  contractId: string;
+  amountYocto: string;
+  description?: string;
+}): DaoProposalPayload {
+  const normalizedContractId = contractId.trim();
+  if (!normalizedContractId) {
+    throw new Error('Social spend contract is required.');
+  }
+
+  const normalizedAmount = amountYocto.trim();
+  if (!/^\d+$/.test(normalizedAmount) || normalizedAmount === '0') {
+    throw new Error('Enter a valid SOCIAL amount to withdraw.');
+  }
+
+  const proposalDescription =
+    description?.trim() ||
+    `Withdraw ${yoctoToSocial(normalizedAmount)} SOCIAL from social-spend treasury to treasury_id.`;
+
+  return {
+    proposal: {
+      description: proposalDescription,
+      kind: {
+        FunctionCall: {
+          receiver_id: normalizedContractId,
+          actions: [
+            {
+              method_name: 'withdraw_treasury',
+              args: encodeFunctionCallArgs({
+                amount: normalizedAmount,
+              }),
+              deposit: SOCIAL_SPEND_FUNCTION_CALL_DEPOSIT,
+              gas: SOCIAL_SPEND_FUNCTION_CALL_GAS,
+            },
+          ],
+        },
+      },
+    },
+  };
+}
+
+export function buildDaoFundSeasonPoolFromDaoWalletPayload({
+  tokenContractId = TOKEN_CONTRACT,
+  socialSpendContractId,
+  seasonId,
+  amountYocto,
+  description,
+}: {
+  tokenContractId?: string;
+  socialSpendContractId: string;
+  seasonId: string;
+  amountYocto: string;
+  description?: string;
+}): DaoProposalPayload {
+  const normalizedTokenContractId = tokenContractId.trim();
+  const normalizedSocialSpendContractId = socialSpendContractId.trim();
+  if (!normalizedTokenContractId || !normalizedSocialSpendContractId) {
+    throw new Error('SOCIAL token and social-spend contracts are required.');
+  }
+
+  const normalizedSeasonId = seasonId.trim();
+  if (!normalizedSeasonId) {
+    throw new Error('Season is required.');
+  }
+
+  const normalizedAmount = amountYocto.trim();
+  if (!/^\d+$/.test(normalizedAmount) || normalizedAmount === '0') {
+    throw new Error('Enter a valid SOCIAL amount to fund.');
+  }
+
+  const proposalDescription =
+    description?.trim() ||
+    `Fund ${normalizedSeasonId} rally pool with ${yoctoToSocial(normalizedAmount)} SOCIAL from the DAO treasury.`;
+
+  return {
+    proposal: {
+      description: proposalDescription,
+      kind: {
+        FunctionCall: {
+          receiver_id: normalizedTokenContractId,
+          actions: [
+            {
+              method_name: 'ft_transfer_call',
+              args: encodeFunctionCallArgs({
+                receiver_id: normalizedSocialSpendContractId,
+                amount: normalizedAmount,
+                msg: buildFundSeasonPoolTransferMsg(normalizedSeasonId),
+              }),
+              deposit: SOCIAL_SPEND_FUNCTION_CALL_DEPOSIT,
+              gas: SOCIAL_SPEND_FUNCTION_CALL_GAS,
+            },
+          ],
+        },
+      },
+    },
+  };
+}
+
+export function buildDaoFundSeasonPoolPayload({
+  source,
+  contractId,
+  seasonId,
+  amountYocto,
+  description,
+}: {
+  source: FundSeasonPoolSource;
+  contractId: string;
+  seasonId: string;
+  amountYocto: string;
+  description?: string;
+}): DaoProposalPayload {
+  if (source === 'dao_wallet') {
+    return buildDaoFundSeasonPoolFromDaoWalletPayload({
+      socialSpendContractId: contractId,
+      seasonId,
+      amountYocto,
+      description,
+    });
+  }
+
+  return buildDaoFundSeasonPoolFromTreasuryPayload({
+    contractId,
+    seasonId,
+    amountYocto,
+    description,
+  });
+}
+
+export function buildDaoFundSeasonPoolFromTreasuryPayload({
+  contractId,
+  seasonId,
+  amountYocto,
+  description,
+}: {
+  contractId: string;
+  seasonId: string;
+  amountYocto: string;
+  description?: string;
+}): DaoProposalPayload {
+  const normalizedContractId = contractId.trim();
+  if (!normalizedContractId) {
+    throw new Error('Social spend contract is required.');
+  }
+
+  const normalizedSeasonId = seasonId.trim();
+  if (!normalizedSeasonId) {
+    throw new Error('Season is required.');
+  }
+
+  const normalizedAmount = amountYocto.trim();
+  if (!/^\d+$/.test(normalizedAmount) || normalizedAmount === '0') {
+    throw new Error('Enter a valid SOCIAL amount to fund.');
+  }
+
+  const proposalDescription =
+    description?.trim() ||
+    `Fund ${normalizedSeasonId} season pool with ${yoctoToSocial(normalizedAmount)} SOCIAL from social-spend treasury.`;
+
+  return {
+    proposal: {
+      description: proposalDescription,
+      kind: {
+        FunctionCall: {
+          receiver_id: normalizedContractId,
+          actions: [
+            {
+              method_name: 'fund_season_pool_from_treasury',
+              args: encodeFunctionCallArgs({
+                season_id: normalizedSeasonId,
+                amount: normalizedAmount,
+              }),
+              deposit: SOCIAL_SPEND_FUNCTION_CALL_DEPOSIT,
+              gas: SOCIAL_SPEND_FUNCTION_CALL_GAS,
+            },
+          ],
+        },
+      },
+    },
+  };
+}
+
+export function buildDaoTransferProposalPayload({
+  receiverId,
+  amountYocto,
+  tokenId = '',
+  description,
+  tokenSymbol,
+}: {
+  receiverId: string;
+  amountYocto: string;
+  tokenId?: string;
+  description?: string;
+  tokenSymbol?: string;
+}): DaoProposalPayload {
+  const normalizedReceiver = receiverId.trim();
+  if (!normalizedReceiver) {
+    throw new Error('Recipient account is required.');
+  }
+
+  const normalizedAmount = amountYocto.trim();
+  if (!/^\d+$/.test(normalizedAmount) || normalizedAmount === '0') {
+    throw new Error('Enter a valid transfer amount.');
+  }
+
+  const normalizedTokenId = tokenId.trim();
+  const assetLabel =
+    tokenSymbol?.trim() ||
+    (normalizedTokenId
+      ? normalizedTokenId.includes('social')
+        ? `${yoctoToSocial(normalizedAmount)} SOCIAL`
+        : normalizedTokenId
+      : `${yoctoToNear(normalizedAmount)} NEAR`);
+
+  const proposalDescription =
+    description?.trim() ||
+    `Transfer ${assetLabel} from the DAO to ${normalizedReceiver}.`;
+
+  return {
+    proposal: {
+      description: proposalDescription,
+      kind: {
+        Transfer: {
+          token_id: normalizedTokenId,
+          receiver_id: normalizedReceiver,
+          amount: normalizedAmount,
         },
       },
     },

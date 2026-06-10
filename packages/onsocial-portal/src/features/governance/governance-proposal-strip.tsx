@@ -33,7 +33,7 @@ export function GovernanceProposalStrip({
   return (
     <div
       className={cn(
-        '-mx-5 -mt-5 md:-mx-6 md:-mt-6 mb-3 flex items-start justify-between gap-3 rounded-t-[calc(1.5rem-1px)] px-5 md:px-6 py-2 pb-3 font-mono portal-type-body-sm sm:items-center',
+        '-mx-5 -mt-5 md:-mx-6 md:-mt-6 mb-3 flex items-start justify-between gap-3 rounded-t-[calc(1.5rem-1px)] px-5 md:px-6 py-2 pb-3 font-mono portal-type-body-sm',
         statusStyle?.badgeBg ?? 'bg-[var(--portal-blue-bg)]'
       )}
       style={{
@@ -41,31 +41,30 @@ export function GovernanceProposalStrip({
         WebkitMaskImage: 'linear-gradient(to bottom, black 70%, transparent)',
       }}
     >
-      <div className="flex min-w-0 flex-1 items-center gap-x-2 overflow-hidden">
-        <span className="shrink-0 font-semibold text-foreground">
-          #{proposalId}
-        </span>
-        {actionBadge ? (
-          <>
-            <span className="shrink-0 text-foreground/20" aria-hidden="true">
-              ·
-            </span>
-            <span className="shrink-0 font-medium uppercase tracking-[0.08em] text-foreground/50">
-              {actionBadge}
-            </span>
-          </>
-        ) : null}
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <div className="flex min-w-0 items-center gap-x-2 overflow-hidden">
+          <span className="shrink-0 font-semibold text-foreground">
+            #{proposalId}
+          </span>
+          {actionBadge ? (
+            <>
+              <span className="shrink-0 text-foreground/20" aria-hidden="true">
+                ·
+              </span>
+              <span className="shrink-0 font-medium uppercase tracking-[0.08em] text-foreground/50">
+                {actionBadge}
+              </span>
+            </>
+          ) : null}
+        </div>
         {submissionTime ? (
-          <>
-            <span className="shrink-0 text-foreground/20" aria-hidden="true">
-              ·
-            </span>
+          <div className="portal-type-caption text-muted-foreground">
+            Submitted{' '}
             <HoverTimestamp
               relative={submissionTime.relative}
               absolute={submissionTime.absolute}
-              className="shrink-0 font-normal text-muted-foreground"
             />
-          </>
+          </div>
         ) : null}
       </div>
 
@@ -105,6 +104,7 @@ export function GovernanceProposalStrip({
                   : 'text-muted-foreground'
               )}
             >
+              {statusSubtitle.prefix ? <>{statusSubtitle.prefix} </> : null}
               <HoverTimestamp
                 relative={statusSubtitle.relative}
                 absolute={statusSubtitle.absolute}

@@ -25,9 +25,15 @@ import {
   canProposePolicyChange,
   DAO_ADD_ROLE_ACCESS_OPTIONS,
   DAO_POLICY_ACTION_OPTIONS,
+  DAO_VOTE_THRESHOLD_PRESETS,
   filterEditablePermissions,
   findDelegatedProposersRole,
+  readPermissionPickerPermissions,
   formatDaoRoleDisplayName,
+  formatDefaultVotePolicyLabel,
+  formatDefaultVoteQuorumLabel,
+  formatVoteQuorumOptionLabel,
+  formatVoteThresholdOptionLabel,
   getAddRoleAccessBlockReason,
   getDaoPolicyActionHint,
   getDaoPolicyRoleOptions,
@@ -35,12 +41,29 @@ import {
   getRemovableDaoPolicyRoleOptions,
   getRemoveDaoPolicyRoleBlockReason,
   normalizeDaoRoleNameInput,
+  readDefaultVotePolicyQuorum,
+  readDefaultVotePolicyThreshold,
+  readDaoRoleMemberThreshold,
   resolveAddRoleSourceRole,
+  resolveCouncilVotePoolSize,
+  resolveDaoVoteThresholdPreset,
   resolveDefaultEditablePolicyRole,
+  resolveSelectableVoteQuorum,
+  resolveVoteQuorumRisk,
+  resolveVoteThresholdPresetId,
+  isDaoMemberWeightRole,
+  roleMemberThresholdChanged,
   rolePermissionsChanged,
+  votePolicyRulesChanged,
+  buildDaoQuorumPresetOptions,
   type DaoAddRoleAccessMode,
   type DaoPolicyActionId,
+  type DaoVoteThresholdPresetId,
 } from '@/features/governance/governance-proposal-builders';
+import {
+  buildGovernancePathWithBoard,
+  resolveGovernanceDaoBoard,
+} from '@/features/governance/governance-dao-board';
 import {
   DaoPermissionPicker,
   DaoRoleSnapshotList,
@@ -69,6 +92,11 @@ import {
   nearToYocto,
   sanitizeNearProposalBondInput,
   sanitizeProposalPeriodDaysInput,
+  sanitizeProposerThresholdSocialInput,
+  isProposerThresholdWithinBounds,
+  MAX_PROPOSER_THRESHOLD_SOCIAL,
+  MIN_PROPOSER_THRESHOLD_SOCIAL,
+  tokenAmountToSmallestUnit,
   tryParseYoctoBigInt,
   yoctoToNear,
   yoctoToSocial,
@@ -138,6 +166,22 @@ function syncParameterInputs(
   };
 }
 
+function syncVotePolicyInputs(
+  policy: GovernanceDaoPolicy | null,
+  councilSize: number | null
+): {
+  thresholdPresetId: DaoVoteThresholdPresetId;
+  quorumValue: string;
+} {
+  const threshold = readDefaultVotePolicyThreshold(policy?.default_vote_policy);
+  const quorum = readDefaultVotePolicyQuorum(policy?.default_vote_policy);
+
+  return {
+    thresholdPresetId: resolveVoteThresholdPresetId(threshold) ?? 'pct_50',
+    quorumValue: resolveSelectableVoteQuorum(quorum, councilSize, threshold),
+  };
+}
+
 function isDaoPolicyActionId(value: string): value is DaoPolicyActionId {
   return DAO_POLICY_ACTION_OPTIONS.some((option) => option.id === value);
 }
@@ -166,6 +210,8 @@ export function GovernancePolicyPanel({
     useState<DaoPolicyActionId>('update_permissions');
   const [permissionsRoleId, setPermissionsRoleId] = useState('');
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
+  const [permissionsMemberThresholdInput, setPermissionsMemberThresholdInput] =
+    useState('');
   const [bondNearInput, setBondNearInput] = useState('');
   const [periodDaysInput, setPeriodDaysInput] = useState('');
   const [newRoleName, setNewRoleName] = useState('');
@@ -173,6 +219,9 @@ export function GovernancePolicyPanel({
     useState<DaoAddRoleAccessMode>('custom');
   const [addRolePermissions, setAddRolePermissions] = useState<string[]>([]);
   const [targetRoleId, setTargetRoleId] = useState('');
+  const [voteThresholdPresetId, setVoteThresholdPresetId] =
+    useState<DaoVoteThresholdPresetId>('pct_50');
+  const [voteQuorumValue, setVoteQuorumValue] = useState('0');
   const [description, setDescription] = useState('');
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
 
@@ -196,9 +245,14 @@ export function GovernancePolicyPanel({
       setProposalBond(bond);
       setDaoPolicy(policy);
 
+      const councilSize = resolveCouncilVotePoolSize(policy);
       const nextParameters = syncParameterInputs(policy, bond);
       setBondNearInput(nextParameters.bondNear);
       setPeriodDaysInput(nextParameters.periodDays);
+
+      const nextVotePolicy = syncVotePolicyInputs(policy, councilSize);
+      setVoteThresholdPresetId(nextVotePolicy.thresholdPresetId);
+      setVoteQuorumValue(nextVotePolicy.quorumValue);
     } catch {
       setEligibility(null);
       setDaoPolicy(null);
@@ -214,6 +268,11 @@ export function GovernancePolicyPanel({
     initialPolicyActionApplied.current = false;
     void loadContext();
   }, [accountId, daoAccountId, loadContext]);
+
+  const daoBoard = useMemo(
+    () => resolveGovernanceDaoBoard(daoAccountId),
+    [daoAccountId]
+  );
 
   const roleOptions = useMemo(
     () => getDaoPolicyRoleOptions(daoPolicy),
@@ -285,8 +344,37 @@ export function GovernancePolicyPanel({
     [permissionsRole, selectedPermissions]
   );
 
+  const permissionsMemberThresholdSmallest = useMemo(() => {
+    if (!permissionsRole || !isDaoMemberWeightRole(permissionsRole)) {
+      return null;
+    }
+
+    const normalized = permissionsMemberThresholdInput.trim();
+    if (!normalized) {
+      return null;
+    }
+
+    try {
+      const smallest = tokenAmountToSmallestUnit(normalized, 18);
+      return isProposerThresholdWithinBounds(smallest) ? smallest : null;
+    } catch {
+      return null;
+    }
+  }, [permissionsMemberThresholdInput, permissionsRole]);
+
+  const memberThresholdChanged = useMemo(
+    () =>
+      roleMemberThresholdChanged(
+        permissionsRole,
+        permissionsMemberThresholdSmallest
+      ),
+    [permissionsMemberThresholdSmallest, permissionsRole]
+  );
+
+  const permissionsUpdateChanged = permissionsChanged || memberThresholdChanged;
+
   const permissionsRoleBaseline = useMemo(
-    () => filterEditablePermissions(permissionsRole?.permissions),
+    () => readPermissionPickerPermissions(permissionsRole?.permissions),
     [permissionsRole]
   );
 
@@ -304,6 +392,103 @@ export function GovernancePolicyPanel({
     return formatSocial(member);
   }, [addRoleSourceRole]);
 
+  const councilVotePoolSize = useMemo(
+    () => resolveCouncilVotePoolSize(daoPolicy),
+    [daoPolicy]
+  );
+
+  const usesRoleWeightVotePolicy =
+    (daoPolicy?.default_vote_policy?.weight_kind ?? 'RoleWeight') ===
+    'RoleWeight';
+
+  const currentVoteThreshold = useMemo(
+    () => readDefaultVotePolicyThreshold(daoPolicy?.default_vote_policy),
+    [daoPolicy?.default_vote_policy]
+  );
+
+  const currentVoteQuorum = useMemo(
+    () => readDefaultVotePolicyQuorum(daoPolicy?.default_vote_policy),
+    [daoPolicy?.default_vote_policy]
+  );
+
+  const nextVoteThreshold = useMemo(() => {
+    return (
+      resolveDaoVoteThresholdPreset(voteThresholdPresetId)?.threshold ?? null
+    );
+  }, [voteThresholdPresetId]);
+
+  const nextVoteQuorum = voteQuorumValue;
+
+  const votePolicyChanged = useMemo(
+    () =>
+      votePolicyRulesChanged({
+        currentThreshold: currentVoteThreshold,
+        nextThreshold: nextVoteThreshold,
+        currentQuorum: currentVoteQuorum,
+        nextQuorum: nextVoteQuorum,
+      }),
+    [currentVoteQuorum, currentVoteThreshold, nextVoteQuorum, nextVoteThreshold]
+  );
+
+  const currentThresholdPresetId = useMemo(
+    () => resolveVoteThresholdPresetId(currentVoteThreshold),
+    [currentVoteThreshold]
+  );
+
+  const voteThresholdPresetOptions = useMemo(
+    () =>
+      DAO_VOTE_THRESHOLD_PRESETS.map((preset) => {
+        const isCurrent = preset.id === currentThresholdPresetId;
+
+        return {
+          value: preset.id,
+          label: formatVoteThresholdOptionLabel(
+            preset,
+            isCurrent
+              ? (currentVoteThreshold ?? preset.threshold)
+              : preset.threshold
+          ),
+          isCurrent,
+          badge: isCurrent ? 'Current' : undefined,
+        };
+      }),
+    [currentThresholdPresetId, currentVoteThreshold]
+  );
+
+  const voteQuorumPresetOptions = useMemo(
+    () =>
+      buildDaoQuorumPresetOptions(
+        councilVotePoolSize,
+        nextVoteThreshold ?? currentVoteThreshold,
+        voteQuorumValue !== currentVoteQuorum
+          ? voteQuorumValue
+          : currentVoteQuorum
+      ).map((option) => {
+        const isCurrent = option.quorum === currentVoteQuorum;
+        const risk = resolveVoteQuorumRisk(option.quorum, councilVotePoolSize);
+
+        return {
+          value: option.quorum,
+          label: formatVoteQuorumOptionLabel(option),
+          isCurrent,
+          badge: isCurrent ? 'Current' : undefined,
+          riskBadge: risk.level !== 'none' ? 'Risk' : undefined,
+        };
+      }),
+    [
+      councilVotePoolSize,
+      currentVoteQuorum,
+      currentVoteThreshold,
+      nextVoteThreshold,
+      voteQuorumValue,
+    ]
+  );
+
+  const selectedVoteQuorumRisk = useMemo(
+    () => resolveVoteQuorumRisk(voteQuorumValue, councilVotePoolSize),
+    [councilVotePoolSize, voteQuorumValue]
+  );
+
   const policyActionHint = useMemo(
     () =>
       getDaoPolicyActionHint(policyAction, {
@@ -316,7 +501,12 @@ export function GovernancePolicyPanel({
         newRoleName:
           policyAction === 'add_role' ? normalizedNewRoleName : undefined,
         socialThresholdLabel:
-          policyAction === 'add_role' ? addRoleSocialThresholdLabel : undefined,
+          policyAction === 'add_role'
+            ? addRoleSocialThresholdLabel
+            : policyAction === 'update_permissions' &&
+                permissionsMemberThresholdSmallest
+              ? formatSocial(permissionsMemberThresholdSmallest)
+              : undefined,
         permissionsRoleId:
           policyAction === 'update_permissions' ? permissionsRoleId : undefined,
         onChainPermissions:
@@ -329,24 +519,62 @@ export function GovernancePolicyPanel({
             : undefined,
         permissionsChanged:
           policyAction === 'update_permissions'
-            ? permissionsChanged
+            ? permissionsUpdateChanged
+            : undefined,
+        memberThresholdChanged:
+          policyAction === 'update_permissions'
+            ? memberThresholdChanged
             : undefined,
         targetRoleId: policyAction === 'remove_role' ? targetRoleId : undefined,
+        currentVoteThreshold:
+          policyAction === 'update_vote_policy'
+            ? currentVoteThreshold
+            : undefined,
+        nextVoteThreshold:
+          policyAction === 'update_vote_policy' ? nextVoteThreshold : undefined,
+        currentVoteQuorum:
+          policyAction === 'update_vote_policy' ? currentVoteQuorum : undefined,
+        nextVoteQuorum:
+          policyAction === 'update_vote_policy' ? nextVoteQuorum : undefined,
+        councilVotePoolSize:
+          policyAction === 'update_vote_policy'
+            ? councilVotePoolSize
+            : undefined,
+        votePolicyChanged:
+          policyAction === 'update_vote_policy' ? votePolicyChanged : undefined,
       }),
     [
       addRoleAccessMode,
       addRolePermissions,
       addRoleSocialThresholdLabel,
       addRoleUsesCustomPermissions,
+      councilVotePoolSize,
+      currentVoteQuorum,
+      currentVoteThreshold,
       normalizedNewRoleName,
-      permissionsChanged,
+      nextVoteQuorum,
+      nextVoteThreshold,
+      permissionsUpdateChanged,
+      memberThresholdChanged,
+      permissionsMemberThresholdSmallest,
       permissionsRoleBaseline,
       permissionsRoleId,
       policyAction,
       selectedPermissions,
       targetRoleId,
+      votePolicyChanged,
     ]
   );
+
+  useEffect(() => {
+    setVoteQuorumValue((current) =>
+      resolveSelectableVoteQuorum(
+        current,
+        councilVotePoolSize,
+        nextVoteThreshold ?? currentVoteThreshold
+      )
+    );
+  }, [councilVotePoolSize, currentVoteThreshold, nextVoteThreshold]);
 
   useEffect(() => {
     const defaultRole = resolveDefaultEditablePolicyRole(daoPolicy?.roles);
@@ -370,7 +598,11 @@ export function GovernancePolicyPanel({
     }
 
     setSelectedPermissions(
-      filterEditablePermissions(permissionsRole.permissions)
+      readPermissionPickerPermissions(permissionsRole.permissions)
+    );
+    const memberThreshold = readDaoRoleMemberThreshold(permissionsRole);
+    setPermissionsMemberThresholdInput(
+      memberThreshold ? yoctoToSocial(memberThreshold) : ''
     );
   }, [permissionsRole]);
 
@@ -406,6 +638,13 @@ export function GovernancePolicyPanel({
       return;
     }
 
+    if (policyAction === 'update_vote_policy' && nextVoteThreshold) {
+      setDescription(
+        `Update default vote policy to ${formatDefaultVotePolicyLabel(nextVoteThreshold)} · quorum ${formatDefaultVoteQuorumLabel(nextVoteQuorum, councilVotePoolSize, nextVoteThreshold)}.`
+      );
+      return;
+    }
+
     if (policyAction === 'update_permissions' && permissionsRoleId) {
       setDescription(
         `Update ${permissionsRoleId} permissions on the OnSocial DAO.`
@@ -413,7 +652,10 @@ export function GovernancePolicyPanel({
     }
   }, [
     addRoleAccessMode,
+    councilVotePoolSize,
     normalizedNewRoleName,
+    nextVoteQuorum,
+    nextVoteThreshold,
     permissionsRoleId,
     policyAction,
     targetRoleId,
@@ -519,7 +761,9 @@ export function GovernancePolicyPanel({
         return (
           permissionsRole != null &&
           selectedPermissions.length > 0 &&
-          permissionsChanged
+          permissionsUpdateChanged &&
+          (!memberThresholdChanged ||
+            permissionsMemberThresholdSmallest != null)
         );
       case 'update_parameters': {
         if (!parametersChanged) {
@@ -563,6 +807,8 @@ export function GovernancePolicyPanel({
           targetRoleId.trim().length > 0 &&
           getRemoveDaoPolicyRoleBlockReason(daoPolicy, targetRoleId) === ''
         );
+      case 'update_vote_policy':
+        return nextVoteThreshold != null && votePolicyChanged;
       default:
         return false;
     }
@@ -574,12 +820,15 @@ export function GovernancePolicyPanel({
     isConnected,
     nextBondYocto,
     nextPeriodNs,
+    nextVoteThreshold,
     periodDaysInput,
     addRolePermissions.length,
     normalizedNewRoleName,
     parametersChanged,
     periodChanged,
-    permissionsChanged,
+    permissionsUpdateChanged,
+    permissionsMemberThresholdSmallest,
+    memberThresholdChanged,
     daoPolicy,
     permissionsRole,
     policyAction,
@@ -591,6 +840,7 @@ export function GovernancePolicyPanel({
     selectedPermissions.length,
     submitting,
     targetRoleId,
+    votePolicyChanged,
   ]);
 
   const blockedReason = useMemo(() => {
@@ -614,8 +864,15 @@ export function GovernancePolicyPanel({
       if (selectedPermissions.length === 0) {
         return 'Select at least one permission.';
       }
-      if (!permissionsChanged) {
-        return 'Change permissions before submitting.';
+      if (!permissionsUpdateChanged) {
+        return 'Change permissions or proposer threshold before submitting.';
+      }
+      if (
+        memberThresholdChanged &&
+        permissionsMemberThresholdInput.trim() &&
+        !permissionsMemberThresholdSmallest
+      ) {
+        return `Proposer threshold must be between ${MIN_PROPOSER_THRESHOLD_SOCIAL.toLocaleString('en-US')} and ${MAX_PROPOSER_THRESHOLD_SOCIAL.toLocaleString('en-US')} SOCIAL.`;
       }
     }
     if (policyAction === 'update_parameters') {
@@ -667,6 +924,14 @@ export function GovernancePolicyPanel({
         return removeBlockReason;
       }
     }
+    if (policyAction === 'update_vote_policy') {
+      if (!nextVoteThreshold) {
+        return 'Choose an approval threshold.';
+      }
+      if (!votePolicyChanged) {
+        return 'Change vote rules before submitting.';
+      }
+    }
     return '';
   }, [
     bondChanged,
@@ -680,9 +945,14 @@ export function GovernancePolicyPanel({
     addRolePermissions.length,
     normalizedNewRoleName,
     nextBondYocto,
+    nextVoteQuorum,
+    nextVoteThreshold,
     periodDaysInput,
     parametersChanged,
-    permissionsChanged,
+    permissionsUpdateChanged,
+    permissionsMemberThresholdInput,
+    permissionsMemberThresholdSmallest,
+    memberThresholdChanged,
     daoPolicy,
     permissionsRole,
     policyAction,
@@ -692,6 +962,7 @@ export function GovernancePolicyPanel({
     roleOptions,
     selectedPermissions.length,
     targetRoleId,
+    votePolicyChanged,
   ]);
 
   const handleSubmit = useCallback(async () => {
@@ -728,6 +999,16 @@ export function GovernancePolicyPanel({
           policyAction === 'add_role'
             ? addRolePermissions
             : selectedPermissions,
+        memberThresholdSmallest:
+          policyAction === 'update_permissions' && memberThresholdChanged
+            ? (permissionsMemberThresholdSmallest ?? undefined)
+            : undefined,
+        votePolicyThreshold:
+          policyAction === 'update_vote_policy'
+            ? (nextVoteThreshold ?? undefined)
+            : undefined,
+        votePolicyQuorum:
+          policyAction === 'update_vote_policy' ? nextVoteQuorum : undefined,
       });
 
       const targetDaoAccountId = eligibility?.daoAccountId ?? daoAccountId;
@@ -755,15 +1036,25 @@ export function GovernancePolicyPanel({
 
       if (proposalId != null) {
         router.push(
-          buildGovernanceProposalPath(
-            buildProtocolProposalAppId(proposalId),
-            proposalId
+          buildGovernancePathWithBoard(
+            buildGovernanceProposalPath(
+              buildProtocolProposalAppId(proposalId),
+              proposalId
+            ).split('?')[0] ?? '/governance',
+            daoBoard,
+            {
+              proposal: String(proposalId),
+            }
           )
         );
         return;
       }
 
-      router.push('/governance?lane=protocol');
+      router.push(
+        buildGovernancePathWithBoard('/governance', daoBoard, {
+          lane: 'protocol',
+        })
+      );
     } catch (nextError) {
       setTxResult({
         type: 'error',
@@ -784,6 +1075,7 @@ export function GovernancePolicyPanel({
     clearTxResult,
     connect,
     daoAccountId,
+    daoBoard,
     daoPolicy,
     description,
     addRoleAccessMode,
@@ -791,6 +1083,8 @@ export function GovernancePolicyPanel({
     newRoleName,
     nextBondYocto,
     nextPeriodNs,
+    nextVoteQuorum,
+    nextVoteThreshold,
     periodChanged,
     permissionsRoleId,
     policyAction,
@@ -836,7 +1130,10 @@ export function GovernancePolicyPanel({
                   className="h-8 w-8 rounded-full border-border/40 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground"
                 >
                   <Link
-                    href="/governance/create"
+                    href={buildGovernancePathWithBoard(
+                      '/governance/create',
+                      daoBoard
+                    )}
                     aria-label="Open create proposal"
                   >
                     <PenLine className="h-4 w-4" />
@@ -943,9 +1240,20 @@ export function GovernancePolicyPanel({
               policyAction === 'update_permissions' &&
               editableRoleOptions.length > 1 ? (
                 <p className="mt-1.5 text-[11px] text-muted-foreground">
-                  Tap another public role to switch.
+                  Tap a public role to switch which permissions you edit.
+                  Council is view-only.
                 </p>
-              ) : null}
+              ) : canEditPolicy && policyAction === 'update_permissions' ? (
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  Roles are a read-only snapshot. Edit public proposal
+                  permissions below — council is not selectable here.
+                </p>
+              ) : (
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  Role snapshot from on-chain policy. Select Permissions above
+                  to edit public roles.
+                </p>
+              )}
             </div>
 
             {canEditPolicy && availablePolicyActions.length > 0 ? (
@@ -988,15 +1296,61 @@ export function GovernancePolicyPanel({
                         No editable roles in DAO policy.
                       </p>
                     ) : (
-                      <DaoPermissionPicker
-                        compact
-                        permissions={selectedPermissions}
-                        baselinePermissions={permissionsRoleBaseline}
-                        onChange={(next) => {
-                          setSelectedPermissions(next);
-                          setError('');
-                        }}
-                      />
+                      <div className="space-y-2">
+                        {permissionsRole &&
+                        isDaoMemberWeightRole(permissionsRole) ? (
+                          <div>
+                            <label
+                              htmlFor="governance-policy-member-threshold"
+                              className={fieldLabelClass}
+                            >
+                              Proposer threshold (SOCIAL delegated)
+                            </label>
+                            <div className="portal-field-focus rounded-2xl border border-border/40 bg-background/45 px-3 py-2">
+                              <input
+                                id="governance-policy-member-threshold"
+                                type="text"
+                                inputMode="decimal"
+                                value={permissionsMemberThresholdInput}
+                                onChange={(event) => {
+                                  setPermissionsMemberThresholdInput(
+                                    sanitizeProposerThresholdSocialInput(
+                                      event.target.value
+                                    )
+                                  );
+                                  setError('');
+                                }}
+                                placeholder="100"
+                                className="w-full bg-transparent font-mono text-[13px] font-medium outline-none placeholder:text-muted-foreground/50"
+                              />
+                            </div>
+                            <p className="mt-1.5 text-[11px] text-muted-foreground">
+                              Minimum delegated SOCIAL required to create
+                              proposals in this role (
+                              {MIN_PROPOSER_THRESHOLD_SOCIAL.toLocaleString(
+                                'en-US'
+                              )}
+                              –
+                              {MAX_PROPOSER_THRESHOLD_SOCIAL.toLocaleString(
+                                'en-US'
+                              )}{' '}
+                              SOCIAL).
+                            </p>
+                          </div>
+                        ) : null}
+                        <DaoPermissionPicker
+                          compact
+                          permissions={selectedPermissions}
+                          baselinePermissions={permissionsRoleBaseline}
+                          baselinePresetPermissions={
+                            permissionsRole?.permissions
+                          }
+                          onChange={(next) => {
+                            setSelectedPermissions(next);
+                            setError('');
+                          }}
+                        />
+                      </div>
                     )
                   ) : null}
 
@@ -1114,6 +1468,50 @@ export function GovernancePolicyPanel({
                           />
                         </div>
                       </div>
+                    </div>
+                  ) : null}
+
+                  {policyAction === 'update_vote_policy' ? (
+                    <div className="space-y-2">
+                      <PortalFieldSelect
+                        label="Approval threshold"
+                        compact
+                        value={voteThresholdPresetId}
+                        options={voteThresholdPresetOptions}
+                        onChange={(presetId) => {
+                          setVoteThresholdPresetId(
+                            presetId as DaoVoteThresholdPresetId
+                          );
+                          setError('');
+                        }}
+                        ariaLabel="Vote approval threshold"
+                      />
+
+                      {usesRoleWeightVotePolicy ? (
+                        <>
+                          <PortalFieldSelect
+                            label="Minimum approvals"
+                            compact
+                            value={voteQuorumValue}
+                            options={voteQuorumPresetOptions}
+                            onChange={(quorum) => {
+                              setVoteQuorumValue(quorum);
+                              setError('');
+                            }}
+                            ariaLabel="Minimum approve vote floor"
+                          />
+                          <p className="text-[11px] text-muted-foreground">
+                            Minimum approve votes required. Final rule uses
+                            whichever is stricter: this floor or the approval
+                            threshold.
+                          </p>
+                          {selectedVoteQuorumRisk.message ? (
+                            <p className="text-[11px] portal-amber-text">
+                              Risk: {selectedVoteQuorumRisk.message}
+                            </p>
+                          ) : null}
+                        </>
+                      ) : null}
                     </div>
                   ) : null}
                 </PolicyActionForm>

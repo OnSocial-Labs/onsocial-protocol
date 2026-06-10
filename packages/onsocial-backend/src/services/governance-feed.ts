@@ -374,6 +374,9 @@ function getExcludedProtocolReceivers(): Set<string> {
     config.nearNetwork === 'mainnet'
       ? 'staking-governance.onsocial.near'
       : 'staking-governance.onsocial.testnet',
+    config.nearNetwork === 'mainnet'
+      ? 'staking-treasury.onsocial.near'
+      : 'staking-treasury.onsocial.testnet',
   ]);
 }
 
@@ -597,7 +600,7 @@ function deriveProtocolProposalHeadline(
   }
 
   if (kindName === 'Vote') {
-    return descriptionLine || 'Signaling proposal';
+    return descriptionLine || 'Signal proposal';
   }
 
   return descriptionLine || 'Governance proposal';
@@ -744,7 +747,7 @@ function classifyProtocolProposal(
       protocolKind: 'signaling',
       targetAccount: daoAccountId,
       targetMethod: 'vote',
-      subject: 'Signaling',
+      subject: 'Signal',
     };
   }
 

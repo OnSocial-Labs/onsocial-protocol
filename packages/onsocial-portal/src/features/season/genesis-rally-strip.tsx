@@ -31,7 +31,11 @@ import {
   GENESIS_RALLY_JOIN_YOCTO,
   formatGenesisSocialBalanceDisplay,
 } from '@/lib/genesis-season';
-import { getActiveSeasonId, seasonApiPath } from '@/lib/active-season';
+import {
+  getActiveSeasonId,
+  getSeasonPresentation,
+  seasonApiPath,
+} from '@/lib/active-season';
 import { extractNearTransactionHashes } from '@/lib/near-rpc';
 import { PORTAL_SWAP_ENABLED } from '@/lib/portal-swap-config';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/portal-config';
@@ -120,7 +124,7 @@ export function GenesisRallyStrip({
   onClaimed,
 }: {
   className?: string;
-  /** `promo` — home Live section. `page` — Season 0 hero (metrics + join). */
+  /** `promo` — home Live section. `page` — rally hero (metrics + join). */
   variant?: 'page' | 'promo';
   /** On-chain season id for joins and API reads. */
   seasonId?: string;
@@ -174,6 +178,10 @@ export function GenesisRallyStrip({
   } = useSocialWalletBalance(accountId, balanceRefreshKey);
 
   const myStanding = myStandingProp ?? fetchedMyStanding;
+  const seasonPresentation = useMemo(
+    () => getSeasonPresentation(seasonId),
+    [seasonId]
+  );
 
   const refresh = useCallback(async () => {
     if (myStandingProp) {
@@ -364,7 +372,7 @@ export function GenesisRallyStrip({
       const txHashes = extractNearTransactionHashes(result);
       const confirmed = await trackTransaction({
         txHashes,
-        submittedMessage: 'Joining Genesis Rally…',
+        submittedMessage: `Joining ${seasonPresentation.pageTitle}…`,
         successMessage: `You joined ${seasonId}.`,
         failureMessage: 'Could not join the rally.',
       });
@@ -394,9 +402,11 @@ export function GenesisRallyStrip({
     joinPending,
     joined,
     refresh,
+    seasonId,
     setTxResult,
     trackTransaction,
     onParticipationChange,
+    seasonPresentation.pageTitle,
   ]);
 
   const handleSwapSuccess = useCallback(() => {
@@ -679,7 +689,7 @@ export function GenesisRallyStrip({
         <div className="pointer-events-none relative z-[1] flex justify-center px-3 py-2 md:px-4">
           <span className="portal-gold-text inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] transition-opacity duration-200 group-hover:opacity-90">
             <Sparkles className="portal-gold-icon h-3.5 w-3.5 shrink-0" />
-            Support Rally · {seasonId}
+            {seasonPresentation.pageTitle}
             <ProtocolMotionArrow className="h-3 w-3" />
           </span>
         </div>

@@ -13,6 +13,7 @@ export interface PortalProfileSocialPayload {
   accountId: string;
   viewerAccountId: string | null;
   viewerStanding: boolean;
+  theyStandWithViewer: boolean;
   counts: {
     incoming: number;
     outgoing: number;
@@ -44,6 +45,7 @@ export async function loadPortalProfileSocial(
     mutualRows,
     mutualCount,
     viewerStanding,
+    theyStandWithViewer,
   ] = await Promise.all([
     os.standings.counts(accountId),
     os.standings.listOutgoingDetailed(accountId, {
@@ -61,6 +63,9 @@ export async function loadPortalProfileSocial(
     os.query.standings.mutualCount(accountId),
     viewerAccountId && viewerAccountId !== accountId
       ? os.query.standings.viewerStandsWith(viewerAccountId, accountId)
+      : Promise.resolve(false),
+    viewerAccountId && viewerAccountId !== accountId
+      ? os.query.standings.viewerStandsWith(accountId, viewerAccountId)
       : Promise.resolve(false),
   ]);
 
@@ -111,6 +116,7 @@ export async function loadPortalProfileSocial(
     accountId,
     viewerAccountId,
     viewerStanding,
+    theyStandWithViewer,
     counts: {
       incoming: counts.incoming,
       outgoing: counts.outgoing,

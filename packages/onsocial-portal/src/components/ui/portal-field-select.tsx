@@ -15,10 +15,43 @@ export interface PortalFieldSelectOption {
   value: string;
   label: string;
   hint?: string;
+  /** Shown beside the label — e.g. on-chain "Current" marker. */
+  badge?: string;
+  /** Amber marker for risky choices (e.g. quorum floors). */
+  riskBadge?: string;
+  /** Subtle green styling for the on-chain value row. */
+  isCurrent?: boolean;
 }
 
 const fieldLabelClass =
   'mb-2 block portal-type-label font-medium uppercase tracking-[0.16em] text-muted-foreground';
+
+function formatPortalFieldSelectLine(option: PortalFieldSelectOption): string {
+  if (option.badge) {
+    return `${option.label} · ${option.badge}`;
+  }
+
+  return option.label;
+}
+
+function PortalFieldSelectLine({
+  option,
+  className,
+}: {
+  option: PortalFieldSelectOption;
+  className?: string;
+}) {
+  return (
+    <span className={cn('min-w-0 truncate', className)}>
+      <span className={cn(option.isCurrent && 'portal-green-text')}>
+        {formatPortalFieldSelectLine(option)}
+      </span>
+      {option.riskBadge ? (
+        <span className="portal-amber-text"> · {option.riskBadge}</span>
+      ) : null}
+    </span>
+  );
+}
 
 export function PortalFieldSelect({
   label,
@@ -135,9 +168,14 @@ export function PortalFieldSelect({
             triggerClassName
           )}
         >
-          <span className="min-w-0 truncate font-medium">
-            {selectedOption?.label ?? placeholder}
-          </span>
+          {selectedOption ? (
+            <PortalFieldSelectLine
+              option={selectedOption}
+              className="font-medium"
+            />
+          ) : (
+            <span className="min-w-0 truncate font-medium">{placeholder}</span>
+          )}
           {showMenu ? (
             <ChevronDown
               className={cn(
@@ -210,7 +248,7 @@ export function PortalFieldSelect({
                   )}
                 >
                   <span className="min-w-0 text-left">
-                    <span className="block truncate">{option.label}</span>
+                    <PortalFieldSelectLine option={option} className="block" />
                     {option.hint ? (
                       <span className="mt-0.5 block truncate text-[11px] text-muted-foreground/80">
                         {option.hint}
@@ -218,7 +256,14 @@ export function PortalFieldSelect({
                     ) : null}
                   </span>
                   <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-                    {selected ? <Check className="h-4 w-4" /> : null}
+                    {selected ? (
+                      <Check
+                        className={cn(
+                          'h-4 w-4',
+                          option.isCurrent && 'portal-green-text'
+                        )}
+                      />
+                    ) : null}
                   </span>
                 </button>
               );

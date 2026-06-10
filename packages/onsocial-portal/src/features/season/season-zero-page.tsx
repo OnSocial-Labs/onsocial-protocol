@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { motion, useReducedMotion } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
 import { PageShell } from '@/components/layout/page-shell';
@@ -28,6 +29,9 @@ import { fadeUpMotion } from '@/lib/motion';
 import {
   ARCHIVED_GENESIS_SEASON_ID,
   getActiveSeasonId,
+  getActiveSeasonPresentation,
+  getSeasonPresentation,
+  type SeasonPresentation,
   seasonApiPath,
 } from '@/lib/active-season';
 
@@ -53,14 +57,13 @@ function sectionEntrance(
 
 export function SeasonRallyPage({
   seasonId,
-  pageBadge,
-  pageTitle,
-  pageDescription,
+  presentation,
+  archiveSeasonId,
 }: {
   seasonId: string;
-  pageBadge: string;
-  pageTitle: string;
-  pageDescription: string;
+  presentation: SeasonPresentation;
+  /** When set and different from seasonId, show a link to the archived season. */
+  archiveSeasonId?: string | null;
 }) {
   const { accountId } = useWallet();
   const reduceMotion = useReducedMotion();
@@ -137,7 +140,7 @@ export function SeasonRallyPage({
       if (!standingsRes.ok || !standingsData.success) {
         const body = standingsData as { error?: string; detail?: string };
         throw new Error(
-          body.detail ?? body.error ?? 'Could not load Season 0 standings.'
+          body.detail ?? body.error ?? 'Could not load rally standings.'
         );
       }
 
@@ -171,15 +174,32 @@ export function SeasonRallyPage({
     return () => window.clearInterval(interval);
   }, [refresh]);
 
+  const archivePresentation =
+    archiveSeasonId && archiveSeasonId !== seasonId
+      ? getSeasonPresentation(archiveSeasonId)
+      : null;
+
   return (
     <PageShell size="section">
       <SecondaryPageHeader
-        badge={pageBadge}
+        badge={presentation.pageBadge}
         badgeAccent="gold"
         glowAccents={['gold', 'purple']}
-        title={pageTitle}
-        description={pageDescription}
+        title={presentation.pageTitle}
+        description={presentation.pageDescription}
       />
+
+      {archivePresentation ? (
+        <p className="-mt-4 mb-1 text-center text-sm text-muted-foreground">
+          <Link
+            href={archivePresentation.rallyPath}
+            className="transition-colors hover:text-[var(--portal-gold)]"
+          >
+            View {archivePresentation.pageTitle} (
+            {archivePresentation.pageBadge})
+          </Link>
+        </p>
+      ) : null}
 
       <div className="mx-auto max-w-3xl space-y-3">
         <motion.div {...sectionEntrance(reduceMotion, 0)}>
@@ -259,12 +279,14 @@ export function SeasonRallyPage({
 }
 
 export default function SeasonZeroPage() {
+  const activeSeasonId = getActiveSeasonId();
   return (
     <SeasonRallyPage
       seasonId={ARCHIVED_GENESIS_SEASON_ID}
-      pageBadge="Season 0"
-      pageTitle="Genesis Rally"
-      pageDescription="Let the social games begin."
+      presentation={getSeasonPresentation(ARCHIVED_GENESIS_SEASON_ID)}
+      archiveSeasonId={
+        activeSeasonId !== ARCHIVED_GENESIS_SEASON_ID ? activeSeasonId : null
+      }
     />
   );
 }
@@ -274,9 +296,8 @@ export function ActiveSeasonPage() {
   return (
     <SeasonRallyPage
       seasonId={seasonId}
-      pageBadge="Live rally"
-      pageTitle="Support Rally"
-      pageDescription="Join the live season, earn points, and claim your share."
+      presentation={getActiveSeasonPresentation()}
+      archiveSeasonId={ARCHIVED_GENESIS_SEASON_ID}
     />
   );
 }

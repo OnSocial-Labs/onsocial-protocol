@@ -19,7 +19,11 @@ import {
   formatGenesisYoctoAsSocial,
 } from '@/lib/genesis-season';
 import { GOVERNANCE_WALLETS, isGovernanceWallet } from '@/lib/portal-config';
-import { getActiveSeasonId, seasonApiPath } from '@/lib/active-season';
+import {
+  getActiveSeasonId,
+  getActiveSeasonPresentation,
+  seasonApiPath,
+} from '@/lib/active-season';
 
 type AdminAction = 'finalize' | 'publish' | null;
 
@@ -35,6 +39,8 @@ interface FinalizePreviewPayload {
   stable?: boolean;
   participantCount?: number;
   indexedPoolAmountYocto?: string;
+  onChainPoolAmountYocto?: string;
+  distributablePoolAmountYocto?: string;
   standings?: FinalizePreviewRow[];
   error?: string;
 }
@@ -124,6 +130,7 @@ function AdminStepCard({
 
 export default function SeasonZeroAdminPage() {
   const seasonId = getActiveSeasonId();
+  const activePresentation = getActiveSeasonPresentation();
   const { accountId, connect } = useWallet();
   const [allowed, setAllowed] = useState<boolean | null>(null);
   const [status, setStatus] = useState<SeasonZeroStatusPayload | null>(null);
@@ -328,7 +335,7 @@ export default function SeasonZeroAdminPage() {
           className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-[var(--portal-blue)]"
         >
           <ArrowLeft className="h-3 w-3" />
-          Genesis Rally
+          {activePresentation.pageTitle}
         </Link>
 
         {onChain ? (
@@ -493,8 +500,29 @@ export default function SeasonZeroAdminPage() {
               {preview?.indexedPoolAmountYocto ? (
                 <p className="mt-2 text-[11px] text-muted-foreground/70">
                   Pool{' '}
-                  {formatGenesisYoctoAsSocial(preview.indexedPoolAmountYocto)}{' '}
-                  SOCIAL · {preview.participantCount ?? 0} participants
+                  {formatGenesisYoctoAsSocial(
+                    preview.distributablePoolAmountYocto ??
+                      preview.indexedPoolAmountYocto
+                  )}{' '}
+                  SOCIAL distributable
+                  {preview.onChainPoolAmountYocto &&
+                  preview.distributablePoolAmountYocto &&
+                  preview.distributablePoolAmountYocto !==
+                    preview.indexedPoolAmountYocto ? (
+                    <>
+                      {' '}
+                      · indexed{' '}
+                      {formatGenesisYoctoAsSocial(
+                        preview.indexedPoolAmountYocto
+                      )}{' '}
+                      · on-chain{' '}
+                      {formatGenesisYoctoAsSocial(
+                        preview.onChainPoolAmountYocto
+                      )}
+                    </>
+                  ) : null}{' '}
+                  · {preview.participantCount ?? 0} participants · capped at
+                  season end
                 </p>
               ) : null}
             </div>

@@ -70,8 +70,11 @@ get_pulled() {
 }
 
 ONAPI_KEY="$(get_pulled ONSOCIAL_API_KEY)"
+LAVA_KEY="$(get_pulled LAVA_API_KEY)"
 REWARDS_KEY="$(get_pulled ONSOCIAL_PORTAL_REWARDS_API_KEY)"
 REWARDS_APP="$(get_pulled ONSOCIAL_PORTAL_REWARDS_APP_ID)"
+ADMIN_WALLETS="$(get_pulled ADMIN_WALLETS)"
+SEASON_ADMIN_KEY="$(get_pulled SEASON_SETTLEMENT_ADMIN_KEY)"
 
 rm -f "$TMP_GSM" "$TMP_GSM.warnings"
 
@@ -87,6 +90,9 @@ upsert_env "$ENV_FILE" "NEXT_PUBLIC_NEAR_NETWORK" "$NETWORK"
 upsert_env "$ENV_FILE" "NEXT_PUBLIC_API_URL" "$PUBLIC_API"
 upsert_env "$ENV_FILE" "NEXT_PUBLIC_BACKEND_URL" "$PUBLIC_API"
 upsert_env "$ENV_FILE" "ONSOCIAL_API_KEY" "$ONAPI_KEY"
+if [ -n "$LAVA_KEY" ]; then
+  upsert_env "$ENV_FILE" "LAVA_API_KEY" "$LAVA_KEY"
+fi
 # Remove deprecated alias if present from older syncs.
 if grep -q '^GATEWAY_SERVICE_KEY=' "$ENV_FILE" 2>/dev/null; then
   tmp="$(mktemp)"
@@ -100,6 +106,12 @@ if [ -n "$REWARDS_APP" ]; then
   upsert_env "$ENV_FILE" "ONSOCIAL_PORTAL_REWARDS_APP_ID" "$REWARDS_APP"
 else
   upsert_env "$ENV_FILE" "ONSOCIAL_PORTAL_REWARDS_APP_ID" "onsocial_portal"
+fi
+if [ -n "$ADMIN_WALLETS" ]; then
+  upsert_env "$ENV_FILE" "ADMIN_WALLETS" "$ADMIN_WALLETS"
+fi
+if [ -n "$SEASON_ADMIN_KEY" ]; then
+  upsert_env "$ENV_FILE" "SEASON_SETTLEMENT_ADMIN_KEY" "$SEASON_ADMIN_KEY"
 fi
 
 chmod 600 "$ENV_FILE" 2>/dev/null || true

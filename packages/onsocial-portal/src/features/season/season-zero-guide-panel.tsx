@@ -195,8 +195,10 @@ export function SeasonZeroGuidePanel({
               </div>
 
               <p className="portal-type-caption text-muted-foreground/65">
-                Others endorsing or standing with you raises your score.
-                Activity counts after you join — allow a few minutes to index.
+                Others endorsing or standing with you raises your score. Stands
+                and endorsements count only for connections that did not exist
+                before the rally started. Activity after you join may take a few
+                minutes to index.
               </p>
             </div>
           </motion.div>

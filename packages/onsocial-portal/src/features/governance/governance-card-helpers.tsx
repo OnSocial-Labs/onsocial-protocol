@@ -15,6 +15,10 @@ import type {
   GovernanceDaoVotePolicy,
   GovernanceProposal,
 } from '@/features/governance/types';
+import {
+  getDaoProposalKindName,
+  normalizeDaoProposalKind,
+} from '@/features/governance/governance-proposal-kind';
 import { isNearNamedAccountComplete } from '@/lib/portal-near-account';
 import { yoctoToSocial } from '@/lib/near-rpc';
 import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/portal-config';
@@ -233,7 +237,7 @@ const PROPOSAL_KIND_LABELS: Record<string, string> = {
   SetStakingContract: 'Staking',
   AddBounty: 'Bounty',
   BountyDone: 'Bounty Done',
-  Vote: 'Vote',
+  Vote: 'Signal',
   FactoryInfoUpdate: 'Factory Update',
   ChangePolicyAddOrUpdateRole: 'Update Role',
   ChangePolicyRemoveRole: 'Remove Role',
@@ -296,6 +300,7 @@ export type GovernanceProposalStatusSubtitle = {
   relative: string;
   absolute: string;
   tone: 'muted' | 'urgent';
+  prefix: string | null;
 };
 
 const REVIEW_DEADLINE_STATUSES = new Set<GovernanceDaoProposal['status']>([
@@ -376,6 +381,7 @@ function getProposalStatusSubtitle({
       relative: deadline.relative,
       absolute: deadline.absolute,
       tone: deadline.expired ? 'urgent' : 'muted',
+      prefix: deadline.expired ? 'Closed' : 'Closes',
     };
   }
 
@@ -399,6 +405,7 @@ function getProposalStatusSubtitle({
     relative: resolvedTime.relative,
     absolute: resolvedTime.absolute,
     tone: 'muted',
+    prefix: null,
   };
 }
 
@@ -895,6 +902,11 @@ export function normalizeDaoProposalStatus(
   return null;
 }
 
+export {
+  getDaoProposalKindName,
+  normalizeDaoProposalKind,
+} from '@/features/governance/governance-proposal-kind';
+
 export function normalizeGovernanceDaoProposal(
   proposal: GovernanceDaoProposal | null | undefined
 ): GovernanceDaoProposal | null {
@@ -903,13 +915,21 @@ export function normalizeGovernanceDaoProposal(
   }
 
   const status = normalizeDaoProposalStatus(proposal.status);
-  if (!status || status === proposal.status) {
+  const normalizedKind =
+    normalizeDaoProposalKind(proposal.kind) ??
+    (proposal.kind as Record<string, unknown>);
+
+  if (
+    (!status || status === proposal.status) &&
+    normalizedKind === proposal.kind
+  ) {
     return proposal;
   }
 
   return {
     ...proposal,
-    status,
+    ...(status && status !== proposal.status ? { status } : {}),
+    kind: normalizedKind,
   };
 }
 

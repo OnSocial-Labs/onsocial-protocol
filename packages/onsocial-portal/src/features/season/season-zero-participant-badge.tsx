@@ -2,10 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { GENESIS_SEASON_ID } from '@/lib/genesis-season';
+import {
+  ARCHIVED_GENESIS_SEASON_ID,
+  getActiveSeasonId,
+  getSeasonPresentation,
+  type SeasonPresentation,
+  seasonApiPath,
+} from '@/lib/active-season';
 import { cn } from '@/lib/utils';
 
-interface SeasonZeroMeResponse {
+interface SeasonMeResponse {
   success?: boolean;
   standing?: {
     rank: number;
@@ -14,16 +20,17 @@ interface SeasonZeroMeResponse {
   } | null;
 }
 
-export interface SeasonZeroProfileBadge {
+export interface SeasonProfileBadge {
   rank: number;
   score: number;
 }
 
-export function useSeasonZeroProfileBadge(
+function useSeasonProfileBadge(
+  seasonId: string,
   accountId: string | null,
   enabled: boolean
-): SeasonZeroProfileBadge | null {
-  const [badge, setBadge] = useState<SeasonZeroProfileBadge | null>(null);
+): SeasonProfileBadge | null {
+  const [badge, setBadge] = useState<SeasonProfileBadge | null>(null);
 
   useEffect(() => {
     if (!enabled || !accountId) return;
@@ -31,10 +38,10 @@ export function useSeasonZeroProfileBadge(
     let cancelled = false;
 
     void fetch(
-      `/api/seasons/${GENESIS_SEASON_ID}/me?account_id=${encodeURIComponent(accountId)}`,
+      `${seasonApiPath(seasonId, 'me')}?account_id=${encodeURIComponent(accountId)}`,
       { cache: 'no-store' }
     )
-      .then((response) => response.json() as Promise<SeasonZeroMeResponse>)
+      .then((response) => response.json() as Promise<SeasonMeResponse>)
       .then((data) => {
         if (cancelled) return;
         const standing = data.standing;
@@ -51,28 +58,59 @@ export function useSeasonZeroProfileBadge(
     return () => {
       cancelled = true;
     };
-  }, [accountId, enabled]);
+  }, [accountId, enabled, seasonId]);
 
   if (!enabled || !accountId) return null;
 
   return badge;
 }
 
-export function GenesisRallyParticipantBadge({
+export function useSeasonZeroProfileBadge(
+  accountId: string | null,
+  enabled: boolean
+): SeasonProfileBadge | null {
+  return useSeasonProfileBadge(ARCHIVED_GENESIS_SEASON_ID, accountId, enabled);
+}
+
+export function useActiveSeasonProfileBadge(
+  accountId: string | null,
+  enabled: boolean
+): SeasonProfileBadge | null {
+  return useSeasonProfileBadge(getActiveSeasonId(), accountId, enabled);
+}
+
+function rallyBadgeLabel(
+  presentation: SeasonPresentation,
+  rank?: number | null
+): string {
+  if (rank && rank > 0) {
+    return `${presentation.profileBadgeLabel} · #${rank}`;
+  }
+  return presentation.profileBadgeLabel;
+}
+
+export function RallyParticipantBadge({
+  presentation,
   rank,
   className,
   link = true,
+  variant = 'default',
 }: {
+  presentation: SeasonPresentation;
   rank?: number | null;
   className?: string;
   link?: boolean;
+  variant?: 'default' | 'archive';
 }) {
-  const label = rank && rank > 0 ? `Genesis Rally · #${rank}` : 'Genesis Rally';
+  const label = rallyBadgeLabel(presentation, rank);
 
   const badge = (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center rounded-full border px-2 py-px portal-type-caption font-medium portal-gold-badge text-[var(--portal-gold)]',
+        'inline-flex shrink-0 items-center rounded-full border px-2 py-px portal-type-caption font-medium',
+        variant === 'archive'
+          ? 'border-border/45 bg-muted/20 text-muted-foreground'
+          : 'portal-gold-badge text-[var(--portal-gold)]',
         className
       )}
     >
@@ -84,10 +122,49 @@ export function GenesisRallyParticipantBadge({
 
   return (
     <Link
-      href="/season-zero"
+      href={presentation.rallyPath}
       className="inline-flex transition-opacity hover:opacity-90"
     >
       {badge}
     </Link>
+  );
+}
+
+export function GenesisRallyParticipantBadge({
+  rank,
+  className,
+  link = true,
+}: {
+  rank?: number | null;
+  className?: string;
+  link?: boolean;
+}) {
+  return (
+    <RallyParticipantBadge
+      presentation={getSeasonPresentation(ARCHIVED_GENESIS_SEASON_ID)}
+      rank={rank}
+      className={className}
+      link={link}
+      variant="archive"
+    />
+  );
+}
+
+export function ActiveRallyParticipantBadge({
+  rank,
+  className,
+  link = true,
+}: {
+  rank?: number | null;
+  className?: string;
+  link?: boolean;
+}) {
+  return (
+    <RallyParticipantBadge
+      presentation={getSeasonPresentation(getActiveSeasonId())}
+      rank={rank}
+      className={className}
+      link={link}
+    />
   );
 }

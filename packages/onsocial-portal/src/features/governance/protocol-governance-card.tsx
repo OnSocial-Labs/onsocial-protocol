@@ -53,6 +53,10 @@ import {
   GOVERNANCE_CARD_INTERACTIVE_LAYER_CLASS,
   GovernanceCardNavigationLink,
 } from '@/features/governance/governance-card-interaction';
+import {
+  buildGovernancePathWithBoard,
+  resolveGovernanceDaoBoard,
+} from '@/features/governance/governance-dao-board';
 import { buildGovernanceProposalPath } from '@/features/governance/page-utils';
 
 const POST_ACTION_REFRESH_WINDOW_MS = 20_000;
@@ -78,9 +82,15 @@ export function ProtocolGovernanceCard({
   interactive?: boolean;
 }) {
   const { wallet, accountId, isConnected } = useWallet();
-  const proposalHref = buildGovernanceProposalPath(
-    app.app_id,
-    app.governance_proposal?.proposal_id ?? null
+  const proposalHref = buildGovernancePathWithBoard(
+    buildGovernanceProposalPath(
+      app.app_id,
+      app.governance_proposal?.proposal_id ?? null
+    ).split('?')[0] ?? '/governance',
+    resolveGovernanceDaoBoard(app.governance_proposal?.dao_account),
+    app.governance_proposal?.proposal_id != null
+      ? { proposal: String(app.governance_proposal.proposal_id) }
+      : undefined
   );
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [actionLoading, setActionLoading] =
@@ -277,7 +287,8 @@ export function ProtocolGovernanceCard({
     {
       label: app.label,
       description: app.description ?? proposal?.description,
-    }
+    },
+    { protocolKind: app.protocol_kind ?? null }
   );
 
   useEffect(() => {
@@ -368,8 +379,12 @@ export function ProtocolGovernanceCard({
               }
             />
 
-            {presentation.showProposerSeparately && presentation.proposer ? (
-              <GovernanceProposerRow proposer={presentation.proposer} />
+            {(presentation.showProposerSeparately && presentation.proposer) ||
+            presentation.showProposerAsSelf ? (
+              <GovernanceProposerRow
+                proposer={presentation.proposer ?? undefined}
+                asSelf={presentation.showProposerAsSelf}
+              />
             ) : null}
 
             {presentation.onChainDescription ? (

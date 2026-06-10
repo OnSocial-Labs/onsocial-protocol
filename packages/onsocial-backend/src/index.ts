@@ -19,6 +19,10 @@ import {
   startOpenDaoProposalRefreshInBackground,
   stopOpenDaoProposalRefreshInBackground,
 } from './services/governance-dao-proposal-sync.js';
+import {
+  startSeasonAutoFinalizeInBackground,
+  stopSeasonAutoFinalizeInBackground,
+} from './services/seasons/season-settlement-automation.js';
 
 const app = express();
 
@@ -149,6 +153,8 @@ const server = app.listen(config.port, async () => {
   startDaoProposalBackfillInBackground(config.treasuryDao);
   startOpenDaoProposalRefreshInBackground(config.treasuryDao);
 
+  startSeasonAutoFinalizeInBackground();
+
   // Telegram: webhook in production, long-polling in dev
   if (config.nodeEnv === 'production') {
     const webhookUrl = resolveWebhookUrl();
@@ -179,6 +185,7 @@ const SHUTDOWN_TIMEOUT_MS = 15_000;
 function shutdown(signal: string): void {
   logger.info({ signal }, 'Shutdown signal received, draining connections...');
   stopOpenDaoProposalRefreshInBackground();
+  stopSeasonAutoFinalizeInBackground();
   server.close(async () => {
     try {
       await closeDb();

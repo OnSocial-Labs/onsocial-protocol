@@ -21,6 +21,12 @@ export interface PublicPageConfig {
   sections?: string[];
   tagline?: string;
   customCss?: string;
+  /** Active mood broadcast — stored in `page/main.mood`. */
+  mood?: {
+    id?: string;
+    since?: number;
+    note?: string;
+  };
 }
 
 export interface PublicPageStats {

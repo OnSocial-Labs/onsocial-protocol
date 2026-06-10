@@ -1,6 +1,7 @@
 import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
 import {
+  type ProfileSocialActionLayout,
   profileSocialStandingArrowClass,
   profileSocialStandingDotClass,
   profileSocialStandingIconSlotClass,
@@ -13,13 +14,18 @@ import { cn } from '@/lib/utils';
 interface ProfileSocialStandingToggleProps {
   active: boolean;
   hasSocialSession: boolean;
+  layout?: ProfileSocialActionLayout;
 }
 
-function ProfileSocialStandingSizingGhost() {
+function ProfileSocialStandingSizingGhost({
+  layout = 'pill',
+}: {
+  layout?: ProfileSocialActionLayout;
+}) {
   return (
     <>
       <ProtocolMotionArrow className={profileSocialStandingArrowClass()} />
-      Stand with
+      {layout === 'bar' ? 'Stand' : 'Stand with'}
     </>
   );
 }
@@ -27,14 +33,38 @@ function ProfileSocialStandingSizingGhost() {
 export function ProfileSocialStandingToggle({
   active,
   hasSocialSession,
+  layout = 'pill',
 }: ProfileSocialStandingToggleProps) {
+  if (layout === 'bar') {
+    return (
+      <span className={profileSocialStandingToggleStateClass}>
+        {active ? (
+          <>
+            <ProtocolMotionArrow
+              direction="left"
+              className={profileSocialStandingStepBackArrowClass}
+            />
+            Step back
+          </>
+        ) : (
+          <>
+            <ProtocolMotionArrow
+              className={cn(profileSocialStandingArrowClass(), 'opacity-100')}
+            />
+            Stand
+          </>
+        )}
+      </span>
+    );
+  }
+
   return (
     <span className={profileSocialStandingToggleClass}>
       <span
         className={cn(profileSocialStandingToggleStateClass, 'invisible')}
         aria-hidden="true"
       >
-        <ProfileSocialStandingSizingGhost />
+        <ProfileSocialStandingSizingGhost layout={layout} />
       </span>
 
       {!active ? (
@@ -100,16 +130,29 @@ export function CompactActionPillPending({ label }: { label: string }) {
   );
 }
 
-export function ProfileSocialStandingPending(
-  _props: ProfileSocialStandingToggleProps
-) {
+export function ProfileSocialStandingPending({
+  layout = 'pill',
+}: ProfileSocialStandingToggleProps) {
+  if (layout === 'bar') {
+    return (
+      <span
+        className={cn(
+          profileSocialStandingToggleStateClass,
+          'justify-center text-muted-foreground/55'
+        )}
+      >
+        <PulsingDots size="sm" />
+      </span>
+    );
+  }
+
   return (
     <span className={profileSocialStandingToggleClass}>
       <span
         className={cn(profileSocialStandingToggleStateClass, 'invisible')}
         aria-hidden="true"
       >
-        <ProfileSocialStandingSizingGhost />
+        <ProfileSocialStandingSizingGhost layout={layout} />
       </span>
       <span
         className={cn(

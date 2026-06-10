@@ -14,6 +14,8 @@ import { portalElevatedShadowClass } from '@/components/ui/floating-panel';
 import { fadeMotion, scaleFadeMotion } from '@/lib/motion';
 import { getSocialWalletBalanceYocto, yoctoToSocial } from '@/lib/near-rpc';
 import {
+  formatSupportProfileRecipientSharePercent,
+  formatSupportProfileTreasurySharePercent,
   parseSupportAmountYocto,
   SUPPORT_PROFILE_MIN_SOCIAL_LABEL,
   SUPPORT_PROFILE_PRESET_SOCIAL,
@@ -177,9 +179,11 @@ export function ProfileSupportModal({
               </div>
 
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                Send SOCIAL from your wallet. About 95% accrues for them to
-                claim; the rest goes to treasury. Counts toward their Season 0
-                support score after they have joined the rally.
+                Send SOCIAL from your wallet. About{' '}
+                {formatSupportProfileRecipientSharePercent()}% accrues for them
+                to claim; {formatSupportProfileTreasurySharePercent()}% goes to
+                treasury. Counts toward their Season 0 support score after they
+                have joined the rally.
               </p>
 
               {walletBalanceLabel != null ? (

@@ -11,14 +11,19 @@ import {
   DAO_DELEGATED_ACTION_PERMISSIONS_PRESET,
   DAO_EDITABLE_PERMISSION_OPTIONS,
   DAO_IDEA_PROPOSAL_PERMISSION,
+  DAO_SIGNAL_PROPOSAL_PERMISSION_HINT,
   DAO_FULL_PUBLIC_PERMISSIONS_PRESET,
   DAO_PUBLIC_PERMISSION_OPTIONS,
+  buildDaoRolePermissionChips,
   daoPermissionSetsEqual,
   formatDaoPermissionPresetLabel,
   formatDaoRoleDisplayName,
   matchDaoPermissionPreset,
+  resolveDaoRoleKind,
   roleHasWildcardPermissions,
+  sortDaoPolicyRolesForDisplay,
   type DaoPolicyActionId,
+  type DaoRoleKind,
 } from '@/features/governance/governance-proposal-builders';
 import type { GovernanceDaoRole } from '@/features/governance/types';
 import { useMemberAccountLookup } from '@/hooks/use-member-account-lookup';
@@ -29,9 +34,11 @@ import { cn } from '@/lib/utils';
 const fieldLabelClass =
   'mb-2 block portal-type-label font-medium uppercase tracking-[0.16em] text-muted-foreground';
 
-const permissionLabelById = Object.fromEntries(
-  DAO_EDITABLE_PERMISSION_OPTIONS.map((option) => [option.id, option.label])
-) as Record<string, string>;
+const roleKindBadgeLabel: Record<DaoRoleKind, string> = {
+  council: 'Council',
+  public: 'Public',
+  gated: 'SOCIAL gate',
+};
 
 const motionEase = [0.22, 1, 0.36, 1] as const;
 
@@ -185,22 +192,26 @@ function RoleEditingBadge() {
   );
 }
 
-function RoleTypeBadge({ fullAccess }: { fullAccess: boolean }) {
+function RoleTypeBadge({ kind }: { kind: DaoRoleKind }) {
+  const isCouncil = kind === 'council';
+
   return (
     <span
       className={cn(
         'inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.1em]',
-        fullAccess
+        isCouncil
           ? 'border-[var(--portal-gold-border)] bg-[var(--portal-gold-bg)] portal-gold-text'
-          : 'border-border/50 bg-muted/20 text-muted-foreground'
+          : kind === 'gated'
+            ? 'border-[var(--portal-purple-border)] bg-[var(--portal-purple-bg)] portal-purple-text'
+            : 'border-border/50 bg-muted/20 text-muted-foreground'
       )}
     >
-      {fullAccess ? (
+      {isCouncil ? (
         <Shield className="portal-gold-icon h-3 w-3" strokeWidth={2} />
       ) : (
         <Users className="h-3 w-3" strokeWidth={2} />
       )}
-      {fullAccess ? 'Council' : 'Public'}
+      {roleKindBadgeLabel[kind]}
     </span>
   );
 }
@@ -236,6 +247,10 @@ function rolePermissionChipTone(
     return 'gold';
   }
 
+  if (resolveDaoRoleKind(role) === 'council') {
+    return 'gold';
+  }
+
   if (DAO_GOVERNANCE_PERMISSION_IDS.has(permissionId)) {
     return 'blue';
   }
@@ -248,22 +263,13 @@ function rolePermissionChips(role: GovernanceDaoRole): Array<{
   label: string;
   tone: 'gold' | 'blue' | 'default';
 }> {
-  if (roleHasWildcardPermissions(role)) {
-    return [{ key: 'full-access', label: 'Full access', tone: 'gold' }];
-  }
-
-  return (role.permissions ?? [])
-    .map((permission) => {
-      const label = permissionLabelById[permission];
-      if (!label) return null;
-
-      return {
-        key: permission,
-        label,
-        tone: rolePermissionChipTone(role, permission),
-      };
-    })
-    .filter((chip): chip is NonNullable<typeof chip> => chip != null);
+  return buildDaoRolePermissionChips(role).map((chip) => ({
+    ...chip,
+    tone:
+      chip.tone === 'gold' || chip.tone === 'blue'
+        ? chip.tone
+        : rolePermissionChipTone(role, chip.key),
+  }));
 }
 
 export function PolicyRoleListShell({
@@ -331,19 +337,21 @@ export function PolicyProposeKindPills({
 
 function DaoRoleSnapshotCard({
   role,
-  selected = false,
+  editingHighlight = false,
   selectable = false,
   onSelect,
 }: {
   role: GovernanceDaoRole;
-  selected?: boolean;
+  editingHighlight?: boolean;
   selectable?: boolean;
   onSelect?: () => void;
 }) {
   const name = role.name?.trim();
   if (!name) return null;
 
-  const fullAccess = roleHasWildcardPermissions(role);
+  const roleKind = resolveDaoRoleKind(role);
+  const isCouncil = roleKind === 'council';
+  const displayName = formatDaoRoleDisplayName(name);
   const members = role.kind?.Group ?? [];
   const memberThreshold = role.kind?.Member;
   const permissionChips = rolePermissionChips(role);
@@ -352,7 +360,9 @@ function DaoRoleSnapshotCard({
     ? `${members.length} member${members.length === 1 ? '' : 's'}`
     : memberThreshold
       ? `≥${formatSocialThreshold(memberThreshold)} SOCIAL`
-      : '—';
+      : roleKind === 'public'
+        ? 'Open membership'
+        : '—';
 
   const chips = permissionChips;
 
@@ -373,12 +383,12 @@ function DaoRoleSnapshotCard({
         <span
           className={cn(
             'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border bg-muted/20',
-            fullAccess
+            isCouncil
               ? 'border-[var(--portal-gold-border)] bg-[var(--portal-gold-bg)]'
               : 'border-border/50'
           )}
         >
-          {fullAccess ? (
+          {isCouncil ? (
             <Shield className="portal-gold-icon h-2.5 w-2.5" strokeWidth={2} />
           ) : (
             <Users className="h-2.5 w-2.5" strokeWidth={2} />
@@ -390,11 +400,19 @@ function DaoRoleSnapshotCard({
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-1.5">
             <p className="min-w-0 truncate text-[13px] font-medium leading-tight">
-              {formatDaoRoleDisplayName(name)}
+              {displayName}
+              {displayName.localeCompare(name, undefined, {
+                sensitivity: 'accent',
+              }) !== 0 ? (
+                <span className="font-normal text-muted-foreground">
+                  {' '}
+                  · {name}
+                </span>
+              ) : null}
             </p>
-            {selected && selectable ? <RoleEditingBadge /> : null}
+            {editingHighlight ? <RoleEditingBadge /> : null}
           </div>
-          <RoleTypeBadge fullAccess={fullAccess} />
+          <RoleTypeBadge kind={roleKind} />
         </div>
         <div className="mt-px flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5">
           <span className="text-[10px] text-muted-foreground">{meta}</span>
@@ -425,10 +443,10 @@ function DaoRoleSnapshotCard({
       <button
         type="button"
         onClick={onSelect}
-        aria-pressed={selected}
+        aria-pressed={editingHighlight}
         className={cn(
           'portal-field-focus w-full px-4 py-2.5 text-left transition-colors',
-          selected
+          editingHighlight
             ? 'bg-[var(--portal-neutral-bg)]'
             : 'hover:bg-[var(--portal-neutral-bg)] focus-visible:bg-[var(--portal-neutral-bg)]'
         )}
@@ -438,7 +456,16 @@ function DaoRoleSnapshotCard({
     );
   }
 
-  return <div className="px-4 py-2.5">{content}</div>;
+  return (
+    <div
+      className={cn(
+        'px-4 py-2.5',
+        editingHighlight && 'bg-[var(--portal-neutral-bg)]'
+      )}
+    >
+      {content}
+    </div>
+  );
 }
 
 function formatSocialThreshold(value: string): string {
@@ -461,24 +488,34 @@ export function DaoRoleSnapshotList({
   onRoleSelect?: (roleId: string) => void;
 }) {
   const editableSet = new Set(editableRoleIds ?? []);
+  const sortedRoles = sortDaoPolicyRolesForDisplay(roles);
+  const permissionsEditingActive = Boolean(onRoleSelect);
+  const canSwitchEditableRoles = (editableRoleIds?.length ?? 0) > 1;
 
   return (
     <div className="divide-y divide-fade-detail">
-      {roles.map((role) => {
+      {sortedRoles.map((role) => {
         const name = role.name?.trim();
         if (!name) return null;
 
-        const selectable = Boolean(onRoleSelect && editableSet.has(name));
+        const isEditable = editableSet.has(name);
+        const editingHighlight =
+          permissionsEditingActive && isEditable && selectedRoleId === name;
+        const selectable =
+          permissionsEditingActive && isEditable && canSwitchEditableRoles;
 
         return (
           <DaoRoleSnapshotCard
             key={name}
             role={role}
-            selected={selectedRoleId === name}
+            editingHighlight={editingHighlight}
             selectable={selectable}
             onSelect={
               selectable
                 ? () => {
+                    if (selectedRoleId === name) {
+                      return;
+                    }
                     onRoleSelect?.(name);
                   }
                 : undefined
@@ -545,12 +582,15 @@ export function DaoPermissionPicker({
   permissions,
   onChange,
   baselinePermissions,
+  baselinePresetPermissions,
   compact = false,
 }: {
   permissions: string[];
   onChange: (next: string[]) => void;
-  /** On-chain or seeded permissions — restored by the Current pill. */
+  /** Granular permissions restored by the Current pill. */
   baselinePermissions?: string[];
+  /** Raw on-chain permissions — used for the Current preset label. */
+  baselinePresetPermissions?: string[];
   compact?: boolean;
 }) {
   const baseline = baselinePermissions ?? [];
@@ -583,11 +623,11 @@ export function DaoPermissionPicker({
     permissions.length === 1 && permissions[0] === permissionId;
 
   const baselinePresetLabel = formatDaoPermissionPresetLabel(
-    matchDaoPermissionPreset(baseline)
+    matchDaoPermissionPreset(baselinePresetPermissions ?? baseline)
   );
   const matchesBaseline = daoPermissionSetsEqual(permissions, baseline);
 
-  const signalingHint = 'On-chain Vote — text only, no execution';
+  const signalHint = DAO_SIGNAL_PROPOSAL_PERMISSION_HINT;
 
   const renderPermissionToggle = (
     option: { id: string; label: string },
@@ -595,7 +635,7 @@ export function DaoPermissionPicker({
   ) => {
     const active = permissions.includes(option.id);
     const locked = isSolePermission(option.id);
-    const isSignaling = option.id === DAO_IDEA_PROPOSAL_PERMISSION;
+    const isSignal = option.id === DAO_IDEA_PROPOSAL_PERMISSION;
     const className =
       tone === 'governance'
         ? governancePillClass(active)
@@ -613,8 +653,8 @@ export function DaoPermissionPicker({
         title={
           locked
             ? 'At least one permission is required'
-            : isSignaling
-              ? signalingHint
+            : isSignal
+              ? signalHint
               : undefined
         }
         onClick={() => togglePermission(option.id)}

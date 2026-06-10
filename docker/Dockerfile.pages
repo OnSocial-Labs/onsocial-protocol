@@ -1,5 +1,5 @@
 # Dockerfile for onsocial-pages
-# Lightweight Node.js server that renders profile pages for *.onsocial.id
+# Lightweight Node.js server that validates subdomains and redirects to @accountId
 
 # Stage 1: Build
 FROM node:22-alpine3.23 AS builder

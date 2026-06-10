@@ -1,5 +1,12 @@
-import { formatDaoRoleDisplayName } from '@/features/governance/governance-proposal-builders';
-import { yoctoToNear, yoctoToSocial } from '@/lib/near-rpc';
+import {
+  getDaoProposalKindName,
+  normalizeDaoProposalKind,
+} from '@/features/governance/governance-proposal-kind';
+import {
+  DAO_SIGNAL_PROPOSAL_LABEL,
+  formatDaoRoleDisplayName,
+} from '@/features/governance/governance-proposal-builders';
+import { yoctoToNear, yoctoToSocial, TOKEN_CONTRACT } from '@/lib/near-rpc';
 
 export type ProposalTargetKind = 'role' | 'community' | 'contract' | 'amount';
 
@@ -40,6 +47,42 @@ function getTransferShape(kindPayload: unknown): {
   };
 }
 
+function parseFundSeasonPoolTransferMsg(msg: string | null): {
+  seasonId: string | null;
+  action: string | null;
+} {
+  if (!msg?.trim()) {
+    return { seasonId: null, action: null };
+  }
+
+  try {
+    const parsed = JSON.parse(msg) as Record<string, unknown>;
+    const action =
+      typeof parsed.action === 'string' && parsed.action.trim()
+        ? parsed.action.trim()
+        : null;
+    const seasonId =
+      typeof parsed.season_id === 'string' && parsed.season_id.trim()
+        ? parsed.season_id.trim()
+        : null;
+    return { seasonId, action };
+  } catch {
+    return { seasonId: null, action: null };
+  }
+}
+
+function isSocialTokenContract(accountId: string | null): boolean {
+  if (!accountId) {
+    return false;
+  }
+
+  return accountId.trim().toLowerCase() === TOKEN_CONTRACT.toLowerCase();
+}
+
+function formatSocialAmountLabel(amount: string): string {
+  return `${yoctoToSocial(amount)} SOCIAL`;
+}
+
 function formatTransferAmountLabel(
   amount: string,
   tokenId: string | null
@@ -50,11 +93,45 @@ function formatTransferAmountLabel(
   }
 
   if (normalizedToken.includes('social')) {
-    return `${yoctoToSocial(amount)} SOCIAL`;
+    return formatSocialAmountLabel(amount);
   }
 
   const shortToken = shortContractName(tokenId) ?? 'tokens';
   return `${yoctoToSocial(amount)} ${shortToken}`;
+}
+
+function shouldShowProposerSeparately(
+  proposer: string | null,
+  subjectAccount: string | null
+): boolean {
+  return (
+    !!proposer &&
+    !!subjectAccount &&
+    proposer.toLowerCase() !== subjectAccount.toLowerCase()
+  );
+}
+
+function isSameNearAccount(
+  left: string | null | undefined,
+  right: string | null | undefined
+): boolean {
+  const a = left?.trim();
+  const b = right?.trim();
+  return !!a && !!b && a.toLowerCase() === b.toLowerCase();
+}
+
+function resolveMembershipProposerDisplay(
+  proposer: string | null,
+  memberId: string | null
+): Pick<ProposalPresentation, 'showProposerSeparately' | 'showProposerAsSelf'> {
+  if (isSameNearAccount(proposer, memberId)) {
+    return { showProposerSeparately: false, showProposerAsSelf: true };
+  }
+
+  return {
+    showProposerSeparately: shouldShowProposerSeparately(proposer, memberId),
+    showProposerAsSelf: false,
+  };
 }
 
 /** Sputnik DAO policy permission keys — what the proposal actually proposes. */
@@ -90,7 +167,7 @@ const GENERIC_KIND_BADGES: Record<string, string> = {
   SetStakingContract: 'Staking',
   AddBounty: 'Bounty',
   BountyDone: 'Bounty',
-  Vote: 'Idea',
+  Vote: DAO_SIGNAL_PROPOSAL_LABEL,
   FactoryInfoUpdate: 'Factory',
 };
 
@@ -105,17 +182,18 @@ const CONTRACT_SHORT_NAMES: Record<string, string> = {
   'scarces.onsocial.near': 'Scarces',
   'token.onsocial.testnet': 'Token',
   'token.onsocial.near': 'Token',
+  'social-spend.onsocial.testnet': 'Social spend',
+  'social-spend.onsocial.near': 'Social spend',
+  'staking-governance.onsocial.testnet': 'Staking governance',
+  'staking-governance.onsocial.near': 'Staking governance',
+  'staking-treasury.onsocial.testnet': 'Staking treasury',
+  'staking-treasury.onsocial.near': 'Staking treasury',
+  'staking.onsocial.testnet': 'Staking',
+  'staking.onsocial.near': 'Staking',
 };
 
-function getProposalKindKey(
-  kind: Record<string, unknown> | null | undefined
-): string | null {
-  if (!kind) {
-    return null;
-  }
-
-  const keys = Object.keys(kind);
-  return keys[0] ?? null;
+function getProposalKindKey(kind: unknown): string | null {
+  return getDaoProposalKindName(normalizeDaoProposalKind(kind) ?? kind);
 }
 
 function readStringField(value: unknown, field: string): string | null {
@@ -142,10 +220,22 @@ function getFunctionCallShape(kind: Record<string, unknown> | undefined): {
   receiverId: string | null;
   methodName: string | null;
   config: Record<string, unknown> | null;
+  ownershipTarget: string | null;
+  amountYocto: string | null;
+  seasonId: string | null;
+  transferCallMsg: string | null;
 } {
   const functionCall = kind?.FunctionCall;
   if (!functionCall || typeof functionCall !== 'object') {
-    return { receiverId: null, methodName: null, config: null };
+    return {
+      receiverId: null,
+      methodName: null,
+      config: null,
+      ownershipTarget: null,
+      amountYocto: null,
+      seasonId: null,
+      transferCallMsg: null,
+    };
   }
 
   const receiverId = readStringField(functionCall, 'receiver_id');
@@ -171,8 +261,30 @@ function getFunctionCallShape(kind: Record<string, unknown> | undefined): {
     !Array.isArray(args.config)
       ? (args.config as Record<string, unknown>)
       : null;
+  const ownershipTarget =
+    readStringField(args, 'new_owner') ?? readStringField(args, 'owner_id');
+  const amountYocto = readStringField(args, 'amount');
+  const seasonIdFromArgs = readStringField(args, 'season_id');
+  const transferCallMsg = readStringField(args, 'msg');
+  const fundSeasonPoolMsg =
+    methodName === 'ft_transfer_call'
+      ? parseFundSeasonPoolTransferMsg(transferCallMsg)
+      : { seasonId: null, action: null };
+  const seasonId =
+    seasonIdFromArgs ??
+    (fundSeasonPoolMsg.action === 'fund_season_pool'
+      ? fundSeasonPoolMsg.seasonId
+      : null);
 
-  return { receiverId, methodName, config };
+  return {
+    receiverId,
+    methodName,
+    config,
+    ownershipTarget,
+    amountYocto,
+    seasonId,
+    transferCallMsg,
+  };
 }
 
 function shortContractName(accountId: string | null): string | null {
@@ -304,14 +416,19 @@ function classifyPolicyRoleUpdate({
 function withProposerSubject(
   presentation: Omit<
     PresentationCore,
-    'subjectAccount' | 'showProposerSeparately'
+    | 'subjectAccount'
+    | 'showProposerSeparately'
+    | 'subjectEyebrow'
+    | 'showProposerAsSelf'
   >,
   proposer: string | null
 ): PresentationCore {
   return {
     ...presentation,
     subjectAccount: proposer,
+    subjectEyebrow: proposer ? 'Proposer' : null,
     showProposerSeparately: false,
+    showProposerAsSelf: false,
   };
 }
 
@@ -335,6 +452,10 @@ function withContractCallSubject({
     !!normalizedProposer &&
     !!receiverId &&
     normalizedProposer.toLowerCase() !== receiverId.toLowerCase();
+  const proposerIsSubject =
+    !!normalizedProposer &&
+    !!receiverId &&
+    normalizedProposer.toLowerCase() === receiverId.toLowerCase();
 
   return {
     headline,
@@ -343,9 +464,12 @@ function withContractCallSubject({
     subjectAccount: proposerDiffersFromReceiver
       ? normalizedProposer
       : receiverId,
+    subjectEyebrow:
+      proposerDiffersFromReceiver || proposerIsSubject ? 'Proposer' : null,
     onChainDescription,
     proposer: normalizedProposer,
     showProposerSeparately: false,
+    showProposerAsSelf: false,
   };
 }
 
@@ -357,9 +481,15 @@ export type ProposalPresentation = {
   /** Full NEAR account id when targetKind is contract (e.g. rewards.onsocial.testnet). */
   targetAccountId: string | null;
   subjectAccount: string | null;
+  /** Eyebrow above the subject column (e.g. To, From, Member, Season). */
+  subjectEyebrow: string | null;
+  /** Plain-text subject when the target is not a NEAR account (e.g. season id). */
+  subjectText: string | null;
   onChainDescription: string | null;
   proposer: string | null;
   showProposerSeparately: boolean;
+  /** Self-nomination: show Proposer eyebrow with "Self" instead of repeating the member chip. */
+  showProposerAsSelf: boolean;
   /** Policy permission key (e.g. add_member_to_role) or contract method_name. */
   onChainAction: string | null;
   onChainActionKind: 'policy' | 'method' | null;
@@ -367,8 +497,18 @@ export type ProposalPresentation = {
 
 type PresentationCore = Omit<
   ProposalPresentation,
-  'onChainAction' | 'onChainActionKind'
->;
+  | 'onChainAction'
+  | 'onChainActionKind'
+  | 'subjectEyebrow'
+  | 'subjectText'
+  | 'showProposerAsSelf'
+> &
+  Partial<
+    Pick<
+      ProposalPresentation,
+      'subjectEyebrow' | 'subjectText' | 'showProposerAsSelf'
+    >
+  >;
 
 function resolveOnChainActionFields(
   kind: Record<string, unknown> | null | undefined,
@@ -399,22 +539,26 @@ export function deriveProposalPresentation({
   proposer,
   fallbackHeadline,
 }: {
-  kind: Record<string, unknown> | null | undefined;
+  kind: Record<string, unknown> | string | null | undefined;
   description: string | null | undefined;
   proposer: string | null | undefined;
   fallbackHeadline?: string | null;
 }): ProposalPresentation {
   const onChainDescription = description?.trim() || null;
   const normalizedProposer = proposer?.trim() || null;
+  const normalizedKind = normalizeDaoProposalKind(kind);
   const kindKey = getProposalKindKey(kind);
   const actionBadge = kindKey ? (GENERIC_KIND_BADGES[kindKey] ?? null) : null;
-  const onChainFields = resolveOnChainActionFields(kind, kindKey);
+  const onChainFields = resolveOnChainActionFields(normalizedKind, kindKey);
   const finish = (presentation: PresentationCore): ProposalPresentation => ({
     ...presentation,
+    subjectEyebrow: presentation.subjectEyebrow ?? null,
+    subjectText: presentation.subjectText ?? null,
+    showProposerAsSelf: presentation.showProposerAsSelf ?? false,
     ...onChainFields,
   });
 
-  if (!kindKey || !kind) {
+  if (!kindKey || !normalizedKind) {
     return finish({
       headline:
         firstDescriptionLine(onChainDescription) ??
@@ -425,13 +569,14 @@ export function deriveProposalPresentation({
       targetValue: null,
       targetAccountId: null,
       subjectAccount: normalizedProposer,
+      subjectEyebrow: normalizedProposer ? 'Proposer' : null,
       onChainDescription,
       proposer: normalizedProposer,
       showProposerSeparately: false,
     });
   }
 
-  const kindPayload = kind[kindKey];
+  const kindPayload = normalizedKind[kindKey];
 
   if (kindKey === 'AddMemberToRole' || kindKey === 'RemoveMemberFromRole') {
     const memberId = readStringField(kindPayload, 'member_id');
@@ -449,17 +594,23 @@ export function deriveProposalPresentation({
       actionBadge,
       ...proposalTarget('role', roleName),
       subjectAccount: memberId,
+      subjectEyebrow: memberId ? 'Member' : null,
       onChainDescription,
       proposer: normalizedProposer,
-      showProposerSeparately:
-        !!normalizedProposer &&
-        !!memberId &&
-        normalizedProposer.toLowerCase() !== memberId.toLowerCase(),
+      ...resolveMembershipProposerDisplay(normalizedProposer, memberId),
     });
   }
 
   if (kindKey === 'FunctionCall') {
-    const { receiverId, methodName, config } = getFunctionCallShape(kind);
+    const {
+      receiverId,
+      methodName,
+      config,
+      ownershipTarget,
+      amountYocto,
+      seasonId,
+      transferCallMsg,
+    } = getFunctionCallShape(normalizedKind ?? undefined);
     const contractLabel = shortContractName(receiverId);
     const methodLabel = formatMethodLabel(methodName);
     const appLabel =
@@ -473,17 +624,118 @@ export function deriveProposalPresentation({
     if (methodName === 'register_app' && (appLabel || appId)) {
       headline = appLabel ?? appId ?? headline;
       subjectAccount = appId;
+      const proposerMatchesSubject =
+        !!normalizedProposer &&
+        !!subjectAccount &&
+        normalizedProposer.toLowerCase() === subjectAccount.toLowerCase();
       return finish({
         headline,
         actionBadge: 'Partner',
         ...proposalTarget('community', appLabel ?? appId),
         subjectAccount,
+        subjectEyebrow: proposerMatchesSubject ? 'Proposer' : null,
         onChainDescription,
         proposer: normalizedProposer,
         showProposerSeparately:
-          !!normalizedProposer &&
-          !!subjectAccount &&
-          normalizedProposer.toLowerCase() !== subjectAccount.toLowerCase(),
+          !!normalizedProposer && !!subjectAccount && !proposerMatchesSubject,
+      });
+    }
+
+    if (methodName === 'set_owner' || methodName === 'transfer_ownership') {
+      headline =
+        contractLabel && ownershipTarget
+          ? `Transfer ${contractLabel} ownership to ${ownershipTarget}`
+          : contractLabel
+            ? `Transfer ${contractLabel} ownership`
+            : 'Transfer contract ownership';
+      return finish({
+        headline,
+        actionBadge: 'Ownership',
+        ...proposalTarget('contract', contractLabel, receiverId),
+        subjectAccount: ownershipTarget ?? receiverId,
+        subjectEyebrow: ownershipTarget ? 'To' : null,
+        onChainDescription,
+        proposer: normalizedProposer,
+        showProposerSeparately: shouldShowProposerSeparately(
+          normalizedProposer,
+          ownershipTarget
+        ),
+      });
+    }
+
+    if (methodName === 'withdraw_treasury' && receiverId) {
+      const amountLabel = amountYocto
+        ? formatSocialAmountLabel(amountYocto)
+        : null;
+      headline = amountLabel
+        ? `Sweep ${amountLabel} from social spend`
+        : contractLabel
+          ? `Sweep ${contractLabel} treasury fees`
+          : 'Sweep social-spend treasury fees';
+      return finish({
+        headline,
+        actionBadge: 'Treasury',
+        ...proposalTarget('amount', amountLabel),
+        subjectAccount: receiverId,
+        subjectEyebrow: 'From',
+        onChainDescription,
+        proposer: normalizedProposer,
+        showProposerSeparately: shouldShowProposerSeparately(
+          normalizedProposer,
+          receiverId
+        ),
+      });
+    }
+
+    if (methodName === 'fund_season_pool_from_treasury' && receiverId) {
+      const amountLabel = amountYocto
+        ? formatSocialAmountLabel(amountYocto)
+        : null;
+      headline =
+        seasonId && amountLabel
+          ? `Fund ${seasonId} with ${amountLabel}`
+          : seasonId
+            ? `Fund ${seasonId} rally pool`
+            : contractLabel
+              ? `Fund rally pool via ${contractLabel}`
+              : 'Fund rally pool from treasury';
+      return finish({
+        headline,
+        actionBadge: 'Treasury',
+        ...proposalTarget('amount', amountLabel),
+        subjectText: seasonId,
+        subjectEyebrow: seasonId ? 'Season' : null,
+        subjectAccount: null,
+        onChainDescription,
+        proposer: normalizedProposer,
+        showProposerSeparately: !!normalizedProposer,
+      });
+    }
+
+    if (
+      methodName === 'ft_transfer_call' &&
+      isSocialTokenContract(receiverId) &&
+      seasonId &&
+      parseFundSeasonPoolTransferMsg(transferCallMsg).action ===
+        'fund_season_pool'
+    ) {
+      const amountLabel = amountYocto
+        ? formatSocialAmountLabel(amountYocto)
+        : null;
+      headline =
+        amountLabel && seasonId
+          ? `Fund ${seasonId} with ${amountLabel}`
+          : `Fund ${seasonId} rally pool`;
+      return finish({
+        headline,
+        actionBadge: 'Treasury',
+        ...proposalTarget('amount', amountLabel),
+        subjectText: seasonId,
+        subjectEyebrow: 'Season',
+        subjectAccount: null,
+        onChainDescription,
+        proposer: normalizedProposer,
+        showProposerSeparately: !!normalizedProposer,
       });
     }
 
@@ -546,13 +798,39 @@ export function deriveProposalPresentation({
       actionBadge: actionBadge ?? 'Transfer',
       ...proposalTarget('amount', amountLabel),
       subjectAccount: receiverId ?? normalizedProposer,
+      subjectEyebrow: receiverId ? 'To' : null,
       onChainDescription: transferDescription,
       proposer: normalizedProposer,
-      showProposerSeparately:
-        !!normalizedProposer &&
-        !!receiverId &&
-        normalizedProposer.toLowerCase() !== receiverId.toLowerCase(),
+      showProposerSeparately: shouldShowProposerSeparately(
+        normalizedProposer,
+        receiverId
+      ),
     });
+  }
+
+  if (kindKey === 'SetStakingContract') {
+    const stakingId = readStringField(kindPayload, 'staking_id');
+    const contractLabel = shortContractName(stakingId);
+    const headline =
+      firstDescriptionLine(onChainDescription) ??
+      (contractLabel
+        ? `Set ${contractLabel} for voting`
+        : stakingId
+          ? `Set ${stakingId} for voting`
+          : 'Set staking contract');
+
+    return finish(
+      withProposerSubject(
+        {
+          headline,
+          actionBadge: actionBadge ?? 'Staking',
+          ...proposalTarget('contract', contractLabel ?? stakingId, stakingId),
+          onChainDescription,
+          proposer: normalizedProposer,
+        },
+        normalizedProposer
+      )
+    );
   }
 
   if (kindKey === 'ChangePolicyAddOrUpdateRole') {
@@ -661,15 +939,17 @@ export function deriveProposalPresentation({
       headline:
         firstDescriptionLine(onChainDescription) ??
         fallbackHeadline?.trim() ??
-        'Signaling proposal',
-      actionBadge,
+        'Signal proposal',
+      actionBadge: DAO_SIGNAL_PROPOSAL_LABEL,
       targetKind: null,
       targetValue: null,
       targetAccountId: null,
       subjectAccount: normalizedProposer,
+      subjectEyebrow: 'Proposer',
       onChainDescription,
       proposer: normalizedProposer,
       showProposerSeparately: false,
+      showProposerAsSelf: false,
     });
   }
 
@@ -702,9 +982,11 @@ export function deriveProposalPresentation({
     targetValue: null,
     targetAccountId: null,
     subjectAccount: normalizedProposer,
+    subjectEyebrow: normalizedProposer ? 'Proposer' : null,
     onChainDescription,
     proposer: normalizedProposer,
     showProposerSeparately: false,
+    showProposerAsSelf: false,
   });
 }
 
@@ -742,12 +1024,12 @@ export function derivePartnerCardDescription({
 
 function resolveFeedProposalKind(
   feedProposal: {
-    kind?: Record<string, unknown> | null;
+    kind?: Record<string, unknown> | string | null;
     payload?: unknown;
   } | null
 ): Record<string, unknown> | null {
-  if (feedProposal?.kind && typeof feedProposal.kind === 'object') {
-    return feedProposal.kind;
+  if (feedProposal?.kind != null) {
+    return normalizeDaoProposalKind(feedProposal.kind);
   }
 
   const payload = feedProposal?.payload;
@@ -756,17 +1038,11 @@ function resolveFeedProposalKind(
   }
 
   const proposal = payload.proposal;
-  if (
-    !proposal ||
-    typeof proposal !== 'object' ||
-    !('kind' in proposal) ||
-    typeof proposal.kind !== 'object' ||
-    proposal.kind === null
-  ) {
+  if (!proposal || typeof proposal !== 'object' || !('kind' in proposal)) {
     return null;
   }
 
-  return proposal.kind as Record<string, unknown>;
+  return normalizeDaoProposalKind(proposal.kind);
 }
 
 export function resolveBootstrapDaoProposal(
@@ -787,8 +1063,11 @@ export function resolveBootstrapDaoProposal(
   proposer: string;
 } | null {
   if (feedProposal?.snapshot) {
+    const kind =
+      normalizeDaoProposalKind(feedProposal.snapshot.kind) ??
+      feedProposal.snapshot.kind;
     return {
-      kind: feedProposal.snapshot.kind,
+      kind,
       description: feedProposal.snapshot.description,
       proposer: feedProposal.snapshot.proposer,
     };
@@ -812,21 +1091,29 @@ export function deriveProposalPresentationFromDaoProposal(
     description: string;
     proposer: string;
   } | null,
-  fallback?: { label?: string | null; description?: string | null }
+  fallback?: { label?: string | null; description?: string | null },
+  options?: { protocolKind?: string | null }
 ): ProposalPresentation {
-  if (!proposal) {
-    return deriveProposalPresentation({
-      kind: null,
-      description: fallback?.description,
-      proposer: null,
-      fallbackHeadline: fallback?.label,
-    });
+  const presentation = !proposal
+    ? deriveProposalPresentation({
+        kind: null,
+        description: fallback?.description,
+        proposer: null,
+        fallbackHeadline: fallback?.label,
+      })
+    : deriveProposalPresentation({
+        kind: proposal.kind,
+        description: proposal.description,
+        proposer: proposal.proposer,
+        fallbackHeadline: fallback?.label,
+      });
+
+  if (presentation.actionBadge || options?.protocolKind !== 'signaling') {
+    return presentation;
   }
 
-  return deriveProposalPresentation({
-    kind: proposal.kind,
-    description: proposal.description,
-    proposer: proposal.proposer,
-    fallbackHeadline: fallback?.label,
-  });
+  return {
+    ...presentation,
+    actionBadge: DAO_SIGNAL_PROPOSAL_LABEL,
+  };
 }

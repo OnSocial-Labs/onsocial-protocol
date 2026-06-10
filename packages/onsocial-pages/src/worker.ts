@@ -5,8 +5,8 @@
 //   GET *.{PUBLIC_PAGE_BASE_DOMAIN}  → validated redirect to canonical profile page
 //   GET /health        → health check
 //
-// The worker extracts the account name from the subdomain, validates it via
-// the gateway API, and redirects to the canonical @accountId route.
+// The worker extracts the account name from the subdomain, validates existence
+// via the gateway API, and redirects to the canonical @accountId route.
 // ---------------------------------------------------------------------------
 
 import { resolvePageHost } from './server-utils.js';

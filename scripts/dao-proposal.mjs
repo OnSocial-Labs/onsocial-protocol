@@ -102,10 +102,32 @@ async function getSignerAccount(network, signerId) {
       : 'https://test.rpc.fastnear.com');
   const provider = new JsonRpcProvider({ url: nodeUrl });
   const signer = new KeyPairSigner(keyPair);
-  return new Account(signerId, provider, signer);
+  return { account: new Account(signerId, provider, signer), provider };
 }
 
-async function addProposal(account, daoId, proposal) {
+async function getProposalBond(provider, daoId) {
+  if (process.env.DAO_PROPOSAL_BOND) {
+    return BigInt(process.env.DAO_PROPOSAL_BOND);
+  }
+
+  const response = await provider.query({
+    request_type: 'call_function',
+    finality: 'final',
+    account_id: daoId,
+    method_name: 'get_policy',
+    args_base64: Buffer.from('{}').toString('base64'),
+  });
+
+  const policy = JSON.parse(Buffer.from(response.result).toString());
+  const bond = policy?.proposal_bond;
+  if (!bond) {
+    fail(`Could not read proposal_bond from ${daoId}`);
+  }
+
+  return BigInt(bond);
+}
+
+async function addProposal(account, daoId, proposal, bond) {
   return account.signAndSendTransaction({
     receiverId: daoId,
     actions: [
@@ -114,7 +136,7 @@ async function addProposal(account, daoId, proposal) {
           methodName: 'add_proposal',
           args: Buffer.from(JSON.stringify(proposal)),
           gas: BigInt('300000000000000'),
-          deposit: BigInt('100000000000000000000000'),
+          deposit: bond,
         },
       },
     ],
@@ -164,16 +186,19 @@ async function main() {
   }
 
   const proposal = parseProposalFile(options.file);
-  const account = await getSignerAccount(network, options.signer);
+  const { account, provider } = await getSignerAccount(network, options.signer);
+  const bond =
+    options.command === 'add' ? await getProposalBond(provider, options.dao) : 0n;
 
   const result = options.command === 'add'
-    ? await addProposal(account, options.dao, proposal)
+    ? await addProposal(account, options.dao, proposal, bond)
     : await voteApprove(account, options.dao, options.id, proposal);
 
   console.log(JSON.stringify({
     final_execution_status: result.final_execution_status,
     transaction_outcome: result.transaction_outcome?.id || result.transaction?.hash,
     status: result.status,
+    proposal_bond: bond ? bond.toString() : undefined,
   }, null, 2));
 }
 

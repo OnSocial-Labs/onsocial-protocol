@@ -6,6 +6,7 @@ export const portalColors = {
   amber: 'var(--portal-amber)',
   pink: 'var(--portal-pink)',
   neutral: 'var(--portal-neutral)',
+  muted: 'hsl(var(--muted-foreground))',
   red: 'var(--portal-red)',
 } as const;
 
@@ -50,7 +51,11 @@ export const portalPanelClasses = {
   red: 'portal-red-panel',
 } as const;
 
-export type PortalAccent = keyof typeof portalColors;
+/** Badge / highlight accents (excludes secondary ink `muted`). */
+export type PortalAccent = Exclude<keyof typeof portalColors, 'muted'>;
+
+/** Secondary copy and graphite panel ink. */
+export type PortalInkColor = 'muted' | 'neutral';
 export type PortalSurfaceAccent = keyof typeof portalSurfaceClasses;
 export type PortalPanelAccent = keyof typeof portalPanelClasses;
 

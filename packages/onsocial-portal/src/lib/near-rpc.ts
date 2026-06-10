@@ -35,6 +35,11 @@ export const BOOST_CONTRACT =
 export const TOKEN_CONTRACT =
   NETWORK === 'mainnet' ? 'token.onsocial.near' : 'token.onsocial.testnet';
 
+export const SOCIAL_SPEND_CONTRACT =
+  NETWORK === 'mainnet'
+    ? 'social-spend.onsocial.near'
+    : 'social-spend.onsocial.testnet';
+
 export const VESTING_CONTRACT =
   NETWORK === 'mainnet'
     ? 'founder-vesting.onsocial.near'
@@ -739,9 +744,19 @@ export function tryParseYoctoBigInt(
   }
 }
 
-/** Convert human-readable NEAR amount (e.g. "1.5") to yocto string. */
-export function nearToYocto(input: string): string {
-  const s = sanitizeNearAmountInput(input.trim());
+export function sanitizeTokenAmountInput(
+  value: string,
+  decimals: number
+): string {
+  return sanitizeDecimalAmountInput(value, decimals);
+}
+
+/** Convert human-readable token amount to smallest-unit string. */
+export function tokenAmountToSmallestUnit(
+  input: string,
+  decimals: number
+): string {
+  const s = sanitizeTokenAmountInput(input.trim(), decimals);
   if (!s || s === '0' || s === '0.') return '0';
 
   const dotIdx = s.indexOf('.');
@@ -756,9 +771,38 @@ export function nearToYocto(input: string): string {
     frac = s.slice(dotIdx + 1);
   }
 
-  const padded = frac.padEnd(NEAR_DECIMALS, '0').slice(0, NEAR_DECIMALS);
+  const padded = frac.padEnd(decimals, '0').slice(0, decimals);
   const raw = whole + padded;
   return raw.replace(/^0+/, '') || '0';
+}
+
+/** Format smallest-unit balance for display (e.g. yocto NEAR → "1.5"). */
+export function formatSmallestTokenAmount(
+  smallest: string,
+  decimals: number,
+  maxFractionDigits = 4
+): string {
+  if (!smallest || smallest === '0') {
+    return '0';
+  }
+
+  const padded = smallest.padStart(decimals + 1, '0');
+  const whole = padded.slice(0, padded.length - decimals) || '0';
+  let fraction = padded
+    .slice(padded.length - decimals)
+    .replace(/0+$/, '')
+    .slice(0, maxFractionDigits);
+
+  if (!fraction) {
+    return whole;
+  }
+
+  return `${whole}.${fraction}`;
+}
+
+/** Convert human-readable NEAR amount (e.g. "1.5") to yocto string. */
+export function nearToYocto(input: string): string {
+  return tokenAmountToSmallestUnit(input, NEAR_DECIMALS);
 }
 
 /** Upper bound for DAO proposal bond edits in the portal (NEAR). */
@@ -820,6 +864,56 @@ export function sanitizeProposalPeriodDaysInput(value: string): string {
   try {
     if (BigInt(sanitized) > BigInt(MAX_PROPOSAL_PERIOD_DAYS)) {
       return String(MAX_PROPOSAL_PERIOD_DAYS);
+    }
+  } catch {
+    return sanitized;
+  }
+
+  return sanitized;
+}
+
+/** Bounds for DAO Member-role proposer threshold edits in the portal (SOCIAL). */
+export const MIN_PROPOSER_THRESHOLD_SOCIAL = 1;
+export const MAX_PROPOSER_THRESHOLD_SOCIAL = 10_000;
+
+const MIN_PROPOSER_THRESHOLD_YOCTO = tokenAmountToSmallestUnit(
+  String(MIN_PROPOSER_THRESHOLD_SOCIAL),
+  SOCIAL_DECIMALS
+);
+const MAX_PROPOSER_THRESHOLD_YOCTO = tokenAmountToSmallestUnit(
+  String(MAX_PROPOSER_THRESHOLD_SOCIAL),
+  SOCIAL_DECIMALS
+);
+
+export function isProposerThresholdWithinBounds(
+  yocto: string | null | undefined
+): boolean {
+  const parsed = tryParseYoctoBigInt(yocto);
+  const min = tryParseYoctoBigInt(MIN_PROPOSER_THRESHOLD_YOCTO);
+  const max = tryParseYoctoBigInt(MAX_PROPOSER_THRESHOLD_YOCTO);
+  if (parsed == null || min == null || max == null) {
+    return false;
+  }
+
+  return parsed >= min && parsed <= max;
+}
+
+export function sanitizeProposerThresholdSocialInput(value: string): string {
+  const sanitized = sanitizeSocialAmountInput(value);
+  if (!sanitized) {
+    return sanitized;
+  }
+
+  try {
+    const yocto = tokenAmountToSmallestUnit(sanitized, SOCIAL_DECIMALS);
+    if (isProposerThresholdWithinBounds(yocto)) {
+      return sanitized;
+    }
+
+    const parsed = tryParseYoctoBigInt(yocto);
+    const max = tryParseYoctoBigInt(MAX_PROPOSER_THRESHOLD_YOCTO);
+    if (parsed != null && max != null && parsed > max) {
+      return yoctoToSocial(MAX_PROPOSER_THRESHOLD_YOCTO);
     }
   } catch {
     return sanitized;

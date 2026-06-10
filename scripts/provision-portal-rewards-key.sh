@@ -69,6 +69,21 @@ add_secret_version() {
     --data-file=- >/dev/null
 }
 
+ensure_secret_access() {
+  local role="roles/secretmanager.secretAccessor"
+  local members=(
+    "serviceAccount:github-ci-deploy@${PROJECT}.iam.gserviceaccount.com"
+    "serviceAccount:relayer-signer@${PROJECT}.iam.gserviceaccount.com"
+  )
+  local member
+  for member in "${members[@]}"; do
+    "$GCLOUD_BIN" secrets add-iam-policy-binding "$SECRET_NAME" \
+      --project="$PROJECT" \
+      --member="$member" \
+      --role="$role" >/dev/null 2>&1 || true
+  done
+}
+
 if [[ "$SKIP_GSM" -eq 0 ]]; then
   if ! command -v "$GCLOUD_BIN" >/dev/null 2>&1; then
     echo "gcloud is required. Run: gcloud auth login && gcloud config set project $PROJECT" >&2
@@ -87,6 +102,7 @@ if [[ "$SKIP_GSM" -eq 0 ]]; then
   else
     echo "GSM secret $SECRET_NAME already exists for project $PROJECT."
   fi
+  ensure_secret_access
 else
   API_KEY="${ONSOCIAL_PORTAL_REWARDS_API_KEY:-}"
   if [[ -z "$API_KEY" ]]; then

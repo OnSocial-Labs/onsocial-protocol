@@ -1,0 +1,17 @@
+{
+  "proposal": {
+    "description": "Treasury DAO: allow 500 SOCIAL delegated holders to propose custody transfers",
+    "kind": {
+      "ChangePolicyAddOrUpdateRole": {
+        "role": {
+          "name": "delegated_proposers",
+          "kind": {
+            "Member": "500000000000000000000"
+          },
+          "permissions": ["transfer:AddProposal"],
+          "vote_policy": {}
+        }
+      }
+    }
+  }
+}

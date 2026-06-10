@@ -1,0 +1,10 @@
+{
+  "proposal": {
+    "description": "Treasury DAO: set staking contract for delegated transfer proposers",
+    "kind": {
+      "SetStakingContract": {
+        "staking_id": "staking-treasury.onsocial.testnet"
+      }
+    }
+  }
+}

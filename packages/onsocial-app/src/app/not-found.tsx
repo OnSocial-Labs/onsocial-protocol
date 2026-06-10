@@ -15,6 +15,9 @@ export default function NotFound() {
           </svg>
         </div>
         <h1 className="not-found-title">Account not found</h1>
+        <p className="not-found-hint">
+          This account does not exist on the current network.
+        </p>
       </section>
     </main>
   );

@@ -3,14 +3,21 @@ import {
   CORE_CONTRACT,
   REWARDS_CONTRACT,
   SCARCES_CONTRACT,
+  SOCIAL_SPEND_CONTRACT,
   STAKING_CONTRACT,
   TOKEN_CONTRACT,
 } from '@/lib/near-rpc';
 import {
   GOVERNANCE_DAO_ACCOUNT,
+  STAKING_GOVERNANCE_DAO_ACCOUNT,
+  STAKING_TREASURY_DAO_ACCOUNT,
   TREASURY_DAO_ACCOUNT,
 } from '@/lib/portal-config';
 import { buildGovernanceApplicationFromDaoProposal } from '@/features/governance/page-utils';
+import {
+  getDaoProposalKindName,
+  normalizeDaoProposalKind,
+} from '@/features/governance/governance-proposal-kind';
 import type {
   Application,
   GovernanceDaoProposal,
@@ -18,10 +25,14 @@ import type {
   ProtocolGovernanceKind,
 } from '@/features/governance/types';
 
-const STAKING_GOVERNANCE_ACCOUNTS = new Set([
+const SPUTNIK_DAO_STAKING_ACCOUNTS = new Set([
   STAKING_CONTRACT,
+  STAKING_GOVERNANCE_DAO_ACCOUNT,
+  STAKING_TREASURY_DAO_ACCOUNT,
   'staking-governance.onsocial.near',
   'staking-governance.onsocial.testnet',
+  'staking-treasury.onsocial.near',
+  'staking-treasury.onsocial.testnet',
 ]);
 
 const ALLOWED_PROTOCOL_RECEIVERS = new Set([
@@ -30,12 +41,12 @@ const ALLOWED_PROTOCOL_RECEIVERS = new Set([
   CORE_CONTRACT,
   SCARCES_CONTRACT,
   TOKEN_CONTRACT,
+  SOCIAL_SPEND_CONTRACT,
   GOVERNANCE_DAO_ACCOUNT,
 ]);
 
-function getProposalKindName(kind: Record<string, unknown>): string {
-  const key = Object.keys(kind)[0];
-  return key ?? '';
+function getProposalKindName(kind: unknown): string {
+  return getDaoProposalKindName(kind) ?? '';
 }
 
 function getFunctionCallShape(kind: Record<string, unknown>): {
@@ -96,7 +107,7 @@ function isStakingProposal(
   const kindName = getProposalKindName(proposal.kind);
   return (
     kindName === 'SetStakingContract' ||
-    STAKING_GOVERNANCE_ACCOUNTS.has(receiverId ?? '') ||
+    SPUTNIK_DAO_STAKING_ACCOUNTS.has(receiverId ?? '') ||
     containsStakingKeyword(methodName) ||
     containsStakingKeyword(proposal.description)
   );
@@ -164,9 +175,12 @@ function classifyProtocolProposal(
     return null;
   }
 
-  const kindName = getProposalKindName(proposal.kind);
-  const kindPayload = proposal.kind?.[kindName];
-  const { receiverId, methodName } = getFunctionCallShape(proposal.kind);
+  const kindRecord =
+    normalizeDaoProposalKind(proposal.kind) ??
+    (proposal.kind as Record<string, unknown>);
+  const kindName = getProposalKindName(kindRecord);
+  const kindPayload = kindRecord[kindName];
+  const { receiverId, methodName } = getFunctionCallShape(kindRecord);
 
   if (kindName === 'SetStakingContract') {
     const stakingId = readKindStringField(kindPayload, 'staking_id');
@@ -174,7 +188,10 @@ function classifyProtocolProposal(
       protocolKind: 'staking',
       targetAccount: stakingId,
       targetMethod: 'set_staking_contract',
-      subject: 'Staking governance',
+      subject:
+        daoAccountId === TREASURY_DAO_ACCOUNT
+          ? 'Treasury staking'
+          : 'Staking governance',
     };
   }
 
@@ -183,7 +200,7 @@ function classifyProtocolProposal(
       protocolKind: 'signaling',
       targetAccount: daoAccountId,
       targetMethod: 'vote',
-      subject: 'Signaling',
+      subject: 'Signal',
     };
   }
 
@@ -212,8 +229,19 @@ function classifyProtocolProposal(
       methodName === 'update_contract_from_hash'
     ) {
       protocolKind = 'upgrade';
-    } else if (methodName === 'set_owner') {
+    } else if (
+      methodName === 'set_owner' ||
+      methodName === 'transfer_ownership'
+    ) {
       protocolKind = 'permissions';
+    } else if (
+      methodName === 'withdraw_treasury' ||
+      methodName === 'fund_season_pool_from_treasury' ||
+      (methodName === 'ft_transfer_call' &&
+        receiverId === TOKEN_CONTRACT &&
+        /fund_season_pool/i.test(proposal.description))
+    ) {
+      protocolKind = 'treasury';
     }
 
     return {

@@ -14,6 +14,18 @@ How to build discover, profile stands, mutual lists, and endorsement UIs with
 **Do not** load a user's full outgoing graph (`limit: 1000`) for UI. Use
 indexed counts + paginated lists (`limit` 24, `offset` += 24).
 
+The portal **network map** (`/u/:id/network`) shows a capped orbit sample
+(mutuals first, then newest incoming/outgoing, max 36 nodes) with chain
+totals on filters and stand list links for the full graph.
+
+With a search query (`q`, min 2 chars), the map loads **index matches**
+via `profiles.search` + filtered standing reads (`incomingFilteredPage`,
+`outgoingFilteredPage`, `mutualFilteredDetailed`) and replaces orbit nodes
+with up to 36 hits for the active filter. **View all** opens the stand list
+with the same `q`. The network API caches the default sample (`s-maxage` 60s);
+search uses shorter private cache. The portal client reuses stale responses
+while revalidating in the background.
+
 ## Discover (logged-in)
 
 One entry point batches profile search with viewer graph context for **the
