@@ -9,6 +9,11 @@ import {
 } from './season-zero-policy.js';
 import { getSeasonZeroStandings } from './season-zero-standings.js';
 import {
+  areSeasonZeroStandingsStable,
+  SEASON_ZERO_STANDINGS_STABILITY_DELAY_MS,
+  sleep,
+} from './season-zero-standings-stability.js';
+import {
   buildSeasonZeroSettlementSnapshot,
   type SeasonZeroSettlementSnapshot,
 } from './season-zero-settlement.js';
@@ -213,6 +218,110 @@ export async function getSeasonZeroClaimData(
   };
 }
 
+export interface SeasonZeroFinalizePreviewRow {
+  rank: number;
+  accountId: string;
+  score: number;
+  eligible: boolean;
+}
+
+export interface SeasonZeroFinalizePreview {
+  seasonId: string;
+  cutoffTimestampNs: string;
+  indexedPoolAmountYocto: string;
+  participantCount: number;
+  stable: boolean;
+  stabilityDelayMs: number;
+  standings: SeasonZeroFinalizePreviewRow[];
+}
+
+async function resolveSeasonZeroCutoffTimestampNs(
+  cutoffTimestampNs?: string
+): Promise<string> {
+  const onChainConfig = await getSeasonZeroOnChainConfig();
+  const resolved =
+    cutoffTimestampNs?.trim() || onChainConfig?.ends_at_ns?.toString();
+  if (!resolved) {
+    throw new Error(
+      'Season Zero on-chain config is required before finalization'
+    );
+  }
+  if (nowNs() < BigInt(resolved)) {
+    throw new Error('Season Zero has not ended yet');
+  }
+  return resolved;
+}
+
+async function loadStableSeasonZeroStandings(cutoffTimestampNs: string) {
+  const first = await getSeasonZeroStandings({
+    limit: Number.MAX_SAFE_INTEGER,
+    offset: 0,
+    cutoffTimestampNs,
+    unbounded: true,
+  });
+  await sleep(SEASON_ZERO_STANDINGS_STABILITY_DELAY_MS);
+  const second = await getSeasonZeroStandings({
+    limit: Number.MAX_SAFE_INTEGER,
+    offset: 0,
+    cutoffTimestampNs,
+    unbounded: true,
+  });
+  const stable = areSeasonZeroStandingsStable(
+    first.standings,
+    second.standings
+  );
+  if (!stable) {
+    throw new Error(
+      'Standings are still changing — wait for the indexer to settle and try again'
+    );
+  }
+  return second;
+}
+
+export async function previewSeasonZeroSettlement(
+  input: {
+    cutoffTimestampNs?: string;
+  } = {}
+): Promise<SeasonZeroFinalizePreview> {
+  const cutoffTimestampNs = await resolveSeasonZeroCutoffTimestampNs(
+    input.cutoffTimestampNs
+  );
+  const first = await getSeasonZeroStandings({
+    limit: Number.MAX_SAFE_INTEGER,
+    offset: 0,
+    cutoffTimestampNs,
+    unbounded: true,
+  });
+  await sleep(SEASON_ZERO_STANDINGS_STABILITY_DELAY_MS);
+  const second = await getSeasonZeroStandings({
+    limit: Number.MAX_SAFE_INTEGER,
+    offset: 0,
+    cutoffTimestampNs,
+    unbounded: true,
+  });
+  const stable = areSeasonZeroStandingsStable(
+    first.standings,
+    second.standings
+  );
+  const indexedPoolAmountYocto =
+    await getSeasonZeroIndexedPoolYocto(cutoffTimestampNs);
+
+  return {
+    seasonId: SEASON_ZERO_ID,
+    cutoffTimestampNs,
+    indexedPoolAmountYocto,
+    participantCount: second.total,
+    stable,
+    stabilityDelayMs: SEASON_ZERO_STANDINGS_STABILITY_DELAY_MS,
+    standings: second.standings.map((standing) => ({
+      rank: standing.rank,
+      accountId: standing.accountId,
+      score: standing.score,
+      eligible: standing.eligible,
+    })),
+  };
+}
+
 export async function finalizeSeasonZeroSettlement(
   input: {
     cutoffTimestampNs?: string;
@@ -221,25 +330,12 @@ export async function finalizeSeasonZeroSettlement(
   const existing = await getSeasonZeroSettlementSummary();
   if (existing) return existing;
 
-  const onChainConfig = await getSeasonZeroOnChainConfig();
-  const cutoffTimestampNs =
-    input.cutoffTimestampNs?.trim() || onChainConfig?.ends_at_ns?.toString();
-  if (!cutoffTimestampNs) {
-    throw new Error(
-      'Season Zero on-chain config is required before finalization'
-    );
-  }
-  if (nowNs() < BigInt(cutoffTimestampNs)) {
-    throw new Error('Season Zero has not ended yet');
-  }
+  const cutoffTimestampNs = await resolveSeasonZeroCutoffTimestampNs(
+    input.cutoffTimestampNs
+  );
 
   const [standings, indexedPoolAmountYocto] = await Promise.all([
-    getSeasonZeroStandings({
-      limit: Number.MAX_SAFE_INTEGER,
-      offset: 0,
-      cutoffTimestampNs,
-      unbounded: true,
-    }),
+    loadStableSeasonZeroStandings(cutoffTimestampNs),
     getSeasonZeroIndexedPoolYocto(cutoffTimestampNs),
   ]);
   const snapshot = buildSeasonZeroSettlementSnapshot(

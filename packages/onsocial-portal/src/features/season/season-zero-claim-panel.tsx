@@ -8,9 +8,17 @@ import { SurfacePanel } from '@/components/ui/surface-panel';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
 import { useWallet } from '@/contexts/wallet-context';
 import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
-import type { SeasonZeroClaimRecord } from '@/features/season/season-zero-types';
 import {
-  formatGenesisYoctoAsSocial,
+  isPostLiveSeasonPhase,
+  resolveSeasonZeroClaimStatusCopy,
+} from '@/features/season/season-zero-claim-copy';
+import type { SeasonZeroStanding } from '@/features/season/season-zero-standing-row';
+import type {
+  SeasonZeroClaimRecord,
+  SeasonZeroLifecyclePhase,
+} from '@/features/season/season-zero-types';
+import {
+  formatGenesisSocialBalanceDisplay,
   GENESIS_SEASON_ID,
 } from '@/lib/genesis-season';
 import { extractNearTransactionHashes } from '@/lib/near-rpc';
@@ -26,19 +34,15 @@ function formatScore(value: number): string {
   );
 }
 
-export function SeasonZeroClaimPanel({
-  claimOpen,
+export function useSeasonZeroClaimActions({
   claim,
   onClaimed,
-  className,
 }: {
-  claimOpen: boolean;
   claim: SeasonZeroClaimRecord | null;
   onClaimed?: () => void;
-  className?: string;
 }) {
   const { accountId, connect, getSigningWallet, isConnected } = useWallet();
-  const { txResult, setTxResult, clearTxResult, trackTransaction } =
+  const { setTxResult, trackTransaction, txResult, clearTxResult } =
     useNearTransactionFeedback(accountId);
   const [claimPending, setClaimPending] = useState(false);
 
@@ -106,7 +110,33 @@ export function SeasonZeroClaimPanel({
     trackTransaction,
   ]);
 
-  if (!claim && !claimOpen) return null;
+  return { handleClaim, claimPending, txResult, clearTxResult };
+}
+
+/** Standalone claim panel — prefer GenesisRallyStrip on the Season 0 page. */
+export function SeasonZeroClaimPanel({
+  phase,
+  claim,
+  myStanding = null,
+  onClaimed,
+  className,
+}: {
+  phase: SeasonZeroLifecyclePhase | null;
+  claim: SeasonZeroClaimRecord | null;
+  myStanding?: Pick<SeasonZeroStanding, 'rank' | 'score'> | null;
+  onClaimed?: () => void;
+  className?: string;
+}) {
+  const { accountId, connect } = useWallet();
+  const { handleClaim, claimPending, txResult, clearTxResult } =
+    useSeasonZeroClaimActions({
+      claim,
+      onClaimed,
+    });
+
+  if (!claim && !isPostLiveSeasonPhase(phase)) return null;
+
+  const claimOpen = phase === 'claim_open';
 
   if (claim?.claimed) {
     return (
@@ -125,7 +155,7 @@ export function SeasonZeroClaimPanel({
             <p className="mt-1 text-sm text-muted-foreground">
               You already claimed{' '}
               <span className="font-mono text-foreground">
-                {formatGenesisYoctoAsSocial(claim.amountYocto)}
+                {formatGenesisSocialBalanceDisplay(claim.amountYocto)}
               </span>{' '}
               SOCIAL for Season 0.
             </p>
@@ -136,54 +166,78 @@ export function SeasonZeroClaimPanel({
   }
 
   if (!claimOpen && claim) {
-    const amountLabel = formatGenesisYoctoAsSocial(claim.amountYocto);
+    const amountLabel = formatGenesisSocialBalanceDisplay(claim.amountYocto);
     return (
-      <SurfacePanel radius="xl" tone="soft" className={cn(className)}>
-        <p className="text-sm font-medium text-foreground">Reward ready</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          You are scheduled to receive{' '}
-          <span className="font-mono font-semibold text-foreground">
-            {amountLabel} SOCIAL
-          </span>{' '}
-          (rank #{claim.rank}). Claims open when the on-chain window starts.
+      <SurfacePanel
+        radius="xl"
+        tone="soft"
+        padding="snug"
+        className={cn('border-border/40', className)}
+      >
+        <p className="portal-eyebrow text-muted-foreground">
+          Season claim
+          <span className="text-muted-foreground/40"> · </span>
+          <span className="portal-green-text">Reward ready</span>
         </p>
+        <p className="mt-0.5 font-mono text-xs tabular-nums text-muted-foreground/75">
+          #{claim.rank} · {formatScore(claim.score)} pts · {amountLabel} SOCIAL
+          · claims open when the window starts
+        </p>
+      </SurfacePanel>
+    );
+  }
+
+  if (!claim && isPostLiveSeasonPhase(phase)) {
+    if (!accountId) {
+      return (
+        <SurfacePanel
+          radius="xl"
+          tone="soft"
+          padding="snug"
+          className={cn('border-border/40', className)}
+        >
+          <p className="portal-eyebrow text-muted-foreground">
+            Season claim
+            <span className="text-muted-foreground/40"> · </span>
+            Connect wallet
+          </p>
+          <Button size="sm" className="mt-2.5" onClick={() => void connect()}>
+            Connect wallet
+          </Button>
+        </SurfacePanel>
+      );
+    }
+
+    const { statusLabel, detailLine } = resolveSeasonZeroClaimStatusCopy(
+      phase,
+      myStanding
+    );
+    return (
+      <SurfacePanel
+        radius="xl"
+        tone="soft"
+        padding="snug"
+        className={cn('border-border/40', className)}
+      >
+        <p className="portal-eyebrow text-muted-foreground">
+          Season claim
+          <span className="text-muted-foreground/40"> · </span>
+          <span className="text-muted-foreground/80">{statusLabel}</span>
+        </p>
+        {detailLine ? (
+          <p className="mt-0.5 font-mono text-xs tabular-nums text-muted-foreground/75">
+            {detailLine}
+          </p>
+        ) : null}
       </SurfacePanel>
     );
   }
 
   if (!claimOpen) return null;
 
-  if (!accountId) {
-    return (
-      <SurfacePanel radius="xl" tone="soft" className={cn(className)}>
-        <p className="text-sm font-medium text-foreground">
-          Claim season rewards
-        </p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Connect your wallet to see if you have a Season 0 payout.
-        </p>
-        <Button size="sm" className="mt-3" onClick={() => void connect()}>
-          Connect wallet
-        </Button>
-      </SurfacePanel>
-    );
-  }
+  if (!accountId || !claim) return null;
 
-  if (!claim) {
-    return (
-      <SurfacePanel radius="xl" tone="soft" className={cn(className)}>
-        <p className="text-sm font-medium text-foreground">
-          No claim for this wallet
-        </p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Either you were not eligible at settlement, the season has not been
-          finalized yet, or this account did not receive a payout slice.
-        </p>
-      </SurfacePanel>
-    );
-  }
-
-  const amountLabel = formatGenesisYoctoAsSocial(claim.amountYocto);
+  const amountLabel = formatGenesisSocialBalanceDisplay(claim.amountYocto);
 
   return (
     <>
@@ -214,10 +268,6 @@ export function SeasonZeroClaimPanel({
               <span className="font-mono font-semibold text-foreground">
                 {amountLabel} SOCIAL
               </span>
-            </p>
-            <p className="text-xs text-muted-foreground/75">
-              One wallet claim per account. The contract verifies your merkle
-              proof against the published season root.
             </p>
           </div>
           <Button

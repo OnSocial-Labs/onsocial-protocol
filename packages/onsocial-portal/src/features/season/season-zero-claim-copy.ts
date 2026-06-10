@@ -1,0 +1,129 @@
+import type { SeasonZeroStanding } from '@/features/season/season-zero-standing-row';
+import type {
+  SeasonZeroClaimRecord,
+  SeasonZeroLifecyclePhase,
+} from '@/features/season/season-zero-types';
+import { formatGenesisSocialBalanceDisplay } from '@/lib/genesis-season';
+
+function formatScore(value: number): string {
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(
+    value
+  );
+}
+
+function formatPayoutAmount(yocto: string): string {
+  return formatGenesisSocialBalanceDisplay(yocto);
+}
+
+function claimNextStepCopy(
+  phase: Exclude<SeasonZeroLifecyclePhase, 'live'>
+): string {
+  switch (phase) {
+    case 'finalized_pending_publish':
+      return 'Claim opens after publish';
+    case 'published_claim_soon':
+      return 'Claim opens soon';
+    case 'ended_pending_settlement':
+      return 'Pending settlement';
+    case 'claim_open':
+      return 'Ready to claim';
+  }
+}
+
+export function isPostLiveSeasonPhase(
+  phase: SeasonZeroLifecyclePhase | null | undefined
+): phase is Exclude<SeasonZeroLifecyclePhase, 'live'> {
+  return phase != null && phase !== 'live';
+}
+
+export function resolveSeasonZeroClaimStatusCopy(
+  phase: Exclude<SeasonZeroLifecyclePhase, 'live'>,
+  myStanding: Pick<SeasonZeroStanding, 'rank' | 'score'> | null | undefined,
+  options?: { omitStanding?: boolean }
+): { statusLabel: string; detailLine: string | null } {
+  const omitStanding = options?.omitStanding ?? false;
+  const rankLine = myStanding
+    ? `#${myStanding.rank} · ${formatScore(myStanding.score)} pts`
+    : null;
+
+  switch (phase) {
+    case 'ended_pending_settlement':
+      return {
+        statusLabel: 'Awaiting settlement',
+        detailLine: omitStanding ? null : (rankLine ?? 'Season ended'),
+      };
+    case 'finalized_pending_publish':
+      return {
+        statusLabel: 'Awaiting publish',
+        detailLine: omitStanding ? null : (rankLine ?? 'Reward list ready'),
+      };
+    case 'published_claim_soon':
+      return {
+        statusLabel: 'Claims opening soon',
+        detailLine: omitStanding ? null : rankLine,
+      };
+    case 'claim_open':
+      return {
+        statusLabel: omitStanding ? 'No payout' : 'Rewards finalized',
+        detailLine: omitStanding
+          ? null
+          : rankLine
+            ? `${rankLine} · no payout for this wallet`
+            : 'No payout for this wallet',
+      };
+  }
+}
+
+export function resolveSeasonZeroClaimMetricsStatus({
+  phase,
+  claim,
+  accountId,
+  myStanding,
+  omitStanding = false,
+}: {
+  phase: SeasonZeroLifecyclePhase | null;
+  claim: SeasonZeroClaimRecord | null;
+  accountId: string | null;
+  myStanding: Pick<SeasonZeroStanding, 'rank' | 'score'> | null | undefined;
+  omitStanding?: boolean;
+}): { statusLabel: string; detailLine?: string | null } | null {
+  if (!isPostLiveSeasonPhase(phase)) return null;
+
+  if (claim?.claimed) {
+    return {
+      statusLabel: 'Claimed',
+      detailLine: `${formatPayoutAmount(claim.amountYocto)} SOCIAL received`,
+    };
+  }
+
+  if (claim && phase !== 'claim_open') {
+    const amount = formatPayoutAmount(claim.amountYocto);
+    const step = claimNextStepCopy(phase);
+    return {
+      statusLabel: `${amount} SOCIAL`,
+      detailLine: omitStanding
+        ? `Final rank #${claim.rank} · ${step}`
+        : `Final rank #${claim.rank} · ${formatScore(claim.score)} pts · ${step}`,
+    };
+  }
+
+  if (phase === 'claim_open' && claim && !claim.claimed) {
+    return null;
+  }
+
+  if (!accountId) {
+    return {
+      statusLabel: 'Connect wallet',
+      detailLine: 'Check payout status',
+    };
+  }
+
+  if (!claim) {
+    const copy = resolveSeasonZeroClaimStatusCopy(phase, myStanding, {
+      omitStanding,
+    });
+    return copy;
+  }
+
+  return null;
+}

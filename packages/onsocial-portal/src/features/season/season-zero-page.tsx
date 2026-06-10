@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { useWallet } from '@/contexts/wallet-context';
 import { GenesisRallyStrip } from '@/features/season/genesis-rally-strip';
-import { SeasonZeroClaimPanel } from '@/features/season/season-zero-claim-panel';
 import { type SeasonZeroScoringLimits } from '@/features/season/season-zero-earn-panel';
 import { SeasonZeroGuidePanel } from '@/features/season/season-zero-guide-panel';
 import {
@@ -17,12 +16,13 @@ import {
   StandingRowSkeleton,
   type SeasonZeroStanding,
 } from '@/features/season/season-zero-standing-row';
-import type {
-  SeasonZeroClaimPayload,
-  SeasonZeroClaimRecord,
-  SeasonZeroOnChainConfig,
-  SeasonZeroSettlementSummary,
-  SeasonZeroStatusPayload,
+import {
+  resolveSeasonZeroLifecyclePhase,
+  type SeasonZeroClaimPayload,
+  type SeasonZeroClaimRecord,
+  type SeasonZeroOnChainConfig,
+  type SeasonZeroSettlementSummary,
+  type SeasonZeroStatusPayload,
 } from '@/features/season/season-zero-types';
 import { fadeUpMotion } from '@/lib/motion';
 
@@ -68,6 +68,14 @@ export default function SeasonZeroPage() {
     [accountId, standings]
   );
 
+  const seasonPhase = useMemo(
+    () =>
+      onChainConfig
+        ? resolveSeasonZeroLifecyclePhase(onChainConfig, settlement)
+        : null,
+    [onChainConfig, settlement]
+  );
+
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -76,11 +84,27 @@ export default function SeasonZeroPage() {
         ? `/api/seasons/season-zero/claims/${encodeURIComponent(accountId)}`
         : null;
 
-      const [standingsRes, statusRes, claimRes] = await Promise.all([
-        fetch('/api/seasons/season-zero/standings?limit=25', {
+      const statusRes = await fetch('/api/seasons/season-zero/status', {
+        cache: 'no-store',
+      });
+      const statusData = (await statusRes.json()) as SeasonZeroStatusPayload;
+      const onChain = statusRes.ok ? (statusData.onChainConfig ?? null) : null;
+
+      if (statusRes.ok && statusData.success !== false) {
+        setOnChainConfig(onChain);
+        setIndexedPoolYocto(statusData.indexedPoolYocto ?? '0');
+        setSettlement(statusData.settlement ?? null);
+      }
+
+      const standingsCutoff =
+        onChain && !onChain.is_live && onChain.ends_at_ns
+          ? `&cutoff_timestamp_ns=${encodeURIComponent(onChain.ends_at_ns)}`
+          : '';
+
+      const [standingsRes, claimRes] = await Promise.all([
+        fetch(`/api/seasons/season-zero/standings?limit=25${standingsCutoff}`, {
           cache: 'no-store',
         }),
-        fetch('/api/seasons/season-zero/status', { cache: 'no-store' }),
         claimUrl
           ? fetch(claimUrl, { cache: 'no-store' })
           : Promise.resolve(null),
@@ -93,13 +117,6 @@ export default function SeasonZeroPage() {
         throw new Error(
           body.detail ?? body.error ?? 'Could not load Season 0 standings.'
         );
-      }
-
-      const statusData = (await statusRes.json()) as SeasonZeroStatusPayload;
-      if (statusRes.ok && statusData.success !== false) {
-        setOnChainConfig(statusData.onChainConfig ?? null);
-        setIndexedPoolYocto(statusData.indexedPoolYocto ?? '0');
-        setSettlement(statusData.settlement ?? null);
       }
 
       if (claimRes) {
@@ -151,20 +168,15 @@ export default function SeasonZeroPage() {
             settlement={settlement}
             participantCount={total}
             myStanding={currentUserStanding}
-            onParticipationChange={() => void refresh()}
-          />
-        </motion.div>
-
-        <motion.div {...sectionEntrance(reduceMotion, 0.07)}>
-          <SeasonZeroClaimPanel
-            claimOpen={Boolean(onChainConfig?.claim_open)}
+            phase={seasonPhase}
             claim={claim}
+            onParticipationChange={() => void refresh()}
             onClaimed={() => void refresh()}
           />
         </motion.div>
 
         {scoringLimits ? (
-          <motion.div {...sectionEntrance(reduceMotion, 0.12)}>
+          <motion.div {...sectionEntrance(reduceMotion, 0.07)}>
             <SeasonZeroGuidePanel
               limits={scoringLimits}
               myStanding={currentUserStanding}
@@ -172,7 +184,7 @@ export default function SeasonZeroPage() {
           </motion.div>
         ) : null}
 
-        <motion.div {...sectionEntrance(reduceMotion, 0.18)}>
+        <motion.div {...sectionEntrance(reduceMotion, 0.12)}>
           <SurfacePanel
             radius="xl"
             tone="soft"

@@ -59,10 +59,14 @@ grep -q '^WEBHOOK_URL=' .env.production || echo "WEBHOOK_URL=https://testnet.ons
 set -a
 # shellcheck disable=SC1091
 source .env.production
+if [ -f .env.image ]; then
+  # shellcheck disable=SC1091
+  source .env.image
+fi
 set +a
 
 missing=0
-for required in TELEGRAM_BOT_TOKEN ADMIN_SECRET ONSOCIAL_PORTAL_REWARDS_API_KEY; do
+for required in TELEGRAM_BOT_TOKEN ADMIN_SECRET ONSOCIAL_PORTAL_REWARDS_API_KEY SEASON_SETTLEMENT_ADMIN_KEY; do
   if [ -z "${!required:-}" ]; then
     echo "missing:${required}"
     missing=1
@@ -112,9 +116,14 @@ SQL
 set -a
 # shellcheck disable=SC1091
 source .env.production
+if [ -f .env.image ]; then
+  # shellcheck disable=SC1091
+  source .env.image
+fi
 set +a
 
-docker compose up -d --force-recreate --no-deps backend
+docker compose --env-file .env.production pull backend
+docker compose --env-file .env.production up -d --force-recreate --no-deps backend
 
 healthy=0
 for attempt in $(seq 1 15); do

@@ -146,6 +146,7 @@ jobs:
           grep -q '^TELEGRAM_BOT_TOKEN=.\+' /tmp/deploy_gsm.env || { echo '❌ TELEGRAM_BOT_TOKEN missing or empty in GSM output'; exit 1; }
           grep -q '^ADMIN_SECRET=.\+' /tmp/deploy_gsm.env || { echo '❌ ADMIN_SECRET missing or empty in GSM output'; exit 1; }
           grep -q '^ADMIN_WALLETS=.\+' /tmp/deploy_gsm.env || { echo '❌ ADMIN_WALLETS missing or empty in GSM output'; exit 1; }
+          grep -q '^SEASON_SETTLEMENT_ADMIN_KEY=.\+' /tmp/deploy_gsm.env || { echo '❌ SEASON_SETTLEMENT_ADMIN_KEY missing or empty in GSM output'; exit 1; }
           grep -q '^ONSOCIAL_PORTAL_REWARDS_API_KEY=.\+' /tmp/deploy_gsm.env || { echo '❌ ONSOCIAL_PORTAL_REWARDS_API_KEY missing or empty in GSM output'; exit 1; }
 
       - name: Sync config files to server
@@ -276,12 +277,14 @@ jobs:
               ensure_env_key_from_gsm "TELEGRAM_BOT_TOKEN" "TELEGRAM_BOT_TOKEN_TESTNET"
               ensure_env_key_from_gsm "ADMIN_SECRET" "ADMIN_SECRET"
               ensure_env_key_from_gsm "ADMIN_WALLETS" "ADMIN_WALLETS"
+              ensure_env_key_from_gsm "SEASON_SETTLEMENT_ADMIN_KEY" "SEASON_SETTLEMENT_ADMIN_KEY"
               ensure_env_key_from_gsm "ONSOCIAL_PORTAL_REWARDS_API_KEY" "ONSOCIAL_PORTAL_REWARDS_API_KEY"
 
               for required in \
                 TELEGRAM_BOT_TOKEN \
                 ADMIN_SECRET \
                 ADMIN_WALLETS \
+                SEASON_SETTLEMENT_ADMIN_KEY \
                 ONSOCIAL_PORTAL_REWARDS_API_KEY; do
                 if [ -z "$(read_env_value "$required")" ]; then
                   if [ -f deploy_gsm.env ] && grep -q "^${required}=" deploy_gsm.env; then

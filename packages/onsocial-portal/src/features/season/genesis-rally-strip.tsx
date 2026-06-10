@@ -42,11 +42,15 @@ import {
   type SeasonZeroStanding,
 } from '@/features/season/season-zero-standing-row';
 import type {
+  SeasonZeroClaimRecord,
+  SeasonZeroLifecyclePhase,
   SeasonZeroOnChainConfig,
   SeasonZeroSettlementSummary,
   SeasonZeroStatusPayload,
 } from '@/features/season/season-zero-types';
 import { resolveSeasonZeroLifecyclePhase } from '@/features/season/season-zero-types';
+import { resolveSeasonZeroClaimMetricsStatus } from '@/features/season/season-zero-claim-copy';
+import { useSeasonZeroClaimActions } from '@/features/season/season-zero-claim-panel';
 import { cn } from '@/lib/utils';
 
 const os = createPortalOnSocialClient();
@@ -106,7 +110,10 @@ export function GenesisRallyStrip({
   settlement = null,
   participantCount = 0,
   myStanding: myStandingProp = null,
+  phase: phaseProp = null,
+  claim = null,
   onParticipationChange,
+  onClaimed,
 }: {
   className?: string;
   /** `promo` — home Live section. `page` — Season 0 hero (metrics + join). */
@@ -117,12 +124,24 @@ export function GenesisRallyStrip({
   participantCount?: number;
   /** When provided (e.g. from Season 0 page), avoids a duplicate standing fetch. */
   myStanding?: SeasonZeroStanding | null;
+  phase?: SeasonZeroLifecyclePhase | null;
+  claim?: SeasonZeroClaimRecord | null;
   /** Called after a successful join so the parent can refresh standings. */
   onParticipationChange?: () => void;
+  onClaimed?: () => void;
 }) {
   const { accountId, connect, getSigningWallet, isConnected } = useWallet();
   const { txResult, setTxResult, clearTxResult, trackTransaction } =
     useNearTransactionFeedback(accountId);
+  const {
+    handleClaim,
+    claimPending,
+    txResult: claimTxResult,
+    clearTxResult: clearClaimTxResult,
+  } = useSeasonZeroClaimActions({
+    claim,
+    onClaimed,
+  });
   const [loading, setLoading] = useState(true);
   const [joined, setJoined] = useState(false);
   const [fetchedMyStanding, setFetchedMyStanding] =
@@ -214,21 +233,35 @@ export function GenesisRallyStrip({
 
     let cancelled = false;
 
-    Promise.all([
-      fetch('/api/seasons/season-zero/status', { cache: 'no-store' }),
-      fetch('/api/seasons/season-zero/standings?limit=1', {
-        cache: 'no-store',
-      }),
-    ])
-      .then(async ([statusRes, standingsRes]) => {
+    Promise.resolve()
+      .then(async () => {
+        const statusRes = await fetch('/api/seasons/season-zero/status', {
+          cache: 'no-store',
+        });
         if (cancelled) return;
 
         const statusData = (await statusRes.json()) as SeasonZeroStatusPayload;
-        if (statusRes.ok && statusData.success !== false) {
-          setPromoOnChainConfig(statusData.onChainConfig ?? null);
+        const onChain =
+          statusRes.ok && statusData.success !== false
+            ? (statusData.onChainConfig ?? null)
+            : null;
+
+        if (onChain) {
+          setPromoOnChainConfig(onChain);
           setPromoIndexedPoolYocto(statusData.indexedPoolYocto ?? '0');
           setPromoSettlement(statusData.settlement ?? null);
         }
+
+        const standingsCutoff =
+          onChain && !onChain.is_live && onChain.ends_at_ns
+            ? `&cutoff_timestamp_ns=${encodeURIComponent(onChain.ends_at_ns)}`
+            : '';
+
+        const standingsRes = await fetch(
+          `/api/seasons/season-zero/standings?limit=1${standingsCutoff}`,
+          { cache: 'no-store' }
+        );
+        if (cancelled) return;
 
         const standingsData = (await standingsRes.json()) as {
           total?: number;
@@ -430,10 +463,35 @@ export function GenesisRallyStrip({
   const metricsParticipantCount =
     variant === 'promo' ? promoParticipantCount : participantCount;
 
-  const seasonPhase = metricsOnChainConfig
-    ? resolveSeasonZeroLifecyclePhase(metricsOnChainConfig, metricsSettlement)
-    : null;
+  const seasonPhase =
+    phaseProp ??
+    (metricsOnChainConfig
+      ? resolveSeasonZeroLifecyclePhase(metricsOnChainConfig, metricsSettlement)
+      : null);
   const seasonIsLive = seasonPhase === 'live';
+
+  const claimMetricsStatus = useMemo(
+    () =>
+      variant === 'page'
+        ? resolveSeasonZeroClaimMetricsStatus({
+            phase: seasonPhase,
+            claim,
+            accountId,
+            myStanding,
+            omitStanding: Boolean(joined && myStanding),
+          })
+        : null,
+    [accountId, claim, joined, myStanding, seasonPhase, variant]
+  );
+
+  const showClaimAction =
+    variant === 'page' &&
+    seasonPhase === 'claim_open' &&
+    Boolean(claim && !claim.claimed && accountId);
+
+  const claimAmountLabel = claim
+    ? formatGenesisSocialBalanceDisplay(claim.amountYocto)
+    : null;
 
   const promoPanelClass = cn(
     'group relative overflow-hidden transition-[border-color,box-shadow] duration-200',
@@ -499,6 +557,45 @@ export function GenesisRallyStrip({
       ) : (
         <StandingRow standing={myStanding} interactive={variant !== 'promo'} />
       )}
+      {showClaimAction && claimAmountLabel ? (
+        <div className="flex flex-col gap-2 border-t border-fade-section py-2.5 sm:flex-row sm:items-center sm:justify-between">
+          <p className="portal-eyebrow text-muted-foreground">
+            Season claim
+            <span className="text-muted-foreground/40"> · </span>
+            <span className="portal-gold-text">{claimAmountLabel} SOCIAL</span>
+          </p>
+          <Button
+            size="xs"
+            className="shrink-0 self-start sm:self-auto"
+            loading={claimPending}
+            onClick={() => void handleClaim()}
+          >
+            Claim {claimAmountLabel}
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  ) : seasonPhase && seasonPhase !== 'live' ? (
+    <div
+      className={cn(
+        'px-3 py-2.5 md:px-4',
+        metricsOnChainConfig && 'border-t border-fade-section'
+      )}
+    >
+      {!accountId ? (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-muted-foreground">
+            Connect to check your season payout.
+          </p>
+          <Button
+            size="xs"
+            className="self-start sm:self-auto"
+            onClick={() => void connect()}
+          >
+            Connect wallet
+          </Button>
+        </div>
+      ) : null}
     </div>
   ) : (
     <div
@@ -559,6 +656,7 @@ export function GenesisRallyStrip({
             indexedPoolYocto={metricsIndexedPoolYocto}
             settlement={metricsSettlement}
             participantCount={metricsParticipantCount}
+            claimStatus={claimMetricsStatus}
           />
         </div>
       ) : null}
@@ -570,6 +668,10 @@ export function GenesisRallyStrip({
   return (
     <>
       <TransactionFeedbackToast result={txResult} onClose={clearTxResult} />
+      <TransactionFeedbackToast
+        result={claimTxResult}
+        onClose={clearClaimTxResult}
+      />
       <SocialSwapModal
         open={swapOpen}
         onOpenChange={setSwapOpen}

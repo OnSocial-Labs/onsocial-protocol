@@ -2,14 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, RefreshCw, Shield } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, RefreshCw } from 'lucide-react';
 import { PageShell } from '@/components/layout/page-shell';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
 import { Button } from '@/components/ui/button';
 import { PortalBadge } from '@/components/ui/portal-badge';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { useWallet } from '@/contexts/wallet-context';
-import { SeasonZeroPhasePanel } from '@/features/season/season-zero-phase-panel';
+import { SeasonZeroMetricsRail } from '@/features/season/season-zero-metrics-rail';
 import type {
   SeasonZeroSettlementSummary,
   SeasonZeroStatusPayload,
@@ -22,26 +22,125 @@ import { GOVERNANCE_WALLETS, isGovernanceWallet } from '@/lib/portal-config';
 
 type AdminAction = 'finalize' | 'publish' | null;
 
+interface FinalizePreviewRow {
+  rank: number;
+  accountId: string;
+  score: number;
+  eligible: boolean;
+}
+
+interface FinalizePreviewPayload {
+  success?: boolean;
+  stable?: boolean;
+  participantCount?: number;
+  indexedPoolAmountYocto?: string;
+  standings?: FinalizePreviewRow[];
+  error?: string;
+}
+
 function readEndsAtNs(endsAtNs: string | undefined): number {
   if (!endsAtNs) return 0;
   const parsed = Number(endsAtNs);
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function formatAdminError(error: string): { message: string; hint?: string } {
+  if (error.includes('Season settlement admin key is not configured')) {
+    return {
+      message: 'Testnet backend is missing the settlement admin key.',
+      hint: 'Redeploy testnet so SEASON_SETTLEMENT_ADMIN_KEY reaches the backend container, then retry.',
+    };
+  }
+  if (
+    error.includes(
+      'SEASON_SETTLEMENT_ADMIN_KEY is not configured on the portal server'
+    )
+  ) {
+    return {
+      message: 'Portal server is missing the settlement admin key.',
+      hint: 'Add SEASON_SETTLEMENT_ADMIN_KEY to .env.local and restart the dev server.',
+    };
+  }
+  if (error.includes('Invalid admin key')) {
+    return {
+      message: 'Portal and backend admin keys do not match.',
+      hint: 'Sync SEASON_SETTLEMENT_ADMIN_KEY from GSM on both portal and backend.',
+    };
+  }
+  return { message: error };
+}
+
+function AdminStepCard({
+  step,
+  title,
+  detail,
+  actionLabel,
+  disabled,
+  loading,
+  onAction,
+  footnote,
+}: {
+  step: string;
+  title: string;
+  detail: string;
+  actionLabel: string;
+  disabled: boolean;
+  loading: boolean;
+  onAction: () => void;
+  footnote?: string | null;
+}) {
+  return (
+    <div className="rounded-xl border border-border/40 bg-background/25 p-3 sm:p-3.5">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="portal-eyebrow text-muted-foreground">
+            {step}
+            <span className="text-muted-foreground/40"> · </span>
+            <span className="text-muted-foreground/80">{title}</span>
+          </p>
+          <p className="mt-0.5 text-xs leading-snug text-muted-foreground/80">
+            {detail}
+          </p>
+        </div>
+        <Button
+          size="xs"
+          disabled={disabled}
+          loading={loading}
+          onClick={onAction}
+          className="shrink-0"
+        >
+          {actionLabel}
+        </Button>
+      </div>
+      {footnote ? (
+        <p className="mt-2 text-[11px] leading-snug text-muted-foreground/70">
+          {footnote}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 export default function SeasonZeroAdminPage() {
   const { accountId, connect } = useWallet();
   const [allowed, setAllowed] = useState<boolean | null>(null);
   const [status, setStatus] = useState<SeasonZeroStatusPayload | null>(null);
+  const [participantCount, setParticipantCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [action, setAction] = useState<AdminAction>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [preview, setPreview] = useState<FinalizePreviewPayload | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   const settlement = status?.settlement ?? null;
   const onChain = status?.onChainConfig ?? null;
   const seasonEnded =
     onChain && !onChain.is_live && readEndsAtNs(onChain.ends_at_ns) > 0;
-  const canFinalize = Boolean(seasonEnded && !settlement && allowed);
+  const previewStable = preview?.stable === true;
+  const canFinalize = Boolean(
+    seasonEnded && !settlement && allowed && previewStable
+  );
   const canPublish = Boolean(
     allowed && settlement && settlement.status !== 'published'
   );
@@ -50,29 +149,77 @@ export default function SeasonZeroAdminPage() {
     setLoading(true);
     setActionError(null);
     try {
-      const requests: Promise<Response>[] = [
-        fetch('/api/seasons/season-zero/status', { cache: 'no-store' }),
-      ];
-      if (accountId) {
-        requests.push(
-          fetch(
-            `/api/seasons/admin/access?account_id=${encodeURIComponent(accountId)}`,
-            { cache: 'no-store' }
-          )
-        );
-      }
-
-      const [statusRes, accessRes] = await Promise.all(requests);
+      const statusRes = await fetch('/api/seasons/season-zero/status', {
+        cache: 'no-store',
+      });
       const statusData = (await statusRes.json()) as SeasonZeroStatusPayload;
       if (statusRes.ok) setStatus(statusData);
 
+      const onChain = statusRes.ok ? (statusData.onChainConfig ?? null) : null;
+      const standingsCutoff =
+        onChain && !onChain.is_live && onChain.ends_at_ns
+          ? `&cutoff_timestamp_ns=${encodeURIComponent(onChain.ends_at_ns)}`
+          : '';
+
+      const [standingsRes, accessRes] = await Promise.all([
+        fetch(`/api/seasons/season-zero/standings?limit=1${standingsCutoff}`, {
+          cache: 'no-store',
+        }),
+        accountId
+          ? fetch(
+              `/api/seasons/admin/access?account_id=${encodeURIComponent(accountId)}`,
+              { cache: 'no-store' }
+            )
+          : Promise.resolve(null),
+      ]);
+
+      const standingsData = (await standingsRes.json()) as {
+        success?: boolean;
+        total?: number;
+      };
+      if (standingsRes.ok && standingsData.success !== false) {
+        setParticipantCount(standingsData.total ?? 0);
+      }
+
+      let accessAllowed = false;
       if (accountId && accessRes) {
         const accessData = (await accessRes.json()) as {
           allowed?: boolean;
         };
-        setAllowed(Boolean(accessRes.ok && accessData.allowed));
+        accessAllowed = Boolean(accessRes.ok && accessData.allowed);
+        setAllowed(accessAllowed);
       } else {
         setAllowed(null);
+      }
+
+      const seasonEndedLocal =
+        onChain && !onChain.is_live && readEndsAtNs(onChain.ends_at_ns) > 0;
+
+      if (
+        accessAllowed &&
+        seasonEndedLocal &&
+        !statusData.settlement &&
+        accountId
+      ) {
+        setPreviewLoading(true);
+        try {
+          const cutoffQuery = onChain?.ends_at_ns
+            ? `&cutoff_timestamp_ns=${encodeURIComponent(onChain.ends_at_ns)}`
+            : '';
+          const previewRes = await fetch(
+            `/api/seasons/admin/preview?account_id=${encodeURIComponent(accountId)}${cutoffQuery}`,
+            { cache: 'no-store' }
+          );
+          const previewData =
+            (await previewRes.json()) as FinalizePreviewPayload;
+          setPreview(previewRes.ok ? previewData : null);
+        } catch {
+          setPreview(null);
+        } finally {
+          setPreviewLoading(false);
+        }
+      } else {
+        setPreview(null);
       }
     } catch {
       setActionError('Could not load season admin status.');
@@ -118,8 +265,8 @@ export default function SeasonZeroAdminPage() {
 
         setActionSuccess(
           kind === 'finalize'
-            ? 'Season 0 settlement finalized in the backend.'
-            : 'Season 0 merkle root published on-chain.'
+            ? 'Settlement finalized in the backend.'
+            : 'Merkle root published on-chain.'
         );
         await refresh();
       } catch (error) {
@@ -135,8 +282,27 @@ export default function SeasonZeroAdminPage() {
 
   const adminHintWallets = useMemo(() => {
     if (allowed) return [];
-    return GOVERNANCE_WALLETS.slice(0, 4);
+    return GOVERNANCE_WALLETS.slice(0, 3);
   }, [allowed]);
+
+  const formattedError = actionError ? formatAdminError(actionError) : null;
+
+  const finalizeFootnote =
+    !seasonEnded && onChain?.is_live
+      ? `Opens when season ends${
+          readEndsAtNs(onChain.ends_at_ns) > 0
+            ? ` (${formatGenesisSeasonTimeRemaining(readEndsAtNs(onChain.ends_at_ns))})`
+            : ''
+        }.`
+      : seasonEnded && !settlement && allowed && preview?.stable === false
+        ? 'Standings still shifting — refresh until two reads match.'
+        : seasonEnded && !settlement && allowed && previewLoading
+          ? 'Checking standings stability…'
+          : null;
+
+  const publishFootnote = settlement?.publishedTxHash
+    ? `Tx ${settlement.publishedTxHash}`
+    : null;
 
   return (
     <PageShell size="section">
@@ -145,184 +311,232 @@ export default function SeasonZeroAdminPage() {
         badgeAccent="gold"
         glowAccents={['gold', 'blue']}
         title="Season 0 settlement"
-        description="Finalize scores after the season ends, then publish the merkle root so participants can claim."
+        description="Finalize standings, then publish the merkle root."
+        titleClassName="text-3xl md:text-4xl"
+        descriptionClassName="mt-2 text-sm md:text-base"
+        contentClassName="max-w-3xl"
       />
 
-      <div className="mx-auto max-w-4xl space-y-4">
-        <SurfacePanel radius="xl" tone="soft">
-          <div className="flex items-start gap-3">
-            <Shield className="portal-gold-icon mt-0.5 h-5 w-5 shrink-0" />
-            <div className="space-y-2 text-sm">
-              <p className="font-medium text-foreground">Who can run this?</p>
-              <p className="text-muted-foreground">
-                Wallets listed in server env{' '}
-                <span className="font-mono text-foreground">ADMIN_WALLETS</span>{' '}
-                (from GSM on deploy). Local dev falls back to governance ops
-                wallets when unset. The portal holds{' '}
-                <span className="font-mono text-foreground">
-                  SEASON_SETTLEMENT_ADMIN_KEY
-                </span>{' '}
-                server-side and forwards finalize/publish to the backend — the
-                key is never sent to the browser.
-              </p>
-              {!accountId ? (
-                <Button size="sm" onClick={() => void connect()}>
-                  Connect admin wallet
-                </Button>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Connected as{' '}
-                  <span className="font-mono text-foreground">{accountId}</span>
-                  {allowed === true ? (
-                    <>
-                      {' '}
-                      ·{' '}
-                      <span className="text-[var(--portal-green)]">
-                        authorized
-                      </span>
-                    </>
-                  ) : allowed === false ? (
-                    <>
-                      {' '}
-                      ·{' '}
-                      <span className="text-[var(--portal-red)]">
-                        not authorized
-                      </span>
-                    </>
-                  ) : null}
-                </p>
-              )}
-            </div>
-          </div>
-        </SurfacePanel>
+      <div className="mx-auto max-w-3xl space-y-3">
+        <Link
+          href="/season-zero"
+          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-[var(--portal-blue)]"
+        >
+          <ArrowLeft className="h-3 w-3" />
+          Genesis Rally
+        </Link>
 
-        <SeasonZeroPhasePanel
-          onChainConfig={onChain}
-          indexedPoolYocto={status?.indexedPoolYocto}
-          settlement={settlement}
-        />
+        {onChain ? (
+          <SurfacePanel
+            radius="xl"
+            tone="solid"
+            borderTone="strong"
+            padding="none"
+            className="overflow-hidden border-border/40"
+          >
+            <SeasonZeroMetricsRail
+              onChainConfig={onChain}
+              indexedPoolYocto={status?.indexedPoolYocto}
+              settlement={settlement}
+              participantCount={participantCount}
+              showSettlementDetail
+            />
+          </SurfacePanel>
+        ) : null}
 
-        <SurfacePanel radius="xl" tone="soft" className="space-y-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold tracking-tight">Actions</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Run in order after the on-chain end time: finalize, then
-                publish.
-              </p>
-            </div>
+        <SurfacePanel
+          radius="xl"
+          tone="soft"
+          padding="snug"
+          className="space-y-3 border-border/40"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <p className="portal-eyebrow text-muted-foreground">
+              Settlement ops
+              {allowed === true ? (
+                <>
+                  <span className="text-muted-foreground/40"> · </span>
+                  <span className="text-[var(--portal-green)]">authorized</span>
+                </>
+              ) : allowed === false ? (
+                <>
+                  <span className="text-muted-foreground/40"> · </span>
+                  <span className="text-[var(--portal-red)]">
+                    not authorized
+                  </span>
+                </>
+              ) : null}
+            </p>
             <Button
-              size="sm"
+              size="xs"
               variant="secondary"
-              className="h-9"
               loading={loading}
               onClick={() => void refresh()}
+              className="gap-1.5"
             >
-              <RefreshCw className="h-3.5 w-3.5" />
+              <RefreshCw className="h-3 w-3" />
               Refresh
             </Button>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl border border-border/40 bg-background/30 p-4">
-              <p className="text-sm font-medium text-foreground">1. Finalize</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Freeze standings at season end, build merkle tree, store claims
-                in the backend database.
-              </p>
-              <Button
-                size="sm"
-                className="mt-3"
-                disabled={!canFinalize}
-                loading={action === 'finalize'}
-                onClick={() => void runAction('finalize')}
-              >
-                Finalize Season 0
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            {!accountId ? (
+              <Button size="xs" onClick={() => void connect()}>
+                Connect admin wallet
               </Button>
-              {!seasonEnded && onChain?.is_live ? (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Available when season ends
-                  {readEndsAtNs(onChain.ends_at_ns) > 0
-                    ? ` (${formatGenesisSeasonTimeRemaining(readEndsAtNs(onChain.ends_at_ns))})`
-                    : ''}
-                  .
-                </p>
-              ) : null}
-            </div>
-
-            <div className="rounded-xl border border-border/40 bg-background/30 p-4">
-              <p className="text-sm font-medium text-foreground">2. Publish</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Push the merkle root to the social-spend contract via relayer so
-                claims can open.
-              </p>
-              <Button
-                size="sm"
-                className="mt-3"
-                disabled={!canPublish}
-                loading={action === 'publish'}
-                onClick={() => void runAction('publish')}
-              >
-                Publish on-chain
-              </Button>
-              {settlement?.publishedTxHash ? (
-                <p className="mt-2 break-all text-xs text-muted-foreground">
-                  Published tx: {settlement.publishedTxHash}
-                </p>
-              ) : null}
-            </div>
-          </div>
-
-          {settlement ? (
-            <div className="rounded-xl border border-border/40 px-4 py-3 text-xs text-muted-foreground">
-              <div className="flex flex-wrap items-center gap-2">
+            ) : (
+              <span className="font-mono text-foreground/90">{accountId}</span>
+            )}
+            {settlement ? (
+              <>
+                <span className="text-muted-foreground/40">·</span>
                 <PortalBadge accent="neutral" size="sm">
                   {settlement.status}
                 </PortalBadge>
-                <span>
-                  {settlement.participantCount} participants ·{' '}
+                <span className="text-muted-foreground/70">
+                  {settlement.participantCount} in payout ·{' '}
                   {formatGenesisYoctoAsSocial(settlement.totalAmountYocto)}{' '}
-                  SOCIAL allocated
+                  SOCIAL
                 </span>
+              </>
+            ) : (
+              <span className="text-muted-foreground/70">
+                No settlement snapshot yet
+              </span>
+            )}
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            <AdminStepCard
+              step="1"
+              title="Finalize"
+              detail="Snapshot standings, build merkle tree, store claims."
+              actionLabel="Finalize"
+              disabled={!canFinalize}
+              loading={action === 'finalize'}
+              onAction={() => void runAction('finalize')}
+              footnote={finalizeFootnote}
+            />
+            <AdminStepCard
+              step="2"
+              title="Publish"
+              detail="Push merkle root on-chain so claims can open."
+              actionLabel="Publish"
+              disabled={!canPublish}
+              loading={action === 'publish'}
+              onAction={() => void runAction('publish')}
+              footnote={publishFootnote}
+            />
+          </div>
+
+          {seasonEnded && !settlement && allowed ? (
+            <div className="rounded-xl border border-border/40 bg-background/25 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="portal-eyebrow text-muted-foreground">
+                  Finalize preview
+                  {preview?.stable === true ? (
+                    <>
+                      <span className="text-muted-foreground/40"> · </span>
+                      <span className="text-[var(--portal-green)]">stable</span>
+                    </>
+                  ) : preview?.stable === false ? (
+                    <>
+                      <span className="text-muted-foreground/40"> · </span>
+                      <span className="text-[var(--portal-red)]">unstable</span>
+                    </>
+                  ) : null}
+                </p>
+                {previewLoading ? (
+                  <span className="text-[11px] text-muted-foreground/70">
+                    Re-reading…
+                  </span>
+                ) : null}
               </div>
+              {preview?.standings && preview.standings.length > 0 ? (
+                <ul className="mt-2 space-y-1 text-xs">
+                  {preview.standings.map((row) => (
+                    <li
+                      key={row.accountId}
+                      className="flex items-center justify-between gap-2 font-mono text-foreground/90"
+                    >
+                      <span>
+                        #{row.rank}{' '}
+                        <span className="text-muted-foreground">
+                          {row.accountId}
+                        </span>
+                      </span>
+                      <span>
+                        {row.score.toLocaleString()} pts
+                        {!row.eligible ? (
+                          <span className="ml-1 text-muted-foreground/70">
+                            · ineligible
+                          </span>
+                        ) : null}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 text-[11px] text-muted-foreground/75">
+                  {previewLoading
+                    ? 'Loading payout ranks…'
+                    : 'Preview unavailable — refresh after connecting an admin wallet.'}
+                </p>
+              )}
+              {preview?.indexedPoolAmountYocto ? (
+                <p className="mt-2 text-[11px] text-muted-foreground/70">
+                  Pool{' '}
+                  {formatGenesisYoctoAsSocial(preview.indexedPoolAmountYocto)}{' '}
+                  SOCIAL · {preview.participantCount ?? 0} participants
+                </p>
+              ) : null}
             </div>
           ) : null}
 
           {actionSuccess ? (
-            <p className="text-sm text-[var(--portal-green)]">
+            <p className="text-xs text-[var(--portal-green)]">
               {actionSuccess}
             </p>
           ) : null}
-          {actionError ? (
-            <p className="flex items-start gap-2 text-sm text-[var(--portal-red)]">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-              {actionError}
-            </p>
+
+          {formattedError ? (
+            <div className="rounded-lg border border-[var(--portal-red-border)] bg-[var(--portal-red-bg)] px-3 py-2 text-xs text-[var(--portal-red)]">
+              <p className="flex items-start gap-1.5 font-medium">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                {formattedError.message}
+              </p>
+              {formattedError.hint ? (
+                <p className="mt-1 pl-5 text-[var(--portal-red)]/85">
+                  {formattedError.hint}
+                </p>
+              ) : null}
+            </div>
           ) : null}
 
           {allowed === false && accountId ? (
-            <p className="text-xs text-muted-foreground">
-              This wallet is not in{' '}
-              <span className="font-mono">ADMIN_WALLETS</span>. Try one of the
-              configured ops wallets
+            <p className="text-[11px] leading-snug text-muted-foreground/75">
+              Wallet not in{' '}
+              <span className="font-mono text-muted-foreground">
+                ADMIN_WALLETS
+              </span>
               {adminHintWallets.length > 0
-                ? ` (e.g. ${adminHintWallets.join(', ')})`
+                ? ` — try ${adminHintWallets.join(', ')}`
                 : ''}
               {isGovernanceWallet(accountId)
-                ? ', or add ADMIN_WALLETS to the portal server env.'
+                ? ', or add your wallet to portal ADMIN_WALLETS.'
                 : '.'}
             </p>
           ) : null}
-        </SurfacePanel>
 
-        <p className="text-center text-sm text-muted-foreground">
-          <Link
-            href="/season-zero"
-            className="text-[var(--portal-blue)] hover:underline"
-          >
-            Back to Genesis Rally standings
-          </Link>
-        </p>
+          {!accountId ? (
+            <p className="text-[11px] leading-snug text-muted-foreground/70">
+              Requires a wallet in{' '}
+              <span className="font-mono">ADMIN_WALLETS</span>. The portal
+              forwards finalize/publish with a server-side key — never exposed
+              to the browser.
+            </p>
+          ) : null}
+        </SurfacePanel>
       </div>
     </PageShell>
   );

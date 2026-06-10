@@ -71,3 +71,34 @@ export async function forwardSeasonAdminRequest(
     body: JSON.stringify(body),
   });
 }
+
+export async function forwardSeasonAdminGet(
+  path: string,
+  search = ''
+): Promise<Response> {
+  const adminKey = getSeasonSettlementAdminKey();
+  if (!adminKey) {
+    return Response.json(
+      {
+        success: false,
+        error:
+          'SEASON_SETTLEMENT_ADMIN_KEY is not configured on the portal server',
+      },
+      { status: 503 }
+    );
+  }
+
+  const base = (process.env.BACKEND_URL ?? ACTIVE_BACKEND_URL).replace(
+    /\/$/,
+    ''
+  );
+  const targetUrl = `${base}/v1/seasons/${path}${search}`;
+
+  return fetch(targetUrl, {
+    method: 'GET',
+    cache: 'no-store',
+    headers: {
+      'x-admin-key': adminKey,
+    },
+  });
+}
