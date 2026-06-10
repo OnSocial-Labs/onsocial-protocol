@@ -45,7 +45,13 @@ type GovernanceDaoProposalSnapshot = {
   policy_snapshot?: GovernanceDaoPolicySnapshot | null;
 };
 
-type ProtocolGovernanceKind = 'upgrade' | 'treasury' | 'permissions' | 'config';
+type ProtocolGovernanceKind =
+  | 'upgrade'
+  | 'treasury'
+  | 'permissions'
+  | 'config'
+  | 'staking'
+  | 'signaling';
 
 type PublicGovernanceApplication = {
   app_id: string;
@@ -448,6 +454,21 @@ function containsStakingKeyword(value: string | null | undefined): boolean {
   return typeof value === 'string' && value.toLowerCase().includes('staking');
 }
 
+function isStakingProposal(
+  proposal: GovernanceDaoProposalRecord,
+  kindName: string,
+  receiverId: string | null,
+  methodName: string | null
+): boolean {
+  const excludedReceivers = getExcludedProtocolReceivers();
+  return (
+    kindName === 'SetStakingContract' ||
+    excludedReceivers.has(receiverId ?? '') ||
+    containsStakingKeyword(methodName) ||
+    containsStakingKeyword(proposal.description)
+  );
+}
+
 const DAO_ROLE_DISPLAY_NAMES: Record<string, string> = {
   delegated_proposers: 'Delegated proposers',
   guardians: 'Guardians',
@@ -571,6 +592,14 @@ function deriveProtocolProposalHeadline(
     return descriptionLine || 'Update vote policy';
   }
 
+  if (kindName === 'SetStakingContract') {
+    return descriptionLine || 'Set staking contract';
+  }
+
+  if (kindName === 'Vote') {
+    return descriptionLine || 'Signaling proposal';
+  }
+
   return descriptionLine || 'Governance proposal';
 }
 
@@ -692,26 +721,50 @@ function classifyProtocolProposal(
   subject: string;
 } | null {
   const allowedReceivers = getAllowedProtocolReceivers();
-  const excludedReceivers = getExcludedProtocolReceivers();
   const kindName = getProposalKindName(proposal.kind);
+  const kindPayload = proposal.kind?.[kindName];
   const { receiverId, methodName } = getFunctionCallShape(proposal.kind);
 
   if (getPartnerProposalDetails(proposal)) {
     return null;
   }
 
-  if (
-    kindName === 'SetStakingContract' ||
-    excludedReceivers.has(receiverId ?? '') ||
-    containsStakingKeyword(methodName) ||
-    containsStakingKeyword(proposal.description)
-  ) {
-    return null;
+  if (kindName === 'SetStakingContract') {
+    const stakingId = readKindStringField(kindPayload, 'staking_id');
+    return {
+      protocolKind: 'staking',
+      targetAccount: stakingId,
+      targetMethod: 'set_staking_contract',
+      subject: 'Staking governance',
+    };
+  }
+
+  if (kindName === 'Vote') {
+    return {
+      protocolKind: 'signaling',
+      targetAccount: daoAccountId,
+      targetMethod: 'vote',
+      subject: 'Signaling',
+    };
   }
 
   if (kindName === 'FunctionCall') {
+    if (isStakingProposal(proposal, kindName, receiverId, methodName)) {
+      return {
+        protocolKind: 'staking',
+        targetAccount: receiverId,
+        targetMethod: methodName,
+        subject: getProtocolSubject(receiverId),
+      };
+    }
+
     if (!receiverId || !allowedReceivers.has(receiverId)) {
-      return null;
+      return {
+        protocolKind: 'config',
+        targetAccount: receiverId,
+        targetMethod: methodName,
+        subject: receiverId ?? 'External contract',
+      };
     }
 
     let protocolKind: ProtocolGovernanceKind = 'config';
@@ -769,7 +822,79 @@ function classifyProtocolProposal(
     };
   }
 
+  if (kindName) {
+    return {
+      protocolKind: 'config',
+      targetAccount: daoAccountId,
+      targetMethod: kindName,
+      subject: 'Governance proposal',
+    };
+  }
+
   return null;
+}
+
+function mapMissingProposalToFeedItem(
+  daoAccountId: string,
+  proposalId: number
+): PublicGovernanceApplication {
+  const description =
+    'This proposal id was allocated on chain but is no longer stored by the DAO contract.';
+
+  return {
+    app_id: `protocol-proposal-${proposalId}`,
+    label: `Proposal #${proposalId} (removed from chain)`,
+    status: 'rejected',
+    wallet_id: null,
+    description,
+    website_url: null,
+    telegram_handle: null,
+    x_handle: null,
+    created_at: new Date(0).toISOString(),
+    governance_scope: 'protocol',
+    protocol_kind: 'config',
+    protocol_subject: 'Governance proposal',
+    protocol_target_account: daoAccountId,
+    protocol_target_method: 'removed',
+    governance_proposal: {
+      proposal_id: proposalId,
+      status: 'Removed',
+      proposer: null,
+      description,
+      dao_account: daoAccountId,
+      tx_hash: null,
+      submitted_at: null,
+      kind: { Removed: null },
+      snapshot: {
+        id: proposalId,
+        proposer: '',
+        description,
+        kind: { Removed: null },
+        status: 'Removed',
+        vote_counts: {},
+        votes: {},
+        submission_time: '',
+      },
+    },
+  };
+}
+
+function buildMissingProposalFeedItems(
+  daoAccountId: string,
+  snapshotsById: Map<number, GovernanceDaoProposalSnapshot>,
+  lastProposalId: number
+): PublicGovernanceApplication[] {
+  const missing: PublicGovernanceApplication[] = [];
+
+  for (let proposalId = 0; proposalId <= lastProposalId; proposalId += 1) {
+    if (snapshotsById.has(proposalId)) {
+      continue;
+    }
+
+    missing.push(mapMissingProposalToFeedItem(daoAccountId, proposalId));
+  }
+
+  return missing;
 }
 
 function mapProtocolProposalToFeedItem(
@@ -886,10 +1011,26 @@ async function fetchDaoGovernanceFeed(daoAccountId: string): Promise<{
       .map((proposal) => mapPartnerProposalToFeedItem(proposal, daoAccountId))
       .filter((item): item is PublicGovernanceApplication => item !== null)
       .reverse();
-    const protocolItems = proposals
+    const protocolItemsMapped = proposals
       .map((proposal) => mapProtocolProposalToFeedItem(proposal, daoAccountId))
-      .filter((item): item is PublicGovernanceApplication => item !== null)
-      .reverse();
+      .filter((item): item is PublicGovernanceApplication => item !== null);
+
+    const lastProposalId = await viewContractAt<number>(
+      daoAccountId,
+      'get_last_proposal_id',
+      {}
+    ).catch(() => null);
+
+    const gapItems =
+      typeof lastProposalId === 'number' && lastProposalId >= 0
+        ? buildMissingProposalFeedItems(
+            daoAccountId,
+            snapshotsById,
+            lastProposalId
+          )
+        : [];
+
+    const protocolItems = [...protocolItemsMapped, ...gapItems].reverse();
 
     const scannedProposalIds = new Set(
       proposals
@@ -898,6 +1039,12 @@ async function fetchDaoGovernanceFeed(daoAccountId: string): Promise<{
           (proposalId): proposalId is number => typeof proposalId === 'number'
         )
     );
+
+    if (typeof lastProposalId === 'number' && lastProposalId >= 0) {
+      for (let proposalId = 0; proposalId <= lastProposalId; proposalId += 1) {
+        scannedProposalIds.add(proposalId);
+      }
+    }
 
     return {
       partnerItems,

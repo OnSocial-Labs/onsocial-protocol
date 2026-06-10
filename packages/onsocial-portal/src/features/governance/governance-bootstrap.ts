@@ -72,6 +72,36 @@ function containsStakingKeyword(value: string | null | undefined): boolean {
   return /staking/i.test(value);
 }
 
+function readKindStringField(
+  kindPayload: unknown,
+  field: string
+): string | null {
+  if (
+    !kindPayload ||
+    typeof kindPayload !== 'object' ||
+    Array.isArray(kindPayload)
+  ) {
+    return null;
+  }
+
+  const raw = (kindPayload as Record<string, unknown>)[field];
+  return typeof raw === 'string' && raw.trim() ? raw.trim() : null;
+}
+
+function isStakingProposal(
+  proposal: GovernanceDaoProposal,
+  receiverId: string | null,
+  methodName: string | null
+): boolean {
+  const kindName = getProposalKindName(proposal.kind);
+  return (
+    kindName === 'SetStakingContract' ||
+    STAKING_GOVERNANCE_ACCOUNTS.has(receiverId ?? '') ||
+    containsStakingKeyword(methodName) ||
+    containsStakingKeyword(proposal.description)
+  );
+}
+
 export function getPartnerProposalDetails(proposal: GovernanceDaoProposal): {
   appId: string | null;
   label: string | null;
@@ -135,20 +165,45 @@ function classifyProtocolProposal(
   }
 
   const kindName = getProposalKindName(proposal.kind);
+  const kindPayload = proposal.kind?.[kindName];
   const { receiverId, methodName } = getFunctionCallShape(proposal.kind);
 
-  if (
-    kindName === 'SetStakingContract' ||
-    STAKING_GOVERNANCE_ACCOUNTS.has(receiverId ?? '') ||
-    containsStakingKeyword(methodName) ||
-    containsStakingKeyword(proposal.description)
-  ) {
-    return null;
+  if (kindName === 'SetStakingContract') {
+    const stakingId = readKindStringField(kindPayload, 'staking_id');
+    return {
+      protocolKind: 'staking',
+      targetAccount: stakingId,
+      targetMethod: 'set_staking_contract',
+      subject: 'Staking governance',
+    };
+  }
+
+  if (kindName === 'Vote') {
+    return {
+      protocolKind: 'signaling',
+      targetAccount: daoAccountId,
+      targetMethod: 'vote',
+      subject: 'Signaling',
+    };
   }
 
   if (kindName === 'FunctionCall') {
+    if (isStakingProposal(proposal, receiverId, methodName)) {
+      return {
+        protocolKind: 'staking',
+        targetAccount: receiverId,
+        targetMethod: methodName,
+        subject: receiverId ?? 'Staking governance',
+      };
+    }
+
     if (!receiverId || !ALLOWED_PROTOCOL_RECEIVERS.has(receiverId)) {
-      return null;
+      return {
+        protocolKind: 'config',
+        targetAccount: receiverId,
+        targetMethod: methodName,
+        subject: receiverId ?? 'External contract',
+      };
     }
 
     let protocolKind: ProtocolGovernanceKind = 'config';
@@ -210,7 +265,49 @@ function classifyProtocolProposal(
     };
   }
 
+  if (kindName) {
+    return {
+      protocolKind: 'config',
+      targetAccount: daoAccountId,
+      targetMethod: kindName,
+      subject: 'Governance proposal',
+    };
+  }
+
   return null;
+}
+
+export function buildMissingGovernanceApplicationFromProposalId(
+  proposalId: number,
+  daoAccountId: string = GOVERNANCE_DAO_ACCOUNT
+): Application {
+  const appId = `protocol-proposal-${proposalId}`;
+  const description =
+    'This proposal id was allocated on chain but is no longer stored by the DAO contract.';
+
+  return buildGovernanceApplicationFromDaoProposal(
+    appId,
+    {
+      id: proposalId,
+      proposer: '',
+      description,
+      kind: { Removed: null },
+      status: 'Removed',
+      vote_counts: {},
+      votes: {},
+      submission_time: '',
+    },
+    proposalId,
+    {
+      scope: 'protocol',
+      label: `Proposal #${proposalId} (removed from chain)`,
+      protocolKind: 'config',
+      protocolSubject: 'Governance proposal',
+      protocolTargetAccount: daoAccountId,
+      protocolTargetMethod: 'removed',
+      daoAccountId,
+    }
+  );
 }
 
 export function shouldIncludeInGovernanceBootstrap(
@@ -257,9 +354,11 @@ function resolveBootstrapScope(
 
 export function buildGovernanceApplicationsFromDaoProposals(
   proposals: GovernanceDaoProposal[],
-  daoAccountId: string = GOVERNANCE_DAO_ACCOUNT
+  daoAccountId: string = GOVERNANCE_DAO_ACCOUNT,
+  options?: { lastProposalId?: number | null }
 ): Application[] {
   const apps: Application[] = [];
+  const seenProposalIds = new Set<number>();
 
   for (const proposal of proposals) {
     const proposalId = proposal.id;
@@ -296,6 +395,23 @@ export function buildGovernanceApplicationsFromDaoProposals(
     );
 
     apps.push(app);
+    seenProposalIds.add(proposalId);
+  }
+
+  const lastProposalId = options?.lastProposalId;
+  if (typeof lastProposalId === 'number' && lastProposalId >= 0) {
+    for (let proposalId = 0; proposalId <= lastProposalId; proposalId += 1) {
+      if (seenProposalIds.has(proposalId)) {
+        continue;
+      }
+
+      apps.push(
+        buildMissingGovernanceApplicationFromProposalId(
+          proposalId,
+          daoAccountId
+        )
+      );
+    }
   }
 
   return apps;

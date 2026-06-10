@@ -227,8 +227,11 @@ function seedDaoProposalSnapshots(proposals: DaoProposalFixture[]) {
   );
 }
 
-function seedDaoPolicyFetch() {
+function seedDaoPolicyFetch(lastProposalId?: number) {
   mockFetch.mockResolvedValueOnce(mockRpcViewResult(DAO_POLICY_FIXTURE));
+  if (lastProposalId !== undefined) {
+    mockFetch.mockResolvedValueOnce(mockRpcViewResult(lastProposalId));
+  }
 }
 
 beforeEach(() => {
@@ -763,7 +766,7 @@ describe('GET /v1/governance/feed scoped results', () => {
     expect(protocolRes.body.applications).toHaveLength(0);
   });
 
-  it('excludes staking governance from the public governance feed', async () => {
+  it('includes staking governance in the public governance feed', async () => {
     mockQuery.mockResolvedValueOnce(makeRows([]));
     seedDaoProposalSnapshots([
       {
@@ -803,9 +806,65 @@ describe('GET /v1/governance/feed scoped results', () => {
     );
 
     expect(res.status).toBe(200);
-    expect(res.body.applications).toHaveLength(1);
-    expect(res.body.applications[0].protocol_target_account).toBe(
-      'boost.onsocial.testnet'
+    expect(res.body.applications).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          app_id: 'protocol-proposal-0',
+          protocol_kind: 'staking',
+        }),
+        expect.objectContaining({
+          protocol_target_account: 'boost.onsocial.testnet',
+        }),
+      ])
+    );
+  });
+
+  it('includes placeholders for allocated but removed proposal ids', async () => {
+    mockQuery.mockResolvedValueOnce(makeRows([]));
+    seedDaoProposalSnapshots([
+      {
+        id: 0,
+        proposer: 'greenghost.onsocial.testnet',
+        description: 'Set governance staking contract',
+        kind: {
+          SetStakingContract: {
+            staking_id: 'staking-governance.onsocial.testnet',
+          },
+        },
+        status: 'Approved',
+        submission_time: '1773316571093161525',
+      },
+      {
+        id: 2,
+        proposer: 'voter2.onsocial.testnet',
+        description: 'Signaling idea',
+        kind: { Vote: null },
+        status: 'InProgress',
+        submission_time: '1773316924632618708',
+      },
+    ]);
+    seedDaoPolicyFetch(2);
+
+    const res = await request(buildApp()).get(
+      '/v1/governance/feed?scope=protocol'
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.applications).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          app_id: 'protocol-proposal-1',
+          label: 'Proposal #1 (removed from chain)',
+          governance_proposal: expect.objectContaining({
+            proposal_id: 1,
+            status: 'Removed',
+          }),
+        }),
+        expect.objectContaining({
+          app_id: 'protocol-proposal-2',
+          protocol_kind: 'signaling',
+        }),
+      ])
     );
   });
 

@@ -17,7 +17,9 @@ export type ProtocolGovernanceKind =
   | 'upgrade'
   | 'treasury'
   | 'permissions'
-  | 'config';
+  | 'config'
+  | 'staking'
+  | 'signaling';
 
 export type GovernanceDaoProposalStatus =
   | 'InProgress'
