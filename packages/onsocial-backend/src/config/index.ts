@@ -68,6 +68,11 @@ export const config = {
     ((process.env.NEAR_NETWORK || 'testnet') === 'mainnet'
       ? 'governance.onsocial.near'
       : 'governance.onsocial.testnet'),
+  treasuryDao:
+    process.env.TREASURY_DAO_ACCOUNT ||
+    ((process.env.NEAR_NETWORK || 'testnet') === 'mainnet'
+      ? 'treasury.onsocial.near'
+      : 'treasury.onsocial.testnet'),
   relayerAccount:
     process.env.RELAYER_ACCOUNT ||
     ((process.env.NEAR_NETWORK || 'testnet') === 'mainnet'

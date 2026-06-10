@@ -29,7 +29,16 @@ import {
   ensureGovernanceProposalEventSource,
   subscribeGovernanceProposalUpdates,
 } from '@/features/governance/governance-proposal-events-client';
-import { GOVERNANCE_DAO_ACCOUNT } from '@/lib/portal-config';
+import {
+  appendGovernanceDaoBoardParam,
+  GOVERNANCE_DAO_BOARD_OPTIONS,
+  GOVERNANCE_DAO_BOARD_PARAM,
+  getLaneOptionsForBoard,
+  normalizeLaneForBoard,
+  parseGovernanceDaoBoard,
+  resolveGovernanceDaoAccountId,
+  type GovernanceDaoBoard,
+} from '@/features/governance/governance-dao-board';
 import type { GovernanceDaoPolicy } from '@/features/governance/types';
 import { GovernanceCard } from '@/features/governance/governance-card';
 import { GovernanceRail } from '@/features/governance/governance-rail';
@@ -41,7 +50,6 @@ import {
   getStatusCounts,
   getVisibleStatusOptions,
   GOVERNANCE_PAGE_SIZE,
-  LANE_OPTIONS,
   parseLane,
   parsePage,
   parseStatusFilter,
@@ -56,6 +64,11 @@ import type {
 function GovernancePageContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [activeBoard, setActiveBoard] = useState<GovernanceDaoBoard>(() =>
+    parseGovernanceDaoBoard(searchParams.get(GOVERNANCE_DAO_BOARD_PARAM))
+  );
+  const daoAccountId = resolveGovernanceDaoAccountId(activeBoard);
+  const laneOptions = getLaneOptionsForBoard(activeBoard);
   const [apps, setApps] = useState<Application[]>([]);
   const [daoPolicy, setDaoPolicy] = useState<GovernanceDaoPolicy | null>(null);
   const [proposalPeriodNs, setProposalPeriodNs] = useState<string | null>(null);
@@ -63,7 +76,10 @@ function GovernancePageContent() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [activeLane, setActiveLane] = useState<GovernanceLane>(() =>
-    parseLane(searchParams.get('lane'))
+    normalizeLaneForBoard(
+      parseGovernanceDaoBoard(searchParams.get(GOVERNANCE_DAO_BOARD_PARAM)),
+      parseLane(searchParams.get('lane'))
+    )
   );
   const [statusFilter, setStatusFilter] = useState<GovernanceStatusFilter>(() =>
     parseStatusFilter(searchParams.get('status'))
@@ -84,6 +100,7 @@ function GovernancePageContent() {
     if (syncUrlRef.current) clearTimeout(syncUrlRef.current);
     syncUrlRef.current = setTimeout(() => {
       const params = new URLSearchParams();
+      appendGovernanceDaoBoardParam(params, activeBoard);
       if (activeLane !== 'all') params.set('lane', activeLane);
       if (statusFilter !== 'all') params.set('status', statusFilter);
       const trimmedQuery = searchQuery.trim();
@@ -101,7 +118,14 @@ function GovernancePageContent() {
     return () => {
       if (syncUrlRef.current) clearTimeout(syncUrlRef.current);
     };
-  }, [activeLane, currentPage, pathname, searchQuery, statusFilter]);
+  }, [
+    activeBoard,
+    activeLane,
+    currentPage,
+    pathname,
+    searchQuery,
+    statusFilter,
+  ]);
 
   const hasLoadedApps = useRef(false);
 
@@ -134,7 +158,9 @@ function GovernancePageContent() {
     let showedInterimData = false;
 
     try {
-      const cachedFeed = !isRefresh ? readGovernanceFeedCache() : null;
+      const cachedFeed = !isRefresh
+        ? readGovernanceFeedCache(daoAccountId)
+        : null;
       if (cachedFeed) {
         setApps(cachedFeed.applications);
         setDaoPolicy(cachedFeed.daoPolicy);
@@ -142,7 +168,7 @@ function GovernancePageContent() {
         setLoading(false);
         showedInterimData = true;
       } else if (!isRefresh) {
-        const bootstrap = await fetchGovernanceFeedBootstrap();
+        const bootstrap = await fetchGovernanceFeedBootstrap(daoAccountId);
         if (bootstrap && bootstrap.applications.length > 0) {
           bootstrapApps = bootstrap.applications;
           setApps(bootstrapApps);
@@ -154,6 +180,7 @@ function GovernancePageContent() {
       }
 
       const feed = await fetchGovernanceFeed({
+        daoAccountId,
         skipMemoryCache: isRefresh,
         onRevalidate: (freshFeed) => {
           applyFeed(bootstrapApps, freshFeed);
@@ -167,10 +194,10 @@ function GovernancePageContent() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [applyFeed]);
+  }, [applyFeed, daoAccountId]);
 
   useLayoutEffect(() => {
-    const cachedFeed = readGovernanceFeedCache();
+    const cachedFeed = readGovernanceFeedCache(daoAccountId);
     if (!cachedFeed) {
       return;
     }
@@ -179,33 +206,28 @@ function GovernancePageContent() {
     setDaoPolicy(cachedFeed.daoPolicy);
     setProposalPeriodNs(cachedFeed.daoPolicy?.proposal_period ?? null);
     setLoading(false);
-  }, []);
+  }, [daoAccountId]);
 
   useEffect(() => {
+    hasLoadedApps.current = false;
     loadApps();
   }, [loadApps]);
 
   useEffect(() => {
-    ensureGovernanceProposalEventSource(GOVERNANCE_DAO_ACCOUNT);
+    ensureGovernanceProposalEventSource(daoAccountId);
 
     return subscribeGovernanceProposalUpdates((proposalId) => {
-      void fetchDaoProposal(proposalId, GOVERNANCE_DAO_ACCOUNT).then(
-        (snapshot) => {
-          if (!snapshot) {
-            return;
-          }
-
-          setApps((current) =>
-            patchGovernanceFeedApplicationSnapshot(
-              current,
-              proposalId,
-              snapshot
-            )
-          );
+      void fetchDaoProposal(proposalId, daoAccountId).then((snapshot) => {
+        if (!snapshot) {
+          return;
         }
-      );
+
+        setApps((current) =>
+          patchGovernanceFeedApplicationSnapshot(current, proposalId, snapshot)
+        );
+      });
     });
-  }, []);
+  }, [daoAccountId]);
 
   const feedItems = buildGovernanceFeedItems(apps, { proposalPeriodNs });
   const { laneItems, filteredItems, normalizedQuery } = filterGovernanceItems({
@@ -237,6 +259,18 @@ function GovernancePageContent() {
       setCurrentPage(safeCurrentPage);
     }
   }, [currentPage, safeCurrentPage]);
+
+  function handleBoardChange(nextBoard: GovernanceDaoBoard) {
+    if (nextBoard === activeBoard) {
+      return;
+    }
+
+    setActiveBoard(nextBoard);
+    setActiveLane((lane) => normalizeLaneForBoard(nextBoard, lane));
+    setCurrentPage(1);
+    setContentKey((k) => k + 1);
+    hasLoadedApps.current = false;
+  }
 
   function handleFilterChange(updater: () => void) {
     updater();
@@ -290,9 +324,12 @@ function GovernancePageContent() {
           />
 
           <GovernanceRail
+            activeBoard={activeBoard}
+            boardOptions={GOVERNANCE_DAO_BOARD_OPTIONS}
             activeLane={activeLane}
-            laneOptions={LANE_OPTIONS}
+            laneOptions={laneOptions}
             loading={loading || refreshing}
+            onBoardChange={handleBoardChange}
             onLaneChange={(lane) => {
               handleFilterChange(() => setActiveLane(lane));
             }}

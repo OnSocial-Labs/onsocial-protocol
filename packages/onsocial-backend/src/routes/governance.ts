@@ -55,12 +55,16 @@ function readDaoAccountId(value: unknown): string {
 router.get('/feed', async (req: Request, res: Response): Promise<void> => {
   try {
     const scope = parseGovernanceFeedScope(req.query.scope);
-    const { applications, daoPolicy } =
-      await getGovernanceFeedApplications(scope);
+    const daoAccountId = readDaoAccountId(req.query.daoAccountId);
+    const { applications, daoPolicy } = await getGovernanceFeedApplications(
+      scope,
+      daoAccountId
+    );
 
     res.json({
       success: true,
       scope,
+      daoAccountId,
       applications,
       daoPolicy,
     });

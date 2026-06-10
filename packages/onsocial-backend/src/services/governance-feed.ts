@@ -116,6 +116,7 @@ function mapDaoProposalSnapshot(
 
 function buildGovernanceProposalFromRecord(
   proposal: GovernanceDaoProposalRecord,
+  daoAccountId: string,
   overrides?: Partial<PublicGovernanceProposal>
 ): PublicGovernanceProposal {
   const description = proposal.description?.trim() || null;
@@ -126,7 +127,7 @@ function buildGovernanceProposalFromRecord(
     status: proposal.status ?? 'Unknown',
     proposer: proposal.proposer ?? null,
     description,
-    dao_account: config.governanceDao,
+    dao_account: daoAccountId,
     tx_hash: null,
     submitted_at: proposal.submission_time ?? null,
     kind: proposal.kind ?? null,
@@ -585,6 +586,7 @@ function getProtocolSubject(accountId: string | null): string {
     [resolveProtocolAccount('scarces')]: 'Scarces contract',
     [resolveProtocolAccount('token')]: 'Token contract',
     [config.governanceDao]: 'Governance DAO',
+    [config.treasuryDao]: 'Treasury DAO',
   };
 
   return subjects[accountId] ?? accountId;
@@ -640,7 +642,8 @@ function getPartnerProposalDetails(proposal: GovernanceDaoProposalRecord): {
 }
 
 function mapPartnerProposalToFeedItem(
-  proposal: GovernanceDaoProposalRecord
+  proposal: GovernanceDaoProposalRecord,
+  daoAccountId: string
 ): PublicGovernanceApplication | null {
   const partnerDetails = getPartnerProposalDetails(proposal);
   if (!partnerDetails) {
@@ -669,13 +672,20 @@ function mapPartnerProposalToFeedItem(
     x_handle: null,
     created_at: parseSubmissionTimeToIso(proposal.submission_time),
     governance_scope: 'partners',
-    governance_proposal: buildGovernanceProposalFromRecord(proposal, {
-      description,
-    }),
+    governance_proposal: buildGovernanceProposalFromRecord(
+      proposal,
+      daoAccountId,
+      {
+        description,
+      }
+    ),
   };
 }
 
-function classifyProtocolProposal(proposal: GovernanceDaoProposalRecord): {
+function classifyProtocolProposal(
+  proposal: GovernanceDaoProposalRecord,
+  daoAccountId: string
+): {
   protocolKind: ProtocolGovernanceKind;
   targetAccount: string | null;
   targetMethod: string | null;
@@ -725,9 +735,12 @@ function classifyProtocolProposal(proposal: GovernanceDaoProposalRecord): {
   if (kindName === 'Transfer') {
     return {
       protocolKind: 'treasury',
-      targetAccount: config.governanceDao,
+      targetAccount: daoAccountId,
       targetMethod: 'transfer',
-      subject: 'Protocol treasury',
+      subject:
+        daoAccountId === config.treasuryDao
+          ? 'Treasury custody'
+          : 'Protocol treasury',
     };
   }
 
@@ -739,18 +752,20 @@ function classifyProtocolProposal(proposal: GovernanceDaoProposalRecord): {
   ) {
     return {
       protocolKind: 'permissions',
-      targetAccount: config.governanceDao,
+      targetAccount: daoAccountId,
       targetMethod: kindName,
-      subject: 'Governance DAO',
+      subject:
+        daoAccountId === config.treasuryDao ? 'Treasury DAO' : 'Governance DAO',
     };
   }
 
   if (kindName === 'ChangeConfig') {
     return {
       protocolKind: 'config',
-      targetAccount: config.governanceDao,
+      targetAccount: daoAccountId,
       targetMethod: kindName,
-      subject: 'Governance DAO',
+      subject:
+        daoAccountId === config.treasuryDao ? 'Treasury DAO' : 'Governance DAO',
     };
   }
 
@@ -758,9 +773,10 @@ function classifyProtocolProposal(proposal: GovernanceDaoProposalRecord): {
 }
 
 function mapProtocolProposalToFeedItem(
-  proposal: GovernanceDaoProposalRecord
+  proposal: GovernanceDaoProposalRecord,
+  daoAccountId: string
 ): PublicGovernanceApplication | null {
-  const classified = classifyProtocolProposal(proposal);
+  const classified = classifyProtocolProposal(proposal, daoAccountId);
   if (!classified) {
     return null;
   }
@@ -788,9 +804,13 @@ function mapProtocolProposalToFeedItem(
     protocol_subject: classified.subject,
     protocol_target_account: classified.targetAccount,
     protocol_target_method: classified.targetMethod,
-    governance_proposal: buildGovernanceProposalFromRecord(proposal, {
-      description,
-    }),
+    governance_proposal: buildGovernanceProposalFromRecord(
+      proposal,
+      daoAccountId,
+      {
+        description,
+      }
+    ),
   };
 }
 
@@ -810,7 +830,7 @@ function toGovernanceDaoProposalRecord(
   };
 }
 
-async function fetchDaoGovernanceFeed(): Promise<{
+async function fetchDaoGovernanceFeed(daoAccountId: string): Promise<{
   partnerItems: PublicGovernanceApplication[];
   protocolItems: PublicGovernanceApplication[];
   daoPolicy: GovernanceDaoPolicySnapshot | null;
@@ -826,12 +846,12 @@ async function fetchDaoGovernanceFeed(): Promise<{
   };
 
   try {
-    await ensureDaoProposalsSynced(config.governanceDao);
+    await ensureDaoProposalsSynced(daoAccountId);
 
     const [storedSnapshots, daoPolicy] = await Promise.all([
-      loadAllDaoProposalSnapshots(config.governanceDao),
+      loadAllDaoProposalSnapshots(daoAccountId),
       viewContractAt<GovernanceDaoPolicySnapshot>(
-        config.governanceDao,
+        daoAccountId,
         'get_policy',
         {}
       ).catch(() => null),
@@ -863,11 +883,11 @@ async function fetchDaoGovernanceFeed(): Promise<{
     }
 
     const partnerItems = proposals
-      .map(mapPartnerProposalToFeedItem)
+      .map((proposal) => mapPartnerProposalToFeedItem(proposal, daoAccountId))
       .filter((item): item is PublicGovernanceApplication => item !== null)
       .reverse();
     const protocolItems = proposals
-      .map(mapProtocolProposalToFeedItem)
+      .map((proposal) => mapProtocolProposalToFeedItem(proposal, daoAccountId))
       .filter((item): item is PublicGovernanceApplication => item !== null)
       .reverse();
 
@@ -1067,12 +1087,15 @@ export function parseGovernanceFeedScope(value: unknown): GovernanceFeedScope {
 }
 
 export async function getGovernanceFeedApplications(
-  scope: GovernanceFeedScope = 'all'
+  scope: GovernanceFeedScope = 'all',
+  daoAccountId: string = config.governanceDao
 ): Promise<{
   applications: PublicGovernanceApplication[];
   daoPolicy: GovernanceDaoPolicySnapshot | null;
 }> {
-  const includePartners = scope === 'all' || scope === 'partners';
+  const isTreasuryBoard = daoAccountId === config.treasuryDao;
+  const includePartners =
+    !isTreasuryBoard && (scope === 'all' || scope === 'partners');
   const includeProtocol = scope === 'all' || scope === 'protocol';
 
   const partnerItems = includePartners
@@ -1112,7 +1135,7 @@ export async function getGovernanceFeedApplications(
 
   const daoFeed =
     includePartners || includeProtocol
-      ? await fetchDaoGovernanceFeed()
+      ? await fetchDaoGovernanceFeed(daoAccountId)
       : {
           partnerItems: [],
           protocolItems: [],
@@ -1152,7 +1175,7 @@ export async function getGovernanceFeedApplications(
     [...partnerItems, ...scannedPartnerItems, ...protocolItems].map((app) =>
       enrichApplicationProposalSnapshot(app, daoFeed.snapshotsById)
     ),
-    config.governanceDao,
+    daoAccountId,
     daoFeed.scannedProposalIds
   );
 

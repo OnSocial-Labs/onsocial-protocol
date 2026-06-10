@@ -6,7 +6,10 @@ import {
   STAKING_CONTRACT,
   TOKEN_CONTRACT,
 } from '@/lib/near-rpc';
-import { GOVERNANCE_DAO_ACCOUNT } from '@/lib/portal-config';
+import {
+  GOVERNANCE_DAO_ACCOUNT,
+  TREASURY_DAO_ACCOUNT,
+} from '@/lib/portal-config';
 import { buildGovernanceApplicationFromDaoProposal } from '@/features/governance/page-utils';
 import type {
   Application,
@@ -118,7 +121,10 @@ export function getPartnerProposalDetails(proposal: GovernanceDaoProposal): {
   };
 }
 
-function classifyProtocolProposal(proposal: GovernanceDaoProposal): {
+function classifyProtocolProposal(
+  proposal: GovernanceDaoProposal,
+  daoAccountId: string
+): {
   protocolKind: ProtocolGovernanceKind;
   targetAccount: string | null;
   targetMethod: string | null;
@@ -166,9 +172,12 @@ function classifyProtocolProposal(proposal: GovernanceDaoProposal): {
   if (kindName === 'Transfer') {
     return {
       protocolKind: 'treasury',
-      targetAccount: GOVERNANCE_DAO_ACCOUNT,
+      targetAccount: daoAccountId,
       targetMethod: 'transfer',
-      subject: 'Protocol treasury',
+      subject:
+        daoAccountId === TREASURY_DAO_ACCOUNT
+          ? 'Treasury custody'
+          : 'Protocol treasury',
     };
   }
 
@@ -180,18 +189,24 @@ function classifyProtocolProposal(proposal: GovernanceDaoProposal): {
   ) {
     return {
       protocolKind: 'permissions',
-      targetAccount: GOVERNANCE_DAO_ACCOUNT,
+      targetAccount: daoAccountId,
       targetMethod: kindName,
-      subject: 'Governance DAO',
+      subject:
+        daoAccountId === TREASURY_DAO_ACCOUNT
+          ? 'Treasury DAO'
+          : 'Governance DAO',
     };
   }
 
   if (kindName === 'ChangeConfig') {
     return {
       protocolKind: 'config',
-      targetAccount: GOVERNANCE_DAO_ACCOUNT,
+      targetAccount: daoAccountId,
       targetMethod: kindName,
-      subject: 'Governance DAO',
+      subject:
+        daoAccountId === TREASURY_DAO_ACCOUNT
+          ? 'Treasury DAO'
+          : 'Governance DAO',
     };
   }
 
@@ -199,24 +214,26 @@ function classifyProtocolProposal(proposal: GovernanceDaoProposal): {
 }
 
 export function shouldIncludeInGovernanceBootstrap(
-  proposal: GovernanceDaoProposal
+  proposal: GovernanceDaoProposal,
+  daoAccountId: string = GOVERNANCE_DAO_ACCOUNT
 ): boolean {
   return (
     getPartnerProposalDetails(proposal) !== null ||
-    classifyProtocolProposal(proposal) !== null
+    classifyProtocolProposal(proposal, daoAccountId) !== null
   );
 }
 
 export function resolveGovernanceBootstrapAppId(
   proposal: GovernanceDaoProposal,
-  proposalId: number
+  proposalId: number,
+  daoAccountId: string = GOVERNANCE_DAO_ACCOUNT
 ): string {
   const partnerDetails = getPartnerProposalDetails(proposal);
   if (partnerDetails?.appId) {
     return partnerDetails.appId;
   }
 
-  if (classifyProtocolProposal(proposal)) {
+  if (classifyProtocolProposal(proposal, daoAccountId)) {
     return `protocol-proposal-${proposalId}`;
   }
 
@@ -225,10 +242,11 @@ export function resolveGovernanceBootstrapAppId(
 
 function resolveBootstrapScope(
   proposal: GovernanceDaoProposal,
-  appId: string
+  appId: string,
+  daoAccountId: string
 ): GovernanceScope {
   if (
-    classifyProtocolProposal(proposal) ||
+    classifyProtocolProposal(proposal, daoAccountId) ||
     appId.startsWith('protocol-proposal-')
   ) {
     return 'protocol';
@@ -238,19 +256,24 @@ function resolveBootstrapScope(
 }
 
 export function buildGovernanceApplicationsFromDaoProposals(
-  proposals: GovernanceDaoProposal[]
+  proposals: GovernanceDaoProposal[],
+  daoAccountId: string = GOVERNANCE_DAO_ACCOUNT
 ): Application[] {
   const apps: Application[] = [];
 
   for (const proposal of proposals) {
     const proposalId = proposal.id;
     if (proposalId == null || proposalId < 0) continue;
-    if (!shouldIncludeInGovernanceBootstrap(proposal)) continue;
+    if (!shouldIncludeInGovernanceBootstrap(proposal, daoAccountId)) continue;
 
     const partnerDetails = getPartnerProposalDetails(proposal);
-    const protocolDetails = classifyProtocolProposal(proposal);
-    const appId = resolveGovernanceBootstrapAppId(proposal, proposalId);
-    const scope = resolveBootstrapScope(proposal, appId);
+    const protocolDetails = classifyProtocolProposal(proposal, daoAccountId);
+    const appId = resolveGovernanceBootstrapAppId(
+      proposal,
+      proposalId,
+      daoAccountId
+    );
+    const scope = resolveBootstrapScope(proposal, appId, daoAccountId);
     const description = proposal.description?.trim() || null;
     const label =
       partnerDetails?.label ??
@@ -268,6 +291,7 @@ export function buildGovernanceApplicationsFromDaoProposals(
         protocolSubject: protocolDetails?.subject ?? null,
         protocolTargetAccount: protocolDetails?.targetAccount ?? null,
         protocolTargetMethod: protocolDetails?.targetMethod ?? null,
+        daoAccountId,
       }
     );
 

@@ -73,6 +73,12 @@ export const GOVERNANCE_DAO_ACCOUNT =
     ? 'governance.onsocial.near'
     : 'governance.onsocial.testnet');
 
+export const TREASURY_DAO_ACCOUNT =
+  process.env.NEXT_PUBLIC_TREASURY_DAO_ACCOUNT ??
+  (ACTIVE_NEAR_NETWORK === 'mainnet'
+    ? 'treasury.onsocial.near'
+    : 'treasury.onsocial.testnet');
+
 export const GOVERNANCE_PROPOSAL_BOND =
   process.env.NEXT_PUBLIC_GOVERNANCE_PROPOSAL_BOND ??
   '1000000000000000000000000';

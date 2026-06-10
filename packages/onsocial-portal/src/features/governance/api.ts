@@ -4,6 +4,7 @@ import {
   GOVERNANCE_DAO_ACCOUNT,
   GOVERNANCE_PROPOSAL_BOND,
 } from '@/lib/portal-config';
+import { resolveGovernanceDaoAccountId } from '@/features/governance/governance-dao-board';
 import type { DaoProposalPayload } from '@/features/governance/governance-proposal-builders';
 import { extractNearTransactionHashes } from '@/lib/near-rpc';
 import {
@@ -77,10 +78,16 @@ export {
 } from '@/features/governance/governance-feed-client';
 
 export async function fetchGovernanceFeed(options?: {
+  daoAccountId?: string;
   onRevalidate?: (data: GovernanceFeedResponse) => void;
   skipMemoryCache?: boolean;
 }): Promise<GovernanceFeedResponse> {
-  return fetchGovernanceFeedCached(options);
+  const daoAccountId =
+    options?.daoAccountId ?? resolveGovernanceDaoAccountId('governance');
+  return fetchGovernanceFeedCached(daoAccountId, {
+    onRevalidate: options?.onRevalidate,
+    skipMemoryCache: options?.skipMemoryCache,
+  });
 }
 
 export async function fetchDaoPolicy(
@@ -104,14 +111,15 @@ export async function fetchDaoPolicy(
 
 export async function fetchGovernanceProposalBootstrap(
   appId: string,
-  proposalId: number
+  proposalId: number,
+  daoAccountId = GOVERNANCE_DAO_ACCOUNT
 ): Promise<{
   app: Application;
   daoPolicy: GovernanceDaoPolicy;
 } | null> {
   const [daoPolicy, liveProposal] = await Promise.all([
-    fetchDaoPolicy(),
-    fetchDaoProposal(proposalId),
+    fetchDaoPolicy(daoAccountId),
+    fetchDaoProposal(proposalId, daoAccountId),
   ]);
 
   if (!daoPolicy || !liveProposal) {
@@ -122,7 +130,8 @@ export async function fetchGovernanceProposalBootstrap(
     app: buildGovernanceApplicationFromDaoProposal(
       appId,
       liveProposal,
-      proposalId
+      proposalId,
+      { daoAccountId }
     ),
     daoPolicy,
   };

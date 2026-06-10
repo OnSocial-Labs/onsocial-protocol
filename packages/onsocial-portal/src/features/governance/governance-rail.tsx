@@ -11,12 +11,21 @@ import {
 import { FloatingPanelMenu } from '@/components/ui/floating-panel-menu';
 import { useDropdown } from '@/hooks/use-dropdown';
 import { useNavStickyTop } from '@/hooks/use-nav-sticky-top';
+import { buildGovernancePathWithBoard } from '@/features/governance/governance-dao-board';
+import type { GovernanceDaoBoard } from '@/features/governance/governance-dao-board';
 import type {
   GovernanceLane,
   GovernanceStatusFilter,
 } from '@/features/governance/page-utils';
 
 type GovernanceRailProps = {
+  activeBoard: GovernanceDaoBoard;
+  boardOptions: Array<{
+    value: GovernanceDaoBoard;
+    label: string;
+    accountId: string;
+  }>;
+  onBoardChange: (board: GovernanceDaoBoard) => void;
   activeLane: GovernanceLane;
   laneOptions: Array<{ value: GovernanceLane; label: string }>;
   loading: boolean;
@@ -34,6 +43,9 @@ type GovernanceRailProps = {
 };
 
 export function GovernanceRail({
+  activeBoard,
+  boardOptions,
+  onBoardChange,
   activeLane,
   laneOptions,
   loading,
@@ -64,6 +76,29 @@ export function GovernanceRail({
       style={{ top: stickyTop }}
     >
       <div className="flex flex-col gap-3">
+        <div className="flex min-w-max items-center gap-2 border-b border-fade-detail pb-3">
+          {boardOptions.map((option) => {
+            const isActive = activeBoard === option.value;
+
+            return (
+              <Button
+                key={option.value}
+                type="button"
+                variant={isActive ? 'default' : 'ghost'}
+                size="xs"
+                onClick={() => onBoardChange(option.value)}
+                className={
+                  isActive
+                    ? 'font-medium'
+                    : 'text-muted-foreground hover:text-foreground'
+                }
+              >
+                {option.label}
+              </Button>
+            );
+          })}
+        </div>
+
         <div className="flex items-center justify-between gap-3 md:grid md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
           <div className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <div className="flex min-w-max items-center gap-2.5 pr-2 sm:gap-3">
@@ -100,7 +135,13 @@ export function GovernanceRail({
                 size="icon"
                 className="h-8 w-8 rounded-full border-border/40 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground"
               >
-                <Link href="/governance/manage" aria-label="Open position">
+                <Link
+                  href={buildGovernancePathWithBoard(
+                    '/governance/manage',
+                    activeBoard
+                  )}
+                  aria-label="Open position"
+                >
                   <Settings2 className="h-4 w-4" />
                 </Link>
               </Button>
@@ -125,7 +166,12 @@ export function GovernanceRail({
 
             <div className="hidden items-center gap-2 md:flex">
               <Button asChild size="sm" className="gap-2">
-                <Link href="/governance/create">
+                <Link
+                  href={buildGovernancePathWithBoard(
+                    '/governance/create',
+                    activeBoard
+                  )}
+                >
                   <Plus className="h-4 w-4" />
                   <span>Create proposal</span>
                 </Link>
@@ -137,7 +183,13 @@ export function GovernanceRail({
                 size="icon"
                 className="h-8 w-8 rounded-full border-border/40 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground md:h-9 md:w-9"
               >
-                <Link href="/governance/manage" aria-label="Open position">
+                <Link
+                  href={buildGovernancePathWithBoard(
+                    '/governance/manage',
+                    activeBoard
+                  )}
+                  aria-label="Open position"
+                >
                   <Settings2 className="h-4 w-4" />
                 </Link>
               </Button>
@@ -254,7 +306,12 @@ export function GovernanceRail({
           />
 
           <Button asChild size="sm" className="shrink-0 gap-1.5">
-            <Link href="/governance/create">
+            <Link
+              href={buildGovernancePathWithBoard(
+                '/governance/create',
+                activeBoard
+              )}
+            >
               <Plus className="h-3.5 w-3.5" />
               <span>Create</span>
             </Link>

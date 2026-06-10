@@ -19,6 +19,11 @@ import {
   resolveGovernanceApplication,
   resolveGovernanceProposalId,
 } from '@/features/governance/page-utils';
+import {
+  GOVERNANCE_DAO_BOARD_PARAM,
+  parseGovernanceDaoBoard,
+  resolveGovernanceDaoAccountId,
+} from '@/features/governance/governance-dao-board';
 import type {
   Application,
   GovernanceDaoPolicy,
@@ -29,6 +34,9 @@ function GovernanceProposalPageContent() {
   const searchParams = useSearchParams();
   const appId = decodeURIComponent(params.appId);
   const proposalId = parseGovernanceProposalId(searchParams.get('proposal'));
+  const daoAccountIdFromUrl = resolveGovernanceDaoAccountId(
+    parseGovernanceDaoBoard(searchParams.get(GOVERNANCE_DAO_BOARD_PARAM))
+  );
   const [app, setApp] = useState<Application | null>(null);
   const [daoPolicy, setDaoPolicy] = useState<GovernanceDaoPolicy | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,16 +56,21 @@ function GovernanceProposalPageContent() {
     const resolvedProposalId = resolveGovernanceProposalId(appId, proposalId);
     let bootstrapApp: Application | null = null;
     let bootstrapPolicy: GovernanceDaoPolicy | null = null;
+    let resolvedDaoAccountId = daoAccountIdFromUrl;
 
     try {
       if (resolvedProposalId != null) {
         const bootstrap = await fetchGovernanceProposalBootstrap(
           appId,
-          resolvedProposalId
+          resolvedProposalId,
+          daoAccountIdFromUrl
         );
         if (bootstrap) {
           bootstrapApp = bootstrap.app;
           bootstrapPolicy = bootstrap.daoPolicy;
+          resolvedDaoAccountId =
+            bootstrap.app.governance_proposal?.dao_account ??
+            daoAccountIdFromUrl;
           setApp(bootstrapApp);
           setDaoPolicy(bootstrapPolicy);
           setLoading(false);
@@ -66,6 +79,7 @@ function GovernanceProposalPageContent() {
 
       const { applications, daoPolicy: feedDaoPolicy } =
         await fetchGovernanceFeed({
+          daoAccountId: resolvedDaoAccountId,
           onRevalidate: (freshFeed) => {
             const refreshed = resolveGovernanceApplication(
               freshFeed.applications,
@@ -105,7 +119,7 @@ function GovernanceProposalPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [appId, proposalId]);
+  }, [appId, daoAccountIdFromUrl, proposalId]);
 
   useEffect(() => {
     loadApp();

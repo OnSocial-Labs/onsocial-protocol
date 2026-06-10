@@ -1,4 +1,5 @@
 import { buildGovernanceApplicationsFromDaoProposals } from '@/features/governance/governance-bootstrap';
+import { resolveGovernanceDaoAccountId } from '@/features/governance/governance-dao-board';
 import { mergeGovernanceFeedApplications } from '@/features/governance/page-utils';
 import type {
   Application,
@@ -9,11 +10,12 @@ import type {
 export type GovernanceFeedResponse = {
   applications: Application[];
   daoPolicy: GovernanceDaoPolicy | null;
+  daoAccountId: string;
 };
 
 const FRESH_MS = 30_000;
 const STALE_MS = 5 * 60_000;
-const SESSION_STORAGE_KEY = 'onsocial:governance-feed:v1';
+const SESSION_STORAGE_PREFIX = 'onsocial:governance-feed:v2:';
 
 type CacheEntry = {
   data: GovernanceFeedResponse;
@@ -22,13 +24,18 @@ type CacheEntry = {
 };
 
 const memoryCache = new Map<string, CacheEntry>();
-const FEED_CACHE_KEY = 'all';
 
-function readSessionFeedCache(): CacheEntry | null {
+function feedCacheKey(daoAccountId: string): string {
+  return daoAccountId;
+}
+
+function readSessionFeedCache(daoAccountId: string): CacheEntry | null {
   if (typeof sessionStorage === 'undefined') return null;
 
   try {
-    const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    const raw = sessionStorage.getItem(
+      `${SESSION_STORAGE_PREFIX}${daoAccountId}`
+    );
     if (!raw) return null;
 
     const parsed = JSON.parse(raw) as CacheEntry;
@@ -45,26 +52,34 @@ function readSessionFeedCache(): CacheEntry | null {
   }
 }
 
-function writeSessionFeedCache(entry: CacheEntry): void {
+function writeSessionFeedCache(daoAccountId: string, entry: CacheEntry): void {
   if (typeof sessionStorage === 'undefined') return;
 
   try {
-    sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(entry));
+    sessionStorage.setItem(
+      `${SESSION_STORAGE_PREFIX}${daoAccountId}`,
+      JSON.stringify(entry)
+    );
   } catch {
     // Ignore quota or serialization failures.
   }
 }
 
-function readCachedFeed(): CacheEntry | null {
-  const memoryEntry = memoryCache.get(FEED_CACHE_KEY);
+function readCachedFeed(daoAccountId: string): CacheEntry | null {
+  const cacheKey = feedCacheKey(daoAccountId);
+  const memoryEntry = memoryCache.get(cacheKey);
   if (memoryEntry) return memoryEntry;
-  return readSessionFeedCache();
+  return readSessionFeedCache(daoAccountId);
 }
 
-function writeCachedFeed(data: GovernanceFeedResponse): void {
+function writeCachedFeed(
+  daoAccountId: string,
+  data: GovernanceFeedResponse
+): void {
+  const cacheKey = feedCacheKey(daoAccountId);
   const entry: CacheEntry = { data, fetchedAt: Date.now() };
-  memoryCache.set(FEED_CACHE_KEY, entry);
-  writeSessionFeedCache(entry);
+  memoryCache.set(cacheKey, entry);
+  writeSessionFeedCache(daoAccountId, entry);
 }
 
 async function readJsonResponse<T>(res: Response): Promise<T> {
@@ -76,24 +91,36 @@ async function readJsonResponse<T>(res: Response): Promise<T> {
   return JSON.parse(raw) as T;
 }
 
-async function fetchGovernanceFeedFresh(): Promise<GovernanceFeedResponse> {
-  const res = await fetch('/api/governance', { cache: 'no-store' });
+async function fetchGovernanceFeedFresh(
+  daoAccountId: string
+): Promise<GovernanceFeedResponse> {
+  const search = new URLSearchParams({
+    scope: 'all',
+    daoAccountId,
+  });
+  const res = await fetch(`/api/governance?${search.toString()}`, {
+    cache: 'no-store',
+  });
   if (!res.ok) throw new Error('Failed to fetch governance feed');
 
   const data = await readJsonResponse<{
     success: boolean;
     applications: Application[];
     daoPolicy?: GovernanceDaoPolicy | null;
+    daoAccountId?: string;
   }>(res);
 
   return {
     applications: data.applications,
     daoPolicy: data.daoPolicy ?? null,
+    daoAccountId: data.daoAccountId ?? daoAccountId,
   };
 }
 
-export function readGovernanceFeedCache(): GovernanceFeedResponse | null {
-  const cached = readCachedFeed();
+export function readGovernanceFeedCache(
+  daoAccountId: string
+): GovernanceFeedResponse | null {
+  const cached = readCachedFeed(daoAccountId);
   if (!cached) return null;
 
   const age = Date.now() - cached.fetchedAt;
@@ -103,10 +130,14 @@ export function readGovernanceFeedCache(): GovernanceFeedResponse | null {
 }
 
 export async function fetchGovernanceFeedBootstrap(
+  daoAccountId = resolveGovernanceDaoAccountId('governance'),
   limit = 20
 ): Promise<GovernanceFeedResponse | null> {
   try {
-    const search = new URLSearchParams({ limit: String(limit) });
+    const search = new URLSearchParams({
+      limit: String(limit),
+      daoAccountId,
+    });
     const response = await fetch(
       `/api/governance/dao/recent?${search.toString()}`,
       { cache: 'no-store' }
@@ -121,7 +152,8 @@ export async function fetchGovernanceFeedBootstrap(
     }
 
     const applications = buildGovernanceApplicationsFromDaoProposals(
-      body.proposals ?? []
+      body.proposals ?? [],
+      daoAccountId
     );
     if (applications.length === 0) {
       return null;
@@ -130,6 +162,7 @@ export async function fetchGovernanceFeedBootstrap(
     return {
       applications,
       daoPolicy: body.daoPolicy,
+      daoAccountId,
     };
   } catch {
     return null;
@@ -147,14 +180,17 @@ export function applyGovernanceFeedApplications(
   return mergeGovernanceFeedApplications(bootstrapApps, feedApps);
 }
 
-export async function fetchGovernanceFeedCached(options?: {
-  onRevalidate?: (data: GovernanceFeedResponse) => void;
-  skipMemoryCache?: boolean;
-}): Promise<GovernanceFeedResponse> {
+export async function fetchGovernanceFeedCached(
+  daoAccountId = resolveGovernanceDaoAccountId('governance'),
+  options?: {
+    onRevalidate?: (data: GovernanceFeedResponse) => void;
+    skipMemoryCache?: boolean;
+  }
+): Promise<GovernanceFeedResponse> {
   const now = Date.now();
 
   if (!options?.skipMemoryCache) {
-    const cached = readCachedFeed();
+    const cached = readCachedFeed(daoAccountId);
     if (cached) {
       const age = now - cached.fetchedAt;
       if (age < FRESH_MS) {
@@ -163,16 +199,17 @@ export async function fetchGovernanceFeedCached(options?: {
 
       if (age < STALE_MS) {
         if (!cached.revalidatePromise) {
-          cached.revalidatePromise = fetchGovernanceFeedFresh()
+          cached.revalidatePromise = fetchGovernanceFeedFresh(daoAccountId)
             .then((data) => {
-              writeCachedFeed(data);
+              writeCachedFeed(daoAccountId, data);
               options?.onRevalidate?.(data);
               return data;
             })
             .finally(() => {
-              const entry = memoryCache.get(FEED_CACHE_KEY) ?? cached;
+              const cacheKey = feedCacheKey(daoAccountId);
+              const entry = memoryCache.get(cacheKey) ?? cached;
               entry.revalidatePromise = undefined;
-              memoryCache.set(FEED_CACHE_KEY, entry);
+              memoryCache.set(cacheKey, entry);
             });
         }
 
@@ -181,7 +218,7 @@ export async function fetchGovernanceFeedCached(options?: {
     }
   }
 
-  const data = await fetchGovernanceFeedFresh();
-  writeCachedFeed(data);
+  const data = await fetchGovernanceFeedFresh(daoAccountId);
+  writeCachedFeed(daoAccountId, data);
   return data;
 }

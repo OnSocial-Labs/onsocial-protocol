@@ -474,6 +474,7 @@ export type GovernanceApplicationBootstrapOptions = {
   protocolSubject?: string | null;
   protocolTargetAccount?: string | null;
   protocolTargetMethod?: string | null;
+  daoAccountId?: string;
 };
 
 /** Minimal feed row for rendering a card before the full governance feed returns. */
@@ -512,7 +513,7 @@ export function buildGovernanceApplicationFromDaoProposal(
       status: normalizedProposal.status,
       proposer: liveProposal.proposer,
       description,
-      dao_account: GOVERNANCE_DAO_ACCOUNT,
+      dao_account: options?.daoAccountId ?? GOVERNANCE_DAO_ACCOUNT,
       tx_hash: null,
       submitted_at: null,
       kind: liveProposal.kind,

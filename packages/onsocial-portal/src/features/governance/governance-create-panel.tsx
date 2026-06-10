@@ -105,7 +105,11 @@ function formatNear(value: string) {
 const fieldLabelClass =
   'mb-2 block portal-type-label font-medium uppercase tracking-[0.16em] text-muted-foreground';
 
-export function GovernanceCreatePanel() {
+export function GovernanceCreatePanel({
+  daoAccountId = GOVERNANCE_DAO_ACCOUNT,
+}: {
+  daoAccountId?: string;
+}) {
   const router = useRouter();
   const { accountId, connect, wallet, isConnected } = useWallet();
   const { txResult, clearTxResult, setTxResult, trackTransaction } =
@@ -170,9 +174,9 @@ export function GovernanceCreatePanel() {
 
     try {
       const [nextEligibility, bond, policy] = await Promise.all([
-        getGovernanceEligibility(accountId),
-        getGovernanceProposalBond(),
-        fetchDaoPolicy(),
+        getGovernanceEligibility(accountId, daoAccountId),
+        getGovernanceProposalBond(daoAccountId),
+        fetchDaoPolicy(daoAccountId),
       ]);
       setEligibility(nextEligibility);
       setProposalBond(bond);
@@ -191,13 +195,13 @@ export function GovernanceCreatePanel() {
     } finally {
       setLoading(false);
     }
-  }, [accountId]);
+  }, [accountId, daoAccountId]);
 
   useEffect(() => {
     setEligibility(null);
     setError('');
     void loadContext();
-  }, [accountId, loadContext]);
+  }, [accountId, daoAccountId, loadContext]);
 
   const proposerAccountId = accountId ?? '';
   const subjectAccountId = useMemo(() => {
@@ -489,10 +493,12 @@ export function GovernanceCreatePanel() {
               description: normalizedDescription,
             });
 
+      const targetDaoAccountId = eligibility?.daoAccountId ?? daoAccountId;
       const { proposalId, txHash } = await submitDaoProposal(
         wallet,
         accountId,
-        payload
+        payload,
+        targetDaoAccountId
       );
 
       if (!txHash) {
@@ -538,6 +544,7 @@ export function GovernanceCreatePanel() {
     canSubmit,
     clearTxResult,
     connect,
+    daoAccountId,
     daoPolicy,
     descriptionTextError,
     eligibility,
@@ -553,7 +560,7 @@ export function GovernanceCreatePanel() {
     wallet,
   ]);
 
-  const daoAccountId = eligibility?.daoAccountId ?? GOVERNANCE_DAO_ACCOUNT;
+  const resolvedDaoAccountId = eligibility?.daoAccountId ?? daoAccountId;
   const showPolicySettings =
     !!eligibility &&
     canProposePolicyChange(
@@ -636,12 +643,12 @@ export function GovernanceCreatePanel() {
             />
             <p className="mt-2 text-xs text-muted-foreground">
               <a
-                href={`${ACTIVE_NEAR_EXPLORER_URL}/address/${daoAccountId}`}
+                href={`${ACTIVE_NEAR_EXPLORER_URL}/address/${resolvedDaoAccountId}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-mono portal-blue-text transition-colors hover:text-[var(--portal-blue)]"
               >
-                @{daoAccountId}
+                @{resolvedDaoAccountId}
               </a>
             </p>
           </div>

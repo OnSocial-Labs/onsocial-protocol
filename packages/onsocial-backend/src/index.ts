@@ -146,6 +146,8 @@ const server = app.listen(config.port, async () => {
 
   startDaoProposalBackfillInBackground(config.governanceDao);
   startOpenDaoProposalRefreshInBackground(config.governanceDao);
+  startDaoProposalBackfillInBackground(config.treasuryDao);
+  startOpenDaoProposalRefreshInBackground(config.treasuryDao);
 
   // Telegram: webhook in production, long-polling in dev
   if (config.nodeEnv === 'production') {

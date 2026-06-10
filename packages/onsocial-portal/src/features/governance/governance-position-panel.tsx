@@ -30,6 +30,7 @@ import {
   yoctoToSocial,
   type GovernanceEligibilitySnapshot,
 } from '@/lib/near-rpc';
+import { GOVERNANCE_DAO_ACCOUNT } from '@/lib/portal-config';
 
 type GovernanceActionMode = 'delegate' | 'undelegate' | 'withdraw';
 
@@ -169,7 +170,11 @@ function buildUndelegateChunks(entries: string[], amount: bigint) {
   return remaining === 0n ? chunks : [];
 }
 
-export function GovernancePositionPanel() {
+export function GovernancePositionPanel({
+  daoAccountId = GOVERNANCE_DAO_ACCOUNT,
+}: {
+  daoAccountId?: string;
+}) {
   const { accountId, wallet } = useWallet();
   const [eligibility, setEligibility] =
     useState<GovernanceEligibilitySnapshot | null>(null);
@@ -196,7 +201,10 @@ export function GovernancePositionPanel() {
     setError('');
 
     try {
-      const nextEligibility = await getGovernanceEligibility(accountId);
+      const nextEligibility = await getGovernanceEligibility(
+        accountId,
+        daoAccountId
+      );
       setEligibility(nextEligibility);
       return nextEligibility;
     } catch {
@@ -206,14 +214,14 @@ export function GovernancePositionPanel() {
     } finally {
       setLoading(false);
     }
-  }, [accountId]);
+  }, [accountId, daoAccountId]);
 
   useEffect(() => {
     setEligibility(null);
     setError('');
     setAmountInput('');
     setActingMode(null);
-  }, [accountId]);
+  }, [accountId, daoAccountId]);
 
   useEffect(() => {
     void loadEligibility();

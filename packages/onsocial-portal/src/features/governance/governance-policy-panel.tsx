@@ -142,7 +142,11 @@ function isDaoPolicyActionId(value: string): value is DaoPolicyActionId {
   return DAO_POLICY_ACTION_OPTIONS.some((option) => option.id === value);
 }
 
-export function GovernancePolicyPanel() {
+export function GovernancePolicyPanel({
+  daoAccountId = GOVERNANCE_DAO_ACCOUNT,
+}: {
+  daoAccountId?: string;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedPolicyAction = searchParams.get('action');
@@ -184,9 +188,9 @@ export function GovernancePolicyPanel() {
 
     try {
       const [nextEligibility, bond, policy] = await Promise.all([
-        getGovernanceEligibility(accountId),
-        getGovernanceProposalBond(),
-        fetchDaoPolicy(),
+        getGovernanceEligibility(accountId, daoAccountId),
+        getGovernanceProposalBond(daoAccountId),
+        fetchDaoPolicy(daoAccountId),
       ]);
       setEligibility(nextEligibility);
       setProposalBond(bond);
@@ -202,14 +206,14 @@ export function GovernancePolicyPanel() {
     } finally {
       setLoading(false);
     }
-  }, [accountId]);
+  }, [accountId, daoAccountId]);
 
   useEffect(() => {
     setEligibility(null);
     setError('');
     initialPolicyActionApplied.current = false;
     void loadContext();
-  }, [accountId, loadContext]);
+  }, [accountId, daoAccountId, loadContext]);
 
   const roleOptions = useMemo(
     () => getDaoPolicyRoleOptions(daoPolicy),
@@ -726,10 +730,12 @@ export function GovernancePolicyPanel() {
             : selectedPermissions,
       });
 
+      const targetDaoAccountId = eligibility?.daoAccountId ?? daoAccountId;
       const { proposalId, txHash } = await submitDaoProposal(
         wallet,
         accountId,
-        payload
+        payload,
+        targetDaoAccountId
       );
 
       if (!txHash) {
@@ -777,9 +783,11 @@ export function GovernancePolicyPanel() {
     canSubmit,
     clearTxResult,
     connect,
+    daoAccountId,
     daoPolicy,
     description,
     addRoleAccessMode,
+    eligibility,
     newRoleName,
     nextBondYocto,
     nextPeriodNs,
@@ -794,7 +802,7 @@ export function GovernancePolicyPanel() {
     wallet,
   ]);
 
-  const daoAccountId = eligibility?.daoAccountId ?? GOVERNANCE_DAO_ACCOUNT;
+  const resolvedDaoAccountId = eligibility?.daoAccountId ?? daoAccountId;
 
   return (
     <>
@@ -809,12 +817,12 @@ export function GovernancePolicyPanel() {
             />
             <p className="mt-2 text-xs text-muted-foreground">
               <a
-                href={`${ACTIVE_NEAR_EXPLORER_URL}/address/${daoAccountId}`}
+                href={`${ACTIVE_NEAR_EXPLORER_URL}/address/${resolvedDaoAccountId}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-mono portal-blue-text transition-colors hover:text-[var(--portal-blue)]"
               >
-                @{daoAccountId}
+                @{resolvedDaoAccountId}
               </a>
             </p>
           </div>
