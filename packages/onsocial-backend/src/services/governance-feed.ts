@@ -885,8 +885,19 @@ function buildMissingProposalFeedItems(
   lastProposalId: number
 ): PublicGovernanceApplication[] {
   const missing: PublicGovernanceApplication[] = [];
+  let maxPersistedProposalId = -1;
 
-  for (let proposalId = 0; proposalId <= lastProposalId; proposalId += 1) {
+  for (const proposalId of snapshotsById.keys()) {
+    if (proposalId > maxPersistedProposalId) {
+      maxPersistedProposalId = proposalId;
+    }
+  }
+
+  // Fill internal holes only. get_last_proposal_id can run ahead of stored
+  // proposals (e.g. failed create), so skip tail ids beyond what we have synced.
+  const fillThroughId = Math.min(lastProposalId, maxPersistedProposalId);
+
+  for (let proposalId = 0; proposalId <= fillThroughId; proposalId += 1) {
     if (snapshotsById.has(proposalId)) {
       continue;
     }

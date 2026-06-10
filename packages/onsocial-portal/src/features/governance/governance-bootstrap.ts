@@ -400,7 +400,11 @@ export function buildGovernanceApplicationsFromDaoProposals(
 
   const lastProposalId = options?.lastProposalId;
   if (typeof lastProposalId === 'number' && lastProposalId >= 0) {
-    for (let proposalId = 0; proposalId <= lastProposalId; proposalId += 1) {
+    const maxPersistedProposalId =
+      seenProposalIds.size > 0 ? Math.max(...seenProposalIds) : -1;
+    const fillThroughId = Math.min(lastProposalId, maxPersistedProposalId);
+
+    for (let proposalId = 0; proposalId <= fillThroughId; proposalId += 1) {
       if (seenProposalIds.has(proposalId)) {
         continue;
       }

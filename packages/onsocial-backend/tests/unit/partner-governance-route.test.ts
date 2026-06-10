@@ -868,6 +868,45 @@ describe('GET /v1/governance/feed scoped results', () => {
     );
   });
 
+  it('skips tail placeholders when last proposal id runs ahead of sync', async () => {
+    mockQuery.mockResolvedValueOnce(makeRows([]));
+    seedDaoProposalSnapshots([
+      {
+        id: 0,
+        proposer: 'greenghost.onsocial.testnet',
+        description: 'Set governance staking contract',
+        kind: {
+          SetStakingContract: {
+            staking_id: 'staking-governance.onsocial.testnet',
+          },
+        },
+        status: 'Approved',
+        submission_time: '1773316571093161525',
+      },
+      {
+        id: 2,
+        proposer: 'voter2.onsocial.testnet',
+        description: 'Signaling idea',
+        kind: { Vote: null },
+        status: 'InProgress',
+        submission_time: '1773316924632618708',
+      },
+    ]);
+    seedDaoPolicyFetch(3);
+
+    const res = await request(buildApp()).get(
+      '/v1/governance/feed?scope=protocol'
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.applications).toHaveLength(3);
+    expect(
+      res.body.applications.some(
+        (app: { app_id?: string }) => app.app_id === 'protocol-proposal-3'
+      )
+    ).toBe(false);
+  });
+
   // -----------------------------------------------------------------------
   // Rejected DAO proposal + reopen / reapply lifecycle
   // -----------------------------------------------------------------------

@@ -80,6 +80,40 @@ describe('governance bootstrap proposal coverage', () => {
     ).toContain('removed from chain');
   });
 
+  it('skips tail placeholders when lastProposalId runs ahead of sync', () => {
+    const apps = buildGovernanceApplicationsFromDaoProposals(
+      [
+        {
+          id: 0,
+          proposer: 'alice.testnet',
+          description: 'Set staking',
+          kind: { SetStakingContract: { staking_id: 'staking.testnet' } },
+          status: 'Approved',
+          vote_counts: {},
+          votes: {},
+          submission_time: '1',
+        },
+        {
+          id: 2,
+          proposer: 'bob.testnet',
+          description: 'Idea',
+          kind: { Vote: null },
+          status: 'InProgress',
+          vote_counts: {},
+          votes: {},
+          submission_time: '2',
+        },
+      ],
+      'governance.onsocial.testnet',
+      { lastProposalId: 3 }
+    );
+
+    expect(apps).toHaveLength(3);
+    expect(apps.some((app) => app.governance_proposal?.proposal_id === 3)).toBe(
+      false
+    );
+  });
+
   it('builds a removed placeholder card', () => {
     const app = buildMissingGovernanceApplicationFromProposalId(
       16,
