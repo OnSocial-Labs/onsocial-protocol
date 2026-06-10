@@ -164,6 +164,13 @@ pub struct SpendMsg {
 }
 
 #[near(serializers = [json])]
+pub struct FundSeasonPoolMsg {
+    pub v: u8,
+    pub action: String,
+    pub season_id: String,
+}
+
+#[near(serializers = [json])]
 pub struct SeasonConfigInput {
     pub label: String,
     pub active: bool,
@@ -575,10 +582,41 @@ impl SocialSpendContract {
             return Err(SocialSpendError::InvalidInput("Message too large".into()));
         }
 
+        if let Ok(fund) = serde_json::from_str::<FundSeasonPoolMsg>(&msg) {
+            if fund.v == 1 && fund.action == "fund_season_pool" {
+                self.assert_season_pool_funder(&sender_id)?;
+                self.fund_season_pool(&fund.season_id, amount.0, "wallet", &sender_id)?;
+                return Ok(U128(0));
+            }
+        }
+
         let input: SpendMsg = serde_json::from_str(&msg)
             .map_err(|_| SocialSpendError::InvalidInput("Invalid JSON".into()))?;
         self.handle_spend(sender_id, amount.0, input)?;
         Ok(U128(0))
+    }
+
+    #[payable]
+    #[handle_result]
+    pub fn fund_season_pool_from_treasury(
+        &mut self,
+        season_id: String,
+        amount: U128,
+    ) -> Result<(), SocialSpendError> {
+        self.assert_owner_one_yocto()?;
+        if amount.0 == 0 {
+            return Err(SocialSpendError::InvalidAmount);
+        }
+        if amount.0 > self.treasury_balance {
+            return Err(SocialSpendError::InsufficientBalance(format!(
+                "Treasury balance has {}, funding needs {}",
+                self.treasury_balance, amount.0
+            )));
+        }
+        self.treasury_balance = self.treasury_balance.saturating_sub(amount.0);
+        let caller = env::predecessor_account_id();
+        self.fund_season_pool(&season_id, amount.0, "treasury", &caller)?;
+        Ok(())
     }
 
     #[payable]
@@ -1161,6 +1199,46 @@ impl SocialSpendContract {
             .get(season_id)
             .cloned()
             .ok_or_else(|| SocialSpendError::InvalidInput("Season not configured".into()))
+    }
+
+    fn fund_season_pool(
+        &mut self,
+        season_id: &str,
+        amount: u128,
+        source: &str,
+        funder_id: &AccountId,
+    ) -> Result<(), SocialSpendError> {
+        self.validate_slug("season_id", season_id, 1, 64)?;
+        self.require_season_config(season_id)?;
+        let pool_total = self
+            .season_pools
+            .get(season_id)
+            .copied()
+            .unwrap_or(0)
+            .saturating_add(amount);
+        self.season_pools.insert(season_id.to_string(), pool_total);
+        emit(
+            "SEASON_POOL_FUNDED",
+            funder_id,
+            serde_json::json!({
+                "season_id": season_id,
+                "amount": amount.to_string(),
+                "source": source,
+                "tag": source,
+                "pool_total": pool_total.to_string(),
+            }),
+        );
+        Ok(())
+    }
+
+    fn assert_season_pool_funder(&self, account_id: &AccountId) -> Result<(), SocialSpendError> {
+        if account_id == &self.owner_id || account_id == &self.treasury_id {
+            Ok(())
+        } else {
+            Err(SocialSpendError::Unauthorized(
+                "Only owner or treasury can fund season pool".into(),
+            ))
+        }
     }
 
     fn assert_season_open_for_spend(&self, season_id: &str) -> Result<(), SocialSpendError> {

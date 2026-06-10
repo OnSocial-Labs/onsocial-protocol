@@ -300,7 +300,7 @@ fn test_season_config_controls_rally_spend_window() {
         .unwrap();
     assert_eq!(
         contract.get_season_pool("season-zero".into()).0,
-        90 * ONE_SOCIAL
+        95 * ONE_SOCIAL
     );
 
     let config = contract
@@ -592,7 +592,7 @@ fn test_publish_root_and_claim_season_reward() {
     assert_eq!(result["status"], "pending");
     assert_eq!(
         contract.get_season_pool("season-zero".into()).0,
-        80 * ONE_SOCIAL
+        85 * ONE_SOCIAL
     );
     assert!(contract.has_claimed_season("season-zero".into(), bob()));
     assert!(contract.pending_transfers.contains_key(&bob()));
@@ -676,7 +676,7 @@ fn test_failed_season_claim_rolls_back_claim_marker_and_pool() {
         .unwrap();
     assert_eq!(
         contract.get_season_pool("season-zero".into()).0,
-        80 * ONE_SOCIAL
+        85 * ONE_SOCIAL
     );
     assert!(contract.has_claimed_season("season-zero".into(), bob()));
 
@@ -684,7 +684,7 @@ fn test_failed_season_claim_rolls_back_claim_marker_and_pool() {
     contract.on_transfer_callback(Err(PromiseError::Failed), bob(), U128(amount));
     assert_eq!(
         contract.get_season_pool("season-zero".into()).0,
-        90 * ONE_SOCIAL
+        95 * ONE_SOCIAL
     );
     assert!(!contract.has_claimed_season("season-zero".into(), bob()));
 }
@@ -744,4 +744,81 @@ fn test_update_contract_requires_owner() {
     assert!(
         matches!(result, Err(SocialSpendError::Unauthorized(message)) if message == "Only owner")
     );
+}
+
+fn fund_season_pool_msg(season_id: &str) -> String {
+    serde_json::json!({
+        "v": 1,
+        "action": "fund_season_pool",
+        "season_id": season_id,
+    })
+    .to_string()
+}
+
+#[test]
+fn test_fund_season_pool_from_treasury_by_owner() {
+    let mut contract = new_contract();
+    configure_open_season(&mut contract, "season-zero");
+    join_rally(&mut contract, bob());
+
+    let fund_amount = 5 * ONE_SOCIAL;
+    testing_env!(context_with_deposit(owner()).build());
+    contract
+        .fund_season_pool_from_treasury("season-zero".into(), U128(fund_amount))
+        .unwrap();
+
+    assert_eq!(
+        contract.get_season_pool("season-zero".into()).0,
+        100 * ONE_SOCIAL
+    );
+}
+
+#[test]
+fn test_fund_season_pool_from_treasury_rejects_non_owner() {
+    let mut contract = new_contract();
+    configure_open_season(&mut contract, "season-zero");
+    join_rally(&mut contract, bob());
+
+    testing_env!(context_with_deposit(alice()).build());
+    let err = contract
+        .fund_season_pool_from_treasury("season-zero".into(), U128(ONE_SOCIAL))
+        .unwrap_err();
+    assert!(matches!(err, SocialSpendError::Unauthorized(_)));
+}
+
+#[test]
+fn test_fund_season_pool_via_wallet_by_owner() {
+    let mut contract = new_contract();
+    configure_open_season(&mut contract, "season-zero");
+
+    let fund_amount = 25 * ONE_SOCIAL;
+    testing_env!(context(token()).build());
+    contract
+        .ft_on_transfer(
+            owner(),
+            U128(fund_amount),
+            fund_season_pool_msg("season-zero"),
+        )
+        .unwrap();
+
+    assert_eq!(
+        contract.get_season_pool("season-zero".into()).0,
+        fund_amount
+    );
+}
+
+#[test]
+fn test_fund_season_pool_via_wallet_rejects_random_account() {
+    let mut contract = new_contract();
+    configure_open_season(&mut contract, "season-zero");
+
+    testing_env!(context(token()).build());
+    let err = contract
+        .ft_on_transfer(
+            alice(),
+            U128(ONE_SOCIAL),
+            fund_season_pool_msg("season-zero"),
+        )
+        .unwrap_err();
+    assert!(matches!(err, SocialSpendError::Unauthorized(_)));
 }

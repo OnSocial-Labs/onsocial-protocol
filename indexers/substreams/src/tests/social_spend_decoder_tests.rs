@@ -15,6 +15,16 @@ fn decode_social_spent_event() {
 }
 
 #[test]
+fn decode_season_pool_funded_event() {
+    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"SEASON_POOL_FUNDED","data":[{"season_id":"season0","amount":"50000000000000000000000000","source":"treasury","tag":"treasury","pool_total":"50000000000000000000000000","account_id":"dao.onsocial.near"}]}"#;
+    let event = decode_social_spend_event(json, "r", 1, 1, 0).unwrap();
+    assert_eq!(event.event_type, "SEASON_POOL_FUNDED");
+    assert_eq!(event.season_id, "season0");
+    assert_eq!(event.amount, "50000000000000000000000000");
+    assert_eq!(event.tag, "treasury");
+}
+
+#[test]
 fn decode_season_root_event() {
     let json = r#"{"standard":"onsocial","version":"1.0.0","event":"SEASON_ROOT_PUBLISHED","data":[{"season_id":"season0","root":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","total_amount":"42","active":true,"account_id":"relayer.onsocial.testnet"}]}"#;
     let event = decode_social_spend_event(json, "r", 1, 1, 0).unwrap();
