@@ -341,6 +341,13 @@ function joinedRallyParams(
     : [SEASON_ZERO_ID, SEASON_ZERO_JOIN_RALLY_MIN_YOCTO.toString()];
 }
 
+/** Activity counted only after rally join; settlement also caps at season end. */
+function seasonActivityWindow(hasCutoff: boolean, column: string): string {
+  return hasCutoff
+    ? `AND ${column} >= j.joined_at_ns AND ${column} <= $3::numeric`
+    : `AND ${column} >= j.joined_at_ns`;
+}
+
 function profileSignals(
   rows: ProfileRow[]
 ): Map<string, SeasonZeroProfileSignals> {
@@ -375,7 +382,9 @@ export async function getSeasonZeroStandings(
   const hasCutoff = Boolean(cutoffTimestampNs);
 
   const joinedParams = joinedRallyParams(hasCutoff, cutoffParam);
-  const scoreAfterJoin = !hasCutoff;
+  const activityWindow = seasonActivityWindow(hasCutoff, 'du.block_timestamp');
+  const spendWindow = seasonActivityWindow(hasCutoff, 's.block_timestamp');
+  const boostWindow = seasonActivityWindow(hasCutoff, 'be.block_timestamp');
 
   const joined = await indexerQuery<JoinedRallyRow>(
     `WITH ${joinedRallyCte(hasCutoff)}
@@ -414,7 +423,7 @@ export async function getSeasonZeroStandings(
              INNER JOIN joined j ON j.account_id = du.account_id
              WHERE du.data_type = 'profile'
                AND du.data_id IN ('name', 'bio', 'avatar', 'links')
-               AND du.block_timestamp <= $3::numeric
+               ${activityWindow}
              ORDER BY du.account_id, du.data_id, du.block_height DESC, du.block_timestamp DESC, du.receipt_id DESC, du.id DESC
            ) latest
            WHERE operation = 'set'`
@@ -430,7 +439,7 @@ export async function getSeasonZeroStandings(
              INNER JOIN joined j ON j.account_id = du.account_id
              WHERE du.data_type = 'profile'
                AND du.data_id IN ('name', 'bio', 'avatar', 'links')
-               AND du.block_timestamp >= j.joined_at_ns
+               ${activityWindow}
              ORDER BY du.account_id, du.data_id, du.block_height DESC, du.block_timestamp DESC, du.receipt_id DESC, du.id DESC
            ) latest
            WHERE operation = 'set'`,
@@ -450,7 +459,7 @@ export async function getSeasonZeroStandings(
              FROM data_updates du
              INNER JOIN joined j ON j.account_id = du.target_account
              WHERE du.data_type = 'endorsement'
-               AND du.block_timestamp <= $3::numeric
+               ${activityWindow}
              ORDER BY du.account_id, du.path, du.block_height DESC, du.block_timestamp DESC, du.receipt_id DESC, du.id DESC
            ) latest
            WHERE operation = 'set'
@@ -467,7 +476,7 @@ export async function getSeasonZeroStandings(
            WHERE e.operation = 'set'
              AND e.issuer IS NOT NULL
              AND e.issuer != e.target
-             AND e.block_timestamp >= j.joined_at_ns`,
+             ${seasonActivityWindow(false, 'e.block_timestamp')}`,
       [...joinedParams]
     ),
     indexerQuery<StandEventRow>(
@@ -489,7 +498,7 @@ export async function getSeasonZeroStandings(
                WHERE du.data_type = 'standing'
                  AND du.target_account IS NOT NULL
                  AND du.target_account != ''
-                 AND du.block_timestamp <= $3::numeric
+                 ${activityWindow}
                ORDER BY du.account_id, du.target_account, du.block_height DESC, du.block_timestamp DESC, du.receipt_id DESC, du.id DESC
              ) latest
              WHERE operation = 'set'
@@ -506,7 +515,8 @@ export async function getSeasonZeroStandings(
              incoming.block_timestamp::text AS block_timestamp
            FROM standings_current incoming
            INNER JOIN joined j ON j.account_id = incoming.target_account
-           WHERE incoming.block_timestamp >= j.joined_at_ns`,
+           WHERE 1=1
+             ${seasonActivityWindow(false, 'incoming.block_timestamp')}`,
       [...joinedParams]
     ),
     indexerQuery<SupportRow>(
@@ -521,7 +531,7 @@ export async function getSeasonZeroStandings(
          AND s.success = true
          AND s.action = 'support_profile'
          AND s.target_type = 'profile'
-         AND s.block_timestamp ${scoreAfterJoin ? '>= j.joined_at_ns' : '<= $3::numeric'}
+         ${spendWindow}
        GROUP BY COALESCE(NULLIF(s.recipient_id, ''), s.target_id)`,
       [...joinedParams]
     ),
@@ -544,7 +554,7 @@ export async function getSeasonZeroStandings(
          INNER JOIN joined j ON j.account_id = be.account_id
          WHERE be.success = true
            AND be.event_type IN ('BOOST_LOCK', 'BOOST_EXTEND', 'BOOST_UNLOCK')
-           AND be.block_timestamp ${scoreAfterJoin ? '>= j.joined_at_ns' : '<= $3::numeric'}
+           ${boostWindow}
          ORDER BY be.account_id, be.block_height DESC, be.block_timestamp DESC, be.receipt_id DESC, be.id DESC
        ) latest_boost`,
       [...joinedParams]

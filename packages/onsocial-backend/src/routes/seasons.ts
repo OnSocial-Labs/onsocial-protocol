@@ -10,6 +10,7 @@ import {
   getSeasonZeroIndexedPoolYocto,
   getSeasonZeroOnChainConfig,
   getSeasonZeroSettlementSummary,
+  previewSeasonZeroSettlement,
   publishSeasonZeroSettlement,
   SEASON_ZERO_SETTLEMENT_JOIN_MIN_YOCTO,
 } from '../services/seasons/season-zero-finalization.js';
@@ -94,9 +95,14 @@ router.get('/:seasonId/standings', async (req: Request, res: Response) => {
   if (!assertSeasonZero(req, res)) return;
 
   try {
+    const cutoffTimestampNs =
+      typeof req.query.cutoff_timestamp_ns === 'string'
+        ? req.query.cutoff_timestamp_ns.trim()
+        : undefined;
     const result = await getSeasonZeroStandings({
       limit: queryInt(req.query.limit, 50),
       offset: queryInt(req.query.offset, 0),
+      cutoffTimestampNs,
     });
     res.json({ success: true, ...result });
   } catch (error) {
@@ -120,10 +126,16 @@ router.get('/:seasonId/me', async (req: Request, res: Response) => {
   }
 
   try {
+    const onChainConfig = await getSeasonZeroOnChainConfig();
+    const cutoffTimestampNs =
+      onChainConfig && !onChainConfig.is_live && onChainConfig.ends_at_ns
+        ? onChainConfig.ends_at_ns
+        : undefined;
     const result = await getSeasonZeroStandings({
       limit: 1,
       offset: 0,
       accountId,
+      cutoffTimestampNs,
     });
     const standing: SeasonZeroStanding | null = result.standings[0] ?? null;
     res.json({
@@ -193,6 +205,36 @@ router.get(
       res.status(502).json({
         success: false,
         error: 'Season claim unavailable',
+      });
+    }
+  }
+);
+
+router.get(
+  '/:seasonId/finalize/preview',
+  async (req: Request, res: Response) => {
+    if (!assertSeasonZero(req, res)) return;
+    if (!requireSeasonAdmin(req, res)) return;
+
+    const cutoffTimestampNs =
+      typeof req.query.cutoff_timestamp_ns === 'string'
+        ? req.query.cutoff_timestamp_ns.trim()
+        : undefined;
+
+    try {
+      const preview = await previewSeasonZeroSettlement({
+        cutoffTimestampNs,
+      });
+      res.json({
+        success: true,
+        ...preview,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error({ error: message }, 'Season Zero finalize preview failed');
+      res.status(400).json({
+        success: false,
+        error: message,
       });
     }
   }

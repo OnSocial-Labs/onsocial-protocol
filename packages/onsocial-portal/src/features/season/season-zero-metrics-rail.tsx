@@ -17,15 +17,90 @@ const PHASE_COPY: Record<
   ReturnType<typeof resolveSeasonZeroLifecyclePhase>,
   {
     title: string;
+    shortTitle?: string;
     accent: 'gold' | 'blue' | 'green' | 'neutral';
   }
 > = {
   live: { title: 'Live', accent: 'gold' },
   ended_pending_settlement: { title: 'Ended', accent: 'blue' },
-  finalized_pending_publish: { title: 'Finalized', accent: 'blue' },
+  finalized_pending_publish: {
+    title: 'Finalized',
+    shortTitle: 'Final',
+    accent: 'blue',
+  },
   published_claim_soon: { title: 'Published', accent: 'green' },
-  claim_open: { title: 'Claims open', accent: 'green' },
+  claim_open: { title: 'Claims open', shortTitle: 'Claims', accent: 'green' },
 };
+
+function claimStatusAccentClass(statusLabel: string): string {
+  if (statusLabel === 'Claimed') {
+    return 'portal-gold-text';
+  }
+  if (statusLabel.endsWith(' SOCIAL')) {
+    return 'portal-green-text';
+  }
+  switch (statusLabel) {
+    case 'Reward ready':
+    case 'Claims opening soon':
+    case 'Rewards finalized':
+      return 'portal-green-text';
+    case 'Awaiting publish':
+    case 'Awaiting settlement':
+      return 'portal-blue-text';
+    default:
+      return 'text-muted-foreground/80';
+  }
+}
+
+function MetricsRailFooter({
+  claimStatus,
+  settlement,
+  showSettlementDetail = false,
+}: {
+  claimStatus?: {
+    statusLabel: string;
+    detailLine?: string | null;
+  } | null;
+  settlement?: SeasonZeroSettlementSummary | null;
+  showSettlementDetail?: boolean;
+}) {
+  if (!claimStatus && !(showSettlementDetail && settlement)) return null;
+
+  return (
+    <div className="border-t border-fade-section px-4 py-3 text-center md:px-5 md:py-3.5">
+      {claimStatus ? (
+        <>
+          <p className="portal-eyebrow text-muted-foreground">
+            Season claim
+            <span className="text-muted-foreground/40"> · </span>
+            <span className={claimStatusAccentClass(claimStatus.statusLabel)}>
+              {claimStatus.statusLabel}
+            </span>
+          </p>
+          {claimStatus.detailLine ? (
+            <p className="mt-1 text-xs text-muted-foreground/75">
+              {claimStatus.detailLine}
+            </p>
+          ) : null}
+        </>
+      ) : null}
+      {showSettlementDetail && settlement ? (
+        <p
+          className={cn(
+            'portal-type-micro text-muted-foreground/65',
+            claimStatus ? 'mt-2' : null
+          )}
+        >
+          Settlement {settlement.status}
+          {settlement.publishedTxHash ? ' · root on-chain' : ''}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+const METRIC_VALUE_CLASS =
+  'truncate font-mono text-sm font-bold tracking-tight sm:text-base';
 
 const ACCENT_ICON: Record<
   (typeof PHASE_COPY)[keyof typeof PHASE_COPY]['accent'],
@@ -89,7 +164,7 @@ function MetricSegment({
   return (
     <div
       className={cn(
-        'flex min-w-0 flex-1 items-center gap-2.5 px-3 py-2.5 md:gap-3 md:px-4',
+        'flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2 sm:gap-2.5 sm:px-3 sm:py-2.5 md:gap-3 md:px-4',
         showDivider && 'border-r border-fade-section'
       )}
     >
@@ -102,7 +177,7 @@ function MetricSegment({
         ) : null}
         <div
           className={cn(
-            'relative flex h-8 w-8 items-center justify-center rounded-full border',
+            'relative flex h-7 w-7 items-center justify-center rounded-full border sm:h-8 sm:w-8',
             frameClassName
           )}
         >
@@ -119,12 +194,20 @@ export function SeasonZeroMetricsRail({
   indexedPoolYocto,
   settlement,
   participantCount = 0,
+  claimStatus = null,
+  showSettlementDetail = false,
   className,
 }: {
   onChainConfig: SeasonZeroOnChainConfig;
   indexedPoolYocto?: string;
   settlement?: SeasonZeroSettlementSummary | null;
   participantCount?: number;
+  claimStatus?: {
+    statusLabel: string;
+    detailLine?: string | null;
+  } | null;
+  /** Ops/admin only — hides jargon like "Settlement finalized" from participants by default. */
+  showSettlementDetail?: boolean;
   className?: string;
 }) {
   const phase = resolveSeasonZeroLifecyclePhase(onChainConfig, settlement);
@@ -149,11 +232,18 @@ export function SeasonZeroMetricsRail({
         >
           <p
             className={cn(
-              'font-mono text-base font-bold tracking-tight',
+              METRIC_VALUE_CLASS,
               isLive ? ACCENT_VALUE.gold : ACCENT_VALUE[copy.accent]
             )}
           >
-            {timeLabel ?? copy.title}
+            {timeLabel ?? (
+              <>
+                <span className="sm:hidden">
+                  {copy.shortTitle ?? copy.title}
+                </span>
+                <span className="hidden sm:inline">{copy.title}</span>
+              </>
+            )}
           </p>
           <p className="mt-0.5 portal-type-micro text-muted-foreground/65">
             Season clock
@@ -166,9 +256,9 @@ export function SeasonZeroMetricsRail({
           frameClassName="portal-gold-frame"
           showDivider
         >
-          <p className="truncate font-mono text-base font-bold tracking-tight text-foreground">
+          <p className={cn(METRIC_VALUE_CLASS, 'text-foreground')}>
             {poolLabel}
-            <span className="ml-1 text-sm font-semibold text-muted-foreground">
+            <span className="ml-1 text-xs font-semibold text-muted-foreground sm:text-sm">
               SOCIAL
             </span>
           </p>
@@ -182,7 +272,7 @@ export function SeasonZeroMetricsRail({
           iconClassName="portal-purple-icon"
           frameClassName="portal-purple-frame"
         >
-          <p className="font-mono text-base font-bold tracking-tight text-foreground">
+          <p className={cn(METRIC_VALUE_CLASS, 'text-foreground')}>
             {formatParticipants(participantCount)}
           </p>
           <p className="mt-0.5 portal-type-micro text-muted-foreground/65">
@@ -191,11 +281,12 @@ export function SeasonZeroMetricsRail({
         </MetricSegment>
       </div>
 
-      {settlement ? (
-        <p className="border-t border-fade-section px-3 py-1.5 text-center portal-type-micro text-muted-foreground/65 md:px-4">
-          Settlement {settlement.status}
-          {settlement.publishedTxHash ? ' · root on-chain' : ''}
-        </p>
+      {claimStatus || (showSettlementDetail && settlement) ? (
+        <MetricsRailFooter
+          claimStatus={claimStatus}
+          settlement={settlement}
+          showSettlementDetail={showSettlementDetail}
+        />
       ) : null}
     </div>
   );

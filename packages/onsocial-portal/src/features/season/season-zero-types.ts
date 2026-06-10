@@ -59,13 +59,29 @@ export type SeasonZeroLifecyclePhase =
   | 'published_claim_soon'
   | 'claim_open';
 
+function isSeasonZeroSettlementPublished(
+  settlement: SeasonZeroSettlementSummary
+): boolean {
+  return (
+    settlement.status === 'published' || Boolean(settlement.publishedTxHash)
+  );
+}
+
 export function resolveSeasonZeroLifecyclePhase(
   onChain: SeasonZeroOnChainConfig | null | undefined,
   settlement: SeasonZeroSettlementSummary | null | undefined
 ): SeasonZeroLifecyclePhase {
   if (onChain?.is_live) return 'live';
+
+  if (!settlement) {
+    return 'ended_pending_settlement';
+  }
+
+  if (!isSeasonZeroSettlementPublished(settlement)) {
+    return 'finalized_pending_publish';
+  }
+
   if (onChain?.claim_open) return 'claim_open';
-  if (settlement?.publishedTxHash) return 'published_claim_soon';
-  if (settlement) return 'finalized_pending_publish';
-  return 'ended_pending_settlement';
+
+  return 'published_claim_soon';
 }

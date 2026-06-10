@@ -43,7 +43,7 @@ export function SeasonZeroGuidePanel({
   const reduceMotion = useReducedMotion();
 
   const headerHint = myStanding
-    ? `#${myStanding.rank} · ${formatScore(myStanding.score)} pts`
+    ? 'How points work'
     : `Up to ~${formatScore(limits.totalMax)} pts`;
 
   const activeBuckets = myStanding
