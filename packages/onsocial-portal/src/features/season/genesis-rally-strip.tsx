@@ -50,6 +50,7 @@ import type {
 } from '@/features/season/season-zero-types';
 import { resolveSeasonZeroLifecyclePhase } from '@/features/season/season-zero-types';
 import { resolveSeasonZeroClaimMetricsStatus } from '@/features/season/season-zero-claim-copy';
+import { seasonZeroPayoutSummary } from '@/features/season/season-zero-payout-copy';
 import { useSeasonZeroClaimActions } from '@/features/season/season-zero-claim-panel';
 import { cn } from '@/lib/utils';
 
@@ -411,6 +412,39 @@ export function GenesisRallyStrip({
     socialShortfallYocto,
   ]);
 
+  const metricsOnChainConfig =
+    variant === 'promo' ? promoOnChainConfig : onChainConfig;
+  const metricsIndexedPoolYocto =
+    variant === 'promo' ? promoIndexedPoolYocto : indexedPoolYocto;
+  const metricsSettlement = variant === 'promo' ? promoSettlement : settlement;
+  const metricsParticipantCount =
+    variant === 'promo' ? promoParticipantCount : participantCount;
+
+  const seasonPhase =
+    phaseProp ??
+    (metricsOnChainConfig
+      ? resolveSeasonZeroLifecyclePhase(metricsOnChainConfig, metricsSettlement)
+      : null);
+  const seasonIsLive = seasonPhase === 'live';
+
+  const payoutHint = useMemo(() => {
+    if (!seasonIsLive) return null;
+    return seasonZeroPayoutSummary({
+      indexedPoolYocto: metricsIndexedPoolYocto,
+      participantCount: metricsParticipantCount,
+      includeProspectiveJoin: !joined,
+      personalRank: myStanding?.rank ?? null,
+      personalScore: myStanding?.score ?? null,
+    });
+  }, [
+    joined,
+    metricsIndexedPoolYocto,
+    metricsParticipantCount,
+    myStanding?.rank,
+    myStanding?.score,
+    seasonIsLive,
+  ]);
+
   const balanceStatusLine = (() => {
     if (statusLoading) {
       return (
@@ -442,7 +476,13 @@ export function GenesisRallyStrip({
         <span className="portal-gold-text font-mono">
           {GENESIS_RALLY_JOIN_SOCIAL_LABEL}
         </span>
-        <span className="text-muted-foreground/60"> entry</span>
+        <span className="text-muted-foreground/60"> entry · 95 to pool</span>
+        {payoutHint ? (
+          <>
+            <span className="text-border"> · </span>
+            <span className="text-muted-foreground/75">{payoutHint}</span>
+          </>
+        ) : null}
         {isConnected ? (
           <>
             <span className="text-border"> · </span>
@@ -454,21 +494,6 @@ export function GenesisRallyStrip({
       </p>
     );
   })();
-
-  const metricsOnChainConfig =
-    variant === 'promo' ? promoOnChainConfig : onChainConfig;
-  const metricsIndexedPoolYocto =
-    variant === 'promo' ? promoIndexedPoolYocto : indexedPoolYocto;
-  const metricsSettlement = variant === 'promo' ? promoSettlement : settlement;
-  const metricsParticipantCount =
-    variant === 'promo' ? promoParticipantCount : participantCount;
-
-  const seasonPhase =
-    phaseProp ??
-    (metricsOnChainConfig
-      ? resolveSeasonZeroLifecyclePhase(metricsOnChainConfig, metricsSettlement)
-      : null);
-  const seasonIsLive = seasonPhase === 'live';
 
   const claimMetricsStatus = useMemo(
     () =>

@@ -3,7 +3,9 @@ import { createHash } from 'node:crypto';
 import type { SeasonZeroStanding } from './season-zero-standings.js';
 import { SEASON_ZERO_ID } from './season-zero-policy.js';
 
-const BASE_REBATE_BPS = 7_000n;
+/** 50% equal base rebate · 50% merit bonus (keep portal estimator in sync). */
+export const SEASON_ZERO_BASE_REBATE_BPS = 5_000n;
+const BASE_REBATE_BPS = SEASON_ZERO_BASE_REBATE_BPS;
 const BPS_DENOMINATOR = 10_000n;
 const SEASON_LEAF_PREFIX = 'onsocial-season-v1';
 

@@ -12,6 +12,7 @@ import {
 } from '@/features/season/season-zero-earn-panel';
 import type { SeasonZeroStanding } from '@/features/season/season-zero-standing-row';
 import { GENESIS_RALLY_JOIN_SOCIAL_LABEL } from '@/lib/genesis-season';
+import { seasonZeroPayoutSummary } from '@/features/season/season-zero-payout-copy';
 import { portalTransition } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
@@ -33,14 +34,25 @@ function GuidePoint({ label, value }: { label: string; value: string }) {
 export function SeasonZeroGuidePanel({
   limits,
   myStanding = null,
+  participantCount = 0,
+  indexedPoolYocto = '0',
   className,
 }: {
   limits: SeasonZeroScoringLimits;
   myStanding?: Pick<SeasonZeroStanding, 'rank' | 'score' | 'breakdown'> | null;
+  participantCount?: number;
+  indexedPoolYocto?: string;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
   const reduceMotion = useReducedMotion();
+
+  const payoutSummary = seasonZeroPayoutSummary({
+    indexedPoolYocto,
+    participantCount: Math.max(participantCount, myStanding ? 1 : 0),
+    personalRank: myStanding?.rank ?? null,
+    personalScore: myStanding?.score ?? null,
+  });
 
   const headerHint = myStanding
     ? 'How points work'
@@ -164,14 +176,22 @@ export function SeasonZeroGuidePanel({
                 <ul className="space-y-1.5">
                   <GuidePoint
                     label="Entry"
-                    value={`${GENESIS_RALLY_JOIN_SOCIAL_LABEL} SOCIAL`}
+                    value={`${GENESIS_RALLY_JOIN_SOCIAL_LABEL} SOCIAL · 95 to pool`}
                   />
                   <GuidePoint
                     label="Split"
-                    value="70% equal · 30% by activity"
+                    value="50% equal · 50% by activity"
                   />
+                  {payoutSummary ? (
+                    <GuidePoint label="Est. claim" value={payoutSummary} />
+                  ) : null}
                   <GuidePoint label="Claim" value="On this page when open" />
                 </ul>
+                <p className="portal-type-caption text-muted-foreground/65">
+                  Compete for rank and a Genesis profile badge. Most of your
+                  entry returns from the shared pool; higher ranks earn a larger
+                  bonus slice.
+                </p>
               </div>
 
               <p className="portal-type-caption text-muted-foreground/65">

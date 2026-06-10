@@ -85,12 +85,12 @@ describe('season-zero-settlement', () => {
     expect(snapshot.participantCount).toBe(2);
     expect(snapshot.rewardCount).toBe(2);
     expect(snapshot.claims.map((claim) => claim.amountYocto)).toEqual([
-      '600',
-      '400',
+      '667',
+      '333',
     ]);
     expect(snapshot.policy).toEqual({
-      baseRebateBps: 7000,
-      scoreBonusBps: 3000,
+      baseRebateBps: 5000,
+      scoreBonusBps: 5000,
       scoreWeight: 'score_minus_join_points',
     });
   });

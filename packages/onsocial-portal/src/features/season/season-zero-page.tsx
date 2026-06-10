@@ -180,6 +180,8 @@ export default function SeasonZeroPage() {
             <SeasonZeroGuidePanel
               limits={scoringLimits}
               myStanding={currentUserStanding}
+              participantCount={total}
+              indexedPoolYocto={indexedPoolYocto}
             />
           </motion.div>
         ) : null}

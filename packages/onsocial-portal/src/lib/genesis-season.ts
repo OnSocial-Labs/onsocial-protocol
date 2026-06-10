@@ -8,6 +8,13 @@ export const GENESIS_RALLY_JOIN_YOCTO = 100_000_000_000_000_000_000n;
 
 export const GENESIS_RALLY_JOIN_SOCIAL_LABEL = '100';
 
+/** Default join_rally routing (5% treasury · 95% season pool). */
+export const GENESIS_RALLY_TREASURY_BPS = 500;
+export const GENESIS_RALLY_SEASON_POOL_BPS = 9_500;
+
+/** Settlement split (50% equal · 50% merit). */
+export const GENESIS_RALLY_BASE_REBATE_BPS = 5_000;
+
 export function formatGenesisYoctoAsSocial(yocto: string | bigint): string {
   const raw = typeof yocto === 'bigint' ? yocto.toString() : yocto;
   if (!raw || raw === '0') return '0';

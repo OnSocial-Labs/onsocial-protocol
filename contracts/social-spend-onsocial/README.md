@@ -128,7 +128,7 @@ Installed at initialization. Routing bps always sum to `10_000`.
 | `signal_profile` | `profile` | 1,000 | 0 | 9,000 | no | no |
 | `boost_post` | `post` | 1,000 | 0 | 9,000 | no | yes |
 | `endorse_profile` | `profile` | 1,000 | 0 | 9,000 | no | no |
-| `join_rally` | `rally` | 1,000 | 9,000 | 0 | yes | yes |
+| `join_rally` | `rally` | 500 | 9,500 | 0 | yes | yes |
 | `support_profile` | `profile` | 500 | 0 | 9,500 | no | no |
 
 Minimum spend per action: `0.01 SOCIAL` (`10^16` yocto, 18 decimals).
