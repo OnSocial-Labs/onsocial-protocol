@@ -60,6 +60,11 @@ interface ProfileEndorsementsProps {
   onSelectAccount?: (accountId: string) => void;
   onEndorsementCountChange?: (count: number) => void;
   onGivenCountChange?: (count: number) => void;
+  /** When true, Endorse lives in the profile meta action row instead. */
+  hideEndorseAction?: boolean;
+  endorseModalOpen?: boolean;
+  onEndorseModalOpenChange?: (open: boolean) => void;
+  onViewerEndorsementCountChange?: (count: number) => void;
 }
 
 export function ProfileEndorsements({
@@ -75,6 +80,10 @@ export function ProfileEndorsements({
   onSelectAccount,
   onEndorsementCountChange,
   onGivenCountChange,
+  hideEndorseAction = false,
+  endorseModalOpen: endorseModalOpenProp,
+  onEndorseModalOpenChange,
+  onViewerEndorsementCountChange,
 }: ProfileEndorsementsProps) {
   const router = useRouter();
   const { prefetchEndorsements } = useProfileGraphRoutePrefetch(
@@ -93,7 +102,11 @@ export function ProfileEndorsements({
   >([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [endorseModalOpen, setEndorseModalOpen] = useState(false);
+  const [endorseModalOpenInternal, setEndorseModalOpenInternal] =
+    useState(false);
+  const endorseModalOpen = endorseModalOpenProp ?? endorseModalOpenInternal;
+  const setEndorseModalOpen =
+    onEndorseModalOpenChange ?? setEndorseModalOpenInternal;
   const [myEndorsements, setMyEndorsements] = useState<EndorsementItem[]>([]);
   const [editingEndorsement, setEditingEndorsement] =
     useState<EndorsementItem | null>(null);
@@ -152,6 +165,10 @@ export function ProfileEndorsements({
   useEffect(() => {
     onEndorsementCountChange?.(endorsementCounts.received);
   }, [endorsementCounts.received, onEndorsementCountChange]);
+
+  useEffect(() => {
+    onViewerEndorsementCountChange?.(myEndorsements.length);
+  }, [myEndorsements.length, onViewerEndorsementCountChange]);
 
   const handleEndorseSubmit = async (input: EndorsementSubmitInput) => {
     if (!accountId) throw new Error('Profile account is not ready.');
@@ -339,35 +356,39 @@ export function ProfileEndorsements({
               </Button>
             ) : null}
 
-            {canAddNew ? (
-              <Button
-                type="button"
-                size="xs"
-                variant="endorsement"
-                onClick={() => {
-                  setEditingEndorsement(null);
-                  setEndorseModalOpen(true);
-                }}
-                aria-label={
-                  hasSocialSession
-                    ? `Endorse ${targetDisplayName}`
-                    : `Authorize and endorse ${targetDisplayName}`
-                }
-              >
-                {endorseActionLabel}
-              </Button>
-            ) : canEndorse && atCap ? (
-              <span className="portal-type-label text-portal-neutral opacity-70">
-                {MAX_ENDORSEMENTS_PER_TARGET} topics max
-              </span>
-            ) : isSelf ? (
-              <span className="portal-type-label text-portal-neutral opacity-70">
-                Others can endorse you
-              </span>
-            ) : !viewerAccountId ? (
-              <span className="portal-type-label text-portal-neutral opacity-70">
-                Connect to endorse
-              </span>
+            {!hideEndorseAction ? (
+              <>
+                {canAddNew ? (
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="endorsement"
+                    onClick={() => {
+                      setEditingEndorsement(null);
+                      setEndorseModalOpen(true);
+                    }}
+                    aria-label={
+                      hasSocialSession
+                        ? `Endorse ${targetDisplayName}`
+                        : `Authorize and endorse ${targetDisplayName}`
+                    }
+                  >
+                    {endorseActionLabel}
+                  </Button>
+                ) : canEndorse && atCap ? (
+                  <span className="portal-type-label text-portal-neutral opacity-70">
+                    {MAX_ENDORSEMENTS_PER_TARGET} topics max
+                  </span>
+                ) : isSelf ? (
+                  <span className="portal-type-label text-portal-neutral opacity-70">
+                    Others can endorse you
+                  </span>
+                ) : !viewerAccountId ? (
+                  <span className="portal-type-label text-portal-neutral opacity-70">
+                    Connect to endorse
+                  </span>
+                ) : null}
+              </>
             ) : null}
           </div>
         </div>

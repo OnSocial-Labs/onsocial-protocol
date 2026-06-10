@@ -62,15 +62,35 @@ export function walletMenuActionButtonClass(
   );
 }
 
-/** Stand with — portal blue chrome; label stays muted. Standing — neutral shell. */
-export function profileSocialStandingButtonClass(active = false): string {
+export type ProfileSocialActionLayout = 'pill' | 'bar';
+
+const profileSocialActionBarShellClass =
+  'inline-flex min-h-[32px] w-full items-center justify-center gap-1 rounded-lg px-2 py-1.5 whitespace-nowrap leading-none';
+
+/** Equal thirds — Stand / Endorse / Support on profile social strip. */
+export const profileSocialActionBarClass = 'grid grid-cols-3 gap-1';
+
+/** Stand with — portal blue chrome. Standing — outline secondary (matches page back actions). */
+export function profileSocialStandingButtonClass(
+  active = false,
+  layout: ProfileSocialActionLayout = 'pill'
+): string {
   const shell = cn(
     portalCompactPillShellClass,
-    'inline-flex h-[24px] items-center justify-center whitespace-nowrap leading-none'
+    layout === 'bar'
+      ? profileSocialActionBarShellClass
+      : 'inline-flex h-[24px] items-center justify-center whitespace-nowrap leading-none'
   );
 
   if (active) {
-    return cn(shell, 'portal-neutral-control text-foreground/72');
+    return cn(
+      shell,
+      'border-border/50 bg-transparent text-muted-foreground',
+      'shadow-[0_1px_2px_-1px_var(--portal-neutral-shadow)]',
+      'hover:border-border hover:bg-[var(--portal-neutral-bg)] hover:text-foreground',
+      'hover:shadow-[0_4px_6px_-1px_var(--portal-neutral-shadow),0_2px_4px_-2px_var(--portal-neutral-shadow)]',
+      'focus-visible:ring-[var(--portal-neutral-border-strong)]'
+    );
   }
 
   return cn(
@@ -80,6 +100,40 @@ export function profileSocialStandingButtonClass(active = false): string {
     'hover:border-[var(--portal-blue-border-strong)] hover:bg-[var(--portal-blue-bg)] hover:text-[var(--portal-blue)]',
     'hover:shadow-[0_4px_6px_-1px_var(--portal-blue-shadow),0_2px_4px_-2px_var(--portal-blue-shadow)]',
     'focus-visible:ring-[var(--portal-blue-border)]'
+  );
+}
+
+/** Endorse — same compact pill shell as stand-with (gold chrome). */
+export function profileSocialEndorseButtonClass(
+  layout: ProfileSocialActionLayout = 'pill'
+): string {
+  return cn(
+    portalCompactPillShellClass,
+    layout === 'bar'
+      ? profileSocialActionBarShellClass
+      : 'inline-flex h-[24px] items-center justify-center whitespace-nowrap leading-none',
+    'border-[var(--portal-gold-border)] bg-[var(--portal-gold-bg)] text-[var(--portal-gold)]/90',
+    'shadow-[0_1px_2px_-1px_var(--portal-gold-shadow)]',
+    'hover:border-[var(--portal-gold-border-strong)] hover:bg-[var(--portal-gold-bg)] hover:text-[var(--portal-gold)]',
+    'hover:shadow-[0_4px_6px_-1px_var(--portal-gold-shadow),0_2px_4px_-2px_var(--portal-gold-shadow)]',
+    'focus-visible:ring-[var(--portal-gold-border)]'
+  );
+}
+
+/** Support — same compact pill shell as stand-with (green chrome). */
+export function profileSocialSupportButtonClass(
+  layout: ProfileSocialActionLayout = 'pill'
+): string {
+  return cn(
+    portalCompactPillShellClass,
+    layout === 'bar'
+      ? profileSocialActionBarShellClass
+      : 'inline-flex h-[24px] items-center justify-center gap-1 whitespace-nowrap leading-none',
+    'border-[var(--portal-green-border)] bg-[var(--portal-green-bg)] text-[var(--portal-green)]',
+    'shadow-[0_1px_2px_-1px_var(--portal-green-shadow)]',
+    'hover:border-[var(--portal-green-border-strong)] hover:bg-[var(--portal-green-bg)] hover:text-[var(--portal-green)]',
+    'hover:shadow-[0_4px_6px_-1px_var(--portal-green-shadow),0_2px_4px_-2px_var(--portal-green-shadow)]',
+    'focus-visible:ring-[var(--portal-green-border)]'
   );
 }
 

@@ -14,8 +14,33 @@ export const profileIdentityOverlapClass =
 export const profileIdentityAvatarSizeClass =
   'h-[var(--profile-avatar-size)] w-[var(--profile-avatar-size)]';
 
-export const profileIdentityTextClass =
-  'min-w-0 flex-1 space-y-0.5 pb-1 pt-[calc(var(--profile-avatar-size)/2+0.375rem)]';
+export const profileIdentityAvatarDockClass =
+  'flex w-[var(--profile-avatar-size)] shrink-0 flex-col items-center gap-1.5';
+
+/** Action pills opposite the avatar, right-aligned under the banner overlap. */
+export const profileIdentityActionsClass =
+  'flex min-w-0 flex-1 items-start justify-end pb-1 pt-[calc(var(--profile-avatar-size)/2+0.375rem)]';
+
+/** Name and handle — full width below the avatar row. */
+export const profileIdentityTextClass = 'min-w-0 space-y-0.5';
+
+/** Standing network preview, then joined date — under bio. */
+export const profileIdentityMetaRowClass =
+  'flex min-w-0 w-full flex-wrap items-center gap-x-1.5 gap-y-0.5 portal-type-body-sm';
+
+export function ProfileStandingNetworkSkeleton({
+  className,
+}: {
+  className?: string;
+}) {
+  return (
+    <div className={cn('flex -space-x-1', className)}>
+      {Array.from({ length: 4 }).map((_, i) => (
+        <Skeleton key={i} className="h-5 w-5 rounded-full" />
+      ))}
+    </div>
+  );
+}
 
 /** Skeleton for profile hero — matches loaded banner, avatar, and social strip layout. */
 export function ProfileIdentityLoading({
@@ -45,16 +70,25 @@ export function ProfileIdentityLoading({
             : 'px-4 pb-5 md:px-5'
         )}
       >
-        <div className="flex items-start gap-3.5">
-          <Skeleton
-            className={cn(
-              'shrink-0 rounded-2xl !border-[3px] !border-background',
-              profileIdentityAvatarSizeClass
-            )}
-          />
+        <div className="space-y-2">
+          <div className="flex items-start gap-3.5">
+            <div className={profileIdentityAvatarDockClass}>
+              <Skeleton
+                className={cn(
+                  'rounded-2xl !border-[3px] !border-background',
+                  profileIdentityAvatarSizeClass
+                )}
+              />
+            </div>
+            <div className={profileIdentityActionsClass}>
+              <div className="flex flex-wrap items-center justify-end gap-1.5">
+                <Skeleton className="h-6 w-[4.5rem] rounded-full bg-foreground/[0.07]" />
+              </div>
+            </div>
+          </div>
           <div className={cn(profileIdentityTextClass, 'space-y-1.5')}>
-            <Skeleton className="h-5 w-36 max-w-full bg-foreground/10" />
-            <Skeleton className="h-3 w-48 max-w-full bg-foreground/[0.06]" />
+            <Skeleton className="h-[1.3125rem] w-36 max-w-full bg-foreground/10" />
+            <Skeleton className="h-3.5 w-40 max-w-full bg-foreground/[0.06]" />
           </div>
         </div>
         {showBioSkeleton ? (
@@ -65,34 +99,12 @@ export function ProfileIdentityLoading({
           />
         ) : null}
         {showSocialSkeleton ? (
-          <>
-            <Skeleton className="h-7 w-28 rounded-full bg-foreground/[0.07]" />
-            <div className="space-y-2">
-              <div className="flex items-start gap-6">
-                <div className="space-y-1.5">
-                  <Skeleton className="h-2 w-14" />
-                  <div className="flex gap-1.5">
-                    <Skeleton className="h-4 w-8 rounded" />
-                    <Skeleton className="h-4 w-8 rounded" />
-                    <Skeleton className="h-4 w-6 rounded" />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Skeleton className="h-2 w-20" />
-                  <div className="flex gap-1.5">
-                    <Skeleton className="h-4 w-8 rounded" />
-                    <Skeleton className="h-4 w-8 rounded" />
-                  </div>
-                </div>
-              </div>
-              <div className="flex -space-x-1">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <Skeleton key={i} className="h-5 w-5 rounded-full" />
-                ))}
-              </div>
-            </div>
-          </>
+          <div className={profileIdentityMetaRowClass}>
+            <ProfileStandingNetworkSkeleton />
+            <Skeleton className="h-3.5 w-28 rounded bg-foreground/[0.06]" />
+          </div>
         ) : null}
+        {showSocialSkeleton ? <ProfileSocialStripSkeleton /> : null}
       </div>
     </>
   );
@@ -101,29 +113,27 @@ export function ProfileIdentityLoading({
 /** Inline social-strip skeleton (profile page, identity already visible). */
 export function ProfileSocialStripSkeleton() {
   return (
-    <div className="space-y-2">
-      <div className="flex items-start gap-6">
-        <div className="space-y-1.5">
-          <Skeleton className="h-2 w-14" />
-          <div className="flex gap-1.5">
-            <Skeleton className="h-4 w-8 rounded" />
-            <Skeleton className="h-4 w-8 rounded" />
-            <Skeleton className="h-4 w-6 rounded" />
-          </div>
+    <div className="space-y-1.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <Skeleton className="h-3.5 w-24 rounded bg-foreground/[0.06]" />
+        <Skeleton className="h-6 w-[5.5rem] rounded-full bg-foreground/[0.07]" />
+      </div>
+      <Skeleton className="h-3 w-36 bg-foreground/[0.05]" />
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-3.5 w-20 rounded bg-foreground/[0.06]" />
+          <Skeleton className="h-6 w-16 rounded-full bg-foreground/[0.07]" />
         </div>
-        <div className="space-y-1.5">
-          <Skeleton className="h-2 w-20" />
-          <div className="flex gap-1.5">
-            <Skeleton className="h-4 w-8 rounded" />
-            <Skeleton className="h-4 w-8 rounded" />
-          </div>
+        <div className="flex items-center gap-1.5">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton
+              key={i}
+              className="h-3.5 w-3.5 rounded-sm bg-foreground/[0.05]"
+            />
+          ))}
         </div>
       </div>
-      <div className="flex -space-x-1">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-5 w-5 rounded-full" />
-        ))}
-      </div>
+      <Skeleton className="h-3 w-28 bg-foreground/[0.05]" />
     </div>
   );
 }
