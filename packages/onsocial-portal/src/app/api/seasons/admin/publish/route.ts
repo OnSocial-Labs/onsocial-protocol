@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerActiveSeasonId } from '@/lib/active-season';
 import {
   forwardSeasonAdminRequest,
   isPortalSeasonAdmin,
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
 
   const active = typeof body.active === 'boolean' ? body.active : true;
   const upstream = await forwardSeasonAdminRequest(
-    'season-zero/settlement/publish',
+    `${getServerActiveSeasonId()}/settlement/publish`,
     { active }
   );
   const text = await upstream.text();

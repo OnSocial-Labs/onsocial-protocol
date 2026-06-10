@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerActiveSeasonId } from '@/lib/active-season';
 import {
   forwardSeasonAdminGet,
   isPortalSeasonAdmin,
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
     : '';
 
   const upstream = await forwardSeasonAdminGet(
-    'season-zero/finalize/preview',
+    `${getServerActiveSeasonId()}/finalize/preview`,
     search
   );
   const text = await upstream.text();

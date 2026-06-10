@@ -5,20 +5,20 @@ import { timingSafeEqual } from 'node:crypto';
 import { config } from '../config/index.js';
 import { logger } from '../logger.js';
 import {
-  finalizeSeasonZeroSettlement,
-  getSeasonZeroClaimData,
-  getSeasonZeroIndexedPoolYocto,
-  getSeasonZeroOnChainConfig,
-  getSeasonZeroSettlementSummary,
-  previewSeasonZeroSettlement,
-  publishSeasonZeroSettlement,
+  finalizeSeasonSettlement,
+  getSeasonClaimData,
+  getSeasonOnChainConfig,
+  getSeasonPoolBreakdown,
+  getSeasonSettlementSummary,
+  previewSeasonSettlement,
+  publishSeasonSettlement,
   SEASON_ZERO_SETTLEMENT_JOIN_MIN_YOCTO,
 } from '../services/seasons/season-zero-finalization.js';
 import {
-  getSeasonZeroStandings,
+  getSeasonStandings,
   type SeasonZeroStanding,
 } from '../services/seasons/season-zero-standings.js';
-import { SEASON_ZERO_ID } from '../services/seasons/season-zero-policy.js';
+import { normalizeSeasonId } from '../services/seasons/season-registry.js';
 
 const router = Router();
 
@@ -36,10 +36,13 @@ function normalizeAccountId(value: unknown): string | null {
   return ACCOUNT_ID_PATTERN.test(accountId) ? accountId : null;
 }
 
-function assertSeasonZero(req: Request, res: Response): boolean {
-  if (req.params.seasonId === SEASON_ZERO_ID) return true;
-  res.status(404).json({ success: false, error: 'Season not found' });
-  return false;
+function parseSeasonIdParam(req: Request, res: Response): string | null {
+  const seasonId = normalizeSeasonId(req.params.seasonId);
+  if (!seasonId) {
+    res.status(400).json({ success: false, error: 'Invalid season id' });
+    return null;
+  }
+  return seasonId;
 }
 
 function safeCompare(a: string, b: string): boolean {
@@ -64,26 +67,64 @@ function requireSeasonAdmin(req: Request, res: Response): boolean {
   return true;
 }
 
-router.get('/:seasonId/status', async (req: Request, res: Response) => {
-  if (!assertSeasonZero(req, res)) return;
-
+router.get('/active', async (_req: Request, res: Response) => {
+  const seasonId = config.activeSeasonId;
   try {
-    const [onChainConfig, settlement, indexedPoolYocto] = await Promise.all([
-      getSeasonZeroOnChainConfig(),
-      getSeasonZeroSettlementSummary(),
-      getSeasonZeroIndexedPoolYocto(),
-    ]);
+    const onChainConfig = await getSeasonOnChainConfig(seasonId);
+    if (!onChainConfig) {
+      res.status(404).json({
+        success: false,
+        error: 'Active season is not configured on-chain',
+        seasonId,
+      });
+      return;
+    }
     res.json({
       success: true,
-      seasonId: SEASON_ZERO_ID,
+      seasonId,
+      onChainConfig,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error({ error: message, seasonId }, 'Active season lookup failed');
+    res.status(502).json({
+      success: false,
+      error: 'Active season unavailable',
+    });
+  }
+});
+
+router.get('/:seasonId/status', async (req: Request, res: Response) => {
+  const seasonId = parseSeasonIdParam(req, res);
+  if (!seasonId) return;
+
+  try {
+    const [onChainConfig, settlement, poolBreakdown] = await Promise.all([
+      getSeasonOnChainConfig(seasonId),
+      getSeasonSettlementSummary(seasonId),
+      getSeasonPoolBreakdown(seasonId),
+    ]);
+    if (!onChainConfig) {
+      res.status(404).json({
+        success: false,
+        error: 'Season not configured on-chain',
+        seasonId,
+      });
+      return;
+    }
+    res.json({
+      success: true,
+      seasonId,
       joinMinYocto: SEASON_ZERO_SETTLEMENT_JOIN_MIN_YOCTO,
       onChainConfig,
-      indexedPoolYocto,
+      indexedPoolYocto: poolBreakdown.indexedPoolYocto,
+      joinPoolYocto: poolBreakdown.joinPoolYocto,
+      sponsoredPoolYocto: poolBreakdown.sponsoredPoolYocto,
       settlement,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger.error({ error: message }, 'Season Zero status failed');
+    logger.error({ error: message, seasonId }, 'Season status failed');
     res.status(502).json({
       success: false,
       error: 'Season status unavailable',
@@ -92,14 +133,15 @@ router.get('/:seasonId/status', async (req: Request, res: Response) => {
 });
 
 router.get('/:seasonId/standings', async (req: Request, res: Response) => {
-  if (!assertSeasonZero(req, res)) return;
+  const seasonId = parseSeasonIdParam(req, res);
+  if (!seasonId) return;
 
   try {
     const cutoffTimestampNs =
       typeof req.query.cutoff_timestamp_ns === 'string'
         ? req.query.cutoff_timestamp_ns.trim()
         : undefined;
-    const result = await getSeasonZeroStandings({
+    const result = await getSeasonStandings(seasonId, {
       limit: queryInt(req.query.limit, 50),
       offset: queryInt(req.query.offset, 0),
       cutoffTimestampNs,
@@ -107,7 +149,7 @@ router.get('/:seasonId/standings', async (req: Request, res: Response) => {
     res.json({ success: true, ...result });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger.error({ error: message }, 'Season Zero standings failed');
+    logger.error({ error: message, seasonId }, 'Season standings failed');
     res.status(502).json({
       success: false,
       error: 'Season standings unavailable',
@@ -117,7 +159,8 @@ router.get('/:seasonId/standings', async (req: Request, res: Response) => {
 });
 
 router.get('/:seasonId/me', async (req: Request, res: Response) => {
-  if (!assertSeasonZero(req, res)) return;
+  const seasonId = parseSeasonIdParam(req, res);
+  if (!seasonId) return;
 
   const accountId = normalizeAccountId(req.query.account_id);
   if (!accountId) {
@@ -126,12 +169,12 @@ router.get('/:seasonId/me', async (req: Request, res: Response) => {
   }
 
   try {
-    const onChainConfig = await getSeasonZeroOnChainConfig();
+    const onChainConfig = await getSeasonOnChainConfig(seasonId);
     const cutoffTimestampNs =
       onChainConfig && !onChainConfig.is_live && onChainConfig.ends_at_ns
         ? onChainConfig.ends_at_ns
         : undefined;
-    const result = await getSeasonZeroStandings({
+    const result = await getSeasonStandings(seasonId, {
       limit: 1,
       offset: 0,
       accountId,
@@ -140,15 +183,15 @@ router.get('/:seasonId/me', async (req: Request, res: Response) => {
     const standing: SeasonZeroStanding | null = result.standings[0] ?? null;
     res.json({
       success: true,
-      seasonId: SEASON_ZERO_ID,
+      seasonId,
       accountId,
       standing,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.error(
-      { error: message, accountId },
-      'Season Zero account lookup failed'
+      { error: message, accountId, seasonId },
+      'Season account lookup failed'
     );
     res.status(502).json({
       success: false,
@@ -158,18 +201,22 @@ router.get('/:seasonId/me', async (req: Request, res: Response) => {
 });
 
 router.get('/:seasonId/settlement', async (req: Request, res: Response) => {
-  if (!assertSeasonZero(req, res)) return;
+  const seasonId = parseSeasonIdParam(req, res);
+  if (!seasonId) return;
 
   try {
-    const settlement = await getSeasonZeroSettlementSummary();
+    const settlement = await getSeasonSettlementSummary(seasonId);
     res.json({
       success: true,
-      seasonId: SEASON_ZERO_ID,
+      seasonId,
       settlement,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger.error({ error: message }, 'Season Zero settlement lookup failed');
+    logger.error(
+      { error: message, seasonId },
+      'Season settlement lookup failed'
+    );
     res.status(502).json({
       success: false,
       error: 'Season settlement unavailable',
@@ -180,7 +227,8 @@ router.get('/:seasonId/settlement', async (req: Request, res: Response) => {
 router.get(
   '/:seasonId/claims/:accountId',
   async (req: Request, res: Response) => {
-    if (!assertSeasonZero(req, res)) return;
+    const seasonId = parseSeasonIdParam(req, res);
+    if (!seasonId) return;
 
     const accountId = normalizeAccountId(req.params.accountId);
     if (!accountId) {
@@ -189,18 +237,18 @@ router.get(
     }
 
     try {
-      const claim = await getSeasonZeroClaimData(accountId);
+      const claim = await getSeasonClaimData(seasonId, accountId);
       res.json({
         success: true,
-        seasonId: SEASON_ZERO_ID,
+        seasonId,
         accountId,
         claim,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error(
-        { error: message, accountId },
-        'Season Zero claim lookup failed'
+        { error: message, accountId, seasonId },
+        'Season claim lookup failed'
       );
       res.status(502).json({
         success: false,
@@ -213,7 +261,8 @@ router.get(
 router.get(
   '/:seasonId/finalize/preview',
   async (req: Request, res: Response) => {
-    if (!assertSeasonZero(req, res)) return;
+    const seasonId = parseSeasonIdParam(req, res);
+    if (!seasonId) return;
     if (!requireSeasonAdmin(req, res)) return;
 
     const cutoffTimestampNs =
@@ -222,7 +271,7 @@ router.get(
         : undefined;
 
     try {
-      const preview = await previewSeasonZeroSettlement({
+      const preview = await previewSeasonSettlement(seasonId, {
         cutoffTimestampNs,
       });
       res.json({
@@ -231,7 +280,10 @@ router.get(
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, 'Season Zero finalize preview failed');
+      logger.error(
+        { error: message, seasonId },
+        'Season finalize preview failed'
+      );
       res.status(400).json({
         success: false,
         error: message,
@@ -241,7 +293,8 @@ router.get(
 );
 
 router.post('/:seasonId/finalize', async (req: Request, res: Response) => {
-  if (!assertSeasonZero(req, res)) return;
+  const seasonId = parseSeasonIdParam(req, res);
+  if (!seasonId) return;
   if (!requireSeasonAdmin(req, res)) return;
 
   const body = req.body as { cutoffTimestampNs?: unknown };
@@ -251,17 +304,17 @@ router.post('/:seasonId/finalize', async (req: Request, res: Response) => {
       : undefined;
 
   try {
-    const settlement = await finalizeSeasonZeroSettlement({
+    const settlement = await finalizeSeasonSettlement(seasonId, {
       cutoffTimestampNs,
     });
     res.json({
       success: true,
-      seasonId: SEASON_ZERO_ID,
+      seasonId,
       settlement,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger.error({ error: message }, 'Season Zero finalization failed');
+    logger.error({ error: message, seasonId }, 'Season finalization failed');
     res.status(400).json({
       success: false,
       error: message,
@@ -272,22 +325,26 @@ router.post('/:seasonId/finalize', async (req: Request, res: Response) => {
 router.post(
   '/:seasonId/settlement/publish',
   async (req: Request, res: Response) => {
-    if (!assertSeasonZero(req, res)) return;
+    const seasonId = parseSeasonIdParam(req, res);
+    if (!seasonId) return;
     if (!requireSeasonAdmin(req, res)) return;
 
     const body = req.body as { active?: unknown };
     const active = typeof body.active === 'boolean' ? body.active : true;
 
     try {
-      const settlement = await publishSeasonZeroSettlement({ active });
+      const settlement = await publishSeasonSettlement(seasonId, { active });
       res.json({
         success: true,
-        seasonId: SEASON_ZERO_ID,
+        seasonId,
         settlement,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, 'Season Zero settlement publish failed');
+      logger.error(
+        { error: message, seasonId },
+        'Season settlement publish failed'
+      );
       res.status(400).json({
         success: false,
         error: message,

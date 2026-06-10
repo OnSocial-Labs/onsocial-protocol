@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerActiveSeasonId } from '@/lib/active-season';
 import {
   forwardSeasonAdminRequest,
   isPortalSeasonAdmin,
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
   }
 
   const upstream = await forwardSeasonAdminRequest(
-    'season-zero/finalize',
+    `${getServerActiveSeasonId()}/finalize`,
     payload
   );
   const text = await upstream.text();

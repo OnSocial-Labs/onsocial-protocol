@@ -189,9 +189,26 @@ function MetricSegment({
   );
 }
 
+function formatPoolSubtitle(
+  joinPoolYocto?: string,
+  sponsoredPoolYocto?: string
+): string {
+  const sponsored = BigInt(sponsoredPoolYocto ?? '0');
+  if (sponsored > 0n) {
+    const joinLabel = formatGenesisYoctoAsSocial(joinPoolYocto ?? '0');
+    const sponsoredLabel = formatGenesisYoctoAsSocial(
+      sponsoredPoolYocto ?? '0'
+    );
+    return `${joinLabel} from joins · ${sponsoredLabel} sponsored`;
+  }
+  return 'Reward pool';
+}
+
 export function SeasonZeroMetricsRail({
   onChainConfig,
   indexedPoolYocto,
+  joinPoolYocto,
+  sponsoredPoolYocto,
   settlement,
   participantCount = 0,
   claimStatus = null,
@@ -200,6 +217,8 @@ export function SeasonZeroMetricsRail({
 }: {
   onChainConfig: SeasonZeroOnChainConfig;
   indexedPoolYocto?: string;
+  joinPoolYocto?: string;
+  sponsoredPoolYocto?: string;
   settlement?: SeasonZeroSettlementSummary | null;
   participantCount?: number;
   claimStatus?: {
@@ -218,6 +237,7 @@ export function SeasonZeroMetricsRail({
       ? formatGenesisSeasonTimeRemaining(endsAtNs)
       : null;
   const poolLabel = formatGenesisYoctoAsSocial(indexedPoolYocto ?? '0');
+  const poolSubtitle = formatPoolSubtitle(joinPoolYocto, sponsoredPoolYocto);
   const isLive = phase === 'live';
 
   return (
@@ -263,7 +283,7 @@ export function SeasonZeroMetricsRail({
             </span>
           </p>
           <p className="mt-0.5 portal-type-micro text-muted-foreground/65">
-            Join pool
+            {poolSubtitle}
           </p>
         </MetricSegment>
 

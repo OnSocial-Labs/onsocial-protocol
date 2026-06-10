@@ -7,7 +7,7 @@ import {
   SEASON_ZERO_ID,
   SEASON_ZERO_JOIN_RALLY_MIN_YOCTO,
 } from './season-zero-policy.js';
-import { getSeasonZeroStandings } from './season-zero-standings.js';
+import { getSeasonStandings } from './season-zero-standings.js';
 import {
   areSeasonZeroStandingsStable,
   SEASON_ZERO_STANDINGS_STABILITY_DELAY_MS,
@@ -18,6 +18,7 @@ import {
   type SeasonZeroSettlementSnapshot,
 } from './season-zero-settlement.js';
 import { config } from '../../config/index.js';
+import { assertSeasonId } from './season-registry.js';
 
 interface SeasonPoolRow {
   pool_yocto: string;
@@ -108,12 +109,15 @@ function rowToSummary(row: SeasonSettlementRow): SeasonZeroSettlementSummary {
   };
 }
 
-export async function getSeasonZeroOnChainConfig(): Promise<SeasonZeroOnChainConfig | null> {
+export async function getSeasonOnChainConfig(
+  seasonId: string
+): Promise<SeasonZeroOnChainConfig | null> {
+  const id = assertSeasonId(seasonId);
   try {
     const raw = await viewContractRawAt(
       config.socialSpendContract,
       'get_season_config',
-      { season_id: SEASON_ZERO_ID }
+      { season_id: id }
     );
     if (raw === 'null') return null;
     const parsed = JSON.parse(raw) as Omit<
@@ -128,43 +132,130 @@ export async function getSeasonZeroOnChainConfig(): Promise<SeasonZeroOnChainCon
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger.warn({ error: message }, 'Season Zero on-chain config unavailable');
+    logger.warn(
+      { error: message, seasonId: id },
+      'Season on-chain config unavailable'
+    );
     return null;
   }
+}
+
+export async function getSeasonZeroOnChainConfig(): Promise<SeasonZeroOnChainConfig | null> {
+  return getSeasonOnChainConfig(SEASON_ZERO_ID);
+}
+
+export interface SeasonPoolBreakdownInput {
+  /** Caps join_rally pool contributions (typically season ends_at_ns). */
+  joinCutoffTimestampNs?: string;
+  /** Caps SEASON_POOL_FUNDED events; omit to count all sponsor top-ups. */
+  sponsorCutoffTimestampNs?: string;
+}
+
+export async function getSeasonPoolBreakdown(
+  seasonId: string,
+  input: SeasonPoolBreakdownInput = {}
+): Promise<{
+  joinPoolYocto: string;
+  sponsoredPoolYocto: string;
+  indexedPoolYocto: string;
+}> {
+  const id = assertSeasonId(seasonId);
+  const joinCutoff = input.joinCutoffTimestampNs?.trim();
+  const sponsorCutoff = input.sponsorCutoffTimestampNs?.trim();
+  const joinCutoffClause = joinCutoff
+    ? 'AND block_timestamp <= $2::numeric'
+    : '';
+  const sponsorCutoffClause = sponsorCutoff
+    ? 'AND block_timestamp <= $2::numeric'
+    : '';
+  const joinParams = joinCutoff ? [id, joinCutoff] : [id];
+  const sponsorParams = sponsorCutoff ? [id, sponsorCutoff] : [id];
+
+  const [joinResult, sponsoredResult] = await Promise.all([
+    indexerQuery<SeasonPoolRow>(
+      `SELECT COALESCE(SUM(COALESCE(NULLIF(season_amount, ''), '0')::numeric), 0)::text AS pool_yocto
+       FROM social_spend_events
+       WHERE event_type = 'SOCIAL_SPENT'
+         AND success = true
+         AND action = 'join_rally'
+         AND season_id = $1
+         ${joinCutoffClause}`,
+      joinParams
+    ),
+    indexerQuery<SeasonPoolRow>(
+      `SELECT COALESCE(SUM(COALESCE(NULLIF(amount, ''), '0')::numeric), 0)::text AS pool_yocto
+       FROM social_spend_events
+       WHERE event_type = 'SEASON_POOL_FUNDED'
+         AND success = true
+         AND season_id = $1
+         ${sponsorCutoffClause}`,
+      sponsorParams
+    ),
+  ]);
+
+  const joinPoolYocto = joinResult.rows[0]?.pool_yocto ?? '0';
+  const sponsoredPoolYocto = sponsoredResult.rows[0]?.pool_yocto ?? '0';
+  const indexedPoolYocto = (
+    BigInt(joinPoolYocto) + BigInt(sponsoredPoolYocto)
+  ).toString();
+
+  return { joinPoolYocto, sponsoredPoolYocto, indexedPoolYocto };
+}
+
+export async function getSeasonZeroPoolBreakdown(
+  cutoffTimestampNs?: string
+): Promise<{
+  joinPoolYocto: string;
+  sponsoredPoolYocto: string;
+  indexedPoolYocto: string;
+}> {
+  const joinCutoff = cutoffTimestampNs?.trim();
+  return getSeasonPoolBreakdown(SEASON_ZERO_ID, {
+    joinCutoffTimestampNs: joinCutoff,
+    sponsorCutoffTimestampNs: joinCutoff,
+  });
+}
+
+export async function getSeasonIndexedPoolYocto(
+  seasonId: string,
+  input: SeasonPoolBreakdownInput = {}
+): Promise<string> {
+  const breakdown = await getSeasonPoolBreakdown(seasonId, input);
+  return breakdown.indexedPoolYocto;
 }
 
 export async function getSeasonZeroIndexedPoolYocto(
   cutoffTimestampNs?: string
 ): Promise<string> {
-  const hasCutoff = Boolean(cutoffTimestampNs?.trim());
-  const cutoffParam = cutoffTimestampNs?.trim() ?? '';
-  const result = await indexerQuery<SeasonPoolRow>(
-    `SELECT COALESCE(SUM(COALESCE(NULLIF(season_amount, ''), '0')::numeric), 0)::text AS pool_yocto
-     FROM social_spend_events
-     WHERE event_type = 'SOCIAL_SPENT'
-       AND success = true
-       AND action = 'join_rally'
-       AND season_id = $1
-       ${hasCutoff ? 'AND block_timestamp <= $2::numeric' : ''}`,
-    hasCutoff ? [SEASON_ZERO_ID, cutoffParam] : [SEASON_ZERO_ID]
-  );
-  return result.rows[0]?.pool_yocto ?? '0';
+  return getSeasonIndexedPoolYocto(SEASON_ZERO_ID, {
+    joinCutoffTimestampNs: cutoffTimestampNs,
+    sponsorCutoffTimestampNs: cutoffTimestampNs,
+  });
 }
 
-export async function getSeasonZeroSettlementSummary(): Promise<SeasonZeroSettlementSummary | null> {
+export async function getSeasonSettlementSummary(
+  seasonId: string
+): Promise<SeasonZeroSettlementSummary | null> {
+  const id = assertSeasonId(seasonId);
   const result = await query<SeasonSettlementRow>(
     `SELECT *
      FROM season_settlements
      WHERE season_id = $1`,
-    [SEASON_ZERO_ID]
+    [id]
   );
   const row = result.rows[0];
   return row ? rowToSummary(row) : null;
 }
 
-export async function getSeasonZeroClaimData(
+export async function getSeasonZeroSettlementSummary(): Promise<SeasonZeroSettlementSummary | null> {
+  return getSeasonSettlementSummary(SEASON_ZERO_ID);
+}
+
+export async function getSeasonClaimData(
+  seasonId: string,
   accountId: string
 ): Promise<SeasonZeroClaimData | null> {
+  const id = assertSeasonId(seasonId);
   const result = await query<SeasonSettlementClaimRow & SeasonSettlementRow>(
     `SELECT
        c.season_id,
@@ -190,7 +281,7 @@ export async function getSeasonZeroClaimData(
      JOIN season_settlements s ON s.season_id = c.season_id
      WHERE c.season_id = $1
        AND c.account_id = $2`,
-    [SEASON_ZERO_ID, accountId]
+    [id, accountId]
   );
   const row = result.rows[0];
   if (!row) return null;
@@ -200,7 +291,7 @@ export async function getSeasonZeroClaimData(
     claimed = await viewContractAt<boolean>(
       config.socialSpendContract,
       'has_claimed_season',
-      { season_id: SEASON_ZERO_ID, account_id: accountId }
+      { season_id: id, account_id: accountId }
     );
   } catch {
     claimed = null;
@@ -216,6 +307,12 @@ export async function getSeasonZeroClaimData(
     score: row.score,
     claimed,
   };
+}
+
+export async function getSeasonZeroClaimData(
+  accountId: string
+): Promise<SeasonZeroClaimData | null> {
+  return getSeasonClaimData(SEASON_ZERO_ID, accountId);
 }
 
 export interface SeasonZeroFinalizePreviewRow {
@@ -235,32 +332,37 @@ export interface SeasonZeroFinalizePreview {
   standings: SeasonZeroFinalizePreviewRow[];
 }
 
-async function resolveSeasonZeroCutoffTimestampNs(
+async function resolveSeasonCutoffTimestampNs(
+  seasonId: string,
   cutoffTimestampNs?: string
 ): Promise<string> {
-  const onChainConfig = await getSeasonZeroOnChainConfig();
+  const id = assertSeasonId(seasonId);
+  const onChainConfig = await getSeasonOnChainConfig(id);
   const resolved =
     cutoffTimestampNs?.trim() || onChainConfig?.ends_at_ns?.toString();
   if (!resolved) {
     throw new Error(
-      'Season Zero on-chain config is required before finalization'
+      `Season ${id} on-chain config is required before finalization`
     );
   }
   if (nowNs() < BigInt(resolved)) {
-    throw new Error('Season Zero has not ended yet');
+    throw new Error(`Season ${id} has not ended yet`);
   }
   return resolved;
 }
 
-async function loadStableSeasonZeroStandings(cutoffTimestampNs: string) {
-  const first = await getSeasonZeroStandings({
+async function loadStableSeasonStandings(
+  seasonId: string,
+  cutoffTimestampNs: string
+) {
+  const first = await getSeasonStandings(seasonId, {
     limit: Number.MAX_SAFE_INTEGER,
     offset: 0,
     cutoffTimestampNs,
     unbounded: true,
   });
   await sleep(SEASON_ZERO_STANDINGS_STABILITY_DELAY_MS);
-  const second = await getSeasonZeroStandings({
+  const second = await getSeasonStandings(seasonId, {
     limit: Number.MAX_SAFE_INTEGER,
     offset: 0,
     cutoffTimestampNs,
@@ -278,22 +380,36 @@ async function loadStableSeasonZeroStandings(cutoffTimestampNs: string) {
   return second;
 }
 
-export async function previewSeasonZeroSettlement(
+function settlementPoolInput(
+  cutoffTimestampNs: string,
+  sponsorCutoffTimestampNs?: string
+): SeasonPoolBreakdownInput {
+  return {
+    joinCutoffTimestampNs: cutoffTimestampNs,
+    sponsorCutoffTimestampNs,
+  };
+}
+
+export async function previewSeasonSettlement(
+  seasonId: string,
   input: {
     cutoffTimestampNs?: string;
+    sponsorCutoffTimestampNs?: string;
   } = {}
 ): Promise<SeasonZeroFinalizePreview> {
-  const cutoffTimestampNs = await resolveSeasonZeroCutoffTimestampNs(
+  const id = assertSeasonId(seasonId);
+  const cutoffTimestampNs = await resolveSeasonCutoffTimestampNs(
+    id,
     input.cutoffTimestampNs
   );
-  const first = await getSeasonZeroStandings({
+  const first = await getSeasonStandings(id, {
     limit: Number.MAX_SAFE_INTEGER,
     offset: 0,
     cutoffTimestampNs,
     unbounded: true,
   });
   await sleep(SEASON_ZERO_STANDINGS_STABILITY_DELAY_MS);
-  const second = await getSeasonZeroStandings({
+  const second = await getSeasonStandings(id, {
     limit: Number.MAX_SAFE_INTEGER,
     offset: 0,
     cutoffTimestampNs,
@@ -303,11 +419,16 @@ export async function previewSeasonZeroSettlement(
     first.standings,
     second.standings
   );
-  const indexedPoolAmountYocto =
-    await getSeasonZeroIndexedPoolYocto(cutoffTimestampNs);
+  const indexedPoolAmountYocto = await getSeasonIndexedPoolYocto(
+    id,
+    settlementPoolInput(
+      cutoffTimestampNs,
+      input.sponsorCutoffTimestampNs ?? nowNs().toString()
+    )
+  );
 
   return {
-    seasonId: SEASON_ZERO_ID,
+    seasonId: id,
     cutoffTimestampNs,
     indexedPoolAmountYocto,
     participantCount: second.total,
@@ -322,21 +443,38 @@ export async function previewSeasonZeroSettlement(
   };
 }
 
-export async function finalizeSeasonZeroSettlement(
+export async function previewSeasonZeroSettlement(
   input: {
     cutoffTimestampNs?: string;
   } = {}
+): Promise<SeasonZeroFinalizePreview> {
+  return previewSeasonSettlement(SEASON_ZERO_ID, input);
+}
+
+export async function finalizeSeasonSettlement(
+  seasonId: string,
+  input: {
+    cutoffTimestampNs?: string;
+    sponsorCutoffTimestampNs?: string;
+  } = {}
 ): Promise<SeasonZeroSettlementSummary> {
-  const existing = await getSeasonZeroSettlementSummary();
+  const id = assertSeasonId(seasonId);
+  const existing = await getSeasonSettlementSummary(id);
   if (existing) return existing;
 
-  const cutoffTimestampNs = await resolveSeasonZeroCutoffTimestampNs(
+  const cutoffTimestampNs = await resolveSeasonCutoffTimestampNs(
+    id,
     input.cutoffTimestampNs
   );
+  const sponsorCutoff =
+    input.sponsorCutoffTimestampNs?.trim() ?? nowNs().toString();
 
   const [standings, indexedPoolAmountYocto] = await Promise.all([
-    loadStableSeasonZeroStandings(cutoffTimestampNs),
-    getSeasonZeroIndexedPoolYocto(cutoffTimestampNs),
+    loadStableSeasonStandings(id, cutoffTimestampNs),
+    getSeasonIndexedPoolYocto(
+      id,
+      settlementPoolInput(cutoffTimestampNs, sponsorCutoff)
+    ),
   ]);
   const snapshot = buildSeasonZeroSettlementSnapshot(
     standings.standings,
@@ -363,7 +501,7 @@ export async function finalizeSeasonZeroSettlement(
        ON CONFLICT (season_id) DO NOTHING
        RETURNING *`,
       [
-        SEASON_ZERO_ID,
+        id,
         snapshot.root,
         snapshot.totalAmountYocto,
         snapshot.indexedPoolAmountYocto,
@@ -375,10 +513,10 @@ export async function finalizeSeasonZeroSettlement(
 
     if (inserted.rows.length === 0) {
       await client.query('ROLLBACK');
-      const raced = await getSeasonZeroSettlementSummary();
+      const raced = await getSeasonSettlementSummary(id);
       if (raced) return raced;
       throw new Error(
-        'Season Zero settlement already exists but could not be loaded'
+        `Season ${id} settlement already exists but could not be loaded`
       );
     }
 
@@ -395,7 +533,7 @@ export async function finalizeSeasonZeroSettlement(
          )
          VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb)`,
         [
-          SEASON_ZERO_ID,
+          id,
           claim.accountId,
           claim.rank,
           claim.score,
@@ -416,14 +554,24 @@ export async function finalizeSeasonZeroSettlement(
   }
 }
 
-export async function publishSeasonZeroSettlement(
+export async function finalizeSeasonZeroSettlement(
+  input: {
+    cutoffTimestampNs?: string;
+  } = {}
+): Promise<SeasonZeroSettlementSummary> {
+  return finalizeSeasonSettlement(SEASON_ZERO_ID, input);
+}
+
+export async function publishSeasonSettlement(
+  seasonId: string,
   input: {
     active?: boolean;
   } = {}
 ): Promise<SeasonZeroSettlementSummary> {
-  const existing = await getSeasonZeroSettlementSummary();
+  const id = assertSeasonId(seasonId);
+  const existing = await getSeasonSettlementSummary(id);
   if (!existing) {
-    throw new Error('Season Zero settlement has not been finalized');
+    throw new Error(`Season ${id} settlement has not been finalized`);
   }
   if (existing.status === 'published' && existing.publishedTxHash) {
     return existing;
@@ -431,7 +579,7 @@ export async function publishSeasonZeroSettlement(
 
   const active = input.active ?? true;
   const result = await relaySocialSpendSettlement({
-    seasonId: SEASON_ZERO_ID,
+    seasonId: id,
     root: existing.root,
     totalAmount: existing.totalAmountYocto,
     active,
@@ -451,9 +599,17 @@ export async function publishSeasonZeroSettlement(
          updated_at = now()
      WHERE season_id = $1
      RETURNING *`,
-    [SEASON_ZERO_ID, active, result.tx_hash ?? null]
+    [id, active, result.tx_hash ?? null]
   );
   return rowToSummary(updated.rows[0]);
+}
+
+export async function publishSeasonZeroSettlement(
+  input: {
+    active?: boolean;
+  } = {}
+): Promise<SeasonZeroSettlementSummary> {
+  return publishSeasonSettlement(SEASON_ZERO_ID, input);
 }
 
 function extractJsonInteger(raw: string, field: string): string | null {

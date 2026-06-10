@@ -29,9 +29,9 @@ import { createPortalOnSocialClient } from '@/lib/onsocial-client';
 import {
   GENESIS_RALLY_JOIN_SOCIAL_LABEL,
   GENESIS_RALLY_JOIN_YOCTO,
-  GENESIS_SEASON_ID,
   formatGenesisSocialBalanceDisplay,
 } from '@/lib/genesis-season';
+import { getActiveSeasonId, seasonApiPath } from '@/lib/active-season';
 import { extractNearTransactionHashes } from '@/lib/near-rpc';
 import { PORTAL_SWAP_ENABLED } from '@/lib/portal-swap-config';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/portal-config';
@@ -106,8 +106,11 @@ interface PortalProfileResponse {
 export function GenesisRallyStrip({
   className,
   variant = 'page',
+  seasonId = getActiveSeasonId(),
   onChainConfig = null,
   indexedPoolYocto,
+  joinPoolYocto,
+  sponsoredPoolYocto,
   settlement = null,
   participantCount = 0,
   myStanding: myStandingProp = null,
@@ -119,8 +122,12 @@ export function GenesisRallyStrip({
   className?: string;
   /** `promo` — home Live section. `page` — Season 0 hero (metrics + join). */
   variant?: 'page' | 'promo';
+  /** On-chain season id for joins and API reads. */
+  seasonId?: string;
   onChainConfig?: SeasonZeroOnChainConfig | null;
   indexedPoolYocto?: string;
+  joinPoolYocto?: string;
+  sponsoredPoolYocto?: string;
   settlement?: SeasonZeroSettlementSummary | null;
   participantCount?: number;
   /** When provided (e.g. from Season 0 page), avoids a duplicate standing fetch. */
@@ -153,6 +160,8 @@ export function GenesisRallyStrip({
   const [promoOnChainConfig, setPromoOnChainConfig] =
     useState<SeasonZeroOnChainConfig | null>(null);
   const [promoIndexedPoolYocto, setPromoIndexedPoolYocto] = useState('0');
+  const [promoJoinPoolYocto, setPromoJoinPoolYocto] = useState('0');
+  const [promoSponsoredPoolYocto, setPromoSponsoredPoolYocto] = useState('0');
   const [promoSettlement, setPromoSettlement] =
     useState<SeasonZeroSettlementSummary | null>(null);
   const [promoParticipantCount, setPromoParticipantCount] = useState(0);
@@ -183,7 +192,7 @@ export function GenesisRallyStrip({
 
       const [meData, profileData] = await Promise.all([
         fetch(
-          `/api/seasons/${GENESIS_SEASON_ID}/me?account_id=${encodeURIComponent(accountId)}`,
+          `${seasonApiPath(seasonId, 'me')}?account_id=${encodeURIComponent(accountId)}`,
           { cache: 'no-store' }
         )
           .then((response) => response.json() as Promise<SeasonZeroMeResponse>)
@@ -214,7 +223,7 @@ export function GenesisRallyStrip({
     } finally {
       setLoading(false);
     }
-  }, [accountId, myStandingProp]);
+  }, [accountId, myStandingProp, seasonId]);
 
   useEffect(() => {
     if (myStandingProp) {
@@ -236,7 +245,7 @@ export function GenesisRallyStrip({
 
     Promise.resolve()
       .then(async () => {
-        const statusRes = await fetch('/api/seasons/season-zero/status', {
+        const statusRes = await fetch(seasonApiPath(seasonId, 'status'), {
           cache: 'no-store',
         });
         if (cancelled) return;
@@ -250,6 +259,8 @@ export function GenesisRallyStrip({
         if (onChain) {
           setPromoOnChainConfig(onChain);
           setPromoIndexedPoolYocto(statusData.indexedPoolYocto ?? '0');
+          setPromoJoinPoolYocto(statusData.joinPoolYocto ?? '0');
+          setPromoSponsoredPoolYocto(statusData.sponsoredPoolYocto ?? '0');
           setPromoSettlement(statusData.settlement ?? null);
         }
 
@@ -259,7 +270,7 @@ export function GenesisRallyStrip({
             : '';
 
         const standingsRes = await fetch(
-          `/api/seasons/season-zero/standings?limit=1${standingsCutoff}`,
+          `${seasonApiPath(seasonId, 'standings')}?limit=1${standingsCutoff}`,
           { cache: 'no-store' }
         );
         if (cancelled) return;
@@ -280,7 +291,7 @@ export function GenesisRallyStrip({
     return () => {
       cancelled = true;
     };
-  }, [variant]);
+  }, [variant, seasonId]);
 
   const statusLoading = loading;
   const hasEnoughSocial = balanceYocto >= GENESIS_RALLY_JOIN_YOCTO;
@@ -331,8 +342,8 @@ export function GenesisRallyStrip({
         appId: 'portal',
         action: 'join_rally',
         targetType: 'rally',
-        targetId: GENESIS_SEASON_ID,
-        seasonId: GENESIS_SEASON_ID,
+        targetId: seasonId,
+        seasonId,
       });
 
       const result = await wallet.signAndSendTransaction({
@@ -354,7 +365,7 @@ export function GenesisRallyStrip({
       const confirmed = await trackTransaction({
         txHashes,
         submittedMessage: 'Joining Genesis Rally…',
-        successMessage: 'You joined Season 0.',
+        successMessage: `You joined ${seasonId}.`,
         failureMessage: 'Could not join the rally.',
       });
 
@@ -416,6 +427,10 @@ export function GenesisRallyStrip({
     variant === 'promo' ? promoOnChainConfig : onChainConfig;
   const metricsIndexedPoolYocto =
     variant === 'promo' ? promoIndexedPoolYocto : indexedPoolYocto;
+  const metricsJoinPoolYocto =
+    variant === 'promo' ? promoJoinPoolYocto : joinPoolYocto;
+  const metricsSponsoredPoolYocto =
+    variant === 'promo' ? promoSponsoredPoolYocto : sponsoredPoolYocto;
   const metricsSettlement = variant === 'promo' ? promoSettlement : settlement;
   const metricsParticipantCount =
     variant === 'promo' ? promoParticipantCount : participantCount;
@@ -653,9 +668,9 @@ export function GenesisRallyStrip({
     <>
       {variant === 'promo' ? (
         <Link
-          href="/season-zero"
+          href="/season"
           prefetch
-          aria-label="Genesis Rally Season 0 standings"
+          aria-label="Live rally season standings"
           className="absolute inset-0 z-0 rounded-[inherit] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--portal-gold-accent)]"
         />
       ) : null}
@@ -664,7 +679,7 @@ export function GenesisRallyStrip({
         <div className="pointer-events-none relative z-[1] flex justify-center px-3 py-2 md:px-4">
           <span className="portal-gold-text inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] transition-opacity duration-200 group-hover:opacity-90">
             <Sparkles className="portal-gold-icon h-3.5 w-3.5 shrink-0" />
-            Genesis Rally · Season 0
+            Support Rally · {seasonId}
             <ProtocolMotionArrow className="h-3 w-3" />
           </span>
         </div>
@@ -679,6 +694,8 @@ export function GenesisRallyStrip({
           <SeasonZeroMetricsRail
             onChainConfig={metricsOnChainConfig}
             indexedPoolYocto={metricsIndexedPoolYocto}
+            joinPoolYocto={metricsJoinPoolYocto}
+            sponsoredPoolYocto={metricsSponsoredPoolYocto}
             settlement={metricsSettlement}
             participantCount={metricsParticipantCount}
             claimStatus={claimMetricsStatus}

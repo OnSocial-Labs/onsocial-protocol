@@ -25,6 +25,11 @@ import {
   type SeasonZeroStatusPayload,
 } from '@/features/season/season-zero-types';
 import { fadeUpMotion } from '@/lib/motion';
+import {
+  ARCHIVED_GENESIS_SEASON_ID,
+  getActiveSeasonId,
+  seasonApiPath,
+} from '@/lib/active-season';
 
 interface SeasonZeroStandingsResponse {
   success: boolean;
@@ -46,7 +51,17 @@ function sectionEntrance(
   });
 }
 
-export default function SeasonZeroPage() {
+export function SeasonRallyPage({
+  seasonId,
+  pageBadge,
+  pageTitle,
+  pageDescription,
+}: {
+  seasonId: string;
+  pageBadge: string;
+  pageTitle: string;
+  pageDescription: string;
+}) {
   const { accountId } = useWallet();
   const reduceMotion = useReducedMotion();
   const [standings, setStandings] = useState<SeasonZeroStanding[]>([]);
@@ -56,6 +71,8 @@ export default function SeasonZeroPage() {
   const [onChainConfig, setOnChainConfig] =
     useState<SeasonZeroOnChainConfig | null>(null);
   const [indexedPoolYocto, setIndexedPoolYocto] = useState('0');
+  const [joinPoolYocto, setJoinPoolYocto] = useState('0');
+  const [sponsoredPoolYocto, setSponsoredPoolYocto] = useState('0');
   const [settlement, setSettlement] =
     useState<SeasonZeroSettlementSummary | null>(null);
   const [claim, setClaim] = useState<SeasonZeroClaimRecord | null>(null);
@@ -81,10 +98,10 @@ export default function SeasonZeroPage() {
     setError(null);
     try {
       const claimUrl = accountId
-        ? `/api/seasons/season-zero/claims/${encodeURIComponent(accountId)}`
+        ? seasonApiPath(seasonId, `claims/${encodeURIComponent(accountId)}`)
         : null;
 
-      const statusRes = await fetch('/api/seasons/season-zero/status', {
+      const statusRes = await fetch(seasonApiPath(seasonId, 'status'), {
         cache: 'no-store',
       });
       const statusData = (await statusRes.json()) as SeasonZeroStatusPayload;
@@ -93,6 +110,8 @@ export default function SeasonZeroPage() {
       if (statusRes.ok && statusData.success !== false) {
         setOnChainConfig(onChain);
         setIndexedPoolYocto(statusData.indexedPoolYocto ?? '0');
+        setJoinPoolYocto(statusData.joinPoolYocto ?? '0');
+        setSponsoredPoolYocto(statusData.sponsoredPoolYocto ?? '0');
         setSettlement(statusData.settlement ?? null);
       }
 
@@ -102,9 +121,12 @@ export default function SeasonZeroPage() {
           : '';
 
       const [standingsRes, claimRes] = await Promise.all([
-        fetch(`/api/seasons/season-zero/standings?limit=25${standingsCutoff}`, {
-          cache: 'no-store',
-        }),
+        fetch(
+          `${seasonApiPath(seasonId, 'standings')}?limit=25${standingsCutoff}`,
+          {
+            cache: 'no-store',
+          }
+        ),
         claimUrl
           ? fetch(claimUrl, { cache: 'no-store' })
           : Promise.resolve(null),
@@ -136,7 +158,7 @@ export default function SeasonZeroPage() {
     } finally {
       setLoading(false);
     }
-  }, [accountId]);
+  }, [accountId, seasonId]);
 
   useEffect(() => {
     void refresh();
@@ -152,19 +174,22 @@ export default function SeasonZeroPage() {
   return (
     <PageShell size="section">
       <SecondaryPageHeader
-        badge="Season 0"
+        badge={pageBadge}
         badgeAccent="gold"
         glowAccents={['gold', 'purple']}
-        title="Genesis Rally"
-        description="Let the social games begin."
+        title={pageTitle}
+        description={pageDescription}
       />
 
       <div className="mx-auto max-w-3xl space-y-3">
         <motion.div {...sectionEntrance(reduceMotion, 0)}>
           <GenesisRallyStrip
             variant="page"
+            seasonId={seasonId}
             onChainConfig={onChainConfig}
             indexedPoolYocto={indexedPoolYocto}
+            joinPoolYocto={joinPoolYocto}
+            sponsoredPoolYocto={sponsoredPoolYocto}
             settlement={settlement}
             participantCount={total}
             myStanding={currentUserStanding}
@@ -230,5 +255,28 @@ export default function SeasonZeroPage() {
         </motion.div>
       </div>
     </PageShell>
+  );
+}
+
+export default function SeasonZeroPage() {
+  return (
+    <SeasonRallyPage
+      seasonId={ARCHIVED_GENESIS_SEASON_ID}
+      pageBadge="Season 0"
+      pageTitle="Genesis Rally"
+      pageDescription="Let the social games begin."
+    />
+  );
+}
+
+export function ActiveSeasonPage() {
+  const seasonId = getActiveSeasonId();
+  return (
+    <SeasonRallyPage
+      seasonId={seasonId}
+      pageBadge="Live rally"
+      pageTitle="Support Rally"
+      pageDescription="Join the live season, earn points, and claim your share."
+    />
   );
 }

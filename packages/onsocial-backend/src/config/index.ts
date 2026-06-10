@@ -49,6 +49,10 @@ export const config = {
     process.env.SEASON_SETTLEMENT_ADMIN_KEY ||
     process.env.ONSOCIAL_SEASON_ADMIN_KEY ||
     '',
+  /** Primary rally season for portal joins, status, and admin finalize. */
+  activeSeasonId: (process.env.ACTIVE_SEASON_ID || 'season-one')
+    .trim()
+    .toLowerCase(),
   nearRpcUrl:
     process.env.NEAR_RPC_URL ||
     ((process.env.NEAR_NETWORK || 'testnet') === 'mainnet'

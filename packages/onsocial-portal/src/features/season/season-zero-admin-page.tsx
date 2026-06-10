@@ -19,6 +19,7 @@ import {
   formatGenesisYoctoAsSocial,
 } from '@/lib/genesis-season';
 import { GOVERNANCE_WALLETS, isGovernanceWallet } from '@/lib/portal-config';
+import { getActiveSeasonId, seasonApiPath } from '@/lib/active-season';
 
 type AdminAction = 'finalize' | 'publish' | null;
 
@@ -122,6 +123,7 @@ function AdminStepCard({
 }
 
 export default function SeasonZeroAdminPage() {
+  const seasonId = getActiveSeasonId();
   const { accountId, connect } = useWallet();
   const [allowed, setAllowed] = useState<boolean | null>(null);
   const [status, setStatus] = useState<SeasonZeroStatusPayload | null>(null);
@@ -149,7 +151,7 @@ export default function SeasonZeroAdminPage() {
     setLoading(true);
     setActionError(null);
     try {
-      const statusRes = await fetch('/api/seasons/season-zero/status', {
+      const statusRes = await fetch(seasonApiPath(seasonId, 'status'), {
         cache: 'no-store',
       });
       const statusData = (await statusRes.json()) as SeasonZeroStatusPayload;
@@ -162,9 +164,12 @@ export default function SeasonZeroAdminPage() {
           : '';
 
       const [standingsRes, accessRes] = await Promise.all([
-        fetch(`/api/seasons/season-zero/standings?limit=1${standingsCutoff}`, {
-          cache: 'no-store',
-        }),
+        fetch(
+          `${seasonApiPath(seasonId, 'standings')}?limit=1${standingsCutoff}`,
+          {
+            cache: 'no-store',
+          }
+        ),
         accountId
           ? fetch(
               `/api/seasons/admin/access?account_id=${encodeURIComponent(accountId)}`,
@@ -226,7 +231,7 @@ export default function SeasonZeroAdminPage() {
     } finally {
       setLoading(false);
     }
-  }, [accountId]);
+  }, [accountId, seasonId]);
 
   useEffect(() => {
     void refresh();
@@ -310,7 +315,7 @@ export default function SeasonZeroAdminPage() {
         badge="Ops"
         badgeAccent="gold"
         glowAccents={['gold', 'blue']}
-        title="Season 0 settlement"
+        title={`${seasonId} settlement`}
         description="Finalize standings, then publish the merkle root."
         titleClassName="text-3xl md:text-4xl"
         descriptionClassName="mt-2 text-sm md:text-base"
@@ -319,7 +324,7 @@ export default function SeasonZeroAdminPage() {
 
       <div className="mx-auto max-w-3xl space-y-3">
         <Link
-          href="/season-zero"
+          href="/season"
           className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-[var(--portal-blue)]"
         >
           <ArrowLeft className="h-3 w-3" />
@@ -337,6 +342,8 @@ export default function SeasonZeroAdminPage() {
             <SeasonZeroMetricsRail
               onChainConfig={onChain}
               indexedPoolYocto={status?.indexedPoolYocto}
+              joinPoolYocto={status?.joinPoolYocto}
+              sponsoredPoolYocto={status?.sponsoredPoolYocto}
               settlement={settlement}
               participantCount={participantCount}
               showSettlementDetail

@@ -29,6 +29,8 @@ export interface SeasonZeroStatusPayload {
   joinMinYocto?: string;
   onChainConfig?: SeasonZeroOnChainConfig | null;
   indexedPoolYocto?: string;
+  joinPoolYocto?: string;
+  sponsoredPoolYocto?: string;
   settlement?: SeasonZeroSettlementSummary | null;
   error?: string;
 }

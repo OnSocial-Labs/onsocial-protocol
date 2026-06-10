@@ -66,7 +66,7 @@ export interface SeasonZeroStanding {
 }
 
 export interface SeasonZeroStandingsResult {
-  seasonId: typeof SEASON_ZERO_ID;
+  seasonId: string;
   limit: number;
   offset: number;
   total: number;
@@ -333,12 +333,13 @@ function joinedRallyCte(hasCutoff: boolean): string {
 }
 
 function joinedRallyParams(
+  seasonId: string,
   hasCutoff: boolean,
   cutoffParam: string
 ): [string, string] | [string, string, string] {
   return hasCutoff
-    ? [SEASON_ZERO_ID, SEASON_ZERO_JOIN_RALLY_MIN_YOCTO.toString(), cutoffParam]
-    : [SEASON_ZERO_ID, SEASON_ZERO_JOIN_RALLY_MIN_YOCTO.toString()];
+    ? [seasonId, SEASON_ZERO_JOIN_RALLY_MIN_YOCTO.toString(), cutoffParam]
+    : [seasonId, SEASON_ZERO_JOIN_RALLY_MIN_YOCTO.toString()];
 }
 
 /** Activity counted only after rally join; settlement also caps at season end. */
@@ -371,7 +372,8 @@ function profileSignals(
   return profiles;
 }
 
-export async function getSeasonZeroStandings(
+export async function getSeasonStandings(
+  seasonId: string,
   opts: SeasonZeroStandingsOptions = {}
 ): Promise<SeasonZeroStandingsResult> {
   const rawLimit = normalizePageValue(opts.limit, 50);
@@ -381,7 +383,7 @@ export async function getSeasonZeroStandings(
   const cutoffParam = cutoffTimestampNs ?? '';
   const hasCutoff = Boolean(cutoffTimestampNs);
 
-  const joinedParams = joinedRallyParams(hasCutoff, cutoffParam);
+  const joinedParams = joinedRallyParams(seasonId, hasCutoff, cutoffParam);
   const activityWindow = seasonActivityWindow(hasCutoff, 'du.block_timestamp');
   const spendWindow = seasonActivityWindow(hasCutoff, 's.block_timestamp');
   const boostWindow = seasonActivityWindow(hasCutoff, 'be.block_timestamp');
@@ -399,7 +401,7 @@ export async function getSeasonZeroStandings(
 
   if (joined.rows.length === 0) {
     return {
-      seasonId: SEASON_ZERO_ID,
+      seasonId,
       limit,
       offset,
       total: 0,
@@ -639,11 +641,17 @@ export async function getSeasonZeroStandings(
   const page = standings.slice(offset, offset + limit);
 
   return {
-    seasonId: SEASON_ZERO_ID,
+    seasonId,
     limit,
     offset,
     total: rankedStandings.length,
     scoring: SEASON_ZERO_SCORING_LIMITS,
     standings: page,
   };
+}
+
+export async function getSeasonZeroStandings(
+  opts: SeasonZeroStandingsOptions = {}
+): Promise<SeasonZeroStandingsResult> {
+  return getSeasonStandings(SEASON_ZERO_ID, opts);
 }
