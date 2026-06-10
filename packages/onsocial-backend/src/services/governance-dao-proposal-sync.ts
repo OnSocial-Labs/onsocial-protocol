@@ -41,10 +41,13 @@ type GovernanceDaoProposalRecord = {
   last_actions_log?: Array<{ block_height: string }>;
 };
 
-let incrementalSyncInFlight: Promise<void> | null = null;
-let backfillInFlight: Promise<void> | null = null;
-let openProposalRefreshTimer: ReturnType<typeof setInterval> | null = null;
-let openProposalRefreshInFlight: Promise<void> | null = null;
+const incrementalSyncInFlight = new Map<string, Promise<void>>();
+const backfillInFlight = new Map<string, Promise<void>>();
+const openProposalRefreshTimers = new Map<
+  string,
+  ReturnType<typeof setInterval>
+>();
+const openProposalRefreshInFlight = new Map<string, Promise<void>>();
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -431,8 +434,9 @@ export async function syncDaoProposalsBackfill(
 export async function ensureDaoProposalsSynced(
   daoAccountId: string
 ): Promise<void> {
-  if (!incrementalSyncInFlight) {
-    incrementalSyncInFlight = syncDaoProposalsIncremental(daoAccountId)
+  let inFlight = incrementalSyncInFlight.get(daoAccountId);
+  if (!inFlight) {
+    inFlight = syncDaoProposalsIncremental(daoAccountId)
       .then(({ synced, lastProposalId }) => {
         if (synced > 0) {
           logger.info(
@@ -448,26 +452,27 @@ export async function ensureDaoProposalsSynced(
         );
       })
       .finally(() => {
-        incrementalSyncInFlight = null;
+        incrementalSyncInFlight.delete(daoAccountId);
       });
+    incrementalSyncInFlight.set(daoAccountId, inFlight);
   }
 
-  await incrementalSyncInFlight;
+  await inFlight;
 }
 
 export function startOpenDaoProposalRefreshInBackground(
   daoAccountId: string
 ): void {
-  if (openProposalRefreshTimer) {
+  if (openProposalRefreshTimers.has(daoAccountId)) {
     return;
   }
 
   const tick = () => {
-    if (openProposalRefreshInFlight) {
+    if (openProposalRefreshInFlight.has(daoAccountId)) {
       return;
     }
 
-    openProposalRefreshInFlight = refreshOpenDaoProposals(daoAccountId)
+    const refresh = refreshOpenDaoProposals(daoAccountId)
       .catch((error) => {
         logger.warn(
           { err: error, daoAccountId },
@@ -475,34 +480,33 @@ export function startOpenDaoProposalRefreshInBackground(
         );
       })
       .finally(() => {
-        openProposalRefreshInFlight = null;
+        openProposalRefreshInFlight.delete(daoAccountId);
       });
+    openProposalRefreshInFlight.set(daoAccountId, refresh);
   };
 
-  openProposalRefreshTimer = setInterval(
-    tick,
-    OPEN_PROPOSAL_BACKGROUND_REFRESH_MS
-  );
-  openProposalRefreshTimer.unref();
+  const timer = setInterval(tick, OPEN_PROPOSAL_BACKGROUND_REFRESH_MS);
+  timer.unref();
+  openProposalRefreshTimers.set(daoAccountId, timer);
 
   void tick();
 }
 
 export function stopOpenDaoProposalRefreshInBackground(): void {
-  if (openProposalRefreshTimer) {
-    clearInterval(openProposalRefreshTimer);
-    openProposalRefreshTimer = null;
+  for (const timer of openProposalRefreshTimers.values()) {
+    clearInterval(timer);
   }
+  openProposalRefreshTimers.clear();
 }
 
 export function startDaoProposalBackfillInBackground(
   daoAccountId: string
 ): void {
-  if (backfillInFlight) {
+  if (backfillInFlight.has(daoAccountId)) {
     return;
   }
 
-  backfillInFlight = (async () => {
+  const job = (async () => {
     const existingCount = await countDaoProposalSnapshots(daoAccountId);
     const lastProposalId = await viewContractAt<number>(
       daoAccountId,
@@ -535,6 +539,8 @@ export function startDaoProposalBackfillInBackground(
       logger.warn({ err: error, daoAccountId }, 'DAO proposal backfill failed');
     })
     .finally(() => {
-      backfillInFlight = null;
+      backfillInFlight.delete(daoAccountId);
     });
+
+  backfillInFlight.set(daoAccountId, job);
 }

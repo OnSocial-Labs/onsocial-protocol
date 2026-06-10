@@ -247,12 +247,23 @@ function GovernancePageContent() {
     pageSize: GOVERNANCE_PAGE_SIZE,
   });
   const emptyState = getFilteredEmptyState(statusFilter, activeLane);
+  const feedEmptyState =
+    activeBoard === 'treasury' && apps.length === 0
+      ? {
+          title: 'No treasury proposals yet',
+          detail:
+            'Treasury custody transfers and treasury DAO policy votes will appear here.',
+        }
+      : emptyState;
   const proposalLabel =
-    activeLane === 'protocol'
-      ? 'protocol proposals'
-      : activeLane === 'partners'
-        ? 'partner proposals'
-        : 'governance proposals';
+    activeBoard === 'treasury'
+      ? 'treasury proposals'
+      : activeLane === 'protocol'
+        ? 'protocol proposals'
+        : activeLane === 'partners'
+          ? 'partner proposals'
+          : 'governance proposals';
+  const showProposalsSection = !error;
 
   useEffect(() => {
     if (currentPage !== safeCurrentPage) {
@@ -269,6 +280,11 @@ function GovernancePageContent() {
     setActiveLane((lane) => normalizeLaneForBoard(nextBoard, lane));
     setCurrentPage(1);
     setContentKey((k) => k + 1);
+    setApps([]);
+    setDaoPolicy(null);
+    setProposalPeriodNs(null);
+    setLoading(true);
+    setError('');
     hasLoadedApps.current = false;
   }
 
@@ -306,16 +322,7 @@ function GovernancePageContent() {
         </p>
       )}
 
-      {!loading && !error && apps.length === 0 && (
-        <SurfacePanel
-          radius="xl"
-          tone="soft"
-          className="py-12 text-center text-muted-foreground"
-        >
-          No governance items right now.
-        </SurfacePanel>
-      )}
-      {(apps.length > 0 || isInitialLoading) && (
+      {!showProposalsSection ? null : (
         <>
           <SectionHeader
             badge="Proposals"
@@ -384,10 +391,10 @@ function GovernancePageContent() {
               className="px-6 py-12 text-center"
             >
               <p className="text-lg font-semibold tracking-[-0.02em] text-foreground">
-                {emptyState.title}
+                {feedEmptyState.title}
               </p>
               <p className="mx-auto mt-2 max-w-2xl text-sm text-muted-foreground">
-                {emptyState.detail}
+                {feedEmptyState.detail}
               </p>
             </SurfacePanel>
           ) : (
