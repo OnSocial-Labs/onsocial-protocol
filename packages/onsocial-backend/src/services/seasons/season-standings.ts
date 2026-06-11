@@ -480,6 +480,11 @@ export async function getSeasonStandings(
       seasonStartParam
     );
 
+  const joinedCteParams = joinedRallyCteParams(
+    seasonId,
+    hasCutoff,
+    cutoffParam
+  );
   const joinedQueryParams = joinedRallyQueryParams(
     seasonId,
     hasCutoff,
@@ -498,7 +503,7 @@ export async function getSeasonStandings(
        joined_at_ns::text AS joined_at_ns,
        join_count
      FROM joined`,
-    joinedRallyCteParams(seasonId, hasCutoff, cutoffParam)
+    joinedCteParams
   );
 
   if (joined.rows.length === 0) {
@@ -547,7 +552,7 @@ export async function getSeasonStandings(
              ORDER BY du.account_id, du.data_id, du.block_height DESC, du.block_timestamp DESC, du.receipt_id DESC, du.id DESC
            ) latest
            WHERE operation = 'set'`,
-      [...joinedQueryParams]
+      [...joinedCteParams]
     ),
     indexerQuery<EndorsementRow>(
       hasCutoff
@@ -641,7 +646,7 @@ export async function getSeasonStandings(
          AND s.target_type = 'profile'
          ${spendWindow}
        GROUP BY COALESCE(NULLIF(s.recipient_id, ''), s.target_id)`,
-      [...joinedQueryParams]
+      [...joinedCteParams]
     ),
     indexerQuery<BoostRow>(
       `WITH ${joinedRallyCte(hasCutoff)}
@@ -665,7 +670,7 @@ export async function getSeasonStandings(
            ${boostWindow}
          ORDER BY be.account_id, be.block_height DESC, be.block_timestamp DESC, be.receipt_id DESC, be.id DESC
        ) latest_boost`,
-      [...joinedQueryParams]
+      [...joinedCteParams]
     ),
   ]);
 

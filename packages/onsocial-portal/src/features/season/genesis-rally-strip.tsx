@@ -213,7 +213,7 @@ export function GenesisRallyStrip({
       ]);
 
       const standing = meData?.standing ?? null;
-      const isJoined = standing?.eligible === true;
+      const isJoined = Boolean(standing);
       setJoined(isJoined);
       setFetchedMyStanding(
         isJoined && standing
