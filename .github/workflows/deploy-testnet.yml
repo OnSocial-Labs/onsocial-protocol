@@ -18,6 +18,8 @@ on:
       - 'docker/**'
       - 'deployment/**'
       - 'scripts/pull-secrets.sh'
+      - 'scripts/sync-production-env.sh'
+      - 'scripts/validate-gsm-secrets.sh'
       - '.github/workflows/deploy-testnet.yml'
   workflow_dispatch:
 
@@ -143,11 +145,7 @@ jobs:
           PUBLIC_DOMAIN=testnet.onsocial.id \
           bash scripts/pull-secrets.sh > /tmp/deploy_gsm.env
           chmod 600 /tmp/deploy_gsm.env
-          grep -q '^TELEGRAM_BOT_TOKEN=.\+' /tmp/deploy_gsm.env || { echo '❌ TELEGRAM_BOT_TOKEN missing or empty in GSM output'; exit 1; }
-          grep -q '^ADMIN_SECRET=.\+' /tmp/deploy_gsm.env || { echo '❌ ADMIN_SECRET missing or empty in GSM output'; exit 1; }
-          grep -q '^ADMIN_WALLETS=.\+' /tmp/deploy_gsm.env || { echo '❌ ADMIN_WALLETS missing or empty in GSM output'; exit 1; }
-          grep -q '^SEASON_SETTLEMENT_ADMIN_KEY=.\+' /tmp/deploy_gsm.env || { echo '❌ SEASON_SETTLEMENT_ADMIN_KEY missing or empty in GSM output'; exit 1; }
-          grep -q '^ONSOCIAL_PORTAL_REWARDS_API_KEY=.\+' /tmp/deploy_gsm.env || { echo '❌ ONSOCIAL_PORTAL_REWARDS_API_KEY missing or empty in GSM output'; exit 1; }
+          bash scripts/validate-gsm-secrets.sh /tmp/deploy_gsm.env
 
       - name: Sync config files to server
         run: |
@@ -159,13 +157,14 @@ jobs:
             deployment/docker-compose.yml \
             deployment/Caddyfile.relayer \
             deployment/init-extra-dbs.sh \
+            scripts/sync-production-env.sh \
             /tmp/deploy_gsm.env \
             "root@${{ env.DEPLOY_HOST }}:/opt/onsocial/"
           scp -i ~/.ssh/deploy_key \
             deployment/Caddyfile \
             "root@${{ env.DEPLOY_HOST }}:/opt/onsocial/Caddyfile.template"
           ssh -i ~/.ssh/deploy_key "root@${{ env.DEPLOY_HOST }}" \
-            'chmod 600 /opt/onsocial/deploy_gsm.env && chmod +x /opt/onsocial/init-extra-dbs.sh'
+            'chmod 600 /opt/onsocial/deploy_gsm.env && chmod +x /opt/onsocial/init-extra-dbs.sh /opt/onsocial/sync-production-env.sh'
           echo "✅ Config files synced to server"
 
       - name: Deploy via SSH
@@ -177,125 +176,13 @@ jobs:
             set -euo pipefail
             cd /opt/onsocial
 
-            upsert_env() {
-              local key="$1" value="$2"
-              local tmp
-              tmp="$(mktemp)"
-              awk -v k="$key" -v v="$value" '
-                $0 ~ "^" k "=" { next }
-                { print }
-                END { print k "=" v }
-              ' .env.production > "$tmp"
-              mv "$tmp" .env.production
-            }
+            if [ ! -f .env.production ]; then
+              echo "❌ Missing /opt/onsocial/.env.production"
+              exit 1
+            fi
 
-            read_env_value_from_file() {
-              local file="$1" key="$2"
-              local line value
-              while IFS= read -r line; do
-                value="${line#*=}"
-                value="$(printf '%s' "$value" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-                if [ -n "$value" ]; then
-                  printf '%s' "$value"
-                  return 0
-                fi
-              done < <(grep "^${key}=" "$file" 2>/dev/null || true)
-              return 1
-            }
-
-            read_env_value() {
-              read_env_value_from_file .env.production "$1" || true
-            }
-
-            read_bundled_env_value() {
-              if [ ! -f deploy_gsm.env ]; then
-                return 1
-              fi
-              read_env_value_from_file deploy_gsm.env "$1"
-            }
-
-            activate_gcloud_on_server() {
-              if [ -f /root/onsocial-gcp-key.json ]; then
-                gcloud auth activate-service-account --key-file=/root/onsocial-gcp-key.json >/dev/null 2>&1 || true
-              fi
-              gcloud config set project onsocial-protocol >/dev/null 2>&1 || true
-            }
-
-            fetch_gsm_secret() {
-              local secret_name="$1"
-              gcloud secrets versions access latest \
-                --secret="$secret_name" \
-                --project=onsocial-protocol 2>/dev/null \
-                | tr -d '\r\n' \
-                | sed 's/[[:space:]]*$//' \
-                || true
-            }
-
-            merge_env_file() {
-              local src="$1"
-              while IFS= read -r line || [ -n "$line" ]; do
-                [ -z "$line" ] && continue
-                case "$line" in
-                  \#*) continue ;;
-                esac
-                local key="${line%%=*}"
-                local val="${line#*=}"
-                upsert_env "$key" "$val"
-              done < "$src"
-            }
-
-            ensure_env_key_from_gsm() {
-              local env_key="$1" secret_name="$2"
-              local required="${3:-1}"
-              local value bundled
-
-              if [ -n "$(read_env_value "$env_key")" ]; then
-                return 0
-              fi
-
-              bundled="$(read_bundled_env_value "$env_key" || true)"
-              if [ -n "$bundled" ]; then
-                echo "Applying ${env_key} from deploy_gsm.env bundle..."
-                upsert_env "$env_key" "$bundled"
-                return 0
-              fi
-
-              echo "Fetching ${env_key} from GSM on server (${secret_name})..."
-              activate_gcloud_on_server
-              value="$(fetch_gsm_secret "$secret_name")"
-              if [ -z "$value" ]; then
-                if [ "$required" = "0" ]; then
-                  return 0
-                fi
-                echo "❌ ${env_key} missing in .env.production, deploy_gsm.env, and server GSM (${secret_name})"
-                exit 1
-              fi
-              upsert_env "$env_key" "$value"
-            }
-
-            ensure_required_deploy_secrets() {
-              ensure_env_key_from_gsm "TELEGRAM_BOT_TOKEN" "TELEGRAM_BOT_TOKEN_TESTNET"
-              ensure_env_key_from_gsm "ADMIN_SECRET" "ADMIN_SECRET"
-              ensure_env_key_from_gsm "ADMIN_WALLETS" "ADMIN_WALLETS"
-              ensure_env_key_from_gsm "SEASON_SETTLEMENT_ADMIN_KEY" "SEASON_SETTLEMENT_ADMIN_KEY"
-              ensure_env_key_from_gsm "ONSOCIAL_PORTAL_REWARDS_API_KEY" "ONSOCIAL_PORTAL_REWARDS_API_KEY"
-
-              for required in \
-                TELEGRAM_BOT_TOKEN \
-                ADMIN_SECRET \
-                ADMIN_WALLETS \
-                SEASON_SETTLEMENT_ADMIN_KEY \
-                ONSOCIAL_PORTAL_REWARDS_API_KEY; do
-                if [ -z "$(read_env_value "$required")" ]; then
-                  if [ -f deploy_gsm.env ] && grep -q "^${required}=" deploy_gsm.env; then
-                    echo "❌ ${required} missing or empty in .env.production after GSM refresh (bundle line present but merge failed)"
-                  else
-                    echo "❌ ${required} missing or empty in .env.production after GSM refresh"
-                  fi
-                  exit 1
-                fi
-              done
-            }
+            ./sync-production-env.sh --network testnet --gsm-bundle deploy_gsm.env
+            rm -f deploy_gsm.env
 
             load_compose_env() {
               set -a
@@ -312,36 +199,6 @@ jobs:
               docker compose --env-file .env.production "$@"
             }
 
-            if [ ! -f .env.production ]; then
-              echo "❌ Missing /opt/onsocial/.env.production"
-              exit 1
-            fi
-
-            if [ -f deploy_gsm.env ]; then
-              merge_env_file deploy_gsm.env
-            else
-              echo "⚠️  /opt/onsocial/deploy_gsm.env not found — GSM secrets not refreshed"
-            fi
-
-            upsert_env "NEAR_NETWORK" "testnet"
-            upsert_env "RELAYER_ACCOUNT_ID" "relayer.onsocial.testnet"
-            upsert_env "RELAYER_ALLOWED_CONTRACTS" "core.onsocial.testnet,scarces.onsocial.testnet,rewards.onsocial.testnet"
-            upsert_env "RELAYER_CONTRACT_ID" "core.onsocial.testnet"
-            upsert_env "SOCIAL_TOKEN_CONTRACT" "token.onsocial.testnet"
-            upsert_env "STAKING_CONTRACT" "staking.onsocial.testnet"
-            upsert_env "MARKETPLACE_CONTRACT" "marketplace.onsocial.testnet"
-            upsert_env "GCP_KMS_KEYRING_0" "relayer-keys-testnet"
-            upsert_env "GCP_KMS_KEYRING_1" "relayer-keys-inst-1"
-            upsert_env "PUBLIC_DOMAIN" "testnet.onsocial.id"
-            upsert_env "PUBLIC_API_URL" "https://testnet.onsocial.id"
-            upsert_env "PUBLIC_PAGE_BASE_DOMAIN" "testnet.onsocial.id"
-            upsert_env "WEBHOOK_URL" "https://testnet.onsocial.id/webhooks/telegram"
-            upsert_env "CORS_ORIGINS" "https://testnet.onsocial.id,http://localhost:3000,http://localhost:4000"
-            upsert_env "HASURA_GRAPHQL_CORS_DOMAIN" "https://testnet.onsocial.id,http://localhost:3000"
-            upsert_env "NEARBLOCKS_API_URL" "https://api-testnet.nearblocks.io"
-
-            upsert_env "ONSOCIAL_PORTAL_REWARDS_APP_ID" "onsocial_portal"
-            ensure_required_deploy_secrets
             load_compose_env
 
             # ── Health check helpers ─────────────────────────────────
@@ -517,7 +374,6 @@ jobs:
               exit 1
             fi
 
-            ensure_required_deploy_secrets
             load_compose_env
 
             # ── Backend (Telegram rewards bot) ───────────────────────
@@ -545,6 +401,5 @@ jobs:
             echo ""
             dc ps --format "table {{.Name}}\t{{.Status}}" </dev/null
             echo ""
-            rm -f deploy_gsm.env
           REMOTE_SCRIPT
             echo "✅ Testnet deploy complete — ${{ steps.sha.outputs.short }} (prev: $PREV_TAG)"

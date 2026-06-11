@@ -23,6 +23,7 @@ NEAR_NETWORK="$NEAR_NETWORK" PUBLIC_DOMAIN="$PUBLIC_DOMAIN" \
 
 echo "Uploading secrets bundle to ${SERVER}:${REMOTE_DIR}/restore_gsm.env"
 scp "$TMP_GSM" "${SERVER}:${REMOTE_DIR}/restore_gsm.env"
+scp "$ROOT/scripts/sync-production-env.sh" "${SERVER}:${REMOTE_DIR}/sync-production-env.sh"
 
 echo "Merging env, syncing partner key, recreating backend..."
 ssh "$SERVER" bash -s "$REMOTE_DIR" <<'REMOTE'
@@ -30,31 +31,9 @@ set -euo pipefail
 REMOTE_DIR="$1"
 cd "$REMOTE_DIR"
 
-merge_env_file() {
-  local src="$1"
-  local dest="$2"
-  while IFS= read -r line || [ -n "$line" ]; do
-    [ -z "$line" ] && continue
-    case "$line" in
-      \#*) continue ;;
-    esac
-    local key="${line%%=*}"
-    local val="${line#*=}"
-    if grep -q "^${key}=" "$dest" 2>/dev/null; then
-      sed -i "s|^${key}=.*|${key}=${val}|" "$dest"
-    else
-      printf '%s\n' "$line" >> "$dest"
-    fi
-  done < "$src"
-}
-
-touch .env.production
-merge_env_file restore_gsm.env .env.production
+chmod +x ./sync-production-env.sh
+./sync-production-env.sh --network testnet --gsm-bundle restore_gsm.env
 rm -f restore_gsm.env
-
-grep -q '^PUBLIC_DOMAIN=' .env.production || echo "PUBLIC_DOMAIN=testnet.onsocial.id" >> .env.production
-grep -q '^NEAR_NETWORK=' .env.production || echo "NEAR_NETWORK=testnet" >> .env.production
-grep -q '^WEBHOOK_URL=' .env.production || echo "WEBHOOK_URL=https://testnet.onsocial.id/webhooks/telegram" >> .env.production
 
 set -a
 # shellcheck disable=SC1091
