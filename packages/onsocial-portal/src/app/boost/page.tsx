@@ -113,6 +113,8 @@ const REWARD_RATE_FRACTION_DIGITS = 4;
 const LIVE_COUNTER_TICK_MS = 100;
 /** Live counter re-sync; block-timestamp extrapolation keeps this interval reasonable. */
 const BOOST_CHAIN_RESYNC_MS = 30_000;
+/** Focus resync only after the tab was hidden at least this long (avoids extra re-anchors). */
+const BOOST_FOCUS_RESYNC_MS = BOOST_CHAIN_RESYNC_MS;
 const CLAIM_CELEBRATION_TIMEOUT_MS = 2100;
 const REDUCED_MOTION_CLAIM_CELEBRATION_TIMEOUT_MS = 1400;
 /** Hero collect panel hidden below this (0.0001 SOCIAL). */
@@ -337,6 +339,26 @@ function extrapolateLiveClaimableYocto(
   return anchorYocto + (perSecondYocto * elapsedNs) / 1_000_000_000n;
 }
 
+type LiveCounterAnchor = {
+  baseYocto: bigint;
+  clientMs: number;
+  ratePerSecondYocto: bigint;
+};
+
+/** Client-side anchor avoids block-timestamp vs wall-clock jitter on resync. */
+function extrapolateFromClientAnchor(
+  anchor: LiveCounterAnchor,
+  atMs = Date.now()
+): bigint {
+  const elapsedMs = Math.max(0, atMs - anchor.clientMs);
+  if (anchor.ratePerSecondYocto <= 0n || elapsedMs === 0) {
+    return anchor.baseYocto;
+  }
+  return (
+    anchor.baseYocto + (anchor.ratePerSecondYocto * BigInt(elapsedMs)) / 1000n
+  );
+}
+
 function BoostCollectSection({
   visibleLiveClaimableYocto,
   displayFractionDigits,
@@ -531,10 +553,12 @@ export default function BoostPage() {
   const [dataLoading, setDataLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [liveResyncKey, setLiveResyncKey] = useState(0);
+  const tabHiddenAtRef = useRef<number | null>(null);
 
   // ── Live reward counter ──
   const [liveClaimableYocto, setLiveClaimableYocto] = useState(0n);
   const liveClaimableYoctoRef = useRef(0n);
+  const liveCounterAnchorRef = useRef<LiveCounterAnchor | null>(null);
   const liveCounterPausedRef = useRef(false);
   const lastConfirmedActionRef = useRef<BoostAction | null>(null);
   const hasLoadedAccountData =
@@ -702,6 +726,35 @@ export default function BoostPage() {
     setLiveClaimableYocto(value);
   }, []);
 
+  const applyLiveSnapshotToCounter = useCallback(
+    (
+      snapshot: BoostRewardsLiveSnapshot,
+      options: { allowDecrease: boolean }
+    ) => {
+      const ratePerSecondYocto = parseYocto(snapshot.rewards_per_second);
+      const chainAtNow = extrapolateLiveClaimableYocto(snapshot, Date.now());
+      const displayed = liveClaimableYoctoRef.current;
+      const baseYocto = options.allowDecrease
+        ? chainAtNow
+        : chainAtNow > displayed
+          ? chainAtNow
+          : displayed;
+
+      liveCounterAnchorRef.current = {
+        baseYocto,
+        clientMs: Date.now(),
+        ratePerSecondYocto,
+      };
+
+      setLiveClaimableYoctoValue(
+        ratePerSecondYocto > 0n
+          ? extrapolateFromClientAnchor(liveCounterAnchorRef.current)
+          : baseYocto
+      );
+    },
+    [setLiveClaimableYoctoValue]
+  );
+
   // Fetch account, lock, and balance when connected or after transactions.
   useEffect(() => {
     if (!accountId) {
@@ -710,6 +763,8 @@ export default function BoostPage() {
       setLoadedLiveSnapshot(null);
       setLoadedTokenBalance('0');
       setLiveClaimableYoctoValue(0n);
+      liveCounterAnchorRef.current = null;
+      tabHiddenAtRef.current = null;
       loadedAccountIdRef.current = null;
       setDataLoading(false);
       return;
@@ -731,6 +786,7 @@ export default function BoostPage() {
       setShowRenew(false);
       clearClaimCelebration();
       setLiveClaimableYoctoValue(0n);
+      liveCounterAnchorRef.current = null;
       liveCounterPausedRef.current = false;
       lastConfirmedActionRef.current = null;
       setDataLoading(true);
@@ -798,7 +854,7 @@ export default function BoostPage() {
     };
   }, [accountId, hasLoadedAccountData, liveResyncKey]);
 
-  // Periodic and focus-based live counter resync.
+  // Periodic resync + focus resync only after a long background (keeps counter smooth).
   useEffect(() => {
     if (!accountId) return;
 
@@ -807,7 +863,18 @@ export default function BoostPage() {
     }, BOOST_CHAIN_RESYNC_MS);
 
     const resyncOnFocus = () => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'hidden') {
+        tabHiddenAtRef.current = Date.now();
+        return;
+      }
+
+      if (document.visibilityState !== 'visible') return;
+
+      const hiddenAt = tabHiddenAtRef.current;
+      tabHiddenAtRef.current = null;
+      if (hiddenAt === null) return;
+
+      if (Date.now() - hiddenAt >= BOOST_FOCUS_RESYNC_MS) {
         setLiveResyncKey((key) => key + 1);
       }
     };
@@ -830,26 +897,39 @@ export default function BoostPage() {
     lastConfirmedActionRef.current = null;
     liveCounterPausedRef.current = false;
 
-    if (resetAfterClaim) {
-      setLiveClaimableYoctoValue(0n);
+    applyLiveSnapshotToCounter(liveSnapshot, {
+      allowDecrease: resetAfterClaim,
+    });
+  }, [applyLiveSnapshotToCounter, liveSnapshot]);
+
+  useEffect(() => {
+    if (!hasLiveCounterData || !liveCounterAnchorRef.current) {
       return;
     }
 
-    const perSecondYocto = parseYocto(liveSnapshot.rewards_per_second);
-    if (perSecondYocto <= 0n) {
-      setLiveClaimableYoctoValue(extrapolateLiveClaimableYocto(liveSnapshot));
+    const ratePerSecondYocto = liveCounterAnchorRef.current.ratePerSecondYocto;
+    if (ratePerSecondYocto <= 0n) {
       return;
     }
 
     const tick = () => {
-      if (liveCounterPausedRef.current) return;
-      setLiveClaimableYoctoValue(extrapolateLiveClaimableYocto(liveSnapshot));
+      if (liveCounterPausedRef.current || !liveCounterAnchorRef.current) {
+        return;
+      }
+      const next = extrapolateFromClientAnchor(liveCounterAnchorRef.current);
+      if (next >= liveClaimableYoctoRef.current) {
+        setLiveClaimableYoctoValue(next);
+      }
     };
 
     tick();
     const interval = setInterval(tick, LIVE_COUNTER_TICK_MS);
     return () => clearInterval(interval);
-  }, [liveSnapshot, setLiveClaimableYoctoValue]);
+  }, [
+    hasLiveCounterData,
+    liveSnapshot?.rewards_per_second,
+    setLiveClaimableYoctoValue,
+  ]);
 
   // ── Transaction Helpers ──
 
@@ -911,6 +991,7 @@ export default function BoostPage() {
             triggerClaimCelebration(claimedYocto);
           }
           if (action === 'claim' || action === 'unlock') {
+            liveCounterAnchorRef.current = null;
             setLiveClaimableYoctoValue(0n);
             setLoadedAccount((prev) =>
               prev ? { ...prev, claimable_rewards: '0' } : prev

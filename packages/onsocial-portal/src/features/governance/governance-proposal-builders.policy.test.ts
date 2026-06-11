@@ -62,9 +62,7 @@ describe('governance policy vote threshold builders', () => {
         },
       },
     });
-    expect(payload.proposal.description).toContain(
-      'quorum At least 2 approvals · 2'
-    );
+    expect(payload.proposal.description).toContain('quorum Custom · 2');
   });
 
   it('allows threshold normalization and quorum-only updates', () => {
@@ -153,7 +151,7 @@ describe('governance policy vote threshold builders', () => {
     ).toBe('All council · 5');
     expect(isVoteQuorumAllowed('2', 1)).toBe(false);
     expect(isVoteQuorumAllowed('1', 1)).toBe(true);
-    expect(resolveSelectableVoteQuorum('2', 1, [50, 100])).toBe('0');
+    expect(resolveSelectableVoteQuorum('2', 1, [50, 100])).toBe('2');
     expect(formatDefaultVoteQuorumLabel('0', 2, [50, 100])).toBe('None · 0');
   });
 

@@ -17,7 +17,8 @@
     "format": "prettier --write .",
     "lint": "eslint .",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,css,md}\" \"*.{json,js,mjs,ts}\" \"scripts/**/*.{mjs,js}\"",
-    "check": "pnpm lint && pnpm format:check && pnpm type-check && pnpm build",
+    "test": "vitest run",
+    "check": "pnpm lint && pnpm format:check && pnpm type-check && pnpm test && pnpm build",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
@@ -53,6 +54,7 @@
     "eslint-config-next": "^16.1.6",
     "postcss": "^8.5.8",
     "tailwindcss": "^4.2.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
   }
 }

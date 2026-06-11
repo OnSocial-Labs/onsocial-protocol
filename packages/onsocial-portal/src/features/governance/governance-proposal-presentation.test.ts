@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { deriveProposalPresentation } from './governance-proposal-presentation';
+import {
+  deriveProposalPresentation,
+  resolveProposalTargetEyebrowLabel,
+} from './governance-proposal-presentation';
 
 function encodeArgs(args: Record<string, unknown>): string {
   return btoa(JSON.stringify(args));
@@ -235,5 +238,79 @@ describe('deriveProposalPresentation', () => {
     expect(presentation.subjectEyebrow).toBe('Member');
     expect(presentation.showProposerAsSelf).toBe(true);
     expect(presentation.showProposerSeparately).toBe(false);
+  });
+});
+
+describe('proposal card target eyebrows', () => {
+  it('maps every structured target kind to a right-column eyebrow', () => {
+    expect(resolveProposalTargetEyebrowLabel('role')).toBe('Role');
+    expect(resolveProposalTargetEyebrowLabel('community')).toBe('Community');
+    expect(resolveProposalTargetEyebrowLabel('contract')).toBe('Contract');
+    expect(resolveProposalTargetEyebrowLabel('amount')).toBe('Amount');
+    expect(resolveProposalTargetEyebrowLabel(null)).toBeNull();
+  });
+
+  it('uses Amount for treasury Transfer proposals', () => {
+    const presentation = deriveProposalPresentation({
+      proposer: 'greenghost.onsocial.testnet',
+      description: 'Treasury payout.',
+      kind: {
+        Transfer: {
+          receiver_id: 'treasury.onsocial.testnet',
+          amount: '1000000000000000000000000',
+          token_id: '',
+        },
+      },
+    });
+
+    expect(presentation.targetKind).toBe('amount');
+    expect(resolveProposalTargetEyebrowLabel(presentation.targetKind)).toBe(
+      'Amount'
+    );
+  });
+
+  it('uses Amount for treasury sweep and fund-season proposals', () => {
+    const sweep = deriveProposalPresentation({
+      proposer: 'alice.testnet',
+      description: 'Sweep treasury fees.',
+      kind: {
+        FunctionCall: {
+          receiver_id: 'social-spend.onsocial.testnet',
+          actions: [
+            {
+              method_name: 'withdraw_treasury',
+              args: encodeArgs({ amount: '10000000000000000000' }),
+              deposit: '1',
+              gas: 100_000_000_000_000,
+            },
+          ],
+        },
+      },
+    });
+    const fund = deriveProposalPresentation({
+      proposer: 'alice.testnet',
+      description: 'Fund season pool.',
+      kind: {
+        FunctionCall: {
+          receiver_id: 'social-spend.onsocial.testnet',
+          actions: [
+            {
+              method_name: 'fund_season_pool_from_treasury',
+              args: encodeArgs({
+                season_id: 'season-one',
+                amount: '1000000000000000000000',
+              }),
+              deposit: '1',
+              gas: 100_000_000_000_000,
+            },
+          ],
+        },
+      },
+    });
+
+    expect(sweep.targetKind).toBe('amount');
+    expect(fund.targetKind).toBe('amount');
+    expect(resolveProposalTargetEyebrowLabel(sweep.targetKind)).toBe('Amount');
+    expect(resolveProposalTargetEyebrowLabel(fund.targetKind)).toBe('Amount');
   });
 });

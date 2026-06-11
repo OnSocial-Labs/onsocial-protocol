@@ -7,7 +7,7 @@ import {
 } from '@/features/governance/governance-account-chip';
 import { getPortalProfileUrl } from '@/lib/portal-config';
 import {
-  PROPOSAL_TARGET_KIND_LABELS,
+  resolveProposalTargetEyebrowLabel,
   type ProposalPresentation,
   type ProposalTargetKind,
 } from '@/features/governance/governance-proposal-presentation';
@@ -52,8 +52,9 @@ function GovernanceProposalTargetLine({
   const tooltip = showContractAccountId
     ? `${targetValue} · ${targetAccountId}`
     : targetValue;
+  const eyebrowLabel = resolveProposalTargetEyebrowLabel(targetKind);
 
-  if (targetKind === 'amount' || !targetKind) {
+  if (!eyebrowLabel) {
     return (
       <div className={TARGET_COLUMN_CLASS}>
         <PortalHoverTooltip tooltip={tooltip} className={valueClass}>
@@ -67,7 +68,7 @@ function GovernanceProposalTargetLine({
   return (
     <div className={TARGET_COLUMN_CLASS}>
       <span className="portal-eyebrow leading-none text-muted-foreground/70">
-        {PROPOSAL_TARGET_KIND_LABELS[targetKind]}
+        {eyebrowLabel}
       </span>
       <PortalHoverTooltip
         tooltip={tooltip}

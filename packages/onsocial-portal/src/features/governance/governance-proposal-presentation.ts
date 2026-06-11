@@ -17,6 +17,17 @@ export const PROPOSAL_TARGET_KIND_LABELS: Record<ProposalTargetKind, string> = {
   amount: 'Amount',
 };
 
+/** Eyebrow above the right column on proposal cards (Role, Amount, etc.). */
+export function resolveProposalTargetEyebrowLabel(
+  targetKind: ProposalTargetKind | null
+): string | null {
+  if (!targetKind) {
+    return null;
+  }
+
+  return PROPOSAL_TARGET_KIND_LABELS[targetKind];
+}
+
 function proposalTarget(
   targetKind: ProposalTargetKind | null,
   targetValue: string | null | undefined,
