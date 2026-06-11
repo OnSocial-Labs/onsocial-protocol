@@ -267,6 +267,30 @@ rebuild-all-contracts: rebuild-docker-contracts
 	@echo "$(SUCCESS)All contracts rebuilt successfully$(RESET)"
 
 # =============================================================================
+# CONTRACT UPGRADE TARGETS
+# =============================================================================
+
+.PHONY: upgrade-contract-%
+upgrade-contract-%: build-contract-% ensure-scripts-executable
+	@if ! echo "$(VALID_CONTRACTS)" | grep -wq "$*"; then \
+		echo "❌ Unknown contract: $*. Valid contracts: $(VALID_CONTRACTS)"; \
+		exit 1; \
+	fi
+	@CONTRACT_UNDERSCORE=$$(echo "$*" | tr '-' '_'); \
+	WASM_PATH="$(CODE_DIR)/target/near/$$CONTRACT_UNDERSCORE/$$CONTRACT_UNDERSCORE.wasm"; \
+	if [ ! -r "$$WASM_PATH" ]; then \
+		echo "ℹ️  WASM not readable at $$WASM_PATH — copying via Docker to /tmp/$$CONTRACT_UNDERSCORE.wasm"; \
+		docker run --rm -v $(CODE_DIR):/code $(CONTRACTS_DOCKER_IMAGE) \
+			cat "/code/target/near/$$CONTRACT_UNDERSCORE/$$CONTRACT_UNDERSCORE.wasm" \
+			> "/tmp/$$CONTRACT_UNDERSCORE.wasm"; \
+		WASM_PATH="/tmp/$$CONTRACT_UNDERSCORE.wasm"; \
+	fi; \
+	echo "🚀 Upgrading contract $* on $(NETWORK)..."; \
+	NETWORK=$(NETWORK) AUTH_ACCOUNT=$(AUTH_ACCOUNT) NEAR_RPC_URL=$(NEAR_NODE_URL) \
+		DRY_RUN=$(DRY_RUN) WASM_PATH="$$WASM_PATH" \
+		node scripts/upgrade-contract.mjs "$*"
+
+# =============================================================================
 # CONTRACT DEPLOYMENT TARGETS
 # =============================================================================
 

@@ -558,6 +558,11 @@ boostView('/boost-reward-rate', 'get_reward_rate', (q) => {
   if (!accountId) return 'Missing required query param: accountId';
   return { account_id: accountId };
 });
+boostView('/boost-rewards-live', 'get_rewards_live_snapshot', (q) => {
+  const accountId = requireStr(q, 'accountId');
+  if (!accountId) return 'Missing required query param: accountId';
+  return { account_id: accountId };
+});
 boostView(
   '/boost-storage-subsidy-available',
   'get_storage_subsidy_available',

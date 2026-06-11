@@ -59,6 +59,15 @@ export interface BoostRewardRate {
   active_weekly_rate_bps: number;
 }
 
+/** Projected claimable + rate + block time for live UI counters. */
+export interface BoostRewardsLiveSnapshot {
+  claimable_rewards: string;
+  rewards_per_second: string;
+  as_of_timestamp_ns: number;
+  effective_boost: string;
+  total_effective_boost: string;
+}
+
 /**
  * Boost — read-only views for the boost (lock-and-earn) contract.
  *
@@ -98,6 +107,16 @@ export class BoostModule {
   async getRewardRate(accountId: string): Promise<BoostRewardRate> {
     const p = new URLSearchParams({ accountId });
     return this._http.get<BoostRewardRate>(`/data/boost-reward-rate?${p}`);
+  }
+
+  /** Returns projected claimable, accrual rate, and chain timestamp in one view read. */
+  async getRewardsLiveSnapshot(
+    accountId: string
+  ): Promise<BoostRewardsLiveSnapshot> {
+    const p = new URLSearchParams({ accountId });
+    return this._http.get<BoostRewardsLiveSnapshot>(
+      `/data/boost-rewards-live?${p}`
+    );
   }
 
   /** How many new users the contract can still auto-register for free. */

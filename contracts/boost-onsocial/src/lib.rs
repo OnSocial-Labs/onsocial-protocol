@@ -1043,6 +1043,37 @@ impl OnsocialBoost {
         }
     }
 
+    /// Single-view snapshot for live reward counters (projected claimable + rate + block time).
+    pub fn get_rewards_live_snapshot(&self, account_id: AccountId) -> RewardsLiveSnapshot {
+        let account = self.accounts.get(&account_id).cloned().unwrap_or_default();
+        let effective = self.effective_boost(&account);
+        let claimable = self.calculate_claimable(&account);
+        let now = env::block_timestamp();
+        let projected_released = self.project_total_released();
+        let release_delta = projected_released.saturating_sub(self.total_rewards_released);
+        let projected_pool = self.scheduled_pool.saturating_sub(release_delta);
+        let active_weekly_rate_bps = self.active_weekly_rate_bps_at(now);
+        let weekly_release = projected_pool * active_weekly_rate_bps / 10_000;
+
+        let rewards_per_second = if self.total_effective_boost > 0 && weekly_release > 0 {
+            u256_mul_div(
+                u256_mul_div(weekly_release, effective, self.total_effective_boost),
+                1,
+                7 * 24 * 60 * 60,
+            )
+        } else {
+            0
+        };
+
+        RewardsLiveSnapshot {
+            claimable_rewards: U128(claimable),
+            rewards_per_second: U128(rewards_per_second),
+            as_of_timestamp_ns: now,
+            effective_boost: U128(effective),
+            total_effective_boost: U128(self.total_effective_boost),
+        }
+    }
+
     /// How many new users the contract can still auto-register for free.
     /// Returns 0 when the subsidy is exhausted (users must call storage_deposit).
     pub fn get_storage_subsidy_available(&self) -> u32 {
@@ -1355,6 +1386,15 @@ pub struct RewardRateInfo {
     pub total_effective_boost: U128,
     pub weekly_pool_release: U128,
     pub active_weekly_rate_bps: u32,
+}
+
+#[near(serializers = [json])]
+pub struct RewardsLiveSnapshot {
+    pub claimable_rewards: U128,
+    pub rewards_per_second: U128,
+    pub as_of_timestamp_ns: u64,
+    pub effective_boost: U128,
+    pub total_effective_boost: U128,
 }
 
 #[near(serializers = [json])]

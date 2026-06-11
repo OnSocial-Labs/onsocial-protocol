@@ -3,6 +3,8 @@
  * Usage: node scripts/upgrade-contract.mjs <contract-name>
  * 
  * Requires: NETWORK, AUTH_ACCOUNT env vars
+ * Optional: WASM_PATH (defaults to target/near/<crate>/<crate>.wasm)
+ * Optional: DRY_RUN=1
  */
 
 import fs from 'fs';
@@ -54,7 +56,8 @@ async function main() {
 
   // Find WASM file
   const contractUnderscore = contractName.replace(/-/g, '_');
-  const wasmPath = path.join(__dirname, '..', 'target', 'near', contractUnderscore, `${contractUnderscore}.wasm`);
+  const wasmPath = process.env.WASM_PATH
+    || path.join(__dirname, '..', 'target', 'near', contractUnderscore, `${contractUnderscore}.wasm`);
   
   if (!fs.existsSync(wasmPath)) {
     console.error(`WASM not found: ${wasmPath}`);

@@ -1249,6 +1249,35 @@ fn test_get_reward_rate() {
     assert_eq!(rate.weekly_pool_release.0, expected_weekly);
 }
 
+#[test]
+fn test_get_rewards_live_snapshot() {
+    let mut contract = setup_contract();
+    setup_with_storage(&mut contract, "alice.near");
+
+    let start_time = 1_000_000_000_000_000_000u64;
+
+    fund_pool_at(&mut contract, 1000 * ONE_SOCIAL, start_time);
+    lock_tokens_at(&mut contract, "alice.near", ONE_SOCIAL, 6, start_time);
+
+    let mut context = get_context("anyone.near");
+    context.block_timestamp(start_time);
+    testing_env!(context.build());
+
+    let snapshot = contract.get_rewards_live_snapshot("alice.near".parse().unwrap());
+
+    assert_eq!(snapshot.as_of_timestamp_ns, start_time);
+    assert!(snapshot.rewards_per_second.0 > 0);
+    assert_eq!(snapshot.effective_boost.0, ONE_SOCIAL * 110 / 100);
+    assert_eq!(snapshot.total_effective_boost.0, ONE_SOCIAL * 110 / 100);
+    assert_eq!(
+        snapshot.rewards_per_second.0,
+        contract
+            .get_reward_rate("alice.near".parse().unwrap())
+            .rewards_per_second
+            .0
+    );
+}
+
 // =============================================================================
 // Poke Tests
 // =============================================================================

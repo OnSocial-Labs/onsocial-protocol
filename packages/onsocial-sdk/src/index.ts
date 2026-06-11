@@ -215,6 +215,7 @@ export type {
   BoostContractStats,
   BoostLockStatus,
   BoostRewardRate,
+  BoostRewardsLiveSnapshot,
 } from './modules/boost.js';
 export {
   SocialSpendModule,

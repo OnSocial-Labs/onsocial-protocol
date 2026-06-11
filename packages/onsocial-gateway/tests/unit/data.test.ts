@@ -446,6 +446,27 @@ describe('Boost views', () => {
     expect(mockRpcQuery.mock.calls[0][0].finality).toBe('final');
   });
 
+  it('GET /data/boost-rewards-live', async () => {
+    mockRpcQuery.mockResolvedValue(
+      rpcResult({
+        claimable_rewards: '1000',
+        rewards_per_second: '50',
+        as_of_timestamp_ns: 1_700_000_000_000_000_000,
+        effective_boost: '0',
+        total_effective_boost: '0',
+      })
+    );
+    const res = await request(createApp()).get(
+      '/data/boost-rewards-live?accountId=alice.testnet'
+    );
+    expect(res.status).toBe(200);
+    expect(res.body.as_of_timestamp_ns).toBe(1_700_000_000_000_000_000);
+    expect(mockRpcQuery.mock.calls[0][0].method_name).toBe(
+      'get_rewards_live_snapshot'
+    );
+    expect(mockRpcQuery.mock.calls[0][0].finality).toBe('final');
+  });
+
   it('GET /data/boost-storage-subsidy-available', async () => {
     mockRpcQuery.mockResolvedValue(rpcResult(123));
     const res = await request(createApp()).get(

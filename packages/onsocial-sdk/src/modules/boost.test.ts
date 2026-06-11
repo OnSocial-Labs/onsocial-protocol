@@ -93,6 +93,25 @@ describe('BoostModule.getRewardRate', () => {
   });
 });
 
+describe('BoostModule.getRewardsLiveSnapshot', () => {
+  it('GETs /data/boost-rewards-live', async () => {
+    const snapshot = {
+      claimable_rewards: '1000',
+      rewards_per_second: '50',
+      as_of_timestamp_ns: 1_700_000_000_000_000_000,
+      effective_boost: '0',
+      total_effective_boost: '0',
+    };
+    const get = vi.fn().mockResolvedValue(snapshot);
+    const boost = new BoostModule({ get } as never);
+    const out = await boost.getRewardsLiveSnapshot('alice.testnet');
+    expect(get).toHaveBeenCalledWith(
+      '/data/boost-rewards-live?accountId=alice.testnet'
+    );
+    expect(out).toEqual(snapshot);
+  });
+});
+
 describe('BoostModule.getStorageSubsidyAvailable', () => {
   it('GETs /data/boost-storage-subsidy-available and returns a number', async () => {
     const get = vi.fn().mockResolvedValue(123);

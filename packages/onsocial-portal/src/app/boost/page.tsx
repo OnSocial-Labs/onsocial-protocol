@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { useWallet } from '@/contexts/wallet-context';
 import { PageShell } from '@/components/layout/page-shell';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { BoostSocialLayer } from '@/components/boost/boost-social-layer';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
@@ -57,7 +58,7 @@ import type {
   BoostAccountView,
   BoostContractStats as BoostStats,
   BoostLockStatus,
-  BoostRewardRate,
+  BoostRewardsLiveSnapshot,
 } from '@onsocial/sdk';
 
 // ─── Lock Periods (matches VALID_LOCK_PERIODS in contract) ──
@@ -110,6 +111,7 @@ const LIVE_COUNTER_FRACTION_DIGITS = 6;
 const LIVE_COUNTER_DISPLAY_FRACTION_DIGITS = 4;
 const REWARD_RATE_FRACTION_DIGITS = 4;
 const LIVE_COUNTER_TICK_MS = 100;
+/** Live counter re-sync; block-timestamp extrapolation keeps this interval reasonable. */
 const BOOST_CHAIN_RESYNC_MS = 30_000;
 const CLAIM_CELEBRATION_TIMEOUT_MS = 2100;
 const REDUCED_MOTION_CLAIM_CELEBRATION_TIMEOUT_MS = 1400;
@@ -183,7 +185,7 @@ function formatYoctoSocialParts(
 
 function LiveFractionDigit({ digit }: { digit: string }) {
   return (
-    <span className="inline-block w-[0.6em] text-center" aria-hidden>
+    <span className="inline-block w-[1ch] text-center tabular-nums" aria-hidden>
       {digit}
     </span>
   );
@@ -211,19 +213,20 @@ function LiveClaimableAmount({
       aria-label={`${full} SOCIAL ready to collect`}
     >
       {isLiveAccruing && fractionDigits > 0 ? (
-        <span className="inline-flex flex-row flex-nowrap items-baseline justify-center whitespace-nowrap tabular-nums">
-          <span className="pr-px text-right font-bold tracking-[-0.03em]">
-            {whole}
-          </span>
+        <span className="inline-flex flex-nowrap items-baseline whitespace-nowrap tabular-nums">
+          <span className="font-bold tracking-[-0.03em]">{whole}</span>
           <span className="font-bold leading-none opacity-90">.</span>
-          <span className="inline-flex flex-row flex-nowrap pl-px text-[0.62em] font-semibold leading-none tracking-[-0.01em] opacity-85">
+          <span
+            className="inline-flex flex-nowrap text-[0.62em] font-semibold leading-none tracking-normal opacity-85 tabular-nums"
+            style={{ width: `${fractionDigits}ch` }}
+          >
             {fraction.split('').map((digit, index) => (
               <LiveFractionDigit key={`fraction-${index}`} digit={digit} />
             ))}
           </span>
         </span>
       ) : (
-        <span>{full}</span>
+        <span className="whitespace-nowrap tabular-nums">{full}</span>
       )}
     </p>
   );
@@ -314,9 +317,30 @@ function normalizeBoostClaimableYocto(
   return claimableYocto;
 }
 
+function extrapolateLiveClaimableYocto(
+  snapshot: BoostRewardsLiveSnapshot,
+  atMs = Date.now()
+): bigint {
+  const perSecondYocto = parseYocto(snapshot.rewards_per_second);
+  const anchorYocto = normalizeBoostClaimableYocto(
+    parseYocto(snapshot.claimable_rewards),
+    perSecondYocto
+  );
+
+  if (perSecondYocto <= 0n) {
+    return anchorYocto;
+  }
+
+  const asOfNs = BigInt(snapshot.as_of_timestamp_ns);
+  const atNs = BigInt(atMs) * 1_000_000n;
+  const elapsedNs = atNs > asOfNs ? atNs - asOfNs : 0n;
+  return anchorYocto + (perSecondYocto * elapsedNs) / 1_000_000_000n;
+}
+
 function BoostCollectSection({
   visibleLiveClaimableYocto,
   displayFractionDigits,
+  isCounterLoading,
   isLiveAccruing,
   perSecondDisplay,
   claimCelebration,
@@ -331,6 +355,7 @@ function BoostCollectSection({
 }: {
   visibleLiveClaimableYocto: bigint;
   displayFractionDigits: number;
+  isCounterLoading: boolean;
   isLiveAccruing: boolean;
   perSecondDisplay: string;
   claimCelebration: ClaimCelebration | null;
@@ -393,24 +418,36 @@ function BoostCollectSection({
         <span className="portal-eyebrow text-muted-foreground">
           Ready to Collect
         </span>
-        <LiveClaimableAmount
-          valueYocto={visibleLiveClaimableYocto}
-          fractionDigits={displayFractionDigits}
-          isLiveAccruing={isLiveAccruing}
-          className="portal-green-text mt-1 font-mono text-3xl font-bold tabular-nums tracking-[-0.03em] md:text-4xl"
-        />
+        {isCounterLoading ? (
+          <Skeleton
+            className="mt-1 h-10 w-36 md:h-11 md:w-40"
+            aria-label="Loading collectable balance"
+          />
+        ) : (
+          <LiveClaimableAmount
+            valueYocto={visibleLiveClaimableYocto}
+            fractionDigits={displayFractionDigits}
+            isLiveAccruing={isLiveAccruing}
+            className="portal-green-text mt-1 font-mono text-3xl font-bold tracking-[-0.03em] md:text-4xl"
+          />
+        )}
         <span className="portal-green-text mt-0.5 portal-eyebrow-wide opacity-70">
           $SOCIAL
         </span>
-        {isLiveAccruing && (
-          <p className="mt-1 font-mono portal-type-label text-muted-foreground">
-            +{perSecondDisplay}/sec
-          </p>
-        )}
+        {isLiveAccruing &&
+          (isCounterLoading ? (
+            <Skeleton className="mt-1 h-4 w-24" aria-hidden />
+          ) : (
+            <p className="mt-1 font-mono portal-type-label text-muted-foreground">
+              +{perSecondDisplay}/sec
+            </p>
+          ))}
         <Button
           onClick={onClaim}
           disabled={
-            txPending || visibleLiveClaimableYocto < BOOST_CLAIM_DUST_YOCTO
+            isCounterLoading ||
+            txPending ||
+            visibleLiveClaimableYocto < BOOST_CLAIM_DUST_YOCTO
           }
           variant="accent"
           size="sm"
@@ -487,12 +524,13 @@ export default function BoostPage() {
   const [loadedLockStatus, setLoadedLockStatus] =
     useState<BoostLockStatus | null>(null);
   const [stats, setStats] = useState<BoostStats | null>(null);
-  const [loadedRewardRate, setLoadedRewardRate] =
-    useState<BoostRewardRate | null>(null);
+  const [loadedLiveSnapshot, setLoadedLiveSnapshot] =
+    useState<BoostRewardsLiveSnapshot | null>(null);
   const [loadedTokenBalance, setLoadedTokenBalance] = useState('0');
   const [tokenIconSrc, setTokenIconSrc] = useState<string | null>(null);
   const [dataLoading, setDataLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [liveResyncKey, setLiveResyncKey] = useState(0);
 
   // ── Live reward counter ──
   const [liveClaimableYocto, setLiveClaimableYocto] = useState(0n);
@@ -503,9 +541,11 @@ export default function BoostPage() {
     accountId !== null && loadedAccountIdRef.current === accountId;
   const account = hasLoadedAccountData ? loadedAccount : null;
   const lockStatus = hasLoadedAccountData ? loadedLockStatus : null;
-  const rewardRate = hasLoadedAccountData ? loadedRewardRate : null;
+  const liveSnapshot = hasLoadedAccountData ? loadedLiveSnapshot : null;
   const tokenBalance = hasLoadedAccountData ? loadedTokenBalance : '0';
-  const visibleLiveClaimableYocto = hasLoadedAccountData
+  const hasLiveCounterData = hasLoadedAccountData && liveSnapshot !== null;
+  const isCounterLoading = Boolean(accountId) && !hasLiveCounterData;
+  const visibleLiveClaimableYocto = hasLiveCounterData
     ? liveClaimableYocto
     : 0n;
 
@@ -662,12 +702,12 @@ export default function BoostPage() {
     setLiveClaimableYocto(value);
   }, []);
 
-  // Fetch user data when connected
+  // Fetch account, lock, and balance when connected or after transactions.
   useEffect(() => {
     if (!accountId) {
       setLoadedAccount(null);
       setLoadedLockStatus(null);
-      setLoadedRewardRate(null);
+      setLoadedLiveSnapshot(null);
       setLoadedTokenBalance('0');
       setLiveClaimableYoctoValue(0n);
       loadedAccountIdRef.current = null;
@@ -683,7 +723,7 @@ export default function BoostPage() {
     if (isInitialLoadForAccount) {
       setLoadedAccount(null);
       setLoadedLockStatus(null);
-      setLoadedRewardRate(null);
+      setLoadedLiveSnapshot(null);
       setLoadedTokenBalance('0');
       setStakeAmount('');
       setSelectedPeriod(2);
@@ -698,30 +738,18 @@ export default function BoostPage() {
 
     Promise.all([
       os.boost.getAccount(requestedAccountId),
-      os.boost.getRewardRate(requestedAccountId),
       os.boost.getLockStatus(requestedAccountId),
       os.token.balanceOf(requestedAccountId),
+      os.boost.getRewardsLiveSnapshot(requestedAccountId),
     ])
-      .then(([acct, rate, status, bal]) => {
+      .then(([acct, status, bal, snapshot]) => {
         if (cancelled) return;
 
         loadedAccountIdRef.current = requestedAccountId;
         setLoadedAccount(acct);
-        const chainClaimableYocto = parseYocto(rate?.claimable_now);
-        const perSecondYocto = parseYocto(rate?.rewards_per_second);
-        setLoadedRewardRate(
-          rate
-            ? {
-                ...rate,
-                claimable_now: normalizeBoostClaimableYocto(
-                  chainClaimableYocto,
-                  perSecondYocto
-                ).toString(),
-              }
-            : rate
-        );
         setLoadedLockStatus(status);
         setLoadedTokenBalance(bal ?? '0');
+        setLoadedLiveSnapshot(snapshot);
 
         // Auto-select current lock period
         if (acct && BigInt(acct.locked_amount) > 0n) {
@@ -747,64 +775,86 @@ export default function BoostPage() {
     setLiveClaimableYoctoValue,
   ]);
 
-  // Re-anchor live counter to chain while connected.
+  // Lightweight live-counter resync (one contract view via gateway).
+  useEffect(() => {
+    if (!accountId || !hasLoadedAccountData || liveResyncKey === 0) return;
+
+    let cancelled = false;
+    const requestedAccountId = accountId;
+
+    os.boost
+      .getRewardsLiveSnapshot(requestedAccountId)
+      .then((snapshot) => {
+        if (!cancelled && loadedAccountIdRef.current === requestedAccountId) {
+          setLoadedLiveSnapshot(snapshot);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) console.error(error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, hasLoadedAccountData, liveResyncKey]);
+
+  // Periodic and focus-based live counter resync.
   useEffect(() => {
     if (!accountId) return;
 
     const interval = setInterval(() => {
-      setRefreshKey((key) => key + 1);
+      setLiveResyncKey((key) => key + 1);
     }, BOOST_CHAIN_RESYNC_MS);
 
-    return () => clearInterval(interval);
+    const resyncOnFocus = () => {
+      if (document.visibilityState === 'visible') {
+        setLiveResyncKey((key) => key + 1);
+      }
+    };
+    document.addEventListener('visibilitychange', resyncOnFocus);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', resyncOnFocus);
+    };
   }, [accountId]);
 
   useEffect(() => {
-    if (!rewardRate) {
-      setLiveClaimableYoctoValue(0n);
+    if (!liveSnapshot) {
       return;
     }
 
-    const initial = normalizeBoostClaimableYocto(
-      parseYocto(rewardRate.claimable_now),
-      parseYocto(rewardRate.rewards_per_second)
-    );
-    const perSecondYocto = parseYocto(rewardRate.rewards_per_second);
-    const allowResetDown =
+    const resetAfterClaim =
       lastConfirmedActionRef.current === 'claim' ||
       lastConfirmedActionRef.current === 'unlock';
     lastConfirmedActionRef.current = null;
     liveCounterPausedRef.current = false;
-    const startValue =
-      allowResetDown || perSecondYocto <= 0n
-        ? initial
-        : initial > liveClaimableYoctoRef.current
-          ? initial
-          : liveClaimableYoctoRef.current;
 
-    if (perSecondYocto <= 0n) {
-      setLiveClaimableYoctoValue(startValue);
+    if (resetAfterClaim) {
+      setLiveClaimableYoctoValue(0n);
       return;
     }
 
-    const start = Date.now();
-    setLiveClaimableYoctoValue(startValue);
+    const perSecondYocto = parseYocto(liveSnapshot.rewards_per_second);
+    if (perSecondYocto <= 0n) {
+      setLiveClaimableYoctoValue(extrapolateLiveClaimableYocto(liveSnapshot));
+      return;
+    }
 
-    const interval = setInterval(() => {
+    const tick = () => {
       if (liveCounterPausedRef.current) return;
+      setLiveClaimableYoctoValue(extrapolateLiveClaimableYocto(liveSnapshot));
+    };
 
-      const elapsedMs = BigInt(Date.now() - start);
-      setLiveClaimableYoctoValue(
-        startValue + (perSecondYocto * elapsedMs) / 1000n
-      );
-    }, LIVE_COUNTER_TICK_MS);
-
+    tick();
+    const interval = setInterval(tick, LIVE_COUNTER_TICK_MS);
     return () => clearInterval(interval);
-  }, [rewardRate, setLiveClaimableYoctoValue]);
+  }, [liveSnapshot, setLiveClaimableYoctoValue]);
 
   // ── Transaction Helpers ──
 
   const afterTx = useCallback(() => {
-    // Immediate refresh
+    // Immediate refresh (includes live snapshot).
     setRefreshKey((k) => k + 1);
     // RPC nodes may serve stale reads right after a tx;
     // schedule two more refreshes to catch the updated state.
@@ -862,8 +912,11 @@ export default function BoostPage() {
           }
           if (action === 'claim' || action === 'unlock') {
             setLiveClaimableYoctoValue(0n);
-            setLoadedRewardRate((prev) =>
-              prev ? { ...prev, claimable_now: '0' } : prev
+            setLoadedAccount((prev) =>
+              prev ? { ...prev, claimable_rewards: '0' } : prev
+            );
+            setLoadedLiveSnapshot((prev) =>
+              prev ? { ...prev, claimable_rewards: '0' } : prev
             );
           }
           afterTx();
@@ -1099,11 +1152,11 @@ export default function BoostPage() {
     !hasStake && scheduledPoolYocto > 0n && totalEffectiveStakeYocto === 0n;
 
   // ── Reward rate per second ──
-  const perSecond = rewardRate
-    ? parseFloat(yoctoToSocial(rewardRate.rewards_per_second))
+  const perSecond = liveSnapshot
+    ? parseFloat(yoctoToSocial(liveSnapshot.rewards_per_second))
     : 0;
-  const perSecondYocto = rewardRate
-    ? parseYocto(rewardRate.rewards_per_second)
+  const perSecondYocto = liveSnapshot
+    ? parseYocto(liveSnapshot.rewards_per_second)
     : 0n;
   const perSecondDisplay = formatYoctoSocialFixed(
     perSecondYocto,
@@ -1245,6 +1298,7 @@ export default function BoostPage() {
                       displayFractionDigits={
                         LIVE_COUNTER_DISPLAY_FRACTION_DIGITS
                       }
+                      isCounterLoading={isCounterLoading}
                       isLiveAccruing={shouldLiveAccrueRewards === true}
                       perSecondDisplay={perSecondDisplay}
                       claimCelebration={claimCelebration}
