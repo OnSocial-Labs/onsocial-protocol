@@ -338,19 +338,28 @@ function joinedRallyCte(hasCutoff: boolean): string {
   )`;
 }
 
-function joinedRallyParams(
+function joinedRallyCteParams(
+  seasonId: string,
+  hasCutoff: boolean,
+  cutoffParam: string
+): string[] {
+  return hasCutoff
+    ? [seasonId, SEASON_ZERO_JOIN_RALLY_MIN_YOCTO.toString(), cutoffParam]
+    : [seasonId, SEASON_ZERO_JOIN_RALLY_MIN_YOCTO.toString()];
+}
+
+/** CTE params plus optional season-start baseline for pre-season social exclusions. */
+function joinedRallyQueryParams(
   seasonId: string,
   hasCutoff: boolean,
   cutoffParam: string,
   seasonStartsAtNs: string | null
 ): string[] {
-  const base = hasCutoff
-    ? [seasonId, SEASON_ZERO_JOIN_RALLY_MIN_YOCTO.toString(), cutoffParam]
-    : [seasonId, SEASON_ZERO_JOIN_RALLY_MIN_YOCTO.toString()];
+  const params = joinedRallyCteParams(seasonId, hasCutoff, cutoffParam);
   if (seasonStartsAtNs) {
-    base.push(seasonStartsAtNs);
+    params.push(seasonStartsAtNs);
   }
-  return base;
+  return params;
 }
 
 function seasonStartParamIndex(hasCutoff: boolean): number {
@@ -471,7 +480,7 @@ export async function getSeasonStandings(
       seasonStartParam
     );
 
-  const joinedParams = joinedRallyParams(
+  const joinedQueryParams = joinedRallyQueryParams(
     seasonId,
     hasCutoff,
     cutoffParam,
@@ -489,7 +498,7 @@ export async function getSeasonStandings(
        joined_at_ns::text AS joined_at_ns,
        join_count
      FROM joined`,
-    [...joinedParams]
+    joinedRallyCteParams(seasonId, hasCutoff, cutoffParam)
   );
 
   if (joined.rows.length === 0) {
@@ -538,7 +547,7 @@ export async function getSeasonStandings(
              ORDER BY du.account_id, du.data_id, du.block_height DESC, du.block_timestamp DESC, du.receipt_id DESC, du.id DESC
            ) latest
            WHERE operation = 'set'`,
-      [...joinedParams]
+      [...joinedQueryParams]
     ),
     indexerQuery<EndorsementRow>(
       hasCutoff
@@ -574,7 +583,7 @@ export async function getSeasonStandings(
              AND e.issuer != e.target
              ${seasonActivityWindow(false, 'e.block_timestamp')}
              ${preSeasonEndorsementExclusionCurrent}`,
-      [...joinedParams]
+      [...joinedQueryParams]
     ),
     indexerQuery<StandEventRow>(
       hasCutoff
@@ -616,7 +625,7 @@ export async function getSeasonStandings(
            WHERE 1=1
              ${seasonActivityWindow(false, 'incoming.block_timestamp')}
              ${preSeasonStandingExclusionCurrent}`,
-      [...joinedParams]
+      [...joinedQueryParams]
     ),
     indexerQuery<SupportRow>(
       `WITH ${joinedRallyCte(hasCutoff)}
@@ -632,7 +641,7 @@ export async function getSeasonStandings(
          AND s.target_type = 'profile'
          ${spendWindow}
        GROUP BY COALESCE(NULLIF(s.recipient_id, ''), s.target_id)`,
-      [...joinedParams]
+      [...joinedQueryParams]
     ),
     indexerQuery<BoostRow>(
       `WITH ${joinedRallyCte(hasCutoff)}
@@ -656,7 +665,7 @@ export async function getSeasonStandings(
            ${boostWindow}
          ORDER BY be.account_id, be.block_height DESC, be.block_timestamp DESC, be.receipt_id DESC, be.id DESC
        ) latest_boost`,
-      [...joinedParams]
+      [...joinedQueryParams]
     ),
   ]);
 
