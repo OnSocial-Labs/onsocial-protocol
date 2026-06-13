@@ -33,8 +33,8 @@ export interface ReputationEntry {
   accountId: string;
   standingWith: number;
   standingOut: number;
-  mutualStanding?: number;
-  endorsementsReceived?: number;
+  mutualStanding: number;
+  endorsementsReceived: number;
   boost: string;
   lockMonths: number;
   rewardsEarned: string;
@@ -53,9 +53,38 @@ export interface ReputationEntry {
   consistencyScore: string;
   scarcesScore: string;
   reputation: string;
-  confidenceScore?: string;
+  confidenceScore: string;
   rank: number;
 }
+
+/** GraphQL selection for `reputationScores` — keep in sync with ReputationEntry. */
+export const REPUTATION_SCORES_GRAPHQL_FIELDS = `
+  accountId
+  standingWith
+  standingOut
+  mutualStanding
+  endorsementsReceived
+  boost
+  lockMonths
+  rewardsEarned
+  totalPosts
+  replyCount
+  reactionsReceived
+  avgReactions
+  activeDays
+  uniqueConversations
+  scarcesCreated
+  scarcesSold
+  scarcesRevenueNear
+  socialScore
+  commitmentScore
+  qualityScore
+  consistencyScore
+  scarcesScore
+  reputation
+  confidenceScore
+  rank
+`.trim();
 
 /** Homepage compact preview */
 export interface CompactLeaderboard {

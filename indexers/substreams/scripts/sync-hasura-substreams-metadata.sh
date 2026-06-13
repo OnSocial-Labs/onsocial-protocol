@@ -139,6 +139,26 @@ while IFS= read -r relation; do
   fi
 done <<< "$PUBLIC_RELATIONS"
 
+echo "Refreshing tracked SQL views (pick up CREATE OR REPLACE VIEW column changes)..."
+VIEW_RELATIONS=$(grep -hE 'CREATE OR REPLACE VIEW ' "${SQL_DIR}"/*_schema_views.sql 2>/dev/null | \
+  sed -E 's/^CREATE OR REPLACE VIEW ([a-zA-Z_][a-zA-Z0-9_]*).*/\1/' | \
+  sort -u || true)
+
+retrack_view() {
+  local view="$1"
+  metadata_api "{\"type\":\"pg_untrack_table\",\"args\":{\"source\":\"${SOURCE_NAME}\",\"table\":{\"schema\":\"public\",\"name\":\"${view}\"}}}" >/dev/null 2>&1 || true
+  track_relation "$view" || true
+}
+
+while IFS= read -r view; do
+  [ -z "$view" ] && continue
+  if ! printf '%s\n' "$EXISTING_TRACKED" | grep -Fxq "$view"; then
+    continue
+  fi
+  echo "retrack view: $view"
+  retrack_view "$view"
+done <<< "$VIEW_RELATIONS"
+
 echo "Reloading metadata cache..."
 # reload_sources must be true after CREATE OR REPLACE VIEW column changes.
 metadata_api '{"type":"reload_metadata","args":{"reload_remote_schemas":true,"reload_sources":true,"recreate_event_triggers":false}}' >/dev/null

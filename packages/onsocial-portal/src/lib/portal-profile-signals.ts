@@ -1,5 +1,8 @@
 import { gatewayQuery } from '@/lib/gateway-client';
-import type { ReputationEntry } from '@/lib/leaderboard';
+import {
+  REPUTATION_SCORES_GRAPHQL_FIELDS,
+  type ReputationEntry,
+} from '@/lib/leaderboard';
 
 export interface PortalProfileSignalsPayload {
   accountId: string;
@@ -15,31 +18,7 @@ export async function loadPortalProfileSignals(
         where: { accountId: { _eq: $accountId } }
         limit: 1
       ) {
-        accountId
-        standingWith
-        standingOut
-        mutualStanding
-        endorsementsReceived
-        boost
-        lockMonths
-        rewardsEarned
-        totalPosts
-        replyCount
-        reactionsReceived
-        avgReactions
-        activeDays
-        uniqueConversations
-        scarcesCreated
-        scarcesSold
-        scarcesRevenueNear
-        socialScore
-        commitmentScore
-        qualityScore
-        consistencyScore
-        scarcesScore
-        reputation
-        confidenceScore
-        rank
+        ${REPUTATION_SCORES_GRAPHQL_FIELDS}
       }
     }`,
     { accountId }

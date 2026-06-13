@@ -937,10 +937,8 @@ function ProfileSignalsCard({ reputation }: { reputation: ReputationEntry }) {
     earnedRewards ? 'SOCIAL earner' : null,
     scarceActivity > 0 ? 'Scarce creator' : null,
     postActivity > 0 ? 'Active contributor' : null,
-    toFiniteNumber(reputation.mutualStanding ?? 0) > 0 ? 'Mutual stand' : null,
-    toFiniteNumber(reputation.endorsementsReceived ?? 0) > 0
-      ? 'Endorsed'
-      : null,
+    toFiniteNumber(reputation.mutualStanding) > 0 ? 'Mutual stand' : null,
+    toFiniteNumber(reputation.endorsementsReceived) > 0 ? 'Endorsed' : null,
   ].filter(Boolean) as string[];
 
   const dimensions = [

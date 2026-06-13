@@ -264,6 +264,37 @@ async function smokeTestServiceRole(): Promise<void> {
     );
   }
 
+  const reputationProbe = `query SmokeTestReputation {
+    reputationScores(limit: 1) {
+      accountId
+      reputation
+      mutualStanding
+      confidenceScore
+    }
+  }`;
+
+  const reputationResponse = await fetch(config.hasuraUrl, {
+    method: 'POST',
+    headers: serviceHeaders,
+    body: JSON.stringify({ query: reputationProbe }),
+  });
+  const reputationBody: { errors?: Array<{ message?: string }> } =
+    await reputationResponse.json().catch(() => ({}));
+  if (!reputationResponse.ok) {
+    throw new Error(
+      `Smoke test (reputation) HTTP ${reputationResponse.status}: ${JSON.stringify(reputationBody)}`
+    );
+  }
+  if (
+    reputationBody.errors?.some((e) =>
+      (e.message ?? '').includes("field 'mutualStanding' not found")
+    )
+  ) {
+    throw new Error(
+      'Smoke test: reputation_scores schema is stale — reload Hasura sources after view column changes'
+    );
+  }
+
   if (!config.hasuraAdminSecret) {
     throw new Error(
       'Smoke test: HASURA_ADMIN_SECRET required to verify api_keys'
@@ -349,6 +380,19 @@ async function dropPermissions(): Promise<void> {
   }
 
   console.log(`   ✓ Dropped ${dropped} permissions\n`);
+}
+
+async function reloadHasuraSources(): Promise<void> {
+  console.log('🔄 Reloading Hasura metadata (Postgres sources)...');
+  await hasuraMetadata({
+    type: 'reload_metadata',
+    args: {
+      reload_remote_schemas: true,
+      reload_sources: true,
+      recreate_event_triggers: false,
+    },
+  });
+  console.log('   ✓ Hasura sources reloaded\n');
 }
 
 async function fetchLiveColumns(): Promise<Map<string, Set<string>>> {
@@ -654,14 +698,18 @@ async function main(): Promise<void> {
       case 'reset':
         await snapshotMetadata();
         await trackTables();
+        await reloadHasuraSources();
         await dropPermissions();
         await createPermissions();
+        await reloadHasuraSources();
         await smokeTestServiceRole();
         break;
       case 'sync':
         await snapshotMetadata();
         await trackTables();
+        await reloadHasuraSources();
         await syncPermissions();
+        await reloadHasuraSources();
         await smokeTestServiceRole();
         break;
       case 'smoke':

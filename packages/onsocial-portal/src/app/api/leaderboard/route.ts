@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { gatewayQuery } from '@/lib/gateway-client';
+import { REPUTATION_SCORES_GRAPHQL_FIELDS } from '@/lib/leaderboard';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -40,31 +41,7 @@ function buildQuery(scope: LeaderboardScope, limit: number): string {
           orderBy: { rank: ASC }
           limit: ${safeLimit}
         ) {
-          accountId
-          standingWith
-          standingOut
-          mutualStanding
-          endorsementsReceived
-          boost
-          lockMonths
-          rewardsEarned
-          totalPosts
-          replyCount
-          reactionsReceived
-          avgReactions
-          activeDays
-          uniqueConversations
-          scarcesCreated
-          scarcesSold
-          scarcesRevenueNear
-          socialScore
-          commitmentScore
-          qualityScore
-          consistencyScore
-          scarcesScore
-          reputation
-          confidenceScore
-          rank
+          ${REPUTATION_SCORES_GRAPHQL_FIELDS}
         }
       }`;
 
