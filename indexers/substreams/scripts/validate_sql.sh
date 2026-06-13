@@ -89,6 +89,59 @@ echo ">>> Validating Substreams SQL with ${POSTGRES_IMAGE}"
           exit 1
         fi
       done
+
+      for column_name in mutual_standing endorsements_received confidence_score; do
+        exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+          SELECT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = '"'"'public'"'"'
+              AND table_name = '"'"'reputation_scores'"'"'
+              AND column_name = '"'"'${column_name}'"'"'
+          );
+        ")"
+        if [ "$exists" != "t" ]; then
+          echo "error: expected reputation_scores.${column_name} in $db" >&2
+          exit 1
+        fi
+      done
+    }
+
+    validate_reputation_view_upgrade() {
+      db="$1"
+      echo ">>> Reputation view upgrade (column reorder)"
+      psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 <<SQLEOF >/dev/null
+DROP VIEW IF EXISTS app_reputation CASCADE;
+DROP VIEW IF EXISTS leaderboard_agent_features CASCADE;
+DROP VIEW IF EXISTS reputation_scores CASCADE;
+CREATE VIEW reputation_scores AS
+SELECT
+  NULL::text AS account_id,
+  0::bigint AS standing_with,
+  0::bigint AS standing_out,
+  0::numeric AS boost,
+  0::integer AS lock_months,
+  0::numeric AS rewards_earned,
+  0::bigint AS total_posts,
+  0::bigint AS reply_count,
+  0::bigint AS reactions_received,
+  0::numeric AS avg_reactions,
+  0::bigint AS active_days,
+  0::bigint AS unique_conversations,
+  0::bigint AS scarces_created,
+  0::bigint AS scarces_sold,
+  0::numeric AS scarces_revenue_near,
+  0::numeric AS social_score,
+  0::numeric AS commitment_score,
+  0::numeric AS quality_score,
+  0::numeric AS consistency_score,
+  0::numeric AS scarces_score,
+  0::numeric AS reputation,
+  1::bigint AS rank
+WHERE false;
+SQLEOF
+      apply_sql "$db" /work/leaderboard_schema_views.sql
+      validate_expected_objects "$db"
     }
 
     validate_notifications_schema() {
@@ -177,6 +230,7 @@ echo ">>> Validating Substreams SQL with ${POSTGRES_IMAGE}"
     apply_migrations combined_validate
     apply_views combined_validate
     validate_expected_objects combined_validate
+    validate_reputation_view_upgrade combined_validate
 
     echo ">>> Standalone package schemas"
     createdb -h /tmp standalone_validate

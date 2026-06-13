@@ -231,7 +231,7 @@ jobs:
             echo "✓ Sinks stopped"
 
             # Helper: psql via Docker container (client not installed on host)
-            PSQL="docker exec -i postgres psql -U onsocial -d onsocial_indexer"
+            PSQL="docker exec -i postgres psql -v ON_ERROR_STOP=1 -U onsocial -d onsocial_indexer"
 
             # Gateway + notifications live in the same DB as the indexer — never drop/truncate these.
             GATEWAY_PRESERVE_SQL="'api_keys','api_usage','developer_subscriptions','developer_apps','app_notification_events','developer_notification_rules','notifications','notification_webhook_endpoints','notification_delivery_attempts','notification_counts','notification_cursors'"

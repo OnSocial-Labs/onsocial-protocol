@@ -327,6 +327,13 @@ async function smokeTestServiceRole(): Promise<void> {
     );
   }
 
+  const reputationColumns = (await fetchLiveColumns()).get('reputation_scores');
+  if (!reputationColumns?.has('mutual_standing')) {
+    throw new Error(
+      'Smoke test: Postgres reputation_scores.mutual_standing is missing — run Deploy Substreams (leaderboard_schema_views.sql) before gateway Hasura sync'
+    );
+  }
+
   const reputationProbe = `query SmokeTestReputation {
     reputationScores(limit: 1) {
       accountId
@@ -354,7 +361,7 @@ async function smokeTestServiceRole(): Promise<void> {
     )
   ) {
     throw new Error(
-      'Smoke test: reputation_scores schema is stale — reload Hasura sources after view column changes'
+      'Smoke test: reputation_scores GraphQL schema is stale — retrack SQL views and reload Hasura sources (mutual_standing exists in Postgres)'
     );
   }
 

@@ -320,7 +320,14 @@ GROUP BY account_id;
 -- confidence_score estimates how much indexed evidence backs the rank.
 -- ────────────────────────────────────────────────────────────────────────────
 
-CREATE OR REPLACE VIEW reputation_scores AS
+-- CREATE OR REPLACE VIEW cannot insert/reorder output columns on an existing view.
+-- Drop dependents first so column additions (mutual_standing, endorsements_received,
+-- confidence_score) apply cleanly on live testnet/mainnet databases.
+DROP VIEW IF EXISTS app_reputation CASCADE;
+DROP VIEW IF EXISTS leaderboard_agent_features CASCADE;
+DROP VIEW IF EXISTS reputation_scores CASCADE;
+
+CREATE VIEW reputation_scores AS
 WITH mutual_counts AS (
   SELECT
     account_id,
