@@ -4,6 +4,7 @@
 // ---------------------------------------------------------------------------
 
 import type { QueryModule } from './index.js';
+import type { ProfileSearchRow } from './profiles.js';
 
 export interface EndorsementRow {
   issuer: string;
@@ -27,6 +28,21 @@ export interface EndorsementPageOptions {
 export interface EndorsementFilteredPage {
   rows: EndorsementRow[];
   total: number;
+}
+
+export interface EndorsementPreviewOptions {
+  accountId: string;
+  limit?: number;
+}
+
+export interface EndorsementPreviewResult {
+  counts: EndorsementCounts;
+  received: EndorsementRow[];
+  given: EndorsementRow[];
+}
+
+export interface EndorsementPreviewBundle extends EndorsementPreviewResult {
+  profiles: ProfileSearchRow[];
 }
 
 export class EndorsementsQuery {
@@ -55,6 +71,78 @@ export class EndorsementsQuery {
       received: Number(row?.endorsementsReceivedCount ?? 0),
       given: Number(row?.endorsementsGivenCount ?? 0),
     };
+  }
+
+  /**
+   * Endorsement tab counts plus received/given preview lists — one round-trip.
+   */
+  async preview(
+    opts: EndorsementPreviewOptions
+  ): Promise<EndorsementPreviewResult> {
+    const accountId = opts.accountId.trim();
+    const limit = opts.limit ?? 24;
+
+    const res = await this._q.graphql<{
+      profileSearch: Array<{
+        endorsementsReceivedCount: number;
+        endorsementsGivenCount: number;
+      }>;
+      received: EndorsementRow[];
+      given: EndorsementRow[];
+    }>({
+      query: `query EndorsementPreview($id: String!, $limit: Int!) {
+        profileSearch(where: {accountId: {_eq: $id}}, limit: 1) {
+          endorsementsReceivedCount
+          endorsementsGivenCount
+        }
+        received: endorsementsCurrent(
+          where: {target: {_eq: $id}, operation: {_eq: "set"}},
+          limit: $limit,
+          offset: 0,
+          orderBy: [{blockHeight: DESC}]
+        ) {
+          issuer target value blockHeight blockTimestamp operation
+        }
+        given: endorsementsCurrent(
+          where: {issuer: {_eq: $id}, operation: {_eq: "set"}},
+          limit: $limit,
+          offset: 0,
+          orderBy: [{blockHeight: DESC}]
+        ) {
+          issuer target value blockHeight blockTimestamp operation
+        }
+      }`,
+      variables: { id: accountId, limit },
+    });
+
+    const row = res.data?.profileSearch?.[0];
+    return {
+      counts: {
+        received: Number(row?.endorsementsReceivedCount ?? 0),
+        given: Number(row?.endorsementsGivenCount ?? 0),
+      },
+      received: res.data?.received ?? [],
+      given: res.data?.given ?? [],
+    };
+  }
+
+  /**
+   * Preview lists plus batched profile search rows for issuer/target enrichment.
+   */
+  async previewBundle(
+    opts: EndorsementPreviewOptions
+  ): Promise<EndorsementPreviewBundle> {
+    const preview = await this.preview(opts);
+    const participantIds = [
+      ...new Set(
+        [...preview.received, ...preview.given].flatMap((row) => [
+          row.issuer,
+          row.target,
+        ])
+      ),
+    ];
+    const profiles = await this._q.profiles.statsForAccounts(participantIds);
+    return { ...preview, profiles };
   }
 
   /**

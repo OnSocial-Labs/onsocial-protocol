@@ -186,6 +186,8 @@ export type {
   ProfileDiscoverStandingRow,
   ProfileDiscoverViewerContext,
   ProfileSearchRow,
+  ProfileSocialPreviewOptions,
+  ProfileSocialPreviewResult,
 } from './query/profiles.js';
 export type { ProtocolPulse, ProtocolTotals } from './query/stats.js';
 export { ReactionsModule } from './modules/reactions.js';

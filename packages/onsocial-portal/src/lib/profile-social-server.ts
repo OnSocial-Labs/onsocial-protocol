@@ -1,4 +1,4 @@
-import type { MaterialisedProfile } from '@onsocial/sdk';
+import type { MaterialisedProfile, ProfileSearchRow } from '@onsocial/sdk';
 import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
 import {
   isProfileSearchQuery,
@@ -38,6 +38,29 @@ export const STANDING_MAX_OFFSET = 10_000;
 export type PortalOnSocialClient = ReturnType<
   typeof createPortalServerOnSocialClient
 >;
+
+export function profileSearchRowToMaterialised(
+  row: ProfileSearchRow
+): MaterialisedProfile {
+  return {
+    accountId: row.accountId,
+    name: row.name ?? undefined,
+    bio: row.bio ?? undefined,
+    avatar: row.avatar ?? undefined,
+    banner: row.banner ?? undefined,
+    extra: {},
+  };
+}
+
+export function profileStatsFromSearchRow(row: ProfileSearchRow) {
+  return {
+    standingCount: Number(row.standingCount) || 0,
+    standingWithCount: Number(row.standingWithCount) || 0,
+    mutualStandingCount: Number(row.mutualStandingCount) || 0,
+    endorsementsReceivedCount: Number(row.endorsementsReceivedCount) || 0,
+    endorsementsGivenCount: Number(row.endorsementsGivenCount) || 0,
+  };
+}
 
 export async function listProfileStats(
   os: PortalOnSocialClient,
@@ -86,15 +109,6 @@ async function listStandingRows(
   return direction === 'incoming'
     ? os.standings.listIncomingDetailed(accountId, { limit, offset })
     : os.standings.listOutgoingDetailed(accountId, { limit, offset });
-}
-
-async function listMutualStandingRows(
-  os: PortalOnSocialClient,
-  accountId: string,
-  limit: number,
-  offset: number
-): Promise<StandingListItem[]> {
-  return os.standings.mutualList(accountId, { limit, offset });
 }
 
 export async function loadViewerContext(
@@ -189,28 +203,58 @@ export async function buildStandingAccountSummaries(
   direction: StandingDirection,
   viewerAccountId: string | null
 ): Promise<StandingAccountSummary[]> {
+  const [summaries] = await buildStandingAccountSummariesBatch(
+    os,
+    viewerAccountId,
+    [{ rows, direction }]
+  );
+  return summaries;
+}
+
+export async function buildStandingAccountSummariesBatch(
+  os: PortalOnSocialClient,
+  viewerAccountId: string | null,
+  sets: Array<{ rows: StandingListItem[]; direction: StandingDirection }>
+): Promise<StandingAccountSummary[][]> {
   const accountIds = Array.from(
     new Set(
-      rows.map((row) =>
-        direction === 'outgoing' ? row.targetAccount : row.accountId
+      sets.flatMap(({ rows, direction }) =>
+        rows.map((row) =>
+          direction === 'outgoing' ? row.targetAccount : row.accountId
+        )
       )
     )
   );
-  const [profiles, profileStats, { viewerOutgoingSet, viewerIncomingSet }] =
-    await Promise.all([
-      os.profiles.getMany(accountIds),
-      listProfileStats(os, accountIds).catch(() => new Map()),
-      loadViewerContext(os, viewerAccountId, accountIds),
-    ]);
 
-  return mapStandingRowsToSummaries(
-    os,
-    rows,
-    direction,
-    profiles,
-    profileStats,
-    viewerOutgoingSet,
-    viewerIncomingSet
+  const enrichment = await os.standings.enrichPeers(
+    viewerAccountId,
+    accountIds
+  );
+
+  const profiles: Record<string, MaterialisedProfile> = {};
+  const profileStats = new Map<
+    string,
+    ReturnType<typeof profileStatsFromSearchRow>
+  >();
+
+  for (const row of enrichment.profiles) {
+    profiles[row.accountId] = profileSearchRowToMaterialised(row);
+    profileStats.set(row.accountId, profileStatsFromSearchRow(row));
+  }
+
+  const viewerOutgoingSet = new Set(enrichment.viewerOutgoingPeerIds);
+  const viewerIncomingSet = new Set(enrichment.viewerIncomingPeerIds);
+
+  return sets.map(({ rows, direction }) =>
+    mapStandingRowsToSummaries(
+      os,
+      rows,
+      direction,
+      profiles,
+      profileStats,
+      viewerOutgoingSet,
+      viewerIncomingSet
+    )
   );
 }
 
@@ -226,6 +270,7 @@ export async function listStandingAccountsPage(
   accounts: StandingAccountSummary[];
   hasMore: boolean;
   total: number;
+  counts?: { incoming: number; outgoing: number; mutual: number };
 }> {
   if (isProfileSearchQuery(searchQuery)) {
     const participantIds = await searchMatchingAccountIds(os, searchQuery);
@@ -268,30 +313,26 @@ export async function listStandingAccountsPage(
     };
   }
 
-  const counts = await os.standings.counts(accountId);
-  const total =
-    direction === 'incoming'
-      ? counts.incoming
-      : direction === 'outgoing'
-        ? counts.outgoing
-        : await countMutualStandings(os, accountId);
-
-  const rows =
-    direction === 'mutual'
-      ? await listMutualStandingRows(os, accountId, limit, offset)
-      : await listStandingRows(os, accountId, direction, limit, offset);
+  const page = await os.standings.listPage({
+    accountId,
+    direction,
+    limit,
+    offset,
+    includeCounts: offset === 0,
+  });
 
   const accounts = await buildStandingAccountSummaries(
     os,
-    rows,
+    page.rows,
     direction,
     viewerAccountId
   );
 
   return {
     accounts,
-    hasMore: offset + accounts.length < total,
-    total,
+    hasMore: offset + accounts.length < page.total,
+    total: page.total,
+    ...(page.counts ? { counts: page.counts } : {}),
   };
 }
 

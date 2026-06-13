@@ -37,6 +37,23 @@ vi.mock('../../src/services/metering/index.js', async (importOriginal) => {
   };
 });
 
+const mockGetBurstAllowanceStatus = vi.fn();
+
+vi.mock(
+  '../../src/services/burst-allowance/index.js',
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import('../../src/services/burst-allowance/index.js')
+      >();
+    return {
+      ...actual,
+      getBurstAllowanceStatus: (...args: unknown[]) =>
+        mockGetBurstAllowanceStatus(...args),
+    };
+  }
+);
+
 vi.mock('../../src/services/developer-apps/index.js', () => ({
   registerDeveloperApp: (...args: unknown[]) =>
     mockRegisterDeveloperApp(...args),
@@ -51,7 +68,7 @@ vi.mock('../../src/config/index.js', () => ({
     nearRpcUrl: '',
     redisUrl: '',
     nodeEnv: 'test',
-    rateLimits: { free: 60, pro: 600, scale: 3000 },
+    rateLimits: { free: 60, pro: 600, scale: 3000, service: 10000 },
   },
 }));
 
@@ -240,17 +257,31 @@ describe('DELETE /developer/keys/:prefix', () => {
 describe('GET /developer/usage', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('returns usage summary', async () => {
+  it('returns usage summary with burst allowance', async () => {
     const summary = { today: 100, thisMonth: 2500 };
+    const burst = {
+      creditsPerMonth: 3,
+      creditsRemaining: 2,
+      multiplier: 2,
+      baseLimit: 600,
+      boostedLimit: 1200,
+      burstActive: false,
+      resetsAt: '2026-07-01T00:00:00.000Z',
+    };
     mockGetUsageSummary.mockResolvedValue(summary);
+    mockGetBurstAllowanceStatus.mockResolvedValue(burst);
 
     const res = await request(
       createApp({ accountId: 'alice.testnet', method: 'jwt' })
     ).get('/developer/usage');
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual(summary);
+    expect(res.body).toEqual({ ...summary, burst });
     expect(mockGetUsageSummary).toHaveBeenCalledWith('alice.testnet');
+    expect(mockGetBurstAllowanceStatus).toHaveBeenCalledWith(
+      'alice.testnet',
+      'free'
+    );
   });
 
   it('returns 500 on service error', async () => {

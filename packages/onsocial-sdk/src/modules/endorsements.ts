@@ -22,6 +22,10 @@
 import { normalizeEndorsementTopic } from '../builders/endorsement.js';
 import type { SocialModule, EndorsementBuildInput } from './social.js';
 import type { QueryModule } from '../query/index.js';
+import type {
+  EndorsementPreviewBundle,
+  EndorsementPreviewResult,
+} from '../query/endorsements.js';
 import type { EndorsementRecord, RelayResponse } from '../types.js';
 
 /** Raised when moving an endorsement to a topic slot that already exists. */
@@ -249,6 +253,28 @@ export class EndorsementsModule {
   /** Indexed endorsement counts from `profile_search`. */
   counts(accountId: string): Promise<{ received: number; given: number }> {
     return this._query.endorsements.counts(accountId);
+  }
+
+  /**
+   * Tab counts plus received/given preview lists — one graph round-trip.
+   * Pair with {@link previewBundle} for profile enrichment.
+   */
+  preview(
+    accountId: string,
+    opts: { limit?: number } = {}
+  ): Promise<EndorsementPreviewResult> {
+    return this._query.endorsements.preview({ accountId, ...opts });
+  }
+
+  /**
+   * Preview lists plus batched profile rows for issuer/target enrichment
+   * (two round-trips).
+   */
+  previewBundle(
+    accountId: string,
+    opts: { limit?: number } = {}
+  ): Promise<EndorsementPreviewBundle> {
+    return this._query.endorsements.previewBundle({ accountId, ...opts });
   }
 
   /**

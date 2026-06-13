@@ -1,9 +1,14 @@
-import type { EndorsementListItem, EndorsementRecord } from '@onsocial/sdk';
+import type {
+  EndorsementListItem,
+  EndorsementRecord,
+  ProfileSearchRow,
+} from '@onsocial/sdk';
 import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
 import {
   isProfileSearchQuery,
   searchMatchingAccountIds,
 } from '@/lib/profile-account-search';
+import { profileSearchRowToMaterialised } from '@/lib/profile-social-server';
 
 export type EndorsementListMode = 'received' | 'given';
 
@@ -53,6 +58,33 @@ function parseEndorsementRow(row: {
   };
 }
 
+function enrichEndorsementsFromProfiles(
+  os: PortalOnSocialClient,
+  endorsements: EndorsementListItem[],
+  profiles: ProfileSearchRow[]
+): EnrichedEndorsementListItem[] {
+  const profileById = new Map(profiles.map((row) => [row.accountId, row]));
+
+  return endorsements.map((endorsement) => {
+    const issuerRow = profileById.get(endorsement.issuer) ?? null;
+    const targetRow = profileById.get(endorsement.target) ?? null;
+    const issuerProfile = issuerRow
+      ? profileSearchRowToMaterialised(issuerRow)
+      : null;
+    const targetProfile = targetRow
+      ? profileSearchRowToMaterialised(targetRow)
+      : null;
+
+    return {
+      ...endorsement,
+      issuerName: issuerRow?.name ?? null,
+      issuerAvatarUrl: os.profiles.avatarUrl(issuerProfile),
+      targetName: targetRow?.name ?? null,
+      targetAvatarUrl: os.profiles.avatarUrl(targetProfile),
+    };
+  });
+}
+
 export async function getEndorsementCounts(
   os: PortalOnSocialClient,
   accountId: string
@@ -72,19 +104,8 @@ export async function enrichEndorsements(
       ])
     )
   );
-  const profiles = await os.profiles.getMany(participantIds);
-
-  return endorsements.map((endorsement) => {
-    const issuerProfile = profiles[endorsement.issuer] ?? null;
-    const targetProfile = profiles[endorsement.target] ?? null;
-    return {
-      ...endorsement,
-      issuerName: issuerProfile?.name ?? null,
-      issuerAvatarUrl: os.profiles.avatarUrl(issuerProfile),
-      targetName: targetProfile?.name ?? null,
-      targetAvatarUrl: os.profiles.avatarUrl(targetProfile),
-    };
-  });
+  const profiles = await os.query.profiles.statsForAccounts(participantIds);
+  return enrichEndorsementsFromProfiles(os, endorsements, profiles);
 }
 
 export async function listViewerEndorsementsToTarget(
@@ -163,12 +184,8 @@ export async function loadEndorsementPreview(
   given: EnrichedEndorsementListItem[];
   viewerToTarget: EnrichedEndorsementListItem[];
 }> {
-  const [counts, receivedRows, givenRows, viewerToTarget] = await Promise.all([
-    getEndorsementCounts(os, accountId),
-    os.endorsements.listReceived(accountId, {
-      limit: ENDORSEMENT_PREVIEW_LIMIT,
-    }),
-    os.endorsements.listGiven(accountId, {
+  const [bundle, viewerToTarget] = await Promise.all([
+    os.endorsements.previewBundle(accountId, {
       limit: ENDORSEMENT_PREVIEW_LIMIT,
     }),
     viewerAccountId && viewerAccountId !== accountId
@@ -176,13 +193,19 @@ export async function loadEndorsementPreview(
       : Promise.resolve([]),
   ]);
 
-  const [received, given] = await Promise.all([
-    enrichEndorsements(os, receivedRows),
-    enrichEndorsements(os, givenRows),
-  ]);
+  const received = enrichEndorsementsFromProfiles(
+    os,
+    bundle.received.map(parseEndorsementRow),
+    bundle.profiles
+  );
+  const given = enrichEndorsementsFromProfiles(
+    os,
+    bundle.given.map(parseEndorsementRow),
+    bundle.profiles
+  );
 
   return {
-    counts,
+    counts: bundle.counts,
     received,
     given,
     viewerToTarget,

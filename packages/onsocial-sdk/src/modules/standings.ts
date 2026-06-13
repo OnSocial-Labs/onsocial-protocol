@@ -17,7 +17,18 @@
 
 import type { SocialModule } from './social.js';
 import type { QueryModule } from '../query/index.js';
-import type { StandingListItem } from '../query/standings.js';
+import type {
+  StandingListItem,
+  StandingListPageOptions,
+  StandingListPageResult,
+  StandingPeerEnrichment,
+  StandingNetworkSampleOptions,
+  StandingNetworkSampleResult,
+} from '../query/standings.js';
+import type {
+  ProfileSocialPreviewOptions,
+  ProfileSocialPreviewResult,
+} from '../query/profiles.js';
 import type { RelayResponse } from '../types.js';
 
 /**
@@ -164,5 +175,50 @@ export class StandingsModule {
       viewerAccountId,
       targetAccountId
     );
+  }
+
+  /**
+   * Profile standing preview — counts, three preview lists, peer profiles, and
+   * viewer context in **two** graph round-trips (portal profile modal pattern).
+   *
+   * ```ts
+   * const social = await os.standings.profilePreview({
+   *   accountId: 'alice.near',
+   *   viewerAccountId: 'bob.near',
+   * });
+   * ```
+   */
+  profilePreview(
+    opts: ProfileSocialPreviewOptions
+  ): Promise<ProfileSocialPreviewResult> {
+    return this._query.profiles.socialPreview(opts);
+  }
+
+  /**
+   * Paginated standing list plus optional tab counts — one graph round-trip.
+   * Pair with {@link enrichPeers} for avatars and viewer badges.
+   */
+  listPage(opts: StandingListPageOptions): Promise<StandingListPageResult> {
+    return this._query.standings.listPage(opts);
+  }
+
+  /**
+   * Batch profile rows + viewer ↔ peer standing context (one round-trip).
+   */
+  enrichPeers(
+    viewerAccountId: string | null | undefined,
+    peerAccountIds: string[]
+  ): Promise<StandingPeerEnrichment> {
+    return this._query.standings.enrichPeers(viewerAccountId, peerAccountIds);
+  }
+
+  /**
+   * Network map sample — counts, three directional lists, and peer profiles in
+   * **two** graph round-trips (portal network graph pattern).
+   */
+  networkSample(
+    opts: StandingNetworkSampleOptions
+  ): Promise<StandingNetworkSampleResult> {
+    return this._query.standings.networkSample(opts);
   }
 }

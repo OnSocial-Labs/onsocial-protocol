@@ -4,6 +4,7 @@
 // ---------------------------------------------------------------------------
 
 import type { QueryModule } from './index.js';
+import type { ProfileSearchRow } from './profiles.js';
 
 export interface StandingListItem {
   accountId: string;
@@ -21,6 +22,47 @@ export interface StandingPageOptions {
 export interface StandingFilteredPage {
   rows: StandingListItem[];
   total: number;
+}
+
+export interface StandingListPageOptions {
+  accountId: string;
+  direction: 'incoming' | 'outgoing' | 'mutual';
+  limit?: number;
+  offset?: number;
+  /** When true and offset is 0, include inbound/outbound/mutual totals for tab rails. */
+  includeCounts?: boolean;
+}
+
+export interface StandingListPageResult {
+  rows: StandingListItem[];
+  total: number;
+  counts?: { incoming: number; outgoing: number; mutual: number };
+}
+
+export interface StandingPeerEnrichment {
+  profiles: ProfileSearchRow[];
+  viewerOutgoingPeerIds: string[];
+  viewerIncomingPeerIds: string[];
+}
+
+export interface StandingNetworkSampleOptions {
+  accountId: string;
+  viewerAccountId?: string | null;
+  mutualLimit?: number;
+  incomingLimit?: number;
+  outgoingLimit?: number;
+}
+
+export interface StandingNetworkSampleResult {
+  accountId: string;
+  viewerAccountId: string | null;
+  counts: { incoming: number; outgoing: number; mutual: number };
+  mutual: StandingListItem[];
+  incoming: StandingListItem[];
+  outgoing: StandingListItem[];
+  peers: ProfileSearchRow[];
+  viewerOutgoingPeerIds: string[];
+  viewerIncomingPeerIds: string[];
 }
 
 function parseStandingSince(raw: string | null | undefined): number | null {
@@ -557,5 +599,384 @@ export class StandingsQuery {
     return Number(
       res.data?.mutualStandingsCurrentAggregate?.aggregate?.count ?? 0
     );
+  }
+
+  /**
+   * Paginated standing list plus optional tab counts — one graph round-trip.
+   * Enrich rows with {@link enrichPeers} (profiles + viewer context).
+   */
+  async listPage(
+    opts: StandingListPageOptions
+  ): Promise<StandingListPageResult> {
+    const accountId = opts.accountId.trim();
+    const direction = opts.direction;
+    const limit = opts.limit ?? 100;
+    const offset = opts.offset ?? 0;
+    const includeCounts = Boolean(opts.includeCounts && offset === 0);
+
+    if (direction === 'mutual') {
+      const res = await this._q.graphql<{
+        profileSearch: Array<{ mutualStandingCount: number }>;
+        standingCounts: Array<{ standingWithCount: number }>;
+        standingOutCounts: Array<{ standingWithOthersCount: number }>;
+        mutualStandingsCurrent: Array<{
+          accountId: string;
+          mutualAccount: string;
+          value: string | null;
+          blockHeight: number;
+          blockTimestamp: number;
+        }>;
+      }>({
+        query: `query StandingMutualListPage(
+          $accountId: String!
+          $limit: Int!
+          $offset: Int!
+          $withCounts: Boolean!
+        ) {
+          profileSearch(where: {accountId: {_eq: $accountId}}, limit: 1) {
+            mutualStandingCount
+          }
+          standingCounts(where: {accountId: {_eq: $accountId}}) @include(if: $withCounts) {
+            standingWithCount
+          }
+          standingOutCounts(where: {accountId: {_eq: $accountId}}) @include(if: $withCounts) {
+            standingWithOthersCount
+          }
+          mutualStandingsCurrent(
+            where: {accountId: {_eq: $accountId}}
+            limit: $limit
+            offset: $offset
+            orderBy: [{blockTimestamp: DESC}]
+          ) {
+            accountId mutualAccount value blockHeight blockTimestamp
+          }
+        }`,
+        variables: {
+          accountId,
+          limit,
+          offset,
+          withCounts: includeCounts,
+        },
+      });
+
+      const rows = (res.data?.mutualStandingsCurrent ?? []).map((r) => ({
+        accountId: r.mutualAccount,
+        targetAccount: r.accountId,
+        since: parseStandingSince(r.value),
+        blockHeight: Number(r.blockHeight) || 0,
+        blockTimestamp: Number(r.blockTimestamp) || 0,
+      }));
+      const mutualRow = res.data?.profileSearch?.[0];
+      const total = Number(mutualRow?.mutualStandingCount ?? 0);
+
+      return {
+        rows,
+        total,
+        ...(includeCounts
+          ? {
+              counts: {
+                incoming: Number(
+                  res.data?.standingCounts?.[0]?.standingWithCount ?? 0
+                ),
+                outgoing: Number(
+                  res.data?.standingOutCounts?.[0]?.standingWithOthersCount ?? 0
+                ),
+                mutual: total,
+              },
+            }
+          : {}),
+      };
+    }
+
+    const anchorField =
+      direction === 'incoming' ? 'targetAccount' : 'accountId';
+    const res = await this._q.graphql<{
+      profileSearch: Array<{ mutualStandingCount: number }>;
+      standingCounts: Array<{ standingWithCount: number }>;
+      standingOutCounts: Array<{ standingWithOthersCount: number }>;
+      standingsCurrent: Array<{
+        accountId: string;
+        targetAccount: string;
+        value: string | null;
+        blockHeight: number;
+        blockTimestamp: number;
+      }>;
+    }>({
+      query: `query StandingDirectionListPage(
+        $accountId: String!
+        $limit: Int!
+        $offset: Int!
+        $withCounts: Boolean!
+      ) {
+        profileSearch(where: {accountId: {_eq: $accountId}}, limit: 1) @include(if: $withCounts) {
+          mutualStandingCount
+        }
+        standingCounts(where: {accountId: {_eq: $accountId}}) {
+          standingWithCount
+        }
+        standingOutCounts(where: {accountId: {_eq: $accountId}}) {
+          standingWithOthersCount
+        }
+        standingsCurrent(
+          where: {${anchorField}: {_eq: $accountId}}
+          limit: $limit
+          offset: $offset
+          orderBy: [{blockTimestamp: DESC}]
+        ) {
+          accountId targetAccount value blockHeight blockTimestamp
+        }
+      }`,
+      variables: {
+        accountId,
+        limit,
+        offset,
+        withCounts: includeCounts,
+      },
+    });
+
+    const rows = (res.data?.standingsCurrent ?? []).map((r) => ({
+      accountId: r.accountId,
+      targetAccount: r.targetAccount,
+      since: parseStandingSince(r.value),
+      blockHeight: Number(r.blockHeight) || 0,
+      blockTimestamp: Number(r.blockTimestamp) || 0,
+    }));
+
+    const incoming = Number(
+      res.data?.standingCounts?.[0]?.standingWithCount ?? 0
+    );
+    const outgoing = Number(
+      res.data?.standingOutCounts?.[0]?.standingWithOthersCount ?? 0
+    );
+    const mutual = includeCounts
+      ? Number(res.data?.profileSearch?.[0]?.mutualStandingCount ?? 0)
+      : 0;
+    const total = direction === 'incoming' ? incoming : outgoing;
+
+    return {
+      rows,
+      total,
+      ...(includeCounts
+        ? {
+            counts: {
+              incoming,
+              outgoing,
+              mutual,
+            },
+          }
+        : {}),
+    };
+  }
+
+  /**
+   * Batch profile search rows plus viewer ↔ peer standing context (one round-trip).
+   */
+  async enrichPeers(
+    viewerAccountId: string | null | undefined,
+    peerAccountIds: string[]
+  ): Promise<StandingPeerEnrichment> {
+    const peers = [
+      ...new Set(peerAccountIds.map((id) => id.trim()).filter(Boolean)),
+    ];
+    if (peers.length === 0) {
+      return {
+        profiles: [],
+        viewerOutgoingPeerIds: [],
+        viewerIncomingPeerIds: [],
+      };
+    }
+
+    const viewer = viewerAccountId?.trim();
+    if (!viewer) {
+      const res = await this._q.graphql<{ profileSearch: ProfileSearchRow[] }>({
+        query: `query StandingPeerProfiles($ids: [String!]!, $limit: Int!) {
+          profileSearch(where: {accountId: {_in: $ids}}, limit: $limit) {
+            accountId name bio avatar banner
+            standingCount standingWithCount mutualStandingCount
+            endorsementsReceivedCount endorsementsGivenCount
+            firstProfileTimestamp
+            lastProfileBlock lastProfileTimestamp lastActivityBlock
+          }
+        }`,
+        variables: { ids: peers, limit: peers.length },
+      });
+      return {
+        profiles: res.data?.profileSearch ?? [],
+        viewerOutgoingPeerIds: [],
+        viewerIncomingPeerIds: [],
+      };
+    }
+
+    const res = await this._q.graphql<{
+      profileSearch: ProfileSearchRow[];
+      viewerOutgoing: Array<{ targetAccount: string }>;
+      viewerIncoming: Array<{ accountId: string }>;
+    }>({
+      query: `query StandingPeerEnrichment($viewer: String!, $peerIds: [String!]!, $limit: Int!) {
+        profileSearch(where: {accountId: {_in: $peerIds}}, limit: $limit) {
+          accountId name bio avatar banner
+          standingCount standingWithCount mutualStandingCount
+          endorsementsReceivedCount endorsementsGivenCount
+          firstProfileTimestamp
+          lastProfileBlock lastProfileTimestamp lastActivityBlock
+        }
+        viewerOutgoing: standingsCurrent(
+          where: {accountId: {_eq: $viewer}, targetAccount: {_in: $peerIds}}
+        ) {
+          targetAccount
+        }
+        viewerIncoming: standingsCurrent(
+          where: {targetAccount: {_eq: $viewer}, accountId: {_in: $peerIds}}
+        ) {
+          accountId
+        }
+      }`,
+      variables: { viewer, peerIds: peers, limit: peers.length },
+    });
+
+    return {
+      profiles: res.data?.profileSearch ?? [],
+      viewerOutgoingPeerIds: (res.data?.viewerOutgoing ?? []).map(
+        (row) => row.targetAccount
+      ),
+      viewerIncomingPeerIds: (res.data?.viewerIncoming ?? []).map(
+        (row) => row.accountId
+      ),
+    };
+  }
+
+  /**
+   * Network map sample — tab counts, three directional lists, and peer
+   * enrichment in **two** graph round-trips (portal network graph pattern).
+   */
+  async networkSample(
+    opts: StandingNetworkSampleOptions
+  ): Promise<StandingNetworkSampleResult> {
+    const accountId = opts.accountId.trim();
+    const mutualLimit = opts.mutualLimit ?? 12;
+    const incomingLimit = opts.incomingLimit ?? 24;
+    const outgoingLimit = opts.outgoingLimit ?? 24;
+    const viewerAccountId = opts.viewerAccountId?.trim() ?? null;
+
+    const res = await this._q.graphql<{
+      standingCounts: Array<{ standingWithCount: number }>;
+      standingOutCounts: Array<{ standingWithOthersCount: number }>;
+      profileSearch: Array<{ mutualStandingCount: number }>;
+      incomingSample: Array<{
+        accountId: string;
+        targetAccount: string;
+        value: string | null;
+        blockHeight: number;
+        blockTimestamp: number;
+      }>;
+      outgoingSample: Array<{
+        accountId: string;
+        targetAccount: string;
+        value: string | null;
+        blockHeight: number;
+        blockTimestamp: number;
+      }>;
+      mutualSample: Array<{
+        accountId: string;
+        mutualAccount: string;
+        value: string | null;
+        blockHeight: number;
+        blockTimestamp: number;
+      }>;
+    }>({
+      query: `query StandingNetworkSample(
+        $accountId: String!
+        $mutualLimit: Int!
+        $incomingLimit: Int!
+        $outgoingLimit: Int!
+      ) {
+        standingCounts(where: {accountId: {_eq: $accountId}}) {
+          standingWithCount
+        }
+        standingOutCounts(where: {accountId: {_eq: $accountId}}) {
+          standingWithOthersCount
+        }
+        profileSearch(where: {accountId: {_eq: $accountId}}, limit: 1) {
+          mutualStandingCount
+        }
+        incomingSample: standingsCurrent(
+          where: {targetAccount: {_eq: $accountId}}
+          limit: $incomingLimit
+          offset: 0
+          orderBy: [{blockTimestamp: DESC}]
+        ) {
+          accountId targetAccount value blockHeight blockTimestamp
+        }
+        outgoingSample: standingsCurrent(
+          where: {accountId: {_eq: $accountId}}
+          limit: $outgoingLimit
+          offset: 0
+          orderBy: [{blockTimestamp: DESC}]
+        ) {
+          accountId targetAccount value blockHeight blockTimestamp
+        }
+        mutualSample: mutualStandingsCurrent(
+          where: {accountId: {_eq: $accountId}}
+          limit: $mutualLimit
+          offset: 0
+          orderBy: [{blockTimestamp: DESC}]
+        ) {
+          accountId mutualAccount value blockHeight blockTimestamp
+        }
+      }`,
+      variables: { accountId, mutualLimit, incomingLimit, outgoingLimit },
+    });
+
+    const mapStandingRow = (row: {
+      accountId: string;
+      targetAccount: string;
+      value: string | null;
+      blockHeight: number;
+      blockTimestamp: number;
+    }): StandingListItem => ({
+      accountId: row.accountId,
+      targetAccount: row.targetAccount,
+      since: parseStandingSince(row.value),
+      blockHeight: Number(row.blockHeight) || 0,
+      blockTimestamp: Number(row.blockTimestamp) || 0,
+    });
+
+    const incoming = (res.data?.incomingSample ?? []).map(mapStandingRow);
+    const outgoing = (res.data?.outgoingSample ?? []).map(mapStandingRow);
+    const mutual = (res.data?.mutualSample ?? []).map((row) => ({
+      accountId: row.mutualAccount,
+      targetAccount: row.accountId,
+      since: parseStandingSince(row.value),
+      blockHeight: Number(row.blockHeight) || 0,
+      blockTimestamp: Number(row.blockTimestamp) || 0,
+    }));
+
+    const peerAccountIds = [
+      ...new Set([
+        ...mutual.map((row) => row.accountId),
+        ...incoming.map((row) => row.accountId),
+        ...outgoing.map((row) => row.targetAccount),
+      ]),
+    ];
+
+    const enrichment = await this.enrichPeers(viewerAccountId, peerAccountIds);
+
+    return {
+      accountId,
+      viewerAccountId,
+      counts: {
+        incoming: Number(res.data?.standingCounts?.[0]?.standingWithCount ?? 0),
+        outgoing: Number(
+          res.data?.standingOutCounts?.[0]?.standingWithOthersCount ?? 0
+        ),
+        mutual: Number(res.data?.profileSearch?.[0]?.mutualStandingCount ?? 0),
+      },
+      incoming,
+      outgoing,
+      mutual,
+      peers: enrichment.profiles,
+      viewerOutgoingPeerIds: enrichment.viewerOutgoingPeerIds,
+      viewerIncomingPeerIds: enrichment.viewerIncomingPeerIds,
+    };
   }
 }

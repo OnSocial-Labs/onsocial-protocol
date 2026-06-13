@@ -1,5 +1,7 @@
 import type { MaterialisedProfile } from '@onsocial/sdk';
 import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
+import { profileSearchRowToMaterialised } from '@/lib/profile-social-server';
+import { withRateLimitRetry } from '@/lib/portal-request-cache';
 
 /** Public profile shell for SSR first paint (no viewer-specific graph). */
 export interface PortalProfileShell {
@@ -47,21 +49,24 @@ export async function loadPortalProfileShells(
   if (uniqueIds.length === 0) return new Map();
 
   try {
-    const os = createPortalServerOnSocialClient();
-    const profiles = await os.profiles.getMany(uniqueIds);
-    const shells = new Map<string, PortalProfileShell>();
+    return await withRateLimitRetry(async () => {
+      const os = createPortalServerOnSocialClient();
+      const enrichment = await os.standings.enrichPeers(null, uniqueIds);
+      const shells = new Map<string, PortalProfileShell>();
 
-    for (const accountId of uniqueIds) {
-      const profile = profiles[accountId] ?? null;
-      shells.set(accountId, {
-        accountId,
-        profile,
-        avatarUrl: os.profiles.avatarUrl(profile),
-        bannerUrl: os.profiles.bannerUrl(profile),
-      });
-    }
+      for (const row of enrichment.profiles) {
+        const accountId = row.accountId.trim().toLowerCase();
+        const profile = profileSearchRowToMaterialised(row);
+        shells.set(accountId, {
+          accountId: row.accountId,
+          profile,
+          avatarUrl: os.profiles.avatarUrl(profile),
+          bannerUrl: os.profiles.bannerUrl(profile),
+        });
+      }
 
-    return shells;
+      return shells;
+    });
   } catch {
     return new Map();
   }

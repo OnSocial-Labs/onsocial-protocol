@@ -25,6 +25,7 @@ export interface ProfileSocialStandingsResponse {
   offset: number;
   hasMore: boolean;
   total: number;
+  counts?: { incoming: number; outgoing: number; mutual: number };
   accounts: StandingAccountSummary[];
 }
 
@@ -117,6 +118,7 @@ export async function fetchProfileSocialStandings(
     offset: body?.offset ?? offset,
     hasMore: Boolean(body?.hasMore),
     total: Number(body?.total ?? 0),
+    ...(body?.counts ? { counts: body.counts } : {}),
     accounts: (body?.accounts ?? []).map((account) =>
       normalizeStandingAccount(account as StandingAccountSummary)
     ),

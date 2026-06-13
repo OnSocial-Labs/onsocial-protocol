@@ -4,6 +4,7 @@
 // ---------------------------------------------------------------------------
 
 import type { QueryModule } from './index.js';
+import type { StandingListItem } from './standings.js';
 
 export interface ProfileSearchRow {
   accountId: string;
@@ -52,6 +53,26 @@ export interface ProfileDiscoverPageOptions {
 export interface ProfileDiscoverPageResult {
   profiles: ProfileSearchRow[];
   viewer: ProfileDiscoverViewerContext | null;
+}
+
+export interface ProfileSocialPreviewOptions {
+  accountId: string;
+  viewerAccountId?: string | null;
+  previewLimit?: number;
+}
+
+export interface ProfileSocialPreviewResult {
+  accountId: string;
+  viewerAccountId: string | null;
+  counts: { incoming: number; outgoing: number; mutual: number };
+  incoming: StandingListItem[];
+  outgoing: StandingListItem[];
+  mutual: StandingListItem[];
+  viewerStanding: boolean;
+  theyStandWithViewer: boolean;
+  peers: ProfileSearchRow[];
+  viewerOutgoingPeerIds: string[];
+  viewerIncomingPeerIds: string[];
 }
 
 function parseStandingSince(raw: string | null | undefined): number | null {
@@ -252,6 +273,216 @@ export class ProfilesQuery {
       targetIds
     );
     return { profiles, viewer };
+  }
+
+  /**
+   * Profile social preview — standing counts, three preview lists, and peer
+   * enrichment in two graph round-trips (replaces ~11 parallel calls).
+   *
+   * ```ts
+   * const social = await os.query.profiles.socialPreview({
+   *   accountId: 'alice.near',
+   *   viewerAccountId: 'bob.near',
+   *   previewLimit: 8,
+   * });
+   * ```
+   */
+  async socialPreview(
+    opts: ProfileSocialPreviewOptions
+  ): Promise<ProfileSocialPreviewResult> {
+    const accountId = opts.accountId.trim();
+    const previewLimit = opts.previewLimit ?? 8;
+    const viewerAccountId = opts.viewerAccountId?.trim() ?? null;
+    const checkViewer =
+      Boolean(viewerAccountId) && viewerAccountId !== accountId;
+
+    const res = await this._q.graphql<{
+      standingCounts: Array<{ standingWithCount: number }>;
+      standingOutCounts: Array<{ standingWithOthersCount: number }>;
+      profileSearch: Array<{ mutualStandingCount: number }>;
+      incomingPreview: Array<{
+        accountId: string;
+        targetAccount: string;
+        value: string | null;
+        blockHeight: number;
+        blockTimestamp: number;
+      }>;
+      outgoingPreview: Array<{
+        accountId: string;
+        targetAccount: string;
+        value: string | null;
+        blockHeight: number;
+        blockTimestamp: number;
+      }>;
+      mutualPreview: Array<{
+        accountId: string;
+        mutualAccount: string;
+        value: string | null;
+        blockHeight: number;
+        blockTimestamp: number;
+      }>;
+      viewerToSubject: Array<{ accountId: string }>;
+      subjectToViewer: Array<{ accountId: string }>;
+    }>({
+      query: checkViewer
+        ? `query ProfileSocialPreviewWithViewer(
+            $accountId: String!
+            $previewLimit: Int!
+            $viewer: String!
+          ) {
+            standingCounts(where: {accountId: {_eq: $accountId}}) {
+              standingWithCount
+            }
+            standingOutCounts(where: {accountId: {_eq: $accountId}}) {
+              standingWithOthersCount
+            }
+            profileSearch(where: {accountId: {_eq: $accountId}}, limit: 1) {
+              mutualStandingCount
+            }
+            incomingPreview: standingsCurrent(
+              where: {targetAccount: {_eq: $accountId}}
+              limit: $previewLimit
+              offset: 0
+              orderBy: [{blockTimestamp: DESC}]
+            ) {
+              accountId targetAccount value blockHeight blockTimestamp
+            }
+            outgoingPreview: standingsCurrent(
+              where: {accountId: {_eq: $accountId}}
+              limit: $previewLimit
+              offset: 0
+              orderBy: [{blockTimestamp: DESC}]
+            ) {
+              accountId targetAccount value blockHeight blockTimestamp
+            }
+            mutualPreview: mutualStandingsCurrent(
+              where: {accountId: {_eq: $accountId}}
+              limit: $previewLimit
+              offset: 0
+              orderBy: [{blockTimestamp: DESC}]
+            ) {
+              accountId mutualAccount value blockHeight blockTimestamp
+            }
+            viewerToSubject: standingsCurrent(
+              where: {accountId: {_eq: $viewer}, targetAccount: {_eq: $accountId}}
+              limit: 1
+            ) {
+              accountId
+            }
+            subjectToViewer: standingsCurrent(
+              where: {accountId: {_eq: $accountId}, targetAccount: {_eq: $viewer}}
+              limit: 1
+            ) {
+              accountId
+            }
+          }`
+        : `query ProfileSocialPreview(
+            $accountId: String!
+            $previewLimit: Int!
+          ) {
+            standingCounts(where: {accountId: {_eq: $accountId}}) {
+              standingWithCount
+            }
+            standingOutCounts(where: {accountId: {_eq: $accountId}}) {
+              standingWithOthersCount
+            }
+            profileSearch(where: {accountId: {_eq: $accountId}}, limit: 1) {
+              mutualStandingCount
+            }
+            incomingPreview: standingsCurrent(
+              where: {targetAccount: {_eq: $accountId}}
+              limit: $previewLimit
+              offset: 0
+              orderBy: [{blockTimestamp: DESC}]
+            ) {
+              accountId targetAccount value blockHeight blockTimestamp
+            }
+            outgoingPreview: standingsCurrent(
+              where: {accountId: {_eq: $accountId}}
+              limit: $previewLimit
+              offset: 0
+              orderBy: [{blockTimestamp: DESC}]
+            ) {
+              accountId targetAccount value blockHeight blockTimestamp
+            }
+            mutualPreview: mutualStandingsCurrent(
+              where: {accountId: {_eq: $accountId}}
+              limit: $previewLimit
+              offset: 0
+              orderBy: [{blockTimestamp: DESC}]
+            ) {
+              accountId mutualAccount value blockHeight blockTimestamp
+            }
+          }`,
+      variables: checkViewer
+        ? {
+            accountId,
+            previewLimit,
+            viewer: viewerAccountId!,
+          }
+        : { accountId, previewLimit },
+    });
+
+    const mapStandingRow = (row: {
+      accountId: string;
+      targetAccount: string;
+      value: string | null;
+      blockHeight: number;
+      blockTimestamp: number;
+    }): StandingListItem => ({
+      accountId: row.accountId,
+      targetAccount: row.targetAccount,
+      since: parseStandingSince(row.value),
+      blockHeight: Number(row.blockHeight) || 0,
+      blockTimestamp: Number(row.blockTimestamp) || 0,
+    });
+
+    const incoming = (res.data?.incomingPreview ?? []).map(mapStandingRow);
+    const outgoing = (res.data?.outgoingPreview ?? []).map(mapStandingRow);
+    const mutual = (res.data?.mutualPreview ?? []).map((row) => ({
+      accountId: row.mutualAccount,
+      targetAccount: row.accountId,
+      since: parseStandingSince(row.value),
+      blockHeight: Number(row.blockHeight) || 0,
+      blockTimestamp: Number(row.blockTimestamp) || 0,
+    }));
+
+    const peerAccountIds = [
+      ...new Set([
+        ...mutual.map((row) => row.accountId),
+        ...incoming.map((row) => row.accountId),
+        ...outgoing.map((row) => row.targetAccount),
+      ]),
+    ];
+
+    const enrichment = await this._q.standings.enrichPeers(
+      viewerAccountId,
+      peerAccountIds
+    );
+
+    return {
+      accountId,
+      viewerAccountId,
+      counts: {
+        incoming: Number(res.data?.standingCounts?.[0]?.standingWithCount ?? 0),
+        outgoing: Number(
+          res.data?.standingOutCounts?.[0]?.standingWithOthersCount ?? 0
+        ),
+        mutual: Number(res.data?.profileSearch?.[0]?.mutualStandingCount ?? 0),
+      },
+      incoming,
+      outgoing,
+      mutual,
+      viewerStanding: checkViewer
+        ? (res.data?.viewerToSubject?.length ?? 0) > 0
+        : false,
+      theyStandWithViewer: checkViewer
+        ? (res.data?.subjectToViewer?.length ?? 0) > 0
+        : false,
+      peers: enrichment.profiles,
+      viewerOutgoingPeerIds: enrichment.viewerOutgoingPeerIds,
+      viewerIncomingPeerIds: enrichment.viewerIncomingPeerIds,
+    };
   }
 
   private async loadDiscoverViewerContext(

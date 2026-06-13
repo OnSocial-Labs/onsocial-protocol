@@ -37,35 +37,16 @@ function parseStandKind(
   return null;
 }
 
-async function fetchProfileMeta(accountId: string): Promise<{
-  displayName: string;
-  counts: { incoming: number; outgoing: number; mutual: number };
-}> {
-  const [profileRes, socialRes] = await Promise.all([
-    fetch(`/api/profile?accountId=${encodeURIComponent(accountId)}`, {
-      cache: 'no-store',
-    }),
-    fetch(`/api/profile/social?accountId=${encodeURIComponent(accountId)}`, {
-      cache: 'no-store',
-    }),
-  ]);
-
-  const profileBody = (await profileRes.json().catch(() => null)) as {
+async function fetchProfileDisplayName(accountId: string): Promise<string> {
+  const response = await fetch(
+    `/api/profile?accountId=${encodeURIComponent(accountId)}`,
+    { cache: 'no-store' }
+  );
+  const body = (await response.json().catch(() => null)) as {
     profile?: { name?: string | null } | null;
   } | null;
-  const socialBody = (await socialRes.json().catch(() => null)) as {
-    counts?: { incoming?: number; outgoing?: number; mutual?: number };
-  } | null;
-
-  const name = profileBody?.profile?.name?.trim();
-  return {
-    displayName: name || cleanHandle(accountId),
-    counts: {
-      incoming: Number(socialBody?.counts?.incoming ?? 0),
-      outgoing: Number(socialBody?.counts?.outgoing ?? 0),
-      mutual: Number(socialBody?.counts?.mutual ?? 0),
-    },
-  };
+  const name = body?.profile?.name?.trim();
+  return name || cleanHandle(accountId);
 }
 
 function readInitialQuery(raw: string | undefined): string {
@@ -120,11 +101,10 @@ export default function StandPage({
     setMetaLoaded(false);
     setDisplayName(cleanHandle(accountId));
 
-    void fetchProfileMeta(accountId)
-      .then((meta) => {
+    void fetchProfileDisplayName(accountId)
+      .then((name) => {
         if (cancelled) return;
-        setDisplayName(meta.displayName);
-        setCounts(meta.counts);
+        setDisplayName(name);
       })
       .catch(() => {
         if (cancelled) return;
@@ -177,6 +157,7 @@ export default function StandPage({
                   }
                 : undefined
             }
+            onCountsLoaded={setCounts}
           />
         </div>
       </div>

@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -38,6 +39,7 @@ import {
   type TransactionFeedback,
 } from '@/components/ui/transaction-feedback-toast';
 import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
+import { PeriodProgressBar } from '@/components/ui/period-progress-bar';
 import {
   portalColors,
   portalFrameBorders,
@@ -53,7 +55,12 @@ import {
   getUsage,
   getUsageTimeline,
   createPlaceholderUsageTimeline,
+  computeUsageRpmStats,
+  formatCompactUsage,
   usageRateLimitedToday,
+  usageTopEndpoints,
+  formatEndpointLabel,
+  formatUsageUpdatedAgo,
   type ApiKeyInfo,
   type CreateKeyResult,
   type UsageSummary,
@@ -122,6 +129,85 @@ function tierRank(tier: string): number {
   return ranks[tier] ?? -1;
 }
 
+function parseTierBurstLimit(tier: string): number {
+  const raw = TIER_LIMITS[tier] ?? '60 /min';
+  return Number.parseInt(raw.replace(/,/g, '').replace(/\D/g, ''), 10) || 60;
+}
+
+function tierRateLimitLabel(tier: string): string {
+  return tier === 'free' ? 'Cap / min' : 'Burst / min';
+}
+
+function LiveRpmStatValue({
+  rpm,
+  burstLimit,
+  tier,
+}: {
+  rpm: {
+    avgRpm: number;
+    peak: number;
+    peakAllowed?: number;
+    peakOverBy?: number;
+  } | null;
+  burstLimit: number;
+  tier: string;
+}) {
+  const peak = rpm?.peak ?? 0;
+  const avg = rpm?.avgRpm ?? 0;
+  const allowed =
+    rpm?.peakAllowed ?? Math.max(0, peak - (rpm?.peakOverBy ?? 0));
+  const denied = rpm?.peakOverBy ?? 0;
+  const overCap = denied > 0;
+  const nearCap = !overCap && burstLimit > 0 && allowed >= burstLimit * 0.85;
+  const tierColor = portalColors[tierAccent(tier)];
+  const allowedClass =
+    overCap || nearCap ? 'portal-amber-text' : 'portal-blue-text';
+  const title = overCap
+    ? `Busiest minute: ${peak.toLocaleString()} attempts, ${allowed.toLocaleString()} allowed, ${denied.toLocaleString()} denied`
+    : `Busiest minute: ${allowed.toLocaleString()} allowed of ${burstLimit.toLocaleString()} cap`;
+
+  return (
+    <span
+      className="font-mono text-xs font-semibold tracking-tight md:text-sm"
+      title={title}
+    >
+      <span className="flex flex-col items-center gap-0.5 md:hidden">
+        <span className={allowedClass}>
+          {formatCompactUsage(allowed)}
+          <span className="text-muted-foreground/40">/</span>
+          <span style={{ color: tierColor }}>
+            {formatCompactUsage(burstLimit)}
+          </span>
+        </span>
+        {overCap ? (
+          <span className="portal-amber-text text-[10px] font-semibold leading-none">
+            {formatCompactUsage(denied)} denied
+          </span>
+        ) : null}
+      </span>
+      <span className="max-md:hidden">
+        <span className="text-muted-foreground/55">
+          {formatCompactUsage(avg)} avg
+        </span>
+        <span className="text-muted-foreground/30"> · </span>
+        <span className={allowedClass}>{formatCompactUsage(allowed)} ok</span>
+        <span className="text-muted-foreground/30"> / </span>
+        <span style={{ color: tierColor }}>
+          {formatCompactUsage(burstLimit)} cap
+        </span>
+        {overCap ? (
+          <>
+            <span className="text-muted-foreground/30"> · </span>
+            <span className="portal-amber-text">
+              {formatCompactUsage(denied)} denied
+            </span>
+          </>
+        ) : null}
+      </span>
+    </span>
+  );
+}
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function CopyInline({ text }: { text: string }) {
@@ -148,17 +234,162 @@ function CopyInline({ text }: { text: string }) {
   );
 }
 
+function TopEndpointsLine({ usage }: { usage: UsageSummary | null }) {
+  if (usageRateLimitedToday(usage) <= 0) return null;
+
+  const top = usageTopEndpoints(usage, 3);
+  if (top.length === 0) return null;
+
+  return (
+    <div className="hidden border-t border-fade-section px-4 py-2 md:block md:px-5">
+      <p className="portal-type-caption leading-relaxed text-muted-foreground/60">
+        <span className="text-muted-foreground/75">Top routes</span>
+        {top.map((row) => (
+          <span key={row.endpoint}>
+            {' · '}
+            <span
+              className="font-mono text-[11px] text-foreground/80"
+              title={row.endpoint}
+            >
+              {formatEndpointLabel(row.endpoint)}
+            </span>
+            <span className="font-mono text-[11px] font-semibold text-muted-foreground/70">
+              {' '}
+              {formatCompactUsage(row.count)}
+            </span>
+          </span>
+        ))}
+      </p>
+    </div>
+  );
+}
+
+function PlanUsageStatStrip({
+  usage,
+  liveRpm,
+  burstLimitRpm,
+  currentTier,
+}: {
+  usage: UsageSummary | null;
+  liveRpm: ReturnType<typeof computeUsageRpmStats> | null;
+  burstLimitRpm: number;
+  currentTier: string;
+}) {
+  const overToday = usageRateLimitedToday(usage);
+  const today = usage?.today ?? 0;
+  const month = usage?.thisMonth ?? 0;
+  const showMonth = month !== today;
+
+  const rpmCell = (
+    <StatStripCell label="RPM · last hr" mobileLabel="Ok / cap" showDivider>
+      <LiveRpmStatValue
+        rpm={liveRpm}
+        burstLimit={burstLimitRpm}
+        tier={currentTier}
+      />
+    </StatStripCell>
+  );
+
+  const overCell = (
+    <StatStripCell label="Over limit today" mobileLabel="Over" showDivider>
+      <span
+        className={`font-mono text-xs font-semibold tracking-tight md:text-sm ${
+          overToday > 0 ? 'portal-amber-text' : 'text-muted-foreground/70'
+        }`}
+      >
+        {overToday.toLocaleString()}
+      </span>
+    </StatStripCell>
+  );
+
+  const requestsCell = (
+    <StatStripCell
+      label="Requests · today"
+      mobileLabel="Requests"
+      showDivider={showMonth}
+    >
+      <span className="font-mono text-xs font-semibold tracking-tight text-foreground/85 md:text-sm">
+        {today.toLocaleString()}
+      </span>
+    </StatStripCell>
+  );
+
+  const monthCell = showMonth ? (
+    <StatStripCell label="Requests · month" mobileLabel="Month">
+      <span className="font-mono text-xs font-semibold tracking-tight text-portal-neutral md:text-sm">
+        {month.toLocaleString()}
+      </span>
+    </StatStripCell>
+  ) : null;
+
+  return (
+    <>
+      <StatStrip
+        columns={3}
+        mobileColumns={3}
+        className="max-md:[&>div]:px-1 max-md:[&>div]:py-2 md:hidden"
+      >
+        {rpmCell}
+        {overCell}
+        {requestsCell}
+      </StatStrip>
+      <StatStrip columns={showMonth ? 4 : 3} className="max-md:hidden">
+        {rpmCell}
+        {overCell}
+        {requestsCell}
+        {monthCell}
+      </StatStrip>
+    </>
+  );
+}
+
+function BurstCreditsLine({ usage }: { usage: UsageSummary | null }) {
+  if (!usage?.burst || usage.burst.creditsPerMonth <= 0) return null;
+
+  return (
+    <div className="border-t border-fade-section px-4 py-2 md:px-5">
+      <p className="portal-type-caption text-muted-foreground/60">
+        Burst credits{' '}
+        <span className="font-mono text-xs font-semibold text-foreground/85">
+          {usage.burst.creditsRemaining}/{usage.burst.creditsPerMonth}
+        </span>{' '}
+        this month
+        <span className="text-muted-foreground/40"> · </span>
+        auto {usage.burst.multiplier}× for hot minutes
+        {usage.burst.burstActive ? (
+          <span className="portal-amber-text"> · burst active</span>
+        ) : null}
+      </p>
+    </div>
+  );
+}
+
 function PlanUsageTimeline({
   timeline,
   loading,
   error,
+  burstLimitPerMin,
+  burstAccentColor,
+  updatedAtMs,
 }: {
   timeline: UsageTimeline | null;
   loading: boolean;
   error: string | null;
+  burstLimitPerMin: number;
+  burstAccentColor: string;
+  updatedAtMs: number | null;
 }) {
   const display = timeline ?? createPlaceholderUsageTimeline();
   const hasRecentTraffic = display.points.some((point) => point.count > 0);
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    if (updatedAtMs == null) return;
+    const id = window.setInterval(() => setTick((value) => value + 1), 10_000);
+    return () => window.clearInterval(id);
+  }, [updatedAtMs]);
+
+  const updatedLabel = formatUsageUpdatedAgo(updatedAtMs);
 
   return (
     <div className="border-t border-fade-section px-4 pb-1 pt-3 md:px-5">
@@ -166,13 +397,16 @@ function PlanUsageTimeline({
         points={display.points}
         bucketSec={display.bucketSec}
         loading={loading && !timeline}
+        burstLimitPerMin={burstLimitPerMin}
+        burstAccentColor={burstAccentColor}
+        updatedLabel={updatedLabel}
       />
       {error ? (
         <p className="mt-1.5 portal-type-caption portal-amber-text">{error}</p>
       ) : null}
       {!error && !loading && timeline && !hasRecentTraffic ? (
         <p className="mt-1.5 portal-type-caption text-muted-foreground/55">
-          No requests in the last hour — older totals are in the stats above.
+          No requests in the last hour — monthly totals are in the stats above.
         </p>
       ) : null}
     </div>
@@ -238,6 +472,17 @@ export default function OnApiKeysPage() {
   const [usageTimelineError, setUsageTimelineError] = useState<string | null>(
     null
   );
+  const [usageUpdatedAt, setUsageUpdatedAt] = useState<number | null>(null);
+  const liveRpm = useMemo(() => {
+    if (!usageTimeline) return null;
+    const cap = parseTierBurstLimit(currentTier);
+    return computeUsageRpmStats(
+      usageTimeline.points,
+      usageTimeline.bucketSec,
+      cap
+    );
+  }, [usageTimeline, currentTier]);
+  const burstLimitRpm = parseTierBurstLimit(currentTier);
   const [keysLoading, setKeysLoading] = useState(false);
 
   const [newKey, setNewKey] = useState<CreateKeyResult | null>(null);
@@ -292,14 +537,18 @@ export default function OnApiKeysPage() {
     }
   }, [error]);
 
-  const refreshTimeline = useCallback(
+  const refreshUsageLive = useCallback(
     async (token = jwt) => {
       if (!token) return;
-      setUsageTimelineLoading(true);
       try {
-        const timeline = await getUsageTimeline(token);
+        const [usageData, timeline] = await Promise.all([
+          getUsage(token).catch(() => null),
+          getUsageTimeline(token),
+        ]);
+        if (usageData) setUsage(usageData);
         setUsageTimeline(timeline);
         setUsageTimelineError(null);
+        setUsageUpdatedAt(Date.now());
       } catch (err) {
         const msg =
           err instanceof Error ? err.message : 'Failed to load usage chart';
@@ -308,8 +557,6 @@ export default function OnApiKeysPage() {
             ? 'Live usage chart is not available on this gateway yet.'
             : msg
         );
-      } finally {
-        setUsageTimelineLoading(false);
       }
     },
     [jwt]
@@ -321,6 +568,7 @@ export default function OnApiKeysPage() {
       const timeline = await getUsageTimeline(token);
       setUsageTimeline(timeline);
       setUsageTimelineError(null);
+      setUsageUpdatedAt(Date.now());
       return timeline;
     } catch (err) {
       const msg =
@@ -354,6 +602,7 @@ export default function OnApiKeysPage() {
       setKeys(keyList);
       setUsage(usageData);
       if (timelineData) setUsageTimeline(timelineData);
+      setUsageUpdatedAt(Date.now());
       setSubscription(subData.subscription);
       setCurrentTier(subData.tier);
       setIsAdmin(!!subData.admin);
@@ -377,6 +626,7 @@ export default function OnApiKeysPage() {
             setKeys(keyList);
             setUsage(usageData);
             if (timelineData) setUsageTimeline(timelineData);
+            setUsageUpdatedAt(Date.now());
             setSubscription(subData.subscription);
             setCurrentTier(subData.tier);
             setIsAdmin(!!subData.admin);
@@ -399,6 +649,7 @@ export default function OnApiKeysPage() {
       setUsageTimeline(null);
       setUsageTimelineError(null);
       setUsageTimelineLoading(false);
+      setUsageUpdatedAt(null);
       setNewKey(null);
       setShowNewKey(false);
       setError(null);
@@ -416,13 +667,13 @@ export default function OnApiKeysPage() {
 
     const tick = () => {
       if (document.visibilityState === 'visible') {
-        void refreshTimeline();
+        void refreshUsageLive();
       }
     };
 
     const intervalId = window.setInterval(tick, 30_000);
     return () => window.clearInterval(intervalId);
-  }, [jwt, refreshTimeline]);
+  }, [jwt, refreshUsageLive]);
 
   useEffect(() => {
     fetchPlansPublic().then((planList) => {
@@ -702,26 +953,21 @@ export default function OnApiKeysPage() {
                 </span>
               </div>
             </div>
-            <StatStrip columns={2} mobileColumns={2}>
-              <StatStripCell
-                label="Logged today"
-                mobileLabel="Today"
-                showDivider
-              >
-                <span className="font-mono text-xs font-semibold tracking-tight portal-blue-text md:text-sm">
-                  {(usage?.today ?? 0).toLocaleString()}
-                </span>
-              </StatStripCell>
-              <StatStripCell label="This month" mobileLabel="Month">
-                <span className="font-mono text-xs font-semibold tracking-tight text-portal-neutral md:text-sm">
-                  {(usage?.thisMonth ?? 0).toLocaleString()}
-                </span>
-              </StatStripCell>
-            </StatStrip>
+            <PlanUsageStatStrip
+              usage={usage}
+              liveRpm={liveRpm}
+              burstLimitRpm={burstLimitRpm}
+              currentTier={currentTier}
+            />
+            <BurstCreditsLine usage={usage} />
+            <TopEndpointsLine usage={usage} />
             <PlanUsageTimeline
               timeline={usageTimeline}
               loading={usageTimelineLoading}
               error={usageTimelineError}
+              burstLimitPerMin={burstLimitRpm}
+              burstAccentColor={portalColors[tierAccent(currentTier)]}
+              updatedAtMs={usageUpdatedAt}
             />
           </SurfacePanel>
         ) : (
@@ -781,81 +1027,42 @@ export default function OnApiKeysPage() {
               </div>
             </div>
 
-            <StatStrip
-              columns={4}
-              mobileColumns={4}
-              className="max-md:[&>div]:px-1 max-md:[&>div]:py-2"
-            >
-              <StatStripCell
-                label="Burst / min"
-                mobileLabel="Burst"
-                showDivider
-              >
-                <span
-                  className="font-mono text-xs font-semibold tracking-tight md:text-sm"
-                  style={{ color: portalColors[tierAccent(currentTier)] }}
-                >
-                  <span className="md:hidden">
-                    {(TIER_LIMITS[currentTier] ?? '60 /min').replace(
-                      ' /min',
-                      ''
-                    )}
-                  </span>
-                  <span className="max-md:hidden">
-                    {TIER_LIMITS[currentTier] ?? '60 /min'}
-                  </span>
-                </span>
-              </StatStripCell>
-              <StatStripCell label="429 today" mobileLabel="429" showDivider>
-                <span
-                  className={`font-mono text-xs font-semibold tracking-tight md:text-sm ${
-                    usageRateLimitedToday(usage) > 0
-                      ? 'portal-amber-text'
-                      : 'text-muted-foreground/70'
-                  }`}
-                >
-                  {usageRateLimitedToday(usage).toLocaleString()}
-                </span>
-              </StatStripCell>
-              <StatStripCell
-                label="Logged today"
-                mobileLabel="Today"
-                showDivider
-              >
-                <span className="font-mono text-xs font-semibold tracking-tight portal-blue-text md:text-sm">
-                  {(usage?.today ?? 0).toLocaleString()}
-                </span>
-              </StatStripCell>
-              <StatStripCell label="This month" mobileLabel="Month">
-                <span className="font-mono text-xs font-semibold tracking-tight text-portal-neutral md:text-sm">
-                  {(usage?.thisMonth ?? 0).toLocaleString()}
-                </span>
-              </StatStripCell>
-            </StatStrip>
+            <PlanUsageStatStrip
+              usage={usage}
+              liveRpm={liveRpm}
+              burstLimitRpm={burstLimitRpm}
+              currentTier={currentTier}
+            />
+
+            <BurstCreditsLine usage={usage} />
+            <TopEndpointsLine usage={usage} />
 
             <PlanUsageTimeline
               timeline={usageTimeline}
               loading={usageTimelineLoading}
               error={usageTimelineError}
+              burstLimitPerMin={burstLimitRpm}
+              burstAccentColor={portalColors[tierAccent(currentTier)]}
+              updatedAtMs={usageUpdatedAt}
             />
 
             <div className="space-y-2 px-4 pb-4 pt-2 md:space-y-3 md:px-5 md:pb-5 md:pt-3">
               <p className="portal-type-caption text-muted-foreground/60 max-md:hidden">
-                Burst limit is enforced per minute, shared across your entire
-                app and all keys on this account. Logged counts are
-                informational — there is no daily request quota.
+                {usageRateLimitedToday(usage) > 0 ? (
+                  <>
+                    <span className="portal-amber-text">
+                      Over limit today — cache, backoff, or upgrade.
+                    </span>{' '}
+                    Blue = allowed, amber = denied; dashed line = cap. Shared
+                    across all keys on this account.
+                  </>
+                ) : (
+                  <>
+                    Blue = allowed, amber = denied per minute; dashed line =
+                    cap. Shared across all keys on this account.
+                  </>
+                )}
               </p>
-              {usageRateLimitedToday(usage) > 0 && (
-                <>
-                  <p className="portal-type-caption portal-amber-text md:hidden">
-                    Rate limited — add backoff or upgrade.
-                  </p>
-                  <p className="portal-type-caption portal-amber-text max-md:hidden">
-                    Rate limited today — add backoff or caching, or upgrade for
-                    more burst headroom.
-                  </p>
-                </>
-              )}
 
               {subscription?.status === 'active' && (
                 <div>
@@ -897,46 +1104,22 @@ export default function OnApiKeysPage() {
                 </div>
               )}
 
-              {subscription?.status === 'cancelled' &&
-                (() => {
-                  const start = new Date(
-                    subscription.currentPeriodStart
-                  ).getTime();
-                  const end = new Date(subscription.currentPeriodEnd).getTime();
-                  const now = Date.now();
-                  const total = end - start;
-                  const elapsed = Math.max(0, now - start);
-                  const pct = total > 0 ? Math.min(elapsed / total, 1) : 0;
-                  const accentColor = portalColors[tierAccent(currentTier)];
-                  const nearEnd = pct >= 0.75;
-                  return (
-                    <div>
-                      <div className="h-px w-full bg-border/40">
-                        <div
-                          className="h-full transition-all duration-500"
-                          style={{
-                            width: `${Math.max(pct * 100, 1)}%`,
-                            backgroundColor: nearEnd
-                              ? accentColor
-                              : 'var(--muted-foreground)',
-                            opacity: nearEnd ? 0.7 : 0.3,
-                          }}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between pt-2">
-                        <span className="text-xs text-muted-foreground/70">
-                          {formatTierLabel(subscription.tier)} until{' '}
-                          {new Date(
-                            subscription.currentPeriodEnd
-                          ).toLocaleDateString()}
-                        </span>
-                        <span className="portal-type-label font-medium tracking-[0.08em] text-muted-foreground/50">
-                          then Free
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })()}
+              {subscription?.status === 'cancelled' && (
+                <PeriodProgressBar
+                  startIso={subscription.currentPeriodStart}
+                  endIso={subscription.currentPeriodEnd}
+                  accentColor={portalColors[tierAccent(currentTier)]}
+                  leftLabel={
+                    <>
+                      {formatTierLabel(subscription.tier)} until{' '}
+                      {new Date(
+                        subscription.currentPeriodEnd
+                      ).toLocaleDateString()}
+                    </>
+                  }
+                  rightLabel="then Free"
+                />
+              )}
 
               {subscription?.status === 'past_due' && (
                 <p className="text-xs portal-red-text">
@@ -948,17 +1131,22 @@ export default function OnApiKeysPage() {
               {subscription?.graceTier &&
                 subscription.gracePeriodEnd &&
                 new Date(subscription.gracePeriodEnd) > new Date() && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground/70">
-                      {formatTierLabel(subscription.graceTier)} limits until{' '}
-                      {new Date(
-                        subscription.gracePeriodEnd
-                      ).toLocaleDateString()}
-                    </span>
-                    <span className="portal-type-label font-medium tracking-[0.08em] text-muted-foreground/50">
-                      then {formatTierLabel(subscription.tier)}
-                    </span>
-                  </div>
+                  <PeriodProgressBar
+                    startIso={subscription.currentPeriodStart}
+                    endIso={subscription.gracePeriodEnd}
+                    accentColor={
+                      portalColors[tierAccent(subscription.graceTier)]
+                    }
+                    leftLabel={
+                      <>
+                        {formatTierLabel(subscription.graceTier)} limits until{' '}
+                        {new Date(
+                          subscription.gracePeriodEnd
+                        ).toLocaleDateString()}
+                      </>
+                    }
+                    rightLabel={`then ${formatTierLabel(subscription.tier)}`}
+                  />
                 )}
 
               {/* ── Subtle inline upgrade options ── */}
@@ -1069,7 +1257,7 @@ export default function OnApiKeysPage() {
                 {/* ── Key specs (checkout-focused) ── */}
                 <StatStrip columns={2}>
                   <StatStripCell
-                    label="Burst / min"
+                    label={tierRateLimitLabel(targetPlan.tier)}
                     value={`${targetPlan.rateLimit.toLocaleString()} /min`}
                     showDivider
                   />

@@ -19,11 +19,22 @@ export interface CreateKeyResult {
   tier: string;
 }
 
+export interface BurstAllowanceStatus {
+  creditsPerMonth: number;
+  creditsRemaining: number;
+  multiplier: number;
+  baseLimit: number;
+  boostedLimit: number;
+  burstActive: boolean;
+  resetsAt: string;
+}
+
 export interface UsageSummary {
   today: number;
   thisMonth: number;
   rateLimitedToday?: number;
   rateLimitedThisMonth?: number;
+  burst?: BurstAllowanceStatus;
   byEndpoint?:
     | Record<string, number>
     | Array<{ endpoint: string; count: number }>;
@@ -76,6 +87,102 @@ export function usageRateLimitedToday(usage: UsageSummary | null): number {
     (row) => row.statusCode === 429
   )?.count;
   return fromStatus ?? 0;
+}
+
+export function usageTopEndpoints(
+  usage: UsageSummary | null,
+  limit = 3
+): Array<{ endpoint: string; count: number }> {
+  if (!usage?.byEndpoint) return [];
+  const rows = Array.isArray(usage.byEndpoint)
+    ? usage.byEndpoint
+    : Object.entries(usage.byEndpoint).map(([endpoint, count]) => ({
+        endpoint,
+        count,
+      }));
+  return [...rows].sort((a, b) => b.count - a.count).slice(0, limit);
+}
+
+export function formatEndpointLabel(endpoint: string): string {
+  const trimmed = endpoint.trim() || '/';
+  if (trimmed.length <= 28) return trimmed;
+  return `…${trimmed.slice(-27)}`;
+}
+
+export function formatUsageUpdatedAgo(
+  updatedAtMs: number | null,
+  nowMs = Date.now()
+): string | null {
+  if (updatedAtMs == null) return null;
+  const sec = Math.max(0, Math.floor((nowMs - updatedAtMs) / 1000));
+  if (sec < 8) return 'just now';
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.floor(sec / 60);
+  return min === 1 ? '1m ago' : `${min}m ago`;
+}
+
+export function formatCompactUsage(value: number): string {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 10_000) return `${Math.round(value / 1_000)}k`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}k`;
+  return value.toLocaleString();
+}
+
+export interface UsageRpmStats {
+  total: number;
+  limited: number;
+  peak: number;
+  peakAt: string | null;
+  /** Allowed requests in the busiest minute (excludes denied). */
+  peakAllowed: number;
+  /** Denied requests in the busiest minute. */
+  peakOverBy: number;
+  /** Mean RPM across the full chart window (includes idle minutes). */
+  avgRpm: number;
+  /** Latest completed minute bucket. */
+  nowRpm: number;
+}
+
+export function computeUsageRpmStats(
+  points: UsageTimelinePoint[],
+  bucketSec: number,
+  burstLimitPerMin?: number
+): UsageRpmStats {
+  let total = 0;
+  let limited = 0;
+  let peak = 0;
+  let peakAt: string | null = null;
+  let peakAllowed = 0;
+  let peakOverBy = 0;
+
+  for (const point of points) {
+    total += point.count;
+    limited += point.rateLimited;
+    if (point.count > peak) {
+      peak = point.count;
+      peakAt = point.t;
+      peakOverBy = Math.max(0, point.rateLimited);
+      peakAllowed = Math.max(0, point.count - point.rateLimited);
+    }
+  }
+
+  void burstLimitPerMin;
+
+  const windowMinutes =
+    points.length > 0 ? (points.length * bucketSec) / 60 : 0;
+  const avgRpm = windowMinutes > 0 ? Math.round(total / windowMinutes) : 0;
+  const nowRpm = points.length > 0 ? points[points.length - 1].count : 0;
+
+  return {
+    total,
+    limited,
+    peak,
+    peakAt,
+    peakAllowed,
+    peakOverBy,
+    avgRpm,
+    nowRpm,
+  };
 }
 
 // ── Gateway Auth ──────────────────────────────────────────────

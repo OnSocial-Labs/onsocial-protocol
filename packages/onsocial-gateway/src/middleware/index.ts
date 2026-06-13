@@ -9,8 +9,16 @@ import { lookupApiKey } from '../services/apikeys/index.js';
 import { config } from '../config/index.js';
 import { logger } from '../logger.js';
 import type { Tier, JwtPayload } from '../types/index.js';
+import {
+  activateBurstForWindow,
+  initBurstAllowanceStore,
+  resolveBoostedLimitForTier,
+} from '../services/burst-allowance/index.js';
+import {
+  BURST_ALLOWANCE_BY_TIER,
+  computeOverflowPoints,
+} from '../services/burst-allowance/config.js';
 
-// Extend Express Request to include auth info
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace -- standard Express augmentation pattern
   namespace Express {
@@ -20,38 +28,101 @@ declare global {
   }
 }
 
-// --- Rate limiter factory: Redis if available, Memory fallback ---
-
 type RateLimiter = RateLimiterMemory | RateLimiterRedis;
 
-function createRateLimiters(): Record<Tier, RateLimiter> {
-  // Memory-based insurance limiter (fallback if Redis is down)
-  const memoryFallbacks: Record<Tier, RateLimiterMemory> = {
-    free: new RateLimiterMemory({
-      points: config.rateLimits.free,
-      duration: 60,
-    }),
-    pro: new RateLimiterMemory({ points: config.rateLimits.pro, duration: 60 }),
-    scale: new RateLimiterMemory({
-      points: config.rateLimits.scale,
-      duration: 60,
-    }),
-    service: new RateLimiterMemory({
-      points: config.rateLimits.service,
-      duration: 60,
-    }),
+type TierRateLimiters = {
+  base: RateLimiter;
+  overflow: RateLimiter;
+  overflowPoints: number;
+};
+
+function overflowPointsForTier(tier: Tier): number {
+  const cfg = BURST_ALLOWANCE_BY_TIER[tier];
+  if (cfg.creditsPerMonth <= 0 || cfg.multiplier <= 1) return 0;
+  const base = config.rateLimits[tier];
+  const boosted = resolveBoostedLimitForTier(tier);
+  return computeOverflowPoints(base, boosted);
+}
+
+function buildTierLimiters(
+  tier: Tier,
+  redisClient: unknown | null,
+  memoryFallbackBase: RateLimiterMemory,
+  memoryFallbackOverflow: RateLimiterMemory
+): TierRateLimiters {
+  const overflowPoints = overflowPointsForTier(tier);
+  const basePoints = config.rateLimits[tier];
+
+  if (redisClient) {
+    return {
+      base: new RateLimiterRedis({
+        storeClient: redisClient as ConstructorParameters<
+          typeof RateLimiterRedis
+        >[0]['storeClient'],
+        points: basePoints,
+        duration: 60,
+        keyPrefix: `rl:${tier}`,
+        insuranceLimiter: memoryFallbackBase,
+      }),
+      overflow: new RateLimiterRedis({
+        storeClient: redisClient as ConstructorParameters<
+          typeof RateLimiterRedis
+        >[0]['storeClient'],
+        points: Math.max(overflowPoints, 1),
+        duration: 60,
+        keyPrefix: `rl:${tier}:overflow`,
+        insuranceLimiter: memoryFallbackOverflow,
+      }),
+      overflowPoints,
+    };
+  }
+
+  return {
+    base: memoryFallbackBase,
+    overflow: memoryFallbackOverflow,
+    overflowPoints,
   };
+}
+
+function createRateLimiters(): Record<Tier, TierRateLimiters> {
+  const tiers: Tier[] = ['free', 'pro', 'scale', 'service'];
+  const memoryFallbacks = Object.fromEntries(
+    tiers.map((tier) => {
+      const overflowPoints = overflowPointsForTier(tier);
+      return [
+        tier,
+        {
+          base: new RateLimiterMemory({
+            points: config.rateLimits[tier],
+            duration: 60,
+          }),
+          overflow: new RateLimiterMemory({
+            points: Math.max(overflowPoints, 1),
+            duration: 60,
+          }),
+        },
+      ];
+    })
+  ) as Record<Tier, { base: RateLimiterMemory; overflow: RateLimiterMemory }>;
 
   if (!config.redisUrl) {
     if (config.nodeEnv === 'production') {
       logger.warn(
-        'REDIS_URL not set \u2014 rate limits are per-process only (not shared across replicas)'
+        'REDIS_URL not set — rate limits and burst credits are per-process only'
       );
     }
-    return memoryFallbacks;
+    initBurstAllowanceStore(null);
+    return Object.fromEntries(
+      tiers.map((tier) => [
+        tier,
+        {
+          ...memoryFallbacks[tier],
+          overflowPoints: overflowPointsForTier(tier),
+        },
+      ])
+    ) as Record<Tier, TierRateLimiters>;
   }
 
-  // Dynamic import to avoid hard dependency when Redis isn't needed
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const Redis = require('ioredis');
@@ -64,53 +135,80 @@ function createRateLimiters(): Record<Tier, RateLimiter> {
     redisClient.connect().catch((err: Error) => {
       logger.error(
         { err },
-        'Redis connection failed \u2014 falling back to in-memory rate limits'
+        'Redis connection failed — falling back to in-memory rate limits'
       );
     });
 
     logger.info('Rate limiter: using Redis');
+    initBurstAllowanceStore(redisClient);
 
-    return {
-      free: new RateLimiterRedis({
-        storeClient: redisClient,
-        points: config.rateLimits.free,
-        duration: 60,
-        keyPrefix: 'rl:free',
-        insuranceLimiter: memoryFallbacks.free,
-      }),
-      pro: new RateLimiterRedis({
-        storeClient: redisClient,
-        points: config.rateLimits.pro,
-        duration: 60,
-        keyPrefix: 'rl:pro',
-        insuranceLimiter: memoryFallbacks.pro,
-      }),
-      scale: new RateLimiterRedis({
-        storeClient: redisClient,
-        points: config.rateLimits.scale,
-        duration: 60,
-        keyPrefix: 'rl:scale',
-        insuranceLimiter: memoryFallbacks.scale,
-      }),
-      service: new RateLimiterRedis({
-        storeClient: redisClient,
-        points: config.rateLimits.service,
-        duration: 60,
-        keyPrefix: 'rl:service',
-        insuranceLimiter: memoryFallbacks.service,
-      }),
-    };
+    return Object.fromEntries(
+      tiers.map((tier) => [
+        tier,
+        buildTierLimiters(
+          tier,
+          redisClient,
+          memoryFallbacks[tier].base,
+          memoryFallbacks[tier].overflow
+        ),
+      ])
+    ) as Record<Tier, TierRateLimiters>;
   } catch {
-    logger.warn('ioredis not installed \u2014 using in-memory rate limiter');
-    return memoryFallbacks;
+    logger.warn('ioredis not installed — using in-memory rate limiter');
+    initBurstAllowanceStore(null);
+    return Object.fromEntries(
+      tiers.map((tier) => [
+        tier,
+        {
+          ...memoryFallbacks[tier],
+          overflowPoints: overflowPointsForTier(tier),
+        },
+      ])
+    ) as Record<Tier, TierRateLimiters>;
   }
 }
 
 const rateLimiters = createRateLimiters();
 
-/**
- * Extract JWT from Authorization header
- */
+function setRateLimitHeaders(
+  res: Response,
+  limit: number,
+  remaining: number,
+  resetSec: number,
+  burstActive: boolean,
+  creditsRemaining?: number
+): void {
+  res.setHeader('X-RateLimit-Limit', limit);
+  res.setHeader('X-RateLimit-Remaining', Math.max(0, remaining));
+  res.setHeader('X-RateLimit-Reset', resetSec);
+  if (burstActive) {
+    res.setHeader('X-RateLimit-Burst', 'active');
+  }
+  if (creditsRemaining != null) {
+    res.setHeader('X-Burst-Credits-Remaining', creditsRemaining);
+  }
+}
+
+function sendRateLimitExceeded(
+  res: Response,
+  tier: Tier,
+  limit: number,
+  retryAfter: number,
+  creditsRemaining?: number
+): void {
+  setRateLimitHeaders(res, limit, 0, retryAfter, false, creditsRemaining);
+  res.setHeader('Retry-After', retryAfter);
+  res.status(429).json({
+    error: 'Rate limit exceeded',
+    tier,
+    limit,
+    retryAfter,
+    ...(creditsRemaining != null
+      ? { burstCreditsRemaining: creditsRemaining }
+      : {}),
+  });
+}
+
 function extractToken(req: Request): string | null {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
@@ -119,20 +217,11 @@ function extractToken(req: Request): string | null {
   return authHeader.slice(7);
 }
 
-/**
- * Authentication middleware
- * Supports two credential types:
- *   1. Authorization: Bearer <jwt>  — wallet-based session
- *   2. X-API-Key: onsocial_...      — developer API key
- *
- * Does NOT reject unauthenticated requests — use requireAuth for that
- */
 export async function authMiddleware(
   req: Request,
   _res: Response,
   next: NextFunction
 ): Promise<void> {
-  // Path 1: JWT Bearer token
   const token = extractToken(req);
   if (token) {
     const payload = verifyToken(token);
@@ -143,19 +232,17 @@ export async function authMiddleware(
     }
   }
 
-  // Path 2: API key (format-validated before hashing to avoid CPU waste)
   const apiKey = req.headers['x-api-key'];
   if (typeof apiKey === 'string' && apiKey.startsWith('onsocial_')) {
-    const record = await lookupApiKey(apiKey); // lookupApiKey validates format internally
+    const record = await lookupApiKey(apiKey);
     if (record) {
       req.auth = {
         accountId: record.accountId,
         tier: record.tier,
         method: 'apikey',
         iat: Math.floor(record.createdAt / 1000),
-        exp: 0, // API keys don't expire via JWT
+        exp: 0,
       };
-      // Attach key prefix for metering (not on the public auth object)
       (req as unknown as Record<string, unknown>)._keyPrefix = record.keyPrefix;
       next();
       return;
@@ -165,10 +252,6 @@ export async function authMiddleware(
   next();
 }
 
-/**
- * Require authentication middleware
- * Returns 401 if no valid auth
- */
 export function requireAuth(
   req: Request,
   res: Response,
@@ -181,9 +264,6 @@ export function requireAuth(
   next();
 }
 
-/**
- * Require specific tier middleware
- */
 export function requireTier(...allowedTiers: Tier[]) {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.auth) {
@@ -204,10 +284,6 @@ export function requireTier(...allowedTiers: Tier[]) {
   };
 }
 
-/**
- * Rate limiting middleware
- * Uses tier-based rate limits. Sends standard rate-limit headers.
- */
 export async function rateLimitMiddleware(
   req: Request,
   res: Response,
@@ -215,26 +291,66 @@ export async function rateLimitMiddleware(
 ): Promise<void> {
   const tier: Tier = req.auth?.tier || 'free';
   const key = req.auth?.accountId || req.ip || 'anonymous';
-  const limit = config.rateLimits[tier];
+  const baseLimit = config.rateLimits[tier];
+  const boostedLimit = resolveBoostedLimitForTier(tier);
+  const { base, overflow, overflowPoints } = rateLimiters[tier];
 
   try {
-    const rlRes: RateLimiterRes = await rateLimiters[tier].consume(key);
-    res.setHeader('X-RateLimit-Limit', limit);
-    res.setHeader('X-RateLimit-Remaining', rlRes.remainingPoints);
-    res.setHeader('X-RateLimit-Reset', Math.ceil(rlRes.msBeforeNext / 1000));
+    const rlRes = await base.consume(key);
+    setRateLimitHeaders(
+      res,
+      baseLimit,
+      rlRes.remainingPoints,
+      Math.ceil(rlRes.msBeforeNext / 1000),
+      false
+    );
     next();
+    return;
   } catch (rlRej) {
     const rlRes = rlRej as RateLimiterRes;
-    const retryAfter = Math.ceil(rlRes.msBeforeNext / 1000);
-    res.setHeader('X-RateLimit-Limit', limit);
-    res.setHeader('X-RateLimit-Remaining', 0);
-    res.setHeader('X-RateLimit-Reset', retryAfter);
-    res.setHeader('Retry-After', retryAfter);
-    res.status(429).json({
-      error: 'Rate limit exceeded',
+    const retryAfter = Math.max(1, Math.ceil(rlRes.msBeforeNext / 1000));
+
+    if (overflowPoints <= 0 || !req.auth?.accountId) {
+      sendRateLimitExceeded(res, tier, baseLimit, retryAfter);
+      return;
+    }
+
+    const activation = await activateBurstForWindow(
+      req.auth.accountId,
       tier,
-      limit,
-      retryAfter,
-    });
+      retryAfter
+    );
+
+    if (!activation.ok) {
+      sendRateLimitExceeded(
+        res,
+        tier,
+        baseLimit,
+        retryAfter,
+        activation.creditsRemaining
+      );
+      return;
+    }
+
+    try {
+      const overflowRes = await overflow.consume(key);
+      setRateLimitHeaders(
+        res,
+        activation.boostedLimit,
+        overflowRes.remainingPoints,
+        Math.max(retryAfter, Math.ceil(overflowRes.msBeforeNext / 1000)),
+        true,
+        activation.creditsRemaining
+      );
+      next();
+    } catch {
+      sendRateLimitExceeded(
+        res,
+        tier,
+        boostedLimit,
+        retryAfter,
+        activation.creditsRemaining
+      );
+    }
   }
 }

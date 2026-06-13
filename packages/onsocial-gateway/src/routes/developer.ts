@@ -24,6 +24,7 @@ import {
   getUsageTimeline,
   parseTimelineQuery,
 } from '../services/metering/index.js';
+import { getBurstAllowanceStatus } from '../services/burst-allowance/index.js';
 
 export const developerRouter = Router();
 
@@ -162,8 +163,13 @@ developerRouter.get('/usage/timeline', async (req: Request, res: Response) => {
 
 developerRouter.get('/usage', async (req: Request, res: Response) => {
   try {
-    const summary = await getUsageSummary(req.auth!.accountId);
-    res.json(summary);
+    const accountId = req.auth!.accountId;
+    const tier = req.auth!.tier;
+    const [summary, burst] = await Promise.all([
+      getUsageSummary(accountId),
+      getBurstAllowanceStatus(accountId, tier),
+    ]);
+    res.json({ ...summary, burst });
   } catch (error) {
     req.log.error({ error }, 'Failed to fetch usage summary');
     res.status(500).json({ error: 'Failed to fetch usage statistics' });

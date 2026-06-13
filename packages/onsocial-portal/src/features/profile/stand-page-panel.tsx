@@ -53,6 +53,7 @@ export function StandPagePanel({
   hasSocialSession = false,
   onSelectAccount,
   onUpdateAccountStanding,
+  onCountsLoaded,
 }: {
   kind: StanceDetailKind;
   accountId: string;
@@ -69,6 +70,11 @@ export function StandPagePanel({
     account: StandingAccountSummary,
     shouldStand: boolean
   ) => Promise<void>;
+  onCountsLoaded?: (counts: {
+    incoming: number;
+    outgoing: number;
+    mutual: number;
+  }) => void;
 }) {
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
   const latestLoadRef = useRef(0);
@@ -130,6 +136,9 @@ export function StandPagePanel({
             setAccounts(response.accounts);
             setHasMore(response.hasMore);
             setListTotal(response.total);
+            if (response.counts) {
+              onCountsLoaded?.(response.counts);
+            }
           })
           .catch((error) => {
             if (latestLoadRef.current !== loadId) return;
@@ -191,6 +200,7 @@ export function StandPagePanel({
     kind,
     searchQueryForFetch,
     viewerAccountId,
+    onCountsLoaded,
   ]);
 
   useEffect(() => {

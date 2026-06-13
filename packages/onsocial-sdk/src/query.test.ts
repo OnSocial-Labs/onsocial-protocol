@@ -333,6 +333,74 @@ describe('QueryModule', () => {
       });
       expect(fetch).toHaveBeenCalledTimes(1);
     });
+
+    it('socialPreview batches graph into two round-trips', async () => {
+      const { os, fetch } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        if (query.includes('StandingPeerEnrichment')) {
+          return {
+            data: {
+              profileSearch: [
+                {
+                  accountId: 'bob.near',
+                  name: 'Bob',
+                  bio: null,
+                  avatar: 'ipfs://b',
+                  banner: null,
+                  standingCount: 2,
+                  standingWithCount: 1,
+                  mutualStandingCount: 0,
+                  endorsementsReceivedCount: 0,
+                  endorsementsGivenCount: 0,
+                  firstProfileTimestamp: 1,
+                  lastProfileBlock: 1,
+                  lastProfileTimestamp: 1,
+                  lastActivityBlock: 1,
+                },
+              ],
+              viewerOutgoing: [{ targetAccount: 'bob.near' }],
+              viewerIncoming: [],
+            },
+          };
+        }
+        if (query.includes('ProfileSocialPreviewWithViewer')) {
+          return {
+            data: {
+              standingCounts: [{ standingWithCount: 3 }],
+              standingOutCounts: [{ standingWithOthersCount: 2 }],
+              profileSearch: [{ mutualStandingCount: 1 }],
+              incomingPreview: [
+                {
+                  accountId: 'bob.near',
+                  targetAccount: 'alice.near',
+                  value: '{"since":1}',
+                  blockHeight: 1,
+                  blockTimestamp: 9,
+                },
+              ],
+              outgoingPreview: [],
+              mutualPreview: [],
+              viewerToSubject: [{ accountId: 'carol.near' }],
+              subjectToViewer: [],
+            },
+          };
+        }
+        return { data: {} };
+      });
+
+      const preview = await os.query.profiles.socialPreview({
+        accountId: 'alice.near',
+        viewerAccountId: 'carol.near',
+        previewLimit: 8,
+      });
+
+      expect(preview.counts).toEqual({ incoming: 3, outgoing: 2, mutual: 1 });
+      expect(preview.incoming[0]?.accountId).toBe('bob.near');
+      expect(preview.viewerStanding).toBe(true);
+      expect(preview.peers[0]?.name).toBe('Bob');
+      expect(preview.viewerOutgoingPeerIds).toEqual(['bob.near']);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe('stats', () => {
@@ -1200,6 +1268,147 @@ describe('QueryModule', () => {
     });
   });
 
+  describe('listPage()', () => {
+    it('batches incoming rows and tab counts in one round-trip', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          standingCounts: [{ standingWithCount: 5 }],
+          standingOutCounts: [{ standingWithOthersCount: 3 }],
+          profileSearch: [{ mutualStandingCount: 2 }],
+          standingsCurrent: [
+            {
+              accountId: 'bob.near',
+              targetAccount: 'alice.near',
+              value: '{"since":1}',
+              blockHeight: 1,
+              blockTimestamp: 2,
+            },
+          ],
+        },
+      });
+
+      const page = await os.query.standings.listPage({
+        accountId: 'alice.near',
+        direction: 'incoming',
+        limit: 24,
+        offset: 0,
+        includeCounts: true,
+      });
+
+      expect(page.total).toBe(5);
+      expect(page.counts).toEqual({ incoming: 5, outgoing: 3, mutual: 2 });
+      expect(page.rows[0]?.accountId).toBe('bob.near');
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('enrichPeers()', () => {
+    it('loads profile search rows and viewer context together', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          profileSearch: [
+            {
+              accountId: 'bob.near',
+              name: 'Bob',
+              bio: null,
+              avatar: null,
+              banner: null,
+              standingCount: 1,
+              standingWithCount: 1,
+              mutualStandingCount: 0,
+              endorsementsReceivedCount: 0,
+              endorsementsGivenCount: 0,
+              firstProfileTimestamp: 1,
+              lastProfileBlock: 1,
+              lastProfileTimestamp: 1,
+              lastActivityBlock: 1,
+            },
+          ],
+          viewerOutgoing: [{ targetAccount: 'bob.near' }],
+          viewerIncoming: [],
+        },
+      });
+
+      const enrichment = await os.query.standings.enrichPeers('carol.near', [
+        'bob.near',
+      ]);
+
+      expect(enrichment.profiles[0]?.name).toBe('Bob');
+      expect(enrichment.viewerOutgoingPeerIds).toEqual(['bob.near']);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('StandingPeerEnrichment');
+    });
+  });
+
+  describe('networkSample()', () => {
+    it('batches lists and enrichment into two round-trips', async () => {
+      const { os, fetch } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        if (query.includes('StandingPeerEnrichment')) {
+          return {
+            data: {
+              profileSearch: [
+                {
+                  accountId: 'bob.near',
+                  name: 'Bob',
+                  bio: null,
+                  avatar: null,
+                  banner: null,
+                  standingCount: 1,
+                  standingWithCount: 1,
+                  mutualStandingCount: 0,
+                  endorsementsReceivedCount: 0,
+                  endorsementsGivenCount: 0,
+                  firstProfileTimestamp: 1,
+                  lastProfileBlock: 1,
+                  lastProfileTimestamp: 1,
+                  lastActivityBlock: 1,
+                },
+              ],
+              viewerOutgoing: [],
+              viewerIncoming: [],
+            },
+          };
+        }
+        if (query.includes('StandingNetworkSample')) {
+          return {
+            data: {
+              standingCounts: [{ standingWithCount: 4 }],
+              standingOutCounts: [{ standingWithOthersCount: 3 }],
+              profileSearch: [{ mutualStandingCount: 1 }],
+              incomingSample: [
+                {
+                  accountId: 'bob.near',
+                  targetAccount: 'alice.near',
+                  value: '{"since":1}',
+                  blockHeight: 1,
+                  blockTimestamp: 9,
+                },
+              ],
+              outgoingSample: [],
+              mutualSample: [],
+            },
+          };
+        }
+        return { data: {} };
+      });
+
+      const sample = await os.query.standings.networkSample({
+        accountId: 'alice.near',
+        viewerAccountId: 'carol.near',
+        mutualLimit: 12,
+        incomingLimit: 24,
+        outgoingLimit: 24,
+      });
+
+      expect(sample.counts).toEqual({ incoming: 4, outgoing: 3, mutual: 1 });
+      expect(sample.incoming[0]?.accountId).toBe('bob.near');
+      expect(sample.peers[0]?.name).toBe('Bob');
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+  });
+
   describe('paginated standing lists', () => {
     it('incomingDetailed passes limit and offset', async () => {
       const { os, fetch } = makeOs({
@@ -1284,6 +1493,97 @@ describe('QueryModule', () => {
         issuer: 'bob.near',
         target: 'alice.near',
       });
+    });
+
+    it('preview batches counts and both lists in one round-trip', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          profileSearch: [
+            { endorsementsReceivedCount: 2, endorsementsGivenCount: 3 },
+          ],
+          received: [
+            {
+              issuer: 'bob.near',
+              target: 'alice.near',
+              value: '{"v":1,"since":1}',
+              blockHeight: 1,
+              blockTimestamp: 2,
+              operation: 'set',
+            },
+          ],
+          given: [],
+        },
+      });
+
+      const preview = await os.query.endorsements.preview({
+        accountId: 'alice.near',
+        limit: 24,
+      });
+
+      expect(preview.counts).toEqual({ received: 2, given: 3 });
+      expect(preview.received).toHaveLength(1);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('EndorsementPreview');
+    });
+
+    it('previewBundle adds one profile search batch', async () => {
+      const { os, fetch } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        if (query.includes('EndorsementPreview')) {
+          return {
+            data: {
+              profileSearch: [
+                { endorsementsReceivedCount: 1, endorsementsGivenCount: 0 },
+              ],
+              received: [
+                {
+                  issuer: 'bob.near',
+                  target: 'alice.near',
+                  value: '{"v":1,"since":1}',
+                  blockHeight: 1,
+                  blockTimestamp: 2,
+                  operation: 'set',
+                },
+              ],
+              given: [],
+            },
+          };
+        }
+        if (query.includes('ProfileStatsBatch')) {
+          return {
+            data: {
+              profileSearch: [
+                {
+                  accountId: 'bob.near',
+                  name: 'Bob',
+                  bio: null,
+                  avatar: null,
+                  banner: null,
+                  standingCount: 0,
+                  standingWithCount: 0,
+                  mutualStandingCount: 0,
+                  endorsementsReceivedCount: 0,
+                  endorsementsGivenCount: 0,
+                  firstProfileTimestamp: 1,
+                  lastProfileBlock: 1,
+                  lastProfileTimestamp: 1,
+                  lastActivityBlock: 1,
+                },
+              ],
+            },
+          };
+        }
+        return { data: {} };
+      });
+
+      const bundle = await os.query.endorsements.previewBundle({
+        accountId: 'alice.near',
+        limit: 24,
+      });
+
+      expect(bundle.profiles[0]?.name).toBe('Bob');
+      expect(fetch).toHaveBeenCalledTimes(2);
     });
   });
 

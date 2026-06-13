@@ -125,6 +125,19 @@ services:
       postgres:
         condition: service_healthy
 
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    mem_limit: 192m
+    cpus: 0.25
+
   # =========================================================================
   # API GATEWAY
   # =========================================================================
@@ -175,8 +188,11 @@ services:
       REVOLUT_API_VERSION_SANDBOX: ${REVOLUT_API_VERSION_SANDBOX:-}
       REVOLUT_API_URL_PRODUCTION: ${REVOLUT_API_URL_PRODUCTION:-}
       REVOLUT_API_VERSION_PRODUCTION: ${REVOLUT_API_VERSION_PRODUCTION:-}
+      REDIS_URL: redis://redis:6379
     depends_on:
       hasura:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]

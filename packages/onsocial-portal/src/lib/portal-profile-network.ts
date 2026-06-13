@@ -15,7 +15,10 @@ import {
   NETWORK_GRAPH_MAX_MAP_NODES,
 } from '@/lib/profile-network-graph';
 import {
-  buildStandingAccountSummaries,
+  buildStandingAccountSummariesBatch,
+  mapStandingRowsToSummaries,
+  profileSearchRowToMaterialised,
+  profileStatsFromSearchRow,
   type StandingListItem,
 } from '@/lib/profile-social-server';
 
@@ -76,46 +79,54 @@ function countUniqueSearchPeers(
   return seen.size;
 }
 
-async function loadDefaultNetworkSample(
+function mapNetworkSampleToAccounts(
   os: PortalOnSocial,
-  accountId: string,
-  viewerAccountId: string | null
-): Promise<NetworkAccount[]> {
-  const [mutualRows, incomingRows, outgoingRows] = await Promise.all([
-    os.standings.mutualList(accountId, {
-      limit: NETWORK_GRAPH_MUTUAL_LIMIT,
-      offset: 0,
-    }),
-    os.standings.listIncomingDetailed(accountId, {
-      limit: NETWORK_GRAPH_INCOMING_LIMIT,
-      offset: 0,
-    }),
-    os.standings.listOutgoingDetailed(accountId, {
-      limit: NETWORK_GRAPH_OUTGOING_LIMIT,
-      offset: 0,
-    }),
-  ]);
+  sample: Awaited<ReturnType<PortalOnSocial['standings']['networkSample']>>
+): NetworkAccount[] {
+  const profiles: Record<
+    string,
+    ReturnType<typeof profileSearchRowToMaterialised>
+  > = {};
+  const profileStats = new Map<
+    string,
+    ReturnType<typeof profileStatsFromSearchRow>
+  >();
 
-  const [mutual, incoming, outgoing] = await Promise.all([
-    buildStandingAccountSummaries(
-      os,
-      mutualRows as StandingListItem[],
-      'mutual',
-      viewerAccountId
-    ),
-    buildStandingAccountSummaries(
-      os,
-      incomingRows as StandingListItem[],
-      'incoming',
-      viewerAccountId
-    ),
-    buildStandingAccountSummaries(
-      os,
-      outgoingRows as StandingListItem[],
-      'outgoing',
-      viewerAccountId
-    ),
-  ]);
+  for (const row of sample.peers) {
+    profiles[row.accountId] = profileSearchRowToMaterialised(row);
+    profileStats.set(row.accountId, profileStatsFromSearchRow(row));
+  }
+
+  const viewerOutgoingSet = new Set(sample.viewerOutgoingPeerIds);
+  const viewerIncomingSet = new Set(sample.viewerIncomingPeerIds);
+
+  const mutual = mapStandingRowsToSummaries(
+    os,
+    sample.mutual as StandingListItem[],
+    'mutual',
+    profiles,
+    profileStats,
+    viewerOutgoingSet,
+    viewerIncomingSet
+  );
+  const incoming = mapStandingRowsToSummaries(
+    os,
+    sample.incoming,
+    'incoming',
+    profiles,
+    profileStats,
+    viewerOutgoingSet,
+    viewerIncomingSet
+  );
+  const outgoing = mapStandingRowsToSummaries(
+    os,
+    sample.outgoing,
+    'outgoing',
+    profiles,
+    profileStats,
+    viewerOutgoingSet,
+    viewerIncomingSet
+  );
 
   return buildNetworkAccountsOrdered(
     mutual.map(standingSummaryToNetworkSource),
@@ -150,11 +161,10 @@ async function loadSearchedNetworkSample(
       }),
       os.query.standings.mutualFilteredCount(accountId, participants),
     ]);
-    const mutual = await buildStandingAccountSummaries(
+    const [mutual] = await buildStandingAccountSummariesBatch(
       os,
-      rows as StandingListItem[],
-      'mutual',
-      viewerAccountId
+      viewerAccountId,
+      [{ rows: rows as StandingListItem[], direction: 'mutual' }]
     );
     return {
       accounts: buildNetworkAccountsOrdered(
@@ -177,20 +187,17 @@ async function loadSearchedNetworkSample(
         offset: 0,
       }),
     ]);
-    const [mutual, incoming] = await Promise.all([
-      buildStandingAccountSummaries(
-        os,
-        mutualRows as StandingListItem[],
-        'mutual',
-        viewerAccountId
-      ),
-      buildStandingAccountSummaries(
-        os,
-        incomingPage.rows as StandingListItem[],
-        'incoming',
-        viewerAccountId
-      ),
-    ]);
+    const [mutual, incoming] = await buildStandingAccountSummariesBatch(
+      os,
+      viewerAccountId,
+      [
+        { rows: mutualRows as StandingListItem[], direction: 'mutual' },
+        {
+          rows: incomingPage.rows as StandingListItem[],
+          direction: 'incoming',
+        },
+      ]
+    );
     return {
       accounts: buildNetworkAccountsOrdered(
         mutual.map(standingSummaryToNetworkSource),
@@ -212,20 +219,17 @@ async function loadSearchedNetworkSample(
         offset: 0,
       }),
     ]);
-    const [mutual, outgoing] = await Promise.all([
-      buildStandingAccountSummaries(
-        os,
-        mutualRows as StandingListItem[],
-        'mutual',
-        viewerAccountId
-      ),
-      buildStandingAccountSummaries(
-        os,
-        outgoingPage.rows as StandingListItem[],
-        'outgoing',
-        viewerAccountId
-      ),
-    ]);
+    const [mutual, outgoing] = await buildStandingAccountSummariesBatch(
+      os,
+      viewerAccountId,
+      [
+        { rows: mutualRows as StandingListItem[], direction: 'mutual' },
+        {
+          rows: outgoingPage.rows as StandingListItem[],
+          direction: 'outgoing',
+        },
+      ]
+    );
     return {
       accounts: buildNetworkAccountsOrdered(
         mutual.map(standingSummaryToNetworkSource),
@@ -251,26 +255,15 @@ async function loadSearchedNetworkSample(
     }),
   ]);
 
-  const [mutual, incoming, outgoing] = await Promise.all([
-    buildStandingAccountSummaries(
-      os,
-      mutualRows as StandingListItem[],
-      'mutual',
-      viewerAccountId
-    ),
-    buildStandingAccountSummaries(
-      os,
-      incomingPage.rows as StandingListItem[],
-      'incoming',
-      viewerAccountId
-    ),
-    buildStandingAccountSummaries(
-      os,
-      outgoingPage.rows as StandingListItem[],
-      'outgoing',
-      viewerAccountId
-    ),
-  ]);
+  const [mutual, incoming, outgoing] = await buildStandingAccountSummariesBatch(
+    os,
+    viewerAccountId,
+    [
+      { rows: mutualRows as StandingListItem[], direction: 'mutual' },
+      { rows: incomingPage.rows as StandingListItem[], direction: 'incoming' },
+      { rows: outgoingPage.rows as StandingListItem[], direction: 'outgoing' },
+    ]
+  );
 
   return {
     accounts: buildNetworkAccountsOrdered(
@@ -292,50 +285,50 @@ export async function loadPortalProfileNetwork(
   viewerAccountId: string | null,
   options: PortalProfileNetworkLoadOptions = {}
 ): Promise<PortalProfileNetworkPayload> {
-  const [counts, mutualCount] = await Promise.all([
-    os.standings.counts(accountId),
-    os.query.standings.mutualCount(accountId),
-  ]);
-
-  const chainCounts = {
-    incoming: counts.incoming,
-    outgoing: counts.outgoing,
-    mutual: mutualCount,
-  };
-
   const normalizedSearch = normalizeProfileSearchQuery(options.searchQuery);
   const filter = parseNetworkFilter(options.filter);
 
   if (!isProfileSearchQuery(normalizedSearch)) {
-    const accounts = await loadDefaultNetworkSample(
-      os,
+    const sample = await os.standings.networkSample({
       accountId,
-      viewerAccountId
-    );
+      viewerAccountId,
+      mutualLimit: NETWORK_GRAPH_MUTUAL_LIMIT,
+      incomingLimit: NETWORK_GRAPH_INCOMING_LIMIT,
+      outgoingLimit: NETWORK_GRAPH_OUTGOING_LIMIT,
+    });
+
     return {
       accountId,
       viewerAccountId,
-      counts: chainCounts,
-      accounts,
+      counts: sample.counts,
+      accounts: mapNetworkSampleToAccounts(os, sample),
     };
   }
 
-  const { accounts, matchTotal } = await loadSearchedNetworkSample(
-    os,
-    accountId,
-    viewerAccountId,
-    normalizedSearch,
-    filter
-  );
+  const [countsRes, mutualCount, searched] = await Promise.all([
+    os.standings.counts(accountId),
+    os.standings.mutualCount(accountId),
+    loadSearchedNetworkSample(
+      os,
+      accountId,
+      viewerAccountId,
+      normalizedSearch,
+      filter
+    ),
+  ]);
 
   return {
     accountId,
     viewerAccountId,
-    counts: chainCounts,
-    accounts,
+    counts: {
+      incoming: countsRes.incoming,
+      outgoing: countsRes.outgoing,
+      mutual: mutualCount,
+    },
+    accounts: searched.accounts,
     search: {
       query: normalizedSearch,
-      matchTotal,
+      matchTotal: searched.matchTotal,
       filter,
     },
   };

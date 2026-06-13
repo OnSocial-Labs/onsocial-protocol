@@ -21,6 +21,7 @@ interface ProfileSocialStandingsResponse {
   offset: number;
   hasMore: boolean;
   total: number;
+  counts?: { incoming: number; outgoing: number; mutual: number };
   accounts: Awaited<ReturnType<typeof listStandingAccountsPage>>['accounts'];
 }
 
@@ -111,6 +112,7 @@ export async function GET(request: NextRequest) {
       hasMore: page.hasMore,
       total: page.total,
       accounts: page.accounts,
+      ...(page.counts ? { counts: page.counts } : {}),
       ...(q ? { q } : {}),
     };
 

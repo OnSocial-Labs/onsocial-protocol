@@ -1,9 +1,10 @@
+import type { MaterialisedProfile, ProfileSearchRow } from '@onsocial/sdk';
 import type { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
 import {
   STANDING_PREVIEW_LIMIT,
-  listProfileStats,
-  loadViewerContext,
   mapStandingRowsToSummaries,
+  profileSearchRowToMaterialised,
+  profileStatsFromSearchRow,
   type StandingListItem,
 } from '@/lib/profile-social-server';
 
@@ -24,69 +25,32 @@ export interface PortalProfileSocialPayload {
   outgoing: Awaited<ReturnType<typeof mapStandingRowsToSummaries>>;
 }
 
-function peerAccountIdsFromRows(
-  rows: StandingListItem[],
-  direction: 'incoming' | 'outgoing' | 'mutual'
-): string[] {
-  return rows.map((row) =>
-    direction === 'outgoing' ? row.targetAccount : row.accountId
-  );
+function buildSummaryMaps(peers: ProfileSearchRow[]) {
+  const profiles: Record<string, MaterialisedProfile> = {};
+  const profileStats = new Map<
+    string,
+    ReturnType<typeof profileStatsFromSearchRow>
+  >();
+
+  for (const row of peers) {
+    profiles[row.accountId] = profileSearchRowToMaterialised(row);
+    profileStats.set(row.accountId, profileStatsFromSearchRow(row));
+  }
+
+  return { profiles, profileStats };
 }
 
-export async function loadPortalProfileSocial(
+function mapPreviewLists(
   os: PortalOnSocial,
-  accountId: string,
-  viewerAccountId: string | null
-): Promise<PortalProfileSocialPayload> {
-  const [
-    counts,
-    outgoingRows,
-    incomingRows,
-    mutualRows,
-    mutualCount,
-    viewerStanding,
-    theyStandWithViewer,
-  ] = await Promise.all([
-    os.standings.counts(accountId),
-    os.standings.listOutgoingDetailed(accountId, {
-      limit: STANDING_PREVIEW_LIMIT,
-      offset: 0,
-    }),
-    os.standings.listIncomingDetailed(accountId, {
-      limit: STANDING_PREVIEW_LIMIT,
-      offset: 0,
-    }),
-    os.standings.mutualList(accountId, {
-      limit: STANDING_PREVIEW_LIMIT,
-      offset: 0,
-    }),
-    os.query.standings.mutualCount(accountId),
-    viewerAccountId && viewerAccountId !== accountId
-      ? os.query.standings.viewerStandsWith(viewerAccountId, accountId)
-      : Promise.resolve(false),
-    viewerAccountId && viewerAccountId !== accountId
-      ? os.query.standings.viewerStandsWith(accountId, viewerAccountId)
-      : Promise.resolve(false),
-  ]);
-
-  const peerAccountIds = [
-    ...new Set([
-      ...peerAccountIdsFromRows(mutualRows as StandingListItem[], 'mutual'),
-      ...peerAccountIdsFromRows(incomingRows, 'incoming'),
-      ...peerAccountIdsFromRows(outgoingRows, 'outgoing'),
-    ]),
-  ];
-
-  const [profiles, profileStats, { viewerOutgoingSet, viewerIncomingSet }] =
-    await Promise.all([
-      os.profiles.getMany(peerAccountIds),
-      listProfileStats(os, peerAccountIds).catch(() => new Map()),
-      loadViewerContext(os, viewerAccountId, peerAccountIds),
-    ]);
+  preview: Awaited<ReturnType<PortalOnSocial['standings']['profilePreview']>>
+) {
+  const { profiles, profileStats } = buildSummaryMaps(preview.peers);
+  const viewerOutgoingSet = new Set(preview.viewerOutgoingPeerIds);
+  const viewerIncomingSet = new Set(preview.viewerIncomingPeerIds);
 
   const mutual = mapStandingRowsToSummaries(
     os,
-    mutualRows as StandingListItem[],
+    preview.mutual as StandingListItem[],
     'mutual',
     profiles,
     profileStats,
@@ -95,7 +59,7 @@ export async function loadPortalProfileSocial(
   );
   const incoming = mapStandingRowsToSummaries(
     os,
-    incomingRows,
+    preview.incoming,
     'incoming',
     profiles,
     profileStats,
@@ -104,7 +68,7 @@ export async function loadPortalProfileSocial(
   );
   const outgoing = mapStandingRowsToSummaries(
     os,
-    outgoingRows,
+    preview.outgoing,
     'outgoing',
     profiles,
     profileStats,
@@ -112,16 +76,28 @@ export async function loadPortalProfileSocial(
     viewerIncomingSet
   );
 
-  return {
+  return { mutual, incoming, outgoing };
+}
+
+export async function loadPortalProfileSocial(
+  os: PortalOnSocial,
+  accountId: string,
+  viewerAccountId: string | null
+): Promise<PortalProfileSocialPayload> {
+  const preview = await os.standings.profilePreview({
     accountId,
     viewerAccountId,
-    viewerStanding,
-    theyStandWithViewer,
-    counts: {
-      incoming: counts.incoming,
-      outgoing: counts.outgoing,
-      mutual: mutualCount,
-    },
+    previewLimit: STANDING_PREVIEW_LIMIT,
+  });
+
+  const { mutual, incoming, outgoing } = mapPreviewLists(os, preview);
+
+  return {
+    accountId,
+    viewerAccountId: preview.viewerAccountId,
+    viewerStanding: preview.viewerStanding,
+    theyStandWithViewer: preview.theyStandWithViewer,
+    counts: preview.counts,
     mutual,
     incoming,
     outgoing,
