@@ -320,7 +320,7 @@ GROUP BY account_id;
 -- confidence_score estimates how much indexed evidence backs the rank.
 -- ────────────────────────────────────────────────────────────────────────────
 
--- CREATE OR REPLACE VIEW cannot insert/reorder output columns on an existing view.
+-- Postgres cannot insert/reorder view output columns via REPLACE alone.
 -- Drop dependents first so column additions (mutual_standing, endorsements_received,
 -- confidence_score) apply cleanly on live testnet/mainnet databases.
 DROP VIEW IF EXISTS app_reputation CASCADE;

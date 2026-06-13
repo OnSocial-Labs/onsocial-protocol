@@ -111,7 +111,9 @@ if [ ${#SQL_FILES[@]} -eq 0 ]; then
 fi
 
 PUBLIC_RELATIONS=$(grep -hE 'CREATE (OR REPLACE )?(TABLE|VIEW|MATERIALIZED VIEW) ' "${SQL_FILES[@]}" | \
+  grep -Ev '^[[:space:]]*--' | \
   sed -E 's/^CREATE (OR REPLACE )?(TABLE|VIEW|MATERIALIZED VIEW) (IF NOT EXISTS )?([a-zA-Z_][a-zA-Z0-9_]*).*/\4/' | \
+  grep -E '^[a-zA-Z_][a-zA-Z0-9_]*$' | \
   sort -u | \
   grep -vx 'schema_migrations' || true)
 
@@ -141,7 +143,9 @@ done <<< "$PUBLIC_RELATIONS"
 
 echo "Refreshing tracked SQL views (pick up CREATE OR REPLACE VIEW column changes)..."
 VIEW_RELATIONS=$(grep -hE 'CREATE OR REPLACE VIEW ' "${SQL_DIR}"/*_schema_views.sql 2>/dev/null | \
+  grep -Ev '^[[:space:]]*--' | \
   sed -E 's/^CREATE OR REPLACE VIEW ([a-zA-Z_][a-zA-Z0-9_]*).*/\1/' | \
+  grep -E '^[a-zA-Z_][a-zA-Z0-9_]*$' | \
   sort -u || true)
 
 retrack_view() {
