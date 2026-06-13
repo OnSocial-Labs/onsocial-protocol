@@ -98,6 +98,69 @@ async function fetchTrackedTables(): Promise<Set<string>> {
   return set;
 }
 
+async function fetchPublicViewNames(): Promise<Set<string>> {
+  const sql = `SELECT c.relname
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relkind IN ('v', 'm')
+    ORDER BY c.relname`;
+  const response = await fetch(HASURA_QUERY_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-hasura-admin-secret': config.hasuraAdminSecret || '',
+    },
+    body: JSON.stringify({
+      type: 'run_sql',
+      args: { source: 'default', sql, read_only: true },
+    }),
+  });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- run_sql response is untyped
+  const result: any = await response.json();
+  if (!response.ok) {
+    throw new Error(`Hasura /v2/query error: ${JSON.stringify(result)}`);
+  }
+  const rows: Array<[string]> = (result?.result ?? []).slice(1);
+  return new Set(rows.map(([name]) => name));
+}
+
+/** Untrack + retrack SQL views so Hasura picks up CREATE OR REPLACE VIEW column changes. */
+async function refreshTrackedSqlViews(): Promise<number> {
+  console.log(
+    '🔄 Refreshing tracked SQL views (CREATE OR REPLACE VIEW column drift)...'
+  );
+
+  const [tracked, views] = await Promise.all([
+    fetchTrackedTables(),
+    fetchPublicViewNames(),
+  ]);
+  const toRefresh = [...tracked].filter((name) => views.has(name)).sort();
+  if (toRefresh.length === 0) {
+    console.log('   ✓ No tracked SQL views to refresh\n');
+    return 0;
+  }
+
+  console.log(`   ↻ Retracking ${toRefresh.length} view(s)...`);
+  const ops: BulkOp[] = [];
+  for (const name of toRefresh) {
+    ops.push({
+      type: 'pg_untrack_table',
+      args: { source: 'default', table: { schema: 'public', name } },
+    });
+    ops.push({
+      type: 'pg_track_table',
+      args: { source: 'default', table: { schema: 'public', name } },
+    });
+  }
+
+  for (const batch of chunk(ops, BULK_CHUNK_SIZE)) {
+    await hasuraBulk(batch);
+  }
+
+  console.log(`   ✓ Refreshed ${toRefresh.length} SQL view(s)\n`);
+  return toRefresh.length;
+}
+
 async function trackTables(): Promise<void> {
   console.log('📌 Tracking tables in Hasura...');
 
@@ -698,6 +761,7 @@ async function main(): Promise<void> {
       case 'reset':
         await snapshotMetadata();
         await trackTables();
+        await refreshTrackedSqlViews();
         await reloadHasuraSources();
         await dropPermissions();
         await createPermissions();
@@ -707,6 +771,7 @@ async function main(): Promise<void> {
       case 'sync':
         await snapshotMetadata();
         await trackTables();
+        await refreshTrackedSqlViews();
         await reloadHasuraSources();
         await syncPermissions();
         await reloadHasuraSources();
