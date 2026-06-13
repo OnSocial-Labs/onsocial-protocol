@@ -19,7 +19,11 @@ import {
   registerDeveloperApp,
   type DeveloperAppError,
 } from '../services/developer-apps/index.js';
-import { getUsageSummary } from '../services/metering/index.js';
+import {
+  getUsageSummary,
+  getUsageTimeline,
+  parseTimelineQuery,
+} from '../services/metering/index.js';
 
 export const developerRouter = Router();
 
@@ -133,6 +137,28 @@ developerRouter.post(
     }
   }
 );
+
+developerRouter.get('/usage/timeline', async (req: Request, res: Response) => {
+  try {
+    const parsed = parseTimelineQuery({
+      window:
+        typeof req.query.window === 'string' ? req.query.window : undefined,
+      bucket:
+        typeof req.query.bucket === 'string' ? req.query.bucket : undefined,
+    });
+
+    if ('error' in parsed) {
+      res.status(400).json({ error: parsed.error, code: parsed.code });
+      return;
+    }
+
+    const timeline = await getUsageTimeline(req.auth!.accountId, parsed);
+    res.json(timeline);
+  } catch (error) {
+    req.log.error({ error }, 'Failed to fetch usage timeline');
+    res.status(500).json({ error: 'Failed to fetch usage timeline' });
+  }
+});
 
 developerRouter.get('/usage', async (req: Request, res: Response) => {
   try {

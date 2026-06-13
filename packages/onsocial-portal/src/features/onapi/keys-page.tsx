@@ -51,11 +51,15 @@ import {
   revokeApiKey,
   rotateApiKey,
   getUsage,
+  getUsageTimeline,
+  createPlaceholderUsageTimeline,
   usageRateLimitedToday,
   type ApiKeyInfo,
   type CreateKeyResult,
   type UsageSummary,
+  type UsageTimeline,
 } from '@/features/onapi/api';
+import { UsageSparkline } from '@/features/onapi/usage-sparkline';
 import {
   fetchPlansPublic,
   fetchSubscription,
@@ -89,14 +93,6 @@ const TIER_LIMITS: Record<string, string> = {
   service: '10,000 /min',
 };
 
-/** Sustained daily pace at tier burst (rate × 1440 min) — UX nudge only, not enforced. */
-const TIER_SUSTAINED_DAILY_PACE: Record<string, number> = {
-  free: 86_400,
-  pro: 864_000,
-  scale: 4_320_000,
-  service: 14_400_000,
-};
-
 /** Static tier specs matching the landing-page cards. */
 const TIER_SPECS: Record<
   string,
@@ -111,12 +107,6 @@ const TIER_SPECS: Record<
     aggregations: true,
   },
 };
-
-function nextTierUp(tier: string): string | null {
-  const order = ['free', 'pro', 'scale'];
-  const idx = order.indexOf(tier);
-  return idx >= 0 && idx < order.length - 1 ? order[idx + 1] : null;
-}
 
 function tierAccent(tier: string): PortalAccent {
   return TIER_ACCENT[tier] ?? 'neutral';
@@ -155,6 +145,37 @@ function CopyInline({ text }: { text: string }) {
         <Copy className="h-3.5 w-3.5" />
       )}
     </button>
+  );
+}
+
+function PlanUsageTimeline({
+  timeline,
+  loading,
+  error,
+}: {
+  timeline: UsageTimeline | null;
+  loading: boolean;
+  error: string | null;
+}) {
+  const display = timeline ?? createPlaceholderUsageTimeline();
+  const hasRecentTraffic = display.points.some((point) => point.count > 0);
+
+  return (
+    <div className="border-t border-fade-section px-4 pb-1 pt-3 md:px-5">
+      <UsageSparkline
+        points={display.points}
+        bucketSec={display.bucketSec}
+        loading={loading && !timeline}
+      />
+      {error ? (
+        <p className="mt-1.5 portal-type-caption portal-amber-text">{error}</p>
+      ) : null}
+      {!error && !loading && timeline && !hasRecentTraffic ? (
+        <p className="mt-1.5 portal-type-caption text-muted-foreground/55">
+          No requests in the last hour — older totals are in the stats above.
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -210,6 +231,13 @@ export default function OnApiKeysPage() {
 
   const [keys, setKeys] = useState<ApiKeyInfo[]>([]);
   const [usage, setUsage] = useState<UsageSummary | null>(null);
+  const [usageTimeline, setUsageTimeline] = useState<UsageTimeline | null>(
+    null
+  );
+  const [usageTimelineLoading, setUsageTimelineLoading] = useState(false);
+  const [usageTimelineError, setUsageTimelineError] = useState<string | null>(
+    null
+  );
   const [keysLoading, setKeysLoading] = useState(false);
 
   const [newKey, setNewKey] = useState<CreateKeyResult | null>(null);
@@ -264,12 +292,56 @@ export default function OnApiKeysPage() {
     }
   }, [error]);
 
+  const refreshTimeline = useCallback(
+    async (token = jwt) => {
+      if (!token) return;
+      setUsageTimelineLoading(true);
+      try {
+        const timeline = await getUsageTimeline(token);
+        setUsageTimeline(timeline);
+        setUsageTimelineError(null);
+      } catch (err) {
+        const msg =
+          err instanceof Error ? err.message : 'Failed to load usage chart';
+        setUsageTimelineError(
+          msg.includes('404')
+            ? 'Live usage chart is not available on this gateway yet.'
+            : msg
+        );
+      } finally {
+        setUsageTimelineLoading(false);
+      }
+    },
+    [jwt]
+  );
+
+  const loadUsageTimeline = useCallback(async (token: string) => {
+    setUsageTimelineLoading(true);
+    try {
+      const timeline = await getUsageTimeline(token);
+      setUsageTimeline(timeline);
+      setUsageTimelineError(null);
+      return timeline;
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : 'Failed to load usage chart';
+      setUsageTimelineError(
+        msg.includes('404')
+          ? 'Live usage chart is not available on this gateway yet.'
+          : msg
+      );
+      return null;
+    } finally {
+      setUsageTimelineLoading(false);
+    }
+  }, []);
+
   const refresh = useCallback(async () => {
     if (!jwt) return;
     setKeysLoading(true);
     setError(null);
     try {
-      const [keyList, usageData, subData] = await Promise.all([
+      const [keyList, usageData, subData, timelineData] = await Promise.all([
         listApiKeys(jwt),
         getUsage(jwt).catch(() => null),
         fetchSubscription(jwt).catch(() => ({
@@ -277,9 +349,11 @@ export default function OnApiKeysPage() {
           tier: 'free' as string,
           admin: false,
         })),
+        loadUsageTimeline(jwt),
       ]);
       setKeys(keyList);
       setUsage(usageData);
+      if (timelineData) setUsageTimeline(timelineData);
       setSubscription(subData.subscription);
       setCurrentTier(subData.tier);
       setIsAdmin(!!subData.admin);
@@ -289,17 +363,20 @@ export default function OnApiKeysPage() {
         try {
           const token = await ensureAuth();
           if (token) {
-            const [keyList, usageData, subData] = await Promise.all([
-              listApiKeys(token),
-              getUsage(token).catch(() => null),
-              fetchSubscription(token).catch(() => ({
-                subscription: null,
-                tier: 'free' as string,
-                admin: false,
-              })),
-            ]);
+            const [keyList, usageData, subData, timelineData] =
+              await Promise.all([
+                listApiKeys(token),
+                getUsage(token).catch(() => null),
+                fetchSubscription(token).catch(() => ({
+                  subscription: null,
+                  tier: 'free' as string,
+                  admin: false,
+                })),
+                loadUsageTimeline(token),
+              ]);
             setKeys(keyList);
             setUsage(usageData);
+            if (timelineData) setUsageTimeline(timelineData);
             setSubscription(subData.subscription);
             setCurrentTier(subData.tier);
             setIsAdmin(!!subData.admin);
@@ -313,12 +390,15 @@ export default function OnApiKeysPage() {
     } finally {
       setKeysLoading(false);
     }
-  }, [jwt, ensureAuth, clearAuth]);
+  }, [jwt, ensureAuth, clearAuth, loadUsageTimeline]);
 
   useEffect(() => {
     if (!jwt || !accountId || !isConnected) {
       setKeys([]);
       setUsage(null);
+      setUsageTimeline(null);
+      setUsageTimelineError(null);
+      setUsageTimelineLoading(false);
       setNewKey(null);
       setShowNewKey(false);
       setError(null);
@@ -330,6 +410,19 @@ export default function OnApiKeysPage() {
 
     void refresh();
   }, [jwt, accountId, isConnected, refresh]);
+
+  useEffect(() => {
+    if (!jwt) return;
+
+    const tick = () => {
+      if (document.visibilityState === 'visible') {
+        void refreshTimeline();
+      }
+    };
+
+    const intervalId = window.setInterval(tick, 30_000);
+    return () => window.clearInterval(intervalId);
+  }, [jwt, refreshTimeline]);
 
   useEffect(() => {
     fetchPlansPublic().then((planList) => {
@@ -625,27 +718,11 @@ export default function OnApiKeysPage() {
                 </span>
               </StatStripCell>
             </StatStrip>
-            {(() => {
-              const budget = TIER_SUSTAINED_DAILY_PACE[currentTier] ?? 86_400;
-              const todayCount = usage?.today ?? 0;
-              const pct = budget > 0 ? todayCount / budget : 0;
-              const pctClamped = Math.min(pct, 1);
-              if (todayCount === 0) return null;
-              return (
-                <div className="px-4 pb-4 pt-3 md:px-5 md:pb-5">
-                  <div className="h-px w-full bg-border/40">
-                    <div
-                      className="h-full transition-all duration-500"
-                      style={{
-                        width: `${Math.max(pctClamped * 100, 1)}%`,
-                        backgroundColor: 'var(--muted-foreground)',
-                        opacity: 0.3,
-                      }}
-                    />
-                  </div>
-                </div>
-              );
-            })()}
+            <PlanUsageTimeline
+              timeline={usageTimeline}
+              loading={usageTimelineLoading}
+              error={usageTimelineError}
+            />
           </SurfacePanel>
         ) : (
           /* ── Dashboard: full plan card ── */
@@ -756,6 +833,12 @@ export default function OnApiKeysPage() {
               </StatStripCell>
             </StatStrip>
 
+            <PlanUsageTimeline
+              timeline={usageTimeline}
+              loading={usageTimelineLoading}
+              error={usageTimelineError}
+            />
+
             <div className="space-y-2 px-4 pb-4 pt-2 md:space-y-3 md:px-5 md:pb-5 md:pt-3">
               <p className="portal-type-caption text-muted-foreground/60 max-md:hidden">
                 Burst limit is enforced per minute, shared across your entire
@@ -773,61 +856,6 @@ export default function OnApiKeysPage() {
                   </p>
                 </>
               )}
-
-              {/* ── Volume bar (informational, not a cap) ── */}
-              {!isAdmin &&
-                subscription?.status !== 'cancelled' &&
-                (() => {
-                  const sustainedPace =
-                    TIER_SUSTAINED_DAILY_PACE[currentTier] ?? 86_400;
-                  const todayCount = usage?.today ?? 0;
-                  const pct =
-                    sustainedPace > 0 ? todayCount / sustainedPace : 0;
-                  const pctClamped = Math.min(pct, 1);
-                  const next = nextTierUp(currentTier);
-                  const nextAccent = next
-                    ? tierAccent(next)
-                    : tierAccent(currentTier);
-                  const showNudge = next && pct >= 0.8;
-                  const showVolumeBar =
-                    showNudge || usageRateLimitedToday(usage) > 0;
-                  if (!showVolumeBar && todayCount === 0) return null;
-                  return (
-                    <div>
-                      {(showNudge || usageRateLimitedToday(usage) > 0) && (
-                        <div className="flex flex-col gap-0.5 pb-1 md:flex-row md:items-center md:justify-between">
-                          <span className="portal-type-caption text-muted-foreground/50 max-md:hidden">
-                            Volume today (informational)
-                          </span>
-                          {showNudge && next && (
-                            <span className="portal-type-caption text-muted-foreground/60">
-                              {pct >= 1 ? 'High volume' : 'Heavy usage'}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                      <div className="h-px w-full bg-border/40">
-                        <div
-                          className="h-full transition-all duration-500"
-                          style={{
-                            width: `${Math.max(pctClamped * 100, 1)}%`,
-                            backgroundColor: showNudge
-                              ? portalColors[nextAccent]
-                              : 'var(--muted-foreground)',
-                            opacity: showNudge ? 1 : 0.3,
-                          }}
-                        />
-                      </div>
-                      {showNudge && next && (
-                        <p className="pt-1.5 portal-type-caption text-muted-foreground/60 max-md:hidden">
-                          {pct >= 1
-                            ? 'Consider upgrading for more burst headroom.'
-                            : 'Approaching sustained pace at your tier.'}
-                        </p>
-                      )}
-                    </div>
-                  );
-                })()}
 
               {subscription?.status === 'active' && (
                 <div>

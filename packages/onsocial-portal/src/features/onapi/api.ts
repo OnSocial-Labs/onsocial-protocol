@@ -30,6 +30,45 @@ export interface UsageSummary {
   byStatus?: Array<{ statusCode: number; count: number }>;
 }
 
+export interface UsageTimelinePoint {
+  t: string;
+  count: number;
+  rateLimited: number;
+}
+
+export interface UsageTimeline {
+  window: string;
+  bucketSec: number;
+  points: UsageTimelinePoint[];
+}
+
+const DEFAULT_TIMELINE_WINDOW_SEC = 60 * 60;
+const DEFAULT_TIMELINE_BUCKET_SEC = 60;
+
+export function createPlaceholderUsageTimeline(): UsageTimeline {
+  const now = Date.now();
+  const bucketMs = DEFAULT_TIMELINE_BUCKET_SEC * 1000;
+  const endBucketMs = Math.floor(now / bucketMs) * bucketMs;
+  const startMs =
+    endBucketMs -
+    (DEFAULT_TIMELINE_WINDOW_SEC - DEFAULT_TIMELINE_BUCKET_SEC) * 1000;
+  const points: UsageTimelinePoint[] = [];
+
+  for (let ms = startMs; ms <= endBucketMs; ms += bucketMs) {
+    points.push({
+      t: new Date(ms).toISOString(),
+      count: 0,
+      rateLimited: 0,
+    });
+  }
+
+  return {
+    window: '60m',
+    bucketSec: DEFAULT_TIMELINE_BUCKET_SEC,
+    points,
+  };
+}
+
 export function usageRateLimitedToday(usage: UsageSummary | null): number {
   if (!usage) return 0;
   if (typeof usage.rateLimitedToday === 'number') return usage.rateLimitedToday;
@@ -200,6 +239,33 @@ export async function getUsage(jwt: string): Promise<UsageSummary> {
   if (!res.ok) throw new Error('Failed to fetch usage');
 
   return (await res.json()) as UsageSummary;
+}
+
+export async function getUsageTimeline(
+  jwt: string,
+  params?: { window?: string; bucket?: string }
+): Promise<UsageTimeline> {
+  const search = new URLSearchParams();
+  if (params?.window) search.set('window', params.window);
+  if (params?.bucket) search.set('bucket', params.bucket);
+  const query = search.toString();
+
+  const res = await fetch(
+    `${GATEWAY_BASE}/developer/usage/timeline${query ? `?${query}` : ''}`,
+    {
+      headers: { Authorization: `Bearer ${jwt}` },
+    }
+  );
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(
+      (body as { error?: string }).error ??
+        `Failed to fetch usage timeline (${res.status})`
+    );
+  }
+
+  return (await res.json()) as UsageTimeline;
 }
 
 export async function rotateApiKey(

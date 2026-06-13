@@ -10,6 +10,23 @@
 
 import { config } from '../../config/index.js';
 import { logger } from '../../logger.js';
+import { Pool } from 'pg';
+import {
+  DEFAULT_TIMELINE,
+  buildUsageTimeline,
+  buildUsageTimelineFromRows,
+  type TimelineEntry,
+  type UsageTimeline,
+  type UsageTimelineParams,
+} from './timeline.js';
+
+export {
+  DEFAULT_TIMELINE,
+  parseTimelineQuery,
+  type UsageTimeline,
+  type UsageTimelinePoint,
+  type UsageTimelineParams,
+} from './timeline.js';
 
 // --- Types ---
 
@@ -42,6 +59,10 @@ export interface UsageSummary {
 interface UsageStore {
   record(entry: UsageRecord): void; // fire-and-forget, no await needed
   summarize(accountId: string): Promise<UsageSummary>;
+  timeline(
+    accountId: string,
+    params: UsageTimelineParams
+  ): Promise<UsageTimeline>;
 }
 
 // ============================================================================
@@ -117,6 +138,24 @@ class MemoryUsageStore implements UsageStore {
         .sort((a, b) => b.count - a.count),
     };
   }
+
+  async timeline(
+    accountId: string,
+    params: UsageTimelineParams
+  ): Promise<UsageTimeline> {
+    const now = new Date();
+    const since = new Date(now.getTime() - params.windowSec * 1000);
+    const entries: TimelineEntry[] = this.entries
+      .filter(
+        (entry) => entry.accountId === accountId && entry.createdAt >= since
+      )
+      .map((entry) => ({
+        createdAt: entry.createdAt,
+        statusCode: entry.statusCode,
+      }));
+
+    return buildUsageTimeline(entries, now, params);
+  }
 }
 
 // ============================================================================
@@ -126,10 +165,16 @@ class MemoryUsageStore implements UsageStore {
 class HasuraUsageStore implements UsageStore {
   private url: string;
   private secret: string;
+  private pool: Pool | null;
 
-  constructor(hasuraUrl: string, adminSecret: string) {
+  constructor(
+    hasuraUrl: string,
+    adminSecret: string,
+    pool: Pool | null = null
+  ) {
     this.url = hasuraUrl;
     this.secret = adminSecret;
+    this.pool = pool;
   }
 
   private async gql<T>(
@@ -269,20 +314,86 @@ class HasuraUsageStore implements UsageStore {
         .sort((a, b) => b.count - a.count),
     };
   }
+
+  async timeline(
+    accountId: string,
+    params: UsageTimelineParams
+  ): Promise<UsageTimeline> {
+    const now = new Date();
+    const since = new Date(now.getTime() - params.windowSec * 1000);
+
+    if (this.pool) {
+      const result = await this.pool.query<{
+        bucket_ms: string;
+        count: number;
+        rate_limited: number;
+      }>(
+        `SELECT
+           (floor(extract(epoch from created_at) / $3) * $3 * 1000)::bigint AS bucket_ms,
+           count(*)::int AS count,
+           count(*) FILTER (WHERE status_code = 429)::int AS rate_limited
+         FROM api_usage
+         WHERE account_id = $1
+           AND created_at >= $2
+         GROUP BY 1
+         ORDER BY 1 ASC`,
+        [accountId, since.toISOString(), params.bucketSec]
+      );
+
+      return buildUsageTimelineFromRows(
+        result.rows.map((row) => ({
+          bucketMs: Number(row.bucket_ms),
+          count: row.count,
+          rateLimited: row.rate_limited,
+        })),
+        now,
+        params
+      );
+    }
+
+    const rows = await this.gql<{
+      apiUsage: Array<{ createdAt: string; statusCode: number }>;
+    }>(
+      `query($acct: String!, $since: timestamptz!) {
+        apiUsage(
+          where: { accountId: { _eq: $acct }, createdAt: { _gte: $since } }
+          orderBy: { createdAt: ASC }
+          limit: 50000
+        ) { createdAt statusCode }
+      }`,
+      { acct: accountId, since: since.toISOString() }
+    );
+
+    const entries: TimelineEntry[] = rows.apiUsage.map((row) => ({
+      createdAt: new Date(row.createdAt),
+      statusCode: row.statusCode,
+    }));
+
+    return buildUsageTimeline(entries, now, params);
+  }
 }
 
 // ============================================================================
 // Singleton — auto-selects store based on config
 // ============================================================================
 
+const databaseUrl = process.env.DATABASE_URL;
+const usagePool = databaseUrl
+  ? new Pool({ connectionString: databaseUrl })
+  : null;
+
 const store: UsageStore = config.hasuraAdminSecret
-  ? new HasuraUsageStore(config.hasuraUrl, config.hasuraAdminSecret)
+  ? new HasuraUsageStore(config.hasuraUrl, config.hasuraAdminSecret, usagePool)
   : (() => {
       logger.info(
         'Usage metering: in-memory store (no HASURA_ADMIN_SECRET set)'
       );
       return new MemoryUsageStore();
     })();
+
+if (usagePool) {
+  logger.info('Usage metering timeline: PostgreSQL buckets enabled');
+}
 
 /** Fire-and-forget: record a single API usage entry. Never throws. */
 export function recordUsage(entry: UsageRecord): void {
@@ -298,4 +409,12 @@ export async function getUsageSummary(
   accountId: string
 ): Promise<UsageSummary> {
   return store.summarize(accountId);
+}
+
+/** Get time-bucketed usage for burst / spike monitoring. */
+export async function getUsageTimeline(
+  accountId: string,
+  params: UsageTimelineParams = DEFAULT_TIMELINE
+): Promise<UsageTimeline> {
+  return store.timeline(accountId, params);
 }

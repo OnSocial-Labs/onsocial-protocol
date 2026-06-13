@@ -12,6 +12,7 @@ const mockCreateApiKey = vi.fn();
 const mockListApiKeys = vi.fn();
 const mockRevokeApiKey = vi.fn();
 const mockGetUsageSummary = vi.fn();
+const mockGetUsageTimeline = vi.fn();
 const mockRegisterDeveloperApp = vi.fn();
 const mockListDeveloperApps = vi.fn();
 const mockDeleteDeveloperApp = vi.fn();
@@ -23,10 +24,18 @@ vi.mock('../../src/services/apikeys/index.js', () => ({
   resolveApiKey: vi.fn(),
 }));
 
-vi.mock('../../src/services/metering/index.js', () => ({
-  recordUsage: vi.fn(),
-  getUsageSummary: (...args: unknown[]) => mockGetUsageSummary(...args),
-}));
+vi.mock('../../src/services/metering/index.js', async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import('../../src/services/metering/index.js')
+    >();
+  return {
+    ...actual,
+    recordUsage: vi.fn(),
+    getUsageSummary: (...args: unknown[]) => mockGetUsageSummary(...args),
+    getUsageTimeline: (...args: unknown[]) => mockGetUsageTimeline(...args),
+  };
+});
 
 vi.mock('../../src/services/developer-apps/index.js', () => ({
   registerDeveloperApp: (...args: unknown[]) =>
@@ -253,6 +262,40 @@ describe('GET /developer/usage', () => {
 
     expect(res.status).toBe(500);
     expect(res.body.error).toMatch(/usage/i);
+  });
+});
+
+describe('GET /developer/usage/timeline', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('returns bucketed usage timeline', async () => {
+    const timeline = {
+      window: '60m',
+      bucketSec: 60,
+      points: [{ t: '2026-06-13T12:00:00.000Z', count: 12, rateLimited: 1 }],
+    };
+    mockGetUsageTimeline.mockResolvedValue(timeline);
+
+    const res = await request(
+      createApp({ accountId: 'alice.testnet', method: 'jwt' })
+    ).get('/developer/usage/timeline');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(timeline);
+    expect(mockGetUsageTimeline).toHaveBeenCalledWith('alice.testnet', {
+      windowSec: 3600,
+      bucketSec: 60,
+    });
+  });
+
+  it('returns 400 for invalid timeline params', async () => {
+    const res = await request(
+      createApp({ accountId: 'alice.testnet', method: 'jwt' })
+    ).get('/developer/usage/timeline?window=24h&bucket=1m');
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('INVALID_TIMELINE');
+    expect(mockGetUsageTimeline).not.toHaveBeenCalled();
   });
 });
 
