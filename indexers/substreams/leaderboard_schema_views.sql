@@ -495,7 +495,6 @@ WITH base AS (
     rs.mutual_standing,
     rs.endorsements_received,
     rs.boost,
-    rs.confidence_score,
     rs.lock_months,
     rs.rewards_earned,
     rs.total_posts,
