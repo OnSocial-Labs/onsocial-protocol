@@ -65,6 +65,7 @@ export interface ProfileSocialPreviewResult {
   accountId: string;
   viewerAccountId: string | null;
   counts: { incoming: number; outgoing: number; mutual: number };
+  endorsementCounts: { received: number; given: number };
   incoming: StandingListItem[];
   outgoing: StandingListItem[];
   mutual: StandingListItem[];
@@ -299,7 +300,11 @@ export class ProfilesQuery {
     const res = await this._q.graphql<{
       standingCounts: Array<{ standingWithCount: number }>;
       standingOutCounts: Array<{ standingWithOthersCount: number }>;
-      profileSearch: Array<{ mutualStandingCount: number }>;
+      profileSearch: Array<{
+        mutualStandingCount: number;
+        endorsementsReceivedCount: number;
+        endorsementsGivenCount: number;
+      }>;
       incomingPreview: Array<{
         accountId: string;
         targetAccount: string;
@@ -338,6 +343,8 @@ export class ProfilesQuery {
             }
             profileSearch(where: {accountId: {_eq: $accountId}}, limit: 1) {
               mutualStandingCount
+              endorsementsReceivedCount
+              endorsementsGivenCount
             }
             incomingPreview: standingsCurrent(
               where: {targetAccount: {_eq: $accountId}}
@@ -388,6 +395,8 @@ export class ProfilesQuery {
             }
             profileSearch(where: {accountId: {_eq: $accountId}}, limit: 1) {
               mutualStandingCount
+              endorsementsReceivedCount
+              endorsementsGivenCount
             }
             incomingPreview: standingsCurrent(
               where: {targetAccount: {_eq: $accountId}}
@@ -460,6 +469,8 @@ export class ProfilesQuery {
       peerAccountIds
     );
 
+    const subjectRow = res.data?.profileSearch?.[0];
+
     return {
       accountId,
       viewerAccountId,
@@ -468,7 +479,11 @@ export class ProfilesQuery {
         outgoing: Number(
           res.data?.standingOutCounts?.[0]?.standingWithOthersCount ?? 0
         ),
-        mutual: Number(res.data?.profileSearch?.[0]?.mutualStandingCount ?? 0),
+        mutual: Number(subjectRow?.mutualStandingCount ?? 0),
+      },
+      endorsementCounts: {
+        received: Number(subjectRow?.endorsementsReceivedCount ?? 0),
+        given: Number(subjectRow?.endorsementsGivenCount ?? 0),
       },
       incoming,
       outgoing,

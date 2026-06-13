@@ -153,7 +153,6 @@ function LiveRpmStatValue({
   tier: string;
 }) {
   const peak = rpm?.peak ?? 0;
-  const avg = rpm?.avgRpm ?? 0;
   const allowed =
     rpm?.peakAllowed ?? Math.max(0, peak - (rpm?.peakOverBy ?? 0));
   const denied = rpm?.peakOverBy ?? 0;
@@ -163,46 +162,31 @@ function LiveRpmStatValue({
   const allowedClass =
     overCap || nearCap ? 'portal-amber-text' : 'portal-blue-text';
   const title = overCap
-    ? `Busiest minute: ${peak.toLocaleString()} attempts, ${allowed.toLocaleString()} allowed, ${denied.toLocaleString()} denied`
-    : `Busiest minute: ${allowed.toLocaleString()} allowed of ${burstLimit.toLocaleString()} cap`;
+    ? `Busiest minute: ${allowed.toLocaleString()} allowed, ${denied.toLocaleString()} over limit (${burstLimit.toLocaleString()} cap)`
+    : `Busiest minute: ${allowed.toLocaleString()} of ${burstLimit.toLocaleString()} cap`;
 
   return (
     <span
       className="font-mono text-xs font-semibold tracking-tight md:text-sm"
       title={title}
     >
-      <span className="flex flex-col items-center gap-0.5 md:hidden">
-        <span className={allowedClass}>
+      <span className={overCap ? 'font-semibold' : allowedClass}>
+        <span className={overCap ? allowedClass : undefined}>
           {formatCompactUsage(allowed)}
-          <span className="text-muted-foreground/40">/</span>
-          <span style={{ color: tierColor }}>
-            {formatCompactUsage(burstLimit)}
-          </span>
-        </span>
-        {overCap ? (
-          <span className="portal-amber-text text-[10px] font-semibold leading-none">
-            {formatCompactUsage(denied)} denied
-          </span>
-        ) : null}
-      </span>
-      <span className="max-md:hidden">
-        <span className="text-muted-foreground/55">
-          {formatCompactUsage(avg)} avg
-        </span>
-        <span className="text-muted-foreground/30"> · </span>
-        <span className={allowedClass}>{formatCompactUsage(allowed)} ok</span>
-        <span className="text-muted-foreground/30"> / </span>
-        <span style={{ color: tierColor }}>
-          {formatCompactUsage(burstLimit)} cap
         </span>
         {overCap ? (
           <>
-            <span className="text-muted-foreground/30"> · </span>
+            <span className="text-muted-foreground/35"> / </span>
             <span className="portal-amber-text">
-              {formatCompactUsage(denied)} denied
+              {formatCompactUsage(denied)}
             </span>
           </>
         ) : null}
+        <span className="text-muted-foreground/40"> / </span>
+        <span style={{ color: tierColor }}>
+          {formatCompactUsage(burstLimit)}
+        </span>
+        <span className="max-md:hidden text-muted-foreground/45"> cap</span>
       </span>
     </span>
   );
@@ -281,7 +265,7 @@ function PlanUsageStatStrip({
   const showMonth = month !== today;
 
   const rpmCell = (
-    <StatStripCell label="RPM · last hr" mobileLabel="Ok / cap" showDivider>
+    <StatStripCell label="RPM · last hr" mobileLabel="Peak / cap" showDivider>
       <LiveRpmStatValue
         rpm={liveRpm}
         burstLimit={burstLimitRpm}
@@ -1047,22 +1031,14 @@ export default function OnApiKeysPage() {
             />
 
             <div className="space-y-2 px-4 pb-4 pt-2 md:space-y-3 md:px-5 md:pb-5 md:pt-3">
-              <p className="portal-type-caption text-muted-foreground/60 max-md:hidden">
-                {usageRateLimitedToday(usage) > 0 ? (
-                  <>
-                    <span className="portal-amber-text">
-                      Over limit today — cache, backoff, or upgrade.
-                    </span>{' '}
-                    Blue = allowed, amber = denied; dashed line = cap. Shared
-                    across all keys on this account.
-                  </>
-                ) : (
-                  <>
-                    Blue = allowed, amber = denied per minute; dashed line =
-                    cap. Shared across all keys on this account.
-                  </>
-                )}
-              </p>
+              {usageRateLimitedToday(usage) > 0 ? (
+                <p className="portal-type-caption text-muted-foreground/60 max-md:hidden">
+                  <span className="portal-amber-text">
+                    Over limit today — cache, backoff, or upgrade.
+                  </span>{' '}
+                  Shared across all keys on this account.
+                </p>
+              ) : null}
 
               {subscription?.status === 'active' && (
                 <div>

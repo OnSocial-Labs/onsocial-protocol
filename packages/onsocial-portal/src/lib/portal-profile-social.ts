@@ -20,6 +20,10 @@ export interface PortalProfileSocialPayload {
     outgoing: number;
     mutual: number;
   };
+  endorsementCounts: {
+    received: number;
+    given: number;
+  };
   mutual: Awaited<ReturnType<typeof mapStandingRowsToSummaries>>;
   incoming: Awaited<ReturnType<typeof mapStandingRowsToSummaries>>;
   outgoing: Awaited<ReturnType<typeof mapStandingRowsToSummaries>>;
@@ -98,6 +102,7 @@ export async function loadPortalProfileSocial(
     viewerStanding: preview.viewerStanding,
     theyStandWithViewer: preview.theyStandWithViewer,
     counts: preview.counts,
+    endorsementCounts: preview.endorsementCounts,
     mutual,
     incoming,
     outgoing,

@@ -43,6 +43,8 @@ function buildQuery(scope: LeaderboardScope, limit: number): string {
           accountId
           standingWith
           standingOut
+          mutualStanding
+          endorsementsReceived
           boost
           lockMonths
           rewardsEarned
@@ -61,6 +63,7 @@ function buildQuery(scope: LeaderboardScope, limit: number): string {
           consistencyScore
           scarcesScore
           reputation
+          confidenceScore
           rank
         }
       }`;

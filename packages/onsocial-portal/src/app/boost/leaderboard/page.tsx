@@ -289,7 +289,7 @@ function ScoreBreakdown({ entry }: { entry: ReputationEntry }) {
       accent: 'purple',
     },
     {
-      label: 'Standing',
+      label: 'Social',
       value: entry.socialScore,
       icon: Crown,
       accent: 'blue',

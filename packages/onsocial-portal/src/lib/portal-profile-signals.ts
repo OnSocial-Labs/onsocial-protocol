@@ -18,6 +18,8 @@ export async function loadPortalProfileSignals(
         accountId
         standingWith
         standingOut
+        mutualStanding
+        endorsementsReceived
         boost
         lockMonths
         rewardsEarned
@@ -36,6 +38,7 @@ export async function loadPortalProfileSignals(
         consistencyScore
         scarcesScore
         reputation
+        confidenceScore
         rank
       }
     }`,

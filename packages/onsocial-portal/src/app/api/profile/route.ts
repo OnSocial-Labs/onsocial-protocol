@@ -46,9 +46,17 @@ function getViewerAccountId(request: NextRequest): string | null {
   return accountId;
 }
 
-function wantsProfileBundle(request: NextRequest): boolean {
+interface ProfileBundleParts {
+  social: boolean;
+  signals: boolean;
+}
+
+function getBundleParts(request: NextRequest): ProfileBundleParts {
   const bundle = request.nextUrl.searchParams.get('bundle')?.trim() ?? '';
-  return bundle.includes('social') || bundle.includes('signals');
+  return {
+    social: bundle.includes('social'),
+    signals: bundle.includes('signals'),
+  };
 }
 
 function getErrorMessage(error: unknown): string {
@@ -66,9 +74,9 @@ function cacheHeaders(maxAgeSeconds: number): HeadersInit {
 async function loadProfileBundle(
   accountId: string,
   viewerAccountId: string | null,
-  includeBundle: boolean
+  parts: ProfileBundleParts
 ) {
-  const cacheKey = `${accountId}|${viewerAccountId ?? ''}|${includeBundle ? 'bundle' : 'core'}`;
+  const cacheKey = `${accountId}|${viewerAccountId ?? ''}|${parts.social ? 's' : ''}${parts.signals ? 'g' : ''}`;
 
   return profileBundleCache.getOrLoad(cacheKey, async () => {
     const os = createPortalServerOnSocialClient();
@@ -76,23 +84,31 @@ async function loadProfileBundle(
       loadPortalProfileCore(os, accountId)
     );
 
-    if (!includeBundle) {
+    if (!parts.social && !parts.signals) {
       return core;
     }
 
     const [social, signals] = await Promise.all([
-      loadPortalProfileSocial(os, accountId, viewerAccountId),
-      loadPortalProfileSignals(accountId),
+      parts.social
+        ? loadPortalProfileSocial(os, accountId, viewerAccountId)
+        : Promise.resolve(undefined),
+      parts.signals
+        ? loadPortalProfileSignals(accountId)
+        : Promise.resolve(undefined),
     ]);
 
-    return { ...core, social, signals };
+    return {
+      ...core,
+      ...(social ? { social } : {}),
+      ...(signals ? { signals } : {}),
+    };
   });
 }
 
 export async function GET(request: NextRequest) {
   const accountId = getAccountId(request);
   const viewerAccountId = getViewerAccountId(request);
-  const includeBundle = wantsProfileBundle(request);
+  const parts = getBundleParts(request);
   if (!accountId) {
     return NextResponse.json(
       { error: 'A valid accountId query parameter is required' },
@@ -101,14 +117,10 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const response = await loadProfileBundle(
-      accountId,
-      viewerAccountId,
-      includeBundle
-    );
+    const response = await loadProfileBundle(accountId, viewerAccountId, parts);
 
     return NextResponse.json(response, {
-      headers: cacheHeaders(includeBundle ? 30 : 45),
+      headers: cacheHeaders(parts.social || parts.signals ? 30 : 45),
     });
   } catch (error) {
     const detail = getErrorMessage(error);

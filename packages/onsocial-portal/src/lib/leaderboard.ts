@@ -28,11 +28,13 @@ export interface EarnerEntry {
   rank: number;
 }
 
-/** reputation_scores view */
+/** reputation_scores view (protocol reputation v1, testnet) */
 export interface ReputationEntry {
   accountId: string;
   standingWith: number;
   standingOut: number;
+  mutualStanding?: number;
+  endorsementsReceived?: number;
   boost: string;
   lockMonths: number;
   rewardsEarned: string;
@@ -51,6 +53,7 @@ export interface ReputationEntry {
   consistencyScore: string;
   scarcesScore: string;
   reputation: string;
+  confidenceScore?: string;
   rank: number;
 }
 
@@ -198,6 +201,41 @@ export function reputationTier(rank: number): {
   if (rank <= 10) return { label: 'Rising', accent: 'blue' };
   if (rank <= 25) return { label: 'Active', accent: 'green' };
   return { label: 'New', accent: 'neutral' };
+}
+
+/** Indexed-evidence confidence from reputation_scores.confidence_score (0–1). */
+export function reputationConfidenceLabel(
+  confidenceScore?: string | number | null
+): {
+  label: string;
+  detail: string;
+} {
+  const score = Number.parseFloat(String(confidenceScore ?? ''));
+  if (!Number.isFinite(score)) {
+    return {
+      label: 'Building',
+      detail:
+        'Reputation updates from indexed stands, endorsements, posts, boost, and marketplace activity.',
+    };
+  }
+  if (score < 0.35) {
+    return {
+      label: 'Limited data',
+      detail:
+        'Few on-chain signals indexed yet — rank may shift as activity grows.',
+    };
+  }
+  if (score < 0.6) {
+    return {
+      label: 'Building',
+      detail:
+        'Reputation is forming from indexed stands, posts, boost, and marketplace activity.',
+    };
+  }
+  return {
+    label: 'Established',
+    detail: 'Backed by a broad set of indexed protocol signals.',
+  };
 }
 
 /** Percent bar width (0–100) for a value against the leader */

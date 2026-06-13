@@ -368,7 +368,13 @@ describe('QueryModule', () => {
             data: {
               standingCounts: [{ standingWithCount: 3 }],
               standingOutCounts: [{ standingWithOthersCount: 2 }],
-              profileSearch: [{ mutualStandingCount: 1 }],
+              profileSearch: [
+                {
+                  mutualStandingCount: 1,
+                  endorsementsReceivedCount: 4,
+                  endorsementsGivenCount: 2,
+                },
+              ],
               incomingPreview: [
                 {
                   accountId: 'bob.near',
@@ -395,6 +401,7 @@ describe('QueryModule', () => {
       });
 
       expect(preview.counts).toEqual({ incoming: 3, outgoing: 2, mutual: 1 });
+      expect(preview.endorsementCounts).toEqual({ received: 4, given: 2 });
       expect(preview.incoming[0]?.accountId).toBe('bob.near');
       expect(preview.viewerStanding).toBe(true);
       expect(preview.peers[0]?.name).toBe('Bob');

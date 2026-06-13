@@ -114,6 +114,7 @@ export function UsageSparkline({
   const activeAllowed = activePoint
     ? Math.max(0, activePoint.count - activePoint.rateLimited)
     : 0;
+  const activeOver = activePoint?.rateLimited ?? 0;
 
   return (
     <div className={cn('w-full', className)}>
@@ -125,8 +126,8 @@ export function UsageSparkline({
               {formatCompactCount(stats.nowRpm)}
             </span>
           </span>
-          <span className="text-border/80 md:hidden">·</span>
-          <span className="md:hidden">
+          <span className="text-border/80">·</span>
+          <span>
             Avg{' '}
             <span className="font-mono text-xs font-semibold text-foreground/85">
               {formatCompactCount(stats.avgRpm)}
@@ -163,13 +164,19 @@ export function UsageSparkline({
             aria-live="polite"
           >
             <p className="font-mono text-[11px] font-semibold leading-none text-foreground">
-              {activeAllowed.toLocaleString()} ok
-              {activePoint.rateLimited > 0 ? (
-                <span className="portal-amber-text">
-                  {' '}
-                  · {activePoint.rateLimited.toLocaleString()} over
-                </span>
-              ) : null}
+              {activeOver > 0 ? (
+                <>
+                  <span className="portal-blue-text">
+                    {activeAllowed.toLocaleString()}
+                  </span>
+                  <span className="text-muted-foreground/35"> / </span>
+                  <span className="portal-amber-text">
+                    {activeOver.toLocaleString()}
+                  </span>
+                </>
+              ) : (
+                activeAllowed.toLocaleString()
+              )}
             </p>
             <p className="mt-0.5 portal-type-caption text-muted-foreground/60">
               <ChartTimeLabel time={formatBucketLabel(activePoint.t)} />
@@ -236,11 +243,11 @@ export function UsageSparkline({
                   !isActive && activeIndex != null && 'opacity-55',
                   overCap && !isActive && 'opacity-90'
                 )}
-                title={`${formatBucketLabel(point.t)} · ${allowed.toLocaleString()} ok${
+                title={
                   point.rateLimited > 0
-                    ? ` · ${point.rateLimited.toLocaleString()} over limit`
-                    : ''
-                }`}
+                    ? `${formatBucketLabel(point.t)} · ${allowed.toLocaleString()} / ${point.rateLimited.toLocaleString()}`
+                    : `${formatBucketLabel(point.t)} · ${allowed.toLocaleString()}`
+                }
                 aria-label={`${formatBucketLabel(point.t)}, ${allowed} allowed${
                   point.rateLimited > 0
                     ? `, ${point.rateLimited} over limit`
@@ -318,7 +325,7 @@ export function UsageSparkline({
           </span>
           <span className="inline-flex items-center gap-1">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-[color-mix(in_srgb,var(--portal-amber)_88%,transparent)]" />
-            Over limit
+            Over
           </span>
           {hasBurstLine ? (
             <span className="inline-flex items-center gap-1">

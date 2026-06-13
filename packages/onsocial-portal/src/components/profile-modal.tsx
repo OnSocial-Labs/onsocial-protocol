@@ -43,6 +43,7 @@ import {
 import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
 import {
   ProfileIdentityLoading,
+  ProfileSignalsSkeleton,
   ProfileSocialStripSkeleton,
   profileIdentityActionsClass,
   profileIdentityAvatarDockClass,
@@ -77,6 +78,7 @@ import {
   commitmentLabel,
   formatReputation,
   formatScore,
+  reputationConfidenceLabel,
   reputationTier,
   type ReputationEntry,
 } from '@/lib/leaderboard';
@@ -118,6 +120,7 @@ import {
   isWalletCancellationMessage,
 } from '@/lib/wallet-errors';
 import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
+import { useLazyInView } from '@/hooks/use-lazy-in-view';
 import {
   fetchProfileSupportBalanceYocto,
   formatSupportBalanceLabel,
@@ -142,6 +145,10 @@ interface ProfileSocialResponse {
     incoming: number;
     outgoing: number;
     mutual: number;
+  };
+  endorsementCounts: {
+    received: number;
+    given: number;
   };
   mutual: StandingAccountSummary[];
   incoming: StandingAccountSummary[];
@@ -313,34 +320,13 @@ async function fetchProfileSocial(
       outgoing: Number(body?.counts?.outgoing ?? 0),
       mutual: Number(body?.counts?.mutual ?? 0),
     },
+    endorsementCounts: {
+      received: Number(body?.endorsementCounts?.received ?? 0),
+      given: Number(body?.endorsementCounts?.given ?? 0),
+    },
     mutual: normalizeAccounts(body?.mutual),
     incoming: normalizeAccounts(body?.incoming),
     outgoing: normalizeAccounts(body?.outgoing),
-  };
-}
-
-async function fetchProfileSignals(
-  accountId: string
-): Promise<ProfileSignalsResponse> {
-  const response = await fetch(
-    `/api/profile/signals?accountId=${encodeURIComponent(accountId)}`,
-    { cache: 'no-store' }
-  );
-  const body = (await response.json().catch(() => null)) as
-    | (Partial<ProfileSignalsResponse> & { error?: string; detail?: string })
-    | null;
-
-  if (!response.ok) {
-    throw new Error(
-      body?.detail ??
-        body?.error ??
-        `Profile signals query failed (${response.status})`
-    );
-  }
-
-  return {
-    accountId,
-    reputation: body?.reputation ?? null,
   };
 }
 
@@ -937,6 +923,7 @@ function ProfileSignalsCard({ reputation }: { reputation: ReputationEntry }) {
   const rank = toFiniteNumber(reputation.rank);
   const tier = reputationTier(rank > 0 ? rank : 999);
   const lockMonths = toFiniteNumber(reputation.lockMonths);
+  const confidence = reputationConfidenceLabel(reputation.confidenceScore);
   const boosted = toFiniteNumber(reputation.boost) > 0;
   const earnedRewards = toFiniteNumber(reputation.rewardsEarned) > 0;
   const scarceActivity =
@@ -950,6 +937,10 @@ function ProfileSignalsCard({ reputation }: { reputation: ReputationEntry }) {
     earnedRewards ? 'SOCIAL earner' : null,
     scarceActivity > 0 ? 'Scarce creator' : null,
     postActivity > 0 ? 'Active contributor' : null,
+    toFiniteNumber(reputation.mutualStanding ?? 0) > 0 ? 'Mutual stand' : null,
+    toFiniteNumber(reputation.endorsementsReceived ?? 0) > 0
+      ? 'Endorsed'
+      : null,
   ].filter(Boolean) as string[];
 
   const dimensions = [
@@ -960,6 +951,7 @@ function ProfileSignalsCard({ reputation }: { reputation: ReputationEntry }) {
       value: toFiniteNumber(reputation.consistencyScore),
     },
     { label: 'Commitment', value: toFiniteNumber(reputation.commitmentScore) },
+    { label: 'Scarces', value: toFiniteNumber(reputation.scarcesScore) },
   ];
   const maxDimension = Math.max(
     1,
@@ -968,7 +960,7 @@ function ProfileSignalsCard({ reputation }: { reputation: ReputationEntry }) {
     )
   );
   const profileSignalLabel =
-    lockMonths >= 1 ? commitmentLabel(lockMonths) : 'Early signal';
+    lockMonths >= 1 ? commitmentLabel(lockMonths) : confidence.label;
 
   return (
     <div className="mt-4">
@@ -1010,13 +1002,22 @@ function ProfileSignalsCard({ reputation }: { reputation: ReputationEntry }) {
           </span>
         </div>
 
-        {/* Elegant single-line social proof */}
+        <p className="mt-1 portal-type-caption text-muted-foreground/50">
+          Protocol reputation · indexed on-chain signals (separate from season
+          rally score)
+        </p>
+
         <div className="mt-1.5 portal-type-body-sm text-muted-foreground/70">
           {formatCount(toFiniteNumber(reputation.totalPosts))} posts ·{' '}
           {formatCount(toFiniteNumber(reputation.reactionsReceived))} reactions
           · {formatCount(toFiniteNumber(reputation.activeDays))} active days ·{' '}
           {formatNumericCompact(reputation.rewardsEarned)} SOCIAL earned
+          <span className="text-muted-foreground/45"> (context only)</span>
         </div>
+
+        <p className="mt-1 portal-type-caption text-muted-foreground/45">
+          {confidence.detail}
+        </p>
 
         {/* Reputation personality mix — refined and human */}
         <div className="mt-3">
@@ -1366,6 +1367,10 @@ function applyProfileSocial(
       outgoing: Number(body.counts?.outgoing ?? 0),
       mutual: Number(body.counts?.mutual ?? 0),
     },
+    endorsementCounts: {
+      received: Number(body.endorsementCounts?.received ?? 0),
+      given: Number(body.endorsementCounts?.given ?? 0),
+    },
     incoming: normalizeAccounts(body.incoming),
     outgoing: normalizeAccounts(body.outgoing),
   };
@@ -1434,8 +1439,8 @@ export function ProfileModal({
   const [profileNetwork, setProfileNetwork] =
     useState<PortalProfileResponse['network']>(undefined);
   const [social, setSocial] = useState<ProfileSocialResponse | null>(null);
-  const [profileSignals, setProfileSignals] =
-    useState<ProfileSignalsResponse | null>(null);
+  const [reputation, setReputation] = useState<ReputationEntry | null>(null);
+  const [signalsReady, setSignalsReady] = useState(false);
   const [hasProfileLoaded, setHasProfileLoaded] = useState(() =>
     Boolean(shellForAccount)
   );
@@ -1463,7 +1468,6 @@ export function ProfileModal({
     trackTransaction: trackClaimTransaction,
   } = useNearTransactionFeedback(viewerAccountId);
   const latestSocialLoadRef = useRef(0);
-  const latestSignalsLoadRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const isSelf = Boolean(accountId && viewerAccountId === accountId);
   useBodyScrollLock(!isPage && active, scrollRef);
@@ -1488,6 +1492,9 @@ export function ProfileModal({
   const viewerStanding = Boolean(social?.viewerStanding);
   const theyStandWithViewer = Boolean(!isSelf && social?.theyStandWithViewer);
   const socialReady = Boolean(social || socialError);
+  const endorsementsLazy = useLazyInView({
+    enabled: active && Boolean(accountId),
+  });
 
   useEffect(() => {
     if (!isPage || !accountId || !onPageNavLabel) return;
@@ -1532,31 +1539,16 @@ export function ProfileModal({
     }
   }, [accountId, viewerAccountId]);
 
-  const refreshProfileSignals = useCallback(async () => {
-    if (!accountId) return;
-    const loadId = latestSignalsLoadRef.current + 1;
-    latestSignalsLoadRef.current = loadId;
-
-    try {
-      const result = await fetchProfileSignals(accountId);
-      if (latestSignalsLoadRef.current !== loadId) return;
-      setProfileSignals(result);
-    } catch {
-      if (latestSignalsLoadRef.current !== loadId) return;
-      setProfileSignals(null);
-    }
-  }, [accountId]);
-
   useEffect(() => {
     if (!active || !accountId) {
       latestSocialLoadRef.current += 1;
-      latestSignalsLoadRef.current += 1;
       return;
     }
 
     setSocial(null);
-    setProfileSignals(null);
     setSocialError(null);
+    setReputation(null);
+    setSignalsReady(false);
     setEndorsementCount(0);
     setGivenEndorsementCount(0);
     setViewerEndorsementCount(0);
@@ -1657,8 +1649,9 @@ export function ProfileModal({
 
     setProfileError(null);
     setSocial(null);
-    setProfileSignals(null);
     setSocialError(null);
+    setReputation(null);
+    setSignalsReady(false);
 
     void fetchPortalProfileBundle(accountId, viewerAccountId)
       .then((result) => {
@@ -1669,13 +1662,13 @@ export function ProfileModal({
         setFirstProfileTimestamp(result.firstProfileTimestamp);
         setLatestProfileUpdateFields(result.latestProfileUpdateFields);
         setProfileNetwork(result.network);
+        setReputation(result.signals?.reputation ?? null);
 
         const socialResult = applyProfileSocial(result.social);
         if (socialResult) {
           setSocial(socialResult);
-        }
-        if (result.signals) {
-          setProfileSignals(result.signals);
+          setEndorsementCount(socialResult.endorsementCounts.received);
+          setGivenEndorsementCount(socialResult.endorsementCounts.given);
         }
       })
       .catch((error) => {
@@ -1692,6 +1685,7 @@ export function ProfileModal({
       .finally(() => {
         if (!cancelled) {
           setHasProfileLoaded(true);
+          setSignalsReady(true);
         }
       });
 
@@ -2110,28 +2104,34 @@ export function ProfileModal({
                 ) : null}
               </AnimatePresence>
 
-              {profileSignals?.reputation ? (
-                <ProfileSignalsCard reputation={profileSignals.reputation} />
+              {!signalsReady ? (
+                <ProfileSignalsSkeleton />
+              ) : reputation ? (
+                <ProfileSignalsCard reputation={reputation} />
               ) : null}
 
-              <ProfileEndorsements
-                accountId={accountId}
-                viewerAccountId={viewerAccountId}
-                targetDisplayName={title}
-                targetAvatarUrl={avatarUrl}
-                selfAvatarUrl={selfAvatarUrl}
-                hasSocialSession={hasSocialSession}
-                onEndorse={onEndorse}
-                onRemoveEndorsement={onRemoveEndorsement}
-                pageLayout={isPage}
-                onSelectAccount={isPage ? undefined : onSelectAccount}
-                onEndorsementCountChange={setEndorsementCount}
-                onGivenCountChange={setGivenEndorsementCount}
-                hideEndorseAction
-                endorseModalOpen={endorseModalOpen}
-                onEndorseModalOpenChange={setEndorseModalOpen}
-                onViewerEndorsementCountChange={setViewerEndorsementCount}
-              />
+              <div ref={endorsementsLazy.ref} className="min-h-px">
+                {endorsementsLazy.inView ? (
+                  <ProfileEndorsements
+                    accountId={accountId}
+                    viewerAccountId={viewerAccountId}
+                    targetDisplayName={title}
+                    targetAvatarUrl={avatarUrl}
+                    selfAvatarUrl={selfAvatarUrl}
+                    hasSocialSession={hasSocialSession}
+                    onEndorse={onEndorse}
+                    onRemoveEndorsement={onRemoveEndorsement}
+                    pageLayout={isPage}
+                    onSelectAccount={isPage ? undefined : onSelectAccount}
+                    onEndorsementCountChange={setEndorsementCount}
+                    onGivenCountChange={setGivenEndorsementCount}
+                    hideEndorseAction
+                    endorseModalOpen={endorseModalOpen}
+                    onEndorseModalOpenChange={setEndorseModalOpen}
+                    onViewerEndorsementCountChange={setViewerEndorsementCount}
+                  />
+                ) : null}
+              </div>
             </div>
           </>
         )}

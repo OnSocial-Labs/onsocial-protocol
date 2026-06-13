@@ -137,3 +137,33 @@ export function ProfileSocialStripSkeleton() {
     </div>
   );
 }
+
+/** Reputation card placeholder while profile bundle loads signals. */
+export function ProfileSignalsSkeleton() {
+  return (
+    <div className="mt-4">
+      <div className="h-px divider-section" />
+      <div className="space-y-3 pt-3.5 pb-1">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <Skeleton className="h-6 w-14 rounded bg-foreground/10" />
+            <Skeleton className="h-5 w-16 rounded-full bg-foreground/[0.07]" />
+            <Skeleton className="h-3.5 w-8 rounded bg-foreground/[0.06]" />
+          </div>
+          <Skeleton className="h-5 w-20 shrink-0 rounded-full bg-foreground/[0.07]" />
+        </div>
+        <Skeleton className="h-3.5 w-full max-w-md rounded bg-foreground/[0.06]" />
+        <div className="space-y-1.5 pt-1">
+          <Skeleton className="h-3 w-24 rounded bg-foreground/[0.05]" />
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <Skeleton className="h-3 w-16 shrink-0 rounded bg-foreground/[0.05]" />
+              <Skeleton className="h-1 flex-1 rounded-full bg-foreground/[0.06]" />
+              <Skeleton className="h-3 w-7 shrink-0 rounded bg-foreground/[0.05]" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}

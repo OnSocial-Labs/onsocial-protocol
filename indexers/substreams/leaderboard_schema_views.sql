@@ -299,76 +299,46 @@ WHERE account_id IS NOT NULL AND account_id != ''
 GROUP BY account_id;
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 8. reputation_scores — composite reputation score per user
+-- 8. reputation_scores — composite reputation score per user (v1, testnet)
 -- ────────────────────────────────────────────────────────────────────────────
--- Combines: social reach × token commitment × content quality × consistency
--- Depends on: standing_counts, booster_state, leaderboard_rewards,
---             content_activity, scarces_activity
+-- Combines: social graph × token commitment × content quality × consistency
+--           × scarces marketplace activity.
+-- Depends on: standing_counts, mutual_standings_current, endorsements_current,
+--             booster_state, leaderboard_rewards, content_activity,
+--             scarces_activity
 --
--- Formula:
---   social      = 1 + ln(1 + standing_with)
---   commitment  = 1 + ln(1 + effective_boost / 1e18)
---   quality     = 1 + avg_reactions_per_post / 10
---   consistency = 1 + ln(1 + active_days) / ln(31)
---   scarces     = 1 + ln(1 + items_created + items_sold) / 10
---   reputation  = social × commitment × quality × consistency × scarces
+-- v1 formula (testnet):
+--   social_graph = standing_with + 2×mutual_standing + 0.5×endorsements_received
+--   social       = 1 + ln(1 + social_graph)
+--   commitment   = 1 + ln(1 + effective_boost / 1e18)
+--   quality      = 1 + (avg_reactions_per_post / 10) × min(total_posts / 5, 1)
+--   consistency  = 1 + ln(1 + active_days) / ln(31)
+--   scarces      = 1 + ln(1 + items_created + items_sold) / 10
+--   reputation   = social × commitment × quality × consistency × scarces
+--
+-- rewards_earned is exposed for context but does not enter the product.
+-- confidence_score estimates how much indexed evidence backs the rank.
 -- ────────────────────────────────────────────────────────────────────────────
 
 CREATE OR REPLACE VIEW reputation_scores AS
-SELECT
-  a.account_id,
-
-  -- Raw components
-  COALESCE(s.standing_with_count, 0)                          AS standing_with,
-  COALESCE(so.standing_with_others_count, 0)                  AS standing_out,
-  COALESCE(b.effective_boost, '0')::NUMERIC / 1e18            AS boost,
-  COALESCE(b.lock_months, 0)                                  AS lock_months,
-  COALESCE(r.total_earned, 0) / 1e18                         AS rewards_earned,
-  COALESCE(c.total_posts, 0)                                  AS total_posts,
-  COALESCE(c.reply_count, 0)                                  AS reply_count,
-  COALESCE(c.total_reactions_received, 0)                     AS reactions_received,
-  COALESCE(c.avg_reactions_per_post, 0)                       AS avg_reactions,
-  COALESCE(c.active_days, 0)                                  AS active_days,
-  COALESCE(c.unique_reply_targets, 0)                         AS unique_conversations,
-  COALESCE(n.items_created, 0)                                AS scarces_created,
-  COALESCE(n.items_sold, 0)                                   AS scarces_sold,
-  COALESCE(n.revenue_earned, 0) / 1e24                        AS scarces_revenue_near,
-
-  -- Dimension scores (exposed for debugging / per-dimension leaderboards)
-  ROUND((1.0 + LN(1.0 + COALESCE(s.standing_with_count, 0)))::NUMERIC, 4)
-                                                              AS social_score,
-  ROUND((1.0 + LN(1.0 + COALESCE(b.effective_boost, '0')::NUMERIC / 1e18))::NUMERIC, 4)
-                                                              AS commitment_score,
-  ROUND((1.0 + COALESCE(c.avg_reactions_per_post, 0)::NUMERIC / 10.0), 4)
-                                                              AS quality_score,
-  ROUND((1.0 + LN(1.0 + COALESCE(c.active_days, 0)::NUMERIC) / LN(31.0)), 4)
-                                                              AS consistency_score,
-  ROUND((1.0 + LN(1.0 + COALESCE(n.items_created, 0)::NUMERIC
-                      + COALESCE(n.items_sold, 0)::NUMERIC) / 10.0), 4)
-                                                              AS scarces_score,
-
-  -- Composite reputation
-  ROUND((
-    (1.0 + LN(1.0 + COALESCE(s.standing_with_count, 0)))
-    * (1.0 + LN(1.0 + COALESCE(b.effective_boost, '0')::NUMERIC / 1e18))
-    * (1.0 + COALESCE(c.avg_reactions_per_post, 0)::NUMERIC / 10.0)
-    * (1.0 + LN(1.0 + COALESCE(c.active_days, 0)::NUMERIC) / LN(31.0))
-    * (1.0 + LN(1.0 + COALESCE(n.items_created, 0)::NUMERIC
-                    + COALESCE(n.items_sold, 0)::NUMERIC) / 10.0)
-  )::NUMERIC, 4)                                              AS reputation,
-
-  RANK() OVER (ORDER BY
-    (1.0 + LN(1.0 + COALESCE(s.standing_with_count, 0)))
-    * (1.0 + LN(1.0 + COALESCE(b.effective_boost, '0')::NUMERIC / 1e18))
-    * (1.0 + COALESCE(c.avg_reactions_per_post, 0)::NUMERIC / 10.0)
-    * (1.0 + LN(1.0 + COALESCE(c.active_days, 0)::NUMERIC) / LN(31.0))
-    * (1.0 + LN(1.0 + COALESCE(n.items_created, 0)::NUMERIC
-                    + COALESCE(n.items_sold, 0)::NUMERIC) / 10.0)
-    DESC
-  )                                                           AS rank
-
-FROM (
-  -- Union all known accounts from every source
+WITH mutual_counts AS (
+  SELECT
+    account_id,
+    COUNT(*)::BIGINT AS mutual_standing
+  FROM mutual_standings_current
+  GROUP BY account_id
+),
+endorsement_received AS (
+  SELECT
+    target AS account_id,
+    COUNT(*)::BIGINT AS endorsements_received
+  FROM endorsements_current
+  WHERE operation = 'set'
+    AND target IS NOT NULL
+    AND target != ''
+  GROUP BY target
+),
+accounts AS (
   SELECT account_id FROM standing_counts
   UNION
   SELECT account_id FROM standing_out_counts
@@ -380,13 +350,127 @@ FROM (
   SELECT account_id FROM content_activity
   UNION
   SELECT account_id FROM scarces_activity
-) a
-LEFT JOIN standing_counts    s  ON s.account_id  = a.account_id
-LEFT JOIN standing_out_counts so ON so.account_id = a.account_id
-LEFT JOIN booster_state      b  ON b.account_id  = a.account_id
-LEFT JOIN leaderboard_rewards r ON r.account_id  = a.account_id
-LEFT JOIN content_activity   c  ON c.account_id  = a.account_id
-LEFT JOIN scarces_activity   n  ON n.account_id  = a.account_id;
+  UNION
+  SELECT account_id FROM mutual_counts
+  UNION
+  SELECT account_id FROM endorsement_received
+),
+joined AS (
+  SELECT
+    a.account_id,
+    COALESCE(s.standing_with_count, 0)                          AS standing_with,
+    COALESCE(so.standing_with_others_count, 0)                  AS standing_out,
+    COALESCE(mc.mutual_standing, 0)                             AS mutual_standing,
+    COALESCE(er.endorsements_received, 0)                       AS endorsements_received,
+    COALESCE(b.effective_boost, '0')::NUMERIC / 1e18            AS boost,
+    COALESCE(b.lock_months, 0)                                  AS lock_months,
+    COALESCE(r.total_earned, 0) / 1e18                         AS rewards_earned,
+    COALESCE(c.total_posts, 0)                                  AS total_posts,
+    COALESCE(c.reply_count, 0)                                  AS reply_count,
+    COALESCE(c.total_reactions_received, 0)                     AS reactions_received,
+    COALESCE(c.avg_reactions_per_post, 0)                       AS avg_reactions,
+    COALESCE(c.active_days, 0)                                  AS active_days,
+    COALESCE(c.unique_reply_targets, 0)                         AS unique_conversations,
+    COALESCE(n.items_created, 0)                                AS scarces_created,
+    COALESCE(n.items_sold, 0)                                   AS scarces_sold,
+    COALESCE(n.revenue_earned, 0) / 1e24                        AS scarces_revenue_near,
+    (
+      COALESCE(s.standing_with_count, 0)::NUMERIC
+      + 2.0 * COALESCE(mc.mutual_standing, 0)::NUMERIC
+      + 0.5 * COALESCE(er.endorsements_received, 0)::NUMERIC
+    )                                                           AS social_graph_points,
+    LEAST(
+      COALESCE(c.total_posts, 0)::NUMERIC / 5.0,
+      1.0
+    )                                                           AS quality_post_factor
+  FROM accounts a
+  LEFT JOIN standing_counts     s  ON s.account_id  = a.account_id
+  LEFT JOIN standing_out_counts so ON so.account_id = a.account_id
+  LEFT JOIN mutual_counts       mc ON mc.account_id = a.account_id
+  LEFT JOIN endorsement_received er ON er.account_id = a.account_id
+  LEFT JOIN booster_state       b  ON b.account_id  = a.account_id
+  LEFT JOIN leaderboard_rewards r ON r.account_id  = a.account_id
+  LEFT JOIN content_activity    c  ON c.account_id  = a.account_id
+  LEFT JOIN scarces_activity    n  ON n.account_id  = a.account_id
+),
+scored AS (
+  SELECT
+    joined.*,
+    ROUND((1.0 + LN(1.0 + social_graph_points))::NUMERIC, 4)  AS social_score,
+    ROUND((1.0 + LN(1.0 + boost))::NUMERIC, 4)                  AS commitment_score,
+    ROUND((
+      1.0
+      + (avg_reactions::NUMERIC / 10.0) * quality_post_factor
+    )::NUMERIC, 4)                                              AS quality_score,
+    ROUND((1.0 + LN(1.0 + active_days::NUMERIC) / LN(31.0)), 4)
+                                                                AS consistency_score,
+    ROUND((1.0 + LN(1.0 + scarces_created::NUMERIC
+                    + scarces_sold::NUMERIC) / 10.0), 4)        AS scarces_score
+  FROM joined
+),
+composite AS (
+  SELECT
+    scored.*,
+    ROUND((
+      social_score
+      * commitment_score
+      * quality_score
+      * consistency_score
+      * scarces_score
+    )::NUMERIC, 4)                                              AS reputation,
+    (
+      COALESCE(standing_with, 0)
+      + COALESCE(standing_out, 0)
+      + COALESCE(total_posts, 0)
+      + COALESCE(reply_count, 0)
+      + COALESCE(reactions_received, 0)
+      + COALESCE(scarces_created, 0)
+      + COALESCE(scarces_sold, 0)
+      + COALESCE(endorsements_received, 0)
+    )::NUMERIC                                                  AS evidence_points,
+    (
+      CASE WHEN COALESCE(standing_with, 0) + COALESCE(standing_out, 0) > 0 THEN 1 ELSE 0 END
+      + CASE WHEN boost > 0 THEN 1 ELSE 0 END
+      + CASE WHEN rewards_earned > 0 THEN 1 ELSE 0 END
+      + CASE WHEN COALESCE(total_posts, 0) + COALESCE(reply_count, 0)
+                  + COALESCE(reactions_received, 0) > 0 THEN 1 ELSE 0 END
+      + CASE WHEN COALESCE(scarces_created, 0) + COALESCE(scarces_sold, 0)
+                  + COALESCE(scarces_revenue_near, 0) > 0 THEN 1 ELSE 0 END
+      + CASE WHEN COALESCE(endorsements_received, 0) > 0 THEN 1 ELSE 0 END
+    )                                                           AS signal_sources
+  FROM scored
+)
+SELECT
+  account_id,
+  standing_with,
+  standing_out,
+  mutual_standing,
+  endorsements_received,
+  boost,
+  lock_months,
+  rewards_earned,
+  total_posts,
+  reply_count,
+  reactions_received,
+  avg_reactions,
+  active_days,
+  unique_conversations,
+  scarces_created,
+  scarces_sold,
+  scarces_revenue_near,
+  social_score,
+  commitment_score,
+  quality_score,
+  consistency_score,
+  scarces_score,
+  reputation,
+  ROUND((
+    LEAST(LN(1 + GREATEST(evidence_points, 0)) / LN(101), 1.0) * 0.55
+    + LEAST(active_days::NUMERIC / 14.0, 1.0) * 0.25
+    + LEAST(signal_sources::NUMERIC / 4.0, 1.0) * 0.20
+  )::NUMERIC, 4)                                                AS confidence_score,
+  RANK() OVER (ORDER BY reputation DESC)                        AS rank
+FROM composite;
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 9. leaderboard_agent_features — deterministic rank-consumer signals
@@ -408,7 +492,10 @@ WITH base AS (
     rs.scarces_score,
     rs.standing_with,
     rs.standing_out,
+    rs.mutual_standing,
+    rs.endorsements_received,
     rs.boost,
+    rs.confidence_score,
     rs.lock_months,
     rs.rewards_earned,
     rs.total_posts,
@@ -434,6 +521,7 @@ WITH base AS (
       + COALESCE(rs.reactions_received, 0)
       + COALESCE(rs.scarces_created, 0)
       + COALESCE(rs.scarces_sold, 0)
+      + COALESCE(rs.endorsements_received, 0)
       + COALESCE(lr.credit_count, 0)
     )::NUMERIC                                                 AS evidence_points,
     (
@@ -444,6 +532,7 @@ WITH base AS (
                   + COALESCE(rs.reactions_received, 0) > 0 THEN 1 ELSE 0 END
       + CASE WHEN COALESCE(rs.scarces_created, 0) + COALESCE(rs.scarces_sold, 0)
                   + COALESCE(rs.scarces_revenue_near, 0) > 0 THEN 1 ELSE 0 END
+      + CASE WHEN COALESCE(rs.endorsements_received, 0) > 0 THEN 1 ELSE 0 END
     )                                                           AS signal_sources
   FROM reputation_scores rs
   LEFT JOIN content_activity   c  ON c.account_id  = rs.account_id
@@ -469,7 +558,7 @@ WITH base AS (
     ROUND((
       LEAST(LN(1 + GREATEST(evidence_points, 0)) / LN(101), 1.0) * 0.55
       + LEAST(COALESCE(active_days, 0)::NUMERIC / 14.0, 1.0) * 0.25
-      + LEAST(COALESCE(signal_sources, 0)::NUMERIC / 3.0, 1.0) * 0.20
+      + LEAST(COALESCE(signal_sources, 0)::NUMERIC / 4.0, 1.0) * 0.20
     )::NUMERIC, 4)                                             AS confidence_score,
     ARRAY_REMOVE(ARRAY[
       CASE WHEN evidence_points < 5 THEN 'low_evidence' END,
