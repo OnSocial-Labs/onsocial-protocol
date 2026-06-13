@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { MaterialisedProfile } from '@onsocial/sdk';
 import { loadDiscoverIndexPage } from '@/lib/profile-discover-index';
 import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
+import {
+  isRateLimitError,
+  withRateLimitRetry,
+} from '@/lib/portal-request-cache';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -72,11 +76,8 @@ export async function GET(request: NextRequest) {
 
   try {
     const os = createPortalServerOnSocialClient();
-    const { profiles: profileRows, viewer } = await loadDiscoverIndexPage(
-      query,
-      limit,
-      offset,
-      viewerAccountId
+    const { profiles: profileRows, viewer } = await withRateLimitRetry(() =>
+      loadDiscoverIndexPage(query, limit, offset, viewerAccountId)
     );
 
     const viewerOutgoingSet = new Set(
@@ -141,10 +142,12 @@ export async function GET(request: NextRequest) {
       {
         error: missingKey
           ? 'Portal OnAPI key is not configured'
-          : 'Profile discovery failed',
+          : isRateLimitError(error)
+            ? 'Profile discovery is busy — try again shortly'
+            : 'Profile discovery failed',
         detail,
       },
-      { status: missingKey ? 503 : 502 }
+      { status: missingKey ? 503 : isRateLimitError(error) ? 429 : 502 }
     );
   }
 }

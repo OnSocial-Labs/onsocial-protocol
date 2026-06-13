@@ -22,7 +22,21 @@ export interface CreateKeyResult {
 export interface UsageSummary {
   today: number;
   thisMonth: number;
-  byEndpoint?: Record<string, number>;
+  rateLimitedToday?: number;
+  rateLimitedThisMonth?: number;
+  byEndpoint?:
+    | Record<string, number>
+    | Array<{ endpoint: string; count: number }>;
+  byStatus?: Array<{ statusCode: number; count: number }>;
+}
+
+export function usageRateLimitedToday(usage: UsageSummary | null): number {
+  if (!usage) return 0;
+  if (typeof usage.rateLimitedToday === 'number') return usage.rateLimitedToday;
+  const fromStatus = usage.byStatus?.find(
+    (row) => row.statusCode === 429
+  )?.count;
+  return fromStatus ?? 0;
 }
 
 // ── Gateway Auth ──────────────────────────────────────────────

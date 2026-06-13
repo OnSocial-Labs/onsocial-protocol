@@ -290,7 +290,7 @@ export default function OnApiPage() {
 
                     <div className="mt-3 space-y-0 px-5 md:px-6">
                       {[
-                        { label: 'Requests', val: tier.rate },
+                        { label: 'Burst / min', val: tier.rate },
                         { label: 'Depth', val: tier.depth },
                         { label: 'Complexity', val: tier.complexity },
                         { label: 'Rows', val: tier.rows },

@@ -226,6 +226,15 @@ function normalizeDiscoverResults(
   }));
 }
 
+function isDiscoverRateLimitResponse(
+  status: number,
+  body: { error?: string; detail?: string } | null
+): boolean {
+  if (status === 429) return true;
+  const message = `${body?.error ?? ''} ${body?.detail ?? ''}`;
+  return /HTTP 429|rate limit|busy/i.test(message);
+}
+
 async function fetchProfileDiscovery(
   query: string,
   viewerAccountId: string | null,
@@ -239,29 +248,43 @@ async function fetchProfileDiscovery(
   if (query.trim()) search.set('q', query.trim());
   if (viewerAccountId) search.set('viewerAccountId', viewerAccountId);
 
-  const response = await fetch(`/api/profile/discover?${search.toString()}`, {
-    cache: 'no-store',
-    signal,
-  });
-  const body = (await response.json().catch(() => null)) as
-    | (Partial<ProfileDiscoverResponse> & { error?: string; detail?: string })
-    | null;
+  const url = `/api/profile/discover?${search.toString()}`;
+  let lastError: Error | null = null;
 
-  if (!response.ok) {
-    throw new Error(
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt > 0) {
+      await new Promise((resolve) => {
+        window.setTimeout(resolve, 900);
+      });
+    }
+
+    const response = await fetch(url, { cache: 'no-store', signal });
+    const body = (await response.json().catch(() => null)) as
+      | (Partial<ProfileDiscoverResponse> & { error?: string; detail?: string })
+      | null;
+
+    if (response.ok) {
+      return {
+        query: body?.query ?? query,
+        limit: body?.limit ?? DISCOVERY_PAGE_SIZE,
+        offset: body?.offset ?? offset,
+        hasMore: Boolean(body?.hasMore),
+        results: normalizeDiscoverResults(body?.results),
+      };
+    }
+
+    lastError = new Error(
       body?.detail ??
         body?.error ??
         `Profile discovery failed (${response.status})`
     );
+
+    if (!isDiscoverRateLimitResponse(response.status, body)) {
+      throw lastError;
+    }
   }
 
-  return {
-    query: body?.query ?? query,
-    limit: body?.limit ?? DISCOVERY_PAGE_SIZE,
-    offset: body?.offset ?? offset,
-    hasMore: Boolean(body?.hasMore),
-    results: normalizeDiscoverResults(body?.results),
-  };
+  throw lastError ?? new Error('Profile discovery failed (429)');
 }
 
 function ProfileAvatar({

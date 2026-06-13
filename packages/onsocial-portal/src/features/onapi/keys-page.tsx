@@ -51,6 +51,7 @@ import {
   revokeApiKey,
   rotateApiKey,
   getUsage,
+  usageRateLimitedToday,
   type ApiKeyInfo,
   type CreateKeyResult,
   type UsageSummary,
@@ -88,8 +89,8 @@ const TIER_LIMITS: Record<string, string> = {
   service: '10,000 /min',
 };
 
-/** Daily request budget estimate (rate-limit × 1440 minutes). */
-const TIER_DAILY_BUDGET: Record<string, number> = {
+/** Sustained daily pace at tier burst (rate × 1440 min) — UX nudge only, not enforced. */
+const TIER_SUSTAINED_DAILY_PACE: Record<string, number> = {
   free: 86_400,
   pro: 864_000,
   scale: 4_320_000,
@@ -551,16 +552,17 @@ export default function OnApiKeysPage() {
   }
 
   return (
-    <PageShell className="max-w-3xl space-y-6">
+    <PageShell className="max-w-3xl space-y-4 md:space-y-6">
       <SecondaryPageHeader badge="API Keys" badgeAccent="purple" />
 
       <Link
         href="/onapi/apps"
         className="group -mt-2 flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
       >
-        <Boxes className="h-3.5 w-3.5" />
-        Manage app namespaces
-        <ArrowUpRight className="h-3 w-3 opacity-40 transition-all duration-150 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+        <Boxes className="h-3.5 w-3.5 shrink-0" />
+        <span className="md:hidden">Apps</span>
+        <span className="max-md:hidden">Manage app namespaces</span>
+        <ArrowUpRight className="h-3 w-3 shrink-0 opacity-40 transition-all duration-150 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
       </Link>
 
       {showDevBillingBypass && (
@@ -591,307 +593,381 @@ export default function OnApiKeysPage() {
       >
         {/* ── Upgrade / downgrade flow: minimal current-plan line ── */}
         {showUpgradePanel || requiresCancelFirst ? (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 px-1">
-              <span
-                className="inline-block h-2 w-2 rounded-full"
-                style={{
-                  backgroundColor: portalColors[tierAccent(currentTier)],
-                }}
-              />
-              <span
-                className="text-xs font-semibold uppercase tracking-[0.18em]"
-                style={{ color: portalColors[tierAccent(currentTier)] }}
-              >
-                {formatTierLabel(currentTier)}
-              </span>
-              <span className="portal-eyebrow text-muted-foreground">
-                Current plan
-              </span>
-              <span className="ml-auto font-mono portal-type-caption tabular-nums text-muted-foreground">
-                {(usage?.today ?? 0).toLocaleString()} today ·{' '}
-                {(usage?.thisMonth ?? 0).toLocaleString()} /mo
-              </span>
+          <SurfacePanel
+            radius="xl"
+            tone="soft"
+            padding="none"
+            className="overflow-hidden"
+          >
+            <div className="px-4 pt-4 pb-2 md:px-5 md:pt-5">
+              <div className="flex flex-wrap items-center gap-2">
+                <PortalBadge accent={tierAccent(currentTier)} size="sm">
+                  {formatTierLabel(currentTier)}
+                </PortalBadge>
+                <span className="portal-eyebrow text-muted-foreground">
+                  Current plan
+                </span>
+              </div>
             </div>
+            <StatStrip columns={2} mobileColumns={2}>
+              <StatStripCell
+                label="Logged today"
+                mobileLabel="Today"
+                showDivider
+              >
+                <span className="font-mono text-xs font-semibold tracking-tight portal-blue-text md:text-sm">
+                  {(usage?.today ?? 0).toLocaleString()}
+                </span>
+              </StatStripCell>
+              <StatStripCell label="This month" mobileLabel="Month">
+                <span className="font-mono text-xs font-semibold tracking-tight text-portal-neutral md:text-sm">
+                  {(usage?.thisMonth ?? 0).toLocaleString()}
+                </span>
+              </StatStripCell>
+            </StatStrip>
             {(() => {
-              const budget = TIER_DAILY_BUDGET[currentTier] ?? 86_400;
+              const budget = TIER_SUSTAINED_DAILY_PACE[currentTier] ?? 86_400;
               const todayCount = usage?.today ?? 0;
               const pct = budget > 0 ? todayCount / budget : 0;
               const pctClamped = Math.min(pct, 1);
+              if (todayCount === 0) return null;
               return (
-                <div className="h-px w-full bg-border/40">
-                  <div
-                    className="h-full transition-all duration-500"
-                    style={{
-                      width: `${Math.max(pctClamped * 100, 1)}%`,
-                      backgroundColor: 'var(--muted-foreground)',
-                      opacity: 0.3,
-                    }}
-                  />
+                <div className="px-4 pb-4 pt-3 md:px-5 md:pb-5">
+                  <div className="h-px w-full bg-border/40">
+                    <div
+                      className="h-full transition-all duration-500"
+                      style={{
+                        width: `${Math.max(pctClamped * 100, 1)}%`,
+                        backgroundColor: 'var(--muted-foreground)',
+                        opacity: 0.3,
+                      }}
+                    />
+                  </div>
                 </div>
               );
             })()}
-          </div>
+          </SurfacePanel>
         ) : (
           /* ── Dashboard: full plan card ── */
           <SurfacePanel
             radius="xl"
             tone="soft"
-            padding="roomy"
-            className="transition-[border-color,box-shadow] duration-200"
+            padding="none"
+            className="overflow-hidden transition-[border-color,box-shadow] duration-200"
             style={{
               borderColor: `color-mix(in srgb, ${portalColors[tierAccent(currentTier)]} 25%, transparent)`,
               boxShadow: `0 0 24px color-mix(in srgb, ${portalColors[tierAccent(currentTier)]} 8%, transparent)`,
             }}
           >
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="flex items-center gap-2">
-                <span
-                  className="inline-block h-2 w-2 rounded-full"
-                  style={{
-                    backgroundColor: portalColors[tierAccent(currentTier)],
-                  }}
-                />
-                <span
-                  className="text-xs font-semibold uppercase tracking-[0.18em]"
-                  style={{ color: portalColors[tierAccent(currentTier)] }}
-                >
-                  {formatTierLabel(currentTier)}
-                </span>
-              </span>
-              {isAdmin && (
-                <PortalBadge accent="gold" size="xs">
-                  Admin
-                </PortalBadge>
-              )}
-              {subscription &&
-                !['expired', 'pending'].includes(subscription.status) && (
-                  <span className="portal-eyebrow text-muted-foreground">
-                    {subscription.status === 'active'
-                      ? 'Active'
-                      : subscription.status === 'cancelled'
-                        ? 'Cancelling'
-                        : 'Past due'}
-                  </span>
-                )}
-              {subscription?.promotionCode && (
-                <PortalBadge accent="gold" size="xs">
-                  {subscription.promotionCode}
-                  {subscription.promotionCyclesRemaining > 0
-                    ? ` · ${subscription.promotionCyclesRemaining} left`
-                    : ''}
-                </PortalBadge>
-              )}
-              {subscription?.status === 'active' &&
-                subscription.currentPeriodEnd && (
-                  <span className="ml-auto portal-type-caption tabular-nums text-muted-foreground/50">
-                    Renews{' '}
-                    {new Date(
-                      subscription.currentPeriodEnd
-                    ).toLocaleDateString()}
-                  </span>
-                )}
-            </div>
-
-            {/* ── Stats row (always shown) ── */}
-            <div className="mt-3">
-              <StatStrip columns={3}>
-                <StatStripCell label="Rate limit" showDivider>
-                  <span
-                    className="font-mono text-sm font-semibold tracking-tight"
-                    style={{ color: portalColors[tierAccent(currentTier)] }}
-                  >
-                    {TIER_LIMITS[currentTier] ?? '60 /min'}
-                  </span>
-                </StatStripCell>
-                <StatStripCell label="Reqs today" showDivider>
-                  <span className="font-mono text-sm font-semibold tracking-tight portal-blue-text">
-                    {(usage?.today ?? 0).toLocaleString()}
-                  </span>
-                </StatStripCell>
-                <StatStripCell label="Reqs this month">
-                  <span className="font-mono text-sm font-semibold tracking-tight text-portal-neutral">
-                    {(usage?.thisMonth ?? 0).toLocaleString()}
-                  </span>
-                </StatStripCell>
-              </StatStrip>
-            </div>
-
-            {/* ── Usage bar (thin, directly under stats) ── */}
-            {!isAdmin &&
-              subscription?.status !== 'cancelled' &&
-              (() => {
-                const budget = TIER_DAILY_BUDGET[currentTier] ?? 86_400;
-                const todayCount = usage?.today ?? 0;
-                const pct = budget > 0 ? todayCount / budget : 0;
-                const pctClamped = Math.min(pct, 1);
-                const next = nextTierUp(currentTier);
-                const nextAccent = next
-                  ? tierAccent(next)
-                  : tierAccent(currentTier);
-                const showNudge = next && pct >= 0.8;
-                return (
-                  <div className="mt-0">
-                    <div className="h-px w-full bg-border/40">
-                      <div
-                        className="h-full transition-all duration-500"
-                        style={{
-                          width: `${Math.max(pctClamped * 100, 1)}%`,
-                          backgroundColor: showNudge
-                            ? portalColors[nextAccent]
-                            : 'var(--muted-foreground)',
-                          opacity: showNudge ? 1 : 0.3,
-                        }}
-                      />
-                    </div>
-                    {showNudge && next && (
-                      <div className="flex items-center justify-between pt-1.5">
-                        <span className="portal-type-caption text-muted-foreground/60">
-                          {pct >= 1
-                            ? 'Daily limit reached'
-                            : 'Nearing daily limit'}
-                        </span>
-                      </div>
+            <div className="px-4 pt-4 pb-2 md:px-5 md:pt-5">
+              <div className="flex flex-row flex-wrap items-center gap-x-2 gap-y-1 md:gap-3">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <PortalBadge accent={tierAccent(currentTier)} size="sm">
+                    {formatTierLabel(currentTier)}
+                  </PortalBadge>
+                  {isAdmin && (
+                    <PortalBadge accent="gold" size="xs">
+                      Admin
+                    </PortalBadge>
+                  )}
+                  {subscription &&
+                    !['expired', 'pending'].includes(subscription.status) && (
+                      <span className="text-xs text-muted-foreground md:text-sm">
+                        {subscription.status === 'active'
+                          ? 'Active'
+                          : subscription.status === 'cancelled'
+                            ? 'Cancelling'
+                            : 'Past due'}
+                      </span>
                     )}
-                  </div>
-                );
-              })()}
-
-            {subscription?.status === 'active' && (
-              <div className="mt-3">
-                {confirmCancel ? (
-                  <div className="flex items-center gap-2">
-                    <p className="flex-1 text-xs text-muted-foreground">
-                      You&apos;ll keep access until{' '}
+                  {subscription?.promotionCode && (
+                    <PortalBadge accent="gold" size="xs">
+                      {subscription.promotionCode}
+                      {subscription.promotionCyclesRemaining > 0
+                        ? ` · ${subscription.promotionCyclesRemaining} left`
+                        : ''}
+                    </PortalBadge>
+                  )}
+                </div>
+                {subscription?.status === 'active' &&
+                  subscription.currentPeriodEnd && (
+                    <span className="portal-type-caption tabular-nums text-muted-foreground/50 md:ml-auto">
+                      Renews{' '}
                       {new Date(
                         subscription.currentPeriodEnd
-                      ).toLocaleDateString()}
-                      . Sure?
-                    </p>
-                    <Button
-                      variant="destructive"
-                      size="xs"
-                      loading={cancelling}
-                      onClick={handleCancel}
-                    >
-                      Confirm
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      onClick={() => setConfirmCancel(false)}
-                    >
-                      Keep
-                    </Button>
-                  </div>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="xs"
-                    onClick={() => setConfirmCancel(true)}
-                    className="text-muted-foreground"
-                  >
-                    Cancel renewal
-                  </Button>
-                )}
+                      ).toLocaleDateString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                      })}
+                    </span>
+                  )}
               </div>
-            )}
+            </div>
 
-            {subscription?.status === 'cancelled' &&
-              (() => {
-                const start = new Date(
-                  subscription.currentPeriodStart
-                ).getTime();
-                const end = new Date(subscription.currentPeriodEnd).getTime();
-                const now = Date.now();
-                const total = end - start;
-                const elapsed = Math.max(0, now - start);
-                const pct = total > 0 ? Math.min(elapsed / total, 1) : 0;
-                const accentColor = portalColors[tierAccent(currentTier)];
-                const nearEnd = pct >= 0.75;
-                return (
-                  <div className="mt-3">
-                    <div className="h-px w-full bg-border/40">
-                      <div
-                        className="h-full transition-all duration-500"
-                        style={{
-                          width: `${Math.max(pct * 100, 1)}%`,
-                          backgroundColor: nearEnd
-                            ? accentColor
-                            : 'var(--muted-foreground)',
-                          opacity: nearEnd ? 0.7 : 0.3,
-                        }}
-                      />
+            <StatStrip
+              columns={4}
+              mobileColumns={4}
+              className="max-md:[&>div]:px-1 max-md:[&>div]:py-2"
+            >
+              <StatStripCell
+                label="Burst / min"
+                mobileLabel="Burst"
+                showDivider
+              >
+                <span
+                  className="font-mono text-xs font-semibold tracking-tight md:text-sm"
+                  style={{ color: portalColors[tierAccent(currentTier)] }}
+                >
+                  <span className="md:hidden">
+                    {(TIER_LIMITS[currentTier] ?? '60 /min').replace(
+                      ' /min',
+                      ''
+                    )}
+                  </span>
+                  <span className="max-md:hidden">
+                    {TIER_LIMITS[currentTier] ?? '60 /min'}
+                  </span>
+                </span>
+              </StatStripCell>
+              <StatStripCell label="429 today" mobileLabel="429" showDivider>
+                <span
+                  className={`font-mono text-xs font-semibold tracking-tight md:text-sm ${
+                    usageRateLimitedToday(usage) > 0
+                      ? 'portal-amber-text'
+                      : 'text-muted-foreground/70'
+                  }`}
+                >
+                  {usageRateLimitedToday(usage).toLocaleString()}
+                </span>
+              </StatStripCell>
+              <StatStripCell
+                label="Logged today"
+                mobileLabel="Today"
+                showDivider
+              >
+                <span className="font-mono text-xs font-semibold tracking-tight portal-blue-text md:text-sm">
+                  {(usage?.today ?? 0).toLocaleString()}
+                </span>
+              </StatStripCell>
+              <StatStripCell label="This month" mobileLabel="Month">
+                <span className="font-mono text-xs font-semibold tracking-tight text-portal-neutral md:text-sm">
+                  {(usage?.thisMonth ?? 0).toLocaleString()}
+                </span>
+              </StatStripCell>
+            </StatStrip>
+
+            <div className="space-y-2 px-4 pb-4 pt-2 md:space-y-3 md:px-5 md:pb-5 md:pt-3">
+              <p className="portal-type-caption text-muted-foreground/60 max-md:hidden">
+                Burst limit is enforced per minute, shared across your entire
+                app and all keys on this account. Logged counts are
+                informational — there is no daily request quota.
+              </p>
+              {usageRateLimitedToday(usage) > 0 && (
+                <>
+                  <p className="portal-type-caption portal-amber-text md:hidden">
+                    Rate limited — add backoff or upgrade.
+                  </p>
+                  <p className="portal-type-caption portal-amber-text max-md:hidden">
+                    Rate limited today — add backoff or caching, or upgrade for
+                    more burst headroom.
+                  </p>
+                </>
+              )}
+
+              {/* ── Volume bar (informational, not a cap) ── */}
+              {!isAdmin &&
+                subscription?.status !== 'cancelled' &&
+                (() => {
+                  const sustainedPace =
+                    TIER_SUSTAINED_DAILY_PACE[currentTier] ?? 86_400;
+                  const todayCount = usage?.today ?? 0;
+                  const pct =
+                    sustainedPace > 0 ? todayCount / sustainedPace : 0;
+                  const pctClamped = Math.min(pct, 1);
+                  const next = nextTierUp(currentTier);
+                  const nextAccent = next
+                    ? tierAccent(next)
+                    : tierAccent(currentTier);
+                  const showNudge = next && pct >= 0.8;
+                  const showVolumeBar =
+                    showNudge || usageRateLimitedToday(usage) > 0;
+                  if (!showVolumeBar && todayCount === 0) return null;
+                  return (
+                    <div>
+                      {(showNudge || usageRateLimitedToday(usage) > 0) && (
+                        <div className="flex flex-col gap-0.5 pb-1 md:flex-row md:items-center md:justify-between">
+                          <span className="portal-type-caption text-muted-foreground/50 max-md:hidden">
+                            Volume today (informational)
+                          </span>
+                          {showNudge && next && (
+                            <span className="portal-type-caption text-muted-foreground/60">
+                              {pct >= 1 ? 'High volume' : 'Heavy usage'}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      <div className="h-px w-full bg-border/40">
+                        <div
+                          className="h-full transition-all duration-500"
+                          style={{
+                            width: `${Math.max(pctClamped * 100, 1)}%`,
+                            backgroundColor: showNudge
+                              ? portalColors[nextAccent]
+                              : 'var(--muted-foreground)',
+                            opacity: showNudge ? 1 : 0.3,
+                          }}
+                        />
+                      </div>
+                      {showNudge && next && (
+                        <p className="pt-1.5 portal-type-caption text-muted-foreground/60 max-md:hidden">
+                          {pct >= 1
+                            ? 'Consider upgrading for more burst headroom.'
+                            : 'Approaching sustained pace at your tier.'}
+                        </p>
+                      )}
                     </div>
-                    <div className="flex items-center justify-between pt-2">
-                      <span className="text-xs text-muted-foreground/70">
-                        {formatTierLabel(subscription.tier)} until{' '}
+                  );
+                })()}
+
+              {subscription?.status === 'active' && (
+                <div>
+                  {confirmCancel ? (
+                    <div className="flex items-center gap-2">
+                      <p className="flex-1 text-xs text-muted-foreground">
+                        You&apos;ll keep access until{' '}
                         {new Date(
                           subscription.currentPeriodEnd
                         ).toLocaleDateString()}
-                      </span>
-                      <span className="portal-type-label font-medium tracking-[0.08em] text-muted-foreground/50">
-                        then Free
-                      </span>
+                        . Sure?
+                      </p>
+                      <Button
+                        variant="destructive"
+                        size="xs"
+                        loading={cancelling}
+                        onClick={handleCancel}
+                      >
+                        Confirm
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        onClick={() => setConfirmCancel(false)}
+                      >
+                        Keep
+                      </Button>
                     </div>
-                  </div>
-                );
-              })()}
-
-            {subscription?.status === 'past_due' && (
-              <p className="mt-3 text-xs portal-red-text">
-                Payment didn&apos;t go through — resubscribe to keep your plan.
-              </p>
-            )}
-
-            {subscription?.graceTier &&
-              subscription.gracePeriodEnd &&
-              new Date(subscription.gracePeriodEnd) > new Date() && (
-                <div className="mt-3 flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground/70">
-                    {formatTierLabel(subscription.graceTier)} limits until{' '}
-                    {new Date(subscription.gracePeriodEnd).toLocaleDateString()}
-                  </span>
-                  <span className="portal-type-label font-medium tracking-[0.08em] text-muted-foreground/50">
-                    then {formatTierLabel(subscription.tier)}
-                  </span>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      onClick={() => setConfirmCancel(true)}
+                      className="text-muted-foreground"
+                    >
+                      Cancel renewal
+                    </Button>
+                  )}
                 </div>
               )}
 
-            {/* ── Subtle inline upgrade options ── */}
-            {!requestedTier &&
-              !isAdmin &&
-              subscription?.status !== 'past_due' &&
-              (() => {
-                const upgrades = (['pro', 'scale'] as const).filter(
-                  (t) => tierRank(t) > tierRank(currentTier)
-                );
-                if (upgrades.length === 0) return null;
-                return (
-                  <div className="mt-3 flex items-center gap-2">
-                    <div className="h-px flex-1 bg-border/20" />
-                    {upgrades.map((t) => (
-                      <a
-                        key={t}
-                        href={`/onapi/keys?tier=${t}`}
-                        className="group/chip inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 portal-type-label font-medium tracking-[0.04em] transition-all duration-150 hover:shadow-sm"
-                        style={{
-                          color: portalColors[tierAccent(t)],
-                          backgroundColor: `color-mix(in srgb, ${portalColors[tierAccent(t)]} 8%, transparent)`,
-                          borderWidth: 1,
-                          borderColor: `color-mix(in srgb, ${portalColors[tierAccent(t)]} 15%, transparent)`,
-                        }}
-                      >
-                        {formatTierLabel(t)}
-                        <span className="portal-type-caption font-normal opacity-60">
-                          {TIER_LIMITS[t]}
+              {subscription?.status === 'cancelled' &&
+                (() => {
+                  const start = new Date(
+                    subscription.currentPeriodStart
+                  ).getTime();
+                  const end = new Date(subscription.currentPeriodEnd).getTime();
+                  const now = Date.now();
+                  const total = end - start;
+                  const elapsed = Math.max(0, now - start);
+                  const pct = total > 0 ? Math.min(elapsed / total, 1) : 0;
+                  const accentColor = portalColors[tierAccent(currentTier)];
+                  const nearEnd = pct >= 0.75;
+                  return (
+                    <div>
+                      <div className="h-px w-full bg-border/40">
+                        <div
+                          className="h-full transition-all duration-500"
+                          style={{
+                            width: `${Math.max(pct * 100, 1)}%`,
+                            backgroundColor: nearEnd
+                              ? accentColor
+                              : 'var(--muted-foreground)',
+                            opacity: nearEnd ? 0.7 : 0.3,
+                          }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between pt-2">
+                        <span className="text-xs text-muted-foreground/70">
+                          {formatTierLabel(subscription.tier)} until{' '}
+                          {new Date(
+                            subscription.currentPeriodEnd
+                          ).toLocaleDateString()}
                         </span>
-                        <ArrowUpRight className="h-2.5 w-2.5 opacity-40 transition-all duration-150 group-hover/chip:opacity-100 group-hover/chip:translate-x-0.5 group-hover/chip:-translate-y-0.5" />
-                      </a>
-                    ))}
+                        <span className="portal-type-label font-medium tracking-[0.08em] text-muted-foreground/50">
+                          then Free
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+              {subscription?.status === 'past_due' && (
+                <p className="text-xs portal-red-text">
+                  Payment didn&apos;t go through — resubscribe to keep your
+                  plan.
+                </p>
+              )}
+
+              {subscription?.graceTier &&
+                subscription.gracePeriodEnd &&
+                new Date(subscription.gracePeriodEnd) > new Date() && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground/70">
+                      {formatTierLabel(subscription.graceTier)} limits until{' '}
+                      {new Date(
+                        subscription.gracePeriodEnd
+                      ).toLocaleDateString()}
+                    </span>
+                    <span className="portal-type-label font-medium tracking-[0.08em] text-muted-foreground/50">
+                      then {formatTierLabel(subscription.tier)}
+                    </span>
                   </div>
-                );
-              })()}
+                )}
+
+              {/* ── Subtle inline upgrade options ── */}
+              {!requestedTier &&
+                !isAdmin &&
+                subscription?.status !== 'past_due' &&
+                (() => {
+                  const upgrades = (['pro', 'scale'] as const).filter(
+                    (t) => tierRank(t) > tierRank(currentTier)
+                  );
+                  if (upgrades.length === 0) return null;
+                  return (
+                    <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-0.5 md:mx-0 md:overflow-visible md:px-0">
+                      <div className="hidden h-px min-w-4 flex-1 bg-border/20 md:block" />
+                      {upgrades.map((t) => (
+                        <a
+                          key={t}
+                          href={`/onapi/keys?tier=${t}`}
+                          className="group/chip inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 portal-type-label font-medium tracking-[0.04em] transition-all duration-150 hover:shadow-sm"
+                          style={{
+                            color: portalColors[tierAccent(t)],
+                            backgroundColor: `color-mix(in srgb, ${portalColors[tierAccent(t)]} 8%, transparent)`,
+                            borderWidth: 1,
+                            borderColor: `color-mix(in srgb, ${portalColors[tierAccent(t)]} 15%, transparent)`,
+                          }}
+                        >
+                          {formatTierLabel(t)}
+                          <span className="portal-type-caption font-normal opacity-60 max-md:hidden">
+                            {TIER_LIMITS[t]}
+                          </span>
+                          <ArrowUpRight className="h-2.5 w-2.5 opacity-40 transition-all duration-150 group-hover/chip:opacity-100 group-hover/chip:translate-x-0.5 group-hover/chip:-translate-y-0.5" />
+                        </a>
+                      ))}
+                    </div>
+                  );
+                })()}
+            </div>
           </SurfacePanel>
         )}
       </motion.div>
@@ -915,7 +991,7 @@ export default function OnApiKeysPage() {
                 }}
               >
                 {/* ── Card header: tier name + price ── */}
-                <div className="px-5 pt-5 pb-1">
+                <div className="px-4 pt-4 pb-1 md:px-5 md:pt-5">
                   <div className="flex items-center justify-between gap-3">
                     <h3
                       className="text-lg font-bold tracking-[-0.02em]"
@@ -963,9 +1039,9 @@ export default function OnApiKeysPage() {
                 </div>
 
                 {/* ── Key specs (checkout-focused) ── */}
-                <StatStrip columns={2} className="mt-2">
+                <StatStrip columns={2}>
                   <StatStripCell
-                    label="Requests"
+                    label="Burst / min"
                     value={`${targetPlan.rateLimit.toLocaleString()} /min`}
                     showDivider
                   />
@@ -981,7 +1057,7 @@ export default function OnApiKeysPage() {
                 </StatStrip>
 
                 {/* ── Email + checkout ── */}
-                <div className="space-y-2.5 px-5 pt-3 pb-5">
+                <div className="space-y-2.5 px-4 pt-3 pb-4 md:px-5 md:pb-5">
                   <div>
                     <SurfacePanel
                       radius="md"
@@ -1429,7 +1505,7 @@ export default function OnApiKeysPage() {
           >
             <button
               onClick={() => setQuickStartOpen((open) => !open)}
-              className="group flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
+              className="group flex w-full items-center justify-between gap-3 px-4 py-3 text-left md:px-5 md:py-4"
               aria-expanded={quickStartExpanded}
             >
               <h3 className="portal-eyebrow-wide text-muted-foreground">
@@ -1450,7 +1526,7 @@ export default function OnApiKeysPage() {
                   className="overflow-hidden"
                 >
                   <div className="h-px divider-section" />
-                  <div className="space-y-3 px-5 pb-5 pt-4 text-xs text-muted-foreground">
+                  <div className="space-y-3 px-4 pb-4 pt-3 text-xs text-muted-foreground md:px-5 md:pb-5 md:pt-4">
                     <pre className="overflow-x-auto rounded-lg border border-border/30 bg-background/40 px-3 py-2 font-mono portal-type-label leading-relaxed text-foreground">
                       {`import { OnSocial } from '@onsocial/sdk';
 const os = new OnSocial({ apiKey: 'onsocial_...' });`}

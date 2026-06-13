@@ -72,6 +72,23 @@ const PROFILE_SEARCH_FIELDS = `
   lastProfileBlock lastProfileTimestamp lastActivityBlock
 `;
 
+function mapOutgoingStandingRows(
+  rows: Array<{
+    accountId: string;
+    targetAccount: string;
+    value: string | null;
+    blockHeight: number;
+    blockTimestamp: number;
+  }>
+): ProfileDiscoverStandingRow[] {
+  return rows.map((row) => ({
+    accountId: row.accountId,
+    targetAccount: row.targetAccount,
+    since: parseStandingSince(row.value),
+    blockTimestamp: Number(row.blockTimestamp) || 0,
+  }));
+}
+
 export class ProfilesQuery {
   constructor(private _q: QueryModule) {}
 
@@ -185,7 +202,8 @@ export class ProfilesQuery {
   /**
    * Discover page — searchable profiles plus optional viewer graph context.
    * Without `viewerAccountId`, delegates to {@link search} (one round-trip).
-   * With a viewer, batches profile search + standings + endorsements in one query.
+   * With a viewer, search then one batched standings + endorsements query
+   * (two round-trips; skips the context query when the page is empty).
    *
    * ```ts
    * const page = await os.query.profiles.discoverPage({
@@ -211,8 +229,11 @@ export class ProfilesQuery {
       return { profiles, viewer: null };
     }
 
-    const query = opts.query?.trim();
-    const profiles = await this.search({ query, limit, offset });
+    const profiles = await this.search({
+      query: opts.query,
+      limit,
+      offset,
+    });
     const targetIds = profiles.map((row) => row.accountId);
 
     if (targetIds.length === 0) {
@@ -226,25 +247,77 @@ export class ProfilesQuery {
       };
     }
 
-    const [outgoing, incomingAccountIds, endorsementIssuers] =
-      await Promise.all([
-        this._q.standings.outgoingTargetsAmong(viewerAccountId, targetIds),
-        this._q.standings.incomingSourcesAmong(viewerAccountId, targetIds),
-        this._q.endorsements.issuersAmong(viewerAccountId, targetIds),
-      ]);
+    const viewer = await this.loadDiscoverViewerContext(
+      viewerAccountId,
+      targetIds
+    );
+    return { profiles, viewer };
+  }
+
+  private async loadDiscoverViewerContext(
+    viewerAccountId: string,
+    targetIds: string[]
+  ): Promise<ProfileDiscoverViewerContext> {
+    const targets = [
+      ...new Set(targetIds.map((id) => id.trim()).filter(Boolean)),
+    ];
+    if (targets.length === 0) {
+      return {
+        outgoing: [],
+        incomingAccountIds: [],
+        endorsementIssuers: [],
+      };
+    }
+
+    const res = await this._q.graphql<{
+      viewerOutgoing: Array<{
+        accountId: string;
+        targetAccount: string;
+        value: string | null;
+        blockHeight: number;
+        blockTimestamp: number;
+      }>;
+      viewerIncoming: Array<{ accountId: string }>;
+      viewerEndorsements: Array<{ issuer: string }>;
+    }>({
+      query: `query ProfileDiscoverViewerContext($viewer: String!, $pageAccountIds: [String!]!) {
+        viewerOutgoing: standingsCurrent(
+          where: {
+            accountId: {_eq: $viewer},
+            targetAccount: {_in: $pageAccountIds}
+          }
+        ) {
+          accountId targetAccount value blockHeight blockTimestamp
+        }
+        viewerIncoming: standingsCurrent(
+          where: {
+            targetAccount: {_eq: $viewer},
+            accountId: {_in: $pageAccountIds}
+          }
+        ) {
+          accountId
+        }
+        viewerEndorsements: endorsementsCurrent(
+          where: {
+            target: {_eq: $viewer},
+            issuer: {_in: $pageAccountIds},
+            operation: {_eq: "set"}
+          }
+        ) {
+          issuer
+        }
+      }`,
+      variables: { viewer: viewerAccountId, pageAccountIds: targets },
+    });
 
     return {
-      profiles,
-      viewer: {
-        outgoing: outgoing.map((row) => ({
-          accountId: row.accountId,
-          targetAccount: row.targetAccount,
-          since: row.since,
-          blockTimestamp: row.blockTimestamp,
-        })),
-        incomingAccountIds,
-        endorsementIssuers,
-      },
+      outgoing: mapOutgoingStandingRows(res.data?.viewerOutgoing ?? []),
+      incomingAccountIds: (res.data?.viewerIncoming ?? []).map(
+        (row) => row.accountId
+      ),
+      endorsementIssuers: (res.data?.viewerEndorsements ?? []).map(
+        (row) => row.issuer
+      ),
     };
   }
 }

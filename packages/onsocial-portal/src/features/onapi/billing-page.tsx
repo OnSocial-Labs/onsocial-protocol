@@ -440,7 +440,7 @@ export default function BillingPage() {
 
             <StatStrip columns={2} className="mb-2">
               <StatStripCell
-                label="Requests"
+                label="Burst / min"
                 value={`${targetPlan.rateLimit.toLocaleString()} /min`}
                 showDivider
               />

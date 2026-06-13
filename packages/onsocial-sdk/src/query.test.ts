@@ -250,45 +250,48 @@ describe('QueryModule', () => {
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
-    it('discoverPage with viewer batches graph context for page targets only', async () => {
-      const { os, fetch } = makeOs({
-        data: {
-          profileSearch: [
-            {
-              accountId: 'carol.near',
-              name: 'Carol',
-              bio: null,
-              avatar: null,
-              banner: null,
-              standingCount: 1,
-              standingWithCount: 1,
-              mutualStandingCount: 0,
-              endorsementsReceivedCount: 0,
-              endorsementsGivenCount: 0,
-              firstProfileTimestamp: 1,
-              lastProfileBlock: 1,
-              lastProfileTimestamp: 1,
-              lastActivityBlock: 1,
+    it('discoverPage with viewer uses search plus one batched context query', async () => {
+      const { os, fetch } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        if (query.includes('ProfileDiscoverViewerContext')) {
+          return {
+            data: {
+              viewerOutgoing: [
+                {
+                  accountId: 'bob.near',
+                  targetAccount: 'carol.near',
+                  value: '{"since":42}',
+                  blockHeight: 1,
+                  blockTimestamp: 9,
+                },
+              ],
+              viewerIncoming: [{ accountId: 'carol.near' }],
+              viewerEndorsements: [{ issuer: 'carol.near' }],
             },
-          ],
-          standingsCurrent: [
-            {
-              accountId: 'bob.near',
-              targetAccount: 'carol.near',
-              value: '{"since":42}',
-              blockHeight: 1,
-              blockTimestamp: 9,
-            },
-            {
-              accountId: 'carol.near',
-              targetAccount: 'bob.near',
-              value: '{"since":7}',
-              blockHeight: 1,
-              blockTimestamp: 8,
-            },
-          ],
-          endorsementsCurrent: [{ issuer: 'carol.near' }],
-        },
+          };
+        }
+        return {
+          data: {
+            profileSearch: [
+              {
+                accountId: 'carol.near',
+                name: 'Carol',
+                bio: null,
+                avatar: null,
+                banner: null,
+                standingCount: 1,
+                standingWithCount: 1,
+                mutualStandingCount: 0,
+                endorsementsReceivedCount: 0,
+                endorsementsGivenCount: 0,
+                firstProfileTimestamp: 1,
+                lastProfileBlock: 1,
+                lastProfileTimestamp: 1,
+                lastActivityBlock: 1,
+              },
+            ],
+          },
+        };
       });
 
       const page = await os.query.profiles.discoverPage({
@@ -304,16 +307,31 @@ describe('QueryModule', () => {
       });
       expect(page.viewer?.incomingAccountIds).toContain('carol.near');
       expect(page.viewer?.endorsementIssuers).toEqual(['carol.near']);
-      expect(fetch.mock.calls.length).toBeGreaterThanOrEqual(2);
-      const batched = fetch.mock.calls
-        .map(
-          (call) =>
-            JSON.parse(String((call[1] as RequestInit | undefined)?.body)) as {
-              query: string;
-            }
-        )
-        .find((body) => body.query.includes('OutgoingTargetsAmong'));
-      expect(batched?.query).toContain('targetAccount: {_in: $targets}');
+      expect(fetch).toHaveBeenCalledTimes(2);
+      const contextBody = JSON.parse(
+        String((fetch.mock.calls[1]?.[1] as RequestInit | undefined)?.body)
+      ) as { query: string };
+      expect(contextBody.query).toContain('ProfileDiscoverViewerContext');
+      expect(contextBody.query).toContain(
+        'viewerEndorsements: endorsementsCurrent'
+      );
+    });
+
+    it('discoverPage with viewer skips context query when search is empty', async () => {
+      const { os, fetch } = makeOs({ data: { profileSearch: [] } });
+
+      const page = await os.query.profiles.discoverPage({
+        viewerAccountId: 'bob.near',
+        limit: 5,
+      });
+
+      expect(page.profiles).toEqual([]);
+      expect(page.viewer).toEqual({
+        outgoing: [],
+        incomingAccountIds: [],
+        endorsementIssuers: [],
+      });
+      expect(fetch).toHaveBeenCalledTimes(1);
     });
   });
 

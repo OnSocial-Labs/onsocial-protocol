@@ -26,6 +26,10 @@ export interface UsageRecord {
 export interface UsageSummary {
   today: number;
   thisMonth: number;
+  /** HTTP 429 responses today (burst limit exceeded). */
+  rateLimitedToday: number;
+  /** HTTP 429 responses this calendar month. */
+  rateLimitedThisMonth: number;
   byEndpoint: Array<{ endpoint: string; count: number }>;
   byActor: Array<{ actorId: string; count: number }>;
   byStatus: Array<{ statusCode: number; count: number }>;
@@ -65,8 +69,16 @@ class MemoryUsageStore implements UsageStore {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     const mine = this.entries.filter((e) => e.accountId === accountId);
-    const today = mine.filter((e) => e.createdAt >= startOfDay).length;
-    const thisMonth = mine.filter((e) => e.createdAt >= startOfMonth).length;
+    const todayEntries = mine.filter((e) => e.createdAt >= startOfDay);
+    const monthEntries = mine.filter((e) => e.createdAt >= startOfMonth);
+    const today = todayEntries.length;
+    const thisMonth = monthEntries.length;
+    const rateLimitedToday = todayEntries.filter(
+      (e) => e.statusCode === 429
+    ).length;
+    const rateLimitedThisMonth = monthEntries.filter(
+      (e) => e.statusCode === 429
+    ).length;
 
     // Aggregate by endpoint
     const epMap = new Map<string, number>();
@@ -91,6 +103,8 @@ class MemoryUsageStore implements UsageStore {
     return {
       today,
       thisMonth,
+      rateLimitedToday,
+      rateLimitedThisMonth,
       byEndpoint: [...epMap.entries()]
         .map(([endpoint, count]) => ({ endpoint, count }))
         .sort((a, b) => b.count - a.count),
@@ -180,6 +194,8 @@ class HasuraUsageStore implements UsageStore {
       this.gql<{
         today: { aggregate: { count: number } };
         month: { aggregate: { count: number } };
+        rateLimitedToday: { aggregate: { count: number } };
+        rateLimitedMonth: { aggregate: { count: number } };
       }>(
         `query($acct: String!, $day: timestamptz!, $month: timestamptz!) {
           today: apiUsageAggregate(
@@ -187,6 +203,20 @@ class HasuraUsageStore implements UsageStore {
           ) { aggregate { count } }
           month: apiUsageAggregate(
             where: { accountId: { _eq: $acct }, createdAt: { _gte: $month } }
+          ) { aggregate { count } }
+          rateLimitedToday: apiUsageAggregate(
+            where: {
+              accountId: { _eq: $acct }
+              createdAt: { _gte: $day }
+              statusCode: { _eq: 429 }
+            }
+          ) { aggregate { count } }
+          rateLimitedMonth: apiUsageAggregate(
+            where: {
+              accountId: { _eq: $acct }
+              createdAt: { _gte: $month }
+              statusCode: { _eq: 429 }
+            }
           ) { aggregate { count } }
         }`,
         { acct: accountId, day: startOfDay, month: startOfMonth }
@@ -225,6 +255,8 @@ class HasuraUsageStore implements UsageStore {
     return {
       today: counts.today.aggregate.count,
       thisMonth: counts.month.aggregate.count,
+      rateLimitedToday: counts.rateLimitedToday.aggregate.count,
+      rateLimitedThisMonth: counts.rateLimitedMonth.aggregate.count,
       byEndpoint: [...epMap.entries()]
         .map(([endpoint, count]) => ({ endpoint, count }))
         .sort((a, b) => b.count - a.count),

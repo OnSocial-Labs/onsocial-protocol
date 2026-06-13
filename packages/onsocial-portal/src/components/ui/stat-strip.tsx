@@ -193,7 +193,9 @@ export function StatStrip({
 /* ── cell ────────────────────────────────────────────────────────── */
 
 interface StatStripCellProps {
-  label: string;
+  label: React.ReactNode;
+  /** Shorter label on viewports below md when the desktop label is too long. */
+  mobileLabel?: React.ReactNode;
   /** Simple string value — rendered as mono text. Use `children` for complex content. */
   value?: string;
   children?: React.ReactNode;
@@ -230,6 +232,7 @@ const cellWidthStyle = {
 
 export function StatStripCell({
   label,
+  mobileLabel,
   value,
   children,
   icon: Icon,
@@ -248,11 +251,20 @@ export function StatStripCell({
     <span
       className={cn(
         'portal-eyebrow break-words text-muted-foreground',
-        Icon && 'flex items-center justify-center gap-1.5'
+        Icon && 'flex items-center justify-center gap-1.5',
+        mobileLabel != null &&
+          'inline-flex flex-col items-center gap-0.5 md:block'
       )}
     >
       {Icon ? <Icon className={cn('h-3 w-3', iconClassName)} /> : null}
-      {label}
+      {mobileLabel != null ? (
+        <>
+          <span className="md:hidden">{mobileLabel}</span>
+          <span className="max-md:hidden">{label}</span>
+        </>
+      ) : (
+        label
+      )}
     </span>
   );
 

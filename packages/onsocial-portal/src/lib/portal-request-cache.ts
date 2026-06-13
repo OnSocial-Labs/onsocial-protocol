@@ -63,3 +63,28 @@ export function isRateLimitError(error: unknown): boolean {
         : '';
   return /HTTP 429|rate limit/i.test(message);
 }
+
+export const PORTAL_RATE_LIMIT_RETRY_MS = 900;
+
+export async function withRateLimitRetry<T>(
+  fn: () => Promise<T>,
+  options?: { attempts?: number; delayMs?: number }
+): Promise<T> {
+  const attempts = options?.attempts ?? 2;
+  const delayMs = options?.delayMs ?? PORTAL_RATE_LIMIT_RETRY_MS;
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      if (!isRateLimitError(error) || attempt >= attempts - 1) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+
+  throw lastError;
+}
