@@ -13,9 +13,9 @@ describe('season-settlement-automation', () => {
     );
   });
 
-  it('keeps auto-publish off unless explicitly enabled', () => {
+  it('disables auto-publish when explicitly turned off', () => {
     const previous = process.env.SEASON_AUTO_PUBLISH_ENABLED;
-    delete process.env.SEASON_AUTO_PUBLISH_ENABLED;
+    process.env.SEASON_AUTO_PUBLISH_ENABLED = 'false';
     expect(isSeasonAutoPublishEnabled()).toBe(false);
     process.env.SEASON_AUTO_PUBLISH_ENABLED = 'true';
     expect(isSeasonAutoPublishEnabled()).toBe(true);

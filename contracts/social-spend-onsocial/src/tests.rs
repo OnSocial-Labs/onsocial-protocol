@@ -36,6 +36,10 @@ fn publisher() -> AccountId {
     "publisher.near".parse().unwrap()
 }
 
+fn boost() -> AccountId {
+    "boost.near".parse().unwrap()
+}
+
 fn context(predecessor: AccountId) -> VMContextBuilder {
     context_at(predecessor, NOW_NS)
 }
@@ -68,7 +72,7 @@ fn callback_context() -> VMContextBuilder {
 
 fn new_contract() -> SocialSpendContract {
     testing_env!(context(owner()).build());
-    SocialSpendContract::new(owner(), token(), treasury())
+    SocialSpendContract::new(owner(), token(), treasury(), Some(boost()))
 }
 
 fn assert_invalid_input(err: SocialSpendError, expected: &str) {
@@ -135,7 +139,20 @@ fn spend_msg(
     value.to_string()
 }
 
-fn signal_profile(contract: &mut SocialSpendContract, sender_id: AccountId, target_id: AccountId) {
+#[test]
+fn test_rejects_spend_without_boost_contract() {
+    let mut contract = new_contract();
+    contract.boost_contract_id = None;
+
+    let err = signal_profile(&mut contract, bob(), alice()).unwrap_err();
+    assert_invalid_input(err, "Boost contract not configured");
+}
+
+fn signal_profile(
+    contract: &mut SocialSpendContract,
+    sender_id: AccountId,
+    target_id: AccountId,
+) -> Result<(), SocialSpendError> {
     testing_env!(context(token()).build());
     contract
         .ft_on_transfer(
@@ -143,7 +160,7 @@ fn signal_profile(contract: &mut SocialSpendContract, sender_id: AccountId, targ
             U128(100 * ONE_SOCIAL),
             spend_msg("signal_profile", "profile", target_id.as_str(), None, None),
         )
-        .unwrap();
+        .map(|_| ())
 }
 
 fn join_rally(contract: &mut SocialSpendContract, sender_id: AccountId) {
@@ -188,6 +205,13 @@ fn test_init_installs_default_actions() {
         .expect("support_profile config");
     assert_eq!(support.treasury_bps, 500);
     assert_eq!(support.target_bps, 9_500);
+    assert_eq!(
+        contract
+            .get_action_config("join_rally".into())
+            .expect("join_rally config")
+            .burn_bps,
+        0
+    );
     assert!(contract.get_action_config("welcome_user".into()).is_none());
 }
 
@@ -348,9 +372,10 @@ fn test_admin_rejects_invalid_season_config() {
 fn test_signal_profile_routes_to_treasury_and_target() {
     let mut contract = new_contract();
 
-    signal_profile(&mut contract, bob(), alice());
+    signal_profile(&mut contract, bob(), alice()).unwrap();
 
-    assert_eq!(contract.treasury_balance, 10 * ONE_SOCIAL);
+    assert_eq!(contract.treasury_balance, 0);
+    assert_eq!(contract.total_boost_credits_routed, 10 * ONE_SOCIAL);
     assert_eq!(contract.get_season_pool("season-zero".into()).0, 0);
     assert_eq!(contract.get_target_balance(alice()).0, 90 * ONE_SOCIAL);
     assert_eq!(contract.total_spent, 100 * ONE_SOCIAL);
@@ -380,7 +405,8 @@ fn test_support_profile_routes_without_season() {
         )
         .unwrap();
 
-    assert_eq!(contract.treasury_balance, 5 * ONE_SOCIAL);
+    assert_eq!(contract.treasury_balance, 0);
+    assert_eq!(contract.total_boost_credits_routed, 5 * ONE_SOCIAL);
     assert_eq!(contract.get_target_balance(alice()).0, 95 * ONE_SOCIAL);
     assert_eq!(contract.get_season_pool("season-zero".into()).0, 0);
 }
@@ -435,6 +461,7 @@ fn test_custom_onboarding_action_supports_path_target_with_recipient() {
                 target_bps: 9_000,
                 season_required: false,
                 allow_self_target: false,
+                burn_bps: 0,
             },
         )
         .unwrap();
@@ -454,7 +481,8 @@ fn test_custom_onboarding_action_supports_path_target_with_recipient() {
         )
         .unwrap();
 
-    assert_eq!(contract.treasury_balance, 10 * ONE_SOCIAL);
+    assert_eq!(contract.treasury_balance, 0);
+    assert_eq!(contract.total_boost_credits_routed, 10 * ONE_SOCIAL);
     assert_eq!(contract.get_target_balance(alice()).0, 90 * ONE_SOCIAL);
 
     let target_totals =
@@ -515,10 +543,65 @@ fn test_admin_rejects_invalid_action_config_bps() {
                 target_bps: 1,
                 season_required: false,
                 allow_self_target: false,
+                burn_bps: 9996,
             },
         )
         .unwrap_err();
     assert_invalid_input(err, "routing bps must sum to 10000");
+}
+
+#[test]
+fn test_join_rally_burn_routing() {
+    let mut contract = new_contract();
+    configure_open_season(&mut contract, "season-zero");
+
+    testing_env!(context_with_deposit(owner()).build());
+    contract
+        .set_action_config(
+            "join_rally".into(),
+            ActionConfigInput {
+                label: "Join Rally".into(),
+                active: true,
+                min_amount: U128(MIN_SOCIAL_SPEND),
+                target_types: vec!["rally".into()],
+                treasury_bps: 0,
+                season_pool_bps: 9_500,
+                target_bps: 0,
+                season_required: true,
+                allow_self_target: true,
+                burn_bps: 500,
+            },
+        )
+        .unwrap();
+
+    testing_env!(context(token()).build());
+    contract
+        .ft_on_transfer(
+            bob(),
+            U128(100 * ONE_SOCIAL),
+            spend_msg(
+                "join_rally",
+                "rally",
+                "creator-week",
+                Some("season-zero"),
+                None,
+            ),
+        )
+        .unwrap();
+
+    assert_eq!(contract.treasury_balance, 0);
+    assert_eq!(
+        contract.get_season_pool("season-zero".into()).0,
+        95 * ONE_SOCIAL
+    );
+    assert_eq!(contract.total_burned, 5 * ONE_SOCIAL);
+    assert_eq!(
+        contract
+            .get_action_totals("join_rally".into())
+            .burn_routed
+            .0,
+        5 * ONE_SOCIAL
+    );
 }
 
 #[test]
@@ -746,6 +829,153 @@ fn test_update_contract_requires_owner() {
     );
 }
 
+fn pre_boost_state_from_contract(
+    contract: SocialSpendContract,
+) -> SocialSpendContractPreBoostCredits {
+    SocialSpendContractPreBoostCredits {
+        version: contract.version,
+        owner_id: contract.owner_id,
+        social_token: contract.social_token,
+        treasury_id: contract.treasury_id,
+        settlement_publisher: contract.settlement_publisher,
+        paused: contract.paused,
+        treasury_balance: contract.treasury_balance,
+        total_spent: contract.total_spent,
+        action_ids: contract.action_ids,
+        season_ids: contract.season_ids,
+        action_configs: contract.action_configs,
+        season_configs: contract.season_configs,
+        action_totals: contract.action_totals,
+        season_pools: contract.season_pools,
+        season_settlements: contract.season_settlements,
+        season_claims: contract.season_claims,
+        target_balances: contract.target_balances,
+        target_totals: contract.target_totals,
+        pending_transfers: contract.pending_transfers,
+        action_burn_bps: contract.action_burn_bps,
+        action_burn_totals: contract.action_burn_totals,
+        total_burned: contract.total_burned,
+    }
+}
+
+#[test]
+fn test_pre_boost_state_roundtrip() {
+    let contract = new_contract();
+    let pre_boost = pre_boost_state_from_contract(contract);
+
+    testing_env!(context(contract_id()).build());
+    near_sdk::env::state_write(&pre_boost);
+
+    let read: SocialSpendContractPreBoostCredits =
+        near_sdk::env::state_read().expect("pre-boost state should roundtrip");
+    assert_eq!(read.version, CONTRACT_VERSION);
+    assert_eq!(read.total_burned, 0);
+}
+
+fn onsocial_spend_contract_id() -> AccountId {
+    "social-spend.onsocial.testnet".parse().unwrap()
+}
+
+fn onsocial_boost_contract_id() -> AccountId {
+    "boost.onsocial.testnet".parse().unwrap()
+}
+
+#[test]
+fn test_migrate_from_pre_boost_state() {
+    let contract = new_contract();
+    let pre_boost = pre_boost_state_from_contract(contract);
+
+    testing_env!(
+        context(onsocial_spend_contract_id())
+            .current_account_id(onsocial_spend_contract_id())
+            .build()
+    );
+    near_sdk::env::state_write(&pre_boost);
+
+    let migrated = SocialSpendContract::migrate();
+    assert_eq!(migrated.version, CONTRACT_VERSION);
+    assert_eq!(migrated.total_boost_credits_routed, 0);
+    assert_eq!(
+        migrated.boost_contract_id,
+        Some(onsocial_boost_contract_id())
+    );
+}
+
+#[test]
+fn test_treasury_bps_routes_to_boost_credits_when_boost_contract_set() {
+    let mut contract = new_contract();
+    configure_open_season(&mut contract, "season-zero");
+
+    testing_env!(context_with_deposit(owner()).build());
+    contract.set_boost_contract_id(Some(boost())).unwrap();
+
+    testing_env!(context(token()).build());
+    contract
+        .ft_on_transfer(
+            bob(),
+            U128(100 * ONE_SOCIAL),
+            spend_msg(
+                "join_rally",
+                "rally",
+                "creator-week",
+                Some("season-zero"),
+                None,
+            ),
+        )
+        .unwrap();
+
+    assert_eq!(contract.treasury_balance, 0);
+    assert_eq!(
+        contract.get_season_pool("season-zero".into()).0,
+        95 * ONE_SOCIAL
+    );
+    assert_eq!(contract.total_boost_credits_routed, 5 * ONE_SOCIAL);
+    assert_eq!(
+        contract
+            .get_action_totals("join_rally".into())
+            .boost_credits_routed
+            .0,
+        5 * ONE_SOCIAL
+    );
+}
+
+#[test]
+fn test_treasury_bps_accrues_when_boost_contract_unset() {
+    let mut contract = new_contract();
+    contract.boost_contract_id = None;
+
+    let err = signal_profile(&mut contract, bob(), alice()).unwrap_err();
+    assert_invalid_input(err, "Boost contract not configured");
+}
+
+#[test]
+fn test_all_default_actions_route_protocol_fees_to_boost() {
+    let mut contract = new_contract();
+    configure_open_season(&mut contract, "season-zero");
+
+    testing_env!(context_with_deposit(owner()).build());
+    contract.set_boost_contract_id(Some(boost())).unwrap();
+
+    testing_env!(context(token()).build());
+    contract
+        .ft_on_transfer(
+            bob(),
+            U128(100 * ONE_SOCIAL),
+            spend_msg("signal_profile", "profile", alice().as_str(), None, None),
+        )
+        .unwrap();
+
+    assert_eq!(contract.treasury_balance, 0);
+    assert_eq!(contract.total_boost_credits_routed, 10 * ONE_SOCIAL);
+    assert_eq!(
+        contract
+            .get_action_totals("signal_profile".into())
+            .boost_credits_routed
+            .0,
+        10 * ONE_SOCIAL
+    );
+}
+
 fn fund_season_pool_msg(season_id: &str) -> String {
     serde_json::json!({
         "v": 1,
@@ -759,9 +989,9 @@ fn fund_season_pool_msg(season_id: &str) -> String {
 fn test_fund_season_pool_from_treasury_by_owner() {
     let mut contract = new_contract();
     configure_open_season(&mut contract, "season-zero");
-    join_rally(&mut contract, bob());
 
     let fund_amount = 5 * ONE_SOCIAL;
+    contract.treasury_balance = fund_amount;
     testing_env!(context_with_deposit(owner()).build());
     contract
         .fund_season_pool_from_treasury("season-zero".into(), U128(fund_amount))
@@ -769,7 +999,7 @@ fn test_fund_season_pool_from_treasury_by_owner() {
 
     assert_eq!(
         contract.get_season_pool("season-zero".into()).0,
-        100 * ONE_SOCIAL
+        fund_amount
     );
 }
 
@@ -777,7 +1007,7 @@ fn test_fund_season_pool_from_treasury_by_owner() {
 fn test_fund_season_pool_from_treasury_rejects_non_owner() {
     let mut contract = new_contract();
     configure_open_season(&mut contract, "season-zero");
-    join_rally(&mut contract, bob());
+    contract.treasury_balance = ONE_SOCIAL;
 
     testing_env!(context_with_deposit(alice()).build());
     let err = contract

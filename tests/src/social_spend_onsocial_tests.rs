@@ -7,10 +7,17 @@ use anyhow::Result;
 use near_workspaces::result::ExecutionFinalResult;
 use near_workspaces::types::{Gas, NearToken};
 use near_workspaces::{Account, Contract};
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
 use crate::utils::{encode_base64, get_wasm_path, setup_sandbox};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct BoostContractStats {
+    infra_pool: String,
+    scheduled_pool: String,
+}
 
 const ONE_SOCIAL: u128 = 1_000_000_000_000_000_000;
 const MIN_SOCIAL_SPEND: u128 = ONE_SOCIAL / 100;
@@ -42,7 +49,57 @@ async fn deploy_mock_ft(
     Ok(contract)
 }
 
+async fn deploy_boost_contract(
+    worker: &near_workspaces::Worker<near_workspaces::network::Sandbox>,
+    owner: &Account,
+    social_token: &Contract,
+) -> Result<Contract> {
+    let wasm_path = get_wasm_path("boost-onsocial");
+    let wasm = std::fs::read(&wasm_path)?;
+    let contract = worker.dev_deploy(&wasm).await?;
+
+    owner
+        .call(contract.id(), "new")
+        .args_json(json!({
+            "token_id": social_token.id().to_string(),
+            "owner_id": owner.id().to_string(),
+        }))
+        .transact()
+        .await?
+        .into_result()?;
+
+    Ok(contract)
+}
+
 async fn deploy_social_spend(
+    worker: &near_workspaces::Worker<near_workspaces::network::Sandbox>,
+    owner: &Account,
+    social_token: &Contract,
+) -> Result<(Contract, Contract)> {
+    let boost = deploy_boost_contract(worker, owner, social_token).await?;
+    let wasm_path = get_wasm_path("social-spend-onsocial");
+    let wasm = std::fs::read(&wasm_path)?;
+    let contract = worker.dev_deploy(&wasm).await?;
+
+    owner
+        .call(contract.id(), "new")
+        .args_json(json!({
+            "owner_id": owner.id().to_string(),
+            "social_token": social_token.id().to_string(),
+            "treasury_id": owner.id().to_string(),
+            "boost_contract_id": boost.id().to_string(),
+        }))
+        .transact()
+        .await?
+        .into_result()?;
+
+    ft_storage_deposit(social_token, owner, contract.id().as_str()).await?;
+    ft_storage_deposit(social_token, owner, boost.id().as_str()).await?;
+
+    Ok((contract, boost))
+}
+
+async fn deploy_social_spend_without_boost(
     worker: &near_workspaces::Worker<near_workspaces::network::Sandbox>,
     owner: &Account,
     social_token: &Contract,
@@ -63,6 +120,11 @@ async fn deploy_social_spend(
         .into_result()?;
 
     Ok(contract)
+}
+
+async fn get_boost_stats(boost: &Contract) -> Result<BoostContractStats> {
+    let result = boost.view("get_stats").await?;
+    Ok(result.json()?)
 }
 
 async fn ft_storage_deposit(ft: &Contract, caller: &Account, account_id: &str) -> Result<()> {
@@ -163,7 +225,7 @@ async fn transfer_call_social(
             "msg": msg,
         }))
         .deposit(ONE_YOCTO)
-        .gas(Gas::from_tgas(150))
+        .gas(Gas::from_tgas(300))
         .transact()
         .await?;
     Ok(result)
@@ -216,7 +278,7 @@ async fn test_signal_profile_ft_transfer_call_routes_and_emits() -> Result<()> {
     let target = worker.dev_create_account().await?;
 
     let ft = deploy_mock_ft(&worker, &owner).await?;
-    let social_spend = deploy_social_spend(&worker, &owner, &ft).await?;
+    let (social_spend, boost) = deploy_social_spend(&worker, &owner, &ft).await?;
 
     ft_storage_deposit(&ft, &owner, spender.id().as_str()).await?;
     ft_transfer(&ft, &owner, spender.id().as_str(), 2 * SPEND_AMOUNT).await?;
@@ -259,7 +321,8 @@ async fn test_signal_profile_ft_transfer_call_routes_and_emits() -> Result<()> {
     let info = social_spend.view("get_contract_info").await?.json::<Value>()?;
     assert_eq!(info["social_token"], ft.id().to_string());
     assert_eq!(info["total_spent"], SPEND_AMOUNT.to_string());
-    assert_eq!(info["treasury_balance"], (10 * ONE_SOCIAL).to_string());
+    assert_eq!(info["treasury_balance"], "0");
+    assert_eq!(info["total_boost_credits_routed"], (10 * ONE_SOCIAL).to_string());
 
     let action_totals = view_value(
         &social_spend,
@@ -288,8 +351,233 @@ async fn test_signal_profile_ft_transfer_call_routes_and_emits() -> Result<()> {
     );
     assert_eq!(
         ft_balance_of(&ft, social_spend.id().as_str()).await?,
+        90 * ONE_SOCIAL,
+    );
+
+    let stats = get_boost_stats(&boost).await?;
+    assert_eq!(stats.infra_pool, (6 * ONE_SOCIAL).to_string());
+    assert_eq!(stats.scheduled_pool, (4 * ONE_SOCIAL).to_string());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_join_rally_routes_protocol_fees_to_boost() -> Result<()> {
+    let worker = setup_sandbox().await?;
+    let owner = worker.dev_create_account().await?;
+    let spender = worker.dev_create_account().await?;
+
+    let ft = deploy_mock_ft(&worker, &owner).await?;
+    let (social_spend, boost) = deploy_social_spend(&worker, &owner, &ft).await?;
+
+    set_season_config(
+        &social_spend,
+        &owner,
+        "season-live",
+        true,
+        0,
+        LIVE_SEASON_END_NS,
+        None,
+    )
+    .await?;
+
+    ft_storage_deposit(&ft, &owner, spender.id().as_str()).await?;
+    ft_transfer(&ft, &owner, spender.id().as_str(), SPEND_AMOUNT).await?;
+
+    spend_social(
+        &ft,
+        &social_spend,
+        &spender,
+        SPEND_AMOUNT,
+        spend_msg(
+            "join_rally",
+            "rally",
+            "creator-week",
+            Some("season-live"),
+            None,
+        ),
+    )
+    .await?;
+
+    let info = social_spend.view("get_contract_info").await?.json::<Value>()?;
+    assert_eq!(info["treasury_balance"], "0");
+    assert_eq!(info["total_boost_credits_routed"], (5 * ONE_SOCIAL).to_string());
+    assert_eq!(
+        view_u128(
+            &social_spend,
+            "get_season_pool",
+            json!({ "season_id": "season-live" }),
+        )
+        .await?,
+        95 * ONE_SOCIAL,
+    );
+
+    let action_totals = view_value(
+        &social_spend,
+        "get_action_totals",
+        json!({ "action_id": "join_rally" }),
+    )
+    .await?;
+    assert_eq!(action_totals["treasury_routed"], (5 * ONE_SOCIAL).to_string());
+    assert_eq!(action_totals["season_routed"], (95 * ONE_SOCIAL).to_string());
+
+    let stats = get_boost_stats(&boost).await?;
+    assert_eq!(stats.infra_pool, (3 * ONE_SOCIAL).to_string());
+    assert_eq!(stats.scheduled_pool, (2 * ONE_SOCIAL).to_string());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_join_rally_burn_and_boost_routing() -> Result<()> {
+    let worker = setup_sandbox().await?;
+    let owner = worker.dev_create_account().await?;
+    let spender = worker.dev_create_account().await?;
+
+    let ft = deploy_mock_ft(&worker, &owner).await?;
+    let (social_spend, boost) = deploy_social_spend(&worker, &owner, &ft).await?;
+
+    set_season_config(
+        &social_spend,
+        &owner,
+        "season-live",
+        true,
+        0,
+        LIVE_SEASON_END_NS,
+        None,
+    )
+    .await?;
+
+    owner
+        .call(social_spend.id(), "set_action_config")
+        .args_json(json!({
+            "action_id": "join_rally",
+            "config": {
+                "label": "Join Rally",
+                "active": true,
+                "min_amount": MIN_SOCIAL_SPEND.to_string(),
+                "target_types": ["rally"],
+                "treasury_bps": 400,
+                "season_pool_bps": 9500,
+                "target_bps": 0,
+                "season_required": true,
+                "allow_self_target": true,
+                "burn_bps": 100,
+            },
+        }))
+        .deposit(ONE_YOCTO)
+        .transact()
+        .await?
+        .into_result()?;
+
+    ft_storage_deposit(&ft, &owner, spender.id().as_str()).await?;
+    ft_transfer(&ft, &owner, spender.id().as_str(), SPEND_AMOUNT).await?;
+
+    let supply_before = view_u128(&ft, "ft_total_supply", json!({})).await?;
+
+    spend_social(
+        &ft,
+        &social_spend,
+        &spender,
+        SPEND_AMOUNT,
+        spend_msg(
+            "join_rally",
+            "rally",
+            "creator-week",
+            Some("season-live"),
+            None,
+        ),
+    )
+    .await?;
+
+    let boost_routed = 4 * ONE_SOCIAL;
+    let burn_routed = 1 * ONE_SOCIAL;
+    let pool_routed = 95 * ONE_SOCIAL;
+    let infra_share = boost_routed * 60 / 100;
+    let rewards_share = boost_routed - infra_share;
+
+    let info = social_spend.view("get_contract_info").await?.json::<Value>()?;
+    assert_eq!(info["treasury_balance"], "0");
+    assert_eq!(info["total_burned"], burn_routed.to_string());
+    assert_eq!(info["total_boost_credits_routed"], boost_routed.to_string());
+    assert_eq!(
+        view_u128(
+            &social_spend,
+            "get_season_pool",
+            json!({ "season_id": "season-live" }),
+        )
+        .await?,
+        pool_routed,
+    );
+
+    let action_totals = view_value(
+        &social_spend,
+        "get_action_totals",
+        json!({ "action_id": "join_rally" }),
+    )
+    .await?;
+    assert_eq!(action_totals["treasury_routed"], boost_routed.to_string());
+    assert_eq!(action_totals["season_routed"], pool_routed.to_string());
+    assert_eq!(action_totals["burn_routed"], burn_routed.to_string());
+
+    let stats = get_boost_stats(&boost).await?;
+    assert_eq!(stats.infra_pool, infra_share.to_string());
+    assert_eq!(stats.scheduled_pool, rewards_share.to_string());
+
+    assert_eq!(
+        view_u128(&ft, "ft_total_supply", json!({})).await?,
+        supply_before - burn_routed,
+    );
+    assert_eq!(
+        ft_balance_of(&ft, social_spend.id().as_str()).await?,
+        pool_routed,
+    );
+    assert_eq!(ft_balance_of(&ft, spender.id().as_str()).await?, 0);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_spend_rejects_without_boost_contract() -> Result<()> {
+    let worker = setup_sandbox().await?;
+    let owner = worker.dev_create_account().await?;
+    let spender = worker.dev_create_account().await?;
+    let target = worker.dev_create_account().await?;
+
+    let ft = deploy_mock_ft(&worker, &owner).await?;
+    let social_spend = deploy_social_spend_without_boost(&worker, &owner, &ft).await?;
+
+    let info = social_spend.view("get_contract_info").await?.json::<Value>()?;
+    assert!(info["boost_contract_id"].is_null());
+
+    ft_storage_deposit(&ft, &owner, spender.id().as_str()).await?;
+    ft_transfer(&ft, &owner, spender.id().as_str(), SPEND_AMOUNT).await?;
+
+    let result = transfer_call_social(
+        &ft,
+        &social_spend,
+        &spender,
+        SPEND_AMOUNT,
+        spend_msg(
+            "signal_profile",
+            "profile",
+            target.id().as_str(),
+            None,
+            None,
+        ),
+    )
+    .await?;
+    result.into_result()?;
+
+    assert_eq!(
+        ft_balance_of(&ft, spender.id().as_str()).await?,
         SPEND_AMOUNT,
     );
+    assert_eq!(ft_balance_of(&ft, social_spend.id().as_str()).await?, 0);
+
+    let info = social_spend.view("get_contract_info").await?.json::<Value>()?;
+    assert_eq!(info["total_spent"], "0");
+    assert_eq!(info["total_boost_credits_routed"], "0");
 
     Ok(())
 }
@@ -301,7 +589,7 @@ async fn test_rejected_rally_spend_refunds_ft_transfer_call() -> Result<()> {
     let spender = worker.dev_create_account().await?;
 
     let ft = deploy_mock_ft(&worker, &owner).await?;
-    let social_spend = deploy_social_spend(&worker, &owner, &ft).await?;
+    let (social_spend, _boost) = deploy_social_spend(&worker, &owner, &ft).await?;
 
     ft_storage_deposit(&ft, &owner, spender.id().as_str()).await?;
     ft_transfer(&ft, &owner, spender.id().as_str(), SPEND_AMOUNT).await?;
@@ -346,7 +634,7 @@ async fn test_custom_onboarding_action_supports_path_target_with_recipient() -> 
     let target = worker.dev_create_account().await?;
 
     let ft = deploy_mock_ft(&worker, &owner).await?;
-    let social_spend = deploy_social_spend(&worker, &owner, &ft).await?;
+    let (social_spend, _boost) = deploy_social_spend(&worker, &owner, &ft).await?;
 
     owner
         .call(social_spend.id(), "set_action_config")
@@ -362,6 +650,7 @@ async fn test_custom_onboarding_action_supports_path_target_with_recipient() -> 
                 "target_bps": 9000,
                 "season_required": false,
                 "allow_self_target": false,
+                "burn_bps": 0,
             },
         }))
         .deposit(ONE_YOCTO)
@@ -417,7 +706,7 @@ async fn test_support_profile_accumulates_and_claims_target_balance() -> Result<
     let target = worker.dev_create_account().await?;
 
     let ft = deploy_mock_ft(&worker, &owner).await?;
-    let social_spend = deploy_social_spend(&worker, &owner, &ft).await?;
+    let (social_spend, _boost) = deploy_social_spend(&worker, &owner, &ft).await?;
 
     ft_storage_deposit(&ft, &owner, spender.id().as_str()).await?;
     ft_transfer(&ft, &owner, spender.id().as_str(), SPEND_AMOUNT).await?;
@@ -465,10 +754,7 @@ async fn test_support_profile_accumulates_and_claims_target_balance() -> Result<
         0,
     );
     assert_eq!(ft_balance_of(&ft, target.id().as_str()).await?, 95 * ONE_SOCIAL);
-    assert_eq!(
-        ft_balance_of(&ft, social_spend.id().as_str()).await?,
-        5 * ONE_SOCIAL,
-    );
+    assert_eq!(ft_balance_of(&ft, social_spend.id().as_str()).await?, 0);
 
     Ok(())
 }
@@ -481,7 +767,7 @@ async fn test_failed_target_claim_rolls_back_balance() -> Result<()> {
     let target = worker.dev_create_account().await?;
 
     let ft = deploy_mock_ft(&worker, &owner).await?;
-    let social_spend = deploy_social_spend(&worker, &owner, &ft).await?;
+    let (social_spend, _boost) = deploy_social_spend(&worker, &owner, &ft).await?;
 
     ft_storage_deposit(&ft, &owner, spender.id().as_str()).await?;
     ft_transfer(&ft, &owner, spender.id().as_str(), SPEND_AMOUNT).await?;
@@ -528,7 +814,7 @@ async fn test_failed_target_claim_rolls_back_balance() -> Result<()> {
     assert_eq!(ft_balance_of(&ft, target.id().as_str()).await?, 0);
     assert_eq!(
         ft_balance_of(&ft, social_spend.id().as_str()).await?,
-        SPEND_AMOUNT,
+        95 * ONE_SOCIAL,
     );
 
     Ok(())
@@ -541,7 +827,7 @@ async fn test_publish_season_root_and_claim_reward() -> Result<()> {
     let spender = worker.dev_create_account().await?;
 
     let ft = deploy_mock_ft(&worker, &owner).await?;
-    let social_spend = deploy_social_spend(&worker, &owner, &ft).await?;
+    let (social_spend, _boost) = deploy_social_spend(&worker, &owner, &ft).await?;
 
     set_season_config(
         &social_spend,
@@ -636,7 +922,7 @@ async fn test_publish_season_root_and_claim_reward() -> Result<()> {
             json!({ "season_id": "season-one" }),
         )
         .await?,
-        60 * ONE_SOCIAL,
+        65 * ONE_SOCIAL,
     );
 
     let has_claimed = social_spend
@@ -652,6 +938,84 @@ async fn test_publish_season_root_and_claim_reward() -> Result<()> {
         ft_balance_of(&ft, spender.id().as_str()).await?,
         SPEND_AMOUNT + claim_amount,
     );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn gas_profile_social_spend() -> Result<()> {
+    let worker = setup_sandbox().await?;
+    let owner = worker.dev_create_account().await?;
+    let spender = worker.dev_create_account().await?;
+
+    let ft = deploy_mock_ft(&worker, &owner).await?;
+    let (social_spend, _boost) = deploy_social_spend(&worker, &owner, &ft).await?;
+
+    set_season_config(
+        &social_spend,
+        &owner,
+        "season-live",
+        true,
+        0,
+        LIVE_SEASON_END_NS,
+        None,
+    )
+    .await?;
+
+    owner
+        .call(social_spend.id(), "set_action_config")
+        .args_json(json!({
+            "action_id": "join_rally",
+            "config": {
+                "label": "Join Rally",
+                "active": true,
+                "min_amount": MIN_SOCIAL_SPEND.to_string(),
+                "target_types": ["rally"],
+                "treasury_bps": 400,
+                "season_pool_bps": 9500,
+                "target_bps": 0,
+                "season_required": true,
+                "allow_self_target": true,
+                "burn_bps": 100,
+            },
+        }))
+        .deposit(ONE_YOCTO)
+        .transact()
+        .await?
+        .into_result()?;
+
+    ft_storage_deposit(&ft, &owner, spender.id().as_str()).await?;
+    ft_transfer(&ft, &owner, spender.id().as_str(), 10 * SPEND_AMOUNT)
+        .await?;
+
+    let msg = spend_msg(
+        "join_rally",
+        "rally",
+        "creator-week",
+        Some("season-live"),
+        None,
+    );
+
+    println!("\n=== SOCIAL SPEND GAS PROFILE (mock-ft sandbox) ===\n");
+
+    for attach_tgas in [100u64, 120, 140, 150, 160, 170, 180, 200] {
+        let result = spender
+            .call(ft.id(), "ft_transfer_call")
+            .args_json(json!({
+                "receiver_id": social_spend.id().to_string(),
+                "amount": SPEND_AMOUNT.to_string(),
+                "msg": msg.clone(),
+            }))
+            .deposit(ONE_YOCTO)
+            .gas(Gas::from_tgas(attach_tgas))
+            .transact()
+            .await?;
+        let ok = result.is_success();
+        let burnt = result.total_gas_burnt.as_tgas();
+        println!(
+            "attach {attach_tgas:>3} TGas -> success={ok} burnt={burnt} TGas"
+        );
+    }
 
     Ok(())
 }

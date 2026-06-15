@@ -13,11 +13,12 @@ Token rules stay on-chain; game and product semantics stay event-driven off-chai
 
 ## Features
 
-- **Registry-driven actions** — Owner configures action slugs, min amounts, allowed target types, and treasury / season / target routing in basis points
+- **Registry-driven actions** — Owner configures action slugs, min amounts, allowed target types, and treasury / season / target / burn / boost credits routing in basis points
 - **Default social actions** — `signal_profile`, `boost_post`, `endorse_profile`, `join_rally`, `support_profile` installed at `new`
 - **Season pools** — Time-bounded seasons with optional Merkle settlement and per-account claims
 - **Target balances** — Routed SOCIAL accrues on recipient accounts; recipients claim via `claim_target_balance`
 - **Treasury routing** — Configurable treasury account; owner or treasury may withdraw accrued balance
+- **Boost credits routing** — Optional `boost_contract_id`; when set, `treasury_bps` on every action routes to boost via `ft_transfer_call` + `{"action":"credits"}` (60% infra / 40% rewards on boost) instead of accruing for treasury withdrawal
 - **Async payouts** — Claims and treasury withdrawals use `ft_transfer` promises with rollback on failure
 - **Pause switch** — Owner can halt spends and user claims while admin paths remain available
 - **Settlement publisher** — Optional dedicated account (or relayer service) to publish season Merkle roots after season end
@@ -50,11 +51,14 @@ near deploy <account> ./target/near/social_spend_onsocial/social_spend_onsocial.
 near call <contract> new '{
   "owner_id": "owner.near",
   "social_token": "token.onsocial.near",
-  "treasury_id": "treasury.near"
+  "treasury_id": "treasury.near",
+  "boost_contract_id": "boost.onsocial.near"
 }' --accountId <deployer>
 ```
 
-Default deploy config (`configs/contracts.json`) uses `social-spend.${AUTH_ACCOUNT}` with `social_token` and `treasury_id` set to `token.${AUTH_ACCOUNT}` and `${AUTH_ACCOUNT}` respectively.
+Default deploy config (`configs/contracts.json`) uses `social-spend.${AUTH_ACCOUNT}` with `social_token`, `treasury_id`, and `boost_contract_id` set to `token.${AUTH_ACCOUNT}`, `${AUTH_ACCOUNT}`, and `boost.${AUTH_ACCOUNT}` respectively. On upgrade, `migrate()` auto-derives boost from the social-spend account id when unset (`social-spend.*` → `boost.*`).
+
+While testnet/mainnet still stores the pre-boost-credits schema, `migrate()` reads `SocialSpendContractPreBoostCredits` first. After every deployment is on the current schema, simplify `migrate()` to read `Self` only and drop the pre-boost layout in a follow-up WASM release.
 
 ## Architecture
 
@@ -159,6 +163,7 @@ Attach exactly **1 yoctoNEAR** unless noted.
 | Method | Who | Description |
 |--------|-----|-------------|
 | `set_action_config(action_id, config)` | owner | Create or update action registry entry |
+| `set_boost_contract_id(boost_contract_id?)` | owner | Set or clear boost contract; when set, `treasury_bps` routes to boost credits |
 | `remove_action_config(action_id)` | owner | Remove action |
 | `set_season_config(season_id, config)` | owner | Create or update season window |
 | `set_paused(paused)` | owner | Pause spends and user claims |
@@ -174,7 +179,7 @@ Attach exactly **1 yoctoNEAR** unless noted.
 
 | Method | Description |
 |--------|-------------|
-| `get_contract_info()` | Version, owner, token, treasury, publisher, pause flag, balances, action/season id lists |
+| `get_contract_info()` | Version, owner, token, treasury, boost contract, publisher, pause flag, balances, action/season id lists |
 | `get_action_config(action_id)` | Action registry entry |
 | `get_season_config(season_id)` | Season config plus `is_live` and `claim_open` |
 | `get_season_ids()` | Configured season ids |
@@ -193,13 +198,14 @@ Attach exactly **1 yoctoNEAR** unless noted.
 | `active` | Whether action accepts spends |
 | `min_amount` | Minimum SOCIAL amount (yocto) |
 | `target_types` | Allowed `target_type` slugs |
-| `treasury_bps` | Share to internal treasury balance |
+| `treasury_bps` | Protocol fee share; accrues on social-spend, or routes to boost credits when `boost_contract_id` is set |
 | `season_pool_bps` | Share to `season_id` pool |
 | `target_bps` | Share to recipient target balance |
+| `burn_bps` | Share burned via token `burn` (default `0`) |
 | `season_required` | Require `season_id` in message |
 | `allow_self_target` | Allow `recipient_id == sender_id` |
 
-`treasury_bps + season_pool_bps + target_bps` must equal `10_000`.
+`treasury_bps + season_pool_bps + target_bps + burn_bps` must equal `10_000`.
 
 ### `SeasonConfig` fields
 

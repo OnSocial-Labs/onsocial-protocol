@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { motion, useReducedMotion } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
 import { PageShell } from '@/components/layout/page-shell';
@@ -29,11 +28,11 @@ import { fadeUpMotion } from '@/lib/motion';
 import {
   ARCHIVED_GENESIS_SEASON_ID,
   getActiveSeasonId,
-  getActiveSeasonPresentation,
   getSeasonPresentation,
-  type SeasonPresentation,
   seasonApiPath,
 } from '@/lib/active-season';
+import { useSeasonRegistry } from '@/lib/season-registry';
+import { SeasonArchiveNav } from '@/features/season/season-archive-nav';
 
 interface SeasonZeroStandingsResponse {
   success: boolean;
@@ -56,15 +55,20 @@ function sectionEntrance(
 }
 
 export function SeasonRallyPage({
-  seasonId,
-  presentation,
-  archiveSeasonId,
+  seasonId: seasonIdProp,
 }: {
-  seasonId: string;
-  presentation: SeasonPresentation;
-  /** When set and different from seasonId, show a link to the archived season. */
-  archiveSeasonId?: string | null;
+  seasonId?: string;
 }) {
+  const { registry } = useSeasonRegistry();
+  const fallbackSeasonId = getActiveSeasonId();
+  const seasonId =
+    seasonIdProp ??
+    registry?.resolvedActiveSeasonId ??
+    registry?.live?.seasonId ??
+    fallbackSeasonId;
+  const registryEntry =
+    registry?.seasons.find((entry) => entry.seasonId === seasonId) ?? null;
+  const presentation = getSeasonPresentation(seasonId, registryEntry);
   const { accountId } = useWallet();
   const reduceMotion = useReducedMotion();
   const [standings, setStandings] = useState<SeasonZeroStanding[]>([]);
@@ -174,11 +178,6 @@ export function SeasonRallyPage({
     return () => window.clearInterval(interval);
   }, [refresh]);
 
-  const archivePresentation =
-    archiveSeasonId && archiveSeasonId !== seasonId
-      ? getSeasonPresentation(archiveSeasonId)
-      : null;
-
   return (
     <PageShell size="section">
       <SecondaryPageHeader
@@ -189,17 +188,11 @@ export function SeasonRallyPage({
         description={presentation.pageDescription}
       />
 
-      {archivePresentation ? (
-        <p className="-mt-4 mb-1 text-center text-sm text-muted-foreground">
-          <Link
-            href={archivePresentation.rallyPath}
-            className="transition-colors hover:text-[var(--portal-gold)]"
-          >
-            View {archivePresentation.pageTitle} (
-            {archivePresentation.pageBadge})
-          </Link>
-        </p>
-      ) : null}
+      <SeasonArchiveNav
+        currentSeasonId={seasonId}
+        registry={registry}
+        className="-mt-4 mb-1"
+      />
 
       <div className="mx-auto max-w-3xl space-y-3">
         <motion.div {...sectionEntrance(reduceMotion, 0)}>
@@ -279,25 +272,9 @@ export function SeasonRallyPage({
 }
 
 export default function SeasonZeroPage() {
-  const activeSeasonId = getActiveSeasonId();
-  return (
-    <SeasonRallyPage
-      seasonId={ARCHIVED_GENESIS_SEASON_ID}
-      presentation={getSeasonPresentation(ARCHIVED_GENESIS_SEASON_ID)}
-      archiveSeasonId={
-        activeSeasonId !== ARCHIVED_GENESIS_SEASON_ID ? activeSeasonId : null
-      }
-    />
-  );
+  return <SeasonRallyPage seasonId={ARCHIVED_GENESIS_SEASON_ID} />;
 }
 
 export function ActiveSeasonPage() {
-  const seasonId = getActiveSeasonId();
-  return (
-    <SeasonRallyPage
-      seasonId={seasonId}
-      presentation={getActiveSeasonPresentation()}
-      archiveSeasonId={ARCHIVED_GENESIS_SEASON_ID}
-    />
-  );
+  return <SeasonRallyPage />;
 }

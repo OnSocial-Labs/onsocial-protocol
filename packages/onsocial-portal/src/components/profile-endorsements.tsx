@@ -90,9 +90,6 @@ export function ProfileEndorsements({
     accountId ?? undefined
   );
   const [endorsements, setEndorsements] = useState<EndorsementItem[]>([]);
-  const [givenEndorsements, setGivenEndorsements] = useState<EndorsementItem[]>(
-    []
-  );
   const [endorsementCounts, setEndorsementCounts] = useState({
     received: 0,
     given: 0,
@@ -143,7 +140,6 @@ export function ProfileEndorsements({
         };
         const list = data.received ?? [];
         setEndorsements(list);
-        setGivenEndorsements(data.given ?? []);
         setEndorsementCounts({
           received: Number(data.counts?.received ?? list.length),
           given: Number(data.counts?.given ?? data.given?.length ?? 0),
@@ -275,23 +271,11 @@ export function ProfileEndorsements({
     });
   }, [endorsements, viewerAccountId]);
 
-  const givenAccountCount = useMemo(() => {
-    return new Set(givenEndorsements.map((item) => item.target)).size;
-  }, [givenEndorsements]);
   const givenEndorsementCount = endorsementCounts.given;
 
   useEffect(() => {
     onGivenCountChange?.(givenEndorsementCount);
   }, [givenEndorsementCount, onGivenCountChange]);
-
-  const givenSignalLabel =
-    givenEndorsementCount === 1
-      ? '1 endorsement'
-      : `${formatCount(givenEndorsementCount)} endorsements`;
-  const givenAccountLabel =
-    givenAccountCount === 1
-      ? '1 account'
-      : `${formatCount(givenAccountCount)} accounts`;
 
   const PROFILE_SUMMARY_COUNT = 1;
   const visibleEndorsements = rankedEndorsements.slice(
@@ -495,19 +479,6 @@ export function ProfileEndorsements({
                 {humanizeEndorsementTopic(e.topic) || 'General'}
               </button>
             ))}
-          </div>
-        ) : null}
-
-        {givenEndorsementCount > 0 ? (
-          <div className="mt-2 portal-type-label text-muted-foreground/50">
-            {isSelf ? 'You gave' : 'They gave'}{' '}
-            <span className="font-medium text-muted-foreground/70">
-              {givenSignalLabel}
-            </span>
-            <span className="text-muted-foreground/40">
-              {' '}
-              to {givenAccountLabel}
-            </span>
           </div>
         ) : null}
       </div>

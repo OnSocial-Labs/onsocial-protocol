@@ -49,7 +49,10 @@ export const config = {
     process.env.SEASON_SETTLEMENT_ADMIN_KEY ||
     process.env.ONSOCIAL_SEASON_ADMIN_KEY ||
     '',
-  /** Primary rally season for portal joins, status, and admin finalize. */
+  /** Optional override for portal joins, status, and settlement automation. */
+  activeSeasonIdOverride:
+    process.env.ACTIVE_SEASON_ID?.trim().toLowerCase() || null,
+  /** @deprecated Use resolveActiveSeasonId(); kept for legacy callers during migration. */
   activeSeasonId: (process.env.ACTIVE_SEASON_ID || 'season-one')
     .trim()
     .toLowerCase(),

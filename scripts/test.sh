@@ -262,6 +262,12 @@ test_integration() {
             social-spend-onsocial)
                 rm -rf /tmp/.tmp* 2>/dev/null || true
 
+                echo "Building boost-onsocial contract for social-spend integration tests..."
+                if [ -d "$BASE_DIR/boost-onsocial" ]; then
+                    cd "$BASE_DIR/boost-onsocial" || { echo -e "${WARNING}boost-onsocial contract not found${RESET}"; }
+                    cargo near build non-reproducible-wasm || { echo -e "${ERROR}Failed to build boost-onsocial${RESET}"; }
+                fi
+
                 echo "Building mock-ft contract for social-spend integration tests..."
                 if [ -d "$BASE_DIR/mock-ft" ]; then
                     cd "$BASE_DIR/mock-ft" || { echo -e "${WARNING}mock-ft contract not found, FT tests will be skipped${RESET}"; }
@@ -270,12 +276,14 @@ test_integration() {
                 cd "$TEST_DIR" || { echo -e "${ERROR}Tests directory not found${RESET}"; INTEGRATION_RESULTS["${module:-all}"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
 
                 local test_filter="social_spend_onsocial_tests"
+                local extra_args="--skip gas_profile_social_spend"
                 if [ -n "$test_name" ]; then
                     test_filter="$test_name"
+                    extra_args=""
                     echo "Running specific integration test: $test_name"
                 fi
 
-                run_integration_test "$test_filter"
+                run_integration_test "$test_filter" "$extra_args"
                 local test_exit_code=$?
 
                 if [ $test_exit_code -ne 0 ]; then

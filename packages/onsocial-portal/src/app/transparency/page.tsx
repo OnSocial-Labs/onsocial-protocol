@@ -44,6 +44,11 @@ const TOKEN_HOLDERS_URL = `${TOKEN_NEARBLOCKS_URL}?tab=holders`;
 const INITIAL_SUPPLY_TOKENS = 1_000_000_000n;
 const TOKEN_DECIMALS = 18n;
 const INITIAL_SUPPLY_YOCTO = INITIAL_SUPPLY_TOKENS * 10n ** TOKEN_DECIMALS;
+const SUPPLY_OVERVIEW_FRACTION_DIGITS = 2;
+const SUPPLY_OVERVIEW_SCALE = 10n ** BigInt(SUPPLY_OVERVIEW_FRACTION_DIGITS);
+const YOCTO_PER_SOCIAL = 10n ** TOKEN_DECIMALS;
+const INITIAL_SUPPLY_OVERVIEW_UNITS =
+  INITIAL_SUPPLY_TOKENS * SUPPLY_OVERVIEW_SCALE;
 const RHEA_CONTRACT = 'v2.ref-finance.near';
 const RHEA_SOCIAL_TOKEN = 'token.onsocial.near';
 const MARKET_LIQUIDITY_POOLS = [
@@ -232,6 +237,41 @@ function formatWholeTokenAmount(raw: string): string {
   const human = yoctoToSocial(raw);
   const whole = BigInt(human.split('.')[0] || '0');
   return whole.toLocaleString('en-US');
+}
+
+function yoctoToOverviewUnits(yocto: bigint): bigint {
+  return (
+    (yocto * SUPPLY_OVERVIEW_SCALE + YOCTO_PER_SOCIAL / 2n) / YOCTO_PER_SOCIAL
+  );
+}
+
+function formatOverviewUnits(units: bigint): string {
+  const whole = units / SUPPLY_OVERVIEW_SCALE;
+  const fraction = units % SUPPLY_OVERVIEW_SCALE;
+  if (fraction === 0n) {
+    return whole.toLocaleString('en-US');
+  }
+
+  return `${whole.toLocaleString('en-US')}.${fraction
+    .toString()
+    .padStart(SUPPLY_OVERVIEW_FRACTION_DIGITS, '0')}`;
+}
+
+/** Round supply once, then derive burned so initial mint = supply + burned on screen. */
+function formatSupplyOverviewFromYocto(supplyYocto: bigint): {
+  supplyDisplay: string;
+  burnedDisplay: string;
+} {
+  const supplyUnits = yoctoToOverviewUnits(supplyYocto);
+  const burnedUnits =
+    supplyYocto <= INITIAL_SUPPLY_YOCTO
+      ? INITIAL_SUPPLY_OVERVIEW_UNITS - supplyUnits
+      : 0n;
+
+  return {
+    supplyDisplay: formatOverviewUnits(supplyUnits),
+    burnedDisplay: formatOverviewUnits(burnedUnits),
+  };
 }
 
 function formatTokenAmount(
@@ -442,14 +482,12 @@ export default function TransparencyPage() {
       .then((totalSupply) => {
         if (totalSupply) {
           const currentSupplyYocto = BigInt(totalSupply);
-          const burnedYocto =
-            currentSupplyYocto <= INITIAL_SUPPLY_YOCTO
-              ? INITIAL_SUPPLY_YOCTO - currentSupplyYocto
-              : 0n;
+          const { supplyDisplay, burnedDisplay } =
+            formatSupplyOverviewFromYocto(currentSupplyYocto);
 
           setCurrentSupplyYocto(currentSupplyYocto);
-          setCurrentSupplyDisplay(formatWholeTokenAmount(totalSupply));
-          setBurnedDisplay(formatWholeTokenAmount(burnedYocto.toString()));
+          setCurrentSupplyDisplay(supplyDisplay);
+          setBurnedDisplay(burnedDisplay);
         }
       })
       .catch(() => {})

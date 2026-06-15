@@ -15,7 +15,7 @@
         "name": "social-spend-onsocial",
         "id": "social-spend.${AUTH_ACCOUNT}",
         "account": "${AUTH_ACCOUNT}",
-        "init": "new '{\"owner_id\": \"${AUTH_ACCOUNT}\", \"social_token\": \"token.${AUTH_ACCOUNT}\", \"treasury_id\": \"${AUTH_ACCOUNT}\"}'"
+        "init": "new '{\"owner_id\": \"${AUTH_ACCOUNT}\", \"social_token\": \"token.${AUTH_ACCOUNT}\", \"treasury_id\": \"${AUTH_ACCOUNT}\", \"boost_contract_id\": \"boost.${AUTH_ACCOUNT}\"}'"
     },
     {
         "name": "staking-onsocial",

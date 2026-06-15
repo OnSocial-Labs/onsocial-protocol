@@ -17,10 +17,7 @@ import type {
   SeasonZeroClaimRecord,
   SeasonZeroLifecyclePhase,
 } from '@/features/season/season-zero-types';
-import {
-  formatGenesisSocialBalanceDisplay,
-  GENESIS_SEASON_ID,
-} from '@/lib/genesis-season';
+import { formatGenesisSocialBalanceDisplay } from '@/lib/genesis-season';
 import { extractNearTransactionHashes } from '@/lib/near-rpc';
 import { createPortalOnSocialClient } from '@/lib/onsocial-client';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/portal-config';
@@ -57,7 +54,7 @@ export function useSeasonZeroClaimActions({
     try {
       const { wallet, accountId: signerId } = await getSigningWallet();
       const payload = os.socialSpend.buildClaimSeasonRewardTransaction({
-        seasonId: GENESIS_SEASON_ID,
+        seasonId: claim.seasonId,
         amount: claim.amountYocto,
         proof: claim.proof,
       });

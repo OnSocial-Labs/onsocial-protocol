@@ -5,16 +5,26 @@ import {
 import {
   DAO_SIGNAL_PROPOSAL_LABEL,
   formatDaoRoleDisplayName,
+  formatPublishedCodeHashPreview,
 } from '@/features/governance/governance-proposal-builders';
+import { formatSocialSpendActionRoutingSummary } from '@/lib/dao-contract-config-operations';
 import { yoctoToNear, yoctoToSocial, TOKEN_CONTRACT } from '@/lib/near-rpc';
 
-export type ProposalTargetKind = 'role' | 'community' | 'contract' | 'amount';
+export type ProposalTargetKind =
+  | 'role'
+  | 'community'
+  | 'contract'
+  | 'amount'
+  | 'code_hash'
+  | 'routing';
 
 export const PROPOSAL_TARGET_KIND_LABELS: Record<ProposalTargetKind, string> = {
   role: 'Role',
   community: 'Community',
   contract: 'Contract',
   amount: 'Amount',
+  code_hash: 'Code hash',
+  routing: 'Routing',
 };
 
 /** Eyebrow above the right column on proposal cards (Role, Amount, etc.). */
@@ -42,7 +52,10 @@ function proposalTarget(
   return {
     targetKind: targetKind && trimmed ? targetKind : null,
     targetValue: trimmed,
-    targetAccountId: targetKind === 'contract' && accountId ? accountId : null,
+    targetAccountId:
+      (targetKind === 'contract' || targetKind === 'code_hash') && accountId
+        ? accountId
+        : null,
   };
 }
 
@@ -231,10 +244,13 @@ function getFunctionCallShape(kind: Record<string, unknown> | undefined): {
   receiverId: string | null;
   methodName: string | null;
   config: Record<string, unknown> | null;
+  actionId: string | null;
   ownershipTarget: string | null;
   amountYocto: string | null;
   seasonId: string | null;
   transferCallMsg: string | null;
+  codeHash: string | null;
+  boostContractId: string | null;
 } {
   const functionCall = kind?.FunctionCall;
   if (!functionCall || typeof functionCall !== 'object') {
@@ -242,10 +258,13 @@ function getFunctionCallShape(kind: Record<string, unknown> | undefined): {
       receiverId: null,
       methodName: null,
       config: null,
+      actionId: null,
       ownershipTarget: null,
       amountYocto: null,
       seasonId: null,
       transferCallMsg: null,
+      codeHash: null,
+      boostContractId: null,
     };
   }
 
@@ -286,15 +305,21 @@ function getFunctionCallShape(kind: Record<string, unknown> | undefined): {
     (fundSeasonPoolMsg.action === 'fund_season_pool'
       ? fundSeasonPoolMsg.seasonId
       : null);
+  const codeHash = readStringField(args, 'code_hash');
+  const actionId = readStringField(args, 'action_id');
+  const boostContractId = readStringField(args, 'boost_contract_id');
 
   return {
     receiverId,
     methodName,
     config,
+    actionId,
     ownershipTarget,
     amountYocto,
     seasonId,
     transferCallMsg,
+    codeHash,
+    boostContractId,
   };
 }
 
@@ -617,10 +642,13 @@ export function deriveProposalPresentation({
       receiverId,
       methodName,
       config,
+      actionId,
       ownershipTarget,
       amountYocto,
       seasonId,
       transferCallMsg,
+      codeHash,
+      boostContractId,
     } = getFunctionCallShape(normalizedKind ?? undefined);
     const contractLabel = shortContractName(receiverId);
     const methodLabel = formatMethodLabel(methodName);
@@ -757,16 +785,132 @@ export function deriveProposalPresentation({
       headline = contractLabel
         ? `Upgrade ${contractLabel}`
         : 'Upgrade contract';
-      return finish(
-        withContractCallSubject({
-          headline,
-          actionBadge: 'Upgrade',
-          contractLabel,
-          receiverId,
+      const hashPreview = codeHash
+        ? formatPublishedCodeHashPreview(codeHash)
+        : null;
+
+      return finish({
+        headline,
+        actionBadge: 'Upgrade',
+        ...(codeHash && hashPreview
+          ? proposalTarget('code_hash', hashPreview, codeHash)
+          : proposalTarget(
+              'contract',
+              contractLabel ?? receiverId,
+              receiverId
+            )),
+        subjectAccount: receiverId,
+        subjectEyebrow: receiverId ? 'Contract' : null,
+        onChainDescription,
+        proposer: normalizedProposer,
+        showProposerSeparately: shouldShowProposerSeparately(
           normalizedProposer,
-          onChainDescription,
-        })
-      );
+          receiverId
+        ),
+        showProposerAsSelf: false,
+      });
+    }
+
+    if (methodName === 'set_action_config' && actionId === 'join_rally') {
+      const routingConfig = config;
+      const treasuryBps =
+        routingConfig && typeof routingConfig.treasury_bps === 'number'
+          ? routingConfig.treasury_bps
+          : 0;
+      const seasonPoolBps =
+        routingConfig && typeof routingConfig.season_pool_bps === 'number'
+          ? routingConfig.season_pool_bps
+          : 0;
+      const targetBps =
+        routingConfig && typeof routingConfig.target_bps === 'number'
+          ? routingConfig.target_bps
+          : 0;
+      const burnBps =
+        routingConfig && typeof routingConfig.burn_bps === 'number'
+          ? routingConfig.burn_bps
+          : 0;
+      const routingSummary = formatSocialSpendActionRoutingSummary({
+        treasury_bps: treasuryBps,
+        season_pool_bps: seasonPoolBps,
+        target_bps: targetBps,
+        burn_bps: burnBps,
+      });
+
+      headline = contractLabel
+        ? `Set ${contractLabel} join rally routing`
+        : 'Set join rally routing';
+
+      return finish({
+        headline,
+        actionBadge: 'Config',
+        ...proposalTarget('routing', routingSummary),
+        subjectAccount: receiverId,
+        subjectEyebrow: receiverId ? 'Contract' : null,
+        onChainDescription,
+        proposer: normalizedProposer,
+        showProposerSeparately: shouldShowProposerSeparately(
+          normalizedProposer,
+          receiverId
+        ),
+      });
+    }
+
+    if (methodName === 'set_season_config') {
+      const seasonLabel =
+        config && typeof config.label === 'string' ? config.label.trim() : null;
+      const windowSummary = seasonLabel
+        ? `${seasonLabel}${seasonId ? ` (${seasonId})` : ''}`
+        : seasonId;
+
+      headline = contractLabel
+        ? `Set ${contractLabel} rally season`
+        : 'Set rally season window';
+
+      return finish({
+        headline,
+        actionBadge: 'Config',
+        ...(windowSummary
+          ? proposalTarget('routing', windowSummary, seasonId ?? undefined)
+          : proposalTarget(
+              'contract',
+              contractLabel ?? receiverId,
+              receiverId
+            )),
+        subjectAccount: seasonId ?? receiverId,
+        subjectEyebrow: seasonId ? 'Season' : receiverId ? 'Contract' : null,
+        onChainDescription,
+        proposer: normalizedProposer,
+        showProposerSeparately: shouldShowProposerSeparately(
+          normalizedProposer,
+          seasonId ?? receiverId
+        ),
+      });
+    }
+
+    if (methodName === 'set_boost_contract_id' && receiverId) {
+      const boostTargetLabel = boostContractId
+        ? (shortContractName(boostContractId) ?? boostContractId)
+        : null;
+      headline =
+        contractLabel && boostTargetLabel
+          ? `Set ${contractLabel} boost contract to ${boostTargetLabel}`
+          : contractLabel
+            ? `Set ${contractLabel} boost contract`
+            : 'Set boost contract target';
+
+      return finish({
+        headline,
+        actionBadge: 'Config',
+        ...proposalTarget('contract', boostTargetLabel, boostContractId),
+        subjectAccount: receiverId,
+        subjectEyebrow: receiverId ? 'Contract' : null,
+        onChainDescription,
+        proposer: normalizedProposer,
+        showProposerSeparately: shouldShowProposerSeparately(
+          normalizedProposer,
+          receiverId
+        ),
+      });
     }
 
     if (methodLabel && contractLabel) {

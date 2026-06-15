@@ -247,6 +247,7 @@ describe('proposal card target eyebrows', () => {
     expect(resolveProposalTargetEyebrowLabel('community')).toBe('Community');
     expect(resolveProposalTargetEyebrowLabel('contract')).toBe('Contract');
     expect(resolveProposalTargetEyebrowLabel('amount')).toBe('Amount');
+    expect(resolveProposalTargetEyebrowLabel('code_hash')).toBe('Code hash');
     expect(resolveProposalTargetEyebrowLabel(null)).toBeNull();
   });
 
@@ -266,6 +267,102 @@ describe('proposal card target eyebrows', () => {
     expect(presentation.targetKind).toBe('amount');
     expect(resolveProposalTargetEyebrowLabel(presentation.targetKind)).toBe(
       'Amount'
+    );
+  });
+
+  it('shows contract upgrade code hash on proposal cards', () => {
+    const codeHash = '85a9kdWatcHHkpmNu3pDyLvZ9wJkmTqhXVLhGsd17y16';
+    const presentation = deriveProposalPresentation({
+      proposer: 'alice.testnet',
+      description: 'Upgrade social-spend for burn routing.',
+      kind: {
+        FunctionCall: {
+          receiver_id: 'social-spend.onsocial.testnet',
+          actions: [
+            {
+              method_name: 'update_contract_from_hash',
+              args: encodeArgs({ code_hash: codeHash }),
+              deposit: '0',
+              gas: 250_000_000_000_000,
+            },
+          ],
+        },
+      },
+    });
+
+    expect(presentation.actionBadge).toBe('Upgrade');
+    expect(presentation.targetKind).toBe('code_hash');
+    expect(presentation.targetValue).toBe('85a9kdWatc…Gsd17y16');
+    expect(presentation.targetAccountId).toBe(codeHash);
+    expect(presentation.subjectAccount).toBe('social-spend.onsocial.testnet');
+    expect(presentation.subjectEyebrow).toBe('Contract');
+  });
+
+  it('shows join rally routing on contract config proposals', () => {
+    const presentation = deriveProposalPresentation({
+      proposer: 'alice.testnet',
+      description: 'Enable burn on join rally.',
+      kind: {
+        FunctionCall: {
+          receiver_id: 'social-spend.onsocial.testnet',
+          actions: [
+            {
+              method_name: 'set_action_config',
+              args: encodeArgs({
+                action_id: 'join_rally',
+                config: {
+                  label: 'Join Rally',
+                  active: true,
+                  min_amount: '100000000000000000000',
+                  target_types: ['rally'],
+                  treasury_bps: 0,
+                  season_pool_bps: 9500,
+                  target_bps: 0,
+                  burn_bps: 500,
+                  season_required: true,
+                  allow_self_target: true,
+                },
+              }),
+              deposit: '1',
+              gas: 100_000_000_000_000,
+            },
+          ],
+        },
+      },
+    });
+
+    expect(presentation.actionBadge).toBe('Config');
+    expect(presentation.targetKind).toBe('routing');
+    expect(presentation.targetValue).toBe('95% pool · 5% burn');
+    expect(presentation.headline).toBe('Set Social spend join rally routing');
+  });
+
+  it('shows boost contract target on contract config proposals', () => {
+    const presentation = deriveProposalPresentation({
+      proposer: 'alice.testnet',
+      description: 'Route protocol fees to boost credits.',
+      kind: {
+        FunctionCall: {
+          receiver_id: 'social-spend.onsocial.testnet',
+          actions: [
+            {
+              method_name: 'set_boost_contract_id',
+              args: encodeArgs({
+                boost_contract_id: 'boost.onsocial.testnet',
+              }),
+              deposit: '1',
+              gas: 100_000_000_000_000,
+            },
+          ],
+        },
+      },
+    });
+
+    expect(presentation.actionBadge).toBe('Config');
+    expect(presentation.targetKind).toBe('contract');
+    expect(presentation.targetValue).toBe('Boost');
+    expect(presentation.headline).toBe(
+      'Set Social spend boost contract to Boost'
     );
   });
 

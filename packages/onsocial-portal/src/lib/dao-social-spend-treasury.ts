@@ -146,6 +146,13 @@ export async function loadDaoSocialSpendTreasuryContext(
 
   const treasuryBalance =
     typeof info?.treasury_balance === 'string' ? info.treasury_balance : '0';
+  const hasTreasuryBalance = (() => {
+    try {
+      return BigInt(treasuryBalance) > 0n;
+    } catch {
+      return false;
+    }
+  })();
 
   const daoSocialBalanceYocto = (
     await getSocialWalletBalanceYocto(normalizedDaoAccountId)
@@ -157,7 +164,7 @@ export async function loadDaoSocialSpendTreasuryContext(
     daoSocialBalanceYocto,
     treasuryId,
     ownerId,
-    canWithdrawTreasury,
+    canWithdrawTreasury: canWithdrawTreasury && hasTreasuryBalance,
     canFundSeasonPool,
     canFundSeasonPoolFromDaoWallet,
     fundableSeasonIds,

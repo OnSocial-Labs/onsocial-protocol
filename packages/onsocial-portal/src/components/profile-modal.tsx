@@ -43,8 +43,7 @@ import {
 import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
 import {
   ProfileIdentityLoading,
-  ProfileSignalsSkeleton,
-  ProfileSocialStripSkeleton,
+  ProfileSignalsBandSkeleton,
   profileIdentityActionsClass,
   profileIdentityAvatarDockClass,
   profileIdentityAvatarSizeClass,
@@ -74,14 +73,7 @@ import { usePlatformStorageSummary } from '@/hooks/use-platform-storage-summary'
 import { useProfileNearFacts } from '@/hooks/use-profile-near-facts';
 import { PLATFORM_STORAGE_LABEL } from '@/lib/platform-storage-display';
 import type { StandingUpdateResult } from '@/contexts/profile-context';
-import {
-  commitmentLabel,
-  formatReputation,
-  formatScore,
-  reputationConfidenceLabel,
-  reputationTier,
-  type ReputationEntry,
-} from '@/lib/leaderboard';
+import { formatReputation, type ReputationEntry } from '@/lib/leaderboard';
 import { fadeMotion, scaleFadeMotion } from '@/lib/motion';
 import { formatProfilePageNavLabel } from '@/lib/nav-badge-label';
 import {
@@ -472,10 +464,7 @@ function ProfileSocialLinkIcons({
 
   return (
     <div
-      className={cn(
-        'flex shrink-0 flex-wrap items-center justify-end gap-1.5',
-        className
-      )}
+      className={cn('flex shrink-0 flex-wrap items-center gap-1.5', className)}
     >
       {links.map((item) => (
         <a
@@ -484,7 +473,7 @@ function ProfileSocialLinkIcons({
           target="_blank"
           rel="noreferrer"
           className={cn(
-            'text-muted-foreground/70 transition-all hover:scale-110 hover:brightness-125 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60',
+            'inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/70 transition-all hover:scale-105 hover:brightness-125 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60',
             item.kind === 'website' && 'hover:text-[var(--portal-blue)]',
             item.kind === 'telegram' && 'hover:text-[#26A5E4]',
             item.kind === 'x' && 'hover:text-foreground',
@@ -493,10 +482,7 @@ function ProfileSocialLinkIcons({
           aria-label={`${item.label}: ${item.display}`}
         >
           <PortalHoverTooltip tooltip={`${item.label}: ${item.display}`}>
-            <ProfileLinkIcon
-              kind={item.kind}
-              className="h-3.5 w-3.5 shrink-0 md:h-4 md:w-4"
-            />
+            <ProfileLinkIcon kind={item.kind} className="h-4 w-4 shrink-0" />
           </PortalHoverTooltip>
         </a>
       ))}
@@ -665,10 +651,14 @@ function ProfileStandingNetworkPreview({
   );
 }
 
-function SocialProofStrip({
+const profileSignalsGroupSeparatorClass =
+  'select-none text-muted-foreground/25 portal-type-body-sm';
+
+function ProfileSignalsBand({
   social,
   endorsementCount,
   givenEndorsementCount,
+  reputation,
   isSelf,
   viewerHasEndorsed = false,
   showEndorsementMetrics = false,
@@ -683,6 +673,7 @@ function SocialProofStrip({
   social: ProfileSocialResponse;
   endorsementCount: number;
   givenEndorsementCount: number;
+  reputation: ReputationEntry | null;
   isSelf: boolean;
   viewerHasEndorsed?: boolean;
   showEndorsementMetrics?: boolean;
@@ -700,6 +691,8 @@ function SocialProofStrip({
   const viewerStanding = Boolean(social.viewerStanding);
   const theyStandWithViewer = Boolean(!isSelf && social.theyStandWithViewer);
   const sharedSolidarity = viewerStanding && theyStandWithViewer;
+  const rank = reputation ? toFiniteNumber(reputation.rank) : 0;
+  const repValue = reputation ? toFiniteNumber(reputation.reputation) : null;
 
   const metricSeparatorClass =
     'select-none text-muted-foreground/35 portal-type-body-sm';
@@ -869,212 +862,94 @@ function SocialProofStrip({
     </>
   );
 
+  const reputationMetric =
+    reputation && repValue !== null ? (
+      <Link
+        href="/boost/leaderboard"
+        className={cn(
+          metricBtn,
+          'focus-visible:ring-[var(--portal-green-border)]'
+        )}
+        aria-label={`Protocol reputation ${formatReputation(reputation.reputation)}`}
+      >
+        <span className={metricInnerClass}>
+          <ProtocolMotionArrow className="h-2.5 w-2.5 text-[var(--portal-green)]" />
+          <span
+            className={cn(
+              'font-bold tabular-nums text-[var(--portal-green)]',
+              repValue === 0 && 'opacity-40'
+            )}
+          >
+            {formatReputation(reputation.reputation)}
+          </span>
+        </span>
+      </Link>
+    ) : null;
+
+  const captionParts: string[] = ['standing · solidarity'];
+  if (showEndorsementMetrics) captionParts.push('endorsements');
+  if (reputation) captionParts.push('reputation');
+
+  const hasCtaRow = Boolean(
+    standingAction || endorseAction || profileLinks.length > 0
+  );
+
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       <div className={metricsRowClass}>
         {standingMetrics}
-        {standingAction ? (
+        {showEndorsementMetrics ? (
           <>
-            <span aria-hidden="true" className={metricSeparatorClass}>
+            <span
+              aria-hidden="true"
+              className={profileSignalsGroupSeparatorClass}
+            >
               ·
             </span>
-            {standingAction}
+            {endorsementMetrics}
+          </>
+        ) : null}
+        {reputationMetric ? (
+          <>
+            <span
+              aria-hidden="true"
+              className={profileSignalsGroupSeparatorClass}
+            >
+              ·
+            </span>
+            {reputationMetric}
           </>
         ) : null}
       </div>
 
       <p className="portal-type-label text-muted-foreground/45">
-        standing · solidarity
+        {captionParts.join(' · ')}
+        {reputation && rank > 0 ? (
+          <span className="tabular-nums text-muted-foreground/40">
+            {' '}
+            #{formatCount(rank)}
+          </span>
+        ) : null}
       </p>
 
-      {showEndorsementMetrics || profileLinks.length > 0 || endorseAction ? (
-        <>
-          <div className={metricsRowClass}>
-            {showEndorsementMetrics ? endorsementMetrics : null}
-            {endorseAction ? (
-              <>
-                {showEndorsementMetrics ? (
-                  <span aria-hidden="true" className={metricSeparatorClass}>
-                    ·
-                  </span>
-                ) : null}
-                {endorseAction}
-              </>
-            ) : null}
-            <ProfileSocialLinkIcons
-              links={profileLinks}
-              className={
-                showEndorsementMetrics || endorseAction ? 'ml-auto' : undefined
-              }
-            />
-          </div>
-          {showEndorsementMetrics ? (
-            <p className="portal-type-label text-muted-foreground/45">
-              received · given
-            </p>
+      {hasCtaRow ? (
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          {profileLinks.length > 0 ? (
+            <ProfileSocialLinkIcons links={profileLinks} />
           ) : null}
-        </>
-      ) : null}
-    </div>
-  );
-}
-
-function ProfileSignalsCard({ reputation }: { reputation: ReputationEntry }) {
-  const rank = toFiniteNumber(reputation.rank);
-  const tier = reputationTier(rank > 0 ? rank : 999);
-  const lockMonths = toFiniteNumber(reputation.lockMonths);
-  const confidence = reputationConfidenceLabel(reputation.confidenceScore);
-  const boosted = toFiniteNumber(reputation.boost) > 0;
-  const earnedRewards = toFiniteNumber(reputation.rewardsEarned) > 0;
-  const scarceActivity =
-    toFiniteNumber(reputation.scarcesCreated) +
-    toFiniteNumber(reputation.scarcesSold);
-  const postActivity =
-    toFiniteNumber(reputation.totalPosts) +
-    toFiniteNumber(reputation.replyCount);
-  const signalBadges = [
-    boosted ? 'Boost participant' : null,
-    earnedRewards ? 'SOCIAL earner' : null,
-    scarceActivity > 0 ? 'Scarce creator' : null,
-    postActivity > 0 ? 'Active contributor' : null,
-    toFiniteNumber(reputation.mutualStanding) > 0 ? 'Mutual stand' : null,
-    toFiniteNumber(reputation.endorsementsReceived) > 0 ? 'Endorsed' : null,
-  ].filter(Boolean) as string[];
-
-  const dimensions = [
-    { label: 'Social', value: toFiniteNumber(reputation.socialScore) },
-    { label: 'Quality', value: toFiniteNumber(reputation.qualityScore) },
-    {
-      label: 'Consistency',
-      value: toFiniteNumber(reputation.consistencyScore),
-    },
-    { label: 'Commitment', value: toFiniteNumber(reputation.commitmentScore) },
-    { label: 'Scarces', value: toFiniteNumber(reputation.scarcesScore) },
-  ];
-  const maxDimension = Math.max(
-    1,
-    ...dimensions.map((dimension) =>
-      Number.isFinite(dimension.value) ? dimension.value : 0
-    )
-  );
-  const profileSignalLabel =
-    lockMonths >= 1 ? commitmentLabel(lockMonths) : confidence.label;
-
-  return (
-    <div className="mt-4">
-      <div className="h-px divider-section" />
-
-      <div className="pt-3.5 pb-1">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="portal-type-display font-semibold tabular-nums tracking-[-0.025em] text-foreground">
-              {formatReputation(reputation.reputation)}
-            </span>
-
-            <span
+          {standingAction || endorseAction ? (
+            <div
               className={cn(
-                'rounded-full border px-2 py-px portal-type-caption font-medium',
-                tier.accent === 'gold'
-                  ? 'portal-gold-badge text-[var(--portal-gold)]'
-                  : tier.accent === 'purple'
-                    ? 'portal-purple-badge text-[var(--portal-purple)]'
-                    : tier.accent === 'blue'
-                      ? 'portal-blue-badge text-[var(--portal-blue)]'
-                      : tier.accent === 'green'
-                        ? 'portal-green-badge text-[var(--portal-green)]'
-                        : 'portal-neutral-badge text-[var(--portal-neutral)]'
+                'flex min-w-0 flex-wrap items-center gap-2',
+                profileLinks.length > 0 && 'ml-auto'
               )}
             >
-              {tier.label}
-            </span>
-
-            {Number.isFinite(rank) && rank > 0 && (
-              <span className="portal-type-caption text-muted-foreground/65 tabular-nums">
-                #{formatCount(rank)}
-              </span>
-            )}
-          </div>
-
-          <span className="shrink-0 rounded-full border portal-blue-badge px-2 py-px portal-type-caption font-medium text-[var(--portal-blue)]">
-            {profileSignalLabel}
-          </span>
-        </div>
-
-        <p className="mt-1 portal-type-caption text-muted-foreground/50">
-          Protocol reputation · indexed on-chain signals (separate from season
-          rally score)
-        </p>
-
-        <div className="mt-1.5 portal-type-body-sm text-muted-foreground/70">
-          {formatCount(toFiniteNumber(reputation.totalPosts))} posts ·{' '}
-          {formatCount(toFiniteNumber(reputation.reactionsReceived))} reactions
-          · {formatCount(toFiniteNumber(reputation.activeDays))} active days ·{' '}
-          {formatNumericCompact(reputation.rewardsEarned)} SOCIAL earned
-          <span className="text-muted-foreground/45"> (context only)</span>
-        </div>
-
-        <p className="mt-1 portal-type-caption text-muted-foreground/45">
-          {confidence.detail}
-        </p>
-
-        {/* Reputation personality mix — refined and human */}
-        <div className="mt-3">
-          <div className="portal-eyebrow text-muted-foreground/50 mb-1.5">
-            Reputation mix
-          </div>
-
-          <div className="space-y-1">
-            {dimensions.map((dimension) => {
-              const value = Number.isFinite(dimension.value)
-                ? dimension.value
-                : 0;
-              const width =
-                value > 0 ? Math.max(10, (value / maxDimension) * 100) : 0;
-
-              return (
-                <div
-                  key={dimension.label}
-                  className="flex items-center gap-2 portal-type-label"
-                >
-                  <span className="w-16 shrink-0 text-muted-foreground/70">
-                    {dimension.label}
-                  </span>
-
-                  <div className="flex-1 h-1 rounded-full bg-muted/30 overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-[var(--portal-blue)]/75 transition-all"
-                      style={{ width: `${width}%` }}
-                    />
-                  </div>
-
-                  <span className="w-7 text-right tabular-nums text-muted-foreground/60">
-                    {formatScore(value)}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Recognized for — elegant and minimal */}
-        {signalBadges.length > 0 && (
-          <div className="mt-3">
-            <div className="portal-eyebrow text-muted-foreground/50 mb-1">
-              Recognized for
+              {endorseAction}
+              {standingAction}
             </div>
-            <div className="flex flex-wrap gap-1">
-              {signalBadges.slice(0, 3).map((badge) => (
-                <span
-                  key={badge}
-                  className="rounded-full border border-border/30 bg-background/50 px-2 py-px portal-type-caption text-muted-foreground/80"
-                >
-                  {badge}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -2005,22 +1880,23 @@ export function ProfileModal({
               ) : null}
 
               <AnimatePresence initial={false} mode="wait">
-                {!socialReady ? (
+                {!socialReady || !signalsReady ? (
                   <motion.div
-                    key="profile-social-skeleton"
+                    key="profile-signals-skeleton"
                     {...fadeMotion(reduceMotion ? 0 : 0.12)}
                   >
-                    <ProfileSocialStripSkeleton />
+                    <ProfileSignalsBandSkeleton />
                   </motion.div>
                 ) : social ? (
                   <motion.div
-                    key="profile-social-strip"
+                    key="profile-signals-band"
                     {...fadeMotion(reduceMotion ? 0 : 0.12)}
                   >
-                    <SocialProofStrip
+                    <ProfileSignalsBand
                       social={social}
                       endorsementCount={endorsementCount}
                       givenEndorsementCount={givenEndorsementCount}
+                      reputation={reputation}
                       isSelf={isSelf}
                       viewerHasEndorsed={viewerHasEndorsed}
                       profileLinks={profileLinks}
@@ -2101,12 +1977,6 @@ export function ProfileModal({
                   </motion.div>
                 ) : null}
               </AnimatePresence>
-
-              {!signalsReady ? (
-                <ProfileSignalsSkeleton />
-              ) : reputation ? (
-                <ProfileSignalsCard reputation={reputation} />
-              ) : null}
 
               <div ref={endorsementsLazy.ref} className="min-h-px">
                 {endorsementsLazy.inView ? (

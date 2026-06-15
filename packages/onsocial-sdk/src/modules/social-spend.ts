@@ -65,7 +65,8 @@ export interface SocialSpendSendOptions {
 type WalletTransaction = Parameters<WalletBroadcastSigner>[0];
 
 const DEFAULT_APP_ID = 'portal';
-const DEFAULT_SPEND_GAS = '100000000000000';
+/** Prepaid cap for token → social-spend → token → boost (+ optional burn). Unused gas is refunded. */
+const DEFAULT_SPEND_GAS = '150000000000000';
 const DEFAULT_CLAIM_GAS = '100000000000000';
 const ONE_YOCTO = '1';
 const ZERO_YOCTO = '0';

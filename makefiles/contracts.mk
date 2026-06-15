@@ -386,3 +386,4 @@ check-deps-contract-%: ensure-scripts-executable
 #   make test-integration-contract-staking-onsocial VERBOSE=1
 #   make test-unit-contract-staking-onsocial VERBOSE=1
 #   make test-integration-contract-staking-onsocial VERBOSE=1 TEST=staking_gas_profiling
+#   make test-integration-contract-social-spend-onsocial-test TEST=gas_profile_social_spend VERBOSE=1

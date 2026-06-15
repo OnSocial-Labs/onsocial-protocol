@@ -7,9 +7,24 @@ import {
   type GovernanceDaoBoard,
   buildGovernancePathWithBoard,
 } from '@/features/governance/governance-dao-board';
+import {
+  formatSeasonConfigSummary,
+  formatSocialSpendActionRoutingSummary,
+  getDaoContractConfigOperation,
+  seasonConfigDraftToInput,
+  validateSeasonConfigDraft,
+  validateSocialSpendActionRoutingBps,
+  type DaoContractConfigOperationId,
+  type SocialSpendActionRoutingDraft,
+  type SocialSpendSeasonConfigDraft,
+} from '@/lib/dao-contract-config-operations';
 import { GOVERNANCE_DAO_ACCOUNT } from '@/lib/portal-config';
 import {
+  BOOST_CONTRACT,
   isProposerThresholdWithinBounds,
+  REWARDS_CONTRACT,
+  SCARCES_CONTRACT,
+  SOCIAL_SPEND_CONTRACT,
   TOKEN_CONTRACT,
   yoctoToNear,
   yoctoToSocial,
@@ -180,6 +195,8 @@ export type CreatableDaoProposalKind =
   | 'idea'
   | 'transfer'
   | 'transfer_ownership'
+  | 'contract_upgrade'
+  | 'contract_config'
   | 'withdraw_social_treasury'
   | 'fund_season_pool';
 
@@ -191,11 +208,48 @@ export type CreatableDaoProposalAction =
   | 'idea'
   | 'transfer'
   | 'transfer_ownership'
+  | 'contract_upgrade'
+  | 'contract_config'
   | 'withdraw_social_treasury'
   | 'fund_season_pool';
 
 export const SOCIAL_SPEND_FUNCTION_CALL_GAS = 100_000_000_000_000;
 export const SOCIAL_SPEND_FUNCTION_CALL_DEPOSIT = '1';
+/** Verified gas for DAO `update_contract_from_hash` proposals (see HASH_UPGRADE_RUNBOOK). */
+export const CONTRACT_UPGRADE_FUNCTION_CALL_GAS = 250_000_000_000_000;
+
+const NEAR_PUBLISHED_CODE_HASH_PATTERN = /^[1-9A-HJ-NP-Za-km-z]{43,44}$/;
+
+const DAO_HASH_UPGRADABLE_CONTRACT_IDS = new Set(
+  [
+    REWARDS_CONTRACT,
+    BOOST_CONTRACT,
+    SCARCES_CONTRACT,
+    SOCIAL_SPEND_CONTRACT,
+  ].map((contractId) => contractId.toLowerCase())
+);
+
+export function isDaoHashUpgradableContractId(contractId: string): boolean {
+  const normalized = contractId.trim().toLowerCase();
+  return DAO_HASH_UPGRADABLE_CONTRACT_IDS.has(normalized);
+}
+
+export function normalizePublishedCodeHash(input: string): string | null {
+  const trimmed = input.trim();
+  if (!NEAR_PUBLISHED_CODE_HASH_PATTERN.test(trimmed)) {
+    return null;
+  }
+  return trimmed;
+}
+
+export function formatPublishedCodeHashPreview(codeHash: string): string {
+  const normalized = codeHash.trim();
+  if (normalized.length <= 18) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, 10)}…${normalized.slice(-8)}`;
+}
 
 export function proposalActionToKind(
   action: CreatableDaoProposalAction
@@ -213,6 +267,10 @@ export function proposalActionToKind(
       return 'transfer';
     case 'transfer_ownership':
       return 'transfer_ownership';
+    case 'contract_upgrade':
+      return 'contract_upgrade';
+    case 'contract_config':
+      return 'contract_config';
     case 'withdraw_social_treasury':
       return 'withdraw_social_treasury';
     case 'fund_season_pool':
@@ -282,6 +340,16 @@ export function resolveCreatableProposalActionsForProposer(
   }
 
   if (
+    canProposeDaoKind(policy, proposer, delegatedWeight, 'contract_upgrade')
+  ) {
+    actions.push('contract_upgrade');
+  }
+
+  if (canProposeDaoKind(policy, proposer, delegatedWeight, 'contract_config')) {
+    actions.push('contract_config');
+  }
+
+  if (
     canProposeDaoKind(
       policy,
       proposer,
@@ -319,6 +387,10 @@ export function getProposalActionSubmitLabel(
       return 'Propose transfer';
     case 'transfer_ownership':
       return 'Propose ownership transfer';
+    case 'contract_upgrade':
+      return 'Propose contract upgrade';
+    case 'contract_config':
+      return 'Propose contract config';
     case 'withdraw_social_treasury':
       return 'Propose treasury sweep';
     case 'fund_season_pool':
@@ -332,6 +404,8 @@ const CREATABLE_KIND_POLICY_LABEL: Record<CreatableDaoProposalKind, string> = {
   idea: 'vote',
   transfer: 'transfer',
   transfer_ownership: 'call',
+  contract_upgrade: 'call',
+  contract_config: 'call',
   withdraw_social_treasury: 'call',
   fund_season_pool: 'call',
 };
@@ -414,6 +488,14 @@ export function getDaoKindPermissionBlockReason(
 
   if (kind === 'transfer_ownership') {
     return 'You cannot propose contract ownership transfers on the DAO yet. Call proposal permission is missing from DAO policy.';
+  }
+
+  if (kind === 'contract_upgrade') {
+    return 'You cannot propose contract upgrades on the DAO yet. Call proposal permission is missing from DAO policy.';
+  }
+
+  if (kind === 'contract_config') {
+    return 'You cannot propose contract configuration changes on the DAO yet. Call proposal permission is missing from DAO policy.';
   }
 
   if (kind === 'withdraw_social_treasury' || kind === 'fund_season_pool') {
@@ -2297,6 +2379,19 @@ export const CREATABLE_DAO_PROPOSAL_ACTIONS: ReadonlyArray<{
     description:
       'Transfer admin ownership of a DAO-managed protocol contract to a new account.',
   },
+  {
+    id: 'contract_upgrade',
+    group: 'contracts',
+    label: 'Upgrade contract',
+    description:
+      'Upgrade a DAO-owned protocol contract from a published global WASM hash.',
+  },
+  {
+    id: 'contract_config',
+    group: 'contracts',
+    label: 'Configure contract',
+    description: 'Update on-chain settings for a DAO-owned protocol contract.',
+  },
 ];
 
 export type GovernanceCreateActionMenuItem =
@@ -2502,6 +2597,10 @@ function encodeFunctionCallArgs(args: Record<string, string>): string {
   return btoa(JSON.stringify(args));
 }
 
+function encodeJsonFunctionCallArgs(args: unknown): string {
+  return btoa(JSON.stringify(args));
+}
+
 export type FundSeasonPoolSource = 'contract_treasury' | 'dao_wallet';
 
 export const FUND_SEASON_POOL_SOURCE_OPTIONS: Array<{
@@ -2578,6 +2677,159 @@ export function buildDaoTransferOwnershipProposalPayload({
                 [transferArgField]: normalizedNewOwner,
               }),
               deposit,
+              gas,
+            },
+          ],
+        },
+      },
+    },
+  };
+}
+
+export function buildDaoContractConfigProposalPayload(input: {
+  operationId: DaoContractConfigOperationId;
+  contractLabel?: string;
+  description?: string;
+  routing?: SocialSpendActionRoutingDraft;
+  seasonConfig?: SocialSpendSeasonConfigDraft;
+}): DaoProposalPayload {
+  const operation = getDaoContractConfigOperation(input.operationId);
+  if (!operation) {
+    throw new Error('Contract setting is required.');
+  }
+
+  const assetLabel = input.contractLabel?.trim() || operation.contractId;
+
+  if (input.operationId === 'social_spend_set_season_config') {
+    const seasonConfig = input.seasonConfig;
+    if (!seasonConfig) {
+      throw new Error('Season config is required.');
+    }
+    const validationError = validateSeasonConfigDraft(seasonConfig);
+    if (validationError) {
+      throw new Error(validationError);
+    }
+
+    const payload = seasonConfigDraftToInput(seasonConfig);
+    const proposalDescription =
+      input.description?.trim() ||
+      `Configure ${assetLabel} rally season (${formatSeasonConfigSummary(seasonConfig)}).`;
+
+    return {
+      proposal: {
+        description: proposalDescription,
+        kind: {
+          FunctionCall: {
+            receiver_id: operation.contractId,
+            actions: [
+              {
+                method_name: 'set_season_config',
+                args: encodeJsonFunctionCallArgs(payload),
+                deposit: operation.deposit,
+                gas: operation.gas,
+              },
+            ],
+          },
+        },
+      },
+    };
+  }
+
+  const routing = input.routing;
+  if (!routing) {
+    throw new Error('Routing config is required.');
+  }
+
+  if (!validateSocialSpendActionRoutingBps(routing)) {
+    throw new Error('Routing shares must sum to 100% (10,000 bps).');
+  }
+
+  const routingSummary = formatSocialSpendActionRoutingSummary(routing, {
+    protocolFeesRouteToBoost: true,
+  });
+  const proposalDescription =
+    input.description?.trim() ||
+    `Configure ${assetLabel} ${operation.label.toLowerCase()} (${routingSummary}).`;
+
+  return {
+    proposal: {
+      description: proposalDescription,
+      kind: {
+        FunctionCall: {
+          receiver_id: operation.contractId,
+          actions: [
+            {
+              method_name: 'set_action_config',
+              args: encodeJsonFunctionCallArgs({
+                action_id: operation.actionId,
+                config: {
+                  label: routing.label,
+                  active: routing.active,
+                  min_amount: routing.min_amount,
+                  target_types: routing.target_types,
+                  treasury_bps: routing.treasury_bps,
+                  season_pool_bps: routing.season_pool_bps,
+                  target_bps: routing.target_bps,
+                  burn_bps: routing.burn_bps,
+                  season_required: routing.season_required,
+                  allow_self_target: routing.allow_self_target,
+                },
+              }),
+              deposit: operation.deposit,
+              gas: operation.gas,
+            },
+          ],
+        },
+      },
+    },
+  };
+}
+
+export function buildDaoContractUpgradeProposalPayload({
+  contractId,
+  contractLabel,
+  codeHash,
+  gas = CONTRACT_UPGRADE_FUNCTION_CALL_GAS,
+  description,
+}: {
+  contractId: string;
+  contractLabel?: string;
+  codeHash: string;
+  gas?: number;
+  description?: string;
+}): DaoProposalPayload {
+  const normalizedContractId = contractId.trim();
+  if (!normalizedContractId) {
+    throw new Error('Contract is required.');
+  }
+
+  const normalizedCodeHash = normalizePublishedCodeHash(codeHash);
+  if (!normalizedCodeHash) {
+    throw new Error('Enter a valid published global code hash.');
+  }
+
+  if (!isDaoHashUpgradableContractId(normalizedContractId)) {
+    throw new Error('This contract does not support hash-based upgrades.');
+  }
+
+  const assetLabel = contractLabel?.trim() || normalizedContractId;
+  const proposalDescription =
+    description?.trim() ||
+    `Upgrade ${assetLabel} by published code hash (250 TGas).`;
+
+  return {
+    proposal: {
+      description: proposalDescription,
+      kind: {
+        FunctionCall: {
+          receiver_id: normalizedContractId,
+          actions: [
+            {
+              method_name: 'update_contract_from_hash',
+              args: encodeFunctionCallArgs({
+                code_hash: normalizedCodeHash,
+              }),
+              deposit: '0',
               gas,
             },
           ],

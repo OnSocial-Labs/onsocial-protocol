@@ -6,7 +6,10 @@ import {
   buildDaoRolePermissionChips,
   buildDaoFundSeasonPoolFromDaoWalletPayload,
   buildDaoFundSeasonPoolFromTreasuryPayload,
+  buildDaoContractUpgradeProposalPayload,
+  buildDaoContractConfigProposalPayload,
   buildDaoTransferOwnershipProposalPayload,
+  formatPublishedCodeHashPreview,
   buildDaoTransferProposalPayload,
   buildDaoWithdrawSocialTreasuryPayload,
   computeRoleWeightApprovalFloor,
@@ -372,6 +375,156 @@ describe('governance policy vote threshold builders', () => {
     expect(JSON.parse(atob(functionCall.actions[0].args))).toEqual({
       new_owner: 'alice.testnet',
     });
+  });
+
+  it('builds contract upgrade FunctionCall payload', () => {
+    const codeHash = '1111111111111111111111111111111111111111111';
+    const payload = buildDaoContractUpgradeProposalPayload({
+      contractId: 'social-spend.onsocial.testnet',
+      contractLabel: 'Social spend',
+      codeHash,
+    });
+
+    expect(payload.proposal.description).toBe(
+      'Upgrade Social spend by published code hash (250 TGas).'
+    );
+
+    const functionCall = (
+      payload.proposal.kind as {
+        FunctionCall: {
+          receiver_id: string;
+          actions: Array<{
+            method_name: string;
+            args: string;
+            deposit: string;
+            gas: number;
+          }>;
+        };
+      }
+    ).FunctionCall;
+
+    expect(functionCall.receiver_id).toBe('social-spend.onsocial.testnet');
+    expect(functionCall.actions[0]).toMatchObject({
+      method_name: 'update_contract_from_hash',
+      deposit: '0',
+      gas: 250_000_000_000_000,
+    });
+    expect(JSON.parse(atob(functionCall.actions[0].args))).toEqual({
+      code_hash: codeHash,
+    });
+  });
+
+  it('rejects contract upgrade for non-hash-upgradable contracts', () => {
+    expect(() =>
+      buildDaoContractUpgradeProposalPayload({
+        contractId: 'token.onsocial.testnet',
+        codeHash: '1111111111111111111111111111111111111111111',
+      })
+    ).toThrow('This contract does not support hash-based upgrades.');
+  });
+
+  it('builds join rally routing contract config FunctionCall payload', () => {
+    const payload = buildDaoContractConfigProposalPayload({
+      operationId: 'social_spend_join_rally_routing',
+      contractLabel: 'Social spend',
+      routing: {
+        label: 'Join Rally',
+        active: true,
+        min_amount: '100000000000000000000',
+        target_types: ['rally'],
+        treasury_bps: 0,
+        season_pool_bps: 9500,
+        target_bps: 0,
+        burn_bps: 500,
+        season_required: true,
+        allow_self_target: true,
+      },
+    });
+
+    expect(payload.proposal.description).toBe(
+      'Configure Social spend join rally routing (95% pool · 5% burn).'
+    );
+
+    const functionCall = (
+      payload.proposal.kind as {
+        FunctionCall: {
+          receiver_id: string;
+          actions: Array<{
+            method_name: string;
+            args: string;
+            deposit: string;
+            gas: number;
+          }>;
+        };
+      }
+    ).FunctionCall;
+
+    expect(functionCall.receiver_id).toBe('social-spend.onsocial.testnet');
+    expect(functionCall.actions[0]).toMatchObject({
+      method_name: 'set_action_config',
+      deposit: '1',
+      gas: 100_000_000_000_000,
+    });
+    expect(JSON.parse(atob(functionCall.actions[0].args))).toEqual({
+      action_id: 'join_rally',
+      config: {
+        label: 'Join Rally',
+        active: true,
+        min_amount: '100000000000000000000',
+        target_types: ['rally'],
+        treasury_bps: 0,
+        season_pool_bps: 9500,
+        target_bps: 0,
+        burn_bps: 500,
+        season_required: true,
+        allow_self_target: true,
+      },
+    });
+  });
+
+  it('builds rally season window contract config FunctionCall payload', () => {
+    const payload = buildDaoContractConfigProposalPayload({
+      operationId: 'social_spend_set_season_config',
+      contractLabel: 'Social spend',
+      seasonConfig: {
+        season_id: 'season-two',
+        label: 'Test Rally Season',
+        active: true,
+        starts_at_local: '2026-06-15T22:00',
+        ends_at_local: '2026-06-16T05:00',
+        claim_starts_at_local: '2026-06-16T05:00',
+        use_custom_claim_start: false,
+      },
+    });
+
+    expect(payload.proposal.description).toContain('season-two');
+
+    const functionCall = (
+      payload.proposal.kind as {
+        FunctionCall: {
+          receiver_id: string;
+          actions: Array<{ method_name: string; args: string }>;
+        };
+      }
+    ).FunctionCall;
+
+    expect(functionCall.receiver_id).toBe('social-spend.onsocial.testnet');
+    expect(functionCall.actions[0].method_name).toBe('set_season_config');
+    expect(JSON.parse(atob(functionCall.actions[0].args))).toMatchObject({
+      season_id: 'season-two',
+      config: {
+        label: 'Test Rally Season',
+        active: true,
+      },
+    });
+  });
+
+  it('formats published code hash previews for proposal cards', () => {
+    expect(
+      formatPublishedCodeHashPreview(
+        '85a9kdWatcHHkpmNu3pDyLvZ9wJkmTqhXVLhGsd17y16'
+      )
+    ).toBe('85a9kdWatc…Gsd17y16');
   });
 
   it('builds withdraw social treasury FunctionCall payload', () => {

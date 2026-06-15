@@ -208,6 +208,39 @@ export async function viewAccount(
   return res.result ?? null;
 }
 
+export type PublishedGlobalContractLookup =
+  | { status: 'published'; codeHash: string }
+  | { status: 'missing' }
+  | { status: 'invalid' };
+
+/** Returns whether a base58 code hash is published globally on the active network. */
+export async function lookupPublishedGlobalContractCode(
+  codeHash: string
+): Promise<PublishedGlobalContractLookup> {
+  const rpc = getRpc();
+  const res = await rpc.call<{ hash?: string; code_base64?: string }>('query', {
+    request_type: 'view_global_contract_code',
+    finality: 'final',
+    code_hash: codeHash,
+  });
+
+  if (res.error) {
+    if (res.error.cause?.name === 'NO_GLOBAL_CONTRACT_CODE') {
+      return { status: 'missing' };
+    }
+    return { status: 'invalid' };
+  }
+
+  if (res.result?.code_base64 || res.result?.hash) {
+    return {
+      status: 'published',
+      codeHash: res.result.hash ?? codeHash,
+    };
+  }
+
+  return { status: 'missing' };
+}
+
 interface NearTransactionStatusOutcome {
   executor_id?: string;
   logs?: string[];

@@ -25,6 +25,7 @@ const MAX_METADATA_BYTES: usize = 1_024;
 const MAX_TARGET_ID_BYTES: usize = 256;
 const MAX_TAG_BYTES: usize = 32;
 const GAS_FT_TRANSFER: Gas = Gas::from_tgas(15);
+const GAS_FT_TRANSFER_CALL: Gas = Gas::from_tgas(120);
 const GAS_STORAGE_DEPOSIT: Gas = Gas::from_tgas(10);
 const GAS_CALLBACK: Gas = Gas::from_tgas(15);
 const GAS_MIGRATE: Gas = Gas::from_tgas(200);
@@ -76,6 +77,9 @@ enum StorageKey {
     TargetBalances,
     TargetTotals,
     PendingTransfers,
+    ActionBurnBps,
+    ActionBurnTotals,
+    ActionBoostCreditsTotals,
 }
 
 #[near(serializers = [json])]
@@ -89,6 +93,7 @@ pub struct ActionConfigInput {
     pub target_bps: u16,
     pub season_required: bool,
     pub allow_self_target: bool,
+    pub burn_bps: u16,
 }
 
 #[near(serializers = [json, borsh])]
@@ -132,10 +137,11 @@ pub struct ActionConfigView {
     pub target_bps: u16,
     pub season_required: bool,
     pub allow_self_target: bool,
+    pub burn_bps: u16,
 }
 
-impl From<&ActionConfig> for ActionConfigView {
-    fn from(config: &ActionConfig) -> Self {
+impl ActionConfigView {
+    fn from_config(config: &ActionConfig, burn_bps: u16) -> Self {
         Self {
             label: config.label.clone(),
             active: config.active,
@@ -146,6 +152,7 @@ impl From<&ActionConfig> for ActionConfigView {
             target_bps: config.target_bps,
             season_required: config.season_required,
             allow_self_target: config.allow_self_target,
+            burn_bps,
         }
     }
 }
@@ -243,16 +250,20 @@ pub struct ActionTotalsView {
     pub treasury_routed: U128,
     pub season_routed: U128,
     pub target_routed: U128,
+    pub burn_routed: U128,
+    pub boost_credits_routed: U128,
     pub count: u64,
 }
 
-impl From<&ActionTotals> for ActionTotalsView {
-    fn from(totals: &ActionTotals) -> Self {
+impl ActionTotalsView {
+    fn from_totals(totals: &ActionTotals, burn_routed: u128, boost_credits_routed: u128) -> Self {
         Self {
             total_spent: U128(totals.total_spent),
             treasury_routed: U128(totals.treasury_routed),
             season_routed: U128(totals.season_routed),
             target_routed: U128(totals.target_routed),
+            burn_routed: U128(burn_routed),
+            boost_credits_routed: U128(boost_credits_routed),
             count: totals.count,
         }
     }
@@ -339,8 +350,29 @@ pub struct ContractInfo {
     pub paused: bool,
     pub treasury_balance: U128,
     pub total_spent: U128,
+    pub total_burned: U128,
+    pub total_boost_credits_routed: U128,
+    pub boost_contract_id: Option<AccountId>,
     pub action_ids: Vec<String>,
     pub season_ids: Vec<String>,
+}
+
+/// Derive `boost.{suffix}` from `social-spend.{suffix}` (OnSocial deploy naming).
+fn derive_boost_contract_id(spend_contract_id: &AccountId) -> Option<AccountId> {
+    let derived = spend_contract_id
+        .as_str()
+        .replacen("social-spend", "boost", 1);
+    if derived == spend_contract_id.as_str() {
+        return None;
+    }
+    derived.parse().ok()
+}
+
+fn ensure_boost_contract_id(
+    spend_contract_id: &AccountId,
+    boost_contract_id: Option<AccountId>,
+) -> Option<AccountId> {
+    boost_contract_id.or_else(|| derive_boost_contract_id(spend_contract_id))
 }
 
 #[near(contract_state)]
@@ -365,12 +397,54 @@ pub struct SocialSpendContract {
     pub(crate) target_balances: LookupMap<AccountId, u128>,
     pub(crate) target_totals: LookupMap<String, TargetTotals>,
     pub(crate) pending_transfers: LookupMap<AccountId, PendingTransfer>,
+    pub(crate) action_burn_bps: LookupMap<String, u16>,
+    pub(crate) action_burn_totals: LookupMap<String, u128>,
+    pub total_burned: u128,
+    pub boost_contract_id: Option<AccountId>,
+    pub(crate) action_boost_credits_totals: LookupMap<String, u128>,
+    pub total_boost_credits_routed: u128,
+}
+
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
+
+/// Pre-boost-credits contract state for `migrate()` (includes burn routing).
+#[derive(BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
+struct SocialSpendContractPreBoostCredits {
+    pub version: String,
+    pub owner_id: AccountId,
+    pub social_token: AccountId,
+    pub treasury_id: AccountId,
+    pub settlement_publisher: Option<AccountId>,
+    pub paused: bool,
+    pub treasury_balance: u128,
+    pub total_spent: u128,
+    pub action_ids: Vec<String>,
+    pub season_ids: Vec<String>,
+    pub(crate) action_configs: LookupMap<String, ActionConfig>,
+    pub(crate) season_configs: LookupMap<String, SeasonConfig>,
+    pub(crate) action_totals: LookupMap<String, ActionTotals>,
+    pub(crate) season_pools: LookupMap<String, u128>,
+    pub(crate) season_settlements: LookupMap<String, SeasonSettlement>,
+    pub(crate) season_claims: LookupMap<String, bool>,
+    pub(crate) target_balances: LookupMap<AccountId, u128>,
+    pub(crate) target_totals: LookupMap<String, TargetTotals>,
+    pub(crate) pending_transfers: LookupMap<AccountId, PendingTransfer>,
+    pub(crate) action_burn_bps: LookupMap<String, u16>,
+    pub(crate) action_burn_totals: LookupMap<String, u128>,
+    pub total_burned: u128,
 }
 
 #[near]
 impl SocialSpendContract {
     #[init]
-    pub fn new(owner_id: AccountId, social_token: AccountId, treasury_id: AccountId) -> Self {
+    pub fn new(
+        owner_id: AccountId,
+        social_token: AccountId,
+        treasury_id: AccountId,
+        boost_contract_id: Option<AccountId>,
+    ) -> Self {
+        let spend_contract_id = env::current_account_id();
         let mut contract = Self {
             version: CONTRACT_VERSION.to_string(),
             owner_id,
@@ -391,6 +465,12 @@ impl SocialSpendContract {
             target_balances: LookupMap::new(StorageKey::TargetBalances),
             target_totals: LookupMap::new(StorageKey::TargetTotals),
             pending_transfers: LookupMap::new(StorageKey::PendingTransfers),
+            action_burn_bps: LookupMap::new(StorageKey::ActionBurnBps),
+            action_burn_totals: LookupMap::new(StorageKey::ActionBurnTotals),
+            total_burned: 0,
+            boost_contract_id: ensure_boost_contract_id(&spend_contract_id, boost_contract_id),
+            action_boost_credits_totals: LookupMap::new(StorageKey::ActionBoostCreditsTotals),
+            total_boost_credits_routed: 0,
         };
         contract.install_default_actions();
         contract
@@ -404,7 +484,8 @@ impl SocialSpendContract {
         config: ActionConfigInput,
     ) -> Result<(), SocialSpendError> {
         self.assert_owner_one_yocto()?;
-        self.internal_set_action_config(action_id, config.into())
+        let burn_bps = config.burn_bps;
+        self.internal_set_action_config(action_id, config.into(), burn_bps)
     }
 
     #[payable]
@@ -413,11 +494,32 @@ impl SocialSpendContract {
         self.assert_owner_one_yocto()?;
         self.validate_slug("action", &action_id, 1, 64)?;
         self.action_configs.remove(&action_id);
+        self.action_burn_bps.remove(&action_id);
+        self.action_burn_totals.remove(&action_id);
+        self.action_boost_credits_totals.remove(&action_id);
         self.action_ids.retain(|id| id != &action_id);
         emit(
             "ACTION_CONFIG_REMOVED",
             &env::predecessor_account_id(),
             serde_json::json!({ "action": action_id }),
+        );
+        Ok(())
+    }
+
+    #[payable]
+    #[handle_result]
+    pub fn set_boost_contract_id(
+        &mut self,
+        boost_contract_id: Option<AccountId>,
+    ) -> Result<(), SocialSpendError> {
+        self.assert_owner_one_yocto()?;
+        self.boost_contract_id = boost_contract_id.clone();
+        emit(
+            "BOOST_CONTRACT_SET",
+            &env::predecessor_account_id(),
+            serde_json::json!({
+                "boost_contract_id": boost_contract_id,
+            }),
         );
         Ok(())
     }
@@ -548,7 +650,17 @@ impl SocialSpendContract {
     #[private]
     #[init(ignore_state)]
     pub fn migrate() -> Self {
-        let mut contract: Self = env::state_read().expect("State read failed");
+        // Live testnet is on the pre-boost-credits schema (burn routing). After a
+        // successful boost-routing upgrade, migrate can be simplified to read `Self` only.
+        let mut contract =
+            if let Some(pre_boost) = env::state_read::<SocialSpendContractPreBoostCredits>() {
+                Self::from_pre_boost(pre_boost)
+            } else {
+                env::state_read::<Self>().expect("Failed to read contract state for migration")
+            };
+        if contract.boost_contract_id.is_none() {
+            contract.boost_contract_id = ensure_boost_contract_id(&env::current_account_id(), None);
+        }
         let old_version = contract.version.clone();
         contract.version = CONTRACT_VERSION.to_string();
         emit(
@@ -860,15 +972,19 @@ impl SocialSpendContract {
             paused: self.paused,
             treasury_balance: U128(self.treasury_balance),
             total_spent: U128(self.total_spent),
+            total_burned: U128(self.total_burned),
+            total_boost_credits_routed: U128(self.total_boost_credits_routed),
+            boost_contract_id: self.boost_contract_id.clone(),
             action_ids: self.action_ids.clone(),
             season_ids: self.season_ids.clone(),
         }
     }
 
     pub fn get_action_config(&self, action_id: String) -> Option<ActionConfigView> {
-        self.action_configs
-            .get(&action_id)
-            .map(ActionConfigView::from)
+        self.action_configs.get(&action_id).map(|config| {
+            let burn_bps = self.action_burn_bps.get(&action_id).copied().unwrap_or(0);
+            ActionConfigView::from_config(config, burn_bps)
+        })
     }
 
     pub fn get_season_config(&self, season_id: String) -> Option<SeasonConfigView> {
@@ -883,10 +999,26 @@ impl SocialSpendContract {
     }
 
     pub fn get_action_totals(&self, action_id: String) -> ActionTotalsView {
+        let burn_routed = self
+            .action_burn_totals
+            .get(&action_id)
+            .copied()
+            .unwrap_or(0);
+        let boost_credits_routed = self
+            .action_boost_credits_totals
+            .get(&action_id)
+            .copied()
+            .unwrap_or(0);
         self.action_totals
             .get(&action_id)
-            .map(ActionTotalsView::from)
-            .unwrap_or_else(|| ActionTotalsView::from(&ActionTotals::default()))
+            .map(|totals| ActionTotalsView::from_totals(totals, burn_routed, boost_credits_routed))
+            .unwrap_or_else(|| {
+                ActionTotalsView::from_totals(
+                    &ActionTotals::default(),
+                    burn_routed,
+                    boost_credits_routed,
+                )
+            })
     }
 
     pub fn get_target_totals(&self, target_type: String, target_id: String) -> TargetTotalsView {
@@ -993,8 +1125,38 @@ impl SocialSpendContract {
         ];
 
         for (action_id, config) in defaults {
-            self.internal_set_action_config(action_id.to_string(), config)
+            self.internal_set_action_config(action_id.to_string(), config, 0)
                 .expect("default action config must be valid");
+        }
+    }
+
+    fn from_pre_boost(pre_boost: SocialSpendContractPreBoostCredits) -> Self {
+        Self {
+            version: pre_boost.version,
+            owner_id: pre_boost.owner_id,
+            social_token: pre_boost.social_token,
+            treasury_id: pre_boost.treasury_id,
+            settlement_publisher: pre_boost.settlement_publisher,
+            paused: pre_boost.paused,
+            treasury_balance: pre_boost.treasury_balance,
+            total_spent: pre_boost.total_spent,
+            action_ids: pre_boost.action_ids,
+            season_ids: pre_boost.season_ids,
+            action_configs: pre_boost.action_configs,
+            season_configs: pre_boost.season_configs,
+            action_totals: pre_boost.action_totals,
+            season_pools: pre_boost.season_pools,
+            season_settlements: pre_boost.season_settlements,
+            season_claims: pre_boost.season_claims,
+            target_balances: pre_boost.target_balances,
+            target_totals: pre_boost.target_totals,
+            pending_transfers: pre_boost.pending_transfers,
+            action_burn_bps: pre_boost.action_burn_bps,
+            action_burn_totals: pre_boost.action_burn_totals,
+            total_burned: pre_boost.total_burned,
+            boost_contract_id: ensure_boost_contract_id(&env::current_account_id(), None),
+            action_boost_credits_totals: LookupMap::new(StorageKey::ActionBoostCreditsTotals),
+            total_boost_credits_routed: 0,
         }
     }
 
@@ -1002,17 +1164,26 @@ impl SocialSpendContract {
         &mut self,
         action_id: String,
         config: ActionConfig,
+        burn_bps: u16,
     ) -> Result<(), SocialSpendError> {
         self.validate_slug("action", &action_id, 1, 64)?;
-        self.validate_action_config(&config)?;
+        self.validate_action_config(&config, burn_bps)?;
         if !self.action_configs.contains_key(&action_id) {
             self.action_ids.push(action_id.clone());
         }
         self.action_configs.insert(action_id.clone(), config);
+        if burn_bps == 0 {
+            self.action_burn_bps.remove(&action_id);
+        } else {
+            self.action_burn_bps.insert(action_id.clone(), burn_bps);
+        }
         emit(
             "ACTION_CONFIG_SET",
             &env::predecessor_account_id(),
-            serde_json::json!({ "action": action_id }),
+            serde_json::json!({
+                "action": action_id,
+                "burn_bps": burn_bps,
+            }),
         );
         Ok(())
     }
@@ -1077,16 +1248,51 @@ impl SocialSpendContract {
         };
         let recipient_id = self.resolve_recipient(&sender_id, &input, &config)?;
 
+        let burn_bps = self
+            .action_burn_bps
+            .get(&input.action)
+            .copied()
+            .unwrap_or(0);
         let target_amount =
             amount.saturating_mul(config.target_bps as u128) / BPS_DENOMINATOR as u128;
         let season_amount =
             amount.saturating_mul(config.season_pool_bps as u128) / BPS_DENOMINATOR as u128;
+        let burn_amount = amount.saturating_mul(burn_bps as u128) / BPS_DENOMINATOR as u128;
         let treasury_amount = amount
             .saturating_sub(target_amount)
-            .saturating_sub(season_amount);
+            .saturating_sub(season_amount)
+            .saturating_sub(burn_amount);
 
         self.total_spent = self.total_spent.saturating_add(amount);
-        self.treasury_balance = self.treasury_balance.saturating_add(treasury_amount);
+        if burn_amount > 0 {
+            self.total_burned = self.total_burned.saturating_add(burn_amount);
+            let burn_total = self
+                .action_burn_totals
+                .get(&input.action)
+                .copied()
+                .unwrap_or(0)
+                .saturating_add(burn_amount);
+            self.action_burn_totals
+                .insert(input.action.clone(), burn_total);
+            self.burn_social(burn_amount);
+        }
+        if treasury_amount > 0 {
+            let boost_contract_id = self.boost_contract_id.clone().ok_or_else(|| {
+                SocialSpendError::InvalidInput("Boost contract not configured".into())
+            })?;
+            self.total_boost_credits_routed = self
+                .total_boost_credits_routed
+                .saturating_add(treasury_amount);
+            let boost_total = self
+                .action_boost_credits_totals
+                .get(&input.action)
+                .copied()
+                .unwrap_or(0)
+                .saturating_add(treasury_amount);
+            self.action_boost_credits_totals
+                .insert(input.action.clone(), boost_total);
+            self.route_boost_credits(&boost_contract_id, treasury_amount);
+        }
 
         if let Some(season_id) = season_id.as_ref() {
             let current = self.season_pools.get(season_id).copied().unwrap_or(0);
@@ -1134,6 +1340,8 @@ impl SocialSpendContract {
             "treasury_amount": treasury_amount.to_string(),
             "season_amount": season_amount.to_string(),
             "target_amount": target_amount.to_string(),
+            "burn_amount": burn_amount.to_string(),
+            "boost_credits_amount": treasury_amount.to_string(),
         });
         if let Some(season_id) = season_id {
             event["season_id"] = serde_json::json!(season_id);
@@ -1151,7 +1359,11 @@ impl SocialSpendContract {
         Ok(())
     }
 
-    fn validate_action_config(&self, config: &ActionConfig) -> Result<(), SocialSpendError> {
+    fn validate_action_config(
+        &self,
+        config: &ActionConfig,
+        burn_bps: u16,
+    ) -> Result<(), SocialSpendError> {
         self.validate_label(&config.label)?;
         if config.min_amount == 0 {
             return Err(SocialSpendError::InvalidInput(
@@ -1168,7 +1380,8 @@ impl SocialSpendContract {
         }
         let total_bps = u32::from(config.treasury_bps)
             + u32::from(config.season_pool_bps)
-            + u32::from(config.target_bps);
+            + u32::from(config.target_bps)
+            + u32::from(burn_bps);
         if total_bps != BPS_DENOMINATOR {
             return Err(SocialSpendError::InvalidInput(
                 "routing bps must sum to 10000".into(),
@@ -1299,6 +1512,32 @@ impl SocialSpendContract {
             ));
         }
         Ok(Some(recipient_id))
+    }
+
+    fn burn_social(&self, amount: u128) {
+        let _ = Promise::new(self.social_token.clone()).function_call(
+            "burn".to_string(),
+            serde_json::json!({ "amount": U128(amount) })
+                .to_string()
+                .into_bytes(),
+            ONE_YOCTO,
+            GAS_FT_TRANSFER,
+        );
+    }
+
+    fn route_boost_credits(&self, boost_contract_id: &AccountId, amount: u128) {
+        let _ = Promise::new(self.social_token.clone()).function_call(
+            "ft_transfer_call".to_string(),
+            serde_json::json!({
+                "receiver_id": boost_contract_id,
+                "amount": U128(amount),
+                "msg": r#"{"action":"credits"}"#,
+            })
+            .to_string()
+            .into_bytes(),
+            ONE_YOCTO,
+            GAS_FT_TRANSFER_CALL,
+        );
     }
 
     fn transfer_social(&self, receiver_id: &AccountId, amount: u128) {

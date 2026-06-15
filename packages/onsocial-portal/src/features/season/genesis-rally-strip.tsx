@@ -36,7 +36,12 @@ import {
   getSeasonPresentation,
   seasonApiPath,
 } from '@/lib/active-season';
+import { useSeasonRegistry } from '@/lib/season-registry';
 import { extractNearTransactionHashes } from '@/lib/near-rpc';
+import {
+  fetchJoinRallyRouting,
+  formatJoinRoutingDisclosure,
+} from '@/lib/join-rally-routing';
 import { PORTAL_SWAP_ENABLED } from '@/lib/portal-swap-config';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/portal-config';
 import { SeasonZeroMetricsRail } from '@/features/season/season-zero-metrics-rail';
@@ -110,7 +115,7 @@ interface PortalProfileResponse {
 export function GenesisRallyStrip({
   className,
   variant = 'page',
-  seasonId = getActiveSeasonId(),
+  seasonId: seasonIdProp,
   onChainConfig = null,
   indexedPoolYocto,
   joinPoolYocto,
@@ -142,6 +147,12 @@ export function GenesisRallyStrip({
   onParticipationChange?: () => void;
   onClaimed?: () => void;
 }) {
+  const { registry } = useSeasonRegistry({ enabled: variant === 'promo' });
+  const seasonId =
+    seasonIdProp ??
+    registry?.resolvedActiveSeasonId ??
+    registry?.live?.seasonId ??
+    getActiveSeasonId();
   const { accountId, connect, getSigningWallet, isConnected } = useWallet();
   const { txResult, setTxResult, clearTxResult, trackTransaction } =
     useNearTransactionFeedback(accountId);
@@ -169,6 +180,29 @@ export function GenesisRallyStrip({
   const [promoSettlement, setPromoSettlement] =
     useState<SeasonZeroSettlementSummary | null>(null);
   const [promoParticipantCount, setPromoParticipantCount] = useState(0);
+  const [joinRoutingDisclosure, setJoinRoutingDisclosure] = useState(
+    '95 to pool · 5 fees'
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void fetchJoinRallyRouting()
+      .then((routing) => {
+        if (cancelled || !routing) return;
+        const disclosure = formatJoinRoutingDisclosure(routing);
+        if (disclosure) {
+          setJoinRoutingDisclosure(disclosure);
+        }
+      })
+      .catch(() => {
+        // Keep default copy when the view call is unavailable.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const {
     balanceYocto,
@@ -178,10 +212,16 @@ export function GenesisRallyStrip({
   } = useSocialWalletBalance(accountId, balanceRefreshKey);
 
   const myStanding = myStandingProp ?? fetchedMyStanding;
+  const registryEntry =
+    registry?.seasons.find((entry) => entry.seasonId === seasonId) ?? null;
   const seasonPresentation = useMemo(
-    () => getSeasonPresentation(seasonId),
-    [seasonId]
+    () => getSeasonPresentation(seasonId, registryEntry),
+    [registryEntry, seasonId]
   );
+  const promoHref =
+    variant === 'promo'
+      ? (registry?.live?.rallyPath ?? seasonPresentation.rallyPath)
+      : seasonPresentation.rallyPath;
 
   const refresh = useCallback(async () => {
     if (myStandingProp) {
@@ -501,7 +541,10 @@ export function GenesisRallyStrip({
         <span className="portal-gold-text font-mono">
           {GENESIS_RALLY_JOIN_SOCIAL_LABEL}
         </span>
-        <span className="text-muted-foreground/60"> entry · 95 to pool</span>
+        <span className="text-muted-foreground/60">
+          {' '}
+          entry · {joinRoutingDisclosure}
+        </span>
         {payoutHint ? (
           <>
             <span className="text-border"> · </span>
@@ -678,7 +721,7 @@ export function GenesisRallyStrip({
     <>
       {variant === 'promo' ? (
         <Link
-          href="/season"
+          href={promoHref}
           prefetch
           aria-label="Live rally season standings"
           className="absolute inset-0 z-0 rounded-[inherit] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--portal-gold-accent)]"

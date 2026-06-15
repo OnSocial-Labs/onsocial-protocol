@@ -42,16 +42,23 @@ function GovernanceProposalTargetLine({
 }) {
   const valueClass = cn(
     'portal-type-body font-semibold tracking-[-0.01em] text-foreground/90',
-    targetKind === 'community' ? 'block w-full truncate' : 'line-clamp-2'
+    targetKind === 'community'
+      ? 'block w-full truncate'
+      : targetKind === 'code_hash'
+        ? 'font-mono text-[0.8125rem] leading-snug'
+        : 'line-clamp-2'
   );
   const showContractAccountId = shouldShowContractAccountId(
     targetKind,
     targetValue,
     targetAccountId
   );
-  const tooltip = showContractAccountId
-    ? `${targetValue} · ${targetAccountId}`
-    : targetValue;
+  const tooltip =
+    targetKind === 'code_hash' && targetAccountId
+      ? targetAccountId
+      : showContractAccountId
+        ? `${targetValue} · ${targetAccountId}`
+        : targetValue;
   const eyebrowLabel = resolveProposalTargetEyebrowLabel(targetKind);
 
   if (!eyebrowLabel) {

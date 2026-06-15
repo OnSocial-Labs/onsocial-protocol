@@ -104,66 +104,48 @@ export function ProfileIdentityLoading({
             <Skeleton className="h-3.5 w-28 rounded bg-foreground/[0.06]" />
           </div>
         ) : null}
-        {showSocialSkeleton ? <ProfileSocialStripSkeleton /> : null}
+        {showSocialSkeleton ? <ProfileSignalsBandSkeleton /> : null}
       </div>
     </>
   );
 }
 
-/** Inline social-strip skeleton (profile page, identity already visible). */
-export function ProfileSocialStripSkeleton() {
+/** Unified protocol signals band — standing, endorsements, reputation. */
+export function ProfileSignalsBandSkeleton({
+  showCtaRow = true,
+}: {
+  showCtaRow?: boolean;
+}) {
   return (
-    <div className="space-y-1.5">
-      <div className="flex flex-wrap items-center gap-2">
-        <Skeleton className="h-3.5 w-24 rounded bg-foreground/[0.06]" />
-        <Skeleton className="h-6 w-[5.5rem] rounded-full bg-foreground/[0.07]" />
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <Skeleton className="h-5 w-[7.5rem] rounded bg-foreground/[0.06]" />
+        <Skeleton className="h-5 w-[4.5rem] rounded bg-foreground/[0.06]" />
+        <Skeleton className="h-5 w-10 rounded bg-foreground/[0.06]" />
       </div>
-      <Skeleton className="h-3 w-36 bg-foreground/[0.05]" />
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Skeleton className="h-3.5 w-20 rounded bg-foreground/[0.06]" />
-          <Skeleton className="h-6 w-16 rounded-full bg-foreground/[0.07]" />
+      <Skeleton className="h-3 w-56 max-w-full bg-foreground/[0.05]" />
+      {showCtaRow ? (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton
+                key={i}
+                className="h-6 w-6 rounded-md bg-foreground/[0.05]"
+              />
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Skeleton className="h-6 w-[4.5rem] rounded-full bg-foreground/[0.07]" />
+            <Skeleton className="h-6 w-16 rounded-full bg-foreground/[0.07]" />
+          </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton
-              key={i}
-              className="h-3.5 w-3.5 rounded-sm bg-foreground/[0.05]"
-            />
-          ))}
-        </div>
-      </div>
-      <Skeleton className="h-3 w-28 bg-foreground/[0.05]" />
+      ) : null}
     </div>
   );
 }
 
-/** Reputation card placeholder while profile bundle loads signals. */
-export function ProfileSignalsSkeleton() {
-  return (
-    <div className="mt-4">
-      <div className="h-px divider-section" />
-      <div className="space-y-3 pt-3.5 pb-1">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <Skeleton className="h-6 w-14 rounded bg-foreground/10" />
-            <Skeleton className="h-5 w-16 rounded-full bg-foreground/[0.07]" />
-            <Skeleton className="h-3.5 w-8 rounded bg-foreground/[0.06]" />
-          </div>
-          <Skeleton className="h-5 w-20 shrink-0 rounded-full bg-foreground/[0.07]" />
-        </div>
-        <Skeleton className="h-3.5 w-full max-w-md rounded bg-foreground/[0.06]" />
-        <div className="space-y-1.5 pt-1">
-          <Skeleton className="h-3 w-24 rounded bg-foreground/[0.05]" />
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <Skeleton className="h-3 w-16 shrink-0 rounded bg-foreground/[0.05]" />
-              <Skeleton className="h-1 flex-1 rounded-full bg-foreground/[0.06]" />
-              <Skeleton className="h-3 w-7 shrink-0 rounded bg-foreground/[0.05]" />
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
+/** @deprecated Use ProfileSignalsBandSkeleton */
+export const ProfileSocialStripSkeleton = ProfileSignalsBandSkeleton;
+
+/** @deprecated Use ProfileSignalsBandSkeleton */
+export const ProfileSignalsSkeleton = ProfileSignalsBandSkeleton;

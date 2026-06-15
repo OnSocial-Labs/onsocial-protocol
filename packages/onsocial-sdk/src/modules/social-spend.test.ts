@@ -82,7 +82,7 @@ describe('buildSocialSpendTransaction', () => {
     expect(tx.actions[0]).toMatchObject({
       type: 'FunctionCall',
       methodName: 'ft_transfer_call',
-      gas: '100000000000000',
+      gas: '150000000000000',
       deposit: '1',
     });
   });

@@ -35,6 +35,8 @@ import {
   buildDaoIdeaProposalPayload,
   buildDaoMemberProposalPayload,
   buildDaoFundSeasonPoolPayload,
+  buildDaoContractUpgradeProposalPayload,
+  buildDaoContractConfigProposalPayload,
   buildDaoTransferOwnershipProposalPayload,
   buildDaoTransferProposalPayload,
   buildDaoWithdrawSocialTreasuryPayload,
@@ -53,7 +55,9 @@ import {
   getProposalActionSubmitLabel,
   getProposalKindBlockReason,
   isDaoGroupMember,
+  isDaoHashUpgradableContractId,
   isProposalActionNomination,
+  normalizePublishedCodeHash,
   proposalActionToKind,
   resolveAvailablePolicyActionsForProposer,
   resolveCreatableProposalActionsForProposer,
@@ -82,6 +86,7 @@ import {
   getGovernanceEligibility,
   getGovernanceProposalBond,
   isValidYoctoString,
+  lookupPublishedGlobalContractCode,
   sanitizeTokenAmountInput,
   socialToYocto,
   tokenAmountToSmallestUnit,
@@ -90,6 +95,7 @@ import {
   yoctoToSocial,
   type GovernanceEligibilitySnapshot,
 } from '@/lib/near-rpc';
+import { cn } from '@/lib/utils';
 import {
   getBoundedNoteCounterClass,
   getBoundedNoteCounterLabel,
@@ -98,6 +104,22 @@ import {
   normalizeBoundedNote,
   PROPOSAL_DESCRIPTION_LIMITS,
 } from '@/lib/bounded-note-field';
+import {
+  SocialSpendJoinRallyRoutingFields,
+  useSocialSpendJoinRallyRoutingDraft,
+} from '@/features/governance/governance-contract-config-fields';
+import {
+  SocialSpendSeasonConfigFields,
+  useSocialSpendSeasonConfigDraft,
+} from '@/features/governance/governance-season-config-fields';
+import {
+  getDaoContractConfigOperationsForContract,
+  seasonConfigDraftChanged,
+  socialSpendActionRoutingChanged,
+  validateSeasonConfigDraft,
+  validateSocialSpendActionRoutingBps,
+  type DaoContractConfigOperationId,
+} from '@/lib/dao-contract-config-operations';
 
 const descriptionFeedbackExit = { opacity: 0, transition: { duration: 0 } };
 const descriptionFeedbackEnter = { opacity: 0, y: -4 };
@@ -182,6 +204,17 @@ export function GovernanceCreatePanel({
     useState('');
   const [transferOwnershipNewOwnerInput, setTransferOwnershipNewOwnerInput] =
     useState('');
+  const [contractUpgradeContractId, setContractUpgradeContractId] =
+    useState('');
+  const [contractUpgradeCodeHashInput, setContractUpgradeCodeHashInput] =
+    useState('');
+  const [contractUpgradeHashLookup, setContractUpgradeHashLookup] = useState<
+    'idle' | 'checking' | 'published' | 'missing' | 'invalid'
+  >('idle');
+  const [contractConfigContractId, setContractConfigContractId] = useState('');
+  const [contractConfigOperationId, setContractConfigOperationId] = useState<
+    DaoContractConfigOperationId | ''
+  >('');
   const [managedContracts, setManagedContracts] = useState<
     DaoManagedContractOption[]
   >([]);
@@ -232,6 +265,8 @@ export function GovernanceCreatePanel({
   const isRemoveMemberAction = proposalAction === 'remove_member';
   const isTransferAction = proposalAction === 'transfer';
   const isTransferOwnershipAction = proposalAction === 'transfer_ownership';
+  const isContractUpgradeAction = proposalAction === 'contract_upgrade';
+  const isContractConfigAction = proposalAction === 'contract_config';
   const isWithdrawSocialTreasuryAction =
     proposalAction === 'withdraw_social_treasury';
   const isFundSeasonPoolAction = proposalAction === 'fund_season_pool';
@@ -352,6 +387,14 @@ export function GovernanceCreatePanel({
   );
   const canProposeTransferOwnership =
     baseAvailableProposalActions.includes('transfer_ownership');
+  const canProposeContractUpgrade =
+    baseAvailableProposalActions.includes('contract_upgrade');
+  const canProposeContractConfig =
+    baseAvailableProposalActions.includes('contract_config');
+  const canProposeManagedContracts =
+    canProposeTransferOwnership ||
+    canProposeContractUpgrade ||
+    canProposeContractConfig;
   const canProposeSocialSpendTreasury =
     baseAvailableProposalActions.includes('withdraw_social_treasury') ||
     baseAvailableProposalActions.includes('fund_season_pool');
@@ -408,7 +451,7 @@ export function GovernanceCreatePanel({
   }, [canProposeSocialSpendTreasury, daoAccountId]);
 
   useEffect(() => {
-    if (!canProposeTransferOwnership) {
+    if (!canProposeManagedContracts) {
       return;
     }
 
@@ -436,6 +479,34 @@ export function GovernanceCreatePanel({
           }
           return contracts[0]?.contractId ?? '';
         });
+        const upgradableContracts = contracts.filter((contract) =>
+          isDaoHashUpgradableContractId(contract.contractId)
+        );
+        setContractUpgradeContractId((current) => {
+          if (
+            upgradableContracts.some(
+              (contract) => contract.contractId === current
+            )
+          ) {
+            return current;
+          }
+          return upgradableContracts[0]?.contractId ?? '';
+        });
+        const configurableContracts = contracts.filter(
+          (contract) =>
+            getDaoContractConfigOperationsForContract(contract.contractId)
+              .length > 0
+        );
+        setContractConfigContractId((current) => {
+          if (
+            configurableContracts.some(
+              (contract) => contract.contractId === current
+            )
+          ) {
+            return current;
+          }
+          return configurableContracts[0]?.contractId ?? '';
+        });
       })
       .catch(() => {
         if (!cancelled) {
@@ -451,7 +522,25 @@ export function GovernanceCreatePanel({
     return () => {
       cancelled = true;
     };
-  }, [canProposeTransferOwnership, daoAccountId]);
+  }, [canProposeManagedContracts, daoAccountId]);
+
+  const hashUpgradableManagedContracts = useMemo(
+    () =>
+      managedContracts.filter((contract) =>
+        isDaoHashUpgradableContractId(contract.contractId)
+      ),
+    [managedContracts]
+  );
+
+  const configurableManagedContracts = useMemo(
+    () =>
+      managedContracts.filter(
+        (contract) =>
+          getDaoContractConfigOperationsForContract(contract.contractId)
+            .length > 0
+      ),
+    [managedContracts]
+  );
 
   const availableProposalActions = useMemo(() => {
     let actions = baseAvailableProposalActions;
@@ -461,6 +550,20 @@ export function GovernanceCreatePanel({
       managedContracts.length === 0
     ) {
       actions = actions.filter((action) => action !== 'transfer_ownership');
+    }
+
+    if (
+      actions.includes('contract_upgrade') &&
+      hashUpgradableManagedContracts.length === 0
+    ) {
+      actions = actions.filter((action) => action !== 'contract_upgrade');
+    }
+
+    if (
+      actions.includes('contract_config') &&
+      configurableManagedContracts.length === 0
+    ) {
+      actions = actions.filter((action) => action !== 'contract_config');
     }
 
     if (actions.includes('withdraw_social_treasury')) {
@@ -483,6 +586,8 @@ export function GovernanceCreatePanel({
     return actions;
   }, [
     baseAvailableProposalActions,
+    configurableManagedContracts.length,
+    hashUpgradableManagedContracts.length,
     managedContracts.length,
     socialSpendTreasuryContext?.canFundSeasonPool,
     socialSpendTreasuryContext?.canFundSeasonPoolFromDaoWallet,
@@ -499,6 +604,94 @@ export function GovernanceCreatePanel({
     [managedContracts, transferOwnershipContractId]
   );
 
+  const selectedUpgradableContract = useMemo(
+    () =>
+      hashUpgradableManagedContracts.find(
+        (contract) => contract.contractId === contractUpgradeContractId
+      ) ??
+      hashUpgradableManagedContracts[0] ??
+      null,
+    [contractUpgradeContractId, hashUpgradableManagedContracts]
+  );
+
+  const selectedConfigurableContract = useMemo(
+    () =>
+      configurableManagedContracts.find(
+        (contract) => contract.contractId === contractConfigContractId
+      ) ??
+      configurableManagedContracts[0] ??
+      null,
+    [configurableManagedContracts, contractConfigContractId]
+  );
+
+  const contractConfigOperationOptions = useMemo(
+    () =>
+      getDaoContractConfigOperationsForContract(
+        selectedConfigurableContract?.contractId ?? ''
+      ).map((operation) => ({
+        value: operation.id,
+        label: operation.label,
+        hint: operation.description,
+      })),
+    [selectedConfigurableContract?.contractId]
+  );
+
+  const selectedContractConfigOperation = useMemo(
+    () =>
+      contractConfigOperationOptions.find(
+        (operation) => operation.value === contractConfigOperationId
+      ) ??
+      contractConfigOperationOptions[0] ??
+      null,
+    [contractConfigOperationId, contractConfigOperationOptions]
+  );
+
+  const joinRallyRoutingContractId =
+    isContractConfigAction &&
+    contractConfigOperationId === 'social_spend_join_rally_routing'
+      ? (selectedConfigurableContract?.contractId ?? '')
+      : '';
+
+  const {
+    draft: joinRallyRoutingDraft,
+    baseline: joinRallyRoutingBaseline,
+    loading: joinRallyRoutingLoading,
+    loadError: joinRallyRoutingLoadError,
+    setDraft: setJoinRallyRoutingDraft,
+    reload: reloadJoinRallyRouting,
+  } = useSocialSpendJoinRallyRoutingDraft(joinRallyRoutingContractId);
+
+  const seasonConfigContractId =
+    isContractConfigAction &&
+    contractConfigOperationId === 'social_spend_set_season_config'
+      ? (selectedConfigurableContract?.contractId ?? '')
+      : '';
+
+  const {
+    draft: seasonConfigDraft,
+    baseline: seasonConfigBaseline,
+    loading: seasonConfigLoading,
+    loadError: seasonConfigLoadError,
+    setDraft: setSeasonConfigDraft,
+    reload: reloadSeasonConfig,
+  } = useSocialSpendSeasonConfigDraft(seasonConfigContractId);
+
+  useEffect(() => {
+    if (!isContractConfigAction) {
+      return;
+    }
+
+    const operations = getDaoContractConfigOperationsForContract(
+      contractConfigContractId
+    );
+    setContractConfigOperationId((current) => {
+      if (operations.some((operation) => operation.id === current)) {
+        return current;
+      }
+      return operations[0]?.id ?? '';
+    });
+  }, [contractConfigContractId, isContractConfigAction]);
+
   const managedContractOptions = useMemo(
     () =>
       managedContracts.map((contract) => ({
@@ -508,6 +701,67 @@ export function GovernanceCreatePanel({
       })),
     [managedContracts]
   );
+
+  const upgradableContractOptions = useMemo(
+    () =>
+      hashUpgradableManagedContracts.map((contract) => ({
+        value: contract.contractId,
+        label: contract.label,
+        hint: contract.contractId,
+      })),
+    [hashUpgradableManagedContracts]
+  );
+
+  const configurableContractOptions = useMemo(
+    () =>
+      configurableManagedContracts.map((contract) => ({
+        value: contract.contractId,
+        label: contract.label,
+        hint: contract.contractId,
+      })),
+    [configurableManagedContracts]
+  );
+
+  const contractUpgradeCodeHash = useMemo(
+    () => normalizePublishedCodeHash(contractUpgradeCodeHashInput),
+    [contractUpgradeCodeHashInput]
+  );
+
+  useEffect(() => {
+    if (!isContractUpgradeAction) {
+      setContractUpgradeHashLookup('idle');
+      return;
+    }
+
+    if (!contractUpgradeCodeHash) {
+      setContractUpgradeHashLookup('idle');
+      return;
+    }
+
+    let cancelled = false;
+    setContractUpgradeHashLookup('checking');
+
+    const timer = window.setTimeout(() => {
+      void lookupPublishedGlobalContractCode(contractUpgradeCodeHash)
+        .then((lookup) => {
+          if (cancelled) {
+            return;
+          }
+
+          setContractUpgradeHashLookup(lookup.status);
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setContractUpgradeHashLookup('invalid');
+          }
+        });
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [contractUpgradeCodeHash, isContractUpgradeAction]);
 
   const subjectAccountId = useMemo(() => {
     if (proposalAction === 'idea') {
@@ -543,6 +797,8 @@ export function GovernanceCreatePanel({
     proposalAction !== 'idea' &&
     proposalAction !== 'transfer' &&
     proposalAction !== 'transfer_ownership' &&
+    proposalAction !== 'contract_upgrade' &&
+    proposalAction !== 'contract_config' &&
     !isSocialSpendTreasuryAction;
   const availablePolicyActions = useMemo(
     () =>
@@ -751,6 +1007,32 @@ export function GovernanceCreatePanel({
   const transferOwnershipReady =
     !!selectedManagedContract &&
     isNearAccountInputReady(transferOwnershipNewOwnerInput);
+  const contractUpgradeReady =
+    !!selectedUpgradableContract &&
+    contractUpgradeCodeHash != null &&
+    contractUpgradeHashLookup === 'published';
+  const contractConfigReady =
+    !!selectedConfigurableContract &&
+    (contractConfigOperationId === 'social_spend_join_rally_routing'
+      ? !!joinRallyRoutingDraft &&
+        validateSocialSpendActionRoutingBps(joinRallyRoutingDraft) &&
+        socialSpendActionRoutingChanged(
+          joinRallyRoutingBaseline,
+          joinRallyRoutingDraft
+        ) &&
+        !joinRallyRoutingLoading &&
+        !joinRallyRoutingLoadError
+      : contractConfigOperationId === 'social_spend_set_season_config'
+        ? !!seasonConfigDraft &&
+          !validateSeasonConfigDraft(seasonConfigDraft) &&
+          (seasonConfigBaseline === null ||
+            seasonConfigDraftChanged(
+              seasonConfigBaseline,
+              seasonConfigDraft
+            )) &&
+          !seasonConfigLoading &&
+          !seasonConfigLoadError
+        : false);
   const canProposeSelectedKind =
     !!eligibility &&
     !!proposerAccountId &&
@@ -797,11 +1079,15 @@ export function GovernanceCreatePanel({
       ? transferReady
       : isTransferOwnershipAction
         ? transferOwnershipReady
-        : isSocialSpendTreasuryAction
-          ? socialSpendTreasuryReady
-          : isMembershipProposal
-            ? roleId.trim().length > 0 && subjectReady
-            : true) &&
+        : isContractUpgradeAction
+          ? contractUpgradeReady
+          : isContractConfigAction
+            ? contractConfigReady
+            : isSocialSpendTreasuryAction
+              ? socialSpendTreasuryReady
+              : isMembershipProposal
+                ? roleId.trim().length > 0 && subjectReady
+                : true) &&
     proposalActionAllowed &&
     descriptionReady &&
     !submitting;
@@ -876,6 +1162,83 @@ export function GovernanceCreatePanel({
       }
     }
     if (
+      isContractUpgradeAction &&
+      hashUpgradableManagedContracts.length === 0 &&
+      !managedContractsLoading
+    ) {
+      return 'This DAO does not own any hash-upgradable protocol contracts right now.';
+    }
+    if (isContractUpgradeAction && contractUpgradeCodeHashInput.trim()) {
+      if (!contractUpgradeCodeHash) {
+        return 'Enter a valid published global WASM code hash.';
+      }
+      if (contractUpgradeHashLookup === 'checking') {
+        return 'Checking whether this hash is published on the network…';
+      }
+      if (contractUpgradeHashLookup === 'missing') {
+        return 'This hash is not published globally on this network yet.';
+      }
+      if (contractUpgradeHashLookup === 'invalid') {
+        return 'Could not verify this hash on the network. Try again.';
+      }
+    }
+    if (
+      isContractConfigAction &&
+      configurableManagedContracts.length === 0 &&
+      !managedContractsLoading
+    ) {
+      return 'This DAO does not own any configurable protocol contracts right now.';
+    }
+    if (isContractConfigAction && joinRallyRoutingLoading) {
+      return 'Loading current contract settings from chain…';
+    }
+    if (isContractConfigAction && seasonConfigLoading) {
+      return 'Loading season config from chain…';
+    }
+    if (isContractConfigAction && joinRallyRoutingLoadError) {
+      return joinRallyRoutingLoadError;
+    }
+    if (isContractConfigAction && seasonConfigLoadError) {
+      return seasonConfigLoadError;
+    }
+    if (
+      isContractConfigAction &&
+      contractConfigOperationId === 'social_spend_join_rally_routing' &&
+      joinRallyRoutingDraft &&
+      !validateSocialSpendActionRoutingBps(joinRallyRoutingDraft)
+    ) {
+      return 'Routing shares must sum to 100% (10,000 bps).';
+    }
+    if (
+      isContractConfigAction &&
+      contractConfigOperationId === 'social_spend_join_rally_routing' &&
+      joinRallyRoutingDraft &&
+      joinRallyRoutingBaseline &&
+      !socialSpendActionRoutingChanged(
+        joinRallyRoutingBaseline,
+        joinRallyRoutingDraft
+      )
+    ) {
+      return 'Change at least one routing share before proposing.';
+    }
+    if (
+      isContractConfigAction &&
+      contractConfigOperationId === 'social_spend_set_season_config' &&
+      seasonConfigDraft
+    ) {
+      const seasonValidationError =
+        validateSeasonConfigDraft(seasonConfigDraft);
+      if (seasonValidationError) {
+        return seasonValidationError;
+      }
+      if (
+        seasonConfigBaseline &&
+        !seasonConfigDraftChanged(seasonConfigBaseline, seasonConfigDraft)
+      ) {
+        return 'Change at least one season field before proposing.';
+      }
+    }
+    if (
       isSocialSpendTreasuryAction &&
       !socialSpendTreasuryLoading &&
       canProposeSocialSpendTreasury
@@ -946,6 +1309,18 @@ export function GovernanceCreatePanel({
     isRemoveMemberAction,
     isTransferAction,
     isTransferOwnershipAction,
+    isContractUpgradeAction,
+    isContractConfigAction,
+    hashUpgradableManagedContracts.length,
+    configurableManagedContracts.length,
+    contractUpgradeCodeHash,
+    contractUpgradeCodeHashInput,
+    contractUpgradeHashLookup,
+    joinRallyRoutingBaseline,
+    joinRallyRoutingDraft,
+    joinRallyRoutingLoadError,
+    joinRallyRoutingLoading,
+    contractConfigOperationId,
     managedContracts.length,
     managedContractsLoading,
     membershipBlockReason,
@@ -1008,6 +1383,22 @@ export function GovernanceCreatePanel({
         return;
       }
 
+      if (
+        proposalAction === 'contract_upgrade' &&
+        hashUpgradableManagedContracts.length > 0 &&
+        baseAvailableProposalActions.includes('contract_upgrade')
+      ) {
+        return;
+      }
+
+      if (
+        proposalAction === 'contract_config' &&
+        configurableManagedContracts.length > 0 &&
+        baseAvailableProposalActions.includes('contract_config')
+      ) {
+        return;
+      }
+
       const fallback =
         availableProposalActions.find((action) => action === 'idea') ??
         availableProposalActions[0];
@@ -1018,11 +1409,15 @@ export function GovernanceCreatePanel({
       setTransferAmountInput('');
       setTransferOwnershipContractId('');
       setTransferOwnershipNewOwnerInput('');
+      setContractUpgradeContractId('');
+      setContractUpgradeCodeHashInput('');
       setSocialSpendAmountInput('');
     }
   }, [
     availableProposalActions,
     baseAvailableProposalActions,
+    configurableManagedContracts.length,
+    hashUpgradableManagedContracts.length,
     managedContracts.length,
     proposalAction,
   ]);
@@ -1102,26 +1497,44 @@ export function GovernanceCreatePanel({
                   deposit: selectedManagedContract?.deposit ?? '0',
                   description: normalizedDescription,
                 })
-              : proposalKind === 'withdraw_social_treasury'
-                ? buildDaoWithdrawSocialTreasuryPayload({
-                    contractId: socialSpendTreasuryContext?.contractId ?? '',
-                    amountYocto: socialSpendAmountYocto ?? '0',
+              : proposalKind === 'contract_upgrade'
+                ? buildDaoContractUpgradeProposalPayload({
+                    contractId: selectedUpgradableContract?.contractId ?? '',
+                    contractLabel: selectedUpgradableContract?.label,
+                    codeHash: contractUpgradeCodeHash ?? '',
                     description: normalizedDescription,
                   })
-                : proposalKind === 'fund_season_pool'
-                  ? buildDaoFundSeasonPoolPayload({
-                      source: activeFundSeasonPoolSource,
-                      contractId: socialSpendTreasuryContext?.contractId ?? '',
-                      seasonId: socialSpendSeasonId,
-                      amountYocto: socialSpendAmountYocto ?? '0',
+                : proposalKind === 'contract_config'
+                  ? buildDaoContractConfigProposalPayload({
+                      operationId:
+                        contractConfigOperationId as DaoContractConfigOperationId,
+                      contractLabel: selectedConfigurableContract?.label,
+                      routing: joinRallyRoutingDraft ?? undefined,
+                      seasonConfig: seasonConfigDraft ?? undefined,
                       description: normalizedDescription,
                     })
-                  : buildDaoMemberProposalPayload({
-                      kind: proposalKind,
-                      memberId: subjectAccountId,
-                      roleId,
-                      description: normalizedDescription,
-                    });
+                  : proposalKind === 'withdraw_social_treasury'
+                    ? buildDaoWithdrawSocialTreasuryPayload({
+                        contractId:
+                          socialSpendTreasuryContext?.contractId ?? '',
+                        amountYocto: socialSpendAmountYocto ?? '0',
+                        description: normalizedDescription,
+                      })
+                    : proposalKind === 'fund_season_pool'
+                      ? buildDaoFundSeasonPoolPayload({
+                          source: activeFundSeasonPoolSource,
+                          contractId:
+                            socialSpendTreasuryContext?.contractId ?? '',
+                          seasonId: socialSpendSeasonId,
+                          amountYocto: socialSpendAmountYocto ?? '0',
+                          description: normalizedDescription,
+                        })
+                      : buildDaoMemberProposalPayload({
+                          kind: proposalKind,
+                          memberId: subjectAccountId,
+                          roleId,
+                          description: normalizedDescription,
+                        });
 
       const targetDaoAccountId = eligibility?.daoAccountId ?? daoAccountId;
       const { proposalId, txHash } = await submitDaoProposal(
@@ -1193,6 +1606,13 @@ export function GovernanceCreatePanel({
     isMembershipProposal,
     isTransferAction,
     isTransferOwnershipAction,
+    isContractUpgradeAction,
+    isContractConfigAction,
+    contractConfigOperationId,
+    contractUpgradeCodeHash,
+    selectedUpgradableContract,
+    selectedConfigurableContract,
+    joinRallyRoutingDraft,
     isSocialSpendTreasuryAction,
     proposalKind,
     proposerAccountId,
@@ -1268,6 +1688,10 @@ export function GovernanceCreatePanel({
     setTransferAmountInput('');
     setTransferOwnershipContractId(managedContracts[0]?.contractId ?? '');
     setTransferOwnershipNewOwnerInput('');
+    setContractConfigContractId(
+      configurableManagedContracts[0]?.contractId ?? ''
+    );
+    setContractConfigOperationId('');
     setError('');
     closeActionDropdown();
   };
@@ -1923,6 +2347,187 @@ export function GovernanceCreatePanel({
                 </div>
               ) : null}
 
+              {isContractUpgradeAction ? (
+                <div className="space-y-2">
+                  <div>
+                    <PortalFieldSelect
+                      label="Contract"
+                      value={contractUpgradeContractId}
+                      options={upgradableContractOptions}
+                      onChange={(nextContractId) => {
+                        setContractUpgradeContractId(nextContractId);
+                        setError('');
+                      }}
+                      disabled={
+                        managedContractsLoading ||
+                        hashUpgradableManagedContracts.length === 0
+                      }
+                      placeholder={
+                        managedContractsLoading
+                          ? 'Loading contracts…'
+                          : 'No upgradable contracts'
+                      }
+                      ariaLabel="Contract to upgrade"
+                    />
+                    {selectedUpgradableContract ? (
+                      <p className="mt-1.5 portal-type-caption text-muted-foreground/60">
+                        {selectedUpgradableContract.contractId}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="governance-create-contract-upgrade-hash"
+                      className={fieldLabelClass}
+                    >
+                      Published code hash
+                    </label>
+                    <div className="portal-field-focus rounded-2xl border border-border/40 bg-background/45 px-3 py-2.5 md:px-4">
+                      <input
+                        id="governance-create-contract-upgrade-hash"
+                        type="text"
+                        value={contractUpgradeCodeHashInput}
+                        onChange={(event) => {
+                          setContractUpgradeCodeHashInput(event.target.value);
+                          setError('');
+                        }}
+                        placeholder="Global WASM hash from near contract deploy-as-global"
+                        disabled={!selectedUpgradableContract}
+                        className="w-full bg-transparent text-sm font-medium outline-none placeholder:text-muted-foreground/50 disabled:opacity-60"
+                        spellCheck={false}
+                        autoComplete="off"
+                      />
+                    </div>
+                    <p className="mt-1.5 portal-type-caption text-muted-foreground/70">
+                      Build WASM locally, publish with{' '}
+                      <span className="font-mono text-[0.7rem]">
+                        deploy-as-global use-file
+                      </span>
+                      , then paste the hash here. Cite the release record and
+                      commit in the description below. Upgrade executes with 250
+                      TGas after approval.
+                    </p>
+                    {contractUpgradeCodeHash ? (
+                      <p
+                        className={cn(
+                          'mt-1.5 portal-type-caption',
+                          contractUpgradeHashLookup === 'published'
+                            ? 'text-emerald-600'
+                            : contractUpgradeHashLookup === 'checking'
+                              ? 'text-muted-foreground/70'
+                              : contractUpgradeHashLookup === 'missing' ||
+                                  contractUpgradeHashLookup === 'invalid'
+                                ? 'text-amber-600'
+                                : 'text-muted-foreground/70'
+                        )}
+                      >
+                        {contractUpgradeHashLookup === 'checking'
+                          ? 'Checking network for published WASM…'
+                          : contractUpgradeHashLookup === 'published'
+                            ? 'Hash is published on this network.'
+                            : contractUpgradeHashLookup === 'missing'
+                              ? 'Hash not found on this network — publish before proposing.'
+                              : contractUpgradeHashLookup === 'invalid'
+                                ? 'Could not verify this hash on the network.'
+                                : null}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+
+              {isContractConfigAction ? (
+                <div className="space-y-2">
+                  <div>
+                    <PortalFieldSelect
+                      label="Contract"
+                      value={contractConfigContractId}
+                      options={configurableContractOptions}
+                      onChange={(nextContractId) => {
+                        setContractConfigContractId(nextContractId);
+                        setError('');
+                      }}
+                      disabled={
+                        managedContractsLoading ||
+                        configurableManagedContracts.length === 0
+                      }
+                      placeholder={
+                        managedContractsLoading
+                          ? 'Loading contracts…'
+                          : 'No configurable contracts'
+                      }
+                      ariaLabel="Contract to configure"
+                    />
+                    {selectedConfigurableContract ? (
+                      <p className="mt-1.5 portal-type-caption text-muted-foreground/60">
+                        {selectedConfigurableContract.contractId}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div>
+                    <PortalFieldSelect
+                      label="Setting"
+                      value={contractConfigOperationId}
+                      options={contractConfigOperationOptions}
+                      onChange={(nextOperationId) => {
+                        setContractConfigOperationId(
+                          nextOperationId as DaoContractConfigOperationId
+                        );
+                        setError('');
+                      }}
+                      disabled={
+                        managedContractsLoading ||
+                        contractConfigOperationOptions.length === 0
+                      }
+                      placeholder={
+                        managedContractsLoading
+                          ? 'Loading settings…'
+                          : 'No settings for this contract'
+                      }
+                      ariaLabel="Contract setting"
+                    />
+                    {selectedContractConfigOperation ? (
+                      <p className="mt-1.5 portal-type-caption text-muted-foreground/70">
+                        {selectedContractConfigOperation.hint}
+                      </p>
+                    ) : null}
+                  </div>
+                  {contractConfigOperationId ===
+                  'social_spend_join_rally_routing' ? (
+                    <SocialSpendJoinRallyRoutingFields
+                      contractId={
+                        selectedConfigurableContract?.contractId ?? ''
+                      }
+                      draft={joinRallyRoutingDraft}
+                      baseline={joinRallyRoutingBaseline}
+                      loading={joinRallyRoutingLoading}
+                      loadError={joinRallyRoutingLoadError}
+                      onDraftChange={(nextDraft) => {
+                        setJoinRallyRoutingDraft(nextDraft);
+                        setError('');
+                      }}
+                      onReload={reloadJoinRallyRouting}
+                    />
+                  ) : contractConfigOperationId ===
+                    'social_spend_set_season_config' ? (
+                    <SocialSpendSeasonConfigFields
+                      contractId={
+                        selectedConfigurableContract?.contractId ?? ''
+                      }
+                      draft={seasonConfigDraft}
+                      baseline={seasonConfigBaseline}
+                      loading={seasonConfigLoading}
+                      loadError={seasonConfigLoadError}
+                      onDraftChange={(nextDraft) => {
+                        setSeasonConfigDraft(nextDraft);
+                        setError('');
+                      }}
+                      onReload={reloadSeasonConfig}
+                    />
+                  ) : null}
+                </div>
+              ) : null}
+
               {isSocialSpendTreasuryAction ? (
                 <div className="space-y-2">
                   {isFundSeasonPoolAction ? (
@@ -2148,13 +2753,17 @@ export function GovernanceCreatePanel({
                               ? 'Why the DAO should sponsor this rally pool'
                               : isTransferOwnershipAction
                                 ? 'Why ownership should move to this account'
-                                : proposalAction === 'leave_self'
-                                  ? 'Why you are stepping back from this role'
-                                  : proposalAction === 'remove_member'
-                                    ? `Why they should leave ${roleId || 'the role'}`
-                                    : proposalAction === 'join_self'
-                                      ? `Why you should join ${roleId || 'the role'}`
-                                      : `Why they should join ${roleId || 'the role'}`
+                                : isContractUpgradeAction
+                                  ? 'Why this contract should upgrade to the published hash'
+                                  : isContractConfigAction
+                                    ? 'Why this contract setting should change'
+                                    : proposalAction === 'leave_self'
+                                      ? 'Why you are stepping back from this role'
+                                      : proposalAction === 'remove_member'
+                                        ? `Why they should leave ${roleId || 'the role'}`
+                                        : proposalAction === 'join_self'
+                                          ? `Why you should join ${roleId || 'the role'}`
+                                          : `Why they should join ${roleId || 'the role'}`
                     }
                     rows={3}
                     maxLength={PROPOSAL_DESCRIPTION_LIMITS.max}

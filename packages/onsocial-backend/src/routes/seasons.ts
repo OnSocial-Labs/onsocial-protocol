@@ -15,6 +15,10 @@ import {
   SEASON_ZERO_SETTLEMENT_JOIN_MIN_YOCTO,
 } from '../services/seasons/season-finalization.js';
 import {
+  loadSeasonRegistry,
+  resolveActiveSeasonId,
+} from '../services/seasons/season-registry-service.js';
+import {
   getSeasonStandings,
   type SeasonZeroStanding,
 } from '../services/seasons/season-standings.js';
@@ -67,9 +71,23 @@ function requireSeasonAdmin(req: Request, res: Response): boolean {
   return true;
 }
 
-router.get('/active', async (_req: Request, res: Response) => {
-  const seasonId = config.activeSeasonId;
+router.get('/registry', async (_req: Request, res: Response) => {
   try {
+    const registry = await loadSeasonRegistry();
+    res.json({ success: true, ...registry });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error({ error: message }, 'Season registry failed');
+    res.status(502).json({
+      success: false,
+      error: 'Season registry unavailable',
+    });
+  }
+});
+
+router.get('/active', async (_req: Request, res: Response) => {
+  try {
+    const seasonId = await resolveActiveSeasonId();
     const onChainConfig = await getSeasonOnChainConfig(seasonId);
     if (!onChainConfig) {
       res.status(404).json({
@@ -86,7 +104,7 @@ router.get('/active', async (_req: Request, res: Response) => {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger.error({ error: message, seasonId }, 'Active season lookup failed');
+    logger.error({ error: message }, 'Active season lookup failed');
     res.status(502).json({
       success: false,
       error: 'Active season unavailable',

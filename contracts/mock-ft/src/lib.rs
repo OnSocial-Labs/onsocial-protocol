@@ -1,14 +1,30 @@
 //! Minimal NEP-141 Mock FT for Integration Testing
 //!
-//! Implements only the methods needed to test staking contract:
-//! - ft_transfer_call (lock/credits flow)
+//! Implements only the methods needed to test staking / social-spend / boost flows:
+//! - ft_transfer_call (lock/credits/spend routing)
 //! - ft_transfer (unlock/claim refunds)
 //! - ft_balance_of (view balance)
+//! - burn (social-spend deflationary routing)
 //! - storage_deposit (required for receivers)
 
 use near_sdk::json_types::U128;
 use near_sdk::store::LookupMap;
 use near_sdk::{env, near, AccountId, Gas, NearToken, PanicOnDefault, Promise, PromiseOrValue};
+
+const GAS_FOR_RESOLVE: Gas = Gas::from_tgas(10);
+const GAS_FOR_FT_ON_TRANSFER: Gas = Gas::from_tgas(250);
+const GAS_FOR_NESTED_FT_ON_TRANSFER: Gas = Gas::from_tgas(60);
+
+fn gas_for_ft_on_transfer() -> Gas {
+    let remaining = env::prepaid_gas()
+        .saturating_sub(env::used_gas())
+        .saturating_sub(GAS_FOR_RESOLVE);
+    if remaining <= Gas::from_tgas(140) {
+        GAS_FOR_NESTED_FT_ON_TRANSFER
+    } else {
+        std::cmp::min(GAS_FOR_FT_ON_TRANSFER, remaining)
+    }
+}
 
 #[near(contract_state)]
 #[derive(PanicOnDefault)]
@@ -104,11 +120,11 @@ impl MockFT {
                 .to_string()
                 .into_bytes(),
                 NearToken::from_near(0),
-                Gas::from_tgas(80),
+                gas_for_ft_on_transfer(),
             )
             .then(
                 Self::ext(env::current_account_id())
-                    .with_static_gas(Gas::from_tgas(10))
+                    .with_static_gas(GAS_FOR_RESOLVE)
                     .ft_resolve_transfer(sender_id, receiver_id, amount),
             )
             .into()
@@ -129,6 +145,21 @@ impl MockFT {
             symbol: "SOCIAL".to_string(),
             decimals: self.decimals,
         }
+    }
+
+    /// Burns tokens from the caller's balance (matches token-onsocial `burn`).
+    #[payable]
+    pub fn burn(&mut self, amount: U128) {
+        assert_eq!(
+            env::attached_deposit(),
+            NearToken::from_yoctonear(1),
+            "Requires 1 yoctoNEAR"
+        );
+        let account_id = env::predecessor_account_id();
+        let balance = self.balances.get(&account_id).copied().unwrap_or(0);
+        assert!(balance >= amount.0, "Insufficient balance");
+        self.balances.insert(account_id, balance - amount.0);
+        self.total_supply = self.total_supply.saturating_sub(amount.0);
     }
 
     // =========================================================================

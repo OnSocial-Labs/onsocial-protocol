@@ -20,10 +20,11 @@ import {
 } from '@/lib/genesis-season';
 import { GOVERNANCE_WALLETS, isGovernanceWallet } from '@/lib/portal-config';
 import {
-  getActiveSeasonId,
   getActiveSeasonPresentation,
+  getSeasonPresentation,
   seasonApiPath,
 } from '@/lib/active-season';
+import { useSeasonRegistry } from '@/lib/season-registry';
 
 type AdminAction = 'finalize' | 'publish' | null;
 
@@ -129,8 +130,15 @@ function AdminStepCard({
 }
 
 export default function SeasonZeroAdminPage() {
-  const seasonId = getActiveSeasonId();
-  const activePresentation = getActiveSeasonPresentation();
+  const { registry } = useSeasonRegistry();
+  const seasonId =
+    registry?.resolvedActiveSeasonId ??
+    registry?.live?.seasonId ??
+    'season-one';
+  const activePresentation = getSeasonPresentation(
+    seasonId,
+    registry?.seasons.find((entry) => entry.seasonId === seasonId) ?? null
+  );
   const { accountId, connect } = useWallet();
   const [allowed, setAllowed] = useState<boolean | null>(null);
   const [status, setStatus] = useState<SeasonZeroStatusPayload | null>(null);
