@@ -2,7 +2,9 @@
 
 import type { ComponentType, ReactNode } from 'react';
 import { Clock, Coins, Users } from 'lucide-react';
+import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
 import { SeasonCountdownLabel } from '@/features/season/season-countdown-label';
+import type { SeasonZeroClaimMetricsStatus } from '@/features/season/season-zero-claim-copy';
 import { formatGenesisYoctoAsSocial } from '@/lib/genesis-season';
 import { estimateJoinBurnYocto } from '@/lib/join-rally-routing';
 import {
@@ -34,7 +36,7 @@ const PHASE_COPY: Record<
 };
 
 function claimStatusAccentClass(statusLabel: string): string {
-  if (statusLabel === 'Claimed') {
+  if (statusLabel === 'Collected') {
     return 'portal-gold-text';
   }
   if (statusLabel.endsWith(' SOCIAL')) {
@@ -53,30 +55,58 @@ function claimStatusAccentClass(statusLabel: string): string {
   }
 }
 
+function MetricsRailFooterSkeleton() {
+  return (
+    <div
+      className="border-t border-fade-section px-4 py-3 text-center md:px-5 md:py-3.5"
+      aria-hidden
+    >
+      <div className="mx-auto h-3.5 w-40 max-w-full animate-pulse rounded-full bg-foreground/[0.06]" />
+      <div className="mx-auto mt-2 h-3 w-52 max-w-full animate-pulse rounded-full bg-foreground/[0.05]" />
+    </div>
+  );
+}
+
 function MetricsRailFooter({
   claimStatus,
   settlement,
   showSettlementDetail = false,
 }: {
-  claimStatus?: {
-    statusLabel: string;
-    detailLine?: string | null;
-  } | null;
+  claimStatus?: SeasonZeroClaimMetricsStatus | null;
   settlement?: SeasonZeroSettlementSummary | null;
   showSettlementDetail?: boolean;
 }) {
   if (!claimStatus && !(showSettlementDetail && settlement)) return null;
+
+  const statusHref = claimStatus?.statusHref ?? null;
+  const statusLabel = claimStatus?.statusLabel ?? '';
 
   return (
     <div className="border-t border-fade-section px-4 py-3 text-center md:px-5 md:py-3.5">
       {claimStatus ? (
         <>
           <p className="portal-eyebrow text-muted-foreground">
-            Season claim
+            Season collect
             <span className="text-muted-foreground/40"> · </span>
-            <span className={claimStatusAccentClass(claimStatus.statusLabel)}>
-              {claimStatus.statusLabel}
-            </span>
+            {statusHref ? (
+              <a
+                href={statusHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(
+                  'group/status inline-flex items-center gap-1 rounded-sm underline-offset-2 transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--portal-gold-accent)]',
+                  claimStatusAccentClass(statusLabel)
+                )}
+                aria-label={`View ${statusLabel.toLowerCase()} transaction on Nearblocks`}
+              >
+                <span>{statusLabel}</span>
+                <ProtocolMotionArrow className="h-3 w-3" />
+              </a>
+            ) : (
+              <span className={claimStatusAccentClass(statusLabel)}>
+                {statusLabel}
+              </span>
+            )}
           </p>
           {claimStatus.detailLine ? (
             <p className="mt-1 text-xs text-muted-foreground/75">
@@ -264,6 +294,7 @@ export function SeasonZeroMetricsRail({
   settlement,
   participantCount = 0,
   claimStatus = null,
+  claimStatusPending = false,
   showSettlementDetail = false,
   className,
 }: {
@@ -274,10 +305,8 @@ export function SeasonZeroMetricsRail({
   joinRoutingBps?: { season_pool_bps: number; burn_bps: number } | null;
   settlement?: SeasonZeroSettlementSummary | null;
   participantCount?: number;
-  claimStatus?: {
-    statusLabel: string;
-    detailLine?: string | null;
-  } | null;
+  claimStatus?: SeasonZeroClaimMetricsStatus | null;
+  claimStatusPending?: boolean;
   /** Ops/admin only — hides jargon like "Settlement finalized" from participants by default. */
   showSettlementDetail?: boolean;
   className?: string;
@@ -362,7 +391,9 @@ export function SeasonZeroMetricsRail({
         </MetricSegment>
       </div>
 
-      {claimStatus || (showSettlementDetail && settlement) ? (
+      {claimStatusPending ? (
+        <MetricsRailFooterSkeleton />
+      ) : claimStatus || (showSettlementDetail && settlement) ? (
         <MetricsRailFooter
           claimStatus={claimStatus}
           settlement={settlement}

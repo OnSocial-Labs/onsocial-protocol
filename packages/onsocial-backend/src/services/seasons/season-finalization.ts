@@ -17,6 +17,7 @@ import {
   buildSeasonZeroSettlementSnapshot,
   type SeasonZeroSettlementSnapshot,
 } from './season-settlement.js';
+import { lookupSeasonClaimTxHash } from './season-claim-tx-lookup.js';
 import { config } from '../../config/index.js';
 import { assertSeasonId } from './season-registry.js';
 import {
@@ -83,6 +84,7 @@ export interface SeasonZeroClaimData {
   rank: number;
   score: number;
   claimed: boolean | null;
+  claimedTxHash?: string | null;
 }
 
 function nowNs(): bigint {
@@ -304,6 +306,11 @@ export async function getSeasonClaimData(
     claimed = null;
   }
 
+  let claimedTxHash: string | null = null;
+  if (claimed) {
+    claimedTxHash = await lookupSeasonClaimTxHash(accountId, id);
+  }
+
   return {
     seasonId: row.season_id,
     accountId: row.account_id,
@@ -313,6 +320,7 @@ export async function getSeasonClaimData(
     rank: row.rank,
     score: row.score,
     claimed,
+    claimedTxHash,
   };
 }
 

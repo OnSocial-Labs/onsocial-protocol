@@ -44,6 +44,7 @@ export interface SeasonZeroClaimRecord {
   rank: number;
   score: number;
   claimed: boolean | null;
+  claimedTxHash?: string | null;
 }
 
 export interface SeasonZeroClaimPayload {

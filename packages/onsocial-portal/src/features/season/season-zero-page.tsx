@@ -105,6 +105,7 @@ export function SeasonRallyPage({
   const [publishedRewardByAccountId, setPublishedRewardByAccountId] = useState<
     Record<string, string>
   >({});
+  const [claimStatusReady, setClaimStatusReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -230,6 +231,7 @@ export function SeasonRallyPage({
     } finally {
       setLoading(false);
       setHasLoadedOnce(true);
+      setClaimStatusReady(true);
       isFirstLoadRef.current = false;
     }
   }, [accountId, seasonId]);
@@ -237,7 +239,12 @@ export function SeasonRallyPage({
   useEffect(() => {
     isFirstLoadRef.current = true;
     setHasLoadedOnce(false);
+    setClaimStatusReady(false);
   }, [seasonId]);
+
+  useEffect(() => {
+    setClaimStatusReady(false);
+  }, [accountId]);
 
   useEffect(() => {
     void refresh();
@@ -279,6 +286,7 @@ export function SeasonRallyPage({
             participantCount={total}
             myStanding={currentUserStanding}
             pageDataReady={hasLoadedOnce}
+            claimStatusReady={claimStatusReady}
             registryPhase={registryEntry?.phase ?? null}
             phase={seasonPhase}
             claim={claim}

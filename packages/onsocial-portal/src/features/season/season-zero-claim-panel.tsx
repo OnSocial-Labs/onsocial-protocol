@@ -147,10 +147,10 @@ export function SeasonZeroClaimPanel({
           <Gift className="portal-gold-icon mt-0.5 h-5 w-5 shrink-0" />
           <div>
             <p className="text-sm font-semibold text-foreground">
-              Season rewards claimed
+              Season rewards collected
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              You already claimed{' '}
+              You already collected{' '}
               <span className="font-mono text-foreground">
                 {formatGenesisSocialBalanceDisplay(claim.amountYocto)}
               </span>{' '}

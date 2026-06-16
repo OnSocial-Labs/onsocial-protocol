@@ -4,6 +4,7 @@ import type {
   SeasonZeroLifecyclePhase,
 } from '@/features/season/season-zero-types';
 import { formatGenesisSocialBalanceDisplay } from '@/lib/genesis-season';
+import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/portal-config';
 
 function formatScore(value: number): string {
   return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(
@@ -15,18 +16,25 @@ function formatPayoutAmount(yocto: string): string {
   return formatGenesisSocialBalanceDisplay(yocto);
 }
 
+function seasonCollectExplorerHref(
+  txHash: string | null | undefined
+): string | null {
+  const hash = typeof txHash === 'string' ? txHash.trim() : '';
+  return hash ? `${ACTIVE_NEAR_EXPLORER_URL}/txns/${hash}` : null;
+}
+
 function claimNextStepCopy(
   phase: Exclude<SeasonZeroLifecyclePhase, 'live' | 'upcoming'>
 ): string {
   switch (phase) {
     case 'finalized_pending_publish':
-      return 'Claim opens after publish';
+      return 'Collect opens after publish';
     case 'published_claim_soon':
-      return 'Claim opens soon';
+      return 'Collect opens soon';
     case 'ended_pending_settlement':
       return 'Pending settlement';
     case 'claim_open':
-      return 'Ready to claim';
+      return 'Ready to collect';
   }
 }
 
@@ -36,11 +44,17 @@ export function isPostLiveSeasonPhase(
   return phase != null && phase !== 'live' && phase !== 'upcoming';
 }
 
+export interface SeasonZeroClaimMetricsStatus {
+  statusLabel: string;
+  detailLine?: string | null;
+  statusHref?: string | null;
+}
+
 export function resolveSeasonZeroClaimStatusCopy(
   phase: Exclude<SeasonZeroLifecyclePhase, 'live' | 'upcoming'>,
   myStanding: Pick<SeasonZeroStanding, 'rank' | 'score'> | null | undefined,
   options?: { omitStanding?: boolean }
-): { statusLabel: string; detailLine: string | null } {
+): SeasonZeroClaimMetricsStatus {
   const omitStanding = options?.omitStanding ?? false;
   const rankLine = myStanding
     ? `#${myStanding.rank} · ${formatScore(myStanding.score)} pts`
@@ -59,7 +73,7 @@ export function resolveSeasonZeroClaimStatusCopy(
       };
     case 'published_claim_soon':
       return {
-        statusLabel: 'Claims opening soon',
+        statusLabel: 'Collect opening soon',
         detailLine: omitStanding ? null : rankLine,
       };
     case 'claim_open':
@@ -80,19 +94,28 @@ export function resolveSeasonZeroClaimMetricsStatus({
   accountId,
   myStanding,
   omitStanding = false,
+  claimStatusReady = true,
 }: {
   phase: SeasonZeroLifecyclePhase | null;
   claim: SeasonZeroClaimRecord | null;
   accountId: string | null;
   myStanding: Pick<SeasonZeroStanding, 'rank' | 'score'> | null | undefined;
   omitStanding?: boolean;
-}): { statusLabel: string; detailLine?: string | null } | null {
+  /** When false, wallet claim state is still loading — avoid interim copy. */
+  claimStatusReady?: boolean;
+}): SeasonZeroClaimMetricsStatus | null {
   if (!isPostLiveSeasonPhase(phase)) return null;
 
+  if (accountId && !claimStatusReady) {
+    return null;
+  }
+
   if (claim?.claimed) {
+    const amount = formatPayoutAmount(claim.amountYocto);
     return {
-      statusLabel: 'Claimed',
-      detailLine: `${formatPayoutAmount(claim.amountYocto)} SOCIAL received`,
+      statusLabel: 'Collected',
+      detailLine: `${amount} SOCIAL collected`,
+      statusHref: seasonCollectExplorerHref(claim.claimedTxHash),
     };
   }
 
@@ -119,10 +142,9 @@ export function resolveSeasonZeroClaimMetricsStatus({
   }
 
   if (!claim) {
-    const copy = resolveSeasonZeroClaimStatusCopy(phase, myStanding, {
+    return resolveSeasonZeroClaimStatusCopy(phase, myStanding, {
       omitStanding,
     });
-    return copy;
   }
 
   return null;

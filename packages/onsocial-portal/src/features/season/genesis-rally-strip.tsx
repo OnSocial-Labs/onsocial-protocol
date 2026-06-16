@@ -61,7 +61,10 @@ import type {
   SeasonZeroStatusPayload,
 } from '@/features/season/season-zero-types';
 import { resolveSeasonZeroLifecyclePhase } from '@/features/season/season-zero-types';
-import { resolveSeasonZeroClaimMetricsStatus } from '@/features/season/season-zero-claim-copy';
+import {
+  isPostLiveSeasonPhase,
+  resolveSeasonZeroClaimMetricsStatus,
+} from '@/features/season/season-zero-claim-copy';
 import { SeasonClaimInlineAction } from '@/features/season/season-claim-inline-action';
 import { seasonZeroPayoutSummary } from '@/features/season/season-zero-payout-copy';
 import type { SeasonZeroPayoutParticipant } from '@/features/season/season-zero-payout-estimate';
@@ -139,6 +142,7 @@ export function GenesisRallyStrip({
   participantCount = 0,
   myStanding: myStandingProp = null,
   pageDataReady,
+  claimStatusReady = true,
   registryPhase = null,
   phase: phaseProp = null,
   claim = null,
@@ -163,6 +167,8 @@ export function GenesisRallyStrip({
   myStanding?: SeasonZeroStanding | null;
   /** Page variant: parent has finished its first status/standings load. */
   pageDataReady?: boolean;
+  /** Wallet claim lookup finished for the current account + season. */
+  claimStatusReady?: boolean;
   /** Registry phase hint for gold panel styling before on-chain config resolves. */
   registryPhase?: SeasonPhase | null;
   phase?: SeasonZeroLifecyclePhase | null;
@@ -628,10 +634,25 @@ export function GenesisRallyStrip({
             accountId,
             myStanding,
             omitStanding: Boolean(joined && myStanding),
+            claimStatusReady,
           })
         : null,
-    [accountId, claim, joined, myStanding, seasonPhase, variant]
+    [
+      accountId,
+      claim,
+      claimStatusReady,
+      joined,
+      myStanding,
+      seasonPhase,
+      variant,
+    ]
   );
+
+  const claimMetricsPending =
+    variant === 'page' &&
+    Boolean(accountId) &&
+    !claimStatusReady &&
+    isPostLiveSeasonPhase(seasonPhase);
 
   const showClaimAction =
     variant === 'page' &&
@@ -861,6 +882,7 @@ export function GenesisRallyStrip({
             settlement={metricsSettlement}
             participantCount={metricsParticipantCount}
             claimStatus={claimMetricsStatus}
+            claimStatusPending={claimMetricsPending}
           />
         </motion.div>
       ) : null}
