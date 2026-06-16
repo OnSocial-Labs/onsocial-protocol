@@ -3,8 +3,8 @@
 //! Decodes NEP-297 events from boost-onsocial contract logs.
 //! Events: BOOST_LOCK, BOOST_EXTEND, BOOST_UNLOCK, REWARDS_RELEASED,
 //!         REWARDS_CLAIM, CREDITS_PURCHASE, SCHEDULED_FUND, INFRA_WITHDRAW,
-//!         OWNER_CHANGED, CONTRACT_UPGRADE, STORAGE_DEPOSIT,
-//!         UNLOCK_FAILED, CLAIM_FAILED, WITHDRAW_INFRA_FAILED
+//!         INFRA_WITHDRAW_AUTHORITY_SET, OWNER_CHANGED, CONTRACT_UPGRADE,
+//!         STORAGE_DEPOSIT, UNLOCK_FAILED, CLAIM_FAILED, WITHDRAW_INFRA_FAILED
 
 use crate::pb::boost::v1::boost_event::Payload;
 use crate::pb::boost::v1::*;
@@ -117,6 +117,14 @@ fn decode_payload(event_type: &str, data: &Value) -> Option<(bool, Payload)> {
             }),
         )),
 
+        "INFRA_WITHDRAW_AUTHORITY_SET" => Some((
+            true,
+            Payload::InfraWithdrawAuthoritySet(InfraWithdrawAuthoritySet {
+                old_authority: optional_account_field(data, "old_authority"),
+                new_authority: optional_account_field(data, "new_authority"),
+            }),
+        )),
+
         "OWNER_CHANGED" => Some((
             true,
             Payload::OwnerChanged(OwnerChanged {
@@ -179,4 +187,12 @@ fn str_field(data: &Value, key: &str) -> String {
 
 fn u64_field(data: &Value, key: &str) -> u64 {
     data.get(key).and_then(|v| v.as_u64()).unwrap_or(0)
+}
+
+fn optional_account_field(data: &Value, key: &str) -> String {
+    match data.get(key) {
+        None | Some(Value::Null) => String::new(),
+        Some(Value::String(value)) => value.clone(),
+        Some(other) => other.to_string(),
+    }
 }

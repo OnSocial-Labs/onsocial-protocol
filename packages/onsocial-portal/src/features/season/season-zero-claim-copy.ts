@@ -16,7 +16,7 @@ function formatPayoutAmount(yocto: string): string {
 }
 
 function claimNextStepCopy(
-  phase: Exclude<SeasonZeroLifecyclePhase, 'live'>
+  phase: Exclude<SeasonZeroLifecyclePhase, 'live' | 'upcoming'>
 ): string {
   switch (phase) {
     case 'finalized_pending_publish':
@@ -32,12 +32,12 @@ function claimNextStepCopy(
 
 export function isPostLiveSeasonPhase(
   phase: SeasonZeroLifecyclePhase | null | undefined
-): phase is Exclude<SeasonZeroLifecyclePhase, 'live'> {
-  return phase != null && phase !== 'live';
+): phase is Exclude<SeasonZeroLifecyclePhase, 'live' | 'upcoming'> {
+  return phase != null && phase !== 'live' && phase !== 'upcoming';
 }
 
 export function resolveSeasonZeroClaimStatusCopy(
-  phase: Exclude<SeasonZeroLifecyclePhase, 'live'>,
+  phase: Exclude<SeasonZeroLifecyclePhase, 'live' | 'upcoming'>,
   myStanding: Pick<SeasonZeroStanding, 'rank' | 'score'> | null | undefined,
   options?: { omitStanding?: boolean }
 ): { statusLabel: string; detailLine: string | null } {

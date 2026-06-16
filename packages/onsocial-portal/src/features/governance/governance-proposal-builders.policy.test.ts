@@ -4,14 +4,14 @@ import {
   buildDaoPolicyDefaultVotePolicyUpdatePayload,
   buildDaoQuorumPresetOptions,
   buildDaoRolePermissionChips,
-  buildDaoFundSeasonPoolFromDaoWalletPayload,
-  buildDaoFundSeasonPoolFromTreasuryPayload,
+  buildDaoFundSeasonPoolPayload,
   buildDaoContractUpgradeProposalPayload,
   buildDaoContractConfigProposalPayload,
   buildDaoTransferOwnershipProposalPayload,
   formatPublishedCodeHashPreview,
   buildDaoTransferProposalPayload,
-  buildDaoWithdrawSocialTreasuryPayload,
+  buildDaoWithdrawBoostInfraPayload,
+  buildDaoSetBoostInfraAuthorityPayload,
   computeRoleWeightApprovalFloor,
   DAO_FULL_PUBLIC_PERMISSIONS_PRESET,
   DAO_PROPOSE_ALL_PERMISSIONS_PRESET,
@@ -483,17 +483,21 @@ describe('governance policy vote threshold builders', () => {
   });
 
   it('builds rally season window contract config FunctionCall payload', () => {
+    const startsMs = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    const startsAtLocal = new Date(startsMs);
+    const pad = (value: number) => String(value).padStart(2, '0');
+    const starts_at_local = `${startsAtLocal.getFullYear()}-${pad(startsAtLocal.getMonth() + 1)}-${pad(startsAtLocal.getDate())}T${pad(startsAtLocal.getHours())}:${pad(startsAtLocal.getMinutes())}`;
+
     const payload = buildDaoContractConfigProposalPayload({
       operationId: 'social_spend_set_season_config',
       contractLabel: 'Social spend',
       seasonConfig: {
         season_id: 'season-two',
-        label: 'Test Rally Season',
+        label: 'OnSocial Rally',
         active: true,
-        starts_at_local: '2026-06-15T22:00',
-        ends_at_local: '2026-06-16T05:00',
-        claim_starts_at_local: '2026-06-16T05:00',
-        use_custom_claim_start: false,
+        start_offset_minutes: 7 * 24 * 60,
+        starts_at_local,
+        duration_minutes: 420,
       },
     });
 
@@ -513,8 +517,9 @@ describe('governance policy vote threshold builders', () => {
     expect(JSON.parse(atob(functionCall.actions[0].args))).toMatchObject({
       season_id: 'season-two',
       config: {
-        label: 'Test Rally Season',
+        label: 'OnSocial Rally',
         active: true,
+        claim_starts_at_ns: null,
       },
     });
   });
@@ -527,14 +532,13 @@ describe('governance policy vote threshold builders', () => {
     ).toBe('85a9kdWatc…Gsd17y16');
   });
 
-  it('builds withdraw social treasury FunctionCall payload', () => {
-    const payload = buildDaoWithdrawSocialTreasuryPayload({
-      contractId: 'social-spend.onsocial.testnet',
-      amountYocto: '500000000000000000000',
-      description: 'Sweep rally fees',
+  it('builds withdraw boost infra FunctionCall payload', () => {
+    const payload = buildDaoWithdrawBoostInfraPayload({
+      contractId: 'boost.onsocial.testnet',
+      amountYocto: '12560000000000000000',
+      receiverId: 'treasury.onsocial.testnet',
+      description: 'Withdraw boost infra',
     });
-
-    expect(payload.proposal.description).toBe('Sweep rally fees');
 
     const functionCall = (
       payload.proposal.kind as {
@@ -550,42 +554,44 @@ describe('governance policy vote threshold builders', () => {
       }
     ).FunctionCall;
 
-    expect(functionCall.receiver_id).toBe('social-spend.onsocial.testnet');
-    expect(functionCall.actions[0]?.method_name).toBe('withdraw_treasury');
+    expect(functionCall.receiver_id).toBe('boost.onsocial.testnet');
+    expect(functionCall.actions[0]?.method_name).toBe('withdraw_infra');
     expect(JSON.parse(atob(functionCall.actions[0]?.args ?? ''))).toEqual({
-      amount: '500000000000000000000',
+      amount: '12560000000000000000',
+      receiver_id: 'treasury.onsocial.testnet',
     });
   });
 
-  it('builds fund season pool FunctionCall payload', () => {
-    const payload = buildDaoFundSeasonPoolFromTreasuryPayload({
-      contractId: 'social-spend.onsocial.testnet',
-      seasonId: 'season-one',
-      amountYocto: '1000000000000000000000',
+  it('builds set boost infra authority FunctionCall payload', () => {
+    const payload = buildDaoSetBoostInfraAuthorityPayload({
+      contractId: 'boost.onsocial.testnet',
+      authorityId: 'treasury.onsocial.testnet',
+      description: 'Delegate boost infra withdraw',
     });
-
-    expect(payload.proposal.description).toContain('season-one');
 
     const functionCall = (
       payload.proposal.kind as {
         FunctionCall: {
-          actions: Array<{ method_name: string; args: string }>;
+          receiver_id: string;
+          actions: Array<{
+            method_name: string;
+            args: string;
+          }>;
         };
       }
     ).FunctionCall;
 
     expect(functionCall.actions[0]?.method_name).toBe(
-      'fund_season_pool_from_treasury'
+      'set_infra_withdraw_authority'
     );
     expect(JSON.parse(atob(functionCall.actions[0]?.args ?? ''))).toEqual({
-      season_id: 'season-one',
-      amount: '1000000000000000000000',
+      authority: 'treasury.onsocial.testnet',
     });
   });
 
   it('builds fund season pool from DAO wallet via ft_transfer_call', () => {
-    const payload = buildDaoFundSeasonPoolFromDaoWalletPayload({
-      socialSpendContractId: 'social-spend.onsocial.testnet',
+    const payload = buildDaoFundSeasonPoolPayload({
+      contractId: 'social-spend.onsocial.testnet',
       seasonId: 'season-one',
       amountYocto: '500000000000000000000',
     });

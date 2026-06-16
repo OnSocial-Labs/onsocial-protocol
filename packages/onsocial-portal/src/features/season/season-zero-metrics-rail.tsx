@@ -2,15 +2,15 @@
 
 import type { ComponentType, ReactNode } from 'react';
 import { Clock, Coins, Users } from 'lucide-react';
-import {
-  formatGenesisSeasonTimeRemaining,
-  formatGenesisYoctoAsSocial,
-} from '@/lib/genesis-season';
+import { SeasonCountdownLabel } from '@/features/season/season-countdown-label';
+import { formatGenesisYoctoAsSocial } from '@/lib/genesis-season';
+import { estimateJoinBurnYocto } from '@/lib/join-rally-routing';
 import {
   resolveSeasonZeroLifecyclePhase,
   type SeasonZeroOnChainConfig,
   type SeasonZeroSettlementSummary,
 } from '@/features/season/season-zero-types';
+import { readTimestampNs } from '@/lib/relative-duration';
 import { cn } from '@/lib/utils';
 
 const PHASE_COPY: Record<
@@ -21,6 +21,7 @@ const PHASE_COPY: Record<
     accent: 'gold' | 'blue' | 'green' | 'neutral';
   }
 > = {
+  upcoming: { title: 'Starting soon', shortTitle: 'Soon', accent: 'blue' },
   live: { title: 'Live', accent: 'gold' },
   ended_pending_settlement: { title: 'Ended', accent: 'blue' },
   finalized_pending_publish: {
@@ -100,7 +101,9 @@ function MetricsRailFooter({
 }
 
 const METRIC_VALUE_CLASS =
-  'truncate font-mono text-sm font-bold tracking-tight sm:text-base';
+  'font-mono text-xs font-bold tracking-tight sm:text-sm md:text-base';
+
+const CLOCK_VALUE_CLASS = cn(METRIC_VALUE_CLASS, 'tabular-nums leading-tight');
 
 const ACCENT_ICON: Record<
   (typeof PHASE_COPY)[keyof typeof PHASE_COPY]['accent'],
@@ -135,9 +138,13 @@ const ACCENT_VALUE: Record<
 function readEndsAtNs(
   onChain: SeasonZeroOnChainConfig | null | undefined
 ): number {
-  if (!onChain?.ends_at_ns) return 0;
-  const parsed = Number(onChain.ends_at_ns);
-  return Number.isFinite(parsed) ? parsed : 0;
+  return readTimestampNs(onChain?.ends_at_ns);
+}
+
+function readStartsAtNs(
+  onChain: SeasonZeroOnChainConfig | null | undefined
+): number {
+  return readTimestampNs(onChain?.starts_at_ns);
 }
 
 function formatParticipants(total: number): string {
@@ -164,7 +171,7 @@ function MetricSegment({
   return (
     <div
       className={cn(
-        'flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2 sm:gap-2.5 sm:px-3 sm:py-2.5 md:gap-3 md:px-4',
+        'flex min-w-0 flex-1 items-center justify-center gap-2 px-2 py-2 sm:gap-2.5 sm:px-3 sm:py-2.5 md:gap-3 md:px-4',
         showDivider && 'border-r border-fade-section'
       )}
     >
@@ -184,24 +191,68 @@ function MetricSegment({
           <Icon className={cn('h-3.5 w-3.5', iconClassName)} />
         </div>
       </div>
-      <div className="min-w-0 flex-1">{children}</div>
+      <div className="min-w-0 shrink text-left">{children}</div>
     </div>
   );
 }
 
-function formatPoolSubtitle(
-  joinPoolYocto?: string,
-  sponsoredPoolYocto?: string
-): string {
+function PoolBreakdownSubtitle({
+  joinPoolYocto,
+  sponsoredPoolYocto,
+  joinRoutingBps,
+}: {
+  joinPoolYocto?: string;
+  sponsoredPoolYocto?: string;
+  joinRoutingBps?: { season_pool_bps: number; burn_bps: number } | null;
+}) {
   const sponsored = BigInt(sponsoredPoolYocto ?? '0');
-  if (sponsored > 0n) {
-    const joinLabel = formatGenesisYoctoAsSocial(joinPoolYocto ?? '0');
-    const sponsoredLabel = formatGenesisYoctoAsSocial(
-      sponsoredPoolYocto ?? '0'
+  const joinLabel = formatGenesisYoctoAsSocial(joinPoolYocto ?? '0');
+  const burnYocto =
+    joinRoutingBps && joinRoutingBps.burn_bps > 0
+      ? estimateJoinBurnYocto(
+          joinPoolYocto ?? '0',
+          joinRoutingBps.season_pool_bps,
+          joinRoutingBps.burn_bps
+        )
+      : 0n;
+  const burnLabel =
+    burnYocto > 0n ? formatGenesisYoctoAsSocial(burnYocto.toString()) : null;
+  const hasJoinFlow = joinLabel !== '0' || burnLabel;
+  const hasTreasurySeed = sponsored > 0n;
+
+  if (!hasJoinFlow && !hasTreasurySeed) {
+    return (
+      <p className="mt-0.5 portal-type-micro text-muted-foreground/65">
+        Reward pool
+      </p>
     );
-    return `${joinLabel} from joins · ${sponsoredLabel} sponsored`;
   }
-  return 'Reward pool';
+
+  return (
+    <div className="mt-0.5 space-y-0.5">
+      {hasJoinFlow ? (
+        <p className="portal-type-micro leading-snug text-muted-foreground/65">
+          <span className="whitespace-nowrap">{joinLabel} joins</span>
+          {burnLabel ? (
+            <>
+              <span className="text-muted-foreground/35"> · </span>
+              <span className="whitespace-nowrap">{burnLabel} burn</span>
+            </>
+          ) : null}
+        </p>
+      ) : null}
+      {hasTreasurySeed ? (
+        <p className="portal-type-micro leading-snug">
+          <span className="whitespace-nowrap portal-gold-text">
+            <span className="font-mono font-semibold tabular-nums">
+              {formatGenesisYoctoAsSocial(sponsoredPoolYocto ?? '0')}
+            </span>
+            <span className="ml-1 font-medium">Treasury seed</span>
+          </span>
+        </p>
+      ) : null}
+    </div>
+  );
 }
 
 export function SeasonZeroMetricsRail({
@@ -209,6 +260,7 @@ export function SeasonZeroMetricsRail({
   indexedPoolYocto,
   joinPoolYocto,
   sponsoredPoolYocto,
+  joinRoutingBps,
   settlement,
   participantCount = 0,
   claimStatus = null,
@@ -219,6 +271,7 @@ export function SeasonZeroMetricsRail({
   indexedPoolYocto?: string;
   joinPoolYocto?: string;
   sponsoredPoolYocto?: string;
+  joinRoutingBps?: { season_pool_bps: number; burn_bps: number } | null;
   settlement?: SeasonZeroSettlementSummary | null;
   participantCount?: number;
   claimStatus?: {
@@ -232,13 +285,10 @@ export function SeasonZeroMetricsRail({
   const phase = resolveSeasonZeroLifecyclePhase(onChainConfig, settlement);
   const copy = PHASE_COPY[phase];
   const endsAtNs = readEndsAtNs(onChainConfig);
-  const timeLabel =
-    phase === 'live' && endsAtNs > 0
-      ? formatGenesisSeasonTimeRemaining(endsAtNs)
-      : null;
-  const poolLabel = formatGenesisYoctoAsSocial(indexedPoolYocto ?? '0');
-  const poolSubtitle = formatPoolSubtitle(joinPoolYocto, sponsoredPoolYocto);
+  const startsAtNs = readStartsAtNs(onChainConfig);
   const isLive = phase === 'live';
+  const isUpcoming = phase === 'upcoming';
+  const poolLabel = formatGenesisYoctoAsSocial(indexedPoolYocto ?? '0');
 
   return (
     <div className={className}>
@@ -252,11 +302,15 @@ export function SeasonZeroMetricsRail({
         >
           <p
             className={cn(
-              METRIC_VALUE_CLASS,
+              CLOCK_VALUE_CLASS,
               isLive ? ACCENT_VALUE.gold : ACCENT_VALUE[copy.accent]
             )}
           >
-            {timeLabel ?? (
+            {isUpcoming && startsAtNs > 0 ? (
+              <SeasonCountdownLabel targetNs={startsAtNs} compact />
+            ) : isLive && endsAtNs > 0 ? (
+              <SeasonCountdownLabel targetNs={endsAtNs} compact />
+            ) : (
               <>
                 <span className="sm:hidden">
                   {copy.shortTitle ?? copy.title}
@@ -266,7 +320,7 @@ export function SeasonZeroMetricsRail({
             )}
           </p>
           <p className="mt-0.5 portal-type-micro text-muted-foreground/65">
-            Season clock
+            {isUpcoming ? 'Opens in' : isLive ? 'Ends in' : 'Season clock'}
           </p>
         </MetricSegment>
 
@@ -276,15 +330,22 @@ export function SeasonZeroMetricsRail({
           frameClassName="portal-gold-frame"
           showDivider
         >
-          <p className={cn(METRIC_VALUE_CLASS, 'text-foreground')}>
-            {poolLabel}
-            <span className="ml-1 text-xs font-semibold text-muted-foreground sm:text-sm">
-              SOCIAL
+          <p
+            className={cn(
+              METRIC_VALUE_CLASS,
+              'flex items-baseline gap-1.5 text-foreground'
+            )}
+          >
+            <span className="truncate tabular-nums">{poolLabel}</span>
+            <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/75 sm:text-[11px]">
+              Social
             </span>
           </p>
-          <p className="mt-0.5 portal-type-micro text-muted-foreground/65">
-            {poolSubtitle}
-          </p>
+          <PoolBreakdownSubtitle
+            joinPoolYocto={joinPoolYocto}
+            sponsoredPoolYocto={sponsoredPoolYocto}
+            joinRoutingBps={joinRoutingBps}
+          />
         </MetricSegment>
 
         <MetricSegment

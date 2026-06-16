@@ -41,6 +41,7 @@ message BoostEvent {
     UnlockFailed unlock_failed = 21;
     ClaimFailed claim_failed = 22;
     WithdrawInfraFailed withdraw_infra_failed = 23;
+    InfraWithdrawAuthoritySet infra_withdraw_authority_set = 24;
     UnknownEvent unknown_event = 30;
   }
 }
@@ -115,6 +116,11 @@ message ClaimFailed {
 
 message WithdrawInfraFailed {
   string amount = 1;
+}
+
+message InfraWithdrawAuthoritySet {
+  string old_authority = 1;
+  string new_authority = 2;
 }
 
 // Catch-all for unknown/future event types — preserves full JSON payload

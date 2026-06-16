@@ -18,7 +18,6 @@ const ACCOUNT_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{1,63}$/;
 interface SocialSpendContractInfo {
   owner_id?: string;
   treasury_id?: string;
-  treasury_balance?: string;
   season_ids?: string[];
 }
 
@@ -31,17 +30,11 @@ interface SeasonConfigView {
 
 export interface DaoSocialSpendTreasuryContext {
   contractId: string;
-  treasuryBalanceYocto: string;
-  /** SOCIAL held in the DAO account wallet (after sweeps / transfers). */
+  /** SOCIAL held in the DAO account wallet. */
   daoSocialBalanceYocto: string;
-  treasuryId: string | null;
-  ownerId: string | null;
-  canWithdrawTreasury: boolean;
   canFundSeasonPool: boolean;
-  canFundSeasonPoolFromDaoWallet: boolean;
   /** Live rally seasons only (`active && is_live`). */
   fundableSeasonIds: string[];
-  allSeasonIds: string[];
 }
 
 function normalizeAccountId(value: unknown): string | null {
@@ -93,21 +86,13 @@ export async function loadDaoSocialSpendTreasuryContext(
 
   const ownerId = normalizeAccountId(info?.owner_id);
   const treasuryId = normalizeAccountId(info?.treasury_id);
-  const {
-    canWithdrawTreasury,
-    canFundSeasonPool,
-    canFundSeasonPoolFromDaoWallet,
-  } = resolveSocialSpendTreasuryCapabilities(
+  const { canFundSeasonPool } = resolveSocialSpendTreasuryCapabilities(
     normalizedDaoAccountId,
     ownerId,
     treasuryId
   );
 
-  if (
-    !canWithdrawTreasury &&
-    !canFundSeasonPool &&
-    !canFundSeasonPoolFromDaoWallet
-  ) {
+  if (!canFundSeasonPool) {
     return null;
   }
 
@@ -139,35 +124,15 @@ export async function loadDaoSocialSpendTreasuryContext(
     }
   }
 
-  const fundableSeasonIds =
-    canFundSeasonPool || canFundSeasonPoolFromDaoWallet
-      ? await loadLiveSeasonIds(allSeasonIds)
-      : [];
-
-  const treasuryBalance =
-    typeof info?.treasury_balance === 'string' ? info.treasury_balance : '0';
-  const hasTreasuryBalance = (() => {
-    try {
-      return BigInt(treasuryBalance) > 0n;
-    } catch {
-      return false;
-    }
-  })();
-
+  const fundableSeasonIds = await loadLiveSeasonIds(allSeasonIds);
   const daoSocialBalanceYocto = (
     await getSocialWalletBalanceYocto(normalizedDaoAccountId)
   ).toString();
 
   return {
     contractId: SOCIAL_SPEND_CONTRACT,
-    treasuryBalanceYocto: treasuryBalance,
     daoSocialBalanceYocto,
-    treasuryId,
-    ownerId,
-    canWithdrawTreasury: canWithdrawTreasury && hasTreasuryBalance,
     canFundSeasonPool,
-    canFundSeasonPoolFromDaoWallet,
     fundableSeasonIds,
-    allSeasonIds,
   };
 }

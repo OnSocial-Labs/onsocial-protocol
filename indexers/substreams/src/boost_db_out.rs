@@ -109,6 +109,11 @@ pub(crate) fn write_boost_event(tables: &mut Tables, event: &BoostEvent) {
             row.set("amount", &p.amount);
             row.set("receiver_id", &p.receiver_id);
         }
+        Some(Payload::InfraWithdrawAuthoritySet(p)) => {
+            // Reuse owner-change columns for authority delegation audit rows.
+            row.set("old_owner", &p.old_authority);
+            row.set("new_owner", &p.new_authority);
+        }
         Some(Payload::OwnerChanged(p)) => {
             row.set("old_owner", &p.old_owner);
             row.set("new_owner", &p.new_owner);

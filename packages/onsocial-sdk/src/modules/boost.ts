@@ -34,6 +34,8 @@ export interface BoostContractStats {
   rate_step_bps: number;
   rate_step_interval_months: number;
   max_weekly_rate_bps: number;
+  /** Set via `set_infra_withdraw_authority`; may withdraw infra pool when set. */
+  infra_withdraw_authority?: string | null;
 }
 
 /** Account lock state as returned by `get_lock_status`. */

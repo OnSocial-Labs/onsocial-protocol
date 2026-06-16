@@ -136,6 +136,7 @@ pub struct OnsocialBoost {
     total_rewards_released: u128,
     last_release_time: u64,
     scheduled_pool: u128,
+    infra_withdraw_authority: Option<AccountId>,
 }
 
 #[near]
@@ -191,6 +192,7 @@ impl OnsocialBoost {
             total_rewards_released: 0,
             last_release_time: now,
             scheduled_pool: 0,
+            infra_withdraw_authority: None,
         }
     }
 
@@ -830,7 +832,7 @@ impl OnsocialBoost {
         if env::attached_deposit().as_yoctonear() != 1 {
             return Err(BoostError::InvalidInput("Attach 1 yoctoNEAR".into()));
         }
-        self.assert_owner()?;
+        self.assert_infra_withdrawer()?;
         if amount.0 > self.infra_pool {
             return Err(BoostError::InsufficientBalance("infra pool".into()));
         }
@@ -892,6 +894,29 @@ impl OnsocialBoost {
         Ok(())
     }
 
+    #[payable]
+    #[handle_result]
+    pub fn set_infra_withdraw_authority(
+        &mut self,
+        authority: Option<AccountId>,
+    ) -> Result<(), BoostError> {
+        if env::attached_deposit().as_yoctonear() != 1 {
+            return Err(BoostError::InvalidInput("Attach 1 yoctoNEAR".into()));
+        }
+        self.assert_owner()?;
+        let old = self.infra_withdraw_authority.clone();
+        self.infra_withdraw_authority = authority.clone();
+        self.emit_event(
+            "INFRA_WITHDRAW_AUTHORITY_SET",
+            &self.owner_id.clone(),
+            serde_json::json!({
+                "old_authority": old,
+                "new_authority": authority,
+            }),
+        );
+        Ok(())
+    }
+
     #[handle_result]
     pub fn update_contract(&self) -> Result<Promise, BoostError> {
         self.assert_owner()?;
@@ -927,7 +952,8 @@ impl OnsocialBoost {
     #[private]
     #[init(ignore_state)]
     pub fn migrate() -> Self {
-        let mut contract: Self = env::state_read().expect("State read failed");
+        let mut contract: Self =
+            env::state_read().expect("Failed to read contract state for migration");
         let old = contract.version.clone();
         contract.version = CONTRACT_VERSION.to_string();
         contract.emit_event(
@@ -967,6 +993,7 @@ impl OnsocialBoost {
             version: self.version.clone(),
             token_id: self.token_id.clone(),
             owner_id: self.owner_id.clone(),
+            infra_withdraw_authority: self.infra_withdraw_authority.clone(),
             total_locked: U128(self.total_locked),
             total_effective_boost: U128(self.total_effective_boost),
             total_boost_seconds: U128(self.total_boost_seconds),
@@ -1102,6 +1129,22 @@ impl OnsocialBoost {
             return Err(BoostError::Unauthorized("Only owner".into()));
         }
         Ok(())
+    }
+
+    fn assert_infra_withdrawer(&self) -> Result<(), BoostError> {
+        let caller = env::predecessor_account_id();
+        if caller == self.owner_id
+            || self
+                .infra_withdraw_authority
+                .as_ref()
+                .is_some_and(|authority| authority == &caller)
+        {
+            Ok(())
+        } else {
+            Err(BoostError::Unauthorized(
+                "Only owner or infra withdraw authority".into(),
+            ))
+        }
     }
 
     fn effective_boost(&self, account: &Account) -> u128 {
@@ -1350,6 +1393,7 @@ pub struct ContractStats {
     pub version: String,
     pub token_id: AccountId,
     pub owner_id: AccountId,
+    pub infra_withdraw_authority: Option<AccountId>,
     pub total_locked: U128,
     pub total_effective_boost: U128,
     pub total_boost_seconds: U128,

@@ -1,3 +1,7 @@
+import {
+  resolveStartOffsetMinutes,
+  startsAtLocalFromOffsetMinutes,
+} from '@/lib/relative-duration';
 import { SOCIAL_SPEND_CONTRACT } from '@/lib/near-rpc';
 
 export const SOCIAL_SPEND_ROUTING_BPS_DENOMINATOR = 10_000;
@@ -50,11 +54,28 @@ export interface SocialSpendSeasonConfigView {
 export interface SocialSpendSeasonConfigDraft {
   season_id: string;
   label: string;
+  /** When false, join_rally spends for this season are rejected even inside the window. */
   active: boolean;
+  /** Relative start delay edited in the form; synced to starts_at_local on change. */
+  start_offset_minutes: number;
   starts_at_local: string;
-  ends_at_local: string;
-  claim_starts_at_local: string;
-  use_custom_claim_start: boolean;
+  /** Spend window length in minutes; end time is derived for the on-chain proposal. */
+  duration_minutes: number;
+}
+
+const HIDDEN_GOV_SEASON_IDS = new Set(['season0']);
+
+export function parseSeasonIdsFromChainView(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((entry): entry is string => typeof entry === 'string')
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean)
+    .filter((seasonId) => !HIDDEN_GOV_SEASON_IDS.has(seasonId))
+    .sort((left, right) => left.localeCompare(right));
 }
 
 const SEASON_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/u;
@@ -96,8 +117,7 @@ export const DAO_CONTRACT_CONFIG_OPERATIONS: readonly DaoContractConfigOperation
       id: 'social_spend_set_season_config',
       contractId: SOCIAL_SPEND_CONTRACT,
       label: 'Rally season window',
-      description:
-        'Open or update a rally season spend window (start, end, and claim times).',
+      description: 'Set season open time, duration, and pause state.',
       methodName: 'set_season_config',
       gas: SOCIAL_SPEND_CONFIG_FUNCTION_CALL_GAS,
       deposit: SOCIAL_SPEND_CONFIG_FUNCTION_CALL_DEPOSIT,
@@ -379,70 +399,120 @@ export function parseSocialSpendSeasonConfigView(
   };
 }
 
+export function resolveSeasonDurationMinutes(
+  starts_at_ns: string,
+  ends_at_ns: string
+): number {
+  const durationNs = BigInt(ends_at_ns) - BigInt(starts_at_ns);
+  if (durationNs <= 0n) {
+    return 60;
+  }
+  const minutes = Number(durationNs / (60n * 1_000_000_000n));
+  return Math.max(1, minutes);
+}
+
+export function computeSeasonEndsAtLocal(
+  starts_at_local: string,
+  duration_minutes: number
+): string {
+  const startsMs = Date.parse(starts_at_local);
+  if (!Number.isFinite(startsMs) || duration_minutes <= 0) {
+    return '';
+  }
+  const endsMs = startsMs + duration_minutes * 60_000;
+  return nsToDatetimeLocalValue(String(BigInt(endsMs) * 1_000_000n));
+}
+
 export function socialSpendSeasonConfigToDraft(
   seasonId: string,
   config: SocialSpendSeasonConfigView
 ): SocialSpendSeasonConfigDraft {
-  const claimNs = config.claim_starts_at_ns ?? config.ends_at_ns;
-  const useCustomClaim = claimNs !== config.ends_at_ns;
+  const starts_at_local = nsToDatetimeLocalValue(config.starts_at_ns);
   return {
     season_id: seasonId,
     label: config.label,
     active: config.active,
-    starts_at_local: nsToDatetimeLocalValue(config.starts_at_ns),
-    ends_at_local: nsToDatetimeLocalValue(config.ends_at_ns),
-    claim_starts_at_local: nsToDatetimeLocalValue(claimNs),
-    use_custom_claim_start: useCustomClaim,
+    start_offset_minutes: resolveStartOffsetMinutes(starts_at_local),
+    starts_at_local,
+    duration_minutes: resolveSeasonDurationMinutes(
+      config.starts_at_ns,
+      config.ends_at_ns
+    ),
+  };
+}
+
+export function applySeasonStartOffsetMinutes(
+  draft: SocialSpendSeasonConfigDraft,
+  offsetMinutes: number
+): SocialSpendSeasonConfigDraft {
+  const safe = Math.max(0, Math.floor(offsetMinutes));
+  return {
+    ...draft,
+    start_offset_minutes: safe,
+    starts_at_local: startsAtLocalFromOffsetMinutes(safe),
   };
 }
 
 export function createDefaultSeasonConfigDraft(
   seasonId = 'season-two'
 ): SocialSpendSeasonConfigDraft {
-  const startsMs = Date.now() + 5 * 60 * 1000;
-  const endsMs = startsMs + 7 * 60 * 60 * 1000;
-  const toLocal = (ms: number) =>
-    nsToDatetimeLocalValue(String(BigInt(ms) * 1_000_000n));
+  const start_offset_minutes = 7 * 24 * 60;
 
   return {
     season_id: seasonId,
-    label: 'Test Rally Season',
+    label: 'OnSocial Rally',
     active: true,
-    starts_at_local: toLocal(startsMs),
-    ends_at_local: toLocal(endsMs),
-    claim_starts_at_local: toLocal(endsMs),
-    use_custom_claim_start: false,
+    start_offset_minutes,
+    starts_at_local: startsAtLocalFromOffsetMinutes(start_offset_minutes),
+    duration_minutes: 420,
   };
+}
+
+export function validateSeasonIdDraft(seasonId: string): string | null {
+  const normalized = seasonId.trim().toLowerCase();
+  if (!normalized) {
+    return 'Enter a season id.';
+  }
+  if (!SEASON_ID_PATTERN.test(normalized)) {
+    return 'Use lowercase letters, numbers, dash, dot, or underscore.';
+  }
+  return null;
+}
+
+export function validateSeasonLabelDraft(label: string): string | null {
+  const trimmed = label.trim();
+  if (!trimmed) {
+    return 'Enter a display name.';
+  }
+  if (trimmed.length > 64 || /[\u0000-\u001F\u007F]/u.test(trimmed)) {
+    return 'Display name must be 1–64 characters.';
+  }
+  return null;
 }
 
 export function validateSeasonConfigDraft(
   draft: SocialSpendSeasonConfigDraft
 ): string | null {
-  const seasonId = draft.season_id.trim().toLowerCase();
-  if (!SEASON_ID_PATTERN.test(seasonId)) {
-    return 'Season id must be a lowercase slug (letters, numbers, dash, dot, underscore).';
+  const seasonIdError = validateSeasonIdDraft(draft.season_id);
+  if (seasonIdError) {
+    return seasonIdError;
   }
-  if (!draft.label.trim()) {
-    return 'Season label is required.';
-  }
-
-  const startsNs = datetimeLocalToNs(draft.starts_at_local);
-  const endsNs = datetimeLocalToNs(draft.ends_at_local);
-  if (!startsNs || !endsNs) {
-    return 'Enter valid start and end times.';
-  }
-  if (BigInt(startsNs) >= BigInt(endsNs)) {
-    return 'Season end must be after start.';
+  const labelError = validateSeasonLabelDraft(draft.label);
+  if (labelError) {
+    return labelError;
   }
 
-  if (draft.use_custom_claim_start) {
-    const claimNs = datetimeLocalToNs(draft.claim_starts_at_local);
-    if (!claimNs) {
-      return 'Enter a valid claim open time.';
-    }
-    if (BigInt(claimNs) < BigInt(endsNs)) {
-      return 'Claim open must be at or after season end.';
-    }
+  if (!datetimeLocalToNs(draft.starts_at_local)) {
+    return 'Enter a valid start time.';
+  }
+
+  const startsMs = Date.parse(draft.starts_at_local);
+  if (!Number.isFinite(startsMs) || startsMs <= Date.now()) {
+    return 'Start must be in the future.';
+  }
+
+  if (!Number.isFinite(draft.duration_minutes) || draft.duration_minutes <= 0) {
+    return 'Duration must be greater than zero.';
   }
 
   return null;
@@ -459,10 +529,11 @@ export function seasonConfigDraftToInput(draft: SocialSpendSeasonConfigDraft): {
   };
 } {
   const startsNs = datetimeLocalToNs(draft.starts_at_local)!;
-  const endsNs = datetimeLocalToNs(draft.ends_at_local)!;
-  const claimNs = draft.use_custom_claim_start
-    ? datetimeLocalToNs(draft.claim_starts_at_local)
-    : endsNs;
+  const endsLocal = computeSeasonEndsAtLocal(
+    draft.starts_at_local,
+    draft.duration_minutes
+  );
+  const endsNs = datetimeLocalToNs(endsLocal)!;
 
   return {
     season_id: draft.season_id.trim().toLowerCase(),
@@ -471,7 +542,7 @@ export function seasonConfigDraftToInput(draft: SocialSpendSeasonConfigDraft): {
       active: draft.active,
       starts_at_ns: Number(startsNs),
       ends_at_ns: Number(endsNs),
-      claim_starts_at_ns: claimNs ? Number(claimNs) : null,
+      claim_starts_at_ns: null,
     },
   };
 }
@@ -485,11 +556,26 @@ export function formatSeasonConfigSummary(
     return validationError;
   }
 
-  const claimLabel = draft.use_custom_claim_start
-    ? draft.claim_starts_at_local
-    : draft.ends_at_local;
+  const startsMs = Date.parse(draft.starts_at_local);
+  const endsLocal = computeSeasonEndsAtLocal(
+    draft.starts_at_local,
+    draft.duration_minutes
+  );
+  const endsMs = Date.parse(endsLocal);
+  if (!Number.isFinite(startsMs) || !Number.isFinite(endsMs)) {
+    return seasonId;
+  }
 
-  return `${seasonId}: ${draft.starts_at_local} → ${draft.ends_at_local}, claim ${claimLabel}${draft.active ? ', active' : ', inactive'}`;
+  const formatPoint = (ms: number) =>
+    new Date(ms).toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+  const pauseSuffix = draft.active ? '' : ', paused';
+  return `${seasonId} · ${formatPoint(startsMs)} → ${formatPoint(endsMs)}${pauseSuffix}`;
 }
 
 export function seasonConfigDraftChanged(

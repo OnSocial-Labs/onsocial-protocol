@@ -176,6 +176,7 @@ fn boost_all_14_event_types_through_pipeline() {
         r#"{"standard":"onsocial","version":"1.0.0","event":"CREDITS_PURCHASE","data":[{"amount":"1","infra_share":"1","rewards_share":"1","account_id":"a"}]}"#,
         r#"{"standard":"onsocial","version":"1.0.0","event":"SCHEDULED_FUND","data":[{"amount":"1","total_pool":"1","account_id":"a"}]}"#,
         r#"{"standard":"onsocial","version":"1.0.0","event":"INFRA_WITHDRAW","data":[{"amount":"1","receiver_id":"b","account_id":"a"}]}"#,
+        r#"{"standard":"onsocial","version":"1.0.0","event":"INFRA_WITHDRAW_AUTHORITY_SET","data":[{"old_authority":null,"new_authority":"treasury.onsocial.testnet","account_id":"a"}]}"#,
         r#"{"standard":"onsocial","version":"1.0.0","event":"OWNER_CHANGED","data":[{"old_owner":"a","new_owner":"b","account_id":"a"}]}"#,
         r#"{"standard":"onsocial","version":"1.0.0","event":"CONTRACT_UPGRADE","data":[{"old_version":"0.1.0","new_version":"0.2.0","account_id":"a"}]}"#,
         r#"{"standard":"onsocial","version":"1.0.0","event":"STORAGE_DEPOSIT","data":[{"deposit":"5000","account_id":"a"}]}"#,
@@ -191,7 +192,7 @@ fn boost_all_14_event_types_through_pipeline() {
     let output = run_boost_pipeline(&block);
     assert_eq!(
         output.events.len(),
-        14,
-        "All 14 boost event types should decode"
+        15,
+        "All boost event types should decode"
     );
 }

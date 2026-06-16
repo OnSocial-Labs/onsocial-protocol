@@ -1,0 +1,18 @@
+{
+  "proposal": {
+    "description": "Delegate boost infra pool withdrawals to Treasury DAO (requires boost owner = governance DAO)",
+    "kind": {
+      "FunctionCall": {
+        "receiver_id": "boost.onsocial.testnet",
+        "actions": [
+          {
+            "method_name": "set_infra_withdraw_authority",
+            "args": "eyJhdXRob3JpdHkiOiJ0cmVhc3VyeS5vbnNvY2lhbC50ZXN0bmV0In0=",
+            "deposit": "1",
+            "gas": 100000000000000
+          }
+        ]
+      }
+    }
+  }
+}

@@ -35,6 +35,35 @@ describe('deriveProposalPresentation', () => {
     expect(presentation.onChainDescription).toContain('yocto SOCIAL');
   });
 
+  it('formats boost infra withdraw like social-spend sweep (From contract + Amount)', () => {
+    const presentation = deriveProposalPresentation({
+      proposer: 'greenghost.onsocial.testnet',
+      description: 'Withdrawing portion of the tokens for infra.',
+      kind: {
+        FunctionCall: {
+          receiver_id: 'boost.onsocial.testnet',
+          actions: [
+            {
+              method_name: 'withdraw_infra',
+              args: encodeArgs({
+                amount: '5000000000000000000',
+                receiver_id: 'treasury.onsocial.testnet',
+              }),
+              deposit: '1',
+              gas: 150_000_000_000_000,
+            },
+          ],
+        },
+      },
+    });
+
+    expect(presentation.headline).toBe('Withdraw 5 SOCIAL from boost infra');
+    expect(presentation.subjectEyebrow).toBe('From');
+    expect(presentation.subjectAccount).toBe('boost.onsocial.testnet');
+    expect(presentation.targetValue).toBe('5 SOCIAL');
+    expect(presentation.actionBadge).toBe('Treasury');
+  });
+
   it('shows transfer recipient with To eyebrow and proposer row', () => {
     const presentation = deriveProposalPresentation({
       proposer: 'greenghost.onsocial.testnet',

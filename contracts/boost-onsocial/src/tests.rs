@@ -3304,6 +3304,123 @@ fn test_new_owner_can_act() {
     assert_eq!(contract.infra_pool, 50 * ONE_SOCIAL); // 60 - 10
 }
 
+#[test]
+fn test_set_infra_withdraw_authority_owner_only() {
+    let mut contract = setup_contract();
+
+    let mut context = get_context("alice.near");
+    context.attached_deposit(NearToken::from_yoctonear(1));
+    testing_env!(context.build());
+
+    let result = contract.set_infra_withdraw_authority(Some("treasury.near".parse().unwrap()));
+    assert!(matches!(
+        result,
+        Err(BoostError::Unauthorized(message)) if message == "Only owner"
+    ));
+
+    let mut context = get_context("owner.near");
+    context.attached_deposit(NearToken::from_yoctonear(1));
+    testing_env!(context.build());
+
+    contract
+        .set_infra_withdraw_authority(Some("treasury.near".parse().unwrap()))
+        .unwrap();
+
+    assert_eq!(
+        contract.infra_withdraw_authority,
+        Some("treasury.near".parse().unwrap())
+    );
+
+    let stats = contract.get_stats();
+    assert_eq!(
+        stats.infra_withdraw_authority,
+        Some("treasury.near".parse().unwrap())
+    );
+}
+
+#[test]
+fn test_infra_withdraw_authority_can_withdraw() {
+    let mut contract = setup_contract();
+    purchase_credits(&mut contract, "buyer.near", 100 * ONE_SOCIAL);
+
+    let mut context = get_context("owner.near");
+    context.attached_deposit(NearToken::from_yoctonear(1));
+    testing_env!(context.build());
+    contract
+        .set_infra_withdraw_authority(Some("treasury.near".parse().unwrap()))
+        .unwrap();
+
+    let mut context = get_context("treasury.near");
+    context.attached_deposit(NearToken::from_yoctonear(1));
+    testing_env!(context.build());
+
+    let _ = contract.withdraw_infra(U128(10 * ONE_SOCIAL), "ops.near".parse().unwrap());
+    assert_eq!(contract.infra_pool, 50 * ONE_SOCIAL);
+}
+
+#[test]
+fn test_non_authority_cannot_withdraw_infra() {
+    let mut contract = setup_contract();
+    purchase_credits(&mut contract, "buyer.near", 100 * ONE_SOCIAL);
+
+    let mut context = get_context("owner.near");
+    context.attached_deposit(NearToken::from_yoctonear(1));
+    testing_env!(context.build());
+    contract
+        .set_infra_withdraw_authority(Some("treasury.near".parse().unwrap()))
+        .unwrap();
+
+    let mut context = get_context("random.near");
+    context.attached_deposit(NearToken::from_yoctonear(1));
+    testing_env!(context.build());
+
+    let result = contract.withdraw_infra(U128(ONE_SOCIAL), "ops.near".parse().unwrap());
+    assert!(matches!(
+        result,
+        Err(BoostError::Unauthorized(message))
+            if message == "Only owner or infra withdraw authority"
+    ));
+}
+
+#[test]
+fn test_owner_can_withdraw_infra_when_authority_delegated() {
+    let mut contract = setup_contract();
+    purchase_credits(&mut contract, "buyer.near", 100 * ONE_SOCIAL);
+
+    let mut context = get_context("owner.near");
+    context.attached_deposit(NearToken::from_yoctonear(1));
+    testing_env!(context.build());
+    contract
+        .set_infra_withdraw_authority(Some("treasury.near".parse().unwrap()))
+        .unwrap();
+
+    let mut context = get_context("owner.near");
+    context.attached_deposit(NearToken::from_yoctonear(1));
+    testing_env!(context.build());
+
+    let _ = contract.withdraw_infra(U128(5 * ONE_SOCIAL), "ops.near".parse().unwrap());
+    assert_eq!(contract.infra_pool, 55 * ONE_SOCIAL);
+}
+
+#[test]
+fn test_clear_infra_withdraw_authority() {
+    let mut contract = setup_contract();
+
+    let mut context = get_context("owner.near");
+    context.attached_deposit(NearToken::from_yoctonear(1));
+    testing_env!(context.build());
+    contract
+        .set_infra_withdraw_authority(Some("treasury.near".parse().unwrap()))
+        .unwrap();
+
+    let mut context = get_context("owner.near");
+    context.attached_deposit(NearToken::from_yoctonear(1));
+    testing_env!(context.build());
+    contract.set_infra_withdraw_authority(None).unwrap();
+
+    assert!(contract.infra_withdraw_authority.is_none());
+}
+
 // =============================================================================
 // EDGE CASE TESTS - RAPID OPERATIONS & TIMING
 // =============================================================================

@@ -41,6 +41,28 @@ export function formatJoinRoutingDisclosure(
   return parts.join(' · ');
 }
 
+/** Estimate SOCIAL burned from indexed join pool contributions and routing bps. */
+export function estimateJoinBurnYocto(
+  joinPoolYocto: string | bigint,
+  seasonPoolBps: number,
+  burnBps: number
+): bigint {
+  if (burnBps <= 0 || seasonPoolBps <= 0) {
+    return 0n;
+  }
+
+  const joinPool =
+    typeof joinPoolYocto === 'bigint'
+      ? joinPoolYocto
+      : BigInt(joinPoolYocto || '0');
+  if (joinPool <= 0n) {
+    return 0n;
+  }
+
+  const totalSpend = (joinPool * 10_000n) / BigInt(seasonPoolBps);
+  return (totalSpend * BigInt(burnBps)) / 10_000n;
+}
+
 export async function fetchJoinRallyRouting(): Promise<JoinRallyRoutingDisclosure | null> {
   const [config, contractInfo] = await Promise.all([
     viewContractAt<JoinRallyActionConfig>(

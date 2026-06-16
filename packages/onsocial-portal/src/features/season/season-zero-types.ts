@@ -55,6 +55,7 @@ export interface SeasonZeroClaimPayload {
 }
 
 export type SeasonZeroLifecyclePhase =
+  | 'upcoming'
   | 'live'
   | 'ended_pending_settlement'
   | 'finalized_pending_publish'
@@ -74,6 +75,12 @@ export function resolveSeasonZeroLifecyclePhase(
   settlement: SeasonZeroSettlementSummary | null | undefined
 ): SeasonZeroLifecyclePhase {
   if (onChain?.is_live) return 'live';
+
+  const nowNs = BigInt(Date.now()) * 1_000_000n;
+  const startsAtNs = BigInt(onChain?.starts_at_ns ?? '0');
+  if (onChain?.active && startsAtNs > 0n && nowNs < startsAtNs && !settlement) {
+    return 'upcoming';
+  }
 
   if (!settlement) {
     return 'ended_pending_settlement';

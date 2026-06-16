@@ -1,0 +1,18 @@
+{
+  "proposal": {
+    "description": "Withdraw SOCIAL from boost infra pool to treasury wallet (requires infra withdraw authority = Treasury DAO)",
+    "kind": {
+      "FunctionCall": {
+        "receiver_id": "boost.onsocial.testnet",
+        "actions": [
+          {
+            "method_name": "withdraw_infra",
+            "args": "eyJhbW91bnQiOiIxMDAwMDAwMDAwMDAwMDAwMDAwMDAwIiwicmVjZWl2ZXJfaWQiOiJ0cmVhc3VyeS5vbnNvY2lhbC50ZXN0bmV0In0=",
+            "deposit": "1",
+            "gas": 150000000000000
+          }
+        ]
+      }
+    }
+  }
+}

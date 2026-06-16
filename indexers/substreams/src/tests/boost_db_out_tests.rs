@@ -189,6 +189,36 @@ fn test_write_credit_purchase_table() {
 }
 
 #[test]
+fn test_infra_withdraw_authority_set_writes_owner_columns() {
+    let event = make_event(
+        "INFRA_WITHDRAW_AUTHORITY_SET",
+        "onsocial.testnet",
+        Payload::InfraWithdrawAuthoritySet(InfraWithdrawAuthoritySet {
+            old_authority: String::new(),
+            new_authority: "treasury.onsocial.testnet".to_string(),
+        }),
+    );
+
+    let mut tables = Tables::new();
+    write_boost_event(&mut tables, &event);
+    let changes = tables.to_database_changes();
+
+    assert_eq!(count_table_rows(&changes, "boost_events"), 1);
+    assert_eq!(
+        find_field(&changes, "boost_events", "event_type"),
+        Some("INFRA_WITHDRAW_AUTHORITY_SET")
+    );
+    assert_eq!(
+        find_field(&changes, "boost_events", "old_owner"),
+        Some("")
+    );
+    assert_eq!(
+        find_field(&changes, "boost_events", "new_owner"),
+        Some("treasury.onsocial.testnet")
+    );
+}
+
+#[test]
 fn test_non_state_event_skips_booster_state() {
     let mut accum = HashMap::new();
     let event = make_event(

@@ -175,7 +175,8 @@ near call token.onsocial.near ft_transfer_call '{"receiver_id":"<contract>","amo
 
 | Method | Description |
 |--------|-------------|
-| `withdraw_infra(amount, receiver_id)` | Withdraws from the infra pool |
+| `withdraw_infra(amount, receiver_id)` | Owner or infra withdraw authority; withdraws from the infra pool (attach 1 yocto) |
+| `set_infra_withdraw_authority(authority?)` | Owner only; delegate infra withdrawals to another account (attach 1 yocto) |
 | `set_owner(new_owner)` | Transfers ownership |
 | `update_contract()` | Upgrades using supplied wasm bytes |
 | `update_contract_from_hash(code_hash)` | Upgrades using a global contract hash |
@@ -201,6 +202,7 @@ near call token.onsocial.near ft_transfer_call '{"receiver_id":"<contract>","amo
 - `total_rewards_released`
 - `scheduled_pool`
 - `infra_pool`
+- `infra_withdraw_authority` (optional delegate for `withdraw_infra`)
 - `active_weekly_rate_bps`
 - release schedule configuration fields
 
@@ -221,6 +223,7 @@ Primary events emitted by this contract include:
 - `CREDITS_PURCHASE`
 - `SCHEDULED_FUND`
 - `INFRA_WITHDRAW`
+- `INFRA_WITHDRAW_AUTHORITY_SET`
 - `WITHDRAW_INFRA_FAILED`
 - `OWNER_CHANGED`
 - `CONTRACT_UPGRADE`

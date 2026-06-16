@@ -231,11 +231,13 @@ function classifyProtocolProposal(
       protocolKind = 'upgrade';
     } else if (
       methodName === 'set_owner' ||
-      methodName === 'transfer_ownership'
+      methodName === 'transfer_ownership' ||
+      methodName === 'set_infra_withdraw_authority'
     ) {
       protocolKind = 'permissions';
     } else if (
       methodName === 'withdraw_treasury' ||
+      methodName === 'withdraw_infra' ||
       methodName === 'fund_season_pool_from_treasury' ||
       (methodName === 'ft_transfer_call' &&
         receiverId === TOKEN_CONTRACT &&

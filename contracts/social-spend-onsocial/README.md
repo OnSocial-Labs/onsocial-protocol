@@ -56,9 +56,7 @@ near call <contract> new '{
 }' --accountId <deployer>
 ```
 
-Default deploy config (`configs/contracts.json`) uses `social-spend.${AUTH_ACCOUNT}` with `social_token`, `treasury_id`, and `boost_contract_id` set to `token.${AUTH_ACCOUNT}`, `${AUTH_ACCOUNT}`, and `boost.${AUTH_ACCOUNT}` respectively. On upgrade, `migrate()` auto-derives boost from the social-spend account id when unset (`social-spend.*` → `boost.*`).
-
-While testnet/mainnet still stores the pre-boost-credits schema, `migrate()` reads `SocialSpendContractPreBoostCredits` first. After every deployment is on the current schema, simplify `migrate()` to read `Self` only and drop the pre-boost layout in a follow-up WASM release.
+Default deploy config (`configs/contracts.json`) uses `social-spend.${AUTH_ACCOUNT}` with `social_token`, `treasury_id`, and `boost_contract_id` set to `token.${AUTH_ACCOUNT}`, `${AUTH_ACCOUNT}`, and `boost.${AUTH_ACCOUNT}` respectively. On upgrade, `migrate()` reads the current contract state and bumps the version string.
 
 ## Architecture
 

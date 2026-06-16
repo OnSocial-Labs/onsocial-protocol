@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { resolveSocialSpendTreasuryCapabilities } from '@/lib/dao-social-spend-treasury-capabilities';
 
 describe('resolveSocialSpendTreasuryCapabilities', () => {
-  it('allows treasury DAO to sweep when it is treasury_id', () => {
+  it('allows treasury DAO to fund rally pools from its wallet', () => {
     expect(
       resolveSocialSpendTreasuryCapabilities(
         'treasury.onsocial.testnet',
@@ -11,13 +11,11 @@ describe('resolveSocialSpendTreasuryCapabilities', () => {
         'treasury.onsocial.testnet'
       )
     ).toEqual({
-      canWithdrawTreasury: true,
-      canFundSeasonPool: false,
-      canFundSeasonPoolFromDaoWallet: true,
+      canFundSeasonPool: true,
     });
   });
 
-  it('allows owner DAO to sweep and fund', () => {
+  it('allows owner DAO to fund rally pools from its wallet', () => {
     expect(
       resolveSocialSpendTreasuryCapabilities(
         'onsocial.testnet',
@@ -25,9 +23,7 @@ describe('resolveSocialSpendTreasuryCapabilities', () => {
         'treasury.onsocial.testnet'
       )
     ).toEqual({
-      canWithdrawTreasury: true,
       canFundSeasonPool: true,
-      canFundSeasonPoolFromDaoWallet: true,
     });
   });
 
@@ -39,9 +35,7 @@ describe('resolveSocialSpendTreasuryCapabilities', () => {
         'treasury.onsocial.testnet'
       )
     ).toEqual({
-      canWithdrawTreasury: false,
       canFundSeasonPool: false,
-      canFundSeasonPoolFromDaoWallet: false,
     });
   });
 });

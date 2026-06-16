@@ -405,36 +405,6 @@ pub struct SocialSpendContract {
     pub total_boost_credits_routed: u128,
 }
 
-use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
-
-/// Pre-boost-credits contract state for `migrate()` (includes burn routing).
-#[derive(BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
-struct SocialSpendContractPreBoostCredits {
-    pub version: String,
-    pub owner_id: AccountId,
-    pub social_token: AccountId,
-    pub treasury_id: AccountId,
-    pub settlement_publisher: Option<AccountId>,
-    pub paused: bool,
-    pub treasury_balance: u128,
-    pub total_spent: u128,
-    pub action_ids: Vec<String>,
-    pub season_ids: Vec<String>,
-    pub(crate) action_configs: LookupMap<String, ActionConfig>,
-    pub(crate) season_configs: LookupMap<String, SeasonConfig>,
-    pub(crate) action_totals: LookupMap<String, ActionTotals>,
-    pub(crate) season_pools: LookupMap<String, u128>,
-    pub(crate) season_settlements: LookupMap<String, SeasonSettlement>,
-    pub(crate) season_claims: LookupMap<String, bool>,
-    pub(crate) target_balances: LookupMap<AccountId, u128>,
-    pub(crate) target_totals: LookupMap<String, TargetTotals>,
-    pub(crate) pending_transfers: LookupMap<AccountId, PendingTransfer>,
-    pub(crate) action_burn_bps: LookupMap<String, u16>,
-    pub(crate) action_burn_totals: LookupMap<String, u128>,
-    pub total_burned: u128,
-}
-
 #[near]
 impl SocialSpendContract {
     #[init]
@@ -650,17 +620,8 @@ impl SocialSpendContract {
     #[private]
     #[init(ignore_state)]
     pub fn migrate() -> Self {
-        // Live testnet is on the pre-boost-credits schema (burn routing). After a
-        // successful boost-routing upgrade, migrate can be simplified to read `Self` only.
-        let mut contract =
-            if let Some(pre_boost) = env::state_read::<SocialSpendContractPreBoostCredits>() {
-                Self::from_pre_boost(pre_boost)
-            } else {
-                env::state_read::<Self>().expect("Failed to read contract state for migration")
-            };
-        if contract.boost_contract_id.is_none() {
-            contract.boost_contract_id = ensure_boost_contract_id(&env::current_account_id(), None);
-        }
+        let mut contract: Self =
+            env::state_read().expect("Failed to read contract state for migration");
         let old_version = contract.version.clone();
         contract.version = CONTRACT_VERSION.to_string();
         emit(
@@ -1127,36 +1088,6 @@ impl SocialSpendContract {
         for (action_id, config) in defaults {
             self.internal_set_action_config(action_id.to_string(), config, 0)
                 .expect("default action config must be valid");
-        }
-    }
-
-    fn from_pre_boost(pre_boost: SocialSpendContractPreBoostCredits) -> Self {
-        Self {
-            version: pre_boost.version,
-            owner_id: pre_boost.owner_id,
-            social_token: pre_boost.social_token,
-            treasury_id: pre_boost.treasury_id,
-            settlement_publisher: pre_boost.settlement_publisher,
-            paused: pre_boost.paused,
-            treasury_balance: pre_boost.treasury_balance,
-            total_spent: pre_boost.total_spent,
-            action_ids: pre_boost.action_ids,
-            season_ids: pre_boost.season_ids,
-            action_configs: pre_boost.action_configs,
-            season_configs: pre_boost.season_configs,
-            action_totals: pre_boost.action_totals,
-            season_pools: pre_boost.season_pools,
-            season_settlements: pre_boost.season_settlements,
-            season_claims: pre_boost.season_claims,
-            target_balances: pre_boost.target_balances,
-            target_totals: pre_boost.target_totals,
-            pending_transfers: pre_boost.pending_transfers,
-            action_burn_bps: pre_boost.action_burn_bps,
-            action_burn_totals: pre_boost.action_burn_totals,
-            total_burned: pre_boost.total_burned,
-            boost_contract_id: ensure_boost_contract_id(&env::current_account_id(), None),
-            action_boost_credits_totals: LookupMap::new(StorageKey::ActionBoostCreditsTotals),
-            total_boost_credits_routed: 0,
         }
     }
 

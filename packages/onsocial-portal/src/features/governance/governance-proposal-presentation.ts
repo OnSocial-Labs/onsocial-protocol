@@ -251,6 +251,8 @@ function getFunctionCallShape(kind: Record<string, unknown> | undefined): {
   transferCallMsg: string | null;
   codeHash: string | null;
   boostContractId: string | null;
+  receiverIdFromArgs: string | null;
+  infraWithdrawAuthority: string | null;
 } {
   const functionCall = kind?.FunctionCall;
   if (!functionCall || typeof functionCall !== 'object') {
@@ -265,6 +267,8 @@ function getFunctionCallShape(kind: Record<string, unknown> | undefined): {
       transferCallMsg: null,
       codeHash: null,
       boostContractId: null,
+      receiverIdFromArgs: null,
+      infraWithdrawAuthority: null,
     };
   }
 
@@ -308,6 +312,8 @@ function getFunctionCallShape(kind: Record<string, unknown> | undefined): {
   const codeHash = readStringField(args, 'code_hash');
   const actionId = readStringField(args, 'action_id');
   const boostContractId = readStringField(args, 'boost_contract_id');
+  const receiverIdFromArgs = readStringField(args, 'receiver_id');
+  const infraWithdrawAuthority = readStringField(args, 'authority');
 
   return {
     receiverId,
@@ -320,6 +326,8 @@ function getFunctionCallShape(kind: Record<string, unknown> | undefined): {
     transferCallMsg,
     codeHash,
     boostContractId,
+    receiverIdFromArgs,
+    infraWithdrawAuthority,
   };
 }
 
@@ -649,6 +657,8 @@ export function deriveProposalPresentation({
       transferCallMsg,
       codeHash,
       boostContractId,
+      receiverIdFromArgs,
+      infraWithdrawAuthority,
     } = getFunctionCallShape(normalizedKind ?? undefined);
     const contractLabel = shortContractName(receiverId);
     const methodLabel = formatMethodLabel(methodName);
@@ -699,6 +709,49 @@ export function deriveProposalPresentation({
           normalizedProposer,
           ownershipTarget
         ),
+      });
+    }
+
+    if (methodName === 'withdraw_infra' && receiverId) {
+      const amountLabel = amountYocto
+        ? formatSocialAmountLabel(amountYocto)
+        : null;
+      headline = amountLabel
+        ? `Withdraw ${amountLabel} from boost infra`
+        : contractLabel
+          ? `Withdraw ${contractLabel} infra pool`
+          : 'Withdraw boost infra pool';
+      return finish({
+        headline,
+        actionBadge: 'Treasury',
+        ...proposalTarget('amount', amountLabel),
+        subjectAccount: receiverId,
+        subjectEyebrow: 'From',
+        onChainDescription,
+        proposer: normalizedProposer,
+        showProposerSeparately: shouldShowProposerSeparately(
+          normalizedProposer,
+          receiverId
+        ),
+      });
+    }
+
+    if (methodName === 'set_infra_withdraw_authority' && receiverId) {
+      const authorityId = infraWithdrawAuthority;
+      headline = authorityId
+        ? `Delegate boost infra withdraw to ${shortContractName(authorityId) ?? authorityId}`
+        : contractLabel
+          ? `Clear ${contractLabel} infra withdraw delegate`
+          : 'Update boost infra withdraw delegate';
+      return finish({
+        headline,
+        actionBadge: 'Boost',
+        ...proposalTarget('contract', contractLabel, receiverId),
+        subjectAccount: authorityId || null,
+        subjectEyebrow: authorityId ? 'Authority' : null,
+        onChainDescription,
+        proposer: normalizedProposer,
+        showProposerSeparately: !!normalizedProposer,
       });
     }
 

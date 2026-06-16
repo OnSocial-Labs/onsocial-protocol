@@ -18,7 +18,10 @@ import {
   type SocialSpendActionRoutingDraft,
   type SocialSpendSeasonConfigDraft,
 } from '@/lib/dao-contract-config-operations';
-import { GOVERNANCE_DAO_ACCOUNT } from '@/lib/portal-config';
+import {
+  GOVERNANCE_DAO_ACCOUNT,
+  TREASURY_DAO_ACCOUNT,
+} from '@/lib/portal-config';
 import {
   BOOST_CONTRACT,
   isProposerThresholdWithinBounds,
@@ -197,8 +200,9 @@ export type CreatableDaoProposalKind =
   | 'transfer_ownership'
   | 'contract_upgrade'
   | 'contract_config'
-  | 'withdraw_social_treasury'
-  | 'fund_season_pool';
+  | 'fund_season_pool'
+  | 'withdraw_boost_infra'
+  | 'set_boost_infra_authority';
 
 export type CreatableDaoProposalAction =
   | 'join_self'
@@ -210,11 +214,14 @@ export type CreatableDaoProposalAction =
   | 'transfer_ownership'
   | 'contract_upgrade'
   | 'contract_config'
-  | 'withdraw_social_treasury'
-  | 'fund_season_pool';
+  | 'fund_season_pool'
+  | 'withdraw_boost_infra'
+  | 'set_boost_infra_authority';
 
 export const SOCIAL_SPEND_FUNCTION_CALL_GAS = 100_000_000_000_000;
 export const SOCIAL_SPEND_FUNCTION_CALL_DEPOSIT = '1';
+export const BOOST_WITHDRAW_INFRA_FUNCTION_CALL_GAS = 150_000_000_000_000;
+export const BOOST_FUNCTION_CALL_DEPOSIT = '1';
 /** Verified gas for DAO `update_contract_from_hash` proposals (see HASH_UPGRADE_RUNBOOK). */
 export const CONTRACT_UPGRADE_FUNCTION_CALL_GAS = 250_000_000_000_000;
 
@@ -271,10 +278,12 @@ export function proposalActionToKind(
       return 'contract_upgrade';
     case 'contract_config':
       return 'contract_config';
-    case 'withdraw_social_treasury':
-      return 'withdraw_social_treasury';
     case 'fund_season_pool':
       return 'fund_season_pool';
+    case 'withdraw_boost_infra':
+      return 'withdraw_boost_infra';
+    case 'set_boost_infra_authority':
+      return 'set_boost_infra_authority';
   }
 }
 
@@ -350,20 +359,26 @@ export function resolveCreatableProposalActionsForProposer(
   }
 
   if (
+    canProposeDaoKind(policy, proposer, delegatedWeight, 'fund_season_pool')
+  ) {
+    actions.push('fund_season_pool');
+  }
+
+  if (
+    canProposeDaoKind(policy, proposer, delegatedWeight, 'withdraw_boost_infra')
+  ) {
+    actions.push('withdraw_boost_infra');
+  }
+
+  if (
     canProposeDaoKind(
       policy,
       proposer,
       delegatedWeight,
-      'withdraw_social_treasury'
+      'set_boost_infra_authority'
     )
   ) {
-    actions.push('withdraw_social_treasury');
-  }
-
-  if (
-    canProposeDaoKind(policy, proposer, delegatedWeight, 'fund_season_pool')
-  ) {
-    actions.push('fund_season_pool');
+    actions.push('set_boost_infra_authority');
   }
 
   return actions;
@@ -391,10 +406,12 @@ export function getProposalActionSubmitLabel(
       return 'Propose contract upgrade';
     case 'contract_config':
       return 'Propose contract config';
-    case 'withdraw_social_treasury':
-      return 'Propose treasury sweep';
     case 'fund_season_pool':
       return 'Propose season funding';
+    case 'withdraw_boost_infra':
+      return 'Propose boost infra withdraw';
+    case 'set_boost_infra_authority':
+      return 'Propose boost withdraw delegate';
   }
 }
 
@@ -406,8 +423,9 @@ const CREATABLE_KIND_POLICY_LABEL: Record<CreatableDaoProposalKind, string> = {
   transfer_ownership: 'call',
   contract_upgrade: 'call',
   contract_config: 'call',
-  withdraw_social_treasury: 'call',
   fund_season_pool: 'call',
+  withdraw_boost_infra: 'call',
+  set_boost_infra_authority: 'call',
 };
 
 function roleMatchesDelegatedUser(
@@ -498,8 +516,12 @@ export function getDaoKindPermissionBlockReason(
     return 'You cannot propose contract configuration changes on the DAO yet. Call proposal permission is missing from DAO policy.';
   }
 
-  if (kind === 'withdraw_social_treasury' || kind === 'fund_season_pool') {
-    return 'You cannot propose social-spend treasury actions on the DAO yet. Call proposal permission is missing from DAO policy.';
+  if (kind === 'fund_season_pool') {
+    return 'You cannot propose rally pool funding on the DAO yet. Call proposal permission is missing from DAO policy.';
+  }
+
+  if (kind === 'withdraw_boost_infra' || kind === 'set_boost_infra_authority') {
+    return 'You cannot propose boost infra actions on the DAO yet. Call proposal permission is missing from DAO policy.';
   }
 
   return 'You cannot propose this action on the DAO yet.';
@@ -2359,18 +2381,24 @@ export const CREATABLE_DAO_PROPOSAL_ACTIONS: ReadonlyArray<{
     description: 'Send NEAR from the DAO to a recipient account.',
   },
   {
-    id: 'withdraw_social_treasury',
-    group: 'treasury',
-    label: 'Sweep social fees',
-    description:
-      'Withdraw accrued rally and support fees from social-spend to the treasury account.',
-  },
-  {
     id: 'fund_season_pool',
     group: 'treasury',
     label: 'Fund rally pool',
+    description: 'Fund a live rally pool from the treasury DAO SOCIAL balance.',
+  },
+  {
+    id: 'withdraw_boost_infra',
+    group: 'treasury',
+    label: 'Withdraw boost infra',
     description:
-      'Fund a live rally pool from the social-spend fee pot or the DAO SOCIAL balance.',
+      'Withdraw SOCIAL from the boost contract infra pool to the treasury wallet.',
+  },
+  {
+    id: 'set_boost_infra_authority',
+    group: 'contracts',
+    label: 'Delegate boost infra withdraw',
+    description:
+      'Authorize the Treasury DAO to withdraw from the boost infra pool after governance owns boost.',
   },
   {
     id: 'transfer_ownership',
@@ -2601,27 +2629,6 @@ function encodeJsonFunctionCallArgs(args: unknown): string {
   return btoa(JSON.stringify(args));
 }
 
-export type FundSeasonPoolSource = 'contract_treasury' | 'dao_wallet';
-
-export const FUND_SEASON_POOL_SOURCE_OPTIONS: Array<{
-  value: FundSeasonPoolSource;
-  label: string;
-  description: string;
-}> = [
-  {
-    value: 'contract_treasury',
-    label: 'Social-spend fee pot',
-    description:
-      'Uses accrued join/support fees still held on the social-spend contract.',
-  },
-  {
-    value: 'dao_wallet',
-    label: 'Treasury DAO balance',
-    description:
-      'Sends SOCIAL from this DAO wallet into the rally pool in one transaction.',
-  },
-];
-
 function buildFundSeasonPoolTransferMsg(seasonId: string): string {
   return JSON.stringify({
     v: 1,
@@ -2839,18 +2846,21 @@ export function buildDaoContractUpgradeProposalPayload({
   };
 }
 
-export function buildDaoWithdrawSocialTreasuryPayload({
+export function buildDaoWithdrawBoostInfraPayload({
   contractId,
   amountYocto,
+  receiverId,
   description,
 }: {
   contractId: string;
   amountYocto: string;
+  receiverId: string;
   description?: string;
 }): DaoProposalPayload {
   const normalizedContractId = contractId.trim();
-  if (!normalizedContractId) {
-    throw new Error('Social spend contract is required.');
+  const normalizedReceiverId = receiverId.trim();
+  if (!normalizedContractId || !normalizedReceiverId) {
+    throw new Error('Boost contract and receiver are required.');
   }
 
   const normalizedAmount = amountYocto.trim();
@@ -2860,7 +2870,7 @@ export function buildDaoWithdrawSocialTreasuryPayload({
 
   const proposalDescription =
     description?.trim() ||
-    `Withdraw ${yoctoToSocial(normalizedAmount)} SOCIAL from social-spend treasury to treasury_id.`;
+    `Withdraw ${yoctoToSocial(normalizedAmount)} SOCIAL from boost infra pool to ${normalizedReceiverId}.`;
 
   return {
     proposal: {
@@ -2870,11 +2880,53 @@ export function buildDaoWithdrawSocialTreasuryPayload({
           receiver_id: normalizedContractId,
           actions: [
             {
-              method_name: 'withdraw_treasury',
+              method_name: 'withdraw_infra',
               args: encodeFunctionCallArgs({
                 amount: normalizedAmount,
+                receiver_id: normalizedReceiverId,
               }),
-              deposit: SOCIAL_SPEND_FUNCTION_CALL_DEPOSIT,
+              deposit: BOOST_FUNCTION_CALL_DEPOSIT,
+              gas: BOOST_WITHDRAW_INFRA_FUNCTION_CALL_GAS,
+            },
+          ],
+        },
+      },
+    },
+  };
+}
+
+export function buildDaoSetBoostInfraAuthorityPayload({
+  contractId,
+  authorityId = TREASURY_DAO_ACCOUNT,
+  description,
+}: {
+  contractId: string;
+  authorityId?: string;
+  description?: string;
+}): DaoProposalPayload {
+  const normalizedContractId = contractId.trim();
+  const normalizedAuthorityId = authorityId.trim();
+  if (!normalizedContractId || !normalizedAuthorityId) {
+    throw new Error('Boost contract and treasury authority are required.');
+  }
+
+  const proposalDescription =
+    description?.trim() ||
+    `Delegate boost infra withdrawals to ${normalizedAuthorityId}.`;
+
+  return {
+    proposal: {
+      description: proposalDescription,
+      kind: {
+        FunctionCall: {
+          receiver_id: normalizedContractId,
+          actions: [
+            {
+              method_name: 'set_infra_withdraw_authority',
+              args: encodeJsonFunctionCallArgs({
+                authority: normalizedAuthorityId,
+              }),
+              deposit: BOOST_FUNCTION_CALL_DEPOSIT,
               gas: SOCIAL_SPEND_FUNCTION_CALL_GAS,
             },
           ],
@@ -2884,21 +2936,21 @@ export function buildDaoWithdrawSocialTreasuryPayload({
   };
 }
 
-export function buildDaoFundSeasonPoolFromDaoWalletPayload({
+export function buildDaoFundSeasonPoolPayload({
   tokenContractId = TOKEN_CONTRACT,
-  socialSpendContractId,
+  contractId,
   seasonId,
   amountYocto,
   description,
 }: {
   tokenContractId?: string;
-  socialSpendContractId: string;
+  contractId: string;
   seasonId: string;
   amountYocto: string;
   description?: string;
 }): DaoProposalPayload {
   const normalizedTokenContractId = tokenContractId.trim();
-  const normalizedSocialSpendContractId = socialSpendContractId.trim();
+  const normalizedSocialSpendContractId = contractId.trim();
   if (!normalizedTokenContractId || !normalizedSocialSpendContractId) {
     throw new Error('SOCIAL token and social-spend contracts are required.');
   }
@@ -2930,89 +2982,6 @@ export function buildDaoFundSeasonPoolFromDaoWalletPayload({
                 receiver_id: normalizedSocialSpendContractId,
                 amount: normalizedAmount,
                 msg: buildFundSeasonPoolTransferMsg(normalizedSeasonId),
-              }),
-              deposit: SOCIAL_SPEND_FUNCTION_CALL_DEPOSIT,
-              gas: SOCIAL_SPEND_FUNCTION_CALL_GAS,
-            },
-          ],
-        },
-      },
-    },
-  };
-}
-
-export function buildDaoFundSeasonPoolPayload({
-  source,
-  contractId,
-  seasonId,
-  amountYocto,
-  description,
-}: {
-  source: FundSeasonPoolSource;
-  contractId: string;
-  seasonId: string;
-  amountYocto: string;
-  description?: string;
-}): DaoProposalPayload {
-  if (source === 'dao_wallet') {
-    return buildDaoFundSeasonPoolFromDaoWalletPayload({
-      socialSpendContractId: contractId,
-      seasonId,
-      amountYocto,
-      description,
-    });
-  }
-
-  return buildDaoFundSeasonPoolFromTreasuryPayload({
-    contractId,
-    seasonId,
-    amountYocto,
-    description,
-  });
-}
-
-export function buildDaoFundSeasonPoolFromTreasuryPayload({
-  contractId,
-  seasonId,
-  amountYocto,
-  description,
-}: {
-  contractId: string;
-  seasonId: string;
-  amountYocto: string;
-  description?: string;
-}): DaoProposalPayload {
-  const normalizedContractId = contractId.trim();
-  if (!normalizedContractId) {
-    throw new Error('Social spend contract is required.');
-  }
-
-  const normalizedSeasonId = seasonId.trim();
-  if (!normalizedSeasonId) {
-    throw new Error('Season is required.');
-  }
-
-  const normalizedAmount = amountYocto.trim();
-  if (!/^\d+$/.test(normalizedAmount) || normalizedAmount === '0') {
-    throw new Error('Enter a valid SOCIAL amount to fund.');
-  }
-
-  const proposalDescription =
-    description?.trim() ||
-    `Fund ${normalizedSeasonId} season pool with ${yoctoToSocial(normalizedAmount)} SOCIAL from social-spend treasury.`;
-
-  return {
-    proposal: {
-      description: proposalDescription,
-      kind: {
-        FunctionCall: {
-          receiver_id: normalizedContractId,
-          actions: [
-            {
-              method_name: 'fund_season_pool_from_treasury',
-              args: encodeFunctionCallArgs({
-                season_id: normalizedSeasonId,
-                amount: normalizedAmount,
               }),
               deposit: SOCIAL_SPEND_FUNCTION_CALL_DEPOSIT,
               gas: SOCIAL_SPEND_FUNCTION_CALL_GAS,

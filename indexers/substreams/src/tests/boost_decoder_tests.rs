@@ -143,7 +143,21 @@ fn test_all_failure_events_have_success_false() {
 }
 
 #[test]
-fn test_decode_all_14_events() {
+fn test_decode_infra_withdraw_authority_set() {
+    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"INFRA_WITHDRAW_AUTHORITY_SET","data":[{"old_authority":null,"new_authority":"treasury.onsocial.testnet","account_id":"onsocial.testnet"}]}"#;
+    let event = decode_boost_event(json, "receipt123", 100, 1000, 0).unwrap();
+    assert_eq!(event.event_type, "INFRA_WITHDRAW_AUTHORITY_SET");
+    match event.payload.unwrap() {
+        Payload::InfraWithdrawAuthoritySet(p) => {
+            assert_eq!(p.old_authority, "");
+            assert_eq!(p.new_authority, "treasury.onsocial.testnet");
+        }
+        _ => panic!("wrong payload"),
+    }
+}
+
+#[test]
+fn test_decode_all_known_events() {
     let events = vec![
         (
             "BOOST_LOCK",
@@ -170,6 +184,10 @@ fn test_decode_all_14_events() {
         (
             "INFRA_WITHDRAW",
             r#"{"amount":"1","receiver_id":"b","account_id":"a"}"#,
+        ),
+        (
+            "INFRA_WITHDRAW_AUTHORITY_SET",
+            r#"{"old_authority":null,"new_authority":"treasury.onsocial.testnet","account_id":"a"}"#,
         ),
         (
             "OWNER_CHANGED",

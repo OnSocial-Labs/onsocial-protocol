@@ -39,9 +39,8 @@ import {
   buildDaoContractConfigProposalPayload,
   buildDaoTransferOwnershipProposalPayload,
   buildDaoTransferProposalPayload,
-  buildDaoWithdrawSocialTreasuryPayload,
-  FUND_SEASON_POOL_SOURCE_OPTIONS,
-  type FundSeasonPoolSource,
+  buildDaoWithdrawBoostInfraPayload,
+  buildDaoSetBoostInfraAuthorityPayload,
   buildGovernanceCreateActionMenuItems,
   buildProtocolProposalAppId,
   canProposeDaoKind,
@@ -168,15 +167,20 @@ interface DaoManagedContractOption {
 
 interface DaoSocialSpendTreasuryContext {
   contractId: string;
-  treasuryBalanceYocto: string;
   daoSocialBalanceYocto: string;
-  treasuryId: string | null;
-  ownerId: string | null;
-  canWithdrawTreasury: boolean;
   canFundSeasonPool: boolean;
-  canFundSeasonPoolFromDaoWallet: boolean;
   fundableSeasonIds: string[];
-  allSeasonIds: string[];
+}
+
+interface DaoBoostInfraContext {
+  contractId: string;
+  infraPoolYocto: string;
+  ownerId: string | null;
+  infraWithdrawAuthority: string | null;
+  treasuryDaoAccountId: string;
+  defaultReceiverId: string;
+  canWithdrawBoostInfra: boolean;
+  canSetBoostInfraAuthority: boolean;
 }
 
 export function GovernanceCreatePanel({
@@ -223,10 +227,12 @@ export function GovernanceCreatePanel({
     useState<DaoSocialSpendTreasuryContext | null>(null);
   const [socialSpendTreasuryLoading, setSocialSpendTreasuryLoading] =
     useState(false);
+  const [boostInfraContext, setBoostInfraContext] =
+    useState<DaoBoostInfraContext | null>(null);
+  const [boostInfraLoading, setBoostInfraLoading] = useState(false);
+  const [boostInfraAmountInput, setBoostInfraAmountInput] = useState('');
   const [socialSpendAmountInput, setSocialSpendAmountInput] = useState('');
   const [socialSpendSeasonId, setSocialSpendSeasonId] = useState('');
-  const [fundSeasonPoolSource, setFundSeasonPoolSource] =
-    useState<FundSeasonPoolSource>('contract_treasury');
   const [description, setDescription] = useState('');
   const [showDescriptionFeedback, setShowDescriptionFeedback] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -267,11 +273,12 @@ export function GovernanceCreatePanel({
   const isTransferOwnershipAction = proposalAction === 'transfer_ownership';
   const isContractUpgradeAction = proposalAction === 'contract_upgrade';
   const isContractConfigAction = proposalAction === 'contract_config';
-  const isWithdrawSocialTreasuryAction =
-    proposalAction === 'withdraw_social_treasury';
   const isFundSeasonPoolAction = proposalAction === 'fund_season_pool';
-  const isSocialSpendTreasuryAction =
-    isWithdrawSocialTreasuryAction || isFundSeasonPoolAction;
+  const isWithdrawBoostInfraAction = proposalAction === 'withdraw_boost_infra';
+  const isSetBoostInfraAuthorityAction =
+    proposalAction === 'set_boost_infra_authority';
+  const isBoostInfraAction =
+    isWithdrawBoostInfraAction || isSetBoostInfraAuthorityAction;
   const selectedRoleIndex = Math.max(
     0,
     roleOptions.findIndex((role) => role === roleId)
@@ -395,12 +402,14 @@ export function GovernanceCreatePanel({
     canProposeTransferOwnership ||
     canProposeContractUpgrade ||
     canProposeContractConfig;
-  const canProposeSocialSpendTreasury =
-    baseAvailableProposalActions.includes('withdraw_social_treasury') ||
+  const canProposeFundSeasonPool =
     baseAvailableProposalActions.includes('fund_season_pool');
+  const canProposeBoostInfra =
+    baseAvailableProposalActions.includes('withdraw_boost_infra') ||
+    baseAvailableProposalActions.includes('set_boost_infra_authority');
 
   useEffect(() => {
-    if (!canProposeSocialSpendTreasury) {
+    if (!canProposeFundSeasonPool) {
       return;
     }
 
@@ -448,7 +457,50 @@ export function GovernanceCreatePanel({
     return () => {
       cancelled = true;
     };
-  }, [canProposeSocialSpendTreasury, daoAccountId]);
+  }, [canProposeFundSeasonPool, daoAccountId]);
+
+  useEffect(() => {
+    if (!canProposeBoostInfra) {
+      return;
+    }
+
+    let cancelled = false;
+    setBoostInfraLoading(true);
+
+    void fetch(
+      `/api/governance/dao/boost-infra?daoAccountId=${encodeURIComponent(daoAccountId)}`,
+      { cache: 'no-store' }
+    )
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => null)) as {
+          context?: DaoBoostInfraContext | null;
+        } | null;
+
+        if (cancelled) {
+          return;
+        }
+
+        const context = payload?.context ?? null;
+        setBoostInfraContext(context);
+        if (!context) {
+          setBoostInfraAmountInput('');
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setBoostInfraContext(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setBoostInfraLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canProposeBoostInfra, daoAccountId]);
 
   useEffect(() => {
     if (!canProposeManagedContracts) {
@@ -566,20 +618,26 @@ export function GovernanceCreatePanel({
       actions = actions.filter((action) => action !== 'contract_config');
     }
 
-    if (actions.includes('withdraw_social_treasury')) {
-      if (!socialSpendTreasuryContext?.canWithdrawTreasury) {
-        actions = actions.filter(
-          (action) => action !== 'withdraw_social_treasury'
-        );
+    if (actions.includes('fund_season_pool')) {
+      if (!socialSpendTreasuryContext?.canFundSeasonPool) {
+        actions = actions.filter((action) => action !== 'fund_season_pool');
       }
     }
 
-    if (actions.includes('fund_season_pool')) {
-      const canFund =
-        socialSpendTreasuryContext?.canFundSeasonPool ||
-        socialSpendTreasuryContext?.canFundSeasonPoolFromDaoWallet;
-      if (!canFund) {
-        actions = actions.filter((action) => action !== 'fund_season_pool');
+    if (actions.includes('withdraw_boost_infra')) {
+      if (!boostInfraContext?.canWithdrawBoostInfra) {
+        actions = actions.filter((action) => action !== 'withdraw_boost_infra');
+      }
+    }
+
+    if (actions.includes('set_boost_infra_authority')) {
+      if (
+        resolveGovernanceDaoBoard(daoAccountId) !== 'governance' ||
+        !boostInfraContext?.canSetBoostInfraAuthority
+      ) {
+        actions = actions.filter(
+          (action) => action !== 'set_boost_infra_authority'
+        );
       }
     }
 
@@ -590,8 +648,9 @@ export function GovernanceCreatePanel({
     hashUpgradableManagedContracts.length,
     managedContracts.length,
     socialSpendTreasuryContext?.canFundSeasonPool,
-    socialSpendTreasuryContext?.canFundSeasonPoolFromDaoWallet,
-    socialSpendTreasuryContext?.canWithdrawTreasury,
+    boostInfraContext?.canWithdrawBoostInfra,
+    boostInfraContext?.canSetBoostInfraAuthority,
+    daoAccountId,
   ]);
 
   const selectedManagedContract = useMemo(
@@ -670,10 +729,15 @@ export function GovernanceCreatePanel({
   const {
     draft: seasonConfigDraft,
     baseline: seasonConfigBaseline,
+    chainSeasonIds: seasonConfigChainSeasonIds,
     loading: seasonConfigLoading,
+    refreshing: seasonConfigRefreshing,
     loadError: seasonConfigLoadError,
     setDraft: setSeasonConfigDraft,
+    selectExistingSeason: selectSeasonConfigSeason,
     reload: reloadSeasonConfig,
+    lookupReady: seasonConfigLookupReady,
+    hasOnChainConfig: seasonConfigHasOnChainConfig,
   } = useSocialSpendSeasonConfigDraft(seasonConfigContractId);
 
   useEffect(() => {
@@ -799,7 +863,8 @@ export function GovernanceCreatePanel({
     proposalAction !== 'transfer_ownership' &&
     proposalAction !== 'contract_upgrade' &&
     proposalAction !== 'contract_config' &&
-    !isSocialSpendTreasuryAction;
+    !isFundSeasonPoolAction &&
+    !isBoostInfraAction;
   const availablePolicyActions = useMemo(
     () =>
       resolveAvailablePolicyActionsForProposer(
@@ -918,13 +983,6 @@ export function GovernanceCreatePanel({
       return null;
     }
   }, [socialSpendAmountInput]);
-  const socialSpendTreasuryBalance = useMemo(
-    () =>
-      tryParseYoctoBigInt(
-        socialSpendTreasuryContext?.treasuryBalanceYocto ?? '0'
-      ),
-    [socialSpendTreasuryContext?.treasuryBalanceYocto]
-  );
   const daoSocialBalance = useMemo(
     () =>
       tryParseYoctoBigInt(
@@ -932,56 +990,17 @@ export function GovernanceCreatePanel({
       ),
     [socialSpendTreasuryContext?.daoSocialBalanceYocto]
   );
-  const fundSeasonPoolSourceOptions = useMemo(() => {
-    return FUND_SEASON_POOL_SOURCE_OPTIONS.filter((option) => {
-      if (option.value === 'contract_treasury') {
-        return socialSpendTreasuryContext?.canFundSeasonPool ?? false;
-      }
-      return (
-        socialSpendTreasuryContext?.canFundSeasonPoolFromDaoWallet ?? false
-      );
-    });
-  }, [
-    socialSpendTreasuryContext?.canFundSeasonPool,
-    socialSpendTreasuryContext?.canFundSeasonPoolFromDaoWallet,
-  ]);
-  const activeFundSeasonPoolSource = fundSeasonPoolSourceOptions.some(
-    (option) => option.value === fundSeasonPoolSource
-  )
-    ? fundSeasonPoolSource
-    : (fundSeasonPoolSourceOptions[0]?.value ?? 'contract_treasury');
-  const fundSeasonPoolSourceBalance = useMemo(() => {
-    if (activeFundSeasonPoolSource === 'dao_wallet') {
-      return daoSocialBalance;
-    }
-    return socialSpendTreasuryBalance;
-  }, [
-    activeFundSeasonPoolSource,
-    daoSocialBalance,
-    socialSpendTreasuryBalance,
-  ]);
-  const socialSpendAmountExceedsSource = useMemo(() => {
-    if (!socialSpendAmountYocto || fundSeasonPoolSourceBalance == null) {
+  const socialSpendAmountExceedsBalance = useMemo(() => {
+    if (!socialSpendAmountYocto || daoSocialBalance == null) {
       return false;
     }
 
     try {
-      return BigInt(socialSpendAmountYocto) > fundSeasonPoolSourceBalance;
+      return BigInt(socialSpendAmountYocto) > daoSocialBalance;
     } catch {
       return false;
     }
-  }, [fundSeasonPoolSourceBalance, socialSpendAmountYocto]);
-  const socialSpendAmountExceedsTreasury = useMemo(() => {
-    if (!socialSpendAmountYocto || socialSpendTreasuryBalance == null) {
-      return false;
-    }
-
-    try {
-      return BigInt(socialSpendAmountYocto) > socialSpendTreasuryBalance;
-    } catch {
-      return false;
-    }
-  }, [socialSpendAmountYocto, socialSpendTreasuryBalance]);
+  }, [daoSocialBalance, socialSpendAmountYocto]);
   const socialSpendSeasonOptions = useMemo(() => {
     const seasonIds = socialSpendTreasuryContext?.fundableSeasonIds ?? [];
     return seasonIds.map((seasonId) => ({
@@ -991,18 +1010,50 @@ export function GovernanceCreatePanel({
   }, [socialSpendTreasuryContext?.fundableSeasonIds]);
   const socialSpendTreasuryReady =
     !!socialSpendTreasuryContext &&
+    isFundSeasonPoolAction &&
+    socialSpendTreasuryContext.canFundSeasonPool &&
     socialSpendAmountYocto != null &&
     BigInt(socialSpendAmountYocto) > 0n &&
-    (isWithdrawSocialTreasuryAction
-      ? socialSpendTreasuryContext.canWithdrawTreasury &&
-        !socialSpendAmountExceedsTreasury
-      : isFundSeasonPoolAction
-        ? (activeFundSeasonPoolSource === 'contract_treasury'
-            ? socialSpendTreasuryContext.canFundSeasonPool
-            : socialSpendTreasuryContext.canFundSeasonPoolFromDaoWallet) &&
-          socialSpendSeasonId.trim().length > 0 &&
-          socialSpendSeasonOptions.length > 0 &&
-          !socialSpendAmountExceedsSource
+    socialSpendSeasonId.trim().length > 0 &&
+    socialSpendSeasonOptions.length > 0 &&
+    !socialSpendAmountExceedsBalance;
+  const boostInfraAmountYocto = useMemo(() => {
+    const normalized = boostInfraAmountInput.trim();
+    if (!normalized) {
+      return null;
+    }
+
+    try {
+      const yocto = socialToYocto(normalized);
+      return isValidYoctoString(yocto) ? yocto : null;
+    } catch {
+      return null;
+    }
+  }, [boostInfraAmountInput]);
+  const boostInfraPoolBalance = useMemo(
+    () => tryParseYoctoBigInt(boostInfraContext?.infraPoolYocto ?? '0'),
+    [boostInfraContext?.infraPoolYocto]
+  );
+  const boostInfraAmountExceedsPool = useMemo(() => {
+    if (!boostInfraAmountYocto || boostInfraPoolBalance == null) {
+      return false;
+    }
+
+    try {
+      return BigInt(boostInfraAmountYocto) > boostInfraPoolBalance;
+    } catch {
+      return false;
+    }
+  }, [boostInfraAmountYocto, boostInfraPoolBalance]);
+  const boostInfraReady =
+    !!boostInfraContext &&
+    (isWithdrawBoostInfraAction
+      ? boostInfraContext.canWithdrawBoostInfra &&
+        boostInfraAmountYocto != null &&
+        BigInt(boostInfraAmountYocto) > 0n &&
+        !boostInfraAmountExceedsPool
+      : isSetBoostInfraAuthorityAction
+        ? boostInfraContext.canSetBoostInfraAuthority
         : false);
   const transferOwnershipReady =
     !!selectedManagedContract &&
@@ -1083,11 +1134,13 @@ export function GovernanceCreatePanel({
           ? contractUpgradeReady
           : isContractConfigAction
             ? contractConfigReady
-            : isSocialSpendTreasuryAction
+            : isFundSeasonPoolAction
               ? socialSpendTreasuryReady
-              : isMembershipProposal
-                ? roleId.trim().length > 0 && subjectReady
-                : true) &&
+              : isBoostInfraAction
+                ? boostInfraReady
+                : isMembershipProposal
+                  ? roleId.trim().length > 0 && subjectReady
+                  : true) &&
     proposalActionAllowed &&
     descriptionReady &&
     !submitting;
@@ -1105,12 +1158,10 @@ export function GovernanceCreatePanel({
       return membershipBlockReason;
     }
     if (!descriptionReady) {
-      if (!hasDescription) {
-        return 'Add a description (at least 20 characters).';
-      }
       if (descriptionTextError) {
         return descriptionTextError;
       }
+      return '';
     }
     if (proposerAccountId && !canProposeSelectedKind) {
       if (
@@ -1239,22 +1290,15 @@ export function GovernanceCreatePanel({
       }
     }
     if (
-      isSocialSpendTreasuryAction &&
+      isFundSeasonPoolAction &&
       !socialSpendTreasuryLoading &&
-      canProposeSocialSpendTreasury
+      canProposeFundSeasonPool
     ) {
       if (
-        isWithdrawSocialTreasuryAction &&
-        !socialSpendTreasuryContext?.canWithdrawTreasury
-      ) {
-        return 'Sweep fees is available on the Treasury DAO board (?dao=treasury). Social-spend pays accrued fees to treasury_id.';
-      }
-      if (
         isFundSeasonPoolAction &&
-        !socialSpendTreasuryContext?.canFundSeasonPool &&
-        !socialSpendTreasuryContext?.canFundSeasonPoolFromDaoWallet
+        !socialSpendTreasuryContext?.canFundSeasonPool
       ) {
-        return 'Fund rally pool requires the DAO to own or receive social-spend treasury flows.';
+        return 'Fund rally pool is available on the Treasury DAO board (?dao=treasury).';
       }
       if (
         isFundSeasonPoolAction &&
@@ -1265,23 +1309,43 @@ export function GovernanceCreatePanel({
       }
     }
     if (
-      isSocialSpendTreasuryAction &&
+      isFundSeasonPoolAction &&
       !socialSpendTreasuryContext &&
       !socialSpendTreasuryLoading
     ) {
-      return 'Social-spend treasury actions are unavailable for this DAO.';
+      return 'Rally pool funding is unavailable for this DAO.';
     }
-    if (isSocialSpendTreasuryAction && socialSpendAmountInput.trim()) {
+    if (isFundSeasonPoolAction && socialSpendAmountInput.trim()) {
       if (!socialSpendAmountYocto) {
         return 'Enter a valid SOCIAL amount.';
       }
-      if (isWithdrawSocialTreasuryAction && socialSpendAmountExceedsTreasury) {
-        return 'Amount exceeds social-spend treasury balance.';
+      if (isFundSeasonPoolAction && socialSpendAmountExceedsBalance) {
+        return 'Amount exceeds DAO SOCIAL balance.';
       }
-      if (isFundSeasonPoolAction && socialSpendAmountExceedsSource) {
-        return activeFundSeasonPoolSource === 'dao_wallet'
-          ? 'Amount exceeds DAO SOCIAL balance.'
-          : 'Amount exceeds social-spend fee pot balance.';
+    }
+    if (isBoostInfraAction && !boostInfraLoading && canProposeBoostInfra) {
+      if (
+        isWithdrawBoostInfraAction &&
+        !boostInfraContext?.canWithdrawBoostInfra
+      ) {
+        return 'Boost infra withdraw is available on the Treasury DAO board when it is the infra withdraw authority.';
+      }
+      if (
+        isSetBoostInfraAuthorityAction &&
+        !boostInfraContext?.canSetBoostInfraAuthority
+      ) {
+        return 'Delegate boost infra withdraw requires governance DAO to own boost and treasury not yet authorized.';
+      }
+    }
+    if (isBoostInfraAction && !boostInfraContext && !boostInfraLoading) {
+      return 'Boost infra actions are unavailable for this DAO right now.';
+    }
+    if (isWithdrawBoostInfraAction && boostInfraAmountInput.trim()) {
+      if (!boostInfraAmountYocto) {
+        return 'Enter a valid SOCIAL amount.';
+      }
+      if (boostInfraAmountExceedsPool) {
+        return 'Amount exceeds boost infra pool balance.';
       }
     }
     if (isMembershipNomination && nominatedAccountInput.trim()) {
@@ -1338,17 +1402,23 @@ export function GovernanceCreatePanel({
     transferOwnershipNewOwnerInput,
     transferReceiverInput,
     isFundSeasonPoolAction,
-    isWithdrawSocialTreasuryAction,
-    isSocialSpendTreasuryAction,
-    activeFundSeasonPoolSource,
-    socialSpendAmountExceedsSource,
-    socialSpendAmountExceedsTreasury,
-    canProposeSocialSpendTreasury,
+    isFundSeasonPoolAction,
+    socialSpendAmountExceedsBalance,
+    canProposeFundSeasonPool,
     socialSpendTreasuryContext,
     socialSpendTreasuryLoading,
     socialSpendSeasonOptions.length,
     socialSpendAmountInput,
     socialSpendAmountYocto,
+    isWithdrawBoostInfraAction,
+    isSetBoostInfraAuthorityAction,
+    isBoostInfraAction,
+    canProposeBoostInfra,
+    boostInfraContext,
+    boostInfraLoading,
+    boostInfraAmountInput,
+    boostInfraAmountYocto,
+    boostInfraAmountExceedsPool,
     daoBoard,
   ]);
 
@@ -1513,28 +1583,35 @@ export function GovernanceCreatePanel({
                       seasonConfig: seasonConfigDraft ?? undefined,
                       description: normalizedDescription,
                     })
-                  : proposalKind === 'withdraw_social_treasury'
-                    ? buildDaoWithdrawSocialTreasuryPayload({
+                  : proposalKind === 'fund_season_pool'
+                    ? buildDaoFundSeasonPoolPayload({
                         contractId:
                           socialSpendTreasuryContext?.contractId ?? '',
+                        seasonId: socialSpendSeasonId,
                         amountYocto: socialSpendAmountYocto ?? '0',
                         description: normalizedDescription,
                       })
-                    : proposalKind === 'fund_season_pool'
-                      ? buildDaoFundSeasonPoolPayload({
-                          source: activeFundSeasonPoolSource,
-                          contractId:
-                            socialSpendTreasuryContext?.contractId ?? '',
-                          seasonId: socialSpendSeasonId,
-                          amountYocto: socialSpendAmountYocto ?? '0',
+                    : proposalKind === 'withdraw_boost_infra'
+                      ? buildDaoWithdrawBoostInfraPayload({
+                          contractId: boostInfraContext?.contractId ?? '',
+                          amountYocto: boostInfraAmountYocto ?? '0',
+                          receiverId:
+                            boostInfraContext?.defaultReceiverId ?? '',
                           description: normalizedDescription,
                         })
-                      : buildDaoMemberProposalPayload({
-                          kind: proposalKind,
-                          memberId: subjectAccountId,
-                          roleId,
-                          description: normalizedDescription,
-                        });
+                      : proposalKind === 'set_boost_infra_authority'
+                        ? buildDaoSetBoostInfraAuthorityPayload({
+                            contractId: boostInfraContext?.contractId ?? '',
+                            authorityId:
+                              boostInfraContext?.treasuryDaoAccountId,
+                            description: normalizedDescription,
+                          })
+                        : buildDaoMemberProposalPayload({
+                            kind: proposalKind,
+                            memberId: subjectAccountId,
+                            roleId,
+                            description: normalizedDescription,
+                          });
 
       const targetDaoAccountId = eligibility?.daoAccountId ?? daoAccountId;
       const { proposalId, txHash } = await submitDaoProposal(
@@ -1613,7 +1690,7 @@ export function GovernanceCreatePanel({
     selectedUpgradableContract,
     selectedConfigurableContract,
     joinRallyRoutingDraft,
-    isSocialSpendTreasuryAction,
+    isFundSeasonPoolAction,
     proposalKind,
     proposerAccountId,
     roleId,
@@ -1621,7 +1698,6 @@ export function GovernanceCreatePanel({
     selectedTransferAsset,
     socialSpendAmountYocto,
     socialSpendSeasonId,
-    activeFundSeasonPoolSource,
     socialSpendTreasuryContext,
     subjectAccountId,
     transferAmountSmallest,
@@ -2516,70 +2592,46 @@ export function GovernanceCreatePanel({
                       }
                       draft={seasonConfigDraft}
                       baseline={seasonConfigBaseline}
+                      chainSeasonIds={seasonConfigChainSeasonIds}
                       loading={seasonConfigLoading}
+                      refreshing={seasonConfigRefreshing}
                       loadError={seasonConfigLoadError}
                       onDraftChange={(nextDraft) => {
                         setSeasonConfigDraft(nextDraft);
                         setError('');
                       }}
                       onReload={reloadSeasonConfig}
+                      onSelectExistingSeason={selectSeasonConfigSeason}
+                      lookupReady={seasonConfigLookupReady}
+                      hasOnChainConfig={seasonConfigHasOnChainConfig}
                     />
                   ) : null}
                 </div>
               ) : null}
 
-              {isSocialSpendTreasuryAction ? (
+              {isFundSeasonPoolAction ? (
                 <div className="space-y-2">
-                  {isFundSeasonPoolAction ? (
-                    <>
-                      <div>
-                        <PortalFieldSelect
-                          label="Fund from"
-                          value={activeFundSeasonPoolSource}
-                          options={fundSeasonPoolSourceOptions.map(
-                            (option) => ({
-                              value: option.value,
-                              label: option.label,
-                            })
-                          )}
-                          onChange={(nextSource) => {
-                            setFundSeasonPoolSource(
-                              nextSource as FundSeasonPoolSource
-                            );
-                            setSocialSpendAmountInput('');
-                            setError('');
-                          }}
-                          disabled={
-                            socialSpendTreasuryLoading ||
-                            fundSeasonPoolSourceOptions.length === 0
-                          }
-                          placeholder="Select funding source"
-                          ariaLabel="Rally pool funding source"
-                        />
-                      </div>
-                      <div>
-                        <PortalFieldSelect
-                          label="Season"
-                          value={socialSpendSeasonId}
-                          options={socialSpendSeasonOptions}
-                          onChange={(nextSeasonId) => {
-                            setSocialSpendSeasonId(nextSeasonId);
-                            setError('');
-                          }}
-                          disabled={
-                            socialSpendTreasuryLoading ||
-                            socialSpendSeasonOptions.length === 0
-                          }
-                          placeholder={
-                            socialSpendTreasuryLoading
-                              ? 'Loading seasons…'
-                              : 'Select season'
-                          }
-                          ariaLabel="Season to fund"
-                        />
-                      </div>
-                    </>
-                  ) : null}
+                  <div>
+                    <PortalFieldSelect
+                      label="Season"
+                      value={socialSpendSeasonId}
+                      options={socialSpendSeasonOptions}
+                      onChange={(nextSeasonId) => {
+                        setSocialSpendSeasonId(nextSeasonId);
+                        setError('');
+                      }}
+                      disabled={
+                        socialSpendTreasuryLoading ||
+                        socialSpendSeasonOptions.length === 0
+                      }
+                      placeholder={
+                        socialSpendTreasuryLoading
+                          ? 'Loading seasons…'
+                          : 'Select season'
+                      }
+                      ariaLabel="Season to fund"
+                    />
+                  </div>
                   <div>
                     <label
                       htmlFor="governance-create-social-spend-amount"
@@ -2603,9 +2655,7 @@ export function GovernanceCreatePanel({
                         placeholder="0"
                         className="portal-field-focus h-11 min-w-0 flex-1 rounded-2xl border border-border/40 bg-background/45 px-4 text-sm outline-none placeholder:text-muted-foreground/50"
                       />
-                      {isWithdrawSocialTreasuryAction &&
-                      socialSpendTreasuryBalance != null &&
-                      socialSpendTreasuryBalance > 0n ? (
+                      {daoSocialBalance != null && daoSocialBalance > 0n ? (
                         <Button
                           type="button"
                           variant="outline"
@@ -2613,7 +2663,7 @@ export function GovernanceCreatePanel({
                           onClick={() => {
                             setSocialSpendAmountInput(
                               yoctoToSocial(
-                                socialSpendTreasuryContext?.treasuryBalanceYocto ??
+                                socialSpendTreasuryContext?.daoSocialBalanceYocto ??
                                   '0'
                               )
                             );
@@ -2623,97 +2673,110 @@ export function GovernanceCreatePanel({
                           Full balance
                         </Button>
                       ) : null}
-                      {isFundSeasonPoolAction &&
-                      fundSeasonPoolSourceBalance != null &&
-                      fundSeasonPoolSourceBalance > 0n ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="h-11 shrink-0 px-3 text-xs"
-                          onClick={() => {
-                            setSocialSpendAmountInput(
-                              yoctoToSocial(
-                                activeFundSeasonPoolSource === 'dao_wallet'
-                                  ? (socialSpendTreasuryContext?.daoSocialBalanceYocto ??
-                                      '0')
-                                  : (socialSpendTreasuryContext?.treasuryBalanceYocto ??
-                                      '0')
-                              )
-                            );
-                            setError('');
-                          }}
-                        >
-                          Full balance
-                        </Button>
-                      ) : null}
                     </div>
-                    {isFundSeasonPoolAction ? (
-                      <p className="mt-1.5 portal-type-caption text-muted-foreground/70">
-                        {activeFundSeasonPoolSource === 'dao_wallet' ? (
-                          <>
-                            DAO SOCIAL balance:{' '}
-                            {formatSocial(
-                              socialSpendTreasuryContext?.daoSocialBalanceYocto ??
-                                '0'
-                            )}{' '}
-                            SOCIAL
-                          </>
-                        ) : (
-                          <>
-                            Accrued on social-spend:{' '}
-                            {formatSocial(
-                              socialSpendTreasuryContext?.treasuryBalanceYocto ??
-                                '0'
-                            )}{' '}
-                            SOCIAL
-                          </>
-                        )}
-                      </p>
-                    ) : socialSpendTreasuryContext?.treasuryBalanceYocto ? (
-                      <p className="mt-1.5 portal-type-caption text-muted-foreground/70">
-                        Accrued on social-spend:{' '}
-                        {formatSocial(
-                          socialSpendTreasuryContext.treasuryBalanceYocto
-                        )}{' '}
-                        SOCIAL
-                        {socialSpendTreasuryContext.treasuryId ? (
-                          <>
-                            {' '}
-                            · pays to{' '}
-                            <span className="font-mono text-muted-foreground">
-                              {socialSpendTreasuryContext.treasuryId}
-                            </span>
-                          </>
-                        ) : null}
-                      </p>
-                    ) : null}
-                    {isWithdrawSocialTreasuryAction ? (
-                      <p className="mt-1 portal-type-caption text-muted-foreground/60">
-                        Collects rally join fees (5%) and support fees (1%)
-                        accrued on social-spend into treasury_id.
-                      </p>
-                    ) : null}
-                    {isFundSeasonPoolAction &&
-                    socialSpendSeasonOptions.length === 0 ? (
+                    <p className="mt-1.5 portal-type-caption text-muted-foreground/70">
+                      DAO SOCIAL balance:{' '}
+                      {formatSocial(
+                        socialSpendTreasuryContext?.daoSocialBalanceYocto ?? '0'
+                      )}{' '}
+                      SOCIAL
+                    </p>
+                    {socialSpendSeasonOptions.length === 0 ? (
                       <p className="mt-1 text-[11px] text-amber-600">
                         No live rally seasons on-chain right now.
                       </p>
                     ) : null}
-                    {isWithdrawSocialTreasuryAction &&
-                    daoBoard === 'governance' &&
-                    socialSpendTreasuryContext?.treasuryId ? (
-                      <p className="mt-1 text-[11px] text-muted-foreground/70">
-                        Fee sweeps are proposed on the{' '}
-                        <Link
-                          href="/governance/create?dao=treasury"
-                          className="text-[var(--portal-blue)] underline-offset-2 hover:underline"
-                        >
-                          Treasury DAO
-                        </Link>{' '}
-                        board (social-spend treasury_id).
-                      </p>
-                    ) : null}
                   </div>
+                </div>
+              ) : null}
+
+              {isBoostInfraAction ? (
+                <div className="space-y-2">
+                  {isWithdrawBoostInfraAction ? (
+                    <div>
+                      <label
+                        htmlFor="governance-create-boost-infra-amount"
+                        className={fieldLabelClass}
+                      >
+                        Amount (SOCIAL)
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          id="governance-create-boost-infra-amount"
+                          type="text"
+                          inputMode="decimal"
+                          autoComplete="off"
+                          value={boostInfraAmountInput}
+                          onChange={(event) => {
+                            setBoostInfraAmountInput(
+                              sanitizeTokenAmountInput(event.target.value, 18)
+                            );
+                            setError('');
+                          }}
+                          placeholder="0"
+                          disabled={boostInfraLoading}
+                          className="portal-field-focus h-11 min-w-0 flex-1 rounded-2xl border border-border/40 bg-background/45 px-4 text-sm outline-none placeholder:text-muted-foreground/50"
+                        />
+                        {boostInfraPoolBalance != null &&
+                        boostInfraPoolBalance > 0n ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-11 shrink-0 px-3 text-xs"
+                            onClick={() => {
+                              setBoostInfraAmountInput(
+                                yoctoToSocial(
+                                  boostInfraContext?.infraPoolYocto ?? '0'
+                                )
+                              );
+                              setError('');
+                            }}
+                          >
+                            Full balance
+                          </Button>
+                        ) : null}
+                      </div>
+                      {boostInfraContext?.infraPoolYocto ? (
+                        <p className="mt-1 text-[11px] text-muted-foreground/70">
+                          Infra pool:{' '}
+                          {formatSmallestTokenAmount(
+                            boostInfraContext.infraPoolYocto,
+                            18
+                          )}{' '}
+                          SOCIAL
+                          {boostInfraContext.defaultReceiverId ? (
+                            <> → {boostInfraContext.defaultReceiverId}</>
+                          ) : null}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground/80">
+                      Authorize{' '}
+                      <span className="font-mono text-xs">
+                        {boostInfraContext?.treasuryDaoAccountId ??
+                          'treasury DAO'}
+                      </span>{' '}
+                      to withdraw from the boost infra pool. Use after
+                      governance DAO owns boost (
+                      <span className="font-mono text-xs">set_owner</span>{' '}
+                      proposal).
+                    </p>
+                  )}
+                  {isWithdrawBoostInfraAction &&
+                  daoBoard === 'governance' &&
+                  boostInfraContext?.canWithdrawBoostInfra ? (
+                    <p className="text-[11px] text-muted-foreground/70">
+                      Withdraw on the{' '}
+                      <Link
+                        href="/governance/create?dao=treasury"
+                        className="text-[var(--portal-blue)] underline-offset-2 hover:underline"
+                      >
+                        Treasury DAO
+                      </Link>{' '}
+                      board when treasury is infra withdraw authority.
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
 
@@ -2747,23 +2810,25 @@ export function GovernanceCreatePanel({
                         ? DAO_SIGNAL_PROPOSAL_PLACEHOLDER
                         : isTransferAction
                           ? 'Why the DAO should send these funds'
-                          : isWithdrawSocialTreasuryAction
-                            ? 'Why the DAO should sweep these fees now'
-                            : isFundSeasonPoolAction
-                              ? 'Why the DAO should sponsor this rally pool'
-                              : isTransferOwnershipAction
-                                ? 'Why ownership should move to this account'
-                                : isContractUpgradeAction
-                                  ? 'Why this contract should upgrade to the published hash'
-                                  : isContractConfigAction
-                                    ? 'Why this contract setting should change'
-                                    : proposalAction === 'leave_self'
-                                      ? 'Why you are stepping back from this role'
-                                      : proposalAction === 'remove_member'
-                                        ? `Why they should leave ${roleId || 'the role'}`
-                                        : proposalAction === 'join_self'
-                                          ? `Why you should join ${roleId || 'the role'}`
-                                          : `Why they should join ${roleId || 'the role'}`
+                          : isFundSeasonPoolAction
+                            ? 'Why the DAO should sponsor this rally pool'
+                            : isWithdrawBoostInfraAction
+                              ? 'Why the DAO should withdraw boost infra funds now'
+                              : isSetBoostInfraAuthorityAction
+                                ? 'Why treasury DAO should receive boost infra withdraw authority'
+                                : isTransferOwnershipAction
+                                  ? 'Why ownership should move to this account'
+                                  : isContractUpgradeAction
+                                    ? 'Why this contract should upgrade to the published hash'
+                                    : isContractConfigAction
+                                      ? 'Why this contract setting should change'
+                                      : proposalAction === 'leave_self'
+                                        ? 'Why you are stepping back from this role'
+                                        : proposalAction === 'remove_member'
+                                          ? `Why they should leave ${roleId || 'the role'}`
+                                          : proposalAction === 'join_self'
+                                            ? `Why you should join ${roleId || 'the role'}`
+                                            : `Why they should join ${roleId || 'the role'}`
                     }
                     rows={3}
                     maxLength={PROPOSAL_DESCRIPTION_LIMITS.max}

@@ -41,6 +41,7 @@ import { extractNearTransactionHashes } from '@/lib/near-rpc';
 import {
   fetchJoinRallyRouting,
   formatJoinRoutingDisclosure,
+  type JoinRallyRoutingDisclosure,
 } from '@/lib/join-rally-routing';
 import { PORTAL_SWAP_ENABLED } from '@/lib/portal-swap-config';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/portal-config';
@@ -183,6 +184,8 @@ export function GenesisRallyStrip({
   const [joinRoutingDisclosure, setJoinRoutingDisclosure] = useState(
     '95 to pool · 5 fees'
   );
+  const [joinRouting, setJoinRouting] =
+    useState<JoinRallyRoutingDisclosure | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -190,6 +193,7 @@ export function GenesisRallyStrip({
     void fetchJoinRallyRouting()
       .then((routing) => {
         if (cancelled || !routing) return;
+        setJoinRouting(routing);
         const disclosure = formatJoinRoutingDisclosure(routing);
         if (disclosure) {
           setJoinRoutingDisclosure(disclosure);
@@ -350,20 +354,6 @@ export function GenesisRallyStrip({
     !joined &&
     !statusLoading;
 
-  const joinDisabled = useMemo(
-    () =>
-      joinPending ||
-      joined ||
-      (isConnected && hasLoadedBalance && !hasEnoughSocial),
-    [hasEnoughSocial, hasLoadedBalance, isConnected, joinPending, joined]
-  );
-
-  const joinButtonLabel = useMemo(() => {
-    if (!isConnected) return `Join · ${GENESIS_RALLY_JOIN_SOCIAL_LABEL} SOCIAL`;
-    if (!hasLoadedBalance || balanceLoading) return 'Checking balance…';
-    return `Join · ${GENESIS_RALLY_JOIN_SOCIAL_LABEL} SOCIAL`;
-  }, [balanceLoading, hasLoadedBalance, isConnected]);
-
   const socialShortfallYocto = useMemo(() => {
     if (!isConnected || !hasLoadedBalance || hasEnoughSocial) return 0n;
     return GENESIS_RALLY_JOIN_YOCTO > balanceYocto
@@ -491,6 +481,30 @@ export function GenesisRallyStrip({
       ? resolveSeasonZeroLifecyclePhase(metricsOnChainConfig, metricsSettlement)
       : null);
   const seasonIsLive = seasonPhase === 'live';
+  const seasonIsUpcoming = seasonPhase === 'upcoming';
+
+  const joinDisabled = useMemo(
+    () =>
+      joinPending ||
+      joined ||
+      seasonIsUpcoming ||
+      (isConnected && hasLoadedBalance && !hasEnoughSocial),
+    [
+      hasEnoughSocial,
+      hasLoadedBalance,
+      isConnected,
+      joinPending,
+      joined,
+      seasonIsUpcoming,
+    ]
+  );
+
+  const joinButtonLabel = useMemo(() => {
+    if (seasonIsUpcoming) return 'Opens soon';
+    if (!isConnected) return `Join · ${GENESIS_RALLY_JOIN_SOCIAL_LABEL} SOCIAL`;
+    if (!hasLoadedBalance || balanceLoading) return 'Checking balance…';
+    return `Join · ${GENESIS_RALLY_JOIN_SOCIAL_LABEL} SOCIAL`;
+  }, [balanceLoading, hasLoadedBalance, isConnected, seasonIsUpcoming]);
 
   const payoutHint = useMemo(() => {
     if (!seasonIsLive) return null;
@@ -749,6 +763,7 @@ export function GenesisRallyStrip({
             indexedPoolYocto={metricsIndexedPoolYocto}
             joinPoolYocto={metricsJoinPoolYocto}
             sponsoredPoolYocto={metricsSponsoredPoolYocto}
+            joinRoutingBps={joinRouting?.config ?? null}
             settlement={metricsSettlement}
             participantCount={metricsParticipantCount}
             claimStatus={claimMetricsStatus}
