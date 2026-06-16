@@ -4,10 +4,11 @@ import Link from 'next/link';
 import { StandingAvatarFrame } from '@/components/ui/standing-rank-mark';
 import { profileListResultRowShellClass } from '@/features/profile/profile-list-row';
 import { cleanHandle } from '@/lib/endorsements';
+import { formatGenesisSocialBalanceDisplay } from '@/lib/genesis-season';
 import { getPortalProfileUrl } from '@/lib/portal-config';
 import {
   STANDING_RANK_FOCUS_RING_CLASS,
-  STANDING_RANK_MIX_BAR_CLASS,
+  STANDING_RANK_MIX_BAR_SUBTLE_CLASS,
   STANDING_RANK_SCORE_CLASS,
   standingRankTone,
   type StandingRankTone,
@@ -112,10 +113,27 @@ function ScoreMix({
   const total = standing.breakdown.total || standing.score || 1;
 
   return (
-    <div className="mt-1">
-      {activeBuckets.length > 2 ? (
+    <div className="mt-1 min-h-[1.125rem]">
+      <div className="-mx-0.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <p className="whitespace-nowrap px-0.5 portal-type-caption leading-snug">
+          {activeBuckets.map((key, index) => (
+            <span key={key}>
+              {index > 0 ? (
+                <span className="px-1.5 text-muted-foreground/25">·</span>
+              ) : null}
+              <span className="text-muted-foreground/60">
+                {scoreBucketLabel(key)}
+              </span>{' '}
+              <span className="font-mono font-semibold tabular-nums text-foreground/85">
+                {formatScore(standing.breakdown[key])}
+              </span>
+            </span>
+          ))}
+        </p>
+      </div>
+      {activeBuckets.length >= 2 ? (
         <div
-          className="mb-1 flex h-px overflow-hidden rounded-full bg-border/30"
+          className="mt-1 flex h-0.5 overflow-hidden rounded-full bg-border/20"
           aria-hidden
         >
           {activeBuckets.map((key) => {
@@ -123,7 +141,10 @@ function ScoreMix({
             return (
               <div
                 key={key}
-                className={cn('h-full', STANDING_RANK_MIX_BAR_CLASS[rankTone])}
+                className={cn(
+                  'h-full',
+                  STANDING_RANK_MIX_BAR_SUBTLE_CLASS[rankTone]
+                )}
                 style={{ width: `${pct}%` }}
                 title={`${scoreBucketLabel(key)}: ${formatScore(standing.breakdown[key])}`}
               />
@@ -131,23 +152,6 @@ function ScoreMix({
           })}
         </div>
       ) : null}
-      <div className="-mx-0.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <p className="whitespace-nowrap px-0.5 portal-type-caption">
-          {activeBuckets.map((key, index) => (
-            <span key={key}>
-              {index > 0 ? (
-                <span className="px-1.5 text-muted-foreground/25">·</span>
-              ) : null}
-              <span className="text-muted-foreground/65">
-                {scoreBucketLabel(key)}
-              </span>{' '}
-              <span className="font-mono text-xs font-semibold tabular-nums text-foreground/90">
-                {formatScore(standing.breakdown[key])}
-              </span>
-            </span>
-          ))}
-        </p>
-      </div>
     </div>
   );
 }
@@ -157,16 +161,18 @@ export function StandingRowSkeleton() {
     <div
       className={cn(
         profileListResultRowShellClass,
-        'items-center gap-2.5 py-2.5'
+        'items-start gap-2.5 py-2.5'
       )}
     >
       <div className="relative h-9 w-9 shrink-0" aria-hidden>
         <div className="h-9 w-9 animate-pulse rounded-full bg-foreground/[0.06]" />
         <div className="absolute bottom-0 left-1/2 h-3.5 w-3.5 -translate-x-1/2 translate-y-px animate-pulse rounded-full bg-foreground/[0.06]" />
       </div>
-      <div className="min-w-0 flex-1 space-y-2">
+      <div className="min-w-0 flex-1 space-y-1.5">
         <div className="h-3.5 w-36 animate-pulse rounded-full bg-foreground/[0.06]" />
-        <div className="h-3 w-52 max-w-full animate-pulse rounded-full bg-foreground/[0.06]" />
+        <div className="h-3 w-40 max-w-full animate-pulse rounded-full bg-foreground/[0.06]" />
+        <div className="h-2 w-48 max-w-full animate-pulse rounded-full bg-foreground/[0.06]" />
+        <div className="h-0.5 w-full max-w-[12rem] animate-pulse rounded-full bg-foreground/[0.04]" />
       </div>
     </div>
   );
@@ -175,10 +181,13 @@ export function StandingRowSkeleton() {
 export function StandingRow({
   standing,
   interactive = true,
+  rewardAmountYocto = null,
 }: {
   standing: SeasonZeroStanding;
   /** When false, renders a static preview (e.g. home promo card) without profile links. */
   interactive?: boolean;
+  /** Final published reward amount (yocto). Shown only after settlement publish. */
+  rewardAmountYocto?: string | null;
 }) {
   const profileHref = getPortalProfileUrl(standing.accountId);
   const handle = cleanHandle(standing.accountId);
@@ -203,7 +212,7 @@ export function StandingRow({
     <div
       className={cn(
         profileListResultRowShellClass,
-        'group/row items-center gap-2.5 py-2.5'
+        'group/row items-start gap-2.5 py-2.5'
       )}
     >
       {interactive ? (
@@ -239,7 +248,7 @@ export function StandingRow({
           )}
           <span
             className={cn(
-              'shrink-0 pt-0.5 font-mono text-sm font-bold leading-none tabular-nums tracking-tight',
+              'shrink-0 pt-0.5 text-right font-mono text-sm font-bold leading-none tabular-nums tracking-tight',
               STANDING_RANK_SCORE_CLASS[rankTone]
             )}
           >
@@ -247,6 +256,11 @@ export function StandingRow({
             <span className="ml-1 text-[11px] font-normal text-muted-foreground/60">
               pts
             </span>
+            {rewardAmountYocto && BigInt(rewardAmountYocto) > 0n ? (
+              <span className="mt-1 block text-[11px] font-semibold leading-none portal-green-text">
+                {formatGenesisSocialBalanceDisplay(rewardAmountYocto)} SOCIAL
+              </span>
+            ) : null}
           </span>
         </div>
 

@@ -29,6 +29,17 @@ export const STANDING_RANK_MIX_BAR_CLASS: Record<StandingRankTone, string> = {
   neutral: 'bg-foreground/12',
 };
 
+/** Hairline score-mix accent on rally standing rows (caption carries the detail). */
+export const STANDING_RANK_MIX_BAR_SUBTLE_CLASS: Record<
+  StandingRankTone,
+  string
+> = {
+  gold: 'bg-[var(--portal-gold)]/40',
+  silver: 'bg-[var(--portal-neutral)]/40',
+  purple: 'bg-[var(--portal-purple)]/40',
+  neutral: 'bg-foreground/10',
+};
+
 export const STANDING_RANK_PODIUM = {
   gold: {
     ring: 'ring-2 ring-[var(--portal-gold)]',

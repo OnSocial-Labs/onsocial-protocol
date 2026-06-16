@@ -77,9 +77,9 @@ export function useSeasonZeroClaimActions({
       const txHashes = extractNearTransactionHashes(result);
       const confirmed = await trackTransaction({
         txHashes,
-        submittedMessage: 'Claiming season rewards…',
-        successMessage: 'Season 0 SOCIAL claimed.',
-        failureMessage: 'Could not claim season rewards.',
+        submittedMessage: 'Collecting season rewards…',
+        successMessage: 'Season SOCIAL collected.',
+        failureMessage: 'Could not collect season rewards.',
       });
 
       if (confirmed) {
@@ -91,7 +91,7 @@ export function useSeasonZeroClaimActions({
         msg:
           error instanceof Error
             ? error.message
-            : 'Could not claim season rewards.',
+            : 'Could not collect season rewards.',
       });
     } finally {
       setClaimPending(false);

@@ -4,9 +4,20 @@ import {
 } from '@/lib/genesis-season';
 
 /** Keep aligned with backend `SEASON_ZERO_BASE_REBATE_BPS`. */
-const BASE_REBATE_BPS = 5_000n;
+export const SEASON_ZERO_PAYOUT_BASE_REBATE_BPS = 5_000n;
+const BASE_REBATE_BPS = SEASON_ZERO_PAYOUT_BASE_REBATE_BPS;
 const BPS_DENOMINATOR = 10_000n;
 const JOIN_POINTS = 1_000;
+
+/** Max standings rows used for live payout estimates (API cap is 100). */
+export const SEASON_ZERO_PAYOUT_STANDINGS_LIMIT = 100;
+
+export interface SeasonZeroPayoutParticipant {
+  accountId: string;
+  rank: number;
+  score: number;
+  eligible?: boolean;
+}
 
 interface RewardShare {
   accountId: string;
@@ -87,17 +98,17 @@ function syntheticMeritScores(participantCount: number): number[] {
   const minMerit = 200;
   const maxMerit = 1_400;
   return Array.from({ length: participantCount }, (_, index) => {
-    if (participantCount === 1) return maxMerit;
     const ratio = index / (participantCount - 1);
     return Math.round(minMerit + (maxMerit - minMerit) * (1 - ratio));
   });
 }
 
-function allocateClaims(
+/** Same allocation as backend `buildSeasonZeroSettlementSnapshot`. */
+export function allocateSeasonZeroClaims(
   poolYocto: bigint,
-  participants: Array<{ accountId: string; rank: number; score: number }>
-): bigint[] {
-  if (poolYocto <= 0n || participants.length === 0) return [];
+  participants: SeasonZeroPayoutParticipant[]
+): Map<string, bigint> {
+  if (poolYocto <= 0n || participants.length === 0) return new Map();
 
   const basePool = (poolYocto * BASE_REBATE_BPS) / BPS_DENOMINATOR;
   const bonusPool = poolYocto - basePool;
@@ -115,12 +126,84 @@ function allocateClaims(
   const baseAllocations = distributePool(basePool, equalShares);
   const bonusAllocations = distributePool(bonusPool, bonusShares);
 
-  return participants.map((participant) => {
-    return (
+  const allocations = new Map<string, bigint>();
+  for (const participant of participants) {
+    allocations.set(
+      participant.accountId,
       (baseAllocations.get(participant.accountId) ?? 0n) +
-      (bonusAllocations.get(participant.accountId) ?? 0n)
+        (bonusAllocations.get(participant.accountId) ?? 0n)
     );
-  });
+  }
+  return allocations;
+}
+
+export function standingsToPayoutParticipants(
+  standings: Array<{
+    accountId: string;
+    rank: number;
+    score: number;
+    eligible: boolean;
+  }>
+): SeasonZeroPayoutParticipant[] {
+  return standings
+    .filter((standing) => standing.eligible)
+    .sort((a, b) => a.rank - b.rank)
+    .map((standing) => ({
+      accountId: standing.accountId,
+      rank: standing.rank,
+      score: standing.score,
+      eligible: true,
+    }));
+}
+
+function buildEstimateParticipants(input: {
+  registeredCount: number;
+  includeProspectiveJoin?: boolean;
+  participants?: SeasonZeroPayoutParticipant[];
+}): { participants: SeasonZeroPayoutParticipant[]; exact: boolean } {
+  const registeredCount = Math.max(0, input.registeredCount);
+  const known = (input.participants ?? [])
+    .filter((participant) => participant.eligible !== false)
+    .sort((a, b) => a.rank - b.rank);
+
+  let exact = false;
+  let participants: SeasonZeroPayoutParticipant[] = [];
+
+  if (registeredCount > 0 && known.length >= registeredCount) {
+    participants = known.slice(0, registeredCount);
+    exact = true;
+  } else if (registeredCount > 0 && known.length > 0) {
+    participants = [...known];
+    while (participants.length < registeredCount) {
+      const rank = participants.length + 1;
+      participants.push({
+        accountId: `synthetic-tail-${rank}`,
+        rank,
+        score: JOIN_POINTS,
+      });
+    }
+  } else if (registeredCount > 0) {
+    participants = syntheticMeritScores(registeredCount).map(
+      (merit, index) => ({
+        accountId: `synthetic-${index}`,
+        rank: index + 1,
+        score: JOIN_POINTS + merit,
+      })
+    );
+  }
+
+  if (input.includeProspectiveJoin) {
+    participants = [
+      ...participants,
+      {
+        accountId: '__prospective__',
+        rank: participants.length + 1,
+        score: JOIN_POINTS,
+      },
+    ];
+  }
+
+  return { participants, exact };
 }
 
 export interface SeasonZeroPayoutEstimate {
@@ -130,6 +213,8 @@ export interface SeasonZeroPayoutEstimate {
   maxClaimYocto: bigint;
   midClaimYocto: bigint;
   personalClaimYocto: bigint | null;
+  /** True when every registered participant score is from live standings. */
+  exact: boolean;
 }
 
 export function projectSeasonZeroPoolYocto(
@@ -151,30 +236,34 @@ export function estimateSeasonZeroPayouts(input: {
   indexedPoolYocto: string | bigint;
   participantCount: number;
   includeProspectiveJoin?: boolean;
+  participants?: SeasonZeroPayoutParticipant[];
+  personalAccountId?: string | null;
+  /** @deprecated Prefer `participants` + `personalAccountId`. */
   personalScore?: number | null;
+  /** @deprecated Prefer `participants` + `personalAccountId`. */
   personalRank?: number | null;
 }): SeasonZeroPayoutEstimate | null {
-  const participantCount = Math.max(
-    0,
-    input.participantCount + (input.includeProspectiveJoin ? 1 : 0)
-  );
-  if (participantCount <= 0) return null;
+  const registeredCount = Math.max(0, input.participantCount);
+  if (registeredCount <= 0 && !input.includeProspectiveJoin) return null;
+
+  const { participants, exact } = buildEstimateParticipants({
+    registeredCount,
+    includeProspectiveJoin: input.includeProspectiveJoin,
+    participants: input.participants,
+  });
+  if (participants.length === 0) return null;
 
   const poolYocto = projectSeasonZeroPoolYocto(
     input.indexedPoolYocto,
-    input.participantCount,
+    registeredCount,
     { includeProspectiveJoin: input.includeProspectiveJoin }
   );
   if (poolYocto <= 0n) return null;
 
-  const meritScores = syntheticMeritScores(participantCount);
-  const participants = meritScores.map((merit, index) => ({
-    accountId: `synthetic-${index}`,
-    rank: index + 1,
-    score: JOIN_POINTS + merit,
-  }));
-
-  const claims = allocateClaims(poolYocto, participants);
+  const allocations = allocateSeasonZeroClaims(poolYocto, participants);
+  const claims = participants.map(
+    (participant) => allocations.get(participant.accountId) ?? 0n
+  );
   if (claims.length === 0) return null;
 
   const sorted = [...claims].sort((a, b) => {
@@ -183,30 +272,37 @@ export function estimateSeasonZeroPayouts(input: {
   });
 
   let personalClaimYocto: bigint | null = null;
-  if (
+  if (input.personalAccountId) {
+    const personalAccountId = input.personalAccountId.trim();
+    personalClaimYocto = allocations.get(personalAccountId) ?? null;
+    if (personalClaimYocto == null) {
+      const match = participants.find(
+        (participant) =>
+          participant.accountId.toLowerCase() ===
+          personalAccountId.toLowerCase()
+      );
+      if (match) {
+        personalClaimYocto = allocations.get(match.accountId) ?? null;
+      }
+    }
+  } else if (
     input.personalScore != null &&
     input.personalRank != null &&
     input.personalRank >= 1 &&
-    input.personalRank <= participantCount
+    input.personalRank <= participants.length
   ) {
-    const personalParticipants = participants.map((participant) =>
-      participant.rank === input.personalRank
-        ? { ...participant, score: input.personalScore ?? participant.score }
-        : participant
-    );
-    personalClaimYocto =
-      allocateClaims(poolYocto, personalParticipants)[input.personalRank - 1] ??
-      null;
+    personalClaimYocto = claims[input.personalRank - 1] ?? null;
   }
 
   const midIndex = Math.floor((sorted.length - 1) / 2);
 
   return {
     poolYocto,
-    participantCount,
+    participantCount: participants.length,
     minClaimYocto: sorted[sorted.length - 1] ?? 0n,
     maxClaimYocto: sorted[0] ?? 0n,
     midClaimYocto: sorted[midIndex] ?? 0n,
     personalClaimYocto,
+    exact,
   };
 }

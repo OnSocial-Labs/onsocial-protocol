@@ -70,6 +70,12 @@ function isSeasonZeroSettlementPublished(
   );
 }
 
+export function isSeasonSettlementPublished(
+  settlement: SeasonZeroSettlementSummary | null | undefined
+): boolean {
+  return settlement != null && isSeasonZeroSettlementPublished(settlement);
+}
+
 export function resolveSeasonZeroLifecyclePhase(
   onChain: SeasonZeroOnChainConfig | null | undefined,
   settlement: SeasonZeroSettlementSummary | null | undefined

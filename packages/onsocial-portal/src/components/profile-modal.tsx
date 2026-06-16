@@ -59,6 +59,8 @@ import {
   useSeasonZeroProfileBadge,
   useActiveSeasonProfileBadge,
 } from '@/features/season/season-zero-participant-badge';
+import { SeasonClaimInlineAction } from '@/features/season/season-claim-inline-action';
+import { useProfileSeasonClaim } from '@/features/season/use-profile-season-claim';
 import { NetworkModal, type NetworkAccount } from '@/components/network-modal';
 import { PlatformStorageAllowanceSummary } from '@/components/platform-storage-allowance-summary';
 import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
@@ -1362,6 +1364,11 @@ export function ProfileModal({
   const canClaimSupport = Boolean(
     isSelf && accountId && onClaimSupportBalance && claimableSupportYocto > 0n
   );
+  const { claim: seasonClaim, refresh: refreshSeasonClaim } =
+    useProfileSeasonClaim(viewerAccountId, isSelf && active);
+  const canClaimSeasonReward = Boolean(
+    isSelf && seasonClaim && !seasonClaim.claimed
+  );
   const viewerStanding = Boolean(social?.viewerStanding);
   const theyStandWithViewer = Boolean(!isSelf && social?.theyStandWithViewer);
   const socialReady = Boolean(social || socialError);
@@ -1769,9 +1776,16 @@ export function ProfileModal({
                       placeholderIconStrokeWidth={2.5}
                     />
                   </div>
-                  {canSupport || canClaimSupport ? (
+                  {canSupport || canClaimSupport || canClaimSeasonReward ? (
                     <div className={profileIdentityActionsClass}>
                       <div className="flex flex-wrap items-center justify-end gap-1.5">
+                        {canClaimSeasonReward && seasonClaim ? (
+                          <SeasonClaimInlineAction
+                            claim={seasonClaim}
+                            variant="profile"
+                            onClaimed={() => void refreshSeasonClaim()}
+                          />
+                        ) : null}
                         {canSupport ? (
                           <button
                             type="button"

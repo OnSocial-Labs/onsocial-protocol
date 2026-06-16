@@ -2,6 +2,7 @@ import { formatGenesisSocialBalanceDisplay } from '@/lib/genesis-season';
 import {
   estimateSeasonZeroPayouts,
   type SeasonZeroPayoutEstimate,
+  type SeasonZeroPayoutParticipant,
 } from '@/features/season/season-zero-payout-estimate';
 
 export function formatSeasonZeroPayoutBand(
@@ -14,6 +15,8 @@ export function buildSeasonZeroPayoutEstimate(input: {
   indexedPoolYocto?: string | null;
   participantCount: number;
   includeProspectiveJoin?: boolean;
+  participants?: SeasonZeroPayoutParticipant[];
+  personalAccountId?: string | null;
   personalScore?: number | null;
   personalRank?: number | null;
 }): SeasonZeroPayoutEstimate | null {
@@ -21,24 +24,34 @@ export function buildSeasonZeroPayoutEstimate(input: {
     indexedPoolYocto: input.indexedPoolYocto ?? '0',
     participantCount: input.participantCount,
     includeProspectiveJoin: input.includeProspectiveJoin,
+    participants: input.participants,
+    personalAccountId: input.personalAccountId,
     personalScore: input.personalScore,
     personalRank: input.personalRank,
   });
+}
+
+function estimateQualifier(exact: boolean): string {
+  return exact ? 'Est.' : 'Rough est.';
 }
 
 export function seasonZeroPayoutSummary(input: {
   indexedPoolYocto?: string | null;
   participantCount: number;
   includeProspectiveJoin?: boolean;
+  participants?: SeasonZeroPayoutParticipant[];
+  personalAccountId?: string | null;
   personalScore?: number | null;
   personalRank?: number | null;
 }): string | null {
   const estimate = buildSeasonZeroPayoutEstimate(input);
   if (!estimate) return null;
 
+  const qualifier = estimateQualifier(estimate.exact);
+
   if (estimate.personalClaimYocto != null) {
-    return `Your est. claim ~${formatGenesisSocialBalanceDisplay(estimate.personalClaimYocto)} SOCIAL · field ~${formatSeasonZeroPayoutBand(estimate)}`;
+    return `Your ${qualifier} collect ~${formatGenesisSocialBalanceDisplay(estimate.personalClaimYocto)} SOCIAL · field ~${formatSeasonZeroPayoutBand(estimate)}`;
   }
 
-  return `Est. claim ~${formatSeasonZeroPayoutBand(estimate)} SOCIAL at ${estimate.participantCount} in`;
+  return `${qualifier} collect ~${formatSeasonZeroPayoutBand(estimate)} SOCIAL at ${estimate.participantCount} in`;
 }

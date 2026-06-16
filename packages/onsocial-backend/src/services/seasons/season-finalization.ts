@@ -322,6 +322,66 @@ export async function getSeasonZeroClaimData(
   return getSeasonClaimData(SEASON_ZERO_ID, accountId);
 }
 
+export interface SeasonPublishedRewardRow {
+  accountId: string;
+  rank: number;
+  score: number;
+  amountYocto: string;
+}
+
+export function isSeasonSettlementPublished(
+  settlement: SeasonZeroSettlementSummary | null | undefined
+): boolean {
+  return (
+    settlement?.status === 'published' || Boolean(settlement?.publishedTxHash)
+  );
+}
+
+export async function getSeasonPublishedRewards(
+  seasonId: string,
+  opts: { limit?: number; offset?: number } = {}
+): Promise<{ total: number; rewards: SeasonPublishedRewardRow[] } | null> {
+  const id = assertSeasonId(seasonId);
+  const settlement = await getSeasonSettlementSummary(id);
+  if (!settlement || !isSeasonSettlementPublished(settlement)) {
+    return null;
+  }
+
+  const limit = Math.min(Math.max(opts.limit ?? 50, 1), 100);
+  const offset = Math.max(opts.offset ?? 0, 0);
+
+  const [rows, countResult] = await Promise.all([
+    query<
+      Pick<SeasonSettlementClaimRow, 'account_id' | 'rank' | 'score' | 'amount'>
+    >(
+      `SELECT account_id, rank, score, amount
+       FROM season_settlement_claims
+       WHERE season_id = $1
+         AND amount::numeric > 0
+       ORDER BY rank ASC, account_id ASC
+       LIMIT $2 OFFSET $3`,
+      [id, limit, offset]
+    ),
+    query<{ count: string }>(
+      `SELECT COUNT(*)::text AS count
+       FROM season_settlement_claims
+       WHERE season_id = $1
+         AND amount::numeric > 0`,
+      [id]
+    ),
+  ]);
+
+  return {
+    total: Number(countResult.rows[0]?.count ?? 0),
+    rewards: rows.rows.map((row) => ({
+      accountId: row.account_id,
+      rank: row.rank,
+      score: row.score,
+      amountYocto: row.amount,
+    })),
+  };
+}
+
 export interface SeasonZeroFinalizePreviewRow {
   rank: number;
   accountId: string;

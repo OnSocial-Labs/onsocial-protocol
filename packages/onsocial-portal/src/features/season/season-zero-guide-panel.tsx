@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
 import { SurfacePanel } from '@/components/ui/surface-panel';
@@ -11,7 +11,12 @@ import {
   type SeasonZeroScoringLimits,
 } from '@/features/season/season-zero-earn-panel';
 import type { SeasonZeroStanding } from '@/features/season/season-zero-standing-row';
+import type { SeasonZeroPayoutParticipant } from '@/features/season/season-zero-payout-estimate';
 import { GENESIS_RALLY_JOIN_SOCIAL_LABEL } from '@/lib/genesis-season';
+import {
+  fetchJoinRallyRouting,
+  formatJoinEntryGuideLabel,
+} from '@/lib/join-rally-routing';
 import { seasonZeroPayoutSummary } from '@/features/season/season-zero-payout-copy';
 import { portalTransition } from '@/lib/motion';
 import { cn } from '@/lib/utils';
@@ -36,22 +41,51 @@ export function SeasonZeroGuidePanel({
   myStanding = null,
   participantCount = 0,
   indexedPoolYocto = '0',
+  payoutParticipants = null,
+  personalAccountId = null,
   className,
 }: {
   limits: SeasonZeroScoringLimits;
-  myStanding?: Pick<SeasonZeroStanding, 'rank' | 'score' | 'breakdown'> | null;
+  myStanding?: Pick<
+    SeasonZeroStanding,
+    'rank' | 'score' | 'breakdown' | 'accountId'
+  > | null;
   participantCount?: number;
   indexedPoolYocto?: string;
+  payoutParticipants?: SeasonZeroPayoutParticipant[] | null;
+  personalAccountId?: string | null;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [joinEntryLabel, setJoinEntryLabel] = useState(
+    `${GENESIS_RALLY_JOIN_SOCIAL_LABEL} SOCIAL · 95 to pool`
+  );
   const reduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void fetchJoinRallyRouting()
+      .then((routing) => {
+        if (cancelled) return;
+        setJoinEntryLabel(
+          formatJoinEntryGuideLabel(GENESIS_RALLY_JOIN_SOCIAL_LABEL, routing)
+        );
+      })
+      .catch(() => {
+        // Keep default copy when the view call is unavailable.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const payoutSummary = seasonZeroPayoutSummary({
     indexedPoolYocto,
     participantCount: Math.max(participantCount, myStanding ? 1 : 0),
-    personalRank: myStanding?.rank ?? null,
-    personalScore: myStanding?.score ?? null,
+    participants: payoutParticipants ?? undefined,
+    personalAccountId: personalAccountId ?? myStanding?.accountId ?? null,
   });
 
   const headerHint = myStanding
@@ -174,18 +208,15 @@ export function SeasonZeroGuidePanel({
               <div className="space-y-2 border-t border-fade-section pt-4">
                 <p className="portal-eyebrow text-muted-foreground">Rewards</p>
                 <ul className="space-y-1.5">
-                  <GuidePoint
-                    label="Entry"
-                    value={`${GENESIS_RALLY_JOIN_SOCIAL_LABEL} SOCIAL · 95 to pool`}
-                  />
+                  <GuidePoint label="Entry" value={joinEntryLabel} />
                   <GuidePoint
                     label="Split"
                     value="50% equal · 50% by activity"
                   />
                   {payoutSummary ? (
-                    <GuidePoint label="Est. claim" value={payoutSummary} />
+                    <GuidePoint label="Est. collect" value={payoutSummary} />
                   ) : null}
-                  <GuidePoint label="Claim" value="On this page when open" />
+                  <GuidePoint label="Collect" value="On this page when open" />
                 </ul>
                 <p className="portal-type-caption text-muted-foreground/65">
                   Compete for rank and a Genesis profile badge. Most of your

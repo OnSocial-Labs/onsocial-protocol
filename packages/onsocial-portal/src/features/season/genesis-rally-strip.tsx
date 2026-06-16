@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
 import { useWallet } from '@/contexts/wallet-context';
 
@@ -36,7 +37,8 @@ import {
   getSeasonPresentation,
   seasonApiPath,
 } from '@/lib/active-season';
-import { useSeasonRegistry } from '@/lib/season-registry';
+import { useSeasonRegistry, type SeasonPhase } from '@/lib/season-registry';
+import { fadeMotion } from '@/lib/motion';
 import { extractNearTransactionHashes } from '@/lib/near-rpc';
 import {
   fetchJoinRallyRouting,
@@ -60,8 +62,10 @@ import type {
 } from '@/features/season/season-zero-types';
 import { resolveSeasonZeroLifecyclePhase } from '@/features/season/season-zero-types';
 import { resolveSeasonZeroClaimMetricsStatus } from '@/features/season/season-zero-claim-copy';
+import { SeasonClaimInlineAction } from '@/features/season/season-claim-inline-action';
 import { seasonZeroPayoutSummary } from '@/features/season/season-zero-payout-copy';
-import { useSeasonZeroClaimActions } from '@/features/season/season-zero-claim-panel';
+import type { SeasonZeroPayoutParticipant } from '@/features/season/season-zero-payout-estimate';
+import { isSeasonSettlementPublished } from '@/features/season/season-zero-types';
 import { cn } from '@/lib/utils';
 
 const os = createPortalOnSocialClient();
@@ -103,6 +107,16 @@ function rallyActionPlaceholder() {
   );
 }
 
+type RallyFooterMode = 'loading' | 'joined' | 'post-live-connect' | 'join';
+
+function rallyFooterFade(reduceMotion: boolean | null, duration = 0.18) {
+  return fadeMotion(reduceMotion ? 0 : duration);
+}
+
+function rallyFooterShellClass(hasMetrics: boolean) {
+  return cn(hasMetrics && 'border-t border-fade-section');
+}
+
 interface SeasonZeroMeResponse {
   success?: boolean;
   standing?: SeasonZeroStanding | null;
@@ -124,8 +138,13 @@ export function GenesisRallyStrip({
   settlement = null,
   participantCount = 0,
   myStanding: myStandingProp = null,
+  pageDataReady,
+  registryPhase = null,
   phase: phaseProp = null,
   claim = null,
+  payoutParticipants = null,
+  publishedRewardByAccountId = null,
+  personalAccountId = null,
   onParticipationChange,
   onClaimed,
 }: {
@@ -142,8 +161,17 @@ export function GenesisRallyStrip({
   participantCount?: number;
   /** When provided (e.g. from Season 0 page), avoids a duplicate standing fetch. */
   myStanding?: SeasonZeroStanding | null;
+  /** Page variant: parent has finished its first status/standings load. */
+  pageDataReady?: boolean;
+  /** Registry phase hint for gold panel styling before on-chain config resolves. */
+  registryPhase?: SeasonPhase | null;
   phase?: SeasonZeroLifecyclePhase | null;
   claim?: SeasonZeroClaimRecord | null;
+  /** Live standings for payout estimates (up to 100 rows from the page). */
+  payoutParticipants?: SeasonZeroPayoutParticipant[] | null;
+  /** Final reward amounts by account id after settlement publish. */
+  publishedRewardByAccountId?: Record<string, string> | null;
+  personalAccountId?: string | null;
   /** Called after a successful join so the parent can refresh standings. */
   onParticipationChange?: () => void;
   onClaimed?: () => void;
@@ -154,18 +182,10 @@ export function GenesisRallyStrip({
     registry?.resolvedActiveSeasonId ??
     registry?.live?.seasonId ??
     getActiveSeasonId();
+  const reduceMotion = useReducedMotion();
   const { accountId, connect, getSigningWallet, isConnected } = useWallet();
   const { txResult, setTxResult, clearTxResult, trackTransaction } =
     useNearTransactionFeedback(accountId);
-  const {
-    handleClaim,
-    claimPending,
-    txResult: claimTxResult,
-    clearTxResult: clearClaimTxResult,
-  } = useSeasonZeroClaimActions({
-    claim,
-    onClaimed,
-  });
   const [loading, setLoading] = useState(true);
   const [joined, setJoined] = useState(false);
   const [fetchedMyStanding, setFetchedMyStanding] =
@@ -181,6 +201,7 @@ export function GenesisRallyStrip({
   const [promoSettlement, setPromoSettlement] =
     useState<SeasonZeroSettlementSummary | null>(null);
   const [promoParticipantCount, setPromoParticipantCount] = useState(0);
+  const [promoStatusReady, setPromoStatusReady] = useState(variant !== 'promo');
   const [joinRoutingDisclosure, setJoinRoutingDisclosure] = useState(
     '95 to pool · 5 fees'
   );
@@ -229,7 +250,7 @@ export function GenesisRallyStrip({
 
   const refresh = useCallback(async () => {
     if (myStandingProp) {
-      setJoined(myStandingProp.eligible !== false);
+      setJoined(true);
       setLoading(false);
       return;
     }
@@ -279,8 +300,13 @@ export function GenesisRallyStrip({
 
   useEffect(() => {
     if (myStandingProp) {
-      setJoined(myStandingProp.eligible !== false);
+      setJoined(true);
       setLoading(false);
+      return;
+    }
+
+    if (variant === 'page' && pageDataReady === false) {
+      setLoading(true);
       return;
     }
 
@@ -288,12 +314,13 @@ export function GenesisRallyStrip({
     setFetchedMyStanding(null);
     setLoading(true);
     void refresh();
-  }, [accountId, myStandingProp, refresh]);
+  }, [accountId, myStandingProp, pageDataReady, refresh, variant]);
 
   useEffect(() => {
     if (variant !== 'promo') return;
 
     let cancelled = false;
+    setPromoStatusReady(false);
 
     Promise.resolve()
       .then(async () => {
@@ -338,6 +365,11 @@ export function GenesisRallyStrip({
         if (!cancelled) {
           setPromoOnChainConfig(null);
         }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setPromoStatusReady(true);
+        }
       });
 
     return () => {
@@ -345,7 +377,11 @@ export function GenesisRallyStrip({
     };
   }, [variant, seasonId]);
 
-  const statusLoading = loading;
+  const effectiveRegistryPhase = registryPhase ?? registryEntry?.phase ?? null;
+  const awaitingParticipationData =
+    (variant === 'page' && pageDataReady === false) ||
+    (variant === 'promo' && !promoStatusReady);
+  const statusLoading = loading || awaitingParticipationData;
   const hasEnoughSocial = balanceYocto >= GENESIS_RALLY_JOIN_YOCTO;
   const showInsufficientBalance =
     isConnected &&
@@ -512,15 +548,21 @@ export function GenesisRallyStrip({
       indexedPoolYocto: metricsIndexedPoolYocto,
       participantCount: metricsParticipantCount,
       includeProspectiveJoin: !joined,
+      participants: payoutParticipants ?? undefined,
+      personalAccountId:
+        personalAccountId ?? (joined ? accountId : null) ?? null,
       personalRank: myStanding?.rank ?? null,
       personalScore: myStanding?.score ?? null,
     });
   }, [
+    accountId,
     joined,
     metricsIndexedPoolYocto,
     metricsParticipantCount,
     myStanding?.rank,
     myStanding?.score,
+    payoutParticipants,
+    personalAccountId,
     seasonIsLive,
   ]);
 
@@ -596,19 +638,22 @@ export function GenesisRallyStrip({
     seasonPhase === 'claim_open' &&
     Boolean(claim && !claim.claimed && accountId);
 
-  const claimAmountLabel = claim
-    ? formatGenesisSocialBalanceDisplay(claim.amountYocto)
-    : null;
-
   const promoPanelClass = cn(
     'group relative overflow-hidden transition-[border-color,box-shadow] duration-200',
     'hover:border-[var(--portal-gold-border-strong)] hover:shadow-[0_0_20px_var(--portal-gold-shadow)]',
     className
   );
 
+  const registrySuggestsGoldPanel =
+    effectiveRegistryPhase === 'live' || effectiveRegistryPhase === 'upcoming';
+  const showGoldPanel =
+    seasonIsLive ||
+    seasonIsUpcoming ||
+    (seasonPhase === null && registrySuggestsGoldPanel);
+
   const pagePanelClass = cn(
-    'overflow-hidden',
-    seasonIsLive || !metricsOnChainConfig
+    'overflow-hidden transition-[border-color,box-shadow] duration-300',
+    showGoldPanel
       ? 'portal-gold-panel border-[var(--portal-gold-border-strong)] shadow-[0_0_16px_var(--portal-gold-glow)]'
       : 'border-border/40',
     className
@@ -646,90 +691,137 @@ export function GenesisRallyStrip({
     </RallyActionSlot>
   );
 
-  const actionFooter = joined ? (
-    <div
-      className={cn(
-        'px-3 md:px-4',
-        metricsOnChainConfig && 'border-t border-fade-section',
-        variant === 'promo' && 'pointer-events-none relative z-[1]'
-      )}
-    >
-      {variant === 'promo' ? (
-        <p className="pt-2.5 text-center text-xs uppercase tracking-[0.14em] text-muted-foreground">
-          Yours
-        </p>
-      ) : null}
-      {statusLoading || !myStanding ? (
-        <StandingRowSkeleton />
-      ) : (
-        <StandingRow standing={myStanding} interactive={variant !== 'promo'} />
-      )}
-      {showClaimAction && claimAmountLabel ? (
-        <div className="flex flex-col gap-2 border-t border-fade-section py-2.5 sm:flex-row sm:items-center sm:justify-between">
-          <p className="portal-eyebrow text-muted-foreground">
-            Season claim
-            <span className="text-muted-foreground/40"> · </span>
-            <span className="portal-gold-text">{claimAmountLabel} SOCIAL</span>
-          </p>
-          <Button
-            size="xs"
-            className="shrink-0 self-start sm:self-auto"
-            loading={claimPending}
-            onClick={() => void handleClaim()}
-          >
-            Claim {claimAmountLabel}
-          </Button>
-        </div>
-      ) : null}
-    </div>
-  ) : seasonPhase && seasonPhase !== 'live' ? (
-    <div
-      className={cn(
-        'px-3 py-2.5 md:px-4',
-        metricsOnChainConfig && 'border-t border-fade-section'
-      )}
-    >
-      {!accountId ? (
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs text-muted-foreground">
-            Connect to check your season payout.
-          </p>
-          <Button
-            size="xs"
-            className="self-start sm:self-auto"
-            onClick={() => void connect()}
-          >
-            Connect wallet
-          </Button>
-        </div>
-      ) : null}
-    </div>
-  ) : (
-    <div
-      className={cn(
-        'flex flex-col gap-2.5 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between md:px-4',
-        metricsOnChainConfig && 'border-t border-fade-section'
-      )}
-    >
-      <div
-        className={cn('min-w-0', variant === 'promo' && 'pointer-events-none')}
-      >
-        {balanceStatusLine}
+  const myStandingRewardYocto = myStanding
+    ? (publishedRewardByAccountId?.[myStanding.accountId] ?? null)
+    : null;
+
+  const footerMode = useMemo((): RallyFooterMode | null => {
+    if (awaitingParticipationData) return 'loading';
+
+    if (joined) {
+      if (statusLoading || !myStanding) return 'loading';
+      return 'joined';
+    }
+
+    if (seasonPhase && seasonPhase !== 'live') {
+      return !accountId ? 'post-live-connect' : null;
+    }
+
+    return 'join';
+  }, [
+    accountId,
+    awaitingParticipationData,
+    joined,
+    myStanding,
+    seasonPhase,
+    statusLoading,
+  ]);
+
+  const hasMetricsRail = Boolean(metricsOnChainConfig);
+  const footerShellClass = rallyFooterShellClass(hasMetricsRail);
+
+  const actionFooter =
+    footerMode === null ? null : (
+      <div className={footerShellClass}>
+        <AnimatePresence mode="wait" initial={false}>
+          {footerMode === 'loading' ? (
+            <motion.div
+              key="rally-footer-loading"
+              {...rallyFooterFade(reduceMotion)}
+              className="px-3 py-2.5 md:px-4"
+            >
+              <StandingRowSkeleton />
+            </motion.div>
+          ) : footerMode === 'joined' ? (
+            <motion.div
+              key="rally-footer-joined"
+              {...rallyFooterFade(reduceMotion)}
+              className={cn(
+                'px-3 md:px-4',
+                variant === 'promo' && 'pointer-events-none relative z-[1]'
+              )}
+            >
+              {variant === 'promo' ? (
+                <p className="pt-2.5 text-center text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                  Yours
+                </p>
+              ) : null}
+              <StandingRow
+                standing={myStanding!}
+                interactive={variant !== 'promo'}
+                rewardAmountYocto={myStandingRewardYocto}
+              />
+              <AnimatePresence initial={false}>
+                {showClaimAction && claim ? (
+                  <motion.div
+                    key="rally-footer-collect"
+                    {...rallyFooterFade(reduceMotion, 0.16)}
+                  >
+                    <SeasonClaimInlineAction
+                      claim={claim}
+                      variant="rally"
+                      settlement={
+                        metricsSettlement &&
+                        isSeasonSettlementPublished(metricsSettlement)
+                          ? metricsSettlement
+                          : null
+                      }
+                      onClaimed={onClaimed}
+                    />
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
+            </motion.div>
+          ) : footerMode === 'post-live-connect' ? (
+            <motion.div
+              key="rally-footer-post-live-connect"
+              {...rallyFooterFade(reduceMotion)}
+              className="px-3 py-2.5 md:px-4"
+            >
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-muted-foreground">
+                  Connect to check your season payout.
+                </p>
+                <Button
+                  size="xs"
+                  className="self-start sm:self-auto"
+                  onClick={() => void connect()}
+                >
+                  Connect wallet
+                </Button>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="rally-footer-join"
+              {...rallyFooterFade(reduceMotion)}
+              className="flex min-h-[4.5rem] flex-col gap-2.5 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between md:px-4"
+            >
+              <div
+                className={cn(
+                  'min-w-0',
+                  variant === 'promo' && 'pointer-events-none'
+                )}
+              >
+                {balanceStatusLine}
+              </div>
+              <div
+                className={cn(
+                  'flex shrink-0 flex-wrap items-center gap-2 self-start sm:self-center',
+                  variant === 'promo' && 'pointer-events-auto relative z-[1]'
+                )}
+              >
+                {statusLoading ? (
+                  <RallyActionSlot>{rallyActionPlaceholder()}</RallyActionSlot>
+                ) : (
+                  joinActionButtons
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
-      <div
-        className={cn(
-          'flex shrink-0 flex-wrap items-center gap-2 self-start sm:self-center',
-          variant === 'promo' && 'pointer-events-auto relative z-[1]'
-        )}
-      >
-        {statusLoading ? (
-          <RallyActionSlot>{rallyActionPlaceholder()}</RallyActionSlot>
-        ) : (
-          joinActionButtons
-        )}
-      </div>
-    </div>
-  );
+    );
 
   const stripBody = (
     <>
@@ -753,7 +845,9 @@ export function GenesisRallyStrip({
       ) : null}
 
       {metricsOnChainConfig ? (
-        <div
+        <motion.div
+          key="rally-metrics-rail"
+          {...rallyFooterFade(reduceMotion, 0.22)}
           className={cn(
             variant === 'promo' && 'pointer-events-none relative z-[1]'
           )}
@@ -768,7 +862,7 @@ export function GenesisRallyStrip({
             participantCount={metricsParticipantCount}
             claimStatus={claimMetricsStatus}
           />
-        </div>
+        </motion.div>
       ) : null}
 
       {actionFooter}
@@ -778,10 +872,6 @@ export function GenesisRallyStrip({
   return (
     <>
       <TransactionFeedbackToast result={txResult} onClose={clearTxResult} />
-      <TransactionFeedbackToast
-        result={claimTxResult}
-        onClose={clearClaimTxResult}
-      />
       <SocialSwapModal
         open={swapOpen}
         onOpenChange={setSwapOpen}

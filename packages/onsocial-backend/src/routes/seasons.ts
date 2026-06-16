@@ -9,6 +9,7 @@ import {
   getSeasonClaimData,
   getSeasonOnChainConfig,
   getSeasonPoolBreakdown,
+  getSeasonPublishedRewards,
   getSeasonSettlementSummary,
   previewSeasonSettlement,
   publishSeasonSettlement,
@@ -250,6 +251,39 @@ router.get('/:seasonId/settlement', async (req: Request, res: Response) => {
     res.status(502).json({
       success: false,
       error: 'Season settlement unavailable',
+    });
+  }
+});
+
+router.get('/:seasonId/rewards', async (req: Request, res: Response) => {
+  const seasonId = parseSeasonIdParam(req, res);
+  if (!seasonId) return;
+
+  try {
+    const rewards = await getSeasonPublishedRewards(seasonId, {
+      limit: queryInt(req.query.limit, 50),
+      offset: queryInt(req.query.offset, 0),
+    });
+    if (!rewards) {
+      res.status(404).json({
+        success: false,
+        error: 'Published season rewards are not available yet',
+        seasonId,
+      });
+      return;
+    }
+    res.json({
+      success: true,
+      seasonId,
+      total: rewards.total,
+      rewards: rewards.rewards,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error({ error: message, seasonId }, 'Season rewards lookup failed');
+    res.status(502).json({
+      success: false,
+      error: 'Season rewards unavailable',
     });
   }
 });

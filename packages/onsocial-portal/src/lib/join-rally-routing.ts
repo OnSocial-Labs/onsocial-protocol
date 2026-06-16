@@ -41,6 +41,20 @@ export function formatJoinRoutingDisclosure(
   return parts.join(' · ');
 }
 
+export function formatJoinEntryGuideLabel(
+  joinSocialLabel: string,
+  disclosure: JoinRallyRoutingDisclosure | null
+): string {
+  if (!disclosure) {
+    return `${joinSocialLabel} SOCIAL · 95 to pool`;
+  }
+
+  const routing = formatJoinRoutingDisclosure(disclosure);
+  return routing
+    ? `${joinSocialLabel} SOCIAL · ${routing}`
+    : `${joinSocialLabel} SOCIAL`;
+}
+
 /** Estimate SOCIAL burned from indexed join pool contributions and routing bps. */
 export function estimateJoinBurnYocto(
   joinPoolYocto: string | bigint,

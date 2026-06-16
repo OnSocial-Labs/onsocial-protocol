@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
 import { PageShell } from '@/components/layout/page-shell';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
@@ -12,19 +12,24 @@ import { GenesisRallyStrip } from '@/features/season/genesis-rally-strip';
 import { type SeasonZeroScoringLimits } from '@/features/season/season-zero-earn-panel';
 import { SeasonZeroGuidePanel } from '@/features/season/season-zero-guide-panel';
 import {
+  SEASON_ZERO_PAYOUT_STANDINGS_LIMIT,
+  standingsToPayoutParticipants,
+} from '@/features/season/season-zero-payout-estimate';
+import {
   StandingRow,
   StandingRowSkeleton,
   type SeasonZeroStanding,
 } from '@/features/season/season-zero-standing-row';
 import {
   resolveSeasonZeroLifecyclePhase,
+  isSeasonSettlementPublished,
   type SeasonZeroClaimPayload,
   type SeasonZeroClaimRecord,
   type SeasonZeroOnChainConfig,
   type SeasonZeroSettlementSummary,
   type SeasonZeroStatusPayload,
 } from '@/features/season/season-zero-types';
-import { fadeUpMotion } from '@/lib/motion';
+import { fadeUpMotion, fadeMotion } from '@/lib/motion';
 import {
   ARCHIVED_GENESIS_SEASON_ID,
   getActiveSeasonId,
@@ -41,6 +46,20 @@ interface SeasonZeroStandingsResponse {
   standings: SeasonZeroStanding[];
   error?: string;
 }
+
+interface SeasonPublishedRewardsResponse {
+  success: boolean;
+  total: number;
+  rewards: Array<{
+    accountId: string;
+    rank: number;
+    score: number;
+    amountYocto: string;
+  }>;
+  error?: string;
+}
+
+const STANDINGS_DISPLAY_LIMIT = 25;
 
 function sectionEntrance(
   reduceMotion: boolean | null,
@@ -83,13 +102,28 @@ export function SeasonRallyPage({
   const [settlement, setSettlement] =
     useState<SeasonZeroSettlementSummary | null>(null);
   const [claim, setClaim] = useState<SeasonZeroClaimRecord | null>(null);
+  const [publishedRewardByAccountId, setPublishedRewardByAccountId] = useState<
+    Record<string, string>
+  >({});
   const [loading, setLoading] = useState(true);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isFirstLoadRef = useRef(true);
 
   const currentUserStanding = useMemo(
     () =>
       standings.find((standing) => standing.accountId === accountId) ?? null,
     [accountId, standings]
+  );
+
+  const payoutParticipants = useMemo(
+    () => standingsToPayoutParticipants(standings),
+    [standings]
+  );
+
+  const displayStandings = useMemo(
+    () => standings.slice(0, STANDINGS_DISPLAY_LIMIT),
+    [standings]
   );
 
   const seasonPhase = useMemo(
@@ -100,9 +134,13 @@ export function SeasonRallyPage({
     [onChainConfig, settlement]
   );
 
+  const showPublishedRewards = isSeasonSettlementPublished(settlement);
+
   const refresh = useCallback(async () => {
-    setLoading(true);
     setError(null);
+    if (isFirstLoadRef.current) {
+      setLoading(true);
+    }
     try {
       const claimUrl = accountId
         ? seasonApiPath(seasonId, `claims/${encodeURIComponent(accountId)}`)
@@ -113,13 +151,17 @@ export function SeasonRallyPage({
       });
       const statusData = (await statusRes.json()) as SeasonZeroStatusPayload;
       const onChain = statusRes.ok ? (statusData.onChainConfig ?? null) : null;
+      const nextSettlement =
+        statusRes.ok && statusData.success !== false
+          ? (statusData.settlement ?? null)
+          : null;
 
       if (statusRes.ok && statusData.success !== false) {
         setOnChainConfig(onChain);
         setIndexedPoolYocto(statusData.indexedPoolYocto ?? '0');
         setJoinPoolYocto(statusData.joinPoolYocto ?? '0');
         setSponsoredPoolYocto(statusData.sponsoredPoolYocto ?? '0');
-        setSettlement(statusData.settlement ?? null);
+        setSettlement(nextSettlement);
       }
 
       const standingsCutoff =
@@ -127,15 +169,22 @@ export function SeasonRallyPage({
           ? `&cutoff_timestamp_ns=${encodeURIComponent(onChain.ends_at_ns)}`
           : '';
 
-      const [standingsRes, claimRes] = await Promise.all([
+      const rewardsUrl = isSeasonSettlementPublished(nextSettlement)
+        ? `${seasonApiPath(seasonId, 'rewards')}?limit=${SEASON_ZERO_PAYOUT_STANDINGS_LIMIT}`
+        : null;
+
+      const [standingsRes, claimRes, rewardsRes] = await Promise.all([
         fetch(
-          `${seasonApiPath(seasonId, 'standings')}?limit=25${standingsCutoff}`,
+          `${seasonApiPath(seasonId, 'standings')}?limit=${SEASON_ZERO_PAYOUT_STANDINGS_LIMIT}${standingsCutoff}`,
           {
             cache: 'no-store',
           }
         ),
         claimUrl
           ? fetch(claimUrl, { cache: 'no-store' })
+          : Promise.resolve(null),
+        rewardsUrl
+          ? fetch(rewardsUrl, { cache: 'no-store' })
           : Promise.resolve(null),
       ]);
 
@@ -155,6 +204,22 @@ export function SeasonRallyPage({
         setClaim(null);
       }
 
+      if (rewardsRes) {
+        if (rewardsRes.ok) {
+          const rewardsData =
+            (await rewardsRes.json()) as SeasonPublishedRewardsResponse;
+          const nextRewards: Record<string, string> = {};
+          for (const reward of rewardsData.rewards ?? []) {
+            nextRewards[reward.accountId] = reward.amountYocto;
+          }
+          setPublishedRewardByAccountId(nextRewards);
+        } else {
+          setPublishedRewardByAccountId({});
+        }
+      } else {
+        setPublishedRewardByAccountId({});
+      }
+
       setStandings(standingsData.standings ?? []);
       setScoringLimits(standingsData.scoring ?? null);
       setTotal(standingsData.total ?? 0);
@@ -164,8 +229,15 @@ export function SeasonRallyPage({
       );
     } finally {
       setLoading(false);
+      setHasLoadedOnce(true);
+      isFirstLoadRef.current = false;
     }
   }, [accountId, seasonId]);
+
+  useEffect(() => {
+    isFirstLoadRef.current = true;
+    setHasLoadedOnce(false);
+  }, [seasonId]);
 
   useEffect(() => {
     void refresh();
@@ -206,8 +278,13 @@ export function SeasonRallyPage({
             settlement={settlement}
             participantCount={total}
             myStanding={currentUserStanding}
+            pageDataReady={hasLoadedOnce}
+            registryPhase={registryEntry?.phase ?? null}
             phase={seasonPhase}
             claim={claim}
+            payoutParticipants={payoutParticipants}
+            publishedRewardByAccountId={publishedRewardByAccountId}
+            personalAccountId={accountId}
             onParticipationChange={() => void refresh()}
             onClaimed={() => void refresh()}
           />
@@ -220,6 +297,8 @@ export function SeasonRallyPage({
               myStanding={currentUserStanding}
               participantCount={total}
               indexedPoolYocto={indexedPoolYocto}
+              payoutParticipants={payoutParticipants}
+              personalAccountId={accountId}
             />
           </motion.div>
         ) : null}
@@ -232,7 +311,16 @@ export function SeasonRallyPage({
             className="border-border/40"
           >
             <div className="flex items-center justify-between gap-3">
-              <p className="portal-eyebrow text-muted-foreground">Standings</p>
+              <div className="min-w-0">
+                <p className="portal-eyebrow text-muted-foreground">
+                  Standings
+                </p>
+                {showPublishedRewards ? (
+                  <p className="mt-0.5 text-[11px] text-muted-foreground/65">
+                    Final SOCIAL rewards
+                  </p>
+                ) : null}
+              </div>
               <Button
                 size="xs"
                 variant="secondary"
@@ -251,19 +339,38 @@ export function SeasonRallyPage({
               </p>
             ) : null}
 
-            {loading && standings.length === 0 ? (
-              <div className="mt-3 divide-y divide-fade-item">
-                {Array.from({ length: 5 }).map((_, index) => (
-                  <StandingRowSkeleton key={index} />
-                ))}
-              </div>
-            ) : (
-              <div className="mt-3 divide-y divide-fade-item">
-                {standings.map((standing) => (
-                  <StandingRow key={standing.accountId} standing={standing} />
-                ))}
-              </div>
-            )}
+            <AnimatePresence mode="wait" initial={false}>
+              {loading && standings.length === 0 ? (
+                <motion.div
+                  key="standings-loading"
+                  {...fadeMotion(Boolean(reduceMotion) ? 0 : 0.18)}
+                  className="mt-3 divide-y divide-fade-item"
+                >
+                  {Array.from({ length: 5 }).map((_, index) => (
+                    <StandingRowSkeleton key={index} />
+                  ))}
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="standings-loaded"
+                  {...fadeMotion(Boolean(reduceMotion) ? 0 : 0.2)}
+                  className="mt-3 divide-y divide-fade-item"
+                >
+                  {displayStandings.map((standing) => (
+                    <StandingRow
+                      key={standing.accountId}
+                      standing={standing}
+                      rewardAmountYocto={
+                        showPublishedRewards
+                          ? (publishedRewardByAccountId[standing.accountId] ??
+                            null)
+                          : null
+                      }
+                    />
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </SurfacePanel>
         </motion.div>
       </div>
