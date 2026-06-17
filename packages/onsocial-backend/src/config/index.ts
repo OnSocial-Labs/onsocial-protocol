@@ -105,14 +105,14 @@ export const config = {
   portalRewardsAppId:
     process.env.ONSOCIAL_PORTAL_REWARDS_APP_ID || 'onsocial_portal',
 
-  /** Welcome NEAR drip so new wallets can sign session bootstrap (AddKey + 100 TGas). */
+  /** Welcome NEAR drip so new wallets can AddKey with session allowance lock + tx gas. */
   welcomeNear: {
     enabled:
       (process.env.WELCOME_NEAR_ENABLED ?? 'true').toLowerCase() !== 'false',
-    /** Skip drip when liquid balance is at or above this (yoctoNEAR, default 0.012 NEAR). */
+    /** Skip drip when liquid balance is at or above this (yoctoNEAR, default 0.013 NEAR). */
     thresholdYocto:
-      process.env.WELCOME_NEAR_THRESHOLD_YOCTO ?? '12000000000000000000000',
-    /** Top up accounts to this target balance when below threshold (default 0.015 NEAR). */
+      process.env.WELCOME_NEAR_THRESHOLD_YOCTO ?? '13000000000000000000000',
+    /** Top up to this target when below threshold (default 0.015 NEAR). */
     targetBalanceYocto:
       process.env.WELCOME_NEAR_TARGET_BALANCE_YOCTO ??
       '15000000000000000000000',
