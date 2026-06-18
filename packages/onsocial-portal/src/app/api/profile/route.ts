@@ -46,6 +46,11 @@ function getViewerAccountId(request: NextRequest): string | null {
   return accountId;
 }
 
+function wantsFreshRead(request: NextRequest): boolean {
+  const fresh = request.nextUrl.searchParams.get('fresh')?.trim();
+  return fresh === '1' || fresh === 'true';
+}
+
 interface ProfileBundleParts {
   social: boolean;
   signals: boolean;
@@ -74,41 +79,47 @@ function cacheHeaders(maxAgeSeconds: number): HeadersInit {
 async function loadProfileBundle(
   accountId: string,
   viewerAccountId: string | null,
-  parts: ProfileBundleParts
+  parts: ProfileBundleParts,
+  options?: { skipCache?: boolean }
 ) {
   const cacheKey = `${accountId}|${viewerAccountId ?? ''}|${parts.social ? 's' : ''}${parts.signals ? 'g' : ''}`;
 
-  return profileBundleCache.getOrLoad(cacheKey, async () => {
-    const os = createPortalServerOnSocialClient();
-    const core = await profileCoreCache.getOrLoad(accountId, () =>
-      loadPortalProfileCore(os, accountId)
-    );
+  return profileBundleCache.getOrLoad(
+    cacheKey,
+    async () => {
+      const os = createPortalServerOnSocialClient();
+      const core = await profileCoreCache.getOrLoad(accountId, () =>
+        loadPortalProfileCore(os, accountId)
+      );
 
-    if (!parts.social && !parts.signals) {
-      return core;
-    }
+      if (!parts.social && !parts.signals) {
+        return core;
+      }
 
-    const [social, signals] = await Promise.all([
-      parts.social
-        ? loadPortalProfileSocial(os, accountId, viewerAccountId)
-        : Promise.resolve(undefined),
-      parts.signals
-        ? loadPortalProfileSignals(accountId)
-        : Promise.resolve(undefined),
-    ]);
+      const [social, signals] = await Promise.all([
+        parts.social
+          ? loadPortalProfileSocial(os, accountId, viewerAccountId)
+          : Promise.resolve(undefined),
+        parts.signals
+          ? loadPortalProfileSignals(accountId)
+          : Promise.resolve(undefined),
+      ]);
 
-    return {
-      ...core,
-      ...(social ? { social } : {}),
-      ...(signals ? { signals } : {}),
-    };
-  });
+      return {
+        ...core,
+        ...(social ? { social } : {}),
+        ...(signals ? { signals } : {}),
+      };
+    },
+    options
+  );
 }
 
 export async function GET(request: NextRequest) {
   const accountId = getAccountId(request);
   const viewerAccountId = getViewerAccountId(request);
   const parts = getBundleParts(request);
+  const fresh = wantsFreshRead(request);
   if (!accountId) {
     return NextResponse.json(
       { error: 'A valid accountId query parameter is required' },
@@ -117,7 +128,14 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const response = await loadProfileBundle(accountId, viewerAccountId, parts);
+    const response = await loadProfileBundle(
+      accountId,
+      viewerAccountId,
+      parts,
+      {
+        skipCache: fresh,
+      }
+    );
 
     return NextResponse.json(response, {
       headers: cacheHeaders(parts.social || parts.signals ? 30 : 45),

@@ -59,6 +59,8 @@ import {
   buildAttestationSetData,
   buildAttestationRemoveData,
   resolvePostMedia,
+  resolveEndorsementBuildInput,
+  isMediaRef,
   isFileLike,
   type SocialSetData,
   type SaveBuildInput,
@@ -470,8 +472,22 @@ export class SocialModule {
     input?: EndorsementBuildInput,
     opts?: { wait?: boolean }
   ): Promise<RelayResponse> {
+    const existing = await this.getEndorsement(targetAccount, {
+      topic: input?.topic,
+    });
+    const resolved = await resolveEndorsementBuildInput(
+      input ?? {},
+      this._storage,
+      {
+        existingId:
+          input?.id ??
+          (typeof existing?.id === 'string' ? existing.id : undefined),
+        isEdit: Boolean(input?.id || existing),
+        preserveMedia: isMediaRef(existing?.media) ? existing.media : undefined,
+      }
+    );
     const [path, value] = getSingleEntry(
-      buildEndorsementSetData(targetAccount, input)
+      buildEndorsementSetData(targetAccount, resolved)
     );
     return this._composeSet(
       {

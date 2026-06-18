@@ -482,6 +482,60 @@ describe('governance policy vote threshold builders', () => {
     });
   });
 
+  it('builds support endorsement routing contract config FunctionCall payload', () => {
+    const payload = buildDaoContractConfigProposalPayload({
+      operationId: 'social_spend_support_endorsement_routing',
+      contractLabel: 'Social spend',
+      routing: {
+        label: 'Support Endorsement',
+        active: true,
+        min_amount: '10000000000000000',
+        target_types: ['endorsement'],
+        treasury_bps: 500,
+        season_pool_bps: 0,
+        target_bps: 9500,
+        burn_bps: 0,
+        season_required: false,
+        allow_self_target: false,
+      },
+    });
+
+    expect(payload.proposal.description).toBe(
+      'Configure Social spend support endorsement routing (5% boost credits · 95% target).'
+    );
+
+    const functionCall = (
+      payload.proposal.kind as {
+        FunctionCall: {
+          receiver_id: string;
+          actions: Array<{
+            method_name: string;
+            args: string;
+            deposit: string;
+            gas: number;
+          }>;
+        };
+      }
+    ).FunctionCall;
+
+    expect(functionCall.receiver_id).toBe('social-spend.onsocial.testnet');
+    expect(JSON.parse(atob(functionCall.actions[0].args))).toEqual({
+      action_id: 'support_endorsement',
+      config: {
+        label: 'Support Endorsement',
+        active: true,
+        min_amount: '10000000000000000',
+        target_types: ['endorsement'],
+        treasury_bps: 500,
+        season_pool_bps: 0,
+        target_bps: 9500,
+        burn_bps: 0,
+        season_required: false,
+        allow_self_target: false,
+      },
+    });
+  });
+
   it('builds rally season window contract config FunctionCall payload', () => {
     const startsMs = Date.now() + 7 * 24 * 60 * 60 * 1000;
     const startsAtLocal = new Date(startsMs);

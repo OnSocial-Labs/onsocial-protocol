@@ -208,6 +208,71 @@ export async function viewAccount(
   return res.result ?? null;
 }
 
+export async function viewAccountAccessKeys(
+  accountId: string
+): Promise<Array<{ public_key: string }>> {
+  const rpc = getRpc();
+  const res = await rpc.call<{ keys?: Array<{ public_key: string }> }>(
+    'query',
+    {
+      request_type: 'view_access_key_list',
+      finality: 'final',
+      account_id: accountId,
+    }
+  );
+  return res.result?.keys ?? [];
+}
+
+type ViewAccessKeyPermission =
+  | {
+      FunctionCall: {
+        receiver_id: string;
+        method_names: string[];
+        allowance?: string | null;
+      };
+    }
+  | 'FullAccess';
+
+/** Read on-chain function-call key limits for session metadata. */
+export async function viewFunctionCallAccessKey(
+  accountId: string,
+  publicKey: string
+): Promise<{
+  receiverId: string;
+  methodNames: string[];
+  allowanceYocto: string | null;
+} | null> {
+  const rpc = getRpc();
+  const res = await rpc.call<{
+    permission?: ViewAccessKeyPermission;
+  }>('query', {
+    request_type: 'view_access_key',
+    finality: 'final',
+    account_id: accountId,
+    public_key: publicKey,
+  });
+
+  const permission = res.result?.permission;
+  if (!permission || permission === 'FullAccess') {
+    return null;
+  }
+
+  const functionCall = permission.FunctionCall;
+  if (!functionCall?.receiver_id) {
+    return null;
+  }
+
+  const allowance = functionCall.allowance;
+  return {
+    receiverId: functionCall.receiver_id,
+    methodNames: functionCall.method_names ?? [],
+    allowanceYocto:
+      allowance === undefined || allowance === null || allowance === ''
+        ? null
+        : String(allowance),
+  };
+}
+
 export type PublishedGlobalContractLookup =
   | { status: 'published'; codeHash: string }
   | { status: 'missing' }

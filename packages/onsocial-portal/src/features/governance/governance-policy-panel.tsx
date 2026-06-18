@@ -78,6 +78,11 @@ import type { GovernanceDaoPolicy } from '@/features/governance/types';
 import { buildGovernanceProposalPath } from '@/features/governance/page-utils';
 import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
 import {
+  txToastGovError,
+  txToastGovPending,
+  txToastGovSuccess,
+} from '@/lib/transaction-toast-copy';
+import {
   ACTIVE_NEAR_EXPLORER_URL,
   GOVERNANCE_DAO_ACCOUNT,
 } from '@/lib/portal-config';
@@ -1025,9 +1030,9 @@ export function GovernancePolicyPanel({
 
       const confirmed = await trackTransaction({
         txHashes: [txHash],
-        submittedMessage: 'Submitting policy proposal…',
-        successMessage: 'Policy proposal submitted.',
-        failureMessage: 'Policy proposal submission failed.',
+        submittedMessage: txToastGovPending.submittingPolicyProposal,
+        successMessage: txToastGovSuccess.policyProposalSubmitted,
+        failureMessage: txToastGovError.policyProposalSubmissionFailed,
       });
 
       if (!confirmed) {

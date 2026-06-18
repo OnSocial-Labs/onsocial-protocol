@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   ProfileListLoadMoreFooter,
   ProfileListSkeletonRows,
@@ -12,6 +13,7 @@ import {
   ProfileListFilterRail,
 } from '@/features/profile/profile-list-filter-rail';
 import { StandingList } from '@/features/profile/standing-list';
+import { useProfile } from '@/contexts/profile-context';
 import {
   normalizeProfileSearchQuery,
   PROFILE_SEARCH_MIN_QUERY_LENGTH,
@@ -29,6 +31,7 @@ import {
   syncPortalStandUrl,
   type PortalStandKind,
 } from '@/lib/portal-config';
+import { fadeMotion } from '@/lib/motion';
 
 function accountLabel(account: StandingAccountSummary): string {
   return account.name?.trim() || cleanHandle(account.accountId);
@@ -76,6 +79,14 @@ export function StandPagePanel({
     mutual: number;
   }) => void;
 }) {
+  const {
+    standingSyncVersion,
+    isStandingPendingForTarget,
+    deriveStandingListAccounts,
+    reconcileStandingListFromFetch,
+    shouldFreshFetchStandingListFor,
+  } = useProfile();
+  const reduceMotion = useReducedMotion();
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
   const latestLoadRef = useRef(0);
   const [query, setQuery] = useState(initialQuery);
@@ -105,13 +116,64 @@ export function StandPagePanel({
       q: serverSearchActive ? normalizedQuery : null,
     });
   }, [accountId, kind, normalizedQuery, serverSearchActive, syncUrl]);
+
+  const { accounts: displayAccounts, totalAdjustment: listTotalAdjustment } =
+    useMemo(
+      () =>
+        deriveStandingListAccounts(accounts, kind, accountId, viewerAccountId),
+      [
+        accountId,
+        accounts,
+        deriveStandingListAccounts,
+        kind,
+        standingSyncVersion,
+        viewerAccountId,
+      ]
+    );
+
   const totalCount = serverSearchActive
     ? listTotal
-    : kind === 'incoming'
-      ? counts.incoming
-      : kind === 'outgoing'
-        ? counts.outgoing
-        : counts.mutual;
+    : Math.max(
+        0,
+        (kind === 'incoming'
+          ? counts.incoming
+          : kind === 'outgoing'
+            ? counts.outgoing
+            : counts.mutual) + listTotalAdjustment
+      );
+
+  const mergedPendingStandingIds = useMemo(() => {
+    const merged = new Set(pendingStandingIds);
+    for (const account of displayAccounts) {
+      if (isStandingPendingForTarget(account.accountId)) {
+        merged.add(account.accountId);
+      }
+    }
+    return merged;
+  }, [
+    displayAccounts,
+    isStandingPendingForTarget,
+    pendingStandingIds,
+    standingSyncVersion,
+  ]);
+
+  const filteredAccounts = useMemo(() => {
+    if (serverSearchActive) return displayAccounts;
+
+    const normalizedQuery = query.trim().toLowerCase();
+    if (!normalizedQuery) return displayAccounts;
+
+    return displayAccounts.filter((account) => {
+      const label = accountLabel(account).toLowerCase();
+      const accountIdLabel = account.accountId.toLowerCase();
+      const bio = account.bio?.toLowerCase() ?? '';
+      return (
+        label.includes(normalizedQuery) ||
+        accountIdLabel.includes(normalizedQuery) ||
+        bio.includes(normalizedQuery)
+      );
+    });
+  }, [displayAccounts, query, serverSearchActive]);
 
   useEffect(() => {
     const loadId = latestLoadRef.current + 1;
@@ -133,6 +195,7 @@ export function StandPagePanel({
         )
           .then((response) => {
             if (latestLoadRef.current !== loadId) return;
+            reconcileStandingListFromFetch(response.accounts);
             setAccounts(response.accounts);
             setHasMore(response.hasMore);
             setListTotal(response.total);
@@ -163,6 +226,57 @@ export function StandPagePanel({
     viewerAccountId,
   ]);
 
+  useEffect(() => {
+    if (
+      !shouldFreshFetchStandingListFor(accountId, viewerAccountId, kind) ||
+      serverSearchActive
+    ) {
+      return;
+    }
+
+    const timers = [2_000, 5_000].map((delay) =>
+      window.setTimeout(() => {
+        const loadId = latestLoadRef.current + 1;
+        latestLoadRef.current = loadId;
+
+        void fetchProfileSocialStandings(
+          accountId,
+          viewerAccountId,
+          kind,
+          0,
+          searchQueryForFetch
+        )
+          .then((response) => {
+            if (latestLoadRef.current !== loadId) return;
+            reconcileStandingListFromFetch(response.accounts);
+            setAccounts(response.accounts);
+            setHasMore(response.hasMore);
+            setListTotal(response.total);
+            if (response.counts) {
+              onCountsLoaded?.(response.counts);
+            }
+          })
+          .catch(() => {
+            // Keep ledger-derived rows if background revalidation is slow.
+          });
+      }, delay)
+    );
+
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, [
+    accountId,
+    kind,
+    onCountsLoaded,
+    reconcileStandingListFromFetch,
+    searchQueryForFetch,
+    serverSearchActive,
+    shouldFreshFetchStandingListFor,
+    standingSyncVersion,
+    viewerAccountId,
+  ]);
+
   const loadMore = useCallback(async () => {
     if (isLoading || isLoadingMore || !hasMore) return;
 
@@ -180,6 +294,7 @@ export function StandPagePanel({
         searchQueryForFetch
       );
       if (latestLoadRef.current !== loadId) return;
+      reconcileStandingListFromFetch(response.accounts);
       setAccounts((current) =>
         mergeStandingAccounts(current, response.accounts)
       );
@@ -222,31 +337,13 @@ export function StandPagePanel({
     return () => observer.disconnect();
   }, [accounts.length, hasMore, isLoading, isLoadingMore, loadMore]);
 
-  const filteredAccounts = useMemo(() => {
-    if (serverSearchActive) return accounts;
-
-    const normalizedQuery = query.trim().toLowerCase();
-    if (!normalizedQuery) return accounts;
-
-    return accounts.filter((account) => {
-      const label = accountLabel(account).toLowerCase();
-      const accountIdLabel = account.accountId.toLowerCase();
-      const bio = account.bio?.toLowerCase() ?? '';
-      return (
-        label.includes(normalizedQuery) ||
-        accountIdLabel.includes(normalizedQuery) ||
-        bio.includes(normalizedQuery)
-      );
-    });
-  }, [accounts, query, serverSearchActive]);
-
   const resultsSummary = useMemo(() => {
     if (filteredAccounts.length === 0 && isLoading) return null;
 
     const shown = formatProfileCount(
       serverSearchActive || query.trim()
         ? filteredAccounts.length
-        : accounts.length
+        : displayAccounts.length
     );
     if (serverSearchActive) {
       if (totalCount > 0) {
@@ -268,7 +365,7 @@ export function StandPagePanel({
     }
     return `Showing ${shown}`;
   }, [
-    accounts.length,
+    displayAccounts.length,
     filteredAccounts.length,
     hasMore,
     isLoading,
@@ -322,77 +419,71 @@ export function StandPagePanel({
         </p>
       ) : null}
 
-      {showListSkeleton ? (
-        <ProfileListSkeletonRows variant="profile" count={6} />
-      ) : (
-        <>
-          <StandingList
-            layout="page"
-            accounts={filteredAccounts}
-            hasSocialSession={hasSocialSession}
-            emptyLabel={query.trim() ? 'No matching profiles.' : emptyLabel}
-            emptyCta={
-              !query.trim() && kind === 'outgoing' ? (
-                <Link
-                  href={getPortalDiscoverUrl()}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--portal-blue)] transition-colors hover:text-[var(--portal-blue-hover)]"
-                >
-                  Find someone to stand with
-                </Link>
-              ) : undefined
-            }
-            onSelectAccount={onSelectAccount}
-            viewerAccountId={viewerAccountId}
-            pendingStandingIds={pendingStandingIds}
-            onUpdateStanding={async (account, shouldStand) => {
-              if (
-                !onUpdateAccountStanding ||
-                pendingStandingIds.has(account.accountId)
-              ) {
-                return;
+      <AnimatePresence initial={false} mode="wait">
+        {showListSkeleton ? (
+          <motion.div
+            key="stand-list-loading"
+            {...fadeMotion(reduceMotion ? 0 : 0.12)}
+          >
+            <ProfileListSkeletonRows variant="profile" count={6} />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="stand-list-loaded"
+            {...fadeMotion(reduceMotion ? 0 : 0.14)}
+          >
+            <StandingList
+              layout="page"
+              accounts={filteredAccounts}
+              hasSocialSession={hasSocialSession}
+              emptyLabel={query.trim() ? 'No matching profiles.' : emptyLabel}
+              emptyCta={
+                !query.trim() && kind === 'outgoing' ? (
+                  <Link
+                    href={getPortalDiscoverUrl()}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--portal-blue)] transition-colors hover:text-[var(--portal-blue-hover)]"
+                  >
+                    Find someone to stand with
+                  </Link>
+                ) : undefined
               }
-              setPendingStandingIds((prev) =>
-                new Set(prev).add(account.accountId)
-              );
-              try {
-                await onUpdateAccountStanding(account, shouldStand);
-                setAccounts((current) =>
-                  current.map((item) =>
-                    item.accountId === account.accountId
-                      ? {
-                          ...item,
-                          viewerStanding: shouldStand,
-                          standingSince: shouldStand
-                            ? (item.standingSince ?? Date.now())
-                            : null,
-                          standingBlockTimestamp: shouldStand
-                            ? (item.standingBlockTimestamp ?? Date.now())
-                            : null,
-                        }
-                      : item
-                  )
+              onSelectAccount={onSelectAccount}
+              viewerAccountId={viewerAccountId}
+              pendingStandingIds={mergedPendingStandingIds}
+              onUpdateStanding={async (account, shouldStand) => {
+                if (
+                  !onUpdateAccountStanding ||
+                  mergedPendingStandingIds.has(account.accountId)
+                ) {
+                  return;
+                }
+                setPendingStandingIds((prev) =>
+                  new Set(prev).add(account.accountId)
                 );
-              } catch {
-                // Parent surfaces transaction errors.
-              } finally {
-                setPendingStandingIds((prev) => {
-                  const next = new Set(prev);
-                  next.delete(account.accountId);
-                  return next;
-                });
-              }
-            }}
-          />
-          {!query.trim() && filteredAccounts.length > 0 ? (
-            <ProfileListLoadMoreFooter
-              loadMoreSentinelRef={loadMoreSentinelRef}
-              resultsSummary={resultsSummary}
-              isLoadingMore={isLoadingMore}
-              skeletonVariant="profile"
+                try {
+                  await onUpdateAccountStanding(account, shouldStand);
+                } catch {
+                  // Parent surfaces transaction errors.
+                } finally {
+                  setPendingStandingIds((prev) => {
+                    const next = new Set(prev);
+                    next.delete(account.accountId);
+                    return next;
+                  });
+                }
+              }}
             />
-          ) : null}
-        </>
-      )}
+            {!query.trim() && filteredAccounts.length > 0 ? (
+              <ProfileListLoadMoreFooter
+                loadMoreSentinelRef={loadMoreSentinelRef}
+                resultsSummary={resultsSummary}
+                isLoadingMore={isLoadingMore}
+                skeletonVariant="profile"
+              />
+            ) : null}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

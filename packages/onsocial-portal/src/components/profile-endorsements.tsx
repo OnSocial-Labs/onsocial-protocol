@@ -5,11 +5,9 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
-import {
-  EndorsementRecord,
-  endorsementListRowClass,
-} from '@/components/ui/endorsement-flow';
+import { EndorsementListCardRow } from '@/components/ui/endorsement-flow';
 import { portalCompactActionPillClass } from '@/components/ui/profile-action-pill';
+import { profileListContainerClass } from '@/features/profile/profile-list-row';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getPortalEndorsementsUrl } from '@/lib/portal-config';
@@ -18,15 +16,20 @@ import {
   useProfileGraphRoutePrefetch,
 } from '@/lib/profile-graph-link';
 import { EndorseModal } from './endorse-modal';
+import { EndorsementSupportFooter } from '@/components/endorsement-support-footer';
 import {
-  cleanHandle,
+  buildEndorsementListItemAfterWrite,
   endorsementTimestamp,
   formatEndorsementTime,
   humanizeEndorsementTopic,
   mergeEndorsementsAfterUpsert,
   normalizeEndorsementTopic,
+  resolveEndorsementPartyDisplayName,
   type EndorsementSubmitInput,
+  type EndorsementWriteResult,
 } from '@/lib/endorsements';
+import { parseEndorsementMediaRef } from '@/lib/endorsement-media';
+import type { EndorsementSupportSubmitInput } from '@/lib/social-spend-endorsement';
 import type { EndorsementListItem } from '@onsocial/sdk';
 
 type EndorsementItem = EndorsementListItem & {
@@ -34,6 +37,7 @@ type EndorsementItem = EndorsementListItem & {
   issuerAvatarUrl?: string | null;
   targetName?: string | null;
   targetAvatarUrl?: string | null;
+  mediaUrl?: string | null;
 };
 
 function formatCount(count: number): string {
@@ -54,8 +58,11 @@ interface ProfileEndorsementsProps {
   onEndorse?: (
     target: string,
     input: EndorsementSubmitInput
-  ) => Promise<unknown>;
+  ) => Promise<EndorsementWriteResult>;
   onRemoveEndorsement?: (target: string, topic?: string) => Promise<unknown>;
+  onSupportEndorsement?: (
+    input: EndorsementSupportSubmitInput
+  ) => Promise<string[]>;
   pageLayout?: boolean;
   onSelectAccount?: (accountId: string) => void;
   onEndorsementCountChange?: (count: number) => void;
@@ -76,6 +83,7 @@ export function ProfileEndorsements({
   hasSocialSession = false,
   onEndorse,
   onRemoveEndorsement,
+  onSupportEndorsement,
   pageLayout = false,
   onSelectAccount,
   onEndorsementCountChange,
@@ -115,7 +123,7 @@ export function ProfileEndorsements({
     viewerAccountId && accountId && !isSelf && onEndorse
   );
   const canAddNew = canEndorse && !atCap;
-  const endorseActionLabel = hasSocialSession ? 'Endorse' : 'Authorize';
+  const endorseActionLabel = 'Endorse';
 
   const loadEndorsements = useCallback(async () => {
     if (!accountId) return;
@@ -174,22 +182,22 @@ export function ProfileEndorsements({
       throw new Error('Endorsement writes are not available here.');
 
     setIsSaving(true);
+    let mediaPreviewUrl: string | null = null;
     try {
       const { previousTopic, ...buildInput } = input;
-      await onEndorse(accountId, input);
-      const optimistic: EndorsementItem = {
-        issuer: viewerAccountId,
-        target: accountId,
-        v: 1,
-        since: Date.now(),
-        topic: buildInput.topic,
-        note: buildInput.note,
-        expiresAt: buildInput.expiresAt,
-        blockHeight: 0,
-        blockTimestamp: Date.now(),
-        issuerAvatarUrl: selfAvatarUrl,
-        targetAvatarUrl,
-      };
+      if (typeof File !== 'undefined' && buildInput.media instanceof File) {
+        mediaPreviewUrl = URL.createObjectURL(buildInput.media);
+      }
+      const writeResult = await onEndorse(accountId, input);
+      const optimistic = buildEndorsementListItemAfterWrite(
+        writeResult.record,
+        viewerAccountId,
+        accountId,
+        buildInput,
+        editingEndorsement,
+        { issuerAvatarUrl: selfAvatarUrl, targetAvatarUrl },
+        { previewUrl: mediaPreviewUrl }
+      );
       setMyEndorsements((prev) =>
         mergeEndorsementsAfterUpsert(prev, {
           issuer: viewerAccountId,
@@ -215,8 +223,11 @@ export function ProfileEndorsements({
         })
       );
       setEditingEndorsement(null);
-      window.setTimeout(() => void loadEndorsements(), 2500);
+      await loadEndorsements();
     } finally {
+      if (mediaPreviewUrl) {
+        URL.revokeObjectURL(mediaPreviewUrl);
+      }
       setIsSaving(false);
     }
   };
@@ -351,11 +362,7 @@ export function ProfileEndorsements({
                       setEditingEndorsement(null);
                       setEndorseModalOpen(true);
                     }}
-                    aria-label={
-                      hasSocialSession
-                        ? `Endorse ${targetDisplayName}`
-                        : `Authorize and endorse ${targetDisplayName}`
-                    }
+                    aria-label={`Endorse ${targetDisplayName}`}
                   >
                     {endorseActionLabel}
                   </Button>
@@ -389,66 +396,56 @@ export function ProfileEndorsements({
             ))}
           </div>
         ) : visibleEndorsements.length > 0 ? (
-          <div className="mt-3 space-y-3">
+          <div className={cn('mt-3', profileListContainerClass)}>
             {visibleEndorsements.map((e, index) => {
-              const secondaryText = e.note?.trim();
               const timeLabel = formatEndorsementTime(endorsementTimestamp(e));
               const timeDescription = timeLabel
                 ? `Endorsement ${timeLabel}`
                 : undefined;
-
-              const issuerAvatarUrl =
-                e.issuerAvatarUrl ??
-                (e.issuer === viewerAccountId ? selfAvatarUrl : null);
-              const endorsementTargetAvatarUrl =
-                e.targetAvatarUrl ??
-                (e.target === accountId ? targetAvatarUrl : null);
+              const recipientDisplayName = resolveEndorsementPartyDisplayName(
+                e.target,
+                e.targetName,
+                accountId ?? '',
+                targetDisplayName
+              );
 
               return (
-                <div
+                <EndorsementListCardRow
                   key={`${e.issuer}:${e.topic ?? ''}:${e.blockHeight}:${index}`}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => openEndorsementDetails(e)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      openEndorsementDetails(e);
-                    }
+                  record={e}
+                  partyContext={{
+                    pageAccountId: accountId ?? '',
+                    pageDisplayName: targetDisplayName,
+                    pageAvatarUrl: targetAvatarUrl,
+                    viewerAccountId,
+                    viewerAvatarUrl: selfAvatarUrl,
                   }}
-                  aria-label={`Endorsement from ${cleanHandle(e.issuer)} to ${cleanHandle(e.target)}`}
-                  className={endorsementListRowClass}
-                >
-                  <EndorsementRecord
-                    issuer={e.issuer}
-                    target={e.target}
-                    issuerName={e.issuerName}
-                    targetName={
-                      e.targetName ??
-                      (e.target === accountId ? targetDisplayName : null)
-                    }
-                    issuerAvatarUrl={issuerAvatarUrl}
-                    targetAvatarUrl={endorsementTargetAvatarUrl}
-                    viewerAccountId={viewerAccountId}
-                    topic={e.topic}
-                    note={secondaryText}
-                    noteClamp={2}
-                    pageLayout={pageLayout}
-                    onSelectAccount={pageLayout ? undefined : onSelectAccount}
-                    timeLabel={
-                      timeLabel ? (
-                        <PortalHoverTooltip
-                          className="text-right portal-type-caption tabular-nums text-muted-foreground/40"
-                          aria-label={timeDescription}
-                          stopPropagation
-                          tooltip={timeDescription}
-                        >
-                          {timeLabel}
-                        </PortalHoverTooltip>
-                      ) : undefined
-                    }
-                  />
-                </div>
+                  viewerAccountId={viewerAccountId}
+                  pageLayout={pageLayout}
+                  onSelectAccount={onSelectAccount}
+                  onRowClick={() => openEndorsementDetails(e)}
+                  footerTrailing={
+                    <EndorsementSupportFooter
+                      record={e}
+                      pageAccountId={accountId ?? ''}
+                      recipientDisplayName={recipientDisplayName}
+                      viewerAccountId={viewerAccountId}
+                      onSupport={onSupportEndorsement}
+                    />
+                  }
+                  timeLabel={
+                    timeLabel ? (
+                      <PortalHoverTooltip
+                        className="text-right portal-type-caption tabular-nums text-muted-foreground/40"
+                        aria-label={timeDescription}
+                        stopPropagation
+                        tooltip={timeDescription}
+                      >
+                        {timeLabel}
+                      </PortalHoverTooltip>
+                    ) : undefined
+                  }
+                />
               );
             })}
           </div>
@@ -492,11 +489,18 @@ export function ProfileEndorsements({
         targetDisplayName={targetDisplayName}
         targetAvatarUrl={targetAvatarUrl}
         issuerAccountId={viewerAccountId}
+        issuerAvatarUrl={selfAvatarUrl ?? null}
         existing={
           editingEndorsement
             ? {
                 topic: editingEndorsement.topic,
                 note: editingEndorsement.note,
+                id:
+                  typeof editingEndorsement.id === 'string'
+                    ? editingEndorsement.id
+                    : undefined,
+                media: parseEndorsementMediaRef(editingEndorsement.media),
+                mediaUrl: editingEndorsement.mediaUrl ?? null,
               }
             : null
         }

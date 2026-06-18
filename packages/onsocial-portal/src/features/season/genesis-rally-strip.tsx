@@ -12,6 +12,7 @@ import {
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
 import { useWallet } from '@/contexts/wallet-context';
+import { useSeasonParticipation } from '@/contexts/season-participation-context';
 
 const SocialSwapModal = dynamic(
   () =>
@@ -47,6 +48,11 @@ import {
 } from '@/lib/join-rally-routing';
 import { PORTAL_SWAP_ENABLED } from '@/lib/portal-swap-config';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/portal-config';
+import {
+  txToastError,
+  txToastPending,
+  txToastSuccess,
+} from '@/lib/transaction-toast-copy';
 import { SeasonZeroMetricsRail } from '@/features/season/season-zero-metrics-rail';
 import {
   StandingRow,
@@ -189,14 +195,33 @@ export function GenesisRallyStrip({
     registry?.live?.seasonId ??
     getActiveSeasonId();
   const reduceMotion = useReducedMotion();
-  const { accountId, connect, getSigningWallet, isConnected } = useWallet();
+  const {
+    accountId,
+    connect,
+    getSigningWallet,
+    isConnected,
+    isLoading: walletLoading,
+  } = useWallet();
   const { txResult, setTxResult, clearTxResult, trackTransaction } =
     useNearTransactionFeedback(accountId);
+  const {
+    beginSeasonJoin,
+    confirmSeasonJoin,
+    endSeasonJoin,
+    isSeasonJoinPending,
+    resolveSeasonJoinedFor,
+    reconcileSeasonJoinFromApi,
+    participateSyncVersion,
+  } = useSeasonParticipation();
   const [loading, setLoading] = useState(true);
-  const [joined, setJoined] = useState(false);
+  const [apiJoined, setApiJoined] = useState(false);
+  const joined = useMemo(
+    () => resolveSeasonJoinedFor(seasonId, apiJoined),
+    [apiJoined, resolveSeasonJoinedFor, seasonId, participateSyncVersion]
+  );
+  const joinPending = isSeasonJoinPending(seasonId);
   const [fetchedMyStanding, setFetchedMyStanding] =
     useState<SeasonZeroStanding | null>(null);
-  const [joinPending, setJoinPending] = useState(false);
   const [swapOpen, setSwapOpen] = useState(false);
   const [balanceRefreshKey, setBalanceRefreshKey] = useState(0);
   const [promoOnChainConfig, setPromoOnChainConfig] =
@@ -256,7 +281,7 @@ export function GenesisRallyStrip({
 
   const refresh = useCallback(async () => {
     if (myStandingProp) {
-      setJoined(true);
+      setApiJoined(true);
       setLoading(false);
       return;
     }
@@ -264,7 +289,7 @@ export function GenesisRallyStrip({
     setLoading(true);
     try {
       if (!accountId) {
-        setJoined(false);
+        setApiJoined(false);
         setFetchedMyStanding(null);
         return;
       }
@@ -285,7 +310,8 @@ export function GenesisRallyStrip({
 
       const standing = meData?.standing ?? null;
       const isJoined = Boolean(standing);
-      setJoined(isJoined);
+      setApiJoined(isJoined);
+      reconcileSeasonJoinFromApi(seasonId, isJoined);
       setFetchedMyStanding(
         isJoined && standing
           ? {
@@ -297,16 +323,16 @@ export function GenesisRallyStrip({
           : null
       );
     } catch {
-      setJoined(false);
+      setApiJoined(false);
       setFetchedMyStanding(null);
     } finally {
       setLoading(false);
     }
-  }, [accountId, myStandingProp, seasonId]);
+  }, [accountId, myStandingProp, reconcileSeasonJoinFromApi, seasonId]);
 
   useEffect(() => {
     if (myStandingProp) {
-      setJoined(true);
+      setApiJoined(true);
       setLoading(false);
       return;
     }
@@ -316,7 +342,7 @@ export function GenesisRallyStrip({
       return;
     }
 
-    setJoined(false);
+    setApiJoined(false);
     setFetchedMyStanding(null);
     setLoading(true);
     void refresh();
@@ -385,8 +411,10 @@ export function GenesisRallyStrip({
 
   const effectiveRegistryPhase = registryPhase ?? registryEntry?.phase ?? null;
   const awaitingParticipationData =
-    (variant === 'page' && pageDataReady === false) ||
-    (variant === 'promo' && !promoStatusReady);
+    (variant === 'page' && (pageDataReady === false || walletLoading)) ||
+    (variant === 'promo' && (!promoStatusReady || walletLoading));
+  const claimStatusResolved =
+    claimStatusReady && !walletLoading && pageDataReady !== false;
   const statusLoading = loading || awaitingParticipationData;
   const hasEnoughSocial = balanceYocto >= GENESIS_RALLY_JOIN_YOCTO;
   const showInsufficientBalance =
@@ -414,7 +442,7 @@ export function GenesisRallyStrip({
       return;
     }
 
-    setJoinPending(true);
+    beginSeasonJoin(seasonId);
     try {
       const { wallet, accountId: signerId } = await getSigningWallet();
       const payload = os.socialSpend.buildSpendTransaction({
@@ -444,13 +472,17 @@ export function GenesisRallyStrip({
       const txHashes = extractNearTransactionHashes(result);
       const confirmed = await trackTransaction({
         txHashes,
-        submittedMessage: `Joining ${seasonPresentation.pageTitle}…`,
-        successMessage: `You joined ${seasonId}.`,
-        failureMessage: 'Could not join the rally.',
+        submittedMessage: txToastPending.joiningRally(
+          seasonPresentation.pageTitle
+        ),
+        successMessage: txToastSuccess.joinedRally(
+          seasonPresentation.pageTitle
+        ),
+        failureMessage: txToastError.joinRallyFailed,
       });
 
       if (confirmed) {
-        setJoined(true);
+        confirmSeasonJoin(seasonId);
         setBalanceRefreshKey((value) => value + 1);
         window.setTimeout(() => {
           void refresh();
@@ -464,10 +496,13 @@ export function GenesisRallyStrip({
           error instanceof Error ? error.message : 'Could not join the rally.',
       });
     } finally {
-      setJoinPending(false);
+      endSeasonJoin(seasonId);
     }
   }, [
+    beginSeasonJoin,
+    confirmSeasonJoin,
     connect,
+    endSeasonJoin,
     getSigningWallet,
     hasEnoughSocial,
     isConnected,
@@ -634,13 +669,13 @@ export function GenesisRallyStrip({
             accountId,
             myStanding,
             omitStanding: Boolean(joined && myStanding),
-            claimStatusReady,
+            claimStatusReady: claimStatusResolved,
           })
         : null,
     [
       accountId,
       claim,
-      claimStatusReady,
+      claimStatusResolved,
       joined,
       myStanding,
       seasonPhase,
@@ -650,14 +685,13 @@ export function GenesisRallyStrip({
 
   const claimMetricsPending =
     variant === 'page' &&
-    Boolean(accountId) &&
-    !claimStatusReady &&
-    isPostLiveSeasonPhase(seasonPhase);
+    isPostLiveSeasonPhase(seasonPhase) &&
+    !claimStatusResolved;
 
   const showClaimAction =
     variant === 'page' &&
     seasonPhase === 'claim_open' &&
-    Boolean(claim && !claim.claimed && accountId);
+    Boolean(claim && claim.claimed === false && accountId);
 
   const promoPanelClass = cn(
     'group relative overflow-hidden transition-[border-color,box-shadow] duration-200',
@@ -725,6 +759,9 @@ export function GenesisRallyStrip({
     }
 
     if (seasonPhase && seasonPhase !== 'live') {
+      if (walletLoading || (variant === 'page' && pageDataReady === false)) {
+        return 'loading';
+      }
       return !accountId ? 'post-live-connect' : null;
     }
 
@@ -734,8 +771,11 @@ export function GenesisRallyStrip({
     awaitingParticipationData,
     joined,
     myStanding,
+    pageDataReady,
     seasonPhase,
     statusLoading,
+    variant,
+    walletLoading,
   ]);
 
   const hasMetricsRail = Boolean(metricsOnChainConfig);

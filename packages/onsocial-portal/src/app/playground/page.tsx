@@ -31,6 +31,11 @@ import { useWallet } from '@/contexts/wallet-context';
 import { useGatewayAuth } from '@/contexts/gateway-auth-context';
 import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
 import {
+  txToastGovError,
+  txToastGovPending,
+  txToastGovSuccess,
+} from '@/lib/transaction-toast-copy';
+import {
   executeOnPortalNetwork,
   isReadOnlyPlaygroundExample,
   requiresGatewayAuthForPlaygroundExample,
@@ -218,9 +223,13 @@ function PlaygroundContent() {
 
           const confirmed = await trackTransaction({
             txHashes,
-            submittedMessage: `${result.actionLabel} submitted…`,
-            successMessage: `${result.actionLabel} confirmed.`,
-            failureMessage: `${result.actionLabel} failed.`,
+            submittedMessage: txToastGovPending.actionSubmitted(
+              result.actionLabel
+            ),
+            successMessage: txToastGovSuccess.actionConfirmed(
+              result.actionLabel
+            ),
+            failureMessage: txToastGovError.actionFailed(result.actionLabel),
           });
 
           if (!confirmed) {

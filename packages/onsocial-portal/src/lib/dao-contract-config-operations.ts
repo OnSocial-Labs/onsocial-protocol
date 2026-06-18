@@ -11,7 +11,25 @@ export const SOCIAL_SPEND_CONFIG_FUNCTION_CALL_DEPOSIT = '1';
 
 export type DaoContractConfigOperationId =
   | 'social_spend_join_rally_routing'
+  | 'social_spend_support_endorsement_routing'
   | 'social_spend_set_season_config';
+
+/** Minimum spend for default social-spend actions (0.01 SOCIAL, 18 decimals). */
+export const SOCIAL_SPEND_MIN_AMOUNT_YOCTO = '10000000000000000';
+
+export const DEFAULT_SUPPORT_ENDORSEMENT_ROUTING_DRAFT: SocialSpendActionRoutingDraft =
+  {
+    label: 'Support Endorsement',
+    active: true,
+    min_amount: SOCIAL_SPEND_MIN_AMOUNT_YOCTO,
+    target_types: ['endorsement'],
+    treasury_bps: 100,
+    season_pool_bps: 0,
+    target_bps: 9_900,
+    burn_bps: 0,
+    season_required: false,
+    allow_self_target: false,
+  };
 
 export interface SocialSpendActionConfigView {
   label: string;
@@ -112,6 +130,20 @@ export const DAO_CONTRACT_CONFIG_OPERATIONS: readonly DaoContractConfigOperation
       prefetchArgs: { action_id: 'join_rally' },
       form: 'social_spend_action_routing',
       actionId: 'join_rally',
+    },
+    {
+      id: 'social_spend_support_endorsement_routing',
+      contractId: SOCIAL_SPEND_CONTRACT,
+      label: 'Support endorsement routing',
+      description:
+        'Register or update support_endorsement spends (SOCIAL backing a specific endorsement). Recipient claims via target balance; protocol fees route to boost credits.',
+      methodName: 'set_action_config',
+      gas: SOCIAL_SPEND_CONFIG_FUNCTION_CALL_GAS,
+      deposit: SOCIAL_SPEND_CONFIG_FUNCTION_CALL_DEPOSIT,
+      prefetchMethod: 'get_action_config',
+      prefetchArgs: { action_id: 'support_endorsement' },
+      form: 'social_spend_action_routing',
+      actionId: 'support_endorsement',
     },
     {
       id: 'social_spend_set_season_config',
@@ -296,6 +328,65 @@ export function socialSpendActionRoutingChanged(
     baseline.target_bps !== draft.target_bps ||
     baseline.burn_bps !== draft.burn_bps
   );
+}
+
+export function isSocialSpendActionRoutingOperationId(
+  operationId: DaoContractConfigOperationId | ''
+): operationId is
+  | 'social_spend_join_rally_routing'
+  | 'social_spend_support_endorsement_routing' {
+  return (
+    operationId === 'social_spend_join_rally_routing' ||
+    operationId === 'social_spend_support_endorsement_routing'
+  );
+}
+
+export interface SocialSpendActionRoutingOperationConfig {
+  actionId: string;
+  actionLabel: string;
+  defaultDraft: SocialSpendActionRoutingDraft | null;
+}
+
+export function getSocialSpendActionRoutingOperationConfig(
+  operationId: DaoContractConfigOperationId
+): SocialSpendActionRoutingOperationConfig | null {
+  const operation = getDaoContractConfigOperation(operationId);
+  if (
+    !operation ||
+    operation.form !== 'social_spend_action_routing' ||
+    !operation.actionId
+  ) {
+    return null;
+  }
+
+  if (operationId === 'social_spend_support_endorsement_routing') {
+    return {
+      actionId: operation.actionId,
+      actionLabel: 'support endorsement',
+      defaultDraft: DEFAULT_SUPPORT_ENDORSEMENT_ROUTING_DRAFT,
+    };
+  }
+
+  return {
+    actionId: operation.actionId,
+    actionLabel: operation.actionId.replaceAll('_', ' '),
+    defaultDraft: null,
+  };
+}
+
+export function canProposeSocialSpendActionRoutingDraft(
+  baseline: SocialSpendActionRoutingDraft | null,
+  draft: SocialSpendActionRoutingDraft | null
+): boolean {
+  if (!draft || !validateSocialSpendActionRoutingBps(draft)) {
+    return false;
+  }
+
+  if (!baseline) {
+    return true;
+  }
+
+  return socialSpendActionRoutingChanged(baseline, draft);
 }
 
 export function formatSocialSpendActionRoutingSummary(

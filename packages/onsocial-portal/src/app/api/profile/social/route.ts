@@ -27,6 +27,11 @@ function readAccountId(
   return accountId;
 }
 
+function wantsFreshRead(request: NextRequest): boolean {
+  const fresh = request.nextUrl.searchParams.get('fresh')?.trim();
+  return fresh === '1' || fresh === 'true';
+}
+
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === 'string') return error;
@@ -45,12 +50,17 @@ export async function GET(request: NextRequest) {
   }
 
   const cacheKey = `${accountId}|${viewerAccountId ?? ''}`;
+  const fresh = wantsFreshRead(request);
 
   try {
-    const response = await socialCache.getOrLoad(cacheKey, async () => {
-      const os = createPortalServerOnSocialClient();
-      return loadPortalProfileSocial(os, accountId, viewerAccountId);
-    });
+    const response = await socialCache.getOrLoad(
+      cacheKey,
+      async () => {
+        const os = createPortalServerOnSocialClient();
+        return loadPortalProfileSocial(os, accountId, viewerAccountId);
+      },
+      { skipCache: fresh }
+    );
 
     return NextResponse.json(response, {
       headers: {

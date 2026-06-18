@@ -53,6 +53,7 @@ import {
   ACTIVE_NEAR_EXPLORER_URL,
   ACTIVE_NEAR_NETWORK,
 } from '@/lib/portal-config';
+import { txToastPending, txToastSuccess } from '@/lib/transaction-toast-copy';
 import { cn } from '@/lib/utils';
 import type {
   BoostAccountView,
@@ -1094,8 +1095,8 @@ export default function BoostPage() {
     runTx(
       'claim',
       {
-        submitted: 'Collecting…',
-        success: 'Balance collected!',
+        submitted: txToastPending.collectingBoost,
+        success: txToastSuccess.boostCollected,
         failure: 'Collection failed.',
       },
       async (signingWallet, signerId) =>

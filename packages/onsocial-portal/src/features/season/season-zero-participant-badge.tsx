@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSeasonParticipation } from '@/contexts/season-participation-context';
 import {
   ARCHIVED_GENESIS_SEASON_ID,
   getActiveSeasonId,
@@ -30,10 +31,22 @@ function useSeasonProfileBadge(
   accountId: string | null,
   enabled: boolean
 ): SeasonProfileBadge | null {
+  const {
+    hasSeasonJoinConfirmed,
+    participateSyncVersion,
+    reconcileSeasonJoinFromApi,
+  } = useSeasonParticipation();
   const [badge, setBadge] = useState<SeasonProfileBadge | null>(null);
 
   useEffect(() => {
-    if (!enabled || !accountId) return;
+    if (!enabled || !accountId) {
+      setBadge(null);
+      return;
+    }
+
+    if (hasSeasonJoinConfirmed(seasonId)) {
+      setBadge((current) => current ?? { rank: 0, score: 0 });
+    }
 
     let cancelled = false;
 
@@ -46,19 +59,35 @@ function useSeasonProfileBadge(
         if (cancelled) return;
         const standing = data.standing;
         if (standing?.eligible !== false && standing?.rank) {
+          reconcileSeasonJoinFromApi(seasonId, true);
           setBadge({ rank: standing.rank, score: standing.score });
+          return;
+        }
+        if (hasSeasonJoinConfirmed(seasonId)) {
+          setBadge({ rank: 0, score: 0 });
           return;
         }
         setBadge(null);
       })
       .catch(() => {
-        if (!cancelled) setBadge(null);
+        if (!cancelled) {
+          setBadge(
+            hasSeasonJoinConfirmed(seasonId) ? { rank: 0, score: 0 } : null
+          );
+        }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [accountId, enabled, seasonId]);
+  }, [
+    accountId,
+    enabled,
+    hasSeasonJoinConfirmed,
+    participateSyncVersion,
+    reconcileSeasonJoinFromApi,
+    seasonId,
+  ]);
 
   if (!enabled || !accountId) return null;
 

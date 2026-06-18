@@ -70,6 +70,11 @@ import {
   resolveGovernanceDaoBoard,
 } from '@/features/governance/governance-dao-board';
 import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
+import {
+  txToastGovError,
+  txToastGovPending,
+  txToastGovSuccess,
+} from '@/lib/transaction-toast-copy';
 import { useMemberAccountLookup } from '@/hooks/use-member-account-lookup';
 import {
   ACTIVE_NEAR_EXPLORER_URL,
@@ -104,15 +109,18 @@ import {
   PROPOSAL_DESCRIPTION_LIMITS,
 } from '@/lib/bounded-note-field';
 import {
-  SocialSpendJoinRallyRoutingFields,
-  useSocialSpendJoinRallyRoutingDraft,
+  SocialSpendActionRoutingFields,
+  useSocialSpendActionRoutingDraft,
 } from '@/features/governance/governance-contract-config-fields';
 import {
   SocialSpendSeasonConfigFields,
   useSocialSpendSeasonConfigDraft,
 } from '@/features/governance/governance-season-config-fields';
 import {
+  canProposeSocialSpendActionRoutingDraft,
   getDaoContractConfigOperationsForContract,
+  getSocialSpendActionRoutingOperationConfig,
+  isSocialSpendActionRoutingOperationId,
   seasonConfigDraftChanged,
   socialSpendActionRoutingChanged,
   validateSeasonConfigDraft,
@@ -705,20 +713,34 @@ export function GovernanceCreatePanel({
     [contractConfigOperationId, contractConfigOperationOptions]
   );
 
-  const joinRallyRoutingContractId =
-    isContractConfigAction &&
-    contractConfigOperationId === 'social_spend_join_rally_routing'
-      ? (selectedConfigurableContract?.contractId ?? '')
-      : '';
+  const actionRoutingOperationConfig = useMemo(() => {
+    if (
+      !isContractConfigAction ||
+      !isSocialSpendActionRoutingOperationId(contractConfigOperationId)
+    ) {
+      return null;
+    }
+
+    return getSocialSpendActionRoutingOperationConfig(
+      contractConfigOperationId
+    );
+  }, [contractConfigOperationId, isContractConfigAction]);
+
+  const actionRoutingContractId = actionRoutingOperationConfig
+    ? (selectedConfigurableContract?.contractId ?? '')
+    : '';
 
   const {
-    draft: joinRallyRoutingDraft,
-    baseline: joinRallyRoutingBaseline,
-    loading: joinRallyRoutingLoading,
-    loadError: joinRallyRoutingLoadError,
-    setDraft: setJoinRallyRoutingDraft,
-    reload: reloadJoinRallyRouting,
-  } = useSocialSpendJoinRallyRoutingDraft(joinRallyRoutingContractId);
+    draft: actionRoutingDraft,
+    baseline: actionRoutingBaseline,
+    loading: actionRoutingLoading,
+    loadError: actionRoutingLoadError,
+    setDraft: setActionRoutingDraft,
+    reload: reloadActionRouting,
+  } = useSocialSpendActionRoutingDraft(
+    actionRoutingContractId,
+    actionRoutingOperationConfig
+  );
 
   const seasonConfigContractId =
     isContractConfigAction &&
@@ -1064,15 +1086,13 @@ export function GovernanceCreatePanel({
     contractUpgradeHashLookup === 'published';
   const contractConfigReady =
     !!selectedConfigurableContract &&
-    (contractConfigOperationId === 'social_spend_join_rally_routing'
-      ? !!joinRallyRoutingDraft &&
-        validateSocialSpendActionRoutingBps(joinRallyRoutingDraft) &&
-        socialSpendActionRoutingChanged(
-          joinRallyRoutingBaseline,
-          joinRallyRoutingDraft
+    (isSocialSpendActionRoutingOperationId(contractConfigOperationId)
+      ? canProposeSocialSpendActionRoutingDraft(
+          actionRoutingBaseline,
+          actionRoutingDraft
         ) &&
-        !joinRallyRoutingLoading &&
-        !joinRallyRoutingLoadError
+        !actionRoutingLoading &&
+        !actionRoutingLoadError
       : contractConfigOperationId === 'social_spend_set_season_config'
         ? !!seasonConfigDraft &&
           !validateSeasonConfigDraft(seasonConfigDraft) &&
@@ -1240,34 +1260,34 @@ export function GovernanceCreatePanel({
     ) {
       return 'This DAO does not own any configurable protocol contracts right now.';
     }
-    if (isContractConfigAction && joinRallyRoutingLoading) {
+    if (isContractConfigAction && actionRoutingLoading) {
       return 'Loading current contract settings from chain…';
     }
     if (isContractConfigAction && seasonConfigLoading) {
       return 'Loading season config from chain…';
     }
-    if (isContractConfigAction && joinRallyRoutingLoadError) {
-      return joinRallyRoutingLoadError;
+    if (isContractConfigAction && actionRoutingLoadError) {
+      return actionRoutingLoadError;
     }
     if (isContractConfigAction && seasonConfigLoadError) {
       return seasonConfigLoadError;
     }
     if (
       isContractConfigAction &&
-      contractConfigOperationId === 'social_spend_join_rally_routing' &&
-      joinRallyRoutingDraft &&
-      !validateSocialSpendActionRoutingBps(joinRallyRoutingDraft)
+      isSocialSpendActionRoutingOperationId(contractConfigOperationId) &&
+      actionRoutingDraft &&
+      !validateSocialSpendActionRoutingBps(actionRoutingDraft)
     ) {
       return 'Routing shares must sum to 100% (10,000 bps).';
     }
     if (
       isContractConfigAction &&
-      contractConfigOperationId === 'social_spend_join_rally_routing' &&
-      joinRallyRoutingDraft &&
-      joinRallyRoutingBaseline &&
+      isSocialSpendActionRoutingOperationId(contractConfigOperationId) &&
+      actionRoutingDraft &&
+      actionRoutingBaseline &&
       !socialSpendActionRoutingChanged(
-        joinRallyRoutingBaseline,
-        joinRallyRoutingDraft
+        actionRoutingBaseline,
+        actionRoutingDraft
       )
     ) {
       return 'Change at least one routing share before proposing.';
@@ -1380,10 +1400,10 @@ export function GovernanceCreatePanel({
     contractUpgradeCodeHash,
     contractUpgradeCodeHashInput,
     contractUpgradeHashLookup,
-    joinRallyRoutingBaseline,
-    joinRallyRoutingDraft,
-    joinRallyRoutingLoadError,
-    joinRallyRoutingLoading,
+    actionRoutingBaseline,
+    actionRoutingDraft,
+    actionRoutingLoadError,
+    actionRoutingLoading,
     contractConfigOperationId,
     managedContracts.length,
     managedContractsLoading,
@@ -1579,7 +1599,7 @@ export function GovernanceCreatePanel({
                       operationId:
                         contractConfigOperationId as DaoContractConfigOperationId,
                       contractLabel: selectedConfigurableContract?.label,
-                      routing: joinRallyRoutingDraft ?? undefined,
+                      routing: actionRoutingDraft ?? undefined,
                       seasonConfig: seasonConfigDraft ?? undefined,
                       description: normalizedDescription,
                     })
@@ -1627,9 +1647,9 @@ export function GovernanceCreatePanel({
 
       const confirmed = await trackTransaction({
         txHashes: [txHash],
-        submittedMessage: 'Submitting proposal…',
-        successMessage: 'Proposal submitted.',
-        failureMessage: 'Proposal submission failed.',
+        submittedMessage: txToastGovPending.submittingProposal,
+        successMessage: txToastGovSuccess.proposalSubmitted,
+        failureMessage: txToastGovError.proposalSubmissionFailed,
       });
 
       if (!confirmed) {
@@ -1689,7 +1709,7 @@ export function GovernanceCreatePanel({
     contractUpgradeCodeHash,
     selectedUpgradableContract,
     selectedConfigurableContract,
-    joinRallyRoutingDraft,
+    actionRoutingDraft,
     isFundSeasonPoolAction,
     proposalKind,
     proposerAccountId,
@@ -2568,21 +2588,29 @@ export function GovernanceCreatePanel({
                       </p>
                     ) : null}
                   </div>
-                  {contractConfigOperationId ===
-                  'social_spend_join_rally_routing' ? (
-                    <SocialSpendJoinRallyRoutingFields
+                  {isSocialSpendActionRoutingOperationId(
+                    contractConfigOperationId
+                  ) && actionRoutingOperationConfig ? (
+                    <SocialSpendActionRoutingFields
                       contractId={
                         selectedConfigurableContract?.contractId ?? ''
                       }
-                      draft={joinRallyRoutingDraft}
-                      baseline={joinRallyRoutingBaseline}
-                      loading={joinRallyRoutingLoading}
-                      loadError={joinRallyRoutingLoadError}
+                      actionLabel={actionRoutingOperationConfig.actionLabel}
+                      draft={actionRoutingDraft}
+                      baseline={actionRoutingBaseline}
+                      loading={actionRoutingLoading}
+                      loadError={actionRoutingLoadError}
                       onDraftChange={(nextDraft) => {
-                        setJoinRallyRoutingDraft(nextDraft);
+                        setActionRoutingDraft(nextDraft);
                         setError('');
                       }}
-                      onReload={reloadJoinRallyRouting}
+                      onReload={reloadActionRouting}
+                      staticFieldsNote={
+                        contractConfigOperationId ===
+                        'social_spend_join_rally_routing'
+                          ? `Other join rally fields (min amount, season requirement, etc.) stay as configured on ${selectedConfigurableContract?.contractId ?? 'chain'}.`
+                          : `Other support endorsement fields (min amount, target type endorsement, active flag, etc.) use the registration defaults on first propose; only routing shares are editable here afterward.`
+                      }
                     />
                   ) : contractConfigOperationId ===
                     'social_spend_set_season_config' ? (

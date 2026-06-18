@@ -28,13 +28,13 @@ function claimNextStepCopy(
 ): string {
   switch (phase) {
     case 'finalized_pending_publish':
-      return 'Collect opens after publish';
+      return 'Claim opens after publish';
     case 'published_claim_soon':
-      return 'Collect opens soon';
+      return 'Claim opens soon';
     case 'ended_pending_settlement':
       return 'Pending settlement';
     case 'claim_open':
-      return 'Ready to collect';
+      return 'Ready to claim';
   }
 }
 
@@ -73,7 +73,7 @@ export function resolveSeasonZeroClaimStatusCopy(
       };
     case 'published_claim_soon':
       return {
-        statusLabel: 'Collect opening soon',
+        statusLabel: 'Claims opening soon',
         detailLine: omitStanding ? null : rankLine,
       };
     case 'claim_open':
@@ -106,7 +106,7 @@ export function resolveSeasonZeroClaimMetricsStatus({
 }): SeasonZeroClaimMetricsStatus | null {
   if (!isPostLiveSeasonPhase(phase)) return null;
 
-  if (accountId && !claimStatusReady) {
+  if (!claimStatusReady) {
     return null;
   }
 
@@ -114,9 +114,13 @@ export function resolveSeasonZeroClaimMetricsStatus({
     const amount = formatPayoutAmount(claim.amountYocto);
     return {
       statusLabel: 'Collected',
-      detailLine: `${amount} SOCIAL collected`,
+      detailLine: `${amount} SOCIAL received`,
       statusHref: seasonCollectExplorerHref(claim.claimedTxHash),
     };
+  }
+
+  if (claim && claim.claimed == null) {
+    return null;
   }
 
   if (claim && phase !== 'claim_open') {
@@ -130,7 +134,7 @@ export function resolveSeasonZeroClaimMetricsStatus({
     };
   }
 
-  if (phase === 'claim_open' && claim && !claim.claimed) {
+  if (phase === 'claim_open' && claim && claim.claimed === false) {
     return null;
   }
 

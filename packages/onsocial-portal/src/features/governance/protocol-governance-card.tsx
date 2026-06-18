@@ -48,6 +48,11 @@ import type {
   GovernanceDaoPolicy,
 } from '@/features/governance/types';
 import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
+import {
+  txToastGovError,
+  txToastGovPending,
+  txToastGovSuccess,
+} from '@/lib/transaction-toast-copy';
 import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/portal-config';
 import {
   GOVERNANCE_CARD_INTERACTIVE_LAYER_CLASS,
@@ -211,9 +216,13 @@ export function ProtocolGovernanceCard({
 
       const confirmed = await trackTransaction({
         txHashes: [txHash],
-        submittedMessage: `${formatActionLabel(action)} submitted…`,
-        successMessage: `${formatActionLabel(action)} confirmed.`,
-        failureMessage: `${formatActionLabel(action)} failed.`,
+        submittedMessage: txToastGovPending.actionSubmitted(
+          formatActionLabel(action)
+        ),
+        successMessage: txToastGovSuccess.actionConfirmed(
+          formatActionLabel(action)
+        ),
+        failureMessage: txToastGovError.actionFailed(formatActionLabel(action)),
       });
 
       if (!confirmed) {

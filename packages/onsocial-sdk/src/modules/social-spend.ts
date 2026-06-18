@@ -12,7 +12,8 @@ export type SocialSpendDefaultAction =
   | 'boost_post'
   | 'endorse_profile'
   | 'join_rally'
-  | 'support_profile';
+  | 'support_profile'
+  | 'support_endorsement';
 
 export type SocialSpendAction = SocialSpendDefaultAction | (string & {});
 export type SocialSpendAmount = string | bigint;
@@ -279,6 +280,33 @@ export class SocialSpendModule {
         action: 'support_profile',
         targetType: 'profile',
         targetId: accountId,
+        tag: opts.tag,
+        metadata: opts.metadata,
+      },
+      opts
+    );
+  }
+
+  supportEndorsement(
+    input: {
+      endorsementId: string;
+      recipientAccountId: string;
+      amount: SocialSpendAmount;
+    },
+    opts: SocialSpendSendOptions & {
+      appId?: string;
+      tag?: string;
+      metadata?: { issuer?: string; topic?: string; [key: string]: unknown };
+    } = {}
+  ): Promise<RelayResponse> {
+    return this.spend(
+      {
+        amount: input.amount,
+        appId: opts.appId,
+        action: 'support_endorsement',
+        targetType: 'endorsement',
+        targetId: input.endorsementId,
+        recipientId: input.recipientAccountId,
         tag: opts.tag,
         metadata: opts.metadata,
       },

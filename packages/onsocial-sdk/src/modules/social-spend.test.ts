@@ -59,6 +59,27 @@ describe('buildSocialSpendFtTransferCallArgs', () => {
       target_id: 'alice.testnet',
     });
   });
+
+  it('builds support_endorsement spend msg with recipient', () => {
+    const msg = buildSocialSpendMsg({
+      amount: '10000000000000000',
+      action: 'support_endorsement',
+      targetType: 'endorsement',
+      targetId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+      recipientId: 'bob.testnet',
+      metadata: { issuer: 'alice.testnet', topic: 'dev' },
+    });
+
+    expect(msg).toEqual({
+      v: 1,
+      app_id: 'portal',
+      action: 'support_endorsement',
+      target_type: 'endorsement',
+      target_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+      recipient_id: 'bob.testnet',
+      metadata: { issuer: 'alice.testnet', topic: 'dev' },
+    });
+  });
 });
 
 describe('buildSocialSpendTransaction', () => {

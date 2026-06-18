@@ -13,6 +13,37 @@ describe('season-zero-claim-copy', () => {
         claimStatusReady: false,
       })
     ).toBeNull();
+
+    expect(
+      resolveSeasonZeroClaimMetricsStatus({
+        phase: 'claim_open',
+        claim: null,
+        accountId: null,
+        myStanding: null,
+        claimStatusReady: false,
+      })
+    ).toBeNull();
+  });
+
+  it('waits when on-chain claimed status is still unknown', () => {
+    expect(
+      resolveSeasonZeroClaimMetricsStatus({
+        phase: 'claim_open',
+        claim: {
+          seasonId: 'season-two',
+          accountId: 'alice.testnet',
+          root: 'root',
+          amountYocto: '189180000000000000000',
+          proof: [],
+          rank: 2,
+          score: 1200,
+          claimed: null,
+        },
+        accountId: 'alice.testnet',
+        myStanding: null,
+        claimStatusReady: true,
+      })
+    ).toBeNull();
   });
 
   it('uses collected copy with explorer link when claimed', () => {
@@ -36,7 +67,7 @@ describe('season-zero-claim-copy', () => {
       })
     ).toEqual({
       statusLabel: 'Collected',
-      detailLine: '189.18 SOCIAL collected',
+      detailLine: '189.18 SOCIAL received',
       statusHref: 'https://testnet.nearblocks.io/txns/ABC123',
     });
   });

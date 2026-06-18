@@ -108,13 +108,20 @@ export const RELAYER_ACCOUNT =
 export const NEAR_ACCOUNT_SUFFIX =
   ACTIVE_NEAR_NETWORK === 'mainnet' ? 'onsocial.near' : 'onsocial.testnet';
 
-/** Minimum liquid NEAR to sign session bootstrap (AddKey + 100 TGas execute_admin). */
-export const SESSION_BOOTSTRAP_MIN_YOCTO = '12000000000000000000000'; // 0.012 NEAR
+/** near-connect default function-call key gas budget (0.25 NEAR). Cap, not reserved upfront. */
+export const NEAR_FUNCTION_CALL_KEY_DEFAULT_ALLOWANCE_YOCTO =
+  '250000000000000000000000';
+
+/** Minimum liquid NEAR for session AddKey tx fee + headroom (yoctoNEAR). */
+export const SESSION_ADD_KEY_MIN_BALANCE_YOCTO = '13000000000000000000000'; // 0.013 NEAR
+
+/** @deprecated Use SESSION_ADD_KEY_MIN_BALANCE_YOCTO */
+export const SESSION_BOOTSTRAP_MIN_YOCTO = SESSION_ADD_KEY_MIN_BALANCE_YOCTO;
 
 /** Minimum liquid NEAR before requesting a welcome drip (yoctoNEAR). */
 export const WELCOME_NEAR_THRESHOLD_YOCTO =
   process.env.NEXT_PUBLIC_WELCOME_NEAR_THRESHOLD_YOCTO ??
-  SESSION_BOOTSTRAP_MIN_YOCTO;
+  SESSION_ADD_KEY_MIN_BALANCE_YOCTO;
 
 export const WELCOME_NEAR_ENABLED =
   process.env.NEXT_PUBLIC_WELCOME_NEAR_ENABLED !== 'false';
@@ -196,7 +203,7 @@ export function syncPortalStandUrl(
   window.history.replaceState(window.history.state, '', href);
 }
 
-export type PortalEndorsementsMode = 'received' | 'given';
+export type PortalEndorsementsMode = 'received' | 'given' | 'supported';
 
 export interface PortalEndorsementsUrlParams {
   mode?: PortalEndorsementsMode;
@@ -220,6 +227,37 @@ export function getPortalEndorsementsUrl(
   return `/u/${encodeURIComponent(accountId)}/endorsements${
     qs ? `?${qs}` : ''
   }`;
+}
+
+export interface PortalEndorsementSupportersUrlParams {
+  endorsementId: string;
+  issuer?: string | null;
+  target?: string | null;
+  topic?: string | null;
+  q?: string | null;
+}
+
+export function getPortalEndorsementSupportersUrl(
+  accountId: string,
+  params: PortalEndorsementSupportersUrlParams
+): string {
+  const search = new URLSearchParams();
+  search.set('endorsementId', params.endorsementId.trim());
+  if (params.issuer?.trim()) search.set('issuer', params.issuer.trim());
+  if (params.target?.trim()) search.set('target', params.target.trim());
+  if (params.topic?.trim()) search.set('topic', params.topic.trim());
+  if (params.q?.trim()) search.set('q', params.q.trim());
+  return `/u/${encodeURIComponent(accountId)}/endorsements/supporters?${search.toString()}`;
+}
+
+/** Update supporters list address bar without a full navigation. */
+export function syncPortalEndorsementSupportersUrl(
+  accountId: string,
+  params: PortalEndorsementSupportersUrlParams
+): void {
+  if (typeof window === 'undefined') return;
+  const href = getPortalEndorsementSupportersUrl(accountId, params);
+  window.history.replaceState(window.history.state, '', href);
 }
 
 export type PortalNetworkFilter = 'all' | 'mutual' | 'incoming' | 'outgoing';

@@ -23,6 +23,11 @@ import {
 } from '@/features/partners/api';
 import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
 import {
+  txToastGovError,
+  txToastGovPending,
+  txToastGovSuccess,
+} from '@/lib/transaction-toast-copy';
+import {
   getGovernanceEligibility,
   sanitizeSocialAmountInput,
   socialToYocto,
@@ -601,16 +606,16 @@ export function GovernancePositionPanel({
           txHashes: delegationTxHashes,
           submittedMessage:
             delegationTxHashes.length > 1
-              ? 'Depositing and delegating…'
-              : 'Delegating…',
+              ? txToastGovPending.depositingAndDelegating
+              : txToastGovPending.delegating,
           successMessage:
             delegationTxHashes.length > 1
-              ? 'Deposited and delegated.'
-              : 'Delegation confirmed.',
+              ? txToastGovSuccess.depositedAndDelegated
+              : txToastGovSuccess.delegationConfirmed,
           failureMessage:
             delegationTxHashes.length > 1
-              ? 'Deposit or delegation failed.'
-              : 'Delegation failed.',
+              ? txToastGovError.depositOrDelegationFailed
+              : txToastGovError.delegationFailed,
         });
 
         if (!delegationConfirmed) {
@@ -635,9 +640,9 @@ export function GovernancePositionPanel({
 
       const delegationConfirmed = await trackTransaction({
         txHashes: [delegateTxHash],
-        submittedMessage: 'Delegating…',
-        successMessage: 'Delegation confirmed.',
-        failureMessage: 'Delegation failed.',
+        submittedMessage: txToastGovPending.delegating,
+        successMessage: txToastGovSuccess.delegationConfirmed,
+        failureMessage: txToastGovError.delegationFailed,
       });
 
       if (!delegationConfirmed) {
@@ -725,9 +730,9 @@ export function GovernancePositionPanel({
 
       const undelegateConfirmed = await trackTransaction({
         txHashes: [undelegateTxHash],
-        submittedMessage: 'Undelegating…',
-        successMessage: 'Undelegation confirmed.',
-        failureMessage: 'Undelegation failed.',
+        submittedMessage: txToastGovPending.undelegating,
+        successMessage: txToastGovSuccess.undelegationConfirmed,
+        failureMessage: txToastGovError.undelegationFailed,
       });
 
       if (!undelegateConfirmed) {
@@ -811,9 +816,9 @@ export function GovernancePositionPanel({
 
       const withdrawConfirmed = await trackTransaction({
         txHashes: [withdrawTxHash],
-        submittedMessage: 'Withdrawing…',
-        successMessage: 'SOCIAL withdrawn to wallet.',
-        failureMessage: 'Withdrawal failed.',
+        submittedMessage: txToastGovPending.withdrawing,
+        successMessage: txToastGovSuccess.socialWithdrawn,
+        failureMessage: txToastGovError.withdrawalFailed,
       });
 
       if (!withdrawConfirmed) {

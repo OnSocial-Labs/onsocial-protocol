@@ -44,6 +44,12 @@ export {
   normalizeEndorsementTopic,
 } from './endorsement.js';
 export type { EndorsementBuildInput } from './endorsement.js';
+export {
+  createEndorsementId,
+  resolveEndorsementBuildInput,
+  isMediaRef,
+  ENDORSEMENT_ID_PATTERN,
+} from './endorsement-media.js';
 
 export {
   buildAttestationSetData,

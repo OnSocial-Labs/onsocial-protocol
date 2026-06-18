@@ -83,18 +83,20 @@ export function buildEndorsementViewOptions({
   activeMode,
   counts,
   preserveTopic,
+  isSelf = false,
 }: {
   accountId: string;
   activeMode: PortalEndorsementsMode;
-  counts: { received: number; given: number };
+  counts: { received: number; given: number; supported?: number };
   preserveTopic?: string | null;
+  isSelf?: boolean;
 }): ProfileListViewOption[] {
   const topic =
     preserveTopic?.trim() && activeMode === 'received'
       ? preserveTopic.trim()
       : undefined;
 
-  return [
+  const options: ProfileListViewOption[] = [
     {
       id: 'received',
       label: 'Received',
@@ -110,6 +112,18 @@ export function buildEndorsementViewOptions({
       countAccent: 'gold',
     },
   ];
+
+  if (isSelf) {
+    options.push({
+      id: 'supported',
+      label: 'Supported',
+      href: getPortalEndorsementsUrl(accountId, { mode: 'supported' }),
+      count: counts.supported ?? 0,
+      countAccent: 'gold',
+    });
+  }
+
+  return options;
 }
 
 export function ProfileListFilterRailSkeleton({

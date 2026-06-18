@@ -46,7 +46,7 @@ async function hasSufficientWelcomeBalance(
   return accountHasSufficientWelcomeBalance(accountId);
 }
 
-/** True when welcome drip may be needed before session bootstrap gas. */
+/** True when welcome drip may be needed before session key AddKey. */
 export async function accountNeedsWelcomeNearFunding(
   accountId: string
 ): Promise<boolean> {
@@ -80,8 +80,54 @@ export async function assertWalletAccount(
   }
 }
 
+/** Request welcome NEAR only when balance is below the AddKey threshold. */
+export async function requestWelcomeNearIfNeeded(
+  accountId: string
+): Promise<void> {
+  if (!(await accountNeedsWelcomeNearFunding(accountId))) {
+    return;
+  }
+  await requestWelcomeNearForAccount(accountId);
+}
+
 /**
- * Ensure the connected wallet has enough NEAR for session bootstrap gas.
+ * Request a welcome NEAR drip for an account (no wallet connected yet).
+ * Used before reconnect when we already know the account id and will add a key.
+ */
+export async function requestWelcomeNearForAccount(
+  accountId: string
+): Promise<void> {
+  if (!WELCOME_NEAR_ENABLED) {
+    return;
+  }
+
+  if (await accountHasSufficientWelcomeBalance(accountId)) {
+    return;
+  }
+
+  const dripRes = await fetch('/api/onboarding/welcome-near', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    body: JSON.stringify({ account_id: accountId }),
+  });
+  const dripData = (await dripRes.json()) as WelcomeNearResponse;
+
+  if (!dripRes.ok || dripData.success === false) {
+    throw new Error(
+      dripData.error ?? dripData.detail ?? 'Welcome NEAR request failed'
+    );
+  }
+
+  if (dripData.sufficient_balance || !dripData.dripped) {
+    return;
+  }
+
+  await waitForWelcomeBalance(accountId);
+}
+
+/**
+ * Ensure the connected wallet has enough NEAR for session key AddKey tx fee.
  * Requests a one-time welcome drip from the portal backend when balance is low.
  */
 export async function ensureWelcomeNear(
@@ -115,7 +161,7 @@ export async function ensureWelcomeNear(
   if (dripData.sufficient_balance || !dripData.dripped) {
     if (!(await hasSufficientWelcomeBalance(accountId))) {
       throw new Error(
-        'Your wallet needs about 0.012 NEAR to authorize OnSocial. Add a little NEAR or wait a moment and try again.'
+        'Your wallet needs a little NEAR to add your session key. Add about 0.013 NEAR or wait a moment and try again.'
       );
     }
     return;

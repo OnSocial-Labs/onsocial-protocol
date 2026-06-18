@@ -138,6 +138,15 @@ export type {
   BoostCreditPurchaseRow,
 } from './query/index.js';
 export {
+  parseLegacyEndorsementSpendTargetId,
+  aggregateEndorsementSupportRows,
+} from './query/index.js';
+export type {
+  EndorsementSupporterAggregate,
+  EndorsementSupportGivenRow,
+  EndorsementSupportSummaryResult,
+} from './query/index.js';
+export {
   PERMISSION_OPERATIONS,
   GOVERNANCE_OPERATIONS,
   REWARDS_EVENT_TYPES,

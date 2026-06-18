@@ -139,6 +139,7 @@ export type {
 // Session bootstrap — one-call onboarding (gen key + one-time wallet approval + persist).
 export {
   bootstrapSession,
+  persistSessionFromKey,
   restoreSession,
   revokeSession,
   generateEd25519Key,
@@ -160,4 +161,5 @@ export type {
   BootstrapSessionInput,
   RestoreSessionInput,
   RevokeSessionInput,
+  PersistSessionFromKeyInput,
 } from './bootstrap.js';

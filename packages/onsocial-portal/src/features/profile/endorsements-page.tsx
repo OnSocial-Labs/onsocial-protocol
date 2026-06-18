@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { PageShell } from '@/components/layout/page-shell';
 import { EndorsementsPagePanel } from '@/features/profile/endorsements-page-panel';
+import { EndorsementSupportedPanel } from '@/features/profile/endorsement-supported-panel';
 import { useProfile } from '@/contexts/profile-context';
 import { useWallet } from '@/contexts/wallet-context';
 import { useNavBack } from '@/hooks/use-nav-back';
@@ -13,8 +14,12 @@ import {
   profilePageDiscoverColumnClass,
   profilePageMobileGutterClass,
 } from '@/lib/profile-page-layout';
-import { type PortalEndorsementsMode } from '@/lib/portal-config';
+import {
+  getPortalEndorsementsUrl,
+  type PortalEndorsementsMode,
+} from '@/lib/portal-config';
 import { cn } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
 
 function decodeRouteAccountId(raw: string | string[] | undefined): string {
   const value = Array.isArray(raw) ? raw[0] : raw;
@@ -34,7 +39,9 @@ function readSearchParam(
 }
 
 function parseMode(value: string | undefined): PortalEndorsementsMode {
-  return value === 'given' ? 'given' : 'received';
+  if (value === 'given') return 'given';
+  if (value === 'supported') return 'supported';
+  return 'received';
 }
 
 async function fetchProfileMeta(accountId: string): Promise<{
@@ -95,6 +102,7 @@ export default function EndorsementsPage({
 }) {
   const { accountId: viewerAccountId } = useWallet();
   const profileState = useProfile();
+  const router = useRouter();
 
   const accountId = useMemo(
     () => decodeRouteAccountId(accountIdParam),
@@ -137,6 +145,11 @@ export default function EndorsementsPage({
     }),
     'gold'
   );
+
+  useEffect(() => {
+    if (!accountId || mode !== 'supported' || isSelf) return;
+    router.replace(getPortalEndorsementsUrl(accountId, { mode: 'received' }));
+  }, [accountId, isSelf, mode, router]);
 
   useEffect(() => {
     if (!accountId) return;
@@ -186,47 +199,58 @@ export default function EndorsementsPage({
         <div
           className={cn('flex flex-col pb-12', profilePageDiscoverColumnClass)}
         >
-          <EndorsementsPagePanel
-            targetAccountId={accountId}
-            targetDisplayName={displayName}
-            targetAvatarUrl={avatarUrl}
-            mode={mode}
-            isSelf={isSelf}
-            metaLoaded={metaLoaded}
-            viewerAccountId={viewerAccountId}
-            viewerAvatarUrl={profileState.avatarUrl}
-            hasSocialSession={profileState.hasSocialSession}
-            initialTopic={initialTopic}
-            initialFocus={initialFocus}
-            endorsementCounts={endorsementCounts}
-            canEndorse={canEndorseBase}
-            isSavingEndorsement={isSaving}
-            pageLayout={true}
-            onEndorse={
-              profileState.endorse
-                ? async (target, input) => {
-                    setIsSaving(true);
-                    try {
-                      await profileState.endorse(target, input);
-                    } finally {
-                      setIsSaving(false);
+          {mode === 'supported' && isSelf ? (
+            <EndorsementSupportedPanel
+              accountId={accountId}
+              metaLoaded={metaLoaded}
+              endorsementCounts={endorsementCounts}
+            />
+          ) : (
+            <EndorsementsPagePanel
+              targetAccountId={accountId}
+              targetDisplayName={displayName}
+              targetAvatarUrl={avatarUrl}
+              mode={mode === 'supported' ? 'received' : mode}
+              isSelf={isSelf}
+              metaLoaded={metaLoaded}
+              viewerAccountId={viewerAccountId}
+              viewerAvatarUrl={profileState.avatarUrl}
+              hasSocialSession={profileState.hasSocialSession}
+              initialTopic={initialTopic}
+              initialFocus={initialFocus}
+              endorsementCounts={endorsementCounts}
+              canEndorse={canEndorseBase}
+              isSavingEndorsement={isSaving}
+              pageLayout={true}
+              onEndorse={
+                profileState.endorse
+                  ? async (target, input) => {
+                      setIsSaving(true);
+                      try {
+                        return await profileState.endorse!(target, input);
+                      } finally {
+                        setIsSaving(false);
+                      }
                     }
-                  }
-                : undefined
-            }
-            onRemoveEndorsement={
-              profileState.removeEndorsement
-                ? async (target, topic) => {
-                    setIsSaving(true);
-                    try {
-                      await profileState.removeEndorsement(target, topic);
-                    } finally {
-                      setIsSaving(false);
+                  : undefined
+              }
+              onRemoveEndorsement={
+                profileState.removeEndorsement
+                  ? async (target, topic) => {
+                      setIsSaving(true);
+                      try {
+                        await profileState.removeEndorsement(target, topic);
+                      } finally {
+                        setIsSaving(false);
+                      }
                     }
-                  }
-                : undefined
-            }
-          />
+                  : undefined
+              }
+              onSupportEndorsement={profileState.supportEndorsement}
+              onClaimSupportBalance={profileState.claimSupportBalance}
+              isClaimingSupportBalance={profileState.isClaimingSupportBalance}
+            />
+          )}
         </div>
       </div>
     </PageShell>

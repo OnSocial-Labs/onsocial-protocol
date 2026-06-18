@@ -60,22 +60,26 @@ function parseBpsInput(value: string): number | null {
   return parsed;
 }
 
-export function SocialSpendJoinRallyRoutingFields({
+export function SocialSpendActionRoutingFields({
   contractId,
+  actionLabel,
   draft,
   baseline,
   loading,
   loadError,
   onDraftChange,
   onReload,
+  staticFieldsNote,
 }: {
   contractId: string;
+  actionLabel: string;
   draft: SocialSpendActionRoutingDraft | null;
   baseline: SocialSpendActionRoutingDraft | null;
   loading: boolean;
   loadError: string | null;
   onDraftChange: (draft: SocialSpendActionRoutingDraft) => void;
   onReload: () => void;
+  staticFieldsNote?: string;
 }) {
   const routingValid = draft
     ? validateSocialSpendActionRoutingBps(draft)
@@ -90,7 +94,7 @@ export function SocialSpendJoinRallyRoutingFields({
   if (loading) {
     return (
       <div className="portal-field-focus rounded-2xl border border-border/40 bg-background/45 px-4 py-3 text-sm text-muted-foreground md:py-3.5">
-        Loading join rally routing from chain…
+        Loading {actionLabel} routing from chain…
       </div>
     );
   }
@@ -122,18 +126,29 @@ export function SocialSpendJoinRallyRoutingFields({
 
   return (
     <div className="space-y-3">
+      {!baseline ? (
+        <div className="rounded-2xl border border-[var(--portal-blue)]/25 bg-[var(--portal-blue)]/5 px-4 py-3 text-sm text-foreground">
+          <p className="font-medium">Register new action</p>
+          <p className="mt-1 text-muted-foreground">
+            {actionLabel} is not configured on {contractId} yet. Proposing will
+            call <code className="text-xs">set_action_config</code> with the
+            defaults below.
+          </p>
+        </div>
+      ) : null}
+
       <div className="grid gap-3 sm:grid-cols-2">
         {ROUTING_FIELDS.map(({ key, label, hint }) => (
           <div key={key}>
             <label
-              htmlFor={`join-rally-routing-${key}`}
+              htmlFor={`social-spend-routing-${key}`}
               className={fieldLabelClass}
             >
               {label} (bps)
             </label>
             <div className="portal-field-focus rounded-2xl border border-border/40 bg-background/45 px-3 py-2.5 md:px-4">
               <input
-                id={`join-rally-routing-${key}`}
+                id={`social-spend-routing-${key}`}
                 type="text"
                 inputMode="numeric"
                 value={String(draft[key])}
@@ -185,15 +200,26 @@ export function SocialSpendJoinRallyRoutingFields({
         ) : null}
       </div>
 
-      <p className="portal-type-caption text-muted-foreground/70">
-        Other join rally fields (min amount, season requirement, etc.) stay as
-        configured on {contractId}.
-      </p>
+      {staticFieldsNote ? (
+        <p className="portal-type-caption text-muted-foreground/70">
+          {staticFieldsNote}
+        </p>
+      ) : null}
     </div>
   );
 }
 
-export function useSocialSpendJoinRallyRoutingDraft(contractId: string): {
+/** @deprecated Use SocialSpendActionRoutingFields */
+export const SocialSpendJoinRallyRoutingFields = SocialSpendActionRoutingFields;
+
+export function useSocialSpendActionRoutingDraft(
+  contractId: string,
+  options: {
+    actionId: string;
+    actionLabel: string;
+    defaultDraft?: SocialSpendActionRoutingDraft | null;
+  } | null
+): {
   draft: SocialSpendActionRoutingDraft | null;
   baseline: SocialSpendActionRoutingDraft | null;
   loading: boolean;
@@ -202,6 +228,9 @@ export function useSocialSpendJoinRallyRoutingDraft(contractId: string): {
   reload: () => void;
 } {
   const normalizedContractId = contractId.trim().toLowerCase();
+  const actionId = options?.actionId ?? '';
+  const actionLabel = options?.actionLabel ?? actionId;
+  const defaultDraft = options?.defaultDraft ?? null;
   const [draft, setDraftState] = useState<SocialSpendActionRoutingDraft | null>(
     null
   );
@@ -212,7 +241,7 @@ export function useSocialSpendJoinRallyRoutingDraft(contractId: string): {
   const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
-    if (!normalizedContractId) {
+    if (!normalizedContractId || !actionId) {
       setDraftState(null);
       setBaseline(null);
       setLoadError(null);
@@ -225,7 +254,7 @@ export function useSocialSpendJoinRallyRoutingDraft(contractId: string): {
     setLoadError(null);
 
     void viewContractAt<unknown>(normalizedContractId, 'get_action_config', {
-      action_id: 'join_rally',
+      action_id: actionId,
     })
       .then((result) => {
         if (cancelled) {
@@ -234,9 +263,15 @@ export function useSocialSpendJoinRallyRoutingDraft(contractId: string): {
 
         const parsed = parseSocialSpendActionConfigView(result);
         if (!parsed) {
+          if (defaultDraft) {
+            setDraftState({ ...defaultDraft });
+            setBaseline(null);
+            return;
+          }
+
           setDraftState(null);
           setBaseline(null);
-          setLoadError('Could not read join_rally routing from chain.');
+          setLoadError(`Could not read ${actionLabel} routing from chain.`);
           return;
         }
 
@@ -246,9 +281,16 @@ export function useSocialSpendJoinRallyRoutingDraft(contractId: string): {
       })
       .catch(() => {
         if (!cancelled) {
+          if (defaultDraft) {
+            setDraftState({ ...defaultDraft });
+            setBaseline(null);
+            setLoadError(null);
+            return;
+          }
+
           setDraftState(null);
           setBaseline(null);
-          setLoadError('Could not read join_rally routing from chain.');
+          setLoadError(`Could not read ${actionLabel} routing from chain.`);
         }
       })
       .finally(() => {
@@ -260,7 +302,7 @@ export function useSocialSpendJoinRallyRoutingDraft(contractId: string): {
     return () => {
       cancelled = true;
     };
-  }, [normalizedContractId, reloadToken]);
+  }, [actionId, actionLabel, defaultDraft, normalizedContractId, reloadToken]);
 
   const reload = useMemo(
     () => () => {
@@ -277,4 +319,12 @@ export function useSocialSpendJoinRallyRoutingDraft(contractId: string): {
     setDraft: setDraftState,
     reload,
   };
+}
+
+/** @deprecated Use useSocialSpendActionRoutingDraft */
+export function useSocialSpendJoinRallyRoutingDraft(contractId: string) {
+  return useSocialSpendActionRoutingDraft(contractId, {
+    actionId: 'join_rally',
+    actionLabel: 'join rally',
+  });
 }

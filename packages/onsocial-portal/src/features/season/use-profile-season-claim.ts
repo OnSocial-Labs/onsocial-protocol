@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSeasonParticipation } from '@/contexts/season-participation-context';
 import type { SeasonZeroClaimRecord } from '@/features/season/season-zero-types';
 import { seasonApiPath } from '@/lib/active-season';
 import {
@@ -38,12 +39,33 @@ export function useProfileSeasonClaim(
   accountId: string | null,
   enabled: boolean
 ) {
+  const {
+    deriveSeasonClaim,
+    reconcileSeasonClaimFromApi,
+    participateSyncVersion,
+  } = useSeasonParticipation();
   const [claim, setClaim] = useState<SeasonZeroClaimRecord | null>(null);
   const [loading, setLoading] = useState(false);
+  const [fetchedForAccountId, setFetchedForAccountId] = useState<
+    string | null | undefined
+  >(undefined);
+
+  useEffect(() => {
+    setClaim(null);
+    setFetchedForAccountId(undefined);
+  }, [accountId]);
 
   const refresh = useCallback(async () => {
-    if (!enabled || !accountId) {
+    if (!enabled) {
       setClaim(null);
+      setLoading(false);
+      return;
+    }
+
+    if (!accountId) {
+      setClaim(null);
+      setFetchedForAccountId(null);
+      setLoading(false);
       return;
     }
 
@@ -59,17 +81,45 @@ export function useProfileSeasonClaim(
         accountId,
         registry.seasons
       );
+      if (next) {
+        reconcileSeasonClaimFromApi(next.seasonId, Boolean(next.claimed));
+      }
       setClaim(next);
     } catch {
       setClaim(null);
     } finally {
+      setFetchedForAccountId(accountId);
       setLoading(false);
     }
-  }, [accountId, enabled]);
+  }, [accountId, enabled, reconcileSeasonClaimFromApi]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
-  return { claim, loading, refresh };
+  useEffect(() => {
+    if (!enabled || !accountId) return;
+
+    const timers = [2_000, 5_000].map((delay) =>
+      window.setTimeout(() => {
+        void refresh();
+      }, delay)
+    );
+
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, [accountId, enabled, participateSyncVersion, refresh]);
+
+  const claimReadyForAccount = fetchedForAccountId === (accountId ?? null);
+  const derivedClaim = useMemo(
+    () => (claimReadyForAccount ? deriveSeasonClaim(claim) : null),
+    [claim, claimReadyForAccount, deriveSeasonClaim, participateSyncVersion]
+  );
+
+  return {
+    claim: derivedClaim?.claimed ? null : derivedClaim,
+    loading: loading || !claimReadyForAccount,
+    refresh,
+  };
 }

@@ -26,11 +26,17 @@ export function createPortalRequestCache<T>(ttlMs: number, maxEntries = 400) {
   }
 
   return {
-    async getOrLoad(key: string, loader: () => Promise<T>): Promise<T> {
+    async getOrLoad(
+      key: string,
+      loader: () => Promise<T>,
+      options?: { skipCache?: boolean }
+    ): Promise<T> {
       const now = Date.now();
-      const cached = entries.get(key);
-      if (cached && cached.expiresAt > now) {
-        return cached.value;
+      if (!options?.skipCache) {
+        const cached = entries.get(key);
+        if (cached && cached.expiresAt > now) {
+          return cached.value;
+        }
       }
 
       const pending = inflight.get(key);
@@ -50,6 +56,10 @@ export function createPortalRequestCache<T>(ttlMs: number, maxEntries = 400) {
 
       inflight.set(key, promise);
       return promise;
+    },
+    delete(key: string): void {
+      entries.delete(key);
+      inflight.delete(key);
     },
   };
 }

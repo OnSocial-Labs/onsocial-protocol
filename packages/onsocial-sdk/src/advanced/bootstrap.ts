@@ -90,21 +90,11 @@ export function nearConnectAdapter(
     : {};
 
   const resolveAccountId = async (): Promise<string> => {
-    const accounts = (await wallet.getAccounts?.(accountLookupArgs)) ?? [];
-
     if (accountId) {
-      if (
-        accounts.length > 0 &&
-        !accounts.some((account) => account.accountId === accountId)
-      ) {
-        throw new Error(
-          `nearConnectAdapter: wallet is not signed in as ${accountId}`
-        );
-      }
-
       return accountId;
     }
 
+    const accounts = (await wallet.getAccounts?.(accountLookupArgs)) ?? [];
     const id = accounts[0]?.accountId;
     if (!id) {
       throw new Error('nearConnectAdapter: no signed-in accountId available');
@@ -358,13 +348,16 @@ const DEFAULT_GRANT_GAS_TGAS = 100;
 /** Expands an onboarding plan into wallet transactions. */
 export function planToWalletTransactions(
   plan: OnboardingPlan,
-  opts: { gasTgas?: number } = {}
+  opts: { gasTgas?: number; includeAddKey?: boolean } = {}
 ): Array<{ receiverId: string; actions: NearAction[] }> {
+  const includeAddKey = opts.includeAddKey !== false;
   const gas = String(
     BigInt(opts.gasTgas ?? DEFAULT_GRANT_GAS_TGAS) * 1_000_000_000_000n
   );
-  const txs: Array<{ receiverId: string; actions: NearAction[] }> = [
-    {
+  const txs: Array<{ receiverId: string; actions: NearAction[] }> = [];
+
+  if (includeAddKey) {
+    txs.push({
       receiverId: plan.accountId,
       actions: [
         {
@@ -383,8 +376,8 @@ export function planToWalletTransactions(
           },
         },
       ],
-    },
-  ];
+    });
+  }
 
   if (plan.coreActions.length > 0) {
     txs.push({
@@ -452,6 +445,86 @@ export interface BootstrapSessionInput
   grantGasTgas?: number;
   /** First delegate nonce for the new session key. Defaults to `Date.now()`. */
   startingNonce?: number;
+  /** Reuse a key generated before wallet sign-in (e.g. addFunctionCallKey). */
+  sessionKey?: GeneratedSessionKey;
+  /** Skip the on-chain AddKey tx when the key was already added at sign-in. */
+  skipAddKey?: boolean;
+}
+
+export type PersistSessionFromKeyInput = Omit<
+  BuildSessionGrantInput,
+  'sessionPublicKey'
+> & {
+  sessionKey: GeneratedSessionKey;
+  accountId: string;
+  store?: KeyStore;
+  startingNonce?: number;
+};
+
+/** Persist session metadata after addFunctionCallKey sign-in (no wallet tx). */
+export async function persistSessionFromKey(
+  input: PersistSessionFromKeyInput
+): Promise<Session> {
+  const plan = buildSessionGrant({
+    network: input.network,
+    accountId: input.accountId,
+    sessionPublicKey: input.sessionKey.publicKey,
+    contract: input.contract,
+    contractId: input.contractId,
+    functionCallKey: input.functionCallKey,
+    path: input.path,
+    ttlMs: input.ttlMs,
+    storageDepositYocto: input.storageDepositYocto,
+    level: input.level,
+    now: input.now,
+  });
+
+  const contractId =
+    input.contractId ?? resolveContractId(input.network, input.contract);
+  if (!contractId) {
+    throw new Error(`unknown contract ${input.contract}`);
+  }
+
+  const initialNonce = Math.max(
+    1,
+    Math.floor(input.startingNonce ?? Date.now())
+  );
+
+  const stored: StoredSession = {
+    v: 2,
+    accountId: input.accountId,
+    contract: input.contract,
+    contractId,
+    network: input.network,
+    publicKey: input.sessionKey.publicKey,
+    secretSeedB64u: input.sessionKey.secretSeedB64u,
+    path: input.path,
+    lastNonce: initialNonce - 1,
+    expiresAtMs: plan.expiresAtMs,
+  };
+
+  const id = sessionId(input.accountId, input.contract, input.path);
+  if (input.store) {
+    await input.store.set(id, stored);
+  }
+
+  const persistence = input.store
+    ? { store: input.store, sessionId: id }
+    : undefined;
+
+  return new Session({
+    network: input.network,
+    accountId: input.accountId,
+    contract: input.contract,
+    contractId: input.contractId,
+    key: {
+      publicKey: input.sessionKey.publicKey,
+      sign: input.sessionKey.sign,
+    },
+    startingNonce: initialNonce,
+    remainingAllowanceYocto: input.functionCallKey.allowanceYocto,
+    persistence,
+  });
 }
 
 /** Generates, grants, persists, and returns a session. */
@@ -459,7 +532,7 @@ export async function bootstrapSession(
   input: BootstrapSessionInput
 ): Promise<Session> {
   const accountId = input.accountId ?? (await input.wallet.accountId());
-  const generated = await generateEd25519Key();
+  const generated = input.sessionKey ?? (await generateEd25519Key());
 
   const plan = buildSessionGrant({
     network: input.network,
@@ -477,6 +550,7 @@ export async function bootstrapSession(
 
   const transactions = planToWalletTransactions(plan, {
     gasTgas: input.grantGasTgas,
+    includeAddKey: !input.skipAddKey,
   });
   await input.wallet.signAndSendTransactions({ transactions });
 

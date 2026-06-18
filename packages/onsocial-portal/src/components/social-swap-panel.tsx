@@ -43,6 +43,11 @@ import {
   formatSwapDetailAmount,
   humanizeSwapTransactionError,
 } from '@/lib/portal-swap-quote';
+import {
+  txToastError,
+  txToastPending,
+  txToastSuccess,
+} from '@/lib/transaction-toast-copy';
 import { portalSwapHintMessage } from '@/lib/portal-swap-validation';
 import { cn } from '@/lib/utils';
 
@@ -186,9 +191,9 @@ export function SocialSwapPanel({
       );
       const confirmed = await trackTransaction({
         txHashes,
-        submittedMessage: 'Getting SOCIAL on Rhea…',
-        successMessage: 'SOCIAL is in your wallet.',
-        failureMessage: 'Could not get SOCIAL on-chain.',
+        submittedMessage: txToastPending.swappingSocial,
+        successMessage: txToastSuccess.socialInWallet,
+        failureMessage: txToastError.swapFailed,
         onFailure: (message) => swap.setError(message),
       });
       if (confirmed) {

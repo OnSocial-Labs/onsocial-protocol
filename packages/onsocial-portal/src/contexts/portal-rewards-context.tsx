@@ -24,6 +24,11 @@ import {
 } from '@/lib/portal-reward-constants';
 import { onPortalRewardCredited } from '@/lib/portal-reward-events';
 import type { PortalRewardCreditEvent } from '@/lib/portal-reward-events';
+import {
+  txToastError,
+  txToastPending,
+  txToastSuccess,
+} from '@/lib/transaction-toast-copy';
 import type { RewardsUserRewardsOverviewView } from '@/lib/near-rpc';
 
 interface RefreshBalanceOptions {
@@ -270,7 +275,7 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
     setToast({
       type: 'pending',
       pendingPhase: 'chain',
-      msg: 'Claiming SOCIAL…',
+      msg: txToastPending.claimingRewards,
     });
 
     try {
@@ -303,14 +308,19 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
       setPendingCreditYocto(0n);
       setToast({
         type: 'success',
-        msg: `${formatSocialCompact(claimed.toString())} SOCIAL claimed`,
+        msg: txToastSuccess.rewardsCollected(
+          formatSocialCompact(claimed.toString())
+        ),
         explorerHref: nearblocksTxHref(data.tx_hash),
       });
       await refreshBalanceWithRetry({ silent: true });
     } catch (error) {
       setToast({
         type: 'error',
-        msg: error instanceof Error ? error.message : 'Claim failed',
+        msg:
+          error instanceof Error
+            ? error.message
+            : txToastError.claimRewardsFailed,
       });
     } finally {
       setClaiming(false);

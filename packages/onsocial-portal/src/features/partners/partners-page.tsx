@@ -52,6 +52,11 @@ import {
   yoctoToSocial,
 } from '@/lib/near-rpc';
 import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
+import {
+  txToastGovError,
+  txToastGovPending,
+  txToastGovSuccess,
+} from '@/lib/transaction-toast-copy';
 import { StepIndicator } from '@/features/partners/ui-helpers';
 import { cn } from '@/lib/utils';
 
@@ -187,7 +192,7 @@ export default function PartnersPage() {
       setStep('approved');
       setTxResult({
         type: 'success',
-        msg: 'Key access confirmed.',
+        msg: txToastGovSuccess.keyAccessConfirmed,
       });
     } catch (err) {
       setTxResult({
@@ -408,9 +413,9 @@ export default function PartnersPage() {
 
       const confirmed = await trackTransaction({
         txHashes: [txHash],
-        submittedMessage: 'Submitting proposal…',
-        successMessage: 'Proposal confirmed. Refreshing status…',
-        failureMessage: 'Proposal failed.',
+        submittedMessage: txToastGovPending.submittingProposal,
+        successMessage: txToastGovSuccess.proposalConfirmedRefreshing,
+        failureMessage: txToastGovError.proposalFailed,
       });
 
       if (!confirmed) {
@@ -612,22 +617,20 @@ export default function PartnersPage() {
         const delegationConfirmed = await trackTransaction({
           txHashes: delegationTxHashes,
           submittedMessage: plan.depositOnlyDuringCooldown
-            ? delegationTxHashes.length > 1
-              ? 'Depositing…'
-              : 'Depositing…'
+            ? txToastGovPending.depositing
             : delegationTxHashes.length > 1
-              ? 'Preparing governance…'
-              : 'Delegating…',
+              ? txToastGovPending.preparingGovernance
+              : txToastGovPending.delegating,
           successMessage: plan.depositOnlyDuringCooldown
-            ? 'Deposit confirmed. Delegation unlocks after cooldown.'
+            ? txToastGovSuccess.depositConfirmedCooldown
             : delegationTxHashes.length > 1
-              ? 'Registration, deposit, and delegation confirmed.'
-              : 'Delegation confirmed.',
+              ? txToastGovSuccess.registrationDepositDelegation
+              : txToastGovSuccess.delegationConfirmed,
           failureMessage: plan.depositOnlyDuringCooldown
-            ? 'Deposit failed.'
+            ? txToastGovError.depositFailed
             : delegationTxHashes.length > 1
-              ? 'Governance preparation failed.'
-              : 'Delegation failed.',
+              ? txToastGovError.governancePrepFailed
+              : txToastGovError.delegationFailed,
         });
 
         if (!delegationConfirmed) {
@@ -655,9 +658,9 @@ export default function PartnersPage() {
 
         const registrationConfirmed = await trackTransaction({
           txHashes: [registerTxHash],
-          submittedMessage: 'Registering…',
-          successMessage: 'Registration confirmed.',
-          failureMessage: 'Registration failed.',
+          submittedMessage: txToastGovPending.registering,
+          successMessage: txToastGovSuccess.registrationConfirmed,
+          failureMessage: txToastGovError.registrationFailed,
         });
 
         if (!registrationConfirmed) {
@@ -674,7 +677,7 @@ export default function PartnersPage() {
       if (!completedStep) {
         setTxResult({
           type: 'success',
-          msg: 'Governance is already up to date.',
+          msg: txToastGovSuccess.governanceUpToDate,
         });
       }
     } catch (err) {
@@ -743,9 +746,9 @@ export default function PartnersPage() {
 
       const confirmed = await trackTransaction({
         txHashes: [txHash],
-        submittedMessage: 'Withdrawing excess…',
-        successMessage: 'Excess SOCIAL withdrawn to wallet.',
-        failureMessage: 'Withdrawal failed.',
+        submittedMessage: txToastGovPending.withdrawingExcess,
+        successMessage: txToastGovSuccess.excessWithdrawn,
+        failureMessage: txToastGovError.withdrawalFailed,
       });
 
       if (!confirmed) {

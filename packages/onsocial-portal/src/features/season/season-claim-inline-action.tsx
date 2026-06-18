@@ -9,7 +9,7 @@ import {
   profileSocialStandingToggleStateClass,
 } from '@/components/ui/profile-action-pill';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
-import { useSeasonZeroClaimActions } from '@/features/season/season-zero-claim-panel';
+import { useSeasonZeroClaimActions } from '@/features/season/season-zero-claim-actions';
 import type {
   SeasonZeroClaimRecord,
   SeasonZeroSettlementSummary,
@@ -73,25 +73,39 @@ export function SeasonClaimInlineAction({
   settlement?: SeasonZeroSettlementSummary | null;
   className?: string;
 }) {
-  const { handleClaim, claimPending, txResult, clearTxResult } =
-    useSeasonZeroClaimActions({ claim, onClaimed });
+  const {
+    handleClaim,
+    isButtonVisible,
+    isButtonLoading,
+    isCollectSettled,
+    txResult,
+    clearTxResult,
+  } = useSeasonZeroClaimActions({ claim, onClaimed });
   const amountLabel = formatGenesisSocialBalanceDisplay(claim.amountYocto);
   const ariaLabel = seasonCollectAriaLabel(amountLabel);
+  const showRallyCollectRow =
+    variant === 'rally' && (isButtonVisible || Boolean(settlement));
+
+  if (isCollectSettled) {
+    return (
+      <TransactionFeedbackToast result={txResult} onClose={clearTxResult} />
+    );
+  }
 
   const button =
     variant === 'profile' ? (
       <button
         type="button"
         className={cn(profileActionButtonClass('gold'), className)}
-        disabled={claimPending}
-        aria-busy={claimPending || undefined}
+        disabled={isButtonLoading}
+        aria-busy={isButtonLoading || undefined}
         aria-label={ariaLabel}
         onClick={() => void handleClaim()}
       >
         <Gift className="h-3 w-3 shrink-0" />
         <SeasonCollectButtonLabel
           amountLabel={amountLabel}
-          pending={claimPending}
+          pending={isButtonLoading}
         />
       </button>
     ) : (
@@ -100,7 +114,7 @@ export function SeasonClaimInlineAction({
         size="sm"
         variant="endorsement"
         className={cn('shrink-0 gap-1.5', className)}
-        loading={claimPending}
+        loading={isButtonLoading}
         aria-label={ariaLabel}
         onClick={() => void handleClaim()}
       >
@@ -113,7 +127,7 @@ export function SeasonClaimInlineAction({
   return (
     <>
       <TransactionFeedbackToast result={txResult} onClose={clearTxResult} />
-      {variant === 'rally' ? (
+      {showRallyCollectRow ? (
         <div className="border-t border-fade-section py-2.5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
             {settlement ? (
@@ -123,12 +137,14 @@ export function SeasonClaimInlineAction({
             ) : (
               <span className="hidden sm:block sm:flex-1" aria-hidden />
             )}
-            <div className="flex shrink-0 justify-end">{button}</div>
+            {isButtonVisible ? (
+              <div className="flex shrink-0 justify-end">{button}</div>
+            ) : null}
           </div>
         </div>
-      ) : (
+      ) : isButtonVisible ? (
         button
-      )}
+      ) : null}
     </>
   );
 }

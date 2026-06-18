@@ -17,7 +17,13 @@ import { FaXTwitter } from 'react-icons/fa6';
 import { RiTelegram2Line } from 'react-icons/ri';
 import type { MaterialisedProfile } from '@onsocial/sdk';
 import type { PortalProfileShell } from '@/lib/portal-profile-server';
-import type { EndorsementSubmitInput } from '@/lib/endorsements';
+import { useProfile } from '@/contexts/profile-context';
+import type {
+  EndorsementSubmitInput,
+  EndorsementWriteResult,
+} from '@/lib/endorsements';
+import type { EndorsementSupportSubmitInput } from '@/lib/social-spend-endorsement';
+import { fetchEndorsementSupportGiven } from '@/lib/social-spend-endorsement';
 import {
   compactModalBodyClass,
   compactModalShellClass,
@@ -54,11 +60,9 @@ import {
   ProfileStandingNetworkSkeleton,
 } from '@/features/profile/profile-identity-loading';
 import {
-  GenesisRallyParticipantBadge,
-  ActiveRallyParticipantBadge,
-  useSeasonZeroProfileBadge,
-  useActiveSeasonProfileBadge,
-} from '@/features/season/season-zero-participant-badge';
+  ProfileRallyCredentials,
+  useProfileRallyParticipations,
+} from '@/features/season/profile-rally-credentials';
 import { SeasonClaimInlineAction } from '@/features/season/season-claim-inline-action';
 import { useProfileSeasonClaim } from '@/features/season/use-profile-season-claim';
 import { NetworkModal, type NetworkAccount } from '@/components/network-modal';
@@ -69,14 +73,20 @@ import {
   type TransactionFeedback,
 } from '@/components/ui/transaction-feedback-toast';
 import { ProfileEndorsements } from '@/components/profile-endorsements';
+import { ProfileSignalsBand } from '@/components/profile-signals-band';
 import { ProfileSupportModal } from '@/components/profile-support-modal';
 import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
 import { usePlatformStorageSummary } from '@/hooks/use-platform-storage-summary';
 import { useProfileNearFacts } from '@/hooks/use-profile-near-facts';
 import { PLATFORM_STORAGE_LABEL } from '@/lib/platform-storage-display';
 import type { StandingUpdateResult } from '@/contexts/profile-context';
-import { formatReputation, type ReputationEntry } from '@/lib/leaderboard';
+import { type ReputationEntry } from '@/lib/leaderboard';
 import { fadeMotion, scaleFadeMotion } from '@/lib/motion';
+import {
+  txToastError,
+  txToastPending,
+  txToastSuccess,
+} from '@/lib/transaction-toast-copy';
 import { formatProfilePageNavLabel } from '@/lib/nav-badge-label';
 import {
   getPortalEndorsementsUrl,
@@ -187,16 +197,25 @@ interface ProfileModalProps {
   onPageNavLabel?: (label: string) => void;
   onUpdateStanding: (
     accountId: string,
-    shouldStand: boolean
+    shouldStand: boolean,
+    snapshot?: {
+      accountId: string;
+      name: string | null;
+      avatarUrl: string | null;
+      bio?: string | null;
+    }
   ) => Promise<StandingUpdateResult>;
   onEndorse?: (
     target: string,
     input: EndorsementSubmitInput
-  ) => Promise<unknown>;
+  ) => Promise<EndorsementWriteResult>;
   onRemoveEndorsement?: (target: string, topic?: string) => Promise<unknown>;
   onSupportProfile?: (
     targetAccount: string,
     amountYocto: string
+  ) => Promise<string[]>;
+  onSupportEndorsement?: (
+    input: EndorsementSupportSubmitInput
   ) => Promise<string[]>;
   onClaimSupportBalance?: () => Promise<string[]>;
   isSupportingProfile?: boolean;
@@ -215,7 +234,8 @@ function isProfileRateLimitMessage(message: string): boolean {
 
 async function fetchPortalProfileBundle(
   accountId: string,
-  viewerAccountId: string | null
+  viewerAccountId: string | null,
+  options?: { fresh?: boolean }
 ): Promise<PortalProfileBundleResponse> {
   const search = new URLSearchParams({
     accountId,
@@ -223,6 +243,9 @@ async function fetchPortalProfileBundle(
   });
   if (viewerAccountId) {
     search.set('viewerAccountId', viewerAccountId);
+  }
+  if (options?.fresh) {
+    search.set('fresh', '1');
   }
 
   const url = `/api/profile?${search.toString()}`;
@@ -270,10 +293,12 @@ async function fetchPortalProfileBundle(
 
 async function fetchProfileSocial(
   accountId: string,
-  viewerAccountId: string | null
+  viewerAccountId: string | null,
+  options?: { fresh?: boolean }
 ): Promise<ProfileSocialResponse> {
   const search = new URLSearchParams({ accountId });
   if (viewerAccountId) search.set('viewerAccountId', viewerAccountId);
+  if (options?.fresh) search.set('fresh', '1');
 
   const response = await fetch(`/api/profile/social?${search.toString()}`, {
     cache: 'no-store',
@@ -653,309 +678,6 @@ function ProfileStandingNetworkPreview({
   );
 }
 
-const profileSignalsGroupSeparatorClass =
-  'select-none text-muted-foreground/25 portal-type-body-sm';
-
-function ProfileSignalsBand({
-  social,
-  endorsementCount,
-  givenEndorsementCount,
-  reputation,
-  isSelf,
-  viewerHasEndorsed = false,
-  showEndorsementMetrics = false,
-  profileLinks = [],
-  standingAction,
-  endorseAction,
-  onOpenStanceDetail,
-  onOpenEndorsements,
-  prefetchStandDetail,
-  prefetchEndorsementsPage,
-}: {
-  social: ProfileSocialResponse;
-  endorsementCount: number;
-  givenEndorsementCount: number;
-  reputation: ReputationEntry | null;
-  isSelf: boolean;
-  viewerHasEndorsed?: boolean;
-  showEndorsementMetrics?: boolean;
-  profileLinks?: ProfileLinkItem[];
-  standingAction?: ReactNode;
-  endorseAction?: ReactNode;
-  onOpenStanceDetail: (kind: StanceDetailKind) => void;
-  onOpenEndorsements: (mode: PortalEndorsementsMode, topic?: string) => void;
-  prefetchStandDetail?: (kind: StanceDetailKind) => void;
-  prefetchEndorsementsPage?: (mode: PortalEndorsementsMode) => void;
-}) {
-  const incomingCount = social.counts.incoming;
-  const outgoingCount = social.counts.outgoing;
-  const mutualCount = social.counts.mutual;
-  const viewerStanding = Boolean(social.viewerStanding);
-  const theyStandWithViewer = Boolean(!isSelf && social.theyStandWithViewer);
-  const sharedSolidarity = viewerStanding && theyStandWithViewer;
-  const rank = reputation ? toFiniteNumber(reputation.rank) : 0;
-  const repValue = reputation ? toFiniteNumber(reputation.reputation) : null;
-
-  const metricSeparatorClass =
-    'select-none text-muted-foreground/35 portal-type-body-sm';
-
-  const metricBtn = socialMetricBtnClass;
-  const metricsRowClass =
-    'flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 whitespace-nowrap portal-type-body-sm';
-  const metricInnerClass = 'inline-flex items-center gap-1';
-
-  const standingMetrics = (
-    <>
-      <button
-        type="button"
-        onClick={() => onOpenStanceDetail('incoming')}
-        {...graphRoutePrefetchProps(() => prefetchStandDetail?.('incoming'))}
-        className={cn(
-          metricBtn,
-          'focus-visible:ring-[var(--portal-blue-focus-border)]',
-          theyStandWithViewer &&
-            !sharedSolidarity &&
-            'bg-[var(--portal-blue-bg)]/90'
-        )}
-        aria-label={
-          isSelf
-            ? `${formatCount(incomingCount)} stand with you`
-            : theyStandWithViewer
-              ? `${formatCount(incomingCount)} stand with them, including you`
-              : `${formatCount(incomingCount)} stand with them`
-        }
-      >
-        <span className={metricInnerClass}>
-          <ProtocolMotionArrow className="h-2.5 w-2.5 text-[var(--portal-blue)]" />
-          <span
-            className={cn(
-              'font-bold tabular-nums text-[var(--portal-blue)]',
-              incomingCount === 0 && 'opacity-40'
-            )}
-          >
-            {formatCount(incomingCount)}
-          </span>
-        </span>
-      </button>
-      <span aria-hidden="true" className={metricSeparatorClass}>
-        ·
-      </span>
-      <button
-        type="button"
-        onClick={() => onOpenStanceDetail('outgoing')}
-        {...graphRoutePrefetchProps(() => prefetchStandDetail?.('outgoing'))}
-        className={cn(
-          metricBtn,
-          'focus-visible:ring-[var(--portal-blue-focus-border)]'
-        )}
-        aria-label={
-          isSelf
-            ? `You stand with ${formatCount(outgoingCount)}`
-            : `They stand with ${formatCount(outgoingCount)}`
-        }
-      >
-        <span className={metricInnerClass}>
-          <span
-            className={cn(
-              'font-bold tabular-nums text-[var(--portal-blue)]',
-              outgoingCount === 0 && 'opacity-40'
-            )}
-          >
-            {formatCount(outgoingCount)}
-          </span>
-          <ProtocolMotionArrow className="h-2.5 w-2.5 text-[var(--portal-blue)]" />
-        </span>
-      </button>
-      <span aria-hidden="true" className={metricSeparatorClass}>
-        ·
-      </span>
-      <button
-        type="button"
-        onClick={() => onOpenStanceDetail('mutual')}
-        {...graphRoutePrefetchProps(() => prefetchStandDetail?.('mutual'))}
-        className={cn(
-          metricBtn,
-          'focus-visible:ring-[var(--portal-purple-border)]',
-          sharedSolidarity && 'bg-[var(--portal-purple-bg)]/90'
-        )}
-        aria-label={
-          sharedSolidarity
-            ? `You stand with each other (${formatCount(mutualCount)} solidarity in their network)`
-            : isSelf
-              ? `${formatCount(mutualCount)} solidarity connections`
-              : `${formatCount(mutualCount)} solidarity connections in their network`
-        }
-      >
-        <span className={metricInnerClass}>
-          <ProtocolMotionArrow
-            direction="in"
-            className="h-2.5 w-2.5 text-[var(--portal-purple)]"
-          />
-          <span
-            className={cn(
-              'font-bold tabular-nums text-[var(--portal-purple)]',
-              mutualCount === 0 && 'opacity-40'
-            )}
-          >
-            {formatCount(mutualCount)}
-          </span>
-          <ProtocolMotionArrow className="h-2.5 w-2.5 text-[var(--portal-purple)]" />
-        </span>
-      </button>
-    </>
-  );
-
-  const endorsementMetrics = (
-    <>
-      <button
-        type="button"
-        onClick={() => onOpenEndorsements('received')}
-        {...graphRoutePrefetchProps(() =>
-          prefetchEndorsementsPage?.('received')
-        )}
-        className={cn(
-          metricBtn,
-          'focus-visible:ring-[var(--portal-gold-accent)]',
-          !isSelf && viewerHasEndorsed && 'bg-[var(--portal-gold-bg)]/90'
-        )}
-        aria-label={
-          !isSelf && viewerHasEndorsed
-            ? `${formatCount(endorsementCount)} endorsements received, including yours`
-            : `${formatCount(endorsementCount)} endorsements received`
-        }
-      >
-        <span className={metricInnerClass}>
-          <ProtocolMotionArrow className="h-2.5 w-2.5 text-[var(--portal-gold)]" />
-          <span
-            className={cn(
-              'font-bold tabular-nums text-[var(--portal-gold)]',
-              endorsementCount === 0 && 'opacity-40'
-            )}
-          >
-            {formatCount(endorsementCount)}
-          </span>
-        </span>
-      </button>
-      <span aria-hidden="true" className={metricSeparatorClass}>
-        ·
-      </span>
-      <button
-        type="button"
-        onClick={() => onOpenEndorsements('given')}
-        {...graphRoutePrefetchProps(() => prefetchEndorsementsPage?.('given'))}
-        className={cn(
-          metricBtn,
-          'focus-visible:ring-[var(--portal-gold-accent)]'
-        )}
-        aria-label={`${formatCount(givenEndorsementCount)} endorsements given`}
-      >
-        <span className={metricInnerClass}>
-          <span
-            className={cn(
-              'font-bold tabular-nums text-[var(--portal-gold)]',
-              givenEndorsementCount === 0 && 'opacity-40'
-            )}
-          >
-            {formatCount(givenEndorsementCount)}
-          </span>
-          <ProtocolMotionArrow className="h-2.5 w-2.5 text-[var(--portal-gold)]" />
-        </span>
-      </button>
-    </>
-  );
-
-  const reputationMetric =
-    reputation && repValue !== null ? (
-      <Link
-        href="/boost/leaderboard"
-        className={cn(
-          metricBtn,
-          'focus-visible:ring-[var(--portal-green-border)]'
-        )}
-        aria-label={`Protocol reputation ${formatReputation(reputation.reputation)}`}
-      >
-        <span className={metricInnerClass}>
-          <ProtocolMotionArrow className="h-2.5 w-2.5 text-[var(--portal-green)]" />
-          <span
-            className={cn(
-              'font-bold tabular-nums text-[var(--portal-green)]',
-              repValue === 0 && 'opacity-40'
-            )}
-          >
-            {formatReputation(reputation.reputation)}
-          </span>
-        </span>
-      </Link>
-    ) : null;
-
-  const captionParts: string[] = ['standing · solidarity'];
-  if (showEndorsementMetrics) captionParts.push('endorsements');
-  if (reputation) captionParts.push('reputation');
-
-  const hasCtaRow = Boolean(
-    standingAction || endorseAction || profileLinks.length > 0
-  );
-
-  return (
-    <div className="space-y-2">
-      <div className={metricsRowClass}>
-        {standingMetrics}
-        {showEndorsementMetrics ? (
-          <>
-            <span
-              aria-hidden="true"
-              className={profileSignalsGroupSeparatorClass}
-            >
-              ·
-            </span>
-            {endorsementMetrics}
-          </>
-        ) : null}
-        {reputationMetric ? (
-          <>
-            <span
-              aria-hidden="true"
-              className={profileSignalsGroupSeparatorClass}
-            >
-              ·
-            </span>
-            {reputationMetric}
-          </>
-        ) : null}
-      </div>
-
-      <p className="portal-type-label text-muted-foreground/45">
-        {captionParts.join(' · ')}
-        {reputation && rank > 0 ? (
-          <span className="tabular-nums text-muted-foreground/40">
-            {' '}
-            #{formatCount(rank)}
-          </span>
-        ) : null}
-      </p>
-
-      {hasCtaRow ? (
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          {profileLinks.length > 0 ? (
-            <ProfileSocialLinkIcons links={profileLinks} />
-          ) : null}
-          {standingAction || endorseAction ? (
-            <div
-              className={cn(
-                'flex min-w-0 flex-wrap items-center gap-2',
-                profileLinks.length > 0 && 'ml-auto'
-              )}
-            >
-              {endorseAction}
-              {standingAction}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 function fieldStatus(value?: string | null): string {
   return value?.trim() ? 'Set' : 'Not set';
 }
@@ -1281,16 +1003,23 @@ export function ProfileModal({
   onEndorse,
   onRemoveEndorsement,
   onSupportProfile,
+  onSupportEndorsement,
   onClaimSupportBalance,
   isSupportingProfile = false,
   isClaimingSupportBalance = false,
 }: ProfileModalProps) {
   const isPage = variant === 'page';
   const active = Boolean(accountId) && (isPage || open);
-  const genesisRallyBadge = useSeasonZeroProfileBadge(accountId, active);
-  const activeRallyBadge = useActiveSeasonProfileBadge(accountId, active);
+  const rallyParticipations = useProfileRallyParticipations(accountId, active);
   const reduceMotion = useReducedMotion();
   const router = useRouter();
+  const {
+    deriveProfileSocialStanding,
+    reconcileStandingFromApi,
+    shouldFreshFetchProfileSocial,
+    standingSyncVersion,
+    isStandingPendingForTarget,
+  } = useProfile();
   const shellForAccount = portalProfileShellForAccount(initialShell, accountId);
   const { prefetchStand, prefetchEndorsements, prefetchNetwork } =
     useProfileGraphRoutePrefetch(accountId ?? undefined);
@@ -1329,6 +1058,7 @@ export function ProfileModal({
   >(null);
   const [endorsementCount, setEndorsementCount] = useState(0);
   const [givenEndorsementCount, setGivenEndorsementCount] = useState(0);
+  const [supportedEndorsementCount, setSupportedEndorsementCount] = useState(0);
   const [viewerEndorsementCount, setViewerEndorsementCount] = useState(0);
   const [endorseModalOpen, setEndorseModalOpen] = useState(false);
   const [networkOpen, setNetworkOpen] = useState(false);
@@ -1357,7 +1087,7 @@ export function ProfileModal({
   const canAddEndorsement =
     canEndorse && viewerEndorsementCount < MAX_ENDORSEMENTS_PER_TARGET;
   const viewerHasEndorsed = viewerEndorsementCount > 0;
-  const endorseActionLabel = hasSocialSession ? 'Endorse' : 'Authorize';
+  const endorseActionLabel = 'Endorse';
   const canSupport = Boolean(
     accountId && viewerAccountId && !isSelf && onSupportProfile
   );
@@ -1369,8 +1099,41 @@ export function ProfileModal({
   const canClaimSeasonReward = Boolean(
     isSelf && seasonClaim && !seasonClaim.claimed
   );
-  const viewerStanding = Boolean(social?.viewerStanding);
-  const theyStandWithViewer = Boolean(!isSelf && social?.theyStandWithViewer);
+
+  useEffect(() => {
+    if (!isSelf || !accountId || !active) {
+      setSupportedEndorsementCount(0);
+      return;
+    }
+
+    let cancelled = false;
+    void fetchEndorsementSupportGiven(accountId)
+      .then((response) => {
+        if (!cancelled) setSupportedEndorsementCount(response.total);
+      })
+      .catch(() => {
+        if (!cancelled) setSupportedEndorsementCount(0);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, active, isSelf]);
+  const presentedSocial = useMemo(
+    () =>
+      social && accountId
+        ? deriveProfileSocialStanding(social, accountId)
+        : null,
+    [accountId, deriveProfileSocialStanding, social, standingSyncVersion]
+  );
+  const viewerStanding = Boolean(presentedSocial?.viewerStanding);
+  const theyStandWithViewer = Boolean(
+    !isSelf && presentedSocial?.theyStandWithViewer
+  );
+  const standingPending = Boolean(
+    pendingStandingAction ||
+      (accountId ? isStandingPendingForTarget(accountId) : false)
+  );
   const socialReady = Boolean(social || socialError);
   const endorsementsLazy = useLazyInView({
     enabled: active && Boolean(accountId),
@@ -1399,25 +1162,33 @@ export function ProfileModal({
   }, [social]);
 
   const standingNetworkPreview = useMemo(() => {
-    if (!social) return null;
-    return getStandingNetworkPreview(social);
-  }, [social]);
+    if (!presentedSocial) return null;
+    return getStandingNetworkPreview(presentedSocial);
+  }, [presentedSocial]);
 
-  const refreshSocial = useCallback(async () => {
-    if (!accountId) return;
-    const loadId = latestSocialLoadRef.current + 1;
-    latestSocialLoadRef.current = loadId;
-    setSocialError(null);
+  const refreshSocial = useCallback(
+    async (options?: { fresh?: boolean }) => {
+      if (!accountId) return;
+      const loadId = latestSocialLoadRef.current + 1;
+      latestSocialLoadRef.current = loadId;
+      setSocialError(null);
 
-    try {
-      const result = await fetchProfileSocial(accountId, viewerAccountId);
-      if (latestSocialLoadRef.current !== loadId) return;
-      setSocial(result);
-    } catch (error) {
-      if (latestSocialLoadRef.current !== loadId) return;
-      setSocialError(getErrorMessage(error));
-    }
-  }, [accountId, viewerAccountId]);
+      try {
+        const result = await fetchProfileSocial(
+          accountId,
+          viewerAccountId,
+          options
+        );
+        if (latestSocialLoadRef.current !== loadId) return;
+        reconcileStandingFromApi(accountId, result.viewerStanding);
+        setSocial(result);
+      } catch (error) {
+        if (latestSocialLoadRef.current !== loadId) return;
+        setSocialError(getErrorMessage(error));
+      }
+    },
+    [accountId, reconcileStandingFromApi, viewerAccountId]
+  );
 
   useEffect(() => {
     if (!active || !accountId) {
@@ -1471,9 +1242,9 @@ export function ProfileModal({
       const txHashes = await onClaimSupportBalance();
       const confirmed = await trackClaimTransaction({
         txHashes,
-        submittedMessage: 'Claiming support balance…',
-        successMessage: 'Support SOCIAL claimed to your wallet.',
-        failureMessage: 'Could not claim support balance.',
+        submittedMessage: txToastPending.claimingSupport,
+        successMessage: txToastSuccess.supportCollected,
+        failureMessage: txToastError.claimSupportFailed,
       });
       if (confirmed) {
         window.setTimeout(
@@ -1533,7 +1304,9 @@ export function ProfileModal({
     setReputation(null);
     setSignalsReady(false);
 
-    void fetchPortalProfileBundle(accountId, viewerAccountId)
+    void fetchPortalProfileBundle(accountId, viewerAccountId, {
+      fresh: shouldFreshFetchProfileSocial(accountId),
+    })
       .then((result) => {
         if (cancelled) return;
         setProfile(result.profile);
@@ -1544,11 +1317,16 @@ export function ProfileModal({
         setProfileNetwork(result.network);
         setReputation(result.signals?.reputation ?? null);
 
-        const socialResult = applyProfileSocial(result.social);
-        if (socialResult) {
-          setSocial(socialResult);
-          setEndorsementCount(socialResult.endorsementCounts.received);
-          setGivenEndorsementCount(socialResult.endorsementCounts.given);
+        const normalizedSocial = applyProfileSocial(result.social);
+        if (normalizedSocial) {
+          reconcileStandingFromApi(accountId, normalizedSocial.viewerStanding);
+          setSocial(normalizedSocial);
+          const presented = deriveProfileSocialStanding(
+            normalizedSocial,
+            accountId
+          );
+          setEndorsementCount(presented.endorsementCounts.received);
+          setGivenEndorsementCount(presented.endorsementCounts.given);
         }
       })
       .catch((error) => {
@@ -1581,6 +1359,31 @@ export function ProfileModal({
     selfBannerUrl,
     selfProfile,
     viewerAccountId,
+    deriveProfileSocialStanding,
+    reconcileStandingFromApi,
+    shouldFreshFetchProfileSocial,
+  ]);
+
+  useEffect(() => {
+    if (!active || !accountId || !shouldFreshFetchProfileSocial(accountId)) {
+      return;
+    }
+
+    const timers = [2_000, 5_000].map((delay) =>
+      window.setTimeout(() => {
+        void refreshSocial({ fresh: true });
+      }, delay)
+    );
+
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, [
+    accountId,
+    active,
+    refreshSocial,
+    shouldFreshFetchProfileSocial,
+    standingSyncVersion,
   ]);
 
   useEffect(() => {
@@ -1597,7 +1400,7 @@ export function ProfileModal({
   }, [onOpenChange, open]);
 
   const handleStanding = async () => {
-    if (!accountId || !viewerAccountId || !canStand || pendingStandingAction) {
+    if (!accountId || !viewerAccountId || !canStand || standingPending) {
       return;
     }
 
@@ -1606,50 +1409,12 @@ export function ProfileModal({
     setActionToast(null);
     setPendingStandingAction(nextStanding ? 'stand' : 'step-back');
 
-    if (nextStanding && !hasSocialSession) {
-      setActionToast({
-        type: 'pending',
-        eyebrow: 'Authorize & stand',
-        msg: 'Approve the OnSocial session transaction in your wallet to finish.',
-        pendingPhase: 'wallet',
-      });
-    }
-
     try {
-      await onUpdateStanding(accountId, nextStanding);
-      const now = Date.now();
-
-      setSocial((prev: ProfileSocialResponse | null) => {
-        if (!prev || !viewerAccountId) return prev;
-        const delta = nextStanding ? 1 : -1;
-
-        const updatedIncoming = nextStanding
-          ? prev.incoming.some((a) => a.accountId === viewerAccountId)
-            ? prev.incoming
-            : [
-                ...prev.incoming,
-                {
-                  accountId: viewerAccountId,
-                  name: selfProfile?.name ?? null,
-                  bio: selfProfile?.bio ?? null,
-                  avatarUrl: selfAvatarUrl,
-                  standingSince: now,
-                  standingBlockTimestamp: now,
-                  viewerStanding: true,
-                  theyStandWithViewer: false,
-                },
-              ]
-          : prev.incoming.filter((a) => a.accountId !== viewerAccountId);
-
-        return {
-          ...prev,
-          viewerStanding: nextStanding,
-          counts: {
-            ...prev.counts,
-            incoming: Math.max(0, prev.counts.incoming + delta),
-          },
-          incoming: updatedIncoming,
-        };
+      await onUpdateStanding(accountId, nextStanding, {
+        accountId,
+        name: title,
+        avatarUrl,
+        bio: bio ?? null,
       });
       setActionToast(null);
     } catch (error) {
@@ -1662,19 +1427,6 @@ export function ProfileModal({
       setPendingStandingAction(null);
     }
   };
-
-  useEffect(() => {
-    if (!pendingStandingAction || hasSocialSession || !isAuthorizingSession) {
-      return;
-    }
-
-    setActionToast({
-      type: 'pending',
-      eyebrow: 'Authorize session',
-      msg: 'Open your wallet extension and approve the OnSocial session transaction.',
-      pendingPhase: 'wallet',
-    });
-  }, [hasSocialSession, isAuthorizingSession, pendingStandingAction]);
 
   const openEndorsementsPage = useCallback(
     (mode: PortalEndorsementsMode, topic?: string) => {
@@ -1776,9 +1528,13 @@ export function ProfileModal({
                       placeholderIconStrokeWidth={2.5}
                     />
                   </div>
-                  {canSupport || canClaimSupport || canClaimSeasonReward ? (
+                  {canSupport ||
+                  canClaimSupport ||
+                  canClaimSeasonReward ||
+                  canStand ||
+                  canAddEndorsement ? (
                     <div className={profileIdentityActionsClass}>
-                      <div className="flex flex-wrap items-center justify-end gap-1.5">
+                      <div className="flex max-w-full flex-wrap items-center justify-end gap-1">
                         {canClaimSeasonReward && seasonClaim ? (
                           <SeasonClaimInlineAction
                             claim={seasonClaim}
@@ -1786,18 +1542,7 @@ export function ProfileModal({
                             onClaimed={() => void refreshSeasonClaim()}
                           />
                         ) : null}
-                        {canSupport ? (
-                          <button
-                            type="button"
-                            className={profileSocialSupportButtonClass()}
-                            disabled={isSupportingProfile}
-                            onClick={() => setSupportOpen(true)}
-                            aria-label={`Support ${title} with SOCIAL`}
-                          >
-                            <HeartHandshake className="h-3 w-3" />
-                            Support
-                          </button>
-                        ) : canClaimSupport ? (
+                        {canClaimSupport ? (
                           <button
                             type="button"
                             className={walletMenuActionButtonClass(
@@ -1812,6 +1557,70 @@ export function ProfileModal({
                             SOCIAL
                           </button>
                         ) : null}
+                        {canSupport ? (
+                          <button
+                            type="button"
+                            className={profileSocialSupportButtonClass()}
+                            disabled={isSupportingProfile}
+                            onClick={() => setSupportOpen(true)}
+                            aria-label={`Support ${title} with SOCIAL`}
+                          >
+                            <HeartHandshake className="h-3 w-3" />
+                            Support
+                          </button>
+                        ) : null}
+                        {canAddEndorsement ? (
+                          <button
+                            type="button"
+                            className={profileSocialEndorseButtonClass()}
+                            onClick={() => setEndorseModalOpen(true)}
+                            aria-label={`Endorse ${title}`}
+                          >
+                            <ProtocolMotionArrow className="h-2.5 w-2.5 text-[var(--portal-gold)]/70 group-hover:text-[var(--portal-gold)]" />
+                            {endorseActionLabel}
+                          </button>
+                        ) : null}
+                        {canStand ? (
+                          standingPending ? (
+                            <span
+                              className={profileSocialStandingButtonClass(
+                                viewerStanding
+                              )}
+                              aria-live="polite"
+                              aria-label={
+                                viewerStanding
+                                  ? 'Stepping back'
+                                  : 'Confirming stance'
+                              }
+                            >
+                              <ProfileSocialStandingPending
+                                active={viewerStanding}
+                                hasSocialSession={hasSocialSession}
+                              />
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              className={profileSocialStandingButtonClass(
+                                viewerStanding
+                              )}
+                              disabled={!canStand || standingPending}
+                              onClick={handleStanding}
+                              aria-label={
+                                theyStandWithViewer && !viewerStanding
+                                  ? `They stand with you. Stand with ${title}`
+                                  : viewerStanding
+                                    ? `Step back from ${title}`
+                                    : `Stand with ${title}`
+                              }
+                            >
+                              <ProfileSocialStandingToggle
+                                active={viewerStanding}
+                                hasSocialSession={hasSocialSession}
+                              />
+                            </button>
+                          )
+                        ) : null}
                       </div>
                     </div>
                   ) : null}
@@ -1824,16 +1633,6 @@ export function ProfileModal({
                     >
                       {title}
                     </h2>
-                    {activeRallyBadge ? (
-                      <ActiveRallyParticipantBadge
-                        rank={activeRallyBadge.rank}
-                      />
-                    ) : null}
-                    {genesisRallyBadge ? (
-                      <GenesisRallyParticipantBadge
-                        rank={genesisRallyBadge.rank}
-                      />
-                    ) : null}
                   </div>
                   <p className="min-w-0 truncate portal-type-body-sm text-muted-foreground/55">
                     @{accountId}
@@ -1847,7 +1646,10 @@ export function ProfileModal({
                 </p>
               ) : null}
 
-              {joinedLabel || !socialReady || social ? (
+              {joinedLabel ||
+              rallyParticipations.length > 0 ||
+              !socialReady ||
+              social ? (
                 <div className={profileIdentityMetaRowClass}>
                   {!socialReady ? (
                     <ProfileStandingNetworkSkeleton />
@@ -1890,6 +1692,21 @@ export function ProfileModal({
                       <ProtocolMotionArrow className="h-2 w-2 text-muted-foreground/45" />
                     </button>
                   ) : null}
+                  {rallyParticipations.length > 0 &&
+                  (joinedLabel ||
+                    !socialReady ||
+                    (standingNetworkPreview?.previewAccounts.length ?? 0) >
+                      0) ? (
+                    <span
+                      className="select-none text-muted-foreground/30"
+                      aria-hidden="true"
+                    >
+                      ·
+                    </span>
+                  ) : null}
+                  <ProfileRallyCredentials
+                    participations={rallyParticipations}
+                  />
                 </div>
               ) : null}
 
@@ -1901,79 +1718,22 @@ export function ProfileModal({
                   >
                     <ProfileSignalsBandSkeleton />
                   </motion.div>
-                ) : social ? (
+                ) : presentedSocial ? (
                   <motion.div
                     key="profile-signals-band"
                     {...fadeMotion(reduceMotion ? 0 : 0.12)}
                   >
                     <ProfileSignalsBand
-                      social={social}
+                      social={presentedSocial}
                       endorsementCount={endorsementCount}
                       givenEndorsementCount={givenEndorsementCount}
+                      supportedEndorsementCount={supportedEndorsementCount}
                       reputation={reputation}
                       isSelf={isSelf}
                       viewerHasEndorsed={viewerHasEndorsed}
-                      profileLinks={profileLinks}
-                      standingAction={
-                        canStand ? (
-                          pendingStandingAction ? (
-                            <span
-                              className={profileSocialStandingButtonClass(
-                                viewerStanding
-                              )}
-                              aria-live="polite"
-                              aria-label={
-                                viewerStanding
-                                  ? 'Stepping back'
-                                  : 'Confirming stance'
-                              }
-                            >
-                              <ProfileSocialStandingPending
-                                active={viewerStanding}
-                                hasSocialSession={hasSocialSession}
-                              />
-                            </span>
-                          ) : (
-                            <button
-                              type="button"
-                              className={profileSocialStandingButtonClass(
-                                viewerStanding
-                              )}
-                              disabled={
-                                !canStand || Boolean(pendingStandingAction)
-                              }
-                              onClick={handleStanding}
-                              aria-label={
-                                theyStandWithViewer && !viewerStanding
-                                  ? `They stand with you. Stand with ${title}`
-                                  : viewerStanding
-                                    ? `Step back from ${title}`
-                                    : `Stand with ${title}`
-                              }
-                            >
-                              <ProfileSocialStandingToggle
-                                active={viewerStanding}
-                                hasSocialSession={hasSocialSession}
-                              />
-                            </button>
-                          )
-                        ) : undefined
-                      }
-                      endorseAction={
-                        canAddEndorsement ? (
-                          <button
-                            type="button"
-                            className={profileSocialEndorseButtonClass()}
-                            onClick={() => setEndorseModalOpen(true)}
-                            aria-label={
-                              hasSocialSession
-                                ? `Endorse ${title}`
-                                : `Authorize and endorse ${title}`
-                            }
-                          >
-                            <ProtocolMotionArrow className="h-2.5 w-2.5 text-[var(--portal-gold)]/70 group-hover:text-[var(--portal-gold)]" />
-                            {endorseActionLabel}
-                          </button>
+                      footer={
+                        profileLinks.length > 0 ? (
+                          <ProfileSocialLinkIcons links={profileLinks} />
                         ) : undefined
                       }
                       showEndorsementMetrics={
@@ -2003,6 +1763,7 @@ export function ProfileModal({
                     hasSocialSession={hasSocialSession}
                     onEndorse={onEndorse}
                     onRemoveEndorsement={onRemoveEndorsement}
+                    onSupportEndorsement={onSupportEndorsement}
                     pageLayout={isPage}
                     onSelectAccount={isPage ? undefined : onSelectAccount}
                     onEndorsementCountChange={setEndorsementCount}
@@ -2049,7 +1810,7 @@ export function ProfileModal({
             centerAvatarUrl={avatarUrl}
             centerDisplayName={title}
             accounts={networkAccounts}
-            totalCounts={social?.counts}
+            totalCounts={presentedSocial?.counts}
             viewerAccountId={viewerAccountId}
             isSelf={isSelf}
             onClose={() => setNetworkOpen(false)}
@@ -2083,16 +1844,16 @@ export function ProfileModal({
     ) : null;
 
   const feedbackToast = (
-    <>
-      <TransactionFeedbackToast
-        result={actionToast}
-        onClose={() => setActionToast(null)}
-      />
-      <TransactionFeedbackToast
-        result={claimTxResult}
-        onClose={clearClaimTxResult}
-      />
-    </>
+    <TransactionFeedbackToast
+      result={claimTxResult ?? actionToast}
+      onClose={() => {
+        if (claimTxResult) {
+          clearClaimTxResult();
+          return;
+        }
+        setActionToast(null);
+      }}
+    />
   );
 
   if (isPage) {

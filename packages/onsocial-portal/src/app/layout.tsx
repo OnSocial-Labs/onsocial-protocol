@@ -12,6 +12,7 @@ import { SmoothScrollProvider } from '@/components/providers/smooth-scroll-provi
 import { WalletProvider } from '@/contexts/wallet-context';
 import { GatewayAuthProvider } from '@/contexts/gateway-auth-context';
 import { ProfileProvider } from '@/contexts/profile-context';
+import { SeasonParticipationProvider } from '@/contexts/season-participation-context';
 import { PortalRewardsProvider } from '@/contexts/portal-rewards-context';
 import { Navigation } from '@/components/navigation/navigation';
 import { Footer } from '@/components/footer';
@@ -148,25 +149,27 @@ export default function RootLayout({
             <RuntimeConfigWarnings />
             <WalletProvider network={ACTIVE_NEAR_NETWORK}>
               <ProfileProvider>
-                <PortalRewardsProvider>
-                  <GatewayAuthProvider>
-                    <MobilePageProvider>
-                      <NavVisibilityProvider>
-                        <Suspense>
-                          <SmoothScrollProvider>
-                            <div className="flex min-h-[100dvh] flex-col">
-                              <Navigation />
-                              <main className="safe-x flex flex-1 flex-col">
-                                {children}
-                              </main>
-                              <Footer />
-                            </div>
-                          </SmoothScrollProvider>
-                        </Suspense>
-                      </NavVisibilityProvider>
-                    </MobilePageProvider>
-                  </GatewayAuthProvider>
-                </PortalRewardsProvider>
+                <SeasonParticipationProvider>
+                  <PortalRewardsProvider>
+                    <GatewayAuthProvider>
+                      <MobilePageProvider>
+                        <NavVisibilityProvider>
+                          <Suspense>
+                            <SmoothScrollProvider>
+                              <div className="flex min-h-[100dvh] flex-col">
+                                <Navigation />
+                                <main className="safe-x flex flex-1 flex-col">
+                                  {children}
+                                </main>
+                                <Footer />
+                              </div>
+                            </SmoothScrollProvider>
+                          </Suspense>
+                        </NavVisibilityProvider>
+                      </MobilePageProvider>
+                    </GatewayAuthProvider>
+                  </PortalRewardsProvider>
+                </SeasonParticipationProvider>
               </ProfileProvider>
             </WalletProvider>
           </ThemeProvider>

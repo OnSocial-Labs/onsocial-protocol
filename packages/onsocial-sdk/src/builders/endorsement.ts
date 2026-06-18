@@ -3,12 +3,20 @@
 // ---------------------------------------------------------------------------
 
 import { SCHEMA_VERSION } from '../schema/v1.js';
+import type { MediaRef } from '../schema/v1.js';
 import type { SocialSetData } from './_shared.js';
+import { isMediaRef } from './endorsement-media.js';
 
 export interface EndorsementBuildInput {
   topic?: string;
   note?: string;
   expiresAt?: number;
+  /** Stable endorsement id — preserved across note/media edits. */
+  id?: string;
+  /** Optional photo or video (uploaded before write). */
+  media?: MediaRef | Blob | File | null;
+  /** Set on edit after initial publish. */
+  editedAt?: number;
   /** Override timestamp (defaults to Date.now()). */
   now?: number;
 }
@@ -40,6 +48,11 @@ export function buildEndorsementSetData(
   };
   if (topic !== undefined) value.topic = topic;
   if (input.note !== undefined) value.note = input.note;
+  if (input.id !== undefined) value.id = input.id;
+  if (isMediaRef(input.media)) {
+    value.media = input.media;
+  }
+  if (input.editedAt !== undefined) value.editedAt = input.editedAt;
   if (input.expiresAt !== undefined) value.expiresAt = input.expiresAt;
   const path = topic
     ? `endorsement/${targetAccount}/${topic}`

@@ -26,9 +26,14 @@ import {
   ProfileListLoadMoreFooter,
   ProfileListSkeletonRows,
 } from '@/features/profile/profile-list-loading';
-import { profileListResultRowClass } from '@/features/profile/profile-list-row';
+import {
+  profileListBioClass,
+  profileListContainerClass,
+  profileListResultRowClass,
+} from '@/features/profile/profile-list-row';
 import { fadeMotion } from '@/lib/motion';
 import { getPortalProfileUrl } from '@/lib/portal-config';
+import { useProfile } from '@/contexts/profile-context';
 import { cn } from '@/lib/utils';
 
 export interface ProfileDiscoverResult {
@@ -118,7 +123,13 @@ export interface ProfileDiscoveryPanelProps {
   onSelectAccount?: (accountId: string) => void;
   onUpdateStanding?: (
     accountId: string,
-    shouldStand: boolean
+    shouldStand: boolean,
+    snapshot?: {
+      accountId: string;
+      name: string | null;
+      avatarUrl: string | null;
+      bio?: string | null;
+    }
   ) => Promise<unknown>;
   /** When set, infinite scroll observes this element instead of the viewport. */
   scrollRootRef?: RefObject<HTMLElement | null>;
@@ -332,6 +343,11 @@ export function ProfileDiscoveryPanel({
 }: ProfileDiscoveryPanelProps) {
   const pageLayout = layout === 'page';
   const reduceMotion = useReducedMotion();
+  const {
+    resolveViewerStandingForTarget,
+    standingSyncVersion,
+    isStandingPendingForTarget,
+  } = useProfile();
   const [internalQuery, setInternalQuery] = useState('');
   const query = queryProp ?? internalQuery;
   const setQuery = onQueryChange ?? setInternalQuery;
@@ -349,6 +365,20 @@ export function ProfileDiscoveryPanel({
   const internalScrollRef = useRef<HTMLDivElement>(null);
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
   const trimmedQuery = query.trim();
+  const displayResults = useMemo(
+    () =>
+      results.map((result) => {
+        const viewerStanding = resolveViewerStandingForTarget(
+          result.accountId,
+          Boolean(result.viewerStanding)
+        );
+        if (viewerStanding === result.viewerStanding) {
+          return result;
+        }
+        return { ...result, viewerStanding };
+      }),
+    [resolveViewerStandingForTarget, results, standingSyncVersion]
+  );
   const discoverableTotal =
     totalProfiles ??
     protocolPulseTotals?.discoverableProfiles ??
@@ -358,11 +388,11 @@ export function ProfileDiscoveryPanel({
   const resultsSummary = useMemo(() => {
     if (results.length === 0) return null;
 
-    const shown = formatCount(results.length);
+    const shown = formatCount(displayResults.length);
     if (trimmedQuery) {
       return hasMore
         ? `Showing ${shown} matching profiles`
-        : `${shown} matching profile${results.length === 1 ? '' : 's'}`;
+        : `${shown} matching profile${displayResults.length === 1 ? '' : 's'}`;
     }
     if (typeof discoverableTotal === 'number' && discoverableTotal > 0) {
       const ofDiscoverable = `Showing ${shown} of ${formatCount(discoverableTotal)} discoverable`;
@@ -379,7 +409,7 @@ export function ProfileDiscoveryPanel({
     discoverableTotal,
     hasMore,
     indexedProfileTotal,
-    results.length,
+    displayResults.length,
     trimmedQuery,
   ]);
 
@@ -546,7 +576,12 @@ export function ProfileDiscoveryPanel({
     setPendingStandingIds((prev) => new Set(prev).add(result.accountId));
 
     try {
-      await onUpdateStanding(result.accountId, shouldStand);
+      await onUpdateStanding(result.accountId, shouldStand, {
+        accountId: result.accountId,
+        name: result.profile?.name ?? null,
+        avatarUrl: result.avatarUrl,
+        bio: result.profile?.bio?.trim() ?? null,
+      });
       const now = Date.now();
       setResults((current) =>
         current.map((item) =>
@@ -626,16 +661,18 @@ export function ProfileDiscoveryPanel({
             <motion.div
               key={`results-${query}`}
               {...fadeMotion(reduceMotion ? 0 : 0.14)}
-              className={pageLayout ? 'space-y-1' : 'divide-y divide-fade-item'}
+              className={profileListContainerClass}
             >
-              {results.map((result) => {
+              {displayResults.map((result) => {
                 const viewerStandsWithResult = Boolean(result.viewerStanding);
                 const bio = profileBio(result);
                 const canUpdateStanding =
                   Boolean(viewerAccountId) &&
                   viewerAccountId !== result.accountId &&
                   Boolean(onUpdateStanding);
-                const isPending = pendingStandingIds.has(result.accountId);
+                const isPending =
+                  pendingStandingIds.has(result.accountId) ||
+                  isStandingPendingForTarget(result.accountId);
                 const canShowViewerRelationship =
                   Boolean(viewerAccountId) &&
                   viewerAccountId !== result.accountId;
@@ -700,9 +737,7 @@ export function ProfileDiscoveryPanel({
                           @{result.accountId}
                         </span>
                         {bio ? (
-                          <span className="mt-0.5 block truncate portal-type-body-sm text-muted-foreground/60">
-                            {bio}
-                          </span>
+                          <span className={profileListBioClass}>{bio}</span>
                         ) : null}
                         <span className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 portal-type-label text-muted-foreground/65">
                           <PortalHoverTooltip
@@ -878,9 +913,7 @@ export function ProfileDiscoveryPanel({
                               aria-label={
                                 viewerStandsWithResult
                                   ? `Step back from ${displayName(result)}`
-                                  : hasSocialSession
-                                    ? `Stand with ${displayName(result)}`
-                                    : `Authorize and stand with ${displayName(result)}`
+                                  : `Stand with ${displayName(result)}`
                               }
                             >
                               <ProfileSocialStandingToggle

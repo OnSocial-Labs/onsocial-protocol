@@ -58,6 +58,20 @@ export function isBoundedNoteReady(
   return !textError && length >= limits.min && length <= limits.max;
 }
 
+/** Endorsement note is optional when media is attached; otherwise min length applies. */
+export function isEndorsementContentReady(
+  value: string,
+  hasMedia: boolean,
+  limits: BoundedNoteLimits = ENDORSEMENT_NOTE_LIMITS
+) {
+  const normalized = normalizeBoundedNote(value);
+  const textError = getBoundedNoteError(value);
+  if (textError) return false;
+  if (!normalized) return hasMedia;
+  if (hasMedia) return normalized.length <= limits.max;
+  return normalized.length >= limits.min && normalized.length <= limits.max;
+}
+
 export function getBoundedNoteCounterLabel(
   length: number,
   limits: BoundedNoteLimits

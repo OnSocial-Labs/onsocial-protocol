@@ -112,6 +112,22 @@ describe('planToWalletTransactions', () => {
       },
     });
   });
+
+  it('can omit AddKey when the key was already added at wallet sign-in', () => {
+    const plan = buildSessionGrant({
+      network: 'mainnet',
+      accountId: 'alice.near',
+      sessionPublicKey: 'ed25519:11111111111111111111111111111111',
+      contract: 'core',
+      path: 'alice.near/',
+      functionCallKey: { allowanceYocto: '250000000000000000000000' },
+    });
+    const txs = planToWalletTransactions(plan, { includeAddKey: false });
+    expect(txs).toHaveLength(1);
+    expect(txs[0].actions.every((action) => action.type !== 'AddKey')).toBe(
+      true
+    );
+  });
 });
 
 describe('MemoryKeyStore', () => {
@@ -153,10 +169,11 @@ describe('nearConnectAdapter', () => {
       network: 'testnet',
     });
     expect(await adapter.accountId()).toBe('alice.near');
-    expect(wallet.getAccounts).toHaveBeenCalledWith({ network: 'testnet' });
+    expect(wallet.getAccounts).not.toHaveBeenCalled();
 
     const txs = { transactions: [{ receiverId: 'x.near', actions: [] }] };
     await adapter.signAndSendTransactions(txs);
+    expect(wallet.getAccounts).not.toHaveBeenCalled();
     expect(wallet.signAndSendTransactions).toHaveBeenCalledWith({
       network: 'testnet',
       signerId: 'alice.near',

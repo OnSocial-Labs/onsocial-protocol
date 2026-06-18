@@ -4,7 +4,10 @@ import type { RefObject } from 'react';
 import { Button } from '@/components/ui/button';
 import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
 import { Skeleton } from '@/components/ui/skeleton';
-import { profileListResultSkeletonRowClass } from '@/features/profile/profile-list-row';
+import {
+  profileListResultSkeletonRowClass,
+  profileListContainerClass,
+} from '@/features/profile/profile-list-row';
 import { cn } from '@/lib/utils';
 
 export type ProfileListSkeletonVariant =
@@ -65,10 +68,8 @@ export function ProfileListSkeletonRows({
         ? ProfileListEndorsementSkeletonRow
         : ProfileListProfileSkeletonRow;
 
-  const spacingClass = variant === 'endorsement' ? 'space-y-1' : 'space-y-1.5';
-
   return (
-    <div className={cn(spacingClass, className)} aria-hidden>
+    <div className={cn(profileListContainerClass, className)} aria-hidden>
       {Array.from({ length: count }).map((_, index) => (
         <Row key={index} />
       ))}

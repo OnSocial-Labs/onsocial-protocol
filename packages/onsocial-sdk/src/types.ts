@@ -551,6 +551,7 @@ export interface QueryLimits {
 
 export interface StorageUploadResponse {
   cid: string;
+  mime: string;
   size: number;
 }
 

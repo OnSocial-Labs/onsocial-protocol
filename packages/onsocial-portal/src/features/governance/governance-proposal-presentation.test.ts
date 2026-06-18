@@ -366,6 +366,47 @@ describe('proposal card target eyebrows', () => {
     expect(presentation.headline).toBe('Set Social spend join rally routing');
   });
 
+  it('shows support endorsement routing on contract config proposals', () => {
+    const presentation = deriveProposalPresentation({
+      proposer: 'alice.testnet',
+      description: 'Enable endorsement support spends.',
+      kind: {
+        FunctionCall: {
+          receiver_id: 'social-spend.onsocial.testnet',
+          actions: [
+            {
+              method_name: 'set_action_config',
+              args: encodeArgs({
+                action_id: 'support_endorsement',
+                config: {
+                  label: 'Support Endorsement',
+                  active: true,
+                  min_amount: '10000000000000000',
+                  target_types: ['endorsement'],
+                  treasury_bps: 500,
+                  season_pool_bps: 0,
+                  target_bps: 9500,
+                  burn_bps: 0,
+                  season_required: false,
+                  allow_self_target: false,
+                },
+              }),
+              deposit: '1',
+              gas: 100_000_000_000_000,
+            },
+          ],
+        },
+      },
+    });
+
+    expect(presentation.actionBadge).toBe('Config');
+    expect(presentation.targetKind).toBe('routing');
+    expect(presentation.targetValue).toBe('5% boost credits · 95% target');
+    expect(presentation.headline).toBe(
+      'Set Social spend support endorsement routing'
+    );
+  });
+
   it('shows boost contract target on contract config proposals', () => {
     const presentation = deriveProposalPresentation({
       proposer: 'alice.testnet',

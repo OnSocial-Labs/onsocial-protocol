@@ -2,8 +2,10 @@
 
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Check, ExternalLink, RefreshCw, X } from 'lucide-react';
+import { TX_TOAST_EYEBROW } from '@/lib/transaction-toast-copy';
+import { cn } from '@/lib/utils';
 
 export type TransactionFeedback = {
   type: 'pending' | 'success' | 'error';
@@ -16,6 +18,63 @@ export type TransactionFeedback = {
 
 const DISMISS_MS = { success: 5000, error: 7000 } as const;
 
+const TOAST_POSITION_CLASS = cn(
+  'pointer-events-none fixed z-[2147483647] mx-auto w-full max-w-sm',
+  'bottom-[max(1.5rem,env(safe-area-inset-bottom,0px))]',
+  'left-[max(1rem,env(safe-area-inset-left,0px))]',
+  'right-[max(1rem,env(safe-area-inset-right,0px))]',
+  'sm:mx-0 sm:bottom-auto sm:left-auto sm:w-auto',
+  'sm:right-[max(1.25rem,env(safe-area-inset-right,0px))]',
+  'sm:top-[max(5rem,calc(env(safe-area-inset-top,0px)+4rem))]',
+  'md:right-6'
+);
+
+function toastAccentClass(type: TransactionFeedback['type']): string {
+  switch (type) {
+    case 'success':
+      return 'via-[var(--portal-green)]';
+    case 'error':
+      return 'via-[var(--portal-red)]';
+    default:
+      return 'via-[var(--portal-blue)]';
+  }
+}
+
+function toastIconHaloClass(type: TransactionFeedback['type']): string {
+  switch (type) {
+    case 'success':
+      return 'bg-[var(--portal-green)]';
+    case 'error':
+      return 'bg-[var(--portal-red)]';
+    default:
+      return 'bg-[var(--portal-blue)]';
+  }
+}
+
+function ToastStatusIcon({ type }: { type: TransactionFeedback['type'] }) {
+  if (type === 'success') {
+    return <Check className="portal-green-icon relative h-4 w-4" />;
+  }
+  if (type === 'pending') {
+    return (
+      <RefreshCw className="portal-blue-icon relative h-4 w-4 animate-spin" />
+    );
+  }
+  return <X className="portal-red-icon relative h-4 w-4" />;
+}
+
+function resolveToastEyebrow(result: TransactionFeedback): string | null {
+  if (result.eyebrow) {
+    return result.eyebrow;
+  }
+  if (result.type === 'pending' && result.pendingPhase) {
+    return result.pendingPhase === 'wallet'
+      ? TX_TOAST_EYEBROW.wallet
+      : TX_TOAST_EYEBROW.confirming;
+  }
+  return null;
+}
+
 export function TransactionFeedbackToast({
   result,
   onClose,
@@ -24,6 +83,7 @@ export function TransactionFeedbackToast({
   onClose: () => void;
 }) {
   const onCloseRef = useRef(onClose);
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -43,10 +103,18 @@ export function TransactionFeedbackToast({
   const dismissKey = result
     ? `${result.type}:${result.eyebrow ?? ''}:${result.msg}:${result.subtitle ?? ''}:${result.explorerHref ?? ''}`
     : 'none';
+  const stateMotion = reduceMotion
+    ? { initial: false, animate: undefined, exit: undefined }
+    : {
+        initial: { opacity: 0, y: 6 },
+        animate: { opacity: 1, y: 0 },
+        exit: { opacity: 0, y: -4 },
+        transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] as const },
+      };
 
   return createPortal(
     <AnimatePresence initial={false}>
-      {result && (
+      {result ? (
         <motion.div
           initial={{ opacity: 0, y: 8, scale: 0.96, filter: 'blur(4px)' }}
           animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
@@ -57,65 +125,59 @@ export function TransactionFeedbackToast({
             damping: 26,
             mass: 0.8,
           }}
-          className="pointer-events-none fixed inset-x-4 bottom-6 z-[2147483647] mx-auto max-w-sm sm:bottom-auto sm:inset-x-auto sm:right-5 sm:top-20 md:right-6"
+          className={TOAST_POSITION_CLASS}
         >
           <div className="portal-toast pointer-events-auto relative overflow-hidden rounded-xl">
-            {/* ── accent glow line ── */}
             <div
-              className={`absolute inset-x-0 top-0 h-px ${
-                result.type === 'success'
-                  ? 'bg-gradient-to-r from-transparent via-[var(--portal-green)] to-transparent'
-                  : result.type === 'error'
-                    ? 'bg-gradient-to-r from-transparent via-[var(--portal-red)] to-transparent'
-                    : 'bg-gradient-to-r from-transparent via-[var(--portal-blue)] to-transparent'
-              }`}
+              className={cn(
+                'absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent to-transparent transition-opacity duration-300',
+                toastAccentClass(result.type)
+              )}
               style={{ opacity: 0.7 }}
             />
 
             <div className="flex items-start gap-3 px-3.5 py-3">
-              {/* ── icon with soft halo ── */}
               <div className="relative mt-0.5 flex-shrink-0">
                 <div
-                  className={`absolute -inset-1.5 rounded-full blur-md ${
-                    result.type === 'success'
-                      ? 'bg-[var(--portal-green)]'
-                      : result.type === 'error'
-                        ? 'bg-[var(--portal-red)]'
-                        : 'bg-[var(--portal-blue)]'
-                  }`}
+                  className={cn(
+                    'absolute -inset-1.5 rounded-full blur-md transition-colors duration-300',
+                    toastIconHaloClass(result.type)
+                  )}
                   style={{ opacity: 0.15 }}
                 />
-                {result.type === 'success' ? (
-                  <Check className="portal-green-icon relative h-4 w-4" />
-                ) : result.type === 'pending' ? (
-                  <RefreshCw className="portal-blue-icon relative h-4 w-4 animate-spin" />
-                ) : (
-                  <X className="portal-red-icon relative h-4 w-4" />
-                )}
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.div
+                    key={result.type}
+                    className="relative"
+                    {...stateMotion}
+                  >
+                    <ToastStatusIcon type={result.type} />
+                  </motion.div>
+                </AnimatePresence>
               </div>
 
-              {/* ── content ── */}
               <div className="min-w-0 flex-1">
-                {result.eyebrow ? (
-                  <span className="mb-0.5 block portal-eyebrow-wide text-muted-foreground/70">
-                    {result.eyebrow}
-                  </span>
-                ) : result.type === 'pending' && result.pendingPhase ? (
-                  <span className="mb-0.5 block portal-eyebrow-wide text-muted-foreground/70">
-                    {result.pendingPhase === 'wallet'
-                      ? 'Waiting For Wallet'
-                      : 'Confirming On-Chain'}
-                  </span>
-                ) : null}
-                <span className="block portal-type-body leading-snug font-medium">
-                  {result.msg}
-                </span>
-                {result.subtitle ? (
-                  <span className="mt-1 block portal-type-label leading-snug text-muted-foreground/80">
-                    {result.subtitle}
-                  </span>
-                ) : null}
-                {result.explorerHref && (
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.div
+                    key={`${result.type}:${result.msg}`}
+                    {...stateMotion}
+                  >
+                    {resolveToastEyebrow(result) ? (
+                      <span className="mb-0.5 block portal-eyebrow-wide text-muted-foreground/70">
+                        {resolveToastEyebrow(result)}
+                      </span>
+                    ) : null}
+                    <span className="block portal-type-body leading-snug font-medium">
+                      {result.msg}
+                    </span>
+                    {result.subtitle ? (
+                      <span className="mt-1 block portal-type-label leading-snug text-muted-foreground/80">
+                        {result.subtitle}
+                      </span>
+                    ) : null}
+                  </motion.div>
+                </AnimatePresence>
+                {result.explorerHref ? (
                   <a
                     href={result.explorerHref}
                     target="_blank"
@@ -125,10 +187,9 @@ export function TransactionFeedbackToast({
                     View on Nearblocks
                     <ExternalLink className="h-2.5 w-2.5" />
                   </a>
-                )}
+                ) : null}
               </div>
 
-              {/* ── ghost close ── */}
               <button
                 type="button"
                 onClick={onClose}
@@ -138,24 +199,24 @@ export function TransactionFeedbackToast({
               </button>
             </div>
 
-            {/* ── auto-dismiss countdown bar ── */}
-            {result.type !== 'pending' && (
+            {result.type !== 'pending' ? (
               <motion.div
                 key={dismissKey}
                 initial={{ scaleX: 1 }}
                 animate={{ scaleX: 0 }}
                 transition={{ duration: duration / 1000, ease: 'linear' }}
-                className={`h-px origin-left ${
+                className={cn(
+                  'h-px origin-left transition-colors duration-300',
                   result.type === 'success'
                     ? 'bg-[var(--portal-green)]'
                     : 'bg-[var(--portal-red)]'
-                }`}
+                )}
                 style={{ opacity: 0.45 }}
               />
-            )}
+            ) : null}
           </div>
         </motion.div>
-      )}
+      ) : null}
     </AnimatePresence>,
     document.body
   );

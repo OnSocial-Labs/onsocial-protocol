@@ -72,7 +72,7 @@ export function ProfileSocialStandingToggle({
           <ProtocolMotionArrow
             className={cn(profileSocialStandingArrowClass(), 'opacity-100')}
           />
-          {hasSocialSession ? 'Stand with' : 'Authorize & stand'}
+          Stand with
         </span>
       ) : (
         <>

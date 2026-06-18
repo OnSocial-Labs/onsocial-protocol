@@ -1,6 +1,7 @@
 'use client';
 
 import type { ComponentType, ReactNode } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Clock, Coins, Users } from 'lucide-react';
 import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
 import { SeasonCountdownLabel } from '@/features/season/season-countdown-label';
@@ -13,6 +14,7 @@ import {
   type SeasonZeroSettlementSummary,
 } from '@/features/season/season-zero-types';
 import { readTimestampNs } from '@/lib/relative-duration';
+import { fadeMotion } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
 const PHASE_COPY: Record<
@@ -86,7 +88,7 @@ function MetricsRailFooter({
       {claimStatus ? (
         <>
           <p className="portal-eyebrow text-muted-foreground">
-            Season collect
+            Season claim
             <span className="text-muted-foreground/40"> · </span>
             {statusHref ? (
               <a
@@ -318,6 +320,7 @@ export function SeasonZeroMetricsRail({
   const isLive = phase === 'live';
   const isUpcoming = phase === 'upcoming';
   const poolLabel = formatGenesisYoctoAsSocial(indexedPoolYocto ?? '0');
+  const reduceMotion = useReducedMotion();
 
   return (
     <div className={className}>
@@ -391,15 +394,27 @@ export function SeasonZeroMetricsRail({
         </MetricSegment>
       </div>
 
-      {claimStatusPending ? (
-        <MetricsRailFooterSkeleton />
-      ) : claimStatus || (showSettlementDetail && settlement) ? (
-        <MetricsRailFooter
-          claimStatus={claimStatus}
-          settlement={settlement}
-          showSettlementDetail={showSettlementDetail}
-        />
-      ) : null}
+      <AnimatePresence mode="wait" initial={false}>
+        {claimStatusPending ? (
+          <motion.div
+            key="claim-footer-loading"
+            {...fadeMotion(Boolean(reduceMotion) ? 0 : 0.18)}
+          >
+            <MetricsRailFooterSkeleton />
+          </motion.div>
+        ) : claimStatus || (showSettlementDetail && settlement) ? (
+          <motion.div
+            key="claim-footer-ready"
+            {...fadeMotion(Boolean(reduceMotion) ? 0 : 0.2)}
+          >
+            <MetricsRailFooter
+              claimStatus={claimStatus}
+              settlement={settlement}
+              showSettlementDetail={showSettlementDetail}
+            />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }

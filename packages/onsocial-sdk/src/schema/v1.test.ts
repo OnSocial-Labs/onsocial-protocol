@@ -247,6 +247,24 @@ describe('EndorsementV1', () => {
   it('tolerates legacy weight metadata', () => {
     expect(validateEndorsementV1({ v: 1, since: 1, weight: 7 })).toBeNull();
   });
+
+  it('accepts id, media, and editedAt', () => {
+    const e = endorsementV1({
+      id: '550e8400-e29b-41d4-a716-446655440000',
+      media: { cid: 'bafybeigdyrzt', mime: 'image/jpeg', size: 1200 },
+      editedAt: Date.now(),
+    });
+    expect(validateEndorsementV1(e)).toBeNull();
+  });
+
+  it('rejects invalid id and media', () => {
+    expect(validateEndorsementV1({ v: 1, since: 1, id: 'not-a-uuid' })).toMatch(
+      /id/
+    );
+    expect(
+      validateEndorsementV1({ v: 1, since: 1, media: { mime: 'image/jpeg' } })
+    ).toMatch(/media/);
+  });
 });
 
 describe('AttestationV1', () => {

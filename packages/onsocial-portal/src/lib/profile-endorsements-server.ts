@@ -8,6 +8,7 @@ import {
   isProfileSearchQuery,
   searchMatchingAccountIds,
 } from '@/lib/profile-account-search';
+import { parseEndorsementMediaRef } from '@/lib/endorsement-media';
 import { profileSearchRowToMaterialised } from '@/lib/profile-social-server';
 
 export type EndorsementListMode = 'received' | 'given';
@@ -17,6 +18,7 @@ export interface EnrichedEndorsementListItem extends EndorsementListItem {
   issuerAvatarUrl: string | null;
   targetName: string | null;
   targetAvatarUrl: string | null;
+  mediaUrl: string | null;
 }
 
 export interface EndorsementCounts {
@@ -75,12 +77,15 @@ function enrichEndorsementsFromProfiles(
       ? profileSearchRowToMaterialised(targetRow)
       : null;
 
+    const media = parseEndorsementMediaRef(endorsement.media);
+
     return {
       ...endorsement,
       issuerName: issuerRow?.name ?? null,
       issuerAvatarUrl: os.profiles.avatarUrl(issuerProfile),
       targetName: targetRow?.name ?? null,
       targetAvatarUrl: os.profiles.avatarUrl(targetProfile),
+      mediaUrl: media ? os.storage.url(media.cid) : null,
     };
   });
 }

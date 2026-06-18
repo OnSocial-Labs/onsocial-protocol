@@ -74,7 +74,10 @@ export function buildQuoteSetData(
 }
 
 export function isFileLike(value: unknown): value is Blob | File {
-  return typeof Blob !== 'undefined' && value instanceof Blob;
+  return (
+    (typeof File !== 'undefined' && value instanceof File) ||
+    (typeof Blob !== 'undefined' && value instanceof Blob)
+  );
 }
 
 /**

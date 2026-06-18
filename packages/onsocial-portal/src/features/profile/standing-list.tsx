@@ -2,6 +2,7 @@
 
 import { User } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import { profileSocialStandingButtonClass } from '@/components/ui/profile-action-pill';
 import {
@@ -10,13 +11,18 @@ import {
 } from '@/components/ui/profile-social-standing-toggle';
 import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
 import { RelationshipSignal } from '@/components/ui/relationship-signal';
-import { profileListResultRowClass } from '@/features/profile/profile-list-row';
+import {
+  profileListBioClass,
+  profileListContainerClass,
+  profileListResultRowClass,
+} from '@/features/profile/profile-list-row';
 import { cleanHandle } from '@/lib/endorsements';
 import {
   formatProfileCount,
   type StandingAccountSummary,
 } from '@/lib/profile-social-standings';
 import { ProfileGraphRowLink } from '@/lib/profile-graph-link';
+import { fadeUpMotion } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
 function accountLabel(account: StandingAccountSummary): string {
@@ -125,247 +131,262 @@ export function StandingList({
   /** When true, rows link to profile pages (page layout default). */
   pageLayout?: boolean;
 }) {
+  const reduceMotion = useReducedMotion();
+
   if (accounts.length === 0) {
     return <EmptyState cta={emptyCta}>{emptyLabel}</EmptyState>;
   }
 
-  const listClass =
-    layout === 'page' ? 'space-y-1' : 'divide-y divide-fade-item';
-
   return (
-    <div className={listClass}>
-      {accounts.map((account) => {
-        const canUpdateStanding =
-          Boolean(viewerAccountId) &&
-          viewerAccountId !== account.accountId &&
-          Boolean(onUpdateStanding);
-        const isRowPending =
-          pendingStandingIds?.has(account.accountId) ?? false;
-        const viewerStandsWithAccount = Boolean(account.viewerStanding);
-        const canShowViewerRelationship =
-          Boolean(viewerAccountId) && viewerAccountId !== account.accountId;
-        const theyStandWithViewer =
-          canShowViewerRelationship && Boolean(account.theyStandWithViewer);
-        const sharedSolidarity = viewerStandsWithAccount && theyStandWithViewer;
-        const bio = account.bio?.trim();
-        const timeMeta = standingTimeMeta(account);
-        return (
-          <div key={account.accountId} className={profileListResultRowClass}>
-            <ProfileGraphRowLink
-              accountId={account.accountId}
-              pageLayout={pageLayout}
-              onNavigate={onSelectAccount}
+    <div className={profileListContainerClass}>
+      <AnimatePresence initial={false}>
+        {accounts.map((account) => {
+          const canUpdateStanding =
+            Boolean(viewerAccountId) &&
+            viewerAccountId !== account.accountId &&
+            Boolean(onUpdateStanding);
+          const isRowPending =
+            pendingStandingIds?.has(account.accountId) ?? false;
+          const viewerStandsWithAccount = Boolean(account.viewerStanding);
+          const canShowViewerRelationship =
+            Boolean(viewerAccountId) && viewerAccountId !== account.accountId;
+          const theyStandWithViewer =
+            canShowViewerRelationship && Boolean(account.theyStandWithViewer);
+          const sharedSolidarity =
+            viewerStandsWithAccount && theyStandWithViewer;
+          const bio = account.bio?.trim();
+          const timeMeta = standingTimeMeta(account);
+          return (
+            <motion.div
+              key={account.accountId}
+              {...fadeUpMotion(Boolean(reduceMotion), {
+                distance: 10,
+                duration: 0.2,
+                exitDistance: 6,
+              })}
+              className={profileListResultRowClass}
             >
-              <AccountAvatar
-                avatarUrl={account.avatarUrl}
-                className="mt-0.5 h-9 w-9 transition-shadow group-hover:ring-1 group-hover:ring-foreground/15"
-              />
-              <span className="min-w-0 flex-1">
-                {sharedSolidarity || theyStandWithViewer ? (
-                  <span className="mb-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                    {sharedSolidarity ? (
-                      <RelationshipSignal
-                        label="Solidarity"
-                        tone="purple"
-                        title="You both stand with each other"
-                      />
-                    ) : (
-                      <RelationshipSignal
-                        label="Stands with you"
-                        tone="blue"
-                        title="This account stands with you"
-                      />
-                    )}
-                  </span>
-                ) : null}
-                <span className="block truncate portal-type-lead font-medium text-foreground">
-                  {accountLabel(account)}
-                </span>
-                <span className="block truncate portal-type-body-sm text-muted-foreground/55">
-                  @{account.accountId}
-                </span>
-                {bio ? (
-                  <span className="mt-0.5 block truncate portal-type-body-sm text-muted-foreground/60">
-                    {bio}
-                  </span>
-                ) : null}
-                <span className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 portal-type-label text-muted-foreground/65">
-                  <PortalHoverTooltip
-                    className="inline-flex items-center gap-1 whitespace-nowrap"
-                    aria-label={`${formatProfileCount(account.standingCount ?? 0)} stand with them`}
-                    stopPropagation
-                    tooltip="Stand with them"
-                  >
-                    <ProtocolMotionArrow
-                      static
-                      className="h-2.5 w-2.5 text-[var(--portal-blue)]/55"
-                    />
-                    <span
-                      className={cn(
-                        'font-semibold tabular-nums text-[var(--portal-blue)]/85',
-                        (account.standingCount ?? 0) === 0 && 'opacity-40'
-                      )}
-                    >
-                      {formatProfileCount(account.standingCount ?? 0)}
-                    </span>
-                  </PortalHoverTooltip>
-                  <PortalHoverTooltip
-                    className="inline-flex items-center gap-1 whitespace-nowrap"
-                    aria-label={`They stand with ${formatProfileCount(account.standingWithCount ?? 0)}`}
-                    stopPropagation
-                    tooltip="They stand with"
-                  >
-                    <span
-                      className={cn(
-                        'font-semibold tabular-nums text-[var(--portal-blue)]/85',
-                        (account.standingWithCount ?? 0) === 0 && 'opacity-40'
-                      )}
-                    >
-                      {formatProfileCount(account.standingWithCount ?? 0)}
-                    </span>
-                    <ProtocolMotionArrow
-                      static
-                      className="h-2.5 w-2.5 text-[var(--portal-blue)]/55"
-                    />
-                  </PortalHoverTooltip>
-                  <span className="text-muted-foreground/25" aria-hidden="true">
-                    ·
-                  </span>
-                  <PortalHoverTooltip
-                    className="inline-flex items-center gap-1 whitespace-nowrap"
-                    aria-label={`${formatProfileCount(account.mutualStandingCount ?? 0)} solidarity connections`}
-                    stopPropagation
-                    tooltip="Solidarity"
-                  >
-                    <ProtocolMotionArrow
-                      direction="in"
-                      static
-                      className="h-2.5 w-2.5 text-[var(--portal-purple)]/65"
-                    />
-                    <span
-                      className={cn(
-                        'font-semibold tabular-nums text-[var(--portal-purple)]/85',
-                        (account.mutualStandingCount ?? 0) === 0 && 'opacity-40'
-                      )}
-                    >
-                      {formatProfileCount(account.mutualStandingCount ?? 0)}
-                    </span>
-                    <ProtocolMotionArrow
-                      static
-                      className="h-2.5 w-2.5 text-[var(--portal-purple)]/65"
-                    />
-                  </PortalHoverTooltip>
-                  <span className="text-muted-foreground/25" aria-hidden="true">
-                    ·
-                  </span>
-                  <PortalHoverTooltip
-                    className="inline-flex items-center gap-1 whitespace-nowrap"
-                    aria-label={`${formatProfileCount(account.endorsementsReceivedCount ?? 0)} endorsements received`}
-                    stopPropagation
-                    tooltip="Endorsements received"
-                  >
-                    <ProtocolMotionArrow
-                      static
-                      className="h-2.5 w-2.5 text-[var(--portal-gold)]/65"
-                    />
-                    <span
-                      className={cn(
-                        'font-semibold tabular-nums text-[var(--portal-gold)]/85',
-                        (account.endorsementsReceivedCount ?? 0) === 0 &&
-                          'opacity-40'
-                      )}
-                    >
-                      {formatProfileCount(
-                        account.endorsementsReceivedCount ?? 0
-                      )}
-                    </span>
-                  </PortalHoverTooltip>
-                  <PortalHoverTooltip
-                    className="inline-flex items-center gap-1 whitespace-nowrap"
-                    aria-label={`${formatProfileCount(account.endorsementsGivenCount ?? 0)} endorsements given`}
-                    stopPropagation
-                    tooltip="Endorsements given"
-                  >
-                    <span
-                      className={cn(
-                        'font-semibold tabular-nums text-[var(--portal-gold)]/85',
-                        (account.endorsementsGivenCount ?? 0) === 0 &&
-                          'opacity-40'
-                      )}
-                    >
-                      {formatProfileCount(account.endorsementsGivenCount ?? 0)}
-                    </span>
-                    <ProtocolMotionArrow
-                      static
-                      className="h-2.5 w-2.5 text-[var(--portal-gold)]/65"
-                    />
-                  </PortalHoverTooltip>
-                </span>
-              </span>
-            </ProfileGraphRowLink>
-
-            <span className="flex shrink-0 flex-col items-end gap-1">
-              <PortalHoverTooltip
-                className={cn(
-                  'text-right portal-type-caption tabular-nums text-muted-foreground/50',
-                  !timeMeta && 'invisible'
-                )}
-                aria-hidden={!timeMeta}
-                aria-label={timeMeta?.description}
-                stopPropagation
-                tooltip={timeMeta?.description}
+              <ProfileGraphRowLink
+                accountId={account.accountId}
+                pageLayout={pageLayout}
+                onNavigate={onSelectAccount}
               >
-                {timeMeta?.label || '0d ago'}
-              </PortalHoverTooltip>
-              {canUpdateStanding ? (
-                isRowPending ? (
-                  <span
-                    className={profileSocialStandingButtonClass(
-                      viewerStandsWithAccount
-                    )}
-                    aria-label={
-                      viewerStandsWithAccount ? 'Stepping back' : 'Standing'
-                    }
-                  >
-                    <ProfileSocialStandingPending
-                      active={viewerStandsWithAccount}
-                      hasSocialSession={hasSocialSession}
-                    />
+                <AccountAvatar
+                  avatarUrl={account.avatarUrl}
+                  className="mt-0.5 h-9 w-9 transition-shadow group-hover:ring-1 group-hover:ring-foreground/15"
+                />
+                <span className="min-w-0 flex-1">
+                  {sharedSolidarity || theyStandWithViewer ? (
+                    <span className="mb-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                      {sharedSolidarity ? (
+                        <RelationshipSignal
+                          label="Solidarity"
+                          tone="purple"
+                          title="You both stand with each other"
+                        />
+                      ) : (
+                        <RelationshipSignal
+                          label="Stands with you"
+                          tone="blue"
+                          title="This account stands with you"
+                        />
+                      )}
+                    </span>
+                  ) : null}
+                  <span className="block truncate portal-type-lead font-medium text-foreground">
+                    {accountLabel(account)}
                   </span>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={isRowPending}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      event.preventDefault();
-                      void onUpdateStanding?.(
-                        account,
-                        !viewerStandsWithAccount
-                      );
-                    }}
-                    className={profileSocialStandingButtonClass(
-                      viewerStandsWithAccount
-                    )}
-                    aria-label={
-                      viewerStandsWithAccount
-                        ? `Step back from ${accountLabel(account)}`
-                        : hasSocialSession
-                          ? `Stand with ${accountLabel(account)}`
-                          : `Authorize and stand with ${accountLabel(account)}`
-                    }
-                  >
-                    <ProfileSocialStandingToggle
-                      active={viewerStandsWithAccount}
-                      hasSocialSession={hasSocialSession}
-                    />
-                  </button>
-                )
-              ) : null}
-            </span>
-          </div>
-        );
-      })}
+                  <span className="block truncate portal-type-body-sm text-muted-foreground/55">
+                    @{account.accountId}
+                  </span>
+                  {bio ? (
+                    <span className={profileListBioClass}>{bio}</span>
+                  ) : null}
+                  <span className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 portal-type-label text-muted-foreground/65">
+                    <PortalHoverTooltip
+                      className="inline-flex items-center gap-1 whitespace-nowrap"
+                      aria-label={`${formatProfileCount(account.standingCount ?? 0)} stand with them`}
+                      stopPropagation
+                      tooltip="Stand with them"
+                    >
+                      <ProtocolMotionArrow
+                        static
+                        className="h-2.5 w-2.5 text-[var(--portal-blue)]/55"
+                      />
+                      <span
+                        className={cn(
+                          'font-semibold tabular-nums text-[var(--portal-blue)]/85',
+                          (account.standingCount ?? 0) === 0 && 'opacity-40'
+                        )}
+                      >
+                        {formatProfileCount(account.standingCount ?? 0)}
+                      </span>
+                    </PortalHoverTooltip>
+                    <PortalHoverTooltip
+                      className="inline-flex items-center gap-1 whitespace-nowrap"
+                      aria-label={`They stand with ${formatProfileCount(account.standingWithCount ?? 0)}`}
+                      stopPropagation
+                      tooltip="They stand with"
+                    >
+                      <span
+                        className={cn(
+                          'font-semibold tabular-nums text-[var(--portal-blue)]/85',
+                          (account.standingWithCount ?? 0) === 0 && 'opacity-40'
+                        )}
+                      >
+                        {formatProfileCount(account.standingWithCount ?? 0)}
+                      </span>
+                      <ProtocolMotionArrow
+                        static
+                        className="h-2.5 w-2.5 text-[var(--portal-blue)]/55"
+                      />
+                    </PortalHoverTooltip>
+                    <span
+                      className="text-muted-foreground/25"
+                      aria-hidden="true"
+                    >
+                      ·
+                    </span>
+                    <PortalHoverTooltip
+                      className="inline-flex items-center gap-1 whitespace-nowrap"
+                      aria-label={`${formatProfileCount(account.mutualStandingCount ?? 0)} solidarity connections`}
+                      stopPropagation
+                      tooltip="Solidarity"
+                    >
+                      <ProtocolMotionArrow
+                        direction="in"
+                        static
+                        className="h-2.5 w-2.5 text-[var(--portal-purple)]/65"
+                      />
+                      <span
+                        className={cn(
+                          'font-semibold tabular-nums text-[var(--portal-purple)]/85',
+                          (account.mutualStandingCount ?? 0) === 0 &&
+                            'opacity-40'
+                        )}
+                      >
+                        {formatProfileCount(account.mutualStandingCount ?? 0)}
+                      </span>
+                      <ProtocolMotionArrow
+                        static
+                        className="h-2.5 w-2.5 text-[var(--portal-purple)]/65"
+                      />
+                    </PortalHoverTooltip>
+                    <span
+                      className="text-muted-foreground/25"
+                      aria-hidden="true"
+                    >
+                      ·
+                    </span>
+                    <PortalHoverTooltip
+                      className="inline-flex items-center gap-1 whitespace-nowrap"
+                      aria-label={`${formatProfileCount(account.endorsementsReceivedCount ?? 0)} endorsements received`}
+                      stopPropagation
+                      tooltip="Endorsements received"
+                    >
+                      <ProtocolMotionArrow
+                        static
+                        className="h-2.5 w-2.5 text-[var(--portal-gold)]/65"
+                      />
+                      <span
+                        className={cn(
+                          'font-semibold tabular-nums text-[var(--portal-gold)]/85',
+                          (account.endorsementsReceivedCount ?? 0) === 0 &&
+                            'opacity-40'
+                        )}
+                      >
+                        {formatProfileCount(
+                          account.endorsementsReceivedCount ?? 0
+                        )}
+                      </span>
+                    </PortalHoverTooltip>
+                    <PortalHoverTooltip
+                      className="inline-flex items-center gap-1 whitespace-nowrap"
+                      aria-label={`${formatProfileCount(account.endorsementsGivenCount ?? 0)} endorsements given`}
+                      stopPropagation
+                      tooltip="Endorsements given"
+                    >
+                      <span
+                        className={cn(
+                          'font-semibold tabular-nums text-[var(--portal-gold)]/85',
+                          (account.endorsementsGivenCount ?? 0) === 0 &&
+                            'opacity-40'
+                        )}
+                      >
+                        {formatProfileCount(
+                          account.endorsementsGivenCount ?? 0
+                        )}
+                      </span>
+                      <ProtocolMotionArrow
+                        static
+                        className="h-2.5 w-2.5 text-[var(--portal-gold)]/65"
+                      />
+                    </PortalHoverTooltip>
+                  </span>
+                </span>
+              </ProfileGraphRowLink>
+
+              <span className="flex shrink-0 flex-col items-end gap-1">
+                <PortalHoverTooltip
+                  className={cn(
+                    'text-right portal-type-caption tabular-nums text-muted-foreground/50',
+                    !timeMeta && 'invisible'
+                  )}
+                  aria-hidden={!timeMeta}
+                  aria-label={timeMeta?.description}
+                  stopPropagation
+                  tooltip={timeMeta?.description}
+                >
+                  {timeMeta?.label || '0d ago'}
+                </PortalHoverTooltip>
+                {canUpdateStanding ? (
+                  isRowPending ? (
+                    <span
+                      className={profileSocialStandingButtonClass(
+                        viewerStandsWithAccount
+                      )}
+                      aria-label={
+                        viewerStandsWithAccount ? 'Stepping back' : 'Standing'
+                      }
+                    >
+                      <ProfileSocialStandingPending
+                        active={viewerStandsWithAccount}
+                        hasSocialSession={hasSocialSession}
+                      />
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={isRowPending}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        event.preventDefault();
+                        void onUpdateStanding?.(
+                          account,
+                          !viewerStandsWithAccount
+                        );
+                      }}
+                      className={profileSocialStandingButtonClass(
+                        viewerStandsWithAccount
+                      )}
+                      aria-label={
+                        viewerStandsWithAccount
+                          ? `Step back from ${accountLabel(account)}`
+                          : `Stand with ${accountLabel(account)}`
+                      }
+                    >
+                      <ProfileSocialStandingToggle
+                        active={viewerStandsWithAccount}
+                        hasSocialSession={hasSocialSession}
+                      />
+                    </button>
+                  )
+                ) : null}
+              </span>
+            </motion.div>
+          );
+        })}
+      </AnimatePresence>
     </div>
   );
 }

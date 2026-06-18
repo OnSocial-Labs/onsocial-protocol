@@ -35,12 +35,12 @@ export class StorageModule {
    * ```
    */
   async upload(file: Blob | File): Promise<StorageUploadResponse> {
-    const res: UploadedMedia = await this._provider.upload(file);
+    const res = await this._provider.upload(file);
     return {
       cid: res.cid,
       size: res.size,
       mime: res.mime,
-    } as StorageUploadResponse;
+    };
   }
 
   /**
@@ -51,12 +51,12 @@ export class StorageModule {
    * ```
    */
   async uploadJson(data: unknown): Promise<StorageUploadResponse> {
-    const res: UploadedJson = await this._provider.uploadJson(data);
+    const res = await this._provider.uploadJson(data);
     return {
       cid: res.cid,
       size: res.size,
       mime: res.mime,
-    } as StorageUploadResponse;
+    };
   }
 
   /**

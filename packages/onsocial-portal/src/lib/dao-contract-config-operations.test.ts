@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  canProposeSocialSpendActionRoutingDraft,
+  DEFAULT_SUPPORT_ENDORSEMENT_ROUTING_DRAFT,
   formatSocialSpendActionRoutingSummary,
+  getSocialSpendActionRoutingOperationConfig,
   parseSocialSpendActionConfigView,
   socialSpendActionRoutingChanged,
   validateSocialSpendActionRoutingBps,
@@ -74,5 +77,31 @@ describe('dao-contract-config-operations', () => {
     ).toBe('95% pool · 5% boost credits');
     expect(socialSpendActionRoutingChanged(baseline, next)).toBe(true);
     expect(socialSpendActionRoutingChanged(baseline, baseline)).toBe(false);
+  });
+
+  it('exposes support endorsement defaults and proposal readiness', () => {
+    const config = getSocialSpendActionRoutingOperationConfig(
+      'social_spend_support_endorsement_routing'
+    );
+
+    expect(config).toMatchObject({
+      actionId: 'support_endorsement',
+      actionLabel: 'support endorsement',
+    });
+    expect(config?.defaultDraft).toEqual(
+      DEFAULT_SUPPORT_ENDORSEMENT_ROUTING_DRAFT
+    );
+    expect(
+      canProposeSocialSpendActionRoutingDraft(
+        null,
+        DEFAULT_SUPPORT_ENDORSEMENT_ROUTING_DRAFT
+      )
+    ).toBe(true);
+    expect(
+      formatSocialSpendActionRoutingSummary(
+        DEFAULT_SUPPORT_ENDORSEMENT_ROUTING_DRAFT,
+        { protocolFeesRouteToBoost: true }
+      )
+    ).toBe('1% boost credits · 99% target');
   });
 });

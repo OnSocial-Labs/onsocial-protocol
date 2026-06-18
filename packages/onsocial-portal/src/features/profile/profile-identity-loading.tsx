@@ -117,13 +117,11 @@ export function ProfileSignalsBandSkeleton({
   showCtaRow?: boolean;
 }) {
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <Skeleton className="h-5 w-[7.5rem] rounded bg-foreground/[0.06]" />
-        <Skeleton className="h-5 w-[4.5rem] rounded bg-foreground/[0.06]" />
-        <Skeleton className="h-5 w-10 rounded bg-foreground/[0.06]" />
+    <div className="space-y-1">
+      <div className="flex flex-wrap items-center gap-x-0.5 gap-y-0.5">
+        <Skeleton className="h-5 w-[11rem] max-w-full rounded bg-foreground/[0.06]" />
       </div>
-      <Skeleton className="h-3 w-56 max-w-full bg-foreground/[0.05]" />
+      <Skeleton className="h-3 w-52 max-w-full bg-foreground/[0.05]" />
       {showCtaRow ? (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-1.5">

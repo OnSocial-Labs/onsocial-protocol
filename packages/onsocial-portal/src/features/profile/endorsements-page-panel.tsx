@@ -1,11 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { PenLine } from 'lucide-react';
 import {
-  EndorsementRecord,
-  endorsementListRowClass,
+  EndorsementListCardRow,
+  type EndorsementRowActivateOptions,
 } from '@/components/ui/endorsement-flow';
 import { profileSocialStandingButtonClass } from '@/components/ui/profile-action-pill';
 import {
@@ -18,23 +19,37 @@ import {
   ProfileListFilterRail,
 } from '@/features/profile/profile-list-filter-rail';
 import { EndorseModal } from '@/components/endorse-modal';
+import { EndorsementSupportFooter } from '@/components/endorsement-support-footer';
 import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
+import { walletMenuActionButtonClass } from '@/components/ui/profile-action-pill';
 import { PROFILE_SEARCH_MIN_QUERY_LENGTH } from '@/lib/profile-account-search';
 import {
-  cleanHandle,
+  buildEndorsementListItemAfterWrite,
+  endorsementMatchesLocalSearch,
   endorsementTimestamp,
   formatEndorsementTime,
   humanizeEndorsementTopic,
   mergeEndorsementsAfterUpsert,
   normalizeEndorsementTopic,
+  resolveEndorsementPartyDisplayName,
   topTopics,
   type EndorsementSubmitInput,
+  type EndorsementWriteResult,
 } from '@/lib/endorsements';
+import { parseEndorsementMediaRef } from '@/lib/endorsement-media';
+import { playEndorsementFocusVideo } from '@/hooks/use-endorsement-list-video';
 import type { EndorsementListItem } from '@onsocial/sdk';
+import type { EndorsementSupportSubmitInput } from '@/lib/social-spend-endorsement';
+import { fetchEndorsementSupportGiven } from '@/lib/social-spend-endorsement';
+import {
+  fetchProfileSupportBalanceYocto,
+  formatSupportBalanceLabel,
+} from '@/lib/social-spend-profile';
 import {
   getPortalProfileUrl,
   type PortalEndorsementsMode,
 } from '@/lib/portal-config';
+import { profileListContainerClass } from '@/features/profile/profile-list-row';
 import { cn } from '@/lib/utils';
 
 export type EnrichedEndorsementListItem = EndorsementListItem & {
@@ -42,6 +57,7 @@ export type EnrichedEndorsementListItem = EndorsementListItem & {
   issuerAvatarUrl?: string | null;
   targetName?: string | null;
   targetAvatarUrl?: string | null;
+  mediaUrl?: string | null;
 };
 
 interface EndorsementsPageResponse {
@@ -155,6 +171,9 @@ export function EndorsementsPagePanel({
   onSelectAccount,
   onEndorse,
   onRemoveEndorsement,
+  onSupportEndorsement,
+  onClaimSupportBalance,
+  isClaimingSupportBalance = false,
 }: {
   targetAccountId: string;
   targetDisplayName: string;
@@ -175,11 +194,16 @@ export function EndorsementsPagePanel({
   onEndorse?: (
     targetAccountId: string,
     input: EndorsementSubmitInput
-  ) => Promise<unknown>;
+  ) => Promise<EndorsementWriteResult>;
   onRemoveEndorsement?: (
     targetAccountId: string,
     topic?: string
   ) => Promise<unknown>;
+  onSupportEndorsement?: (
+    input: EndorsementSupportSubmitInput
+  ) => Promise<string[]>;
+  onClaimSupportBalance?: () => Promise<string[]>;
+  isClaimingSupportBalance?: boolean;
 }) {
   const router = useRouter();
   const openProfile = useCallback(
@@ -209,6 +233,13 @@ export function EndorsementsPagePanel({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [focusedEndorsement, setFocusedEndorsement] =
     useState<EnrichedEndorsementListItem | null>(null);
+  const [focusedVideoPlayback, setFocusedVideoPlayback] = useState<{
+    unmuted: boolean;
+    time: number;
+    wasPlaying: boolean;
+  }>({ unmuted: false, time: 0, wasPlaying: false });
+  const [claimableSupportYocto, setClaimableSupportYocto] = useState(0n);
+  const [supportedCount, setSupportedCount] = useState(0);
   const [endorseOpen, setEndorseOpen] = useState(false);
   const [editingFromList, setEditingFromList] =
     useState<EnrichedEndorsementListItem | null>(null);
@@ -220,11 +251,13 @@ export function EndorsementsPagePanel({
   useEffect(() => {
     setActiveTopic(initialTopic ?? null);
     setFocusedEndorsement(null);
+    setFocusedVideoPlayback({ unmuted: false, time: 0, wasPlaying: false });
     setQuery('');
   }, [initialTopic, mode, targetAccountId]);
 
   useEffect(() => {
     if (!initialFocus?.issuer) return;
+    setFocusedVideoPlayback({ unmuted: false, time: 0, wasPlaying: false });
     setFocusedEndorsement({
       issuer: initialFocus.issuer,
       target: initialFocus.target ?? targetAccountId,
@@ -319,6 +352,18 @@ export function EndorsementsPagePanel({
     targetAccountId,
   ]);
 
+  const reloadFirstPage = useCallback(async () => {
+    const response = await fetchEndorsementsPage(
+      targetAccountId,
+      mode,
+      0,
+      searchQueryForFetch
+    );
+    setItems(response.endorsements);
+    setTotal(response.total);
+    setHasMore(response.hasMore);
+  }, [mode, searchQueryForFetch, targetAccountId]);
+
   useEffect(() => {
     if (!hasMore || isLoading || isLoadingMore || focusedEndorsement) return;
 
@@ -362,20 +407,7 @@ export function EndorsementsPagePanel({
 
     const q = query.trim().toLowerCase();
     if (q && !serverSearchActive) {
-      list = list.filter((r) => {
-        const account = cleanHandle(
-          mode === 'received' ? r.issuer : r.target
-        ).toLowerCase();
-        const topic = (r.topic ?? '').toLowerCase();
-        const topicLabel = humanizeEndorsementTopic(r.topic).toLowerCase();
-        const note = (r.note ?? '').toLowerCase();
-        return (
-          account.includes(q) ||
-          topic.includes(q) ||
-          topicLabel.includes(q) ||
-          note.includes(q)
-        );
-      });
+      list = list.filter((r) => endorsementMatchesLocalSearch(r, q));
     }
 
     return list.sort((a, b) => {
@@ -410,6 +442,7 @@ export function EndorsementsPagePanel({
     received:
       endorsementCounts?.received ?? (mode === 'received' ? totalCount : 0),
     given: endorsementCounts?.given ?? (mode === 'given' ? totalCount : 0),
+    supported: supportedCount,
   };
 
   const viewOptions = useMemo(
@@ -419,8 +452,9 @@ export function EndorsementsPagePanel({
         activeMode: mode,
         counts: segmentCounts,
         preserveTopic: initialTopic,
+        isSelf,
       }),
-    [initialTopic, mode, segmentCounts, targetAccountId]
+    [initialTopic, isSelf, mode, segmentCounts, targetAccountId]
   );
 
   const resultsSummary = useMemo(() => {
@@ -457,7 +491,12 @@ export function EndorsementsPagePanel({
 
   const modalTargetAccountId = editingFromList?.target ?? targetAccountId;
   const modalTargetDisplayName = editingFromList
-    ? cleanHandle(editingFromList.target)
+    ? resolveEndorsementPartyDisplayName(
+        editingFromList.target,
+        editingFromList.targetName,
+        targetAccountId,
+        targetDisplayName
+      )
     : targetDisplayName;
   const modalTargetAvatarUrl = editingFromList
     ? editingFromList.target === targetAccountId
@@ -484,44 +523,59 @@ export function EndorsementsPagePanel({
     if (!onEndorse) return;
     const writeTarget = editingFromList?.target ?? targetAccountId;
     const { previousTopic, ...buildInput } = input;
-    await onEndorse(writeTarget, input);
-    if (viewerAccountId) {
-      const optimistic: EnrichedEndorsementListItem = {
-        issuer: viewerAccountId,
-        target: writeTarget,
-        v: 1,
-        since: Date.now(),
-        topic: buildInput.topic,
-        note: buildInput.note,
-        expiresAt: buildInput.expiresAt,
-        blockHeight: 0,
-        blockTimestamp: Date.now(),
-        issuerAvatarUrl: editingFromList?.issuerAvatarUrl ?? viewerAvatarUrl,
-        targetAvatarUrl:
-          editingFromList?.target === writeTarget
-            ? editingFromList.targetAvatarUrl
-            : writeTarget === targetAccountId
-              ? targetAvatarUrl
-              : null,
-      };
-      setItems((current) => {
-        const mergeList = (list: EnrichedEndorsementListItem[]) =>
-          mergeEndorsementsAfterUpsert(list, {
-            issuer: viewerAccountId,
-            target: writeTarget,
-            previousTopic,
-            next: optimistic,
-          });
-        return mode === 'given' && viewerAccountId === targetAccountId
-          ? mergeList(current)
-          : mode === 'received' && writeTarget === targetAccountId
-            ? mergeList(current)
-            : current;
-      });
-      setTotal((current) => current + 1);
+    let mediaPreviewUrl: string | null = null;
+    if (typeof File !== 'undefined' && buildInput.media instanceof File) {
+      mediaPreviewUrl = URL.createObjectURL(buildInput.media);
     }
-    setEndorseOpen(false);
-    setEditingFromList(null);
+    try {
+      const writeResult = await onEndorse(writeTarget, input);
+      if (viewerAccountId) {
+        const optimistic = buildEndorsementListItemAfterWrite(
+          writeResult.record,
+          viewerAccountId,
+          writeTarget,
+          buildInput,
+          editingFromList,
+          {
+            issuerAvatarUrl:
+              editingFromList?.issuerAvatarUrl ?? viewerAvatarUrl,
+            targetAvatarUrl:
+              editingFromList?.target === writeTarget
+                ? editingFromList.targetAvatarUrl
+                : writeTarget === targetAccountId
+                  ? targetAvatarUrl
+                  : null,
+          },
+          { previewUrl: mediaPreviewUrl }
+        );
+        setItems((current) => {
+          const mergeList = (list: EnrichedEndorsementListItem[]) =>
+            mergeEndorsementsAfterUpsert(list, {
+              issuer: viewerAccountId,
+              target: writeTarget,
+              previousTopic,
+              next: optimistic,
+            });
+          return mode === 'given' && viewerAccountId === targetAccountId
+            ? mergeList(current)
+            : mode === 'received' && writeTarget === targetAccountId
+              ? mergeList(current)
+              : current;
+        });
+        setTotal((current) => current + 1);
+      }
+      setEndorseOpen(false);
+      setEditingFromList(null);
+      try {
+        await reloadFirstPage();
+      } catch {
+        // Optimistic row still shows media; indexer will catch up on next visit.
+      }
+    } finally {
+      if (mediaPreviewUrl) {
+        URL.revokeObjectURL(mediaPreviewUrl);
+      }
+    }
   };
 
   const handleRemoveEndorsement = async (topic?: string) => {
@@ -546,17 +600,75 @@ export function EndorsementsPagePanel({
 
   const handleRowClick = (
     endorsement: EnrichedEndorsementListItem,
-    accountId: string
+    options?: EndorsementRowActivateOptions
   ) => {
-    if (focusedEndorsement) {
-      openProfile(accountId);
+    if (
+      focusedEndorsement &&
+      isSameEndorsement(endorsement, focusedEndorsement)
+    ) {
       return;
     }
 
     setQuery('');
     setActiveTopic(null);
-    setFocusedEndorsement(endorsement);
+    setFocusedVideoPlayback({
+      unmuted: options?.unmuteVideo ?? false,
+      time: options?.videoTime ?? 0,
+      wasPlaying: options?.videoWasPlaying ?? false,
+    });
+    flushSync(() => {
+      setFocusedEndorsement(endorsement);
+    });
+
+    if (options?.unmuteVideo) {
+      playEndorsementFocusVideo();
+    }
   };
+
+  const clearFocusedEndorsement = () => {
+    setFocusedEndorsement(null);
+    setFocusedVideoPlayback({ unmuted: false, time: 0, wasPlaying: false });
+  };
+
+  useEffect(() => {
+    if (!isSelf || !viewerAccountId || !onClaimSupportBalance) {
+      setClaimableSupportYocto(0n);
+      return;
+    }
+
+    let cancelled = false;
+    void fetchProfileSupportBalanceYocto(viewerAccountId)
+      .then((balance) => {
+        if (!cancelled) setClaimableSupportYocto(balance);
+      })
+      .catch(() => {
+        if (!cancelled) setClaimableSupportYocto(0n);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isSelf, onClaimSupportBalance, viewerAccountId]);
+
+  useEffect(() => {
+    if (!isSelf || !targetAccountId) {
+      setSupportedCount(0);
+      return;
+    }
+
+    let cancelled = false;
+    void fetchEndorsementSupportGiven(targetAccountId)
+      .then((response) => {
+        if (!cancelled) setSupportedCount(response.total);
+      })
+      .catch(() => {
+        if (!cancelled) setSupportedCount(0);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isSelf, targetAccountId]);
 
   const emptyLabel = hasActiveFilters
     ? 'No matching endorsements.'
@@ -584,18 +696,38 @@ export function EndorsementsPagePanel({
         autoFocus={metaLoaded}
         isLoading={!metaLoaded}
         trailing={
-          mode === 'received' && canEndorse && onEndorse ? (
-            <button
-              type="button"
-              onClick={() => {
-                setEditingFromList(null);
-                setEndorseOpen(true);
-              }}
-              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 portal-type-body font-medium transition-colors portal-gold-surface focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--portal-gold-accent)]"
-            >
-              {hasSocialSession ? 'Endorse' : 'Authorize'}
-            </button>
-          ) : null
+          <div className="flex shrink-0 items-center gap-2">
+            {isSelf && onClaimSupportBalance && claimableSupportYocto > 0n ? (
+              <button
+                type="button"
+                className={walletMenuActionButtonClass('claim-ready')}
+                disabled={isClaimingSupportBalance}
+                onClick={() => {
+                  void onClaimSupportBalance().then(() => {
+                    if (!viewerAccountId) return;
+                    void fetchProfileSupportBalanceYocto(viewerAccountId, {
+                      fresh: true,
+                    }).then(setClaimableSupportYocto);
+                  });
+                }}
+                aria-label={`Claim ${formatSupportBalanceLabel(claimableSupportYocto)} SOCIAL support`}
+              >
+                Claim {formatSupportBalanceLabel(claimableSupportYocto)} SOCIAL
+              </button>
+            ) : null}
+            {mode === 'received' && canEndorse && onEndorse ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingFromList(null);
+                  setEndorseOpen(true);
+                }}
+                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 portal-type-body font-medium transition-colors portal-gold-surface focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--portal-gold-accent)]"
+              >
+                Endorse
+              </button>
+            ) : null}
+          </div>
         }
       />
 
@@ -605,7 +737,7 @@ export function EndorsementsPagePanel({
             onClick={() => {
               setActiveTopic(null);
               setQuery('');
-              setFocusedEndorsement(null);
+              clearFocusedEndorsement();
             }}
             ariaLabel="View all endorsements"
           />
@@ -647,7 +779,7 @@ export function EndorsementsPagePanel({
               onClick={() => {
                 setActiveTopic(null);
                 setQuery('');
-                setFocusedEndorsement(null);
+                clearFocusedEndorsement();
               }}
               className="shrink-0 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
@@ -662,7 +794,7 @@ export function EndorsementsPagePanel({
             onClick={() => {
               setActiveTopic(null);
               setQuery('');
-              setFocusedEndorsement(null);
+              clearFocusedEndorsement();
             }}
             className="shrink-0 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
@@ -685,10 +817,8 @@ export function EndorsementsPagePanel({
         </div>
       ) : (
         <>
-          <div className="space-y-3">
+          <div className={profileListContainerClass}>
             {filtered.map((rec, idx) => {
-              const focusAccountId =
-                mode === 'received' ? rec.issuer : rec.target;
               const canUpdateThisEndorsement =
                 rec.issuer === viewerAccountId && Boolean(onEndorse);
               const timeLabel = formatEndorsementTime(
@@ -697,86 +827,79 @@ export function EndorsementsPagePanel({
               const timeDescription = timeLabel
                 ? `Endorsement ${timeLabel}`
                 : undefined;
-              const issuerAvatarUrl =
-                rec.issuerAvatarUrl ??
-                (rec.issuer === viewerAccountId
-                  ? viewerAvatarUrl
-                  : rec.issuer === targetAccountId
-                    ? targetAvatarUrl
-                    : null);
-              const targetAvatarSource =
-                rec.targetAvatarUrl ??
-                (rec.target === targetAccountId ? targetAvatarUrl : null);
+
+              const recipientDisplayName = resolveEndorsementPartyDisplayName(
+                rec.target,
+                rec.targetName,
+                targetAccountId,
+                targetDisplayName
+              );
 
               return (
-                <div
+                <EndorsementListCardRow
                   key={`${rec.issuer}:${rec.target}:${rec.topic ?? ''}:${idx}`}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => handleRowClick(rec, focusAccountId)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      handleRowClick(rec, focusAccountId);
-                    }
+                  record={rec}
+                  partyContext={{
+                    pageAccountId: targetAccountId,
+                    pageDisplayName: targetDisplayName,
+                    pageAvatarUrl: targetAvatarUrl,
+                    viewerAccountId,
+                    viewerAvatarUrl,
                   }}
-                  className={endorsementListRowClass}
-                  aria-label={
-                    focusedEndorsement && (pageLayout || onSelectAccount)
-                      ? `Open profile for ${focusAccountId}`
-                      : `Endorsement from ${cleanHandle(rec.issuer)} to ${cleanHandle(rec.target)}`
+                  viewerAccountId={viewerAccountId}
+                  pageLayout={pageLayout}
+                  focused={Boolean(focusedEndorsement)}
+                  focusedVideoMuted={!focusedVideoPlayback.unmuted}
+                  initialVideoTime={focusedVideoPlayback.time}
+                  resumeFocusedVideo={focusedVideoPlayback.wasPlaying}
+                  shareMode={mode}
+                  onSelectAccount={
+                    pageLayout || onSelectAccount ? openProfile : undefined
                   }
-                >
-                  <EndorsementRecord
-                    issuer={rec.issuer}
-                    target={rec.target}
-                    issuerName={rec.issuerName}
-                    targetName={
-                      rec.targetName ??
-                      (rec.target === targetAccountId
-                        ? targetDisplayName
-                        : null)
-                    }
-                    issuerAvatarUrl={issuerAvatarUrl}
-                    targetAvatarUrl={targetAvatarSource}
-                    viewerAccountId={viewerAccountId}
-                    topic={rec.topic}
-                    note={rec.note}
-                    pageLayout={pageLayout}
-                    onSelectAccount={
-                      pageLayout || onSelectAccount ? openProfile : undefined
-                    }
-                    timeLabel={
-                      timeLabel ? (
-                        <PortalHoverTooltip
-                          className="text-right portal-type-caption tabular-nums text-muted-foreground/40"
-                          aria-label={timeDescription}
-                          stopPropagation
-                          tooltip={timeDescription}
-                        >
-                          {timeLabel}
-                        </PortalHoverTooltip>
-                      ) : undefined
-                    }
-                    trailing={
-                      canUpdateThisEndorsement ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingFromList(rec);
-                            setEndorseOpen(true);
-                          }}
-                          className={profileSocialStandingButtonClass(true)}
-                          aria-label={`Update endorsement for ${humanizeEndorsementTopic(rec.topic) || 'general'}`}
-                        >
-                          <PenLine className="h-2.5 w-2.5" strokeWidth={2.5} />
-                          Update
-                        </button>
-                      ) : undefined
-                    }
-                  />
-                </div>
+                  onRowClick={
+                    focusedEndorsement
+                      ? undefined
+                      : (options) => handleRowClick(rec, options)
+                  }
+                  timeLabel={
+                    timeLabel ? (
+                      <PortalHoverTooltip
+                        className="text-right portal-type-caption tabular-nums text-muted-foreground/40"
+                        aria-label={timeDescription}
+                        stopPropagation
+                        tooltip={timeDescription}
+                      >
+                        {timeLabel}
+                      </PortalHoverTooltip>
+                    ) : undefined
+                  }
+                  trailing={
+                    canUpdateThisEndorsement ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingFromList(rec);
+                          setEndorseOpen(true);
+                        }}
+                        className={profileSocialStandingButtonClass(true)}
+                        aria-label={`Update endorsement for ${humanizeEndorsementTopic(rec.topic) || 'general'}`}
+                      >
+                        <PenLine className="h-2.5 w-2.5" strokeWidth={2.5} />
+                        Update
+                      </button>
+                    ) : undefined
+                  }
+                  footerTrailing={
+                    <EndorsementSupportFooter
+                      record={rec}
+                      pageAccountId={targetAccountId}
+                      recipientDisplayName={recipientDisplayName}
+                      viewerAccountId={viewerAccountId}
+                      onSupport={onSupportEndorsement}
+                    />
+                  }
+                />
               );
             })}
           </div>
@@ -800,11 +923,20 @@ export function EndorsementsPagePanel({
         targetDisplayName={modalTargetDisplayName}
         targetAvatarUrl={modalTargetAvatarUrl}
         issuerAccountId={viewerAccountId}
+        issuerAvatarUrl={
+          editingFromList?.issuerAvatarUrl ?? viewerAvatarUrl ?? null
+        }
         existing={
           editingFromList
             ? {
                 topic: editingFromList.topic,
                 note: editingFromList.note,
+                id:
+                  typeof editingFromList.id === 'string'
+                    ? editingFromList.id
+                    : undefined,
+                media: parseEndorsementMediaRef(editingFromList.media),
+                mediaUrl: editingFromList.mediaUrl ?? null,
               }
             : null
         }

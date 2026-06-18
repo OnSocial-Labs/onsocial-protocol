@@ -94,6 +94,139 @@ const SOCIAL_SPEND_EVENT_FIELDS = `
 
 export { SOCIAL_SPEND_EVENT_TYPES, type SocialSpendEventType };
 
+const LEGACY_ENDORSEMENT_SPEND_PREFIX = 'legacy:';
+
+export interface EndorsementSupporterAggregate {
+  accountId: string;
+  totalAmountYocto: string;
+  spendCount: number;
+  latestSupportAt: number | null;
+}
+
+export interface EndorsementSupportSummaryResult {
+  totalAmountYocto: string;
+  spendCount: number;
+  supporterCount: number;
+  previewSupporters: Array<{
+    accountId: string;
+    totalAmountYocto: string;
+  }>;
+}
+
+export interface EndorsementSupportGivenRow {
+  endorsementId: string;
+  recipientId: string | null;
+  totalAmountYocto: string;
+  spendCount: number;
+  latestSupportAt: number | null;
+  issuer: string | null;
+  topic: string | null;
+}
+
+export function parseLegacyEndorsementSpendTargetId(
+  endorsementId: string
+): { issuer: string; target: string; topic: string } | null {
+  const trimmed = endorsementId.trim();
+  if (!trimmed.startsWith(LEGACY_ENDORSEMENT_SPEND_PREFIX)) {
+    return null;
+  }
+
+  const body = trimmed.slice(LEGACY_ENDORSEMENT_SPEND_PREFIX.length);
+  const topicSep = body.lastIndexOf(':');
+  if (topicSep <= 0) return null;
+  const topic = body.slice(topicSep + 1);
+  const rest = body.slice(0, topicSep);
+  const targetSep = rest.lastIndexOf(':');
+  if (targetSep <= 0) return null;
+  const target = rest.slice(targetSep + 1);
+  const issuer = rest.slice(0, targetSep);
+  if (!issuer || !target) return null;
+
+  return { issuer, target, topic };
+}
+
+function parseSupportEndorsementMetadata(metadata: string | null): {
+  issuer?: string;
+  topic?: string;
+} {
+  if (!metadata?.trim()) return {};
+  try {
+    const parsed = JSON.parse(metadata) as {
+      issuer?: unknown;
+      topic?: unknown;
+    };
+    return {
+      issuer:
+        typeof parsed.issuer === 'string' && parsed.issuer.trim()
+          ? parsed.issuer.trim()
+          : undefined,
+      topic:
+        typeof parsed.topic === 'string' && parsed.topic.trim()
+          ? parsed.topic.trim()
+          : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+function compareSupporterAggregates(
+  a: EndorsementSupporterAggregate,
+  b: EndorsementSupporterAggregate
+): number {
+  const amountDiff = BigInt(b.totalAmountYocto) - BigInt(a.totalAmountYocto);
+  if (amountDiff > 0n) return 1;
+  if (amountDiff < 0n) return -1;
+  return (b.latestSupportAt ?? 0) - (a.latestSupportAt ?? 0);
+}
+
+export function aggregateEndorsementSupportRows(rows: SocialSpendEventRow[]): {
+  totalAmountYocto: string;
+  spendCount: number;
+  supporters: EndorsementSupporterAggregate[];
+} {
+  const bySpender = new Map<
+    string,
+    { total: bigint; spendCount: number; latestSupportAt: number }
+  >();
+  let total = 0n;
+  let spendCount = 0;
+
+  for (const row of rows) {
+    const spender = row.spenderId?.trim();
+    if (!spender || !row.amount || !/^\d+$/.test(row.amount)) continue;
+    total += BigInt(row.amount);
+    spendCount += 1;
+    const existing = bySpender.get(spender) ?? {
+      total: 0n,
+      spendCount: 0,
+      latestSupportAt: 0,
+    };
+    existing.total += BigInt(row.amount);
+    existing.spendCount += 1;
+    existing.latestSupportAt = Math.max(
+      existing.latestSupportAt,
+      row.blockTimestamp ?? 0
+    );
+    bySpender.set(spender, existing);
+  }
+
+  const supporters = Array.from(bySpender.entries())
+    .map(([accountId, stats]) => ({
+      accountId,
+      totalAmountYocto: stats.total.toString(),
+      spendCount: stats.spendCount,
+      latestSupportAt: stats.latestSupportAt > 0 ? stats.latestSupportAt : null,
+    }))
+    .sort(compareSupporterAggregates);
+
+  return {
+    totalAmountYocto: total.toString(),
+    spendCount,
+    supporters,
+  };
+}
+
 export class SocialSpendQuery {
   constructor(private _q: QueryModule) {}
 
@@ -209,16 +342,147 @@ export class SocialSpendQuery {
   async targetActivity(
     targetType: string,
     targetId: string,
-    opts: { limit?: number; offset?: number } = {}
+    opts: { action?: string; limit?: number; offset?: number } = {}
   ): Promise<SocialSpendEventRow[]> {
     return this.events({
       targetType,
       targetId,
+      action: opts.action,
       eventType: SOCIAL_SPEND_EVENT_TYPES.SOCIAL_SPENT,
       success: true,
       limit: opts.limit,
       offset: opts.offset,
     });
+  }
+
+  async endorsementSupportSummary(
+    endorsementId: string,
+    opts: { limit?: number; previewLimit?: number } = {}
+  ): Promise<EndorsementSupportSummaryResult> {
+    const rows = await this.targetActivity('endorsement', endorsementId, {
+      action: 'support_endorsement',
+      limit: opts.limit ?? 500,
+    });
+    const aggregated = aggregateEndorsementSupportRows(rows);
+    const previewLimit = Math.max(0, opts.previewLimit ?? 3);
+
+    return {
+      totalAmountYocto: aggregated.totalAmountYocto,
+      spendCount: aggregated.spendCount,
+      supporterCount: aggregated.supporters.length,
+      previewSupporters: aggregated.supporters
+        .slice(0, previewLimit)
+        .map(({ accountId, totalAmountYocto }) => ({
+          accountId,
+          totalAmountYocto,
+        })),
+    };
+  }
+
+  async endorsementSupporters(
+    endorsementId: string,
+    opts: { limit?: number } = {}
+  ): Promise<EndorsementSupporterAggregate[]> {
+    const rows = await this.targetActivity('endorsement', endorsementId, {
+      action: 'support_endorsement',
+      limit: opts.limit ?? 500,
+    });
+    return aggregateEndorsementSupportRows(rows).supporters;
+  }
+
+  async endorsementSupportGiven(
+    spenderAccountId: string,
+    opts: { limit?: number; offset?: number; eventLimit?: number } = {}
+  ): Promise<EndorsementSupportGivenRow[]> {
+    const spenderId = spenderAccountId.trim();
+    if (!spenderId) return [];
+
+    const rows = await this.events({
+      spenderId,
+      action: 'support_endorsement',
+      targetType: 'endorsement',
+      eventType: SOCIAL_SPEND_EVENT_TYPES.SOCIAL_SPENT,
+      success: true,
+      limit: opts.eventLimit ?? 500,
+      offset: opts.offset,
+    });
+
+    const byEndorsement = new Map<
+      string,
+      {
+        total: bigint;
+        spendCount: number;
+        latestSupportAt: number;
+        recipientId: string | null;
+        issuer: string | null;
+        topic: string | null;
+      }
+    >();
+
+    for (const row of rows) {
+      const endorsementId = row.targetId?.trim();
+      if (!endorsementId || !row.amount || !/^\d+$/.test(row.amount)) continue;
+
+      const metadata = parseSupportEndorsementMetadata(row.metadata);
+      const legacy = parseLegacyEndorsementSpendTargetId(endorsementId);
+      const existing = byEndorsement.get(endorsementId) ?? {
+        total: 0n,
+        spendCount: 0,
+        latestSupportAt: 0,
+        recipientId: row.recipientId?.trim() || legacy?.target || null,
+        issuer: metadata.issuer ?? legacy?.issuer ?? null,
+        topic: metadata.topic ?? legacy?.topic ?? null,
+      };
+
+      existing.total += BigInt(row.amount);
+      existing.spendCount += 1;
+      existing.latestSupportAt = Math.max(
+        existing.latestSupportAt,
+        row.blockTimestamp ?? 0
+      );
+      if (!existing.recipientId && row.recipientId?.trim()) {
+        existing.recipientId = row.recipientId.trim();
+      }
+      if (!existing.issuer && metadata.issuer) {
+        existing.issuer = metadata.issuer;
+      }
+      if (!existing.topic && metadata.topic) {
+        existing.topic = metadata.topic;
+      }
+      if (!existing.issuer && legacy?.issuer) {
+        existing.issuer = legacy.issuer;
+      }
+      if (!existing.topic && legacy?.topic) {
+        existing.topic = legacy.topic;
+      }
+      if (!existing.recipientId && legacy?.target) {
+        existing.recipientId = legacy.target;
+      }
+
+      byEndorsement.set(endorsementId, existing);
+    }
+
+    const limit = Math.max(1, opts.limit ?? 50);
+
+    return Array.from(byEndorsement.entries())
+      .map(([endorsementId, stats]) => ({
+        endorsementId,
+        recipientId: stats.recipientId,
+        totalAmountYocto: stats.total.toString(),
+        spendCount: stats.spendCount,
+        latestSupportAt:
+          stats.latestSupportAt > 0 ? stats.latestSupportAt : null,
+        issuer: stats.issuer,
+        topic: stats.topic,
+      }))
+      .sort((a, b) => {
+        const amountDiff =
+          BigInt(b.totalAmountYocto) - BigInt(a.totalAmountYocto);
+        if (amountDiff > 0n) return 1;
+        if (amountDiff < 0n) return -1;
+        return (b.latestSupportAt ?? 0) - (a.latestSupportAt ?? 0);
+      })
+      .slice(0, limit);
   }
 
   async latestSeasonRoot(

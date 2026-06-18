@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
+  EndorsementRecord,
   MaterialisedProfile,
   ProfileData,
   RelayResponse,
@@ -9,6 +10,7 @@ import type {
 import {
   upsertEndorsement,
   type EndorsementSubmitInput,
+  type EndorsementWriteResult,
 } from '@/lib/endorsements';
 import type { Session } from '@onsocial/sdk/advanced';
 import { useWallet } from '@/contexts/wallet-context';
@@ -18,15 +20,32 @@ import {
   creditPortalSocialReward,
 } from '@/lib/portal-rewards';
 import {
-  ensurePortalSocialSession,
+  PORTAL_SOCIAL_SESSION_MISSING_MESSAGE,
   restorePortalSocialSession,
 } from '@/lib/portal-social-session';
 import { rethrowWalletActionError } from '@/lib/wallet-errors';
+import {
+  deriveStandingAccountsList,
+  deriveStandingPresentation,
+  hasViewerStandingOverride,
+  reconcileStandingListFromApi,
+  reconcileViewerStanding,
+  recordViewerStanding,
+  resolveViewerStanding,
+  shouldFreshFetchStandingList,
+  type ProfileSocialStandingShape,
+  type StandingListSnapshot,
+  type ViewerStandingLedger,
+} from '@/lib/viewer-standing-ledger';
+import type { StanceDetailKind } from '@/lib/profile-social-standings';
+import type { StandingAccountSummary } from '@/lib/profile-social-standings';
 import {
   buildClaimSupportBalanceTransaction,
   buildSupportProfileTransaction,
   sendPortalWalletTransaction,
 } from '@/lib/social-spend-profile';
+import { sendSupportEndorsementTransaction } from '@/lib/social-spend-endorsement';
+import type { EndorsementSupportSubmitInput } from '@/lib/social-spend-endorsement';
 const INDEXED_PROFILE_REFRESH_DELAYS_MS = [750, 2_000, 5_000] as const;
 const PORTAL_ONAPI_PROXY_URL = '/api/onapi';
 
@@ -296,7 +315,13 @@ async function fetchPortalProfile(
 }
 
 export function useProfileState() {
-  const { accountId, isConnected, getSigningWallet } = useWallet();
+  const {
+    accountId,
+    isConnected,
+    connect,
+    getSigningWallet,
+    isBootstrappingSocialSession,
+  } = useWallet();
   const [profile, setProfile] = useState<MaterialisedProfile | null>(null);
   const [indexedProfile, setIndexedProfile] = useState<Record<
     string,
@@ -308,9 +333,16 @@ export function useProfileState() {
   const [isSaving, setIsSaving] = useState(false);
   const [isUpdatingStanding, setIsUpdatingStanding] = useState(false);
   const [isSupportingProfile, setIsSupportingProfile] = useState(false);
+  const [isSupportingEndorsement, setIsSupportingEndorsement] = useState(false);
   const [isClaimingSupportBalance, setIsClaimingSupportBalance] =
     useState(false);
   const standingCountRef = useRef(0);
+  const confirmedStandingRef = useRef<ViewerStandingLedger>(new Map());
+  const pendingStandingRef = useRef<Set<string>>(new Set());
+  const [standingSyncVersion, setStandingSyncVersion] = useState(0);
+  const bumpStandingSync = useCallback(() => {
+    setStandingSyncVersion((version) => version + 1);
+  }, []);
   const cachedSessionRef = useRef<{
     accountId: string;
     session: Session;
@@ -433,7 +465,7 @@ export function useProfileState() {
     return () => {
       cancelled = true;
     };
-  }, [accountId, isConnected]);
+  }, [accountId, isConnected, isBootstrappingSocialSession]);
 
   const getSocialSession = useCallback(async (): Promise<Session> => {
     if (!accountId || !isConnected) {
@@ -457,17 +489,18 @@ export function useProfileState() {
 
     setIsAuthorizingSession(true);
     try {
-      const session = await ensurePortalSocialSession({
-        accountId,
-        getSigningWallet,
-      });
+      await connect();
+      const session = await restorePortalSocialSession(accountId);
+      if (!session) {
+        throw new Error(PORTAL_SOCIAL_SESSION_MISSING_MESSAGE);
+      }
       cachedSessionRef.current = { accountId, session };
       setHasSocialSession(true);
       return session;
     } finally {
       setIsAuthorizingSession(false);
     }
-  }, [accountId, getSigningWallet, isConnected]);
+  }, [accountId, connect, isConnected]);
 
   const loadProfile = useCallback(async () => {
     if (!accountId || !isConnected) {
@@ -644,7 +677,8 @@ export function useProfileState() {
   const updateStanding = useCallback(
     async (
       targetAccount: string,
-      shouldStand: boolean
+      shouldStand: boolean,
+      snapshot?: StandingListSnapshot
     ): Promise<StandingUpdateResult> => {
       if (!accountId || !isConnected) {
         throw new Error('Connect your wallet before updating standing.');
@@ -655,6 +689,8 @@ export function useProfileState() {
       standingCountRef.current += 1;
       setIsUpdatingStanding(true);
       setError(null);
+      pendingStandingRef.current.add(targetAccount);
+      bumpStandingSync();
 
       try {
         const os = createClient();
@@ -679,24 +715,125 @@ export function useProfileState() {
             session,
           });
         }
+        recordViewerStanding(
+          confirmedStandingRef.current,
+          targetAccount,
+          shouldStand,
+          shouldStand ? snapshot : undefined
+        );
+        bumpStandingSync();
         return { applied: shouldStand, response };
       } catch (err) {
         rethrowWalletActionError(err);
       } finally {
+        pendingStandingRef.current.delete(targetAccount);
         standingCountRef.current -= 1;
         if (standingCountRef.current === 0) {
           setIsUpdatingStanding(false);
         }
+        bumpStandingSync();
       }
     },
-    [accountId, createClient, getSocialSession, isConnected]
+    [accountId, bumpStandingSync, createClient, getSocialSession, isConnected]
+  );
+
+  const isStandingPendingForTarget = useCallback((targetAccountId: string) => {
+    return pendingStandingRef.current.has(targetAccountId);
+  }, []);
+
+  const resolveViewerStandingForTarget = useCallback(
+    (targetAccountId: string, apiStanding: boolean) =>
+      resolveViewerStanding(
+        confirmedStandingRef.current,
+        targetAccountId,
+        apiStanding
+      ),
+    []
+  );
+
+  const deriveProfileSocialStanding = useCallback(
+    <T extends ProfileSocialStandingShape>(
+      social: T,
+      targetAccountId: string
+    ): T =>
+      deriveStandingPresentation(
+        social,
+        targetAccountId,
+        confirmedStandingRef.current
+      ),
+    []
+  );
+
+  const reconcileStandingFromApi = useCallback(
+    (targetAccountId: string, apiStanding: boolean) => {
+      const reconciled = reconcileViewerStanding(
+        confirmedStandingRef.current,
+        targetAccountId,
+        apiStanding
+      );
+      if (reconciled) {
+        bumpStandingSync();
+      }
+    },
+    [bumpStandingSync]
+  );
+
+  const shouldFreshFetchProfileSocial = useCallback(
+    (targetAccountId: string) =>
+      hasViewerStandingOverride(confirmedStandingRef.current, targetAccountId),
+    []
+  );
+
+  const deriveStandingListAccounts = useCallback(
+    (
+      accounts: StandingAccountSummary[],
+      kind: StanceDetailKind,
+      listAccountId: string,
+      viewerAccountId: string | null
+    ) =>
+      deriveStandingAccountsList({
+        accounts,
+        ledger: confirmedStandingRef.current,
+        kind,
+        listAccountId,
+        viewerAccountId,
+      }),
+    []
+  );
+
+  const reconcileStandingListFromFetch = useCallback(
+    (accounts: StandingAccountSummary[]) => {
+      const changed = reconcileStandingListFromApi(
+        confirmedStandingRef.current,
+        accounts
+      );
+      if (changed) {
+        bumpStandingSync();
+      }
+    },
+    [bumpStandingSync]
+  );
+
+  const shouldFreshFetchStandingListFor = useCallback(
+    (
+      listAccountId: string,
+      viewerAccountId: string | null,
+      kind: StanceDetailKind
+    ) =>
+      shouldFreshFetchStandingList(
+        confirmedStandingRef.current,
+        listAccountId,
+        viewerAccountId,
+        kind
+      ),
+    []
   );
 
   const endorse = useCallback(
     async (
       targetAccount: string,
       input: EndorsementSubmitInput = {}
-    ): Promise<RelayResponse> => {
+    ): Promise<EndorsementWriteResult> => {
       if (!accountId || !isConnected) {
         throw new Error('Connect your wallet before endorsing.');
       }
@@ -718,6 +855,15 @@ export function useProfileState() {
           buildInput,
           { previousTopic, wait: true, accountId }
         );
+        let record: EndorsementRecord | null = null;
+        try {
+          record = await os.endorsements.get(targetAccount, {
+            topic: buildInput.topic,
+            issuer: accountId,
+          });
+        } catch {
+          // Write succeeded — UI falls back to submit payload until refetch.
+        }
         creditPortalSocialReward({
           accountId,
           action: 'endorsement_given',
@@ -726,7 +872,7 @@ export function useProfileState() {
           proof: { txHash: response.txHash },
           session,
         });
-        return response;
+        return { response, record };
       } catch (err) {
         rethrowWalletActionError(err);
       }
@@ -755,6 +901,29 @@ export function useProfileState() {
         rethrowWalletActionError(err);
       } finally {
         setIsSupportingProfile(false);
+      }
+    },
+    [accountId, getSigningWallet, isConnected]
+  );
+
+  const supportEndorsement = useCallback(
+    async (input: EndorsementSupportSubmitInput): Promise<string[]> => {
+      if (!accountId || !isConnected) {
+        throw new Error('Connect your wallet before sending support.');
+      }
+      if (input.recipientAccountId === accountId) {
+        throw new Error('You cannot support your own endorsement payout.');
+      }
+
+      setError(null);
+      setIsSupportingEndorsement(true);
+
+      try {
+        return await sendSupportEndorsementTransaction(getSigningWallet, input);
+      } catch (err) {
+        rethrowWalletActionError(err);
+      } finally {
+        setIsSupportingEndorsement(false);
       }
     },
     [accountId, getSigningWallet, isConnected]
@@ -826,16 +995,27 @@ export function useProfileState() {
     isSaving,
     isUpdatingStanding,
     isSupportingProfile,
+    isSupportingEndorsement,
     isClaimingSupportBalance,
-    isAuthorizingSession,
+    isAuthorizingSession: isAuthorizingSession || isBootstrappingSocialSession,
     hasSocialSession,
     error,
     refreshProfile: loadProfile,
     saveProfile,
     updateStanding,
+    standingSyncVersion,
+    isStandingPendingForTarget,
+    resolveViewerStandingForTarget,
+    deriveProfileSocialStanding,
+    reconcileStandingFromApi,
+    shouldFreshFetchProfileSocial,
+    deriveStandingListAccounts,
+    reconcileStandingListFromFetch,
+    shouldFreshFetchStandingListFor,
     endorse,
     removeEndorsement,
     supportProfile,
+    supportEndorsement,
     claimSupportBalance,
   };
 }

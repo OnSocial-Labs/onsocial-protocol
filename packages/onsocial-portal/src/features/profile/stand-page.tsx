@@ -152,7 +152,13 @@ export default function StandPage({
                 ? async (account, shouldStand) => {
                     await profileState.updateStanding(
                       account.accountId,
-                      shouldStand
+                      shouldStand,
+                      {
+                        accountId: account.accountId,
+                        name: account.name,
+                        avatarUrl: account.avatarUrl,
+                        bio: account.bio ?? null,
+                      }
                     );
                   }
                 : undefined

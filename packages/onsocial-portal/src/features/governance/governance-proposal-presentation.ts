@@ -908,6 +908,53 @@ export function deriveProposalPresentation({
       });
     }
 
+    if (
+      methodName === 'set_action_config' &&
+      actionId === 'support_endorsement'
+    ) {
+      const routingConfig = config;
+      const treasuryBps =
+        routingConfig && typeof routingConfig.treasury_bps === 'number'
+          ? routingConfig.treasury_bps
+          : 0;
+      const seasonPoolBps =
+        routingConfig && typeof routingConfig.season_pool_bps === 'number'
+          ? routingConfig.season_pool_bps
+          : 0;
+      const targetBps =
+        routingConfig && typeof routingConfig.target_bps === 'number'
+          ? routingConfig.target_bps
+          : 0;
+      const burnBps =
+        routingConfig && typeof routingConfig.burn_bps === 'number'
+          ? routingConfig.burn_bps
+          : 0;
+      const routingSummary = formatSocialSpendActionRoutingSummary({
+        treasury_bps: treasuryBps,
+        season_pool_bps: seasonPoolBps,
+        target_bps: targetBps,
+        burn_bps: burnBps,
+      });
+
+      headline = contractLabel
+        ? `Set ${contractLabel} support endorsement routing`
+        : 'Set support endorsement routing';
+
+      return finish({
+        headline,
+        actionBadge: 'Config',
+        ...proposalTarget('routing', routingSummary),
+        subjectAccount: receiverId,
+        subjectEyebrow: receiverId ? 'Contract' : null,
+        onChainDescription,
+        proposer: normalizedProposer,
+        showProposerSeparately: shouldShowProposerSeparately(
+          normalizedProposer,
+          receiverId
+        ),
+      });
+    }
+
     if (methodName === 'set_season_config') {
       const seasonLabel =
         config && typeof config.label === 'string' ? config.label.trim() : null;

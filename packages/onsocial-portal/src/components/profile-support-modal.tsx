@@ -12,6 +12,11 @@ import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedbac
 import { useWallet } from '@/contexts/wallet-context';
 import { portalElevatedShadowClass } from '@/components/ui/floating-panel';
 import { fadeMotion, scaleFadeMotion } from '@/lib/motion';
+import {
+  txToastError,
+  txToastPending,
+  txToastSuccess,
+} from '@/lib/transaction-toast-copy';
 import { getSocialWalletBalanceYocto, yoctoToSocial } from '@/lib/near-rpc';
 import {
   formatSupportProfileRecipientSharePercent,
@@ -112,9 +117,9 @@ export function ProfileSupportModal({
       const txHashes = await onSupport(targetAccountId, amountYocto.toString());
       const confirmed = await trackTransaction({
         txHashes,
-        submittedMessage: 'Sending support…',
-        successMessage: `Support sent to ${displayName}.`,
-        failureMessage: 'Support transaction failed.',
+        submittedMessage: txToastPending.sendingSupport,
+        successMessage: txToastSuccess.supportSent(displayName),
+        failureMessage: txToastError.supportFailed,
       });
       if (confirmed) onOpenChange(false);
     } catch (err) {

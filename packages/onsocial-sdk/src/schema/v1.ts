@@ -616,10 +616,16 @@ export interface EndorsementV1 {
   v: 1;
   /** Unix milliseconds when issued. */
   since: number;
+  /** Stable id for deep links and future support routing. */
+  id?: string;
   /** Optional topic / skill / domain scope (free string). */
   topic?: string;
   /** Optional public note. */
   note?: string;
+  /** Optional photo or video attachment (IPFS MediaRef). */
+  media?: MediaRef;
+  /** Unix ms when note/media last changed after initial publish. */
+  editedAt?: number;
   /** Optional expiry (unix ms); past this the endorsement is considered stale. */
   expiresAt?: number;
   x?: Record<string, Record<string, unknown>>;
@@ -695,6 +701,23 @@ export function validateEndorsementV1(e: unknown): string | null {
     return 'endorsement.topic must be string';
   if (e.note !== undefined && !isStr(e.note))
     return 'endorsement.note must be string';
+  if (e.id !== undefined) {
+    if (!isStr(e.id)) return 'endorsement.id must be string';
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        e.id
+      )
+    ) {
+      return 'endorsement.id must be a UUID';
+    }
+  }
+  if (e.media !== undefined) {
+    const mediaError = validateMedia(e.media);
+    if (mediaError) return `endorsement.media: ${mediaError}`;
+  }
+  if (e.editedAt !== undefined && !isNum(e.editedAt)) {
+    return 'endorsement.editedAt must be number';
+  }
   if (e.expiresAt !== undefined && !isNum(e.expiresAt)) {
     return 'endorsement.expiresAt must be number';
   }

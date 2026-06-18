@@ -162,11 +162,7 @@ export function ProfileEditor({
     if (trimmedName) return trimmedName;
     return profile ? 'Edit profile' : 'Create profile';
   }, [name, profile]);
-  const submitLabel = hasSocialSession
-    ? profile
-      ? 'Save profile'
-      : 'Create profile'
-    : 'Authorize & save';
+  const submitLabel = profile ? 'Save profile' : 'Create profile';
   const nameReady = name.trim().length > 0;
   const scrollRef = useRef<HTMLDivElement>(null);
   useBodyScrollLock(open, scrollRef);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ACTIVE_BACKEND_URL } from '@/lib/portal-config';
 import { loadPortalProfileShells } from '@/lib/portal-profile-server';
+import { lookupSeasonClaimTxHash } from '@/lib/season-claim-tx-lookup';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,6 +30,45 @@ function buildTargetUrl(pathSegments: string[], search: string): string {
 
 function isStandingsPath(pathSegments: string[]): boolean {
   return pathSegments.at(-1) === 'standings';
+}
+
+function isClaimPath(pathSegments: string[]): boolean {
+  return pathSegments.length === 3 && pathSegments[1] === 'claims';
+}
+
+interface SeasonClaimPayload {
+  success?: boolean;
+  seasonId?: string;
+  accountId?: string;
+  claim?: {
+    claimed?: boolean | null;
+    claimedTxHash?: string | null;
+    [key: string]: unknown;
+  } | null;
+  [key: string]: unknown;
+}
+
+async function enrichClaimPayload(
+  data: SeasonClaimPayload,
+  pathSegments: string[]
+): Promise<SeasonClaimPayload> {
+  const claim = data.claim;
+  if (!claim?.claimed || claim.claimedTxHash) return data;
+
+  const seasonId = data.seasonId ?? pathSegments[0] ?? '';
+  const accountId = data.accountId ?? pathSegments[2] ?? '';
+  if (!seasonId || !accountId) return data;
+
+  const claimedTxHash = await lookupSeasonClaimTxHash(accountId, seasonId);
+  if (!claimedTxHash) return data;
+
+  return {
+    ...data,
+    claim: {
+      ...claim,
+      claimedTxHash,
+    },
+  };
 }
 
 async function enrichStandingsPayload(
@@ -78,6 +118,14 @@ export async function GET(
       const data = JSON.parse(body) as SeasonStandingsPayload;
       if (Array.isArray(data.standings)) {
         const enriched = await enrichStandingsPayload(data);
+        return NextResponse.json(enriched, { status: res.status, headers });
+      }
+    }
+
+    if (res.ok && isClaimPath(path)) {
+      const data = JSON.parse(body) as SeasonClaimPayload;
+      if (data.claim) {
+        const enriched = await enrichClaimPayload(data, path);
         return NextResponse.json(enriched, { status: res.status, headers });
       }
     }

@@ -8,6 +8,7 @@ import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
 import { Button } from '@/components/ui/button';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { useWallet } from '@/contexts/wallet-context';
+import { useSeasonParticipation } from '@/contexts/season-participation-context';
 import { GenesisRallyStrip } from '@/features/season/genesis-rally-strip';
 import { type SeasonZeroScoringLimits } from '@/features/season/season-zero-earn-panel';
 import { SeasonZeroGuidePanel } from '@/features/season/season-zero-guide-panel';
@@ -89,6 +90,14 @@ export function SeasonRallyPage({
     registry?.seasons.find((entry) => entry.seasonId === seasonId) ?? null;
   const presentation = getSeasonPresentation(seasonId, registryEntry);
   const { accountId } = useWallet();
+  const {
+    deriveSeasonClaim,
+    reconcileSeasonClaimFromApi,
+    participateSyncVersion,
+  } = useSeasonParticipation();
+  const [claimFetchedForAccountId, setClaimFetchedForAccountId] = useState<
+    string | null | undefined
+  >(undefined);
   const reduceMotion = useReducedMotion();
   const [standings, setStandings] = useState<SeasonZeroStanding[]>([]);
   const [scoringLimits, setScoringLimits] =
@@ -136,6 +145,16 @@ export function SeasonRallyPage({
   );
 
   const showPublishedRewards = isSeasonSettlementPublished(settlement);
+
+  const claimStatusReadyForUi =
+    claimStatusReady &&
+    hasLoadedOnce &&
+    claimFetchedForAccountId === (accountId ?? null);
+
+  const displayClaim = useMemo(
+    () => deriveSeasonClaim(claim),
+    [claim, deriveSeasonClaim, participateSyncVersion]
+  );
 
   const refresh = useCallback(async () => {
     setError(null);
@@ -200,7 +219,11 @@ export function SeasonRallyPage({
 
       if (claimRes) {
         const claimData = (await claimRes.json()) as SeasonZeroClaimPayload;
-        setClaim(claimRes.ok ? (claimData.claim ?? null) : null);
+        const nextClaim = claimRes.ok ? (claimData.claim ?? null) : null;
+        if (nextClaim) {
+          reconcileSeasonClaimFromApi(seasonId, Boolean(nextClaim.claimed));
+        }
+        setClaim(nextClaim);
       } else {
         setClaim(null);
       }
@@ -231,19 +254,24 @@ export function SeasonRallyPage({
     } finally {
       setLoading(false);
       setHasLoadedOnce(true);
+      setClaimFetchedForAccountId(accountId ?? null);
       setClaimStatusReady(true);
       isFirstLoadRef.current = false;
     }
-  }, [accountId, seasonId]);
+  }, [accountId, reconcileSeasonClaimFromApi, seasonId]);
 
   useEffect(() => {
     isFirstLoadRef.current = true;
     setHasLoadedOnce(false);
     setClaimStatusReady(false);
+    setClaimFetchedForAccountId(undefined);
+    setClaim(null);
   }, [seasonId]);
 
   useEffect(() => {
+    setClaim(null);
     setClaimStatusReady(false);
+    setClaimFetchedForAccountId(undefined);
   }, [accountId]);
 
   useEffect(() => {
@@ -271,6 +299,7 @@ export function SeasonRallyPage({
         currentSeasonId={seasonId}
         registry={registry}
         className="-mt-4 mb-1"
+        claimHintRefreshKey={String(participateSyncVersion)}
       />
 
       <div className="mx-auto max-w-3xl space-y-3">
@@ -286,15 +315,17 @@ export function SeasonRallyPage({
             participantCount={total}
             myStanding={currentUserStanding}
             pageDataReady={hasLoadedOnce}
-            claimStatusReady={claimStatusReady}
+            claimStatusReady={claimStatusReadyForUi}
             registryPhase={registryEntry?.phase ?? null}
             phase={seasonPhase}
-            claim={claim}
+            claim={displayClaim}
             payoutParticipants={payoutParticipants}
             publishedRewardByAccountId={publishedRewardByAccountId}
             personalAccountId={accountId}
             onParticipationChange={() => void refresh()}
-            onClaimed={() => void refresh()}
+            onClaimed={() => {
+              void refresh();
+            }}
           />
         </motion.div>
 
