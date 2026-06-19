@@ -75,16 +75,15 @@ export function resolveSeasonRegistryPointers(
   | 'resolvedActiveSeasonId'
 > {
   const liveCandidates = entries.filter((entry) => entry.phase === 'live');
-  const live =
-    liveCandidates.sort(compareStartsAtDesc)[0] ?? null;
+  const live = liveCandidates.sort(compareStartsAtDesc)[0] ?? null;
 
-  const upcomingCandidates = entries.filter((entry) => entry.phase === 'upcoming');
-  const upcoming =
-    upcomingCandidates.sort(compareStartsAtAsc)[0] ?? null;
+  const upcomingCandidates = entries.filter(
+    (entry) => entry.phase === 'upcoming'
+  );
+  const upcoming = upcomingCandidates.sort(compareStartsAtAsc)[0] ?? null;
 
   const claimCandidates = entries.filter((entry) => entry.phase === 'claim');
-  const claim =
-    claimCandidates.sort(compareStartsAtDesc)[0] ?? null;
+  const claim = claimCandidates.sort(compareStartsAtDesc)[0] ?? null;
 
   const resolvedPromoSeasonId =
     live?.seasonId ??
@@ -204,13 +203,8 @@ export async function loadSeasonRegistry(
   });
 
   const pointers = resolveSeasonRegistryPointers(entries);
-  let {
-    live,
-    upcoming,
-    claim,
-    resolvedPromoSeasonId,
-    resolvedActiveSeasonId,
-  } = pointers;
+  let { live, upcoming, claim, resolvedPromoSeasonId, resolvedActiveSeasonId } =
+    pointers;
 
   const envOverride = config.activeSeasonIdOverride;
 
