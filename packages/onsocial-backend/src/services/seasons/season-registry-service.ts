@@ -29,8 +29,84 @@ export interface SeasonRegistryEntry {
 
 export interface SeasonRegistrySnapshot {
   live: SeasonRegistryEntry | null;
+  /** Nearest future season (`active` and before `starts_at_ns`). */
+  upcoming: SeasonRegistryEntry | null;
+  /** Most recent season in claim window. */
+  claim: SeasonRegistryEntry | null;
   seasons: SeasonRegistryEntry[];
+  /** Homepage promo card: live → upcoming → claim → newest configured. */
+  resolvedPromoSeasonId: string | null;
+  /** `/season` default route: live → claim → upcoming → newest configured. */
   resolvedActiveSeasonId: string | null;
+}
+
+function compareStartsAtDesc(
+  left: SeasonRegistryEntry,
+  right: SeasonRegistryEntry
+): number {
+  const leftStarts = BigInt(left.starts_at_ns || '0');
+  const rightStarts = BigInt(right.starts_at_ns || '0');
+  if (leftStarts === rightStarts) {
+    return right.seasonId.localeCompare(left.seasonId);
+  }
+  return leftStarts > rightStarts ? -1 : 1;
+}
+
+function compareStartsAtAsc(
+  left: SeasonRegistryEntry,
+  right: SeasonRegistryEntry
+): number {
+  const leftStarts = BigInt(left.starts_at_ns || '0');
+  const rightStarts = BigInt(right.starts_at_ns || '0');
+  if (leftStarts === rightStarts) {
+    return left.seasonId.localeCompare(right.seasonId);
+  }
+  return leftStarts < rightStarts ? -1 : 1;
+}
+
+export function resolveSeasonRegistryPointers(
+  entries: SeasonRegistryEntry[]
+): Pick<
+  SeasonRegistrySnapshot,
+  | 'live'
+  | 'upcoming'
+  | 'claim'
+  | 'resolvedPromoSeasonId'
+  | 'resolvedActiveSeasonId'
+> {
+  const liveCandidates = entries.filter((entry) => entry.phase === 'live');
+  const live =
+    liveCandidates.sort(compareStartsAtDesc)[0] ?? null;
+
+  const upcomingCandidates = entries.filter((entry) => entry.phase === 'upcoming');
+  const upcoming =
+    upcomingCandidates.sort(compareStartsAtAsc)[0] ?? null;
+
+  const claimCandidates = entries.filter((entry) => entry.phase === 'claim');
+  const claim =
+    claimCandidates.sort(compareStartsAtDesc)[0] ?? null;
+
+  const resolvedPromoSeasonId =
+    live?.seasonId ??
+    upcoming?.seasonId ??
+    claim?.seasonId ??
+    entries[0]?.seasonId ??
+    null;
+
+  const resolvedActiveSeasonId =
+    live?.seasonId ??
+    claim?.seasonId ??
+    upcoming?.seasonId ??
+    entries[0]?.seasonId ??
+    null;
+
+  return {
+    live,
+    upcoming,
+    claim,
+    resolvedPromoSeasonId,
+    resolvedActiveSeasonId,
+  };
 }
 
 export function resolveSeasonPhase(
@@ -127,16 +203,16 @@ export async function loadSeasonRegistry(
     return leftStarts > rightStarts ? -1 : 1;
   });
 
-  const liveCandidates = entries.filter((entry) => entry.phase === 'live');
-  const live =
-    liveCandidates.sort((left, right) => {
-      const leftStarts = BigInt(left.starts_at_ns || '0');
-      const rightStarts = BigInt(right.starts_at_ns || '0');
-      return leftStarts > rightStarts ? -1 : 1;
-    })[0] ?? null;
+  const pointers = resolveSeasonRegistryPointers(entries);
+  let {
+    live,
+    upcoming,
+    claim,
+    resolvedPromoSeasonId,
+    resolvedActiveSeasonId,
+  } = pointers;
 
   const envOverride = config.activeSeasonIdOverride;
-  let resolvedActiveSeasonId = live?.seasonId ?? null;
 
   if (envOverride) {
     const overrideEntry = entries.find(
@@ -144,25 +220,32 @@ export async function loadSeasonRegistry(
     );
     if (overrideEntry) {
       resolvedActiveSeasonId = overrideEntry.seasonId;
+      resolvedPromoSeasonId = overrideEntry.seasonId;
     } else {
       const overrideConfig = await getSeasonOnChainConfig(envOverride);
       if (overrideConfig) {
+        const overrideRegistryEntry = toRegistryEntry(
+          envOverride,
+          overrideConfig,
+          nowNs
+        );
+        entries.unshift(overrideRegistryEntry);
         resolvedActiveSeasonId = envOverride;
-        entries.unshift(toRegistryEntry(envOverride, overrideConfig, nowNs));
+        resolvedPromoSeasonId = envOverride;
+        const refreshed = resolveSeasonRegistryPointers(entries);
+        live = refreshed.live;
+        upcoming = refreshed.upcoming;
+        claim = refreshed.claim;
       }
     }
   }
 
-  if (!resolvedActiveSeasonId) {
-    resolvedActiveSeasonId =
-      entries.find((entry) => entry.phase === 'claim')?.seasonId ??
-      entries[0]?.seasonId ??
-      null;
-  }
-
   return {
     live,
+    upcoming,
+    claim,
     seasons: entries,
+    resolvedPromoSeasonId,
     resolvedActiveSeasonId,
   };
 }

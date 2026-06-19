@@ -38,7 +38,7 @@ import {
   getSeasonPresentation,
   seasonApiPath,
 } from '@/lib/active-season';
-import { useSeasonRegistry, type SeasonPhase } from '@/lib/season-registry';
+import { useSeasonRegistry, type SeasonPhase, resolvePromoSeasonEntry, resolvePromoSeasonId } from '@/lib/season-registry';
 import { fadeMotion } from '@/lib/motion';
 import { extractNearTransactionHashes } from '@/lib/near-rpc';
 import {
@@ -189,8 +189,15 @@ export function GenesisRallyStrip({
   onClaimed?: () => void;
 }) {
   const { registry } = useSeasonRegistry({ enabled: variant === 'promo' });
+  const promoSeasonId = useMemo(() => {
+    if (variant !== 'promo') {
+      return null;
+    }
+    return resolvePromoSeasonId(registry) ?? getActiveSeasonId();
+  }, [registry, variant]);
   const seasonId =
     seasonIdProp ??
+    (variant === 'promo' ? promoSeasonId : null) ??
     registry?.resolvedActiveSeasonId ??
     registry?.live?.seasonId ??
     getActiveSeasonId();
@@ -274,9 +281,11 @@ export function GenesisRallyStrip({
     () => getSeasonPresentation(seasonId, registryEntry),
     [registryEntry, seasonId]
   );
+  const promoEntry =
+    variant === 'promo' ? resolvePromoSeasonEntry(registry) : null;
   const promoHref =
     variant === 'promo'
-      ? (registry?.live?.rallyPath ?? seasonPresentation.rallyPath)
+      ? (promoEntry?.rallyPath ?? seasonPresentation.rallyPath)
       : seasonPresentation.rallyPath;
 
   const refresh = useCallback(async () => {
@@ -559,6 +568,11 @@ export function GenesisRallyStrip({
       : null);
   const seasonIsLive = seasonPhase === 'live';
   const seasonIsUpcoming = seasonPhase === 'upcoming';
+  const promoAriaLabel = seasonIsUpcoming
+    ? 'Upcoming rally season'
+    : seasonIsLive
+      ? 'Live rally season standings'
+      : 'Rally season';
 
   const joinDisabled = useMemo(
     () =>
@@ -758,6 +772,11 @@ export function GenesisRallyStrip({
       return 'joined';
     }
 
+    if (seasonIsUpcoming) {
+      if (awaitingParticipationData) return 'loading';
+      return 'join';
+    }
+
     if (seasonPhase && seasonPhase !== 'live') {
       if (walletLoading || (variant === 'page' && pageDataReady === false)) {
         return 'loading';
@@ -772,6 +791,7 @@ export function GenesisRallyStrip({
     joined,
     myStanding,
     pageDataReady,
+    seasonIsUpcoming,
     seasonPhase,
     statusLoading,
     variant,
@@ -890,7 +910,7 @@ export function GenesisRallyStrip({
         <Link
           href={promoHref}
           prefetch
-          aria-label="Live rally season standings"
+          aria-label={promoAriaLabel}
           className="absolute inset-0 z-0 rounded-[inherit] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--portal-gold-accent)]"
         />
       ) : null}

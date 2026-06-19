@@ -19,7 +19,10 @@ export interface SeasonRegistryEntry {
 
 export interface SeasonRegistrySnapshot {
   live: SeasonRegistryEntry | null;
+  upcoming: SeasonRegistryEntry | null;
+  claim: SeasonRegistryEntry | null;
   seasons: SeasonRegistryEntry[];
+  resolvedPromoSeasonId: string | null;
   resolvedActiveSeasonId: string | null;
 }
 
@@ -45,10 +48,35 @@ export async function fetchSeasonRegistry(): Promise<SeasonRegistrySnapshot | nu
 
   return {
     live: data.live ?? null,
+    upcoming: data.upcoming ?? null,
+    claim: data.claim ?? null,
     seasons: data.seasons,
+    resolvedPromoSeasonId: data.resolvedPromoSeasonId ?? null,
     resolvedActiveSeasonId:
       data.resolvedActiveSeasonId ?? data.live?.seasonId ?? null,
   };
+}
+
+export function resolvePromoSeasonId(
+  registry: SeasonRegistrySnapshot | null
+): string | null {
+  return registry?.resolvedPromoSeasonId ?? null;
+}
+
+export function resolvePromoSeasonEntry(
+  registry: SeasonRegistrySnapshot | null
+): SeasonRegistryEntry | null {
+  const seasonId = resolvePromoSeasonId(registry);
+  if (!registry || !seasonId) {
+    return null;
+  }
+
+  return (
+    registry.seasons.find((entry) => entry.seasonId === seasonId) ??
+    registry.upcoming ??
+    registry.live ??
+    null
+  );
 }
 
 export function useSeasonRegistry(options?: { enabled?: boolean }) {

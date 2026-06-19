@@ -197,7 +197,7 @@ export function CTA() {
           transition={{ duration: 0.45 }}
           className={section.heading}
         >
-          Live
+          Rally
         </motion.h2>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
