@@ -38,7 +38,12 @@ import {
   getSeasonPresentation,
   seasonApiPath,
 } from '@/lib/active-season';
-import { useSeasonRegistry, type SeasonPhase, resolvePromoSeasonEntry, resolvePromoSeasonId } from '@/lib/season-registry';
+import {
+  useSeasonRegistry,
+  type SeasonPhase,
+  resolvePromoSeasonEntry,
+  resolvePromoSeasonId,
+} from '@/lib/season-registry';
 import { fadeMotion } from '@/lib/motion';
 import { extractNearTransactionHashes } from '@/lib/near-rpc';
 import {
