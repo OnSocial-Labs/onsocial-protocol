@@ -69,6 +69,7 @@ describe('season-treasury-seed-source', () => {
       proposals: [
         {
           proposalId: 3,
+          daoAccountId: 'treasury.onsocial.testnet',
           status: 'Rejected',
           proposalSnapshot: {
             id: 3,
@@ -99,6 +100,7 @@ describe('season-treasury-seed-source', () => {
         },
         {
           proposalId: 7,
+          daoAccountId: 'treasury.onsocial.testnet',
           status: 'Approved',
           proposalSnapshot: {
             id: 7,
@@ -134,6 +136,86 @@ describe('season-treasury-seed-source', () => {
       kind: 'proposal',
       appId: 'protocol-proposal-7',
       proposalId: 7,
+      daoAccountId: 'treasury.onsocial.testnet',
+    });
+  });
+
+  it('prefers treasury DAO fund-season proposals over governance', () => {
+    const source = resolveFundSeasonProposalSource({
+      seasonId: 'season-two',
+      sponsoredPoolYocto: '100000000000000000000',
+      proposals: [
+        {
+          proposalId: 2,
+          daoAccountId: 'governance.onsocial.testnet',
+          status: 'Approved',
+          proposalSnapshot: {
+            id: 2,
+            proposer: 'alice.testnet',
+            description: 'Wrong board',
+            kind: {
+              FunctionCall: {
+                receiver_id: 'token.onsocial.testnet',
+                actions: [
+                  {
+                    method_name: 'ft_transfer_call',
+                    args: encodeArgs({
+                      amount: '100000000000000000000',
+                      msg: JSON.stringify({
+                        action: 'fund_season_pool',
+                        season_id: 'season-two',
+                      }),
+                    }),
+                  },
+                ],
+              },
+            },
+            status: 'Approved',
+            vote_counts: {},
+            votes: {},
+            submission_time: '1',
+          },
+        },
+        {
+          proposalId: 12,
+          daoAccountId: 'treasury.onsocial.testnet',
+          status: 'Approved',
+          proposalSnapshot: {
+            id: 12,
+            proposer: 'treasury.onsocial.testnet',
+            description: 'Treasury seed',
+            kind: {
+              FunctionCall: {
+                receiver_id: 'token.onsocial.testnet',
+                actions: [
+                  {
+                    method_name: 'ft_transfer_call',
+                    args: encodeArgs({
+                      amount: '100000000000000000000',
+                      msg: JSON.stringify({
+                        v: 1,
+                        action: 'fund_season_pool',
+                        season_id: 'season-two',
+                      }),
+                    }),
+                  },
+                ],
+              },
+            },
+            status: 'Approved',
+            vote_counts: {},
+            votes: {},
+            submission_time: '2',
+          },
+        },
+      ],
+    });
+
+    expect(source).toEqual({
+      kind: 'proposal',
+      appId: 'protocol-proposal-12',
+      proposalId: 12,
+      daoAccountId: 'treasury.onsocial.testnet',
     });
   });
 });

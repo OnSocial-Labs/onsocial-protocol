@@ -8,6 +8,8 @@ export type SeasonTreasurySeedSource =
       kind: 'proposal';
       appId: string;
       proposalId: number;
+      /** DAO that holds the proposal — fund-season actions live on treasury. */
+      daoAccountId: string;
     }
   | {
       kind: 'tx';
@@ -167,6 +169,7 @@ export function resolveFundSeasonProposalSource(input: {
     proposalId: number;
     status: string;
     proposalSnapshot: PersistedDaoProposalSnapshot;
+    daoAccountId: string;
   }>;
 }): SeasonTreasurySeedSource | null {
   const seasonId = assertSeasonId(input.seasonId);
@@ -177,6 +180,7 @@ export function resolveFundSeasonProposalSource(input: {
 
   let best: {
     proposalId: number;
+    daoAccountId: string;
     score: number;
   } | null = null;
 
@@ -205,7 +209,11 @@ export function resolveFundSeasonProposalSource(input: {
     }
 
     if (!best || score > best.score) {
-      best = { proposalId: row.proposalId, score };
+      best = {
+        proposalId: row.proposalId,
+        daoAccountId: row.daoAccountId,
+        score,
+      };
     }
   }
 
@@ -217,6 +225,7 @@ export function resolveFundSeasonProposalSource(input: {
     kind: 'proposal',
     appId: buildProtocolProposalAppId(best.proposalId),
     proposalId: best.proposalId,
+    daoAccountId: best.daoAccountId,
   };
 }
 
@@ -234,15 +243,32 @@ export async function getSeasonTreasurySeedSource(
   }
 
   const id = assertSeasonId(seasonId);
-  const snapshots = await loadAllDaoProposalSnapshots(config.governanceDao);
+  const daoAccountIds = [config.treasuryDao, config.governanceDao].filter(
+    (dao, index, all) => all.indexOf(dao) === index
+  );
+
+  const proposals: Array<{
+    proposalId: number;
+    status: string;
+    proposalSnapshot: PersistedDaoProposalSnapshot;
+    daoAccountId: string;
+  }> = [];
+
+  for (const daoAccountId of daoAccountIds) {
+    const snapshots = await loadAllDaoProposalSnapshots(daoAccountId);
+    for (const row of snapshots) {
+      proposals.push({
+        proposalId: row.proposalId,
+        status: row.status,
+        proposalSnapshot: row.proposalSnapshot,
+        daoAccountId,
+      });
+    }
+  }
 
   return resolveFundSeasonProposalSource({
     seasonId: id,
     sponsoredPoolYocto: sponsored,
-    proposals: snapshots.map((row) => ({
-      proposalId: row.proposalId,
-      status: row.status,
-      proposalSnapshot: row.proposalSnapshot,
-    })),
+    proposals,
   });
 }

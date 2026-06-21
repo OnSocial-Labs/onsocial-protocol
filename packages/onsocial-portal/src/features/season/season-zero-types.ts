@@ -28,6 +28,7 @@ export type SeasonTreasurySeedSource =
       kind: 'proposal';
       appId: string;
       proposalId: number;
+      daoAccountId?: string;
     }
   | {
       kind: 'tx';

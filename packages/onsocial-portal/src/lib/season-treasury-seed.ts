@@ -1,4 +1,8 @@
 import { buildGovernanceProposalPath } from '@/features/governance/page-utils';
+import {
+  buildGovernancePathWithBoard,
+  resolveGovernanceDaoBoard,
+} from '@/features/governance/governance-dao-board';
 import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/portal-config';
 import type { SeasonTreasurySeedSource } from '@/features/season/season-zero-types';
 
@@ -8,7 +12,16 @@ export function resolveTreasurySeedHref(
   if (!source) return null;
 
   if (source.kind === 'proposal') {
-    return buildGovernanceProposalPath(source.appId, source.proposalId);
+    const proposalPath = buildGovernanceProposalPath(
+      source.appId,
+      source.proposalId
+    );
+    const [pathname] = proposalPath.split('?');
+    return buildGovernancePathWithBoard(
+      pathname,
+      resolveGovernanceDaoBoard(source.daoAccountId),
+      { proposal: String(source.proposalId) }
+    );
   }
 
   const txHash = source.txHash.trim();
