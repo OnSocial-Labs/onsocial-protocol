@@ -80,7 +80,9 @@ export async function requireJoinRallyMinAmountYocto(): Promise<bigint> {
   return joinMinYocto;
 }
 
-export async function getJoinRallyMinAmountYoctoString(): Promise<string | null> {
+export async function getJoinRallyMinAmountYoctoString(): Promise<
+  string | null
+> {
   const joinMinYocto = await getJoinRallyMinAmountYocto();
   return joinMinYocto?.toString() ?? null;
 }

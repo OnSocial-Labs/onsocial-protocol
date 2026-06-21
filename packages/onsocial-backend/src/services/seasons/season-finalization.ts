@@ -3,9 +3,7 @@ import { indexerQuery } from '../../db/indexer.js';
 import { logger } from '../../logger.js';
 import { viewContractAt } from '../near.js';
 import { relaySocialSpendSettlement } from '../social-spend-settlement-relay.js';
-import {
-  SEASON_ZERO_ID,
-} from './season-policy.js';
+import { SEASON_ZERO_ID } from './season-policy.js';
 import { getSeasonStandings } from './season-standings.js';
 import {
   areSeasonZeroStandingsStable,
@@ -22,7 +20,6 @@ import { assertSeasonId } from './season-registry.js';
 import {
   getSeasonOnChainConfig,
   getSeasonZeroOnChainConfig,
-  type SeasonZeroOnChainConfig,
 } from './season-onchain-config.js';
 
 export type { SeasonZeroOnChainConfig } from './season-onchain-config.js';

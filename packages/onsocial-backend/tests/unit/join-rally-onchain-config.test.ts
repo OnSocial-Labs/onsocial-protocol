@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  parseJoinRallyMinAmountYocto,
-} from '../../src/services/seasons/join-rally-onchain-config.js';
+import { parseJoinRallyMinAmountYocto } from '../../src/services/seasons/join-rally-onchain-config.js';
 
 describe('join-rally-onchain-config', () => {
   it('parses join rally min amount from action config JSON', () => {
