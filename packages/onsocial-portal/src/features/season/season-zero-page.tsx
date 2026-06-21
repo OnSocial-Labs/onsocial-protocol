@@ -2,20 +2,25 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { RefreshCw } from 'lucide-react';
 import { PageShell } from '@/components/layout/page-shell';
-import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
-import { Button } from '@/components/ui/button';
 import { SurfacePanel } from '@/components/ui/surface-panel';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useWallet } from '@/contexts/wallet-context';
 import { useSeasonParticipation } from '@/contexts/season-participation-context';
+import { usePageNavBadge } from '@/hooks/use-page-nav-badge';
+import {
+  formatRallyStandingsMeta,
+  RallyStandingsHeader,
+} from '@/features/season/rally-standings-header';
 import { GenesisRallyStrip } from '@/features/season/genesis-rally-strip';
 import { type SeasonZeroScoringLimits } from '@/features/season/season-zero-earn-panel';
-import { SeasonZeroGuidePanel } from '@/features/season/season-zero-guide-panel';
+import { SeasonZeroRulesModal } from '@/features/season/season-zero-rules-modal';
 import {
-  SEASON_ZERO_PAYOUT_STANDINGS_LIMIT,
-  standingsToPayoutParticipants,
-} from '@/features/season/season-zero-payout-estimate';
+  SEASON_PANEL_DIVIDER_CLASS,
+  SEASON_PANEL_PADDING_CLASS,
+  SeasonPageColumn,
+} from '@/features/season/season-page-column';
+import { standingsToPayoutParticipants } from '@/features/season/season-zero-payout-estimate';
 import {
   StandingRow,
   StandingRowSkeleton,
@@ -34,7 +39,9 @@ import { fadeUpMotion, fadeMotion } from '@/lib/motion';
 import {
   ARCHIVED_GENESIS_SEASON_ID,
   getActiveSeasonId,
+  getSeasonCatalogTitle,
   getSeasonPresentation,
+  resolveSeasonHeroTitle,
   seasonApiPath,
 } from '@/lib/active-season';
 import { useSeasonRegistry } from '@/lib/season-registry';
@@ -60,7 +67,27 @@ interface SeasonPublishedRewardsResponse {
   error?: string;
 }
 
-const STANDINGS_DISPLAY_LIMIT = 25;
+interface SeasonZeroMeResponse {
+  success: boolean;
+  standing: SeasonZeroStanding | null;
+  error?: string;
+}
+
+const STANDINGS_PAGE_SIZE = 20;
+const PAYOUT_STANDINGS_LIMIT = 100;
+
+function mergeStandingsByRank(
+  current: SeasonZeroStanding[],
+  incoming: SeasonZeroStanding[]
+): SeasonZeroStanding[] {
+  const byAccount = new Map(
+    current.map((standing) => [standing.accountId, standing])
+  );
+  for (const standing of incoming) {
+    byAccount.set(standing.accountId, standing);
+  }
+  return [...byAccount.values()].sort((a, b) => a.rank - b.rank);
+}
 
 function sectionEntrance(
   reduceMotion: boolean | null,
@@ -100,14 +127,35 @@ export function SeasonRallyPage({
   >(undefined);
   const reduceMotion = useReducedMotion();
   const [standings, setStandings] = useState<SeasonZeroStanding[]>([]);
+  const [payoutStandings, setPayoutStandings] = useState<SeasonZeroStanding[]>(
+    []
+  );
   const [scoringLimits, setScoringLimits] =
     useState<SeasonZeroScoringLimits | null>(null);
   const [total, setTotal] = useState(0);
+  const [hasMoreStandings, setHasMoreStandings] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
+  const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
+  const standingsCutoffRef = useRef('');
   const [onChainConfig, setOnChainConfig] =
     useState<SeasonZeroOnChainConfig | null>(null);
+  const navTitle = useMemo(
+    () =>
+      resolveSeasonHeroTitle({
+        seasonId,
+        onChainLabel: onChainConfig?.label ?? registryEntry?.label,
+        catalogTitle: getSeasonCatalogTitle(seasonId),
+      }).title,
+    [onChainConfig?.label, registryEntry?.label, seasonId]
+  );
+  usePageNavBadge(navTitle, 'gold');
   const [indexedPoolYocto, setIndexedPoolYocto] = useState('0');
   const [joinPoolYocto, setJoinPoolYocto] = useState('0');
   const [sponsoredPoolYocto, setSponsoredPoolYocto] = useState('0');
+  const [seasonJoinEntryYocto, setSeasonJoinEntryYocto] = useState<
+    string | null
+  >(null);
   const [settlement, setSettlement] =
     useState<SeasonZeroSettlementSummary | null>(null);
   const [claim, setClaim] = useState<SeasonZeroClaimRecord | null>(null);
@@ -118,7 +166,13 @@ export function SeasonRallyPage({
   const [loading, setLoading] = useState(true);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [myStandingFromMe, setMyStandingFromMe] =
+    useState<SeasonZeroStanding | null>(null);
+  const [syncedHeroStanding, setSyncedHeroStanding] =
+    useState<SeasonZeroStanding | null>(null);
+  const [pulseAccountId, setPulseAccountId] = useState<string | null>(null);
   const isFirstLoadRef = useRef(true);
+  const standingsPanelRef = useRef<HTMLDivElement>(null);
 
   const currentUserStanding = useMemo(
     () =>
@@ -126,16 +180,15 @@ export function SeasonRallyPage({
     [accountId, standings]
   );
 
+  const effectiveUserStanding =
+    currentUserStanding ?? myStandingFromMe ?? syncedHeroStanding;
+
   const payoutParticipants = useMemo(
-    () => standingsToPayoutParticipants(standings),
-    [standings]
+    () => standingsToPayoutParticipants(payoutStandings),
+    [payoutStandings]
   );
 
-  const displayStandings = useMemo(
-    () => standings.slice(0, STANDINGS_DISPLAY_LIMIT),
-    [standings]
-  );
-
+  const displayStandings = standings;
   const seasonPhase = useMemo(
     () =>
       onChainConfig
@@ -165,6 +218,9 @@ export function SeasonRallyPage({
       const claimUrl = accountId
         ? seasonApiPath(seasonId, `claims/${encodeURIComponent(accountId)}`)
         : null;
+      const meUrl = accountId
+        ? `${seasonApiPath(seasonId, 'me')}?account_id=${encodeURIComponent(accountId)}`
+        : null;
 
       const statusRes = await fetch(seasonApiPath(seasonId, 'status'), {
         cache: 'no-store',
@@ -182,39 +238,57 @@ export function SeasonRallyPage({
         setJoinPoolYocto(statusData.joinPoolYocto ?? '0');
         setSponsoredPoolYocto(statusData.sponsoredPoolYocto ?? '0');
         setSettlement(nextSettlement);
+        setSeasonJoinEntryYocto(statusData.seasonJoinEntryYocto ?? null);
       }
 
       const standingsCutoff =
         onChain && !onChain.is_live && onChain.ends_at_ns
           ? `&cutoff_timestamp_ns=${encodeURIComponent(onChain.ends_at_ns)}`
           : '';
+      standingsCutoffRef.current = standingsCutoff;
 
       const rewardsUrl = isSeasonSettlementPublished(nextSettlement)
-        ? `${seasonApiPath(seasonId, 'rewards')}?limit=${SEASON_ZERO_PAYOUT_STANDINGS_LIMIT}`
+        ? `${seasonApiPath(seasonId, 'rewards')}?limit=${PAYOUT_STANDINGS_LIMIT}`
         : null;
 
-      const [standingsRes, claimRes, rewardsRes] = await Promise.all([
-        fetch(
-          `${seasonApiPath(seasonId, 'standings')}?limit=${SEASON_ZERO_PAYOUT_STANDINGS_LIMIT}${standingsCutoff}`,
-          {
-            cache: 'no-store',
-          }
-        ),
-        claimUrl
-          ? fetch(claimUrl, { cache: 'no-store' })
-          : Promise.resolve(null),
-        rewardsUrl
-          ? fetch(rewardsUrl, { cache: 'no-store' })
-          : Promise.resolve(null),
-      ]);
+      const [standingsRes, payoutStandingsRes, claimRes, rewardsRes, meRes] =
+        await Promise.all([
+          fetch(
+            `${seasonApiPath(seasonId, 'standings')}?limit=${STANDINGS_PAGE_SIZE}&offset=0${standingsCutoff}`,
+            {
+              cache: 'no-store',
+            }
+          ),
+          fetch(
+            `${seasonApiPath(seasonId, 'standings')}?limit=${PAYOUT_STANDINGS_LIMIT}&offset=0${standingsCutoff}`,
+            {
+              cache: 'no-store',
+            }
+          ),
+          claimUrl
+            ? fetch(claimUrl, { cache: 'no-store' })
+            : Promise.resolve(null),
+          rewardsUrl
+            ? fetch(rewardsUrl, { cache: 'no-store' })
+            : Promise.resolve(null),
+          meUrl ? fetch(meUrl, { cache: 'no-store' }) : Promise.resolve(null),
+        ]);
 
       const standingsData =
         (await standingsRes.json()) as SeasonZeroStandingsResponse;
+      const payoutStandingsData =
+        (await payoutStandingsRes.json()) as SeasonZeroStandingsResponse;
       if (!standingsRes.ok || !standingsData.success) {
         const body = standingsData as { error?: string; detail?: string };
         throw new Error(
           body.detail ?? body.error ?? 'Could not load rally standings.'
         );
+      }
+
+      if (payoutStandingsRes.ok && payoutStandingsData.success) {
+        setPayoutStandings(payoutStandingsData.standings ?? []);
+      } else {
+        setPayoutStandings(standingsData.standings ?? []);
       }
 
       if (claimRes) {
@@ -244,9 +318,44 @@ export function SeasonRallyPage({
         setPublishedRewardByAccountId({});
       }
 
-      setStandings(standingsData.standings ?? []);
+      if (meRes) {
+        if (meRes.ok) {
+          const meData = (await meRes.json()) as SeasonZeroMeResponse;
+          const standing = meData.standing ?? null;
+          if (standing && accountId) {
+            const profileRes = await fetch(
+              `/api/profile?accountId=${encodeURIComponent(accountId)}`,
+              { cache: 'no-store' }
+            ).catch(() => null);
+            const profileData = profileRes?.ok
+              ? ((await profileRes.json()) as {
+                  profile?: { name?: string | null };
+                  avatarUrl?: string | null;
+                })
+              : null;
+            setMyStandingFromMe({
+              ...standing,
+              accountId: standing.accountId ?? accountId,
+              displayName: profileData?.profile?.name ?? standing.displayName,
+              avatarUrl: profileData?.avatarUrl ?? standing.avatarUrl,
+            });
+          } else {
+            setMyStandingFromMe(standing);
+          }
+        } else {
+          setMyStandingFromMe(null);
+        }
+      } else {
+        setMyStandingFromMe(null);
+      }
+
+      const nextStandings = standingsData.standings ?? [];
+      setStandings(nextStandings);
+      setPulseAccountId(null);
       setScoringLimits(standingsData.scoring ?? null);
-      setTotal(standingsData.total ?? 0);
+      const nextTotal = standingsData.total ?? 0;
+      setTotal(nextTotal);
+      setHasMoreStandings(nextStandings.length < nextTotal);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Could not load standings.'
@@ -260,18 +369,161 @@ export function SeasonRallyPage({
     }
   }, [accountId, reconcileSeasonClaimFromApi, seasonId]);
 
+  const loadMoreStandings = useCallback(async (): Promise<boolean> => {
+    if (loading || isLoadingMore || !hasMoreStandings) return false;
+
+    setIsLoadingMore(true);
+    try {
+      const standingsRes = await fetch(
+        `${seasonApiPath(seasonId, 'standings')}?limit=${STANDINGS_PAGE_SIZE}&offset=${standings.length}${standingsCutoffRef.current}`,
+        { cache: 'no-store' }
+      );
+      const standingsData =
+        (await standingsRes.json()) as SeasonZeroStandingsResponse;
+      if (!standingsRes.ok || !standingsData.success) {
+        throw new Error('Could not load more standings.');
+      }
+
+      const nextPage = standingsData.standings ?? [];
+      if (nextPage.length === 0) {
+        setHasMoreStandings(false);
+        return false;
+      }
+
+      setStandings((current) => {
+        const merged = mergeStandingsByRank(current, nextPage);
+        const nextTotal = standingsData.total ?? total;
+        setHasMoreStandings(merged.length < nextTotal);
+        return merged;
+      });
+      return true;
+    } catch {
+      return false;
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [
+    hasMoreStandings,
+    isLoadingMore,
+    loading,
+    seasonId,
+    standings.length,
+    total,
+  ]);
+
+  const loadStandingsAroundRank = useCallback(
+    async (targetRank: number) => {
+      const offset = Math.max(
+        0,
+        targetRank - Math.ceil(STANDINGS_PAGE_SIZE / 2)
+      );
+      const standingsRes = await fetch(
+        `${seasonApiPath(seasonId, 'standings')}?limit=${STANDINGS_PAGE_SIZE}&offset=${offset}${standingsCutoffRef.current}`,
+        { cache: 'no-store' }
+      );
+      const standingsData =
+        (await standingsRes.json()) as SeasonZeroStandingsResponse;
+      if (!standingsRes.ok || !standingsData.success) return;
+
+      const nextPage = standingsData.standings ?? [];
+      setStandings((current) => {
+        const merged = mergeStandingsByRank(current, nextPage);
+        const nextTotal = standingsData.total ?? total;
+        setHasMoreStandings(merged.length < nextTotal);
+        return merged;
+      });
+    },
+    [seasonId, standings, total]
+  );
+
+  const jumpToStandings = useCallback(async () => {
+    if (!effectiveUserStanding || !accountId) return;
+
+    standingsPanelRef.current?.scrollIntoView({
+      behavior: reduceMotion ? 'auto' : 'smooth',
+      block: 'start',
+    });
+
+    const inLoadedWindow = standings.some(
+      (standing) => standing.accountId === accountId
+    );
+    if (!inLoadedWindow) {
+      await loadStandingsAroundRank(effectiveUserStanding.rank);
+    }
+
+    setStandings((current) => {
+      if (current.some((standing) => standing.accountId === accountId)) {
+        return current;
+      }
+      return mergeStandingsByRank(current, [effectiveUserStanding]);
+    });
+
+    setPulseAccountId(accountId);
+    window.setTimeout(() => setPulseAccountId(null), 2200);
+
+    window.requestAnimationFrame(() => {
+      document
+        .querySelector(
+          `#rally-standings [data-standing-account="${accountId}"]`
+        )
+        ?.scrollIntoView({
+          behavior: reduceMotion ? 'auto' : 'smooth',
+          block: 'center',
+        });
+    });
+  }, [
+    accountId,
+    effectiveUserStanding,
+    loadStandingsAroundRank,
+    reduceMotion,
+    standings,
+  ]);
+
+  const standingPulse =
+    accountId != null && pulseAccountId != null && pulseAccountId === accountId;
+
+  useEffect(() => {
+    if (!hasMoreStandings || loading || isLoadingMore) return;
+
+    const sentinel = loadMoreSentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          void loadMoreStandings();
+        }
+      },
+      { rootMargin: '180px', threshold: 0 }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [
+    displayStandings.length,
+    hasMoreStandings,
+    isLoadingMore,
+    loadMoreStandings,
+    loading,
+  ]);
+
   useEffect(() => {
     isFirstLoadRef.current = true;
     setHasLoadedOnce(false);
     setClaimStatusReady(false);
     setClaimFetchedForAccountId(undefined);
     setClaim(null);
+    setMyStandingFromMe(null);
+    setSyncedHeroStanding(null);
+    setSeasonJoinEntryYocto(null);
   }, [seasonId]);
 
   useEffect(() => {
     setClaim(null);
     setClaimStatusReady(false);
     setClaimFetchedForAccountId(undefined);
+    setMyStandingFromMe(null);
+    setSyncedHeroStanding(null);
   }, [accountId]);
 
   useEffect(() => {
@@ -287,22 +539,14 @@ export function SeasonRallyPage({
 
   return (
     <PageShell size="section">
-      <SecondaryPageHeader
-        badge={presentation.pageBadge}
-        badgeAccent="gold"
-        glowAccents={['gold', 'purple']}
-        title={presentation.pageTitle}
-        description={presentation.pageDescription}
-      />
-
       <SeasonArchiveNav
         currentSeasonId={seasonId}
         registry={registry}
-        className="-mt-4 mb-1"
+        className="mb-1"
         claimHintRefreshKey={String(participateSyncVersion)}
       />
 
-      <div className="mx-auto max-w-3xl space-y-3">
+      <SeasonPageColumn>
         <motion.div {...sectionEntrance(reduceMotion, 0)}>
           <GenesisRallyStrip
             variant="page"
@@ -311,9 +555,11 @@ export function SeasonRallyPage({
             indexedPoolYocto={indexedPoolYocto}
             joinPoolYocto={joinPoolYocto}
             sponsoredPoolYocto={sponsoredPoolYocto}
+            seasonJoinEntryYocto={seasonJoinEntryYocto}
             settlement={settlement}
             participantCount={total}
-            myStanding={currentUserStanding}
+            myStanding={effectiveUserStanding}
+            standingPulse={standingPulse}
             pageDataReady={hasLoadedOnce}
             claimStatusReady={claimStatusReadyForUi}
             registryPhase={registryEntry?.phase ?? null}
@@ -326,51 +572,34 @@ export function SeasonRallyPage({
             onClaimed={() => {
               void refresh();
             }}
+            onOpenRules={() => setRulesOpen(true)}
+            onJumpToStandings={() => void jumpToStandings()}
+            onMyStandingChange={setSyncedHeroStanding}
           />
         </motion.div>
 
-        {scoringLimits ? (
-          <motion.div {...sectionEntrance(reduceMotion, 0.07)}>
-            <SeasonZeroGuidePanel
-              limits={scoringLimits}
-              myStanding={currentUserStanding}
-              participantCount={total}
-              indexedPoolYocto={indexedPoolYocto}
-              payoutParticipants={payoutParticipants}
-              personalAccountId={accountId}
-            />
-          </motion.div>
-        ) : null}
-
-        <motion.div {...sectionEntrance(reduceMotion, 0.12)}>
+        <motion.div
+          {...sectionEntrance(reduceMotion, 0.07)}
+          ref={standingsPanelRef}
+        >
           <SurfacePanel
+            id="rally-standings"
             radius="xl"
             tone="soft"
-            padding="snug"
-            className="border-border/40"
+            padding="none"
+            className={`border-border/40 ${SEASON_PANEL_PADDING_CLASS}`}
           >
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="portal-eyebrow text-muted-foreground">
-                  Standings
-                </p>
-                {showPublishedRewards ? (
-                  <p className="mt-0.5 text-[11px] text-muted-foreground/65">
-                    Final SOCIAL rewards
-                  </p>
-                ) : null}
-              </div>
-              <Button
-                size="xs"
-                variant="secondary"
-                loading={loading}
-                onClick={() => void refresh()}
-                className="gap-1.5"
-              >
-                <RefreshCw className="h-3 w-3" />
-                Refresh
-              </Button>
-            </div>
+            <RallyStandingsHeader
+              meta={formatRallyStandingsMeta({
+                showPublishedRewards,
+                loadedCount: displayStandings.length,
+                total,
+              })}
+              showRules={Boolean(scoringLimits)}
+              onOpenRules={() => setRulesOpen(true)}
+              loading={loading}
+              onRefresh={() => void refresh()}
+            />
 
             {error ? (
               <p className="mt-3 rounded-lg border border-[var(--portal-red-border)] bg-[var(--portal-red-bg)] px-3 py-2 text-sm text-[var(--portal-red)]">
@@ -383,7 +612,7 @@ export function SeasonRallyPage({
                 <motion.div
                   key="standings-loading"
                   {...fadeMotion(Boolean(reduceMotion) ? 0 : 0.18)}
-                  className="mt-3 divide-y divide-fade-item"
+                  className={`divide-y divide-fade-detail ${SEASON_PANEL_DIVIDER_CLASS}`}
                 >
                   {Array.from({ length: 5 }).map((_, index) => (
                     <StandingRowSkeleton key={index} />
@@ -393,12 +622,14 @@ export function SeasonRallyPage({
                 <motion.div
                   key="standings-loaded"
                   {...fadeMotion(Boolean(reduceMotion) ? 0 : 0.2)}
-                  className="mt-3 divide-y divide-fade-item"
+                  className={`divide-y divide-fade-detail ${SEASON_PANEL_DIVIDER_CLASS}`}
                 >
                   {displayStandings.map((standing) => (
                     <StandingRow
                       key={standing.accountId}
                       standing={standing}
+                      isViewer={standing.accountId === accountId}
+                      pulse={standing.accountId === pulseAccountId}
                       rewardAmountYocto={
                         showPublishedRewards
                           ? (publishedRewardByAccountId[standing.accountId] ??
@@ -407,12 +638,37 @@ export function SeasonRallyPage({
                       }
                     />
                   ))}
+                  {hasMoreStandings ? (
+                    <div
+                      ref={loadMoreSentinelRef}
+                      className="flex min-h-12 items-center justify-center py-3"
+                      aria-hidden={!isLoadingMore}
+                    >
+                      {isLoadingMore ? (
+                        <Skeleton className="h-3 w-28 rounded-full bg-foreground/[0.06]" />
+                      ) : null}
+                    </div>
+                  ) : null}
                 </motion.div>
               )}
             </AnimatePresence>
           </SurfacePanel>
         </motion.div>
-      </div>
+
+        {scoringLimits ? (
+          <SeasonZeroRulesModal
+            open={rulesOpen}
+            onOpenChange={setRulesOpen}
+            limits={scoringLimits}
+            myStanding={effectiveUserStanding}
+            participantCount={total}
+            indexedPoolYocto={indexedPoolYocto}
+            payoutParticipants={payoutParticipants}
+            personalAccountId={accountId}
+            profileBadgeLabel={presentation.profileBadgeLabel}
+          />
+        ) : null}
+      </SeasonPageColumn>
     </PageShell>
   );
 }

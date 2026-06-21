@@ -2,7 +2,10 @@
 
 import Link from 'next/link';
 import { StandingAvatarFrame } from '@/components/ui/standing-rank-mark';
-import { profileListResultRowShellClass } from '@/features/profile/profile-list-row';
+import {
+  profileListResultRowClass,
+  profileListResultRowShellClass,
+} from '@/features/profile/profile-list-row';
 import { cleanHandle } from '@/lib/endorsements';
 import { formatGenesisSocialBalanceDisplay } from '@/lib/genesis-season';
 import { getPortalProfileUrl } from '@/lib/portal-config';
@@ -181,13 +184,21 @@ export function StandingRowSkeleton() {
 export function StandingRow({
   standing,
   interactive = true,
+  isViewer = false,
+  pulse = false,
   rewardAmountYocto = null,
+  className,
 }: {
   standing: SeasonZeroStanding;
   /** When false, renders a static preview (e.g. home promo card) without profile links. */
   interactive?: boolean;
+  /** Marks the connected wallet's row in the standings list. */
+  isViewer?: boolean;
+  /** Brief background flash after scroll-to-row (no border). */
+  pulse?: boolean;
   /** Final published reward amount (yocto). Shown only after settlement publish. */
   rewardAmountYocto?: string | null;
+  className?: string;
 }) {
   const profileHref = getPortalProfileUrl(standing.accountId);
   const handle = cleanHandle(standing.accountId);
@@ -203,16 +214,28 @@ export function StandingRow({
   );
 
   const nameLabel = (
-    <span className="block truncate portal-type-lead font-medium text-foreground">
+    <span className="truncate portal-type-lead font-medium text-foreground">
       {label}
     </span>
   );
 
+  const viewerTag = isViewer ? (
+    <span className="shrink-0 portal-type-micro font-medium text-muted-foreground/55">
+      You
+    </span>
+  ) : null;
+
   return (
     <div
+      data-standing-account={standing.accountId}
+      data-standing-rank={standing.rank}
       className={cn(
-        profileListResultRowShellClass,
-        'group/row items-start gap-2.5 py-2.5'
+        interactive
+          ? profileListResultRowClass
+          : profileListResultRowShellClass,
+        'group/row items-start',
+        pulse && 'standing-row-pulse',
+        className
       )}
     >
       {interactive ? (
@@ -236,15 +259,21 @@ export function StandingRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-3">
           {interactive ? (
-            <Link
-              href={profileHref}
-              prefetch
-              className="min-w-0 hover:underline"
-            >
-              {nameLabel}
-            </Link>
+            <div className="flex min-w-0 items-baseline gap-1.5">
+              <Link
+                href={profileHref}
+                prefetch
+                className="min-w-0 hover:underline"
+              >
+                {nameLabel}
+              </Link>
+              {viewerTag}
+            </div>
           ) : (
-            <div className="min-w-0">{nameLabel}</div>
+            <div className="flex min-w-0 items-baseline gap-1.5">
+              {nameLabel}
+              {viewerTag}
+            </div>
           )}
           <span
             className={cn(

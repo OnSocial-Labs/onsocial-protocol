@@ -42,6 +42,7 @@ export function SeasonZeroGuidePanel({
   indexedPoolYocto = '0',
   payoutParticipants = null,
   personalAccountId = null,
+  profileBadgeLabel = 'Rally',
   className,
 }: {
   limits: SeasonZeroScoringLimits;
@@ -53,6 +54,7 @@ export function SeasonZeroGuidePanel({
   indexedPoolYocto?: string;
   payoutParticipants?: SeasonZeroPayoutParticipant[] | null;
   personalAccountId?: string | null;
+  profileBadgeLabel?: string;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -111,8 +113,8 @@ export function SeasonZeroGuidePanel({
     <SurfacePanel
       radius="xl"
       tone="soft"
-      padding="snug"
-      className={cn('border-border/40', className)}
+      padding="none"
+      className={cn('border-border/40 p-3.5 md:p-4', className)}
     >
       <button
         type="button"
@@ -148,7 +150,7 @@ export function SeasonZeroGuidePanel({
             transition={portalTransition(reduceMotion ? 0.15 : 0.24)}
             className="overflow-hidden"
           >
-            <div className="mt-3 space-y-4 border-t border-fade-section pt-3">
+            <div className="mt-3 space-y-4 border-t border-fade-detail pt-3">
               {myStanding ? (
                 <div className="space-y-3">
                   <p className="portal-eyebrow text-muted-foreground">
@@ -180,7 +182,7 @@ export function SeasonZeroGuidePanel({
               <div
                 className={cn(
                   'space-y-2',
-                  myStanding && 'border-t border-fade-section pt-4'
+                  myStanding && 'border-t border-fade-detail pt-4'
                 )}
               >
                 <p className="portal-eyebrow text-muted-foreground">
@@ -214,7 +216,7 @@ export function SeasonZeroGuidePanel({
                 </ul>
               </div>
 
-              <div className="space-y-2 border-t border-fade-section pt-4">
+              <div className="space-y-2 border-t border-fade-detail pt-4">
                 <p className="portal-eyebrow text-muted-foreground">Rewards</p>
                 <ul className="space-y-1.5">
                   <GuidePoint label="Entry" value={joinEntryLabel} />
@@ -228,9 +230,9 @@ export function SeasonZeroGuidePanel({
                   <GuidePoint label="Collect" value="On this page when open" />
                 </ul>
                 <p className="portal-type-caption text-muted-foreground/65">
-                  Compete for rank and a Genesis profile badge. Most of your
-                  entry returns from the shared pool; higher ranks earn a larger
-                  bonus slice.
+                  Compete for rank and a {profileBadgeLabel} profile badge. Most
+                  of your entry returns from the shared pool; higher ranks earn
+                  a larger bonus slice.
                 </p>
               </div>
 

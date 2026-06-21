@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  estimateJoinTreasuryYocto,
   formatJoinEntryGuideLabel,
   formatJoinRoutingDisclosure,
   parseJoinRallyMinAmount,
@@ -46,5 +47,11 @@ describe('join-rally-routing', () => {
     expect(formatJoinEntryGuideLabel(null, { loading: true })).toBe(
       'Loading rally entry…'
     );
+  });
+
+  it('estimates treasury share from indexed join pool', () => {
+    expect(
+      estimateJoinTreasuryYocto('95000000000000000000', 9500, 500).toString()
+    ).toBe('5000000000000000000');
   });
 });

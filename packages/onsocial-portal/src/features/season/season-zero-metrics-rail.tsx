@@ -3,11 +3,12 @@
 import type { ComponentType, ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Clock, Coins, Users } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
 import { SeasonCountdownLabel } from '@/features/season/season-countdown-label';
+import { RallyPoolBreakdown } from '@/features/season/rally-pool-breakdown';
 import type { SeasonZeroClaimMetricsStatus } from '@/features/season/season-zero-claim-copy';
-import { formatGenesisYoctoAsSocial } from '@/lib/genesis-season';
-import { estimateJoinBurnYocto } from '@/lib/join-rally-routing';
+import { formatGenesisSocialBalanceDisplay } from '@/lib/genesis-season';
 import {
   resolveSeasonZeroLifecyclePhase,
   type SeasonZeroOnChainConfig,
@@ -60,11 +61,11 @@ function claimStatusAccentClass(statusLabel: string): string {
 function MetricsRailFooterSkeleton() {
   return (
     <div
-      className="border-t border-fade-section px-4 py-3 text-center md:px-5 md:py-3.5"
+      className="border-t border-fade-detail px-4 py-3 text-center md:px-5 md:py-3.5"
       aria-hidden
     >
-      <div className="mx-auto h-3.5 w-40 max-w-full animate-pulse rounded-full bg-foreground/[0.06]" />
-      <div className="mx-auto mt-2 h-3 w-52 max-w-full animate-pulse rounded-full bg-foreground/[0.05]" />
+      <Skeleton className="mx-auto h-3.5 w-40 max-w-full rounded-full bg-foreground/[0.06]" />
+      <Skeleton className="mx-auto mt-2 h-3 w-52 max-w-full rounded-full bg-foreground/[0.05]" />
     </div>
   );
 }
@@ -231,59 +232,26 @@ function MetricSegment({
 function PoolBreakdownSubtitle({
   joinPoolYocto,
   sponsoredPoolYocto,
-  joinRoutingBps,
+  joinRouting,
+  protocolFeesRouteToBoost,
 }: {
   joinPoolYocto?: string;
   sponsoredPoolYocto?: string;
-  joinRoutingBps?: { season_pool_bps: number; burn_bps: number } | null;
+  joinRouting?: {
+    season_pool_bps: number;
+    burn_bps: number;
+    treasury_bps: number;
+  } | null;
+  protocolFeesRouteToBoost?: boolean;
 }) {
-  const sponsored = BigInt(sponsoredPoolYocto ?? '0');
-  const joinLabel = formatGenesisYoctoAsSocial(joinPoolYocto ?? '0');
-  const burnYocto =
-    joinRoutingBps && joinRoutingBps.burn_bps > 0
-      ? estimateJoinBurnYocto(
-          joinPoolYocto ?? '0',
-          joinRoutingBps.season_pool_bps,
-          joinRoutingBps.burn_bps
-        )
-      : 0n;
-  const burnLabel =
-    burnYocto > 0n ? formatGenesisYoctoAsSocial(burnYocto.toString()) : null;
-  const hasJoinFlow = joinLabel !== '0' || burnLabel;
-  const hasTreasurySeed = sponsored > 0n;
-
-  if (!hasJoinFlow && !hasTreasurySeed) {
-    return (
-      <p className="mt-0.5 portal-type-micro text-muted-foreground/65">
-        Reward pool
-      </p>
-    );
-  }
-
   return (
-    <div className="mt-0.5 space-y-0.5">
-      {hasJoinFlow ? (
-        <p className="portal-type-micro leading-snug text-muted-foreground/65">
-          <span className="whitespace-nowrap">{joinLabel} joins</span>
-          {burnLabel ? (
-            <>
-              <span className="text-muted-foreground/35"> · </span>
-              <span className="whitespace-nowrap">{burnLabel} burn</span>
-            </>
-          ) : null}
-        </p>
-      ) : null}
-      {hasTreasurySeed ? (
-        <p className="portal-type-micro leading-snug">
-          <span className="whitespace-nowrap portal-gold-text">
-            <span className="font-mono font-semibold tabular-nums">
-              {formatGenesisYoctoAsSocial(sponsoredPoolYocto ?? '0')}
-            </span>
-            <span className="ml-1 font-medium">Treasury seed</span>
-          </span>
-        </p>
-      ) : null}
-    </div>
+    <RallyPoolBreakdown
+      joinPoolYocto={joinPoolYocto}
+      sponsoredPoolYocto={sponsoredPoolYocto}
+      joinRouting={joinRouting}
+      protocolFeesRouteToBoost={protocolFeesRouteToBoost}
+      className="mt-0.5"
+    />
   );
 }
 
@@ -292,25 +260,34 @@ export function SeasonZeroMetricsRail({
   indexedPoolYocto,
   joinPoolYocto,
   sponsoredPoolYocto,
-  joinRoutingBps,
+  joinRouting,
+  protocolFeesRouteToBoost = false,
   settlement,
   participantCount = 0,
   claimStatus = null,
   claimStatusPending = false,
   showSettlementDetail = false,
+  hideClaimFooter = false,
   className,
 }: {
   onChainConfig: SeasonZeroOnChainConfig;
   indexedPoolYocto?: string;
   joinPoolYocto?: string;
   sponsoredPoolYocto?: string;
-  joinRoutingBps?: { season_pool_bps: number; burn_bps: number } | null;
+  joinRouting?: {
+    season_pool_bps: number;
+    burn_bps: number;
+    treasury_bps: number;
+  } | null;
+  protocolFeesRouteToBoost?: boolean;
   settlement?: SeasonZeroSettlementSummary | null;
   participantCount?: number;
   claimStatus?: SeasonZeroClaimMetricsStatus | null;
   claimStatusPending?: boolean;
   /** Ops/admin only — hides jargon like "Settlement finalized" from participants by default. */
   showSettlementDetail?: boolean;
+  /** Page hero renders claim UI in RallyCollectSection instead of the metrics footer. */
+  hideClaimFooter?: boolean;
   className?: string;
 }) {
   const phase = resolveSeasonZeroLifecyclePhase(onChainConfig, settlement);
@@ -319,7 +296,7 @@ export function SeasonZeroMetricsRail({
   const startsAtNs = readStartsAtNs(onChainConfig);
   const isLive = phase === 'live';
   const isUpcoming = phase === 'upcoming';
-  const poolLabel = formatGenesisYoctoAsSocial(indexedPoolYocto ?? '0');
+  const poolLabel = formatGenesisSocialBalanceDisplay(indexedPoolYocto ?? '0');
   const reduceMotion = useReducedMotion();
 
   return (
@@ -376,7 +353,8 @@ export function SeasonZeroMetricsRail({
           <PoolBreakdownSubtitle
             joinPoolYocto={joinPoolYocto}
             sponsoredPoolYocto={sponsoredPoolYocto}
-            joinRoutingBps={joinRoutingBps}
+            joinRouting={joinRouting}
+            protocolFeesRouteToBoost={protocolFeesRouteToBoost}
           />
         </MetricSegment>
 
@@ -395,14 +373,15 @@ export function SeasonZeroMetricsRail({
       </div>
 
       <AnimatePresence mode="wait" initial={false}>
-        {claimStatusPending ? (
+        {!hideClaimFooter && claimStatusPending ? (
           <motion.div
             key="claim-footer-loading"
             {...fadeMotion(Boolean(reduceMotion) ? 0 : 0.18)}
           >
             <MetricsRailFooterSkeleton />
           </motion.div>
-        ) : claimStatus || (showSettlementDetail && settlement) ? (
+        ) : !hideClaimFooter &&
+          (claimStatus || (showSettlementDetail && settlement)) ? (
           <motion.div
             key="claim-footer-ready"
             {...fadeMotion(Boolean(reduceMotion) ? 0 : 0.2)}

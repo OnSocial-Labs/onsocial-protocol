@@ -25,6 +25,7 @@ const SocialSwapModal = dynamic(
 import { Button } from '@/components/ui/button';
 import { PortalConnectPrompt } from '@/components/ui/portal-connect-prompt';
 import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
+import { Skeleton } from '@/components/ui/skeleton';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
 import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
@@ -33,7 +34,9 @@ import { createPortalOnSocialClient } from '@/lib/onsocial-client';
 import { formatGenesisSocialBalanceDisplay } from '@/lib/genesis-season';
 import {
   getActiveSeasonId,
+  getSeasonCatalogTitle,
   getSeasonPresentation,
+  resolveSeasonHeroTitle,
   seasonApiPath,
 } from '@/lib/active-season';
 import {
@@ -49,6 +52,7 @@ import {
   formatJoinRoutingDisclosure,
   type JoinRallyRoutingDisclosure,
 } from '@/lib/join-rally-routing';
+import { resolveRallyHeroJoinEntryLabel } from '@/lib/rally-join-entry';
 import { PORTAL_SWAP_ENABLED } from '@/lib/portal-swap-config';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/portal-config';
 import {
@@ -57,6 +61,15 @@ import {
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
 import { SeasonZeroMetricsRail } from '@/features/season/season-zero-metrics-rail';
+import { RallyCollectSection } from '@/features/season/rally-collect-section';
+import {
+  RallyHeroHeader,
+  RallyHeroHeaderSkeleton,
+} from '@/features/season/rally-hero-header';
+import {
+  RallyPositionSummary,
+  RallyPositionSummarySkeleton,
+} from '@/features/season/rally-position-summary';
 import {
   StandingRow,
   StandingRowSkeleton,
@@ -69,23 +82,27 @@ import type {
   SeasonZeroSettlementSummary,
   SeasonZeroStatusPayload,
 } from '@/features/season/season-zero-types';
-import { resolveSeasonZeroLifecyclePhase } from '@/features/season/season-zero-types';
 import {
   isPostLiveSeasonPhase,
   resolveSeasonZeroClaimMetricsStatus,
 } from '@/features/season/season-zero-claim-copy';
-import { SeasonClaimInlineAction } from '@/features/season/season-claim-inline-action';
+import { SeasonRallyMetricsSkeleton } from '@/features/season/season-rally-metrics-skeleton';
+import { SeasonRallyPulse } from '@/features/season/season-rally-pulse';
+import { SEASON_RALLY_FOOTER_MIN_CLASS } from '@/features/season/season-page-column';
 import { seasonZeroPayoutSummary } from '@/features/season/season-zero-payout-copy';
 import type { SeasonZeroPayoutParticipant } from '@/features/season/season-zero-payout-estimate';
-import { isSeasonSettlementPublished } from '@/features/season/season-zero-types';
+import {
+  isSeasonSettlementPublished,
+  resolveSeasonZeroLifecyclePhase,
+} from '@/features/season/season-zero-types';
 import { cn } from '@/lib/utils';
 
 const os = createPortalOnSocialClient();
 
 function rallyStatusPlaceholder() {
   return (
-    <div
-      className="h-3.5 w-[13rem] max-w-full animate-pulse rounded-full bg-foreground/[0.06]"
+    <Skeleton
+      className="h-3.5 w-[13rem] max-w-full rounded-full bg-foreground/[0.06]"
       aria-hidden
     />
   );
@@ -112,8 +129,8 @@ function RallyActionSlot({
 
 function rallyActionPlaceholder() {
   return (
-    <div
-      className="h-9 w-full animate-pulse rounded-full bg-foreground/[0.06]"
+    <Skeleton
+      className="h-9 w-full rounded-full bg-foreground/[0.06]"
       aria-hidden
     />
   );
@@ -126,7 +143,7 @@ function rallyFooterFade(reduceMotion: boolean | null, duration = 0.18) {
 }
 
 function rallyFooterShellClass(hasMetrics: boolean) {
-  return cn(hasMetrics && 'border-t border-fade-section');
+  return cn(hasMetrics && 'border-t border-fade-detail');
 }
 
 interface SeasonZeroMeResponse {
@@ -147,6 +164,7 @@ export function GenesisRallyStrip({
   indexedPoolYocto,
   joinPoolYocto,
   sponsoredPoolYocto,
+  seasonJoinEntryYocto = null,
   settlement = null,
   participantCount = 0,
   myStanding: myStandingProp = null,
@@ -160,6 +178,10 @@ export function GenesisRallyStrip({
   personalAccountId = null,
   onParticipationChange,
   onClaimed,
+  onOpenRules,
+  onJumpToStandings,
+  standingPulse = false,
+  onMyStandingChange,
 }: {
   className?: string;
   /** `promo` — home Live section. `page` — rally hero (metrics + join). */
@@ -170,6 +192,8 @@ export function GenesisRallyStrip({
   indexedPoolYocto?: string;
   joinPoolYocto?: string;
   sponsoredPoolYocto?: string;
+  /** Indexed minimum join spend for this season (from status API). */
+  seasonJoinEntryYocto?: string | null;
   settlement?: SeasonZeroSettlementSummary | null;
   participantCount?: number;
   /** When provided (e.g. from Season 0 page), avoids a duplicate standing fetch. */
@@ -190,6 +214,12 @@ export function GenesisRallyStrip({
   /** Called after a successful join so the parent can refresh standings. */
   onParticipationChange?: () => void;
   onClaimed?: () => void;
+  onOpenRules?: () => void;
+  onJumpToStandings?: () => void;
+  /** Brief pulse on the hero standing row (scroll-back from standings). */
+  standingPulse?: boolean;
+  /** Sync resolved standing to the page (for standings cross-links). */
+  onMyStandingChange?: (standing: SeasonZeroStanding | null) => void;
 }) {
   const { registry } = useSeasonRegistry({ enabled: variant === 'promo' });
   const promoSeasonId = useMemo(() => {
@@ -285,6 +315,12 @@ export function GenesisRallyStrip({
   } = useSocialWalletBalance(accountId, balanceRefreshKey);
 
   const myStanding = myStandingProp ?? fetchedMyStanding;
+
+  useEffect(() => {
+    if (variant !== 'page') return;
+    onMyStandingChange?.(myStanding);
+  }, [myStanding, onMyStandingChange, variant]);
+
   const registryEntry =
     registry?.seasons.find((entry) => entry.seasonId === seasonId) ?? null;
   const seasonPresentation = useMemo(
@@ -604,6 +640,29 @@ export function GenesisRallyStrip({
       : null);
   const seasonIsLive = seasonPhase === 'live';
   const seasonIsUpcoming = seasonPhase === 'upcoming';
+  const heroTitle = useMemo(
+    () =>
+      resolveSeasonHeroTitle({
+        seasonId,
+        onChainLabel: metricsOnChainConfig?.label ?? registryEntry?.label,
+        catalogTitle: getSeasonCatalogTitle(seasonId),
+      }),
+    [metricsOnChainConfig?.label, registryEntry?.label, seasonId]
+  );
+  const heroJoinEntryLabel = useMemo(
+    () =>
+      resolveRallyHeroJoinEntryLabel({
+        phase: seasonPhase,
+        seasonJoinEntryYocto,
+        currentJoinEntryLabel: joinMinAmountLabel,
+        formatYocto: formatGenesisSocialBalanceDisplay,
+      }),
+    [joinMinAmountLabel, seasonJoinEntryYocto, seasonPhase]
+  );
+  const heroJoinEntryLoading =
+    seasonPhase === 'upcoming' || seasonPhase === 'live'
+      ? joinRoutingLoading
+      : false;
   const promoAriaLabel = seasonIsUpcoming
     ? 'Upcoming rally season'
     : seasonIsLive
@@ -764,10 +823,7 @@ export function GenesisRallyStrip({
     isPostLiveSeasonPhase(seasonPhase) &&
     !claimStatusResolved;
 
-  const showClaimAction =
-    variant === 'page' &&
-    seasonPhase === 'claim_open' &&
-    Boolean(claim && claim.claimed === false && accountId);
+  const showPublishedRewards = isSeasonSettlementPublished(metricsSettlement);
 
   const promoPanelClass = cn(
     'group relative overflow-hidden transition-[border-color,box-shadow] duration-200',
@@ -783,10 +839,8 @@ export function GenesisRallyStrip({
     (seasonPhase === null && registrySuggestsGoldPanel);
 
   const pagePanelClass = cn(
-    'overflow-hidden transition-[border-color,box-shadow] duration-300',
-    showGoldPanel
-      ? 'portal-gold-panel border-[var(--portal-gold-border-strong)] shadow-[0_0_16px_var(--portal-gold-glow)]'
-      : 'border-border/40',
+    'overflow-hidden bg-background/30 transition-[border-color] duration-300',
+    showGoldPanel ? 'border-[var(--portal-gold-border)]' : 'border-border/40',
     className
   );
 
@@ -860,7 +914,8 @@ export function GenesisRallyStrip({
     walletLoading,
   ]);
 
-  const hasMetricsRail = Boolean(metricsOnChainConfig);
+  const hasMetricsRail =
+    Boolean(metricsOnChainConfig) || (variant === 'page' && !pageDataReady);
   const footerShellClass = rallyFooterShellClass(hasMetricsRail);
 
   const actionFooter =
@@ -873,47 +928,61 @@ export function GenesisRallyStrip({
               {...rallyFooterFade(reduceMotion)}
               className="px-3 py-2.5 md:px-4"
             >
-              <StandingRowSkeleton />
+              {variant === 'page' ? (
+                <RallyPositionSummarySkeleton />
+              ) : (
+                <StandingRowSkeleton />
+              )}
             </motion.div>
           ) : footerMode === 'joined' ? (
             <motion.div
               key="rally-footer-joined"
               {...rallyFooterFade(reduceMotion)}
               className={cn(
-                'px-3 md:px-4',
+                variant === 'promo' && 'px-3 md:px-4',
                 variant === 'promo' && 'pointer-events-none relative z-[1]'
               )}
             >
               {variant === 'promo' ? (
-                <p className="pt-2.5 text-center text-xs uppercase tracking-[0.14em] text-muted-foreground">
-                  Yours
-                </p>
-              ) : null}
-              <StandingRow
-                standing={myStanding!}
-                interactive={variant !== 'promo'}
-                rewardAmountYocto={myStandingRewardYocto}
-              />
-              <AnimatePresence initial={false}>
-                {showClaimAction && claim ? (
-                  <motion.div
-                    key="rally-footer-collect"
-                    {...rallyFooterFade(reduceMotion, 0.16)}
-                  >
-                    <SeasonClaimInlineAction
-                      claim={claim}
-                      variant="rally"
-                      settlement={
-                        metricsSettlement &&
-                        isSeasonSettlementPublished(metricsSettlement)
-                          ? metricsSettlement
-                          : null
-                      }
-                      onClaimed={onClaimed}
-                    />
-                  </motion.div>
-                ) : null}
-              </AnimatePresence>
+                <>
+                  <p className="pt-2.5 text-center text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                    Yours
+                  </p>
+                  <StandingRow
+                    standing={myStanding!}
+                    interactive={false}
+                    rewardAmountYocto={myStandingRewardYocto}
+                  />
+                </>
+              ) : (
+                <>
+                  <RallyPositionSummary
+                    standing={myStanding!}
+                    rewardAmountYocto={
+                      showPublishedRewards && seasonPhase !== 'claim_open'
+                        ? myStandingRewardYocto
+                        : null
+                    }
+                    payoutHint={seasonIsLive ? payoutHint : null}
+                    onOpenRules={onOpenRules}
+                    onJumpToStandings={onJumpToStandings}
+                    standingPulse={standingPulse}
+                  />
+                  <RallyCollectSection
+                    phase={seasonPhase}
+                    claim={claim}
+                    settlement={
+                      metricsSettlement &&
+                      isSeasonSettlementPublished(metricsSettlement)
+                        ? metricsSettlement
+                        : null
+                    }
+                    claimStatus={claimMetricsStatus}
+                    claimStatusPending={claimMetricsPending}
+                    onClaimed={onClaimed}
+                  />
+                </>
+              )}
             </motion.div>
           ) : footerMode === 'post-live-connect' ? (
             <motion.div
@@ -927,7 +996,10 @@ export function GenesisRallyStrip({
             <motion.div
               key="rally-footer-join"
               {...rallyFooterFade(reduceMotion)}
-              className="flex min-h-[4.5rem] flex-col gap-2.5 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between md:px-4"
+              className={cn(
+                'flex flex-col gap-2.5 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between md:px-4',
+                SEASON_RALLY_FOOTER_MIN_CLASS
+              )}
             >
               <div
                 className={cn(
@@ -976,6 +1048,20 @@ export function GenesisRallyStrip({
         </div>
       ) : null}
 
+      {variant === 'page' ? (
+        pageDataReady ? (
+          <RallyHeroHeader
+            displayTitle={heroTitle.title}
+            joinEntryLabel={heroJoinEntryLabel}
+            joinEntryLoading={heroJoinEntryLoading}
+            phase={seasonPhase}
+            phaseReady={Boolean(metricsOnChainConfig)}
+          />
+        ) : (
+          <RallyHeroHeaderSkeleton />
+        )
+      ) : null}
+
       {metricsOnChainConfig ? (
         <motion.div
           key="rally-metrics-rail"
@@ -984,18 +1070,38 @@ export function GenesisRallyStrip({
             variant === 'promo' && 'pointer-events-none relative z-[1]'
           )}
         >
-          <SeasonZeroMetricsRail
-            onChainConfig={metricsOnChainConfig}
-            indexedPoolYocto={metricsIndexedPoolYocto}
-            joinPoolYocto={metricsJoinPoolYocto}
-            sponsoredPoolYocto={metricsSponsoredPoolYocto}
-            joinRoutingBps={joinRouting?.config ?? null}
-            settlement={metricsSettlement}
-            participantCount={metricsParticipantCount}
-            claimStatus={claimMetricsStatus}
-            claimStatusPending={claimMetricsPending}
-          />
+          {variant === 'page' ? (
+            <SeasonRallyPulse
+              onChainConfig={metricsOnChainConfig}
+              indexedPoolYocto={metricsIndexedPoolYocto}
+              joinPoolYocto={metricsJoinPoolYocto}
+              sponsoredPoolYocto={metricsSponsoredPoolYocto}
+              joinRouting={joinRouting?.config ?? null}
+              protocolFeesRouteToBoost={
+                joinRouting?.protocolFeesRouteToBoost ?? false
+              }
+              settlement={metricsSettlement}
+              participantCount={metricsParticipantCount}
+            />
+          ) : (
+            <SeasonZeroMetricsRail
+              onChainConfig={metricsOnChainConfig}
+              indexedPoolYocto={metricsIndexedPoolYocto}
+              joinPoolYocto={metricsJoinPoolYocto}
+              sponsoredPoolYocto={metricsSponsoredPoolYocto}
+              joinRouting={joinRouting?.config ?? null}
+              protocolFeesRouteToBoost={
+                joinRouting?.protocolFeesRouteToBoost ?? false
+              }
+              settlement={metricsSettlement}
+              participantCount={metricsParticipantCount}
+              claimStatus={claimMetricsStatus}
+              claimStatusPending={claimMetricsPending}
+            />
+          )}
         </motion.div>
+      ) : variant === 'page' && !pageDataReady ? (
+        <SeasonRallyMetricsSkeleton showFooter={false} />
       ) : null}
 
       {actionFooter}

@@ -45,6 +45,20 @@
   }
 }
 
+@keyframes standing-row-pulse {
+  0% {
+    background-color: color-mix(in oklab, var(--portal-gold) 16%, transparent);
+  }
+
+  100% {
+    background-color: transparent;
+  }
+}
+
+.standing-row-pulse {
+  animation: standing-row-pulse 2.2s ease-out forwards;
+}
+
 @keyframes fade-in-down {
   from {
     opacity: 0;

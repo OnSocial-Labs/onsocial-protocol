@@ -100,16 +100,38 @@ export function estimateJoinBurnYocto(
     return 0n;
   }
 
-  const joinPool =
-    typeof joinPoolYocto === 'bigint'
-      ? joinPoolYocto
-      : BigInt(joinPoolYocto || '0');
+  const joinPool = readJoinPoolYocto(joinPoolYocto);
   if (joinPool <= 0n) {
     return 0n;
   }
 
   const totalSpend = (joinPool * 10_000n) / BigInt(seasonPoolBps);
   return (totalSpend * BigInt(burnBps)) / 10_000n;
+}
+
+function readJoinPoolYocto(joinPoolYocto: string | bigint): bigint {
+  return typeof joinPoolYocto === 'bigint'
+    ? joinPoolYocto
+    : BigInt(joinPoolYocto || '0');
+}
+
+/** Estimate protocol fee share from indexed join pool (boost credits or treasury fees). */
+export function estimateJoinTreasuryYocto(
+  joinPoolYocto: string | bigint,
+  seasonPoolBps: number,
+  treasuryBps: number
+): bigint {
+  if (treasuryBps <= 0 || seasonPoolBps <= 0) {
+    return 0n;
+  }
+
+  const joinPool = readJoinPoolYocto(joinPoolYocto);
+  if (joinPool <= 0n) {
+    return 0n;
+  }
+
+  const totalSpend = (joinPool * 10_000n) / BigInt(seasonPoolBps);
+  return (totalSpend * BigInt(treasuryBps)) / 10_000n;
 }
 
 export async function fetchJoinRallyRouting(): Promise<JoinRallyRoutingDisclosure | null> {

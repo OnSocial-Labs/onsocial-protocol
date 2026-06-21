@@ -18,6 +18,7 @@ import {
   getJoinRallyMinAmountYoctoString,
   JoinRallyConfigUnavailableError,
 } from '../services/seasons/join-rally-onchain-config.js';
+import { getSeasonJoinEntryYocto } from '../services/seasons/season-join-entry.js';
 import {
   loadSeasonRegistry,
   resolveActiveSeasonId,
@@ -126,19 +127,24 @@ router.get('/:seasonId/status', async (req: Request, res: Response) => {
       onChainConfig && !onChainConfig.is_live && onChainConfig.ends_at_ns
         ? onChainConfig.ends_at_ns.toString()
         : undefined;
-    const [settlement, poolBreakdown, joinMinYocto] = await Promise.all([
-      getSeasonSettlementSummary(seasonId),
-      getSeasonPoolBreakdown(
-        seasonId,
-        endsAtNs
-          ? {
-              joinCutoffTimestampNs: endsAtNs,
-              sponsorCutoffTimestampNs: endsAtNs,
-            }
-          : {}
-      ),
-      getJoinRallyMinAmountYoctoString(),
-    ]);
+    const [settlement, poolBreakdown, joinMinYocto, seasonJoinEntryYocto] =
+      await Promise.all([
+        getSeasonSettlementSummary(seasonId),
+        getSeasonPoolBreakdown(
+          seasonId,
+          endsAtNs
+            ? {
+                joinCutoffTimestampNs: endsAtNs,
+                sponsorCutoffTimestampNs: endsAtNs,
+              }
+            : {}
+        ),
+        getJoinRallyMinAmountYoctoString(),
+        getSeasonJoinEntryYocto(
+          seasonId,
+          endsAtNs ? { cutoffTimestampNs: endsAtNs } : {}
+        ),
+      ]);
     if (!onChainConfig) {
       res.status(404).json({
         success: false,
@@ -152,6 +158,8 @@ router.get('/:seasonId/status', async (req: Request, res: Response) => {
       seasonId,
       joinMinYocto,
       joinMinAvailable: joinMinYocto != null,
+      seasonJoinEntryYocto,
+      seasonJoinEntryAvailable: seasonJoinEntryYocto != null,
       onChainConfig,
       indexedPoolYocto: poolBreakdown.indexedPoolYocto,
       joinPoolYocto: poolBreakdown.joinPoolYocto,

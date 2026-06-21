@@ -42,7 +42,7 @@ const SEASON_CATALOG: Record<
   'season-one': {
     menuLabel: 'OnSocial Rally',
     navDescription: 'Live standings, earn points, claim rewards',
-    pageBadge: 'Live',
+    pageBadge: 'Rally',
     pageTitle: 'OnSocial Rally',
     pageDescription: 'Join the live season, earn points, and claim your share.',
     profileBadgeLabel: 'Rally',
@@ -81,6 +81,48 @@ function phaseToBadge(
   }
 }
 
+/** Default display name for numbered seasons without a human on-chain label. */
+export const DEFAULT_RALLY_DISPLAY_NAME = 'OnSocial Rally';
+
+function isNumberedSeasonId(seasonId: string): boolean {
+  return (
+    /^season-(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)$/u.test(
+      seasonId
+    ) && seasonId !== ARCHIVED_GENESIS_SEASON_ID
+  );
+}
+
+/** Hero title from on-chain label, with catalog fallback when label is the raw id. */
+export function resolveSeasonHeroTitle(input: {
+  seasonId: string;
+  onChainLabel?: string | null;
+  catalogTitle?: string | null;
+}): { title: string; showSeasonId: boolean } {
+  const id = input.seasonId.trim();
+  const onChain = input.onChainLabel?.trim() || null;
+  const catalog = input.catalogTitle?.trim() || null;
+  const humanOnChain = onChain && onChain !== id ? onChain : null;
+
+  let title: string;
+  if (humanOnChain) {
+    title = humanOnChain;
+  } else if (catalog) {
+    title = catalog;
+  } else if (isNumberedSeasonId(id)) {
+    title = DEFAULT_RALLY_DISPLAY_NAME;
+  } else if (onChain) {
+    title = onChain;
+  } else {
+    title = id;
+  }
+
+  return { title: title, showSeasonId: false };
+}
+
+export function getSeasonCatalogTitle(seasonId: string): string | null {
+  return catalogEntry(seasonId)?.pageTitle ?? null;
+}
+
 /** Display metadata for a season page, nav badge, or profile chip. */
 export function getSeasonPresentation(
   seasonId: string,
@@ -89,7 +131,9 @@ export function getSeasonPresentation(
   const entry = catalogEntry(seasonId);
   const phase =
     source?.phase ??
-    (entry?.archived ? ('archived' as SeasonPhase) : ('live' as SeasonPhase));
+    (entry?.archived
+      ? ('archived' as SeasonPhase)
+      : ('archived' as SeasonPhase));
   const archived =
     phase === 'archived' || phase === 'claim' || Boolean(entry?.archived);
   const pageTitle = source?.label?.trim() || entry?.pageTitle || seasonId;

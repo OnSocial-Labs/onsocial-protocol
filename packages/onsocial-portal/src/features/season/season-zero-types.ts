@@ -27,6 +27,10 @@ export interface SeasonZeroStatusPayload {
   success?: boolean;
   seasonId?: string;
   joinMinYocto?: string;
+  joinMinAvailable?: boolean;
+  /** Minimum indexed join_rally spend for this season (historical record). */
+  seasonJoinEntryYocto?: string | null;
+  seasonJoinEntryAvailable?: boolean;
   onChainConfig?: SeasonZeroOnChainConfig | null;
   indexedPoolYocto?: string;
   joinPoolYocto?: string;
