@@ -14,10 +14,7 @@ export type SeasonTreasurySeedSource =
       txHash: string;
     };
 
-function readStringField(
-  value: unknown,
-  field: string
-): string | null {
+function readStringField(value: unknown, field: string): string | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return null;
   }
@@ -151,7 +148,10 @@ export function parseFundSeasonPoolProposal(
 }
 
 function isApprovedProposalStatus(status: string | null | undefined): boolean {
-  const normalized = status?.trim().toLowerCase().replace(/[\s-]+/g, '_');
+  const normalized = status
+    ?.trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
   return normalized === 'approved' || normalized === 'executed';
 }
 
