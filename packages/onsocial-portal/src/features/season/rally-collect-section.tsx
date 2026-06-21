@@ -9,9 +9,7 @@ import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-t
 import { useSeasonParticipation } from '@/contexts/season-participation-context';
 import { useSeasonZeroClaimActions } from '@/features/season/season-zero-claim-actions';
 import type { SeasonZeroClaimMetricsStatus } from '@/features/season/season-zero-claim-copy';
-import {
-  RallyCollectZoneSkeleton,
-} from '@/features/season/rally-collect-zone-skeleton';
+import { RallyCollectZoneSkeleton } from '@/features/season/rally-collect-zone-skeleton';
 import { resolveRallyCollectZonePreview } from '@/features/season/rally-collect-preview';
 import { RallyCollectedFooterFrame } from '@/features/season/rally-collected-footer';
 import {
@@ -334,7 +332,7 @@ export function RallyCollectSection({
   if (claimStatusPending) {
     const pendingPreview = resolveRallyCollectZonePreview({
       phase,
-      claimClaimed: locallyClaimed ? true : claim?.claimed ?? null,
+      claimClaimed: locallyClaimed ? true : (claim?.claimed ?? null),
     });
     const pendingCollectedMinClass = resolveCollectedZoneMinClass({
       rewardShownInStanding,
@@ -343,9 +341,7 @@ export function RallyCollectSection({
 
     if (pendingPreview === 'button') {
       zoneVariant = 'pending';
-      zoneContent = (
-        <RallyCollectZoneSkeleton preview="button" shell="inner" />
-      );
+      zoneContent = <RallyCollectZoneSkeleton preview="button" shell="inner" />;
     } else {
       zoneVariant = 'compact';
       compactMinClass = pendingCollectedMinClass;

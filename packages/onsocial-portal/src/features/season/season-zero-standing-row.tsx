@@ -276,10 +276,7 @@ function ScoreMix({
       >
         {showBar
           ? activeBuckets.map((key) => {
-              const pct = Math.max(
-                0,
-                (standing.breakdown[key] / total) * 100
-              );
+              const pct = Math.max(0, (standing.breakdown[key] / total) * 100);
               return (
                 <div
                   key={key}
@@ -351,7 +348,10 @@ function StandingScoreColumn({
   return (
     <div className={SEASON_STANDING_SCORE_COLUMN_CLASS}>
       <RallyTextSlot
-        lineClass={cn(RALLY_LINE_BOX_SCORE, STANDING_RANK_SCORE_CLASS[rankTone])}
+        lineClass={cn(
+          RALLY_LINE_BOX_SCORE,
+          STANDING_RANK_SCORE_CLASS[rankTone]
+        )}
         loading={loading}
         pulseClass="h-[1em] w-14"
       >
@@ -419,13 +419,20 @@ function StandingNameRow({
 }) {
   return (
     <RallyTextSlot
-      lineClass={cn(RALLY_LINE_BOX_LEAD, 'min-w-0 flex-1 font-medium text-foreground')}
+      lineClass={cn(
+        RALLY_LINE_BOX_LEAD,
+        'min-w-0 flex-1 font-medium text-foreground'
+      )}
       loading={loading}
       pulseClass="h-[1em] w-36 max-w-full"
     >
       <div className="flex min-w-0 flex-1 items-center gap-1.5">
         {interactive && profileHref ? (
-          <Link href={profileHref} prefetch className="min-w-0 truncate hover:underline">
+          <Link
+            href={profileHref}
+            prefetch
+            className="min-w-0 truncate hover:underline"
+          >
             {label}
           </Link>
         ) : (

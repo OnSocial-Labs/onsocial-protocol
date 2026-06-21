@@ -56,7 +56,9 @@ export function RallyCollectZoneSkeleton({
 }) {
   const resolvedCollectedMinClass =
     collectedMinClass ??
-    resolveCollectedZoneMinClass({ reserveTxLink: reserveTxLink && preview === 'collected' });
+    resolveCollectedZoneMinClass({
+      reserveTxLink: reserveTxLink && preview === 'collected',
+    });
   const collectedInner = (
     <RallyCollectedFooterFrame pending reserveTxLink={reserveTxLink} />
   );

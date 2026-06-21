@@ -233,9 +233,7 @@ function MetricSegment({
             frameClassName
           )}
         >
-          <Icon
-            className={cn(METRIC_ICON_SIZE[iconScale], iconClassName)}
-          />
+          <Icon className={cn(METRIC_ICON_SIZE[iconScale], iconClassName)} />
         </div>
       </div>
       <div className="min-w-0 text-left">{children}</div>
@@ -280,7 +278,8 @@ export function SeasonZeroMetricsRail({
   treasurySeedSource?: SeasonTreasurySeedSource | null;
   className?: string;
 }) {
-  const phase = useSeasonZeroLifecyclePhase(onChainConfig, settlement) ?? 'upcoming';
+  const phase =
+    useSeasonZeroLifecyclePhase(onChainConfig, settlement) ?? 'upcoming';
   const copy = PHASE_COPY[phase];
   const endsAtNs = readEndsAtNs(onChainConfig);
   const startsAtNs = readStartsAtNs(onChainConfig);

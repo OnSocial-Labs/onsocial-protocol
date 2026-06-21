@@ -22,7 +22,5 @@ export function showRallyJoinPreActionFooter(input: {
   seasonIsLive?: boolean;
   seasonIsUpcoming?: boolean;
 }): boolean {
-  return (
-    !input.joined && Boolean(input.seasonIsLive || input.seasonIsUpcoming)
-  );
+  return !input.joined && Boolean(input.seasonIsLive || input.seasonIsUpcoming);
 }

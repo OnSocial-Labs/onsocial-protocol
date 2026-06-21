@@ -15,24 +15,27 @@ const REFERENCE_MS = Date.parse('2026-06-20T12:00:00Z');
 
 describe('formatSeasonRunWindow', () => {
   it('formats same-month windows with compact year', () => {
-    expect(formatSeasonRunWindow(MAR_1_2026_NS, MAR_14_2026_NS, REFERENCE_MS))
-      .toEqual({
-        label: "Mar 1–14 '26",
-        title: 'Mar 1 – 14, 2026',
-      });
-    expect(formatSeasonRunWindow(JUN_16_2026_NS, JUN_17_2026_NS, REFERENCE_MS))
-      .toEqual({
-        label: "Jun 16–17 '26",
-        title: 'Jun 16 – 17, 2026',
-      });
+    expect(
+      formatSeasonRunWindow(MAR_1_2026_NS, MAR_14_2026_NS, REFERENCE_MS)
+    ).toEqual({
+      label: "Mar 1–14 '26",
+      title: 'Mar 1 – 14, 2026',
+    });
+    expect(
+      formatSeasonRunWindow(JUN_16_2026_NS, JUN_17_2026_NS, REFERENCE_MS)
+    ).toEqual({
+      label: "Jun 16–17 '26",
+      title: 'Jun 16 – 17, 2026',
+    });
   });
 
   it('formats cross-month windows in the same year', () => {
-    expect(formatSeasonRunWindow(MAR_1_2026_NS, APR_21_2026_NS, REFERENCE_MS))
-      .toEqual({
-        label: "Mar 1–Apr 21 '26",
-        title: 'Mar 1 – Apr 21, 2026',
-      });
+    expect(
+      formatSeasonRunWindow(MAR_1_2026_NS, APR_21_2026_NS, REFERENCE_MS)
+    ).toEqual({
+      label: "Mar 1–Apr 21 '26",
+      title: 'Mar 1 – Apr 21, 2026',
+    });
   });
 
   it('falls back to ended date when start is missing', () => {

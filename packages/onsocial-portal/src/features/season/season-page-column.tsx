@@ -9,8 +9,7 @@ export const SEASON_PAGE_COLUMN_CLASS = 'mx-auto w-full max-w-xl';
 export const SEASON_PANEL_PADDING_CLASS = 'p-3.5 md:p-4';
 
 /** Horizontal + vertical padding for metrics pulse (matches panel gutters). */
-export const SEASON_RALLY_METRICS_PAD_CLASS =
-  'px-3.5 py-2.5 md:px-4 md:py-3';
+export const SEASON_RALLY_METRICS_PAD_CLASS = 'px-3.5 py-2.5 md:px-4 md:py-3';
 
 /**
  * Divider between major panel zones (e.g. standings list sections).
@@ -98,8 +97,7 @@ export const SEASON_STANDING_SIGNAL_SKELETON_CLASS =
 export const SEASON_STANDING_MIX_SKELETON_CLASS =
   'h-[0.625rem] w-36 max-w-full rounded-full bg-foreground/[0.06]';
 
-export const SEASON_STANDING_MIX_BAR_SKELETON_CLASS =
-  'bg-foreground/[0.04]';
+export const SEASON_STANDING_MIX_BAR_SKELETON_CLASS = 'bg-foreground/[0.04]';
 
 /** Collect CTA only — reward amount lives in the standing row. */
 export const SEASON_COLLECT_BUTTON_MIN_CLASS = 'min-h-[3.25rem]';
@@ -124,7 +122,8 @@ export const SEASON_RALLY_JOIN_META_STACK_CLASS =
   'flex w-full flex-col items-center gap-1.5';
 
 /** @deprecated Join footer uses {@link SEASON_COLLECT_RALLY_ACTION_MIN_CLASS} on the action zone. */
-export const SEASON_RALLY_FOOTER_MIN_CLASS = SEASON_COLLECT_RALLY_ACTION_MIN_CLASS;
+export const SEASON_RALLY_FOOTER_MIN_CLASS =
+  SEASON_COLLECT_RALLY_ACTION_MIN_CLASS;
 
 export const SEASON_COLLECT_AMOUNT_ROW_CLASS = 'min-h-9 sm:min-h-10';
 export const SEASON_COLLECT_ACTION_ROW_CLASS = 'min-h-9';
@@ -235,8 +234,7 @@ export const SEASON_STANDINGS_SKELETON_MAX_ROWS = 5;
 export const SEASON_STANDING_ROW_SHELL_MIN_CLASS = 'min-h-[6.875rem]';
 
 /** Name line — matches portal-type-lead line box (0.875rem × 1.5). */
-export const SEASON_STANDING_NAME_ROW_CLASS =
-  'min-h-[1.3125rem] md:min-h-6';
+export const SEASON_STANDING_NAME_ROW_CLASS = 'min-h-[1.3125rem] md:min-h-6';
 
 /** Head row when pts + reward stack is reserved. */
 export const SEASON_STANDING_HEAD_ROW_WITH_REWARD_CLASS = 'min-h-[2.125rem]';

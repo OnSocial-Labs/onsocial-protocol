@@ -22,10 +22,7 @@ import { cn } from '@/lib/utils';
 
 function RallyStandingHeaderDot() {
   return (
-    <span
-      className="portal-eyebrow-wide text-muted-foreground/35"
-      aria-hidden
-    >
+    <span className="portal-eyebrow-wide text-muted-foreground/35" aria-hidden>
       ·
     </span>
   );
@@ -40,7 +37,9 @@ function RallyStandingHeaderView({
   onJumpToStandings?: () => void;
   rank?: number;
 }) {
-  const showJumpLink = Boolean(onJumpToStandings && (loading || (rank ?? 0) > 0));
+  const showJumpLink = Boolean(
+    onJumpToStandings && (loading || (rank ?? 0) > 0)
+  );
 
   if (!showJumpLink) {
     return (
@@ -129,7 +128,10 @@ function RallyStandingHeaderFrame({
     <div className={SEASON_STANDING_HEADER_ROW_CLASS}>
       <div className={SEASON_STANDING_HEADER_LEFT_CLASS}>
         <RallyTextSlot
-          lineClass={cn(RALLY_LINE_BOX_EYEBROW, 'shrink-0 text-muted-foreground')}
+          lineClass={cn(
+            RALLY_LINE_BOX_EYEBROW,
+            'shrink-0 text-muted-foreground'
+          )}
         >
           <BoostPanelSectionTitle className="leading-none">
             Your standing

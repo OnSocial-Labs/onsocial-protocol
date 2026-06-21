@@ -193,7 +193,8 @@ export function SeasonRallyPulse({
   treasurySeedSource?: SeasonTreasurySeedSource | null;
   className?: string;
 }) {
-  const phase = useSeasonZeroLifecyclePhase(onChainConfig, settlement) ?? 'upcoming';
+  const phase =
+    useSeasonZeroLifecyclePhase(onChainConfig, settlement) ?? 'upcoming';
   const endsAtNs = readTimestampNs(onChainConfig.ends_at_ns);
   const startsAtNs = readTimestampNs(onChainConfig.starts_at_ns);
   const primaryColumn = resolvePulsePrimaryColumn(phase, startsAtNs, endsAtNs);

@@ -1,8 +1,7 @@
 import { cn } from '@/lib/utils';
 
 /** Button height + soft shadow bleed — keeps page layout stable on load. */
-export const SEASON_ARCHIVE_NAV_SLOT_CLASS =
-  'min-h-[2.75rem] pb-1';
+export const SEASON_ARCHIVE_NAV_SLOT_CLASS = 'min-h-[2.75rem] pb-1';
 
 export const SEASON_ARCHIVE_NAV_BUTTON_SHELL_CLASS =
   'flex h-8 items-center gap-1.5 rounded-full border border-border/40 bg-background/65 px-3 text-xs text-muted-foreground shadow-[0_10px_30px_-18px_rgba(15,23,42,0.34)] backdrop-blur-md';

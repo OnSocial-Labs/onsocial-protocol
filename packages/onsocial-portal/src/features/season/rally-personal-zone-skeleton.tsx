@@ -1,7 +1,5 @@
 import { RallyPositionSummarySkeleton } from '@/features/season/rally-position-summary';
-import {
-  RallyCollectZoneSkeleton,
-} from '@/features/season/rally-collect-zone-skeleton';
+import { RallyCollectZoneSkeleton } from '@/features/season/rally-collect-zone-skeleton';
 import type { RallyCollectZonePreview } from '@/features/season/rally-collect-preview';
 import {
   resolveCollectedZoneMinClass,

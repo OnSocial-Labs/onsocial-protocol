@@ -59,16 +59,15 @@ import {
 } from '@/lib/transaction-toast-copy';
 import { SeasonZeroMetricsRail } from '@/features/season/season-zero-metrics-rail';
 import { RallyCollectSection } from '@/features/season/rally-collect-section';
+import { RallyHeroHeader } from '@/features/season/rally-hero-header';
 import {
-  RallyHeroHeader,
-} from '@/features/season/rally-hero-header';
-import { RallyHeroCardSkeleton, resolveRallyHeroFooterPreview } from '@/features/season/rally-hero-card-skeleton';
+  RallyHeroCardSkeleton,
+  resolveRallyHeroFooterPreview,
+} from '@/features/season/rally-hero-card-skeleton';
 import { RallyPersonalZoneSkeleton } from '@/features/season/rally-personal-zone-skeleton';
 import type { RallyCollectZonePreview } from '@/features/season/rally-collect-preview';
 import { resolveRallyCollectZonePreview } from '@/features/season/rally-collect-preview';
-import {
-  RallyPositionSummary,
-} from '@/features/season/rally-position-summary';
+import { RallyPositionSummary } from '@/features/season/rally-position-summary';
 import {
   StandingRow,
   StandingRowSkeleton,
@@ -104,9 +103,7 @@ import {
 } from '@/features/season/season-page-column';
 import { seasonZeroPayoutSummary } from '@/features/season/season-zero-payout-copy';
 import type { SeasonZeroPayoutParticipant } from '@/features/season/season-zero-payout-estimate';
-import {
-  isSeasonSettlementPublished,
-} from '@/features/season/season-zero-types';
+import { isSeasonSettlementPublished } from '@/features/season/season-zero-types';
 import { useSeasonZeroLifecyclePhase } from '@/features/season/use-season-zero-lifecycle-phase';
 import { cn } from '@/lib/utils';
 
@@ -121,11 +118,7 @@ function rallyStatusPlaceholder() {
   );
 }
 
-function RallyActionSlot({
-  children,
-}: {
-  children: ReactNode;
-}) {
+function RallyActionSlot({ children }: { children: ReactNode }) {
   return (
     <div
       className={cn(
@@ -272,10 +265,7 @@ export function GenesisRallyStrip({
   const [apiJoined, setApiJoined] = useState(false);
   const joined = useMemo(
     () =>
-      resolveSeasonJoinedFor(
-        seasonId,
-        apiJoined || Boolean(myStandingProp)
-      ),
+      resolveSeasonJoinedFor(seasonId, apiJoined || Boolean(myStandingProp)),
     [
       apiJoined,
       myStandingProp,
@@ -976,7 +966,8 @@ export function GenesisRallyStrip({
       if (variant === 'page' && myStanding) {
         return 'joined';
       }
-      if (statusLoading || !myStanding || !joinedPersonalZoneReady) return 'loading';
+      if (statusLoading || !myStanding || !joinedPersonalZoneReady)
+        return 'loading';
       return 'joined';
     }
 
@@ -1046,8 +1037,7 @@ export function GenesisRallyStrip({
     pageCardRevealKeyRef.current = null;
   }, [seasonId]);
 
-  const pageCardRevealedForSeason =
-    pageCardRevealKeyRef.current === seasonId;
+  const pageCardRevealedForSeason = pageCardRevealKeyRef.current === seasonId;
 
   const postLiveBrowseNotJoined =
     postLiveBrowseContext && !joined && Boolean(accountId);
@@ -1092,7 +1082,6 @@ export function GenesisRallyStrip({
     seasonId,
     variant,
   ]);
-
 
   const displayClaim = useMemo(
     () => deriveSeasonClaim(claim),
@@ -1180,7 +1169,8 @@ export function GenesisRallyStrip({
   };
 
   const hasMetricsRail =
-    Boolean(metricsOnChainConfig) || (variant === 'page' && pageCardShellLoading);
+    Boolean(metricsOnChainConfig) ||
+    (variant === 'page' && pageCardShellLoading);
   const footerShellClass = rallyFooterShellClass(hasMetricsRail);
 
   const actionFooter =
@@ -1306,7 +1296,9 @@ export function GenesisRallyStrip({
           ) : (
             <motion.div
               key={`rally-page-card-${seasonId}`}
-              initial={animatePageCardReveal ? rallyCardRevealMotion.initial : false}
+              initial={
+                animatePageCardReveal ? rallyCardRevealMotion.initial : false
+              }
               animate={rallyCardRevealMotion.animate}
               transition={rallyCardRevealMotion.transition}
               onAnimationComplete={() => {

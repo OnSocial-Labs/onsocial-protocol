@@ -45,7 +45,11 @@ function RallyJoinSpendSplitStrip({
 }) {
   return (
     <RallyTextSlot
-      lineClass={cn(RALLY_LINE_BOX_STRIP, 'text-muted-foreground/70', className)}
+      lineClass={cn(
+        RALLY_LINE_BOX_STRIP,
+        'text-muted-foreground/70',
+        className
+      )}
       loading={loading}
       pulseClass={JOIN_SPEND_SPLIT_PULSE_CLASS}
     >
@@ -86,7 +90,9 @@ export function RallyJoinEntrySplitBlock({
   }
 
   return (
-    <div className={cn('w-full', SEASON_RALLY_JOIN_SPLIT_STACK_CLASS, className)}>
+    <div
+      className={cn('w-full', SEASON_RALLY_JOIN_SPLIT_STACK_CLASS, className)}
+    >
       <RallyTextSlot
         lineClass={RALLY_LINE_BOX_JOIN_FLOW_LABEL}
         loading={loading}
@@ -166,14 +172,12 @@ function RallyMicroActionLink({
   );
 }
 
-export function RallyGetSocialLink({
-  className,
-}: {
-  className?: string;
-}) {
+export function RallyGetSocialLink({ className }: { className?: string }) {
   const label = PORTAL_SWAP_ENABLED ? 'Get SOCIAL' : 'How to get SOCIAL';
 
-  return <RallyMicroActionLink href="/swap" label={label} className={className} />;
+  return (
+    <RallyMicroActionLink href="/swap" label={label} className={className} />
+  );
 }
 
 export function RallyDiscoverProfilesLink({
@@ -222,11 +226,15 @@ export function RallyJoinContextBlock({
 }) {
   const showEntrySplit =
     joinSpendSplitLoading || Boolean(joinSpendSplitParts?.length);
-  const showContextHint =
-    contextHintLoading || Boolean(contextHint?.trim());
+  const showContextHint = contextHintLoading || Boolean(contextHint?.trim());
 
   if (!reserveLayout && !showEntrySplit && !showContextHint) {
-    return <div className={cn(SEASON_PANEL_PADDING_CLASS, 'pb-0', className)} aria-hidden />;
+    return (
+      <div
+        className={cn(SEASON_PANEL_PADDING_CLASS, 'pb-0', className)}
+        aria-hidden
+      />
+    );
   }
 
   return (
@@ -271,8 +279,7 @@ export function RallyJoinActionSection({
   compact?: boolean;
   className?: string;
 }) {
-  const showShortfallLine =
-    shortfallLoading || Boolean(shortfallLabel?.trim());
+  const showShortfallLine = shortfallLoading || Boolean(shortfallLabel?.trim());
 
   return (
     <div

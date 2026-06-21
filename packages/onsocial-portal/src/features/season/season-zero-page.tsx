@@ -605,34 +605,34 @@ export function SeasonRallyPage({
 
       <SeasonPageColumn>
         <GenesisRallyStrip
-            variant="page"
-            seasonId={seasonId}
-            onChainConfig={onChainConfig}
-            indexedPoolYocto={indexedPoolYocto}
-            joinPoolYocto={joinPoolYocto}
-            sponsoredPoolYocto={sponsoredPoolYocto}
-            treasurySeedSource={treasurySeedSource}
-            seasonJoinEntryYocto={seasonJoinEntryYocto}
-            settlement={settlement}
-            participantCount={total}
-            myStanding={effectiveUserStanding}
-            standingPulse={standingPulse}
-            pageDataReady={pageDataReady}
-            claimStatusReady={claimStatusReadyForUi}
-            registryPhase={registryEntry?.phase ?? null}
-            phase={seasonPhase}
-            claim={displayClaim}
-            payoutParticipants={payoutParticipants}
-            publishedRewardByAccountId={publishedRewardByAccountId}
-            personalAccountId={accountId}
-            onParticipationChange={() => void refresh()}
-            onClaimed={() => {
-              void refresh();
-            }}
-            onOpenRules={() => setRulesOpen(true)}
-            onJumpToStandings={() => void jumpToStandings()}
-            onMyStandingChange={setSyncedHeroStanding}
-          />
+          variant="page"
+          seasonId={seasonId}
+          onChainConfig={onChainConfig}
+          indexedPoolYocto={indexedPoolYocto}
+          joinPoolYocto={joinPoolYocto}
+          sponsoredPoolYocto={sponsoredPoolYocto}
+          treasurySeedSource={treasurySeedSource}
+          seasonJoinEntryYocto={seasonJoinEntryYocto}
+          settlement={settlement}
+          participantCount={total}
+          myStanding={effectiveUserStanding}
+          standingPulse={standingPulse}
+          pageDataReady={pageDataReady}
+          claimStatusReady={claimStatusReadyForUi}
+          registryPhase={registryEntry?.phase ?? null}
+          phase={seasonPhase}
+          claim={displayClaim}
+          payoutParticipants={payoutParticipants}
+          publishedRewardByAccountId={publishedRewardByAccountId}
+          personalAccountId={accountId}
+          onParticipationChange={() => void refresh()}
+          onClaimed={() => {
+            void refresh();
+          }}
+          onOpenRules={() => setRulesOpen(true)}
+          onJumpToStandings={() => void jumpToStandings()}
+          onMyStandingChange={setSyncedHeroStanding}
+        />
 
         <motion.div ref={standingsPanelRef}>
           <SurfacePanel

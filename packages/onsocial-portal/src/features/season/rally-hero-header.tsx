@@ -12,8 +12,7 @@ export const SEASON_RALLY_HERO_TIMING_SLOT_CLASS =
   'min-w-[4.75rem] shrink-0 text-right sm:min-w-[6.25rem]';
 
 const heroEyebrowClass = 'portal-eyebrow-wide leading-none';
-const heroSkeletonClass =
-  'h-3.5 shrink-0 rounded-full bg-foreground/[0.06]';
+const heroSkeletonClass = 'h-3.5 shrink-0 rounded-full bg-foreground/[0.06]';
 
 export function RallyHeroHeader({
   displayTitle,
@@ -65,10 +64,7 @@ export function RallyHeroHeader({
           >
             {timingMetaLoading ? (
               <Skeleton
-                className={cn(
-                  heroSkeletonClass,
-                  'w-[4.75rem] sm:w-[6.25rem]'
-                )}
+                className={cn(heroSkeletonClass, 'w-[4.75rem] sm:w-[6.25rem]')}
                 aria-label="Loading season dates"
               />
             ) : (
@@ -107,7 +103,9 @@ export function RallyHeroHeaderSkeleton({ className }: { className?: string }) {
           'justify-between gap-2 sm:gap-3'
         )}
       >
-        <Skeleton className={cn(heroSkeletonClass, 'w-40 max-w-[55%] sm:w-44')} />
+        <Skeleton
+          className={cn(heroSkeletonClass, 'w-40 max-w-[55%] sm:w-44')}
+        />
         <div
           className={cn(
             SEASON_RALLY_HERO_ROW_CLASS,

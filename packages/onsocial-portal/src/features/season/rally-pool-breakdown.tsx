@@ -3,9 +3,7 @@
 import Link from 'next/link';
 import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
 import { formatGenesisSocialBalanceDisplay } from '@/lib/genesis-season';
-import {
-  RALLY_LINE_BOX_STRIP,
-} from '@/features/season/season-page-column';
+import { RALLY_LINE_BOX_STRIP } from '@/features/season/season-page-column';
 import { RallyTextSlot } from '@/features/season/rally-text-slot';
 import {
   estimateJoinBurnYocto,
@@ -85,9 +83,7 @@ function StripSegment({
 
   if (!href) {
     return (
-      <span className={cn('whitespace-nowrap', className)}>
-        {content}
-      </span>
+      <span className={cn('whitespace-nowrap', className)}>{content}</span>
     );
   }
 
@@ -184,7 +180,9 @@ export function RallyPoolBreakdown({
               <StripSegment
                 amount={joinEntryLabel!}
                 label="Entry"
-                className={hasTreasurySeed ? 'text-muted-foreground/75' : undefined}
+                className={
+                  hasTreasurySeed ? 'text-muted-foreground/75' : undefined
+                }
               />
             ) : null}
             {(joinEntryLoading || hasEntry) && hasTreasurySeed ? (

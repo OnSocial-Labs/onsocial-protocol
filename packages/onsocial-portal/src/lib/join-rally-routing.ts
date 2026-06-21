@@ -141,7 +141,10 @@ export function resolveJoinSpendSplitParts(
     });
   }
 
-  const targetYocto = splitJoinAmountYocto(joinMinAmountYocto, config.target_bps);
+  const targetYocto = splitJoinAmountYocto(
+    joinMinAmountYocto,
+    config.target_bps
+  );
   if (targetYocto > 0n) {
     parts.push({
       amount: yoctoToSocial(targetYocto.toString()),

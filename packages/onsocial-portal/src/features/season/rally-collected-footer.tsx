@@ -30,9 +30,7 @@ export function RallyCollectedFooterFrame({
         loading={pending}
         pulseClass="h-[1em] w-[5.5rem] sm:w-[6rem]"
       >
-        {statusLine ?? (
-          <span>Collected</span>
-        )}
+        {statusLine ?? <span>Collected</span>}
       </RallyTextSlot>
       {showTxLinkRow ? (
         <RallyTextSlot

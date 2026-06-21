@@ -3,7 +3,11 @@ import { RallyTextSlot } from '@/features/season/rally-text-slot';
 import { cn } from '@/lib/utils';
 
 /** Connect wallet prompt placeholder — post-live, wallet not connected. */
-export function RallyConnectFooterSkeleton({ className }: { className?: string }) {
+export function RallyConnectFooterSkeleton({
+  className,
+}: {
+  className?: string;
+}) {
   return (
     <div className={cn(SEASON_PANEL_PADDING_CLASS, 'py-2.5', className)}>
       <div className="flex min-h-[4.5rem] flex-col items-center justify-center gap-2">
