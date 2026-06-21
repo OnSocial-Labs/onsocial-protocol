@@ -9,6 +9,7 @@ import {
   TRANSPARENCY_PANEL_PADDING_CLASS,
 } from '@/features/transparency/transparency-page-column';
 import { BoostPanelSectionTitle } from '@/features/boost/boost-panel-section-title';
+import { TRANSPARENCY_REWARDS_CONTRACT } from '@/features/transparency/transparency-constants';
 import { getAccountExplorerLink } from '@/features/transparency/transparency-format';
 import type { TransparencyDistributionEntry } from '@/features/transparency/use-transparency-data';
 import { portalColors } from '@/lib/portal-colors';
@@ -72,13 +73,15 @@ function AllocationRow({
 
 export function TransparencyAllocationPanel({
   barDistribution,
-  isTrackedBalanceLoaded,
+  rewardsPoolBalanceLoaded,
+  liveAccountBalancesLoaded,
   allocationLoaded,
   loading = false,
   className,
 }: {
   barDistribution: TransparencyDistributionEntry[];
-  isTrackedBalanceLoaded: (account: string) => boolean;
+  rewardsPoolBalanceLoaded: boolean;
+  liveAccountBalancesLoaded: boolean;
   allocationLoaded: boolean;
   loading?: boolean;
   className?: string;
@@ -225,7 +228,9 @@ export function TransparencyAllocationPanel({
           const loaded =
             entry.account === 'other-holders'
               ? allocationLoaded
-              : isTrackedBalanceLoaded(entry.account);
+              : entry.account === TRANSPARENCY_REWARDS_CONTRACT
+                ? rewardsPoolBalanceLoaded
+                : liveAccountBalancesLoaded;
 
           return (
             <AllocationRow

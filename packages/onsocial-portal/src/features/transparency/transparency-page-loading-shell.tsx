@@ -42,7 +42,8 @@ export function TransparencyPageLoadingShell() {
 
         <TransparencyAllocationPanel
           barDistribution={EMPTY_DISTRIBUTION}
-          isTrackedBalanceLoaded={() => false}
+          rewardsPoolBalanceLoaded={false}
+          liveAccountBalancesLoaded={false}
           allocationLoaded={false}
           loading
         />

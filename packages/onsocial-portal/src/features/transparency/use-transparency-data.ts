@@ -277,11 +277,6 @@ export function useTransparencyData() {
       ? rewardsPoolBalance
       : (liveAccountBalances[account] ?? null);
 
-  const isTrackedBalanceLoaded = (account: string): boolean =>
-    account === TRANSPARENCY_REWARDS_CONTRACT
-      ? rewardsPoolBalanceLoaded
-      : liveAccountBalancesLoaded;
-
   const liveDistribution = useMemo((): TransparencyDistributionEntry[] => {
     return LIVE_ALLOCATION_ACCOUNTS.map((item) => {
       const balance = getTrackedBalance(item.account);
@@ -362,7 +357,8 @@ export function useTransparencyData() {
     supplyLoaded,
     liveDistribution,
     barDistribution,
-    isTrackedBalanceLoaded,
+    rewardsPoolBalanceLoaded,
+    liveAccountBalancesLoaded,
     allocationLoaded,
     marketLiquidityPools,
     marketLiquidityLoaded,

@@ -28,7 +28,8 @@ export default function TransparencyPage() {
     burnedDisplay,
     supplyLoaded,
     barDistribution,
-    isTrackedBalanceLoaded,
+    rewardsPoolBalanceLoaded,
+    liveAccountBalancesLoaded,
     allocationLoaded,
     marketLiquidityPools,
     marketLiquidityLoaded,
@@ -85,7 +86,8 @@ export default function TransparencyPage() {
 
         <TransparencyAllocationPanel
           barDistribution={barDistribution}
-          isTrackedBalanceLoaded={isTrackedBalanceLoaded}
+          rewardsPoolBalanceLoaded={rewardsPoolBalanceLoaded}
+          liveAccountBalancesLoaded={liveAccountBalancesLoaded}
           allocationLoaded={allocationLoaded}
           loading={showAllocationSkeleton}
         />
