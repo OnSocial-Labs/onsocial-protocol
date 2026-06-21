@@ -687,7 +687,9 @@ export default function BoostPage() {
     hasStake &&
     (lockStatus?.lock_expired ??
       (account.unlock_at > 0 && Date.now() * 1_000_000 >= account.unlock_at));
-  const canUnlock = hasStake && (lockStatus?.can_unlock ?? lockExpired);
+  const canUnlock = Boolean(
+    hasStake && (lockStatus?.can_unlock ?? lockExpired)
+  );
   const currentPeriodIdx = hasStake ? periodIndex(account.lock_months) : -1;
   const canAddStake = !hasStake || currentPeriodIdx >= 0;
   const balanceYocto = BigInt(tokenBalance);

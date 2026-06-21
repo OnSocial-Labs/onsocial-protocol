@@ -68,7 +68,7 @@ export function resolvePolicyFormValidation(input: {
   permissionsUpdateChanged: boolean;
   memberThresholdChanged: boolean;
   permissionsMemberThresholdInput: string;
-  permissionsMemberThresholdSmallest: bigint | null | undefined;
+  permissionsMemberThresholdSmallest: string | null | undefined;
   bondChanged: boolean;
   nextBondYocto: string | null | undefined;
   periodChanged: boolean;
@@ -83,7 +83,7 @@ export function resolvePolicyFormValidation(input: {
   addRolePermissionsCount: number;
   removableRoleOptionsLength: number;
   targetRoleId: string;
-  nextVoteThreshold: number | null | undefined;
+  nextVoteThreshold: [number, number] | null | undefined;
   votePolicyChanged: boolean;
   configNameInput: string;
   configPurposeInput: string;

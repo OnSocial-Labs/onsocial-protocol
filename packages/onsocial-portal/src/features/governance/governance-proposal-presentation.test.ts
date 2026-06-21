@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { SOCIAL_SPEND_MIN_AMOUNT_YOCTO } from '@/lib/dao-contract-config-operations';
-import { SOCIAL_SPEND_MIN_AMOUNT_YOCTO } from '@/lib/dao-contract-config-operations';
 import {
   deriveProposalPresentation,
   resolveProposalTargetEyebrowLabel,

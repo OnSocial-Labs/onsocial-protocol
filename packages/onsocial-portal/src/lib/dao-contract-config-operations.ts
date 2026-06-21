@@ -985,7 +985,7 @@ export function formatSocialSpendActionConfigCardSummaryFromRecord(
       season_pool_bps: readBps('season_pool_bps'),
       target_bps: readBps('target_bps'),
       burn_bps: readBps('burn_bps'),
-      min_amount: readSocialSpendActionMinAmountYocto(record),
+      min_amount: readSocialSpendActionMinAmountYocto(record) ?? '',
     },
     options
   );

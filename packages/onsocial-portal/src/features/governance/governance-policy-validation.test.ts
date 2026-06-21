@@ -34,8 +34,13 @@ const baseValidationInput = {
   addRolePermissionsCount: 0,
   removableRoleOptionsLength: 1,
   targetRoleId: '',
-  nextVoteThreshold: 50,
+  nextVoteThreshold: [50, 100] as [number, number],
   votePolicyChanged: true,
+  configNameInput: '',
+  configPurposeInput: '',
+  normalizedConfigName: null,
+  normalizedConfigPurpose: null,
+  configChanged: false,
 };
 
 describe('resolveNewRoleNameFieldHint', () => {

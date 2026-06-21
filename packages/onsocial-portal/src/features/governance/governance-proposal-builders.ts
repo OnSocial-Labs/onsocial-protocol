@@ -738,8 +738,8 @@ export function getDaoGroupMembershipRoleNames(
         (member) => normalizeAccountId(member) === normalized
       )
     )
-    .map((role) => role.name)
-    .filter((name) => name.trim().length > 0)
+    .map((role) => role.name?.trim() ?? '')
+    .filter((name): name is string => name.length > 0)
     .sort((left, right) => left.localeCompare(right));
 }
 
@@ -1365,18 +1365,12 @@ export function filterEditablePermissions(
 function summarizeDaoPermissionsOnChain(
   permissions: string[] | undefined
 ): string {
-  const labels = (permissions ?? [])
-    .map((permission) => {
-      const option = DAO_EDITABLE_PERMISSION_OPTIONS.find(
-        (entry) => entry.id === permission
-      );
-      if (!option) {
-        return null;
-      }
-
-      return option.label;
-    })
-    .filter((label): label is string => Boolean(label));
+  const labels = (permissions ?? []).flatMap((permission) => {
+    const option = DAO_EDITABLE_PERMISSION_OPTIONS.find(
+      (entry) => entry.id === permission
+    );
+    return option ? [option.label] : [];
+  });
 
   if (labels.length === 0) {
     return '';
