@@ -8,8 +8,7 @@ export const TRANSPARENCY_PANEL_PADDING_CLASS = 'p-3.5 md:p-4';
 export const TRANSPARENCY_PANEL_DIVIDER_CLASS =
   'mt-3 border-t border-fade-detail pt-3';
 
-export const TRANSPARENCY_PULSE_CONTAINER_CLASS =
-  'min-h-0';
+export const TRANSPARENCY_PULSE_CONTAINER_CLASS = 'min-h-0';
 
 /** Stats block — supply hero + 3-up row. */
 export const TRANSPARENCY_PULSE_STATS_CLASS =

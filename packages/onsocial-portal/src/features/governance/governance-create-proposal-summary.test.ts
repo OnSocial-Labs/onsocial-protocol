@@ -5,9 +5,7 @@ import {
   resolveGovernanceCreateProposalSummary,
   resolveGovernanceCreateSubmitFeedback,
 } from '@/features/governance/governance-create-proposal-summary';
-import {
-  resolveGovernanceCreateDescriptionPlaceholder,
-} from '@/features/governance/governance-proposal-builders';
+import { resolveGovernanceCreateDescriptionPlaceholder } from '@/features/governance/governance-proposal-builders';
 import { DEFAULT_BOOST_POST_ROUTING_DRAFT } from '@/lib/dao-contract-config-operations';
 
 const base = {

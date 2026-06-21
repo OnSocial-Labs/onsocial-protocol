@@ -57,16 +57,20 @@ export function ProfileSupportModal({
   onSupport,
 }: ProfileSupportModalProps) {
   const reduceMotion = useReducedMotion();
-  const { accountId: viewerAccountId, connect, isConnected, isLoading: isWalletBootstrapping } = useWallet();
+  const {
+    accountId: viewerAccountId,
+    connect,
+    isConnected,
+    isLoading: isWalletBootstrapping,
+  } = useWallet();
   const { txResult, setTxResult, clearTxResult, trackTransaction } =
     useNearTransactionFeedback(viewerAccountId);
   const [amount, setAmount] = useState('1');
   const [walletBalanceYocto, setWalletBalanceYocto] = useState<bigint | null>(
     null
   );
-  const [routing, setRouting] = useState<SupportProfileRoutingDisclosure | null>(
-    null
-  );
+  const [routing, setRouting] =
+    useState<SupportProfileRoutingDisclosure | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -81,7 +85,10 @@ export function ProfileSupportModal({
   const presetAmounts = useMemo(
     () =>
       minAmountYocto != null
-        ? supportPresetsAtOrAboveMin(minAmountYocto, SUPPORT_PROFILE_PRESET_SOCIAL)
+        ? supportPresetsAtOrAboveMin(
+            minAmountYocto,
+            SUPPORT_PROFILE_PRESET_SOCIAL
+          )
         : [...SUPPORT_PROFILE_PRESET_SOCIAL],
     [minAmountYocto]
   );
@@ -228,10 +235,10 @@ export function ProfileSupportModal({
               </div>
 
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                Send SOCIAL from your wallet. About {recipientShareLabel}% accrues
-                for them to claim; {treasuryShareLabel}% goes to treasury. Counts
-                toward their Season 0 support score after they have joined the
-                rally.
+                Send SOCIAL from your wallet. About {recipientShareLabel}%
+                accrues for them to claim; {treasuryShareLabel}% goes to
+                treasury. Counts toward their Season 0 support score after they
+                have joined the rally.
               </p>
 
               {walletBalanceLabel != null ? (

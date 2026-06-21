@@ -1,4 +1,7 @@
-import type { GovernanceDaoPolicy, GovernanceDaoRole } from '@/features/governance/types';
+import type {
+  GovernanceDaoPolicy,
+  GovernanceDaoRole,
+} from '@/features/governance/types';
 import {
   getAddRoleAccessBlockReason,
   getRemoveDaoPolicyRoleBlockReason,
@@ -106,7 +109,8 @@ export function resolvePolicyFormValidation(input: {
 
   if (!input.canProposeSelectedPolicyAction) {
     return {
-      blockedReason: 'Your wallet cannot propose this policy change on the DAO.',
+      blockedReason:
+        'Your wallet cannot propose this policy change on the DAO.',
       fieldHints,
     };
   }
@@ -253,7 +257,10 @@ export function resolvePolicyFormValidation(input: {
       return { blockedReason: accessBlockReason, fieldHints };
     }
 
-    if (input.addRoleUsesCustomPermissions && input.addRolePermissionsCount === 0) {
+    if (
+      input.addRoleUsesCustomPermissions &&
+      input.addRolePermissionsCount === 0
+    ) {
       const message = 'Select at least one permission.';
       if (input.submitAttempted) {
         fieldHints.addRolePermissions = message;

@@ -7,9 +7,7 @@ import {
   formatDaoRoleDisplayName,
   formatPublishedCodeHashPreview,
 } from '@/features/governance/governance-proposal-builders';
-import {
-  formatSocialSpendActionConfigCardSummaryFromRecord,
-} from '@/lib/dao-contract-config-operations';
+import { formatSocialSpendActionConfigCardSummaryFromRecord } from '@/lib/dao-contract-config-operations';
 import { yoctoToNear, yoctoToSocial, TOKEN_CONTRACT } from '@/lib/near-rpc';
 
 export type ProposalTargetKind =
@@ -880,9 +878,8 @@ export function deriveProposalPresentation({
     }
 
     if (methodName === 'set_action_config' && actionId === 'join_rally') {
-      const routingSummary = formatSocialSpendActionConfigCardSummaryFromRecord(
-        config
-      );
+      const routingSummary =
+        formatSocialSpendActionConfigCardSummaryFromRecord(config);
 
       headline = contractLabel
         ? `Set ${contractLabel} join rally routing`
@@ -903,13 +900,9 @@ export function deriveProposalPresentation({
       });
     }
 
-    if (
-      methodName === 'set_action_config' &&
-      actionId === 'support_profile'
-    ) {
-      const routingSummary = formatSocialSpendActionConfigCardSummaryFromRecord(
-        config
-      );
+    if (methodName === 'set_action_config' && actionId === 'support_profile') {
+      const routingSummary =
+        formatSocialSpendActionConfigCardSummaryFromRecord(config);
 
       headline = contractLabel
         ? `Set ${contractLabel} support profile routing`
@@ -934,9 +927,8 @@ export function deriveProposalPresentation({
       methodName === 'set_action_config' &&
       actionId === 'support_endorsement'
     ) {
-      const routingSummary = formatSocialSpendActionConfigCardSummaryFromRecord(
-        config
-      );
+      const routingSummary =
+        formatSocialSpendActionConfigCardSummaryFromRecord(config);
 
       headline = contractLabel
         ? `Set ${contractLabel} support endorsement routing`
@@ -958,9 +950,8 @@ export function deriveProposalPresentation({
     }
 
     if (methodName === 'set_action_config' && actionId === 'boost_post') {
-      const routingSummary = formatSocialSpendActionConfigCardSummaryFromRecord(
-        config
-      );
+      const routingSummary =
+        formatSocialSpendActionConfigCardSummaryFromRecord(config);
 
       headline = contractLabel
         ? `Set ${contractLabel} boost post routing`

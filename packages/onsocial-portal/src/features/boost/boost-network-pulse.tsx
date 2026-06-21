@@ -12,14 +12,16 @@ export const BOOST_PULSE_VALUE_ROW_CLASS =
   'mt-0.5 flex min-h-5 items-center justify-center';
 
 /** Mobile includes leaderboard link below stats. */
-export const BOOST_PULSE_CONTAINER_CLASS =
-  'min-h-[5.5rem] md:min-h-[3.25rem]';
+export const BOOST_PULSE_CONTAINER_CLASS = 'min-h-[5.5rem] md:min-h-[3.25rem]';
 
 function PulseDivider({ className }: { className?: string }) {
   return (
     <span
       aria-hidden
-      className={cn('hidden h-4 w-px shrink-0 bg-border/50 sm:block', className)}
+      className={cn(
+        'hidden h-4 w-px shrink-0 bg-border/50 sm:block',
+        className
+      )}
     />
   );
 }
@@ -37,7 +39,9 @@ function PulseItem({
 }) {
   return (
     <div className="flex min-w-[4.5rem] flex-1 flex-col items-center text-center sm:min-w-0">
-      <span className="portal-type-micro text-muted-foreground/70">{label}</span>
+      <span className="portal-type-micro text-muted-foreground/70">
+        {label}
+      </span>
       <div className={BOOST_PULSE_VALUE_ROW_CLASS}>
         {loading ? (
           <Skeleton className="h-5 w-12 rounded-full bg-foreground/[0.06]" />

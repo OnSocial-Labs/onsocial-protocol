@@ -78,19 +78,13 @@ function GovernanceProposalTargetLine({
       {routingDisplay.routingLabel ? (
         <>
           <span
-            className={cn(
-              valueClass,
-              'hidden text-foreground/80 sm:block'
-            )}
+            className={cn(valueClass, 'hidden text-foreground/80 sm:block')}
           >
             {routingDisplay.routingLabel}
           </span>
           <span className="flex flex-col items-end gap-0.5 text-right sm:hidden">
             {routingDisplay.routingParts.map((part) => (
-              <span
-                key={part}
-                className={cn(valueClass, 'text-foreground/80')}
-              >
+              <span key={part} className={cn(valueClass, 'text-foreground/80')}>
                 {part}
               </span>
             ))}

@@ -251,7 +251,9 @@ export function WalletProvider({
       if (!options?.forcePicker) {
         const existing = await tryReuseConnectedWallet(c, storedHint);
         if (existing) {
-          const sessionPlan = await resolvePortalSessionPlan(existing.accountId);
+          const sessionPlan = await resolvePortalSessionPlan(
+            existing.accountId
+          );
           applyWalletConnection(existing.wallet, existing.accountId);
           if (!sessionPlan.sessionReady) {
             await bootstrapPortalSession(c, existing.accountId, sessionPlan);

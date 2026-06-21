@@ -16,7 +16,10 @@ export function TransparencyProtocolContracts({
       </p>
       <div className="mt-1.5 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1">
         {TRANSPARENCY_PROTOCOL_CONTRACTS.map((item, index) => (
-          <span key={item.contract} className="inline-flex items-center gap-1.5">
+          <span
+            key={item.contract}
+            className="inline-flex items-center gap-1.5"
+          >
             {index > 0 ? (
               <span aria-hidden className="text-muted-foreground/35">
                 ·

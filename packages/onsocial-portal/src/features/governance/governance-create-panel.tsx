@@ -209,7 +209,13 @@ export function GovernanceCreatePanel({
   daoAccountId?: string;
 }) {
   const router = useRouter();
-  const { accountId, connect, wallet, isConnected, isLoading: walletLoading } = useWallet();
+  const {
+    accountId,
+    connect,
+    wallet,
+    isConnected,
+    isLoading: walletLoading,
+  } = useWallet();
   const { txResult, clearTxResult, setTxResult, trackTransaction } =
     useNearTransactionFeedback(accountId);
 
@@ -274,7 +280,8 @@ export function GovernanceCreatePanel({
     containerRef: roleMenuContainerRef,
   } = useDropdown();
   const [actionActiveIndex, setActionActiveIndex] = useState(0);
-  const [actionMenuCategoryId, setActionMenuCategoryId] = useState('membership');
+  const [actionMenuCategoryId, setActionMenuCategoryId] =
+    useState('membership');
   const actionTriggerRef = useRef<HTMLButtonElement>(null);
   const actionOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const {
@@ -590,8 +597,7 @@ export function GovernanceCreatePanel({
         managedContractsCount: managedContracts.length,
         hashUpgradableManagedContractsCount:
           hashUpgradableManagedContracts.length,
-        configurableManagedContractsCount:
-          configurableManagedContracts.length,
+        configurableManagedContractsCount: configurableManagedContracts.length,
         socialSpendTreasuryLoading,
         socialSpendTreasuryContext: socialSpendTreasuryContext
           ? {
@@ -657,11 +663,7 @@ export function GovernanceCreatePanel({
         : previewProposalActions.length > 0
           ? previewProposalActions
           : availableProposalActions,
-    [
-      availableProposalActions,
-      canCreatePublicProposal,
-      previewProposalActions,
-    ]
+    [availableProposalActions, canCreatePublicProposal, previewProposalActions]
   );
 
   const activeProposalAction = useMemo(
@@ -1054,25 +1056,29 @@ export function GovernanceCreatePanel({
   }, [activeProposalAction]);
 
   const selectedActionIndex = useMemo(() => {
-    const categoryId = resolveGovernanceCreateActionMenuCategoryId(
-      activeProposalAction
-    );
+    const categoryId =
+      resolveGovernanceCreateActionMenuCategoryId(activeProposalAction);
     const category =
       actionMenuCategories.find((entry) => entry.id === categoryId) ??
       actionMenuCategories[0];
     const proposals =
       category?.items.filter(
-        (item): item is Extract<GovernanceCreateActionMenuItem, { kind: 'proposal' }> =>
-          item.kind === 'proposal'
+        (
+          item
+        ): item is Extract<
+          GovernanceCreateActionMenuItem,
+          { kind: 'proposal' }
+        > => item.kind === 'proposal'
       ) ?? [];
-    const index = proposals.findIndex((option) => option.id === activeProposalAction);
+    const index = proposals.findIndex(
+      (option) => option.id === activeProposalAction
+    );
 
     return Math.max(0, index);
   }, [actionMenuCategories, activeProposalAction]);
   const activeCategoryProposalCount = useMemo(() => {
-    const categoryId = resolveGovernanceCreateActionMenuCategoryId(
-      activeProposalAction
-    );
+    const categoryId =
+      resolveGovernanceCreateActionMenuCategoryId(activeProposalAction);
     const category =
       actionMenuCategories.find((entry) => entry.id === categoryId) ??
       actionMenuCategories[0];
@@ -1087,9 +1093,8 @@ export function GovernanceCreatePanel({
       return;
     }
 
-    const categoryId = resolveGovernanceCreateActionMenuCategoryId(
-      activeProposalAction
-    );
+    const categoryId =
+      resolveGovernanceCreateActionMenuCategoryId(activeProposalAction);
 
     if (actionMenuCategories.some((category) => category.id === categoryId)) {
       setActionMenuCategoryId(categoryId);
@@ -1762,7 +1767,12 @@ export function GovernanceCreatePanel({
         ''
       );
     });
-  }, [isRemoveMemberAction, activeProposalAction, removableMemberOptions, roleId]);
+  }, [
+    isRemoveMemberAction,
+    activeProposalAction,
+    removableMemberOptions,
+    roleId,
+  ]);
 
   useEffect(() => {
     if (displayedProposalActions.length === 0) {
@@ -2040,8 +2050,12 @@ export function GovernanceCreatePanel({
     );
     const proposals =
       category?.items.filter(
-        (item): item is Extract<GovernanceCreateActionMenuItem, { kind: 'proposal' }> =>
-          item.kind === 'proposal'
+        (
+          item
+        ): item is Extract<
+          GovernanceCreateActionMenuItem,
+          { kind: 'proposal' }
+        > => item.kind === 'proposal'
       ) ?? [];
     const selectedIndex = proposals.findIndex(
       (option) => option.id === activeProposalAction
@@ -2051,9 +2065,8 @@ export function GovernanceCreatePanel({
   };
 
   const openActionDropdown = (index = selectedActionIndex) => {
-    const categoryId = resolveGovernanceCreateActionMenuCategoryId(
-      activeProposalAction
-    );
+    const categoryId =
+      resolveGovernanceCreateActionMenuCategoryId(activeProposalAction);
     const matchingCategory =
       actionMenuCategories.find((category) => category.id === categoryId) ??
       actionMenuCategories[0];
@@ -2123,35 +2136,31 @@ export function GovernanceCreatePanel({
     createNoActionsMessage
   );
   const submitLabel =
-    blockedSubmitLabel ??
-    getProposalActionSubmitLabel(activeProposalAction);
+    blockedSubmitLabel ?? getProposalActionSubmitLabel(activeProposalAction);
   const showStickyCreateSubmit = Boolean(accountId && !isInitialLoading);
-  const submitFeedbackMessage = useMemo(
-    () => {
-      if (!canCreatePublicProposal && blockedSubmitLabel) {
-        return error ? error : null;
-      }
+  const submitFeedbackMessage = useMemo(() => {
+    if (!canCreatePublicProposal && blockedSubmitLabel) {
+      return error ? error : null;
+    }
 
-      return resolveGovernanceCreateSubmitFeedback({
-        error,
-        blockedReason,
-        proposalSummary,
-        isContractConfigAction,
-        isSocialSpendRoutingConfig,
-        isSeasonConfigConfig,
-      });
-    },
-    [
-      blockedReason,
-      blockedSubmitLabel,
-      canCreatePublicProposal,
+    return resolveGovernanceCreateSubmitFeedback({
       error,
-      isContractConfigAction,
-      isSeasonConfigConfig,
-      isSocialSpendRoutingConfig,
+      blockedReason,
       proposalSummary,
-    ]
-  );
+      isContractConfigAction,
+      isSocialSpendRoutingConfig,
+      isSeasonConfigConfig,
+    });
+  }, [
+    blockedReason,
+    blockedSubmitLabel,
+    canCreatePublicProposal,
+    error,
+    isContractConfigAction,
+    isSeasonConfigConfig,
+    isSocialSpendRoutingConfig,
+    proposalSummary,
+  ]);
 
   return (
     <>
@@ -2159,7 +2168,9 @@ export function GovernanceCreatePanel({
       <SurfacePanel tone="soft" className="mb-6">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <span className="portal-eyebrow-wide portal-blue-text">Create proposal</span>
+            <span className="portal-eyebrow-wide portal-blue-text">
+              Create proposal
+            </span>
             <p className="mt-2 text-xs text-muted-foreground">
               <a
                 href={`${ACTIVE_NEAR_EXPLORER_URL}/address/${resolvedDaoAccountId}`}
@@ -2295,7 +2306,9 @@ export function GovernanceCreatePanel({
                       }}
                       aria-haspopup="listbox"
                       aria-expanded={actionMenuOpen}
-                      className={governanceCreateFieldTriggerClass(actionMenuOpen)}
+                      className={governanceCreateFieldTriggerClass(
+                        actionMenuOpen
+                      )}
                     >
                       <span>
                         {selectedActionOption?.label ?? activeProposalAction}
@@ -2389,7 +2402,8 @@ export function GovernanceCreatePanel({
                               selected={selected}
                               active={active}
                               optionRef={(element) => {
-                                actionOptionRefs.current[proposalIndex] = element;
+                                actionOptionRefs.current[proposalIndex] =
+                                  element;
                               }}
                               optionId={`governance-create-action-option-${proposalIndex}`}
                               tabIndex={active ? 0 : -1}
@@ -2406,7 +2420,12 @@ export function GovernanceCreatePanel({
                     </FloatingPanelMenu>
                   </div>
                 ) : (
-                  <div className={cn(governanceCreateFieldShellClass, 'px-4 py-3 text-sm font-medium md:py-3')}>
+                  <div
+                    className={cn(
+                      governanceCreateFieldShellClass,
+                      'px-4 py-3 text-sm font-medium md:py-3'
+                    )}
+                  >
                     {selectedActionOption?.label}
                   </div>
                 )}
@@ -2425,11 +2444,11 @@ export function GovernanceCreatePanel({
                     </label>
                     {roleOptions.length === 0 ? (
                       <div
-                    className={cn(
-                      governanceCreateFieldShellClass,
-                      'px-4 py-3 text-sm text-muted-foreground md:py-3'
-                    )}
-                  >
+                        className={cn(
+                          governanceCreateFieldShellClass,
+                          'px-4 py-3 text-sm text-muted-foreground md:py-3'
+                        )}
+                      >
                         No membership roles available on this DAO yet.
                       </div>
                     ) : showRoleDropdown ? (
@@ -2463,7 +2482,9 @@ export function GovernanceCreatePanel({
                           }}
                           aria-haspopup="listbox"
                           aria-expanded={roleMenuOpen}
-                          className={governanceCreateFieldTriggerClass(roleMenuOpen)}
+                          className={governanceCreateFieldTriggerClass(
+                            roleMenuOpen
+                          )}
                         >
                           <span>{roleId}</span>
                           <ChevronDown
@@ -2547,7 +2568,12 @@ export function GovernanceCreatePanel({
                         </FloatingPanelMenu>
                       </div>
                     ) : (
-                      <div className={cn(governanceCreateFieldShellClass, 'px-4 py-3 text-sm font-medium md:py-3')}>
+                      <div
+                        className={cn(
+                          governanceCreateFieldShellClass,
+                          'px-4 py-3 text-sm font-medium md:py-3'
+                        )}
+                      >
                         {roleId}
                       </div>
                     )}
@@ -2623,7 +2649,12 @@ export function GovernanceCreatePanel({
                           ? ` (${selectedTransferAsset.symbol})`
                           : ''}
                       </label>
-                      <div className={cn(governanceCreateFieldShellClass, 'px-3 py-2.5 md:px-4')}>
+                      <div
+                        className={cn(
+                          governanceCreateFieldShellClass,
+                          'px-3 py-2.5 md:px-4'
+                        )}
+                      >
                         <input
                           id="governance-create-transfer-amount"
                           type="text"
@@ -2752,7 +2783,12 @@ export function GovernanceCreatePanel({
                     >
                       Published code hash
                     </label>
-                    <div className={cn(governanceCreateFieldShellClass, 'px-3 py-2.5 md:px-4')}>
+                    <div
+                      className={cn(
+                        governanceCreateFieldShellClass,
+                        'px-3 py-2.5 md:px-4'
+                      )}
+                    >
                       <input
                         id="governance-create-contract-upgrade-hash"
                         type="text"
@@ -2986,64 +3022,64 @@ export function GovernanceCreatePanel({
               {isWithdrawBoostInfraAction ? (
                 <div className="space-y-2">
                   <div>
-                      <label
-                        htmlFor="governance-create-boost-infra-amount"
-                        className={fieldLabelClass}
-                      >
-                        Amount (SOCIAL)
-                      </label>
-                      <div className="flex gap-2">
-                        <input
-                          id="governance-create-boost-infra-amount"
-                          type="text"
-                          inputMode="decimal"
-                          autoComplete="off"
-                          value={boostInfraAmountInput}
-                          onChange={(event) => {
-                            setBoostInfraAmountInput(
-                              sanitizeTokenAmountInput(event.target.value, 18)
-                            );
-                            setError('');
-                          }}
-                          placeholder="0"
-                          disabled={boostInfraLoading}
-                          className={cn(
+                    <label
+                      htmlFor="governance-create-boost-infra-amount"
+                      className={fieldLabelClass}
+                    >
+                      Amount (SOCIAL)
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        id="governance-create-boost-infra-amount"
+                        type="text"
+                        inputMode="decimal"
+                        autoComplete="off"
+                        value={boostInfraAmountInput}
+                        onChange={(event) => {
+                          setBoostInfraAmountInput(
+                            sanitizeTokenAmountInput(event.target.value, 18)
+                          );
+                          setError('');
+                        }}
+                        placeholder="0"
+                        disabled={boostInfraLoading}
+                        className={cn(
                           governanceCreateFieldShellClass,
                           'h-11 min-w-0 flex-1 px-4 text-sm outline-none placeholder:text-muted-foreground/50'
                         )}
-                        />
-                        {boostInfraPoolBalance != null &&
-                        boostInfraPoolBalance > 0n ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="h-11 shrink-0 px-3 text-xs"
-                            onClick={() => {
-                              setBoostInfraAmountInput(
-                                yoctoToSocial(
-                                  boostInfraContext?.infraPoolYocto ?? '0'
-                                )
-                              );
-                              setError('');
-                            }}
-                          >
-                            Full balance
-                          </Button>
-                        ) : null}
-                      </div>
-                      {boostInfraContext?.infraPoolYocto ? (
-                        <p className="mt-1 text-[11px] text-muted-foreground/70">
-                          Infra pool:{' '}
-                          {formatSmallestTokenAmount(
-                            boostInfraContext.infraPoolYocto,
-                            18
-                          )}{' '}
-                          SOCIAL
-                          {boostInfraContext.defaultReceiverId ? (
-                            <> → {boostInfraContext.defaultReceiverId}</>
-                          ) : null}
-                        </p>
+                      />
+                      {boostInfraPoolBalance != null &&
+                      boostInfraPoolBalance > 0n ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-11 shrink-0 px-3 text-xs"
+                          onClick={() => {
+                            setBoostInfraAmountInput(
+                              yoctoToSocial(
+                                boostInfraContext?.infraPoolYocto ?? '0'
+                              )
+                            );
+                            setError('');
+                          }}
+                        >
+                          Full balance
+                        </Button>
                       ) : null}
+                    </div>
+                    {boostInfraContext?.infraPoolYocto ? (
+                      <p className="mt-1 text-[11px] text-muted-foreground/70">
+                        Infra pool:{' '}
+                        {formatSmallestTokenAmount(
+                          boostInfraContext.infraPoolYocto,
+                          18
+                        )}{' '}
+                        SOCIAL
+                        {boostInfraContext.defaultReceiverId ? (
+                          <> → {boostInfraContext.defaultReceiverId}</>
+                        ) : null}
+                      </p>
+                    ) : null}
                   </div>
                   {daoBoard === 'governance' &&
                   boostInfraContext?.canWithdrawBoostInfra ? (

@@ -85,9 +85,9 @@ describe('dao-contract-config-operations', () => {
     expect(formatSocialSpendActionRoutingSummary(next)).toBe(
       '95% pool · 5% burn'
     );
-    expect(
-      formatSocialSpendActionConfigCardSummaryFromRecord(next)
-    ).toBe('min 100 SOCIAL · 95% pool · 5% burn');
+    expect(formatSocialSpendActionConfigCardSummaryFromRecord(next)).toBe(
+      'min 100 SOCIAL · 95% pool · 5% burn'
+    );
     expect(
       formatSocialSpendActionRoutingSummary(
         { ...baseline, treasury_bps: 500 },
@@ -147,9 +147,9 @@ describe('dao-contract-config-operations', () => {
     expect(
       validateSocialSpendSupportMinAmountYocto(SOCIAL_SPEND_MIN_AMOUNT_YOCTO)
     ).toBe(true);
-    expect(validateSocialSpendSupportMinAmountYocto('1000000000000000000')).toBe(
-      true
-    );
+    expect(
+      validateSocialSpendSupportMinAmountYocto('1000000000000000000')
+    ).toBe(true);
     expect(validateSocialSpendSupportMinAmountYocto('1')).toBe(false);
     expect(
       validateSocialSpendSupportMinAmountYocto('100000000000000000000001')
@@ -199,9 +199,9 @@ describe('dao-contract-config-operations', () => {
   });
 
   it('validates join rally minimum spend bounds', () => {
-    expect(validateSocialSpendJoinRallyMinAmountYocto('1000000000000000000')).toBe(
-      true
-    );
+    expect(
+      validateSocialSpendJoinRallyMinAmountYocto('1000000000000000000')
+    ).toBe(true);
     expect(
       validateSocialSpendJoinRallyMinAmountYocto('100000000000000000000')
     ).toBe(true);
@@ -262,9 +262,12 @@ describe('dao-contract-config-operations', () => {
       )
     ).toBe(true);
     expect(
-      formatSocialSpendActionRoutingSummary(DEFAULT_SUPPORT_PROFILE_ROUTING_DRAFT, {
-        protocolFeesRouteToBoost: true,
-      })
+      formatSocialSpendActionRoutingSummary(
+        DEFAULT_SUPPORT_PROFILE_ROUTING_DRAFT,
+        {
+          protocolFeesRouteToBoost: true,
+        }
+      )
     ).toBe('1% boost credits · 99% target');
   });
 
@@ -323,12 +326,7 @@ describe('dao-contract-config-operations', () => {
     expect(
       getSocialSpendRoutingFieldLayout('social_spend_join_rally_routing')
         .primary
-    ).toEqual([
-      'season_pool_bps',
-      'treasury_bps',
-      'target_bps',
-      'burn_bps',
-    ]);
+    ).toEqual(['season_pool_bps', 'treasury_bps', 'target_bps', 'burn_bps']);
 
     expect(
       getSocialSpendRoutingFieldLayout(

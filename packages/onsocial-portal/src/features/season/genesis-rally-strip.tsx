@@ -711,7 +711,7 @@ export function GenesisRallyStrip({
         <span className="portal-gold-text font-mono">
           {joinRoutingLoading
             ? '…'
-            : joinMinAmountLabel ?? 'Entry unavailable'}
+            : (joinMinAmountLabel ?? 'Entry unavailable')}
         </span>
         <span className="text-muted-foreground/60">
           {' '}

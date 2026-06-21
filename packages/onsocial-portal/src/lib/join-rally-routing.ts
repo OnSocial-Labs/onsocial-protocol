@@ -1,5 +1,9 @@
 import { parseSocialSpendActionConfigView } from '@/lib/dao-contract-config-operations';
-import { SOCIAL_SPEND_CONTRACT, viewContractAt, yoctoToSocial } from '@/lib/near-rpc';
+import {
+  SOCIAL_SPEND_CONTRACT,
+  viewContractAt,
+  yoctoToSocial,
+} from '@/lib/near-rpc';
 
 export interface JoinRallyActionConfig {
   treasury_bps: number;
@@ -110,11 +114,9 @@ export function estimateJoinBurnYocto(
 
 export async function fetchJoinRallyRouting(): Promise<JoinRallyRoutingDisclosure | null> {
   const [rawConfig, contractInfo] = await Promise.all([
-    viewContractAt<unknown>(
-      SOCIAL_SPEND_CONTRACT,
-      'get_action_config',
-      { action_id: 'join_rally' }
-    ),
+    viewContractAt<unknown>(SOCIAL_SPEND_CONTRACT, 'get_action_config', {
+      action_id: 'join_rally',
+    }),
     viewContractAt<{ boost_contract_id?: string | null }>(
       SOCIAL_SPEND_CONTRACT,
       'get_contract_info',

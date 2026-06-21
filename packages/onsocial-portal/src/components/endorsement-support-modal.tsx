@@ -63,7 +63,12 @@ export function EndorsementSupportModal({
   onSupport,
 }: EndorsementSupportModalProps) {
   const reduceMotion = useReducedMotion();
-  const { accountId: viewerAccountId, connect, isConnected, isLoading: isWalletBootstrapping } = useWallet();
+  const {
+    accountId: viewerAccountId,
+    connect,
+    isConnected,
+    isLoading: isWalletBootstrapping,
+  } = useWallet();
   const { txResult, setTxResult, clearTxResult, trackTransaction } =
     useNearTransactionFeedback(viewerAccountId);
   const [amount, setAmount] = useState('1');
@@ -86,7 +91,10 @@ export function EndorsementSupportModal({
   const presetAmounts = useMemo(
     () =>
       minAmountYocto != null
-        ? supportPresetsAtOrAboveMin(minAmountYocto, SUPPORT_PROFILE_PRESET_SOCIAL)
+        ? supportPresetsAtOrAboveMin(
+            minAmountYocto,
+            SUPPORT_PROFILE_PRESET_SOCIAL
+          )
         : [...SUPPORT_PROFILE_PRESET_SOCIAL],
     [minAmountYocto]
   );

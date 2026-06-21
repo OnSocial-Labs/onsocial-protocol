@@ -92,9 +92,7 @@ function resolveStandardProposalPrimary(input: {
   if (input.isAddMemberAction) {
     const member = input.subjectAccountId.trim();
     const role = input.roleId.trim() || 'role';
-    return member
-      ? `Add @${member} to ${role}`
-      : `Add a member to ${role}`;
+    return member ? `Add @${member} to ${role}` : `Add a member to ${role}`;
   }
 
   if (input.isRemoveMemberAction) {
@@ -239,8 +237,7 @@ function resolveSeasonConfigSummary(input: {
   loadError: string | null;
   newSeasonOnChain: boolean;
 }): GovernanceCreateProposalSummary {
-  const placeholder =
-    'Set rally season open time, duration, and pause state.';
+  const placeholder = 'Set rally season open time, duration, and pause state.';
 
   if (input.loading) {
     return {
@@ -269,8 +266,7 @@ function resolveSeasonConfigSummary(input: {
   const scheduleError = validateSeasonConfigDraft(input.draft);
   const scheduleValid = !scheduleError;
   const matchesBaseline =
-    input.baseline &&
-    !seasonConfigDraftChanged(input.baseline, input.draft);
+    input.baseline && !seasonConfigDraftChanged(input.baseline, input.draft);
 
   let secondary: string | null = null;
   let secondaryWarning = false;
@@ -333,10 +329,7 @@ export function resolveGovernanceCreateProposalSummary(input: {
   seasonConfigLoadError: string | null;
   seasonConfigNewSeasonOnChain: boolean;
 }): GovernanceCreateProposalSummary | null {
-  if (
-    input.isSocialSpendRoutingConfig &&
-    input.contractConfigOperationId
-  ) {
+  if (input.isSocialSpendRoutingConfig && input.contractConfigOperationId) {
     return resolveRoutingConfigSummary({
       operationId: input.contractConfigOperationId,
       operationLabel: input.contractConfigOperationLabel ?? 'Routing',

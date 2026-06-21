@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { resolveGovernanceCreateNoActionsMessage, resolveGovernanceCreateBlockedSubmitLabel, resolveGovernancePolicyBlockedSubmitLabel } from '@/features/governance/governance-create-compact-ui';
+import {
+  resolveGovernanceCreateNoActionsMessage,
+  resolveGovernanceCreateBlockedSubmitLabel,
+  resolveGovernancePolicyBlockedSubmitLabel,
+} from '@/features/governance/governance-create-compact-ui';
 
 describe('resolveGovernanceCreateNoActionsMessage', () => {
   const baseInput = {

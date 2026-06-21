@@ -9,17 +9,12 @@ import { Button } from '@/components/ui/button';
 import { PortalConnectPrompt } from '@/components/ui/portal-connect-prompt';
 import { portalConnectWalletError } from '@/lib/portal-connect-copy';
 import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
-import {
-  CompactActionSkeleton,
-  Skeleton,
-} from '@/components/ui/skeleton';
+import { CompactActionSkeleton, Skeleton } from '@/components/ui/skeleton';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
 import { useWallet } from '@/contexts/wallet-context';
 import { fetchDaoPolicy } from '@/features/governance/api';
-import {
-  getDaoGroupMembershipRoleNames,
-} from '@/features/governance/governance-proposal-builders';
+import { getDaoGroupMembershipRoleNames } from '@/features/governance/governance-proposal-builders';
 import type { GovernanceDaoPolicy } from '@/features/governance/types';
 import {
   GovernanceViewerPositionCard,
@@ -347,8 +342,7 @@ export function GovernancePositionPanel({
   const amountYocto = parseAmountToYocto(amountInput);
   const hasValidAmount = amountYocto > 0n;
   const isInitialLoading =
-    walletLoading ||
-    (!!accountId && !eligibility && (loading || !error));
+    walletLoading || (!!accountId && !eligibility && (loading || !error));
   const walletBalanceYocto = BigInt(eligibility?.walletBalance ?? '0');
   const availableYocto = BigInt(eligibility?.availableToDelegate ?? '0');
   const selfDelegatedYocto = BigInt(eligibility?.selfDelegatedWeight ?? '0');

@@ -16,8 +16,7 @@ export type PortalConnectAction =
   | 'generic';
 
 const CONNECT_MESSAGES: Record<PortalConnectAction, string> = {
-  'governance.viewPosition':
-    'Connect to view your balances and delegations.',
+  'governance.viewPosition': 'Connect to view your balances and delegations.',
   'governance.create': 'Connect to check if you can propose.',
   'governance.policy': 'Connect to submit a policy change.',
   'governance.manage': 'Connect to manage your governance position.',

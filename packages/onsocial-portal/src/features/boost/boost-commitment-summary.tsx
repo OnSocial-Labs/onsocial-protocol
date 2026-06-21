@@ -128,7 +128,11 @@ export function BoostCommitmentSummary({
   influenceYocto: string;
   unlockAtNs: number;
   canUnlock: boolean;
-  networkItems?: Array<{ label: string; value: string; tone?: 'gold' | 'purple' }>;
+  networkItems?: Array<{
+    label: string;
+    value: string;
+    tone?: 'gold' | 'purple';
+  }>;
   collectedYocto?: string;
   /** Keep collected row height before chain shows rewards_claimed > 0. */
   reserveCollectedSlot?: boolean;

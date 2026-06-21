@@ -58,9 +58,7 @@ import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
 import { createPortalOnSocialClient } from '@/lib/onsocial-client';
 import { fetchActiveBoosterCount } from '@/lib/boost-network';
 import { portalColors } from '@/lib/portal-colors';
-import {
-  ACTIVE_NEAR_NETWORK,
-} from '@/lib/portal-config';
+import { ACTIVE_NEAR_NETWORK } from '@/lib/portal-config';
 import { txToastPending, txToastSuccess } from '@/lib/transaction-toast-copy';
 import { cn } from '@/lib/utils';
 import type {
@@ -568,8 +566,14 @@ function BoostCollectSection({
 // ─── Page ────────────────────────────────────────────────────
 
 export default function BoostPage() {
-  const { wallet, accountId, isConnected, isLoading: isWalletBootstrapping, connect, getSigningWallet } =
-    useWallet();
+  const {
+    wallet,
+    accountId,
+    isConnected,
+    isLoading: isWalletBootstrapping,
+    connect,
+    getSigningWallet,
+  } = useWallet();
   const heroRef = useRef(null);
   const loadedAccountIdRef = useRef<string | null>(null);
   const isInView = useInView(heroRef, { once: true, amount: 0.1 });
@@ -608,8 +612,7 @@ export default function BoostPage() {
   const hasLoadedAccountData =
     accountId !== null && loadedAccountIdRef.current === accountId;
   const isAccountResolving =
-    isWalletBootstrapping ||
-    (Boolean(accountId) && !hasLoadedAccountData);
+    isWalletBootstrapping || (Boolean(accountId) && !hasLoadedAccountData);
   const account = hasLoadedAccountData ? loadedAccount : null;
   const lockStatus = hasLoadedAccountData ? loadedLockStatus : null;
   const liveSnapshot = hasLoadedAccountData ? loadedLiveSnapshot : null;
@@ -1138,10 +1141,7 @@ export default function BoostPage() {
   const handleStakeAmountChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       setStakeAmount(
-        normalizeAmountInput(
-          event.target.value,
-          STAKE_AMOUNT_INPUT_DECIMALS
-        )
+        normalizeAmountInput(event.target.value, STAKE_AMOUNT_INPUT_DECIMALS)
       );
     },
     []
@@ -1470,264 +1470,280 @@ export default function BoostPage() {
               )}
             >
               <AnimatePresence initial={false} mode="wait">
-              {dataLoading || isAccountResolving ? (
-                <motion.div
-                  key="position-loading"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="h-full min-h-[12rem]"
-                >
-                  <BoostCommitmentPanelSkeleton />
-                </motion.div>
-              ) : hasStake && account ? (
-                <motion.div
-                  key="position-content"
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.28 }}
-                  className="h-full"
-                >
-                  <SurfacePanel
-                    radius="xl"
-                    tone="soft"
-                    className={cn('h-full', BOOST_PANEL_PADDING_CLASS)}
+                {dataLoading || isAccountResolving ? (
+                  <motion.div
+                    key="position-loading"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="h-full min-h-[12rem]"
                   >
-                    {/* ── Header ── */}
-                    <div className="flex items-center justify-between gap-3">
-                      <BoostPanelSectionTitle>Commitment</BoostPanelSectionTitle>
-                      <div className="flex items-center gap-2">
-                        {canUnlock ? (
-                          <PortalBadge accent="gold" size="sm">
-                            Complete
-                          </PortalBadge>
-                        ) : (
-                          <PortalBadge
-                            accent="neutral"
-                            size="sm"
-                            className="gap-1.5"
-                          >
-                            <Timer className="h-3 w-3" />
-                            {formatTimeRemaining(account.unlock_at)}
-                          </PortalBadge>
-                        )}
+                    <BoostCommitmentPanelSkeleton />
+                  </motion.div>
+                ) : hasStake && account ? (
+                  <motion.div
+                    key="position-content"
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.28 }}
+                    className="h-full"
+                  >
+                    <SurfacePanel
+                      radius="xl"
+                      tone="soft"
+                      className={cn('h-full', BOOST_PANEL_PADDING_CLASS)}
+                    >
+                      {/* ── Header ── */}
+                      <div className="flex items-center justify-between gap-3">
+                        <BoostPanelSectionTitle>
+                          Commitment
+                        </BoostPanelSectionTitle>
+                        <div className="flex items-center gap-2">
+                          {canUnlock ? (
+                            <PortalBadge accent="gold" size="sm">
+                              Complete
+                            </PortalBadge>
+                          ) : (
+                            <PortalBadge
+                              accent="neutral"
+                              size="sm"
+                              className="gap-1.5"
+                            >
+                              <Timer className="h-3 w-3" />
+                              {formatTimeRemaining(account.unlock_at)}
+                            </PortalBadge>
+                          )}
+                        </div>
                       </div>
-                    </div>
 
-                    <BoostCommitmentSummary
-                      lockedYocto={account.locked_amount}
-                      influenceYocto={account.effective_boost}
-                      unlockAtNs={account.unlock_at}
-                      canUnlock={canUnlock}
-                      networkItems={commitmentNetworkItems}
-                      collectedYocto={account.rewards_claimed}
-                      reserveCollectedSlot
-                      reserveNetworkSlot
-                    />
+                      <BoostCommitmentSummary
+                        lockedYocto={account.locked_amount}
+                        influenceYocto={account.effective_boost}
+                        unlockAtNs={account.unlock_at}
+                        canUnlock={canUnlock}
+                        networkItems={commitmentNetworkItems}
+                        collectedYocto={account.rewards_claimed}
+                        reserveCollectedSlot
+                        reserveNetworkSlot
+                      />
 
-                    <BoostCollectSection
-                      className={cn('mt-0', BOOST_PANEL_DIVIDER_CLASS)}
-                      visibleLiveClaimableYocto={visibleLiveClaimableYocto}
-                      displayFractionDigits={
-                        LIVE_COUNTER_DISPLAY_FRACTION_DIGITS
-                      }
-                      isCounterLoading={isCounterLoading}
-                      isLiveAccruing={shouldLiveAccrueRewards === true}
-                      perSecondDisplay={perSecondDisplay}
-                      claimCelebration={claimCelebration}
-                      claimCelebrationDurationSeconds={
-                        claimCelebrationDurationSeconds
-                      }
-                      reduceMotion={reduceMotion}
-                      txPending={txPending}
-                      pendingAction={pendingAction}
-                      onClaim={handleClaim}
-                      reserveRateSlot={shouldLiveAccrueRewards === true}
-                      stableAmountLayout
-                    />
+                      <BoostCollectSection
+                        className={cn('mt-0', BOOST_PANEL_DIVIDER_CLASS)}
+                        visibleLiveClaimableYocto={visibleLiveClaimableYocto}
+                        displayFractionDigits={
+                          LIVE_COUNTER_DISPLAY_FRACTION_DIGITS
+                        }
+                        isCounterLoading={isCounterLoading}
+                        isLiveAccruing={shouldLiveAccrueRewards === true}
+                        perSecondDisplay={perSecondDisplay}
+                        claimCelebration={claimCelebration}
+                        claimCelebrationDurationSeconds={
+                          claimCelebrationDurationSeconds
+                        }
+                        reduceMotion={reduceMotion}
+                        txPending={txPending}
+                        pendingAction={pendingAction}
+                        onClaim={handleClaim}
+                        reserveRateSlot={shouldLiveAccrueRewards === true}
+                        stableAmountLayout
+                      />
 
-                    {isSoleReleaseContributor ? (
-                      <p className="mt-2 text-center portal-type-label text-muted-foreground">
-                        You are the only contributor — receiving 100% of the
-                        weekly flow.
-                      </p>
-                    ) : null}
-
-                    {/* ── Actions ── */}
-                    <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-                      {canUnlock ? (
-                        <Button
-                          onClick={handleUnlock}
-                          disabled={txPending}
-                          size="lg"
-                          className="w-full gap-1.5 font-semibold"
-                          loading={txPending && pendingAction === 'unlock'}
-                        >
-                          <Unlock className="h-4 w-4" />
-                          Unlock + collect
-                        </Button>
-                      ) : (
-                        <>
-                          {canAddStake ? (
-                            <Button
-                              onClick={openIncreasePanel}
-                              disabled={txPending}
-                              variant={showIncrease ? 'secondary' : 'outline'}
-                              size="sm"
-                              className="gap-1.5"
-                            >
-                              <Lock className="h-3.5 w-3.5" />
-                              Increase
-                            </Button>
-                          ) : null}
-                          <Button
-                            onClick={openRenewPanel}
-                            disabled={txPending}
-                            variant={showRenew ? 'secondary' : 'outline'}
-                            size="sm"
-                            className="gap-1.5"
-                          >
-                            <RefreshCw className="h-3.5 w-3.5" />
-                            Renew
-                          </Button>
-                          {extendOptions.length > 0 ? (
-                            <Button
-                              onClick={openExtendPanel}
-                              disabled={txPending}
-                              variant={showExtend ? 'secondary' : 'outline'}
-                              size="sm"
-                              className="gap-1.5"
-                            >
-                              <ArrowUpRight className="h-3.5 w-3.5" />
-                              Extend
-                            </Button>
-                          ) : null}
-                        </>
-                      )}
-                    </div>
-
-                    <AnimatePresence initial={false}>
-                      {showIncrease && canAddStake ? (
-                        <motion.div
-                          key="increase-panel"
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          className="overflow-hidden"
-                        >
-                          <div className={BOOST_PANEL_DIVIDER_CLASS}>
-                            <p className="mb-2.5 text-center portal-type-micro text-muted-foreground">
-                              Keeps {period.short} (+{period.bonus}%).
-                            </p>
-                            <BoostStakeAmountSection
-                              mode="increase"
-                              stakeAmount={stakeAmount}
-                              onStakeAmountChange={handleStakeAmountChange}
-                              onStakeAmountBlur={handleStakeAmountBlur}
-                              onMaxAmount={handleMaxStakeAmount}
-                              balanceDisplay={balanceDisplay}
-                              showBalance={isConnected}
-                              tokenIconSrc={tokenIconSrc}
-                              onTokenIconError={() => setTokenIconSrc(null)}
-                              isBelowMinimumStake={Boolean(isBelowMinimumStake)}
-                              hasInsufficientBalance={Boolean(
-                                hasInsufficientBalance
-                              )}
-                              enteredStakeAmount={enteredStakeAmount}
-                              preview={stakeAmountPreview}
-                              unlockDateLabel={previewUnlockDate}
-                              stakeButtonLabel={stakeButtonLabel}
-                              onStake={handleStake}
-                              isStakeActionDisabled={isStakeActionDisabled}
-                              txPending={txPending && pendingAction === 'stake'}
-                              footerNote="Same period. Timer resets from today."
-                              showUnlockPreview={false}
-                            />
-                          </div>
-                        </motion.div>
+                      {isSoleReleaseContributor ? (
+                        <p className="mt-2 text-center portal-type-label text-muted-foreground">
+                          You are the only contributor — receiving 100% of the
+                          weekly flow.
+                        </p>
                       ) : null}
 
-                      {showRenew && (
-                        <motion.div
-                          key="renew-panel"
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          className="overflow-hidden"
-                        >
-                          <div className={cn(BOOST_PANEL_DIVIDER_CLASS, 'text-center')}>
-                            <p className="mb-2.5 text-xs text-muted-foreground">
-                              Restart your{' '}
-                              {LOCK_PERIODS.find(
-                                (period) =>
-                                  period.months === account.lock_months
-                              )?.label ??
-                                `${account.lock_months} ${account.lock_months === 1 ? 'Month' : 'Months'}`}{' '}
-                              commitment from today.
-                            </p>
+                      {/* ── Actions ── */}
+                      <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                        {canUnlock ? (
+                          <Button
+                            onClick={handleUnlock}
+                            disabled={txPending}
+                            size="lg"
+                            className="w-full gap-1.5 font-semibold"
+                            loading={txPending && pendingAction === 'unlock'}
+                          >
+                            <Unlock className="h-4 w-4" />
+                            Unlock + collect
+                          </Button>
+                        ) : (
+                          <>
+                            {canAddStake ? (
+                              <Button
+                                onClick={openIncreasePanel}
+                                disabled={txPending}
+                                variant={showIncrease ? 'secondary' : 'outline'}
+                                size="sm"
+                                className="gap-1.5"
+                              >
+                                <Lock className="h-3.5 w-3.5" />
+                                Increase
+                              </Button>
+                            ) : null}
                             <Button
-                              onClick={handleRenew}
+                              onClick={openRenewPanel}
                               disabled={txPending}
-                              variant="outline"
+                              variant={showRenew ? 'secondary' : 'outline'}
                               size="sm"
                               className="gap-1.5"
-                              loading={txPending && pendingAction === 'renew'}
                             >
                               <RefreshCw className="h-3.5 w-3.5" />
-                              Confirm
+                              Renew
                             </Button>
-                          </div>
-                        </motion.div>
-                      )}
+                            {extendOptions.length > 0 ? (
+                              <Button
+                                onClick={openExtendPanel}
+                                disabled={txPending}
+                                variant={showExtend ? 'secondary' : 'outline'}
+                                size="sm"
+                                className="gap-1.5"
+                              >
+                                <ArrowUpRight className="h-3.5 w-3.5" />
+                                Extend
+                              </Button>
+                            ) : null}
+                          </>
+                        )}
+                      </div>
 
-                      {showExtend && extendOptions.length > 0 && (
-                        <motion.div
-                          key="extend-panel"
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          className="overflow-hidden"
-                        >
-                          <div className={cn(BOOST_PANEL_DIVIDER_CLASS, 'text-center')}>
-                            <p className="mb-2.5 text-xs text-muted-foreground">
-                              Upgrade to a longer period (resets from today):
-                            </p>
-                            <div className="flex flex-wrap justify-center gap-2">
-                              {extendOptions.map((lp) => (
-                                <Button
-                                  key={lp.months}
-                                  onClick={() => handleExtend(lp.months)}
-                                  disabled={txPending}
-                                  variant="outline"
-                                  size="sm"
-                                  loading={
-                                    txPending &&
-                                    pendingAction === `extend:${lp.months}`
-                                  }
-                                >
-                                  {lp.short}{' '}
-                                  <span
-                                    className="ml-1 font-mono"
-                                    style={{ color: lp.color }}
-                                  >
-                                    +{lp.bonus}%
-                                  </span>
-                                </Button>
-                              ))}
+                      <AnimatePresence initial={false}>
+                        {showIncrease && canAddStake ? (
+                          <motion.div
+                            key="increase-panel"
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <div className={BOOST_PANEL_DIVIDER_CLASS}>
+                              <p className="mb-2.5 text-center portal-type-micro text-muted-foreground">
+                                Keeps {period.short} (+{period.bonus}%).
+                              </p>
+                              <BoostStakeAmountSection
+                                mode="increase"
+                                stakeAmount={stakeAmount}
+                                onStakeAmountChange={handleStakeAmountChange}
+                                onStakeAmountBlur={handleStakeAmountBlur}
+                                onMaxAmount={handleMaxStakeAmount}
+                                balanceDisplay={balanceDisplay}
+                                showBalance={isConnected}
+                                tokenIconSrc={tokenIconSrc}
+                                onTokenIconError={() => setTokenIconSrc(null)}
+                                isBelowMinimumStake={Boolean(
+                                  isBelowMinimumStake
+                                )}
+                                hasInsufficientBalance={Boolean(
+                                  hasInsufficientBalance
+                                )}
+                                enteredStakeAmount={enteredStakeAmount}
+                                preview={stakeAmountPreview}
+                                unlockDateLabel={previewUnlockDate}
+                                stakeButtonLabel={stakeButtonLabel}
+                                onStake={handleStake}
+                                isStakeActionDisabled={isStakeActionDisabled}
+                                txPending={
+                                  txPending && pendingAction === 'stake'
+                                }
+                                footerNote="Same period. Timer resets from today."
+                                showUnlockPreview={false}
+                              />
                             </div>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </SurfacePanel>
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+                          </motion.div>
+                        ) : null}
+
+                        {showRenew && (
+                          <motion.div
+                            key="renew-panel"
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <div
+                              className={cn(
+                                BOOST_PANEL_DIVIDER_CLASS,
+                                'text-center'
+                              )}
+                            >
+                              <p className="mb-2.5 text-xs text-muted-foreground">
+                                Restart your{' '}
+                                {LOCK_PERIODS.find(
+                                  (period) =>
+                                    period.months === account.lock_months
+                                )?.label ??
+                                  `${account.lock_months} ${account.lock_months === 1 ? 'Month' : 'Months'}`}{' '}
+                                commitment from today.
+                              </p>
+                              <Button
+                                onClick={handleRenew}
+                                disabled={txPending}
+                                variant="outline"
+                                size="sm"
+                                className="gap-1.5"
+                                loading={txPending && pendingAction === 'renew'}
+                              >
+                                <RefreshCw className="h-3.5 w-3.5" />
+                                Confirm
+                              </Button>
+                            </div>
+                          </motion.div>
+                        )}
+
+                        {showExtend && extendOptions.length > 0 && (
+                          <motion.div
+                            key="extend-panel"
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <div
+                              className={cn(
+                                BOOST_PANEL_DIVIDER_CLASS,
+                                'text-center'
+                              )}
+                            >
+                              <p className="mb-2.5 text-xs text-muted-foreground">
+                                Upgrade to a longer period (resets from today):
+                              </p>
+                              <div className="flex flex-wrap justify-center gap-2">
+                                {extendOptions.map((lp) => (
+                                  <Button
+                                    key={lp.months}
+                                    onClick={() => handleExtend(lp.months)}
+                                    disabled={txPending}
+                                    variant="outline"
+                                    size="sm"
+                                    loading={
+                                      txPending &&
+                                      pendingAction === `extend:${lp.months}`
+                                    }
+                                  >
+                                    {lp.short}{' '}
+                                    <span
+                                      className="ml-1 font-mono"
+                                      style={{ color: lp.color }}
+                                    >
+                                      +{lp.bonus}%
+                                    </span>
+                                  </Button>
+                                ))}
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </SurfacePanel>
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
 
         {showCommitPanel ? (
           <motion.div

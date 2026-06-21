@@ -95,7 +95,10 @@ function decodeFunctionCallKindForDisplay(
           }
 
           const actionRecord = action as Record<string, unknown>;
-          if (!('args' in actionRecord) || typeof actionRecord.args !== 'string') {
+          if (
+            !('args' in actionRecord) ||
+            typeof actionRecord.args !== 'string'
+          ) {
             return action;
           }
 

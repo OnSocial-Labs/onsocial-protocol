@@ -126,93 +126,101 @@ export function TransparencyAllocationPanel({
       padding="none"
       className={cn(TRANSPARENCY_PANEL_PADDING_CLASS, className)}
     >
-      <BoostPanelSectionTitle align="center">Live allocation</BoostPanelSectionTitle>
+      <BoostPanelSectionTitle align="center">
+        Live allocation
+      </BoostPanelSectionTitle>
 
       <div className={cn('relative mt-3', !loading && 'pt-8')}>
         {loading ? (
           <Skeleton className="h-4 w-full rounded-full bg-foreground/[0.06]" />
         ) : (
           <>
-        {activeDistribution ? (
-          <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center">
-            <div className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-background/95 px-3 py-1 backdrop-blur-sm">
-              <span
-                className="h-2 w-2 rounded-full"
-                style={{
-                  backgroundColor: portalColors[activeDistribution.accent],
-                }}
-              />
-              <span className="portal-type-micro text-foreground/85">
-                {activeDistribution.label}
-              </span>
-              <span className="rounded-full border border-border/50 bg-muted/30 px-2 py-0.5 font-mono portal-type-micro text-muted-foreground">
-                {activeDistribution.balanceDisplay} ·{' '}
-                {activeDistribution.pctOfSupplyDisplay}%
-              </span>
-            </div>
-          </div>
-        ) : null}
+            {activeDistribution ? (
+              <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center">
+                <div className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-background/95 px-3 py-1 backdrop-blur-sm">
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{
+                      backgroundColor: portalColors[activeDistribution.accent],
+                    }}
+                  />
+                  <span className="portal-type-micro text-foreground/85">
+                    {activeDistribution.label}
+                  </span>
+                  <span className="rounded-full border border-border/50 bg-muted/30 px-2 py-0.5 font-mono portal-type-micro text-muted-foreground">
+                    {activeDistribution.balanceDisplay} ·{' '}
+                    {activeDistribution.pctOfSupplyDisplay}%
+                  </span>
+                </div>
+              </div>
+            ) : null}
 
-        <div
-          ref={distributionInteractionRef}
-          className="overflow-hidden rounded-full bg-border/30"
-          onMouseLeave={() => {
-            if (selectedDistributionIndex === null) {
-              setHoveredDistributionIndex(null);
-            }
-          }}
-        >
-          <div className="flex h-[18px] items-center gap-px">
-            {barDistribution.map((entry, index) => (
-              <button
-                key={entry.account}
-                type="button"
-                style={{
-                  width: `${entry.pctOfSupply}%`,
-                  backgroundColor: portalColors[entry.accent],
-                  minWidth: entry.balance && entry.balance > 0n ? '8px' : '0px',
-                }}
-                onMouseEnter={() => {
-                  if (selectedDistributionIndex === null) {
-                    setHoveredDistributionIndex(index);
-                  }
-                }}
-                onFocus={() => {
-                  if (selectedDistributionIndex === null) {
-                    setHoveredDistributionIndex(index);
-                  }
-                }}
-                onClick={() => {
-                  setSelectedDistributionIndex((current) =>
-                    current === index ? null : index
-                  );
-                  setHoveredDistributionIndex(index);
-                }}
-                onBlur={() =>
-                  setHoveredDistributionIndex((current) => {
-                    if (selectedDistributionIndex !== null) {
-                      return current;
-                    }
-                    return current === index ? null : current;
-                  })
+            <div
+              ref={distributionInteractionRef}
+              className="overflow-hidden rounded-full bg-border/30"
+              onMouseLeave={() => {
+                if (selectedDistributionIndex === null) {
+                  setHoveredDistributionIndex(null);
                 }
-                aria-label={`${entry.label}: ${entry.balanceDisplay} SOCIAL, ${entry.pctOfSupplyDisplay}% of current supply`}
-                aria-pressed={selectedDistributionIndex === index}
-                className={cn(
-                  'first:rounded-l-full last:rounded-r-full transition-all duration-200 focus-visible:relative focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-                  selectedDistributionIndex === index
-                    ? 'h-[18px] shadow-[0_0_0_1px_rgba(255,255,255,0.45)]'
-                    : 'h-4'
-                )}
-              />
-            ))}
-          </div>
-        </div>
+              }}
+            >
+              <div className="flex h-[18px] items-center gap-px">
+                {barDistribution.map((entry, index) => (
+                  <button
+                    key={entry.account}
+                    type="button"
+                    style={{
+                      width: `${entry.pctOfSupply}%`,
+                      backgroundColor: portalColors[entry.accent],
+                      minWidth:
+                        entry.balance && entry.balance > 0n ? '8px' : '0px',
+                    }}
+                    onMouseEnter={() => {
+                      if (selectedDistributionIndex === null) {
+                        setHoveredDistributionIndex(index);
+                      }
+                    }}
+                    onFocus={() => {
+                      if (selectedDistributionIndex === null) {
+                        setHoveredDistributionIndex(index);
+                      }
+                    }}
+                    onClick={() => {
+                      setSelectedDistributionIndex((current) =>
+                        current === index ? null : index
+                      );
+                      setHoveredDistributionIndex(index);
+                    }}
+                    onBlur={() =>
+                      setHoveredDistributionIndex((current) => {
+                        if (selectedDistributionIndex !== null) {
+                          return current;
+                        }
+                        return current === index ? null : current;
+                      })
+                    }
+                    aria-label={`${entry.label}: ${entry.balanceDisplay} SOCIAL, ${entry.pctOfSupplyDisplay}% of current supply`}
+                    aria-pressed={selectedDistributionIndex === index}
+                    className={cn(
+                      'first:rounded-l-full last:rounded-r-full transition-all duration-200 focus-visible:relative focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                      selectedDistributionIndex === index
+                        ? 'h-[18px] shadow-[0_0_0_1px_rgba(255,255,255,0.45)]'
+                        : 'h-4'
+                    )}
+                  />
+                ))}
+              </div>
+            </div>
           </>
         )}
       </div>
 
-      <div className={cn('divide-y divide-fade-detail', TRANSPARENCY_PANEL_DIVIDER_CLASS)}>
+      <div
+        className={cn(
+          'divide-y divide-fade-detail',
+          TRANSPARENCY_PANEL_DIVIDER_CLASS
+        )}
+      >
         {barDistribution.map((entry) => {
           const loaded =
             entry.account === 'other-holders'

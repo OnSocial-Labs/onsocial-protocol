@@ -2,7 +2,13 @@
 
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
-import { useEffect, useLayoutEffect, useState, type ReactNode, type RefObject } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   ChevronDown,
@@ -51,7 +57,8 @@ const railIconButtonCompactClass =
 
 const railIconSlotClass = 'flex h-8 w-8 shrink-0 items-center justify-center';
 
-const railIconSlotCompactClass = 'flex h-7 w-7 shrink-0 items-center justify-center';
+const railIconSlotCompactClass =
+  'flex h-7 w-7 shrink-0 items-center justify-center';
 
 type GovernanceRailProps = {
   activeBoard: GovernanceDaoBoard;
@@ -142,9 +149,17 @@ function GovernanceRailIconActions({
       </div>
 
       <div className={railIconSlotClass}>
-        <Button asChild variant="outline" size="icon" className={railIconButtonClass}>
+        <Button
+          asChild
+          variant="outline"
+          size="icon"
+          className={railIconButtonClass}
+        >
           <Link
-            href={buildGovernancePathWithBoard('/governance/manage', activeBoard)}
+            href={buildGovernancePathWithBoard(
+              '/governance/manage',
+              activeBoard
+            )}
             aria-label="Open position"
           >
             <Settings2 className="h-4 w-4" />
@@ -188,13 +203,7 @@ function GovernanceRailOverflowMenu({
   onOpenChange?: (open: boolean) => void;
   portaled?: boolean;
 }) {
-  const {
-    isOpen,
-    close,
-    toggle,
-    containerRef,
-    panelRef,
-  } = useDropdown();
+  const { isOpen, close, toggle, containerRef, panelRef } = useDropdown();
 
   useEffect(() => {
     onOpenChange?.(isOpen);
@@ -761,7 +770,10 @@ export function GovernanceRail({
           </div>
         </GovernanceRailCollapseSection>
 
-        <GovernanceRailCollapseSection collapsed={compactMobile} animate={animateSections}>
+        <GovernanceRailCollapseSection
+          collapsed={compactMobile}
+          animate={animateSections}
+        >
           <div className="flex flex-col gap-2 md:gap-3">
             <div className="flex items-center justify-between gap-2 border-b border-fade-detail pb-2 md:pb-3">
               <div className="flex min-w-max items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

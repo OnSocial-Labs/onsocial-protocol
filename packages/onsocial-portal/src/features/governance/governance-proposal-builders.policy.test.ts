@@ -151,12 +151,7 @@ describe('governance policy vote threshold builders', () => {
     };
 
     expect(
-      canProposePolicyAction(
-        policy,
-        'alice.testnet',
-        '0',
-        'update_config'
-      )
+      canProposePolicyAction(policy, 'alice.testnet', '0', 'update_config')
     ).toBe(true);
   });
 
@@ -1034,27 +1029,19 @@ describe('getDaoPolicyActionHint', () => {
 describe('groupGovernanceCreateActionMenuItems', () => {
   it('groups proposal actions by section for category tabs', () => {
     const items = buildGovernanceCreateActionMenuItems({
-      availableProposalActions: [
-        'join_self',
-        'transfer',
-        'contract_upgrade',
-      ],
+      availableProposalActions: ['join_self', 'transfer', 'contract_upgrade'],
     });
 
     expect(groupGovernanceCreateActionMenuItems(items)).toEqual([
       {
         id: 'membership',
         label: 'Membership',
-        items: [
-          expect.objectContaining({ kind: 'proposal', id: 'join_self' }),
-        ],
+        items: [expect.objectContaining({ kind: 'proposal', id: 'join_self' })],
       },
       {
         id: 'treasury',
         label: 'Treasury',
-        items: [
-          expect.objectContaining({ kind: 'proposal', id: 'transfer' }),
-        ],
+        items: [expect.objectContaining({ kind: 'proposal', id: 'transfer' })],
       },
       {
         id: 'contracts',

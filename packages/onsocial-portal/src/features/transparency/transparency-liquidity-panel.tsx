@@ -22,7 +22,10 @@ function PulseDivider({ className }: { className?: string }) {
   return (
     <span
       aria-hidden
-      className={cn('hidden h-4 w-px shrink-0 bg-border/50 sm:block', className)}
+      className={cn(
+        'hidden h-4 w-px shrink-0 bg-border/50 sm:block',
+        className
+      )}
     />
   );
 }
@@ -38,7 +41,9 @@ function LiquidityPulseItem({
 }) {
   return (
     <div className="flex min-w-0 flex-1 basis-[calc(50%-0.375rem)] flex-col items-center text-center sm:min-w-[4.5rem] sm:flex-1 sm:basis-auto">
-      <span className="portal-type-micro text-muted-foreground/70">{label}</span>
+      <span className="portal-type-micro text-muted-foreground/70">
+        {label}
+      </span>
       <div className={TRANSPARENCY_PULSE_VALUE_ROW_CLASS}>
         {loading ? (
           <Skeleton className="h-5 w-12 rounded-full bg-foreground/[0.06]" />
@@ -67,7 +72,8 @@ function LiquidityPoolRow({
   tokenSymbol: string;
   loading?: boolean;
 }) {
-  const pairedSymbol = pool?.pairedSymbol ?? configLabel.split('-')[1] ?? 'Token';
+  const pairedSymbol =
+    pool?.pairedSymbol ?? configLabel.split('-')[1] ?? 'Token';
   const pairLabel = `${tokenSymbol}-${pairedSymbol}`;
 
   return (
@@ -134,8 +140,7 @@ export function TransparencyLiquidityPanel({
     pools.length > 0
       ? formatTokenAmount(totalSocialInPools.toString(), 18, 3)
       : '—';
-  const poolCountDisplay =
-    pools.length > 0 ? pools.length.toString() : '—';
+  const poolCountDisplay = pools.length > 0 ? pools.length.toString() : '—';
 
   return (
     <SurfacePanel
@@ -144,7 +149,9 @@ export function TransparencyLiquidityPanel({
       padding="none"
       className={cn(TRANSPARENCY_PANEL_PADDING_CLASS, className)}
     >
-      <BoostPanelSectionTitle align="center">Market liquidity</BoostPanelSectionTitle>
+      <BoostPanelSectionTitle align="center">
+        Market liquidity
+      </BoostPanelSectionTitle>
 
       <div className={TRANSPARENCY_PANEL_DIVIDER_CLASS}>
         <div className="flex w-full flex-wrap items-center justify-center gap-3 sm:justify-between sm:gap-2">
@@ -164,7 +171,12 @@ export function TransparencyLiquidityPanel({
         </div>
       </div>
 
-      <div className={cn('divide-y divide-fade-detail', TRANSPARENCY_PANEL_DIVIDER_CLASS)}>
+      <div
+        className={cn(
+          'divide-y divide-fade-detail',
+          TRANSPARENCY_PANEL_DIVIDER_CLASS
+        )}
+      >
         {MARKET_LIQUIDITY_POOLS.map((config) => {
           const pool = pools.find((entry) => entry.poolId === config.poolId);
 

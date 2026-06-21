@@ -207,9 +207,9 @@ function syncVotePolicyInputs(
   };
 }
 
-function syncDaoConfigInputs(config: Awaited<
-  ReturnType<typeof getGovernanceDaoConfig>
-> | null) {
+function syncDaoConfigInputs(
+  config: Awaited<ReturnType<typeof getGovernanceDaoConfig>> | null
+) {
   return {
     name: config?.name?.trim() ?? '',
     purpose: config?.purpose?.trim() ?? '',
@@ -230,7 +230,13 @@ export function GovernancePolicyPanel({
   const searchParams = useSearchParams();
   const requestedPolicyAction = searchParams.get('action');
   const initialPolicyActionApplied = useRef(false);
-  const { accountId, connect, wallet, isConnected, isLoading: walletLoading } = useWallet();
+  const {
+    accountId,
+    connect,
+    wallet,
+    isConnected,
+    isLoading: walletLoading,
+  } = useWallet();
   const { txResult, clearTxResult, setTxResult, trackTransaction } =
     useNearTransactionFeedback(accountId);
 
@@ -771,7 +777,9 @@ export function GovernancePolicyPanel({
         currentConfigName:
           policyAction === 'update_config' ? currentDaoConfigName : undefined,
         currentConfigPurpose:
-          policyAction === 'update_config' ? currentDaoConfigPurpose : undefined,
+          policyAction === 'update_config'
+            ? currentDaoConfigPurpose
+            : undefined,
         configChanged:
           policyAction === 'update_config' ? configChanged : undefined,
       }),
@@ -1165,8 +1173,7 @@ export function GovernancePolicyPanel({
   ]);
 
   const resolvedDaoAccountId = eligibility?.daoAccountId ?? daoAccountId;
-  const showPolicyForm =
-    canEditPolicy && availablePolicyActions.length > 0;
+  const showPolicyForm = canEditPolicy && availablePolicyActions.length > 0;
   const policyBlockedSubmitLabel = resolveGovernancePolicyBlockedSubmitLabel({
     isConnected,
     canEditPolicy,
@@ -1198,7 +1205,9 @@ export function GovernancePolicyPanel({
       <SurfacePanel tone="soft" className="mb-6">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <span className="portal-eyebrow-wide portal-blue-text">Policy proposal</span>
+            <span className="portal-eyebrow-wide portal-blue-text">
+              Policy proposal
+            </span>
             <p className="mt-2 text-xs text-muted-foreground">
               <a
                 href={`${ACTIVE_NEAR_EXPLORER_URL}/address/${resolvedDaoAccountId}`}
@@ -1423,7 +1432,9 @@ export function GovernancePolicyPanel({
                             clearFormFeedback();
                           }}
                         />
-                        <PolicyInlineFieldHint message={fieldHints.permissions} />
+                        <PolicyInlineFieldHint
+                          message={fieldHints.permissions}
+                        />
                       </div>
                     )
                   ) : null}
@@ -1458,7 +1469,9 @@ export function GovernancePolicyPanel({
                               className="w-full bg-transparent font-mono text-[13px] font-medium outline-none placeholder:text-muted-foreground/50"
                             />
                           </div>
-                          <PolicyInlineFieldHint message={fieldHints.newRoleName} />
+                          <PolicyInlineFieldHint
+                            message={fieldHints.newRoleName}
+                          />
                         </div>
 
                         <div>
@@ -1468,13 +1481,17 @@ export function GovernancePolicyPanel({
                             value={addRoleAccessMode}
                             options={addRoleAccessOptions}
                             onChange={(mode) => {
-                              setAddRoleAccessMode(mode as DaoAddRoleAccessMode);
+                              setAddRoleAccessMode(
+                                mode as DaoAddRoleAccessMode
+                              );
                               clearFormFeedback();
                             }}
                             ariaLabel="New role access"
                             triggerClassName="py-2 text-[13px]"
                           />
-                          <PolicyInlineFieldHint message={fieldHints.addRoleAccess} />
+                          <PolicyInlineFieldHint
+                            message={fieldHints.addRoleAccess}
+                          />
                         </div>
                       </div>
 
@@ -1584,7 +1601,9 @@ export function GovernancePolicyPanel({
                         </label>
                         <div
                           className={cn(
-                            policyFieldShellClass(Boolean(fieldHints.configName)),
+                            policyFieldShellClass(
+                              Boolean(fieldHints.configName)
+                            ),
                             'px-3 py-2.5 md:px-4'
                           )}
                         >
@@ -1599,7 +1618,9 @@ export function GovernancePolicyPanel({
                             className="w-full bg-transparent text-sm font-medium outline-none"
                           />
                         </div>
-                        <PolicyInlineFieldHint message={fieldHints.configName} />
+                        <PolicyInlineFieldHint
+                          message={fieldHints.configName}
+                        />
                       </div>
 
                       <div>
@@ -1629,7 +1650,9 @@ export function GovernancePolicyPanel({
                             className="w-full resize-y bg-transparent text-sm font-medium leading-snug outline-none placeholder:text-muted-foreground/50"
                           />
                         </div>
-                        <PolicyInlineFieldHint message={fieldHints.configPurpose} />
+                        <PolicyInlineFieldHint
+                          message={fieldHints.configPurpose}
+                        />
                       </div>
                     </div>
                   ) : null}
@@ -1650,7 +1673,9 @@ export function GovernancePolicyPanel({
                           }}
                           ariaLabel="Vote approval threshold"
                         />
-                        <PolicyInlineFieldHint message={fieldHints.voteThreshold} />
+                        <PolicyInlineFieldHint
+                          message={fieldHints.voteThreshold}
+                        />
                       </div>
 
                       {usesRoleWeightVotePolicy ? (

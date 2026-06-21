@@ -36,7 +36,8 @@ function resolveCompactBootstrap(scrollY: number): boolean {
 }
 
 function readScrollY(event?: Event): number {
-  const detail = (event as CustomEvent<{ scroll?: number }> | undefined)?.detail;
+  const detail = (event as CustomEvent<{ scroll?: number }> | undefined)
+    ?.detail;
   if (typeof detail?.scroll === 'number') {
     setPortalScrollY(detail.scroll);
     return detail.scroll;
@@ -123,9 +124,12 @@ export function useGovernanceRailCompact(enabled: boolean) {
       bootstrap();
     };
 
-    const observer = new IntersectionObserver(() => {
-      sync();
-    }, { threshold: [0, 1] });
+    const observer = new IntersectionObserver(
+      () => {
+        sync();
+      },
+      { threshold: [0, 1] }
+    );
 
     observer.observe(sentinelNode);
     sync();

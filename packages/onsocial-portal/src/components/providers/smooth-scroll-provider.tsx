@@ -2,7 +2,10 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import Lenis from 'lenis';
-import { resetPortalScrollY, setPortalScrollY } from '@/lib/portal-scroll-state';
+import {
+  resetPortalScrollY,
+  setPortalScrollY,
+} from '@/lib/portal-scroll-state';
 import { usePathname, useSearchParams } from 'next/navigation';
 
 const SCROLL_STORAGE_PREFIX = 'onsocial:scroll:';

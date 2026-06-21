@@ -70,10 +70,12 @@ export function useTransparencyData() {
   const [tokenSymbol, setTokenSymbol] = useState('SOCIAL');
   const [holderCount, setHolderCount] = useState<number | null>(null);
   const [holderCountLoaded, setHolderCountLoaded] = useState(false);
-  const [currentSupplyDisplay, setCurrentSupplyDisplay] = useState<string | null>(
+  const [currentSupplyDisplay, setCurrentSupplyDisplay] = useState<
+    string | null
+  >(null);
+  const [currentSupplyYocto, setCurrentSupplyYocto] = useState<bigint | null>(
     null
   );
-  const [currentSupplyYocto, setCurrentSupplyYocto] = useState<bigint | null>(null);
   const [burnedDisplay, setBurnedDisplay] = useState<string | null>(null);
   const [supplyLoaded, setSupplyLoaded] = useState(false);
   const [liveAccountBalances, setLiveAccountBalances] = useState<
@@ -284,7 +286,9 @@ export function useTransparencyData() {
     return LIVE_ALLOCATION_ACCOUNTS.map((item) => {
       const balance = getTrackedBalance(item.account);
       const pctOfSupply =
-        balance !== null && currentSupplyYocto !== null && currentSupplyYocto > 0n
+        balance !== null &&
+        currentSupplyYocto !== null &&
+        currentSupplyYocto > 0n
           ? Number((balance * 10000n) / currentSupplyYocto) / 100
           : 0;
 
@@ -302,11 +306,7 @@ export function useTransparencyData() {
         pctOfSupply,
       };
     });
-  }, [
-    currentSupplyYocto,
-    liveAccountBalances,
-    rewardsPoolBalance,
-  ]);
+  }, [currentSupplyYocto, liveAccountBalances, rewardsPoolBalance]);
 
   const liveTrackedTotal = useMemo(
     () =>

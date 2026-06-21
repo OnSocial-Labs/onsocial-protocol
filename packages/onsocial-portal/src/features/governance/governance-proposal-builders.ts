@@ -497,7 +497,8 @@ export function resolveActiveCreatableProposalAction(
   }
 
   return (
-    pickDefaultCreatableProposalAction(availableProposalActions) ?? proposalAction
+    pickDefaultCreatableProposalAction(availableProposalActions) ??
+    proposalAction
   );
 }
 
@@ -1478,8 +1479,7 @@ export function buildDaoConfigChangePayload({
   return {
     proposal: {
       description:
-        description?.trim() ||
-        `Update DAO config for ${normalizedName}.`,
+        description?.trim() || `Update DAO config for ${normalizedName}.`,
       kind: {
         ChangeConfig: {
           config: {
@@ -2846,7 +2846,10 @@ export type GovernanceCreateActionMenuCategory = {
   id: string;
   label: string;
   items: Array<
-    Extract<GovernanceCreateActionMenuItem, { kind: 'proposal' | 'policy_link' }>
+    Extract<
+      GovernanceCreateActionMenuItem,
+      { kind: 'proposal' | 'policy_link' }
+    >
   >;
 };
 

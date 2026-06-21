@@ -32,7 +32,10 @@ import { PageShell } from '@/components/layout/page-shell';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { Button } from '@/components/ui/button';
-import { PortalConnectPrompt, WalletBootstrapPlaceholder } from '@/components/ui/portal-connect-prompt';
+import {
+  PortalConnectPrompt,
+  WalletBootstrapPlaceholder,
+} from '@/components/ui/portal-connect-prompt';
 import { PortalBadge } from '@/components/ui/portal-badge';
 import { ListRowsSkeleton } from '@/components/ui/skeleton';
 import {

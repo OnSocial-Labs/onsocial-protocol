@@ -5,7 +5,10 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, Check, ChevronDown, Shield, X } from 'lucide-react';
 import { useWallet } from '@/contexts/wallet-context';
 import { Button, buttonArrowRightClass } from '@/components/ui/button';
-import { PortalConnectPrompt, WalletBootstrapPlaceholder } from '@/components/ui/portal-connect-prompt';
+import {
+  PortalConnectPrompt,
+  WalletBootstrapPlaceholder,
+} from '@/components/ui/portal-connect-prompt';
 import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
 import {
@@ -644,7 +647,10 @@ export function ApplicationForm({
           action="partners.apply"
           variant="gate"
           icon={
-            <Shield className="h-10 w-10 text-muted-foreground/40" aria-hidden />
+            <Shield
+              className="h-10 w-10 text-muted-foreground/40"
+              aria-hidden
+            />
           }
         />
       </div>

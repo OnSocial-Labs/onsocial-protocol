@@ -24,7 +24,10 @@ describe('policy proposal descriptions', () => {
 
   it('returns a short submit blocker for under-min descriptions', () => {
     expect(
-      resolveBoundedNoteSubmitBlocker('Short', POLICY_PROPOSAL_DESCRIPTION_LIMITS)
+      resolveBoundedNoteSubmitBlocker(
+        'Short',
+        POLICY_PROPOSAL_DESCRIPTION_LIMITS
+      )
     ).toBeNull();
   });
 
@@ -40,7 +43,10 @@ describe('policy proposal descriptions', () => {
   });
 
   it('prefixes under-min counters when invalid characters are present', () => {
-    const counter = getBoundedNoteFieldCounter('Hi 👋', POLICY_PROPOSAL_DESCRIPTION_LIMITS);
+    const counter = getBoundedNoteFieldCounter(
+      'Hi 👋',
+      POLICY_PROPOSAL_DESCRIPTION_LIMITS
+    );
 
     expect(counter.label).toBe('Invalid character · 5 / 10 min');
   });

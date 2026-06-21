@@ -24,7 +24,9 @@ function parseJoinAmountYocto(raw: string | bigint | undefined): bigint | null {
   return null;
 }
 
-function resolveSeasonPoolBps(seasonPoolBps: number | undefined): number | null {
+function resolveSeasonPoolBps(
+  seasonPoolBps: number | undefined
+): number | null {
   return typeof seasonPoolBps === 'number' &&
     Number.isFinite(seasonPoolBps) &&
     seasonPoolBps > 0

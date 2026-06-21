@@ -179,7 +179,9 @@ export function BoostStakeAmountSection({
                     </div>
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-muted-foreground">Adding</span>
-                      <span className="font-semibold">{preview.addingAmount}</span>
+                      <span className="font-semibold">
+                        {preview.addingAmount}
+                      </span>
                     </div>
                     <div className="h-px divider-detail" />
                   </>

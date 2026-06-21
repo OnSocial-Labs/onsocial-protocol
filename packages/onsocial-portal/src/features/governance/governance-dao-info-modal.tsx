@@ -1,7 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ChevronDown, Shield, User, Users } from 'lucide-react';
@@ -31,9 +38,7 @@ import {
 import { buildGovernancePathWithBoard } from '@/features/governance/governance-dao-board';
 import type { GovernanceDaoBoard } from '@/features/governance/governance-dao-board';
 import { fetchDaoPolicy } from '@/features/governance/api';
-import {
-  GovernanceViewerPositionCard,
-} from '@/features/governance/governance-viewer-position-card';
+import { GovernanceViewerPositionCard } from '@/features/governance/governance-viewer-position-card';
 import {
   buildDaoQuorumPresetOptions,
   formatDaoRoleDisplayName,
@@ -47,7 +52,10 @@ import {
   resolveVoteThresholdPresetId,
   sortDaoPolicyRolesForDisplay,
 } from '@/features/governance/governance-proposal-builders';
-import type { GovernanceDaoPolicy, GovernanceDaoRole } from '@/features/governance/types';
+import type {
+  GovernanceDaoPolicy,
+  GovernanceDaoRole,
+} from '@/features/governance/types';
 import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
 import { useMemberAccountLookup } from '@/hooks/use-member-account-lookup';
 import { formatNearCompact, formatSocialCompact } from '@/lib/leaderboard';
@@ -97,9 +105,18 @@ function DaoPurposeSection({ text }: { text: string }) {
   return (
     <section
       aria-label="DAO purpose"
-      className={cn('border-b border-fade-section pt-0', compactModalSectionYClass)}
+      className={cn(
+        'border-b border-fade-section pt-0',
+        compactModalSectionYClass
+      )}
     >
-      <p className={cn(microLabelClass, compactModalSectionLabelClass, 'text-center')}>
+      <p
+        className={cn(
+          microLabelClass,
+          compactModalSectionLabelClass,
+          'text-center'
+        )}
+      >
         Purpose
       </p>
       <div className="mx-auto max-w-[40ch] space-y-0.5 text-center">
@@ -315,7 +332,12 @@ function DaoSnapshotGrid({
         {ruleItems.map((item, index) => (
           <div key={item.label} className={rulesGridCellClass(index)}>
             <p className={snapshotLabelClass}>{item.label}</p>
-            <p className={cn(snapshotValueClass, 'mt-1 break-words leading-tight')}>
+            <p
+              className={cn(
+                snapshotValueClass,
+                'mt-1 break-words leading-tight'
+              )}
+            >
               {item.value}
             </p>
           </div>
@@ -404,7 +426,10 @@ function DaoRoleInfoRow({ role }: { role: GovernanceDaoRole }) {
             )}
           >
             {isCouncil ? (
-              <Shield className="portal-gold-icon h-2.5 w-2.5" strokeWidth={2} />
+              <Shield
+                className="portal-gold-icon h-2.5 w-2.5"
+                strokeWidth={2}
+              />
             ) : (
               <Users className="h-2.5 w-2.5" strokeWidth={2} />
             )}
@@ -416,7 +441,10 @@ function DaoRoleInfoRow({ role }: { role: GovernanceDaoRole }) {
             {displayName}
           </span>
           <span className="block text-muted-foreground/70 sm:inline">
-            <span className="hidden text-muted-foreground/50 sm:inline"> · </span>
+            <span className="hidden text-muted-foreground/50 sm:inline">
+              {' '}
+              ·{' '}
+            </span>
             {roleMetaLabel(role)}
           </span>
         </span>
@@ -554,7 +582,10 @@ function DaoInfoPanel({
       {viewerAccountId && eligibility ? (
         <section
           aria-label="Your position"
-          className={cn('border-b border-fade-section', compactModalSectionYClass)}
+          className={cn(
+            'border-b border-fade-section',
+            compactModalSectionYClass
+          )}
         >
           <GovernanceViewerPositionCard
             viewerRoles={viewerRoles}
@@ -614,27 +645,34 @@ function useGovernanceDaoInfoData(
 
     void (async () => {
       try {
-        const [nextPolicy, assetsResponse, bondYocto, nextEligibility, daoConfig] =
-          await Promise.all([
-            fetchDaoPolicy(daoAccountId),
-            fetch(
-              `/api/wallet/assets?accountId=${encodeURIComponent(daoAccountId)}`,
-              { cache: 'no-store' }
-            ),
-            getGovernanceProposalBond(daoAccountId).catch(() => '0'),
-            viewerAccountId
-              ? getGovernanceEligibility(viewerAccountId, daoAccountId).catch(
-                  () => null
-                )
-              : Promise.resolve(null),
-            getGovernanceDaoConfig(daoAccountId).catch(() => null),
-          ]);
+        const [
+          nextPolicy,
+          assetsResponse,
+          bondYocto,
+          nextEligibility,
+          daoConfig,
+        ] = await Promise.all([
+          fetchDaoPolicy(daoAccountId),
+          fetch(
+            `/api/wallet/assets?accountId=${encodeURIComponent(daoAccountId)}`,
+            { cache: 'no-store' }
+          ),
+          getGovernanceProposalBond(daoAccountId).catch(() => '0'),
+          viewerAccountId
+            ? getGovernanceEligibility(viewerAccountId, daoAccountId).catch(
+                () => null
+              )
+            : Promise.resolve(null),
+          getGovernanceDaoConfig(daoAccountId).catch(() => null),
+        ]);
 
         if (requestId !== requestIdRef.current) {
           return;
         }
 
-        const assetsPayload = (await assetsResponse.json().catch(() => null)) as {
+        const assetsPayload = (await assetsResponse
+          .json()
+          .catch(() => null)) as {
           nearBalanceYocto?: string;
           socialBalanceYocto?: string;
           social?: { icon?: string | null };
@@ -738,7 +776,10 @@ export function GovernanceDaoInfoModal({
     () => sortDaoPolicyRolesForDisplay(policy?.roles),
     [policy?.roles]
   );
-  const councilSize = useMemo(() => resolveCouncilVotePoolSize(policy), [policy]);
+  const councilSize = useMemo(
+    () => resolveCouncilVotePoolSize(policy),
+    [policy]
+  );
   const voteThreshold = useMemo(
     () => readDefaultVotePolicyThreshold(policy?.default_vote_policy),
     [policy?.default_vote_policy]
@@ -755,8 +796,14 @@ export function GovernanceDaoInfoModal({
     [policy, viewerAccountId]
   );
 
-  const policyPath = buildGovernancePathWithBoard('/governance/policy', activeBoard);
-  const positionPath = buildGovernancePathWithBoard('/governance/manage', activeBoard);
+  const policyPath = buildGovernancePathWithBoard(
+    '/governance/policy',
+    activeBoard
+  );
+  const positionPath = buildGovernancePathWithBoard(
+    '/governance/manage',
+    activeBoard
+  );
   const explorerUrl = `${ACTIVE_NEAR_EXPLORER_URL}/address/${daoAccountId}`;
   const bondLabel = formatNearBond(policy?.proposal_bond ?? proposalBondYocto);
   const periodLabel = formatProposalPeriodDays(policy?.proposal_period);
@@ -845,7 +892,9 @@ export function GovernanceDaoInfoModal({
                   </section>
                 </div>
               ) : error ? (
-                <p className="py-3 text-center text-sm portal-red-text">{error}</p>
+                <p className="py-3 text-center text-sm portal-red-text">
+                  {error}
+                </p>
               ) : (
                 <>
                   <DaoInfoPanel

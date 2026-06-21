@@ -226,8 +226,14 @@ export function WalletButton({
   disconnectedLabel,
 }: WalletButtonProps) {
   const router = useRouter();
-  const { accountId, isConnected, isLoading: isWalletBootstrapping, connect, switchWallet, disconnect } =
-    useWallet();
+  const {
+    accountId,
+    isConnected,
+    isLoading: isWalletBootstrapping,
+    connect,
+    switchWallet,
+    disconnect,
+  } = useWallet();
   const profileState = useProfile();
   const {
     claimableYocto,

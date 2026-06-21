@@ -32,8 +32,7 @@ export const SOCIAL_SPEND_SUPPORT_MIN_AMOUNT_SOCIAL_LABEL = '0.01';
 export const SOCIAL_SPEND_SUPPORT_MIN_AMOUNT_MAX_SOCIAL_LABEL = '100';
 
 /** Default join_rally entry (100 SOCIAL, 18 decimals). */
-export const SOCIAL_SPEND_JOIN_RALLY_MIN_AMOUNT_YOCTO =
-  '100000000000000000000';
+export const SOCIAL_SPEND_JOIN_RALLY_MIN_AMOUNT_YOCTO = '100000000000000000000';
 
 /** Lower bound for join_rally min in governance UI (1 SOCIAL). */
 export const SOCIAL_SPEND_JOIN_RALLY_MIN_AMOUNT_FLOOR_YOCTO =
@@ -481,7 +480,9 @@ export function validateSocialSpendActionMinAmount(minAmount: string): boolean {
   }
 }
 
-export function parseSocialSpendMinAmountInputToYocto(input: string): string | null {
+export function parseSocialSpendMinAmountInputToYocto(
+  input: string
+): string | null {
   const sanitized = sanitizeSocialAmountInput(input.trim());
   if (!sanitized || sanitized === '0' || sanitized === '0.') {
     return null;
@@ -938,7 +939,11 @@ export function formatSocialSpendMinAmountCardLabel(
 export function formatSocialSpendActionConfigCardSummary(
   draft: Pick<
     SocialSpendActionRoutingDraft,
-    'treasury_bps' | 'season_pool_bps' | 'target_bps' | 'burn_bps' | 'min_amount'
+    | 'treasury_bps'
+    | 'season_pool_bps'
+    | 'target_bps'
+    | 'burn_bps'
+    | 'min_amount'
   >,
   options?: { protocolFeesRouteToBoost?: boolean; includeMinAmount?: boolean }
 ): string {

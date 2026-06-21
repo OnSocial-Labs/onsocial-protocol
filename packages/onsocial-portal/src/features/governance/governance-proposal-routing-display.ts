@@ -16,8 +16,7 @@ export function splitRoutingTargetDisplay(value: string): {
     const routingParts = segments.slice(1);
     return {
       minLabel: segments[0],
-      routingLabel:
-        routingParts.length > 0 ? routingParts.join(' · ') : null,
+      routingLabel: routingParts.length > 0 ? routingParts.join(' · ') : null,
       routingParts,
     };
   }

@@ -12,7 +12,10 @@ import {
 } from '@/features/season/season-zero-earn-panel';
 import type { SeasonZeroStanding } from '@/features/season/season-zero-standing-row';
 import type { SeasonZeroPayoutParticipant } from '@/features/season/season-zero-payout-estimate';
-import { fetchJoinRallyRouting, formatJoinEntryGuideLabel } from '@/lib/join-rally-routing';
+import {
+  fetchJoinRallyRouting,
+  formatJoinEntryGuideLabel,
+} from '@/lib/join-rally-routing';
 import { seasonZeroPayoutSummary } from '@/features/season/season-zero-payout-copy';
 import { portalTransition } from '@/lib/motion';
 import { cn } from '@/lib/utils';

@@ -1,6 +1,11 @@
 'use client';
 
-import { useCallback, useRef, type RefObject, type WheelEventHandler } from 'react';
+import {
+  useCallback,
+  useRef,
+  type RefObject,
+  type WheelEventHandler,
+} from 'react';
 
 export function useFloatingPanelScroll<T extends HTMLElement = HTMLDivElement>(
   enabled = true
@@ -10,19 +15,22 @@ export function useFloatingPanelScroll<T extends HTMLElement = HTMLDivElement>(
 } {
   const ref = useRef<T>(null);
 
-  const onWheelCapture = useCallback<WheelEventHandler<T>>((event) => {
-    if (!enabled) {
-      return;
-    }
+  const onWheelCapture = useCallback<WheelEventHandler<T>>(
+    (event) => {
+      if (!enabled) {
+        return;
+      }
 
-    const container = ref.current;
-    if (!container || container.scrollHeight <= container.clientHeight) {
-      return;
-    }
+      const container = ref.current;
+      if (!container || container.scrollHeight <= container.clientHeight) {
+        return;
+      }
 
-    container.scrollTop += event.deltaY;
-    event.preventDefault();
-  }, [enabled]);
+      container.scrollTop += event.deltaY;
+      event.preventDefault();
+    },
+    [enabled]
+  );
 
   return { ref, onWheelCapture };
 }

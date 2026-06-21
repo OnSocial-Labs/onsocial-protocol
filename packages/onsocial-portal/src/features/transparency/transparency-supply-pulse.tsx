@@ -45,7 +45,9 @@ function PulseItem({
         featured ? 'w-full' : 'px-0.5'
       )}
     >
-      <span className="portal-type-micro text-muted-foreground/70">{label}</span>
+      <span className="portal-type-micro text-muted-foreground/70">
+        {label}
+      </span>
       <div
         className={
           featured
@@ -68,9 +70,7 @@ function PulseItem({
               : {})}
             className={cn(
               'max-w-full truncate font-mono font-semibold tabular-nums tracking-tight portal-link',
-              featured
-                ? 'text-base sm:text-lg'
-                : 'text-xs sm:text-sm',
+              featured ? 'text-base sm:text-lg' : 'text-xs sm:text-sm',
               valueClassName
             )}
           >

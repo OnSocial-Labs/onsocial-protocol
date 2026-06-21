@@ -21,9 +21,7 @@ import {
   validateSeasonLabelDraft,
   type SocialSpendSeasonConfigDraft,
 } from '@/lib/dao-contract-config-operations';
-import {
-  startsAtLocalFromOffsetMinutes,
-} from '@/lib/relative-duration';
+import { startsAtLocalFromOffsetMinutes } from '@/lib/relative-duration';
 import { cn } from '@/lib/utils';
 
 const feedbackExit = { opacity: 0, transition: { duration: 0 } };

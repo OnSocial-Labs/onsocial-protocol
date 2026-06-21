@@ -22,15 +22,16 @@ export const governanceCreateFieldShellClass =
 export function governanceCreateFieldTriggerClass(open: boolean) {
   return cn(
     'portal-field-focus flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm outline-none md:py-3.5',
-    open ? 'border-border bg-background/60' : 'border-border/40 bg-background/45'
+    open
+      ? 'border-border bg-background/60'
+      : 'border-border/40 bg-background/45'
   );
 }
 
 export const governanceCreateActionMenuShellClass =
   'max-h-[min(18rem,50dvh)] overflow-y-auto overscroll-y-contain touch-pan-y [-webkit-overflow-scrolling:touch] p-0';
 
-export const governanceCreateActionMenuListClass =
-  'space-y-0.5 p-1 md:p-1.5';
+export const governanceCreateActionMenuListClass = 'space-y-0.5 p-1 md:p-1.5';
 
 export const governanceCreateActionMenuCategoryStripClass =
   'sticky top-0 z-10 shrink-0 overflow-x-auto overscroll-x-contain border-b border-fade-section bg-background/98 px-1.5 py-1.5 backdrop-blur-sm md:px-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden';
@@ -178,11 +179,7 @@ export function GovernanceCreateActionPolicyLink({
 }
 
 function formatGovernanceRoleLabel(roleId: string): string {
-  const words = roleId
-    .trim()
-    .toLowerCase()
-    .split('_')
-    .filter(Boolean);
+  const words = roleId.trim().toLowerCase().split('_').filter(Boolean);
 
   if (words.length === 0) {
     return 'Member';
@@ -418,9 +415,7 @@ export function GovernanceCreateNoActionsPlaceholder({
     );
   }
 
-  return (
-    <p className={bodyClass}>No on-chain actions available right now.</p>
-  );
+  return <p className={bodyClass}>No on-chain actions available right now.</p>;
 }
 
 export function GovernanceCreateEligibilityLine({
@@ -519,7 +514,9 @@ export function GovernanceCreateProposalSummaryBlock({
 
   return (
     <div className="min-w-0 border-t border-fade-detail pt-3">
-      <p className="portal-eyebrow-wide text-muted-foreground/50">If approved</p>
+      <p className="portal-eyebrow-wide text-muted-foreground/50">
+        If approved
+      </p>
       <p className="mt-1.5 min-w-0 break-words portal-type-body-sm font-medium leading-snug text-foreground/85 text-pretty">
         {summary.primary}
       </p>

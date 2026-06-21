@@ -120,7 +120,8 @@ export function GovernanceViewerPositionCard({
           {viewerRoles.map((roleId) => {
             const matchedRole = roles.find((role) => role.name === roleId);
             const isCouncil =
-              matchedRole != null && resolveDaoRoleKind(matchedRole) === 'council';
+              matchedRole != null &&
+              resolveDaoRoleKind(matchedRole) === 'council';
 
             return (
               <PortalBadge

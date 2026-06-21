@@ -51,7 +51,11 @@ export function policyFieldShellClass(invalid?: boolean) {
   );
 }
 
-export function PolicyInlineFieldHint({ message }: { message?: string | null }) {
+export function PolicyInlineFieldHint({
+  message,
+}: {
+  message?: string | null;
+}) {
   if (!message) {
     return null;
   }
@@ -626,26 +630,18 @@ export function DaoPermissionPicker({
         ) : null}
         <Button
           type="button"
-          variant={
-            matchesFullPublic && !matchesBaseline ? 'default' : 'ghost'
-          }
+          variant={matchesFullPublic && !matchesBaseline ? 'default' : 'ghost'}
           size="xs"
-          className={presetSegmentClass(
-            matchesFullPublic && !matchesBaseline
-          )}
+          className={presetSegmentClass(matchesFullPublic && !matchesBaseline)}
           onClick={() => applyPreset(DAO_FULL_PUBLIC_PERMISSIONS_PRESET)}
         >
           All public
         </Button>
         <Button
           type="button"
-          variant={
-            matchesActionsOnly && !matchesBaseline ? 'default' : 'ghost'
-          }
+          variant={matchesActionsOnly && !matchesBaseline ? 'default' : 'ghost'}
           size="xs"
-          className={presetSegmentClass(
-            matchesActionsOnly && !matchesBaseline
-          )}
+          className={presetSegmentClass(matchesActionsOnly && !matchesBaseline)}
           onClick={() => applyPreset(DAO_DELEGATED_ACTION_PERMISSIONS_PRESET)}
         >
           Actions only

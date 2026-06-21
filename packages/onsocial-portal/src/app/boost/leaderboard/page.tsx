@@ -3,14 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import {
-  Crown,
-  Flame,
-  RefreshCw,
-  Shield,
-  TrendingUp,
-  Zap,
-} from 'lucide-react';
+import { Crown, Flame, RefreshCw, Shield, TrendingUp, Zap } from 'lucide-react';
 import { PageShell } from '@/components/layout/page-shell';
 import { Button } from '@/components/ui/button';
 import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';

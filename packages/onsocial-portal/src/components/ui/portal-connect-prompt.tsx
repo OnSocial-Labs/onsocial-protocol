@@ -76,8 +76,7 @@ export function PortalConnectPrompt({
   }
 
   const copy = message ?? portalConnectMessage(action);
-  const navHint =
-    showNavHint ?? (variant === 'inline' || variant === 'gate');
+  const navHint = showNavHint ?? (variant === 'inline' || variant === 'gate');
 
   if (variant === 'gate') {
     return (

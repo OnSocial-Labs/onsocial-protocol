@@ -57,8 +57,7 @@ function hasUnsupportedBoundedNoteCharacters(value: string) {
 export const BOUNDED_NOTE_CHARACTER_ERROR =
   'Use letters, numbers, spaces, and basic punctuation only';
 
-export const BOUNDED_NOTE_INVALID_CHARACTER_COUNTER_LABEL =
-  'Invalid character';
+export const BOUNDED_NOTE_INVALID_CHARACTER_COUNTER_LABEL = 'Invalid character';
 
 export function isBoundedNoteCharacterError(message: string): boolean {
   return message.trim() === BOUNDED_NOTE_CHARACTER_ERROR;

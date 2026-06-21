@@ -5,7 +5,10 @@ import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { BoostPanelSectionTitle } from '@/features/boost/boost-panel-section-title';
 import { TRANSPARENCY_ACTION_LINKS } from '@/features/transparency/transparency-constants';
-import { TRANSPARENCY_PANEL_DIVIDER_CLASS, TRANSPARENCY_PANEL_PADDING_CLASS } from '@/features/transparency/transparency-page-column';
+import {
+  TRANSPARENCY_PANEL_DIVIDER_CLASS,
+  TRANSPARENCY_PANEL_PADDING_CLASS,
+} from '@/features/transparency/transparency-page-column';
 import { cn } from '@/lib/utils';
 
 export function TransparencyActionLinks({ className }: { className?: string }) {
@@ -18,7 +21,12 @@ export function TransparencyActionLinks({ className }: { className?: string }) {
     >
       <BoostPanelSectionTitle align="center">Use SOCIAL</BoostPanelSectionTitle>
 
-      <div className={cn('divide-y divide-fade-detail', TRANSPARENCY_PANEL_DIVIDER_CLASS)}>
+      <div
+        className={cn(
+          'divide-y divide-fade-detail',
+          TRANSPARENCY_PANEL_DIVIDER_CLASS
+        )}
+      >
         {TRANSPARENCY_ACTION_LINKS.map((link) => (
           <Link
             key={link.href}

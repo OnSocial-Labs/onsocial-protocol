@@ -10,7 +10,10 @@ import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
 
 import { SocialSwapQuoteDetails } from '@/components/social-swap-quote-details';
 import { Button, buttonArrowRightClass } from '@/components/ui/button';
-import { portalConnectButtonLabel, portalConnectCtaLabel } from '@/lib/portal-connect-copy';
+import {
+  portalConnectButtonLabel,
+  portalConnectCtaLabel,
+} from '@/lib/portal-connect-copy';
 import {
   ModalFactRow,
   ModalFactSection,
@@ -99,7 +102,13 @@ export function SocialSwapPanel({
   onSuccess?: () => void;
   className?: string;
 }) {
-  const { accountId, connect, getSigningWallet, isConnected, isLoading: isWalletBootstrapping } = useWallet();
+  const {
+    accountId,
+    connect,
+    getSigningWallet,
+    isConnected,
+    isLoading: isWalletBootstrapping,
+  } = useWallet();
   const { txResult, setTxResult, clearTxResult, trackTransaction } =
     useNearTransactionFeedback(accountId);
   const swap = usePortalSwap(accountId);
@@ -534,7 +543,9 @@ export function SocialSwapPanel({
               {portalConnectButtonLabel('swap', {
                 isWalletBootstrapping,
                 isConnected,
-                connectedLabel: swap.loadingPools ? 'Loading pools…' : 'Get SOCIAL',
+                connectedLabel: swap.loadingPools
+                  ? 'Loading pools…'
+                  : 'Get SOCIAL',
               })}
             </Button>
           </>

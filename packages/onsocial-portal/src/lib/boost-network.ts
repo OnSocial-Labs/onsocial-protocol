@@ -4,7 +4,8 @@ export async function fetchActiveBoosterCount(): Promise<number> {
     if (!res.ok) return 0;
 
     const data = (await res.json()) as { boosterCount?: number };
-    return typeof data.boosterCount === 'number' && Number.isFinite(data.boosterCount)
+    return typeof data.boosterCount === 'number' &&
+      Number.isFinite(data.boosterCount)
       ? data.boosterCount
       : 0;
   } catch {
