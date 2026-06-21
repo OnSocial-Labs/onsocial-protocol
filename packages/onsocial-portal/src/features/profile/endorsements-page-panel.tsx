@@ -10,6 +10,10 @@ import {
 } from '@/components/ui/endorsement-flow';
 import { profileSocialStandingButtonClass } from '@/components/ui/profile-action-pill';
 import {
+  ProfileSocialCollectPill,
+  profileSocialCollectAriaLabel,
+} from '@/components/ui/profile-social-collect-pill';
+import {
   ProfileListLoadMoreFooter,
   ProfileListSkeletonRows,
   ProfileViewAllButton,
@@ -21,7 +25,6 @@ import {
 import { EndorseModal } from '@/components/endorse-modal';
 import { EndorsementSupportFooter } from '@/components/endorsement-support-footer';
 import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
-import { walletMenuActionButtonClass } from '@/components/ui/profile-action-pill';
 import { PROFILE_SEARCH_MIN_QUERY_LENGTH } from '@/lib/profile-account-search';
 import {
   buildEndorsementListItemAfterWrite,
@@ -698,10 +701,10 @@ export function EndorsementsPagePanel({
         trailing={
           <div className="flex shrink-0 items-center gap-2">
             {isSelf && onClaimSupportBalance && claimableSupportYocto > 0n ? (
-              <button
-                type="button"
-                className={walletMenuActionButtonClass('claim-ready')}
-                disabled={isClaimingSupportBalance}
+              <ProfileSocialCollectPill
+                amountLabel={formatSupportBalanceLabel(claimableSupportYocto)}
+                pending={isClaimingSupportBalance}
+                ariaLabel={`${profileSocialCollectAriaLabel(formatSupportBalanceLabel(claimableSupportYocto))} support`}
                 onClick={() => {
                   void onClaimSupportBalance().then(() => {
                     if (!viewerAccountId) return;
@@ -710,10 +713,7 @@ export function EndorsementsPagePanel({
                     }).then(setClaimableSupportYocto);
                   });
                 }}
-                aria-label={`Claim ${formatSupportBalanceLabel(claimableSupportYocto)} SOCIAL support`}
-              >
-                Claim {formatSupportBalanceLabel(claimableSupportYocto)} SOCIAL
-              </button>
+              />
             ) : null}
             {mode === 'received' && canEndorse && onEndorse ? (
               <button

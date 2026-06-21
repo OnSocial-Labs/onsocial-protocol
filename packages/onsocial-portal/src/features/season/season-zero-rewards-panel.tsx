@@ -1,11 +1,42 @@
 'use client';
 
 import { Gift } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { SurfacePanel } from '@/components/ui/surface-panel';
-import { GENESIS_RALLY_JOIN_SOCIAL_LABEL } from '@/lib/genesis-season';
+import { fetchJoinRallyRouting } from '@/lib/join-rally-routing';
 import { cn } from '@/lib/utils';
 
 export function SeasonZeroRewardsPanel({ className }: { className?: string }) {
+  const [joinMinLabel, setJoinMinLabel] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setLoading(true);
+    void fetchJoinRallyRouting()
+      .then((routing) => {
+        if (cancelled) return;
+        setJoinMinLabel(routing?.joinMinAmountSocialLabel ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setJoinMinLabel(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const minLabel = loading ? '…' : (joinMinLabel ?? 'Unavailable');
+
   return (
     <SurfacePanel
       radius="xl"
@@ -20,15 +51,14 @@ export function SeasonZeroRewardsPanel({ className }: { className?: string }) {
             How rewards work
           </h2>
           <p className="text-muted-foreground">
-            The pool is all SOCIAL from Genesis Rally joins (
-            {GENESIS_RALLY_JOIN_SOCIAL_LABEL} minimum). After the season ends,
-            eligible joiners claim from that pool — nothing is airdropped
-            automatically.
+            The pool is all SOCIAL from rally joins ({minLabel} minimum from
+            chain). After the season ends, eligible joiners claim from that pool
+            — nothing is airdropped automatically.
           </p>
           <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
             <li>
               <span className="text-foreground">70%</span> shared equally among
-              everyone who joined with {GENESIS_RALLY_JOIN_SOCIAL_LABEL} SOCIAL
+              everyone who joined at the on-chain minimum
             </li>
             <li>
               <span className="text-foreground">30%</span> split by activity —

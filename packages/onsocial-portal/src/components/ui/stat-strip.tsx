@@ -127,11 +127,10 @@ export function StatStrip({
         className={cn(
           'stat-strip-cells w-full text-center',
           useMobileGrid
-            ? 'flex flex-wrap justify-center max-md:grid max-md:justify-items-center max-md:[grid-template-columns:repeat(var(--stat-cols),minmax(0,1fr))]'
+            ? 'stat-strip-responsive flex flex-wrap justify-center max-md:grid max-md:justify-items-center max-md:[grid-template-columns:repeat(var(--stat-cols),minmax(0,1fr))]'
             : 'flex flex-wrap justify-center',
           className
         )}
-        style={{ '--stat-cols': columns } as React.CSSProperties}
         data-stat-cols={columns}
         {...(useMobileGrid && {
           'data-mobile-cols': resolvedMobileColumns,
@@ -246,6 +245,10 @@ export function StatStripCell({
   const layout = React.useContext(StatStripLayoutContext);
   const dividers = resolveCellDividers(layout, showDivider);
   const useLayoutDividers = layout != null;
+  const useResponsiveMobileGrid =
+    layout != null &&
+    layout.mobileColumns != null &&
+    layout.mobileColumns < layout.columns;
 
   const labelNode = (
     <span
@@ -300,8 +303,12 @@ export function StatStripCell({
 
   return (
     <div
-      className={cn('relative min-w-0', sizeClasses[size])}
-      style={cellWidthStyle}
+      className={cn(
+        'stat-strip-cell relative min-w-0',
+        sizeClasses[size],
+        !useResponsiveMobileGrid && 'shrink-0'
+      )}
+      style={useResponsiveMobileGrid ? undefined : cellWidthStyle}
     >
       {labelNode}
       {valueNode}

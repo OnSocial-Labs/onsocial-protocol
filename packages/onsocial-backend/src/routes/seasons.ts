@@ -13,8 +13,11 @@ import {
   getSeasonSettlementSummary,
   previewSeasonSettlement,
   publishSeasonSettlement,
-  SEASON_ZERO_SETTLEMENT_JOIN_MIN_YOCTO,
 } from '../services/seasons/season-finalization.js';
+import {
+  getJoinRallyMinAmountYoctoString,
+  JoinRallyConfigUnavailableError,
+} from '../services/seasons/join-rally-onchain-config.js';
 import {
   loadSeasonRegistry,
   resolveActiveSeasonId,
@@ -123,7 +126,7 @@ router.get('/:seasonId/status', async (req: Request, res: Response) => {
       onChainConfig && !onChainConfig.is_live && onChainConfig.ends_at_ns
         ? onChainConfig.ends_at_ns.toString()
         : undefined;
-    const [settlement, poolBreakdown] = await Promise.all([
+    const [settlement, poolBreakdown, joinMinYocto] = await Promise.all([
       getSeasonSettlementSummary(seasonId),
       getSeasonPoolBreakdown(
         seasonId,
@@ -134,6 +137,7 @@ router.get('/:seasonId/status', async (req: Request, res: Response) => {
             }
           : {}
       ),
+      getJoinRallyMinAmountYoctoString(),
     ]);
     if (!onChainConfig) {
       res.status(404).json({
@@ -146,7 +150,8 @@ router.get('/:seasonId/status', async (req: Request, res: Response) => {
     res.json({
       success: true,
       seasonId,
-      joinMinYocto: SEASON_ZERO_SETTLEMENT_JOIN_MIN_YOCTO,
+      joinMinYocto,
+      joinMinAvailable: joinMinYocto != null,
       onChainConfig,
       indexedPoolYocto: poolBreakdown.indexedPoolYocto,
       joinPoolYocto: poolBreakdown.joinPoolYocto,
@@ -179,6 +184,14 @@ router.get('/:seasonId/standings', async (req: Request, res: Response) => {
     });
     res.json({ success: true, ...result });
   } catch (error) {
+    if (error instanceof JoinRallyConfigUnavailableError) {
+      res.status(503).json({
+        success: false,
+        error: error.message,
+      });
+      return;
+    }
+
     const message = error instanceof Error ? error.message : String(error);
     logger.error({ error: message, seasonId }, 'Season standings failed');
     res.status(502).json({
@@ -219,6 +232,14 @@ router.get('/:seasonId/me', async (req: Request, res: Response) => {
       standing,
     });
   } catch (error) {
+    if (error instanceof JoinRallyConfigUnavailableError) {
+      res.status(503).json({
+        success: false,
+        error: error.message,
+      });
+      return;
+    }
+
     const message = error instanceof Error ? error.message : String(error);
     logger.error(
       { error: message, accountId, seasonId },

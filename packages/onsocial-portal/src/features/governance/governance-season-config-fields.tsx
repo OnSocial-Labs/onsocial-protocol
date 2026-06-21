@@ -6,23 +6,22 @@ import { Check, X } from 'lucide-react';
 import { PortalFieldSelect } from '@/components/ui/portal-field-select';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
 import { RelativeDurationFields } from '@/components/ui/relative-duration-fields';
+import {
+  governanceCreateFieldLabelClass,
+  governanceCreateFieldShellClass,
+} from '@/features/governance/governance-create-compact-ui';
 import { viewContractAt } from '@/lib/near-rpc';
 import {
   applySeasonStartOffsetMinutes,
-  computeSeasonEndsAtLocal,
   createDefaultSeasonConfigDraft,
   parseSeasonIdsFromChainView,
   parseSocialSpendSeasonConfigView,
   socialSpendSeasonConfigToDraft,
-  validateSeasonConfigDraft,
   validateSeasonIdDraft,
   validateSeasonLabelDraft,
   type SocialSpendSeasonConfigDraft,
 } from '@/lib/dao-contract-config-operations';
 import {
-  formatDurationPartsCompact,
-  formatLocalDateTimeFromMs,
-  minutesToParts,
   startsAtLocalFromOffsetMinutes,
 } from '@/lib/relative-duration';
 import { cn } from '@/lib/utils';
@@ -32,8 +31,9 @@ const feedbackEnter = { opacity: 0, y: -4 };
 const feedbackAnimate = { opacity: 1, y: 0 };
 const feedbackTransition = { duration: 0.16, ease: 'easeOut' as const };
 
-const fieldShellClass =
-  'portal-field-focus rounded-2xl border border-border/40 bg-background/45';
+const fieldLabelClass = governanceCreateFieldLabelClass;
+
+const fieldShellClass = governanceCreateFieldShellClass;
 
 const inputClass =
   'min-w-0 flex-1 bg-transparent px-4 py-3 text-sm outline-none placeholder:text-muted-foreground/50 md:py-3.5';
@@ -50,21 +50,6 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
   }, [delayMs, value]);
 
   return debounced;
-}
-
-function SeasonStartPastHint({ startsAtLocal }: { startsAtLocal: string }) {
-  const [isPast, setIsPast] = useState(false);
-
-  useEffect(() => {
-    const startsMs = Date.parse(startsAtLocal);
-    setIsPast(Number.isFinite(startsMs) && startsMs <= Date.now());
-  }, [startsAtLocal]);
-
-  if (!isPast) {
-    return null;
-  }
-
-  return <span className="text-amber-700"> · must be in the future</span>;
 }
 
 function normalizeLoadedDraft(
@@ -92,6 +77,7 @@ function isExistingSeasonSelection(
 
 export function SocialSpendSeasonConfigFields({
   draft,
+  baseline,
   chainSeasonIds,
   loading,
   refreshing,
@@ -139,20 +125,6 @@ export function SocialSpendSeasonConfigFields({
   const labelError = draft ? validateSeasonLabelDraft(draft.label) : null;
   const labelFeedbackVisible =
     showLabelFeedback && Boolean(draft?.label.trim());
-  const scheduleError = draft ? validateSeasonConfigDraft(draft) : null;
-  const showScheduleError =
-    scheduleError &&
-    scheduleError !== seasonIdFormatError &&
-    scheduleError !== labelError;
-
-  const newSeasonStatusLine =
-    selectValue === NEW_SEASON_VALUE &&
-    seasonIdFormatReady &&
-    lookupReady &&
-    !hasOnChainConfig
-      ? 'New season — not on chain yet.'
-      : null;
-
   const showExistingSeasonLookup =
     refreshing && selectValue !== NEW_SEASON_VALUE;
 
@@ -163,31 +135,6 @@ export function SocialSpendSeasonConfigFields({
     ],
     [chainSeasonIds]
   );
-
-  const schedulePreview = useMemo(() => {
-    if (!draft) {
-      return null;
-    }
-
-    const startsMs = Date.parse(draft.starts_at_local);
-    const endsLocal = computeSeasonEndsAtLocal(
-      draft.starts_at_local,
-      draft.duration_minutes
-    );
-    const endsMs = Date.parse(endsLocal);
-
-    if (!Number.isFinite(startsMs) || !Number.isFinite(endsMs)) {
-      return null;
-    }
-
-    return {
-      startsLabel: formatLocalDateTimeFromMs(startsMs),
-      endsLabel: formatLocalDateTimeFromMs(endsMs),
-      durationLabel: formatDurationPartsCompact(
-        minutesToParts(draft.duration_minutes)
-      ),
-    };
-  }, [draft]);
 
   if (loading) {
     return (
@@ -250,10 +197,6 @@ export function SocialSpendSeasonConfigFields({
         <div className="mt-1.5 flex min-h-[1.125rem] items-center">
           {showExistingSeasonLookup ? (
             <PulsingDots size="sm" className="text-muted-foreground" />
-          ) : newSeasonStatusLine ? (
-            <p className="portal-type-caption text-muted-foreground/70">
-              {newSeasonStatusLine}
-            </p>
           ) : (
             <span className="sr-only">Season status</span>
           )}
@@ -317,10 +260,7 @@ export function SocialSpendSeasonConfigFields({
       </div>
 
       <div>
-        <label
-          className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground/80"
-          htmlFor="season-config-label"
-        >
+        <label className={fieldLabelClass} htmlFor="season-config-label">
           Display name
         </label>
         <div className={cn(fieldShellClass, 'flex min-w-0 items-center')}>
@@ -338,7 +278,7 @@ export function SocialSpendSeasonConfigFields({
             aria-invalid={labelFeedbackVisible && labelError ? true : undefined}
           />
         </div>
-        <AnimatePresence initial={false} mode="wait">
+        <AnimatePresence initial={false}>
           {labelFeedbackVisible && labelError ? (
             <motion.p
               key="season-label-error"
@@ -350,76 +290,48 @@ export function SocialSpendSeasonConfigFields({
             >
               {labelError}
             </motion.p>
-          ) : (
-            <motion.p
-              key="season-label-hint"
-              initial={feedbackEnter}
-              animate={feedbackAnimate}
-              exit={feedbackExit}
-              transition={feedbackTransition}
-              className="mt-1.5 portal-type-caption text-muted-foreground/65"
-            >
-              Shown on the rally page and season archive.
-            </motion.p>
-          )}
+          ) : null}
         </AnimatePresence>
       </div>
 
-      <div className="rounded-2xl border border-border/40 bg-background/35 px-3 py-3 md:px-4">
-        <p className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground/80">
-          Start in
-        </p>
-        <RelativeDurationFields
-          idPrefix="season-start-offset"
-          totalMinutes={draft.start_offset_minutes}
-          onTotalMinutesChange={(minutes) =>
-            onDraftChange(applySeasonStartOffsetMinutes(draft, minutes))
-          }
-        />
-        {schedulePreview ? (
-          <p className="mt-2 portal-type-caption text-muted-foreground/80">
-            Opens {schedulePreview.startsLabel}
-            <SeasonStartPastHint startsAtLocal={draft.starts_at_local} />
-          </p>
-        ) : null}
+      <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2">
+        <div>
+          <p className={fieldLabelClass}>Start in</p>
+          <RelativeDurationFields
+            idPrefix="season-start-offset"
+            totalMinutes={draft.start_offset_minutes}
+            onTotalMinutesChange={(minutes) =>
+              onDraftChange(applySeasonStartOffsetMinutes(draft, minutes))
+            }
+          />
+        </div>
+
+        <div>
+          <p className={fieldLabelClass}>Duration</p>
+          <RelativeDurationFields
+            idPrefix="season-duration"
+            totalMinutes={draft.duration_minutes}
+            onTotalMinutesChange={(minutes) =>
+              onDraftChange({
+                ...draft,
+                duration_minutes: Math.max(1, minutes),
+              })
+            }
+          />
+        </div>
       </div>
 
-      <div className="rounded-2xl border border-border/40 bg-background/35 px-3 py-3 md:px-4">
-        <p className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground/80">
-          Duration
-        </p>
-        <RelativeDurationFields
-          idPrefix="season-duration"
-          totalMinutes={draft.duration_minutes}
-          onTotalMinutesChange={(minutes) =>
-            onDraftChange({
-              ...draft,
-              duration_minutes: Math.max(1, minutes),
-            })
-          }
-        />
-        {schedulePreview ? (
-          <p className="mt-2 portal-type-caption text-muted-foreground/80">
-            {schedulePreview.durationLabel} · ends {schedulePreview.endsLabel}
-          </p>
-        ) : null}
-      </div>
-
-      <label className="flex items-start gap-2 text-sm text-muted-foreground">
+      <label className="flex min-h-11 items-center gap-2 rounded-2xl border border-border/40 bg-background/45 px-4 py-2.5 text-sm">
         <input
           type="checkbox"
-          className="mt-0.5"
+          className="h-4 w-4 rounded border-border/60"
           checked={!draft.active}
           onChange={(event) =>
             onDraftChange({ ...draft, active: !event.target.checked })
           }
         />
-        <span>Pause joins</span>
+        <span className="font-medium text-foreground">Pause joins</span>
       </label>
-
-      {showScheduleError ? (
-        <p className="portal-type-caption text-amber-700">{scheduleError}</p>
-      ) : null}
     </div>
   );
 }

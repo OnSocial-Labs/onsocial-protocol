@@ -384,6 +384,193 @@ export function resolveCreatableProposalActionsForProposer(
   return actions;
 }
 
+export function resolveGovernanceCreateProposalPreviewActions({
+  policy,
+  roleId,
+  proposerAccountId,
+  delegatedWeight,
+  proposalThresholdWeight,
+  isDaoMember,
+  baseAvailableProposalActions,
+  availableProposalActions,
+}: {
+  policy: GovernanceDaoPolicy | null | undefined;
+  roleId: string;
+  proposerAccountId: string;
+  delegatedWeight: string;
+  proposalThresholdWeight: string;
+  isDaoMember: boolean;
+  baseAvailableProposalActions: readonly CreatableDaoProposalAction[];
+  availableProposalActions: readonly CreatableDaoProposalAction[];
+}): CreatableDaoProposalAction[] {
+  if (availableProposalActions.length > 0) {
+    return [...availableProposalActions];
+  }
+
+  if (baseAvailableProposalActions.length > 0) {
+    return [...baseAvailableProposalActions];
+  }
+
+  if (!isDaoMember && proposalThresholdWeight.trim()) {
+    const atThreshold = resolveCreatableProposalActionsForProposer(
+      policy,
+      roleId,
+      proposerAccountId,
+      proposalThresholdWeight
+    );
+    if (atThreshold.length > 0) {
+      return atThreshold;
+    }
+  }
+
+  if (isDaoMember) {
+    return resolveCreatableProposalActionsForProposer(
+      policy,
+      roleId,
+      proposerAccountId,
+      delegatedWeight
+    );
+  }
+
+  return [];
+}
+
+export function formatGovernanceCreateProposalPreviewLabel(
+  actions: readonly CreatableDaoProposalAction[],
+  maxVisible = 4
+): string {
+  const labels = actions
+    .map((actionId) => getCreatableDaoProposalActionOption(actionId)?.label)
+    .filter((label): label is string => Boolean(label?.trim()));
+
+  if (labels.length === 0) {
+    return 'No public proposals';
+  }
+
+  if (labels.length <= maxVisible) {
+    return labels.join(' · ');
+  }
+
+  const visible = labels.slice(0, maxVisible).join(' · ');
+  return `${visible} · +${labels.length - maxVisible}`;
+}
+
+export type GovernanceCreateChainContext = {
+  managedContractsLoading: boolean;
+  managedContractsCount: number;
+  hashUpgradableManagedContractsCount: number;
+  configurableManagedContractsCount: number;
+  socialSpendTreasuryLoading: boolean;
+  socialSpendTreasuryContext: {
+    canFundSeasonPool: boolean;
+    fundableSeasonIds: readonly string[];
+  } | null;
+  boostInfraLoading: boolean;
+  boostInfraContext: {
+    canWithdrawBoostInfra: boolean;
+    canSetBoostInfraAuthority: boolean;
+  } | null;
+  transferAssetsLoading: boolean;
+  transferAssetsCount: number;
+};
+
+export function pickDefaultCreatableProposalAction(
+  availableProposalActions: readonly CreatableDaoProposalAction[]
+): CreatableDaoProposalAction | null {
+  if (availableProposalActions.length === 0) {
+    return null;
+  }
+
+  return (
+    availableProposalActions.find((action) => action === 'idea') ??
+    availableProposalActions[0] ??
+    null
+  );
+}
+
+export function resolveActiveCreatableProposalAction(
+  proposalAction: CreatableDaoProposalAction,
+  availableProposalActions: readonly CreatableDaoProposalAction[]
+): CreatableDaoProposalAction {
+  if (availableProposalActions.includes(proposalAction)) {
+    return proposalAction;
+  }
+
+  return (
+    pickDefaultCreatableProposalAction(availableProposalActions) ?? proposalAction
+  );
+}
+
+/** Policy-permitted actions filtered by live on-chain capability (not board labels). */
+export function resolveAvailableProposalActionsForCreate(
+  baseAvailableProposalActions: readonly CreatableDaoProposalAction[],
+  chain: GovernanceCreateChainContext
+): CreatableDaoProposalAction[] {
+  let actions = [...baseAvailableProposalActions];
+
+  if (actions.includes('transfer_ownership')) {
+    if (chain.managedContractsLoading || chain.managedContractsCount === 0) {
+      actions = actions.filter((action) => action !== 'transfer_ownership');
+    }
+  }
+
+  if (actions.includes('contract_upgrade')) {
+    if (
+      chain.managedContractsLoading ||
+      chain.hashUpgradableManagedContractsCount === 0
+    ) {
+      actions = actions.filter((action) => action !== 'contract_upgrade');
+    }
+  }
+
+  if (actions.includes('contract_config')) {
+    if (
+      chain.managedContractsLoading ||
+      chain.configurableManagedContractsCount === 0
+    ) {
+      actions = actions.filter((action) => action !== 'contract_config');
+    }
+  }
+
+  if (actions.includes('fund_season_pool')) {
+    if (
+      chain.socialSpendTreasuryLoading ||
+      !chain.socialSpendTreasuryContext?.canFundSeasonPool ||
+      chain.socialSpendTreasuryContext.fundableSeasonIds.length === 0
+    ) {
+      actions = actions.filter((action) => action !== 'fund_season_pool');
+    }
+  }
+
+  if (actions.includes('withdraw_boost_infra')) {
+    if (
+      chain.boostInfraLoading ||
+      !chain.boostInfraContext?.canWithdrawBoostInfra
+    ) {
+      actions = actions.filter((action) => action !== 'withdraw_boost_infra');
+    }
+  }
+
+  if (actions.includes('set_boost_infra_authority')) {
+    if (
+      chain.boostInfraLoading ||
+      !chain.boostInfraContext?.canSetBoostInfraAuthority
+    ) {
+      actions = actions.filter(
+        (action) => action !== 'set_boost_infra_authority'
+      );
+    }
+  }
+
+  if (actions.includes('transfer')) {
+    if (chain.transferAssetsLoading || chain.transferAssetsCount === 0) {
+      actions = actions.filter((action) => action !== 'transfer');
+    }
+  }
+
+  return actions;
+}
+
 export function getProposalActionSubmitLabel(
   action: CreatableDaoProposalAction
 ): string {
@@ -532,21 +719,33 @@ export function isDaoGroupMember(
   policy: GovernanceDaoPolicy | null | undefined,
   accountId: string
 ): boolean {
+  return getDaoGroupMembershipRoleNames(policy, accountId).length > 0;
+}
+
+export function getDaoGroupMembershipRoleNames(
+  policy: GovernanceDaoPolicy | null | undefined,
+  accountId: string
+): string[] {
   const normalized = normalizeAccountId(accountId);
   if (!normalized) {
-    return false;
+    return [];
   }
 
-  return (policy?.roles ?? []).some((role) =>
-    role.kind?.Group?.some(
-      (member) => normalizeAccountId(member) === normalized
+  return (policy?.roles ?? [])
+    .filter((role) =>
+      role.kind?.Group?.some(
+        (member) => normalizeAccountId(member) === normalized
+      )
     )
-  );
+    .map((role) => role.name)
+    .filter((name) => name.trim().length > 0)
+    .sort((left, right) => left.localeCompare(right));
 }
 
 const POLICY_ACTION_PERMISSION_LABEL: Record<DaoPolicyActionId, string> = {
   update_permissions: 'policy_add_or_update_role',
   update_parameters: 'policy_update_parameters',
+  update_config: 'config',
   update_vote_policy: 'policy_update_default_vote_policy',
   add_role: 'policy_add_or_update_role',
   remove_role: 'policy_remove_role',
@@ -578,6 +777,7 @@ export function canProposePolicyChange(
     'policy_update_default_vote_policy',
     'policy_remove_role',
     'policy',
+    'config',
   ];
 
   return policyLabels.some((label) =>
@@ -1161,39 +1361,7 @@ export function filterEditablePermissions(
   );
 }
 
-function permissionOnChainLabel(permissionId: string, label: string): string {
-  if (permissionId === DAO_IDEA_PROPOSAL_PERMISSION) {
-    return DAO_SIGNAL_PROPOSAL_PERMISSION_HINT;
-  }
-
-  if (permissionId === 'call:AddProposal') {
-    return 'Function call (FunctionCall)';
-  }
-
-  if (permissionId === 'add_member_to_role:AddProposal') {
-    return 'Join (AddMemberToRole)';
-  }
-
-  if (permissionId === 'remove_member_from_role:AddProposal') {
-    return 'Leave (RemoveMemberFromRole)';
-  }
-
-  if (permissionId === 'policy_add_or_update_role:AddProposal') {
-    return 'Role changes (ChangePolicyAddOrUpdateRole)';
-  }
-
-  if (permissionId === 'policy_update_parameters:AddProposal') {
-    return 'Parameter changes (ChangePolicyUpdateParameters)';
-  }
-
-  if (permissionId === DAO_TRANSFER_PROPOSAL_PERMISSION) {
-    return 'Transfer (Transfer)';
-  }
-
-  return label;
-}
-
-export function summarizeDaoPermissionsOnChain(
+function summarizeDaoPermissionsOnChain(
   permissions: string[] | undefined
 ): string {
   const labels = (permissions ?? [])
@@ -1205,7 +1373,7 @@ export function summarizeDaoPermissionsOnChain(
         return null;
       }
 
-      return permissionOnChainLabel(option.id, option.label);
+      return option.label;
     })
     .filter((label): label is string => Boolean(label));
 
@@ -1242,6 +1410,87 @@ export interface DaoPolicyActionHintContext {
   nextVoteQuorum?: string;
   councilVotePoolSize?: number | null;
   votePolicyChanged?: boolean;
+  parametersChanged?: boolean;
+  bondChanged?: boolean;
+  periodChanged?: boolean;
+  bondNearLabel?: string;
+  periodDaysLabel?: string;
+  configName?: string;
+  configPurpose?: string;
+  currentConfigName?: string;
+  currentConfigPurpose?: string;
+  configChanged?: boolean;
+}
+
+export const DAO_CONFIG_NAME_MAX_LENGTH = 120;
+export const DAO_CONFIG_PURPOSE_MAX_LENGTH = 512;
+
+export function normalizeDaoConfigNameInput(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > DAO_CONFIG_NAME_MAX_LENGTH) {
+    return null;
+  }
+
+  return trimmed;
+}
+
+export function normalizeDaoConfigPurposeInput(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > DAO_CONFIG_PURPOSE_MAX_LENGTH) {
+    return null;
+  }
+
+  return trimmed;
+}
+
+export function daoConfigFieldsChanged(
+  current: { name: string; purpose: string },
+  next: { name: string; purpose: string }
+): boolean {
+  return (
+    current.name.trim() !== next.name.trim() ||
+    current.purpose.trim() !== next.purpose.trim()
+  );
+}
+
+export function buildDaoConfigChangePayload({
+  name,
+  purpose,
+  metadata = '',
+  description,
+}: {
+  name: string;
+  purpose: string;
+  metadata?: string;
+  description?: string;
+}): DaoProposalPayload {
+  const normalizedName = normalizeDaoConfigNameInput(name);
+  const normalizedPurpose = normalizeDaoConfigPurposeInput(purpose);
+
+  if (!normalizedName) {
+    throw new Error('Enter a valid DAO name.');
+  }
+
+  if (!normalizedPurpose) {
+    throw new Error('Enter a valid DAO purpose.');
+  }
+
+  return {
+    proposal: {
+      description:
+        description?.trim() ||
+        `Update DAO config for ${normalizedName}.`,
+      kind: {
+        ChangeConfig: {
+          config: {
+            name: normalizedName,
+            purpose: normalizedPurpose,
+            metadata: metadata ?? '',
+          },
+        },
+      },
+    },
+  };
 }
 
 export function rolePermissionsChanged(
@@ -1327,6 +1576,15 @@ export type DaoProposalKind =
       };
     }
   | {
+      ChangeConfig: {
+        config: {
+          name: string;
+          purpose: string;
+          metadata: string;
+        };
+      };
+    }
+  | {
       Vote: null;
     }
   | {
@@ -1372,6 +1630,7 @@ function serializeDaoRoleKind(
 export type DaoPolicyActionId =
   | 'update_permissions'
   | 'update_parameters'
+  | 'update_config'
   | 'update_vote_policy'
   | 'add_role'
   | 'remove_role';
@@ -1784,6 +2043,11 @@ export const DAO_POLICY_ACTION_OPTIONS: Array<{
     outcome: 'Change proposal bond or voting period for future proposals.',
   },
   {
+    id: 'update_config',
+    label: 'Config',
+    outcome: 'Change the DAO name and on-chain purpose shown in the portal.',
+  },
+  {
     id: 'update_vote_policy',
     label: 'Vote policy',
     outcome:
@@ -1809,64 +2073,109 @@ export function getDaoPolicyActionHint(
 ): string {
   if (actionId === 'add_role') {
     const roleName = context?.newRoleName?.trim();
-    const roleLabel = roleName ? `\`${roleName}\`` : 'the new role';
+    if (!roleName) {
+      return '';
+    }
 
     if (context?.addRoleAccessMode === 'full_access') {
-      return `On-chain: ChangePolicyAddOrUpdateRole adds ${roleLabel} as a council Group with *:* — policy, treasury, upgrades, and all public proposal kinds. Copies guardians members and vote rules.`;
+      return `Adds ${roleName} as a council role with full access.`;
     }
 
     if (context?.addRoleAccessMode === 'custom') {
       const threshold = context.socialThresholdLabel
-        ? `≥${context.socialThresholdLabel} delegated SOCIAL`
-        : 'the SOCIAL gate';
+        ? `≥${context.socialThresholdLabel} SOCIAL`
+        : 'SOCIAL gate';
       const summary = summarizeDaoPermissionsOnChain(
         context.addRolePermissions
       );
 
       if (!summary) {
-        return `On-chain: ChangePolicyAddOrUpdateRole adds a Member role (${threshold}). Select permissions to set allowed proposal kinds.`;
+        return `Adds ${roleName} as a public role (${threshold}).`;
       }
 
-      return `On-chain: ChangePolicyAddOrUpdateRole adds ${roleLabel} as a Member role (${threshold}) allowed to propose ${summary}.`;
+      return `Adds ${roleName} (${threshold}): ${summary}.`;
     }
+
+    return '';
   }
 
   if (actionId === 'update_permissions' && context?.permissionsRoleId) {
-    const onChainSummary = summarizeDaoPermissionsOnChain(
-      context.onChainPermissions
-    );
+    const hasDelta =
+      context.permissionsChanged || context.memberThresholdChanged;
 
-    if (!context.selectedPermissions?.length) {
-      if (onChainSummary) {
-        return `On-chain: \`${context.permissionsRoleId}\` currently allows ${onChainSummary}. Toggle permissions to change the on-chain policy.`;
-      }
-
-      return `On-chain: ChangePolicyAddOrUpdateRole updates \`${context.permissionsRoleId}\`. Select permissions to set allowed proposal kinds.`;
+    if (!hasDelta) {
+      return '';
     }
 
-    const summary = summarizeDaoPermissionsOnChain(context.selectedPermissions);
-
-    if (context.permissionsChanged) {
-      if (context.memberThresholdChanged && context.socialThresholdLabel) {
-        return `On-chain: ChangePolicyAddOrUpdateRole updates \`${context.permissionsRoleId}\` proposer threshold to ≥${context.socialThresholdLabel} delegated SOCIAL${summary ? ` and permissions to allow ${summary}` : ''}.`;
-      }
-
-      return `On-chain: ChangePolicyAddOrUpdateRole updates \`${context.permissionsRoleId}\` to allow ${summary}.`;
-    }
+    const roleId = context.permissionsRoleId;
+    const parts: string[] = [];
 
     if (context.memberThresholdChanged && context.socialThresholdLabel) {
-      return `On-chain: ChangePolicyAddOrUpdateRole updates \`${context.permissionsRoleId}\` proposer threshold to ≥${context.socialThresholdLabel} delegated SOCIAL.`;
+      parts.push(`min delegation ≥ ${context.socialThresholdLabel} SOCIAL`);
     }
 
-    if (onChainSummary) {
-      return `On-chain: \`${context.permissionsRoleId}\` currently allows ${onChainSummary}. Toggle permissions to change the on-chain policy.`;
+    if (context.permissionsChanged) {
+      const summary = summarizeDaoPermissionsOnChain(
+        context.selectedPermissions
+      );
+      if (summary) {
+        parts.push(`allows ${summary}`);
+      }
     }
 
-    return `On-chain: ChangePolicyAddOrUpdateRole updates \`${context.permissionsRoleId}\` to allow ${summary}.`;
+    if (parts.length === 0) {
+      return '';
+    }
+
+    return `Updates ${roleId}: ${parts.join(' · ')}.`;
   }
 
   if (actionId === 'update_parameters') {
-    return 'On-chain: ChangePolicyUpdateParameters updates proposal bond and voting period for future proposals.';
+    if (!context?.parametersChanged) {
+      return '';
+    }
+
+    const parts: string[] = [];
+
+    if (context.bondChanged && context.bondNearLabel?.trim()) {
+      parts.push(`bond ${context.bondNearLabel.trim()} NEAR`);
+    }
+
+    if (context.periodChanged && context.periodDaysLabel?.trim()) {
+      parts.push(`period ${context.periodDaysLabel.trim()}d`);
+    }
+
+    if (parts.length === 0) {
+      return '';
+    }
+
+    return `Set proposal ${parts.join(' · ')}.`;
+  }
+
+  if (actionId === 'update_config') {
+    if (!context?.configChanged) {
+      return '';
+    }
+
+    const parts: string[] = [];
+    const nextName = context.configName?.trim();
+    const nextPurpose = context.configPurpose?.trim();
+    const currentName = context.currentConfigName?.trim();
+    const currentPurpose = context.currentConfigPurpose?.trim();
+
+    if (nextName && nextName !== currentName) {
+      parts.push(`name ${nextName}`);
+    }
+
+    if (nextPurpose && nextPurpose !== currentPurpose) {
+      parts.push('purpose');
+    }
+
+    if (parts.length === 0) {
+      return '';
+    }
+
+    return `Update DAO ${parts.join(' · ')}.`;
   }
 
   if (actionId === 'update_vote_policy') {
@@ -1888,25 +2197,22 @@ export function getDaoPolicyActionHint(
     );
 
     if (context?.votePolicyChanged && context?.nextVoteThreshold) {
-      return `On-chain: ChangePolicyUpdateDefaultVotePolicy updates default vote rules from ${currentThresholdLabel} · quorum ${currentQuorumLabel} to ${nextThresholdLabel} · quorum ${nextQuorumLabel}. Minimum approve floor uses whichever is stricter versus the approval threshold.`;
+      return `Updates vote rules to ${nextThresholdLabel} · quorum ${nextQuorumLabel}.`;
     }
 
-    return `On-chain: ChangePolicyUpdateDefaultVotePolicy updates default vote rules (currently ${currentThresholdLabel} · quorum ${currentQuorumLabel}).`;
+    return '';
   }
 
   if (actionId === 'remove_role') {
     const targetRoleId = context?.targetRoleId?.trim();
-    if (targetRoleId) {
-      return `On-chain: ChangePolicyRemoveRole removes \`${targetRoleId}\` from the DAO policy.`;
+    if (!targetRoleId) {
+      return '';
     }
 
-    return 'On-chain: ChangePolicyRemoveRole removes a role from the DAO policy.';
+    return `Removes ${targetRoleId}.`;
   }
 
-  return (
-    DAO_POLICY_ACTION_OPTIONS.find((option) => option.id === actionId)
-      ?.outcome ?? ''
-  );
+  return '';
 }
 
 export function getDaoPolicyRoleOptions(
@@ -2000,6 +2306,9 @@ export function buildDaoPolicyActionPayload({
   memberThresholdSmallest,
   votePolicyThreshold,
   votePolicyQuorum,
+  daoConfigName,
+  daoConfigPurpose,
+  daoConfigMetadata,
 }: {
   actionId: DaoPolicyActionId;
   policy: GovernanceDaoPolicy | null | undefined;
@@ -2014,6 +2323,9 @@ export function buildDaoPolicyActionPayload({
   memberThresholdSmallest?: string;
   votePolicyThreshold?: [number, number];
   votePolicyQuorum?: string;
+  daoConfigName?: string;
+  daoConfigPurpose?: string;
+  daoConfigMetadata?: string;
 }): DaoProposalPayload {
   switch (actionId) {
     case 'update_permissions': {
@@ -2037,9 +2349,7 @@ export function buildDaoPolicyActionPayload({
       );
 
       if (!permissionsDirty && !thresholdDirty) {
-        throw new Error(
-          'Change permissions or proposer threshold before submitting.'
-        );
+        throw new Error('No changes yet.');
       }
 
       if (
@@ -2065,6 +2375,13 @@ export function buildDaoPolicyActionPayload({
       return buildDaoPolicyParametersUpdatePayload({
         proposalBondYocto,
         proposalPeriodNs,
+        description,
+      });
+    case 'update_config':
+      return buildDaoConfigChangePayload({
+        name: daoConfigName ?? '',
+        purpose: daoConfigPurpose ?? '',
+        metadata: daoConfigMetadata,
         description,
       });
     case 'update_vote_policy': {
@@ -2525,12 +2842,87 @@ export function buildGovernanceCreateActionMenuItems({
   return items;
 }
 
+export type GovernanceCreateActionMenuCategory = {
+  id: string;
+  label: string;
+  items: Array<
+    Extract<GovernanceCreateActionMenuItem, { kind: 'proposal' | 'policy_link' }>
+  >;
+};
+
+export function groupGovernanceCreateActionMenuItems(
+  items: GovernanceCreateActionMenuItem[]
+): GovernanceCreateActionMenuCategory[] {
+  const categories: GovernanceCreateActionMenuCategory[] = [];
+
+  for (const item of items) {
+    if (item.kind === 'section') {
+      categories.push({
+        id: item.id,
+        label: item.label,
+        items: [],
+      });
+      continue;
+    }
+
+    const current = categories.at(-1);
+    if (current) {
+      current.items.push(item);
+    }
+  }
+
+  return categories.filter((category) => category.items.length > 0);
+}
+
+export function resolveGovernanceCreateActionMenuCategoryId(
+  actionId: CreatableDaoProposalAction
+): CreatableDaoProposalActionGroup {
+  return (
+    CREATABLE_DAO_PROPOSAL_ACTIONS.find((option) => option.id === actionId)
+      ?.group ?? 'membership'
+  );
+}
+
 export function getCreatableDaoProposalActionOption(
   actionId: CreatableDaoProposalAction
 ) {
   return CREATABLE_DAO_PROPOSAL_ACTIONS.find(
     (option) => option.id === actionId
   );
+}
+
+export function resolveGovernanceCreateDescriptionPlaceholder(
+  action: CreatableDaoProposalAction,
+  roleId = ''
+): string {
+  const roleLabel = roleId.trim() || 'the role';
+
+  switch (action) {
+    case 'idea':
+      return DAO_SIGNAL_PROPOSAL_PLACEHOLDER;
+    case 'transfer':
+      return 'Why the DAO should send these funds';
+    case 'fund_season_pool':
+      return 'Why the DAO should sponsor this rally pool';
+    case 'withdraw_boost_infra':
+      return 'Why the DAO should withdraw boost infra funds now';
+    case 'set_boost_infra_authority':
+      return 'Why treasury DAO should receive boost infra withdraw authority';
+    case 'transfer_ownership':
+      return 'Why ownership should move to this account';
+    case 'contract_upgrade':
+      return 'Why this contract should upgrade to the published hash';
+    case 'contract_config':
+      return 'Why this contract setting should change';
+    case 'leave_self':
+      return 'Why you are stepping back from this role';
+    case 'remove_member':
+      return `Why they should leave ${roleLabel}`;
+    case 'join_self':
+      return `Why you should join ${roleLabel}`;
+    case 'add_member':
+      return `Why they should join ${roleLabel}`;
+  }
 }
 
 export function buildDaoIdeaProposalPayload({

@@ -2,7 +2,12 @@ import {
   resolveStartOffsetMinutes,
   startsAtLocalFromOffsetMinutes,
 } from '@/lib/relative-duration';
-import { SOCIAL_SPEND_CONTRACT } from '@/lib/near-rpc';
+import {
+  SOCIAL_SPEND_CONTRACT,
+  sanitizeSocialAmountInput,
+  socialToYocto,
+  yoctoToSocial,
+} from '@/lib/near-rpc';
 
 export const SOCIAL_SPEND_ROUTING_BPS_DENOMINATOR = 10_000;
 
@@ -11,11 +16,62 @@ export const SOCIAL_SPEND_CONFIG_FUNCTION_CALL_DEPOSIT = '1';
 
 export type DaoContractConfigOperationId =
   | 'social_spend_join_rally_routing'
+  | 'social_spend_support_profile_routing'
   | 'social_spend_support_endorsement_routing'
+  | 'social_spend_boost_post_routing'
   | 'social_spend_set_season_config';
 
 /** Minimum spend for default social-spend actions (0.01 SOCIAL, 18 decimals). */
 export const SOCIAL_SPEND_MIN_AMOUNT_YOCTO = '10000000000000000';
+
+/** Upper bound for support min spends in governance UI (100 SOCIAL). */
+export const SOCIAL_SPEND_SUPPORT_MIN_AMOUNT_MAX_YOCTO =
+  '100000000000000000000';
+
+export const SOCIAL_SPEND_SUPPORT_MIN_AMOUNT_SOCIAL_LABEL = '0.01';
+export const SOCIAL_SPEND_SUPPORT_MIN_AMOUNT_MAX_SOCIAL_LABEL = '100';
+
+/** Default join_rally entry (100 SOCIAL, 18 decimals). */
+export const SOCIAL_SPEND_JOIN_RALLY_MIN_AMOUNT_YOCTO =
+  '100000000000000000000';
+
+/** Lower bound for join_rally min in governance UI (1 SOCIAL). */
+export const SOCIAL_SPEND_JOIN_RALLY_MIN_AMOUNT_FLOOR_YOCTO =
+  '1000000000000000000';
+
+/** Upper bound for join_rally min in governance UI (10,000 SOCIAL). */
+export const SOCIAL_SPEND_JOIN_RALLY_MIN_AMOUNT_MAX_YOCTO =
+  '10000000000000000000000';
+
+export const SOCIAL_SPEND_JOIN_RALLY_MIN_AMOUNT_SOCIAL_LABEL = '1';
+export const SOCIAL_SPEND_JOIN_RALLY_MIN_AMOUNT_MAX_SOCIAL_LABEL = '10000';
+
+export const DEFAULT_JOIN_RALLY_ROUTING_DRAFT: SocialSpendActionRoutingDraft = {
+  label: 'Join Rally',
+  active: true,
+  min_amount: SOCIAL_SPEND_JOIN_RALLY_MIN_AMOUNT_YOCTO,
+  target_types: ['rally'],
+  treasury_bps: 500,
+  season_pool_bps: 9_500,
+  target_bps: 0,
+  burn_bps: 0,
+  season_required: true,
+  allow_self_target: true,
+};
+
+export const DEFAULT_SUPPORT_PROFILE_ROUTING_DRAFT: SocialSpendActionRoutingDraft =
+  {
+    label: 'Support Profile',
+    active: true,
+    min_amount: SOCIAL_SPEND_MIN_AMOUNT_YOCTO,
+    target_types: ['profile'],
+    treasury_bps: 100,
+    season_pool_bps: 0,
+    target_bps: 9_900,
+    burn_bps: 0,
+    season_required: false,
+    allow_self_target: false,
+  };
 
 export const DEFAULT_SUPPORT_ENDORSEMENT_ROUTING_DRAFT: SocialSpendActionRoutingDraft =
   {
@@ -30,6 +86,20 @@ export const DEFAULT_SUPPORT_ENDORSEMENT_ROUTING_DRAFT: SocialSpendActionRouting
     season_required: false,
     allow_self_target: false,
   };
+
+/** Matches on-chain default for boost_post (10% protocol · 90% post author). */
+export const DEFAULT_BOOST_POST_ROUTING_DRAFT: SocialSpendActionRoutingDraft = {
+  label: 'Boost Post',
+  active: true,
+  min_amount: SOCIAL_SPEND_MIN_AMOUNT_YOCTO,
+  target_types: ['post'],
+  treasury_bps: 1_000,
+  season_pool_bps: 0,
+  target_bps: 9_000,
+  burn_bps: 0,
+  season_required: false,
+  allow_self_target: true,
+};
 
 export interface SocialSpendActionConfigView {
   label: string;
@@ -132,6 +202,20 @@ export const DAO_CONTRACT_CONFIG_OPERATIONS: readonly DaoContractConfigOperation
       actionId: 'join_rally',
     },
     {
+      id: 'social_spend_support_profile_routing',
+      contractId: SOCIAL_SPEND_CONTRACT,
+      label: 'Support profile routing',
+      description:
+        'Register or update support_profile spends (SOCIAL sent to a profile). Recipient claims via target balance; protocol fees route to boost credits.',
+      methodName: 'set_action_config',
+      gas: SOCIAL_SPEND_CONFIG_FUNCTION_CALL_GAS,
+      deposit: SOCIAL_SPEND_CONFIG_FUNCTION_CALL_DEPOSIT,
+      prefetchMethod: 'get_action_config',
+      prefetchArgs: { action_id: 'support_profile' },
+      form: 'social_spend_action_routing',
+      actionId: 'support_profile',
+    },
+    {
       id: 'social_spend_support_endorsement_routing',
       contractId: SOCIAL_SPEND_CONTRACT,
       label: 'Support endorsement routing',
@@ -144,6 +228,20 @@ export const DAO_CONTRACT_CONFIG_OPERATIONS: readonly DaoContractConfigOperation
       prefetchArgs: { action_id: 'support_endorsement' },
       form: 'social_spend_action_routing',
       actionId: 'support_endorsement',
+    },
+    {
+      id: 'social_spend_boost_post_routing',
+      contractId: SOCIAL_SPEND_CONTRACT,
+      label: 'Boost post routing',
+      description:
+        'Update boost_post spends (SOCIAL sent to boost a post). Post author claims via target balance; protocol fees route to boost credits.',
+      methodName: 'set_action_config',
+      gas: SOCIAL_SPEND_CONFIG_FUNCTION_CALL_GAS,
+      deposit: SOCIAL_SPEND_CONFIG_FUNCTION_CALL_DEPOSIT,
+      prefetchMethod: 'get_action_config',
+      prefetchArgs: { action_id: 'boost_post' },
+      form: 'social_spend_action_routing',
+      actionId: 'boost_post',
     },
     {
       id: 'social_spend_set_season_config',
@@ -314,7 +412,7 @@ export function validateSocialSpendActionRoutingBps(
   );
 }
 
-export function socialSpendActionRoutingChanged(
+export function socialSpendActionRoutingBpsChanged(
   baseline: SocialSpendActionRoutingDraft | null,
   draft: SocialSpendActionRoutingDraft | null
 ): boolean {
@@ -330,15 +428,327 @@ export function socialSpendActionRoutingChanged(
   );
 }
 
+/** @deprecated Use socialSpendActionRoutingBpsChanged or socialSpendActionDraftChanged */
+export function socialSpendActionRoutingChanged(
+  baseline: SocialSpendActionRoutingDraft | null,
+  draft: SocialSpendActionRoutingDraft | null
+): boolean {
+  return socialSpendActionRoutingBpsChanged(baseline, draft);
+}
+
+export function isSupportSpendRoutingOperationId(
+  operationId: DaoContractConfigOperationId | ''
+): operationId is
+  | 'social_spend_support_profile_routing'
+  | 'social_spend_support_endorsement_routing'
+  | 'social_spend_boost_post_routing' {
+  return (
+    operationId === 'social_spend_support_profile_routing' ||
+    operationId === 'social_spend_support_endorsement_routing' ||
+    operationId === 'social_spend_boost_post_routing'
+  );
+}
+
+export function isJoinRallyRoutingOperationId(
+  operationId: DaoContractConfigOperationId | ''
+): operationId is 'social_spend_join_rally_routing' {
+  return operationId === 'social_spend_join_rally_routing';
+}
+
+export function isSocialSpendRoutingMinEditableOperationId(
+  operationId: DaoContractConfigOperationId | ''
+): operationId is
+  | 'social_spend_join_rally_routing'
+  | 'social_spend_support_profile_routing'
+  | 'social_spend_support_endorsement_routing'
+  | 'social_spend_boost_post_routing' {
+  return (
+    isJoinRallyRoutingOperationId(operationId) ||
+    isSupportSpendRoutingOperationId(operationId)
+  );
+}
+
+export function validateSocialSpendActionMinAmount(minAmount: string): boolean {
+  const trimmed = minAmount.trim();
+  if (!/^\d+$/u.test(trimmed)) {
+    return false;
+  }
+
+  try {
+    return BigInt(trimmed) > 0n;
+  } catch {
+    return false;
+  }
+}
+
+export function parseSocialSpendMinAmountInputToYocto(input: string): string | null {
+  const sanitized = sanitizeSocialAmountInput(input.trim());
+  if (!sanitized || sanitized === '0' || sanitized === '0.') {
+    return null;
+  }
+
+  const yocto = socialToYocto(sanitized);
+  return validateSocialSpendActionMinAmount(yocto) ? yocto : null;
+}
+
+export function validateSocialSpendSupportMinAmountYocto(
+  minAmountYocto: string
+): boolean {
+  if (!validateSocialSpendActionMinAmount(minAmountYocto)) {
+    return false;
+  }
+
+  try {
+    const value = BigInt(minAmountYocto);
+    return (
+      value >= BigInt(SOCIAL_SPEND_MIN_AMOUNT_YOCTO) &&
+      value <= BigInt(SOCIAL_SPEND_SUPPORT_MIN_AMOUNT_MAX_YOCTO)
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Clamp and reject out-of-range keystrokes like proposer threshold inputs. */
+export function sanitizeSocialSpendSupportMinAmountInput(
+  value: string,
+  previousValue = ''
+): string {
+  const sanitized = sanitizeSocialAmountInput(value);
+  if (!sanitized) {
+    return sanitized;
+  }
+
+  const parsedYocto = parseSocialSpendMinAmountInputToYocto(sanitized);
+  if (!parsedYocto) {
+    return sanitized;
+  }
+
+  try {
+    const yocto = BigInt(parsedYocto);
+    const min = BigInt(SOCIAL_SPEND_MIN_AMOUNT_YOCTO);
+    const max = BigInt(SOCIAL_SPEND_SUPPORT_MIN_AMOUNT_MAX_YOCTO);
+
+    if (yocto > max) {
+      return yoctoToSocial(SOCIAL_SPEND_SUPPORT_MIN_AMOUNT_MAX_YOCTO);
+    }
+
+    if (yocto < min) {
+      const minSocialLabel = SOCIAL_SPEND_SUPPORT_MIN_AMOUNT_SOCIAL_LABEL;
+      if (minSocialLabel.startsWith(sanitized) || sanitized.endsWith('.')) {
+        return sanitized;
+      }
+
+      return previousValue;
+    }
+  } catch {
+    return previousValue;
+  }
+
+  return sanitized;
+}
+
+export function validateSocialSpendJoinRallyMinAmountYocto(
+  minAmountYocto: string
+): boolean {
+  if (!validateSocialSpendActionMinAmount(minAmountYocto)) {
+    return false;
+  }
+
+  try {
+    const value = BigInt(minAmountYocto);
+    return (
+      value >= BigInt(SOCIAL_SPEND_JOIN_RALLY_MIN_AMOUNT_FLOOR_YOCTO) &&
+      value <= BigInt(SOCIAL_SPEND_JOIN_RALLY_MIN_AMOUNT_MAX_YOCTO)
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function sanitizeSocialSpendJoinRallyMinAmountInput(
+  value: string,
+  previousValue = ''
+): string {
+  const sanitized = sanitizeSocialAmountInput(value);
+  if (!sanitized) {
+    return sanitized;
+  }
+
+  const parsedYocto = parseSocialSpendMinAmountInputToYocto(sanitized);
+  if (!parsedYocto) {
+    return sanitized;
+  }
+
+  try {
+    const yocto = BigInt(parsedYocto);
+    const min = BigInt(SOCIAL_SPEND_JOIN_RALLY_MIN_AMOUNT_FLOOR_YOCTO);
+    const max = BigInt(SOCIAL_SPEND_JOIN_RALLY_MIN_AMOUNT_MAX_YOCTO);
+
+    if (yocto > max) {
+      return yoctoToSocial(SOCIAL_SPEND_JOIN_RALLY_MIN_AMOUNT_MAX_YOCTO);
+    }
+
+    if (yocto < min) {
+      const minSocialLabel = SOCIAL_SPEND_JOIN_RALLY_MIN_AMOUNT_SOCIAL_LABEL;
+      if (minSocialLabel.startsWith(sanitized) || sanitized.endsWith('.')) {
+        return sanitized;
+      }
+
+      return previousValue;
+    }
+  } catch {
+    return previousValue;
+  }
+
+  return sanitized;
+}
+
+export function validateSocialSpendRoutingMinAmountYocto(
+  minAmountYocto: string,
+  operationId: DaoContractConfigOperationId | ''
+): boolean {
+  if (isSupportSpendRoutingOperationId(operationId)) {
+    return validateSocialSpendSupportMinAmountYocto(minAmountYocto);
+  }
+
+  if (isJoinRallyRoutingOperationId(operationId)) {
+    return validateSocialSpendJoinRallyMinAmountYocto(minAmountYocto);
+  }
+
+  return validateSocialSpendActionMinAmount(minAmountYocto);
+}
+
+export function sanitizeSocialSpendRoutingMinAmountInput(
+  value: string,
+  previousValue: string,
+  operationId: DaoContractConfigOperationId | ''
+): string {
+  if (isSupportSpendRoutingOperationId(operationId)) {
+    return sanitizeSocialSpendSupportMinAmountInput(value, previousValue);
+  }
+
+  if (isJoinRallyRoutingOperationId(operationId)) {
+    return sanitizeSocialSpendJoinRallyMinAmountInput(value, previousValue);
+  }
+
+  return sanitizeSocialAmountInput(value);
+}
+
+export function socialSpendActionDraftChanged(
+  baseline: SocialSpendActionRoutingDraft | null,
+  draft: SocialSpendActionRoutingDraft | null,
+  options: {
+    includeMinAmount?: boolean;
+    includeActive?: boolean;
+  } = {}
+): boolean {
+  if (!baseline || !draft) {
+    return false;
+  }
+
+  if (socialSpendActionRoutingBpsChanged(baseline, draft)) {
+    return true;
+  }
+
+  if (options.includeMinAmount && baseline.min_amount !== draft.min_amount) {
+    return true;
+  }
+
+  if (options.includeActive && baseline.active !== draft.active) {
+    return true;
+  }
+
+  return false;
+}
+
 export function isSocialSpendActionRoutingOperationId(
   operationId: DaoContractConfigOperationId | ''
 ): operationId is
   | 'social_spend_join_rally_routing'
-  | 'social_spend_support_endorsement_routing' {
+  | 'social_spend_support_profile_routing'
+  | 'social_spend_support_endorsement_routing'
+  | 'social_spend_boost_post_routing' {
   return (
     operationId === 'social_spend_join_rally_routing' ||
-    operationId === 'social_spend_support_endorsement_routing'
+    operationId === 'social_spend_support_profile_routing' ||
+    operationId === 'social_spend_support_endorsement_routing' ||
+    operationId === 'social_spend_boost_post_routing'
   );
+}
+
+export type SocialSpendRoutingShareFieldKey =
+  | 'treasury_bps'
+  | 'season_pool_bps'
+  | 'target_bps'
+  | 'burn_bps';
+
+const SOCIAL_SPEND_ROUTING_SHARE_FIELDS: readonly SocialSpendRoutingShareFieldKey[] =
+  ['season_pool_bps', 'treasury_bps', 'target_bps', 'burn_bps'];
+
+export const SOCIAL_SPEND_ROUTING_SHARE_FIELD_LABELS: Record<
+  SocialSpendRoutingShareFieldKey,
+  string
+> = {
+  season_pool_bps: 'Pool',
+  treasury_bps: 'Fees',
+  target_bps: 'Target',
+  burn_bps: 'Burn',
+};
+
+export function getSocialSpendRoutingFieldLayout(
+  operationId: DaoContractConfigOperationId
+): {
+  primary: readonly SocialSpendRoutingShareFieldKey[];
+  secondary: readonly SocialSpendRoutingShareFieldKey[];
+} {
+  if (operationId === 'social_spend_join_rally_routing') {
+    return {
+      primary: SOCIAL_SPEND_ROUTING_SHARE_FIELDS,
+      secondary: [],
+    };
+  }
+
+  return {
+    primary: ['treasury_bps', 'target_bps'],
+    secondary: ['season_pool_bps', 'burn_bps'],
+  };
+}
+
+export function socialSpendRoutingSecondaryFieldsActive(
+  draft: Pick<
+    SocialSpendActionRoutingDraft,
+    SocialSpendRoutingShareFieldKey
+  > | null,
+  secondary: readonly SocialSpendRoutingShareFieldKey[]
+): boolean {
+  if (!draft) {
+    return false;
+  }
+
+  return secondary.some((field) => draft[field] > 0);
+}
+
+export function formatSocialSpendRoutingFixedFieldsCaption(
+  operationId: DaoContractConfigOperationId
+): string | null {
+  if (operationId === 'social_spend_join_rally_routing') {
+    return 'Season required · rally target';
+  }
+
+  if (operationId === 'social_spend_support_profile_routing') {
+    return 'Profile target · label fixed';
+  }
+
+  if (operationId === 'social_spend_support_endorsement_routing') {
+    return 'Endorsement target · label fixed';
+  }
+
+  if (operationId === 'social_spend_boost_post_routing') {
+    return 'Post target · self-spend allowed';
+  }
+
+  return null;
 }
 
 export interface SocialSpendActionRoutingOperationConfig {
@@ -359,11 +769,35 @@ export function getSocialSpendActionRoutingOperationConfig(
     return null;
   }
 
+  if (operationId === 'social_spend_support_profile_routing') {
+    return {
+      actionId: operation.actionId,
+      actionLabel: 'support profile',
+      defaultDraft: DEFAULT_SUPPORT_PROFILE_ROUTING_DRAFT,
+    };
+  }
+
   if (operationId === 'social_spend_support_endorsement_routing') {
     return {
       actionId: operation.actionId,
       actionLabel: 'support endorsement',
       defaultDraft: DEFAULT_SUPPORT_ENDORSEMENT_ROUTING_DRAFT,
+    };
+  }
+
+  if (operationId === 'social_spend_boost_post_routing') {
+    return {
+      actionId: operation.actionId,
+      actionLabel: 'boost post',
+      defaultDraft: DEFAULT_BOOST_POST_ROUTING_DRAFT,
+    };
+  }
+
+  if (operationId === 'social_spend_join_rally_routing') {
+    return {
+      actionId: operation.actionId,
+      actionLabel: 'join rally',
+      defaultDraft: DEFAULT_JOIN_RALLY_ROUTING_DRAFT,
     };
   }
 
@@ -376,9 +810,21 @@ export function getSocialSpendActionRoutingOperationConfig(
 
 export function canProposeSocialSpendActionRoutingDraft(
   baseline: SocialSpendActionRoutingDraft | null,
-  draft: SocialSpendActionRoutingDraft | null
+  draft: SocialSpendActionRoutingDraft | null,
+  operationId: DaoContractConfigOperationId | '' = ''
 ): boolean {
   if (!draft || !validateSocialSpendActionRoutingBps(draft)) {
+    return false;
+  }
+
+  const includeMinAmount =
+    isSocialSpendRoutingMinEditableOperationId(operationId);
+  const includeActive = isSupportSpendRoutingOperationId(operationId);
+
+  if (
+    includeMinAmount &&
+    !validateSocialSpendRoutingMinAmountYocto(draft.min_amount, operationId)
+  ) {
     return false;
   }
 
@@ -386,7 +832,52 @@ export function canProposeSocialSpendActionRoutingDraft(
     return true;
   }
 
-  return socialSpendActionRoutingChanged(baseline, draft);
+  return socialSpendActionDraftChanged(baseline, draft, {
+    includeMinAmount,
+    includeActive,
+  });
+}
+
+export function socialSpendActionRoutingProposalBlocker(
+  baseline: SocialSpendActionRoutingDraft | null,
+  draft: SocialSpendActionRoutingDraft | null,
+  operationId: DaoContractConfigOperationId | ''
+): string | null {
+  if (!draft) {
+    return null;
+  }
+
+  if (!validateSocialSpendActionRoutingBps(draft)) {
+    return 'Routing shares must sum to 100% (10,000 bps).';
+  }
+
+  if (
+    isSocialSpendRoutingMinEditableOperationId(operationId) &&
+    !validateSocialSpendRoutingMinAmountYocto(draft.min_amount, operationId)
+  ) {
+    if (isJoinRallyRoutingOperationId(operationId)) {
+      return `Enter a minimum spend between ${SOCIAL_SPEND_JOIN_RALLY_MIN_AMOUNT_SOCIAL_LABEL} and ${SOCIAL_SPEND_JOIN_RALLY_MIN_AMOUNT_MAX_SOCIAL_LABEL} SOCIAL.`;
+    }
+
+    return `Enter a minimum spend between ${SOCIAL_SPEND_SUPPORT_MIN_AMOUNT_SOCIAL_LABEL} and ${SOCIAL_SPEND_SUPPORT_MIN_AMOUNT_MAX_SOCIAL_LABEL} SOCIAL.`;
+  }
+
+  if (
+    baseline &&
+    !canProposeSocialSpendActionRoutingDraft(baseline, draft, operationId)
+  ) {
+    if (isSupportSpendRoutingOperationId(operationId)) {
+      return 'Change at least one routing share, minimum spend, or active flag before proposing.';
+    }
+
+    if (isJoinRallyRoutingOperationId(operationId)) {
+      return 'Change at least one routing share or minimum spend before proposing.';
+    }
+
+    return 'Change at least one routing share before proposing.';
+  }
+
+  return null;
 }
 
 export function formatSocialSpendActionRoutingSummary(
@@ -414,6 +905,85 @@ export function formatSocialSpendActionRoutingSummary(
     parts.push(`${draft.target_bps / 100}% target`);
   }
   return parts.join(' · ') || 'No routing';
+}
+
+/** Yocto min from on-chain / proposal config — string only (JSON numbers lose u128 precision). */
+export function readSocialSpendActionMinAmountYocto(
+  config: unknown
+): string | undefined {
+  if (!config || typeof config !== 'object' || Array.isArray(config)) {
+    return undefined;
+  }
+
+  const raw = (config as Record<string, unknown>).min_amount;
+  if (typeof raw !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = raw.trim();
+  return validateSocialSpendActionMinAmount(trimmed) ? trimmed : undefined;
+}
+
+export function formatSocialSpendMinAmountCardLabel(
+  minAmountYocto: string | undefined
+): string | null {
+  const trimmed = minAmountYocto?.trim();
+  if (!trimmed || !validateSocialSpendActionMinAmount(trimmed)) {
+    return null;
+  }
+
+  return `min ${yoctoToSocial(trimmed)} SOCIAL`;
+}
+
+export function formatSocialSpendActionConfigCardSummary(
+  draft: Pick<
+    SocialSpendActionRoutingDraft,
+    'treasury_bps' | 'season_pool_bps' | 'target_bps' | 'burn_bps' | 'min_amount'
+  >,
+  options?: { protocolFeesRouteToBoost?: boolean; includeMinAmount?: boolean }
+): string {
+  const routing = formatSocialSpendActionRoutingSummary(draft, options);
+  if (options?.includeMinAmount === false) {
+    return routing;
+  }
+
+  const minLabel = formatSocialSpendMinAmountCardLabel(draft.min_amount);
+  if (!minLabel) {
+    return routing;
+  }
+
+  return routing === 'No routing' ? minLabel : `${minLabel} · ${routing}`;
+}
+
+export function formatSocialSpendActionConfigCardSummaryFromRecord(
+  config: unknown,
+  options?: { protocolFeesRouteToBoost?: boolean; includeMinAmount?: boolean }
+): string {
+  if (!config || typeof config !== 'object' || Array.isArray(config)) {
+    return formatSocialSpendActionRoutingSummary({
+      treasury_bps: 0,
+      season_pool_bps: 0,
+      target_bps: 0,
+      burn_bps: 0,
+    });
+  }
+
+  const record = config as Record<string, unknown>;
+  const readBps = (field: string): number =>
+    typeof record[field] === 'number' && Number.isFinite(record[field])
+      ? (record[field] as number)
+      : 0;
+
+  return formatSocialSpendActionConfigCardSummary(
+    {
+      treasury_bps: readBps('treasury_bps'),
+      season_pool_bps: readBps('season_pool_bps'),
+      target_bps: readBps('target_bps'),
+      burn_bps: readBps('burn_bps'),
+      min_amount: readSocialSpendActionMinAmountYocto(record),
+    },
+    options
+  );
 }
 
 export function nsToDatetimeLocalValue(ns: string): string {

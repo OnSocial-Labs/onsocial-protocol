@@ -986,12 +986,45 @@ html.lenis {
 }
 
 /* ── responsive stat-strip columns ────────────────────────────── */
+[data-stat-cols='2'] {
+  --stat-cols: 2;
+}
+[data-stat-cols='3'] {
+  --stat-cols: 3;
+}
+[data-stat-cols='4'] {
+  --stat-cols: 4;
+}
+[data-stat-cols='5'] {
+  --stat-cols: 5;
+}
+[data-stat-cols='6'] {
+  --stat-cols: 6;
+}
+
 @media (max-width: 767px) {
   [data-mobile-cols='2'] {
     --stat-cols: 2;
   }
   [data-mobile-cols='3'] {
     --stat-cols: 3;
+  }
+}
+
+/* Mobile grid tracks own cell width; desktop keeps flex column sizing. */
+@media (max-width: 767px) {
+  .stat-strip-responsive .stat-strip-cell {
+    flex: none;
+    width: auto;
+    max-width: none;
+  }
+}
+
+@media (min-width: 768px) {
+  .stat-strip-responsive .stat-strip-cell {
+    flex: 0 0 calc(100% / var(--stat-cols));
+    width: calc(100% / var(--stat-cols));
+    max-width: calc(100% / var(--stat-cols));
   }
 }
 

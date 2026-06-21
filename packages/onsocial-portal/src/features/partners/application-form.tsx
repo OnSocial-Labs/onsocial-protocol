@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, Check, ChevronDown, Shield, X } from 'lucide-react';
 import { useWallet } from '@/contexts/wallet-context';
 import { Button, buttonArrowRightClass } from '@/components/ui/button';
+import { PortalConnectPrompt, WalletBootstrapPlaceholder } from '@/components/ui/portal-connect-prompt';
 import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
 import {
@@ -217,7 +218,7 @@ export function ApplicationForm({
   governanceThresholdDisplay?: string;
   proposalBondDisplay?: string;
 }) {
-  const { accountId, connect } = useWallet();
+  const { accountId, isLoading: isWalletBootstrapping } = useWallet();
   const [label, setLabel] = useState('');
   const [description, setDescription] = useState('');
   const [audienceBand, setAudienceBand] =
@@ -628,20 +629,24 @@ export function ApplicationForm({
     }
   };
 
+  if (isWalletBootstrapping) {
+    return (
+      <div className="py-12">
+        <WalletBootstrapPlaceholder />
+      </div>
+    );
+  }
+
   if (!accountId) {
     return (
-      <div className="text-center py-12">
-        <Shield className="mx-auto mb-4 h-10 w-10 text-muted-foreground/40" />
-        <p className="mb-6 text-muted-foreground">
-          Sign in to start your partner application.
-        </p>
-        <Button
-          onClick={() => connect()}
-          size="default"
-          className="font-semibold px-8"
-        >
-          Let's connect
-        </Button>
+      <div className="py-12">
+        <PortalConnectPrompt
+          action="partners.apply"
+          variant="gate"
+          icon={
+            <Shield className="h-10 w-10 text-muted-foreground/40" aria-hidden />
+          }
+        />
       </div>
     );
   }

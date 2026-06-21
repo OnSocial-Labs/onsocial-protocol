@@ -3,16 +3,25 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 export function useDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
 
   const open = useCallback(() => setIsOpen(true), []);
   const close = useCallback(() => setIsOpen(false), []);
-  const toggle = useCallback(() => setIsOpen((v) => !v), []);
+  const toggle = useCallback(() => setIsOpen((value) => !value), []);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      return;
+    }
 
-    const handlePointerDown = (event: MouseEvent) => {
-      if (containerRef.current?.contains(event.target as Node)) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (containerRef.current?.contains(target)) {
+        return;
+      }
+      if (panelRef.current?.contains(target)) {
+        return;
+      }
       setIsOpen(false);
     };
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -22,13 +31,13 @@ export function useDropdown() {
       }
     };
 
-    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('pointerdown', handlePointerDown, true);
     document.addEventListener('keydown', handleKeyDown);
     return () => {
-      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('pointerdown', handlePointerDown, true);
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [isOpen]);
 
-  return { isOpen, open, close, toggle, containerRef } as const;
+  return { isOpen, open, close, toggle, containerRef, panelRef } as const;
 }

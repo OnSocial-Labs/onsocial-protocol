@@ -38,10 +38,16 @@ import {
 import { ModalHeader } from '@/components/ui/modal-header';
 import {
   profileSocialEndorseButtonClass,
+  profileSocialEndorseArrowClass,
   profileSocialStandingButtonClass,
   profileSocialSupportButtonClass,
-  walletMenuActionButtonClass,
+  profileSocialSupportArrowClass,
+  profileSocialSupportHeartClass,
 } from '@/components/ui/profile-action-pill';
+import {
+  ProfileSocialCollectPill,
+  profileSocialCollectAriaLabel,
+} from '@/components/ui/profile-social-collect-pill';
 import {
   ProfileSocialStandingPending,
   ProfileSocialStandingToggle,
@@ -1543,19 +1549,14 @@ export function ProfileModal({
                           />
                         ) : null}
                         {canClaimSupport ? (
-                          <button
-                            type="button"
-                            className={walletMenuActionButtonClass(
-                              'claim-ready'
+                          <ProfileSocialCollectPill
+                            amountLabel={formatSupportBalanceLabel(
+                              claimableSupportYocto
                             )}
-                            disabled={isClaimingSupportBalance}
+                            pending={isClaimingSupportBalance}
+                            ariaLabel={`${profileSocialCollectAriaLabel(formatSupportBalanceLabel(claimableSupportYocto))} support`}
                             onClick={() => void handleClaimSupport()}
-                            aria-label={`Claim ${formatSupportBalanceLabel(claimableSupportYocto)} SOCIAL support`}
-                          >
-                            Claim{' '}
-                            {formatSupportBalanceLabel(claimableSupportYocto)}{' '}
-                            SOCIAL
-                          </button>
+                          />
                         ) : null}
                         {canSupport ? (
                           <button
@@ -1565,8 +1566,13 @@ export function ProfileModal({
                             onClick={() => setSupportOpen(true)}
                             aria-label={`Support ${title} with SOCIAL`}
                           >
-                            <HeartHandshake className="h-3 w-3" />
-                            Support
+                            <ProtocolMotionArrow
+                              className={profileSocialSupportArrowClass()}
+                            />
+                            <HeartHandshake
+                              className={profileSocialSupportHeartClass()}
+                              strokeWidth={2}
+                            />
                           </button>
                         ) : null}
                         {canAddEndorsement ? (
@@ -1576,7 +1582,9 @@ export function ProfileModal({
                             onClick={() => setEndorseModalOpen(true)}
                             aria-label={`Endorse ${title}`}
                           >
-                            <ProtocolMotionArrow className="h-2.5 w-2.5 text-[var(--portal-gold)]/70 group-hover:text-[var(--portal-gold)]" />
+                            <ProtocolMotionArrow
+                              className={profileSocialEndorseArrowClass()}
+                            />
                             {endorseActionLabel}
                           </button>
                         ) : null}

@@ -3,6 +3,7 @@ import {
   estimateSeasonZeroPayouts,
   type SeasonZeroPayoutEstimate,
   type SeasonZeroPayoutParticipant,
+  type SeasonZeroPayoutRoutingContext,
 } from '@/features/season/season-zero-payout-estimate';
 
 export function formatSeasonZeroPayoutBand(
@@ -19,6 +20,7 @@ export function buildSeasonZeroPayoutEstimate(input: {
   personalAccountId?: string | null;
   personalScore?: number | null;
   personalRank?: number | null;
+  routing?: SeasonZeroPayoutRoutingContext;
 }): SeasonZeroPayoutEstimate | null {
   return estimateSeasonZeroPayouts({
     indexedPoolYocto: input.indexedPoolYocto ?? '0',
@@ -28,6 +30,7 @@ export function buildSeasonZeroPayoutEstimate(input: {
     personalAccountId: input.personalAccountId,
     personalScore: input.personalScore,
     personalRank: input.personalRank,
+    routing: input.routing,
   });
 }
 
@@ -43,6 +46,7 @@ export function seasonZeroPayoutSummary(input: {
   personalAccountId?: string | null;
   personalScore?: number | null;
   personalRank?: number | null;
+  routing?: SeasonZeroPayoutRoutingContext;
 }): string | null {
   const estimate = buildSeasonZeroPayoutEstimate(input);
   if (!estimate) return null;

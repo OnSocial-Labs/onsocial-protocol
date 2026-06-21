@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { SOCIAL_SPEND_MIN_AMOUNT_YOCTO } from '@/lib/dao-contract-config-operations';
+import { SOCIAL_SPEND_MIN_AMOUNT_YOCTO } from '@/lib/dao-contract-config-operations';
 import {
   deriveProposalPresentation,
   resolveProposalTargetEyebrowLabel,
@@ -362,8 +364,53 @@ describe('proposal card target eyebrows', () => {
 
     expect(presentation.actionBadge).toBe('Config');
     expect(presentation.targetKind).toBe('routing');
-    expect(presentation.targetValue).toBe('95% pool · 5% burn');
+    expect(presentation.targetValue).toBe(
+      'min 100 SOCIAL · 95% pool · 5% burn'
+    );
     expect(presentation.headline).toBe('Set Social spend join rally routing');
+  });
+
+  it('shows support profile routing on contract config proposals', () => {
+    const presentation = deriveProposalPresentation({
+      proposer: 'alice.testnet',
+      description: 'Fix profile support minimum.',
+      kind: {
+        FunctionCall: {
+          receiver_id: 'social-spend.onsocial.testnet',
+          actions: [
+            {
+              method_name: 'set_action_config',
+              args: encodeArgs({
+                action_id: 'support_profile',
+                config: {
+                  label: 'Support Profile',
+                  active: true,
+                  min_amount: SOCIAL_SPEND_MIN_AMOUNT_YOCTO,
+                  target_types: ['profile'],
+                  treasury_bps: 100,
+                  season_pool_bps: 0,
+                  target_bps: 9900,
+                  burn_bps: 0,
+                  season_required: false,
+                  allow_self_target: false,
+                },
+              }),
+              deposit: '1',
+              gas: 100_000_000_000_000,
+            },
+          ],
+        },
+      },
+    });
+
+    expect(presentation.actionBadge).toBe('Config');
+    expect(presentation.targetKind).toBe('routing');
+    expect(presentation.targetValue).toBe(
+      'min 0.01 SOCIAL · 1% boost credits · 99% target'
+    );
+    expect(presentation.headline).toBe(
+      'Set Social spend support profile routing'
+    );
   });
 
   it('shows support endorsement routing on contract config proposals', () => {
@@ -401,10 +448,90 @@ describe('proposal card target eyebrows', () => {
 
     expect(presentation.actionBadge).toBe('Config');
     expect(presentation.targetKind).toBe('routing');
-    expect(presentation.targetValue).toBe('5% boost credits · 95% target');
+    expect(presentation.targetValue).toBe(
+      'min 0.01 SOCIAL · 5% boost credits · 95% target'
+    );
     expect(presentation.headline).toBe(
       'Set Social spend support endorsement routing'
     );
+  });
+
+  it('shows boost post routing on contract config proposals', () => {
+    const presentation = deriveProposalPresentation({
+      proposer: 'alice.testnet',
+      description: 'Adjust post boost minimum.',
+      kind: {
+        FunctionCall: {
+          receiver_id: 'social-spend.onsocial.testnet',
+          actions: [
+            {
+              method_name: 'set_action_config',
+              args: encodeArgs({
+                action_id: 'boost_post',
+                config: {
+                  label: 'Boost Post',
+                  active: true,
+                  min_amount: SOCIAL_SPEND_MIN_AMOUNT_YOCTO,
+                  target_types: ['post'],
+                  treasury_bps: 1000,
+                  season_pool_bps: 0,
+                  target_bps: 9000,
+                  burn_bps: 0,
+                  season_required: false,
+                  allow_self_target: true,
+                },
+              }),
+              deposit: '1',
+              gas: 100_000_000_000_000,
+            },
+          ],
+        },
+      },
+    });
+
+    expect(presentation.actionBadge).toBe('Config');
+    expect(presentation.targetKind).toBe('routing');
+    expect(presentation.targetValue).toBe(
+      'min 0.01 SOCIAL · 10% boost credits · 90% target'
+    );
+    expect(presentation.headline).toBe('Set Social spend boost post routing');
+  });
+
+  it('shows contract on the left and season on the right for season config', () => {
+    const presentation = deriveProposalPresentation({
+      proposer: 'greenghost.onsocial.testnet',
+      description: 'Starting rally to test season config.',
+      kind: {
+        FunctionCall: {
+          receiver_id: 'social-spend.onsocial.testnet',
+          actions: [
+            {
+              method_name: 'set_season_config',
+              args: encodeArgs({
+                season_id: 'season-two',
+                config: {
+                  label: 'OnSocial Rally',
+                  active: true,
+                  starts_at_ns: '1710000000000000000',
+                  ends_at_ns: '1710252000000000000',
+                  claim_starts_at_ns: null,
+                },
+              }),
+              deposit: '1',
+              gas: 100_000_000_000_000,
+            },
+          ],
+        },
+      },
+    });
+
+    expect(presentation.actionBadge).toBe('Config');
+    expect(presentation.headline).toBe('Start OnSocial Rally rally season');
+    expect(presentation.subjectEyebrow).toBe('Contract');
+    expect(presentation.subjectAccount).toBe('social-spend.onsocial.testnet');
+    expect(presentation.targetKind).toBe('season');
+    expect(presentation.targetValue).toBe('season-two');
+    expect(presentation.targetAccountId).toBeNull();
   });
 
   it('shows boost contract target on contract config proposals', () => {

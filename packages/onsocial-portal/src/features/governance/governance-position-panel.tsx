@@ -4,16 +4,27 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { SectionHeader } from '@/components/layout/section-header';
-import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
+import { compactModalStatGridCellClass } from '@/components/ui/floating-panel';
 import { Button } from '@/components/ui/button';
+import { PortalConnectPrompt } from '@/components/ui/portal-connect-prompt';
+import { portalConnectWalletError } from '@/lib/portal-connect-copy';
 import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import {
   CompactActionSkeleton,
-  StatStripSkeleton,
+  Skeleton,
 } from '@/components/ui/skeleton';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
 import { useWallet } from '@/contexts/wallet-context';
+import { fetchDaoPolicy } from '@/features/governance/api';
+import {
+  getDaoGroupMembershipRoleNames,
+} from '@/features/governance/governance-proposal-builders';
+import type { GovernanceDaoPolicy } from '@/features/governance/types';
+import {
+  GovernanceViewerPositionCard,
+  GovernanceViewerPositionCardSkeleton,
+} from '@/features/governance/governance-viewer-position-card';
 import {
   buildGovernanceDelegationPlan,
   prepareGovernanceDelegation,
@@ -36,8 +47,83 @@ import {
   type GovernanceEligibilitySnapshot,
 } from '@/lib/near-rpc';
 import { GOVERNANCE_DAO_ACCOUNT } from '@/lib/portal-config';
+import { cn } from '@/lib/utils';
 
 type GovernanceActionMode = 'delegate' | 'undelegate' | 'withdraw';
+
+const positionBalanceLabelClass =
+  'portal-eyebrow text-[9px] leading-none text-muted-foreground sm:text-[10px]';
+
+const positionBalanceValueClass =
+  'font-mono text-[11px] font-semibold tabular-nums leading-none text-portal-neutral';
+
+function GovernancePositionBalanceGrid({
+  items,
+  className,
+}: {
+  items: Array<{
+    label: string;
+    value: string;
+    valueClassName?: string;
+  }>;
+  className?: string;
+}) {
+  const columnClass =
+    items.length >= 3
+      ? 'grid-cols-3'
+      : items.length === 2
+        ? 'grid-cols-2'
+        : 'grid-cols-1';
+
+  return (
+    <div className={cn('grid', columnClass, className)}>
+      {items.map((item, index) => (
+        <div
+          key={item.label}
+          className={cn(
+            compactModalStatGridCellClass,
+            index > 0 && 'border-l border-fade-detail'
+          )}
+        >
+          <p className={positionBalanceLabelClass}>{item.label}</p>
+          <p
+            className={cn(
+              positionBalanceValueClass,
+              'mt-1 break-words leading-tight',
+              item.valueClassName
+            )}
+          >
+            {item.value}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function GovernancePositionBalanceGridSkeleton({
+  className,
+}: {
+  className?: string;
+}) {
+  return (
+    <div className={cn('grid grid-cols-3', className)}>
+      {Array.from({ length: 3 }).map((_, index) => (
+        <div
+          key={`balance-${index}`}
+          className={cn(
+            compactModalStatGridCellClass,
+            'flex flex-col items-center justify-center',
+            index > 0 && 'border-l border-fade-detail'
+          )}
+        >
+          <Skeleton className="h-2.5 w-8 rounded-full bg-foreground/[0.06]" />
+          <Skeleton className="mt-1 h-3.5 w-10 rounded-full bg-foreground/[0.06]" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function formatSocial(value: string) {
   const numeric = Number(yoctoToSocial(value));
@@ -180,9 +266,10 @@ export function GovernancePositionPanel({
 }: {
   daoAccountId?: string;
 }) {
-  const { accountId, wallet } = useWallet();
+  const { accountId, wallet, isLoading: walletLoading } = useWallet();
   const [eligibility, setEligibility] =
     useState<GovernanceEligibilitySnapshot | null>(null);
+  const [daoPolicy, setDaoPolicy] = useState<GovernanceDaoPolicy | null>(null);
   const [loading, setLoading] = useState(false);
   const [actingMode, setActingMode] = useState<GovernanceActionMode | null>(
     null
@@ -223,9 +310,21 @@ export function GovernancePositionPanel({
 
   useEffect(() => {
     setEligibility(null);
+    setDaoPolicy(null);
     setError('');
     setAmountInput('');
     setActingMode(null);
+  }, [accountId, daoAccountId]);
+
+  useEffect(() => {
+    if (!accountId) {
+      setDaoPolicy(null);
+      return;
+    }
+
+    void fetchDaoPolicy(daoAccountId)
+      .then(setDaoPolicy)
+      .catch(() => setDaoPolicy(null));
   }, [accountId, daoAccountId]);
 
   useEffect(() => {
@@ -247,7 +346,9 @@ export function GovernancePositionPanel({
 
   const amountYocto = parseAmountToYocto(amountInput);
   const hasValidAmount = amountYocto > 0n;
-  const isInitialLoading = loading && !eligibility;
+  const isInitialLoading =
+    walletLoading ||
+    (!!accountId && !eligibility && (loading || !error));
   const walletBalanceYocto = BigInt(eligibility?.walletBalance ?? '0');
   const availableYocto = BigInt(eligibility?.availableToDelegate ?? '0');
   const selfDelegatedYocto = BigInt(eligibility?.selfDelegatedWeight ?? '0');
@@ -269,7 +370,7 @@ export function GovernancePositionPanel({
   const actionConfig = useMemo(() => {
     if (!eligibility) {
       return {
-        info: 'Connect wallet to manage governance balances.',
+        info: portalConnectWalletError('manage governance balances'),
         cta: 'Submit',
       };
     }
@@ -431,7 +532,7 @@ export function GovernancePositionPanel({
     return null;
   }, [actionMode, eligibility, selfDelegatedYocto, withdrawableYocto]);
 
-  const positionOverviewItems = useMemo(() => {
+  const positionBalanceItems = useMemo(() => {
     if (!eligibility) {
       return [];
     }
@@ -448,10 +549,6 @@ export function GovernancePositionPanel({
       {
         label: 'Staked',
         value: formatSocial(eligibility.voteAmount ?? '0'),
-      },
-      {
-        label: 'Delegated',
-        value: formatSocial(eligibility.delegatedWeight ?? '0'),
       },
     ];
 
@@ -473,24 +570,7 @@ export function GovernancePositionPanel({
         value: formatSocial(eligibility.availableToDelegate ?? '0'),
         valueClassName: 'portal-blue-text',
       });
-    }
-
-    items.push({
-      label: 'Threshold',
-      value: `${formatSocial(eligibility.requiredWeight ?? '0')} SOCIAL`,
-    });
-
-    items.push({
-      label: 'Status',
-      value: eligibility.canPropose
-        ? 'Eligible'
-        : `${formatSocial(eligibility.remainingToThreshold ?? '0')} to go`,
-      valueClassName: eligibility.canPropose
-        ? 'portal-green-text'
-        : 'portal-blue-text',
-    });
-
-    if (eligibility.isInCooldown) {
+    } else if (eligibility.isInCooldown) {
       items.push({
         label: 'Unlock',
         value: formatCooldownCountdown(eligibility.nextActionTimestamp),
@@ -501,11 +581,19 @@ export function GovernancePositionPanel({
     return items;
   }, [cooldownLockedYocto, eligibility, undelegatedYocto, withdrawableYocto]);
 
+  const viewerRoles = useMemo(
+    () =>
+      accountId && daoPolicy
+        ? getDaoGroupMembershipRoleNames(daoPolicy, accountId)
+        : [],
+    [accountId, daoPolicy]
+  );
+
   const runDelegate = useCallback(async () => {
     if (!wallet || !accountId) {
       setTxResult({
         type: 'error',
-        msg: 'Connect wallet to continue.',
+        msg: portalConnectWalletError('continue'),
       });
       return;
     }
@@ -677,7 +765,7 @@ export function GovernancePositionPanel({
     if (!wallet || !accountId) {
       setTxResult({
         type: 'error',
-        msg: 'Connect wallet to continue.',
+        msg: portalConnectWalletError('continue'),
       });
       return;
     }
@@ -770,7 +858,7 @@ export function GovernancePositionPanel({
     if (!wallet || !accountId) {
       setTxResult({
         type: 'error',
-        msg: 'Connect wallet to continue.',
+        msg: portalConnectWalletError('continue'),
       });
       return;
     }
@@ -875,62 +963,55 @@ export function GovernancePositionPanel({
               contentClassName="max-w-2xl"
             />
           </div>
-          {accountId ? (
-            <PortalHoverTooltip
-              tooltip={loading ? 'Refreshing balances' : 'Refresh balances'}
-              className="shrink-0"
-            >
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={() => {
-                  void loadEligibility();
-                }}
-                disabled={loading}
-                aria-label="Refresh balances"
-                className="h-8 w-8 rounded-full border-border/40 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground"
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center">
+            {accountId ? (
+              <PortalHoverTooltip
+                tooltip={loading ? 'Refreshing balances' : 'Refresh balances'}
+                className="shrink-0"
               >
-                <RefreshCw
-                  className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}
-                />
-              </Button>
-            </PortalHoverTooltip>
-          ) : null}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    void loadEligibility();
+                  }}
+                  disabled={loading}
+                  aria-label="Refresh balances"
+                  className="h-8 w-8 rounded-full border-border/40 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground"
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}
+                  />
+                </Button>
+              </PortalHoverTooltip>
+            ) : null}
+          </div>
         </div>
 
-        {!accountId ? (
-          <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-fade-detail pt-3">
-            <p className="text-sm text-muted-foreground">
-              Sign in to view your balances and delegations.
-            </p>
+        {!walletLoading && !accountId ? (
+          <div className="mt-3 border-t border-fade-detail pt-3">
+            <PortalConnectPrompt action="governance.viewPosition" />
           </div>
         ) : isInitialLoading ? (
           <div className="mx-auto mt-3 w-full min-w-0 max-w-xl border-t border-fade-detail pt-3">
-            <StatStripSkeleton
-              items={5}
-              columns={3}
-              groupClassName="mt-0"
-              showTopDivider={false}
-            />
-            <CompactActionSkeleton className="mt-3 pt-3" />
+            <GovernanceViewerPositionCardSkeleton />
+            <GovernancePositionBalanceGridSkeleton className="border-t border-fade-detail pt-3 mt-3" />
+            <CompactActionSkeleton className="border-t border-fade-detail pt-3 mt-3" />
           </div>
         ) : eligibility ? (
-          <div className="mx-auto mt-3 w-full min-w-0 max-w-xl">
-            <StatStrip columns={3} groupClassName="mt-0">
-              {positionOverviewItems.map((item, index) => (
-                <StatStripCell
-                  key={item.label}
-                  label={item.label}
-                  value={item.value}
-                  valueClassName={item.valueClassName}
-                  showDivider={index < positionOverviewItems.length - 1}
-                  size="sm"
-                />
-              ))}
-            </StatStrip>
+          <div className="mx-auto mt-3 w-full min-w-0 max-w-xl border-t border-fade-detail pt-3">
+            <GovernanceViewerPositionCard
+              viewerRoles={viewerRoles}
+              roles={daoPolicy?.roles ?? []}
+              eligibility={eligibility}
+            />
+            <GovernancePositionBalanceGrid
+              items={positionBalanceItems}
+              className="border-t border-fade-detail pt-3 mt-3"
+            />
 
-            <div className="mt-3 pt-3">
+            <div className="border-t border-fade-detail pt-3 mt-3">
               <div className="flex flex-wrap gap-2">
                 {(
                   [
@@ -980,7 +1061,7 @@ export function GovernancePositionPanel({
                           variant="outline"
                           size="xs"
                         >
-                          Needed
+                          Required
                         </Button>
                       ) : null}
                       <Button
@@ -1103,7 +1184,13 @@ export function GovernancePositionPanel({
               </div>
             </div>
           </div>
-        ) : null}
+        ) : (
+          <div className="mx-auto mt-3 w-full min-w-0 max-w-xl border-t border-fade-detail pt-3">
+            <p className="text-center text-sm portal-red-text">
+              {error || "Could not load this wallet's governance position."}
+            </p>
+          </div>
+        )}
       </SurfacePanel>
     </>
   );

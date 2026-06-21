@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { AnimatePresence, motion } from 'framer-motion';
 import { Shield, User, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -29,6 +28,11 @@ import type { GovernanceDaoRole } from '@/features/governance/types';
 import { useMemberAccountLookup } from '@/hooks/use-member-account-lookup';
 import { getPortalProfileUrl } from '@/lib/portal-config';
 import { yoctoToSocial } from '@/lib/near-rpc';
+import {
+  getBoundedNoteFieldCounter,
+  POLICY_PROPOSAL_DESCRIPTION_LIMITS,
+  type BoundedNoteLimits,
+} from '@/lib/bounded-note-field';
 import { cn } from '@/lib/utils';
 
 const fieldLabelClass =
@@ -40,86 +44,20 @@ const roleKindBadgeLabel: Record<DaoRoleKind, string> = {
   gated: 'SOCIAL gate',
 };
 
-const motionEase = [0.22, 1, 0.36, 1] as const;
-
-const policyHintHighlightPattern =
-  /(`[^`]+`)|(\bOn-chain:|\bChangePolicy\w+\b|\bFunctionCall\b|\bAddMemberToRole\b|\bRemoveMemberFromRole\b|\bVote\b|\*:\*)/g;
-
-function PolicyHintText({ text }: { text: string }) {
-  const nodes: React.ReactNode[] = [];
-  let lastIndex = 0;
-  let key = 0;
-
-  for (const match of text.matchAll(policyHintHighlightPattern)) {
-    const index = match.index ?? 0;
-
-    if (index > lastIndex) {
-      nodes.push(text.slice(lastIndex, index));
-    }
-
-    const token = match[0];
-
-    if (token.startsWith('`')) {
-      nodes.push(
-        <span key={key++} className="font-mono text-foreground">
-          {token.slice(1, -1)}
-        </span>
-      );
-    } else {
-      nodes.push(
-        <span
-          key={key++}
-          className="portal-blue-text font-mono text-[0.8125rem] font-medium"
-        >
-          {token}
-        </span>
-      );
-    }
-
-    lastIndex = index + token.length;
-  }
-
-  if (lastIndex < text.length) {
-    nodes.push(text.slice(lastIndex));
-  }
-
-  return <>{nodes}</>;
+export function policyFieldShellClass(invalid?: boolean) {
+  return cn(
+    'portal-field-focus rounded-2xl border bg-background/45',
+    invalid ? 'border-[var(--portal-red-border)]' : 'border-border/40'
+  );
 }
 
-export function PolicyStatusMessage({
-  error,
-  hint,
-  className,
-}: {
-  error?: string;
-  hint?: string;
-  className?: string;
-}) {
-  const message = error || hint;
+export function PolicyInlineFieldHint({ message }: { message?: string | null }) {
   if (!message) {
-    return <div className={cn('min-h-[1rem]', className)} />;
+    return null;
   }
 
   return (
-    <div
-      className={cn(
-        'min-h-[1rem] text-xs leading-relaxed text-muted-foreground',
-        className
-      )}
-    >
-      <AnimatePresence initial={false} mode="wait">
-        <motion.p
-          key={message}
-          initial={{ opacity: 0, y: -4 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, transition: { duration: 0 } }}
-          transition={{ duration: 0.16, ease: motionEase }}
-          className={error ? 'portal-red-text' : undefined}
-        >
-          {error ? message : <PolicyHintText text={message} />}
-        </motion.p>
-      </AnimatePresence>
-    </div>
+    <p className="mt-1.5 text-[11px] leading-snug portal-red-text">{message}</p>
   );
 }
 
@@ -131,18 +69,9 @@ export function PolicyActionForm({
   children: React.ReactNode;
 }) {
   return (
-    <AnimatePresence initial={false} mode="wait">
-      <motion.div
-        key={actionKey}
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -4 }}
-        transition={{ duration: 0.18, ease: motionEase }}
-        className="space-y-2"
-      >
-        {children}
-      </motion.div>
-    </AnimatePresence>
+    <div key={actionKey} className="space-y-2">
+      {children}
+    </div>
   );
 }
 
@@ -626,6 +555,14 @@ export function DaoPermissionPicker({
     matchDaoPermissionPreset(baselinePresetPermissions ?? baseline)
   );
   const matchesBaseline = daoPermissionSetsEqual(permissions, baseline);
+  const matchesFullPublic = daoPermissionSetsEqual(
+    permissions,
+    DAO_FULL_PUBLIC_PERMISSIONS_PRESET
+  );
+  const matchesActionsOnly = daoPermissionSetsEqual(
+    permissions,
+    DAO_DELEGATED_ACTION_PERMISSIONS_PRESET
+  );
 
   const signalHint = DAO_SIGNAL_PROPOSAL_PERMISSION_HINT;
 
@@ -679,29 +616,22 @@ export function DaoPermissionPicker({
             className={presetSegmentClass(matchesBaseline, true)}
             onClick={restoreBaseline}
           >
-            <span className="sm:hidden">Current</span>
-            <span className="hidden sm:inline">
-              Current · {baselinePresetLabel}
+            Reset
+            <span className="sr-only">
+              {matchesBaseline
+                ? ` · on-chain ${baselinePresetLabel}`
+                : ` · restore on-chain ${baselinePresetLabel}`}
             </span>
-            <span className="sr-only sm:hidden"> · {baselinePresetLabel}</span>
           </Button>
         ) : null}
         <Button
           type="button"
           variant={
-            daoPermissionSetsEqual(
-              permissions,
-              DAO_FULL_PUBLIC_PERMISSIONS_PRESET
-            )
-              ? 'default'
-              : 'ghost'
+            matchesFullPublic && !matchesBaseline ? 'default' : 'ghost'
           }
           size="xs"
           className={presetSegmentClass(
-            daoPermissionSetsEqual(
-              permissions,
-              DAO_FULL_PUBLIC_PERMISSIONS_PRESET
-            )
+            matchesFullPublic && !matchesBaseline
           )}
           onClick={() => applyPreset(DAO_FULL_PUBLIC_PERMISSIONS_PRESET)}
         >
@@ -710,19 +640,11 @@ export function DaoPermissionPicker({
         <Button
           type="button"
           variant={
-            daoPermissionSetsEqual(
-              permissions,
-              DAO_DELEGATED_ACTION_PERMISSIONS_PRESET
-            )
-              ? 'default'
-              : 'ghost'
+            matchesActionsOnly && !matchesBaseline ? 'default' : 'ghost'
           }
           size="xs"
           className={presetSegmentClass(
-            daoPermissionSetsEqual(
-              permissions,
-              DAO_DELEGATED_ACTION_PERMISSIONS_PRESET
-            )
+            matchesActionsOnly && !matchesBaseline
           )}
           onClick={() => applyPreset(DAO_DELEGATED_ACTION_PERMISSIONS_PRESET)}
         >
@@ -738,10 +660,10 @@ export function DaoPermissionPicker({
         </div>
         <div className="space-y-1 border-t border-fade-detail pt-2">
           <p
-            className="portal-eyebrow text-[9px] text-muted-foreground"
+            className="portal-eyebrow px-0.5 text-[9px] text-muted-foreground/70"
             title="Permissions to propose policy changes"
           >
-            Can change policy
+            Policy
           </p>
           <div className="grid grid-cols-2 gap-1">
             {DAO_GOVERNANCE_PERMISSION_OPTIONS.map((option) =>
@@ -765,50 +687,50 @@ export function DaoPermissionPicker({
   );
 }
 
-export function PolicyOptionalDescription({
+export function PolicyProposalDescription({
+  id,
   value,
   onChange,
-  expanded,
-  onToggleExpanded,
-  id,
+  limits = POLICY_PROPOSAL_DESCRIPTION_LIMITS,
 }: {
+  id: string;
   value: string;
   onChange: (value: string) => void;
-  expanded: boolean;
-  onToggleExpanded: () => void;
-  id: string;
+  limits?: BoundedNoteLimits;
 }) {
+  const counter = getBoundedNoteFieldCounter(value, limits);
+
   return (
     <div>
-      <button
-        type="button"
-        className="text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-        onClick={onToggleExpanded}
+      <label htmlFor={id} className={fieldLabelClass}>
+        Description
+      </label>
+      <div
+        className={cn(
+          'portal-field-focus relative rounded-2xl border bg-background/45',
+          counter.invalidCharacters
+            ? 'border-[var(--portal-red-border)]'
+            : 'border-border/40'
+        )}
       >
-        {expanded ? 'Hide note' : 'Add note (optional)'}
-      </button>
-      <AnimatePresence initial={false}>
-        {expanded ? (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.18, ease: motionEase }}
-            className="overflow-hidden"
-          >
-            <div className="portal-field-focus mt-2 rounded-2xl border border-border/40 bg-background/45 px-3 py-2.5 md:px-4">
-              <textarea
-                id={id}
-                value={value}
-                onChange={(event) => onChange(event.target.value)}
-                rows={2}
-                placeholder="Proposal description"
-                className="w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
-              />
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+        <textarea
+          id={id}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          rows={3}
+          maxLength={limits.max}
+          placeholder="What this policy change does"
+          className="w-full resize-none rounded-2xl bg-transparent px-4 pt-3 pb-7 text-sm outline-none placeholder:text-muted-foreground/50 md:pt-3.5"
+        />
+        <span
+          className={cn(
+            'pointer-events-none absolute right-3 bottom-2 portal-type-caption tabular-nums tracking-wide',
+            counter.className
+          )}
+        >
+          {counter.label}
+        </span>
+      </div>
     </div>
   );
 }

@@ -10,12 +10,12 @@ import {
 } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { PageShell } from '@/components/layout/page-shell';
+import { useWallet } from '@/contexts/wallet-context';
 import {
   GovernanceCardSkeletonList,
   GovernancePageLoadingShell,
 } from '@/features/governance/governance-page-loading-shell';
-import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
-import { SectionHeader } from '@/components/layout/section-header';
+import { GovernancePageIntro } from '@/features/governance/governance-page-intro';
 import { Button } from '@/components/ui/button';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import {
@@ -41,17 +41,17 @@ import {
 } from '@/features/governance/governance-dao-board';
 import type { GovernanceDaoPolicy } from '@/features/governance/types';
 import { GovernanceCard } from '@/features/governance/governance-card';
+import { GovernanceFeedLoadMore } from '@/features/governance/governance-feed-load-more';
 import { GovernanceRail } from '@/features/governance/governance-rail';
 import {
   buildGovernanceFeedItems,
   filterGovernanceItems,
-  getFilteredEmptyState,
-  getPaginatedItems,
+  getGovernanceFeedEmptyState,
   getStatusCounts,
+  getVisibleGovernanceBatch,
   getVisibleStatusOptions,
   GOVERNANCE_PAGE_SIZE,
   parseLane,
-  parsePage,
   parseStatusFilter,
   patchGovernanceFeedApplicationSnapshot,
 } from '@/features/governance/page-utils';
@@ -64,6 +64,7 @@ import type {
 function GovernancePageContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { accountId } = useWallet();
   const [activeBoard, setActiveBoard] = useState<GovernanceDaoBoard>(() =>
     parseGovernanceDaoBoard(searchParams.get(GOVERNANCE_DAO_BOARD_PARAM))
   );
@@ -87,11 +88,10 @@ function GovernancePageContent() {
   const [searchQuery, setSearchQuery] = useState(
     () => searchParams.get('q') ?? ''
   );
-  const [currentPage, setCurrentPage] = useState(() =>
-    parsePage(searchParams.get('page'))
-  );
+  const [visibleCount, setVisibleCount] = useState(GOVERNANCE_PAGE_SIZE);
   const isInitialLoading = loading && apps.length === 0 && !error;
   const cardListRef = useRef<HTMLDivElement>(null);
+  const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
   const [contentKey, setContentKey] = useState(0);
 
   // Sync state → URL without triggering Next.js re-renders
@@ -105,7 +105,6 @@ function GovernancePageContent() {
       if (statusFilter !== 'all') params.set('status', statusFilter);
       const trimmedQuery = searchQuery.trim();
       if (trimmedQuery) params.set('q', trimmedQuery);
-      if (currentPage > 1) params.set('page', String(currentPage));
 
       const nextUrl = params.toString()
         ? `${pathname}?${params.toString()}`
@@ -118,14 +117,7 @@ function GovernancePageContent() {
     return () => {
       if (syncUrlRef.current) clearTimeout(syncUrlRef.current);
     };
-  }, [
-    activeBoard,
-    activeLane,
-    currentPage,
-    pathname,
-    searchQuery,
-    statusFilter,
-  ]);
+  }, [activeBoard, activeLane, pathname, searchQuery, statusFilter]);
 
   const hasLoadedApps = useRef(false);
 
@@ -230,31 +222,29 @@ function GovernancePageContent() {
   }, [daoAccountId]);
 
   const feedItems = buildGovernanceFeedItems(apps, { proposalPeriodNs });
-  const { laneItems, filteredItems, normalizedQuery } = filterGovernanceItems({
-    items: feedItems,
-    lane: activeLane,
-    statusFilter,
-    searchQuery,
-  });
-  const statusCounts = getStatusCounts(laneItems);
+  const { laneItems, searchScopedLaneItems, filteredItems, normalizedQuery } =
+    filterGovernanceItems({
+      items: feedItems,
+      lane: activeLane,
+      statusFilter,
+      searchQuery,
+    });
+  const { visibleItems, hasMore, shownCount } = getVisibleGovernanceBatch(
+    filteredItems,
+    visibleCount
+  );
+  const statusCounts = getStatusCounts(searchScopedLaneItems);
   const visibleStatusOptions = getVisibleStatusOptions(
     statusCounts,
     statusFilter
   );
-  const { totalPages, safeCurrentPage, paginatedItems } = getPaginatedItems({
-    items: filteredItems,
-    currentPage,
-    pageSize: GOVERNANCE_PAGE_SIZE,
+  const trimmedSearchQuery = searchQuery.trim();
+  const feedEmptyState = getGovernanceFeedEmptyState({
+    statusFilter,
+    lane: activeLane,
+    searchQuery,
+    treasuryBoardEmpty: activeBoard === 'treasury' && apps.length === 0,
   });
-  const emptyState = getFilteredEmptyState(statusFilter, activeLane);
-  const feedEmptyState =
-    activeBoard === 'treasury' && apps.length === 0
-      ? {
-          title: 'No treasury proposals yet',
-          detail:
-            'Treasury custody transfers and treasury DAO policy votes will appear here.',
-        }
-      : emptyState;
   const proposalLabel =
     activeBoard === 'treasury'
       ? 'treasury proposals'
@@ -264,12 +254,45 @@ function GovernancePageContent() {
           ? 'partner proposals'
           : 'governance proposals';
   const showProposalsSection = !error;
+  const feedEndSummary =
+    !hasMore && filteredItems.length > GOVERNANCE_PAGE_SIZE
+      ? normalizedQuery
+        ? `All ${filteredItems.length} ${filteredItems.length === 1 ? 'result' : 'results'}`
+        : `All ${filteredItems.length} ${proposalLabel}`
+      : null;
+
+  const loadMore = useCallback(() => {
+    setVisibleCount((count) =>
+      Math.min(count + GOVERNANCE_PAGE_SIZE, filteredItems.length)
+    );
+  }, [filteredItems.length]);
 
   useEffect(() => {
-    if (currentPage !== safeCurrentPage) {
-      setCurrentPage(safeCurrentPage);
+    if (!hasMore) {
+      return;
     }
-  }, [currentPage, safeCurrentPage]);
+
+    const sentinel = loadMoreSentinelRef.current;
+    if (!sentinel) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          loadMore();
+        }
+      },
+      { rootMargin: '160px', threshold: 0 }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, loadMore, shownCount]);
+
+  function resetVisibleBatch() {
+    setVisibleCount(GOVERNANCE_PAGE_SIZE);
+  }
 
   function handleBoardChange(nextBoard: GovernanceDaoBoard) {
     if (nextBoard === activeBoard) {
@@ -278,7 +301,7 @@ function GovernancePageContent() {
 
     setActiveBoard(nextBoard);
     setActiveLane((lane) => normalizeLaneForBoard(nextBoard, lane));
-    setCurrentPage(1);
+    resetVisibleBatch();
     setContentKey((k) => k + 1);
     setApps([]);
     setDaoPolicy(null);
@@ -290,31 +313,34 @@ function GovernancePageContent() {
 
   function handleFilterChange(updater: () => void) {
     updater();
-    setCurrentPage(1);
+    resetVisibleBatch();
     setContentKey((k) => k + 1);
   }
 
-  function handlePageChange(updater: () => void) {
-    updater();
-    setContentKey((k) => k + 1);
-    requestAnimationFrame(() => {
-      cardListRef.current?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest',
-      });
+  function handleSearchChange(query: string) {
+    setSearchQuery(query);
+    resetVisibleBatch();
+  }
+
+  function handleSearchSubmit() {
+    // Enter dismisses the keyboard only — results already filter live as you type.
+  }
+
+  function handleClearSearch() {
+    handleFilterChange(() => {
+      setSearchQuery('');
+    });
+  }
+
+  function handleClearStatus() {
+    handleFilterChange(() => {
+      setStatusFilter('all');
     });
   }
 
   return (
     <PageShell className="max-w-6xl">
-      <SecondaryPageHeader
-        badge="Governance"
-        badgeAccent="blue"
-        glowAccents={['blue', 'green']}
-        glowClassName="h-56 opacity-80"
-        title="Communities that govern in public"
-        description="Review proposals, track guardians, and follow launches as decisions move on-chain."
-      />
+      <GovernancePageIntro />
 
       {error && (
         <p className="portal-red-panel portal-red-text mb-5 rounded-[1rem] border px-4 py-3 text-center text-sm">
@@ -324,15 +350,11 @@ function GovernancePageContent() {
 
       {!showProposalsSection ? null : (
         <>
-          <SectionHeader
-            badge="Proposals"
-            className="flex-row items-center justify-between gap-3 md:items-end"
-            contentClassName="flex-1"
-          />
-
           <GovernanceRail
             activeBoard={activeBoard}
             boardOptions={GOVERNANCE_DAO_BOARD_OPTIONS}
+            daoAccountId={daoAccountId}
+            viewerAccountId={accountId}
             activeLane={activeLane}
             laneOptions={laneOptions}
             loading={loading || refreshing}
@@ -341,10 +363,8 @@ function GovernancePageContent() {
               handleFilterChange(() => setActiveLane(lane));
             }}
             onRefresh={loadApps}
-            onSearchChange={(query) => {
-              setSearchQuery(query);
-              setCurrentPage(1);
-            }}
+            onSearchChange={handleSearchChange}
+            onSearchSubmit={handleSearchSubmit}
             onStatusChange={(status) => {
               handleFilterChange(() => setStatusFilter(status));
             }}
@@ -360,24 +380,50 @@ function GovernancePageContent() {
               className="mb-4 flex items-center justify-between gap-3 px-1 text-sm text-muted-foreground"
             >
               <p>
-                Showing{' '}
-                <span className="text-foreground">{filteredItems.length}</span>{' '}
-                of <span className="text-foreground">{laneItems.length}</span>{' '}
-                {proposalLabel}
+                {normalizedQuery ? (
+                  <>
+                    <span className="text-foreground">
+                      {filteredItems.length}
+                    </span>{' '}
+                    {filteredItems.length === 1 ? 'result' : 'results'} for{' '}
+                    <span className="text-foreground">
+                      &ldquo;{trimmedSearchQuery}&rdquo;
+                    </span>
+                    <span className="text-muted-foreground/70">
+                      {' '}
+                      · {laneItems.length} total
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-foreground">
+                      {filteredItems.length}
+                    </span>{' '}
+                    {proposalLabel}
+                  </>
+                )}
               </p>
               {(statusFilter !== 'all' || normalizedQuery) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleFilterChange(() => {
-                      setStatusFilter('all');
-                      setSearchQuery('');
-                    });
-                  }}
-                  className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  Clear filters
-                </button>
+                <div className="flex shrink-0 items-center gap-3">
+                  {normalizedQuery ? (
+                    <button
+                      type="button"
+                      onClick={handleClearSearch}
+                      className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      Clear search
+                    </button>
+                  ) : null}
+                  {statusFilter !== 'all' ? (
+                    <button
+                      type="button"
+                      onClick={handleClearStatus}
+                      className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      Clear status
+                    </button>
+                  ) : null}
+                </div>
               )}
             </div>
           )}
@@ -396,13 +442,24 @@ function GovernancePageContent() {
               <p className="mx-auto mt-2 max-w-2xl text-sm text-muted-foreground">
                 {feedEmptyState.detail}
               </p>
+              {normalizedQuery ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-4"
+                  onClick={handleClearSearch}
+                >
+                  Clear search
+                </Button>
+              ) : null}
             </SurfacePanel>
           ) : (
             <div
               key={contentKey}
               className="space-y-4 animate-in fade-in duration-200"
             >
-              {paginatedItems.map((item) => (
+              {visibleItems.map((item) => (
                 <GovernanceCard
                   key={`${item.app.app_id}-${item.app.governance_proposal?.proposal_id ?? 'db'}`}
                   app={item.app}
@@ -411,41 +468,12 @@ function GovernancePageContent() {
                 />
               ))}
 
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between gap-4 px-1 pt-2 text-sm text-muted-foreground">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      handlePageChange(() =>
-                        setCurrentPage((page) => Math.max(page - 1, 1))
-                      );
-                    }}
-                    disabled={safeCurrentPage === 1}
-                  >
-                    Previous
-                  </Button>
-                  <p>
-                    Page{' '}
-                    <span className="text-foreground">{safeCurrentPage}</span>{' '}
-                    of <span className="text-foreground">{totalPages}</span>
-                  </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      handlePageChange(() =>
-                        setCurrentPage((page) => Math.min(page + 1, totalPages))
-                      );
-                    }}
-                    disabled={safeCurrentPage === totalPages}
-                  >
-                    Next
-                  </Button>
-                </div>
-              )}
+              <GovernanceFeedLoadMore
+                hasMore={hasMore}
+                onLoadMore={loadMore}
+                loadMoreSentinelRef={loadMoreSentinelRef}
+                endSummary={feedEndSummary}
+              />
             </div>
           )}
         </>

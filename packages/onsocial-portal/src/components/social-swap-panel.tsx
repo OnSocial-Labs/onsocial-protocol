@@ -10,6 +10,7 @@ import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
 
 import { SocialSwapQuoteDetails } from '@/components/social-swap-quote-details';
 import { Button, buttonArrowRightClass } from '@/components/ui/button';
+import { portalConnectButtonLabel, portalConnectCtaLabel } from '@/lib/portal-connect-copy';
 import {
   ModalFactRow,
   ModalFactSection,
@@ -98,7 +99,7 @@ export function SocialSwapPanel({
   onSuccess?: () => void;
   className?: string;
 }) {
-  const { accountId, connect, getSigningWallet, isConnected } = useWallet();
+  const { accountId, connect, getSigningWallet, isConnected, isLoading: isWalletBootstrapping } = useWallet();
   const { txResult, setTxResult, clearTxResult, trackTransaction } =
     useNearTransactionFeedback(accountId);
   const swap = usePortalSwap(accountId);
@@ -526,15 +527,15 @@ export function SocialSwapPanel({
               variant="accent"
               size="cta"
               className="w-full"
-              disabled={!swap.canSwap && isConnected}
-              loading={swap.swapping}
+              disabled={isWalletBootstrapping || (!swap.canSwap && isConnected)}
+              loading={swap.swapping || isWalletBootstrapping}
               onClick={() => void handleSwap()}
             >
-              {!isConnected
-                ? 'Connect wallet'
-                : swap.loadingPools
-                  ? 'Loading pools…'
-                  : 'Get SOCIAL'}
+              {portalConnectButtonLabel('swap', {
+                isWalletBootstrapping,
+                isConnected,
+                connectedLabel: swap.loadingPools ? 'Loading pools…' : 'Get SOCIAL',
+              })}
             </Button>
           </>
         )}

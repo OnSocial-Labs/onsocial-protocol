@@ -9,6 +9,8 @@ import { EndorsementListCardRow } from '@/components/ui/endorsement-flow';
 import { portalCompactActionPillClass } from '@/components/ui/profile-action-pill';
 import { profileListContainerClass } from '@/features/profile/profile-list-row';
 import { cn } from '@/lib/utils';
+import { useWallet } from '@/contexts/wallet-context';
+import { portalConnectCtaLabel } from '@/lib/portal-connect-copy';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getPortalEndorsementsUrl } from '@/lib/portal-config';
 import {
@@ -94,6 +96,7 @@ export function ProfileEndorsements({
   onViewerEndorsementCountChange,
 }: ProfileEndorsementsProps) {
   const router = useRouter();
+  const { isLoading: isWalletBootstrapping } = useWallet();
   const { prefetchEndorsements } = useProfileGraphRoutePrefetch(
     accountId ?? undefined
   );
@@ -374,9 +377,13 @@ export function ProfileEndorsements({
                   <span className="portal-type-label text-portal-neutral opacity-70">
                     Others can endorse you
                   </span>
+                ) : isWalletBootstrapping ? (
+                  <span className="portal-type-label text-portal-neutral opacity-70">
+                    Checking wallet…
+                  </span>
                 ) : !viewerAccountId ? (
                   <span className="portal-type-label text-portal-neutral opacity-70">
-                    Connect to endorse
+                    {portalConnectCtaLabel('endorse')}
                   </span>
                 ) : null}
               </>

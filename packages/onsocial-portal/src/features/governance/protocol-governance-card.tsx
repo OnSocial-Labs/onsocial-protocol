@@ -15,7 +15,7 @@ import {
   deriveGovernanceCardView,
   formatActionLabel,
   renderHighlightedJson,
-  safeJsonStringify,
+  formatGovernanceDaoProposalForRawDisplay,
   mergeGovernanceProposalSnapshot,
 } from '@/features/governance/governance-card-helpers';
 import {
@@ -322,18 +322,7 @@ export function ProtocolGovernanceCard({
     ? `${ACTIVE_NEAR_EXPLORER_URL}/txns/${proposal.tx_hash}`
     : null;
   const rawDaoProposal = liveProposal
-    ? safeJsonStringify({
-        id: liveProposalId,
-        proposer: liveProposal.proposer,
-        description: liveProposal.description,
-        status: liveProposal.status,
-        kind: liveProposal.kind,
-        vote_counts: liveProposal.vote_counts,
-        votes: liveProposal.votes,
-        submission_time: liveProposal.submission_time,
-        resolved_at: liveProposal.resolved_at,
-        last_actions_log: liveProposal.last_actions_log,
-      })
+    ? formatGovernanceDaoProposalForRawDisplay(liveProposal, liveProposalId)
     : null;
 
   const stripColor =

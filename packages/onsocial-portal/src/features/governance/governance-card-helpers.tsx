@@ -70,6 +70,89 @@ export function safeJsonStringify(value: unknown) {
   }
 }
 
+function decodeBase64JsonArgs(value: string): unknown {
+  try {
+    return JSON.parse(atob(value)) as unknown;
+  } catch {
+    return value;
+  }
+}
+
+function decodeFunctionCallKindForDisplay(
+  kind: Record<string, unknown>
+): Record<string, unknown> {
+  const functionCall = kind.FunctionCall;
+  if (!functionCall || typeof functionCall !== 'object') {
+    return kind;
+  }
+
+  const record = functionCall as Record<string, unknown>;
+  const actions =
+    'actions' in record && Array.isArray(record.actions)
+      ? record.actions.map((action) => {
+          if (!action || typeof action !== 'object') {
+            return action;
+          }
+
+          const actionRecord = action as Record<string, unknown>;
+          if (!('args' in actionRecord) || typeof actionRecord.args !== 'string') {
+            return action;
+          }
+
+          return {
+            ...actionRecord,
+            args: decodeBase64JsonArgs(actionRecord.args),
+          };
+        })
+      : record.actions;
+
+  return {
+    ...kind,
+    FunctionCall: {
+      ...record,
+      actions,
+    },
+  };
+}
+
+/** Human-readable DAO proposal JSON for the Raw proposal panel (decoded call args). */
+export function formatGovernanceDaoProposalForRawDisplay(
+  liveProposal: {
+    proposer: string;
+    description: string;
+    status: string;
+    kind: Record<string, unknown>;
+    vote_counts: Record<string, [string, string, string]>;
+    votes: Record<string, string>;
+    submission_time: string;
+    resolved_at?: string | null;
+    last_actions_log?: Array<{ block_height: string }>;
+    policy_snapshot?: unknown;
+  },
+  liveProposalId: number | null
+): string {
+  const kind =
+    liveProposal.kind && typeof liveProposal.kind === 'object'
+      ? decodeFunctionCallKindForDisplay(liveProposal.kind)
+      : liveProposal.kind;
+
+  return safeJsonStringify({
+    id: liveProposalId,
+    proposer: liveProposal.proposer,
+    description: liveProposal.description,
+    status: liveProposal.status,
+    kind,
+    vote_counts: liveProposal.vote_counts,
+    votes: liveProposal.votes,
+    submission_time: liveProposal.submission_time,
+    resolved_at: liveProposal.resolved_at,
+    last_actions_log: liveProposal.last_actions_log,
+    ...(liveProposal.policy_snapshot
+      ? { policy_snapshot: liveProposal.policy_snapshot }
+      : {}),
+  });
+}
+
 const JSON_TOKEN_PATTERN =
   /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|[{}\[\],:]/g;
 

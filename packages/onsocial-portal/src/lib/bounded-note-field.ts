@@ -1,4 +1,6 @@
-export const BOUNDED_NOTE_ALLOWED_PATTERN = /^[A-Za-z0-9 .,'"!?:;()&/\-\n]+$/;
+/** Governance-safe prose: accounts, role ids, arrows, middle dots, thresholds. */
+export const BOUNDED_NOTE_ALLOWED_PATTERN =
+  /^[A-Za-z0-9 .,'"!?:;()&/\-\n_@≥·→%+]+$/;
 
 export type BoundedNoteLimits = {
   min: number;
@@ -8,6 +10,12 @@ export type BoundedNoteLimits = {
 
 export const PROPOSAL_DESCRIPTION_LIMITS: BoundedNoteLimits = {
   min: 20,
+  max: 280,
+  warning: 240,
+};
+
+export const POLICY_PROPOSAL_DESCRIPTION_LIMITS: BoundedNoteLimits = {
+  min: 10,
   max: 280,
   warning: 240,
 };
@@ -37,15 +45,46 @@ export function normalizeBoundedNote(value: string) {
     .trim();
 }
 
+function hasUnsupportedBoundedNoteCharacters(value: string) {
+  const normalized = normalizeBoundedNote(value);
+  if (!normalized) {
+    return false;
+  }
+
+  return !BOUNDED_NOTE_ALLOWED_PATTERN.test(normalized);
+}
+
+export const BOUNDED_NOTE_CHARACTER_ERROR =
+  'Use letters, numbers, spaces, and basic punctuation only';
+
+export const BOUNDED_NOTE_INVALID_CHARACTER_COUNTER_LABEL =
+  'Invalid character';
+
+export function isBoundedNoteCharacterError(message: string): boolean {
+  return message.trim() === BOUNDED_NOTE_CHARACTER_ERROR;
+}
+
 export function getBoundedNoteError(value: string) {
   const normalized = normalizeBoundedNote(value);
   if (!normalized) {
     return '';
   }
-  if (!BOUNDED_NOTE_ALLOWED_PATTERN.test(normalized)) {
-    return 'Use letters, numbers, spaces, and basic punctuation only';
+  if (hasUnsupportedBoundedNoteCharacters(value)) {
+    return BOUNDED_NOTE_CHARACTER_ERROR;
   }
   return '';
+}
+
+export function resolveBoundedNoteSubmitBlocker(
+  value: string,
+  limits: BoundedNoteLimits = PROPOSAL_DESCRIPTION_LIMITS
+): string | null {
+  if (isBoundedNoteReady(value, limits)) {
+    return null;
+  }
+
+  // Description feedback lives in the field counter — keep submit rows for form only.
+  return null;
 }
 
 export function isBoundedNoteReady(
@@ -84,8 +123,13 @@ export function getBoundedNoteCounterLabel(
 export function getBoundedNoteCounterClass(
   length: number,
   hasInput: boolean,
-  limits: BoundedNoteLimits
+  limits: BoundedNoteLimits,
+  options?: { invalidCharacters?: boolean }
 ) {
+  if (options?.invalidCharacters) {
+    return 'portal-red-text';
+  }
+
   if (hasInput && length < limits.min) {
     return 'text-amber-600';
   }
@@ -93,6 +137,27 @@ export function getBoundedNoteCounterClass(
     return 'text-amber-600';
   }
   return 'text-muted-foreground/60';
+}
+
+export function getBoundedNoteFieldCounter(
+  value: string,
+  limits: BoundedNoteLimits = PROPOSAL_DESCRIPTION_LIMITS
+) {
+  const length = normalizeBoundedNote(value).length;
+  const invalidCharacters = hasUnsupportedBoundedNoteCharacters(value);
+  const hasInput = length > 0;
+  const countLabel = getBoundedNoteCounterLabel(length, limits);
+
+  return {
+    length,
+    invalidCharacters,
+    label: invalidCharacters
+      ? `${BOUNDED_NOTE_INVALID_CHARACTER_COUNTER_LABEL} · ${countLabel}`
+      : countLabel,
+    className: getBoundedNoteCounterClass(length, hasInput, limits, {
+      invalidCharacters,
+    }),
+  };
 }
 
 /** @deprecated Use normalizeBoundedNote */

@@ -1,11 +1,11 @@
 import { indexerQuery } from '../../db/indexer.js';
+import { requireJoinRallyMinAmountYocto } from './join-rally-onchain-config.js';
 import {
   getSeasonOnChainConfig,
   resolveSeasonSocialBaselineNs,
 } from './season-onchain-config.js';
 import {
   SEASON_ZERO_ID,
-  SEASON_ZERO_JOIN_RALLY_MIN_YOCTO,
   SEASON_ZERO_SCORING_LIMITS,
   scoreSeasonZero,
   type SeasonZeroProfileSignals,
@@ -341,11 +341,12 @@ function joinedRallyCte(hasCutoff: boolean): string {
 function joinedRallyCteParams(
   seasonId: string,
   hasCutoff: boolean,
-  cutoffParam: string
+  cutoffParam: string,
+  joinMinYocto: string
 ): string[] {
   return hasCutoff
-    ? [seasonId, SEASON_ZERO_JOIN_RALLY_MIN_YOCTO.toString(), cutoffParam]
-    : [seasonId, SEASON_ZERO_JOIN_RALLY_MIN_YOCTO.toString()];
+    ? [seasonId, joinMinYocto, cutoffParam]
+    : [seasonId, joinMinYocto];
 }
 
 /** CTE params plus optional season-start baseline for pre-season social exclusions. */
@@ -353,9 +354,15 @@ function joinedRallyQueryParams(
   seasonId: string,
   hasCutoff: boolean,
   cutoffParam: string,
-  seasonStartsAtNs: string | null
+  seasonStartsAtNs: string | null,
+  joinMinYocto: string
 ): string[] {
-  const params = joinedRallyCteParams(seasonId, hasCutoff, cutoffParam);
+  const params = joinedRallyCteParams(
+    seasonId,
+    hasCutoff,
+    cutoffParam,
+    joinMinYocto
+  );
   if (seasonStartsAtNs) {
     params.push(seasonStartsAtNs);
   }
@@ -446,7 +453,11 @@ export async function getSeasonStandings(
   const cutoffParam = cutoffTimestampNs ?? '';
   const hasCutoff = Boolean(cutoffTimestampNs);
 
-  const onChainConfig = await getSeasonOnChainConfig(seasonId);
+  const [onChainConfig, joinMinYocto] = await Promise.all([
+    getSeasonOnChainConfig(seasonId),
+    requireJoinRallyMinAmountYocto(),
+  ]);
+  const joinMinYoctoString = joinMinYocto.toString();
   const seasonStartsAtNs = resolveSeasonSocialBaselineNs(onChainConfig);
   const seasonStartParam = seasonStartParamIndex(hasCutoff);
   const preSeasonStandingExclusion = buildPreSeasonSocialEdgeExclusion(
@@ -483,13 +494,15 @@ export async function getSeasonStandings(
   const joinedCteParams = joinedRallyCteParams(
     seasonId,
     hasCutoff,
-    cutoffParam
+    cutoffParam,
+    joinMinYoctoString
   );
   const joinedQueryParams = joinedRallyQueryParams(
     seasonId,
     hasCutoff,
     cutoffParam,
-    seasonStartsAtNs
+    seasonStartsAtNs,
+    joinMinYoctoString
   );
   const activityWindow = seasonActivityWindow(hasCutoff, 'du.block_timestamp');
   const spendWindow = seasonActivityWindow(hasCutoff, 's.block_timestamp');
@@ -701,23 +714,26 @@ export async function getSeasonStandings(
       );
       const supportReceivedYocto = supportByAccount.get(row.account_id) ?? '0';
       const effectiveBoostYocto = boostByAccount.get(row.account_id) ?? '0';
-      const scored = scoreSeasonZero({
-        accountId: row.account_id,
-        joinAmountYocto: row.join_amount_yocto,
-        profile,
-        uniqueEndorsers: social.uniqueEndorsers,
-        endorsementTopics: social.endorsementTopics,
-        receivedStands: social.receivedStands,
-        mutualStands: social.mutualStands,
-        supportReceivedYocto,
-        effectiveBoostYocto,
-        daily: {
-          endorsersByDay: social.endorsersByDay,
-          topicsByDay: social.topicsByDay,
-          receivedStandsByDay: social.receivedStandsByDay,
-          mutualStandsByDay: social.mutualStandsByDay,
+      const scored = scoreSeasonZero(
+        {
+          accountId: row.account_id,
+          joinAmountYocto: row.join_amount_yocto,
+          profile,
+          uniqueEndorsers: social.uniqueEndorsers,
+          endorsementTopics: social.endorsementTopics,
+          receivedStands: social.receivedStands,
+          mutualStands: social.mutualStands,
+          supportReceivedYocto,
+          effectiveBoostYocto,
+          daily: {
+            endorsersByDay: social.endorsersByDay,
+            topicsByDay: social.topicsByDay,
+            receivedStandsByDay: social.receivedStandsByDay,
+            mutualStandsByDay: social.mutualStandsByDay,
+          },
         },
-      });
+        { joinMinYocto: joinMinYocto }
+      );
 
       return {
         accountId: row.account_id,

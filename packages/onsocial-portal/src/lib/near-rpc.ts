@@ -1263,6 +1263,18 @@ export async function getGovernanceProposalBond(
   return policy?.proposal_bond ?? '0';
 }
 
+export interface GovernanceDaoConfig {
+  name: string;
+  purpose: string;
+  metadata: string;
+}
+
+export async function getGovernanceDaoConfig(
+  daoAccountId: string
+): Promise<GovernanceDaoConfig | null> {
+  return tryViewContractAt<GovernanceDaoConfig>(daoAccountId, 'get_config');
+}
+
 export async function getGovernanceEligibility(
   accountId: string,
   daoAccountId = GOVERNANCE_DAO_ACCOUNT

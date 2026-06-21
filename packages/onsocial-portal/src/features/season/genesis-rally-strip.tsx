@@ -11,6 +11,7 @@ import {
 } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
+import { portalConnectCtaLabel } from '@/lib/portal-connect-copy';
 import { useWallet } from '@/contexts/wallet-context';
 import { useSeasonParticipation } from '@/contexts/season-participation-context';
 
@@ -22,17 +23,14 @@ const SocialSwapModal = dynamic(
   { ssr: false }
 );
 import { Button } from '@/components/ui/button';
+import { PortalConnectPrompt } from '@/components/ui/portal-connect-prompt';
 import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
 import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
 import { useSocialWalletBalance } from '@/hooks/use-social-wallet-balance';
 import { createPortalOnSocialClient } from '@/lib/onsocial-client';
-import {
-  GENESIS_RALLY_JOIN_SOCIAL_LABEL,
-  GENESIS_RALLY_JOIN_YOCTO,
-  formatGenesisSocialBalanceDisplay,
-} from '@/lib/genesis-season';
+import { formatGenesisSocialBalanceDisplay } from '@/lib/genesis-season';
 import {
   getActiveSeasonId,
   getSeasonPresentation,
@@ -245,26 +243,33 @@ export function GenesisRallyStrip({
     useState<SeasonZeroSettlementSummary | null>(null);
   const [promoParticipantCount, setPromoParticipantCount] = useState(0);
   const [promoStatusReady, setPromoStatusReady] = useState(variant !== 'promo');
-  const [joinRoutingDisclosure, setJoinRoutingDisclosure] = useState(
-    '95 to pool · 5 fees'
-  );
+  const [joinRoutingDisclosure, setJoinRoutingDisclosure] = useState('');
   const [joinRouting, setJoinRouting] =
     useState<JoinRallyRoutingDisclosure | null>(null);
+  const [joinRoutingLoading, setJoinRoutingLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
 
+    setJoinRoutingLoading(true);
     void fetchJoinRallyRouting()
       .then((routing) => {
-        if (cancelled || !routing) return;
+        if (cancelled) return;
         setJoinRouting(routing);
-        const disclosure = formatJoinRoutingDisclosure(routing);
-        if (disclosure) {
-          setJoinRoutingDisclosure(disclosure);
-        }
+        setJoinRoutingDisclosure(
+          routing ? formatJoinRoutingDisclosure(routing) : ''
+        );
       })
       .catch(() => {
-        // Keep default copy when the view call is unavailable.
+        if (!cancelled) {
+          setJoinRouting(null);
+          setJoinRoutingDisclosure('');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setJoinRoutingLoading(false);
+        }
       });
 
     return () => {
@@ -430,23 +435,45 @@ export function GenesisRallyStrip({
   const claimStatusResolved =
     claimStatusReady && !walletLoading && pageDataReady !== false;
   const statusLoading = loading || awaitingParticipationData;
-  const hasEnoughSocial = balanceYocto >= GENESIS_RALLY_JOIN_YOCTO;
+  const joinConfigReady = joinRouting != null;
+  const joinMinAmountYocto = joinRouting?.joinMinAmountYocto ?? null;
+  const joinMinAmountLabel = joinRouting?.joinMinAmountSocialLabel ?? null;
+  const hasEnoughSocial =
+    joinMinAmountYocto != null && balanceYocto >= joinMinAmountYocto;
   const showInsufficientBalance =
     isConnected &&
     hasLoadedBalance &&
+    joinConfigReady &&
     !hasEnoughSocial &&
     !joined &&
     !statusLoading;
 
   const socialShortfallYocto = useMemo(() => {
-    if (!isConnected || !hasLoadedBalance || hasEnoughSocial) return 0n;
-    return GENESIS_RALLY_JOIN_YOCTO > balanceYocto
-      ? GENESIS_RALLY_JOIN_YOCTO - balanceYocto
+    if (
+      !isConnected ||
+      !hasLoadedBalance ||
+      !joinConfigReady ||
+      joinMinAmountYocto == null ||
+      hasEnoughSocial
+    ) {
+      return 0n;
+    }
+    return joinMinAmountYocto > balanceYocto
+      ? joinMinAmountYocto - balanceYocto
       : 0n;
-  }, [balanceYocto, hasEnoughSocial, hasLoadedBalance, isConnected]);
+  }, [
+    balanceYocto,
+    hasEnoughSocial,
+    hasLoadedBalance,
+    isConnected,
+    joinConfigReady,
+    joinMinAmountYocto,
+  ]);
 
   const handleJoin = useCallback(async () => {
-    if (joined || joinPending) return;
+    if (joined || joinPending || !joinRouting || joinMinAmountYocto == null) {
+      return;
+    }
     if (!isConnected) {
       await connect();
       return;
@@ -460,7 +487,7 @@ export function GenesisRallyStrip({
     try {
       const { wallet, accountId: signerId } = await getSigningWallet();
       const payload = os.socialSpend.buildSpendTransaction({
-        amount: GENESIS_RALLY_JOIN_YOCTO.toString(),
+        amount: joinMinAmountYocto.toString(),
         appId: 'portal',
         action: 'join_rally',
         targetType: 'rally',
@@ -526,6 +553,8 @@ export function GenesisRallyStrip({
     seasonId,
     setTxResult,
     trackTransaction,
+    joinMinAmountYocto,
+    joinRouting,
     onParticipationChange,
     seasonPresentation.pageTitle,
   ]);
@@ -537,7 +566,8 @@ export function GenesisRallyStrip({
 
   const statusLabel = useMemo(() => {
     if (joined) return 'In the rally';
-    if (!isConnected) return 'Connect to join';
+    if (walletLoading) return 'Checking wallet…';
+    if (!isConnected) return portalConnectCtaLabel('season.join');
     if (!hasLoadedBalance || balanceLoading) return 'Checking balance…';
     if (!hasEnoughSocial) {
       return socialShortfallYocto > 0n
@@ -552,6 +582,7 @@ export function GenesisRallyStrip({
     isConnected,
     joined,
     socialShortfallYocto,
+    walletLoading,
   ]);
 
   const metricsOnChainConfig =
@@ -584,12 +615,16 @@ export function GenesisRallyStrip({
       joinPending ||
       joined ||
       seasonIsUpcoming ||
-      (isConnected && hasLoadedBalance && !hasEnoughSocial),
+      joinRoutingLoading ||
+      !joinConfigReady ||
+      (isConnected && hasLoadedBalance && joinConfigReady && !hasEnoughSocial),
     [
       hasEnoughSocial,
       hasLoadedBalance,
       isConnected,
+      joinConfigReady,
       joinPending,
+      joinRoutingLoading,
       joined,
       seasonIsUpcoming,
     ]
@@ -597,10 +632,22 @@ export function GenesisRallyStrip({
 
   const joinButtonLabel = useMemo(() => {
     if (seasonIsUpcoming) return 'Opens soon';
-    if (!isConnected) return `Join · ${GENESIS_RALLY_JOIN_SOCIAL_LABEL} SOCIAL`;
+    if (joinRoutingLoading) return 'Loading entry…';
+    if (!joinConfigReady || !joinMinAmountLabel) return 'Entry unavailable';
+    if (walletLoading) return 'Checking wallet…';
+    if (!isConnected) return `Join · ${joinMinAmountLabel} SOCIAL`;
     if (!hasLoadedBalance || balanceLoading) return 'Checking balance…';
-    return `Join · ${GENESIS_RALLY_JOIN_SOCIAL_LABEL} SOCIAL`;
-  }, [balanceLoading, hasLoadedBalance, isConnected, seasonIsUpcoming]);
+    return `Join · ${joinMinAmountLabel} SOCIAL`;
+  }, [
+    balanceLoading,
+    hasLoadedBalance,
+    isConnected,
+    joinConfigReady,
+    joinMinAmountLabel,
+    joinRoutingLoading,
+    seasonIsUpcoming,
+    walletLoading,
+  ]);
 
   const payoutHint = useMemo(() => {
     if (!seasonIsLive) return null;
@@ -613,10 +660,17 @@ export function GenesisRallyStrip({
         personalAccountId ?? (joined ? accountId : null) ?? null,
       personalRank: myStanding?.rank ?? null,
       personalScore: myStanding?.score ?? null,
+      routing: joinRouting
+        ? {
+            joinAmountYocto: joinRouting.joinMinAmountYocto,
+            seasonPoolBps: joinRouting.config.season_pool_bps,
+          }
+        : undefined,
     });
   }, [
     accountId,
     joined,
+    joinRouting,
     metricsIndexedPoolYocto,
     metricsParticipantCount,
     myStanding?.rank,
@@ -655,11 +709,14 @@ export function GenesisRallyStrip({
           </>
         ) : null}
         <span className="portal-gold-text font-mono">
-          {GENESIS_RALLY_JOIN_SOCIAL_LABEL}
+          {joinRoutingLoading
+            ? '…'
+            : joinMinAmountLabel ?? 'Entry unavailable'}
         </span>
         <span className="text-muted-foreground/60">
           {' '}
-          entry · {joinRoutingDisclosure}
+          entry
+          {joinRoutingDisclosure ? ` · ${joinRoutingDisclosure}` : ''}
         </span>
         {payoutHint ? (
           <>
@@ -864,18 +921,7 @@ export function GenesisRallyStrip({
               {...rallyFooterFade(reduceMotion)}
               className="px-3 py-2.5 md:px-4"
             >
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs text-muted-foreground">
-                  Connect to check your season payout.
-                </p>
-                <Button
-                  size="xs"
-                  className="self-start sm:self-auto"
-                  onClick={() => void connect()}
-                >
-                  Connect wallet
-                </Button>
-              </div>
+              <PortalConnectPrompt action="season.claim" />
             </motion.div>
           ) : (
             <motion.div

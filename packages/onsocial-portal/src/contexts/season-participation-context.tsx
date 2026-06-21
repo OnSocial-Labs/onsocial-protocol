@@ -4,10 +4,12 @@ import React, {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useRef,
   useState,
   type ReactNode,
 } from 'react';
+import { useWallet } from '@/contexts/wallet-context';
 import type { ArchiveSeasonClaimHint } from '@/features/season/season-archive-claim-hints';
 import type { SeasonZeroClaimRecord } from '@/features/season/season-zero-types';
 import {
@@ -54,11 +56,24 @@ export function SeasonParticipationProvider({
 }: {
   children: ReactNode;
 }) {
+  const { accountId } = useWallet();
   const confirmedClaimsRef = useRef<Map<string, true>>(new Map());
   const confirmedJoinsRef = useRef<Map<string, true>>(new Map());
   const pendingClaimsRef = useRef<Set<string>>(new Set());
   const pendingJoinsRef = useRef<Set<string>>(new Set());
+  const activeAccountIdRef = useRef<string | null>(null);
   const [participateSyncVersion, setParticipateSyncVersion] = useState(0);
+
+  useEffect(() => {
+    if (activeAccountIdRef.current === accountId) return;
+
+    activeAccountIdRef.current = accountId ?? null;
+    confirmedClaimsRef.current.clear();
+    confirmedJoinsRef.current.clear();
+    pendingClaimsRef.current.clear();
+    pendingJoinsRef.current.clear();
+    setParticipateSyncVersion((version) => version + 1);
+  }, [accountId]);
 
   const bumpParticipateSync = useCallback(() => {
     setParticipateSyncVersion((version) => version + 1);

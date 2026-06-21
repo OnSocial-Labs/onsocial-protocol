@@ -2,7 +2,9 @@ const YOCTO_PER_SOCIAL = 1_000_000_000_000_000_000n;
 
 export const SEASON_ZERO_ID = 'season-zero';
 
+/** @deprecated Test fixture only — production reads join min from chain. */
 export const SEASON_ZERO_JOIN_RALLY_SOCIAL = 100n;
+/** @deprecated Test fixture only — production reads join min from chain. */
 export const SEASON_ZERO_JOIN_RALLY_MIN_YOCTO =
   SEASON_ZERO_JOIN_RALLY_SOCIAL * YOCTO_PER_SOCIAL;
 
@@ -226,9 +228,13 @@ export function scoreSeasonZeroProfile(
   );
 }
 
-export function scoreSeasonZero(input: SeasonZeroSignals): SeasonZeroScore {
+export function scoreSeasonZero(
+  input: SeasonZeroSignals,
+  options: { joinMinYocto: bigint }
+): SeasonZeroScore {
   const joinAmountYocto = parseYoctoAmount(input.joinAmountYocto);
-  const eligible = joinAmountYocto >= SEASON_ZERO_JOIN_RALLY_MIN_YOCTO;
+  const joinMinYocto = options.joinMinYocto;
+  const eligible = joinAmountYocto >= joinMinYocto;
   const join = eligible ? JOIN_POINTS : 0;
   const profile = eligible ? scoreSeasonZeroProfile(input.profile) : 0;
 

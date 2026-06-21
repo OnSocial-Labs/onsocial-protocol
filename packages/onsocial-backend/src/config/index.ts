@@ -105,7 +105,7 @@ export const config = {
   portalRewardsAppId:
     process.env.ONSOCIAL_PORTAL_REWARDS_APP_ID || 'onsocial_portal',
 
-  /** Welcome NEAR drip so new wallets can AddKey with session allowance lock + tx gas. */
+  /** Welcome NEAR drip so new wallets can pay native AddKey tx fee + headroom. */
   welcomeNear: {
     enabled:
       (process.env.WELCOME_NEAR_ENABLED ?? 'true').toLowerCase() !== 'false',

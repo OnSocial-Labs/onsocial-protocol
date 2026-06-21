@@ -139,7 +139,7 @@ export default function SeasonZeroAdminPage() {
     seasonId,
     registry?.seasons.find((entry) => entry.seasonId === seasonId) ?? null
   );
-  const { accountId, connect } = useWallet();
+  const { accountId, connect, isLoading: isWalletBootstrapping } = useWallet();
   const [allowed, setAllowed] = useState<boolean | null>(null);
   const [status, setStatus] = useState<SeasonZeroStatusPayload | null>(null);
   const [participantCount, setParticipantCount] = useState(0);
@@ -402,7 +402,11 @@ export default function SeasonZeroAdminPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            {!accountId ? (
+            {isWalletBootstrapping ? (
+              <span className="font-mono text-muted-foreground/70">
+                Checking wallet…
+              </span>
+            ) : !accountId ? (
               <Button size="xs" onClick={() => void connect()}>
                 Connect admin wallet
               </Button>
@@ -571,7 +575,7 @@ export default function SeasonZeroAdminPage() {
             </p>
           ) : null}
 
-          {!accountId ? (
+          {!isWalletBootstrapping && !accountId ? (
             <p className="text-[11px] leading-snug text-muted-foreground/70">
               Requires a wallet in{' '}
               <span className="font-mono">ADMIN_WALLETS</span>. The portal

@@ -17,3 +17,17 @@ export const portalCollapseMotion = {
   exit: { opacity: 0, height: 0 },
   transition: portalCollapseTransition,
 } as const;
+
+/** Governance rail — shell height when compact/full swaps on mobile. */
+export const governanceRailLayoutTransition = {
+  layout: {
+    duration: 0.22,
+    ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
+  },
+};
+
+/** Governance rail — minimal crossfade between compact and full content. */
+export const governanceRailFadeTransition = {
+  duration: 0.14,
+  ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
+};

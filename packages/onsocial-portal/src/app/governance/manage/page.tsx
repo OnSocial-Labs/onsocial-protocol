@@ -4,7 +4,7 @@ import { Suspense, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { PageShell } from '@/components/layout/page-shell';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
-import { RouteLoadingShell } from '@/components/layout/route-loading-shell';
+import GovernanceManageLoading from './loading';
 import { useMobilePageContext } from '@/components/providers/mobile-page-context';
 import { GovernancePositionPanel } from '@/features/governance/governance-position-panel';
 import {
@@ -40,15 +40,7 @@ function GovernanceManagePageContent() {
 
 export default function GovernanceManagePage() {
   return (
-    <Suspense
-      fallback={
-        <RouteLoadingShell
-          size="form"
-          panelCount={1}
-          panelMinHeights={['18rem']}
-        />
-      }
-    >
+    <Suspense fallback={<GovernanceManageLoading />}>
       <GovernanceManagePageContent />
     </Suspense>
   );

@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { forwardRef, type ReactNode, type WheelEventHandler } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { floatingPanelClass } from '@/components/ui/floating-panel';
 import { scaleFadeMotion } from '@/lib/motion';
@@ -22,23 +22,31 @@ interface FloatingPanelMenuProps {
   'aria-label'?: string;
   id?: string;
   onKeyDown?: (event: React.KeyboardEvent<HTMLDivElement>) => void;
+  onWheelCapture?: WheelEventHandler<HTMLDivElement>;
   children: ReactNode;
 }
 
-export function FloatingPanelMenu({
-  open,
-  align = 'right',
-  offsetClass = 'mt-2',
-  className,
-  children,
-  ...props
-}: FloatingPanelMenuProps) {
+export const FloatingPanelMenu = forwardRef<
+  HTMLDivElement,
+  FloatingPanelMenuProps
+>(function FloatingPanelMenu(
+  {
+    open,
+    align = 'right',
+    offsetClass = 'mt-2',
+    className,
+    children,
+    ...props
+  },
+  ref
+) {
   const reduceMotion = useReducedMotion();
 
   return (
     <AnimatePresence initial={false}>
       {open ? (
         <motion.div
+          ref={ref}
           {...scaleFadeMotion(!!reduceMotion, {
             y: 10,
             scale: 0.97,
@@ -47,7 +55,7 @@ export function FloatingPanelMenu({
             exitScale: 0.985,
           })}
           className={cn(
-            'absolute top-full z-40 max-w-[calc(100vw-2rem)] origin-top overflow-hidden',
+            'absolute top-full z-40 max-w-[calc(100vw-2rem)] origin-top',
             alignClasses[align],
             offsetClass,
             floatingPanelClass,
@@ -60,4 +68,4 @@ export function FloatingPanelMenu({
       ) : null}
     </AnimatePresence>
   );
-}
+});

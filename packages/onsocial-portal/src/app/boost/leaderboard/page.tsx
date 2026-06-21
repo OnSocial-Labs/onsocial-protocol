@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import {
-  ArrowLeft,
   Crown,
   Flame,
   RefreshCw,
@@ -13,8 +12,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { PageShell } from '@/components/layout/page-shell';
-import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
-import { Button, buttonArrowLeftClass } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import { PortalBadge } from '@/components/ui/portal-badge';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
@@ -37,6 +35,9 @@ import {
   type EarnerEntry,
 } from '@/lib/leaderboard';
 import { cn } from '@/lib/utils';
+import { BoostLeaderboardPageIntro } from '@/features/boost/boost-leaderboard-page-intro';
+import { BoostPanelSectionTitle } from '@/features/boost/boost-panel-section-title';
+import { useNavBack } from '@/hooks/use-nav-back';
 import type { BoostContractStats as BoostStats } from '@onsocial/sdk';
 
 const os = createPortalOnSocialClient();
@@ -70,7 +71,7 @@ const TRACKS: {
     label: 'Earners',
     icon: TrendingUp,
     accent: 'green',
-    description: 'Top participants by total rewards earned',
+    description: 'Top participants by SOCIAL earned on-chain',
   },
 ];
 
@@ -336,6 +337,7 @@ function ScoreBreakdown({ entry }: { entry: ReputationEntry }) {
 
 // ─── Main Page ───────────────────────────────────────────────────
 export default function BoostLeaderboardPage() {
+  useNavBack('Boost');
   const [stats, setStats] = useState<BoostStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
 
@@ -493,29 +495,15 @@ export default function BoostLeaderboardPage() {
   }
 
   return (
-    <PageShell className="max-w-5xl">
-      <SecondaryPageHeader
-        badge="Leaderboard"
-        badgeAccent="blue"
-        glowAccents={['blue', 'green']}
-        contentClassName="max-w-4xl"
-        title="Reputation"
-        description="Your reputation multiplies everything: posts, reactions, locks, and rewards. The more ways you participate, the faster you climb."
-      >
-        <Button variant="outline" asChild>
-          <Link href="/boost">
-            <ArrowLeft className={`h-4 w-4 ${buttonArrowLeftClass}`} />
-            Back to Boost
-          </Link>
-        </Button>
-      </SecondaryPageHeader>
+    <PageShell className="max-w-6xl">
+      <BoostLeaderboardPageIntro />
 
       {/* ── Stats Strip ────────────────────────────────────────── */}
       <motion.section
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.08 }}
-        className="mb-8"
+        className="mb-6"
       >
         <div className="grid gap-3 md:grid-cols-4">
           {statsLoading ? (
@@ -561,7 +549,7 @@ export default function BoostLeaderboardPage() {
               </SurfacePanel>
               <SurfacePanel radius="md" tone="inset" padding="snug">
                 <p className="portal-eyebrow-wide text-muted-foreground">
-                  Weekly rewards
+                  Weekly pace
                 </p>
                 <p className="mt-2 font-mono text-2xl font-bold tabular-nums tracking-[-0.03em]">
                   {stats
@@ -569,7 +557,7 @@ export default function BoostLeaderboardPage() {
                     : '0.00%'}
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Earned by participating
+                  Network release rate
                 </p>
               </SurfacePanel>
             </>
@@ -582,7 +570,7 @@ export default function BoostLeaderboardPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.12 }}
-        className="mb-8"
+        className="mb-6"
       >
         <SurfacePanel radius="xl" tone="soft" className="p-5 md:p-6">
           <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -698,16 +686,15 @@ export default function BoostLeaderboardPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.16 }}
-        className="mb-8"
+        className="mb-6"
       >
         <SurfacePanel radius="xl" tone="soft" className="p-5 md:p-6">
-          <p className="mb-3 text-center text-sm font-semibold">
+          <BoostPanelSectionTitle align="center" className="mb-3">
             How reputation works
-          </p>
+          </BoostPanelSectionTitle>
           <p className="mx-auto mb-4 max-w-lg text-center text-xs text-muted-foreground">
-            Reputation combines five indexed signals. Each signal is softened so
-            first contributions count, while large totals do not overwhelm the
-            whole score.
+            Five indexed signals combine into one score. Early contributions
+            count more; large totals are softened.
           </p>
           <div className="grid gap-3 md:grid-cols-5">
             <SurfacePanel
@@ -719,7 +706,7 @@ export default function BoostLeaderboardPage() {
               <Crown className="mx-auto mb-1 h-4 w-4 portal-purple-text" />
               <p className="text-xs font-semibold">Standing</p>
               <p className="mt-0.5 portal-type-caption text-muted-foreground">
-                People choosing to stand with you
+                People standing with you
               </p>
             </SurfacePanel>
             <SurfacePanel
@@ -731,7 +718,7 @@ export default function BoostLeaderboardPage() {
               <Flame className="mx-auto mb-1 h-4 w-4 portal-gold-text" />
               <p className="text-xs font-semibold">Commitment</p>
               <p className="mt-0.5 portal-type-caption text-muted-foreground">
-                SOCIAL locked with softened scaling
+                Locked SOCIAL, softened at scale
               </p>
             </SurfacePanel>
             <SurfacePanel
@@ -743,7 +730,7 @@ export default function BoostLeaderboardPage() {
               <Shield className="mx-auto mb-1 h-4 w-4 portal-blue-text" />
               <p className="text-xs font-semibold">Quality</p>
               <p className="mt-0.5 portal-type-caption text-muted-foreground">
-                Create posts that earn reactions from others
+                Posts that earn reactions
               </p>
             </SurfacePanel>
             <SurfacePanel
@@ -755,7 +742,7 @@ export default function BoostLeaderboardPage() {
               <TrendingUp className="mx-auto mb-1 h-4 w-4 portal-green-text" />
               <p className="text-xs font-semibold">Consistency</p>
               <p className="mt-0.5 portal-type-caption text-muted-foreground">
-                Active days with diminishing returns
+                Active days, diminishing returns
               </p>
             </SurfacePanel>
             <SurfacePanel
@@ -767,7 +754,7 @@ export default function BoostLeaderboardPage() {
               <Zap className="mx-auto mb-1 h-4 w-4 portal-pink-text" />
               <p className="text-xs font-semibold">Scarces</p>
               <p className="mt-0.5 portal-type-caption text-muted-foreground">
-                Create & sell digital collectibles on the marketplace
+                Marketplace collectibles
               </p>
             </SurfacePanel>
           </div>
@@ -782,26 +769,23 @@ export default function BoostLeaderboardPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
-        className="mb-8"
+        className="mb-6"
       >
         <SurfacePanel
           radius="xl"
           tone="deep"
           className="p-6 text-center md:p-8"
         >
-          <p className="mb-2 text-lg font-semibold">
-            Build visible protocol signal
-          </p>
+          <p className="mb-2 text-lg font-semibold">Grow your reputation</p>
           <p className="mx-auto mb-4 max-w-lg text-sm text-muted-foreground">
-            Reputation rewards connection, commitment, useful content,
-            consistency, and marketplace creation. Locking SOCIAL strengthens
-            one signal without replacing the others.
+            Participate across the network, then lock SOCIAL to strengthen your
+            commitment signal.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             <Button asChild>
               <Link href="/boost">
                 <Flame className="mr-1.5 h-4 w-4" />
-                Strengthen Commitment
+                Lock SOCIAL
               </Link>
             </Button>
           </div>

@@ -81,11 +81,10 @@ export function StatStripSkeleton({
         className={cn(
           'stat-strip-cells w-full text-center',
           useMobileGrid
-            ? 'flex flex-wrap justify-center max-md:grid max-md:justify-items-center max-md:[grid-template-columns:repeat(var(--stat-cols),minmax(0,1fr))]'
+            ? 'stat-strip-responsive flex flex-wrap justify-center max-md:grid max-md:justify-items-center max-md:[grid-template-columns:repeat(var(--stat-cols),minmax(0,1fr))]'
             : 'flex flex-wrap justify-center',
           className
         )}
-        style={{ '--stat-cols': columns } as CSSProperties}
         data-stat-cols={columns}
         {...(useMobileGrid && {
           'data-mobile-cols': resolvedMobileColumns,
@@ -95,10 +94,11 @@ export function StatStripSkeleton({
           <div
             key={index}
             className={cn(
-              'relative flex min-w-0 flex-col items-center justify-center',
-              sizeClasses
+              'stat-strip-cell relative flex min-w-0 flex-col items-center justify-center',
+              sizeClasses,
+              !useMobileGrid && 'shrink-0'
             )}
-            style={cellWidthStyle}
+            style={useMobileGrid ? undefined : cellWidthStyle}
           >
             <Skeleton className="h-3 w-14 rounded-full bg-foreground/[0.06]" />
             <Skeleton className="mt-1.5 h-5 w-16 rounded-full bg-foreground/[0.09]" />

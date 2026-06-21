@@ -7,6 +7,7 @@ import { useWallet } from '@/contexts/wallet-context';
 import { useGatewayAuth } from '@/contexts/gateway-auth-context';
 import { useMobilePageContext } from '@/components/providers/mobile-page-context';
 import { PageShell } from '@/components/layout/page-shell';
+import { WalletBootstrapPlaceholder } from '@/components/ui/portal-connect-prompt';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { Button } from '@/components/ui/button';
@@ -162,7 +163,9 @@ export default function OnApiAppsPage() {
           padding="roomy"
           className="text-center"
         >
-          {!isConnected ? (
+          {walletLoading ? (
+            <WalletBootstrapPlaceholder />
+          ) : !isConnected ? (
             <>
               <Boxes className="mx-auto mb-3 h-6 w-6 text-muted-foreground/40" />
               <p className="mb-4 text-sm font-medium text-foreground">

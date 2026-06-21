@@ -4,11 +4,9 @@ import { Gift } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
 import {
-  profileActionButtonClass,
-  profileSocialStandingToggleClass,
-  profileSocialStandingToggleStateClass,
-} from '@/components/ui/profile-action-pill';
-import { PulsingDots } from '@/components/ui/pulsing-dots';
+  ProfileSocialCollectPill,
+  profileSocialCollectAriaLabel,
+} from '@/components/ui/profile-social-collect-pill';
 import { useSeasonZeroClaimActions } from '@/features/season/season-zero-claim-actions';
 import type {
   SeasonZeroClaimRecord,
@@ -19,43 +17,7 @@ import { formatGenesisSocialBalanceDisplay } from '@/lib/genesis-season';
 import { cn } from '@/lib/utils';
 
 function seasonCollectAriaLabel(amountLabel: string): string {
-  return `Collect ${amountLabel} SOCIAL season reward`;
-}
-
-function SeasonCollectButtonLabel({
-  amountLabel,
-  pending,
-  showSocialSuffix = true,
-}: {
-  amountLabel: string;
-  pending: boolean;
-  showSocialSuffix?: boolean;
-}) {
-  return (
-    <span className={profileSocialStandingToggleClass}>
-      <span
-        className={cn(
-          profileSocialStandingToggleStateClass,
-          'justify-center gap-1',
-          pending && 'invisible'
-        )}
-        aria-hidden={pending}
-      >
-        Collect {amountLabel}
-        {showSocialSuffix ? ' SOCIAL' : null}
-      </span>
-      <span
-        className={cn(
-          profileSocialStandingToggleStateClass,
-          'justify-center text-current opacity-70',
-          !pending && 'invisible'
-        )}
-        aria-hidden={!pending}
-      >
-        <PulsingDots size="sm" />
-      </span>
-    </span>
-  );
+  return `${profileSocialCollectAriaLabel(amountLabel)} season reward`;
 }
 
 export function SeasonClaimInlineAction({
@@ -67,7 +29,7 @@ export function SeasonClaimInlineAction({
 }: {
   claim: SeasonZeroClaimRecord;
   onClaimed?: () => void;
-  /** `rally` — footer pill on season page. `profile` — gold pill beside Support. */
+  /** `rally` — footer pill on season page. `profile` — gesture pill beside Support. */
   variant?: 'rally' | 'profile';
   /** Published settlement summary — pool context beside collect on rally page. */
   settlement?: SeasonZeroSettlementSummary | null;
@@ -94,20 +56,13 @@ export function SeasonClaimInlineAction({
 
   const button =
     variant === 'profile' ? (
-      <button
-        type="button"
-        className={cn(profileActionButtonClass('gold'), className)}
-        disabled={isButtonLoading}
-        aria-busy={isButtonLoading || undefined}
-        aria-label={ariaLabel}
+      <ProfileSocialCollectPill
+        amountLabel={amountLabel}
+        pending={isButtonLoading}
+        ariaLabel={ariaLabel}
         onClick={() => void handleClaim()}
-      >
-        <Gift className="h-3 w-3 shrink-0" />
-        <SeasonCollectButtonLabel
-          amountLabel={amountLabel}
-          pending={isButtonLoading}
-        />
-      </button>
+        className={className}
+      />
     ) : (
       <Button
         type="button"

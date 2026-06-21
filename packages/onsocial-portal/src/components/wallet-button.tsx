@@ -226,7 +226,8 @@ export function WalletButton({
   disconnectedLabel,
 }: WalletButtonProps) {
   const router = useRouter();
-  const { accountId, isConnected, connect, disconnect } = useWallet();
+  const { accountId, isConnected, isLoading: isWalletBootstrapping, connect, switchWallet, disconnect } =
+    useWallet();
   const profileState = useProfile();
   const {
     claimableYocto,
@@ -281,7 +282,7 @@ export function WalletButton({
 
   const handleSwitchWallet = async () => {
     closeMenu();
-    await connect();
+    await switchWallet();
   };
 
   const openProfileEditor = () => {
@@ -321,6 +322,24 @@ export function WalletButton({
   const compactDisconnectedButtonClass = disconnectedLabel
     ? 'group relative inline-flex h-9 w-auto items-center justify-center gap-2.5 rounded-full border border-border/45 bg-background/70 px-3 pr-3.5 text-muted-foreground backdrop-blur-md transition-all duration-300 hover:border-border/70 hover:bg-background/84 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-background md:h-10 md:px-3.5 md:pr-4'
     : 'group relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/45 bg-background/70 text-foreground backdrop-blur-md transition-all duration-300 hover:border-border/70 hover:bg-background/84 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-background md:h-10 md:w-10';
+
+  if (isWalletBootstrapping) {
+    return (
+      <div
+        role="status"
+        aria-label="Checking wallet connection"
+        aria-busy="true"
+        className={cn(
+          compact
+            ? cn(
+                compactDisconnectedButtonClass,
+                'pointer-events-none animate-pulse bg-background/55'
+              )
+            : 'h-9 w-[7.5rem] animate-pulse rounded-full border border-border/45 bg-background/55 sm:w-[8.5rem]'
+        )}
+      />
+    );
+  }
 
   if (!isConnected) {
     return (

@@ -419,6 +419,9 @@ export function useProfileState() {
     activeAccountIdRef.current = accountId ?? null;
     latestLoadRef.current += 1;
     latestIndexedRefreshRef.current += 1;
+    confirmedStandingRef.current.clear();
+    pendingStandingRef.current.clear();
+    bumpStandingSync();
     resolveCanonicalMediaPreviews();
     setProfile(null);
     setIndexedProfile(null);
@@ -429,6 +432,7 @@ export function useProfileState() {
     cachedSessionRef.current = null;
   }, [
     accountId,
+    bumpStandingSync,
     resolveCanonicalMediaPreviews,
     setResolvedAvatarUrl,
     setResolvedBannerUrl,

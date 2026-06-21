@@ -12,6 +12,8 @@ import {
 import { ModalCloseButton } from '@/components/ui/modal-close-button';
 import { ModalHeader } from '@/components/ui/modal-header';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
+import { useWallet } from '@/contexts/wallet-context';
+import { WalletBootstrapPlaceholder } from '@/components/ui/portal-connect-prompt';
 import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
 import { formatNearCompact, formatSocialCompact } from '@/lib/leaderboard';
 import { fadeMotion, scaleFadeMotion } from '@/lib/motion';
@@ -182,6 +184,7 @@ export function WalletAssetsModal({
   accountId,
   onOpenChange,
 }: WalletAssetsModalProps) {
+  const { isLoading: isWalletBootstrapping } = useWallet();
   const reduceMotion = useReducedMotion();
   const titleId = useId();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -237,7 +240,9 @@ export function WalletAssetsModal({
               description={
                 accountId
                   ? `@${accountId} · Native NEAR & SOCIAL`
-                  : 'Connect a wallet to view balances'
+                  : isWalletBootstrapping
+                    ? 'Checking wallet connection'
+                    : 'Connect a wallet to view balances'
               }
               descriptionVariant="meta"
               bordered
@@ -250,7 +255,9 @@ export function WalletAssetsModal({
             />
 
             <div ref={scrollRef} className={compactModalBodyClass}>
-              {!accountId ? (
+              {isWalletBootstrapping ? (
+                <WalletBootstrapPlaceholder variant="inline" className="py-4" />
+              ) : !accountId ? (
                 <p className="py-4 text-center text-sm text-muted-foreground/65">
                   Connect a wallet to view balances.
                 </p>

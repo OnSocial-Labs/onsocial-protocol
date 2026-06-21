@@ -8,6 +8,34 @@ export const compactModalShellClass =
 export const compactModalBodyClass =
   'min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-5 md:px-5';
 
+/** Compact modal spacing — wallet-menu / stat-strip sm tier (DAO info, dense overlays). */
+
+/** Vertical breathing room on bordered modal sections (Purpose, stats, You). */
+export const compactModalSectionYClass = 'py-1';
+
+/** Inset shell padding — same horizontal rhythm as walletMenuCardClass on mobile. */
+export const compactModalInsetShellPadClass = 'px-2.5 py-2';
+
+/** Top padding for unbordered trailing sections (e.g. Roles list). */
+export const compactModalPanelSectionClass = 'pt-1';
+
+/** Gap between section eyebrow and content. */
+export const compactModalSectionLabelClass = 'mb-1';
+
+/** Tighter body scroll area — combine with compactModalBodyClass. */
+export const compactModalBodyDenseClass =
+  'space-y-0 overflow-x-hidden pt-1 pb-1.5';
+
+/** Denser header than ModalHeader default — pass via ModalHeader className. */
+export const compactModalHeaderDenseClass = 'py-2 md:py-2.5';
+
+/** Footer link row vertical padding inside compact modals. */
+export const compactModalFooterYClass = 'py-1.5';
+
+/** Dense stat/rules grid cell — 4-col rows on narrow modals. */
+export const compactModalStatGridCellClass =
+  'min-w-0 py-2 px-2 text-center sm:px-2.5';
+
 export const floatingPanelClass = `rounded-xl md:rounded-2xl border border-border/67 bg-background/98 ${portalElevatedShadowClass}`;
 
 export const floatingPanelItemClass =

@@ -30,6 +30,7 @@ export interface SearchInputProps
     VariantProps<typeof searchInputVariants> {
   value: string;
   onValueChange: (value: string) => void;
+  onSubmit?: () => void;
   containerClassName?: string;
   clearAriaLabel?: string;
 }
@@ -39,12 +40,14 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
     {
       value,
       onValueChange,
+      onSubmit,
       size,
       className,
       containerClassName,
       placeholder = 'Search',
       clearAriaLabel = 'Clear search',
       'aria-label': ariaLabel,
+      onKeyDown,
       ...props
     },
     ref
@@ -72,6 +75,14 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
           enterKeyHint="search"
           value={value}
           onChange={(event) => onValueChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              inputRef.current?.blur();
+              onSubmit?.();
+            }
+            onKeyDown?.(event);
+          }}
           aria-label={ariaLabel ?? placeholder}
           placeholder={placeholder}
           className={cn(

@@ -34,16 +34,27 @@ function baseSignals() {
   };
 }
 
+function score(
+  input: Parameters<typeof scoreSeasonZero>[0]
+): ReturnType<typeof scoreSeasonZero> {
+  return scoreSeasonZero(input, {
+    joinMinYocto: SEASON_ZERO_JOIN_RALLY_MIN_YOCTO,
+  });
+}
+
 describe('season-policy', () => {
   it('sets Season Zero join eligibility at 100 SOCIAL', () => {
     expect(SEASON_ZERO_JOIN_RALLY_MIN_YOCTO).toBe(100n * ONE_SOCIAL);
   });
 
   it('requires a minimum join rally spend for eligibility', () => {
-    const score = scoreSeasonZero({
-      ...baseSignals(),
-      joinAmountYocto: SEASON_ZERO_JOIN_RALLY_MIN_YOCTO - 1n,
-    });
+    const score = scoreSeasonZero(
+      {
+        ...baseSignals(),
+        joinAmountYocto: SEASON_ZERO_JOIN_RALLY_MIN_YOCTO - 1n,
+      },
+      { joinMinYocto: SEASON_ZERO_JOIN_RALLY_MIN_YOCTO }
+    );
 
     expect(score.eligible).toBe(false);
     expect(score.breakdown.total).toBe(0);
@@ -61,8 +72,8 @@ describe('season-policy', () => {
   });
 
   it('applies daily and season caps on social signals', () => {
-    const normal = scoreSeasonZero(baseSignals());
-    const burstDay = scoreSeasonZero({
+    const normal = score(baseSignals());
+    const burstDay = score({
       ...baseSignals(),
       daily: {
         endorsersByDay: [100],
@@ -71,7 +82,7 @@ describe('season-policy', () => {
         mutualStandsByDay: [100],
       },
     });
-    const steadySeason = scoreSeasonZero({
+    const steadySeason = score({
       ...baseSignals(),
       daily: {
         endorsersByDay: Array.from({ length: 20 }, () => 3),
@@ -99,12 +110,12 @@ describe('season-policy', () => {
   });
 
   it('uses square-root weighting for spend-like signals', () => {
-    const fourSocial = scoreSeasonZero({
+    const fourSocial = score({
       ...baseSignals(),
       supportReceivedYocto: 4n * ONE_SOCIAL,
       effectiveBoostYocto: 4n * ONE_SOCIAL,
     });
-    const nineSocial = scoreSeasonZero({
+    const nineSocial = score({
       ...baseSignals(),
       supportReceivedYocto: 9n * ONE_SOCIAL,
       effectiveBoostYocto: 9n * ONE_SOCIAL,
@@ -117,7 +128,7 @@ describe('season-policy', () => {
   });
 
   it('rewards consistent daily participation over a single burst day', () => {
-    const oneBurst = scoreSeasonZero({
+    const oneBurst = score({
       ...baseSignals(),
       daily: {
         endorsersByDay: [3],
@@ -126,7 +137,7 @@ describe('season-policy', () => {
         mutualStandsByDay: [2],
       },
     });
-    const tenDays = scoreSeasonZero({
+    const tenDays = score({
       ...baseSignals(),
       daily: {
         endorsersByDay: Array.from({ length: 10 }, () => 3),

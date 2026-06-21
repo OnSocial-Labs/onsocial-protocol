@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import Lenis from 'lenis';
+import { resetPortalScrollY, setPortalScrollY } from '@/lib/portal-scroll-state';
 import { usePathname, useSearchParams } from 'next/navigation';
 
 const SCROLL_STORAGE_PREFIX = 'onsocial:scroll:';
@@ -76,6 +77,30 @@ export function SmoothScrollProvider({
     });
     lenisRef.current = lenis;
 
+    const emitSmoothScroll = (instance: Lenis) => {
+      setPortalScrollY(instance.scroll);
+      window.dispatchEvent(
+        new CustomEvent('onsocial:smooth-scroll', {
+          detail: { scroll: instance.scroll },
+        })
+      );
+    };
+
+    lenis.on('scroll', emitSmoothScroll);
+
+    const handleScrollTo = (event: Event) => {
+      const top =
+        (event as CustomEvent<{ top?: number; immediate?: boolean }>).detail
+          ?.top ?? 0;
+      const immediate = Boolean(
+        (event as CustomEvent<{ top?: number; immediate?: boolean }>).detail
+          ?.immediate
+      );
+      lenis.scrollTo(top, { immediate });
+    };
+
+    window.addEventListener('onsocial:scroll-to', handleScrollTo);
+
     const handleScrollLock = (event: Event) => {
       const locked = Boolean(
         (event as CustomEvent<{ locked?: boolean }>).detail?.locked
@@ -103,6 +128,8 @@ export function SmoothScrollProvider({
     return () => {
       clearPendingRestore();
 
+      lenis.off('scroll', emitSmoothScroll);
+      window.removeEventListener('onsocial:scroll-to', handleScrollTo);
       window.removeEventListener('onsocial:scroll-lock', handleScrollLock);
       lenisRef.current = null;
       lenis.destroy();
@@ -180,6 +207,15 @@ export function SmoothScrollProvider({
       return;
     }
 
+    const emitScrollRestored = (scroll = 0) => {
+      setPortalScrollY(scroll);
+      window.dispatchEvent(
+        new CustomEvent('onsocial:scroll-restored', {
+          detail: { scroll },
+        })
+      );
+    };
+
     writeScrollPosition(routeKeyRef.current, window.scrollY);
     routeKeyRef.current = routeKey;
 
@@ -187,10 +223,12 @@ export function SmoothScrollProvider({
     const isPopNavigation = isPopNavigationRef.current;
 
     isPopNavigationRef.current = false;
+    resetPortalScrollY(0);
 
     if (!isPopNavigation || nextScrollTop <= 0) {
       lenisRef.current?.scrollTo(0, { immediate: true });
       window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      requestAnimationFrame(() => emitScrollRestored(0));
       return;
     }
 
@@ -209,6 +247,7 @@ export function SmoothScrollProvider({
         lenisRef.current?.scrollTo(clampedScrollTop, { immediate: true });
         window.scrollTo({ top: clampedScrollTop, left: 0, behavior: 'auto' });
         clearPendingRestore();
+        emitScrollRestored(clampedScrollTop);
         return;
       }
     };
@@ -233,6 +272,7 @@ export function SmoothScrollProvider({
       lenisRef.current?.scrollTo(clampedScrollTop, { immediate: true });
       window.scrollTo({ top: clampedScrollTop, left: 0, behavior: 'auto' });
       clearPendingRestore();
+      emitScrollRestored(clampedScrollTop);
     }, 2500);
   }, [routeKey]);
 

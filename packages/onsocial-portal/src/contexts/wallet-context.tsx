@@ -49,6 +49,7 @@ interface WalletContextType {
   isLoading: boolean;
   isBootstrappingSocialSession: boolean;
   connect: () => Promise<void>;
+  switchWallet: () => Promise<void>;
   disconnect: () => Promise<void>;
   getSigningWallet: () => Promise<SigningWallet>;
 }
@@ -111,6 +112,7 @@ const WalletContext = createContext<WalletContextType>({
   isConnected: false,
   isLoading: true,
   connect: async () => {},
+  switchWallet: async () => {},
   disconnect: async () => {},
   isBootstrappingSocialSession: false,
   getSigningWallet: async () => {
@@ -237,20 +239,25 @@ export function WalletProvider({
   );
 
   const performPortalConnect = useCallback(
-    async (storedHint: string | null): Promise<SigningWallet> => {
+    async (
+      storedHint: string | null,
+      options?: { forcePicker?: boolean }
+    ): Promise<SigningWallet> => {
       const c = connectorRef.current;
       if (!c) {
         throw new Error('Wallet is still loading. Try again in a moment.');
       }
 
-      const existing = await tryReuseConnectedWallet(c, storedHint);
-      if (existing) {
-        const sessionPlan = await resolvePortalSessionPlan(existing.accountId);
-        applyWalletConnection(existing.wallet, existing.accountId);
-        if (!sessionPlan.sessionReady) {
-          await bootstrapPortalSession(c, existing.accountId, sessionPlan);
+      if (!options?.forcePicker) {
+        const existing = await tryReuseConnectedWallet(c, storedHint);
+        if (existing) {
+          const sessionPlan = await resolvePortalSessionPlan(existing.accountId);
+          applyWalletConnection(existing.wallet, existing.accountId);
+          if (!sessionPlan.sessionReady) {
+            await bootstrapPortalSession(c, existing.accountId, sessionPlan);
+          }
+          return { wallet: existing.wallet, accountId: existing.accountId };
         }
-        return { wallet: existing.wallet, accountId: existing.accountId };
       }
 
       let signedInAccounts: Array<{ accountId: string }> = [];
@@ -397,6 +404,25 @@ export function WalletProvider({
     await connectPromise;
   }, [performPortalConnect]);
 
+  const switchWallet = useCallback(async () => {
+    if (connectPromiseRef.current) {
+      await connectPromiseRef.current;
+      return;
+    }
+
+    const connectPromise = performPortalConnect(null, { forcePicker: true })
+      .catch((error) => {
+        if (isIgnorableConnectError(error)) return;
+        throw error;
+      })
+      .finally(() => {
+        connectPromiseRef.current = null;
+      });
+
+    connectPromiseRef.current = connectPromise as Promise<SigningWallet>;
+    await connectPromise;
+  }, [performPortalConnect]);
+
   const disconnect = useCallback(async () => {
     const c = connectorRef.current;
     if (!c) return;
@@ -453,6 +479,7 @@ export function WalletProvider({
     isLoading,
     isBootstrappingSocialSession,
     connect,
+    switchWallet,
     disconnect,
     getSigningWallet,
   };

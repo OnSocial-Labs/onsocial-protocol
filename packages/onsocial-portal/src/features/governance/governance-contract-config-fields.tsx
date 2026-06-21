@@ -1,67 +1,140 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { viewContractAt } from '@/lib/near-rpc';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { viewContractAt, yoctoToSocial } from '@/lib/near-rpc';
 import {
-  formatSocialSpendActionRoutingSummary,
+  getSocialSpendRoutingFieldLayout,
   parseSocialSpendActionConfigView,
+  parseSocialSpendMinAmountInputToYocto,
+  sanitizeSocialSpendRoutingMinAmountInput,
   socialSpendActionConfigToDraft,
-  sumSocialSpendActionRoutingBps,
+  SOCIAL_SPEND_ROUTING_SHARE_FIELD_LABELS,
+  type DaoContractConfigOperationId,
   type SocialSpendActionRoutingDraft,
-  validateSocialSpendActionRoutingBps,
-  SOCIAL_SPEND_ROUTING_BPS_DENOMINATOR,
+  type SocialSpendRoutingShareFieldKey,
+  validateSocialSpendRoutingMinAmountYocto,
 } from '@/lib/dao-contract-config-operations';
+import {
+  governanceCreateFieldLabelClass,
+  governanceCreateFieldShellClass,
+} from '@/features/governance/governance-create-compact-ui';
 import { cn } from '@/lib/utils';
 
-const fieldLabelClass =
-  'mb-1.5 block text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground/80';
+const fieldLabelClass = governanceCreateFieldLabelClass;
 
-const ROUTING_FIELDS: Array<{
-  key: keyof Pick<
-    SocialSpendActionRoutingDraft,
-    'treasury_bps' | 'season_pool_bps' | 'target_bps' | 'burn_bps'
-  >;
-  label: string;
-  hint: string;
-}> = [
-  {
-    key: 'season_pool_bps',
-    label: 'Season pool',
-    hint: 'Share routed to the rally season pool',
-  },
-  {
-    key: 'treasury_bps',
-    label: 'Protocol fees',
-    hint: 'Share routed to boost credits when boost contract is set, else accrued for treasury sweep',
-  },
-  {
-    key: 'target_bps',
-    label: 'Target',
-    hint: 'Share routed to recipient target balance',
-  },
-  {
-    key: 'burn_bps',
-    label: 'Burn',
-    hint: 'Share burned from circulating SOCIAL supply',
-  },
-];
+const fieldShellClass = cn(
+  governanceCreateFieldShellClass,
+  'px-2.5 py-2.5 sm:px-3 md:px-4'
+);
 
-function parseBpsInput(value: string): number | null {
-  const trimmed = value.trim();
-  if (!/^\d+$/.test(trimmed)) {
+function formatBpsAsPercentInput(bps: number): string {
+  const percent = bps / 100;
+  return percent % 1 === 0 ? String(percent) : percent.toFixed(1);
+}
+
+function parsePercentInputToBps(value: string): number | null {
+  const trimmed = value.trim().replace(/%$/, '');
+  if (!/^\d+(\.\d{0,2})?$/.test(trimmed)) {
     return null;
   }
 
   const parsed = Number(trimmed);
-  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 10_000) {
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
     return null;
   }
 
-  return parsed;
+  return Math.round(parsed * 100);
+}
+
+function updateRoutingShareDraft(
+  draft: SocialSpendActionRoutingDraft,
+  fieldKey: SocialSpendRoutingShareFieldKey,
+  rawValue: string,
+  onDraftChange: (draft: SocialSpendActionRoutingDraft) => void
+) {
+  const nextValue = parsePercentInputToBps(rawValue);
+  if (nextValue == null && rawValue.trim() !== '') {
+    return;
+  }
+
+  onDraftChange({
+    ...draft,
+    [fieldKey]: nextValue ?? 0,
+  });
+}
+
+function RoutingShareInput({
+  fieldKey,
+  draft,
+  onDraftChange,
+  inline = false,
+}: {
+  fieldKey: SocialSpendRoutingShareFieldKey;
+  draft: SocialSpendActionRoutingDraft;
+  onDraftChange: (draft: SocialSpendActionRoutingDraft) => void;
+  inline?: boolean;
+}) {
+  const label = SOCIAL_SPEND_ROUTING_SHARE_FIELD_LABELS[fieldKey];
+  const inputId = `social-spend-routing-${fieldKey}`;
+
+  if (inline) {
+    return (
+      <div className={cn(fieldShellClass, 'flex min-w-0 items-center gap-2')}>
+        <label
+          htmlFor={inputId}
+          className="shrink-0 text-[0.6875rem] font-medium text-muted-foreground/80"
+        >
+          {label}
+        </label>
+        <input
+          id={inputId}
+          type="text"
+          inputMode="decimal"
+          value={formatBpsAsPercentInput(draft[fieldKey])}
+          onChange={(event) => {
+            updateRoutingShareDraft(
+              draft,
+              fieldKey,
+              event.target.value,
+              onDraftChange
+            );
+          }}
+          className="min-w-0 flex-1 bg-transparent text-right text-sm font-medium outline-none"
+        />
+        <span className="shrink-0 text-sm text-muted-foreground/60">%</span>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <label htmlFor={inputId} className={fieldLabelClass}>
+        {label}
+      </label>
+      <div className={cn(fieldShellClass, 'flex items-center gap-1')}>
+        <input
+          id={inputId}
+          type="text"
+          inputMode="decimal"
+          value={formatBpsAsPercentInput(draft[fieldKey])}
+          onChange={(event) => {
+            updateRoutingShareDraft(
+              draft,
+              fieldKey,
+              event.target.value,
+              onDraftChange
+            );
+          }}
+          className="min-w-0 flex-1 bg-transparent text-sm font-medium outline-none"
+        />
+        <span className="shrink-0 text-sm text-muted-foreground/60">%</span>
+      </div>
+    </div>
+  );
 }
 
 export function SocialSpendActionRoutingFields({
-  contractId,
+  operationId,
   actionLabel,
   draft,
   baseline,
@@ -69,9 +142,10 @@ export function SocialSpendActionRoutingFields({
   loadError,
   onDraftChange,
   onReload,
-  staticFieldsNote,
+  minAmountPolicy = null,
+  editableActive = false,
 }: {
-  contractId: string;
+  operationId: DaoContractConfigOperationId;
   actionLabel: string;
   draft: SocialSpendActionRoutingDraft | null;
   baseline: SocialSpendActionRoutingDraft | null;
@@ -79,22 +153,46 @@ export function SocialSpendActionRoutingFields({
   loadError: string | null;
   onDraftChange: (draft: SocialSpendActionRoutingDraft) => void;
   onReload: () => void;
-  staticFieldsNote?: string;
+  minAmountPolicy?: Extract<
+    DaoContractConfigOperationId,
+    | 'social_spend_join_rally_routing'
+    | 'social_spend_support_profile_routing'
+    | 'social_spend_support_endorsement_routing'
+    | 'social_spend_boost_post_routing'
+  > | null;
+  editableActive?: boolean;
 }) {
-  const routingValid = draft
-    ? validateSocialSpendActionRoutingBps(draft)
-    : false;
-  const routingSum = draft ? sumSocialSpendActionRoutingBps(draft) : 0;
-  const disclosure = draft
-    ? formatSocialSpendActionRoutingSummary(draft, {
-        protocolFeesRouteToBoost: true,
-      })
-    : null;
+  const [minAmountInput, setMinAmountInput] = useState('');
+  const prevLoadingRef = useRef(true);
+  const editableMinAmount = minAmountPolicy != null;
+  const fieldLayout = getSocialSpendRoutingFieldLayout(operationId);
+  const shareFieldKeys = [
+    ...fieldLayout.primary,
+    ...fieldLayout.secondary,
+  ] as const;
+
+  useEffect(() => {
+    const finishedLoading = prevLoadingRef.current && !loading;
+    prevLoadingRef.current = loading;
+
+    if (!editableMinAmount || !minAmountPolicy || !finishedLoading || !draft) {
+      return;
+    }
+
+    setMinAmountInput(
+      validateSocialSpendRoutingMinAmountYocto(
+        draft.min_amount,
+        minAmountPolicy
+      )
+        ? yoctoToSocial(draft.min_amount)
+        : ''
+    );
+  }, [editableMinAmount, loading, draft, minAmountPolicy]);
 
   if (loading) {
     return (
       <div className="portal-field-focus rounded-2xl border border-border/40 bg-background/45 px-4 py-3 text-sm text-muted-foreground md:py-3.5">
-        Loading {actionLabel} routing from chain…
+        Loading {actionLabel}…
       </div>
     );
   }
@@ -110,7 +208,7 @@ export function SocialSpendActionRoutingFields({
           onClick={onReload}
           className="text-sm font-medium text-[var(--portal-blue)] underline-offset-2 hover:underline"
         >
-          Retry loading config
+          Retry
         </button>
       </div>
     );
@@ -119,92 +217,112 @@ export function SocialSpendActionRoutingFields({
   if (!draft) {
     return (
       <div className="portal-field-focus rounded-2xl border border-border/40 bg-background/45 px-4 py-3 text-sm text-muted-foreground md:py-3.5">
-        Select a contract and setting to load routing.
+        Select contract and setting.
       </div>
     );
   }
 
+  const useInlinePrimaryShares =
+    fieldLayout.primary.length === 2 && fieldLayout.secondary.length === 0;
+
   return (
     <div className="space-y-3">
-      {!baseline ? (
-        <div className="rounded-2xl border border-[var(--portal-blue)]/25 bg-[var(--portal-blue)]/5 px-4 py-3 text-sm text-foreground">
-          <p className="font-medium">Register new action</p>
-          <p className="mt-1 text-muted-foreground">
-            {actionLabel} is not configured on {contractId} yet. Proposing will
-            call <code className="text-xs">set_action_config</code> with the
-            defaults below.
-          </p>
+      {editableMinAmount && minAmountPolicy ? (
+        <div
+          className={cn(
+            'grid gap-3',
+            editableActive
+              ? 'grid-cols-1 min-[420px]:grid-cols-[minmax(0,1fr)_auto]'
+              : 'grid-cols-1'
+          )}
+        >
+          <div>
+            <label
+              htmlFor="social-spend-routing-min-amount"
+              className={fieldLabelClass}
+            >
+              Min
+            </label>
+            <div className={cn(fieldShellClass, 'flex items-center gap-1')}>
+              <input
+                id="social-spend-routing-min-amount"
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                value={minAmountInput}
+                onChange={(event) => {
+                  const nextInput = sanitizeSocialSpendRoutingMinAmountInput(
+                    event.target.value,
+                    minAmountInput,
+                    minAmountPolicy
+                  );
+                  setMinAmountInput(nextInput);
+
+                  const parsedYocto =
+                    parseSocialSpendMinAmountInputToYocto(nextInput);
+                  if (
+                    parsedYocto &&
+                    validateSocialSpendRoutingMinAmountYocto(
+                      parsedYocto,
+                      minAmountPolicy
+                    )
+                  ) {
+                    onDraftChange({
+                      ...draft,
+                      min_amount: parsedYocto,
+                    });
+                    return;
+                  }
+
+                  onDraftChange({ ...draft, min_amount: '0' });
+                }}
+                className="min-w-0 flex-1 bg-transparent text-sm font-medium outline-none"
+              />
+              <span className="shrink-0 text-sm text-muted-foreground/60">
+                SOCIAL
+              </span>
+            </div>
+          </div>
+
+          {editableActive ? (
+            <div className="flex items-end pb-0.5">
+              <label className="flex min-h-11 items-center gap-2 rounded-2xl border border-border/40 bg-background/45 px-4 py-2.5 text-sm">
+                <input
+                  type="checkbox"
+                  checked={draft.active}
+                  onChange={(event) => {
+                    onDraftChange({
+                      ...draft,
+                      active: event.target.checked,
+                    });
+                  }}
+                  className="h-4 w-4 rounded border-border/60"
+                />
+                <span className="font-medium text-foreground">Active</span>
+              </label>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        {ROUTING_FIELDS.map(({ key, label, hint }) => (
-          <div key={key}>
-            <label
-              htmlFor={`social-spend-routing-${key}`}
-              className={fieldLabelClass}
-            >
-              {label} (bps)
-            </label>
-            <div className="portal-field-focus rounded-2xl border border-border/40 bg-background/45 px-3 py-2.5 md:px-4">
-              <input
-                id={`social-spend-routing-${key}`}
-                type="text"
-                inputMode="numeric"
-                value={String(draft[key])}
-                onChange={(event) => {
-                  const nextValue = parseBpsInput(event.target.value);
-                  if (nextValue == null && event.target.value.trim() !== '') {
-                    return;
-                  }
-                  onDraftChange({
-                    ...draft,
-                    [key]: nextValue ?? 0,
-                  });
-                }}
-                className="w-full bg-transparent text-sm font-medium outline-none"
-              />
-            </div>
-            <p className="mt-1.5 portal-type-caption text-muted-foreground/70">
-              {hint} ·{' '}
-              {(draft[key] / 100).toFixed(draft[key] % 100 === 0 ? 0 : 1)}%
-            </p>
-          </div>
-        ))}
-      </div>
-
       <div
         className={cn(
-          'rounded-2xl border px-4 py-3 text-sm',
-          routingValid
-            ? 'border-border/40 bg-background/45 text-muted-foreground'
-            : 'border-amber-500/30 bg-amber-500/5 text-amber-700'
+          'grid gap-2 sm:gap-3',
+          shareFieldKeys.length > 2
+            ? 'grid-cols-2 sm:grid-cols-4'
+            : 'grid-cols-2'
         )}
       >
-        <p>
-          Total: {routingSum.toLocaleString()} /{' '}
-          {SOCIAL_SPEND_ROUTING_BPS_DENOMINATOR.toLocaleString()} bps
-          {!routingValid ? ' — shares must sum to 100%.' : null}
-        </p>
-        {disclosure ? (
-          <p className="mt-1 font-medium text-foreground">{disclosure}</p>
-        ) : null}
-        {baseline &&
-        draft.treasury_bps === baseline.treasury_bps &&
-        draft.season_pool_bps === baseline.season_pool_bps &&
-        draft.target_bps === baseline.target_bps &&
-        draft.burn_bps === baseline.burn_bps ? (
-          <p className="mt-1 portal-type-caption text-muted-foreground/70">
-            Matches current on-chain routing.
-          </p>
-        ) : null}
+        {shareFieldKeys.map((fieldKey) => (
+          <RoutingShareInput
+            key={fieldKey}
+            fieldKey={fieldKey}
+            draft={draft}
+            onDraftChange={onDraftChange}
+            inline={useInlinePrimaryShares}
+          />
+        ))}
       </div>
-
-      {staticFieldsNote ? (
-        <p className="portal-type-caption text-muted-foreground/70">
-          {staticFieldsNote}
-        </p>
-      ) : null}
     </div>
   );
 }

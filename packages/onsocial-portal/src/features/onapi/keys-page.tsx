@@ -32,6 +32,7 @@ import { PageShell } from '@/components/layout/page-shell';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { Button } from '@/components/ui/button';
+import { PortalConnectPrompt, WalletBootstrapPlaceholder } from '@/components/ui/portal-connect-prompt';
 import { PortalBadge } from '@/components/ui/portal-badge';
 import { ListRowsSkeleton } from '@/components/ui/skeleton';
 import {
@@ -835,21 +836,18 @@ export default function OnApiKeysPage() {
           padding="roomy"
           className="text-center"
         >
-          {!isConnected ? (
-            <>
-              <Key className="mx-auto mb-3 h-6 w-6 text-muted-foreground/40" />
-              <p className="mb-4 text-sm font-medium text-foreground">
-                Connect to manage your API access
-              </p>
-              <Button
-                onClick={connect}
-                variant="default"
-                size="sm"
-                loading={walletLoading}
-              >
-                Sign in
-              </Button>
-            </>
+          {walletLoading ? (
+            <WalletBootstrapPlaceholder />
+          ) : !isConnected ? (
+            <PortalConnectPrompt
+              action="onapi.manage"
+              variant="gate"
+              showNavHint={false}
+              onConnect={connect}
+              icon={
+                <Key className="h-6 w-6 text-muted-foreground/40" aria-hidden />
+              }
+            />
           ) : (
             <>
               <Key className="mx-auto mb-3 h-6 w-6 text-muted-foreground/40" />

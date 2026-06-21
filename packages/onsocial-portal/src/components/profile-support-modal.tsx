@@ -5,6 +5,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import { HeartHandshake } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { portalConnectButtonLabel } from '@/lib/portal-connect-copy';
 import { ModalCloseButton } from '@/components/ui/modal-close-button';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
 import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
@@ -19,11 +20,16 @@ import {
 } from '@/lib/transaction-toast-copy';
 import { getSocialWalletBalanceYocto, yoctoToSocial } from '@/lib/near-rpc';
 import {
+  fetchSupportProfileRouting,
+  formatSpendMinSocialLabel,
   formatSupportProfileRecipientSharePercent,
   formatSupportProfileTreasurySharePercent,
   parseSupportAmountYocto,
+  supportPresetsAtOrAboveMin,
   SUPPORT_PROFILE_MIN_SOCIAL_LABEL,
+  SUPPORT_PROFILE_MIN_YOCTO,
   SUPPORT_PROFILE_PRESET_SOCIAL,
+  type SupportProfileRoutingDisclosure,
 } from '@/lib/social-spend-profile';
 import {
   isWalletUserCancellation,
@@ -51,15 +57,40 @@ export function ProfileSupportModal({
   onSupport,
 }: ProfileSupportModalProps) {
   const reduceMotion = useReducedMotion();
-  const { accountId: viewerAccountId, connect, isConnected } = useWallet();
+  const { accountId: viewerAccountId, connect, isConnected, isLoading: isWalletBootstrapping } = useWallet();
   const { txResult, setTxResult, clearTxResult, trackTransaction } =
     useNearTransactionFeedback(viewerAccountId);
   const [amount, setAmount] = useState('1');
   const [walletBalanceYocto, setWalletBalanceYocto] = useState<bigint | null>(
     null
   );
+  const [routing, setRouting] = useState<SupportProfileRoutingDisclosure | null>(
+    null
+  );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const minAmountYocto = routing?.minAmountYocto ?? null;
+  const minSocialLabel = useMemo(
+    () =>
+      minAmountYocto != null
+        ? formatSpendMinSocialLabel(minAmountYocto)
+        : SUPPORT_PROFILE_MIN_SOCIAL_LABEL,
+    [minAmountYocto]
+  );
+  const presetAmounts = useMemo(
+    () =>
+      minAmountYocto != null
+        ? supportPresetsAtOrAboveMin(minAmountYocto, SUPPORT_PROFILE_PRESET_SOCIAL)
+        : [...SUPPORT_PROFILE_PRESET_SOCIAL],
+    [minAmountYocto]
+  );
+  const recipientShareLabel = formatSupportProfileRecipientSharePercent(
+    routing?.targetBps
+  );
+  const treasuryShareLabel = formatSupportProfileTreasurySharePercent(
+    routing?.treasuryBps
+  );
 
   const handle = cleanHandle(targetAccountId);
   const displayName = targetDisplayName || `@${handle}`;
@@ -70,11 +101,20 @@ export function ProfileSupportModal({
     if (!open) return;
     setError(null);
     setAmount('1');
+    let cancelled = false;
+    void fetchSupportProfileRouting()
+      .then((nextRouting) => {
+        if (!cancelled) setRouting(nextRouting);
+      })
+      .catch(() => {
+        if (!cancelled) setRouting(null);
+      });
     if (!viewerAccountId) {
       setWalletBalanceYocto(null);
-      return;
+      return () => {
+        cancelled = true;
+      };
     }
-    let cancelled = false;
     void getSocialWalletBalanceYocto(viewerAccountId)
       .then((balance) => {
         if (!cancelled) setWalletBalanceYocto(balance);
@@ -101,7 +141,10 @@ export function ProfileSupportModal({
 
     let amountYocto: bigint;
     try {
-      amountYocto = parseSupportAmountYocto(amount);
+      amountYocto = parseSupportAmountYocto(
+        amount,
+        minAmountYocto ?? SUPPORT_PROFILE_MIN_YOCTO
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid amount.');
       return;
@@ -133,6 +176,7 @@ export function ProfileSupportModal({
     amount,
     connect,
     isConnected,
+    minAmountYocto,
     onOpenChange,
     onSupport,
     targetAccountId,
@@ -184,11 +228,10 @@ export function ProfileSupportModal({
               </div>
 
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                Send SOCIAL from your wallet. About{' '}
-                {formatSupportProfileRecipientSharePercent()}% accrues for them
-                to claim; {formatSupportProfileTreasurySharePercent()}% goes to
-                treasury. Counts toward their Season 0 support score after they
-                have joined the rally.
+                Send SOCIAL from your wallet. About {recipientShareLabel}% accrues
+                for them to claim; {treasuryShareLabel}% goes to treasury. Counts
+                toward their Season 0 support score after they have joined the
+                rally.
               </p>
 
               {walletBalanceLabel != null ? (
@@ -198,7 +241,7 @@ export function ProfileSupportModal({
               ) : null}
 
               <div className="mt-4 flex flex-wrap gap-2">
-                {SUPPORT_PROFILE_PRESET_SOCIAL.map((preset) => (
+                {presetAmounts.map((preset) => (
                   <button
                     key={preset}
                     type="button"
@@ -226,12 +269,12 @@ export function ProfileSupportModal({
                   value={amount}
                   onChange={(event) => setAmount(event.target.value)}
                   className="mt-1.5 w-full rounded-lg border border-border/60 bg-background/80 px-3 py-2 text-sm outline-none focus-visible:ring-1 focus-visible:ring-[var(--portal-green-border)]"
-                  placeholder={SUPPORT_PROFILE_MIN_SOCIAL_LABEL}
+                  placeholder={minSocialLabel}
                 />
               </label>
 
               <p className="mt-1.5 text-xs text-muted-foreground/70">
-                Minimum {SUPPORT_PROFILE_MIN_SOCIAL_LABEL} SOCIAL per support.
+                Minimum {minSocialLabel} SOCIAL per support.
               </p>
 
               {error ? (
@@ -253,10 +296,14 @@ export function ProfileSupportModal({
                   size="sm"
                   variant="accent"
                   loading={pending}
-                  disabled={pending}
+                  disabled={pending || isWalletBootstrapping}
                   onClick={() => void handleSubmit()}
                 >
-                  {isConnected ? 'Send support' : 'Connect wallet'}
+                  {portalConnectButtonLabel('support', {
+                    isWalletBootstrapping,
+                    isConnected,
+                    connectedLabel: 'Send support',
+                  })}
                 </Button>
               </div>
             </motion.div>

@@ -12,11 +12,7 @@ import {
 } from '@/features/season/season-zero-earn-panel';
 import type { SeasonZeroStanding } from '@/features/season/season-zero-standing-row';
 import type { SeasonZeroPayoutParticipant } from '@/features/season/season-zero-payout-estimate';
-import { GENESIS_RALLY_JOIN_SOCIAL_LABEL } from '@/lib/genesis-season';
-import {
-  fetchJoinRallyRouting,
-  formatJoinEntryGuideLabel,
-} from '@/lib/join-rally-routing';
+import { fetchJoinRallyRouting, formatJoinEntryGuideLabel } from '@/lib/join-rally-routing';
 import { seasonZeroPayoutSummary } from '@/features/season/season-zero-payout-copy';
 import { portalTransition } from '@/lib/motion';
 import { cn } from '@/lib/utils';
@@ -57,9 +53,9 @@ export function SeasonZeroGuidePanel({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [joinEntryLabel, setJoinEntryLabel] = useState(
-    `${GENESIS_RALLY_JOIN_SOCIAL_LABEL} SOCIAL · 95 to pool`
-  );
+  const [joinRouting, setJoinRouting] =
+    useState<Awaited<ReturnType<typeof fetchJoinRallyRouting>>>(null);
+  const [joinEntryLabel, setJoinEntryLabel] = useState('Loading rally entry…');
   const reduceMotion = useReducedMotion();
 
   useEffect(() => {
@@ -68,12 +64,16 @@ export function SeasonZeroGuidePanel({
     void fetchJoinRallyRouting()
       .then((routing) => {
         if (cancelled) return;
+        setJoinRouting(routing);
         setJoinEntryLabel(
-          formatJoinEntryGuideLabel(GENESIS_RALLY_JOIN_SOCIAL_LABEL, routing)
+          formatJoinEntryGuideLabel(routing, { loading: false })
         );
       })
       .catch(() => {
-        // Keep default copy when the view call is unavailable.
+        if (!cancelled) {
+          setJoinRouting(null);
+          setJoinEntryLabel(formatJoinEntryGuideLabel(null));
+        }
       });
 
     return () => {
@@ -86,6 +86,12 @@ export function SeasonZeroGuidePanel({
     participantCount: Math.max(participantCount, myStanding ? 1 : 0),
     participants: payoutParticipants ?? undefined,
     personalAccountId: personalAccountId ?? myStanding?.accountId ?? null,
+    routing: joinRouting
+      ? {
+          joinAmountYocto: joinRouting.joinMinAmountYocto,
+          seasonPoolBps: joinRouting.config.season_pool_bps,
+        }
+      : undefined,
   });
 
   const headerHint = myStanding

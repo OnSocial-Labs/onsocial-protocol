@@ -1,13 +1,52 @@
-import {
-  GENESIS_RALLY_JOIN_YOCTO,
-  GENESIS_RALLY_SEASON_POOL_BPS,
-} from '@/lib/genesis-season';
-
 /** Keep aligned with backend `SEASON_ZERO_BASE_REBATE_BPS`. */
 export const SEASON_ZERO_PAYOUT_BASE_REBATE_BPS = 5_000n;
 const BASE_REBATE_BPS = SEASON_ZERO_PAYOUT_BASE_REBATE_BPS;
 const BPS_DENOMINATOR = 10_000n;
 const JOIN_POINTS = 1_000;
+
+export interface SeasonZeroPayoutRoutingContext {
+  joinAmountYocto: string | bigint;
+  seasonPoolBps: number;
+}
+
+function parseJoinAmountYocto(raw: string | bigint | undefined): bigint | null {
+  if (typeof raw === 'bigint') {
+    return raw > 0n ? raw : null;
+  }
+  if (typeof raw === 'string' && /^\d+$/u.test(raw)) {
+    try {
+      const value = BigInt(raw);
+      return value > 0n ? value : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function resolveSeasonPoolBps(seasonPoolBps: number | undefined): number | null {
+  return typeof seasonPoolBps === 'number' &&
+    Number.isFinite(seasonPoolBps) &&
+    seasonPoolBps > 0
+    ? seasonPoolBps
+    : null;
+}
+
+function perJoinPoolContributionYocto(
+  routing?: SeasonZeroPayoutRoutingContext
+): bigint | null {
+  if (!routing) {
+    return null;
+  }
+
+  const joinAmountYocto = parseJoinAmountYocto(routing.joinAmountYocto);
+  const seasonPoolBps = resolveSeasonPoolBps(routing.seasonPoolBps);
+  if (joinAmountYocto == null || seasonPoolBps == null) {
+    return null;
+  }
+
+  return (joinAmountYocto * BigInt(seasonPoolBps)) / BPS_DENOMINATOR;
+}
 
 /** Max standings rows used for live payout estimates (API cap is 100). */
 export const SEASON_ZERO_PAYOUT_STANDINGS_LIMIT = 100;
@@ -23,6 +62,17 @@ interface RewardShare {
   accountId: string;
   rank: number;
   numerator: bigint;
+}
+
+function syntheticMeritScores(participantCount: number): number[] {
+  if (participantCount <= 0) return [];
+  if (participantCount === 1) return [800];
+  const minMerit = 200;
+  const maxMerit = 1_400;
+  return Array.from({ length: participantCount }, (_, index) => {
+    const ratio = index / (participantCount - 1);
+    return Math.round(minMerit + (maxMerit - minMerit) * (1 - ratio));
+  });
 }
 
 function distributePool(
@@ -83,24 +133,6 @@ function parsePoolYocto(value: string | bigint): bigint {
   if (typeof value === 'bigint') return value;
   if (!/^\d+$/u.test(value)) return 0n;
   return BigInt(value);
-}
-
-function perJoinPoolContributionYocto(): bigint {
-  return (
-    (GENESIS_RALLY_JOIN_YOCTO * BigInt(GENESIS_RALLY_SEASON_POOL_BPS)) /
-    BPS_DENOMINATOR
-  );
-}
-
-function syntheticMeritScores(participantCount: number): number[] {
-  if (participantCount <= 0) return [];
-  if (participantCount === 1) return [800];
-  const minMerit = 200;
-  const maxMerit = 1_400;
-  return Array.from({ length: participantCount }, (_, index) => {
-    const ratio = index / (participantCount - 1);
-    return Math.round(minMerit + (maxMerit - minMerit) * (1 - ratio));
-  });
 }
 
 /** Same allocation as backend `buildSeasonZeroSettlementSnapshot`. */
@@ -220,14 +252,22 @@ export interface SeasonZeroPayoutEstimate {
 export function projectSeasonZeroPoolYocto(
   indexedPoolYocto: string | bigint,
   participantCount: number,
-  options: { includeProspectiveJoin?: boolean } = {}
+  options: {
+    includeProspectiveJoin?: boolean;
+    routing?: SeasonZeroPayoutRoutingContext;
+  } = {}
 ): bigint {
   let pool = parsePoolYocto(indexedPoolYocto);
   if (options.includeProspectiveJoin) {
-    pool += perJoinPoolContributionYocto();
+    const contribution = perJoinPoolContributionYocto(options.routing);
+    if (contribution == null) {
+      return pool;
+    }
+    pool += contribution;
   }
   if (pool <= 0n && participantCount <= 0 && options.includeProspectiveJoin) {
-    return perJoinPoolContributionYocto();
+    const contribution = perJoinPoolContributionYocto(options.routing);
+    return contribution ?? 0n;
   }
   return pool;
 }
@@ -238,6 +278,7 @@ export function estimateSeasonZeroPayouts(input: {
   includeProspectiveJoin?: boolean;
   participants?: SeasonZeroPayoutParticipant[];
   personalAccountId?: string | null;
+  routing?: SeasonZeroPayoutRoutingContext;
   /** @deprecated Prefer `participants` + `personalAccountId`. */
   personalScore?: number | null;
   /** @deprecated Prefer `participants` + `personalAccountId`. */
@@ -256,7 +297,10 @@ export function estimateSeasonZeroPayouts(input: {
   const poolYocto = projectSeasonZeroPoolYocto(
     input.indexedPoolYocto,
     registeredCount,
-    { includeProspectiveJoin: input.includeProspectiveJoin }
+    {
+      includeProspectiveJoin: input.includeProspectiveJoin,
+      routing: input.routing,
+    }
   );
   if (poolYocto <= 0n) return null;
 

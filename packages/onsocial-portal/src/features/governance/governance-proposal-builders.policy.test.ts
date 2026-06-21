@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildDaoPolicyActionPayload,
+  buildDaoConfigChangePayload,
   buildDaoPolicyDefaultVotePolicyUpdatePayload,
   buildDaoQuorumPresetOptions,
   buildDaoRolePermissionChips,
@@ -12,14 +13,18 @@ import {
   buildDaoTransferProposalPayload,
   buildDaoWithdrawBoostInfraPayload,
   buildDaoSetBoostInfraAuthorityPayload,
+  canProposePolicyAction,
   computeRoleWeightApprovalFloor,
   DAO_FULL_PUBLIC_PERMISSIONS_PRESET,
   DAO_PROPOSE_ALL_PERMISSIONS_PRESET,
+  daoConfigFieldsChanged,
   defaultVotePolicyThresholdsEqual,
   formatDefaultVotePolicyLabel,
   formatDefaultVoteQuorumLabel,
   formatDaoPermissionPresetLabel,
   formatVoteQuorumOptionLabel,
+  getDaoPolicyActionHint,
+  getDaoGroupMembershipRoleNames,
   isDaoCouncilRole,
   isEditableDaoPolicyRole,
   isVoteQuorumAllowed,
@@ -30,6 +35,13 @@ import {
   resolveSelectableVoteQuorum,
   resolveVoteQuorumRisk,
   resolveVoteThresholdPresetId,
+  resolveAvailableProposalActionsForCreate,
+  resolveActiveCreatableProposalAction,
+  resolveGovernanceCreateProposalPreviewActions,
+  pickDefaultCreatableProposalAction,
+  buildGovernanceCreateActionMenuItems,
+  groupGovernanceCreateActionMenuItems,
+  resolveGovernanceCreateActionMenuCategoryId,
   sortDaoPolicyRolesForDisplay,
   votePolicyRulesChanged,
   votePolicyThresholdsEqual,
@@ -66,6 +78,86 @@ describe('governance policy vote threshold builders', () => {
       },
     });
     expect(payload.proposal.description).toContain('quorum Custom · 2');
+  });
+
+  it('builds ChangeConfig payload for DAO name and purpose', () => {
+    const payload = buildDaoConfigChangePayload({
+      name: 'OnSocial Governance',
+      purpose:
+        'Protect user-owned identity, voluntary solidarity, and scarce infrastructure.',
+      description: 'Set governance DAO purpose to the constitution mandate.',
+    });
+
+    expect(payload.proposal.kind).toEqual({
+      ChangeConfig: {
+        config: {
+          name: 'OnSocial Governance',
+          purpose:
+            'Protect user-owned identity, voluntary solidarity, and scarce infrastructure.',
+          metadata: '',
+        },
+      },
+    });
+    expect(payload.proposal.description).toBe(
+      'Set governance DAO purpose to the constitution mandate.'
+    );
+  });
+
+  it('builds update_config through buildDaoPolicyActionPayload', () => {
+    const payload = buildDaoPolicyActionPayload({
+      actionId: 'update_config',
+      policy: null,
+      daoConfigName: 'OnSocial Governance',
+      daoConfigPurpose: 'Updated purpose.',
+      daoConfigMetadata: '',
+    });
+
+    expect(payload.proposal.kind).toEqual({
+      ChangeConfig: {
+        config: {
+          name: 'OnSocial Governance',
+          purpose: 'Updated purpose.',
+          metadata: '',
+        },
+      },
+    });
+  });
+
+  it('detects DAO config field changes', () => {
+    expect(
+      daoConfigFieldsChanged(
+        { name: 'OnSocial Governance', purpose: 'Old purpose.' },
+        { name: 'OnSocial Governance', purpose: 'New purpose.' }
+      )
+    ).toBe(true);
+
+    expect(
+      daoConfigFieldsChanged(
+        { name: 'OnSocial Governance', purpose: 'Same purpose.' },
+        { name: 'OnSocial Governance', purpose: 'Same purpose.' }
+      )
+    ).toBe(false);
+  });
+
+  it('allows guardians to propose config changes', () => {
+    const policy: GovernanceDaoPolicy = {
+      roles: [
+        {
+          name: 'guardians',
+          kind: { Group: ['alice.testnet'] },
+          permissions: ['*:*'],
+        },
+      ],
+    };
+
+    expect(
+      canProposePolicyAction(
+        policy,
+        'alice.testnet',
+        '0',
+        'update_config'
+      )
+    ).toBe(true);
   });
 
   it('allows threshold normalization and quorum-only updates', () => {
@@ -482,6 +574,60 @@ describe('governance policy vote threshold builders', () => {
     });
   });
 
+  it('builds support profile routing contract config FunctionCall payload', () => {
+    const payload = buildDaoContractConfigProposalPayload({
+      operationId: 'social_spend_support_profile_routing',
+      contractLabel: 'Social spend',
+      routing: {
+        label: 'Support Profile',
+        active: true,
+        min_amount: '10000000000000000',
+        target_types: ['profile'],
+        treasury_bps: 100,
+        season_pool_bps: 0,
+        target_bps: 9900,
+        burn_bps: 0,
+        season_required: false,
+        allow_self_target: false,
+      },
+    });
+
+    expect(payload.proposal.description).toBe(
+      'Configure Social spend support profile routing (1% boost credits · 99% target).'
+    );
+
+    const functionCall = (
+      payload.proposal.kind as {
+        FunctionCall: {
+          receiver_id: string;
+          actions: Array<{
+            method_name: string;
+            args: string;
+            deposit: string;
+            gas: number;
+          }>;
+        };
+      }
+    ).FunctionCall;
+
+    expect(functionCall.receiver_id).toBe('social-spend.onsocial.testnet');
+    expect(JSON.parse(atob(functionCall.actions[0].args))).toEqual({
+      action_id: 'support_profile',
+      config: {
+        label: 'Support Profile',
+        active: true,
+        min_amount: '10000000000000000',
+        target_types: ['profile'],
+        treasury_bps: 100,
+        season_pool_bps: 0,
+        target_bps: 9900,
+        burn_bps: 0,
+        season_required: false,
+        allow_self_target: false,
+      },
+    });
+  });
+
   it('builds support endorsement routing contract config FunctionCall payload', () => {
     const payload = buildDaoContractConfigProposalPayload({
       operationId: 'social_spend_support_endorsement_routing',
@@ -532,6 +678,58 @@ describe('governance policy vote threshold builders', () => {
         burn_bps: 0,
         season_required: false,
         allow_self_target: false,
+      },
+    });
+  });
+
+  it('builds boost post routing contract config FunctionCall payload', () => {
+    const payload = buildDaoContractConfigProposalPayload({
+      operationId: 'social_spend_boost_post_routing',
+      contractLabel: 'Social spend',
+      routing: {
+        label: 'Boost Post',
+        active: true,
+        min_amount: '10000000000000000000',
+        target_types: ['post'],
+        treasury_bps: 1000,
+        season_pool_bps: 0,
+        target_bps: 9000,
+        burn_bps: 0,
+        season_required: false,
+        allow_self_target: true,
+      },
+    });
+
+    expect(payload.proposal.description).toBe(
+      'Configure Social spend boost post routing (10% boost credits · 90% target).'
+    );
+
+    const functionCall = (
+      payload.proposal.kind as {
+        FunctionCall: {
+          receiver_id: string;
+          actions: Array<{
+            method_name: string;
+            args: string;
+          }>;
+        };
+      }
+    ).FunctionCall;
+
+    expect(functionCall.receiver_id).toBe('social-spend.onsocial.testnet');
+    expect(JSON.parse(atob(functionCall.actions[0].args))).toEqual({
+      action_id: 'boost_post',
+      config: {
+        label: 'Boost Post',
+        active: true,
+        min_amount: '10000000000000000000',
+        target_types: ['post'],
+        treasury_bps: 1000,
+        season_pool_bps: 0,
+        target_bps: 9000,
+        burn_bps: 0,
+        season_required: false,
+        allow_self_target: true,
       },
     });
   });
@@ -672,5 +870,220 @@ describe('governance policy vote threshold builders', () => {
         season_id: 'season-one',
       }),
     });
+  });
+});
+
+describe('DAO group membership helpers', () => {
+  it('lists group role names for a member account', () => {
+    const policy = {
+      roles: [
+        {
+          name: 'council',
+          kind: { Group: ['alice.testnet'] },
+          permissions: [],
+        },
+        {
+          name: 'guardians',
+          kind: { Group: ['bob.testnet'] },
+          permissions: [],
+        },
+      ],
+    } as GovernanceDaoPolicy;
+
+    expect(getDaoGroupMembershipRoleNames(policy, 'alice.testnet')).toEqual([
+      'council',
+    ]);
+  });
+});
+
+describe('resolveAvailableProposalActionsForCreate', () => {
+  const idleChain = {
+    managedContractsLoading: false,
+    managedContractsCount: 1,
+    hashUpgradableManagedContractsCount: 1,
+    configurableManagedContractsCount: 1,
+    socialSpendTreasuryLoading: false,
+    socialSpendTreasuryContext: {
+      canFundSeasonPool: true,
+      fundableSeasonIds: ['season-one'],
+    },
+    boostInfraLoading: false,
+    boostInfraContext: {
+      canWithdrawBoostInfra: true,
+      canSetBoostInfraAuthority: false,
+    },
+    transferAssetsLoading: false,
+    transferAssetsCount: 1,
+  } as const;
+
+  it('keeps policy-permitted actions when chain capability is ready', () => {
+    expect(
+      resolveAvailableProposalActionsForCreate(
+        ['transfer', 'fund_season_pool', 'withdraw_boost_infra'],
+        idleChain
+      )
+    ).toEqual(['transfer', 'fund_season_pool', 'withdraw_boost_infra']);
+  });
+
+  it('hides fund rally until treasury context confirms a live season', () => {
+    expect(
+      resolveAvailableProposalActionsForCreate(['fund_season_pool'], {
+        ...idleChain,
+        socialSpendTreasuryLoading: true,
+        socialSpendTreasuryContext: null,
+      })
+    ).toEqual([]);
+
+    expect(
+      resolveAvailableProposalActionsForCreate(['fund_season_pool'], {
+        ...idleChain,
+        socialSpendTreasuryContext: {
+          canFundSeasonPool: true,
+          fundableSeasonIds: [],
+        },
+      })
+    ).toEqual([]);
+  });
+
+  it('derives boost delegate from chain authority instead of board labels', () => {
+    expect(
+      resolveAvailableProposalActionsForCreate(['set_boost_infra_authority'], {
+        ...idleChain,
+        boostInfraContext: {
+          canWithdrawBoostInfra: false,
+          canSetBoostInfraAuthority: true,
+        },
+      })
+    ).toEqual(['set_boost_infra_authority']);
+  });
+
+  it('hides transfer while assets are loading or empty', () => {
+    expect(
+      resolveAvailableProposalActionsForCreate(['transfer'], {
+        ...idleChain,
+        transferAssetsLoading: true,
+        transferAssetsCount: 0,
+      })
+    ).toEqual([]);
+
+    expect(
+      resolveAvailableProposalActionsForCreate(['transfer'], {
+        ...idleChain,
+        transferAssetsCount: 0,
+      })
+    ).toEqual([]);
+  });
+});
+
+describe('resolveGovernanceCreateProposalPreviewActions', () => {
+  it('previews threshold-unlocked actions when delegation is the blocker', () => {
+    const policy = {
+      roles: [
+        {
+          name: 'delegated_proposers',
+          kind: { Member: '500000000000000000000000' },
+          permissions: ['vote:AddProposal', 'transfer:AddProposal'],
+        },
+      ],
+    } as GovernanceDaoPolicy;
+
+    expect(
+      resolveGovernanceCreateProposalPreviewActions({
+        policy,
+        roleId: '',
+        proposerAccountId: 'alice.testnet',
+        delegatedWeight: '0',
+        proposalThresholdWeight: '500000000000000000000000',
+        isDaoMember: false,
+        baseAvailableProposalActions: [],
+        availableProposalActions: [],
+      })
+    ).toEqual(['idea', 'transfer']);
+  });
+
+  it('previews policy-permitted actions when chain capability blocks them', () => {
+    expect(
+      resolveGovernanceCreateProposalPreviewActions({
+        policy: null,
+        roleId: '',
+        proposerAccountId: 'alice.testnet',
+        delegatedWeight: '0',
+        proposalThresholdWeight: '0',
+        isDaoMember: false,
+        baseAvailableProposalActions: ['fund_season_pool'],
+        availableProposalActions: [],
+      })
+    ).toEqual(['fund_season_pool']);
+  });
+});
+
+describe('getDaoPolicyActionHint', () => {
+  it('returns sharp parameter descriptions when values change', () => {
+    expect(
+      getDaoPolicyActionHint('update_parameters', {
+        parametersChanged: true,
+        bondChanged: true,
+        periodChanged: true,
+        bondNearLabel: '0.1',
+        periodDaysLabel: '7',
+      })
+    ).toBe('Set proposal bond 0.1 NEAR · period 7d.');
+  });
+});
+
+describe('groupGovernanceCreateActionMenuItems', () => {
+  it('groups proposal actions by section for category tabs', () => {
+    const items = buildGovernanceCreateActionMenuItems({
+      availableProposalActions: [
+        'join_self',
+        'transfer',
+        'contract_upgrade',
+      ],
+    });
+
+    expect(groupGovernanceCreateActionMenuItems(items)).toEqual([
+      {
+        id: 'membership',
+        label: 'Membership',
+        items: [
+          expect.objectContaining({ kind: 'proposal', id: 'join_self' }),
+        ],
+      },
+      {
+        id: 'treasury',
+        label: 'Treasury',
+        items: [
+          expect.objectContaining({ kind: 'proposal', id: 'transfer' }),
+        ],
+      },
+      {
+        id: 'contracts',
+        label: 'Contracts',
+        items: [
+          expect.objectContaining({ kind: 'proposal', id: 'contract_upgrade' }),
+        ],
+      },
+    ]);
+  });
+
+  it('resolves the category for the active proposal action', () => {
+    expect(resolveGovernanceCreateActionMenuCategoryId('transfer')).toBe(
+      'treasury'
+    );
+    expect(resolveGovernanceCreateActionMenuCategoryId('join_self')).toBe(
+      'membership'
+    );
+  });
+});
+
+describe('resolveActiveCreatableProposalAction', () => {
+  it('falls back to signal then first available action', () => {
+    expect(
+      resolveActiveCreatableProposalAction('join_self', ['transfer', 'idea'])
+    ).toBe('idea');
+    expect(
+      resolveActiveCreatableProposalAction('join_self', ['transfer'])
+    ).toBe('transfer');
+    expect(pickDefaultCreatableProposalAction([])).toBeNull();
   });
 });

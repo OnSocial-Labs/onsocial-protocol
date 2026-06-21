@@ -479,7 +479,10 @@ export default function OpsAnalyticsPage() {
 
         <div className="mt-4 flex flex-wrap gap-3 text-sm text-muted-foreground">
           <span className="rounded-full border border-border/40 px-3 py-1.5">
-            Wallet: {accountId ?? 'not connected'}
+            Wallet:{' '}
+            {walletLoading
+              ? 'checking…'
+              : accountId ?? 'not connected'}
           </span>
           <span className="rounded-full border border-border/40 px-3 py-1.5">
             Window: last 24 hours

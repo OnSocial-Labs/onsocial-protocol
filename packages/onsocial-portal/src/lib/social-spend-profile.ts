@@ -1,9 +1,12 @@
 import { ACTIVE_NEAR_NETWORK } from '@/lib/portal-config';
 import {
   extractNearTransactionHashes,
+  SOCIAL_SPEND_CONTRACT,
   socialToYocto,
+  viewContractAt,
   yoctoToSocial,
 } from '@/lib/near-rpc';
+import { parseSocialSpendActionConfigView } from '@/lib/dao-contract-config-operations';
 import { createPortalOnSocialClient } from '@/lib/onsocial-client';
 import type { SigningWallet } from '@/lib/portal-social-session';
 
@@ -21,33 +24,97 @@ export type PortalSocialSpendClaimTransaction = ReturnType<
 export const SUPPORT_PROFILE_TREASURY_BPS = 100;
 export const SUPPORT_PROFILE_TARGET_BPS = 9_900;
 
-export function formatSupportProfileRecipientSharePercent(): string {
-  return `${SUPPORT_PROFILE_TARGET_BPS / 100}`;
+export interface SupportProfileRoutingDisclosure {
+  minAmountYocto: bigint;
+  treasuryBps: number;
+  targetBps: number;
+  active: boolean;
 }
 
-export function formatSupportProfileTreasurySharePercent(): string {
-  return `${SUPPORT_PROFILE_TREASURY_BPS / 100}`;
+export function formatSupportProfileRecipientSharePercent(
+  targetBps: number = SUPPORT_PROFILE_TARGET_BPS
+): string {
+  return `${targetBps / 100}`;
 }
 
-/** Minimum `support_profile` spend (0.01 SOCIAL, 18 decimals). */
+export function formatSupportProfileTreasurySharePercent(
+  treasuryBps: number = SUPPORT_PROFILE_TREASURY_BPS
+): string {
+  return `${treasuryBps / 100}`;
+}
+
+/** Fallback minimum when chain config is unavailable (0.01 SOCIAL, 18 decimals). */
 export const SUPPORT_PROFILE_MIN_YOCTO = 10_000_000_000_000_000n;
 
 export const SUPPORT_PROFILE_MIN_SOCIAL_LABEL = '0.01';
 
 export const SUPPORT_PROFILE_PRESET_SOCIAL = ['1', '5', '10'] as const;
 
-export function socialSpendContractId(): string {
-  return os.socialSpend.contractId;
+export function formatSpendMinSocialLabel(minYocto: bigint): string {
+  return yoctoToSocial(minYocto.toString());
 }
 
-export function parseSupportAmountYocto(input: string): bigint {
+export function supportPresetsAtOrAboveMin(
+  minYocto: bigint,
+  presets: readonly string[] = SUPPORT_PROFILE_PRESET_SOCIAL
+): string[] {
+  return presets.filter((preset) => {
+    try {
+      return BigInt(socialToYocto(preset)) >= minYocto;
+    } catch {
+      return false;
+    }
+  });
+}
+
+export function parseSpendAmountYocto(
+  input: string,
+  minYocto: bigint = SUPPORT_PROFILE_MIN_YOCTO
+): bigint {
   const yocto = BigInt(socialToYocto(input.trim()));
-  if (yocto < SUPPORT_PROFILE_MIN_YOCTO) {
+  if (yocto < minYocto) {
     throw new Error(
-      `Minimum support is ${SUPPORT_PROFILE_MIN_SOCIAL_LABEL} SOCIAL.`
+      `Minimum support is ${formatSpendMinSocialLabel(minYocto)} SOCIAL.`
     );
   }
   return yocto;
+}
+
+export function parseSupportAmountYocto(
+  input: string,
+  minYocto: bigint = SUPPORT_PROFILE_MIN_YOCTO
+): bigint {
+  return parseSpendAmountYocto(input, minYocto);
+}
+
+export async function fetchSupportProfileRouting(): Promise<SupportProfileRoutingDisclosure | null> {
+  const config = await viewContractAt<unknown>(
+    SOCIAL_SPEND_CONTRACT,
+    'get_action_config',
+    { action_id: 'support_profile' }
+  );
+  const parsed = parseSocialSpendActionConfigView(config);
+  if (!parsed) {
+    return null;
+  }
+
+  let minAmountYocto = SUPPORT_PROFILE_MIN_YOCTO;
+  try {
+    minAmountYocto = BigInt(parsed.min_amount);
+  } catch {
+    minAmountYocto = SUPPORT_PROFILE_MIN_YOCTO;
+  }
+
+  return {
+    minAmountYocto,
+    treasuryBps: parsed.treasury_bps,
+    targetBps: parsed.target_bps,
+    active: parsed.active,
+  };
+}
+
+export function socialSpendContractId(): string {
+  return os.socialSpend.contractId;
 }
 
 export async function fetchProfileSupportBalanceYocto(

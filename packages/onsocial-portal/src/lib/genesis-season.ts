@@ -3,7 +3,7 @@ import { yoctoToSocial } from '@/lib/near-rpc';
 /** On-chain season id for Genesis Rally (Season 0). */
 export const GENESIS_SEASON_ID = 'season-zero';
 
-/** Minimum join_rally spend (100 SOCIAL, 18 decimals). */
+/** Historical Season Zero defaults — not used as runtime join fallbacks. */
 export const GENESIS_RALLY_JOIN_YOCTO = 100_000_000_000_000_000_000n;
 
 export const GENESIS_RALLY_JOIN_SOCIAL_LABEL = '100';

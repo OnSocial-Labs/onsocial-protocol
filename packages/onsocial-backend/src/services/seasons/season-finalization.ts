@@ -5,7 +5,6 @@ import { viewContractAt } from '../near.js';
 import { relaySocialSpendSettlement } from '../social-spend-settlement-relay.js';
 import {
   SEASON_ZERO_ID,
-  SEASON_ZERO_JOIN_RALLY_MIN_YOCTO,
 } from './season-policy.js';
 import { getSeasonStandings } from './season-standings.js';
 import {
@@ -788,5 +787,4 @@ export async function publishSeasonZeroSettlement(
   return publishSeasonSettlement(SEASON_ZERO_ID, input);
 }
 
-export const SEASON_ZERO_SETTLEMENT_JOIN_MIN_YOCTO =
-  SEASON_ZERO_JOIN_RALLY_MIN_YOCTO.toString();
+export { JoinRallyConfigUnavailableError } from './join-rally-onchain-config.js';

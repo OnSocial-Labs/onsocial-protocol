@@ -1,20 +1,47 @@
-import { SOCIAL_SPEND_CONTRACT, viewContractAt } from '@/lib/near-rpc';
+import { parseSocialSpendActionConfigView } from '@/lib/dao-contract-config-operations';
+import { SOCIAL_SPEND_CONTRACT, viewContractAt, yoctoToSocial } from '@/lib/near-rpc';
 
 export interface JoinRallyActionConfig {
   treasury_bps: number;
   season_pool_bps: number;
   target_bps: number;
   burn_bps: number;
+  min_amount: string;
 }
 
 export interface JoinRallyRoutingDisclosure {
   config: JoinRallyActionConfig;
   protocolFeesRouteToBoost: boolean;
+  joinMinAmountYocto: bigint;
+  joinMinAmountSocialLabel: string;
 }
 
 function bpsToPercentLabel(bps: number): string {
   const pct = bps / 100;
   return Number.isInteger(pct) ? String(pct) : pct.toFixed(1);
+}
+
+export function parseJoinRallyMinAmount(
+  config: Pick<JoinRallyActionConfig, 'min_amount'> | null | undefined
+): { yocto: bigint; socialLabel: string } | null {
+  const minAmount = config?.min_amount?.trim() ?? '';
+  if (!/^\d+$/u.test(minAmount)) {
+    return null;
+  }
+
+  try {
+    const yocto = BigInt(minAmount);
+    if (yocto <= 0n) {
+      return null;
+    }
+
+    return {
+      yocto,
+      socialLabel: yoctoToSocial(minAmount),
+    };
+  } catch {
+    return null;
+  }
 }
 
 export function formatJoinRoutingDisclosure(
@@ -42,17 +69,21 @@ export function formatJoinRoutingDisclosure(
 }
 
 export function formatJoinEntryGuideLabel(
-  joinSocialLabel: string,
-  disclosure: JoinRallyRoutingDisclosure | null
+  disclosure: JoinRallyRoutingDisclosure | null,
+  options: { loading?: boolean } = {}
 ): string {
+  if (options.loading) {
+    return 'Loading rally entry…';
+  }
+
   if (!disclosure) {
-    return `${joinSocialLabel} SOCIAL · 95 to pool`;
+    return 'Rally entry unavailable';
   }
 
   const routing = formatJoinRoutingDisclosure(disclosure);
   return routing
-    ? `${joinSocialLabel} SOCIAL · ${routing}`
-    : `${joinSocialLabel} SOCIAL`;
+    ? `${disclosure.joinMinAmountSocialLabel} SOCIAL · ${routing}`
+    : `${disclosure.joinMinAmountSocialLabel} SOCIAL`;
 }
 
 /** Estimate SOCIAL burned from indexed join pool contributions and routing bps. */
@@ -78,8 +109,8 @@ export function estimateJoinBurnYocto(
 }
 
 export async function fetchJoinRallyRouting(): Promise<JoinRallyRoutingDisclosure | null> {
-  const [config, contractInfo] = await Promise.all([
-    viewContractAt<JoinRallyActionConfig>(
+  const [rawConfig, contractInfo] = await Promise.all([
+    viewContractAt<unknown>(
       SOCIAL_SPEND_CONTRACT,
       'get_action_config',
       { action_id: 'join_rally' }
@@ -91,7 +122,11 @@ export async function fetchJoinRallyRouting(): Promise<JoinRallyRoutingDisclosur
     ),
   ]);
 
-  if (!config) return null;
+  const parsed = parseSocialSpendActionConfigView(rawConfig);
+  if (!parsed) return null;
+
+  const joinMinAmount = parseJoinRallyMinAmount(parsed);
+  if (!joinMinAmount) return null;
 
   const boostContractId =
     typeof contractInfo?.boost_contract_id === 'string'
@@ -100,11 +135,14 @@ export async function fetchJoinRallyRouting(): Promise<JoinRallyRoutingDisclosur
 
   return {
     config: {
-      treasury_bps: config.treasury_bps ?? 0,
-      season_pool_bps: config.season_pool_bps ?? 0,
-      target_bps: config.target_bps ?? 0,
-      burn_bps: config.burn_bps ?? 0,
+      treasury_bps: parsed.treasury_bps,
+      season_pool_bps: parsed.season_pool_bps,
+      target_bps: parsed.target_bps,
+      burn_bps: parsed.burn_bps,
+      min_amount: parsed.min_amount,
     },
     protocolFeesRouteToBoost: boostContractId.length > 0,
+    joinMinAmountYocto: joinMinAmount.yocto,
+    joinMinAmountSocialLabel: joinMinAmount.socialLabel,
   };
 }

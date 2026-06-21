@@ -70,7 +70,21 @@ const profileSocialActionBarShellClass =
 /** Equal thirds — Stand / Endorse / Support on profile social strip. */
 export const profileSocialActionBarClass = 'grid grid-cols-3 gap-1';
 
-/** Stand with — portal blue chrome. Standing — outline secondary (matches page back actions). */
+function profileSocialGesturePillShell(
+  layout: ProfileSocialActionLayout = 'pill',
+  iconOnly = false
+): string {
+  return cn(
+    portalCompactActionPillClass,
+    layout === 'bar'
+      ? profileSocialActionBarShellClass
+      : iconOnly
+        ? 'inline-flex h-[24px] w-[24px] items-center justify-center p-0 leading-none'
+        : 'inline-flex h-[24px] items-center justify-center whitespace-nowrap leading-none text-muted-foreground/80 hover:text-foreground'
+  );
+}
+
+/** Stand with — neutral shell, blue arrow. Standing — outline secondary (matches page back actions). */
 export function profileSocialStandingButtonClass(
   active = false,
   layout: ProfileSocialActionLayout = 'pill'
@@ -93,52 +107,69 @@ export function profileSocialStandingButtonClass(
     );
   }
 
-  return cn(
-    shell,
-    'border-[var(--portal-blue-border)] bg-[var(--portal-blue-bg)] text-[var(--portal-blue)]',
-    'shadow-[0_1px_2px_-1px_var(--portal-blue-shadow)]',
-    'hover:border-[var(--portal-blue-border-strong)] hover:bg-[var(--portal-blue-bg)] hover:text-[var(--portal-blue)]',
-    'hover:shadow-[0_4px_6px_-1px_var(--portal-blue-shadow),0_2px_4px_-2px_var(--portal-blue-shadow)]',
-    'focus-visible:ring-[var(--portal-blue-border)]'
-  );
+  return profileSocialGesturePillShell(layout);
 }
 
-/** Endorse — same compact pill shell as stand-with (gold chrome). */
+/** Endorse — neutral shell, gold motion arrow. */
 export function profileSocialEndorseButtonClass(
   layout: ProfileSocialActionLayout = 'pill'
 ): string {
-  return cn(
-    portalCompactPillShellClass,
-    layout === 'bar'
-      ? profileSocialActionBarShellClass
-      : 'inline-flex h-[24px] items-center justify-center whitespace-nowrap leading-none',
-    'border-[var(--portal-gold-border)] bg-[var(--portal-gold-bg)] text-[var(--portal-gold)]/90',
-    'shadow-[0_1px_2px_-1px_var(--portal-gold-shadow)]',
-    'hover:border-[var(--portal-gold-border-strong)] hover:bg-[var(--portal-gold-bg)] hover:text-[var(--portal-gold)]',
-    'hover:shadow-[0_4px_6px_-1px_var(--portal-gold-shadow),0_2px_4px_-2px_var(--portal-gold-shadow)]',
-    'focus-visible:ring-[var(--portal-gold-border)]'
-  );
+  return profileSocialGesturePillShell(layout);
 }
 
-/** Support — same compact pill shell as stand-with (green chrome). */
+/** Support — neutral shell; arrow + heart (pill) or label room (bar). */
 export function profileSocialSupportButtonClass(
   layout: ProfileSocialActionLayout = 'pill'
 ): string {
+  return profileSocialGesturePillShell(layout);
+}
+
+/** Collect — neutral shell; arrow + gift + amount (no verb label). */
+export function profileSocialCollectButtonClass(
+  layout: ProfileSocialActionLayout = 'pill'
+): string {
+  return profileSocialGesturePillShell(layout);
+}
+
+/** Shared glyph box for profile Stand / Endorse / Support actions. */
+export const profileSocialGestureIconClass = 'h-2.5 w-2.5 shrink-0';
+
+export function profileSocialEndorseArrowClass(): string {
   return cn(
-    portalCompactPillShellClass,
-    layout === 'bar'
-      ? profileSocialActionBarShellClass
-      : 'inline-flex h-[24px] items-center justify-center gap-1 whitespace-nowrap leading-none',
-    'border-[var(--portal-green-border)] bg-[var(--portal-green-bg)] text-[var(--portal-green)]',
-    'shadow-[0_1px_2px_-1px_var(--portal-green-shadow)]',
-    'hover:border-[var(--portal-green-border-strong)] hover:bg-[var(--portal-green-bg)] hover:text-[var(--portal-green)]',
-    'hover:shadow-[0_4px_6px_-1px_var(--portal-green-shadow),0_2px_4px_-2px_var(--portal-green-shadow)]',
-    'focus-visible:ring-[var(--portal-green-border)]'
+    profileSocialGestureIconClass,
+    'text-[var(--portal-gold)]/75 group-hover:text-[var(--portal-gold)]'
   );
 }
 
+export function profileSocialSupportArrowClass(): string {
+  return cn(
+    profileSocialGestureIconClass,
+    'text-[var(--portal-green)]/75 group-hover:text-[var(--portal-green)]'
+  );
+}
+
+export function profileSocialCollectArrowClass(): string {
+  return cn(
+    profileSocialGestureIconClass,
+    'text-[var(--portal-gold)]/75 group-hover:text-[var(--portal-gold)]'
+  );
+}
+
+/** Inherits pill muted → foreground hover like the Endorse label. */
+export function profileSocialSupportHeartClass(): string {
+  return 'h-3 w-3 shrink-0';
+}
+
+/** Inherits pill muted → foreground hover like the Endorse label. */
+export function profileSocialCollectGiftClass(): string {
+  return 'h-3 w-3 shrink-0';
+}
+
 export function profileSocialStandingArrowClass(): string {
-  return 'h-2.5 w-2.5 text-[var(--portal-blue)]/70 group-hover:text-[var(--portal-blue)]';
+  return cn(
+    profileSocialGestureIconClass,
+    'text-[var(--portal-blue)]/80 group-hover:text-[var(--portal-blue)]'
+  );
 }
 
 export const profileSocialStandingIconSlotClass =
@@ -147,8 +178,10 @@ export const profileSocialStandingIconSlotClass =
 export const profileSocialStandingDotClass =
   'h-1 w-1 rounded-full bg-[var(--portal-blue)]/55';
 
-export const profileSocialStandingStepBackArrowClass =
-  'h-2.5 w-2.5 text-[var(--portal-red)] opacity-100';
+export const profileSocialStandingStepBackArrowClass = cn(
+  profileSocialGestureIconClass,
+  'text-[var(--portal-red)] opacity-100'
+);
 
 /** Stack Standing / Step back so the pill keeps a fixed width. */
 export const profileSocialStandingToggleClass =

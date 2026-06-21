@@ -1,10 +1,13 @@
 import { createPortalOnSocialClient } from '@/lib/onsocial-client';
 import type { SigningWallet } from '@/lib/portal-social-session';
 import {
-  parseSupportAmountYocto,
+  parseSpendAmountYocto,
   sendPortalWalletTransaction,
+  SUPPORT_PROFILE_MIN_YOCTO,
   type PortalSocialSpendTransaction,
 } from '@/lib/social-spend-profile';
+import { parseSocialSpendActionConfigView } from '@/lib/dao-contract-config-operations';
+import { SOCIAL_SPEND_CONTRACT, viewContractAt } from '@/lib/near-rpc';
 
 const os = createPortalOnSocialClient();
 
@@ -72,7 +75,45 @@ export interface EndorsementSupportSubmitInput {
   topic?: string | null;
 }
 
-export { parseSupportAmountYocto };
+export interface SupportEndorsementRoutingDisclosure {
+  minAmountYocto: bigint;
+  treasuryBps: number;
+  targetBps: number;
+  active: boolean;
+}
+
+export async function fetchSupportEndorsementRouting(): Promise<SupportEndorsementRoutingDisclosure | null> {
+  const config = await viewContractAt<unknown>(
+    SOCIAL_SPEND_CONTRACT,
+    'get_action_config',
+    { action_id: 'support_endorsement' }
+  );
+  const parsed = parseSocialSpendActionConfigView(config);
+  if (!parsed) {
+    return null;
+  }
+
+  let minAmountYocto = SUPPORT_PROFILE_MIN_YOCTO;
+  try {
+    minAmountYocto = BigInt(parsed.min_amount);
+  } catch {
+    minAmountYocto = SUPPORT_PROFILE_MIN_YOCTO;
+  }
+
+  return {
+    minAmountYocto,
+    treasuryBps: parsed.treasury_bps,
+    targetBps: parsed.target_bps,
+    active: parsed.active,
+  };
+}
+
+export function parseSupportAmountYocto(
+  input: string,
+  minYocto: bigint = SUPPORT_PROFILE_MIN_YOCTO
+): bigint {
+  return parseSpendAmountYocto(input, minYocto);
+}
 
 export function buildSupportEndorsementTransaction(input: {
   endorsementId: string;

@@ -155,6 +155,9 @@ export function filterGovernanceItems({
     return lane === 'all' ? true : item.lane === lane;
   });
   const normalizedQuery = searchQuery.trim().toLowerCase();
+  const searchScopedLaneItems = normalizedQuery
+    ? laneItems.filter((item) => item.searchText.includes(normalizedQuery))
+    : laneItems;
   const filteredItems = laneItems
     .filter((item) => {
       if (statusFilter !== 'all' && item.status !== statusFilter) {
@@ -171,8 +174,24 @@ export function filterGovernanceItems({
 
   return {
     laneItems,
+    searchScopedLaneItems,
     filteredItems,
     normalizedQuery,
+  };
+}
+
+export function getVisibleGovernanceBatch<T>(
+  items: T[],
+  visibleCount: number,
+  batchSize: number = GOVERNANCE_PAGE_SIZE
+) {
+  const shownCount = Math.min(visibleCount, items.length);
+
+  return {
+    visibleItems: items.slice(0, shownCount),
+    hasMore: shownCount < items.length,
+    shownCount,
+    batchSize,
   };
 }
 
@@ -284,6 +303,56 @@ export function getFilteredEmptyState(
               : 'Try clearing a filter or searching for a different proposal, contract, or wallet.',
       };
   }
+}
+
+export function getGovernanceFeedEmptyState({
+  statusFilter,
+  lane,
+  searchQuery,
+  treasuryBoardEmpty = false,
+}: {
+  statusFilter: GovernanceStatusFilter;
+  lane: GovernanceLane;
+  searchQuery: string;
+  treasuryBoardEmpty?: boolean;
+}): {
+  title: string;
+  detail: string;
+} {
+  if (treasuryBoardEmpty) {
+    return {
+      title: 'No treasury proposals yet',
+      detail:
+        'Treasury custody transfers and treasury DAO policy votes will appear here.',
+    };
+  }
+
+  const trimmedQuery = searchQuery.trim();
+  if (trimmedQuery) {
+    const statusOption = STATUS_OPTIONS.find(
+      (option) => option.value === statusFilter
+    );
+    const statusLabel = statusOption?.label.toLowerCase() ?? 'matching';
+
+    if (statusFilter === 'all') {
+      return {
+        title: `No results for “${trimmedQuery}”`,
+        detail:
+          lane === 'protocol'
+            ? 'Try a different contract, method, or proposer name.'
+            : lane === 'partners'
+              ? 'Try a different community, wallet, or proposal name.'
+              : 'Try a different proposal, contract, wallet, or proposer.',
+      };
+    }
+
+    return {
+      title: `No ${statusLabel} results for “${trimmedQuery}”`,
+      detail: 'Try clearing search or choosing a different status.',
+    };
+  }
+
+  return getFilteredEmptyState(statusFilter, lane);
 }
 
 function parseTimestampToMs(value: string | null | undefined): number {

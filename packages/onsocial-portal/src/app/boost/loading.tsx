@@ -1,11 +1,5 @@
-import { RouteLoadingShell } from '@/components/layout/route-loading-shell';
+import { BoostPageLoadingShell } from '@/features/boost/boost-page-loading-shell';
 
 export default function Loading() {
-  return (
-    <RouteLoadingShell
-      size="wide"
-      panelCount={3}
-      panelMinHeights={['16rem', '14rem', '18rem']}
-    />
-  );
+  return <BoostPageLoadingShell />;
 }

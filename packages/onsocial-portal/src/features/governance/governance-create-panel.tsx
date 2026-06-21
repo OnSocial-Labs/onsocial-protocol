@@ -2,21 +2,33 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { AnimatePresence, motion } from 'framer-motion';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, RefreshCw, Settings2 } from 'lucide-react';
-import { PortalFieldSelect } from '@/components/ui/portal-field-select';
-import { SectionHeader } from '@/components/layout/section-header';
 import { Button } from '@/components/ui/button';
-import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
-import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
-import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
-import {
-  CompactActionSkeleton,
-  StatStripSkeleton,
-} from '@/components/ui/skeleton';
+import { PortalFieldSelect } from '@/components/ui/portal-field-select';
+import { PortalConnectPrompt } from '@/components/ui/portal-connect-prompt';
+import { portalConnectMessage } from '@/lib/portal-connect-copy';
+import { CompactActionSkeleton } from '@/components/ui/skeleton';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
+import {
+  GovernanceCreateEligibilityLine,
+  GovernanceCreateProposalSummaryBlock,
+  GovernanceCreateActionMenuOption,
+  GovernanceCreateActionPolicyLink,
+  GovernanceCreateActionCategoryStrip,
+  governanceCreateActionMenuListClass,
+  governanceCreateActionMenuShellClass,
+  resolveGovernanceCreateBlockedSubmitLabel,
+  resolveGovernanceCreateNoActionsMessage,
+  governanceCreateFieldLabelClass,
+  governanceCreateFieldShellClass,
+  governanceCreateFieldTriggerClass,
+} from '@/features/governance/governance-create-compact-ui';
+import {
+  resolveGovernanceCreateProposalSummary,
+  resolveGovernanceCreateSubmitFeedback,
+} from '@/features/governance/governance-create-proposal-summary';
 import {
   floatingPanelItemActiveClass,
   floatingPanelItemClass,
@@ -30,6 +42,8 @@ import {
 } from '@/components/ui/near-account-field';
 import { useWallet } from '@/contexts/wallet-context';
 import { useDropdown } from '@/hooks/use-dropdown';
+import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
+import { useFloatingPanelScroll } from '@/hooks/use-floating-panel-scroll';
 import { fetchDaoPolicy, submitDaoProposal } from '@/features/governance/api';
 import {
   buildDaoIdeaProposalPayload,
@@ -42,13 +56,15 @@ import {
   buildDaoWithdrawBoostInfraPayload,
   buildDaoSetBoostInfraAuthorityPayload,
   buildGovernanceCreateActionMenuItems,
+  groupGovernanceCreateActionMenuItems,
+  resolveGovernanceCreateActionMenuCategoryId,
   buildProtocolProposalAppId,
   canProposeDaoKind,
   canProposePolicyChange,
   DAO_SIGNAL_PROPOSAL_LABEL,
-  DAO_SIGNAL_PROPOSAL_PLACEHOLDER,
   getCreatableDaoProposalActionOption,
   getCreatableDaoRoleOptions,
+  getDaoGroupMembershipRoleNames,
   getDaoGroupRoleMemberOptions,
   getDaoKindPermissionBlockReason,
   getProposalActionSubmitLabel,
@@ -59,7 +75,11 @@ import {
   normalizePublishedCodeHash,
   proposalActionToKind,
   resolveAvailablePolicyActionsForProposer,
+  resolveAvailableProposalActionsForCreate,
+  resolveActiveCreatableProposalAction,
   resolveCreatableProposalActionsForProposer,
+  resolveGovernanceCreateDescriptionPlaceholder,
+  resolveGovernanceCreateProposalPreviewActions,
   type CreatableDaoProposalAction,
   type GovernanceCreateActionMenuItem,
 } from '@/features/governance/governance-proposal-builders';
@@ -101,9 +121,7 @@ import {
 } from '@/lib/near-rpc';
 import { cn } from '@/lib/utils';
 import {
-  getBoundedNoteCounterClass,
-  getBoundedNoteCounterLabel,
-  getBoundedNoteError,
+  getBoundedNoteFieldCounter,
   isBoundedNoteReady,
   normalizeBoundedNote,
   PROPOSAL_DESCRIPTION_LIMITS,
@@ -118,23 +136,18 @@ import {
 } from '@/features/governance/governance-season-config-fields';
 import {
   canProposeSocialSpendActionRoutingDraft,
+  formatSocialSpendRoutingFixedFieldsCaption,
   getDaoContractConfigOperationsForContract,
   getSocialSpendActionRoutingOperationConfig,
   isSocialSpendActionRoutingOperationId,
-  seasonConfigDraftChanged,
-  socialSpendActionRoutingChanged,
+  isSupportSpendRoutingOperationId,
+  isSocialSpendRoutingMinEditableOperationId,
   validateSeasonConfigDraft,
-  validateSocialSpendActionRoutingBps,
+  validateSeasonIdDraft,
+  seasonConfigDraftChanged,
+  socialSpendActionRoutingProposalBlocker,
   type DaoContractConfigOperationId,
 } from '@/lib/dao-contract-config-operations';
-
-const descriptionFeedbackExit = { opacity: 0, transition: { duration: 0 } };
-const descriptionFeedbackEnter = { opacity: 0, y: -4 };
-const descriptionFeedbackAnimate = { opacity: 1, y: 0 };
-const descriptionFeedbackTransition = {
-  duration: 0.16,
-  ease: 'easeOut' as const,
-};
 
 function formatSocial(value: string) {
   const numeric = Number(yoctoToSocial(value));
@@ -152,8 +165,7 @@ function formatNear(value: string) {
   }).format(numeric);
 }
 
-const fieldLabelClass =
-  'mb-2 block portal-type-label font-medium uppercase tracking-[0.16em] text-muted-foreground';
+const fieldLabelClass = governanceCreateFieldLabelClass;
 
 interface DaoTransferAssetOption {
   tokenId: string;
@@ -197,7 +209,7 @@ export function GovernanceCreatePanel({
   daoAccountId?: string;
 }) {
   const router = useRouter();
-  const { accountId, connect, wallet, isConnected } = useWallet();
+  const { accountId, connect, wallet, isConnected, isLoading: walletLoading } = useWallet();
   const { txResult, clearTxResult, setTxResult, trackTransaction } =
     useNearTransactionFeedback(accountId);
 
@@ -242,7 +254,6 @@ export function GovernanceCreatePanel({
   const [socialSpendAmountInput, setSocialSpendAmountInput] = useState('');
   const [socialSpendSeasonId, setSocialSpendSeasonId] = useState('');
   const [description, setDescription] = useState('');
-  const [showDescriptionFeedback, setShowDescriptionFeedback] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -263,6 +274,7 @@ export function GovernanceCreatePanel({
     containerRef: roleMenuContainerRef,
   } = useDropdown();
   const [actionActiveIndex, setActionActiveIndex] = useState(0);
+  const [actionMenuCategoryId, setActionMenuCategoryId] = useState('membership');
   const actionTriggerRef = useRef<HTMLButtonElement>(null);
   const actionOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const {
@@ -272,21 +284,18 @@ export function GovernanceCreatePanel({
     toggle: toggleActionMenu,
     containerRef: actionMenuContainerRef,
   } = useDropdown();
+  const {
+    ref: actionMenuScrollRef,
+    onWheelCapture: handleActionMenuWheelCapture,
+  } = useFloatingPanelScroll<HTMLDivElement>(actionMenuOpen);
+  const [touchLikePointer, setTouchLikePointer] = useState(false);
 
-  const proposalKind = proposalActionToKind(proposalAction);
-  const isMembershipNomination = isProposalActionNomination(proposalAction);
-  const isAddMemberAction = proposalAction === 'add_member';
-  const isRemoveMemberAction = proposalAction === 'remove_member';
-  const isTransferAction = proposalAction === 'transfer';
-  const isTransferOwnershipAction = proposalAction === 'transfer_ownership';
-  const isContractUpgradeAction = proposalAction === 'contract_upgrade';
-  const isContractConfigAction = proposalAction === 'contract_config';
-  const isFundSeasonPoolAction = proposalAction === 'fund_season_pool';
-  const isWithdrawBoostInfraAction = proposalAction === 'withdraw_boost_infra';
-  const isSetBoostInfraAuthorityAction =
-    proposalAction === 'set_boost_infra_authority';
-  const isBoostInfraAction =
-    isWithdrawBoostInfraAction || isSetBoostInfraAuthorityAction;
+  useEffect(() => {
+    setTouchLikePointer(window.matchMedia('(pointer: coarse)').matches);
+  }, []);
+
+  useBodyScrollLock(actionMenuOpen && touchLikePointer, actionMenuScrollRef);
+
   const selectedRoleIndex = Math.max(
     0,
     roleOptions.findIndex((role) => role === roleId)
@@ -336,58 +345,30 @@ export function GovernanceCreatePanel({
   }, [accountId, daoAccountId, loadContext]);
 
   useEffect(() => {
-    if (!isTransferAction) {
-      return;
-    }
-
-    let cancelled = false;
-    setTransferAssetsLoading(true);
-
-    void fetch(
-      `/api/governance/dao/assets?daoAccountId=${encodeURIComponent(daoAccountId)}`,
-      { cache: 'no-store' }
-    )
-      .then(async (response) => {
-        const payload = (await response.json().catch(() => null)) as {
-          assets?: DaoTransferAssetOption[];
-        } | null;
-
-        if (cancelled) {
-          return;
-        }
-
-        const assets = payload?.assets ?? [];
-        setTransferAssets(assets);
-        setTransferTokenId((current) => {
-          if (assets.some((asset) => asset.tokenId === current)) {
-            return current;
-          }
-          return assets[0]?.tokenId ?? '';
-        });
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setTransferAssets([]);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setTransferAssetsLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [daoAccountId, isTransferAction]);
-
-  const selectedTransferAsset = useMemo(
-    () =>
-      transferAssets.find((asset) => asset.tokenId === transferTokenId) ??
-      transferAssets[0] ??
-      null,
-    [transferAssets, transferTokenId]
-  );
+    setProposalAction('idea');
+    setDescription('');
+    setNominatedAccountInput('');
+    setTransferReceiverInput('');
+    setTransferTokenId('');
+    setTransferAmountInput('');
+    setTransferAssets([]);
+    setTransferAssetsLoading(false);
+    setSocialSpendTreasuryContext(null);
+    setSocialSpendTreasuryLoading(false);
+    setSocialSpendAmountInput('');
+    setSocialSpendSeasonId('');
+    setBoostInfraContext(null);
+    setBoostInfraLoading(false);
+    setBoostInfraAmountInput('');
+    setManagedContracts([]);
+    setManagedContractsLoading(false);
+    setTransferOwnershipContractId('');
+    setTransferOwnershipNewOwnerInput('');
+    setContractUpgradeContractId('');
+    setContractUpgradeCodeHashInput('');
+    setContractConfigContractId('');
+    setContractConfigOperationId('');
+  }, [daoAccountId]);
 
   const proposerAccountId = accountId ?? '';
   const baseAvailableProposalActions = useMemo(
@@ -602,64 +583,169 @@ export function GovernanceCreatePanel({
     [managedContracts]
   );
 
-  const availableProposalActions = useMemo(() => {
-    let actions = baseAvailableProposalActions;
+  const availableProposalActions = useMemo(
+    () =>
+      resolveAvailableProposalActionsForCreate(baseAvailableProposalActions, {
+        managedContractsLoading,
+        managedContractsCount: managedContracts.length,
+        hashUpgradableManagedContractsCount:
+          hashUpgradableManagedContracts.length,
+        configurableManagedContractsCount:
+          configurableManagedContracts.length,
+        socialSpendTreasuryLoading,
+        socialSpendTreasuryContext: socialSpendTreasuryContext
+          ? {
+              canFundSeasonPool: socialSpendTreasuryContext.canFundSeasonPool,
+              fundableSeasonIds: socialSpendTreasuryContext.fundableSeasonIds,
+            }
+          : null,
+        boostInfraLoading,
+        boostInfraContext: boostInfraContext
+          ? {
+              canWithdrawBoostInfra: boostInfraContext.canWithdrawBoostInfra,
+              canSetBoostInfraAuthority:
+                boostInfraContext.canSetBoostInfraAuthority,
+            }
+          : null,
+        transferAssetsLoading,
+        transferAssetsCount: transferAssets.length,
+      }),
+    [
+      baseAvailableProposalActions,
+      boostInfraContext,
+      boostInfraLoading,
+      configurableManagedContracts.length,
+      hashUpgradableManagedContracts.length,
+      managedContracts.length,
+      managedContractsLoading,
+      socialSpendTreasuryContext,
+      socialSpendTreasuryLoading,
+      transferAssets.length,
+      transferAssetsLoading,
+    ]
+  );
 
-    if (
-      actions.includes('transfer_ownership') &&
-      managedContracts.length === 0
-    ) {
-      actions = actions.filter((action) => action !== 'transfer_ownership');
+  const canCreatePublicProposal = availableProposalActions.length > 0;
+  const previewProposalActions = useMemo(
+    () =>
+      resolveGovernanceCreateProposalPreviewActions({
+        policy: daoPolicy,
+        roleId,
+        proposerAccountId,
+        delegatedWeight: eligibility?.delegatedWeight ?? '0',
+        proposalThresholdWeight: eligibility?.requiredWeight ?? '0',
+        isDaoMember:
+          getDaoGroupMembershipRoleNames(daoPolicy, proposerAccountId).length >
+          0,
+        baseAvailableProposalActions,
+        availableProposalActions,
+      }),
+    [
+      availableProposalActions,
+      baseAvailableProposalActions,
+      daoPolicy,
+      eligibility?.delegatedWeight,
+      eligibility?.requiredWeight,
+      proposerAccountId,
+      roleId,
+    ]
+  );
+  const displayedProposalActions = useMemo(
+    () =>
+      canCreatePublicProposal
+        ? availableProposalActions
+        : previewProposalActions.length > 0
+          ? previewProposalActions
+          : availableProposalActions,
+    [
+      availableProposalActions,
+      canCreatePublicProposal,
+      previewProposalActions,
+    ]
+  );
+
+  const activeProposalAction = useMemo(
+    () =>
+      resolveActiveCreatableProposalAction(
+        proposalAction,
+        displayedProposalActions
+      ),
+    [displayedProposalActions, proposalAction]
+  );
+
+  useEffect(() => {
+    if (!displayedProposalActions.includes('transfer')) {
+      setTransferAssets([]);
+      setTransferAssetsLoading(false);
+      return;
     }
 
-    if (
-      actions.includes('contract_upgrade') &&
-      hashUpgradableManagedContracts.length === 0
-    ) {
-      actions = actions.filter((action) => action !== 'contract_upgrade');
-    }
+    let cancelled = false;
+    setTransferAssetsLoading(true);
 
-    if (
-      actions.includes('contract_config') &&
-      configurableManagedContracts.length === 0
-    ) {
-      actions = actions.filter((action) => action !== 'contract_config');
-    }
+    void fetch(
+      `/api/governance/dao/assets?daoAccountId=${encodeURIComponent(daoAccountId)}`,
+      { cache: 'no-store' }
+    )
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => null)) as {
+          assets?: DaoTransferAssetOption[];
+        } | null;
 
-    if (actions.includes('fund_season_pool')) {
-      if (!socialSpendTreasuryContext?.canFundSeasonPool) {
-        actions = actions.filter((action) => action !== 'fund_season_pool');
-      }
-    }
+        if (cancelled) {
+          return;
+        }
 
-    if (actions.includes('withdraw_boost_infra')) {
-      if (!boostInfraContext?.canWithdrawBoostInfra) {
-        actions = actions.filter((action) => action !== 'withdraw_boost_infra');
-      }
-    }
+        const assets = payload?.assets ?? [];
+        setTransferAssets(assets);
+        setTransferTokenId((current) => {
+          if (assets.some((asset) => asset.tokenId === current)) {
+            return current;
+          }
+          return assets[0]?.tokenId ?? '';
+        });
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setTransferAssets([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setTransferAssetsLoading(false);
+        }
+      });
 
-    if (actions.includes('set_boost_infra_authority')) {
-      if (
-        resolveGovernanceDaoBoard(daoAccountId) !== 'governance' ||
-        !boostInfraContext?.canSetBoostInfraAuthority
-      ) {
-        actions = actions.filter(
-          (action) => action !== 'set_boost_infra_authority'
-        );
-      }
-    }
+    return () => {
+      cancelled = true;
+    };
+  }, [daoAccountId, displayedProposalActions]);
 
-    return actions;
-  }, [
-    baseAvailableProposalActions,
-    configurableManagedContracts.length,
-    hashUpgradableManagedContracts.length,
-    managedContracts.length,
-    socialSpendTreasuryContext?.canFundSeasonPool,
-    boostInfraContext?.canWithdrawBoostInfra,
-    boostInfraContext?.canSetBoostInfraAuthority,
-    daoAccountId,
-  ]);
+  const proposalKind = proposalActionToKind(activeProposalAction);
+  const isMembershipNomination =
+    isProposalActionNomination(activeProposalAction);
+  const isAddMemberAction = activeProposalAction === 'add_member';
+  const isRemoveMemberAction = activeProposalAction === 'remove_member';
+  const isTransferAction = activeProposalAction === 'transfer';
+  const isTransferOwnershipAction =
+    activeProposalAction === 'transfer_ownership';
+  const isContractUpgradeAction = activeProposalAction === 'contract_upgrade';
+  const isContractConfigAction = activeProposalAction === 'contract_config';
+  const isFundSeasonPoolAction = activeProposalAction === 'fund_season_pool';
+  const isWithdrawBoostInfraAction =
+    activeProposalAction === 'withdraw_boost_infra';
+  const isSetBoostInfraAuthorityAction =
+    activeProposalAction === 'set_boost_infra_authority';
+  const isBoostInfraAction =
+    isWithdrawBoostInfraAction || isSetBoostInfraAuthorityAction;
+
+  const selectedTransferAsset = useMemo(
+    () =>
+      transferAssets.find((asset) => asset.tokenId === transferTokenId) ??
+      transferAssets[0] ??
+      null,
+    [transferAssets, transferTokenId]
+  );
 
   const selectedManagedContract = useMemo(
     () =>
@@ -701,16 +787,6 @@ export function GovernanceCreatePanel({
         hint: operation.description,
       })),
     [selectedConfigurableContract?.contractId]
-  );
-
-  const selectedContractConfigOperation = useMemo(
-    () =>
-      contractConfigOperationOptions.find(
-        (operation) => operation.value === contractConfigOperationId
-      ) ??
-      contractConfigOperationOptions[0] ??
-      null,
-    [contractConfigOperationId, contractConfigOperationOptions]
   );
 
   const actionRoutingOperationConfig = useMemo(() => {
@@ -850,7 +926,7 @@ export function GovernanceCreatePanel({
   }, [contractUpgradeCodeHash, isContractUpgradeAction]);
 
   const subjectAccountId = useMemo(() => {
-    if (proposalAction === 'idea') {
+    if (activeProposalAction === 'idea') {
       return proposerAccountId;
     }
     if (isMembershipNomination) {
@@ -858,15 +934,16 @@ export function GovernanceCreatePanel({
     }
     return proposerAccountId;
   }, [
+    activeProposalAction,
     isMembershipNomination,
     nominatedAccountInput,
-    proposalAction,
     proposerAccountId,
   ]);
   const subjectLookup = useMemberAccountLookup(subjectAccountId, {
     trustedAccount: true,
   });
-  const isInitialLoading = loading && !eligibility;
+  const isInitialLoading =
+    walletLoading || (!!accountId && !eligibility && (loading || !error));
   const thresholdDisplay = useMemo(() => {
     if (!eligibility) return '…';
     return formatSocial(eligibility.requiredWeight ?? '0');
@@ -879,12 +956,16 @@ export function GovernanceCreatePanel({
   const canCoverBond =
     eligibility != null &&
     BigInt(eligibility.nearBalance) >= BigInt(proposalBond);
+  const daoMemberRoles = useMemo(
+    () => getDaoGroupMembershipRoleNames(daoPolicy, proposerAccountId),
+    [daoPolicy, proposerAccountId]
+  );
   const isMembershipProposal =
-    proposalAction !== 'idea' &&
-    proposalAction !== 'transfer' &&
-    proposalAction !== 'transfer_ownership' &&
-    proposalAction !== 'contract_upgrade' &&
-    proposalAction !== 'contract_config' &&
+    activeProposalAction !== 'idea' &&
+    activeProposalAction !== 'transfer' &&
+    activeProposalAction !== 'transfer_ownership' &&
+    activeProposalAction !== 'contract_upgrade' &&
+    activeProposalAction !== 'contract_config' &&
     !isFundSeasonPoolAction &&
     !isBoostInfraAction;
   const availablePolicyActions = useMemo(
@@ -901,14 +982,25 @@ export function GovernanceCreatePanel({
     () => buildGovernancePathWithBoard('/governance/policy', daoBoard),
     [daoBoard]
   );
+  const positionPath = useMemo(
+    () => buildGovernancePathWithBoard('/governance/manage', daoBoard),
+    [daoBoard]
+  );
   const actionMenuItems = useMemo(
     () =>
       buildGovernanceCreateActionMenuItems({
-        availableProposalActions,
-        availablePolicyActions,
+        availableProposalActions: displayedProposalActions,
+        availablePolicyActions: canCreatePublicProposal
+          ? availablePolicyActions
+          : [],
         daoBoard,
       }),
-    [availablePolicyActions, availableProposalActions, daoBoard]
+    [
+      availablePolicyActions,
+      canCreatePublicProposal,
+      daoBoard,
+      displayedProposalActions,
+    ]
   );
   const selectableProposalMenuItems = useMemo(
     () =>
@@ -922,16 +1014,121 @@ export function GovernanceCreatePanel({
       ),
     [actionMenuItems]
   );
-  const selectedActionOption =
-    getCreatableDaoProposalActionOption(proposalAction);
-  const selectedActionIndex = Math.max(
-    0,
-    selectableProposalMenuItems.findIndex(
-      (option) => option.id === proposalAction
-    )
+  const actionMenuCategories = useMemo(
+    () => groupGovernanceCreateActionMenuItems(actionMenuItems),
+    [actionMenuItems]
   );
+  const visibleActionMenuCategory = useMemo(
+    () =>
+      actionMenuCategories.find(
+        (category) => category.id === actionMenuCategoryId
+      ) ?? actionMenuCategories[0],
+    [actionMenuCategories, actionMenuCategoryId]
+  );
+  const visibleActionMenuItems = visibleActionMenuCategory?.items ?? [];
+  const visibleSelectableProposalMenuItems = useMemo(
+    () =>
+      visibleActionMenuItems.filter(
+        (
+          item
+        ): item is Extract<
+          GovernanceCreateActionMenuItem,
+          { kind: 'proposal' }
+        > => item.kind === 'proposal'
+      ),
+    [visibleActionMenuItems]
+  );
+  const selectedActionOption =
+    getCreatableDaoProposalActionOption(activeProposalAction);
+  const descriptionPlaceholder = useMemo(
+    () =>
+      resolveGovernanceCreateDescriptionPlaceholder(
+        activeProposalAction,
+        roleId
+      ),
+    [activeProposalAction, roleId]
+  );
+
+  useEffect(() => {
+    setDescription('');
+  }, [activeProposalAction]);
+
+  const selectedActionIndex = useMemo(() => {
+    const categoryId = resolveGovernanceCreateActionMenuCategoryId(
+      activeProposalAction
+    );
+    const category =
+      actionMenuCategories.find((entry) => entry.id === categoryId) ??
+      actionMenuCategories[0];
+    const proposals =
+      category?.items.filter(
+        (item): item is Extract<GovernanceCreateActionMenuItem, { kind: 'proposal' }> =>
+          item.kind === 'proposal'
+      ) ?? [];
+    const index = proposals.findIndex((option) => option.id === activeProposalAction);
+
+    return Math.max(0, index);
+  }, [actionMenuCategories, activeProposalAction]);
+  const activeCategoryProposalCount = useMemo(() => {
+    const categoryId = resolveGovernanceCreateActionMenuCategoryId(
+      activeProposalAction
+    );
+    const category =
+      actionMenuCategories.find((entry) => entry.id === categoryId) ??
+      actionMenuCategories[0];
+
+    return (
+      category?.items.filter((item) => item.kind === 'proposal').length ?? 0
+    );
+  }, [actionMenuCategories, activeProposalAction]);
+
+  useEffect(() => {
+    if (actionMenuCategories.length === 0 || actionMenuOpen) {
+      return;
+    }
+
+    const categoryId = resolveGovernanceCreateActionMenuCategoryId(
+      activeProposalAction
+    );
+
+    if (actionMenuCategories.some((category) => category.id === categoryId)) {
+      setActionMenuCategoryId(categoryId);
+    }
+  }, [actionMenuCategories, actionMenuOpen, activeProposalAction]);
   const showActionDropdown =
-    selectableProposalMenuItems.length + availablePolicyActions.length > 1;
+    selectableProposalMenuItems.length +
+      (canCreatePublicProposal ? availablePolicyActions.length : 0) >
+    1;
+  const remainingToThresholdDisplay = useMemo(() => {
+    if (!eligibility) {
+      return '…';
+    }
+
+    return formatSocial(eligibility.remainingToThreshold ?? '0');
+  }, [eligibility]);
+  const createNoActionsMessage = useMemo(
+    () =>
+      resolveGovernanceCreateNoActionsMessage({
+        isDaoMember: daoMemberRoles.length > 0,
+        hasEnoughDelegation: eligibility?.canPropose ?? false,
+        hasEnoughBond: canCoverBond,
+        remainingToThresholdDisplay,
+        bondDisplay,
+        baseProposalActionCount: baseAvailableProposalActions.length,
+        availableProposalActionCount: availableProposalActions.length,
+        hasPolicyActions: availablePolicyActions.length > 0,
+      }),
+    [
+      availablePolicyActions.length,
+      availableProposalActions.length,
+      baseAvailableProposalActions.length,
+      bondDisplay,
+      canCoverBond,
+      daoMemberRoles.length,
+      eligibility?.canPropose,
+      remainingToThresholdDisplay,
+    ]
+  );
   const removableMemberOptions = useMemo(
     () =>
       getDaoGroupRoleMemberOptions(daoPolicy, roleId, {
@@ -1089,7 +1286,8 @@ export function GovernanceCreatePanel({
     (isSocialSpendActionRoutingOperationId(contractConfigOperationId)
       ? canProposeSocialSpendActionRoutingDraft(
           actionRoutingBaseline,
-          actionRoutingDraft
+          actionRoutingDraft,
+          contractConfigOperationId
         ) &&
         !actionRoutingLoading &&
         !actionRoutingLoadError
@@ -1131,17 +1329,140 @@ export function GovernanceCreatePanel({
     removableMemberOptions,
     subjectLookup.exists,
   ]);
+  const contractConfigOperationLabel = useMemo(
+    () =>
+      contractConfigOperationOptions.find(
+        (option) => option.value === contractConfigOperationId
+      )?.label ?? null,
+    [contractConfigOperationOptions, contractConfigOperationId]
+  );
+  const isSocialSpendRoutingConfig =
+    isContractConfigAction &&
+    isSocialSpendActionRoutingOperationId(contractConfigOperationId);
+  const isSeasonConfigConfig =
+    isContractConfigAction &&
+    contractConfigOperationId === 'social_spend_set_season_config';
+  const routingFixedFieldsCaption = useMemo(
+    () =>
+      isSocialSpendRoutingConfig && contractConfigOperationId
+        ? formatSocialSpendRoutingFixedFieldsCaption(contractConfigOperationId)
+        : null,
+    [contractConfigOperationId, isSocialSpendRoutingConfig]
+  );
+  const seasonConfigIsNewSeason = useMemo(() => {
+    if (!seasonConfigDraft) {
+      return false;
+    }
+
+    const seasonId = seasonConfigDraft.season_id.trim().toLowerCase();
+    return (
+      seasonId.length > 0 && !seasonConfigChainSeasonIds.includes(seasonId)
+    );
+  }, [seasonConfigChainSeasonIds, seasonConfigDraft]);
+  const seasonConfigNewSeasonOnChain = useMemo(() => {
+    if (!seasonConfigDraft || !seasonConfigIsNewSeason) {
+      return false;
+    }
+
+    if (validateSeasonIdDraft(seasonConfigDraft.season_id)) {
+      return false;
+    }
+
+    return seasonConfigLookupReady && !seasonConfigHasOnChainConfig;
+  }, [
+    seasonConfigDraft,
+    seasonConfigHasOnChainConfig,
+    seasonConfigIsNewSeason,
+    seasonConfigLookupReady,
+  ]);
+  const proposalSummary = useMemo(
+    () =>
+      resolveGovernanceCreateProposalSummary({
+        proposalAction: activeProposalAction,
+        transferAmountInput,
+        transferAmountSmallest,
+        transferTokenSymbol: selectedTransferAsset?.symbol ?? null,
+        transferReceiverId,
+        socialSpendSeasonId,
+        socialSpendAmountInput,
+        boostInfraAmountInput,
+        isWithdrawBoostInfraAction,
+        isSetBoostInfraAuthorityAction,
+        treasuryDaoAccountId: boostInfraContext?.treasuryDaoAccountId ?? '',
+        roleId,
+        subjectAccountId,
+        isAddMemberAction,
+        isRemoveMemberAction,
+        contractUpgradeContractLabel: selectedUpgradableContract?.label ?? null,
+        contractUpgradeCodeHash: contractUpgradeCodeHashInput,
+        transferOwnershipContractLabel: selectedManagedContract?.label ?? null,
+        transferOwnershipNewOwnerId,
+        contractConfigOperationLabel,
+        isContractConfigAction,
+        isSocialSpendRoutingConfig,
+        isSeasonConfigConfig,
+        contractConfigOperationId,
+        actionRoutingDraft,
+        actionRoutingBaseline,
+        actionRoutingLoading,
+        actionRoutingLoadError,
+        seasonConfigDraft,
+        seasonConfigBaseline,
+        seasonConfigLoading,
+        seasonConfigLoadError,
+        seasonConfigNewSeasonOnChain,
+      }),
+    [
+      actionRoutingBaseline,
+      actionRoutingDraft,
+      actionRoutingLoadError,
+      actionRoutingLoading,
+      boostInfraAmountInput,
+      boostInfraContext?.treasuryDaoAccountId,
+      contractConfigOperationId,
+      contractConfigOperationLabel,
+      contractUpgradeCodeHashInput,
+      isAddMemberAction,
+      isContractConfigAction,
+      isRemoveMemberAction,
+      isSeasonConfigConfig,
+      isSetBoostInfraAuthorityAction,
+      isSocialSpendRoutingConfig,
+      isWithdrawBoostInfraAction,
+      activeProposalAction,
+      roleId,
+      seasonConfigBaseline,
+      seasonConfigDraft,
+      seasonConfigLoadError,
+      seasonConfigLoading,
+      seasonConfigNewSeasonOnChain,
+      selectedManagedContract?.label,
+      selectedTransferAsset?.symbol,
+      selectedUpgradableContract?.label,
+      socialSpendAmountInput,
+      socialSpendSeasonId,
+      subjectAccountId,
+      transferAmountInput,
+      transferAmountSmallest,
+      transferOwnershipNewOwnerId,
+      transferReceiverId,
+    ]
+  );
+
   const normalizedDescription = normalizeBoundedNote(description);
-  const descriptionTextError = getBoundedNoteError(description);
-  const descriptionLength = normalizedDescription.length;
-  const hasDescription = descriptionLength > 0;
+  const descriptionCounter = getBoundedNoteFieldCounter(
+    description,
+    PROPOSAL_DESCRIPTION_LIMITS
+  );
   const descriptionReady = isBoundedNoteReady(
     description,
     PROPOSAL_DESCRIPTION_LIMITS
   );
-  const proposalActionAllowed =
-    availableProposalActions.includes(proposalAction);
+  const proposalActionAllowed = canCreatePublicProposal
+    ? availableProposalActions.includes(activeProposalAction)
+    : displayedProposalActions.includes(activeProposalAction);
   const canSubmit =
+    canCreatePublicProposal &&
     isConnected &&
     canCoverBond &&
     Boolean(proposerAccountId) &&
@@ -1166,7 +1487,7 @@ export function GovernanceCreatePanel({
     !submitting;
 
   const blockedReason = useMemo(() => {
-    if (!isConnected) return 'Connect your account to submit a proposal.';
+    if (!isConnected) return portalConnectMessage('governance.create');
     if (!eligibility) return '';
     if (!canCoverBond) {
       return `Add ${bondDisplay} NEAR to your account for the proposal bond.`;
@@ -1178,9 +1499,6 @@ export function GovernanceCreatePanel({
       return membershipBlockReason;
     }
     if (!descriptionReady) {
-      if (descriptionTextError) {
-        return descriptionTextError;
-      }
       return '';
     }
     if (proposerAccountId && !canProposeSelectedKind) {
@@ -1274,23 +1592,16 @@ export function GovernanceCreatePanel({
     }
     if (
       isContractConfigAction &&
-      isSocialSpendActionRoutingOperationId(contractConfigOperationId) &&
-      actionRoutingDraft &&
-      !validateSocialSpendActionRoutingBps(actionRoutingDraft)
+      isSocialSpendActionRoutingOperationId(contractConfigOperationId)
     ) {
-      return 'Routing shares must sum to 100% (10,000 bps).';
-    }
-    if (
-      isContractConfigAction &&
-      isSocialSpendActionRoutingOperationId(contractConfigOperationId) &&
-      actionRoutingDraft &&
-      actionRoutingBaseline &&
-      !socialSpendActionRoutingChanged(
+      const routingBlocker = socialSpendActionRoutingProposalBlocker(
         actionRoutingBaseline,
-        actionRoutingDraft
-      )
-    ) {
-      return 'Change at least one routing share before proposing.';
+        actionRoutingDraft,
+        contractConfigOperationId
+      );
+      if (routingBlocker) {
+        return routingBlocker;
+      }
     }
     if (
       isContractConfigAction &&
@@ -1374,9 +1685,6 @@ export function GovernanceCreatePanel({
         return accountError;
       }
     }
-    if (hasDescription && descriptionTextError) {
-      return descriptionTextError;
-    }
     return '';
   }, [
     bondDisplay,
@@ -1384,9 +1692,6 @@ export function GovernanceCreatePanel({
     canProposeSelectedKind,
     daoPolicy,
     descriptionReady,
-    descriptionTextError,
-    eligibility,
-    hasDescription,
     isConnected,
     isMembershipNomination,
     isMembershipProposal,
@@ -1457,60 +1762,33 @@ export function GovernanceCreatePanel({
         ''
       );
     });
-  }, [isRemoveMemberAction, proposalAction, removableMemberOptions, roleId]);
+  }, [isRemoveMemberAction, activeProposalAction, removableMemberOptions, roleId]);
 
   useEffect(() => {
-    if (availableProposalActions.length === 0) {
+    if (displayedProposalActions.length === 0) {
       return;
     }
 
-    if (!availableProposalActions.includes(proposalAction)) {
-      if (
-        proposalAction === 'transfer_ownership' &&
-        managedContracts.length > 0 &&
-        baseAvailableProposalActions.includes('transfer_ownership')
-      ) {
-        return;
-      }
+    const nextAction = resolveActiveCreatableProposalAction(
+      proposalAction,
+      displayedProposalActions
+    );
 
-      if (
-        proposalAction === 'contract_upgrade' &&
-        hashUpgradableManagedContracts.length > 0 &&
-        baseAvailableProposalActions.includes('contract_upgrade')
-      ) {
-        return;
-      }
-
-      if (
-        proposalAction === 'contract_config' &&
-        configurableManagedContracts.length > 0 &&
-        baseAvailableProposalActions.includes('contract_config')
-      ) {
-        return;
-      }
-
-      const fallback =
-        availableProposalActions.find((action) => action === 'idea') ??
-        availableProposalActions[0];
-      setProposalAction(fallback);
-      setNominatedAccountInput('');
-      setTransferReceiverInput('');
-      setTransferTokenId('');
-      setTransferAmountInput('');
-      setTransferOwnershipContractId('');
-      setTransferOwnershipNewOwnerInput('');
-      setContractUpgradeContractId('');
-      setContractUpgradeCodeHashInput('');
-      setSocialSpendAmountInput('');
+    if (nextAction === proposalAction) {
+      return;
     }
-  }, [
-    availableProposalActions,
-    baseAvailableProposalActions,
-    configurableManagedContracts.length,
-    hashUpgradableManagedContracts.length,
-    managedContracts.length,
-    proposalAction,
-  ]);
+
+    setProposalAction(nextAction);
+    setNominatedAccountInput('');
+    setTransferReceiverInput('');
+    setTransferTokenId('');
+    setTransferAmountInput('');
+    setTransferOwnershipContractId('');
+    setTransferOwnershipNewOwnerInput('');
+    setContractUpgradeContractId('');
+    setContractUpgradeCodeHashInput('');
+    setSocialSpendAmountInput('');
+  }, [displayedProposalActions, proposalAction]);
 
   const handleSubmit = useCallback(async () => {
     if (!wallet || !accountId) {
@@ -1543,11 +1821,6 @@ export function GovernanceCreatePanel({
 
     if (isMembershipProposal && membershipReason) {
       setError(membershipReason);
-      return;
-    }
-
-    if (hasDescription && descriptionTextError) {
-      setError(descriptionTextError);
       return;
     }
 
@@ -1697,7 +1970,6 @@ export function GovernanceCreatePanel({
     daoAccountId,
     daoBoard,
     daoPolicy,
-    descriptionTextError,
     eligibility,
     normalizedDescription,
     isMembershipProposal,
@@ -1760,7 +2032,36 @@ export function GovernanceCreatePanel({
     closeRoleDropdown();
   };
 
+  const handleActionMenuCategoryChange = (categoryId: string) => {
+    setActionMenuCategoryId(categoryId);
+
+    const category = actionMenuCategories.find(
+      (entry) => entry.id === categoryId
+    );
+    const proposals =
+      category?.items.filter(
+        (item): item is Extract<GovernanceCreateActionMenuItem, { kind: 'proposal' }> =>
+          item.kind === 'proposal'
+      ) ?? [];
+    const selectedIndex = proposals.findIndex(
+      (option) => option.id === activeProposalAction
+    );
+
+    setActionActiveIndex(selectedIndex >= 0 ? selectedIndex : 0);
+  };
+
   const openActionDropdown = (index = selectedActionIndex) => {
+    const categoryId = resolveGovernanceCreateActionMenuCategoryId(
+      activeProposalAction
+    );
+    const matchingCategory =
+      actionMenuCategories.find((category) => category.id === categoryId) ??
+      actionMenuCategories[0];
+
+    if (matchingCategory) {
+      setActionMenuCategoryId(matchingCategory.id);
+    }
+
     setActionActiveIndex(index >= 0 ? index : 0);
     openActionMenu();
   };
@@ -1770,8 +2071,8 @@ export function GovernanceCreatePanel({
     actionTriggerRef.current?.focus();
   };
 
-  const selectActionAtIndex = (index: number) => {
-    const nextAction = selectableProposalMenuItems[index];
+  const selectVisibleActionAtIndex = (index: number) => {
+    const nextAction = visibleSelectableProposalMenuItems[index];
     if (!nextAction) {
       return;
     }
@@ -1818,32 +2119,64 @@ export function GovernanceCreatePanel({
     actionOptionRefs.current[actionActiveIndex]?.focus();
   }, [actionActiveIndex, actionMenuOpen]);
 
+  const blockedSubmitLabel = resolveGovernanceCreateBlockedSubmitLabel(
+    createNoActionsMessage
+  );
+  const submitLabel =
+    blockedSubmitLabel ??
+    getProposalActionSubmitLabel(activeProposalAction);
+  const showStickyCreateSubmit = Boolean(accountId && !isInitialLoading);
+  const submitFeedbackMessage = useMemo(
+    () => {
+      if (!canCreatePublicProposal && blockedSubmitLabel) {
+        return error ? error : null;
+      }
+
+      return resolveGovernanceCreateSubmitFeedback({
+        error,
+        blockedReason,
+        proposalSummary,
+        isContractConfigAction,
+        isSocialSpendRoutingConfig,
+        isSeasonConfigConfig,
+      });
+    },
+    [
+      blockedReason,
+      blockedSubmitLabel,
+      canCreatePublicProposal,
+      error,
+      isContractConfigAction,
+      isSeasonConfigConfig,
+      isSocialSpendRoutingConfig,
+      proposalSummary,
+    ]
+  );
+
   return (
     <>
       <TransactionFeedbackToast result={txResult} onClose={clearTxResult} />
       <SurfacePanel tone="soft" className="mb-6">
-        <div className="flex items-start justify-between gap-4">
-          <div className="max-w-2xl min-w-0">
-            <SectionHeader
-              badge="Create"
-              className="mb-0"
-              contentClassName="max-w-2xl"
-            />
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <span className="portal-eyebrow-wide portal-blue-text">Create proposal</span>
             <p className="mt-2 text-xs text-muted-foreground">
               <a
                 href={`${ACTIVE_NEAR_EXPLORER_URL}/address/${resolvedDaoAccountId}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-mono portal-blue-text transition-colors hover:text-[var(--portal-blue)]"
+                className="font-mono text-muted-foreground/65 transition-colors hover:text-foreground/80"
               >
                 @{resolvedDaoAccountId}
               </a>
             </p>
           </div>
-          {accountId ? (
-            <div className="flex shrink-0 items-center gap-2">
-              {showPolicySettings ? (
-                <PortalHoverTooltip tooltip="DAO policy">
+          <div className="flex h-8 shrink-0 items-center gap-2">
+            {walletLoading ? (
+              <div className="h-8 w-8 shrink-0" aria-hidden />
+            ) : accountId ? (
+              <>
+                {showPolicySettings ? (
                   <Button
                     asChild
                     variant="outline"
@@ -1854,11 +2187,7 @@ export function GovernanceCreatePanel({
                       <Settings2 className="h-4 w-4" />
                     </Link>
                   </Button>
-                </PortalHoverTooltip>
-              ) : null}
-              <PortalHoverTooltip
-                tooltip={loading ? 'Refreshing context' : 'Refresh context'}
-              >
+                ) : null}
                 <Button
                   type="button"
                   variant="outline"
@@ -1874,74 +2203,38 @@ export function GovernanceCreatePanel({
                     className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}
                   />
                 </Button>
-              </PortalHoverTooltip>
-            </div>
-          ) : null}
+              </>
+            ) : null}
+          </div>
         </div>
 
-        {!accountId ? (
+        {!walletLoading && !accountId ? (
           <div className="mt-3 border-t border-fade-detail pt-3">
-            <p className="text-sm text-muted-foreground">
-              Connect your account to continue.
-            </p>
-            <Button
-              type="button"
-              className="mt-3 h-11"
-              onClick={() => {
+            <PortalConnectPrompt
+              action="governance.create"
+              variant="action"
+              showNavHint={false}
+              onConnect={() => {
                 void connect();
               }}
-            >
-              Connect account
-            </Button>
+            />
           </div>
         ) : isInitialLoading ? (
           <div className="mx-auto mt-3 w-full min-w-0 max-w-xl border-t border-fade-detail pt-3">
-            <StatStripSkeleton
-              items={3}
-              columns={3}
-              groupClassName="mt-0"
-              showTopDivider={false}
-            />
+            <div className="h-4 w-4/5 max-w-sm animate-pulse rounded bg-muted/40" />
             <CompactActionSkeleton className="mt-3 pt-3" tabCount={3} />
           </div>
         ) : (
-          <div className="mx-auto mt-3 w-full min-w-0 max-w-xl">
-            <StatStrip columns={3} groupClassName="mt-0">
-              <StatStripCell
-                label="Delegated"
-                value={`${delegatedDisplay} SOCIAL`}
-                showDivider
-                size="sm"
-                valueClassName={
-                  eligibility?.canPropose || canProposeSelectedKind
-                    ? 'portal-green-text'
-                    : 'portal-blue-text'
-                }
-              />
-              <StatStripCell
-                label="Threshold"
-                value={`${thresholdDisplay} SOCIAL`}
-                showDivider
-                size="sm"
-              />
-              <StatStripCell
-                label="Bond"
-                value={`${bondDisplay} NEAR`}
-                size="sm"
-              />
-            </StatStrip>
-
-            {!eligibility?.canPropose && !canProposeSelectedKind ? (
-              <div className="mt-2 flex flex-wrap items-center justify-end gap-2 text-xs">
-                <Link
-                  href="/governance/manage"
-                  className="portal-action-link group inline-flex items-center gap-1 font-medium"
-                >
-                  Position
-                  <ProtocolMotionArrow className="h-3 w-3" />
-                </Link>
-              </div>
-            ) : null}
+          <div className="mx-auto mt-3 w-full min-w-0 max-w-xl border-t border-fade-detail pt-3">
+            <GovernanceCreateEligibilityLine
+              delegatedDisplay={delegatedDisplay}
+              thresholdDisplay={thresholdDisplay}
+              bondDisplay={bondDisplay}
+              hasEnoughDelegation={eligibility?.canPropose ?? false}
+              hasEnoughBond={canCoverBond}
+              memberRoles={daoMemberRoles}
+              positionPath={positionPath}
+            />
 
             <div className="mt-3 space-y-3">
               <div>
@@ -1954,20 +2247,24 @@ export function GovernanceCreatePanel({
                   Action
                 </label>
                 {selectableProposalMenuItems.length === 0 ? (
-                  <div className="portal-field-focus rounded-2xl border border-border/40 bg-background/45 px-4 py-3 text-sm text-muted-foreground md:py-3.5">
+                  <div
+                    className={cn(
+                      governanceCreateFieldShellClass,
+                      'px-4 py-3 text-sm text-muted-foreground md:py-3'
+                    )}
+                  >
                     {availablePolicyActions.length > 0 ? (
                       <p>
-                        No public proposal actions here. Open{' '}
+                        Policy updates only.{' '}
                         <Link
                           href={policyPath}
                           className="portal-action-link font-medium"
                         >
-                          DAO policy
-                        </Link>{' '}
-                        to change permissions or parameters.
+                          Open policy
+                        </Link>
                       </p>
                     ) : (
-                      'No proposal actions available for your account on this DAO yet.'
+                      'No public proposals on this DAO yet.'
                     )}
                   </div>
                 ) : showActionDropdown ? (
@@ -1983,7 +2280,7 @@ export function GovernanceCreatePanel({
                           openActionDropdown(
                             Math.min(
                               selectedActionIndex + 1,
-                              selectableProposalMenuItems.length - 1
+                              Math.max(activeCategoryProposalCount - 1, 0)
                             )
                           );
                         } else if (event.key === 'ArrowUp') {
@@ -1998,14 +2295,10 @@ export function GovernanceCreatePanel({
                       }}
                       aria-haspopup="listbox"
                       aria-expanded={actionMenuOpen}
-                      className={`portal-field-focus flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm outline-none md:py-3.5 ${
-                        actionMenuOpen
-                          ? 'border-border bg-background/60'
-                          : 'border-border/40 bg-background/45'
-                      }`}
+                      className={governanceCreateFieldTriggerClass(actionMenuOpen)}
                     >
                       <span>
-                        {selectedActionOption?.label ?? proposalAction}
+                        {selectedActionOption?.label ?? activeProposalAction}
                       </span>
                       <ChevronDown
                         className={`h-4 w-4 text-muted-foreground transition-transform ${
@@ -2015,9 +2308,11 @@ export function GovernanceCreatePanel({
                     </button>
 
                     <FloatingPanelMenu
+                      ref={actionMenuScrollRef}
                       open={actionMenuOpen}
                       align="full"
-                      className="space-y-0.5 p-1 md:p-1.5"
+                      className={governanceCreateActionMenuShellClass}
+                      onWheelCapture={handleActionMenuWheelCapture}
                       role="listbox"
                       aria-label="Proposal action"
                       onKeyDown={(event) => {
@@ -2026,7 +2321,7 @@ export function GovernanceCreatePanel({
                           setActionActiveIndex((current) =>
                             Math.min(
                               current + 1,
-                              selectableProposalMenuItems.length - 1
+                              visibleSelectableProposalMenuItems.length - 1
                             )
                           );
                         } else if (event.key === 'ArrowUp') {
@@ -2040,11 +2335,14 @@ export function GovernanceCreatePanel({
                         } else if (event.key === 'End') {
                           event.preventDefault();
                           setActionActiveIndex(
-                            selectableProposalMenuItems.length - 1
+                            Math.max(
+                              visibleSelectableProposalMenuItems.length - 1,
+                              0
+                            )
                           );
                         } else if (event.key === 'Enter' || event.key === ' ') {
                           event.preventDefault();
-                          selectActionAtIndex(actionActiveIndex);
+                          selectVisibleActionAtIndex(actionActiveIndex);
                         } else if (event.key === 'Escape') {
                           event.preventDefault();
                           closeActionDropdown();
@@ -2053,77 +2351,62 @@ export function GovernanceCreatePanel({
                         }
                       }}
                     >
-                      {actionMenuItems.map((item) => {
-                        if (item.kind === 'section') {
-                          return (
-                            <div
-                              key={item.id}
-                              className="px-3 pt-1.5 pb-0.5 first:pt-1"
-                              role="presentation"
-                            >
-                              <p className="portal-type-caption font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                                {item.label}
-                              </p>
-                            </div>
-                          );
+                      <GovernanceCreateActionCategoryStrip
+                        categories={actionMenuCategories}
+                        value={
+                          visibleActionMenuCategory?.id ??
+                          actionMenuCategories[0]?.id ??
+                          ''
                         }
+                        onChange={handleActionMenuCategoryChange}
+                      />
+                      <div className={governanceCreateActionMenuListClass}>
+                        {visibleActionMenuItems.map((item) => {
+                          if (item.kind === 'policy_link') {
+                            return (
+                              <GovernanceCreateActionPolicyLink
+                                key={item.id}
+                                label={item.label}
+                                description={item.description}
+                                href={item.href}
+                                onClick={() => closeActionDropdown()}
+                              />
+                            );
+                          }
 
-                        if (item.kind === 'policy_link') {
+                          const proposalIndex =
+                            visibleSelectableProposalMenuItems.findIndex(
+                              (option) => option.id === item.id
+                            );
+                          const selected = item.id === activeProposalAction;
+                          const active = proposalIndex === actionActiveIndex;
+
                           return (
-                            <Link
+                            <GovernanceCreateActionMenuOption
                               key={item.id}
-                              href={item.href}
-                              role="option"
-                              onClick={() => closeActionDropdown()}
-                              className={`${floatingPanelItemClass} justify-between`}
-                            >
-                              <span>{item.label}</span>
-                              <ProtocolMotionArrow className="h-4 w-4 shrink-0 text-muted-foreground" />
-                            </Link>
+                              label={item.label}
+                              description={item.description}
+                              selected={selected}
+                              active={active}
+                              optionRef={(element) => {
+                                actionOptionRefs.current[proposalIndex] = element;
+                              }}
+                              optionId={`governance-create-action-option-${proposalIndex}`}
+                              tabIndex={active ? 0 : -1}
+                              onClick={() =>
+                                selectVisibleActionAtIndex(proposalIndex)
+                              }
+                              onMouseEnter={() =>
+                                setActionActiveIndex(proposalIndex)
+                              }
+                            />
                           );
-                        }
-
-                        const proposalIndex =
-                          selectableProposalMenuItems.findIndex(
-                            (option) => option.id === item.id
-                          );
-                        const selected = item.id === proposalAction;
-                        const active = proposalIndex === actionActiveIndex;
-
-                        return (
-                          <button
-                            ref={(element) => {
-                              actionOptionRefs.current[proposalIndex] = element;
-                            }}
-                            key={item.id}
-                            id={`governance-create-action-option-${proposalIndex}`}
-                            type="button"
-                            role="option"
-                            aria-selected={selected}
-                            tabIndex={active ? 0 : -1}
-                            onClick={() => selectActionAtIndex(proposalIndex)}
-                            onMouseEnter={() =>
-                              setActionActiveIndex(proposalIndex)
-                            }
-                            className={`${floatingPanelItemClass} justify-between ${
-                              selected
-                                ? floatingPanelItemSelectedClass
-                                : active
-                                  ? floatingPanelItemActiveClass
-                                  : ''
-                            }`}
-                          >
-                            <span>{item.label}</span>
-                            <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-                              {selected ? <Check className="h-4 w-4" /> : null}
-                            </span>
-                          </button>
-                        );
-                      })}
+                        })}
+                      </div>
                     </FloatingPanelMenu>
                   </div>
                 ) : (
-                  <div className="portal-field-focus rounded-2xl border border-border/40 bg-background/45 px-4 py-3 text-sm font-medium md:py-3.5">
+                  <div className={cn(governanceCreateFieldShellClass, 'px-4 py-3 text-sm font-medium md:py-3')}>
                     {selectedActionOption?.label}
                   </div>
                 )}
@@ -2141,7 +2424,12 @@ export function GovernanceCreatePanel({
                       Role
                     </label>
                     {roleOptions.length === 0 ? (
-                      <div className="portal-field-focus rounded-2xl border border-border/40 bg-background/45 px-4 py-3 text-sm text-muted-foreground md:py-3.5">
+                      <div
+                    className={cn(
+                      governanceCreateFieldShellClass,
+                      'px-4 py-3 text-sm text-muted-foreground md:py-3'
+                    )}
+                  >
                         No membership roles available on this DAO yet.
                       </div>
                     ) : showRoleDropdown ? (
@@ -2175,11 +2463,7 @@ export function GovernanceCreatePanel({
                           }}
                           aria-haspopup="listbox"
                           aria-expanded={roleMenuOpen}
-                          className={`portal-field-focus flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm outline-none md:py-3.5 ${
-                            roleMenuOpen
-                              ? 'border-border bg-background/60'
-                              : 'border-border/40 bg-background/45'
-                          }`}
+                          className={governanceCreateFieldTriggerClass(roleMenuOpen)}
                         >
                           <span>{roleId}</span>
                           <ChevronDown
@@ -2263,7 +2547,7 @@ export function GovernanceCreatePanel({
                         </FloatingPanelMenu>
                       </div>
                     ) : (
-                      <div className="portal-field-focus rounded-2xl border border-border/40 bg-background/45 px-4 py-3 text-sm font-medium md:py-3.5">
+                      <div className={cn(governanceCreateFieldShellClass, 'px-4 py-3 text-sm font-medium md:py-3')}>
                         {roleId}
                       </div>
                     )}
@@ -2292,7 +2576,7 @@ export function GovernanceCreatePanel({
                         />
                       ) : (
                         <NearAccountField
-                          key={proposalAction}
+                          key={activeProposalAction}
                           id="governance-create-member"
                           variant="editable"
                           value={nominatedAccountInput}
@@ -2339,7 +2623,7 @@ export function GovernanceCreatePanel({
                           ? ` (${selectedTransferAsset.symbol})`
                           : ''}
                       </label>
-                      <div className="portal-field-focus rounded-2xl border border-border/40 bg-background/45 px-3 py-2.5 md:px-4">
+                      <div className={cn(governanceCreateFieldShellClass, 'px-3 py-2.5 md:px-4')}>
                         <input
                           id="governance-create-transfer-amount"
                           type="text"
@@ -2415,11 +2699,6 @@ export function GovernanceCreatePanel({
                       }
                       ariaLabel="Contract to transfer"
                     />
-                    {selectedManagedContract ? (
-                      <p className="mt-1.5 portal-type-caption text-muted-foreground/60">
-                        {selectedManagedContract.contractId}
-                      </p>
-                    ) : null}
                   </div>
                   <div>
                     <label
@@ -2465,11 +2744,6 @@ export function GovernanceCreatePanel({
                       }
                       ariaLabel="Contract to upgrade"
                     />
-                    {selectedUpgradableContract ? (
-                      <p className="mt-1.5 portal-type-caption text-muted-foreground/60">
-                        {selectedUpgradableContract.contractId}
-                      </p>
-                    ) : null}
                   </div>
                   <div>
                     <label
@@ -2478,7 +2752,7 @@ export function GovernanceCreatePanel({
                     >
                       Published code hash
                     </label>
-                    <div className="portal-field-focus rounded-2xl border border-border/40 bg-background/45 px-3 py-2.5 md:px-4">
+                    <div className={cn(governanceCreateFieldShellClass, 'px-3 py-2.5 md:px-4')}>
                       <input
                         id="governance-create-contract-upgrade-hash"
                         type="text"
@@ -2494,15 +2768,6 @@ export function GovernanceCreatePanel({
                         autoComplete="off"
                       />
                     </div>
-                    <p className="mt-1.5 portal-type-caption text-muted-foreground/70">
-                      Build WASM locally, publish with{' '}
-                      <span className="font-mono text-[0.7rem]">
-                        deploy-as-global use-file
-                      </span>
-                      , then paste the hash here. Cite the release record and
-                      commit in the description below. Upgrade executes with 250
-                      TGas after approval.
-                    </p>
                     {contractUpgradeCodeHash ? (
                       <p
                         className={cn(
@@ -2534,7 +2799,7 @@ export function GovernanceCreatePanel({
 
               {isContractConfigAction ? (
                 <div className="space-y-2">
-                  <div>
+                  <div className="grid gap-2 sm:grid-cols-2">
                     <PortalFieldSelect
                       label="Contract"
                       value={contractConfigContractId}
@@ -2553,14 +2818,8 @@ export function GovernanceCreatePanel({
                           : 'No configurable contracts'
                       }
                       ariaLabel="Contract to configure"
+                      compact
                     />
-                    {selectedConfigurableContract ? (
-                      <p className="mt-1.5 portal-type-caption text-muted-foreground/60">
-                        {selectedConfigurableContract.contractId}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div>
                     <PortalFieldSelect
                       label="Setting"
                       value={contractConfigOperationId}
@@ -2581,20 +2840,19 @@ export function GovernanceCreatePanel({
                           : 'No settings for this contract'
                       }
                       ariaLabel="Contract setting"
+                      compact
                     />
-                    {selectedContractConfigOperation ? (
-                      <p className="mt-1.5 portal-type-caption text-muted-foreground/70">
-                        {selectedContractConfigOperation.hint}
-                      </p>
-                    ) : null}
                   </div>
+                  {routingFixedFieldsCaption ? (
+                    <p className="portal-type-caption text-muted-foreground/70">
+                      {routingFixedFieldsCaption}
+                    </p>
+                  ) : null}
                   {isSocialSpendActionRoutingOperationId(
                     contractConfigOperationId
                   ) && actionRoutingOperationConfig ? (
                     <SocialSpendActionRoutingFields
-                      contractId={
-                        selectedConfigurableContract?.contractId ?? ''
-                      }
+                      operationId={contractConfigOperationId}
                       actionLabel={actionRoutingOperationConfig.actionLabel}
                       draft={actionRoutingDraft}
                       baseline={actionRoutingBaseline}
@@ -2605,12 +2863,16 @@ export function GovernanceCreatePanel({
                         setError('');
                       }}
                       onReload={reloadActionRouting}
-                      staticFieldsNote={
-                        contractConfigOperationId ===
-                        'social_spend_join_rally_routing'
-                          ? `Other join rally fields (min amount, season requirement, etc.) stay as configured on ${selectedConfigurableContract?.contractId ?? 'chain'}.`
-                          : `Other support endorsement fields (min amount, target type endorsement, active flag, etc.) use the registration defaults on first propose; only routing shares are editable here afterward.`
+                      minAmountPolicy={
+                        isSocialSpendRoutingMinEditableOperationId(
+                          contractConfigOperationId
+                        )
+                          ? contractConfigOperationId
+                          : null
                       }
+                      editableActive={isSupportSpendRoutingOperationId(
+                        contractConfigOperationId
+                      )}
                     />
                   ) : contractConfigOperationId ===
                     'social_spend_set_season_config' ? (
@@ -2681,7 +2943,10 @@ export function GovernanceCreatePanel({
                           setError('');
                         }}
                         placeholder="0"
-                        className="portal-field-focus h-11 min-w-0 flex-1 rounded-2xl border border-border/40 bg-background/45 px-4 text-sm outline-none placeholder:text-muted-foreground/50"
+                        className={cn(
+                          governanceCreateFieldShellClass,
+                          'h-11 min-w-0 flex-1 px-4 text-sm outline-none placeholder:text-muted-foreground/50'
+                        )}
                       />
                       {daoSocialBalance != null && daoSocialBalance > 0n ? (
                         <Button
@@ -2718,10 +2983,9 @@ export function GovernanceCreatePanel({
                 </div>
               ) : null}
 
-              {isBoostInfraAction ? (
+              {isWithdrawBoostInfraAction ? (
                 <div className="space-y-2">
-                  {isWithdrawBoostInfraAction ? (
-                    <div>
+                  <div>
                       <label
                         htmlFor="governance-create-boost-infra-amount"
                         className={fieldLabelClass}
@@ -2743,7 +3007,10 @@ export function GovernanceCreatePanel({
                           }}
                           placeholder="0"
                           disabled={boostInfraLoading}
-                          className="portal-field-focus h-11 min-w-0 flex-1 rounded-2xl border border-border/40 bg-background/45 px-4 text-sm outline-none placeholder:text-muted-foreground/50"
+                          className={cn(
+                          governanceCreateFieldShellClass,
+                          'h-11 min-w-0 flex-1 px-4 text-sm outline-none placeholder:text-muted-foreground/50'
+                        )}
                         />
                         {boostInfraPoolBalance != null &&
                         boostInfraPoolBalance > 0n ? (
@@ -2777,22 +3044,8 @@ export function GovernanceCreatePanel({
                           ) : null}
                         </p>
                       ) : null}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground/80">
-                      Authorize{' '}
-                      <span className="font-mono text-xs">
-                        {boostInfraContext?.treasuryDaoAccountId ??
-                          'treasury DAO'}
-                      </span>{' '}
-                      to withdraw from the boost infra pool. Use after
-                      governance DAO owns boost (
-                      <span className="font-mono text-xs">set_owner</span>{' '}
-                      proposal).
-                    </p>
-                  )}
-                  {isWithdrawBoostInfraAction &&
-                  daoBoard === 'governance' &&
+                  </div>
+                  {daoBoard === 'governance' &&
                   boostInfraContext?.canWithdrawBoostInfra ? (
                     <p className="text-[11px] text-muted-foreground/70">
                       Withdraw on the{' '}
@@ -2808,22 +3061,30 @@ export function GovernanceCreatePanel({
                 </div>
               ) : null}
 
+              <GovernanceCreateProposalSummaryBlock summary={proposalSummary} />
+
               <div>
                 <label
                   htmlFor="governance-create-description"
                   className={fieldLabelClass}
                 >
-                  {proposalAction === 'idea'
+                  {activeProposalAction === 'idea'
                     ? DAO_SIGNAL_PROPOSAL_LABEL
                     : 'Description'}
                 </label>
-                <div className="portal-field-focus relative rounded-2xl border border-border/40 bg-background/45">
+                <div
+                  className={cn(
+                    'portal-field-focus relative rounded-2xl border bg-background/45',
+                    descriptionCounter.invalidCharacters
+                      ? 'border-[var(--portal-red-border)]'
+                      : 'border-border/40'
+                  )}
+                >
                   <textarea
                     id="governance-create-description"
                     value={description}
                     onChange={(event) => {
                       setDescription(event.target.value);
-                      setShowDescriptionFeedback(false);
                       setError('');
                     }}
                     onKeyDown={(event) => {
@@ -2832,69 +3093,49 @@ export function GovernanceCreatePanel({
                         event.currentTarget.blur();
                       }
                     }}
-                    onBlur={() => setShowDescriptionFeedback(true)}
-                    placeholder={
-                      proposalAction === 'idea'
-                        ? DAO_SIGNAL_PROPOSAL_PLACEHOLDER
-                        : isTransferAction
-                          ? 'Why the DAO should send these funds'
-                          : isFundSeasonPoolAction
-                            ? 'Why the DAO should sponsor this rally pool'
-                            : isWithdrawBoostInfraAction
-                              ? 'Why the DAO should withdraw boost infra funds now'
-                              : isSetBoostInfraAuthorityAction
-                                ? 'Why treasury DAO should receive boost infra withdraw authority'
-                                : isTransferOwnershipAction
-                                  ? 'Why ownership should move to this account'
-                                  : isContractUpgradeAction
-                                    ? 'Why this contract should upgrade to the published hash'
-                                    : isContractConfigAction
-                                      ? 'Why this contract setting should change'
-                                      : proposalAction === 'leave_self'
-                                        ? 'Why you are stepping back from this role'
-                                        : proposalAction === 'remove_member'
-                                          ? `Why they should leave ${roleId || 'the role'}`
-                                          : proposalAction === 'join_self'
-                                            ? `Why you should join ${roleId || 'the role'}`
-                                            : `Why they should join ${roleId || 'the role'}`
-                    }
+                    placeholder={descriptionPlaceholder}
                     rows={3}
                     maxLength={PROPOSAL_DESCRIPTION_LIMITS.max}
                     className="w-full resize-none rounded-2xl bg-transparent px-4 pt-3 pb-7 text-sm outline-none placeholder:text-muted-foreground/50 md:pt-3.5"
                   />
                   <span
-                    className={`pointer-events-none absolute right-3 bottom-2 portal-type-caption tabular-nums tracking-wide ${getBoundedNoteCounterClass(
-                      descriptionLength,
-                      hasDescription,
-                      PROPOSAL_DESCRIPTION_LIMITS
-                    )}`}
-                  >
-                    {getBoundedNoteCounterLabel(
-                      descriptionLength,
-                      PROPOSAL_DESCRIPTION_LIMITS
+                    className={cn(
+                      'pointer-events-none absolute right-3 bottom-2 portal-type-caption tabular-nums tracking-wide',
+                      descriptionCounter.className
                     )}
+                  >
+                    {descriptionCounter.label}
                   </span>
                 </div>
-                <AnimatePresence initial={false}>
-                  {showDescriptionFeedback &&
-                  hasDescription &&
-                  descriptionTextError ? (
-                    <motion.p
-                      key="governance-create-description-error"
-                      initial={descriptionFeedbackEnter}
-                      animate={descriptionFeedbackAnimate}
-                      exit={descriptionFeedbackExit}
-                      transition={descriptionFeedbackTransition}
-                      className="mt-2 text-xs text-amber-600"
-                    >
-                      {descriptionTextError}
-                    </motion.p>
-                  ) : null}
-                </AnimatePresence>
               </div>
 
-              {error || blockedReason ? (
-                <div className="min-h-[1.25rem] text-sm text-muted-foreground">
+              {showStickyCreateSubmit ? (
+                <div className="sticky bottom-0 z-10 -mx-4 -mt-3 border-t border-fade-detail bg-background/92 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom,0px))] shadow-[0_-12px_40px_-24px_rgba(15,23,42,0.35)] backdrop-blur-xl md:hidden">
+                  {submitFeedbackMessage ? (
+                    <p className="mb-2 line-clamp-2 text-xs leading-snug text-muted-foreground">
+                      {error ? (
+                        <span className="portal-red-text">{error}</span>
+                      ) : (
+                        blockedReason
+                      )}
+                    </p>
+                  ) : null}
+                  <Button
+                    type="button"
+                    className="h-11 w-full"
+                    disabled={!canSubmit}
+                    loading={submitting}
+                    onClick={() => {
+                      void handleSubmit();
+                    }}
+                  >
+                    {submitLabel}
+                  </Button>
+                </div>
+              ) : null}
+
+              {submitFeedbackMessage ? (
+                <div className="hidden min-h-[1.25rem] text-sm text-muted-foreground md:block">
                   {error ? (
                     <p className="portal-red-text">{error}</p>
                   ) : (
@@ -2905,14 +3146,14 @@ export function GovernanceCreatePanel({
 
               <Button
                 type="button"
-                className="h-11 w-full"
+                className="hidden h-11 w-full md:inline-flex"
                 disabled={!canSubmit}
                 loading={submitting}
                 onClick={() => {
                   void handleSubmit();
                 }}
               >
-                {getProposalActionSubmitLabel(proposalAction)}
+                {submitLabel}
               </Button>
             </div>
           </div>

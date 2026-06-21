@@ -7,7 +7,9 @@ import {
   formatDaoRoleDisplayName,
   formatPublishedCodeHashPreview,
 } from '@/features/governance/governance-proposal-builders';
-import { formatSocialSpendActionRoutingSummary } from '@/lib/dao-contract-config-operations';
+import {
+  formatSocialSpendActionConfigCardSummaryFromRecord,
+} from '@/lib/dao-contract-config-operations';
 import { yoctoToNear, yoctoToSocial, TOKEN_CONTRACT } from '@/lib/near-rpc';
 
 export type ProposalTargetKind =
@@ -16,7 +18,8 @@ export type ProposalTargetKind =
   | 'contract'
   | 'amount'
   | 'code_hash'
-  | 'routing';
+  | 'routing'
+  | 'season';
 
 export const PROPOSAL_TARGET_KIND_LABELS: Record<ProposalTargetKind, string> = {
   role: 'Role',
@@ -25,6 +28,7 @@ export const PROPOSAL_TARGET_KIND_LABELS: Record<ProposalTargetKind, string> = {
   amount: 'Amount',
   code_hash: 'Code hash',
   routing: 'Routing',
+  season: 'Season',
 };
 
 /** Eyebrow above the right column on proposal cards (Role, Amount, etc.). */
@@ -240,6 +244,20 @@ function decodeBase64Json(value: string): Record<string, unknown> | null {
   }
 }
 
+function decodeFunctionCallArgs(
+  rawArgs: unknown
+): Record<string, unknown> | null {
+  if (typeof rawArgs === 'string') {
+    return decodeBase64Json(rawArgs);
+  }
+
+  if (rawArgs && typeof rawArgs === 'object' && !Array.isArray(rawArgs)) {
+    return rawArgs as Record<string, unknown>;
+  }
+
+  return null;
+}
+
 function getFunctionCallShape(kind: Record<string, unknown> | undefined): {
   receiverId: string | null;
   methodName: string | null;
@@ -283,11 +301,8 @@ function getFunctionCallShape(kind: Record<string, unknown> | undefined): {
       ? readStringField(firstAction, 'method_name')
       : null;
   const args =
-    firstAction &&
-    typeof firstAction === 'object' &&
-    'args' in firstAction &&
-    typeof firstAction.args === 'string'
-      ? decodeBase64Json(firstAction.args)
+    firstAction && typeof firstAction === 'object' && 'args' in firstAction
+      ? decodeFunctionCallArgs(firstAction.args)
       : null;
   const config =
     args?.config &&
@@ -865,29 +880,9 @@ export function deriveProposalPresentation({
     }
 
     if (methodName === 'set_action_config' && actionId === 'join_rally') {
-      const routingConfig = config;
-      const treasuryBps =
-        routingConfig && typeof routingConfig.treasury_bps === 'number'
-          ? routingConfig.treasury_bps
-          : 0;
-      const seasonPoolBps =
-        routingConfig && typeof routingConfig.season_pool_bps === 'number'
-          ? routingConfig.season_pool_bps
-          : 0;
-      const targetBps =
-        routingConfig && typeof routingConfig.target_bps === 'number'
-          ? routingConfig.target_bps
-          : 0;
-      const burnBps =
-        routingConfig && typeof routingConfig.burn_bps === 'number'
-          ? routingConfig.burn_bps
-          : 0;
-      const routingSummary = formatSocialSpendActionRoutingSummary({
-        treasury_bps: treasuryBps,
-        season_pool_bps: seasonPoolBps,
-        target_bps: targetBps,
-        burn_bps: burnBps,
-      });
+      const routingSummary = formatSocialSpendActionConfigCardSummaryFromRecord(
+        config
+      );
 
       headline = contractLabel
         ? `Set ${contractLabel} join rally routing`
@@ -910,31 +905,38 @@ export function deriveProposalPresentation({
 
     if (
       methodName === 'set_action_config' &&
+      actionId === 'support_profile'
+    ) {
+      const routingSummary = formatSocialSpendActionConfigCardSummaryFromRecord(
+        config
+      );
+
+      headline = contractLabel
+        ? `Set ${contractLabel} support profile routing`
+        : 'Set support profile routing';
+
+      return finish({
+        headline,
+        actionBadge: 'Config',
+        ...proposalTarget('routing', routingSummary),
+        subjectAccount: receiverId,
+        subjectEyebrow: receiverId ? 'Contract' : null,
+        onChainDescription,
+        proposer: normalizedProposer,
+        showProposerSeparately: shouldShowProposerSeparately(
+          normalizedProposer,
+          receiverId
+        ),
+      });
+    }
+
+    if (
+      methodName === 'set_action_config' &&
       actionId === 'support_endorsement'
     ) {
-      const routingConfig = config;
-      const treasuryBps =
-        routingConfig && typeof routingConfig.treasury_bps === 'number'
-          ? routingConfig.treasury_bps
-          : 0;
-      const seasonPoolBps =
-        routingConfig && typeof routingConfig.season_pool_bps === 'number'
-          ? routingConfig.season_pool_bps
-          : 0;
-      const targetBps =
-        routingConfig && typeof routingConfig.target_bps === 'number'
-          ? routingConfig.target_bps
-          : 0;
-      const burnBps =
-        routingConfig && typeof routingConfig.burn_bps === 'number'
-          ? routingConfig.burn_bps
-          : 0;
-      const routingSummary = formatSocialSpendActionRoutingSummary({
-        treasury_bps: treasuryBps,
-        season_pool_bps: seasonPoolBps,
-        target_bps: targetBps,
-        burn_bps: burnBps,
-      });
+      const routingSummary = formatSocialSpendActionConfigCardSummaryFromRecord(
+        config
+      );
 
       headline = contractLabel
         ? `Set ${contractLabel} support endorsement routing`
@@ -955,34 +957,53 @@ export function deriveProposalPresentation({
       });
     }
 
-    if (methodName === 'set_season_config') {
-      const seasonLabel =
-        config && typeof config.label === 'string' ? config.label.trim() : null;
-      const windowSummary = seasonLabel
-        ? `${seasonLabel}${seasonId ? ` (${seasonId})` : ''}`
-        : seasonId;
+    if (methodName === 'set_action_config' && actionId === 'boost_post') {
+      const routingSummary = formatSocialSpendActionConfigCardSummaryFromRecord(
+        config
+      );
 
       headline = contractLabel
-        ? `Set ${contractLabel} rally season`
-        : 'Set rally season window';
+        ? `Set ${contractLabel} boost post routing`
+        : 'Set boost post routing';
 
       return finish({
         headline,
         actionBadge: 'Config',
-        ...(windowSummary
-          ? proposalTarget('routing', windowSummary, seasonId ?? undefined)
-          : proposalTarget(
-              'contract',
-              contractLabel ?? receiverId,
-              receiverId
-            )),
-        subjectAccount: seasonId ?? receiverId,
-        subjectEyebrow: seasonId ? 'Season' : receiverId ? 'Contract' : null,
+        ...proposalTarget('routing', routingSummary),
+        subjectAccount: receiverId,
+        subjectEyebrow: receiverId ? 'Contract' : null,
         onChainDescription,
         proposer: normalizedProposer,
         showProposerSeparately: shouldShowProposerSeparately(
           normalizedProposer,
-          seasonId ?? receiverId
+          receiverId
+        ),
+      });
+    }
+
+    if (methodName === 'set_season_config') {
+      const seasonLabel =
+        config && typeof config.label === 'string' ? config.label.trim() : null;
+
+      headline = seasonLabel
+        ? `Start ${seasonLabel} rally season`
+        : seasonId
+          ? `Configure ${seasonId} rally season`
+          : contractLabel
+            ? `Set ${contractLabel} rally season`
+            : 'Set rally season window';
+
+      return finish({
+        headline,
+        actionBadge: 'Config',
+        subjectAccount: receiverId,
+        subjectEyebrow: receiverId ? 'Contract' : null,
+        ...proposalTarget('season', seasonId),
+        onChainDescription,
+        proposer: normalizedProposer,
+        showProposerSeparately: shouldShowProposerSeparately(
+          normalizedProposer,
+          receiverId
         ),
       });
     }
