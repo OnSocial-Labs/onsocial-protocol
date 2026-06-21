@@ -270,6 +270,76 @@ fn season_leaf_hash(season_id: &str, account_id: &str, amount: u128) -> [u8; 32]
     Sha256::digest(payload.as_bytes()).into()
 }
 
+fn read_social_spend_wasm() -> Vec<u8> {
+    std::fs::read(get_wasm_path("social-spend-onsocial"))
+        .expect("Failed to read social-spend WASM")
+}
+
+async fn do_social_spend_upgrade(
+    social_spend: &Contract,
+    owner: &Account,
+    wasm: &[u8],
+) -> Result<()> {
+    owner
+        .call(social_spend.id(), "update_contract")
+        .args(wasm.to_vec())
+        .deposit(ONE_YOCTO)
+        .gas(Gas::from_tgas(300))
+        .transact()
+        .await?
+        .into_result()?;
+    Ok(())
+}
+
+async fn set_action_config(
+    social_spend: &Contract,
+    owner: &Account,
+    action_id: &str,
+    config: Value,
+) -> Result<()> {
+    owner
+        .call(social_spend.id(), "set_action_config")
+        .args_json(json!({
+            "action_id": action_id,
+            "config": config,
+        }))
+        .deposit(ONE_YOCTO)
+        .transact()
+        .await?
+        .into_result()?;
+    Ok(())
+}
+
+fn testnet_support_profile_config() -> Value {
+    json!({
+        "label": "Support Profile",
+        "active": true,
+        "min_amount": MIN_SOCIAL_SPEND.to_string(),
+        "target_types": ["profile"],
+        "treasury_bps": 100,
+        "season_pool_bps": 0,
+        "target_bps": 9900,
+        "season_required": false,
+        "allow_self_target": false,
+        "burn_bps": 0,
+    })
+}
+
+fn testnet_support_endorsement_config() -> Value {
+    json!({
+        "label": "Support Endorsement",
+        "active": true,
+        "min_amount": MIN_SOCIAL_SPEND.to_string(),
+        "target_types": ["endorsement"],
+        "treasury_bps": 100,
+        "season_pool_bps": 0,
+        "target_bps": 9900,
+        "season_required": false,
+        "allow_self_target": false,
+        "burn_bps": 0,
+    })
+}
+
 #[tokio::test]
 async fn test_signal_profile_ft_transfer_call_routes_and_emits() -> Result<()> {
     let worker = setup_sandbox().await?;
@@ -937,6 +1007,144 @@ async fn test_publish_season_root_and_claim_reward() -> Result<()> {
     assert_eq!(
         ft_balance_of(&ft, spender.id().as_str()).await?,
         SPEND_AMOUNT + claim_amount,
+    );
+
+    Ok(())
+}
+
+/// Mirrors the suspected testnet timeline on sandbox:
+/// historical support_profile spends → routing reconfig → endorsement registration
+/// → contract upgrade/migrate → both spend actions must still work.
+#[tokio::test]
+async fn test_support_profile_survives_testnet_governance_sequence_and_upgrade(
+) -> Result<()> {
+    let worker = setup_sandbox().await?;
+    let owner = worker.dev_create_account().await?;
+    let spender = worker.dev_create_account().await?;
+    let target = worker.dev_create_account().await?;
+
+    let ft = deploy_mock_ft(&worker, &owner).await?;
+    let (social_spend, _boost) = deploy_social_spend(&worker, &owner, &ft).await?;
+
+    ft_storage_deposit(&ft, &owner, spender.id().as_str()).await?;
+    ft_transfer(&ft, &owner, spender.id().as_str(), 20 * SPEND_AMOUNT).await?;
+
+    for _ in 0..5 {
+        let logs = spend_social(
+            &ft,
+            &social_spend,
+            &spender,
+            10 * ONE_SOCIAL,
+            spend_msg(
+                "support_profile",
+                "profile",
+                target.id().as_str(),
+                None,
+                None,
+            ),
+        )
+        .await?;
+        assert!(contains_event(&logs, "SOCIAL_SPENT"));
+    }
+
+    set_action_config(
+        &social_spend,
+        &owner,
+        "support_profile",
+        testnet_support_profile_config(),
+    )
+    .await?;
+    set_action_config(
+        &social_spend,
+        &owner,
+        "support_endorsement",
+        testnet_support_endorsement_config(),
+    )
+    .await?;
+
+    let pre_upgrade_totals = view_value(
+        &social_spend,
+        "get_action_totals",
+        json!({ "action_id": "support_profile" }),
+    )
+    .await?;
+    assert_eq!(pre_upgrade_totals["count"], 5);
+
+    let logs = spend_social(
+        &ft,
+        &social_spend,
+        &spender,
+        5 * ONE_SOCIAL,
+        spend_msg(
+            "support_profile",
+            "profile",
+            target.id().as_str(),
+            None,
+            None,
+        ),
+    )
+    .await?;
+    assert!(contains_event(&logs, "SOCIAL_SPENT"));
+
+    let wasm = read_social_spend_wasm();
+    do_social_spend_upgrade(&social_spend, &owner, &wasm).await?;
+
+    let info = social_spend.view("get_contract_info").await?.json::<Value>()?;
+    assert_eq!(info["paused"], false);
+
+    let post_upgrade_profile_logs = spend_social(
+        &ft,
+        &social_spend,
+        &spender,
+        5 * ONE_SOCIAL,
+        spend_msg(
+            "support_profile",
+            "profile",
+            target.id().as_str(),
+            None,
+            None,
+        ),
+    )
+    .await?;
+    assert!(contains_event(
+        &post_upgrade_profile_logs,
+        "SOCIAL_SPENT"
+    ));
+
+    let post_upgrade_endorsement_logs = spend_social(
+        &ft,
+        &social_spend,
+        &spender,
+        ONE_SOCIAL,
+        spend_msg(
+            "support_endorsement",
+            "endorsement",
+            "legacy:spender.testnet:target.testnet:general",
+            None,
+            Some(target.id().as_str()),
+        ),
+    )
+    .await?;
+    assert!(contains_event(
+        &post_upgrade_endorsement_logs,
+        "SOCIAL_SPENT"
+    ));
+
+    let profile_totals = view_value(
+        &social_spend,
+        "get_action_totals",
+        json!({ "action_id": "support_profile" }),
+    )
+    .await?;
+    assert_eq!(profile_totals["count"], 7);
+    assert_eq!(
+        view_value(
+            &social_spend,
+            "get_action_totals",
+            json!({ "action_id": "support_endorsement" }),
+        )
+        .await?["count"],
+        1
     );
 
     Ok(())

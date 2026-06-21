@@ -129,7 +129,7 @@ export function resolveSeasonZeroClaimMetricsStatus({
     return {
       statusLabel: `${amount} SOCIAL`,
       detailLine: omitStanding
-        ? `Final rank #${claim.rank} · ${step}`
+        ? step
         : `Final rank #${claim.rank} · ${formatScore(claim.score)} pts · ${step}`,
     };
   }

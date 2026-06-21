@@ -57,7 +57,7 @@ export function formatCountdownToTimestampNs(
   const remainingMs = targetMs - nowMs;
 
   if (remainingMs <= 0) {
-    return options?.compact ? 'Ended' : '0m';
+    return options?.compact ? '0s' : '0m';
   }
 
   const totalSeconds = Math.floor(remainingMs / 1000);

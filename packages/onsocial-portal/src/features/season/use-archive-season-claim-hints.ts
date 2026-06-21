@@ -69,7 +69,11 @@ export function useArchiveSeasonClaimHints(
       return;
     }
 
-    setLoading(true);
+    const isBackgroundRefresh = fetchedForAccountId === accountId;
+    if (!isBackgroundRefresh) {
+      setLoading(true);
+    }
+
     try {
       const pairs = await Promise.all(
         seasonIds.map(async (seasonId) => {
@@ -97,6 +101,7 @@ export function useArchiveSeasonClaimHints(
     accountId,
     claimOpenSeasonIds,
     enabled,
+    fetchedForAccountId,
     reconcileSeasonClaimFromApi,
     resolveArchiveClaimHint,
     walletLoading,

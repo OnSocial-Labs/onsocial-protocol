@@ -359,6 +359,7 @@ export default function SeasonZeroAdminPage() {
               indexedPoolYocto={status?.indexedPoolYocto}
               joinPoolYocto={status?.joinPoolYocto}
               sponsoredPoolYocto={status?.sponsoredPoolYocto}
+              treasurySeedSource={status?.treasurySeedSource ?? null}
               settlement={settlement}
               participantCount={participantCount}
               showSettlementDetail

@@ -6,20 +6,25 @@ import { Clock, Coins, Users } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
 import { SeasonCountdownLabel } from '@/features/season/season-countdown-label';
-import { RallyPoolBreakdown } from '@/features/season/rally-pool-breakdown';
+import {
+  RallyPoolBreakdown,
+  rallyPoolBreakdownVisible,
+} from '@/features/season/rally-pool-breakdown';
 import type { SeasonZeroClaimMetricsStatus } from '@/features/season/season-zero-claim-copy';
 import { formatGenesisSocialBalanceDisplay } from '@/lib/genesis-season';
 import {
-  resolveSeasonZeroLifecyclePhase,
+  type SeasonTreasurySeedSource,
   type SeasonZeroOnChainConfig,
   type SeasonZeroSettlementSummary,
 } from '@/features/season/season-zero-types';
+import { useSeasonZeroLifecyclePhase } from '@/features/season/use-season-zero-lifecycle-phase';
 import { readTimestampNs } from '@/lib/relative-duration';
+import { resolveTreasurySeedHref } from '@/lib/season-treasury-seed';
 import { fadeMotion } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
 const PHASE_COPY: Record<
-  ReturnType<typeof resolveSeasonZeroLifecyclePhase>,
+  NonNullable<ReturnType<typeof useSeasonZeroLifecyclePhase>>,
   {
     title: string;
     shortTitle?: string;
@@ -186,28 +191,34 @@ function formatParticipants(total: number): string {
   );
 }
 
+const METRIC_ICON_FRAME = {
+  default: 'h-7 w-7 sm:h-8 sm:w-8',
+  featured: 'h-9 w-9 sm:h-10 sm:w-10',
+} as const;
+
+const METRIC_ICON_SIZE = {
+  default: 'h-3.5 w-3.5',
+  featured: 'h-4 w-4 sm:h-[18px] sm:w-[18px]',
+} as const;
+
 function MetricSegment({
   icon: Icon,
   iconClassName,
   frameClassName,
   children,
-  showDivider = false,
   iconPulse = false,
+  iconScale = 'default',
 }: {
   icon: ComponentType<{ className?: string }>;
   iconClassName: string;
   frameClassName: string;
   children: ReactNode;
-  showDivider?: boolean;
   iconPulse?: boolean;
+  /** Featured clock — larger icon anchor in the horizontal rail. */
+  iconScale?: keyof typeof METRIC_ICON_FRAME;
 }) {
   return (
-    <div
-      className={cn(
-        'flex min-w-0 flex-1 items-center justify-center gap-2 px-2 py-2 sm:gap-2.5 sm:px-3 sm:py-2.5 md:gap-3 md:px-4',
-        showDivider && 'border-r border-fade-section'
-      )}
-    >
+    <div className="flex min-w-0 items-center justify-center gap-2 px-2 py-2.5 sm:gap-2.5 sm:px-3 md:px-4 md:py-3">
       <div className="relative shrink-0">
         {iconPulse ? (
           <span
@@ -217,41 +228,18 @@ function MetricSegment({
         ) : null}
         <div
           className={cn(
-            'relative flex h-7 w-7 items-center justify-center rounded-full border sm:h-8 sm:w-8',
+            'relative flex items-center justify-center rounded-full border',
+            METRIC_ICON_FRAME[iconScale],
             frameClassName
           )}
         >
-          <Icon className={cn('h-3.5 w-3.5', iconClassName)} />
+          <Icon
+            className={cn(METRIC_ICON_SIZE[iconScale], iconClassName)}
+          />
         </div>
       </div>
-      <div className="min-w-0 shrink text-left">{children}</div>
+      <div className="min-w-0 text-left">{children}</div>
     </div>
-  );
-}
-
-function PoolBreakdownSubtitle({
-  joinPoolYocto,
-  sponsoredPoolYocto,
-  joinRouting,
-  protocolFeesRouteToBoost,
-}: {
-  joinPoolYocto?: string;
-  sponsoredPoolYocto?: string;
-  joinRouting?: {
-    season_pool_bps: number;
-    burn_bps: number;
-    treasury_bps: number;
-  } | null;
-  protocolFeesRouteToBoost?: boolean;
-}) {
-  return (
-    <RallyPoolBreakdown
-      joinPoolYocto={joinPoolYocto}
-      sponsoredPoolYocto={sponsoredPoolYocto}
-      joinRouting={joinRouting}
-      protocolFeesRouteToBoost={protocolFeesRouteToBoost}
-      className="mt-0.5"
-    />
   );
 }
 
@@ -268,6 +256,7 @@ export function SeasonZeroMetricsRail({
   claimStatusPending = false,
   showSettlementDetail = false,
   hideClaimFooter = false,
+  treasurySeedSource = null,
   className,
 }: {
   onChainConfig: SeasonZeroOnChainConfig;
@@ -288,9 +277,10 @@ export function SeasonZeroMetricsRail({
   showSettlementDetail?: boolean;
   /** Page hero renders claim UI in RallyCollectSection instead of the metrics footer. */
   hideClaimFooter?: boolean;
+  treasurySeedSource?: SeasonTreasurySeedSource | null;
   className?: string;
 }) {
-  const phase = resolveSeasonZeroLifecyclePhase(onChainConfig, settlement);
+  const phase = useSeasonZeroLifecyclePhase(onChainConfig, settlement) ?? 'upcoming';
   const copy = PHASE_COPY[phase];
   const endsAtNs = readEndsAtNs(onChainConfig);
   const startsAtNs = readStartsAtNs(onChainConfig);
@@ -298,16 +288,23 @@ export function SeasonZeroMetricsRail({
   const isUpcoming = phase === 'upcoming';
   const poolLabel = formatGenesisSocialBalanceDisplay(indexedPoolYocto ?? '0');
   const reduceMotion = useReducedMotion();
+  const showBreakdown = rallyPoolBreakdownVisible({
+    joinPoolYocto,
+    sponsoredPoolYocto,
+    joinRouting,
+    protocolFeesRouteToBoost,
+  });
+  const treasurySeedHref = resolveTreasurySeedHref(treasurySeedSource);
 
   return (
     <div className={className}>
-      <div className="flex items-stretch">
+      <div className="grid grid-cols-3 divide-x divide-fade-section">
         <MetricSegment
           icon={Clock}
           iconClassName={ACCENT_ICON[copy.accent]}
           frameClassName={ACCENT_FRAME[copy.accent]}
-          showDivider
           iconPulse={isLive}
+          iconScale="featured"
         >
           <p
             className={cn(
@@ -337,7 +334,6 @@ export function SeasonZeroMetricsRail({
           icon={Coins}
           iconClassName="portal-gold-icon"
           frameClassName="portal-gold-frame"
-          showDivider
         >
           <p
             className={cn(
@@ -350,12 +346,9 @@ export function SeasonZeroMetricsRail({
               Social
             </span>
           </p>
-          <PoolBreakdownSubtitle
-            joinPoolYocto={joinPoolYocto}
-            sponsoredPoolYocto={sponsoredPoolYocto}
-            joinRouting={joinRouting}
-            protocolFeesRouteToBoost={protocolFeesRouteToBoost}
-          />
+          <p className="mt-0.5 portal-type-micro text-muted-foreground/65">
+            Pool
+          </p>
         </MetricSegment>
 
         <MetricSegment
@@ -371,6 +364,22 @@ export function SeasonZeroMetricsRail({
           </p>
         </MetricSegment>
       </div>
+
+      {showBreakdown ? (
+        <div className="border-t border-fade-detail px-2 py-2 sm:px-3 md:px-4">
+          <div className="overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <RallyPoolBreakdown
+              layout="strip"
+              joinPoolYocto={joinPoolYocto}
+              sponsoredPoolYocto={sponsoredPoolYocto}
+              joinRouting={joinRouting}
+              protocolFeesRouteToBoost={protocolFeesRouteToBoost}
+              treasurySeedHref={treasurySeedHref}
+              className="mx-auto w-max min-w-0 sm:w-auto"
+            />
+          </div>
+        </div>
+      ) : null}
 
       <AnimatePresence mode="wait" initial={false}>
         {!hideClaimFooter && claimStatusPending ? (

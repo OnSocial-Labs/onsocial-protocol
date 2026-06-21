@@ -1,95 +1,93 @@
 'use client';
 
-import { PortalBadge } from '@/components/ui/portal-badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { SeasonZeroLifecyclePhase } from '@/features/season/season-zero-types';
 import { SEASON_PANEL_PADDING_CLASS } from '@/features/season/season-page-column';
 import { cn } from '@/lib/utils';
 
-function phaseBadge(phase: SeasonZeroLifecyclePhase): {
-  label: string;
-  accent: 'gold' | 'blue' | 'green' | 'neutral';
-} {
-  switch (phase) {
-    case 'upcoming':
-      return { label: 'Soon', accent: 'blue' };
-    case 'live':
-      return { label: 'Live', accent: 'gold' };
-    case 'claim_open':
-      return { label: 'Claims', accent: 'green' };
-    case 'published_claim_soon':
-      return { label: 'Published', accent: 'green' };
-    case 'ended_pending_settlement':
-    case 'finalized_pending_publish':
-      return { label: 'Ended', accent: 'blue' };
-  }
-}
+/** Single eyebrow row — skeleton + loaded text share one height. */
+export const SEASON_RALLY_HERO_ROW_CLASS = 'flex min-h-3.5 items-center';
+
+/** Reserved width for hero timing meta — prevents layout shift on load. */
+export const SEASON_RALLY_HERO_TIMING_SLOT_CLASS =
+  'min-w-[4.75rem] shrink-0 text-right sm:min-w-[6.25rem]';
+
+const heroEyebrowClass = 'portal-eyebrow-wide leading-none';
+const heroSkeletonClass =
+  'h-3.5 shrink-0 rounded-full bg-foreground/[0.06]';
 
 export function RallyHeroHeader({
   displayTitle,
-  joinEntryLabel = null,
-  joinEntryLoading = false,
-  phase = null,
-  phaseReady = false,
+  timingMeta = null,
+  timingMetaTitle = null,
+  timingMetaLoading = false,
   className,
 }: {
   displayTitle: string;
-  /** DAO-configured SOCIAL amount to join — kept in the hero for post-rally context. */
-  joinEntryLabel?: string | null;
-  joinEntryLoading?: boolean;
-  phase?: SeasonZeroLifecyclePhase | null;
-  phaseReady?: boolean;
+  /** Static calendar context (opens / ends / run window). */
+  timingMeta?: string | null;
+  /** Long-form timing for tooltips and screen readers. */
+  timingMetaTitle?: string | null;
+  timingMetaLoading?: boolean;
   className?: string;
 }) {
-  const phasePill =
-    phaseReady && phase != null ? (
-      <PortalBadge
-        accent={phaseBadge(phase).accent}
-        size="sm"
-        className="shrink-0"
-      >
-        {phaseBadge(phase).label}
-      </PortalBadge>
-    ) : (
-      <Skeleton className="h-6 w-14 shrink-0 rounded-full bg-foreground/[0.06]" />
-    );
-
-  const showJoinEntry = joinEntryLoading || Boolean(joinEntryLabel);
+  const showTimingMeta = timingMetaLoading || Boolean(timingMeta);
 
   return (
     <div
       className={cn(
-        'flex items-center justify-between gap-3 border-b border-fade-detail',
+        'border-b border-fade-detail',
         SEASON_PANEL_PADDING_CLASS,
         className
       )}
     >
-      <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
-        <h1 className="min-w-0 truncate portal-eyebrow-wide portal-gold-text">
+      <div
+        className={cn(
+          SEASON_RALLY_HERO_ROW_CLASS,
+          'justify-between gap-2 sm:gap-3'
+        )}
+      >
+        <h1
+          className={cn(
+            heroEyebrowClass,
+            'min-w-0 flex-1 truncate portal-gold-text'
+          )}
+        >
           {displayTitle}
         </h1>
-        {showJoinEntry ? (
-          <>
-            <span
-              className="portal-eyebrow-wide text-muted-foreground/35"
-              aria-hidden
-            >
-              ·
-            </span>
-            {joinEntryLoading ? (
-              <Skeleton className="h-3.5 w-16 rounded-full bg-foreground/[0.06]" />
+
+        {showTimingMeta ? (
+          <div
+            className={cn(
+              SEASON_RALLY_HERO_ROW_CLASS,
+              SEASON_RALLY_HERO_TIMING_SLOT_CLASS,
+              'justify-end'
+            )}
+          >
+            {timingMetaLoading ? (
+              <Skeleton
+                className={cn(
+                  heroSkeletonClass,
+                  'w-[4.75rem] sm:w-[6.25rem]'
+                )}
+                aria-label="Loading season dates"
+              />
             ) : (
-              <p className="portal-eyebrow-wide text-muted-foreground/70">
-                <span className="font-mono tabular-nums text-foreground/85">
-                  {joinEntryLabel}
+              <p
+                className={cn(
+                  heroEyebrowClass,
+                  'whitespace-nowrap text-muted-foreground/70'
+                )}
+                title={timingMetaTitle ?? timingMeta ?? undefined}
+                aria-label={timingMetaTitle ?? timingMeta ?? undefined}
+              >
+                <span className="font-mono tabular-nums text-foreground/80">
+                  {timingMeta}
                 </span>
-                <span className="ml-1">entry</span>
               </p>
             )}
-          </>
+          </div>
         ) : null}
       </div>
-      {phasePill}
     </div>
   );
 }
@@ -98,16 +96,30 @@ export function RallyHeroHeaderSkeleton({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        'flex items-center justify-between gap-3 border-b border-fade-detail',
+        'border-b border-fade-detail',
         SEASON_PANEL_PADDING_CLASS,
         className
       )}
     >
-      <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5">
-        <Skeleton className="h-5 w-44 max-w-full rounded-full bg-foreground/[0.06] md:w-52" />
-        <Skeleton className="h-3.5 w-16 rounded-full bg-foreground/[0.06]" />
+      <div
+        className={cn(
+          SEASON_RALLY_HERO_ROW_CLASS,
+          'justify-between gap-2 sm:gap-3'
+        )}
+      >
+        <Skeleton className={cn(heroSkeletonClass, 'w-40 max-w-[55%] sm:w-44')} />
+        <div
+          className={cn(
+            SEASON_RALLY_HERO_ROW_CLASS,
+            SEASON_RALLY_HERO_TIMING_SLOT_CLASS,
+            'justify-end'
+          )}
+        >
+          <Skeleton
+            className={cn(heroSkeletonClass, 'w-[4.75rem] sm:w-[6.25rem]')}
+          />
+        </div>
       </div>
-      <Skeleton className="h-6 w-14 shrink-0 rounded-full bg-foreground/[0.06]" />
     </div>
   );
 }

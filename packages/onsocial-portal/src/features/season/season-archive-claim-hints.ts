@@ -82,10 +82,17 @@ export function resolveArchiveSeasonBadge({
   return { label: 'Archive', tone: 'muted' };
 }
 
+/** Fixed badge column width — keeps archive menu rows stable while hints load. */
+export const ARCHIVE_SEASON_BADGE_SLOT_CLASS =
+  'inline-flex min-w-[4.75rem] shrink-0 justify-end text-right';
+
 export function archiveSeasonBadgeClassName(
   tone: ArchiveSeasonBadgeTone
 ): string {
-  const base = 'shrink-0 text-[10px] uppercase tracking-[0.14em]';
+  const base = cn(
+    ARCHIVE_SEASON_BADGE_SLOT_CLASS,
+    'text-[10px] uppercase tracking-[0.14em]'
+  );
 
   switch (tone) {
     case 'gold':
@@ -93,9 +100,7 @@ export function archiveSeasonBadgeClassName(
     case 'subtle':
       return cn(`${base} text-muted-foreground/70`);
     case 'loading':
-      return cn(
-        `${base} h-3 w-14 animate-pulse rounded-full bg-foreground/[0.06]`
-      );
+      return cn(`${base} h-3 animate-pulse rounded-full bg-foreground/[0.06]`);
     default:
       return cn(`${base} text-muted-foreground`);
   }

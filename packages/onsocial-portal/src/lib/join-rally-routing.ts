@@ -25,6 +25,10 @@ function bpsToPercentLabel(bps: number): string {
   return Number.isInteger(pct) ? String(pct) : pct.toFixed(1);
 }
 
+export function joinBpsToPercentLabel(bps: number): string {
+  return bpsToPercentLabel(bps);
+}
+
 export function parseJoinRallyMinAmount(
   config: Pick<JoinRallyActionConfig, 'min_amount'> | null | undefined
 ): { yocto: bigint; socialLabel: string } | null {
@@ -70,6 +74,83 @@ export function formatJoinRoutingDisclosure(
     parts.push(`${bpsToPercentLabel(config.target_bps)} to target`);
   }
   return parts.join(' · ');
+}
+
+export interface JoinSpendSplitPart {
+  amount: string;
+  label: string;
+  bps: number;
+  accent?: 'blue';
+}
+
+function splitJoinAmountYocto(totalYocto: bigint, bps: number): bigint {
+  if (bps <= 0 || totalYocto <= 0n) {
+    return 0n;
+  }
+
+  return (totalYocto * BigInt(bps)) / 10_000n;
+}
+
+export function formatJoinSpendSplitPercentLabel(
+  part: Pick<JoinSpendSplitPart, 'label' | 'bps'>
+): string {
+  return `${bpsToPercentLabel(part.bps)}% ${part.label}`;
+}
+
+/** Per-entry spend split — strip-style amounts for a single join. */
+export function resolveJoinSpendSplitParts(
+  disclosure: JoinRallyRoutingDisclosure
+): JoinSpendSplitPart[] {
+  const { config, joinMinAmountYocto, protocolFeesRouteToBoost } = disclosure;
+  if (joinMinAmountYocto <= 0n) {
+    return [];
+  }
+
+  const parts: JoinSpendSplitPart[] = [];
+  const poolYocto = splitJoinAmountYocto(
+    joinMinAmountYocto,
+    config.season_pool_bps
+  );
+  if (poolYocto > 0n) {
+    parts.push({
+      amount: yoctoToSocial(poolYocto.toString()),
+      label: 'Pool',
+      bps: config.season_pool_bps,
+    });
+  }
+
+  const treasuryYocto = splitJoinAmountYocto(
+    joinMinAmountYocto,
+    config.treasury_bps
+  );
+  if (treasuryYocto > 0n) {
+    parts.push({
+      amount: yoctoToSocial(treasuryYocto.toString()),
+      label: protocolFeesRouteToBoost ? 'Boost' : 'Fees',
+      bps: config.treasury_bps,
+      accent: protocolFeesRouteToBoost ? 'blue' : undefined,
+    });
+  }
+
+  const burnYocto = splitJoinAmountYocto(joinMinAmountYocto, config.burn_bps);
+  if (burnYocto > 0n) {
+    parts.push({
+      amount: yoctoToSocial(burnYocto.toString()),
+      label: 'Burn',
+      bps: config.burn_bps,
+    });
+  }
+
+  const targetYocto = splitJoinAmountYocto(joinMinAmountYocto, config.target_bps);
+  if (targetYocto > 0n) {
+    parts.push({
+      amount: yoctoToSocial(targetYocto.toString()),
+      label: 'Target',
+      bps: config.target_bps,
+    });
+  }
+
+  return parts;
 }
 
 export function formatJoinEntryGuideLabel(

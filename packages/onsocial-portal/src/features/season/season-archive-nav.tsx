@@ -10,6 +10,12 @@ import {
   resolveArchiveSeasonBadge,
   type ArchiveSeasonClaimHint,
 } from '@/features/season/season-archive-claim-hints';
+import {
+  SeasonArchiveNavSkeleton,
+  SEASON_ARCHIVE_NAV_SLOT_CLASS,
+  SEASON_ARCHIVE_NAV_BUTTON_SHELL_CLASS,
+  SeasonArchiveCollectDot,
+} from '@/features/season/season-archive-nav-skeleton';
 import { useArchiveSeasonClaimHints } from '@/features/season/use-archive-season-claim-hints';
 import { useDropdown } from '@/hooks/use-dropdown';
 import {
@@ -32,9 +38,13 @@ export function SeasonArchiveNav({
   claimHintRefreshKey?: string | number;
 }) {
   const archives = listArchiveSeasons(registry, currentSeasonId);
+  const hasClaimOpenArchives = archives.some((entry) => entry.claim_open);
   const { hints, hintsReady, hasCollectHint, walletConnected, refresh } =
     useArchiveSeasonClaimHints(archives);
   const { isOpen, toggle, close, containerRef } = useDropdown();
+  const reserveCollectDot = hasClaimOpenArchives;
+  const showCollectDot =
+    reserveCollectDot && walletConnected && hasCollectHint && hintsReady;
 
   useEffect(() => {
     if (claimHintRefreshKey === undefined) {
@@ -49,6 +59,10 @@ export function SeasonArchiveNav({
     }
   }, [isOpen, refresh]);
 
+  if (!registry) {
+    return <SeasonArchiveNavSkeleton className={className} />;
+  }
+
   if (archives.length === 0) {
     return null;
   }
@@ -57,6 +71,7 @@ export function SeasonArchiveNav({
     <div
       className={cn(
         'flex flex-wrap items-center justify-center gap-2',
+        SEASON_ARCHIVE_NAV_SLOT_CLASS,
         className
       )}
     >
@@ -70,18 +85,16 @@ export function SeasonArchiveNav({
             isOpen ? 'Close past seasons menu' : 'Open past seasons menu'
           }
           className={cn(
-            'flex h-8 items-center gap-1.5 rounded-full border border-border/40 px-3 text-xs text-muted-foreground shadow-[0_10px_30px_-18px_rgba(15,23,42,0.34)] backdrop-blur-md transition-all duration-300 hover:bg-background/80 hover:text-foreground',
+            SEASON_ARCHIVE_NAV_BUTTON_SHELL_CLASS,
+            'transition-all duration-300 hover:bg-background/80 hover:text-foreground',
             isOpen
               ? 'bg-background/88 text-foreground shadow-[0_12px_32px_-18px_rgba(15,23,42,0.38)]'
-              : 'bg-background/65'
+              : undefined
           )}
         >
           <span className="truncate text-foreground/88">Past seasons</span>
-          {hasCollectHint ? (
-            <span
-              className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--portal-gold)] shadow-[0_0_6px_var(--portal-gold-glow)]"
-              aria-hidden
-            />
+          {reserveCollectDot ? (
+            <SeasonArchiveCollectDot visible={showCollectDot} />
           ) : null}
           <ChevronDown
             className={cn(
@@ -144,10 +157,13 @@ export function SeasonArchiveLinks({
       role="none"
     >
       {entries.map((entry) => {
+        const hint = hints[entry.seasonId];
+        const itemHintsReady =
+          hintsReady || !entry.claim_open || hint !== undefined;
         const badge = resolveArchiveSeasonBadge({
           entry,
-          hint: hints[entry.seasonId],
-          hintsReady,
+          hint,
+          hintsReady: itemHintsReady,
           walletConnected,
         });
 
@@ -157,7 +173,7 @@ export function SeasonArchiveLinks({
               href={entry.rallyPath}
               role="menuitem"
               onClick={onNavigate}
-              className={cn(floatingPanelItemClass, 'justify-between')}
+              className={cn(floatingPanelItemClass, 'justify-between gap-3')}
             >
               <span className="min-w-0 truncate">{entry.label}</span>
               {badge.tone === 'loading' ? (

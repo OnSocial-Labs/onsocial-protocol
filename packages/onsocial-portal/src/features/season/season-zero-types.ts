@@ -23,6 +23,17 @@ export interface SeasonZeroSettlementSummary {
   updatedAt: string;
 }
 
+export type SeasonTreasurySeedSource =
+  | {
+      kind: 'proposal';
+      appId: string;
+      proposalId: number;
+    }
+  | {
+      kind: 'tx';
+      txHash: string;
+    };
+
 export interface SeasonZeroStatusPayload {
   success?: boolean;
   seasonId?: string;
@@ -35,6 +46,7 @@ export interface SeasonZeroStatusPayload {
   indexedPoolYocto?: string;
   joinPoolYocto?: string;
   sponsoredPoolYocto?: string;
+  treasurySeedSource?: SeasonTreasurySeedSource | null;
   settlement?: SeasonZeroSettlementSummary | null;
   error?: string;
 }
@@ -83,14 +95,29 @@ export function isSeasonSettlementPublished(
 
 export function resolveSeasonZeroLifecyclePhase(
   onChain: SeasonZeroOnChainConfig | null | undefined,
-  settlement: SeasonZeroSettlementSummary | null | undefined
+  settlement: SeasonZeroSettlementSummary | null | undefined,
+  nowMs: number = Date.now()
 ): SeasonZeroLifecyclePhase {
   if (onChain?.is_live) return 'live';
 
-  const nowNs = BigInt(Date.now()) * 1_000_000n;
+  const nowNs = BigInt(nowMs) * 1_000_000n;
   const startsAtNs = BigInt(onChain?.starts_at_ns ?? '0');
+  const endsAtNs = BigInt(onChain?.ends_at_ns ?? '0');
+
   if (onChain?.active && startsAtNs > 0n && nowNs < startsAtNs && !settlement) {
     return 'upcoming';
+  }
+
+  // Indexer may lag flipping is_live — treat an active in-window season as live.
+  if (
+    onChain?.active &&
+    startsAtNs > 0n &&
+    nowNs >= startsAtNs &&
+    (endsAtNs <= 0n || nowNs < endsAtNs) &&
+    !settlement &&
+    !onChain.claim_open
+  ) {
+    return 'live';
   }
 
   if (!settlement) {

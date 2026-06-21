@@ -3,7 +3,10 @@ import {
   estimateJoinTreasuryYocto,
   formatJoinEntryGuideLabel,
   formatJoinRoutingDisclosure,
+  formatJoinSpendSplitPercentLabel,
+  joinBpsToPercentLabel,
   parseJoinRallyMinAmount,
+  resolveJoinSpendSplitParts,
 } from '@/lib/join-rally-routing';
 
 describe('join-rally-routing', () => {
@@ -47,6 +50,34 @@ describe('join-rally-routing', () => {
     expect(formatJoinEntryGuideLabel(null, { loading: true })).toBe(
       'Loading rally entry…'
     );
+  });
+
+  it('formats join spend split percent labels', () => {
+    expect(joinBpsToPercentLabel(9500)).toBe('95');
+    expect(formatJoinSpendSplitPercentLabel({ label: 'Pool', bps: 9500 })).toBe(
+      '95% Pool'
+    );
+  });
+
+  it('resolves per-entry spend split for the metrics strip', () => {
+    const disclosure = {
+      config: {
+        treasury_bps: 400,
+        season_pool_bps: 9500,
+        target_bps: 0,
+        burn_bps: 100,
+        min_amount: '100000000000000000000',
+      },
+      protocolFeesRouteToBoost: true,
+      joinMinAmountYocto: 100_000_000_000_000_000_000n,
+      joinMinAmountSocialLabel: '100',
+    };
+
+    expect(resolveJoinSpendSplitParts(disclosure)).toEqual([
+      { amount: '95', label: 'Pool', bps: 9500 },
+      { amount: '4', label: 'Boost', bps: 400, accent: 'blue' },
+      { amount: '1', label: 'Burn', bps: 100 },
+    ]);
   });
 
   it('estimates treasury share from indexed join pool', () => {

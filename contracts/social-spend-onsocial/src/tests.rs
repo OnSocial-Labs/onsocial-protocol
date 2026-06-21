@@ -980,3 +980,100 @@ fn test_fund_season_pool_via_wallet_rejects_random_account() {
         .unwrap_err();
     assert!(matches!(err, SocialSpendError::Unauthorized(_)));
 }
+
+fn testnet_support_profile_routing_input() -> ActionConfigInput {
+    ActionConfigInput {
+        label: "Support Profile".into(),
+        active: true,
+        min_amount: U128(MIN_SOCIAL_SPEND),
+        target_types: vec!["profile".into()],
+        treasury_bps: 100,
+        season_pool_bps: 0,
+        target_bps: 9_900,
+        season_required: false,
+        allow_self_target: false,
+        burn_bps: 0,
+    }
+}
+
+fn testnet_support_endorsement_routing_input() -> ActionConfigInput {
+    ActionConfigInput {
+        label: "Support Endorsement".into(),
+        active: true,
+        min_amount: U128(MIN_SOCIAL_SPEND),
+        target_types: vec!["endorsement".into()],
+        treasury_bps: 100,
+        season_pool_bps: 0,
+        target_bps: 9_900,
+        season_required: false,
+        allow_self_target: false,
+        burn_bps: 0,
+    }
+}
+
+/// Mirrors testnet timeline: historical support_profile spends, routing reconfig,
+/// then support_endorsement registration (DAO op). Both actions must keep working.
+#[test]
+fn test_support_profile_after_testnet_routing_and_endorsement_registration() {
+    let mut contract = new_contract();
+
+    testing_env!(context(token()).build());
+    for _ in 0..3 {
+        contract
+            .ft_on_transfer(
+                bob(),
+                U128(10 * ONE_SOCIAL),
+                spend_msg("support_profile", "profile", alice().as_str(), None, None),
+            )
+            .unwrap();
+    }
+
+    testing_env!(context_with_deposit(owner()).build());
+    contract
+        .set_action_config(
+            "support_profile".into(),
+            testnet_support_profile_routing_input(),
+        )
+        .unwrap();
+    contract
+        .set_action_config(
+            "support_endorsement".into(),
+            testnet_support_endorsement_routing_input(),
+        )
+        .unwrap();
+
+    testing_env!(context(token()).build());
+    contract
+        .ft_on_transfer(
+            bob(),
+            U128(5 * ONE_SOCIAL),
+            spend_msg("support_profile", "profile", alice().as_str(), None, None),
+        )
+        .unwrap();
+    contract
+        .ft_on_transfer(
+            bob(),
+            U128(ONE_SOCIAL),
+            spend_msg(
+                "support_endorsement",
+                "endorsement",
+                "legacy:bob.near:alice.near:general",
+                None,
+                Some(alice()),
+            ),
+        )
+        .unwrap();
+
+    assert_eq!(
+        contract.get_target_balance(alice()).0,
+        3444 * ONE_SOCIAL / 100
+    );
+    let profile_totals = contract.get_action_totals("support_profile".into());
+    assert_eq!(profile_totals.count, 4);
+    assert_eq!(
+        contract
+            .get_action_totals("support_endorsement".into())
+            .count,
+        1
+    );
+}

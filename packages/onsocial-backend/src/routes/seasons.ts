@@ -19,6 +19,7 @@ import {
   JoinRallyConfigUnavailableError,
 } from '../services/seasons/join-rally-onchain-config.js';
 import { getSeasonJoinEntryYocto } from '../services/seasons/season-join-entry.js';
+import { getSeasonTreasurySeedSource } from '../services/seasons/season-treasury-seed-source.js';
 import {
   loadSeasonRegistry,
   resolveActiveSeasonId,
@@ -153,6 +154,14 @@ router.get('/:seasonId/status', async (req: Request, res: Response) => {
       });
       return;
     }
+
+    const treasurySeedSource =
+      BigInt(poolBreakdown.sponsoredPoolYocto || '0') > 0n
+        ? await getSeasonTreasurySeedSource(seasonId, {
+            sponsoredPoolYocto: poolBreakdown.sponsoredPoolYocto,
+          })
+        : null;
+
     res.json({
       success: true,
       seasonId,
@@ -164,6 +173,7 @@ router.get('/:seasonId/status', async (req: Request, res: Response) => {
       indexedPoolYocto: poolBreakdown.indexedPoolYocto,
       joinPoolYocto: poolBreakdown.joinPoolYocto,
       sponsoredPoolYocto: poolBreakdown.sponsoredPoolYocto,
+      treasurySeedSource,
       settlement,
     });
   } catch (error) {
