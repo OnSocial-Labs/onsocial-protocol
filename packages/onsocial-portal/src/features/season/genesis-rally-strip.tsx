@@ -735,22 +735,29 @@ export function GenesisRallyStrip({
 
   const joinButtonLabel = useMemo(() => {
     if (seasonIsUpcoming) return 'Opens soon';
-    if (joinRoutingLoading) return 'Loading entry…';
     if (!joinConfigReady || !joinMinAmountLabel) return 'Entry unavailable';
-    if (walletLoading) return 'Checking wallet…';
-    if (!hasLoadedBalance || balanceLoading) return 'Checking balance…';
-    if (heroStripShowsEntry) return 'Join rally';
     return `Join · ${joinMinAmountLabel} SOCIAL`;
+  }, [joinConfigReady, joinMinAmountLabel, seasonIsUpcoming]);
+
+  const joinButtonContentReady = useMemo(() => {
+    if (walletLoading) return false;
+    if (seasonIsUpcoming) return true;
+    if (joinRoutingLoading) return false;
+    if (!joinConfigReady || !joinMinAmountLabel) return true;
+    if (isConnected && (!hasLoadedBalance || balanceLoading)) return false;
+    return true;
   }, [
     balanceLoading,
     hasLoadedBalance,
-    heroStripShowsEntry,
+    isConnected,
     joinConfigReady,
     joinMinAmountLabel,
     joinRoutingLoading,
     seasonIsUpcoming,
     walletLoading,
   ]);
+
+  const showJoinActionSkeleton = statusLoading || !joinButtonContentReady;
 
   const joinShortfallLabel = useMemo(() => {
     if (!showInsufficientBalance) return null;
@@ -799,12 +806,7 @@ export function GenesisRallyStrip({
       variant="accent"
       className="min-w-[10rem] justify-center"
       disabled={joinDisabled}
-      loading={
-        joinPending ||
-        (!seasonIsUpcoming &&
-          isConnected &&
-          (!hasLoadedBalance || balanceLoading))
-      }
+      loading={joinPending}
       onClick={() => void handleJoin()}
     >
       {joinButtonLabel}
@@ -845,7 +847,7 @@ export function GenesisRallyStrip({
         joinFooterStatusLoading && isConnected && showInsufficientBalance
       }
       action={
-        statusLoading ? (
+        showJoinActionSkeleton ? (
           <RallyActionSlot>{rallyActionPlaceholder()}</RallyActionSlot>
         ) : (
           joinActionButton

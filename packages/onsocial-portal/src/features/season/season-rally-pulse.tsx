@@ -1,7 +1,7 @@
 'use client';
 
-import type { ReactNode } from 'react';
-import { Clock } from 'lucide-react';
+import type { ComponentType, ReactNode } from 'react';
+import { Clock, Coins, Users } from 'lucide-react';
 import { SeasonCountdownLabel } from '@/features/season/season-countdown-label';
 import {
   RallyPoolBreakdown,
@@ -102,19 +102,61 @@ function formatParticipants(total: number): string {
   );
 }
 
-/** Live countdown with homepage-style clock affordance in the pulse rail. */
-function RallyPulseLiveCountdown({ targetNs }: { targetNs: number }) {
+function RallyPulseMetricIcon({
+  icon: Icon,
+  iconClassName,
+  pulse = false,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  iconClassName: string;
+  pulse?: boolean;
+}) {
   return (
-    <span className="inline-flex items-center justify-center gap-1">
-      <span className="relative inline-flex shrink-0">
+    <span className="relative inline-flex shrink-0">
+      {pulse ? (
         <span
           className="absolute inset-0 rounded-full bg-[var(--portal-gold)]/20 motion-safe:animate-ping"
           aria-hidden
         />
-        <Clock className="relative h-3 w-3 portal-gold-icon" aria-hidden />
-      </span>
-      <SeasonCountdownLabel targetNs={targetNs} compact />
+      ) : null}
+      <Icon className={cn('relative h-3 w-3', iconClassName)} aria-hidden />
     </span>
+  );
+}
+
+function RallyPulseInlineValue({
+  icon: Icon,
+  iconClassName,
+  iconPulse = false,
+  children,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  iconClassName: string;
+  iconPulse?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <span className="inline-flex items-center justify-center gap-1">
+      <RallyPulseMetricIcon
+        icon={Icon}
+        iconClassName={iconClassName}
+        pulse={iconPulse}
+      />
+      {children}
+    </span>
+  );
+}
+
+/** Live countdown with homepage-style clock affordance in the pulse rail. */
+function RallyPulseLiveCountdown({ targetNs }: { targetNs: number }) {
+  return (
+    <RallyPulseInlineValue
+      icon={Clock}
+      iconClassName="portal-gold-icon"
+      iconPulse
+    >
+      <SeasonCountdownLabel targetNs={targetNs} compact />
+    </RallyPulseInlineValue>
   );
 }
 
@@ -134,7 +176,9 @@ function resolvePulsePrimaryColumn(
       label: 'Opens in',
       value:
         startsAtNs > 0 ? (
-          <SeasonCountdownLabel targetNs={startsAtNs} compact />
+          <RallyPulseInlineValue icon={Clock} iconClassName="portal-blue-icon">
+            <SeasonCountdownLabel targetNs={startsAtNs} compact />
+          </RallyPulseInlineValue>
         ) : (
           (copy.shortTitle ?? copy.title)
         ),
@@ -226,13 +270,27 @@ export function SeasonRallyPulse({
         <PulseDivider />
         <RallyPulseItem
           label="Pool"
-          value={poolLabel}
+          value={
+            <RallyPulseInlineValue
+              icon={Coins}
+              iconClassName="portal-gold-icon"
+            >
+              {poolLabel}
+            </RallyPulseInlineValue>
+          }
           valueClassName="text-foreground"
         />
         <PulseDivider />
         <RallyPulseItem
           label="In the rally"
-          value={formatParticipants(participantCount)}
+          value={
+            <RallyPulseInlineValue
+              icon={Users}
+              iconClassName="portal-purple-icon"
+            >
+              {formatParticipants(participantCount)}
+            </RallyPulseInlineValue>
+          }
         />
       </div>
 
