@@ -1,44 +1,58 @@
 import { describe, expect, it } from 'vitest';
-import { buildPageMoodConfig, mergeMoodIntoPageConfig, resolvePortfolioMood } from './resolve';
+import { PROTOCOL_COLORS } from '@onsocial/sdk';
+import { MOOD_PRESETS } from './presets';
+import { moodPresetPreviewVars, resolvePortfolioMood } from './resolve';
 
 describe('resolvePortfolioMood', () => {
-  it('defaults to the clean portfolio mood when none is set', () => {
+  it('defaults to protocol when none is set', () => {
     const mood = resolvePortfolioMood({});
-    expect(mood.id).toBe('default');
-    expect(mood.label).toBe('Default');
-    expect(mood.cssVars['--mood-bg']).toBe('#050505');
+    expect(mood.id).toBe('protocol');
+    expect(mood.label).toBe('Protocol');
+    expect(mood.cssVars['--mood-accent']).toBe(PROTOCOL_COLORS.blue);
+    expect(mood.cssVars['--mood-banner']).toContain('gradient');
+    expect(mood.cssVars['--mood-preset-bg']).toBe('#050505');
+    expect(mood.cssVars['--mood-preset-bg-light']).toBe('#f7faff');
   });
 
-  it('resolves a stored celebration mood with note', () => {
+  it('maps legacy default mood id to protocol', () => {
+    const mood = resolvePortfolioMood({ mood: { id: 'default' } });
+    expect(mood.id).toBe('protocol');
+    expect(mood.label).toBe('Protocol');
+  });
+
+  it('resolves a stored celebration mood with note and accent css vars', () => {
     const mood = resolvePortfolioMood({
       mood: { id: 'celebration', since: 1_700_000_000_000, note: 'just shipped' },
     });
     expect(mood.id).toBe('celebration');
     expect(mood.label).toBe('Celebration');
     expect(mood.note).toBe('just shipped');
+    expect(mood.cssVars['--mood-accent']).toContain('255');
+    expect(mood.cssVars['--mood-banner']).toContain('gradient');
+    expect(mood.cssVars['--mood-surface']).toBeTruthy();
+  });
+});
+
+describe('moodPresetPreviewVars', () => {
+  it('exports swatch vars for mood picker rows', () => {
+    const theme = MOOD_PRESETS.creative.theme;
+    const preview = moodPresetPreviewVars(theme);
+    const mood = resolvePortfolioMood({ mood: { id: 'creative' } });
+
+    expect(preview['--mood-accent']).toBe(mood.cssVars['--mood-accent']);
+    expect(preview['--mood-preset-bg']).toBe('#06040a');
+    expect(preview['--mood-preset-bg-light']).toBe('#faf5ff');
+    expect(preview).not.toHaveProperty('--mood-banner');
   });
 
-  it('merges mood into existing page config', () => {
-    const next = mergeMoodIntoPageConfig(
-      { tagline: 'Builder', sections: ['profile' as const] },
-      'celebration'
-    );
-    expect(next.tagline).toBe('Builder');
-    expect(next.sections).toEqual(['profile']);
-    expect(next.mood?.id).toBe('celebration');
-    expect(next.theme?.background).toBe('#0a0508');
-  });
+  it('merges custom theme accent into css vars with derived surface', () => {
+    const mood = resolvePortfolioMood({
+      mood: { id: 'protocol' },
+      theme: { accent: '#ff00aa' },
+    });
 
-  it('builds on-chain page config for lead mood', () => {
-    const payload = buildPageMoodConfig('lead', {
-      note: 'board prep',
-      now: 123,
-    });
-    expect(payload.mood).toEqual({
-      id: 'lead',
-      since: 123,
-      note: 'board prep',
-    });
-    expect(payload.theme?.background).toBe('#070605');
+    expect(mood.cssVars['--mood-accent']).toBe('#ff00aa');
+    expect(mood.cssVars['--mood-surface']).toBe('rgb(255 0 170 / 0.06)');
+    expect(mood.cssVars['--mood-preset-bg-light']).toBe('#f7faff');
   });
 });

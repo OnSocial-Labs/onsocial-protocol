@@ -246,14 +246,15 @@ export interface ProfileData {
   /**
    * Profile avatar. Accepts a CID/URL string, OR a `File`/`Blob` which the
    * SDK uploads to IPFS via the gateway and replaces with `ipfs://<cid>`
-   * before writing to the contract.
+   * before writing to the contract. Pass `null` to clear.
    */
-  avatar?: string | Blob | File;
+  avatar?: string | Blob | File | null;
   /**
    * Profile banner / cover image. Same semantics as `avatar` — accepts a
    * URL/CID string or a `File`/`Blob` (auto-uploaded by `os.profiles.update`).
+   * Pass `null` to clear the stored banner.
    */
-  banner?: string | Blob | File;
+  banner?: string | Blob | File | null;
   links?: Record<string, string>;
   tags?: string[];
   /**
@@ -748,12 +749,24 @@ export interface PageMoodConfig {
   note?: string;
 }
 
+/** Which profile field drives the top hero on the page face. */
+export type PageHeroSource = 'banner' | 'avatar' | 'none';
+
+/** Visual layout options stored in `page/main.face`. */
+export interface PageFaceConfig {
+  avatarMode?: 'standard' | 'cover';
+  /** Profile field for the top hero. Defaults from `avatarMode` when unset. */
+  heroSource?: PageHeroSource;
+}
+
 /** Page configuration stored at `{account}/page/main`. */
 export interface PageConfig {
   /** Template identifier — e.g. "minimal", "creator", "business". */
   template?: string;
   /** Color theme overrides. */
   theme?: PageTheme;
+  /** Visual layout options. */
+  face?: PageFaceConfig;
   /** Ordered list of visible sections. */
   sections?: PageSection[];
   /** Custom tagline (overrides bio on page). */

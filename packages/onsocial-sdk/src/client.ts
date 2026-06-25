@@ -487,7 +487,12 @@ export class OnSocial {
       config.signer,
       getBroadcast
     );
-    this.pages = new PagesModule(this.http, () => this._session, getBroadcast);
+    this.pages = new PagesModule(
+      this.http,
+      this.query,
+      () => this._session,
+      getBroadcast
+    );
     this.posts = new PostsModule(this.social, this.groups);
     this.profiles = new ProfilesModule(
       this.social,

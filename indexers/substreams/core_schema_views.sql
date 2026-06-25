@@ -85,6 +85,22 @@ WHERE data_type = 'profile'
 ORDER BY account_id, data_id, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC;
 
 -- ────────────────────────────────────────────────────────────────────────────
+-- 1b. pages_current — latest page KV entries per account (e.g. page/main)
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE VIEW pages_current AS
+SELECT DISTINCT ON (account_id, data_id)
+  account_id,
+  data_id,
+  value,
+  block_height,
+  block_timestamp,
+  operation
+FROM data_updates
+WHERE data_type = 'page'
+ORDER BY account_id, data_id, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC;
+
+-- ────────────────────────────────────────────────────────────────────────────
 -- 2. posts_current — latest state of each post (deduped edits + deletes)
 -- ────────────────────────────────────────────────────────────────────────────
 

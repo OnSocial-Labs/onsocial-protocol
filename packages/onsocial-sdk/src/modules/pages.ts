@@ -4,6 +4,7 @@
 
 import type { HttpClient } from '../internal/http.js';
 import { resolveContractId } from '../internal/contracts.js';
+import type { QueryModule } from '../query/index.js';
 import {
   composeAndSign,
   type SessionGetter,
@@ -16,6 +17,10 @@ import type {
   PageTheme,
   RelayResponse,
 } from '../types.js';
+import {
+  mergeMoodIntoPageConfig,
+  type BuiltInPageMoodId,
+} from './pages/moods.js';
 
 /**
  * Pages — configure and read `{account}.onsocial.id` page data.
@@ -47,6 +52,7 @@ export class PagesModule {
 
   constructor(
     private _http: HttpClient,
+    private _query: QueryModule,
     private _getSession: SessionGetter,
     private _getBroadcast?: BroadcastGetter
   ) {
@@ -67,7 +73,10 @@ export class PagesModule {
    *
    * Overwrites the entire `page/main` entry.
    */
-  async setConfig(config: PageConfig): Promise<RelayResponse> {
+  async setConfig(
+    config: PageConfig,
+    opts?: { wait?: boolean }
+  ): Promise<RelayResponse> {
     return composeAndSign(
       this._http,
       this._getSession(),
@@ -78,8 +87,29 @@ export class PagesModule {
         targetAccount: this._coreContract,
       },
       'pages.setConfig',
-      this._broadcastOpts()
+      { ...this._broadcastOpts(), wait: opts?.wait }
     );
+  }
+
+  /**
+   * Apply a built-in page mood to `page/main` — merges mood metadata and theme
+   * into the existing page config without replacing other fields.
+   */
+  async setMood(
+    moodId: BuiltInPageMoodId,
+    opts?: {
+      note?: string;
+      now?: number;
+      wait?: boolean;
+      accountId?: string;
+    }
+  ): Promise<RelayResponse> {
+    const current = await this.getConfig(opts?.accountId);
+    const next = mergeMoodIntoPageConfig(current, moodId, {
+      note: opts?.note,
+      now: opts?.now,
+    });
+    return this.setConfig(next, { wait: opts?.wait });
   }
 
   /**
@@ -131,9 +161,28 @@ export class PagesModule {
   /**
    * Get the page configuration for an account.
    *
-   * Returns the raw `page/main` KV value, or defaults if unset.
+   * Reads the indexer (`pages_current`) first, then falls back to gateway RPC
+   * (`/data/get-one`) when the row is not indexed yet.
    */
   async getConfig(accountId?: string): Promise<PageConfig> {
+    const resolvedAccountId = accountId ?? this._http.actorId ?? undefined;
+
+    if (resolvedAccountId) {
+      try {
+        const indexed = await this._query.pages.getConfig(resolvedAccountId);
+        if (indexed !== null) {
+          return indexed;
+        }
+      } catch {
+        // Fall through to RPC when GraphQL is unavailable.
+      }
+    }
+
+    return this._getConfigFromRpc(resolvedAccountId);
+  }
+
+  /** @internal RPC fallback for pre-index or post-write freshness. */
+  private async _getConfigFromRpc(accountId?: string): Promise<PageConfig> {
     const params = new URLSearchParams({ key: 'page/main' });
     const resolvedAccountId = accountId ?? this._http.actorId ?? undefined;
     if (resolvedAccountId) params.set('accountId', resolvedAccountId);

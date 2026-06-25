@@ -1,0 +1,223 @@
+/**
+ * @onsocial/ui — protocol semantic colors.
+ *
+ * Canonical names: --protocol-{hue} and --protocol-{hue}-{role}.
+ * TS literals:     @onsocial/sdk PROTOCOL_COLORS (keep hues in sync).
+ * Portal legacy:    --portal-{hue}* aliases (stable for existing UI).
+ * Signal semantics: --signal-{metric} for profile signal lines.
+ *
+ * Theme: Portal uses `.dark` on <html>; OnPage uses `data-theme="light|dark"`.
+ */
+
+@layer tokens {
+  /* Core hues — identical in light and dark */
+  :root {
+    --protocol-blue: #60a5fa;
+    --protocol-blue-hover: #93c5fd;
+    --protocol-purple: #c084fc;
+    --protocol-green: #4ade80;
+    --protocol-amber: #fbbf24;
+    --protocol-pink: #ec4899;
+    --protocol-red: #f87171;
+  }
+
+  /* Light surfaces (Portal :root, OnPage data-theme=light) */
+  :root:not(.dark):not([data-theme='dark']),
+  [data-theme='light'] {
+    --protocol-blue-border: rgb(96 165 250 / 0.4);
+    --protocol-blue-border-strong: rgb(96 165 250 / 0.6);
+    --protocol-blue-bg: rgb(96 165 250 / 0.06);
+    --protocol-blue-frame-border: rgb(96 165 250 / 0.3);
+    --protocol-blue-frame-bg: rgb(96 165 250 / 0.08);
+    --protocol-blue-focus-border: rgb(96 165 250 / 0.5);
+    --protocol-blue-focus-bg: rgb(255 255 255 / 0.42);
+    --protocol-blue-shadow: rgb(96 165 250 / 0.2);
+    --protocol-blue-glow: rgb(96 165 250 / 0.18);
+
+    --protocol-purple-border: rgb(192 132 252 / 0.4);
+    --protocol-purple-border-strong: rgb(192 132 252 / 0.6);
+    --protocol-purple-bg: rgb(192 132 252 / 0.06);
+    --protocol-purple-frame-border: rgb(192 132 252 / 0.4);
+    --protocol-purple-frame-bg: rgb(192 132 252 / 0.12);
+    --protocol-purple-shadow: rgb(192 132 252 / 0.2);
+    --protocol-purple-glow: rgb(192 132 252 / 0.16);
+
+    --protocol-green-border: rgb(74 222 128 / 0.4);
+    --protocol-green-border-strong: rgb(74 222 128 / 0.6);
+    --protocol-green-bg: rgb(74 222 128 / 0.06);
+    --protocol-green-frame-border: rgb(74 222 128 / 0.3);
+    --protocol-green-frame-bg: rgb(74 222 128 / 0.08);
+    --protocol-green-shadow: rgb(74 222 128 / 0.2);
+    --protocol-green-glow: rgb(74 222 128 / 0.14);
+
+    --protocol-amber-border: rgb(251 191 36 / 0.48);
+    --protocol-amber-border-strong: rgb(251 191 36 / 0.65);
+    --protocol-amber-frame-border: rgb(251 191 36 / 0.35);
+    --protocol-amber-frame-bg: rgb(251 191 36 / 0.12);
+    --protocol-amber-bg: rgb(251 191 36 / 0.1);
+    --protocol-amber-shadow: rgb(251 191 36 / 0.24);
+    --protocol-amber-glow: rgb(251 191 36 / 0.18);
+
+    --protocol-gold: #b8924a;
+    --protocol-gold-accent: rgb(184 146 74 / 0.32);
+    --protocol-gold-text: rgb(184 146 74 / 0.92);
+    --protocol-gold-bg: rgb(184 146 74 / 0.05);
+    --protocol-gold-border: rgb(184 146 74 / 0.24);
+    --protocol-gold-border-strong: rgb(184 146 74 / 0.45);
+    --protocol-gold-frame-border: rgb(184 146 74 / 0.3);
+    --protocol-gold-frame-bg: rgb(184 146 74 / 0.08);
+    --protocol-gold-shadow: rgb(184 146 74 / 0.22);
+    --protocol-gold-glow: rgb(184 146 74 / 0.18);
+
+    --protocol-pink-frame-border: rgb(236 72 153 / 0.35);
+    --protocol-pink-frame-bg: rgb(236 72 153 / 0.08);
+    --protocol-pink-bg: rgb(236 72 153 / 0.06);
+    --protocol-pink-glow: rgb(236 72 153 / 0.16);
+
+    --protocol-red-border: rgb(248 113 113 / 0.48);
+    --protocol-red-border-strong: rgb(248 113 113 / 0.65);
+    --protocol-red-frame-border: rgb(248 113 113 / 0.35);
+    --protocol-red-frame-bg: rgb(248 113 113 / 0.08);
+    --protocol-red-bg: rgb(248 113 113 / 0.06);
+    --protocol-red-shadow: rgb(248 113 113 / 0.24);
+    --protocol-red-glow: rgb(248 113 113 / 0.16);
+  }
+
+  /* Dark surfaces (Portal .dark, OnPage data-theme=dark) */
+  .dark,
+  [data-theme='dark'] {
+    --protocol-blue-border: rgb(96 165 250 / 0.4);
+    --protocol-blue-border-strong: rgb(96 165 250 / 0.6);
+    --protocol-blue-bg: rgb(96 165 250 / 0.06);
+    --protocol-blue-frame-border: rgb(96 165 250 / 0.3);
+    --protocol-blue-frame-bg: rgb(96 165 250 / 0.08);
+    --protocol-blue-focus-border: rgb(96 165 250 / 0.5);
+    --protocol-blue-focus-bg: rgb(255 255 255 / 0.05);
+    --protocol-blue-shadow: rgb(96 165 250 / 0.2);
+    --protocol-blue-glow: rgb(96 165 250 / 0.18);
+
+    --protocol-purple-border: rgb(192 132 252 / 0.4);
+    --protocol-purple-border-strong: rgb(192 132 252 / 0.6);
+    --protocol-purple-bg: rgb(192 132 252 / 0.06);
+    --protocol-purple-frame-border: rgb(192 132 252 / 0.4);
+    --protocol-purple-frame-bg: rgb(192 132 252 / 0.14);
+    --protocol-purple-shadow: rgb(192 132 252 / 0.2);
+    --protocol-purple-glow: rgb(192 132 252 / 0.16);
+
+    --protocol-green-border: rgb(74 222 128 / 0.4);
+    --protocol-green-border-strong: rgb(74 222 128 / 0.6);
+    --protocol-green-bg: rgb(74 222 128 / 0.06);
+    --protocol-green-frame-border: rgb(74 222 128 / 0.3);
+    --protocol-green-frame-bg: rgb(74 222 128 / 0.08);
+    --protocol-green-shadow: rgb(74 222 128 / 0.2);
+    --protocol-green-glow: rgb(74 222 128 / 0.14);
+
+    --protocol-amber-border: rgb(251 191 36 / 0.48);
+    --protocol-amber-border-strong: rgb(251 191 36 / 0.65);
+    --protocol-amber-frame-border: rgb(251 191 36 / 0.35);
+    --protocol-amber-frame-bg: rgb(251 191 36 / 0.14);
+    --protocol-amber-bg: rgb(251 191 36 / 0.12);
+    --protocol-amber-shadow: rgb(251 191 36 / 0.26);
+    --protocol-amber-glow: rgb(251 191 36 / 0.18);
+
+    --protocol-gold: #dab872;
+    --protocol-gold-accent: rgb(218 184 114 / 0.35);
+    --protocol-gold-text: rgb(218 184 114 / 0.94);
+    --protocol-gold-bg: rgb(218 184 114 / 0.06);
+    --protocol-gold-border: rgb(218 184 114 / 0.24);
+    --protocol-gold-border-strong: rgb(218 184 114 / 0.5);
+    --protocol-gold-frame-border: rgb(218 184 114 / 0.3);
+    --protocol-gold-frame-bg: rgb(218 184 114 / 0.08);
+    --protocol-gold-shadow: rgb(218 184 114 / 0.26);
+    --protocol-gold-glow: rgb(218 184 114 / 0.18);
+
+    --protocol-pink-frame-border: rgb(236 72 153 / 0.35);
+    --protocol-pink-frame-bg: rgb(236 72 153 / 0.08);
+    --protocol-pink-bg: rgb(236 72 153 / 0.06);
+    --protocol-pink-glow: rgb(236 72 153 / 0.16);
+
+    --protocol-red-border: rgb(248 113 113 / 0.48);
+    --protocol-red-border-strong: rgb(248 113 113 / 0.65);
+    --protocol-red-frame-border: rgb(248 113 113 / 0.35);
+    --protocol-red-frame-bg: rgb(248 113 113 / 0.08);
+    --protocol-red-bg: rgb(248 113 113 / 0.06);
+    --protocol-red-shadow: rgb(248 113 113 / 0.26);
+    --protocol-red-glow: rgb(248 113 113 / 0.16);
+  }
+
+  /* Profile signal semantics → protocol hues */
+  :root {
+    --signal-standing: var(--protocol-blue);
+    --signal-solidarity: var(--protocol-purple);
+    --signal-endorse: var(--protocol-gold);
+    --signal-reputation: var(--protocol-green);
+  }
+
+  /* Portal legacy aliases — prefer --protocol-* in new code */
+  :root {
+    --portal-blue: var(--protocol-blue);
+    --portal-blue-hover: var(--protocol-blue-hover);
+    --portal-blue-border: var(--protocol-blue-border);
+    --portal-blue-border-strong: var(--protocol-blue-border-strong);
+    --portal-blue-bg: var(--protocol-blue-bg);
+    --portal-blue-frame-border: var(--protocol-blue-frame-border);
+    --portal-blue-frame-bg: var(--protocol-blue-frame-bg);
+    --portal-blue-focus-border: var(--protocol-blue-focus-border);
+    --portal-blue-focus-bg: var(--protocol-blue-focus-bg);
+    --portal-blue-shadow: var(--protocol-blue-shadow);
+    --portal-blue-glow: var(--protocol-blue-glow);
+
+    --portal-purple: var(--protocol-purple);
+    --portal-purple-border: var(--protocol-purple-border);
+    --portal-purple-border-strong: var(--protocol-purple-border-strong);
+    --portal-purple-bg: var(--protocol-purple-bg);
+    --portal-purple-frame-border: var(--protocol-purple-frame-border);
+    --portal-purple-frame-bg: var(--protocol-purple-frame-bg);
+    --portal-purple-shadow: var(--protocol-purple-shadow);
+    --portal-purple-glow: var(--protocol-purple-glow);
+
+    --portal-green: var(--protocol-green);
+    --portal-green-border: var(--protocol-green-border);
+    --portal-green-border-strong: var(--protocol-green-border-strong);
+    --portal-green-bg: var(--protocol-green-bg);
+    --portal-green-frame-border: var(--protocol-green-frame-border);
+    --portal-green-frame-bg: var(--protocol-green-frame-bg);
+    --portal-green-shadow: var(--protocol-green-shadow);
+    --portal-green-glow: var(--protocol-green-glow);
+
+    --portal-amber: var(--protocol-amber);
+    --portal-amber-border: var(--protocol-amber-border);
+    --portal-amber-border-strong: var(--protocol-amber-border-strong);
+    --portal-amber-frame-border: var(--protocol-amber-frame-border);
+    --portal-amber-frame-bg: var(--protocol-amber-frame-bg);
+    --portal-amber-bg: var(--protocol-amber-bg);
+    --portal-amber-shadow: var(--protocol-amber-shadow);
+    --portal-amber-glow: var(--protocol-amber-glow);
+
+    --portal-gold: var(--protocol-gold);
+    --portal-gold-accent: var(--protocol-gold-accent);
+    --portal-gold-text: var(--protocol-gold-text);
+    --portal-gold-bg: var(--protocol-gold-bg);
+    --portal-gold-border: var(--protocol-gold-border);
+    --portal-gold-border-strong: var(--protocol-gold-border-strong);
+    --portal-gold-frame-border: var(--protocol-gold-frame-border);
+    --portal-gold-frame-bg: var(--protocol-gold-frame-bg);
+    --portal-gold-shadow: var(--protocol-gold-shadow);
+    --portal-gold-glow: var(--protocol-gold-glow);
+
+    --portal-pink: var(--protocol-pink);
+    --portal-pink-frame-border: var(--protocol-pink-frame-border);
+    --portal-pink-frame-bg: var(--protocol-pink-frame-bg);
+    --portal-pink-bg: var(--protocol-pink-bg);
+    --portal-pink-glow: var(--protocol-pink-glow);
+
+    --portal-red: var(--protocol-red);
+    --portal-red-border: var(--protocol-red-border);
+    --portal-red-border-strong: var(--protocol-red-border-strong);
+    --portal-red-frame-border: var(--protocol-red-frame-border);
+    --portal-red-frame-bg: var(--protocol-red-frame-bg);
+    --portal-red-bg: var(--protocol-red-bg);
+    --portal-red-shadow: var(--protocol-red-shadow);
+    --portal-red-glow: var(--protocol-red-glow);
+  }
+}

@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { useApplyMood } from '@/hooks/use-apply-mood';
+import { useScrollLock } from '@/hooks/use-scroll-lock';
+import { accountIdsEqual } from '@/lib/account-match';
+import { moodPresetPreviewVars } from '@/lib/moods/resolve';
 import { MOOD_PRESET_LIST } from '@/lib/moods/presets';
-import type { BuiltInMoodId } from '@/lib/moods/types';
-import type { ResolvedMood } from '@/lib/moods/types';
+import type { BuiltInMoodId, ResolvedMood } from '@/lib/moods/types';
 
 interface MoodSheetProps {
   open: boolean;
@@ -23,6 +25,8 @@ function MoodSheet({
     useApplyMood(pageAccountId);
   const [pendingId, setPendingId] = useState<BuiltInMoodId | null>(null);
 
+  useScrollLock(open);
+
   if (!open) {
     return null;
   }
@@ -33,9 +37,12 @@ function MoodSheet({
     }
 
     setPendingId(moodId);
-    await applyMood(moodId);
+    const applied = await applyMood(moodId);
     setPendingId(null);
-    onClose();
+
+    if (applied) {
+      onClose();
+    }
   }
 
   return (
@@ -51,7 +58,7 @@ function MoodSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby="mood-sheet-title"
-        className="mood-sheet animate-rise-in"
+        className="mood-sheet"
       >
         <header className="mood-sheet-header">
           <div>
@@ -85,13 +92,17 @@ function MoodSheet({
           </div>
         ) : null}
 
-        {!needsConnect && walletAccountId && walletAccountId !== pageAccountId ? (
+        {!needsConnect && walletAccountId && !accountIdsEqual(walletAccountId, pageAccountId) ? (
           <div className="mood-sheet-actions">
             <p className="mood-sheet-copy">
               Connected as @{walletAccountId}. Switch to @{pageAccountId} to
               apply moods here.
             </p>
           </div>
+        ) : null}
+
+        {isApplying ? (
+          <p className="mood-sheet-copy mood-sheet-status">Confirming mood on-chain…</p>
         ) : null}
 
         {error ? <p className="mood-sheet-error">{error}</p> : null}
@@ -109,13 +120,7 @@ function MoodSheet({
                   disabled={!isOwner || isApplying}
                   aria-current={isActive ? 'true' : undefined}
                   onClick={() => void handleSelect(preset.id)}
-                  style={Object.fromEntries(
-                    Object.entries({
-                      '--mood-bg': preset.theme.background,
-                      '--mood-accent': preset.theme.accent,
-                      '--mood-surface': preset.theme.surface,
-                    })
-                  )}
+                  style={moodPresetPreviewVars(preset.theme) as CSSProperties}
                 >
                   <span className="mood-sheet-item-label">{preset.label}</span>
                   <span className="mood-sheet-item-tagline">{preset.tagline}</span>
@@ -137,23 +142,28 @@ function MoodSheet({
 interface MoodIndicatorProps {
   pageAccountId: string;
   mood: ResolvedMood;
+  compact?: boolean;
 }
 
-export function MoodIndicator({ pageAccountId, mood }: MoodIndicatorProps) {
+export function MoodIndicator({
+  pageAccountId,
+  mood,
+  compact = false,
+}: MoodIndicatorProps) {
   const [open, setOpen] = useState(false);
 
   return (
     <>
       <button
         type="button"
-        className="mood-indicator"
+        className={`mood-indicator${compact ? ' mood-indicator-compact' : ''}`}
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
         aria-expanded={open}
       >
         <span className="mood-indicator-dot" aria-hidden="true" />
         <span>{mood.label}</span>
-        {mood.note ? (
+        {!compact && mood.note ? (
           <span className="mood-indicator-note">· {mood.note}</span>
         ) : null}
       </button>

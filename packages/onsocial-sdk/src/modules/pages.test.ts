@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { PageConfig } from '../types.js';
 import { PagesModule } from './pages.js';
 
 function makeModule() {
@@ -38,12 +39,17 @@ function makeModule() {
       }
     ),
   };
+  const pagesGetConfig = vi.fn<
+    (accountId: string) => Promise<PageConfig | null>
+  >(async () => null);
+  const query = { pages: { getConfig: pagesGetConfig } } as never;
   const http = { get, post, network: 'testnet' } as never;
   return {
     get,
     post,
     signed,
-    pages: new PagesModule(http, () => session as never),
+    pagesGetConfig,
+    pages: new PagesModule(http, query, () => session as never),
   };
 }
 
@@ -57,6 +63,25 @@ function findComposeBody(post: ReturnType<typeof vi.fn>) {
 }
 
 describe('PagesModule', () => {
+  describe('setMood', () => {
+    it('reads current config then writes merged mood', async () => {
+      const { get, post, pages } = makeModule();
+      get.mockResolvedValueOnce({
+        value: JSON.stringify({ template: 'minimal', tagline: 'Hello' }),
+      });
+      await pages.setMood('creative', { note: 'in flow', now: 456 });
+      const written = JSON.parse(findComposeBody(post).value);
+      expect(written.template).toBe('minimal');
+      expect(written.tagline).toBe('Hello');
+      expect(written.mood).toEqual({
+        id: 'creative',
+        since: 456,
+        note: 'in flow',
+      });
+      expect(written.theme?.background).toBe('#06040a');
+    });
+  });
+
   describe('setConfig', () => {
     it('posts page config to /compose/prepare/set at page/main', async () => {
       const { post, pages } = makeModule();
@@ -157,7 +182,19 @@ describe('PagesModule', () => {
   });
 
   describe('getConfig', () => {
-    it('returns parsed config from /data/get-one', async () => {
+    it('returns indexed config without RPC when pages_current has a row', async () => {
+      const { get, pages, pagesGetConfig } = makeModule();
+      pagesGetConfig.mockResolvedValueOnce({
+        template: 'minimal',
+        theme: { primary: '#000' },
+      });
+      const cfg = await pages.getConfig('alice.near');
+      expect(pagesGetConfig).toHaveBeenCalledWith('alice.near');
+      expect(get).not.toHaveBeenCalled();
+      expect(cfg).toEqual({ template: 'minimal', theme: { primary: '#000' } });
+    });
+
+    it('returns parsed config from /data/get-one when indexer misses', async () => {
       const { get, pages } = makeModule();
       get.mockResolvedValueOnce({
         value: JSON.stringify({

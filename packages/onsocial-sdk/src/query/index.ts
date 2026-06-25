@@ -9,6 +9,7 @@
 //   os.query.threads.replies('alice.near', '123')
 //   os.query.groups.feed({ groupId: 'dao' })
 //   os.query.profiles.get('alice.near')
+//   os.query.pages.getConfig('alice.near')
 //   os.query.profiles.search({ query: 'alice' })
 //   os.query.profiles.discoverPage({ limit: 24, viewerAccountId: 'bob.near' })
 //   os.query.stats.protocolTotals()
@@ -63,6 +64,7 @@ import { TokenQuery } from './token.js';
 import { BoostQuery } from './boost.js';
 import { SocialSpendQuery } from './social-spend.js';
 import { RawQuery } from './raw.js';
+import { PagesQuery } from './pages.js';
 
 export { GraphQLValidationError } from './_shared.js';
 export type {
@@ -139,6 +141,7 @@ export type {
 } from './social-spend.js';
 export type { SocialSpendEventType } from './social-spend-events.js';
 export type { DataRow } from './raw.js';
+export type { PageCurrentRow } from './pages.js';
 
 export class QueryModule {
   /** @internal — used by sub-namespace classes. */
@@ -164,6 +167,7 @@ export class QueryModule {
   readonly token: TokenQuery;
   readonly boost: BoostQuery;
   readonly socialSpend: SocialSpendQuery;
+  readonly pages: PagesQuery;
   readonly raw: RawQuery;
 
   constructor(http: HttpClient) {
@@ -188,6 +192,7 @@ export class QueryModule {
     this.token = new TokenQuery(this);
     this.boost = new BoostQuery(this);
     this.socialSpend = new SocialSpendQuery(this);
+    this.pages = new PagesQuery(this);
     this.raw = new RawQuery(this);
   }
 

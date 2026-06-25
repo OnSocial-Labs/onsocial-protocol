@@ -187,7 +187,15 @@ export type {
 export { GroupsModule } from './modules/groups.js';
 export { PostsModule } from './modules/posts.js';
 export { ProfilesModule } from './modules/profiles.js';
-export type { MaterialisedProfile } from './modules/profiles.js';
+export type {
+  MaterialisedProfile,
+  ResolvedProfileMedia,
+} from './modules/profiles.js';
+export {
+  formatProfileMediaRef,
+  resolveProfileMediaField,
+} from './modules/profile-media.js';
+export type { ProfileMediaKind } from './modules/profile-media.js';
 export { materialiseProfileFromRows } from './modules/profiles.js';
 export type {
   ProfileDiscoverPageOptions,
@@ -249,6 +257,23 @@ export type {
   SocialSpendSendOptions,
 } from './modules/social-spend.js';
 export { PagesModule } from './modules/pages.js';
+export {
+  BUILT_IN_PAGE_MOOD_IDS,
+  PAGE_MOOD_PRESETS,
+  buildPageMoodPatch,
+  isBuiltInPageMoodId,
+  mergeMoodIntoPageConfig,
+  mergePageMoodTheme,
+  moodSurfaceFromAccent,
+  moodThemeFromPreset,
+  normalizePageMoodId,
+  pageMoodPresetForId,
+} from './modules/pages/moods.js';
+export type {
+  BuiltInPageMoodId,
+  PageMoodPreset,
+  PageMoodThemeTokens,
+} from './modules/pages/moods.js';
 export { StandingsModule } from './modules/standings.js';
 export {
   StorageAccountModule,
@@ -259,6 +284,7 @@ export {
   type WriteOptions,
 } from './modules/storage-account.js';
 export { NEAR, nearMath, type NearAmount } from './near-amount.js';
+export { PROTOCOL_COLORS, type ProtocolColorKey } from './protocol-colors.js';
 export {
   StorageAccountError,
   InsufficientStorageBalanceError,
@@ -393,6 +419,8 @@ export type {
   ContractInfo,
   PageSection,
   PageTheme,
+  PageFaceConfig,
+  PageHeroSource,
   PageConfig,
   PageData,
 } from './types.js';

@@ -1,8 +1,7 @@
-import type { PageConfig } from '@onsocial/sdk';
-import type { PublicPageConfig, PublicPageTheme } from '../page-data';
+import type { PublicPageConfig } from '../page-data';
+import { mergePageMoodTheme, normalizePageMoodId } from '@onsocial/sdk';
 import { isBuiltInMoodId, MOOD_PRESETS } from './presets';
 import type {
-  BuiltInMoodId,
   MoodId,
   MoodPreset,
   MoodThemeTokens,
@@ -12,39 +11,35 @@ import type {
 
 function themeTokensToCssVars(theme: MoodThemeTokens): Record<string, string> {
   return {
-    '--mood-bg': theme.background,
-    '--mood-text': theme.text,
-    '--mood-muted': theme.muted,
-    '--mood-accent': theme.accent,
+    ...moodPresetPreviewVars(theme),
     '--mood-banner': theme.banner,
-    '--mood-surface': theme.surface,
+    '--mood-preset-text': theme.text,
+    '--mood-preset-text-light': theme.textLight,
+    '--mood-preset-muted': theme.muted,
+    '--mood-preset-muted-light': theme.mutedLight,
+    '--mood-preset-banner-light': theme.bannerLight,
   };
 }
 
-function mergeTheme(
-  preset: MoodThemeTokens,
-  overrides?: PublicPageTheme
-): MoodThemeTokens {
-  if (!overrides) {
-    return preset;
-  }
-
+/** Swatch vars for mood picker rows — CSS picks light/dark via `data-theme`. */
+export function moodPresetPreviewVars(
+  theme: MoodThemeTokens
+): Record<string, string> {
   return {
-    background: overrides.background ?? preset.background,
-    text: overrides.text ?? preset.text,
-    muted: preset.muted,
-    accent: overrides.accent ?? overrides.primary ?? preset.accent,
-    banner: preset.banner,
-    surface: preset.surface,
+    '--mood-accent': theme.accent,
+    '--mood-surface': theme.surface,
+    '--mood-preset-bg': theme.background,
+    '--mood-preset-bg-light': theme.backgroundLight,
   };
 }
 
 function presetForId(id: MoodId): MoodPreset {
-  if (isBuiltInMoodId(id)) {
-    return MOOD_PRESETS[id];
+  const normalized = normalizePageMoodId(id) ?? (isBuiltInMoodId(id) ? id : null);
+  if (normalized && isBuiltInMoodId(normalized)) {
+    return MOOD_PRESETS[normalized];
   }
 
-  return MOOD_PRESETS.default;
+  return MOOD_PRESETS.protocol;
 }
 
 export function parsePageMoodRecord(
@@ -69,9 +64,11 @@ export function parsePageMoodRecord(
 
 export function resolvePortfolioMood(config: PublicPageConfig): ResolvedMood {
   const record = parsePageMoodRecord(config);
-  const id: MoodId = record?.id ?? 'default';
+  const rawId = record?.id ?? 'protocol';
+  const id: MoodId = normalizePageMoodId(rawId) ?? rawId;
   const preset = presetForId(id);
-  const theme = mergeTheme(preset.theme, config.theme);
+  const theme = mergePageMoodTheme(preset.theme, config.theme);
+  const cssVars = themeTokensToCssVars(theme);
 
   return {
     id,
@@ -79,45 +76,6 @@ export function resolvePortfolioMood(config: PublicPageConfig): ResolvedMood {
     tagline: preset.tagline,
     since: record?.since ?? null,
     note: record?.note?.trim() || null,
-    cssVars: themeTokensToCssVars(theme),
-  };
-}
-
-/** Patch for `page/main` when setting a mood (merge with existing config). */
-export function buildPageMoodConfig(
-  moodId: BuiltInMoodId,
-  opts?: { note?: string; now?: number }
-): Pick<PublicPageConfig, 'mood' | 'theme'> {
-  const preset = MOOD_PRESETS[moodId];
-
-  return {
-    mood: {
-      id: moodId,
-      since: opts?.now ?? Date.now(),
-      ...(opts?.note ? { note: opts.note } : {}),
-    },
-    theme: {
-      primary: preset.theme.accent,
-      background: preset.theme.background,
-      text: preset.theme.text,
-      accent: preset.theme.accent,
-    },
-  };
-}
-
-export function mergeMoodIntoPageConfig(
-  current: PageConfig,
-  moodId: BuiltInMoodId,
-  opts?: { note?: string; now?: number }
-): PageConfig {
-  const patch = buildPageMoodConfig(moodId, opts);
-
-  return {
-    ...current,
-    mood: patch.mood,
-    theme: {
-      ...current.theme,
-      ...patch.theme,
-    },
+    cssVars,
   };
 }

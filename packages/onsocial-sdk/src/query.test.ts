@@ -158,7 +158,60 @@ describe('QueryModule', () => {
       const { os } = makeOs({ data: { profilesCurrent: [] } });
       expect(await os.query.profiles.get('ghost.near')).toBeNull();
     });
+  });
 
+  describe('pages.getConfig()', () => {
+    it('parses page/main JSON from pages_current', async () => {
+      const { os } = makeOs({
+        data: {
+          pagesCurrent: [
+            {
+              accountId: 'alice.near',
+              dataId: 'main',
+              value: JSON.stringify({
+                template: 'creator',
+                mood: { id: 'protocol', since: 1 },
+              }),
+              blockHeight: 10,
+              blockTimestamp: 20,
+              operation: 'set',
+            },
+          ],
+        },
+      });
+
+      await expect(os.query.pages.getConfig('alice.near')).resolves.toEqual({
+        template: 'creator',
+        mood: { id: 'protocol', since: 1 },
+      });
+    });
+
+    it('returns null when latest row is a delete', async () => {
+      const { os } = makeOs({
+        data: {
+          pagesCurrent: [
+            {
+              accountId: 'alice.near',
+              dataId: 'main',
+              value: '',
+              blockHeight: 10,
+              blockTimestamp: 20,
+              operation: 'delete',
+            },
+          ],
+        },
+      });
+
+      expect(await os.query.pages.getConfig('alice.near')).toBeNull();
+    });
+
+    it('returns null when account has no indexed page row', async () => {
+      const { os } = makeOs({ data: { pagesCurrent: [] } });
+      expect(await os.query.pages.getConfig('ghost.near')).toBeNull();
+    });
+  });
+
+  describe('getProfile — lookup and search', () => {
     it('looks up a profile search row by exact account id', async () => {
       const row = {
         accountId: 'alice.near',
@@ -1876,6 +1929,28 @@ describe('QueryModule', () => {
       );
       expect(body.variables).toEqual({ id: 'b.near', limit: 50 });
       expect(body.query).toMatch(/targetId: \{_eq: \$id\}/);
+    });
+
+    it('sharesGranted filters share_storage by author', async () => {
+      const shareEvent = {
+        targetId: 'bob.near',
+        maxBytes: '4096',
+        blockHeight: 42,
+      };
+      const { os, fetch } = makeOs({
+        data: { storageUpdates: [shareEvent] },
+      });
+      const rows = await os.query.storage.sharesGranted('sponsor.near', {
+        limit: 25,
+      });
+      expect(rows).toEqual([shareEvent]);
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({ id: 'sponsor.near', limit: 25 });
+      expect(body.query).toMatch(/operation: \{_eq: "share_storage"\}/);
+      expect(body.query).toMatch(/author: \{_eq: \$id\}/);
     });
 
     it('history queries actor OR target', async () => {
