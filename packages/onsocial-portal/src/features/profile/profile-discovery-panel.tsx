@@ -13,13 +13,12 @@ import Link from 'next/link';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { User } from 'lucide-react';
 import type { MaterialisedProfile } from '@onsocial/sdk';
-import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import { profileSocialStandingButtonClass } from '@/components/ui/profile-action-pill';
 import {
   ProfileSocialStandingPending,
   ProfileSocialStandingToggle,
 } from '@/components/ui/profile-social-standing-toggle';
-import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
+import { ProtocolMotionArrow } from '@onsocial/ui';
 import { RelationshipSignal } from '@/components/ui/relationship-signal';
 import { SearchInput } from '@/components/ui/search-input';
 import {
@@ -740,11 +739,9 @@ export function ProfileDiscoveryPanel({
                           <span className={profileListBioClass}>{bio}</span>
                         ) : null}
                         <span className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 portal-type-label text-muted-foreground/65">
-                          <PortalHoverTooltip
+                          <span
                             className="inline-flex items-center gap-1 whitespace-nowrap"
                             aria-label={`${formatCount(result.standingCount)} stand with them`}
-                            stopPropagation
-                            tooltip="Stand with them"
                           >
                             <ProtocolMotionArrow
                               static
@@ -758,12 +755,10 @@ export function ProfileDiscoveryPanel({
                             >
                               {formatCount(result.standingCount)}
                             </span>
-                          </PortalHoverTooltip>
-                          <PortalHoverTooltip
+                          </span>
+                          <span
                             className="inline-flex items-center gap-1 whitespace-nowrap"
                             aria-label={`They stand with ${formatCount(result.standingWithCount)}`}
-                            stopPropagation
-                            tooltip="They stand with"
                           >
                             <span
                               className={cn(
@@ -777,18 +772,16 @@ export function ProfileDiscoveryPanel({
                               static
                               className="h-2.5 w-2.5 text-[var(--portal-blue)]/55"
                             />
-                          </PortalHoverTooltip>
+                          </span>
                           <span
                             className="text-muted-foreground/25"
                             aria-hidden="true"
                           >
                             ·
                           </span>
-                          <PortalHoverTooltip
+                          <span
                             className="inline-flex items-center gap-1 whitespace-nowrap"
                             aria-label={`${formatCount(result.mutualStandingCount)} solidarity connections`}
-                            stopPropagation
-                            tooltip="Solidarity"
                           >
                             <ProtocolMotionArrow
                               direction="in"
@@ -807,18 +800,16 @@ export function ProfileDiscoveryPanel({
                               static
                               className="h-2.5 w-2.5 text-[var(--portal-purple)]/65"
                             />
-                          </PortalHoverTooltip>
+                          </span>
                           <span
                             className="text-muted-foreground/25"
                             aria-hidden="true"
                           >
                             ·
                           </span>
-                          <PortalHoverTooltip
+                          <span
                             className="inline-flex items-center gap-1 whitespace-nowrap"
                             aria-label={`${formatCount(result.endorsementsReceivedCount)} endorsements received`}
-                            stopPropagation
-                            tooltip="Endorsements received"
                           >
                             <ProtocolMotionArrow
                               static
@@ -833,12 +824,10 @@ export function ProfileDiscoveryPanel({
                             >
                               {formatCount(result.endorsementsReceivedCount)}
                             </span>
-                          </PortalHoverTooltip>
-                          <PortalHoverTooltip
+                          </span>
+                          <span
                             className="inline-flex items-center gap-1 whitespace-nowrap"
                             aria-label={`${formatCount(result.endorsementsGivenCount)} endorsements given`}
-                            stopPropagation
-                            tooltip="Endorsements given"
                           >
                             <span
                               className={cn(
@@ -853,25 +842,23 @@ export function ProfileDiscoveryPanel({
                               static
                               className="h-2.5 w-2.5 text-[var(--portal-gold)]/65"
                             />
-                          </PortalHoverTooltip>
+                          </span>
                         </span>
                       </span>
                     </DiscoveryProfileTarget>
 
                     {canUpdateStanding || timeMeta ? (
                       <span className="flex shrink-0 flex-col items-end gap-1">
-                        <PortalHoverTooltip
+                        <span
                           className={cn(
                             'text-right portal-type-caption tabular-nums text-muted-foreground/50',
                             !timeMeta && 'invisible'
                           )}
                           aria-hidden={!timeMeta}
                           aria-label={timeMeta?.description}
-                          stopPropagation
-                          tooltip={timeMeta?.description}
                         >
                           {timeMeta?.label || '0d ago'}
-                        </PortalHoverTooltip>
+                        </span>
                         {canUpdateStanding ? (
                           isPending ? (
                             <span

@@ -76,6 +76,10 @@ export function EndorsementSupportFooter({
       recipientAccountId={record.target}
       recipientDisplayName={recipientDisplayName}
       issuer={record.issuer}
+      issuerName={record.issuerName}
+      targetName={record.targetName}
+      issuerAvatarUrl={record.issuerAvatarUrl}
+      targetAvatarUrl={record.targetAvatarUrl}
       topic={record.topic}
       viewerAccountId={viewerAccountId}
       supporterCount={supporterCount}

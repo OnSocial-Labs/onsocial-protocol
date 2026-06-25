@@ -188,6 +188,9 @@ export interface EndorsementSupportGivenRow {
   latestSupportAt: number | null;
   issuer: string | null;
   topic: string | null;
+  note: string | null;
+  mediaUrl: string | null;
+  mediaMime: string | null;
   recipientName: string | null;
   recipientAvatarUrl: string | null;
   issuerName: string | null;

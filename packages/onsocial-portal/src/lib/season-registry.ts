@@ -149,6 +149,26 @@ export function listArchiveSeasons(
   );
 }
 
+/** Live / active rally — not shown in past-seasons menu. */
+export function resolveLiveSeasonEntry(
+  registry: SeasonRegistrySnapshot | null
+): SeasonRegistryEntry | null {
+  if (!registry) {
+    return null;
+  }
+
+  if (registry.live) {
+    return registry.live;
+  }
+
+  const activeId = registry.resolvedActiveSeasonId;
+  if (!activeId) {
+    return null;
+  }
+
+  return registry.seasons.find((entry) => entry.seasonId === activeId) ?? null;
+}
+
 export function resolveSeasonPhaseLabel(phase: SeasonPhase): string {
   switch (phase) {
     case 'live':

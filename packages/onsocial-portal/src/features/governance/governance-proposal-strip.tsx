@@ -1,7 +1,7 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
+import { ProtocolMotionArrow } from '@onsocial/ui';
 import {
   type GovernanceProposalStatusSubtitle,
   HoverTimestamp,

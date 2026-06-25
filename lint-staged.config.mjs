@@ -50,6 +50,14 @@ const config = {
     'packages/onsocial-sdk',
     '@onsocial/sdk'
   ),
+  'packages/onsocial-ui/**/*.{ts,tsx,js,jsx,json,css,md}': formatAndLint(
+    'packages/onsocial-ui',
+    '@onsocial/ui'
+  ),
+  'packages/onsocial-app/**/*.{ts,tsx,js,jsx,json,css,md}': formatAndLint(
+    'packages/onsocial-app',
+    '@onsocial/app'
+  ),
   'packages/onsocial-gateway/**/*.{ts,tsx,js,jsx,json,md}': formatAndLint(
     'packages/onsocial-gateway',
     'onsocial-gateway'

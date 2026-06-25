@@ -1,6 +1,7 @@
 'use client';
 
 import { SurfacePanel } from '@/components/ui/surface-panel';
+import { CompactInlineProgressRow } from '@/components/ui/compact-inline-progress-row';
 import { cn } from '@/lib/utils';
 
 export interface SeasonZeroScoringLimits {
@@ -80,32 +81,76 @@ export function SeasonZeroProgressRow({
   value,
   max,
   hint,
+  compact = false,
+  inline = false,
 }: {
   label: string;
   value: number;
   max: number;
   hint?: string;
+  /** Tighter row for rules card / 2-column grids. */
+  compact?: boolean;
+  /** Label, bar, and cap on one line. */
+  inline?: boolean;
 }) {
   const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
+  const empty = value <= 0;
+  const fillClass = empty
+    ? 'bg-border/65'
+    : pct >= 100
+      ? 'bg-[var(--portal-green)]'
+      : 'bg-[var(--portal-gold)]';
+
+  if (inline) {
+    return (
+      <CompactInlineProgressRow
+        label={label}
+        ratioLabel={`${formatScore(value)}/${formatScore(max)}`}
+        value={value}
+        max={max}
+      />
+    );
+  }
+
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-baseline justify-between gap-2 text-xs">
-        <span className="font-medium capitalize text-foreground">{label}</span>
-        <span className="font-mono text-muted-foreground">
+    <div className={cn(compact ? 'space-y-0.5' : 'space-y-1.5')}>
+      <div
+        className={cn(
+          'flex items-baseline justify-between gap-2',
+          compact ? 'text-[11px]' : 'text-xs'
+        )}
+      >
+        <span className="font-medium text-foreground">{label}</span>
+        <span
+          className={cn(
+            'font-mono tabular-nums text-muted-foreground',
+            compact && 'text-[10px]',
+            empty && 'text-muted-foreground/55'
+          )}
+        >
           {formatScore(value)} / {formatScore(max)}
         </span>
       </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-border/50">
+      <div
+        className={cn(
+          'overflow-hidden rounded-full bg-border/50',
+          compact ? 'h-1' : 'h-1.5'
+        )}
+      >
         <div
-          className={cn(
-            'h-full rounded-full bg-[var(--portal-gold)] transition-[width]',
-            pct >= 100 && 'bg-[var(--portal-green)]'
-          )}
+          className={cn('h-full rounded-full transition-[width]', fillClass)}
           style={{ width: `${pct}%` }}
         />
       </div>
       {hint ? (
-        <p className="text-[11px] leading-relaxed text-muted-foreground/75">
+        <p
+          className={cn(
+            'leading-snug text-muted-foreground/65',
+            compact
+              ? 'text-[10px]'
+              : 'text-[11px] leading-relaxed text-muted-foreground/75'
+          )}
+        >
           {hint}
         </p>
       ) : null}

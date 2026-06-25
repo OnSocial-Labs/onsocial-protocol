@@ -16,7 +16,7 @@ export function PanelPage({
   children,
 }: PanelPageProps) {
   return (
-    <main className="frame">
+    <main className="frame app-surface">
       <div className="portfolio-container panel-page">
         <header className="panel-page-header">
           <Link className="panel-back" href={portfolioPath(accountId)}>

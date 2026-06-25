@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Flame } from 'lucide-react';
-import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
+import { ProtocolMotionArrow } from '@onsocial/ui';
 import { formatSocialCompact } from '@/lib/leaderboard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';

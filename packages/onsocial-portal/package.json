@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build:deps": "pnpm --filter @onsocial/sdk... run build && pnpm --filter @onsocial/rpc run build",
+    "build:deps": "pnpm --filter @onsocial/ui run build && pnpm --filter @onsocial/sdk... run build && pnpm --filter @onsocial/rpc run build",
     "predev": "pnpm run build:deps",
     "dev": "next dev",
     "prebuild": "pnpm run build:deps",
@@ -26,6 +26,7 @@
     "@monaco-editor/react": "^4.7.0",
     "@onsocial/rpc": "workspace:*",
     "@onsocial/sdk": "workspace:*",
+    "@onsocial/ui": "workspace:*",
     "@radix-ui/react-slot": "^1.2.4",
     "@ref-finance/ref-sdk": "^1.5.0",
     "class-variance-authority": "^0.7.1",

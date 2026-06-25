@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
+import { ProtocolMotionArrow } from '@onsocial/ui';
 import { cardDividerSection } from '@/components/ui/card-divider';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { cn } from '@/lib/utils';

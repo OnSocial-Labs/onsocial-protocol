@@ -38,6 +38,43 @@ function estimateQualifier(exact: boolean): string {
   return exact ? 'Est.' : 'Rough est.';
 }
 
+/** Rules modal — how the indexed pool is split at collect. */
+export const seasonZeroPoolSplitRulesLabel =
+  '50% shared among participants · 50% by your score';
+
+export interface SeasonZeroPayoutSummaryLines {
+  personal: string | null;
+  field: string | null;
+}
+
+export function seasonZeroPayoutSummaryLines(input: {
+  indexedPoolYocto?: string | null;
+  participantCount: number;
+  includeProspectiveJoin?: boolean;
+  participants?: SeasonZeroPayoutParticipant[];
+  personalAccountId?: string | null;
+  personalScore?: number | null;
+  personalRank?: number | null;
+  routing?: SeasonZeroPayoutRoutingContext;
+}): SeasonZeroPayoutSummaryLines | null {
+  const estimate = buildSeasonZeroPayoutEstimate(input);
+  if (!estimate) return null;
+
+  const qualifier = estimateQualifier(estimate.exact);
+
+  if (estimate.personalClaimYocto != null) {
+    return {
+      personal: `${qualifier} collect ~${formatGenesisSocialBalanceDisplay(estimate.personalClaimYocto)} SOCIAL`,
+      field: `Field ~${formatSeasonZeroPayoutBand(estimate)}`,
+    };
+  }
+
+  return {
+    personal: null,
+    field: `${qualifier} collect ~${formatSeasonZeroPayoutBand(estimate)} SOCIAL at ${estimate.participantCount} in`,
+  };
+}
+
 export function seasonZeroPayoutSummary(input: {
   indexedPoolYocto?: string | null;
   participantCount: number;
@@ -48,14 +85,12 @@ export function seasonZeroPayoutSummary(input: {
   personalRank?: number | null;
   routing?: SeasonZeroPayoutRoutingContext;
 }): string | null {
-  const estimate = buildSeasonZeroPayoutEstimate(input);
-  if (!estimate) return null;
+  const lines = seasonZeroPayoutSummaryLines(input);
+  if (!lines) return null;
 
-  const qualifier = estimateQualifier(estimate.exact);
-
-  if (estimate.personalClaimYocto != null) {
-    return `Your ${qualifier} collect ~${formatGenesisSocialBalanceDisplay(estimate.personalClaimYocto)} SOCIAL · field ~${formatSeasonZeroPayoutBand(estimate)}`;
+  if (lines.personal && lines.field) {
+    return `Your ${lines.personal} · ${lines.field}`;
   }
 
-  return `${qualifier} collect ~${formatSeasonZeroPayoutBand(estimate)} SOCIAL at ${estimate.participantCount} in`;
+  return lines.field ?? lines.personal;
 }

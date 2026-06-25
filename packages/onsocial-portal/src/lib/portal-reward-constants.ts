@@ -9,19 +9,101 @@ export const PORTAL_REWARD_MIN_CLAIM_YOCTO = 1_000_000_000_000_000_000n;
 /** Rewards contract app_id for portal credits (backend ONSOCIAL_PORTAL_REWARDS_APP_ID). */
 export const PORTAL_REWARDS_APP_ID = 'onsocial_portal';
 
+export type PortalRewardAction =
+  | 'profile_created'
+  | 'daily_active'
+  | 'stand_given'
+  | 'mutual_stand_created'
+  | 'endorsement_given';
+
 export interface PortalRewardActionRule {
+  action: PortalRewardAction;
   label: string;
+  shortLabel: string;
   limit: string;
+  /** Matches backend ACTION_CONFIG cap for this action. */
+  cap: number;
 }
 
 /** Portal activity rewards — keep in sync with portal-rewards ACTION_CONFIG caps. */
 export const PORTAL_REWARD_ACTION_RULES: PortalRewardActionRule[] = [
-  { label: 'Profile saved', limit: 'Once ever' },
-  { label: 'Daily check-in', limit: 'Once per day' },
-  { label: 'Stand sent', limit: 'Once per account · up to 3/day' },
-  { label: 'Mutual stand', limit: 'Once per account · up to 3/day' },
-  { label: 'Endorsement', limit: 'Once per topic · up to 3/day' },
+  {
+    action: 'profile_created',
+    label: 'Profile saved',
+    shortLabel: 'Profile',
+    limit: 'Once ever',
+    cap: 1,
+  },
+  {
+    action: 'daily_active',
+    label: 'Daily check-in',
+    shortLabel: 'Check-in',
+    limit: 'Once per day',
+    cap: 1,
+  },
+  {
+    action: 'stand_given',
+    label: 'Stand sent',
+    shortLabel: 'Stand',
+    limit: 'Once per account · up to 3/day',
+    cap: 3,
+  },
+  {
+    action: 'mutual_stand_created',
+    label: 'Mutual stand',
+    shortLabel: 'Mutual',
+    limit: 'Once per account · up to 3/day',
+    cap: 3,
+  },
+  {
+    action: 'endorsement_given',
+    label: 'Endorsement',
+    shortLabel: 'Endorse',
+    limit: 'Once per topic · up to 3/day',
+    cap: 3,
+  },
 ];
+
+export interface PortalRewardActionProgressEntry {
+  count: number;
+  cap: number;
+}
+
+export type PortalRewardActionProgress = Record<
+  PortalRewardAction,
+  PortalRewardActionProgressEntry
+>;
+
+export function emptyPortalRewardActionProgress(): PortalRewardActionProgress {
+  return PORTAL_REWARD_ACTION_RULES.reduce((acc, rule) => {
+    acc[rule.action] = { count: 0, cap: rule.cap };
+    return acc;
+  }, {} as PortalRewardActionProgress);
+}
+
+export function resolvePortalRewardActionProgress(
+  progress: PortalRewardActionProgress | null,
+  action: PortalRewardAction,
+  fallbackCap: number
+): PortalRewardActionProgressEntry {
+  return (
+    progress?.[action] ?? {
+      count: 0,
+      cap: fallbackCap,
+    }
+  );
+}
+
+/** Sum of per-action counts returned from the activity log (not SOCIAL amounts). */
+export function totalPortalRewardActionCount(
+  progress: PortalRewardActionProgress | null
+): number {
+  if (!progress) return 0;
+  return PORTAL_REWARD_ACTION_RULES.reduce(
+    (sum, rule) => sum + (progress[rule.action]?.count ?? 0),
+    0
+  );
+}
 
 /** Shared claimable-balance hint across portal and Telegram bot. */
 export const REWARD_ECOSYSTEM_CLAIM_HINT =
@@ -39,15 +121,10 @@ export const REWARD_TELEGRAM_DAILY_SCOPE_HINT =
 
 export const PORTAL_REWARD_AGGREGATE_MS = 800;
 
-/** Delays for re-reading on-chain claimable after a credit lands. */
-export const PORTAL_REWARD_REFRESH_DELAYS_MS = [0, 750, 2_000] as const;
+/** Short coalesce before settling a single credit (stand + daily may pair). */
+export const PORTAL_REWARD_COALESCE_MS = 80;
 
-export type PortalRewardAction =
-  | 'profile_created'
-  | 'daily_active'
-  | 'stand_given'
-  | 'mutual_stand_created'
-  | 'endorsement_given';
+export const PORTAL_REWARD_REFRESH_DELAYS_MS = [0, 750, 2_000] as const;
 
 export interface PortalRewardToastContext {
   action: PortalRewardAction;

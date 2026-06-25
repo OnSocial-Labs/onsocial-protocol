@@ -1,5 +1,12 @@
 import type { PublicPageConfig } from '../page-data';
-import { mergePageMoodTheme, normalizePageMoodId } from '@onsocial/sdk';
+import {
+  mergePageMoodTheme,
+  moodSignalTokensToCssVars,
+  normalizePageMoodId,
+  pageMoodPreviewCssVars,
+  pageMoodSignalsFor,
+  type BuiltInPageMoodId,
+} from '@onsocial/sdk';
 import { isBuiltInMoodId, MOOD_PRESETS } from './presets';
 import type {
   MoodId,
@@ -9,9 +16,19 @@ import type {
   ResolvedMood,
 } from './types';
 
-function themeTokensToCssVars(theme: MoodThemeTokens): Record<string, string> {
+function signalMoodId(id: MoodId, rawId: string): BuiltInPageMoodId {
+  return (
+    normalizePageMoodId(rawId) ?? (isBuiltInMoodId(id) ? id : 'protocol')
+  );
+}
+
+function themeTokensToCssVars(
+  theme: MoodThemeTokens,
+  moodId: BuiltInPageMoodId
+): Record<string, string> {
   return {
-    ...moodPresetPreviewVars(theme),
+    ...pageMoodPreviewCssVars(moodId, theme),
+    ...moodSignalTokensToCssVars(pageMoodSignalsFor(moodId, theme.accent)),
     '--mood-banner': theme.banner,
     '--mood-preset-text': theme.text,
     '--mood-preset-text-light': theme.textLight,
@@ -21,16 +38,12 @@ function themeTokensToCssVars(theme: MoodThemeTokens): Record<string, string> {
   };
 }
 
-/** Swatch vars for mood picker rows — CSS picks light/dark via `data-theme`. */
+/** Swatch + typography vars for mood picker rows. */
 export function moodPresetPreviewVars(
+  moodId: BuiltInPageMoodId,
   theme: MoodThemeTokens
 ): Record<string, string> {
-  return {
-    '--mood-accent': theme.accent,
-    '--mood-surface': theme.surface,
-    '--mood-preset-bg': theme.background,
-    '--mood-preset-bg-light': theme.backgroundLight,
-  };
+  return pageMoodPreviewCssVars(moodId, theme);
 }
 
 function presetForId(id: MoodId): MoodPreset {
@@ -68,7 +81,8 @@ export function resolvePortfolioMood(config: PublicPageConfig): ResolvedMood {
   const id: MoodId = normalizePageMoodId(rawId) ?? rawId;
   const preset = presetForId(id);
   const theme = mergePageMoodTheme(preset.theme, config.theme);
-  const cssVars = themeTokensToCssVars(theme);
+  const moodId = signalMoodId(id, rawId);
+  const cssVars = themeTokensToCssVars(theme, moodId);
 
   return {
     id,

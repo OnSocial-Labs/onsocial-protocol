@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   compactModalBodyClass,
+  compactModalBodyDenseClass,
   compactModalShellClass,
   portalElevatedShadowClass,
 } from '@/components/ui/floating-panel';
@@ -96,7 +97,11 @@ export function SeasonZeroRulesModal({
             />
 
             <div
-              className={cn(compactModalBodyClass, 'max-h-[min(70vh,32rem)]')}
+              className={cn(
+                compactModalBodyClass,
+                compactModalBodyDenseClass,
+                'max-h-[min(72vh,34rem)]'
+              )}
             >
               <SeasonZeroRulesContent
                 limits={limits}

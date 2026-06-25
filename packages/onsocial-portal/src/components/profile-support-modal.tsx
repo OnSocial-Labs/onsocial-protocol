@@ -1,32 +1,37 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { createPortal } from 'react-dom';
-import { HeartHandshake } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { portalConnectButtonLabel } from '@/lib/portal-connect-copy';
-import { ModalCloseButton } from '@/components/ui/modal-close-button';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
+import {
+  SocialSpendAmountForm,
+  socialSpendModalBodyClass,
+  socialSpendModalShellClass,
+} from '@/components/social-spend-amount-form';
+import {
+  SocialSpendModalHeader,
+  SocialSpendProfileIdentity,
+  SocialSpendRoutingCaption,
+} from '@/components/social-spend-modal-chrome';
 import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
 import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
 import { useWallet } from '@/contexts/wallet-context';
-import { portalElevatedShadowClass } from '@/components/ui/floating-panel';
 import { fadeMotion, scaleFadeMotion } from '@/lib/motion';
+import { finalizeAmountInput } from '@/lib/amount-input';
 import {
   txToastError,
   txToastPending,
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
-import { getSocialWalletBalanceYocto, yoctoToSocial } from '@/lib/near-rpc';
+import { getSocialWalletBalanceYocto } from '@/lib/near-rpc';
 import {
   fetchSupportProfileRouting,
-  formatSpendMinSocialLabel,
   formatSupportProfileRecipientSharePercent,
   formatSupportProfileTreasurySharePercent,
   parseSupportAmountYocto,
   supportPresetsAtOrAboveMin,
-  SUPPORT_PROFILE_MIN_SOCIAL_LABEL,
+  SOCIAL_SPEND_AMOUNT_INPUT_DECIMALS,
   SUPPORT_PROFILE_MIN_YOCTO,
   SUPPORT_PROFILE_PRESET_SOCIAL,
   type SupportProfileRoutingDisclosure,
@@ -36,12 +41,12 @@ import {
   reportWalletActionFailure,
 } from '@/lib/wallet-errors';
 import { cleanHandle } from '@/lib/endorsements';
-import { cn } from '@/lib/utils';
 
 interface ProfileSupportModalProps {
   open: boolean;
   targetAccountId: string;
   targetDisplayName: string;
+  targetAvatarUrl?: string | null;
   onOpenChange: (open: boolean) => void;
   onSupport: (
     targetAccountId: string,
@@ -53,17 +58,19 @@ export function ProfileSupportModal({
   open,
   targetAccountId,
   targetDisplayName,
+  targetAvatarUrl = null,
   onOpenChange,
   onSupport,
 }: ProfileSupportModalProps) {
   const reduceMotion = useReducedMotion();
+  const titleId = useId();
   const {
     accountId: viewerAccountId,
     connect,
     isConnected,
     isLoading: isWalletBootstrapping,
   } = useWallet();
-  const { txResult, setTxResult, clearTxResult, trackTransaction } =
+  const { txResult, clearTxResult, trackTransaction } =
     useNearTransactionFeedback(viewerAccountId);
   const [amount, setAmount] = useState('1');
   const [walletBalanceYocto, setWalletBalanceYocto] = useState<bigint | null>(
@@ -75,13 +82,6 @@ export function ProfileSupportModal({
   const [error, setError] = useState<string | null>(null);
 
   const minAmountYocto = routing?.minAmountYocto ?? null;
-  const minSocialLabel = useMemo(
-    () =>
-      minAmountYocto != null
-        ? formatSpendMinSocialLabel(minAmountYocto)
-        : SUPPORT_PROFILE_MIN_SOCIAL_LABEL,
-    [minAmountYocto]
-  );
   const presetAmounts = useMemo(
     () =>
       minAmountYocto != null
@@ -134,11 +134,6 @@ export function ProfileSupportModal({
     };
   }, [open, viewerAccountId]);
 
-  const walletBalanceLabel = useMemo(() => {
-    if (walletBalanceYocto == null) return null;
-    return yoctoToSocial(walletBalanceYocto.toString());
-  }, [walletBalanceYocto]);
-
   const handleSubmit = useCallback(async () => {
     setError(null);
     if (!isConnected) {
@@ -147,9 +142,13 @@ export function ProfileSupportModal({
     }
 
     let amountYocto: bigint;
+    const normalizedAmount = finalizeAmountInput(
+      amount,
+      SOCIAL_SPEND_AMOUNT_INPUT_DECIMALS
+    );
     try {
       amountYocto = parseSupportAmountYocto(
-        amount,
+        normalizedAmount,
         minAmountYocto ?? SUPPORT_PROFILE_MIN_YOCTO
       );
     } catch (err) {
@@ -182,11 +181,13 @@ export function ProfileSupportModal({
   }, [
     amount,
     connect,
+    displayName,
     isConnected,
     minAmountYocto,
     onOpenChange,
     onSupport,
     targetAccountId,
+    trackTransaction,
     walletBalanceYocto,
   ]);
 
@@ -209,109 +210,56 @@ export function ProfileSupportModal({
               onClick={() => onOpenChange(false)}
             />
             <motion.div
-              {...scaleFadeMotion(!!reduceMotion, { y: 8 })}
+              {...scaleFadeMotion(!!reduceMotion, {
+                y: 14,
+                scale: 0.98,
+                duration: 0.22,
+                exitY: 8,
+                exitScale: 0.99,
+              })}
               role="dialog"
               aria-modal="true"
-              aria-labelledby="profile-support-title"
-              className={cn(
-                'relative z-10 w-full max-w-md rounded-2xl border border-border/50 bg-card p-5 shadow-2xl',
-                portalElevatedShadowClass
-              )}
+              aria-labelledby={titleId}
+              className={socialSpendModalShellClass()}
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <HeartHandshake className="portal-green-icon h-4 w-4 shrink-0" />
-                  <h2
-                    id="profile-support-title"
-                    className="text-base font-semibold tracking-tight"
-                  >
-                    Support {displayName}
-                  </h2>
-                </div>
-                <ModalCloseButton
-                  ariaLabel="Close support dialog"
-                  onClick={() => onOpenChange(false)}
+              <SocialSpendModalHeader
+                titleId={titleId}
+                eyebrow="Profile support"
+                title={
+                  <span className="text-[var(--portal-green)]">
+                    Send SOCIAL
+                  </span>
+                }
+                closeAriaLabel="Close support dialog"
+                onClose={() => onOpenChange(false)}
+              >
+                <SocialSpendProfileIdentity
+                  displayName={displayName}
+                  avatarUrl={targetAvatarUrl}
                 />
-              </div>
+              </SocialSpendModalHeader>
 
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                Send SOCIAL from your wallet. About {recipientShareLabel}%
-                accrues for them to claim; {treasuryShareLabel}% goes to
-                treasury. Counts toward their Season 0 support score after they
-                have joined the rally.
-              </p>
-
-              {walletBalanceLabel != null ? (
-                <p className="mt-2 text-xs text-muted-foreground/80">
-                  Your balance: {walletBalanceLabel} SOCIAL
-                </p>
-              ) : null}
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                {presetAmounts.map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    className={cn(
-                      'rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors',
-                      amount === preset
-                        ? 'border-[var(--portal-green-border-strong)] bg-[var(--portal-green-bg)] text-[var(--portal-green)]'
-                        : 'border-border/50 text-muted-foreground hover:border-border hover:text-foreground'
-                    )}
-                    onClick={() => setAmount(preset)}
-                  >
-                    {preset} SOCIAL
-                  </button>
-                ))}
-              </div>
-
-              <label className="mt-4 block">
-                <span className="text-xs font-medium text-muted-foreground">
-                  Amount (SOCIAL)
-                </span>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  autoComplete="off"
-                  value={amount}
-                  onChange={(event) => setAmount(event.target.value)}
-                  className="mt-1.5 w-full rounded-lg border border-border/60 bg-background/80 px-3 py-2 text-sm outline-none focus-visible:ring-1 focus-visible:ring-[var(--portal-green-border)]"
-                  placeholder={minSocialLabel}
+              <div className={socialSpendModalBodyClass}>
+                <SocialSpendAmountForm
+                  amount={amount}
+                  onAmountChange={setAmount}
+                  presetAmounts={presetAmounts}
+                  minAmountYocto={minAmountYocto}
+                  walletBalanceYocto={walletBalanceYocto}
+                  pending={pending}
+                  error={error}
+                  onSubmit={() => void handleSubmit()}
+                  isWalletBootstrapping={isWalletBootstrapping}
+                  isConnected={isConnected}
+                  connectedSubmitLabel="Send support"
+                  facts={
+                    <SocialSpendRoutingCaption
+                      recipientAccountId={targetAccountId}
+                      recipientShareLabel={recipientShareLabel}
+                      treasuryShareLabel={treasuryShareLabel}
+                    />
+                  }
                 />
-              </label>
-
-              <p className="mt-1.5 text-xs text-muted-foreground/70">
-                Minimum {minSocialLabel} SOCIAL per support.
-              </p>
-
-              {error ? (
-                <p className="mt-3 rounded-lg border border-[var(--portal-red-border)] bg-[var(--portal-red-bg)] px-3 py-2 text-xs text-[var(--portal-red)]">
-                  {error}
-                </p>
-              ) : null}
-
-              <div className="mt-5 flex justify-end gap-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={pending}
-                  onClick={() => onOpenChange(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  variant="accent"
-                  loading={pending}
-                  disabled={pending || isWalletBootstrapping}
-                  onClick={() => void handleSubmit()}
-                >
-                  {portalConnectButtonLabel('support', {
-                    isWalletBootstrapping,
-                    isConnected,
-                    connectedLabel: 'Send support',
-                  })}
-                </Button>
               </div>
             </motion.div>
           </motion.div>

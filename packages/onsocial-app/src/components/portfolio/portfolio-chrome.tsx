@@ -1,100 +1,15 @@
 'use client';
 
-import Link from 'next/link';
 import { AppWalletPill } from '@/components/wallet/app-wallet-pill';
-import { useAppWallet } from '@/contexts/app-wallet-context';
-import { useActivatePage } from '@/hooks/use-activate-page';
-
-interface PortfolioActivateBannerProps {
-  pageAccountId: string;
-  activated: boolean;
-}
-
-function PortfolioActivateBanner({
-  pageAccountId,
-  activated,
-}: PortfolioActivateBannerProps) {
-  const { accountId, isConnected, isLoading, connect } = useAppWallet();
-  const { activate, error, isActivating } = useActivatePage(pageAccountId);
-
-  if (activated) {
-    return null;
-  }
-
-  const isOwner = isConnected && accountId === pageAccountId;
-
-  return (
-    <section className="portfolio-activate-banner animate-rise-in">
-      <div className="portfolio-activate-copy">
-        <p className="portfolio-activate-eyebrow">Dormant page</p>
-        <p className="portfolio-activate-title">
-          Activate your OnSocial profile
-        </p>
-        <p className="portfolio-activate-body">
-          Claim this public page on-chain — profile, layout, and mood in one
-          step.
-        </p>
-      </div>
-
-      {!isLoading && !isConnected ? (
-        <button
-          type="button"
-          className="portfolio-activate-cta"
-          onClick={connect}
-        >
-          Connect wallet
-        </button>
-      ) : null}
-
-      {!isLoading && isConnected && !isOwner ? (
-        <p className="portfolio-activate-hint">
-          Connect as @{pageAccountId} to activate this page.
-        </p>
-      ) : null}
-
-      {isOwner ? (
-        <button
-          type="button"
-          className="portfolio-activate-cta"
-          disabled={isActivating}
-          onClick={() => void activate()}
-        >
-          {isActivating ? 'Activating…' : 'Activate page'}
-        </button>
-      ) : null}
-
-      {error ? <p className="portfolio-activate-error">{error}</p> : null}
-    </section>
-  );
-}
 
 interface PortfolioChromeProps {
   pageAccountId: string;
-  activated: boolean;
 }
 
-export function PortfolioChrome({
-  pageAccountId,
-  activated,
-}: PortfolioChromeProps) {
+export function PortfolioChrome({ pageAccountId }: PortfolioChromeProps) {
   return (
-    <>
-      <header className="portfolio-topbar">
-        <Link className="portfolio-home-link" href="/" aria-label="OnSocial home">
-          <svg viewBox="0 0 672 672" fill="none" aria-hidden="true">
-            <path
-              fill="currentColor"
-              d="M453.054199,538.116394 C424.212219,552.454224 394.131012,560.710876 362.363831,563.429443 C319.568481,567.091614 278.488464,560.290955 239.667847,542.439819 C185.179367,517.383972 145.979202,477.603943 125.990204,420.059631 C115.325256,389.357452 109.737495,357.978973 110.886894,325.466003 C112.150772,289.714844 122.072670,256.289429 138.365387,224.647644 C157.224594,188.021500 184.527512,159.193527 219.773529,138.007156 C244.278748,123.277077 270.817993,114.075600 298.974548,108.784660 C341.531128,100.787796 382.974304,105.125610 423.509552,118.946007 C453.518707,129.177551 479.907959,145.697281 502.869781,167.809280 C537.542175,201.198380 558.431213,242.015503 567.606873,288.736755 C574.762390,325.171814 572.982422,361.656128 563.017517,397.545685 C555.820374,423.466644 538.791077,440.538727 514.386902,450.962769 C491.261505,460.840546 467.270874,466.425293 442.065002,465.954193 C434.599792,465.814697 427.083160,465.339539 419.754333,463.567108 C418.160675,463.181732 416.246185,462.981476 415.769653,461.053741 C415.239075,458.907288 417.247040,458.253723 418.554749,457.399170 C434.696106,446.851044 449.398499,434.691925 461.222870,419.322357 C483.312408,390.609772 492.769470,358.103027 490.268372,322.045715 C488.222534,292.551147 478.921112,265.627350 460.828461,242.130569 C437.349548,211.638809 406.488159,192.282272 368.498810,186.569107 C305.881348,177.152176 254.525299,197.030853 217.490723,249.519241 C204.619537,267.761353 197.797958,288.680939 194.607224,310.738922 C189.230255,347.910645 195.277863,383.104126 215.771667,414.679199 C241.164551,453.802399 277.282227,476.512482 324.274078,480.990601 C339.539185,482.445282 354.521393,481.131104 369.360352,477.661682 C373.931732,476.592834 378.305237,477.367828 382.686493,478.255981 C402.303589,482.232758 421.996246,485.156525 442.112427,485.159485 C464.881989,485.162872 486.715454,480.243073 508.347870,473.898468 C514.099670,472.211517 519.779480,470.280670 525.507568,468.510834 C527.231018,467.978363 529.242371,467.065338 530.591370,468.871613 C531.983276,470.735352 530.376526,472.323120 529.343567,473.781311 C517.793030,490.086395 503.945221,504.147552 488.044739,516.239075 C477.141937,524.530151 465.760498,532.023010 453.054199,538.116394 z"
-            />
-          </svg>
-        </Link>
-        <AppWalletPill pageAccountId={pageAccountId} />
-      </header>
-
-      <PortfolioActivateBanner
-        pageAccountId={pageAccountId}
-        activated={activated}
-      />
-    </>
+    <div className="portfolio-wallet-corner">
+      <AppWalletPill pageAccountId={pageAccountId} variant="corner" />
+    </div>
   );
 }

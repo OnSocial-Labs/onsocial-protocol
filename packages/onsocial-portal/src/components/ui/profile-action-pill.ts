@@ -117,18 +117,54 @@ export function profileSocialEndorseButtonClass(
   return profileSocialGesturePillShell(layout);
 }
 
-/** Support — neutral shell; arrow + heart (pill) or label room (bar). */
+/** Support — icon-only heart in pill; bar keeps arrow + label room. */
 export function profileSocialSupportButtonClass(
   layout: ProfileSocialActionLayout = 'pill'
 ): string {
-  return profileSocialGesturePillShell(layout);
+  return profileSocialGesturePillShell(layout, layout === 'pill');
 }
 
-/** Collect — neutral shell; arrow + gift + amount (no verb label). */
-export function profileSocialCollectButtonClass(
-  layout: ProfileSocialActionLayout = 'pill'
+export type ProfileSocialCollectKind = 'support' | 'season';
+
+export type ProfileSocialCollectLayout = 'gesture' | 'rail';
+
+function profileSocialCollectSurfaceClass(
+  kind: ProfileSocialCollectKind
 ): string {
-  return profileSocialGesturePillShell(layout);
+  return kind === 'season' ? 'portal-gold-surface' : 'portal-green-surface';
+}
+
+function profileSocialCollectFocusRingClass(
+  kind: ProfileSocialCollectKind
+): string {
+  return kind === 'season'
+    ? 'focus-visible:ring-[var(--portal-gold-accent)]'
+    : 'focus-visible:ring-[var(--portal-green-border)]';
+}
+
+/** Collect — green (support) or gold (season); gift + Collect · amount. */
+export function profileSocialCollectButtonClass(
+  kind: ProfileSocialCollectKind = 'support',
+  layout: ProfileSocialCollectLayout = 'gesture'
+): string {
+  const surface = profileSocialCollectSurfaceClass(kind);
+  const ring = profileSocialCollectFocusRingClass(kind);
+
+  if (layout === 'rail') {
+    return cn(
+      'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 portal-type-body font-medium transition-colors',
+      surface,
+      ring,
+      'focus-visible:outline-none focus-visible:ring-1 active:scale-[0.98] active:opacity-90 disabled:pointer-events-none disabled:opacity-50'
+    );
+  }
+
+  return cn(
+    portalCompactPillShellClass,
+    surface,
+    ring,
+    'inline-flex h-[24px] items-center justify-center whitespace-nowrap leading-none active:scale-[0.98] active:opacity-90 disabled:pointer-events-none disabled:opacity-50'
+  );
 }
 
 /** Shared glyph box for profile Stand / Endorse / Support actions. */
@@ -148,21 +184,24 @@ export function profileSocialSupportArrowClass(): string {
   );
 }
 
-export function profileSocialCollectArrowClass(): string {
+/** Heart-only support glyph — green at rest like Endorse's arrow, full green on hover. */
+export function profileSocialSupportHeartClass(): string {
   return cn(
-    profileSocialGestureIconClass,
-    'text-[var(--portal-gold)]/75 group-hover:text-[var(--portal-gold)]'
+    'h-3.5 w-3.5 shrink-0 text-[var(--portal-green)]/75 group-hover:text-[var(--portal-green)]'
   );
 }
 
-/** Inherits pill muted → foreground hover like the Endorse label. */
-export function profileSocialSupportHeartClass(): string {
-  return 'h-3 w-3 shrink-0';
-}
-
-/** Inherits pill muted → foreground hover like the Endorse label. */
-export function profileSocialCollectGiftClass(): string {
-  return 'h-3 w-3 shrink-0';
+export function profileSocialCollectGiftClass(
+  kind: ProfileSocialCollectKind = 'support',
+  layout: ProfileSocialCollectLayout = 'gesture'
+): string {
+  return cn(
+    'shrink-0',
+    layout === 'rail' ? 'h-3.5 w-3.5' : 'h-3 w-3',
+    kind === 'season'
+      ? 'text-[var(--portal-gold)]'
+      : 'text-[var(--portal-green)]'
+  );
 }
 
 export function profileSocialStandingArrowClass(): string {

@@ -22,6 +22,33 @@ export function formatCompactBytes(bytes: number): string {
   return `${value.toFixed(digits)} ${units[unitIndex]}`;
 }
 
+/** Compact available/cap readout — e.g. 6/6 KB instead of 6 KB / 6 KB. */
+export function formatPlatformBufferRatioLabel(
+  availableBytes: number,
+  maxBufferBytes: number
+): string {
+  const available = formatCompactBytes(availableBytes);
+  const max = formatCompactBytes(maxBufferBytes);
+  const availableMatch = available.match(/^([\d.]+)\s+(.+)$/);
+  const maxMatch = max.match(/^([\d.]+)\s+(.+)$/);
+
+  if (availableMatch && maxMatch && availableMatch[2] === maxMatch[2]) {
+    return `${availableMatch[1]}/${maxMatch[1]} ${availableMatch[2]}`;
+  }
+
+  return `${available}/${max}`;
+}
+
+/** Screen-reader label — e.g. 6 KB of 6 KB buffer available. */
+export function formatPlatformBufferRatioAriaLabel(
+  availableBytes: number,
+  maxBufferBytes: number
+): string {
+  const available = formatCompactBytes(availableBytes);
+  const max = formatCompactBytes(maxBufferBytes);
+  return `${available} of ${max} buffer available`;
+}
+
 export type PlatformStoragePhase = 'inactive' | 'active' | 'exhausted';
 
 export interface PlatformStorageSummary {
@@ -125,6 +152,9 @@ export function buildPlatformStorageSummary(
 }
 
 export const PLATFORM_STORAGE_LABEL = 'Platform storage';
+
+/** Wallet menu — short row label beside buffer bar. */
+export const PLATFORM_STORAGE_MENU_LABEL = 'Buffer';
 
 /** Short explainer — allowance is a refilling buffer, not a daily usage cap. */
 export const PLATFORM_STORAGE_REFILL_HINT =

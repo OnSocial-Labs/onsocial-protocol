@@ -12,6 +12,7 @@ describe('resolvePortfolioMood', () => {
     expect(mood.cssVars['--mood-banner']).toContain('gradient');
     expect(mood.cssVars['--mood-preset-bg']).toBe('#050505');
     expect(mood.cssVars['--mood-preset-bg-light']).toBe('#f7faff');
+    expect(mood.cssVars['--mood-font-display']).toContain('space-grotesk');
   });
 
   it('maps legacy default mood id to protocol', () => {
@@ -36,12 +37,13 @@ describe('resolvePortfolioMood', () => {
 describe('moodPresetPreviewVars', () => {
   it('exports swatch vars for mood picker rows', () => {
     const theme = MOOD_PRESETS.creative.theme;
-    const preview = moodPresetPreviewVars(theme);
+    const preview = moodPresetPreviewVars('creative', theme);
     const mood = resolvePortfolioMood({ mood: { id: 'creative' } });
 
     expect(preview['--mood-accent']).toBe(mood.cssVars['--mood-accent']);
     expect(preview['--mood-preset-bg']).toBe('#06040a');
     expect(preview['--mood-preset-bg-light']).toBe('#faf5ff');
+    expect(preview['--mood-display-weight']).toBe('700');
     expect(preview).not.toHaveProperty('--mood-banner');
   });
 
@@ -54,5 +56,36 @@ describe('moodPresetPreviewVars', () => {
     expect(mood.cssVars['--mood-accent']).toBe('#ff00aa');
     expect(mood.cssVars['--mood-surface']).toBe('rgb(255 0 170 / 0.06)');
     expect(mood.cssVars['--mood-preset-bg-light']).toBe('#f7faff');
+    expect(mood.cssVars['--mood-signal-standing']).toBe(PROTOCOL_COLORS.blue);
+  });
+
+  it('injects mood-harmonized signal vars for lead', () => {
+    const mood = resolvePortfolioMood({ mood: { id: 'lead' } });
+
+    expect(mood.cssVars['--mood-signal-reputation']).toMatch(/^rgb\(/);
+    expect(mood.cssVars['--mood-signal-standing']).not.toBe(
+      mood.cssVars['--mood-accent']
+    );
+  });
+
+  it('injects voice mood typography for build and journal', () => {
+    const build = resolvePortfolioMood({ mood: { id: 'build' } });
+    const journal = resolvePortfolioMood({ mood: { id: 'journal' } });
+
+    expect(build.cssVars['--mood-font-display']).toContain('jetbrains-mono');
+    expect(build.cssVars['--mood-body-tracking']).toBe('-0.02em');
+    expect(journal.cssVars['--mood-font-display']).toContain('newsreader');
+    expect(journal.cssVars['--mood-font-body']).toContain('space-grotesk');
+    expect(journal.cssVars['--mood-body-leading']).toBe('1.65');
+  });
+
+  it('applies the page owner mood typography for any resolved profile', () => {
+    const viewerContext = resolvePortfolioMood({
+      mood: { id: 'journal' },
+      tagline: 'Essays and notes',
+    });
+
+    expect(viewerContext.cssVars['--mood-display-weight']).toBe('500');
+    expect(viewerContext.cssVars['--mood-bio-max-width']).toBe('22rem');
   });
 });

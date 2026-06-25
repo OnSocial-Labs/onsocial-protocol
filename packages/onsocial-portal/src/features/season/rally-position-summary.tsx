@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
+import { ProtocolMotionArrow } from '@onsocial/ui';
 import { BoostPanelSectionTitle } from '@/features/boost/boost-panel-section-title';
 import {
   RALLY_LINE_BOX_EYEBROW,

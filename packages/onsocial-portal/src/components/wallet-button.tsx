@@ -8,6 +8,7 @@ import { useWallet } from '@/contexts/wallet-context';
 import { ProfileEditor } from '@/components/profile-editor';
 import { PortalRewardsRulesModal } from '@/components/portal-rewards-rules-modal';
 import { WalletAssetsModal } from '@/components/wallet-assets-modal';
+import { WalletStorageModal } from '@/components/wallet-storage-modal';
 import { WalletRewardsSection } from '@/components/wallet-rewards-panel';
 import { WalletPlatformStorageStrip } from '@/components/platform-storage-allowance-summary';
 import { WalletMenuActionDock } from '@/components/wallet-menu-actions';
@@ -15,6 +16,7 @@ import { cn } from '@/lib/utils';
 import {
   walletMenuCardClass,
   walletMenuInnerDividerClass,
+  walletMenuMetricsBlockClass,
   walletMenuPanelWidthClass,
   walletMenuProfileHoverClass,
   walletMenuIdentityNameClass,
@@ -33,6 +35,7 @@ import { useProfile } from '@/contexts/profile-context';
 import { usePortalRewards } from '@/contexts/portal-rewards-context';
 import { useSocialWalletBalance } from '@/hooks/use-social-wallet-balance';
 import { usePlatformStorageSummary } from '@/hooks/use-platform-storage-summary';
+import { storageManageIsHighlighted } from '@/lib/user-storage-display';
 import {
   walletDropdownAccessoryButtonClass,
   walletDropdownAccessoryIconClass,
@@ -43,7 +46,7 @@ import {
   walletMenuActionButtonClass,
 } from '@/components/ui/profile-action-pill';
 import { CompactActionPillPending } from '@/components/ui/profile-social-standing-toggle';
-import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
+import { ProtocolMotionArrow } from '@onsocial/ui';
 import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/near-network';
 import { getPortalProfileUrl } from '@/lib/portal-config';
 import { walletLabelFromAccountId } from '@/lib/wallet-label';
@@ -248,7 +251,9 @@ export function WalletButton({
   const [profileEditorKey, setProfileEditorKey] = useState(0);
   const [rewardsRulesOpen, setRewardsRulesOpen] = useState(false);
   const [walletAssetsOpen, setWalletAssetsOpen] = useState(false);
+  const [walletStorageOpen, setWalletStorageOpen] = useState(false);
   const [walletBalanceRefreshKey, setWalletBalanceRefreshKey] = useState(0);
+  const [platformStorageRefreshKey, setPlatformStorageRefreshKey] = useState(0);
   const {
     balanceYocto: walletBalanceYocto,
     hasLoadedBalance: walletHasLoadedBalance,
@@ -261,7 +266,11 @@ export function WalletButton({
     toggle: toggleMenu,
     containerRef: menuRef,
   } = useDropdown();
-  const platformStorage = usePlatformStorageSummary(accountId, menuOpen);
+  const platformStorage = usePlatformStorageSummary(
+    accountId,
+    menuOpen || walletStorageOpen,
+    platformStorageRefreshKey
+  );
 
   const welcomeLabel: WalletMenuWelcomeLabel =
     accountId && menuOpen ? walletMenuWelcomeLabel(accountId) : 'Welcome';
@@ -314,6 +323,11 @@ export function WalletButton({
   const openWalletAssets = () => {
     closeMenu();
     setWalletAssetsOpen(true);
+  };
+
+  const openWalletStorage = () => {
+    closeMenu();
+    setWalletStorageOpen(true);
   };
 
   const walletLabel = accountId ? walletLabelFromAccountId(accountId) : '';
@@ -488,7 +502,7 @@ export function WalletButton({
               aria-hidden
             />
 
-            <div className="space-y-1.5 md:space-y-2">
+            <div className={walletMenuMetricsBlockClass}>
               <WalletRewardsSection
                 compact
                 walletBalanceYocto={walletBalanceYocto}
@@ -513,6 +527,10 @@ export function WalletButton({
                 loading={platformStorage.loading}
                 error={platformStorage.error}
                 summary={platformStorage.summary}
+                onOpenManage={openWalletStorage}
+                manageHighlighted={storageManageIsHighlighted(
+                  platformStorage.summary
+                )}
               />
             </div>
 
@@ -563,6 +581,16 @@ export function WalletButton({
         open={walletAssetsOpen}
         onOpenChange={setWalletAssetsOpen}
         accountId={accountId}
+      />
+
+      <WalletStorageModal
+        open={walletStorageOpen}
+        onOpenChange={setWalletStorageOpen}
+        accountId={accountId}
+        refreshKey={platformStorageRefreshKey}
+        onStorageChanged={() => {
+          setPlatformStorageRefreshKey((key) => key + 1);
+        }}
       />
     </div>
   );

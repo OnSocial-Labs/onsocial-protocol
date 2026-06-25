@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
-import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
+import { ProtocolMotionArrow } from '@onsocial/ui';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { portalCollapseMotion } from '@/features/governance/governance-motion';
 import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/portal-config';

@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
-import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
+import { ProtocolMotionArrow } from '@onsocial/ui';
 import { EndorsementListCardRow } from '@/components/ui/endorsement-flow';
 import { portalCompactActionPillClass } from '@/components/ui/profile-action-pill';
 import { profileListContainerClass } from '@/features/profile/profile-list-row';
@@ -442,14 +441,12 @@ export function ProfileEndorsements({
                   }
                   timeLabel={
                     timeLabel ? (
-                      <PortalHoverTooltip
+                      <span
                         className="text-right portal-type-caption tabular-nums text-muted-foreground/40"
                         aria-label={timeDescription}
-                        stopPropagation
-                        tooltip={timeDescription}
                       >
                         {timeLabel}
-                      </PortalHoverTooltip>
+                      </span>
                     ) : undefined
                   }
                 />

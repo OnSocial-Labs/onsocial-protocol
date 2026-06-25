@@ -3,19 +3,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { User } from 'lucide-react';
-import { EndorsementContextStrip } from '@/components/ui/endorsement-flow';
-import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
+import { EndorsementSupportAmountSummary } from '@/components/endorsement-support-amount-summary';
+import { EndorsementRecord } from '@/components/ui/endorsement-flow';
+import { ProtocolMotionArrow } from '@onsocial/ui';
 import { ProfileListSkeletonRows } from '@/features/profile/profile-list-loading';
 import {
   buildEndorsementViewOptions,
   ProfileListFilterRail,
 } from '@/features/profile/profile-list-filter-rail';
+import { profileListContainerClass } from '@/features/profile/profile-list-row';
 import {
-  profileListContainerClass,
-  profileListResultRowClass,
-} from '@/features/profile/profile-list-row';
-import { humanizeEndorsementTopic } from '@/lib/endorsements';
+  humanizeEndorsementTopic,
+  formatEndorsementTime,
+} from '@/lib/endorsements';
 import { fadeMotion } from '@/lib/motion';
 import {
   getPortalEndorsementSupportersUrl,
@@ -28,7 +28,6 @@ import {
 } from '@/lib/social-spend-endorsement';
 import { formatSupportBalanceLabel } from '@/lib/social-spend-profile';
 import { parseLegacyEndorsementSpendTargetId } from '@onsocial/sdk';
-import { cn } from '@/lib/utils';
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -44,23 +43,6 @@ function formatAmount(yocto: string): string {
   }
 }
 
-function formatRelativeTime(timestamp: number | null): string {
-  if (!timestamp) return '';
-  const deltaMs = Date.now() - timestamp * 1000;
-  const minutes = Math.floor(deltaMs / 60_000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  return new Date(timestamp * 1000).toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
-
 function resolveSupportedParties(row: EndorsementSupportGivenRow): {
   issuer: string;
   target: string;
@@ -74,32 +56,37 @@ function resolveSupportedParties(row: EndorsementSupportGivenRow): {
   };
 }
 
-function SupportedRowAvatar({
-  avatarUrl,
-  className,
+function EndorsementSupportedRowLinks({
+  endorsementHref,
+  supportersHref,
 }: {
-  avatarUrl: string | null;
-  className?: string;
+  endorsementHref: string | null;
+  supportersHref: string;
 }) {
   return (
-    <div
-      className={cn(
-        'flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/50 bg-muted/30 text-muted-foreground',
-        className
-      )}
-    >
-      {avatarUrl ? (
-        <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
-      ) : (
-        <User className="h-4 w-4" strokeWidth={2} />
-      )}
+    <div className="flex w-full flex-wrap items-center justify-end gap-x-3 gap-y-1 portal-type-caption text-muted-foreground/65 sm:w-auto">
+      {endorsementHref ? (
+        <Link
+          href={endorsementHref}
+          className="group inline-flex items-center gap-1 font-medium text-muted-foreground/80 transition-colors hover:text-foreground"
+        >
+          View endorsement
+          <ProtocolMotionArrow className="h-2.5 w-2.5 shrink-0 text-muted-foreground/55 transition-colors group-hover:text-foreground" />
+        </Link>
+      ) : null}
+      <Link
+        href={supportersHref}
+        className="group inline-flex items-center gap-1 font-medium text-muted-foreground/80 transition-colors hover:text-foreground"
+      >
+        Supporters
+        <ProtocolMotionArrow className="h-2.5 w-2.5 shrink-0 text-muted-foreground/55 transition-colors group-hover:text-[var(--portal-green)]" />
+      </Link>
     </div>
   );
 }
 
 function EndorsementSupportedRow({ row }: { row: EndorsementSupportGivenRow }) {
   const parties = resolveSupportedParties(row);
-  const topicLabel = humanizeEndorsementTopic(parties.topic ?? undefined);
   const endorsementHref =
     parties.issuer && parties.target
       ? getPortalEndorsementsUrl(parties.target, {
@@ -118,75 +105,42 @@ function EndorsementSupportedRow({ row }: { row: EndorsementSupportGivenRow }) {
       topic: parties.topic,
     }
   );
-  const timeLabel = formatRelativeTime(row.latestSupportAt);
+  const timeLabel = formatEndorsementTime(row.latestSupportAt);
+
+  if (!parties.issuer || !parties.target) {
+    return null;
+  }
 
   return (
-    <div className={profileListResultRowClass}>
-      <div className="min-w-0 flex-1">
-        {topicLabel ? (
-          <p className="portal-type-lead font-medium text-[var(--portal-gold-text)]">
-            {topicLabel}
-          </p>
-        ) : (
-          <p className="portal-type-body-sm text-muted-foreground/60">
-            Endorsement
-          </p>
-        )}
-
-        {parties.issuer && parties.target ? (
-          <EndorsementContextStrip
-            issuer={parties.issuer}
-            target={parties.target}
-            issuerName={row.issuerName}
-            targetName={row.recipientName}
-            issuerAvatarUrl={row.issuerAvatarUrl}
-            targetAvatarUrl={row.recipientAvatarUrl}
-            pageLayout
-            className="mt-2"
+    <div className="px-2 py-2.5">
+      <EndorsementRecord
+        issuer={parties.issuer}
+        target={parties.target}
+        issuerName={row.issuerName}
+        targetName={row.recipientName}
+        issuerAvatarUrl={row.issuerAvatarUrl}
+        targetAvatarUrl={row.recipientAvatarUrl}
+        topic={parties.topic}
+        note={row.note}
+        mediaUrl={row.mediaUrl}
+        mediaMime={row.mediaMime}
+        noteClamp={2}
+        pageLayout
+        trailing={
+          <EndorsementSupportAmountSummary
+            amountLabel={formatAmount(row.totalAmountYocto)}
+            spendCount={row.spendCount}
+            timeLabel={timeLabel}
+            className="shrink-0 text-right"
           />
-        ) : (
-          <div className="mt-2 flex items-center gap-2">
-            <SupportedRowAvatar
-              avatarUrl={row.recipientAvatarUrl}
-              className="h-8 w-8"
-            />
-            <span className="truncate portal-type-body-sm text-muted-foreground">
-              {row.recipientName?.trim() || row.recipientId || 'Endorsement'}
-            </span>
-          </div>
-        )}
-
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 portal-type-caption text-muted-foreground/65">
-          {endorsementHref ? (
-            <Link
-              href={endorsementHref}
-              className="inline-flex items-center gap-1 font-medium text-muted-foreground/80 transition-colors hover:text-foreground"
-            >
-              View endorsement
-              <ProtocolMotionArrow className="h-2.5 w-2.5" />
-            </Link>
-          ) : null}
-          <Link
-            href={supportersHref}
-            className="inline-flex items-center gap-1 font-medium text-muted-foreground/80 transition-colors hover:text-foreground"
-          >
-            Supporters
-            <ProtocolMotionArrow className="h-2.5 w-2.5" />
-          </Link>
-          {timeLabel ? (
-            <span className="tabular-nums text-muted-foreground/45">
-              {timeLabel}
-            </span>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="shrink-0 text-right">
-        <p className="portal-type-lead font-semibold tabular-nums text-[var(--portal-green)]">
-          {formatAmount(row.totalAmountYocto)}
-        </p>
-        <p className="portal-type-caption text-muted-foreground/55">SOCIAL</p>
-      </div>
+        }
+        footerTrailing={
+          <EndorsementSupportedRowLinks
+            endorsementHref={endorsementHref}
+            supportersHref={supportersHref}
+          />
+        }
+      />
     </div>
   );
 }
@@ -242,6 +196,7 @@ export function EndorsementSupportedPanel({
         parties.topic,
         row.issuerName,
         row.recipientName,
+        row.note,
         humanizeEndorsementTopic(parties.topic ?? undefined),
       ]
         .filter(Boolean)

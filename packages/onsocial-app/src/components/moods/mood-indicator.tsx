@@ -5,7 +5,7 @@ import { useApplyMood } from '@/hooks/use-apply-mood';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { accountIdsEqual } from '@/lib/account-match';
 import { moodPresetPreviewVars } from '@/lib/moods/resolve';
-import { MOOD_PRESET_LIST } from '@/lib/moods/presets';
+import { MOOD_PRESETS, PAGE_MOOD_PICKER_SECTIONS } from '@/lib/moods/presets';
 import type { BuiltInMoodId, ResolvedMood } from '@/lib/moods/types';
 
 interface MoodSheetProps {
@@ -108,31 +108,48 @@ function MoodSheet({
         {error ? <p className="mood-sheet-error">{error}</p> : null}
 
         <ul className="mood-sheet-list">
-          {MOOD_PRESET_LIST.map((preset) => {
-            const isActive = preset.id === activeMood.id;
-            const isPending = pendingId === preset.id;
+          {PAGE_MOOD_PICKER_SECTIONS.map((section) => (
+            <li key={section.title ?? 'protocol'} className="mood-sheet-section">
+              {section.title ? (
+                <p className="mood-sheet-section-title">{section.title}</p>
+              ) : null}
+              <ul className="mood-sheet-section-list">
+                {section.ids.map((moodId) => {
+                  const preset = MOOD_PRESETS[moodId];
+                  const isActive = preset.id === activeMood.id;
+                  const isPending = pendingId === preset.id;
 
-            return (
-              <li key={preset.id}>
-                <button
-                  type="button"
-                  className={`mood-sheet-item${isActive ? ' is-active' : ''}${isOwner ? ' is-selectable' : ''}`}
-                  disabled={!isOwner || isApplying}
-                  aria-current={isActive ? 'true' : undefined}
-                  onClick={() => void handleSelect(preset.id)}
-                  style={moodPresetPreviewVars(preset.theme) as CSSProperties}
-                >
-                  <span className="mood-sheet-item-label">{preset.label}</span>
-                  <span className="mood-sheet-item-tagline">{preset.tagline}</span>
-                  {isActive ? (
-                    <span className="mood-sheet-item-badge">Active</span>
-                  ) : isPending ? (
-                    <span className="mood-sheet-item-badge">Applying…</span>
-                  ) : null}
-                </button>
-              </li>
-            );
-          })}
+                  return (
+                    <li key={preset.id}>
+                      <button
+                        type="button"
+                        className={`mood-sheet-item${isActive ? ' is-active' : ''}${isOwner ? ' is-selectable' : ''}`}
+                        disabled={!isOwner || isApplying}
+                        aria-current={isActive ? 'true' : undefined}
+                        onClick={() => void handleSelect(preset.id)}
+                        style={
+                          moodPresetPreviewVars(
+                            preset.id,
+                            preset.theme
+                          ) as CSSProperties
+                        }
+                      >
+                        <span className="mood-sheet-item-label">{preset.label}</span>
+                        <span className="mood-sheet-item-tagline">
+                          {preset.tagline}
+                        </span>
+                        {isActive ? (
+                          <span className="mood-sheet-item-badge">Active</span>
+                        ) : isPending ? (
+                          <span className="mood-sheet-item-badge">Applying…</span>
+                        ) : null}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </li>
+          ))}
         </ul>
       </section>
     </div>

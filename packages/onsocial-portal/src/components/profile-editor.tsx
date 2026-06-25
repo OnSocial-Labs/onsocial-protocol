@@ -3,26 +3,33 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { Camera, Check, Github, Globe } from 'lucide-react';
+import { Camera, Check } from 'lucide-react';
 import type { MaterialisedProfile } from '@onsocial/sdk';
 import { Button } from '@/components/ui/button';
 import { portalElevatedShadowClass } from '@/components/ui/floating-panel';
 import { ModalCloseButton } from '@/components/ui/modal-close-button';
+import { ProfileLinkFieldIcon } from '@/components/profile-link-icons';
 import {
   TransactionFeedbackToast,
   type TransactionFeedback,
 } from '@/components/ui/transaction-feedback-toast';
+import {
+  profileIdentityAvatarDockClass,
+  profileIdentityAvatarSizeClass,
+  profileIdentityLayoutClass,
+  profileIdentityOverlapClass,
+  profileIdentityTextClass,
+} from '@/features/profile/profile-identity-loading';
 import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
 import type {
   ProfileSaveInput,
   ProfileSaveResult,
 } from '@/contexts/profile-context';
 import {
-  normalizeProfileHandleInput,
   normalizeProfileLinksInput,
-  normalizeWebsiteForDisplay,
+  PROFILE_LINK_EDITOR_FIELDS,
+  profileLinksInputFromRecord,
   type ProfileLinksInput,
-  type ProfileSocialLinkKind,
 } from '@/lib/profile-links';
 import { fadeMotion, scaleFadeMotion } from '@/lib/motion';
 import {
@@ -69,40 +76,6 @@ function getInitialBio(profile: MaterialisedProfile | null): string {
   return profile?.bio ?? '';
 }
 
-function normalizeInitialWebsite(value?: string): string {
-  if (!value) return '';
-  try {
-    return normalizeWebsiteForDisplay(value);
-  } catch {
-    return value;
-  }
-}
-
-function normalizeInitialHandle(
-  value: string | undefined,
-  kind: ProfileSocialLinkKind
-): string {
-  if (!value) return '';
-  try {
-    return normalizeProfileHandleInput(value, kind);
-  } catch {
-    return value.trim().replace(/^@/, '');
-  }
-}
-
-function getInitialLinks(
-  profile: MaterialisedProfile | null
-): ProfileLinksInput {
-  const links = profile?.links;
-
-  return {
-    website: normalizeInitialWebsite(links?.website),
-    x: normalizeInitialHandle(links?.x ?? links?.twitter, 'x'),
-    telegram: normalizeInitialHandle(links?.telegram, 'telegram'),
-    github: normalizeInitialHandle(links?.github, 'github'),
-  };
-}
-
 function profileMediaEmptyFillClass(roundedClass?: string): string {
   return cn('absolute inset-0 bg-muted/45 dark:bg-muted/25', roundedClass);
 }
@@ -145,7 +118,7 @@ export function ProfileEditor({
   const [name, setName] = useState(getInitialName(profile));
   const [bio, setBio] = useState(getInitialBio(profile));
   const [links, setLinks] = useState<ProfileLinksInput>(() =>
-    getInitialLinks(profile)
+    profileLinksInputFromRecord(profile?.links)
   );
   const [avatar, setAvatar] = useState<File | null>(null);
   const [banner, setBanner] = useState<File | null>(null);
@@ -157,11 +130,6 @@ export function ProfileEditor({
   const bannerPreviewUrl = useObjectUrl(banner);
   const displayAvatarUrl = previewUrl ?? avatarUrl;
   const displayBannerUrl = bannerPreviewUrl ?? bannerUrl;
-  const headerTitle = useMemo(() => {
-    const trimmedName = name.trim();
-    if (trimmedName) return trimmedName;
-    return profile ? 'Edit profile' : 'Create profile';
-  }, [name, profile]);
   const submitLabel = profile ? 'Save profile' : 'Create profile';
   const nameReady = name.trim().length > 0;
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -180,7 +148,7 @@ export function ProfileEditor({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isSaving, onOpenChange, open]);
 
-  const characterCount = useMemo(() => bio.trim().length, [bio]);
+  const characterCount = bio.trim().length;
   const hasCurrentLinks = Boolean(
     profile?.links && Object.keys(profile.links).length > 0
   );
@@ -254,7 +222,7 @@ export function ProfileEditor({
                 onSubmit={handleSubmit}
                 role="dialog"
                 aria-modal="true"
-                aria-labelledby="profile-editor-title"
+                aria-labelledby="profile-name"
                 className={cn(
                   'relative flex h-[min(760px,calc(100vh-2rem))] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-border/67 bg-background/98',
                   portalElevatedShadowClass
@@ -310,55 +278,103 @@ export function ProfileEditor({
                       </p>
                     </div>
 
-                    <div className="relative z-10 -mt-8 flex items-start gap-3.5 px-4 md:px-5">
-                      <div className="flex shrink-0 flex-col items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          className="group relative flex h-20 w-20 cursor-pointer items-center justify-center overflow-hidden rounded-2xl !border-[3px] !border-background bg-background text-muted-foreground shadow-lg md:h-24 md:w-24"
-                          aria-label="Choose avatar"
-                        >
-                          {!displayAvatarUrl ? (
-                            <span
-                              aria-hidden
-                              className={profileMediaEmptyFillClass(
-                                'rounded-[13px]'
+                    <div
+                      className={cn(
+                        'relative z-10 space-y-3 pb-2',
+                        profileIdentityLayoutClass,
+                        profileIdentityOverlapClass,
+                        'px-4 md:px-5'
+                      )}
+                    >
+                      <div className="space-y-2 pr-8">
+                        <div className="flex items-start gap-3.5">
+                          <div className={profileIdentityAvatarDockClass}>
+                            <button
+                              type="button"
+                              onClick={() => fileInputRef.current?.click()}
+                              className={cn(
+                                'group relative flex cursor-pointer items-center justify-center overflow-hidden rounded-2xl !border-[3px] !border-background bg-background text-muted-foreground shadow-lg',
+                                profileIdentityAvatarSizeClass
                               )}
-                            />
-                          ) : null}
-                          {displayAvatarUrl ? (
-                            <img
-                              src={displayAvatarUrl}
-                              alt=""
-                              className="relative h-full w-full object-cover"
-                            />
-                          ) : null}
-                          <span
-                            className={profileMediaOverlayClass(
-                              Boolean(displayAvatarUrl),
-                              'rounded-[13px]'
-                            )}
-                          >
-                            <Camera
-                              className="h-6 w-6 transition-transform duration-200 group-hover:scale-110"
-                              strokeWidth={2.5}
-                            />
-                          </span>
-                        </button>
-                        <span className="portal-type-micro tabular-nums leading-none text-muted-foreground/45">
-                          512&times;512
-                        </span>
+                              aria-label="Choose avatar"
+                            >
+                              {!displayAvatarUrl ? (
+                                <span
+                                  aria-hidden
+                                  className={profileMediaEmptyFillClass(
+                                    'rounded-[13px]'
+                                  )}
+                                />
+                              ) : null}
+                              {displayAvatarUrl ? (
+                                <img
+                                  src={displayAvatarUrl}
+                                  alt=""
+                                  className="relative h-full w-full object-cover"
+                                />
+                              ) : null}
+                              <span
+                                className={cn(
+                                  profileMediaOverlayClass(
+                                    Boolean(displayAvatarUrl),
+                                    'rounded-[13px]'
+                                  )
+                                )}
+                              >
+                                <Camera
+                                  className="h-6 w-6 transition-transform duration-200 group-hover:scale-110"
+                                  strokeWidth={2.5}
+                                />
+                              </span>
+                            </button>
+                            <span className="portal-type-micro tabular-nums leading-none text-muted-foreground/45">
+                              512&times;512
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className={profileIdentityTextClass}>
+                          <label htmlFor="profile-name" className="sr-only">
+                            Display name
+                          </label>
+                          <input
+                            id="profile-name"
+                            value={name}
+                            onChange={(event) => {
+                              setName(event.target.value);
+                              markDirty();
+                            }}
+                            maxLength={50}
+                            autoComplete="name"
+                            className="w-full bg-transparent font-semibold text-foreground portal-type-display outline-none"
+                            aria-required="true"
+                          />
+                          <p className="min-w-0 truncate portal-type-body-sm text-muted-foreground/55">
+                            {accountId ? `@${accountId}` : 'Wallet'}
+                          </p>
+                          <p className="portal-type-caption tabular-nums text-muted-foreground/45">
+                            {name.length}/50
+                          </p>
+                        </div>
                       </div>
 
-                      <div className="min-w-0 flex-1 pb-1 pt-10 pr-10">
-                        <h2
-                          id="profile-editor-title"
-                          className="truncate text-lg font-semibold leading-tight text-foreground"
-                        >
-                          {headerTitle}
-                        </h2>
-                        <p className="mt-0.5 truncate portal-type-body text-muted-foreground/55">
-                          {accountId ? `@${accountId}` : 'Wallet'}
+                      <div>
+                        <label htmlFor="profile-bio" className="sr-only">
+                          Bio
+                        </label>
+                        <textarea
+                          id="profile-bio"
+                          value={bio}
+                          onChange={(event) => {
+                            setBio(event.target.value);
+                            markDirty();
+                          }}
+                          maxLength={180}
+                          rows={2}
+                          className="w-full resize-none bg-transparent portal-type-body leading-relaxed text-muted-foreground outline-none"
+                        />
+                        <p className="mt-0.5 portal-type-caption tabular-nums text-muted-foreground/45">
+                          {characterCount}/180
                         </p>
                       </div>
                     </div>
@@ -388,114 +404,40 @@ export function ProfileEditor({
                   </section>
 
                   <div className="space-y-3 px-4 py-3 md:px-5">
-                    <div className="portal-field-focus relative rounded-2xl border border-border/40 bg-background/45">
-                      <input
-                        id="profile-name"
-                        value={name}
-                        onChange={(event) => {
-                          setName(event.target.value);
-                          markDirty();
-                        }}
-                        maxLength={50}
-                        autoComplete="name"
-                        className="w-full bg-transparent px-4 py-3 pr-16 text-sm outline-none"
-                        placeholder="Display name"
-                        aria-label="Display name"
-                      />
-                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 portal-type-caption tabular-nums tracking-wide text-muted-foreground/60">
-                        {name.length}/50
-                      </span>
-                    </div>
-
-                    <div className="portal-field-focus relative rounded-2xl border border-border/40 bg-background/45">
-                      <textarea
-                        id="profile-bio"
-                        value={bio}
-                        onChange={(event) => {
-                          setBio(event.target.value);
-                          markDirty();
-                        }}
-                        maxLength={180}
-                        rows={2}
-                        className="w-full resize-none bg-transparent px-4 pt-3 pb-6 text-sm leading-relaxed outline-none"
-                        placeholder="Bio"
-                        aria-label="Bio"
-                      />
-                      <span className="pointer-events-none absolute right-3 bottom-1.5 portal-type-caption tabular-nums tracking-wide text-muted-foreground/60">
-                        {characterCount}/180
-                      </span>
-                    </div>
-
                     <div className="grid grid-cols-2 gap-2.5">
-                      <div className="portal-field-focus col-span-2 flex items-center rounded-2xl border border-border/40 bg-background/45">
-                        <span className="border-r border-border/60 px-3 text-sm text-muted-foreground">
-                          <Globe className="h-3.5 w-3.5" />
-                        </span>
-                        <input
-                          id="profile-website"
-                          value={links.website}
-                          onChange={(event) =>
-                            updateLink('website', event.target.value)
-                          }
-                          maxLength={255}
-                          inputMode="url"
-                          autoComplete="url"
-                          className="w-full bg-transparent px-3 py-2.5 text-sm outline-none"
-                          placeholder="Website"
-                          aria-label="Website"
-                        />
-                      </div>
-                      <div className="portal-field-focus flex items-center rounded-2xl border border-border/40 bg-background/45">
-                        <span className="border-r border-border/60 px-3 text-sm text-muted-foreground">
-                          @
-                        </span>
-                        <input
-                          id="profile-x"
-                          value={links.x}
-                          onChange={(event) =>
-                            updateLink('x', event.target.value)
-                          }
-                          maxLength={80}
-                          autoComplete="off"
-                          className="w-full bg-transparent px-3 py-2.5 text-sm outline-none"
-                          placeholder="X"
-                          aria-label="X handle"
-                        />
-                      </div>
-                      <div className="portal-field-focus flex items-center rounded-2xl border border-border/40 bg-background/45">
-                        <span className="border-r border-border/60 px-3 text-sm text-muted-foreground">
-                          @
-                        </span>
-                        <input
-                          id="profile-telegram"
-                          value={links.telegram}
-                          onChange={(event) =>
-                            updateLink('telegram', event.target.value)
-                          }
-                          maxLength={80}
-                          autoComplete="off"
-                          className="w-full bg-transparent px-3 py-2.5 text-sm outline-none"
-                          placeholder="Telegram"
-                          aria-label="Telegram handle"
-                        />
-                      </div>
-                      <div className="portal-field-focus col-span-2 flex items-center rounded-2xl border border-border/40 bg-background/45">
-                        <span className="border-r border-border/60 px-3 text-sm text-muted-foreground">
-                          <Github className="h-3.5 w-3.5" />
-                        </span>
-                        <input
-                          id="profile-github"
-                          value={links.github}
-                          onChange={(event) =>
-                            updateLink('github', event.target.value)
-                          }
-                          maxLength={80}
-                          autoComplete="off"
-                          className="w-full bg-transparent px-3 py-2.5 text-sm outline-none"
-                          placeholder="GitHub"
-                          aria-label="GitHub username"
-                        />
-                      </div>
+                      {PROFILE_LINK_EDITOR_FIELDS.map((field) => (
+                        <div
+                          key={field.key}
+                          className={cn(
+                            'portal-field-focus flex items-center rounded-2xl border border-border/40 bg-background/45',
+                            field.fullWidth && 'col-span-2'
+                          )}
+                        >
+                          <span
+                            className="flex h-9 w-9 shrink-0 items-center justify-center border-r border-border/60 text-muted-foreground"
+                            aria-hidden
+                          >
+                            <ProfileLinkFieldIcon kind={field.kind} />
+                          </span>
+                          <input
+                            id={`profile-${field.key}`}
+                            value={links[field.key]}
+                            onChange={(event) =>
+                              updateLink(field.key, event.target.value)
+                            }
+                            maxLength={field.kind === 'website' ? 255 : 80}
+                            inputMode={
+                              field.kind === 'website' ? 'url' : undefined
+                            }
+                            autoComplete={
+                              field.kind === 'website' ? 'url' : 'off'
+                            }
+                            className="w-full bg-transparent px-3 py-2.5 text-sm outline-none"
+                            placeholder={field.placeholder}
+                            aria-label={field.label}
+                          />
+                        </div>
+                      ))}
                     </div>
 
                     {error && !isWalletCancellationMessage(error) ? (

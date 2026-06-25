@@ -1,6 +1,9 @@
 import type { Session } from '@onsocial/sdk/advanced';
 import { normalizeEndorsementTopic } from '@onsocial/sdk';
-import type { PortalRewardAction } from '@/lib/portal-reward-constants';
+import type {
+  PortalRewardAction,
+  PortalRewardActionProgress,
+} from '@/lib/portal-reward-constants';
 import { emitPortalRewardCredited } from '@/lib/portal-reward-events';
 
 export type { PortalRewardAction };
@@ -20,6 +23,8 @@ interface PortalRewardActionResponse {
   success?: boolean;
   credited?: boolean;
   amount?: string;
+  tx_hash?: string | null;
+  actions?: PortalRewardActionProgress;
   error?: string;
   detail?: string;
   eligible?: boolean;
@@ -61,6 +66,8 @@ function handleRewardResponse(
       action,
       targetAccountId,
       topic,
+      txHash: data.tx_hash ?? null,
+      actions: data.actions,
     });
     return;
   }

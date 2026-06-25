@@ -1,4 +1,9 @@
-export const OVERLAY_PANELS = ['endorsements', 'feed', 'standing'] as const;
+export const OVERLAY_PANELS = [
+  'endorsements',
+  'feed',
+  'standing',
+  'reputation',
+] as const;
 
 export type OverlayPanel = (typeof OVERLAY_PANELS)[number];
 
@@ -14,6 +19,7 @@ export const OVERLAY_PANEL_LABELS: Record<OverlayPanel, string> = {
   endorsements: 'Endorsements',
   feed: 'Feed',
   standing: 'Standing',
+  reputation: 'Reputation',
 };
 
 export function panelLabel(panel: OverlayPanel): string {

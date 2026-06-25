@@ -2,11 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { PROTOCOL_COLORS } from '../../protocol-colors.js';
 import {
   buildPageMoodPatch,
+  BUILT_IN_PAGE_MOOD_IDS,
+  MOOD_PAGE_TYPOGRAPHY,
+  PAGE_MOOD_PICKER_SECTIONS,
   mergeMoodIntoPageConfig,
   mergePageMoodTheme,
   moodSurfaceFromAccent,
+  MOOD_FONT_STACKS,
   normalizePageMoodId,
   pageMoodPresetForId,
+  pageMoodTypographyFor,
   PAGE_MOOD_PRESETS,
 } from './moods.js';
 
@@ -67,5 +72,31 @@ describe('page moods', () => {
     expect(merged.surface).toBe('rgb(255 0 170 / 0.06)');
     expect(merged.backgroundLight).toBe(preset.backgroundLight);
     expect(merged.bannerLight).toBe(preset.bannerLight);
+  });
+
+  it('picker sections cover every built-in mood once', () => {
+    const fromSections = PAGE_MOOD_PICKER_SECTIONS.flatMap((s) => s.ids);
+    expect(fromSections).toEqual([...BUILT_IN_PAGE_MOOD_IDS]);
+  });
+
+  it('defines typography for every built-in mood', () => {
+    for (const id of BUILT_IN_PAGE_MOOD_IDS) {
+      expect(MOOD_PAGE_TYPOGRAPHY[id]).toBeDefined();
+      expect(pageMoodTypographyFor(id).fontDisplay).toBeTruthy();
+    }
+  });
+
+  it('builds build and journal voice typography', () => {
+    expect(buildPageMoodPatch('build').theme?.accent).toBe(
+      PROTOCOL_COLORS.green
+    );
+    expect(pageMoodTypographyFor('build').fontDisplay).toBe(
+      MOOD_FONT_STACKS.mono
+    );
+    expect(pageMoodTypographyFor('journal').fontDisplay).toBe(
+      MOOD_FONT_STACKS.editorial
+    );
+    expect(PAGE_MOOD_PRESETS.noir.label).toBe('Noir');
+    expect(PAGE_MOOD_PRESETS.journal.tagline).toContain('Longform');
   });
 });

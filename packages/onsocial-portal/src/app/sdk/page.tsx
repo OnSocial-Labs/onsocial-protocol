@@ -26,7 +26,7 @@ import { PageShell } from '@/components/layout/page-shell';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
 import { SectionHeader } from '@/components/layout/section-header';
 import { PortalBadge } from '@/components/ui/portal-badge';
-import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
+import { ProtocolMotionArrow } from '@onsocial/ui';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { portalColors, type PortalAccent } from '@/lib/portal-colors';
 

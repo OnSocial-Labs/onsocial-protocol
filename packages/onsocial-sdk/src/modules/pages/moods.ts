@@ -5,9 +5,23 @@ import { PROTOCOL_COLORS } from '../../protocol-colors.js';
 export type BuiltInPageMoodId =
   | 'protocol'
   | 'lead'
-  | 'creative'
   | 'business'
-  | 'celebration';
+  | 'noir'
+  | 'creative'
+  | 'celebration'
+  | 'build'
+  | 'journal';
+
+/** Picker section order — ids must cover {@link BUILT_IN_PAGE_MOOD_IDS}. */
+export const PAGE_MOOD_PICKER_SECTIONS: ReadonlyArray<{
+  title: string | null;
+  ids: readonly BuiltInPageMoodId[];
+}> = [
+  { title: null, ids: ['protocol'] },
+  { title: 'Presence', ids: ['lead', 'business', 'noir'] },
+  { title: 'Expression', ids: ['creative', 'celebration'] },
+  { title: 'Voice', ids: ['build', 'journal'] },
+];
 
 /** Legacy mood id — resolves to {@link BuiltInPageMoodId protocol}. */
 export type LegacyPageMoodId = 'default';
@@ -26,6 +40,137 @@ export interface PageMoodThemeTokens {
   surface: string;
 }
 
+/** CSS font stacks — pair with Next.js `--font-*` variables on OnPage. */
+export const MOOD_FONT_STACKS = {
+  sans: 'var(--font-space-grotesk), system-ui, sans-serif',
+  mono: "var(--font-jetbrains-mono), ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace",
+  editorial:
+    "var(--font-newsreader), 'Source Serif 4', Georgia, 'Times New Roman', serif",
+} as const;
+
+/** Portfolio hero typography — keyed by mood id, not on-chain theme. */
+export interface PageMoodTypography {
+  fontDisplay: string;
+  fontBody: string;
+  displayWeight: number;
+  displayLetterSpacing: string;
+  bodyLineHeight: number;
+  bioMaxWidth: string;
+  /** When set, tightens bio + handle tracking (e.g. mono build). */
+  bodyLetterSpacing?: string;
+}
+
+/**
+ * Per-mood portfolio typography. Voice moods swap families; presence/expression
+ * moods keep sans and tune weight/tracking only (text-card voice parity).
+ */
+export const MOOD_PAGE_TYPOGRAPHY: Record<
+  BuiltInPageMoodId,
+  PageMoodTypography
+> = {
+  protocol: {
+    fontDisplay: MOOD_FONT_STACKS.sans,
+    fontBody: MOOD_FONT_STACKS.sans,
+    displayWeight: 600,
+    displayLetterSpacing: '-0.04em',
+    bodyLineHeight: 1.55,
+    bioMaxWidth: '20rem',
+  },
+  lead: {
+    fontDisplay: MOOD_FONT_STACKS.sans,
+    fontBody: MOOD_FONT_STACKS.sans,
+    displayWeight: 600,
+    displayLetterSpacing: '-0.04em',
+    bodyLineHeight: 1.55,
+    bioMaxWidth: '20rem',
+  },
+  business: {
+    fontDisplay: MOOD_FONT_STACKS.sans,
+    fontBody: MOOD_FONT_STACKS.sans,
+    displayWeight: 600,
+    displayLetterSpacing: '-0.035em',
+    bodyLineHeight: 1.55,
+    bioMaxWidth: '20rem',
+  },
+  noir: {
+    fontDisplay: MOOD_FONT_STACKS.sans,
+    fontBody: MOOD_FONT_STACKS.sans,
+    displayWeight: 600,
+    displayLetterSpacing: '-0.03em',
+    bodyLineHeight: 1.55,
+    bioMaxWidth: '20rem',
+  },
+  creative: {
+    fontDisplay: MOOD_FONT_STACKS.sans,
+    fontBody: MOOD_FONT_STACKS.sans,
+    displayWeight: 700,
+    displayLetterSpacing: '-0.045em',
+    bodyLineHeight: 1.55,
+    bioMaxWidth: '20rem',
+  },
+  celebration: {
+    fontDisplay: MOOD_FONT_STACKS.sans,
+    fontBody: MOOD_FONT_STACKS.sans,
+    displayWeight: 600,
+    displayLetterSpacing: '-0.04em',
+    bodyLineHeight: 1.55,
+    bioMaxWidth: '20rem',
+  },
+  build: {
+    fontDisplay: MOOD_FONT_STACKS.mono,
+    fontBody: MOOD_FONT_STACKS.mono,
+    displayWeight: 600,
+    displayLetterSpacing: '-0.02em',
+    bodyLineHeight: 1.5,
+    bioMaxWidth: '20rem',
+    bodyLetterSpacing: '-0.02em',
+  },
+  journal: {
+    fontDisplay: MOOD_FONT_STACKS.editorial,
+    fontBody: MOOD_FONT_STACKS.sans,
+    displayWeight: 500,
+    displayLetterSpacing: '-0.02em',
+    bodyLineHeight: 1.65,
+    bioMaxWidth: '22rem',
+  },
+};
+
+export function pageMoodTypographyFor(
+  moodId: BuiltInPageMoodId
+): PageMoodTypography {
+  return MOOD_PAGE_TYPOGRAPHY[moodId];
+}
+
+export function moodTypographyToCssVars(
+  typography: PageMoodTypography
+): Record<string, string> {
+  return {
+    '--mood-font-display': typography.fontDisplay,
+    '--mood-font-body': typography.fontBody,
+    '--mood-display-weight': String(typography.displayWeight),
+    '--mood-display-tracking': typography.displayLetterSpacing,
+    '--mood-body-leading': String(typography.bodyLineHeight),
+    '--mood-bio-max-width': typography.bioMaxWidth,
+    ...(typography.bodyLetterSpacing
+      ? { '--mood-body-tracking': typography.bodyLetterSpacing }
+      : {}),
+  };
+}
+
+/** Swatch + typography vars for mood picker rows and portfolio shell. */
+export function pageMoodPreviewCssVars(
+  moodId: BuiltInPageMoodId,
+  theme: PageMoodThemeTokens
+): Record<string, string> {
+  return {
+    ...moodTypographyToCssVars(pageMoodTypographyFor(moodId)),
+    '--mood-accent': theme.accent,
+    '--mood-surface': theme.surface,
+    '--mood-preset-bg': theme.background,
+    '--mood-preset-bg-light': theme.backgroundLight,
+  };
+}
+
 export interface PageMoodPreset {
   id: BuiltInPageMoodId;
   label: string;
@@ -37,8 +182,11 @@ export const BUILT_IN_PAGE_MOOD_IDS = [
   'protocol',
   'lead',
   'business',
+  'noir',
   'creative',
   'celebration',
+  'build',
+  'journal',
 ] as const satisfies readonly BuiltInPageMoodId[];
 
 const ONPAGE_TEXT_LIGHT = 'rgb(17 19 24 / 0.96)';
@@ -156,6 +304,25 @@ export const PAGE_MOOD_PRESETS: Record<BuiltInPageMoodId, PageMoodPreset> = {
       surface: 'rgb(120 176 255 / 0.06)',
     },
   },
+  noir: {
+    id: 'noir',
+    label: 'Noir',
+    tagline: 'Stealth executive — matte black, calm, precise.',
+    theme: {
+      background: '#050505',
+      backgroundLight: '#f5f5f4',
+      text: 'rgb(255 255 255 / 0.96)',
+      textLight: 'rgb(17 19 24 / 0.96)',
+      muted: 'rgb(122 122 130 / 0.52)',
+      mutedLight: 'rgb(113 113 122 / 0.55)',
+      accent: 'rgb(212 212 216 / 0.94)',
+      banner:
+        'radial-gradient(ellipse 88% 62% at 50% -12%, rgb(255 255 255 / 0.05), transparent 58%), radial-gradient(ellipse 72% 48% at 82% 18%, rgb(161 161 170 / 0.04), transparent 52%)',
+      bannerLight:
+        'radial-gradient(ellipse 88% 62% at 50% -12%, rgb(17 19 24 / 0.04), transparent 58%), radial-gradient(ellipse 72% 48% at 82% 18%, rgb(113 113 122 / 0.05), transparent 52%)',
+      surface: 'rgb(255 255 255 / 0.05)',
+    },
+  },
   creative: {
     id: 'creative',
     label: 'Creative',
@@ -192,6 +359,44 @@ export const PAGE_MOOD_PRESETS: Record<BuiltInPageMoodId, PageMoodPreset> = {
       bannerLight:
         'radial-gradient(ellipse 80% 70% at 20% -6%, rgb(255 120 160 / 0.14), transparent 54%), radial-gradient(ellipse 75% 55% at 80% 8%, rgb(255 200 100 / 0.1), transparent 50%), radial-gradient(ellipse 90% 60% at 50% 100%, rgb(255 140 170 / 0.06), transparent 58%)',
       surface: 'rgb(255 120 160 / 0.08)',
+    },
+  },
+  build: {
+    id: 'build',
+    label: 'Build',
+    tagline: 'Ship logs, repos, and on-chain craft.',
+    theme: {
+      background: '#030806',
+      backgroundLight: '#f4faf2',
+      text: 'rgb(212 251 200 / 0.96)',
+      textLight: 'rgb(17 19 24 / 0.96)',
+      muted: 'rgb(90 138 85 / 0.58)',
+      mutedLight: 'rgb(82 100 78 / 0.52)',
+      accent: PROTOCOL_COLORS.green,
+      banner:
+        'radial-gradient(ellipse 82% 68% at 16% -8%, rgb(74 222 128 / 0.18), transparent 56%), radial-gradient(ellipse 70% 52% at 84% 10%, rgb(212 251 200 / 0.06), transparent 50%), radial-gradient(ellipse 90% 58% at 50% 100%, rgb(74 222 128 / 0.06), transparent 58%)',
+      bannerLight:
+        'radial-gradient(ellipse 82% 68% at 16% -8%, rgb(74 222 128 / 0.12), transparent 56%), radial-gradient(ellipse 70% 52% at 84% 10%, rgb(74 222 128 / 0.05), transparent 50%), radial-gradient(ellipse 90% 58% at 50% 100%, rgb(74 222 128 / 0.04), transparent 58%)',
+      surface: moodSurfaceFromAccent(PROTOCOL_COLORS.green),
+    },
+  },
+  journal: {
+    id: 'journal',
+    label: 'Journal',
+    tagline: 'Longform presence — calm, readable, ink on paper.',
+    theme: {
+      background: '#0c0b0a',
+      backgroundLight: '#faf9f7',
+      text: 'rgb(250 249 247 / 0.96)',
+      textLight: 'rgb(17 19 24 / 0.96)',
+      muted: 'rgb(161 161 170 / 0.52)',
+      mutedLight: 'rgb(113 113 122 / 0.55)',
+      accent: 'rgb(82 82 91 / 0.92)',
+      banner:
+        'radial-gradient(ellipse 84% 66% at 20% -6%, rgb(250 249 247 / 0.06), transparent 55%), radial-gradient(ellipse 76% 54% at 80% 8%, rgb(161 161 170 / 0.05), transparent 50%), radial-gradient(ellipse 92% 60% at 50% 100%, rgb(250 249 247 / 0.04), transparent 58%)',
+      bannerLight:
+        'radial-gradient(ellipse 84% 66% at 20% -6%, rgb(17 19 24 / 0.03), transparent 55%), radial-gradient(ellipse 76% 54% at 80% 8%, rgb(113 113 122 / 0.04), transparent 50%), radial-gradient(ellipse 92% 60% at 50% 100%, rgb(17 19 24 / 0.02), transparent 58%)',
+      surface: 'rgb(82 82 91 / 0.06)',
     },
   },
 };

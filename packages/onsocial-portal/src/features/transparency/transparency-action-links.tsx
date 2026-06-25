@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
+import { ProtocolMotionArrow } from '@onsocial/ui';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { BoostPanelSectionTitle } from '@/features/boost/boost-panel-section-title';
 import { TRANSPARENCY_ACTION_LINKS } from '@/features/transparency/transparency-constants';

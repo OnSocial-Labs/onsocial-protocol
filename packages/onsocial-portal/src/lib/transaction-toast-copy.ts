@@ -14,11 +14,16 @@ export const txToastPending = {
   claimingRewards: 'Claiming SOCIAL…',
   swappingSocial: 'Getting SOCIAL…',
   collectingBoost: 'Collecting SOCIAL…',
+  addingStorage: 'Adding storage…',
+  withdrawingStorage: 'Withdrawing storage…',
+  fundingSharePool: 'Funding share pool…',
+  sharingStorage: 'Sharing storage…',
 } as const;
 
 export const txToastSuccess = {
   socialCollected: 'SOCIAL collected.',
-  joinedRally: (seasonTitle: string) => `You're in ${seasonTitle}.`,
+  joinedRally: (seasonTitle: string, badgeLabel = 'Rally') =>
+    `You're in ${seasonTitle}. ${badgeLabel} badge on your profile.`,
   supportSent: (displayName: string) => `Support sent to ${displayName}.`,
   endorsementSupportSent: (displayName: string) =>
     `Support sent for ${displayName}'s endorsement.`,
@@ -26,6 +31,10 @@ export const txToastSuccess = {
   socialInWallet: 'SOCIAL is in your wallet.',
   rewardsCollected: (amountLabel: string) => `${amountLabel} SOCIAL collected.`,
   boostCollected: 'SOCIAL collected.',
+  storageAdded: 'Storage added.',
+  storageWithdrawn: 'Storage withdrawn to wallet.',
+  sharePoolFunded: 'Share pool funded.',
+  storageShared: 'Storage shared.',
 } as const;
 
 /** Wallet connect / OnSocial session key setup. */
@@ -50,6 +59,10 @@ export const txToastError = {
   claimSupportFailed: 'Could not claim support.',
   claimRewardsFailed: 'Could not claim SOCIAL.',
   swapFailed: 'Could not get SOCIAL.',
+  storageDepositFailed: 'Could not add storage.',
+  storageWithdrawFailed: 'Could not withdraw storage.',
+  sharePoolFundFailed: 'Could not fund share pool.',
+  storageShareFailed: 'Could not share storage.',
   genericFailed: 'Transaction did not go through.',
 } as const;
 

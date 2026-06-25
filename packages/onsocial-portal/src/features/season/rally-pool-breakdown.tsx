@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
+import { ProtocolMotionArrow } from '@onsocial/ui';
 import { formatGenesisSocialBalanceDisplay } from '@/lib/genesis-season';
 import { RALLY_LINE_BOX_STRIP } from '@/features/season/season-page-column';
 import { RallyTextSlot } from '@/features/season/rally-text-slot';
@@ -73,6 +73,10 @@ function StripSegment({
   className?: string;
   href?: string | null;
 }) {
+  const isAccentLink =
+    Boolean(className?.includes('portal-gold-text')) ||
+    Boolean(className?.includes('portal-blue-text'));
+
   const content = (
     <>
       <span className="font-mono tabular-nums">{amount}</span>
@@ -91,7 +95,10 @@ function StripSegment({
     <Link
       href={href}
       className={cn(
-        'portal-action-link group pointer-events-auto relative z-[2] inline-flex items-center gap-0.5 whitespace-nowrap transition-colors hover:text-foreground',
+        'group pointer-events-auto relative z-[2] inline-flex items-center gap-0.5 whitespace-nowrap transition-[color,opacity]',
+        isAccentLink
+          ? 'hover:opacity-90'
+          : 'portal-action-link hover:text-foreground',
         className
       )}
     >
@@ -166,8 +173,7 @@ export function RallyPoolBreakdown({
           <p
             className={cn(
               STRIP_LINE_CLASS,
-              'whitespace-nowrap',
-              hasTreasurySeed ? 'portal-gold-text' : 'text-muted-foreground/70'
+              'whitespace-nowrap text-muted-foreground/70'
             )}
           >
             {joinEntryLoading ? (
@@ -177,13 +183,7 @@ export function RallyPoolBreakdown({
                 pulseClass="h-[1em] w-14"
               />
             ) : hasEntry ? (
-              <StripSegment
-                amount={joinEntryLabel!}
-                label="Entry"
-                className={
-                  hasTreasurySeed ? 'text-muted-foreground/75' : undefined
-                }
-              />
+              <StripSegment amount={joinEntryLabel!} label="Entry" />
             ) : null}
             {(joinEntryLoading || hasEntry) && hasTreasurySeed ? (
               <StripDot />
@@ -193,6 +193,7 @@ export function RallyPoolBreakdown({
                 amount={treasuryLabel!}
                 label="Treasury seed"
                 href={treasurySeedHref}
+                className="portal-gold-text"
               />
             ) : null}
           </p>

@@ -7,7 +7,7 @@ interface AccountErrorProps {
 
 export default function AccountError({ error, reset }: AccountErrorProps) {
   return (
-    <main className="frame">
+    <main className="frame app-surface">
       <div className="portfolio-container panel-page">
         <div className="panel-error">
           <h1 className="panel-page-title">Could not load page</h1>

@@ -41,7 +41,7 @@ export const floatingPanelClass = `rounded-xl md:rounded-2xl border border-borde
 export const floatingPanelItemClass =
   'w-full flex items-center gap-2 md:gap-3 rounded-lg md:rounded-xl px-2.5 py-1.5 md:px-3 md:py-2.5 portal-type-body text-muted-foreground transition-colors hover:bg-[var(--portal-neutral-bg)] hover:text-foreground focus-visible:bg-[var(--portal-neutral-bg)] focus-visible:text-foreground focus-visible:outline-none text-left';
 
-/** Menu row with trailing ProtocolMotionArrow (e.g. View on Explorer). */
+/** Menu row with trailing ProtocolMotionArrow from @onsocial/ui (e.g. View on Explorer). */
 export const floatingPanelItemWithMotionClass = `${floatingPanelItemClass} group`;
 
 export const floatingPanelItemActiveClass =
@@ -112,6 +112,35 @@ export const walletMenuDisconnectRowClass =
 /** Compact wallet panel — fits dock + metrics without feeling wide. */
 export const walletMenuPanelWidthClass =
   'w-[min(100vw-1rem,15.25rem)] sm:w-56 md:w-[15.75rem]';
+
+/** SOCIAL balance + claim + platform storage — locked footprint in wallet dropdown. */
+export const walletMenuMetricsBlockClass = 'flex flex-col gap-2';
+
+/** Wallet menu SOCIAL + claim block — fixed vertical slots (compact dropdown only). */
+export const walletMenuRewardsBlockClass = 'flex flex-col gap-1.5 md:gap-2';
+
+export const walletMenuBalanceRowClass =
+  'flex min-h-6 items-center justify-between gap-2';
+
+/** Progress bar + ratio (+ optional pill) — shared by claim and storage rows. */
+export const walletMenuMetricRowClass =
+  'flex min-h-6 items-center gap-1.5 md:gap-2';
+
+export const walletMenuProgressTrackSlotClass =
+  'flex min-h-4 min-w-0 flex-1 items-center';
+
+/** Monospace ratio label slot (claim + storage rows). */
+export const walletMenuMetricRatioSlotClass =
+  'w-12 shrink-0 text-right font-mono portal-type-micro tabular-nums leading-none md:portal-type-caption';
+
+/** Second-line caption slot — hint, error, or storage meta (always reserved in wallet menu). */
+export const walletMenuMetricCaptionSlotClass =
+  'min-h-3 truncate portal-type-micro leading-none text-muted-foreground/55 md:portal-type-caption';
+
+export const walletMenuStorageStripClass = 'flex flex-col gap-0.5';
+
+export const walletMenuStorageLabelClass =
+  'shrink-0 portal-type-micro font-medium text-muted-foreground/50 md:portal-type-caption';
 
 /** Lucide icons in wallet menu action rows — Discover, Explorer, etc. */
 export const walletMenuIconClass = 'h-3.5 w-3.5 shrink-0 md:h-4 md:w-4';

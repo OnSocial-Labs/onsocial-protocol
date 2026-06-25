@@ -1,7 +1,7 @@
 'use client';
 
 import { User } from 'lucide-react';
-import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
+import { ProtocolMotionArrow } from '@onsocial/ui';
 import type { EndorsementSupportPreviewSupporter } from '@/lib/social-spend-endorsement';
 import { cn } from '@/lib/utils';
 
@@ -53,7 +53,7 @@ export function EndorsementSupportPreview({
 
   const overflowCount = Math.max(0, supporterCount - previewSupporters.length);
   const controlClass = cn(
-    'group inline-flex h-4 shrink-0 items-center gap-1 p-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60',
+    'group/support inline-flex h-4 shrink-0 items-center gap-1 p-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60',
     className
   );
 
@@ -76,12 +76,15 @@ export function EndorsementSupportPreview({
           />
         ))}
         {overflowCount > 0 ? (
-          <span className="pl-1 portal-type-label font-medium tabular-nums text-muted-foreground/55 transition-colors group-hover:text-muted-foreground/70">
+          <span className="pl-1 portal-type-label font-medium tabular-nums text-muted-foreground/55 transition-colors group-hover/support:text-muted-foreground/70">
             +{formatOverflowCount(overflowCount)}
           </span>
         ) : null}
       </span>
-      <ProtocolMotionArrow className="h-2.5 w-2.5 shrink-0 text-muted-foreground/55" />
+      <ProtocolMotionArrow
+        static
+        className="h-2.5 w-2.5 shrink-0 text-muted-foreground/55 transition-all duration-200 group-hover/support:translate-x-0.5 group-hover/support:-translate-y-0.5 group-hover/support:text-[var(--portal-green)] motion-reduce:transform-none"
+      />
     </button>
   );
 }

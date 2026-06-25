@@ -25,6 +25,7 @@ export function RewardsClaimButton({
   canClaim,
   claiming,
   appearance = 'modal',
+  compact = false,
   ariaLabel,
   disabled = false,
   onClick,
@@ -41,8 +42,10 @@ export function RewardsClaimButton({
         disabled={isDisabled}
         aria-busy={claiming || undefined}
         aria-label={ariaLabel}
-        className={walletMenuActionButtonClass(
-          canClaim ? 'claim-ready' : 'claim'
+        className={cn(
+          walletMenuActionButtonClass(canClaim ? 'claim-ready' : 'claim'),
+          compact &&
+            'px-2 py-px portal-type-micro md:px-2.5 md:py-0.5 md:portal-type-label'
         )}
       >
         <span className={profileSocialStandingToggleClass}>

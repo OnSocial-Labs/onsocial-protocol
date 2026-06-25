@@ -1,0 +1,287 @@
+specVersion: v0.1.0
+package:
+  name: onsocial_events
+  version: v0.9.1
+  url: https://github.com/onsocial-protocol/indexers/substreams
+  description: High-performance substreams indexer for OnSocial protocol events
+  doc: |
+    OnSocial NEAR Contract Event Indexer
+    Decodes NEP-297 JSON events from core-onsocial contract logs
+    Outputs to PostgreSQL via substreams-sink-sql
+
+network: near
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ./target/wasm32-unknown-unknown/release/onsocial_substreams.wasm
+
+protobuf:
+  files:
+    - core.proto
+    - boost.proto
+    - rewards.proto
+    - token.proto
+    - scarces.proto
+    - social_spend.proto
+    - combined.proto
+    - sf/substreams/sink/database/v1/database.proto
+    - sf/substreams/sink/sql/v1/service.proto
+  importPaths:
+    - ./proto
+
+modules:
+  # Primary module - typed output
+  - name: map_core_output
+    kind: map
+    initialBlock: 233084800
+    inputs:
+      - params: string
+      - source: sf.near.type.v1.Block
+    output:
+      type: proto:core_onsocial.v1.Output
+    doc: |
+      Extracts core-onsocial contract events and outputs typed protobuf messages.
+      
+      Output contains:
+      - data_updates: Posts, profiles, settings, group content
+      - storage_updates: Deposits, withdrawals, pool operations
+      - group_updates: Membership, governance, proposals
+      - contract_updates: Meta transactions
+      - permission_updates: Access control changes
+
+  # Core database changes output - for substreams-sink-sql (PostgreSQL)
+  - name: core_db_out
+    kind: map
+    initialBlock: 233084800
+    inputs:
+      - map: map_core_output
+    output:
+      type: proto:sf.substreams.sink.database.v1.DatabaseChanges
+    doc: |
+      Converts typed Output to DatabaseChanges for SQL sink.
+      Writes to: data_updates, storage_updates, group_updates,
+      contract_updates, permission_updates.
+
+  # =========================================================================
+  # BOOST CONTRACT MODULES
+  # =========================================================================
+
+  # Boost events - typed output
+  - name: map_boost_output
+    kind: map
+    initialBlock: 238800000
+    inputs:
+      - params: string
+      - source: sf.near.type.v1.Block
+    output:
+      type: proto:boost.v1.BoostOutput
+    doc: |
+      Extracts boost contract events: lock, extend, unlock, rewards,
+      credits, funding, infra, ownership, upgrades.
+      14 event types with success/failure tracking.
+
+  # Boost database changes - for substreams-sink-sql
+  - name: boost_db_out
+    kind: map
+    initialBlock: 238800000
+    inputs:
+      - map: map_boost_output
+    output:
+      type: proto:sf.substreams.sink.database.v1.DatabaseChanges
+    doc: |
+      Converts BoostOutput to DatabaseChanges for SQL sink.
+      Writes to: boost_events, booster_state, boost_credit_purchases.
+
+  # =========================================================================
+  # REWARDS CONTRACT MODULES
+  # =========================================================================
+
+  # Rewards events - typed output
+  - name: map_rewards_output
+    kind: map
+    initialBlock: 238800000
+    inputs:
+      - params: string
+      - source: sf.near.type.v1.Block
+    output:
+      type: proto:rewards.v1.RewardsOutput
+    doc: |
+      Extracts rewards contract events: credit, claim, pool deposits,
+      config changes, caller management.
+      12 event types with success/failure tracking.
+
+  # Rewards database changes - for substreams-sink-sql
+  - name: rewards_db_out
+    kind: map
+    initialBlock: 238800000
+    inputs:
+      - map: map_rewards_output
+    output:
+      type: proto:sf.substreams.sink.database.v1.DatabaseChanges
+    doc: |
+      Converts RewardsOutput to DatabaseChanges for SQL sink.
+      Writes to: rewards_events, user_reward_state.
+
+  # =========================================================================
+  # TOKEN CONTRACT MODULES (NEP-141)
+  # =========================================================================
+
+  # Token events - typed output
+  - name: map_token_output
+    kind: map
+    initialBlock: 234337349
+    inputs:
+      - params: string
+      - source: sf.near.type.v1.Block
+    output:
+      type: proto:token.v1.TokenOutput
+    doc: |
+      Extracts NEP-141 standard events from token.onsocial contract:
+      ft_mint, ft_burn, ft_transfer.
+
+  # Token database changes - for substreams-sink-sql
+  - name: token_db_out
+    kind: map
+    initialBlock: 234337349
+    inputs:
+      - map: map_token_output
+    output:
+      type: proto:sf.substreams.sink.database.v1.DatabaseChanges
+    doc: |
+      Converts TokenOutput to DatabaseChanges for SQL sink.
+      Writes to: token_events, token_balances.
+
+  # =========================================================================
+  # SCARCES CONTRACT MODULES (NFT Marketplace)
+  # =========================================================================
+
+  # Scarces events - typed output
+  - name: map_scarces_output
+    kind: map
+    initialBlock: 238800000
+    inputs:
+      - params: string
+      - source: sf.near.type.v1.Block
+    output:
+      type: proto:scarces.v1.ScarcesOutput
+    doc: |
+      Extracts scarces marketplace events: listings, purchases, collections,
+      auctions, offers, storage, app pools, contract config.
+      7 event types with 70+ operations.
+
+  # Scarces database changes - for substreams-sink-sql
+  - name: scarces_db_out
+    kind: map
+    initialBlock: 238800000
+    inputs:
+      - map: map_scarces_output
+    output:
+      type: proto:sf.substreams.sink.database.v1.DatabaseChanges
+    doc: |
+      Converts ScarcesOutput to DatabaseChanges for SQL sink.
+      Writes to: scarces_events.
+
+  # =========================================================================
+  # SOCIAL SPEND CONTRACT MODULES
+  # =========================================================================
+
+  # Social spend events - typed output
+  - name: map_social_spend_output
+    kind: map
+    initialBlock: 251120000
+    inputs:
+      - params: string
+      - source: sf.near.type.v1.Block
+    output:
+      type: proto:social_spend.v1.SocialSpendOutput
+    doc: |
+      Extracts social-spend contract events: spends, season configs,
+      settlement roots, payouts, and admin changes.
+
+  # Social spend database changes - for substreams-sink-sql
+  - name: social_spend_db_out
+    kind: map
+    initialBlock: 251120000
+    inputs:
+      - map: map_social_spend_output
+    output:
+      type: proto:sf.substreams.sink.database.v1.DatabaseChanges
+    doc: |
+      Converts SocialSpendOutput to DatabaseChanges for SQL sink.
+      Writes to: social_spend_events.
+
+  # =========================================================================
+  # COMBINED (ALL CONTRACTS) MODULES
+  # =========================================================================
+
+  # Combined map — processes all 5 contracts in a single block pass
+  - name: map_combined_output
+    kind: map
+    initialBlock: 233084800
+    inputs:
+      - params: string
+      - source: sf.near.type.v1.Block
+    output:
+      type: proto:combined.v1.CombinedOutput
+    doc: |
+      Processes all OnSocial contracts in a single stream pass.
+      Routes events by receiver_id to the appropriate decoder.
+      Uses 1 concurrent stream instead of 5.
+
+  # Combined database changes — for single-sink deployment
+  - name: combined_db_out
+    kind: map
+    initialBlock: 233084800
+    inputs:
+      - map: map_combined_output
+    output:
+      type: proto:sf.substreams.sink.database.v1.DatabaseChanges
+    doc: |
+      Converts CombinedOutput to DatabaseChanges for SQL sink.
+      Writes to all tables from all 5 contracts in a single transaction.
+
+params:
+  map_core_output: "contract_id=core.onsocial.testnet"
+  map_boost_output: "contract_id=boost.onsocial.testnet"
+  map_rewards_output: "contract_id=rewards.onsocial.testnet"
+  map_token_output: "contract_id=token.onsocial.testnet"
+  map_scarces_output: "contract_id=scarces.onsocial.testnet"
+  map_social_spend_output: "contract_id=social-spend.onsocial.testnet"
+  map_combined_output: "core=core.onsocial.testnet&boost=boost.onsocial.testnet&rewards=rewards.onsocial.testnet&token=token.onsocial.testnet&scarces=scarces.onsocial.testnet&social_spend=social-spend.onsocial.testnet"
+
+# ---------------------------------------------------------------------------
+# SINK DEPLOYMENT
+# ---------------------------------------------------------------------------
+# RECOMMENDED: Use the combined spkg for single-stream deployment:
+#   ./pack.sh combined
+#   substreams-sink-sql run "$DATABASE_URL" \
+#     onsocial-events-v0.9.0-combined.spkg \
+#     -e "$SUBSTREAMS_ENDPOINT" \
+#     -p map_combined_output=core=core.onsocial.testnet&boost=boost.onsocial.testnet&... \
+#     --infinite-retry
+#
+# Per-contract spkgs are still supported for debugging or selective indexing:
+#   ./pack.sh core       (just core)
+#   ./pack.sh core token (core + token)
+#
+# Deployment blocks (from NEAR archival RPC):
+#   core.onsocial.testnet     → block 233084800 (Jan 2026)
+#   token.onsocial.testnet    → block 234337349 (Jan 2026)
+#   boost.onsocial.testnet    → block 238800000 (Feb 2026)
+#   rewards.onsocial.testnet  → block 238800000 (Feb 2026)
+#   scarces.onsocial.testnet  → block 238800000 (Feb 2026)
+#
+# Contract registry for pack.sh:
+#   combined → combined_db_out → combined_schema.sql
+#   core     → core_db_out     → core_schema.sql
+#   boost    → boost_db_out    → boost_schema.sql
+#   rewards  → rewards_db_out  → rewards_schema.sql
+#   token    → token_db_out    → token_schema.sql
+#   scarces  → scarces_db_out  → scarces_schema.sql
+# ---------------------------------------------------------------------------
+sink:
+  module: core_db_out
+  type: sf.substreams.sink.sql.v1.Service
+  config:
+    schema: "./core_schema.sql"

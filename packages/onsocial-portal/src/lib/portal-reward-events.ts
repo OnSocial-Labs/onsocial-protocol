@@ -1,7 +1,14 @@
-import type { PortalRewardToastContext } from '@/lib/portal-reward-constants';
+import type {
+  PortalRewardActionProgress,
+  PortalRewardToastContext,
+} from '@/lib/portal-reward-constants';
 
 export interface PortalRewardCreditEvent extends PortalRewardToastContext {
   amountYocto: string;
+  /** Rewards-contract credit tx — present once backend confirms on-chain credit. */
+  txHash?: string | null;
+  /** Authoritative per-action counts after backend credits (same source as daily caps). */
+  actions?: PortalRewardActionProgress;
 }
 
 type PortalRewardCreditListener = (event: PortalRewardCreditEvent) => void;

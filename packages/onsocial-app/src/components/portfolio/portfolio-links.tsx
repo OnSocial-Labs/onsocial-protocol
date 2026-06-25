@@ -1,42 +1,35 @@
-import { normalizeLink } from '@/lib/profile-display';
+import { PortfolioLinkIcon } from '@/components/portfolio/portfolio-link-icon';
+import { resolvePortfolioSocialLinks } from '@/lib/profile-social-links';
 
 interface PortfolioLinksProps {
-  links?: Array<{ label: string; url: string }>;
+  links?: unknown;
 }
 
 export function PortfolioLinks({ links }: PortfolioLinksProps) {
-  const items = (links ?? []).flatMap((link) => {
-    const href = normalizeLink(link.url);
-    const label = link.label?.trim();
-
-    if (!href || !label) {
-      return [];
-    }
-
-    return [{ href, label }];
-  });
+  const items = resolvePortfolioSocialLinks(links);
 
   if (items.length === 0) {
     return null;
   }
 
   return (
-    <section className="portfolio-section">
-      <h2 className="portfolio-section-title">Links</h2>
+    <div className="portfolio-links-scroll">
       <ul className="portfolio-links">
         {items.map((item) => (
-          <li key={`${item.label}:${item.href}`}>
+          <li key={item.key}>
             <a
               className="portfolio-link"
+              data-link-kind={item.kind}
               href={item.href}
               rel="noopener noreferrer"
               target="_blank"
+              aria-label={item.label}
             >
-              {item.label}
+              <PortfolioLinkIcon kind={item.kind} className="portfolio-link-icon" />
             </a>
           </li>
         ))}
       </ul>
-    </section>
+    </div>
   );
 }

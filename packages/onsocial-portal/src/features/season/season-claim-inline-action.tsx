@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { Gift } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
@@ -13,6 +14,7 @@ import type {
   SeasonZeroSettlementSummary,
 } from '@/features/season/season-zero-types';
 import { seasonSettlementPoolSummary } from '@/features/season/season-zero-settlement-copy';
+import { useCollectCelebration } from '@/hooks/use-collect-celebration';
 import { formatGenesisSocialBalanceDisplay } from '@/lib/genesis-season';
 import { cn } from '@/lib/utils';
 
@@ -37,18 +39,46 @@ export function SeasonClaimInlineAction({
 }) {
   const {
     handleClaim,
+    phase,
     isButtonVisible,
     isButtonLoading,
     isCollectSettled,
     txResult,
     clearTxResult,
   } = useSeasonZeroClaimActions({ claim, onClaimed });
+  const {
+    celebration: seasonCollectCelebration,
+    triggerCelebration: triggerSeasonCollectCelebration,
+    durationSeconds: seasonCollectCelebrationDurationSeconds,
+  } = useCollectCelebration({ variant: 'inline' });
+  const celebratedRef = useRef(false);
   const amountLabel = formatGenesisSocialBalanceDisplay(claim.amountYocto);
   const ariaLabel = seasonCollectAriaLabel(amountLabel);
   const showRallyCollectRow =
     variant === 'rally' && (isButtonVisible || Boolean(settlement));
+  const showProfileCollect =
+    variant === 'profile' &&
+    (isButtonVisible ||
+      phase === 'confirming' ||
+      Boolean(seasonCollectCelebration));
 
-  if (isCollectSettled) {
+  useEffect(() => {
+    celebratedRef.current = false;
+  }, [claim.accountId, claim.seasonId]);
+
+  useEffect(() => {
+    if (
+      variant !== 'profile' ||
+      phase !== 'succeeded' ||
+      celebratedRef.current
+    ) {
+      return;
+    }
+    celebratedRef.current = true;
+    triggerSeasonCollectCelebration(amountLabel);
+  }, [amountLabel, phase, triggerSeasonCollectCelebration, variant]);
+
+  if (isCollectSettled && !seasonCollectCelebration) {
     return (
       <TransactionFeedbackToast result={txResult} onClose={clearTxResult} />
     );
@@ -58,7 +88,10 @@ export function SeasonClaimInlineAction({
     variant === 'profile' ? (
       <ProfileSocialCollectPill
         amountLabel={amountLabel}
+        kind="season"
         pending={isButtonLoading}
+        celebration={seasonCollectCelebration}
+        celebrationDurationSeconds={seasonCollectCelebrationDurationSeconds}
         ariaLabel={ariaLabel}
         onClick={() => void handleClaim()}
         className={className}
@@ -97,7 +130,7 @@ export function SeasonClaimInlineAction({
             ) : null}
           </div>
         </div>
-      ) : isButtonVisible ? (
+      ) : showProfileCollect ? (
         button
       ) : null}
     </>

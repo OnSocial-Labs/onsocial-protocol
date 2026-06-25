@@ -581,11 +581,13 @@ export function SeasonRallyPage({
     setClaimFetchedForAccountId(undefined);
     setMyStandingFromMe(null);
     setSyncedHeroStanding(null);
+    setPulseAccountId(null);
   }, [accountId, walletLoading]);
 
   useEffect(() => {
+    if (walletLoading) return;
     void refresh();
-  }, [refresh]);
+  }, [accountId, seasonId, walletLoading, refresh]);
 
   useEffect(() => {
     const interval = window.setInterval(() => {

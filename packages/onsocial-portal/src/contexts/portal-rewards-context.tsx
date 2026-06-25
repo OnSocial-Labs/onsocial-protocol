@@ -18,10 +18,17 @@ import { formatSocialCompact } from '@/lib/leaderboard';
 import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/portal-config';
 import {
   PORTAL_REWARD_AGGREGATE_MS,
+  PORTAL_REWARD_COALESCE_MS,
   PORTAL_REWARD_MIN_CLAIM_YOCTO,
   PORTAL_REWARD_REFRESH_DELAYS_MS,
+  emptyPortalRewardActionProgress,
   compressPortalRewardToastReasons,
+  type PortalRewardActionProgress,
 } from '@/lib/portal-reward-constants';
+import {
+  confirmPortalRewardActionCredit,
+  reconcilePortalRewardActionProgress,
+} from '@/lib/portal-reward-action-ledger';
 import { onPortalRewardCredited } from '@/lib/portal-reward-events';
 import type { PortalRewardCreditEvent } from '@/lib/portal-reward-events';
 import {
@@ -31,7 +38,7 @@ import {
 } from '@/lib/transaction-toast-copy';
 import type { RewardsUserRewardsOverviewView } from '@/lib/near-rpc';
 
-interface RefreshBalanceOptions {
+interface RefreshRewardsStateOptions {
   /** When true, keep showing the current balance instead of a loading placeholder. */
   silent?: boolean;
   /** When true, bypass the server cache (e.g. after a credit lands on-chain). */
@@ -46,12 +53,21 @@ interface PortalRewardsContextValue {
   portalDailyCapYocto: bigint;
   globalDailyEarnedYocto: bigint;
   globalDailyRemainingYocto: bigint;
+  actionProgress: PortalRewardActionProgress;
   canClaim: boolean;
   remainingToClaimYocto: bigint;
   loading: boolean;
   claiming: boolean;
-  refreshBalance: (options?: RefreshBalanceOptions) => Promise<void>;
-  refreshBalanceWithRetry: (options?: RefreshBalanceOptions) => Promise<void>;
+  refreshRewardsState: (options?: RefreshRewardsStateOptions) => Promise<void>;
+  refreshRewardsStateWithRetry: (
+    options?: RefreshRewardsStateOptions
+  ) => Promise<void>;
+  /** @deprecated Use refreshRewardsState */
+  refreshBalance: (options?: RefreshRewardsStateOptions) => Promise<void>;
+  /** @deprecated Use refreshRewardsStateWithRetry */
+  refreshBalanceWithRetry: (
+    options?: RefreshRewardsStateOptions
+  ) => Promise<void>;
   claimRewards: () => Promise<void>;
 }
 
@@ -77,37 +93,35 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
   const { isUpdatingStanding } = useProfile();
   const [overview, setOverview] =
     useState<RewardsUserRewardsOverviewView | null>(null);
-  const [pendingCreditYocto, setPendingCreditYocto] = useState(0n);
+  const [actionProgress, setActionProgress] =
+    useState<PortalRewardActionProgress>(emptyPortalRewardActionProgress);
   const [loading, setLoading] = useState(false);
   const [claiming, setClaiming] = useState(false);
+  /** Keeps claim bar filled until refresh settles after a successful claim. */
+  const [claimBarHoldYocto, setClaimBarHoldYocto] = useState<bigint | null>(
+    null
+  );
   const [toast, setToast] = useState<TransactionFeedback | null>(null);
   const aggregateRef = useRef<{
     total: bigint;
     events: PortalRewardCreditEvent[];
     timer: ReturnType<typeof setTimeout> | null;
   }>({ total: 0n, events: [], timer: null });
+  const actionLedgerRef = useRef<PortalRewardActionProgress>(
+    emptyPortalRewardActionProgress()
+  );
   const refreshGenerationRef = useRef(0);
-  const chainClaimableRef = useRef(0n);
   const wasUpdatingStandingRef = useRef(false);
 
-  const reconcilePendingCredit = useCallback((claimable: bigint) => {
-    const delta = claimable - chainClaimableRef.current;
-    chainClaimableRef.current = claimable;
-    if (delta <= 0n) return;
-    setPendingCreditYocto((pending) => {
-      if (pending <= 0n) return 0n;
-      return pending > delta ? pending - delta : 0n;
-    });
-  }, []);
-
-  const fetchOverview = useCallback(
+  const fetchRewardsState = useCallback(
     async (
-      options: Pick<RefreshBalanceOptions, 'fresh'> = {}
-    ): Promise<bigint> => {
+      options: Pick<RefreshRewardsStateOptions, 'fresh'> = {}
+    ): Promise<void> => {
       if (!accountId) {
         setOverview(null);
-        chainClaimableRef.current = 0n;
-        return 0n;
+        setActionProgress(emptyPortalRewardActionProgress());
+        actionLedgerRef.current = emptyPortalRewardActionProgress();
+        return;
       }
 
       const search = new URLSearchParams({ accountId });
@@ -115,12 +129,11 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
 
       const response = await fetch(
         `/api/rewards/overview?${search.toString()}`,
-        {
-          cache: 'no-store',
-        }
+        { cache: 'no-store' }
       );
       const body = (await response.json().catch(() => null)) as {
         overview?: RewardsUserRewardsOverviewView | null;
+        actions?: PortalRewardActionProgress | null;
         error?: string;
         detail?: string;
       } | null;
@@ -129,24 +142,28 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
         throw new Error(
           body?.detail ??
             body?.error ??
-            `Rewards overview failed (${response.status})`
+            `Rewards state failed (${response.status})`
         );
       }
 
-      const nextOverview = body?.overview ?? null;
-      setOverview(nextOverview);
-      const claimable = parseYocto(nextOverview?.claimable);
-      reconcilePendingCredit(claimable);
-      return claimable;
+      setOverview(body?.overview ?? null);
+      const apiActions = body?.actions ?? emptyPortalRewardActionProgress();
+      const merged = reconcilePortalRewardActionProgress(
+        actionLedgerRef.current,
+        apiActions
+      );
+      actionLedgerRef.current = merged;
+      setActionProgress(merged);
     },
-    [accountId, reconcilePendingCredit]
+    [accountId]
   );
 
-  const refreshBalance = useCallback(
-    async (options: RefreshBalanceOptions = {}) => {
+  const refreshRewardsState = useCallback(
+    async (options: RefreshRewardsStateOptions = {}) => {
       if (!accountId) {
         setOverview(null);
-        setPendingCreditYocto(0n);
+        setActionProgress(emptyPortalRewardActionProgress());
+        actionLedgerRef.current = emptyPortalRewardActionProgress();
         return;
       }
 
@@ -155,20 +172,21 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        await fetchOverview({ fresh: options.fresh });
+        await fetchRewardsState({ fresh: options.fresh });
       } catch {
         setOverview(null);
+        setActionProgress(emptyPortalRewardActionProgress());
       } finally {
         if (!options.silent) {
           setLoading(false);
         }
       }
     },
-    [accountId, fetchOverview]
+    [accountId, fetchRewardsState]
   );
 
-  const refreshBalanceWithRetry = useCallback(
-    async (options: RefreshBalanceOptions = {}) => {
+  const refreshRewardsStateWithRetry = useCallback(
+    async (options: RefreshRewardsStateOptions = {}) => {
       const generation = refreshGenerationRef.current + 1;
       refreshGenerationRef.current = generation;
 
@@ -185,10 +203,11 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
         }
 
         try {
-          await fetchOverview({ fresh: options.fresh ?? true });
+          await fetchRewardsState({ fresh: options.fresh ?? true });
         } catch {
           if (!options.silent) {
             setOverview(null);
+            setActionProgress(emptyPortalRewardActionProgress());
           }
         }
       }
@@ -197,7 +216,7 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
         setLoading(false);
       }
     },
-    [fetchOverview]
+    [fetchRewardsState]
   );
 
   const flushAggregatedRewardToast = useCallback(() => {
@@ -214,21 +233,38 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
     if (total <= 0n) return;
 
     const reasons = compressPortalRewardToastReasons(events);
+    const txHash = [...events].reverse().find((event) => event.txHash)?.txHash;
     setToast({
       type: 'success',
       msg: `+${formatSocialCompact(total.toString())} SOCIAL`,
       subtitle: reasons.length > 0 ? reasons.join(' · ') : undefined,
+      explorerHref: nearblocksTxHref(txHash),
     });
-    void refreshBalanceWithRetry({ silent: true });
-  }, [refreshBalanceWithRetry]);
+    void refreshRewardsStateWithRetry({ silent: true });
+  }, [refreshRewardsStateWithRetry]);
+
+  const scheduleAggregatedFlush = useCallback(() => {
+    if (aggregateRef.current.timer) {
+      clearTimeout(aggregateRef.current.timer);
+    }
+
+    const delay =
+      aggregateRef.current.events.length === 1
+        ? PORTAL_REWARD_COALESCE_MS
+        : PORTAL_REWARD_AGGREGATE_MS;
+
+    aggregateRef.current.timer = setTimeout(() => {
+      flushAggregatedRewardToast();
+    }, delay);
+  }, [flushAggregatedRewardToast]);
 
   useEffect(() => {
-    void refreshBalance();
-  }, [refreshBalance]);
+    void refreshRewardsState();
+  }, [refreshRewardsState]);
 
   useEffect(() => {
-    setPendingCreditYocto(0n);
-    chainClaimableRef.current = 0n;
+    actionLedgerRef.current = emptyPortalRewardActionProgress();
+    setClaimBarHoldYocto(null);
   }, [accountId]);
 
   useEffect(() => {
@@ -237,20 +273,29 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
         const amount = BigInt(event.amountYocto);
         aggregateRef.current.total += amount;
         aggregateRef.current.events.push(event);
-        setPendingCreditYocto((pending) => pending + amount);
       } catch {
         return;
       }
 
-      if (aggregateRef.current.timer) {
-        clearTimeout(aggregateRef.current.timer);
+      if (event.actions) {
+        const merged = reconcilePortalRewardActionProgress(
+          actionLedgerRef.current,
+          event.actions
+        );
+        actionLedgerRef.current = merged;
+        setActionProgress(merged);
+      } else {
+        const next = confirmPortalRewardActionCredit(
+          actionLedgerRef.current,
+          event.action
+        );
+        actionLedgerRef.current = next;
+        setActionProgress(next);
       }
 
-      aggregateRef.current.timer = setTimeout(() => {
-        flushAggregatedRewardToast();
-      }, PORTAL_REWARD_AGGREGATE_MS);
+      scheduleAggregatedFlush();
     });
-  }, [flushAggregatedRewardToast]);
+  }, [scheduleAggregatedFlush]);
 
   useEffect(() => {
     if (wasUpdatingStandingRef.current && !isUpdatingStanding) {
@@ -270,6 +315,8 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
 
   const claimRewards = useCallback(async () => {
     if (!accountId || claiming) return;
+
+    const claimableSnapshot = parseYocto(overview?.claimable);
 
     setClaiming(true);
     setToast({
@@ -305,7 +352,8 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      setPendingCreditYocto(0n);
+      setClaiming(false);
+      setClaimBarHoldYocto(claimableSnapshot);
       setToast({
         type: 'success',
         msg: txToastSuccess.rewardsCollected(
@@ -313,8 +361,10 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
         ),
         explorerHref: nearblocksTxHref(data.tx_hash),
       });
-      await refreshBalanceWithRetry({ silent: true });
+      await refreshRewardsStateWithRetry({ silent: true });
+      setClaimBarHoldYocto(null);
     } catch (error) {
+      setClaimBarHoldYocto(null);
       setToast({
         type: 'error',
         msg:
@@ -325,17 +375,14 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
     } finally {
       setClaiming(false);
     }
-  }, [accountId, claiming, refreshBalanceWithRetry]);
+  }, [accountId, claiming, overview?.claimable, refreshRewardsStateWithRetry]);
 
   const chainClaimableYocto = useMemo(
     () => parseYocto(overview?.claimable),
     [overview?.claimable]
   );
 
-  const claimableYocto = useMemo(
-    () => chainClaimableYocto + pendingCreditYocto,
-    [chainClaimableYocto, pendingCreditYocto]
-  );
+  const claimableYocto = claimBarHoldYocto ?? chainClaimableYocto;
 
   const totalEarnedYocto = useMemo(
     () => parseYocto(overview?.total_earned),
@@ -363,7 +410,10 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
     return earned + remaining;
   }, [overview?.app?.daily_earned, overview?.app?.daily_remaining]);
 
-  const canClaim = claimableYocto >= PORTAL_REWARD_MIN_CLAIM_YOCTO;
+  const canClaim =
+    claimBarHoldYocto == null &&
+    chainClaimableYocto >= PORTAL_REWARD_MIN_CLAIM_YOCTO &&
+    !claiming;
   const remainingToClaimYocto = canClaim
     ? 0n
     : PORTAL_REWARD_MIN_CLAIM_YOCTO > claimableYocto
@@ -378,15 +428,19 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
       portalDailyCapYocto,
       globalDailyEarnedYocto,
       globalDailyRemainingYocto,
+      actionProgress,
       canClaim,
       remainingToClaimYocto,
       loading,
       claiming,
-      refreshBalance,
-      refreshBalanceWithRetry,
+      refreshRewardsState,
+      refreshRewardsStateWithRetry,
+      refreshBalance: refreshRewardsState,
+      refreshBalanceWithRetry: refreshRewardsStateWithRetry,
       claimRewards,
     }),
     [
+      actionProgress,
       canClaim,
       claimableYocto,
       claiming,
@@ -396,8 +450,8 @@ export function PortalRewardsProvider({ children }: { children: ReactNode }) {
       loading,
       portalDailyCapYocto,
       portalDailyEarnedYocto,
-      refreshBalance,
-      refreshBalanceWithRetry,
+      refreshRewardsState,
+      refreshRewardsStateWithRetry,
       remainingToClaimYocto,
       totalEarnedYocto,
     ]

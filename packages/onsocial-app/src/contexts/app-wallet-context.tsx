@@ -12,6 +12,7 @@ import {
 import { NearConnector } from '@hot-labs/near-connect';
 import type { NearWalletBase } from '@hot-labs/near-connect';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
+import { bootstrapAppSocialSession } from '@/lib/app-social-session';
 
 const APP_WALLET_ACCOUNT_KEY = 'onsocial.app.wallet.accountId';
 
@@ -24,6 +25,8 @@ interface AppWalletContextType {
   accountId: string | null;
   isConnected: boolean;
   isLoading: boolean;
+  hasSocialSession: boolean;
+  isBootstrappingSession: boolean;
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
   getSigningWallet: () => Promise<SigningWallet>;
@@ -67,6 +70,8 @@ const AppWalletContext = createContext<AppWalletContextType>({
   accountId: null,
   isConnected: false,
   isLoading: true,
+  hasSocialSession: false,
+  isBootstrappingSession: false,
   connect: async () => {},
   disconnect: async () => {},
   getSigningWallet: async () => {
@@ -82,9 +87,31 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
   const [wallet, setWallet] = useState<NearWalletBase | null>(null);
   const [accountId, setAccountId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasSocialSession, setHasSocialSession] = useState(false);
+  const [isBootstrappingSession, setIsBootstrappingSession] = useState(false);
   const connectorRef = useRef<NearConnector | null>(null);
   const connectPromiseRef = useRef<Promise<void> | null>(null);
   const network = ACTIVE_NEAR_NETWORK;
+
+  const ensureSocialSession = useCallback(
+    async (nextAccountId: string) => {
+      const connector = connectorRef.current;
+      if (!connector) return;
+
+      setIsBootstrappingSession(true);
+      try {
+        const ready = await bootstrapAppSocialSession(nextAccountId, (options) =>
+          connector.connect(options)
+        );
+        setHasSocialSession(ready);
+      } catch {
+        setHasSocialSession(false);
+      } finally {
+        setIsBootstrappingSession(false);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     const connector = new NearConnector({
@@ -102,11 +129,17 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
       setWallet(nextAccountId ? event.wallet : null);
       setAccountId(nextAccountId);
       writeStoredWalletAccountId(nextAccountId);
+      if (nextAccountId) {
+        void ensureSocialSession(nextAccountId);
+      } else {
+        setHasSocialSession(false);
+      }
     });
 
     connector.on('wallet:signOut', () => {
       setWallet(null);
       setAccountId(null);
+      setHasSocialSession(false);
       writeStoredWalletAccountId(null);
     });
 
@@ -124,6 +157,9 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
           setWallet(nextAccountId ? connectedWallet : null);
           setAccountId(nextAccountId);
           writeStoredWalletAccountId(nextAccountId);
+          if (nextAccountId) {
+            void ensureSocialSession(nextAccountId);
+          }
         }
       } catch {
         // not signed in
@@ -136,7 +172,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       connector.removeAllListeners();
     };
-  }, [network]);
+  }, [ensureSocialSession, network]);
 
   const connect = useCallback(async () => {
     const connector = connectorRef.current;
@@ -157,6 +193,9 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
         setWallet(nextAccountId ? connectedWallet : null);
         setAccountId(nextAccountId);
         writeStoredWalletAccountId(nextAccountId);
+        if (nextAccountId) {
+          await ensureSocialSession(nextAccountId);
+        }
       })
       .finally(() => {
         connectPromiseRef.current = null;
@@ -164,7 +203,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
 
     connectPromiseRef.current = connectPromise;
     await connectPromise;
-  }, [network]);
+  }, [ensureSocialSession, network]);
 
   const disconnect = useCallback(async () => {
     const connector = connectorRef.current;
@@ -172,6 +211,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
     await connector.disconnect();
     setWallet(null);
     setAccountId(null);
+    setHasSocialSession(false);
     writeStoredWalletAccountId(null);
   }, []);
 
@@ -222,6 +262,8 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
         accountId,
         isConnected: Boolean(accountId),
         isLoading,
+        hasSocialSession,
+        isBootstrappingSession,
         connect,
         disconnect,
         getSigningWallet,

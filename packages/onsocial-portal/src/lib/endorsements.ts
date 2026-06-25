@@ -460,8 +460,9 @@ export function endorsementTimestamp(
 }
 
 export function formatEndorsementTime(timestamp: number | null): string {
-  if (!timestamp) return '';
-  const diff = Math.max(0, Date.now() - timestamp);
+  const ms = normalizeEndorsementTimestamp(timestamp ?? undefined);
+  if (!ms) return '';
+  const diff = Math.max(0, Date.now() - ms);
   const min = Math.floor(diff / 60000);
   if (min < 1) return 'just now';
   if (min < 60) return `${min}m ago`;
@@ -472,7 +473,7 @@ export function formatEndorsementTime(timestamp: number | null): string {
   return new Intl.DateTimeFormat(undefined, {
     month: 'short',
     day: 'numeric',
-  }).format(new Date(timestamp));
+  }).format(new Date(ms));
 }
 
 /**

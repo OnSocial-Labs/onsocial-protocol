@@ -18,7 +18,7 @@ import {
   type PortalEndorsementsMode,
 } from '@/lib/portal-config';
 import { ProfileGraphChipLink } from '@/lib/profile-graph-link';
-import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
+import { ProtocolMotionArrow } from '@onsocial/ui';
 import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import {
   ShareEndorsement,
@@ -33,7 +33,7 @@ import { cn } from '@/lib/utils';
 export { endorsementPartyName, endorsementPartyAt };
 export type { EndorsementShareContext };
 
-/** Soft gold fade accent along the content edge. */
+/** Soft gold spine along the content edge — marks the card as an endorsement. */
 const endorsementRecordAccentClass =
   'pointer-events-none absolute bottom-1 left-0 top-1 w-px shrink-0 [background-image:var(--divider-v-gold-detail)]';
 
@@ -49,7 +49,7 @@ export const endorsementListRowClass =
 
 /** Endorsement quote — same body tone as profile page bio. */
 export const endorsementNoteClass =
-  'mt-1.5 portal-type-body leading-relaxed text-muted-foreground';
+  'mt-1.5 m-0 portal-type-body leading-relaxed text-muted-foreground';
 
 /** Endorsement attachment caps — shrink-wrap frame, no crop, responsive max height. */
 const endorsementMediaMaxHeightClass = {
@@ -279,15 +279,17 @@ function EndorsementFlowMiniAvatar({
   active,
   interactive = false,
   sizeClass = endorsementPartyAvatarClass,
+  className,
 }: {
   avatarUrl?: string | null;
   initial: string;
   active?: boolean;
   interactive?: boolean;
   sizeClass?: string;
+  className?: string;
 }) {
-  const hoverRingClass = interactive
-    ? 'transition-shadow group-hover/chip:ring-1 group-hover/chip:ring-foreground/15'
+  const hoverBorderClass = interactive
+    ? 'transition-colors group-hover/chip:border-foreground/35'
     : null;
 
   if (avatarUrl) {
@@ -299,7 +301,8 @@ function EndorsementFlowMiniAvatar({
           sizeClass,
           'shrink-0 rounded-full border object-cover',
           active ? 'border-[var(--portal-gold-border)]' : 'border-border/40',
-          hoverRingClass
+          hoverBorderClass,
+          className
         )}
       />
     );
@@ -313,7 +316,8 @@ function EndorsementFlowMiniAvatar({
         active
           ? 'border-[var(--portal-gold-border)] bg-[var(--portal-gold-bg)] text-[var(--portal-gold)]'
           : 'border-border/40 bg-muted/20 text-muted-foreground/70',
-        hoverRingClass
+        hoverBorderClass,
+        className
       )}
       aria-hidden="true"
     >
@@ -322,20 +326,7 @@ function EndorsementFlowMiniAvatar({
   );
 }
 
-const endorsementCompactPartyChipClass =
-  'inline-flex min-w-0 max-w-full items-center gap-1.5';
-
-function EndorsementCompactParty({
-  accountId,
-  name,
-  viewerAccountId,
-  avatarUrl,
-  labelOverride,
-  hideHandle = false,
-  pageLayout = false,
-  onSelectAccount,
-  className,
-}: {
+type EndorsementFlowPartyProps = {
   accountId: string;
   name?: string | null;
   viewerAccountId?: string | null;
@@ -344,8 +335,18 @@ function EndorsementCompactParty({
   hideHandle?: boolean;
   pageLayout?: boolean;
   onSelectAccount?: (accountId: string) => void;
-  className?: string;
-}) {
+};
+
+function EndorsementFlowPartyLabel({
+  accountId,
+  name,
+  viewerAccountId,
+  labelOverride,
+  hideHandle = false,
+  pageLayout = false,
+  onSelectAccount,
+  className,
+}: EndorsementFlowPartyProps & { className?: string }) {
   const isViewer = Boolean(
     viewerAccountId && accountId && accountId === viewerAccountId
   );
@@ -361,8 +362,9 @@ function EndorsementCompactParty({
     <span className="inline-flex min-w-0 max-w-full items-center gap-1 overflow-hidden">
       <span
         className={cn(
-          'shrink-0 whitespace-nowrap font-medium text-foreground/90',
-          isViewer && 'text-[var(--portal-gold-text)]'
+          'shrink-0 whitespace-nowrap font-medium text-foreground/90 transition-colors group-hover/chip:text-foreground',
+          isViewer &&
+            'text-[var(--portal-gold-text)] group-hover/chip:text-[var(--portal-gold-text)]'
         )}
       >
         {primary}
@@ -380,7 +382,7 @@ function EndorsementCompactParty({
 
   const label = isInteractive ? (
     <PortalHoverTooltip
-      className="min-w-0 max-w-full portal-type-caption sm:portal-type-body-sm"
+      className="min-w-0 max-w-full portal-type-body-sm"
       tooltip={accountId}
       aria-label={`Account ${accountId}`}
     >
@@ -388,29 +390,11 @@ function EndorsementCompactParty({
     </PortalHoverTooltip>
   ) : (
     <span
-      className="min-w-0 max-w-full portal-type-caption sm:portal-type-body-sm"
+      className="min-w-0 max-w-full portal-type-body-sm"
       aria-label={`Account ${accountId}`}
     >
       {labelBody}
     </span>
-  );
-
-  const chipContent = (
-    <>
-      <EndorsementFlowMiniAvatar
-        avatarUrl={avatarUrl}
-        initial={partyInitial(accountId, name, labelOverride)}
-        active={isViewer}
-        sizeClass={endorsementCompactAvatarClass}
-      />
-      {label}
-    </>
-  );
-
-  const chipClass = cn(
-    endorsementCompactPartyChipClass,
-    'min-w-0 max-w-full',
-    className
   );
 
   if (isInteractive) {
@@ -425,21 +409,70 @@ function EndorsementCompactParty({
         onPointerDown={(event) => {
           event.stopPropagation();
         }}
-        className={chipClass}
+        className={cn('min-w-0 shrink', className)}
       >
-        <span className="sr-only">{`Open profile for ${accountId}`}</span>
-        {chipContent}
+        {label}
       </ProfileGraphChipLink>
     );
   }
 
-  return <span className={chipClass}>{chipContent}</span>;
+  return <span className={cn('min-w-0 shrink', className)}>{label}</span>;
 }
 
-const endorsementAttributionPartyClass =
-  'min-w-0 max-w-[calc(50%-0.75rem)] shrink';
+function EndorsementFlowPartyAvatar({
+  accountId,
+  name,
+  viewerAccountId,
+  avatarUrl,
+  labelOverride,
+  pageLayout = false,
+  onSelectAccount,
+  avatarClassName,
+  className,
+}: EndorsementFlowPartyProps & {
+  avatarClassName?: string;
+  className?: string;
+}) {
+  const isViewer = Boolean(
+    viewerAccountId && accountId && accountId === viewerAccountId
+  );
+  const isInteractive = Boolean(accountId && (pageLayout || onSelectAccount));
 
-/** Compact who → who strip — chips hug the arrow; cap at half width when long. */
+  const avatar = (
+    <EndorsementFlowMiniAvatar
+      avatarUrl={avatarUrl}
+      initial={partyInitial(accountId, name, labelOverride)}
+      active={isViewer}
+      sizeClass={endorsementCompactAvatarClass}
+      interactive={isInteractive}
+      className={avatarClassName}
+    />
+  );
+
+  if (isInteractive) {
+    return (
+      <ProfileGraphChipLink
+        accountId={accountId}
+        pageLayout={pageLayout}
+        onNavigate={onSelectAccount}
+        onClick={(event) => {
+          event.stopPropagation();
+        }}
+        onPointerDown={(event) => {
+          event.stopPropagation();
+        }}
+        ariaLabel={`Open profile for ${accountId}`}
+        className={cn('group/chip shrink-0', className)}
+      >
+        {avatar}
+      </ProfileGraphChipLink>
+    );
+  }
+
+  return <span className={cn('shrink-0', className)}>{avatar}</span>;
+}
+
+/** Compact who → who strip — overlapping avatar pair, names inline through ↗. */
 export function EndorsementContextStrip({
   issuer,
   target,
@@ -449,7 +482,6 @@ export function EndorsementContextStrip({
   targetAvatarUrl,
   viewerAccountId,
   issuerLabelOverride,
-  hideIssuerHandle = false,
   pageLayout = false,
   onSelectAccount,
   trailing,
@@ -464,6 +496,7 @@ export function EndorsementContextStrip({
   targetAvatarUrl?: string | null;
   viewerAccountId?: string | null;
   issuerLabelOverride?: string;
+  /** Accepted for API parity; the compact strip always hides handles. */
   hideIssuerHandle?: boolean;
   pageLayout?: boolean;
   onSelectAccount?: (accountId: string) => void;
@@ -482,28 +515,52 @@ export function EndorsementContextStrip({
 
   return (
     <div className={cn('w-full min-w-0', className)} aria-label={ariaLabel}>
-      <div className="flex w-full min-w-0 items-center gap-x-1 overflow-hidden sm:gap-x-1.5">
-        <EndorsementCompactParty
-          accountId={issuer}
-          name={issuerName}
-          viewerAccountId={viewerAccountId}
-          avatarUrl={issuerAvatarUrl}
-          labelOverride={issuerLabelOverride}
-          hideHandle={hideIssuerHandle}
-          pageLayout={pageLayout}
-          onSelectAccount={onSelectAccount}
-          className={endorsementAttributionPartyClass}
-        />
-        <ProtocolMotionArrow className="h-3 w-3 shrink-0 text-[var(--portal-gold)]/80" />
-        <EndorsementCompactParty
-          accountId={target}
-          name={targetName}
-          viewerAccountId={viewerAccountId}
-          avatarUrl={targetAvatarUrl}
-          pageLayout={pageLayout}
-          onSelectAccount={onSelectAccount}
-          className={endorsementAttributionPartyClass}
-        />
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="flex shrink-0 items-center overflow-visible">
+          <EndorsementFlowPartyAvatar
+            accountId={issuer}
+            name={issuerName}
+            viewerAccountId={viewerAccountId}
+            avatarUrl={issuerAvatarUrl}
+            labelOverride={issuerLabelOverride}
+            pageLayout={pageLayout}
+            onSelectAccount={onSelectAccount}
+            avatarClassName="border border-background"
+          />
+          <EndorsementFlowPartyAvatar
+            accountId={target}
+            name={targetName}
+            viewerAccountId={viewerAccountId}
+            avatarUrl={targetAvatarUrl}
+            pageLayout={pageLayout}
+            onSelectAccount={onSelectAccount}
+            className="-ml-1.5"
+            avatarClassName="border border-background"
+          />
+        </span>
+        <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+          <EndorsementFlowPartyLabel
+            accountId={issuer}
+            name={issuerName}
+            viewerAccountId={viewerAccountId}
+            labelOverride={issuerLabelOverride}
+            hideHandle
+            pageLayout={pageLayout}
+            onSelectAccount={onSelectAccount}
+          />
+          <ProtocolMotionArrow
+            static
+            className="h-2.5 w-2.5 shrink-0 text-[var(--portal-gold)]/70 transition-transform duration-200 motion-reduce:transform-none group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+          />
+          <EndorsementFlowPartyLabel
+            accountId={target}
+            name={targetName}
+            viewerAccountId={viewerAccountId}
+            hideHandle
+            pageLayout={pageLayout}
+            onSelectAccount={onSelectAccount}
+          />
+        </span>
       </div>
       {trailing ? (
         <div className="mt-1.5 flex justify-end">{trailing}</div>
@@ -646,10 +703,9 @@ export function EndorsementRecord({
   const resolvedMediaSize = focused ? 'page' : mediaSize;
   const resolvedNoteClamp = focused ? undefined : noteClamp;
   const hasMedia = Boolean(trimmedMediaUrl);
-  const focusedAttributionClassName =
-    hasMedia || trimmedNote ? 'mt-2' : 'mt-1.5';
-  const listAttributionClassName =
-    !trimmedNote && !trimmedMediaUrl ? 'mt-1.5' : undefined;
+  const hasBodyContent = Boolean(trimmedNote || trimmedMediaUrl);
+  const focusedAttributionClassName = hasBodyContent ? 'mt-2.5' : undefined;
+  const listAttributionClassName = hasBodyContent ? 'mt-2.5' : undefined;
 
   const headerRow = (
     <div className="flex items-start justify-between gap-2">
@@ -701,40 +757,58 @@ export function EndorsementRecord({
         />
       ) : null}
 
-      <EndorsementFlowAttribution
-        issuer={issuer}
-        target={target}
-        issuerName={issuerName}
-        targetName={targetName}
-        issuerAvatarUrl={issuerAvatarUrl}
-        targetAvatarUrl={targetAvatarUrl}
-        viewerAccountId={viewerAccountId}
-        issuerLabelOverride={issuerLabelOverride}
-        hideIssuerHandle={hideIssuerHandle}
-        pageLayout={pageLayout}
-        onSelectAccount={onSelectAccount}
-        trailing={attributionTrailing}
-        className={
+      <div
+        className={cn(
+          'flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3',
           focused ? focusedAttributionClassName : listAttributionClassName
-        }
-      />
-
-      {shareContext ? (
-        <ShareEndorsement
-          {...shareContext}
-          leading={footerTrailing}
-          laneAligned={focused}
+        )}
+      >
+        <EndorsementContextStrip
+          issuer={issuer}
+          target={target}
+          issuerName={issuerName}
+          targetName={targetName}
+          issuerAvatarUrl={issuerAvatarUrl}
+          targetAvatarUrl={targetAvatarUrl}
+          viewerAccountId={viewerAccountId}
+          issuerLabelOverride={issuerLabelOverride}
+          hideIssuerHandle={hideIssuerHandle}
+          pageLayout={pageLayout}
+          onSelectAccount={onSelectAccount}
+          className="min-w-0 flex-1"
         />
-      ) : footerTrailing ? (
-        <div
-          className={cn(
-            'mt-2 flex items-center justify-end gap-2.5 border-t border-border/40 pt-2.5',
-            !focused && 'pl-2.5'
-          )}
-        >
-          {footerTrailing}
-        </div>
-      ) : null}
+        {shareContext || attributionTrailing || footerTrailing ? (
+          <>
+            <span
+              aria-hidden="true"
+              className="hidden h-4 w-px shrink-0 self-center [background-image:var(--divider-v-gold-detail)] sm:block"
+            />
+            {shareContext ? (
+              <ShareEndorsement
+                {...shareContext}
+                embedded
+                leading={
+                  attributionTrailing || footerTrailing ? (
+                    <>
+                      {attributionTrailing}
+                      {footerTrailing}
+                    </>
+                  ) : undefined
+                }
+              />
+            ) : (
+              <div
+                className="flex w-full items-center justify-end gap-2.5 sm:w-auto"
+                onClick={(event) => event.stopPropagation()}
+                onPointerDown={(event) => event.stopPropagation()}
+              >
+                {attributionTrailing}
+                {footerTrailing}
+              </div>
+            )}
+          </>
+        ) : null}
+      </div>
     </>
   );
 

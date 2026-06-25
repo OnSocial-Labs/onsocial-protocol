@@ -658,6 +658,7 @@ dataRouter.get('/page', async (req: Request, res: Response) => {
     'profile/name',
     'profile/bio',
     'profile/avatar',
+    'profile/banner',
     'profile/links',
     'profile/tags',
     'page/main',
@@ -704,6 +705,7 @@ dataRouter.get('/page', async (req: Request, res: Response) => {
       name: kv['profile/name'] as string | undefined,
       bio: kv['profile/bio'] as string | undefined,
       avatar: kv['profile/avatar'] as string | undefined,
+      banner: kv['profile/banner'] as string | undefined,
       links: parseJson(kv['profile/links']) as
         | Array<{ label: string; url: string }>
         | undefined,

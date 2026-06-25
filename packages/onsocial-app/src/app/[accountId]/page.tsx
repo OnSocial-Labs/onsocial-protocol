@@ -1,18 +1,27 @@
 import type { Metadata } from 'next';
 import { resolvePortfolioMood } from '@/lib/moods/resolve';
 import { displayName } from '@/lib/profile-display';
-import { fetchPublicPageData } from '@/lib/page-data';
+import { fetchPublicPageData, resolvePageAvatarMode } from '@/lib/page-data';
 import { resolveAccountId, resolveAccountPage } from '@/lib/resolve-account';
+import { loadProfileShell } from '@/lib/profile-shell';
+import { fetchProfileSignals } from '@/lib/profile-signals';
+import { PortfolioActivateStrip } from '@/components/portfolio/portfolio-activate-strip';
 import { PortfolioIdentity } from '@/components/portfolio/portfolio-identity';
 import { PortfolioLinks } from '@/components/portfolio/portfolio-links';
-import { PortfolioOverview } from '@/components/portfolio/portfolio-overview';
-import { PortfolioShell } from '@/components/portfolio/portfolio-shell';
-import { PortfolioStats } from '@/components/portfolio/portfolio-stats';
+import { PortfolioShellRoot } from '@/components/portfolio/portfolio-shell-root';
+import { PortfolioSignals } from '@/components/portfolio/portfolio-signals';
+import { PortfolioStatsRow } from '@/components/portfolio/portfolio-stats-row';
 import { PortfolioTags } from '@/components/portfolio/portfolio-tags';
+
+export const dynamic = 'force-dynamic';
 
 type AccountPageProps = {
   params: Promise<{
     accountId: string;
+  }>;
+  searchParams?: Promise<{
+    avatar?: string | string[];
+    avatarMode?: string | string[];
   }>;
 };
 
@@ -20,11 +29,14 @@ export async function generateMetadata({
   params,
 }: AccountPageProps): Promise<Metadata> {
   const accountId = await resolveAccountId(params);
-  const data = await fetchPublicPageData(accountId);
-  const titleLabel = displayName(accountId, data?.profile.name);
+  const [shell, data] = await Promise.all([
+    loadProfileShell(accountId),
+    fetchPublicPageData(accountId),
+  ]);
+  const titleLabel = displayName(accountId, shell?.name ?? undefined);
   const description =
     data?.config.tagline?.trim() ||
-    data?.profile.bio?.trim() ||
+    shell?.bio?.trim() ||
     `Public page for ${accountId}.`;
 
   return {
@@ -39,31 +51,55 @@ export async function generateMetadata({
   };
 }
 
-export default async function AccountPage({ params }: AccountPageProps) {
+export default async function AccountPage({
+  params,
+  searchParams,
+}: AccountPageProps) {
   const { accountId, data } = await resolveAccountPage(params);
   const tagline = data.config.tagline?.trim();
   const mood = resolvePortfolioMood(data.config);
+  const search = await searchParams;
+  const committedAvatarMode = resolvePageAvatarMode(data.config, null);
+  const avatarMode = resolvePageAvatarMode(
+    data.config,
+    search?.avatarMode ?? search?.avatar ?? null
+  );
+  const [shell, signals] = await Promise.all([
+    loadProfileShell(accountId),
+    fetchProfileSignals(accountId),
+  ]);
 
   return (
-    <PortfolioShell
+    <PortfolioShellRoot
       mood={mood}
       pageAccountId={accountId}
-      activated={Boolean(data.activated)}
+      avatarMedia={shell?.avatarMedia ?? null}
+      bannerMedia={shell?.bannerMedia ?? null}
+      committedAvatarMode={committedAvatarMode}
+      initialAvatarMode={avatarMode}
+      config={data.config}
     >
       <PortfolioIdentity
         accountId={accountId}
-        profileName={data.profile.name}
-        bio={data.profile.bio}
+        profileName={shell?.name}
+        bio={shell?.bio}
         tagline={tagline}
-        avatar={data.profile.avatar}
-        activated={data.activated}
+        avatarUrl={shell?.avatarUrl}
         mood={mood}
       />
 
-      <PortfolioStats stats={data.stats} />
-      <PortfolioOverview accountId={accountId} data={data} />
-      <PortfolioLinks links={data.profile.links} />
-      <PortfolioTags tags={data.profile.tags} />
-    </PortfolioShell>
+      <PortfolioActivateStrip
+        pageAccountId={accountId}
+        activated={Boolean(data.activated)}
+      />
+
+      {signals ? (
+        <PortfolioSignals accountId={accountId} signals={signals} />
+      ) : (
+        <PortfolioStatsRow accountId={accountId} stats={data.stats} />
+      )}
+      <PortfolioLinks links={shell?.links} />
+      <PortfolioTags tags={shell?.tags ?? []} />
+    </PortfolioShellRoot>
   );
 }

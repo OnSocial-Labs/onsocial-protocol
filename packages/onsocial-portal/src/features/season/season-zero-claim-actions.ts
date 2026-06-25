@@ -142,7 +142,7 @@ export function useSeasonZeroClaimActions({
   }, [derivedClaim?.claimed]);
 
   const isButtonVisible = phase === 'idle' || phase === 'signing';
-  const isButtonLoading = phase === 'signing';
+  const isButtonLoading = phase === 'signing' || phase === 'confirming';
 
   return {
     handleClaim,

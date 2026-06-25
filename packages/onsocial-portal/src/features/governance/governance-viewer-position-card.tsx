@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { compactModalSectionLabelClass } from '@/components/ui/floating-panel';
 import { PortalBadge } from '@/components/ui/portal-badge';
-import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
+import { ProtocolMotionArrow } from '@onsocial/ui';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   formatDaoRoleDisplayName,

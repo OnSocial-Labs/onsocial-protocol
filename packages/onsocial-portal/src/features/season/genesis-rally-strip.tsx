@@ -16,7 +16,7 @@ import { useSeasonParticipation } from '@/contexts/season-participation-context'
 
 import { Button } from '@/components/ui/button';
 import { PortalConnectPrompt } from '@/components/ui/portal-connect-prompt';
-import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
+import { ProtocolMotionArrow } from '@onsocial/ui';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
@@ -332,6 +332,12 @@ export function GenesisRallyStrip({
     onMyStandingChange?.(myStanding);
   }, [myStanding, onMyStandingChange, variant]);
 
+  useEffect(() => {
+    setApiJoined(false);
+    setFetchedMyStanding(null);
+    setBalanceRefreshKey((key) => key + 1);
+  }, [accountId, seasonId]);
+
   const registryEntry =
     registry?.seasons.find((entry) => entry.seasonId === seasonId) ?? null;
   const seasonPresentation = useMemo(
@@ -405,6 +411,9 @@ export function GenesisRallyStrip({
       if (myStandingProp) {
         setApiJoined(true);
         reconcileSeasonJoinFromApi(seasonId, true);
+      } else {
+        setApiJoined(false);
+        reconcileSeasonJoinFromApi(seasonId, false);
       }
       setLoading(false);
       return;
@@ -579,7 +588,8 @@ export function GenesisRallyStrip({
           seasonPresentation.pageTitle
         ),
         successMessage: txToastSuccess.joinedRally(
-          seasonPresentation.pageTitle
+          seasonPresentation.pageTitle,
+          seasonPresentation.profileBadgeLabel
         ),
         failureMessage: txToastError.joinRallyFailed,
       });

@@ -1,20 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
-import { loadPortalRewardsOverview } from '@/lib/portal-rewards-overview-server';
+import {
+  loadPortalRewardsState,
+  type PortalRewardsState,
+} from '@/lib/portal-rewards-state-server';
 import {
   createPortalRequestCache,
   isRateLimitError,
 } from '@/lib/portal-request-cache';
-import type { RewardsUserRewardsOverviewView } from '@/lib/near-rpc';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const OVERVIEW_CACHE_TTL_MS = 15_000;
-const overviewCache =
-  createPortalRequestCache<RewardsUserRewardsOverviewView | null>(
-    OVERVIEW_CACHE_TTL_MS
-  );
+const REWARDS_STATE_CACHE_TTL_MS = 15_000;
+const rewardsStateCache = createPortalRequestCache<PortalRewardsState>(
+  REWARDS_STATE_CACHE_TTL_MS
+);
 
 const ACCOUNT_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{1,63}$/;
 
@@ -33,7 +34,7 @@ function wantsFresh(request: NextRequest): boolean {
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === 'string') return error;
-  return 'Rewards overview query failed';
+  return 'Rewards state query failed';
 }
 
 export async function GET(request: NextRequest) {
@@ -47,14 +48,18 @@ export async function GET(request: NextRequest) {
 
   try {
     const os = createPortalServerOnSocialClient();
-    const overview = wantsFresh(request)
-      ? await loadPortalRewardsOverview(os, accountId)
-      : await overviewCache.getOrLoad(accountId, () =>
-          loadPortalRewardsOverview(os, accountId)
+    const state = wantsFresh(request)
+      ? await loadPortalRewardsState(os, accountId)
+      : await rewardsStateCache.getOrLoad(accountId, () =>
+          loadPortalRewardsState(os, accountId)
         );
 
     return NextResponse.json(
-      { overview },
+      {
+        overview: state.overview,
+        actions: state.actions,
+        actionsAvailable: state.actionsAvailable,
+      },
       {
         headers: {
           'Cache-Control': 'private, max-age=15, stale-while-revalidate=30',
@@ -68,7 +73,7 @@ export async function GET(request: NextRequest) {
       {
         error: isRateLimitError(error)
           ? 'Rewards lookup is busy — try again shortly'
-          : 'Rewards overview query failed',
+          : 'Rewards state query failed',
         detail,
       },
       { status: isRateLimitError(error) ? 429 : 502 }

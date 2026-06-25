@@ -2,23 +2,115 @@
 
 import {
   formatCompactBytes,
+  formatPlatformBufferRatioAriaLabel,
+  formatPlatformBufferRatioLabel,
   PLATFORM_STORAGE_INACTIVE_HINT,
   PLATFORM_STORAGE_LABEL,
+  PLATFORM_STORAGE_MENU_LABEL,
   PLATFORM_STORAGE_REFILL_HINT,
   type PlatformStorageSummary,
 } from '@/lib/platform-storage-display';
+import {
+  walletMenuMetricCaptionSlotClass,
+  walletMenuMetricRatioSlotClass,
+  walletMenuMetricRowClass,
+  walletMenuProgressTrackSlotClass,
+  walletMenuStorageLabelClass,
+  walletMenuStorageStripClass,
+} from '@/components/ui/floating-panel';
 import { ModalFactRow } from '@/components/ui/modal-fact-list';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { StorageManageButton } from '@/components/storage-manage-button';
+import type { ReactNode } from 'react';
 
-function AllowanceProgressBar({
+function WalletStorageMetaRow({
+  children,
+  onOpenManage,
+  manageHighlighted,
+}: {
+  children: ReactNode;
+  onOpenManage?: () => void;
+  manageHighlighted?: boolean;
+}) {
+  return (
+    <div className="flex min-h-6 items-center gap-1.5">
+      <div className="min-w-0 flex-1">{children}</div>
+      {onOpenManage ? (
+        <StorageManageButton
+          highlighted={manageHighlighted}
+          onClick={onOpenManage}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+export function AllowanceProgressBar({
   summary,
+  compact = false,
 }: {
   summary: PlatformStorageSummary;
+  compact?: boolean;
 }) {
   const low = summary.availablePercent <= 25 && summary.availableBytes > 0;
   const empty = summary.availableBytes === 0;
   const fill =
     summary.availableBytes > 0 ? Math.max(summary.availablePercent, 4) : 0;
+  const ratioLabel = formatPlatformBufferRatioLabel(
+    summary.availableBytes,
+    summary.maxBufferBytes
+  );
+  const ratioAriaLabel = formatPlatformBufferRatioAriaLabel(
+    summary.availableBytes,
+    summary.maxBufferBytes
+  );
+
+  if (compact) {
+    return (
+      <div className="space-y-0.5">
+        <div
+          className="flex min-h-4 items-center gap-1.5"
+          role="progressbar"
+          aria-valuenow={summary.availableBytes}
+          aria-valuemin={0}
+          aria-valuemax={summary.maxBufferBytes}
+          aria-label={ratioAriaLabel}
+        >
+          <span className={walletMenuStorageLabelClass}>
+            {PLATFORM_STORAGE_LABEL}
+          </span>
+          <div className={walletMenuProgressTrackSlotClass}>
+            <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--portal-slate-bg)]">
+              <div
+                className={cn(
+                  'h-full rounded-full transition-[width] duration-300',
+                  empty
+                    ? 'bg-muted-foreground/25'
+                    : low
+                      ? 'bg-[var(--portal-amber)]'
+                      : 'bg-[var(--portal-blue)]'
+                )}
+                style={{ width: `${fill}%` }}
+              />
+            </div>
+          </div>
+          <span
+            className={cn(
+              walletMenuMetricRatioSlotClass,
+              empty || summary.phase === 'exhausted'
+                ? 'text-[var(--portal-amber)]'
+                : low
+                  ? 'text-[var(--portal-amber)]/85'
+                  : 'text-muted-foreground/50'
+            )}
+          >
+            {ratioLabel}
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -177,14 +269,63 @@ export function WalletPlatformStorageStrip({
   loading,
   error,
   summary,
+  onOpenManage,
+  manageHighlighted = false,
 }: {
   compact?: boolean;
   hideLabel?: boolean;
   loading: boolean;
   error: string | null;
   summary: PlatformStorageSummary | null;
+  onOpenManage?: () => void;
+  manageHighlighted?: boolean;
 }) {
+  const stableFootprint = compact && !hideLabel;
+  const rowLabel = stableFootprint
+    ? PLATFORM_STORAGE_MENU_LABEL
+    : PLATFORM_STORAGE_LABEL;
+
   if (loading) {
+    if (stableFootprint) {
+      return (
+        <div
+          className={walletMenuStorageStripClass}
+          role="status"
+          aria-busy="true"
+          aria-label="Loading buffer"
+        >
+          <div className={walletMenuMetricRowClass}>
+            <Skeleton
+              className={cn(
+                walletMenuStorageLabelClass,
+                'h-3 w-20 rounded bg-foreground/[0.06]'
+              )}
+              aria-hidden
+            />
+            <div className={walletMenuProgressTrackSlotClass} aria-hidden>
+              <Skeleton className="h-1 w-full rounded-full bg-foreground/[0.06]" />
+            </div>
+            <Skeleton
+              className={cn(
+                walletMenuMetricRatioSlotClass,
+                'h-3 rounded bg-foreground/[0.06]'
+              )}
+              aria-hidden
+            />
+          </div>
+          <WalletStorageMetaRow onOpenManage={onOpenManage}>
+            <Skeleton
+              className={cn(
+                walletMenuMetricCaptionSlotClass,
+                'w-4/5 rounded bg-foreground/[0.05]'
+              )}
+              aria-hidden
+            />
+          </WalletStorageMetaRow>
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-1" aria-hidden>
         <div className="flex justify-between gap-2">
@@ -196,11 +337,65 @@ export function WalletPlatformStorageStrip({
     );
   }
 
+  if (stableFootprint && (error || !summary)) {
+    return (
+      <div className={walletMenuStorageStripClass}>
+        <div className={walletMenuMetricRowClass}>
+          <span className={walletMenuStorageLabelClass}>{rowLabel}</span>
+          <span className="min-w-0 flex-1 truncate portal-type-micro text-muted-foreground/50 md:portal-type-caption">
+            {error ?? 'Unavailable'}
+          </span>
+        </div>
+        <WalletStorageMetaRow
+          onOpenManage={onOpenManage}
+          manageHighlighted={manageHighlighted}
+        >
+          <p
+            className={cn(
+              walletMenuMetricCaptionSlotClass,
+              'invisible text-muted-foreground/40'
+            )}
+            aria-hidden
+          >
+            {'\u00a0'}
+          </p>
+        </WalletStorageMetaRow>
+      </div>
+    );
+  }
+
   if (error || !summary) {
     return null;
   }
 
   if (summary.phase === 'inactive') {
+    if (stableFootprint) {
+      return (
+        <div className={walletMenuStorageStripClass}>
+          <div className={walletMenuMetricRowClass}>
+            <span className={walletMenuStorageLabelClass}>{rowLabel}</span>
+            <span className="min-w-0 flex-1 truncate portal-type-micro text-muted-foreground/50 md:portal-type-caption">
+              activates on first save
+            </span>
+          </div>
+          <WalletStorageMetaRow
+            onOpenManage={onOpenManage}
+            manageHighlighted={manageHighlighted}
+          >
+            <p
+              className={cn(
+                walletMenuMetricCaptionSlotClass,
+                'invisible text-muted-foreground/40'
+              )}
+              aria-hidden
+            >
+              {'\u00a0'}
+            </p>
+          </WalletStorageMetaRow>
+        </div>
+      );
+    }
+
     return (
       <p
         className={cn(
@@ -219,10 +414,74 @@ export function WalletPlatformStorageStrip({
   const empty = summary.availableBytes === 0;
   const fill =
     summary.availableBytes > 0 ? Math.max(summary.availablePercent, 3) : 0;
-  const ratioLabel = `${formatCompactBytes(summary.availableBytes)} / ${formatCompactBytes(summary.maxBufferBytes)}`;
+  const ratioLabel = formatPlatformBufferRatioLabel(
+    summary.availableBytes,
+    summary.maxBufferBytes
+  );
+  const ratioAriaLabel = formatPlatformBufferRatioAriaLabel(
+    summary.availableBytes,
+    summary.maxBufferBytes
+  );
   const metaLabel = `${formatCompactBytes(summary.storedBytes)} stored · +${formatCompactBytes(summary.dailyRefillBytes)}/day`;
 
   if (compact) {
+    if (stableFootprint) {
+      return (
+        <div className={walletMenuStorageStripClass}>
+          <div className={walletMenuMetricRowClass}>
+            <span className={walletMenuStorageLabelClass}>{rowLabel}</span>
+            <div
+              className={walletMenuProgressTrackSlotClass}
+              role="progressbar"
+              aria-valuenow={summary.availableBytes}
+              aria-valuemin={0}
+              aria-valuemax={summary.maxBufferBytes}
+              aria-label={ratioAriaLabel}
+            >
+              <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--portal-slate-bg)]">
+                <div
+                  className={cn(
+                    'h-full rounded-full transition-[width] duration-300',
+                    empty
+                      ? 'bg-muted-foreground/25'
+                      : low
+                        ? 'bg-[var(--portal-amber)]'
+                        : 'bg-[var(--portal-blue)]'
+                  )}
+                  style={{ width: `${fill}%` }}
+                />
+              </div>
+            </div>
+            <span
+              className={cn(
+                walletMenuMetricRatioSlotClass,
+                empty || summary.phase === 'exhausted'
+                  ? 'text-[var(--portal-amber)]'
+                  : low
+                    ? 'text-[var(--portal-amber)]/85'
+                    : 'text-muted-foreground/50'
+              )}
+            >
+              {ratioLabel}
+            </span>
+          </div>
+          <WalletStorageMetaRow
+            onOpenManage={onOpenManage}
+            manageHighlighted={manageHighlighted}
+          >
+            <p
+              className={cn(
+                walletMenuMetricCaptionSlotClass,
+                'text-muted-foreground/40'
+              )}
+            >
+              {metaLabel}
+            </p>
+          </WalletStorageMetaRow>
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-0.5">
         <div className="flex items-center gap-1.5">
@@ -237,7 +496,7 @@ export function WalletPlatformStorageStrip({
             aria-valuenow={summary.availableBytes}
             aria-valuemin={0}
             aria-valuemax={summary.maxBufferBytes}
-            aria-label={`${ratioLabel} platform storage buffer available`}
+            aria-label={ratioAriaLabel}
           >
             <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--portal-slate-bg)]">
               <div
@@ -299,7 +558,7 @@ export function WalletPlatformStorageStrip({
         aria-valuenow={summary.availableBytes}
         aria-valuemin={0}
         aria-valuemax={summary.maxBufferBytes}
-        aria-label={`${ratioLabel} platform storage buffer available`}
+        aria-label={ratioAriaLabel}
       >
         <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--portal-slate-bg)]">
           <div

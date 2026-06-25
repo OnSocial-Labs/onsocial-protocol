@@ -259,6 +259,9 @@ export type {
 export { PagesModule } from './modules/pages.js';
 export {
   BUILT_IN_PAGE_MOOD_IDS,
+  MOOD_FONT_STACKS,
+  MOOD_PAGE_TYPOGRAPHY,
+  PAGE_MOOD_PICKER_SECTIONS,
   PAGE_MOOD_PRESETS,
   buildPageMoodPatch,
   isBuiltInPageMoodId,
@@ -266,13 +269,17 @@ export {
   mergePageMoodTheme,
   moodSurfaceFromAccent,
   moodThemeFromPreset,
+  moodTypographyToCssVars,
   normalizePageMoodId,
   pageMoodPresetForId,
+  pageMoodPreviewCssVars,
+  pageMoodTypographyFor,
 } from './modules/pages/moods.js';
 export type {
   BuiltInPageMoodId,
   PageMoodPreset,
   PageMoodThemeTokens,
+  PageMoodTypography,
 } from './modules/pages/moods.js';
 export { StandingsModule } from './modules/standings.js';
 export {
@@ -285,6 +292,18 @@ export {
 } from './modules/storage-account.js';
 export { NEAR, nearMath, type NearAmount } from './near-amount.js';
 export { PROTOCOL_COLORS, type ProtocolColorKey } from './protocol-colors.js';
+export {
+  MOOD_SIGNAL_PROTOCOL_WEIGHT,
+  PROTOCOL_SIGNAL_COLORS,
+  blendProtocolSignalWithMood,
+  moodSignalTokensToCssVars,
+  pageMoodSignalsFor,
+  parseColorToRgb,
+} from './mood-signals.js';
+export type {
+  PageMoodSignalTokenKey,
+  PageMoodSignalTokens,
+} from './mood-signals.js';
 export {
   StorageAccountError,
   InsufficientStorageBalanceError,

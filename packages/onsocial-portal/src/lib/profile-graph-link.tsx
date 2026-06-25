@@ -122,6 +122,7 @@ export function ProfileGraphChipLink({
   children,
   onPointerDown,
   onClick,
+  ariaLabel,
 }: {
   accountId: string;
   pageLayout?: boolean;
@@ -130,6 +131,7 @@ export function ProfileGraphChipLink({
   children: ReactNode;
   onPointerDown?: (event: MouseEvent) => void;
   onClick?: (event: MouseEvent) => void;
+  ariaLabel?: string;
 }) {
   if (pageLayout) {
     return (
@@ -138,6 +140,7 @@ export function ProfileGraphChipLink({
         prefetch
         onClick={onClick}
         onPointerDown={onPointerDown}
+        aria-label={ariaLabel}
         className={cn(profileGraphChipClass, className)}
       >
         {children}
@@ -153,6 +156,7 @@ export function ProfileGraphChipLink({
         onNavigate?.(accountId);
       }}
       onPointerDown={onPointerDown}
+      aria-label={ariaLabel}
       className={cn(profileGraphChipClass, className)}
     >
       {children}

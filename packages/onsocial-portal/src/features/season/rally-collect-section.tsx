@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Gift } from 'lucide-react';
 import { CollectCelebration } from '@/components/ui/collect-celebration';
-import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
+import { ProtocolMotionArrow } from '@onsocial/ui';
 import { Button } from '@/components/ui/button';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
 import { useSeasonParticipation } from '@/contexts/season-participation-context';

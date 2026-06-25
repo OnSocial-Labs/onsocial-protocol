@@ -14,7 +14,6 @@ import {
   profilePageMobileGutterClass,
 } from '@/lib/profile-page-layout';
 import { type PortalStandKind } from '@/lib/portal-config';
-import { type StanceDetailKind } from '@/lib/profile-social-standings';
 import { cn } from '@/lib/utils';
 
 function decodeRouteAccountId(raw: string | string[] | undefined): string {
@@ -27,14 +26,8 @@ function decodeRouteAccountId(raw: string | string[] | undefined): string {
   }
 }
 
-function parseStandKind(
-  raw: string | string[] | undefined
-): StanceDetailKind | null {
-  const value = Array.isArray(raw) ? raw[0] : raw;
-  if (value === 'incoming' || value === 'outgoing' || value === 'mutual') {
-    return value;
-  }
-  return null;
+function readInitialQuery(raw: string | undefined): string {
+  return raw?.trim() ?? '';
 }
 
 async function fetchProfileDisplayName(accountId: string): Promise<string> {
@@ -49,13 +42,9 @@ async function fetchProfileDisplayName(accountId: string): Promise<string> {
   return name || cleanHandle(accountId);
 }
 
-function readInitialQuery(raw: string | undefined): string {
-  return raw?.trim() ?? '';
-}
-
 export default function StandPage({
   accountId: accountIdParam,
-  kind: kindParam,
+  kind,
   q: qParam,
 }: {
   accountId: string;
@@ -69,7 +58,6 @@ export default function StandPage({
     () => decodeRouteAccountId(accountIdParam),
     [accountIdParam]
   );
-  const kind = useMemo(() => parseStandKind(kindParam), [kindParam]);
   const initialQuery = useMemo(() => readInitialQuery(qParam), [qParam]);
   const isSelf = Boolean(
     accountId && viewerAccountId && accountId === viewerAccountId
@@ -119,7 +107,7 @@ export default function StandPage({
     };
   }, [accountId, kind]);
 
-  if (!accountId || !kind) {
+  if (!accountId) {
     return (
       <PageShell size="standard">
         <p className="text-center text-sm text-muted-foreground">

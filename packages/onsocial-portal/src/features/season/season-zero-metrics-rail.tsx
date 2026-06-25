@@ -4,7 +4,7 @@ import type { ComponentType, ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Clock, Coins, Users } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
+import { ProtocolMotionArrow } from '@onsocial/ui';
 import { SeasonCountdownLabel } from '@/features/season/season-countdown-label';
 import {
   RallyPoolBreakdown,

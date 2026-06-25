@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { EndorsementSupportContextCard } from '@/components/endorsement-support-context-card';
 import { EndorsementSupportersList } from '@/features/profile/endorsement-supporters-list';
 import { ProfileListSearchBar } from '@/features/profile/profile-list-search-bar';
 import { ProfileListSkeletonRows } from '@/features/profile/profile-list-loading';
-import { humanizeEndorsementTopic } from '@/lib/endorsements';
+import { useProfile } from '@/contexts/profile-context';
 import { fadeMotion } from '@/lib/motion';
 import { syncPortalEndorsementSupportersUrl } from '@/lib/portal-config';
 import {
@@ -19,6 +19,7 @@ import {
   fetchEndorsementSupporters,
   type EndorsementSupporterSummary,
   type EndorsementSupportContext,
+  type EndorsementSupportPreviewSupporter,
 } from '@/lib/social-spend-endorsement';
 import { stickyRailShadowClass } from '@/lib/profile-page-layout';
 import { useNavStickyTop } from '@/hooks/use-nav-sticky-top';
@@ -28,6 +29,21 @@ function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === 'string') return error;
   return 'Could not load supporters.';
+}
+
+function derivePreviewSupporters(
+  context: EndorsementSupportContext | null,
+  supporters: EndorsementSupporterSummary[]
+): EndorsementSupportPreviewSupporter[] {
+  if (context?.previewSupporters.length) {
+    return context.previewSupporters;
+  }
+
+  return supporters.slice(0, 3).map((supporter) => ({
+    accountId: supporter.accountId,
+    avatarUrl: supporter.avatarUrl,
+    totalAmountYocto: supporter.totalAmountYocto,
+  }));
 }
 
 export function EndorsementSupportersPanel({
@@ -51,7 +67,9 @@ export function EndorsementSupportersPanel({
 }) {
   const reduceMotion = useReducedMotion();
   const stickyTop = useNavStickyTop();
+  const { supportEndorsement } = useProfile();
   const [query, setQuery] = useState(initialQuery);
+  const [refreshToken, setRefreshToken] = useState(0);
   const [context, setContext] = useState<EndorsementSupportContext | null>(
     null
   );
@@ -64,7 +82,6 @@ export function EndorsementSupportersPanel({
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const topicLabel = humanizeEndorsementTopic(topic ?? undefined) || 'General';
   const normalizedQuery = normalizeProfileSearchQuery(query);
   const serverSearchActive =
     normalizedQuery.length >= PROFILE_SEARCH_MIN_QUERY_LENGTH;
@@ -94,15 +111,23 @@ export function EndorsementSupportersPanel({
     topic,
   ]);
 
+  const reloadSupporters = useCallback(() => {
+    setRefreshToken((current) => current + 1);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
-    setContextLoading(true);
-    setContextError(null);
+    const isBackgroundRefresh = refreshToken > 0;
+    if (!isBackgroundRefresh) {
+      setContextLoading(true);
+      setContextError(null);
+    }
 
     void fetchEndorsementSupportContext(endorsementId, {
       issuer,
       target,
       topic,
+      fresh: refreshToken > 0,
     })
       .then((response) => {
         if (!cancelled) setContext(response);
@@ -120,16 +145,20 @@ export function EndorsementSupportersPanel({
     return () => {
       cancelled = true;
     };
-  }, [endorsementId, issuer, target, topic]);
+  }, [endorsementId, issuer, refreshToken, target, topic]);
 
   useEffect(() => {
     let cancelled = false;
-    setIsLoading(true);
-    setLoadError(null);
+    const isBackgroundRefresh = refreshToken > 0;
+    if (!isBackgroundRefresh) {
+      setIsLoading(true);
+      setLoadError(null);
+    }
 
     void fetchEndorsementSupporters(endorsementId, {
       viewerAccountId,
       q: searchQueryForFetch || undefined,
+      fresh: refreshToken > 0,
     })
       .then((response) => {
         if (!cancelled) {
@@ -151,7 +180,7 @@ export function EndorsementSupportersPanel({
     return () => {
       cancelled = true;
     };
-  }, [endorsementId, searchQueryForFetch, viewerAccountId]);
+  }, [endorsementId, refreshToken, searchQueryForFetch, viewerAccountId]);
 
   const filteredSupporters = useMemo(() => {
     if (serverSearchActive) return supporters;
@@ -169,23 +198,25 @@ export function EndorsementSupportersPanel({
     });
   }, [query, serverSearchActive, supporters]);
 
-  const resultsSummary = useMemo(() => {
-    if (isLoading) return null;
+  const searchSummary = useMemo(() => {
+    if (isLoading || !query.trim()) return null;
     const shown = formatProfileCount(filteredSupporters.length);
     if (serverSearchActive) {
       return filteredSupporters.length === total
         ? `${formatProfileCount(total)} matching supporter${total === 1 ? '' : 's'}`
         : `Showing ${shown} matching supporter${filteredSupporters.length === 1 ? '' : 's'}`;
     }
-    if (query.trim()) {
-      return `${shown} matching supporter${filteredSupporters.length === 1 ? '' : 's'}`;
-    }
-    return `${formatProfileCount(total)} supporter${total === 1 ? '' : 's'}`;
+    return `${shown} matching supporter${filteredSupporters.length === 1 ? '' : 's'}`;
   }, [filteredSupporters.length, isLoading, query, serverSearchActive, total]);
 
   const emptyLabel = query.trim()
     ? 'No matching supporters.'
-    : 'No supporters yet.';
+    : 'No one has supported this endorsement yet.';
+
+  const previewSupporters = useMemo(
+    () => derivePreviewSupporters(context, supporters),
+    [context, supporters]
+  );
 
   const resolvedContext = context ?? {
     endorsementId,
@@ -199,57 +230,58 @@ export function EndorsementSupportersPanel({
     targetName: null,
     issuerAvatarUrl: null,
     targetAvatarUrl: null,
-    previewSupporters: [],
+    previewSupporters,
   };
 
+  const contextForCard = context
+    ? { ...context, previewSupporters }
+    : resolvedContext;
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
+      {contextLoading ? (
+        <ProfileListSkeletonRows variant="endorsement" count={1} />
+      ) : contextError ? (
+        <p className="rounded-xl border border-[var(--portal-red-border)] bg-[var(--portal-red-bg)] px-3 py-2 text-xs leading-relaxed text-[var(--portal-red)]">
+          {contextError}
+        </p>
+      ) : (
+        <div className="px-2 py-2.5">
+          <EndorsementSupportContextCard
+            context={contextForCard}
+            pageAccountId={pageAccountId}
+            viewerAccountId={viewerAccountId}
+            onSupport={supportEndorsement}
+            onSupportConfirmed={reloadSupporters}
+          />
+        </div>
+      )}
+
       <div
         className={cn(
-          'sticky z-20 mb-1 transition-[top] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+          'sticky z-20 -mx-1 px-1 transition-[top] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
           stickyRailShadowClass
         )}
         style={{ top: stickyTop }}
       >
-        <div className="mb-3 min-w-0">
-          <h1 className="portal-type-lead font-semibold tracking-tight text-foreground">
-            Supporters
-          </h1>
-          <p className="mt-0.5 portal-type-body-sm text-muted-foreground/75">
-            {topicLabel}
-            {!isLoading && total > 0 ? (
-              <span className="tabular-nums text-muted-foreground/55">
-                {' '}
-                · {formatProfileCount(total)}
-              </span>
-            ) : null}
-          </p>
-        </div>
-
-        {contextLoading ? (
-          <ProfileListSkeletonRows variant="endorsement" count={1} />
-        ) : contextError ? (
-          <p className="rounded-xl border border-[var(--portal-red-border)] bg-[var(--portal-red-bg)] px-3 py-2 text-xs leading-relaxed text-[var(--portal-red)]">
-            {contextError}
-          </p>
-        ) : (
-          <EndorsementSupportContextCard context={resolvedContext} />
-        )}
-
-        <div className="mt-4">
-          <ProfileListSearchBar
-            query={query}
-            onQueryChange={setQuery}
-            placeholder="Search supporters"
-            clearAriaLabel="Clear supporters search"
-            embedded
-          />
-        </div>
+        <ProfileListSearchBar
+          query={query}
+          onQueryChange={setQuery}
+          placeholder="Search supporters"
+          clearAriaLabel="Clear supporters search"
+          embedded
+        />
       </div>
 
       {loadError ? (
         <p className="rounded-xl border border-[var(--portal-red-border)] bg-[var(--portal-red-bg)] px-3 py-2 text-xs leading-relaxed text-[var(--portal-red)]">
           {loadError}
+        </p>
+      ) : null}
+
+      {searchSummary ? (
+        <p className="px-1 portal-type-caption text-muted-foreground/55">
+          {searchSummary}
         </p>
       ) : null}
 
@@ -278,12 +310,6 @@ export function EndorsementSupportersPanel({
           </motion.div>
         )}
       </AnimatePresence>
-
-      {resultsSummary && !isLoading && filteredSupporters.length > 0 ? (
-        <p className="px-1 text-center portal-type-caption text-muted-foreground/55">
-          {resultsSummary}
-        </p>
-      ) : null}
     </div>
   );
 }

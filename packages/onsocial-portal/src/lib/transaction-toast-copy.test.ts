@@ -13,7 +13,10 @@ describe('transaction-toast-copy', () => {
     expect(txToastPending.collectingSocial).toBe('Collecting SOCIAL…');
     expect(txToastSuccess.socialCollected).toBe('SOCIAL collected.');
     expect(txToastSuccess.joinedRally('Season Two')).toBe(
-      "You're in Season Two."
+      "You're in Season Two. Rally badge on your profile."
+    );
+    expect(txToastSuccess.joinedRally('Genesis Rally', 'Genesis')).toBe(
+      "You're in Genesis Rally. Genesis badge on your profile."
     );
   });
 

@@ -24,7 +24,7 @@ export function RelationshipSignal({
   label,
   tone,
   title,
-  showTooltip = true,
+  showTooltip = false,
 }: {
   label: string;
   tone: RelationshipSignalTone;

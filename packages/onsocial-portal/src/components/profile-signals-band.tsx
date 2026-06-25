@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { HeartHandshake } from 'lucide-react';
-import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
+import { ProtocolMotionArrow } from '@onsocial/ui';
 import type { ReputationEntry } from '@/lib/leaderboard';
 import { formatReputation } from '@/lib/leaderboard';
 import type { PortalEndorsementsMode } from '@/lib/portal-config';
@@ -51,6 +51,52 @@ function toFiniteNumber(value: unknown): number {
   return Number.isFinite(numeric) ? numeric : 0;
 }
 
+function StandMetricControl({
+  kind,
+  href,
+  onOpen,
+  prefetch,
+  className,
+  ariaLabel,
+  children,
+}: {
+  kind: StanceDetailKind;
+  href?: string;
+  onOpen: (kind: StanceDetailKind) => void;
+  prefetch?: () => void;
+  className?: string;
+  ariaLabel: string;
+  children: ReactNode;
+}) {
+  const prefetchProps = graphRoutePrefetchProps(prefetch);
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        prefetch
+        className={className}
+        aria-label={ariaLabel}
+        {...prefetchProps}
+      >
+        {children}
+      </Link>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(kind)}
+      className={className}
+      aria-label={ariaLabel}
+      {...prefetchProps}
+    >
+      {children}
+    </button>
+  );
+}
+
 export function ProfileSignalsBand({
   social,
   endorsementCount,
@@ -62,6 +108,7 @@ export function ProfileSignalsBand({
   showEndorsementMetrics = false,
   footer,
   onOpenStanceDetail,
+  standDetailHref,
   onOpenEndorsements,
   prefetchStandDetail,
   prefetchEndorsementsPage,
@@ -76,6 +123,7 @@ export function ProfileSignalsBand({
   showEndorsementMetrics?: boolean;
   footer?: ReactNode;
   onOpenStanceDetail: (kind: StanceDetailKind) => void;
+  standDetailHref?: (kind: StanceDetailKind) => string;
   onOpenEndorsements: (mode: PortalEndorsementsMode, topic?: string) => void;
   prefetchStandDetail?: (kind: StanceDetailKind) => void;
   prefetchEndorsementsPage?: (mode: PortalEndorsementsMode) => void;
@@ -91,10 +139,11 @@ export function ProfileSignalsBand({
 
   const standingMetrics = (
     <>
-      <button
-        type="button"
-        onClick={() => onOpenStanceDetail('incoming')}
-        {...graphRoutePrefetchProps(() => prefetchStandDetail?.('incoming'))}
+      <StandMetricControl
+        kind="incoming"
+        href={standDetailHref?.('incoming')}
+        onOpen={onOpenStanceDetail}
+        prefetch={() => prefetchStandDetail?.('incoming')}
         className={cn(
           metricBtnClass,
           'focus-visible:ring-[var(--portal-blue-focus-border)]',
@@ -102,7 +151,7 @@ export function ProfileSignalsBand({
             !sharedSolidarity &&
             'bg-[var(--portal-blue-bg)]/90'
         )}
-        aria-label={
+        ariaLabel={
           isSelf
             ? `${formatCount(incomingCount)} stand with you`
             : theyStandWithViewer
@@ -121,19 +170,20 @@ export function ProfileSignalsBand({
             {formatCount(incomingCount)}
           </span>
         </span>
-      </button>
+      </StandMetricControl>
       <span aria-hidden="true" className={metricSeparatorClass}>
         ·
       </span>
-      <button
-        type="button"
-        onClick={() => onOpenStanceDetail('outgoing')}
-        {...graphRoutePrefetchProps(() => prefetchStandDetail?.('outgoing'))}
+      <StandMetricControl
+        kind="outgoing"
+        href={standDetailHref?.('outgoing')}
+        onOpen={onOpenStanceDetail}
+        prefetch={() => prefetchStandDetail?.('outgoing')}
         className={cn(
           metricBtnClass,
           'focus-visible:ring-[var(--portal-blue-focus-border)]'
         )}
-        aria-label={
+        ariaLabel={
           isSelf
             ? `You stand with ${formatCount(outgoingCount)}`
             : `They stand with ${formatCount(outgoingCount)}`
@@ -150,20 +200,21 @@ export function ProfileSignalsBand({
           </span>
           <ProtocolMotionArrow className="h-2.5 w-2.5 text-[var(--portal-blue)]" />
         </span>
-      </button>
+      </StandMetricControl>
       <span aria-hidden="true" className={metricSeparatorClass}>
         ·
       </span>
-      <button
-        type="button"
-        onClick={() => onOpenStanceDetail('mutual')}
-        {...graphRoutePrefetchProps(() => prefetchStandDetail?.('mutual'))}
+      <StandMetricControl
+        kind="mutual"
+        href={standDetailHref?.('mutual')}
+        onOpen={onOpenStanceDetail}
+        prefetch={() => prefetchStandDetail?.('mutual')}
         className={cn(
           metricBtnClass,
           'focus-visible:ring-[var(--portal-purple-border)]',
           sharedSolidarity && 'bg-[var(--portal-purple-bg)]/90'
         )}
-        aria-label={
+        ariaLabel={
           sharedSolidarity
             ? `You stand with each other (${formatCount(mutualCount)} solidarity in their network)`
             : isSelf
@@ -186,7 +237,7 @@ export function ProfileSignalsBand({
           </span>
           <ProtocolMotionArrow className="h-2.5 w-2.5 text-[var(--portal-purple)]" />
         </span>
-      </button>
+      </StandMetricControl>
     </>
   );
 
@@ -246,38 +297,38 @@ export function ProfileSignalsBand({
           <ProtocolMotionArrow className="h-2.5 w-2.5 text-[var(--portal-gold)]" />
         </span>
       </button>
-      {isSelf ? (
-        <>
-          <span aria-hidden="true" className={metricSeparatorClass}>
-            ·
-          </span>
-          <button
-            type="button"
-            onClick={() => onOpenEndorsements('supported')}
-            {...graphRoutePrefetchProps(() =>
-              prefetchEndorsementsPage?.('supported')
-            )}
+      <span aria-hidden="true" className={metricSeparatorClass}>
+        ·
+      </span>
+      <button
+        type="button"
+        onClick={() => onOpenEndorsements('supported')}
+        {...graphRoutePrefetchProps(() =>
+          prefetchEndorsementsPage?.('supported')
+        )}
+        className={cn(
+          metricBtnClass,
+          'focus-visible:ring-[var(--portal-gold-accent)]'
+        )}
+        aria-label={
+          isSelf
+            ? `${formatCount(supportedEndorsementCount)} endorsements supported with SOCIAL`
+            : `${formatCount(supportedEndorsementCount)} endorsement support`
+        }
+      >
+        <span className={metricInnerClass}>
+          <HeartHandshake className="h-2.5 w-2.5 text-[var(--portal-gold)]" />
+          <span
             className={cn(
-              metricBtnClass,
-              'focus-visible:ring-[var(--portal-gold-accent)]'
+              'font-bold tabular-nums text-[var(--portal-gold)]',
+              supportedEndorsementCount === 0 && 'opacity-40'
             )}
-            aria-label={`${formatCount(supportedEndorsementCount)} endorsements supported with SOCIAL`}
           >
-            <span className={metricInnerClass}>
-              <HeartHandshake className="h-2.5 w-2.5 text-[var(--portal-gold)]" />
-              <span
-                className={cn(
-                  'font-bold tabular-nums text-[var(--portal-gold)]',
-                  supportedEndorsementCount === 0 && 'opacity-40'
-                )}
-              >
-                {formatCount(supportedEndorsementCount)}
-              </span>
-              <ProtocolMotionArrow className="h-2.5 w-2.5 text-[var(--portal-gold)]" />
-            </span>
-          </button>
-        </>
-      ) : null}
+            {formatCount(supportedEndorsementCount)}
+          </span>
+          <ProtocolMotionArrow className="h-2.5 w-2.5 text-[var(--portal-gold)]" />
+        </span>
+      </button>
     </>
   );
 

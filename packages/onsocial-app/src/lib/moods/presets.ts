@@ -1,5 +1,6 @@
 import {
   BUILT_IN_PAGE_MOOD_IDS,
+  PAGE_MOOD_PICKER_SECTIONS,
   PAGE_MOOD_PRESETS,
   isBuiltInPageMoodId,
   type BuiltInPageMoodId,
@@ -12,6 +13,8 @@ export type MoodPreset = PageMoodPreset & { included: boolean };
 export type MoodThemeTokens = PageMoodThemeTokens;
 
 export const BUILT_IN_MOOD_IDS = BUILT_IN_PAGE_MOOD_IDS;
+
+export { PAGE_MOOD_PICKER_SECTIONS };
 
 export const MOOD_PRESETS: Record<BuiltInMoodId, MoodPreset> =
   Object.fromEntries(

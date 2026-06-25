@@ -1,9 +1,9 @@
 import { ArrowLeft, ArrowUpRight } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from './cn.js';
 
-type ProtocolMotionArrowDirection = 'up' | 'down' | 'in' | 'left';
+export type ProtocolMotionArrowDirection = 'up' | 'down' | 'in' | 'left';
 
-interface ProtocolMotionArrowProps {
+export interface ProtocolMotionArrowProps {
   direction?: ProtocolMotionArrowDirection;
   className?: string;
   /**

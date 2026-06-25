@@ -24,7 +24,8 @@ const initialState: PlatformStorageSummaryState = {
 
 export function usePlatformStorageSummary(
   accountId: string | null | undefined,
-  enabled: boolean
+  enabled: boolean,
+  refreshKey = 0
 ): PlatformStorageSummaryState {
   const activeAccountId = enabled && accountId ? accountId : null;
   const [state, setState] = useState<PlatformStorageSummaryState>(initialState);
@@ -72,7 +73,7 @@ export function usePlatformStorageSummary(
     return () => {
       cancelled = true;
     };
-  }, [activeAccountId]);
+  }, [activeAccountId, refreshKey]);
 
   if (!activeAccountId) {
     return initialState;

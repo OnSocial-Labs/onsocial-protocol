@@ -3,7 +3,7 @@ import { GateDappRail } from '@/components/gate/gate-dapp-rail';
 
 export default function HomePage() {
   return (
-    <main className="gate">
+    <main className="gate app-surface">
       <div className="gate-scroll">
         <div className="gate-content">
           <div className="gate-logo" aria-label="OnSocial">

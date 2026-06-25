@@ -1,4 +1,5 @@
 import { Skeleton, SkeletonText } from '@/components/ui/skeleton';
+import type { ReactNode } from 'react';
 import {
   profilePageBannerSurfaceClass,
   profilePageHorizontalPaddingClass,
@@ -113,8 +114,10 @@ export function ProfileIdentityLoading({
 /** Unified protocol signals band — standing, endorsements, reputation. */
 export function ProfileSignalsBandSkeleton({
   showCtaRow = true,
+  footer,
 }: {
   showCtaRow?: boolean;
+  footer?: ReactNode;
 }) {
   return (
     <div className="space-y-1">
@@ -138,6 +141,7 @@ export function ProfileSignalsBandSkeleton({
           </div>
         </div>
       ) : null}
+      {footer ? <div className="pt-1">{footer}</div> : null}
     </div>
   );
 }

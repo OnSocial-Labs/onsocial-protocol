@@ -12,22 +12,18 @@ import type { SeasonZeroPayoutParticipant } from '@/features/season/season-zero-
 import {
   fetchJoinRallyRouting,
   formatJoinEntryGuideLabel,
+  formatJoinRoutingDisclosure,
 } from '@/lib/join-rally-routing';
-import { seasonZeroPayoutSummary } from '@/features/season/season-zero-payout-copy';
+import {
+  seasonZeroPayoutSummaryLines,
+  seasonZeroPoolSplitRulesLabel,
+} from '@/features/season/season-zero-payout-copy';
+import { compactModalInsetShellPadClass } from '@/components/ui/floating-panel';
 import { cn } from '@/lib/utils';
 
 function formatScore(value: number): string {
   return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(
     value
-  );
-}
-
-function GuidePoint({ label, value }: { label: string; value: string }) {
-  return (
-    <li className="flex items-baseline justify-between gap-3 text-xs">
-      <span className="shrink-0 font-medium text-foreground">{label}</span>
-      <span className="text-right text-muted-foreground">{value}</span>
-    </li>
   );
 }
 
@@ -80,7 +76,7 @@ export function SeasonZeroRulesContent({
     };
   }, []);
 
-  const payoutSummary = seasonZeroPayoutSummary({
+  const payoutSummary = seasonZeroPayoutSummaryLines({
     indexedPoolYocto,
     participantCount: Math.max(participantCount, myStanding ? 1 : 0),
     participants: payoutParticipants ?? undefined,
@@ -93,99 +89,66 @@ export function SeasonZeroRulesContent({
       : undefined,
   });
 
-  const activeBuckets = myStanding
-    ? SEASON_ZERO_SCORE_BUCKETS.filter(
-        ({ key }) => myStanding.breakdown[key] > 0
-      )
-    : [];
+  const entryLine = joinRouting
+    ? (() => {
+        const routing = formatJoinRoutingDisclosure(joinRouting);
+        return routing
+          ? `${joinRouting.joinMinAmountSocialLabel} SOCIAL · ${routing}`
+          : `${joinRouting.joinMinAmountSocialLabel} SOCIAL`;
+      })()
+    : joinEntryLabel;
+
+  const breakdown = myStanding?.breakdown ?? null;
 
   return (
-    <div className={cn('space-y-4', className)}>
-      {myStanding ? (
-        <div className="space-y-3">
-          <p className="portal-eyebrow text-muted-foreground">Your score</p>
-          {activeBuckets.length > 0 ? (
-            <div className="space-y-2.5">
-              {activeBuckets.map(({ key, label }) => (
-                <SeasonZeroProgressRow
-                  key={key}
-                  label={label}
-                  value={myStanding.breakdown[key]}
-                  max={seasonZeroBucketMax[key](limits)}
-                />
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              Join pts only so far — grow profile and social activity to add
-              more.
-            </p>
-          )}
-        </div>
-      ) : (
-        <p className="portal-type-caption text-muted-foreground/70">
-          Up to ~{formatScore(limits.totalMax)} pts when you join and stay
-          active.
-        </p>
-      )}
-
+    <div className={cn('space-y-0', className)}>
       <div
         className={cn(
-          'space-y-2',
-          myStanding && 'border-t border-fade-detail pt-4'
+          'rounded-xl bg-background/35',
+          compactModalInsetShellPadClass
         )}
       >
-        <p className="portal-eyebrow text-muted-foreground">How to earn</p>
-        <ul className="space-y-1.5">
-          <GuidePoint
-            label="Join"
-            value={`${formatScore(limits.join.points)} pts once`}
-          />
-          <GuidePoint
-            label="Profile"
-            value={`Up to ${formatScore(limits.profile.max)}`}
-          />
-          <GuidePoint
-            label="Endorse"
-            value={`${limits.endorsements.endorserDailyCap}/day · season caps`}
-          />
-          <GuidePoint
-            label="Stand"
-            value={`${limits.solidarity.receivedDailyCap} + ${limits.solidarity.mutualDailyCap} mutual/day`}
-          />
-          <GuidePoint
-            label="Support"
-            value={`√ curve · max ${formatScore(limits.support.max)}`}
-          />
-          <GuidePoint
-            label="Boost"
-            value={`√ curve · max ${formatScore(limits.boost.max)}`}
-          />
-        </ul>
+        <div className="grid grid-cols-1 gap-1.5">
+          {SEASON_ZERO_SCORE_BUCKETS.map(({ key, label }) => (
+            <SeasonZeroProgressRow
+              key={key}
+              label={label}
+              value={breakdown?.[key] ?? 0}
+              max={seasonZeroBucketMax[key](limits)}
+              inline
+            />
+          ))}
+        </div>
       </div>
 
-      <div className="space-y-2 border-t border-fade-detail pt-4">
-        <p className="portal-eyebrow text-muted-foreground">Rewards</p>
-        <ul className="space-y-1.5">
-          <GuidePoint label="Entry" value={joinEntryLabel} />
-          <GuidePoint label="Split" value="50% equal · 50% by activity" />
-          {payoutSummary ? (
-            <GuidePoint label="Est. collect" value={payoutSummary} />
-          ) : null}
-          <GuidePoint label="Collect" value="On this page when open" />
-        </ul>
-        <p className="portal-type-caption text-muted-foreground/65">
-          Compete for rank and a {profileBadgeLabel} profile badge. Most of your
-          entry returns from the shared pool; higher ranks earn a larger bonus
-          slice.
+      <div
+        className="mt-3 space-y-1.5 border-t border-fade-section pt-2.5"
+        role="group"
+        aria-label="Pool and rewards"
+      >
+        <p className="portal-type-label leading-snug text-muted-foreground/75">
+          {entryLine}
+        </p>
+        <p className="portal-type-label leading-snug text-muted-foreground/75">
+          {seasonZeroPoolSplitRulesLabel}
+        </p>
+        <p className="portal-type-label leading-snug text-muted-foreground/75">
+          {profileBadgeLabel} badge
+        </p>
+        {payoutSummary?.personal ? (
+          <p className="portal-type-label leading-snug text-muted-foreground/65">
+            {payoutSummary.personal}
+          </p>
+        ) : null}
+        {payoutSummary?.field ? (
+          <p className="portal-type-label leading-snug text-muted-foreground/65">
+            {payoutSummary.field}
+          </p>
+        ) : null}
+        <p className="portal-type-caption leading-snug text-muted-foreground/55">
+          Endorse & stand: daily caps on new connections since rally start
         </p>
       </div>
-
-      <p className="portal-type-caption text-muted-foreground/65">
-        Others endorsing or standing with you raises your score. Stands and
-        endorsements count only for connections that did not exist before the
-        rally started. Activity after you join may take a few minutes to index.
-      </p>
     </div>
   );
 }
@@ -194,7 +157,9 @@ export function seasonZeroRulesHeaderHint(
   limits: SeasonZeroScoringLimits,
   myStanding: Pick<SeasonZeroStanding, 'rank' | 'score'> | null
 ): string {
-  return myStanding
-    ? 'How points work'
-    : `Up to ~${formatScore(limits.totalMax)} pts`;
+  if (myStanding) {
+    return `${formatScore(myStanding.score)} pts`;
+  }
+
+  return `Up to ~${formatScore(limits.totalMax)} pts`;
 }

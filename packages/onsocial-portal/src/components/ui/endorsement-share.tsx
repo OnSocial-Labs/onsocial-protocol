@@ -51,14 +51,15 @@ const shareActionClass =
 
 const shareIconButtonClass = cn(
   shareActionClass,
-  'inline-flex size-4 shrink-0 items-center justify-center p-0 leading-none'
+  // Keep the visible glyph compact while giving touch users a forgiving target.
+  "relative inline-flex size-4 shrink-0 items-center justify-center p-0 leading-none before:absolute before:-inset-y-2.5 before:-inset-x-1 before:content-['']"
 );
 
 /** Shared SVG sizing for footer rail icons (share, support, etc.). */
 export const endorsementFooterRailIconClass = 'size-4 shrink-0';
 
 /** Space before share icons — heart sits just left of this gutter; count grows left. */
-export const endorsementShareFooterLeadingClass = 'mr-6 shrink-0';
+export const endorsementShareFooterLeadingClass = 'mr-4 shrink-0 sm:mr-7';
 
 export { shareActionClass as endorsementShareActionClass };
 export { shareIconButtonClass as endorsementShareIconButtonClass };
@@ -91,12 +92,15 @@ export function ShareEndorsement({
   viewerAccountId = null,
   leading,
   laneAligned = false,
+  embedded = false,
   className,
 }: EndorsementShareContext & {
   /** Future actions on the same rail (e.g. support, react). */
   leading?: ReactNode;
   /** Width set by media lane — drop extra inset padding. */
   laneAligned?: boolean;
+  /** Inline footer cell — no top rule, sits beside attribution. */
+  embedded?: boolean;
   className?: string;
 }) {
   const [copied, setCopied] = useState(false);
@@ -151,9 +155,10 @@ export function ShareEndorsement({
   return (
     <div
       className={cn(
-        'mt-2 flex items-center justify-end gap-2.5 border-t pt-2.5',
-        !laneAligned && 'pl-2.5',
-        cardDividerDetail,
+        embedded
+          ? 'flex shrink-0 items-center justify-end gap-2.5'
+          : 'mt-2 flex items-center justify-end gap-2.5 border-t pt-2.5',
+        !embedded && cardDividerDetail,
         className
       )}
       onClick={stopRowActivation}

@@ -1,19 +1,13 @@
-import {
-  displayName,
-  initials,
-  normalizeLink,
-} from '@/lib/profile-display';
-import { getActiveNearNetwork } from '@/lib/page-data';
+import { displayName, initials } from '@/lib/profile-display';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { MoodIndicator } from '@/components/moods/mood-indicator';
 
 interface PortfolioIdentityProps {
   accountId: string;
-  profileName?: string;
-  bio?: string;
+  profileName?: string | null;
+  bio?: string | null;
   tagline?: string;
-  avatar?: string;
-  activated?: boolean;
+  avatarUrl?: string | null;
   mood: ResolvedMood;
 }
 
@@ -22,47 +16,27 @@ export function PortfolioIdentity({
   profileName,
   bio,
   tagline,
-  avatar,
-  activated = false,
+  avatarUrl,
   mood,
 }: PortfolioIdentityProps) {
-  const titleLabel = displayName(accountId, profileName);
-  const avatarUrl = normalizeLink(avatar ?? '');
+  const titleLabel = displayName(accountId, profileName ?? undefined);
   const summary = tagline?.trim() || bio?.trim();
-  const nearNetwork = getActiveNearNetwork();
 
   return (
     <section className="portfolio-identity animate-rise-in">
-      <div className="portfolio-banner" aria-hidden="true" />
-
-      <div className="portfolio-identity-body">
-        {avatarUrl ? (
-          <img
-            alt={titleLabel}
-            className="portfolio-avatar"
-            height={96}
-            src={avatarUrl}
-            width={96}
-          />
-        ) : (
-          <div className="portfolio-avatar portfolio-avatar-fallback">
-            {initials(titleLabel)}
-          </div>
-        )}
-
-        <div className="portfolio-identity-copy">
-          <h1 className="portfolio-name">{titleLabel}</h1>
-          <p className="portfolio-handle">@{accountId}</p>
-          <MoodIndicator mood={mood} pageAccountId={accountId} />
-          {summary ? <p className="portfolio-tagline">{summary}</p> : null}
+      {avatarUrl ? (
+        <img alt={titleLabel} className="portfolio-avatar" src={avatarUrl} />
+      ) : (
+        <div className="portfolio-avatar portfolio-avatar-fallback">
+          {initials(titleLabel)}
         </div>
+      )}
 
-        <div className="portfolio-status">
-          <span className="profile-dot" data-active={activated} />
-          <span>{activated ? 'Active' : 'Dormant'}</span>
-          <span className="profile-sep" />
-          <span>{nearNetwork}</span>
-        </div>
+      <div className="portfolio-identity-copy">
+        <h1 className="portfolio-name">{titleLabel}</h1>
+        <p className="portfolio-handle">@{accountId}</p>
+        <MoodIndicator mood={mood} pageAccountId={accountId} compact />
+        {summary ? <p className="portfolio-bio">{summary}</p> : null}
       </div>
     </section>
   );

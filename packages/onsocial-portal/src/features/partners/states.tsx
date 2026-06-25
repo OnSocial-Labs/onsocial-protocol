@@ -21,7 +21,7 @@ import {
 import { RiTelegram2Line } from 'react-icons/ri';
 import { useWallet } from '@/contexts/wallet-context';
 import { Button, buttonArrowLeftClass } from '@/components/ui/button';
-import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
+import { ProtocolMotionArrow } from '@onsocial/ui';
 import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import { StatStripSkeleton } from '@/components/ui/skeleton';
 import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';

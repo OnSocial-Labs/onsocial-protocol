@@ -42,6 +42,7 @@ export function NearAccountField({
   className,
   trustedAccount = true,
   requirePortalProfile = false,
+  density = 'default',
 }: {
   id: string;
   variant?: 'editable' | 'readonly';
@@ -52,6 +53,7 @@ export function NearAccountField({
   trustedAccount?: boolean;
   /** When true, ready state requires a resolved portal profile. */
   requirePortalProfile?: boolean;
+  density?: 'default' | 'compact';
 }) {
   const [showFeedback, setShowFeedback] = useState(false);
   const isEditable = variant === 'editable';
@@ -64,17 +66,22 @@ export function NearAccountField({
   const ready = requirePortalProfile ? lookup.exists : formatReady;
   const feedbackVisible = isEditable && showFeedback && value.trim().length > 0;
   const showInvalid = feedbackVisible && !formatReady;
+  const compact = density === 'compact';
 
   return (
     <div className={cn(className)}>
       <div className={cn(fieldShellClass, 'flex min-w-0 items-center')}>
         <InsetDividerItem
           showDivider
-          className="flex shrink-0 items-center py-2 pl-3 pr-3"
+          className={cn(
+            'flex shrink-0 items-center pl-3 pr-3',
+            compact ? 'py-1.5' : 'py-2'
+          )}
         >
           <span
             className={cn(
-              'flex h-7 w-7 items-center justify-center overflow-hidden rounded-full border border-border/50 bg-muted/30 text-muted-foreground transition-opacity',
+              'flex items-center justify-center overflow-hidden rounded-full border border-border/50 bg-muted/30 text-muted-foreground transition-opacity',
+              compact ? 'h-6 w-6' : 'h-7 w-7',
               lookup.checking && 'opacity-60'
             )}
           >
@@ -85,7 +92,10 @@ export function NearAccountField({
                 className="h-full w-full object-cover"
               />
             ) : (
-              <User className="h-3.5 w-3.5" strokeWidth={2} />
+              <User
+                className={compact ? 'h-3 w-3' : 'h-3.5 w-3.5'}
+                strokeWidth={2}
+              />
             )}
           </span>
         </InsetDividerItem>
@@ -100,8 +110,17 @@ export function NearAccountField({
             }}
             onBlur={() => setShowFeedback(true)}
             placeholder={nearAccountPlaceholder()}
+            aria-invalid={showInvalid || undefined}
+            aria-describedby={
+              feedbackVisible && inputError
+                ? compact
+                  ? `${id}-account-error-sr`
+                  : `${id}-account-error`
+                : undefined
+            }
             className={cn(
               accountTextClass,
+              compact && 'px-3 py-2 text-sm md:py-2 md:text-sm',
               'bg-transparent outline-none placeholder:font-normal placeholder:text-muted-foreground/50'
             )}
             autoComplete="off"
@@ -113,7 +132,7 @@ export function NearAccountField({
           </span>
         )}
 
-        <span className="shrink-0 pr-3">
+        <span className={cn('shrink-0', compact ? 'pr-2.5' : 'pr-3')}>
           {lookup.checking ? (
             <span className="inline-flex h-5 w-5 items-center justify-center text-muted-foreground">
               <PulsingDots size="sm" />
@@ -132,16 +151,23 @@ export function NearAccountField({
 
       <AnimatePresence initial={false}>
         {feedbackVisible && inputError ? (
-          <motion.p
-            key={`${id}-account-error`}
-            initial={feedbackEnter}
-            animate={feedbackAnimate}
-            exit={feedbackExit}
-            transition={feedbackTransition}
-            className="mt-2 text-xs text-amber-600"
-          >
-            {inputError}
-          </motion.p>
+          compact ? (
+            <p id={`${id}-account-error-sr`} className="sr-only">
+              {inputError}
+            </p>
+          ) : (
+            <motion.p
+              key={`${id}-account-error`}
+              id={`${id}-account-error`}
+              initial={feedbackEnter}
+              animate={feedbackAnimate}
+              exit={feedbackExit}
+              transition={feedbackTransition}
+              className="mt-2 text-xs text-amber-600"
+            >
+              {inputError}
+            </motion.p>
+          )
         ) : null}
       </AnimatePresence>
     </div>

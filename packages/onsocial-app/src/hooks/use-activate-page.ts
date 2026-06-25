@@ -2,15 +2,14 @@
 
 import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAppWallet } from '@/contexts/app-wallet-context';
-import { createAppOnSocialClient } from '@/lib/create-app-onsocial-client';
-import { buildPageMoodConfig } from '@/lib/moods/resolve';
+import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
+import { accountIdsEqual } from '@/lib/account-match';
 import { fallbackLabel } from '@/lib/profile-display';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 export function useActivatePage(pageAccountId: string) {
   const router = useRouter();
-  const { getSigningWallet } = useAppWallet();
+  const { getClient } = useAppOnSocialClient();
   const [isActivating, setIsActivating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,31 +18,32 @@ export function useActivatePage(pageAccountId: string) {
     setIsActivating(true);
 
     try {
-      const { wallet, accountId: signingAccountId } =
-        await getSigningWallet();
+      const { client, accountId: signingAccountId } = await getClient();
 
-      if (signingAccountId !== pageAccountId) {
-        throw new Error(
-          `Connect as @${pageAccountId} to activate this page.`
-        );
+      if (!accountIdsEqual(signingAccountId, pageAccountId)) {
+        throw new Error(`Connect as @${pageAccountId} to activate this page.`);
       }
 
-      const os = createAppOnSocialClient(signingAccountId, wallet);
       const label = fallbackLabel(signingAccountId);
-      const moodPatch = buildPageMoodConfig('default');
 
-      await os.profiles.update({
-        name: label,
-        bio: `OnSocial page for @${signingAccountId}`,
-      });
+      await client.profiles.update(
+        {
+          name: label,
+          bio: `OnSocial page for @${signingAccountId}`,
+        },
+        { wait: true }
+      );
 
-      await os.pages.setConfig({
-        template: 'minimal',
-        sections: ['profile', 'links', 'posts', 'badges'],
-        tagline: `Welcome to my OnSocial page.`,
-        mood: moodPatch.mood,
-        theme: moodPatch.theme,
-      });
+      await client.pages.setConfig(
+        {
+          template: 'minimal',
+          sections: ['profile', 'links', 'posts', 'badges'],
+          tagline: 'Welcome to my OnSocial page.',
+        },
+        { wait: true }
+      );
+
+      await client.pages.setMood('protocol', { wait: true });
 
       router.refresh();
     } catch (err) {
@@ -58,7 +58,7 @@ export function useActivatePage(pageAccountId: string) {
     } finally {
       setIsActivating(false);
     }
-  }, [getSigningWallet, pageAccountId, router]);
+  }, [getClient, pageAccountId, router]);
 
   return {
     activate,

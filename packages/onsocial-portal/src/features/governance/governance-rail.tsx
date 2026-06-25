@@ -29,7 +29,7 @@ import {
   floatingPanelItemWithMotionClass,
 } from '@/components/ui/floating-panel';
 import { FloatingPanelMenu } from '@/components/ui/floating-panel-menu';
-import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
+import { ProtocolMotionArrow } from '@onsocial/ui';
 import { useDropdown } from '@/hooks/use-dropdown';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useNavStickyTop } from '@/hooks/use-nav-sticky-top';

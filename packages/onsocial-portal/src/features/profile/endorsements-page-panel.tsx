@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { PenLine } from 'lucide-react';
+import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
 import {
   EndorsementListCardRow,
   type EndorsementRowActivateOptions,
@@ -24,7 +25,6 @@ import {
 } from '@/features/profile/profile-list-filter-rail';
 import { EndorseModal } from '@/components/endorse-modal';
 import { EndorsementSupportFooter } from '@/components/endorsement-support-footer';
-import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import { PROFILE_SEARCH_MIN_QUERY_LENGTH } from '@/lib/profile-account-search';
 import {
   buildEndorsementListItemAfterWrite,
@@ -53,6 +53,14 @@ import {
   type PortalEndorsementsMode,
 } from '@/lib/portal-config';
 import { profileListContainerClass } from '@/features/profile/profile-list-row';
+import { useCollectCelebration } from '@/hooks/use-collect-celebration';
+import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
+import {
+  txToastError,
+  txToastPending,
+  txToastSuccess,
+} from '@/lib/transaction-toast-copy';
+import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import { cn } from '@/lib/utils';
 
 export type EnrichedEndorsementListItem = EndorsementListItem & {
@@ -242,6 +250,8 @@ export function EndorsementsPagePanel({
     wasPlaying: boolean;
   }>({ unmuted: false, time: 0, wasPlaying: false });
   const [claimableSupportYocto, setClaimableSupportYocto] = useState(0n);
+  const [showSupportCollectPill, setShowSupportCollectPill] = useState(false);
+  const [isClaimSupportPending, setIsClaimSupportPending] = useState(false);
   const [supportedCount, setSupportedCount] = useState(0);
   const [endorseOpen, setEndorseOpen] = useState(false);
   const [editingFromList, setEditingFromList] =
@@ -653,6 +663,83 @@ export function EndorsementsPagePanel({
     };
   }, [isSelf, onClaimSupportBalance, viewerAccountId]);
 
+  const refreshClaimableSupport = useCallback(
+    async (options: { fresh?: boolean } = {}) => {
+      if (!isSelf || !viewerAccountId) {
+        setClaimableSupportYocto(0n);
+        return;
+      }
+      try {
+        const balance = await fetchProfileSupportBalanceYocto(
+          viewerAccountId,
+          options
+        );
+        setClaimableSupportYocto(balance);
+      } catch {
+        setClaimableSupportYocto(0n);
+      }
+    },
+    [isSelf, viewerAccountId]
+  );
+
+  const {
+    txResult: claimTxResult,
+    clearTxResult: clearClaimTxResult,
+    trackTransaction: trackClaimTransaction,
+  } = useNearTransactionFeedback(viewerAccountId);
+
+  const {
+    celebration: supportCollectCelebration,
+    triggerCelebration: triggerSupportCollectCelebration,
+    durationSeconds: supportCollectCelebrationDurationSeconds,
+  } = useCollectCelebration({
+    variant: 'inline',
+    onComplete: () => {
+      setShowSupportCollectPill(false);
+      void refreshClaimableSupport({ fresh: true });
+    },
+  });
+
+  useEffect(() => {
+    if (claimableSupportYocto > 0n) {
+      setShowSupportCollectPill(true);
+    }
+  }, [claimableSupportYocto]);
+
+  const handleClaimSupport = useCallback(async () => {
+    if (!onClaimSupportBalance || isClaimSupportPending) return;
+
+    const collectedAmountLabel = formatSupportBalanceLabel(
+      claimableSupportYocto
+    );
+
+    setIsClaimSupportPending(true);
+    try {
+      const txHashes = await onClaimSupportBalance();
+      const confirmed = await trackClaimTransaction({
+        txHashes,
+        submittedMessage: txToastPending.claimingSupport,
+        successMessage: txToastSuccess.supportCollected,
+        failureMessage: txToastError.claimSupportFailed,
+      });
+      if (confirmed) {
+        triggerSupportCollectCelebration(collectedAmountLabel);
+      }
+    } catch (error) {
+      if (!isWalletUserCancellation(error)) {
+        throw error;
+      }
+    } finally {
+      setIsClaimSupportPending(false);
+    }
+  }, [
+    claimableSupportYocto,
+    isClaimSupportPending,
+    onClaimSupportBalance,
+    trackClaimTransaction,
+    triggerSupportCollectCelebration,
+  ]);
+
   useEffect(() => {
     if (!isSelf || !targetAccountId) {
       setSupportedCount(0);
@@ -687,6 +774,10 @@ export function EndorsementsPagePanel({
 
   return (
     <div className="flex flex-col gap-4">
+      <TransactionFeedbackToast
+        result={claimTxResult}
+        onClose={clearClaimTxResult}
+      />
       <ProfileListFilterRail
         menuLabel="Endorsements"
         options={viewOptions}
@@ -700,19 +791,18 @@ export function EndorsementsPagePanel({
         isLoading={!metaLoaded}
         trailing={
           <div className="flex shrink-0 items-center gap-2">
-            {isSelf && onClaimSupportBalance && claimableSupportYocto > 0n ? (
+            {isSelf && onClaimSupportBalance && showSupportCollectPill ? (
               <ProfileSocialCollectPill
                 amountLabel={formatSupportBalanceLabel(claimableSupportYocto)}
-                pending={isClaimingSupportBalance}
+                kind="support"
+                layout="rail"
+                pending={isClaimSupportPending}
+                celebration={supportCollectCelebration}
+                celebrationDurationSeconds={
+                  supportCollectCelebrationDurationSeconds
+                }
                 ariaLabel={`${profileSocialCollectAriaLabel(formatSupportBalanceLabel(claimableSupportYocto))} support`}
-                onClick={() => {
-                  void onClaimSupportBalance().then(() => {
-                    if (!viewerAccountId) return;
-                    void fetchProfileSupportBalanceYocto(viewerAccountId, {
-                      fresh: true,
-                    }).then(setClaimableSupportYocto);
-                  });
-                }}
+                onClick={() => void handleClaimSupport()}
               />
             ) : null}
             {mode === 'received' && canEndorse && onEndorse ? (
@@ -863,14 +953,12 @@ export function EndorsementsPagePanel({
                   }
                   timeLabel={
                     timeLabel ? (
-                      <PortalHoverTooltip
+                      <span
                         className="text-right portal-type-caption tabular-nums text-muted-foreground/40"
                         aria-label={timeDescription}
-                        stopPropagation
-                        tooltip={timeDescription}
                       >
                         {timeLabel}
-                      </PortalHoverTooltip>
+                      </span>
                     ) : undefined
                   }
                   trailing={

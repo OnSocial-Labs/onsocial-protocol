@@ -1,6 +1,7 @@
 import { OnSocial } from '@onsocial/sdk';
 import type { NearWalletBase } from '@hot-labs/near-connect';
-import { ACTIVE_API_URL, ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
+import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
+import { BROWSER_GATEWAY_PROXY } from '@/lib/app-gateway-url';
 
 function extractTxHash(value: unknown): string | undefined {
   if (!value || typeof value !== 'object') return undefined;
@@ -20,36 +21,44 @@ function extractTxHash(value: unknown): string | undefined {
   return undefined;
 }
 
+/**
+ * Browser OnSocial client for page writes.
+ * Prefer attaching a social session (delegate relay). Pass wallet only as fallback.
+ */
 export function createAppOnSocialClient(
   accountId: string,
-  wallet: NearWalletBase
+  wallet?: NearWalletBase
 ): OnSocial {
   return new OnSocial({
     network: ACTIVE_NEAR_NETWORK,
-    gatewayUrl: ACTIVE_API_URL,
+    gatewayUrl: BROWSER_GATEWAY_PROXY,
     actorId: accountId,
-    defaultBroadcast: {
-      kind: 'wallet',
-      signer: async ({ receiverId, actions }) => {
-        const result = await wallet.signAndSendTransaction({
-          network: ACTIVE_NEAR_NETWORK,
-          signerId: accountId,
-          receiverId,
-          actions: actions.map((action) => ({
-            type: 'FunctionCall',
-            params: {
-              methodName: action.methodName,
-              args: action.args,
-              gas: action.gas,
-              deposit: action.deposit,
-            },
-          })),
-        });
+    ...(wallet
+      ? {
+          defaultBroadcast: {
+            kind: 'wallet' as const,
+            signer: async ({ receiverId, actions }) => {
+              const result = await wallet.signAndSendTransaction({
+                network: ACTIVE_NEAR_NETWORK,
+                signerId: accountId,
+                receiverId,
+                actions: actions.map((action) => ({
+                  type: 'FunctionCall',
+                  params: {
+                    methodName: action.methodName,
+                    args: action.args,
+                    gas: action.gas,
+                    deposit: action.deposit,
+                  },
+                })),
+              });
 
-        const txHash = extractTxHash(result);
-        const raw = result as unknown as Record<string, unknown>;
-        return txHash ? { txHash, raw } : { raw };
-      },
-    },
+              const txHash = extractTxHash(result);
+              const raw = result as unknown as Record<string, unknown>;
+              return txHash ? { txHash, raw } : { raw };
+            },
+          },
+        }
+      : {}),
   });
 }

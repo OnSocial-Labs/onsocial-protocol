@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
+import { ProtocolMotionArrow } from '@onsocial/ui';
 import {
   RALLY_LINE_BOX_COLLECTED,
   RALLY_LINE_BOX_MICRO,

@@ -3,6 +3,10 @@ import { cn } from '@/lib/utils';
 /** Button height + soft shadow bleed — keeps page layout stable on load. */
 export const SEASON_ARCHIVE_NAV_SLOT_CLASS = 'min-h-[2.75rem] pb-1';
 
+/** Live link left · past seasons centered · balanced right column. */
+export const SEASON_ARCHIVE_NAV_LAYOUT_CLASS =
+  'grid w-full grid-cols-[1fr_auto_1fr] items-center';
+
 export const SEASON_ARCHIVE_NAV_BUTTON_SHELL_CLASS =
   'flex h-8 items-center gap-1.5 rounded-full border border-border/40 bg-background/65 px-3 text-xs text-muted-foreground shadow-[0_10px_30px_-18px_rgba(15,23,42,0.34)] backdrop-blur-md';
 
@@ -40,17 +44,19 @@ export function SeasonArchiveNavSkeleton({
   return (
     <div
       className={cn(
-        'flex flex-wrap items-center justify-center gap-2',
+        SEASON_ARCHIVE_NAV_LAYOUT_CLASS,
         SEASON_ARCHIVE_NAV_SLOT_CLASS,
         className
       )}
       aria-hidden
     >
+      <div />
       <div className={SEASON_ARCHIVE_NAV_BUTTON_SHELL_CLASS}>
         <span className="h-3 w-[4.5rem] animate-pulse rounded-full bg-foreground/[0.04]" />
         <SeasonArchiveCollectDot />
         <span className="h-3.5 w-3.5 shrink-0 animate-pulse rounded-sm bg-foreground/[0.04]" />
       </div>
+      <div />
     </div>
   );
 }

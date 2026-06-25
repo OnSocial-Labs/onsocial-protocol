@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronDown, Info } from 'lucide-react';
 
 import { ProtocolFlowDivider } from '@/components/ui/protocol-flow-divider';
-import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
+import { ProtocolMotionArrow } from '@onsocial/ui';
 
 import { SocialSwapQuoteDetails } from '@/components/social-swap-quote-details';
 import { Button, buttonArrowRightClass } from '@/components/ui/button';

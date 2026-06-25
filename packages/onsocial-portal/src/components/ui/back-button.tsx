@@ -1,4 +1,4 @@
-import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
+import { ProtocolMotionArrow } from '@onsocial/ui';
 import { cn } from '@/lib/utils';
 
 interface BackButtonProps {

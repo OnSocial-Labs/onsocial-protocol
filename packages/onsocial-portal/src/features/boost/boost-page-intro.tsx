@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { SectionHeader } from '@/components/layout/section-header';
-import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
+import { ProtocolMotionArrow } from '@onsocial/ui';
 import { usePageNavBadge } from '@/hooks/use-page-nav-badge';
 
 export function BoostPageIntro() {

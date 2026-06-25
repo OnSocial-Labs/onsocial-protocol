@@ -20,6 +20,11 @@ const PACKAGE_CHECKS = [
     command: 'pnpm --filter @onsocial/text-card run check',
   },
   {
+    name: '@onsocial/ui',
+    paths: ['packages/onsocial-ui/'],
+    command: 'pnpm --filter @onsocial/ui run check',
+  },
+  {
     name: '@onsocial/sdk',
     paths: ['packages/onsocial-sdk/'],
     command: 'pnpm --filter @onsocial/sdk run check',
@@ -40,6 +45,11 @@ const PACKAGE_CHECKS = [
     command: 'pnpm --filter @onsocial/pages run check',
   },
   {
+    name: '@onsocial/app',
+    paths: ['packages/onsocial-app/'],
+    command: 'pnpm --filter @onsocial/app run check',
+  },
+  {
     name: '@onsocial/portal',
     paths: ['packages/onsocial-portal/'],
     command: 'pnpm --filter @onsocial/portal run check',
@@ -50,7 +60,8 @@ const PACKAGE_CHECKS = [
 const WORKSPACE_DEPENDENTS = {
   '@onsocial/rpc': ['onsocial-backend', 'onsocial-gateway', '@onsocial/portal'],
   '@onsocial/text-card': ['@onsocial/sdk', 'onsocial-gateway'],
-  '@onsocial/sdk': ['@onsocial/portal'],
+  '@onsocial/sdk': ['@onsocial/portal', '@onsocial/app'],
+  '@onsocial/ui': ['@onsocial/portal', '@onsocial/app'],
 };
 
 function run(command, options = {}) {

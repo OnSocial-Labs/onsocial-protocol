@@ -4,22 +4,18 @@ import { useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import Link from 'next/link';
-import {
-  claimProgressPercent,
-  formatClaimRatioLabel,
-} from '@/components/wallet-rewards-panel';
+import { formatClaimRatioLabel } from '@/lib/rewards-claim-progress';
+import { RewardsClaimMetricRow } from '@/components/rewards-claim-metric-row';
+import { CompactInlineProgressRow } from '@/components/ui/compact-inline-progress-row';
 import {
   compactModalBodyClass,
+  compactModalBodyDenseClass,
+  compactModalInsetShellPadClass,
   compactModalShellClass,
   portalElevatedShadowClass,
 } from '@/components/ui/floating-panel';
 import { ModalCloseButton } from '@/components/ui/modal-close-button';
-import {
-  ModalFactRow,
-  ModalFactSection,
-} from '@/components/ui/modal-fact-list';
 import { ModalHeader } from '@/components/ui/modal-header';
-import { RewardsClaimButton } from '@/components/rewards-claim-button';
 import { usePortalRewardsOptional } from '@/contexts/portal-rewards-context';
 import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
 import { formatSocialCompact } from '@/lib/leaderboard';
@@ -28,6 +24,8 @@ import {
   PORTAL_REWARD_ACTION_RULES,
   PORTAL_REWARD_CREDIT_YOCTO,
   PORTAL_REWARD_MIN_CLAIM_YOCTO,
+  resolvePortalRewardActionProgress,
+  type PortalRewardActionProgress,
 } from '@/lib/portal-reward-constants';
 import { cn } from '@/lib/utils';
 
@@ -38,127 +36,164 @@ interface PortalRewardsRulesModalProps {
 }
 
 function rewardAmountShortLabel(): string {
-  return `${formatSocialCompact(PORTAL_REWARD_CREDIT_YOCTO.toString())} each`;
+  return `${formatSocialCompact(PORTAL_REWARD_CREDIT_YOCTO.toString())} SOCIAL each`;
 }
 
 function minClaimLabel(): string {
   return formatSocialCompact(PORTAL_REWARD_MIN_CLAIM_YOCTO.toString());
 }
 
-function RewardsStatusCard({
+function portalRewardsHeaderHint({
+  accountId,
+  claimableYocto,
+  canClaim,
+  loading,
+}: {
+  accountId: string | null;
+  claimableYocto: bigint;
+  canClaim: boolean;
+  loading: boolean;
+}): string {
+  if (!accountId) {
+    return 'Connect a wallet to view reward progress';
+  }
+  if (loading) {
+    return `@${accountId} · Portal activity rewards`;
+  }
+  const claimLabel = formatSocialCompact(claimableYocto.toString());
+  if (canClaim) {
+    return `${claimLabel} SOCIAL ready to claim`;
+  }
+  return `${claimLabel} SOCIAL claimable`;
+}
+
+function PortalRewardsRulesContent({
+  showProgress,
   loading,
   claimableYocto,
   canClaim,
   claiming,
+  remainingToClaimYocto,
+  totalEarnedYocto,
   portalDailyEarnedYocto,
   portalDailyCapYocto,
-  totalEarnedYocto,
+  progress,
   onClaim,
+  onPartnersLinkClick,
 }: {
+  showProgress: boolean;
   loading: boolean;
   claimableYocto: bigint;
   canClaim: boolean;
   claiming: boolean;
+  remainingToClaimYocto: bigint;
+  totalEarnedYocto: bigint;
   portalDailyEarnedYocto: bigint;
   portalDailyCapYocto: bigint;
-  totalEarnedYocto: bigint;
+  progress: PortalRewardActionProgress | null;
   onClaim: () => void | Promise<void>;
+  onPartnersLinkClick: () => void;
 }) {
-  const ratioLabel = formatClaimRatioLabel(
-    claimableYocto,
-    PORTAL_REWARD_MIN_CLAIM_YOCTO
-  );
-  const progress = claimProgressPercent(claimableYocto);
-  const barFill = claimableYocto > 0n ? Math.max(progress, 3) : 0;
-  const showClaimGlow = canClaim && barFill > 0;
-  const claimLabel = formatSocialCompact(claimableYocto.toString());
-
-  if (loading) {
-    return (
-      <div className="space-y-3" aria-hidden>
-        <div className="h-6 w-32 animate-pulse rounded bg-muted/35" />
-        <div className="flex items-center gap-2">
-          <div className="h-1 min-w-0 flex-1 animate-pulse rounded-full bg-muted/30" />
-          <div className="h-3 w-12 animate-pulse rounded bg-muted/30" />
-          <div className="h-7 w-14 animate-pulse rounded-full bg-muted/30" />
-        </div>
-        <div className="h-3 w-48 animate-pulse rounded bg-muted/30" />
-      </div>
-    );
-  }
-
-  const metaParts: string[] = [];
-  if (portalDailyCapYocto > 0n) {
-    metaParts.push(
-      `Today ${formatSocialCompact(portalDailyEarnedYocto.toString())}/${formatSocialCompact(portalDailyCapYocto.toString())}`
-    );
-  }
-  metaParts.push(
-    `Lifetime ${formatSocialCompact(totalEarnedYocto.toString())} SOCIAL`
-  );
+  const dailyRatio =
+    portalDailyCapYocto > 0n
+      ? formatClaimRatioLabel(portalDailyEarnedYocto, portalDailyCapYocto)
+      : '0/1';
+  const dailyPct =
+    portalDailyCapYocto > 0n
+      ? Math.min(
+          100,
+          Math.round(
+            Number((portalDailyEarnedYocto * 100n) / portalDailyCapYocto)
+          )
+        )
+      : 0;
+  const lifetimeLabel = formatSocialCompact(totalEarnedYocto.toString());
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-baseline gap-1.5">
-        <span className="font-mono text-lg font-semibold tabular-nums tracking-tight text-foreground">
-          {claimLabel}
-        </span>
-        <span className="portal-type-label font-medium text-muted-foreground/55">
-          SOCIAL {canClaim ? 'ready to claim' : 'claimable'}
-        </span>
-      </div>
+    <div className="space-y-0">
+      <div
+        className={cn(
+          'rounded-xl bg-background/35',
+          compactModalInsetShellPadClass
+        )}
+      >
+        <div className="grid grid-cols-1 gap-1.5">
+          {showProgress ? (
+            <div className="mb-2">
+              <RewardsClaimMetricRow
+                loading={loading}
+                claimableYocto={claimableYocto}
+                canClaim={canClaim}
+                claiming={claiming}
+                remainingToClaimYocto={remainingToClaimYocto}
+                compact
+                onClaim={onClaim}
+              />
+            </div>
+          ) : null}
 
-      <div className="flex items-center gap-2">
-        <div
-          className="flex min-h-[1.25rem] min-w-0 flex-1 items-center"
-          role="progressbar"
-          aria-valuenow={progress}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-label={`${ratioLabel} SOCIAL toward claim minimum`}
-        >
-          <div
-            className={cn(
-              'h-1 w-full overflow-hidden rounded-full bg-[var(--portal-green-bg)]',
-              showClaimGlow && 'bg-[var(--portal-green-bg)]'
-            )}
-          >
-            <div
-              className={cn(
-                'h-full rounded-full bg-[var(--portal-green)] transition-[width] duration-300',
-                showClaimGlow &&
-                  'shadow-[0_0_10px_-2px_var(--portal-green-shadow)]'
-              )}
-              style={{ width: `${barFill}%` }}
+          {showProgress && portalDailyCapYocto > 0n ? (
+            <CompactInlineProgressRow
+              label="Today"
+              ratioLabel={dailyRatio}
+              value={dailyPct}
+              max={100}
+              loading={loading}
             />
-          </div>
+          ) : null}
+
+          {PORTAL_REWARD_ACTION_RULES.map((rule) => {
+            const entry = resolvePortalRewardActionProgress(
+              showProgress ? progress : null,
+              rule.action,
+              rule.cap
+            );
+            return (
+              <CompactInlineProgressRow
+                key={rule.action}
+                label={rule.shortLabel}
+                ratioLabel={`${entry.count}/${entry.cap}`}
+                value={entry.count}
+                max={entry.cap}
+                loading={showProgress && loading}
+              />
+            );
+          })}
         </div>
-
-        <span
-          className={cn(
-            'shrink-0 font-mono portal-type-label font-medium tabular-nums leading-none',
-            canClaim ? 'text-[var(--portal-green)]' : 'text-muted-foreground/50'
-          )}
-          aria-hidden
-        >
-          {ratioLabel}
-        </span>
-
-        <RewardsClaimButton
-          canClaim={canClaim}
-          claiming={claiming}
-          ariaLabel={
-            canClaim
-              ? `Claim ${ratioLabel} SOCIAL`
-              : `Claim when ${ratioLabel} SOCIAL`
-          }
-          onClick={onClaim}
-        />
       </div>
 
-      <p className="portal-type-label leading-snug text-muted-foreground/55">
-        {metaParts.join(' · ')}
-      </p>
+      <div
+        className="mt-3 space-y-1.5 border-t border-fade-section pt-2.5"
+        role="group"
+        aria-label="Reward rules"
+      >
+        <p className="portal-type-label leading-snug text-muted-foreground/75">
+          {rewardAmountShortLabel()} · Claim at{' '}
+          <span className="font-mono tabular-nums text-foreground/75">
+            {minClaimLabel()} SOCIAL
+          </span>{' '}
+          minimum
+        </p>
+        <p className="portal-type-label leading-snug text-muted-foreground/75">
+          Including portal,{' '}
+          <Link
+            href="/partners"
+            className="text-foreground/75 underline decoration-border/70 underline-offset-2 hover:text-foreground"
+            onClick={onPartnersLinkClick}
+          >
+            partners
+          </Link>
+          , and Telegram
+        </p>
+        {showProgress && totalEarnedYocto > 0n ? (
+          <p className="portal-type-label leading-snug text-muted-foreground/65">
+            Lifetime {lifetimeLabel} SOCIAL
+          </p>
+        ) : null}
+        <p className="portal-type-caption leading-snug text-muted-foreground/55">
+          Daily caps reset midnight UTC
+        </p>
+      </div>
     </div>
   );
 }
@@ -172,7 +207,13 @@ export function PortalRewardsRulesModal({
   const titleId = useId();
   const scrollRef = useRef<HTMLDivElement>(null);
   const rewards = usePortalRewardsOptional();
+  const refreshRewardsState = rewards?.refreshRewardsState;
   useBodyScrollLock(open, scrollRef);
+
+  useEffect(() => {
+    if (!open || !refreshRewardsState) return;
+    void refreshRewardsState({ fresh: true, silent: true });
+  }, [open, refreshRewardsState]);
 
   useEffect(() => {
     if (!open) return;
@@ -191,12 +232,14 @@ export function PortalRewardsRulesModal({
 
   const claimableYocto = rewards?.claimableYocto ?? 0n;
   const totalEarnedYocto = rewards?.totalEarnedYocto ?? 0n;
-  const portalDailyEarnedYocto = rewards?.portalDailyEarnedYocto ?? 0n;
-  const portalDailyCapYocto = rewards?.portalDailyCapYocto ?? 0n;
   const canClaim = rewards?.canClaim ?? false;
   const claiming = rewards?.claiming ?? false;
+  const remainingToClaimYocto = rewards?.remainingToClaimYocto ?? 0n;
   const progressLoading = rewards?.loading ?? false;
   const showProgress = rewards != null;
+  const portalDailyEarnedYocto = rewards?.portalDailyEarnedYocto ?? 0n;
+  const portalDailyCapYocto = rewards?.portalDailyCapYocto ?? 0n;
+  const actionProgress = rewards?.actionProgress ?? null;
 
   return createPortal(
     <AnimatePresence initial={false}>
@@ -229,11 +272,12 @@ export function PortalRewardsRulesModal({
             <ModalHeader
               titleId={titleId}
               title="How rewards work"
-              description={
-                accountId
-                  ? `@${accountId} · Portal activity rewards`
-                  : 'Connect a wallet to view reward progress'
-              }
+              description={portalRewardsHeaderHint({
+                accountId,
+                claimableYocto,
+                canClaim,
+                loading: showProgress && progressLoading,
+              })}
               descriptionVariant="meta"
               bordered
               actions={
@@ -246,62 +290,28 @@ export function PortalRewardsRulesModal({
 
             <div
               ref={scrollRef}
-              className={cn(compactModalBodyClass, 'space-y-5')}
+              className={cn(
+                compactModalBodyClass,
+                compactModalBodyDenseClass,
+                'max-h-[min(72vh,34rem)]'
+              )}
             >
-              {showProgress ? (
-                <>
-                  <RewardsStatusCard
-                    loading={progressLoading}
-                    claimableYocto={claimableYocto}
-                    canClaim={canClaim}
-                    claiming={claiming}
-                    portalDailyEarnedYocto={portalDailyEarnedYocto}
-                    portalDailyCapYocto={portalDailyCapYocto}
-                    totalEarnedYocto={totalEarnedYocto}
-                    onClaim={async () => {
-                      await rewards?.claimRewards();
-                    }}
-                  />
-                  <div
-                    className="h-px w-full shrink-0 divider-section"
-                    role="separator"
-                    aria-hidden
-                  />
-                </>
-              ) : null}
-
-              <ModalFactSection
-                title="Earn on the portal"
-                aside={
-                  <span className="font-mono tabular-nums">
-                    {rewardAmountShortLabel()}
-                  </span>
-                }
-              >
-                {PORTAL_REWARD_ACTION_RULES.map((rule) => (
-                  <ModalFactRow
-                    key={rule.label}
-                    label={rule.label}
-                    value={rule.limit}
-                  />
-                ))}
-              </ModalFactSection>
-
-              <p className="portal-type-label leading-relaxed text-muted-foreground/60">
-                Claim at{' '}
-                <span className="font-mono tabular-nums text-foreground/75">
-                  {minClaimLabel()} SOCIAL
-                </span>{' '}
-                from your wallet menu. Includes portal,{' '}
-                <Link
-                  href="/partners"
-                  className="text-foreground/75 underline decoration-border/70 underline-offset-2 hover:text-foreground"
-                  onClick={() => onOpenChange(false)}
-                >
-                  partners
-                </Link>
-                , and Telegram — caps may differ.
-              </p>
+              <PortalRewardsRulesContent
+                showProgress={showProgress}
+                loading={progressLoading}
+                claimableYocto={claimableYocto}
+                canClaim={canClaim}
+                claiming={claiming}
+                remainingToClaimYocto={remainingToClaimYocto}
+                totalEarnedYocto={totalEarnedYocto}
+                portalDailyEarnedYocto={portalDailyEarnedYocto}
+                portalDailyCapYocto={portalDailyCapYocto}
+                progress={actionProgress}
+                onClaim={async () => {
+                  await rewards?.claimRewards();
+                }}
+                onPartnersLinkClick={() => onOpenChange(false)}
+              />
             </div>
           </motion.div>
         </motion.div>

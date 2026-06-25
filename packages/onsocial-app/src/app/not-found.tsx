@@ -1,6 +1,6 @@
 export default function NotFound() {
   return (
-    <main className="gate">
+    <main className="gate app-surface">
       <section className="not-found-card animate-rise-in">
         <div className="not-found-logo" aria-label="OnSocial">
           <svg

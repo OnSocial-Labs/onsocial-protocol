@@ -12,9 +12,8 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { Github, Globe, HeartHandshake, PenLine, User } from 'lucide-react';
-import { FaXTwitter } from 'react-icons/fa6';
-import { RiTelegram2Line } from 'react-icons/ri';
+import { HeartHandshake, PenLine, User } from 'lucide-react';
+import { ProfileSocialLinkIcons } from '@/components/profile-link-icons';
 import type { MaterialisedProfile } from '@onsocial/sdk';
 import type { PortalProfileShell } from '@/lib/portal-profile-server';
 import { useProfile } from '@/contexts/profile-context';
@@ -41,7 +40,6 @@ import {
   profileSocialEndorseArrowClass,
   profileSocialStandingButtonClass,
   profileSocialSupportButtonClass,
-  profileSocialSupportArrowClass,
   profileSocialSupportHeartClass,
 } from '@/components/ui/profile-action-pill';
 import {
@@ -52,7 +50,7 @@ import {
   ProfileSocialStandingPending,
   ProfileSocialStandingToggle,
 } from '@/components/ui/profile-social-standing-toggle';
-import { ProtocolMotionArrow } from '@/components/ui/protocol-motion-arrow';
+import { ProtocolMotionArrow } from '@onsocial/ui';
 import {
   ProfileIdentityLoading,
   ProfileSignalsBandSkeleton,
@@ -65,15 +63,14 @@ import {
   profileIdentityTextClass,
   ProfileStandingNetworkSkeleton,
 } from '@/features/profile/profile-identity-loading';
-import {
-  ProfileRallyCredentials,
-  useProfileRallyParticipations,
-} from '@/features/season/profile-rally-credentials';
+import { useProfileRallyParticipations } from '@/features/season/profile-rally-credentials';
+import { ProfileCredentialsMeta } from '@/features/profile/profile-credentials-meta';
+import { hasProfileCredentialsForParticipations } from '@/features/profile/profile-identity-credentials';
+import { useProfileProtocolCredential } from '@/features/profile/use-profile-protocol-credential';
 import { SeasonClaimInlineAction } from '@/features/season/season-claim-inline-action';
 import { useProfileSeasonClaim } from '@/features/season/use-profile-season-claim';
 import { NetworkModal, type NetworkAccount } from '@/components/network-modal';
 import { PlatformStorageAllowanceSummary } from '@/components/platform-storage-allowance-summary';
-import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import {
   TransactionFeedbackToast,
   type TransactionFeedback,
@@ -118,11 +115,7 @@ import {
   profilePageMobileContentMarginClass,
   profilePageMobileGutterClass,
 } from '@/lib/profile-page-layout';
-import {
-  buildProfileLinkUrl,
-  normalizeWebsiteForDisplay,
-  type ProfileSocialLinkKind,
-} from '@/lib/profile-links';
+import { profileLinkDisplayItems } from '@/lib/profile-links';
 import { cn } from '@/lib/utils';
 import {
   reportWalletActionFailure,
@@ -130,6 +123,7 @@ import {
   isWalletCancellationMessage,
 } from '@/lib/wallet-errors';
 import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
+import { useCollectCelebration } from '@/hooks/use-collect-celebration';
 import { useLazyInView } from '@/hooks/use-lazy-in-view';
 import {
   fetchProfileSupportBalanceYocto,
@@ -421,106 +415,27 @@ function formatBytes(bytes?: number | null): string {
   return `${value >= 10 || unitIndex === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[unitIndex]}`;
 }
 
-function profileLinkItems(links?: Record<string, string>) {
-  if (!links) return [];
+function mergeFetchedProfile(
+  fetched: MaterialisedProfile | null,
+  local: MaterialisedProfile | null | undefined
+): MaterialisedProfile | null {
+  if (!fetched) return local ?? null;
+  if (!local?.links || Object.keys(local.links).length === 0) return fetched;
 
-  const candidates: Array<{
-    key: string;
-    label: string;
-    value?: string;
-    kind: ProfileSocialLinkKind | 'website';
-  }> = [
-    {
-      key: 'website',
-      label: 'Website',
-      value: links.website,
-      kind: 'website',
-    },
-    { key: 'x', label: 'X', value: links.x ?? links.twitter, kind: 'x' },
-    {
-      key: 'telegram',
-      label: 'Telegram',
-      value: links.telegram,
-      kind: 'telegram',
-    },
-    { key: 'github', label: 'GitHub', value: links.github, kind: 'github' },
-  ];
+  const mergedLinks = {
+    ...(fetched.links ?? {}),
+    ...local.links,
+  };
+  if (Object.keys(mergedLinks).length === 0) return fetched;
 
-  return candidates.flatMap((item) => {
-    if (!item.value?.trim()) return [];
+  const fetchedLinks = fetched.links ?? {};
+  const unchanged =
+    Object.keys(mergedLinks).length === Object.keys(fetchedLinks).length &&
+    Object.entries(mergedLinks).every(
+      ([key, value]) => fetchedLinks[key] === value
+    );
 
-    try {
-      const href = buildProfileLinkUrl(item.value, item.kind);
-      const display =
-        item.kind === 'website'
-          ? normalizeWebsiteForDisplay(item.value)
-          : item.value.replace(/^@/, '');
-
-      return [
-        {
-          key: item.key,
-          label: item.label,
-          display,
-          href,
-          kind: item.kind,
-        },
-      ];
-    } catch {
-      return [];
-    }
-  });
-}
-
-function ProfileLinkIcon({
-  kind,
-  className,
-}: {
-  kind: ProfileSocialLinkKind | 'website';
-  className?: string;
-}) {
-  if (kind === 'website') return <Globe className={className} />;
-  if (kind === 'x') return <FaXTwitter className={className} />;
-  if (kind === 'telegram') return <RiTelegram2Line className={className} />;
-  return <Github className={className} />;
-}
-
-type ProfileLinkItem = ReturnType<typeof profileLinkItems>[number];
-
-function ProfileSocialLinkIcons({
-  links,
-  className,
-}: {
-  links: ProfileLinkItem[];
-  className?: string;
-}) {
-  if (links.length === 0) return null;
-
-  return (
-    <div
-      className={cn('flex shrink-0 flex-wrap items-center gap-1.5', className)}
-    >
-      {links.map((item) => (
-        <a
-          key={item.key}
-          href={item.href}
-          target="_blank"
-          rel="noreferrer"
-          className={cn(
-            'inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/70 transition-all hover:scale-105 hover:brightness-125 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60',
-            item.kind === 'website' && 'hover:text-[var(--portal-blue)]',
-            item.kind === 'telegram' && 'hover:text-[#26A5E4]',
-            item.kind === 'x' && 'hover:text-foreground',
-            item.kind === 'github' && 'hover:text-[var(--portal-purple)]'
-          )}
-          aria-label={`${item.label}: ${item.display}`}
-        >
-          <PortalHoverTooltip tooltip={`${item.label}: ${item.display}`}>
-            <ProfileLinkIcon kind={item.kind} className="h-4 w-4 shrink-0" />
-          </PortalHoverTooltip>
-        </a>
-      ))}
-    </div>
-  );
+  return unchanged ? fetched : { ...fetched, links: mergedLinks };
 }
 
 const NEAR_EMPTY_CODE_HASH = '11111111111111111111111111111111';
@@ -1017,6 +932,11 @@ export function ProfileModal({
   const isPage = variant === 'page';
   const active = Boolean(accountId) && (isPage || open);
   const rallyParticipations = useProfileRallyParticipations(accountId, active);
+  const protocolCredential = useProfileProtocolCredential(accountId, active);
+  const hasProfileCredentials = hasProfileCredentialsForParticipations(
+    rallyParticipations,
+    protocolCredential
+  );
   const reduceMotion = useReducedMotion();
   const router = useRouter();
   const {
@@ -1072,6 +992,8 @@ export function ProfileModal({
   const [supportOpen, setSupportOpen] = useState(false);
   const [claimableSupportYocto, setClaimableSupportYocto] =
     useState<bigint>(0n);
+  const [showSupportCollectPill, setShowSupportCollectPill] = useState(false);
+  const [isClaimSupportPending, setIsClaimSupportPending] = useState(false);
   const {
     txResult: claimTxResult,
     setTxResult: setClaimTxResult,
@@ -1084,7 +1006,11 @@ export function ProfileModal({
   useBodyScrollLock(!isPage && active, scrollRef);
   const title = displayName(profile, accountId);
   const bio = profile?.bio?.trim();
-  const profileLinks = profileLinkItems(profile?.links);
+  const profileLinks = profileLinkDisplayItems(profile?.links);
+  const profileLinksFooter =
+    profileLinks.length > 0 ? (
+      <ProfileSocialLinkIcons links={profileLinks} />
+    ) : null;
   const joinedLabel = profileSinceLabel(firstProfileTimestamp);
   const canStand = Boolean(accountId && viewerAccountId && !isSelf);
   const canEndorse = Boolean(
@@ -1096,9 +1022,6 @@ export function ProfileModal({
   const endorseActionLabel = 'Endorse';
   const canSupport = Boolean(
     accountId && viewerAccountId && !isSelf && onSupportProfile
-  );
-  const canClaimSupport = Boolean(
-    isSelf && accountId && onClaimSupportBalance && claimableSupportYocto > 0n
   );
   const { claim: seasonClaim, refresh: refreshSeasonClaim } =
     useProfileSeasonClaim(viewerAccountId, isSelf && active);
@@ -1144,6 +1067,19 @@ export function ProfileModal({
   const endorsementsLazy = useLazyInView({
     enabled: active && Boolean(accountId),
   });
+
+  useEffect(() => {
+    if (
+      !active ||
+      !isSelf ||
+      !selfProfile ||
+      selfProfile.accountId !== accountId
+    ) {
+      return;
+    }
+
+    setProfile((current) => mergeFetchedProfile(current, selfProfile));
+  }, [accountId, active, isSelf, selfProfile]);
 
   useEffect(() => {
     if (!isPage || !accountId || !onPageNavLabel) return;
@@ -1214,6 +1150,8 @@ export function ProfileModal({
     setAccountFactsOpen(false);
     setSupportOpen(false);
     setClaimableSupportYocto(0n);
+    setShowSupportCollectPill(false);
+    setIsClaimSupportPending(false);
     clearClaimTxResult();
   }, [accountId, active, clearClaimTxResult]);
 
@@ -1236,14 +1174,41 @@ export function ProfileModal({
     [accountId, isSelf]
   );
 
+  const {
+    celebration: supportCollectCelebration,
+    triggerCelebration: triggerSupportCollectCelebration,
+    durationSeconds: supportCollectCelebrationDurationSeconds,
+  } = useCollectCelebration({
+    variant: 'inline',
+    onComplete: () => {
+      setShowSupportCollectPill(false);
+      void refreshClaimableSupport({ fresh: true });
+    },
+  });
+
+  useEffect(() => {
+    if (claimableSupportYocto > 0n) {
+      setShowSupportCollectPill(true);
+    }
+  }, [claimableSupportYocto]);
+
+  const canClaimSupport = Boolean(
+    isSelf && accountId && onClaimSupportBalance && showSupportCollectPill
+  );
+
   useEffect(() => {
     if (!active || !isSelf || !accountId) return;
     void refreshClaimableSupport();
   }, [accountId, active, isSelf, refreshClaimableSupport]);
 
   const handleClaimSupport = useCallback(async () => {
-    if (!onClaimSupportBalance || isClaimingSupportBalance) return;
+    if (!onClaimSupportBalance || isClaimSupportPending) return;
 
+    const collectedAmountLabel = formatSupportBalanceLabel(
+      claimableSupportYocto
+    );
+
+    setIsClaimSupportPending(true);
     try {
       const txHashes = await onClaimSupportBalance();
       const confirmed = await trackClaimTransaction({
@@ -1253,10 +1218,7 @@ export function ProfileModal({
         failureMessage: txToastError.claimSupportFailed,
       });
       if (confirmed) {
-        window.setTimeout(
-          () => void refreshClaimableSupport({ fresh: true }),
-          4_000
-        );
+        triggerSupportCollectCelebration(collectedAmountLabel);
       }
     } catch (error) {
       if (!isWalletUserCancellation(error)) {
@@ -1264,12 +1226,15 @@ export function ProfileModal({
           setClaimTxResult({ type: 'error', msg })
         );
       }
+    } finally {
+      setIsClaimSupportPending(false);
     }
   }, [
-    isClaimingSupportBalance,
+    claimableSupportYocto,
+    isClaimSupportPending,
     onClaimSupportBalance,
-    refreshClaimableSupport,
     trackClaimTransaction,
+    triggerSupportCollectCelebration,
   ]);
 
   useEffect(() => {
@@ -1315,7 +1280,12 @@ export function ProfileModal({
     })
       .then((result) => {
         if (cancelled) return;
-        setProfile(result.profile);
+        setProfile(
+          mergeFetchedProfile(
+            result.profile,
+            isSelf && selfProfile?.accountId === accountId ? selfProfile : null
+          )
+        );
         setAvatarUrl(result.avatarUrl);
         setBannerUrl(result.bannerUrl);
         setFirstProfileTimestamp(result.firstProfileTimestamp);
@@ -1464,9 +1434,7 @@ export function ProfileModal({
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/18 bg-black/20 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_12px_28px_-20px_rgba(0,0,0,0.56)] backdrop-blur-xl backdrop-saturate-150 transition-colors hover:border-white/28 hover:bg-black/30 hover:text-white"
                 aria-label="Edit profile"
               >
-                <PortalHoverTooltip tooltip="Edit profile">
-                  <PenLine className="h-4 w-4" />
-                </PortalHoverTooltip>
+                <PenLine className="h-4 w-4" />
               </button>
             ) : null}
             <ModalCloseButton
@@ -1553,7 +1521,12 @@ export function ProfileModal({
                             amountLabel={formatSupportBalanceLabel(
                               claimableSupportYocto
                             )}
-                            pending={isClaimingSupportBalance}
+                            kind="support"
+                            pending={isClaimSupportPending}
+                            celebration={supportCollectCelebration}
+                            celebrationDurationSeconds={
+                              supportCollectCelebrationDurationSeconds
+                            }
                             ariaLabel={`${profileSocialCollectAriaLabel(formatSupportBalanceLabel(claimableSupportYocto))} support`}
                             onClick={() => void handleClaimSupport()}
                           />
@@ -1566,12 +1539,9 @@ export function ProfileModal({
                             onClick={() => setSupportOpen(true)}
                             aria-label={`Support ${title} with SOCIAL`}
                           >
-                            <ProtocolMotionArrow
-                              className={profileSocialSupportArrowClass()}
-                            />
                             <HeartHandshake
                               className={profileSocialSupportHeartClass()}
-                              strokeWidth={2}
+                              strokeWidth={2.5}
                             />
                           </button>
                         ) : null}
@@ -1634,14 +1604,12 @@ export function ProfileModal({
                   ) : null}
                 </div>
                 <div className={profileIdentityTextClass}>
-                  <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <h2
-                      id="profile-modal-title"
-                      className="min-w-0 font-semibold text-foreground portal-type-display"
-                    >
-                      {title}
-                    </h2>
-                  </div>
+                  <h2
+                    id="profile-modal-title"
+                    className="min-w-0 font-semibold text-foreground portal-type-display"
+                  >
+                    {title}
+                  </h2>
                   <p className="min-w-0 truncate portal-type-body-sm text-muted-foreground/55">
                     @{accountId}
                   </p>
@@ -1655,7 +1623,7 @@ export function ProfileModal({
               ) : null}
 
               {joinedLabel ||
-              rallyParticipations.length > 0 ||
+              hasProfileCredentials ||
               !socialReady ||
               social ? (
                 <div className={profileIdentityMetaRowClass}>
@@ -1700,7 +1668,7 @@ export function ProfileModal({
                       <ProtocolMotionArrow className="h-2 w-2 text-muted-foreground/45" />
                     </button>
                   ) : null}
-                  {rallyParticipations.length > 0 &&
+                  {hasProfileCredentials &&
                   (joinedLabel ||
                     !socialReady ||
                     (standingNetworkPreview?.previewAccounts.length ?? 0) >
@@ -1712,8 +1680,9 @@ export function ProfileModal({
                       ·
                     </span>
                   ) : null}
-                  <ProfileRallyCredentials
+                  <ProfileCredentialsMeta
                     participations={rallyParticipations}
+                    protocol={protocolCredential}
                   />
                 </div>
               ) : null}
@@ -1724,7 +1693,10 @@ export function ProfileModal({
                     key="profile-signals-skeleton"
                     {...fadeMotion(reduceMotion ? 0 : 0.12)}
                   >
-                    <ProfileSignalsBandSkeleton />
+                    <ProfileSignalsBandSkeleton
+                      footer={profileLinksFooter}
+                      showCtaRow={!profileLinksFooter}
+                    />
                   </motion.div>
                 ) : presentedSocial ? (
                   <motion.div
@@ -1739,19 +1711,14 @@ export function ProfileModal({
                       reputation={reputation}
                       isSelf={isSelf}
                       viewerHasEndorsed={viewerHasEndorsed}
-                      footer={
-                        profileLinks.length > 0 ? (
-                          <ProfileSocialLinkIcons links={profileLinks} />
-                        ) : undefined
-                      }
-                      showEndorsementMetrics={
-                        endorsementCount > 0 ||
-                        givenEndorsementCount > 0 ||
-                        viewerHasEndorsed ||
-                        isSelf ||
-                        canAddEndorsement
-                      }
+                      showEndorsementMetrics
+                      footer={profileLinksFooter}
                       onOpenStanceDetail={openStanceDetailPage}
+                      standDetailHref={
+                        isPage && accountId
+                          ? (kind) => getPortalStandUrl(accountId, kind)
+                          : undefined
+                      }
                       onOpenEndorsements={openEndorsementsPage}
                       prefetchStandDetail={prefetchStand}
                       prefetchEndorsementsPage={prefetchEndorsements}
@@ -1844,6 +1811,7 @@ export function ProfileModal({
             open={supportOpen}
             targetAccountId={accountId}
             targetDisplayName={title}
+            targetAvatarUrl={avatarUrl}
             onOpenChange={setSupportOpen}
             onSupport={onSupportProfile}
           />

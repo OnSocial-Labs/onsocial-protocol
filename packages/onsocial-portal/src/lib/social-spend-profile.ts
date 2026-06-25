@@ -1,3 +1,4 @@
+import { finalizeAmountInput } from '@/lib/amount-input';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/portal-config';
 import {
   extractNearTransactionHashes,
@@ -50,8 +51,48 @@ export const SUPPORT_PROFILE_MIN_SOCIAL_LABEL = '0.01';
 
 export const SUPPORT_PROFILE_PRESET_SOCIAL = ['1', '5', '10'] as const;
 
+/** Fractional digits while typing SOCIAL spend amounts (matches boost stake input). */
+export const SOCIAL_SPEND_AMOUNT_INPUT_DECIMALS = 6;
+
 export function formatSpendMinSocialLabel(minYocto: bigint): string {
   return yoctoToSocial(minYocto.toString());
+}
+
+/** Placeholder / hint — never bare zero when a positive minimum exists. */
+export function formatSpendAmountHint(minYocto: bigint): string {
+  const label = formatSpendMinSocialLabel(minYocto);
+  if (!label || label === '0') {
+    return SUPPORT_PROFILE_MIN_SOCIAL_LABEL;
+  }
+  return label;
+}
+
+export function clampSocialSpendAmountInput(
+  input: string,
+  opts: {
+    maxDecimals?: number;
+    balanceYocto?: bigint | null;
+  } = {}
+): string {
+  const maxDecimals = opts.maxDecimals ?? SOCIAL_SPEND_AMOUNT_INPUT_DECIMALS;
+  const normalized = input;
+  if (!normalized || opts.balanceYocto == null || opts.balanceYocto <= 0n) {
+    return normalized;
+  }
+
+  const finalized = finalizeAmountInput(normalized, maxDecimals);
+  if (!finalized) return normalized;
+
+  try {
+    const yocto = BigInt(socialToYocto(finalized));
+    if (yocto <= opts.balanceYocto) return normalized;
+    return finalizeAmountInput(
+      yoctoToSocial(opts.balanceYocto.toString()),
+      maxDecimals
+    );
+  } catch {
+    return normalized;
+  }
 }
 
 export function supportPresetsAtOrAboveMin(
@@ -85,6 +126,28 @@ export function parseSupportAmountYocto(
   minYocto: bigint = SUPPORT_PROFILE_MIN_YOCTO
 ): bigint {
   return parseSpendAmountYocto(input, minYocto);
+}
+
+export function isValidSocialSpendAmountInput(
+  input: string,
+  opts: {
+    minYocto?: bigint;
+    balanceYocto?: bigint | null;
+  } = {}
+): boolean {
+  const trimmed = input.trim();
+  if (!trimmed) return false;
+
+  const minYocto = opts.minYocto ?? SUPPORT_PROFILE_MIN_YOCTO;
+
+  try {
+    const yocto = BigInt(socialToYocto(trimmed));
+    if (yocto < minYocto) return false;
+    if (opts.balanceYocto != null && yocto > opts.balanceYocto) return false;
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function fetchSupportProfileRouting(): Promise<SupportProfileRoutingDisclosure | null> {

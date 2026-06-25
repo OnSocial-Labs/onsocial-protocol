@@ -6,6 +6,8 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { TokenIcon } from '@/components/ui/token-icon';
 import {
   compactModalBodyClass,
+  compactModalBodyDenseClass,
+  compactModalHeaderDenseClass,
   compactModalShellClass,
   portalElevatedShadowClass,
 } from '@/components/ui/floating-panel';
@@ -246,6 +248,7 @@ export function WalletAssetsModal({
               }
               descriptionVariant="meta"
               bordered
+              className={compactModalHeaderDenseClass}
               actions={
                 <ModalCloseButton
                   ariaLabel="Close wallet assets"
@@ -254,7 +257,10 @@ export function WalletAssetsModal({
               }
             />
 
-            <div ref={scrollRef} className={compactModalBodyClass}>
+            <div
+              ref={scrollRef}
+              className={cn(compactModalBodyClass, compactModalBodyDenseClass)}
+            >
               {isWalletBootstrapping ? (
                 <WalletBootstrapPlaceholder variant="inline" className="py-4" />
               ) : !accountId ? (

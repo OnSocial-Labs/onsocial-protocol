@@ -15,6 +15,7 @@ import {
   requiresTargetAccount,
   type PortalRewardAction,
 } from '../services/portal-reward-policy.js';
+import { loadPortalRewardActionProgress } from '../services/portal-reward-progress.js';
 
 const router = Router();
 
@@ -215,6 +216,41 @@ async function hasPriorTargetCredit(
 }
 
 router.use(partnerAuth);
+
+router.get(
+  '/reward-progress',
+  async (req: Request, res: Response): Promise<void> => {
+    const appId = (req as Request & { partnerAppId: string }).partnerAppId;
+    if (appId !== config.portalRewardsAppId) {
+      res
+        .status(403)
+        .json({ success: false, error: 'Portal rewards key required' });
+      return;
+    }
+
+    const accountId = normalizeAccountId(req.query.account_id);
+    if (!accountId) {
+      res.status(400).json({ success: false, error: 'account_id is required' });
+      return;
+    }
+
+    try {
+      const actions = await loadPortalRewardActionProgress({
+        accountId,
+        appId,
+        rewardDay: getRewardDay(),
+      });
+      res.json({ success: true, actions, reward_day: getRewardDay() });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error(
+        { error: message, accountId },
+        'Portal reward progress lookup failed'
+      );
+      res.status(502).json({ success: false, error: message });
+    }
+  }
+);
 
 router.post(
   '/reward-action',
@@ -464,12 +500,19 @@ router.post(
         );
       }
 
+      const actions = await loadPortalRewardActionProgress({
+        accountId,
+        appId,
+        rewardDay,
+      });
+
       res.json({
         success: true,
         credited: true,
         action,
         amount: refreshedDecision.amountYocto.toString(),
         tx_hash: txHash,
+        actions,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
