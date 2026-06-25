@@ -34,9 +34,7 @@ jobs:
           workspaces: indexers/substreams -> target
 
       - name: Install protoc
-        uses: arduino/setup-protoc@v3
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+        run: bash "${GITHUB_WORKSPACE}/.github/scripts/install-protoc.sh"
 
       - name: Cargo check (native)
         run: cargo check --all-targets
