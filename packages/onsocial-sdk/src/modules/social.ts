@@ -19,6 +19,7 @@
 // or from `@onsocial/sdk/advanced`.
 // ---------------------------------------------------------------------------
 
+import { formatProfileMediaRef } from './profile-media.js';
 import type { HttpClient } from '../internal/http.js';
 import { resolveContractId } from '../internal/contracts.js';
 import {
@@ -167,7 +168,7 @@ export class SocialModule {
 
   private async _uploadFile(file: Blob | File): Promise<string> {
     const uploaded = await this._storage.upload(file);
-    return `ipfs://${uploaded.cid}`;
+    return formatProfileMediaRef(uploaded);
   }
 
   private _broadcastOpts():

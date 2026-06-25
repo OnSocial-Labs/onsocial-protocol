@@ -22,6 +22,12 @@ import type { SocialModule } from './social.js';
 import type { QueryModule } from '../query/index.js';
 import type { StorageProvider } from '../storage/provider.js';
 import type { ProfileData, RelayResponse } from '../types.js';
+import {
+  resolveProfileMediaField,
+  type ResolvedProfileMedia,
+} from './profile-media.js';
+
+export type { ResolvedProfileMedia } from './profile-media.js';
 
 /**
  * Materialised profile — one object instead of N rows. Reserved fields are
@@ -245,11 +251,26 @@ export class ProfilesModule {
     return this._mediaUrl(profile?.banner);
   }
 
+  /** Resolve avatar media with image/video kind for page renderers. */
+  avatarMedia(
+    profile: MaterialisedProfile | null | undefined
+  ): ResolvedProfileMedia | null {
+    return resolveProfileMediaField(profile?.avatar, this._storage);
+  }
+
+  /** Resolve banner media with image/video kind for page renderers. */
+  bannerMedia(
+    profile: MaterialisedProfile | null | undefined
+  ): ResolvedProfileMedia | null {
+    return resolveProfileMediaField(profile?.banner, this._storage);
+  }
+
+  /** Resolve any stored profile media field value. */
+  resolveMedia(value: string | undefined): ResolvedProfileMedia | null {
+    return resolveProfileMediaField(value, this._storage);
+  }
+
   private _mediaUrl(value: string | undefined): string | null {
-    if (!value) return null;
-    if (value.startsWith('ipfs://')) {
-      return this._storage.url(value.slice('ipfs://'.length));
-    }
-    return value;
+    return resolveProfileMediaField(value, this._storage)?.url ?? null;
   }
 }

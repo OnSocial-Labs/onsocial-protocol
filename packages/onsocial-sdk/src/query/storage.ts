@@ -22,6 +22,13 @@ export interface StorageEventRow {
   reason: string | null;
 }
 
+/** Share-allocation event emitted when a pool owner sponsors a target. */
+export interface StorageShareGrantEventRow {
+  targetId: string;
+  maxBytes: string;
+  blockHeight: number;
+}
+
 const STORAGE_EVENT_FIELDS = `
   operation
   actorId
@@ -137,6 +144,30 @@ export class StorageQuery {
         ) { ${STORAGE_EVENT_FIELDS} }
       }`,
       variables: { op: operation, limit: opts.limit ?? 50 },
+    });
+    return res.data?.storageUpdates ?? [];
+  }
+
+  /**
+   * Share-storage grants issued by a pool owner (operation = "share_storage",
+   * author = pool owner). Returns historical grant events; pair with live
+   * `storageAccount.sponsorshipReceived(target)` to see active allocations.
+   */
+  async sharesGranted(
+    poolOwnerId: string,
+    opts: { limit?: number } = {}
+  ): Promise<StorageShareGrantEventRow[]> {
+    const res = await this._q.graphql<{
+      storageUpdates: StorageShareGrantEventRow[];
+    }>({
+      query: `query SharesGranted($id: String!, $limit: Int!) {
+        storageUpdates(
+          where: { operation: {_eq: "share_storage"}, author: {_eq: $id} },
+          limit: $limit,
+          orderBy: [{blockHeight: DESC}]
+        ) { targetId maxBytes blockHeight }
+      }`,
+      variables: { id: poolOwnerId, limit: opts.limit ?? 100 },
     });
     return res.data?.storageUpdates ?? [];
   }
