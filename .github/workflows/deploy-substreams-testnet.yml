@@ -201,7 +201,7 @@ jobs:
           username: root
           key: ${{ steps.ssh.outputs.key }}
           envs: VER,CLEAN_DEPLOY,SUBSTREAMS_DB_URL,SUBSTREAMS_API_TOKEN,HASURA_ADMIN_SECRET
-          command_timeout: 10m
+          command_timeout: 15m
           script: |
             set -euo pipefail
             SPKG_DIR=/root/onsocial-indexer
@@ -546,72 +546,76 @@ jobs:
             # permissions for the api_user tiers. The app deploy also does this,
             # but it may run before substreams finishes creating/tracking new
             # relations. Re-run it here to close that ordering gap.
+            # repair-gateway-auth.sh runs apply-hasura-permissions sync + gateway
+            # restart once. Do not run a second full sync here — it doubles deploy
+            # time (~4–5 min) and has hit the SSH step timeout mid bulk recreate.
             if [ -d /opt/onsocial ] && [ -f /opt/onsocial/docker-compose.yml ]; then
               echo "🔐 Repairing gateway auth + syncing Hasura permissions..."
-              (
-                cd /opt/onsocial
-                if [ -f .env.production ]; then
-                  set -a
-                  # shellcheck disable=SC1091
-                  . ./.env.production
-                  set +a
-                fi
-                if [ -f deploy_gsm.env ]; then
-                  set -a
-                  # shellcheck disable=SC1091
-                  . ./deploy_gsm.env
-                  set +a
-                fi
-                export HASURA_ADMIN_SECRET="${HASURA_ADMIN_SECRET:-${ADMIN_SECRET:-}}"
-                if [ -z "${HASURA_ADMIN_SECRET:-}" ] && command -v gcloud >/dev/null 2>&1; then
-                  HASURA_ADMIN_SECRET="$(
+              cd /opt/onsocial
+              if [ -f .env.production ]; then
+                set -a
+                # shellcheck disable=SC1091
+                . ./.env.production
+                set +a
+              fi
+              if [ -f deploy_gsm.env ]; then
+                set -a
+                # shellcheck disable=SC1091
+                . ./deploy_gsm.env
+                set +a
+              fi
+              export HASURA_ADMIN_SECRET="${HASURA_ADMIN_SECRET:-${ADMIN_SECRET:-}}"
+              if [ -z "${HASURA_ADMIN_SECRET:-}" ] && command -v gcloud >/dev/null 2>&1; then
+                HASURA_ADMIN_SECRET="$(
+                  gcloud secrets versions access latest \
+                    --secret=HASURA_ADMIN_SECRET \
+                    --project=onsocial-protocol 2>/dev/null \
+                    | tr -d '\r\n' || true
+                )"
+                export HASURA_ADMIN_SECRET
+              fi
+              if [ -z "${ONSOCIAL_API_KEY:-}" ] && command -v gcloud >/dev/null 2>&1; then
+                for _onapi_secret in ONSOCIAL_SERVICE_ONAPI_KEY ONSOCIAL_API_KEY GATEWAY_SERVICE_KEY; do
+                  ONSOCIAL_API_KEY="$(
                     gcloud secrets versions access latest \
-                      --secret=HASURA_ADMIN_SECRET \
+                      --secret="$_onapi_secret" \
                       --project=onsocial-protocol 2>/dev/null \
                       | tr -d '\r\n' || true
                   )"
-                  export HASURA_ADMIN_SECRET
-                fi
-                if [ -z "${ONSOCIAL_API_KEY:-}" ] && command -v gcloud >/dev/null 2>&1; then
-                  for _onapi_secret in ONSOCIAL_SERVICE_ONAPI_KEY ONSOCIAL_API_KEY GATEWAY_SERVICE_KEY; do
-                    ONSOCIAL_API_KEY="$(
-                      gcloud secrets versions access latest \
-                        --secret="$_onapi_secret" \
-                        --project=onsocial-protocol 2>/dev/null \
-                        | tr -d '\r\n' || true
-                    )"
-                    [ -n "${ONSOCIAL_API_KEY:-}" ] && break
-                  done
-                  export ONSOCIAL_API_KEY
-                fi
-                REPAIR_SCRIPT="${SPKG_DIR}/repair-gateway-auth.sh"
-                if [ ! -f "$REPAIR_SCRIPT" ] && [ -f /root/onsocial-protocol/scripts/repair-gateway-auth.sh ]; then
-                  REPAIR_SCRIPT="/root/onsocial-protocol/scripts/repair-gateway-auth.sh"
-                fi
-                if [ -f "$REPAIR_SCRIPT" ]; then
-                  chmod +x "$REPAIR_SCRIPT"
-                  bash "$REPAIR_SCRIPT"
-                else
-                  echo "⚠️ repair-gateway-auth.sh not found — applying api_keys migration only"
-                  if [ -f /root/onsocial-protocol/packages/onsocial-gateway/migrations/001_api_keys.sql ]; then
-                    $PSQL < /root/onsocial-protocol/packages/onsocial-gateway/migrations/001_api_keys.sql
-                  fi
+                  [ -n "${ONSOCIAL_API_KEY:-}" ] && break
+                done
+                export ONSOCIAL_API_KEY
+              fi
+              REPAIR_SCRIPT="${SPKG_DIR}/repair-gateway-auth.sh"
+              if [ ! -f "$REPAIR_SCRIPT" ] && [ -f /root/onsocial-protocol/scripts/repair-gateway-auth.sh ]; then
+                REPAIR_SCRIPT="/root/onsocial-protocol/scripts/repair-gateway-auth.sh"
+              fi
+              if [ -f "$REPAIR_SCRIPT" ]; then
+                chmod +x "$REPAIR_SCRIPT"
+                bash "$REPAIR_SCRIPT"
+              else
+                echo "⚠️ repair-gateway-auth.sh not found — applying api_keys migration + one permission sync"
+                if [ -f /root/onsocial-protocol/packages/onsocial-gateway/migrations/001_api_keys.sql ]; then
+                  $PSQL < /root/onsocial-protocol/packages/onsocial-gateway/migrations/001_api_keys.sql
                 fi
                 if docker compose ps gateway >/dev/null 2>&1; then
-                  mkdir -p /opt/onsocial/backups
                   docker compose exec -T -e HASURA_BACKUP_DIR=/tmp \
                     -e HASURA_ADMIN_SECRET="${HASURA_ADMIN_SECRET}" \
                     gateway \
-                    node packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js sync
-                  LATEST_SNAPSHOT=$(docker compose exec -T gateway sh -c 'ls -1t /tmp/hasura-metadata-*.json 2>/dev/null | head -1' | tr -d '\r')
-                  if [ -n "$LATEST_SNAPSHOT" ]; then
-                    docker cp "gateway:$LATEST_SNAPSHOT" /opt/onsocial/backups/ 2>/dev/null || true
-                  fi
-                  echo "✓ Gateway Hasura permissions synced + smoke tested"
-                else
-                  echo "⚠️ Gateway service not found in /opt/onsocial docker compose; skipping permission sync"
+                    node packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js sync </dev/null
+                  docker compose restart gateway
                 fi
-              )
+              fi
+              if docker compose ps gateway >/dev/null 2>&1; then
+                mkdir -p /opt/onsocial/backups
+                LATEST_SNAPSHOT=$(docker compose exec -T gateway sh -c 'ls -1t /tmp/hasura-metadata-*.json 2>/dev/null | head -1' | tr -d '\r')
+                if [ -n "$LATEST_SNAPSHOT" ]; then
+                  docker cp "gateway:$LATEST_SNAPSHOT" /opt/onsocial/backups/ 2>/dev/null || true
+                fi
+                echo "✓ Hasura metadata snapshot backed up"
+              else
+                echo "⚠️ Gateway service not found in /opt/onsocial docker compose"
+              fi
             else
               echo "⚠️ /opt/onsocial docker compose stack not found; skipping gateway Hasura permission sync"
             fi
