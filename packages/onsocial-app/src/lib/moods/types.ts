@@ -1,13 +1,16 @@
-import type { BuiltInPageMoodId } from '@onsocial/sdk';
+import type { BuiltInPageMoodId, PageMoodId, PremiumPageMoodId } from '@onsocial/sdk';
 
-/** Built-in mood ids. Custom / purchased moods extend this later. */
+/** Built-in mood ids. */
 export type BuiltInMoodId = BuiltInPageMoodId;
 
-export type MoodId = BuiltInMoodId | (string & {});
+export type PremiumMoodId = PremiumPageMoodId;
+
+/** Built-in + premium mood ids, or unknown stored ids before catalog match. */
+export type MoodId = PageMoodId | (string & {});
 
 /** Active mood broadcast stored under `page/main.mood`. */
 export interface PageMoodRecord {
-  id: MoodId;
+  id: string;
   since?: number;
   note?: string;
 }
@@ -15,7 +18,7 @@ export interface PageMoodRecord {
 export type { PageMoodThemeTokens as MoodThemeTokens } from '@onsocial/sdk';
 
 export interface MoodPreset {
-  id: BuiltInMoodId;
+  id: PageMoodId;
   label: string;
   tagline: string;
   theme: import('@onsocial/sdk').PageMoodThemeTokens;

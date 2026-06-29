@@ -18,7 +18,7 @@ import {
   SeasonArchiveCollectDot,
 } from '@/features/season/season-archive-nav-skeleton';
 import { useArchiveSeasonClaimHints } from '@/features/season/use-archive-season-claim-hints';
-import { useDropdown } from '@/hooks/use-dropdown';
+import { useDropdown } from '@onsocial/ui';
 import {
   listArchiveSeasons,
   resolveLiveSeasonEntry,

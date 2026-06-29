@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/floating-panel';
 import { SearchInput } from '@/components/ui/search-input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useDropdown } from '@/hooks/use-dropdown';
+import { useDropdown } from '@onsocial/ui';
 import { useNavStickyTop } from '@/hooks/use-nav-sticky-top';
 import {
   getPortalEndorsementsUrl,

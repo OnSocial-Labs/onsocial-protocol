@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { accountIdsEqual } from '@/lib/account-match';
@@ -19,17 +19,36 @@ interface SummonLauncherProps {
   apps: OsAppLink[];
   pageAccountId?: string;
   showMyPage?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
 }
 
 export function SummonLauncher({
   apps,
   pageAccountId,
   showMyPage = false,
+  open: openProp,
+  onOpenChange,
+  hideTrigger = false,
 }: SummonLauncherProps) {
   const router = useRouter();
   const { accountId } = useAppWallet();
   const { navigate, openingPage } = useOsAppNavigate(pageAccountId);
-  const [open, setOpen] = useState(false);
+  const [openInternal, setOpenInternal] = useState(false);
+  const open = openProp ?? openInternal;
+
+  const setOpen = useCallback(
+    (next: boolean) => {
+      if (openProp === undefined) {
+        setOpenInternal(next);
+      }
+      onOpenChange?.(next);
+    },
+    [onOpenChange, openProp]
+  );
+
+  const closeLauncher = useCallback(() => setOpen(false), [setOpen]);
 
   useScrollLock(open);
 
@@ -39,12 +58,12 @@ export function SummonLauncher({
     }
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setOpen(false);
+        closeLauncher();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open]);
+  }, [closeLauncher, open]);
 
   function handleNavigate(app: OsAppLink) {
     if (navigate(app)) {
@@ -54,18 +73,20 @@ export function SummonLauncher({
 
   return (
     <>
-      <div className="portfolio-summon-dock">
-        <button
-          type="button"
-          className="portfolio-summon"
-          onClick={() => setOpen(true)}
-          aria-haspopup="dialog"
-          aria-expanded={open}
-          aria-label="Open launcher"
-        >
-          <span className="portfolio-summon-grip" aria-hidden />
-        </button>
-      </div>
+      {!hideTrigger ? (
+        <div className="portfolio-summon-dock">
+          <button
+            type="button"
+            className="portfolio-summon"
+            onClick={() => setOpen(true)}
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            aria-label="Open launcher"
+          >
+            <span className="portfolio-summon-grip" aria-hidden />
+          </button>
+        </div>
+      ) : null}
 
       {open ? (
         <div className="launcher-root" role="presentation">
@@ -151,7 +172,7 @@ export function PortfolioLauncher({
     isConnected && Boolean(accountId) && accountIdsEqual(accountId!, pageAccountId);
   const apps = isOwner
     ? ownerPortfolioOsApps(pageAccountId)
-    : visitorPortfolioOsApps();
+    : visitorPortfolioOsApps(pageAccountId);
 
   return (
     <SummonLauncher

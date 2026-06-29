@@ -340,6 +340,69 @@ fn testnet_support_endorsement_config() -> Value {
     })
 }
 
+fn testnet_unlock_page_mood_config() -> Value {
+    json!({
+        "label": "Unlock Page Mood",
+        "active": true,
+        "min_amount": MIN_SOCIAL_SPEND.to_string(),
+        "target_types": ["page_mood"],
+        "treasury_bps": 10000,
+        "season_pool_bps": 0,
+        "target_bps": 0,
+        "season_required": false,
+        "allow_self_target": true,
+        "burn_bps": 0,
+    })
+}
+
+#[tokio::test]
+async fn test_unlock_page_mood_ft_transfer_call_routes_and_emits() -> Result<()> {
+    let worker = setup_sandbox().await?;
+    let owner = worker.dev_create_account().await?;
+    let spender = worker.dev_create_account().await?;
+
+    let ft = deploy_mock_ft(&worker, &owner).await?;
+    let (social_spend, _boost) = deploy_social_spend(&worker, &owner, &ft).await?;
+
+    set_action_config(
+        &social_spend,
+        &owner,
+        "unlock_page_mood",
+        testnet_unlock_page_mood_config(),
+    )
+    .await?;
+
+    let amount = 100 * ONE_SOCIAL;
+    ft_storage_deposit(&ft, &owner, spender.id().as_str()).await?;
+    ft_transfer(&ft, &owner, spender.id().as_str(), amount).await?;
+
+    let logs = spend_social(
+        &ft,
+        &social_spend,
+        &spender,
+        amount,
+        spend_msg("unlock_page_mood", "page_mood", "summer", None, None),
+    )
+    .await?;
+
+    assert!(contains_event(&logs, "SOCIAL_SPENT"));
+
+    let info = social_spend.view("get_contract_info").await?.json::<Value>()?;
+    assert_eq!(info["total_spent"], amount.to_string());
+    assert_eq!(info["total_boost_credits_routed"], amount.to_string());
+
+    let action_totals = view_value(
+        &social_spend,
+        "get_action_totals",
+        json!({ "action_id": "unlock_page_mood" }),
+    )
+    .await?;
+    assert_eq!(action_totals["count"], 1);
+    assert_eq!(action_totals["total_spent"], amount.to_string());
+
+    Ok(())
+}
+
 #[tokio::test]
 async fn test_signal_profile_ft_transfer_call_routes_and_emits() -> Result<()> {
     let worker = setup_sandbox().await?;

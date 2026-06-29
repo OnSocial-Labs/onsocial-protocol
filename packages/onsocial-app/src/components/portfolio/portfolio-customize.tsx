@@ -1,5 +1,6 @@
 'use client';
 
+import { SheetCloseButton } from '@onsocial/ui';
 import { useRef, useState } from 'react';
 import { accountIdsEqual } from '@/lib/account-match';
 import type { PageAvatarMode, PageHeroSource, PublicPageConfig } from '@/lib/page-data';
@@ -183,14 +184,10 @@ export function PortfolioCustomize({
                   they appear on your page.
                 </p>
               </div>
-              <button
-                type="button"
-                className="customize-sheet-close"
+              <SheetCloseButton
                 onClick={() => setOpen(false)}
-                aria-label="Close customize"
-              >
-                ×
-              </button>
+                ariaLabel="Close customize"
+              />
             </header>
 
             {needsConnect ? (

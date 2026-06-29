@@ -19,8 +19,15 @@ import type {
 } from '../types.js';
 import {
   mergeMoodIntoPageConfig,
-  type BuiltInPageMoodId,
+  pageMoodPresetForId,
+  PAGE_MOOD_CATALOG,
+  type PageMoodId,
 } from './pages/moods.js';
+import {
+  assertCanApplyPageMood,
+  mergePageMoodUnlockIntoPageConfig,
+  type PremiumPageMoodId,
+} from './pages/premium-moods.js';
 
 /**
  * Pages — configure and read `{account}.onsocial.id` page data.
@@ -92,11 +99,13 @@ export class PagesModule {
   }
 
   /**
-   * Apply a built-in page mood to `page/main` — merges mood metadata and theme
+   * Apply a page mood to `page/main` — merges mood metadata and theme
    * into the existing page config without replacing other fields.
+   *
+   * Premium moods must be unlocked first ({@link unlockMood}).
    */
   async setMood(
-    moodId: BuiltInPageMoodId,
+    moodId: PageMoodId,
     opts?: {
       note?: string;
       now?: number;
@@ -105,8 +114,35 @@ export class PagesModule {
     }
   ): Promise<RelayResponse> {
     const current = await this.getConfig(opts?.accountId);
+    assertCanApplyPageMood(
+      current,
+      moodId,
+      PAGE_MOOD_CATALOG,
+      (id: string) => pageMoodPresetForId(id).label
+    );
     const next = mergeMoodIntoPageConfig(current, moodId, {
       note: opts?.note,
+      now: opts?.now,
+    });
+    return this.setConfig(next, { wait: opts?.wait });
+  }
+
+  /**
+   * Record a premium mood unlock on `page/main.moodUnlocks`.
+   * Payment (boost credits) is handled separately by the caller.
+   */
+  async unlockMood(
+    moodId: PremiumPageMoodId,
+    opts?: {
+      purchaseTxHash?: string;
+      now?: number;
+      wait?: boolean;
+      accountId?: string;
+    }
+  ): Promise<RelayResponse> {
+    const current = await this.getConfig(opts?.accountId);
+    const next = mergePageMoodUnlockIntoPageConfig(current, moodId, {
+      purchaseTxHash: opts?.purchaseTxHash,
       now: opts?.now,
     });
     return this.setConfig(next, { wait: opts?.wait });

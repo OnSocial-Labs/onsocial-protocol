@@ -13,7 +13,8 @@ export type SocialSpendDefaultAction =
   | 'endorse_profile'
   | 'join_rally'
   | 'support_profile'
-  | 'support_endorsement';
+  | 'support_endorsement'
+  | 'unlock_page_mood';
 
 export type SocialSpendAction = SocialSpendDefaultAction | (string & {});
 export type SocialSpendAmount = string | bigint;
@@ -311,6 +312,65 @@ export class SocialSpendModule {
         metadata: opts.metadata,
       },
       opts
+    );
+  }
+
+  unlockPageMood(
+    moodId: string,
+    amount: SocialSpendAmount,
+    opts: SocialSpendSendOptions & {
+      appId?: string;
+      pageAccountId?: string;
+      tag?: string;
+      metadata?: Record<string, unknown>;
+    } = {}
+  ): Promise<RelayResponse> {
+    return this.spend(
+      {
+        amount,
+        appId: opts.appId ?? 'onpage',
+        action: 'unlock_page_mood',
+        targetType: 'page_mood',
+        targetId: moodId,
+        tag: opts.tag,
+        metadata: {
+          ...(opts.pageAccountId
+            ? { page_account_id: opts.pageAccountId }
+            : {}),
+          ...opts.metadata,
+        },
+      },
+      opts
+    );
+  }
+
+  buildUnlockPageMoodTransaction(
+    moodId: string,
+    amount: SocialSpendAmount,
+    opts: {
+      appId?: string;
+      pageAccountId?: string;
+      tag?: string;
+      metadata?: Record<string, unknown>;
+      gas?: string | bigint;
+    } = {}
+  ): WalletTransaction {
+    return this.buildSpendTransaction(
+      {
+        amount,
+        appId: opts.appId ?? 'onpage',
+        action: 'unlock_page_mood',
+        targetType: 'page_mood',
+        targetId: moodId,
+        tag: opts.tag,
+        metadata: {
+          ...(opts.pageAccountId
+            ? { page_account_id: opts.pageAccountId }
+            : {}),
+          ...opts.metadata,
+        },
+      },
+      { gas: opts.gas }
     );
   }
 

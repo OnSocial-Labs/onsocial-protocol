@@ -8,7 +8,10 @@ import {
   ProfileSocialStandingPending,
   ProfileSocialStandingToggle,
 } from '@/components/ui/profile-social-standing-toggle';
-import { ProtocolMotionArrow } from '@onsocial/ui';
+import {
+  ProtocolMotionArrow,
+  formatSocialStandingTimeMeta,
+} from '@onsocial/ui';
 import { RelationshipSignal } from '@/components/ui/relationship-signal';
 import {
   profileListBioClass,
@@ -26,43 +29,6 @@ import { cn } from '@/lib/utils';
 
 function accountLabel(account: StandingAccountSummary): string {
   return account.name?.trim() || cleanHandle(account.accountId);
-}
-
-function normalizeSocialTimestamp(value?: number | null): number | null {
-  if (!value || !Number.isFinite(value) || value <= 0) return null;
-  if (value > 1_000_000_000_000_000) return Math.floor(value / 1_000_000);
-  if (value < 1_000_000_000_000) return value * 1000;
-  return value;
-}
-
-function formatRelativeTime(timestamp: number | null): string {
-  if (!timestamp) return '';
-  const diff = Math.max(0, Date.now() - timestamp);
-  const min = Math.floor(diff / 60000);
-  if (min < 1) return 'just now';
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const day = Math.floor(hr / 24);
-  if (day < 7) return `${day}d ago`;
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-  }).format(new Date(timestamp));
-}
-
-function standingTimeMeta(
-  account: StandingAccountSummary
-): { label: string; description: string } | null {
-  const since = normalizeSocialTimestamp(account.standingSince);
-  if (since) {
-    const label = formatRelativeTime(since);
-    return { label, description: `Standing since ${label}` };
-  }
-  const added = normalizeSocialTimestamp(account.standingBlockTimestamp);
-  if (!added) return null;
-  const label = formatRelativeTime(added);
-  return { label, description: `Standing added ${label}` };
 }
 
 function AccountAvatar({
@@ -154,7 +120,7 @@ export function StandingList({
           const sharedSolidarity =
             viewerStandsWithAccount && theyStandWithViewer;
           const bio = account.bio?.trim();
-          const timeMeta = standingTimeMeta(account);
+          const timeMeta = formatSocialStandingTimeMeta(account);
           return (
             <motion.div
               key={account.accountId}

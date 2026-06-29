@@ -30,7 +30,7 @@ import {
   utilityButtonClass,
   utilityIconTransition,
 } from '@/components/ui/utility-button';
-import { useDropdown } from '@/hooks/use-dropdown';
+import { ProtocolMotionArrow, useDropdown } from '@onsocial/ui';
 import { useProfile } from '@/contexts/profile-context';
 import { usePortalRewards } from '@/contexts/portal-rewards-context';
 import { useSocialWalletBalance } from '@/hooks/use-social-wallet-balance';
@@ -46,7 +46,6 @@ import {
   walletMenuActionButtonClass,
 } from '@/components/ui/profile-action-pill';
 import { CompactActionPillPending } from '@/components/ui/profile-social-standing-toggle';
-import { ProtocolMotionArrow } from '@onsocial/ui';
 import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/near-network';
 import { getPortalProfileUrl } from '@/lib/portal-config';
 import { walletLabelFromAccountId } from '@/lib/wallet-label';

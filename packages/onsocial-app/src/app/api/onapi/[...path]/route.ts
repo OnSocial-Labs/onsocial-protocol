@@ -20,6 +20,8 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
   { method: 'POST', path: 'relay/delegate', body: 'json' },
   { method: 'GET', path: 'data/get-one', body: 'none' },
   { method: 'GET', path: 'data/get', body: 'none' },
+  // SOCIAL wallet balance — premium mood unlock preflight.
+  { method: 'GET', path: 'data/ft-balance-of', body: 'none' },
 ];
 
 const FORWARDED_RESPONSE_HEADERS = ['content-type', 'cache-control'] as const;

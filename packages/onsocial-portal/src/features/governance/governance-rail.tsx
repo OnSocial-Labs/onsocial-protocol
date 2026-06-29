@@ -29,8 +29,7 @@ import {
   floatingPanelItemWithMotionClass,
 } from '@/components/ui/floating-panel';
 import { FloatingPanelMenu } from '@/components/ui/floating-panel-menu';
-import { ProtocolMotionArrow } from '@onsocial/ui';
-import { useDropdown } from '@/hooks/use-dropdown';
+import { ProtocolMotionArrow, useDropdown } from '@onsocial/ui';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useNavStickyTop } from '@/hooks/use-nav-sticky-top';
 import { GovernanceDaoInfoModal } from '@/features/governance/governance-dao-info-modal';

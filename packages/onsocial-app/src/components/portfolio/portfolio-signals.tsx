@@ -1,17 +1,21 @@
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { ProtocolMotionArrow } from '@onsocial/ui';
+import { standingPath } from '@/lib/profile-social-standings';
 import { formatCount } from '@/lib/profile-display';
-import { overlayPath } from '@/lib/overlay-routes';
 import type { ProfileSignals } from '@/lib/profile-signals';
 
 interface PortfolioSignalsProps {
   accountId: string;
   signals: ProfileSignals;
+  /** Viewer stands with this page owner. */
+  viewerStanding?: boolean;
+  /** Page owner stands with viewer. */
+  theyStandWithViewer?: boolean;
 }
 
-const metricBtnClass = 'signal-metric group';
-const metricInnerClass = 'inline-flex items-center gap-0.5';
-const arrowClass = 'h-2.5 w-2.5 shrink-0';
+const metricInnerClass = 'signal-metric-inner';
+const arrowClass = 'signal-metric-arrow';
 
 function formatReputation(value: number): string {
   if (value >= 1000) {
@@ -24,17 +28,57 @@ function signalValueClass(value: number): string {
   return value === 0 ? 'signal-value is-zero' : 'signal-value';
 }
 
-export function PortfolioSignals({ accountId, signals }: PortfolioSignalsProps) {
-  const standingHref = overlayPath(accountId, 'standing');
-  const endorsementsHref = overlayPath(accountId, 'endorsements');
-  const reputationHref = overlayPath(accountId, 'reputation');
+const metricBaseClass = 'signal-metric group';
+
+function metricClassName(options?: {
+  highlight?: boolean;
+  solidarity?: boolean;
+  readonly?: boolean;
+}): string {
+  let className = metricBaseClass;
+  if (options?.solidarity) className += ' signal-metric-solidarity';
+  if (options?.highlight) className += ' signal-metric--highlight';
+  if (options?.solidarity && options?.highlight) {
+    className += ' signal-metric--solidarity-active';
+  }
+  if (options?.readonly) {
+    className += ' signal-metric-readonly';
+  }
+  return className;
+}
+
+function SignalMetric({
+  children,
+  className,
+  ariaLabel,
+}: {
+  children: ReactNode;
+  className: string;
+  ariaLabel: string;
+}) {
+  return (
+    <span className={className} aria-label={ariaLabel}>
+      {children}
+    </span>
+  );
+}
+
+export function PortfolioSignals({
+  accountId,
+  signals,
+  viewerStanding = false,
+  theyStandWithViewer = false,
+}: PortfolioSignalsProps) {
+  const sharedSolidarity = viewerStanding && theyStandWithViewer;
 
   return (
     <div className="portfolio-signals" aria-label="Profile signals">
       <div className="signal-group signal-group-standing">
         <Link
-          className={metricBtnClass}
-          href={standingHref}
+          className={metricClassName({
+            highlight: theyStandWithViewer && !sharedSolidarity,
+          })}
+          href={standingPath(accountId, 'incoming')}
           scroll={false}
           aria-label={`${signals.standingCount} stand with them`}
         >
@@ -49,8 +93,8 @@ export function PortfolioSignals({ accountId, signals }: PortfolioSignalsProps) 
           ·
         </span>
         <Link
-          className={metricBtnClass}
-          href={standingHref}
+          className={metricClassName()}
+          href={standingPath(accountId, 'outgoing')}
           scroll={false}
           aria-label={`they stand with ${signals.standingWithCount}`}
         >
@@ -65,8 +109,11 @@ export function PortfolioSignals({ accountId, signals }: PortfolioSignalsProps) 
           ·
         </span>
         <Link
-          className={`${metricBtnClass} signal-metric-solidarity`}
-          href={standingHref}
+          className={metricClassName({
+            solidarity: true,
+            highlight: sharedSolidarity,
+          })}
+          href={standingPath(accountId, 'mutual')}
           scroll={false}
           aria-label={`${signals.mutualStandingCount} solidarity`}
         >
@@ -85,11 +132,9 @@ export function PortfolioSignals({ accountId, signals }: PortfolioSignalsProps) 
       </span>
 
       <div className="signal-group signal-group-endorse">
-        <Link
-          className={metricBtnClass}
-          href={endorsementsHref}
-          scroll={false}
-          aria-label={`${signals.endorsementsReceivedCount} endorsements received`}
+        <SignalMetric
+          className={metricClassName({ readonly: true })}
+          ariaLabel={`${signals.endorsementsReceivedCount} endorsements received`}
         >
           <span className={metricInnerClass}>
             <ProtocolMotionArrow className={arrowClass} />
@@ -97,15 +142,13 @@ export function PortfolioSignals({ accountId, signals }: PortfolioSignalsProps) 
               {formatCount(signals.endorsementsReceivedCount)}
             </span>
           </span>
-        </Link>
+        </SignalMetric>
         <span className="signal-dot" aria-hidden>
           ·
         </span>
-        <Link
-          className={metricBtnClass}
-          href={endorsementsHref}
-          scroll={false}
-          aria-label={`${signals.endorsementsGivenCount} endorsements given`}
+        <SignalMetric
+          className={metricClassName({ readonly: true })}
+          ariaLabel={`${signals.endorsementsGivenCount} endorsements given`}
         >
           <span className={metricInnerClass}>
             <span className={signalValueClass(signals.endorsementsGivenCount)}>
@@ -113,7 +156,7 @@ export function PortfolioSignals({ accountId, signals }: PortfolioSignalsProps) 
             </span>
             <ProtocolMotionArrow className={arrowClass} />
           </span>
-        </Link>
+        </SignalMetric>
       </div>
 
       {signals.reputation ? (
@@ -122,11 +165,9 @@ export function PortfolioSignals({ accountId, signals }: PortfolioSignalsProps) 
             ·
           </span>
           <div className="signal-group signal-group-reputation">
-            <Link
-              className={metricBtnClass}
-              href={reputationHref}
-              scroll={false}
-              aria-label={`Reputation ${formatReputation(signals.reputation.reputation)}${
+            <SignalMetric
+              className={metricClassName({ readonly: true })}
+              ariaLabel={`Reputation ${formatReputation(signals.reputation.reputation)}${
                 signals.reputation.rank > 0
                   ? `, rank ${signals.reputation.rank}`
                   : ''
@@ -142,7 +183,7 @@ export function PortfolioSignals({ accountId, signals }: PortfolioSignalsProps) 
                   {formatReputation(signals.reputation.reputation)}
                 </span>
               </span>
-            </Link>
+            </SignalMetric>
           </div>
         </>
       ) : null}

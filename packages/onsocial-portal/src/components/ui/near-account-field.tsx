@@ -8,7 +8,7 @@ import {
   floatingPanelItemSelectedClass,
 } from '@/components/ui/floating-panel';
 import { FloatingPanelMenu } from '@/components/ui/floating-panel-menu';
-import { useDropdown } from '@/hooks/use-dropdown';
+import { useDropdown } from '@onsocial/ui';
 import { AnimatePresence, motion } from 'framer-motion';
 import { InsetDividerItem } from '@/components/ui/inset-divider-group';
 import { PulsingDots } from '@/components/ui/pulsing-dots';

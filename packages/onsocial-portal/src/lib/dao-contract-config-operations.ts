@@ -19,6 +19,7 @@ export type DaoContractConfigOperationId =
   | 'social_spend_support_profile_routing'
   | 'social_spend_support_endorsement_routing'
   | 'social_spend_boost_post_routing'
+  | 'social_spend_unlock_page_mood_routing'
   | 'social_spend_set_season_config';
 
 /** Minimum spend for default social-spend actions (0.01 SOCIAL, 18 decimals). */
@@ -99,6 +100,24 @@ export const DEFAULT_BOOST_POST_ROUTING_DRAFT: SocialSpendActionRoutingDraft = {
   season_required: false,
   allow_self_target: true,
 };
+
+/** Summer mood default — 100 SOCIAL min, 100% protocol fees → boost credits. */
+export const SOCIAL_SPEND_UNLOCK_PAGE_MOOD_MIN_AMOUNT_YOCTO =
+  '100000000000000000000';
+
+export const DEFAULT_UNLOCK_PAGE_MOOD_ROUTING_DRAFT: SocialSpendActionRoutingDraft =
+  {
+    label: 'Unlock Page Mood',
+    active: true,
+    min_amount: SOCIAL_SPEND_UNLOCK_PAGE_MOOD_MIN_AMOUNT_YOCTO,
+    target_types: ['page_mood'],
+    treasury_bps: 10_000,
+    season_pool_bps: 0,
+    target_bps: 0,
+    burn_bps: 0,
+    season_required: false,
+    allow_self_target: true,
+  };
 
 export interface SocialSpendActionConfigView {
   label: string;
@@ -241,6 +260,20 @@ export const DAO_CONTRACT_CONFIG_OPERATIONS: readonly DaoContractConfigOperation
       prefetchArgs: { action_id: 'boost_post' },
       form: 'social_spend_action_routing',
       actionId: 'boost_post',
+    },
+    {
+      id: 'social_spend_unlock_page_mood_routing',
+      contractId: SOCIAL_SPEND_CONTRACT,
+      label: 'Unlock page mood routing',
+      description:
+        'Register or update unlock_page_mood spends (SOCIAL premium page moods on OnPage). Protocol fees route to boost credits.',
+      methodName: 'set_action_config',
+      gas: SOCIAL_SPEND_CONFIG_FUNCTION_CALL_GAS,
+      deposit: SOCIAL_SPEND_CONFIG_FUNCTION_CALL_DEPOSIT,
+      prefetchMethod: 'get_action_config',
+      prefetchArgs: { action_id: 'unlock_page_mood' },
+      form: 'social_spend_action_routing',
+      actionId: 'unlock_page_mood',
     },
     {
       id: 'social_spend_set_season_config',
@@ -454,16 +487,24 @@ export function isJoinRallyRoutingOperationId(
   return operationId === 'social_spend_join_rally_routing';
 }
 
+export function isUnlockPageMoodRoutingOperationId(
+  operationId: DaoContractConfigOperationId | ''
+): operationId is 'social_spend_unlock_page_mood_routing' {
+  return operationId === 'social_spend_unlock_page_mood_routing';
+}
+
 export function isSocialSpendRoutingMinEditableOperationId(
   operationId: DaoContractConfigOperationId | ''
 ): operationId is
   | 'social_spend_join_rally_routing'
   | 'social_spend_support_profile_routing'
   | 'social_spend_support_endorsement_routing'
-  | 'social_spend_boost_post_routing' {
+  | 'social_spend_boost_post_routing'
+  | 'social_spend_unlock_page_mood_routing' {
   return (
     isJoinRallyRoutingOperationId(operationId) ||
-    isSupportSpendRoutingOperationId(operationId)
+    isSupportSpendRoutingOperationId(operationId) ||
+    isUnlockPageMoodRoutingOperationId(operationId)
   );
 }
 
@@ -669,12 +710,14 @@ export function isSocialSpendActionRoutingOperationId(
   | 'social_spend_join_rally_routing'
   | 'social_spend_support_profile_routing'
   | 'social_spend_support_endorsement_routing'
-  | 'social_spend_boost_post_routing' {
+  | 'social_spend_boost_post_routing'
+  | 'social_spend_unlock_page_mood_routing' {
   return (
     operationId === 'social_spend_join_rally_routing' ||
     operationId === 'social_spend_support_profile_routing' ||
     operationId === 'social_spend_support_endorsement_routing' ||
-    operationId === 'social_spend_boost_post_routing'
+    operationId === 'social_spend_boost_post_routing' ||
+    operationId === 'social_spend_unlock_page_mood_routing'
   );
 }
 
@@ -706,6 +749,13 @@ export function getSocialSpendRoutingFieldLayout(
   if (operationId === 'social_spend_join_rally_routing') {
     return {
       primary: SOCIAL_SPEND_ROUTING_SHARE_FIELDS,
+      secondary: [],
+    };
+  }
+
+  if (operationId === 'social_spend_unlock_page_mood_routing') {
+    return {
+      primary: ['treasury_bps'],
       secondary: [],
     };
   }
@@ -747,6 +797,10 @@ export function formatSocialSpendRoutingFixedFieldsCaption(
 
   if (operationId === 'social_spend_boost_post_routing') {
     return 'Post target · self-spend allowed';
+  }
+
+  if (operationId === 'social_spend_unlock_page_mood_routing') {
+    return 'Page mood target · self-spend allowed';
   }
 
   return null;
@@ -794,6 +848,14 @@ export function getSocialSpendActionRoutingOperationConfig(
     };
   }
 
+  if (operationId === 'social_spend_unlock_page_mood_routing') {
+    return {
+      actionId: operation.actionId,
+      actionLabel: 'unlock page mood',
+      defaultDraft: DEFAULT_UNLOCK_PAGE_MOOD_ROUTING_DRAFT,
+    };
+  }
+
   if (operationId === 'social_spend_join_rally_routing') {
     return {
       actionId: operation.actionId,
@@ -820,7 +882,9 @@ export function canProposeSocialSpendActionRoutingDraft(
 
   const includeMinAmount =
     isSocialSpendRoutingMinEditableOperationId(operationId);
-  const includeActive = isSupportSpendRoutingOperationId(operationId);
+  const includeActive =
+    isSupportSpendRoutingOperationId(operationId) ||
+    isUnlockPageMoodRoutingOperationId(operationId);
 
   if (
     includeMinAmount &&

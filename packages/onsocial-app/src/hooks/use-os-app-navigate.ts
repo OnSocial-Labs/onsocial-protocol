@@ -1,14 +1,15 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { overlayPath, portfolioPath } from '@/lib/overlay-routes';
+import { isPortfolioOverlayPath, overlayPath, portfolioPath } from '@/lib/overlay-routes';
 import type { OsAppLink } from '@/lib/os-apps';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 export function useOsAppNavigate(pageAccountId?: string) {
   const router = useRouter();
+  const pathname = usePathname();
   const { getSigningWallet } = useAppWallet();
   const [openingPage, setOpeningPage] = useState(false);
 
@@ -43,12 +44,16 @@ export function useOsAppNavigate(pageAccountId?: string) {
         return true;
       }
       if (app.kind === 'overlay' && app.overlay && pageAccountId) {
-        router.push(overlayPath(pageAccountId, app.overlay), { scroll: false });
+        const href = overlayPath(pageAccountId, app.overlay);
+        const openOverlay = isPortfolioOverlayPath(pathname)
+          ? router.replace.bind(router)
+          : router.push.bind(router);
+        openOverlay(href, { scroll: false });
         return true;
       }
       return false;
     },
-    [openPage, pageAccountId, router]
+    [openPage, pageAccountId, pathname, router]
   );
 
   return { navigate, openingPage };

@@ -1,6 +1,7 @@
+import { OverlayInterceptRoot } from '@/components/overlay/overlay-intercept-root';
 import { panelLabel } from '@/lib/overlay-routes';
 import { ReputationPanel } from '@/components/panels/reputation-panel';
-import { GlassOverlayShell } from '@/components/overlay/glass-overlay-shell';
+import { SimpleOverlayPanel } from '@/components/overlay/simple-overlay-panel';
 import { fetchProfileReputation } from '@/lib/profile-signals';
 import { resolveAccountId } from '@/lib/resolve-account';
 
@@ -15,8 +16,10 @@ export default async function ReputationOverlay({ params }: OverlayRouteProps) {
   const reputation = await fetchProfileReputation(accountId);
 
   return (
-    <GlassOverlayShell accountId={accountId} title={panelLabel('reputation')}>
-      <ReputationPanel accountId={accountId} reputation={reputation} />
-    </GlassOverlayShell>
+    <OverlayInterceptRoot>
+      <SimpleOverlayPanel ariaTitle={panelLabel('reputation')} title={panelLabel('reputation')}>
+        <ReputationPanel accountId={accountId} reputation={reputation} />
+      </SimpleOverlayPanel>
+    </OverlayInterceptRoot>
   );
 }

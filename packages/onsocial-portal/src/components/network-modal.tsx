@@ -23,7 +23,7 @@ import { ModalCloseButton } from '@/components/ui/modal-close-button';
 import { ModalHeader } from '@/components/ui/modal-header';
 import { SearchInput } from '@/components/ui/search-input';
 import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
-import { useDropdown } from '@/hooks/use-dropdown';
+import { useDropdown } from '@onsocial/ui';
 import { cleanHandle } from '@/lib/endorsements';
 import { fadeMotion, scaleFadeMotion } from '@/lib/motion';
 import Link from 'next/link';

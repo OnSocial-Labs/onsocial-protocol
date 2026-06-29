@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { formatCount } from '@/lib/profile-display';
-import { overlayPath } from '@/lib/overlay-routes';
+import { standingPath } from '@/lib/profile-social-standings';
 import type { PublicPageStats } from '@/lib/page-data';
 
 interface PortfolioStatsRowProps {
@@ -21,12 +21,11 @@ export function PortfolioStatsRow({ accountId, stats }: PortfolioStatsRowProps) 
     {
       count: stats.standingCount,
       label: 'standing',
-      href: overlayPath(accountId, 'standing'),
+      href: standingPath(accountId, 'incoming'),
     },
     {
       count: stats.postCount,
       label: 'posts',
-      href: overlayPath(accountId, 'feed'),
     },
   ];
 

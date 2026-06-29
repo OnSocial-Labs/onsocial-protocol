@@ -18,7 +18,10 @@ import {
   ProfileSocialStandingPending,
   ProfileSocialStandingToggle,
 } from '@/components/ui/profile-social-standing-toggle';
-import { ProtocolMotionArrow } from '@onsocial/ui';
+import {
+  ProtocolMotionArrow,
+  formatSocialStandingTimeMeta,
+} from '@onsocial/ui';
 import { RelationshipSignal } from '@/components/ui/relationship-signal';
 import { SearchInput } from '@/components/ui/search-input';
 import {
@@ -170,43 +173,6 @@ function formatCount(count: number): string {
       Math.abs(numericCount) >= 1000 && Math.abs(numericCount) < 100000 ? 1 : 0,
     notation: Math.abs(numericCount) >= 1000 ? 'compact' : 'standard',
   }).format(numericCount);
-}
-
-function normalizeSocialTimestamp(value?: number | null): number | null {
-  if (!value || !Number.isFinite(value) || value <= 0) return null;
-  if (value > 1_000_000_000_000_000) return Math.floor(value / 1_000_000);
-  if (value < 1_000_000_000_000) return value * 1000;
-  return value;
-}
-
-function formatRelativeTime(timestamp: number | null): string {
-  if (!timestamp) return '';
-  const diff = Math.max(0, Date.now() - timestamp);
-  const min = Math.floor(diff / 60000);
-  if (min < 1) return 'just now';
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const day = Math.floor(hr / 24);
-  if (day < 7) return `${day}d ago`;
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-  }).format(new Date(timestamp));
-}
-
-function standingTimeMeta(
-  result: ProfileDiscoverResult
-): { label: string; description: string } | null {
-  const since = normalizeSocialTimestamp(result.standingSince);
-  if (since) {
-    const label = formatRelativeTime(since);
-    return { label, description: `Standing since ${label}` };
-  }
-  const added = normalizeSocialTimestamp(result.standingBlockTimestamp);
-  if (!added) return null;
-  const label = formatRelativeTime(added);
-  return { label, description: `Standing added ${label}` };
 }
 
 function mergeDiscoverResults(
@@ -684,7 +650,7 @@ export function ProfileDiscoveryPanel({
                   canShowViewerRelationship &&
                   Boolean(result.targetEndorsedViewer);
                 const timeMeta = viewerStandsWithResult
-                  ? standingTimeMeta(result)
+                  ? formatSocialStandingTimeMeta(result)
                   : null;
 
                 return (

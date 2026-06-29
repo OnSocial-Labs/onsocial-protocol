@@ -50,6 +50,14 @@ export interface PublicPageConfig {
     since?: number;
     note?: string;
   };
+  /** Premium mood unlock receipts — keyed by mood id. */
+  moodUnlocks?: Record<
+    string,
+    {
+      since: number;
+      purchaseTxHash?: string;
+    }
+  >;
 }
 
 export interface PublicPageStats {
@@ -180,6 +188,10 @@ async function fetchPublicPageDataFromGateway(
   );
 
   if (response.status === 404) {
+    return null;
+  }
+
+  if (response.status === 429 || response.status >= 502) {
     return null;
   }
 

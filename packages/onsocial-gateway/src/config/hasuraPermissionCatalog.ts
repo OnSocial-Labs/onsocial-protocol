@@ -193,6 +193,17 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
     ],
   },
   {
+    name: 'pages_current',
+    columns: [
+      'account_id',
+      'data_id',
+      'value',
+      'block_height',
+      'block_timestamp',
+      'operation',
+    ],
+  },
+  {
     name: 'profile_search',
     columns: [
       'account_id',

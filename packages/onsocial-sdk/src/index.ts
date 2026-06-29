@@ -261,8 +261,10 @@ export {
   BUILT_IN_PAGE_MOOD_IDS,
   MOOD_FONT_STACKS,
   MOOD_PAGE_TYPOGRAPHY,
+  PAGE_MOOD_CATALOG,
   PAGE_MOOD_PICKER_SECTIONS,
   PAGE_MOOD_PRESETS,
+  PREMIUM_PAGE_MOOD_PRESETS,
   buildPageMoodPatch,
   isBuiltInPageMoodId,
   mergeMoodIntoPageConfig,
@@ -274,13 +276,43 @@ export {
   pageMoodPresetForId,
   pageMoodPreviewCssVars,
   pageMoodTypographyFor,
+  resolvePageMoodId,
 } from './modules/pages/moods.js';
 export type {
   BuiltInPageMoodId,
+  PageMoodId,
   PageMoodPreset,
   PageMoodThemeTokens,
   PageMoodTypography,
+  PremiumPageMoodId,
 } from './modules/pages/moods.js';
+export {
+  PAGE_MOOD_PICKER_STORE_SECTION,
+  PAGE_MOOD_PICKER_STORE_SECTIONS,
+  PREMIUM_PAGE_MOOD_IDS,
+  FINISH_MOOD_PRICE_SOCIAL,
+  HOLOGRAPHIC_MOOD_PRICE_SOCIAL,
+  SEASONAL_MOOD_PRICE_SOCIAL,
+  SIGNATURE_MOOD_PRICE_SOCIAL,
+  SOCIAL_DECIMALS,
+  SUMMER_MOOD_PRICE_SOCIAL,
+  VOICE_MOOD_PRICE_SOCIAL,
+  ONPAGE_SOCIAL_SPEND_APP_ID,
+  PAGE_MOOD_UNLOCK_SPEND_ACTION,
+  PAGE_MOOD_UNLOCK_TARGET_TYPE,
+  assertCanApplyPageMood,
+  isPageMoodUnlocked,
+  isPremiumMoodAvailable,
+  isPremiumPageMoodId,
+  mergePageMoodUnlockIntoPageConfig,
+  parsePageMoodUnlocks,
+  premiumMoodPriceYocto,
+} from './modules/pages/premium-moods.js';
+export type {
+  PageMoodCatalogEntry,
+  PageMoodPackKind,
+  PageMoodTier,
+} from './modules/pages/premium-moods.js';
 export { StandingsModule } from './modules/standings.js';
 export {
   StorageAccountModule,
@@ -441,6 +473,8 @@ export type {
   PageFaceConfig,
   PageHeroSource,
   PageConfig,
+  PageMoodUnlockRecord,
+  PageMoodUnlocks,
   PageData,
 } from './types.js';
 

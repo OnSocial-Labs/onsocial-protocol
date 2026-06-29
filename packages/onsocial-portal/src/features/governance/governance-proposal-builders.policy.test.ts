@@ -729,6 +729,58 @@ describe('governance policy vote threshold builders', () => {
     });
   });
 
+  it('builds unlock page mood routing contract config FunctionCall payload', () => {
+    const payload = buildDaoContractConfigProposalPayload({
+      operationId: 'social_spend_unlock_page_mood_routing',
+      contractLabel: 'Social spend',
+      routing: {
+        label: 'Unlock Page Mood',
+        active: true,
+        min_amount: '100000000000000000000',
+        target_types: ['page_mood'],
+        treasury_bps: 10_000,
+        season_pool_bps: 0,
+        target_bps: 0,
+        burn_bps: 0,
+        season_required: false,
+        allow_self_target: true,
+      },
+    });
+
+    expect(payload.proposal.description).toBe(
+      'Configure Social spend unlock page mood routing (100% boost credits).'
+    );
+
+    const functionCall = (
+      payload.proposal.kind as {
+        FunctionCall: {
+          receiver_id: string;
+          actions: Array<{
+            method_name: string;
+            args: string;
+          }>;
+        };
+      }
+    ).FunctionCall;
+
+    expect(functionCall.receiver_id).toBe('social-spend.onsocial.testnet');
+    expect(JSON.parse(atob(functionCall.actions[0].args))).toEqual({
+      action_id: 'unlock_page_mood',
+      config: {
+        label: 'Unlock Page Mood',
+        active: true,
+        min_amount: '100000000000000000000',
+        target_types: ['page_mood'],
+        treasury_bps: 10_000,
+        season_pool_bps: 0,
+        target_bps: 0,
+        burn_bps: 0,
+        season_required: false,
+        allow_self_target: true,
+      },
+    });
+  });
+
   it('builds rally season window contract config FunctionCall payload', () => {
     const startsMs = Date.now() + 7 * 24 * 60 * 60 * 1000;
     const startsAtLocal = new Date(startsMs);

@@ -51,7 +51,7 @@ import {
   MOBILE_NAV_MIN_WIDTH,
 } from '@/lib/nav-metrics';
 import { cn } from '@/lib/utils';
-import { useDropdown } from '@/hooks/use-dropdown';
+import { useDropdown } from '@onsocial/ui';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useNavVisibility } from '@/components/providers/nav-visibility-context';
 import { useWallet } from '@/contexts/wallet-context';

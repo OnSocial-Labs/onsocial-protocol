@@ -1,45 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
+import { loadDiscoverProfilesPage } from '@/lib/discover-profiles-server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+const DEFAULT_LIMIT = 24;
 const MAX_LIMIT = 24;
+const MAX_OFFSET = 10_000;
 const MAX_QUERY_LENGTH = 80;
 
+function getQuery(request: NextRequest): string {
+  return (request.nextUrl.searchParams.get('q') ?? '')
+    .trim()
+    .slice(0, MAX_QUERY_LENGTH);
+}
+
+function getLimit(request: NextRequest): number {
+  const rawLimit = Number(request.nextUrl.searchParams.get('limit'));
+  if (!Number.isFinite(rawLimit) || rawLimit <= 0) return DEFAULT_LIMIT;
+  return Math.min(MAX_LIMIT, Math.floor(rawLimit));
+}
+
+function getOffset(request: NextRequest): number {
+  const rawOffset = Number(request.nextUrl.searchParams.get('offset'));
+  if (!Number.isFinite(rawOffset) || rawOffset < 0) return 0;
+  return Math.min(MAX_OFFSET, Math.floor(rawOffset));
+}
+
+function getViewerAccountId(request: NextRequest): string | null {
+  return request.nextUrl.searchParams.get('viewerAccountId')?.trim() || null;
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  return 'Discover failed';
+}
+
 export async function GET(request: NextRequest) {
-  const params = request.nextUrl.searchParams;
-  const query = (params.get('q') ?? '').trim().slice(0, MAX_QUERY_LENGTH);
-  const viewerAccountId = params.get('viewerAccountId')?.trim() || undefined;
-  const rawLimit = Number(params.get('limit'));
-  const limit =
-    Number.isFinite(rawLimit) && rawLimit > 0
-      ? Math.min(MAX_LIMIT, Math.floor(rawLimit))
-      : MAX_LIMIT;
+  const query = getQuery(request);
+  const limit = getLimit(request);
+  const offset = getOffset(request);
+  const viewerAccountId = getViewerAccountId(request);
 
   try {
-    const os = createServerOnSocialClient();
-    const page = await os.query.profiles.discoverPage({
-      query: query || undefined,
-      limit,
+    const response = await loadDiscoverProfilesPage(
+      query,
       viewerAccountId,
-    });
-
-    const profiles = page.profiles.map((row) => ({
-      accountId: row.accountId,
-      name: row.name,
-      bio: row.bio,
-      avatar: row.avatar,
-      standingCount: row.standingCount,
-      endorsementsReceivedCount: row.endorsementsReceivedCount,
-    }));
-
-    return NextResponse.json(
-      { profiles },
-      { headers: { 'Cache-Control': 'no-store' } }
+      offset,
+      limit
     );
+
+    return NextResponse.json(response, {
+      headers: { 'Cache-Control': 'no-store' },
+    });
   } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
+    const detail = getErrorMessage(error);
     const missingKey = detail.includes('ONSOCIAL_API_KEY');
     return NextResponse.json(
       {

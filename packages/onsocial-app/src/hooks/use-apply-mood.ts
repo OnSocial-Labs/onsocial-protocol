@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { BuiltInPageMoodId } from '@onsocial/sdk';
+import type { PageMoodId } from '@onsocial/sdk';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { accountIdsEqual } from '@/lib/account-match';
@@ -39,7 +39,7 @@ export function useApplyMood(pageAccountId: string) {
   const needsConnect = !isLoading && !isConnected;
 
   const applyMood = useCallback(
-    async (moodId: BuiltInPageMoodId): Promise<boolean> => {
+    async (moodId: PageMoodId): Promise<boolean> => {
       setError(null);
       setIsApplying(true);
 

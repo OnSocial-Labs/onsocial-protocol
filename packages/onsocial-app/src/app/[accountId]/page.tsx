@@ -9,7 +9,8 @@ import { PortfolioActivateStrip } from '@/components/portfolio/portfolio-activat
 import { PortfolioIdentity } from '@/components/portfolio/portfolio-identity';
 import { PortfolioLinks } from '@/components/portfolio/portfolio-links';
 import { PortfolioShellRoot } from '@/components/portfolio/portfolio-shell-root';
-import { PortfolioSignals } from '@/components/portfolio/portfolio-signals';
+import { PortfolioProfileSeed } from '@/components/portfolio/portfolio-profile-seed';
+import { PortfolioSignalsShell } from '@/components/portfolio/portfolio-signals-shell';
 import { PortfolioStatsRow } from '@/components/portfolio/portfolio-stats-row';
 import { PortfolioTags } from '@/components/portfolio/portfolio-tags';
 
@@ -68,9 +69,21 @@ export default async function AccountPage({
     loadProfileShell(accountId),
     fetchProfileSignals(accountId),
   ]);
+  const name = displayName(accountId, shell?.name ?? undefined);
 
   return (
-    <PortfolioShellRoot
+    <>
+      <PortfolioProfileSeed
+        accountId={accountId}
+        displayName={name}
+        avatarUrl={shell?.avatarUrl ?? null}
+        counts={{
+          incoming: signals?.standingCount ?? 0,
+          outgoing: signals?.standingWithCount ?? 0,
+          mutual: signals?.mutualStandingCount ?? 0,
+        }}
+      />
+      <PortfolioShellRoot
       mood={mood}
       pageAccountId={accountId}
       avatarMedia={shell?.avatarMedia ?? null}
@@ -78,9 +91,12 @@ export default async function AccountPage({
       committedAvatarMode={committedAvatarMode}
       initialAvatarMode={avatarMode}
       config={data.config}
+      stats={data.stats}
+      profileName={shell?.name}
     >
       <PortfolioIdentity
         accountId={accountId}
+        pageConfig={data.config}
         profileName={shell?.name}
         bio={shell?.bio}
         tagline={tagline}
@@ -94,12 +110,13 @@ export default async function AccountPage({
       />
 
       {signals ? (
-        <PortfolioSignals accountId={accountId} signals={signals} />
+        <PortfolioSignalsShell accountId={accountId} signals={signals} />
       ) : (
         <PortfolioStatsRow accountId={accountId} stats={data.stats} />
       )}
       <PortfolioLinks links={shell?.links} />
       <PortfolioTags tags={shell?.tags ?? []} />
     </PortfolioShellRoot>
+    </>
   );
 }

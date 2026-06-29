@@ -41,7 +41,7 @@ import {
   NearAccountPicker,
 } from '@/components/ui/near-account-field';
 import { useWallet } from '@/contexts/wallet-context';
-import { useDropdown } from '@/hooks/use-dropdown';
+import { useDropdown } from '@onsocial/ui';
 import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
 import { useFloatingPanelScroll } from '@/hooks/use-floating-panel-scroll';
 import { fetchDaoPolicy, submitDaoProposal } from '@/features/governance/api';
@@ -141,6 +141,7 @@ import {
   getSocialSpendActionRoutingOperationConfig,
   isSocialSpendActionRoutingOperationId,
   isSupportSpendRoutingOperationId,
+  isUnlockPageMoodRoutingOperationId,
   isSocialSpendRoutingMinEditableOperationId,
   validateSeasonConfigDraft,
   validateSeasonIdDraft,
@@ -2906,9 +2907,14 @@ export function GovernanceCreatePanel({
                           ? contractConfigOperationId
                           : null
                       }
-                      editableActive={isSupportSpendRoutingOperationId(
-                        contractConfigOperationId
-                      )}
+                      editableActive={
+                        isSupportSpendRoutingOperationId(
+                          contractConfigOperationId
+                        ) ||
+                        isUnlockPageMoodRoutingOperationId(
+                          contractConfigOperationId
+                        )
+                      }
                     />
                   ) : contractConfigOperationId ===
                     'social_spend_set_season_config' ? (

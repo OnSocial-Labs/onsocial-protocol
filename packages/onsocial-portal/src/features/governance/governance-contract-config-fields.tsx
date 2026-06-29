@@ -159,6 +159,7 @@ export function SocialSpendActionRoutingFields({
     | 'social_spend_support_profile_routing'
     | 'social_spend_support_endorsement_routing'
     | 'social_spend_boost_post_routing'
+    | 'social_spend_unlock_page_mood_routing'
   > | null;
   editableActive?: boolean;
 }) {

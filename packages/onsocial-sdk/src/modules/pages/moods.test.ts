@@ -11,8 +11,11 @@ import {
   MOOD_FONT_STACKS,
   normalizePageMoodId,
   pageMoodPresetForId,
+  pageMoodPreviewCssVars,
   pageMoodTypographyFor,
   PAGE_MOOD_PRESETS,
+  PREMIUM_PAGE_MOOD_PRESETS,
+  resolvePageMoodId,
 } from './moods.js';
 
 describe('page moods', () => {
@@ -98,5 +101,44 @@ describe('page moods', () => {
     );
     expect(PAGE_MOOD_PRESETS.noir.label).toBe('Noir');
     expect(PAGE_MOOD_PRESETS.journal.tagline).toContain('Longform');
+  });
+
+  it('resolves premium summer preset and typography', () => {
+    expect(resolvePageMoodId('summer')).toBe('summer');
+    expect(pageMoodPresetForId('summer').label).toBe('Summer');
+    expect(PREMIUM_PAGE_MOOD_PRESETS.summer.theme.accent).toContain('255');
+    expect(pageMoodTypographyFor('summer').fontDisplay).toBe(
+      MOOD_FONT_STACKS.sans
+    );
+  });
+
+  it('exports preset accent vars for css cascade', () => {
+    const theme = PAGE_MOOD_PRESETS.protocol.theme;
+    expect(pageMoodPreviewCssVars('protocol', theme)).toMatchObject({
+      '--mood-preset-accent': PROTOCOL_COLORS.blue,
+      '--mood-preset-accent-light': PROTOCOL_COLORS.blue,
+    });
+  });
+
+  it('splits broadsheet accentLight for editorial ink on light os', () => {
+    const theme = PREMIUM_PAGE_MOOD_PRESETS.broadsheet.theme;
+    expect(theme.accent).toBe('rgb(82 82 91 / 0.92)');
+    expect(theme.accentLight).toBe('rgb(28 28 32 / 0.95)');
+    expect(pageMoodPreviewCssVars('broadsheet', theme)).toMatchObject({
+      '--mood-preset-accent': 'rgb(82 82 91 / 0.92)',
+      '--mood-preset-accent-light': 'rgb(28 28 32 / 0.95)',
+    });
+  });
+
+  it('pairs voice mood textLight with green ink on light paper', () => {
+    const build = PAGE_MOOD_PRESETS.build.theme;
+    expect(build.text).toContain('212 251');
+    expect(build.textLight).toBe('rgb(42 98 48 / 0.96)');
+    expect(build.mutedLight).toBe('rgb(65 105 72 / 0.55)');
+
+    const terminal = PREMIUM_PAGE_MOOD_PRESETS.terminal.theme;
+    expect(terminal.text).toContain('57 255 20');
+    expect(terminal.textLight).toBe('rgb(32 115 42 / 0.96)');
+    expect(terminal.mutedLight).toBe('rgb(50 105 58 / 0.55)');
   });
 });

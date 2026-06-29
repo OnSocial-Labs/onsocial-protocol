@@ -1,0 +1,75 @@
+/**
+ * @onsocial/ui — three-dot pending loader (wallet, standing, chain confirm).
+ * Inherits colour from `currentColor` on `.protocol-pulsing-dots`.
+ */
+
+@keyframes protocol-pulse-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+
+  40% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+.protocol-pulsing-dots {
+  display: inline-flex;
+  align-items: center;
+  color: currentColor;
+}
+
+.protocol-pulsing-dots--sm {
+  gap: 0.25rem;
+}
+
+.protocol-pulsing-dots--md {
+  gap: 0.375rem;
+}
+
+.protocol-pulsing-dots--lg {
+  gap: 0.5rem;
+}
+
+.protocol-pulsing-dots__dot {
+  display: block;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: currentColor;
+  opacity: 0.6;
+  animation: protocol-pulse-dot 1.4s ease-in-out infinite;
+}
+
+.protocol-pulsing-dots--sm .protocol-pulsing-dots__dot {
+  width: 0.25rem;
+  height: 0.25rem;
+}
+
+.protocol-pulsing-dots--md .protocol-pulsing-dots__dot {
+  width: 0.375rem;
+  height: 0.375rem;
+}
+
+.protocol-pulsing-dots--lg .protocol-pulsing-dots__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+}
+
+.protocol-pulsing-dots__dot:nth-child(2) {
+  animation-delay: 0.16s;
+}
+
+.protocol-pulsing-dots__dot:nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .protocol-pulsing-dots__dot {
+    animation: none;
+    opacity: 0.55;
+  }
+}

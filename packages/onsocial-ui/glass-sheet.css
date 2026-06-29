@@ -1,0 +1,346 @@
+/**
+ * @onsocial/ui — frosted bottom sheet (Portal + OnPage).
+ *
+ * Requires app theme tokens: --bg-rgb, --fg-rgb (space-separated RGB).
+ * Optional glass material tokens (define on :root in the host app):
+ *   --glass-scrim, --glass-scrim-solid, --glass-surface, --glass-surface-solid,
+ *   --glass-border, --glass-shadow
+ * Legacy aliases still honored: --glass-scrim-os, --glass-surface-os, --glass-shadow-os
+ * Mood thread tone also uses --mood-preset-* vars from the portfolio shell.
+ *
+ * Tones:
+ *   data-tone="os"          — protocol overlays (standing, endorse, reputation)
+ *   data-tone="mood-thread" — page content drawer (+ data-mood for tint)
+ */
+
+.glass-sheet-root {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: env(safe-area-inset-top, 0px)
+    max(0px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px)
+    max(0px, env(safe-area-inset-left, 0px));
+}
+
+.glass-sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: var(--glass-scrim, rgb(var(--bg-rgb) / 0.28));
+  /* opacity + backdrop-filter driven inline from sheet cover progress */
+  cursor: pointer;
+}
+
+@keyframes glass-sheet-enter {
+  from {
+    transform: translateY(100%);
+  }
+
+  to {
+    transform: translateY(var(--sheet-y, 0px));
+  }
+}
+
+@keyframes glass-sheet-backdrop-enter {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.glass-sheet-root.is-visible.glass-sheet-root--enter .glass-sheet-backdrop {
+  animation: glass-sheet-backdrop-enter 220ms ease;
+}
+
+.glass-sheet-panel {
+  position: relative;
+  display: flex;
+  width: 100%;
+  max-width: 36rem;
+  height: min(100dvh, 720px);
+  flex-direction: column;
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid var(--glass-border, transparent);
+  border-radius: 1.25rem 1.25rem 0 0;
+  background: var(--glass-surface, rgb(var(--bg-rgb) / 0.22));
+  /* backdrop-filter is set inline on the node — Lightning CSS drops unprefixed values. */
+  color: rgb(var(--fg-rgb) / 0.96);
+  box-shadow: var(--glass-shadow, none);
+  transform: translateY(100%);
+  transition: transform 320ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  will-change: transform;
+}
+
+.glass-sheet-panel.is-open {
+  transform: translateY(var(--sheet-y, 0px));
+}
+
+.glass-sheet-panel.is-open.glass-sheet-panel--enter {
+  animation: glass-sheet-enter 320ms cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+  transition: none;
+}
+
+.glass-sheet-panel.is-open.glass-sheet-panel--enter.is-dragging {
+  animation: none;
+}
+
+@media (min-width: 768px) {
+  /* Desktop: full-height sheet — peek/drag is mobile-only. */
+  .glass-sheet-panel.is-open {
+    --sheet-y: 0px;
+  }
+}
+
+.glass-sheet-panel.is-dragging {
+  transition: none;
+}
+
+/* Mood thread — light mood tint over thin glass; structure from header divider. */
+.glass-sheet-panel[data-tone='mood-thread'][data-mood]:not(
+    [data-mood='glass']
+  ) {
+  --glass-sheet-accent: var(--mood-preset-accent, rgb(var(--fg-rgb) / 0.72));
+  --glass-sheet-ambient: color-mix(
+    in srgb,
+    var(--mood-preset-bg, rgb(var(--bg-rgb))) 16%,
+    transparent
+  );
+  border-color: transparent;
+  box-shadow: none;
+  background:
+    linear-gradient(
+      180deg,
+      var(--glass-sheet-ambient) 0%,
+      transparent min(4.5rem, 16%)
+    ),
+    var(--glass-surface, rgb(var(--bg-rgb) / 0.22));
+}
+
+:root[data-theme='light']
+  .glass-sheet-panel[data-tone='mood-thread'][data-mood]:not(
+    [data-mood='glass']
+  ) {
+  --glass-sheet-accent: var(
+    --mood-preset-accent-light,
+    var(--mood-preset-accent, rgb(var(--fg-rgb) / 0.72))
+  );
+  --glass-sheet-ambient: color-mix(
+    in srgb,
+    var(--mood-preset-bg-light, rgb(255 255 255)) 16%,
+    transparent
+  );
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme])
+    .glass-sheet-panel[data-tone='mood-thread'][data-mood]:not(
+      [data-mood='glass']
+    ) {
+    --glass-sheet-accent: var(
+      --mood-preset-accent-light,
+      var(--mood-preset-accent, rgb(var(--fg-rgb) / 0.72))
+    );
+    --glass-sheet-ambient: color-mix(
+      in srgb,
+      var(--mood-preset-bg-light, rgb(255 255 255)) 16%,
+      transparent
+    );
+  }
+}
+
+.glass-sheet-panel[data-tone='mood-thread'][data-mood='glass'] {
+  --glass-sheet-accent: var(--mood-preset-accent, rgb(var(--fg-rgb) / 0.72));
+}
+
+:root[data-theme='light']
+  .glass-sheet-panel[data-tone='mood-thread'][data-mood='glass'] {
+  --glass-sheet-accent: var(
+    --mood-preset-accent-light,
+    var(--mood-preset-accent, rgb(var(--fg-rgb) / 0.72))
+  );
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme])
+    .glass-sheet-panel[data-tone='mood-thread'][data-mood='glass'] {
+    --glass-sheet-accent: var(
+      --mood-preset-accent-light,
+      var(--mood-preset-accent, rgb(var(--fg-rgb) / 0.72))
+    );
+  }
+}
+
+.glass-sheet-drag {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.6rem 0 0.3rem;
+  cursor: grab;
+  touch-action: none;
+}
+
+.glass-sheet-drag:active {
+  cursor: grabbing;
+}
+
+.glass-sheet-grip {
+  width: 2.5rem;
+  height: 0.3rem;
+  border-radius: 9999px;
+  background: var(--glass-sheet-accent, rgb(var(--fg-rgb) / 0.22));
+  opacity: 0.55;
+}
+
+.glass-sheet-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0 1.15rem 0.75rem;
+}
+
+.glass-sheet-header-copy {
+  min-width: 0;
+}
+
+.glass-sheet-header-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.glass-sheet-header-subtitle {
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
+  color: rgb(var(--fg-rgb) / 0.48);
+}
+
+.glass-sheet-header-divider {
+  flex-shrink: 0;
+}
+
+/* Flat sheet header icons — close (Mage ×), discover link, etc. No pill chrome. */
+.glass-sheet-icon-action {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: rgb(var(--fg-rgb) / 0.72);
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.glass-sheet-icon-action:hover {
+  color: rgb(var(--fg-rgb) / 0.92);
+}
+
+.glass-sheet-icon-action:focus-visible {
+  color: rgb(var(--fg-rgb) / 0.92);
+  outline: none;
+  box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.08);
+}
+
+.glass-sheet-icon-action-glyph {
+  display: block;
+  flex-shrink: 0;
+}
+
+.glass-sheet-icon-action-glyph--discover {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.glass-sheet-close-icon {
+  display: block;
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.glass-sheet-close-icon path {
+  stroke-width: 2.25;
+}
+
+.glass-sheet-body {
+  min-height: 0;
+  flex: 1;
+  overflow-x: clip;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 767px) {
+  .glass-sheet-root {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .glass-sheet-panel {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+@media (min-width: 768px) {
+  .glass-sheet-panel {
+    height: min(calc(100dvh - env(safe-area-inset-bottom, 0px)), 720px);
+  }
+
+  .glass-sheet-drag {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-sheet-panel {
+    transition: none;
+  }
+
+  .glass-sheet-panel.is-open.glass-sheet-panel--enter {
+    animation: none;
+  }
+
+  .glass-sheet-root.is-visible.glass-sheet-root--enter .glass-sheet-backdrop {
+    animation: none;
+  }
+
+  .glass-sheet-backdrop {
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass-sheet-backdrop {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: var(--glass-scrim-solid, rgb(var(--bg-rgb) / 0.82));
+  }
+
+  .glass-sheet-panel {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: var(
+      --glass-surface-solid,
+      var(--surface-solid, rgb(var(--bg-rgb) / 0.98))
+    );
+    box-shadow: none;
+  }
+}

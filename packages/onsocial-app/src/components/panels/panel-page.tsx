@@ -4,15 +4,17 @@ import { portfolioPath } from '@/lib/overlay-routes';
 
 interface PanelPageProps {
   accountId: string;
-  title: string;
+  title?: string;
   description?: string;
-  children: React.ReactNode;
+  toolbar?: ReactNode;
+  children: ReactNode;
 }
 
 export function PanelPage({
   accountId,
   title,
   description,
+  toolbar,
   children,
 }: PanelPageProps) {
   return (
@@ -22,12 +24,16 @@ export function PanelPage({
           <Link className="panel-back" href={portfolioPath(accountId)}>
             ← Portfolio
           </Link>
-          <div className="panel-page-heading">
-            <h1 className="panel-page-title">{title}</h1>
-            {description ? (
-              <p className="panel-page-description">{description}</p>
-            ) : null}
-          </div>
+          {toolbar ? (
+            <div className="panel-page-toolbar">{toolbar}</div>
+          ) : (
+            <div className="panel-page-heading">
+              <h1 className="panel-page-title">{title}</h1>
+              {description ? (
+                <p className="panel-page-description">{description}</p>
+              ) : null}
+            </div>
+          )}
         </header>
         {children}
       </div>

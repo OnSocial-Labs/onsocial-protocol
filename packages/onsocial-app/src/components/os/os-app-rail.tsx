@@ -1,10 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { appPageHref } from '@/lib/app-links';
-import { overlayPath } from '@/lib/overlay-routes';
+import { isPortfolioOverlayPath, overlayPath } from '@/lib/overlay-routes';
 import {
   appShellOsApps,
   ownerPortfolioOsApps,
@@ -49,6 +49,7 @@ export function OsAppRail({
   className,
 }: OsAppRailProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { getSigningWallet } = useAppWallet();
   const listRef = useRef<HTMLUListElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -112,10 +113,14 @@ export function OsAppRail({
       }
 
       if (app.kind === 'overlay' && app.overlay && accountId) {
-        router.push(overlayPath(accountId, app.overlay), { scroll: false });
+        const href = overlayPath(accountId, app.overlay);
+        const openOverlay = isPortfolioOverlayPath(pathname)
+          ? router.replace.bind(router)
+          : router.push.bind(router);
+        openOverlay(href, { scroll: false });
       }
     },
-    [accountId, openPage, router]
+    [accountId, openPage, pathname, router]
   );
 
   if (apps.length === 0) {
@@ -188,7 +193,7 @@ export function PortfolioOsRail({ pageAccountId }: PortfolioOsRailProps) {
   const isOwner = isConnected && accountId === pageAccountId;
   const apps = isOwner
     ? ownerPortfolioOsApps(pageAccountId)
-    : visitorPortfolioOsApps();
+    : visitorPortfolioOsApps(pageAccountId);
 
   return (
     <OsAppRail

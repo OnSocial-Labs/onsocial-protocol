@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/floating-panel';
 import { FloatingPanelMenu } from '@/components/ui/floating-panel-menu';
 import { checkAppIdAvailability } from '@/features/partners/api';
-import { useDropdown } from '@/hooks/use-dropdown';
+import { useDropdown } from '@onsocial/ui';
 import type {
   ApplicationFormData,
   ApplicationFormPrefill,

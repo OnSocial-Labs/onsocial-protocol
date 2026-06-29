@@ -972,6 +972,29 @@ export function deriveProposalPresentation({
       });
     }
 
+    if (methodName === 'set_action_config' && actionId === 'unlock_page_mood') {
+      const routingSummary =
+        formatSocialSpendActionConfigCardSummaryFromRecord(config);
+
+      headline = contractLabel
+        ? `Set ${contractLabel} unlock page mood routing`
+        : 'Set unlock page mood routing';
+
+      return finish({
+        headline,
+        actionBadge: 'Config',
+        ...proposalTarget('routing', routingSummary),
+        subjectAccount: receiverId,
+        subjectEyebrow: receiverId ? 'Contract' : null,
+        onChainDescription,
+        proposer: normalizedProposer,
+        showProposerSeparately: shouldShowProposerSeparately(
+          normalizedProposer,
+          receiverId
+        ),
+      });
+    }
+
     if (methodName === 'set_season_config') {
       const seasonLabel =
         config && typeof config.label === 'string' ? config.label.trim() : null;

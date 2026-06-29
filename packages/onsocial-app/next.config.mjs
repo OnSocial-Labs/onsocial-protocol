@@ -7,6 +7,14 @@ const cryptoStub = path.resolve(__dirname, 'src/lib/node-crypto-stub.js');
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   serverExternalPackages: ['@onsocial/sdk'],
+  allowedDevOrigins: ['127.0.0.1', 'localhost'],
+  // Turbopack is the default bundler in Next.js 16
+  turbopack: {
+    resolveAlias: {
+      'node:crypto': { browser: './src/lib/node-crypto-stub.js' },
+    },
+  },
+  // Keep webpack config as fallback for `next build --webpack`
   webpack: (config, { isServer, webpack }) => {
     if (!isServer) {
       config.plugins.push(

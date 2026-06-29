@@ -13,6 +13,7 @@ import {
   validateSeasonConfigDraft,
   validateSocialSpendActionRoutingBps,
   validateSocialSpendRoutingMinAmountYocto,
+  isUnlockPageMoodRoutingOperationId,
   type DaoContractConfigOperationId,
   type SocialSpendActionRoutingDraft,
   type SocialSpendSeasonConfigDraft,
@@ -181,7 +182,9 @@ function resolveRoutingConfigSummary(input: {
   const editableMinAmount = isSocialSpendRoutingMinEditableOperationId(
     input.operationId
   );
-  const editableActive = isSupportSpendRoutingOperationId(input.operationId);
+  const editableActive =
+    isSupportSpendRoutingOperationId(input.operationId) ||
+    isUnlockPageMoodRoutingOperationId(input.operationId);
   const minAmountPolicy = editableMinAmount ? input.operationId : null;
   const routingValid = validateSocialSpendActionRoutingBps(input.draft);
   const minAmountValid =

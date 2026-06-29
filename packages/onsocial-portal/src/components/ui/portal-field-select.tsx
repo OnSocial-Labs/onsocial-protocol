@@ -8,7 +8,7 @@ import {
   floatingPanelItemClass,
   floatingPanelItemSelectedClass,
 } from '@/components/ui/floating-panel';
-import { useDropdown } from '@/hooks/use-dropdown';
+import { useDropdown } from '@onsocial/ui';
 import { cn } from '@/lib/utils';
 
 export interface PortalFieldSelectOption {

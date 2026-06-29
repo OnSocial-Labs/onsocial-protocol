@@ -188,7 +188,7 @@ fn test_init_installs_default_actions() {
     assert_eq!(contract.owner_id, owner());
     assert_eq!(contract.social_token, token());
     assert_eq!(contract.treasury_id, treasury());
-    assert_eq!(contract.action_ids.len(), 5);
+    assert_eq!(contract.action_ids.len(), 6);
     assert!(contract.season_ids.is_empty());
 
     let signal = contract
@@ -213,6 +213,14 @@ fn test_init_installs_default_actions() {
         0
     );
     assert!(contract.get_action_config("welcome_user".into()).is_none());
+
+    let unlock = contract
+        .get_action_config("unlock_page_mood".into())
+        .expect("unlock_page_mood config");
+    assert!(unlock.active);
+    assert_eq!(unlock.treasury_bps, 10_000);
+    assert_eq!(unlock.target_bps, 0);
+    assert!(unlock.target_types.contains(&"page_mood".to_string()));
 }
 
 #[test]
@@ -409,6 +417,35 @@ fn test_support_profile_routes_without_season() {
     assert_eq!(contract.total_boost_credits_routed, 5 * ONE_SOCIAL);
     assert_eq!(contract.get_target_balance(alice()).0, 95 * ONE_SOCIAL);
     assert_eq!(contract.get_season_pool("season-zero".into()).0, 0);
+}
+
+#[test]
+fn test_unlock_page_mood_routes_to_boost_credits() {
+    let mut contract = new_contract();
+
+    testing_env!(context(token()).build());
+    contract
+        .ft_on_transfer(
+            bob(),
+            U128(100 * ONE_SOCIAL),
+            spend_msg("unlock_page_mood", "page_mood", "summer", None, None),
+        )
+        .unwrap();
+
+    assert_eq!(contract.treasury_balance, 0);
+    assert_eq!(contract.total_boost_credits_routed, 100 * ONE_SOCIAL);
+    assert_eq!(contract.get_target_balance(alice()).0, 0);
+    assert_eq!(contract.total_spent, 100 * ONE_SOCIAL);
+
+    let action_totals = contract.get_action_totals("unlock_page_mood".into());
+    assert_eq!(action_totals.count, 1);
+    assert_eq!(action_totals.total_spent.0, 100 * ONE_SOCIAL);
+    assert_eq!(action_totals.treasury_routed.0, 100 * ONE_SOCIAL);
+    assert_eq!(action_totals.target_routed.0, 0);
+
+    let target_totals = contract.get_target_totals("page_mood".into(), "summer".to_string());
+    assert_eq!(target_totals.count, 1);
+    assert_eq!(target_totals.total_spent.0, 100 * ONE_SOCIAL);
 }
 
 #[test]

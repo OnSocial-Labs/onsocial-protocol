@@ -1,16 +1,34 @@
 'use client';
 
 import { useState, type CSSProperties } from 'react';
+import {
+  isPageMoodUnlocked,
+  PAGE_MOOD_CATALOG,
+  type PageMoodId,
+  type PremiumPageMoodId,
+} from '@onsocial/sdk';
+import { SheetCloseButton } from '@onsocial/ui';
 import { useApplyMood } from '@/hooks/use-apply-mood';
+import { useUnlockPremiumMood } from '@/hooks/use-unlock-premium-mood';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { accountIdsEqual } from '@/lib/account-match';
-import { moodPresetPreviewVars } from '@/lib/moods/resolve';
-import { MOOD_PRESETS, PAGE_MOOD_PICKER_SECTIONS } from '@/lib/moods/presets';
-import type { BuiltInMoodId, ResolvedMood } from '@/lib/moods/types';
+import { moodSheetItemPreviewVars } from '@/lib/moods/resolve';
+import {
+  MOOD_PRESETS,
+  PAGE_MOOD_CATALOG as APP_MOOD_CATALOG,
+  PAGE_MOOD_PICKER_SECTIONS,
+  PAGE_MOOD_PICKER_STORE_SECTIONS,
+  PREMIUM_MOOD_PRESETS,
+  visiblePremiumMoodIds,
+} from '@/lib/moods/presets';
+import type { MoodId, MoodPreset, ResolvedMood } from '@/lib/moods/types';
+import type { PublicPageConfig } from '@/lib/page-data';
+import type { PageConfig } from '@onsocial/sdk';
 
 interface MoodSheetProps {
   open: boolean;
   pageAccountId: string;
+  pageConfig: PublicPageConfig;
   activeMood: ResolvedMood;
   onClose: () => void;
 }
@@ -18,12 +36,21 @@ interface MoodSheetProps {
 function MoodSheet({
   open,
   pageAccountId,
+  pageConfig,
   activeMood,
   onClose,
 }: MoodSheetProps) {
   const { applyMood, connect, error, isApplying, isOwner, needsConnect, walletAccountId } =
     useApplyMood(pageAccountId);
-  const [pendingId, setPendingId] = useState<BuiltInMoodId | null>(null);
+  const {
+    unlockMood,
+    error: unlockError,
+    isUnlocking,
+  } = useUnlockPremiumMood(pageAccountId);
+  const [pendingId, setPendingId] = useState<MoodId | null>(null);
+  const [pendingUnlockId, setPendingUnlockId] = useState<PremiumPageMoodId | null>(
+    null
+  );
 
   useScrollLock(open);
 
@@ -31,8 +58,21 @@ function MoodSheet({
     return null;
   }
 
-  async function handleSelect(moodId: BuiltInMoodId) {
-    if (!isOwner || isApplying || moodId === activeMood.id) {
+  const premiumIds = visiblePremiumMoodIds();
+  const statusError = error ?? unlockError;
+
+  const pageConfigForUnlock: Pick<PageConfig, 'moodUnlocks'> = {
+    moodUnlocks: pageConfig.moodUnlocks,
+  };
+
+  async function handleSelect(moodId: PageMoodId) {
+    if (!isOwner || isApplying || isUnlocking || moodId === activeMood.id) {
+      return;
+    }
+
+    if (
+      !isPageMoodUnlocked(pageConfigForUnlock, moodId, PAGE_MOOD_CATALOG)
+    ) {
       return;
     }
 
@@ -43,6 +83,68 @@ function MoodSheet({
     if (applied) {
       onClose();
     }
+  }
+
+  async function handleUnlock(moodId: PremiumPageMoodId) {
+    if (!isOwner || isApplying || isUnlocking) {
+      return;
+    }
+
+    setPendingUnlockId(moodId);
+    const unlocked = await unlockMood(moodId);
+    setPendingUnlockId(null);
+
+    if (unlocked) {
+      onClose();
+    }
+  }
+
+  function renderMoodRow(moodId: PageMoodId, preset: MoodPreset) {
+    const isActive = preset.id === activeMood.id;
+    const isPending = pendingId === preset.id;
+    const unlocked = isPageMoodUnlocked(
+      pageConfigForUnlock,
+      moodId,
+      PAGE_MOOD_CATALOG
+    );
+    const catalogEntry = APP_MOOD_CATALOG[moodId];
+    const priceSocial = catalogEntry?.priceSocial;
+
+    return (
+      <li key={preset.id}>
+        <button
+          type="button"
+          data-mood={preset.id}
+          className={`mood-sheet-item${isActive ? ' is-active' : ''}${isOwner && unlocked ? ' is-selectable' : ''}${!unlocked ? ' is-locked' : ''}`}
+          disabled={!isOwner || isApplying || isUnlocking || (unlocked && isActive)}
+          aria-current={isActive ? 'true' : undefined}
+          onClick={() => {
+            if (!unlocked && isPremiumMoodRow(moodId)) {
+              void handleUnlock(moodId);
+              return;
+            }
+            void handleSelect(moodId);
+          }}
+          style={
+            moodSheetItemPreviewVars(preset.id, preset.theme) as CSSProperties
+          }
+        >
+          <span className="mood-sheet-item-label">{preset.label}</span>
+          <span className="mood-sheet-item-tagline">{preset.tagline}</span>
+          {isActive ? (
+            <span className="mood-sheet-item-badge">Active</span>
+          ) : isPending ? (
+            <span className="mood-sheet-item-badge">Applying…</span>
+          ) : pendingUnlockId === moodId ? (
+            <span className="mood-sheet-item-badge">Unlocking…</span>
+          ) : !unlocked && priceSocial ? (
+            <span className="mood-sheet-item-badge mood-sheet-item-badge-premium">
+              {priceSocial} SOCIAL
+            </span>
+          ) : null}
+        </button>
+      </li>
+    );
   }
 
   return (
@@ -71,14 +173,7 @@ function MoodSheet({
                 : 'How this account is showing up right now.'}
             </p>
           </div>
-          <button
-            type="button"
-            className="mood-sheet-close"
-            onClick={onClose}
-            aria-label="Close moods"
-          >
-            ×
-          </button>
+          <SheetCloseButton onClick={onClose} ariaLabel="Close moods" />
         </header>
 
         {needsConnect ? (
@@ -86,7 +181,11 @@ function MoodSheet({
             <p className="mood-sheet-copy">
               Connect the wallet for @{pageAccountId} to apply a mood.
             </p>
-            <button type="button" className="mood-sheet-primary" onClick={connect}>
+            <button
+              type="button"
+              className="mood-sheet-primary"
+              onClick={() => void connect()}
+            >
               Connect wallet
             </button>
           </div>
@@ -101,11 +200,13 @@ function MoodSheet({
           </div>
         ) : null}
 
-        {isApplying ? (
-          <p className="mood-sheet-copy mood-sheet-status">Confirming mood on-chain…</p>
+        {isApplying || isUnlocking ? (
+          <p className="mood-sheet-copy mood-sheet-status">
+            {isUnlocking ? 'Confirming unlock on-chain…' : 'Confirming mood on-chain…'}
+          </p>
         ) : null}
 
-        {error ? <p className="mood-sheet-error">{error}</p> : null}
+        {statusError ? <p className="mood-sheet-error">{statusError}</p> : null}
 
         <ul className="mood-sheet-list">
           {PAGE_MOOD_PICKER_SECTIONS.map((section) => (
@@ -114,56 +215,50 @@ function MoodSheet({
                 <p className="mood-sheet-section-title">{section.title}</p>
               ) : null}
               <ul className="mood-sheet-section-list">
-                {section.ids.map((moodId) => {
-                  const preset = MOOD_PRESETS[moodId];
-                  const isActive = preset.id === activeMood.id;
-                  const isPending = pendingId === preset.id;
-
-                  return (
-                    <li key={preset.id}>
-                      <button
-                        type="button"
-                        className={`mood-sheet-item${isActive ? ' is-active' : ''}${isOwner ? ' is-selectable' : ''}`}
-                        disabled={!isOwner || isApplying}
-                        aria-current={isActive ? 'true' : undefined}
-                        onClick={() => void handleSelect(preset.id)}
-                        style={
-                          moodPresetPreviewVars(
-                            preset.id,
-                            preset.theme
-                          ) as CSSProperties
-                        }
-                      >
-                        <span className="mood-sheet-item-label">{preset.label}</span>
-                        <span className="mood-sheet-item-tagline">
-                          {preset.tagline}
-                        </span>
-                        {isActive ? (
-                          <span className="mood-sheet-item-badge">Active</span>
-                        ) : isPending ? (
-                          <span className="mood-sheet-item-badge">Applying…</span>
-                        ) : null}
-                      </button>
-                    </li>
-                  );
-                })}
+                {section.ids.map((moodId) =>
+                  renderMoodRow(moodId, MOOD_PRESETS[moodId])
+                )}
               </ul>
             </li>
           ))}
+
+          {PAGE_MOOD_PICKER_STORE_SECTIONS.map((section) => {
+            const sectionIds = section.ids.filter((id) => premiumIds.includes(id));
+            if (sectionIds.length === 0) {
+              return null;
+            }
+
+            return (
+              <li key={section.title} className="mood-sheet-section">
+                <p className="mood-sheet-section-title">{section.title}</p>
+                <ul className="mood-sheet-section-list">
+                  {sectionIds.map((moodId) =>
+                    renderMoodRow(moodId, PREMIUM_MOOD_PRESETS[moodId])
+                  )}
+                </ul>
+              </li>
+            );
+          })}
         </ul>
       </section>
     </div>
   );
 }
 
+function isPremiumMoodRow(moodId: PageMoodId): moodId is PremiumPageMoodId {
+  return moodId in PREMIUM_MOOD_PRESETS;
+}
+
 interface MoodIndicatorProps {
   pageAccountId: string;
+  pageConfig: PublicPageConfig;
   mood: ResolvedMood;
   compact?: boolean;
 }
 
 export function MoodIndicator({
   pageAccountId,
+  pageConfig,
   mood,
   compact = false,
 }: MoodIndicatorProps) {
@@ -188,6 +283,7 @@ export function MoodIndicator({
       <MoodSheet
         open={open}
         pageAccountId={pageAccountId}
+        pageConfig={pageConfig}
         activeMood={mood}
         onClose={() => setOpen(false)}
       />

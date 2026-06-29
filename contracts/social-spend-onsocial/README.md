@@ -132,6 +132,7 @@ Installed at initialization. Routing bps always sum to `10_000`.
 | `endorse_profile` | `profile` | 1,000 | 0 | 9,000 | no | no |
 | `join_rally` | `rally` | 500 | 9,500 | 0 | yes | yes |
 | `support_profile` | `profile` | 500 | 0 | 9,500 | no | no |
+| `unlock_page_mood` | `page_mood` | 10,000 | 0 | 0 | no | yes |
 
 Minimum spend per action: `0.01 SOCIAL` (`10^16` yocto, 18 decimals).
 

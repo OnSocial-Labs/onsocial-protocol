@@ -30,30 +30,42 @@ export function PortfolioShell({
     bannerMedia,
   });
   const hasBanner = Boolean(hero);
+  const isMoodOnly = !hasBanner;
+  const isGlassFinish = mood.id === 'glass';
 
   return (
     <main
       className="frame app-surface portfolio-frame"
       data-mood={mood.id}
       data-has-banner={hasBanner ? 'true' : undefined}
+      data-mood-only={isMoodOnly ? 'true' : undefined}
       data-avatar-mode={avatarMode}
       data-avatar-cover={isCoverLayout ? 'true' : undefined}
       data-face-preview={isPreviewing ? 'true' : undefined}
       style={mood.cssVars as CSSProperties}
     >
       <div className="portfolio-page">
+        {isGlassFinish ? (
+          <>
+            <div className="portfolio-glass-ambient" aria-hidden="true" />
+            <div className="portfolio-glass-sheet" aria-hidden="true" />
+          </>
+        ) : null}
+
         {hero && isCoverLayout ? (
           <PortfolioHeroTop hero={hero} layout="cover" />
         ) : null}
 
-        <div className="portfolio-banner-region" aria-hidden="true">
+        <div
+          className={
+            hasBanner
+              ? 'portfolio-banner-region'
+              : 'portfolio-banner-region portfolio-banner-region--mood-only'
+          }
+          aria-hidden="true"
+        >
           {hero && !isCoverLayout ? (
             <PortfolioHeroTop hero={hero} layout="banner" />
-          ) : !hero ? (
-            <>
-              <div className="portfolio-mood-strip" />
-              <div className="portfolio-strip-fade" />
-            </>
           ) : null}
         </div>
 

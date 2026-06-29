@@ -80,6 +80,48 @@ describe('PagesModule', () => {
       });
       expect(written.theme?.background).toBe('#06040a');
     });
+
+    it('rejects premium moods until unlocked', async () => {
+      const { get, pages } = makeModule();
+      get.mockResolvedValueOnce({
+        value: JSON.stringify({ template: 'minimal' }),
+      });
+
+      await expect(pages.setMood('summer')).rejects.toThrow(
+        /Unlock Summer for 100 SOCIAL/
+      );
+    });
+
+    it('writes premium mood when unlock receipt exists', async () => {
+      const { get, post, pages } = makeModule();
+      get.mockResolvedValueOnce({
+        value: JSON.stringify({
+          template: 'minimal',
+          moodUnlocks: { summer: { since: 1 } },
+        }),
+      });
+      await pages.setMood('summer', { now: 789 });
+      const written = JSON.parse(findComposeBody(post).value);
+      expect(written.mood).toEqual({ id: 'summer', since: 789 });
+      expect(written.theme?.background).toBe('#0a0705');
+    });
+  });
+
+  describe('unlockMood', () => {
+    it('records unlock receipt on page config', async () => {
+      const { get, post, pages } = makeModule();
+      get.mockResolvedValueOnce({
+        value: JSON.stringify({ template: 'minimal' }),
+      });
+      await pages.unlockMood('summer', {
+        purchaseTxHash: 'tx-hash',
+        now: 999,
+      });
+      const written = JSON.parse(findComposeBody(post).value);
+      expect(written.moodUnlocks).toEqual({
+        summer: { since: 999, purchaseTxHash: 'tx-hash' },
+      });
+    });
   });
 
   describe('setConfig', () => {

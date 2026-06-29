@@ -56,7 +56,12 @@ export function gateOsApps(): OsAppLink[] {
 export function ownerPortfolioOsApps(_accountId: string): OsAppLink[] {
   return [
     { id: 'home', label: 'Home', kind: 'app', href: APP_HOME_PATH },
-    { id: 'discover', label: 'Discover', kind: 'app', href: APP_DISCOVER_PATH },
+    {
+      id: 'discover',
+      label: 'Discover',
+      kind: 'overlay',
+      overlay: 'discover',
+    },
     {
       id: 'market',
       label: 'Market',
@@ -80,10 +85,15 @@ export function ownerPortfolioOsApps(_accountId: string): OsAppLink[] {
   ];
 }
 
-export function visitorPortfolioOsApps(): OsAppLink[] {
+export function visitorPortfolioOsApps(_accountId: string): OsAppLink[] {
   return [
     { id: 'home', label: 'Home', kind: 'app', href: APP_HOME_PATH },
-    { id: 'discover', label: 'Discover', kind: 'app', href: APP_DISCOVER_PATH },
+    {
+      id: 'discover',
+      label: 'Discover',
+      kind: 'overlay',
+      overlay: 'discover',
+    },
   ];
 }
 

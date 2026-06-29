@@ -1,13 +1,8 @@
+/**
+ * Intentionally empty — soft intercept navigations must not flash the portfolio
+ * avatar skeleton over an already-mounted profile while the @overlay slot loads.
+ * Full-page routes can add their own segment loading (e.g. standing/[kind]/loading).
+ */
 export default function AccountLoading() {
-  return (
-    <main className="frame app-surface portfolio-frame">
-      <div className="portfolio-hero">
-        <div className="portfolio-loading portfolio-identity animate-rise-in" aria-hidden="true">
-          <div className="portfolio-loading-avatar" />
-          <div className="portfolio-loading-line portfolio-loading-line-lg" />
-          <div className="portfolio-loading-line portfolio-loading-line-sm" />
-        </div>
-      </div>
-    </main>
-  );
+  return null;
 }

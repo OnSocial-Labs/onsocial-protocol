@@ -1,5 +1,5 @@
-import { ArrowLeft, ArrowUpRight } from 'lucide-react';
 import { cn } from './cn.js';
+import { ArrowLeftIcon, ArrowUpRightIcon } from './mage-stroke-icons.js';
 
 export type ProtocolMotionArrowDirection = 'up' | 'down' | 'in' | 'left';
 
@@ -171,15 +171,12 @@ export function ProtocolMotionArrow({
   expanded = false,
   resetOnNestedInteractiveHover = false,
 }: ProtocolMotionArrowProps) {
-  const Icon = direction === 'left' ? ArrowLeft : ArrowUpRight;
+  const Icon = direction === 'left' ? ArrowLeftIcon : ArrowUpRightIcon;
   const motionEnabled = !isStatic;
 
   return (
     <Icon
-      aria-hidden="true"
-      // Heavier stroke + miter join keep the ↗ tip readable at small sizes.
-      strokeWidth={2.5}
-      strokeLinejoin="miter"
+      aria-hidden
       className={cn(
         'shrink-0 motion-reduce:transform-none',
         motionEnabled && 'transition-all duration-200',

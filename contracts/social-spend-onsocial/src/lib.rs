@@ -1083,6 +1083,20 @@ impl SocialSpendContract {
                     allow_self_target: false,
                 },
             ),
+            (
+                "unlock_page_mood",
+                ActionConfig {
+                    label: "Unlock Page Mood".into(),
+                    active: true,
+                    min_amount: MIN_SOCIAL_SPEND,
+                    target_types: vec!["page_mood".into()],
+                    treasury_bps: 10_000,
+                    season_pool_bps: 0,
+                    target_bps: 0,
+                    season_required: false,
+                    allow_self_target: true,
+                },
+            ),
         ];
 
         for (action_id, config) in defaults {

@@ -13,6 +13,7 @@ import { NearConnector } from '@hot-labs/near-connect';
 import type { NearWalletBase } from '@hot-labs/near-connect';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import { bootstrapAppSocialSession } from '@/lib/app-social-session';
+import { invalidateAppSocialSessionCache } from '@/lib/app-social-session-cache';
 
 const APP_WALLET_ACCOUNT_KEY = 'onsocial.app.wallet.accountId';
 
@@ -104,6 +105,9 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
           connector.connect(options)
         );
         setHasSocialSession(ready);
+        if (ready) {
+          invalidateAppSocialSessionCache();
+        }
       } catch {
         setHasSocialSession(false);
       } finally {
@@ -141,6 +145,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
       setAccountId(null);
       setHasSocialSession(false);
       writeStoredWalletAccountId(null);
+      invalidateAppSocialSessionCache();
     });
 
     let cancelled = false;
@@ -213,6 +218,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
     setAccountId(null);
     setHasSocialSession(false);
     writeStoredWalletAccountId(null);
+    invalidateAppSocialSessionCache();
   }, []);
 
   const getSigningWallet = useCallback(async (): Promise<SigningWallet> => {

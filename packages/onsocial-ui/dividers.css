@@ -1,0 +1,131 @@
+/**
+ * @onsocial/ui — gradient-fade divider system (Portal + OnPage).
+ *
+ * Requires `--border` (HSL components) from app theme tokens.
+ * Gold variants use --protocol-gold-border-strong from protocol.css.
+ *
+ * Standalone: <Divider /> or h-px + divider-section | divider-detail | divider-item
+ * Borders: border-t + border-fade-section | border-fade-detail | border-fade-item
+ */
+
+@source inline("divider-section divider-detail divider-item divider-v-section divider-v-detail divider-gold-detail divider-v-gold-detail border-fade-section border-fade-detail border-fade-item border-fade-v-section border-fade-v-detail divide-fade-section divide-fade-detail divide-fade-item after:divider-section after:divider-v-section md:divider-v-detail xl:after:divider-section");
+
+:root {
+  --divider-h-section: linear-gradient(
+    to right,
+    transparent,
+    hsl(var(--border) / 0.7),
+    transparent
+  );
+  --divider-h-detail: linear-gradient(
+    to right,
+    transparent,
+    hsl(var(--border) / 0.5),
+    transparent
+  );
+  --divider-h-item: linear-gradient(
+    to right,
+    transparent,
+    hsl(var(--border) / 0.3),
+    transparent
+  );
+  --divider-v-section: linear-gradient(
+    to bottom,
+    transparent,
+    hsl(var(--border) / 0.7),
+    transparent
+  );
+  --divider-v-detail: linear-gradient(
+    to bottom,
+    transparent,
+    hsl(var(--border) / 0.5),
+    transparent
+  );
+  --divider-v-item: linear-gradient(
+    to bottom,
+    transparent,
+    hsl(var(--border) / 0.3),
+    transparent
+  );
+  --divider-h-gold-detail: linear-gradient(
+    to right,
+    transparent 0%,
+    var(--protocol-gold-border-strong) 18%,
+    var(--protocol-gold-border-strong) 82%,
+    transparent 100%
+  );
+  --divider-v-gold-detail: linear-gradient(
+    to bottom,
+    transparent 0%,
+    var(--protocol-gold-border-strong) 12%,
+    var(--protocol-gold-border-strong) 88%,
+    transparent 100%
+  );
+}
+
+@utility border-fade-section {
+  border-image: var(--divider-h-section) 1;
+}
+
+@utility border-fade-detail {
+  border-image: var(--divider-h-detail) 1;
+}
+
+@utility border-fade-item {
+  border-image: var(--divider-h-item) 1;
+}
+
+@utility border-fade-v-section {
+  border-image: var(--divider-v-section) 1;
+}
+
+@utility border-fade-v-detail {
+  border-image: var(--divider-v-detail) 1;
+}
+
+@utility divide-fade-section {
+  & > :not(:last-child) {
+    border-image: var(--divider-h-section) 1;
+  }
+}
+
+@utility divide-fade-detail {
+  & > :not(:last-child) {
+    border-image: var(--divider-h-detail) 1;
+  }
+}
+
+@utility divide-fade-item {
+  & > :not(:last-child) {
+    border-bottom: 1px solid transparent;
+    border-image: var(--divider-h-item) 1;
+  }
+}
+
+@utility divider-section {
+  background-image: var(--divider-h-section);
+}
+
+@utility divider-detail {
+  background-image: var(--divider-h-detail);
+}
+
+@utility divider-item {
+  background-image: var(--divider-h-item);
+}
+
+@utility divider-v-section {
+  background-image: var(--divider-v-section);
+}
+
+@utility divider-v-detail {
+  background-image: var(--divider-v-detail);
+}
+
+@utility divider-gold-detail {
+  background-image: var(--divider-h-gold-detail);
+}
+
+@utility divider-v-gold-detail {
+  background-image: var(--divider-v-gold-detail);
+}

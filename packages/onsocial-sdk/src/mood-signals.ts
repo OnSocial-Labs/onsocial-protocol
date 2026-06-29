@@ -1,4 +1,4 @@
-import type { BuiltInPageMoodId } from './modules/pages/moods.js';
+import type { PageMoodId } from './modules/pages/moods.js';
 import { PROTOCOL_COLORS } from './protocol-colors.js';
 
 /** Canonical profile signal hues — keep aligned with `@onsocial/ui/protocol.css` `--signal-*`. */
@@ -24,7 +24,7 @@ export interface PageMoodSignalTokens {
  * Lower = stronger mood connection; standing keeps the highest share so blue identity holds.
  */
 export const MOOD_SIGNAL_PROTOCOL_WEIGHT: Record<
-  BuiltInPageMoodId,
+  PageMoodId,
   Record<PageMoodSignalTokenKey, number>
 > = {
   protocol: { standing: 1, solidarity: 1, endorse: 1, reputation: 1 },
@@ -54,6 +54,44 @@ export const MOOD_SIGNAL_PROTOCOL_WEIGHT: Record<
     solidarity: 0.42,
     endorse: 0.4,
     reputation: 0.36,
+  },
+  summer: {
+    standing: 0.5,
+    solidarity: 0.3,
+    endorse: 0.24,
+    reputation: 0.3,
+  },
+  gold: { standing: 0.52, solidarity: 0.38, endorse: 0.2, reputation: 0.28 },
+  glass: {
+    standing: 0.58,
+    solidarity: 0.4,
+    endorse: 0.36,
+    reputation: 0.34,
+  },
+  carbon: { standing: 0.6, solidarity: 0.44, endorse: 0.4, reputation: 0.38 },
+  holographic: {
+    standing: 0.5,
+    solidarity: 0.28,
+    endorse: 0.3,
+    reputation: 0.32,
+  },
+  broadsheet: {
+    standing: 0.56,
+    solidarity: 0.42,
+    endorse: 0.4,
+    reputation: 0.36,
+  },
+  terminal: {
+    standing: 0.48,
+    solidarity: 0.34,
+    endorse: 0.28,
+    reputation: 0.36,
+  },
+  signature: {
+    standing: 0.72,
+    solidarity: 0.62,
+    endorse: 0.52,
+    reputation: 0.58,
   },
 };
 
@@ -126,7 +164,7 @@ export function blendProtocolSignalWithMood(
 }
 
 export function pageMoodSignalsFor(
-  moodId: BuiltInPageMoodId,
+  moodId: PageMoodId,
   accent: string
 ): PageMoodSignalTokens {
   const weights = MOOD_SIGNAL_PROTOCOL_WEIGHT[moodId];

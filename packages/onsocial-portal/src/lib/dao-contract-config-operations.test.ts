@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   canProposeSocialSpendActionRoutingDraft,
   DEFAULT_BOOST_POST_ROUTING_DRAFT,
+  DEFAULT_UNLOCK_PAGE_MOOD_ROUTING_DRAFT,
   DEFAULT_JOIN_RALLY_ROUTING_DRAFT,
   DEFAULT_SUPPORT_ENDORSEMENT_ROUTING_DRAFT,
   DEFAULT_SUPPORT_PROFILE_ROUTING_DRAFT,
@@ -322,6 +323,33 @@ describe('dao-contract-config-operations', () => {
     ).toBe('10% boost credits · 90% target');
   });
 
+  it('exposes unlock page mood defaults and proposal readiness', () => {
+    const config = getSocialSpendActionRoutingOperationConfig(
+      'social_spend_unlock_page_mood_routing'
+    );
+
+    expect(config).toMatchObject({
+      actionId: 'unlock_page_mood',
+      actionLabel: 'unlock page mood',
+    });
+    expect(config?.defaultDraft).toEqual(
+      DEFAULT_UNLOCK_PAGE_MOOD_ROUTING_DRAFT
+    );
+    expect(
+      canProposeSocialSpendActionRoutingDraft(
+        null,
+        DEFAULT_UNLOCK_PAGE_MOOD_ROUTING_DRAFT,
+        'social_spend_unlock_page_mood_routing'
+      )
+    ).toBe(true);
+    expect(
+      formatSocialSpendActionRoutingSummary(
+        DEFAULT_UNLOCK_PAGE_MOOD_ROUTING_DRAFT,
+        { protocolFeesRouteToBoost: true }
+      )
+    ).toBe('100% boost credits');
+  });
+
   it('lays out primary routing fields per operation', () => {
     expect(
       getSocialSpendRoutingFieldLayout('social_spend_join_rally_routing')
@@ -335,6 +363,13 @@ describe('dao-contract-config-operations', () => {
     ).toEqual({
       primary: ['treasury_bps', 'target_bps'],
       secondary: ['season_pool_bps', 'burn_bps'],
+    });
+
+    expect(
+      getSocialSpendRoutingFieldLayout('social_spend_unlock_page_mood_routing')
+    ).toEqual({
+      primary: ['treasury_bps'],
+      secondary: [],
     });
   });
 

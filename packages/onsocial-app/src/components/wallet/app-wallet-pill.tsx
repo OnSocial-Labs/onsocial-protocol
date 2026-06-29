@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { OsIconAction, osIconActionClassName } from '@onsocial/ui';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { accountIdsEqual } from '@/lib/account-match';
 import { appPageHref } from '@/lib/app-links';
@@ -8,7 +9,7 @@ import { fallbackLabel } from '@/lib/profile-display';
 
 interface AppWalletPillProps {
   pageAccountId?: string;
-  variant?: 'default' | 'corner';
+  variant?: 'default' | 'corner' | 'icon';
 }
 
 export function AppWalletPill({
@@ -19,7 +20,50 @@ export function AppWalletPill({
     useAppWallet();
 
   const className =
-    variant === 'corner' ? 'app-wallet-pill is-corner' : 'app-wallet-pill';
+    variant === 'corner'
+      ? 'app-wallet-pill is-corner'
+      : variant === 'icon'
+        ? 'app-wallet-pill is-icon'
+        : 'app-wallet-pill';
+
+  if (variant === 'icon') {
+    if (isLoading) {
+      return (
+        <div
+          aria-hidden
+          className={`${osIconActionClassName} app-wallet-icon-slot is-loading`}
+        />
+      );
+    }
+
+    if (!isConnected || !accountId) {
+      return (
+        <button
+          type="button"
+          className={osIconActionClassName}
+          aria-label="Connect wallet"
+          onClick={connect}
+        >
+          <span className="app-wallet-connect-glyph" aria-hidden />
+        </button>
+      );
+    }
+
+    const label = fallbackLabel(accountId);
+
+    return (
+      <Link
+        href={appPageHref(accountId)}
+        className={osIconActionClassName}
+        aria-label={`@${label}`}
+        title={`@${label}`}
+      >
+        <span className="app-wallet-icon-initial" aria-hidden>
+          {label.charAt(0).toUpperCase()}
+        </span>
+      </Link>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -50,7 +94,8 @@ export function AppWalletPill({
   }
 
   const isOwner = pageAccountId
-    ? Boolean(accountId) && accountIdsEqual(accountId!, pageAccountId)
+    ? Boolean(accountId) &&
+      accountIdsEqual(accountId!, pageAccountId)
     : true;
   const label = fallbackLabel(accountId);
 

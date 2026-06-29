@@ -12,7 +12,7 @@ import {
   hasProfileCredentials,
   type ProfileProtocolCredential,
 } from '@/features/profile/profile-identity-credentials';
-import { useDropdown } from '@/hooks/use-dropdown';
+import { useDropdown } from '@onsocial/ui';
 import { ARCHIVED_GENESIS_SEASON_ID } from '@/lib/active-season';
 import { cn } from '@/lib/utils';
 

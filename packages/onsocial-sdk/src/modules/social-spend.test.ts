@@ -82,6 +82,50 @@ describe('buildSocialSpendFtTransferCallArgs', () => {
   });
 });
 
+describe('buildUnlockPageMood spend', () => {
+  const summerUnlockAmount = '100000000000000000000';
+
+  it('builds unlock_page_mood spend msg for OnPage', () => {
+    const msg = buildSocialSpendMsg({
+      amount: summerUnlockAmount,
+      appId: 'onpage',
+      action: 'unlock_page_mood',
+      targetType: 'page_mood',
+      targetId: 'summer',
+      metadata: { page_account_id: 'alice.testnet' },
+    });
+
+    expect(msg).toEqual({
+      v: 1,
+      app_id: 'onpage',
+      action: 'unlock_page_mood',
+      target_type: 'page_mood',
+      target_id: 'summer',
+      metadata: { page_account_id: 'alice.testnet' },
+    });
+  });
+
+  it('builds unlock page mood transaction via SocialSpendModule', () => {
+    const module = new SocialSpendModule(http);
+    const tx = module.buildUnlockPageMoodTransaction(
+      'summer',
+      summerUnlockAmount,
+      { pageAccountId: 'alice.testnet' }
+    );
+
+    expect(tx.receiverId).toBe('token.onsocial.testnet');
+    const args = tx.actions[0]?.args as { msg: string };
+    expect(JSON.parse(args.msg)).toEqual({
+      v: 1,
+      app_id: 'onpage',
+      action: 'unlock_page_mood',
+      target_type: 'page_mood',
+      target_id: 'summer',
+      metadata: { page_account_id: 'alice.testnet' },
+    });
+  });
+});
+
 describe('buildSocialSpendTransaction', () => {
   it('targets the token contract with a 1 yocto ft_transfer_call', () => {
     const tx = buildSocialSpendTransaction(

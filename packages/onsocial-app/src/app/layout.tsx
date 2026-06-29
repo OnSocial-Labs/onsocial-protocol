@@ -1,8 +1,19 @@
 import type { Metadata, Viewport } from 'next';
-import { JetBrains_Mono, Newsreader, Space_Grotesk } from 'next/font/google';
+import {
+  DM_Sans,
+  JetBrains_Mono,
+  Newsreader,
+  Space_Grotesk,
+} from 'next/font/google';
 import { AppProviders } from '@/components/providers/app-providers';
-import { themeInitScript } from '@/lib/theme-init';
+import { ThemeInitScript } from '@/components/theme-init-script';
 import './globals.css';
+
+const dmSans = DM_Sans({
+  subsets: ['latin'],
+  variable: '--font-dm-sans',
+  display: 'swap',
+});
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
@@ -44,20 +55,12 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} ${newsreader.variable}`}
+      className={`${dmSans.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} ${newsreader.variable}`}
       data-theme="dark"
       suppressHydrationWarning
     >
       <body suppressHydrationWarning>
-        {/*
-          Run in body (not head) so wallet extensions that rewrite the first head
-          <script> (e.g. Meteor) do not cause a hydration mismatch on this node.
-        */}
-        <script
-          id="onsocial-theme-init"
-          suppressHydrationWarning
-          dangerouslySetInnerHTML={{ __html: themeInitScript }}
-        />
+        <ThemeInitScript />
         <AppProviders>{children}</AppProviders>
       </body>
     </html>

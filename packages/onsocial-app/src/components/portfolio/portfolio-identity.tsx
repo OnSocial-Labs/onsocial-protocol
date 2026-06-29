@@ -1,9 +1,11 @@
 import { displayName, initials } from '@/lib/profile-display';
+import type { PublicPageConfig } from '@/lib/page-data';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { MoodIndicator } from '@/components/moods/mood-indicator';
 
 interface PortfolioIdentityProps {
   accountId: string;
+  pageConfig: PublicPageConfig;
   profileName?: string | null;
   bio?: string | null;
   tagline?: string;
@@ -13,6 +15,7 @@ interface PortfolioIdentityProps {
 
 export function PortfolioIdentity({
   accountId,
+  pageConfig,
   profileName,
   bio,
   tagline,
@@ -35,7 +38,12 @@ export function PortfolioIdentity({
       <div className="portfolio-identity-copy">
         <h1 className="portfolio-name">{titleLabel}</h1>
         <p className="portfolio-handle">@{accountId}</p>
-        <MoodIndicator mood={mood} pageAccountId={accountId} compact />
+        <MoodIndicator
+          mood={mood}
+          pageAccountId={accountId}
+          pageConfig={pageConfig}
+          compact
+        />
         {summary ? <p className="portfolio-bio">{summary}</p> : null}
       </div>
     </section>

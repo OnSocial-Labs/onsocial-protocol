@@ -1,14 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { PROTOCOL_COLORS } from '@onsocial/sdk';
 import { MOOD_PRESETS } from './presets';
-import { moodPresetPreviewVars, resolvePortfolioMood } from './resolve';
+import { moodDrawerThreadVars, moodPresetPreviewVars, moodSheetItemPreviewVars, resolvePortfolioMood } from './resolve';
+import { PREMIUM_MOOD_PRESETS } from './presets';
 
 describe('resolvePortfolioMood', () => {
   it('defaults to protocol when none is set', () => {
     const mood = resolvePortfolioMood({});
     expect(mood.id).toBe('protocol');
     expect(mood.label).toBe('Protocol');
-    expect(mood.cssVars['--mood-accent']).toBe(PROTOCOL_COLORS.blue);
+    expect(mood.cssVars['--mood-preset-accent']).toBe(PROTOCOL_COLORS.blue);
     expect(mood.cssVars['--mood-banner']).toContain('gradient');
     expect(mood.cssVars['--mood-preset-bg']).toBe('#050505');
     expect(mood.cssVars['--mood-preset-bg-light']).toBe('#f7faff');
@@ -28,7 +29,7 @@ describe('resolvePortfolioMood', () => {
     expect(mood.id).toBe('celebration');
     expect(mood.label).toBe('Celebration');
     expect(mood.note).toBe('just shipped');
-    expect(mood.cssVars['--mood-accent']).toContain('255');
+    expect(mood.cssVars['--mood-preset-accent']).toContain('255');
     expect(mood.cssVars['--mood-banner']).toContain('gradient');
     expect(mood.cssVars['--mood-surface']).toBeTruthy();
   });
@@ -40,11 +41,22 @@ describe('moodPresetPreviewVars', () => {
     const preview = moodPresetPreviewVars('creative', theme);
     const mood = resolvePortfolioMood({ mood: { id: 'creative' } });
 
-    expect(preview['--mood-accent']).toBe(mood.cssVars['--mood-accent']);
+    expect(preview['--mood-preset-accent']).toBe(mood.cssVars['--mood-preset-accent']);
     expect(preview['--mood-preset-bg']).toBe('#06040a');
     expect(preview['--mood-preset-bg-light']).toBe('#faf5ff');
     expect(preview['--mood-display-weight']).toBe('700');
     expect(preview).not.toHaveProperty('--mood-banner');
+  });
+
+  it('includes banner and preset text vars for finish picker rows', () => {
+    const theme = PREMIUM_MOOD_PRESETS.glass.theme;
+    const preview = moodSheetItemPreviewVars('glass', theme);
+
+    expect(preview['--mood-banner']).toBe(theme.banner);
+    expect(preview['--mood-preset-banner-light']).toBe(theme.bannerLight);
+    expect(preview['--mood-preset-text']).toBe(theme.text);
+    expect(preview['--mood-preset-muted-light']).toBe(theme.mutedLight);
+    expect(preview).not.toHaveProperty('--mood-banner-active');
   });
 
   it('merges custom theme accent into css vars with derived surface', () => {
@@ -53,7 +65,7 @@ describe('moodPresetPreviewVars', () => {
       theme: { accent: '#ff00aa' },
     });
 
-    expect(mood.cssVars['--mood-accent']).toBe('#ff00aa');
+    expect(mood.cssVars['--mood-preset-accent']).toBe('#ff00aa');
     expect(mood.cssVars['--mood-surface']).toBe('rgb(255 0 170 / 0.06)');
     expect(mood.cssVars['--mood-preset-bg-light']).toBe('#f7faff');
     expect(mood.cssVars['--mood-signal-standing']).toBe(PROTOCOL_COLORS.blue);
@@ -64,7 +76,7 @@ describe('moodPresetPreviewVars', () => {
 
     expect(mood.cssVars['--mood-signal-reputation']).toMatch(/^rgb\(/);
     expect(mood.cssVars['--mood-signal-standing']).not.toBe(
-      mood.cssVars['--mood-accent']
+      mood.cssVars['--mood-preset-accent']
     );
   });
 
@@ -79,6 +91,33 @@ describe('moodPresetPreviewVars', () => {
     expect(journal.cssVars['--mood-body-leading']).toBe('1.65');
   });
 
+  it('resolves premium summer mood css vars', () => {
+    const mood = resolvePortfolioMood({
+      mood: { id: 'summer' },
+      moodUnlocks: { summer: { since: 1 } },
+    });
+
+    expect(mood.id).toBe('summer');
+    expect(mood.label).toBe('Summer');
+    expect(mood.cssVars['--mood-preset-accent']).toContain('255');
+    expect(mood.cssVars['--mood-signal-standing']).toMatch(/^rgb\(/);
+  });
+
+  it('splits broadsheet accent for dark chrome vs light ink', () => {
+    const mood = resolvePortfolioMood({
+      mood: { id: 'broadsheet' },
+      moodUnlocks: { broadsheet: { since: 1 } },
+    });
+
+    expect(mood.id).toBe('broadsheet');
+    expect(mood.cssVars['--mood-preset-accent']).toBe('rgb(82 82 91 / 0.92)');
+    expect(mood.cssVars['--mood-preset-accent-light']).toBe(
+      'rgb(28 28 32 / 0.95)'
+    );
+    expect(mood.cssVars['--mood-font-display']).toContain('newsreader');
+    expect(mood.cssVars['--mood-font-body']).toContain('newsreader');
+  });
+
   it('applies the page owner mood typography for any resolved profile', () => {
     const viewerContext = resolvePortfolioMood({
       mood: { id: 'journal' },
@@ -87,5 +126,17 @@ describe('moodPresetPreviewVars', () => {
 
     expect(viewerContext.cssVars['--mood-display-weight']).toBe('500');
     expect(viewerContext.cssVars['--mood-bio-max-width']).toBe('22rem');
+  });
+});
+
+describe('moodDrawerThreadVars', () => {
+  it('passes ambient and accent vars without typography', () => {
+    const mood = resolvePortfolioMood({ mood: { id: 'creative' } });
+    const thread = moodDrawerThreadVars(mood.cssVars);
+
+    expect(thread['--mood-preset-accent']).toBe(mood.cssVars['--mood-preset-accent']);
+    expect(thread['--mood-preset-bg']).toBeTruthy();
+    expect(thread).not.toHaveProperty('--mood-font-display');
+    expect(thread).not.toHaveProperty('--mood-text-preset-mix');
   });
 });

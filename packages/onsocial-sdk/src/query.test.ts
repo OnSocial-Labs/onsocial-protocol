@@ -211,6 +211,96 @@ describe('QueryModule', () => {
     });
   });
 
+  describe('pages.getMoodIdsForAccounts()', () => {
+    it('batch-reads mood ids from page/main rows', async () => {
+      const { os } = makeOs({
+        data: {
+          pagesCurrent: [
+            {
+              accountId: 'alice.near',
+              dataId: 'main',
+              value: JSON.stringify({ mood: { id: 'build', since: 1 } }),
+              blockHeight: 1,
+              blockTimestamp: 1,
+              operation: 'set',
+            },
+            {
+              accountId: 'bob.near',
+              dataId: 'main',
+              value: JSON.stringify({ mood: { id: 'default', since: 2 } }),
+              blockHeight: 2,
+              blockTimestamp: 2,
+              operation: 'set',
+            },
+            {
+              accountId: 'carol.near',
+              dataId: 'main',
+              value: '',
+              blockHeight: 3,
+              blockTimestamp: 3,
+              operation: 'delete',
+            },
+          ],
+        },
+      });
+
+      await expect(
+        os.query.pages.getMoodIdsForAccounts([
+          'alice.near',
+          'bob.near',
+          'carol.near',
+          'ghost.near',
+        ])
+      ).resolves.toEqual({
+        'alice.near': 'build',
+        'bob.near': 'protocol',
+      });
+    });
+
+    it('returns an empty map for an empty id list', async () => {
+      const { os, fetch } = makeOs({ data: { pagesCurrent: [] } });
+      await expect(os.query.pages.getMoodIdsForAccounts([])).resolves.toEqual(
+        {}
+      );
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it('falls back to dataUpdates when pagesCurrent is not in the schema', async () => {
+      const { os, fetch } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        if (query.includes('pagesCurrent')) {
+          return {
+            errors: [
+              {
+                message: "field 'pagesCurrent' not found on type 'query_root'",
+              },
+            ],
+            data: null,
+          };
+        }
+        if (query.includes('PageMoodIdsFallback')) {
+          return {
+            data: {
+              dataUpdates: [
+                {
+                  accountId: 'alice.near',
+                  value: JSON.stringify({ mood: { id: 'journal' } }),
+                  operation: 'set',
+                },
+              ],
+            },
+          };
+        }
+        return { data: {} };
+      });
+
+      await expect(
+        os.query.pages.getMoodIdsForAccounts(['alice.near'])
+      ).resolves.toEqual({ 'alice.near': 'journal' });
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+  });
+
   describe('getProfile — lookup and search', () => {
     it('looks up a profile search row by exact account id', async () => {
       const row = {

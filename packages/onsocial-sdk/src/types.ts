@@ -749,6 +749,15 @@ export interface PageMoodConfig {
   note?: string;
 }
 
+/** Premium mood unlock receipts stored in `page/main.moodUnlocks`. */
+export interface PageMoodUnlockRecord {
+  since: number;
+  /** Boost credits or future spend tx hash. */
+  purchaseTxHash?: string;
+}
+
+export type PageMoodUnlocks = Record<string, PageMoodUnlockRecord>;
+
 /** Which profile field drives the top hero on the page face. */
 export type PageHeroSource = 'banner' | 'avatar' | 'none';
 
@@ -775,6 +784,8 @@ export interface PageConfig {
   customCss?: string;
   /** Active mood — id, timestamp, optional note. */
   mood?: PageMoodConfig;
+  /** Premium mood unlock receipts — keyed by mood id. */
+  moodUnlocks?: PageMoodUnlocks;
 }
 
 /** Aggregated page data returned by the gateway `/data/page` endpoint. */

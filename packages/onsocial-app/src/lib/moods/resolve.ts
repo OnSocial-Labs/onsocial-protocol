@@ -2,12 +2,12 @@ import type { PublicPageConfig } from '../page-data';
 import {
   mergePageMoodTheme,
   moodSignalTokensToCssVars,
-  normalizePageMoodId,
   pageMoodPreviewCssVars,
   pageMoodSignalsFor,
-  type BuiltInPageMoodId,
+  resolvePageMoodId,
+  type PageMoodId,
 } from '@onsocial/sdk';
-import { isBuiltInMoodId, MOOD_PRESETS } from './presets';
+import { isBuiltInMoodId, moodPresetForId } from './presets';
 import type {
   MoodId,
   MoodPreset,
@@ -16,15 +16,13 @@ import type {
   ResolvedMood,
 } from './types';
 
-function signalMoodId(id: MoodId, rawId: string): BuiltInPageMoodId {
-  return (
-    normalizePageMoodId(rawId) ?? (isBuiltInMoodId(id) ? id : 'protocol')
-  );
+function signalMoodId(id: MoodId, rawId: string): PageMoodId {
+  return resolvePageMoodId(rawId) ?? (isBuiltInMoodId(id) ? id : 'protocol');
 }
 
 function themeTokensToCssVars(
   theme: MoodThemeTokens,
-  moodId: BuiltInPageMoodId
+  moodId: PageMoodId
 ): Record<string, string> {
   return {
     ...pageMoodPreviewCssVars(moodId, theme),
@@ -38,21 +36,70 @@ function themeTokensToCssVars(
   };
 }
 
-/** Swatch + typography vars for mood picker rows. */
+/** Swatch + typography vars for mood picker rows (no banner). */
 export function moodPresetPreviewVars(
-  moodId: BuiltInPageMoodId,
+  moodId: PageMoodId,
   theme: MoodThemeTokens
 ): Record<string, string> {
   return pageMoodPreviewCssVars(moodId, theme);
 }
 
+/** Accent-only vars for list-row mood hints (discover, standings previews). */
+export function moodDiscoverHintVars(moodId: PageMoodId): Record<string, string> {
+  const preset = moodPresetForId(moodId);
+  return {
+    '--mood-preset-accent': preset.theme.accent,
+    '--mood-preset-accent-light':
+      preset.theme.accentLight ?? preset.theme.accent,
+  };
+}
+
+const MOOD_DRAWER_THREAD_KEYS = [
+  '--mood-preset-accent',
+  '--mood-preset-accent-light',
+  '--mood-preset-bg',
+  '--mood-preset-bg-light',
+  '--mood-banner',
+  '--mood-preset-banner-light',
+] as const;
+
+/** Mood thread for page drawer — ambient + accent, not full typography wash. */
+export function moodDrawerThreadVars(
+  cssVars: Record<string, string>
+): Record<string, string> {
+  const thread: Record<string, string> = {};
+  for (const key of MOOD_DRAWER_THREAD_KEYS) {
+    const value = cssVars[key];
+    if (value) {
+      thread[key] = value;
+    }
+  }
+  return thread;
+}
+
+/** Picker row vars including banner gradients (finish material preview). */
+export function moodSheetItemPreviewVars(
+  moodId: PageMoodId,
+  theme: MoodThemeTokens
+): Record<string, string> {
+  return {
+    ...moodPresetPreviewVars(moodId, theme),
+    '--mood-banner': theme.banner,
+    '--mood-preset-text': theme.text,
+    '--mood-preset-text-light': theme.textLight,
+    '--mood-preset-muted': theme.muted,
+    '--mood-preset-muted-light': theme.mutedLight,
+    '--mood-preset-banner-light': theme.bannerLight,
+  };
+}
+
 function presetForId(id: MoodId): MoodPreset {
-  const normalized = normalizePageMoodId(id) ?? (isBuiltInMoodId(id) ? id : null);
-  if (normalized && isBuiltInMoodId(normalized)) {
-    return MOOD_PRESETS[normalized];
+  const resolved = resolvePageMoodId(id);
+  if (resolved) {
+    return moodPresetForId(resolved);
   }
 
-  return MOOD_PRESETS.protocol;
+  return moodPresetForId('protocol');
 }
 
 export function parsePageMoodRecord(
@@ -78,7 +125,7 @@ export function parsePageMoodRecord(
 export function resolvePortfolioMood(config: PublicPageConfig): ResolvedMood {
   const record = parsePageMoodRecord(config);
   const rawId = record?.id ?? 'protocol';
-  const id: MoodId = normalizePageMoodId(rawId) ?? rawId;
+  const id: MoodId = resolvePageMoodId(rawId) ?? rawId;
   const preset = presetForId(id);
   const theme = mergePageMoodTheme(preset.theme, config.theme);
   const moodId = signalMoodId(id, rawId);
