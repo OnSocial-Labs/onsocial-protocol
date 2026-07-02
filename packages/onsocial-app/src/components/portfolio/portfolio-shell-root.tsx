@@ -6,16 +6,18 @@ import { PageContentDrawerProvider } from '@/contexts/page-content-drawer-contex
 import { PortfolioFacePreviewBar } from '@/components/portfolio/portfolio-face-preview-bar';
 import { PageContentDrawer } from '@/components/portfolio/page-content-drawer';
 import { PortfolioPageDock } from '@/components/portfolio/portfolio-page-dock';
-import { PortfolioOsChrome } from '@/components/portfolio/portfolio-os-chrome';
+import { PortfolioCustomize } from '@/components/portfolio/portfolio-customize';
 import { PortfolioShell } from '@/components/portfolio/portfolio-shell';
 import type {
   PageAvatarMode,
+  PageHeroSource,
   PublicPageConfig,
   PublicPageStats,
   ResolvedPageHero,
 } from '@/lib/page-data';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-context';
+import { resolvePageFace } from '@/lib/page-face';
 
 interface PortfolioShellRootProps {
   mood: ResolvedMood;
@@ -23,6 +25,7 @@ interface PortfolioShellRootProps {
   avatarMedia?: ResolvedPageHero | null;
   bannerMedia?: ResolvedPageHero | null;
   committedAvatarMode: PageAvatarMode;
+  committedHeroSource: PageHeroSource;
   initialAvatarMode: PageAvatarMode;
   config: PublicPageConfig;
   stats: PublicPageStats;
@@ -41,15 +44,30 @@ function PortfolioShellPreviewBridge({
   children,
 }: Omit<
   PortfolioShellRootProps,
-  'committedAvatarMode' | 'initialAvatarMode'
+  'committedAvatarMode' | 'committedHeroSource' | 'initialAvatarMode'
 >) {
-  const { effectiveAvatarMode, isPreviewing } = usePortfolioFacePreview();
+  const { effectiveAvatarMode, effectiveHeroSource, isPreviewing } =
+    usePortfolioFacePreview();
+  const previewConfig = {
+    ...config,
+    face: {
+      ...config.face,
+      heroSource: effectiveHeroSource,
+    },
+  };
+  const { hero } = resolvePageFace({
+    config: previewConfig,
+    avatarMode: effectiveAvatarMode,
+    avatarMedia: avatarMedia ?? null,
+    bannerMedia: bannerMedia ?? null,
+  });
+  const hasBanner = Boolean(hero);
 
   return (
     <>
       <PortfolioShell
         mood={mood}
-        config={config}
+        config={previewConfig}
         avatarMode={effectiveAvatarMode}
         avatarMedia={avatarMedia}
         bannerMedia={bannerMedia}
@@ -60,9 +78,17 @@ function PortfolioShellPreviewBridge({
       <div
         className="portfolio-os-layer"
         data-mood={mood.id}
+        data-has-banner={hasBanner ? 'true' : undefined}
+        data-mood-only={hasBanner ? undefined : 'true'}
         style={mood.cssVars as CSSProperties}
       >
-        <PortfolioOsChrome pageAccountId={pageAccountId} config={config} />
+        <PortfolioCustomize
+          pageAccountId={pageAccountId}
+          config={config}
+          mood={mood}
+          avatarUrl={avatarMedia?.url ?? null}
+          bannerUrl={bannerMedia?.url ?? null}
+        />
         <PortfolioPageDock pageAccountId={pageAccountId} />
         <PageContentDrawer
           pageAccountId={pageAccountId}
@@ -79,6 +105,7 @@ function PortfolioShellPreviewBridge({
 
 export function PortfolioShellRoot({
   committedAvatarMode,
+  committedHeroSource,
   initialAvatarMode,
   ...props
 }: PortfolioShellRootProps) {
@@ -93,6 +120,7 @@ export function PortfolioShellRoot({
     <PageContentDrawerProvider>
       <PortfolioFacePreviewProvider
         committedAvatarMode={committedAvatarMode}
+        committedHeroSource={committedHeroSource}
         initialAvatarMode={initialAvatarMode}
       >
         <PortfolioShellPreviewBridge {...props} />

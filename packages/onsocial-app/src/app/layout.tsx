@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from 'next';
+import localFont from 'next/font/local';
 import {
+  Caveat,
   DM_Sans,
   JetBrains_Mono,
   Newsreader,
@@ -31,6 +33,29 @@ const newsreader = Newsreader({
   weight: ['400', '500', '600'],
 });
 
+const caveat = Caveat({
+  subsets: ['latin'],
+  variable: '--font-caveat',
+  weight: ['400', '500', '600', '700'],
+});
+
+const ericaType = localFont({
+  src: [
+    {
+      path: '../../public/fonts/erica-type/erika_type-webfont.woff',
+      weight: '400',
+      style: 'normal',
+    },
+    {
+      path: '../../public/fonts/erica-type/erika_type_b-webfont.woff',
+      weight: '700',
+      style: 'normal',
+    },
+  ],
+  variable: '--font-erica-type',
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
   title: 'OnSocial',
   description: 'A page for every account.',
@@ -43,6 +68,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
   themeColor: '#000000',
   colorScheme: 'dark light',
 };
@@ -55,7 +82,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${dmSans.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} ${newsreader.variable}`}
+      className={`${dmSans.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} ${newsreader.variable} ${caveat.variable} ${ericaType.variable}`}
       data-theme="dark"
       suppressHydrationWarning
     >

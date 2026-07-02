@@ -114,8 +114,8 @@ describe('moodPresetPreviewVars', () => {
     expect(mood.cssVars['--mood-preset-accent-light']).toBe(
       'rgb(28 28 32 / 0.95)'
     );
-    expect(mood.cssVars['--mood-font-display']).toContain('newsreader');
-    expect(mood.cssVars['--mood-font-body']).toContain('newsreader');
+    expect(mood.cssVars['--mood-font-display']).toContain('erica-type');
+    expect(mood.cssVars['--mood-font-body']).toContain('erica-type');
   });
 
   it('applies the page owner mood typography for any resolved profile', () => {
@@ -126,6 +126,31 @@ describe('moodPresetPreviewVars', () => {
 
     expect(viewerContext.cssVars['--mood-display-weight']).toBe('500');
     expect(viewerContext.cssVars['--mood-bio-max-width']).toBe('22rem');
+  });
+
+  it('applies stored signature ink hue when signature mood is active', () => {
+    const mood = resolvePortfolioMood({
+      mood: { id: 'signature' },
+      theme: { moodTints: { signature: 300 } },
+    });
+
+    expect(mood.cssVars['--mood-preset-accent']).not.toBe(
+      'rgb(56 189 248 / 0.95)'
+    );
+    expect(mood.cssVars['--mood-preset-muted']).not.toBe(
+      'rgb(160 210 230 / 0.48)'
+    );
+    expect(mood.cssVars['--mood-banner']).toContain('gradient');
+  });
+
+  it('ignores signature tint when another mood is active', () => {
+    const mood = resolvePortfolioMood({
+      mood: { id: 'protocol' },
+      theme: { moodTints: { signature: 300 } },
+    });
+
+    expect(mood.id).toBe('protocol');
+    expect(mood.cssVars['--mood-preset-accent']).toBe(PROTOCOL_COLORS.blue);
   });
 });
 

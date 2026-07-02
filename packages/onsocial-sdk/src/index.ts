@@ -278,6 +278,15 @@ export {
   pageMoodTypographyFor,
   resolvePageMoodId,
 } from './modules/pages/moods.js';
+export {
+  accentFromHue,
+  accentHueFromColor,
+  effectiveMoodTintHue,
+  mergePageMoodTintIntoPageConfig,
+  moodMutedFromAccent,
+  normalizeMoodHue,
+  resolveMoodTintHue,
+} from './modules/pages/mood-hue.js';
 export type {
   BuiltInPageMoodId,
   PageMoodId,

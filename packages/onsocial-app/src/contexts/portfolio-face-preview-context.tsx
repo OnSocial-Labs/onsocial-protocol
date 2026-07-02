@@ -8,19 +8,27 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import type { PageAvatarMode } from '@/lib/page-data';
+import type { PageAvatarMode, PageHeroSource } from '@/lib/page-data';
 
 interface PreviewDraft {
-  mode: PageAvatarMode;
-  baseline: PageAvatarMode;
+  avatarMode: PageAvatarMode;
+  heroSource: PageHeroSource;
+  baselineAvatarMode: PageAvatarMode;
+  baselineHeroSource: PageHeroSource;
 }
 
 interface PortfolioFacePreviewContextValue {
   committedAvatarMode: PageAvatarMode;
+  committedHeroSource: PageHeroSource;
   previewAvatarMode: PageAvatarMode | null;
+  previewHeroSource: PageHeroSource | null;
   effectiveAvatarMode: PageAvatarMode;
+  effectiveHeroSource: PageHeroSource;
   isPreviewing: boolean;
+  isPreviewingLayout: boolean;
+  isPreviewingHeroSource: boolean;
   setPreviewAvatarMode: (mode: PageAvatarMode) => void;
+  setPreviewHeroSource: (source: PageHeroSource) => void;
   discardPreview: () => void;
 }
 
@@ -29,19 +37,44 @@ const PortfolioFacePreviewContext =
 
 interface PortfolioFacePreviewProviderProps {
   committedAvatarMode: PageAvatarMode;
+  committedHeroSource: PageHeroSource;
   initialAvatarMode: PageAvatarMode;
   children: ReactNode;
 }
 
 export function PortfolioFacePreviewProvider({
   committedAvatarMode,
+  committedHeroSource,
   initialAvatarMode,
   children,
 }: PortfolioFacePreviewProviderProps) {
   const [previewDraft, setPreviewDraft] = useState<PreviewDraft | null>(null);
 
   const activePreview =
-    previewDraft?.baseline === committedAvatarMode ? previewDraft : null;
+    previewDraft?.baselineAvatarMode === committedAvatarMode &&
+    previewDraft?.baselineHeroSource === committedHeroSource
+      ? previewDraft
+      : null;
+
+  const upsertPreview = useCallback(
+    (next: { avatarMode: PageAvatarMode; heroSource: PageHeroSource }) => {
+      if (
+        next.avatarMode === committedAvatarMode &&
+        next.heroSource === committedHeroSource
+      ) {
+        setPreviewDraft(null);
+        return;
+      }
+
+      setPreviewDraft({
+        avatarMode: next.avatarMode,
+        heroSource: next.heroSource,
+        baselineAvatarMode: committedAvatarMode,
+        baselineHeroSource: committedHeroSource,
+      });
+    },
+    [committedAvatarMode, committedHeroSource]
+  );
 
   const discardPreview = useCallback(() => {
     setPreviewDraft(null);
@@ -49,37 +82,56 @@ export function PortfolioFacePreviewProvider({
 
   const setPreviewAvatarMode = useCallback(
     (mode: PageAvatarMode) => {
-      if (mode === committedAvatarMode) {
-        setPreviewDraft(null);
-        return;
-      }
+      const heroSource = activePreview?.heroSource ?? committedHeroSource;
 
-      setPreviewDraft({ mode, baseline: committedAvatarMode });
+      upsertPreview({ avatarMode: mode, heroSource });
     },
-    [committedAvatarMode]
+    [activePreview, committedHeroSource, upsertPreview]
+  );
+
+  const setPreviewHeroSource = useCallback(
+    (source: PageHeroSource) => {
+      const avatarMode = activePreview?.avatarMode ?? committedAvatarMode;
+      upsertPreview({ avatarMode, heroSource: source });
+    },
+    [activePreview, committedAvatarMode, upsertPreview]
   );
 
   const value = useMemo<PortfolioFacePreviewContextValue>(() => {
-    const previewAvatarMode = activePreview?.mode ?? null;
+    const previewAvatarMode = activePreview?.avatarMode ?? null;
+    const previewHeroSource = activePreview?.heroSource ?? null;
     const effectiveAvatarMode = previewAvatarMode ?? initialAvatarMode;
-    const isPreviewing =
+    const effectiveHeroSource = previewHeroSource ?? committedHeroSource;
+    const isPreviewingLayout =
       previewAvatarMode !== null &&
       previewAvatarMode !== committedAvatarMode;
+    const isPreviewingHeroSource =
+      previewHeroSource !== null &&
+      previewHeroSource !== committedHeroSource;
+    const isPreviewing = isPreviewingLayout || isPreviewingHeroSource;
 
     return {
       committedAvatarMode,
+      committedHeroSource,
       previewAvatarMode,
+      previewHeroSource,
       effectiveAvatarMode,
+      effectiveHeroSource,
       isPreviewing,
+      isPreviewingLayout,
+      isPreviewingHeroSource,
       setPreviewAvatarMode,
+      setPreviewHeroSource,
       discardPreview,
     };
   }, [
     activePreview,
     committedAvatarMode,
+    committedHeroSource,
     discardPreview,
     initialAvatarMode,
     setPreviewAvatarMode,
+    setPreviewHeroSource,
   ]);
 
   return (

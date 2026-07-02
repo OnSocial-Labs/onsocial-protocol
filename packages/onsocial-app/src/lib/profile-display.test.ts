@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   normalizeProfileLinks,
   normalizeProfileTags,
+  portfolioHandleForMood,
+  portfolioHandleHint,
   resolveProfileMediaUrl,
 } from './profile-display';
 
@@ -63,5 +65,25 @@ describe('normalizeProfileTags', () => {
 
   it('returns an empty list when tags are not an array', () => {
     expect(normalizeProfileTags({ near: true })).toEqual([]);
+  });
+});
+
+describe('portfolioHandleForMood', () => {
+  it('formats terminal and signature handles', () => {
+    expect(portfolioHandleForMood('alice.testnet', 'terminal')).toBe(
+      '~/alice.testnet'
+    );
+    expect(portfolioHandleForMood('Alice.TESTNET', 'signature')).toBe(
+      '@alice.testnet'
+    );
+  });
+});
+
+describe('portfolioHandleHint', () => {
+  it('hints when mood handle differs from the editor default', () => {
+    expect(portfolioHandleHint('alice.testnet', 'terminal')).toBe(
+      'Shows as ~/alice.testnet on your page'
+    );
+    expect(portfolioHandleHint('alice.testnet', 'protocol')).toBeNull();
   });
 });

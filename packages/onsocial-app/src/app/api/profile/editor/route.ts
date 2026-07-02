@@ -1,0 +1,44 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { loadProfileShell } from '@/lib/profile-shell';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+const ACCOUNT_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{1,63}$/;
+
+function readAccountId(request: NextRequest): string | null {
+  const accountId = request.nextUrl.searchParams.get('accountId')?.trim();
+  if (!accountId || !ACCOUNT_ID_PATTERN.test(accountId)) {
+    return null;
+  }
+  return accountId;
+}
+
+export async function GET(request: NextRequest) {
+  const accountId = readAccountId(request);
+  if (!accountId) {
+    return NextResponse.json(
+      { error: 'Valid accountId query parameter is required' },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const shell = await loadProfileShell(accountId);
+    return NextResponse.json({
+      accountId,
+      hasProfile: Boolean(shell?.name?.trim()),
+      name: shell?.name ?? '',
+      bio: shell?.bio ?? '',
+      avatarUrl: shell?.avatarUrl ?? null,
+      bannerUrl: shell?.bannerUrl ?? null,
+      links: shell?.links ?? null,
+      tags: shell?.tags ?? [],
+    });
+  } catch {
+    return NextResponse.json(
+      { error: 'Profile editor lookup failed' },
+      { status: 502 }
+    );
+  }
+}

@@ -3,6 +3,86 @@
 @import '@onsocial/ui/dividers.css';
 @import '@onsocial/ui/glass-sheet.css';
 @import '@onsocial/ui/pulsing-dots.css';
+@import '@onsocial/ui/os-sheet-action.css';
+@import '@onsocial/ui/os-surface-halo.css';
+@import '@onsocial/ui/floating-panel.css';
+@import '@onsocial/ui/profile-editor-media.css';
+
+/* Content-sized glass sheets — unlayered so height beats imported glass-sheet.css. */
+.glass-sheet-panel.account-drawer-panel {
+  height: auto;
+  max-height: min(88dvh, 36rem);
+}
+
+.glass-sheet-panel.account-editor-panel {
+  height: auto;
+  max-height: min(96dvh, 44rem);
+}
+
+.glass-sheet-panel.customize-sheet-panel,
+.glass-sheet-panel.mood-sheet-panel {
+  height: auto;
+  max-height: min(96dvh, 44rem);
+}
+
+/* Customize sheet hovers — unlayered so they beat layered mood styles. */
+.customize-option {
+  transition:
+    border-color 160ms ease,
+    background 160ms ease;
+}
+
+.customize-option:not(.is-active):not(:disabled):hover,
+.customize-option:not(.is-active):not(:disabled):focus-visible {
+  border-color: rgb(var(--fg-rgb) / 0.14);
+  background: rgb(var(--fg-rgb) / 0.05);
+  outline: none;
+}
+
+.customize-option:not(.is-active):not(:disabled):focus-visible {
+  box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.06);
+}
+
+.customize-option--navigate:not(:disabled):hover,
+.customize-option--navigate:not(:disabled):focus-visible {
+  border-color: color-mix(
+    in srgb,
+    var(--mood-accent, rgb(var(--fg-rgb))) 45%,
+    transparent
+  );
+  background: rgb(var(--fg-rgb) / 0.07);
+  outline: none;
+}
+
+.customize-option--navigate:not(:disabled):hover .customize-option-badge,
+.customize-option--navigate:not(:disabled):focus-visible .customize-option-badge {
+  background: rgb(var(--fg-rgb) / 0.12);
+  color: rgb(var(--fg-rgb) / 0.78);
+}
+
+/* Preview bar — unlayered: layout + enter animation (surface halo from ui). */
+.portfolio-face-preview-bar {
+  position: fixed;
+  left: calc(var(--os-column-inset-inline) + var(--os-column-width) / 2);
+  z-index: 26;
+  display: flex;
+  width: min(calc(var(--os-column-width) - 2rem), 22rem);
+  flex-direction: column;
+  gap: 0.65rem;
+  transform: translateX(-50%);
+  bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
+  padding: 0.85rem 1rem;
+}
+
+.portfolio-face-preview-bar--enter {
+  animation: rise-in-x-center 700ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portfolio-face-preview-bar--enter {
+    animation: none;
+  }
+}
 
 @source "../**/*.{js,ts,jsx,tsx}";
 @source "../../../onsocial-ui/src/**/*.{js,ts,jsx,tsx}";
@@ -24,6 +104,18 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes rise-in-x-center {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
   }
 }
 
@@ -76,11 +168,11 @@
 
 @keyframes mood-finish-gold-name-glow {
   0% {
-    background-position: 100% 50%;
+    background-position: 22% 42%;
   }
 
   100% {
-    background-position: 0% 50%;
+    background-position: 78% 58%;
   }
 }
 
@@ -133,6 +225,26 @@
     /* Viewport-centered OS column — fixed chrome uses this, not the scroll frame. */
     --os-column-width: min(100svw, 36rem);
     --os-column-inset-inline: calc((100svw - var(--os-column-width)) / 2);
+
+    /* Portfolio content column — full hero width on phone; capped on desktop card. */
+    --portfolio-content-width: 100%;
+    --portfolio-hero-gap: 0.72rem;
+    --portfolio-identity-gap: 0.28rem;
+    /* Pull tier-2 meta (caption · tags) into one band below signal numbers. */
+    --portfolio-shelf-pull: 0.44rem;
+    --portfolio-shelf-meta-gap: 0.22rem;
+    /* Summon dock — button + dock pad + hint allowance + safe area. */
+    --portfolio-dock-clearance: calc(
+      4.75rem + env(safe-area-inset-bottom, 0px)
+    );
+
+    /* Short viewports — tighter hero rhythm and dock room. */
+    @media (max-height: 42rem) {
+      --portfolio-dock-clearance: calc(
+        4.1rem + env(safe-area-inset-bottom, 0px)
+      );
+      --portfolio-hero-gap: 0.65rem;
+    }
 
     /* Preset page wash — bg carries atmosphere; text/muted stay closer to OS base for readability. */
     --mood-bg-preset-mix: 25%;
@@ -232,7 +344,8 @@
     );
     --mood-muted: color-mix(
       in srgb,
-      var(--mood-preset-muted, var(--mood-muted-base)) var(--mood-muted-preset-mix),
+      var(--mood-preset-muted, var(--mood-muted-base))
+        var(--mood-muted-preset-mix),
       var(--mood-muted-base)
     );
     --mood-accent: var(--mood-preset-accent, rgb(var(--fg-rgb) / 0.72));
@@ -241,10 +354,85 @@
 
   /* Mood-scoped signal hues — protocol base blended with mood accent (SDK presets). */
   .portfolio-frame[data-mood] {
+    --mood-accent-chrome: var(--mood-accent);
     --signal-standing: var(--mood-signal-standing);
     --signal-solidarity: var(--mood-signal-solidarity);
     --signal-endorse: var(--mood-signal-endorse);
     --signal-reputation: var(--mood-signal-reputation);
+  }
+
+  /*
+   * Light theme — keep mood tints, nudge toward ink for contrast on washed backgrounds.
+   * Tune --mood-light-tone on :root (lower = darker). Shared by signals + accent chrome.
+   */
+  :root[data-theme='light'] {
+    --mood-light-tone: 68%;
+    --mood-light-ink: rgb(var(--fg-rgb));
+  }
+
+  :root[data-theme='light'] .portfolio-frame[data-mood],
+  :root[data-theme='light'] .portfolio-os-layer[data-mood] {
+    --mood-accent-chrome: color-mix(
+      in srgb,
+      var(--mood-accent) var(--mood-light-tone),
+      var(--mood-light-ink)
+    );
+    --signal-standing: color-mix(
+      in srgb,
+      var(--mood-signal-standing) var(--mood-light-tone),
+      var(--mood-light-ink)
+    );
+    --signal-solidarity: color-mix(
+      in srgb,
+      var(--mood-signal-solidarity) var(--mood-light-tone),
+      var(--mood-light-ink)
+    );
+    --signal-endorse: color-mix(
+      in srgb,
+      var(--mood-signal-endorse) var(--mood-light-tone),
+      var(--mood-light-ink)
+    );
+    --signal-reputation: color-mix(
+      in srgb,
+      var(--mood-signal-reputation) var(--mood-light-tone),
+      var(--mood-light-ink)
+    );
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme='dark']) {
+      --mood-light-tone: 68%;
+      --mood-light-ink: rgb(var(--fg-rgb));
+    }
+
+    :root:not([data-theme='dark']) .portfolio-frame[data-mood],
+    :root:not([data-theme='dark']) .portfolio-os-layer[data-mood] {
+      --mood-accent-chrome: color-mix(
+        in srgb,
+        var(--mood-accent) var(--mood-light-tone),
+        var(--mood-light-ink)
+      );
+      --signal-standing: color-mix(
+        in srgb,
+        var(--mood-signal-standing) var(--mood-light-tone),
+        var(--mood-light-ink)
+      );
+      --signal-solidarity: color-mix(
+        in srgb,
+        var(--mood-signal-solidarity) var(--mood-light-tone),
+        var(--mood-light-ink)
+      );
+      --signal-endorse: color-mix(
+        in srgb,
+        var(--mood-signal-endorse) var(--mood-light-tone),
+        var(--mood-light-ink)
+      );
+      --signal-reputation: color-mix(
+        in srgb,
+        var(--mood-signal-reputation) var(--mood-light-tone),
+        var(--mood-light-ink)
+      );
+    }
   }
 
   :root[data-theme='light'] .portfolio-frame,
@@ -257,12 +445,14 @@
     );
     --mood-text: color-mix(
       in srgb,
-      var(--mood-preset-text-light, var(--mood-text-base)) var(--mood-text-preset-mix),
+      var(--mood-preset-text-light, var(--mood-text-base))
+        var(--mood-text-preset-mix),
       var(--mood-text-base)
     );
     --mood-muted: color-mix(
       in srgb,
-      var(--mood-preset-muted-light, var(--mood-muted-base)) var(--mood-muted-preset-mix),
+      var(--mood-preset-muted-light, var(--mood-muted-base))
+        var(--mood-muted-preset-mix),
       var(--mood-muted-base)
     );
     --mood-accent: var(
@@ -283,12 +473,14 @@
       );
       --mood-text: color-mix(
         in srgb,
-        var(--mood-preset-text-light, var(--mood-text-base)) var(--mood-text-preset-mix),
+        var(--mood-preset-text-light, var(--mood-text-base))
+          var(--mood-text-preset-mix),
         var(--mood-text-base)
       );
       --mood-muted: color-mix(
         in srgb,
-        var(--mood-preset-muted-light, var(--mood-muted-base)) var(--mood-muted-preset-mix),
+        var(--mood-preset-muted-light, var(--mood-muted-base))
+          var(--mood-muted-preset-mix),
         var(--mood-muted-base)
       );
       --mood-accent: var(
@@ -440,7 +632,6 @@
   .app-surface:not(.portfolio-frame),
   .os-app-screen,
   .gate,
-  .mood-sheet,
   .glass-sheet-panel[data-tone='os'],
   .portfolio-os-dock,
   .portfolio-face-preview-bar,
@@ -458,6 +649,25 @@
     );
   }
 
+  /* Light theme — stronger header landing strip over washed glass. */
+  :root[data-theme='light'] .glass-sheet-panel {
+    --glass-header-scrim-top: 0.84;
+    --glass-header-scrim-mid: 0.62;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme]) .glass-sheet-panel {
+      --glass-header-scrim-top: 0.84;
+      --glass-header-scrim-mid: 0.62;
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .os-app-screen::before {
+      display: none;
+    }
+  }
+
   /* Scroll lives here — no transform, or fixed UI inherits the wrong containing block. */
   .app-surface.portfolio-frame {
     transform: none;
@@ -470,6 +680,23 @@
   }
 
   @media (min-width: 640px) {
+    :root {
+      --portfolio-content-width: min(100%, 24rem);
+      --portfolio-hero-gap: 0.85rem;
+      --portfolio-dock-clearance: calc(
+        5.25rem + env(safe-area-inset-bottom, 0px)
+      );
+    }
+
+    @media (max-height: 42rem) {
+      :root {
+        --portfolio-dock-clearance: calc(
+          4.5rem + env(safe-area-inset-bottom, 0px)
+        );
+        --portfolio-hero-gap: 0.72rem;
+      }
+    }
+
     .app-surface {
       max-width: 36rem;
       border: 1px solid rgb(var(--fg-rgb) / 0.1);
@@ -889,87 +1116,6 @@
     display: none;
   }
 
-  .portfolio-wallet-corner {
-    position: fixed;
-    top: calc(env(safe-area-inset-top, 0px) + 0.85rem);
-    right: calc(
-      var(--os-column-inset-inline) + max(1rem, env(safe-area-inset-right, 0px))
-    );
-    z-index: 30;
-  }
-
-  .portfolio-customize-trigger {
-    position: fixed;
-    top: calc(env(safe-area-inset-top, 0px) + 0.85rem);
-    left: calc(
-      var(--os-column-inset-inline) + max(1rem, env(safe-area-inset-left, 0px))
-    );
-    z-index: 30;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 2.5rem;
-    height: 2.5rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.04);
-    backdrop-filter: blur(12px);
-    color: rgb(var(--fg-rgb) / 0.72);
-    cursor: pointer;
-    transition:
-      background 160ms ease,
-      color 160ms ease;
-  }
-
-  .portfolio-customize-trigger:hover {
-    background: rgb(var(--fg-rgb) / 0.1);
-    color: rgb(var(--fg-rgb) / 0.95);
-  }
-
-  .portfolio-customize-icon {
-    font-size: 1rem;
-    line-height: 1;
-    transform: rotate(90deg);
-  }
-
-  .app-wallet-pill.is-corner {
-    min-width: 2.5rem;
-    justify-content: center;
-    padding: 0.45rem 0.55rem;
-  }
-
-  .app-wallet-pill.is-corner.is-connected {
-    padding-right: 0.35rem;
-  }
-
-  .app-wallet-pill.is-corner.is-loading {
-    width: 2.5rem;
-    height: 2.5rem;
-  }
-
-  .app-wallet-corner-icon {
-    font-size: 0.95rem;
-    line-height: 1;
-    color: rgb(var(--fg-rgb) / 0.72);
-  }
-
-  .app-wallet-corner-initial {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.35rem;
-    height: 1.35rem;
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.12);
-    font-size: 0.72rem;
-    font-weight: 600;
-  }
-
-  .app-wallet-pill.is-corner .app-wallet-pill-disconnect {
-    margin-left: 0.15rem;
-    padding: 0 0.2rem;
-  }
-
   .gate-dapp-link.is-soon {
     opacity: 0.28 !important;
     cursor: default;
@@ -1023,40 +1169,6 @@
     height: 100%;
   }
 
-  .app-wallet-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.04);
-    backdrop-filter: blur(12px);
-    color: rgb(var(--fg-rgb) / 0.82);
-    font-size: 0.78rem;
-    padding: 0.45rem 0.75rem;
-    cursor: pointer;
-  }
-
-  .app-wallet-pill.is-loading {
-    width: 5.5rem;
-    height: 2rem;
-    opacity: 0.35;
-  }
-
-  .app-wallet-pill-link {
-    color: inherit;
-  }
-
-  .app-wallet-pill-disconnect {
-    border: 0;
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.42);
-    font-size: 1rem;
-    line-height: 1;
-    padding: 0;
-    cursor: pointer;
-  }
-
   .portfolio-activate-strip {
     display: flex;
     flex-wrap: wrap;
@@ -1064,6 +1176,8 @@
     justify-content: center;
     gap: 0.65rem 0.85rem;
     width: 100%;
+    max-width: var(--portfolio-content-width);
+    margin-inline: auto;
     padding: 0.65rem 0.85rem;
     border: 1px solid rgb(var(--fg-rgb) / 0.08);
     border-radius: 9999px;
@@ -1077,7 +1191,9 @@
   }
 
   .portfolio-activate-strip-hint {
-    margin: 0;
+    width: 100%;
+    max-width: var(--portfolio-content-width);
+    margin: 0 auto;
     font-size: 0.78rem;
     text-align: center;
     color: rgb(var(--fg-rgb) / 0.42);
@@ -1118,14 +1234,93 @@
     overflow-x: hidden;
     overflow-y: auto;
     --portfolio-avatar-size: 5rem;
+    /* Name sits just below the hero band; Card avatar straddles the dissolve seam. */
+    --portfolio-face-name-gap: 0.65rem;
+    --portfolio-content-start: calc(
+      var(--portfolio-hero-height) + var(--portfolio-face-name-gap)
+    );
+    --portfolio-hero-height: min(38svh, 19.5rem);
+    --portfolio-identity-avatar-gap: 0.75rem;
+    /* Hero image dissolves into the page over this much of its bottom edge. */
+    --portfolio-hero-dissolve: 16%;
     --portfolio-avatar-ring: var(--mood-bg, var(--bg));
     --mood-transition-duration: 450ms;
     --mood-transition-ease: cubic-bezier(0.4, 0, 0.2, 1);
+    /* Identity tiers — derived from --mood-muted; voice moods set typography only. */
+    --portfolio-meta-color: color-mix(
+      in srgb,
+      var(--mood-muted, hsl(var(--muted-foreground))) 55%,
+      transparent
+    );
+    --portfolio-signal-dot-color: color-mix(
+      in srgb,
+      var(--mood-muted, hsl(var(--muted-foreground))) 45%,
+      transparent
+    );
   }
 
   @media (min-width: 768px) {
     .portfolio-frame {
       --portfolio-avatar-size: 6rem;
+    }
+  }
+
+  @media (max-height: 42rem) {
+    .portfolio-frame {
+      --portfolio-face-name-gap: 0.5rem;
+      --portfolio-identity-avatar-gap: 0.65rem;
+      --portfolio-hero-gap: 0.48rem;
+    }
+  }
+
+  /*
+   * Card + Minimal — shared identity band and avatar scale; Minimal bloom height
+   * tracks the same vertical slot so avatar and content land in the same place.
+   */
+  .portfolio-frame[data-has-banner='true']:not([data-avatar-cover='true']),
+  .portfolio-frame[data-mood-only='true'] {
+    --portfolio-avatar-size: 5.5rem;
+    --portfolio-hero-height: min(34svh, 17rem);
+    --portfolio-card-content-lift: 2.25rem;
+    --portfolio-content-start: calc(
+      var(--portfolio-hero-height) + var(--portfolio-face-name-gap) -
+        var(--portfolio-card-content-lift)
+    );
+  }
+
+  /* Cover — immersive avatar hero; identity rides a short dissolve. */
+  .portfolio-frame[data-avatar-cover='true'] {
+    --portfolio-hero-height: min(48svh, 26rem);
+    --portfolio-hero-dissolve: 22%;
+    --portfolio-cover-content-lift: 2rem;
+    --portfolio-content-start: calc(
+      var(--portfolio-hero-height) + var(--portfolio-face-name-gap) -
+        var(--portfolio-cover-content-lift)
+    );
+  }
+
+  @media (min-width: 768px) {
+    .portfolio-frame[data-has-banner='true']:not([data-avatar-cover='true']),
+    .portfolio-frame[data-mood-only='true'] {
+      --portfolio-avatar-size: 6.5rem;
+      --portfolio-hero-height: min(32svh, 18rem);
+    }
+
+    .portfolio-frame[data-avatar-cover='true'] {
+      --portfolio-hero-height: min(46svh, 27rem);
+      --portfolio-cover-content-lift: 2.15rem;
+    }
+  }
+
+  @media (max-height: 42rem) {
+    .portfolio-frame[data-has-banner='true']:not([data-avatar-cover='true']),
+    .portfolio-frame[data-mood-only='true'] {
+      --portfolio-hero-height: min(30svh, 15rem);
+    }
+
+    .portfolio-frame[data-avatar-cover='true'] {
+      --portfolio-hero-height: min(40svh, 20rem);
+      --portfolio-cover-content-lift: 1.25rem;
     }
   }
 
@@ -1135,7 +1330,11 @@
    */
   @media (min-width: 640px) {
     .portfolio-frame.app-surface[data-mood] {
-      --frame-accent-glow: color-mix(in srgb, var(--mood-accent) 20%, transparent);
+      --frame-accent-glow: color-mix(
+        in srgb,
+        var(--mood-accent) 20%,
+        transparent
+      );
       border: none;
       border-radius: 1.25rem;
       overflow: hidden auto;
@@ -1146,7 +1345,7 @@
         var(--mood-transition-ease, cubic-bezier(0.4, 0, 0.2, 1));
     }
 
-    .portfolio-frame.app-surface[data-has-banner='true'] .portfolio-page {
+    .portfolio-frame.app-surface .portfolio-page {
       flex: 1;
       min-height: 0;
       padding-top: 0;
@@ -1167,15 +1366,18 @@
     }
   }
 
-  /* Photo banner strip — Portal-parity 5:1 band when a hero image is set. */
+  /* Hero band — absolute so height can vary per face without moving the name. */
   .portfolio-banner-region {
-    position: relative;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
     z-index: 0;
     width: 100%;
-    height: min(20vw, 7.2rem);
-    flex-shrink: 0;
+    height: var(--portfolio-hero-height);
     overflow: hidden;
     pointer-events: none;
+    background: transparent;
     transition: height var(--mood-transition-duration)
       var(--mood-transition-ease);
   }
@@ -1194,59 +1396,64 @@
     animation: none;
   }
 
-  .portfolio-frame[data-avatar-cover='true'] {
-    --portfolio-cover-image-height: clamp(16.5rem, 70vw, 27rem);
-    --portfolio-cover-spacer-height: clamp(11rem, 52vw, 18.5rem);
-    /* Name ~91% down the cover; fade holds solid until ~54% then drops in the bottom band. */
-    --portfolio-cover-name-anchor: 0.91;
-    --portfolio-cover-hero-overlap: 0.34;
-    --portfolio-cover-fade-start: 54%;
-  }
-
-  /* Spacer only — the cover image lives on .portfolio-page so the fade can
-     extend past this box into the hero overlap (no container clip edge). */
-  .portfolio-frame[data-avatar-cover='true'] .portfolio-banner-region {
-    height: var(--portfolio-cover-spacer-height);
-    margin-bottom: 0;
-    overflow: hidden;
-    background: transparent;
-  }
-
   .portfolio-avatar-cover,
   .portfolio-hero-video.portfolio-avatar-cover {
     position: absolute;
+    inset: 0;
     z-index: 0;
-    inset-inline: 0;
-    top: 0;
     width: 100%;
-    height: var(--portfolio-cover-image-height);
+    height: 100%;
     object-fit: cover;
-    object-position: center 22%;
+    object-position: center;
     pointer-events: none;
     filter: saturate(1.04);
+  }
+
+  /*
+   * Cover — full-bleed from the top; face in the solid band, dissolve on the bottom.
+   */
+  .portfolio-frame[data-avatar-cover='true'] .portfolio-avatar-cover,
+  .portfolio-frame[data-avatar-cover='true']
+    .portfolio-hero-video.portfolio-avatar-cover {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    object-fit: cover;
+    object-position: center top;
+  }
+
+  /*
+   * Hero dissolve — eased destination fade for Cover avatar hero and Card banner.
+   * The image leaves before the wash reaches solid bg, avoiding a shelf on any mood.
+   */
+  .portfolio-frame[data-avatar-cover='true'] .portfolio-avatar-cover,
+  .portfolio-frame[data-avatar-cover='true']
+    .portfolio-hero-video.portfolio-avatar-cover,
+  .portfolio-frame[data-has-banner='true']:not([data-avatar-cover='true'])
+    .portfolio-profile-banner,
+  .portfolio-frame[data-has-banner='true']:not([data-avatar-cover='true'])
+    .portfolio-hero-video.portfolio-profile-banner {
     -webkit-mask-image: linear-gradient(
       to bottom,
       #000 0%,
-      #000 var(--portfolio-cover-fade-start),
-      rgb(0 0 0 / 0.93) calc(var(--portfolio-cover-fade-start) + 8%),
-      rgb(0 0 0 / 0.74) calc(var(--portfolio-cover-fade-start) + 16%),
-      rgb(0 0 0 / 0.5) calc(var(--portfolio-cover-fade-start) + 23%),
-      rgb(0 0 0 / 0.28) calc(var(--portfolio-cover-fade-start) + 29%),
-      rgb(0 0 0 / 0.11) calc(var(--portfolio-cover-fade-start) + 34%),
-      rgb(0 0 0 / 0.03) calc(var(--portfolio-cover-fade-start) + 38%),
-      transparent calc(var(--portfolio-cover-fade-start) + 42%)
+      #000 68%,
+      rgb(0 0 0 / 0.96) 74%,
+      rgb(0 0 0 / 0.82) 80%,
+      rgb(0 0 0 / 0.58) 87%,
+      rgb(0 0 0 / 0.28) 94%,
+      transparent 100%
     );
     mask-image: linear-gradient(
       to bottom,
       #000 0%,
-      #000 var(--portfolio-cover-fade-start),
-      rgb(0 0 0 / 0.93) calc(var(--portfolio-cover-fade-start) + 8%),
-      rgb(0 0 0 / 0.74) calc(var(--portfolio-cover-fade-start) + 16%),
-      rgb(0 0 0 / 0.5) calc(var(--portfolio-cover-fade-start) + 23%),
-      rgb(0 0 0 / 0.28) calc(var(--portfolio-cover-fade-start) + 29%),
-      rgb(0 0 0 / 0.11) calc(var(--portfolio-cover-fade-start) + 34%),
-      rgb(0 0 0 / 0.03) calc(var(--portfolio-cover-fade-start) + 38%),
-      transparent calc(var(--portfolio-cover-fade-start) + 42%)
+      #000 68%,
+      rgb(0 0 0 / 0.96) 74%,
+      rgb(0 0 0 / 0.82) 80%,
+      rgb(0 0 0 / 0.58) 87%,
+      rgb(0 0 0 / 0.28) 94%,
+      transparent 100%
     );
     -webkit-mask-repeat: no-repeat;
     mask-repeat: no-repeat;
@@ -1254,38 +1461,93 @@
     mask-size: 100% 100%;
   }
 
-  /*
-   * Mood-only spacer — same banner band height as a photo (avatar anchor unchanged).
-   * Page tint is .frame (--mood-bg); accent bloom is a short top cap (see ::after).
-   */
+  /* Hero mood wash — destination bg fills under the eased mask (Cover + Card). */
+  .portfolio-frame[data-avatar-cover='true'] .portfolio-banner-region::after,
+  .portfolio-frame[data-has-banner='true']:not([data-avatar-cover='true'])
+    .portfolio-banner-region::after {
+    content: '';
+    position: absolute;
+    inset: auto 0 0;
+    z-index: 1;
+    height: calc(var(--portfolio-hero-height) * 0.22);
+    pointer-events: none;
+    background:
+      radial-gradient(
+        ellipse 76% 42% at 50% 100%,
+        color-mix(in srgb, var(--mood-bg, var(--bg)) 16%, transparent) 0%,
+        transparent 72%
+      ),
+      linear-gradient(
+        to bottom,
+        transparent 0%,
+        color-mix(in srgb, var(--mood-bg, var(--bg)) 18%, transparent) 35%,
+        color-mix(in srgb, var(--mood-bg, var(--bg)) 52%, transparent) 68%,
+        var(--mood-bg, var(--bg)) 100%
+      );
+    transition: background var(--mood-transition-duration)
+      var(--mood-transition-ease);
+  }
+
+  .portfolio-frame[data-mood='glass'][data-avatar-cover='true']
+    .portfolio-banner-region::after,
+  .portfolio-frame[data-mood='glass'][data-has-banner='true']:not(
+      [data-avatar-cover='true']
+    )
+    .portfolio-banner-region::after {
+    background:
+      radial-gradient(
+        ellipse 76% 42% at 50% 100%,
+        color-mix(in srgb, var(--bg) 16%, transparent) 0%,
+        transparent 72%
+      ),
+      linear-gradient(
+        to bottom,
+        transparent 0%,
+        color-mix(in srgb, var(--bg) 18%, transparent) 35%,
+        color-mix(in srgb, var(--bg) 52%, transparent) 68%,
+        var(--bg) 100%
+      );
+  }
+
+  /* Minimal — empty region reserves hero height; bloom paints on .portfolio-page. */
   .portfolio-banner-region--mood-only {
     background: transparent;
   }
 
-  /*
-   * Mood-only accent bloom — short drop from the top, then fully --mood-bg so it
-   * blends out with no banner seam (bottom of overlay = page colour).
-   */
   .portfolio-frame[data-mood-only='true'] .portfolio-page::after {
     content: '';
     position: absolute;
     inset: 0 0 auto 0;
     z-index: 0;
-    height: min(30vh, 10.5rem);
+    height: var(--portfolio-hero-height);
     pointer-events: none;
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--mood-accent) 6%, var(--mood-bg)) 0%,
-      color-mix(in srgb, var(--mood-accent) 3%, var(--mood-bg)) 28%,
-      color-mix(in srgb, var(--mood-accent) 1%, var(--mood-bg)) 62%,
-      var(--mood-bg) 100%
-    );
+    background:
+      radial-gradient(
+        ellipse 92% 68% at 50% -8%,
+        color-mix(in srgb, var(--mood-accent) 11%, transparent) 0%,
+        transparent 62%
+      ),
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--mood-accent) 7%, var(--mood-bg)) 0%,
+        color-mix(in srgb, var(--mood-accent) 3.5%, var(--mood-bg)) 32%,
+        color-mix(in srgb, var(--mood-accent) 1.2%, var(--mood-bg)) 68%,
+        var(--mood-bg) 100%
+      );
     transition:
       background var(--mood-transition-duration) var(--mood-transition-ease),
       opacity var(--mood-transition-duration) var(--mood-transition-ease);
   }
 
-  .portfolio-frame[data-mood-only='true'][data-mood='glass'] .portfolio-page::after {
+  .portfolio-frame[data-mood-only='true'][data-mood='glass']
+    .portfolio-page::after {
+    height: auto;
+    inset: 0;
+    background: var(--glass-card-glint);
+  }
+
+  .portfolio-frame[data-mood-only='true'][data-mood='carbon']
+    .portfolio-page::after {
     content: none;
   }
 
@@ -1304,68 +1566,75 @@
     display: none;
   }
 
-  /* Glass — full-area frosted layer; content layout unchanged on top. */
-  .portfolio-glass-ambient {
-    position: fixed;
+  /*
+   * Glass finish — one frosted pane inside the card (drawer tokens). Material =
+   * tinted blur + top-edge catch light only. No bottom glow (avoids the lump).
+   */
+  .portfolio-frame[data-mood='glass'],
+  .portfolio-os-layer[data-mood='glass'] {
+    --mood-text: rgb(248 250 252);
+    --mood-muted: rgb(160 175 195);
+    --mood-accent: rgb(200 218 238);
+    --glass-summon-bg: rgb(255 255 255 / 0.16);
+    --glass-summon-border: rgb(255 255 255 / 0.22);
+    --glass-summon-hover-bg: rgb(255 255 255 / 0.22);
+    --glass-summon-lip: inset 0 1px 0 rgb(255 255 255 / 0.24);
+    --glass-summon-grip: rgb(220 232 245);
+    --glass-summon-hint: rgb(160 175 195);
+  }
+
+  .portfolio-frame[data-mood='glass'] {
+    --mood-bg: transparent;
+    --portfolio-avatar-ring: var(--bg);
+    --mood-surface: rgb(255 255 255 / 0.08);
+    --glass-card-fill: rgb(14 24 38 / 0.4);
+    --glass-card-sheen: linear-gradient(
+      180deg,
+      rgb(255 255 255 / 0.1) 0%,
+      transparent 16%
+    );
+    --glass-card-glint:
+      radial-gradient(
+        ellipse 105% 72% at 18% -14%,
+        rgb(255 255 255 / 0.38) 0%,
+        rgb(255 255 255 / 0.1) 52%,
+        transparent 82%
+      ),
+      radial-gradient(
+        ellipse 82% 56% at 100% 0%,
+        rgb(200 225 255 / 0.18) 0%,
+        transparent 68%
+      ),
+      linear-gradient(
+        155deg,
+        transparent 18%,
+        rgb(255 255 255 / 0.08) 46%,
+        transparent 74%
+      );
+    --glass-card-lip: inset 0 1px 0 rgb(255 255 255 / 0.22);
+  }
+
+  .portfolio-frame[data-mood='glass'] .portfolio-page::before {
+    content: '';
+    position: absolute;
     inset: 0;
     z-index: 0;
     pointer-events: none;
-    background:
-      radial-gradient(
-        ellipse 92% 58% at 14% -6%,
-        color-mix(in srgb, var(--mood-accent) 38%, transparent),
-        transparent 58%
-      ),
-      radial-gradient(
-        ellipse 78% 52% at 86% 10%,
-        rgb(120 190 255 / 0.24),
-        transparent 54%
-      ),
-      radial-gradient(
-        ellipse 100% 68% at 50% 108%,
-        color-mix(in srgb, var(--mood-accent) 18%, transparent),
-        transparent 62%
-      );
+    background: linear-gradient(
+      155deg,
+      rgb(44 52 66) 0%,
+      rgb(24 30 42) 46%,
+      rgb(10 12 18) 100%
+    );
   }
 
-  :root[data-theme='light'] .portfolio-frame[data-mood='glass'] .portfolio-glass-ambient {
-    background:
-      radial-gradient(
-        ellipse 92% 58% at 14% -6%,
-        color-mix(in srgb, var(--mood-accent) 28%, rgb(180 220 255 / 0.35)),
-        transparent 58%
-      ),
-      radial-gradient(
-        ellipse 78% 52% at 86% 10%,
-        rgb(180 220 255 / 0.38),
-        transparent 54%
-      ),
-      radial-gradient(
-        ellipse 100% 68% at 50% 108%,
-        color-mix(in srgb, var(--mood-accent) 14%, rgb(240 248 255 / 0.5)),
-        transparent 62%
-      );
-  }
-
-  @media (prefers-color-scheme: light) {
-    :root:not([data-theme]) .portfolio-frame[data-mood='glass'] .portfolio-glass-ambient {
-      background:
-        radial-gradient(
-          ellipse 92% 58% at 14% -6%,
-          color-mix(in srgb, var(--mood-accent) 28%, rgb(180 220 255 / 0.35)),
-          transparent 58%
-        ),
-        radial-gradient(
-          ellipse 78% 52% at 86% 10%,
-          rgb(180 220 255 / 0.38),
-          transparent 54%
-        ),
-        radial-gradient(
-          ellipse 100% 68% at 50% 108%,
-          color-mix(in srgb, var(--mood-accent) 14%, rgb(240 248 255 / 0.5)),
-          transparent 62%
-        );
-    }
+  .portfolio-frame[data-mood='glass'] .portfolio-page::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: var(--glass-card-glint);
   }
 
   .portfolio-glass-sheet {
@@ -1373,10 +1642,134 @@
     inset: 0;
     z-index: 0;
     pointer-events: none;
-    background: var(--glass-portfolio-fill, rgb(6 10 16 / 0.48));
-    backdrop-filter: blur(24px) saturate(1.35);
-    -webkit-backdrop-filter: blur(24px) saturate(1.35);
-    box-shadow: inset 0 1px 0 var(--glass-portfolio-lip, rgb(255 255 255 / 0.1));
+    border: 0;
+    background: var(--glass-card-sheen), var(--glass-card-fill);
+    backdrop-filter: blur(22px) saturate(1.28);
+    -webkit-backdrop-filter: blur(22px) saturate(1.28);
+    box-shadow: var(--glass-card-lip);
+  }
+
+  :root[data-theme='light'] .portfolio-frame[data-mood='glass'],
+  :root[data-theme='light'] .portfolio-os-layer[data-mood='glass'] {
+    --mood-text: rgb(17 19 24);
+    --mood-muted: rgb(70 80 95);
+    --mood-accent: rgb(75 85 100);
+    --glass-summon-bg: rgb(255 255 255 / 0.68);
+    --glass-summon-border: rgb(17 19 24 / 0.1);
+    --glass-summon-hover-bg: rgb(255 255 255 / 0.8);
+    --glass-summon-lip: inset 0 1px 0 rgb(255 255 255 / 0.98);
+    --glass-summon-grip: rgb(75 85 100);
+    --glass-summon-hint: rgb(80 90 105);
+  }
+
+  :root[data-theme='light'] .portfolio-frame[data-mood='glass'] {
+    --mood-surface: rgb(17 19 24 / 0.06);
+    --glass-card-fill: rgb(255 255 255 / 0.16);
+    --glass-card-sheen: linear-gradient(
+      180deg,
+      rgb(255 255 255 / 0.28) 0%,
+      transparent 18%
+    );
+    --glass-card-glint:
+      radial-gradient(
+        ellipse 108% 74% at 16% -16%,
+        rgb(255 255 255 / 0.92) 0%,
+        rgb(255 255 255 / 0.32) 54%,
+        transparent 84%
+      ),
+      radial-gradient(
+        ellipse 78% 52% at 100% 0%,
+        rgb(240 248 255 / 0.5) 0%,
+        transparent 70%
+      ),
+      linear-gradient(
+        155deg,
+        transparent 16%,
+        rgb(255 255 255 / 0.42) 44%,
+        transparent 72%
+      );
+    --glass-card-lip:
+      inset 0 1px 0 rgb(255 255 255 / 1), inset 1px 0 0 rgb(255 255 255 / 0.35),
+      inset 0 -1px 0 rgb(17 19 24 / 0.1);
+  }
+
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='glass']
+    .portfolio-page::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: linear-gradient(
+      155deg,
+      rgb(238 241 246) 0%,
+      rgb(200 206 218) 48%,
+      rgb(172 179 192) 100%
+    );
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme]) .portfolio-frame[data-mood='glass'],
+    :root:not([data-theme]) .portfolio-os-layer[data-mood='glass'] {
+      --mood-text: rgb(17 19 24);
+      --mood-muted: rgb(70 80 95);
+      --mood-accent: rgb(75 85 100);
+      --glass-summon-bg: rgb(255 255 255 / 0.68);
+      --glass-summon-border: rgb(17 19 24 / 0.1);
+      --glass-summon-hover-bg: rgb(255 255 255 / 0.8);
+      --glass-summon-lip: inset 0 1px 0 rgb(255 255 255 / 0.98);
+      --glass-summon-grip: rgb(75 85 100);
+      --glass-summon-hint: rgb(80 90 105);
+    }
+
+    :root:not([data-theme]) .portfolio-frame[data-mood='glass'] {
+      --mood-surface: rgb(17 19 24 / 0.06);
+      --glass-card-fill: rgb(255 255 255 / 0.16);
+      --glass-card-sheen: linear-gradient(
+        180deg,
+        rgb(255 255 255 / 0.28) 0%,
+        transparent 18%
+      );
+      --glass-card-glint:
+        radial-gradient(
+          ellipse 108% 74% at 16% -16%,
+          rgb(255 255 255 / 0.92) 0%,
+          rgb(255 255 255 / 0.32) 54%,
+          transparent 84%
+        ),
+        radial-gradient(
+          ellipse 78% 52% at 100% 0%,
+          rgb(240 248 255 / 0.5) 0%,
+          transparent 70%
+        ),
+        linear-gradient(
+          155deg,
+          transparent 16%,
+          rgb(255 255 255 / 0.42) 44%,
+          transparent 72%
+        );
+      --glass-card-lip:
+        inset 0 1px 0 rgb(255 255 255 / 1),
+        inset 1px 0 0 rgb(255 255 255 / 0.35),
+        inset 0 -1px 0 rgb(17 19 24 / 0.1);
+    }
+
+    :root:not([data-theme])
+      .portfolio-frame[data-mood='glass']
+      .portfolio-page::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background: linear-gradient(
+        155deg,
+        rgb(238 241 246) 0%,
+        rgb(200 206 218) 48%,
+        rgb(172 179 192) 100%
+      );
+    }
   }
 
   @media (prefers-reduced-transparency: reduce) {
@@ -1384,13 +1777,19 @@
       backdrop-filter: none;
       -webkit-backdrop-filter: none;
       background: var(--glass-surface-solid, var(--surface-solid));
-      box-shadow: inset 0 1px 0 var(--glass-border);
+      box-shadow: none;
     }
-  }
 
-  .portfolio-frame[data-mood='glass'] {
-    --mood-bg: transparent;
-    --portfolio-avatar-ring: var(--bg);
+    .portfolio-frame[data-mood='glass'] .portfolio-page::before,
+    .portfolio-frame[data-mood='glass'] .portfolio-page::after,
+    :root[data-theme='light']
+      .portfolio-frame[data-mood='glass']
+      .portfolio-page::before,
+    :root:not([data-theme])
+      .portfolio-frame[data-mood='glass']
+      .portfolio-page::before {
+      display: none;
+    }
   }
 
   .portfolio-frame[data-mood='glass'].frame {
@@ -1398,7 +1797,19 @@
   }
 
   .portfolio-frame[data-mood='glass'] .portfolio-page {
+    isolation: isolate;
+    flex: 1;
+    min-height: 100%;
     background: transparent;
+  }
+
+  @media (min-width: 640px) {
+    /* Clip glass to the card — no halo or tint bleeding outside the frame. */
+    .portfolio-frame.app-surface[data-mood='glass'] {
+      --frame-accent-glow: transparent;
+      background: transparent;
+      box-shadow: none;
+    }
   }
 
   .portfolio-frame[data-mood='glass'] .portfolio-banner-region,
@@ -1407,34 +1818,359 @@
   .portfolio-frame[data-mood='glass'] .portfolio-avatar-cover,
   .portfolio-frame[data-mood='glass'] .portfolio-profile-banner,
   .portfolio-frame[data-mood='glass'] .portfolio-hero-video {
-    z-index: 1;
+    z-index: 2;
   }
 
-  /* Gold — soft foil wash through display name; one-way loop, seamless seam. */
-  .portfolio-frame[data-mood='gold'] .portfolio-name {
-    --gold-name-base: color-mix(in srgb, var(--mood-accent) 78%, rgb(190 150 80));
-    --gold-name-mid: color-mix(in srgb, var(--mood-accent) 90%, rgb(255 220 155));
-    --gold-name-peak: color-mix(in srgb, var(--mood-accent) 58%, rgb(255 238 200));
-    /* Wide wave duplicated at 50% — 0% and 100% bg-position match at loop. */
+  /*
+   * Glass typography + chips — solid ink on frosted pane (no transparent mood mixes).
+   */
+  .portfolio-frame[data-mood='glass'] .portfolio-bio,
+  .portfolio-frame[data-mood='glass'] .mood-indicator-note {
+    color: var(--mood-muted);
+  }
+
+  .portfolio-frame[data-mood='glass'] .portfolio-link {
+    color: rgb(180 195 215);
+  }
+
+  .portfolio-frame[data-mood='glass'] .portfolio-link:hover {
+    color: rgb(230 238 248);
+  }
+
+  .portfolio-frame[data-mood='glass'] .mood-indicator {
+    color: rgb(160 175 195);
+    background: rgb(255 255 255 / 0.08);
+    border: 1px solid rgb(255 255 255 / 0.14);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
+  }
+
+  .portfolio-frame[data-mood='glass'] .mood-indicator-dot {
+    background: rgb(200 215 235);
+    box-shadow: none;
+  }
+
+  .mood-sheet-item[data-mood='glass'] .mood-sheet-item-label {
+    color: rgb(248 250 252);
+  }
+
+  :root[data-theme='light'] .portfolio-frame[data-mood='glass'] .portfolio-bio,
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='glass']
+    .mood-indicator-note {
+    color: var(--mood-muted);
+  }
+
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='glass']
+    .portfolio-link {
+    color: rgb(75 85 100);
+  }
+
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='glass']
+    .portfolio-link:hover {
+    color: rgb(17 19 24);
+  }
+
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='glass']
+    .mood-indicator {
+    color: rgb(70 80 95);
+    background: rgb(17 19 24 / 0.06);
+    border-color: rgb(17 19 24 / 0.1);
+  }
+
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='glass']
+    .mood-indicator-dot {
+    background: rgb(75 85 100);
+  }
+
+  :root[data-theme='light']
+    .mood-sheet-item[data-mood='glass']
+    .mood-sheet-item-label {
+    color: rgb(17 19 24);
+  }
+
+  .portfolio-frame[data-mood='glass'] .portfolio-signals {
+    position: relative;
+    z-index: 2;
+  }
+
+  /* Glass signals — muted semantic tints (readable, not rainbow on frost). */
+  .portfolio-frame[data-mood='glass']
+    .signal-group-standing
+    .signal-metric:not(.signal-metric-solidarity),
+  .portfolio-frame[data-mood='glass']
+    .signal-group-standing
+    .signal-metric:not(.signal-metric-solidarity)
+    .signal-value {
+    color: rgb(140 168 198);
+  }
+
+  .portfolio-frame[data-mood='glass'] .signal-metric.signal-metric-solidarity,
+  .portfolio-frame[data-mood='glass']
+    .signal-metric.signal-metric-solidarity
+    .signal-value {
+    color: rgb(158 148 178);
+  }
+
+  .portfolio-frame[data-mood='glass'] .signal-group-endorse,
+  .portfolio-frame[data-mood='glass'] .signal-group-endorse .signal-value {
+    color: rgb(172 158 128);
+  }
+
+  .portfolio-frame[data-mood='glass'] .signal-group-reputation,
+  .portfolio-frame[data-mood='glass'] .signal-group-reputation .signal-value {
+    color: rgb(128 178 148);
+  }
+
+  .portfolio-frame[data-mood='glass'] .signal-metric--highlight .signal-value {
+    color: rgb(168 192 218);
+  }
+
+  .portfolio-frame[data-mood='glass'] .signal-metric--solidarity-active .signal-value {
+    color: rgb(188 176 212);
+  }
+
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='glass']
+    .signal-group-standing
+    .signal-metric:not(.signal-metric-solidarity),
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='glass']
+    .signal-group-standing
+    .signal-metric:not(.signal-metric-solidarity)
+    .signal-value {
+    color: rgb(62 88 118);
+  }
+
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='glass']
+    .signal-metric.signal-metric-solidarity,
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='glass']
+    .signal-metric.signal-metric-solidarity
+    .signal-value {
+    color: rgb(88 76 108);
+  }
+
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='glass']
+    .signal-group-endorse,
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='glass']
+    .signal-group-endorse
+    .signal-value {
+    color: rgb(108 92 68);
+  }
+
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='glass']
+    .signal-group-reputation,
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='glass']
+    .signal-group-reputation
+    .signal-value {
+    color: rgb(52 98 78);
+  }
+
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='glass']
+    .signal-metric--highlight
+    .signal-value {
+    color: rgb(42 68 98);
+  }
+
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='glass']
+    .signal-metric--solidarity-active
+    .signal-value {
+    color: rgb(68 56 88);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme]) .portfolio-frame[data-mood='glass'] .portfolio-bio,
+    :root:not([data-theme])
+      .portfolio-frame[data-mood='glass']
+      .mood-indicator-note {
+      color: var(--mood-muted);
+    }
+
+    :root:not([data-theme])
+      .portfolio-frame[data-mood='glass']
+      .portfolio-link {
+      color: rgb(75 85 100);
+    }
+
+    :root:not([data-theme])
+      .portfolio-frame[data-mood='glass']
+      .portfolio-link:hover {
+      color: rgb(17 19 24);
+    }
+
+    :root:not([data-theme])
+      .portfolio-frame[data-mood='glass']
+      .mood-indicator {
+      color: rgb(70 80 95);
+      background: rgb(17 19 24 / 0.06);
+      border-color: rgb(17 19 24 / 0.1);
+    }
+
+    :root:not([data-theme])
+      .portfolio-frame[data-mood='glass']
+      .mood-indicator-dot {
+      background: rgb(75 85 100);
+    }
+
+    :root:not([data-theme])
+      .mood-sheet-item[data-mood='glass']
+      .mood-sheet-item-label {
+      color: rgb(17 19 24);
+    }
+
+    :root:not([data-theme])
+      .portfolio-frame[data-mood='glass']
+      .signal-group-standing
+      .signal-metric:not(.signal-metric-solidarity),
+    :root:not([data-theme])
+      .portfolio-frame[data-mood='glass']
+      .signal-group-standing
+      .signal-metric:not(.signal-metric-solidarity)
+      .signal-value {
+      color: rgb(62 88 118);
+    }
+
+    :root:not([data-theme])
+      .portfolio-frame[data-mood='glass']
+      .signal-metric.signal-metric-solidarity,
+    :root:not([data-theme])
+      .portfolio-frame[data-mood='glass']
+      .signal-metric.signal-metric-solidarity
+      .signal-value {
+      color: rgb(88 76 108);
+    }
+
+    :root:not([data-theme])
+      .portfolio-frame[data-mood='glass']
+      .signal-group-endorse,
+    :root:not([data-theme])
+      .portfolio-frame[data-mood='glass']
+      .signal-group-endorse
+      .signal-value {
+      color: rgb(108 92 68);
+    }
+
+    :root:not([data-theme])
+      .portfolio-frame[data-mood='glass']
+      .signal-group-reputation,
+    :root:not([data-theme])
+      .portfolio-frame[data-mood='glass']
+      .signal-group-reputation
+      .signal-value {
+      color: rgb(52 98 78);
+    }
+
+    :root:not([data-theme])
+      .portfolio-frame[data-mood='glass']
+      .signal-metric--highlight
+      .signal-value {
+      color: rgb(42 68 98);
+    }
+
+    :root:not([data-theme])
+      .portfolio-frame[data-mood='glass']
+      .signal-metric--solidarity-active
+      .signal-value {
+      color: rgb(68 56 88);
+    }
+  }
+
+  /* Glass summon — frosted dock pill; signals stay bare (semantic standing/solidarity tints only). */
+  .portfolio-os-layer[data-mood='glass'] .portfolio-summon {
+    background: var(--glass-summon-bg);
+    border-color: var(--glass-summon-border);
+    backdrop-filter: blur(20px) saturate(1.35);
+    -webkit-backdrop-filter: blur(20px) saturate(1.35);
+    box-shadow: var(--glass-summon-lip);
+  }
+
+  .portfolio-os-layer[data-mood='glass'] .portfolio-summon:hover {
+    background: var(--glass-summon-hover-bg);
+    border-color: var(--glass-summon-border);
+  }
+
+  .portfolio-os-layer[data-mood='glass'] .portfolio-summon-grip {
+    background: var(--glass-summon-grip);
+    opacity: 1;
+  }
+
+  .portfolio-os-layer[data-mood='glass'] .portfolio-summon-hint {
+    color: var(--glass-summon-hint);
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .portfolio-os-layer[data-mood='glass'] .portfolio-summon {
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      box-shadow: none;
+    }
+  }
+
+  /*
+   * Gold — serif display + diagonal foil. Each theme gets its own contrasting
+   * stop set (shadow → highlight) so shimmer reads on charcoal and on cream.
+   */
+  .portfolio-frame[data-mood='gold'] .portfolio-name,
+  .mood-sheet-item[data-mood='gold'] .mood-sheet-item-label {
+    line-height: 1.05;
+    /* Dark — warm champagne foil on charcoal */
+    --gold-name-shadow: rgb(138 98 44);
+    --gold-name-base: rgb(172 128 68);
+    --gold-name-mid: rgb(218 176 102);
+    --gold-name-peak: rgb(255 228 168);
     background: linear-gradient(
-      90deg,
-      var(--gold-name-base) 0%,
-      var(--gold-name-base) 8%,
-      var(--gold-name-mid) 22%,
-      var(--gold-name-peak) 35%,
-      var(--gold-name-mid) 48%,
-      var(--gold-name-base) 50%,
-      var(--gold-name-base) 58%,
-      var(--gold-name-mid) 72%,
-      var(--gold-name-peak) 85%,
-      var(--gold-name-mid) 98%,
-      var(--gold-name-base) 100%
+      112deg,
+      var(--gold-name-shadow) 0%,
+      var(--gold-name-base) 16%,
+      var(--gold-name-mid) 38%,
+      var(--gold-name-peak) 50%,
+      var(--gold-name-mid) 62%,
+      var(--gold-name-base) 84%,
+      var(--gold-name-shadow) 100%
     );
-    background-size: 200% 100%;
-    animation: mood-finish-gold-name-glow 9s linear infinite;
+    background-size: 165% 165%;
+    animation: mood-finish-gold-name-glow 16s ease-in-out infinite alternate;
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
+  }
+
+  :root[data-theme='light'] .portfolio-frame[data-mood='gold'] .portfolio-name,
+  :root[data-theme='light']
+    .mood-sheet-item[data-mood='gold']
+    .mood-sheet-item-label {
+    /* Light — espresso bronze foil on cream */
+    --gold-name-shadow: rgb(52 36 14);
+    --gold-name-base: rgb(82 58 24);
+    --gold-name-mid: rgb(128 94 38);
+    --gold-name-peak: rgb(172 128 48);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme='dark'])
+      .portfolio-frame[data-mood='gold']
+      .portfolio-name,
+    :root:not([data-theme='dark'])
+      .mood-sheet-item[data-mood='gold']
+      .mood-sheet-item-label {
+      --gold-name-shadow: rgb(52 36 14);
+      --gold-name-base: rgb(82 58 24);
+      --gold-name-mid: rgb(128 94 38);
+      --gold-name-peak: rgb(172 128 48);
+    }
   }
 
   .portfolio-frame[data-mood='gold'] .mood-indicator-dot {
@@ -1443,45 +2179,259 @@
       0 0 14px color-mix(in srgb, var(--mood-accent) 20%, transparent);
   }
 
-  /* Carbon — matte weave + grain, flat chips, stealth depth. */
+  /*
+   * Carbon finish — matte graphite sheet (Glass pattern). Base + fine weave +
+   * top lip only; solid ink on top. No grain overlay on content.
+   */
+  .portfolio-frame[data-mood='carbon'] {
+    --mood-bg: transparent;
+    --portfolio-avatar-ring: var(--bg);
+    --mood-text: rgb(248 250 252);
+    --mood-muted: rgb(168 176 188);
+    --mood-accent: rgb(186 194 206);
+    --mood-surface: rgb(255 255 255 / 0.06);
+    --carbon-sheet-base: linear-gradient(
+      180deg,
+      rgb(22 24 30) 0%,
+      rgb(10 11 14) 100%
+    );
+    --carbon-sheet-weave: repeating-linear-gradient(
+      -48deg,
+      transparent,
+      transparent 4px,
+      rgb(255 255 255 / 0.028) 4px,
+      rgb(255 255 255 / 0.028) 5px
+    );
+    --carbon-sheet-sheen: linear-gradient(
+      180deg,
+      rgb(255 255 255 / 0.07) 0%,
+      transparent 8%
+    );
+    --carbon-sheet-lip: inset 0 1px 0 rgb(255 255 255 / 0.1);
+  }
+
+  .portfolio-frame[data-mood='carbon'].frame {
+    background: transparent;
+  }
+
+  .portfolio-frame[data-mood='carbon'] .portfolio-page {
+    isolation: isolate;
+    flex: 1;
+    min-height: 100%;
+    background: transparent;
+  }
+
   .portfolio-frame[data-mood='carbon'] .portfolio-page::before {
     content: '';
     position: absolute;
     inset: 0;
-    z-index: 2;
+    z-index: 0;
     pointer-events: none;
-    opacity: 0.045;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    background-size: 160px 160px;
-    mix-blend-mode: soft-light;
+    background:
+      var(--carbon-sheet-sheen), var(--carbon-sheet-weave),
+      var(--carbon-sheet-base);
+    box-shadow: var(--carbon-sheet-lip);
   }
 
-  :root[data-theme='light'] .portfolio-frame[data-mood='carbon'] .portfolio-page::before {
-    opacity: 0.032;
-    mix-blend-mode: multiply;
+  :root[data-theme='light'] .portfolio-frame[data-mood='carbon'] {
+    --mood-text: rgb(17 19 24);
+    --mood-muted: rgb(70 80 95);
+    --mood-accent: rgb(90 100 115);
+    --mood-surface: rgb(17 19 24 / 0.05);
+    --carbon-sheet-base: linear-gradient(
+      180deg,
+      rgb(236 238 242) 0%,
+      rgb(224 227 234) 100%
+    );
+    --carbon-sheet-weave: repeating-linear-gradient(
+      -48deg,
+      transparent,
+      transparent 4px,
+      rgb(17 19 24 / 0.04) 4px,
+      rgb(17 19 24 / 0.04) 5px
+    );
+    --carbon-sheet-sheen: linear-gradient(
+      180deg,
+      rgb(255 255 255 / 0.72) 0%,
+      transparent 8%
+    );
+    --carbon-sheet-lip:
+      inset 0 1px 0 rgb(255 255 255 / 0.95), inset 0 -1px 0 rgb(17 19 24 / 0.05);
   }
 
   @media (prefers-color-scheme: light) {
-    :root:not([data-theme]) .portfolio-frame[data-mood='carbon'] .portfolio-page::before {
-      opacity: 0.032;
-      mix-blend-mode: multiply;
+    :root:not([data-theme]) .portfolio-frame[data-mood='carbon'] {
+      --mood-text: rgb(17 19 24);
+      --mood-muted: rgb(70 80 95);
+      --mood-accent: rgb(90 100 115);
+      --mood-surface: rgb(17 19 24 / 0.05);
+      --carbon-sheet-base: linear-gradient(
+        180deg,
+        rgb(236 238 242) 0%,
+        rgb(224 227 234) 100%
+      );
+      --carbon-sheet-weave: repeating-linear-gradient(
+        -48deg,
+        transparent,
+        transparent 4px,
+        rgb(17 19 24 / 0.04) 4px,
+        rgb(17 19 24 / 0.04) 5px
+      );
+      --carbon-sheet-sheen: linear-gradient(
+        180deg,
+        rgb(255 255 255 / 0.72) 0%,
+        transparent 8%
+      );
+      --carbon-sheet-lip:
+        inset 0 1px 0 rgb(255 255 255 / 0.95),
+        inset 0 -1px 0 rgb(17 19 24 / 0.05);
     }
   }
 
-  .portfolio-frame[data-mood='carbon'] .portfolio-tag,
+  .portfolio-frame[data-mood='carbon'] .portfolio-banner-region,
+  .portfolio-frame[data-mood='carbon'] .portfolio-hero,
+  .portfolio-frame[data-mood='carbon'] .portfolio-avatar-cover,
+  .portfolio-frame[data-mood='carbon'] .portfolio-profile-banner,
+  .portfolio-frame[data-mood='carbon'] .portfolio-hero-video {
+    z-index: 1;
+  }
+
+  .portfolio-frame[data-mood='carbon'] .portfolio-name,
+  .mood-sheet-item[data-mood='carbon'] .mood-sheet-item-label {
+    color: var(--mood-text);
+    text-shadow: none;
+  }
+
+  .portfolio-frame[data-mood='carbon'] .portfolio-bio,
+  .portfolio-frame[data-mood='carbon'] .mood-indicator-note {
+    color: var(--mood-muted);
+  }
+
+  .portfolio-frame[data-mood='carbon'] .portfolio-link {
+    color: rgb(186 194 206);
+  }
+
+  .portfolio-frame[data-mood='carbon'] .portfolio-link:hover {
+    color: rgb(248 250 252);
+  }
+
   .portfolio-frame[data-mood='carbon'] .mood-indicator {
-    background: rgb(var(--fg-rgb) / 0.05);
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
+    color: rgb(168 176 188);
+    background: rgb(255 255 255 / 0.06);
+    border: 1px solid rgb(255 255 255 / 0.1);
     box-shadow: none;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
 
   .portfolio-frame[data-mood='carbon'] .mood-indicator-dot {
+    background: rgb(186 194 206);
     box-shadow: none;
   }
 
-  /* Holographic — prismatic frame glow (wash stays a simple accent veil). */
+  :root[data-theme='light'] .portfolio-frame[data-mood='carbon'] .portfolio-bio,
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='carbon']
+    .mood-indicator-note {
+    color: var(--mood-muted);
+  }
+
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='carbon']
+    .portfolio-link {
+    color: rgb(75 85 100);
+  }
+
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='carbon']
+    .portfolio-link:hover {
+    color: rgb(17 19 24);
+  }
+
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='carbon']
+    .mood-indicator {
+    color: rgb(70 80 95);
+    background: rgb(17 19 24 / 0.05);
+    border-color: rgb(17 19 24 / 0.08);
+  }
+
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='carbon']
+    .mood-indicator-dot {
+    background: rgb(90 100 115);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme]) .portfolio-frame[data-mood='carbon'] .portfolio-bio,
+    :root:not([data-theme])
+      .portfolio-frame[data-mood='carbon']
+      .mood-indicator-note {
+      color: var(--mood-muted);
+    }
+
+    :root:not([data-theme])
+      .portfolio-frame[data-mood='carbon']
+      .portfolio-link {
+      color: rgb(75 85 100);
+    }
+
+    :root:not([data-theme])
+      .portfolio-frame[data-mood='carbon']
+      .portfolio-link:hover {
+      color: rgb(17 19 24);
+    }
+
+    :root:not([data-theme])
+      .portfolio-frame[data-mood='carbon']
+      .mood-indicator {
+      color: rgb(70 80 95);
+      background: rgb(17 19 24 / 0.05);
+      border-color: rgb(17 19 24 / 0.08);
+    }
+
+    :root:not([data-theme])
+      .portfolio-frame[data-mood='carbon']
+      .mood-indicator-dot {
+      background: rgb(90 100 115);
+    }
+  }
+
+  /* Holographic — prismatic foil on display name; dot glow accents only. */
+  .portfolio-frame[data-mood='holographic'] .portfolio-name {
+    --holo-name-violet: color-mix(
+      in srgb,
+      var(--mood-accent) 82%,
+      rgb(180 140 255)
+    );
+    --holo-name-cyan: rgb(80 220 255 / 0.94);
+    --holo-name-pink: rgb(255 120 180 / 0.9);
+    --holo-name-base: color-mix(
+      in srgb,
+      var(--mood-accent) 72%,
+      rgb(140 100 220)
+    );
+    background: linear-gradient(
+      90deg,
+      var(--holo-name-base) 0%,
+      var(--holo-name-base) 8%,
+      var(--holo-name-violet) 18%,
+      var(--holo-name-cyan) 32%,
+      var(--holo-name-pink) 42%,
+      var(--holo-name-cyan) 48%,
+      var(--holo-name-base) 50%,
+      var(--holo-name-base) 58%,
+      var(--holo-name-violet) 72%,
+      var(--holo-name-cyan) 86%,
+      var(--holo-name-pink) 96%,
+      var(--holo-name-base) 100%
+    );
+    background-size: 200% 100%;
+    animation: mood-finish-gold-name-glow 12s linear infinite;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
 
   .portfolio-frame[data-mood='holographic'] .mood-indicator-dot {
     box-shadow:
@@ -1489,14 +2439,427 @@
       0 0 18px rgb(80 220 255 / 0.28);
   }
 
-  :root[data-theme='light'] .portfolio-frame[data-mood='holographic'] .mood-indicator-dot {
+  /*
+   * Signature — signed moment: Caveat name + tapering ink rule + sans "typed"
+   * context below (@handle, bio, signals). Accent stays on pill + line tail.
+   */
+  .portfolio-frame[data-mood='signature'] .portfolio-identity-copy {
+    gap: var(--portfolio-identity-gap);
+  }
+
+  .portfolio-frame[data-mood='signature'] .portfolio-name,
+  .mood-sheet-item[data-mood='signature'] .mood-sheet-item-label {
+    display: inline-block;
+    width: max-content;
+    max-width: 100%;
+    position: relative;
+    padding-bottom: 0.38rem;
+    font-size: clamp(1.75rem, 7vw, 2.35rem);
+    line-height: 1.12;
+    text-wrap: normal;
+    color: var(--mood-text);
+  }
+
+  .portfolio-frame[data-mood='signature'] .portfolio-name::after,
+  .mood-sheet-item[data-mood='signature'] .mood-sheet-item-label::after {
+    content: '';
+    position: absolute;
+    left: 6%;
+    right: 14%;
+    bottom: 0;
+    height: 1.5px;
+    border-radius: 9999px;
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--mood-text) 72%, var(--mood-accent)) 0%,
+      color-mix(
+          in srgb,
+          var(--mood-accent-chrome, var(--mood-accent)) 88%,
+          var(--mood-text)
+        )
+        72%,
+      transparent 100%
+    );
+    opacity: 0.9;
+  }
+
+  .portfolio-frame[data-mood='signature'] .portfolio-handle {
+    margin-top: 0.2rem;
+    color: var(--portfolio-meta-color);
+  }
+
+  .portfolio-frame[data-mood='signature'] .portfolio-bio,
+  .portfolio-frame[data-mood='signature'] .mood-indicator-note {
+    color: var(--mood-muted);
+    line-height: 1.55;
+  }
+
+  .portfolio-frame[data-mood='signature'] .portfolio-link {
+    color: rgb(150 175 195);
+  }
+
+  .portfolio-frame[data-mood='signature'] .portfolio-link:hover {
+    color: rgb(240 250 255);
+  }
+
+  .portfolio-frame[data-mood='signature'] .portfolio-tag {
+    font-family: var(--mood-font-body, var(--app-font-sans));
+  }
+
+  .portfolio-frame[data-mood='signature'] .mood-indicator {
+    margin-top: 0.45rem;
+    border-color: color-mix(
+      in srgb,
+      var(--mood-accent-chrome, var(--mood-accent)) 38%,
+      rgb(var(--fg-rgb) / 0.12)
+    );
+    background: color-mix(
+      in srgb,
+      var(--mood-surface, rgb(var(--fg-rgb) / 0.04)) 92%,
+      transparent
+    );
+  }
+
+  .portfolio-os-layer[data-mood='signature'] .portfolio-summon-grip {
+    width: 1.85rem;
+    height: 0.22rem;
+    border-radius: 9999px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      var(--mood-accent-chrome, var(--mood-accent)) 18%,
+      var(--mood-accent-chrome, var(--mood-accent)) 82%,
+      transparent 100%
+    );
+    opacity: 0.88;
+  }
+
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='signature']
+    .portfolio-bio,
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='signature']
+    .mood-indicator-note {
+    color: var(--mood-muted);
+  }
+
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='signature']
+    .portfolio-link {
+    color: rgb(75 85 100);
+  }
+
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='signature']
+    .portfolio-link:hover {
+    color: rgb(17 19 24);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme='dark'])
+      .portfolio-frame[data-mood='signature']
+      .portfolio-bio,
+    :root:not([data-theme='dark'])
+      .portfolio-frame[data-mood='signature']
+      .mood-indicator-note {
+      color: var(--mood-muted);
+    }
+
+    :root:not([data-theme='dark'])
+      .portfolio-frame[data-mood='signature']
+      .portfolio-link {
+      color: rgb(75 85 100);
+    }
+
+    :root:not([data-theme='dark'])
+      .portfolio-frame[data-mood='signature']
+      .portfolio-link:hover {
+      color: rgb(17 19 24);
+    }
+  }
+
+  /*
+   * Broadsheet — Erica Type typewriter: wire dispatch on newsprint zinc ink.
+   * Journal keeps Newsreader editorial; Terminal stays phosphor mono.
+   */
+  .portfolio-frame[data-mood='broadsheet'] .portfolio-identity-copy {
+    gap: var(--portfolio-identity-gap);
+  }
+
+  .portfolio-frame[data-mood='broadsheet'] .portfolio-name,
+  .mood-sheet-item[data-mood='broadsheet'] .mood-sheet-item-label {
+    font-size: clamp(1.45rem, 6vw, 1.95rem);
+    line-height: 1.22;
+    letter-spacing: 0.03em;
+    color: var(--mood-text);
+    text-wrap: balance;
+  }
+
+  .portfolio-frame[data-mood='broadsheet'] .portfolio-handle {
+    margin-top: 0.15rem;
+    font-size: 0.72rem;
+    font-weight: 400;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .portfolio-frame[data-mood='broadsheet'] .portfolio-bio,
+  .portfolio-frame[data-mood='broadsheet'] .mood-indicator-note {
+    color: var(--mood-muted);
+  }
+
+  .portfolio-frame[data-mood='broadsheet'] .portfolio-link {
+    color: rgb(161 161 170);
+  }
+
+  .portfolio-frame[data-mood='broadsheet'] .portfolio-link:hover {
+    color: rgb(250 249 247);
+  }
+
+  .portfolio-frame[data-mood='broadsheet'] .portfolio-tag {
+    font-family: var(--mood-font-body, var(--font-erica-type), monospace);
+    border-style: dashed;
+  }
+
+  .portfolio-frame[data-mood='broadsheet'] .mood-indicator {
+    margin-top: 0.4rem;
+    border-style: dashed;
+    border-color: color-mix(
+      in srgb,
+      var(--mood-accent-chrome, var(--mood-accent)) 42%,
+      rgb(var(--fg-rgb) / 0.14)
+    );
+    background: color-mix(
+      in srgb,
+      var(--mood-surface, rgb(var(--fg-rgb) / 0.04)) 88%,
+      transparent
+    );
+  }
+
+  .portfolio-os-layer[data-mood='broadsheet'] .portfolio-summon-grip {
+    width: 2rem;
+    height: 0.2rem;
+    border-radius: 0;
+    background: repeating-linear-gradient(
+      90deg,
+      var(--mood-accent-chrome, var(--mood-accent)) 0 0.28rem,
+      transparent 0.28rem 0.46rem
+    );
+    opacity: 0.82;
+  }
+
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='broadsheet']
+    .portfolio-bio,
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='broadsheet']
+    .mood-indicator-note {
+    color: var(--mood-muted);
+  }
+
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='broadsheet']
+    .portfolio-link {
+    color: rgb(82 82 91);
+  }
+
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='broadsheet']
+    .portfolio-link:hover {
+    color: rgb(17 19 24);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme='dark'])
+      .portfolio-frame[data-mood='broadsheet']
+      .portfolio-bio,
+    :root:not([data-theme='dark'])
+      .portfolio-frame[data-mood='broadsheet']
+      .mood-indicator-note {
+      color: var(--mood-muted);
+    }
+
+    :root:not([data-theme='dark'])
+      .portfolio-frame[data-mood='broadsheet']
+      .portfolio-link {
+      color: rgb(82 82 91);
+    }
+
+    :root:not([data-theme='dark'])
+      .portfolio-frame[data-mood='broadsheet']
+      .portfolio-link:hover {
+      color: rgb(17 19 24);
+    }
+  }
+
+  /*
+   * Terminal — phosphor CRT session: prompt line, ~/path handle, bracket pill.
+   * Build keeps protocol green craft; Terminal is the premium SSH moment.
+   */
+  .portfolio-frame[data-mood='terminal'] .portfolio-identity-copy {
+    gap: var(--portfolio-identity-gap);
+  }
+
+  .portfolio-frame[data-mood='terminal'] .portfolio-name,
+  .mood-sheet-item[data-mood='terminal'] .mood-sheet-item-label {
+    font-size: clamp(1.4rem, 5.8vw, 1.85rem);
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    color: var(--mood-text);
+    text-wrap: balance;
+    text-shadow:
+      0 0 10px rgb(57 255 20 / 0.32),
+      0 0 22px rgb(57 255 20 / 0.1);
+  }
+
+  .portfolio-frame[data-mood='terminal'] .portfolio-name::before,
+  .mood-sheet-item[data-mood='terminal'] .mood-sheet-item-label::before {
+    content: '> ';
+    opacity: 0.68;
+  }
+
+  .portfolio-frame[data-mood='terminal'] .portfolio-handle,
+  .portfolio-frame[data-mood='terminal'] .portfolio-handle--terminal {
+    margin-top: 0.12rem;
+    font-size: 0.72rem;
+    font-family: var(--mood-font-body, var(--font-jetbrains-mono), monospace);
+    letter-spacing: 0.02em;
+    line-height: 1.4;
+    overflow-wrap: break-word;
+  }
+
+  .portfolio-frame[data-mood='terminal'] .portfolio-bio,
+  .portfolio-frame[data-mood='terminal'] .mood-indicator-note {
+    color: var(--mood-muted);
+  }
+
+  .portfolio-frame[data-mood='terminal'] .portfolio-link {
+    color: rgb(57 255 20 / 0.72);
+  }
+
+  .portfolio-frame[data-mood='terminal'] .portfolio-link:hover {
+    color: rgb(57 255 20 / 0.96);
+  }
+
+  .portfolio-frame[data-mood='terminal'] .portfolio-tag {
+    border-radius: 0;
+    padding-inline: 0.34rem;
+    font-family: var(--mood-font-body, var(--font-jetbrains-mono), monospace);
+  }
+
+  .portfolio-frame[data-mood='terminal'] .portfolio-tag::before {
+    content: '[';
+    margin-right: 0.08rem;
+    opacity: 0.55;
+  }
+
+  .portfolio-frame[data-mood='terminal'] .portfolio-tag::after {
+    content: ']';
+    margin-left: 0.08rem;
+    opacity: 0.55;
+  }
+
+  .portfolio-frame[data-mood='terminal'] .mood-indicator {
+    margin-top: 0.38rem;
+    border-radius: 0;
+    border-color: color-mix(
+      in srgb,
+      var(--mood-accent-chrome, var(--mood-accent)) 48%,
+      rgb(var(--fg-rgb) / 0.12)
+    );
+    background: color-mix(
+      in srgb,
+      var(--mood-surface, rgb(var(--fg-rgb) / 0.04)) 86%,
+      transparent
+    );
+  }
+
+  .portfolio-frame[data-mood='terminal'] .mood-indicator-dot + span::before {
+    content: '[ ';
+    opacity: 0.62;
+  }
+
+  .portfolio-frame[data-mood='terminal'] .mood-indicator-dot + span::after {
+    content: ' ]';
+    opacity: 0.62;
+  }
+
+  .portfolio-os-layer[data-mood='terminal'] .portfolio-summon-grip {
+    width: 0.52rem;
+    height: 0.92rem;
+    border-radius: 0;
+    background: var(--mood-accent-chrome, var(--mood-accent));
+    opacity: 0.88;
+  }
+
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='terminal']
+    .portfolio-name {
+    text-shadow: none;
+  }
+
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='terminal']
+    .portfolio-bio,
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='terminal']
+    .mood-indicator-note {
+    color: var(--mood-muted);
+  }
+
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='terminal']
+    .portfolio-link {
+    color: rgb(32 115 42);
+  }
+
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='terminal']
+    .portfolio-link:hover {
+    color: rgb(17 19 24);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme='dark'])
+      .portfolio-frame[data-mood='terminal']
+      .portfolio-name {
+      text-shadow: none;
+    }
+
+    :root:not([data-theme='dark'])
+      .portfolio-frame[data-mood='terminal']
+      .portfolio-bio,
+    :root:not([data-theme='dark'])
+      .portfolio-frame[data-mood='terminal']
+      .mood-indicator-note {
+      color: var(--mood-muted);
+    }
+
+    :root:not([data-theme='dark'])
+      .portfolio-frame[data-mood='terminal']
+      .portfolio-link {
+      color: rgb(32 115 42);
+    }
+
+    :root:not([data-theme='dark'])
+      .portfolio-frame[data-mood='terminal']
+      .portfolio-link:hover {
+      color: rgb(17 19 24);
+    }
+  }
+
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='holographic']
+    .mood-indicator-dot {
     box-shadow:
       0 0 8px rgb(160 120 255 / 0.32),
       0 0 14px rgb(80 200 255 / 0.2);
   }
 
   @media (prefers-color-scheme: light) {
-    :root:not([data-theme]) .portfolio-frame[data-mood='holographic'] .mood-indicator-dot {
+    :root:not([data-theme])
+      .portfolio-frame[data-mood='holographic']
+      .mood-indicator-dot {
       box-shadow:
         0 0 8px rgb(160 120 255 / 0.32),
         0 0 14px rgb(80 200 255 / 0.2);
@@ -1504,53 +2867,32 @@
   }
 
   @media (min-width: 640px) {
-    .portfolio-frame.app-surface[data-mood='glass'] {
-      box-shadow:
-        0 0 0 1px color-mix(in srgb, rgb(255 255 255) 18%, var(--mood-accent)),
-        0 0 40px color-mix(in srgb, var(--mood-accent) 28%, transparent);
-    }
-
-    :root[data-theme='light'] .portfolio-frame.app-surface[data-mood='glass'] {
-      box-shadow:
-        0 0 0 1px rgb(255 255 255 / 0.55),
-        0 0 36px color-mix(in srgb, var(--mood-accent) 22%, transparent);
-    }
-
-    @media (prefers-color-scheme: light) {
-      :root:not([data-theme]) .portfolio-frame.app-surface[data-mood='glass'] {
-        box-shadow:
-          0 0 0 1px rgb(255 255 255 / 0.55),
-          0 0 36px color-mix(in srgb, var(--mood-accent) 22%, transparent);
-      }
-    }
-
     .portfolio-frame.app-surface[data-mood='gold'] {
       box-shadow:
-        0 0 0 1px color-mix(in srgb, var(--mood-accent) 38%, rgb(255 240 200)),
-        0 0 36px color-mix(in srgb, var(--mood-accent) 32%, transparent),
+        0 0 0 1px color-mix(in srgb, var(--mood-accent) 32%, rgb(255 240 200)),
         inset 0 1px 0 rgb(255 240 200 / 0.12);
     }
 
     :root[data-theme='light'] .portfolio-frame.app-surface[data-mood='gold'] {
       box-shadow:
-        0 0 0 1px color-mix(in srgb, var(--mood-accent) 32%, rgb(255 248 235)),
-        0 0 32px color-mix(in srgb, var(--mood-accent) 24%, transparent),
+        0 0 0 1px color-mix(in srgb, var(--mood-accent) 28%, rgb(255 248 235)),
         inset 0 1px 0 rgb(255 248 235 / 0.55);
     }
 
     @media (prefers-color-scheme: light) {
       :root:not([data-theme]) .portfolio-frame.app-surface[data-mood='gold'] {
         box-shadow:
-          0 0 0 1px color-mix(in srgb, var(--mood-accent) 32%, rgb(255 248 235)),
-          0 0 32px color-mix(in srgb, var(--mood-accent) 24%, transparent),
+          0 0 0 1px color-mix(in srgb, var(--mood-accent) 28%, rgb(255 248 235)),
           inset 0 1px 0 rgb(255 248 235 / 0.55);
       }
     }
 
     .portfolio-frame.app-surface[data-mood='carbon'] {
+      --frame-accent-glow: transparent;
+      background: transparent;
       box-shadow:
-        0 0 0 1px rgb(var(--fg-rgb) / 0.12),
-        0 18px 40px -24px rgb(0 0 0 / 0.85);
+        0 0 0 1px rgb(255 255 255 / 0.08),
+        0 16px 40px -28px rgb(0 0 0 / 0.65);
     }
 
     :root[data-theme='light'] .portfolio-frame.app-surface[data-mood='carbon'] {
@@ -1569,40 +2911,58 @@
 
     .portfolio-frame.app-surface[data-mood='holographic'] {
       box-shadow:
-        0 0 0 1px color-mix(in srgb, var(--mood-accent) 28%, rgb(80 220 255)),
-        0 0 28px color-mix(in srgb, rgb(180 140 255) 22%, transparent),
-        0 0 48px -8px color-mix(in srgb, rgb(80 220 255) 18%, transparent);
+        0 0 0 1px color-mix(in srgb, var(--mood-accent) 22%, rgb(80 220 255)),
+        inset 0 1px 0 rgb(255 255 255 / 0.08);
     }
 
-    :root[data-theme='light'] .portfolio-frame.app-surface[data-mood='holographic'] {
+    :root[data-theme='light']
+      .portfolio-frame.app-surface[data-mood='holographic'] {
       box-shadow:
-        0 0 0 1px color-mix(in srgb, var(--mood-accent) 20%, rgb(220 230 255)),
-        0 0 22px color-mix(in srgb, rgb(160 120 255) 14%, transparent),
-        0 0 36px -8px color-mix(in srgb, rgb(80 200 255) 10%, transparent);
+        0 0 0 1px color-mix(in srgb, var(--mood-accent) 18%, rgb(220 230 255)),
+        inset 0 1px 0 rgb(255 255 255 / 0.32);
     }
 
     @media (prefers-color-scheme: light) {
-      :root:not([data-theme]) .portfolio-frame.app-surface[data-mood='holographic'] {
+      :root:not([data-theme])
+        .portfolio-frame.app-surface[data-mood='holographic'] {
         box-shadow:
-          0 0 0 1px color-mix(in srgb, var(--mood-accent) 20%, rgb(220 230 255)),
-          0 0 22px color-mix(in srgb, rgb(160 120 255) 14%, transparent),
-          0 0 36px -8px color-mix(in srgb, rgb(80 200 255) 10%, transparent);
+          0 0 0 1px color-mix(in srgb, var(--mood-accent) 18%, rgb(220 230 255)),
+          inset 0 1px 0 rgb(255 255 255 / 0.32);
       }
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
     .portfolio-frame[data-mood='gold'] .portfolio-name,
+    .mood-sheet-item[data-mood='gold'] .mood-sheet-item-label,
+    .portfolio-frame[data-mood='holographic'] .portfolio-name,
     .mood-sheet-item[data-mood='holographic']::after {
       animation: none;
     }
 
-    .portfolio-frame[data-mood='gold'] .portfolio-name {
+    .portfolio-frame[data-mood='gold'] .portfolio-name,
+    .mood-sheet-item[data-mood='gold'] .mood-sheet-item-label {
       background: linear-gradient(
-        135deg,
-        color-mix(in srgb, var(--mood-accent) 88%, white),
-        var(--mood-accent),
-        color-mix(in srgb, var(--mood-accent) 72%, rgb(200 150 70))
+        112deg,
+        var(--gold-name-shadow) 0%,
+        var(--gold-name-base) 18%,
+        var(--gold-name-mid) 40%,
+        var(--gold-name-peak) 50%,
+        var(--gold-name-mid) 60%,
+        var(--gold-name-base) 82%,
+        var(--gold-name-shadow) 100%
+      );
+      background-size: auto;
+      background-position: 50% 50%;
+    }
+
+    .portfolio-frame[data-mood='holographic'] .portfolio-name {
+      background: linear-gradient(
+        125deg,
+        color-mix(in srgb, var(--mood-accent) 82%, rgb(180 140 255)),
+        rgb(80 220 255 / 0.94),
+        rgb(255 120 180 / 0.9),
+        color-mix(in srgb, var(--mood-accent) 82%, rgb(180 140 255))
       );
       background-size: auto;
     }
@@ -1611,11 +2971,13 @@
   /* Mood chrome — eases on accent change; safe on banner pages (avatar/links only). */
   .portfolio-frame[data-mood] .portfolio-avatar,
   .portfolio-frame[data-mood] .portfolio-avatar-fallback {
-    transition: box-shadow var(--mood-transition-duration) var(--mood-transition-ease);
+    transition: box-shadow var(--mood-transition-duration)
+      var(--mood-transition-ease);
   }
 
   .portfolio-frame[data-mood] .portfolio-link {
-    transition: color var(--mood-transition-duration) var(--mood-transition-ease);
+    transition: color var(--mood-transition-duration)
+      var(--mood-transition-ease);
   }
 
   .portfolio-frame[data-mood] .portfolio-name,
@@ -1629,16 +2991,19 @@
   .portfolio-frame[data-mood] .portfolio-tag {
     transition:
       color var(--mood-transition-duration) var(--mood-transition-ease),
-      background var(--mood-transition-duration) var(--mood-transition-ease);
+      background var(--mood-transition-duration) var(--mood-transition-ease),
+      border-color var(--mood-transition-duration) var(--mood-transition-ease);
   }
 
   .portfolio-frame[data-mood] .portfolio-signals-caption,
   .portfolio-frame[data-mood] .portfolio-signals-rank {
-    transition: color var(--mood-transition-duration) var(--mood-transition-ease);
+    transition: color var(--mood-transition-duration)
+      var(--mood-transition-ease);
   }
 
   .portfolio-frame[data-mood] .signal-metric {
-    transition: background var(--mood-transition-duration) var(--mood-transition-ease);
+    transition: background var(--mood-transition-duration)
+      var(--mood-transition-ease);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -1656,7 +3021,8 @@
     .portfolio-frame[data-mood-only='true'] .portfolio-page::after,
     .portfolio-frame[data-mood] .portfolio-profile-banner,
     .portfolio-frame[data-mood] .portfolio-avatar-cover,
-    .portfolio-frame[data-mood] .portfolio-hero--strip-overlap,
+    .portfolio-frame[data-mood] .portfolio-hero,
+    .portfolio-frame[data-mood] .portfolio-identity,
     .portfolio-frame.app-surface[data-mood] {
       transition-duration: 0.01ms;
     }
@@ -1672,34 +3038,24 @@
   }
 
   .portfolio-hero {
+    position: relative;
+    z-index: 1;
     flex: 1;
     display: flex;
     width: 100%;
     flex-direction: column;
     align-items: center;
-    gap: 1.15rem;
-    padding:
-      0
-      max(1rem, env(safe-area-inset-right, 0px))
-      calc(env(safe-area-inset-bottom, 0px) + 11rem)
+    justify-content: flex-start;
+    gap: var(--portfolio-hero-gap);
+    padding: var(--portfolio-content-start)
+      max(1rem, env(safe-area-inset-right, 0px)) var(--portfolio-dock-clearance)
       max(1rem, env(safe-area-inset-left, 0px));
     text-align: center;
-  }
-
-  .portfolio-hero--strip-overlap {
-    position: relative;
-    z-index: 1;
-    margin-top: calc(var(--portfolio-avatar-size) / -2);
-    transition: margin-top var(--mood-transition-duration)
+    transition: padding-top var(--mood-transition-duration)
       var(--mood-transition-ease);
   }
 
-  .portfolio-frame[data-avatar-cover='true'] .portfolio-hero--strip-overlap {
-    margin-top: calc(
-      var(--portfolio-cover-spacer-height) * -1 *
-        var(--portfolio-cover-hero-overlap)
-    );
-  }
+  /* .portfolio-hero--strip-overlap — legacy class; overlap lives on .portfolio-identity. */
 
   .portfolio-os-dock {
     position: fixed;
@@ -1722,8 +3078,7 @@
     position: relative;
     z-index: 1;
     width: 100%;
-    padding:
-      calc(env(safe-area-inset-top, 0px) + 3.25rem)
+    padding: calc(env(safe-area-inset-top, 0px) + 3.25rem)
       max(1rem, env(safe-area-inset-right, 0px))
       calc(env(safe-area-inset-bottom, 0px) + 2rem)
       max(1rem, env(safe-area-inset-left, 0px));
@@ -1733,10 +3088,16 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 1rem;
+    gap: var(--portfolio-identity-avatar-gap);
     width: 100%;
+    margin-top: calc(
+      -1 * (var(--portfolio-avatar-size) + var(--portfolio-identity-avatar-gap))
+    );
+    transition: margin-top var(--mood-transition-duration)
+      var(--mood-transition-ease);
   }
 
+  /* Cover — avatar is the hero; circle hidden, name below the dissolve band. */
   .portfolio-frame[data-avatar-cover='true'] .portfolio-identity > .portfolio-avatar,
   .portfolio-frame[data-avatar-cover='true']
     .portfolio-identity
@@ -1745,35 +3106,31 @@
   }
 
   .portfolio-frame[data-avatar-cover='true'] .portfolio-identity {
-    min-height: 0;
-    justify-content: flex-start;
-    gap: 0.55rem;
-    padding-top: max(
-      0.5rem,
-      calc(
-        var(--portfolio-cover-image-height) * var(--portfolio-cover-name-anchor) -
-          var(--portfolio-cover-spacer-height) *
-          (1 - var(--portfolio-cover-hero-overlap))
-      )
-    );
+    margin-top: 0;
+    padding-top: 0;
+    position: relative;
+    z-index: 2;
   }
 
-  .portfolio-frame[data-avatar-cover='true'] .portfolio-name,
-  .portfolio-frame[data-avatar-cover='true'] .portfolio-handle,
-  .portfolio-frame[data-avatar-cover='true'] .portfolio-bio {
-    text-shadow: none;
+  .portfolio-frame[data-avatar-cover='true'] .portfolio-identity-copy {
+    text-shadow: 0 1px 8px
+      color-mix(in srgb, var(--mood-bg, var(--bg)) 72%, transparent);
   }
 
   .portfolio-identity-copy {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.35rem;
+    gap: var(--portfolio-identity-gap);
     width: 100%;
+    min-width: 0;
+    max-width: var(--portfolio-content-width);
   }
 
   .portfolio-avatar,
   .portfolio-avatar-fallback {
+    position: relative;
+    z-index: 1;
     width: var(--portfolio-avatar-size);
     height: var(--portfolio-avatar-size);
     flex-shrink: 0;
@@ -1781,10 +3138,51 @@
     object-fit: cover;
   }
 
-  /* Page-column cutout — tracks --mood-bg (theme + mood tint); no drop shadow. */
-  .portfolio-frame .portfolio-avatar,
-  .portfolio-frame .portfolio-avatar-fallback {
-    box-shadow: 0 0 0 3px var(--portfolio-avatar-ring, var(--mood-bg, var(--bg)));
+  /* Page-column cutout — tracks --mood-bg; Minimal uses accent glow instead. */
+  .portfolio-frame:not([data-mood-only='true']) .portfolio-avatar,
+  .portfolio-frame:not([data-mood-only='true']) .portfolio-avatar-fallback {
+    box-shadow: 0 0 0 3px
+      var(--portfolio-avatar-ring, var(--mood-bg, var(--bg)));
+  }
+
+  /*
+   * Card + Minimal — avatar center on the hero band bottom line (half over, half below).
+   */
+  .portfolio-frame[data-has-banner='true']:not([data-avatar-cover='true'])
+    .portfolio-identity,
+  .portfolio-frame[data-mood-only='true'] .portfolio-identity {
+    margin-top: calc(
+      -1 *
+        (
+          var(--portfolio-avatar-size) / 2 +
+            var(--portfolio-identity-avatar-gap)
+        )
+    );
+  }
+
+  /*
+   * Card — exact profile-style grey border; no dark bg gasket mixed in.
+   */
+  .portfolio-frame[data-has-banner='true']:not([data-avatar-cover='true'])
+    .portfolio-avatar,
+  .portfolio-frame[data-has-banner='true']:not([data-avatar-cover='true'])
+    .portfolio-avatar-fallback {
+    z-index: 2;
+    box-sizing: border-box;
+    border: 3px solid rgb(var(--fg-rgb) / 0.1);
+    box-shadow: none;
+  }
+
+  /*
+   * Minimal — soft accent halo only (no hard spread ring or profile grey border).
+   */
+  .portfolio-frame[data-mood-only='true'] .portfolio-avatar,
+  .portfolio-frame[data-mood-only='true'] .portfolio-avatar-fallback {
+    z-index: 2;
+    border: none;
+    box-shadow:
+      0 0 6px 3px color-mix(in srgb, var(--mood-accent) 20%, transparent),
+      0 0 24px color-mix(in srgb, var(--mood-accent) 14%, transparent);
   }
 
   .portfolio-avatar-fallback {
@@ -1803,11 +3201,13 @@
 
   .portfolio-name {
     margin: 0;
+    width: 100%;
     font-family: var(--font-space-grotesk), system-ui, sans-serif;
     font-size: clamp(1.5rem, 6vw, 2rem);
     font-weight: 600;
     letter-spacing: -0.04em;
-    line-height: 1.1;
+    line-height: 1.12;
+    text-wrap: balance;
   }
 
   .portfolio-frame[data-mood] .portfolio-name {
@@ -1825,22 +3225,20 @@
     margin: 0;
     font-size: 0.82rem;
     letter-spacing: 0.02em;
-    /* Portal parity: @handle one step dimmer than bio (muted-foreground/55). */
-    color: color-mix(
-      in srgb,
-      var(--mood-muted, hsl(var(--muted-foreground))) 55%,
-      transparent
-    );
+    color: var(--portfolio-meta-color);
   }
 
   .portfolio-bio {
-    margin: 0.15rem 0 0;
-    max-width: 20rem;
-    font-size: 0.9rem;
-    line-height: 1.55;
+    margin: 0.35rem 0 0;
+    width: 100%;
+    max-width: min(100%, var(--mood-bio-max-width, 20rem));
+    font-size: 0.875rem;
+    line-height: 1.5;
+    text-wrap: pretty;
     /* Portal parity: bio = text-muted-foreground, mood-tinted via --mood-muted. */
     color: var(--mood-muted, hsl(var(--muted-foreground)));
-    font-weight: 300;
+    font-weight: 500;
+    /* Keep every face on one screen — clamp long bios. */
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
@@ -1849,6 +3247,30 @@
 
   .portfolio-frame[data-mood] .portfolio-bio,
   .portfolio-frame[data-mood] .portfolio-handle {
+    font-family: var(--font-space-grotesk), system-ui, sans-serif;
+  }
+
+  .portfolio-frame[data-mood] .portfolio-signals {
+    font-family: var(--app-font-sans);
+  }
+
+  .portfolio-frame[data-mood='build'] .portfolio-bio,
+  .portfolio-frame[data-mood='build'] .portfolio-handle,
+  .portfolio-frame[data-mood='terminal'] .portfolio-bio,
+  .portfolio-frame[data-mood='terminal'] .portfolio-handle,
+  .portfolio-frame[data-mood='broadsheet'] .portfolio-bio,
+  .portfolio-frame[data-mood='broadsheet'] .portfolio-handle {
+    font-family: var(
+      --mood-font-body,
+      var(--font-space-grotesk),
+      system-ui,
+      sans-serif
+    );
+  }
+
+  .portfolio-frame[data-mood='build'] .portfolio-signals,
+  .portfolio-frame[data-mood='terminal'] .portfolio-signals,
+  .portfolio-frame[data-mood='broadsheet'] .portfolio-signals {
     font-family: var(
       --mood-font-body,
       var(--font-space-grotesk),
@@ -1859,12 +3281,20 @@
 
   .portfolio-frame[data-mood] .portfolio-bio {
     line-height: var(--mood-body-leading, 1.55);
-    max-width: var(--mood-bio-max-width, 20rem);
+    max-width: min(100%, var(--mood-bio-max-width, 20rem));
     letter-spacing: var(--mood-body-tracking, normal);
   }
 
   .portfolio-frame[data-mood] .portfolio-handle {
     letter-spacing: var(--mood-body-tracking, 0.02em);
+  }
+
+  /* Signature handle — Protocol size/face, lowercase @ only. */
+  .portfolio-frame[data-mood='signature'] .portfolio-handle {
+    font-size: 0.82rem;
+    font-weight: inherit;
+    letter-spacing: 0.02em;
+    text-transform: none;
   }
 
   .portfolio-stats-inline {
@@ -1873,8 +3303,10 @@
     align-items: center;
     justify-content: center;
     gap: 0.35rem;
+    width: 100%;
+    max-width: var(--portfolio-content-width);
     margin: 0;
-    font-size: 0.82rem;
+    font-size: 0.8125rem;
     color: rgb(var(--fg-rgb) / 0.48);
   }
 
@@ -1929,17 +3361,74 @@
 
   .portfolio-signals {
     display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.06rem;
+    width: 100%;
+    max-width: var(--portfolio-content-width);
+    margin-bottom: calc(var(--portfolio-shelf-pull, 0.44rem) * -1);
+    container-type: inline-size;
+    container-name: portfolio-signals;
+    /* Fluid min/max — balanced: neither edge-stretched nor crushed. */
+    --signals-metrics-gap-x: clamp(0.08rem, 1.8cqi, 0.22rem);
+    --signals-metrics-gap-y: clamp(0.08rem, 1cqi, 0.18rem);
+    --signals-group-gap: var(--signals-metrics-gap-x);
+    --signals-metric-pad-x: clamp(0.06rem, 1.4cqi, 0.24rem);
+    --signals-metric-inner-gap: clamp(0.04rem, 0.7cqi, 0.1rem);
+    --signals-value-size: clamp(0.88rem, 3.8cqi, 0.92rem);
+    --signals-arrow-size: clamp(0.5625rem, 2.6cqi, 0.625rem);
+    --signals-caption-size: clamp(0.54rem, 2.2cqi, 0.62rem);
+    --signals-caption-tracking: clamp(0.03em, 0.18cqi, 0.07em);
+  }
+
+  @supports not (width: 1cqi) {
+    .portfolio-signals {
+      --signals-metrics-gap-x: 0.18rem;
+      --signals-metrics-gap-y: 0.14rem;
+      --signals-group-gap: var(--signals-metrics-gap-x);
+      --signals-metric-pad-x: 0.2rem;
+      --signals-metric-inner-gap: 0.08rem;
+      --signals-value-size: 0.9rem;
+      --signals-arrow-size: 0.59375rem;
+      --signals-caption-size: 0.6rem;
+      --signals-caption-tracking: 0.055em;
+    }
+  }
+
+  .portfolio-signals-metrics {
+    display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: center;
-    gap: 0.3rem 0.4rem;
-    width: 100%;
+    width: fit-content;
+    max-width: 100%;
+    margin-inline: auto;
+    gap: var(--signals-metrics-gap-y) var(--signals-metrics-gap-x);
+  }
+
+  @container portfolio-signals (max-width: 20rem) {
+    .portfolio-signals {
+      --signals-metric-pad-x: clamp(0.04rem, 1cqi, 0.16rem);
+    }
+
+    .signal-metric-solidarity .signal-metric-arrow--out {
+      display: none;
+    }
+  }
+
+  .signal-metrics-chunk {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: var(--signals-metrics-gap-x);
+    max-width: 100%;
   }
 
   .signal-group {
     display: inline-flex;
     align-items: center;
-    gap: 0.15rem;
+    flex-wrap: nowrap;
+    gap: var(--signals-group-gap);
   }
 
   .signal-group-standing .signal-metric:not(.signal-metric-solidarity) {
@@ -1957,13 +3446,21 @@
   .signal-metric {
     display: inline-flex;
     align-items: center;
-    padding: 0.34rem 0.42rem;
-    border-radius: 9999px;
+    justify-content: center;
+    min-height: auto;
+    padding: 0.06rem var(--signals-metric-pad-x);
+    border-radius: 0.3rem;
     color: inherit;
     text-decoration: none;
     transition:
       color 160ms ease,
-      background 160ms ease;
+      background 160ms ease,
+      box-shadow 160ms ease;
+  }
+
+  .signal-metric:where(a) {
+    min-height: 1.875rem;
+    padding-block: 0.06rem;
   }
 
   .signal-metric:focus-visible {
@@ -1990,22 +3487,39 @@
   .signal-metric-inner {
     display: inline-flex;
     align-items: center;
-    gap: 0.12rem;
+    gap: var(--signals-metric-inner-gap);
   }
 
   .signal-metric-arrow {
-    width: 0.625rem;
-    height: 0.625rem;
+    width: var(--signals-arrow-size);
+    height: var(--signals-arrow-size);
     flex-shrink: 0;
     color: inherit;
   }
 
-  .signal-metric--highlight {
-    background: color-mix(in srgb, var(--protocol-blue-bg) 90%, transparent);
+  /* Active standing/solidarity — color emphasis on the digit only (no pill/glow/underline). */
+  .signal-metric--highlight,
+  .signal-metric--solidarity-active {
+    background: transparent;
+    box-shadow: none;
   }
 
-  .signal-metric--solidarity-active {
-    background: color-mix(in srgb, var(--protocol-purple-bg) 90%, transparent);
+  .signal-metric--highlight .signal-value,
+  .signal-metric--solidarity-active .signal-value {
+    font-weight: 700;
+    opacity: 1;
+    text-decoration: none;
+    text-shadow: none;
+    background: none;
+    box-shadow: none;
+  }
+
+  .signal-metric--highlight .signal-value {
+    color: color-mix(in srgb, var(--signal-standing) 72%, rgb(var(--fg-rgb)) 28%);
+  }
+
+  .signal-metric--solidarity-active .signal-value {
+    color: color-mix(in srgb, var(--signal-solidarity) 68%, rgb(var(--fg-rgb)) 32%);
   }
 
   .signal-metric.signal-metric-solidarity {
@@ -2017,7 +3531,7 @@
   }
 
   .signal-value {
-    font-size: 0.92rem;
+    font-size: var(--signals-value-size);
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.01em;
@@ -2031,7 +3545,9 @@
   .signal-dot,
   .signal-sep {
     color: rgb(var(--fg-rgb) / 0.22);
-    font-size: 0.85rem;
+    font-size: 0.78rem;
+    line-height: 1;
+    flex-shrink: 0;
   }
 
   .signal-sep {
@@ -2039,18 +3555,23 @@
   }
 
   .portfolio-signals-caption {
-    width: 100%;
-    margin: 0.1rem 0 0;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0;
     text-align: center;
-    font-size: 0.62rem;
-    letter-spacing: 0.1em;
+    font-size: var(--signals-caption-size);
+    line-height: 1.15;
+    letter-spacing: var(--signals-caption-tracking);
+    text-wrap: pretty;
     text-transform: uppercase;
-    color: rgb(var(--fg-rgb) / 0.32);
+    color: var(--portfolio-meta-color);
+    opacity: 0.88;
   }
 
   .portfolio-signals-rank {
     font-variant-numeric: tabular-nums;
-    color: rgb(var(--fg-rgb) / 0.4);
+    letter-spacing: 0.06em;
+    color: var(--portfolio-meta-color);
   }
 
   /* ── Reputation panel ──────────────────────────────────── */
@@ -2129,6 +3650,8 @@
 
   .portfolio-links-scroll {
     width: 100%;
+    max-width: var(--portfolio-content-width);
+    margin-inline: auto;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
@@ -2151,9 +3674,10 @@
     justify-content: center;
     gap: 0.625rem;
     width: max-content;
-    min-width: 100%;
+    max-width: 100%;
+    margin-inline: auto;
     list-style: none;
-    margin: 0;
+    margin-block: 0;
     padding: 0.15rem 0.5rem;
   }
 
@@ -2162,7 +3686,9 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 0.625rem;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    padding: 0.75rem;
     border: 0;
     border-radius: 0.375rem;
     background: transparent;
@@ -2175,7 +3701,11 @@
   .portfolio-link:focus-visible {
     outline: none;
     box-shadow: 0 0 0 1px
-      color-mix(in srgb, var(--mood-accent, var(--protocol-blue)) 40%, transparent);
+      color-mix(
+        in srgb,
+        var(--mood-accent, var(--protocol-blue)) 40%,
+        transparent
+      );
   }
 
   .portfolio-link-icon {
@@ -2207,40 +3737,131 @@
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 0.35rem;
+    gap: 0.24rem;
     list-style: none;
-    margin: 0;
+    width: 100%;
+    max-width: var(--portfolio-content-width);
+    margin: var(--portfolio-shelf-meta-gap, 0.22rem) auto 0;
     padding: 0;
+    opacity: 0.92;
   }
 
   .portfolio-tag {
-    border: 0;
+    border: 1px solid rgb(var(--fg-rgb) / 0.1);
     border-radius: 9999px;
-    padding: 0.25rem 0.55rem;
-    font-size: 0.68rem;
-    letter-spacing: 0.04em;
-    color: rgb(var(--fg-rgb) / 0.42);
-    background: rgb(var(--fg-rgb) / 0.04);
+    padding: 0.16rem 0.38rem;
+    font-size: 0.64rem;
+    font-weight: 400;
+    letter-spacing: 0.045em;
+    line-height: 1.2;
+    color: rgb(var(--fg-rgb) / 0.38);
+    background: transparent;
   }
 
   .portfolio-frame[data-mood] .portfolio-tag {
-    color: color-mix(in srgb, var(--mood-accent) 55%, var(--mood-muted));
-    background: color-mix(in srgb, var(--mood-surface) 90%, transparent);
-  }
-
-  .portfolio-frame[data-mood] .portfolio-signals-caption,
-  .portfolio-frame[data-mood] .portfolio-signals-rank {
-    /* Portal parity: same tier as @handle — muted at 55%. */
     color: color-mix(
       in srgb,
-      var(--mood-muted, hsl(var(--muted-foreground))) 55%,
+      var(--mood-accent-chrome, var(--mood-accent)) 46%,
+      var(--mood-muted)
+    );
+    background: color-mix(in srgb, var(--mood-surface) 42%, transparent);
+    border-color: color-mix(
+      in srgb,
+      var(--mood-accent-chrome, var(--mood-accent)) 30%,
       transparent
     );
   }
 
   .portfolio-frame[data-mood] .signal-dot,
   .portfolio-frame[data-mood] .signal-sep {
-    color: color-mix(in srgb, var(--mood-muted) 45%, transparent);
+    color: var(--portfolio-signal-dot-color);
+  }
+
+  /* Meta shelf — links slot between signals and tags without breaking the band. */
+  .portfolio-hero .portfolio-signals + .portfolio-links-scroll {
+    margin-top: calc(var(--portfolio-shelf-pull, 0.44rem) * -0.45);
+    margin-bottom: calc(var(--portfolio-shelf-meta-gap, 0.22rem) * -1);
+  }
+
+  /*
+   * Dense profile shelf — short viewports (test05-class pages).
+   * Tier 2 compresses: signals → caption → tags/links stay above dock.
+   */
+  @media (max-height: 42rem) {
+    :root {
+      --portfolio-shelf-pull: 0.48rem;
+      --portfolio-shelf-meta-gap: 0.14rem;
+    }
+
+    .portfolio-frame .portfolio-identity-copy {
+      gap: 0.22rem;
+    }
+
+    .portfolio-frame .portfolio-bio {
+      font-size: 0.8125rem;
+      line-height: 1.42;
+      font-weight: 500;
+    }
+
+    .portfolio-frame .portfolio-signals {
+      gap: 0.03rem;
+      margin-bottom: calc(var(--portfolio-shelf-pull, 0.48rem) * -1);
+      --signals-metrics-gap-x: clamp(0.04rem, 1.4cqi, 0.12rem);
+      --signals-metrics-gap-y: clamp(0.03rem, 0.75cqi, 0.08rem);
+      --signals-metric-pad-x: clamp(0.03rem, 1.1cqi, 0.12rem);
+      --signals-value-size: clamp(0.8125rem, 3.4cqi, 0.875rem);
+      --signals-caption-size: clamp(0.48rem, 1.9cqi, 0.54rem);
+      --signals-caption-tracking: clamp(0.02em, 0.14cqi, 0.05em);
+    }
+
+    .portfolio-frame .signal-metric {
+      padding-block: 0.04rem;
+    }
+
+    .portfolio-frame .signal-metric:where(a) {
+      min-height: 1.75rem;
+      padding-block: 0.04rem;
+    }
+
+    .portfolio-frame .portfolio-signals-caption {
+      margin-top: 0;
+      max-width: min(100%, 18.5rem);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .portfolio-frame .portfolio-tags {
+      margin-top: var(--portfolio-shelf-meta-gap, 0.14rem);
+      gap: 0.18rem;
+      opacity: 0.88;
+    }
+
+    .portfolio-frame .portfolio-tag {
+      padding: 0.12rem 0.32rem;
+      font-size: 0.58rem;
+      letter-spacing: 0.05em;
+    }
+
+    .portfolio-frame .portfolio-links-scroll {
+      max-width: min(100%, var(--portfolio-content-width));
+    }
+
+    .portfolio-frame .portfolio-links {
+      gap: 0.45rem;
+      padding: 0.05rem 0.35rem;
+    }
+
+    .portfolio-frame .portfolio-link {
+      min-width: 2.35rem;
+      min-height: 2.35rem;
+      padding: 0.5rem;
+    }
+
+    .portfolio-frame .portfolio-link-icon {
+      width: 1.125rem;
+      height: 1.125rem;
+    }
   }
 
   .mood-indicator-compact {
@@ -2376,7 +3997,10 @@
     border: 1px solid rgb(var(--fg-rgb) / 0.1);
     border-radius: 9999px;
     background: var(--mood-surface, rgb(var(--fg-rgb) / 0.04));
-    color: var(--mood-accent, rgb(var(--fg-rgb) / 0.72));
+    color: var(
+      --mood-accent-chrome,
+      var(--mood-accent, rgb(var(--fg-rgb) / 0.72))
+    );
     font-size: 0.72rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -2398,8 +4022,16 @@
     width: 0.45rem;
     height: 0.45rem;
     border-radius: 50%;
-    background: var(--mood-accent, rgb(var(--fg-rgb) / 0.72));
-    box-shadow: 0 0 10px color-mix(in srgb, var(--mood-accent) 50%, transparent);
+    background: var(
+      --mood-accent-chrome,
+      var(--mood-accent, rgb(var(--fg-rgb) / 0.72))
+    );
+    box-shadow: 0 0 10px
+      color-mix(
+        in srgb,
+        var(--mood-accent-chrome, var(--mood-accent)) 50%,
+        transparent
+      );
   }
 
   .portfolio-frame[data-mood] .mood-indicator-dot {
@@ -2416,75 +4048,18 @@
     color: var(--mood-muted, rgb(var(--fg-rgb) / 0.42));
   }
 
-  .mood-sheet-root {
-    position: fixed;
-    inset: 0;
-    z-index: 60;
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-    padding:
-      env(safe-area-inset-top, 0px)
-      max(0px, env(safe-area-inset-right, 0px))
-      env(safe-area-inset-bottom, 0px)
-      max(0px, env(safe-area-inset-left, 0px));
+  /* ── Mood sheet (GlassSheet panel) ───────────────────── */
+
+  .mood-sheet-panel .glass-sheet-body {
+    flex: 1 1 auto;
+    min-height: 0;
   }
 
-  .mood-sheet-backdrop {
-    position: absolute;
-    inset: 0;
-    border: 0;
-    background: rgb(var(--bg-rgb) / 0.72);
-    backdrop-filter: blur(10px);
-    cursor: pointer;
-    animation: bottom-sheet-backdrop-in 220ms ease;
-  }
-
-  /* Portfolio — mood sheet sits in the active page tint, not neutral OS chrome. */
-  .portfolio-frame .mood-sheet-backdrop {
-    background: color-mix(
-      in srgb,
-      var(--mood-bg, var(--bg)) 42%,
-      rgb(var(--bg-rgb) / 0.68)
-    );
-  }
-
-  .portfolio-frame[data-mood='glass'] .mood-sheet-backdrop {
-    background: rgb(var(--bg-rgb) / 0.72);
-  }
-
-  .mood-sheet {
-    position: relative;
-    width: 100%;
-    max-width: 36rem;
-    max-height: min(88dvh, 540px);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    border-radius: 1.25rem 1.25rem 0 0;
-    background: var(--surface-solid);
-    box-shadow: 0 -24px 80px rgb(0 0 0 / 0.45);
-    animation: bottom-sheet-in 320ms cubic-bezier(0.22, 0.61, 0.36, 1);
-  }
-
-  .portfolio-frame .mood-sheet {
-    background: var(--mood-bg, var(--surface-solid));
-    color: var(--mood-text, rgb(var(--fg-rgb) / 0.96));
-    border-color: color-mix(in srgb, var(--mood-accent) 14%, rgb(var(--fg-rgb) / 0.1));
-  }
-
-  .portfolio-frame[data-mood='glass'] .mood-sheet {
-    background: var(--glass-surface-solid, var(--surface-solid));
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-  }
-
-  .portfolio-frame .mood-sheet-copy {
+  .mood-sheet-panel .mood-sheet-copy {
     color: var(--mood-muted, rgb(var(--fg-rgb) / 0.44));
   }
 
-  .portfolio-frame .mood-sheet-header {
+  .mood-sheet-panel .mood-sheet-header {
     border-bottom-color: color-mix(
       in srgb,
       var(--mood-accent) 10%,
@@ -2522,7 +4097,6 @@
     list-style: none;
     margin: 0;
     padding: 0.75rem;
-    overflow-y: auto;
   }
 
   .mood-sheet-section {
@@ -2584,7 +4158,8 @@
 
   .mood-sheet-item.is-active {
     border-color: color-mix(in srgb, var(--mood-accent) 40%, transparent);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mood-accent) 18%, transparent);
+    box-shadow: inset 0 0 0 1px
+      color-mix(in srgb, var(--mood-accent) 18%, transparent);
   }
 
   /* Finish pack swatches — mini material preview on picker rows. */
@@ -2812,45 +4387,19 @@
     line-height: 1.45;
   }
 
-  /* ── Customize sheet ─────────────────────────────────── */
+  /* ── Customize sheet (GlassSheet panel) ──────────────── */
 
-  .customize-sheet-root {
-    position: fixed;
-    inset: 0;
-    z-index: 60;
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-    padding:
-      env(safe-area-inset-top, 0px)
-      max(0px, env(safe-area-inset-right, 0px))
-      env(safe-area-inset-bottom, 0px)
-      max(0px, env(safe-area-inset-left, 0px));
+  .customize-sheet-panel .glass-sheet-body {
+    flex: 1 1 auto;
+    min-height: 0;
   }
 
-  .customize-sheet-backdrop {
-    position: absolute;
-    inset: 0;
-    border: 0;
-    background: rgb(var(--bg-rgb) / 0.72);
-    backdrop-filter: blur(10px);
-    cursor: pointer;
-    animation: bottom-sheet-backdrop-in 220ms ease;
+  .customize-sheet-body {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
-  .customize-sheet {
-    position: relative;
-    width: 100%;
-    max-width: 36rem;
-    max-height: min(88dvh, 540px);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    border-radius: 1.25rem 1.25rem 0 0;
-    background: var(--surface-solid);
-    box-shadow: 0 -24px 80px rgb(0 0 0 / 0.45);
-    animation: bottom-sheet-in 320ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  .customize-sheet-panel .customize-sheet-copy {
+    color: var(--mood-muted, rgb(var(--fg-rgb) / 0.44));
   }
 
   .customize-sheet-header {
@@ -2892,6 +4441,24 @@
     font-weight: 600;
     padding: 0.65rem 0.9rem;
     cursor: pointer;
+    transition:
+      background 160ms ease,
+      opacity 160ms ease;
+  }
+
+  .customize-sheet-primary:hover,
+  .customize-sheet-primary:focus-visible {
+    background: rgb(var(--fg-rgb) / 0.84);
+    outline: none;
+  }
+
+  .customize-sheet-primary:focus-visible {
+    box-shadow: 0 0 0 2px
+      color-mix(
+        in srgb,
+        var(--mood-accent, rgb(var(--fg-rgb) / 0.5)) 35%,
+        transparent
+      );
   }
 
   .customize-sheet-status,
@@ -2911,6 +4478,44 @@
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: rgb(var(--fg-rgb) / 0.38);
+  }
+
+  .customize-hue-control {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+  }
+
+  .customize-hue-preview {
+    display: inline-flex;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 9999px;
+    border: 1px solid rgb(var(--fg-rgb) / 0.12);
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .customize-hue-preview-fill {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .customize-hue-slider {
+    width: 100%;
+    accent-color: var(--mood-accent, rgb(var(--fg-rgb) / 0.72));
+  }
+
+  .customize-hue-value {
+    min-width: 2.75rem;
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+    color: rgb(var(--fg-rgb) / 0.55);
+    text-align: right;
   }
 
   .customize-option-list {
@@ -2969,6 +4574,9 @@
     color: rgb(var(--fg-rgb) / 0.62);
     font-size: 0.68rem;
     padding: 0.3rem 0.5rem;
+    transition:
+      background 160ms ease,
+      color 160ms ease;
   }
 
   .customize-hero-fields {
@@ -3003,7 +4611,12 @@
   }
 
   .customize-hero-input:focus {
-    outline: 2px solid color-mix(in srgb, var(--mood-accent, rgb(var(--fg-rgb) / 0.5)) 45%, transparent);
+    outline: 2px solid
+      color-mix(
+        in srgb,
+        var(--mood-accent, rgb(var(--fg-rgb) / 0.5)) 45%,
+        transparent
+      );
     outline-offset: 1px;
   }
 
@@ -3024,6 +4637,18 @@
     font-size: 0.82rem;
     padding: 0.55rem 1rem;
     cursor: pointer;
+    transition:
+      border-color 160ms ease,
+      background 160ms ease,
+      color 160ms ease;
+  }
+
+  .customize-sheet-secondary:not(:disabled):hover,
+  .customize-sheet-secondary:not(:disabled):focus-visible {
+    border-color: rgb(var(--fg-rgb) / 0.16);
+    background: rgb(var(--fg-rgb) / 0.045);
+    color: rgb(var(--fg-rgb) / 0.9);
+    outline: none;
   }
 
   .customize-sheet-secondary:disabled {
@@ -3042,24 +4667,6 @@
     display: none;
   }
 
-  .portfolio-face-preview-bar {
-    position: fixed;
-    left: calc(var(--os-column-inset-inline) + var(--os-column-width) / 2);
-    z-index: 26;
-    display: flex;
-    width: min(calc(var(--os-column-width) - 2rem), 22rem);
-    flex-direction: column;
-    gap: 0.65rem;
-    transform: translateX(-50%);
-    bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    border-radius: 1rem;
-    background: color-mix(in srgb, var(--bg) 88%, transparent);
-    padding: 0.85rem 1rem;
-    box-shadow: 0 18px 48px -20px rgb(0 0 0 / 0.65);
-    backdrop-filter: blur(16px);
-  }
-
   .portfolio-face-preview-copy {
     margin: 0;
     font-size: 0.78rem;
@@ -3074,38 +4681,6 @@
 
   .portfolio-face-preview-meta {
     color: rgb(var(--fg-rgb) / 0.42);
-  }
-
-  .portfolio-face-preview-actions {
-    display: flex;
-    gap: 0.5rem;
-  }
-
-  .portfolio-face-preview-discard,
-  .portfolio-face-preview-save {
-    flex: 1;
-    border: 0;
-    border-radius: 9999px;
-    font-size: 0.76rem;
-    font-weight: 600;
-    padding: 0.62rem 0.85rem;
-    cursor: pointer;
-  }
-
-  .portfolio-face-preview-discard {
-    background: rgb(var(--fg-rgb) / 0.08);
-    color: rgb(var(--fg-rgb) / 0.72);
-  }
-
-  .portfolio-face-preview-save {
-    background: rgb(var(--fg-rgb) / 0.92);
-    color: var(--bg);
-  }
-
-  .portfolio-face-preview-discard:disabled,
-  .portfolio-face-preview-save:disabled {
-    opacity: 0.65;
-    cursor: wait;
   }
 
   .portfolio-face-preview-error {
@@ -3137,25 +4712,57 @@
 
   /* Full-viewport OS glass app surface (Discover, future OS apps). */
   .os-app-screen {
+    --glass-header-scrim-top: 0.82;
+    --glass-header-scrim-mid: 0.58;
+    --glass-header-scrim-height: min(13.5rem, 30%);
+    position: relative;
     height: 100dvh;
     max-height: 100dvh;
     min-height: 100dvh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    isolation: isolate;
     background: rgb(var(--bg-rgb) / 0.5);
     backdrop-filter: blur(20px) saturate(1.22);
     -webkit-backdrop-filter: blur(20px) saturate(1.22);
     color: rgb(var(--fg-rgb) / 0.96);
   }
 
+  .os-app-screen::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 0;
+    height: var(--glass-header-scrim-height);
+    pointer-events: none;
+    background: linear-gradient(
+      180deg,
+      rgb(var(--bg-rgb) / var(--glass-header-scrim-top)) 0%,
+      rgb(var(--bg-rgb) / var(--glass-header-scrim-mid)) 55%,
+      transparent 100%
+    );
+  }
+
+  .os-app-screen-column,
+  .os-app-screen > .portfolio-summon-dock {
+    position: relative;
+    z-index: 1;
+  }
+
   :root[data-theme='light'] .os-app-screen {
     background: rgb(255 255 255 / 0.58);
+    --glass-header-scrim-top: 0.9;
+    --glass-header-scrim-mid: 0.68;
   }
 
   @media (prefers-color-scheme: light) {
     :root:not([data-theme]) .os-app-screen {
       background: rgb(255 255 255 / 0.58);
+      --glass-header-scrim-top: 0.9;
+      --glass-header-scrim-mid: 0.68;
     }
   }
 
@@ -3171,11 +4778,11 @@
   }
 
   .os-app-screen-header {
+    position: relative;
+    z-index: 2;
     flex-shrink: 0;
-    padding:
-      calc(env(safe-area-inset-top, 0px) + 0.65rem)
-      max(1rem, env(safe-area-inset-right, 0px))
-      0.65rem
+    padding: calc(env(safe-area-inset-top, 0px) + 0.65rem)
+      max(1rem, env(safe-area-inset-right, 0px)) 0.65rem
       max(1rem, env(safe-area-inset-left, 0px));
   }
 
@@ -3203,7 +4810,7 @@
     margin: 0.15rem 0 0;
     font-size: 0.75rem;
     line-height: 1.45;
-    color: rgb(var(--fg-rgb) / 0.52);
+    color: rgb(var(--fg-rgb) / 0.58);
   }
 
   .os-app-screen-toolbar {
@@ -3211,6 +4818,8 @@
   }
 
   .os-app-screen-body {
+    position: relative;
+    z-index: 0;
     min-height: 0;
     flex: 1;
     overflow-x: hidden;
@@ -3227,7 +4836,8 @@
   }
 
   .os-app-screen[data-tone='os'] .os-app-screen-search.sheet-control:hover,
-  .os-app-screen[data-tone='os'] .os-app-screen-search.sheet-control:focus-within {
+  .os-app-screen[data-tone='os']
+    .os-app-screen-search.sheet-control:focus-within {
     background: rgb(var(--fg-rgb) / 0.045);
   }
 
@@ -3238,15 +4848,11 @@
   }
 
   .os-app-screen[data-tone='os'] .standing-list-toolbar .sheet-control:hover,
-  .os-app-screen[data-tone='os'] .standing-list-toolbar .sheet-control:focus-within,
+  .os-app-screen[data-tone='os']
+    .standing-list-toolbar
+    .sheet-control:focus-within,
   .os-app-screen[data-tone='os'] .standing-list-toolbar .sheet-control.is-open {
     background: rgb(var(--fg-rgb) / 0.045);
-  }
-
-  .os-app-screen[data-tone='os'] .standing-view-menu-panel {
-    background: rgb(var(--bg-rgb) / 0.94);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
   }
 
   .standing-page-screen-header {
@@ -3269,18 +4875,16 @@
     -webkit-backdrop-filter: none;
   }
 
-  .standing-page-screen[data-tone='os'] .standing-sheet-header .sheet-control:hover,
+  .standing-page-screen[data-tone='os']
+    .standing-sheet-header
+    .sheet-control:hover,
   .standing-page-screen[data-tone='os']
     .standing-sheet-header
     .sheet-control:focus-within,
-  .standing-page-screen[data-tone='os'] .standing-sheet-header .sheet-control.is-open {
+  .standing-page-screen[data-tone='os']
+    .standing-sheet-header
+    .sheet-control.is-open {
     background: rgb(var(--fg-rgb) / 0.045);
-  }
-
-  .standing-page-screen[data-tone='os'] .standing-view-menu-panel {
-    background: rgb(var(--bg-rgb) / 0.94);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
   }
 
   .discover-panel.standing-panel {
@@ -3354,10 +4958,8 @@
     display: flex;
     align-items: center;
     gap: 1rem;
-    padding:
-      calc(env(safe-area-inset-top, 0px) + 0.75rem)
-      max(1rem, env(safe-area-inset-right, 0px))
-      0.75rem
+    padding: calc(env(safe-area-inset-top, 0px) + 0.75rem)
+      max(1rem, env(safe-area-inset-right, 0px)) 0.75rem
       max(1rem, env(safe-area-inset-left, 0px));
     border-bottom: 1px solid rgb(var(--fg-rgb) / 0.06);
     background: rgb(5 5 5 / 0.82);
@@ -3374,7 +4976,7 @@
     position: fixed;
     left: calc(var(--os-column-inset-inline) + var(--os-column-width) / 2);
     bottom: 0;
-    z-index: 30;
+    z-index: 40;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -3388,20 +4990,17 @@
   .portfolio-summon {
     pointer-events: auto;
     display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 5.5rem;
-    height: 2.2rem;
-    padding: 0 1rem;
+    align-items: stretch;
+    min-height: 2.75rem;
+    --portfolio-summon-avatar-size: 1.35rem;
     border: 1px solid rgb(var(--fg-rgb) / 0.12);
     border-radius: 9999px;
     background: var(--mood-surface, var(--surface-solid));
     backdrop-filter: blur(10px);
-    cursor: pointer;
+    overflow: hidden;
     transition:
       background 180ms ease,
-      border-color 180ms ease,
-      transform 180ms ease;
+      border-color 180ms ease;
   }
 
   .portfolio-summon:hover {
@@ -3409,15 +5008,120 @@
     border-color: rgb(var(--fg-rgb) / 0.2);
   }
 
-  .portfolio-summon:active {
-    transform: translateY(1px);
+  .portfolio-summon-divider {
+    flex-shrink: 0;
+    align-self: stretch;
+    margin-block: 0.45rem;
+    opacity: 0.9;
+  }
+
+  .portfolio-summon-account {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.75rem;
+    padding: 0 0.7rem;
+    border: 0;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.82);
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 180ms ease;
+  }
+
+  .portfolio-summon-account:hover {
+    background: rgb(var(--fg-rgb) / 0.06);
+  }
+
+  .portfolio-summon-account:active {
+    background: rgb(var(--fg-rgb) / 0.1);
+  }
+
+  .portfolio-summon-account.is-you {
+    padding: 0 0.65rem;
+    text-transform: none;
+    letter-spacing: normal;
+    font-weight: 500;
+  }
+
+  .portfolio-summon-account.is-connect {
+    padding: 0 0.65rem;
+    color: rgb(var(--fg-rgb) / 0.62);
+  }
+
+  .portfolio-summon-account.is-connect .app-wallet-connect-glyph {
+    width: 1.2rem;
+    height: 1.2rem;
+    opacity: 0.88;
+  }
+
+  .portfolio-summon-account-initial {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--portfolio-summon-avatar-size);
+    height: var(--portfolio-summon-avatar-size);
+    border-radius: 9999px;
+    background: rgb(var(--fg-rgb) / 0.12);
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: rgb(var(--fg-rgb) / 0.88);
+  }
+
+  .portfolio-summon-account-avatar {
+    display: block;
+    width: var(--portfolio-summon-avatar-size);
+    height: var(--portfolio-summon-avatar-size);
+    border-radius: 9999px;
+    object-fit: cover;
+    border: 1px solid rgb(var(--fg-rgb) / 0.1);
+    background: rgb(var(--fg-rgb) / 0.06);
+  }
+
+  .portfolio-summon-account.is-loading {
+    opacity: 0.35;
+    pointer-events: none;
+  }
+
+  .portfolio-summon-grip-zone {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 4.75rem;
+    padding: 0 1.1rem;
+    border: 0;
+    background: transparent;
+  }
+
+  .portfolio-summon-grip-zone.is-interactive {
+    pointer-events: auto;
+    cursor: pointer;
+    transition: background 180ms ease;
+  }
+
+  .portfolio-summon-grip-zone.is-gesture-host {
+    touch-action: none;
+  }
+
+  .portfolio-summon-grip-zone.is-interactive:hover {
+    background: rgb(var(--fg-rgb) / 0.06);
+  }
+
+  .portfolio-summon-grip-zone.is-interactive:active {
+    background: rgb(var(--fg-rgb) / 0.1);
   }
 
   .portfolio-summon-grip {
     width: 2.25rem;
     height: 0.3rem;
     border-radius: 9999px;
-    background: var(--mood-accent, rgb(var(--fg-rgb) / 0.55));
+    background: var(
+      --mood-accent-chrome,
+      var(--mood-accent, rgb(var(--fg-rgb) / 0.55))
+    );
     opacity: 0.8;
   }
 
@@ -3579,7 +5283,7 @@
     margin: 0.15rem 0 0;
     font-size: 0.75rem;
     line-height: 1.45;
-    color: rgb(var(--fg-rgb) / 0.52);
+    color: rgb(var(--fg-rgb) / 0.58);
   }
 
   /* OS standing overlay: flat glass controls (match search + close); menu stays solid. */
@@ -3589,18 +5293,16 @@
     -webkit-backdrop-filter: none;
   }
 
-  .glass-sheet-panel[data-tone='os'] .standing-sheet-header .sheet-control:hover,
+  .glass-sheet-panel[data-tone='os']
+    .standing-sheet-header
+    .sheet-control:hover,
   .glass-sheet-panel[data-tone='os']
     .standing-sheet-header
     .sheet-control:focus-within,
-  .glass-sheet-panel[data-tone='os'] .standing-sheet-header .sheet-control.is-open {
+  .glass-sheet-panel[data-tone='os']
+    .standing-sheet-header
+    .sheet-control.is-open {
     background: rgb(var(--fg-rgb) / 0.045);
-  }
-
-  .glass-sheet-panel[data-tone='os'] .standing-view-menu-panel {
-    background: rgb(var(--bg-rgb) / 0.94);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
   }
 
   @media (min-width: 768px) {
@@ -3747,9 +5449,14 @@
     min-height: 2rem;
     height: 2rem;
     padding: 0 0.7rem;
-    border: 1px solid color-mix(in srgb, var(--signal-standing) 22%, rgb(var(--fg-rgb) / 0.1));
+    border: 1px solid
+      color-mix(in srgb, var(--signal-standing) 22%, rgb(var(--fg-rgb) / 0.1));
     border-radius: 9999px;
-    background: color-mix(in srgb, var(--signal-standing) 8%, rgb(var(--fg-rgb) / 0.03));
+    background: color-mix(
+      in srgb,
+      var(--signal-standing) 8%,
+      rgb(var(--fg-rgb) / 0.03)
+    );
     color: var(--signal-standing);
     font-size: 0.72rem;
     font-weight: 600;
@@ -3762,11 +5469,20 @@
 
   .standing-discover-link--accent:hover,
   .standing-discover-link--accent:focus-visible {
-    border-color: color-mix(in srgb, var(--signal-standing) 34%, rgb(var(--fg-rgb) / 0.16));
-    background: color-mix(in srgb, var(--signal-standing) 14%, rgb(var(--fg-rgb) / 0.045));
+    border-color: color-mix(
+      in srgb,
+      var(--signal-standing) 34%,
+      rgb(var(--fg-rgb) / 0.16)
+    );
+    background: color-mix(
+      in srgb,
+      var(--signal-standing) 14%,
+      rgb(var(--fg-rgb) / 0.045)
+    );
     color: var(--signal-standing);
     outline: none;
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--signal-standing) 18%, transparent);
+    box-shadow: 0 0 0 1px
+      color-mix(in srgb, var(--signal-standing) 18%, transparent);
   }
 
   .standing-discover-icon {
@@ -3991,208 +5707,40 @@
   .standing-view-menu {
     position: relative;
     flex-shrink: 0;
+    z-index: 2;
   }
 
-  .standing-view-trigger {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    max-width: 11.5rem;
-    min-height: 2rem;
-    height: 2rem;
-    padding: 0 0.7rem;
-    font: inherit;
-    font-size: 0.78rem;
-    cursor: pointer;
-    color: rgb(var(--fg-rgb) / 0.82);
+  .standing-view-menu:has(.standing-view-menu-panel) {
+    z-index: 4;
+  }
+
+  .standing-sheet-header,
+  .standing-sheet-toolbar-row,
+  .standing-list-toolbar {
+    overflow: visible;
+  }
+
+  .standing-view-menu-panel {
+    width: 15rem;
   }
 
   @media (max-width: 639px) {
-    .standing-view-trigger {
+    .standing-view-menu .os-floating-panel-trigger {
       max-width: 9rem;
     }
   }
 
-  .standing-view-trigger.is-open {
-    color: rgb(var(--fg-rgb) / 0.92);
-  }
-
-  .standing-view-trigger-label {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .standing-view-trigger-meta {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    flex-shrink: 0;
-  }
-
-  .standing-view-trigger-chevron {
-    width: 0.85rem;
-    height: 0.85rem;
-    opacity: 0.55;
-    transition: transform 160ms ease;
-  }
-
-  .standing-view-trigger-chevron.is-open {
-    transform: rotate(180deg);
-  }
-
-  .standing-view-count {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+  .os-floating-panel-count--loading.standing-row-shimmer {
+    width: 1.25rem;
     min-width: 1.25rem;
     height: 1.25rem;
-    padding: 0 0.3rem;
-    border-radius: 9999px;
-    border: 1px solid rgb(var(--fg-rgb) / 0.08);
-    background: rgb(var(--fg-rgb) / 0.04);
-    font-size: 0.68rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    line-height: 1;
-  }
-
-  .standing-view-count--standing {
-    color: var(--signal-standing);
-  }
-
-  .standing-view-count--solidarity {
-    color: var(--signal-solidarity);
-  }
-
-  .standing-view-count.is-zero {
-    opacity: 0.42;
-  }
-
-  .standing-view-trigger .standing-view-count {
-    box-sizing: border-box;
-    width: 2rem;
-    min-width: 2rem;
-    padding: 0;
-  }
-
-  .standing-view-count--loading {
-    display: inline-block;
-    width: 2rem;
-    min-width: 2rem;
-    height: 1.25rem;
-    padding: 0;
-    border-color: transparent;
-    background: transparent;
-    opacity: 1;
-  }
-
-  .standing-view-count--loading.standing-row-shimmer {
     border-radius: 9999px;
   }
 
-  .standing-view-menu-option .standing-view-count--loading {
-    width: 1.75rem;
-    min-width: 1.75rem;
-  }
-
-  .standing-view-menu-panel {
-    position: absolute;
-    top: calc(100% + 0.35rem);
-    left: 0;
-    z-index: 30;
-    width: min(15rem, calc(100vw - 2.5rem));
-    padding: 0;
-    overflow: hidden;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    border-radius: 0.85rem;
-    background: color-mix(in srgb, rgb(var(--bg-rgb)) 88%, transparent);
-    backdrop-filter: blur(16px);
-    box-shadow: 0 16px 40px -24px rgb(0 0 0 / 0.45);
-    transform-origin: top left;
-    animation: standing-view-menu-in 120ms ease-out;
-  }
-
-  @keyframes standing-view-menu-in {
-    from {
-      opacity: 0;
-      transform: translateY(-4px) scale(0.98);
-    }
-
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .standing-view-menu-panel {
-      animation: none;
-    }
-
-    .standing-view-trigger-chevron {
-      transition: none;
-    }
-  }
-
-  .standing-view-menu-header {
-    padding: 0.55rem 0.65rem 0.45rem;
-  }
-
-  .standing-view-menu-divider {
-    margin: 0;
-  }
-
-  .standing-view-menu-eyebrow {
-    margin: 0;
-    font-size: 0.62rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: rgb(var(--fg-rgb) / 0.42);
-  }
-
-  .standing-view-menu-active {
-    margin: 0.15rem 0 0;
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: rgb(var(--fg-rgb) / 0.9);
-  }
-
-  .standing-view-menu-options {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-    padding: 0.35rem;
-  }
-
-  .standing-view-menu-option {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.65rem;
-    padding: 0.55rem 0.65rem;
-    border-radius: 0.65rem;
-    color: rgb(var(--fg-rgb) / 0.78);
-    font-size: 0.78rem;
-    text-decoration: none;
-    transition:
-      background 160ms ease,
-      color 160ms ease;
-  }
-
-  .standing-view-menu-option:hover {
-    background: rgb(var(--fg-rgb) / 0.04);
-    color: rgb(var(--fg-rgb) / 0.92);
-  }
-
-  .standing-view-menu-option.is-selected {
-    background: color-mix(in srgb, var(--signal-standing) 10%, rgb(var(--fg-rgb) / 0.03));
-    color: rgb(var(--fg-rgb) / 0.92);
-  }
-
-  .standing-view-menu-option.is-solidarity.is-selected {
-    background: color-mix(in srgb, var(--signal-solidarity) 12%, rgb(var(--fg-rgb) / 0.03));
+  .os-floating-panel-item .os-floating-panel-count--loading {
+    width: 1.5rem;
+    min-width: 1.5rem;
+    height: 1.5rem;
   }
 
   .standing-panel {
@@ -4287,8 +5835,13 @@
     margin: 0;
     padding: 0.65rem 0.75rem;
     border-radius: 0.75rem;
-    border: 1px solid color-mix(in srgb, var(--signal-error, #ef4444) 24%, transparent);
-    background: color-mix(in srgb, var(--signal-error, #ef4444) 8%, transparent);
+    border: 1px solid
+      color-mix(in srgb, var(--signal-error, #ef4444) 24%, transparent);
+    background: color-mix(
+      in srgb,
+      var(--signal-error, #ef4444) 8%,
+      transparent
+    );
     font-size: 0.78rem;
     color: var(--signal-error, #ef4444);
   }
@@ -4486,8 +6039,16 @@
   }
 
   .standing-action:hover:not(:disabled) {
-    border-color: color-mix(in srgb, var(--signal-standing) 24%, rgb(var(--fg-rgb) / 0.1));
-    background: color-mix(in srgb, var(--signal-standing) 8%, rgb(var(--fg-rgb) / 0.03));
+    border-color: color-mix(
+      in srgb,
+      var(--signal-standing) 24%,
+      rgb(var(--fg-rgb) / 0.1)
+    );
+    background: color-mix(
+      in srgb,
+      var(--signal-standing) 8%,
+      rgb(var(--fg-rgb) / 0.03)
+    );
     color: rgb(var(--fg-rgb) / 0.92);
   }
 
@@ -4498,8 +6059,16 @@
   }
 
   .standing-action.is-standing:hover:not(:disabled) {
-    border-color: color-mix(in srgb, var(--signal-error, #ef4444) 28%, rgb(var(--fg-rgb) / 0.12));
-    background: color-mix(in srgb, var(--signal-error, #ef4444) 6%, transparent);
+    border-color: color-mix(
+      in srgb,
+      var(--signal-error, #ef4444) 28%,
+      rgb(var(--fg-rgb) / 0.12)
+    );
+    background: color-mix(
+      in srgb,
+      var(--signal-error, #ef4444) 6%,
+      transparent
+    );
     color: rgb(var(--fg-rgb) / 0.88);
   }
 
@@ -4579,7 +6148,8 @@
     opacity: 0;
   }
 
-  .standing-row-avatar.is-loading .standing-row-avatar-fallback.standing-row-shimmer {
+  .standing-row-avatar.is-loading
+    .standing-row-avatar-fallback.standing-row-shimmer {
     position: absolute;
     inset: 0;
     border-radius: 9999px;
@@ -4743,7 +6313,6 @@
     }
   }
 
-
   .launcher-root {
     position: fixed;
     inset: 0;
@@ -4751,10 +6320,8 @@
     display: flex;
     align-items: flex-end;
     justify-content: center;
-    padding:
-      env(safe-area-inset-top, 0px)
-      max(0px, env(safe-area-inset-right, 0px))
-      env(safe-area-inset-bottom, 0px)
+    padding: env(safe-area-inset-top, 0px)
+      max(0px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px)
       max(0px, env(safe-area-inset-left, 0px));
   }
 
@@ -4886,6 +6453,1785 @@
     color: rgb(var(--fg-rgb) / 0.96);
   }
 
+  /* ── Account drawer — OS glass sheet (not Portal dropdown) ─ */
+
+  .account-drawer-panel .glass-sheet-body {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .account-drawer-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0 max(1rem, env(safe-area-inset-right, 0px)) 0.65rem
+      max(1rem, env(safe-area-inset-left, 0px));
+  }
+
+  .account-drawer-subject-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.65rem;
+    min-width: 0;
+  }
+
+  .account-drawer-subject {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .account-drawer-subject-avatar {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 9999px;
+    overflow: hidden;
+    border: 1px solid rgb(var(--fg-rgb) / 0.1);
+    background: rgb(var(--fg-rgb) / 0.04);
+  }
+
+  .account-drawer-subject-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .account-drawer-subject-avatar-fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: rgb(var(--fg-rgb) / 0.88);
+    background: linear-gradient(
+      145deg,
+      rgb(var(--fg-rgb) / 0.08),
+      rgb(var(--fg-rgb) / 0.16)
+    );
+  }
+
+  .account-drawer-subject-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.05rem;
+    min-width: 0;
+  }
+
+  .account-drawer-subject-name {
+    font-size: 0.86rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    color: rgb(var(--fg-rgb) / 0.88);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .account-drawer-handle-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+
+  .account-drawer-handle {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.76rem;
+    letter-spacing: 0.04em;
+  }
+
+  .account-drawer-actions {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    gap: 0.1rem;
+    margin-left: auto;
+  }
+
+  .account-drawer-actions .glass-sheet-icon-action.is-danger {
+    color: rgb(248 113 113 / 0.88);
+  }
+
+  .account-drawer-actions .glass-sheet-icon-action.is-danger:hover,
+  .account-drawer-actions .glass-sheet-icon-action.is-danger:focus-visible {
+    color: rgb(248 113 113 / 1);
+  }
+
+  @media (min-width: 768px) {
+    .glass-sheet-panel .account-drawer-header {
+      padding-top: 0.75rem;
+    }
+  }
+
+  .account-card-body {
+    padding: 0 max(1rem, env(safe-area-inset-right, 0px))
+      calc(0.5rem + env(safe-area-inset-bottom, 0px))
+      max(1rem, env(safe-area-inset-left, 0px));
+  }
+
+  .account-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    padding: 0 0 0.15rem;
+  }
+
+  .account-card-session-chip {
+    align-self: flex-start;
+    border: 1px solid color-mix(in srgb, var(--protocol-amber) 42%, transparent);
+    border-radius: 9999px;
+    background: color-mix(in srgb, var(--protocol-amber) 10%, transparent);
+    color: color-mix(in srgb, var(--protocol-amber) 88%, rgb(var(--fg-rgb)));
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 500;
+    padding: 0.35rem 0.75rem;
+    cursor: pointer;
+  }
+
+  .account-card-session-chip:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
+
+  .account-card-wallet-zone {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    padding: 0.75rem 0.85rem;
+    border: 1px solid rgb(var(--fg-rgb) / 0.08);
+    border-radius: 1rem;
+    background: rgb(var(--fg-rgb) / 0.04);
+  }
+
+  .account-card-wallet-zone-head,
+  .account-card-earning-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .account-card-wallet-label {
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.42);
+  }
+
+  .account-card-earning-ready {
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--protocol-green);
+  }
+
+  .account-card-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding-top: 0.15rem;
+  }
+
+  .account-card-action {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0.45rem 0.55rem;
+    border: 1px solid rgb(var(--fg-rgb) / 0.07);
+    border-radius: 0.85rem;
+    background: rgb(var(--fg-rgb) / 0.025);
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    transition:
+      background 160ms ease,
+      border-color 160ms ease,
+      color 160ms ease;
+  }
+
+  .account-card-action:hover {
+    background: rgb(var(--fg-rgb) / 0.06);
+    border-color: rgb(var(--fg-rgb) / 0.14);
+  }
+
+  .account-card-action.is-danger {
+    margin-top: 0.15rem;
+    color: rgb(var(--fg-rgb) / 0.58);
+  }
+
+  .account-card-action.is-danger:hover {
+    border-color: color-mix(in srgb, var(--protocol-red) 45%, transparent);
+    background: color-mix(in srgb, var(--protocol-red) 10%, transparent);
+    color: var(--protocol-red);
+  }
+
+  .account-card-action-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 1.65rem;
+    height: 1.65rem;
+    border-radius: 0.5rem;
+    background: rgb(var(--fg-rgb) / 0.06);
+    color: rgb(var(--fg-rgb) / 0.62);
+  }
+
+  .account-card-action-glyph {
+    width: 0.9rem;
+    height: 0.9rem;
+  }
+
+  .account-card-action-copy {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.08rem;
+    min-width: 0;
+  }
+
+  .account-card-action-label {
+    font-size: 0.84rem;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+
+  .account-card-action-hint {
+    font-size: 0.68rem;
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
+  .account-card-action-chevron {
+    flex-shrink: 0;
+    width: 0.85rem;
+    height: 0.85rem;
+    color: rgb(var(--fg-rgb) / 0.28);
+  }
+
+  .account-card-copy {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.48);
+    cursor: pointer;
+    transition: color 160ms ease;
+  }
+
+  .account-card-copy:hover {
+    color: rgb(var(--fg-rgb) / 0.82);
+  }
+
+  .account-card-copy-icon {
+    width: 0.78rem;
+    height: 0.78rem;
+  }
+
+  .account-card-metrics {
+    display: contents;
+  }
+
+  .account-card-balance-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .account-card-balance-copy {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+
+  .account-card-balance-value {
+    font-size: 1.45rem;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    color: rgb(var(--fg-rgb) / 0.96);
+    font-variant-numeric: tabular-nums;
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  }
+
+  .account-card-balance-unit {
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.45);
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  }
+
+  .account-card-balance-skeleton {
+    display: block;
+    width: 5.5rem;
+    height: 1rem;
+    border-radius: 0.35rem;
+    background: rgb(var(--fg-rgb) / 0.08);
+    animation: account-card-pulse 1.2s ease-in-out infinite;
+  }
+
+  .account-card-claim-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 0.45rem;
+    min-height: 1.5rem;
+  }
+
+  .account-card-progress-track {
+    display: flex;
+    align-items: center;
+    min-height: 1rem;
+    overflow: hidden;
+    border-radius: 9999px;
+    background: rgb(var(--fg-rgb) / 0.08);
+  }
+
+  .account-card-progress-track.is-loading {
+    height: 0.25rem;
+    animation: account-card-pulse 1.2s ease-in-out infinite;
+  }
+
+  .account-card-progress-fill {
+    display: block;
+    height: 0.25rem;
+    border-radius: inherit;
+    background: rgb(var(--fg-rgb) / 0.28);
+    transition: width 300ms ease;
+  }
+
+  .account-card-progress-fill.is-ready {
+    background: var(--protocol-green);
+    box-shadow: 0 0 10px -2px rgb(62 207 142 / 0.45);
+  }
+
+  .account-card-ratio {
+    flex-shrink: 0;
+    font-size: 0.62rem;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: rgb(var(--fg-rgb) / 0.45);
+    font-variant-numeric: tabular-nums;
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  }
+
+  .account-card-ratio.is-ready {
+    color: var(--protocol-green);
+  }
+
+  .account-card-ratio.is-loading {
+    width: 2.5rem;
+    height: 0.65rem;
+    border-radius: 0.25rem;
+    background: rgb(var(--fg-rgb) / 0.08);
+    animation: account-card-pulse 1.2s ease-in-out infinite;
+  }
+
+  .account-card-claim {
+    flex-shrink: 0;
+    border: 1px solid rgb(var(--fg-rgb) / 0.12);
+    border-radius: 9999px;
+    background: rgb(var(--fg-rgb) / 0.04);
+    color: rgb(var(--fg-rgb) / 0.55);
+    font: inherit;
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 0.18rem 0.55rem;
+    cursor: pointer;
+    transition:
+      background 160ms ease,
+      color 160ms ease,
+      border-color 160ms ease;
+  }
+
+  .account-card-claim.is-ready {
+    border-color: color-mix(in srgb, var(--protocol-green) 45%, transparent);
+    background: color-mix(in srgb, var(--protocol-green) 14%, transparent);
+    color: var(--protocol-green);
+  }
+
+  .account-card-claim:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .account-card-hint {
+    margin: 0;
+    font-size: 0.68rem;
+    line-height: 1.35;
+    color: rgb(var(--fg-rgb) / 0.48);
+  }
+
+  /* ── Nested profile editor — stacks on account drawer ─ */
+
+  .account-editor-panel .glass-sheet-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .account-editor-panel .glass-sheet-drag {
+    position: absolute;
+    z-index: 4;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: 0.5rem 0 0.2rem;
+    background: transparent;
+    pointer-events: auto;
+  }
+
+  .account-editor-panel .glass-sheet-grip {
+    opacity: 0.72;
+  }
+
+  .account-editor-panel:has(.account-editor-cover-stage.has-media)
+    .glass-sheet-grip {
+    background: rgb(255 255 255 / 0.42);
+    opacity: 0.85;
+  }
+
+  .account-editor-body {
+    position: relative;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .account-editor-form {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    gap: 0;
+    padding-bottom: 0;
+  }
+
+  .account-editor-hero {
+    --account-editor-avatar-size: 5.5rem;
+    /* Card face — same hero band as live portfolio. */
+    --account-editor-hero-height: min(34svh, 17rem);
+    --account-editor-card-identity-lift: 2.25rem;
+    --account-editor-avatar-ring: var(
+      --portfolio-avatar-ring,
+      var(--mood-bg, var(--bg))
+    );
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    margin: 0;
+  }
+
+  .account-editor-loading-shell {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .account-editor-shimmer {
+    border-radius: 0.35rem;
+    background: linear-gradient(
+      90deg,
+      rgb(var(--fg-rgb) / 0.05) 0%,
+      rgb(var(--fg-rgb) / 0.1) 50%,
+      rgb(var(--fg-rgb) / 0.05) 100%
+    );
+    background-size: 200% 100%;
+    animation: standing-shimmer 1.2s ease-in-out infinite;
+  }
+
+  .account-editor-cover-stage .account-editor-banner-button.account-editor-shimmer {
+    border-radius: 0;
+    height: 100%;
+  }
+
+  .account-editor-avatar.account-editor-shimmer {
+    border: 0;
+  }
+
+  .account-editor-skeleton-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .account-editor-shimmer-name {
+    height: 1.35rem;
+    width: 58%;
+    border-radius: 0.4rem;
+  }
+
+  .account-editor-shimmer-handle {
+    height: 0.72rem;
+    width: 32%;
+  }
+
+  .account-editor-shimmer-bio {
+    height: 2.4rem;
+    width: 88%;
+    margin-top: 0.15rem;
+    border-radius: 0.45rem;
+  }
+
+  .account-editor-skeleton-body {
+    padding-bottom: 0.75rem;
+  }
+
+  .account-editor-shimmer-section-label {
+    height: 0.62rem;
+    width: 28%;
+    margin-bottom: 0.15rem;
+  }
+
+  .account-editor-shimmer-link {
+    height: 2.35rem;
+    width: 100%;
+    border-radius: 0.55rem;
+  }
+
+  .account-editor-skeleton-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .account-editor-shimmer-tag {
+    height: 1.65rem;
+    width: 4.25rem;
+    border-radius: 9999px;
+  }
+
+  .account-editor-shimmer-save {
+    height: 2.75rem;
+    width: 100%;
+    border-radius: 9999px;
+  }
+
+  .account-editor-footer--skeleton {
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .account-editor-footer--skeleton::before {
+    content: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .account-editor-shimmer {
+      animation: none;
+    }
+  }
+
+  .account-editor-form-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    padding: 0.2rem max(1rem, env(safe-area-inset-right, 0px)) 0.35rem
+      max(1rem, env(safe-area-inset-left, 0px));
+  }
+
+  .account-editor-subject {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .account-editor-subject .discover-sheet-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .account-editor-sheet-header {
+    gap: 0;
+  }
+
+  .account-editor-loading {
+    padding: 2rem max(1rem, env(safe-area-inset-right, 0px)) 2rem
+      max(1rem, env(safe-area-inset-left, 0px));
+    text-align: center;
+    font-size: 0.82rem;
+    color: rgb(var(--fg-rgb) / 0.55);
+  }
+
+  @media (min-width: 768px) {
+    .account-editor-hero {
+      --account-editor-avatar-size: 6.5rem;
+      --account-editor-hero-height: min(32svh, 18rem);
+    }
+  }
+
+  @media (max-height: 42rem) {
+    .account-editor-hero {
+      --account-editor-hero-height: min(30svh, 15rem);
+    }
+  }
+
+  .account-editor-cover-stage {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    margin-inline: 0;
+  }
+
+  .account-editor-banner-wrap {
+    position: relative;
+    flex-shrink: 0;
+    width: 100%;
+  }
+
+  /* Editor banner — clean preview; no mood wash or dissolve tint at the bottom. */
+  .account-editor-cover-stage.has-media .account-editor-banner-wrap::after {
+    content: none;
+  }
+
+  .account-editor-cover-stage.has-media
+    .account-editor-banner-button
+    .account-editor-banner-image {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  /* Hero dissolve + wash — live portfolio only; editor no-banner uses mood bloom. */
+  .account-editor-banner-wrap::after {
+    content: '';
+    position: absolute;
+    inset: auto 0 0;
+    z-index: 2;
+    height: calc(var(--account-editor-hero-height) * 0.22);
+    pointer-events: none;
+    background:
+      radial-gradient(
+        ellipse 76% 42% at 50% 100%,
+        color-mix(
+            in srgb,
+            var(--account-editor-avatar-ring, var(--mood-bg, var(--bg))) 16%,
+            transparent
+          )
+          0%,
+        transparent 72%
+      ),
+      linear-gradient(
+        to bottom,
+        transparent 0%,
+        color-mix(
+            in srgb,
+            var(--account-editor-avatar-ring, var(--mood-bg, var(--bg))) 18%,
+            transparent
+          )
+          35%,
+        color-mix(
+            in srgb,
+            var(--account-editor-avatar-ring, var(--mood-bg, var(--bg))) 52%,
+            transparent
+          )
+          68%,
+        var(--account-editor-avatar-ring, var(--mood-bg, var(--bg))) 100%
+      );
+  }
+
+  .account-editor-banner-button .account-editor-banner-image {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      #000 0%,
+      #000 68%,
+      rgb(0 0 0 / 0.96) 74%,
+      rgb(0 0 0 / 0.82) 80%,
+      rgb(0 0 0 / 0.58) 87%,
+      rgb(0 0 0 / 0.28) 94%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      #000 0%,
+      #000 68%,
+      rgb(0 0 0 / 0.96) 74%,
+      rgb(0 0 0 / 0.82) 80%,
+      rgb(0 0 0 / 0.58) 87%,
+      rgb(0 0 0 / 0.28) 94%,
+      transparent 100%
+    );
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+  }
+
+  .account-editor-banner-button {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 100%;
+    height: var(--account-editor-hero-height);
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    background: var(
+      --account-editor-avatar-ring,
+      var(--portfolio-avatar-ring, var(--mood-bg, var(--bg)))
+    );
+    flex-shrink: 0;
+  }
+
+  .account-editor-banner-backdrop {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .account-editor-avatar-backdrop {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    border-radius: inherit;
+  }
+
+  .account-editor-banner-button::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: linear-gradient(
+      180deg,
+      rgb(0 0 0 / 0.42) 0%,
+      rgb(0 0 0 / 0.12) 42%,
+      transparent 72%
+    );
+    opacity: 0;
+    transition: opacity 160ms ease;
+  }
+
+  .account-editor-cover-stage.has-media .account-editor-banner-button::before {
+    opacity: 1;
+  }
+
+  .account-editor-banner-empty {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      135deg,
+      rgb(var(--fg-rgb) / 0.08),
+      rgb(var(--fg-rgb) / 0.03)
+    );
+  }
+
+  /* No banner — mood bloom matches live Minimal (on-page edit only). */
+  .account-editor-panel--page-mood
+    .account-editor-cover-stage:not(.has-media)
+    .account-editor-banner-button {
+    background: transparent;
+  }
+
+  .account-editor-panel--page-mood
+    .account-editor-cover-stage:not(.has-media)
+    .account-editor-banner-wrap::after {
+    content: none;
+  }
+
+  .account-editor-panel--page-mood
+    .account-editor-cover-stage:not(.has-media)
+    .account-editor-banner-empty {
+    background:
+      radial-gradient(
+        ellipse 92% 68% at 50% -8%,
+        color-mix(in srgb, var(--mood-accent) 11%, transparent) 0%,
+        transparent 62%
+      ),
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--mood-accent) 7%, var(--mood-bg, var(--bg))) 0%,
+        color-mix(in srgb, var(--mood-accent) 3.5%, var(--mood-bg, var(--bg)))
+          32%,
+        color-mix(in srgb, var(--mood-accent) 1.2%, var(--mood-bg, var(--bg)))
+          68%,
+        var(--mood-bg, var(--bg)) 100%
+      );
+  }
+
+  .account-editor-panel--page-mood.account-editor-panel--glass
+    .account-editor-cover-stage:not(.has-media)
+    .account-editor-banner-empty {
+    background: var(--glass-card-glint, transparent);
+  }
+
+  .account-editor-panel--page-mood.account-editor-panel--carbon
+    .account-editor-cover-stage:not(.has-media)
+    .account-editor-banner-empty {
+    background: transparent;
+  }
+
+  .account-editor-hero-chrome {
+    position: absolute;
+    inset: 0 0 auto;
+    z-index: 3;
+    padding: 1.35rem max(0.65rem, env(safe-area-inset-right, 0px)) 0.15rem
+      max(0.65rem, env(safe-area-inset-left, 0px));
+    pointer-events: none;
+  }
+
+  .account-editor-chrome-row {
+    display: flex;
+    justify-content: flex-end;
+    pointer-events: auto;
+  }
+
+  .account-editor-loading-chrome {
+    flex-shrink: 0;
+    position: relative;
+    padding: 1.55rem max(0.65rem, env(safe-area-inset-right, 0px)) 0.35rem
+      max(0.65rem, env(safe-area-inset-left, 0px));
+  }
+
+  .account-editor-loading-chrome .account-editor-chrome-row {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .account-editor-avatar-wrap {
+    position: relative;
+    flex-shrink: 0;
+    pointer-events: auto;
+  }
+
+  .account-editor-cover-stage.has-media
+    .account-editor-hero-chrome
+    .glass-sheet-icon-action,
+  .account-editor-cover-stage.has-media
+    .account-editor-hero-chrome
+    .sheet-control {
+    background: transparent;
+    color: rgb(255 255 255 / 0.94);
+    filter: drop-shadow(0 1px 3px rgb(0 0 0 / 0.5));
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .account-editor-cover-stage.has-media
+    .account-editor-hero-chrome
+    .glass-sheet-icon-action:hover,
+  .account-editor-cover-stage.has-media
+    .account-editor-hero-chrome
+    .glass-sheet-icon-action:focus-visible,
+  .account-editor-cover-stage.has-media
+    .account-editor-hero-chrome
+    .sheet-control:hover,
+  .account-editor-cover-stage.has-media
+    .account-editor-hero-chrome
+    .sheet-control:focus-visible {
+    background: rgb(0 0 0 / 0.12);
+    color: rgb(255 255 255 / 1);
+  }
+
+  .account-editor-banner-image,
+  .account-editor-avatar-image {
+    position: relative;
+    z-index: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .account-editor-banner-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    transition:
+      background 200ms ease,
+      backdrop-filter 200ms ease,
+      -webkit-backdrop-filter 200ms ease;
+  }
+
+  .profile-editor-media-host:hover .account-editor-banner-overlay:not(.has-media),
+  .profile-editor-media-host:focus-within
+    .account-editor-banner-overlay:not(.has-media) {
+    background: rgb(var(--fg-rgb) / 0.1);
+  }
+
+  .profile-editor-media-host:hover .account-editor-banner-overlay.has-media,
+  .profile-editor-media-host:focus-within
+    .account-editor-banner-overlay.has-media {
+    background: rgb(0 0 0 / 0.4);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+  }
+
+  .account-editor-avatar-overlay {
+    border-radius: inherit;
+  }
+
+  .account-editor-hero-overlap {
+    position: relative;
+    z-index: 3;
+    margin-top: calc(
+      -1 *
+        (
+          var(--account-editor-avatar-size) / 2 +
+            var(--account-editor-card-identity-lift, 0rem)
+        )
+    );
+    padding-inline: max(1rem, env(safe-area-inset-left, 0px))
+      max(1rem, env(safe-area-inset-right, 0px));
+    pointer-events: none;
+  }
+
+  .account-editor-identity {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    text-align: center;
+    pointer-events: none;
+  }
+
+  .account-editor-avatar {
+    position: relative;
+    z-index: 4;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: var(--account-editor-avatar-size);
+    height: var(--account-editor-avatar-size);
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    overflow: visible;
+    background: linear-gradient(
+      135deg,
+      rgb(var(--fg-rgb) / 0.12),
+      rgb(var(--fg-rgb) / 0.05)
+    );
+    box-shadow: 0 0 0 3px
+      var(--account-editor-avatar-ring, var(--mood-bg, var(--bg)));
+    pointer-events: auto;
+  }
+
+  /* Card + banner — profile grey border (live portfolio Card). */
+  .account-editor-cover-stage.has-media .account-editor-avatar {
+    box-sizing: border-box;
+    border: 3px solid rgb(var(--fg-rgb) / 0.1);
+    box-shadow: none;
+  }
+
+  /* Minimal — accent glow when no banner (on-page edit). */
+  .account-editor-panel--page-mood
+    .account-editor-cover-stage:not(.has-media)
+    .account-editor-avatar {
+    border: none;
+    box-shadow:
+      0 0 6px 3px color-mix(in srgb, var(--mood-accent) 20%, transparent),
+      0 0 24px color-mix(in srgb, var(--mood-accent) 14%, transparent);
+  }
+
+  .account-editor-avatar-fallback {
+    font-size: calc(var(--account-editor-avatar-size) * 0.28);
+    font-weight: 600;
+    color: rgb(var(--fg-rgb) / 0.72);
+  }
+
+  .account-editor-identity-copy {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    width: 100%;
+    min-width: 0;
+    max-width: min(100%, 20rem);
+    pointer-events: auto;
+  }
+
+  .account-editor-name {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    text-align: center;
+    font-family: var(--font-space-grotesk), system-ui, sans-serif;
+    font-size: clamp(1.5rem, 6vw, 2rem);
+    font-weight: 600;
+    letter-spacing: -0.04em;
+    line-height: 1.12;
+    text-wrap: balance;
+    color: rgb(var(--fg-rgb) / 0.96);
+    outline: none;
+  }
+
+  .account-editor-panel--page-mood .account-editor-name {
+    font-family: var(
+      --mood-font-display,
+      var(--font-space-grotesk),
+      system-ui,
+      sans-serif
+    );
+    font-weight: var(--mood-display-weight, 600);
+    letter-spacing: var(--mood-display-tracking, -0.04em);
+    color: var(--mood-text, rgb(var(--fg-rgb) / 0.96));
+  }
+
+  .account-editor-panel--page-mood.account-editor-panel--signature
+    .account-editor-name {
+    font-size: clamp(1.75rem, 7vw, 2.35rem);
+    letter-spacing: 0.01em;
+  }
+
+  .account-editor-name::placeholder {
+    color: rgb(var(--fg-rgb) / 0.35);
+  }
+
+  .account-editor-handle {
+    margin: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-space-grotesk), system-ui, sans-serif;
+  }
+
+  .account-editor-handle-hint {
+    margin: -0.1rem 0 0;
+    max-width: min(100%, 20rem);
+    font-size: 0.62rem;
+    line-height: 1.35;
+    letter-spacing: 0.02em;
+    color: rgb(var(--fg-rgb) / 0.32);
+  }
+
+  .account-editor-bio {
+    width: 100%;
+    max-width: min(100%, 20rem);
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    resize: none;
+    overflow: hidden;
+    min-height: calc(0.875rem * 1.55 * 2);
+    text-align: center;
+    font-family: var(--font-space-grotesk), system-ui, sans-serif;
+    font-size: 0.875rem;
+    line-height: 1.55;
+    font-weight: 500;
+    letter-spacing: normal;
+    text-wrap: pretty;
+    color: rgb(var(--fg-rgb) / 0.55);
+    outline: none;
+  }
+
+  .account-editor-bio::placeholder {
+    color: rgb(var(--fg-rgb) / 0.32);
+  }
+
+  .account-editor-bio:focus {
+    color: rgb(var(--fg-rgb) / 0.72);
+  }
+
+  .account-editor-limits {
+    margin: 0.1rem 0 0;
+    font-size: 0.62rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+    color: rgb(var(--fg-rgb) / 0.32);
+  }
+
+  .account-editor-limits-sep {
+    margin: 0 0.25rem;
+  }
+
+  .account-editor-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .account-editor-label {
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.42);
+  }
+
+  .account-editor-counter {
+    align-self: flex-end;
+    font-size: 0.62rem;
+    color: rgb(var(--fg-rgb) / 0.38);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .account-editor-section-divider {
+    flex-shrink: 0;
+    margin: 0;
+  }
+
+  .account-editor-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    width: 100%;
+  }
+
+  .account-editor-section-meta {
+    margin: 0;
+    font-size: 0.62rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+    color: rgb(var(--fg-rgb) / 0.32);
+  }
+
+  .account-editor-section-meta-sep {
+    margin: 0 0.3rem;
+  }
+
+  .account-editor-tags-section .portfolio-tags {
+    margin: 0;
+    cursor: text;
+  }
+
+  .account-editor-tags-section .portfolio-tags.is-full {
+    cursor: default;
+  }
+
+  .account-editor-tag.portfolio-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.12rem;
+    padding: 0.18rem 0.28rem 0.18rem 0.42rem;
+  }
+
+  .account-editor-tag--draft {
+    border-style: dashed;
+    border-color: rgb(var(--fg-rgb) / 0.18);
+    background: transparent;
+    padding: 0.12rem 0.45rem;
+  }
+
+  .account-editor-tag-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.4);
+    cursor: pointer;
+    transition: color 160ms ease;
+  }
+
+  .account-editor-tag-remove:hover {
+    color: rgb(var(--fg-rgb) / 0.82);
+  }
+
+  .account-editor-tag-remove-icon {
+    width: 0.68rem;
+    height: 0.68rem;
+  }
+
+  .account-editor-tags-input {
+    width: auto;
+    min-width: 4.5rem;
+    max-width: 100%;
+    border: 0;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.78);
+    font: inherit;
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    padding: 0;
+    text-align: center;
+  }
+
+  .account-editor-tags-input:focus {
+    outline: none;
+  }
+
+  .account-editor-tags-input::placeholder {
+    color: rgb(var(--fg-rgb) / 0.35);
+  }
+
+  .account-editor-links-section {
+    align-items: stretch;
+    gap: 0.3rem;
+  }
+
+  .account-editor-links-scroll {
+    margin-bottom: 0.05rem;
+  }
+
+  .account-editor-links-preview {
+    margin: 0 auto;
+    gap: 0.5rem;
+    padding: 0.08rem 0.2rem;
+  }
+
+  .account-editor-link-chip {
+    cursor: pointer;
+  }
+
+  .account-editor-link-chip:hover {
+    color: rgb(var(--fg-rgb) / 0.92);
+    transform: scale(1.1);
+  }
+
+  .account-editor-links-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.45rem;
+    margin-top: 0.05rem;
+  }
+
+  .account-editor-links-add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed rgb(var(--fg-rgb) / 0.18);
+    border-radius: 9999px;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.58);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 500;
+    padding: 0.38rem 0.85rem;
+    cursor: pointer;
+    transition:
+      border-color 160ms ease,
+      color 160ms ease;
+  }
+
+  .account-editor-links-add:hover,
+  .account-editor-links-add.is-open {
+    border-color: rgb(var(--fg-rgb) / 0.28);
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.82);
+  }
+
+  .account-editor-links-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
+    max-width: min(100%, 20rem);
+    margin-inline: auto;
+    list-style: none;
+    padding: 0;
+  }
+
+  .account-editor-links-picker-option {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    width: 100%;
+    min-height: 2.35rem;
+    padding: 0.4rem 0.35rem 0.4rem 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.72);
+    font: inherit;
+    font-size: 0.72rem;
+    text-align: left;
+    cursor: pointer;
+    transition: color 160ms ease;
+  }
+
+  .account-editor-links-picker
+    li:not(:last-child)
+    .account-editor-links-picker-option::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background-image: var(--divider-h-detail);
+    pointer-events: none;
+  }
+
+  .account-editor-links-picker-option:hover {
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.94);
+  }
+
+  .account-editor-links-picker-icon {
+    flex-shrink: 0;
+    color: rgb(var(--fg-rgb) / 0.48);
+  }
+
+  .account-editor-links {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .account-editor-link-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
+    max-width: min(100%, 20rem);
+    margin-inline: auto;
+  }
+
+  .account-editor-link-field:first-child .account-editor-link-input::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background-image: var(--divider-h-detail);
+    pointer-events: none;
+  }
+
+  .account-editor-links-picker::before {
+    content: '';
+    display: block;
+    width: 100%;
+    height: 1px;
+    background-image: var(--divider-h-detail);
+  }
+
+  .account-editor-links-section .account-editor-link-grid {
+    width: 100%;
+  }
+
+  .account-editor-link-field {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .account-editor-link-field:not(:last-child) .account-editor-link-input::after,
+  .account-editor-link-field:last-child
+    .account-editor-link-input:focus-within::after,
+  .account-editor-link-field:last-child
+    .account-editor-link-input.is-invalid::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background-image: var(--divider-h-detail);
+    pointer-events: none;
+    transition: background-image 160ms ease;
+  }
+
+  .account-editor-link-input {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-height: 2.35rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    transition: color 160ms ease;
+  }
+
+  .account-editor-link-input:focus-within:not(.is-invalid)::after {
+    background-image: var(--divider-h-section);
+  }
+
+  .account-editor-link-input.is-invalid::after {
+    background-image: linear-gradient(
+      to right,
+      transparent,
+      color-mix(in srgb, var(--protocol-red) 58%, transparent),
+      transparent
+    );
+  }
+
+  .account-editor-link-inline-error {
+    flex-shrink: 0;
+    padding-right: 0.15rem;
+    font-size: 0.62rem;
+    line-height: 1;
+    letter-spacing: 0.01em;
+    color: var(--protocol-red);
+    white-space: nowrap;
+  }
+
+  .account-editor-link-cancel {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 1.65rem;
+    height: 1.65rem;
+    margin-right: 0.05rem;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.34);
+    cursor: pointer;
+    transition: color 160ms ease;
+  }
+
+  .account-editor-link-cancel:hover {
+    color: rgb(var(--fg-rgb) / 0.72);
+  }
+
+  .account-editor-link-cancel-icon {
+    width: 0.75rem;
+    height: 0.75rem;
+  }
+
+  .account-editor-link-icon-slot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    padding-left: 0.1rem;
+    color: rgb(var(--fg-rgb) / 0.48);
+  }
+
+  .account-editor-link-input:focus-within .account-editor-link-icon-slot {
+    color: rgb(var(--fg-rgb) / 0.62);
+  }
+
+  .account-editor-link-value {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.82);
+    font: inherit;
+    font-size: 0.82rem;
+    padding: 0.45rem 0.2rem 0.45rem 0;
+  }
+
+  .account-editor-link-value::placeholder {
+    color: rgb(var(--fg-rgb) / 0.32);
+  }
+
+  .account-editor-link-value:focus {
+    outline: none;
+    color: rgb(var(--fg-rgb) / 0.94);
+  }
+
+  .account-editor-form-main {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: clip;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    background: var(--mood-bg, var(--bg));
+  }
+
+  /* Page mood — sheet carries tint; form continues the Card hard cut. */
+  .account-editor-panel--page-mood.glass-sheet-panel[data-tone='os'] {
+    background: var(--mood-bg, var(--glass-surface-os, var(--glass-surface)));
+    border-color: color-mix(
+      in srgb,
+      var(--mood-accent, rgb(var(--fg-rgb))) 14%,
+      rgb(var(--fg-rgb) / 0.1)
+    );
+    color: var(--mood-text, rgb(var(--fg-rgb) / 0.96));
+  }
+
+  .account-editor-panel--page-mood .glass-sheet-body {
+    background: transparent;
+  }
+
+  .account-editor-panel--page-mood .account-editor-form-main {
+    background: transparent;
+  }
+
+  .account-editor-panel--page-mood .account-editor-handle {
+    font-size: 0.82rem;
+    color: color-mix(
+      in srgb,
+      var(--mood-muted, hsl(var(--muted-foreground))) 55%,
+      transparent
+    );
+  }
+
+  .account-editor-panel--page-mood .account-editor-bio {
+    margin-top: 0.35rem;
+    line-height: 1.5;
+    color: var(--mood-muted, rgb(var(--fg-rgb) / 0.55));
+  }
+
+  .account-editor-panel--page-mood.account-editor-panel--glass.glass-sheet-panel[data-tone='os'] {
+    background: var(--bg);
+  }
+
+  .account-editor-form.is-discard-confirm .account-editor-form-main {
+    pointer-events: none;
+  }
+
+  .account-editor-form.is-discard-confirm .account-editor-form-main::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background: linear-gradient(
+      to bottom,
+      rgb(var(--bg-rgb) / 0.38) 0%,
+      rgb(var(--bg-rgb) / 0.42) 55%,
+      rgb(var(--bg-rgb) / 0.28) 82%,
+      transparent 100%
+    );
+    backdrop-filter: blur(10px) saturate(0.95);
+    -webkit-backdrop-filter: blur(10px) saturate(0.95);
+    pointer-events: auto;
+    animation: account-editor-discard-dim-in 180ms ease both;
+  }
+
+  @keyframes account-editor-discard-dim-in {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .account-editor-form.is-discard-confirm .account-editor-form-main::after {
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      background: linear-gradient(
+        to bottom,
+        rgb(var(--bg-rgb) / 0.78) 0%,
+        rgb(var(--bg-rgb) / 0.72) 70%,
+        transparent 100%
+      );
+    }
+
+    .profile-editor-media-host:hover .account-editor-banner-overlay.has-media,
+    .profile-editor-media-host:focus-within
+      .account-editor-banner-overlay.has-media,
+    .profile-editor-media-host:hover .profile-editor-media-overlay.has-media,
+    .profile-editor-media-host:focus-within
+      .profile-editor-media-overlay.has-media {
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      background: rgb(0 0 0 / 0.52);
+    }
+  }
+
+  .account-editor-discard-title {
+    margin: 0;
+    font-size: 0.92rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    text-align: center;
+    color: rgb(var(--fg-rgb) / 0.9);
+  }
+
+  .account-editor-discard-copy {
+    margin: 0.25rem 0 0;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    text-align: center;
+    color: rgb(var(--fg-rgb) / 0.72);
+  }
+
+  .account-editor-discard-footer-copy {
+    padding: 0 0.15rem 0.1rem;
+  }
+
+  .account-editor-session-hint,
+  .account-editor-error {
+    margin: 0;
+    font-size: 0.72rem;
+    line-height: 1.4;
+  }
+
+  .account-editor-error-card {
+    margin: 0;
+    padding: 0.55rem 0.65rem;
+    border-radius: 0.65rem;
+    border: 1px solid color-mix(in srgb, var(--protocol-red) 35%, transparent);
+    background: color-mix(in srgb, var(--protocol-red) 8%, transparent);
+    color: var(--protocol-red);
+    font-size: 0.72rem;
+    line-height: 1.4;
+  }
+
+  .account-editor-tag-hint {
+    color: var(--protocol-red);
+  }
+
+  .account-editor-session-hint {
+    color: color-mix(in srgb, var(--protocol-amber) 82%, rgb(var(--fg-rgb)));
+  }
+
+  .account-editor-error {
+    color: var(--protocol-red);
+  }
+
+  .account-editor-footer {
+    position: relative;
+    flex-shrink: 0;
+    z-index: 3;
+    margin-top: 0;
+    padding: 0.5rem max(1rem, env(safe-area-inset-right, 0px))
+      calc(0.25rem + env(safe-area-inset-bottom, 0px))
+      max(1rem, env(safe-area-inset-left, 0px));
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
+  }
+
+  .account-editor-footer::before {
+    content: none;
+  }
+
+  .account-editor-footer > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .account-editor-footer.is-discard-confirm {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    background: transparent;
+  }
+
+  .account-editor-discard-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    padding: 0.85rem 1rem;
+  }
+
+  .account-editor-footer::after {
+    content: none;
+  }
+
+  .account-editor-file-input {
+    display: none;
+  }
+
+  @keyframes account-card-pulse {
+    0%,
+    100% {
+      opacity: 0.45;
+    }
+    50% {
+      opacity: 0.85;
+    }
+  }
+
+  .app-reward-toast {
+    position: fixed;
+    z-index: 70;
+    left: 50%;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    width: min(calc(100% - 2rem), 20rem);
+    padding: 0.75rem 1rem;
+    border: 1px solid rgb(var(--fg-rgb) / 0.12);
+    border-radius: 1rem;
+    background: var(--surface-solid);
+    box-shadow: 0 16px 48px rgb(0 0 0 / 0.35);
+    pointer-events: auto;
+  }
+
+  .app-reward-toast.is-pending {
+    border-color: var(--protocol-blue-border);
+  }
+
+  .app-reward-toast.is-success {
+    border-color: color-mix(in srgb, var(--protocol-green) 45%, transparent);
+  }
+
+  .app-reward-toast.is-error {
+    border-color: color-mix(in srgb, var(--protocol-red) 45%, transparent);
+  }
+
+  .app-reward-toast-message {
+    margin: 0;
+    font-size: 0.82rem;
+    font-weight: 500;
+    text-align: center;
+    color: rgb(var(--fg-rgb) / 0.92);
+  }
+
+  .app-reward-toast-link {
+    font-size: 0.72rem;
+    color: rgb(var(--fg-rgb) / 0.55);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .account-card-copy,
+    .account-card-claim,
+    .account-card-action,
+    .account-card-progress-fill {
+      transition: none;
+    }
+
+    .account-card-balance-skeleton,
+    .account-card-progress-track.is-loading,
+    .account-card-ratio.is-loading {
+      animation: none;
+    }
+
+    .account-editor-form.is-discard-confirm .account-editor-form-main::after {
+      animation: none;
+    }
+  }
+
   /* ── App shell chrome (contextual back + account) ──────── */
 
   .app-shell-chrome {
@@ -4896,10 +8242,8 @@
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    padding:
-      calc(env(safe-area-inset-top, 0px) + 0.75rem)
-      max(1rem, env(safe-area-inset-right, 0px))
-      0.75rem
+    padding: calc(env(safe-area-inset-top, 0px) + 0.75rem)
+      max(1rem, env(safe-area-inset-right, 0px)) 0.75rem
       max(1rem, env(safe-area-inset-left, 0px));
   }
 

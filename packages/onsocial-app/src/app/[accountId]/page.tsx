@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { resolvePortfolioMood } from '@/lib/moods/resolve';
 import { displayName } from '@/lib/profile-display';
 import { fetchPublicPageData, resolvePageAvatarMode } from '@/lib/page-data';
+import { readPageHeroSourceExplicit } from '@/lib/page-face';
 import { resolveAccountId, resolveAccountPage } from '@/lib/resolve-account';
 import { loadProfileShell } from '@/lib/profile-shell';
 import { fetchProfileSignals } from '@/lib/profile-signals';
@@ -61,6 +62,7 @@ export default async function AccountPage({
   const mood = resolvePortfolioMood(data.config);
   const search = await searchParams;
   const committedAvatarMode = resolvePageAvatarMode(data.config, null);
+  const committedHeroSource = readPageHeroSourceExplicit(data.config);
   const avatarMode = resolvePageAvatarMode(
     data.config,
     search?.avatarMode ?? search?.avatar ?? null
@@ -89,6 +91,7 @@ export default async function AccountPage({
       avatarMedia={shell?.avatarMedia ?? null}
       bannerMedia={shell?.bannerMedia ?? null}
       committedAvatarMode={committedAvatarMode}
+      committedHeroSource={committedHeroSource}
       initialAvatarMode={avatarMode}
       config={data.config}
       stats={data.stats}
@@ -96,7 +99,6 @@ export default async function AccountPage({
     >
       <PortfolioIdentity
         accountId={accountId}
-        pageConfig={data.config}
         profileName={shell?.name}
         bio={shell?.bio}
         tagline={tagline}

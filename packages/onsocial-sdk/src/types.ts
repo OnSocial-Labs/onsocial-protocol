@@ -740,6 +740,8 @@ export interface PageTheme {
   background?: string;
   text?: string;
   accent?: string;
+  /** Per-mood ink hue (0–359) — preserved when switching moods. */
+  moodTints?: Record<string, number>;
 }
 
 /** Active mood broadcast stored in `page/main.mood`. */

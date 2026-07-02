@@ -10,6 +10,7 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePageContentDrawer } from '@/contexts/page-content-drawer-context';
 import { accountIdsEqual } from '@/lib/account-match';
 import { SummonLauncher } from '@/components/os/summon-launcher';
+import { OsDockPill } from '@/components/wallet/os-dock-pill';
 import {
   ownerPortfolioOsApps,
   visitorPortfolioOsApps,
@@ -141,19 +142,24 @@ export function PortfolioPageDock({ pageAccountId }: PortfolioPageDockProps) {
             Swipe up · hold for apps
           </p>
         ) : null}
-        <button
-          type="button"
-          className="portfolio-summon"
-          aria-haspopup="dialog"
-          aria-label="Swipe up for page content. Hold for apps."
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={finishPointer}
-          onPointerCancel={finishPointer}
-          onContextMenu={(event) => event.preventDefault()}
-        >
-          <span className="portfolio-summon-grip" aria-hidden />
-        </button>
+        <OsDockPill
+          pageAccountId={pageAccountId}
+          grip={
+            <button
+              type="button"
+              className="portfolio-summon-grip-zone is-interactive is-gesture-host"
+              aria-haspopup="dialog"
+              aria-label="Swipe up for page content. Hold for apps."
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={finishPointer}
+              onPointerCancel={finishPointer}
+              onContextMenu={(event) => event.preventDefault()}
+            >
+              <span className="portfolio-summon-grip" aria-hidden />
+            </button>
+          }
+        />
       </div>
 
       <SummonLauncher

@@ -2,6 +2,9 @@
 @import '@onsocial/ui/protocol.css';
 @import '@onsocial/ui/dividers.css';
 @import '@onsocial/ui/pulsing-dots.css';
+@import '@onsocial/ui/os-sheet-action.css';
+@import '@onsocial/ui/profile-editor-media.css';
+@import '@onsocial/ui/glass-sheet.css';
 
 @source "../../../onsocial-ui/src/**/*.{js,ts,jsx,tsx}";
 
@@ -181,6 +184,11 @@
     --input: var(--portal-muted-h) var(--portal-border-s) var(--portal-border-l);
     --ring: 0 0% 9%;
     --radius: 0.5rem;
+    /* OsSheetAction host tokens (space-separated RGB). */
+    --fg-rgb: 23 23 23;
+    --bg-rgb: 255 255 255;
+    --glass-surface: rgb(var(--bg-rgb) / 0.22);
+    --glass-surface-os: var(--glass-surface);
     color-scheme: light;
   }
 
@@ -224,6 +232,10 @@
       var(--portal-border-l);
     --input: var(--portal-muted-h) var(--portal-border-s) var(--portal-border-l);
     --ring: 0 0% 100%;
+    --fg-rgb: 242 242 242;
+    --bg-rgb: 0 0 0;
+    --glass-surface: rgb(var(--bg-rgb) / 0.28);
+    --glass-surface-os: var(--glass-surface);
     color-scheme: dark;
   }
 }

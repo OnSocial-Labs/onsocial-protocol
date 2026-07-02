@@ -1,5 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { resolvePageFace, resolvePageHeroSource } from './page-face';
+import {
+  readPageHeroSourceExplicit,
+  resolvePageFace,
+  resolvePageHeroSource,
+} from './page-face';
+
+describe('readPageHeroSourceExplicit', () => {
+  it('defaults to banner when heroSource is not set', () => {
+    expect(readPageHeroSourceExplicit({})).toBe('banner');
+    expect(readPageHeroSourceExplicit({ face: {} })).toBe('banner');
+  });
+
+  it('returns explicit heroSource when set', () => {
+    expect(
+      readPageHeroSourceExplicit({ face: { heroSource: 'none' } })
+    ).toBe('none');
+  });
+});
 
 describe('resolvePageHeroSource', () => {
   it('defaults to banner for standard layout', () => {
@@ -48,14 +65,18 @@ describe('resolvePageFace', () => {
     });
   });
 
-  it('can force banner hero in cover layout', () => {
+  it('uses avatar media in cover layout even when heroSource is banner', () => {
     expect(
       resolvePageFace({
         config: { face: { heroSource: 'banner' } },
         avatarMode: 'cover',
         avatarMedia: { kind: 'image', url: 'https://cdn.example/avatar.jpg' },
         bannerMedia: { kind: 'video', url: 'https://cdn.example/reel.mp4' },
-      }).hero
-    ).toEqual({ kind: 'video', url: 'https://cdn.example/reel.mp4' });
+      })
+    ).toEqual({
+      hero: { kind: 'image', url: 'https://cdn.example/avatar.jpg' },
+      heroSource: 'avatar',
+      isCoverLayout: true,
+    });
   });
 });

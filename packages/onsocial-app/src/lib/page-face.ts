@@ -5,16 +5,37 @@ import type {
   ResolvedPageHero,
 } from '@/lib/page-data';
 
-export function resolvePageHeroSource(
-  config: PublicPageConfig,
-  avatarMode: PageAvatarMode
+/** Stored hero source on page config (defaults to banner). */
+export function readPageHeroSourceExplicit(
+  config: PublicPageConfig
 ): PageHeroSource {
   const explicit = config.face?.heroSource;
   if (explicit === 'banner' || explicit === 'avatar' || explicit === 'none') {
     return explicit;
   }
 
-  return avatarMode === 'cover' ? 'avatar' : 'banner';
+  return 'banner';
+}
+
+export function resolvePageHeroSource(
+  config: PublicPageConfig,
+  avatarMode: PageAvatarMode
+): PageHeroSource {
+  const explicit = config.face?.heroSource;
+  if (explicit === 'none') {
+    return 'none';
+  }
+
+  /* Cover always uses profile avatar for the hero square — no split circle/banner. */
+  if (avatarMode === 'cover') {
+    return 'avatar';
+  }
+
+  if (explicit === 'banner' || explicit === 'avatar') {
+    return explicit;
+  }
+
+  return 'banner';
 }
 
 export function resolvePageFace(input: {

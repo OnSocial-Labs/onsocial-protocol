@@ -54,12 +54,26 @@ export function resolveSheetCoverProgress(
   return clamp01(offsetPx / panelHeightPx);
 }
 
+/** Resting peek offset — 0 when content is shorter than the peek viewport window. */
+export function resolveSheetPeekOffsetPx(
+  panelHeightPx: number,
+  peekRatio: number,
+  viewportHeightPx: number
+): number {
+  if (panelHeightPx <= 0 || viewportHeightPx <= 0) {
+    return 0;
+  }
+
+  return Math.max(0, panelHeightPx - viewportHeightPx * peekRatio);
+}
+
 export function resolveSheetOffsetPx(
   dragPx: number | null,
   detent: GlassSheetDetent,
   panelHeightPx: number,
   peekRatio: number,
-  isDesktop: boolean
+  isDesktop: boolean,
+  viewportHeightPx = typeof window !== 'undefined' ? window.innerHeight : 0
 ): number {
   if (isDesktop || panelHeightPx <= 0) {
     return 0;
@@ -70,7 +84,7 @@ export function resolveSheetOffsetPx(
   if (detent === 'full') {
     return 0;
   }
-  return Math.max(0, panelHeightPx - window.innerHeight * peekRatio);
+  return resolveSheetPeekOffsetPx(panelHeightPx, peekRatio, viewportHeightPx);
 }
 
 export function resolveBackdropPresentation(
@@ -264,7 +278,8 @@ function useSheetGesture(
   onClose: () => void,
   peekRatio: number,
   initialDetent: GlassSheetDetent,
-  panelRef: React.RefObject<HTMLDivElement | null>
+  panelRef: React.RefObject<HTMLDivElement | null>,
+  panelHeightPx: number
 ) {
   const dragState = useRef<{
     startY: number;
@@ -326,7 +341,8 @@ function useSheetGesture(
   );
 
   const peekPxFor = useCallback(
-    (panelH: number) => Math.max(0, panelH - window.innerHeight * peekRatio),
+    (panelH: number) =>
+      resolveSheetPeekOffsetPx(panelH, peekRatio, window.innerHeight),
     [peekRatio]
   );
 
@@ -380,6 +396,11 @@ function useSheetGesture(
     }
 
     setDragPx(null);
+    if (peekPx <= 0) {
+      setDetent('full');
+      return;
+    }
+
     setDetent(current < peekPx / 2 ? 'full' : 'peek');
   }, [dragPx, onClose, peekPxFor]);
 
@@ -397,8 +418,11 @@ function useSheetGesture(
     if (isDesktopSheet() || detent === 'full') {
       return '0px';
     }
+    if (panelHeightPx > 0 && typeof window !== 'undefined') {
+      return `${resolveSheetPeekOffsetPx(panelHeightPx, peekRatio, window.innerHeight)}px`;
+    }
     return `calc(100% - ${Math.round(peekRatio * 100)}dvh)`;
-  }, [detent, dragPx, isDesktopSheet, peekRatio]);
+  }, [detent, dragPx, isDesktopSheet, panelHeightPx, peekRatio]);
 
   return {
     detent,
@@ -544,7 +568,8 @@ export function GlassSheet({
     onClose,
     peekRatio,
     initialDetent,
-    panelRef
+    panelRef,
+    panelHeightPx
   );
 
   useLayoutEffect(() => {

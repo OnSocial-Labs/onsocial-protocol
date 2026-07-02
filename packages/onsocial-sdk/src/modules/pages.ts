@@ -23,6 +23,7 @@ import {
   PAGE_MOOD_CATALOG,
   type PageMoodId,
 } from './pages/moods.js';
+import { mergePageMoodTintIntoPageConfig } from './pages/mood-hue.js';
 import {
   assertCanApplyPageMood,
   mergePageMoodUnlockIntoPageConfig,
@@ -153,7 +154,27 @@ export class PagesModule {
    */
   async setTheme(theme: PageTheme): Promise<RelayResponse> {
     const current = await this.getConfig();
-    return this.setConfig({ ...current, theme });
+    return this.setConfig({
+      ...current,
+      theme: { ...current.theme, ...theme },
+    });
+  }
+
+  /**
+   * Persist a per-mood ink hue on `page/main.theme.moodTints`.
+   * Survives mood switches — applied when that mood is active again.
+   */
+  async setMoodTint(
+    moodId: PageMoodId,
+    hue: number,
+    opts?: {
+      accountId?: string;
+      wait?: boolean;
+    }
+  ): Promise<RelayResponse> {
+    const current = await this.getConfig(opts?.accountId);
+    const next = mergePageMoodTintIntoPageConfig(current, moodId, hue);
+    return this.setConfig(next, { wait: opts?.wait });
   }
 
   /**

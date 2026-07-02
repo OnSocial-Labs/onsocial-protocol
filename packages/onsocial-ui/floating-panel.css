@@ -1,0 +1,474 @@
+/**
+ * @onsocial/ui — Portal-style floating panels (dropdowns, pickers).
+ *
+ * Colors match Portal floatingPanelClass + profile-list-filter-rail exactly.
+ * Host apps may use different --background/--fg-rgb; this module carries its
+ * own Portal palette so panels look identical on OnPage glass and Portal chrome.
+ *
+ * Pair with dividers.css for header separator (border-fade-section).
+ */
+
+@layer tokens {
+  :root:not(.dark):not([data-theme='dark']),
+  [data-theme='light'] {
+    --os-fp-bg: hsl(0 0% 100% / 0.98);
+    --os-fp-border: hsl(218 8% 91% / 0.67);
+    --os-fp-fg: hsl(0 0% 9%);
+    --os-fp-fg-soft: hsl(0 0% 9% / 0.88);
+    --os-fp-muted: hsl(218 5% 43%);
+    --os-fp-muted-70: hsl(218 5% 43% / 0.7);
+    --os-fp-muted-90: hsl(218 5% 43% / 0.9);
+    --os-fp-neutral-bg: rgb(100 116 139 / 0.06);
+    --os-fp-neutral-frame-bg: rgb(100 116 139 / 0.08);
+    --os-fp-trigger-bg: hsl(0 0% 100% / 0.65);
+    --os-fp-trigger-bg-hover: hsl(0 0% 100% / 0.8);
+    --os-fp-trigger-bg-open: hsl(0 0% 100% / 0.88);
+    --os-fp-trigger-border: hsl(218 8% 91% / 0.4);
+    --os-fp-search-bg: hsl(0 0% 100% / 0.45);
+    --os-fp-search-bg-focus: hsl(0 0% 100% / 0.6);
+    --os-fp-search-border-focus: hsl(218 8% 91%);
+    --os-fp-count-border: hsl(218 8% 91% / 0.35);
+    --os-fp-count-border-strong: hsl(218 8% 91% / 0.45);
+    --os-fp-count-bg: hsl(0 0% 100% / 0.55);
+    --os-fp-count-bg-hover: hsl(0 0% 100% / 0.6);
+    --os-fp-count-bg-selected: hsl(0 0% 100% / 0.7);
+    --os-fp-count-fg: hsl(218 5% 43% / 0.9);
+    --os-fp-count-fg-strong: hsl(0 0% 9% / 0.8);
+    --os-fp-shadow:
+      0 12px 24px -10px rgb(15 23 42 / 0.14),
+      0 28px 64px -18px rgb(15 23 42 / 0.22);
+    --os-fp-trigger-shadow: 0 10px 30px -18px rgb(15 23 42 / 0.34);
+    --os-fp-trigger-shadow-open: 0 12px 32px -18px rgb(15 23 42 / 0.38);
+  }
+
+  .dark,
+  [data-theme='dark'] {
+    --os-fp-bg: hsl(0 0% 0% / 0.98);
+    --os-fp-border: hsl(218 6% 16% / 0.67);
+    --os-fp-fg: hsl(0 0% 95%);
+    --os-fp-fg-soft: hsl(0 0% 95% / 0.88);
+    --os-fp-muted: hsl(218 6% 65%);
+    --os-fp-muted-70: hsl(218 6% 65% / 0.7);
+    --os-fp-muted-90: hsl(218 6% 65% / 0.9);
+    --os-fp-neutral-bg: rgb(148 163 184 / 0.06);
+    --os-fp-neutral-frame-bg: rgb(148 163 184 / 0.08);
+    --os-fp-trigger-bg: hsl(0 0% 0% / 0.65);
+    --os-fp-trigger-bg-hover: hsl(0 0% 0% / 0.8);
+    --os-fp-trigger-bg-open: hsl(0 0% 0% / 0.88);
+    --os-fp-trigger-border: hsl(218 6% 16% / 0.4);
+    --os-fp-search-bg: hsl(0 0% 0% / 0.45);
+    --os-fp-search-bg-focus: hsl(0 0% 0% / 0.6);
+    --os-fp-search-border-focus: hsl(218 6% 16%);
+    --os-fp-count-border: hsl(218 6% 16% / 0.35);
+    --os-fp-count-border-strong: hsl(218 6% 16% / 0.45);
+    --os-fp-count-bg: hsl(0 0% 0% / 0.55);
+    --os-fp-count-bg-hover: hsl(0 0% 0% / 0.6);
+    --os-fp-count-bg-selected: hsl(0 0% 0% / 0.7);
+    --os-fp-count-fg: hsl(218 6% 65% / 0.9);
+    --os-fp-count-fg-strong: hsl(0 0% 95% / 0.8);
+    --os-fp-shadow: 0 21px 51px -25px rgb(15 23 42 / 0.525);
+    --os-fp-trigger-shadow: 0 10px 30px -18px rgb(15 23 42 / 0.34);
+    --os-fp-trigger-shadow-open: 0 12px 32px -18px rgb(15 23 42 / 0.38);
+  }
+
+  /* OnPage default — dark until data-theme or system light (see below). */
+  :root:not([data-theme='light']) {
+    --os-fp-bg: hsl(0 0% 0% / 0.98);
+    --os-fp-border: hsl(218 6% 16% / 0.67);
+    --os-fp-fg: hsl(0 0% 95%);
+    --os-fp-fg-soft: hsl(0 0% 95% / 0.88);
+    --os-fp-muted: hsl(218 6% 65%);
+    --os-fp-muted-70: hsl(218 6% 65% / 0.7);
+    --os-fp-muted-90: hsl(218 6% 65% / 0.9);
+    --os-fp-neutral-bg: rgb(148 163 184 / 0.06);
+    --os-fp-neutral-frame-bg: rgb(148 163 184 / 0.08);
+    --os-fp-trigger-bg: hsl(0 0% 0% / 0.65);
+    --os-fp-trigger-bg-hover: hsl(0 0% 0% / 0.8);
+    --os-fp-trigger-bg-open: hsl(0 0% 0% / 0.88);
+    --os-fp-trigger-border: hsl(218 6% 16% / 0.4);
+    --os-fp-search-bg: hsl(0 0% 0% / 0.45);
+    --os-fp-search-bg-focus: hsl(0 0% 0% / 0.6);
+    --os-fp-search-border-focus: hsl(218 6% 16%);
+    --os-fp-count-border: hsl(218 6% 16% / 0.35);
+    --os-fp-count-border-strong: hsl(218 6% 16% / 0.45);
+    --os-fp-count-bg: hsl(0 0% 0% / 0.55);
+    --os-fp-count-bg-hover: hsl(0 0% 0% / 0.6);
+    --os-fp-count-bg-selected: hsl(0 0% 0% / 0.7);
+    --os-fp-count-fg: hsl(218 6% 65% / 0.9);
+    --os-fp-count-fg-strong: hsl(0 0% 95% / 0.8);
+    --os-fp-shadow: 0 21px 51px -25px rgb(15 23 42 / 0.525);
+    --os-fp-trigger-shadow: 0 10px 30px -18px rgb(15 23 42 / 0.34);
+    --os-fp-trigger-shadow-open: 0 12px 32px -18px rgb(15 23 42 / 0.38);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme]) {
+      --os-fp-bg: hsl(0 0% 100% / 0.98);
+      --os-fp-border: hsl(218 8% 91% / 0.67);
+      --os-fp-fg: hsl(0 0% 9%);
+      --os-fp-fg-soft: hsl(0 0% 9% / 0.88);
+      --os-fp-muted: hsl(218 5% 43%);
+      --os-fp-muted-70: hsl(218 5% 43% / 0.7);
+      --os-fp-muted-90: hsl(218 5% 43% / 0.9);
+      --os-fp-neutral-bg: rgb(100 116 139 / 0.06);
+      --os-fp-neutral-frame-bg: rgb(100 116 139 / 0.08);
+      --os-fp-trigger-bg: hsl(0 0% 100% / 0.65);
+      --os-fp-trigger-bg-hover: hsl(0 0% 100% / 0.8);
+      --os-fp-trigger-bg-open: hsl(0 0% 100% / 0.88);
+      --os-fp-trigger-border: hsl(218 8% 91% / 0.4);
+      --os-fp-search-bg: hsl(0 0% 100% / 0.45);
+      --os-fp-search-bg-focus: hsl(0 0% 100% / 0.6);
+      --os-fp-search-border-focus: hsl(218 8% 91%);
+      --os-fp-count-border: hsl(218 8% 91% / 0.35);
+      --os-fp-count-border-strong: hsl(218 8% 91% / 0.45);
+      --os-fp-count-bg: hsl(0 0% 100% / 0.55);
+      --os-fp-count-bg-hover: hsl(0 0% 100% / 0.6);
+      --os-fp-count-bg-selected: hsl(0 0% 100% / 0.7);
+      --os-fp-count-fg: hsl(218 5% 43% / 0.9);
+      --os-fp-count-fg-strong: hsl(0 0% 9% / 0.8);
+      --os-fp-shadow:
+        0 12px 24px -10px rgb(15 23 42 / 0.14),
+        0 28px 64px -18px rgb(15 23 42 / 0.22);
+      --os-fp-trigger-shadow: 0 10px 30px -18px rgb(15 23 42 / 0.34);
+      --os-fp-trigger-shadow-open: 0 12px 32px -18px rgb(15 23 42 / 0.38);
+    }
+  }
+}
+
+.os-floating-panel {
+  overflow: hidden;
+  border: 0;
+  border-radius: 0.75rem;
+  background: var(--os-fp-bg);
+  box-shadow: var(--os-fp-shadow);
+  color: var(--os-fp-fg);
+}
+
+@media (min-width: 768px) {
+  .os-floating-panel {
+    border-radius: 1rem;
+  }
+}
+
+.os-floating-panel-menu {
+  position: absolute;
+  top: 100%;
+  z-index: 40;
+  max-width: calc(100vw - 2rem);
+  transform-origin: top left;
+  animation: os-floating-panel-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.os-floating-panel-menu--align-left {
+  left: 0;
+}
+
+.os-floating-panel-menu--align-right {
+  right: 0;
+}
+
+.os-floating-panel-menu--align-center {
+  left: 50%;
+  transform: translateX(-50%);
+  transform-origin: top center;
+  animation-name: os-floating-panel-in-center;
+}
+
+.os-floating-panel-menu--offset-sm {
+  margin-top: 0.25rem;
+}
+
+.os-floating-panel-menu--offset-md {
+  margin-top: 0.5rem;
+}
+
+@keyframes os-floating-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes os-floating-panel-in-center {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .os-floating-panel-menu {
+    animation: none;
+  }
+}
+
+.os-floating-panel-header {
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid transparent;
+  border-image: var(--divider-h-section) 1;
+}
+
+.os-floating-panel-header-label {
+  margin: 0 0 0.125rem;
+  font-size: 0.75rem;
+  line-height: 1.3;
+  color: var(--os-fp-muted-70);
+  white-space: nowrap;
+}
+
+.os-floating-panel-header-active {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--os-fp-fg);
+  white-space: nowrap;
+}
+
+.os-floating-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.375rem;
+}
+
+.os-floating-panel-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.375rem 0.625rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--os-fp-muted);
+  font: inherit;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
+}
+
+@media (min-width: 768px) {
+  .os-floating-panel-item {
+    gap: 0.75rem;
+    padding: 0.625rem 0.75rem;
+    border-radius: 0.75rem;
+    font-size: 0.875rem;
+  }
+}
+
+.os-floating-panel-item:hover,
+.os-floating-panel-item:focus-visible {
+  background: var(--os-fp-neutral-bg);
+  color: var(--os-fp-fg);
+  outline: none;
+}
+
+.os-floating-panel-item.is-selected {
+  background: var(--os-fp-neutral-frame-bg);
+  color: var(--os-fp-fg);
+  font-weight: 500;
+}
+
+.os-floating-panel-trigger {
+  display: inline-flex;
+  max-width: 11.5rem;
+  height: 2rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--os-fp-trigger-border);
+  border-radius: 9999px;
+  background: var(--os-fp-trigger-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: var(--os-fp-trigger-shadow);
+  color: var(--os-fp-muted);
+  font: inherit;
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background 300ms ease,
+    border-color 300ms ease,
+    box-shadow 300ms ease,
+    color 300ms ease;
+}
+
+.os-floating-panel-trigger:hover {
+  background: var(--os-fp-trigger-bg-hover);
+  color: var(--os-fp-fg);
+}
+
+.os-floating-panel-trigger.is-open {
+  background: var(--os-fp-trigger-bg-open);
+  box-shadow: var(--os-fp-trigger-shadow-open);
+  color: var(--os-fp-fg);
+}
+
+.os-floating-panel-trigger-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--os-fp-fg-soft);
+}
+
+.os-floating-panel-trigger-meta {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.os-floating-panel-trigger-chevron {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex-shrink: 0;
+  transition: transform 160ms ease;
+}
+
+.os-floating-panel-trigger-chevron.is-open {
+  transform: rotate(180deg);
+}
+
+.os-floating-panel-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  height: 2rem;
+  padding: 0 0.625rem;
+  border: 1px solid var(--os-fp-trigger-border);
+  border-radius: 9999px;
+  background: var(--os-fp-search-bg);
+  color: var(--os-fp-muted);
+  cursor: text;
+  transition:
+    background 300ms ease,
+    border-color 300ms ease,
+    color 300ms ease;
+}
+
+.os-floating-panel-search:focus-within {
+  border-color: var(--os-fp-search-border-focus);
+  background: var(--os-fp-search-bg-focus);
+  color: var(--os-fp-fg);
+  outline: none;
+}
+
+.os-floating-panel-search .search-field-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  opacity: 1;
+  color: inherit;
+}
+
+.os-floating-panel-search .search-field-input {
+  color: var(--os-fp-fg);
+  font-size: 0.8125rem;
+}
+
+.os-floating-panel-search .search-field-input::placeholder {
+  color: var(--os-fp-muted-90);
+}
+
+.os-floating-panel-search .search-field-clear {
+  color: var(--os-fp-muted);
+}
+
+.os-floating-panel-search .search-field-clear:hover,
+.os-floating-panel-search .search-field-clear:focus-visible {
+  color: var(--os-fp-fg);
+}
+
+.os-floating-panel-count {
+  display: inline-flex;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.25rem;
+  border: 1px solid var(--os-fp-count-border);
+  border-radius: 9999px;
+  background: var(--os-fp-count-bg);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--os-fp-count-fg);
+}
+
+.os-floating-panel-trigger .os-floating-panel-count {
+  box-sizing: border-box;
+  width: 1.25rem;
+  min-width: 1.25rem;
+  padding: 0;
+}
+
+.os-floating-panel-item .os-floating-panel-count {
+  width: 1.5rem;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.os-floating-panel-item:hover .os-floating-panel-count {
+  border-color: var(--os-fp-count-border-strong);
+  background: var(--os-fp-count-bg-hover);
+  color: var(--os-fp-count-fg-strong);
+}
+
+.os-floating-panel-item.is-selected .os-floating-panel-count {
+  border-color: var(--os-fp-count-border-strong);
+  background: var(--os-fp-count-bg-selected);
+  color: var(--os-fp-count-fg-strong);
+}
+
+.os-floating-panel-count--standing {
+  color: var(--portal-blue, var(--protocol-blue));
+}
+
+.os-floating-panel-count--solidarity {
+  color: var(--portal-purple, var(--protocol-purple));
+}
+
+.os-floating-panel-count.is-zero {
+  opacity: 0.42;
+}
+
+.os-floating-panel-count--loading {
+  display: inline-block;
+  border-color: transparent;
+  background: transparent;
+  opacity: 1;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .os-floating-panel-trigger {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--os-fp-trigger-bg-open);
+  }
+}

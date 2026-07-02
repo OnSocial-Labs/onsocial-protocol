@@ -7,6 +7,7 @@ import { accountIdsEqual } from '@/lib/account-match';
 import { useOsAppNavigate } from '@/hooks/use-os-app-navigate';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { ThemeToggle } from '@/components/os/theme-toggle';
+import { OsDockPill } from '@/components/wallet/os-dock-pill';
 import { portfolioPath } from '@/lib/overlay-routes';
 import {
   appShellOsApps,
@@ -75,16 +76,21 @@ export function SummonLauncher({
     <>
       {!hideTrigger ? (
         <div className="portfolio-summon-dock">
-          <button
-            type="button"
-            className="portfolio-summon"
-            onClick={() => setOpen(true)}
-            aria-haspopup="dialog"
-            aria-expanded={open}
-            aria-label="Open launcher"
-          >
-            <span className="portfolio-summon-grip" aria-hidden />
-          </button>
+          <OsDockPill
+            pageAccountId={pageAccountId}
+            grip={
+              <button
+                type="button"
+                className="portfolio-summon-grip-zone is-interactive"
+                onClick={() => setOpen(true)}
+                aria-haspopup="dialog"
+                aria-expanded={open}
+                aria-label="Open launcher"
+              >
+                <span className="portfolio-summon-grip" aria-hidden />
+              </button>
+            }
+          />
         </div>
       ) : null}
 

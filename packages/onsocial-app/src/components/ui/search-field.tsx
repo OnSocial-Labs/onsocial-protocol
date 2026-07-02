@@ -10,6 +10,8 @@ interface SearchFieldProps {
   maxLength?: number;
   clearAriaLabel?: string;
   ariaLabel?: string;
+  /** `sheet` — flat glass control; `floating-panel` — Portal filter-rail pill. */
+  chrome?: 'sheet' | 'floating-panel';
   className?: string;
 }
 
@@ -20,6 +22,7 @@ export function SearchField({
   maxLength = 80,
   clearAriaLabel = 'Clear search',
   ariaLabel,
+  chrome = 'sheet',
   className = '',
 }: SearchFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -29,9 +32,12 @@ export function SearchField({
     inputRef.current?.focus();
   }, [onValueChange]);
 
+  const chromeClass =
+    chrome === 'floating-panel' ? 'os-floating-panel-search' : 'sheet-control';
+
   return (
     <label
-      className={`search-field sheet-control${className ? ` ${className}` : ''}`}
+      className={`search-field ${chromeClass}${className ? ` ${className}` : ''}`}
     >
       <SearchIcon className="search-field-icon" aria-hidden />
       <input

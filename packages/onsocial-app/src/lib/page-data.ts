@@ -17,6 +17,7 @@ export interface PublicPageTheme {
   background?: string;
   text?: string;
   accent?: string;
+  moodTints?: Record<string, number>;
 }
 
 export type PageAvatarMode = 'standard' | 'cover';

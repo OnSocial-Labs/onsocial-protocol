@@ -3,9 +3,12 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { Camera, Check } from 'lucide-react';
 import type { MaterialisedProfile } from '@onsocial/sdk';
-import { Button } from '@/components/ui/button';
+import {
+  OsSheetAction,
+  OsSheetActions,
+  ProfileEditorMediaToolbar,
+} from '@onsocial/ui';
 import { portalElevatedShadowClass } from '@/components/ui/floating-panel';
 import { ModalCloseButton } from '@/components/ui/modal-close-button';
 import { ProfileLinkFieldIcon } from '@/components/profile-link-icons';
@@ -76,29 +79,6 @@ function getInitialBio(profile: MaterialisedProfile | null): string {
   return profile?.bio ?? '';
 }
 
-function profileMediaEmptyFillClass(roundedClass?: string): string {
-  return cn('absolute inset-0 bg-muted/45 dark:bg-muted/25', roundedClass);
-}
-
-function profileMediaOverlayClass(
-  hasMedia: boolean,
-  roundedClass?: string
-): string {
-  return cn(
-    'absolute inset-0 flex items-center justify-center transition-all duration-200',
-    roundedClass,
-    hasMedia
-      ? 'bg-black/22 text-white/50 group-hover:bg-black/40 group-hover:text-white/90 group-hover:backdrop-blur-[2px]'
-      : cn(
-          'text-muted-foreground/45',
-          // Light: darker rest → lighter hover, dark camera (mirror of dark mode).
-          'group-hover:bg-white/45 group-hover:text-foreground/75',
-          // Dark: lighter rest → darker hover, white camera.
-          'dark:group-hover:bg-black/22 dark:group-hover:text-white/90'
-        )
-  );
-}
-
 export function ProfileEditor({
   open,
   accountId,
@@ -122,14 +102,18 @@ export function ProfileEditor({
   );
   const [avatar, setAvatar] = useState<File | null>(null);
   const [banner, setBanner] = useState<File | null>(null);
+  const [avatarRemoved, setAvatarRemoved] = useState(false);
+  const [bannerRemoved, setBannerRemoved] = useState(false);
   const [actionToast, setActionToast] = useState<TransactionFeedback | null>(
     null
   );
   const [saved, setSaved] = useState(false);
   const previewUrl = useObjectUrl(avatar);
   const bannerPreviewUrl = useObjectUrl(banner);
-  const displayAvatarUrl = previewUrl ?? avatarUrl;
-  const displayBannerUrl = bannerPreviewUrl ?? bannerUrl;
+  const displayAvatarUrl = avatarRemoved ? null : (previewUrl ?? avatarUrl);
+  const displayBannerUrl = bannerRemoved
+    ? null
+    : (bannerPreviewUrl ?? bannerUrl);
   const submitLabel = profile ? 'Save profile' : 'Create profile';
   const nameReady = name.trim().length > 0;
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -149,6 +133,45 @@ export function ProfileEditor({
   }, [isSaving, onOpenChange, open]);
 
   const characterCount = bio.trim().length;
+  const initialLinks = useMemo(
+    () => profileLinksInputFromRecord(profile?.links),
+    [profile?.links]
+  );
+  const isDirty = useMemo(() => {
+    if (avatar || banner) {
+      return true;
+    }
+    if (avatarRemoved && avatarUrl) {
+      return true;
+    }
+    if (bannerRemoved && bannerUrl) {
+      return true;
+    }
+    if (name.trim() !== getInitialName(profile).trim()) {
+      return true;
+    }
+    if (bio.trim() !== getInitialBio(profile).trim()) {
+      return true;
+    }
+    for (const field of PROFILE_LINK_EDITOR_FIELDS) {
+      if (links[field.key].trim() !== initialLinks[field.key].trim()) {
+        return true;
+      }
+    }
+    return false;
+  }, [
+    avatar,
+    avatarRemoved,
+    avatarUrl,
+    banner,
+    bannerRemoved,
+    bannerUrl,
+    bio,
+    initialLinks,
+    links,
+    name,
+    profile,
+  ]);
   const hasCurrentLinks = Boolean(
     profile?.links && Object.keys(profile.links).length > 0
   );
@@ -177,8 +200,8 @@ export function ProfileEditor({
       await onSave({
         name,
         bio,
-        avatar,
-        banner,
+        avatar: avatarRemoved ? null : (avatar ?? undefined),
+        banner: bannerRemoved ? null : (banner ?? undefined),
         ...(shouldSaveLinks ? { links: normalizedLinks } : {}),
       });
       setSaved(true);
@@ -189,6 +212,28 @@ export function ProfileEditor({
         setActionToast({ type: 'error', msg })
       );
     }
+  };
+
+  const openBannerPicker = () => {
+    bannerInputRef.current?.click();
+  };
+
+  const handleRemoveAvatar = () => {
+    setAvatar(null);
+    setAvatarRemoved(true);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    markDirty();
+  };
+
+  const handleRemoveBanner = () => {
+    setBanner(null);
+    setBannerRemoved(true);
+    if (bannerInputRef.current) {
+      bannerInputRef.current.value = '';
+    }
+    markDirty();
   };
 
   if (typeof document === 'undefined') return null;
@@ -242,45 +287,52 @@ export function ProfileEditor({
                   className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
                 >
                   <section className="pb-2">
-                    <div className="relative pb-3">
-                      <button
-                        type="button"
-                        onClick={() => bannerInputRef.current?.click()}
-                        className="group relative flex aspect-[5/1] w-full cursor-pointer items-center justify-center overflow-hidden bg-background text-muted-foreground"
-                        aria-label="Choose profile banner"
+                    <div className="profile-editor-media-banner-dock">
+                      <div
+                        className={`profile-editor-media-host profile-editor-media-host--banner aspect-[5/1] w-full${displayBannerUrl ? ' has-media' : ''}`}
                       >
-                        {!displayBannerUrl ? (
-                          <span
-                            aria-hidden
-                            className={profileMediaEmptyFillClass()}
-                          />
-                        ) : null}
-                        {displayBannerUrl ? (
-                          <img
-                            src={displayBannerUrl}
-                            alt=""
-                            className="relative h-full w-full object-cover"
-                          />
-                        ) : null}
-                        <span
-                          className={profileMediaOverlayClass(
-                            Boolean(displayBannerUrl)
-                          )}
+                        <button
+                          type="button"
+                          onClick={openBannerPicker}
+                          className="profile-editor-media-backdrop relative flex h-full w-full cursor-pointer items-center justify-center overflow-hidden bg-background text-muted-foreground"
+                          aria-label="Choose profile banner"
                         >
-                          <Camera
-                            className="h-6 w-6 transition-transform duration-200 group-hover:scale-110"
-                            strokeWidth={2.5}
+                          {!displayBannerUrl ? (
+                            <span
+                              aria-hidden
+                              className="profile-editor-media-empty-fill"
+                            />
+                          ) : null}
+                          {displayBannerUrl ? (
+                            <img
+                              src={displayBannerUrl}
+                              alt=""
+                              className="relative h-full w-full object-cover"
+                            />
+                          ) : null}
+                          <span
+                            className={`profile-editor-media-overlay${displayBannerUrl ? ' has-media' : ''}`}
+                            aria-hidden
                           />
-                        </span>
-                      </button>
-                      <p className="pointer-events-none absolute inset-x-4 bottom-0 text-right portal-type-micro tabular-nums leading-none text-muted-foreground/45 md:inset-x-5">
+                        </button>
+                        <ProfileEditorMediaToolbar
+                          layout="banner"
+                          removeLabel={
+                            displayBannerUrl ? 'Remove banner' : undefined
+                          }
+                          onRemove={
+                            displayBannerUrl ? handleRemoveBanner : undefined
+                          }
+                        />
+                      </div>
+                      <p className="profile-editor-media-size-hint profile-editor-media-size-hint--dock">
                         1500&times;300
                       </p>
                     </div>
 
                     <div
                       className={cn(
-                        'relative z-10 space-y-3 pb-2',
+                        'relative z-10 space-y-3 pb-2 pointer-events-none',
                         profileIdentityLayoutClass,
                         profileIdentityOverlapClass,
                         'px-4 md:px-5'
@@ -288,52 +340,73 @@ export function ProfileEditor({
                     >
                       <div className="space-y-2 pr-8">
                         <div className="flex items-start gap-3.5">
-                          <div className={profileIdentityAvatarDockClass}>
-                            <button
-                              type="button"
-                              onClick={() => fileInputRef.current?.click()}
+                          <div
+                            className={cn(
+                              profileIdentityAvatarDockClass,
+                              'pointer-events-auto'
+                            )}
+                          >
+                            <div
                               className={cn(
-                                'group relative flex cursor-pointer items-center justify-center overflow-hidden rounded-2xl !border-[3px] !border-background bg-background text-muted-foreground shadow-lg',
-                                profileIdentityAvatarSizeClass
+                                'profile-editor-media-host profile-editor-media-host--avatar profile-editor-media-host--squircle',
+                                profileIdentityAvatarSizeClass,
+                                displayAvatarUrl && 'has-media'
                               )}
-                              aria-label="Choose avatar"
                             >
-                              {!displayAvatarUrl ? (
-                                <span
-                                  aria-hidden
-                                  className={profileMediaEmptyFillClass(
-                                    'rounded-[13px]'
-                                  )}
-                                />
-                              ) : null}
-                              {displayAvatarUrl ? (
-                                <img
-                                  src={displayAvatarUrl}
-                                  alt=""
-                                  className="relative h-full w-full object-cover"
-                                />
-                              ) : null}
-                              <span
+                              <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
                                 className={cn(
-                                  profileMediaOverlayClass(
-                                    Boolean(displayAvatarUrl),
-                                    'rounded-[13px]'
-                                  )
+                                  'profile-editor-media-backdrop relative flex cursor-pointer items-center justify-center overflow-hidden rounded-2xl !border-[3px] !border-background bg-background text-muted-foreground shadow-lg',
+                                  profileIdentityAvatarSizeClass
                                 )}
+                                aria-label="Choose avatar"
                               >
-                                <Camera
-                                  className="h-6 w-6 transition-transform duration-200 group-hover:scale-110"
-                                  strokeWidth={2.5}
+                                {!displayAvatarUrl ? (
+                                  <span
+                                    aria-hidden
+                                    className="profile-editor-media-empty-fill rounded-[13px]"
+                                  />
+                                ) : null}
+                                {displayAvatarUrl ? (
+                                  <img
+                                    src={displayAvatarUrl}
+                                    alt=""
+                                    className="relative h-full w-full object-cover"
+                                  />
+                                ) : null}
+                                <span
+                                  className={cn(
+                                    'profile-editor-media-overlay rounded-[13px]',
+                                    displayAvatarUrl && 'has-media'
+                                  )}
+                                  aria-hidden
                                 />
-                              </span>
-                            </button>
+                              </button>
+                              <ProfileEditorMediaToolbar
+                                layout="avatar"
+                                removeLabel={
+                                  displayAvatarUrl ? 'Remove avatar' : undefined
+                                }
+                                onRemove={
+                                  displayAvatarUrl
+                                    ? handleRemoveAvatar
+                                    : undefined
+                                }
+                              />
+                            </div>
                             <span className="portal-type-micro tabular-nums leading-none text-muted-foreground/45">
                               512&times;512
                             </span>
                           </div>
                         </div>
 
-                        <div className={profileIdentityTextClass}>
+                        <div
+                          className={cn(
+                            profileIdentityTextClass,
+                            'pointer-events-auto'
+                          )}
+                        >
                           <label htmlFor="profile-name" className="sr-only">
                             Display name
                           </label>
@@ -358,7 +431,7 @@ export function ProfileEditor({
                         </div>
                       </div>
 
-                      <div>
+                      <div className="pointer-events-auto">
                         <label htmlFor="profile-bio" className="sr-only">
                           Bio
                         </label>
@@ -386,6 +459,7 @@ export function ProfileEditor({
                       className="hidden"
                       onChange={(event) => {
                         setAvatar(event.target.files?.[0] ?? null);
+                        setAvatarRemoved(false);
                         markDirty();
                         event.target.value = '';
                       }}
@@ -397,6 +471,7 @@ export function ProfileEditor({
                       className="hidden"
                       onChange={(event) => {
                         setBanner(event.target.files?.[0] ?? null);
+                        setBannerRemoved(false);
                         markDirty();
                         event.target.value = '';
                       }}
@@ -456,46 +531,44 @@ export function ProfileEditor({
                   </div>
                 </div>
 
-                <div className="flex shrink-0 items-center justify-between gap-3 border-t border-fade-section px-4 py-4 md:px-5">
+                <OsSheetActions
+                  layout="stack"
+                  className="shrink-0 border-t border-fade-section px-4 py-4 md:px-5"
+                >
                   {!profile ? (
                     <p className="portal-type-label leading-snug text-muted-foreground/60">
                       Saving your profile earns SOCIAL rewards.
                     </p>
-                  ) : (
-                    <span aria-hidden />
-                  )}
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={isSaving}
-                      onClick={() => onOpenChange(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="submit"
-                      variant="default"
-                      size="sm"
-                      disabled={!nameReady || isSaving}
-                      loading={isAuthorizingSession || isSaving}
-                      className={cn(
-                        'min-w-[116px]',
-                        saved && 'pointer-events-none'
-                      )}
-                    >
-                      {saved ? (
-                        <>
-                          <Check className="h-4 w-4" />
-                          Saved
-                        </>
-                      ) : (
-                        submitLabel
-                      )}
-                    </Button>
-                  </div>
-                </div>
+                  ) : null}
+                  <OsSheetAction
+                    type="submit"
+                    variant="primary"
+                    ready={isDirty && !saved && hasSocialSession}
+                    succeeded={saved}
+                    succeededLabel="Saved"
+                    pending={isAuthorizingSession || isSaving}
+                    pendingLabel={
+                      isAuthorizingSession ? 'Authorizing…' : 'Saving…'
+                    }
+                    disabled={
+                      saved ||
+                      !nameReady ||
+                      isSaving ||
+                      isAuthorizingSession ||
+                      (hasSocialSession && !isDirty)
+                    }
+                  >
+                    {!hasSocialSession ? 'Resume session to save' : submitLabel}
+                  </OsSheetAction>
+                  <OsSheetAction
+                    type="button"
+                    variant="ghost"
+                    disabled={isSaving || isAuthorizingSession}
+                    onClick={() => onOpenChange(false)}
+                  >
+                    Cancel
+                  </OsSheetAction>
+                </OsSheetActions>
               </motion.form>
             </motion.div>
           ) : null}

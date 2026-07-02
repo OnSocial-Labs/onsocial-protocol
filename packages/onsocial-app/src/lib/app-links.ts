@@ -27,3 +27,7 @@ export function portalHref(path: string): string {
 export function appPageHref(accountId: string): string {
   return `${PUBLIC_APP_ORIGIN}/@${encodeURIComponent(accountId)}`;
 }
+
+export function portalProfileHref(accountId: string): string {
+  return portalHref(`/u/${encodeURIComponent(accountId)}`);
+}

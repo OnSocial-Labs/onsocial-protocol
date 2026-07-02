@@ -46,14 +46,7 @@ export function PortfolioShell({
     >
       <div className="portfolio-page">
         {isGlassFinish ? (
-          <>
-            <div className="portfolio-glass-ambient" aria-hidden="true" />
-            <div className="portfolio-glass-sheet" aria-hidden="true" />
-          </>
-        ) : null}
-
-        {hero && isCoverLayout ? (
-          <PortfolioHeroTop hero={hero} layout="cover" />
+          <div className="portfolio-glass-sheet" aria-hidden="true" />
         ) : null}
 
         <div
@@ -64,6 +57,9 @@ export function PortfolioShell({
           }
           aria-hidden="true"
         >
+          {hero && isCoverLayout ? (
+            <PortfolioHeroTop hero={hero} layout="cover" />
+          ) : null}
           {hero && !isCoverLayout ? (
             <PortfolioHeroTop hero={hero} layout="banner" />
           ) : null}

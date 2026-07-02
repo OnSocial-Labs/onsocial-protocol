@@ -1,0 +1,309 @@
+/**
+ * Profile editor media — shared hover toolbar, backdrop, and overlay scrim.
+ * Import in app / portal globals: @import '@onsocial/ui/profile-editor-media.css';
+ *
+ * Interaction: full tile backdrop opens the picker; trash is the only overlay control.
+ */
+
+.profile-editor-media-host {
+  position: relative;
+}
+
+.profile-editor-media-host--avatar {
+  overflow: visible;
+}
+
+.profile-editor-media-host--avatar.profile-editor-media-host--squircle {
+  border-radius: 1rem;
+}
+
+.profile-editor-media-host--avatar .profile-editor-media-backdrop {
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.profile-editor-media-backdrop {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: inherit;
+}
+
+.profile-editor-media-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  transition:
+    background 200ms ease,
+    backdrop-filter 200ms ease,
+    -webkit-backdrop-filter 200ms ease;
+}
+
+.profile-editor-media-host:hover .profile-editor-media-overlay:not(.has-media),
+.profile-editor-media-host:focus-within
+  .profile-editor-media-overlay:not(.has-media) {
+  background: rgb(var(--fg-rgb) / 0.1);
+}
+
+.profile-editor-media-host:hover .profile-editor-media-overlay.has-media,
+.profile-editor-media-host:focus-within
+  .profile-editor-media-overlay.has-media {
+  background: rgb(0 0 0 / 0.4);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.profile-editor-media-toolbar {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.profile-editor-media-camera {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  color: rgb(var(--fg-rgb) / 0.72);
+}
+
+.profile-editor-media-toolbar-glyph--banner {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.profile-editor-media-toolbar-glyph--avatar {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.profile-editor-media-host.has-media .profile-editor-media-camera {
+  color: rgb(255 255 255 / 0.94);
+  filter: drop-shadow(0 1px 3px rgb(0 0 0 / 0.5));
+}
+
+.profile-editor-media-remove-btn {
+  position: absolute;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: rgb(0 0 0 / 0.42);
+  color: rgb(255 255 255 / 0.92);
+  cursor: pointer;
+  pointer-events: auto;
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    opacity 160ms ease;
+}
+
+.profile-editor-media-remove-btn:hover,
+.profile-editor-media-remove-btn:focus-visible {
+  background: rgb(0 0 0 / 0.58);
+  color: rgb(255 255 255 / 1);
+  outline: none;
+}
+
+.profile-editor-media-remove-glyph {
+  display: block;
+  width: 0.8125rem;
+  height: 0.8125rem;
+}
+
+.profile-editor-media-toolbar--banner .profile-editor-media-remove-btn {
+  right: 0.45rem;
+  bottom: 0.45rem;
+  top: auto;
+}
+
+.profile-editor-media-toolbar--avatar .profile-editor-media-remove-btn {
+  right: 0.3rem;
+  bottom: 0.3rem;
+}
+
+.profile-editor-media-host:not(.has-media) .profile-editor-media-remove-btn {
+  color: rgb(var(--fg-rgb) / 0.72);
+  background: rgb(var(--fg-rgb) / 0.12);
+}
+
+@media (hover: hover) {
+  .profile-editor-media-host.has-media .profile-editor-media-toolbar {
+    opacity: 0;
+  }
+
+  .profile-editor-media-host:not(.has-media) .profile-editor-media-toolbar {
+    opacity: 0.55;
+  }
+
+  .profile-editor-media-host:hover .profile-editor-media-toolbar,
+  .profile-editor-media-host:focus-within .profile-editor-media-toolbar {
+    opacity: 1;
+  }
+
+  .profile-editor-media-host:hover .profile-editor-media-remove-btn,
+  .profile-editor-media-host:focus-within .profile-editor-media-remove-btn {
+    pointer-events: auto;
+  }
+
+  .profile-editor-media-host.has-media:not(:hover):not(:focus-within)
+    .profile-editor-media-remove-btn {
+    pointer-events: none;
+  }
+}
+
+@media (hover: none) {
+  .profile-editor-media-host .profile-editor-media-toolbar {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-editor-media-toolbar,
+  .profile-editor-media-remove-btn {
+    transition: none;
+  }
+}
+
+.profile-editor-media-size-hint {
+  margin: 0;
+  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  color: rgb(var(--fg-rgb) / 0.45);
+}
+
+.profile-editor-media-banner-dock {
+  position: relative;
+  padding-bottom: 0.75rem;
+}
+
+.profile-editor-media-size-hint--dock {
+  position: absolute;
+  right: max(1rem, env(safe-area-inset-right, 0px));
+  bottom: 0;
+  left: max(1rem, env(safe-area-inset-left, 0px));
+  text-align: right;
+  pointer-events: none;
+}
+
+@media (min-width: 768px) {
+  .profile-editor-media-size-hint--dock {
+    right: 1.25rem;
+    left: 1.25rem;
+  }
+}
+
+.profile-editor-media-empty-fill {
+  position: absolute;
+  inset: 0;
+  background: rgb(var(--fg-rgb) / 0.06);
+}
+
+.dark .profile-editor-media-empty-fill,
+[data-theme='dark'] .profile-editor-media-empty-fill {
+  background: rgb(var(--fg-rgb) / 0.04);
+}
+
+/* Compact tiles — customize sheet previews. */
+.profile-editor-media-host--compact-banner {
+  aspect-ratio: 5 / 1;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(var(--fg-rgb) / 0.1);
+}
+
+.profile-editor-media-host--compact-banner .profile-editor-media-backdrop {
+  overflow: hidden;
+}
+
+.profile-editor-media-host--compact-avatar {
+  width: 4.5rem;
+  height: 4.5rem;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.profile-editor-media-host--compact-avatar.profile-editor-media-host--circle {
+  border-radius: 9999px;
+}
+
+.profile-editor-media-host--compact-avatar.profile-editor-media-host--squircle {
+  border-radius: 1rem;
+}
+
+.profile-editor-media-host--compact-avatar .profile-editor-media-backdrop {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.profile-editor-media-host--compact-avatar .profile-editor-media-overlay {
+  border-radius: inherit;
+}
+
+.profile-editor-media-compact-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  margin-top: 0.75rem;
+}
+
+.profile-editor-media-compact-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding-top: 0.35rem;
+}
+
+.profile-editor-media-compact-label {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: rgb(var(--fg-rgb) / 0.88);
+}
+
+.profile-editor-media-compact-hint {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: rgb(var(--fg-rgb) / 0.55);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .profile-editor-media-host:hover .profile-editor-media-overlay.has-media,
+  .profile-editor-media-host:focus-within
+    .profile-editor-media-overlay.has-media {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgb(0 0 0 / 0.52);
+  }
+}

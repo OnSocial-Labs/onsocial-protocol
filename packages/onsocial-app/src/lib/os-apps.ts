@@ -18,6 +18,21 @@ export interface OsAppLink {
   soon?: boolean;
 }
 
+const OS_EXTERNAL_LINKS: OsAppLink[] = [
+  {
+    id: 'boost',
+    label: 'Boost',
+    kind: 'external',
+    href: portalHref('/boost'),
+  },
+  {
+    id: 'protocol',
+    label: 'Protocol',
+    kind: 'external',
+    href: portalHref('/'),
+  },
+];
+
 export function gateOsApps(): OsAppLink[] {
   return [
     { id: 'home', label: 'Home', kind: 'app', href: APP_HOME_PATH },
@@ -76,12 +91,7 @@ export function ownerPortfolioOsApps(_accountId: string): OsAppLink[] {
       href: APP_GROUPS_PATH,
       soon: true,
     },
-    {
-      id: 'boost',
-      label: 'Boost',
-      kind: 'external',
-      href: portalHref('/boost'),
-    },
+    ...OS_EXTERNAL_LINKS,
   ];
 }
 
@@ -94,6 +104,7 @@ export function visitorPortfolioOsApps(_accountId: string): OsAppLink[] {
       kind: 'overlay',
       overlay: 'discover',
     },
+    ...OS_EXTERNAL_LINKS,
   ];
 }
 
@@ -115,6 +126,7 @@ export function appShellOsApps(accountId: string | null): OsAppLink[] {
       href: APP_GROUPS_PATH,
       soon: true,
     },
+    ...OS_EXTERNAL_LINKS,
   ];
 
   if (accountId) {

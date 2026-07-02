@@ -1,0 +1,472 @@
+/**
+ * @onsocial/ui — full-width sheet actions (save, cancel, discard).
+ *
+ * Requires host theme tokens: --fg-rgb (space-separated RGB).
+ * Optional glass material: --glass-surface-os or --glass-surface.
+ * Import after protocol.css for semantic success/danger hues.
+ */
+
+@layer tokens {
+  :root {
+    --os-action-border: rgb(var(--fg-rgb) / 0.14);
+    --os-action-border-strong: rgb(var(--fg-rgb) / 0.28);
+    --os-action-bg: rgb(var(--fg-rgb) / 0.07);
+    --os-action-bg-hover: rgb(var(--fg-rgb) / 0.1);
+    --os-action-shadow: rgb(0 0 0 / 0.14);
+    --os-action-shadow-soft: rgb(0 0 0 / 0.08);
+    --os-action-lip: rgb(var(--fg-rgb) / 0.08);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme]) {
+      --os-action-border: rgb(var(--fg-rgb) / 0.12);
+      --os-action-border-strong: rgb(var(--fg-rgb) / 0.24);
+      --os-action-bg: rgb(var(--fg-rgb) / 0.05);
+      --os-action-bg-hover: rgb(var(--fg-rgb) / 0.08);
+      --os-action-shadow: rgb(0 0 0 / 0.1);
+      --os-action-shadow-soft: rgb(0 0 0 / 0.06);
+    }
+  }
+
+  :root[data-theme='light'] {
+    --os-action-border: rgb(var(--fg-rgb) / 0.12);
+    --os-action-border-strong: rgb(var(--fg-rgb) / 0.24);
+    --os-action-bg: rgb(var(--fg-rgb) / 0.05);
+    --os-action-bg-hover: rgb(var(--fg-rgb) / 0.08);
+    --os-action-shadow: rgb(0 0 0 / 0.1);
+    --os-action-shadow-soft: rgb(0 0 0 / 0.06);
+  }
+}
+
+@keyframes os-action-ready-in {
+  from {
+    opacity: 0.76;
+    transform: scale(0.992);
+    box-shadow: none;
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes os-action-check-in {
+  from {
+    opacity: 0;
+    transform: scale(0.55);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.os-sheet-action,
+.os-sheet-primary-action,
+.os-sheet-ghost-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.7rem 1rem;
+  border: 1px solid var(--os-action-border);
+  border-radius: 9999px;
+  background: transparent;
+  color: rgb(var(--fg-rgb) / 0.55);
+  -webkit-appearance: none;
+  appearance: none;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition:
+    transform 120ms ease,
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    backdrop-filter 160ms ease;
+}
+
+.os-sheet-action--primary,
+.os-sheet-primary-action {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.os-sheet-action__shell,
+.os-sheet-primary-action-shell {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 100%;
+}
+
+.os-sheet-action__label,
+.os-sheet-primary-action-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  grid-area: 1 / 1;
+}
+
+.os-sheet-action__label.is-hidden,
+.os-sheet-primary-action-label.is-hidden {
+  visibility: hidden;
+}
+
+.os-sheet-action__pending,
+.os-sheet-primary-action-pending {
+  grid-area: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.os-sheet-action:focus-visible,
+.os-sheet-primary-action:focus-visible,
+.os-sheet-ghost-action:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px
+    color-mix(in srgb, var(--protocol-blue, #60a5fa) 35%, transparent);
+}
+
+.os-sheet-action--primary:not(:disabled):not(.is-ready):not(.is-dirty):not(
+    .is-pending
+  ):not(.is-succeeded):hover,
+.os-sheet-primary-action:not(:disabled):not(.is-dirty):not(.is-pending):not(
+    .is-succeeded
+  ):hover {
+  border-color: rgb(var(--fg-rgb) / 0.2);
+  background: rgb(var(--fg-rgb) / 0.04);
+  color: rgb(var(--fg-rgb) / 0.78);
+}
+
+.os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):not(
+    .is-pending
+  ),
+.os-sheet-action--primary.is-dirty:not(:disabled):not(.is-succeeded):not(
+    .is-pending
+  ),
+.os-sheet-primary-action.is-dirty:not(:disabled):not(.is-succeeded):not(
+    .is-pending
+  ) {
+  animation: os-action-ready-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded),
+.os-sheet-action--primary.is-dirty:not(:disabled):not(.is-succeeded),
+.os-sheet-action--primary.is-pending:disabled:not(.is-succeeded),
+.os-sheet-primary-action.is-dirty:not(:disabled):not(.is-succeeded),
+.os-sheet-primary-action.is-pending:disabled:not(.is-succeeded) {
+  border-color: var(--os-action-border-strong);
+  background: color-mix(
+    in srgb,
+    var(--glass-surface-os, var(--glass-surface)) 36%,
+    var(--os-action-bg)
+  );
+  color: rgb(var(--fg-rgb) / 0.94);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  box-shadow:
+    inset 0 1px 0 var(--os-action-lip),
+    0 3px 8px -2px var(--os-action-shadow-soft);
+}
+
+.os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover,
+.os-sheet-action--primary.is-dirty:not(:disabled):not(.is-succeeded):hover,
+.os-sheet-primary-action.is-dirty:not(:disabled):not(.is-succeeded):hover {
+  border-color: rgb(var(--fg-rgb) / 0.32);
+  background: color-mix(
+    in srgb,
+    var(--glass-surface-os, var(--glass-surface)) 30%,
+    var(--os-action-bg-hover)
+  );
+  box-shadow:
+    inset 0 1px 0 var(--os-action-lip),
+    0 6px 14px -4px var(--os-action-shadow);
+}
+
+.os-sheet-action--primary:active:not(:disabled),
+.os-sheet-primary-action:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+.os-sheet-action--primary:disabled:not(.is-succeeded):not(.is-pending),
+.os-sheet-primary-action:disabled:not(.is-succeeded):not(.is-pending) {
+  opacity: 1;
+  border-color: rgb(var(--fg-rgb) / 0.1);
+  background: transparent;
+  color: rgb(var(--fg-rgb) / 0.26);
+  box-shadow: none;
+  cursor: default;
+}
+
+.os-sheet-action--primary.is-pending:disabled:not(.is-succeeded),
+.os-sheet-primary-action.is-pending:disabled:not(.is-succeeded) {
+  cursor: progress;
+}
+
+.os-sheet-action--primary.is-succeeded,
+.os-sheet-primary-action.is-succeeded {
+  border-color: color-mix(in srgb, var(--protocol-green) 32%, transparent);
+  background: color-mix(in srgb, var(--protocol-green) 10%, transparent);
+  color: var(--protocol-green);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--protocol-green) 14%, transparent),
+    0 3px 8px -2px color-mix(in srgb, var(--protocol-green) 12%, transparent);
+}
+
+.os-sheet-action__icon,
+.os-sheet-primary-action-icon {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.os-sheet-action--primary.is-succeeded .os-sheet-action__icon,
+.os-sheet-primary-action.is-succeeded .os-sheet-primary-action-icon {
+  animation: os-action-check-in 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.os-sheet-action--ghost,
+.os-sheet-ghost-action {
+  color: rgb(var(--fg-rgb) / 0.52);
+}
+
+.os-sheet-action--ghost:hover,
+.os-sheet-ghost-action:hover {
+  border-color: rgb(var(--fg-rgb) / 0.2);
+  background: var(--os-action-bg);
+  color: rgb(var(--fg-rgb) / 0.78);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  box-shadow: 0 3px 8px -2px var(--os-action-shadow-soft);
+}
+
+.os-sheet-action--ghost:active,
+.os-sheet-ghost-action:active {
+  transform: scale(0.985);
+}
+
+.os-sheet-action--danger {
+  border-color: color-mix(
+    in srgb,
+    var(--protocol-red) 24%,
+    var(--os-action-border)
+  );
+  background: color-mix(in srgb, var(--protocol-red) 5%, transparent);
+  color: color-mix(in srgb, var(--protocol-red) 78%, rgb(var(--fg-rgb) / 0.52));
+}
+
+.os-sheet-action--danger:hover {
+  border-color: color-mix(in srgb, var(--protocol-red) 42%, transparent);
+  background: color-mix(in srgb, var(--protocol-red) 10%, transparent);
+  color: var(--protocol-red);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  box-shadow: 0 3px 8px -2px
+    color-mix(in srgb, var(--protocol-red) 10%, transparent);
+}
+
+.os-sheet-action--danger:focus-visible {
+  box-shadow: 0 0 0 2px
+    color-mix(in srgb, var(--protocol-red, #f87171) 35%, transparent);
+}
+
+.os-sheet-action--danger:active {
+  transform: scale(0.985);
+}
+
+@media (min-width: 640px) {
+  .os-sheet-action,
+  .os-sheet-primary-action,
+  .os-sheet-ghost-action {
+    min-height: 3rem;
+    padding: 0.75rem 1.15rem;
+    font-size: 0.9375rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .os-sheet-action,
+  .os-sheet-primary-action,
+  .os-sheet-ghost-action {
+    transition: none;
+  }
+
+  .os-sheet-action--primary:active:not(:disabled),
+  .os-sheet-primary-action:active:not(:disabled),
+  .os-sheet-action--ghost:active,
+  .os-sheet-ghost-action:active,
+  .os-sheet-action--danger:active {
+    transform: none;
+  }
+
+  .os-sheet-action--primary.is-succeeded .os-sheet-action__icon,
+  .os-sheet-primary-action.is-succeeded .os-sheet-primary-action-icon {
+    animation: none;
+  }
+
+  .os-sheet-action--primary.is-ready,
+  .os-sheet-action--primary.is-dirty,
+  .os-sheet-primary-action.is-dirty {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .os-sheet-action--primary.is-ready,
+  .os-sheet-action--primary.is-dirty,
+  .os-sheet-action--primary.is-pending,
+  .os-sheet-action--primary.is-succeeded,
+  .os-sheet-primary-action.is-dirty,
+  .os-sheet-primary-action.is-pending,
+  .os-sheet-primary-action.is-succeeded,
+  .os-sheet-action--ghost:hover,
+  .os-sheet-ghost-action:hover,
+  .os-sheet-action--danger,
+  .os-sheet-action--danger:hover {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* ─── Action groups (stack / row footers) ───────────────── */
+
+.os-sheet-actions--stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  align-items: stretch;
+}
+
+.os-sheet-actions--row,
+.os-sheet-actions--row-compact {
+  display: flex;
+  flex-direction: row;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.os-sheet-actions--row .os-sheet-action,
+.os-sheet-actions--row-compact .os-sheet-action,
+.os-sheet-actions--row .os-sheet-primary-action,
+.os-sheet-actions--row-compact .os-sheet-primary-action {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+}
+
+.os-sheet-actions--row-compact .os-sheet-action,
+.os-sheet-actions--row-compact .os-sheet-primary-action {
+  min-height: 2.75rem;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.8125rem;
+}
+
+.os-sheet-actions--row-compact .os-sheet-action__shell,
+.os-sheet-actions--row-compact .os-sheet-primary-action-shell {
+  width: 100%;
+}
+
+.os-sheet-actions--row-compact .os-sheet-action--expanded,
+.os-sheet-actions--row-compact
+  .os-sheet-primary-action.os-sheet-action--expanded {
+  flex: 1 1 100%;
+}
+
+.os-sheet-actions--row-compact .os-sheet-action--inert-slot,
+.os-sheet-actions--row-compact
+  .os-sheet-primary-action.os-sheet-action--inert-slot {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Frosted glass pill — profile editor + preview bar (enabled / ready primary). */
+.os-sheet-actions.os-sheet-actions--frosted-primary
+  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded),
+.os-sheet-actions.os-sheet-actions--frosted-primary
+  .os-sheet-primary-action.is-ready:not(:disabled):not(.is-succeeded),
+.os-sheet-actions.os-sheet-actions--frosted-primary
+  .os-sheet-action--primary.is-pending:disabled:not(.is-succeeded),
+.os-sheet-actions.os-sheet-actions--frosted-primary
+  .os-sheet-primary-action.is-pending:disabled:not(.is-succeeded),
+.os-sheet-actions.os-sheet-actions--frosted-primary
+  .os-sheet-action--primary:not(:disabled):not(.is-ready):not(.is-succeeded),
+.os-sheet-actions.os-sheet-actions--frosted-primary
+  .os-sheet-primary-action:not(:disabled):not(.is-ready):not(.is-succeeded) {
+  border-color: var(--os-action-border-strong);
+  background: color-mix(
+    in srgb,
+    var(--glass-surface-os, var(--glass-surface)) 36%,
+    var(--os-action-bg)
+  );
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  box-shadow:
+    inset 0 1px 0 var(--os-action-lip),
+    0 3px 8px -2px var(--os-action-shadow-soft);
+  color: rgb(var(--fg-rgb) / 0.94);
+}
+
+.os-sheet-actions.os-sheet-actions--frosted-primary
+  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover,
+.os-sheet-actions.os-sheet-actions--frosted-primary
+  .os-sheet-primary-action.is-ready:not(:disabled):not(.is-succeeded):hover,
+.os-sheet-actions.os-sheet-actions--frosted-primary
+  .os-sheet-action--primary:not(:disabled):not(.is-ready):not(
+    .is-succeeded
+  ):hover,
+.os-sheet-actions.os-sheet-actions--frosted-primary
+  .os-sheet-primary-action:not(:disabled):not(.is-ready):not(
+    .is-succeeded
+  ):hover {
+  border-color: rgb(var(--fg-rgb) / 0.32);
+  background: color-mix(
+    in srgb,
+    var(--glass-surface-os, var(--glass-surface)) 30%,
+    var(--os-action-bg-hover)
+  );
+  box-shadow:
+    inset 0 1px 0 var(--os-action-lip),
+    0 6px 14px -4px var(--os-action-shadow);
+}
+
+.os-sheet-actions--frosted-primary .os-sheet-action--danger,
+.os-sheet-actions--frosted-primary .os-sheet-action--danger:hover {
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .os-sheet-actions.os-sheet-actions--frosted-primary
+    .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded),
+  .os-sheet-actions.os-sheet-actions--frosted-primary
+    .os-sheet-primary-action.is-ready:not(:disabled):not(.is-succeeded),
+  .os-sheet-actions.os-sheet-actions--frosted-primary
+    .os-sheet-action--primary.is-pending:disabled:not(.is-succeeded),
+  .os-sheet-actions.os-sheet-actions--frosted-primary
+    .os-sheet-action--primary:not(:disabled):not(.is-ready):not(.is-succeeded) {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgb(var(--bg-rgb) / 0.94);
+  }
+
+  .os-sheet-actions.os-sheet-actions--frosted-primary
+    .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover,
+  .os-sheet-actions.os-sheet-actions--frosted-primary
+    .os-sheet-action--primary:not(:disabled):not(.is-ready):not(
+      .is-succeeded
+    ):hover {
+    background: rgb(var(--bg-rgb) / 0.98);
+  }
+}

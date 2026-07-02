@@ -89,7 +89,7 @@ describe('page moods', () => {
     }
   });
 
-  it('builds build and journal voice typography', () => {
+  it('builds build, journal, and signature voice typography', () => {
     expect(buildPageMoodPatch('build').theme?.accent).toBe(
       PROTOCOL_COLORS.green
     );
@@ -98,6 +98,12 @@ describe('page moods', () => {
     );
     expect(pageMoodTypographyFor('journal').fontDisplay).toBe(
       MOOD_FONT_STACKS.editorial
+    );
+    expect(pageMoodTypographyFor('signature').fontDisplay).toBe(
+      MOOD_FONT_STACKS.signatureDisplay
+    );
+    expect(pageMoodTypographyFor('signature').fontBody).toBe(
+      'var(--app-font-sans)'
     );
     expect(PAGE_MOOD_PRESETS.noir.label).toBe('Noir');
     expect(PAGE_MOOD_PRESETS.journal.tagline).toContain('Longform');
@@ -128,6 +134,15 @@ describe('page moods', () => {
       '--mood-preset-accent': 'rgb(82 82 91 / 0.92)',
       '--mood-preset-accent-light': 'rgb(28 28 32 / 0.95)',
     });
+    expect(pageMoodTypographyFor('broadsheet').fontDisplay).toBe(
+      MOOD_FONT_STACKS.broadsheetTypewriter
+    );
+    expect(pageMoodTypographyFor('broadsheet').fontBody).toBe(
+      MOOD_FONT_STACKS.broadsheetTypewriter
+    );
+    expect(pageMoodTypographyFor('journal').fontDisplay).toBe(
+      MOOD_FONT_STACKS.editorial
+    );
   });
 
   it('pairs voice mood textLight with green ink on light paper', () => {
@@ -140,5 +155,7 @@ describe('page moods', () => {
     expect(terminal.text).toContain('57 255 20');
     expect(terminal.textLight).toBe('rgb(32 115 42 / 0.96)');
     expect(terminal.mutedLight).toBe('rgb(50 105 58 / 0.55)');
+    expect(pageMoodTypographyFor('terminal').displayWeight).toBe(500);
+    expect(pageMoodTypographyFor('build').displayWeight).toBe(600);
   });
 });

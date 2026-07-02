@@ -1,4 +1,10 @@
 import type { PageConfig, PageTheme } from '../../types.js';
+import {
+  accentFromHue,
+  moodBannerFromAccent,
+  moodMutedFromAccent,
+  resolveMoodTintHue,
+} from './mood-hue.js';
 import { PROTOCOL_COLORS } from '../../protocol-colors.js';
 import {
   FINISH_MOOD_PRICE_SOCIAL,
@@ -63,6 +69,12 @@ export const MOOD_FONT_STACKS = {
   mono: "var(--font-jetbrains-mono), ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace",
   editorial:
     "var(--font-newsreader), 'Source Serif 4', Georgia, 'Times New Roman', serif",
+  /** Handwritten display — Signature mood name only; body stays DM Sans. */
+  signatureDisplay:
+    "var(--font-caveat), 'Segoe Print', 'Bradley Hand', cursive",
+  /** Mechanical typewriter — Broadsheet mood display + body (Journal keeps editorial). */
+  broadsheetTypewriter:
+    "var(--font-erica-type), 'Courier New', Courier, monospace",
 } as const;
 
 /** Portfolio hero typography — keyed by mood id, not on-chain theme. */
@@ -188,29 +200,30 @@ export const MOOD_PAGE_TYPOGRAPHY: Record<PageMoodId, PageMoodTypography> = {
     bioMaxWidth: '20rem',
   },
   broadsheet: {
-    fontDisplay: MOOD_FONT_STACKS.editorial,
-    fontBody: MOOD_FONT_STACKS.editorial,
-    displayWeight: 500,
-    displayLetterSpacing: '-0.015em',
-    bodyLineHeight: 1.68,
-    bioMaxWidth: '24rem',
+    fontDisplay: MOOD_FONT_STACKS.broadsheetTypewriter,
+    fontBody: MOOD_FONT_STACKS.broadsheetTypewriter,
+    displayWeight: 400,
+    displayLetterSpacing: '0.03em',
+    bodyLineHeight: 1.58,
+    bioMaxWidth: '22rem',
+    bodyLetterSpacing: '0.02em',
   },
   terminal: {
     fontDisplay: MOOD_FONT_STACKS.mono,
     fontBody: MOOD_FONT_STACKS.mono,
-    displayWeight: 600,
-    displayLetterSpacing: '-0.02em',
-    bodyLineHeight: 1.48,
+    displayWeight: 500,
+    displayLetterSpacing: '-0.01em',
+    bodyLineHeight: 1.5,
     bioMaxWidth: '20rem',
-    bodyLetterSpacing: '-0.02em',
+    bodyLetterSpacing: '-0.015em',
   },
   signature: {
-    fontDisplay: MOOD_FONT_STACKS.sans,
-    fontBody: MOOD_FONT_STACKS.sans,
-    displayWeight: 600,
-    displayLetterSpacing: '-0.03em',
-    bodyLineHeight: 1.58,
-    bioMaxWidth: '22rem',
+    fontDisplay: MOOD_FONT_STACKS.signatureDisplay,
+    fontBody: 'var(--app-font-sans)',
+    displayWeight: 400,
+    displayLetterSpacing: '0.01em',
+    bodyLineHeight: 1.55,
+    bioMaxWidth: '20rem',
   },
 };
 
@@ -298,29 +311,47 @@ export function moodSurfaceFromAccent(accent: string, alpha = 0.06): string {
  */
 export function mergePageMoodTheme(
   preset: PageMoodThemeTokens,
-  overrides?: PageTheme
+  overrides?: PageTheme,
+  moodId?: PageMoodId
 ): PageMoodThemeTokens {
-  if (!overrides) {
-    return preset;
+  let merged: PageMoodThemeTokens = preset;
+
+  if (overrides) {
+    const accent = overrides.accent ?? overrides.primary ?? preset.accent;
+    const background = overrides.background ?? preset.background;
+    const text = overrides.text ?? preset.text;
+    const accentChanged = accent !== preset.accent;
+
+    merged = {
+      ...preset,
+      accent,
+      background,
+      text,
+      ...(accentChanged ? { surface: moodSurfaceFromAccent(accent) } : {}),
+      ...(text !== preset.text
+        ? {
+            textLight: ONPAGE_TEXT_LIGHT,
+            mutedLight: ONPAGE_MUTED_LIGHT,
+          }
+        : {}),
+    };
   }
 
-  const accent = overrides.accent ?? overrides.primary ?? preset.accent;
-  const background = overrides.background ?? preset.background;
-  const text = overrides.text ?? preset.text;
-  const accentChanged = accent !== preset.accent;
+  const tintHue = moodId ? resolveMoodTintHue(moodId, overrides) : null;
+  if (tintHue === null) {
+    return merged;
+  }
+
+  const accent = accentFromHue(tintHue, preset.accent);
+  const banners = moodBannerFromAccent(accent);
 
   return {
-    ...preset,
+    ...merged,
     accent,
-    background,
-    text,
-    ...(accentChanged ? { surface: moodSurfaceFromAccent(accent) } : {}),
-    ...(text !== preset.text
-      ? {
-          textLight: ONPAGE_TEXT_LIGHT,
-          mutedLight: ONPAGE_MUTED_LIGHT,
-        }
-      : {}),
+    muted: moodMutedFromAccent(accent),
+    surface: moodSurfaceFromAccent(accent),
+    banner: banners.banner,
+    bannerLight: banners.bannerLight,
   };
 }
 
@@ -581,7 +612,7 @@ export const PREMIUM_PAGE_MOOD_PRESETS: Record<
   broadsheet: {
     id: 'broadsheet',
     label: 'Broadsheet',
-    tagline: 'Editorial voice — headline presence, longform body.',
+    tagline: 'Typewriter dispatch — wire copy, newsprint ink.',
     theme: {
       background: '#0c0b0a',
       backgroundLight: '#faf9f7',
@@ -601,7 +632,7 @@ export const PREMIUM_PAGE_MOOD_PRESETS: Record<
   terminal: {
     id: 'terminal',
     label: 'Terminal',
-    tagline: 'Phosphor mono — ship logs and on-chain craft.',
+    tagline: 'Phosphor session — prompt line, ship logs, on-chain craft.',
     theme: {
       background: '#010402',
       backgroundLight: '#f0faf0',
@@ -620,7 +651,7 @@ export const PREMIUM_PAGE_MOOD_PRESETS: Record<
   signature: {
     id: 'signature',
     label: 'Signature',
-    tagline: 'Your mark — distinctive accent, refined sans voice.',
+    tagline: 'Your mark — signed name, ink rule, sans below.',
     theme: {
       background: '#050508',
       backgroundLight: '#f4fbff',
@@ -798,6 +829,7 @@ export function mergeMoodIntoPageConfig(
     theme: {
       ...current.theme,
       ...patch.theme,
+      moodTints: current.theme?.moodTints,
     },
   };
 }

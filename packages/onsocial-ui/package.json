@@ -13,7 +13,11 @@
     "./protocol.css": "./protocol.css",
     "./dividers.css": "./dividers.css",
     "./glass-sheet.css": "./glass-sheet.css",
-    "./pulsing-dots.css": "./pulsing-dots.css"
+    "./pulsing-dots.css": "./pulsing-dots.css",
+    "./os-sheet-action.css": "./os-sheet-action.css",
+    "./os-surface-halo.css": "./os-surface-halo.css",
+    "./floating-panel.css": "./floating-panel.css",
+    "./profile-editor-media.css": "./profile-editor-media.css"
   },
   "scripts": {
     "build": "tsc",
@@ -47,7 +51,11 @@
     "protocol.css",
     "dividers.css",
     "glass-sheet.css",
-    "pulsing-dots.css"
+    "pulsing-dots.css",
+    "os-sheet-action.css",
+    "os-surface-halo.css",
+    "floating-panel.css",
+    "profile-editor-media.css"
   ],
   "license": "MIT",
   "author": "OnSocial Labs <dev@onsocial.id> (https://onsocial.id)",

@@ -36,7 +36,7 @@ export const compactModalFooterYClass = 'py-1.5';
 export const compactModalStatGridCellClass =
   'min-w-0 py-2 px-2 text-center sm:px-2.5';
 
-export const floatingPanelClass = `rounded-xl md:rounded-2xl border border-border/67 bg-background/98 ${portalElevatedShadowClass}`;
+export const floatingPanelClass = `rounded-xl md:rounded-2xl bg-background/98 ${portalElevatedShadowClass}`;
 
 export const floatingPanelItemClass =
   'w-full flex items-center gap-2 md:gap-3 rounded-lg md:rounded-xl px-2.5 py-1.5 md:px-3 md:py-2.5 portal-type-body text-muted-foreground transition-colors hover:bg-[var(--portal-neutral-bg)] hover:text-foreground focus-visible:bg-[var(--portal-neutral-bg)] focus-visible:text-foreground focus-visible:outline-none text-left';

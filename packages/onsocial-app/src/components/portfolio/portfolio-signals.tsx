@@ -73,7 +73,8 @@ export function PortfolioSignals({
 
   return (
     <div className="portfolio-signals" aria-label="Profile signals">
-      <div className="signal-group signal-group-standing">
+      <div className="portfolio-signals-metrics">
+        <div className="signal-group signal-group-standing">
         <Link
           className={metricClassName({
             highlight: theyStandWithViewer && !sharedSolidarity,
@@ -122,16 +123,16 @@ export function PortfolioSignals({
             <span className={signalValueClass(signals.mutualStandingCount)}>
               {formatCount(signals.mutualStandingCount)}
             </span>
-            <ProtocolMotionArrow className={arrowClass} />
+            <ProtocolMotionArrow className={`${arrowClass} signal-metric-arrow--out`} />
           </span>
         </Link>
-      </div>
+        </div>
 
-      <span className="signal-sep" aria-hidden>
-        ·
-      </span>
-
-      <div className="signal-group signal-group-endorse">
+        <div className="signal-metrics-chunk">
+          <span className="signal-sep" aria-hidden>
+            ·
+          </span>
+          <div className="signal-group signal-group-endorse">
         <SignalMetric
           className={metricClassName({ readonly: true })}
           ariaLabel={`${signals.endorsementsReceivedCount} endorsements received`}
@@ -157,14 +158,15 @@ export function PortfolioSignals({
             <ProtocolMotionArrow className={arrowClass} />
           </span>
         </SignalMetric>
-      </div>
+          </div>
+        </div>
 
-      {signals.reputation ? (
-        <>
-          <span className="signal-sep" aria-hidden>
-            ·
-          </span>
-          <div className="signal-group signal-group-reputation">
+        {signals.reputation ? (
+          <div className="signal-metrics-chunk">
+            <span className="signal-sep" aria-hidden>
+              ·
+            </span>
+            <div className="signal-group signal-group-reputation">
             <SignalMetric
               className={metricClassName({ readonly: true })}
               ariaLabel={`Reputation ${formatReputation(signals.reputation.reputation)}${
@@ -184,13 +186,30 @@ export function PortfolioSignals({
                 </span>
               </span>
             </SignalMetric>
+            </div>
           </div>
-        </>
-      ) : null}
+        ) : null}
+      </div>
 
-      <p className="portfolio-signals-caption">
-        standing · solidarity · endorsements
-        {signals.reputation ? ' · reputation' : ''}
+      <p
+        className="portfolio-signals-caption"
+        aria-label={[
+          'standing',
+          'solidarity',
+          'endorsements',
+          signals.reputation
+            ? `reputation${
+                signals.reputation.rank > 0
+                  ? ` rank ${signals.reputation.rank}`
+                  : ''
+              }`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(', ')}
+      >
+        STANDING·SOLIDARITY·ENDORSEMENTS
+        {signals.reputation ? '·REPUTATION' : ''}
         {signals.reputation && signals.reputation.rank > 0 ? (
           <span className="portfolio-signals-rank"> #{signals.reputation.rank}</span>
         ) : null}

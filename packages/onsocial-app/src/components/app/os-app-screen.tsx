@@ -3,7 +3,6 @@
 import type { ReactNode, RefObject } from 'react';
 import { ContextualBack } from '@/components/app/contextual-back';
 import { AppShellLauncher } from '@/components/os/summon-launcher';
-import { AppWalletPill } from '@/components/wallet/app-wallet-pill';
 
 export interface OsAppScreenProps {
   title: string;
@@ -35,7 +34,6 @@ export function OsAppScreen({
                 <p className="os-app-screen-subtitle">{subtitle}</p>
               ) : null}
             </div>
-            <AppWalletPill variant="icon" />
           </div>
           {toolbar ? (
             <div className="os-app-screen-toolbar">{toolbar}</div>

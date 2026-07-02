@@ -35,6 +35,7 @@ export function DiscoverSheetHeader() {
           maxLength={PROFILE_SEARCH_MAX_QUERY_LENGTH}
           clearAriaLabel="Clear profile search"
           ariaLabel="Search discover profiles"
+          chrome="floating-panel"
           className="standing-list-toolbar-search"
         />
       </div>

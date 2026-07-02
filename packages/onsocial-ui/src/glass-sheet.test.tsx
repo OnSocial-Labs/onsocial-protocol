@@ -7,6 +7,7 @@ import {
   resolvePanelPresentation,
   resolveSheetCoverProgress,
   resolveSheetOffsetPx,
+  resolveSheetPeekOffsetPx,
 } from './glass-sheet.js';
 
 describe('GlassSheet', () => {
@@ -30,20 +31,41 @@ describe('resolveSheetCoverProgress', () => {
   });
 });
 
+describe('resolveSheetPeekOffsetPx', () => {
+  it('returns 0 when content fits within the peek window', () => {
+    expect(resolveSheetPeekOffsetPx(320, 0.46, 800)).toBe(0);
+  });
+
+  it('offsets tall content to reveal a peek window', () => {
+    expect(resolveSheetPeekOffsetPx(720, 0.62, 800)).toBe(224);
+  });
+});
+
 describe('resolveSheetOffsetPx', () => {
   it('uses drag position when dragging', () => {
     expect(
-      resolveSheetOffsetPx(180, 'full', 720, GLASS_SHEET_PEEK_RATIO, false)
+      resolveSheetOffsetPx(180, 'full', 720, GLASS_SHEET_PEEK_RATIO, false, 800)
     ).toBe(180);
   });
 
   it('returns 0 on desktop and at full detent', () => {
     expect(
-      resolveSheetOffsetPx(null, 'full', 720, GLASS_SHEET_PEEK_RATIO, true)
+      resolveSheetOffsetPx(null, 'full', 720, GLASS_SHEET_PEEK_RATIO, true, 800)
     ).toBe(0);
     expect(
-      resolveSheetOffsetPx(null, 'full', 720, GLASS_SHEET_PEEK_RATIO, false)
+      resolveSheetOffsetPx(
+        null,
+        'full',
+        720,
+        GLASS_SHEET_PEEK_RATIO,
+        false,
+        800
+      )
     ).toBe(0);
+  });
+
+  it('skips peek offset when content is shorter than the peek window', () => {
+    expect(resolveSheetOffsetPx(null, 'peek', 320, 0.46, false, 800)).toBe(0);
   });
 });
 

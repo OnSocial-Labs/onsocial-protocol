@@ -127,8 +127,8 @@ export function resolvePortfolioMood(config: PublicPageConfig): ResolvedMood {
   const rawId = record?.id ?? 'protocol';
   const id: MoodId = resolvePageMoodId(rawId) ?? rawId;
   const preset = presetForId(id);
-  const theme = mergePageMoodTheme(preset.theme, config.theme);
   const moodId = signalMoodId(id, rawId);
+  const theme = mergePageMoodTheme(preset.theme, config.theme, moodId);
   const cssVars = themeTokensToCssVars(theme, moodId);
 
   return {

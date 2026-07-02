@@ -2,6 +2,41 @@ export function fallbackLabel(accountId: string): string {
   return accountId.replace(/\.testnet$|\.near$/, '');
 }
 
+/** Handle line as rendered on the portfolio page for a given mood. */
+export function portfolioHandleForMood(
+  accountId: string,
+  moodId?: string | null
+): string {
+  if (moodId === 'terminal') {
+    return `~/${accountId}`;
+  }
+
+  if (moodId === 'signature') {
+    return `@${accountId.toLowerCase()}`;
+  }
+
+  return `@${accountId}`;
+}
+
+/** Quiet hint when the live page formats the handle differently. */
+export function portfolioHandleHint(
+  accountId: string,
+  moodId?: string | null
+): string | null {
+  if (!moodId || moodId === 'protocol') {
+    return null;
+  }
+
+  const moodHandle = portfolioHandleForMood(accountId, moodId);
+  const editorHandle = `@${fallbackLabel(accountId)}`;
+
+  if (moodHandle === editorHandle || moodHandle === `@${accountId}`) {
+    return null;
+  }
+
+  return `Shows as ${moodHandle} on your page`;
+}
+
 export function displayName(accountId: string, profileName?: string): string {
   const name = profileName?.trim();
   return name || fallbackLabel(accountId);

@@ -1,11 +1,8 @@
 import { displayName, initials } from '@/lib/profile-display';
-import type { PublicPageConfig } from '@/lib/page-data';
 import type { ResolvedMood } from '@/lib/moods/types';
-import { MoodIndicator } from '@/components/moods/mood-indicator';
 
 interface PortfolioIdentityProps {
   accountId: string;
-  pageConfig: PublicPageConfig;
   profileName?: string | null;
   bio?: string | null;
   tagline?: string;
@@ -15,7 +12,6 @@ interface PortfolioIdentityProps {
 
 export function PortfolioIdentity({
   accountId,
-  pageConfig,
   profileName,
   bio,
   tagline,
@@ -24,6 +20,12 @@ export function PortfolioIdentity({
 }: PortfolioIdentityProps) {
   const titleLabel = displayName(accountId, profileName ?? undefined);
   const summary = tagline?.trim() || bio?.trim();
+  const handleLabel =
+    mood.id === 'terminal'
+      ? `~/${accountId}`
+      : mood.id === 'signature'
+        ? `@${accountId.toLowerCase()}`
+        : `@${accountId}`;
 
   return (
     <section className="portfolio-identity animate-rise-in">
@@ -37,13 +39,11 @@ export function PortfolioIdentity({
 
       <div className="portfolio-identity-copy">
         <h1 className="portfolio-name">{titleLabel}</h1>
-        <p className="portfolio-handle">@{accountId}</p>
-        <MoodIndicator
-          mood={mood}
-          pageAccountId={accountId}
-          pageConfig={pageConfig}
-          compact
-        />
+        <p
+          className={`portfolio-handle${mood.id === 'terminal' ? ' portfolio-handle--terminal' : ''}`}
+        >
+          {handleLabel}
+        </p>
         {summary ? <p className="portfolio-bio">{summary}</p> : null}
       </div>
     </section>

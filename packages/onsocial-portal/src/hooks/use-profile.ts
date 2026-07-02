@@ -616,11 +616,11 @@ export function useProfileState() {
           bio,
         };
 
-        if (avatar) {
-          payload.avatar = avatar;
+        if (avatar !== undefined) {
+          payload.avatar = avatar || null;
         }
-        if (banner) {
-          payload.banner = banner;
+        if (banner !== undefined) {
+          payload.banner = banner || null;
         }
 
         const currentProfile =
@@ -643,17 +643,28 @@ export function useProfileState() {
           expected,
           optimisticMediaPreviews
         );
+        if (payload.avatar === null) {
+          optimisticProfile.avatar = undefined;
+        }
+        if (payload.banner === null) {
+          optimisticProfile.banner = undefined;
+        }
         setProfile(optimisticProfile);
         setIndexedProfile((current) =>
           buildOptimisticIndexedProfile(current, expected)
         );
         if (optimisticMediaPreviews.avatar) {
           setAvatarUrl(optimisticMediaPreviews.avatar);
+        } else if (payload.avatar === null) {
+          setResolvedAvatarUrl(null);
+          writeCachedAvatarUrl(accountId, null);
         } else if (typeof avatar === 'string') {
           setResolvedAvatarUrl(os.profiles.avatarUrl(optimisticProfile));
         }
         if (optimisticMediaPreviews.banner) {
           setBannerUrl(optimisticMediaPreviews.banner);
+        } else if (payload.banner === null) {
+          setResolvedBannerUrl(null);
         } else if (typeof banner === 'string') {
           setResolvedBannerUrl(os.profiles.bannerUrl(optimisticProfile));
         }
