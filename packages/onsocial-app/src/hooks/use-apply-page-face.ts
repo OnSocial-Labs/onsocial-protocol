@@ -8,6 +8,7 @@ import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { accountIdsEqual } from '@/lib/account-match';
 import { sanitizePageFace } from '@/lib/page-face';
 import type { PageAvatarMode, PageHeroSource, PublicPageConfig } from '@/lib/page-data';
+import { fetchPageConfigFromBrowserProxy } from '@/lib/read-page-config';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 function formatApplyFaceError(error: unknown): string {
@@ -60,7 +61,7 @@ export function useApplyPageFace(
           );
         }
 
-        const current = await client.pages.getConfig(signingAccountId);
+        const current = await fetchPageConfigFromBrowserProxy(signingAccountId);
         const fallback = toSdkPageConfig(initialConfig);
         const mergedFace = sanitizePageFace({
           ...fallback.face,

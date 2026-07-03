@@ -3,6 +3,7 @@ import { unstable_noStore as noStore } from 'next/cache';
 import type { OnSocial } from '@onsocial/sdk';
 import { ACTIVE_API_URL } from '@/lib/app-config';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
+import { fetchPageConfigFromChain } from '@/lib/read-page-config';
 
 export interface PublicPageProfile {
   name?: string;
@@ -210,7 +211,7 @@ async function fetchPublicPageDataFromIndexer(
   const [exists, materialisedProfile, config] = await Promise.all([
     fetchAccountExists(accountId),
     os.profiles.get(accountId),
-    os.pages.getConfig(accountId),
+    fetchPageConfigFromChain(accountId),
   ]);
 
   if (exists === false) {

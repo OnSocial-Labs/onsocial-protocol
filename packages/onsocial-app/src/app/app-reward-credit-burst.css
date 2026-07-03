@@ -1,0 +1,209 @@
+/* Reward collect celebration — borderless pill above the dock. */
+
+.app-reward-credit-burst {
+  position: fixed;
+  z-index: 61;
+  left: 50%;
+  bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+  width: min(22rem, calc(100vw - 1.5rem));
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.app-reward-credit-burst-stage {
+  --burst-duration: 2.8s;
+  --burst-delay: 0.5s;
+  position: relative;
+  opacity: 0;
+  transform: translateY(16px);
+  animation: app-reward-burst-lifecycle var(--burst-duration)
+    cubic-bezier(0.22, 1, 0.36, 1) var(--burst-delay) both;
+  will-change: transform, opacity;
+}
+
+.app-reward-credit-burst-stage::before {
+  content: '';
+  position: absolute;
+  inset: -0.65rem -1rem;
+  border-radius: 9999px;
+  background: radial-gradient(
+    ellipse at center,
+    color-mix(in srgb, var(--protocol-green) 32%, transparent) 0%,
+    transparent 72%
+  );
+  opacity: 0;
+  transform: scale(0.88);
+  animation: app-reward-burst-glow var(--burst-duration)
+    cubic-bezier(0.22, 1, 0.36, 1) var(--burst-delay) both;
+  pointer-events: none;
+}
+
+.app-reward-credit-burst-pill {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.28rem;
+  min-height: 2.25rem;
+  padding: 0.5rem 1rem 0.55rem;
+  border-radius: 1rem;
+  background: color-mix(in srgb, rgb(var(--bg-rgb)) 97%, transparent);
+  backdrop-filter: blur(14px);
+  box-shadow:
+    0 0 24px -6px color-mix(in srgb, var(--protocol-green) 55%, transparent),
+    0 12px 32px -18px rgb(0 0 0 / 0.35),
+    inset 0 1px 0 rgb(255 255 255 / 0.08);
+}
+
+.app-reward-credit-burst-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  color: var(--protocol-green);
+}
+
+.app-reward-credit-burst-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  transform-origin: center bottom;
+  animation: app-reward-burst-icon-shake var(--burst-duration)
+    cubic-bezier(0.22, 1, 0.36, 1) calc(var(--burst-delay) + 0.45s) both;
+}
+
+.app-reward-credit-burst-amount {
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.app-reward-credit-burst-unit {
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.1em;
+  line-height: 1;
+  color: color-mix(in srgb, var(--protocol-green) 78%, rgb(var(--fg-rgb)));
+}
+
+.app-reward-credit-burst-reason {
+  max-width: 14rem;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.68rem;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: rgb(var(--fg-rgb) / 0.62);
+}
+
+@keyframes app-reward-burst-lifecycle {
+  0% {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  12% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  78% {
+    opacity: 1;
+    transform: translateY(-12px);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-22px);
+  }
+}
+
+@keyframes app-reward-burst-glow {
+  0% {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+
+  14% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  72% {
+    opacity: 0.5;
+    transform: scale(1.08);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.12);
+  }
+}
+
+@keyframes app-reward-burst-icon-shake {
+  0%,
+  14% {
+    transform: rotate(0deg) scale(1) translateY(0);
+    filter: drop-shadow(0 0 0 transparent);
+  }
+
+  18% {
+    transform: rotate(-8deg) scale(1.08) translateY(-1px);
+    filter: drop-shadow(
+      0 0 6px color-mix(in srgb, var(--protocol-green) 45%, transparent)
+    );
+  }
+
+  22% {
+    transform: rotate(5deg) scale(1.04) translateY(-0.5px);
+    filter: drop-shadow(
+      0 0 4px color-mix(in srgb, var(--protocol-green) 30%, transparent)
+    );
+  }
+
+  26%,
+  100% {
+    transform: rotate(0deg) scale(1) translateY(0);
+    filter: drop-shadow(0 0 0 transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-reward-credit-burst-stage {
+    opacity: 0;
+    transform: none;
+    animation: app-reward-burst-fade var(--burst-duration) ease-out
+      var(--burst-delay) both;
+  }
+
+  .app-reward-credit-burst-stage::before,
+  .app-reward-credit-burst-pill,
+  .app-reward-credit-burst-icon {
+    animation: none;
+  }
+}
+
+@keyframes app-reward-burst-fade {
+  0% {
+    opacity: 0;
+  }
+
+  12%,
+  80% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}

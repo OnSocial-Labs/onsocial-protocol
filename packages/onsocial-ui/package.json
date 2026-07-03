@@ -15,8 +15,10 @@
     "./glass-sheet.css": "./glass-sheet.css",
     "./pulsing-dots.css": "./pulsing-dots.css",
     "./os-sheet-action.css": "./os-sheet-action.css",
+    "./os-surface-interactive.css": "./os-surface-interactive.css",
     "./os-surface-halo.css": "./os-surface-halo.css",
     "./floating-panel.css": "./floating-panel.css",
+    "./os-launcher.css": "./os-launcher.css",
     "./profile-editor-media.css": "./profile-editor-media.css"
   },
   "scripts": {
@@ -53,8 +55,10 @@
     "glass-sheet.css",
     "pulsing-dots.css",
     "os-sheet-action.css",
+    "os-surface-interactive.css",
     "os-surface-halo.css",
     "floating-panel.css",
+    "os-launcher.css",
     "profile-editor-media.css"
   ],
   "license": "MIT",

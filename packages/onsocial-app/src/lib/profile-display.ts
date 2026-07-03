@@ -42,6 +42,24 @@ export function displayName(accountId: string, profileName?: string): string {
   return name || fallbackLabel(accountId);
 }
 
+/** Account drawer — primary line when viewing your own sheet. */
+export function accountDrawerPrimaryLabel(
+  accountId: string,
+  profileName?: string
+): string {
+  const name = profileName?.trim();
+  if (!name) {
+    return 'You';
+  }
+  if (
+    name.toLowerCase() === accountId.toLowerCase() ||
+    name.toLowerCase() === fallbackLabel(accountId).toLowerCase()
+  ) {
+    return 'You';
+  }
+  return name;
+}
+
 export function initials(label: string): string {
   return label
     .split(/[\s._-]+/)

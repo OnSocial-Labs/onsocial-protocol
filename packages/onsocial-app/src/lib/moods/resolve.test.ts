@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PROTOCOL_COLORS } from '@onsocial/sdk';
 import { MOOD_PRESETS } from './presets';
-import { moodDrawerThreadVars, moodPresetPreviewVars, moodSheetItemPreviewVars, resolvePortfolioMood } from './resolve';
+import { moodDrawerThreadVars, moodPresetPreviewVars, moodSheetItemPreviewVars, moodSheetPanelStyle, moodSheetRowInlineStyle, moodSheetRowPreviewVars, pageContentDrawerPanelStyle, portfolioMoodShellStyle, resolvePortfolioMood, resolvePortfolioMoodForId, resolvePortfolioMoodForPreview } from './resolve';
 import { PREMIUM_MOOD_PRESETS } from './presets';
 
 describe('resolvePortfolioMood', () => {
@@ -152,6 +152,115 @@ describe('moodPresetPreviewVars', () => {
     expect(mood.id).toBe('protocol');
     expect(mood.cssVars['--mood-preset-accent']).toBe(PROTOCOL_COLORS.blue);
   });
+
+  it('applies stored signature ink in mood picker row preview', () => {
+    const preset = PREMIUM_MOOD_PRESETS.signature.theme;
+    const catalogAccent = preset.accent;
+    const preview = moodSheetRowPreviewVars('signature', preset, {
+      moodTints: { signature: 300 },
+    });
+
+    expect(preview['--mood-preset-accent']).not.toBe(catalogAccent);
+    expect(preview['--mood-banner']).toContain('gradient');
+  });
+
+  it('leaves protocol picker preview on preset when signature tint is stored', () => {
+    const preset = MOOD_PRESETS.protocol.theme;
+    const preview = moodSheetRowPreviewVars('protocol', preset, {
+      moodTints: { signature: 300 },
+    });
+
+    expect(preview['--mood-preset-accent']).toBe(preset.accent);
+  });
+
+  it('sets concrete row accent vars for mood picker inline styles', () => {
+    const lead = moodSheetRowInlineStyle(
+      moodSheetRowPreviewVars('lead', MOOD_PRESETS.lead.theme)
+    );
+    const creative = moodSheetRowInlineStyle(
+      moodSheetRowPreviewVars('creative', MOOD_PRESETS.creative.theme)
+    );
+
+    expect(lead['--mood-row-accent']).toBe(MOOD_PRESETS.lead.theme.accent);
+    expect(creative['--mood-row-accent']).toBe(MOOD_PRESETS.creative.theme.accent);
+    expect(lead['--mood-row-accent']).not.toBe(creative['--mood-row-accent']);
+  });
+
+  it('picker rows ignore global page theme accent wash', () => {
+    const pageTheme = {
+      accent: PROTOCOL_COLORS.blue,
+      primary: PROTOCOL_COLORS.blue,
+    };
+    const lead = moodSheetRowPreviewVars('lead', MOOD_PRESETS.lead.theme, pageTheme);
+    const creative = moodSheetRowPreviewVars(
+      'creative',
+      MOOD_PRESETS.creative.theme,
+      pageTheme
+    );
+
+    expect(lead['--mood-preset-accent']).toBe(MOOD_PRESETS.lead.theme.accent);
+    expect(creative['--mood-preset-accent']).toBe(
+      MOOD_PRESETS.creative.theme.accent
+    );
+  });
+
+  it('panel thread omits accent vars so rows do not inherit active mood ink', () => {
+    const mood = resolvePortfolioMood({ mood: { id: 'protocol' } });
+    const panel = moodSheetPanelStyle(mood.cssVars);
+
+    expect(panel['--mood-preset-accent']).toBeUndefined();
+    expect(panel['--mood-preset-bg']).toBe(mood.cssVars['--mood-preset-bg']);
+  });
+
+  it('preview resolve keeps catalog accents when page theme accent is set', () => {
+    const pageTheme = {
+      accent: PROTOCOL_COLORS.blue,
+      primary: PROTOCOL_COLORS.blue,
+    };
+    const preview = resolvePortfolioMoodForPreview(
+      { mood: { id: 'protocol' }, theme: pageTheme },
+      'lead'
+    );
+
+    expect(preview.cssVars['--mood-preset-accent']).toBe(
+      MOOD_PRESETS.lead.theme.accent
+    );
+    expect(preview.cssVars['--mood-preset-accent']).not.toBe(
+      PROTOCOL_COLORS.blue
+    );
+  });
+
+  it('shell style sets concrete accent vars for preview frames', () => {
+    const lead = resolvePortfolioMoodForPreview({ mood: { id: 'protocol' } }, 'lead');
+    const creative = resolvePortfolioMoodForPreview(
+      { mood: { id: 'protocol' } },
+      'creative'
+    );
+    const leadShell = portfolioMoodShellStyle(lead.cssVars, { preview: true });
+    const creativeShell = portfolioMoodShellStyle(creative.cssVars, {
+      preview: true,
+    });
+
+    expect(leadShell['--mood-accent']).toBe(MOOD_PRESETS.lead.theme.accent);
+    expect(creativeShell['--mood-accent']).toBe(MOOD_PRESETS.creative.theme.accent);
+    expect(leadShell['--mood-bg-preset-mix']).toBe('72%');
+    expect(leadShell['--mood-banner-active']).toContain('gradient');
+  });
+});
+
+describe('resolvePortfolioMoodForId', () => {
+  it('resolves preview mood from config without stored mood record', () => {
+    const mood = resolvePortfolioMoodForId(
+      { mood: { id: 'protocol' }, theme: { moodTints: { signature: 300 } } },
+      'signature'
+    );
+
+    expect(mood.id).toBe('signature');
+    expect(mood.label).toBe(PREMIUM_MOOD_PRESETS.signature.label);
+    expect(mood.cssVars['--mood-preset-accent']).not.toBe(
+      PREMIUM_MOOD_PRESETS.signature.theme.accent
+    );
+  });
 });
 
 describe('moodDrawerThreadVars', () => {
@@ -163,5 +272,16 @@ describe('moodDrawerThreadVars', () => {
     expect(thread['--mood-preset-bg']).toBeTruthy();
     expect(thread).not.toHaveProperty('--mood-font-display');
     expect(thread).not.toHaveProperty('--mood-text-preset-mix');
+  });
+});
+
+describe('pageContentDrawerPanelStyle', () => {
+  it('threads ambient vars and concrete accent chrome for the grip', () => {
+    const mood = resolvePortfolioMood({ mood: { id: 'terminal' } });
+    const panel = pageContentDrawerPanelStyle(mood.cssVars);
+
+    expect(panel['--mood-preset-bg']).toBeTruthy();
+    expect(panel['--mood-preset-accent']).toBe(mood.cssVars['--mood-preset-accent']);
+    expect(panel['--mood-accent-chrome']).toBe(mood.cssVars['--mood-preset-accent']);
   });
 });

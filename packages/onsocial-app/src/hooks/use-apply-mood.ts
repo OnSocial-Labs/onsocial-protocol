@@ -2,10 +2,18 @@
 
 import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { PageMoodId } from '@onsocial/sdk';
+import {
+  assertCanApplyPageMood,
+  mergeMoodIntoPageConfig,
+  PAGE_MOOD_CATALOG,
+  pageMoodPresetForId,
+  type PageMoodId,
+} from '@onsocial/sdk';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
+import { invalidateViewerCommittedMoodCache } from '@/hooks/use-viewer-wallet-mood-vars';
 import { accountIdsEqual } from '@/lib/account-match';
+import { fetchPageConfigFromBrowserProxy } from '@/lib/read-page-config';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 function formatApplyMoodError(error: unknown): string {
@@ -52,10 +60,19 @@ export function useApplyMood(pageAccountId: string) {
           );
         }
 
-        await client.pages.setMood(moodId, {
-          accountId: signingAccountId,
-          wait: true,
-        });
+        const current = await fetchPageConfigFromBrowserProxy(signingAccountId);
+        assertCanApplyPageMood(
+          current,
+          moodId,
+          PAGE_MOOD_CATALOG,
+          (id: string) => pageMoodPresetForId(id).label
+        );
+
+        await client.pages.setConfig(
+          mergeMoodIntoPageConfig(current, moodId),
+          { wait: true }
+        );
+        invalidateViewerCommittedMoodCache(signingAccountId);
         router.refresh();
         return true;
       } catch (err) {

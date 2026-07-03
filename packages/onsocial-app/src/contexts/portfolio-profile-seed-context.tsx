@@ -148,3 +148,28 @@ export function usePortfolioProfileSeed(
 
   return context.seed?.accountId === accountId ? context.seed : null;
 }
+
+export function usePortfolioProfileSeedPatch() {
+  const context = useContext(PortfolioProfileSeedContext);
+
+  return useCallback(
+    (
+      accountId: string,
+      patch: Pick<PortfolioProfileSeedData, 'displayName' | 'avatarUrl'>
+    ) => {
+      if (!context) {
+        return;
+      }
+
+      const existing =
+        context.readSeed(accountId) ??
+        (context.seed?.accountId === accountId ? context.seed : null);
+      if (!existing) {
+        return;
+      }
+
+      context.commitSeed({ ...existing, ...patch });
+    },
+    [context]
+  );
+}

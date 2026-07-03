@@ -11,11 +11,24 @@ import {
   type ReactNode,
 } from 'react';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import type { PlatformRewardCreditEvent } from '@onsocial/sdk';
 import {
   APP_REWARD_MIN_CLAIM_YOCTO,
   APP_REWARD_REFRESH_DELAYS_MS,
 } from '@/lib/app-reward-constants';
-import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/app-config';
+import {
+  APP_REWARD_BURST_AGGREGATE_MS,
+  compressAppRewardBurstReasons,
+  buildBurstFlushSignature,
+  resolveBurstAggregateDelayMs,
+  resolveBurstDisplayAmount,
+  shouldShowBurstCelebration,
+} from '@/lib/app-reward-burst-copy';
+import { waitForNearTransactionBatchConfirmation } from '@/lib/app-near-rpc';
+import { onAppRewardCredited } from '@/lib/app-reward-events';
+import { refreshAppSocialBalanceAfterClaim } from '@/lib/app-social-balance-sync';
+import { AppRewardCreditBurst } from '@/components/wallet/app-reward-credit-burst';
+import { useAppAccountSheet } from '@/contexts/app-account-sheet-context';
 
 interface RewardsOverview {
   claimable: string;
@@ -28,20 +41,30 @@ interface RefreshRewardsOptions {
   fresh?: boolean;
 }
 
+/** Inline collect feedback — pulsing dots while pending, green chip on success. No toast. */
+export type AppCollectPhase = 'idle' | 'pending' | 'succeeded';
+
+export interface AppRewardCreditBurstState {
+  id: number;
+  amountYocto: bigint;
+  reasons: string[];
+}
+
 interface AppRewardsContextValue {
   claimableYocto: bigint;
   canClaim: boolean;
+  collectPhase: AppCollectPhase;
+  /** True while claim is in flight (button pulsing dots). */
   claiming: boolean;
+  collectSucceeded: boolean;
   remainingToClaimYocto: bigint;
   loading: boolean;
+  /** Bumps when passive credits land — drives activity bar pulse. */
+  activityBarPulseKey: number;
+  creditBurst: AppRewardCreditBurstState | null;
+  dismissCreditBurst: () => void;
   refreshRewards: (options?: RefreshRewardsOptions) => Promise<void>;
   claimRewards: () => Promise<void>;
-}
-
-interface AppRewardToast {
-  type: 'pending' | 'success' | 'error';
-  message: string;
-  explorerHref?: string | null;
 }
 
 const AppRewardsContext = createContext<AppRewardsContextValue | null>(null);
@@ -54,11 +77,6 @@ function parseYocto(value: string | undefined): bigint {
   }
 }
 
-function nearblocksTxHref(txHash: string | null | undefined): string | null {
-  const hash = typeof txHash === 'string' ? txHash.trim() : '';
-  return hash ? `${ACTIVE_NEAR_EXPLORER_URL}/txns/${hash}` : null;
-}
-
 export function useAppRewards() {
   const context = useContext(AppRewardsContext);
   if (!context) {
@@ -69,25 +87,56 @@ export function useAppRewards() {
 
 export function AppRewardsProvider({ children }: { children: ReactNode }) {
   const { accountId } = useAppWallet();
+  const { open: accountSheetOpen } = useAppAccountSheet();
   const [overview, setOverview] = useState<RewardsOverview | null>(null);
   const [loading, setLoading] = useState(false);
-  const [claiming, setClaiming] = useState(false);
-  const [claimBarHoldYocto, setClaimBarHoldYocto] = useState<bigint | null>(
+  const [collectPhase, setCollectPhase] = useState<AppCollectPhase>('idle');
+  const [activityBarPulseKey, setActivityBarPulseKey] = useState(0);
+  const [creditBurst, setCreditBurst] = useState<AppRewardCreditBurstState | null>(
     null
   );
-  const [toast, setToast] = useState<AppRewardToast | null>(null);
   const refreshGenerationRef = useRef(0);
+  const chainClaimableRef = useRef(0n);
+  const [pendingCreditYocto, setPendingCreditYocto] = useState(0n);
+  const aggregateRef = useRef<{
+    total: bigint;
+    events: PlatformRewardCreditEvent[];
+    timer: ReturnType<typeof setTimeout> | null;
+  }>({
+    total: 0n,
+    events: [],
+    timer: null,
+  });
+  const activeBurstEventsRef = useRef<PlatformRewardCreditEvent[]>([]);
+  const creditBurstRef = useRef<AppRewardCreditBurstState | null>(null);
+  const burstActiveRef = useRef(false);
+  const accountSheetOpenRef = useRef(accountSheetOpen);
+  const lastCelebratedSignatureRef = useRef<string | null>(null);
+  const burstSessionIdRef = useRef(0);
+  const flushAggregatedCreditBurstRef = useRef<() => void>(() => {});
+  const scheduleAggregatedBurstFlushRef = useRef<() => void>(() => {});
 
-  const fetchRewards = useCallback(async (): Promise<void> => {
-    if (!accountId) {
-      setOverview(null);
-      return;
-    }
+  useEffect(() => {
+    creditBurstRef.current = creditBurst;
+    burstActiveRef.current = creditBurst !== null;
+  }, [creditBurst]);
 
-    const response = await fetch(
-      `/api/rewards/overview?accountId=${encodeURIComponent(accountId)}`,
-      { cache: 'no-store' }
-    );
+  useEffect(() => {
+    accountSheetOpenRef.current = accountSheetOpen;
+  }, [accountSheetOpen]);
+
+  const fetchRewards = useCallback(
+    async (options: Pick<RefreshRewardsOptions, 'fresh'> = {}): Promise<void> => {
+      if (!accountId) {
+        setOverview(null);
+        return;
+      }
+
+      const freshQuery = options.fresh ? '&fresh=1' : '';
+      const response = await fetch(
+        `/api/rewards/overview?accountId=${encodeURIComponent(accountId)}${freshQuery}`,
+        { cache: 'no-store' }
+      );
     const body = (await response.json().catch(() => null)) as {
       overview?: RewardsOverview | null;
       error?: string;
@@ -101,7 +150,9 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
     }
 
     setOverview(body?.overview ?? null);
-  }, [accountId]);
+  },
+  [accountId]
+  );
 
   const refreshRewards = useCallback(
     async (options: RefreshRewardsOptions = {}) => {
@@ -115,7 +166,7 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        await fetchRewards();
+        await fetchRewards({ fresh: options.fresh });
       } catch {
         setOverview(null);
       } finally {
@@ -145,7 +196,7 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
         }
 
         try {
-          await fetchRewards();
+          await fetchRewards({ fresh: options.fresh });
         } catch {
           if (!options.silent) {
             setOverview(null);
@@ -165,26 +216,180 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
   }, [refreshRewards]);
 
   useEffect(() => {
-    setClaimBarHoldYocto(null);
+    setCollectPhase('idle');
+    setCreditBurst(null);
+    setPendingCreditYocto(0n);
+    chainClaimableRef.current = 0n;
+    activeBurstEventsRef.current = [];
+    creditBurstRef.current = null;
+    burstActiveRef.current = false;
+    lastCelebratedSignatureRef.current = null;
+    aggregateRef.current = { total: 0n, events: [], timer: null };
   }, [accountId]);
 
   useEffect(() => {
-    if (!toast || toast.type === 'pending') {
+    const chain = parseYocto(overview?.claimable);
+    const previous = chainClaimableRef.current;
+    if (chain > previous) {
+      const increase = chain - previous;
+      setPendingCreditYocto((pending) =>
+        pending > increase ? pending - increase : 0n
+      );
+    }
+    chainClaimableRef.current = chain;
+  }, [overview?.claimable]);
+
+  const dismissCreditBurst = useCallback(() => {
+    activeBurstEventsRef.current = [];
+    creditBurstRef.current = null;
+    burstActiveRef.current = false;
+    lastCelebratedSignatureRef.current = null;
+    setCreditBurst(null);
+
+    if (aggregateRef.current.total > 0n && aggregateRef.current.events.length > 0) {
+      scheduleAggregatedBurstFlushRef.current();
+    }
+  }, []);
+
+  const applyCreditBurst = useCallback(
+    (
+      total: bigint,
+      events: PlatformRewardCreditEvent[],
+      options: { refreshOverview?: boolean } = {}
+    ) => {
+      if (total <= 0n || events.length === 0) {
+        return;
+      }
+
+      setPendingCreditYocto((pending) => pending + total);
+      setActivityBarPulseKey((key) => key + 1);
+
+      if (!accountSheetOpenRef.current && shouldShowBurstCelebration(events)) {
+        const displayTotal = resolveBurstDisplayAmount(events);
+        if (displayTotal <= 0n) {
+          if (options.refreshOverview !== false) {
+            void refreshRewardsWithRetry({ silent: true, fresh: true });
+          }
+          return;
+        }
+
+        const reasons = compressAppRewardBurstReasons(events);
+        const current = creditBurstRef.current;
+        if (
+          current &&
+          current.amountYocto === displayTotal &&
+          current.reasons.length === reasons.length &&
+          current.reasons.every((reason, index) => reason === reasons[index])
+        ) {
+          if (options.refreshOverview !== false) {
+            void refreshRewardsWithRetry({ silent: true, fresh: true });
+          }
+          return;
+        }
+
+        burstSessionIdRef.current += 1;
+        const nextBurst: AppRewardCreditBurstState = {
+          id: burstSessionIdRef.current,
+          amountYocto: displayTotal,
+          reasons,
+        };
+
+        activeBurstEventsRef.current = events;
+        creditBurstRef.current = nextBurst;
+        burstActiveRef.current = true;
+        setCreditBurst(nextBurst);
+      }
+
+      if (options.refreshOverview !== false) {
+        void refreshRewardsWithRetry({ silent: true, fresh: true });
+      }
+    },
+    [refreshRewardsWithRetry]
+  );
+
+  const flushAggregatedCreditBurst = useCallback(() => {
+    if (aggregateRef.current.timer) {
+      clearTimeout(aggregateRef.current.timer);
+      aggregateRef.current.timer = null;
+    }
+
+    const total = aggregateRef.current.total;
+    const events = aggregateRef.current.events;
+    if (total <= 0n || events.length === 0) {
       return;
     }
-    const timer = window.setTimeout(() => setToast(null), 4200);
-    return () => window.clearTimeout(timer);
-  }, [toast]);
+
+    const signature = buildBurstFlushSignature(events);
+    if (signature === lastCelebratedSignatureRef.current) {
+      aggregateRef.current.total = 0n;
+      aggregateRef.current.events = [];
+      return;
+    }
+
+    if (burstActiveRef.current && !accountSheetOpenRef.current) {
+      aggregateRef.current.timer = setTimeout(() => {
+        flushAggregatedCreditBurstRef.current();
+      }, APP_REWARD_BURST_AGGREGATE_MS);
+      return;
+    }
+
+    lastCelebratedSignatureRef.current = signature;
+    aggregateRef.current.total = 0n;
+    aggregateRef.current.events = [];
+
+    applyCreditBurst(total, events);
+  }, [applyCreditBurst]);
+
+  flushAggregatedCreditBurstRef.current = flushAggregatedCreditBurst;
+
+  const scheduleAggregatedBurstFlush = useCallback(() => {
+    if (aggregateRef.current.timer) {
+      clearTimeout(aggregateRef.current.timer);
+    }
+
+    aggregateRef.current.timer = setTimeout(() => {
+      flushAggregatedCreditBurstRef.current();
+    }, resolveBurstAggregateDelayMs(aggregateRef.current.events));
+  }, []);
+
+  scheduleAggregatedBurstFlushRef.current = scheduleAggregatedBurstFlush;
+
+  useEffect(() => {
+    return onAppRewardCredited((event) => {
+      let amount = 0n;
+      try {
+        amount = BigInt(event.amountYocto);
+      } catch {
+        return;
+      }
+
+      aggregateRef.current.total += amount;
+      aggregateRef.current.events.push(event);
+      scheduleAggregatedBurstFlush();
+    });
+  }, [scheduleAggregatedBurstFlush]);
+
+  useEffect(() => {
+    const aggregate = aggregateRef.current;
+    return () => {
+      if (aggregate.timer) {
+        clearTimeout(aggregate.timer);
+      }
+    };
+  }, []);
 
   const claimRewards = useCallback(async () => {
-    if (!accountId || claiming) {
+    if (!accountId || collectPhase !== 'idle') {
       return;
     }
 
-    const claimableSnapshot = parseYocto(overview?.claimable);
+    const chainClaimableYocto = parseYocto(overview?.claimable);
+    const displayClaimableYocto = chainClaimableYocto + pendingCreditYocto;
+    if (displayClaimableYocto < APP_REWARD_MIN_CLAIM_YOCTO) {
+      return;
+    }
 
-    setClaiming(true);
-    setToast({ type: 'pending', message: 'Collecting SOCIAL…' });
+    setCollectPhase('pending');
 
     try {
       const response = await fetch('/api/rewards/claim', {
@@ -206,42 +411,52 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
 
       const claimed = parseYocto(data.claimed);
       if (claimed <= 0n) {
-        setToast({ type: 'error', message: 'Nothing to claim yet.' });
+        setCollectPhase('idle');
         return;
       }
 
-      setClaiming(false);
-      setClaimBarHoldYocto(claimableSnapshot);
-      setToast({
-        type: 'success',
-        message: `SOCIAL collected.`,
-        explorerHref: nearblocksTxHref(data.tx_hash),
-      });
-      await refreshRewardsWithRetry({ silent: true });
-      setClaimBarHoldYocto(null);
-    } catch (error) {
-      setClaimBarHoldYocto(null);
-      setToast({
-        type: 'error',
-        message:
-          error instanceof Error ? error.message : 'Could not collect SOCIAL.',
-      });
-    } finally {
-      setClaiming(false);
+      const txHash = typeof data.tx_hash === 'string' ? data.tx_hash.trim() : '';
+      if (txHash) {
+        const confirmation = await waitForNearTransactionBatchConfirmation({
+          txHashes: [txHash],
+          accountId,
+        });
+
+        if (!confirmation.ok) {
+          throw new Error(
+            confirmation.errorMessage ?? 'Collection failed on-chain.'
+          );
+        }
+      }
+
+      setCollectPhase('succeeded');
+    void refreshRewardsWithRetry({ silent: true, fresh: true });
+      await refreshAppSocialBalanceAfterClaim();
+      setCollectPhase('idle');
+    } catch {
+      setCollectPhase('idle');
     }
-  }, [accountId, claiming, overview?.claimable, refreshRewardsWithRetry]);
+  }, [
+    accountId,
+    collectPhase,
+    overview?.claimable,
+    pendingCreditYocto,
+    refreshRewardsWithRetry,
+  ]);
 
   const chainClaimableYocto = useMemo(
     () => parseYocto(overview?.claimable),
     [overview?.claimable]
   );
 
-  const claimableYocto = claimBarHoldYocto ?? chainClaimableYocto;
+  const claimableYocto = chainClaimableYocto + pendingCreditYocto;
+
+  const claiming = collectPhase === 'pending';
+  const collectSucceeded = collectPhase === 'succeeded';
 
   const canClaim =
-    claimBarHoldYocto == null &&
-    chainClaimableYocto >= APP_REWARD_MIN_CLAIM_YOCTO &&
-    !claiming;
+    collectPhase === 'idle' &&
+    claimableYocto >= APP_REWARD_MIN_CLAIM_YOCTO;
 
   const remainingToClaimYocto = canClaim
     ? 0n
@@ -253,17 +468,27 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
     () => ({
       claimableYocto,
       canClaim,
+      collectPhase,
       claiming,
+      collectSucceeded,
       remainingToClaimYocto,
       loading,
+      activityBarPulseKey,
+      creditBurst,
+      dismissCreditBurst,
       refreshRewards,
       claimRewards,
     }),
     [
+      activityBarPulseKey,
       canClaim,
       claimableYocto,
-      claiming,
       claimRewards,
+      collectPhase,
+      claiming,
+      collectSucceeded,
+      creditBurst,
+      dismissCreditBurst,
       loading,
       refreshRewards,
       remainingToClaimYocto,
@@ -273,25 +498,7 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
   return (
     <AppRewardsContext.Provider value={value}>
       {children}
-      {toast ? (
-        <div
-          className={`app-reward-toast is-${toast.type}`}
-          role="status"
-          aria-live="polite"
-        >
-          <p className="app-reward-toast-message">{toast.message}</p>
-          {toast.explorerHref ? (
-            <a
-              className="app-reward-toast-link"
-              href={toast.explorerHref}
-              target="_blank"
-              rel="noreferrer"
-            >
-              View on Nearblocks
-            </a>
-          ) : null}
-        </div>
-      ) : null}
+      <AppRewardCreditBurst />
     </AppRewardsContext.Provider>
   );
 }

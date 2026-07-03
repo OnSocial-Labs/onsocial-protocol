@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { MaterialisedProfile } from '@onsocial/sdk';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
+import { creditAppPlatformReward } from '@/lib/app-platform-rewards';
 import {
   normalizeProfileLinksInput,
   profileLinksInputFromRecord,
@@ -133,7 +134,7 @@ export function useAppProfileEditor(accountId: string | null, enabled: boolean) 
       setError(null);
 
       try {
-        const { client } = await getClient();
+        const { client, accountId: signingAccountId, session } = await getClient();
         const normalizedLinks = normalizeProfileLinksInput(
           input.links,
           input.currentLinks ?? undefined
@@ -168,7 +169,15 @@ export function useAppProfileEditor(accountId: string | null, enabled: boolean) 
           payload.tags = normalizedTags;
         }
 
-        await client.profiles.update(payload, { wait: true });
+        const response = await client.profiles.update(payload, { wait: true });
+        if (session) {
+          creditAppPlatformReward({
+            accountId: signingAccountId,
+            action: 'profile_created',
+            proof: { txHash: response.txHash ?? '' },
+            session,
+          });
+        }
 
         const refreshed = await client.profiles.get(accountId);
         const avatarUrl = refreshed ? client.profiles.avatarUrl(refreshed) : null;

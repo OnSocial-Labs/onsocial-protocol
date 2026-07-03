@@ -136,7 +136,9 @@ export function PortfolioPageDock({ pageAccountId }: PortfolioPageDockProps) {
 
   return (
     <>
-      <div className="portfolio-summon-dock">
+      <div
+        className={`portfolio-summon-dock${osOpen ? ' is-launcher-open' : ''}`}
+      >
         {showHint ? (
           <p className="portfolio-summon-hint" aria-hidden="true">
             Swipe up · hold for apps

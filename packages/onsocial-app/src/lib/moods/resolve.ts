@@ -1,6 +1,7 @@
 import type { PublicPageConfig } from '../page-data';
 import {
   mergePageMoodTheme,
+  mergePageMoodThemeForPicker,
   moodSignalTokensToCssVars,
   pageMoodPreviewCssVars,
   pageMoodSignalsFor,
@@ -93,6 +94,125 @@ export function moodSheetItemPreviewVars(
   };
 }
 
+/** Mood picker row — catalog preset + stored per-mood ink tints only. */
+export function moodSheetRowPreviewVars(
+  moodId: PageMoodId,
+  presetTheme: MoodThemeTokens,
+  pageTheme?: PublicPageConfig['theme']
+): Record<string, string> {
+  const merged = mergePageMoodThemeForPicker(presetTheme, pageTheme, moodId);
+  return moodSheetItemPreviewVars(moodId, merged);
+}
+
+/**
+ * Concrete per-row accent for the mood picker.
+ * `@property --mood-accent` inherits from the sheet — set row accent inline instead.
+ */
+export function moodSheetRowInlineStyle(
+  vars: Record<string, string>,
+  fallbackAccent?: string,
+  fallbackAccentLight?: string
+): Record<string, string> {
+  const accent = vars['--mood-preset-accent'] ?? fallbackAccent;
+  if (!accent) {
+    return vars;
+  }
+
+  const accentLight =
+    vars['--mood-preset-accent-light'] ?? fallbackAccentLight ?? accent;
+
+  return {
+    ...vars,
+    '--mood-row-accent': accent,
+    '--mood-row-accent-light': accentLight,
+  };
+}
+
+/** Mood thread for page content drawer — ambient wash + accent for grip. */
+export function pageContentDrawerPanelStyle(
+  cssVars: Record<string, string>
+): Record<string, string> {
+  const thread = moodDrawerThreadVars(cssVars);
+  const accent = cssVars['--mood-preset-accent'] ?? cssVars['--mood-accent'];
+  const accentLight =
+    cssVars['--mood-preset-accent-light'] ??
+    cssVars['--mood-accent-light'] ??
+    accent;
+
+  const style: Record<string, string> = { ...thread };
+
+  if (accent) {
+    style['--mood-accent'] = accent;
+    style['--mood-preset-accent'] = accent;
+    style['--mood-accent-chrome'] = accent;
+  }
+
+  if (accentLight) {
+    style['--mood-preset-accent-light'] = accentLight;
+  }
+
+  const summonGrip = cssVars['--glass-summon-grip'];
+  if (summonGrip) {
+    style['--glass-summon-grip'] = summonGrip;
+  }
+
+  return style;
+}
+
+/** Ambient sheet thread without accent vars that leak into picker rows. */
+export function moodSheetPanelStyle(
+  cssVars: Record<string, string>
+): Record<string, string> {
+  const thread = moodDrawerThreadVars(cssVars);
+  delete thread['--mood-preset-accent'];
+  delete thread['--mood-preset-accent-light'];
+  return thread;
+}
+
+/**
+ * Inline shell vars — concrete accent/banner on the frame so `@property --mood-accent`
+ * cannot inherit the committed mood from ancestors during live preview.
+ */
+export function portfolioMoodShellStyle(
+  cssVars: Record<string, string>,
+  options?: { preview?: boolean }
+): Record<string, string> {
+  const accent = cssVars['--mood-preset-accent'] ?? cssVars['--mood-accent'];
+  const accentLight =
+    cssVars['--mood-preset-accent-light'] ??
+    cssVars['--mood-accent-light'] ??
+    accent;
+  const surface = cssVars['--mood-surface'];
+  const banner = cssVars['--mood-banner'];
+
+  const style: Record<string, string> = { ...cssVars };
+
+  if (accent) {
+    style['--mood-accent'] = accent;
+    style['--mood-preset-accent'] = accent;
+  }
+
+  if (accentLight) {
+    style['--mood-preset-accent-light'] = accentLight;
+  }
+
+  if (surface) {
+    style['--mood-surface'] = surface;
+  }
+
+  if (banner) {
+    style['--mood-banner-active'] = banner;
+  }
+
+  if (options?.preview) {
+    style['--mood-bg-preset-mix'] = '72%';
+    style['--mood-text-preset-mix'] = '42%';
+    style['--mood-muted-preset-mix'] = '38%';
+  }
+
+  return style;
+}
+
 function presetForId(id: MoodId): MoodPreset {
   const resolved = resolvePageMoodId(id);
   if (resolved) {
@@ -137,6 +257,50 @@ export function resolvePortfolioMood(config: PublicPageConfig): ResolvedMood {
     tagline: preset.tagline,
     since: record?.since ?? null,
     note: record?.note?.trim() || null,
+    cssVars,
+  };
+}
+
+/** Resolve live page preview — catalog mood colors + stored per-mood ink tints. */
+export function resolvePortfolioMoodForPreview(
+  config: PublicPageConfig,
+  moodId: PageMoodId
+): ResolvedMood {
+  const preset = moodPresetForId(moodId);
+  const resolvedId = resolvePageMoodId(moodId) ?? moodId;
+  const theme = mergePageMoodThemeForPicker(
+    preset.theme,
+    config.theme,
+    resolvedId
+  );
+  const cssVars = themeTokensToCssVars(theme, resolvedId);
+
+  return {
+    id: resolvedId,
+    label: preset.label,
+    tagline: preset.tagline,
+    since: null,
+    note: null,
+    cssVars,
+  };
+}
+
+/** Resolve picker / preview mood without mutating stored page mood. */
+export function resolvePortfolioMoodForId(
+  config: PublicPageConfig,
+  moodId: PageMoodId
+): ResolvedMood {
+  const preset = moodPresetForId(moodId);
+  const resolvedId = resolvePageMoodId(moodId) ?? moodId;
+  const theme = mergePageMoodTheme(preset.theme, config.theme, resolvedId);
+  const cssVars = themeTokensToCssVars(theme, resolvedId);
+
+  return {
+    id: resolvedId,
+    label: preset.label,
+    tagline: preset.tagline,
+    since: null,
+    note: null,
     cssVars,
   };
 }

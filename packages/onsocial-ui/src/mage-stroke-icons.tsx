@@ -353,6 +353,46 @@ export function GlobeIcon(props: MageStrokeIconProps) {
   );
 }
 
+/** Mage stroke `gift` — reward and collect surfaces. */
+export function GiftIcon(props: MageStrokeIconProps) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="M4.80556 12V19.1944C4.80556 19.7396 5.02212 20.2624 5.40761 20.6479C5.79311 21.0334 6.31595 21.25 6.86111 21.25H17.1389C17.6841 21.25 18.2069 21.0334 18.5924 20.6479C18.9779 20.2624 19.1944 19.7396 19.1944 19.1944V12"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <path
+        d="M19.7083 6.86108H4.29167C3.44023 6.86108 2.75 7.55131 2.75 8.40275V10.4583C2.75 11.3097 3.44023 12 4.29167 12H19.7083C20.5598 12 21.25 11.3097 21.25 10.4583V8.40275C21.25 7.55131 20.5598 6.86108 19.7083 6.86108Z"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <path
+        d="M6.92278 6.86111C6.01834 5.71 5.83334 2.75 8.91667 2.75C12.4111 2.75 11.9486 6.86111 12 6.86111C12.0514 6.86111 11.6403 2.75 15.0833 2.75C18.1667 2.75 17.9611 5.71 17.0567 6.86111"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <path
+        d="M12 21.25V6.86108"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </MageStrokeSvg>
+  );
+}
+
 export function LogoutIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>

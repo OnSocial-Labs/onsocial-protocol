@@ -472,3 +472,34 @@
     background: var(--os-fp-trigger-bg-open);
   }
 }
+
+/* Sheet footer / preview bar — dropdown panel shell + status copy. */
+.os-sheet-floating-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.85rem 1rem;
+  border-radius: 1rem;
+}
+
+.os-sheet-floating-panel-copy {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--os-fp-fg-soft);
+}
+
+.os-sheet-floating-panel-copy strong {
+  font-weight: 600;
+  color: var(--os-fp-fg);
+}
+
+.os-sheet-floating-panel-meta {
+  color: var(--os-fp-muted-70);
+}
+
+.os-sheet-floating-panel-error {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--protocol-red, #f87171);
+}

@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { osSurfaceHaloClassName, OsSurfaceHalo } from './os-surface-halo.js';
+import {
+  osSurfaceHaloClassName,
+  osSurfaceHaloStandardClassName,
+  OsSurfaceHalo,
+} from './os-surface-halo.js';
 
 describe('OsSurfaceHalo', () => {
   it('exports shared class names', () => {
     expect(osSurfaceHaloClassName).toBe('os-surface-halo');
+    expect(osSurfaceHaloStandardClassName).toBe('os-surface-halo--standard');
   });
 
   it('exports the surface component', () => {

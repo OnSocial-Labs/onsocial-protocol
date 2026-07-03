@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  mergePageMoodUnlockIntoPageConfig,
   ONPAGE_SOCIAL_SPEND_APP_ID,
   PAGE_MOOD_CATALOG,
   premiumMoodPriceYocto,
@@ -12,6 +13,7 @@ import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { accountIdsEqual } from '@/lib/account-match';
+import { fetchPageConfigFromBrowserProxy } from '@/lib/read-page-config';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 function extractTxHash(value: unknown): string | undefined {
@@ -133,12 +135,14 @@ export function useUnlockPremiumMood(pageAccountId: string) {
         });
 
         const purchaseTxHash = extractTxHash(payment);
+        const current = await fetchPageConfigFromBrowserProxy(signingAccountId);
 
-        await client.pages.unlockMood(moodId, {
-          accountId: signingAccountId,
-          purchaseTxHash,
-          wait: true,
-        });
+        await client.pages.setConfig(
+          mergePageMoodUnlockIntoPageConfig(current, moodId, {
+            purchaseTxHash,
+          }),
+          { wait: true }
+        );
 
         router.refresh();
         return true;

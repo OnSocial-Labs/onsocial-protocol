@@ -254,6 +254,7 @@ export function pageMoodPreviewCssVars(
 ): Record<string, string> {
   return {
     ...moodTypographyToCssVars(pageMoodTypographyFor(moodId)),
+    '--mood-accent': theme.accent,
     '--mood-preset-accent': theme.accent,
     '--mood-preset-accent-light': theme.accentLight ?? theme.accent,
     '--mood-surface': theme.surface,
@@ -353,6 +354,19 @@ export function mergePageMoodTheme(
     banner: banners.banner,
     bannerLight: banners.bannerLight,
   };
+}
+
+/** Catalog picker — per-mood ink tints only; not global page `theme.accent`. */
+export function mergePageMoodThemeForPicker(
+  preset: PageMoodThemeTokens,
+  overrides?: PageTheme,
+  moodId?: PageMoodId
+): PageMoodThemeTokens {
+  const pickerOverrides =
+    overrides?.moodTints !== undefined
+      ? { moodTints: overrides.moodTints }
+      : undefined;
+  return mergePageMoodTheme(preset, pickerOverrides, moodId);
 }
 
 export const PAGE_MOOD_PRESETS: Record<BuiltInPageMoodId, PageMoodPreset> = {

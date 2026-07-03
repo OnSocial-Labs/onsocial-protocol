@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { PortfolioHeroTop } from '@/components/portfolio/portfolio-hero-top';
+import { portfolioMoodShellStyle } from '@/lib/moods/resolve';
 import type { PageAvatarMode, PublicPageConfig, ResolvedPageHero } from '@/lib/page-data';
 import { resolvePageFace } from '@/lib/page-face';
 import type { ResolvedMood } from '@/lib/moods/types';
@@ -11,6 +12,7 @@ interface PortfolioShellProps {
   avatarMedia?: ResolvedPageHero | null;
   bannerMedia?: ResolvedPageHero | null;
   isPreviewing?: boolean;
+  isPreviewingMood?: boolean;
   children: ReactNode;
 }
 
@@ -21,6 +23,7 @@ export function PortfolioShell({
   avatarMedia = null,
   bannerMedia = null,
   isPreviewing = false,
+  isPreviewingMood = false,
   children,
 }: PortfolioShellProps) {
   const { hero, isCoverLayout } = resolvePageFace({
@@ -32,17 +35,21 @@ export function PortfolioShell({
   const hasBanner = Boolean(hero);
   const isMoodOnly = !hasBanner;
   const isGlassFinish = mood.id === 'glass';
+  const shellStyle = portfolioMoodShellStyle(mood.cssVars, {
+    preview: isPreviewingMood,
+  });
 
   return (
     <main
       className="frame app-surface portfolio-frame"
       data-mood={mood.id}
+      data-mood-preview={isPreviewingMood ? 'true' : undefined}
       data-has-banner={hasBanner ? 'true' : undefined}
       data-mood-only={isMoodOnly ? 'true' : undefined}
       data-avatar-mode={avatarMode}
       data-avatar-cover={isCoverLayout ? 'true' : undefined}
       data-face-preview={isPreviewing ? 'true' : undefined}
-      style={mood.cssVars as CSSProperties}
+      style={shellStyle as CSSProperties}
     >
       <div className="portfolio-page">
         {isGlassFinish ? (

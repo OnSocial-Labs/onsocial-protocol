@@ -4,8 +4,12 @@ import { useEffect, useRef, useState } from 'react';
 import {
   OsSheetAction,
   OsSheetActions,
+  osFloatingPanelClassName,
   osSheetActionExpandedClassName,
-  osSurfaceHaloClassName,
+  osSheetFloatingPanelClassName,
+  osSheetFloatingPanelCopyClassName,
+  osSheetFloatingPanelErrorClassName,
+  osSheetFloatingPanelMetaClassName,
 } from '@onsocial/ui';
 import { useApplyPageFace } from '@/hooks/use-apply-page-face';
 import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-context';
@@ -163,17 +167,17 @@ export function PortfolioFacePreviewBar({
   const actionsBusy = isApplying || saved;
   return (
     <div
-      className={`${osSurfaceHaloClassName} portfolio-face-preview-bar portfolio-face-preview-bar--enter`}
+      className={`${osFloatingPanelClassName} ${osSheetFloatingPanelClassName} portfolio-face-preview-bar portfolio-face-preview-bar--enter`}
       role="status"
     >
-      <p className="portfolio-face-preview-copy">
+      <p className={osSheetFloatingPanelCopyClassName}>
         {previewLead} <strong>{previewLabel}</strong>
-        <span className="portfolio-face-preview-meta">
+        <span className={osSheetFloatingPanelMetaClassName}>
           {' '}
           · saved as {savedLabel}
         </span>
       </p>
-      <OsSheetActions layout="row-compact" tone="frosted-primary">
+      <OsSheetActions layout="row-compact" tone="frosted-primary" borderless>
         {!actionsBusy ? (
           <OsSheetAction
             type="button"
@@ -199,7 +203,9 @@ export function PortfolioFacePreviewBar({
         </OsSheetAction>
       </OsSheetActions>
 
-      {error ? <p className="portfolio-face-preview-error">{error}</p> : null}
+      {error ? (
+        <p className={osSheetFloatingPanelErrorClassName}>{error}</p>
+      ) : null}
     </div>
   );
 }

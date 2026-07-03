@@ -103,6 +103,33 @@ export {
   buildClaimAction,
   buildCreditRewardAction,
 } from './modules/rewards.js';
+export {
+  PLATFORM_REWARD_ACTIONS,
+  PLATFORM_REWARD_ACTIONS_SET,
+  isPlatformRewardAction,
+} from './platform-reward-actions.js';
+export type {
+  PlatformRewardAction,
+  SocialPlatformRewardAction,
+} from './platform-reward-actions.js';
+export {
+  PLATFORM_REWARD_ELIGIBILITY_RETRY_MS,
+  normalizePlatformRewardAccountId,
+  normalizePlatformRewardTopic,
+  hasPlatformRewardOnChainProof,
+  hasPlatformRewardAuthShape,
+  verifyPlatformRewardEligibility,
+  platformRewardActionRequiresTarget,
+} from './platform-reward-action-server.js';
+export {
+  creditPlatformReward,
+  creditPlatformRewardSafe,
+  creditPlatformSocialReward,
+} from './platform-rewards-credit.js';
+export type {
+  CreditPlatformRewardInput,
+  PlatformRewardCreditEvent,
+} from './platform-rewards-credit.js';
 export { QueryModule } from './query/index.js';
 export {
   SubscribeModule,
@@ -269,6 +296,7 @@ export {
   isBuiltInPageMoodId,
   mergeMoodIntoPageConfig,
   mergePageMoodTheme,
+  mergePageMoodThemeForPicker,
   moodSurfaceFromAccent,
   moodThemeFromPreset,
   moodTypographyToCssVars,

@@ -19,3 +19,8 @@ export const ACTIVE_NEAR_EXPLORER_URL =
   ACTIVE_NEAR_NETWORK === 'mainnet'
     ? 'https://nearblocks.io'
     : 'https://testnet.nearblocks.io';
+
+export const SOCIAL_TOKEN_CONTRACT =
+  ACTIVE_NEAR_NETWORK === 'mainnet'
+    ? 'token.onsocial.near'
+    : 'token.onsocial.testnet';

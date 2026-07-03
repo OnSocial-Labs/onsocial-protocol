@@ -4,14 +4,31 @@
 @import '@onsocial/ui/glass-sheet.css';
 @import '@onsocial/ui/pulsing-dots.css';
 @import '@onsocial/ui/os-sheet-action.css';
+@import '@onsocial/ui/os-surface-interactive.css';
 @import '@onsocial/ui/os-surface-halo.css';
 @import '@onsocial/ui/floating-panel.css';
+@import '@onsocial/ui/os-launcher.css';
 @import '@onsocial/ui/profile-editor-media.css';
+@import './app-reward-credit-burst.css';
 
 /* Content-sized glass sheets — unlayered so height beats imported glass-sheet.css. */
 .glass-sheet-panel.account-drawer-panel {
   height: auto;
   max-height: min(88dvh, 36rem);
+  --glass-header-scrim-height: min(3.75rem, 20%);
+}
+
+/* Wallet grip — mood accent color only (same pill shape as standing). */
+.account-sheet-panel--page-mood.glass-sheet-panel[data-tone='os'] {
+  --glass-sheet-accent: var(
+    --mood-accent-chrome,
+    var(--mood-accent, rgb(var(--fg-rgb) / 0.55))
+  );
+}
+
+.glass-sheet-panel.account-rewards-rules-panel {
+  height: auto;
+  max-height: min(88dvh, 32rem);
 }
 
 .glass-sheet-panel.account-editor-panel {
@@ -25,42 +42,457 @@
   max-height: min(96dvh, 44rem);
 }
 
-/* Customize sheet hovers — unlayered so they beat layered mood styles. */
-.customize-option {
+/* Customize sheet — surface-halo backlight on selected rows. */
+.customize-sheet-panel .os-surface-row {
+  position: relative;
+  z-index: 1;
+  padding: 0.8rem;
+  border-radius: 1rem;
   transition:
-    border-color 160ms ease,
-    background 160ms ease;
+    background 160ms ease,
+    box-shadow 450ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.customize-option:not(.is-active):not(:disabled):hover,
-.customize-option:not(.is-active):not(:disabled):focus-visible {
-  border-color: rgb(var(--fg-rgb) / 0.14);
-  background: rgb(var(--fg-rgb) / 0.05);
+.customize-sheet-panel .os-surface-row:not(.is-active):not(:disabled):hover,
+.customize-sheet-panel
+  .os-surface-row:not(.is-active):not(:disabled):focus-visible {
+  z-index: 2;
+  background: var(--os-surface-fill-hover-soft);
+  box-shadow: none;
   outline: none;
 }
 
-.customize-option:not(.is-active):not(:disabled):focus-visible {
-  box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.06);
-}
-
-.customize-option--navigate:not(:disabled):hover,
-.customize-option--navigate:not(:disabled):focus-visible {
-  border-color: color-mix(
-    in srgb,
-    var(--mood-accent, rgb(var(--fg-rgb))) 45%,
-    transparent
-  );
-  background: rgb(var(--fg-rgb) / 0.07);
+.customize-sheet-panel
+  .os-surface-row--navigate:not(.is-active):not(:disabled):hover,
+.customize-sheet-panel
+  .os-surface-row--navigate:not(.is-active):not(:disabled):focus-visible {
+  z-index: 2;
+  background: var(--os-surface-fill-hover);
+  box-shadow: none;
   outline: none;
 }
 
-.customize-option--navigate:not(:disabled):hover .customize-option-badge,
-.customize-option--navigate:not(:disabled):focus-visible .customize-option-badge {
+.customize-sheet-panel
+  .os-surface-row--navigate:not(.is-active):not(:disabled):hover
+  .os-surface-row-badge,
+.customize-sheet-panel
+  .os-surface-row--navigate:not(.is-active):not(:disabled):focus-visible
+  .os-surface-row-badge {
   background: rgb(var(--fg-rgb) / 0.12);
   color: rgb(var(--fg-rgb) / 0.78);
 }
 
-/* Preview bar — unlayered: layout + enter animation (surface halo from ui). */
+.customize-sheet-panel .os-surface-row.is-active {
+  /* Layout / hero — neutral OS backlight, not mood-tinted. */
+  --os-surface-halo-accent: rgb(var(--fg-rgb) / 0.72);
+  --os-surface-halo-glow: color-mix(
+    in srgb,
+    var(--os-surface-halo-accent) 10%,
+    transparent
+  );
+  z-index: 0;
+  isolation: isolate;
+  border: 0;
+  background: var(--os-surface-halo-fill);
+  box-shadow: none;
+}
+
+.customize-sheet-panel .os-surface-row.is-active::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: -1;
+  box-shadow:
+    0 0 var(--os-surface-halo-spread) var(--os-surface-halo-glow),
+    var(--os-surface-halo-depth);
+  pointer-events: none;
+}
+
+.customize-sheet-panel .os-surface-row.is-active:not(:disabled):hover,
+.customize-sheet-panel .os-surface-row.is-active:not(:disabled):focus-visible {
+  z-index: 2;
+  border: 0;
+  outline: none;
+  background: color-mix(
+    in srgb,
+    var(--os-surface-halo-fill) 88%,
+    rgb(var(--fg-rgb) / 0.06)
+  );
+}
+
+.customize-sheet-panel
+  .os-surface-row.is-active.os-surface-row--navigate:not(:disabled):hover,
+.customize-sheet-panel
+  .os-surface-row.is-active.os-surface-row--navigate:not(
+    :disabled
+  ):focus-visible {
+  background: color-mix(
+    in srgb,
+    var(--os-surface-halo-fill) 84%,
+    rgb(var(--fg-rgb) / 0.08)
+  );
+}
+
+.customize-sheet-panel
+  .os-surface-row.is-active.os-surface-row--navigate:not(:disabled):hover
+  .os-surface-row-badge,
+.customize-sheet-panel
+  .os-surface-row.is-active.os-surface-row--navigate:not(
+    :disabled
+  ):focus-visible
+  .os-surface-row-badge {
+  background: rgb(var(--fg-rgb) / 0.12);
+  color: rgb(var(--fg-rgb) / 0.78);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .customize-sheet-panel .os-surface-row.is-active {
+    background: rgb(var(--bg-rgb) / 0.94);
+  }
+
+  .customize-sheet-panel .os-surface-row.is-active::before {
+    box-shadow:
+      0 0 10px color-mix(in srgb, var(--os-surface-halo-accent) 6%, transparent),
+      0 10px 28px -16px rgb(0 0 0 / 0.34);
+  }
+
+  .customize-sheet-panel .os-surface-row.is-active:not(:disabled):hover,
+  .customize-sheet-panel
+    .os-surface-row.is-active:not(:disabled):focus-visible {
+    background: rgb(var(--bg-rgb) / 0.98);
+  }
+}
+
+/* Customize sheet — current mood row uses real mood material preview. */
+.customize-sheet-panel .customize-mood-option.mood-sheet-item {
+  border: 0;
+  width: 100%;
+  cursor: pointer;
+  opacity: 1;
+  position: relative;
+  z-index: 1;
+  padding-right: 5.25rem;
+  transition:
+    background 160ms ease,
+    box-shadow 450ms cubic-bezier(0.4, 0, 0.2, 1),
+    filter 160ms ease;
+}
+
+.customize-sheet-panel .customize-mood-option.mood-sheet-item.is-active {
+  border: 0;
+  box-shadow:
+    0 0 var(--os-surface-halo-spread)
+      color-mix(in srgb, var(--mood-accent) 10%, transparent),
+    var(--os-surface-halo-depth);
+}
+
+.customize-sheet-panel
+  .customize-mood-option.mood-sheet-item.is-selectable:not(:disabled):hover,
+.customize-sheet-panel
+  .customize-mood-option.mood-sheet-item.is-selectable:not(
+    :disabled
+  ):focus-visible {
+  z-index: 2;
+  border: 0;
+  outline: none;
+  filter: none;
+  background: color-mix(in srgb, var(--mood-bg) 86%, rgb(var(--fg-rgb) / 0.1));
+  box-shadow:
+    0 0 calc(var(--os-surface-halo-spread) + 2px)
+      color-mix(in srgb, var(--mood-accent) 16%, transparent),
+    var(--os-surface-halo-depth);
+}
+
+.customize-sheet-panel
+  .customize-mood-option.mood-sheet-item.is-selectable:not(:disabled):hover
+  .os-surface-row-badge,
+.customize-sheet-panel
+  .customize-mood-option.mood-sheet-item.is-selectable:not(
+    :disabled
+  ):focus-visible
+  .os-surface-row-badge {
+  background: color-mix(
+    in srgb,
+    var(--mood-accent) 14%,
+    rgb(var(--fg-rgb) / 0.1)
+  );
+  color: rgb(var(--fg-rgb) / 0.82);
+}
+
+.customize-sheet-panel .customize-mood-option .customize-mood-option-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.25rem;
+  position: relative;
+  z-index: 1;
+}
+
+.customize-sheet-panel .customize-mood-option .os-surface-row-badge {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.9rem;
+  z-index: 2;
+  margin-top: 0;
+  align-self: auto;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .customize-sheet-panel .customize-mood-option.mood-sheet-item.is-active {
+    box-shadow:
+      0 0 10px color-mix(in srgb, var(--mood-accent) 6%, transparent),
+      0 10px 28px -16px rgb(0 0 0 / 0.3);
+  }
+
+  .customize-sheet-panel
+    .customize-mood-option.mood-sheet-item.is-selectable:not(:disabled):hover,
+  .customize-sheet-panel
+    .customize-mood-option.mood-sheet-item.is-selectable:not(
+      :disabled
+    ):focus-visible {
+    box-shadow:
+      0 0 12px color-mix(in srgb, var(--mood-accent) 10%, transparent),
+      0 10px 28px -16px rgb(0 0 0 / 0.3);
+  }
+}
+
+/* Mood sheet — borderless rows, mood-colored halo, customize-aligned chrome. */
+.mood-sheet-panel .mood-sheet-header {
+  border-bottom: 0;
+}
+
+.mood-sheet-panel .mood-sheet-section + .mood-sheet-section {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.mood-sheet-panel .mood-sheet-section + .mood-sheet-section::before {
+  content: '';
+  display: block;
+  height: 1px;
+  margin: 0 0.9rem 1rem;
+  background-image: var(--divider-h-section);
+}
+
+.mood-sheet-panel .mood-sheet-section-list > li + li {
+  margin-top: 0.65rem;
+}
+
+.mood-sheet-panel .mood-sheet-item {
+  border: 0;
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  opacity: 1;
+  padding: 0.85rem 0.9rem;
+  transition:
+    background 160ms ease,
+    box-shadow 450ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Browse rows — mini mood swatch; saved/active row stays neutral below. */
+.mood-sheet-panel .mood-sheet-item:not(.is-active) {
+  --mood-bg-preset-mix: 48%;
+  --mood-text-preset-mix: 42%;
+  --mood-muted-preset-mix: 38%;
+  padding-top: 3.1rem;
+  padding-left: 0.9rem;
+  background: color-mix(
+    in srgb,
+    var(--mood-bg) 84%,
+    var(
+        --mood-surface,
+        color-mix(in srgb, var(--mood-row-accent) 14%, transparent)
+      )
+      16%
+  );
+}
+
+.mood-sheet-panel .mood-sheet-item:not(.is-active) .mood-sheet-item-label,
+.mood-sheet-panel .mood-sheet-item:not(.is-active) .mood-sheet-item-badge {
+  color: var(--mood-row-accent);
+}
+
+:root[data-theme='light']
+  .mood-sheet-panel
+  .mood-sheet-item:not(.is-active)
+  .mood-sheet-item-label,
+:root[data-theme='light']
+  .mood-sheet-panel
+  .mood-sheet-item:not(.is-active)
+  .mood-sheet-item-badge {
+  color: var(--mood-row-accent-light, var(--mood-row-accent));
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme])
+    .mood-sheet-panel
+    .mood-sheet-item:not(.is-active)
+    .mood-sheet-item-label,
+  :root:not([data-theme])
+    .mood-sheet-panel
+    .mood-sheet-item:not(.is-active)
+    .mood-sheet-item-badge {
+    color: var(--mood-row-accent-light, var(--mood-row-accent));
+  }
+}
+
+.mood-sheet-panel .mood-sheet-item > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Built-in moods — mini banner bloom so each browse row reads in its own color. */
+.mood-sheet-panel
+  .mood-sheet-item:not(.is-active):not([data-mood='gold']):not(
+    [data-mood='glass']
+  ):not([data-mood='carbon']):not([data-mood='holographic'])::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2.55rem;
+  border-radius: inherit inherit 0 0;
+  background: var(
+    --mood-banner-active,
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--mood-row-accent) 32%, transparent),
+      color-mix(in srgb, var(--mood-row-accent) 10%, transparent)
+    )
+  );
+  opacity: 1;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.mood-sheet-panel .mood-sheet-item.is-active {
+  z-index: 1;
+  isolation: isolate;
+  border: 0;
+  background: rgb(var(--fg-rgb) / 0.04);
+  color: rgb(var(--fg-rgb) / 0.82);
+  box-shadow:
+    0 0 var(--os-surface-halo-spread)
+      color-mix(in srgb, var(--mood-row-accent) 16%, transparent),
+    var(--os-surface-halo-depth);
+}
+
+.mood-sheet-panel .mood-sheet-item.is-active .mood-sheet-item-label,
+.mood-sheet-panel .mood-sheet-item.is-active .mood-sheet-item-badge {
+  color: var(--mood-row-accent);
+}
+
+.mood-sheet-panel .mood-sheet-item.is-active .mood-sheet-item-tagline {
+  color: rgb(var(--fg-rgb) / 0.58);
+}
+
+.mood-sheet-panel .mood-sheet-item.is-active[data-mood='gold']::before,
+.mood-sheet-panel .mood-sheet-item.is-active[data-mood='glass']::before,
+.mood-sheet-panel .mood-sheet-item.is-active[data-mood='carbon']::before,
+.mood-sheet-panel .mood-sheet-item.is-active[data-mood='holographic']::before {
+  content: none;
+  display: none;
+}
+
+:root[data-theme='light']
+  .mood-sheet-panel
+  .mood-sheet-item.is-active
+  .mood-sheet-item-label,
+:root[data-theme='light']
+  .mood-sheet-panel
+  .mood-sheet-item.is-active
+  .mood-sheet-item-badge {
+  color: var(--mood-row-accent-light, var(--mood-row-accent));
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme])
+    .mood-sheet-panel
+    .mood-sheet-item.is-active
+    .mood-sheet-item-label,
+  :root:not([data-theme])
+    .mood-sheet-panel
+    .mood-sheet-item.is-active
+    .mood-sheet-item-badge {
+    color: var(--mood-row-accent-light, var(--mood-row-accent));
+  }
+}
+
+.mood-sheet-panel .mood-sheet-item.is-selectable:not(:disabled):hover,
+.mood-sheet-panel .mood-sheet-item.is-selectable:not(:disabled):focus-visible {
+  z-index: 2;
+  border: 0;
+  outline: none;
+  box-shadow:
+    0 0 var(--os-surface-halo-spread)
+      color-mix(in srgb, var(--mood-row-accent) 16%, transparent),
+    var(--os-surface-halo-depth);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .mood-sheet-panel .mood-sheet-item.is-active {
+    box-shadow:
+      0 0 12px color-mix(in srgb, var(--mood-row-accent) 12%, transparent),
+      0 10px 28px -16px rgb(0 0 0 / 0.3);
+  }
+
+  .mood-sheet-panel .mood-sheet-item.is-selectable:not(:disabled):hover,
+  .mood-sheet-panel
+    .mood-sheet-item.is-selectable:not(:disabled):focus-visible {
+    box-shadow:
+      0 0 12px color-mix(in srgb, var(--mood-row-accent) 12%, transparent),
+      0 10px 28px -16px rgb(0 0 0 / 0.3);
+  }
+}
+
+/* Live mood preview — stronger catalog tint; inline vars from portfolioMoodShellStyle. */
+.portfolio-frame[data-mood-preview='true'],
+.portfolio-os-layer[data-mood-preview='true'] {
+  --mood-banner-active: var(--mood-banner);
+}
+
+.portfolio-frame[data-mood-preview='true'][data-mood-only='true']
+  .portfolio-page::after {
+  opacity: 1;
+}
+
+/* Account sheet — row copy sizing + trailing arrows. */
+a.os-surface-row {
+  text-decoration: none;
+}
+
+.os-surface-row .account-card-action-arrow {
+  flex-shrink: 0;
+  width: 0.75rem;
+  height: 0.75rem;
+  color: rgb(var(--fg-rgb) / 0.42);
+}
+
+.os-surface-row--navigate:not(:disabled):hover .account-card-action-arrow,
+.os-surface-row--navigate:not(:disabled):focus-visible
+  .account-card-action-arrow {
+  color: rgb(var(--fg-rgb) / 0.72);
+}
+
+.os-surface-row .account-card-action-external {
+  flex-shrink: 0;
+  width: 0.875rem;
+  height: 0.875rem;
+  color: rgb(var(--fg-rgb) / 0.42);
+}
+
+.os-surface-row:not(.os-surface-row--navigate):not(:disabled):hover
+  .account-card-action-external,
+.os-surface-row:not(.os-surface-row--navigate):not(:disabled):focus-visible
+  .account-card-action-external {
+  color: rgb(var(--fg-rgb) / 0.72);
+}
+
+/* Preview bar — layout only; shell + actions live in @onsocial/ui. */
 .portfolio-face-preview-bar {
   position: fixed;
   left: calc(var(--os-column-inset-inline) + var(--os-column-width) / 2);
@@ -68,10 +500,8 @@
   display: flex;
   width: min(calc(var(--os-column-width) - 2rem), 22rem);
   flex-direction: column;
-  gap: 0.65rem;
   transform: translateX(-50%);
   bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
-  padding: 0.85rem 1rem;
 }
 
 .portfolio-face-preview-bar--enter {
@@ -84,6 +514,70 @@
   }
 }
 
+.portfolio-mood-preview-bar.is-stacked {
+  bottom: calc(10.75rem + env(safe-area-inset-bottom, 0px));
+}
+
+.portfolio-summon-dock.is-launcher-open {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* OS dock pill — mood-tinted glass; depth shadow only (no accent halo). */
+.portfolio-os-layer .os-dock-pill {
+  --os-dock-fill: color-mix(
+    in srgb,
+    var(--glass-surface, rgb(var(--bg-rgb) / 0.36)) 68%,
+    color-mix(
+      in srgb,
+      var(--mood-accent-chrome, var(--mood-accent)) 16%,
+      rgb(var(--bg-rgb) / 0.12)
+    )
+  );
+  --os-dock-fill-hover: color-mix(
+    in srgb,
+    var(--os-dock-fill) 62%,
+    color-mix(
+      in srgb,
+      var(--mood-accent-chrome, var(--mood-accent)) 24%,
+      transparent
+    )
+  );
+  --os-dock-shadow: var(--os-chrome-elev-shadow);
+  --os-dock-shadow-hover: var(--os-chrome-elev-shadow-hover);
+  --os-dock-lip: inset 0 1px 0
+    color-mix(
+      in srgb,
+      var(--mood-accent-chrome, var(--mood-accent)) 14%,
+      rgb(var(--fg-rgb) / 0.12)
+    );
+}
+
+.portfolio-os-layer .portfolio-summon-grip-zone.is-interactive:hover {
+  background: color-mix(
+    in srgb,
+    var(--mood-accent-chrome, var(--mood-accent)) 12%,
+    transparent
+  );
+}
+
+.portfolio-os-layer .portfolio-summon-grip-zone.is-interactive:active {
+  background: color-mix(
+    in srgb,
+    var(--mood-accent-chrome, var(--mood-accent)) 18%,
+    transparent
+  );
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .portfolio-os-layer .os-dock-pill {
+    --os-dock-fill: var(--glass-surface-solid, rgb(var(--bg-rgb) / 0.96));
+    --os-dock-shadow: var(--os-chrome-elev-shadow);
+    --os-dock-shadow-hover: var(--os-chrome-elev-shadow-hover);
+  }
+}
+
+/* Customize options — no borders anywhere; halo glow on selected only in customize sheet. */
 @source "../**/*.{js,ts,jsx,tsx}";
 @source "../../../onsocial-ui/src/**/*.{js,ts,jsx,tsx}";
 
@@ -256,12 +750,26 @@
     /* OS / protocol chrome — Portal DM Sans. Portfolio moods override locally. */
     --app-font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
 
-    /* Frosted glass material — portfolio shell + GlassSheet (see glass-sheet.css). */
-    --glass-scrim: rgb(var(--bg-rgb) / 0.28);
+    /* Frosted sheet material — tune top/body glass from this token group. */
+    --glass-scrim: rgb(var(--bg-rgb) / 0.56);
     --glass-scrim-solid: rgb(var(--bg-rgb) / 0.82);
-    --glass-surface: rgb(var(--bg-rgb) / 0.22);
+    --glass-sheet-body-opacity: 0.72;
+    --glass-sheet-header-top-opacity: 0.88;
+    --glass-sheet-header-mid-opacity: 0.76;
+    --glass-sheet-mood-ambient-strength: 14%;
+    --glass-sheet-body-surface: rgb(
+      var(--bg-rgb) / var(--glass-sheet-body-opacity)
+    );
+    --glass-body-surface: var(--glass-sheet-body-surface);
+    --glass-surface: var(--glass-sheet-body-surface);
     --glass-surface-solid: var(--surface-solid);
-    --glass-portfolio-fill: rgb(var(--bg-rgb) / 0.28);
+    --glass-header-scrim-top: var(--glass-sheet-header-top-opacity);
+    --glass-header-scrim-mid: var(--glass-sheet-header-mid-opacity);
+    --glass-header-scrim-height: min(9rem, 26%);
+    --glass-sheet-header-scrim-height-compact: min(3.75rem, 20%);
+    --glass-screen-surface: var(--glass-body-surface);
+    --glass-screen-header-scrim-height: min(10rem, 24%);
+    --glass-portfolio-fill: var(--glass-body-surface);
     --glass-portfolio-lip: transparent;
     --glass-border: transparent;
     --glass-lip: transparent;
@@ -272,6 +780,12 @@
     --glass-lip-os: transparent;
     --glass-shadow-os: none;
     --glass-shadow-os-reduced: none;
+
+    /* OS chrome elevation — dock pill + launcher sheet (balanced per theme). */
+    --os-chrome-elev-shadow: 0 12px 36px -10px rgb(0 0 0 / 0.52);
+    --os-chrome-elev-shadow-hover: 0 14px 40px -8px rgb(0 0 0 / 0.58);
+    /* Launcher sheet — inset lip only (no upward outer glow). */
+    --os-chrome-sheet-shadow: inset 0 1px 0 rgb(255 255 255 / 0.1);
   }
 
   /* Light base — applied via system preference when the user has not chosen,
@@ -287,10 +801,20 @@
       --muted-foreground: 222 10% 40%;
       --border: 220 14% 90%;
       color-scheme: light;
-      --glass-scrim: rgb(var(--bg-rgb) / 0.28);
+      --glass-scrim: rgb(var(--bg-rgb) / 0.58);
       --glass-scrim-solid: rgb(var(--bg-rgb) / 0.88);
-      --glass-surface: rgb(var(--bg-rgb) / 0.22);
-      --glass-portfolio-fill: rgb(var(--bg-rgb) / 0.28);
+      --glass-sheet-body-opacity: 0.8;
+      --glass-sheet-header-top-opacity: 0.9;
+      --glass-sheet-header-mid-opacity: 0.8;
+      --glass-sheet-body-surface: rgb(
+        var(--bg-rgb) / var(--glass-sheet-body-opacity)
+      );
+      --glass-body-surface: var(--glass-sheet-body-surface);
+      --glass-surface: var(--glass-sheet-body-surface);
+      --glass-header-scrim-top: var(--glass-sheet-header-top-opacity);
+      --glass-header-scrim-mid: var(--glass-sheet-header-mid-opacity);
+      --glass-screen-surface: var(--glass-sheet-body-surface);
+      --glass-portfolio-fill: var(--glass-sheet-body-surface);
       --glass-portfolio-lip: transparent;
       --glass-border: transparent;
       --glass-lip: transparent;
@@ -300,6 +824,9 @@
       --glass-lip-os: transparent;
       --glass-shadow-os: none;
       --glass-shadow-os-reduced: none;
+      --os-chrome-elev-shadow: 0 10px 32px -12px rgb(0 0 0 / 0.14);
+      --os-chrome-elev-shadow-hover: 0 12px 36px -10px rgb(0 0 0 / 0.18);
+      --os-chrome-sheet-shadow: inset 0 1px 0 rgb(0 0 0 / 0.06);
     }
   }
 
@@ -313,10 +840,20 @@
     --muted-foreground: 222 10% 40%;
     --border: 220 14% 90%;
     color-scheme: light;
-    --glass-scrim: rgb(var(--bg-rgb) / 0.28);
+    --glass-scrim: rgb(var(--bg-rgb) / 0.58);
     --glass-scrim-solid: rgb(var(--bg-rgb) / 0.88);
-    --glass-surface: rgb(var(--bg-rgb) / 0.22);
-    --glass-portfolio-fill: rgb(var(--bg-rgb) / 0.28);
+    --glass-sheet-body-opacity: 0.8;
+    --glass-sheet-header-top-opacity: 0.9;
+    --glass-sheet-header-mid-opacity: 0.8;
+    --glass-sheet-body-surface: rgb(
+      var(--bg-rgb) / var(--glass-sheet-body-opacity)
+    );
+    --glass-body-surface: var(--glass-sheet-body-surface);
+    --glass-surface: var(--glass-sheet-body-surface);
+    --glass-header-scrim-top: var(--glass-sheet-header-top-opacity);
+    --glass-header-scrim-mid: var(--glass-sheet-header-mid-opacity);
+    --glass-screen-surface: var(--glass-sheet-body-surface);
+    --glass-portfolio-fill: var(--glass-sheet-body-surface);
     --glass-portfolio-lip: transparent;
     --glass-border: transparent;
     --glass-lip: transparent;
@@ -326,9 +863,10 @@
     --glass-lip-os: transparent;
     --glass-shadow-os: none;
     --glass-shadow-os-reduced: none;
+    --os-chrome-elev-shadow: 0 10px 32px -12px rgb(0 0 0 / 0.14);
+    --os-chrome-elev-shadow-hover: 0 12px 36px -10px rgb(0 0 0 / 0.18);
+    --os-chrome-sheet-shadow: inset 0 1px 0 rgb(0 0 0 / 0.06);
   }
-
-  /* Mood-tinted page column + picker rows — preset washed toward OS base. */
   .portfolio-frame,
   .portfolio-os-layer,
   .mood-sheet-item {
@@ -635,6 +1173,7 @@
   .glass-sheet-panel[data-tone='os'],
   .portfolio-os-dock,
   .portfolio-face-preview-bar,
+  .portfolio-mood-preview-bar,
   .portfolio-summon-dock {
     font-family: var(--app-font-sans);
   }
@@ -649,18 +1188,7 @@
     );
   }
 
-  /* Light theme — stronger header landing strip over washed glass. */
-  :root[data-theme='light'] .glass-sheet-panel {
-    --glass-header-scrim-top: 0.84;
-    --glass-header-scrim-mid: 0.62;
-  }
-
-  @media (prefers-color-scheme: light) {
-    :root:not([data-theme]) .glass-sheet-panel {
-      --glass-header-scrim-top: 0.84;
-      --glass-header-scrim-mid: 0.62;
-    }
-  }
+  /* Light theme header scrim — set on :root (see glass tokens block). */
 
   @media (prefers-reduced-transparency: reduce) {
     .os-app-screen::before {
@@ -1931,7 +2459,9 @@
     color: rgb(168 192 218);
   }
 
-  .portfolio-frame[data-mood='glass'] .signal-metric--solidarity-active .signal-value {
+  .portfolio-frame[data-mood='glass']
+    .signal-metric--solidarity-active
+    .signal-value {
     color: rgb(188 176 212);
   }
 
@@ -2088,18 +2618,15 @@
     }
   }
 
-  /* Glass summon — frosted dock pill; signals stay bare (semantic standing/solidarity tints only). */
-  .portfolio-os-layer[data-mood='glass'] .portfolio-summon {
-    background: var(--glass-summon-bg);
-    border-color: var(--glass-summon-border);
+  /* Glass summon — mood-native dock tokens on Glass finish. */
+  .portfolio-os-layer[data-mood='glass'] .os-dock-pill {
+    --os-dock-fill: var(--glass-summon-bg);
+    --os-dock-fill-hover: var(--glass-summon-hover-bg);
+    --os-dock-shadow: var(--os-chrome-elev-shadow);
+    --os-dock-shadow-hover: var(--os-chrome-elev-shadow-hover);
+    --os-dock-lip: var(--glass-summon-lip);
     backdrop-filter: blur(20px) saturate(1.35);
     -webkit-backdrop-filter: blur(20px) saturate(1.35);
-    box-shadow: var(--glass-summon-lip);
-  }
-
-  .portfolio-os-layer[data-mood='glass'] .portfolio-summon:hover {
-    background: var(--glass-summon-hover-bg);
-    border-color: var(--glass-summon-border);
   }
 
   .portfolio-os-layer[data-mood='glass'] .portfolio-summon-grip {
@@ -2112,10 +2639,11 @@
   }
 
   @media (prefers-reduced-transparency: reduce) {
-    .portfolio-os-layer[data-mood='glass'] .portfolio-summon {
+    .portfolio-os-layer[data-mood='glass'] .os-dock-pill {
       backdrop-filter: none;
       -webkit-backdrop-filter: none;
-      box-shadow: none;
+      --os-dock-shadow: var(--os-chrome-elev-shadow);
+      --os-dock-shadow-hover: var(--os-chrome-elev-shadow-hover);
     }
   }
 
@@ -3098,7 +3626,9 @@
   }
 
   /* Cover — avatar is the hero; circle hidden, name below the dissolve band. */
-  .portfolio-frame[data-avatar-cover='true'] .portfolio-identity > .portfolio-avatar,
+  .portfolio-frame[data-avatar-cover='true']
+    .portfolio-identity
+    > .portfolio-avatar,
   .portfolio-frame[data-avatar-cover='true']
     .portfolio-identity
     > .portfolio-avatar-fallback {
@@ -3515,11 +4045,19 @@
   }
 
   .signal-metric--highlight .signal-value {
-    color: color-mix(in srgb, var(--signal-standing) 72%, rgb(var(--fg-rgb)) 28%);
+    color: color-mix(
+      in srgb,
+      var(--signal-standing) 72%,
+      rgb(var(--fg-rgb)) 28%
+    );
   }
 
   .signal-metric--solidarity-active .signal-value {
-    color: color-mix(in srgb, var(--signal-solidarity) 68%, rgb(var(--fg-rgb)) 32%);
+    color: color-mix(
+      in srgb,
+      var(--signal-solidarity) 68%,
+      rgb(var(--fg-rgb)) 32%
+    );
   }
 
   .signal-metric.signal-metric-solidarity {
@@ -4156,6 +4694,17 @@
     border-color: rgb(var(--fg-rgb) / 0.14);
   }
 
+  .mood-sheet-panel .mood-sheet-item.is-selectable:not(:disabled):hover,
+  .mood-sheet-panel
+    .mood-sheet-item.is-selectable:not(:disabled):focus-visible {
+    border-color: transparent;
+  }
+
+  .mood-sheet-panel .mood-sheet-item.is-active {
+    border-color: transparent;
+    box-shadow: none;
+  }
+
   .mood-sheet-item.is-active {
     border-color: color-mix(in srgb, var(--mood-accent) 40%, transparent);
     box-shadow: inset 0 0 0 1px
@@ -4320,8 +4869,12 @@
     }
   }
 
+  .mood-sheet-section-list > li + li {
+    margin-top: 0.65rem;
+  }
+
   .mood-sheet-section-list .mood-sheet-item + .mood-sheet-item {
-    margin-top: 0.5rem;
+    margin-top: 0;
   }
 
   .mood-sheet-item-label {
@@ -4518,65 +5071,9 @@
     text-align: right;
   }
 
-  .customize-option-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.55rem;
-  }
-
-  .customize-option {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    width: 100%;
-    border: 1px solid rgb(var(--fg-rgb) / 0.08);
-    border-radius: 1rem;
-    background: rgb(var(--fg-rgb) / 0.03);
-    color: rgb(var(--fg-rgb) / 0.88);
-    padding: 0.8rem;
-    text-align: left;
-    cursor: pointer;
-  }
-
-  .customize-option.is-active {
-    border-color: color-mix(in srgb, var(--mood-accent) 35%, transparent);
-    background: var(--mood-surface, rgb(var(--fg-rgb) / 0.05));
-  }
-
-  .customize-option:disabled {
+  .customize-sheet-panel .os-surface-row:disabled {
     cursor: wait;
     opacity: 0.72;
-  }
-
-  .customize-option-copy {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    gap: 0.2rem;
-  }
-
-  .customize-option-label {
-    font-size: 0.85rem;
-    font-weight: 600;
-  }
-
-  .customize-option-description {
-    font-size: 0.75rem;
-    line-height: 1.45;
-    color: rgb(var(--fg-rgb) / 0.45);
-  }
-
-  .customize-option-badge {
-    flex-shrink: 0;
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.08);
-    color: rgb(var(--fg-rgb) / 0.62);
-    font-size: 0.68rem;
-    padding: 0.3rem 0.5rem;
-    transition:
-      background 160ms ease,
-      color 160ms ease;
   }
 
   .customize-hero-fields {
@@ -4667,27 +5164,6 @@
     display: none;
   }
 
-  .portfolio-face-preview-copy {
-    margin: 0;
-    font-size: 0.78rem;
-    line-height: 1.45;
-    color: rgb(var(--fg-rgb) / 0.82);
-  }
-
-  .portfolio-face-preview-copy strong {
-    font-weight: 600;
-    color: rgb(var(--fg-rgb) / 0.96);
-  }
-
-  .portfolio-face-preview-meta {
-    color: rgb(var(--fg-rgb) / 0.42);
-  }
-
-  .portfolio-face-preview-error {
-    margin: 0;
-    font-size: 0.72rem;
-  }
-
   /* ─── App shell (home, discover, market) ─────────────── */
 
   .app-shell {
@@ -4712,9 +5188,7 @@
 
   /* Full-viewport OS glass app surface (Discover, future OS apps). */
   .os-app-screen {
-    --glass-header-scrim-top: 0.82;
-    --glass-header-scrim-mid: 0.58;
-    --glass-header-scrim-height: min(13.5rem, 30%);
+    --glass-header-scrim-height: var(--glass-screen-header-scrim-height);
     position: relative;
     height: 100dvh;
     max-height: 100dvh;
@@ -4723,7 +5197,7 @@
     flex-direction: column;
     overflow: hidden;
     isolation: isolate;
-    background: rgb(var(--bg-rgb) / 0.5);
+    background: var(--glass-screen-surface);
     backdrop-filter: blur(20px) saturate(1.22);
     -webkit-backdrop-filter: blur(20px) saturate(1.22);
     color: rgb(var(--fg-rgb) / 0.96);
@@ -4750,20 +5224,6 @@
   .os-app-screen > .portfolio-summon-dock {
     position: relative;
     z-index: 1;
-  }
-
-  :root[data-theme='light'] .os-app-screen {
-    background: rgb(255 255 255 / 0.58);
-    --glass-header-scrim-top: 0.9;
-    --glass-header-scrim-mid: 0.68;
-  }
-
-  @media (prefers-color-scheme: light) {
-    :root:not([data-theme]) .os-app-screen {
-      background: rgb(255 255 255 / 0.58);
-      --glass-header-scrim-top: 0.9;
-      --glass-header-scrim-mid: 0.68;
-    }
   }
 
   .os-app-screen-column {
@@ -4989,23 +5449,7 @@
 
   .portfolio-summon {
     pointer-events: auto;
-    display: inline-flex;
-    align-items: stretch;
-    min-height: 2.75rem;
     --portfolio-summon-avatar-size: 1.35rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.12);
-    border-radius: 9999px;
-    background: var(--mood-surface, var(--surface-solid));
-    backdrop-filter: blur(10px);
-    overflow: hidden;
-    transition:
-      background 180ms ease,
-      border-color 180ms ease;
-  }
-
-  .portfolio-summon:hover {
-    background: rgb(var(--fg-rgb) / 0.12);
-    border-color: rgb(var(--fg-rgb) / 0.2);
   }
 
   .portfolio-summon-divider {
@@ -5148,17 +5592,6 @@
   }
 
   /* ── Page content drawer (sections inside GlassSheet) ─── */
-
-  .page-drawer-header .glass-sheet-header-title {
-    font-family: var(
-      --mood-font-display,
-      var(--font-space-grotesk),
-      system-ui,
-      sans-serif
-    );
-    font-size: 1.2rem;
-    letter-spacing: -0.03em;
-  }
 
   .page-drawer-body {
     padding: 0.35rem 1.15rem 1.5rem;
@@ -5363,7 +5796,9 @@
   }
 
   .standing-sheet-subject-avatar-fallback {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 100%;
     height: 100%;
     background: linear-gradient(
@@ -5371,6 +5806,13 @@
       rgb(var(--fg-rgb) / 0.08),
       rgb(var(--fg-rgb) / 0.16)
     );
+  }
+
+  .standing-sheet-subject-avatar-initial {
+    font-size: 0.72rem;
+    font-weight: 650;
+    line-height: 1;
+    color: rgb(var(--fg-rgb) / 0.62);
   }
 
   .standing-sheet-subject-copy {
@@ -6313,147 +6755,16 @@
     }
   }
 
-  .launcher-root {
-    position: fixed;
-    inset: 0;
-    z-index: 60;
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-    padding: env(safe-area-inset-top, 0px)
-      max(0px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px)
-      max(0px, env(safe-area-inset-left, 0px));
-  }
-
-  .launcher-backdrop {
-    position: absolute;
-    inset: 0;
-    border: 0;
-    background: rgb(var(--bg-rgb) / 0.72);
-    backdrop-filter: blur(6px);
-    cursor: pointer;
-    animation: bottom-sheet-backdrop-in 220ms ease;
-  }
-
-  .launcher-sheet {
-    position: relative;
-    width: 100%;
-    max-width: 36rem;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.75rem 1.1rem calc(1.25rem + env(safe-area-inset-bottom));
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    border-radius: 1.25rem 1.25rem 0 0;
-    background: var(--surface-solid);
-    color: rgb(var(--fg-rgb) / 0.96);
-    box-shadow: 0 -24px 80px rgb(0 0 0 / 0.45);
-    animation: bottom-sheet-in 320ms cubic-bezier(0.22, 0.61, 0.36, 1);
-  }
-
-  .launcher-grip {
-    width: 2.5rem;
-    height: 0.3rem;
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.2);
-  }
-
-  .launcher-grid {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.6rem;
-  }
-
-  .launcher-item {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.3rem;
-    min-height: 4.5rem;
-    padding: 0.85rem 0.5rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.08);
-    border-radius: 1rem;
-    background: rgb(var(--fg-rgb) / 0.03);
-    color: inherit;
-    font: inherit;
-    font-size: 0.82rem;
-    text-decoration: none;
-    cursor: pointer;
-    transition:
-      background 160ms ease,
-      border-color 160ms ease,
-      transform 160ms ease;
-  }
-
-  .launcher-item:hover {
-    background: rgb(var(--fg-rgb) / 0.07);
-    border-color: rgb(var(--fg-rgb) / 0.16);
-  }
-
-  .launcher-item:active {
-    transform: translateY(1px);
-  }
-
-  .launcher-item.is-soon {
-    opacity: 0.42;
-    cursor: default;
-  }
-
-  .launcher-item-label {
-    font-weight: 500;
-    letter-spacing: -0.01em;
-  }
-
-  .launcher-item-soon {
-    font-size: 0.6rem;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: rgb(var(--fg-rgb) / 0.4);
-  }
-
-  .launcher-footer {
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    padding-top: 0.25rem;
-  }
-
-  .theme-toggle {
-    display: inline-flex;
-    padding: 0.2rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.04);
-  }
-
-  .theme-toggle-option {
-    appearance: none;
-    border: 0;
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.6);
-    font: inherit;
-    font-size: 0.78rem;
-    padding: 0.35rem 0.9rem;
-    border-radius: 9999px;
-    cursor: pointer;
-    transition:
-      background 160ms ease,
-      color 160ms ease;
-  }
-
-  .theme-toggle-option.is-active {
-    background: rgb(var(--fg-rgb) / 0.12);
-    color: rgb(var(--fg-rgb) / 0.96);
-  }
-
   /* ── Account drawer — OS glass sheet (not Portal dropdown) ─ */
+
+  .account-drawer-panel.account-sheet-panel--page-mood
+    .account-drawer-handle-button {
+    color: color-mix(
+      in srgb,
+      var(--mood-muted, hsl(var(--muted-foreground))) 55%,
+      transparent
+    );
+  }
 
   .account-drawer-panel .glass-sheet-body {
     flex: 1 1 auto;
@@ -6461,11 +6772,7 @@
   }
 
   .account-drawer-header {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    padding: 0 max(1rem, env(safe-area-inset-right, 0px)) 0.65rem
-      max(1rem, env(safe-area-inset-left, 0px));
+    gap: 0;
   }
 
   .account-drawer-subject-row {
@@ -6477,81 +6784,53 @@
   }
 
   .account-drawer-subject {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.55rem;
-    min-width: 0;
+    pointer-events: auto;
     flex: 1;
-  }
-
-  .account-drawer-subject-avatar {
-    position: relative;
-    display: inline-flex;
-    flex-shrink: 0;
-    align-items: center;
-    justify-content: center;
-    width: 2rem;
-    height: 2rem;
-    border-radius: 9999px;
-    overflow: hidden;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    background: rgb(var(--fg-rgb) / 0.04);
-  }
-
-  .account-drawer-subject-avatar-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .account-drawer-subject-avatar-fallback {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100%;
-    font-size: 0.82rem;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    color: rgb(var(--fg-rgb) / 0.88);
-    background: linear-gradient(
-      145deg,
-      rgb(var(--fg-rgb) / 0.08),
-      rgb(var(--fg-rgb) / 0.16)
-    );
   }
 
   .account-drawer-subject-copy {
     display: flex;
     flex-direction: column;
-    gap: 0.05rem;
+    gap: 0.12rem;
     min-width: 0;
   }
 
   .account-drawer-subject-name {
-    font-size: 0.86rem;
+    font-size: 1rem;
     font-weight: 600;
-    letter-spacing: -0.01em;
-    line-height: 1.25;
-    color: rgb(var(--fg-rgb) / 0.88);
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    color: rgb(var(--fg-rgb) / 0.92);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .account-drawer-handle-row {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    min-width: 0;
-  }
-
-  .account-drawer-handle {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .account-drawer-handle-button {
+    align-self: flex-start;
+    max-width: 100%;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    font: inherit;
     font-size: 0.76rem;
-    letter-spacing: 0.04em;
+    line-height: 1.25;
+    color: rgb(var(--fg-rgb) / 0.48);
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: color 160ms ease;
+  }
+
+  .account-drawer-handle-button:hover,
+  .account-drawer-handle-button:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.72);
+    outline: none;
+  }
+
+  .account-drawer-handle-button.is-copied {
+    color: var(--protocol-green);
   }
 
   .account-drawer-actions {
@@ -6586,8 +6865,21 @@
   .account-card {
     display: flex;
     flex-direction: column;
-    gap: 0.85rem;
+    gap: 0.65rem;
     padding: 0 0 0.15rem;
+  }
+
+  @media (min-width: 640px) {
+    .account-card {
+      width: 100%;
+      margin-inline: auto;
+    }
+  }
+
+  @media (max-height: 42rem) {
+    .account-card {
+      gap: 0.55rem;
+    }
   }
 
   .account-card-session-chip {
@@ -6611,11 +6903,297 @@
   .account-card-wallet-zone {
     display: flex;
     flex-direction: column;
+    gap: 0.4rem;
+    padding: 0.62rem 0.72rem;
+  }
+
+  @media (max-height: 42rem) {
+    .account-card-wallet-zone {
+      gap: 0.32rem;
+      padding: 0.55rem 0.65rem;
+    }
+  }
+
+  .account-wallet-zone-divider {
+    flex-shrink: 0;
+    margin: 0.1rem 0 0.05rem;
+  }
+
+  .account-card-section-divider {
+    flex-shrink: 0;
+    margin: 0.05rem 0;
+  }
+
+  .account-wallet-balance-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-height: 1.5rem;
+  }
+
+  .account-wallet-balance-accessories {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .account-wallet-accessory {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border: 0;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.48);
+    cursor: pointer;
+    transition: color 160ms ease;
+  }
+
+  .account-wallet-accessory:hover,
+  .account-wallet-accessory:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.82);
+    outline: none;
+  }
+
+  .account-wallet-accessory-icon {
+    width: 0.95rem;
+    height: 0.95rem;
+  }
+
+  .account-wallet-earning-ready {
+    flex-shrink: 0;
+    font-size: 0.58rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--protocol-green);
+  }
+
+  .account-wallet-metric-row {
+    display: grid;
+    grid-template-columns: 3.35rem minmax(0, 1fr) 3rem auto;
+    align-items: center;
     gap: 0.45rem;
-    padding: 0.75rem 0.85rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.08);
-    border-radius: 1rem;
-    background: rgb(var(--fg-rgb) / 0.04);
+    min-height: 1.5rem;
+  }
+
+  .account-wallet-metric-label {
+    grid-column: 1;
+    flex-shrink: 0;
+    font-size: 0.58rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.42);
+  }
+
+  .account-wallet-metric-label--wide {
+    max-width: 3.4rem;
+    line-height: 1.15;
+    white-space: normal;
+  }
+
+  .account-wallet-metric-status {
+    min-width: 0;
+    font-size: 0.62rem;
+    line-height: 1.2;
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
+  .account-wallet-metric-status--fill {
+    grid-column: 2 / 4;
+  }
+
+  .account-wallet-progress-slot {
+    grid-column: 2;
+    display: flex;
+    min-width: 0;
+    min-height: 1rem;
+    align-items: center;
+  }
+
+  .account-wallet-progress-track {
+    display: flex;
+    width: 100%;
+    min-height: 0.25rem;
+    overflow: hidden;
+    border-radius: 9999px;
+    background: rgb(var(--fg-rgb) / 0.08);
+  }
+
+  .account-wallet-metric-row > .account-wallet-progress-track.is-loading {
+    grid-column: 2;
+    min-height: 0.25rem;
+    animation: account-card-pulse 1.2s ease-in-out infinite;
+  }
+
+  .account-wallet-metric-row > .account-wallet-ratio.is-loading {
+    grid-column: 3;
+  }
+
+  .account-wallet-metric-action {
+    grid-column: 4;
+    justify-self: end;
+    min-width: 3.2rem;
+    text-align: center;
+  }
+
+  .account-wallet-metric-action.is-loading {
+    display: block;
+    height: 1.15rem;
+    border-radius: 9999px;
+    border: 0;
+    background: rgb(var(--fg-rgb) / 0.08);
+    animation: account-card-pulse 1.2s ease-in-out infinite;
+  }
+
+  .account-wallet-metric-action--spacer {
+    min-height: 1.15rem;
+    pointer-events: none;
+  }
+
+  .account-wallet-collect-dots {
+    display: inline-flex;
+    justify-content: center;
+  }
+
+  .account-wallet-progress-fill {
+    display: block;
+    height: 0.25rem;
+    border-radius: inherit;
+    background: rgb(var(--fg-rgb) / 0.28);
+    transition: width 300ms ease;
+  }
+
+  .account-wallet-progress-fill.is-ready {
+    background: var(--protocol-green);
+    box-shadow: 0 0 10px -2px rgb(62 207 142 / 0.45);
+  }
+
+  .account-wallet-progress-track[data-pulse-key]:not([data-pulse-key='0'])
+    .account-wallet-progress-fill {
+    animation: account-wallet-credit-pulse 650ms ease-out;
+  }
+
+  @keyframes account-wallet-credit-pulse {
+    0%,
+    100% {
+      filter: brightness(1);
+    }
+
+    45% {
+      filter: brightness(1.35);
+      box-shadow: 0 0 14px -2px rgb(62 207 142 / 0.55);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .account-wallet-progress-track[data-pulse-key]:not([data-pulse-key='0'])
+      .account-wallet-progress-fill {
+      animation: none;
+      filter: brightness(1.2);
+    }
+  }
+
+  /* Reward collect celebration — see app-reward-credit-burst.css */
+
+  .account-wallet-progress-fill.is-low {
+    background: var(--protocol-amber);
+    box-shadow: 0 0 10px -2px rgb(245 158 11 / 0.35);
+  }
+
+  .account-wallet-progress-fill.is-empty {
+    background: rgb(var(--fg-rgb) / 0.18);
+    box-shadow: none;
+  }
+
+  .account-wallet-ratio {
+    grid-column: 3;
+    flex-shrink: 0;
+    width: 3rem;
+    font-size: 0.58rem;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    text-align: right;
+    color: rgb(var(--fg-rgb) / 0.45);
+    font-variant-numeric: tabular-nums;
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  }
+
+  .account-wallet-ratio.is-ready {
+    color: var(--protocol-green);
+  }
+
+  .account-wallet-ratio.is-low {
+    color: var(--protocol-amber);
+  }
+
+  .account-wallet-ratio.is-loading {
+    width: 2.5rem;
+    height: 0.65rem;
+    border-radius: 0.25rem;
+    background: rgb(var(--fg-rgb) / 0.08);
+    animation: account-card-pulse 1.2s ease-in-out infinite;
+  }
+
+  .account-wallet-caption {
+    margin: 0;
+    min-height: 0.85rem;
+    font-size: 0.62rem;
+    line-height: 1.25;
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
+  .account-wallet-caption.is-empty {
+    visibility: hidden;
+  }
+
+  .account-wallet-caption.is-loading {
+    display: block;
+    width: 70%;
+    height: 0.65rem;
+    border-radius: 0.25rem;
+    background: rgb(var(--fg-rgb) / 0.06);
+    animation: account-card-pulse 1.2s ease-in-out infinite;
+  }
+
+  .account-wallet-caption-spacer {
+    visibility: hidden;
+  }
+
+  .account-wallet-storage-strip {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .account-shortcut-dock {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.35rem;
+    margin-top: 0.1rem;
+  }
+
+  .account-shortcut-dock-icon {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .account-card .account-action-list.os-surface-row-list {
+    gap: 0.35rem;
+  }
+
+  .account-card .os-surface-row-label {
+    font-size: 0.82rem;
+  }
+
+  .account-card .os-surface-row-description {
+    font-size: 0.72rem;
+    line-height: 1.35;
   }
 
   .account-card-wallet-zone-head,
@@ -6639,93 +7217,6 @@
     font-weight: 600;
     letter-spacing: 0.02em;
     color: var(--protocol-green);
-  }
-
-  .account-card-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    padding-top: 0.15rem;
-  }
-
-  .account-card-action {
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-    width: 100%;
-    min-height: 2.75rem;
-    padding: 0.45rem 0.55rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.07);
-    border-radius: 0.85rem;
-    background: rgb(var(--fg-rgb) / 0.025);
-    color: inherit;
-    font: inherit;
-    text-align: left;
-    text-decoration: none;
-    cursor: pointer;
-    transition:
-      background 160ms ease,
-      border-color 160ms ease,
-      color 160ms ease;
-  }
-
-  .account-card-action:hover {
-    background: rgb(var(--fg-rgb) / 0.06);
-    border-color: rgb(var(--fg-rgb) / 0.14);
-  }
-
-  .account-card-action.is-danger {
-    margin-top: 0.15rem;
-    color: rgb(var(--fg-rgb) / 0.58);
-  }
-
-  .account-card-action.is-danger:hover {
-    border-color: color-mix(in srgb, var(--protocol-red) 45%, transparent);
-    background: color-mix(in srgb, var(--protocol-red) 10%, transparent);
-    color: var(--protocol-red);
-  }
-
-  .account-card-action-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    width: 1.65rem;
-    height: 1.65rem;
-    border-radius: 0.5rem;
-    background: rgb(var(--fg-rgb) / 0.06);
-    color: rgb(var(--fg-rgb) / 0.62);
-  }
-
-  .account-card-action-glyph {
-    width: 0.9rem;
-    height: 0.9rem;
-  }
-
-  .account-card-action-copy {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    gap: 0.08rem;
-    min-width: 0;
-  }
-
-  .account-card-action-label {
-    font-size: 0.84rem;
-    font-weight: 500;
-    letter-spacing: -0.01em;
-  }
-
-  .account-card-action-hint {
-    font-size: 0.68rem;
-    color: rgb(var(--fg-rgb) / 0.45);
-  }
-
-  .account-card-action-chevron {
-    flex-shrink: 0;
-    width: 0.85rem;
-    height: 0.85rem;
-    color: rgb(var(--fg-rgb) / 0.28);
   }
 
   .account-card-copy {
@@ -6768,15 +7259,42 @@
     align-items: baseline;
     gap: 0.35rem;
     min-width: 0;
+    min-height: 1.35rem;
   }
 
   .account-card-balance-value {
-    font-size: 1.45rem;
+    position: relative;
+    display: inline-block;
+    min-width: 4.75rem;
+    font-size: 1.28rem;
     font-weight: 600;
     letter-spacing: -0.03em;
     color: rgb(var(--fg-rgb) / 0.96);
     font-variant-numeric: tabular-nums;
     font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  }
+
+  .account-card-balance-value.is-loading {
+    color: transparent;
+  }
+
+  .account-card-balance-value.is-loading::after {
+    content: '';
+    position: absolute;
+    inset: 0.12rem 0 0.08rem;
+    border-radius: 0.35rem;
+    background: rgb(var(--fg-rgb) / 0.08);
+    animation: account-card-pulse 1.2s ease-in-out infinite;
+  }
+
+  @media (max-height: 42rem) {
+    .account-card-balance-value {
+      font-size: 1.15rem;
+    }
+
+    .account-card-balance-value.is-loading::after {
+      inset: 0.1rem 0 0.06rem;
+    }
   }
 
   .account-card-balance-unit {
@@ -6786,15 +7304,6 @@
     text-transform: uppercase;
     color: rgb(var(--fg-rgb) / 0.45);
     font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
-  }
-
-  .account-card-balance-skeleton {
-    display: block;
-    width: 5.5rem;
-    height: 1rem;
-    border-radius: 0.35rem;
-    background: rgb(var(--fg-rgb) / 0.08);
-    animation: account-card-pulse 1.2s ease-in-out infinite;
   }
 
   .account-card-claim-row {
@@ -6854,40 +7363,391 @@
     animation: account-card-pulse 1.2s ease-in-out infinite;
   }
 
-  .account-card-claim {
-    flex-shrink: 0;
-    border: 1px solid rgb(var(--fg-rgb) / 0.12);
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.04);
-    color: rgb(var(--fg-rgb) / 0.55);
-    font: inherit;
-    font-size: 0.62rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    padding: 0.18rem 0.55rem;
-    cursor: pointer;
-    transition:
-      background 160ms ease,
-      color 160ms ease,
-      border-color 160ms ease;
-  }
-
-  .account-card-claim.is-ready {
-    border-color: color-mix(in srgb, var(--protocol-green) 45%, transparent);
-    background: color-mix(in srgb, var(--protocol-green) 14%, transparent);
-    color: var(--protocol-green);
-  }
-
-  .account-card-claim:disabled {
-    opacity: 0.45;
-    cursor: default;
-  }
-
   .account-card-hint {
     margin: 0;
     font-size: 0.68rem;
     line-height: 1.35;
     color: rgb(var(--fg-rgb) / 0.48);
+  }
+
+  .account-card-storage-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    margin-top: 0.15rem;
+  }
+
+  .account-card-storage-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 0.45rem;
+    min-height: 1.5rem;
+  }
+
+  .account-card-storage-row--inactive {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .account-card-storage-row--sheet {
+    grid-template-columns: minmax(0, 1fr) auto;
+    margin-top: 0.35rem;
+  }
+
+  .account-card-storage-status {
+    min-width: 0;
+    font-size: 0.62rem;
+    line-height: 1.2;
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
+  .account-rewards-rules-body {
+    padding: 0 max(1rem, env(safe-area-inset-right, 0px))
+      calc(0.75rem + env(safe-area-inset-bottom, 0px))
+      max(1rem, env(safe-area-inset-left, 0px));
+  }
+
+  .account-rewards-rules-sheet {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .account-rewards-rules-wallet {
+    margin: 0;
+  }
+
+  .account-rewards-rules-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    padding: 0 0.05rem;
+  }
+
+  .account-rewards-rules-summary {
+    margin: 0;
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.4;
+    color: rgb(var(--fg-rgb) / 0.78);
+  }
+
+  .account-rewards-rules-detail {
+    margin: 0;
+    font-size: 0.72rem;
+    line-height: 1.45;
+    color: rgb(var(--fg-rgb) / 0.48);
+  }
+
+  .account-rewards-rules-meta {
+    margin: 0;
+    font-size: 0.68rem;
+    line-height: 1.3;
+    color: rgb(var(--fg-rgb) / 0.38);
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  }
+
+  .account-card-progress-fill.is-low {
+    background: var(--protocol-amber);
+    box-shadow: 0 0 10px -2px rgb(245 158 11 / 0.35);
+  }
+
+  .account-card-progress-fill.is-empty {
+    background: rgb(var(--fg-rgb) / 0.18);
+    box-shadow: none;
+  }
+
+  .account-card-ratio.is-low {
+    color: var(--protocol-amber);
+  }
+
+  .app-tx-toast {
+    position: fixed;
+    z-index: 80;
+    left: 50%;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    width: min(calc(100% - 2rem), 20rem);
+    padding: 0.75rem 1rem;
+    border: 1px solid rgb(var(--fg-rgb) / 0.12);
+    border-radius: 1rem;
+    background: var(--surface-solid);
+    box-shadow: 0 16px 48px rgb(0 0 0 / 0.35);
+    pointer-events: auto;
+  }
+
+  @media (min-width: 640px) {
+    .app-tx-toast {
+      left: auto;
+      right: max(1.25rem, env(safe-area-inset-right, 0px));
+      bottom: auto;
+      top: max(5rem, calc(env(safe-area-inset-top, 0px) + 4rem));
+      transform: none;
+    }
+  }
+
+  .app-tx-toast.is-pending {
+    border-color: var(--protocol-blue-border);
+  }
+
+  .app-tx-toast.is-success {
+    border-color: color-mix(in srgb, var(--protocol-green) 45%, transparent);
+  }
+
+  .app-tx-toast.is-error {
+    border-color: color-mix(in srgb, var(--protocol-red) 45%, transparent);
+  }
+
+  .app-tx-toast-eyebrow {
+    font-size: 0.58rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
+  .app-tx-toast-message {
+    margin: 0;
+    font-size: 0.82rem;
+    font-weight: 500;
+    text-align: center;
+    color: rgb(var(--fg-rgb) / 0.92);
+  }
+
+  .app-tx-toast-link {
+    font-size: 0.72rem;
+    color: rgb(var(--fg-rgb) / 0.55);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .account-storage-body {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
+  }
+
+  .account-storage-header .standing-sheet-subject-name {
+    font-size: 1.05rem;
+  }
+
+  .app-storage-sheet {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem 1rem;
+  }
+
+  .app-storage-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .app-storage-readout.is-loading {
+    height: 3.5rem;
+    border-radius: 0.75rem;
+    background: rgb(var(--fg-rgb) / 0.06);
+    animation: account-card-pulse 1.2s ease-in-out infinite;
+  }
+
+  .app-storage-balance-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    margin-top: 0.2rem;
+  }
+
+  .app-storage-balance-value {
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    color: rgb(var(--fg-rgb) / 0.94);
+    font-variant-numeric: tabular-nums;
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  }
+
+  .app-storage-balance-value.is-low {
+    color: var(--protocol-amber);
+  }
+
+  .app-storage-meta {
+    margin: 0;
+    font-size: 0.68rem;
+    line-height: 1.35;
+    color: rgb(var(--fg-rgb) / 0.48);
+  }
+
+  .app-storage-meta.is-low {
+    color: color-mix(in srgb, var(--protocol-amber) 80%, transparent);
+  }
+
+  .app-storage-hint {
+    margin: 0;
+    min-height: 2.5rem;
+    font-size: 0.68rem;
+    line-height: 1.35;
+    color: rgb(var(--fg-rgb) / 0.42);
+  }
+
+  .app-storage-error {
+    margin: 0;
+    font-size: 0.72rem;
+    line-height: 1.35;
+    color: var(--protocol-red);
+  }
+
+  .app-storage-mode-toggle {
+    display: flex;
+    gap: 0.25rem;
+    padding: 0.2rem;
+    border-radius: 9999px;
+    background: rgb(var(--fg-rgb) / 0.05);
+  }
+
+  .app-storage-mode {
+    flex: 1;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.55);
+    font: inherit;
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 0.35rem 0.65rem;
+    cursor: pointer;
+    transition:
+      background 160ms ease,
+      color 160ms ease;
+  }
+
+  .app-storage-mode.is-active {
+    background: rgb(var(--fg-rgb) / 0.08);
+    color: rgb(var(--fg-rgb) / 0.92);
+  }
+
+  .app-storage-mode:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .app-storage-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  .app-storage-amount-field {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 0.75rem;
+    border-radius: 0.85rem;
+    background: rgb(var(--fg-rgb) / 0.04);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.06);
+  }
+
+  .app-storage-amount-input {
+    min-width: 0;
+    flex: 1;
+    border: 0;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.94);
+    font: inherit;
+    font-size: 1.05rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+    outline: none;
+  }
+
+  .app-storage-amount-input::placeholder {
+    color: rgb(var(--fg-rgb) / 0.35);
+  }
+
+  .app-storage-quick-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.35rem 0.75rem;
+    min-height: 1.75rem;
+  }
+
+  .app-storage-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .app-storage-preset {
+    border: 1px solid rgb(var(--fg-rgb) / 0.1);
+    border-radius: 9999px;
+    background: rgb(var(--fg-rgb) / 0.03);
+    color: rgb(var(--fg-rgb) / 0.62);
+    font: inherit;
+    font-size: 0.62rem;
+    font-weight: 600;
+    padding: 0.2rem 0.55rem;
+    cursor: pointer;
+  }
+
+  .app-storage-preset.is-selected {
+    border-color: color-mix(in srgb, var(--protocol-blue) 45%, transparent);
+    background: color-mix(in srgb, var(--protocol-blue) 12%, transparent);
+    color: var(--protocol-blue);
+  }
+
+  .app-storage-max,
+  .app-storage-max-placeholder {
+    border: 0;
+    background: transparent;
+    color: var(--protocol-blue);
+    font: inherit;
+    font-size: 0.62rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .app-storage-max-placeholder {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .app-storage-amount-meta {
+    margin: 0;
+    margin-left: auto;
+    font-size: 0.62rem;
+    line-height: 1.3;
+    color: rgb(var(--fg-rgb) / 0.45);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  .app-storage-submit {
+    border: 0;
+    border-radius: 9999px;
+    background: rgb(var(--fg-rgb) / 0.92);
+    color: rgb(var(--bg-rgb) / 0.98);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0.65rem 1rem;
+    cursor: pointer;
+    transition: opacity 160ms ease;
+  }
+
+  .app-storage-submit:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .app-storage-platform {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
   }
 
   /* ── Nested profile editor — stacks on account drawer ─ */
@@ -6970,7 +7830,8 @@
     animation: standing-shimmer 1.2s ease-in-out infinite;
   }
 
-  .account-editor-cover-stage .account-editor-banner-button.account-editor-shimmer {
+  .account-editor-cover-stage
+    .account-editor-banner-button.account-editor-shimmer {
     border-radius: 0;
     height: 100%;
   }
@@ -7381,7 +8242,8 @@
       -webkit-backdrop-filter 200ms ease;
   }
 
-  .profile-editor-media-host:hover .account-editor-banner-overlay:not(.has-media),
+  .profile-editor-media-host:hover
+    .account-editor-banner-overlay:not(.has-media),
   .profile-editor-media-host:focus-within
     .account-editor-banner-overlay:not(.has-media) {
     background: rgb(var(--fg-rgb) / 0.1);
@@ -8143,10 +9005,7 @@
   }
 
   .account-editor-discard-card {
-    display: flex;
-    flex-direction: column;
-    gap: 0.65rem;
-    padding: 0.85rem 1rem;
+    width: 100%;
   }
 
   .account-editor-footer::after {
@@ -8215,15 +9074,16 @@
 
   @media (prefers-reduced-motion: reduce) {
     .account-card-copy,
-    .account-card-claim,
-    .account-card-action,
+    .os-surface-row,
+    .os-surface-chip,
     .account-card-progress-fill {
       transition: none;
     }
 
-    .account-card-balance-skeleton,
+    .account-card-balance-value.is-loading::after,
     .account-card-progress-track.is-loading,
-    .account-card-ratio.is-loading {
+    .account-card-ratio.is-loading,
+    .app-storage-readout.is-loading {
       animation: none;
     }
 

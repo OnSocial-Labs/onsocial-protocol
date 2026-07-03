@@ -7,6 +7,7 @@ import {
   PAGE_MOOD_PICKER_SECTIONS,
   mergeMoodIntoPageConfig,
   mergePageMoodTheme,
+  mergePageMoodThemeForPicker,
   moodSurfaceFromAccent,
   MOOD_FONT_STACKS,
   normalizePageMoodId,
@@ -77,6 +78,28 @@ describe('page moods', () => {
     expect(merged.bannerLight).toBe(preset.bannerLight);
   });
 
+  it('picker merge keeps catalog accents when page theme accent is set', () => {
+    const pageTheme = {
+      accent: PROTOCOL_COLORS.blue,
+      primary: PROTOCOL_COLORS.blue,
+    };
+
+    const lead = mergePageMoodThemeForPicker(
+      PAGE_MOOD_PRESETS.lead.theme,
+      pageTheme,
+      'lead'
+    );
+    const creative = mergePageMoodThemeForPicker(
+      PAGE_MOOD_PRESETS.creative.theme,
+      pageTheme,
+      'creative'
+    );
+
+    expect(lead.accent).toBe(PAGE_MOOD_PRESETS.lead.theme.accent);
+    expect(creative.accent).toBe(PAGE_MOOD_PRESETS.creative.theme.accent);
+    expect(lead.accent).not.toBe(creative.accent);
+  });
+
   it('picker sections cover every built-in mood once', () => {
     const fromSections = PAGE_MOOD_PICKER_SECTIONS.flatMap((s) => s.ids);
     expect(fromSections).toEqual([...BUILT_IN_PAGE_MOOD_IDS]);
@@ -121,6 +144,7 @@ describe('page moods', () => {
   it('exports preset accent vars for css cascade', () => {
     const theme = PAGE_MOOD_PRESETS.protocol.theme;
     expect(pageMoodPreviewCssVars('protocol', theme)).toMatchObject({
+      '--mood-accent': PROTOCOL_COLORS.blue,
       '--mood-preset-accent': PROTOCOL_COLORS.blue,
       '--mood-preset-accent-light': PROTOCOL_COLORS.blue,
     });

@@ -226,6 +226,18 @@
     0 3px 8px -2px color-mix(in srgb, var(--protocol-green) 12%, transparent);
 }
 
+.os-sheet-action--primary.is-failed,
+.os-sheet-primary-action.is-failed {
+  border-color: color-mix(in srgb, var(--protocol-red) 32%, transparent);
+  background: color-mix(in srgb, var(--protocol-red) 10%, transparent);
+  color: var(--protocol-red);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--protocol-red) 14%, transparent),
+    0 3px 8px -2px color-mix(in srgb, var(--protocol-red) 12%, transparent);
+}
+
 .os-sheet-action__icon,
 .os-sheet-primary-action-icon {
   width: 0.95rem;
@@ -234,6 +246,11 @@
 
 .os-sheet-action--primary.is-succeeded .os-sheet-action__icon,
 .os-sheet-primary-action.is-succeeded .os-sheet-primary-action-icon {
+  animation: os-action-check-in 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.os-sheet-action--primary.is-failed .os-sheet-action__icon,
+.os-sheet-primary-action.is-failed .os-sheet-primary-action-icon {
   animation: os-action-check-in 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
@@ -468,5 +485,150 @@
       .is-succeeded
     ):hover {
     background: rgb(var(--bg-rgb) / 0.98);
+  }
+}
+
+/* Borderless frosted actions — faint fill, stronger hover, no pill chrome. */
+.os-sheet-actions.os-sheet-actions--borderless
+  .os-sheet-action:is(
+    :hover,
+    :focus-visible,
+    :active,
+    .is-ready,
+    .is-dirty,
+    .is-pending,
+    .is-succeeded,
+    .os-sheet-action--danger,
+    .os-sheet-action--primary,
+    .os-sheet-action--ghost
+  ),
+.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded),
+.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+  .os-sheet-action--primary.is-pending:disabled:not(.is-succeeded),
+.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+  .os-sheet-action--primary:not(:disabled):not(.is-ready):not(.is-succeeded),
+.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover,
+.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+  .os-sheet-action--primary:not(:disabled):not(.is-ready):not(
+    .is-succeeded
+  ):hover,
+.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+  .os-sheet-action--danger,
+.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+  .os-sheet-action--danger:hover {
+  border: 0;
+  border-width: 0;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.os-sheet-actions.os-sheet-actions--borderless .os-sheet-action {
+  border: 0;
+  border-width: 0;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.os-sheet-actions.os-sheet-actions--borderless .os-sheet-action--danger,
+.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+  .os-sheet-action--danger {
+  background: color-mix(in srgb, var(--protocol-red) 5%, transparent);
+  color: color-mix(in srgb, var(--protocol-red) 78%, rgb(var(--fg-rgb) / 0.52));
+}
+
+.os-sheet-actions.os-sheet-actions--borderless .os-sheet-action--danger:hover,
+.os-sheet-actions.os-sheet-actions--borderless
+  .os-sheet-action--danger:focus-visible,
+.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+  .os-sheet-action--danger:hover,
+.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+  .os-sheet-action--danger:focus-visible {
+  background: color-mix(in srgb, var(--protocol-red) 10%, transparent);
+  color: var(--protocol-red);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+}
+
+.os-sheet-actions.os-sheet-actions--borderless
+  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded),
+.os-sheet-actions.os-sheet-actions--borderless
+  .os-sheet-action--primary.is-pending:disabled:not(.is-succeeded),
+.os-sheet-actions.os-sheet-actions--borderless
+  .os-sheet-action--primary:not(:disabled):not(.is-ready):not(.is-succeeded),
+.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded),
+.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+  .os-sheet-action--primary.is-pending:disabled:not(.is-succeeded),
+.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+  .os-sheet-action--primary:not(:disabled):not(.is-ready):not(.is-succeeded) {
+  background: color-mix(
+    in srgb,
+    var(--glass-surface-os, var(--glass-surface)) 36%,
+    var(--os-action-bg)
+  );
+  color: rgb(var(--fg-rgb) / 0.94);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+}
+
+.os-sheet-actions.os-sheet-actions--borderless
+  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover,
+.os-sheet-actions.os-sheet-actions--borderless
+  .os-sheet-action--primary:not(:disabled):not(.is-ready):not(
+    .is-succeeded
+  ):hover,
+.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover,
+.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+  .os-sheet-action--primary:not(:disabled):not(.is-ready):not(
+    .is-succeeded
+  ):hover {
+  background: color-mix(
+    in srgb,
+    var(--glass-surface-os, var(--glass-surface)) 30%,
+    var(--os-action-bg-hover)
+  );
+  color: rgb(var(--fg-rgb) / 0.94);
+}
+
+.os-sheet-actions.os-sheet-actions--borderless
+  .os-sheet-action--primary.is-succeeded {
+  background: color-mix(in srgb, var(--protocol-green) 10%, transparent);
+  color: var(--protocol-green);
+}
+
+.os-sheet-actions.os-sheet-actions--borderless .os-sheet-action:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px
+    color-mix(in srgb, var(--protocol-blue, #60a5fa) 28%, transparent);
+}
+
+.os-sheet-actions.os-sheet-actions--borderless
+  .os-sheet-action--danger:focus-visible {
+  box-shadow: 0 0 0 2px
+    color-mix(in srgb, var(--protocol-red, #f87171) 28%, transparent);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .os-sheet-actions.os-sheet-actions--borderless .os-sheet-action--danger:hover,
+  .os-sheet-actions.os-sheet-actions--borderless
+    .os-sheet-action--danger:focus-visible,
+  .os-sheet-actions.os-sheet-actions--borderless
+    .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded),
+  .os-sheet-actions.os-sheet-actions--borderless
+    .os-sheet-action--primary.is-pending:disabled:not(.is-succeeded),
+  .os-sheet-actions.os-sheet-actions--borderless
+    .os-sheet-action--primary.is-succeeded {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .os-sheet-actions.os-sheet-actions--borderless
+    .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded),
+  .os-sheet-actions.os-sheet-actions--borderless
+    .os-sheet-action--primary.is-pending:disabled:not(.is-succeeded) {
+    background: rgb(var(--bg-rgb) / 0.94);
   }
 }

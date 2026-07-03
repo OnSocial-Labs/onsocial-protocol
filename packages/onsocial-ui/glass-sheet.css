@@ -58,6 +58,13 @@
 }
 
 .glass-sheet-panel {
+  --glass-sheet-body-opacity: 0.56;
+  --glass-sheet-header-top-opacity: 0.8;
+  --glass-sheet-header-mid-opacity: 0.66;
+  --glass-sheet-mood-ambient-strength: 16%;
+  --glass-sheet-body-surface: rgb(
+    var(--bg-rgb) / var(--glass-sheet-body-opacity)
+  );
   --glass-header-scrim-top: 0.74;
   --glass-header-scrim-mid: 0.52;
   --glass-header-scrim-height: min(12.5rem, 34%);
@@ -71,17 +78,28 @@
   isolation: isolate;
   border: 1px solid var(--glass-border, transparent);
   border-radius: 1.25rem 1.25rem 0 0;
-  background: var(--glass-surface, rgb(var(--bg-rgb) / 0.22));
-  /* backdrop-filter is set inline on the node — Lightning CSS drops unprefixed values. */
+  background: transparent;
   color: rgb(var(--fg-rgb) / 0.96);
   box-shadow: var(--glass-shadow, none);
   transform: translateY(100%);
   transition: transform 320ms cubic-bezier(0.22, 0.61, 0.36, 1);
-  will-change: transform;
+}
+
+/* Frost behind content — backdrop-filter on this node keeps copy sharp. */
+.glass-sheet-frost {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: var(
+    --glass-sheet-body-surface,
+    var(--glass-body-surface, var(--glass-surface, rgb(var(--bg-rgb) / 0.56)))
+  );
 }
 
 /* Header landing strip — local opaque gradient over thin glass (drag + header zone). */
-.glass-sheet-panel::before {
+.glass-sheet-frost::after {
   content: '';
   position: absolute;
   top: 0;
@@ -93,20 +111,28 @@
   border-radius: inherit;
   background: linear-gradient(
     180deg,
-    rgb(var(--bg-rgb) / var(--glass-header-scrim-top)) 0%,
-    rgb(var(--bg-rgb) / var(--glass-header-scrim-mid)) 55%,
+    rgb(
+        var(--bg-rgb) /
+          var(--glass-sheet-header-top-opacity, var(--glass-header-scrim-top))
+      )
+      0%,
+    rgb(
+        var(--bg-rgb) /
+          var(--glass-sheet-header-mid-opacity, var(--glass-header-scrim-mid))
+      )
+      55%,
     transparent 100%
   );
 }
 
-.glass-sheet-panel > * {
+.glass-sheet-panel > :not(.glass-sheet-frost) {
   position: relative;
   z-index: 1;
 }
 
 /* Keep header chrome (incl. overflow menus) above the scroll body. */
 .glass-sheet-panel > .glass-sheet-body {
-  z-index: 0;
+  z-index: 1;
 }
 
 .glass-sheet-panel.is-open {
@@ -120,6 +146,7 @@
 
 .glass-sheet-panel.is-open.glass-sheet-panel--enter.is-dragging {
   animation: none;
+  transform: translateY(var(--sheet-y, 0px));
 }
 
 @media (min-width: 768px) {
@@ -131,6 +158,7 @@
 
 .glass-sheet-panel.is-dragging {
   transition: none;
+  transform: translateY(var(--sheet-y, 0px));
 }
 
 /* Mood thread — light mood tint over thin glass; structure from header divider. */
@@ -140,18 +168,26 @@
   --glass-sheet-accent: var(--mood-preset-accent, rgb(var(--fg-rgb) / 0.72));
   --glass-sheet-ambient: color-mix(
     in srgb,
-    var(--mood-preset-bg, rgb(var(--bg-rgb))) 16%,
+    var(--mood-preset-bg, rgb(var(--bg-rgb)))
+      var(--glass-sheet-mood-ambient-strength),
     transparent
   );
   border-color: transparent;
   box-shadow: none;
+}
+
+.glass-sheet-panel[data-tone='mood-thread'][data-mood]:not([data-mood='glass'])
+  .glass-sheet-frost {
   background:
     linear-gradient(
       180deg,
       var(--glass-sheet-ambient) 0%,
       transparent min(4.5rem, 16%)
     ),
-    var(--glass-surface, rgb(var(--bg-rgb) / 0.22));
+    var(
+      --glass-sheet-body-surface,
+      var(--glass-body-surface, var(--glass-surface, rgb(var(--bg-rgb) / 0.56)))
+    );
 }
 
 :root[data-theme='light']
@@ -164,7 +200,8 @@
   );
   --glass-sheet-ambient: color-mix(
     in srgb,
-    var(--mood-preset-bg-light, rgb(255 255 255)) 16%,
+    var(--mood-preset-bg-light, rgb(255 255 255))
+      var(--glass-sheet-mood-ambient-strength),
     transparent
   );
 }
@@ -180,7 +217,8 @@
     );
     --glass-sheet-ambient: color-mix(
       in srgb,
-      var(--mood-preset-bg-light, rgb(255 255 255)) 16%,
+      var(--mood-preset-bg-light, rgb(255 255 255))
+        var(--glass-sheet-mood-ambient-strength),
       transparent
     );
   }
@@ -212,7 +250,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0.6rem 0 0.3rem;
+  flex: 0 0 auto;
+  min-height: 21px;
+  padding: 10px 0 6px;
   cursor: grab;
   touch-action: none;
 }
@@ -222,8 +262,10 @@
 }
 
 .glass-sheet-grip {
-  width: 2.5rem;
-  height: 0.3rem;
+  display: block;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 5px;
   border-radius: 9999px;
   background: var(--glass-sheet-accent, rgb(var(--fg-rgb) / 0.22));
   opacity: 0.55;
@@ -372,16 +414,19 @@
   }
 
   .glass-sheet-panel {
+    box-shadow: none;
+  }
+
+  .glass-sheet-frost {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     background: var(
       --glass-surface-solid,
       var(--surface-solid, rgb(var(--bg-rgb) / 0.98))
     );
-    box-shadow: none;
   }
 
-  .glass-sheet-panel::before {
+  .glass-sheet-frost::after {
     display: none;
   }
 }

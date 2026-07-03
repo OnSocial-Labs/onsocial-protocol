@@ -4,8 +4,9 @@ import type { HTMLAttributes, ReactNode } from 'react';
 import { cn } from './cn.js';
 
 export const osSurfaceHaloClassName = 'os-surface-halo';
+export const osSurfaceHaloStandardClassName = 'os-surface-halo--standard';
 
-export type OsSurfaceHaloTone = 'default' | 'danger';
+export type OsSurfaceHaloTone = 'default' | 'standard' | 'danger';
 
 export interface OsSurfaceHaloProps extends HTMLAttributes<HTMLDivElement> {
   children?: ReactNode;
@@ -22,6 +23,7 @@ export function OsSurfaceHalo({
     <div
       className={cn(
         osSurfaceHaloClassName,
+        tone === 'standard' && osSurfaceHaloStandardClassName,
         tone === 'danger' && 'os-surface-halo--danger',
         className
       )}

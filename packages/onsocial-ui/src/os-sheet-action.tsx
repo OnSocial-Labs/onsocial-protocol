@@ -2,7 +2,7 @@
 
 import type { ButtonHTMLAttributes, ReactNode, Ref } from 'react';
 import { cn } from './cn.js';
-import { CheckIcon } from './mage-stroke-icons.js';
+import { CheckIcon, MultiplyIcon } from './mage-stroke-icons.js';
 import { PulsingDots } from './pulsing-dots.js';
 
 export const osSheetActionClassName = 'os-sheet-action';
@@ -21,6 +21,8 @@ export interface OsSheetActionProps
   pendingLabel?: ReactNode;
   succeeded?: boolean;
   succeededLabel?: ReactNode;
+  failed?: boolean;
+  failedLabel?: ReactNode;
   ref?: Ref<HTMLButtonElement>;
 }
 
@@ -33,6 +35,8 @@ export function OsSheetAction({
   pendingLabel = 'Saving…',
   succeeded = false,
   succeededLabel,
+  failed = false,
+  failedLabel,
   className,
   disabled,
   type = 'button',
@@ -41,7 +45,11 @@ export function OsSheetAction({
 }: OsSheetActionProps) {
   const isPrimary = variant === 'primary';
   const isReady = ready ?? dirty ?? false;
-  const label = succeeded ? (succeededLabel ?? children) : children;
+  const label = succeeded
+    ? (succeededLabel ?? children)
+    : failed
+      ? (failedLabel ?? children)
+      : children;
   const pendingSrLabel =
     typeof pendingLabel === 'string' ? pendingLabel : 'Saving';
 
@@ -71,11 +79,12 @@ export function OsSheetAction({
         osSheetActionClassName,
         'os-sheet-action--primary',
         succeeded && 'is-succeeded',
+        failed && !succeeded && 'is-failed',
         pending && 'is-pending',
-        isReady && !succeeded && !pending && 'is-ready',
+        isReady && !succeeded && !failed && !pending && 'is-ready',
         className
       )}
-      disabled={disabled || pending}
+      disabled={disabled || pending || succeeded}
       aria-busy={pending || undefined}
       {...props}
     >
@@ -87,6 +96,11 @@ export function OsSheetAction({
           {succeeded ? (
             <>
               <CheckIcon aria-hidden className="os-sheet-action__icon" />
+              {label}
+            </>
+          ) : failed ? (
+            <>
+              <MultiplyIcon aria-hidden className="os-sheet-action__icon" />
               {label}
             </>
           ) : (

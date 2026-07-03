@@ -1,3 +1,6 @@
+'use client';
+
+import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { displayName, initials } from '@/lib/profile-display';
 import type { ResolvedMood } from '@/lib/moods/types';
 
@@ -16,8 +19,11 @@ export function PortfolioIdentity({
   bio,
   tagline,
   avatarUrl,
-  mood,
+  mood: savedMood,
 }: PortfolioIdentityProps) {
+  const moodPreview = usePortfolioMoodPreviewOptional();
+  const mood = moodPreview?.effectiveMood ?? savedMood;
+
   const titleLabel = displayName(accountId, profileName ?? undefined);
   const summary = tagline?.trim() || bio?.trim();
   const handleLabel =

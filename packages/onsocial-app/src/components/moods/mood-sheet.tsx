@@ -1,19 +1,22 @@
 'use client';
 
-import { useState, type CSSProperties } from 'react';
+import { useEffect, type CSSProperties } from 'react';
 import {
   isPageMoodUnlocked,
   PAGE_MOOD_CATALOG,
   type PageMoodId,
-  type PremiumPageMoodId,
 } from '@onsocial/sdk';
-import { GlassSheet, SheetCloseButton } from '@onsocial/ui';
+import { Divider, GlassSheet, SheetCloseButton } from '@onsocial/ui';
 import { useApplyMood } from '@/hooks/use-apply-mood';
 import { useUnlockPremiumMood } from '@/hooks/use-unlock-premium-mood';
-import { usePortfolioMoodVars } from '@/hooks/use-portfolio-mood-vars';
+import { usePortfolioMoodPreview } from '@/contexts/portfolio-mood-preview-context';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { accountIdsEqual } from '@/lib/account-match';
-import { moodSheetItemPreviewVars } from '@/lib/moods/resolve';
+import {
+  moodSheetPanelStyle,
+  moodSheetRowInlineStyle,
+  moodSheetRowPreviewVars,
+} from '@/lib/moods/resolve';
 import {
   MOOD_PRESETS,
   PAGE_MOOD_CATALOG as APP_MOOD_CATALOG,
@@ -22,9 +25,19 @@ import {
   PREMIUM_MOOD_PRESETS,
   visiblePremiumMoodIds,
 } from '@/lib/moods/presets';
-import type { MoodId, MoodPreset, ResolvedMood } from '@/lib/moods/types';
+import type { MoodPreset, ResolvedMood } from '@/lib/moods/types';
 import type { PublicPageConfig } from '@/lib/page-data';
 import type { PageConfig } from '@onsocial/sdk';
+
+const MOOD_SHEET_GRADIENT_LABELS = new Set<PageMoodId>([
+  'gold',
+  'glass',
+  'carbon',
+  'holographic',
+  'signature',
+  'broadsheet',
+  'terminal',
+]);
 
 export interface MoodSheetProps {
   open: boolean;
@@ -34,10 +47,6 @@ export interface MoodSheetProps {
   onClose: () => void;
 }
 
-function isPremiumMoodRow(moodId: PageMoodId): moodId is PremiumPageMoodId {
-  return moodId in PREMIUM_MOOD_PRESETS;
-}
-
 export function MoodSheet({
   open,
   pageAccountId,
@@ -45,66 +54,39 @@ export function MoodSheet({
   activeMood,
   onClose,
 }: MoodSheetProps) {
-  const { applyMood, connect, error, isApplying, isOwner, needsConnect, walletAccountId } =
-    useApplyMood(pageAccountId);
   const {
-    unlockMood,
-    error: unlockError,
-    isUnlocking,
-  } = useUnlockPremiumMood(pageAccountId);
-  const [pendingId, setPendingId] = useState<MoodId | null>(null);
-  const [pendingUnlockId, setPendingUnlockId] = useState<PremiumPageMoodId | null>(
-    null
-  );
-  const { moodId: portfolioMoodId, style: portfolioMoodStyle } =
-    usePortfolioMoodVars(pageAccountId, walletAccountId ?? '', open);
+    setPreviewMood,
+    registerMoodSheetClose,
+    unregisterMoodSheetClose,
+  } = usePortfolioMoodPreview();
+  const { connect, isApplying, isOwner, needsConnect, walletAccountId } =
+    useApplyMood(pageAccountId);
+  const { isUnlocking } = useUnlockPremiumMood(pageAccountId);
 
   useScrollLock(open);
 
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    registerMoodSheetClose(onClose);
+    return () => unregisterMoodSheetClose();
+  }, [open, onClose, registerMoodSheetClose, unregisterMoodSheetClose]);
+
   const premiumIds = visiblePremiumMoodIds();
-  const statusError = error ?? unlockError;
 
   const pageConfigForUnlock: Pick<PageConfig, 'moodUnlocks'> = {
     moodUnlocks: pageConfig.moodUnlocks,
   };
 
-  async function handleSelect(moodId: PageMoodId) {
-    if (!isOwner || isApplying || isUnlocking || moodId === activeMood.id) {
-      return;
-    }
-
-    if (
-      !isPageMoodUnlocked(pageConfigForUnlock, moodId, PAGE_MOOD_CATALOG)
-    ) {
-      return;
-    }
-
-    setPendingId(moodId);
-    const applied = await applyMood(moodId);
-    setPendingId(null);
-
-    if (applied) {
-      onClose();
-    }
-  }
-
-  async function handleUnlock(moodId: PremiumPageMoodId) {
-    if (!isOwner || isApplying || isUnlocking) {
-      return;
-    }
-
-    setPendingUnlockId(moodId);
-    const unlocked = await unlockMood(moodId);
-    setPendingUnlockId(null);
-
-    if (unlocked) {
-      onClose();
-    }
+  function handlePreviewMood(moodId: PageMoodId) {
+    setPreviewMood(moodId);
+    onClose();
   }
 
   function renderMoodRow(moodId: PageMoodId, preset: MoodPreset) {
     const isActive = preset.id === activeMood.id;
-    const isPending = pendingId === preset.id;
     const unlocked = isPageMoodUnlocked(
       pageConfigForUnlock,
       moodId,
@@ -112,36 +94,46 @@ export function MoodSheet({
     );
     const catalogEntry = APP_MOOD_CATALOG[moodId];
     const priceSocial = catalogEntry?.priceSocial;
+    const rowStyle = moodSheetRowInlineStyle(
+      isActive
+        ? {}
+        : moodSheetRowPreviewVars(preset.id, preset.theme, pageConfig.theme),
+      preset.theme.accent,
+      preset.theme.accentLight ?? preset.theme.accent
+    );
+    const rowAccent = rowStyle['--mood-row-accent'];
+    const labelStyle =
+      rowAccent && !MOOD_SHEET_GRADIENT_LABELS.has(preset.id)
+        ? ({ color: rowAccent } as CSSProperties)
+        : undefined;
 
     return (
       <li key={preset.id}>
         <button
           type="button"
           data-mood={preset.id}
-          className={`mood-sheet-item${isActive ? ' is-active' : ''}${isOwner && unlocked ? ' is-selectable' : ''}${!unlocked ? ' is-locked' : ''}`}
-          disabled={!isOwner || isApplying || isUnlocking || (unlocked && isActive)}
+          className={`mood-sheet-item${isActive ? ' is-active' : ''}${isOwner ? ' is-selectable' : ''}${!unlocked ? ' is-locked' : ''}`}
+          disabled={!isOwner || isApplying || isUnlocking || isActive}
           aria-current={isActive ? 'true' : undefined}
           onClick={() => {
-            if (!unlocked && isPremiumMoodRow(moodId)) {
-              void handleUnlock(moodId);
+            if (!isOwner || isActive) {
               return;
             }
-            void handleSelect(moodId);
+            handlePreviewMood(preset.id);
           }}
-          style={
-            moodSheetItemPreviewVars(preset.id, preset.theme) as CSSProperties
-          }
+          style={rowStyle as CSSProperties}
         >
-          <span className="mood-sheet-item-label">{preset.label}</span>
+          <span className="mood-sheet-item-label" style={labelStyle}>
+            {preset.label}
+          </span>
           <span className="mood-sheet-item-tagline">{preset.tagline}</span>
           {isActive ? (
             <span className="mood-sheet-item-badge">Active</span>
-          ) : isPending ? (
-            <span className="mood-sheet-item-badge">Applying…</span>
-          ) : pendingUnlockId === moodId ? (
-            <span className="mood-sheet-item-badge">Unlocking…</span>
           ) : !unlocked && priceSocial ? (
-            <span className="mood-sheet-item-badge mood-sheet-item-badge-premium">
+            <span
+              className="mood-sheet-item-badge mood-sheet-item-badge-premium"
+              style={labelStyle}
+            >
               {priceSocial} SOCIAL
             </span>
           ) : null}
@@ -155,8 +147,8 @@ export function MoodSheet({
       open={open}
       onClose={onClose}
       tone="mood-thread"
-      moodId={portfolioMoodId ?? activeMood.id}
-      panelStyle={portfolioMoodStyle}
+      moodId={activeMood.id}
+      panelStyle={moodSheetPanelStyle(activeMood.cssVars) as CSSProperties}
       initialDetent="full"
       zIndex={58}
       ariaLabelledBy="mood-sheet-title"
@@ -164,17 +156,20 @@ export function MoodSheet({
       panelClassName="mood-sheet-panel"
       bodyClassName="mood-sheet-body"
       header={
-        <header className="mood-sheet-header">
-          <div>
-            <h2 id="mood-sheet-title" className="mood-sheet-title">
-              Moods
-            </h2>
-            <p className="mood-sheet-copy">
-              Apply a mood on-chain — theme, typography, and signal together.
-            </p>
-          </div>
-          <SheetCloseButton onClick={onClose} ariaLabel="Close moods" />
-        </header>
+        <>
+          <header className="mood-sheet-header">
+            <div>
+              <h2 id="mood-sheet-title" className="mood-sheet-title">
+                Moods
+              </h2>
+              <p className="mood-sheet-copy">
+                Tap a mood to see it on your page — save when it feels right.
+              </p>
+            </div>
+            <SheetCloseButton onClick={onClose} ariaLabel="Close moods" />
+          </header>
+          <Divider variant="section" className="glass-sheet-header-divider" />
+        </>
       }
     >
       {needsConnect ? (
@@ -200,14 +195,6 @@ export function MoodSheet({
           </p>
         </div>
       ) : null}
-
-      {isApplying || isUnlocking ? (
-        <p className="mood-sheet-copy mood-sheet-status">
-          {isUnlocking ? 'Confirming unlock on-chain…' : 'Confirming mood on-chain…'}
-        </p>
-      ) : null}
-
-      {statusError ? <p className="mood-sheet-error">{statusError}</p> : null}
 
       <ul className="mood-sheet-list">
         {PAGE_MOOD_PICKER_SECTIONS.map((section) => (

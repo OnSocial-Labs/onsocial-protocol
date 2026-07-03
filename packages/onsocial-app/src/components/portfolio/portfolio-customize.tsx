@@ -1,11 +1,12 @@
 'use client';
 
 import { GlassSheet, ProfileEditorMediaToolbar, SheetCloseButton } from '@onsocial/ui';
-import { useRef, useState, useCallback, useEffect } from 'react';
+import { useRef, useState, useCallback, useEffect, type CSSProperties } from 'react';
 import {
   effectiveMoodTintHue,
   isPageMoodUnlocked,
   PAGE_MOOD_CATALOG,
+  resolvePageMoodId,
 } from '@onsocial/sdk';
 import { MoodSheet } from '@/components/moods/mood-sheet';
 import { accountIdsEqual } from '@/lib/account-match';
@@ -232,6 +233,7 @@ export function PortfolioCustomize({
 
   const showSignatureHue =
     mood.id === 'signature' && signatureUnlocked && isTintOwner && !needsConnect;
+  const moodPageId = resolvePageMoodId(String(mood.id)) ?? 'protocol';
 
   return (
     <>
@@ -298,20 +300,20 @@ export function PortfolioCustomize({
               <p className="customize-sheet-copy">
                 Your page look and voice — visitors feel it, not a label.
               </p>
-              <div className="customize-option-list">
+              <div className="os-surface-row-list">
                 <button
                   type="button"
-                  className="customize-option customize-option--navigate is-active"
+                  data-mood={moodPageId}
+                  className="mood-sheet-item customize-mood-option is-active is-selectable"
+                  style={mood.cssVars as CSSProperties}
                   disabled={isApplying}
                   onClick={openMoodSheet}
                 >
-                  <span className="customize-option-copy">
-                    <span className="customize-option-label">{mood.label}</span>
-                    <span className="customize-option-description">
-                      {mood.tagline}
-                    </span>
+                  <span className="os-surface-row-badge">Change</span>
+                  <span className="customize-mood-option-copy">
+                    <span className="mood-sheet-item-label">{mood.label}</span>
+                    <span className="mood-sheet-item-tagline">{mood.tagline}</span>
                   </span>
-                  <span className="customize-option-badge">Change</span>
                 </button>
               </div>
             </div>
@@ -358,7 +360,7 @@ export function PortfolioCustomize({
 
             <div className="customize-sheet-section">
               <p className="customize-sheet-label">Layout</p>
-              <div className="customize-option-list">
+              <div className="os-surface-row-list">
                 {AVATAR_OPTIONS.map((option) => {
                   const isSelected = option.id === effectiveAvatarMode;
                   const isSaved = option.id === committedAvatarMode;
@@ -367,25 +369,25 @@ export function PortfolioCustomize({
                     <button
                       key={option.id}
                       type="button"
-                      className={`customize-option${isSelected ? ' is-active' : ''}`}
+                      className={`os-surface-row${isSelected ? ' is-active' : ''}`}
                       disabled={isApplying}
                       aria-current={isSelected ? 'true' : undefined}
                       onClick={() => handlePreview(option.id)}
                     >
-                      <span className="customize-option-copy">
-                        <span className="customize-option-label">
+                      <span className="os-surface-row-copy">
+                        <span className="os-surface-row-label">
                           {option.label}
                         </span>
-                        <span className="customize-option-description">
+                        <span className="os-surface-row-description">
                           {option.description}
                         </span>
                       </span>
                       {isSelected && isPreviewingLayout && !isSaved ? (
-                        <span className="customize-option-badge">Preview</span>
+                        <span className="os-surface-row-badge">Preview</span>
                       ) : isSaved ? (
-                        <span className="customize-option-badge">Saved</span>
+                        <span className="os-surface-row-badge">Saved</span>
                       ) : isSelected ? (
-                        <span className="customize-option-badge">Active</span>
+                        <span className="os-surface-row-badge">Active</span>
                       ) : null}
                     </button>
                   );
@@ -400,7 +402,7 @@ export function PortfolioCustomize({
                   Cover layout always uses your avatar as the hero.
                 </p>
               ) : (
-                <div className="customize-option-list">
+                <div className="os-surface-row-list">
                     {HERO_SOURCE_OPTIONS.map((option) => {
                       const isSelected = option.id === effectiveHeroSource;
                       const isSaved = option.id === committedHeroSource;
@@ -409,25 +411,25 @@ export function PortfolioCustomize({
                         <button
                           key={option.id}
                           type="button"
-                          className={`customize-option${isSelected ? ' is-active' : ''}`}
+                          className={`os-surface-row${isSelected ? ' is-active' : ''}`}
                           disabled={isApplying}
                           aria-current={isSelected ? 'true' : undefined}
                           onClick={() => handleHeroSourcePreview(option.id)}
                         >
-                          <span className="customize-option-copy">
-                            <span className="customize-option-label">
+                          <span className="os-surface-row-copy">
+                            <span className="os-surface-row-label">
                               {option.label}
                             </span>
-                            <span className="customize-option-description">
+                            <span className="os-surface-row-description">
                               {option.description}
                             </span>
                           </span>
                           {isSelected && isPreviewingHeroSource && !isSaved ? (
-                            <span className="customize-option-badge">Preview</span>
+                            <span className="os-surface-row-badge">Preview</span>
                           ) : isSaved ? (
-                            <span className="customize-option-badge">Saved</span>
+                            <span className="os-surface-row-badge">Saved</span>
                           ) : isSelected ? (
-                            <span className="customize-option-badge">Active</span>
+                            <span className="os-surface-row-badge">Active</span>
                           ) : null}
                         </button>
                       );

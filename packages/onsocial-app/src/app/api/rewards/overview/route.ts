@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
+import { loadAppRewardsOverview } from '@/lib/app-rewards-chain';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -34,20 +34,19 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const os = createServerOnSocialClient();
-    const balance = await os.rewards.getBalance(accountId);
+    const overview = await loadAppRewardsOverview(accountId);
 
     return NextResponse.json(
       {
-        overview: {
-          claimable: balance.claimable ?? '0',
-          total_earned: balance.totalEarned ?? '0',
-          total_claimed: balance.totalClaimed ?? '0',
+        overview: overview ?? {
+          claimable: '0',
+          total_earned: '0',
+          total_claimed: '0',
         },
       },
       {
         headers: {
-          'Cache-Control': 'private, max-age=15, stale-while-revalidate=30',
+          'Cache-Control': 'private, no-store',
         },
       }
     );

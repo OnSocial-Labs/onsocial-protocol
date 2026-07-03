@@ -22,6 +22,9 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
   { method: 'GET', path: 'data/get', body: 'none' },
   // SOCIAL wallet balance — premium mood unlock preflight.
   { method: 'GET', path: 'data/ft-balance-of', body: 'none' },
+  // Wallet storage buffer + personal storage reads.
+  { method: 'GET', path: 'data/storage-balance', body: 'none' },
+  { method: 'GET', path: 'data/platform-allowance', body: 'none' },
   // Indexed reads after profile save (`os.profiles.get`) and other SDK queries.
   { method: 'POST', path: 'graph/query', body: 'json' },
 ];

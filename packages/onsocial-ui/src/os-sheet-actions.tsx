@@ -11,6 +11,9 @@ export const osSheetActionExpandedClassName = 'os-sheet-action--expanded';
 /** Keep row flex slots while hiding an action (save pending / success). */
 export const osSheetActionInertSlotClassName = 'os-sheet-action--inert-slot';
 
+/** Frosted fills without pill borders — preview bars, profile editor footers. */
+export const osSheetActionsBorderlessClassName = 'os-sheet-actions--borderless';
+
 export type OsSheetActionsLayout = 'stack' | 'row' | 'row-compact';
 
 /**
@@ -23,6 +26,8 @@ export interface OsSheetActionsProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
   layout?: OsSheetActionsLayout;
   tone?: OsSheetActionsTone;
+  /** Frosted fills without pill borders (pairs with `frosted-primary`). */
+  borderless?: boolean;
   /** Match profile editor discard confirm — frost danger pill. */
   discardConfirm?: boolean;
 }
@@ -32,6 +37,7 @@ export function OsSheetActions({
   className,
   layout = 'stack',
   tone = 'default',
+  borderless = false,
   discardConfirm = false,
   ...props
 }: OsSheetActionsProps) {
@@ -44,6 +50,7 @@ export function OsSheetActions({
         layout === 'row-compact' && 'os-sheet-actions--row-compact',
         (tone === 'frosted' || tone === 'frosted-primary') &&
           'os-sheet-actions--frosted-primary',
+        borderless && osSheetActionsBorderlessClassName,
         discardConfirm && 'os-sheet-actions--discard-confirm',
         className
       )}

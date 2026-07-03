@@ -1,11 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import {
+  accountDrawerPrimaryLabel,
   normalizeProfileLinks,
   normalizeProfileTags,
   portfolioHandleForMood,
   portfolioHandleHint,
   resolveProfileMediaUrl,
 } from './profile-display';
+
+describe('accountDrawerPrimaryLabel', () => {
+  it('uses You when the profile name matches the handle', () => {
+    expect(accountDrawerPrimaryLabel('test03.onsocial', 'test03.onsocial')).toBe(
+      'You'
+    );
+    expect(accountDrawerPrimaryLabel('test03.onsocial')).toBe('You');
+    expect(accountDrawerPrimaryLabel('alice.testnet', 'alice')).toBe('You');
+  });
+
+  it('uses a custom profile name when it differs from the handle', () => {
+    expect(accountDrawerPrimaryLabel('test03.onsocial', 'Alice')).toBe('Alice');
+  });
+});
 
 describe('resolveProfileMediaUrl', () => {
   it('resolves ipfs refs to the OnSocial CDN', () => {

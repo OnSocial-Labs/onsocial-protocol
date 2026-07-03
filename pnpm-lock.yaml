@@ -108,6 +108,9 @@ importers:
       '@hot-labs/near-connect':
         specifier: ^0.11.4
         version: 0.11.4
+      '@onsocial/rpc':
+        specifier: workspace:*
+        version: link:../onsocial-rpc
       '@onsocial/sdk':
         specifier: workspace:*
         version: link:../onsocial-sdk

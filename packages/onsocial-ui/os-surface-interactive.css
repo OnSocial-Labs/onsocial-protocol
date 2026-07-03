@@ -1,0 +1,226 @@
+/**
+ * @onsocial/ui — borderless interactive surfaces (rows, tiles, chips, panels).
+ *
+ * Use inside glass sheets and OS chrome. No pill borders — hover = fill lift only.
+ * Pair with protocol.css (--fg-rgb) and optional os-sheet-action tokens.
+ *
+ * Tiers:
+ *   os-surface-panel  — static inset card (wallet block, grouped metrics)
+ *   os-surface-row    — full-width list row (Edit profile, customize options)
+ *   os-surface-tile   — square icon cell (shortcut dock)
+ *   os-surface-chip   — compact inline action (Collect, Open)
+ *
+ * Footer CTAs stay on os-sheet-action (primary / ghost / danger).
+ */
+
+@layer tokens {
+  :root {
+    --os-surface-fill: rgb(var(--fg-rgb) / 0.055);
+    --os-surface-fill-strong: rgb(var(--fg-rgb) / 0.085);
+    --os-surface-fill-hover: rgb(var(--fg-rgb) / 0.07);
+    --os-surface-fill-hover-soft: rgb(var(--fg-rgb) / 0.05);
+    --os-surface-fill-active: rgb(var(--fg-rgb) / 0.09);
+    --os-surface-muted: rgb(var(--fg-rgb) / 0.55);
+    --os-surface-emphasis: rgb(var(--fg-rgb) / 0.88);
+    --os-surface-radius-row: 0.85rem;
+    --os-surface-radius-tile: 0.85rem;
+  }
+}
+
+.os-surface-panel {
+  border: 0;
+  border-radius: var(--os-surface-radius-row);
+  background: var(--os-surface-fill);
+}
+
+.os-surface-row,
+.os-surface-tile,
+.os-surface-chip {
+  border: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.os-surface-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  border-radius: var(--os-surface-radius-row);
+  background: var(--os-surface-fill);
+  color: var(--os-surface-emphasis);
+  padding: 0.62rem 0.72rem;
+  text-align: left;
+  text-decoration: none;
+}
+
+.os-surface-row:not(:disabled):hover,
+.os-surface-row:not(:disabled):focus-visible {
+  background: var(--os-surface-fill-hover);
+  outline: none;
+}
+
+.os-surface-row:not(:disabled):active {
+  background: var(--os-surface-fill-active);
+}
+
+.os-surface-row--navigate:not(:disabled):hover,
+.os-surface-row--navigate:not(:disabled):focus-visible {
+  background: var(--os-surface-fill-hover);
+}
+
+.os-surface-row-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.os-surface-row-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.os-surface-row-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.os-surface-row-description {
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: rgb(var(--fg-rgb) / 0.45);
+}
+
+.os-surface-row-badge {
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: rgb(var(--fg-rgb) / 0.08);
+  color: rgb(var(--fg-rgb) / 0.62);
+  font-size: 0.68rem;
+  padding: 0.3rem 0.5rem;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.os-surface-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.25rem;
+  border-radius: var(--os-surface-radius-tile);
+  background: var(--os-surface-fill);
+  color: rgb(var(--fg-rgb) / 0.58);
+  text-decoration: none;
+}
+
+.os-surface-tile:not(:disabled):hover,
+.os-surface-tile:not(:disabled):focus-visible {
+  background: var(--os-surface-fill-hover);
+  color: var(--os-surface-emphasis);
+  outline: none;
+}
+
+.os-surface-tile:not(:disabled):active {
+  background: var(--os-surface-fill-active);
+}
+
+.os-surface-tile.is-danger {
+  background: color-mix(in srgb, var(--protocol-red) 8%, transparent);
+  color: var(--protocol-red);
+}
+
+.os-surface-tile.is-danger:not(:disabled):hover,
+.os-surface-tile.is-danger:not(:disabled):focus-visible {
+  background: color-mix(in srgb, var(--protocol-red) 14%, transparent);
+  color: var(--protocol-red);
+  outline: none;
+}
+
+.os-surface-tile.is-danger:not(:disabled):active {
+  background: color-mix(in srgb, var(--protocol-red) 18%, transparent);
+  color: var(--protocol-red);
+}
+
+.os-surface-chip {
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: var(--os-surface-fill-strong);
+  color: var(--os-surface-muted);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 0.18rem 0.55rem;
+  text-align: center;
+}
+
+.os-surface-chip:not(:disabled):hover,
+.os-surface-chip:not(:disabled):focus-visible {
+  background: rgb(var(--fg-rgb) / 0.1);
+  color: var(--os-surface-emphasis);
+  outline: none;
+}
+
+.os-surface-chip:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+.os-surface-chip.is-ready {
+  background: color-mix(in srgb, var(--protocol-green) 14%, transparent);
+  color: var(--protocol-green);
+}
+
+.os-surface-chip.is-ready:not(:disabled):hover,
+.os-surface-chip.is-ready:not(:disabled):focus-visible {
+  background: color-mix(in srgb, var(--protocol-green) 20%, transparent);
+  color: var(--protocol-green);
+}
+
+.os-surface-chip.is-accent {
+  background: color-mix(in srgb, var(--protocol-amber) 14%, transparent);
+  color: var(--protocol-amber);
+}
+
+.os-surface-chip.is-accent:not(:disabled):hover,
+.os-surface-chip.is-accent:not(:disabled):focus-visible {
+  background: color-mix(in srgb, var(--protocol-amber) 20%, transparent);
+  color: var(--protocol-amber);
+}
+
+.os-surface-chip.is-succeeded {
+  background: color-mix(in srgb, var(--protocol-green) 14%, transparent);
+  color: var(--protocol-green);
+}
+
+.os-surface-chip.is-succeeded:not(:disabled):hover,
+.os-surface-chip.is-succeeded:not(:disabled):focus-visible {
+  background: color-mix(in srgb, var(--protocol-green) 14%, transparent);
+  color: var(--protocol-green);
+}
+
+.os-surface-row:disabled,
+.os-surface-tile:disabled,
+.os-surface-chip:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .os-surface-row,
+  .os-surface-tile,
+  .os-surface-chip {
+    transition: none;
+  }
+
+  .os-surface-chip:not(:disabled):active {
+    transform: none;
+  }
+}

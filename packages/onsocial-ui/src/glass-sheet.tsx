@@ -28,15 +28,15 @@ export const GLASS_SHEET_PEEK_RATIO = 0.62;
 const DISMISS_GAP_PX = 96;
 const MOBILE_MAX_WIDTH_PX = 767;
 const SHEET_TRANSITION_MS = 320;
+const DRAG_ACTIVATION_PX = 4;
 /** Inline on sheet nodes — Tailwind/Lightning CSS drops unprefixed backdrop-filter. */
 export const GLASS_SHEET_BACKDROP_OPACITY = 0.28;
 export const GLASS_SHEET_BACKDROP_BLUR_PX = 16;
 export const GLASS_SHEET_BACKDROP_SATURATE = 1.12;
-const GLASS_SHEET_PANEL_BLUR_PX = 24;
-const GLASS_SHEET_OS_PANEL_BLUR_PX = 24;
+export const GLASS_SHEET_PANEL_BLUR_PX = 12;
+export const GLASS_SHEET_OS_PANEL_BLUR_PX = GLASS_SHEET_PANEL_BLUR_PX;
 export const GLASS_SHEET_PANEL_SATURATE = 1.22;
-const GLASS_SHEET_MOOD_GLASS_BLUR_PX = 24;
-export const GLASS_SHEET_MOOD_GLASS_SATURATE = 1.35;
+export const GLASS_SHEET_MOOD_GLASS_SATURATE = GLASS_SHEET_PANEL_SATURATE;
 const SHEET_PRESENTATION_EASE = 'cubic-bezier(0.22, 0.61, 0.36, 1)';
 
 function clamp01(value: number): number {
@@ -111,8 +111,8 @@ export function resolveBackdropPresentation(
 
 export function resolvePanelPresentation(
   coverProgress: number,
-  tone: GlassSheetTone,
-  moodId?: string,
+  _tone: GlassSheetTone,
+  _moodId?: string,
   options?: { reduceTransparency?: boolean }
 ): string {
   if (options?.reduceTransparency) {
@@ -120,16 +120,8 @@ export function resolvePanelPresentation(
   }
 
   const strength = 1 - clamp01(coverProgress);
-  const blurPx =
-    tone === 'mood-thread' && moodId === 'glass'
-      ? GLASS_SHEET_MOOD_GLASS_BLUR_PX
-      : tone === 'os'
-        ? GLASS_SHEET_OS_PANEL_BLUR_PX
-        : GLASS_SHEET_PANEL_BLUR_PX;
-  const saturate =
-    tone === 'mood-thread' && moodId === 'glass'
-      ? GLASS_SHEET_MOOD_GLASS_SATURATE
-      : GLASS_SHEET_PANEL_SATURATE;
+  const blurPx = GLASS_SHEET_PANEL_BLUR_PX;
+  const saturate = GLASS_SHEET_PANEL_SATURATE;
 
   if (strength <= 0) {
     return 'blur(0px)';
@@ -138,7 +130,7 @@ export function resolvePanelPresentation(
   return `blur(${blurPx * strength}px) saturate(${1 + (saturate - 1) * strength})`;
 }
 
-function glassSheetBackdropFilterStyle(
+export function glassSheetBackdropFilterStyle(
   filter: string,
   options?: { opacity?: number; transition?: string }
 ): CSSProperties {
@@ -148,6 +140,28 @@ function glassSheetBackdropFilterStyle(
     backdropFilter: filter,
     WebkitBackdropFilter: filter,
   };
+}
+
+/** Static scrim blur for custom sheets (e.g. OS launcher). */
+export function resolveGlassScrimBackdropFilter(options?: {
+  reduceTransparency?: boolean;
+}): string {
+  if (options?.reduceTransparency) {
+    return 'blur(0px)';
+  }
+
+  return `blur(${GLASS_SHEET_BACKDROP_BLUR_PX}px) saturate(${GLASS_SHEET_BACKDROP_SATURATE})`;
+}
+
+/** Static OS panel blur for custom sheets (e.g. OS launcher). */
+export function resolveOsGlassPanelFilter(options?: {
+  reduceTransparency?: boolean;
+}): string {
+  if (options?.reduceTransparency) {
+    return 'blur(0px)';
+  }
+
+  return `blur(${GLASS_SHEET_OS_PANEL_BLUR_PX}px) saturate(${GLASS_SHEET_PANEL_SATURATE})`;
 }
 
 type Detent = GlassSheetDetent;
@@ -285,6 +299,8 @@ function useSheetGesture(
     startY: number;
     baseY: number;
     panelH: number;
+    currentY: number;
+    active: boolean;
   } | null>(null);
 
   const [detent, setDetent] = useState<Detent>(initialDetent);
@@ -357,8 +373,13 @@ function useSheetGesture(
       }
       const panelH = panel.offsetHeight;
       const baseY = dragPx ?? (detent === 'full' ? 0 : peekPxFor(panelH));
-      dragState.current = { startY: event.clientY, baseY, panelH };
-      setDragging(true);
+      dragState.current = {
+        startY: event.clientY,
+        baseY,
+        panelH,
+        currentY: baseY,
+        active: false,
+      };
       event.currentTarget.setPointerCapture?.(event.pointerId);
     },
     [detent, dragPx, isMobile, panelRef, peekPxFor]
@@ -370,10 +391,16 @@ function useSheetGesture(
       if (!state) {
         return;
       }
-      const next = Math.min(
-        state.panelH,
-        Math.max(0, state.baseY + (event.clientY - state.startY))
-      );
+      const deltaY = event.clientY - state.startY;
+      if (!state.active && Math.abs(deltaY) < DRAG_ACTIVATION_PX) {
+        return;
+      }
+      if (!state.active) {
+        state.active = true;
+        setDragging(true);
+      }
+      const next = Math.min(state.panelH, Math.max(0, state.baseY + deltaY));
+      state.currentY = next;
       setDragPx(next);
     },
     []
@@ -387,8 +414,13 @@ function useSheetGesture(
     dragState.current = null;
     setDragging(false);
 
+    if (!state.active) {
+      setDragPx(null);
+      return;
+    }
+
     const peekPx = peekPxFor(state.panelH);
-    const current = dragPx ?? peekPx;
+    const current = state.currentY;
 
     if (current > peekPx + DISMISS_GAP_PX) {
       onClose();
@@ -402,7 +434,7 @@ function useSheetGesture(
     }
 
     setDetent(current < peekPx / 2 ? 'full' : 'peek');
-  }, [dragPx, onClose, peekPxFor]);
+  }, [onClose, peekPxFor]);
 
   const isDesktopSheet = useCallback(
     () =>
@@ -435,7 +467,7 @@ function useSheetGesture(
   };
 }
 
-function usePrefersReducedTransparency(): boolean {
+export function usePrefersReducedTransparency(): boolean {
   const [prefersReduced, setPrefersReduced] = useState(false);
 
   useEffect(() => {
@@ -696,15 +728,21 @@ export function GlassSheet({
         style={
           {
             '--sheet-y': sheetY,
-            ...glassSheetBackdropFilterStyle(panelFilter, {
-              transition: presentationTransition,
-            }),
+            ...(dragging ? { transform: `translateY(${sheetY})` } : {}),
             ...panelStyle,
           } as CSSProperties
         }
         onTransitionEnd={handlePanelTransitionEnd}
         onAnimationEnd={handlePanelAnimationEnd}
       >
+        <div
+          className="glass-sheet-frost"
+          aria-hidden
+          style={glassSheetBackdropFilterStyle(panelFilter, {
+            transition: presentationTransition,
+          })}
+        />
+
         <div
           className="glass-sheet-drag"
           onPointerDown={handlePointerDown}

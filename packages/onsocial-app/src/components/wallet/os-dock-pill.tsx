@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { Divider } from '@onsocial/ui';
+import { Divider, osDockPillClassName } from '@onsocial/ui';
 import { OsDockAccountZone } from '@/components/wallet/os-dock-account-zone';
 
 interface OsDockPillProps {
@@ -12,7 +12,7 @@ interface OsDockPillProps {
 /** Unified OS dock — account segment, gradient divider, summon grip. */
 export function OsDockPill({ pageAccountId, grip }: OsDockPillProps) {
   return (
-    <div className="portfolio-summon">
+    <div className={`${osDockPillClassName} portfolio-summon`}>
       <OsDockAccountZone pageAccountId={pageAccountId} />
       <Divider
         orientation="vertical"

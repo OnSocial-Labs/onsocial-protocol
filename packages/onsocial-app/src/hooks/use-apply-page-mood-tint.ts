@@ -2,10 +2,14 @@
 
 import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { PageMoodId } from '@onsocial/sdk';
+import {
+  mergePageMoodTintIntoPageConfig,
+  type PageMoodId,
+} from '@onsocial/sdk';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { accountIdsEqual } from '@/lib/account-match';
+import { fetchPageConfigFromBrowserProxy } from '@/lib/read-page-config';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 function formatApplyMoodTintError(error: unknown): string {
@@ -52,10 +56,12 @@ export function useApplyPageMoodTint(pageAccountId: string) {
           );
         }
 
-        await client.pages.setMoodTint(moodId, hue, {
-          accountId: signingAccountId,
-          wait: true,
-        });
+        const current = await fetchPageConfigFromBrowserProxy(signingAccountId);
+
+        await client.pages.setConfig(
+          mergePageMoodTintIntoPageConfig(current, moodId, hue),
+          { wait: true }
+        );
         router.refresh();
         return true;
       } catch (err) {

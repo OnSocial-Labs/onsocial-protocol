@@ -1,28 +1,18 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type MouseEvent } from 'react';
+import Link from 'next/link';
+import { SheetCloseButton } from '@onsocial/ui';
+import { StandingSheetSubjectAvatar } from '@/components/panels/standing-sheet-subject';
+import { portfolioPath } from '@/lib/overlay-routes';
 import {
-  CheckIcon,
-  CopyIcon,
-  LogoutIcon,
-  OsIconAction,
-  SheetCloseButton,
-} from '@onsocial/ui';
-import { Coins } from 'lucide-react';
-import { displayName, fallbackLabel } from '@/lib/profile-display';
+  accountDrawerPrimaryLabel,
+  fallbackLabel,
+} from '@/lib/profile-display';
 
-function AccountDrawerSubject({
-  accountId,
-  profileName,
-  avatarUrl,
-}: {
-  accountId: string;
-  profileName?: string;
-  avatarUrl?: string | null;
-}) {
+function AccountDrawerHandleCopy({ accountId }: { accountId: string }) {
   const [copied, setCopied] = useState(false);
-  const handle = fallbackLabel(accountId);
-  const name = displayName(accountId, profileName);
+  const handleLabel = `@${accountId}`;
 
   useEffect(() => {
     if (!copied) {
@@ -32,59 +22,36 @@ function AccountDrawerSubject({
     return () => window.clearTimeout(timer);
   }, [copied]);
 
-  const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(accountId);
-      setCopied(true);
-    } catch {
-      // ignore
-    }
-  }, [accountId]);
+  const handleCopy = useCallback(
+    (event: MouseEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      void navigator.clipboard.writeText(accountId).then(
+        () => setCopied(true),
+        () => undefined
+      );
+    },
+    [accountId]
+  );
 
   return (
-    <div className="account-drawer-subject">
-      <span className="account-drawer-subject-avatar" aria-hidden>
-        {avatarUrl ? (
-          <img
-            src={avatarUrl}
-            alt=""
-            className="account-drawer-subject-avatar-img"
-          />
-        ) : (
-          <span className="account-drawer-subject-avatar-fallback">
-            {name.charAt(0).toUpperCase()}
-          </span>
-        )}
-      </span>
-      <span className="account-drawer-subject-copy">
-        <span className="account-drawer-subject-name">{name}</span>
-        <span className="account-drawer-handle-row">
-          <span className="profile-handle account-drawer-handle">@{handle}</span>
-          <button
-            type="button"
-            className="account-card-copy"
-            onClick={() => void handleCopy()}
-            aria-label={copied ? 'Address copied' : 'Copy address'}
-          >
-            {copied ? (
-              <CheckIcon aria-hidden className="account-card-copy-icon" />
-            ) : (
-              <CopyIcon aria-hidden className="account-card-copy-icon" />
-            )}
-          </button>
-        </span>
-      </span>
-    </div>
+    <button
+      type="button"
+      className={`account-drawer-handle-button${copied ? ' is-copied' : ''}`}
+      onClick={handleCopy}
+      title={accountId}
+      aria-label={copied ? 'Address copied' : `Copy ${handleLabel}`}
+    >
+      {copied ? 'Copied' : handleLabel}
+    </button>
   );
 }
 
-/** Identity + close in the sheet header — mirrors standing glass drawer subject row. */
+/** Identity row — tappable subject + full account id copy. */
 export function AccountDrawerChrome({
   titleId,
   srTitle,
   onClose,
-  onWallet,
-  onDisconnect,
   accountId,
   profileName,
   avatarUrl,
@@ -92,31 +59,33 @@ export function AccountDrawerChrome({
   titleId: string;
   srTitle: string;
   onClose: () => void;
-  onWallet: () => void;
-  onDisconnect: () => void;
   accountId: string;
   profileName?: string;
   avatarUrl?: string | null;
 }) {
+  const primaryLabel = accountDrawerPrimaryLabel(accountId, profileName);
+
   return (
-    <div className="account-drawer-header">
-      <div className="account-drawer-subject-row">
-        <AccountDrawerSubject
-          accountId={accountId}
-          profileName={profileName}
-          avatarUrl={avatarUrl}
-        />
-        <div className="account-drawer-actions">
-          <OsIconAction ariaLabel="Wallet" onClick={onWallet}>
-            <Coins aria-hidden className="glass-sheet-icon-action-glyph" />
-          </OsIconAction>
-          <OsIconAction
-            ariaLabel="Log out"
-            onClick={onDisconnect}
-            className="is-danger"
-          >
-            <LogoutIcon aria-hidden className="glass-sheet-icon-action-glyph" />
-          </OsIconAction>
+    <div className="standing-sheet-header account-drawer-header">
+      <div className="standing-sheet-subject-row account-drawer-subject-row">
+        <Link
+          href={portfolioPath(accountId)}
+          className="standing-sheet-subject account-drawer-subject"
+          aria-label={`${primaryLabel} portfolio`}
+          onClick={onClose}
+        >
+          <StandingSheetSubjectAvatar
+            avatarUrl={avatarUrl ?? null}
+            fallbackInitial={fallbackLabel(accountId).charAt(0).toUpperCase()}
+          />
+          <span className="standing-sheet-subject-copy account-drawer-subject-copy">
+            <span className="standing-sheet-subject-name account-drawer-subject-name">
+              {primaryLabel}
+            </span>
+            <AccountDrawerHandleCopy accountId={accountId} />
+          </span>
+        </Link>
+        <div className="standing-sheet-actions account-drawer-actions">
           <SheetCloseButton onClick={onClose} ariaLabel="Close" />
         </div>
       </div>

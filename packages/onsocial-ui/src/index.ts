@@ -13,9 +13,17 @@ export {
 } from './divider.js';
 export {
   GLASS_SHEET_PEEK_RATIO,
+  GLASS_SHEET_BACKDROP_BLUR_PX,
+  GLASS_SHEET_BACKDROP_SATURATE,
+  GLASS_SHEET_OS_PANEL_BLUR_PX,
+  GLASS_SHEET_PANEL_SATURATE,
   GlassSheet,
   SheetCloseButton,
   SheetHeader,
+  glassSheetBackdropFilterStyle,
+  resolveGlassScrimBackdropFilter,
+  resolveOsGlassPanelFilter,
+  usePrefersReducedTransparency,
   sheetIconActionClassName,
   type GlassSheetDetent,
   type GlassSheetProps,
@@ -26,6 +34,14 @@ export {
 export {
   UserPlusFillIcon,
   DotsCircleFillIcon,
+  FireFillIcon,
+  ShopFillIcon,
+  UsersFillIcon,
+  HomeFillIcon,
+  SearchFillIcon,
+  GlobeFillIcon,
+  GiftFillIcon,
+  UserCircleFillIcon,
   type MageFillIconProps,
 } from './mage-fill-icons.js';
 export {
@@ -50,6 +66,7 @@ export {
   DotsCircleIcon,
   EditIcon,
   ExternalLinkIcon,
+  GiftIcon,
   GlobeIcon,
   LogoutIcon,
   MultiplyIcon,
@@ -88,11 +105,48 @@ export {
   OsSheetActions,
   osSheetActionExpandedClassName,
   osSheetActionInertSlotClassName,
+  osSheetActionsBorderlessClassName,
   osSheetActionsClassName,
   type OsSheetActionsLayout,
   type OsSheetActionsProps,
   type OsSheetActionsTone,
 } from './os-sheet-actions.js';
+export {
+  osSheetFloatingPanelClassName,
+  osSheetFloatingPanelCopyClassName,
+  osSheetFloatingPanelErrorClassName,
+  osSheetFloatingPanelMetaClassName,
+} from './os-sheet-floating-panel.js';
+export {
+  osDockPillClassName,
+  osLauncherBackdropClassName,
+  osLauncherFooterClassName,
+  osLauncherGridClassName,
+  osLauncherGripClassName,
+  osLauncherItemClassName,
+  osLauncherItemIconClassName,
+  osLauncherItemIconShellClassName,
+  osLauncherItemLabelClassName,
+  osLauncherItemSoonClassName,
+  osLauncherDragClassName,
+  osLauncherHeaderClassName,
+  osLauncherMarkIconClassName,
+  osLauncherCrownClassName,
+  osLauncherMarkClassName,
+  osLauncherToolbarClassName,
+  osLauncherCrownAvatarClassName,
+  osLauncherRootClassName,
+  osLauncherSheetClassName,
+  osLauncherFrostClassName,
+  osLauncherThemeToggleClassName,
+  osLauncherThemeToggleOptionClassName,
+  type OsLauncherIconAccent,
+} from './os-launcher.js';
+export {
+  OnSocialMark,
+  ONSOCIAL_MARK_PATH,
+  type OnSocialMarkProps,
+} from './onsocial-mark.js';
 export {
   FloatingPanelMenu,
   type FloatingPanelMenuProps,
@@ -120,6 +174,7 @@ export {
 export {
   OsSurfaceHalo,
   osSurfaceHaloClassName,
+  osSurfaceHaloStandardClassName,
   type OsSurfaceHaloProps,
   type OsSurfaceHaloTone,
 } from './os-surface-halo.js';

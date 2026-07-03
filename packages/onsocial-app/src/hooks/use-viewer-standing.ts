@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { creditAppPlatformReward, creditAppPlatformSocialReward } from '@/lib/app-platform-rewards';
 import { APP_SOCIAL_SESSION_MISSING_MESSAGE } from '@/lib/app-social-session';
 import type {
   StandingAccountSummary,
@@ -115,7 +116,28 @@ export function useViewerStanding(listAccountId: string) {
 
       try {
         if (shouldStand) {
-          await client.standings.add(targetAccount.accountId, { wait: true });
+          const response = await client.standings.add(targetAccount.accountId, {
+            wait: true,
+          });
+          if (viewerAccountId) {
+            const proof = { txHash: response.txHash ?? '' };
+            creditAppPlatformSocialReward({
+              accountId: viewerAccountId,
+              action: 'stand_given',
+              targetAccountId: targetAccount.accountId,
+              targetDisplayName: targetAccount.name,
+              proof,
+              session,
+            });
+            creditAppPlatformReward({
+              accountId: viewerAccountId,
+              action: 'mutual_stand_created',
+              targetAccountId: targetAccount.accountId,
+              targetDisplayName: targetAccount.name,
+              proof,
+              session,
+            });
+          }
         } else {
           await client.standings.remove(targetAccount.accountId, { wait: true });
         }
@@ -138,7 +160,6 @@ export function useViewerStanding(listAccountId: string) {
     },
     [bumpStandingSync, getClient, isConnected, viewerAccountId]
   );
-
   return {
     hasSocialSession,
     isConnected,

@@ -14,7 +14,8 @@ import {
   OsSheetAction,
   OsSheetActions,
   OsSheetPrimaryAction,
-  OsSurfaceHalo,
+  osFloatingPanelClassName,
+  osSheetFloatingPanelClassName,
 } from '@/components/ui/os-sheet-primary-action';
 import { AccountEditorChrome } from '@/components/wallet/account-editor-chrome';
 import { ProfileEditorLoadingSkeleton } from '@/components/wallet/profile-editor-loading-skeleton';
@@ -555,7 +556,9 @@ function ProfileEditorForm({
         }
       >
         {discardConfirmOpen ? (
-          <OsSurfaceHalo tone="danger" className="account-editor-discard-card">
+          <div
+            className={`${osFloatingPanelClassName} ${osSheetFloatingPanelClassName} account-editor-discard-card`}
+          >
             <div className="account-editor-discard-footer-copy">
               <p
                 id="account-editor-discard-title"
@@ -570,7 +573,7 @@ function ProfileEditorForm({
                 Your edits won&apos;t be saved.
               </p>
             </div>
-            <OsSheetActions layout="stack" tone="frosted-primary">
+            <OsSheetActions layout="stack" tone="frosted-primary" borderless>
               <OsSheetAction
                 ref={keepEditingRef}
                 type="button"
@@ -583,9 +586,9 @@ function ProfileEditorForm({
                 Discard
               </OsSheetAction>
             </OsSheetActions>
-          </OsSurfaceHalo>
+          </div>
         ) : (
-          <OsSheetActions layout="stack" tone="frosted-primary">
+          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
             <OsSheetPrimaryAction
               type="submit"
               ready={isDirty && !saved && hasSocialSession}

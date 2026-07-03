@@ -10,6 +10,7 @@ import {
   DotsCircleIcon,
   EditIcon,
   ExternalLinkIcon,
+  GiftIcon,
   GlobeIcon,
   LogoutIcon,
   MultiplyIcon,
@@ -30,6 +31,7 @@ describe('mage stroke icons', () => {
     expect(typeof CopyIcon).toBe('function');
     expect(typeof EditIcon).toBe('function');
     expect(typeof ExternalLinkIcon).toBe('function');
+    expect(typeof GiftIcon).toBe('function');
     expect(typeof GlobeIcon).toBe('function');
     expect(typeof LogoutIcon).toBe('function');
     expect(typeof UserIcon).toBe('function');

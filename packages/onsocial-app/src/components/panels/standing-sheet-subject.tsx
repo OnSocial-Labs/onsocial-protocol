@@ -5,7 +5,13 @@ import Link from 'next/link';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { useStandingPanel } from '@/components/panels/standing-panel-context';
 
-function SubjectAvatar({ avatarUrl }: { avatarUrl: string | null }) {
+function SubjectAvatar({
+  avatarUrl,
+  fallbackInitial,
+}: {
+  avatarUrl: string | null;
+  fallbackInitial?: string;
+}) {
   return (
     <span className="standing-sheet-subject-avatar" aria-hidden>
       {avatarUrl ? (
@@ -15,9 +21,27 @@ function SubjectAvatar({ avatarUrl }: { avatarUrl: string | null }) {
           className="standing-sheet-subject-avatar-img"
         />
       ) : (
-        <span className="standing-sheet-subject-avatar-fallback" />
+        <span className="standing-sheet-subject-avatar-fallback">
+          {fallbackInitial ? (
+            <span className="standing-sheet-subject-avatar-initial">
+              {fallbackInitial}
+            </span>
+          ) : null}
+        </span>
       )}
     </span>
+  );
+}
+
+export function StandingSheetSubjectAvatar({
+  avatarUrl,
+  fallbackInitial,
+}: {
+  avatarUrl: string | null;
+  fallbackInitial?: string;
+}) {
+  return (
+    <SubjectAvatar avatarUrl={avatarUrl} fallbackInitial={fallbackInitial} />
   );
 }
 

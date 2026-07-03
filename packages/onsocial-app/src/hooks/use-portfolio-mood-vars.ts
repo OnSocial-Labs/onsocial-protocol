@@ -12,6 +12,7 @@ const MOOD_CSS_VARS = [
   '--mood-text',
   '--mood-muted',
   '--mood-accent',
+  '--mood-accent-chrome',
   '--portfolio-avatar-ring',
   '--mood-font-display',
   '--mood-display-weight',
@@ -68,6 +69,16 @@ function readPortfolioMoodStyle(): CSSProperties | undefined {
     vars['--account-editor-avatar-ring'] = computed
       .getPropertyValue('--bg')
       .trim();
+
+    const osLayer = document.querySelector('.portfolio-os-layer[data-mood]');
+    if (osLayer) {
+      const summonGrip = getComputedStyle(osLayer)
+        .getPropertyValue('--glass-summon-grip')
+        .trim();
+      if (summonGrip) {
+        vars['--glass-summon-grip'] = summonGrip;
+      }
+    }
   }
 
   return Object.keys(vars).length > 0 ? (vars as CSSProperties) : undefined;

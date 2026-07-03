@@ -99,11 +99,11 @@ describe('resolveBackdropPresentation', () => {
 
 describe('resolvePanelPresentation', () => {
   it('keeps panel frost at full presentation', () => {
-    expect(resolvePanelPresentation(0, 'os')).toContain('blur(24px)');
+    expect(resolvePanelPresentation(0, 'os')).toContain('blur(12px)');
   });
 
   it('eases panel frost while dragging down', () => {
-    expect(resolvePanelPresentation(0.5, 'os')).toContain('blur(12px)');
+    expect(resolvePanelPresentation(0.5, 'os')).toContain('blur(6px)');
   });
 
   it('skips panel blur when reduced transparency is preferred', () => {

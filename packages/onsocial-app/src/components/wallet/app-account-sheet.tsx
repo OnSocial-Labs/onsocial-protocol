@@ -1,22 +1,33 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
-import { GlassSheet, Divider } from '@onsocial/ui';
+import { Divider, GlassSheet } from '@onsocial/ui';
 import {
   AccountActionList,
   AccountSessionChip,
+  AccountShortcutDock,
   AccountWalletZone,
 } from '@/components/wallet/account-card-parts';
-import { AccountDrawerChrome } from '@/components/wallet/account-drawer-chrome';
+import {
+  AccountDrawerChrome,
+} from '@/components/wallet/account-drawer-chrome';
 import { AppProfileEditorSheet } from '@/components/wallet/app-profile-editor-sheet';
+import { AppRewardsRulesSheet } from '@/components/wallet/app-rewards-rules-sheet';
+import { AppStorageSheet } from '@/components/wallet/app-storage-sheet';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { usePlatformStorageSummary } from '@/hooks/use-platform-storage-summary';
 import { usePortfolioCustomize } from '@/contexts/portfolio-customize-context';
-import { usePortfolioProfileSeed } from '@/contexts/portfolio-profile-seed-context';
+import {
+  usePortfolioProfileSeed,
+  usePortfolioProfileSeedPatch,
+} from '@/contexts/portfolio-profile-seed-context';
 import { useViewerProfileShellContext } from '@/contexts/viewer-profile-shell-context';
+import { useViewerWalletMoodVars } from '@/hooks/use-viewer-wallet-mood-vars';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { ACCOUNT_SHEET_PEEK_RATIO } from '@/lib/account-sheet-config';
+import { accountSheetPageMoodPanel } from '@/lib/account-sheet-page-mood';
 import { accountIdsEqual } from '@/lib/account-match';
-import { displayName } from '@/lib/profile-display';
+import { accountDrawerPrimaryLabel } from '@/lib/profile-display';
 
 interface AppAccountSheetProps {
   open: boolean;
@@ -47,9 +58,13 @@ export function AppAccountSheet({
   } = useAppWallet();
   const customize = usePortfolioCustomize();
   const profileSeed = usePortfolioProfileSeed(accountId ?? '');
+  const patchProfileSeed = usePortfolioProfileSeedPatch();
   const viewerShell = useViewerProfileShellContext();
   const [closing, setClosing] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [storageOpen, setStorageOpen] = useState(false);
+  const [rewardsRulesOpen, setRewardsRulesOpen] = useState(false);
+  const [storageRefreshKey, setStorageRefreshKey] = useState(0);
   const [editorSession, setEditorSession] = useState(0);
   const [identityOverrides, setIdentityOverrides] = useState<
     Record<string, IdentityOverride>
@@ -59,10 +74,24 @@ export function AppAccountSheet({
 
   const sheetOpen = open && !closing;
   const editorSheetOpen = editorOpen && open;
+  const storageSheetOpen = storageOpen && open;
+  const rewardsRulesSheetOpen = rewardsRulesOpen && open;
+  const platformStorage = usePlatformStorageSummary(
+    accountId,
+    sheetOpen,
+    storageRefreshKey
+  );
   const isOwnerOnPage =
     Boolean(pageAccountId) &&
     Boolean(accountId) &&
     accountIdsEqual(accountId!, pageAccountId!);
+  const { moodId: pageMoodId, style: pageMoodStyle } = useViewerWalletMoodVars(
+    accountId ?? '',
+    pageAccountId,
+    Boolean(accountId)
+  );
+  const { panelClassSuffix: pageMoodPanelClass, panelStyle: accountPanelStyle } =
+    accountSheetPageMoodPanel(pageMoodId, pageMoodStyle);
 
   useScrollLock(open || closing);
 
@@ -73,6 +102,8 @@ export function AppAccountSheet({
   const handleSheetClosed = useCallback(() => {
     setClosing(false);
     setEditorOpen(false);
+    setStorageOpen(false);
+    setRewardsRulesOpen(false);
     onClose();
 
     if (pendingCustomizeRef.current) {
@@ -85,21 +116,6 @@ export function AppAccountSheet({
     await disconnect();
     requestClose();
   }, [disconnect, requestClose]);
-
-  const focusWallet = useCallback(() => {
-    const body = bodyRef.current;
-    const zone = document.getElementById('account-sheet-wallet-zone');
-    if (!body || !zone) {
-      return;
-    }
-
-    const bodyTop = body.getBoundingClientRect().top;
-    const zoneTop = zone.getBoundingClientRect().top;
-    body.scrollTo({
-      top: body.scrollTop + zoneTop - bodyTop - 8,
-      behavior: 'smooth',
-    });
-  }, []);
 
   const handleCustomize = useCallback(() => {
     pendingCustomizeRef.current = true;
@@ -119,6 +135,26 @@ export function AppAccountSheet({
     setEditorOpen(false);
   }, []);
 
+  const handleOpenStorage = useCallback(() => {
+    setStorageOpen(true);
+  }, []);
+
+  const handleOpenRewardsRules = useCallback(() => {
+    setRewardsRulesOpen(true);
+  }, []);
+
+  const handleRewardsRulesBack = useCallback(() => {
+    setRewardsRulesOpen(false);
+  }, []);
+
+  const handleStorageBack = useCallback(() => {
+    setStorageOpen(false);
+  }, []);
+
+  const handleStorageChanged = useCallback(() => {
+    setStorageRefreshKey((current) => current + 1);
+  }, []);
+
   const handleProfileSaved = useCallback(
     (result: { name: string; avatarUrl: string | null }) => {
       if (!accountId) {
@@ -132,12 +168,17 @@ export function AppAccountSheet({
           avatarUrl: result.avatarUrl,
         },
       }));
+      patchProfileSeed(accountId, {
+        displayName: result.name,
+        avatarUrl: result.avatarUrl,
+      });
       viewerShell?.patchShell({
         displayName: result.name,
         avatarUrl: result.avatarUrl,
       });
+      setStorageRefreshKey((current) => current + 1);
     },
-    [accountId, viewerShell]
+    [accountId, patchProfileSeed, viewerShell]
   );
 
   if (!accountId) {
@@ -156,7 +197,7 @@ export function AppAccountSheet({
   const profileName = identityOverride?.displayName ?? seededName;
   const avatarUrl =
     identityOverride?.avatarUrl ?? seededAvatar ?? viewerShell?.avatarUrl ?? null;
-  const srTitle = displayName(accountId, profileName);
+  const srTitle = accountDrawerPrimaryLabel(accountId, profileName);
 
   return (
     <>
@@ -170,7 +211,8 @@ export function AppAccountSheet({
         zIndex={55}
         ariaLabelledBy="account-sheet-title"
         backdropLabel="Close"
-        panelClassName="account-drawer-panel"
+        panelClassName={`account-drawer-panel${pageMoodPanelClass}`}
+        panelStyle={accountPanelStyle}
         bodyClassName="account-card-body"
         bodyRef={bodyRef}
         header={
@@ -179,8 +221,6 @@ export function AppAccountSheet({
               titleId="account-sheet-title"
               srTitle={srTitle}
               onClose={requestClose}
-              onWallet={focusWallet}
-              onDisconnect={() => void handleDisconnect()}
               accountId={accountId}
               profileName={profileName}
               avatarUrl={avatarUrl}
@@ -197,7 +237,17 @@ export function AppAccountSheet({
             />
           ) : null}
 
-          <AccountWalletZone accountId={accountId} enabled={sheetOpen} />
+          <AccountWalletZone
+            accountId={accountId}
+            enabled={sheetOpen}
+            onOpenRewardsRules={handleOpenRewardsRules}
+            onOpenStorage={handleOpenStorage}
+            platformStorageLoading={platformStorage.loading}
+            platformStorageError={platformStorage.error}
+            platformStorageSummary={platformStorage.summary}
+          />
+
+          <Divider variant="section" className="account-card-section-divider" />
 
           <AccountActionList
             accountId={accountId}
@@ -205,6 +255,12 @@ export function AppAccountSheet({
             onClose={requestClose}
             onEditProfile={handleEditProfile}
             onCustomize={isOwnerOnPage ? handleCustomize : undefined}
+          />
+
+          <AccountShortcutDock
+            accountId={accountId}
+            onClose={requestClose}
+            onDisconnect={() => void handleDisconnect()}
           />
         </div>
       </GlassSheet>
@@ -217,6 +273,20 @@ export function AppAccountSheet({
         onBack={handleEditorBack}
         onClose={handleEditorClose}
         onSaved={handleProfileSaved}
+      />
+
+      <AppStorageSheet
+        open={storageSheetOpen}
+        accountId={accountId}
+        refreshKey={storageRefreshKey}
+        onClose={handleStorageBack}
+        onStorageChanged={handleStorageChanged}
+      />
+
+      <AppRewardsRulesSheet
+        open={rewardsRulesSheetOpen}
+        accountId={accountId}
+        onClose={handleRewardsRulesBack}
       />
     </>
   );

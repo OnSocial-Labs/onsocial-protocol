@@ -1,0 +1,482 @@
+/**
+ * @onsocial/ui — OS dock pill + long-hold app launcher.
+ *
+ * Launcher sheet uses the same glass material as GlassSheet (standing panels).
+ * Dock pill: glass + optional mood tokens from host (--os-dock-*).
+ */
+
+@keyframes os-launcher-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes os-launcher-backdrop-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* Dock pill — frosted glass + optional mood tokens from host (--os-dock-*). */
+.os-dock-pill {
+  --os-dock-fill: var(--glass-surface, rgb(var(--bg-rgb) / 0.32));
+  --os-dock-fill-hover: color-mix(
+    in srgb,
+    var(--os-dock-fill) 84%,
+    rgb(var(--fg-rgb) / 0.08)
+  );
+  --os-dock-shadow: var(
+    --os-chrome-elev-shadow,
+    0 10px 32px -10px rgb(0 0 0 / 0.34)
+  );
+  --os-dock-shadow-hover: var(
+    --os-chrome-elev-shadow-hover,
+    0 12px 36px -10px rgb(0 0 0 / 0.38)
+  );
+  --os-dock-lip: inset 0 1px 0 rgb(var(--fg-rgb) / 0.1);
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: stretch;
+  min-height: 2.75rem;
+  border: 0;
+  border-radius: 9999px;
+  background: var(--os-dock-fill);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  box-shadow: var(--os-dock-shadow), var(--os-dock-lip);
+  color: rgb(var(--fg-rgb) / 0.88);
+  overflow: hidden;
+  transition:
+    background 180ms ease,
+    box-shadow 450ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.os-dock-pill:hover {
+  background: var(--os-dock-fill-hover);
+  box-shadow: var(--os-dock-shadow-hover), var(--os-dock-lip);
+}
+
+.os-launcher-root {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: env(safe-area-inset-top, 0px)
+    max(0px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px)
+    max(0px, env(safe-area-inset-left, 0px));
+}
+
+/* Scrim tint — backdrop-filter is set inline (Tailwind strips CSS blur). */
+.os-launcher-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  background: var(--glass-scrim, rgb(var(--bg-rgb) / 0.28));
+  cursor: pointer;
+  animation: os-launcher-backdrop-in 220ms ease;
+}
+
+/* Bottom sheet — same glass panel as standing GlassSheet. */
+.os-launcher-sheet {
+  position: relative;
+  z-index: 1;
+  isolation: isolate;
+  width: 100%;
+  max-width: 36rem;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  padding: 0 0 calc(1.25rem + env(safe-area-inset-bottom, 0px)) 0;
+  overflow: hidden;
+  border: 1px solid var(--glass-border, transparent);
+  border-radius: 1.25rem 1.25rem 0 0;
+  background: transparent;
+  color: rgb(var(--fg-rgb) / 0.96);
+  box-shadow: var(--glass-shadow, none);
+  animation: os-launcher-sheet-in 320ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.os-launcher-frost {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: var(
+    --glass-body-surface,
+    var(--glass-surface, rgb(var(--bg-rgb) / 0.22))
+  );
+  /* backdrop-filter is set inline on the node — Lightning CSS drops unprefixed values. */
+}
+
+.os-launcher-frost::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--glass-header-scrim-height);
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(
+    180deg,
+    rgb(var(--bg-rgb) / var(--glass-header-scrim-top)) 0%,
+    rgb(var(--bg-rgb) / var(--glass-header-scrim-mid)) 55%,
+    transparent 100%
+  );
+}
+
+.os-launcher-sheet > *:not(.os-launcher-frost) {
+  position: relative;
+  z-index: 1;
+}
+
+.os-launcher-sheet.is-dragging {
+  animation: none;
+  transform: translateY(var(--os-launcher-y, 0));
+  transition: none;
+  will-change: transform;
+}
+
+.os-launcher-drag {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0.6rem 0 0.3rem;
+  border: 0;
+  background: transparent;
+  touch-action: none;
+  cursor: grab;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.os-launcher-drag:active {
+  cursor: grabbing;
+}
+
+@media (min-width: 768px) {
+  .os-launcher-drag {
+    display: none;
+  }
+}
+
+.os-launcher-header {
+  gap: 0;
+  padding-top: 0;
+  padding-bottom: 0.65rem;
+  padding-left: max(1rem, env(safe-area-inset-left, 0px));
+  padding-right: max(1rem, env(safe-area-inset-right, 0px));
+}
+
+@media (min-width: 768px) {
+  .os-launcher-header {
+    padding-top: 0.75rem;
+  }
+}
+
+.os-launcher-mark-icon {
+  display: block;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  color: rgb(var(--fg-rgb) / 0.88);
+}
+
+.os-launcher-grid {
+  --os-launcher-icon-size: 3.25rem;
+  --os-launcher-icon-radius: 0.82rem;
+  list-style: none;
+  margin: 0;
+  padding: 0.35rem max(1rem, env(safe-area-inset-right, 0px)) 0
+    max(1rem, env(safe-area-inset-left, 0px));
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.95rem 0.5rem;
+  justify-items: center;
+}
+
+/* App icons — wallet neutral tile + protocol hue glyph (iPhone-style). */
+.os-launcher-item {
+  position: relative;
+  display: flex;
+  width: min(100%, 4.5rem);
+  flex-direction: column;
+  align-items: center;
+  gap: 0.32rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgb(var(--fg-rgb) / 0.88);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.os-launcher-item-icon-shell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--os-launcher-icon-size);
+  height: var(--os-launcher-icon-size);
+  flex-shrink: 0;
+  border: 0;
+  border-radius: var(--os-launcher-icon-radius);
+  background: rgb(var(--fg-rgb) / 0.03);
+  box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
+  transition: background 160ms ease;
+}
+
+.os-launcher-item-icon {
+  display: block;
+  width: 1.45rem;
+  height: 1.45rem;
+  flex-shrink: 0;
+  color: rgb(var(--fg-rgb) / 0.62);
+  transition: color 160ms ease;
+}
+
+/* iPhone-style — neutral tile, protocol hue on the glyph only. */
+.os-launcher-item-icon-shell[data-accent='blue'] .os-launcher-item-icon {
+  color: var(--protocol-blue);
+}
+
+.os-launcher-item-icon-shell[data-accent='purple'] .os-launcher-item-icon {
+  color: var(--protocol-purple);
+}
+
+.os-launcher-item-icon-shell[data-accent='gold'] .os-launcher-item-icon {
+  color: var(--protocol-gold);
+}
+
+.os-launcher-item-icon-shell[data-accent='green'] .os-launcher-item-icon {
+  color: var(--protocol-green);
+}
+
+.os-launcher-item-icon-shell[data-accent='amber'] .os-launcher-item-icon {
+  color: var(--protocol-amber);
+}
+
+.os-launcher-item-label {
+  width: 100%;
+  max-width: 4.5rem;
+  font-weight: 500;
+  font-size: 0.62rem;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  text-align: center;
+  color: rgb(var(--fg-rgb) / 0.68);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.os-launcher-item:not(.is-soon):hover .os-launcher-item-icon-shell,
+.os-launcher-item:not(.is-soon):focus-visible .os-launcher-item-icon-shell {
+  background: rgb(var(--fg-rgb) / 0.05);
+}
+
+.os-launcher-item:not(.is-soon):hover
+  .os-launcher-item-icon-shell[data-accent='blue']
+  .os-launcher-item-icon,
+.os-launcher-item:not(.is-soon):focus-visible
+  .os-launcher-item-icon-shell[data-accent='blue']
+  .os-launcher-item-icon {
+  color: var(--protocol-blue-hover);
+}
+
+.os-launcher-item:not(.is-soon):hover
+  .os-launcher-item-icon-shell[data-accent='purple']
+  .os-launcher-item-icon,
+.os-launcher-item:not(.is-soon):focus-visible
+  .os-launcher-item-icon-shell[data-accent='purple']
+  .os-launcher-item-icon {
+  color: color-mix(in srgb, var(--protocol-purple) 88%, white 12%);
+}
+
+.os-launcher-item:not(.is-soon):hover
+  .os-launcher-item-icon-shell[data-accent='gold']
+  .os-launcher-item-icon,
+.os-launcher-item:not(.is-soon):focus-visible
+  .os-launcher-item-icon-shell[data-accent='gold']
+  .os-launcher-item-icon {
+  color: color-mix(in srgb, var(--protocol-gold) 88%, white 12%);
+}
+
+.os-launcher-item:not(.is-soon):hover
+  .os-launcher-item-icon-shell[data-accent='green']
+  .os-launcher-item-icon,
+.os-launcher-item:not(.is-soon):focus-visible
+  .os-launcher-item-icon-shell[data-accent='green']
+  .os-launcher-item-icon {
+  color: color-mix(in srgb, var(--protocol-green) 88%, white 12%);
+}
+
+.os-launcher-item:not(.is-soon):hover
+  .os-launcher-item-icon-shell[data-accent='amber']
+  .os-launcher-item-icon,
+.os-launcher-item:not(.is-soon):focus-visible
+  .os-launcher-item-icon-shell[data-accent='amber']
+  .os-launcher-item-icon {
+  color: color-mix(in srgb, var(--protocol-amber) 88%, white 12%);
+}
+
+.os-launcher-item:focus-visible {
+  outline: none;
+}
+
+.os-launcher-item:hover .os-launcher-item-label,
+.os-launcher-item:focus-visible .os-launcher-item-label {
+  color: rgb(var(--fg-rgb) / 0.84);
+}
+
+.os-launcher-item:not(.is-soon):active .os-launcher-item-icon-shell {
+  background: rgb(var(--fg-rgb) / 0.07);
+}
+
+.os-launcher-item.is-soon {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.os-launcher-item.is-soon:hover .os-launcher-item-icon-shell,
+.os-launcher-item.is-soon:focus-visible .os-launcher-item-icon-shell,
+.os-launcher-item.is-soon:active .os-launcher-item-icon-shell {
+  background: rgb(var(--fg-rgb) / 0.03);
+}
+
+.os-launcher-item.is-soon .os-launcher-item-icon,
+.os-launcher-item.is-soon:hover .os-launcher-item-icon,
+.os-launcher-item.is-soon:focus-visible .os-launcher-item-icon,
+.os-launcher-item.is-soon:active .os-launcher-item-icon {
+  color: rgb(var(--fg-rgb) / 0.42);
+}
+
+.os-launcher-item-soon {
+  position: absolute;
+  top: -0.2rem;
+  right: -0.2rem;
+  padding: 0.1rem 0.28rem;
+  border-radius: 9999px;
+  font-size: 0.48rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-rgb) / 0.62);
+  background: rgb(var(--bg-rgb) / 0.92);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.18);
+}
+
+.os-launcher-footer {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 1rem max(1rem, env(safe-area-inset-right, 0px)) 0
+    max(1rem, env(safe-area-inset-left, 0px));
+}
+
+.os-launcher-theme-toggle {
+  display: inline-flex;
+  padding: 0.2rem;
+  border: 0;
+  border-radius: 9999px;
+  background: var(--os-fp-neutral-bg, rgb(var(--fg-rgb) / 0.045));
+  box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
+}
+
+.os-launcher-theme-toggle-option {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--os-fp-muted, rgb(var(--fg-rgb) / 0.62));
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.os-launcher-theme-toggle-option:hover,
+.os-launcher-theme-toggle-option:focus-visible {
+  background: var(--os-fp-neutral-frame-bg, rgb(var(--fg-rgb) / 0.05));
+  color: var(--os-fp-fg-soft, rgb(var(--fg-rgb) / 0.88));
+  outline: none;
+}
+
+.os-launcher-theme-toggle-option.is-active {
+  background: var(--os-fp-count-bg-selected, rgb(var(--fg-rgb) / 0.08));
+  color: var(--os-fp-fg, rgb(var(--fg-rgb) / 0.96));
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .os-dock-pill {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    --os-dock-fill: var(--glass-surface-solid, rgb(var(--bg-rgb) / 0.94));
+    --os-dock-shadow: var(
+      --os-chrome-elev-shadow,
+      0 10px 28px -12px rgb(0 0 0 / 0.28)
+    );
+    --os-dock-shadow-hover: var(
+      --os-chrome-elev-shadow-hover,
+      var(--os-dock-shadow)
+    );
+    box-shadow: var(--os-dock-shadow), var(--os-dock-lip);
+  }
+
+  .os-launcher-backdrop {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--glass-scrim-solid, rgb(var(--bg-rgb) / 0.82));
+  }
+
+  .os-launcher-sheet {
+    box-shadow: none;
+  }
+
+  .os-launcher-frost {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(
+      --glass-surface-solid,
+      var(--surface-solid, rgb(var(--bg-rgb) / 0.98))
+    );
+  }
+
+  .os-launcher-frost::after {
+    display: none;
+  }
+
+  .os-launcher-item-icon-shell {
+    background: rgb(var(--fg-rgb) / 0.03);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .os-launcher-sheet,
+  .os-launcher-backdrop {
+    animation: none;
+  }
+}

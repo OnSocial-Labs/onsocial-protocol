@@ -28,7 +28,8 @@ export function useAppAccountSheet() {
   return useContext(AppAccountSheetContext);
 }
 
-function AppAccountSheetHost() {
+/** Mount inside AppRewardsProvider + ViewerProfileShellProvider (see app-providers). */
+export function AppAccountSheetHost() {
   const { accountId } = useAppWallet();
   const { open, pageAccountId, closeAccountSheet } = useAppAccountSheet();
 
@@ -66,7 +67,6 @@ export function AppAccountSheetProvider({ children }: { children: ReactNode }) {
       value={{ open, pageAccountId, openAccountSheet, closeAccountSheet }}
     >
       {children}
-      <AppAccountSheetHost />
     </AppAccountSheetContext.Provider>
   );
 }

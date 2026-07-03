@@ -1,6 +1,10 @@
 'use client';
 
 import { useCallback, useSyncExternalStore } from 'react';
+import {
+  osLauncherThemeToggleClassName,
+  osLauncherThemeToggleOptionClassName,
+} from '@onsocial/ui';
 import { THEME_STORAGE_KEY } from '@/lib/theme-init';
 
 type ThemeChoice = 'light' | 'dark';
@@ -49,10 +53,14 @@ export function ThemeToggle() {
   }, []);
 
   return (
-    <div className="theme-toggle" role="group" aria-label="Theme">
+    <div
+      className={osLauncherThemeToggleClassName}
+      role="group"
+      aria-label="Theme"
+    >
       <button
         type="button"
-        className={`theme-toggle-option${theme === 'light' ? ' is-active' : ''}`}
+        className={`${osLauncherThemeToggleOptionClassName}${theme === 'light' ? ' is-active' : ''}`}
         aria-pressed={theme === 'light'}
         onClick={() => apply('light')}
       >
@@ -60,7 +68,7 @@ export function ThemeToggle() {
       </button>
       <button
         type="button"
-        className={`theme-toggle-option${theme === 'dark' ? ' is-active' : ''}`}
+        className={`${osLauncherThemeToggleOptionClassName}${theme === 'dark' ? ' is-active' : ''}`}
         aria-pressed={theme === 'dark'}
         onClick={() => apply('dark')}
       >
