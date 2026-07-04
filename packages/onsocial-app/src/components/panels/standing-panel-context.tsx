@@ -91,6 +91,7 @@ interface StandingPanelContextValue {
   showListSkeleton: boolean;
   isListRefreshing: boolean;
   isLoadingMore: boolean;
+  relationshipSynced: boolean;
   showLoadMoreSentinel: boolean;
   loadMoreRef: React.RefObject<HTMLDivElement | null>;
   footerSummary: string | null;
@@ -799,6 +800,7 @@ export function StandingPanelProvider({
       showListSkeleton,
       isListRefreshing,
       isLoadingMore,
+      relationshipSynced,
       showLoadMoreSentinel,
       loadMoreRef,
       footerSummary,
@@ -822,6 +824,7 @@ export function StandingPanelProvider({
       isLoadingMore,
       isSelf,
       activeKind,
+      relationshipSynced,
       listKey,
       loadError,
       mergedPendingIds,

@@ -25,6 +25,7 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
   // Wallet storage buffer + personal storage reads.
   { method: 'GET', path: 'data/storage-balance', body: 'none' },
   { method: 'GET', path: 'data/platform-allowance', body: 'none' },
+  { method: 'GET', path: 'data/shared-pool', body: 'none' },
   // Indexed reads after profile save (`os.profiles.get`) and other SDK queries.
   { method: 'POST', path: 'graph/query', body: 'json' },
 ];

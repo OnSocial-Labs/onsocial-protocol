@@ -19,7 +19,8 @@
     "./os-surface-halo.css": "./os-surface-halo.css",
     "./floating-panel.css": "./floating-panel.css",
     "./os-launcher.css": "./os-launcher.css",
-    "./profile-editor-media.css": "./profile-editor-media.css"
+    "./profile-editor-media.css": "./profile-editor-media.css",
+    "./profile-avatar.css": "./profile-avatar.css"
   },
   "scripts": {
     "build": "tsc",
@@ -59,7 +60,8 @@
     "os-surface-halo.css",
     "floating-panel.css",
     "os-launcher.css",
-    "profile-editor-media.css"
+    "profile-editor-media.css",
+    "profile-avatar.css"
   ],
   "license": "MIT",
   "author": "OnSocial Labs <dev@onsocial.id> (https://onsocial.id)",

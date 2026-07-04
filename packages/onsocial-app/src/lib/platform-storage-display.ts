@@ -151,7 +151,7 @@ export function buildPlatformStorageSummary(
   };
 }
 
-export const PLATFORM_STORAGE_LABEL = 'Platform storage';
+export const PLATFORM_STORAGE_LABEL = 'Platform buffer';
 
 /** Account drawer — compact row label beside the usage bar. */
 export const PLATFORM_STORAGE_MENU_LABEL = 'Storage';
@@ -162,6 +162,9 @@ export const APP_STORAGE_OPEN_LABEL = 'Open';
 /** Short explainer — allowance is a refilling buffer, not a daily usage cap. */
 export const PLATFORM_STORAGE_REFILL_HINT =
   'Refills continuously at the daily rate, up to the buffer cap.';
+
+export const PLATFORM_STORAGE_EXHAUSTED_HINT =
+  'Buffer empty. It refills over time, or add NEAR for immediate storage.';
 
 export const PLATFORM_STORAGE_INACTIVE_HINT =
   'Activates on your first OnSocial save when platform storage is available.';

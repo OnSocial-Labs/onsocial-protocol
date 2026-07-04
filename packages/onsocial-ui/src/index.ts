@@ -185,3 +185,10 @@ export {
   normalizeSocialTimestamp,
   type SocialCalendarTime,
 } from './social-relative-time.js';
+export {
+  ProfileAvatar,
+  profileAvatarClassName,
+  profileAvatarSizeClassName,
+  type ProfileAvatarProps,
+  type ProfileAvatarSize,
+} from './profile-avatar.js';

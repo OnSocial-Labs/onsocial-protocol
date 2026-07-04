@@ -8,10 +8,10 @@ const NEAR_STORAGE_BYTE_COST = 10_000_000_000_000_000_000n;
 export const USER_STORAGE_LABEL = 'Your storage';
 
 export const USER_STORAGE_DEPOSIT_HINT =
-  'NEAR you deposit covers OnSocial writes when the platform buffer is empty.';
+  'Add NEAR to keep OnSocial writes covered after the free buffer is used.';
 
 export const USER_STORAGE_WITHDRAW_HINT =
-  'Withdraw unused NEAR — locked balance and active storage stay covered.';
+  'Withdraw unused NEAR. Reserved balance and active storage stay covered.';
 
 export const USER_STORAGE_SHARE_HINT =
   'Bytes come from your share pool — recipients write under your allocation.';

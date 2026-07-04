@@ -12,6 +12,7 @@ import { useViewerProfileShell } from '@/hooks/use-viewer-profile-shell';
 interface ViewerProfileShellContextValue {
   avatarUrl: string | null;
   displayName?: string;
+  isLoading: boolean;
   patchShell: (patch: { displayName?: string; avatarUrl?: string | null }) => void;
 }
 
@@ -20,11 +21,11 @@ const ViewerProfileShellContext =
 
 export function ViewerProfileShellProvider({ children }: { children: ReactNode }) {
   const { accountId } = useAppWallet();
-  const { avatarUrl, displayName, patchShell } = useViewerProfileShell(accountId);
+  const { avatarUrl, displayName, isLoading, patchShell } = useViewerProfileShell(accountId);
 
   const value = useMemo(
-    () => ({ avatarUrl, displayName, patchShell }),
-    [avatarUrl, displayName, patchShell]
+    () => ({ avatarUrl, displayName, isLoading, patchShell }),
+    [avatarUrl, displayName, isLoading, patchShell]
   );
 
   return (

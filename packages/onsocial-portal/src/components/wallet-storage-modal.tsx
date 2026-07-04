@@ -63,6 +63,7 @@ import {
   STORAGE_DEPOSIT_PRESETS_NEAR,
   STORAGE_NEAR_INPUT_DECIMALS,
   storageCapacityBytesFromNearInput,
+  storageCapacityBytesFromYocto,
   USER_STORAGE_DEPOSIT_HINT,
   USER_STORAGE_LABEL,
   USER_STORAGE_SHARE_HINT,
@@ -107,13 +108,14 @@ const AMOUNT_INPUT_CLASS =
 function UserStorageShareStrip({ summary }: { summary: UserStorageSummary }) {
   const low = summary.effectiveBytes > 0 && summary.headroomPercent <= 25;
   const balanceLabel = formatNearCompact(summary.balanceYocto.toString());
-  const detailParts: string[] = [];
-  if (summary.depositCapacityBytes > 0) {
-    detailParts.push(
-      `≈ ${formatCompactBytes(summary.depositCapacityBytes)} capacity`
-    );
+  const freeCapacityBytes = storageCapacityBytesFromYocto(
+    summary.withdrawableYocto
+  );
+  const detailParts = [`${formatCompactBytes(summary.effectiveBytes)} used`];
+
+  if (freeCapacityBytes > 0) {
+    detailParts.push(`${formatCompactBytes(freeCapacityBytes)} free`);
   }
-  detailParts.push(`${formatCompactBytes(summary.effectiveBytes)} in use`);
 
   return (
     <p
@@ -152,19 +154,20 @@ function UserStorageShareStrip({ summary }: { summary: UserStorageSummary }) {
 function UserStorageReadout({ summary }: { summary: UserStorageSummary }) {
   const low = summary.effectiveBytes > 0 && summary.headroomPercent <= 25;
   const balanceLabel = formatNearCompact(summary.balanceYocto.toString());
-  const metaParts: string[] = [];
-  if (summary.depositCapacityBytes > 0) {
-    metaParts.push(
-      `≈ ${formatCompactBytes(summary.depositCapacityBytes)} capacity`
-    );
+  const freeCapacityBytes = storageCapacityBytesFromYocto(
+    summary.withdrawableYocto
+  );
+  const metaParts = [`${formatCompactBytes(summary.effectiveBytes)} used`];
+
+  if (freeCapacityBytes > 0) {
+    metaParts.push(`${formatCompactBytes(freeCapacityBytes)} free`);
   }
   metaParts.push(
-    `${formatNearCompact(summary.withdrawableYocto.toString())} withdrawable`,
-    `${formatCompactBytes(summary.effectiveBytes)} in use`
+    `${formatNearCompact(summary.withdrawableYocto.toString())} NEAR withdrawable`
   );
   if (summary.lockedYocto > 0n) {
     metaParts.push(
-      `${formatNearCompact(summary.lockedYocto.toString())} locked`
+      `${formatNearCompact(summary.lockedYocto.toString())} NEAR reserved`
     );
   }
 
@@ -203,8 +206,8 @@ function UserStorageReadout({ summary }: { summary: UserStorageSummary }) {
 
 function PlatformStorageMeta({ summary }: { summary: PlatformStorageSummary }) {
   const parts = [
-    `${formatCompactBytes(summary.storedBytes)} stored`,
-    `+${formatCompactBytes(summary.dailyRefillBytes)}/day`,
+    `${formatCompactBytes(summary.storedBytes)} covered`,
+    `refills +${formatCompactBytes(summary.dailyRefillBytes)}/day`,
     `${formatCompactBytes(summary.maxBufferBytes)} cap`,
   ];
 
@@ -229,7 +232,7 @@ function StorageModeToggle({
   }[] = [
     { id: 'deposit', label: 'Add' },
     { id: 'withdraw', label: 'Withdraw', disabled: !canWithdraw },
-    { id: 'share', label: 'Share' },
+    { id: 'share', label: 'Share storage' },
   ];
 
   return (

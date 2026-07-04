@@ -122,7 +122,7 @@ export function AccountStorageStrip({
     summary.availableBytes,
     summary.maxBufferBytes
   );
-  const metaLabel = `${formatCompactBytes(summary.storedBytes)} stored · +${formatCompactBytes(summary.dailyRefillBytes)}/day`;
+  const metaLabel = `${formatCompactBytes(summary.storedBytes)} covered · refills +${formatCompactBytes(summary.dailyRefillBytes)}/day`;
 
   return (
     <div className="account-wallet-storage-strip">

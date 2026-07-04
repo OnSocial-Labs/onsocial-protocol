@@ -13,7 +13,7 @@ export function PortfolioSignalsShell({
   accountId,
   signals,
 }: PortfolioSignalsShellProps) {
-  const { viewerStanding, theyStandWithViewer } =
+  const { viewerStanding, theyStandWithViewer, isLoading } =
     useViewerRelationship(accountId);
 
   return (
@@ -22,6 +22,7 @@ export function PortfolioSignalsShell({
       signals={signals}
       viewerStanding={viewerStanding}
       theyStandWithViewer={theyStandWithViewer}
+      relationshipLoading={isLoading}
     />
   );
 }

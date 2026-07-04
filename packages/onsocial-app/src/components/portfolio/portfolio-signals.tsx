@@ -12,6 +12,8 @@ interface PortfolioSignalsProps {
   viewerStanding?: boolean;
   /** Page owner stands with viewer. */
   theyStandWithViewer?: boolean;
+  /** Viewer relationship is still resolving; avoid false relationship highlights. */
+  relationshipLoading?: boolean;
 }
 
 const metricInnerClass = 'signal-metric-inner';
@@ -68,16 +70,23 @@ export function PortfolioSignals({
   signals,
   viewerStanding = false,
   theyStandWithViewer = false,
+  relationshipLoading = false,
 }: PortfolioSignalsProps) {
-  const sharedSolidarity = viewerStanding && theyStandWithViewer;
+  const relationshipKnown = !relationshipLoading;
+  const sharedSolidarity =
+    relationshipKnown && viewerStanding && theyStandWithViewer;
 
   return (
-    <div className="portfolio-signals" aria-label="Profile signals">
+    <div
+      className={`portfolio-signals${relationshipLoading ? ' is-relationship-loading' : ''}`}
+      aria-label="Profile signals"
+    >
       <div className="portfolio-signals-metrics">
         <div className="signal-group signal-group-standing">
         <Link
           className={metricClassName({
-            highlight: theyStandWithViewer && !sharedSolidarity,
+            highlight:
+              relationshipKnown && theyStandWithViewer && !sharedSolidarity,
           })}
           href={standingPath(accountId, 'incoming')}
           scroll={false}

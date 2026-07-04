@@ -10,7 +10,6 @@ import {
 } from '@/components/wallet/account-card-parts';
 import { AccountDrawerChrome } from '@/components/wallet/account-drawer-chrome';
 import { AppProfileEditorSheet } from '@/components/wallet/app-profile-editor-sheet';
-import { AppRewardsRulesSheet } from '@/components/wallet/app-rewards-rules-sheet';
 import { AppStorageSheet } from '@/components/wallet/app-storage-sheet';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePlatformStorageSummary } from '@/hooks/use-platform-storage-summary';
@@ -61,7 +60,6 @@ export function AppAccountSheet({
   const [closing, setClosing] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [storageOpen, setStorageOpen] = useState(false);
-  const [rewardsRulesOpen, setRewardsRulesOpen] = useState(false);
   const [storageRefreshKey, setStorageRefreshKey] = useState(0);
   const [editorSession, setEditorSession] = useState(0);
   const [identityOverrides, setIdentityOverrides] = useState<
@@ -73,7 +71,6 @@ export function AppAccountSheet({
   const sheetOpen = open && !closing;
   const editorSheetOpen = editorOpen && open;
   const storageSheetOpen = storageOpen && open;
-  const rewardsRulesSheetOpen = rewardsRulesOpen && open;
   const platformStorage = usePlatformStorageSummary(
     accountId,
     sheetOpen,
@@ -103,7 +100,6 @@ export function AppAccountSheet({
     setClosing(false);
     setEditorOpen(false);
     setStorageOpen(false);
-    setRewardsRulesOpen(false);
     onClose();
 
     if (pendingCustomizeRef.current) {
@@ -137,14 +133,6 @@ export function AppAccountSheet({
 
   const handleOpenStorage = useCallback(() => {
     setStorageOpen(true);
-  }, []);
-
-  const handleOpenRewardsRules = useCallback(() => {
-    setRewardsRulesOpen(true);
-  }, []);
-
-  const handleRewardsRulesBack = useCallback(() => {
-    setRewardsRulesOpen(false);
   }, []);
 
   const handleStorageBack = useCallback(() => {
@@ -243,7 +231,6 @@ export function AppAccountSheet({
           <AccountWalletZone
             accountId={accountId}
             enabled={sheetOpen}
-            onOpenRewardsRules={handleOpenRewardsRules}
             onOpenStorage={handleOpenStorage}
             platformStorageLoading={platformStorage.loading}
             platformStorageError={platformStorage.error}
@@ -286,12 +273,6 @@ export function AppAccountSheet({
         refreshKey={storageRefreshKey}
         onClose={handleStorageBack}
         onStorageChanged={handleStorageChanged}
-      />
-
-      <AppRewardsRulesSheet
-        open={rewardsRulesSheetOpen}
-        accountId={accountId}
-        onClose={handleRewardsRulesBack}
       />
     </>
   );

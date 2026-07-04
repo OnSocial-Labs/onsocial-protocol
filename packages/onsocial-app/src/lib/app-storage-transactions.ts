@@ -4,10 +4,34 @@ import { extractNearTransactionHashes } from '@/lib/app-near-rpc';
 import type { NearWalletBase } from '@hot-labs/near-connect';
 
 const STORAGE_ADMIN_GAS = '300000000000000';
+/** Matches integration tests — share_storage is lighter than pool deposit. */
+const STORAGE_SHARE_GAS = '100000000000000';
+/** Stay under the ~300 TGas NEAR tx cap when batching multiple share actions. */
+const STORAGE_SHARE_BATCH_MAX = 2;
 
-interface SigningWallet {
+export interface SigningWallet {
   wallet: NearWalletBase;
   accountId: string;
+}
+
+function buildExecuteAdminAction(
+  storagePath: string,
+  value: Record<string, unknown>,
+  gas = STORAGE_ADMIN_GAS
+) {
+  return {
+    methodName: 'execute_admin',
+    args: {
+      request: {
+        action: {
+          type: 'set',
+          data: { [storagePath]: value },
+        },
+      },
+    },
+    gas,
+    deposit: '0',
+  };
 }
 
 export async function sendStorageDepositTransaction(
@@ -53,6 +77,33 @@ export async function sendStorageWithdrawTransaction(
       ? { amount: amountYocto }
       : ({} as Record<string, never>);
 
+  const action = buildExecuteAdminAction('storage/withdraw', withdrawData);
+  const { wallet, accountId: signerId } = await getSigningWallet();
+  const result = await wallet.signAndSendTransaction({
+    network: ACTIVE_NEAR_NETWORK,
+    signerId,
+    receiverId: CORE_CONTRACT,
+    actions: [
+      {
+        type: 'FunctionCall',
+        params: {
+          methodName: action.methodName,
+          args: action.args,
+          gas: action.gas,
+          deposit: action.deposit,
+        },
+      },
+    ],
+  });
+
+  return extractNearTransactionHashes(result);
+}
+
+export async function sendStorageSharedPoolDepositTransaction(
+  getSigningWallet: () => Promise<SigningWallet>,
+  poolAccountId: string,
+  amountYocto: string
+): Promise<string[]> {
   const { wallet, accountId: signerId } = await getSigningWallet();
   const result = await wallet.signAndSendTransaction({
     network: ACTIVE_NEAR_NETWORK,
@@ -68,17 +119,70 @@ export async function sendStorageWithdrawTransaction(
               action: {
                 type: 'set',
                 data: {
-                  'storage/withdraw': withdrawData,
+                  'storage/shared_pool_deposit': {
+                    pool_id: poolAccountId,
+                    amount: amountYocto,
+                  },
                 },
               },
             },
           },
           gas: STORAGE_ADMIN_GAS,
-          deposit: '0',
+          deposit: amountYocto,
         },
       },
     ],
   });
 
   return extractNearTransactionHashes(result);
+}
+
+export async function sendStorageShareBatchTransaction(
+  getSigningWallet: () => Promise<SigningWallet>,
+  recipients: Array<{ targetAccountId: string; maxBytes: number }>
+): Promise<string[]> {
+  if (recipients.length === 0) {
+    return [];
+  }
+
+  const txHashes: string[] = [];
+
+  for (
+    let index = 0;
+    index < recipients.length;
+    index += STORAGE_SHARE_BATCH_MAX
+  ) {
+    const chunk = recipients.slice(index, index + STORAGE_SHARE_BATCH_MAX);
+    const { wallet, accountId: signerId } = await getSigningWallet();
+    const result = await wallet.signAndSendTransaction({
+      network: ACTIVE_NEAR_NETWORK,
+      signerId,
+      receiverId: CORE_CONTRACT,
+      actions: chunk.map(({ targetAccountId, maxBytes }) => ({
+        type: 'FunctionCall',
+        params: {
+          methodName: 'execute_admin',
+          args: {
+            request: {
+              action: {
+                type: 'set',
+                data: {
+                  'storage/share_storage': {
+                    target_id: targetAccountId,
+                    max_bytes: maxBytes,
+                  },
+                },
+              },
+            },
+          },
+          gas: STORAGE_SHARE_GAS,
+          deposit: '0',
+        },
+      })),
+    });
+
+    txHashes.push(...extractNearTransactionHashes(result));
+  }
+
+  return txHashes;
 }

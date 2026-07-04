@@ -19,7 +19,8 @@ export const APP_SOCIAL_HELP_TITLE = 'How SOCIAL works';
 
 export const APP_SOCIAL_CREDIT_LABEL = '0.1 SOCIAL';
 
-export const APP_SOCIAL_HELP_SUMMARY = `${APP_SOCIAL_CREDIT_LABEL} when you stand, save, or show up · collect at 1 SOCIAL`;
+export const APP_SOCIAL_HELP_SUMMARY =
+  'Earn 0.1 SOCIAL when you stand, save, or show up · collect at 1 SOCIAL';
 
 export const APP_SOCIAL_HELP_DETAIL =
   'SOCIAL stacks from what you do on your page and across OnSocial. When you hit 1 SOCIAL, tap Collect and it’s yours.';

@@ -15,7 +15,9 @@ import {
   OsSheetPrimaryAction,
   SheetCloseButton,
 } from '@onsocial/ui';
+import { AppStorageSharePanel } from '@/components/wallet/app-storage-share-panel';
 import { usePlatformStorageSummary } from '@/hooks/use-platform-storage-summary';
+import { useSharedStoragePool } from '@/hooks/use-shared-storage-pool';
 import { useUserStorageBalance } from '@/hooks/use-user-storage-balance';
 import { useWalletNearBalance } from '@/hooks/use-wallet-near-balance';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
@@ -32,8 +34,8 @@ import {
 import { formatNearCompact } from '@/lib/format-near-balance';
 import {
   formatCompactBytes,
+  formatPlatformBufferRatioLabel,
   PLATFORM_STORAGE_LABEL,
-  PLATFORM_STORAGE_REFILL_HINT,
   type PlatformStorageSummary,
 } from '@/lib/platform-storage-display';
 import {
@@ -45,6 +47,7 @@ import {
   STORAGE_DEPOSIT_PRESETS_NEAR,
   STORAGE_NEAR_INPUT_DECIMALS,
   storageCapacityBytesFromNearInput,
+  storageCapacityBytesFromYocto,
   USER_STORAGE_DEPOSIT_HINT,
   USER_STORAGE_LABEL,
   USER_STORAGE_WITHDRAW_HINT,
@@ -52,7 +55,7 @@ import {
 } from '@/lib/user-storage-display';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
-type StorageActionMode = 'deposit' | 'withdraw';
+type StorageActionMode = 'deposit' | 'withdraw' | 'share';
 
 interface AppStorageSheetProps {
   open: boolean;
@@ -68,94 +71,87 @@ interface AppStorageSheetProps {
 function UserStorageReadout({ summary }: { summary: UserStorageSummary }) {
   const low = summary.effectiveBytes > 0 && summary.headroomPercent <= 25;
   const balanceLabel = formatNearCompact(summary.balanceYocto.toString());
-  const metaParts: string[] = [];
+  const freeCapacityBytes = storageCapacityBytesFromYocto(
+    summary.withdrawableYocto
+  );
+  const primaryMeta = [
+    `${formatCompactBytes(summary.effectiveBytes)} used`,
+    `${formatCompactBytes(freeCapacityBytes)} free`,
+  ];
+  const secondaryMeta = [
+    `${formatNearCompact(summary.withdrawableYocto.toString())} NEAR withdrawable`,
+  ];
 
-  if (summary.depositCapacityBytes > 0) {
-    metaParts.push(
-      `≈ ${formatCompactBytes(summary.depositCapacityBytes)} capacity`
+  if (summary.lockedYocto > 0n) {
+    secondaryMeta.push(
+      `${formatNearCompact(summary.lockedYocto.toString())} NEAR reserved`
     );
   }
-  metaParts.push(
-    `${formatNearCompact(summary.withdrawableYocto.toString())} withdrawable`,
-    `${formatCompactBytes(summary.effectiveBytes)} in use`
-  );
 
   return (
     <div className="app-storage-readout">
-      <span className="account-card-wallet-label">{USER_STORAGE_LABEL}</span>
-      <div className="app-storage-balance-row">
-        <span className={`app-storage-balance-value${low ? ' is-low' : ''}`}>
-          {balanceLabel}
-        </span>
-        <span className="account-card-balance-unit">NEAR</span>
+      <div className="app-storage-readout-head">
+        <span className="account-card-wallet-label">{USER_STORAGE_LABEL}</span>
+        <div className="app-storage-balance-row">
+          <span className={`app-storage-balance-value${low ? ' is-low' : ''}`}>
+            {balanceLabel}
+          </span>
+          <span className="account-card-balance-unit">NEAR</span>
+        </div>
       </div>
       <p className={`app-storage-meta${low ? ' is-low' : ''}`}>
-        {metaParts.join(' · ')}
+        {primaryMeta.join(' · ')}
+      </p>
+      <p className="app-storage-meta app-storage-meta--secondary">
+        {secondaryMeta.join(' · ')}
       </p>
     </div>
   );
 }
 
-function PlatformStorageSection({
-  loading,
-  error,
-  summary,
+function StorageContextStrip({
+  userSummary,
+  platformSummary,
 }: {
-  loading: boolean;
-  error: string | null;
-  summary: PlatformStorageSummary | null;
+  userSummary: UserStorageSummary | null;
+  platformSummary: PlatformStorageSummary | null;
 }) {
-  if (loading) {
-    return (
-      <div className="app-storage-platform" aria-hidden>
-        <span className="account-card-progress-track is-loading" />
-      </div>
+  const rows: Array<{ label: string; value: string }> = [];
+
+  if (userSummary) {
+    const freeCapacityBytes = storageCapacityBytesFromYocto(
+      userSummary.withdrawableYocto
     );
+    rows.push({
+      label: USER_STORAGE_LABEL,
+      value: `${formatCompactBytes(freeCapacityBytes)} free · ${formatNearCompact(userSummary.withdrawableYocto.toString())} NEAR withdrawable`,
+    });
   }
 
-  if (error || !summary) {
-    return (
-      <p className="app-storage-meta">
-        {error ?? 'Platform storage unavailable'}
-      </p>
+  if (platformSummary) {
+    const platformRatio = formatPlatformBufferRatioLabel(
+      platformSummary.availableBytes,
+      platformSummary.maxBufferBytes
     );
+    rows.push({
+      label: PLATFORM_STORAGE_LABEL,
+      value:
+        platformSummary.phase === 'inactive'
+          ? `+${formatCompactBytes(platformSummary.dailyRefillBytes)}/day · ${formatCompactBytes(platformSummary.maxBufferBytes)} cap`
+          : `${platformRatio} · ${formatCompactBytes(platformSummary.storedBytes)} covered`,
+    });
   }
 
-  const low = summary.availablePercent <= 25 && summary.availableBytes > 0;
-  const empty = summary.availableBytes === 0;
-  const fill =
-    summary.availableBytes > 0 ? Math.max(summary.availablePercent, 4) : 0;
+  if (rows.length === 0) return null;
 
   return (
-    <div className="app-storage-platform">
-      <span className="account-card-wallet-label">
-        {PLATFORM_STORAGE_LABEL}
-      </span>
-      <div className="account-card-storage-row account-card-storage-row--sheet">
-        <div
-          className="account-card-progress-track"
-          role="progressbar"
-          aria-valuenow={summary.availableBytes}
-          aria-valuemin={0}
-          aria-valuemax={summary.maxBufferBytes}
-        >
-          <span
-            className={`account-card-progress-fill${empty ? ' is-empty' : low ? ' is-low' : ''}`}
-            style={{ width: `${fill}%` }}
-          />
-        </div>
-        <span
-          className={`account-card-ratio${empty || summary.phase === 'exhausted' ? ' is-low' : low ? ' is-low' : ''}`}
-        >
-          {formatCompactBytes(summary.availableBytes)}/
-          {formatCompactBytes(summary.maxBufferBytes)}
-        </span>
-      </div>
-      <p className="app-storage-meta">
-        {formatCompactBytes(summary.storedBytes)} stored · +
-        {formatCompactBytes(summary.dailyRefillBytes)}/day
-      </p>
-      <p className="app-storage-hint">{PLATFORM_STORAGE_REFILL_HINT}</p>
+    <div className="app-storage-context-strip" aria-label="Storage context">
+      {rows.map((row) => (
+        <p key={row.label} className="app-storage-context-row">
+          <span>{row.label}</span>
+          <strong>{row.value}</strong>
+        </p>
+      ))}
     </div>
   );
 }
@@ -197,6 +193,11 @@ export function AppStorageSheet({
     sheetOpen,
     combinedRefreshKey
   );
+  const sharedPool = useSharedStoragePool(
+    accountId,
+    sheetOpen && mode === 'share',
+    combinedRefreshKey
+  );
 
   useScrollLock(open || closing);
 
@@ -214,6 +215,7 @@ export function AppStorageSheet({
   );
 
   const canSubmitAmount = useMemo(() => {
+    if (mode === 'share') return false;
     return isValidStorageAmountInput(normalizedAmount, mode, {
       minYocto: STORAGE_DEPOSIT_MIN_YOCTO,
       maxYocto: amountMaxYocto,
@@ -274,7 +276,7 @@ export function AppStorageSheet({
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!accountId) return;
+    if (!accountId || mode === 'share') return;
 
     let amountYocto: bigint;
     try {
@@ -352,13 +354,15 @@ export function AppStorageSheet({
             <div className="standing-sheet-header account-storage-header">
               <div className="standing-sheet-subject-row">
                 <div className="standing-sheet-subject">
-                  <h2
-                    id="app-storage-sheet-title"
-                    className="standing-sheet-subject-name"
-                  >
-                    Storage
-                  </h2>
-                  <p className="account-drawer-handle">@{accountId}</p>
+                  <div className="standing-sheet-subject-copy">
+                    <h2
+                      id="app-storage-sheet-title"
+                      className="standing-sheet-subject-name"
+                    >
+                      Storage
+                    </h2>
+                    <p className="account-drawer-handle">@{accountId}</p>
+                  </div>
                 </div>
                 <div className="standing-sheet-actions">
                   <SheetCloseButton onClick={requestClose} ariaLabel="Close" />
@@ -371,18 +375,6 @@ export function AppStorageSheet({
       >
         <div className="app-storage-sheet">
           <section className="app-storage-section">
-            {userStorage.loading ? (
-              <div className="app-storage-readout is-loading" aria-hidden />
-            ) : userStorage.error ? (
-              <p className="app-storage-error">{userStorage.error}</p>
-            ) : summary ? (
-              <UserStorageReadout summary={summary} />
-            ) : (
-              <p className="app-storage-meta">
-                No storage yet — add NEAR to get started.
-              </p>
-            )}
-
             <div
               className="app-storage-mode-toggle"
               role="group"
@@ -403,125 +395,172 @@ export function AppStorageSheet({
               >
                 Withdraw
               </button>
+              <button
+                type="button"
+                className={`app-storage-mode${mode === 'share' ? ' is-active' : ''}`}
+                onClick={() => setMode('share')}
+              >
+                Share
+              </button>
             </div>
 
-            <form
-              className="app-storage-form"
-              onSubmit={(event) => void handleSubmit(event)}
-            >
-              <div className="app-storage-amount-field">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  autoComplete="off"
-                  value={amountInput}
-                  onChange={(event) => applyAmountInput(event.target.value)}
-                  onBlur={() =>
-                    applyAmountInput(
-                      finalizeAmountInput(
-                        amountInput,
-                        STORAGE_NEAR_INPUT_DECIMALS
-                      )
-                    )
-                  }
-                  placeholder={amountHint}
-                  aria-label="Amount in NEAR"
-                  aria-invalid={Boolean(amountInput) && !canSubmitAmount}
-                  className="app-storage-amount-input"
-                />
-                <span className="account-card-balance-unit">NEAR</span>
-              </div>
+            <Divider variant="section" className="app-storage-mode-divider" />
 
-              <div className="app-storage-quick-row">
-                {mode === 'deposit' ? (
-                  <div
-                    className="app-storage-presets"
-                    role="group"
-                    aria-label="Quick amounts"
-                  >
-                    {STORAGE_DEPOSIT_PRESETS_NEAR.map((preset) => (
-                      <button
-                        key={preset}
-                        type="button"
-                        className={`app-storage-preset${normalizedAmount === preset ? ' is-selected' : ''}`}
-                        onClick={() => applyAmountInput(preset)}
-                      >
-                        {preset}
-                      </button>
-                    ))}
-                  </div>
-                ) : canWithdraw ? (
-                  <button
-                    type="button"
-                    className="app-storage-max"
-                    onClick={() =>
-                      applyAmountInput(
-                        yoctoToNear(withdrawableYocto.toString())
-                      )
-                    }
-                  >
-                    Max ({formatNearCompact(withdrawableYocto.toString())} NEAR)
-                  </button>
+            {mode === 'share' ? (
+              <AppStorageSharePanel
+                accountId={accountId}
+                refreshKey={combinedRefreshKey}
+                sharedPool={sharedPool.summary}
+                sharedPoolLoading={sharedPool.loading}
+                sharedPoolError={sharedPool.error}
+                walletNearYocto={walletNearYocto}
+                pending={pending}
+                error={error}
+                setPending={setPending}
+                onError={setError}
+                onPoolChanged={refreshAfterTx}
+                getSigningWallet={getSigningWallet}
+              />
+            ) : (
+              <>
+                {userStorage.loading ? (
+                  <div className="app-storage-readout is-loading" aria-hidden />
+                ) : userStorage.error ? (
+                  <p className="app-storage-error">{userStorage.error}</p>
+                ) : summary ? (
+                  <UserStorageReadout summary={summary} />
                 ) : (
-                  <span aria-hidden className="app-storage-max-placeholder">
-                    Max
-                  </span>
+                  <p className="app-storage-meta">
+                    No storage yet — add NEAR to get started.
+                  </p>
                 )}
 
-                <p className="app-storage-amount-meta">
-                  {mode === 'deposit' &&
-                  depositPreviewCapacityBytes != null &&
-                  depositPreviewCapacityBytes > 0 ? (
-                    <>≈ {formatCompactBytes(depositPreviewCapacityBytes)} · </>
-                  ) : null}
-                  {mode === 'deposit' && walletNearYocto != null ? (
-                    <>
-                      Balance {formatNearCompact(walletNearYocto.toString())}{' '}
-                      ·{' '}
-                    </>
-                  ) : mode === 'withdraw' && canWithdraw ? (
-                    <>
-                      Withdrawable{' '}
-                      {formatNearCompact(withdrawableYocto.toString())} ·{' '}
-                    </>
-                  ) : null}
-                  Min {amountHint}
-                </p>
-              </div>
-
-              {error ? (
-                <p className="app-storage-error" role="alert">
-                  {error}
-                </p>
-              ) : null}
-
-              <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-                <OsSheetPrimaryAction
-                  type="submit"
-                  ready={canSubmitAmount && !saved && !pending && !error}
-                  succeeded={saved}
-                  succeededLabel={mode === 'deposit' ? 'Added' : 'Withdrawn'}
-                  failed={Boolean(error)}
-                  failedLabel="Try again"
-                  pending={pending}
-                  pendingLabel={mode === 'deposit' ? 'Adding…' : 'Withdrawing…'}
-                  disabled={saved || pending || !canSubmitAmount}
+                <form
+                  className="app-storage-form"
+                  onSubmit={(event) => void handleSubmit(event)}
                 >
-                  {mode === 'deposit' ? 'Add NEAR' : 'Withdraw NEAR'}
-                </OsSheetPrimaryAction>
-              </OsSheetActions>
+                  <div className="app-storage-amount-field">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      autoComplete="off"
+                      value={amountInput}
+                      onChange={(event) => applyAmountInput(event.target.value)}
+                      onBlur={() =>
+                        applyAmountInput(
+                          finalizeAmountInput(
+                            amountInput,
+                            STORAGE_NEAR_INPUT_DECIMALS
+                          )
+                        )
+                      }
+                      placeholder={amountHint}
+                      aria-label="Amount in NEAR"
+                      aria-invalid={Boolean(amountInput) && !canSubmitAmount}
+                      className="app-storage-amount-input"
+                    />
+                    <span className="account-card-balance-unit">NEAR</span>
+                  </div>
 
-              <p className="app-storage-hint">{actionHint}</p>
-            </form>
-          </section>
+                  <div className="app-storage-quick-row">
+                    {mode === 'deposit' ? (
+                      <div
+                        className="app-storage-presets"
+                        role="group"
+                        aria-label="Quick amounts"
+                      >
+                        {STORAGE_DEPOSIT_PRESETS_NEAR.map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            className={`app-storage-preset${normalizedAmount === preset ? ' is-selected' : ''}`}
+                            onClick={() => applyAmountInput(preset)}
+                          >
+                            {preset}
+                          </button>
+                        ))}
+                      </div>
+                    ) : canWithdraw ? (
+                      <button
+                        type="button"
+                        className="app-storage-preset app-storage-preset--action"
+                        onClick={() =>
+                          applyAmountInput(
+                            yoctoToNear(withdrawableYocto.toString())
+                          )
+                        }
+                      >
+                        Max
+                      </button>
+                    ) : (
+                      <span aria-hidden className="app-storage-max-placeholder">
+                        Max
+                      </span>
+                    )}
 
-          <Divider variant="section" />
+                    <p className="app-storage-amount-meta">
+                      {mode === 'deposit' &&
+                      depositPreviewCapacityBytes != null &&
+                      depositPreviewCapacityBytes > 0 ? (
+                        <>
+                          ≈ {formatCompactBytes(depositPreviewCapacityBytes)}{' '}
+                          capacity ·{' '}
+                        </>
+                      ) : null}
+                      {mode === 'deposit' && walletNearYocto != null ? (
+                        <>
+                          Wallet {formatNearCompact(walletNearYocto.toString())}{' '}
+                          NEAR ·{' '}
+                        </>
+                      ) : mode === 'withdraw' && canWithdraw ? (
+                        <>
+                          Withdrawable{' '}
+                          {formatNearCompact(withdrawableYocto.toString())} NEAR
+                          ·{' '}
+                        </>
+                      ) : null}
+                      Min {amountHint} NEAR
+                    </p>
+                  </div>
 
-          <section className="app-storage-section">
-            <PlatformStorageSection
-              loading={platformStorage.loading}
-              error={platformStorage.error}
-              summary={platformStorage.summary}
+                  {error ? (
+                    <p className="app-storage-error" role="alert">
+                      {error}
+                    </p>
+                  ) : null}
+
+                  <OsSheetActions
+                    layout="stack"
+                    tone="frosted-primary"
+                    borderless
+                  >
+                    <OsSheetPrimaryAction
+                      type="submit"
+                      ready={canSubmitAmount && !saved && !pending && !error}
+                      succeeded={saved}
+                      succeededLabel={
+                        mode === 'deposit' ? 'Added' : 'Withdrawn'
+                      }
+                      failed={Boolean(error)}
+                      failedLabel="Try again"
+                      pending={pending}
+                      pendingLabel={
+                        mode === 'deposit' ? 'Adding…' : 'Withdrawing…'
+                      }
+                      disabled={saved || pending || !canSubmitAmount}
+                    >
+                      {mode === 'deposit' ? 'Add NEAR' : 'Withdraw NEAR'}
+                    </OsSheetPrimaryAction>
+                  </OsSheetActions>
+
+                  <p className="app-storage-hint">{actionHint}</p>
+                </form>
+              </>
+            )}
+
+            <StorageContextStrip
+              userSummary={mode === 'share' ? (summary ?? null) : null}
+              platformSummary={platformStorage.summary}
             />
           </section>
         </div>

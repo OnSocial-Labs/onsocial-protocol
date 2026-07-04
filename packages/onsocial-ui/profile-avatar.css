@@ -1,0 +1,118 @@
+.profile-avatar {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 9999px;
+  border: 1px solid rgb(var(--fg-rgb) / 0.1);
+  background: rgb(var(--fg-rgb) / 0.04);
+}
+
+.profile-avatar--sm {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.profile-avatar--md {
+  width: 2rem;
+  height: 2rem;
+}
+
+.profile-avatar--lg {
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
+.profile-avatar__img {
+  position: relative;
+  z-index: 2;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.profile-avatar.is-loaded .profile-avatar__img {
+  opacity: 1;
+}
+
+.profile-avatar.is-shell-loading .profile-avatar__img,
+.profile-avatar.is-media-loading .profile-avatar__img {
+  opacity: 0;
+}
+
+.profile-avatar__fallback {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    145deg,
+    rgb(var(--fg-rgb) / 0.08),
+    rgb(var(--fg-rgb) / 0.16)
+  );
+}
+
+.profile-avatar__fallback--empty {
+  background: linear-gradient(
+    135deg,
+    rgb(var(--fg-rgb) / 0.08),
+    rgb(var(--fg-rgb) / 0.02)
+  );
+}
+
+.profile-avatar__initial {
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1;
+  color: rgb(var(--fg-rgb) / 0.62);
+}
+
+.profile-avatar--sm .profile-avatar__initial {
+  font-size: 0.62rem;
+}
+
+.profile-avatar__shimmer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    rgb(var(--fg-rgb) / 0.1) 0%,
+    rgb(var(--fg-rgb) / 0.22) 50%,
+    rgb(var(--fg-rgb) / 0.1) 100%
+  );
+  background-size: 200% 100%;
+  animation: profile-avatar-shimmer 1.2s ease-in-out infinite;
+}
+
+.profile-avatar.is-shell-loading {
+  background: rgb(var(--fg-rgb) / 0.1);
+}
+
+@keyframes profile-avatar-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-avatar__img {
+    transition: none;
+  }
+
+  .profile-avatar__shimmer {
+    animation: none;
+    background: rgb(var(--fg-rgb) / 0.1);
+  }
+}

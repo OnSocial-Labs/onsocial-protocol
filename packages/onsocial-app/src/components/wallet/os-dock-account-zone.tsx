@@ -1,5 +1,6 @@
 'use client';
 
+import { ProfileAvatar } from '@onsocial/ui';
 import { useAppAccountSheet } from '@/contexts/app-account-sheet-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useViewerProfileShellContext } from '@/contexts/viewer-profile-shell-context';
@@ -15,16 +16,18 @@ export function OsDockAccountZone({ pageAccountId }: OsDockAccountZoneProps) {
   const { open, openAccountSheet } = useAppAccountSheet();
   const viewerShell = useViewerProfileShellContext();
   const avatarUrl = viewerShell?.avatarUrl ?? null;
-
-  if (isLoading) {
-    return (
-      <span className="portfolio-summon-account is-loading" aria-hidden>
-        <span className="portfolio-summon-account-initial" />
-      </span>
-    );
-  }
+  const shellLoading =
+    Boolean(isLoading || viewerShell?.isLoading) && !avatarUrl;
 
   if (!isConnected || !accountId) {
+    if (isLoading) {
+      return (
+        <span className="portfolio-summon-account" aria-hidden>
+          <ProfileAvatar size="sm" shellLoading />
+        </span>
+      );
+    }
+
     return (
       <button
         type="button"
@@ -49,17 +52,12 @@ export function OsDockAccountZone({ pageAccountId }: OsDockAccountZoneProps) {
       title={`@${label}`}
       onClick={() => openAccountSheet({ pageAccountId })}
     >
-      {avatarUrl ? (
-        <img
-          src={avatarUrl}
-          alt=""
-          className="portfolio-summon-account-avatar"
-        />
-      ) : (
-        <span className="portfolio-summon-account-initial" aria-hidden>
-          {label.charAt(0).toUpperCase()}
-        </span>
-      )}
+      <ProfileAvatar
+        src={avatarUrl}
+        fallbackInitial={label}
+        shellLoading={shellLoading}
+        size="sm"
+      />
     </button>
   );
 }

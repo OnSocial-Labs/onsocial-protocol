@@ -19,6 +19,7 @@ export function DiscoverPanelContent() {
     showListSkeleton,
     isListRefreshing,
     isLoadingMore,
+    relationshipSynced,
     showLoadMoreSentinel,
     loadMoreRef,
     footerSummary,
@@ -97,6 +98,9 @@ export function DiscoverPanelContent() {
             showSolidarityBadge
             standingTimeMode="viewer-only"
             skeletonRowVariant="discover"
+            viewerRelationshipsLoading={
+              isConnected && Boolean(viewerAccountId) && !relationshipSynced
+            }
             canUpdateStandingFor={(account) =>
               isConnected &&
               Boolean(viewerAccountId) &&

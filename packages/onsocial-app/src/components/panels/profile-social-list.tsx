@@ -18,6 +18,7 @@ export function ProfileSocialList({
   showSolidarityBadge,
   standingTimeMode = 'always',
   skeletonRowVariant = 'standing',
+  viewerRelationshipsLoading = false,
   canUpdateStandingFor,
   isPendingFor,
   onUpdateStanding,
@@ -32,6 +33,7 @@ export function ProfileSocialList({
   showSolidarityBadge?: boolean;
   standingTimeMode?: ProfileStandingTimeMode;
   skeletonRowVariant?: ProfileSocialListSkeletonRowVariant;
+  viewerRelationshipsLoading?: boolean;
   canUpdateStandingFor: (account: ProfileListAccount) => boolean;
   isPendingFor: (accountId: string) => boolean;
   onUpdateStanding: (
@@ -56,6 +58,7 @@ export function ProfileSocialList({
               viewerAccountId={viewerAccountId}
               canUpdateStanding={canUpdateStandingFor(account)}
               isPending={isPendingFor(account.accountId)}
+              viewerRelationshipLoading={viewerRelationshipsLoading}
               onUpdateStanding={(shouldStand) =>
                 onUpdateStanding(account, shouldStand)
               }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Divider,
   ExternalLinkIcon,
@@ -29,6 +29,7 @@ import {
   formatClaimRatioLabel,
 } from '@/lib/rewards-claim-progress';
 import { AccountStorageStrip } from '@/components/wallet/account-storage-strip';
+import { AppSocialHelpCard } from '@/components/wallet/app-social-help-card';
 import { useAppRewardsOptional } from '@/contexts/app-rewards-context';
 import { useAppSocialBalance } from '@/contexts/app-social-balance-context';
 import type { PlatformStorageSummary } from '@/lib/platform-storage-display';
@@ -187,7 +188,6 @@ export function AccountClaimMetricRow({
 interface AccountWalletZoneProps {
   accountId: string;
   enabled: boolean;
-  onOpenRewardsRules?: () => void;
   onOpenStorage?: () => void;
   platformStorageLoading?: boolean;
   platformStorageError?: string | null;
@@ -198,12 +198,15 @@ interface AccountWalletZoneProps {
 export function AccountWalletZone({
   accountId: _accountId,
   enabled,
-  onOpenRewardsRules,
   onOpenStorage,
   platformStorageLoading = false,
   platformStorageError = null,
   platformStorageSummary = null,
 }: AccountWalletZoneProps) {
+  const [socialHelpOpen, setSocialHelpOpen] = useState(false);
+  const closeSocialHelp = useCallback(() => {
+    setSocialHelpOpen(false);
+  }, []);
   const rewards = useAppRewardsOptional();
   const refreshRewards = rewards?.refreshRewards;
   const {
@@ -220,6 +223,12 @@ export function AccountWalletZone({
     }
     void refreshRewards?.({ silent: true, fresh: true });
   }, [enabled, refreshRewards]);
+
+  useEffect(() => {
+    if (!enabled) {
+      setSocialHelpOpen(false);
+    }
+  }, [enabled]);
 
   const walletLabel = balanceError
     ? '—'
@@ -249,7 +258,7 @@ export function AccountWalletZone({
   return (
     <section
       id="account-sheet-wallet-zone"
-      className="account-card-wallet-zone os-surface-panel"
+      className={`account-card-wallet-zone os-surface-panel${socialHelpOpen ? ' is-social-help-open' : ''}`}
       aria-label={APP_SOCIAL_WALLET_ARIA_LABEL}
     >
       <div className="account-wallet-balance-row">
@@ -267,19 +276,19 @@ export function AccountWalletZone({
         </div>
 
         <div className="account-wallet-balance-accessories">
-          {onOpenRewardsRules ? (
-            <button
-              type="button"
-              className="account-wallet-accessory"
-              onClick={onOpenRewardsRules}
-              aria-label={APP_SOCIAL_HELP_TITLE}
-            >
-              <CircleHelp
-                aria-hidden
-                className="account-wallet-accessory-icon"
-              />
-            </button>
-          ) : null}
+          <button
+            type="button"
+            className={`account-wallet-accessory${socialHelpOpen ? ' is-active' : ''}`}
+            onClick={() => setSocialHelpOpen((open) => !open)}
+            aria-label={APP_SOCIAL_HELP_TITLE}
+            aria-expanded={socialHelpOpen}
+            aria-controls="account-social-help-dialog"
+          >
+            <CircleHelp
+              aria-hidden
+              className="account-wallet-accessory-icon"
+            />
+          </button>
           {canClaim ? (
             <span className="account-wallet-earning-ready">
               {APP_COLLECT_READY_BADGE}
@@ -304,6 +313,8 @@ export function AccountWalletZone({
           />
         </>
       ) : null}
+
+      <AppSocialHelpCard open={socialHelpOpen} onClose={closeSocialHelp} />
     </section>
   );
 }

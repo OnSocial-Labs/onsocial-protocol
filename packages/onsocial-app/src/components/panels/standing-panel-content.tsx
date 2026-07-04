@@ -27,6 +27,7 @@ export function StandingPanelContent() {
     showListSkeleton,
     isListRefreshing,
     isLoadingMore,
+    relationshipSynced,
     showLoadMoreSentinel,
     loadMoreRef,
     footerSummary,
@@ -99,6 +100,9 @@ export function StandingPanelContent() {
             listKey={listKey}
             viewerAccountId={viewerAccountId}
             showSolidarityBadge={kind !== 'mutual'}
+            viewerRelationshipsLoading={
+              isConnected && Boolean(viewerAccountId) && !relationshipSynced
+            }
             canUpdateStandingFor={(account) =>
               isConnected &&
               Boolean(viewerAccountId) &&

@@ -119,7 +119,7 @@ export function AllowanceProgressBar({
       aria-valuenow={summary.availableBytes}
       aria-valuemin={0}
       aria-valuemax={summary.maxBufferBytes}
-      aria-label={`${formatCompactBytes(summary.availableBytes)} platform storage available of ${formatCompactBytes(summary.maxBufferBytes)} buffer`}
+      aria-label={`${formatCompactBytes(summary.availableBytes)} platform buffer available of ${formatCompactBytes(summary.maxBufferBytes)} buffer`}
     >
       <div className="flex items-baseline justify-between gap-3">
         <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
@@ -237,7 +237,7 @@ export function PlatformStorageAllowanceSummary({
           valueMono
         />
         <ModalFactRow
-          label="Stored on platform"
+          label="Covered by platform"
           value={formatCompactBytes(summary.storedBytes)}
           valueMono
         />
@@ -422,7 +422,7 @@ export function WalletPlatformStorageStrip({
     summary.availableBytes,
     summary.maxBufferBytes
   );
-  const metaLabel = `${formatCompactBytes(summary.storedBytes)} stored · +${formatCompactBytes(summary.dailyRefillBytes)}/day`;
+  const metaLabel = `${formatCompactBytes(summary.storedBytes)} covered · refills +${formatCompactBytes(summary.dailyRefillBytes)}/day`;
 
   if (compact) {
     if (stableFootprint) {

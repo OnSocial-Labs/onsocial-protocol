@@ -8,18 +8,122 @@ const NEAR_STORAGE_BYTE_COST = 10_000_000_000_000_000_000n;
 export const USER_STORAGE_LABEL = 'Your storage';
 
 export const USER_STORAGE_DEPOSIT_HINT =
-  'NEAR you deposit covers OnSocial writes when the platform buffer is empty.';
+  'Add NEAR to keep OnSocial writes covered after the free buffer is used.';
+
+export const USER_STORAGE_SHARE_POOL_DEPOSIT_HINT =
+  'Share pools start at 0.1 NEAR.';
 
 export const USER_STORAGE_WITHDRAW_HINT =
-  'Withdraw unused NEAR — locked balance and active storage stay covered.';
+  'Withdraw unused NEAR. Reserved balance and active storage stay covered.';
+
+export const USER_STORAGE_SHARE_HINT = 'Recipients write from your share pool.';
 
 export const STORAGE_DEPOSIT_PRESETS_NEAR = ['0.05', '0.1', '0.25'] as const;
+
+export const STORAGE_SHARE_POOL_DEPOSIT_PRESETS_NEAR = [
+  '0.1',
+  '0.25',
+  '0.5',
+] as const;
+
+/** Chain minimum per share_storage recipient (core-onsocial). */
+export const MIN_SHARED_STORAGE_BYTES = 2_000;
+
+export const MAX_STORAGE_SHARE_RECIPIENTS = 8;
+
+export const STORAGE_SHARE_PERCENT_PRESETS = [25, 50, 75, 100] as const;
+
+export function splitShareBytesPerRecipient(
+  availableBytes: number,
+  recipientCount: number,
+  percent: number
+): number {
+  if (recipientCount <= 0 || availableBytes <= 0 || percent <= 0) {
+    return 0;
+  }
+
+  const budget = Math.floor((availableBytes * percent) / 100);
+  return Math.floor(budget / recipientCount);
+}
+
+/** Bytes still grantable from a funded pool — capped by physical room and unallocated caps. */
+export function resolveSharePoolBudgetBytes(input: {
+  availableBytes: number;
+  sharedBytes: number;
+  totalCapacityBytes: number;
+}): number {
+  const { availableBytes, sharedBytes, totalCapacityBytes } = input;
+  const unallocatedCapBytes = Math.max(0, totalCapacityBytes - sharedBytes);
+  return Math.min(Math.max(0, availableBytes), unallocatedCapBytes);
+}
+
+export function isValidShareBytesPerRecipient(bytes: number): boolean {
+  return bytes >= MIN_SHARED_STORAGE_BYTES;
+}
+
+export interface ActiveStorageShareGrant {
+  accountId: string;
+  maxBytes: number;
+  usedBytes: number;
+}
+
+export function shareGrantRemainingBytes(
+  grant: ActiveStorageShareGrant
+): number {
+  return Math.max(0, grant.maxBytes - grant.usedBytes);
+}
+
+export function shareGrantUsedPercent(grant: ActiveStorageShareGrant): number {
+  if (grant.maxBytes <= 0) return 0;
+  return Math.min(100, Math.round((grant.usedBytes / grant.maxBytes) * 100));
+}
+
+export function pickActiveShareGrantsForPool(
+  poolOwnerId: string,
+  sponsorships: Array<{
+    accountId: string;
+    shared: { max_bytes: number; used_bytes: number; pool_id: string } | null;
+  }>
+): ActiveStorageShareGrant[] {
+  return sponsorships
+    .filter(
+      (entry) => entry.shared != null && entry.shared.pool_id === poolOwnerId
+    )
+    .map((entry) => ({
+      accountId: entry.accountId,
+      maxBytes: entry.shared!.max_bytes,
+      usedBytes: entry.shared!.used_bytes,
+    }))
+    .sort((left, right) => left.accountId.localeCompare(right.accountId));
+}
+
+export function uniqueShareGrantTargetIds(
+  events: Array<{ targetId: string }>
+): string[] {
+  const seen = new Set<string>();
+  const targets: string[] = [];
+
+  for (const event of events) {
+    const targetId = event.targetId.trim();
+    if (!targetId || seen.has(targetId)) continue;
+    seen.add(targetId);
+    targets.push(targetId);
+  }
+
+  return targets;
+}
 
 /** UI floor for deposits — chain accepts any positive yocto. */
 export const STORAGE_DEPOSIT_MIN_NEAR = '0.001';
 
 export const STORAGE_DEPOSIT_MIN_YOCTO = BigInt(
   nearToYocto(STORAGE_DEPOSIT_MIN_NEAR)
+);
+
+export const STORAGE_SHARE_POOL_DEPOSIT_MIN_NEAR = '0.1';
+
+export const STORAGE_SHARE_POOL_DEPOSIT_MIN_YOCTO = BigInt(
+  nearToYocto(STORAGE_SHARE_POOL_DEPOSIT_MIN_NEAR)
 );
 
 export const STORAGE_NEAR_INPUT_DECIMALS = 5;
@@ -149,6 +253,11 @@ function coveredBytes(balance: OnChainStorageBalance): number {
 function storageBytesFromYocto(yocto: bigint): number {
   if (yocto <= 0n) return 0;
   return Number(yocto / NEAR_STORAGE_BYTE_COST);
+}
+
+/** Bytes of on-chain storage capacity a NEAR deposit buys at chain byte cost. */
+export function storageCapacityBytesFromYocto(yocto: bigint): number {
+  return storageBytesFromYocto(yocto);
 }
 
 export function storageCapacityBytesFromNearInput(

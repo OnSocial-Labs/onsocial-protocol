@@ -2,53 +2,51 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import { ProfileAvatar } from '@onsocial/ui';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { useStandingPanel } from '@/components/panels/standing-panel-context';
 
 function SubjectAvatar({
   avatarUrl,
   fallbackInitial,
+  shellLoading = false,
 }: {
   avatarUrl: string | null;
   fallbackInitial?: string;
+  shellLoading?: boolean;
 }) {
   return (
-    <span className="standing-sheet-subject-avatar" aria-hidden>
-      {avatarUrl ? (
-        <img
-          src={avatarUrl}
-          alt=""
-          className="standing-sheet-subject-avatar-img"
-        />
-      ) : (
-        <span className="standing-sheet-subject-avatar-fallback">
-          {fallbackInitial ? (
-            <span className="standing-sheet-subject-avatar-initial">
-              {fallbackInitial}
-            </span>
-          ) : null}
-        </span>
-      )}
-    </span>
+    <ProfileAvatar
+      src={avatarUrl}
+      fallbackInitial={fallbackInitial}
+      shellLoading={shellLoading}
+      size="md"
+    />
   );
 }
 
 export function StandingSheetSubjectAvatar({
   avatarUrl,
   fallbackInitial,
+  shellLoading = false,
 }: {
   avatarUrl: string | null;
   fallbackInitial?: string;
+  shellLoading?: boolean;
 }) {
   return (
-    <SubjectAvatar avatarUrl={avatarUrl} fallbackInitial={fallbackInitial} />
+    <SubjectAvatar
+      avatarUrl={avatarUrl}
+      fallbackInitial={fallbackInitial}
+      shellLoading={shellLoading}
+    />
   );
 }
 
 function SubjectSkeletonBody() {
   return (
     <div className="standing-sheet-subject standing-sheet-subject--skeleton">
-      <span className="standing-sheet-subject-avatar standing-row-shimmer" />
+      <ProfileAvatar size="md" shellLoading />
       <span className="standing-sheet-subject-copy">
         <span className="standing-row-shimmer standing-row-shimmer-line standing-sheet-subject-shimmer-name" />
       </span>

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Divider, ProtocolMotionArrow } from '@onsocial/ui';
+import { Divider, ProfileAvatar, ProtocolMotionArrow } from '@onsocial/ui';
 import { DiscoverMoodDot } from '@/components/moods/discover-mood-dot';
 import { StandingRelationshipSignal } from '@/components/ui/standing-relationship-signal';
 import { StandingToggle } from '@/components/ui/standing-toggle';
@@ -30,13 +30,11 @@ function accountLabel(account: ProfileListAccount): string {
 
 function AccountAvatar({ avatarUrl }: { avatarUrl: string | null }) {
   return (
-    <div className="standing-row-avatar" aria-hidden>
-      {avatarUrl ? (
-        <img src={avatarUrl} alt="" className="standing-row-avatar-img" />
-      ) : (
-        <span className="standing-row-avatar-fallback" />
-      )}
-    </div>
+    <ProfileAvatar
+      src={avatarUrl}
+      size="lg"
+      className="standing-row-avatar-slot"
+    />
   );
 }
 
@@ -155,6 +153,7 @@ export function ProfileSocialListRow({
   viewerAccountId,
   canUpdateStanding,
   isPending,
+  viewerRelationshipLoading,
   onUpdateStanding,
 }: {
   account: ProfileListAccount;
@@ -163,6 +162,7 @@ export function ProfileSocialListRow({
   viewerAccountId: string | null;
   canUpdateStanding?: boolean;
   isPending?: boolean;
+  viewerRelationshipLoading?: boolean;
   onUpdateStanding?: (shouldStand: boolean) => void;
 }) {
   if (!isProfileListAccountDisplayReady(account)) {
@@ -171,15 +171,26 @@ export function ProfileSocialListRow({
 
   const canShowViewerRelationship =
     Boolean(viewerAccountId) && viewerAccountId !== account.accountId;
-  const viewerStandsWithAccount = Boolean(account.viewerStanding);
+  const isResolvingViewerRelationship = Boolean(
+    canUpdateStanding &&
+      onUpdateStanding &&
+      viewerRelationshipLoading &&
+      !isPending
+  );
+  const relationshipKnown =
+    canShowViewerRelationship && !isResolvingViewerRelationship;
+  const viewerStandsWithAccount =
+    relationshipKnown && Boolean(account.viewerStanding);
   const theyStandWithViewer =
-    canShowViewerRelationship && Boolean(account.theyStandWithViewer);
+    relationshipKnown && Boolean(account.theyStandWithViewer);
   const sharedSolidarity =
     showSolidarityBadge && viewerStandsWithAccount && theyStandWithViewer;
   const showEndorsedYou =
-    canShowViewerRelationship && Boolean(account.targetEndorsedViewer);
+    relationshipKnown && Boolean(account.targetEndorsedViewer);
   const bio = account.bio?.trim();
-  const timeMeta = resolveStandingTimeMeta(account, standingTimeMode);
+  const timeMeta = isResolvingViewerRelationship
+    ? null
+    : resolveStandingTimeMeta(account, standingTimeMode);
   const showRelationshipSignals =
     sharedSolidarity || theyStandWithViewer || showEndorsedYou;
   const moodId = account.moodId ?? 'protocol';
@@ -242,7 +253,12 @@ export function ProfileSocialListRow({
             {timeMeta.label}
           </span>
         ) : null}
-        {canUpdateStanding && onUpdateStanding ? (
+        {isResolvingViewerRelationship ? (
+          <span
+            className="standing-row-shimmer standing-row-shimmer-pill"
+            aria-hidden
+          />
+        ) : canUpdateStanding && onUpdateStanding ? (
           <button
             type="button"
             className={`standing-action group${viewerStandsWithAccount ? ' is-standing' : ''}`}

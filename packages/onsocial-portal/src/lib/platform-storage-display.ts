@@ -151,7 +151,7 @@ export function buildPlatformStorageSummary(
   };
 }
 
-export const PLATFORM_STORAGE_LABEL = 'Platform storage';
+export const PLATFORM_STORAGE_LABEL = 'Platform buffer';
 
 /** Wallet menu — short row label beside buffer bar. */
 export const PLATFORM_STORAGE_MENU_LABEL = 'Buffer';

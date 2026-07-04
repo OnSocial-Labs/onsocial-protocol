@@ -523,6 +523,7 @@ export function useDiscoverProfiles(
     showListSkeleton,
     isListRefreshing,
     isLoadingMore,
+    relationshipSynced,
     hasMore,
     showLoadMoreSentinel,
     loadMoreRef,

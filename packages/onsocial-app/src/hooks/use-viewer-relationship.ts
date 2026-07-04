@@ -9,12 +9,17 @@ import {
   subscribeGlobalViewerStandingLedger,
 } from '@/lib/viewer-standing-global';
 
+type ApiRelationshipState = {
+  pageAccountId: string;
+  viewerAccountId: string;
+  viewerStanding: boolean;
+  theyStandWithViewer: boolean;
+};
+
 export function useViewerRelationship(pageAccountId: string) {
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
-  const [apiRelationship, setApiRelationship] = useState<{
-    viewerStanding: boolean;
-    theyStandWithViewer: boolean;
-  } | null>(null);
+  const [apiRelationship, setApiRelationship] =
+    useState<ApiRelationshipState | null>(null);
   const [ledgerVersion, setLedgerVersion] = useState(0);
 
   useEffect(() => {
@@ -37,11 +42,21 @@ export function useViewerRelationship(pageAccountId: string) {
           viewerAccountId
         );
         if (!cancelled) {
-          setApiRelationship(relationship);
+          setApiRelationship({
+            pageAccountId,
+            viewerAccountId,
+            viewerStanding: relationship.viewerStanding,
+            theyStandWithViewer: relationship.theyStandWithViewer,
+          });
         }
       } catch {
         if (!cancelled) {
-          setApiRelationship(null);
+          setApiRelationship({
+            pageAccountId,
+            viewerAccountId,
+            viewerStanding: false,
+            theyStandWithViewer: false,
+          });
         }
       }
     })();
@@ -55,11 +70,17 @@ export function useViewerRelationship(pageAccountId: string) {
     return {
       viewerStanding: false,
       theyStandWithViewer: false,
+      isLoading: false,
     };
   }
 
   const ledger = getGlobalViewerStandingLedger();
-  const apiStanding = apiRelationship?.viewerStanding ?? false;
+  const matchedRelationship =
+    apiRelationship?.pageAccountId === pageAccountId &&
+    apiRelationship.viewerAccountId === viewerAccountId
+      ? apiRelationship
+      : null;
+  const apiStanding = matchedRelationship?.viewerStanding ?? false;
 
   return {
     viewerStanding: resolveViewerStanding(
@@ -67,6 +88,7 @@ export function useViewerRelationship(pageAccountId: string) {
       pageAccountId,
       apiStanding
     ),
-    theyStandWithViewer: apiRelationship?.theyStandWithViewer ?? false,
+    theyStandWithViewer: matchedRelationship?.theyStandWithViewer ?? false,
+    isLoading: matchedRelationship == null,
   };
 }
