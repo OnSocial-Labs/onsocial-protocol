@@ -54,11 +54,8 @@ export function MoodSheet({
   activeMood,
   onClose,
 }: MoodSheetProps) {
-  const {
-    setPreviewMood,
-    registerMoodSheetClose,
-    unregisterMoodSheetClose,
-  } = usePortfolioMoodPreview();
+  const { setPreviewMood, registerMoodSheetClose, unregisterMoodSheetClose } =
+    usePortfolioMoodPreview();
   const { connect, isApplying, isOwner, needsConnect, walletAccountId } =
     useApplyMood(pageAccountId);
   const { isUnlocking } = useUnlockPremiumMood(pageAccountId);
@@ -163,7 +160,7 @@ export function MoodSheet({
                 Moods
               </h2>
               <p className="mood-sheet-copy">
-                Tap a mood to see it on your page — save when it feels right.
+                Choose a page mood. We preview it first, then you save it.
               </p>
             </div>
             <SheetCloseButton onClick={onClose} ariaLabel="Close moods" />
@@ -187,7 +184,9 @@ export function MoodSheet({
         </div>
       ) : null}
 
-      {!needsConnect && walletAccountId && !accountIdsEqual(walletAccountId, pageAccountId) ? (
+      {!needsConnect &&
+      walletAccountId &&
+      !accountIdsEqual(walletAccountId, pageAccountId) ? (
         <div className="mood-sheet-actions">
           <p className="mood-sheet-copy">
             Connected as @{walletAccountId}. Switch to @{pageAccountId} to apply
@@ -211,7 +210,9 @@ export function MoodSheet({
         ))}
 
         {PAGE_MOOD_PICKER_STORE_SECTIONS.map((section) => {
-          const sectionIds = section.ids.filter((id) => premiumIds.includes(id));
+          const sectionIds = section.ids.filter((id) =>
+            premiumIds.includes(id)
+          );
           if (sectionIds.length === 0) {
             return null;
           }

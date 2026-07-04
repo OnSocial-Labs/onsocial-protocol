@@ -6,6 +6,7 @@ import type { MaterialisedProfile } from '@onsocial/sdk';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { creditAppPlatformReward } from '@/lib/app-platform-rewards';
+import type { ResolvedPageHero } from '@/lib/page-data';
 import {
   normalizeProfileLinksInput,
   profileLinksInputFromRecord,
@@ -24,6 +25,7 @@ export interface ProfileEditorSnapshot {
   bio: string;
   avatarUrl: string | null;
   bannerUrl: string | null;
+  bannerMedia: ResolvedPageHero | null;
   links: MaterialisedProfile['links'];
   tags: string[];
 }
@@ -48,6 +50,7 @@ export interface ProfileEditorSaveResult {
   bio: string;
   avatarUrl: string | null;
   bannerUrl: string | null;
+  bannerMedia: ResolvedPageHero | null;
 }
 
 function formatProfileEditorError(error: unknown): string {
@@ -63,13 +66,12 @@ function formatProfileEditorError(error: unknown): string {
   return message;
 }
 
-export function useAppProfileEditor(accountId: string | null, enabled: boolean) {
+export function useAppProfileEditor(
+  accountId: string | null,
+  enabled: boolean
+) {
   const router = useRouter();
-  const {
-    hasSocialSession,
-    isBootstrappingSession,
-    connect,
-  } = useAppWallet();
+  const { hasSocialSession, isBootstrappingSession, connect } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const [snapshot, setSnapshot] = useState<ProfileEditorSnapshot | null>(null);
   const [loading, setLoading] = useState(false);
@@ -134,7 +136,11 @@ export function useAppProfileEditor(accountId: string | null, enabled: boolean) 
       setError(null);
 
       try {
-        const { client, accountId: signingAccountId, session } = await getClient();
+        const {
+          client,
+          accountId: signingAccountId,
+          session,
+        } = await getClient();
         const normalizedLinks = normalizeProfileLinksInput(
           input.links,
           input.currentLinks ?? undefined
@@ -180,8 +186,15 @@ export function useAppProfileEditor(accountId: string | null, enabled: boolean) 
         }
 
         const refreshed = await client.profiles.get(accountId);
-        const avatarUrl = refreshed ? client.profiles.avatarUrl(refreshed) : null;
-        const bannerUrl = refreshed ? client.profiles.bannerUrl(refreshed) : null;
+        const avatarUrl = refreshed
+          ? client.profiles.avatarUrl(refreshed)
+          : null;
+        const bannerUrl = refreshed
+          ? client.profiles.bannerUrl(refreshed)
+          : null;
+        const bannerMedia = refreshed
+          ? client.profiles.bannerMedia(refreshed)
+          : null;
 
         router.refresh();
 
@@ -190,6 +203,7 @@ export function useAppProfileEditor(accountId: string | null, enabled: boolean) 
           bio: input.bio.trim(),
           avatarUrl,
           bannerUrl,
+          bannerMedia,
         };
       } catch (err) {
         if (isWalletUserCancellation(err)) {

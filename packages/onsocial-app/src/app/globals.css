@@ -14,8 +14,9 @@
 /* Content-sized glass sheets — unlayered so height beats imported glass-sheet.css. */
 .glass-sheet-panel.account-drawer-panel {
   height: auto;
-  max-height: min(88dvh, 36rem);
-  --glass-header-scrim-height: min(3.75rem, 20%);
+  max-height: min(88dvh, 34rem);
+  --glass-header-scrim-height: min(4rem, 22%);
+  --glass-sheet-body-opacity: 0.62;
 }
 
 /* Wallet grip — mood accent color only (same pill shape as standing). */
@@ -31,22 +32,82 @@
   max-height: min(88dvh, 32rem);
 }
 
+.glass-sheet-panel.account-storage-panel {
+  height: auto;
+  max-height: min(92dvh, 40rem);
+  --glass-sheet-body-opacity: 0.62;
+}
+
 .glass-sheet-panel.account-editor-panel {
   height: auto;
   max-height: min(96dvh, 44rem);
+  --glass-sheet-body-opacity: 0.64;
+  --glass-header-scrim-height: 0;
+}
+
+/* Editor media owns the sheet top; the mobile grip floats over the banner. */
+.glass-sheet-panel.account-editor-panel .glass-sheet-drag {
+  position: absolute;
+  z-index: 6;
+  top: 0;
+  left: 0;
+  right: 0;
+  min-height: 0;
+  padding: calc(0.55rem + env(safe-area-inset-top, 0px)) 0 0.25rem;
+  background: transparent;
+  pointer-events: auto;
+}
+
+.glass-sheet-panel.account-editor-panel .glass-sheet-body {
+  border-radius: inherit;
 }
 
 .glass-sheet-panel.customize-sheet-panel,
 .glass-sheet-panel.mood-sheet-panel {
   height: auto;
-  max-height: min(96dvh, 44rem);
+  max-height: min(94dvh, 42rem);
+  --glass-sheet-body-opacity: 0.64;
+}
+
+@media (min-width: 768px) {
+  .glass-sheet-panel.account-drawer-panel,
+  .glass-sheet-panel.account-rewards-rules-panel,
+  .glass-sheet-panel.account-storage-panel,
+  .glass-sheet-panel.account-editor-panel,
+  .glass-sheet-panel.customize-sheet-panel,
+  .glass-sheet-panel.mood-sheet-panel {
+    max-width: 36rem;
+  }
+}
+
+.account-sheet-panel--page-mood.glass-sheet-panel[data-tone='os']
+  .glass-sheet-grip,
+.account-storage-panel--page-mood.glass-sheet-panel[data-tone='os']
+  .glass-sheet-grip,
+.account-editor-panel--page-mood.glass-sheet-panel[data-tone='os']
+  .glass-sheet-grip,
+.glass-sheet-panel.customize-sheet-panel[data-tone='mood-thread']
+  .glass-sheet-grip,
+.glass-sheet-panel.mood-sheet-panel[data-tone='mood-thread'] .glass-sheet-grip {
+  background: var(
+    --glass-sheet-accent,
+    var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.55)))
+  );
+  opacity: 0.92;
+  box-shadow: 0 0 14px
+    color-mix(
+      in srgb,
+      var(--glass-sheet-accent, var(--mood-accent, rgb(var(--fg-rgb) / 0.55)))
+        36%,
+      transparent
+    );
 }
 
 /* Customize sheet — surface-halo backlight on selected rows. */
 .customize-sheet-panel .os-surface-row {
   position: relative;
   z-index: 1;
-  padding: 0.8rem;
+  padding: 0.72rem 0.78rem;
   border-radius: 1rem;
   transition:
     background 160ms ease,
@@ -172,7 +233,7 @@
   opacity: 1;
   position: relative;
   z-index: 1;
-  padding-right: 5.25rem;
+  padding: 0.78rem 5.1rem 0.78rem 0.85rem;
   transition:
     background 160ms ease,
     box-shadow 450ms cubic-bezier(0.4, 0, 0.2, 1),
@@ -279,7 +340,7 @@
 }
 
 .mood-sheet-panel .mood-sheet-section-list > li + li {
-  margin-top: 0.65rem;
+  margin-top: 0.5rem;
 }
 
 .mood-sheet-panel .mood-sheet-item {
@@ -288,7 +349,7 @@
   z-index: 1;
   overflow: hidden;
   opacity: 1;
-  padding: 0.85rem 0.9rem;
+  padding: 0.78rem 0.85rem;
   transition:
     background 160ms ease,
     box-shadow 450ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -299,8 +360,8 @@
   --mood-bg-preset-mix: 48%;
   --mood-text-preset-mix: 42%;
   --mood-muted-preset-mix: 38%;
-  padding-top: 3.1rem;
-  padding-left: 0.9rem;
+  padding-top: 2.7rem;
+  padding-left: 0.85rem;
   background: color-mix(
     in srgb,
     var(--mood-bg) 84%,
@@ -354,7 +415,7 @@
   content: '';
   position: absolute;
   inset: 0 0 auto 0;
-  height: 2.55rem;
+  height: 2.2rem;
   border-radius: inherit inherit 0 0;
   background: var(
     --mood-banner-active,
@@ -4610,7 +4671,7 @@ a.os-surface-row {
     align-items: flex-start;
     justify-content: space-between;
     gap: 1rem;
-    padding: 1rem 1rem 0.75rem;
+    padding: 0.92rem 1rem 0.68rem;
     border-bottom: 1px solid rgb(var(--fg-rgb) / 0.08);
   }
 
@@ -4621,8 +4682,8 @@ a.os-surface-row {
 
   .mood-sheet-copy {
     margin-top: 0.25rem;
-    font-size: 0.78rem;
-    line-height: 1.5;
+    font-size: 0.76rem;
+    line-height: 1.45;
     color: rgb(var(--fg-rgb) / 0.44);
   }
 
@@ -4634,7 +4695,7 @@ a.os-surface-row {
   .mood-sheet-list {
     list-style: none;
     margin: 0;
-    padding: 0.75rem;
+    padding: 0.7rem;
   }
 
   .mood-sheet-section {
@@ -4642,15 +4703,15 @@ a.os-surface-row {
   }
 
   .mood-sheet-section + .mood-sheet-section {
-    margin-top: 1rem;
+    margin-top: 0.82rem;
     padding-top: 0.25rem;
     border-top: 1px solid rgb(var(--fg-rgb) / 0.06);
   }
 
   .mood-sheet-section-title {
-    margin: 0 0 0.5rem;
+    margin: 0 0 0.42rem;
     padding: 0 0.15rem;
-    font-size: 0.62rem;
+    font-size: 0.6rem;
     font-weight: 600;
     letter-spacing: 0.14em;
     text-transform: uppercase;
@@ -4668,8 +4729,8 @@ a.os-surface-row {
     width: 100%;
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.25rem;
-    padding: 0.85rem 0.9rem;
+    gap: 0.2rem;
+    padding: 0.78rem 0.85rem;
     border: 1px solid rgb(var(--fg-rgb) / 0.08);
     border-radius: 1rem;
     background: var(--mood-bg);
@@ -4718,7 +4779,7 @@ a.os-surface-row {
   .mood-sheet-item[data-mood='holographic'] {
     position: relative;
     overflow: hidden;
-    padding-top: 3.35rem;
+    padding-top: 2.95rem;
   }
 
   .mood-sheet-item[data-mood='gold']::before,
@@ -4728,7 +4789,7 @@ a.os-surface-row {
     content: '';
     position: absolute;
     inset: 0 0 auto 0;
-    height: 2.85rem;
+    height: 2.45rem;
     background: var(
       --mood-banner-active,
       linear-gradient(
@@ -4755,7 +4816,7 @@ a.os-surface-row {
     top: 0;
     left: 0;
     right: 0;
-    height: 2.85rem;
+    height: 2.45rem;
     background: linear-gradient(
       168deg,
       rgb(255 255 255 / 0.35) 0%,
@@ -4884,14 +4945,14 @@ a.os-surface-row {
       system-ui,
       sans-serif
     );
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     font-weight: 600;
     color: var(--mood-accent, rgb(var(--fg-rgb) / 0.88));
   }
 
   .mood-sheet-item-tagline {
-    font-size: 0.76rem;
-    line-height: 1.45;
+    font-size: 0.73rem;
+    line-height: 1.35;
     color: var(--mood-muted);
   }
 
@@ -4956,12 +5017,36 @@ a.os-surface-row {
   }
 
   .customize-sheet-header {
+    position: relative;
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 1rem;
-    padding: 1rem 1rem 0.75rem;
-    border-bottom: 1px solid rgb(var(--fg-rgb) / 0.08);
+    padding: 0.92rem 1rem 0.68rem;
+    border-bottom: 0;
+  }
+
+  .customize-sheet-header::after,
+  .customize-sheet-actions::after {
+    content: '';
+    position: absolute;
+    right: 1rem;
+    bottom: 0;
+    left: 1rem;
+    height: 1px;
+    background-image: linear-gradient(
+      to right,
+      transparent,
+      color-mix(
+        in srgb,
+        var(--glass-sheet-accent, var(--mood-accent, rgb(var(--fg-rgb) / 0.5)))
+          34%,
+        transparent
+      ),
+      transparent
+    );
+    opacity: 0.72;
+    pointer-events: none;
   }
 
   .customize-sheet-title {
@@ -4971,17 +5056,18 @@ a.os-surface-row {
 
   .customize-sheet-copy {
     margin-top: 0.25rem;
-    font-size: 0.78rem;
-    line-height: 1.5;
+    font-size: 0.76rem;
+    line-height: 1.45;
     color: rgb(var(--fg-rgb) / 0.44);
   }
 
   .customize-sheet-actions {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
     padding: 1rem;
-    border-bottom: 1px solid rgb(var(--fg-rgb) / 0.08);
+    border-bottom: 0;
   }
 
   .customize-sheet-primary {
@@ -5022,12 +5108,29 @@ a.os-surface-row {
   .customize-sheet-section {
     display: flex;
     flex-direction: column;
-    gap: 0.65rem;
-    padding: 1rem;
+    gap: 0.5rem;
+    padding: 0.82rem 1rem;
+  }
+
+  .customize-sheet-divider {
+    width: calc(100% - 2rem);
+    margin-inline: 1rem;
+    background-image: linear-gradient(
+      to right,
+      transparent,
+      color-mix(
+        in srgb,
+        var(--glass-sheet-accent, var(--mood-accent, rgb(var(--fg-rgb) / 0.5)))
+          34%,
+        transparent
+      ),
+      transparent
+    );
+    opacity: 0.72;
   }
 
   .customize-sheet-label {
-    font-size: 0.68rem;
+    font-size: 0.6rem;
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: rgb(var(--fg-rgb) / 0.38);
@@ -6901,10 +7004,50 @@ a.os-surface-row {
   }
 
   .account-card-wallet-zone {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 0.4rem;
     padding: 0.62rem 0.72rem;
+    overflow: hidden;
+    isolation: isolate;
+    background:
+      radial-gradient(
+        circle at 14% 0%,
+        color-mix(
+            in srgb,
+            var(--glass-sheet-accent, var(--protocol-blue)) 18%,
+            transparent
+          )
+          0,
+        transparent 38%
+      ),
+      var(--os-surface-fill);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.055);
+  }
+
+  .account-card-wallet-zone::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(
+        in srgb,
+        var(--glass-sheet-accent, rgb(var(--fg-rgb) / 0.6)) 34%,
+        transparent
+      ),
+      transparent
+    );
+    opacity: 0.8;
+    pointer-events: none;
+  }
+
+  .account-card-wallet-zone > * {
+    position: relative;
+    z-index: 1;
   }
 
   @media (max-height: 42rem) {
@@ -7256,10 +7399,26 @@ a.os-surface-row {
 
   .account-card-balance-copy {
     display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.08rem;
+    min-height: 1.35rem;
+  }
+
+  .account-card-balance-kicker {
+    font-size: 0.56rem;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    line-height: 1;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.38);
+  }
+
+  .account-card-balance-line {
+    display: inline-flex;
+    min-width: 0;
     align-items: baseline;
     gap: 0.35rem;
-    min-width: 0;
-    min-height: 1.35rem;
   }
 
   .account-card-balance-value {
@@ -7758,15 +7917,16 @@ a.os-surface-row {
     flex: 1 1 auto;
     min-height: 0;
     overflow: hidden;
+    border-radius: inherit;
   }
 
   .account-editor-panel .glass-sheet-drag {
     position: absolute;
-    z-index: 4;
+    z-index: 6;
     top: 0;
     left: 0;
     right: 0;
-    padding: 0.5rem 0 0.2rem;
+    padding: calc(0.55rem + env(safe-area-inset-top, 0px)) 0 0.25rem;
     background: transparent;
     pointer-events: auto;
   }
@@ -7775,7 +7935,9 @@ a.os-surface-row {
     opacity: 0.72;
   }
 
-  .account-editor-panel:has(.account-editor-cover-stage.has-media)
+  .account-editor-panel:not(.account-editor-panel--page-mood):has(
+      .account-editor-cover-stage.has-media
+    )
     .glass-sheet-grip {
     background: rgb(255 255 255 / 0.42);
     opacity: 0.85;
@@ -7785,6 +7947,7 @@ a.os-surface-row {
     position: relative;
     padding: 0;
     overflow: hidden;
+    border-radius: inherit;
   }
 
   .account-editor-form {
@@ -7794,13 +7957,14 @@ a.os-surface-row {
     min-height: 0;
     gap: 0;
     padding-bottom: 0;
+    border-radius: inherit;
   }
 
   .account-editor-hero {
-    --account-editor-avatar-size: 5.5rem;
+    --account-editor-avatar-size: 5rem;
     /* Card face — same hero band as live portfolio. */
-    --account-editor-hero-height: min(34svh, 17rem);
-    --account-editor-card-identity-lift: 2.25rem;
+    --account-editor-hero-height: clamp(8rem, 26svh, 12.75rem);
+    --account-editor-card-identity-lift: 1.05rem;
     --account-editor-avatar-ring: var(
       --portfolio-avatar-ring,
       var(--mood-bg, var(--bg))
@@ -7919,8 +8083,8 @@ a.os-surface-row {
   .account-editor-form-body {
     display: flex;
     flex-direction: column;
-    gap: 0.55rem;
-    padding: 0.2rem max(1rem, env(safe-area-inset-right, 0px)) 0.35rem
+    gap: 0.48rem;
+    padding: 0.05rem max(1rem, env(safe-area-inset-right, 0px)) 0.35rem
       max(1rem, env(safe-area-inset-left, 0px));
   }
 
@@ -7949,14 +8113,15 @@ a.os-surface-row {
 
   @media (min-width: 768px) {
     .account-editor-hero {
-      --account-editor-avatar-size: 6.5rem;
-      --account-editor-hero-height: min(32svh, 18rem);
+      --account-editor-avatar-size: 5.25rem;
+      --account-editor-hero-height: clamp(8.75rem, 26svh, 13.25rem);
     }
   }
 
   @media (max-height: 42rem) {
     .account-editor-hero {
-      --account-editor-hero-height: min(30svh, 15rem);
+      --account-editor-hero-height: clamp(7.25rem, 24svh, 10.25rem);
+      --account-editor-card-identity-lift: 0.85rem;
     }
   }
 
@@ -7965,12 +8130,35 @@ a.os-surface-row {
     width: 100%;
     max-width: 100%;
     margin-inline: 0;
+    border-radius: 1.25rem 1.25rem 0 0;
+    transform: translateY(-1px);
   }
 
   .account-editor-banner-wrap {
     position: relative;
     flex-shrink: 0;
     width: 100%;
+    overflow: hidden;
+    border-radius: inherit;
+  }
+
+  .account-editor-banner-wrap.profile-editor-media-banner-dock {
+    padding-bottom: 0;
+  }
+
+  .account-editor-banner-wrap .profile-editor-media-size-hint--dock {
+    right: max(0.8rem, env(safe-area-inset-right, 0px));
+    bottom: 0.5rem;
+    left: max(0.8rem, env(safe-area-inset-left, 0px));
+    z-index: 4;
+    color: rgb(var(--fg-rgb) / 0.42);
+  }
+
+  .account-editor-cover-stage.has-media
+    .account-editor-banner-wrap
+    .profile-editor-media-size-hint--dock {
+    color: rgb(255 255 255 / 0.72);
+    text-shadow: 0 1px 3px rgb(0 0 0 / 0.4);
   }
 
   /* Editor banner — clean preview; no mood wash or dissolve tint at the bottom. */
@@ -8062,6 +8250,7 @@ a.os-surface-row {
     padding: 0;
     border: 0;
     overflow: hidden;
+    border-radius: inherit;
     background: var(
       --account-editor-avatar-ring,
       var(--portfolio-avatar-ring, var(--mood-bg, var(--bg)))
@@ -8072,6 +8261,7 @@ a.os-surface-row {
   .account-editor-banner-backdrop {
     position: relative;
     overflow: hidden;
+    border-radius: inherit;
   }
 
   .account-editor-avatar-backdrop {
@@ -8163,7 +8353,8 @@ a.os-surface-row {
     position: absolute;
     inset: 0 0 auto;
     z-index: 3;
-    padding: 1.35rem max(0.65rem, env(safe-area-inset-right, 0px)) 0.15rem
+    padding: calc(1.55rem + env(safe-area-inset-top, 0px))
+      max(0.65rem, env(safe-area-inset-right, 0px)) 0.15rem
       max(0.65rem, env(safe-area-inset-left, 0px));
     pointer-events: none;
   }
@@ -8222,6 +8413,7 @@ a.os-surface-row {
   }
 
   .account-editor-banner-image,
+  .account-editor-banner-video,
   .account-editor-avatar-image {
     position: relative;
     z-index: 0;
@@ -8280,7 +8472,7 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.55rem;
     width: 100%;
     text-align: center;
     pointer-events: none;
@@ -8336,7 +8528,7 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.35rem;
+    gap: 0.25rem;
     width: 100%;
     min-width: 0;
     max-width: min(100%, 20rem);
@@ -8351,7 +8543,7 @@ a.os-surface-row {
     background: transparent;
     text-align: center;
     font-family: var(--font-space-grotesk), system-ui, sans-serif;
-    font-size: clamp(1.5rem, 6vw, 2rem);
+    font-size: clamp(1.38rem, 5.4vw, 1.9rem);
     font-weight: 600;
     letter-spacing: -0.04em;
     line-height: 1.12;
@@ -8374,7 +8566,7 @@ a.os-surface-row {
 
   .account-editor-panel--page-mood.account-editor-panel--signature
     .account-editor-name {
-    font-size: clamp(1.75rem, 7vw, 2.35rem);
+    font-size: clamp(1.62rem, 6.4vw, 2.2rem);
     letter-spacing: 0.01em;
   }
 
@@ -8409,11 +8601,11 @@ a.os-surface-row {
     background: transparent;
     resize: none;
     overflow: hidden;
-    min-height: calc(0.875rem * 1.55 * 2);
+    min-height: calc(0.84rem * 1.45 * 2);
     text-align: center;
     font-family: var(--font-space-grotesk), system-ui, sans-serif;
-    font-size: 0.875rem;
-    line-height: 1.55;
+    font-size: 0.84rem;
+    line-height: 1.45;
     font-weight: 500;
     letter-spacing: normal;
     text-wrap: pretty;
@@ -8827,6 +9019,7 @@ a.os-surface-row {
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
     background: var(--mood-bg, var(--bg));
+    border-radius: inherit;
   }
 
   /* Page mood — sheet carries tint; form continues the Card hard cut. */

@@ -36,6 +36,7 @@ import {
   initials,
   portfolioHandleHint,
 } from '@/lib/profile-display';
+import type { ResolvedPageHero } from '@/lib/page-data';
 import { usePageMoodId } from '@/hooks/use-page-mood-id';
 import {
   profileLinkEditorFieldErrors,
@@ -45,6 +46,8 @@ import { normalizeProfileEditorTags } from '@/lib/profile-tag-editor';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 const PROFILE_SAVE_SUCCESS_HOLD_MS = 1200;
+const PROFILE_BANNER_ACCEPT =
+  'image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm';
 
 function useObjectUrl(file: File | null): string | null {
   const url = useMemo(() => {
@@ -63,6 +66,29 @@ function useObjectUrl(file: File | null): string | null {
   }, [url]);
 
   return url;
+}
+
+function resolveBannerPreviewMedia(
+  file: File | null,
+  previewUrl: string | null,
+  snapshot: ProfileEditorSnapshot,
+  removed: boolean
+): ResolvedPageHero | null {
+  if (removed) {
+    return null;
+  }
+
+  if (file && previewUrl) {
+    return {
+      kind: file.type.startsWith('video/') ? 'video' : 'image',
+      url: previewUrl,
+    };
+  }
+
+  return (
+    snapshot.bannerMedia ??
+    (snapshot.bannerUrl ? { kind: 'image', url: snapshot.bannerUrl } : null)
+  );
 }
 
 interface ProfileEditorFormProps {
@@ -167,9 +193,12 @@ function ProfileEditorForm({
   const displayAvatarUrl = avatarRemoved
     ? null
     : (avatarPreview ?? snapshot.avatarUrl);
-  const displayBannerUrl = bannerRemoved
-    ? null
-    : (bannerPreview ?? snapshot.bannerUrl);
+  const displayBannerMedia = resolveBannerPreviewMedia(
+    bannerFile,
+    bannerPreview,
+    snapshot,
+    bannerRemoved
+  );
 
   const isDirty = useMemo(
     () =>
@@ -348,11 +377,11 @@ function ProfileEditorForm({
       <div className="account-editor-form-main">
         <section className="account-editor-hero" aria-label="Profile">
           <div
-            className={`account-editor-cover-stage${displayBannerUrl ? ' has-media' : ''}`}
+            className={`account-editor-cover-stage${displayBannerMedia ? ' has-media' : ''}`}
           >
             <div className="account-editor-banner-wrap profile-editor-media-banner-dock">
               <div
-                className={`account-editor-banner-button profile-editor-media-host${displayBannerUrl ? ' has-media' : ''}`}
+                className={`account-editor-banner-button profile-editor-media-host${displayBannerMedia ? ' has-media' : ''}`}
               >
                 <button
                   type="button"
@@ -360,9 +389,20 @@ function ProfileEditorForm({
                   onClick={openBannerPicker}
                   aria-label="Choose banner"
                 >
-                  {displayBannerUrl ? (
+                  {displayBannerMedia?.kind === 'video' ? (
+                    <video
+                      src={displayBannerMedia.url}
+                      poster={displayBannerMedia.poster}
+                      className="account-editor-banner-video"
+                      muted
+                      loop
+                      playsInline
+                      autoPlay
+                      aria-hidden
+                    />
+                  ) : displayBannerMedia ? (
                     <img
-                      src={displayBannerUrl}
+                      src={displayBannerMedia.url}
                       alt=""
                       className="account-editor-banner-image"
                     />
@@ -370,21 +410,21 @@ function ProfileEditorForm({
                     <span className="account-editor-banner-empty" aria-hidden />
                   )}
                   <span
-                    className={`account-editor-banner-overlay${displayBannerUrl ? ' has-media' : ''}`}
+                    className={`account-editor-banner-overlay${displayBannerMedia ? ' has-media' : ''}`}
                     aria-hidden
                   />
                 </button>
                 <ProfileEditorMediaToolbar
                   layout="banner"
-                  removeLabel={displayBannerUrl ? 'Remove banner' : undefined}
-                  onRemove={displayBannerUrl ? handleRemoveBanner : undefined}
+                  removeLabel={displayBannerMedia ? 'Remove banner' : undefined}
+                  onRemove={displayBannerMedia ? handleRemoveBanner : undefined}
                 />
               </div>
               <p
                 className="profile-editor-media-size-hint profile-editor-media-size-hint--dock"
                 aria-hidden
               >
-                1500&times;300
+                1500&times;300 image or short MP4/WebM video
               </p>
             </div>
 
@@ -628,7 +668,7 @@ function ProfileEditorForm({
       <input
         ref={bannerInputRef}
         type="file"
-        accept="image/png,image/jpeg,image/webp,image/gif"
+        accept={PROFILE_BANNER_ACCEPT}
         className="account-editor-file-input"
         onChange={(event) => {
           const file = event.target.files?.[0] ?? null;

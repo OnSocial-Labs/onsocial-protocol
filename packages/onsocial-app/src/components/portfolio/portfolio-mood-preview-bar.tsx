@@ -54,10 +54,15 @@ export function PortfolioMoodPreviewBar({
     isPreviewingMood,
     discardMoodPreview,
     requestCloseMoodSheet,
+    requestOpenMoodSheet,
   } = usePortfolioMoodPreview();
   const { isPreviewing: isPreviewingFace } = usePortfolioFacePreview();
-  const { applyMood, isApplying, isOwner, error: applyError } =
-    useApplyMood(pageAccountId);
+  const {
+    applyMood,
+    isApplying,
+    isOwner,
+    error: applyError,
+  } = useApplyMood(pageAccountId);
   const {
     unlockMood,
     isUnlocking,
@@ -121,6 +126,13 @@ export function PortfolioMoodPreviewBar({
     }, SAVED_DISMISS_MS);
   }
 
+  function handleDiscard() {
+    discardMoodPreview();
+    window.setTimeout(() => {
+      requestOpenMoodSheet();
+    }, 0);
+  }
+
   return (
     <div
       className={`${osFloatingPanelClassName} ${osSheetFloatingPanelClassName} portfolio-face-preview-bar portfolio-mood-preview-bar portfolio-face-preview-bar--enter${isPreviewingFace ? ' is-stacked' : ''}`}
@@ -143,11 +155,7 @@ export function PortfolioMoodPreviewBar({
       </p>
       <OsSheetActions layout="row-compact" tone="frosted-primary" borderless>
         {!isBusy ? (
-          <OsSheetAction
-            type="button"
-            variant="danger"
-            onClick={discardMoodPreview}
-          >
+          <OsSheetAction type="button" variant="danger" onClick={handleDiscard}>
             Discard
           </OsSheetAction>
         ) : null}

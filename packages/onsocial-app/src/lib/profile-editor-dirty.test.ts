@@ -13,6 +13,7 @@ function baseSnapshot(
     bio: 'Builder',
     avatarUrl: 'https://cdn.example/avatar.png',
     bannerUrl: 'https://cdn.example/banner.png',
+    bannerMedia: { kind: 'image', url: 'https://cdn.example/banner.png' },
     links: {},
     tags: [],
     ...overrides,

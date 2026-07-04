@@ -5,16 +5,26 @@ import {
   useEffect,
   useMemo,
   useState,
+  type CSSProperties,
   type FormEvent,
 } from 'react';
-import { Divider, GlassSheet, OsSheetActions, OsSheetPrimaryAction, SheetCloseButton } from '@onsocial/ui';
+import {
+  Divider,
+  GlassSheet,
+  OsSheetActions,
+  OsSheetPrimaryAction,
+  SheetCloseButton,
+} from '@onsocial/ui';
 import { usePlatformStorageSummary } from '@/hooks/use-platform-storage-summary';
 import { useUserStorageBalance } from '@/hooks/use-user-storage-balance';
 import { useWalletNearBalance } from '@/hooks/use-wallet-near-balance';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { finalizeAmountInput } from '@/lib/amount-input';
-import { waitForNearTransactionBatchConfirmation, yoctoToNear } from '@/lib/app-near-rpc';
+import {
+  waitForNearTransactionBatchConfirmation,
+  yoctoToNear,
+} from '@/lib/app-near-rpc';
 import {
   sendStorageDepositTransaction,
   sendStorageWithdrawTransaction,
@@ -47,6 +57,8 @@ type StorageActionMode = 'deposit' | 'withdraw';
 interface AppStorageSheetProps {
   open: boolean;
   accountId: string;
+  pageMoodId?: string | null;
+  panelStyle?: CSSProperties;
   refreshKey?: number;
   onClose: () => void;
   onClosed?: () => void;
@@ -72,9 +84,7 @@ function UserStorageReadout({ summary }: { summary: UserStorageSummary }) {
     <div className="app-storage-readout">
       <span className="account-card-wallet-label">{USER_STORAGE_LABEL}</span>
       <div className="app-storage-balance-row">
-        <span
-          className={`app-storage-balance-value${low ? ' is-low' : ''}`}
-        >
+        <span className={`app-storage-balance-value${low ? ' is-low' : ''}`}>
           {balanceLabel}
         </span>
         <span className="account-card-balance-unit">NEAR</span>
@@ -105,7 +115,9 @@ function PlatformStorageSection({
 
   if (error || !summary) {
     return (
-      <p className="app-storage-meta">{error ?? 'Platform storage unavailable'}</p>
+      <p className="app-storage-meta">
+        {error ?? 'Platform storage unavailable'}
+      </p>
     );
   }
 
@@ -116,7 +128,9 @@ function PlatformStorageSection({
 
   return (
     <div className="app-storage-platform">
-      <span className="account-card-wallet-label">{PLATFORM_STORAGE_LABEL}</span>
+      <span className="account-card-wallet-label">
+        {PLATFORM_STORAGE_LABEL}
+      </span>
       <div className="account-card-storage-row account-card-storage-row--sheet">
         <div
           className="account-card-progress-track"
@@ -149,6 +163,8 @@ function PlatformStorageSection({
 export function AppStorageSheet({
   open,
   accountId,
+  pageMoodId = null,
+  panelStyle,
   refreshKey = 0,
   onClose,
   onClosed,
@@ -176,7 +192,11 @@ export function AppStorageSheet({
     sheetOpen,
     combinedRefreshKey
   );
-  const walletNear = useWalletNearBalance(accountId, sheetOpen, combinedRefreshKey);
+  const walletNear = useWalletNearBalance(
+    accountId,
+    sheetOpen,
+    combinedRefreshKey
+  );
 
   useScrollLock(open || closing);
 
@@ -324,7 +344,8 @@ export function AppStorageSheet({
         presentation="swap"
         ariaLabelledBy="app-storage-sheet-title"
         backdropLabel="Close storage"
-        panelClassName="account-storage-panel"
+        panelClassName={`account-storage-panel${pageMoodId ? ' account-storage-panel--page-mood' : ''}`}
+        panelStyle={panelStyle}
         bodyClassName="account-storage-body"
         header={
           <>
@@ -384,7 +405,10 @@ export function AppStorageSheet({
               </button>
             </div>
 
-            <form className="app-storage-form" onSubmit={(event) => void handleSubmit(event)}>
+            <form
+              className="app-storage-form"
+              onSubmit={(event) => void handleSubmit(event)}
+            >
               <div className="app-storage-amount-field">
                 <input
                   type="text"
@@ -410,7 +434,11 @@ export function AppStorageSheet({
 
               <div className="app-storage-quick-row">
                 {mode === 'deposit' ? (
-                  <div className="app-storage-presets" role="group" aria-label="Quick amounts">
+                  <div
+                    className="app-storage-presets"
+                    role="group"
+                    aria-label="Quick amounts"
+                  >
                     {STORAGE_DEPOSIT_PRESETS_NEAR.map((preset) => (
                       <button
                         key={preset}
@@ -427,7 +455,9 @@ export function AppStorageSheet({
                     type="button"
                     className="app-storage-max"
                     onClick={() =>
-                      applyAmountInput(yoctoToNear(withdrawableYocto.toString()))
+                      applyAmountInput(
+                        yoctoToNear(withdrawableYocto.toString())
+                      )
                     }
                   >
                     Max ({formatNearCompact(withdrawableYocto.toString())} NEAR)
@@ -445,7 +475,10 @@ export function AppStorageSheet({
                     <>≈ {formatCompactBytes(depositPreviewCapacityBytes)} · </>
                   ) : null}
                   {mode === 'deposit' && walletNearYocto != null ? (
-                    <>Balance {formatNearCompact(walletNearYocto.toString())} · </>
+                    <>
+                      Balance {formatNearCompact(walletNearYocto.toString())}{' '}
+                      ·{' '}
+                    </>
                   ) : mode === 'withdraw' && canWithdraw ? (
                     <>
                       Withdrawable{' '}

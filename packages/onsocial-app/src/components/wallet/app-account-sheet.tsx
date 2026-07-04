@@ -8,9 +8,7 @@ import {
   AccountShortcutDock,
   AccountWalletZone,
 } from '@/components/wallet/account-card-parts';
-import {
-  AccountDrawerChrome,
-} from '@/components/wallet/account-drawer-chrome';
+import { AccountDrawerChrome } from '@/components/wallet/account-drawer-chrome';
 import { AppProfileEditorSheet } from '@/components/wallet/app-profile-editor-sheet';
 import { AppRewardsRulesSheet } from '@/components/wallet/app-rewards-rules-sheet';
 import { AppStorageSheet } from '@/components/wallet/app-storage-sheet';
@@ -90,8 +88,10 @@ export function AppAccountSheet({
     pageAccountId,
     Boolean(accountId)
   );
-  const { panelClassSuffix: pageMoodPanelClass, panelStyle: accountPanelStyle } =
-    accountSheetPageMoodPanel(pageMoodId, pageMoodStyle);
+  const {
+    panelClassSuffix: pageMoodPanelClass,
+    panelStyle: accountPanelStyle,
+  } = accountSheetPageMoodPanel(pageMoodId, pageMoodStyle);
 
   useScrollLock(open || closing);
 
@@ -196,7 +196,10 @@ export function AppAccountSheet({
       : null;
   const profileName = identityOverride?.displayName ?? seededName;
   const avatarUrl =
-    identityOverride?.avatarUrl ?? seededAvatar ?? viewerShell?.avatarUrl ?? null;
+    identityOverride?.avatarUrl ??
+    seededAvatar ??
+    viewerShell?.avatarUrl ??
+    null;
   const srTitle = accountDrawerPrimaryLabel(accountId, profileName);
 
   return (
@@ -278,6 +281,8 @@ export function AppAccountSheet({
       <AppStorageSheet
         open={storageSheetOpen}
         accountId={accountId}
+        pageMoodId={pageMoodId}
+        panelStyle={accountPanelStyle}
         refreshKey={storageRefreshKey}
         onClose={handleStorageBack}
         onStorageChanged={handleStorageChanged}

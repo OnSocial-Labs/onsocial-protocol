@@ -1,7 +1,18 @@
 'use client';
 
-import { GlassSheet, ProfileEditorMediaToolbar, SheetCloseButton } from '@onsocial/ui';
-import { useRef, useState, useCallback, useEffect, type CSSProperties } from 'react';
+import {
+  Divider,
+  GlassSheet,
+  ProfileEditorMediaToolbar,
+  SheetCloseButton,
+} from '@onsocial/ui';
+import {
+  useRef,
+  useState,
+  useCallback,
+  useEffect,
+  type CSSProperties,
+} from 'react';
 import {
   effectiveMoodTintHue,
   isPageMoodUnlocked,
@@ -12,7 +23,12 @@ import { MoodSheet } from '@/components/moods/mood-sheet';
 import { accountIdsEqual } from '@/lib/account-match';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { PREMIUM_MOOD_PRESETS as APP_PREMIUM_MOOD_PRESETS } from '@/lib/moods/presets';
-import type { PageAvatarMode, PageHeroSource, PublicPageConfig } from '@/lib/page-data';
+import type {
+  PageAvatarMode,
+  PageHeroSource,
+  PublicPageConfig,
+  ResolvedPageHeroKind,
+} from '@/lib/page-data';
 import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-context';
 import { useApplyPageFace } from '@/hooks/use-apply-page-face';
 import { useApplyPageMoodTint } from '@/hooks/use-apply-page-mood-tint';
@@ -20,6 +36,7 @@ import { useApplyProfileMedia } from '@/hooks/use-apply-profile-media';
 import { usePortfolioMoodVars } from '@/hooks/use-portfolio-mood-vars';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { usePortfolioCustomize } from '@/contexts/portfolio-customize-context';
+import { usePortfolioMoodPreview } from '@/contexts/portfolio-mood-preview-context';
 
 interface PortfolioCustomizeProps {
   pageAccountId: string;
@@ -27,6 +44,7 @@ interface PortfolioCustomizeProps {
   mood: ResolvedMood;
   avatarUrl?: string | null;
   bannerUrl?: string | null;
+  bannerKind?: ResolvedPageHeroKind | null;
 }
 
 const AVATAR_OPTIONS: Array<{
@@ -37,12 +55,12 @@ const AVATAR_OPTIONS: Array<{
   {
     id: 'standard',
     label: 'Card',
-    description: 'Banner with avatar on the dissolve seam.',
+    description: 'Classic banner with your avatar in front.',
   },
   {
     id: 'cover',
     label: 'Cover',
-    description: 'Avatar fills an immersive hero band.',
+    description: 'A bold hero built from your avatar.',
   },
 ];
 
@@ -54,17 +72,17 @@ const HERO_SOURCE_OPTIONS: Array<{
   {
     id: 'banner',
     label: 'Banner',
-    description: 'Use profile banner as the top hero.',
+    description: 'Use your profile banner at the top.',
   },
   {
     id: 'avatar',
     label: 'Avatar',
-    description: 'Use profile avatar as the top hero.',
+    description: 'Use your avatar as the top hero.',
   },
   {
     id: 'none',
     label: 'Minimal',
-    description: 'Mood bloom only — no hero media.',
+    description: 'Let the mood carry the page.',
   },
 ];
 
@@ -74,6 +92,7 @@ export function PortfolioCustomize({
   mood,
   avatarUrl = null,
   bannerUrl = null,
+  bannerKind = null,
 }: PortfolioCustomizeProps) {
   const [open, setOpen] = useState(false);
   const [moodOpen, setMoodOpen] = useState(false);
@@ -128,8 +147,25 @@ export function PortfolioCustomize({
   const [draftSignatureHue, setDraftSignatureHue] = useState(savedSignatureHue);
   const draftSignatureHueRef = useRef(savedSignatureHue);
   const customizeApi = usePortfolioCustomize();
+  const { registerMoodSheetOpen, unregisterMoodSheetOpen } =
+    usePortfolioMoodPreview();
   const { moodId: portfolioMoodId, style: portfolioMoodStyle } =
     usePortfolioMoodVars(pageAccountId, walletAccountId ?? '', open);
+  const moodAccent =
+    mood.cssVars['--mood-accent-chrome'] ??
+    mood.cssVars['--mood-preset-accent'] ??
+    mood.cssVars['--mood-accent'];
+  const customizePanelStyle = {
+    ...mood.cssVars,
+    ...portfolioMoodStyle,
+    ...(moodAccent
+      ? {
+          '--glass-sheet-accent': moodAccent,
+          '--mood-accent': moodAccent,
+          '--mood-accent-chrome': moodAccent,
+        }
+      : {}),
+  } as CSSProperties;
 
   useScrollLock(open);
 
@@ -139,6 +175,11 @@ export function PortfolioCustomize({
     setOpen(true);
   }, [savedSignatureHue]);
 
+  const openMoodSheet = useCallback(() => {
+    setOpen(false);
+    setMoodOpen(true);
+  }, []);
+
   useEffect(() => {
     if (!customizeApi || !isOwner) {
       return;
@@ -147,6 +188,15 @@ export function PortfolioCustomize({
     customizeApi.registerOpen(openCustomizeSheet);
     return () => customizeApi.unregisterOpen();
   }, [customizeApi, isOwner, openCustomizeSheet]);
+
+  useEffect(() => {
+    if (!isOwner) {
+      return;
+    }
+
+    registerMoodSheetOpen(openMoodSheet);
+    return () => unregisterMoodSheetOpen();
+  }, [isOwner, openMoodSheet, registerMoodSheetOpen, unregisterMoodSheetOpen]);
 
   if (!isOwner) {
     return null;
@@ -208,11 +258,6 @@ export function PortfolioCustomize({
     setOpen(false);
   }
 
-  function openMoodSheet() {
-    setOpen(false);
-    setMoodOpen(true);
-  }
-
   async function commitSignatureHue(nextHue: number) {
     if (Math.round(nextHue) === Math.round(savedSignatureHue)) {
       return;
@@ -232,7 +277,10 @@ export function PortfolioCustomize({
   }
 
   const showSignatureHue =
-    mood.id === 'signature' && signatureUnlocked && isTintOwner && !needsConnect;
+    mood.id === 'signature' &&
+    signatureUnlocked &&
+    isTintOwner &&
+    !needsConnect;
   const moodPageId = resolvePageMoodId(String(mood.id)) ?? 'protocol';
 
   return (
@@ -242,7 +290,7 @@ export function PortfolioCustomize({
         onClose={() => setOpen(false)}
         tone="mood-thread"
         moodId={portfolioMoodId ?? mood.id}
-        panelStyle={portfolioMoodStyle}
+        panelStyle={customizePanelStyle}
         initialDetent="full"
         zIndex={57}
         ariaLabelledBy="customize-sheet-title"
@@ -256,8 +304,7 @@ export function PortfolioCustomize({
                 Customize
               </h2>
               <p className="customize-sheet-copy">
-                Media uploads go to your profile on-chain. Layout picks how they
-                appear on your page.
+                Tune the mood, layout, and media for this page.
               </p>
             </div>
             <SheetCloseButton
@@ -296,240 +343,274 @@ export function PortfolioCustomize({
         {error ? <p className="customize-sheet-error">{error}</p> : null}
 
         <div className="customize-sheet-section">
-              <p className="customize-sheet-label">Mood</p>
-              <p className="customize-sheet-copy">
-                Your page look and voice — visitors feel it, not a label.
-              </p>
-              <div className="os-surface-row-list">
-                <button
-                  type="button"
-                  data-mood={moodPageId}
-                  className="mood-sheet-item customize-mood-option is-active is-selectable"
-                  style={mood.cssVars as CSSProperties}
-                  disabled={isApplying}
-                  onClick={openMoodSheet}
-                >
-                  <span className="os-surface-row-badge">Change</span>
-                  <span className="customize-mood-option-copy">
-                    <span className="mood-sheet-item-label">{mood.label}</span>
-                    <span className="mood-sheet-item-tagline">{mood.tagline}</span>
-                  </span>
-                </button>
-              </div>
-            </div>
+          <p className="customize-sheet-label">Mood</p>
+          <p className="customize-sheet-copy">
+            Choose the page atmosphere. Preview it, then save.
+          </p>
+          <div className="os-surface-row-list">
+            <button
+              type="button"
+              data-mood={moodPageId}
+              className="mood-sheet-item customize-mood-option is-active is-selectable"
+              style={mood.cssVars as CSSProperties}
+              disabled={isApplying}
+              onClick={openMoodSheet}
+            >
+              <span className="os-surface-row-badge">Change</span>
+              <span className="customize-mood-option-copy">
+                <span className="mood-sheet-item-label">{mood.label}</span>
+                <span className="mood-sheet-item-tagline">{mood.tagline}</span>
+              </span>
+            </button>
+          </div>
+        </div>
 
-            {showSignatureHue ? (
-              <div className="customize-sheet-section">
-                <p className="customize-sheet-label">Ink hue</p>
-                <p className="customize-sheet-copy">
-                  Your signature ink and mood tint — saved on-chain and kept
-                  when you switch moods.
-                </p>
-                <label className="customize-hue-control">
-                  <span className="customize-hue-preview" aria-hidden>
-                    <span
-                      className="customize-hue-preview-fill"
-                      style={{
-                        background: `hsl(${draftSignatureHue} 72% 58%)`,
-                      }}
-                    />
-                  </span>
-                  <input
-                    type="range"
-                    className="customize-hue-slider"
-                    min={0}
-                    max={359}
-                    step={1}
-                    value={draftSignatureHue}
-                    disabled={isApplying}
-                    aria-valuetext={`${Math.round(draftSignatureHue)} degrees`}
-                    onChange={(event) =>
-                      handleSignatureHueInput(Number(event.target.value))
-                    }
-                    onPointerUp={() => void handleSignatureHueCommit()}
-                    onKeyUp={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        void handleSignatureHueCommit();
-                      }
+        {showSignatureHue ? (
+          <>
+            <Divider variant="section" className="customize-sheet-divider" />
+            <div className="customize-sheet-section">
+              <p className="customize-sheet-label">Ink hue</p>
+              <p className="customize-sheet-copy">
+                Tune your signature accent. It stays with this mood.
+              </p>
+              <label className="customize-hue-control">
+                <span className="customize-hue-preview" aria-hidden>
+                  <span
+                    className="customize-hue-preview-fill"
+                    style={{
+                      background: `hsl(${draftSignatureHue} 72% 58%)`,
                     }}
                   />
-                  <span className="customize-hue-value">{Math.round(draftSignatureHue)}°</span>
-                </label>
-              </div>
-            ) : null}
-
-            <div className="customize-sheet-section">
-              <p className="customize-sheet-label">Layout</p>
-              <div className="os-surface-row-list">
-                {AVATAR_OPTIONS.map((option) => {
-                  const isSelected = option.id === effectiveAvatarMode;
-                  const isSaved = option.id === committedAvatarMode;
-
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      className={`os-surface-row${isSelected ? ' is-active' : ''}`}
-                      disabled={isApplying}
-                      aria-current={isSelected ? 'true' : undefined}
-                      onClick={() => handlePreview(option.id)}
-                    >
-                      <span className="os-surface-row-copy">
-                        <span className="os-surface-row-label">
-                          {option.label}
-                        </span>
-                        <span className="os-surface-row-description">
-                          {option.description}
-                        </span>
-                      </span>
-                      {isSelected && isPreviewingLayout && !isSaved ? (
-                        <span className="os-surface-row-badge">Preview</span>
-                      ) : isSaved ? (
-                        <span className="os-surface-row-badge">Saved</span>
-                      ) : isSelected ? (
-                        <span className="os-surface-row-badge">Active</span>
-                      ) : null}
-                    </button>
-                  );
-                })}
-              </div>
+                </span>
+                <input
+                  type="range"
+                  className="customize-hue-slider"
+                  min={0}
+                  max={359}
+                  step={1}
+                  value={draftSignatureHue}
+                  disabled={isApplying}
+                  aria-valuetext={`${Math.round(draftSignatureHue)} degrees`}
+                  onChange={(event) =>
+                    handleSignatureHueInput(Number(event.target.value))
+                  }
+                  onPointerUp={() => void handleSignatureHueCommit()}
+                  onKeyUp={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      void handleSignatureHueCommit();
+                    }
+                  }}
+                />
+                <span className="customize-hue-value">
+                  {Math.round(draftSignatureHue)}°
+                </span>
+              </label>
             </div>
+          </>
+        ) : null}
 
-            <div className="customize-sheet-section">
-              <p className="customize-sheet-label">Hero source</p>
-              {isCoverLayout ? (
-                <p className="customize-sheet-copy">
-                  Cover layout always uses your avatar as the hero.
-                </p>
-              ) : (
-                <div className="os-surface-row-list">
-                    {HERO_SOURCE_OPTIONS.map((option) => {
-                      const isSelected = option.id === effectiveHeroSource;
-                      const isSaved = option.id === committedHeroSource;
+        <Divider variant="section" className="customize-sheet-divider" />
+        <div className="customize-sheet-section">
+          <p className="customize-sheet-label">Layout</p>
+          <div className="os-surface-row-list">
+            {AVATAR_OPTIONS.map((option) => {
+              const isSelected = option.id === effectiveAvatarMode;
+              const isSaved = option.id === committedAvatarMode;
 
-                      return (
-                        <button
-                          key={option.id}
-                          type="button"
-                          className={`os-surface-row${isSelected ? ' is-active' : ''}`}
-                          disabled={isApplying}
-                          aria-current={isSelected ? 'true' : undefined}
-                          onClick={() => handleHeroSourcePreview(option.id)}
-                        >
-                          <span className="os-surface-row-copy">
-                            <span className="os-surface-row-label">
-                              {option.label}
-                            </span>
-                            <span className="os-surface-row-description">
-                              {option.description}
-                            </span>
-                          </span>
-                          {isSelected && isPreviewingHeroSource && !isSaved ? (
-                            <span className="os-surface-row-badge">Preview</span>
-                          ) : isSaved ? (
-                            <span className="os-surface-row-badge">Saved</span>
-                          ) : isSelected ? (
-                            <span className="os-surface-row-badge">Active</span>
-                          ) : null}
-                        </button>
-                      );
-                    })}
-                </div>
-              )}
-            </div>
-
-            <div className="customize-sheet-section">
-              <p className="customize-sheet-label">Profile media</p>
-              <p className="customize-sheet-copy">
-                Uploaded via OnSocial storage to your profile. Card layout uses
-                banner; cover layout uses avatar by default.
-              </p>
-              <div className="profile-editor-media-compact-row">
-                <div
-                  className={`profile-editor-media-host profile-editor-media-host--compact-avatar profile-editor-media-host--circle${avatarUrl ? ' has-media' : ''}`}
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  className={`os-surface-row${isSelected ? ' is-active' : ''}`}
+                  disabled={isApplying}
+                  aria-current={isSelected ? 'true' : undefined}
+                  onClick={() => handlePreview(option.id)}
                 >
+                  <span className="os-surface-row-copy">
+                    <span className="os-surface-row-label">{option.label}</span>
+                    <span className="os-surface-row-description">
+                      {option.description}
+                    </span>
+                  </span>
+                  {isSelected && isPreviewingLayout && !isSaved ? (
+                    <span className="os-surface-row-badge">Preview</span>
+                  ) : isSaved ? (
+                    <span className="os-surface-row-badge">Saved</span>
+                  ) : isSelected ? (
+                    <span className="os-surface-row-badge">Active</span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <Divider variant="section" className="customize-sheet-divider" />
+        <div className="customize-sheet-section">
+          <p className="customize-sheet-label">Hero source</p>
+          {isCoverLayout ? (
+            <p className="customize-sheet-copy">
+              Cover layout always uses your avatar as the hero.
+            </p>
+          ) : (
+            <div className="os-surface-row-list">
+              {HERO_SOURCE_OPTIONS.map((option) => {
+                const isSelected = option.id === effectiveHeroSource;
+                const isSaved = option.id === committedHeroSource;
+
+                return (
                   <button
+                    key={option.id}
                     type="button"
-                    className="profile-editor-media-backdrop"
+                    className={`os-surface-row${isSelected ? ' is-active' : ''}`}
                     disabled={isApplying}
-                    aria-label="Upload avatar"
-                    onClick={() => avatarInputRef.current?.click()}
+                    aria-current={isSelected ? 'true' : undefined}
+                    onClick={() => handleHeroSourcePreview(option.id)}
                   >
-                    {avatarUrl ? (
-                      <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <span className="profile-editor-media-empty-fill" aria-hidden />
-                    )}
-                    <span
-                      className={`profile-editor-media-overlay${avatarUrl ? ' has-media' : ''}`}
+                    <span className="os-surface-row-copy">
+                      <span className="os-surface-row-label">
+                        {option.label}
+                      </span>
+                      <span className="os-surface-row-description">
+                        {option.description}
+                      </span>
+                    </span>
+                    {isSelected && isPreviewingHeroSource && !isSaved ? (
+                      <span className="os-surface-row-badge">Preview</span>
+                    ) : isSaved ? (
+                      <span className="os-surface-row-badge">Saved</span>
+                    ) : isSelected ? (
+                      <span className="os-surface-row-badge">Active</span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <Divider variant="section" className="customize-sheet-divider" />
+        <div className="customize-sheet-section">
+          <p className="customize-sheet-label">Profile media</p>
+          <p className="customize-sheet-copy">
+            Update the avatar and banner used across layouts.
+          </p>
+          <div className="profile-editor-media-compact-row">
+            <div
+              className={`profile-editor-media-host profile-editor-media-host--compact-avatar profile-editor-media-host--circle${avatarUrl ? ' has-media' : ''}`}
+            >
+              <button
+                type="button"
+                className="profile-editor-media-backdrop"
+                disabled={isApplying}
+                aria-label="Upload avatar"
+                onClick={() => avatarInputRef.current?.click()}
+              >
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span
+                    className="profile-editor-media-empty-fill"
+                    aria-hidden
+                  />
+                )}
+                <span
+                  className={`profile-editor-media-overlay${avatarUrl ? ' has-media' : ''}`}
+                  aria-hidden
+                />
+              </button>
+              <ProfileEditorMediaToolbar
+                layout="avatar"
+                removeLabel={avatarUrl ? 'Remove avatar' : undefined}
+                onRemove={
+                  avatarUrl ? () => void handleAvatarRemove() : undefined
+                }
+              />
+            </div>
+            <div className="profile-editor-media-compact-copy">
+              <p className="profile-editor-media-compact-label">Avatar</p>
+              <p className="profile-editor-media-compact-hint">
+                512&times;512 recommended.
+              </p>
+              <div
+                className={`profile-editor-media-host profile-editor-media-host--compact-banner${bannerUrl ? ' has-media' : ''}`}
+              >
+                <button
+                  type="button"
+                  className="profile-editor-media-backdrop"
+                  disabled={isApplying}
+                  aria-label="Upload banner"
+                  onClick={() => bannerInputRef.current?.click()}
+                >
+                  {bannerUrl && bannerKind === 'video' ? (
+                    <video
+                      src={bannerUrl}
+                      className="h-full w-full object-cover"
+                      muted
+                      loop
+                      playsInline
+                      autoPlay
                       aria-hidden
                     />
-                  </button>
-                  <ProfileEditorMediaToolbar
-                    layout="avatar"
-                    removeLabel={avatarUrl ? 'Remove avatar' : undefined}
-                    onRemove={avatarUrl ? () => void handleAvatarRemove() : undefined}
-                  />
-                </div>
-                <div className="profile-editor-media-compact-copy">
-                  <p className="profile-editor-media-compact-label">Avatar</p>
-                  <p className="profile-editor-media-compact-hint">512&times;512 recommended.</p>
-                  <div
-                    className={`profile-editor-media-host profile-editor-media-host--compact-banner${bannerUrl ? ' has-media' : ''}`}
-                  >
-                    <button
-                      type="button"
-                      className="profile-editor-media-backdrop"
-                      disabled={isApplying}
-                      aria-label="Upload banner"
-                      onClick={() => bannerInputRef.current?.click()}
-                    >
-                      {bannerUrl ? (
-                        <img src={bannerUrl} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        <span className="profile-editor-media-empty-fill" aria-hidden />
-                      )}
-                      <span
-                        className={`profile-editor-media-overlay${bannerUrl ? ' has-media' : ''}`}
-                        aria-hidden
-                      />
-                    </button>
-                    <ProfileEditorMediaToolbar
-                      layout="banner"
-                      removeLabel={bannerUrl ? 'Remove banner' : undefined}
-                      onRemove={bannerUrl ? () => void handleBannerRemove() : undefined}
+                  ) : bannerUrl ? (
+                    <img
+                      src={bannerUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
                     />
-                  </div>
-                  <p className="profile-editor-media-compact-hint">
-                    1500&times;300 or short hero video.
-                  </p>
-                </div>
+                  ) : (
+                    <span
+                      className="profile-editor-media-empty-fill"
+                      aria-hidden
+                    />
+                  )}
+                  <span
+                    className={`profile-editor-media-overlay${bannerUrl ? ' has-media' : ''}`}
+                    aria-hidden
+                  />
+                </button>
+                <ProfileEditorMediaToolbar
+                  layout="banner"
+                  removeLabel={bannerUrl ? 'Remove banner' : undefined}
+                  onRemove={
+                    bannerUrl ? () => void handleBannerRemove() : undefined
+                  }
+                />
               </div>
-              <input
-                ref={avatarInputRef}
-                type="file"
-                accept="image/*"
-                className="customize-media-input"
-                disabled={isApplying}
-                onChange={(event) => {
-                  const file = event.target.files?.[0] ?? null;
-                  void handleAvatarUpload(file);
-                  event.target.value = '';
-                }}
-              />
-              <input
-                ref={bannerInputRef}
-                type="file"
-                accept="image/*,video/mp4,video/webm"
-                className="customize-media-input"
-                disabled={isApplying}
-                onChange={(event) => {
-                  const file = event.target.files?.[0] ?? null;
-                  void handleBannerUpload(file);
-                  event.target.value = '';
-                }}
-              />
+              <p className="profile-editor-media-compact-hint">
+                1500&times;300 image or short MP4/WebM video.
+              </p>
             </div>
+          </div>
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/*"
+            className="customize-media-input"
+            disabled={isApplying}
+            onChange={(event) => {
+              const file = event.target.files?.[0] ?? null;
+              void handleAvatarUpload(file);
+              event.target.value = '';
+            }}
+          />
+          <input
+            ref={bannerInputRef}
+            type="file"
+            accept="image/*,video/mp4,video/webm"
+            className="customize-media-input"
+            disabled={isApplying}
+            onChange={(event) => {
+              const file = event.target.files?.[0] ?? null;
+              void handleBannerUpload(file);
+              event.target.value = '';
+            }}
+          />
+        </div>
       </GlassSheet>
 
       <MoodSheet

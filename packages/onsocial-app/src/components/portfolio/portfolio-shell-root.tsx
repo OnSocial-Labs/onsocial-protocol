@@ -53,8 +53,11 @@ function PortfolioShellPreviewBridge({
   PortfolioShellRootProps,
   'committedAvatarMode' | 'committedHeroSource' | 'initialAvatarMode'
 >) {
-  const { effectiveAvatarMode, effectiveHeroSource, isPreviewing: isPreviewingFace } =
-    usePortfolioFacePreview();
+  const {
+    effectiveAvatarMode,
+    effectiveHeroSource,
+    isPreviewing: isPreviewingFace,
+  } = usePortfolioFacePreview();
   const { effectiveMood, isPreviewingMood } = usePortfolioMoodPreview();
   const isPreviewing = isPreviewingFace || isPreviewingMood;
   const previewConfig = {
@@ -85,7 +88,10 @@ function PortfolioShellPreviewBridge({
       >
         {children}
       </PortfolioShell>
-      <ViewerWalletMoodSync pageAccountId={pageAccountId} mood={effectiveMood} />
+      <ViewerWalletMoodSync
+        pageAccountId={pageAccountId}
+        mood={effectiveMood}
+      />
       <div
         className="portfolio-os-layer"
         data-mood={effectiveMood.id}
@@ -104,6 +110,7 @@ function PortfolioShellPreviewBridge({
           mood={committedMood}
           avatarUrl={avatarMedia?.url ?? null}
           bannerUrl={bannerMedia?.url ?? null}
+          bannerKind={bannerMedia?.kind ?? null}
         />
         <PortfolioPageDock pageAccountId={pageAccountId} />
         <PageContentDrawer
@@ -114,8 +121,14 @@ function PortfolioShellPreviewBridge({
           config={config}
           stats={stats}
         />
-        <PortfolioFacePreviewBar pageAccountId={pageAccountId} config={config} />
-        <PortfolioMoodPreviewBar pageAccountId={pageAccountId} config={config} />
+        <PortfolioFacePreviewBar
+          pageAccountId={pageAccountId}
+          config={config}
+        />
+        <PortfolioMoodPreviewBar
+          pageAccountId={pageAccountId}
+          config={config}
+        />
       </div>
     </>
   );

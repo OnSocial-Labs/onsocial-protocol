@@ -13,7 +13,12 @@ import {
 } from '@onsocial/ui';
 import { useApplyPageFace } from '@/hooks/use-apply-page-face';
 import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-context';
-import type { PageAvatarMode, PageHeroSource, PublicPageConfig } from '@/lib/page-data';
+import { usePortfolioCustomize } from '@/contexts/portfolio-customize-context';
+import type {
+  PageAvatarMode,
+  PageHeroSource,
+  PublicPageConfig,
+} from '@/lib/page-data';
 
 const SAVED_DISMISS_MS = 900;
 
@@ -93,6 +98,7 @@ export function PortfolioFacePreviewBar({
     pageAccountId,
     config
   );
+  const customize = usePortfolioCustomize();
   const [saved, setSaved] = useState(false);
   const [farewellSnapshot, setFarewellSnapshot] =
     useState<PreviewBarSnapshot | null>(null);
@@ -138,6 +144,13 @@ export function PortfolioFacePreviewBar({
       ? 'Previewing layout'
       : 'Previewing';
 
+  function handleDiscard() {
+    discardPreview();
+    window.setTimeout(() => {
+      customize?.openCustomize();
+    }, 0);
+  }
+
   async function handleSave() {
     const patch: {
       avatarMode?: PageAvatarMode;
@@ -179,11 +192,7 @@ export function PortfolioFacePreviewBar({
       </p>
       <OsSheetActions layout="row-compact" tone="frosted-primary" borderless>
         {!actionsBusy ? (
-          <OsSheetAction
-            type="button"
-            variant="danger"
-            onClick={discardPreview}
-          >
+          <OsSheetAction type="button" variant="danger" onClick={handleDiscard}>
             Discard
           </OsSheetAction>
         ) : null}

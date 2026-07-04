@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
       bio: shell?.bio ?? '',
       avatarUrl: shell?.avatarUrl ?? null,
       bannerUrl: shell?.bannerUrl ?? null,
+      bannerMedia: shell?.bannerMedia ?? null,
       links: shell?.links ?? null,
       tags: shell?.tags ?? [],
     });

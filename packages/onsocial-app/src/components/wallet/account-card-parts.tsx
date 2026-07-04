@@ -88,14 +88,24 @@ export function AccountClaimMetricRow({
       <div className="account-wallet-metric-row">
         {rewardsLoading ? (
           <>
-            <span className="account-wallet-metric-label">{APP_ACTIVITY_METRIC_LABEL}</span>
-            <span className="account-wallet-progress-track is-loading" aria-hidden />
+            <span className="account-wallet-metric-label">
+              {APP_ACTIVITY_METRIC_LABEL}
+            </span>
+            <span
+              className="account-wallet-progress-track is-loading"
+              aria-hidden
+            />
             <span className="account-wallet-ratio is-loading" aria-hidden />
-            <span className="account-wallet-metric-action is-loading" aria-hidden />
+            <span
+              className="account-wallet-metric-action is-loading"
+              aria-hidden
+            />
           </>
         ) : (
           <>
-            <span className="account-wallet-metric-label">{APP_ACTIVITY_METRIC_LABEL}</span>
+            <span className="account-wallet-metric-label">
+              {APP_ACTIVITY_METRIC_LABEL}
+            </span>
             <div
               className="account-wallet-progress-slot"
               role="progressbar"
@@ -244,13 +254,16 @@ export function AccountWalletZone({
     >
       <div className="account-wallet-balance-row">
         <div className="account-card-balance-copy" aria-live="polite">
-          <span
-            className={`account-card-balance-value${showWalletLoading ? ' is-loading' : ''}`}
-            aria-hidden={showWalletLoading}
-          >
-            {showWalletLoading ? '0' : walletLabel}
+          <span className="account-card-balance-kicker">Wallet</span>
+          <span className="account-card-balance-line">
+            <span
+              className={`account-card-balance-value${showWalletLoading ? ' is-loading' : ''}`}
+              aria-hidden={showWalletLoading}
+            >
+              {showWalletLoading ? '0' : walletLabel}
+            </span>
+            <span className="account-card-balance-unit">SOCIAL</span>
           </span>
-          <span className="account-card-balance-unit">SOCIAL</span>
         </div>
 
         <div className="account-wallet-balance-accessories">
@@ -261,20 +274,23 @@ export function AccountWalletZone({
               onClick={onOpenRewardsRules}
               aria-label={APP_SOCIAL_HELP_TITLE}
             >
-              <CircleHelp aria-hidden className="account-wallet-accessory-icon" />
+              <CircleHelp
+                aria-hidden
+                className="account-wallet-accessory-icon"
+              />
             </button>
           ) : null}
           {canClaim ? (
-            <span className="account-wallet-earning-ready">{APP_COLLECT_READY_BADGE}</span>
+            <span className="account-wallet-earning-ready">
+              {APP_COLLECT_READY_BADGE}
+            </span>
           ) : null}
         </div>
       </div>
 
       <AccountClaimMetricRow showCaption={!hintLine} />
 
-      {hintLine ? (
-        <p className="account-wallet-caption">{hintLine}</p>
-      ) : null}
+      {hintLine ? <p className="account-wallet-caption">{hintLine}</p> : null}
 
       {onOpenStorage ? (
         <>
@@ -382,7 +398,11 @@ export function AccountShortcutDock({
         onClick={onClose}
         aria-label="Discover profiles"
       >
-        <Search aria-hidden className="account-shortcut-dock-icon" strokeWidth={1.75} />
+        <Search
+          aria-hidden
+          className="account-shortcut-dock-icon"
+          strokeWidth={1.75}
+        />
       </Link>
       <a
         className="os-surface-tile account-shortcut-dock-button"
@@ -392,7 +412,11 @@ export function AccountShortcutDock({
         onClick={onClose}
         aria-label="View on explorer"
       >
-        <ExternalLink aria-hidden className="account-shortcut-dock-icon" strokeWidth={1.75} />
+        <ExternalLink
+          aria-hidden
+          className="account-shortcut-dock-icon"
+          strokeWidth={1.75}
+        />
       </a>
       <button
         type="button"
@@ -451,7 +475,10 @@ export function AccountActionList({
   ];
 
   return (
-    <nav className="os-surface-row-list account-action-list" aria-label="Account actions">
+    <nav
+      className="os-surface-row-list account-action-list"
+      aria-label="Account actions"
+    >
       {rows.map((row) => (
         <AccountActionRow key={row.label} {...row} />
       ))}

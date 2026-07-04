@@ -21,9 +21,12 @@ interface PortfolioMoodPreviewContextValue {
   isPreviewingMood: boolean;
   setPreviewMood: (moodId: PageMoodId) => void;
   discardMoodPreview: () => void;
+  registerMoodSheetOpen: (open: () => void) => void;
+  unregisterMoodSheetOpen: () => void;
   registerMoodSheetClose: (close: () => void) => void;
   unregisterMoodSheetClose: () => void;
   requestCloseMoodSheet: () => void;
+  requestOpenMoodSheet: () => void;
 }
 
 const PortfolioMoodPreviewContext =
@@ -42,6 +45,7 @@ export function PortfolioMoodPreviewProvider({
 }: PortfolioMoodPreviewProviderProps) {
   const [previewMoodId, setPreviewMoodId] = useState<PageMoodId | null>(null);
   const closeMoodSheetRef = useRef<(() => void) | null>(null);
+  const openMoodSheetRef = useRef<(() => void) | null>(null);
 
   const committedMoodId = String(committedMood.id);
 
@@ -66,6 +70,14 @@ export function PortfolioMoodPreviewProvider({
     [committedMoodId]
   );
 
+  const registerMoodSheetOpen = useCallback((open: () => void) => {
+    openMoodSheetRef.current = open;
+  }, []);
+
+  const unregisterMoodSheetOpen = useCallback(() => {
+    openMoodSheetRef.current = null;
+  }, []);
+
   const registerMoodSheetClose = useCallback((close: () => void) => {
     closeMoodSheetRef.current = close;
   }, []);
@@ -76,6 +88,10 @@ export function PortfolioMoodPreviewProvider({
 
   const requestCloseMoodSheet = useCallback(() => {
     closeMoodSheetRef.current?.();
+  }, []);
+
+  const requestOpenMoodSheet = useCallback(() => {
+    openMoodSheetRef.current?.();
   }, []);
 
   const value = useMemo<PortfolioMoodPreviewContextValue>(() => {
@@ -91,18 +107,24 @@ export function PortfolioMoodPreviewProvider({
       isPreviewingMood,
       setPreviewMood,
       discardMoodPreview,
+      registerMoodSheetOpen,
+      unregisterMoodSheetOpen,
       registerMoodSheetClose,
       unregisterMoodSheetClose,
       requestCloseMoodSheet,
+      requestOpenMoodSheet,
     };
   }, [
     activePreview,
     committedMood,
     config,
     discardMoodPreview,
+    registerMoodSheetOpen,
     registerMoodSheetClose,
     requestCloseMoodSheet,
+    requestOpenMoodSheet,
     setPreviewMood,
+    unregisterMoodSheetOpen,
     unregisterMoodSheetClose,
   ]);
 
