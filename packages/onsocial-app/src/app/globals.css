@@ -5765,25 +5765,40 @@ a.os-surface-row {
     outline: none;
   }
 
-  .page-drawer-guild-list {
+  .page-drawer-guild-rail {
     display: grid;
-    gap: 0.45rem;
+    grid-auto-columns: minmax(12.4rem, 72%);
+    grid-auto-flow: column;
+    gap: 0.65rem;
+    margin-inline: -0.1rem;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    padding: 0.05rem 0.1rem 0.55rem;
+    scroll-padding-inline: 0.1rem;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+
+  .page-drawer-guild-rail::-webkit-scrollbar {
+    display: none;
   }
 
   .page-drawer-guild-link {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 0.65rem;
-    align-items: center;
+    min-height: 9.25rem;
+    grid-template-rows: auto 1fr;
+    gap: 0.5rem;
     border: 1px solid rgb(var(--fg-rgb) / 0.08);
-    border-radius: 0.95rem;
+    border-radius: 1.05rem;
     background: rgb(var(--fg-rgb) / 0.035);
     color: inherit;
-    padding: 0.64rem 0.7rem;
+    padding: 0.55rem;
+    scroll-snap-align: start;
     text-decoration: none;
     transition:
       background 160ms ease,
-      border-color 160ms ease;
+      border-color 160ms ease,
+      transform 160ms ease;
   }
 
   .page-drawer-guild-link:hover,
@@ -5791,16 +5806,59 @@ a.os-surface-row {
     border-color: rgb(var(--fg-rgb) / 0.16);
     background: rgb(var(--fg-rgb) / 0.06);
     outline: none;
+    transform: translateY(-1px);
+  }
+
+  .page-drawer-guild-banner {
+    position: relative;
+    display: block;
+    min-height: 3.45rem;
+    overflow: hidden;
+    border-radius: 0.82rem;
+    background:
+      radial-gradient(
+        circle at 18% 18%,
+        rgb(125 211 252 / 0.55),
+        transparent 34%
+      ),
+      radial-gradient(
+        circle at 82% 8%,
+        rgb(168 85 247 / 0.35),
+        transparent 42%
+      ),
+      linear-gradient(135deg, rgb(59 130 246 / 0.32), rgb(var(--fg-rgb) / 0.06));
+  }
+
+  .page-drawer-guild-banner::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(180deg, rgb(255 255 255 / 0.18), transparent 54%),
+      radial-gradient(circle at 50% 120%, rgb(0 0 0 / 0.18), transparent 56%);
+    pointer-events: none;
+  }
+
+  .page-drawer-guild-banner-image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
 
   .page-drawer-guild-avatar {
+    position: absolute;
+    left: 0.58rem;
+    bottom: -0.58rem;
+    z-index: 1;
     display: grid;
-    width: 2.25rem;
-    height: 2.25rem;
+    width: 2.45rem;
+    height: 2.45rem;
     place-items: center;
     overflow: hidden;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    border-radius: 0.72rem;
+    border: 2px solid rgb(var(--bg-rgb) / 0.9);
+    border-radius: 0.78rem;
     background:
       radial-gradient(
         circle at 30% 20%,
@@ -5824,6 +5882,7 @@ a.os-surface-row {
     display: grid;
     min-width: 0;
     gap: 0.12rem;
+    padding: 0.25rem 0.1rem 0.08rem;
   }
 
   .page-drawer-guild-name {
@@ -5848,6 +5907,12 @@ a.os-surface-row {
   .page-drawer-guild-meta {
     font-size: 0.72rem;
     color: rgb(var(--fg-rgb) / 0.5);
+  }
+
+  @media (min-width: 640px) {
+    .page-drawer-guild-rail {
+      grid-auto-columns: minmax(13.5rem, 58%);
+    }
   }
 
   /* ── Standing sheet (fixed toolbar + scrollable list) ─── */

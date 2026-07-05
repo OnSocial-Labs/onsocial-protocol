@@ -7,6 +7,7 @@ export interface ProfileGuildSummary {
   name: string;
   description: string | null;
   avatarUrl: string | null;
+  bannerUrl: string | null;
   accessGated: boolean;
   memberDriven: boolean;
   role: 'Owner' | 'Admin' | 'Moderator' | 'Member';
@@ -40,6 +41,9 @@ export const fetchProfileGuilds = cache(
         description: readString(row.groupDescription),
         avatarUrl: row.groupAvatarCid
           ? resolveProfileMediaUrl(`ipfs://${row.groupAvatarCid}`)
+          : null,
+        bannerUrl: row.groupBannerCid
+          ? resolveProfileMediaUrl(`ipfs://${row.groupBannerCid}`)
           : null,
         accessGated: row.isPublic === false,
         memberDriven: row.isMemberDriven,

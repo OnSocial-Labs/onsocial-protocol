@@ -230,6 +230,10 @@ SELECT DISTINCT ON (group_id)
     WHEN extra_data ~ '^[\{]' THEN NULLIF(extra_data::jsonb #>> '{avatar,cid}', '')
     ELSE NULL
   END                          AS group_avatar_cid,
+  CASE
+    WHEN extra_data ~ '^[\{]' THEN NULLIF(extra_data::jsonb #>> '{x,onsocial,banner,cid}', '')
+    ELSE NULL
+  END                          AS group_banner_cid,
   is_public,
   CASE
     WHEN extra_data ~ '^[\{]' THEN COALESCE(
@@ -319,6 +323,7 @@ SELECT
   groups_current.group_name,
   groups_current.group_description,
   groups_current.group_avatar_cid,
+  groups_current.group_banner_cid,
   groups_current.is_public,
   groups_current.is_member_driven,
   latest.block_height,

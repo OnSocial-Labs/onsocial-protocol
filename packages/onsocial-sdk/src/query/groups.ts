@@ -29,6 +29,7 @@ export interface GroupMembershipCurrentRow {
   groupName: string | null;
   groupDescription: string | null;
   groupAvatarCid: string | null;
+  groupBannerCid: string | null;
   isPublic: boolean | null;
   isMemberDriven: boolean;
   blockHeight: number;
@@ -72,6 +73,7 @@ export class GroupsQuery {
           groupName
           groupDescription
           groupAvatarCid
+          groupBannerCid
           isPublic
           isMemberDriven
           blockHeight

@@ -35,6 +35,14 @@ function sectionEmptyCopy(section: PageSection): string {
   }
 }
 
+function sectionIntroCopy(section: PageSection, guildCount: number): string {
+  if (section === 'groups' && guildCount > 0) {
+    return 'Guilds you belong to.';
+  }
+
+  return sectionEmptyCopy(section);
+}
+
 function guildInitials(name: string): string {
   return name
     .split(/[\s._-]+/)
@@ -67,22 +75,31 @@ export function PageContentSections({
                 ) : null}
               </header>
               <p className="page-drawer-section-empty">
-                {sectionEmptyCopy(section)}
+                {sectionIntroCopy(section, guilds.length)}
               </p>
               {section === 'groups' && guilds.length > 0 ? (
-                <div className="page-drawer-guild-list">
+                <div className="page-drawer-guild-rail" aria-label="My guilds">
                   {guilds.map((guild) => (
                     <Link
                       key={guild.groupId}
                       className="page-drawer-guild-link"
                       href={guildPath(guild.groupId)}
                     >
-                      <span className="page-drawer-guild-avatar" aria-hidden>
-                        {guild.avatarUrl ? (
-                          <img src={guild.avatarUrl} alt="" />
-                        ) : (
-                          <span>{guildInitials(guild.name) || 'G'}</span>
-                        )}
+                      <span className="page-drawer-guild-banner" aria-hidden>
+                        {guild.bannerUrl ? (
+                          <img
+                            className="page-drawer-guild-banner-image"
+                            src={guild.bannerUrl}
+                            alt=""
+                          />
+                        ) : null}
+                        <span className="page-drawer-guild-avatar">
+                          {guild.avatarUrl ? (
+                            <img src={guild.avatarUrl} alt="" />
+                          ) : (
+                            <span>{guildInitials(guild.name) || 'G'}</span>
+                          )}
+                        </span>
                       </span>
                       <span className="page-drawer-guild-body">
                         <span className="page-drawer-guild-name">
