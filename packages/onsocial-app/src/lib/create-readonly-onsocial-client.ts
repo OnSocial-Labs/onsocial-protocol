@@ -1,9 +1,10 @@
 import { OnSocial } from '@onsocial/sdk';
-import { ACTIVE_API_URL, ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
+import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
+import { BROWSER_GATEWAY_PROXY } from '@/lib/app-gateway-url';
 
 export function createReadOnlyOnSocialClient(): OnSocial {
   return new OnSocial({
     network: ACTIVE_NEAR_NETWORK,
-    gatewayUrl: ACTIVE_API_URL,
+    gatewayUrl: BROWSER_GATEWAY_PROXY,
   });
 }

@@ -105,6 +105,39 @@ echo ">>> Validating Substreams SQL with ${POSTGRES_IMAGE}"
           exit 1
         fi
       done
+
+      validate_guild_view_columns "$db"
+    }
+
+    validate_guild_view_columns() {
+      db="$1"
+      groups_columns="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT string_agg(column_name, '"'"','"'"' ORDER BY ordinal_position)
+        FROM information_schema.columns
+        WHERE table_schema = '"'"'public'"'"'
+          AND table_name = '"'"'groups_current'"'"';
+      ")"
+      expected_groups_columns="group_id,owner_id,group_name,is_public,creator_role,storage_allocation,block_height,block_timestamp,operation,group_description,group_avatar_cid,group_banner_cid,is_member_driven"
+      if [ "$groups_columns" != "$expected_groups_columns" ]; then
+        echo "error: unexpected groups_current column order in $db" >&2
+        echo "  expected: $expected_groups_columns" >&2
+        echo "  actual:   ${groups_columns:-missing}" >&2
+        exit 1
+      fi
+
+      members_columns="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT string_agg(column_name, '"'"','"'"' ORDER BY ordinal_position)
+        FROM information_schema.columns
+        WHERE table_schema = '"'"'public'"'"'
+          AND table_name = '"'"'group_members_current'"'"';
+      ")"
+      expected_members_columns="group_id,member_id,role,level,is_owner,is_admin,can_moderate,group_name,is_public,block_height,block_timestamp,group_description,group_avatar_cid,group_banner_cid,is_member_driven"
+      if [ "$members_columns" != "$expected_members_columns" ]; then
+        echo "error: unexpected group_members_current column order in $db" >&2
+        echo "  expected: $expected_members_columns" >&2
+        echo "  actual:   ${members_columns:-missing}" >&2
+        exit 1
+      fi
     }
 
     validate_reputation_view_upgrade() {
@@ -141,6 +174,43 @@ SELECT
 WHERE false;
 SQLEOF
       apply_sql "$db" /work/leaderboard_schema_views.sql
+      validate_expected_objects "$db"
+    }
+
+    validate_guild_view_upgrade() {
+      db="$1"
+      echo ">>> Guild view upgrade (append-only columns)"
+      psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 <<SQLEOF >/dev/null
+DROP VIEW IF EXISTS group_members_current;
+DROP VIEW IF EXISTS groups_current;
+CREATE VIEW groups_current AS
+SELECT
+  NULL::text AS group_id,
+  NULL::text AS owner_id,
+  NULL::text AS group_name,
+  NULL::boolean AS is_public,
+  NULL::text AS creator_role,
+  NULL::text AS storage_allocation,
+  NULL::bigint AS block_height,
+  NULL::bigint AS block_timestamp,
+  NULL::text AS operation
+WHERE false;
+CREATE VIEW group_members_current AS
+SELECT
+  NULL::text AS group_id,
+  NULL::text AS member_id,
+  NULL::text AS role,
+  NULL::integer AS level,
+  NULL::boolean AS is_owner,
+  NULL::boolean AS is_admin,
+  NULL::boolean AS can_moderate,
+  NULL::text AS group_name,
+  NULL::boolean AS is_public,
+  NULL::bigint AS block_height,
+  NULL::bigint AS block_timestamp
+WHERE false;
+SQLEOF
+      apply_sql "$db" /work/core_schema_views.sql
       validate_expected_objects "$db"
     }
 
@@ -231,6 +301,7 @@ SQLEOF
     apply_views combined_validate
     validate_expected_objects combined_validate
     validate_reputation_view_upgrade combined_validate
+    validate_guild_view_upgrade combined_validate
 
     echo ">>> Standalone package schemas"
     createdb -h /tmp standalone_validate
@@ -243,6 +314,7 @@ SQLEOF
     apply_migrations standalone_validate
     apply_views standalone_validate
     validate_expected_objects standalone_validate
+    validate_guild_view_upgrade standalone_validate
     validate_notifications_schema standalone_validate
   '
 

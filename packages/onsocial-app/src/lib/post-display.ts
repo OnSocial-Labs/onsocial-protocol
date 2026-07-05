@@ -24,13 +24,30 @@ export function parsePostText(value: string): string {
 }
 
 export function formatPostTimestamp(blockTimestamp: number): string {
-  const ms = blockTimestamp > 1_000_000_000_000 ? blockTimestamp : blockTimestamp * 1000;
+  const date = resolvePostDate(blockTimestamp);
+  if (!date) return 'Unknown time';
+
   return new Intl.DateTimeFormat(undefined, {
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
-  }).format(new Date(ms));
+  }).format(date);
+}
+
+export function resolvePostDate(blockTimestamp: number): Date | null {
+  if (!Number.isFinite(blockTimestamp) || blockTimestamp <= 0) {
+    return null;
+  }
+
+  const ms =
+    blockTimestamp > 1_000_000_000_000 ? blockTimestamp : blockTimestamp * 1000;
+  const date = new Date(ms);
+  return Number.isFinite(date.getTime()) ? date : null;
+}
+
+export function postTimestampIso(blockTimestamp: number): string | undefined {
+  return resolvePostDate(blockTimestamp)?.toISOString();
 }
 
 export function postKey(post: PostRow): string {

@@ -20,6 +20,14 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
   { method: 'POST', path: 'relay/delegate', body: 'json' },
   { method: 'GET', path: 'data/get-one', body: 'none' },
   { method: 'GET', path: 'data/get', body: 'none' },
+  // Live guild page reads.
+  { method: 'GET', path: 'data/group-config', body: 'none' },
+  { method: 'GET', path: 'data/group-stats', body: 'none' },
+  { method: 'GET', path: 'data/group-is-member', body: 'none' },
+  { method: 'GET', path: 'data/group-is-owner', body: 'none' },
+  { method: 'GET', path: 'data/group-join-request', body: 'none' },
+  { method: 'GET', path: 'data/has-group-admin', body: 'none' },
+  { method: 'GET', path: 'data/has-group-moderate', body: 'none' },
   // SOCIAL wallet balance — premium mood unlock preflight.
   { method: 'GET', path: 'data/ft-balance-of', body: 'none' },
   // Wallet storage buffer + personal storage reads.

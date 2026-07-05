@@ -7,6 +7,7 @@ import {
   formatPostTimestamp,
   parsePostText,
   postKey,
+  postTimestampIso,
 } from '@/lib/post-display';
 import { fallbackLabel } from '@/lib/profile-display';
 
@@ -17,6 +18,7 @@ interface PostCardProps {
 export function PostCard({ post }: PostCardProps) {
   const text = parsePostText(post.value);
   const label = fallbackLabel(post.accountId);
+  const timestampIso = postTimestampIso(post.blockTimestamp);
 
   return (
     <article className="post-card animate-rise-in">
@@ -26,7 +28,7 @@ export function PostCard({ post }: PostCardProps) {
         </Link>
         <time
           className="post-card-time"
-          dateTime={new Date(post.blockTimestamp * 1000).toISOString()}
+          {...(timestampIso ? { dateTime: timestampIso } : {})}
         >
           {formatPostTimestamp(post.blockTimestamp)}
         </time>
