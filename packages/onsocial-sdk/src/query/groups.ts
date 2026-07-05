@@ -27,7 +27,10 @@ export interface GroupMembershipCurrentRow {
   isAdmin: boolean;
   canModerate: boolean;
   groupName: string | null;
+  groupDescription: string | null;
+  groupAvatarCid: string | null;
   isPublic: boolean | null;
+  isMemberDriven: boolean;
   blockHeight: number;
   blockTimestamp: number;
 }
@@ -67,7 +70,10 @@ export class GroupsQuery {
           isAdmin
           canModerate
           groupName
+          groupDescription
+          groupAvatarCid
           isPublic
+          isMemberDriven
           blockHeight
           blockTimestamp
         }

@@ -1,9 +1,12 @@
 import { cache } from 'react';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
+import { resolveProfileMediaUrl } from '@/lib/profile-display';
 
 export interface ProfileGuildSummary {
   groupId: string;
   name: string;
+  description: string | null;
+  avatarUrl: string | null;
   accessGated: boolean;
   memberDriven: boolean;
   role: 'Owner' | 'Admin' | 'Moderator' | 'Member';
@@ -34,8 +37,12 @@ export const fetchProfileGuilds = cache(
       return page.items.map((row) => ({
         groupId: row.groupId,
         name: readString(row.groupName) ?? row.groupId,
+        description: readString(row.groupDescription),
+        avatarUrl: row.groupAvatarCid
+          ? resolveProfileMediaUrl(`ipfs://${row.groupAvatarCid}`)
+          : null,
         accessGated: row.isPublic === false,
-        memberDriven: false,
+        memberDriven: row.isMemberDriven,
         role: roleFromMembership(row),
       }));
     } catch {

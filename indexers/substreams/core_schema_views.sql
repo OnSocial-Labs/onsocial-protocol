@@ -219,7 +219,26 @@ SELECT DISTINCT ON (group_id)
   group_id,
   author                       AS owner_id,
   name                         AS group_name,
+  COALESCE(
+    NULLIF(description, ''),
+    CASE
+      WHEN extra_data ~ '^[\{]' THEN NULLIF(extra_data::jsonb ->> 'description', '')
+      ELSE NULL
+    END
+  )                            AS group_description,
+  CASE
+    WHEN extra_data ~ '^[\{]' THEN NULLIF(extra_data::jsonb #>> '{avatar,cid}', '')
+    ELSE NULL
+  END                          AS group_avatar_cid,
   is_public,
+  CASE
+    WHEN extra_data ~ '^[\{]' THEN COALESCE(
+      extra_data::jsonb ->> 'member_driven',
+      extra_data::jsonb ->> 'memberDriven',
+      'false'
+    ) = 'true'
+    ELSE FALSE
+  END                          AS is_member_driven,
   creator_role,
   storage_allocation,
   block_height,
@@ -298,7 +317,10 @@ SELECT
   (latest.is_owner OR latest.level >= 3) AS is_admin,
   (latest.is_owner OR latest.level >= 2) AS can_moderate,
   groups_current.group_name,
+  groups_current.group_description,
+  groups_current.group_avatar_cid,
   groups_current.is_public,
+  groups_current.is_member_driven,
   latest.block_height,
   latest.block_timestamp
 FROM latest

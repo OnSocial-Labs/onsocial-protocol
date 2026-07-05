@@ -35,6 +35,15 @@ function sectionEmptyCopy(section: PageSection): string {
   }
 }
 
+function guildInitials(name: string): string {
+  return name
+    .split(/[\s._-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('');
+}
+
 export function PageContentSections({
   sections,
   stats,
@@ -68,12 +77,27 @@ export function PageContentSections({
                       className="page-drawer-guild-link"
                       href={guildPath(guild.groupId)}
                     >
-                      <span className="page-drawer-guild-name">
-                        {guild.name}
+                      <span className="page-drawer-guild-avatar" aria-hidden>
+                        {guild.avatarUrl ? (
+                          <img src={guild.avatarUrl} alt="" />
+                        ) : (
+                          <span>{guildInitials(guild.name) || 'G'}</span>
+                        )}
                       </span>
-                      <span className="page-drawer-guild-meta">
-                        {guild.role} ·{' '}
-                        {guild.accessGated ? 'Access-gated' : 'Open access'}
+                      <span className="page-drawer-guild-body">
+                        <span className="page-drawer-guild-name">
+                          {guild.name}
+                        </span>
+                        {guild.description ? (
+                          <span className="page-drawer-guild-description">
+                            {guild.description}
+                          </span>
+                        ) : null}
+                        <span className="page-drawer-guild-meta">
+                          {guild.role} ·{' '}
+                          {guild.accessGated ? 'Access-gated' : 'Open access'}
+                          {guild.memberDriven ? ' · Collaborative' : ''}
+                        </span>
                       </span>
                     </Link>
                   ))}

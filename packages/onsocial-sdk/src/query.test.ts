@@ -765,7 +765,10 @@ describe('QueryModule', () => {
               isAdmin: true,
               canModerate: true,
               groupName: 'DAO',
+              groupDescription: 'A guild for builders.',
+              groupAvatarCid: 'bafyGuildAvatar',
               isPublic: true,
+              isMemberDriven: false,
               blockHeight: 9,
               blockTimestamp: 99,
             },
@@ -779,10 +782,14 @@ describe('QueryModule', () => {
       expect(page.items).toHaveLength(1);
       expect(page.items[0].groupId).toBe('dao');
       expect(page.items[0].isOwner).toBe(true);
+      expect(page.items[0].groupDescription).toBe('A guild for builders.');
+      expect(page.items[0].groupAvatarCid).toBe('bafyGuildAvatar');
 
       const body = JSON.parse(fetch.mock.calls[0][1].body);
       expect(body.query).toContain('groupMembersCurrent');
       expect(body.query).toContain('memberId: {_eq: $accountId}');
+      expect(body.query).toContain('groupDescription');
+      expect(body.query).toContain('groupAvatarCid');
       expect(body.variables).toMatchObject({
         accountId: 'alice.near',
         limit: 5,
