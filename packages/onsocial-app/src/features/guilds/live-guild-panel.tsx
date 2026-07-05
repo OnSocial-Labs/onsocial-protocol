@@ -15,6 +15,9 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { PostCard, postKey } from '@/features/home/post-card';
 import {
   collectRelayTxHashes,
+  DEFAULT_GUILD_STRUCTURE,
+  GUILD_PERMISSION_PRESETS,
+  GUILD_STRUCTURE_TEMPLATES,
   guildSectionPath,
 } from '@/features/guilds/guilds-data';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
@@ -115,6 +118,9 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
   });
   const [actionPending, setActionPending] = useState(false);
   const [postText, setPostText] = useState('');
+  const [selectedStructureId, setSelectedStructureId] = useState(
+    DEFAULT_GUILD_STRUCTURE.id
+  );
   const [postPending, setPostPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -188,6 +194,10 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
 
   const memberCount = state.stats?.member_count ?? 0;
   const proposalCount = state.stats?.proposal_count ?? 0;
+  const selectedStructure =
+    GUILD_STRUCTURE_TEMPLATES.find(
+      (structure) => structure.id === selectedStructureId
+    ) ?? DEFAULT_GUILD_STRUCTURE;
   const actionLabel = useMemo(() => {
     if (!isConnected) return 'Connect wallet';
     if (!config) return 'Load guild';
@@ -263,6 +273,9 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
         text,
         access: 'group',
         groupId,
+        channel: selectedStructure.channel,
+        kind: selectedStructure.kind,
+        audiences: [selectedStructure.audience],
         timestamp: Date.now(),
       });
       const confirmed = await trackTransaction({
@@ -285,6 +298,10 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       setPostPending(false);
     }
   };
+
+  const canManageStructure = Boolean(
+    viewer?.isOwner || viewer?.isAdmin || viewer?.canModerate
+  );
 
   return (
     <OsAppScreen
@@ -390,13 +407,71 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
 
             <section className="guild-section">
               <div className="guild-section-head">
-                <p className="guild-eyebrow">Share this guild</p>
-                <h2>Others can open this page to join.</h2>
+                <p className="guild-eyebrow">Guild home</p>
+                <h2>Build a structure members understand.</h2>
                 <p>
-                  Send them <code>{`/groups/${groupId}`}</code>. Open guilds can
-                  be joined from here; access-gated guilds accept requests from
-                  connected accounts.
+                  Start with channels that map to real post metadata. Later,
+                  owners can turn these defaults into editable guild sections,
+                  custom permissions, and member-led proposals.
                 </p>
+              </div>
+              <div className="guild-structure-grid">
+                {GUILD_STRUCTURE_TEMPLATES.map((structure) => {
+                  const selected = structure.id === selectedStructure.id;
+
+                  return (
+                    <article
+                      key={structure.id}
+                      className={`guild-structure-card${selected ? ' is-selected' : ''}`}
+                    >
+                      <div className="guild-structure-card-head">
+                        <span>{structure.title}</span>
+                        <code>{structure.channel}</code>
+                      </div>
+                      <p>{structure.summary}</p>
+                      <small>{structure.userValue}</small>
+                      <button
+                        className="guild-secondary-button"
+                        type="button"
+                        onClick={() => setSelectedStructureId(structure.id)}
+                      >
+                        {selected ? 'Using in composer' : 'Use in composer'}
+                      </button>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="guild-section">
+              <div className="guild-section-head">
+                <p className="guild-eyebrow">Permissions</p>
+                <h2>Flexible without making users learn protocol paths.</h2>
+                <p>
+                  The product can present simple roles while the contract stores
+                  path-scoped permissions. Member-driven guilds can route these
+                  changes through proposals.
+                </p>
+              </div>
+              <div className="guild-permission-list">
+                {GUILD_PERMISSION_PRESETS.map((permission) => (
+                  <article
+                    key={permission.id}
+                    className="guild-permission-card"
+                  >
+                    <div>
+                      <span>{permission.title}</span>
+                      <strong>{permission.level}</strong>
+                    </div>
+                    <p>{permission.summary}</p>
+                    <code>{permission.path(groupId)}</code>
+                  </article>
+                ))}
+              </div>
+              <div className="guild-state-card">
+                {canManageStructure
+                  ? 'You can help shape this guild. The next step is an editable structure builder for channels, permissions, and role templates.'
+                  : 'Members can participate now. Owners and moderators can shape channels, roles, and access as the guild grows.'}
               </div>
             </section>
 
@@ -417,11 +492,27 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                     id="guild-compose"
                     className="post-composer-input"
                     rows={3}
-                    placeholder="Share an update with this guild."
+                    placeholder={`Share a ${selectedStructure.kind} in ${selectedStructure.title.toLowerCase()}.`}
                     value={postText}
                     disabled={postPending}
                     onChange={(event) => setPostText(event.target.value)}
                   />
+                  <label className="guild-composer-structure">
+                    <span>Structure</span>
+                    <select
+                      value={selectedStructure.id}
+                      disabled={postPending}
+                      onChange={(event) =>
+                        setSelectedStructureId(event.target.value)
+                      }
+                    >
+                      {GUILD_STRUCTURE_TEMPLATES.map((structure) => (
+                        <option key={structure.id} value={structure.id}>
+                          {structure.title}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <div className="post-composer-actions">
                     <button
                       className="post-composer-submit"

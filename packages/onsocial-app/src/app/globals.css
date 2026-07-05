@@ -10217,6 +10217,8 @@ a.os-surface-row {
   .guild-action-list,
   .guild-role-grid,
   .guild-channel-grid,
+  .guild-structure-grid,
+  .guild-permission-list,
   .guild-toggle-grid,
   .guild-phase-list {
     display: grid;
@@ -10310,6 +10312,8 @@ a.os-surface-row {
   .guild-action-card,
   .guild-role-card,
   .guild-channel-card,
+  .guild-structure-card,
+  .guild-permission-card,
   .guild-phase-card {
     display: flex;
     flex-direction: column;
@@ -10318,11 +10322,72 @@ a.os-surface-row {
   }
 
   .guild-action-card-head,
-  .guild-role-card > div {
+  .guild-role-card > div,
+  .guild-structure-card-head,
+  .guild-permission-card > div {
     display: flex;
     justify-content: space-between;
     gap: 0.75rem;
     align-items: flex-start;
+  }
+
+  .guild-structure-card,
+  .guild-permission-card {
+    border: 1px solid rgb(var(--fg-rgb) / 0.08);
+    border-radius: 1.1rem;
+    background: rgb(var(--fg-rgb) / 0.03);
+  }
+
+  .guild-structure-card.is-selected {
+    border-color: color-mix(in srgb, var(--protocol-purple) 38%, transparent);
+    background:
+      radial-gradient(
+        circle at top right,
+        color-mix(in srgb, var(--protocol-purple) 18%, transparent),
+        transparent 52%
+      ),
+      rgb(var(--fg-rgb) / 0.04);
+  }
+
+  .guild-structure-card-head span,
+  .guild-permission-card span {
+    font-size: 0.9rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+  }
+
+  .guild-structure-card p,
+  .guild-structure-card small,
+  .guild-permission-card p {
+    margin: 0;
+    color: rgb(var(--fg-rgb) / 0.58);
+    font-size: 0.8rem;
+    line-height: 1.48;
+  }
+
+  .guild-structure-card small {
+    color: rgb(var(--fg-rgb) / 0.46);
+  }
+
+  .guild-structure-card code,
+  .guild-permission-card code {
+    width: fit-content;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    border: 1px solid rgb(var(--fg-rgb) / 0.08);
+    border-radius: 9999px;
+    background: rgb(0 0 0 / 0.2);
+    color: rgb(var(--fg-rgb) / 0.62);
+    font-size: 0.68rem;
+    padding: 0.24rem 0.45rem;
+  }
+
+  .guild-permission-card strong {
+    border-radius: 9999px;
+    background: rgb(var(--fg-rgb) / 0.06);
+    color: rgb(var(--fg-rgb) / 0.58);
+    font-size: 0.68rem;
+    padding: 0.26rem 0.44rem;
   }
 
   .guild-method-stack {
@@ -10409,6 +10474,26 @@ a.os-surface-row {
     font-size: 0.74rem;
     line-height: 1.45;
     color: rgb(var(--fg-rgb) / 0.48);
+  }
+
+  .guild-composer-structure {
+    display: grid;
+    gap: 0.35rem;
+    margin-top: 0.75rem;
+    color: rgb(var(--fg-rgb) / 0.68);
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+
+  .guild-composer-structure select {
+    min-height: 2.35rem;
+    border: 1px solid rgb(var(--fg-rgb) / 0.12);
+    border-radius: 0.85rem;
+    background: rgb(var(--fg-rgb) / 0.04);
+    color: rgb(var(--fg-rgb) / 0.86);
+    font: inherit;
+    font-size: 0.84rem;
+    padding: 0.55rem 0.7rem;
   }
 
   .guild-toggle-card {

@@ -3,9 +3,11 @@ import { OsAppScreen } from '@/components/app/os-app-screen';
 import {
   GUILD_ACTIONS,
   GUILD_BLUEPRINTS,
+  GUILD_PERMISSION_PRESETS,
   GUILD_PHASES,
   GUILD_PRODUCT_COPY,
   GUILD_ROLES,
+  GUILD_STRUCTURE_TEMPLATES,
   getGuildBlueprint,
   guildPath,
   guildSectionPath,
@@ -109,6 +111,40 @@ function GuildRoleGrid() {
   );
 }
 
+function GuildStructureTemplateGrid() {
+  return (
+    <div className="guild-structure-grid">
+      {GUILD_STRUCTURE_TEMPLATES.map((structure) => (
+        <article key={structure.id} className="guild-structure-card">
+          <div className="guild-structure-card-head">
+            <span>{structure.title}</span>
+            <code>{structure.channel}</code>
+          </div>
+          <p>{structure.summary}</p>
+          <small>{structure.userValue}</small>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function GuildPermissionPresetList({ groupId }: { groupId: string }) {
+  return (
+    <div className="guild-permission-list">
+      {GUILD_PERMISSION_PRESETS.map((permission) => (
+        <article key={permission.id} className="guild-permission-card">
+          <div>
+            <span>{permission.title}</span>
+            <strong>{permission.level}</strong>
+          </div>
+          <p>{permission.summary}</p>
+          <code>{permission.path(groupId)}</code>
+        </article>
+      ))}
+    </div>
+  );
+}
+
 export function GuildsIndexPanel() {
   return (
     <OsAppScreen
@@ -180,6 +216,19 @@ export function GuildsIndexPanel() {
             <h2>Simple roles first</h2>
           </div>
           <GuildRoleGrid />
+        </section>
+
+        <section className="guild-section">
+          <div className="guild-section-head">
+            <p className="guild-eyebrow">Structure builder lite</p>
+            <h2>Give every guild useful defaults.</h2>
+            <p>
+              Templates create familiar spaces like announcements, resources,
+              tasks, and proposals using channel metadata before a new product
+              object is needed.
+            </p>
+          </div>
+          <GuildStructureTemplateGrid />
         </section>
       </div>
     </OsAppScreen>
@@ -332,6 +381,29 @@ export function GuildSettingsPanel({ groupId }: { groupId: string }) {
             </p>
           </div>
           <GuildRoleGrid />
+        </section>
+        <section className="guild-section">
+          <div className="guild-section-head">
+            <p className="guild-eyebrow">Structures</p>
+            <h2>Shape how members work together.</h2>
+            <p>
+              Start with template sections. Each section maps to guild post
+              metadata and can later receive path-scoped permissions.
+            </p>
+          </div>
+          <GuildStructureTemplateGrid />
+        </section>
+        <section className="guild-section">
+          <div className="guild-section-head">
+            <p className="guild-eyebrow">Permission paths</p>
+            <h2>Keep the UI simple, keep the controls flexible.</h2>
+            <p>
+              Owners see roles and sections. The protocol stores scoped paths,
+              and collaborative guilds can propose changes instead of applying
+              them directly.
+            </p>
+          </div>
+          <GuildPermissionPresetList groupId={groupId} />
         </section>
         <section className="guild-section">
           <div className="guild-section-head">

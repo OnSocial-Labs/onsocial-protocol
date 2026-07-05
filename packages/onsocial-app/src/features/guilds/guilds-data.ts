@@ -38,6 +38,25 @@ export interface GuildPhase {
   outcomes: string[];
 }
 
+export interface GuildStructureTemplate {
+  id: string;
+  title: string;
+  summary: string;
+  channel: string;
+  kind: 'announcement' | 'resource' | 'task' | 'proposal' | 'discussion';
+  audience: 'public' | 'members';
+  permissionLevel: 'Owner/Admin' | 'Moderator+' | 'Member';
+  userValue: string;
+}
+
+export interface GuildPermissionPreset {
+  id: string;
+  title: string;
+  summary: string;
+  path: (groupId: string) => string;
+  level: 'WRITE' | 'MODERATE' | 'MANAGE';
+}
+
 export const GUILD_PRODUCT_COPY = {
   title: 'Guilds',
   subtitle:
@@ -245,6 +264,102 @@ export const GUILD_PHASES: GuildPhase[] = [
       'Public guild identity pages with share cards and profile credentials.',
       'Optional rewards or treasury integrations after the social loop works.',
     ],
+  },
+];
+
+export const GUILD_STRUCTURE_TEMPLATES: GuildStructureTemplate[] = [
+  {
+    id: 'announcements',
+    title: 'Announcements',
+    summary: 'Official updates, drops, releases, and decisions.',
+    channel: 'announcements',
+    kind: 'announcement',
+    audience: 'public',
+    permissionLevel: 'Moderator+',
+    userValue: 'Gives the guild a clear source of truth.',
+  },
+  {
+    id: 'resources',
+    title: 'Resources',
+    summary: 'Pinned links, briefs, docs, guides, and shared references.',
+    channel: 'resources',
+    kind: 'resource',
+    audience: 'members',
+    permissionLevel: 'Member',
+    userValue: 'Turns the guild into a reusable knowledge base.',
+  },
+  {
+    id: 'tasks',
+    title: 'Tasks',
+    summary: 'Requests, work items, bounties, and coordination threads.',
+    channel: 'tasks',
+    kind: 'task',
+    audience: 'members',
+    permissionLevel: 'Member',
+    userValue: 'Helps members coordinate instead of only chatting.',
+  },
+  {
+    id: 'proposals',
+    title: 'Proposals',
+    summary: 'Ideas that need feedback, votes, or owner/admin approval.',
+    channel: 'proposals',
+    kind: 'proposal',
+    audience: 'members',
+    permissionLevel: 'Member',
+    userValue: 'Creates a path from discussion to decisions.',
+  },
+  {
+    id: 'general',
+    title: 'General',
+    summary: 'Everyday member discussion and lightweight updates.',
+    channel: 'general',
+    kind: 'discussion',
+    audience: 'members',
+    permissionLevel: 'Member',
+    userValue: 'Keeps the guild alive between bigger decisions.',
+  },
+];
+
+export const DEFAULT_GUILD_STRUCTURE: GuildStructureTemplate =
+  GUILD_STRUCTURE_TEMPLATES[0] ?? {
+    id: 'general',
+    title: 'General',
+    summary: 'Everyday member discussion and lightweight updates.',
+    channel: 'general',
+    kind: 'discussion',
+    audience: 'members',
+    permissionLevel: 'Member',
+    userValue: 'Keeps the guild alive between bigger decisions.',
+  };
+
+export const GUILD_PERMISSION_PRESETS: GuildPermissionPreset[] = [
+  {
+    id: 'post',
+    title: 'Post in guild',
+    summary: 'Create posts, resources, tasks, and proposal discussions.',
+    path: (groupId) => `groups/${groupId}/content`,
+    level: 'WRITE',
+  },
+  {
+    id: 'moderate',
+    title: 'Moderate content',
+    summary: 'Keep channels useful and remove low-quality or unsafe posts.',
+    path: (groupId) => `groups/${groupId}/content`,
+    level: 'MODERATE',
+  },
+  {
+    id: 'manage-members',
+    title: 'Manage members',
+    summary: 'Approve requests, invite contributors, and update roles.',
+    path: (groupId) => `groups/${groupId}/members`,
+    level: 'MANAGE',
+  },
+  {
+    id: 'manage-structure',
+    title: 'Manage structure',
+    summary: 'Adjust guild sections, channels, and participation rules.',
+    path: (groupId) => `groups/${groupId}/settings`,
+    level: 'MANAGE',
   },
 ];
 

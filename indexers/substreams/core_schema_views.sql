@@ -219,6 +219,12 @@ SELECT DISTINCT ON (group_id)
   group_id,
   author                       AS owner_id,
   name                         AS group_name,
+  is_public,
+  creator_role,
+  storage_allocation,
+  block_height,
+  block_timestamp,
+  operation,
   COALESCE(
     NULLIF(description, ''),
     CASE
@@ -234,7 +240,6 @@ SELECT DISTINCT ON (group_id)
     WHEN extra_data ~ '^[\{]' THEN NULLIF(extra_data::jsonb #>> '{x,onsocial,banner,cid}', '')
     ELSE NULL
   END                          AS group_banner_cid,
-  is_public,
   CASE
     WHEN extra_data ~ '^[\{]' THEN COALESCE(
       extra_data::jsonb ->> 'member_driven',
@@ -242,12 +247,7 @@ SELECT DISTINCT ON (group_id)
       'false'
     ) = 'true'
     ELSE FALSE
-  END                          AS is_member_driven,
-  creator_role,
-  storage_allocation,
-  block_height,
-  block_timestamp,
-  operation
+  END                          AS is_member_driven
 FROM group_updates
 WHERE group_id IS NOT NULL
   AND group_id != ''
@@ -321,13 +321,13 @@ SELECT
   (latest.is_owner OR latest.level >= 3) AS is_admin,
   (latest.is_owner OR latest.level >= 2) AS can_moderate,
   groups_current.group_name,
+  groups_current.is_public,
+  latest.block_height,
+  latest.block_timestamp,
   groups_current.group_description,
   groups_current.group_avatar_cid,
   groups_current.group_banner_cid,
-  groups_current.is_public,
-  groups_current.is_member_driven,
-  latest.block_height,
-  latest.block_timestamp
+  groups_current.is_member_driven
 FROM latest
 LEFT JOIN groups_current ON groups_current.group_id = latest.group_id
 WHERE latest.operation IN ('create_group', 'add_member');
