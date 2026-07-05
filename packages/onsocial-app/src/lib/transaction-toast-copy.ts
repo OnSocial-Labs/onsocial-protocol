@@ -9,6 +9,12 @@ export const txToastPending = {
   withdrawingStorage: 'Withdrawing storage…',
   fundingSharePool: 'Funding share pool…',
   sharingStorage: 'Sharing storage…',
+  creatingGuild: 'Creating guild…',
+  joiningGuild: 'Joining guild…',
+  requestingGuildAccess: 'Requesting access…',
+  cancelingGuildRequest: 'Canceling request…',
+  leavingGuild: 'Leaving guild…',
+  postingToGuild: 'Posting to guild…',
 } as const;
 
 export const txToastSuccess = {
@@ -17,6 +23,12 @@ export const txToastSuccess = {
   storageWithdrawn: 'Storage withdrawn to wallet.',
   sharePoolFunded: 'Share pool funded.',
   storageShared: 'Storage shared.',
+  guildCreated: 'Guild created.',
+  guildJoined: 'Guild joined.',
+  guildAccessRequested: 'Access requested.',
+  guildRequestCanceled: 'Request canceled.',
+  guildLeft: 'Guild left.',
+  guildPostPublished: 'Posted to guild.',
 } as const;
 
 export const txToastError = {
@@ -25,4 +37,7 @@ export const txToastError = {
   storageWithdrawFailed: 'Could not withdraw storage.',
   sharePoolFundFailed: 'Could not fund share pool.',
   storageShareFailed: 'Could not share storage.',
+  guildCreateFailed: 'Could not create guild.',
+  guildMembershipFailed: 'Could not update guild membership.',
+  guildPostFailed: 'Could not post to guild.',
 } as const;

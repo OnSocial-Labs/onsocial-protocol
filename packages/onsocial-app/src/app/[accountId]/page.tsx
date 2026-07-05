@@ -6,6 +6,7 @@ import { readPageHeroSourceExplicit } from '@/lib/page-face';
 import { resolveAccountId, resolveAccountPage } from '@/lib/resolve-account';
 import { loadProfileShell } from '@/lib/profile-shell';
 import { fetchProfileSignals } from '@/lib/profile-signals';
+import { fetchProfileGuilds } from '@/lib/profile-guilds';
 import { PortfolioActivateStrip } from '@/components/portfolio/portfolio-activate-strip';
 import { PortfolioIdentity } from '@/components/portfolio/portfolio-identity';
 import { PortfolioLinks } from '@/components/portfolio/portfolio-links';
@@ -67,9 +68,10 @@ export default async function AccountPage({
     data.config,
     search?.avatarMode ?? search?.avatar ?? null
   );
-  const [shell, signals] = await Promise.all([
+  const [shell, signals, guilds] = await Promise.all([
     loadProfileShell(accountId),
     fetchProfileSignals(accountId),
+    fetchProfileGuilds(accountId),
   ]);
   const name = displayName(accountId, shell?.name ?? undefined);
 
@@ -86,39 +88,40 @@ export default async function AccountPage({
         }}
       />
       <PortfolioShellRoot
-      mood={mood}
-      pageAccountId={accountId}
-      avatarMedia={shell?.avatarMedia ?? null}
-      bannerMedia={shell?.bannerMedia ?? null}
-      committedAvatarMode={committedAvatarMode}
-      committedHeroSource={committedHeroSource}
-      initialAvatarMode={avatarMode}
-      config={data.config}
-      stats={data.stats}
-      profileName={shell?.name}
-    >
-      <PortfolioIdentity
-        accountId={accountId}
-        profileName={shell?.name}
-        bio={shell?.bio}
-        tagline={tagline}
-        avatarUrl={shell?.avatarUrl}
         mood={mood}
-      />
-
-      <PortfolioActivateStrip
         pageAccountId={accountId}
-        activated={Boolean(data.activated)}
-      />
+        avatarMedia={shell?.avatarMedia ?? null}
+        bannerMedia={shell?.bannerMedia ?? null}
+        committedAvatarMode={committedAvatarMode}
+        committedHeroSource={committedHeroSource}
+        initialAvatarMode={avatarMode}
+        config={data.config}
+        stats={data.stats}
+        guilds={guilds}
+        profileName={shell?.name}
+      >
+        <PortfolioIdentity
+          accountId={accountId}
+          profileName={shell?.name}
+          bio={shell?.bio}
+          tagline={tagline}
+          avatarUrl={shell?.avatarUrl}
+          mood={mood}
+        />
 
-      {signals ? (
-        <PortfolioSignalsShell accountId={accountId} signals={signals} />
-      ) : (
-        <PortfolioStatsRow accountId={accountId} stats={data.stats} />
-      )}
-      <PortfolioLinks links={shell?.links} />
-      <PortfolioTags tags={shell?.tags ?? []} />
-    </PortfolioShellRoot>
+        <PortfolioActivateStrip
+          pageAccountId={accountId}
+          activated={Boolean(data.activated)}
+        />
+
+        {signals ? (
+          <PortfolioSignalsShell accountId={accountId} signals={signals} />
+        ) : (
+          <PortfolioStatsRow accountId={accountId} stats={data.stats} />
+        )}
+        <PortfolioLinks links={shell?.links} />
+        <PortfolioTags tags={shell?.tags ?? []} />
+      </PortfolioShellRoot>
     </>
   );
 }

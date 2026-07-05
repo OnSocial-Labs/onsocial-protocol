@@ -8,6 +8,7 @@
 //   os.query.feed.recent({ limit: 20 })
 //   os.query.threads.replies('alice.near', '123')
 //   os.query.groups.feed({ groupId: 'dao' })
+//   os.query.groups.membershipsBy('alice.near')
 //   os.query.profiles.get('alice.near')
 //   os.query.pages.getConfig('alice.near')
 //   os.query.profiles.search({ query: 'alice' })
@@ -142,6 +143,7 @@ export type {
 export type { SocialSpendEventType } from './social-spend-events.js';
 export type { DataRow } from './raw.js';
 export type { PageCurrentRow } from './pages.js';
+export type { GroupMembershipCurrentRow } from './groups.js';
 
 export class QueryModule {
   /** @internal — used by sub-namespace classes. */

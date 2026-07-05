@@ -68,6 +68,18 @@ CREATE INDEX IF NOT EXISTS idx_data_updates_graph_edge_dedup
   ON data_updates(path, block_height DESC)
   WHERE data_type IN ('standing', 'reaction', 'endorsement', 'claims');
 
+CREATE INDEX IF NOT EXISTS idx_group_updates_group_block
+  ON group_updates(group_id, block_height DESC)
+  WHERE group_id IS NOT NULL AND group_id != '';
+
+CREATE INDEX IF NOT EXISTS idx_group_updates_member_current
+  ON group_updates(group_id, member_id, block_height DESC)
+  WHERE group_id IS NOT NULL AND group_id != '' AND member_id IS NOT NULL AND member_id != '';
+
+CREATE INDEX IF NOT EXISTS idx_group_updates_member_lookup
+  ON group_updates(member_id, block_height DESC)
+  WHERE member_id IS NOT NULL AND member_id != '';
+
 -- ────────────────────────────────────────────────────────────────────────────
 -- 1. profiles_current — latest profile fields per account
 -- ────────────────────────────────────────────────────────────────────────────
@@ -197,6 +209,101 @@ WHERE EXISTS (
   WHERE r.account_id = s.target_account
     AND r.target_account = s.account_id
 );
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 3c. groups_current — latest indexed group metadata per group
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE VIEW groups_current AS
+SELECT DISTINCT ON (group_id)
+  group_id,
+  author                       AS owner_id,
+  name                         AS group_name,
+  is_public,
+  creator_role,
+  storage_allocation,
+  block_height,
+  block_timestamp,
+  operation
+FROM group_updates
+WHERE group_id IS NOT NULL
+  AND group_id != ''
+  AND operation = 'create_group'
+ORDER BY group_id, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC;
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 3d. group_members_current — active group memberships by member
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE VIEW group_members_current AS
+WITH membership_events AS (
+  SELECT
+    group_id,
+    author                    AS member_id,
+    COALESCE(NULLIF(creator_role, ''), 'owner') AS role,
+    255                       AS level,
+    TRUE                      AS is_owner,
+    operation,
+    block_height,
+    block_timestamp,
+    receipt_id,
+    id
+  FROM group_updates
+  WHERE group_id IS NOT NULL
+    AND group_id != ''
+    AND author IS NOT NULL
+    AND author != ''
+    AND operation = 'create_group'
+
+  UNION ALL
+
+  SELECT
+    group_id,
+    member_id,
+    role,
+    level,
+    FALSE                     AS is_owner,
+    operation,
+    block_height,
+    block_timestamp,
+    receipt_id,
+    id
+  FROM group_updates
+  WHERE group_id IS NOT NULL
+    AND group_id != ''
+    AND member_id IS NOT NULL
+    AND member_id != ''
+    AND operation IN ('add_member', 'remove_member', 'add_to_blacklist')
+), latest AS (
+  SELECT DISTINCT ON (group_id, member_id)
+    group_id,
+    member_id,
+    role,
+    level,
+    is_owner,
+    operation,
+    block_height,
+    block_timestamp,
+    receipt_id,
+    id
+  FROM membership_events
+  ORDER BY group_id, member_id, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC
+)
+SELECT
+  latest.group_id,
+  latest.member_id,
+  COALESCE(NULLIF(latest.role, ''), CASE WHEN latest.is_owner THEN 'owner' ELSE 'member' END) AS role,
+  latest.level,
+  latest.is_owner,
+  (latest.is_owner OR latest.level >= 3) AS is_admin,
+  (latest.is_owner OR latest.level >= 2) AS can_moderate,
+  groups_current.group_name,
+  groups_current.is_public,
+  latest.block_height,
+  latest.block_timestamp
+FROM latest
+LEFT JOIN groups_current ON groups_current.group_id = latest.group_id
+WHERE latest.operation IN ('create_group', 'add_member');
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 4. reactions_current — per-user reaction state on a target post

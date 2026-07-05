@@ -5,6 +5,7 @@ describe('resolvePageSections', () => {
   it('returns defaults when sections are unset', () => {
     expect(resolvePageSections({})).toEqual([
       'posts',
+      'groups',
       'collectibles',
       'links',
       'badges',

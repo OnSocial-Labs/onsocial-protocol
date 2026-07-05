@@ -11,6 +11,7 @@ import { pageContentDrawerPanelStyle } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { resolvePageSections } from '@/lib/page-sections';
 import type { PublicPageConfig, PublicPageStats } from '@/lib/page-data';
+import type { ProfileGuildSummary } from '@/lib/profile-guilds';
 
 interface PageContentDrawerProps {
   pageAccountId: string;
@@ -19,6 +20,7 @@ interface PageContentDrawerProps {
   avatarUrl?: string | null;
   config: PublicPageConfig;
   stats: PublicPageStats;
+  guilds?: ProfileGuildSummary[];
 }
 
 function PageDrawerHeader({
@@ -65,6 +67,7 @@ export function PageContentDrawer({
   avatarUrl = null,
   config,
   stats,
+  guilds = [],
 }: PageContentDrawerProps) {
   const { isOpen, close } = usePageContentDrawer();
   const [closing, setClosing] = useState(false);
@@ -80,9 +83,7 @@ export function PageContentDrawer({
   }, [close]);
 
   const sections = resolvePageSections(config);
-  const panelStyle = pageContentDrawerPanelStyle(
-    mood.cssVars
-  ) as CSSProperties;
+  const panelStyle = pageContentDrawerPanelStyle(mood.cssVars) as CSSProperties;
 
   useScrollLock(isOpen || closing);
 
@@ -111,7 +112,7 @@ export function PageContentDrawer({
         </>
       }
     >
-      <PageContentSections sections={sections} stats={stats} />
+      <PageContentSections sections={sections} stats={stats} guilds={guilds} />
     </GlassSheet>
   );
 }

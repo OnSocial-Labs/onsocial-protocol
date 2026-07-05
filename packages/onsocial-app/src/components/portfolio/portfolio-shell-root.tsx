@@ -21,6 +21,7 @@ import type {
   PublicPageStats,
   ResolvedPageHero,
 } from '@/lib/page-data';
+import type { ProfileGuildSummary } from '@/lib/profile-guilds';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-context';
 import { resolvePageFace } from '@/lib/page-face';
@@ -36,6 +37,7 @@ interface PortfolioShellRootProps {
   initialAvatarMode: PageAvatarMode;
   config: PublicPageConfig;
   stats: PublicPageStats;
+  guilds?: ProfileGuildSummary[];
   profileName?: string | null;
   children: ReactNode;
 }
@@ -47,6 +49,7 @@ function PortfolioShellPreviewBridge({
   bannerMedia,
   config,
   stats,
+  guilds = [],
   profileName,
   children,
 }: Omit<
@@ -120,6 +123,7 @@ function PortfolioShellPreviewBridge({
           avatarUrl={avatarMedia?.url ?? null}
           config={config}
           stats={stats}
+          guilds={guilds}
         />
         <PortfolioFacePreviewBar
           pageAccountId={pageAccountId}

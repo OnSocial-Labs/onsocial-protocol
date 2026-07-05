@@ -18,8 +18,68 @@ import {
   groupPostPathValue,
 } from './_shared.js';
 
+export interface GroupMembershipCurrentRow {
+  groupId: string;
+  memberId: string;
+  role: string | null;
+  level: number | null;
+  isOwner: boolean;
+  isAdmin: boolean;
+  canModerate: boolean;
+  groupName: string | null;
+  isPublic: boolean | null;
+  blockHeight: number;
+  blockTimestamp: number;
+}
+
 export class GroupsQuery {
   constructor(private _q: QueryModule) {}
+
+  /**
+   * Current guild/group memberships for an account, backed by
+   * `group_members_current`.
+   *
+   * ```ts
+   * const memberships = await os.query.groups.membershipsBy('alice.near');
+   * ```
+   */
+  async membershipsBy(
+    accountId: string,
+    opts: { limit?: number; offset?: number } = {}
+  ): Promise<Paginated<GroupMembershipCurrentRow>> {
+    const limit = opts.limit ?? 20;
+    const offset = opts.offset ?? 0;
+    const res = await this._q.graphql<{
+      groupMembersCurrent: GroupMembershipCurrentRow[];
+    }>({
+      query: `query GroupMembershipsBy($accountId: String!, $limit: Int!, $offset: Int!) {
+        groupMembersCurrent(
+          where: { memberId: {_eq: $accountId} },
+          limit: $limit,
+          offset: $offset,
+          orderBy: [{blockHeight: DESC}]
+        ) {
+          groupId
+          memberId
+          role
+          level
+          isOwner
+          isAdmin
+          canModerate
+          groupName
+          isPublic
+          blockHeight
+          blockTimestamp
+        }
+      }`,
+      variables: { accountId, limit, offset },
+    });
+    const rows = res.data?.groupMembersCurrent ?? [];
+    return {
+      items: rows,
+      nextOffset: rows.length >= limit ? offset + limit : undefined,
+    };
+  }
 
   /**
    * Feed for a specific group.

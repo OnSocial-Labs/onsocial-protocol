@@ -48,10 +48,9 @@ export function gateOsApps(): OsAppLink[] {
     },
     {
       id: 'groups',
-      label: 'Groups',
+      label: 'Guilds',
       kind: 'app',
       href: APP_GROUPS_PATH,
-      soon: true,
     },
     {
       id: 'boost',
@@ -86,10 +85,9 @@ export function ownerPortfolioOsApps(_accountId: string): OsAppLink[] {
     },
     {
       id: 'groups',
-      label: 'Groups',
+      label: 'Guilds',
       kind: 'app',
       href: APP_GROUPS_PATH,
-      soon: true,
     },
     ...OS_EXTERNAL_LINKS,
   ];
@@ -121,10 +119,9 @@ export function appShellOsApps(accountId: string | null): OsAppLink[] {
     },
     {
       id: 'groups',
-      label: 'Groups',
+      label: 'Guilds',
       kind: 'app',
       href: APP_GROUPS_PATH,
-      soon: true,
     },
     ...OS_EXTERNAL_LINKS,
   ];

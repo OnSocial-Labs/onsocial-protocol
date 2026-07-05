@@ -752,6 +752,44 @@ describe('QueryModule', () => {
   });
 
   describe('getGroupFeed()', () => {
+    it('queries current group memberships by account', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          groupMembersCurrent: [
+            {
+              groupId: 'dao',
+              memberId: 'alice.near',
+              role: 'owner',
+              level: 255,
+              isOwner: true,
+              isAdmin: true,
+              canModerate: true,
+              groupName: 'DAO',
+              isPublic: true,
+              blockHeight: 9,
+              blockTimestamp: 99,
+            },
+          ],
+        },
+      });
+
+      const page = await os.query.groups.membershipsBy('alice.near', {
+        limit: 5,
+      });
+      expect(page.items).toHaveLength(1);
+      expect(page.items[0].groupId).toBe('dao');
+      expect(page.items[0].isOwner).toBe(true);
+
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('groupMembersCurrent');
+      expect(body.query).toContain('memberId: {_eq: $accountId}');
+      expect(body.variables).toMatchObject({
+        accountId: 'alice.near',
+        limit: 5,
+        offset: 0,
+      });
+    });
+
     it('queries group-scoped posts with isGroupContent filtering', async () => {
       const { os, fetch } = makeOs({
         data: {

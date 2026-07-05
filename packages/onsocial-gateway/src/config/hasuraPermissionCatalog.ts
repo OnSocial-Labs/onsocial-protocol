@@ -266,6 +266,36 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
     ],
   },
   {
+    name: 'groups_current',
+    columns: [
+      'group_id',
+      'owner_id',
+      'group_name',
+      'is_public',
+      'creator_role',
+      'storage_allocation',
+      'block_height',
+      'block_timestamp',
+      'operation',
+    ],
+  },
+  {
+    name: 'group_members_current',
+    columns: [
+      'group_id',
+      'member_id',
+      'role',
+      'level',
+      'is_owner',
+      'is_admin',
+      'can_moderate',
+      'group_name',
+      'is_public',
+      'block_height',
+      'block_timestamp',
+    ],
+  },
+  {
     name: 'reactions_current',
     columns: [
       'account_id',

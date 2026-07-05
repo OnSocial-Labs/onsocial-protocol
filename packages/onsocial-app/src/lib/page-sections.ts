@@ -9,7 +9,7 @@ export const PAGE_SECTION_LABELS: Record<PageSection, string> = {
   events: 'Events',
   collectibles: 'Collectibles',
   badges: 'Badges',
-  groups: 'Groups',
+  groups: 'Guilds',
 };
 
 export const PAGE_SECTION_DESCRIPTIONS: Record<PageSection, string> = {
@@ -20,11 +20,12 @@ export const PAGE_SECTION_DESCRIPTIONS: Record<PageSection, string> = {
   events: 'Events they host or attend.',
   collectibles: 'Scarces and collectibles.',
   badges: 'Earned badges and credentials.',
-  groups: 'Groups they belong to.',
+  groups: 'Guilds they belong to.',
 };
 
 const DEFAULT_PAGE_SECTIONS: PageSection[] = [
   'posts',
+  'groups',
   'collectibles',
   'links',
   'badges',

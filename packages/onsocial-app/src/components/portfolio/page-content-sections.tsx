@@ -1,12 +1,17 @@
 import { Fragment } from 'react';
+import Link from 'next/link';
 import type { PageSection } from '@onsocial/sdk';
 import { Divider } from '@onsocial/ui';
 import { PAGE_SECTION_LABELS, pageSectionCountHint } from '@/lib/page-sections';
 import type { PublicPageStats } from '@/lib/page-data';
+import type { ProfileGuildSummary } from '@/lib/profile-guilds';
+import { APP_GROUPS_PATH } from '@/lib/app-routes';
+import { guildPath } from '@/features/guilds/guilds-data';
 
 interface PageContentSectionsProps {
   sections: PageSection[];
   stats: PublicPageStats;
+  guilds?: ProfileGuildSummary[];
 }
 
 function sectionEmptyCopy(section: PageSection): string {
@@ -24,7 +29,7 @@ function sectionEmptyCopy(section: PageSection): string {
     case 'events':
       return 'Events will appear here.';
     case 'groups':
-      return 'Groups will appear here.';
+      return 'Guilds will appear here.';
     default:
       return 'Content will appear here.';
   }
@@ -33,6 +38,7 @@ function sectionEmptyCopy(section: PageSection): string {
 export function PageContentSections({
   sections,
   stats,
+  guilds = [],
 }: PageContentSectionsProps) {
   return (
     <div className="page-drawer-sections">
@@ -54,6 +60,33 @@ export function PageContentSections({
               <p className="page-drawer-section-empty">
                 {sectionEmptyCopy(section)}
               </p>
+              {section === 'groups' && guilds.length > 0 ? (
+                <div className="page-drawer-guild-list">
+                  {guilds.map((guild) => (
+                    <Link
+                      key={guild.groupId}
+                      className="page-drawer-guild-link"
+                      href={guildPath(guild.groupId)}
+                    >
+                      <span className="page-drawer-guild-name">
+                        {guild.name}
+                      </span>
+                      <span className="page-drawer-guild-meta">
+                        {guild.role} ·{' '}
+                        {guild.accessGated ? 'Access-gated' : 'Open access'}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              ) : null}
+              {section === 'groups' ? (
+                <Link
+                  className="page-drawer-section-action"
+                  href={APP_GROUPS_PATH}
+                >
+                  {guilds.length > 0 ? 'Browse all guilds' : 'Open Guilds'}
+                </Link>
+              ) : null}
             </section>
           </Fragment>
         );

@@ -5738,6 +5738,70 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.52);
   }
 
+  .page-drawer-section-action {
+    display: inline-flex;
+    width: fit-content;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgb(var(--fg-rgb) / 0.12);
+    border-radius: 9999px;
+    background: rgb(var(--fg-rgb) / 0.04);
+    color: rgb(var(--fg-rgb) / 0.78);
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0.48rem 0.72rem;
+    text-decoration: none;
+    transition:
+      background 160ms ease,
+      border-color 160ms ease,
+      color 160ms ease;
+  }
+
+  .page-drawer-section-action:hover,
+  .page-drawer-section-action:focus-visible {
+    border-color: rgb(var(--fg-rgb) / 0.18);
+    background: rgb(var(--fg-rgb) / 0.07);
+    color: rgb(var(--fg-rgb) / 0.92);
+    outline: none;
+  }
+
+  .page-drawer-guild-list {
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  .page-drawer-guild-link {
+    display: grid;
+    gap: 0.15rem;
+    border: 1px solid rgb(var(--fg-rgb) / 0.08);
+    border-radius: 0.95rem;
+    background: rgb(var(--fg-rgb) / 0.035);
+    color: inherit;
+    padding: 0.72rem 0.78rem;
+    text-decoration: none;
+    transition:
+      background 160ms ease,
+      border-color 160ms ease;
+  }
+
+  .page-drawer-guild-link:hover,
+  .page-drawer-guild-link:focus-visible {
+    border-color: rgb(var(--fg-rgb) / 0.16);
+    background: rgb(var(--fg-rgb) / 0.06);
+    outline: none;
+  }
+
+  .page-drawer-guild-name {
+    font-size: 0.86rem;
+    font-weight: 650;
+    color: rgb(var(--fg-rgb) / 0.9);
+  }
+
+  .page-drawer-guild-meta {
+    font-size: 0.72rem;
+    color: rgb(var(--fg-rgb) / 0.5);
+  }
+
   /* ── Standing sheet (fixed toolbar + scrollable list) ─── */
 
   .sr-only {
@@ -7523,7 +7587,8 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.45);
   }
 
-  .account-card-wallet-zone.is-social-help-open > :not(.account-social-help-layer) {
+  .account-card-wallet-zone.is-social-help-open
+    > :not(.account-social-help-layer) {
     pointer-events: none;
   }
 
@@ -9880,6 +9945,388 @@ a.os-surface-row {
     font-size: 0.72rem;
     letter-spacing: 0.04em;
     color: rgb(var(--fg-rgb) / 0.42);
+  }
+
+  .guilds-page,
+  .guild-create-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 0 1rem 1.5rem;
+  }
+
+  .guild-hero-card,
+  .guild-card,
+  .guild-action-card,
+  .guild-role-card,
+  .guild-channel-card,
+  .guild-phase-card,
+  .guild-field,
+  .guild-toggle-card {
+    border: 1px solid rgb(var(--fg-rgb) / 0.08);
+    border-radius: 1.25rem;
+    background: rgb(var(--fg-rgb) / 0.03);
+  }
+
+  .guild-hero-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1.15rem;
+  }
+
+  .guild-detail-hero {
+    background:
+      radial-gradient(
+        circle at top left,
+        color-mix(in srgb, var(--protocol-purple) 20%, transparent),
+        transparent 56%
+      ),
+      rgb(var(--fg-rgb) / 0.03);
+  }
+
+  .guild-eyebrow,
+  .guild-card-eyebrow {
+    margin: 0;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.46);
+  }
+
+  .guild-hero-card h2,
+  .guild-section-head h2,
+  .guild-action-card h3,
+  .guild-role-card h3,
+  .guild-phase-card h3 {
+    margin: 0;
+    letter-spacing: -0.025em;
+  }
+
+  .guild-hero-card h2,
+  .guild-section-head h2 {
+    font-size: clamp(1.35rem, 4vw, 1.85rem);
+    font-weight: 600;
+  }
+
+  .guild-hero-card p,
+  .guild-section-head p,
+  .guild-action-card p,
+  .guild-role-card p,
+  .guild-public-note {
+    margin: 0;
+    font-size: 0.86rem;
+    line-height: 1.55;
+    color: rgb(var(--fg-rgb) / 0.62);
+  }
+
+  .guild-public-note,
+  .guild-state-card {
+    border: 1px dashed rgb(var(--fg-rgb) / 0.12);
+    border-radius: 1rem;
+    background: rgb(var(--fg-rgb) / 0.025);
+    padding: 0.85rem;
+  }
+
+  .guild-state-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    color: rgb(var(--fg-rgb) / 0.58);
+    font-size: 0.86rem;
+    line-height: 1.5;
+  }
+
+  .guild-state-card.is-error {
+    border-style: solid;
+    border-color: var(--protocol-red-border);
+    color: color-mix(in srgb, var(--protocol-red) 85%, rgb(var(--fg-rgb)));
+  }
+
+  .guild-hero-actions,
+  .guild-create-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    align-items: center;
+  }
+
+  .guild-primary-link,
+  .guild-secondary-link,
+  .guild-primary-button,
+  .guild-secondary-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.4rem;
+    border-radius: 9999px;
+    padding: 0.62rem 0.95rem;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .guild-primary-link,
+  .guild-primary-button {
+    border: 0;
+    background: rgb(var(--fg-rgb) / 0.92);
+    color: var(--bg);
+  }
+
+  .guild-secondary-link,
+  .guild-secondary-button {
+    border: 1px solid rgb(var(--fg-rgb) / 0.12);
+    background: rgb(var(--fg-rgb) / 0.03);
+    color: rgb(var(--fg-rgb) / 0.76);
+  }
+
+  .guild-primary-button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .guild-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .guild-section-head {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .guild-card-grid,
+  .guild-action-list,
+  .guild-role-grid,
+  .guild-channel-grid,
+  .guild-toggle-grid,
+  .guild-phase-list {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .guild-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    padding: 1rem;
+    color: inherit;
+    text-decoration: none;
+    transition:
+      background 160ms ease,
+      border-color 160ms ease;
+  }
+
+  .guild-card:hover,
+  .guild-card:focus-visible,
+  .guild-detail-nav-link:hover,
+  .guild-detail-nav-link:focus-visible {
+    border-color: rgb(var(--fg-rgb) / 0.16);
+    background: rgb(var(--fg-rgb) / 0.05);
+    outline: none;
+  }
+
+  .guild-card-title {
+    font-size: 1rem;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+  }
+
+  .guild-card-copy {
+    font-size: 0.84rem;
+    line-height: 1.5;
+    color: rgb(var(--fg-rgb) / 0.62);
+  }
+
+  .guild-card-meta,
+  .guild-tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+
+  .guild-card-meta span,
+  .guild-tag-list span,
+  .guild-surface-badge,
+  .guild-contract-action,
+  .guild-role-card span,
+  .guild-phase-card > span {
+    display: inline-flex;
+    width: fit-content;
+    border-radius: 9999px;
+    background: rgb(var(--fg-rgb) / 0.06);
+    color: rgb(var(--fg-rgb) / 0.56);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    padding: 0.28rem 0.48rem;
+  }
+
+  .guild-detail-nav {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    gap: 0.45rem;
+    overflow-x: auto;
+    padding: 0.2rem 0 0.35rem;
+    background: linear-gradient(
+      180deg,
+      rgb(var(--bg-rgb) / 0.72),
+      rgb(var(--bg-rgb) / 0)
+    );
+  }
+
+  .guild-detail-nav-link {
+    flex: 0 0 auto;
+    border: 1px solid rgb(var(--fg-rgb) / 0.08);
+    border-radius: 9999px;
+    background: rgb(var(--fg-rgb) / 0.035);
+    color: rgb(var(--fg-rgb) / 0.74);
+    font-size: 0.76rem;
+    font-weight: 600;
+    padding: 0.48rem 0.72rem;
+    text-decoration: none;
+  }
+
+  .guild-action-card,
+  .guild-role-card,
+  .guild-channel-card,
+  .guild-phase-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    padding: 0.95rem;
+  }
+
+  .guild-action-card-head,
+  .guild-role-card > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    align-items: flex-start;
+  }
+
+  .guild-method-stack {
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  .guild-method-stack code,
+  .guild-channel-card code,
+  .guild-code-block {
+    border: 1px solid rgb(var(--fg-rgb) / 0.08);
+    border-radius: 0.85rem;
+    background: rgb(0 0 0 / 0.24);
+    color: rgb(var(--fg-rgb) / 0.72);
+  }
+
+  .guild-method-stack code,
+  .guild-channel-card code {
+    padding: 0.5rem 0.6rem;
+    font-size: 0.72rem;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .guild-channel-card span {
+    font-size: 0.9rem;
+    font-weight: 650;
+  }
+
+  .guild-code-block {
+    overflow-x: auto;
+    margin: 0;
+    padding: 0.9rem;
+    font-size: 0.76rem;
+    line-height: 1.55;
+  }
+
+  .guild-phase-card ul {
+    margin: 0;
+    padding-left: 1rem;
+    color: rgb(var(--fg-rgb) / 0.62);
+    font-size: 0.82rem;
+    line-height: 1.5;
+  }
+
+  .guild-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    padding: 0.95rem;
+  }
+
+  .guild-field span {
+    font-size: 0.76rem;
+    font-weight: 650;
+    color: rgb(var(--fg-rgb) / 0.74);
+  }
+
+  .guild-field input,
+  .guild-field textarea {
+    width: 100%;
+    border: 1px solid rgb(var(--fg-rgb) / 0.09);
+    border-radius: 0.9rem;
+    background: rgb(0 0 0 / 0.22);
+    color: inherit;
+    font: inherit;
+    font-size: 0.9rem;
+    outline: none;
+    padding: 0.75rem 0.85rem;
+  }
+
+  .guild-field textarea {
+    min-height: 6rem;
+    resize: vertical;
+  }
+
+  .guild-field input:focus,
+  .guild-field textarea:focus {
+    border-color: rgb(var(--fg-rgb) / 0.18);
+  }
+
+  .guild-field small,
+  .guild-toggle-card small {
+    font-size: 0.74rem;
+    line-height: 1.45;
+    color: rgb(var(--fg-rgb) / 0.48);
+  }
+
+  .guild-toggle-card {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    padding: 0.95rem;
+  }
+
+  .guild-toggle-card input {
+    margin-top: 0.18rem;
+    accent-color: rgb(var(--fg-rgb) / 0.88);
+  }
+
+  .guild-toggle-card span {
+    display: grid;
+    gap: 0.2rem;
+  }
+
+  .guild-toggle-card strong {
+    font-size: 0.86rem;
+  }
+
+  .guild-form-error {
+    margin: 0;
+    border: 1px solid var(--protocol-red-border);
+    border-radius: 0.9rem;
+    padding: 0.75rem 0.9rem;
+    color: color-mix(in srgb, var(--protocol-red) 86%, rgb(var(--fg-rgb)));
+    font-size: 0.82rem;
+    line-height: 1.45;
   }
 
   .app-soon-page {
