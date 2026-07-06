@@ -10309,6 +10309,32 @@ a.os-surface-row {
     text-decoration: none;
   }
 
+  .guild-feed-filter-list {
+    display: flex;
+    gap: 0.45rem;
+    overflow-x: auto;
+    padding: 0.1rem 0 0.25rem;
+  }
+
+  .guild-feed-filter-button {
+    flex: 0 0 auto;
+    border: 1px solid rgb(var(--fg-rgb) / 0.08);
+    border-radius: 9999px;
+    background: rgb(var(--fg-rgb) / 0.035);
+    color: rgb(var(--fg-rgb) / 0.62);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.76rem;
+    font-weight: 650;
+    padding: 0.5rem 0.72rem;
+  }
+
+  .guild-feed-filter-button.is-active {
+    border-color: color-mix(in srgb, var(--protocol-purple) 38%, transparent);
+    background: color-mix(in srgb, var(--protocol-purple) 16%, transparent);
+    color: rgb(var(--fg-rgb) / 0.88);
+  }
+
   .guild-action-card,
   .guild-role-card,
   .guild-channel-card,

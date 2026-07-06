@@ -50,10 +50,12 @@ interface LiveGuildState {
   config: LiveGuildConfig | null;
   stats: GroupStats | null;
   posts: PostRow[];
+  feedError: string | null;
   viewer: ViewerGuildState | null;
 }
 
 type LoadState = 'loading' | 'ready' | 'missing' | 'error';
+type GuildFeedFilterId = 'all' | string;
 
 function readString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value : null;
@@ -114,6 +116,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     config: null,
     stats: null,
     posts: [],
+    feedError: null,
     viewer: null,
   });
   const [actionPending, setActionPending] = useState(false);
@@ -121,6 +124,8 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
   const [selectedStructureId, setSelectedStructureId] = useState(
     DEFAULT_GUILD_STRUCTURE.id
   );
+  const [selectedFeedFilterId, setSelectedFeedFilterId] =
+    useState<GuildFeedFilterId>('all');
   const [postPending, setPostPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -129,6 +134,12 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
   const joinPending = pendingJoinRequest(viewer?.joinRequest ?? null);
   const canPost = Boolean(viewer?.isMember);
   const title = config?.name ?? groupId;
+  const selectedFeedStructure =
+    selectedFeedFilterId === 'all'
+      ? null
+      : (GUILD_STRUCTURE_TEMPLATES.find(
+          (structure) => structure.id === selectedFeedFilterId
+        ) ?? DEFAULT_GUILD_STRUCTURE);
 
   const refresh = useCallback(async () => {
     setLoadState('loading');
@@ -139,14 +150,26 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       const rawConfig = await client.groups.getConfig(groupId);
 
       if (!rawConfig) {
-        setState({ config: null, stats: null, posts: [], viewer: null });
+        setState({
+          config: null,
+          stats: null,
+          posts: [],
+          feedError: null,
+          viewer: null,
+        });
         setLoadState('missing');
         return;
       }
 
       const [statsResult, feedResult, viewerResult] = await Promise.allSettled([
         client.groups.getStats(groupId),
-        client.query.groups.feed({ groupId, limit: 20 }),
+        selectedFeedStructure
+          ? client.query.groups.feedFiltered({
+              groupId,
+              channel: selectedFeedStructure.channel,
+              limit: 20,
+            })
+          : client.query.groups.feed({ groupId, limit: 20 }),
         accountId
           ? Promise.all([
               client.groups.isMember(groupId, accountId),
@@ -176,6 +199,12 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
           feedResult.status === 'fulfilled'
             ? (feedResult.value.items ?? [])
             : [],
+        feedError:
+          feedResult.status === 'rejected'
+            ? feedResult.reason instanceof Error
+              ? feedResult.reason.message
+              : 'Could not load guild posts.'
+            : null,
         viewer: viewerState,
       });
       setLoadState('ready');
@@ -185,7 +214,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
         cause instanceof Error ? cause.message : 'Could not load guild.'
       );
     }
-  }, [accountId, groupId]);
+  }, [accountId, groupId, selectedFeedStructure]);
 
   useEffect(() => {
     if (walletLoading) return;
@@ -478,7 +507,33 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
             <section className="guild-section">
               <div className="guild-section-head">
                 <p className="guild-eyebrow">Guild feed</p>
-                <h2>Member posts</h2>
+                <h2>
+                  {selectedFeedStructure
+                    ? selectedFeedStructure.title
+                    : 'Member posts'}
+                </h2>
+              </div>
+              <div
+                className="guild-feed-filter-list"
+                aria-label="Guild feed filters"
+              >
+                <button
+                  className={`guild-feed-filter-button${selectedFeedFilterId === 'all' ? ' is-active' : ''}`}
+                  type="button"
+                  onClick={() => setSelectedFeedFilterId('all')}
+                >
+                  All
+                </button>
+                {GUILD_STRUCTURE_TEMPLATES.map((structure) => (
+                  <button
+                    key={structure.id}
+                    className={`guild-feed-filter-button${selectedFeedFilterId === structure.id ? ' is-active' : ''}`}
+                    type="button"
+                    onClick={() => setSelectedFeedFilterId(structure.id)}
+                  >
+                    {structure.title}
+                  </button>
+                ))}
               </div>
               {canPost ? (
                 <form className="post-composer" onSubmit={submitPost}>
@@ -536,9 +591,23 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                     <PostCard key={postKey(post)} post={post} />
                   ))}
                 </div>
+              ) : state.feedError ? (
+                <div className="guild-state-card is-error">
+                  <p>Guild posts could not load from the indexed feed.</p>
+                  <small>{state.feedError}</small>
+                  <button
+                    className="guild-secondary-button"
+                    type="button"
+                    onClick={() => void refresh()}
+                  >
+                    Retry
+                  </button>
+                </div>
               ) : (
                 <div className="guild-state-card">
-                  No guild posts yet. Members can start the feed from this page.
+                  {selectedFeedStructure
+                    ? `No ${selectedFeedStructure.title.toLowerCase()} posts yet. Members can start this channel from the composer.`
+                    : 'No guild posts yet. Members can start the feed from this page.'}
                 </div>
               )}
             </section>
