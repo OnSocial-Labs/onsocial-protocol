@@ -385,10 +385,11 @@ export function GuildSettingsPanel({ groupId }: { groupId: string }) {
         <section className="guild-section">
           <div className="guild-section-head">
             <p className="guild-eyebrow">Structures</p>
-            <h2>Shape how members work together.</h2>
+            <h2>Start standard, then customize.</h2>
             <p>
-              Start with template sections. Each section maps to guild post
-              metadata and can later receive path-scoped permissions.
+              Every guild gets familiar default channels so members know where
+              to post. Owners and moderators can later tune sections and attach
+              permission rules as the guild grows.
             </p>
           </div>
           <GuildStructureTemplateGrid />

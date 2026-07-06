@@ -147,10 +147,13 @@ export type {
   Paginated,
   HashtagCount,
   GroupConversation,
+  ThreadCounts,
   ThreadEdge,
   ThreadNode,
   ThreadTree,
   ThreadTreeOptions,
+  PostReactionState,
+  ReactionPostRef,
   FeedFilter,
   GroupFeedFilter,
   StorageEventRow,
@@ -167,6 +170,7 @@ export type {
 export {
   parseLegacyEndorsementSpendTargetId,
   aggregateEndorsementSupportRows,
+  postContentPath,
 } from './query/index.js';
 export type {
   EndorsementSupporterAggregate,

@@ -541,6 +541,32 @@ WHERE ref_author IS NOT NULL
   AND ref_author != '';
 
 -- ────────────────────────────────────────────────────────────────────────────
+-- 8a. thread_reply_counts — aggregate reply counts per parent post
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE VIEW thread_reply_counts AS
+SELECT
+  parent_author,
+  parent_path,
+  COUNT(*)          AS reply_count,
+  MAX(block_height) AS last_reply_block
+FROM thread_replies
+GROUP BY parent_author, parent_path;
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 8b. quote_counts — aggregate quote counts per referenced post
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE VIEW quote_counts AS
+SELECT
+  ref_author,
+  ref_path,
+  COUNT(*)          AS quote_count,
+  MAX(block_height) AS last_quote_block
+FROM quotes
+GROUP BY ref_author, ref_path;
+
+-- ────────────────────────────────────────────────────────────────────────────
 -- 9. edges_current - latest unified social graph relationships
 -- ────────────────────────────────────────────────────────────────────────────
 

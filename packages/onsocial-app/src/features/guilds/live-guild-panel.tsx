@@ -9,6 +9,7 @@ import {
   type FormEvent,
 } from 'react';
 import type { GroupStats, JoinRequest, PostRow } from '@onsocial/sdk';
+import { Divider } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -16,12 +17,14 @@ import { PostCard, postKey } from '@/features/home/post-card';
 import {
   collectRelayTxHashes,
   DEFAULT_GUILD_STRUCTURE,
-  GUILD_PERMISSION_PRESETS,
   GUILD_STRUCTURE_TEMPLATES,
+  guildPostPath,
   guildSectionPath,
 } from '@/features/guilds/guilds-data';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
+import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
+import { usePostEngagement } from '@/hooks/use-post-engagement';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
   txToastError,
@@ -109,7 +112,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     connect,
   } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
-  const { txResult, clearTxResult, trackTransaction } =
+  const { txResult, setTxResult, clearTxResult, trackTransaction } =
     useNearTransactionFeedback(accountId);
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [state, setState] = useState<LiveGuildState>({
@@ -140,6 +143,17 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       : (GUILD_STRUCTURE_TEMPLATES.find(
           (structure) => structure.id === selectedFeedFilterId
         ) ?? DEFAULT_GUILD_STRUCTURE);
+  const postAuthorIds = useMemo(
+    () => state.posts.map((post) => post.accountId),
+    [state.posts]
+  );
+  const postAuthorProfiles = usePostAuthorProfiles(postAuthorIds);
+  const { engagement, toggleReaction, isReactionPending } = usePostEngagement(
+    state.posts,
+    {
+      onError: (message) => setTxResult({ type: 'error', msg: message }),
+    }
+  );
 
   const refresh = useCallback(async () => {
     setLoadState('loading');
@@ -328,10 +342,6 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     }
   };
 
-  const canManageStructure = Boolean(
-    viewer?.isOwner || viewer?.isAdmin || viewer?.canModerate
-  );
-
   return (
     <OsAppScreen
       title={title}
@@ -391,11 +401,6 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                 {config.description ??
                   'A public on-chain guild. Access controls decide who can join, post, moderate, and manage.'}
               </p>
-              <p className="guild-public-note">
-                On-chain guild activity is public. Access-gated means membership
-                and write permissions are restricted, not that blockchain data
-                is hidden.
-              </p>
               <div className="guild-card-meta">
                 <span>{memberCount} members</span>
                 <span>{proposalCount} proposals</span>
@@ -429,82 +434,20 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                 >
                   Proposals
                 </Link>
+                {viewer?.isOwner || viewer?.isAdmin || viewer?.canModerate ? (
+                  <Link
+                    className="guild-secondary-link"
+                    href={guildSectionPath(groupId, 'settings')}
+                  >
+                    Settings
+                  </Link>
+                ) : null}
               </div>
             </section>
 
             {error ? <p className="guild-form-error">{error}</p> : null}
 
-            <section className="guild-section">
-              <div className="guild-section-head">
-                <p className="guild-eyebrow">Guild home</p>
-                <h2>Build a structure members understand.</h2>
-                <p>
-                  Start with channels that map to real post metadata. Later,
-                  owners can turn these defaults into editable guild sections,
-                  custom permissions, and member-led proposals.
-                </p>
-              </div>
-              <div className="guild-structure-grid">
-                {GUILD_STRUCTURE_TEMPLATES.map((structure) => {
-                  const selected = structure.id === selectedStructure.id;
-
-                  return (
-                    <article
-                      key={structure.id}
-                      className={`guild-structure-card${selected ? ' is-selected' : ''}`}
-                    >
-                      <div className="guild-structure-card-head">
-                        <span>{structure.title}</span>
-                        <code>{structure.channel}</code>
-                      </div>
-                      <p>{structure.summary}</p>
-                      <small>{structure.userValue}</small>
-                      <button
-                        className="guild-secondary-button"
-                        type="button"
-                        onClick={() => setSelectedStructureId(structure.id)}
-                      >
-                        {selected ? 'Using in composer' : 'Use in composer'}
-                      </button>
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
-
-            <section className="guild-section">
-              <div className="guild-section-head">
-                <p className="guild-eyebrow">Permissions</p>
-                <h2>Flexible without making users learn protocol paths.</h2>
-                <p>
-                  The product can present simple roles while the contract stores
-                  path-scoped permissions. Member-driven guilds can route these
-                  changes through proposals.
-                </p>
-              </div>
-              <div className="guild-permission-list">
-                {GUILD_PERMISSION_PRESETS.map((permission) => (
-                  <article
-                    key={permission.id}
-                    className="guild-permission-card"
-                  >
-                    <div>
-                      <span>{permission.title}</span>
-                      <strong>{permission.level}</strong>
-                    </div>
-                    <p>{permission.summary}</p>
-                    <code>{permission.path(groupId)}</code>
-                  </article>
-                ))}
-              </div>
-              <div className="guild-state-card">
-                {canManageStructure
-                  ? 'You can help shape this guild. The next step is an editable structure builder for channels, permissions, and role templates.'
-                  : 'Members can participate now. Owners and moderators can shape channels, roles, and access as the guild grows.'}
-              </div>
-            </section>
-
-            <section className="guild-section">
+            <section className="guild-section guild-feed-section">
               <div className="guild-section-head">
                 <p className="guild-eyebrow">Guild feed</p>
                 <h2>
@@ -553,7 +496,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                     onChange={(event) => setPostText(event.target.value)}
                   />
                   <label className="guild-composer-structure">
-                    <span>Structure</span>
+                    <span>Channel</span>
                     <select
                       value={selectedStructure.id}
                       disabled={postPending}
@@ -587,8 +530,24 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
 
               {state.posts.length > 0 ? (
                 <div className="home-feed-list">
-                  {state.posts.map((post) => (
-                    <PostCard key={postKey(post)} post={post} />
+                  {state.posts.map((post, index) => (
+                    <div key={postKey(post)}>
+                      {index > 0 ? (
+                        <Divider variant="item" className="post-row-divider" />
+                      ) : null}
+                      <PostCard
+                        post={post}
+                        authorProfile={postAuthorProfiles[post.accountId]}
+                        actionHref={guildPostPath(
+                          groupId,
+                          post.accountId,
+                          post.postId
+                        )}
+                        engagement={engagement[postKey(post)]}
+                        reactionPending={isReactionPending(post)}
+                        onToggleReaction={toggleReaction}
+                      />
+                    </div>
                   ))}
                 </div>
               ) : state.feedError ? (

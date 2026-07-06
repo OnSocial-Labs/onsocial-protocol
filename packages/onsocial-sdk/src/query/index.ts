@@ -78,11 +78,14 @@ export type {
   GroupFeedFilter,
 } from './types.js';
 export type {
+  ThreadCounts,
   ThreadEdge,
   ThreadNode,
   ThreadTree,
   ThreadTreeOptions,
 } from './threads.js';
+export { postContentPath } from './threads.js';
+export type { PostReactionState, ReactionPostRef } from './reactions.js';
 export type { SaveRow } from './saves.js';
 export type { EndorsementRow } from './endorsements.js';
 export type { ClaimRow } from './attestations.js';

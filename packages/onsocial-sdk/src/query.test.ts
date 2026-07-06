@@ -993,6 +993,154 @@ describe('QueryModule', () => {
     });
   });
 
+  describe('threads.countsByPaths()', () => {
+    it('reads flat count views for all paths in one query', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          threadReplyCounts: [
+            {
+              parentPath: 'alice.near/groups/dao/content/post/p1',
+              replyCount: 3,
+            },
+          ],
+          quoteCounts: [
+            {
+              refPath: 'alice.near/groups/dao/content/post/p1',
+              quoteCount: 1,
+            },
+            { refPath: 'bob.near/post/p2', quoteCount: 2 },
+          ],
+        },
+      });
+
+      const counts = await os.query.threads.countsByPaths([
+        'alice.near/groups/dao/content/post/p1',
+        'bob.near/post/p2',
+      ]);
+
+      expect(counts['alice.near/groups/dao/content/post/p1']).toEqual({
+        replyCount: 3,
+        quoteCount: 1,
+      });
+      expect(counts['bob.near/post/p2']).toEqual({
+        replyCount: 0,
+        quoteCount: 2,
+      });
+      expect(fetch).toHaveBeenCalledTimes(1);
+
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('threadReplyCounts');
+      expect(body.query).toContain('quoteCounts');
+      expect(body.variables.paths).toEqual([
+        'alice.near/groups/dao/content/post/p1',
+        'bob.near/post/p2',
+      ]);
+    });
+
+    it('returns empty map without a request for an empty path list', async () => {
+      const { os, fetch } = makeOs({ data: {} });
+      await expect(os.query.threads.countsByPaths([])).resolves.toEqual({});
+      expect(fetch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('reactions.statesForPosts()', () => {
+    it('batches counts and viewer state keyed by owner:postId', async () => {
+      const { os, fetch } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        if (query.includes('PostReactionCounts')) {
+          return {
+            data: {
+              reactionCounts: [
+                {
+                  postOwner: 'alice.near',
+                  postPath: 'post/p1',
+                  reactionKind: 'like',
+                  reactionCount: 2,
+                },
+                {
+                  postOwner: 'alice.near',
+                  postPath: 'post/p1',
+                  reactionKind: 'fire',
+                  reactionCount: 1,
+                },
+              ],
+            },
+          };
+        }
+        if (query.includes('ViewerPostReactions')) {
+          return {
+            data: {
+              reactionsCurrent: [
+                {
+                  postOwner: 'alice.near',
+                  path: 'carol.near/reaction/alice.near/like/post/p1',
+                  reactionKind: 'like',
+                },
+              ],
+            },
+          };
+        }
+        return { data: {} };
+      });
+
+      const states = await os.query.reactions.statesForPosts(
+        [
+          { owner: 'alice.near', postId: 'p1' },
+          { owner: 'bob.near', postId: 'p2' },
+        ],
+        { viewer: 'carol.near' }
+      );
+
+      expect(states['alice.near:p1']).toEqual({
+        counts: { like: 2, fire: 1, total: 3 },
+        viewerReacted: ['like'],
+      });
+      expect(states['bob.near:p2']).toEqual({
+        counts: { total: 0 },
+        viewerReacted: [],
+      });
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('skips the viewer query when no viewer is given', async () => {
+      const { os, fetch } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        if (query.includes('PostReactionCounts')) {
+          return {
+            data: {
+              reactionCounts: [
+                {
+                  postOwner: 'alice.near',
+                  postPath: 'post/p1',
+                  reactionKind: 'like',
+                  reactionCount: 4,
+                },
+              ],
+            },
+          };
+        }
+        return { data: {} };
+      });
+
+      const states = await os.query.reactions.statesForPosts([
+        { owner: 'alice.near', postId: 'p1' },
+      ]);
+
+      expect(states['alice.near:p1']).toEqual({
+        counts: { like: 4, total: 4 },
+        viewerReacted: [],
+      });
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns empty map without a request for an empty ref list', async () => {
+      const { os, fetch } = makeOs({ data: {} });
+      await expect(os.query.reactions.statesForPosts([])).resolves.toEqual({});
+      expect(fetch).not.toHaveBeenCalled();
+    });
+  });
+
   describe('getRepliesByPath()', () => {
     it('queries threadReplies using the full parent path', async () => {
       const { os, fetch } = makeOs({

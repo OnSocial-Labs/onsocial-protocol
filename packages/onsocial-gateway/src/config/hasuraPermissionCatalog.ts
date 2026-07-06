@@ -367,6 +367,19 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
     ],
   },
   {
+    name: 'thread_reply_counts',
+    columns: [
+      'parent_author',
+      'parent_path',
+      'reply_count',
+      'last_reply_block',
+    ],
+  },
+  {
+    name: 'quote_counts',
+    columns: ['ref_author', 'ref_path', 'quote_count', 'last_quote_block'],
+  },
+  {
     name: 'edges_current',
     columns: [
       'edge_id',

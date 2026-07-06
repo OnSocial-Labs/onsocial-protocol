@@ -160,11 +160,17 @@ function resolveTreeOptions(
   };
 }
 
-function postContentPath(row: PostRow): string {
+/** Full indexed content path for a post row (group-aware). */
+export function postContentPath(row: PostRow): string {
   if (row.groupId) {
     return `${row.accountId}/groups/${row.groupId}/content/post/${row.postId}`;
   }
   return `${row.accountId}/post/${row.postId}`;
+}
+
+export interface ThreadCounts {
+  replyCount: number;
+  quoteCount: number;
 }
 
 function flattenThreadNodes(nodes: ThreadNode[]): ThreadNode[] {
@@ -304,6 +310,54 @@ export class ThreadsQuery {
     opts: { limit?: number; offset?: number } = {}
   ): Promise<PostRow[]> {
     return (await this._quotesPageByPath(refPath, opts)).items;
+  }
+
+  /**
+   * Batched reply/quote counts for a set of indexed content paths.
+   * One flat GraphQL round-trip against the `thread_reply_counts` and
+   * `quote_counts` views — no aggregate fields, so it stays within
+   * free-tier query complexity limits.
+   *
+   * ```ts
+   * const counts = await os.query.threads.countsByPaths([
+   *   'alice.near/groups/dao/content/post/1',
+   *   'bob.near/post/2',
+   * ]);
+   * // counts['bob.near/post/2'] → { replyCount: 3, quoteCount: 1 }
+   * ```
+   */
+  async countsByPaths(paths: string[]): Promise<Record<string, ThreadCounts>> {
+    const uniquePaths = [...new Set(paths.filter(Boolean))];
+    if (uniquePaths.length === 0) return {};
+
+    const res = await this._q.graphql<{
+      threadReplyCounts: Array<{ parentPath: string; replyCount: number }>;
+      quoteCounts: Array<{ refPath: string; quoteCount: number }>;
+    }>({
+      query: `query ThreadCountsByPaths($paths: [String!]) {
+        threadReplyCounts(where: {parentPath: {_in: $paths}}) {
+          parentPath replyCount
+        }
+        quoteCounts(where: {refPath: {_in: $paths}}) {
+          refPath quoteCount
+        }
+      }`,
+      variables: { paths: uniquePaths },
+    });
+
+    const out: Record<string, ThreadCounts> = {};
+    for (const path of uniquePaths) {
+      out[path] = { replyCount: 0, quoteCount: 0 };
+    }
+    for (const row of res.data?.threadReplyCounts ?? []) {
+      const entry = out[row.parentPath];
+      if (entry) entry.replyCount = row.replyCount;
+    }
+    for (const row of res.data?.quoteCounts ?? []) {
+      const entry = out[row.refPath];
+      if (entry) entry.quoteCount = row.quoteCount;
+    }
+    return out;
   }
 
   /**

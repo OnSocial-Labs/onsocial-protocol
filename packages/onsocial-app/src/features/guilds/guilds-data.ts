@@ -393,6 +393,14 @@ export function guildSectionPath(groupId: string, section: string): string {
   return `${guildPath(groupId)}/${section}`;
 }
 
+export function guildPostPath(
+  groupId: string,
+  author: string,
+  postId: string
+): string {
+  return `${guildPath(groupId)}/posts/${encodeURIComponent(author)}/${encodeURIComponent(postId)}`;
+}
+
 export function normalizeGuildIdInput(value: string): string {
   return value
     .trim()
