@@ -8,6 +8,7 @@ import {
 } from 'react';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePageContentDrawer } from '@/contexts/page-content-drawer-context';
+import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { accountIdsEqual } from '@/lib/account-match';
 import { SummonLauncher } from '@/components/os/summon-launcher';
 import { OsDockPill } from '@/components/wallet/os-dock-pill';
@@ -41,6 +42,7 @@ export function PortfolioPageDock({ pageAccountId }: PortfolioPageDockProps) {
   const { accountId, isConnected } = useAppWallet();
   const [osOpen, setOsOpen] = useState(false);
   const [showHint, setShowHint] = useState(readDockHintPending);
+  const dockHidden = useDockAutoHide() && !osOpen;
 
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pointerStart = useRef<{
@@ -137,7 +139,7 @@ export function PortfolioPageDock({ pageAccountId }: PortfolioPageDockProps) {
   return (
     <>
       <div
-        className={`portfolio-summon-dock${osOpen ? ' is-launcher-open' : ''}`}
+        className={`portfolio-summon-dock${osOpen ? ' is-launcher-open' : ''}${dockHidden ? ' is-scroll-hidden' : ''}`}
       >
         {showHint ? (
           <p className="portfolio-summon-hint" aria-hidden="true">

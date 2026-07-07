@@ -7,6 +7,7 @@ import {
   AppAccountSheetProvider,
 } from '@/contexts/app-account-sheet-context';
 import { AppWalletProvider } from '@/contexts/app-wallet-context';
+import { ComposeLauncherProvider } from '@/contexts/compose-launcher-context';
 import { PortfolioCustomizeProvider } from '@/contexts/portfolio-customize-context';
 import { ViewerProfileShellProvider } from '@/contexts/viewer-profile-shell-context';
 import { ViewerWalletMoodProvider } from '@/contexts/viewer-wallet-mood-context';
@@ -20,8 +21,10 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
             <AppAccountSheetProvider>
               <AppRewardsProvider>
                 <PortfolioCustomizeProvider>
-                  {children}
-                  <AppAccountSheetHost />
+                  <ComposeLauncherProvider>
+                    {children}
+                    <AppAccountSheetHost />
+                  </ComposeLauncherProvider>
                 </PortfolioCustomizeProvider>
               </AppRewardsProvider>
             </AppAccountSheetProvider>

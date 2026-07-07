@@ -9,11 +9,16 @@ import {
   CopyIcon,
   DotsCircleIcon,
   EditIcon,
+  EditPenIcon,
   ExternalLinkIcon,
   GiftIcon,
   GlobeIcon,
+  HeartIcon,
   LogoutIcon,
+  MessageIcon,
+  MessageRoundIcon,
   MultiplyIcon,
+  RepeatIcon,
   SearchIcon,
   SlidersHorizontalIcon,
   TrashIcon,
@@ -30,7 +35,12 @@ describe('mage stroke icons', () => {
     expect(typeof ChevronRightIcon).toBe('function');
     expect(typeof CopyIcon).toBe('function');
     expect(typeof EditIcon).toBe('function');
+    expect(typeof EditPenIcon).toBe('function');
     expect(typeof ExternalLinkIcon).toBe('function');
+    expect(typeof HeartIcon).toBe('function');
+    expect(typeof MessageIcon).toBe('function');
+    expect(typeof MessageRoundIcon).toBe('function');
+    expect(typeof RepeatIcon).toBe('function');
     expect(typeof GiftIcon).toBe('function');
     expect(typeof GlobeIcon).toBe('function');
     expect(typeof LogoutIcon).toBe('function');

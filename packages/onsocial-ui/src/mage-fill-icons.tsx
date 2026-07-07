@@ -173,6 +173,30 @@ export function UserCircleFillIcon(props: MageFillIconProps) {
   );
 }
 
+/** Mage `heart-fill` — liked / reacted active state. */
+export function HeartFillIcon(props: MageFillIconProps) {
+  return (
+    <MageFillSvg {...props}>
+      <path
+        d="M21.19 12.683c-2.5 5.41-8.62 8.2-8.88 8.32a.85.85 0 0 1-.62 0c-.25-.12-6.38-2.91-8.88-8.32c-1.55-3.37-.69-7 1-8.56a4.93 4.93 0 0 1 4.36-1.05a6.16 6.16 0 0 1 3.78 2.62a6.15 6.15 0 0 1 3.79-2.62a4.93 4.93 0 0 1 4.36 1.05c1.78 1.56 2.65 5.19 1.09 8.56"
+        fill="currentColor"
+      />
+    </MageFillSvg>
+  );
+}
+
+/** Mage `pen-fill` — compose affordance (dock pen, new post). */
+export function PenFillIcon(props: MageFillIconProps) {
+  return (
+    <MageFillSvg {...props}>
+      <path
+        d="M21.911 7.142a7.45 7.45 0 0 0-5.07-5.07a2 2 0 0 0-1 0a2 2 0 0 0-.87.52l-2.23 2.24l-9.54 9.53a2.1 2.1 0 0 0-.56 1.14l-.61 4.16a2.1 2.1 0 0 0 .07.93c.102.3.27.573.49.8c.224.222.494.392.79.5c.207.068.423.101.64.1h.29l4.16-.61a2 2 0 0 0 1.15-.56l9.55-9.55l2.22-2.21a2 2 0 0 0 .54-1.92zm-1.46.63a.5.5 0 0 1-.14.22l-1.69 1.69l-4.32-4.31l1.71-1.71a.6.6 0 0 1 .23-.13h.23a5.94 5.94 0 0 1 4 4a.6.6 0 0 1-.02.24"
+        fill="currentColor"
+      />
+    </MageFillSvg>
+  );
+}
+
 /** Mage bulk `gift` — reward and collect surfaces. */
 export function GiftFillIcon(props: MageFillIconProps) {
   return (

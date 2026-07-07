@@ -1,11 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { GroupConversation, PostRow } from '@onsocial/sdk';
+import type { GroupConversation, PostRow, ThreadNode } from '@onsocial/sdk';
 import { Divider } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { PostCard, PostRowSkeleton, postKey } from '@/features/home/post-card';
 import {
   GuildComposerModal,
@@ -20,11 +21,7 @@ import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { usePostEngagement } from '@/hooks/use-post-engagement';
-import {
-  parseGroupPostPath,
-  useQuotedPosts,
-  useResolvedGroupPosts,
-} from '@/hooks/use-quoted-posts';
+import { useAncestorChain, useQuotedPosts } from '@/hooks/use-quoted-posts';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
   txToastError,
@@ -38,7 +35,131 @@ type ThreadTab = 'replies' | 'quotes';
 
 const REPLY_PAGE_SIZE = 50;
 const QUOTE_PAGE_SIZE = 12;
+const REPLY_TREE_DEPTH = 6;
+const REPLY_TREE_MAX_NODES = 300;
 const RECONCILE_DELAYS_MS = [2_000, 5_000];
+
+/** Display row on the thread page: a post, or a per-branch fold control. */
+type ReplyRow =
+  | {
+      kind: 'post';
+      post: PostRow;
+      /** Drawn with the rail into the previous row (conversation run). */
+      connectedToPrevious: boolean;
+    }
+  | { kind: 'more'; branchKey: string; hiddenCount: number };
+
+/**
+ * Flatten the reply tree into display rows for the thread page:
+ *
+ * - The root author's own thread leads: their self-reply run, connected by
+ *   the rail. Replies from others to mid-thread posts are not inlined —
+ *   each post's own page shows them.
+ * - Then each branch (someone else's reply), divider-separated: the branch
+ *   post plus at most ONE reply from its conversation line (the root
+ *   author's response when present). Longer exchanges fold behind a dotted
+ *   `Show N more` row that expands in place.
+ * - Third parties replying inside a branch never render here; clicking the
+ *   branch post opens its page with its own replies and quotes.
+ */
+function buildReplyRows(
+  nodes: ThreadNode[],
+  rootAuthor: string | undefined,
+  expandedBranches: ReadonlySet<string>
+): ReplyRow[] {
+  const rows: ReplyRow[] = [];
+
+  const pushPost = (post: PostRow, connected: boolean) =>
+    rows.push({ kind: 'post', post, connectedToPrevious: connected });
+
+  // The author's thread: follow only their own self-replies downward.
+  const emitAuthorRun = (node: ThreadNode) => {
+    pushPost(node.post, false);
+    let cursor = node;
+    for (;;) {
+      const next = cursor.replies.find(
+        (reply) => reply.post.accountId === rootAuthor
+      );
+      if (!next) break;
+      pushPost(next.post, true);
+      cursor = next;
+    }
+  };
+
+  // The 1:1 conversation under a branch: the root author's responses and
+  // the branch author's follow-ups, in reply order.
+  const conversationLine = (branch: ThreadNode): ThreadNode[] => {
+    const branchAuthor = branch.post.accountId;
+    const line: ThreadNode[] = [];
+    let cursor = branch;
+    for (;;) {
+      const next =
+        cursor.replies.find(
+          (reply) => rootAuthor && reply.post.accountId === rootAuthor
+        ) ??
+        cursor.replies.find(
+          (reply) => reply.post.accountId === branchAuthor
+        );
+      if (!next) break;
+      line.push(next);
+      cursor = next;
+    }
+    return line;
+  };
+
+  const emitBranch = (branch: ThreadNode) => {
+    pushPost(branch.post, false);
+    const line = conversationLine(branch);
+    if (line.length === 0) return;
+
+    const branchKey = postKey(branch.post);
+    if (expandedBranches.has(branchKey)) {
+      for (const node of line) pushPost(node.post, true);
+      return;
+    }
+
+    pushPost(line[0]!.post, true);
+    const hiddenCount = line.length - 1;
+    if (hiddenCount > 0) rows.push({ kind: 'more', branchKey, hiddenCount });
+  };
+
+  // Root author's thread first, everyone else's branches after.
+  const authorNodes = rootAuthor
+    ? nodes.filter((node) => node.post.accountId === rootAuthor)
+    : [];
+  const branchNodes = nodes.filter((node) => !authorNodes.includes(node));
+
+  for (const node of authorNodes) emitAuthorRun(node);
+  for (const node of branchNodes) emitBranch(node);
+
+  // Consecutive runs by the same author join into one rail run.
+  for (let i = 1; i < rows.length; i += 1) {
+    const row = rows[i]!;
+    const previous = rows[i - 1]!;
+    if (
+      row.kind === 'post' &&
+      previous.kind === 'post' &&
+      !row.connectedToPrevious &&
+      previous.post.accountId === row.post.accountId
+    ) {
+      row.connectedToPrevious = true;
+    }
+  }
+
+  return rows;
+}
+
+/** Depth-first posts of the reply tree (for reconcile and engagement). */
+function flattenTreePosts(nodes: ThreadNode[]): PostRow[] {
+  return nodes.flatMap((node) => [
+    node.post,
+    ...flattenTreePosts(node.replies),
+  ]);
+}
+
+function leafNode(post: PostRow, path: string): ThreadNode {
+  return { post, path, edge: 'reply', depth: 1, replies: [], quotes: [] };
+}
 
 interface LiveGuildPostPanelProps {
   groupId: string;
@@ -80,6 +201,7 @@ export function LiveGuildPostPanel({
     replies: [],
     quotes: [],
   });
+  const [replyTree, setReplyTree] = useState<ThreadNode[]>([]);
   const [localReplies, setLocalReplies] = useState<PostRow[]>([]);
   const [localQuotes, setLocalQuotes] = useState<PostRow[]>([]);
   const [isMember, setIsMember] = useState(false);
@@ -88,6 +210,9 @@ export function LiveGuildPostPanel({
   const [modalPending, setModalPending] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
   const [activeThreadTab, setActiveThreadTab] = useState<ThreadTab>('replies');
+  const [expandedBranches, setExpandedBranches] = useState<Set<string>>(
+    () => new Set()
+  );
   const [hasMoreReplies, setHasMoreReplies] = useState(false);
   const [hasMoreQuotes, setHasMoreQuotes] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -96,43 +221,66 @@ export function LiveGuildPostPanel({
   const reconcileTimersRef = useRef<number[]>([]);
 
   const rootPath = groupPostContentPath(author, groupId, postId);
-  const replies = useMemo(
-    () => [
-      ...conversation.replies,
-      ...withoutIndexed(localReplies, conversation.replies),
-    ],
-    [conversation.replies, localReplies]
+  const treePosts = useMemo(() => flattenTreePosts(replyTree), [replyTree]);
+  // Author's thread + folded branches as display rows, with chain-confirmed
+  // local replies appended until the indexer catches up.
+  const replyRows = useMemo(() => {
+    const rows = buildReplyRows(
+      replyTree,
+      conversation.root?.accountId,
+      expandedBranches
+    );
+    const lastPostRow = [...rows]
+      .reverse()
+      .find((row): row is Extract<ReplyRow, { kind: 'post' }> => {
+        return row.kind === 'post';
+      });
+    for (const local of withoutIndexed(localReplies, treePosts)) {
+      rows.push({
+        kind: 'post',
+        post: local,
+        connectedToPrevious: local.accountId === lastPostRow?.post.accountId,
+      });
+    }
+    return rows;
+  }, [replyTree, conversation.root, expandedBranches, localReplies, treePosts]);
+  // Total conversation size for the Replies tab badge (folded rows included).
+  const replyCount = useMemo(
+    () =>
+      treePosts.length + withoutIndexed(localReplies, treePosts).length,
+    [treePosts, localReplies]
   );
+  // Quotes read newest-first — your fresh quote leads the list.
   const quotes = useMemo(
     () => [
-      ...conversation.quotes,
       ...withoutIndexed(localQuotes, conversation.quotes),
+      ...conversation.quotes,
     ],
     [conversation.quotes, localQuotes]
   );
   const threadPosts = useMemo(
     () => [
       ...(conversation.root ? [conversation.root] : []),
-      ...replies,
+      ...replyRows.flatMap((row) => (row.kind === 'post' ? [row.post] : [])),
       ...quotes,
     ],
-    [conversation.root, replies, quotes]
+    [conversation.root, replyRows, quotes]
   );
-  const quotedPosts = useQuotedPosts(threadPosts);
-  const parentPosts = useResolvedGroupPosts([conversation.root?.parentPath]);
-  const parentPost = conversation.root?.parentPath
-    ? parentPosts[conversation.root.parentPath]
-    : undefined;
-  const parentRef = conversation.root?.parentPath
-    ? parseGroupPostPath(conversation.root.parentPath)
-    : null;
+  // Full ancestor chain up to the conversation root, oldest first.
+  const ancestorChain = useAncestorChain(conversation.root?.parentPath);
+  const hasParent = ancestorChain.length > 0;
+  const quotedPostSources = useMemo(
+    () => [...threadPosts, ...ancestorChain],
+    [threadPosts, ancestorChain]
+  );
+  const quotedPosts = useQuotedPosts(quotedPostSources);
   const postAuthorIds = useMemo(
     () => [
       ...threadPosts.map((post) => post.accountId),
       ...Object.values(quotedPosts).map((post) => post.accountId),
-      ...(parentPost ? [parentPost.accountId] : []),
+      ...ancestorChain.map((post) => post.accountId),
     ],
-    [threadPosts, quotedPosts, parentPost]
+    [threadPosts, quotedPosts, ancestorChain]
   );
   const postAuthorProfiles = usePostAuthorProfiles(postAuthorIds);
   const { engagement, toggleReaction, isReactionPending } = usePostEngagement(
@@ -151,37 +299,57 @@ export function LiveGuildPostPanel({
 
       try {
         const client = createReadOnlyOnSocialClient();
-        const [conversationResult, memberResult] = await Promise.allSettled([
-          client.query.groups.conversation(
-            { author, groupId, postId },
-            { replyLimit: REPLY_PAGE_SIZE, quoteLimit: QUOTE_PAGE_SIZE }
-          ),
-          accountId
-            ? client.groups.isMember(groupId, accountId)
-            : Promise.resolve(false),
-        ]);
+        const postRef = { author, groupId, postId };
+        const [rootResult, quotesResult, treeResult, memberResult] =
+          await Promise.allSettled([
+            client.query.groups.post(postRef),
+            client.query.groups.quotes(postRef, {
+              limit: QUOTE_PAGE_SIZE,
+              order: 'desc',
+            }),
+            client.query.groups.threadTree(postRef, {
+              depth: REPLY_TREE_DEPTH,
+              includeQuotes: false,
+              replyLimit: REPLY_PAGE_SIZE,
+              maxNodes: REPLY_TREE_MAX_NODES,
+            }),
+            accountId
+              ? client.groups.isMember(groupId, accountId)
+              : Promise.resolve(false),
+          ]);
 
-        if (conversationResult.status === 'rejected') {
-          throw conversationResult.reason;
+        if (rootResult.status === 'rejected') {
+          throw rootResult.reason;
         }
 
-        const fetched = conversationResult.value;
-        setLocalReplies((current) => withoutIndexed(current, fetched.replies));
-        setLocalQuotes((current) => withoutIndexed(current, fetched.quotes));
+        const root = rootResult.value;
+        const fetchedQuotes =
+          quotesResult.status === 'fulfilled' ? quotesResult.value : [];
+        const fetchedTree =
+          treeResult.status === 'fulfilled' ? treeResult.value.replies : [];
+        const fetchedTreePosts = flattenTreePosts(fetchedTree);
+
+        setLocalReplies((current) => withoutIndexed(current, fetchedTreePosts));
+        setLocalQuotes((current) => withoutIndexed(current, fetchedQuotes));
 
         // Once the user paginated past the first page, a background
         // first-page fetch would discard loaded pages — reconcile only.
         if (!options.background || !paginatedRef.current) {
-          setConversation(fetched);
-          setHasMoreReplies(fetched.replies.length >= REPLY_PAGE_SIZE);
-          setHasMoreQuotes(fetched.quotes.length >= QUOTE_PAGE_SIZE);
+          setConversation({
+            root,
+            replies: fetchedTree.map((node) => node.post),
+            quotes: fetchedQuotes,
+          });
+          setReplyTree(fetchedTree);
+          setHasMoreReplies(fetchedTree.length >= REPLY_PAGE_SIZE);
+          setHasMoreQuotes(fetchedQuotes.length >= QUOTE_PAGE_SIZE);
         }
 
         setIsMember(
           memberResult.status === 'fulfilled' ? memberResult.value : false
         );
         if (!options.background) {
-          setLoadState(fetched.root ? 'ready' : 'missing');
+          setLoadState(root ? 'ready' : 'missing');
         }
       } catch (cause) {
         if (options.background) return;
@@ -234,11 +402,23 @@ export function LiveGuildPostPanel({
             ...current,
             replies: [...current.replies, ...page],
           }));
+          // Extra pages join as top-level rows; their own descendants
+          // arrive with the next full refresh.
+          setReplyTree((current) => [
+            ...current,
+            ...page.map((post) =>
+              leafNode(
+                post,
+                groupPostContentPath(post.accountId, groupId, post.postId)
+              )
+            ),
+          ]);
           setHasMoreReplies(page.length >= REPLY_PAGE_SIZE);
         } else {
           const page = await client.query.threads.quotesByPath(rootPath, {
             limit: QUOTE_PAGE_SIZE,
             offset: conversation.quotes.length,
+            order: 'desc',
           });
           paginatedRef.current = true;
           setConversation((current) => ({
@@ -256,6 +436,7 @@ export function LiveGuildPostPanel({
     [
       conversation.quotes.length,
       conversation.replies.length,
+      groupId,
       loadingMore,
       rootPath,
     ]
@@ -378,6 +559,16 @@ export function LiveGuildPostPanel({
   const replyHandler = isMember ? openComposerModal('reply') : undefined;
   const quoteHandler = isMember ? openComposerModal('quote') : undefined;
 
+  // Dock pen on a thread page = reply to the thread root.
+  const root = conversation.root;
+  const composeReplyToRoot = useCallback(() => {
+    if (!root) return;
+    setModalMode('reply');
+    setModalError(null);
+    setModalTarget(root);
+  }, [root]);
+  useRegisterComposeAction(isMember && root ? composeReplyToRoot : null);
+
   return (
     <OsAppScreen
       title="Guild thread"
@@ -416,31 +607,51 @@ export function LiveGuildPostPanel({
         {loadState === 'ready' && conversation.root ? (
           <section className="guild-thread-column">
             <div className="guild-thread-context">
-              {parentPost && parentRef ? (
-                <div className="guild-thread-ancestor">
+              {ancestorChain.map((ancestor, index) => (
+                <div
+                  className={`guild-thread-ancestor post-thread-item post-thread-item--down${index > 0 ? ' post-thread-item--up' : ''}`}
+                  key={postKey(ancestor)}
+                >
                   <PostCard
-                    post={parentPost}
-                    authorProfile={postAuthorProfiles[parentPost.accountId]}
+                    post={ancestor}
+                    authorProfile={postAuthorProfiles[ancestor.accountId]}
                     actionHref={guildPostPath(
                       groupId,
-                      parentRef.author,
-                      parentRef.postId
+                      ancestor.accountId,
+                      ancestor.postId
                     )}
-                    showRelationBadge={false}
-                    className="post-card--chain-down"
+                    // Top of chain keeps its context line if truncated.
+                    showRelationBadge={index === 0}
+                    quotedPost={
+                      ancestor.refPath
+                        ? quotedPosts[ancestor.refPath]
+                        : undefined
+                    }
+                    quotedAuthorProfile={
+                      ancestor.refPath
+                        ? postAuthorProfiles[
+                            quotedPosts[ancestor.refPath]?.accountId ?? ''
+                          ]
+                        : undefined
+                    }
                     onReply={replyHandler}
                     onQuote={quoteHandler}
                   />
                 </div>
-              ) : null}
+              ))}
 
-              <div className="guild-thread-root">
+              <div
+                className={`guild-thread-root${hasParent ? ' post-thread-item post-thread-item--up' : ''}`}
+              >
                 <PostCard
                   post={conversation.root}
                   authorProfile={
                     postAuthorProfiles[conversation.root.accountId]
                   }
-                  className={parentPost ? 'post-card--chain-up' : undefined}
+                  // Parent drawn above with a chain line already says "reply".
+                  showRelationBadge={!hasParent}
+                  // Thread is reached from anywhere — root keeps channel context.
+                  showChannel
                   quotedPost={
                     conversation.root.refPath
                       ? quotedPosts[conversation.root.refPath]
@@ -500,7 +711,7 @@ export function LiveGuildPostPanel({
                 onClick={() => setActiveThreadTab('replies')}
               >
                 Replies
-                <span>{replies.length}</span>
+                <span>{replyCount}</span>
               </button>
               <button
                 type="button"
@@ -518,54 +729,78 @@ export function LiveGuildPostPanel({
 
             <div className="guild-connected-stack" role="tabpanel">
               {activeThreadTab === 'replies' ? (
-                replies.length > 0 ? (
-                  replies.map((reply, index) => {
-                    const sameAuthorAsPrevious =
-                      index > 0 &&
-                      replies[index - 1]!.accountId === reply.accountId;
-                    const sameAuthorAsNext =
-                      index < replies.length - 1 &&
-                      replies[index + 1]!.accountId === reply.accountId;
-                    const chainClassName =
-                      [
-                        sameAuthorAsPrevious ? 'post-card--chain-up' : null,
-                        sameAuthorAsPrevious ? 'post-card--chain-cont' : null,
-                        sameAuthorAsNext ? 'post-card--chain-down' : null,
-                      ]
-                        .filter(Boolean)
-                        .join(' ') || undefined;
+                replyRows.length > 0 ? (
+                  replyRows.map((row, index) => {
+                    if (row.kind === 'more') {
+                      return (
+                        <button
+                          key={`more-${row.branchKey}`}
+                          type="button"
+                          className="post-thread-more"
+                          onClick={() =>
+                            setExpandedBranches((current) =>
+                              new Set(current).add(row.branchKey)
+                            )
+                          }
+                        >
+                          Show {row.hiddenCount} more
+                        </button>
+                      );
+                    }
+
+                    const next = replyRows[index + 1];
+                    const connectedToNext =
+                      next !== undefined &&
+                      (next.kind === 'more' ||
+                        (next.kind === 'post' && next.connectedToPrevious));
+                    const itemClassName = [
+                      'post-thread-item',
+                      row.connectedToPrevious
+                        ? 'post-thread-item--up post-thread-item--cont'
+                        : '',
+                      connectedToNext ? 'post-thread-item--down' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ');
 
                     return (
-                      <div key={postKey(reply)}>
-                        {index > 0 && !sameAuthorAsPrevious ? (
+                      <div key={postKey(row.post)}>
+                        {index > 0 && !row.connectedToPrevious ? (
                           <Divider
                             variant="item"
                             className="post-row-divider"
                           />
                         ) : null}
-                        <PostCard
-                          post={reply}
-                          authorProfile={postAuthorProfiles[reply.accountId]}
-                          actionHref={guildPostPath(
-                            groupId,
-                            reply.accountId,
-                            reply.postId
-                          )}
-                          showRelationBadge={false}
-                          className={chainClassName}
-                          engagement={engagement[postKey(reply)]}
-                          reactionPending={isReactionPending(reply)}
-                          onToggleReaction={toggleReaction}
-                          onReply={replyHandler}
-                          onQuote={quoteHandler}
-                        />
+                        <div className={itemClassName}>
+                          <PostCard
+                            post={row.post}
+                            authorProfile={
+                              postAuthorProfiles[row.post.accountId]
+                            }
+                            actionHref={guildPostPath(
+                              groupId,
+                              row.post.accountId,
+                              row.post.postId
+                            )}
+                            // Position under the root already says "reply".
+                            showRelationBadge={false}
+                            className={
+                              row.connectedToPrevious
+                                ? 'post-card--chain-cont'
+                                : undefined
+                            }
+                            engagement={engagement[postKey(row.post)]}
+                            reactionPending={isReactionPending(row.post)}
+                            onToggleReaction={toggleReaction}
+                            onReply={replyHandler}
+                            onQuote={quoteHandler}
+                          />
+                        </div>
                       </div>
                     );
                   })
                 ) : (
-                  <div className="guild-state-card">
-                    No replies yet. Members can start the thread here.
-                  </div>
+                  <div className="guild-state-card">No replies yet.</div>
                 )
               ) : quotes.length > 0 ? (
                 quotes.map((quote, index) => (
@@ -597,9 +832,7 @@ export function LiveGuildPostPanel({
                   </div>
                 ))
               ) : (
-                <div className="guild-state-card">
-                  No quotes yet. Related takes will appear here.
-                </div>
+                <div className="guild-state-card">No quotes yet.</div>
               )}
 
               {(activeThreadTab === 'replies' && hasMoreReplies) ||

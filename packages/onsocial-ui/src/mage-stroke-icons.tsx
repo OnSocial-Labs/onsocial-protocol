@@ -291,6 +291,84 @@ export function CopyIcon(props: MageStrokeIconProps) {
   );
 }
 
+/** Slightly heavier stroke for small social affordances (~1rem). */
+const MAGE_SOCIAL_STROKE = 2;
+
+/** Mage `message-round` — reply / conversation affordance. */
+export function MessageRoundIcon(props: MageStrokeIconProps) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="M21.25 12a9.23 9.23 0 0 1-2.705 6.54A9.25 9.25 0 0 1 12 21.25a9.2 9.2 0 0 1-3.795-.81l-3.867.572a1.195 1.195 0 0 1-1.361-1.43l.537-3.923A8.9 8.9 0 0 1 2.75 12a9.23 9.23 0 0 1 2.705-6.54A9.25 9.25 0 0 1 12 2.75a9.26 9.26 0 0 1 6.545 2.71A9.24 9.24 0 0 1 21.25 12"
+        stroke="currentColor"
+        strokeWidth={MAGE_SOCIAL_STROKE}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </MageStrokeSvg>
+  );
+}
+
+/** @deprecated Use MessageRoundIcon */
+export const MessageIcon = MessageRoundIcon;
+
+/** Mage `exchange-b` — quote / repost cycle affordance. */
+export function RepeatIcon(props: MageStrokeIconProps) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="M19.75 6.75h-12a4 4 0 0 0-4 4v2m16-1v2a4 4 0 0 1-4 4h-12"
+        stroke="currentColor"
+        strokeWidth={MAGE_SOCIAL_STROKE}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <path
+        d="m16.75 9.75l3-3l-3-3m-10 11l-3 3l3 3"
+        stroke="currentColor"
+        strokeWidth={MAGE_SOCIAL_STROKE}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </MageStrokeSvg>
+  );
+}
+
+/** Mage `heart` — like idle state; pair with HeartFillIcon when active. */
+export function HeartIcon(props: MageStrokeIconProps) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="M12 7.23c-1.733-3.924-5.764-4.273-7.641-2.562c-1.529 1.373-2.263 4.665-.867 7.695C5.9 17.573 12 20.309 12 20.309s6.101-2.736 8.508-7.946c1.396-3.03.662-6.322-.867-7.695C17.764 2.957 13.733 3.306 12 7.229"
+        stroke="currentColor"
+        strokeWidth={MAGE_SOCIAL_STROKE}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </MageStrokeSvg>
+  );
+}
+
+/** Mage `edit-pen` — profile / inline edit affordance. */
+export function EditPenIcon(props: MageStrokeIconProps) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="m4.144 16.735l.493-3.425a.97.97 0 0 1 .293-.587l9.665-9.664a1.03 1.03 0 0 1 .973-.281a5.1 5.1 0 0 1 2.346 1.372a5.1 5.1 0 0 1 1.384 2.346a1.07 1.07 0 0 1-.282.973l-9.664 9.664a1.17 1.17 0 0 1-.598.294l-3.437.492a1.044 1.044 0 0 1-1.173-1.184m8.633-11.846l4.41 4.398M3.79 21.25h16.42"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </MageStrokeSvg>
+  );
+}
+
 /** Mage `edit` — profile / content editing. */
 export function EditIcon(props: MageStrokeIconProps) {
   return (

@@ -3,12 +3,13 @@
  *
  * Requires `--border` (HSL components) from app theme tokens.
  * Gold variants use --protocol-gold-border-strong from protocol.css.
+ * Green variants use --protocol-green-border-strong from protocol.css.
  *
  * Standalone: <Divider /> or h-px + divider-section | divider-detail | divider-item
  * Borders: border-t + border-fade-section | border-fade-detail | border-fade-item
  */
 
-@source inline("divider-section divider-detail divider-item divider-v-section divider-v-detail divider-gold-detail divider-v-gold-detail border-fade-section border-fade-detail border-fade-item border-fade-v-section border-fade-v-detail divide-fade-section divide-fade-detail divide-fade-item after:divider-section after:divider-v-section md:divider-v-detail xl:after:divider-section");
+@source inline("divider-section divider-detail divider-item divider-v-section divider-v-detail divider-gold-detail divider-v-gold-detail divider-green-detail divider-v-green-detail border-fade-section border-fade-detail border-fade-item border-fade-v-section border-fade-v-detail divide-fade-section divide-fade-detail divide-fade-item after:divider-section after:divider-v-section md:divider-v-detail xl:after:divider-section");
 
 :root {
   --divider-h-section: linear-gradient(
@@ -59,6 +60,20 @@
     transparent 0%,
     var(--protocol-gold-border-strong) 12%,
     var(--protocol-gold-border-strong) 88%,
+    transparent 100%
+  );
+  --divider-h-green-detail: linear-gradient(
+    to right,
+    transparent 0%,
+    var(--protocol-green-border-strong) 18%,
+    var(--protocol-green-border-strong) 82%,
+    transparent 100%
+  );
+  --divider-v-green-detail: linear-gradient(
+    to bottom,
+    transparent 0%,
+    var(--protocol-green-border-strong) 12%,
+    var(--protocol-green-border-strong) 88%,
     transparent 100%
   );
 }
@@ -128,4 +143,12 @@
 
 @utility divider-v-gold-detail {
   background-image: var(--divider-v-gold-detail);
+}
+
+@utility divider-green-detail {
+  background-image: var(--divider-h-green-detail);
+}
+
+@utility divider-v-green-detail {
+  background-image: var(--divider-v-green-detail);
 }

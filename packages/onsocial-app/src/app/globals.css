@@ -5543,6 +5543,27 @@ a.os-surface-row {
     padding: 0 1rem calc(0.9rem + env(safe-area-inset-bottom));
     pointer-events: none;
     transform: translateX(-50%);
+    transition:
+      transform 260ms ease,
+      opacity 200ms ease;
+  }
+
+  /* Scroll-down hides the dock; scroll-up or nearing the top brings it back. */
+  .portfolio-summon-dock.is-scroll-hidden {
+    transform: translateX(-50%)
+      translateY(calc(100% + env(safe-area-inset-bottom)));
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .portfolio-summon-dock.is-scroll-hidden .portfolio-summon {
+    pointer-events: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .portfolio-summon-dock {
+      transition: none;
+    }
   }
 
   .portfolio-summon {
@@ -5665,6 +5686,39 @@ a.os-surface-row {
       var(--mood-accent, rgb(var(--fg-rgb) / 0.55))
     );
     opacity: 0.8;
+  }
+
+  /* Dock pen — context-aware compose segment; only mounted on composable surfaces. */
+  .portfolio-summon-compose {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.75rem;
+    padding: 0 0.7rem;
+    border: 0;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.78);
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+      background 180ms ease,
+      color 180ms ease;
+  }
+
+  .portfolio-summon-compose:hover {
+    background: rgb(var(--fg-rgb) / 0.06);
+    color: rgb(var(--fg-rgb) / 0.92);
+  }
+
+  .portfolio-summon-compose:active {
+    background: rgb(var(--fg-rgb) / 0.1);
+  }
+
+  .portfolio-summon-compose-icon {
+    width: 1.15rem;
+    height: 1.15rem;
   }
 
   .portfolio-summon-hint {
@@ -6913,14 +6967,16 @@ a.os-surface-row {
 
   .standing-row-head {
     display: flex;
-    align-items: center;
-    gap: 0.45rem;
+    align-items: baseline;
+    gap: 0.35rem;
     min-width: 0;
   }
 
   .standing-row-name {
     display: block;
+    flex-shrink: 0;
     min-width: 0;
+    max-width: 62%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -6931,15 +6987,30 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.96);
   }
 
+  /* Nameless rows show only the @handle — let it use the full head width. */
+  .standing-row-name:not(:has(+ .standing-row-handle)) {
+    max-width: 100%;
+  }
+
+  /* Inline next to the name — name stays visible, handle truncates first. */
   .standing-row-handle {
     display: block;
+    min-width: 0;
+    flex: 0 1 auto;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    margin-top: 0.05rem;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     line-height: 1.45;
     color: color-mix(in srgb, hsl(var(--muted-foreground)) 55%, transparent);
+  }
+
+  .standing-row-sep {
+    flex-shrink: 0;
+    font-size: 0.72rem;
+    line-height: 1;
+    color: rgb(var(--fg-rgb) / 0.28);
+    user-select: none;
   }
 
   .standing-row-bio {
@@ -10046,16 +10117,18 @@ a.os-surface-row {
     gap: 0.3rem;
   }
 
-  .post-card-header {
+  /* Identity line — name · @handle · time with subtle separators. */
+  .post-identity-meta {
     display: flex;
     align-items: baseline;
-    justify-content: space-between;
-    gap: 0.75rem;
+    gap: 0.35rem;
+    min-width: 0;
+    flex: 1;
   }
 
-  .post-card-author {
-    display: block;
-    min-width: 0;
+  .post-identity-name {
+    flex-shrink: 0;
+    max-width: 42%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -10064,23 +10137,63 @@ a.os-surface-row {
     letter-spacing: -0.01em;
     line-height: 1.5;
     color: rgb(var(--fg-rgb) / 0.96);
+    text-decoration: none;
   }
 
-  .post-card-time {
-    font-size: 0.72rem;
-    color: rgb(var(--fg-rgb) / 0.42);
+  a.post-identity-name:hover {
+    text-decoration: underline;
+  }
+
+  .post-identity-handle,
+  .post-identity-time,
+  .post-identity-channel {
+    min-width: 0;
+    flex: 0 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
+    font-size: 0.72rem;
+    line-height: 1.45;
+    color: rgb(var(--fg-rgb) / 0.42);
   }
 
-  .post-card-handle {
+  /* Time and channel are short fixed context — the handle truncates first. */
+  .post-identity-time,
+  .post-identity-channel {
+    flex-shrink: 0;
+  }
+
+  /* Long channel names still ellipsize instead of pushing the row wider. */
+  .post-identity-channel {
+    max-width: 8rem;
+  }
+
+  /* `Replying to @x` — quiet context line between identity and body. */
+  .post-card-relation {
     display: block;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    margin-top: -0.28rem;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     line-height: 1.45;
-    color: color-mix(in srgb, hsl(var(--muted-foreground)) 55%, transparent);
+    color: rgb(var(--fg-rgb) / 0.42);
+  }
+
+  .post-card-relation-handle {
+    color: color-mix(in srgb, var(--protocol-blue) 78%, rgb(var(--fg-rgb)));
+  }
+
+  .post-identity-sep {
+    flex-shrink: 0;
+    font-size: 0.72rem;
+    line-height: 1;
+    color: rgb(var(--fg-rgb) / 0.28);
+    user-select: none;
+  }
+
+  .post-card-header {
+    display: flex;
+    min-width: 0;
   }
 
   .post-card-badges {
@@ -10109,15 +10222,24 @@ a.os-surface-row {
     word-break: break-word;
   }
 
+  /* Quoted post — protocol-green gradient rail (divider-v-green-detail), no fill. */
   .post-card-quote-inset {
     display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 0.65rem;
+    margin-top: 0.2rem;
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+
+  .post-card-quote-inset-content {
+    display: flex;
+    min-width: 0;
+    flex: 1;
     flex-direction: column;
-    gap: 0.3rem;
-    margin-top: 0.15rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.09);
-    border-radius: 0.85rem;
-    background: rgb(var(--fg-rgb) / 0.02);
-    padding: 0.6rem 0.7rem;
+    gap: 0.25rem;
   }
 
   .post-card-quote-inset-head {
@@ -10129,23 +10251,6 @@ a.os-surface-row {
 
   .post-card-quote-inset-avatar {
     flex-shrink: 0;
-  }
-
-  .post-card-quote-inset-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: rgb(var(--fg-rgb) / 0.86);
-  }
-
-  .post-card-quote-inset-handle {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 0.7rem;
-    color: rgb(var(--fg-rgb) / 0.42);
   }
 
   .post-card-quote-inset-body {
@@ -10174,19 +10279,30 @@ a.os-surface-row {
     align-items: center;
     gap: 0.32rem;
     color: rgb(var(--fg-rgb) / 0.44);
+    font-family: inherit;
     font-size: 0.72rem;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     line-height: 1;
   }
 
+  .post-card-engagement-count {
+    font-size: inherit;
+    font-weight: inherit;
+    line-height: inherit;
+    font-variant-numeric: tabular-nums;
+  }
+
   .post-card-stat svg,
   .post-card-react svg {
-    width: 0.95rem;
-    height: 0.95rem;
+    /* Same box for every Mage glyph; stroke icons carry extra viewBox padding. */
+    width: 1.05rem;
+    height: 1.05rem;
+    display: block;
     flex-shrink: 0;
   }
 
+  .post-card-stat-button,
   .post-card-react {
     border: 0;
     background: transparent;
@@ -10195,37 +10311,41 @@ a.os-surface-row {
     transition: color 160ms ease;
   }
 
-  .post-card-stat-button {
-    border: 0;
-    background: transparent;
-    padding: 0;
-    cursor: pointer;
-    font: inherit;
-    transition: color 160ms ease;
+  .post-card-stat-button:disabled,
+  .post-card-react:disabled {
+    cursor: default;
   }
 
-  .post-card-stat-button:hover,
-  .post-card-stat-button:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.84);
+  .post-card-stat-button:focus-visible,
+  .post-card-react:focus-visible {
     outline: none;
+  }
+
+  /* Hover colors the whole control (icon + count) in the action's protocol hue. */
+  .post-card-stat--reply:hover:not(:disabled),
+  .post-card-stat--reply:focus-visible {
+    color: var(--protocol-blue);
+  }
+
+  .post-card-stat--quote:hover:not(:disabled),
+  .post-card-stat--quote:focus-visible {
+    color: var(--protocol-green);
   }
 
   .post-card-react:hover:not(:disabled),
   .post-card-react:focus-visible {
-    color: color-mix(
-      in srgb,
-      var(--protocol-red, #ef4444) 72%,
-      rgb(var(--fg-rgb))
-    );
-    outline: none;
+    color: var(--protocol-red, #ef4444);
   }
 
+  /* Liked is persistent state: icon + count stay red. */
   .post-card-react.is-active {
-    color: color-mix(
-      in srgb,
-      var(--protocol-red, #ef4444) 85%,
-      rgb(var(--fg-rgb))
-    );
+    color: var(--protocol-red, #ef4444);
+  }
+
+  /* Hovering a liked heart brightens — feedback that unlike is available. */
+  .post-card-react.is-active:hover:not(:disabled),
+  .post-card-react.is-active:focus-visible {
+    color: color-mix(in srgb, var(--protocol-red, #ef4444) 72%, white);
   }
 
   .post-card-react.is-pending {
@@ -10570,36 +10690,94 @@ a.os-surface-row {
     text-decoration: none;
   }
 
-  /* Thread chain lines — drawn in the avatar column, rendering the on-chain
-     parent/reply edges. `chain-down` runs from below the avatar to the row
-     bottom; `chain-up` runs from the row top to the avatar. Adjacent rows
-     produce one continuous line. */
-  .post-card--chain-down::before,
-  .post-card--chain-up::after {
+  /* ── Thread rail ─────────────────────────────────────────
+     One coordinate system for every connected post. Segments are drawn on
+     the row wrapper (not the card), so consecutive rows meet exactly at
+     their shared boundary and the rail is straight by construction.
+     The card's negative margin cancels its padding-left, but its 1px
+     transparent border still shifts the avatar 1px right and 1px down —
+     the 1px terms below fold that in so the rail is dead-centre on the
+     avatar and the gaps above/below the circle are identical. */
+  .post-thread-item,
+  .post-thread-more {
+    /* Rail left edge; 2px wide → centred on the avatar at 1.125rem + 1px. */
+    --thread-rail-x: 1.125rem;
+    --thread-pad-top: 0.68rem;
+    /* Breathing room between rail ends and the avatar circle. */
+    --thread-rail-gap: 0.2rem;
+  }
+
+  .post-thread-item {
+    position: relative;
+  }
+
+  .post-thread-item--cont {
+    --thread-pad-top: 0.42rem;
+  }
+
+  .post-thread-item--up::before,
+  .post-thread-item--down::after {
     content: '';
     position: absolute;
-    left: calc(0.35rem + 1.125rem - 1px);
+    z-index: 1;
+    left: var(--thread-rail-x);
     width: 2px;
     border-radius: 9999px;
     background: rgb(var(--fg-rgb) / 0.12);
+    pointer-events: none;
   }
 
-  .post-card--chain-down::before {
-    top: calc(0.68rem + 2.25rem + 0.3rem);
-    bottom: -0.05rem;
+  /* Row top → just above the avatar (1px = card border-top). */
+  .post-thread-item--up::before {
+    top: 0;
+    height: calc(
+      var(--thread-pad-top) + 0.05rem + 1px - var(--thread-rail-gap)
+    );
   }
 
-  .post-card--chain-up::after {
-    top: -0.05rem;
-    height: calc(0.68rem - 0.2rem);
+  /* Just below the avatar → row bottom (1px = card border-top). */
+  .post-thread-item--down::after {
+    top: calc(
+      var(--thread-pad-top) + 0.05rem + 2.25rem + 1px + var(--thread-rail-gap)
+    );
+    bottom: 0;
   }
 
+  /* Tighter continuation rows inside a connected block. */
   .post-card--chain-cont {
     padding-top: 0.42rem;
   }
 
-  .post-card--chain-cont.post-card--chain-up::after {
-    height: calc(0.42rem - 0.15rem);
+  /* Dotted fold — hidden middle of the chain; solid rail resumes below. */
+  .post-thread-more {
+    position: relative;
+    display: block;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+    padding: 0.05rem 0.35rem 0.5rem 3rem;
+    font-family: inherit;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1.45;
+    color: color-mix(in srgb, var(--protocol-blue) 78%, rgb(var(--fg-rgb)));
+  }
+
+  .post-thread-more:hover,
+  .post-thread-more:focus-visible {
+    text-decoration: underline;
+    outline: none;
+  }
+
+  .post-thread-more::before {
+    content: '';
+    position: absolute;
+    left: var(--thread-rail-x);
+    top: 0;
+    bottom: 0;
+    border-left: 2px dotted rgb(var(--fg-rgb) / 0.28);
   }
 
   .guild-thread-context {
@@ -10617,16 +10795,11 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.72);
   }
 
-  .guild-thread-ancestor > .post-card--chain-down::before {
-    left: calc(1.125rem - 1px);
-    top: calc(0.35rem + 2.25rem + 0.3rem);
-    bottom: 0;
-  }
-
-  .guild-thread-root > .post-card--chain-up::after {
-    left: calc(1.125rem - 1px);
-    top: 0;
-    height: 0.32rem;
+  /* Thread context cards use 0.35rem top padding and zero side margins —
+     the avatar centre still lands at 1.125rem, only the pad differs. */
+  .guild-thread-ancestor.post-thread-item,
+  .guild-thread-root.post-thread-item {
+    --thread-pad-top: 0.35rem;
   }
 
   .guild-load-more {
@@ -10728,12 +10901,14 @@ a.os-surface-row {
     padding-bottom: 0.35rem;
   }
 
+  /* Line from below the target's 2rem (md) avatar down to 0.2rem above
+     your avatar in the next row — same 0.2rem rail gap as feed threads. */
   .guild-composer-reply-target::after {
     content: '';
     position: absolute;
     left: calc(1rem - 1px);
-    top: 2.25rem;
-    bottom: -0.55rem;
+    top: 2.2rem;
+    bottom: -0.35rem;
     width: 2px;
     border-radius: 9999px;
     background: rgb(var(--fg-rgb) / 0.12);
@@ -10752,22 +10927,7 @@ a.os-surface-row {
   }
 
   .guild-composer-identity {
-    display: flex;
-    gap: 0.4rem;
-    align-items: baseline;
     min-width: 0;
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: rgb(var(--fg-rgb) / 0.88);
-  }
-
-  .guild-composer-identity-handle {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 0.7rem;
-    font-weight: 500;
-    color: rgb(var(--fg-rgb) / 0.42);
   }
 
   /* Borderless input — your words sit in the row exactly as they will post. */
@@ -10826,6 +10986,38 @@ a.os-surface-row {
     background: rgb(var(--fg-rgb) / 0.04);
     color: rgb(var(--fg-rgb) / 0.6);
     outline: none;
+  }
+
+  /* Destination row — where a new post lands (guild name + channel picker). */
+  .guild-composer-destination {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-width: 0;
+    color: rgb(var(--fg-rgb) / 0.62);
+    font-size: 0.78rem;
+    font-weight: 650;
+  }
+
+  .guild-composer-destination-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: rgb(var(--fg-rgb) / 0.88);
+  }
+
+  .guild-composer-destination select {
+    min-height: 1.85rem;
+    max-width: 10rem;
+    border: 1px solid rgb(var(--fg-rgb) / 0.12);
+    border-radius: 9999px;
+    background: rgb(var(--fg-rgb) / 0.04);
+    color: rgb(var(--fg-rgb) / 0.78);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.74rem;
+    font-weight: 600;
+    padding: 0.2rem 0.65rem;
   }
 
   .guild-composer-mode {

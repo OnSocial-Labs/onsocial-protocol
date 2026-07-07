@@ -104,3 +104,45 @@ export function useQuotedPosts(posts: PostRow[]) {
   const refPaths = useMemo(() => posts.map((post) => post.refPath), [posts]);
   return useResolvedGroupPosts(refPaths);
 }
+
+const ANCESTOR_CHAIN_CAP = 12;
+const NO_ANCESTORS: PostRow[] = [];
+
+/**
+ * Walk reply parent edges up to the conversation root (full thread
+ * context). Returns ancestors oldest-first; empty while loading or when the
+ * post has no parent. Capped to keep pathological chains bounded.
+ */
+export function useAncestorChain(parentPath: string | undefined): PostRow[] {
+  // Keyed by path so a stale chain never renders under a different post.
+  const [resolved, setResolved] = useState<{
+    path: string;
+    posts: PostRow[];
+  } | null>(null);
+
+  useEffect(() => {
+    if (!parentPath) return;
+
+    let cancelled = false;
+
+    void (async () => {
+      const ancestors: PostRow[] = [];
+      let cursor: string | undefined = parentPath;
+      while (cursor && ancestors.length < ANCESTOR_CHAIN_CAP) {
+        const post: PostRow | null = await fetchQuotedPost(cursor);
+        if (!post || cancelled) break;
+        ancestors.unshift(post);
+        cursor = post.parentPath;
+      }
+      if (!cancelled) setResolved({ path: parentPath, posts: ancestors });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [parentPath]);
+
+  return parentPath && resolved?.path === parentPath
+    ? resolved.posts
+    : NO_ANCESTORS;
+}

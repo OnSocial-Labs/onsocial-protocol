@@ -1,14 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   postContentPath,
   type GroupStats,
@@ -19,7 +12,8 @@ import { Divider } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { PostCard, PostRowSkeleton, postKey } from '@/features/home/post-card';
+import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
+import { PostRowSkeleton, postKey } from '@/features/home/post-card';
 import {
   GuildComposerModal,
   type GuildComposerMode,
@@ -28,10 +22,11 @@ import {
   collectRelayTxHashes,
   DEFAULT_GUILD_STRUCTURE,
   GUILD_STRUCTURE_TEMPLATES,
-  guildPostPath,
   guildSectionPath,
 } from '@/features/guilds/guilds-data';
+import { FeedThreadBlock } from '@/features/guilds/feed-thread-block';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
+import { coalesceFeedThreads } from '@/lib/feed-threads';
 import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { usePostEngagement } from '@/hooks/use-post-engagement';
@@ -138,15 +133,15 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [isFeedRefreshing, setIsFeedRefreshing] = useState(false);
   const [actionPending, setActionPending] = useState(false);
-  const [postText, setPostText] = useState('');
   const [selectedStructureId, setSelectedStructureId] = useState(
     DEFAULT_GUILD_STRUCTURE.id
   );
   const [selectedFeedFilterId, setSelectedFeedFilterId] =
     useState<GuildFeedFilterId>('all');
-  const [postPending, setPostPending] = useState(false);
-  const [modalTarget, setModalTarget] = useState<PostRow | null>(null);
-  const [modalMode, setModalMode] = useState<GuildComposerMode>('reply');
+  const [composer, setComposer] = useState<{
+    mode: GuildComposerMode;
+    target: PostRow | null;
+  } | null>(null);
   const [modalPending, setModalPending] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -174,6 +169,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     );
     return [...pendingLocal, ...state.posts];
   }, [state.posts, localPosts, selectedFeedStructure]);
+  const feedBlocks = useMemo(() => coalesceFeedThreads(feedPosts), [feedPosts]);
   const quotedPosts = useQuotedPosts(feedPosts);
   const postAuthorIds = useMemo(
     () => [
@@ -400,74 +396,22 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     }
   };
 
-  const submitPost = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const text = postText.trim();
-    if (!text || !canPost || postPending || !accountId) return;
-
-    const newPostId = Date.now().toString();
-    setPostPending(true);
-    setError(null);
-    try {
-      const { client } = await getClient();
-      const response = await client.groups.post(
-        groupId,
-        {
-          text,
-          access: 'group',
-          groupId,
-          channel: selectedStructure.channel,
-          kind: selectedStructure.kind,
-          audiences: [selectedStructure.audience],
-          timestamp: Date.now(),
-        },
-        newPostId
-      );
-      const confirmed = await trackTransaction({
-        txHashes: collectRelayTxHashes(response),
-        submittedMessage: txToastPending.postingToGuild,
-        successMessage: txToastSuccess.guildPostPublished,
-        failureMessage: txToastError.guildPostFailed,
-      });
-
-      if (confirmed) {
-        // Chain-confirmed; show at the top while the indexer catches up.
-        setLocalPosts((current) => [
-          {
-            accountId,
-            postId: newPostId,
-            value: JSON.stringify({ v: 1, text }),
-            blockHeight: 0,
-            blockTimestamp: Date.now(),
-            groupId,
-            channel: selectedStructure.channel,
-            kind: selectedStructure.kind,
-            isGroupContent: true,
-          },
-          ...current,
-        ]);
-        setPostText('');
-        scheduleReconcile();
-      }
-    } catch (cause) {
-      if (isWalletUserCancellation(cause)) return;
-      setError(
-        cause instanceof Error ? cause.message : 'Could not post to guild.'
-      );
-    } finally {
-      setPostPending(false);
-    }
-  };
-
   const openComposerModal = (mode: GuildComposerMode) => (target: PostRow) => {
-    setModalMode(mode);
     setModalError(null);
-    setModalTarget(target);
+    setComposer({ mode, target });
   };
+
+  const openPostComposer = useCallback(() => {
+    setModalError(null);
+    setComposer({ mode: 'post', target: null });
+  }, []);
+
+  useRegisterComposeAction(canPost ? openPostComposer : null);
 
   const submitFromModal = async (text: string) => {
-    const target = modalTarget;
-    if (!target || modalPending) return;
+    if (!composer || modalPending) return;
+    const { mode, target } = composer;
+    if (mode !== 'post' && !target) return;
 
     if (!isConnected || !accountId) {
       await connect();
@@ -479,39 +423,62 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     try {
       const newPostId = Date.now().toString();
       const { client } = await getClient();
-      const ref = {
-        author: target.accountId,
-        groupId,
-        postId: target.postId,
-      };
-      const postData = {
-        text,
-        access: 'group' as const,
-        groupId,
-        timestamp: Date.now(),
-      };
-      const response =
-        modalMode === 'quote'
-          ? await client.groups.quotePost(groupId, ref, postData, newPostId)
-          : await client.groups.replyToPost(groupId, ref, postData, newPostId);
+
+      let response: unknown;
+      if (mode === 'post') {
+        response = await client.groups.post(
+          groupId,
+          {
+            text,
+            access: 'group',
+            groupId,
+            channel: selectedStructure.channel,
+            kind: selectedStructure.kind,
+            audiences: [selectedStructure.audience],
+            timestamp: Date.now(),
+          },
+          newPostId
+        );
+      } else {
+        const ref = {
+          author: target!.accountId,
+          groupId,
+          postId: target!.postId,
+        };
+        const postData = {
+          text,
+          access: 'group' as const,
+          groupId,
+          timestamp: Date.now(),
+        };
+        response =
+          mode === 'quote'
+            ? await client.groups.quotePost(groupId, ref, postData, newPostId)
+            : await client.groups.replyToPost(
+                groupId,
+                ref,
+                postData,
+                newPostId
+              );
+      }
+
       const confirmed = await trackTransaction({
         txHashes: collectRelayTxHashes(response),
         submittedMessage:
-          modalMode === 'quote'
+          mode === 'quote'
             ? txToastPending.quotingGuildPost
             : txToastPending.postingToGuild,
         successMessage:
-          modalMode === 'quote'
+          mode === 'quote'
             ? txToastSuccess.guildQuotePublished
             : txToastSuccess.guildPostPublished,
         failureMessage:
-          modalMode === 'quote'
+          mode === 'quote'
             ? txToastError.guildQuoteFailed
             : txToastError.guildPostFailed,
       });
 
       if (confirmed) {
-        const targetPath = postContentPath(target);
         // Chain-confirmed; show at the top while the indexer catches up.
         setLocalPosts((current) => [
           {
@@ -522,31 +489,38 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
             blockTimestamp: Date.now(),
             groupId,
             isGroupContent: true,
-            ...(modalMode === 'quote'
+            ...(mode === 'post'
               ? {
-                  refAuthor: target.accountId,
-                  refPath: targetPath,
-                  refType: 'post',
+                  channel: selectedStructure.channel,
+                  kind: selectedStructure.kind,
                 }
-              : {
-                  parentAuthor: target.accountId,
-                  parentPath: targetPath,
-                  parentType: 'post',
-                }),
+              : mode === 'quote'
+                ? {
+                    refAuthor: target!.accountId,
+                    refPath: postContentPath(target!),
+                    refType: 'post',
+                  }
+                : {
+                    parentAuthor: target!.accountId,
+                    parentPath: postContentPath(target!),
+                    parentType: 'post',
+                  }),
           },
           ...current,
         ]);
         scheduleReconcile();
-        setModalTarget(null);
+        setComposer(null);
       }
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
       setModalError(
         cause instanceof Error
           ? cause.message
-          : modalMode === 'quote'
+          : mode === 'quote'
             ? 'Could not quote this post.'
-            : 'Could not reply to this post.'
+            : mode === 'reply'
+              ? 'Could not reply to this post.'
+              : 'Could not post to guild.'
       );
     } finally {
       setModalPending(false);
@@ -691,48 +665,13 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                 ))}
               </div>
               {canPost ? (
-                <form className="post-composer" onSubmit={submitPost}>
-                  <label
-                    className="post-composer-label"
-                    htmlFor="guild-compose"
-                  >
-                    Post to {config.name}
-                  </label>
-                  <textarea
-                    id="guild-compose"
-                    className="post-composer-input"
-                    rows={3}
-                    placeholder={`Share a ${selectedStructure.kind} in ${selectedStructure.title.toLowerCase()}.`}
-                    value={postText}
-                    disabled={postPending}
-                    onChange={(event) => setPostText(event.target.value)}
-                  />
-                  <label className="guild-composer-structure">
-                    <span>Channel</span>
-                    <select
-                      value={selectedStructure.id}
-                      disabled={postPending}
-                      onChange={(event) =>
-                        setSelectedStructureId(event.target.value)
-                      }
-                    >
-                      {GUILD_STRUCTURE_TEMPLATES.map((structure) => (
-                        <option key={structure.id} value={structure.id}>
-                          {structure.title}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <div className="post-composer-actions">
-                    <button
-                      className="post-composer-submit"
-                      type="submit"
-                      disabled={postPending || !postText.trim()}
-                    >
-                      {postPending ? 'Posting…' : 'Post'}
-                    </button>
-                  </div>
-                </form>
+                <button
+                  type="button"
+                  className="guild-reply-prompt"
+                  onClick={openPostComposer}
+                >
+                  Share something in {config.name}…
+                </button>
               ) : (
                 <div className="guild-state-card">
                   Join this guild before posting. Public chain data stays
@@ -744,31 +683,19 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                 <div
                   className={`home-feed-list${isFeedRefreshing ? ' is-refreshing' : ''}`}
                 >
-                  {feedPosts.map((post, index) => (
-                    <div key={postKey(post)}>
-                      {index > 0 ? (
+                  {feedBlocks.map((block, blockIndex) => (
+                    <div key={postKey(block[0])}>
+                      {blockIndex > 0 ? (
                         <Divider variant="item" className="post-row-divider" />
                       ) : null}
-                      <PostCard
-                        post={post}
-                        authorProfile={postAuthorProfiles[post.accountId]}
-                        actionHref={guildPostPath(
-                          groupId,
-                          post.accountId,
-                          post.postId
-                        )}
-                        quotedPost={
-                          post.refPath ? quotedPosts[post.refPath] : undefined
-                        }
-                        quotedAuthorProfile={
-                          post.refPath
-                            ? postAuthorProfiles[
-                                quotedPosts[post.refPath]?.accountId ?? ''
-                              ]
-                            : undefined
-                        }
-                        engagement={engagement[postKey(post)]}
-                        reactionPending={isReactionPending(post)}
+                      <FeedThreadBlock
+                        block={block}
+                        groupId={groupId}
+                        showChannel={selectedFeedFilterId === 'all'}
+                        postAuthorProfiles={postAuthorProfiles}
+                        quotedPosts={quotedPosts}
+                        engagement={engagement}
+                        isReactionPending={isReactionPending}
                         onToggleReaction={toggleReaction}
                         onReply={replyHandler}
                         onQuote={quoteHandler}
@@ -809,16 +736,40 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
           </>
         ) : null}
       </div>
-      {modalTarget ? (
+      {composer ? (
         <GuildComposerModal
-          target={modalTarget}
-          targetAuthorProfile={postAuthorProfiles[modalTarget.accountId]}
-          mode={modalMode}
-          onModeChange={setModalMode}
+          mode={composer.mode}
+          target={composer.target}
+          targetAuthorProfile={
+            composer.target
+              ? postAuthorProfiles[composer.target.accountId]
+              : undefined
+          }
+          onModeChange={
+            composer.target
+              ? (mode) =>
+                  setComposer((current) =>
+                    current ? { ...current, mode } : current
+                  )
+              : undefined
+          }
+          destination={
+            composer.mode === 'post' && config
+              ? {
+                  name: config.name,
+                  channels: GUILD_STRUCTURE_TEMPLATES.map((structure) => ({
+                    id: structure.id,
+                    title: structure.title,
+                  })),
+                  selectedChannelId: selectedStructure.id,
+                  onChannelChange: setSelectedStructureId,
+                }
+              : undefined
+          }
           pending={modalPending}
           error={modalError}
           onClose={() => {
-            if (!modalPending) setModalTarget(null);
+            if (!modalPending) setComposer(null);
           }}
           onSubmit={(text) => void submitFromModal(text)}
         />

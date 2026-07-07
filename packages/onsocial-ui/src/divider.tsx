@@ -1,6 +1,11 @@
 import { cn } from './cn.js';
 
-export type DividerVariant = 'section' | 'detail' | 'item' | 'gold-detail';
+export type DividerVariant =
+  | 'section'
+  | 'detail'
+  | 'item'
+  | 'gold-detail'
+  | 'green-detail';
 
 export type DividerOrientation = 'horizontal' | 'vertical';
 
@@ -20,6 +25,10 @@ const VARIANT_CLASS: Record<
   'gold-detail': {
     horizontal: 'divider-gold-detail',
     vertical: 'divider-v-gold-detail',
+  },
+  'green-detail': {
+    horizontal: 'divider-green-detail',
+    vertical: 'divider-v-green-detail',
   },
 };
 

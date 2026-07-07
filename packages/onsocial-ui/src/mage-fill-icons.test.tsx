@@ -9,6 +9,8 @@ import {
   SearchFillIcon,
   GlobeFillIcon,
   GiftFillIcon,
+  HeartFillIcon,
+  PenFillIcon,
   UserCircleFillIcon,
 } from './mage-fill-icons.js';
 
@@ -23,6 +25,8 @@ describe('mage fill icons', () => {
     expect(typeof SearchFillIcon).toBe('function');
     expect(typeof GlobeFillIcon).toBe('function');
     expect(typeof GiftFillIcon).toBe('function');
+    expect(typeof HeartFillIcon).toBe('function');
+    expect(typeof PenFillIcon).toBe('function');
     expect(typeof UserCircleFillIcon).toBe('function');
   });
 });

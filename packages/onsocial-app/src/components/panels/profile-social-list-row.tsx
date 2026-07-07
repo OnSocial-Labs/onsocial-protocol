@@ -230,11 +230,18 @@ export function ProfileSocialListRow({
           ) : null}
           <span className="standing-row-head">
             <span className="standing-row-name">{accountLabel(account)}</span>
+            {account.name?.trim() ? (
+              <>
+                <span className="standing-row-sep" aria-hidden>
+                  ·
+                </span>
+                <span className="standing-row-handle">@{account.accountId}</span>
+              </>
+            ) : null}
             {moodId !== 'protocol' ? (
               <DiscoverMoodDot moodId={moodId} />
             ) : null}
           </span>
-          <span className="standing-row-handle">@{account.accountId}</span>
           {bio ? <span className="standing-row-bio">{bio}</span> : null}
           <ProfileRowMetrics account={account} />
         </div>

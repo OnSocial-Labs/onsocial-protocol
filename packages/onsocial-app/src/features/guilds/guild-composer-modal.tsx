@@ -12,35 +12,64 @@ import {
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useViewerProfileShellContext } from '@/contexts/viewer-profile-shell-context';
 import { QuotedPostInset } from '@/features/home/post-card';
+import { PostIdentityMeta } from '@/features/home/post-identity-meta';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import { parsePostText } from '@/lib/post-display';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 
-export type GuildComposerMode = 'reply' | 'quote';
+export type GuildComposerMode = 'post' | 'reply' | 'quote';
 
 const PLACEHOLDER: Record<GuildComposerMode, string> = {
+  post: 'Share something',
   reply: 'Post your reply',
   quote: 'Add a comment',
 };
 
+const ARIA_LABEL: Record<GuildComposerMode, string> = {
+  post: 'New post',
+  reply: 'Reply to post',
+  quote: 'Quote post',
+};
+
+/** Where a new post lands — guild plus channel, later a personal feed. */
+export interface GuildComposerDestination {
+  name: string;
+  channels: { id: string; title: string }[];
+  selectedChannelId: string;
+  onChannelChange: (channelId: string) => void;
+}
+
 interface GuildComposerModalProps {
-  target: PostRow;
-  targetAuthorProfile?: PostAuthorProfile;
   mode: GuildComposerMode;
-  onModeChange: (mode: GuildComposerMode) => void;
+  /** Post being replied to / quoted. Not used in `post` mode. */
+  target?: PostRow | null;
+  targetAuthorProfile?: PostAuthorProfile;
+  onModeChange?: (mode: GuildComposerMode) => void;
+  /** Destination picker for `post` mode. */
+  destination?: GuildComposerDestination;
   pending: boolean;
   error?: string | null;
   onClose: () => void;
   onSubmit: (text: string) => void;
 }
 
-function IdentityLine({ name, handle }: { name: string; handle: string }) {
+function IdentityLine({
+  name,
+  handle,
+  timestamp,
+}: {
+  name: string;
+  handle: string;
+  timestamp?: number | string;
+}) {
   return (
-    <span className="guild-composer-identity">
-      {name}
-      <span className="guild-composer-identity-handle">@{handle}</span>
-    </span>
+    <PostIdentityMeta
+      name={name}
+      accountId={handle}
+      timestamp={timestamp}
+      className="guild-composer-identity"
+    />
   );
 }
 
@@ -64,7 +93,11 @@ function ReplyTargetPreview({
         className="guild-composer-row-avatar"
       />
       <div className="guild-composer-row-copy">
-        <IdentityLine name={name} handle={post.accountId} />
+        <IdentityLine
+          name={name}
+          handle={post.accountId}
+          timestamp={post.blockTimestamp}
+        />
         <p className="guild-composer-reply-text">
           {parsePostText(post.value) || '…'}
         </p>
@@ -79,10 +112,11 @@ function ReplyTargetPreview({
  * row wrapping the quoted inset — as both will render once posted.
  */
 export function GuildComposerModal({
+  mode,
   target,
   targetAuthorProfile,
-  mode,
   onModeChange,
+  destination,
   pending,
   error,
   onClose,
@@ -147,7 +181,7 @@ export function GuildComposerModal({
           disabled={pending}
           onChange={(event) => setText(event.target.value)}
         />
-        {mode === 'quote' ? (
+        {mode === 'quote' && target ? (
           <QuotedPostInset post={target} authorProfile={targetAuthorProfile} />
         ) : null}
       </div>
@@ -165,33 +199,57 @@ export function GuildComposerModal({
         className={`${osFloatingPanelClassName} ${osSheetFloatingPanelClassName} guild-composer-modal-card`}
         role="dialog"
         aria-modal
-        aria-label={mode === 'reply' ? 'Reply to post' : 'Quote post'}
+        aria-label={ARIA_LABEL[mode]}
         onSubmit={handleSubmit}
       >
         <div className="guild-composer-top">
-          <div
-            className="guild-composer-mode"
-            role="radiogroup"
-            aria-label="Composer mode"
-          >
-            {(['reply', 'quote'] as const).map((option) => (
-              <button
-                key={option}
-                type="button"
-                role="radio"
-                aria-checked={mode === option}
-                className={mode === option ? 'is-active' : undefined}
+          {mode === 'post' && destination ? (
+            <label className="guild-composer-destination">
+              <span className="guild-composer-destination-name">
+                {destination.name}
+              </span>
+              <select
+                aria-label="Channel"
+                value={destination.selectedChannelId}
                 disabled={pending}
-                onClick={() => onModeChange(option)}
+                onChange={(event) =>
+                  destination.onChannelChange(event.target.value)
+                }
               >
-                {option === 'reply' ? 'Reply' : 'Quote'}
-              </button>
-            ))}
-          </div>
+                {destination.channels.map((channel) => (
+                  <option key={channel.id} value={channel.id}>
+                    {channel.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : mode !== 'post' && onModeChange ? (
+            <div
+              className="guild-composer-mode"
+              role="radiogroup"
+              aria-label="Composer mode"
+            >
+              {(['reply', 'quote'] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  role="radio"
+                  aria-checked={mode === option}
+                  className={mode === option ? 'is-active' : undefined}
+                  disabled={pending}
+                  onClick={() => onModeChange(option)}
+                >
+                  {option === 'reply' ? 'Reply' : 'Quote'}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <span />
+          )}
           <SheetCloseButton onClick={onClose} ariaLabel="Close composer" />
         </div>
 
-        {mode === 'reply' ? (
+        {mode === 'reply' && target ? (
           <div className="guild-composer-reply-flow">
             <ReplyTargetPreview
               post={target}

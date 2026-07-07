@@ -258,7 +258,7 @@ export class ThreadsQuery {
   async quotes(
     refAuthor: string,
     postId: string,
-    opts: { limit?: number; offset?: number } = {}
+    opts: { limit?: number; offset?: number; order?: 'asc' | 'desc' } = {}
   ): Promise<PostRow[]> {
     const refPath = `${refAuthor}/post/${postId}`;
     return (await this._quotesPageByPath(refPath, opts)).items;
@@ -266,15 +266,16 @@ export class ThreadsQuery {
 
   private async _quotesPageByPath(
     refPath: string,
-    opts: { limit?: number; offset?: number } = {}
+    opts: { limit?: number; offset?: number; order?: 'asc' | 'desc' } = {}
   ): Promise<Paginated<PostRow>> {
+    const orderBy = opts.order === 'desc' ? 'DESC' : 'ASC';
     const res = await this._q.graphql<{ quotes: QuoteRow[] }>({
       query: `query QuotesByPath($refAuthor: String!, $refPath: String!, $limit: Int!, $offset: Int!) {
         quotes(
           where: {refAuthor: {_eq: $refAuthor}, refPath: {_eq: $refPath}},
           limit: $limit,
           offset: $offset,
-          orderBy: [{blockHeight: ASC}]
+          orderBy: [{blockHeight: ${orderBy}}]
         ) {
           quoteAuthor quoteId value blockHeight blockTimestamp groupId
           refAuthor refPath refType
@@ -307,7 +308,7 @@ export class ThreadsQuery {
    */
   async quotesByPath(
     refPath: string,
-    opts: { limit?: number; offset?: number } = {}
+    opts: { limit?: number; offset?: number; order?: 'asc' | 'desc' } = {}
   ): Promise<PostRow[]> {
     return (await this._quotesPageByPath(refPath, opts)).items;
   }

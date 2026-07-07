@@ -246,7 +246,7 @@ export class GroupsQuery {
    */
   quotes(
     post: GroupPostRef,
-    opts: { limit?: number } = {}
+    opts: { limit?: number; order?: 'asc' | 'desc' } = {}
   ): Promise<PostRow[]> {
     return this._q.threads.quotesByPath(groupPostPathValue(post), opts);
   }
@@ -262,12 +262,17 @@ export class GroupsQuery {
    */
   async conversation(
     post: GroupPostRef,
-    opts: { replyLimit?: number; quoteLimit?: number } = {}
+    opts: {
+      replyLimit?: number;
+      quoteLimit?: number;
+      /** Quote list direction; replies always read oldest-first. */
+      quoteOrder?: 'asc' | 'desc';
+    } = {}
   ): Promise<GroupConversation> {
     const [root, replies, quotes] = await Promise.all([
       this.post(post),
       this.thread(post, { limit: opts.replyLimit }),
-      this.quotes(post, { limit: opts.quoteLimit }),
+      this.quotes(post, { limit: opts.quoteLimit, order: opts.quoteOrder }),
     ]);
     return { root, replies, quotes };
   }

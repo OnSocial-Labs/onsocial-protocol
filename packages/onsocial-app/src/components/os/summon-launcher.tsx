@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  PenFillIcon,
   OnSocialMark,
   glassSheetBackdropFilterStyle,
   osLauncherBackdropClassName,
@@ -32,7 +33,9 @@ import {
   usePrefersReducedTransparency,
 } from '@onsocial/ui';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useComposeLauncher } from '@/contexts/compose-launcher-context';
 import { accountIdsEqual } from '@/lib/account-match';
+import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useOsAppNavigate } from '@/hooks/use-os-app-navigate';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { ThemeToggle } from '@/components/os/theme-toggle';
@@ -152,6 +155,8 @@ export function SummonLauncher({
     [onOpenChange, openProp]
   );
 
+  const composeAction = useComposeLauncher();
+  const dockHidden = useDockAutoHide() && !open;
   const sheetRef = useRef<HTMLElement>(null);
   const dragStateRef = useRef<{ startY: number; baseY: number } | null>(null);
   const dragYRef = useRef(0);
@@ -256,7 +261,7 @@ export function SummonLauncher({
     <>
       {!hideTrigger ? (
         <div
-          className={`portfolio-summon-dock${open ? ' is-launcher-open' : ''}`}
+          className={`portfolio-summon-dock${open ? ' is-launcher-open' : ''}${dockHidden ? ' is-scroll-hidden' : ''}`}
         >
           <OsDockPill
             pageAccountId={pageAccountId}
@@ -271,6 +276,21 @@ export function SummonLauncher({
               >
                 <span className="portfolio-summon-grip" aria-hidden />
               </button>
+            }
+            action={
+              composeAction ? (
+                <button
+                  type="button"
+                  className="portfolio-summon-compose"
+                  onClick={composeAction}
+                  aria-label="Compose a post"
+                >
+                  <PenFillIcon
+                    className="portfolio-summon-compose-icon"
+                    aria-hidden
+                  />
+                </button>
+              ) : undefined
             }
           />
         </div>
