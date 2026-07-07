@@ -15,6 +15,7 @@ export const txToastPending = {
   cancelingGuildRequest: 'Canceling request…',
   leavingGuild: 'Leaving guild…',
   postingToGuild: 'Posting to guild…',
+  quotingGuildPost: 'Quoting…',
 } as const;
 
 export const txToastSuccess = {
@@ -29,6 +30,7 @@ export const txToastSuccess = {
   guildRequestCanceled: 'Request canceled.',
   guildLeft: 'Guild left.',
   guildPostPublished: 'Posted to guild.',
+  guildQuotePublished: 'Quote posted.',
 } as const;
 
 export const txToastError = {
@@ -40,4 +42,5 @@ export const txToastError = {
   guildCreateFailed: 'Could not create guild.',
   guildMembershipFailed: 'Could not update guild membership.',
   guildPostFailed: 'Could not post to guild.',
+  guildQuoteFailed: 'Could not post quote.',
 } as const;

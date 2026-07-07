@@ -7,6 +7,7 @@ import { ProfileAvatar } from '@onsocial/ui';
 import { appPageHref } from '@/lib/app-links';
 import {
   formatPostTimestamp,
+  formatRelativePostTimestamp,
   parsePostText,
   postKey,
   postTimestampIso,
@@ -19,10 +20,20 @@ interface PostCardProps {
   post: PostRow;
   actionHref?: string;
   authorProfile?: PostAuthorProfile;
-  contextLabel?: string;
+  /** Extra classes, e.g. thread chain position modifiers. */
+  className?: string;
+  /** Compact inset preview of the post this one quotes. */
+  quotedPost?: PostRow;
+  quotedAuthorProfile?: PostAuthorProfile;
+  /** Hide the Reply/Quote relation badge (redundant inside thread tabs). */
+  showRelationBadge?: boolean;
   engagement?: PostEngagement;
   reactionPending?: boolean;
   onToggleReaction?: (post: PostRow) => void;
+  /** Open a reply composer targeting this post. */
+  onReply?: (post: PostRow) => void;
+  /** Open a quote composer targeting this post. */
+  onQuote?: (post: PostRow) => void;
 }
 
 function postRelationLabel(post: PostRow): string | null {
@@ -31,9 +42,41 @@ function postRelationLabel(post: PostRow): string | null {
   return null;
 }
 
-function postBadges(post: PostRow): string[] {
-  return [postRelationLabel(post), post.channel, post.kind].filter(
+function postBadges(post: PostRow, showRelationBadge: boolean): string[] {
+  return [
+    showRelationBadge ? postRelationLabel(post) : null,
+    post.channel,
+    post.kind,
+  ].filter(
     (value): value is string => typeof value === 'string' && value.trim() !== ''
+  );
+}
+
+export function QuotedPostInset({
+  post,
+  authorProfile,
+}: {
+  post: PostRow;
+  authorProfile?: PostAuthorProfile;
+}) {
+  const name =
+    authorProfile?.displayName?.trim() || fallbackLabel(post.accountId);
+  const text = parsePostText(post.value);
+
+  return (
+    <div className="post-card-quote-inset">
+      <span className="post-card-quote-inset-head">
+        <ProfileAvatar
+          src={authorProfile?.avatarUrl ?? null}
+          fallbackInitial={name}
+          size="sm"
+          className="post-card-quote-inset-avatar"
+        />
+        <span className="post-card-quote-inset-name">{name}</span>
+        <span className="post-card-quote-inset-handle">@{post.accountId}</span>
+      </span>
+      <p className="post-card-quote-inset-body">{text || '…'}</p>
+    </div>
   );
 }
 
@@ -92,11 +135,34 @@ function EngagementStat({
   icon,
   count,
   label,
+  actionLabel,
+  onActivate,
 }: {
   icon: React.ReactNode;
   count: number;
   label: string;
+  actionLabel?: string;
+  onActivate?: () => void;
 }) {
+  if (onActivate) {
+    return (
+      <button
+        type="button"
+        className="post-card-stat post-card-stat-button"
+        aria-label={actionLabel ?? label}
+        title={actionLabel ?? label}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onActivate();
+        }}
+      >
+        {icon}
+        {count > 0 ? <span>{count}</span> : null}
+      </button>
+    );
+  }
+
   return (
     <span
       className="post-card-stat"
@@ -109,21 +175,43 @@ function EngagementStat({
   );
 }
 
+export function PostRowSkeleton({ rows = 3 }: { rows?: number }) {
+  return (
+    <div className="post-row-skeleton-list" aria-hidden>
+      {Array.from({ length: rows }, (_, index) => (
+        <div key={index} className="post-card post-card--skeleton">
+          <div className="post-card-avatar post-row-skeleton-avatar standing-row-shimmer" />
+          <div className="post-card-copy">
+            <div className="standing-row-shimmer post-row-skeleton-line" />
+            <div className="standing-row-shimmer post-row-skeleton-line-sm" />
+            <div className="standing-row-shimmer post-row-skeleton-line-body" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function PostCard({
   post,
   actionHref,
   authorProfile,
-  contextLabel,
+  className,
+  quotedPost,
+  quotedAuthorProfile,
+  showRelationBadge = true,
   engagement,
   reactionPending,
   onToggleReaction,
+  onReply,
+  onQuote,
 }: PostCardProps) {
   const text = parsePostText(post.value);
   const fallback = fallbackLabel(post.accountId);
   const name = authorProfile?.displayName?.trim() || fallback;
   const handle = `@${post.accountId}`;
   const timestampIso = postTimestampIso(post.blockTimestamp);
-  const badges = postBadges(post);
+  const badges = postBadges(post, showRelationBadge);
 
   const handleReactionClick = (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
@@ -153,9 +241,10 @@ export function PostCard({
           )}
           <time
             className="post-card-time"
+            title={formatPostTimestamp(post.blockTimestamp)}
             {...(timestampIso ? { dateTime: timestampIso } : {})}
           >
-            {formatPostTimestamp(post.blockTimestamp)}
+            {formatRelativePostTimestamp(post.blockTimestamp)}
           </time>
         </header>
         <span className="post-card-handle">{handle}</span>
@@ -166,21 +255,28 @@ export function PostCard({
             ))}
           </div>
         ) : null}
-        {contextLabel ? (
-          <p className="post-card-context">{contextLabel}</p>
-        ) : null}
         <p className="post-card-body">{text || '…'}</p>
+        {quotedPost ? (
+          <QuotedPostInset
+            post={quotedPost}
+            authorProfile={quotedAuthorProfile}
+          />
+        ) : null}
         {engagement ? (
           <div className="post-card-engagement">
             <EngagementStat
               icon={<ReplyIcon />}
               count={engagement.replyCount}
               label="replies"
+              actionLabel={onReply ? 'Reply to this post' : undefined}
+              onActivate={onReply ? () => onReply(post) : undefined}
             />
             <EngagementStat
               icon={<QuoteIcon />}
               count={engagement.quoteCount}
               label="quotes"
+              actionLabel={onQuote ? 'Quote this post' : undefined}
+              onActivate={onQuote ? () => onQuote(post) : undefined}
             />
             {onToggleReaction ? (
               <button
@@ -213,18 +309,17 @@ export function PostCard({
     </>
   );
 
+  const cardClassName = `post-card animate-rise-in${className ? ` ${className}` : ''}`;
+
   if (actionHref) {
     return (
-      <Link
-        className="post-card post-card-link animate-rise-in"
-        href={actionHref}
-      >
+      <Link className={`${cardClassName} post-card-link`} href={actionHref}>
         {content}
       </Link>
     );
   }
 
-  return <article className="post-card animate-rise-in">{content}</article>;
+  return <article className={cardClassName}>{content}</article>;
 }
 
 export { postKey };

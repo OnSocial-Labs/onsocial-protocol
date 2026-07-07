@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   formatPostTimestamp,
+  formatRelativePostTimestamp,
   parsePostText,
   postTimestampIso,
 } from './post-display';
@@ -37,5 +38,54 @@ describe('post timestamps', () => {
     expect(postTimestampIso(0)).toBeUndefined();
     expect(postTimestampIso(Number.NaN)).toBeUndefined();
     expect(formatPostTimestamp(0)).toBe('Unknown time');
+  });
+});
+
+describe('formatRelativePostTimestamp', () => {
+  const now = new Date('2026-07-07T12:00:00Z');
+
+  it('formats sub-minute ages as now', () => {
+    expect(formatRelativePostTimestamp(now.getTime() - 30_000, now)).toBe(
+      'now'
+    );
+  });
+
+  it('formats minute, hour, and day ages compactly', () => {
+    expect(formatRelativePostTimestamp(now.getTime() - 5 * 60_000, now)).toBe(
+      '5m'
+    );
+    expect(
+      formatRelativePostTimestamp(now.getTime() - 2 * 3_600_000, now)
+    ).toBe('2h');
+    expect(
+      formatRelativePostTimestamp(now.getTime() - 3 * 86_400_000, now)
+    ).toBe('3d');
+  });
+
+  it('falls back to a short date after a week', () => {
+    const formatted = formatRelativePostTimestamp(
+      now.getTime() - 30 * 86_400_000,
+      now
+    );
+    expect(formatted).not.toMatch(/^\d+[mhd]$/);
+    expect(formatted).not.toContain('2026');
+  });
+
+  it('includes the year for older years', () => {
+    const formatted = formatRelativePostTimestamp(
+      new Date('2025-03-10T12:00:00Z').getTime(),
+      now
+    );
+    expect(formatted).toContain('2025');
+  });
+
+  it('handles nanosecond timestamps and invalid input', () => {
+    expect(
+      formatRelativePostTimestamp(
+        (now.getTime() - 2 * 3_600_000) * 1_000_000,
+        now
+      )
+    ).toBe('2h');
+    expect(formatRelativePostTimestamp(0, now)).toBe('Unknown time');
   });
 });
