@@ -147,6 +147,7 @@ export type {
   Paginated,
   HashtagCount,
   GroupConversation,
+  GroupMemberRow,
   ThreadCounts,
   ThreadEdge,
   ThreadNode,

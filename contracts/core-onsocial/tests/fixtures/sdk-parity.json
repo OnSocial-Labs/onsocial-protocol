@@ -285,6 +285,21 @@
       }
     },
     {
+      "name": "update group metadata",
+      "expected_action_type": "update_group_metadata",
+      "request": {
+        "target_account": "core.onsocial.testnet",
+        "action": {
+          "type": "update_group_metadata",
+          "group_id": "builders",
+          "changes": {
+            "name": "Builders Guild",
+            "description": "Updated description"
+          }
+        }
+      }
+    },
+    {
       "name": "create proposal",
       "expected_action_type": "create_proposal",
       "request": {

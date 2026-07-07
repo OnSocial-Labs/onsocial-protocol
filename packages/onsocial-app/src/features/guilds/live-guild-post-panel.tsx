@@ -559,6 +559,16 @@ export function LiveGuildPostPanel({
   const replyHandler = isMember ? openComposerModal('reply') : undefined;
   const quoteHandler = isMember ? openComposerModal('quote') : undefined;
 
+  /** Click-through target for a quoted post's own thread page. */
+  const quotedHrefFor = (quoted: PostRow | undefined) =>
+    quoted
+      ? guildPostPath(
+          quoted.groupId ?? groupId,
+          quoted.accountId,
+          quoted.postId
+        )
+      : undefined;
+
   // Dock pen on a thread page = reply to the thread root.
   const root = conversation.root;
   const composeReplyToRoot = useCallback(() => {
@@ -634,6 +644,11 @@ export function LiveGuildPostPanel({
                           ]
                         : undefined
                     }
+                    quotedHref={quotedHrefFor(
+                      ancestor.refPath
+                        ? quotedPosts[ancestor.refPath]
+                        : undefined
+                    )}
                     onReply={replyHandler}
                     onQuote={quoteHandler}
                   />
@@ -665,6 +680,11 @@ export function LiveGuildPostPanel({
                         ]
                       : undefined
                   }
+                  quotedHref={quotedHrefFor(
+                    conversation.root.refPath
+                      ? quotedPosts[conversation.root.refPath]
+                      : undefined
+                  )}
                   engagement={engagement[postKey(conversation.root)]}
                   reactionPending={isReactionPending(conversation.root)}
                   onToggleReaction={toggleReaction}

@@ -328,6 +328,19 @@ pub fn set_group_privacy_request(group_id: String, is_private: bool) -> crate::p
 }
 
 #[cfg(test)]
+pub fn update_group_metadata_request(
+    group_id: String,
+    changes: near_sdk::serde_json::Value,
+) -> crate::protocol::Request {
+    use crate::protocol::{Action, Request};
+    Request {
+        target_account: None,
+        action: Action::UpdateGroupMetadata { group_id, changes },
+        options: None,
+    }
+}
+
+#[cfg(test)]
 pub fn create_proposal_request(
     group_id: String,
     proposal_type: String,

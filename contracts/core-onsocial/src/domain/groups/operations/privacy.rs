@@ -48,7 +48,7 @@ impl crate::domain::groups::core::GroupStorage {
             Value::String(caller_id.to_string()),
         );
 
-        platform.storage_set(&config_path, &config_data)?;
+        platform.storage_set(&config_path, &config_data.clone())?;
 
         let mut event_batch = EventBatch::new();
         EventBuilder::new(
@@ -57,6 +57,8 @@ impl crate::domain::groups::core::GroupStorage {
             caller_id.clone(),
         )
         .with_path(&config_path)
+        .with_value(config_data.clone())
+        .with_structured_data(config_data)
         .with_field("is_private", is_private)
         .with_field("changed_at", env::block_timestamp().to_string())
         .emit(&mut event_batch);

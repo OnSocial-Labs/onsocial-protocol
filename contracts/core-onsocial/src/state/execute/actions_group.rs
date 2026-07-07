@@ -175,6 +175,18 @@ impl SocialPlatform {
         result
     }
 
+    pub(super) fn execute_action_update_metadata(
+        &mut self,
+        group_id: &str,
+        changes: Value,
+        ctx: &mut ExecuteContext,
+    ) -> Result<(), SocialError> {
+        self.prepare_group_storage(ctx);
+        let result = self.update_group_metadata(group_id.to_string(), changes, &ctx.actor_id);
+        self.cleanup_group_storage();
+        result
+    }
+
     pub(super) fn execute_action_create_proposal(
         &mut self,
         group_id: &str,

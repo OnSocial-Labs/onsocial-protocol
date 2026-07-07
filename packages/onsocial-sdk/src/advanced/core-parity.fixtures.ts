@@ -27,6 +27,7 @@ import {
   buildTransferGroupOwnershipAction,
   buildUnblacklistGroupMemberAction,
   buildUnstandAction,
+  buildUpdateGroupMetadataAction,
   buildVoteOnProposalAction,
   prepareCoreRequest,
 } from './actions.js';
@@ -57,6 +58,7 @@ export const ALL_CORE_ACTION_TYPES = [
   'unblacklist_group_member',
   'transfer_group_ownership',
   'set_group_privacy',
+  'update_group_metadata',
   'create_proposal',
   'vote_on_proposal',
   'cancel_proposal',
@@ -294,6 +296,21 @@ export function getCoreParityCases(
         type: 'set_group_privacy',
         group_id: 'builders',
         is_private: true,
+      },
+    },
+    {
+      name: 'update group metadata',
+      action: buildUpdateGroupMetadataAction('builders', {
+        name: 'Builders Guild',
+        description: 'Updated description',
+      }),
+      expectedAction: {
+        type: 'update_group_metadata',
+        group_id: 'builders',
+        changes: {
+          name: 'Builders Guild',
+          description: 'Updated description',
+        },
       },
     },
     // ── Governance ─────────────────────────────────────────────────────────

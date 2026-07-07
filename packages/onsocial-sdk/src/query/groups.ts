@@ -36,6 +36,19 @@ export interface GroupMembershipCurrentRow {
   blockTimestamp: number;
 }
 
+export type GroupMemberRow = Pick<
+  GroupMembershipCurrentRow,
+  | 'groupId'
+  | 'memberId'
+  | 'role'
+  | 'level'
+  | 'isOwner'
+  | 'isAdmin'
+  | 'canModerate'
+  | 'blockHeight'
+  | 'blockTimestamp'
+>;
+
 export class GroupsQuery {
   constructor(private _q: QueryModule) {}
 
@@ -81,6 +94,50 @@ export class GroupsQuery {
         }
       }`,
       variables: { accountId, limit, offset },
+    });
+    const rows = res.data?.groupMembersCurrent ?? [];
+    return {
+      items: rows,
+      nextOffset: rows.length >= limit ? offset + limit : undefined,
+    };
+  }
+
+  /**
+   * Current members of a guild/group, owner first then earliest joins,
+   * backed by `group_members_current`.
+   *
+   * ```ts
+   * const { items } = await os.query.groups.membersOf('dao', { limit: 8 });
+   * ```
+   */
+  async membersOf(
+    groupId: string,
+    opts: { limit?: number; offset?: number } = {}
+  ): Promise<Paginated<GroupMemberRow>> {
+    const limit = opts.limit ?? 20;
+    const offset = opts.offset ?? 0;
+    const res = await this._q.graphql<{
+      groupMembersCurrent: GroupMemberRow[];
+    }>({
+      query: `query GroupMembersOf($groupId: String!, $limit: Int!, $offset: Int!) {
+        groupMembersCurrent(
+          where: { groupId: {_eq: $groupId} },
+          limit: $limit,
+          offset: $offset,
+          orderBy: [{isOwner: DESC}, {blockHeight: ASC}]
+        ) {
+          groupId
+          memberId
+          role
+          level
+          isOwner
+          isAdmin
+          canModerate
+          blockHeight
+          blockTimestamp
+        }
+      }`,
+      variables: { groupId, limit, offset },
     });
     const rows = res.data?.groupMembersCurrent ?? [];
     return {

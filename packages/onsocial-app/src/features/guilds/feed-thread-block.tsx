@@ -102,6 +102,8 @@ export function FeedThreadBlock({
         ? { ...stats, replyCount: Math.max(0, stats.replyCount - 1) }
         : stats;
 
+    const quoted = post.refPath ? quotedPosts[post.refPath] : undefined;
+
     return (
       <div key={postKey(post)} className={itemClassName}>
         <PostCard
@@ -112,10 +114,17 @@ export function FeedThreadBlock({
           // Continuations are drawn with the rail, not labeled.
           showRelationBadge={first}
           className={first ? undefined : 'post-card--chain-cont'}
-          quotedPost={post.refPath ? quotedPosts[post.refPath] : undefined}
+          quotedPost={quoted}
           quotedAuthorProfile={
-            post.refPath
-              ? postAuthorProfiles[quotedPosts[post.refPath]?.accountId ?? '']
+            quoted ? postAuthorProfiles[quoted.accountId] : undefined
+          }
+          quotedHref={
+            quoted
+              ? guildPostPath(
+                  quoted.groupId ?? groupId,
+                  quoted.accountId,
+                  quoted.postId
+                )
               : undefined
           }
           engagement={adjustedStats}

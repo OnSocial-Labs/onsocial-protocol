@@ -83,6 +83,11 @@ export type CoreAction =
     }
   | { type: 'set_group_privacy'; group_id: string; is_private: boolean }
   | {
+      type: 'update_group_metadata';
+      group_id: string;
+      changes: Record<string, unknown>;
+    }
+  | {
       type: 'create_proposal';
       group_id: string;
       proposal_type: string;
@@ -730,6 +735,17 @@ export function buildSetGroupPrivacyAction(
     type: 'set_group_privacy',
     group_id: groupId,
     is_private: isPrivate,
+  };
+}
+
+export function buildUpdateGroupMetadataAction(
+  groupId: string,
+  changes: Record<string, unknown>
+): CoreAction {
+  return {
+    type: 'update_group_metadata',
+    group_id: groupId,
+    changes,
   };
 }
 

@@ -257,7 +257,7 @@ describe('GroupsModule governance proposals (signed actions)', () => {
       proposal_type: 'group_update',
       changes: {
         update_type: 'metadata',
-        metadata: { name: 'Builders DAO', description: 'New tagline' },
+        changes: { name: 'Builders DAO', description: 'New tagline' },
         reason: 'Rebrand',
       },
       auto_vote: true,

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
 import {
   Divider,
@@ -26,6 +27,8 @@ interface PostCardProps {
   /** Compact inset preview of the post this one quotes. */
   quotedPost?: PostRow;
   quotedAuthorProfile?: PostAuthorProfile;
+  /** Click-through to the quoted post's own page. */
+  quotedHref?: string;
   /** Hide the `Replying to @x` context line (redundant inside thread tabs). */
   showRelationBadge?: boolean;
   /** Show `· #channel` in the identity line (mixed "All" feeds only). */
@@ -66,16 +69,43 @@ function postRelationContext(
 export function QuotedPostInset({
   post,
   authorProfile,
+  href,
 }: {
   post: PostRow;
   authorProfile?: PostAuthorProfile;
+  /** Navigate to the quoted post's own page (feed/thread surfaces). */
+  href?: string;
 }) {
+  const router = useRouter();
   const name =
     authorProfile?.displayName?.trim() || fallbackLabel(post.accountId);
   const text = parsePostText(post.value);
+  const interactive = Boolean(href);
+
+  // The card may itself be a link — the inset intercepts its own clicks so
+  // the quote navigates to the quoted post, not the quoting one.
+  const open = (event: { preventDefault(): void; stopPropagation(): void }) => {
+    if (!href) return;
+    event.preventDefault();
+    event.stopPropagation();
+    router.push(href);
+  };
 
   return (
-    <div className="post-card-quote-inset">
+    <div
+      className={`post-card-quote-inset${interactive ? ' post-card-quote-inset--link' : ''}`}
+      role={interactive ? 'link' : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      aria-label={interactive ? `View quoted post by ${name}` : undefined}
+      onClick={interactive ? open : undefined}
+      onKeyDown={
+        interactive
+          ? (event) => {
+              if (event.key === 'Enter' || event.key === ' ') open(event);
+            }
+          : undefined
+      }
+    >
       <Divider orientation="vertical" variant="green-detail" />
       <div className="post-card-quote-inset-content">
         <span className="post-card-quote-inset-head">
@@ -201,6 +231,7 @@ export function PostCard({
   className,
   quotedPost,
   quotedAuthorProfile,
+  quotedHref,
   showRelationBadge = true,
   showChannel = false,
   engagement,
@@ -255,6 +286,7 @@ export function PostCard({
           <QuotedPostInset
             post={quotedPost}
             authorProfile={quotedAuthorProfile}
+            href={quotedHref}
           />
         ) : null}
         {engagement ? (

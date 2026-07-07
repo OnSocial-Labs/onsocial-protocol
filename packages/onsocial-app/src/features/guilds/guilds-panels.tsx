@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { LiveGuildSettingsPanel } from '@/features/guilds/live-guild-settings-panel';
 import {
   GUILD_ACTIONS,
   GUILD_BLUEPRINTS,
@@ -360,72 +361,5 @@ export function GuildProposalsPanel({ groupId }: { groupId: string }) {
 }
 
 export function GuildSettingsPanel({ groupId }: { groupId: string }) {
-  const guild = getGuildBlueprint(groupId);
-
-  return (
-    <OsAppScreen
-      title="Guild settings"
-      subtitle={guild.name}
-      backFallbackHref={guildPath(groupId)}
-    >
-      <div className="guilds-page">
-        <GuildNav groupId={guild.id} />
-        <section className="guild-section">
-          <div className="guild-section-head">
-            <p className="guild-eyebrow">Access and roles</p>
-            <h2>Decide who can participate.</h2>
-            <p>
-              Guild settings should manage membership access, posting rights,
-              moderation, and collaborative governance without making users
-              think public-chain data is hidden.
-            </p>
-          </div>
-          <GuildRoleGrid />
-        </section>
-        <section className="guild-section">
-          <div className="guild-section-head">
-            <p className="guild-eyebrow">Structures</p>
-            <h2>Start standard, then customize.</h2>
-            <p>
-              Every guild gets familiar default channels so members know where
-              to post. Owners and moderators can later tune sections and attach
-              permission rules as the guild grows.
-            </p>
-          </div>
-          <GuildStructureTemplateGrid />
-        </section>
-        <section className="guild-section">
-          <div className="guild-section-head">
-            <p className="guild-eyebrow">Permission paths</p>
-            <h2>Keep the UI simple, keep the controls flexible.</h2>
-            <p>
-              Owners see roles and sections. The protocol stores scoped paths,
-              and collaborative guilds can propose changes instead of applying
-              them directly.
-            </p>
-          </div>
-          <GuildPermissionPresetList groupId={groupId} />
-        </section>
-        <section className="guild-section">
-          <div className="guild-section-head">
-            <p className="guild-eyebrow">Roadmap</p>
-            <h2>Grow from social space to collaborative home.</h2>
-          </div>
-          <div className="guild-phase-list">
-            {GUILD_PHASES.map((phase) => (
-              <article key={phase.id} className="guild-phase-card">
-                <span>{phase.title}</span>
-                <h3>{phase.summary}</h3>
-                <ul>
-                  {phase.outcomes.map((outcome) => (
-                    <li key={outcome}>{outcome}</li>
-                  ))}
-                </ul>
-              </article>
-            ))}
-          </div>
-        </section>
-      </div>
-    </OsAppScreen>
-  );
+  return <LiveGuildSettingsPanel groupId={groupId} />;
 }

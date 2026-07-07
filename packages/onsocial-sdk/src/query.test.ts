@@ -800,6 +800,53 @@ describe('QueryModule', () => {
       });
     });
 
+    it('queries current members of a group, owner first', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          groupMembersCurrent: [
+            {
+              groupId: 'dao',
+              memberId: 'alice.near',
+              role: 'owner',
+              level: 255,
+              isOwner: true,
+              isAdmin: true,
+              canModerate: true,
+              blockHeight: 9,
+              blockTimestamp: 99,
+            },
+            {
+              groupId: 'dao',
+              memberId: 'bob.near',
+              role: null,
+              level: 1,
+              isOwner: false,
+              isAdmin: false,
+              canModerate: false,
+              blockHeight: 12,
+              blockTimestamp: 120,
+            },
+          ],
+        },
+      });
+
+      const page = await os.query.groups.membersOf('dao', { limit: 8 });
+      expect(page.items).toHaveLength(2);
+      expect(page.items[0].memberId).toBe('alice.near');
+      expect(page.items[0].isOwner).toBe(true);
+      expect(page.items[1].memberId).toBe('bob.near');
+
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('groupMembersCurrent');
+      expect(body.query).toContain('groupId: {_eq: $groupId}');
+      expect(body.query).toContain('{isOwner: DESC}');
+      expect(body.variables).toMatchObject({
+        groupId: 'dao',
+        limit: 8,
+        offset: 0,
+      });
+    });
+
     it('queries group-scoped posts with isGroupContent filtering', async () => {
       const { os, fetch } = makeOs({
         data: {

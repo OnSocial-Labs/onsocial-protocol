@@ -4,11 +4,18 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   postContentPath,
+  type GroupMemberRow,
   type GroupStats,
   type JoinRequest,
   type PostRow,
 } from '@onsocial/sdk';
-import { Divider } from '@onsocial/ui';
+import {
+  Divider,
+  ProfileAvatar,
+  PulsingDots,
+  SlidersHorizontalIcon,
+  osIconActionClassName,
+} from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -32,6 +39,7 @@ import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { usePostEngagement } from '@/hooks/use-post-engagement';
 import { useQuotedPosts } from '@/hooks/use-quoted-posts';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { resolveProfileMediaUrl } from '@/lib/profile-display';
 import {
   txToastError,
   txToastPending,
@@ -42,6 +50,8 @@ import { isWalletUserCancellation } from '@/lib/wallet-errors';
 interface LiveGuildConfig {
   name: string;
   description: string | null;
+  avatarUrl: string | null;
+  bannerUrl: string | null;
   accessGated: boolean;
   memberDriven: boolean;
   tags: string[];
@@ -58,6 +68,7 @@ interface ViewerGuildState {
 interface LiveGuildState {
   config: LiveGuildConfig | null;
   stats: GroupStats | null;
+  members: GroupMemberRow[];
   posts: PostRow[];
   feedError: string | null;
   viewer: ViewerGuildState | null;
@@ -74,6 +85,16 @@ function readBoolean(value: unknown): boolean {
   return value === true;
 }
 
+/** Nested string lookup inside a raw JSON object (e.g. `avatar.cid`). */
+function readNestedString(value: unknown, path: string[]): string | null {
+  let cursor: unknown = value;
+  for (const key of path) {
+    if (typeof cursor !== 'object' || cursor === null) return null;
+    cursor = (cursor as Record<string, unknown>)[key];
+  }
+  return readString(cursor);
+}
+
 function normalizeConfig(
   groupId: string,
   raw: Record<string, unknown>
@@ -81,10 +102,18 @@ function normalizeConfig(
   const rawTags = Array.isArray(raw.tags)
     ? raw.tags.filter((tag): tag is string => typeof tag === 'string')
     : [];
+  const avatarCid = readNestedString(raw, ['avatar', 'cid']);
+  const bannerCid = readNestedString(raw, ['x', 'onsocial', 'banner', 'cid']);
 
   return {
     name: readString(raw.name) ?? groupId,
     description: readString(raw.description),
+    avatarUrl: avatarCid
+      ? resolveProfileMediaUrl(`ipfs://${avatarCid}`)
+      : null,
+    bannerUrl: bannerCid
+      ? resolveProfileMediaUrl(`ipfs://${bannerCid}`)
+      : null,
     accessGated: readBoolean(raw.is_private) || readBoolean(raw.isPrivate),
     memberDriven:
       readBoolean(raw.member_driven) || readBoolean(raw.memberDriven),
@@ -94,16 +123,6 @@ function normalizeConfig(
 
 function pendingJoinRequest(request: JoinRequest | null): boolean {
   return request?.status === 'pending';
-}
-
-function roleLabel(viewer: ViewerGuildState | null): string {
-  if (!viewer) return 'Visitor';
-  if (viewer.isOwner) return 'Owner';
-  if (viewer.isAdmin) return 'Admin';
-  if (viewer.canModerate) return 'Moderator';
-  if (viewer.isMember) return 'Member';
-  if (pendingJoinRequest(viewer.joinRequest)) return 'Request pending';
-  return 'Visitor';
 }
 
 function accessLabel(config: LiveGuildConfig): string {
@@ -124,6 +143,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
   const [state, setState] = useState<LiveGuildState>({
     config: null,
     stats: null,
+    members: [],
     posts: [],
     feedError: null,
     viewer: null,
@@ -145,8 +165,13 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
   const [modalPending, setModalPending] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [headerElevated, setHeaderElevated] = useState(false);
+  const [confirmingLeave, setConfirmingLeave] = useState(false);
   const hasLoadedRef = useRef(false);
   const reconcileTimersRef = useRef<number[]>([]);
+  const confirmLeaveTimerRef = useRef<number | null>(null);
+  const scrollRootRef = useRef<HTMLElement | null>(null);
+  const heroTitleRef = useRef<HTMLHeadingElement | null>(null);
 
   const config = state.config;
   const viewer = state.viewer;
@@ -171,12 +196,22 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
   }, [state.posts, localPosts, selectedFeedStructure]);
   const feedBlocks = useMemo(() => coalesceFeedThreads(feedPosts), [feedPosts]);
   const quotedPosts = useQuotedPosts(feedPosts);
+  // Confirmed-ledger facepile: the viewer knows they are a member before the
+  // indexer does, so seed the stack with their own avatar until stats catch up.
+  const facepileIds = useMemo(() => {
+    const ids = state.members.map((member) => member.memberId);
+    if (viewer?.isMember && accountId && !ids.includes(accountId)) {
+      ids.unshift(accountId);
+    }
+    return ids;
+  }, [accountId, state.members, viewer?.isMember]);
   const postAuthorIds = useMemo(
     () => [
       ...feedPosts.map((post) => post.accountId),
       ...Object.values(quotedPosts).map((post) => post.accountId),
+      ...facepileIds,
     ],
-    [feedPosts, quotedPosts]
+    [feedPosts, quotedPosts, facepileIds]
   );
   const postAuthorProfiles = usePostAuthorProfiles(postAuthorIds);
   const { engagement, toggleReaction, isReactionPending } = usePostEngagement(
@@ -202,6 +237,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
         setState({
           config: null,
           stats: null,
+          members: [],
           posts: [],
           feedError: null,
           viewer: null,
@@ -210,25 +246,27 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
         return;
       }
 
-      const [statsResult, feedResult, viewerResult] = await Promise.allSettled([
-        client.groups.getStats(groupId),
-        selectedFeedStructure
-          ? client.query.groups.feedFiltered({
-              groupId,
-              channel: selectedFeedStructure.channel,
-              limit: 20,
-            })
-          : client.query.groups.feed({ groupId, limit: 20 }),
-        accountId
-          ? Promise.all([
-              client.groups.isMember(groupId, accountId),
-              client.groups.isOwner(groupId, accountId),
-              client.groups.isAdmin(groupId, accountId),
-              client.groups.canModerate(groupId, accountId),
-              client.groups.getJoinRequest(groupId, accountId),
-            ])
-          : Promise.resolve(null),
-      ]);
+      const [statsResult, membersResult, feedResult, viewerResult] =
+        await Promise.allSettled([
+          client.groups.getStats(groupId),
+          client.query.groups.membersOf(groupId, { limit: 8 }),
+          selectedFeedStructure
+            ? client.query.groups.feedFiltered({
+                groupId,
+                channel: selectedFeedStructure.channel,
+                limit: 20,
+              })
+            : client.query.groups.feed({ groupId, limit: 20 }),
+          accountId
+            ? Promise.all([
+                client.groups.isMember(groupId, accountId),
+                client.groups.isOwner(groupId, accountId),
+                client.groups.isAdmin(groupId, accountId),
+                client.groups.canModerate(groupId, accountId),
+                client.groups.getJoinRequest(groupId, accountId),
+              ])
+            : Promise.resolve(null),
+        ]);
 
       const viewerState =
         viewerResult.status === 'fulfilled' && viewerResult.value
@@ -250,6 +288,10 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       setState({
         config: normalizeConfig(groupId, rawConfig),
         stats: statsResult.status === 'fulfilled' ? statsResult.value : null,
+        members:
+          membersResult.status === 'fulfilled'
+            ? (membersResult.value.items ?? [])
+            : [],
         posts: fetchedPosts,
         feedError:
           feedResult.status === 'rejected'
@@ -283,9 +325,35 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
   }, [refresh, walletLoading]);
 
   useEffect(() => {
+    const scrollRoot = scrollRootRef.current;
+    if (!scrollRoot) return;
+
+    // Title handoff: elevate the bar (and fade its title in) only once the
+    // hero name has scrolled under it, so the name never doubles on screen.
+    const heroTitle = heroTitleRef.current;
+    if (heroTitle) {
+      const observer = new IntersectionObserver(
+        ([entry]) => setHeaderElevated(!entry.isIntersecting),
+        // Top margin ≈ bar height; hero title counts as gone once beneath it.
+        { root: scrollRoot, rootMargin: '-72px 0px 0px 0px', threshold: 0 }
+      );
+      observer.observe(heroTitle);
+      return () => observer.disconnect();
+    }
+
+    const updateHeader = () => setHeaderElevated(scrollRoot.scrollTop > 18);
+    updateHeader();
+    scrollRoot.addEventListener('scroll', updateHeader, { passive: true });
+    return () => scrollRoot.removeEventListener('scroll', updateHeader);
+  }, [loadState]);
+
+  useEffect(() => {
     const timers = reconcileTimersRef.current;
     return () => {
       for (const timer of timers) window.clearTimeout(timer);
+      if (confirmLeaveTimerRef.current !== null) {
+        window.clearTimeout(confirmLeaveTimerRef.current);
+      }
     };
   }, []);
 
@@ -328,7 +396,12 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     }
   }, [groupId, loadingMore, selectedFeedStructure, state.posts.length]);
 
-  const memberCount = state.stats?.member_count ?? 0;
+  // Never show a count the viewer knows is stale (e.g. "0 members" while the
+  // member-only Leave action is visible) — trust the confirmed facepile.
+  const memberCount = Math.max(
+    state.stats?.member_count ?? 0,
+    facepileIds.length
+  );
   const proposalCount = state.stats?.proposal_count ?? 0;
   const selectedStructure =
     GUILD_STRUCTURE_TEMPLATES.find(
@@ -337,10 +410,18 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
   const actionLabel = useMemo(() => {
     if (!isConnected) return 'Connect wallet';
     if (!config) return 'Load guild';
-    if (viewer?.isMember) return 'Leave guild';
+    if (viewer?.isMember) return confirmingLeave ? 'Leave guild?' : 'Joined';
     if (joinPending) return 'Cancel request';
     return config.accessGated ? 'Request access' : 'Join guild';
-  }, [config, isConnected, joinPending, viewer?.isMember]);
+  }, [config, confirmingLeave, isConnected, joinPending, viewer?.isMember]);
+
+  const clearConfirmLeave = () => {
+    if (confirmLeaveTimerRef.current !== null) {
+      window.clearTimeout(confirmLeaveTimerRef.current);
+      confirmLeaveTimerRef.current = null;
+    }
+    setConfirmingLeave(false);
+  };
 
   const runMembershipAction = async () => {
     setError(null);
@@ -394,6 +475,20 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     } finally {
       setActionPending(false);
     }
+  };
+
+  /** Leaving is on-chain and destructive — require a second tap to confirm. */
+  const handleMembershipClick = () => {
+    if (viewer?.isMember && !confirmingLeave) {
+      setConfirmingLeave(true);
+      confirmLeaveTimerRef.current = window.setTimeout(() => {
+        confirmLeaveTimerRef.current = null;
+        setConfirmingLeave(false);
+      }, 4_000);
+      return;
+    }
+    clearConfirmLeave();
+    void runMembershipAction();
   };
 
   const openComposerModal = (mode: GuildComposerMode) => (target: PostRow) => {
@@ -535,10 +630,28 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       title={title}
       subtitle={
         config
-          ? `${accessLabel(config)} guild on OnSocial`
+          ? accessLabel(config)
           : 'Guilds are public on-chain spaces with access-gated participation.'
       }
       backFallbackHref="/groups"
+      actions={
+        loadState === 'ready' &&
+        (viewer?.isOwner || viewer?.isAdmin || viewer?.canModerate) ? (
+          <Link
+            className={osIconActionClassName}
+            href={guildSectionPath(groupId, 'settings')}
+            aria-label="Guild settings"
+          >
+            <SlidersHorizontalIcon
+              className="glass-sheet-close-icon"
+              aria-hidden
+            />
+          </Link>
+        ) : undefined
+      }
+      immersiveHeader={loadState === 'ready'}
+      headerElevated={headerElevated}
+      scrollRootRef={scrollRootRef}
     >
       <div className="guilds-page">
         {loadState === 'loading' ? <PostRowSkeleton rows={4} /> : null}
@@ -577,71 +690,88 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
 
         {loadState === 'ready' && config ? (
           <>
-            <section className="guild-hero-card guild-detail-hero">
-              <p className="guild-eyebrow">
-                {accessLabel(config)} ·{' '}
-                {config.memberDriven ? 'Collaborative governance' : 'Owner-led'}
-              </p>
-              <h2>{config.name}</h2>
-              <p>
-                {config.description ??
-                  'A public on-chain guild. Access controls decide who can join, post, moderate, and manage.'}
-              </p>
-              <div className="guild-card-meta">
-                <span>{memberCount} members</span>
-                <span>{proposalCount} proposals</span>
-                <span>{roleLabel(viewer)}</span>
+            <section className="guild-hero">
+              <div
+                className={`guild-hero-cover${config.bannerUrl || config.avatarUrl ? '' : ' guild-hero-cover--fallback'}`}
+                aria-hidden
+              >
+                {config.bannerUrl || config.avatarUrl ? (
+                  <img
+                    src={config.bannerUrl ?? config.avatarUrl ?? undefined}
+                    alt=""
+                  />
+                ) : null}
               </div>
-              {config.tags.length > 0 ? (
-                <div className="guild-tag-list">
-                  {config.tags.map((tag) => (
-                    <span key={tag}>#{tag}</span>
-                  ))}
-                </div>
+              <h2 ref={heroTitleRef}>{config.name}</h2>
+              {config.description ? (
+                <p className="guild-hero-description">{config.description}</p>
               ) : null}
-              <div className="guild-hero-actions">
-                <button
-                  className="guild-primary-button"
-                  type="button"
-                  disabled={actionPending}
-                  onClick={() => void runMembershipAction()}
-                >
-                  {actionPending ? 'Working…' : actionLabel}
-                </button>
+              <div className="guild-hero-meta">
                 <Link
-                  className="guild-secondary-link"
+                  className="guild-facepile"
                   href={guildSectionPath(groupId, 'members')}
                 >
-                  Members
+                  {facepileIds.length > 0 ? (
+                    <span className="guild-facepile-avatars" aria-hidden>
+                      {facepileIds.slice(0, 5).map((memberId) => (
+                        <ProfileAvatar
+                          key={memberId}
+                          src={postAuthorProfiles[memberId]?.avatarUrl ?? null}
+                          fallbackInitial={
+                            postAuthorProfiles[memberId]?.displayName ??
+                            memberId
+                          }
+                          size="sm"
+                          className="guild-facepile-avatar"
+                        />
+                      ))}
+                    </span>
+                  ) : null}
+                  <span className="guild-facepile-count">
+                    {memberCount} {memberCount === 1 ? 'member' : 'members'}
+                  </span>
                 </Link>
                 <Link
-                  className="guild-secondary-link"
+                  className="guild-hero-meta-link"
                   href={guildSectionPath(groupId, 'proposals')}
                 >
-                  Proposals
+                  {proposalCount > 0
+                    ? `${proposalCount} ${proposalCount === 1 ? 'proposal' : 'proposals'}`
+                    : 'Proposals'}
                 </Link>
-                {viewer?.isOwner || viewer?.isAdmin || viewer?.canModerate ? (
-                  <Link
-                    className="guild-secondary-link"
-                    href={guildSectionPath(groupId, 'settings')}
-                  >
-                    Settings
-                  </Link>
+                {config.tags.length > 0 ? (
+                  <span className="guild-hero-tags">
+                    {config.tags.slice(0, 2).map((tag) => (
+                      <span key={tag}>#{tag}</span>
+                    ))}
+                    {config.tags.length > 2 ? (
+                      <span>+{config.tags.length - 2}</span>
+                    ) : null}
+                  </span>
                 ) : null}
+                <button
+                  className={
+                    viewer?.isMember
+                      ? `guild-secondary-button guild-hero-action${confirmingLeave ? ' is-confirm-leave' : ''}`
+                      : 'guild-primary-button guild-hero-action'
+                  }
+                  type="button"
+                  disabled={actionPending}
+                  onClick={handleMembershipClick}
+                  onBlur={confirmingLeave ? clearConfirmLeave : undefined}
+                >
+                  {actionPending ? (
+                    <PulsingDots size="sm" className="guild-hero-action-dots" />
+                  ) : (
+                    actionLabel
+                  )}
+                </button>
               </div>
             </section>
 
             {error ? <p className="guild-form-error">{error}</p> : null}
 
             <section className="guild-section guild-feed-section">
-              <div className="guild-section-head">
-                <p className="guild-eyebrow">Guild feed</p>
-                <h2>
-                  {selectedFeedStructure
-                    ? selectedFeedStructure.title
-                    : 'Member posts'}
-                </h2>
-              </div>
               <div
                 className="guild-feed-filter-list"
                 aria-label="Guild feed filters"

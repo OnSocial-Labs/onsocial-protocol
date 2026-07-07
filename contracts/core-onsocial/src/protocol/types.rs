@@ -61,6 +61,10 @@ pub enum Action {
         group_id: String,
         is_private: bool,
     },
+    UpdateGroupMetadata {
+        group_id: String,
+        changes: Value,
+    },
     CreateProposal {
         group_id: String,
         proposal_type: String,
@@ -115,6 +119,7 @@ impl Action {
             Self::UnblacklistGroupMember { .. } => "unblacklist_group_member",
             Self::TransferGroupOwnership { .. } => "transfer_group_ownership",
             Self::SetGroupPrivacy { .. } => "set_group_privacy",
+            Self::UpdateGroupMetadata { .. } => "update_group_metadata",
             Self::CreateProposal { .. } => "create_proposal",
             Self::VoteOnProposal { .. } => "vote_on_proposal",
             Self::CancelProposal { .. } => "cancel_proposal",

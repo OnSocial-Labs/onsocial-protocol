@@ -215,44 +215,79 @@ WHERE EXISTS (
 -- ────────────────────────────────────────────────────────────────────────────
 
 CREATE OR REPLACE VIEW groups_current AS
-SELECT DISTINCT ON (group_id)
+WITH config_events AS (
+  SELECT
+    group_id,
+    author,
+    name,
+    is_public,
+    creator_role,
+    storage_allocation,
+    block_height,
+    block_timestamp,
+    receipt_id,
+    id,
+    operation,
+    extra_data,
+    value,
+    COALESCE(
+      NULLIF(value, '')::jsonb,
+      CASE
+        WHEN extra_data ~ '^[\{]' THEN extra_data::jsonb -> 'value'
+        ELSE NULL
+      END,
+      '{}'::jsonb
+    ) AS config_json
+  FROM group_updates
+  WHERE group_id IS NOT NULL
+    AND group_id != ''
+    AND operation IN (
+      'create_group',
+      'group_updated',
+      'metadata_updated',
+      'privacy_changed'
+    )
+),
+latest AS (
+  SELECT DISTINCT ON (group_id)
+    group_id,
+    author,
+    name,
+    is_public,
+    creator_role,
+    storage_allocation,
+    block_height,
+    block_timestamp,
+    operation,
+    config_json
+  FROM config_events
+  ORDER BY group_id, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC
+)
+SELECT
   group_id,
   author                       AS owner_id,
-  name                         AS group_name,
-  is_public,
+  COALESCE(
+    NULLIF(name, ''),
+    NULLIF(config_json ->> 'name', '')
+  )                            AS group_name,
+  COALESCE(
+    is_public,
+    NOT COALESCE((config_json ->> 'is_private')::boolean, false)
+  )                            AS is_public,
   creator_role,
   storage_allocation,
   block_height,
   block_timestamp,
   operation,
+  NULLIF(config_json ->> 'description', '') AS group_description,
+  NULLIF(config_json #>> '{avatar,cid}', '') AS group_avatar_cid,
+  NULLIF(config_json #>> '{x,onsocial,banner,cid}', '') AS group_banner_cid,
   COALESCE(
-    NULLIF(description, ''),
-    CASE
-      WHEN extra_data ~ '^[\{]' THEN NULLIF(extra_data::jsonb ->> 'description', '')
-      ELSE NULL
-    END
-  )                            AS group_description,
-  CASE
-    WHEN extra_data ~ '^[\{]' THEN NULLIF(extra_data::jsonb #>> '{avatar,cid}', '')
-    ELSE NULL
-  END                          AS group_avatar_cid,
-  CASE
-    WHEN extra_data ~ '^[\{]' THEN NULLIF(extra_data::jsonb #>> '{x,onsocial,banner,cid}', '')
-    ELSE NULL
-  END                          AS group_banner_cid,
-  CASE
-    WHEN extra_data ~ '^[\{]' THEN COALESCE(
-      extra_data::jsonb ->> 'member_driven',
-      extra_data::jsonb ->> 'memberDriven',
-      'false'
-    ) = 'true'
-    ELSE FALSE
-  END                          AS is_member_driven
-FROM group_updates
-WHERE group_id IS NOT NULL
-  AND group_id != ''
-  AND operation = 'create_group'
-ORDER BY group_id, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC;
+    (config_json ->> 'member_driven') = 'true',
+    (config_json ->> 'memberDriven') = 'true',
+    false
+  )                            AS is_member_driven
+FROM latest;
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 3d. group_members_current — active group memberships by member

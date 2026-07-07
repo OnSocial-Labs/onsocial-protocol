@@ -116,6 +116,11 @@ impl SocialPlatform {
                 Ok(Value::Null)
             }
 
+            Action::UpdateGroupMetadata { group_id, changes } => {
+                self.execute_action_update_metadata(group_id, changes.clone(), ctx)?;
+                Ok(Value::Null)
+            }
+
             Action::CreateProposal {
                 group_id,
                 proposal_type,

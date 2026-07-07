@@ -723,3 +723,110 @@ mod group_config_parsing_tests {
         println!("✓ Minimal config with defaults correctly parsed");
     }
 }
+
+#[cfg(test)]
+mod group_metadata_update_tests {
+    use crate::tests::test_utils::*;
+    use near_sdk::serde_json::json;
+
+    #[test]
+    fn owner_can_update_display_metadata_on_owner_led_group() {
+        let mut contract = init_live_contract();
+        let alice = test_account(0);
+
+        near_sdk::testing_env!(
+            get_context_with_deposit(alice.clone(), 100_000_000_000_000_000_000_000_000).build()
+        );
+        contract
+            .execute(create_group_request(
+                "rebels".to_string(),
+                json!({
+                    "name": "Social Rebels #1",
+                    "description": "This is genesis group.",
+                    "is_private": false,
+                    "member_driven": false
+                }),
+            ))
+            .unwrap();
+
+        near_sdk::testing_env!(
+            get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build()
+        );
+        contract
+            .execute(update_group_metadata_request(
+                "rebels".to_string(),
+                json!({
+                    "name": "Social Rebels Collective",
+                    "description": "Builders and believers shipping together.",
+                    "tags": ["builders", "believers"]
+                }),
+            ))
+            .unwrap();
+
+        let config = contract.get_group_config("rebels".to_string()).unwrap();
+        assert_eq!(config.get("name"), Some(&json!("Social Rebels Collective")));
+        assert_eq!(
+            config.get("description"),
+            Some(&json!("Builders and believers shipping together."))
+        );
+        assert_eq!(config.get("tags"), Some(&json!(["builders", "believers"])));
+    }
+
+    #[test]
+    fn member_driven_group_rejects_direct_metadata_update() {
+        let mut contract = init_live_contract();
+        let alice = test_account(0);
+
+        near_sdk::testing_env!(
+            get_context_with_deposit(alice.clone(), 100_000_000_000_000_000_000_000_000).build()
+        );
+        contract
+            .execute(create_group_request(
+                "dao".to_string(),
+                json!({
+                    "name": "DAO",
+                    "member_driven": true,
+                    "is_private": true
+                }),
+            ))
+            .unwrap();
+
+        near_sdk::testing_env!(
+            get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build()
+        );
+        let result = contract.execute(update_group_metadata_request(
+            "dao".to_string(),
+            json!({ "name": "Renamed DAO" }),
+        ));
+        assert!(result.is_err(), "Member-driven groups must use proposals");
+    }
+
+    #[test]
+    fn non_owner_cannot_update_group_metadata() {
+        let mut contract = init_live_contract();
+        let alice = test_account(0);
+        let bob = test_account(1);
+
+        near_sdk::testing_env!(
+            get_context_with_deposit(alice.clone(), 100_000_000_000_000_000_000_000_000).build()
+        );
+        contract
+            .execute(create_group_request(
+                "locked".to_string(),
+                json!({ "name": "Locked Guild", "member_driven": false }),
+            ))
+            .unwrap();
+
+        near_sdk::testing_env!(
+            get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build()
+        );
+        let result = contract.execute(update_group_metadata_request(
+            "locked".to_string(),
+            json!({ "name": "Hijacked" }),
+        ));
+        assert!(
+            result.is_err(),
+            "Only the owner can update metadata directly"
+        );
+    }
+}

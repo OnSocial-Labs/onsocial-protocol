@@ -216,6 +216,21 @@ export class GroupsModule {
     });
   }
 
+  /**
+   * Update group metadata directly (owner-led guilds only).
+   * Member-driven guilds must use {@link proposeMetadataUpdate}.
+   */
+  async updateMetadata(
+    groupId: string,
+    changes: Record<string, unknown>
+  ): Promise<RelayResponse> {
+    return this.execute({
+      type: 'update_group_metadata',
+      group_id: groupId,
+      changes,
+    });
+  }
+
   // ── Group content ─────────────────────────────────────────────────────
 
   async post(
@@ -563,7 +578,7 @@ export class GroupsModule {
       'group_update',
       {
         update_type: 'metadata',
-        metadata,
+        changes: metadata,
         ...(opts?.reason !== undefined && { reason: opts.reason }),
       },
       opts

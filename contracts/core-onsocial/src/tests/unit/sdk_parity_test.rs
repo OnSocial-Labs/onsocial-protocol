@@ -32,6 +32,7 @@ const ALL_ACTION_TYPES: &[&str] = &[
     "unblacklist_group_member",
     "transfer_group_ownership",
     "set_group_privacy",
+    "update_group_metadata",
     "create_proposal",
     "vote_on_proposal",
     "cancel_proposal",

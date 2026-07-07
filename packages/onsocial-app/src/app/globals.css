@@ -5344,6 +5344,54 @@ a.os-surface-row {
       max(1rem, env(safe-area-inset-left, 0px));
   }
 
+  /* Immersive screens place the bar over top media, then harden on scroll. */
+  .os-app-screen[data-immersive-header='true'] .os-app-screen-header {
+    position: absolute;
+    inset: 0 0 auto;
+    z-index: 3;
+    background: transparent;
+    transition:
+      background 180ms ease,
+      box-shadow 180ms ease,
+      backdrop-filter 180ms ease;
+  }
+
+  .os-app-screen[data-immersive-header='true']
+    .os-app-screen-header.is-elevated {
+    background: rgb(var(--bg-rgb) / 0.72);
+    box-shadow: 0 1px 0 rgb(var(--fg-rgb) / 0.08);
+    backdrop-filter: blur(18px) saturate(1.18);
+    -webkit-backdrop-filter: blur(18px) saturate(1.18);
+  }
+
+  .os-app-screen[data-immersive-header='true'] .os-app-screen-title,
+  .os-app-screen[data-immersive-header='true'] .os-app-screen-subtitle {
+    text-shadow: 0 1px 12px rgb(0 0 0 / 0.42);
+  }
+
+  .os-app-screen[data-immersive-header='true']
+    .os-app-screen-header:not(.is-elevated)
+    .os-app-screen-heading {
+    opacity: 0;
+    transform: translateY(-0.2rem);
+    pointer-events: none;
+  }
+
+  .os-app-screen[data-immersive-header='true'] .os-app-screen-heading {
+    transition:
+      opacity 160ms ease,
+      transform 160ms ease;
+  }
+
+  .os-app-screen[data-immersive-header='true']
+    .os-app-screen-header.is-elevated
+    .os-app-screen-title,
+  .os-app-screen[data-immersive-header='true']
+    .os-app-screen-header.is-elevated
+    .os-app-screen-subtitle {
+    text-shadow: none;
+  }
+
   .os-app-screen-nav-row {
     display: flex;
     align-items: flex-start;
@@ -5373,6 +5421,15 @@ a.os-surface-row {
 
   .os-app-screen-toolbar {
     margin-top: 0.75rem;
+  }
+
+  /* Icon actions opposite the back button (settings gear etc.). */
+  .os-app-screen-actions {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.4rem;
+    margin-left: auto;
   }
 
   .os-app-screen-body {
@@ -10234,6 +10291,32 @@ a.os-surface-row {
     background: none;
   }
 
+  /* Clickable quote — its own surface, navigates to the quoted post.
+     Padding bleeds outward via negative margins so content alignment
+     matches non-interactive insets exactly. */
+  .post-card-quote-inset--link {
+    cursor: pointer;
+    border-radius: 0.6rem;
+    padding: 0.3rem 0.45rem;
+    margin: -0.1rem -0.45rem -0.3rem;
+    transition: background 160ms ease;
+  }
+
+  .post-card-quote-inset--link:hover,
+  .post-card-quote-inset--link:focus-visible {
+    background: rgb(var(--fg-rgb) / 0.045);
+    outline: none;
+  }
+
+  /* Hovering the quote focuses it alone — the outer card stays transparent. */
+  .post-card:hover:has(.post-card-quote-inset--link:hover) {
+    background: transparent;
+  }
+
+  .post-card:hover:has(.post-card-quote-inset--link:hover) .post-card-avatar {
+    box-shadow: none;
+  }
+
   .post-card-quote-inset-content {
     display: flex;
     min-width: 0;
@@ -10461,6 +10544,162 @@ a.os-surface-row {
       rgb(var(--fg-rgb) / 0.03);
   }
 
+  /* Guild detail hero — blended into the page, no card box. The screen
+     header above stays as the slim bar (back · name · settings) on scroll. */
+  .guild-hero {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    padding: 0.3rem 0.15rem 0.35rem;
+  }
+
+  /* Cover — one identity image (banner, else avatar), full-bleed and short,
+     dissolving into the page like the portfolio hero. No separate logo. */
+  .guild-hero-cover {
+    position: relative;
+    margin: -0.3rem -1rem 0.1rem;
+    height: clamp(9rem, 28vw, 11.5rem);
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      #000 0%,
+      #000 58%,
+      rgb(0 0 0 / 0.92) 70%,
+      rgb(0 0 0 / 0.7) 80%,
+      rgb(0 0 0 / 0.38) 90%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      #000 0%,
+      #000 58%,
+      rgb(0 0 0 / 0.92) 70%,
+      rgb(0 0 0 / 0.7) 80%,
+      rgb(0 0 0 / 0.38) 90%,
+      transparent 100%
+    );
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+  }
+
+  .guild-hero-cover--fallback {
+    background:
+      radial-gradient(
+        circle at 14% 16%,
+        color-mix(in srgb, var(--protocol-purple) 54%, transparent),
+        transparent 38%
+      ),
+      radial-gradient(
+        circle at 84% 10%,
+        color-mix(in srgb, var(--protocol-green) 42%, transparent),
+        transparent 36%
+      ),
+      radial-gradient(
+        ellipse 90% 70% at 50% 100%,
+        color-mix(in srgb, var(--protocol-blue) 24%, transparent),
+        transparent 66%
+      ),
+      linear-gradient(
+        135deg,
+        rgb(var(--fg-rgb) / 0.18),
+        rgb(var(--fg-rgb) / 0.075) 48%,
+        color-mix(in srgb, var(--protocol-blue) 28%, transparent)
+      );
+  }
+
+  .guild-hero-cover--fallback::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgb(var(--fg-rgb) / 0.055) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--fg-rgb) / 0.04) 1px, transparent 1px);
+    background-size: 24px 24px;
+    opacity: 0.42;
+    pointer-events: none;
+  }
+
+  .guild-hero-cover img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center center;
+  }
+
+  .guild-hero h2 {
+    margin: 0.15rem 0 0;
+    font-size: clamp(1.35rem, 4vw, 1.75rem);
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    line-height: 1.16;
+  }
+
+  .guild-hero-description {
+    margin: 0;
+    font-size: 0.86rem;
+    line-height: 1.55;
+    color: rgb(var(--fg-rgb) / 0.62);
+  }
+
+  /* One-line vitals row: faces · counts · tags — action pinned right. */
+  .guild-hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.9rem;
+    margin-top: 0.1rem;
+  }
+
+  .guild-hero-tags {
+    display: inline-flex;
+    gap: 0.55rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: rgb(var(--fg-rgb) / 0.42);
+  }
+
+  .guild-hero-action {
+    margin-left: auto;
+  }
+
+  .guild-facepile {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-decoration: none;
+  }
+
+  .guild-facepile-avatars {
+    display: inline-flex;
+  }
+
+  /* Overlapping stack — page-background ring separates the circles. */
+  .guild-facepile-avatar:not(:first-child) {
+    margin-left: -0.4rem;
+  }
+
+  .guild-facepile-avatar {
+    box-shadow: 0 0 0 2px rgb(var(--bg-rgb));
+  }
+
+  .guild-facepile-count,
+  .guild-hero-meta-link {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: rgb(var(--fg-rgb) / 0.62);
+    text-decoration: none;
+    transition: color 140ms ease;
+  }
+
+  .guild-facepile:hover .guild-facepile-count,
+  .guild-hero-meta-link:hover {
+    color: rgb(var(--fg-rgb) / 0.92);
+  }
+
   .guild-eyebrow,
   .guild-card-eyebrow {
     margin: 0;
@@ -10559,9 +10798,100 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.76);
   }
 
-  .guild-primary-button:disabled {
+  .guild-primary-button:disabled,
+  .guild-secondary-button:disabled {
     opacity: 0.45;
     cursor: not-allowed;
+  }
+
+  /* Stable footprint while the label swaps between text and pending dots. */
+  .guild-hero-action {
+    min-width: 5.75rem;
+  }
+
+  /* Second-tap confirm state for the destructive on-chain leave. */
+  .guild-hero-action.is-confirm-leave {
+    border-color: color-mix(in srgb, var(--signal-error, #ef4444) 40%, transparent);
+    background: color-mix(in srgb, var(--signal-error, #ef4444) 8%, transparent);
+    color: var(--signal-error, #ef4444);
+  }
+
+  .guild-settings-media {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .guild-settings-banner {
+    position: relative;
+    height: clamp(8rem, 24vw, 10rem);
+    overflow: hidden;
+    border-radius: 1rem;
+  }
+
+  .guild-settings-banner img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .guild-settings-media-button {
+    position: absolute;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    border: 1px solid rgb(var(--fg-rgb) / 0.12);
+    border-radius: 9999px;
+    padding: 0.45rem 0.75rem;
+    background: rgb(var(--bg-rgb) / 0.72);
+    backdrop-filter: blur(12px);
+    font: inherit;
+    font-size: 0.74rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .guild-settings-media-button--ghost {
+    right: auto;
+    left: 0.75rem;
+  }
+
+  .guild-settings-avatar-row {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    margin-top: -2.2rem;
+    padding-inline: 0.35rem;
+  }
+
+  .guild-settings-avatar {
+    display: grid;
+    place-items: center;
+    width: 4.5rem;
+    height: 4.5rem;
+    overflow: hidden;
+    border-radius: 9999px;
+    border: 3px solid rgb(var(--bg-rgb));
+    background: rgb(var(--fg-rgb) / 0.08);
+    font-size: 1.2rem;
+    font-weight: 600;
+  }
+
+  .guild-settings-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .guild-settings-avatar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    padding-top: 1.6rem;
+  }
+
+  .guild-field input[readonly] {
+    opacity: 0.72;
+    cursor: default;
   }
 
   .guild-section {
