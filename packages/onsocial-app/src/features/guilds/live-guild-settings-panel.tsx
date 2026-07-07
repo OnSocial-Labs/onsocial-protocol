@@ -8,7 +8,7 @@ import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-t
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
   collectRelayTxHashes,
-  guildSectionPath,
+  guildPath,
 } from '@/features/guilds/guilds-data';
 import {
   guildTagsEqual,
@@ -276,7 +276,7 @@ export function LiveGuildSettingsPanel({ groupId }: { groupId: string }) {
     <OsAppScreen
       title="Guild settings"
       subtitle={title}
-      backFallbackHref={guildSectionPath(groupId)}
+      backFallbackHref={guildPath(groupId)}
     >
       <div className="guilds-page">
         {loadState === 'loading' ? (
