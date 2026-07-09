@@ -83,12 +83,12 @@ describe('compressAppRewardBurstReasons', () => {
     ).toEqual(['Stand · Maya']);
   });
 
-  it('falls back to short handle when no display name', () => {
+  it('falls back to full account id when no display name', () => {
     expect(
       compressAppRewardBurstReasons([
         { action: 'stand_given', targetAccountId: 'alice.near' },
       ])
-    ).toEqual(['Stand · alice']);
+    ).toEqual(['Stand · alice.near']);
   });
 
   it('prefers mutual stand over stand in one burst', () => {
@@ -97,7 +97,7 @@ describe('compressAppRewardBurstReasons', () => {
         { action: 'stand_given', targetAccountId: 'alice.near' },
         { action: 'mutual_stand_created', targetAccountId: 'alice.near' },
       ])
-    ).toEqual(['Mutual stand · alice']);
+    ).toEqual(['Mutual stand · alice.near']);
   });
 
   it('keeps daily check-in when stand is in the same burst', () => {
@@ -106,14 +106,14 @@ describe('compressAppRewardBurstReasons', () => {
         { action: 'stand_given', targetAccountId: 'alice.near' },
         { action: 'daily_active' },
       ])
-    ).toEqual(['Stand · alice', 'Daily check-in']);
+    ).toEqual(['Stand · alice.near', 'Daily check-in']);
   });
 });
 
 describe('formatShortBurstReason', () => {
   it('joins stand and daily on one line', () => {
     expect(
-      formatShortBurstReason(['Stand · alice', 'Daily check-in'])
-    ).toBe('Stand · alice · Daily check-in');
+      formatShortBurstReason(['Stand · alice.near', 'Daily check-in'])
+    ).toBe('Stand · alice.near · Daily check-in');
   });
 });
