@@ -23,14 +23,14 @@ describe('guild-post-feed-meta', () => {
     ).toEqual({
       channel: 'shipping-room',
       kind: 'discussion',
-      audiences: ['members'],
+      audiences: 'members',
     });
   });
 
   it('falls back to thread root channel when the target lacks one', () => {
     expect(
       inheritedGuildReplyFeedMeta(
-        { channel: null, kind: null, audiences: null },
+        { channel: undefined, kind: undefined, audiences: undefined },
         {
           fallbackChannel: 'shipping-room',
           fallbackKind: 'discussion',
@@ -40,14 +40,14 @@ describe('guild-post-feed-meta', () => {
     ).toEqual({
       channel: 'shipping-room',
       kind: 'discussion',
-      audiences: ['members'],
+      audiences: 'members',
     });
   });
 
   it('returns empty metadata when no channel can be resolved', () => {
     expect(
       inheritedGuildReplyFeedMeta(
-        { channel: null, kind: null, audiences: null },
+        { channel: undefined, kind: undefined, audiences: undefined },
         { fallbackChannel: null }
       )
     ).toEqual({});

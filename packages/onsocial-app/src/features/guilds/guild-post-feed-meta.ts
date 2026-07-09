@@ -1,4 +1,4 @@
-import type { PostData, PostRow } from '@onsocial/sdk';
+import type { PostRow } from '@onsocial/sdk';
 import { normalizeAudiences } from '@onsocial/sdk';
 
 type GuildPostFeedMetaTarget = Pick<PostRow, 'channel' | 'kind' | 'audiences'>;
@@ -41,14 +41,14 @@ export function inheritedGuildReplyFeedMeta(
     fallbackKind?: string | null;
     fallbackAudiences?: string[];
   } = {}
-): Partial<Pick<PostData, 'channel' | 'kind' | 'audiences'>> {
+): Partial<Pick<PostRow, 'channel' | 'kind' | 'audiences'>> {
   const channel =
     asTrimmedString(target.channel) ||
     asTrimmedString(options.fallbackChannel) ||
     undefined;
   if (!channel) return {};
 
-  const meta: Partial<Pick<PostData, 'channel' | 'kind' | 'audiences'>> = {
+  const meta: Partial<Pick<PostRow, 'channel' | 'kind' | 'audiences'>> = {
     channel,
   };
 
@@ -58,9 +58,9 @@ export function inheritedGuildReplyFeedMeta(
 
   const audiences = parseGuildPostAudiences(target.audiences);
   if (audiences.length > 0) {
-    meta.audiences = audiences;
+    meta.audiences = audiences.join('|');
   } else if (options.fallbackAudiences?.length) {
-    meta.audiences = options.fallbackAudiences;
+    meta.audiences = options.fallbackAudiences.join('|');
   }
 
   return meta;
