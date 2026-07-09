@@ -299,10 +299,10 @@ export const GUILD_STRUCTURE_TEMPLATES: GuildStructureTemplate[] = [
     userValue: 'Helps members coordinate instead of only chatting.',
   },
   {
-    id: 'proposals',
-    title: 'Proposals',
+    id: 'decisions',
+    title: 'Decisions',
     summary: 'Ideas that need feedback, votes, or owner/admin approval.',
-    channel: 'proposals',
+    channel: 'decisions',
     kind: 'proposal',
     audience: 'members',
     permissionLevel: 'Member',

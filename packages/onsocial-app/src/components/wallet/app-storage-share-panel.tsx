@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { OsSheetActions, OsSheetPrimaryAction } from '@onsocial/ui';
-import { Plus, X } from 'lucide-react';
+import { MultiplyIcon, PlusIcon } from '@onsocial/ui';
+import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useStorageSharesGranted } from '@/hooks/use-storage-shares-granted';
 import { useStorageShareRecipientsValidation } from '@/hooks/use-storage-share-recipients';
 import type { ShareRecipientRowStatus } from '@/hooks/use-storage-share-recipients';
@@ -13,7 +14,6 @@ import {
   sendStorageSharedPoolDepositTransaction,
   type SigningWallet,
 } from '@/lib/app-storage-transactions';
-import { waitForNearTransactionBatchConfirmation } from '@/lib/app-near-rpc';
 import {
   nearAccountPlaceholder,
   sanitizeNearAccountInput,
@@ -42,9 +42,13 @@ import {
   type ActiveStorageShareGrant,
 } from '@/lib/user-storage-display';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import {
+  txToastConfirming,
+  txToastError,
+  txToastSuccess,
+} from '@/lib/transaction-toast-copy';
 
 const SHARE_POOL_LABEL = 'Share pool';
-const ACTION_SUCCESS_HOLD_MS = 1200;
 
 function shareRowIssueMessage(status: ShareRecipientRowStatus): string | null {
   switch (status) {
@@ -236,7 +240,10 @@ function ShareRecipientRow({
           onClick={onRemove}
           aria-label="Remove recipient"
         >
-          <X aria-hidden size={14} />
+          <MultiplyIcon
+            aria-hidden
+            className="app-storage-recipient-remove-icon"
+          />
         </button>
       ) : null}
       {issue ? <p className="app-storage-recipient-error">{issue}</p> : null}
@@ -419,13 +426,12 @@ export function AppStorageSharePanel({
   onPoolChanged: () => void;
   getSigningWallet: () => Promise<SigningWallet>;
 }) {
+  const { trackTransaction } = useAppTransactionFeedback();
   const baseId = useId();
   const [rows, setRows] = useState<string[]>(['']);
   const [sharePercent, setSharePercent] = useState<number>(100);
   const [fundAmountInput, setFundAmountInput] = useState('0.1');
   const [showAddCapacity, setShowAddCapacity] = useState(false);
-  const [fundConfirmed, setFundConfirmed] = useState(false);
-  const [shareConfirmed, setShareConfirmed] = useState(false);
   const [pendingShareTargets, setPendingShareTargets] = useState<string[]>([]);
 
   const availableBytes = sharedPool?.availableBytes ?? 0;
@@ -439,10 +445,8 @@ export function AppStorageSharePanel({
   const poolUnavailable = Boolean(sharedPoolError);
   const needsFunding =
     !poolUnavailable && (!sharedPool || totalCapacityBytes <= 0);
-  const showFundedRefresh = fundConfirmed;
-  const showFundPanel = !fundConfirmed && (needsFunding || showAddCapacity);
-  const showShareFlow =
-    !poolUnavailable && !showFundPanel && !showFundedRefresh;
+  const showFundPanel = needsFunding || showAddCapacity;
+  const showShareFlow = !poolUnavailable && !showFundPanel;
   const activeShares = useStorageSharesGranted(
     accountId,
     true,
@@ -460,14 +464,6 @@ export function AppStorageSharePanel({
       setPendingShareTargets([]);
     }
   }, [activeShares.grants, pendingShareTargets]);
-
-  useEffect(() => {
-    if (!fundConfirmed) return;
-    const timeout = window.setTimeout(() => {
-      setFundConfirmed(false);
-    }, ACTION_SUCCESS_HOLD_MS);
-    return () => window.clearTimeout(timeout);
-  }, [fundConfirmed]);
 
   const recipientValidation = useStorageShareRecipientsValidation(
     rows,
@@ -515,14 +511,12 @@ export function AppStorageSharePanel({
   );
 
   const updateRow = (index: number, value: string) => {
-    setShareConfirmed(false);
     setRows((current) =>
       current.map((row, rowIndex) => (rowIndex === index ? value : row))
     );
   };
 
   const addRow = () => {
-    setShareConfirmed(false);
     setRows((current) =>
       current.length >= MAX_STORAGE_SHARE_RECIPIENTS
         ? current
@@ -531,7 +525,6 @@ export function AppStorageSharePanel({
   };
 
   const removeRow = (index: number) => {
-    setShareConfirmed(false);
     setRows((current) =>
       current.length <= 1
         ? current
@@ -557,7 +550,6 @@ export function AppStorageSharePanel({
     }
 
     onError(null);
-    setFundConfirmed(false);
     setPending(true);
 
     try {
@@ -566,16 +558,14 @@ export function AppStorageSharePanel({
         accountId,
         amountYocto.toString()
       );
-      if (txHashes.length > 0) {
-        const result = await waitForNearTransactionBatchConfirmation({
-          txHashes,
-          accountId,
-        });
-
-        if (!result.ok) {
-          throw new Error(result.errorMessage ?? 'Transaction failed.');
-        }
-      }
+      const confirmed = await trackTransaction({
+        txHashes,
+        submittedMessage: txToastConfirming.fundingSharePool,
+        successMessage: txToastSuccess.sharePoolFunded,
+        failureMessage: txToastError.sharePoolFundFailed,
+        onFailure: (message) => onError(message),
+      });
+      if (!confirmed) return;
     } catch (err) {
       if (isWalletUserCancellation(err)) return;
       const message = getErrorMessage(err);
@@ -585,7 +575,6 @@ export function AppStorageSharePanel({
       setPending(false);
     }
 
-    setFundConfirmed(true);
     setShowAddCapacity(false);
     onPoolChanged();
   };
@@ -594,7 +583,6 @@ export function AppStorageSharePanel({
     if (!canShare) return;
 
     onError(null);
-    setShareConfirmed(false);
     setPending(true);
 
     try {
@@ -605,16 +593,14 @@ export function AppStorageSharePanel({
           maxBytes: bytesPerRecipient,
         }))
       );
-      if (txHashes.length > 0) {
-        const result = await waitForNearTransactionBatchConfirmation({
-          txHashes,
-          accountId,
-        });
-
-        if (!result.ok) {
-          throw new Error(result.errorMessage ?? 'Transaction failed.');
-        }
-      }
+      const confirmed = await trackTransaction({
+        txHashes,
+        submittedMessage: txToastConfirming.sharingStorage,
+        successMessage: txToastSuccess.storageShared,
+        failureMessage: txToastError.storageShareFailed,
+        onFailure: (message) => onError(message),
+      });
+      if (!confirmed) return;
     } catch (err) {
       if (isWalletUserCancellation(err)) return;
       const message = getErrorMessage(err);
@@ -624,7 +610,6 @@ export function AppStorageSharePanel({
       setPending(false);
     }
 
-    setShareConfirmed(true);
     setPendingShareTargets((current) => [
       ...new Set([...current, ...readyRecipients]),
     ]);
@@ -652,26 +637,9 @@ export function AppStorageSharePanel({
         canAddCapacity={!needsFunding && !sharedPoolLoading}
         showAddCapacity={showAddCapacity}
         onToggleAddCapacity={() => {
-          setFundConfirmed(false);
           setShowAddCapacity((open) => !open);
         }}
       />
-
-      {showFundedRefresh ? (
-        <div className="app-storage-share-card is-success" role="status">
-          <span className="account-card-wallet-label">Share pool funded</span>
-          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-            <OsSheetPrimaryAction
-              type="button"
-              succeeded
-              succeededLabel="Added"
-              disabled
-            >
-              Added
-            </OsSheetPrimaryAction>
-          </OsSheetActions>
-        </div>
-      ) : null}
 
       {showFundPanel ? (
         <div className="app-storage-share-fund">
@@ -762,7 +730,10 @@ export function AppStorageSharePanel({
                 onClick={addRow}
                 disabled={rows.length >= MAX_STORAGE_SHARE_RECIPIENTS}
               >
-                <Plus aria-hidden size={14} />
+                <PlusIcon
+                  aria-hidden
+                  className="app-storage-share-add-icon"
+                />
                 Add
               </button>
             </div>
@@ -823,11 +794,9 @@ export function AppStorageSharePanel({
             <OsSheetPrimaryAction
               type="button"
               ready={!pending && canShare && !error}
-              succeeded={shareConfirmed}
-              succeededLabel="Shared"
               pending={pending}
               pendingLabel="Sharing…"
-              disabled={pending || (!canShare && !shareConfirmed)}
+              disabled={pending || !canShare}
               onClick={() => void handleShare()}
             >
               Share storage

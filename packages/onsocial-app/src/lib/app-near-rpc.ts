@@ -1,4 +1,8 @@
-import { ACTIVE_NEAR_NETWORK, SOCIAL_TOKEN_CONTRACT } from '@/lib/app-config';
+import {
+  ACTIVE_NEAR_NETWORK,
+  RELAYER_ACCOUNT,
+  SOCIAL_TOKEN_CONTRACT,
+} from '@/lib/app-config';
 import {
   createBffNearRpcClient,
   createConfiguredNearRpc,
@@ -188,7 +192,8 @@ export function normalizeFtBalanceYocto(value: unknown): bigint {
   return 0n;
 }
 
-async function viewNearContract<T>(
+/** Call a NEAR view method and JSON-decode the result. */
+export async function viewNearContract<T>(
   contractId: string,
   methodName: string,
   args: Record<string, unknown> = {}
@@ -334,27 +339,53 @@ function extractFailureFromStatus(
   return null;
 }
 
+function isUnknownNearTransactionError(message: string): boolean {
+  return /unknown transaction|does not exist|transaction .* not found/i.test(
+    message
+  );
+}
+
+function nearTxStatusSignerIds(accountId: string): string[] {
+  return accountId === RELAYER_ACCOUNT
+    ? [accountId]
+    : [accountId, RELAYER_ACCOUNT];
+}
+
 async function getNearTransactionStatus(
   txHash: string,
   accountId: string
 ): Promise<NearTransactionStatusResponse | null> {
-  try {
-    return await nearRpcCall<NearTransactionStatusResponse>(
-      'EXPERIMENTAL_tx_status',
-      [txHash, accountId]
-    );
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Failed to load transaction status';
-    if (
-      /unknown transaction|does not exist|transaction .* not found/i.test(
-        message
-      )
-    ) {
-      return null;
+  let sawUnknown = false;
+  let lastError: Error | null = null;
+
+  for (const signerId of nearTxStatusSignerIds(accountId)) {
+    try {
+      return await nearRpcCall<NearTransactionStatusResponse>(
+        'EXPERIMENTAL_tx_status',
+        [txHash, signerId]
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Failed to load transaction status';
+      if (isUnknownNearTransactionError(message)) {
+        sawUnknown = true;
+        continue;
+      }
+      lastError = error instanceof Error ? error : new Error(message);
     }
-    throw error;
   }
+
+  if (sawUnknown) {
+    return null;
+  }
+
+  if (lastError) {
+    throw lastError;
+  }
+
+  return null;
 }
 
 export async function waitForNearTransactionConfirmation({

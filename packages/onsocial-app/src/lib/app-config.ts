@@ -20,7 +20,27 @@ export const ACTIVE_NEAR_EXPLORER_URL =
     ? 'https://nearblocks.io'
     : 'https://testnet.nearblocks.io';
 
+/** Nearblocks txn URL, or null when no hash. */
+export function nearExplorerTxHref(
+  txHash: string | null | undefined
+): string | null {
+  const hash = typeof txHash === 'string' ? txHash.trim() : '';
+  if (!hash) return null;
+  return `${ACTIVE_NEAR_EXPLORER_URL}/txns/${hash}`;
+}
+
 export const SOCIAL_TOKEN_CONTRACT =
   ACTIVE_NEAR_NETWORK === 'mainnet'
     ? 'token.onsocial.near'
     : 'token.onsocial.testnet';
+
+export const SOCIAL_SPEND_CONTRACT =
+  ACTIVE_NEAR_NETWORK === 'mainnet'
+    ? 'social-spend.onsocial.near'
+    : 'social-spend.onsocial.testnet';
+
+/** Outer signer for session-relayed (NEP-366) transactions. */
+export const RELAYER_ACCOUNT =
+  ACTIVE_NEAR_NETWORK === 'mainnet'
+    ? 'relayer.onsocial.near'
+    : 'relayer.onsocial.testnet';

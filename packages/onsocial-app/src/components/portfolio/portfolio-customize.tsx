@@ -582,7 +582,7 @@ export function PortfolioCustomize({
                 />
               </div>
               <p className="profile-editor-media-compact-hint">
-                1500&times;300 image or short MP4/WebM video.
+                1500&times;300 · photo or video
               </p>
             </div>
           </div>

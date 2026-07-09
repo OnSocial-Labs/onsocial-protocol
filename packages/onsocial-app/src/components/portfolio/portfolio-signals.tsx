@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { ProtocolMotionArrow } from '@onsocial/ui';
+import { overlayPath } from '@/lib/overlay-routes';
 import { standingPath } from '@/lib/profile-social-standings';
 import { formatCount } from '@/lib/profile-display';
 import type { ProfileSignals } from '@/lib/profile-signals';
@@ -142,9 +143,11 @@ export function PortfolioSignals({
             ·
           </span>
           <div className="signal-group signal-group-endorse">
-        <SignalMetric
-          className={metricClassName({ readonly: true })}
-          ariaLabel={`${signals.endorsementsReceivedCount} endorsements received`}
+        <Link
+          className={metricClassName()}
+          href={overlayPath(accountId, 'endorsements')}
+          scroll={false}
+          aria-label={`${signals.endorsementsReceivedCount} endorsements received`}
         >
           <span className={metricInnerClass}>
             <ProtocolMotionArrow className={arrowClass} />
@@ -152,13 +155,15 @@ export function PortfolioSignals({
               {formatCount(signals.endorsementsReceivedCount)}
             </span>
           </span>
-        </SignalMetric>
+        </Link>
         <span className="signal-dot" aria-hidden>
           ·
         </span>
-        <SignalMetric
-          className={metricClassName({ readonly: true })}
-          ariaLabel={`${signals.endorsementsGivenCount} endorsements given`}
+        <Link
+          className={metricClassName()}
+          href={overlayPath(accountId, 'endorsements')}
+          scroll={false}
+          aria-label={`${signals.endorsementsGivenCount} endorsements given`}
         >
           <span className={metricInnerClass}>
             <span className={signalValueClass(signals.endorsementsGivenCount)}>
@@ -166,7 +171,7 @@ export function PortfolioSignals({
             </span>
             <ProtocolMotionArrow className={arrowClass} />
           </span>
-        </SignalMetric>
+        </Link>
           </div>
         </div>
 

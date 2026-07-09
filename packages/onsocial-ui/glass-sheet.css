@@ -130,9 +130,23 @@
   z-index: 1;
 }
 
-/* Keep header chrome (incl. overflow menus) above the scroll body. */
+/* Header chrome (overflow menus) stacks above the scroll body. */
+.glass-sheet-panel > .glass-sheet-header,
+.glass-sheet-panel > .standing-sheet-header,
+.glass-sheet-panel > .overlay-header-portal,
+.glass-sheet-panel > .glass-sheet-header-divider {
+  z-index: 3;
+  flex-shrink: 0;
+  overflow: visible;
+}
+
 .glass-sheet-panel > .glass-sheet-body {
   z-index: 1;
+}
+
+.glass-sheet-panel > .glass-sheet-footer {
+  z-index: 2;
+  flex-shrink: 0;
 }
 
 .glass-sheet-panel.is-open {
@@ -354,7 +368,7 @@
 }
 
 .glass-sheet-close-icon path {
-  stroke-width: 2.25;
+  stroke-width: 2;
 }
 
 .glass-sheet-body {
@@ -364,6 +378,33 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+}
+
+.glass-sheet-footer {
+  flex-shrink: 0;
+}
+
+.glass-sheet-footer:empty {
+  display: none;
+}
+
+/*
+ * Overlay dock — out of flex flow so the body keeps full height.
+ * height: auto (not 0) so the pill paints and receives hits.
+ * Beats `.glass-sheet-panel > :not(.frost) { position: relative }`.
+ */
+.glass-sheet-panel > .glass-sheet-footer.glass-sheet-footer--overlay {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 5;
+  width: 100%;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  flex: none;
+  pointer-events: none;
 }
 
 @media (max-width: 767px) {

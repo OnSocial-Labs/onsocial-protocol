@@ -22,6 +22,11 @@ import type {
   ResolvedPageHero,
 } from '@/lib/page-data';
 import type { ProfileGuildSummary } from '@/lib/profile-guilds';
+import type { PageDrawerMeta } from '@/lib/page-drawer-meta';
+import type {
+  ProfilePostPeek,
+  ProfileScarcePeek,
+} from '@/lib/fetch-profile-peeks';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-context';
 import { resolvePageFace } from '@/lib/page-face';
@@ -39,6 +44,11 @@ interface PortfolioShellRootProps {
   stats: PublicPageStats;
   guilds?: ProfileGuildSummary[];
   profileName?: string | null;
+  bio?: string | null;
+  profileLinks?: unknown;
+  drawerMeta: PageDrawerMeta;
+  postPeeks?: ProfilePostPeek[];
+  scarcePeeks?: ProfileScarcePeek[];
   children: ReactNode;
 }
 
@@ -51,6 +61,11 @@ function PortfolioShellPreviewBridge({
   stats,
   guilds = [],
   profileName,
+  bio = null,
+  profileLinks = null,
+  drawerMeta,
+  postPeeks = [],
+  scarcePeeks = [],
   children,
 }: Omit<
   PortfolioShellRootProps,
@@ -120,10 +135,15 @@ function PortfolioShellPreviewBridge({
           pageAccountId={pageAccountId}
           mood={effectiveMood}
           profileName={profileName}
+          bio={bio}
+          profileLinks={profileLinks}
+          drawerMeta={drawerMeta}
           avatarUrl={avatarMedia?.url ?? null}
           config={config}
           stats={stats}
           guilds={guilds}
+          postPeeks={postPeeks}
+          scarcePeeks={scarcePeeks}
         />
         <PortfolioFacePreviewBar
           pageAccountId={pageAccountId}

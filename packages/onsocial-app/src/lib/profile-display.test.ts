@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   accountDrawerPrimaryLabel,
+  fallbackLabel,
   normalizeProfileLinks,
   normalizeProfileTags,
   portfolioHandleForMood,
@@ -9,16 +10,19 @@ import {
 } from './profile-display';
 
 describe('accountDrawerPrimaryLabel', () => {
-  it('uses You when the profile name matches the handle', () => {
+  it('uses You when the profile name matches the full account id', () => {
     expect(accountDrawerPrimaryLabel('test03.onsocial', 'test03.onsocial')).toBe(
       'You'
     );
     expect(accountDrawerPrimaryLabel('test03.onsocial')).toBe('You');
-    expect(accountDrawerPrimaryLabel('alice.testnet', 'alice')).toBe('You');
+    expect(accountDrawerPrimaryLabel('alice.testnet', 'alice.testnet')).toBe(
+      'You'
+    );
   });
 
-  it('uses a custom profile name when it differs from the handle', () => {
+  it('uses a custom profile name when it differs from the account id', () => {
     expect(accountDrawerPrimaryLabel('test03.onsocial', 'Alice')).toBe('Alice');
+    expect(accountDrawerPrimaryLabel('alice.testnet', 'alice')).toBe('alice');
   });
 });
 
@@ -100,5 +104,13 @@ describe('portfolioHandleHint', () => {
       'Shows as ~/alice.testnet on your page'
     );
     expect(portfolioHandleHint('alice.testnet', 'protocol')).toBeNull();
+  });
+});
+
+describe('fallbackLabel', () => {
+  it('keeps the full NEAR account id', () => {
+    expect(fallbackLabel('alice.testnet')).toBe('alice.testnet');
+    expect(fallbackLabel('bob.near')).toBe('bob.near');
+    expect(fallbackLabel('voter2.onsocial')).toBe('voter2.onsocial');
   });
 });

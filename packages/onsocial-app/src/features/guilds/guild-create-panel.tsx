@@ -2,21 +2,29 @@
 
 import { useMemo, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  OsSheetAction,
+  OsSheetActions,
+  OsSheetPrimaryAction,
+} from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
-import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
+import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
-import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import {
+  txToastConfirming,
   txToastError,
-  txToastPending,
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
 import {
   collectRelayTxHashes,
   normalizeGuildIdInput,
 } from '@/features/guilds/guilds-data';
+import {
+  DEFAULT_GUILD_STRUCTURE,
+  guildStructureForMetadata,
+} from '@/features/guilds/guild-structure';
 
 function fieldId(name: string) {
   return `guild-create-${name}`;
@@ -24,10 +32,9 @@ function fieldId(name: string) {
 
 export function GuildCreatePanel() {
   const router = useRouter();
-  const { accountId, isConnected, isLoading, connect } = useAppWallet();
+  const { isConnected, isLoading, connect } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
-  const { txResult, clearTxResult, trackTransaction } =
-    useNearTransactionFeedback(accountId);
+  const { trackTransaction } = useAppTransactionFeedback();
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
@@ -84,11 +91,16 @@ export function GuildCreatePanel() {
         isPrivate: accessGated,
         memberDriven,
         tags,
+        x: {
+          onsocial: {
+            structure: guildStructureForMetadata(DEFAULT_GUILD_STRUCTURE),
+          },
+        },
       });
       const txHashes = collectRelayTxHashes(response);
       const confirmed = await trackTransaction({
         txHashes,
-        submittedMessage: txToastPending.creatingGuild,
+        submittedMessage: txToastConfirming.creatingGuild,
         successMessage: txToastSuccess.guildCreated,
         failureMessage: txToastError.guildCreateFailed,
       });
@@ -217,26 +229,27 @@ export function GuildCreatePanel() {
 
         {error ? <p className="guild-form-error">{error}</p> : null}
 
-        <div className="guild-create-actions">
+        <OsSheetActions layout="stack" tone="frosted-primary" borderless>
           {!isConnected && !isLoading ? (
-            <button
-              className="guild-secondary-button"
+            <OsSheetAction
               type="button"
+              variant="ghost"
               onClick={() => void connect()}
             >
               Connect wallet
-            </button>
+            </OsSheetAction>
           ) : null}
-          <button
-            className="guild-primary-button"
+          <OsSheetPrimaryAction
             type="submit"
+            ready={canSubmit}
+            pending={pending}
+            pendingLabel="Creating…"
             disabled={!canSubmit}
           >
-            {pending ? 'Creating...' : 'Create guild'}
-          </button>
-        </div>
+            Create guild
+          </OsSheetPrimaryAction>
+        </OsSheetActions>
       </form>
-      <TransactionFeedbackToast result={txResult} onClose={clearTxResult} />
     </OsAppScreen>
   );
 }

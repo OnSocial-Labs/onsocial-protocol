@@ -10,6 +10,7 @@ import { sanitizePageFace } from '@/lib/page-face';
 import type { PageAvatarMode, PageHeroSource, PublicPageConfig } from '@/lib/page-data';
 import { fetchPageConfigFromBrowserProxy } from '@/lib/read-page-config';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 
 function formatApplyFaceError(error: unknown): string {
   if (!(error instanceof Error)) {
@@ -48,7 +49,7 @@ export function useApplyPageFace(
     isConnected && Boolean(accountId) && accountIdsEqual(accountId!, pageAccountId);
 
   const applyFacePatch = useCallback(
-    async (patch: Partial<PageFaceConfig>): Promise<boolean> => {
+    async (patch: Partial<PageFaceConfig>): Promise<string | null> => {
       setError(null);
       setIsApplying(true);
 
@@ -75,15 +76,15 @@ export function useApplyPageFace(
           face: mergedFace,
         };
 
-        await client.pages.setConfig(next, { wait: true });
+        const response = await client.pages.setConfig(next, { wait: true });
         router.refresh();
-        return true;
+        return collectRelayTxHashes(response)[0] ?? '';
       } catch (err) {
         if (isWalletUserCancellation(err)) {
-          return false;
+          return null;
         }
         setError(formatApplyFaceError(err));
-        return false;
+        return null;
       } finally {
         setIsApplying(false);
       }
@@ -92,13 +93,13 @@ export function useApplyPageFace(
   );
 
   const applyAvatarMode = useCallback(
-    async (avatarMode: PageAvatarMode): Promise<boolean> =>
+    async (avatarMode: PageAvatarMode): Promise<string | null> =>
       applyFacePatch({ avatarMode }),
     [applyFacePatch]
   );
 
   const applyHeroSource = useCallback(
-    async (heroSource: PageHeroSource): Promise<boolean> =>
+    async (heroSource: PageHeroSource): Promise<string | null> =>
       applyFacePatch({ heroSource }),
     [applyFacePatch]
   );

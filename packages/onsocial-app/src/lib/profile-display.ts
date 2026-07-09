@@ -1,5 +1,9 @@
+/**
+ * Identity label for an account — always the full NEAR account id.
+ * Do not strip `.near` / `.testnet`; the suffix is part of who they are.
+ */
 export function fallbackLabel(accountId: string): string {
-  return accountId.replace(/\.testnet$|\.near$/, '');
+  return accountId.trim();
 }
 
 /** Handle line as rendered on the portfolio page for a given mood. */

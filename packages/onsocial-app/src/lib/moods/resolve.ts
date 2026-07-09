@@ -159,6 +159,40 @@ export function pageContentDrawerPanelStyle(
   return style;
 }
 
+/**
+ * Support money sheet — carry page mood signal hues so presets match the face
+ * Support arrow (reputation), even though the sheet portals outside the frame.
+ */
+export function supportSheetPanelStyle(
+  cssVars: Record<string, string>
+): Record<string, string> {
+  const style: Record<string, string> = {};
+
+  const signalKeys = [
+    '--mood-signal-standing',
+    '--mood-signal-solidarity',
+    '--mood-signal-endorse',
+    '--mood-signal-reputation',
+  ] as const;
+
+  for (const key of signalKeys) {
+    const value = cssVars[key];
+    if (value) style[key] = value;
+  }
+
+  const standing = cssVars['--mood-signal-standing'];
+  const solidarity = cssVars['--mood-signal-solidarity'];
+  const endorse = cssVars['--mood-signal-endorse'];
+  const reputation = cssVars['--mood-signal-reputation'];
+
+  if (standing) style['--signal-standing'] = standing;
+  if (solidarity) style['--signal-solidarity'] = solidarity;
+  if (endorse) style['--signal-endorse'] = endorse;
+  if (reputation) style['--signal-reputation'] = reputation;
+
+  return style;
+}
+
 /** Ambient sheet thread without accent vars that leak into picker rows. */
 export function moodSheetPanelStyle(
   cssVars: Record<string, string>

@@ -1,0 +1,319 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { Proposal, ProposalTally } from '@onsocial/sdk';
+import {
+  Divider,
+  GlassSheet,
+  PulsingDots,
+  SheetCloseButton,
+} from '@onsocial/ui';
+import { listActiveJoinRequestProposals } from '@/features/guilds/guild-config';
+import {
+  guildProposalPresentation,
+  partitionGuildGovernanceProposals,
+} from '@/features/guilds/guild-proposal-display';
+import { GuildProposalCard } from '@/features/guilds/guild-proposal-card';
+import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
+import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
+import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
+import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
+import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import {
+  txToastConfirming,
+  txToastError,
+  txToastSuccess,
+} from '@/lib/transaction-toast-copy';
+
+interface GuildProposalsSheetProps {
+  open: boolean;
+  groupId: string;
+  accountId: string | null;
+  isMember: boolean;
+  memberDriven: boolean;
+  onClose: () => void;
+  onOpenRequests?: () => void;
+  onResolved?: () => void;
+}
+
+export function GuildProposalsSheet({
+  open,
+  groupId,
+  accountId,
+  isMember,
+  memberDriven,
+  onClose,
+  onOpenRequests,
+  onResolved,
+}: GuildProposalsSheetProps) {
+  const { getClient } = useAppOnSocialClient();
+  const { trackTransaction } = useAppTransactionFeedback();
+  const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [resolvedProposals, setResolvedProposals] = useState<Proposal[]>([]);
+  const [allProposals, setAllProposals] = useState<Proposal[]>([]);
+  const [viewerVotes, setViewerVotes] = useState<Map<string, boolean>>(
+    () => new Map()
+  );
+  const [tallies, setTallies] = useState<Map<string, ProposalTally | null>>(
+    () => new Map()
+  );
+  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>(
+    'loading'
+  );
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [pendingActions, setPendingActions] = useState<
+    Map<string, 'support' | 'oppose'>
+  >(() => new Map());
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const loadProposals = useCallback(async () => {
+    setLoadState('loading');
+    setLoadError(null);
+    try {
+      const client = createReadOnlyOnSocialClient();
+      const rows = await client.groups.listProposals(groupId, { limit: 40 });
+      const { active, resolved } = partitionGuildGovernanceProposals(rows);
+      setAllProposals(rows);
+      setProposals(active);
+      setResolvedProposals(resolved);
+
+      const loadTargets = [...active, ...resolved];
+      const voteEntries = await Promise.all(
+        loadTargets.map(async (proposal) => {
+          const [voteResult, tallyResult] = await Promise.allSettled([
+            accountId
+              ? client.groups.getVote(groupId, proposal.id, accountId)
+              : Promise.resolve(null),
+            client.groups.getProposalTally(groupId, proposal.id),
+          ]);
+
+          return {
+            proposalId: proposal.id,
+            approve:
+              voteResult.status === 'fulfilled'
+                ? (voteResult.value?.approve ?? null)
+                : null,
+            tally:
+              tallyResult.status === 'fulfilled' ? tallyResult.value : null,
+          };
+        })
+      );
+
+      setViewerVotes(
+        new Map(
+          voteEntries
+            .filter((entry) => entry.approve !== null)
+            .map((entry) => [entry.proposalId, entry.approve as boolean])
+        )
+      );
+      setTallies(
+        new Map(voteEntries.map((entry) => [entry.proposalId, entry.tally]))
+      );
+      setLoadState('ready');
+    } catch (cause) {
+      setLoadState('error');
+      setLoadError(
+        cause instanceof Error ? cause.message : 'Could not load proposals.'
+      );
+    }
+  }, [accountId, groupId]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (!cancelled) void loadProposals();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [loadProposals, open]);
+
+  const runVote = async (proposal: Proposal, approve: boolean) => {
+    setActionError(null);
+    setPendingActions((current) =>
+      new Map(current).set(proposal.id, approve ? 'support' : 'oppose')
+    );
+    try {
+      const { client } = await getClient();
+      const response = await client.groups.vote(groupId, proposal.id, approve);
+      const txHashes = collectRelayTxHashes(response);
+      const confirmed = await trackTransaction({
+        txHashes,
+        submittedMessage: txToastConfirming.votingGuildProposal,
+        successMessage: txToastSuccess.guildVoteRecorded,
+        failureMessage: txToastError.guildVoteFailed,
+      });
+
+      if (confirmed) {
+        setViewerVotes((current) => new Map(current).set(proposal.id, approve));
+        onResolved?.();
+        await loadProposals();
+      }
+    } catch (cause) {
+      if (isWalletUserCancellation(cause)) return;
+      setActionError(
+        cause instanceof Error ? cause.message : 'Could not submit vote.'
+      );
+    } finally {
+      setPendingActions((current) => {
+        const next = new Map(current);
+        next.delete(proposal.id);
+        return next;
+      });
+    }
+  };
+
+  const joinRequestCount = listActiveJoinRequestProposals(allProposals).length;
+  const canVote = memberDriven && isMember;
+  const profileIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const proposal of [...proposals, ...resolvedProposals]) {
+      const presentation = guildProposalPresentation(proposal);
+      if (presentation.targetAccountId) ids.add(presentation.targetAccountId);
+      if (proposal.proposer?.trim()) ids.add(proposal.proposer.trim());
+    }
+    return [...ids];
+  }, [proposals, resolvedProposals]);
+  const profiles = usePostAuthorProfiles(profileIds);
+
+  return (
+    <GlassSheet
+      open={open}
+      onClose={onClose}
+      tone="os"
+      initialDetent="peek"
+      zIndex={57}
+      presentation="swap"
+      ariaLabelledBy="guild-proposals-title"
+      backdropLabel="Close proposals"
+      panelClassName="guild-manage-sheet-panel"
+      bodyClassName="guild-manage-sheet-body"
+      header={
+        <>
+          <div className="standing-sheet-header guild-manage-sheet-header">
+            <div className="standing-sheet-subject-row">
+              <div className="standing-sheet-subject">
+                <div className="standing-sheet-subject-copy">
+                  <h2
+                    id="guild-proposals-title"
+                    className="standing-sheet-subject-name"
+                  >
+                    Proposals
+                  </h2>
+                  <p className="discover-sheet-subtitle">
+                    {canVote
+                      ? 'Support or oppose active governance items.'
+                      : memberDriven
+                        ? 'Join this guild to vote on proposals.'
+                        : 'Active governance items excluding join requests.'}
+                  </p>
+                </div>
+              </div>
+              <div className="standing-sheet-actions">
+                <SheetCloseButton onClick={onClose} ariaLabel="Close" />
+              </div>
+            </div>
+          </div>
+          <Divider variant="section" className="glass-sheet-header-divider" />
+        </>
+      }
+    >
+      <div className="guild-proposals-sheet">
+        {onOpenRequests && joinRequestCount > 0 ? (
+          <button
+            type="button"
+            className="guild-secondary-button guild-proposals-requests-link"
+            onClick={onOpenRequests}
+          >
+            {joinRequestCount} join{' '}
+            {joinRequestCount === 1 ? 'request' : 'requests'} in Member requests
+          </button>
+        ) : null}
+
+        {loadState === 'loading' ? (
+          <div className="guild-manage-sheet-state">
+            <PulsingDots size="sm" />
+          </div>
+        ) : null}
+
+        {loadState === 'error' ? (
+          <div className="guild-manage-sheet-state">
+            <p>{loadError ?? 'Could not load proposals.'}</p>
+            <button
+              type="button"
+              className="guild-secondary-button"
+              onClick={() => void loadProposals()}
+            >
+              Try again
+            </button>
+          </div>
+        ) : null}
+
+        {loadState === 'ready' &&
+        proposals.length === 0 &&
+        resolvedProposals.length === 0 ? (
+          <div className="guild-manage-sheet-empty">
+            <p className="guild-manage-sheet-empty-primary">
+              No active proposals
+            </p>
+            <p className="guild-manage-sheet-empty-secondary">
+              Permission changes and other governance items will appear here.
+            </p>
+          </div>
+        ) : null}
+
+        {loadState === 'ready' &&
+        proposals.length === 0 &&
+        resolvedProposals.length > 0 ? (
+          <p className="guild-proposals-section-note">No active proposals</p>
+        ) : null}
+
+        {actionError ? (
+          <p className="guild-form-error" role="alert">
+            {actionError}
+          </p>
+        ) : null}
+
+        {loadState === 'ready' && proposals.length > 0 ? (
+          <div className="guild-proposal-list">
+            {proposals.map((proposal) => (
+              <GuildProposalCard
+                key={proposal.id}
+                proposal={proposal}
+                tally={tallies.get(proposal.id) ?? null}
+                viewerVote={viewerVotes.get(proposal.id)}
+                canVote={canVote}
+                pendingAction={pendingActions.get(proposal.id) ?? null}
+                profiles={profiles}
+                onSupport={() => void runVote(proposal, true)}
+                onOppose={() => void runVote(proposal, false)}
+              />
+            ))}
+          </div>
+        ) : null}
+
+        {loadState === 'ready' && resolvedProposals.length > 0 ? (
+          <>
+            <Divider variant="detail" className="guild-proposals-section-divider" />
+            <p className="guild-proposals-section-label">Recently resolved</p>
+            <div className="guild-proposal-list guild-proposal-list--resolved">
+              {resolvedProposals.map((proposal) => (
+                <GuildProposalCard
+                  key={proposal.id}
+                  proposal={proposal}
+                  tally={tallies.get(proposal.id) ?? null}
+                  viewerVote={viewerVotes.get(proposal.id)}
+                  canVote={false}
+                  pendingAction={null}
+                  profiles={profiles}
+                />
+              ))}
+            </div>
+          </>
+        ) : null}
+      </div>
+    </GlassSheet>
+  );
+}

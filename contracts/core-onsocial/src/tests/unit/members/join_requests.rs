@@ -767,4 +767,64 @@ mod join_request_tests {
 
         println!("✅ Manager can approve join requests; all members join with level=0");
     }
+
+    #[test]
+    fn test_join_group_member_driven_single_owner_without_storage() {
+        let mut contract = init_live_contract();
+        let owner = test_account(0);
+        let requester = test_account(1);
+
+        near_sdk::testing_env!(
+            get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000).build()
+        );
+        contract
+            .execute(create_group_request(
+                "mdgroup".to_string(),
+                json!({"member_driven": true, "is_private": true}),
+            ))
+            .unwrap();
+
+        near_sdk::testing_env!(get_context_with_deposit(requester.clone(), 0).build());
+        let result = contract.execute(join_group_request("mdgroup".to_string()));
+        assert!(
+            matches!(
+                result,
+                Err(crate::SocialError::InvalidInput(ref msg))
+                    if msg.contains("Minimum 0.1 NEAR in storage balance required to create a proposal")
+            ),
+            "join_group on member-driven guild without storage should fail with proposal deposit error: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_join_group_member_driven_single_owner_with_deposit() {
+        let mut contract = init_live_contract();
+        let owner = test_account(0);
+        let requester = test_account(1);
+
+        near_sdk::testing_env!(
+            get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000).build()
+        );
+        contract
+            .execute(create_group_request(
+                "mdgroup2".to_string(),
+                json!({"member_driven": true, "is_private": true}),
+            ))
+            .unwrap();
+
+        near_sdk::testing_env!(
+            get_context_with_deposit(requester.clone(), 1_000_000_000_000_000_000_000_000).build()
+        );
+        let result = contract.execute(join_group_request("mdgroup2".to_string()));
+        assert!(
+            result.is_ok(),
+            "join_group on member-driven guild with deposit should succeed: {:?}",
+            result
+        );
+        assert!(
+            !contract.is_group_member("mdgroup2".to_string(), requester.clone()),
+            "requester should not be a member until proposal passes"
+        );
+    }
 }

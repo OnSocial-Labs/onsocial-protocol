@@ -1,7 +1,12 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
+import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
+import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { useOnSocialWriter } from '@/hooks/use-onsocial-writer';
+import { txToastError, txToastSuccess } from '@/lib/transaction-toast-copy';
+import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 interface PostComposerProps {
   onPosted?: () => void;
@@ -9,8 +14,8 @@ interface PostComposerProps {
 
 export function PostComposer({ onPosted }: PostComposerProps) {
   const { isConnected, isLoading, withClient } = useOnSocialWriter();
+  const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [text, setText] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const submit = useCallback(async () => {
@@ -20,21 +25,38 @@ export function PostComposer({ onPosted }: PostComposerProps) {
     }
 
     setIsSubmitting(true);
-    setError(null);
 
     try {
       const { client } = await withClient();
-      await client.posts.create({ text: trimmed });
+      const response = await client.posts.create({ text: trimmed });
+      const confirmed = await trackTransaction({
+        txHashes: collectRelayTxHashes(response),
+        successMessage: txToastSuccess.postPublished,
+        failureMessage: txToastError.postFailed,
+      });
+      if (!confirmed) return;
       setText('');
       onPosted?.();
     } catch (cause) {
-      const message =
-        cause instanceof Error ? cause.message : 'Could not publish post.';
-      setError(message);
+      if (isWalletUserCancellation(cause)) return;
+      setTxResult({
+        type: 'error',
+        msg:
+          cause instanceof Error
+            ? cause.message
+            : txToastError.postFailed,
+      });
     } finally {
       setIsSubmitting(false);
     }
-  }, [isSubmitting, onPosted, text, withClient]);
+  }, [
+    isSubmitting,
+    onPosted,
+    setTxResult,
+    text,
+    trackTransaction,
+    withClient,
+  ]);
 
   if (isLoading) {
     return <div className="post-composer is-loading" aria-hidden />;
@@ -47,6 +69,8 @@ export function PostComposer({ onPosted }: PostComposerProps) {
       </section>
     );
   }
+
+  const canPost = Boolean(text.trim()) && !isSubmitting;
 
   return (
     <section className="post-composer">
@@ -62,17 +86,24 @@ export function PostComposer({ onPosted }: PostComposerProps) {
         disabled={isSubmitting}
         onChange={(event) => setText(event.target.value)}
       />
-      <div className="post-composer-actions">
-        <button
+      <OsSheetActions
+        layout="stack"
+        tone="frosted-primary"
+        borderless
+        className="post-composer-actions"
+      >
+        <OsSheetAction
           type="button"
-          className="post-composer-submit"
-          disabled={isSubmitting || !text.trim()}
+          variant="primary"
+          ready={canPost}
+          pending={isSubmitting}
+          pendingLabel="Posting…"
+          disabled={!canPost}
           onClick={() => void submit()}
         >
-          {isSubmitting ? 'Publishing…' : 'Post'}
-        </button>
-      </div>
-      {error ? <p className="post-composer-error">{error}</p> : null}
+          Post
+        </OsSheetAction>
+      </OsSheetActions>
     </section>
   );
 }

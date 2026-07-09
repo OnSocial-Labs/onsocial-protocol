@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef } from 'react';
+import type { NearWalletBase } from '@hot-labs/near-connect';
 import type { OnSocial } from '@onsocial/sdk';
 import type { Session } from '@onsocial/sdk/advanced';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -16,6 +17,7 @@ interface AppOnSocialClientBundle {
   client: OnSocial;
   accountId: string;
   session: Session | null;
+  wallet: NearWalletBase;
 }
 
 export { invalidateAppSocialSessionCache } from '@/lib/app-social-session-cache';
@@ -53,7 +55,7 @@ export function useAppOnSocialClient() {
       client.attachSession(session);
     }
 
-    return { client, accountId: signingAccountId, session };
+    return { client, accountId: signingAccountId, session, wallet };
   }, [getSigningWallet]);
 
   return { getClient };

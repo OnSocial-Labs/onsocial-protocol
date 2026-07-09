@@ -1,32 +1,14 @@
 import { cache } from 'react';
+import {
+  enrichGuildSummaryCards,
+  guildSummaryCardFromMembership,
+} from '@/features/guilds/guild-facts';
+import type { GuildSummaryCardModel } from '@/features/guilds/guild-summary-card';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
-import { resolveProfileMediaUrl } from '@/lib/profile-display';
 
-export interface ProfileGuildSummary {
-  groupId: string;
-  name: string;
-  description: string | null;
-  avatarUrl: string | null;
-  bannerUrl: string | null;
-  accessGated: boolean;
-  memberDriven: boolean;
-  role: 'Owner' | 'Admin' | 'Moderator' | 'Member';
-}
-
-function readString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim() ? value : null;
-}
-
-function roleFromMembership(row: {
-  isOwner: boolean;
-  isAdmin: boolean;
-  canModerate: boolean;
-}): ProfileGuildSummary['role'] {
-  if (row.isOwner) return 'Owner';
-  if (row.isAdmin) return 'Admin';
-  if (row.canModerate) return 'Moderator';
-  return 'Member';
-}
+export type ProfileGuildSummary = GuildSummaryCardModel & {
+  role: NonNullable<GuildSummaryCardModel['role']>;
+};
 
 export const fetchProfileGuilds = cache(
   async (accountId: string): Promise<ProfileGuildSummary[]> => {
@@ -35,19 +17,17 @@ export const fetchProfileGuilds = cache(
       const page = await os.query.groups.membershipsBy(accountId, {
         limit: 12,
       });
-      return page.items.map((row) => ({
-        groupId: row.groupId,
-        name: readString(row.groupName) ?? row.groupId,
-        description: readString(row.groupDescription),
-        avatarUrl: row.groupAvatarCid
-          ? resolveProfileMediaUrl(`ipfs://${row.groupAvatarCid}`)
-          : null,
-        bannerUrl: row.groupBannerCid
-          ? resolveProfileMediaUrl(`ipfs://${row.groupBannerCid}`)
-          : null,
-        accessGated: row.isPublic === false,
-        memberDriven: row.isMemberDriven,
-        role: roleFromMembership(row),
+      const cards = page.items.map((row) => {
+        const card = guildSummaryCardFromMembership(row);
+        return {
+          ...card,
+          role: card.role ?? 'Member',
+        } satisfies ProfileGuildSummary;
+      });
+      const enriched = await enrichGuildSummaryCards(os, cards);
+      return enriched.map((card) => ({
+        ...card,
+        role: card.role ?? 'Member',
       }));
     } catch {
       return [];

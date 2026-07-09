@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   inferPortfolioLinkKind,
+  portfolioLinkDetail,
+  portfolioLinkHostname,
   resolvePortfolioSocialLinks,
 } from './profile-social-links';
 
@@ -65,5 +67,34 @@ describe('inferPortfolioLinkKind', () => {
     expect(
       inferPortfolioLinkKind('Newsletter', 'https://substack.com/@alice')
     ).toBe('custom');
+  });
+});
+
+describe('portfolioLinkHostname', () => {
+  it('strips www for showcase rows', () => {
+    expect(portfolioLinkHostname('https://www.example.com/path')).toBe(
+      'example.com'
+    );
+  });
+});
+
+describe('portfolioLinkDetail', () => {
+  it('shows website hostname and social handle path', () => {
+    expect(
+      portfolioLinkDetail({
+        key: 'website',
+        kind: 'website',
+        label: 'Website',
+        href: 'https://www.onsocial.id',
+      })
+    ).toBe('onsocial.id');
+    expect(
+      portfolioLinkDetail({
+        key: 'x',
+        kind: 'x',
+        label: 'X',
+        href: 'https://x.com/alice',
+      })
+    ).toBe('@alice');
   });
 });

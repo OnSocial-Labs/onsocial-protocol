@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { creditAppPlatformReward, creditAppPlatformSocialReward } from '@/lib/app-platform-rewards';
@@ -19,6 +19,10 @@ import {
 import {
   bumpGlobalViewerStandingLedger,
   getGlobalViewerStandingLedger,
+  getGlobalViewerStandingLedgerVersion,
+  isGlobalStandingPending,
+  setGlobalStandingPending,
+  subscribeGlobalViewerStandingLedger,
 } from '@/lib/viewer-standing-global';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
@@ -30,16 +34,22 @@ export function useViewerStanding(listAccountId: string) {
   } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const ledgerRef = useRef(getGlobalViewerStandingLedger());
-  const pendingRef = useRef<Set<string>>(new Set());
-  const [standingSyncVersion, setStandingSyncVersion] = useState(0);
+  const [standingSyncVersion, setStandingSyncVersion] = useState(
+    getGlobalViewerStandingLedgerVersion
+  );
+
+  useEffect(() => {
+    return subscribeGlobalViewerStandingLedger(() => {
+      setStandingSyncVersion(getGlobalViewerStandingLedgerVersion());
+    });
+  }, []);
 
   const bumpStandingSync = useCallback(() => {
     bumpGlobalViewerStandingLedger();
-    setStandingSyncVersion((version) => version + 1);
   }, []);
 
   const isStandingPendingForTarget = useCallback((targetAccountId: string) => {
-    return pendingRef.current.has(targetAccountId);
+    return isGlobalStandingPending(targetAccountId);
   }, []);
 
   const deriveStandingListAccounts = useCallback(
@@ -95,26 +105,25 @@ export function useViewerStanding(listAccountId: string) {
         throw new Error('You cannot stand with your own account.');
       }
 
-      if (pendingRef.current.has(targetAccount.accountId)) {
+      if (isGlobalStandingPending(targetAccount.accountId)) {
         return;
       }
 
-      pendingRef.current.add(targetAccount.accountId);
-      bumpStandingSync();
-
-      const { client, session } = await getClient();
-      if (!session) {
-        throw new Error(APP_SOCIAL_SESSION_MISSING_MESSAGE);
-      }
-
-      const snapshot: StandingListSnapshot = {
-        accountId: targetAccount.accountId,
-        name: targetAccount.name,
-        avatarUrl: targetAccount.avatarUrl,
-        bio: targetAccount.bio ?? null,
-      };
+      setGlobalStandingPending(targetAccount.accountId, true);
 
       try {
+        const { client, session } = await getClient();
+        if (!session) {
+          throw new Error(APP_SOCIAL_SESSION_MISSING_MESSAGE);
+        }
+
+        const snapshot: StandingListSnapshot = {
+          accountId: targetAccount.accountId,
+          name: targetAccount.name,
+          avatarUrl: targetAccount.avatarUrl,
+          bio: targetAccount.bio ?? null,
+        };
+
         if (shouldStand) {
           const response = await client.standings.add(targetAccount.accountId, {
             wait: true,
@@ -154,12 +163,12 @@ export function useViewerStanding(listAccountId: string) {
           throw error;
         }
       } finally {
-        pendingRef.current.delete(targetAccount.accountId);
-        bumpStandingSync();
+        setGlobalStandingPending(targetAccount.accountId, false);
       }
     },
     [bumpStandingSync, getClient, isConnected, viewerAccountId]
   );
+
   return {
     hasSocialSession,
     isConnected,

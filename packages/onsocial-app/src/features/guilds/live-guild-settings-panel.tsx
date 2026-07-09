@@ -2,9 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { PulsingDots } from '@onsocial/ui';
+import {
+  OsSheetAction,
+  OsSheetActions,
+  OsSheetPrimaryAction,
+} from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
-import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
+import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
   collectRelayTxHashes,
@@ -16,12 +20,22 @@ import {
   normalizeGuildTagsInput,
   type GuildConfigSnapshot,
 } from '@/features/guilds/guild-config';
+import {
+  cloneGuildStructure,
+  guildStructureForMetadata,
+  guildStructuresEqual,
+  type GuildStructureDocument,
+} from '@/features/guilds/guild-structure';
+import { GuildStructureSettingsSection } from '@/features/guilds/guild-structure-settings-section';
+import {
+  aggregateChannelsFromPosts,
+  type DiscoveredChannelUsage,
+} from '@/features/guilds/guild-structure-discovery';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
-import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
+  txToastConfirming,
   txToastError,
-  txToastPending,
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
@@ -45,8 +59,7 @@ export function LiveGuildSettingsPanel({ groupId }: { groupId: string }) {
   const { accountId, isConnected, isLoading: walletLoading, connect } =
     useAppWallet();
   const { getClient } = useAppOnSocialClient();
-  const { txResult, clearTxResult, trackTransaction } =
-    useNearTransactionFeedback(accountId);
+  const { trackTransaction } = useAppTransactionFeedback();
 
   const [loadState, setLoadState] = useState<
     'loading' | 'ready' | 'missing' | 'error' | 'forbidden'
@@ -59,16 +72,18 @@ export function LiveGuildSettingsPanel({ groupId }: { groupId: string }) {
   const [description, setDescription] = useState('');
   const [tagsInput, setTagsInput] = useState('');
   const [accessGated, setAccessGated] = useState(false);
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
-  const [avatarRemoved, setAvatarRemoved] = useState(false);
   const [bannerRemoved, setBannerRemoved] = useState(false);
+  const [structure, setStructure] = useState<GuildStructureDocument | null>(
+    null
+  );
+  const [discoveredChannels, setDiscoveredChannels] = useState<
+    DiscoveredChannelUsage[]
+  >([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
-  const avatarPreview = useObjectUrl(avatarFile);
   const bannerPreview = useObjectUrl(bannerFile);
 
   const load = useCallback(async () => {
@@ -89,9 +104,8 @@ export function LiveGuildSettingsPanel({ groupId }: { groupId: string }) {
       setTagsInput(normalized.tags.join(', '));
       setAccessGated(normalized.accessGated);
       setMemberDriven(normalized.memberDriven);
-      setAvatarFile(null);
+      setStructure(cloneGuildStructure(normalized.structure));
       setBannerFile(null);
-      setAvatarRemoved(false);
       setBannerRemoved(false);
 
       if (!accountId) {
@@ -119,12 +133,36 @@ export function LiveGuildSettingsPanel({ groupId }: { groupId: string }) {
     void load();
   }, [load, walletLoading]);
 
-  const displayAvatarUrl = avatarRemoved
-    ? null
-    : (avatarPreview ?? snapshot?.avatarUrl ?? null);
+  useEffect(() => {
+    if (loadState !== 'ready') return;
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const client = createReadOnlyOnSocialClient();
+        const channels = await client.query.groups.postChannelSample(groupId, {
+          limit: 120,
+        });
+        if (!cancelled) {
+          setDiscoveredChannels(
+            aggregateChannelsFromPosts(
+              channels.map((channel) => ({ channel }))
+            )
+          );
+        }
+      } catch {
+        if (!cancelled) setDiscoveredChannels([]);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [groupId, loadState]);
+
   const displayBannerUrl = bannerRemoved
     ? null
-    : (bannerPreview ?? snapshot?.bannerUrl ?? snapshot?.avatarUrl ?? null);
+    : (bannerPreview ?? snapshot?.bannerUrl ?? null);
 
   const normalizedTags = useMemo(
     () => normalizeGuildTagsInput(tagsInput),
@@ -132,33 +170,32 @@ export function LiveGuildSettingsPanel({ groupId }: { groupId: string }) {
   );
 
   const isDirty = useMemo(() => {
-    if (!snapshot) return false;
+    if (!snapshot || !structure) return false;
     return (
       name.trim() !== snapshot.name ||
       description.trim() !== snapshot.description ||
       accessGated !== snapshot.accessGated ||
       !guildTagsEqual(normalizedTags, snapshot.tags) ||
-      avatarFile !== null ||
+      !guildStructuresEqual(structure, snapshot.structure) ||
       bannerFile !== null ||
-      avatarRemoved ||
       bannerRemoved
     );
   }, [
     accessGated,
-    avatarFile,
-    avatarRemoved,
     bannerFile,
     bannerRemoved,
     description,
     name,
     normalizedTags,
     snapshot,
+    structure,
   ]);
 
   const buildMetadataChanges = async (): Promise<Record<string, unknown>> => {
-    if (!snapshot) return {};
+    if (!snapshot || !structure) return {};
     const { client } = await getClient();
     const changes: Record<string, unknown> = {};
+    const onsocialPatch: Record<string, unknown> = {};
 
     const trimmedName = name.trim();
     if (trimmedName && trimmedName !== snapshot.name) {
@@ -170,25 +207,21 @@ export function LiveGuildSettingsPanel({ groupId }: { groupId: string }) {
     if (!guildTagsEqual(normalizedTags, snapshot.tags)) {
       changes.tags = normalizedTags;
     }
-    if (avatarFile) {
-      const uploaded = await client.storage.upload(avatarFile);
-      changes.avatar = {
+    if (bannerFile) {
+      const uploaded = await client.storage.upload(bannerFile);
+      onsocialPatch.banner = {
         cid: uploaded.cid,
         mime: uploaded.mime,
         size: uploaded.size,
       };
-    } else if (avatarRemoved && snapshot.avatarUrl) {
-      changes.avatar = null;
-    }
-    if (bannerFile) {
-      const uploaded = await client.storage.upload(bannerFile);
-      changes.x = { onsocial: { banner: {
-        cid: uploaded.cid,
-        mime: uploaded.mime,
-        size: uploaded.size,
-      } } };
     } else if (bannerRemoved && snapshot.bannerUrl) {
-      changes.x = { onsocial: { banner: null } };
+      onsocialPatch.banner = null;
+    }
+    if (!guildStructuresEqual(structure, snapshot.structure)) {
+      onsocialPatch.structure = guildStructureForMetadata(structure);
+    }
+    if (Object.keys(onsocialPatch).length > 0) {
+      changes.x = { onsocial: onsocialPatch };
     }
 
     return changes;
@@ -232,8 +265,8 @@ export function LiveGuildSettingsPanel({ groupId }: { groupId: string }) {
         confirmed = await trackTransaction({
           txHashes: collectRelayTxHashes(response),
           submittedMessage: memberDriven
-            ? txToastPending.proposingGuildUpdate
-            : txToastPending.savingGuildSettings,
+            ? txToastConfirming.proposingGuildUpdate
+            : txToastConfirming.savingGuildSettings,
           successMessage: memberDriven
             ? txToastSuccess.guildUpdateProposed
             : txToastSuccess.guildSettingsSaved,
@@ -248,7 +281,7 @@ export function LiveGuildSettingsPanel({ groupId }: { groupId: string }) {
         );
         confirmed = await trackTransaction({
           txHashes: collectRelayTxHashes(privacyResponse),
-          submittedMessage: txToastPending.savingGuildSettings,
+          submittedMessage: txToastConfirming.savingGuildSettings,
           successMessage: txToastSuccess.guildSettingsSaved,
           failureMessage: txToastError.guildSettingsFailed,
         });
@@ -349,36 +382,6 @@ export function LiveGuildSettingsPanel({ groupId }: { groupId: string }) {
                   </button>
                 ) : null}
               </div>
-              <div className="guild-settings-avatar-row">
-                <div className="guild-settings-avatar">
-                  {displayAvatarUrl ? (
-                    <img src={displayAvatarUrl} alt="" />
-                  ) : (
-                    <span>{name.trim().charAt(0).toUpperCase() || 'G'}</span>
-                  )}
-                </div>
-                <div className="guild-settings-avatar-actions">
-                  <button
-                    type="button"
-                    className="guild-secondary-button"
-                    onClick={() => avatarInputRef.current?.click()}
-                  >
-                    Change avatar
-                  </button>
-                  {displayAvatarUrl ? (
-                    <button
-                      type="button"
-                      className="guild-secondary-button"
-                      onClick={() => {
-                        setAvatarFile(null);
-                        setAvatarRemoved(true);
-                      }}
-                    >
-                      Remove
-                    </button>
-                  ) : null}
-                </div>
-              </div>
               <input
                 ref={bannerInputRef}
                 type="file"
@@ -388,17 +391,6 @@ export function LiveGuildSettingsPanel({ groupId }: { groupId: string }) {
                   const file = event.target.files?.[0] ?? null;
                   setBannerFile(file);
                   if (file) setBannerRemoved(false);
-                }}
-              />
-              <input
-                ref={avatarInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                hidden
-                onChange={(event) => {
-                  const file = event.target.files?.[0] ?? null;
-                  setAvatarFile(file);
-                  if (file) setAvatarRemoved(false);
                 }}
               />
             </section>
@@ -463,6 +455,15 @@ export function LiveGuildSettingsPanel({ groupId }: { groupId: string }) {
               </label>
             </div>
 
+            {structure ? (
+              <GuildStructureSettingsSection
+                structure={structure}
+                onChange={setStructure}
+                disabled={pending}
+                discoveredChannels={discoveredChannels}
+              />
+            ) : null}
+
             {memberDriven ? (
               <p className="guild-public-note">
                 Collaborative guilds submit profile changes as proposals. Privacy
@@ -471,40 +472,35 @@ export function LiveGuildSettingsPanel({ groupId }: { groupId: string }) {
             ) : (
               <p className="guild-public-note">
                 Owner-led guilds save profile changes directly. Guild ID stays
-                fixed; name, bio, banner, and avatar can change any time.
+                fixed; name, bio, banner, and access can change any time.
               </p>
             )}
 
             {error ? <p className="guild-form-error">{error}</p> : null}
 
-            <div className="guild-create-actions">
+            <OsSheetActions layout="stack" tone="frosted-primary" borderless>
               {!isConnected && !walletLoading ? (
-                <button
-                  className="guild-secondary-button"
+                <OsSheetAction
                   type="button"
+                  variant="ghost"
                   onClick={() => void connect()}
                 >
                   Connect wallet
-                </button>
+                </OsSheetAction>
               ) : null}
-              <button
-                className="guild-primary-button"
+              <OsSheetPrimaryAction
                 type="submit"
+                ready={isDirty && isConnected}
+                pending={pending}
+                pendingLabel={memberDriven ? 'Proposing…' : 'Saving…'}
                 disabled={!isDirty || pending || !isConnected}
               >
-                {pending ? (
-                  <PulsingDots size="sm" />
-                ) : memberDriven ? (
-                  'Propose changes'
-                ) : (
-                  'Save changes'
-                )}
-              </button>
-            </div>
+                {memberDriven ? 'Propose changes' : 'Save changes'}
+              </OsSheetPrimaryAction>
+            </OsSheetActions>
           </form>
         ) : null}
       </div>
-      <TransactionFeedbackToast result={txResult} onClose={clearTxResult} />
     </OsAppScreen>
   );
 }

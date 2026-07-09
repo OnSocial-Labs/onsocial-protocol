@@ -256,6 +256,34 @@ function resolveArrayLinks(
   });
 }
 
+/** Hostname for showcase rows — strips www, falls back to label. */
+export function portfolioLinkHostname(href: string): string | null {
+  try {
+    const host = new URL(href).hostname.replace(/^www\./i, '');
+    return host || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Secondary line under the link label in the page drawer. */
+export function portfolioLinkDetail(link: PortfolioSocialLink): string {
+  if (link.kind === 'website' || link.kind === 'custom') {
+    return portfolioLinkHostname(link.href) ?? link.label;
+  }
+
+  try {
+    const path = new URL(link.href).pathname.replace(/^\/+|\/+$/g, '');
+    if (path) {
+      return path.startsWith('@') ? path : `@${path.split('/')[0] ?? path}`;
+    }
+  } catch {
+    // fall through
+  }
+
+  return link.label;
+}
+
 /** Portal-parity social rows for keyed chain maps and schema v1 link arrays. */
 export function resolvePortfolioSocialLinks(
   links: unknown

@@ -13,7 +13,10 @@ import { formatProfileCount } from '@/lib/profile-social-standings';
 
 export type ProfileStandingTimeMode = 'always' | 'viewer-only' | 'never';
 
-export type ProfileSocialListSkeletonRowVariant = 'standing' | 'discover';
+export type ProfileSocialListSkeletonRowVariant =
+  | 'standing'
+  | 'discover'
+  | 'guild-member';
 
 function resolveStandingTimeMeta(
   account: ProfileListAccount,
@@ -123,17 +126,52 @@ export function ProfileSocialListSkeletonRow({
 }: {
   rowVariant?: ProfileSocialListSkeletonRowVariant;
 }) {
-  const showTimeShimmer = rowVariant === 'standing';
+  const showTimeShimmer =
+    rowVariant === 'standing' || rowVariant === 'guild-member';
+  const isGuildMember = rowVariant === 'guild-member';
+
+  if (isGuildMember) {
+    return (
+      <div
+        className="standing-row guild-member-row guild-member-row--skeleton"
+        aria-hidden
+      >
+        <div className="standing-row-main">
+          <div className="standing-row-shimmer standing-row-avatar" />
+          <div className="standing-row-copy">
+            <span className="standing-row-head">
+              <span className="standing-row-name-row guild-member-row-name-row">
+                <div className="standing-row-shimmer standing-row-shimmer-line" />
+                <div className="standing-row-shimmer standing-row-shimmer-pill guild-member-row-badge-shimmer" />
+              </span>
+              <div className="standing-row-shimmer standing-row-shimmer-line-sm" />
+            </span>
+          </div>
+        </div>
+        <div className="standing-row-aside guild-member-row-aside">
+          <div className="standing-row-shimmer standing-row-shimmer-time" />
+          <div className="standing-row-shimmer standing-row-shimmer-pill guild-member-row-menu-shimmer" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="standing-row standing-row--skeleton" aria-hidden>
       <div className="standing-row-main">
         <div className="standing-row-avatar standing-row-shimmer" />
         <div className="standing-row-copy">
-          <div className="standing-row-shimmer standing-row-shimmer-line" />
+          <div className="standing-row-name-row">
+            <div className="standing-row-shimmer standing-row-shimmer-line" />
+            {showTimeShimmer ? (
+              <div className="standing-row-shimmer standing-row-shimmer-time" />
+            ) : null}
+          </div>
           <div className="standing-row-shimmer standing-row-shimmer-line-sm" />
-          <div className="standing-row-shimmer standing-row-shimmer-line-bio" />
-          <div className="standing-row-shimmer standing-row-shimmer-line-xs" />
+          <>
+            <div className="standing-row-shimmer standing-row-shimmer-line-bio" />
+            <div className="standing-row-shimmer standing-row-shimmer-line-xs" />
+          </>
         </div>
       </div>
       <div className="standing-row-aside standing-row-aside--skeleton">
@@ -229,17 +267,14 @@ export function ProfileSocialListRow({
             </div>
           ) : null}
           <span className="standing-row-head">
-            <span className="standing-row-name">{accountLabel(account)}</span>
+            <span className="standing-row-name-row">
+              <span className="standing-row-name">{accountLabel(account)}</span>
+              {moodId !== 'protocol' ? (
+                <DiscoverMoodDot moodId={moodId} />
+              ) : null}
+            </span>
             {account.name?.trim() ? (
-              <>
-                <span className="standing-row-sep" aria-hidden>
-                  ·
-                </span>
-                <span className="standing-row-handle">@{account.accountId}</span>
-              </>
-            ) : null}
-            {moodId !== 'protocol' ? (
-              <DiscoverMoodDot moodId={moodId} />
+              <span className="standing-row-handle">@{account.accountId}</span>
             ) : null}
           </span>
           {bio ? <span className="standing-row-bio">{bio}</span> : null}

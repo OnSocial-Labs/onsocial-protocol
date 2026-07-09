@@ -10,8 +10,10 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { useAppWallet } from '@/contexts/app-wallet-context';
 import type { PlatformRewardCreditEvent } from '@onsocial/sdk';
+import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useAppAccountSheet } from '@/contexts/app-account-sheet-context';
+import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import {
   APP_REWARD_MIN_CLAIM_YOCTO,
   APP_REWARD_REFRESH_DELAYS_MS,
@@ -20,15 +22,19 @@ import {
   APP_REWARD_BURST_AGGREGATE_MS,
   compressAppRewardBurstReasons,
   buildBurstFlushSignature,
+  formatShortBurstReason,
   resolveBurstAggregateDelayMs,
   resolveBurstDisplayAmount,
   shouldShowBurstCelebration,
 } from '@/lib/app-reward-burst-copy';
-import { waitForNearTransactionBatchConfirmation } from '@/lib/app-near-rpc';
 import { onAppRewardCredited } from '@/lib/app-reward-events';
 import { refreshAppSocialBalanceAfterClaim } from '@/lib/app-social-balance-sync';
-import { AppRewardCreditBurst } from '@/components/wallet/app-reward-credit-burst';
-import { useAppAccountSheet } from '@/contexts/app-account-sheet-context';
+import { formatSocialCompact } from '@/lib/format-social-balance';
+import {
+  txToastConfirming,
+  txToastError,
+  txToastSuccess,
+} from '@/lib/transaction-toast-copy';
 
 interface RewardsOverview {
   claimable: string;
@@ -41,14 +47,8 @@ interface RefreshRewardsOptions {
   fresh?: boolean;
 }
 
-/** Inline collect feedback — pulsing dots while pending, green chip on success. No toast. */
-export type AppCollectPhase = 'idle' | 'pending' | 'succeeded';
-
-export interface AppRewardCreditBurstState {
-  id: number;
-  amountYocto: bigint;
-  reasons: string[];
-}
+/** Collect button — dots while pending; success is the global toast. */
+export type AppCollectPhase = 'idle' | 'pending';
 
 interface AppRewardsContextValue {
   claimableYocto: bigint;
@@ -56,13 +56,10 @@ interface AppRewardsContextValue {
   collectPhase: AppCollectPhase;
   /** True while claim is in flight (button pulsing dots). */
   claiming: boolean;
-  collectSucceeded: boolean;
   remainingToClaimYocto: bigint;
   loading: boolean;
   /** Bumps when passive credits land — drives activity bar pulse. */
   activityBarPulseKey: number;
-  creditBurst: AppRewardCreditBurstState | null;
-  dismissCreditBurst: () => void;
   refreshRewards: (options?: RefreshRewardsOptions) => Promise<void>;
   claimRewards: () => Promise<void>;
 }
@@ -88,13 +85,11 @@ export function useAppRewards() {
 export function AppRewardsProvider({ children }: { children: ReactNode }) {
   const { accountId } = useAppWallet();
   const { open: accountSheetOpen } = useAppAccountSheet();
+  const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [overview, setOverview] = useState<RewardsOverview | null>(null);
   const [loading, setLoading] = useState(false);
   const [collectPhase, setCollectPhase] = useState<AppCollectPhase>('idle');
   const [activityBarPulseKey, setActivityBarPulseKey] = useState(0);
-  const [creditBurst, setCreditBurst] = useState<AppRewardCreditBurstState | null>(
-    null
-  );
   const refreshGenerationRef = useRef(0);
   const chainClaimableRef = useRef(0n);
   const [pendingCreditYocto, setPendingCreditYocto] = useState(0n);
@@ -107,26 +102,20 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
     events: [],
     timer: null,
   });
-  const activeBurstEventsRef = useRef<PlatformRewardCreditEvent[]>([]);
-  const creditBurstRef = useRef<AppRewardCreditBurstState | null>(null);
-  const burstActiveRef = useRef(false);
+  const toastActiveRef = useRef(false);
   const accountSheetOpenRef = useRef(accountSheetOpen);
   const lastCelebratedSignatureRef = useRef<string | null>(null);
-  const burstSessionIdRef = useRef(0);
   const flushAggregatedCreditBurstRef = useRef<() => void>(() => {});
   const scheduleAggregatedBurstFlushRef = useRef<() => void>(() => {});
-
-  useEffect(() => {
-    creditBurstRef.current = creditBurst;
-    burstActiveRef.current = creditBurst !== null;
-  }, [creditBurst]);
 
   useEffect(() => {
     accountSheetOpenRef.current = accountSheetOpen;
   }, [accountSheetOpen]);
 
   const fetchRewards = useCallback(
-    async (options: Pick<RefreshRewardsOptions, 'fresh'> = {}): Promise<void> => {
+    async (
+      options: Pick<RefreshRewardsOptions, 'fresh'> = {}
+    ): Promise<void> => {
       if (!accountId) {
         setOverview(null);
         return;
@@ -137,21 +126,23 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
         `/api/rewards/overview?accountId=${encodeURIComponent(accountId)}${freshQuery}`,
         { cache: 'no-store' }
       );
-    const body = (await response.json().catch(() => null)) as {
-      overview?: RewardsOverview | null;
-      error?: string;
-      detail?: string;
-    } | null;
+      const body = (await response.json().catch(() => null)) as {
+        overview?: RewardsOverview | null;
+        error?: string;
+        detail?: string;
+      } | null;
 
-    if (!response.ok) {
-      throw new Error(
-        body?.detail ?? body?.error ?? `Rewards lookup failed (${response.status})`
-      );
-    }
+      if (!response.ok) {
+        throw new Error(
+          body?.detail ??
+            body?.error ??
+            `Rewards lookup failed (${response.status})`
+        );
+      }
 
-    setOverview(body?.overview ?? null);
-  },
-  [accountId]
+      setOverview(body?.overview ?? null);
+    },
+    [accountId]
   );
 
   const refreshRewards = useCallback(
@@ -217,12 +208,9 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setCollectPhase('idle');
-    setCreditBurst(null);
     setPendingCreditYocto(0n);
     chainClaimableRef.current = 0n;
-    activeBurstEventsRef.current = [];
-    creditBurstRef.current = null;
-    burstActiveRef.current = false;
+    toastActiveRef.current = false;
     lastCelebratedSignatureRef.current = null;
     aggregateRef.current = { total: 0n, events: [], timer: null };
   }, [accountId]);
@@ -239,17 +227,27 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
     chainClaimableRef.current = chain;
   }, [overview?.claimable]);
 
-  const dismissCreditBurst = useCallback(() => {
-    activeBurstEventsRef.current = [];
-    creditBurstRef.current = null;
-    burstActiveRef.current = false;
-    lastCelebratedSignatureRef.current = null;
-    setCreditBurst(null);
-
-    if (aggregateRef.current.total > 0n && aggregateRef.current.events.length > 0) {
-      scheduleAggregatedBurstFlushRef.current();
-    }
-  }, []);
+  const showCreditToast = useCallback(
+    (amountYocto: bigint, reasons: string[]) => {
+      const amountLabel = formatSocialCompact(amountYocto.toString());
+      const reason = formatShortBurstReason(reasons);
+      toastActiveRef.current = true;
+      setTxResult({
+        type: 'success',
+        msg: txToastSuccess.rewardCredited(amountLabel, reason),
+      });
+      window.setTimeout(() => {
+        toastActiveRef.current = false;
+        if (
+          aggregateRef.current.total > 0n &&
+          aggregateRef.current.events.length > 0
+        ) {
+          scheduleAggregatedBurstFlushRef.current();
+        }
+      }, 3600);
+    },
+    [setTxResult]
+  );
 
   const applyCreditBurst = useCallback(
     (
@@ -266,45 +264,17 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
 
       if (!accountSheetOpenRef.current && shouldShowBurstCelebration(events)) {
         const displayTotal = resolveBurstDisplayAmount(events);
-        if (displayTotal <= 0n) {
-          if (options.refreshOverview !== false) {
-            void refreshRewardsWithRetry({ silent: true, fresh: true });
-          }
-          return;
+        if (displayTotal > 0n) {
+          const reasons = compressAppRewardBurstReasons(events);
+          showCreditToast(displayTotal, reasons);
         }
-
-        const reasons = compressAppRewardBurstReasons(events);
-        const current = creditBurstRef.current;
-        if (
-          current &&
-          current.amountYocto === displayTotal &&
-          current.reasons.length === reasons.length &&
-          current.reasons.every((reason, index) => reason === reasons[index])
-        ) {
-          if (options.refreshOverview !== false) {
-            void refreshRewardsWithRetry({ silent: true, fresh: true });
-          }
-          return;
-        }
-
-        burstSessionIdRef.current += 1;
-        const nextBurst: AppRewardCreditBurstState = {
-          id: burstSessionIdRef.current,
-          amountYocto: displayTotal,
-          reasons,
-        };
-
-        activeBurstEventsRef.current = events;
-        creditBurstRef.current = nextBurst;
-        burstActiveRef.current = true;
-        setCreditBurst(nextBurst);
       }
 
       if (options.refreshOverview !== false) {
         void refreshRewardsWithRetry({ silent: true, fresh: true });
       }
     },
-    [refreshRewardsWithRetry]
+    [refreshRewardsWithRetry, showCreditToast]
   );
 
   const flushAggregatedCreditBurst = useCallback(() => {
@@ -326,7 +296,7 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (burstActiveRef.current && !accountSheetOpenRef.current) {
+    if (toastActiveRef.current && !accountSheetOpenRef.current) {
       aggregateRef.current.timer = setTimeout(() => {
         flushAggregatedCreditBurstRef.current();
       }, APP_REWARD_BURST_AGGREGATE_MS);
@@ -416,25 +386,35 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
       }
 
       const txHash = typeof data.tx_hash === 'string' ? data.tx_hash.trim() : '';
-      if (txHash) {
-        const confirmation = await waitForNearTransactionBatchConfirmation({
-          txHashes: [txHash],
-          accountId,
-        });
+      const amountLabel = formatSocialCompact(claimed.toString());
 
-        if (!confirmation.ok) {
-          throw new Error(
-            confirmation.errorMessage ?? 'Collection failed on-chain.'
-          );
+      if (txHash) {
+        const confirmed = await trackTransaction({
+          txHashes: [txHash],
+          submittedMessage: txToastConfirming.collectingSocial,
+          successMessage: txToastSuccess.rewardsCollected(amountLabel),
+          failureMessage: txToastError.collectSocialFailed,
+        });
+        setCollectPhase('idle');
+        if (!confirmed) {
+          return;
         }
+      } else {
+        setCollectPhase('idle');
+        setTxResult({
+          type: 'success',
+          msg: txToastSuccess.rewardsCollected(amountLabel),
+        });
       }
 
-      setCollectPhase('succeeded');
-    void refreshRewardsWithRetry({ silent: true, fresh: true });
+      void refreshRewardsWithRetry({ silent: true, fresh: true });
       await refreshAppSocialBalanceAfterClaim();
-      setCollectPhase('idle');
     } catch {
       setCollectPhase('idle');
+      setTxResult({
+        type: 'error',
+        msg: txToastError.collectSocialFailed,
+      });
     }
   }, [
     accountId,
@@ -442,6 +422,8 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
     overview?.claimable,
     pendingCreditYocto,
     refreshRewardsWithRetry,
+    setTxResult,
+    trackTransaction,
   ]);
 
   const chainClaimableYocto = useMemo(
@@ -452,11 +434,9 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
   const claimableYocto = chainClaimableYocto + pendingCreditYocto;
 
   const claiming = collectPhase === 'pending';
-  const collectSucceeded = collectPhase === 'succeeded';
 
   const canClaim =
-    collectPhase === 'idle' &&
-    claimableYocto >= APP_REWARD_MIN_CLAIM_YOCTO;
+    collectPhase === 'idle' && claimableYocto >= APP_REWARD_MIN_CLAIM_YOCTO;
 
   const remainingToClaimYocto = canClaim
     ? 0n
@@ -470,12 +450,9 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
       canClaim,
       collectPhase,
       claiming,
-      collectSucceeded,
       remainingToClaimYocto,
       loading,
       activityBarPulseKey,
-      creditBurst,
-      dismissCreditBurst,
       refreshRewards,
       claimRewards,
     }),
@@ -486,9 +463,6 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
       claimRewards,
       collectPhase,
       claiming,
-      collectSucceeded,
-      creditBurst,
-      dismissCreditBurst,
       loading,
       refreshRewards,
       remainingToClaimYocto,
@@ -498,7 +472,6 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
   return (
     <AppRewardsContext.Provider value={value}>
       {children}
-      <AppRewardCreditBurst />
     </AppRewardsContext.Provider>
   );
 }

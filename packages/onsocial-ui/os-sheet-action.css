@@ -303,13 +303,35 @@
   transform: scale(0.985);
 }
 
+.os-sheet-action--danger.is-pending:disabled:not(.is-succeeded) {
+  cursor: progress;
+  opacity: 1;
+}
+
 @media (min-width: 640px) {
   .os-sheet-action,
   .os-sheet-primary-action,
   .os-sheet-ghost-action {
-    min-height: 3rem;
-    padding: 0.75rem 1.15rem;
-    font-size: 0.9375rem;
+    min-height: 2.875rem;
+    padding: 0.72rem 1.1rem;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .os-sheet-action,
+  .os-sheet-primary-action,
+  .os-sheet-ghost-action {
+    min-height: 2.625rem;
+    padding: 0.62rem 0.9rem;
+    font-size: 0.8125rem;
+  }
+
+  .os-sheet-actions--row-compact .os-sheet-action,
+  .os-sheet-actions--row-compact .os-sheet-primary-action {
+    min-height: 2.5rem;
+    padding: 0.55rem 0.65rem;
+    font-size: 0.75rem;
   }
 }
 

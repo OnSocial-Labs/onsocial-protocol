@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { accountIdsEqual } from '@/lib/account-match';
 import { fetchViewerStandingRelationship } from '@/lib/profile-social-standings';
 import { resolveViewerStanding } from '@/lib/viewer-standing-ledger';
 import {
@@ -21,6 +22,9 @@ export function useViewerRelationship(pageAccountId: string) {
   const [apiRelationship, setApiRelationship] =
     useState<ApiRelationshipState | null>(null);
   const [ledgerVersion, setLedgerVersion] = useState(0);
+  const isSelf =
+    Boolean(viewerAccountId) &&
+    accountIdsEqual(viewerAccountId!, pageAccountId);
 
   useEffect(() => {
     return subscribeGlobalViewerStandingLedger(() => {
@@ -29,7 +33,7 @@ export function useViewerRelationship(pageAccountId: string) {
   }, []);
 
   useEffect(() => {
-    if (!isConnected || !viewerAccountId || viewerAccountId === pageAccountId) {
+    if (!isConnected || !viewerAccountId || isSelf) {
       return;
     }
 
@@ -64,9 +68,9 @@ export function useViewerRelationship(pageAccountId: string) {
     return () => {
       cancelled = true;
     };
-  }, [isConnected, pageAccountId, viewerAccountId, ledgerVersion]);
+  }, [isConnected, isSelf, pageAccountId, viewerAccountId, ledgerVersion]);
 
-  if (!isConnected || !viewerAccountId || viewerAccountId === pageAccountId) {
+  if (!isConnected || !viewerAccountId || isSelf) {
     return {
       viewerStanding: false,
       theyStandWithViewer: false,

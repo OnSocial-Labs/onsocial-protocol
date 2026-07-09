@@ -87,7 +87,10 @@ export class GroupsModule {
       action,
       this._coreContract,
       methodLabel ?? `groups.${String(action.type ?? 'unknown')}`,
-      broadcast !== undefined ? { broadcast } : undefined
+      {
+        wait: true,
+        ...(broadcast !== undefined ? { broadcast } : {}),
+      }
     );
   }
 

@@ -1,5 +1,8 @@
 import type { PageSection } from '@onsocial/sdk';
+import { formatCompactCount } from '@/lib/page-drawer-meta';
 import type { PublicPageConfig, PublicPageStats } from '@/lib/page-data';
+import type { ProfileGuildSummary } from '@/lib/profile-guilds';
+import type { PortfolioSocialLink } from '@/lib/profile-social-links';
 
 export const PAGE_SECTION_LABELS: Record<PageSection, string> = {
   profile: 'Profile',
@@ -13,7 +16,7 @@ export const PAGE_SECTION_LABELS: Record<PageSection, string> = {
 };
 
 export const PAGE_SECTION_DESCRIPTIONS: Record<PageSection, string> = {
-  profile: 'Bio, tags, and how they show up.',
+  profile: 'Quiet about line and labels in the page drawer.',
   links: 'Outbound links from their profile.',
   support: 'Support and tipping.',
   posts: 'Public posts and updates.',
@@ -23,6 +26,7 @@ export const PAGE_SECTION_DESCRIPTIONS: Record<PageSection, string> = {
   groups: 'Guilds they belong to.',
 };
 
+/** Visitor-friendly defaults — browse chapters only; gestures sit after. */
 const DEFAULT_PAGE_SECTIONS: PageSection[] = [
   'posts',
   'groups',
@@ -30,6 +34,9 @@ const DEFAULT_PAGE_SECTIONS: PageSection[] = [
   'links',
   'badges',
 ];
+
+/** Max guild cards in the drawer rail before “See all”. */
+export const PAGE_DRAWER_GUILD_PEEK = 6;
 
 const PAGE_SECTION_SET = new Set<string>(Object.keys(PAGE_SECTION_LABELS));
 
@@ -41,7 +48,7 @@ function isPageSection(value: string): value is PageSection {
 export function resolvePageSections(config: PublicPageConfig): PageSection[] {
   const configured = (config.sections ?? [])
     .filter(isPageSection)
-    .filter((section) => section !== 'profile');
+    .filter((section) => section !== 'profile' && section !== 'support');
 
   if (configured.length > 0) {
     return configured;
@@ -52,18 +59,77 @@ export function resolvePageSections(config: PublicPageConfig): PageSection[] {
 
 export function pageSectionCountHint(
   section: PageSection,
-  stats: PublicPageStats
+  stats: PublicPageStats,
+  options: { scarceCount?: number } = {}
 ): string | null {
   switch (section) {
     case 'posts':
-      return stats.postCount > 0 ? String(stats.postCount) : null;
+      return stats.postCount > 0 ? formatCompactCount(stats.postCount) : null;
     case 'badges':
-      return stats.badgeCount > 0 ? String(stats.badgeCount) : null;
+      return stats.badgeCount > 0 ? formatCompactCount(stats.badgeCount) : null;
     case 'groups':
-      return stats.groupCount > 0 ? String(stats.groupCount) : null;
-    case 'collectibles':
-      return stats.badgeCount > 0 ? String(stats.badgeCount) : null;
+      return stats.groupCount > 0 ? formatCompactCount(stats.groupCount) : null;
+    case 'collectibles': {
+      const scarceCount = options.scarceCount ?? 0;
+      return scarceCount > 0 ? formatCompactCount(scarceCount) : null;
+    }
     default:
       return null;
   }
+}
+
+export interface PageSectionVisibilityInput {
+  stats: PublicPageStats;
+  guilds: ProfileGuildSummary[];
+  links: PortfolioSocialLink[];
+  /** Indexed scarce mints for collectibles visibility. */
+  scarceCount?: number;
+  /** Recent post peeks already loaded for the drawer. */
+  postPeekCount?: number;
+}
+
+/** Hide empty showcase sections. Support is a post-content gesture, not a section. */
+export function isPageSectionVisible(
+  section: PageSection,
+  input: PageSectionVisibilityInput
+): boolean {
+  switch (section) {
+    case 'posts':
+      return (
+        input.stats.postCount > 0 || (input.postPeekCount ?? 0) > 0
+      );
+    case 'groups':
+      return input.guilds.length > 0 || input.stats.groupCount > 0;
+    case 'collectibles':
+      return (input.scarceCount ?? 0) > 0;
+    case 'badges':
+    case 'events':
+    case 'support':
+    case 'profile':
+      return false;
+    case 'links':
+      return input.links.length > 0;
+    default:
+      return false;
+  }
+}
+
+export function resolveVisiblePageSections(
+  config: PublicPageConfig,
+  input: PageSectionVisibilityInput
+): PageSection[] {
+  return resolvePageSections(config).filter((section) =>
+    isPageSectionVisible(section, input)
+  );
+}
+
+/** Jump rail — browse chapters only. */
+export function pageDrawerJumpSections(sections: PageSection[]): PageSection[] {
+  return sections.filter(
+    (section) => section !== 'support' && section !== 'profile'
+  );
+}
+
+export function pageDrawerSectionDomId(section: PageSection): string {
+  return `page-drawer-section-${section}`;
 }

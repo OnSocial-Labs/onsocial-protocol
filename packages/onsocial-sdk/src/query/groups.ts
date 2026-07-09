@@ -49,6 +49,19 @@ export type GroupMemberRow = Pick<
   | 'blockTimestamp'
 >;
 
+export interface GroupCurrentRow {
+  groupId: string;
+  ownerId: string;
+  groupName: string | null;
+  groupDescription: string | null;
+  groupAvatarCid: string | null;
+  groupBannerCid: string | null;
+  isPublic: boolean | null;
+  isMemberDriven: boolean;
+  blockHeight: number;
+  blockTimestamp: number;
+}
+
 export class GroupsQuery {
   constructor(private _q: QueryModule) {}
 
@@ -140,6 +153,181 @@ export class GroupsQuery {
       variables: { groupId, limit, offset },
     });
     const rows = res.data?.groupMembersCurrent ?? [];
+    return {
+      items: rows,
+      nextOffset: rows.length >= limit ? offset + limit : undefined,
+    };
+  }
+
+  /**
+   * Indexed membership row for one account in a guild, backed by
+   * `group_members_current`. Prefer this over multiple contract views for
+   * isOwner / isAdmin / canModerate when indexer lag is acceptable.
+   */
+  async membershipFor(
+    groupId: string,
+    memberId: string
+  ): Promise<GroupMemberRow | null> {
+    const res = await this._q.graphql<{
+      groupMembersCurrent: GroupMemberRow[];
+    }>({
+      query: `query GroupMembershipFor($groupId: String!, $memberId: String!) {
+        groupMembersCurrent(
+          where: {
+            groupId: {_eq: $groupId},
+            memberId: {_eq: $memberId}
+          },
+          limit: 1
+        ) {
+          groupId
+          memberId
+          role
+          level
+          isOwner
+          isAdmin
+          canModerate
+          blockHeight
+          blockTimestamp
+        }
+      }`,
+      variables: { groupId, memberId },
+    });
+    return res.data?.groupMembersCurrent[0] ?? null;
+  }
+
+  /**
+   * Recent post channel labels for a guild — minimal indexer payload for
+   * room discovery (aggregate client-side).
+   */
+  async postChannelSample(
+    groupId: string,
+    opts: { limit?: number } = {}
+  ): Promise<string[]> {
+    const limit = opts.limit ?? 120;
+    const res = await this._q.graphql<{
+      postsCurrent: { channel: string | null }[];
+    }>({
+      query: `query GroupPostChannelSample($groupId: String!, $limit: Int!) {
+        postsCurrent(
+          where: {
+            groupId: {_eq: $groupId},
+            isGroupContent: {_eq: true},
+            channel: {_is_null: false, _neq: ""}
+          },
+          limit: $limit,
+          offset: 0,
+          orderBy: [{blockHeight: DESC}]
+        ) {
+          channel
+        }
+      }`,
+      variables: { groupId, limit },
+    });
+    return (res.data?.postsCurrent ?? [])
+      .map((row) => row.channel?.trim())
+      .filter((channel): channel is string => Boolean(channel));
+  }
+
+  /**
+   * Member counts for many guilds in one GraphQL round-trip (indexed roster).
+   */
+  async memberCountsFor(groupIds: string[]): Promise<Map<string, number>> {
+    const unique = [
+      ...new Set(groupIds.map((id) => id.trim()).filter(Boolean)),
+    ];
+    const counts = new Map<string, number>();
+    if (unique.length === 0) return counts;
+
+    const chunkSize = 25;
+    for (let offset = 0; offset < unique.length; offset += chunkSize) {
+      const chunk = unique.slice(offset, offset + chunkSize);
+      const aliasFields = chunk
+        .map(
+          (groupId, index) =>
+            `g${index}: groupMembersCurrentAggregate(where: {groupId: {_eq: $id${index}}}) { aggregate { count } }`
+        )
+        .join('\n');
+      const variableDecl = chunk
+        .map((_, index) => `$id${index}: String!`)
+        .join(', ');
+      const variables: Record<string, string> = {};
+      chunk.forEach((groupId, index) => {
+        variables[`id${index}`] = groupId;
+      });
+
+      const res = await this._q.graphql<
+        Record<string, { aggregate?: { count?: number | null } | null }>
+      >({
+        query: `query GroupMemberCounts(${variableDecl}) { ${aliasFields} }`,
+        variables,
+      });
+
+      chunk.forEach((groupId, index) => {
+        const count = res.data?.[`g${index}`]?.aggregate?.count;
+        counts.set(groupId, typeof count === 'number' ? count : 0);
+      });
+    }
+
+    return counts;
+  }
+
+  /**
+   * Browse indexed guilds from `groups_current` (discover / search).
+   *
+   * ```ts
+   * const { items } = await os.query.groups.browse({ query: 'rebels', limit: 12 });
+   * ```
+   */
+  async browse(
+    opts: {
+      query?: string;
+      publicOnly?: boolean;
+      limit?: number;
+      offset?: number;
+    } = {}
+  ): Promise<Paginated<GroupCurrentRow>> {
+    const limit = opts.limit ?? 20;
+    const offset = opts.offset ?? 0;
+    const query = opts.query?.trim();
+    const queryLike = query ? `%${query}%` : undefined;
+    const filters: string[] = [];
+    if (opts.publicOnly) {
+      filters.push('{isPublic: {_eq: true}}');
+    }
+    if (queryLike !== undefined) {
+      filters.push(
+        '{_or: [{groupName: {_ilike: $queryLike}}, {groupId: {_ilike: $queryLike}}]}'
+      );
+    }
+    const whereClause =
+      filters.length > 0 ? `where: {_and: [${filters.join(', ')}]},` : '';
+    const res = await this._q.graphql<{ groupsCurrent: GroupCurrentRow[] }>({
+      query: `query BrowseGroups($limit: Int!, $offset: Int!${queryLike !== undefined ? ', $queryLike: String!' : ''}) {
+        groupsCurrent(
+          ${whereClause}
+          limit: $limit,
+          offset: $offset,
+          orderBy: [{blockHeight: DESC}]
+        ) {
+          groupId
+          ownerId
+          groupName
+          groupDescription
+          groupAvatarCid
+          groupBannerCid
+          isPublic
+          isMemberDriven
+          blockHeight
+          blockTimestamp
+        }
+      }`,
+      variables: {
+        limit,
+        offset,
+        ...(queryLike !== undefined ? { queryLike } : {}),
+      },
+    });
+    const rows = res.data?.groupsCurrent ?? [];
     return {
       items: rows,
       nextOffset: rows.length >= limit ? offset + limit : undefined,

@@ -14,10 +14,10 @@ import {
   OsSheetAction,
   OsSheetActions,
   OsSheetPrimaryAction,
-  osFloatingPanelClassName,
-  osSheetFloatingPanelClassName,
 } from '@/components/ui/os-sheet-primary-action';
+import { OsNoticeCard } from '@/components/ui/os-notice-card';
 import { AccountEditorChrome } from '@/components/wallet/account-editor-chrome';
+import { ProfileEditorLoadError } from '@/components/wallet/profile-editor-load-error';
 import { ProfileEditorLoadingSkeleton } from '@/components/wallet/profile-editor-loading-skeleton';
 import { ProfileLinksEditor } from '@/components/wallet/profile-links-editor';
 import { ProfileTagsEditor } from '@/components/wallet/profile-tags-editor';
@@ -44,8 +44,13 @@ import {
 } from '@/lib/profile-links';
 import { normalizeProfileEditorTags } from '@/lib/profile-tag-editor';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
+import { nearExplorerTxHref } from '@/lib/app-config';
+import {
+  txToastError,
+  txToastSuccess,
+} from '@/lib/transaction-toast-copy';
 
-const PROFILE_SAVE_SUCCESS_HOLD_MS = 1200;
 const PROFILE_BANNER_ACCEPT =
   'image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm';
 
@@ -99,7 +104,6 @@ interface ProfileEditorFormProps {
   linksFromSnapshot: ProfileLinksInput;
   tagsFromSnapshot: string[];
   saving: boolean;
-  error: string | null;
   hasSocialSession: boolean;
   isBootstrappingSession: boolean;
   connect: () => void;
@@ -121,7 +125,6 @@ function ProfileEditorForm({
   linksFromSnapshot,
   tagsFromSnapshot,
   saving,
-  error,
   hasSocialSession,
   isBootstrappingSession,
   connect,
@@ -134,9 +137,12 @@ function ProfileEditorForm({
   onKeepEditing,
   onDiscard,
 }: ProfileEditorFormProps) {
+  const { setTxResult } = useAppTransactionFeedback();
   const keepEditingRef = useRef<HTMLButtonElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const resumeFocusAfterDiscardRef = useRef(false);
   const scrollFieldIntoView = useMobileFieldFocusScroll();
-  const [saved, setSaved] = useState(false);
   const [name, setName] = useState(snapshot.name);
   const [bio, setBio] = useState(snapshot.bio);
   const [tags, setTags] = useState(() =>
@@ -165,26 +171,55 @@ function ProfileEditorForm({
   }, [bio]);
 
   useEffect(() => {
-    if (!discardConfirmOpen) {
+    if (!editorOpen || discardConfirmOpen) {
+      return;
+    }
+
+    if (resumeFocusAfterDiscardRef.current) {
       return;
     }
 
     const focusTimer = window.setTimeout(() => {
-      keepEditingRef.current?.focus();
-    }, 0);
+      nameInputRef.current?.focus({ preventScroll: true });
+    }, 40);
 
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        event.stopPropagation();
-        onKeepEditing();
-      }
-    };
-
-    window.addEventListener('keydown', onKeyDown, true);
     return () => {
       window.clearTimeout(focusTimer);
-      window.removeEventListener('keydown', onKeyDown, true);
+    };
+  }, [discardConfirmOpen, editorOpen]);
+
+  useEffect(() => {
+    if (discardConfirmOpen) {
+      resumeFocusAfterDiscardRef.current = true;
+      const focusTimer = window.setTimeout(() => {
+        keepEditingRef.current?.focus();
+      }, 0);
+
+      const onKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          event.stopPropagation();
+          onKeepEditing();
+        }
+      };
+
+      window.addEventListener('keydown', onKeyDown, true);
+      return () => {
+        window.clearTimeout(focusTimer);
+        window.removeEventListener('keydown', onKeyDown, true);
+      };
+    }
+
+    if (!resumeFocusAfterDiscardRef.current) {
+      return;
+    }
+
+    resumeFocusAfterDiscardRef.current = false;
+    const restoreTimer = window.setTimeout(() => {
+      closeButtonRef.current?.focus();
+    }, 0);
+    return () => {
+      window.clearTimeout(restoreTimer);
     };
   }, [discardConfirmOpen, onKeepEditing]);
 
@@ -230,8 +265,8 @@ function ProfileEditorForm({
     ]
   );
   useEffect(() => {
-    dirtyRef.current = saved ? false : isDirty;
-  }, [dirtyRef, isDirty, saved]);
+    dirtyRef.current = isDirty;
+  }, [dirtyRef, isDirty]);
 
   const nameReady = name.trim().length > 0;
   const hasInvalidLinks = useMemo(
@@ -244,24 +279,26 @@ function ProfileEditorForm({
     snapshot.links && Object.keys(snapshot.links).length > 0
   );
   const hasLinkInput = Object.values(links).some((value) => value.trim());
-  const submitLabel = snapshot.hasProfile ? 'Save profile' : 'Create profile';
+  const submitLabel = snapshot.hasProfile ? 'Save' : 'Create';
   const handleLabel = fallbackLabel(accountId);
   const pageMoodId = usePageMoodId(pageAccountId, accountId, editorOpen);
   const handleHint = portfolioHandleHint(accountId, pageMoodId);
   const avatarInitial = initials(
     displayName(accountId, name.trim() || undefined)
   );
-
-  const markDirty = () => {
-    setSaved(false);
-  };
+  const canSubmit =
+    hasSocialSession &&
+    nameReady &&
+    !saving &&
+    !isBootstrappingSession &&
+    !hasInvalidLinks &&
+    isDirty;
 
   const updateLink = (key: keyof ProfileLinksInput, value: string) => {
     setLinks((current) => ({
       ...current,
       [key]: value,
     }));
-    markDirty();
   };
 
   const clearLinkFieldError = (key: keyof ProfileLinksInput) => {
@@ -329,17 +366,18 @@ function ProfileEditorForm({
         tags,
         currentTags: tagsFromSnapshot,
       });
-      setSaved(true);
       onSaved(result);
-      await new Promise((resolve) =>
-        window.setTimeout(resolve, PROFILE_SAVE_SUCCESS_HOLD_MS)
-      );
+      setTxResult({
+        type: 'success',
+        msg: txToastSuccess.profileSaved,
+        explorerHref: nearExplorerTxHref(result.txHash),
+      });
       onBack();
     } catch (err) {
       if (isWalletUserCancellation(err)) {
         return;
       }
-      setSaved(false);
+      setTxResult({ type: 'error', msg: txToastError.profileSaveFailed });
       const validationErrors = profileLinkEditorFieldErrors(links);
       if (Object.keys(validationErrors).length > 0) {
         setLinkFieldErrors(validationErrors);
@@ -357,7 +395,6 @@ function ProfileEditorForm({
     if (avatarInputRef.current) {
       avatarInputRef.current.value = '';
     }
-    markDirty();
   };
 
   const handleRemoveBanner = () => {
@@ -366,7 +403,6 @@ function ProfileEditorForm({
     if (bannerInputRef.current) {
       bannerInputRef.current.value = '';
     }
-    markDirty();
   };
 
   return (
@@ -387,7 +423,9 @@ function ProfileEditorForm({
                   type="button"
                   className="profile-editor-media-backdrop account-editor-banner-backdrop"
                   onClick={openBannerPicker}
-                  aria-label="Choose banner"
+                  aria-label={
+                    displayBannerMedia ? 'Change banner' : 'Add banner'
+                  }
                 >
                   {displayBannerMedia?.kind === 'video' ? (
                     <video
@@ -424,7 +462,7 @@ function ProfileEditorForm({
                 className="profile-editor-media-size-hint profile-editor-media-size-hint--dock"
                 aria-hidden
               >
-                1500&times;300 image or short MP4/WebM video
+                1500&times;300 · photo or video
               </p>
             </div>
 
@@ -433,6 +471,7 @@ function ProfileEditorForm({
               title="Edit profile"
               onClose={onHeaderClose}
               className="account-editor-hero-chrome"
+              closeButtonRef={closeButtonRef}
             />
 
             <div className="account-editor-hero-overlap">
@@ -445,7 +484,9 @@ function ProfileEditorForm({
                       type="button"
                       className="profile-editor-media-backdrop account-editor-avatar-backdrop"
                       onClick={() => avatarInputRef.current?.click()}
-                      aria-label="Choose avatar"
+                      aria-label={
+                        displayAvatarUrl ? 'Change photo' : 'Add photo'
+                      }
                     >
                       {displayAvatarUrl ? (
                         <img
@@ -483,6 +524,7 @@ function ProfileEditorForm({
                     Display name
                   </label>
                   <input
+                    ref={nameInputRef}
                     id="profile-editor-name"
                     className="account-editor-name"
                     value={name}
@@ -493,13 +535,11 @@ function ProfileEditorForm({
                     onFocus={scrollFieldIntoView}
                     onChange={(event) => {
                       setName(event.target.value);
-                      markDirty();
                     }}
                     onBlur={() => {
                       const trimmed = name.trim().replace(/\s+/g, ' ');
                       if (trimmed !== name) {
                         setName(trimmed);
-                        markDirty();
                       }
                     }}
                   />
@@ -519,17 +559,15 @@ function ProfileEditorForm({
                     value={bio}
                     maxLength={180}
                     rows={1}
-                    placeholder="Add a short bio…"
+                    placeholder="Add a bio…"
                     onFocus={scrollFieldIntoView}
                     onChange={(event) => {
                       setBio(event.target.value);
-                      markDirty();
                     }}
                     onBlur={() => {
                       const trimmed = bio.trim();
                       if (trimmed !== bio) {
                         setBio(trimmed);
-                        markDirty();
                       }
                     }}
                   />
@@ -564,21 +602,14 @@ function ProfileEditorForm({
             tags={tags}
             onChange={(next) => {
               setTags(next);
-              markDirty();
             }}
           />
 
           {!hasSocialSession ? (
             <p className="account-editor-session-hint">
               {isBootstrappingSession
-                ? 'Approve the OnSocial session in your wallet to save.'
-                : 'Resume your session to save profile changes.'}
-            </p>
-          ) : null}
-
-          {error ? (
-            <p className="account-editor-error-card" role="alert">
-              {error}
+                ? 'Approve in your wallet…'
+                : 'Resume session to save.'}
             </p>
           ) : null}
         </div>
@@ -596,55 +627,67 @@ function ProfileEditorForm({
         }
       >
         {discardConfirmOpen ? (
-          <div
-            className={`${osFloatingPanelClassName} ${osSheetFloatingPanelClassName} account-editor-discard-card`}
-          >
-            <div className="account-editor-discard-footer-copy">
-              <p
-                id="account-editor-discard-title"
-                className="account-editor-discard-title"
-              >
-                Discard changes?
-              </p>
-              <p
-                id="account-editor-discard-copy"
-                className="account-editor-discard-copy"
-              >
-                Your edits won&apos;t be saved.
-              </p>
-            </div>
-            <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-              <OsSheetAction
-                ref={keepEditingRef}
-                type="button"
-                variant="primary"
-                onClick={onKeepEditing}
-              >
-                Keep editing
-              </OsSheetAction>
-              <OsSheetAction type="button" variant="danger" onClick={onDiscard}>
-                Discard
-              </OsSheetAction>
+          <OsNoticeCard
+            className="account-editor-discard-card"
+            align="center"
+            shell
+            title="Discard changes?"
+            titleId="account-editor-discard-title"
+            body="Edits won’t be saved."
+            bodyId="account-editor-discard-copy"
+            footer={
+              <div className="os-commit-actions">
+                <button
+                  type="button"
+                  className="os-commit-cancel is-danger"
+                  onClick={onDiscard}
+                >
+                  Discard
+                </button>
+                <OsSheetActions
+                  layout="row-compact"
+                  tone="frosted-primary"
+                  borderless
+                >
+                  <OsSheetAction
+                    ref={keepEditingRef}
+                    type="button"
+                    variant="primary"
+                    ready
+                    onClick={onKeepEditing}
+                  >
+                    Keep editing
+                  </OsSheetAction>
+                </OsSheetActions>
+              </div>
+            }
+          />
+        ) : !hasSocialSession ? (
+          <div className="os-commit-actions account-editor-session-actions">
+            <button
+              type="button"
+              className="os-commit-cancel"
+              disabled={isBootstrappingSession}
+              onClick={() => void connect()}
+            >
+              {isBootstrappingSession ? 'Resuming…' : 'Resume'}
+            </button>
+            <OsSheetActions layout="row-compact" tone="frosted-primary" borderless>
+              <OsSheetPrimaryAction type="submit" disabled>
+                {submitLabel}
+              </OsSheetPrimaryAction>
             </OsSheetActions>
           </div>
         ) : (
           <OsSheetActions layout="stack" tone="frosted-primary" borderless>
             <OsSheetPrimaryAction
               type="submit"
-              ready={isDirty && !saved && hasSocialSession}
-              succeeded={saved}
-              succeededLabel="Saved"
+              ready={canSubmit}
               pending={saving}
               pendingLabel="Saving…"
-              disabled={
-                saved ||
-                !nameReady ||
-                saving ||
-                isBootstrappingSession ||
-                (hasSocialSession && (hasInvalidLinks || !isDirty))
-              }
+              disabled={!canSubmit}
             >
-              {!hasSocialSession ? 'Resume session to save' : submitLabel}
+              {submitLabel}
             </OsSheetPrimaryAction>
           </OsSheetActions>
         )}
@@ -661,7 +704,6 @@ function ProfileEditorForm({
           if (file) {
             setAvatarRemoved(false);
           }
-          markDirty();
           event.target.value = '';
         }}
       />
@@ -676,7 +718,6 @@ function ProfileEditorForm({
           if (file) {
             setBannerRemoved(false);
           }
-          markDirty();
           event.target.value = '';
         }}
       />
@@ -716,7 +757,8 @@ export function AppProfileEditorSheet({
     snapshot,
     loading,
     saving,
-    error,
+    loadError,
+    loadProfile,
     saveProfile,
     hasSocialSession,
     isBootstrappingSession,
@@ -804,7 +846,6 @@ export function AppProfileEditorSheet({
             linksFromSnapshot={linksFromSnapshot}
             tagsFromSnapshot={tagsFromSnapshot}
             saving={saving}
-            error={error}
             hasSocialSession={hasSocialSession}
             isBootstrappingSession={isBootstrappingSession}
             connect={() => void connect()}
@@ -820,7 +861,15 @@ export function AppProfileEditorSheet({
             }}
             onDiscard={handleDiscard}
           />
-        ) : null}
+        ) : loadError ? (
+          <ProfileEditorLoadError
+            message={loadError}
+            onRetry={() => void loadProfile()}
+            onClose={requestClose}
+          />
+        ) : (
+          <ProfileEditorLoadingSkeleton onClose={requestClose} />
+        )}
       </GlassSheet>
     </>
   );

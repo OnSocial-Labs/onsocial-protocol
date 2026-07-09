@@ -15,6 +15,7 @@ import { invalidateViewerCommittedMoodCache } from '@/hooks/use-viewer-wallet-mo
 import { accountIdsEqual } from '@/lib/account-match';
 import { fetchPageConfigFromBrowserProxy } from '@/lib/read-page-config';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 
 function formatApplyMoodError(error: unknown): string {
   if (!(error instanceof Error)) {
@@ -47,7 +48,7 @@ export function useApplyMood(pageAccountId: string) {
   const needsConnect = !isLoading && !isConnected;
 
   const applyMood = useCallback(
-    async (moodId: PageMoodId): Promise<boolean> => {
+    async (moodId: PageMoodId): Promise<string | null> => {
       setError(null);
       setIsApplying(true);
 
@@ -68,19 +69,19 @@ export function useApplyMood(pageAccountId: string) {
           (id: string) => pageMoodPresetForId(id).label
         );
 
-        await client.pages.setConfig(
+        const response = await client.pages.setConfig(
           mergeMoodIntoPageConfig(current, moodId),
           { wait: true }
         );
         invalidateViewerCommittedMoodCache(signingAccountId);
         router.refresh();
-        return true;
+        return collectRelayTxHashes(response)[0] ?? '';
       } catch (err) {
         if (isWalletUserCancellation(err)) {
-          return false;
+          return null;
         }
         setError(formatApplyMoodError(err));
-        return false;
+        return null;
       } finally {
         setIsApplying(false);
       }

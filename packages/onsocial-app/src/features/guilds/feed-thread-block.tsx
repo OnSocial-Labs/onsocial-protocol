@@ -40,7 +40,8 @@ interface BlockRow {
  * A connected conversation block in the guild feed: root on top, replies
  * beneath, avatars joined by one rail. Long chains keep the root (context)
  * and the latest `BLOCK_TAIL_VISIBLE` posts (recency); the middle folds
- * behind a dotted `Show N more` row that expands in place.
+ * behind a dotted row that expands in place — earlier posts by the same
+ * author, not hidden replies from others (those live on the thread page).
  */
 export function FeedThreadBlock({
   block,
@@ -93,14 +94,7 @@ export function FeedThreadBlock({
       .filter(Boolean)
       .join(' ');
 
-    // The author's continuation is already drawn below this row — count only
-    // replies from others next to the comment icon.
-    const isContinued = post !== block[block.length - 1];
     const stats = engagement[postKey(post)];
-    const adjustedStats =
-      stats && isContinued
-        ? { ...stats, replyCount: Math.max(0, stats.replyCount - 1) }
-        : stats;
 
     const quoted = post.refPath ? quotedPosts[post.refPath] : undefined;
 
@@ -127,7 +121,7 @@ export function FeedThreadBlock({
                 )
               : undefined
           }
-          engagement={adjustedStats}
+          engagement={stats}
           reactionPending={isReactionPending(post)}
           onToggleReaction={onToggleReaction}
           onReply={onReply}
@@ -146,7 +140,9 @@ export function FeedThreadBlock({
           className="post-thread-more"
           onClick={() => setExpanded(true)}
         >
-          Show {hiddenCount} more
+          {hiddenCount === 1
+            ? 'Show 1 earlier post in thread'
+            : `Show ${hiddenCount} earlier posts in thread`}
         </button>
       ) : null}
       {tail.map(renderRow)}

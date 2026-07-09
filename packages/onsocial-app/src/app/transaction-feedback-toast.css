@@ -1,0 +1,205 @@
+/* App OS status lane — same glass family as preview bar; status chip, not a control. */
+
+.app-tx-toast-anchor {
+  --app-tx-toast-bottom: calc(
+    var(--portfolio-dock-clearance, calc(4.75rem + env(safe-area-inset-bottom, 0px))) +
+      0.75rem
+  );
+
+  position: fixed;
+  z-index: 2147483646;
+  left: calc(
+    var(--os-column-inset-inline, 0px) + var(--os-column-width, 100%) / 2
+  );
+  right: auto;
+  bottom: var(--app-tx-toast-bottom);
+  width: min(calc(var(--os-column-width, 100%) - 1.5rem), 18rem);
+  transform: translateX(-50%);
+  margin-inline: 0;
+  pointer-events: none;
+}
+
+.app-tx-toast {
+  position: relative;
+  overflow: hidden;
+  border: 0;
+  /* Soft chip — readable overlay (near dropdown opacity), not ambient glass. */
+  border-radius: 1.15rem;
+  background: rgb(var(--bg-rgb) / 0.92);
+  backdrop-filter: blur(32px) saturate(1.6);
+  -webkit-backdrop-filter: blur(32px) saturate(1.6);
+  box-shadow:
+    inset 0 1px 0 rgb(var(--fg-rgb) / 0.1),
+    0 18px 40px -18px rgb(0 0 0 / 0.34),
+    0 6px 16px -12px rgb(0 0 0 / 0.18);
+  color: rgb(var(--fg-rgb) / 0.92);
+  pointer-events: auto;
+  animation: app-tx-toast-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Stable shell — success/error never retint the glass fill. */
+.app-tx-toast.is-success,
+.app-tx-toast.is-error {
+  background: rgb(var(--bg-rgb) / 0.92);
+}
+
+@keyframes app-tx-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.app-tx-toast-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 2.35rem;
+  padding: 0.5rem 0.55rem 0.5rem 0.75rem;
+}
+
+.app-tx-toast-icon-wrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+/* Tiny status mark only — no glow wash that reads as bg tint. */
+.app-tx-toast-icon-halo {
+  display: none;
+}
+
+.app-tx-toast-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.app-tx-toast-icon--success {
+  width: 1rem;
+  height: 1rem;
+  color: var(--protocol-green);
+}
+
+.app-tx-toast-icon--error {
+  width: 1rem;
+  height: 1rem;
+  color: var(--protocol-red);
+}
+
+.app-tx-toast-copy {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 1.125rem;
+}
+
+.app-tx-toast-eyebrow {
+  display: block;
+  margin-bottom: 0.0625rem;
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-rgb) / 0.42);
+}
+
+.app-tx-toast-message {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.25;
+  color: rgb(var(--fg-rgb) / 0.92);
+}
+
+.app-tx-toast-explorer,
+.app-tx-toast-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-top: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: rgb(var(--fg-rgb) / 0.42);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.app-tx-toast-explorer:hover,
+.app-tx-toast-explorer:focus-visible,
+.app-tx-toast-close:hover,
+.app-tx-toast-close:focus-visible {
+  color: rgb(var(--fg-rgb) / 0.78);
+  outline: none;
+}
+
+.app-tx-toast-explorer-icon,
+.app-tx-toast-close-icon {
+  width: 0.8125rem;
+  height: 0.8125rem;
+}
+
+/*
+ * Colored dismiss hairline — icon + line carry status; glass fill stays stable.
+ */
+.app-tx-toast-progress {
+  height: 1px;
+  transform-origin: left center;
+  opacity: 0.55;
+  animation-name: app-tx-toast-progress;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+.app-tx-toast-progress--success {
+  background: var(--protocol-green);
+}
+
+.app-tx-toast-progress--error {
+  background: var(--protocol-red);
+}
+
+@keyframes app-tx-toast-progress {
+  from {
+    transform: scaleX(1);
+  }
+
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-tx-toast {
+    animation: none;
+  }
+
+  .app-tx-toast-progress--success,
+  .app-tx-toast-progress--error {
+    animation: none;
+    transform: scaleX(0);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .app-tx-toast,
+  .app-tx-toast.is-success,
+  .app-tx-toast.is-error {
+    background: rgb(var(--bg-rgb) / 0.98);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}

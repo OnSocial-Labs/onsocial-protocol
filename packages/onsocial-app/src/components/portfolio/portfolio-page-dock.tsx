@@ -8,6 +8,8 @@ import {
 } from 'react';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePageContentDrawer } from '@/contexts/page-content-drawer-context';
+import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-context';
+import { usePortfolioMoodPreview } from '@/contexts/portfolio-mood-preview-context';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { accountIdsEqual } from '@/lib/account-match';
 import { SummonLauncher } from '@/components/os/summon-launcher';
@@ -40,9 +42,13 @@ function readDockHintPending(): boolean {
 export function PortfolioPageDock({ pageAccountId }: PortfolioPageDockProps) {
   const { open: openPageDrawer } = usePageContentDrawer();
   const { accountId, isConnected } = useAppWallet();
+  const { isPreviewingMood } = usePortfolioMoodPreview();
+  const { isPreviewing: isPreviewingFace } = usePortfolioFacePreview();
   const [osOpen, setOsOpen] = useState(false);
   const [showHint, setShowHint] = useState(readDockHintPending);
-  const dockHidden = useDockAutoHide() && !osOpen;
+  const previewPinned = isPreviewingMood || isPreviewingFace;
+  // Keep dock visible while commit bars are up (save/refresh can scroll-hide it).
+  const dockHidden = useDockAutoHide(previewPinned) && !osOpen;
 
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pointerStart = useRef<{

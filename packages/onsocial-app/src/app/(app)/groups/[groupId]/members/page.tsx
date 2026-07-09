@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { getGuildBlueprint } from '@/features/guilds/guilds-data';
-import { GuildMembersPanel } from '@/features/guilds/guilds-panels';
+import { LiveGuildMembersPanel } from '@/features/guilds/live-guild-members-panel';
 
 type GuildMembersPageProps = {
   params: Promise<{
@@ -24,5 +24,5 @@ export default async function GuildMembersPage({
   params,
 }: GuildMembersPageProps) {
   const { groupId } = await params;
-  return <GuildMembersPanel groupId={decodeURIComponent(groupId)} />;
+  return <LiveGuildMembersPanel groupId={decodeURIComponent(groupId)} />;
 }

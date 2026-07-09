@@ -51,6 +51,7 @@ export function AppAccountSheet({
     hasSocialSession,
     isBootstrappingSession,
     connect,
+    switchWallet,
     disconnect,
   } = useAppWallet();
   const customize = usePortfolioCustomize();
@@ -112,6 +113,11 @@ export function AppAccountSheet({
     await disconnect();
     requestClose();
   }, [disconnect, requestClose]);
+
+  const handleSwitchWallet = useCallback(async () => {
+    requestClose();
+    await switchWallet();
+  }, [requestClose, switchWallet]);
 
   const handleCustomize = useCallback(() => {
     pendingCustomizeRef.current = true;
@@ -229,7 +235,6 @@ export function AppAccountSheet({
           ) : null}
 
           <AccountWalletZone
-            accountId={accountId}
             enabled={sheetOpen}
             onOpenStorage={handleOpenStorage}
             platformStorageLoading={platformStorage.loading}
@@ -250,6 +255,7 @@ export function AppAccountSheet({
           <AccountShortcutDock
             accountId={accountId}
             onClose={requestClose}
+            onSwitchWallet={() => void handleSwitchWallet()}
             onDisconnect={() => void handleDisconnect()}
           />
         </div>

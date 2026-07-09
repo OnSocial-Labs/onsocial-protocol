@@ -1,13 +1,15 @@
-import { Github, Globe, Link2 } from 'lucide-react';
 import {
-  FaDiscord,
-  FaInstagram,
-  FaLinkedin,
-  FaTiktok,
-  FaXTwitter,
-  FaYoutube,
-} from 'react-icons/fa6';
-import { RiTelegram2Line } from 'react-icons/ri';
+  DiscordFillIcon,
+  GithubFillIcon,
+  GlobeIcon,
+  InstagramFillIcon,
+  LinkIcon,
+  LinkedinFillIcon,
+  TelegramFillIcon,
+  TiktokFillIcon,
+  XFillIcon,
+  YoutubeFillIcon,
+} from '@onsocial/ui';
 import type { PortfolioLinkKind } from '@/lib/profile-social-links';
 
 interface PortfolioLinkIconProps {
@@ -15,18 +17,26 @@ interface PortfolioLinkIconProps {
   className?: string;
 }
 
-/** Portal glyph set — sized up for OnPage portfolio touch targets. */
+/** Mage glyphs for portfolio social / link marks. */
 export function PortfolioLinkIcon({ kind, className }: PortfolioLinkIconProps) {
-  if (kind === 'website') return <Globe className={className} aria-hidden />;
-  if (kind === 'x') return <FaXTwitter className={className} aria-hidden />;
+  if (kind === 'website') return <GlobeIcon className={className} aria-hidden />;
+  if (kind === 'x') return <XFillIcon className={className} aria-hidden />;
   if (kind === 'telegram') {
-    return <RiTelegram2Line className={className} aria-hidden />;
+    return <TelegramFillIcon className={className} aria-hidden />;
   }
-  if (kind === 'instagram') return <FaInstagram className={className} aria-hidden />;
-  if (kind === 'tiktok') return <FaTiktok className={className} aria-hidden />;
-  if (kind === 'linkedin') return <FaLinkedin className={className} aria-hidden />;
-  if (kind === 'youtube') return <FaYoutube className={className} aria-hidden />;
-  if (kind === 'discord') return <FaDiscord className={className} aria-hidden />;
-  if (kind === 'github') return <Github className={className} aria-hidden />;
-  return <Link2 className={className} aria-hidden />;
+  if (kind === 'instagram') {
+    return <InstagramFillIcon className={className} aria-hidden />;
+  }
+  if (kind === 'tiktok') return <TiktokFillIcon className={className} aria-hidden />;
+  if (kind === 'linkedin') {
+    return <LinkedinFillIcon className={className} aria-hidden />;
+  }
+  if (kind === 'youtube') {
+    return <YoutubeFillIcon className={className} aria-hidden />;
+  }
+  if (kind === 'discord') {
+    return <DiscordFillIcon className={className} aria-hidden />;
+  }
+  if (kind === 'github') return <GithubFillIcon className={className} aria-hidden />;
+  return <LinkIcon className={className} aria-hidden />;
 }

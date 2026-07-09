@@ -3,11 +3,15 @@
 import { useCallback, useState } from 'react';
 import type { TransactionFeedback } from '@/components/ui/transaction-feedback-toast';
 import { waitForNearTransactionBatchConfirmation } from '@/lib/app-near-rpc';
-import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/app-config';
+import { nearExplorerTxHref } from '@/lib/app-config';
 
 type TrackNearTransactionParams = {
   txHashes: string[];
-  submittedMessage: string;
+  /**
+   * Kept for call-site readability / future copy. App toasts are success/error
+   * only — the action button owns the wait (pulsing dots).
+   */
+  submittedMessage?: string;
   successMessage: string;
   failureMessage?: string;
   onFailure?: (message: string) => void;
@@ -30,16 +34,14 @@ export function useNearTransactionFeedback(
   const trackTransaction = useCallback(
     async ({
       txHashes,
-      submittedMessage,
       successMessage,
       failureMessage,
       onFailure,
     }: TrackNearTransactionParams): Promise<boolean> => {
       const uniqueHashes = [...new Set(txHashes.filter(Boolean))];
-      const explorerTxHash = resolveExplorerTxHash(uniqueHashes);
-      const explorerHref = explorerTxHash
-        ? `${ACTIVE_NEAR_EXPLORER_URL}/txns/${explorerTxHash}`
-        : null;
+      const explorerHref = nearExplorerTxHref(
+        resolveExplorerTxHash(uniqueHashes)
+      );
 
       if (!accountId) {
         const msg = 'Connect wallet to continue.';
@@ -53,13 +55,7 @@ export function useNearTransactionFeedback(
         return true;
       }
 
-      setTxResult({
-        type: 'pending',
-        pendingPhase: 'chain',
-        msg: submittedMessage,
-        explorerHref,
-      });
-
+      // No pending/blue toast — button stays pulsing until settle.
       try {
         const result = await waitForNearTransactionBatchConfirmation({
           txHashes: uniqueHashes,
@@ -67,7 +63,8 @@ export function useNearTransactionFeedback(
         });
 
         if (!result.ok) {
-          const msg = result.errorMessage ?? failureMessage ?? 'Transaction failed.';
+          const msg =
+            result.errorMessage ?? failureMessage ?? 'Transaction failed.';
           setTxResult({ type: 'error', msg, explorerHref });
           onFailure?.(msg);
           return false;

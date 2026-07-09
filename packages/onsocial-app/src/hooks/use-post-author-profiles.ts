@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export interface PostAuthorProfile {
   accountId: string;
@@ -56,20 +56,19 @@ async function fetchPostAuthorProfile(
 }
 
 export function usePostAuthorProfiles(accountIds: string[]) {
-  const uniqueAccountIds = useMemo(
-    () => Array.from(new Set(accountIds.filter(Boolean))).sort(),
-    [accountIds]
-  );
-  const cacheKey = uniqueAccountIds.join('\n');
+  const accountIdsKey = Array.from(new Set(accountIds.filter(Boolean)))
+    .sort()
+    .join('\n');
   const [profiles, setProfiles] = useState<Record<string, PostAuthorProfile>>(
     {}
   );
 
   useEffect(() => {
-    if (uniqueAccountIds.length === 0) {
+    if (!accountIdsKey) {
       return;
     }
 
+    const uniqueAccountIds = accountIdsKey.split('\n');
     let cancelled = false;
 
     void Promise.all(
@@ -94,7 +93,11 @@ export function usePostAuthorProfiles(accountIds: string[]) {
     return () => {
       cancelled = true;
     };
-  }, [cacheKey, uniqueAccountIds]);
+  }, [accountIdsKey]);
+
+  if (!accountIdsKey) {
+    return {};
+  }
 
   return profiles;
 }

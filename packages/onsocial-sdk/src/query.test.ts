@@ -800,6 +800,62 @@ describe('QueryModule', () => {
       });
     });
 
+    it('browses indexed guilds from groups_current', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          groupsCurrent: [
+            {
+              groupId: 'rebels',
+              ownerId: 'alice.near',
+              groupName: 'Social Rebels',
+              groupDescription: 'Builders guild',
+              groupAvatarCid: null,
+              groupBannerCid: 'bafyBanner',
+              isPublic: true,
+              isMemberDriven: false,
+              blockHeight: 12,
+              blockTimestamp: 120,
+            },
+          ],
+        },
+      });
+
+      const page = await os.query.groups.browse({ query: 'rebel', limit: 10 });
+      expect(page.items).toHaveLength(1);
+      expect(page.items[0].groupId).toBe('rebels');
+
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('groupsCurrent');
+      expect(body.query).toContain('groupName: {_ilike: $queryLike}');
+      expect(body.variables).toMatchObject({
+        queryLike: '%rebel%',
+        limit: 10,
+        offset: 0,
+      });
+    });
+
+    it('loads member counts for many guilds in one query', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          g0: { aggregate: { count: 3 } },
+          g1: { aggregate: { count: 12 } },
+        },
+      });
+
+      const counts = await os.query.groups.memberCountsFor(['dao', 'rebels']);
+      expect(counts.get('dao')).toBe(3);
+      expect(counts.get('rebels')).toBe(12);
+
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('groupMembersCurrentAggregate');
+      expect(body.query).toContain('g0:');
+      expect(body.query).toContain('g1:');
+      expect(body.variables).toMatchObject({
+        id0: 'dao',
+        id1: 'rebels',
+      });
+    });
+
     it('queries current members of a group, owner first', async () => {
       const { os, fetch } = makeOs({
         data: {
@@ -845,6 +901,55 @@ describe('QueryModule', () => {
         limit: 8,
         offset: 0,
       });
+    });
+
+    it('queries indexed membership for one account in a group', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          groupMembersCurrent: [
+            {
+              groupId: 'dao',
+              memberId: 'bob.near',
+              role: null,
+              level: 1,
+              isOwner: false,
+              isAdmin: false,
+              canModerate: true,
+              blockHeight: 12,
+              blockTimestamp: 120,
+            },
+          ],
+        },
+      });
+
+      const row = await os.query.groups.membershipFor('dao', 'bob.near');
+      expect(row?.canModerate).toBe(true);
+
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('GroupMembershipFor');
+      expect(body.variables).toMatchObject({
+        groupId: 'dao',
+        memberId: 'bob.near',
+      });
+    });
+
+    it('samples recent post channels with a minimal payload', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          postsCurrent: [{ channel: 'announcements' }, { channel: 'general' }],
+        },
+      });
+
+      const channels = await os.query.groups.postChannelSample('dao', {
+        limit: 40,
+      });
+      expect(channels).toEqual(['announcements', 'general']);
+
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('GroupPostChannelSample');
+      expect(body.query).toContain('channel');
+      expect(body.query).not.toContain('value');
+      expect(body.variables).toMatchObject({ groupId: 'dao', limit: 40 });
     });
 
     it('queries group-scoped posts with isGroupContent filtering', async () => {

@@ -1,4 +1,192 @@
-import { resolveProfileMediaUrl } from '@/lib/profile-display';
+
+import type { Proposal } from '@onsocial/sdk';
+import {
+  parseGuildStructure,
+  type GuildStructureDocument,
+} from '@/features/guilds/guild-structure';
+import { guildMediaUrlFromCid } from '@/features/guilds/guild-visual';
+export const GUILD_COLLABORATIVE_JOIN_STORAGE_MIN_NEAR = '0.1';
+
+export const GUILD_COLLABORATIVE_JOIN_STORAGE_MIN_YOCTO = 100_000_000_000_000_000_000_000n;
+
+export const GUILD_COLLABORATIVE_JOIN_STORAGE_HINT =
+  'Collaborative guilds need ~0.1 NEAR storage to request membership.';
+
+export function collaborativeJoinNeedsStorage(input: {
+  memberDriven: boolean;
+  isMember: boolean;
+  joinPending: boolean;
+  availableYocto: bigint | null | undefined;
+}): boolean {
+  if (!input.memberDriven || input.isMember || input.joinPending) {
+    return false;
+  }
+  if (input.availableYocto === null || input.availableYocto === undefined) {
+    return false;
+  }
+  return input.availableYocto < GUILD_COLLABORATIVE_JOIN_STORAGE_MIN_YOCTO;
+}
+
+export interface GuildMemberRequestRow {
+  id: string;
+  requesterId: string;
+  message: string | null;
+  requestedAt: string | number | null;
+  proposalId: string | null;
+}
+
+function readString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value : null;
+}
+
+function readRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+export function joinRequestMessageFromProposalData(
+  data: Record<string, unknown> | undefined
+): string | null {
+  const joinRequest = readRecord(data?.JoinRequest);
+  return readString(joinRequest?.message);
+}
+
+export function joinRequesterFromProposal(input: {
+  proposer: string;
+  target?: string;
+  data?: Record<string, unknown>;
+}): string {
+  const joinRequest = readRecord(input.data?.JoinRequest);
+  const requester = readString(joinRequest?.requester);
+  if (requester) return requester;
+  if (input.target?.trim()) return input.target;
+  return input.proposer;
+}
+
+export function listActiveJoinRequestProposals<
+  T extends {
+    id: string;
+    status: string;
+    type: string;
+    proposer: string;
+    target?: string;
+    data?: Record<string, unknown>;
+    created_at?: string;
+  },
+>(proposals: T[]): GuildMemberRequestRow[] {
+  const rows: GuildMemberRequestRow[] = [];
+  for (const proposal of proposals) {
+    if (proposal.status !== 'active' || proposal.type !== 'join_request') {
+      continue;
+    }
+    rows.push({
+      id: proposal.id,
+      requesterId: joinRequesterFromProposal(proposal),
+      message: joinRequestMessageFromProposalData(proposal.data),
+      requestedAt: proposal.created_at ?? null,
+      proposalId: proposal.id,
+    });
+  }
+  return rows;
+}
+
+export function listSubmittedJoinRequestsFromEvents(
+  rows: Array<{ memberId: string | null; author: string }>
+): GuildMemberRequestRow[] {
+  const seen = new Set<string>();
+  const requests: GuildMemberRequestRow[] = [];
+  for (const row of rows) {
+    const requesterId = row.memberId?.trim() || row.author.trim();
+    if (!requesterId) continue;
+    const key = requesterId.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    requests.push({
+      id: requesterId,
+      requesterId,
+      message: null,
+      requestedAt: null,
+      proposalId: null,
+    });
+  }
+  return requests;
+}
+
+export function isOwnGuildMemberRequest(
+  row: GuildMemberRequestRow,
+  accountId: string | null | undefined
+): boolean {
+  if (!accountId?.trim()) return false;
+  return row.requesterId.toLowerCase() === accountId.trim().toLowerCase();
+}
+
+export function isOwnJoinRequestProposal(
+  proposal: { proposer: string; target?: string },
+  accountId: string | null | undefined
+): boolean {
+  if (!accountId?.trim()) return false;
+  const needle = accountId.trim().toLowerCase();
+  const requester = joinRequesterFromProposal(proposal);
+  return requester.toLowerCase() === needle;
+}
+
+/** Minimal proposal shape for access-gated join requests that are not on-chain proposals. */
+export function memberRequestRowToProposal(row: GuildMemberRequestRow): Proposal {
+  const message =
+    row.message?.trim() || 'Requested access to this guild.';
+  return {
+    id: row.id,
+    sequence_number: 0,
+    title: '',
+    type: 'join_request',
+    status: 'active',
+    description: message,
+    proposer: row.requesterId,
+    target: row.requesterId,
+    data: {
+      JoinRequest: {
+        requester: row.requesterId,
+        message,
+      },
+    },
+    created_at:
+      row.requestedAt !== null && row.requestedAt !== undefined
+        ? String(row.requestedAt)
+        : '',
+    voting_config: {
+      participation_quorum_bps: 0,
+      majority_threshold_bps: 0,
+      voting_period: '1d',
+    },
+  };
+}
+
+/** Join-request votes require guild membership; requesters cannot vote on their own proposal. */
+export function canVoteOnGuildMemberRequest(input: {
+  row: GuildMemberRequestRow;
+  accountId: string | null | undefined;
+  isMember: boolean;
+}): boolean {
+  if (!input.isMember) return false;
+  return !isOwnGuildMemberRequest(input.row, input.accountId);
+}
+
+export function findActiveJoinProposalForAccount<
+  T extends { status: string; type: string; proposer: string; target?: string; id: string },
+>(proposals: T[], accountId: string): T | null {
+  const needle = accountId.toLowerCase();
+  for (const proposal of proposals) {
+    if (proposal.status !== 'active' || proposal.type !== 'join_request') {
+      continue;
+    }
+    if (proposal.proposer.toLowerCase() !== needle) continue;
+    if (proposal.target?.toLowerCase() !== needle) continue;
+    return proposal;
+  }
+  return null;
+}
+
 
 export interface GuildConfigSnapshot {
   name: string;
@@ -8,14 +196,27 @@ export interface GuildConfigSnapshot {
   accessGated: boolean;
   memberDriven: boolean;
   tags: string[];
-}
-
-function readString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim() ? value : null;
+  structure: GuildStructureDocument;
 }
 
 function readBoolean(value: unknown): boolean {
   return value === true;
+}
+
+/** Same access derivation for cards, hero, and settings — config wins over indexer. */
+export function deriveGuildAccessGated(
+  input: Record<string, unknown> | {
+    isPublic?: boolean | null;
+    isPrivate?: boolean | null;
+    is_private?: boolean | null;
+  }
+): boolean {
+  if (readBoolean(input.is_private) || readBoolean(input.isPrivate)) {
+    return true;
+  }
+  if (input.isPublic === false) return true;
+  if (input.isPublic === true) return false;
+  return false;
 }
 
 function readNestedString(value: unknown, path: string[]): string | null {
@@ -40,16 +241,13 @@ export function normalizeGuildConfig(
   return {
     name: readString(raw.name) ?? groupId,
     description: readString(raw.description) ?? '',
-    avatarUrl: avatarCid
-      ? resolveProfileMediaUrl(`ipfs://${avatarCid}`)
-      : null,
-    bannerUrl: bannerCid
-      ? resolveProfileMediaUrl(`ipfs://${bannerCid}`)
-      : null,
-    accessGated: readBoolean(raw.is_private) || readBoolean(raw.isPrivate),
+    avatarUrl: guildMediaUrlFromCid(avatarCid),
+    bannerUrl: guildMediaUrlFromCid(bannerCid),
+    accessGated: deriveGuildAccessGated(raw),
     memberDriven:
       readBoolean(raw.member_driven) || readBoolean(raw.memberDriven),
     tags: rawTags,
+    structure: parseGuildStructure(raw),
   };
 }
 

@@ -10,6 +10,7 @@ import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  type Ref,
   type RefObject,
 } from 'react';
 import { createPortal } from 'react-dom';
@@ -184,10 +185,17 @@ export interface GlassSheetProps {
   ariaLabelledBy: string;
   backdropLabel?: string;
   header?: ReactNode;
+  /** Slot below the scroll body (e.g. action dock). */
+  footer?: ReactNode;
+  /**
+   * When true, footer overlays the body (no flex strip) so content scrolls
+   * full-height underneath.
+   */
+  footerOverlay?: boolean;
   children: ReactNode;
   bodyClassName?: string;
   /** Scroll container for nested infinite lists (`.glass-sheet-body`). */
-  bodyRef?: RefObject<HTMLDivElement | null>;
+  bodyRef?: Ref<HTMLDivElement | null>;
   panelClassName?: string;
   rootClassName?: string;
 }
@@ -569,6 +577,8 @@ export function GlassSheet({
   ariaLabelledBy,
   backdropLabel = 'Close',
   header,
+  footer,
+  footerOverlay = false,
   children,
   bodyClassName,
   bodyRef,
@@ -758,6 +768,17 @@ export function GlassSheet({
         <div ref={bodyRef} className={cn('glass-sheet-body', bodyClassName)}>
           {children}
         </div>
+
+        {footer ? (
+          <div
+            className={cn(
+              'glass-sheet-footer',
+              footerOverlay && 'glass-sheet-footer--overlay'
+            )}
+          >
+            {footer}
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -769,15 +790,22 @@ export interface SheetCloseButtonProps {
   onClick: () => void;
   ariaLabel: string;
   className?: string;
+  ref?: Ref<HTMLButtonElement>;
 }
 
 export function SheetCloseButton({
   onClick,
   ariaLabel,
   className,
+  ref,
 }: SheetCloseButtonProps) {
   return (
-    <OsIconAction onClick={onClick} ariaLabel={ariaLabel} className={className}>
+    <OsIconAction
+      ref={ref}
+      onClick={onClick}
+      ariaLabel={ariaLabel}
+      className={className}
+    >
       <MultiplyIcon className="glass-sheet-close-icon" aria-hidden />
     </OsIconAction>
   );

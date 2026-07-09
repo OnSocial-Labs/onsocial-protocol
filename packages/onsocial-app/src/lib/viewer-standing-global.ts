@@ -1,6 +1,7 @@
 import type { ViewerStandingLedger } from '@/lib/viewer-standing-ledger';
 
 const globalLedger: ViewerStandingLedger = new Map();
+const globalPendingTargets = new Set<string>();
 let globalLedgerVersion = 0;
 const listeners = new Set<() => void>();
 
@@ -10,6 +11,22 @@ export function getGlobalViewerStandingLedger(): ViewerStandingLedger {
 
 export function getGlobalViewerStandingLedgerVersion(): number {
   return globalLedgerVersion;
+}
+
+export function isGlobalStandingPending(targetAccountId: string): boolean {
+  return globalPendingTargets.has(targetAccountId);
+}
+
+export function setGlobalStandingPending(
+  targetAccountId: string,
+  pending: boolean
+): void {
+  if (pending) {
+    globalPendingTargets.add(targetAccountId);
+  } else {
+    globalPendingTargets.delete(targetAccountId);
+  }
+  bumpGlobalViewerStandingLedger();
 }
 
 export function bumpGlobalViewerStandingLedger(): void {

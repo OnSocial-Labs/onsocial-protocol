@@ -103,7 +103,7 @@ export function ProfileTagsEditor({ tags, onChange }: ProfileTagsEditorProps) {
               ref={inputRef}
               className="account-editor-tags-input"
               value={draft}
-              placeholder={tags.length === 0 ? 'Add tags' : '+ tag'}
+              placeholder={tags.length === 0 ? 'Add tags…' : 'Add tag…'}
               aria-label="Add tag"
               maxLength={PROFILE_EDITOR_MAX_TAGS * 32}
               onFocus={scrollFieldIntoView}
@@ -135,13 +135,9 @@ export function ProfileTagsEditor({ tags, onChange }: ProfileTagsEditorProps) {
             {hint}
           </span>
         ) : (
-          <>
+          <span>
             {tags.length}/{PROFILE_EDITOR_MAX_TAGS}
-            <span className="account-editor-section-meta-sep" aria-hidden>
-              ·
-            </span>
-            Enter to add
-          </>
+          </span>
         )}
       </p>
     </section>

@@ -7,8 +7,10 @@ import {
   LogoutIcon,
   ProtocolMotionArrow,
   PulsingDots,
+  QuestionMarkCircleIcon,
+  RepeatIcon,
+  SearchIcon,
 } from '@onsocial/ui';
-import { CircleHelp, ExternalLink, Search } from 'lucide-react';
 import Link from 'next/link';
 import { APP_DISCOVER_PATH } from '@/lib/app-routes';
 import { portfolioPath } from '@/lib/overlay-routes';
@@ -16,7 +18,6 @@ import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/app-config';
 import {
   APP_ACTIVITY_METRIC_LABEL,
   APP_COLLECT_ACTION_LABEL,
-  APP_COLLECT_SUCCEEDED_ACTION_LABEL,
   APP_COLLECT_READY_BADGE,
   APP_SOCIAL_EMPTY_HINT,
   APP_SOCIAL_HELP_TITLE,
@@ -68,7 +69,6 @@ export function AccountClaimMetricRow({
   const claimableYocto = rewards?.claimableYocto ?? 0n;
   const canClaim = rewards?.canClaim ?? false;
   const claiming = rewards?.claiming ?? false;
-  const collectSucceeded = rewards?.collectSucceeded ?? false;
   const rewardsLoading = rewards?.loading ?? false;
   const remainingToClaimYocto = rewards?.remainingToClaimYocto ?? 0n;
   const activityBarPulseKey = rewards?.activityBarPulseKey ?? 0;
@@ -148,15 +148,6 @@ export function AccountClaimMetricRow({
                   className="account-wallet-collect-dots"
                 />
               </button>
-            ) : collectSucceeded ? (
-              <button
-                type="button"
-                className="account-wallet-metric-action os-surface-chip is-succeeded"
-                disabled
-                aria-label={APP_COLLECT_SUCCEEDED_ACTION_LABEL}
-              >
-                {APP_COLLECT_SUCCEEDED_ACTION_LABEL}
-              </button>
             ) : (
               <button
                 type="button"
@@ -186,7 +177,6 @@ export function AccountClaimMetricRow({
 }
 
 interface AccountWalletZoneProps {
-  accountId: string;
   enabled: boolean;
   onOpenStorage?: () => void;
   platformStorageLoading?: boolean;
@@ -196,7 +186,6 @@ interface AccountWalletZoneProps {
 
 /** Inset wallet panel — balance hero + compact claim/storage metric bars. */
 export function AccountWalletZone({
-  accountId: _accountId,
   enabled,
   onOpenStorage,
   platformStorageLoading = false,
@@ -284,7 +273,7 @@ export function AccountWalletZone({
             aria-expanded={socialHelpOpen}
             aria-controls="account-social-help-dialog"
           >
-            <CircleHelp
+            <QuestionMarkCircleIcon
               aria-hidden
               className="account-wallet-accessory-icon"
             />
@@ -390,13 +379,15 @@ function AccountActionRow({
 interface AccountShortcutDockProps {
   accountId: string;
   onClose: () => void;
+  onSwitchWallet: () => void;
   onDisconnect: () => void;
 }
 
-/** Tertiary shortcuts — discover, explorer, log out (storage lives on wallet row). */
+/** Tertiary shortcuts — discover, explorer, switch wallet, log out. */
 export function AccountShortcutDock({
   accountId,
   onClose,
+  onSwitchWallet,
   onDisconnect,
 }: AccountShortcutDockProps) {
   const explorerHref = `${ACTIVE_NEAR_EXPLORER_URL}/address/${accountId}`;
@@ -409,10 +400,9 @@ export function AccountShortcutDock({
         onClick={onClose}
         aria-label="Discover profiles"
       >
-        <Search
+        <SearchIcon
           aria-hidden
           className="account-shortcut-dock-icon"
-          strokeWidth={1.75}
         />
       </Link>
       <a
@@ -423,12 +413,19 @@ export function AccountShortcutDock({
         onClick={onClose}
         aria-label="View on explorer"
       >
-        <ExternalLink
+        <ExternalLinkIcon
           aria-hidden
           className="account-shortcut-dock-icon"
-          strokeWidth={1.75}
         />
       </a>
+      <button
+        type="button"
+        className="os-surface-tile account-shortcut-dock-button"
+        onClick={onSwitchWallet}
+        aria-label="Switch wallet"
+      >
+        <RepeatIcon aria-hidden className="account-shortcut-dock-icon" />
+      </button>
       <button
         type="button"
         className="os-surface-tile account-shortcut-dock-button is-danger"

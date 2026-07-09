@@ -70,25 +70,25 @@ export const PROFILE_LINK_EDITOR_FIELDS: Array<{
   {
     key: 'x',
     kind: 'x',
-    label: 'X handle',
+    label: 'X',
     placeholder: 'handle',
   },
   {
     key: 'telegram',
     kind: 'telegram',
-    label: 'Telegram handle',
+    label: 'Telegram',
     placeholder: 'handle',
   },
   {
     key: 'instagram',
     kind: 'instagram',
-    label: 'Instagram handle',
+    label: 'Instagram',
     placeholder: 'handle',
   },
   {
     key: 'tiktok',
     kind: 'tiktok',
-    label: 'TikTok handle',
+    label: 'TikTok',
     placeholder: 'handle',
   },
   {
@@ -100,19 +100,19 @@ export const PROFILE_LINK_EDITOR_FIELDS: Array<{
   {
     key: 'youtube',
     kind: 'youtube',
-    label: 'YouTube channel',
+    label: 'YouTube',
     placeholder: '@channel',
   },
   {
     key: 'github',
     kind: 'github',
-    label: 'GitHub username',
+    label: 'GitHub',
     placeholder: 'username',
   },
   {
     key: 'discord',
     kind: 'discord',
-    label: 'Discord invite',
+    label: 'Discord',
     placeholder: 'invite-code',
   },
 ];

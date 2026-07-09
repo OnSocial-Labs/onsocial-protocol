@@ -51,11 +51,15 @@ export interface ProfileEditorSaveResult {
   avatarUrl: string | null;
   bannerUrl: string | null;
   bannerMedia: ResolvedPageHero | null;
+  txHash?: string | null;
 }
 
-function formatProfileEditorError(error: unknown): string {
+function formatProfileEditorError(
+  error: unknown,
+  fallback = 'Could not save profile.'
+): string {
   if (!(error instanceof Error)) {
-    return 'Could not save profile.';
+    return fallback;
   }
 
   const message = error.message.trim();
@@ -76,7 +80,7 @@ export function useAppProfileEditor(
   const [snapshot, setSnapshot] = useState<ProfileEditorSnapshot | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadProfile = useCallback(async () => {
     if (!accountId) {
@@ -85,7 +89,7 @@ export function useAppProfileEditor(
     }
 
     setLoading(true);
-    setError(null);
+    setLoadError(null);
 
     try {
       const response = await fetch(
@@ -108,7 +112,7 @@ export function useAppProfileEditor(
       setSnapshot(body as ProfileEditorSnapshot);
     } catch (err) {
       setSnapshot(null);
-      setError(formatProfileEditorError(err));
+      setLoadError(formatProfileEditorError(err, 'Could not load profile.'));
     } finally {
       setLoading(false);
     }
@@ -116,6 +120,9 @@ export function useAppProfileEditor(
 
   useEffect(() => {
     if (!enabled) {
+      setSnapshot(null);
+      setLoadError(null);
+      setLoading(false);
       return;
     }
     void loadProfile();
@@ -133,7 +140,6 @@ export function useAppProfileEditor(
       }
 
       setSaving(true);
-      setError(null);
 
       try {
         const {
@@ -204,14 +210,14 @@ export function useAppProfileEditor(
           avatarUrl,
           bannerUrl,
           bannerMedia,
+          txHash: response.txHash ?? null,
         };
       } catch (err) {
         if (isWalletUserCancellation(err)) {
           throw err;
         }
-        const message = formatProfileEditorError(err);
-        setError(message);
-        throw new Error(message);
+        // Save failures are surfaced by the sheet toast — do not stash inline.
+        throw new Error(formatProfileEditorError(err));
       } finally {
         setSaving(false);
       }
@@ -223,8 +229,7 @@ export function useAppProfileEditor(
     snapshot,
     loading,
     saving,
-    error,
-    setError,
+    loadError,
     loadProfile,
     saveProfile,
     hasSocialSession,

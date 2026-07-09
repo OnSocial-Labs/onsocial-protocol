@@ -11,7 +11,7 @@ function StandingToggleSizingGhost() {
   return (
     <>
       <ProtocolMotionArrow className="standing-toggle-arrow" />
-      Stand with
+      Step back
     </>
   );
 }
@@ -44,7 +44,7 @@ export function StandingToggle({ active, pending = false }: StandingToggleProps)
       {!active ? (
         <span className="standing-toggle-state">
           <ProtocolMotionArrow className="standing-toggle-arrow" />
-          Stand with
+          Stand
         </span>
       ) : (
         <>

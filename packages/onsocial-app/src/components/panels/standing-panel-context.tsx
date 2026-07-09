@@ -345,7 +345,13 @@ export function StandingPanelProvider({
     useMemo(
       () =>
         deriveStandingListAccounts(accounts, activeKind, viewerAccountId ?? null),
-      [accounts, deriveStandingListAccounts, activeKind, viewerAccountId]
+      [
+        accounts,
+        deriveStandingListAccounts,
+        activeKind,
+        viewerAccountId,
+        standingSyncVersion,
+      ]
     );
 
   const totalCount = serverSearchActive

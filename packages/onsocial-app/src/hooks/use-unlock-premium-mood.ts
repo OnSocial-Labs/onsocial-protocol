@@ -15,6 +15,7 @@ import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { accountIdsEqual } from '@/lib/account-match';
 import { fetchPageConfigFromBrowserProxy } from '@/lib/read-page-config';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 
 function extractTxHash(value: unknown): string | undefined {
   if (!value || typeof value !== 'object') return undefined;
@@ -76,7 +77,7 @@ export function useUnlockPremiumMood(pageAccountId: string) {
   const needsConnect = !isLoading && !isConnected;
 
   const unlockMood = useCallback(
-    async (moodId: PremiumPageMoodId): Promise<boolean> => {
+    async (moodId: PremiumPageMoodId): Promise<string | null> => {
       setError(null);
       setIsUnlocking(true);
 
@@ -137,7 +138,7 @@ export function useUnlockPremiumMood(pageAccountId: string) {
         const purchaseTxHash = extractTxHash(payment);
         const current = await fetchPageConfigFromBrowserProxy(signingAccountId);
 
-        await client.pages.setConfig(
+        const response = await client.pages.setConfig(
           mergePageMoodUnlockIntoPageConfig(current, moodId, {
             purchaseTxHash,
           }),
@@ -145,13 +146,17 @@ export function useUnlockPremiumMood(pageAccountId: string) {
         );
 
         router.refresh();
-        return true;
+        return (
+          purchaseTxHash ??
+          collectRelayTxHashes(response)[0] ??
+          ''
+        );
       } catch (err) {
         if (isWalletUserCancellation(err)) {
-          return false;
+          return null;
         }
         setError(formatUnlockError(err, priceSocial));
-        return false;
+        return null;
       } finally {
         setIsUnlocking(false);
       }

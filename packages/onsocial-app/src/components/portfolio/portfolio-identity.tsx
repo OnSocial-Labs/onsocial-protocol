@@ -1,5 +1,6 @@
 'use client';
 
+import { PortfolioIdentityGestures } from '@/components/portfolio/portfolio-identity-gestures';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { displayName, initials } from '@/lib/profile-display';
 import type { ResolvedMood } from '@/lib/moods/types';
@@ -51,6 +52,13 @@ export function PortfolioIdentity({
           {handleLabel}
         </p>
         {summary ? <p className="portfolio-bio">{summary}</p> : null}
+        <PortfolioIdentityGestures
+          pageAccountId={accountId}
+          profileName={profileName}
+          bio={bio}
+          avatarUrl={avatarUrl}
+          mood={mood}
+        />
       </div>
     </section>
   );

@@ -26,10 +26,17 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
   { method: 'GET', path: 'data/group-is-member', body: 'none' },
   { method: 'GET', path: 'data/group-is-owner', body: 'none' },
   { method: 'GET', path: 'data/group-join-request', body: 'none' },
+  { method: 'GET', path: 'data/proposals', body: 'none' },
+  { method: 'GET', path: 'data/proposal', body: 'none' },
+  { method: 'GET', path: 'data/proposal-tally', body: 'none' },
+  { method: 'GET', path: 'data/vote', body: 'none' },
+  { method: 'GET', path: 'data/proposal-count', body: 'none' },
   { method: 'GET', path: 'data/has-group-admin', body: 'none' },
   { method: 'GET', path: 'data/has-group-moderate', body: 'none' },
   // SOCIAL wallet balance — premium mood unlock preflight.
   { method: 'GET', path: 'data/ft-balance-of', body: 'none' },
+  // SOCIAL token icon / decimals for amount fields.
+  { method: 'GET', path: 'data/ft-metadata', body: 'none' },
   // Wallet storage buffer + personal storage reads.
   { method: 'GET', path: 'data/storage-balance', body: 'none' },
   { method: 'GET', path: 'data/platform-allowance', body: 'none' },

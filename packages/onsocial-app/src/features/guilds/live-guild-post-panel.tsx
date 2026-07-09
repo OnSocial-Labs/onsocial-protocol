@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GroupConversation, PostRow, ThreadNode } from '@onsocial/sdk';
 import { Divider } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
-import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { PostCard, PostRowSkeleton, postKey } from '@/features/home/post-card';
 import {
@@ -13,19 +13,29 @@ import {
   type GuildComposerMode,
 } from '@/features/guilds/guild-composer-modal';
 import {
+  canViewerPostInChannel,
+  parseGuildStructure,
+  type GuildStructureDocument,
+  type GuildViewerAccess,
+} from '@/features/guilds/guild-structure';
+import {
+  inheritedGuildReplyFeedMeta,
+  parseGuildPostAudiences,
+} from '@/features/guilds/guild-post-feed-meta';
+import {
   collectRelayTxHashes,
   guildPath,
   guildPostPath,
 } from '@/features/guilds/guilds-data';
+import { resolveGuildViewerAccess } from '@/features/guilds/guild-viewer-access';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
-import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { usePostEngagement } from '@/hooks/use-post-engagement';
 import { useAncestorChain, useQuotedPosts } from '@/hooks/use-quoted-posts';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
+  txToastConfirming,
   txToastError,
-  txToastPending,
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
@@ -193,8 +203,7 @@ export function LiveGuildPostPanel({
     connect,
   } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
-  const { txResult, setTxResult, clearTxResult, trackTransaction } =
-    useNearTransactionFeedback(accountId);
+  const { setTxResult, trackTransaction } = useAppTransactionFeedback();
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [conversation, setConversation] = useState<GroupConversation>({
     root: null,
@@ -204,6 +213,14 @@ export function LiveGuildPostPanel({
   const [replyTree, setReplyTree] = useState<ThreadNode[]>([]);
   const [localReplies, setLocalReplies] = useState<PostRow[]>([]);
   const [localQuotes, setLocalQuotes] = useState<PostRow[]>([]);
+  const [guildStructure, setGuildStructure] =
+    useState<GuildStructureDocument | null>(null);
+  const [viewerAccess, setViewerAccess] = useState<GuildViewerAccess>({
+    isMember: false,
+    isOwner: false,
+    isAdmin: false,
+    canModerate: false,
+  });
   const [isMember, setIsMember] = useState(false);
   const [modalTarget, setModalTarget] = useState<PostRow | null>(null);
   const [modalMode, setModalMode] = useState<GuildComposerMode>('reply');
@@ -300,7 +317,7 @@ export function LiveGuildPostPanel({
       try {
         const client = createReadOnlyOnSocialClient();
         const postRef = { author, groupId, postId };
-        const [rootResult, quotesResult, treeResult, memberResult] =
+        const [rootResult, quotesResult, treeResult, configResult] =
           await Promise.allSettled([
             client.query.groups.post(postRef),
             client.query.groups.quotes(postRef, {
@@ -313,9 +330,7 @@ export function LiveGuildPostPanel({
               replyLimit: REPLY_PAGE_SIZE,
               maxNodes: REPLY_TREE_MAX_NODES,
             }),
-            accountId
-              ? client.groups.isMember(groupId, accountId)
-              : Promise.resolve(false),
+            client.groups.getConfig(groupId),
           ]);
 
         if (rootResult.status === 'rejected') {
@@ -345,9 +360,39 @@ export function LiveGuildPostPanel({
           setHasMoreQuotes(fetchedQuotes.length >= QUOTE_PAGE_SIZE);
         }
 
-        setIsMember(
-          memberResult.status === 'fulfilled' ? memberResult.value : false
-        );
+        const rawConfig =
+          configResult.status === 'fulfilled' ? configResult.value : null;
+
+        if (rawConfig) {
+          setGuildStructure(parseGuildStructure(rawConfig));
+        } else {
+          setGuildStructure(null);
+        }
+
+        if (accountId && rawConfig) {
+          const { viewer } = await resolveGuildViewerAccess(
+            client,
+            groupId,
+            accountId,
+            {
+              memberDriven:
+                rawConfig.member_driven === true ||
+                rawConfig.memberDriven === true,
+              accessGated:
+                rawConfig.is_private === true || rawConfig.isPrivate === true,
+            }
+          );
+          setViewerAccess(viewer);
+          setIsMember(viewer.isMember);
+        } else {
+          setViewerAccess({
+            isMember: false,
+            isOwner: false,
+            isAdmin: false,
+            canModerate: false,
+          });
+          setIsMember(false);
+        }
         if (!options.background) {
           setLoadState(root ? 'ready' : 'missing');
         }
@@ -442,19 +487,41 @@ export function LiveGuildPostPanel({
     ]
   );
 
+  const threadChannel = conversation.root?.channel;
+  const canPostInChannel = useCallback(
+    (channel: string | null | undefined) =>
+      guildStructure
+        ? canViewerPostInChannel(guildStructure, channel, viewerAccess)
+        : false,
+    [guildStructure, viewerAccess]
+  );
+  const canPostInThread = canPostInChannel(threadChannel);
+
   const performSubmit = async (
-    target: { author: string; postId: string },
+    target: PostRow,
     mode: GuildComposerMode,
     text: string
   ): Promise<{ confirmed: boolean; newPostId: string }> => {
     const newPostId = Date.now().toString();
     const { client } = await getClient();
-    const ref = { author: target.author, groupId, postId: target.postId };
+    const ref = {
+      author: target.accountId,
+      groupId,
+      postId: target.postId,
+    };
+    const feedMeta = inheritedGuildReplyFeedMeta(target, {
+      fallbackChannel: threadChannel,
+      fallbackKind: conversation.root?.kind ?? null,
+      fallbackAudiences: conversation.root
+        ? parseGuildPostAudiences(conversation.root.audiences)
+        : undefined,
+    });
     const postData = {
       text,
       access: 'group' as const,
       groupId,
       timestamp: Date.now(),
+      ...feedMeta,
     };
     const response =
       mode === 'quote'
@@ -464,8 +531,8 @@ export function LiveGuildPostPanel({
       txHashes: collectRelayTxHashes(response),
       submittedMessage:
         mode === 'quote'
-          ? txToastPending.quotingGuildPost
-          : txToastPending.postingToGuild,
+          ? txToastConfirming.quotingGuildPost
+          : txToastConfirming.postingToGuild,
       successMessage:
         mode === 'quote'
           ? txToastSuccess.guildQuotePublished
@@ -484,6 +551,9 @@ export function LiveGuildPostPanel({
     newPostId: string
   ) => {
     if (!accountId) return;
+    const feedMeta = conversation.root
+      ? inheritedGuildReplyFeedMeta(conversation.root)
+      : {};
     // Chain-confirmed; show immediately while the indexer catches up.
     const confirmedRow: PostRow = {
       accountId,
@@ -492,6 +562,7 @@ export function LiveGuildPostPanel({
       blockHeight: 0,
       blockTimestamp: Date.now(),
       groupId,
+      ...feedMeta,
       ...(mode === 'quote'
         ? { refAuthor: author, refPath: rootPath, refType: 'post' }
         : {
@@ -519,6 +590,12 @@ export function LiveGuildPostPanel({
     const target = modalTarget;
     if (!target || modalPending) return;
 
+    const channel = target.channel ?? threadChannel;
+    if (!canPostInChannel(channel)) {
+      setModalError('You cannot reply in this space.');
+      return;
+    }
+
     if (!isConnected || !accountId) {
       await connect();
       return;
@@ -527,11 +604,7 @@ export function LiveGuildPostPanel({
     setModalError(null);
     setModalPending(true);
     try {
-      const { confirmed, newPostId } = await performSubmit(
-        { author: target.accountId, postId: target.postId },
-        modalMode,
-        text
-      );
+      const { confirmed, newPostId } = await performSubmit(target, modalMode, text);
       if (confirmed) {
         const targetsRoot =
           conversation.root && postKey(target) === postKey(conversation.root);
@@ -556,8 +629,20 @@ export function LiveGuildPostPanel({
     }
   };
 
-  const replyHandler = isMember ? openComposerModal('reply') : undefined;
-  const quoteHandler = isMember ? openComposerModal('quote') : undefined;
+  const replyHandler = canPostInThread
+    ? (post: PostRow) => {
+        const channel = post.channel ?? threadChannel;
+        if (!canPostInChannel(channel)) return;
+        openComposerModal('reply')(post);
+      }
+    : undefined;
+  const quoteHandler = canPostInThread
+    ? (post: PostRow) => {
+        const channel = post.channel ?? threadChannel;
+        if (!canPostInChannel(channel)) return;
+        openComposerModal('quote')(post);
+      }
+    : undefined;
 
   /** Click-through target for a quoted post's own thread page. */
   const quotedHrefFor = (quoted: PostRow | undefined) =>
@@ -577,7 +662,7 @@ export function LiveGuildPostPanel({
     setModalError(null);
     setModalTarget(root);
   }, [root]);
-  useRegisterComposeAction(isMember && root ? composeReplyToRoot : null);
+  useRegisterComposeAction(canPostInThread && root ? composeReplyToRoot : null);
 
   return (
     <OsAppScreen
@@ -763,7 +848,9 @@ export function LiveGuildPostPanel({
                             )
                           }
                         >
-                          Show {row.hiddenCount} more
+                          {row.hiddenCount === 1
+                            ? 'Show 1 more reply'
+                            : `Show ${row.hiddenCount} more replies`}
                         </button>
                       );
                     }
@@ -888,7 +975,6 @@ export function LiveGuildPostPanel({
           onSubmit={(text) => void submitFromModal(text)}
         />
       ) : null}
-      <TransactionFeedbackToast result={txResult} onClose={clearTxResult} />
     </OsAppScreen>
   );
 }

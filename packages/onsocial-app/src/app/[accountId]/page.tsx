@@ -7,6 +7,11 @@ import { resolveAccountId, resolveAccountPage } from '@/lib/resolve-account';
 import { loadProfileShell } from '@/lib/profile-shell';
 import { fetchProfileSignals } from '@/lib/profile-signals';
 import { fetchProfileGuilds } from '@/lib/profile-guilds';
+import { fetchPageDrawerMeta } from '@/lib/fetch-page-drawer-meta';
+import {
+  fetchProfilePostPeeks,
+  fetchProfileScarcePeeks,
+} from '@/lib/fetch-profile-peeks';
 import { PortfolioActivateStrip } from '@/components/portfolio/portfolio-activate-strip';
 import { PortfolioIdentity } from '@/components/portfolio/portfolio-identity';
 import { PortfolioLinks } from '@/components/portfolio/portfolio-links';
@@ -14,7 +19,6 @@ import { PortfolioShellRoot } from '@/components/portfolio/portfolio-shell-root'
 import { PortfolioProfileSeed } from '@/components/portfolio/portfolio-profile-seed';
 import { PortfolioSignalsShell } from '@/components/portfolio/portfolio-signals-shell';
 import { PortfolioStatsRow } from '@/components/portfolio/portfolio-stats-row';
-import { PortfolioTags } from '@/components/portfolio/portfolio-tags';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,12 +72,25 @@ export default async function AccountPage({
     data.config,
     search?.avatarMode ?? search?.avatar ?? null
   );
-  const [shell, signals, guilds] = await Promise.all([
+  const [shell, signals, guilds, postPeeks, scarcePeeks] = await Promise.all([
     loadProfileShell(accountId),
     fetchProfileSignals(accountId),
     fetchProfileGuilds(accountId),
+    fetchProfilePostPeeks(accountId),
+    fetchProfileScarcePeeks(accountId),
   ]);
   const name = displayName(accountId, shell?.name ?? undefined);
+  const postCount = Math.max(
+    signals?.postCount ?? 0,
+    data.stats.postCount ?? 0,
+    postPeeks.length
+  );
+  const drawerMeta = await fetchPageDrawerMeta(accountId, {
+    profileName: name,
+    profileTags: shell?.tags ?? [],
+    guildCount: guilds.length,
+    postCount,
+  });
 
   return (
     <>
@@ -99,6 +116,11 @@ export default async function AccountPage({
         stats={data.stats}
         guilds={guilds}
         profileName={shell?.name}
+        bio={shell?.bio}
+        profileLinks={shell?.links ?? null}
+        drawerMeta={drawerMeta}
+        postPeeks={postPeeks}
+        scarcePeeks={scarcePeeks}
       >
         <PortfolioIdentity
           accountId={accountId}
@@ -120,7 +142,6 @@ export default async function AccountPage({
           <PortfolioStatsRow accountId={accountId} stats={data.stats} />
         )}
         <PortfolioLinks links={shell?.links} />
-        <PortfolioTags tags={shell?.tags ?? []} />
       </PortfolioShellRoot>
     </>
   );

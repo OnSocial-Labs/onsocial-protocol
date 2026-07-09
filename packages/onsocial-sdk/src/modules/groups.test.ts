@@ -44,7 +44,12 @@ function makeHarness(opts: HarnessOpts = {}) {
         }
       );
     }
-    if (path === '/relay/delegate') return { txHash: 'tx_signed' };
+    if (
+      path === '/relay/delegate' ||
+      path === '/relay/delegate?wait=true'
+    ) {
+      return { txHash: 'tx_signed' };
+    }
     throw new Error(`unexpected POST ${path}`);
   });
   const get = vi.fn(async (path: string): Promise<unknown> => {

@@ -1,5 +1,6 @@
 'use client';
 
+import type { Ref } from 'react';
 import { SheetCloseButton } from '@onsocial/ui';
 
 /** Banner overlay chrome — close only; title is sr-only for sheet labelling. */
@@ -8,11 +9,13 @@ export function AccountEditorChrome({
   title,
   onClose,
   className,
+  closeButtonRef,
 }: {
   titleId: string;
   title: string;
   onClose: () => void;
   className?: string;
+  closeButtonRef?: Ref<HTMLButtonElement>;
 }) {
   return (
     <div
@@ -22,7 +25,11 @@ export function AccountEditorChrome({
         {title}
       </h2>
       <div className="account-editor-chrome-row">
-        <SheetCloseButton onClick={onClose} ariaLabel="Close editor" />
+        <SheetCloseButton
+          ref={closeButtonRef}
+          onClick={onClose}
+          ariaLabel="Close"
+        />
       </div>
     </div>
   );

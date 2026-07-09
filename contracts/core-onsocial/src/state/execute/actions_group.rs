@@ -18,6 +18,27 @@ impl SocialPlatform {
         self.clear_execution_payer();
     }
 
+    fn require_proposal_storage_deposit(&self, actor_id: &AccountId) -> Result<(), SocialError> {
+        let available = self
+            .user_storage
+            .get(actor_id)
+            .map(|s| s.available_balance())
+            .unwrap_or(0);
+
+        if available < crate::constants::MIN_PROPOSAL_DEPOSIT {
+            return Err(crate::invalid_input!(
+                "Minimum 0.1 NEAR in storage balance required to create a proposal"
+            ));
+        }
+
+        Ok(())
+    }
+
+    fn join_group_requires_proposal_deposit(&self, group_id: &str) -> Result<bool, SocialError> {
+        let config = crate::domain::groups::routing::validate_group_operation(self, group_id)?;
+        crate::domain::groups::routing::is_group_member_driven(&config)
+    }
+
     pub(super) fn execute_action_create_group(
         &mut self,
         group_id: &str,
@@ -36,7 +57,12 @@ impl SocialPlatform {
         ctx: &mut ExecuteContext,
     ) -> Result<(), SocialError> {
         self.prepare_group_storage(ctx);
-        let result = self.join_group(group_id.to_string(), &ctx.actor_id);
+        let result = (|| {
+            if self.join_group_requires_proposal_deposit(group_id)? {
+                self.require_proposal_storage_deposit(&ctx.actor_id)?;
+            }
+            self.join_group(group_id.to_string(), &ctx.actor_id)
+        })();
         self.cleanup_group_storage();
         result
     }
@@ -198,17 +224,7 @@ impl SocialPlatform {
     ) -> Result<String, SocialError> {
         self.prepare_group_storage(ctx);
 
-        let available = self
-            .user_storage
-            .get(&ctx.actor_id)
-            .map(|s| s.available_balance())
-            .unwrap_or(0);
-
-        if available < crate::constants::MIN_PROPOSAL_DEPOSIT {
-            return Err(crate::invalid_input!(
-                "Minimum 0.1 NEAR in storage balance required to create a proposal"
-            ));
-        }
+        self.require_proposal_storage_deposit(&ctx.actor_id)?;
 
         let result = self.create_group_proposal(
             group_id.to_string(),

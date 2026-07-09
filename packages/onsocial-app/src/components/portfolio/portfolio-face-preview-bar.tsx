@@ -5,22 +5,25 @@ import {
   OsSheetAction,
   OsSheetActions,
   osFloatingPanelClassName,
-  osSheetActionExpandedClassName,
   osSheetFloatingPanelClassName,
-  osSheetFloatingPanelCopyClassName,
-  osSheetFloatingPanelErrorClassName,
   osSheetFloatingPanelMetaClassName,
 } from '@onsocial/ui';
 import { useApplyPageFace } from '@/hooks/use-apply-page-face';
+import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-context';
 import { usePortfolioCustomize } from '@/contexts/portfolio-customize-context';
+import {
+  txToastError,
+  txToastSuccess,
+} from '@/lib/transaction-toast-copy';
+import { nearExplorerTxHref } from '@/lib/app-config';
 import type {
   PageAvatarMode,
   PageHeroSource,
   PublicPageConfig,
 } from '@/lib/page-data';
 
-const SAVED_DISMISS_MS = 900;
+const SAVED_DISMISS_MS = 280;
 
 const AVATAR_LABELS: Record<PageAvatarMode, string> = {
   standard: 'Card',
@@ -28,9 +31,9 @@ const AVATAR_LABELS: Record<PageAvatarMode, string> = {
 };
 
 const HERO_LABELS: Record<PageHeroSource, string> = {
-  banner: 'Banner hero',
-  avatar: 'Avatar hero',
-  none: 'Minimal hero',
+  banner: 'Banner',
+  avatar: 'Avatar',
+  none: 'Minimal',
 };
 
 interface PortfolioFacePreviewBarProps {
@@ -99,7 +102,7 @@ export function PortfolioFacePreviewBar({
     config
   );
   const customize = usePortfolioCustomize();
-  const [saved, setSaved] = useState(false);
+  const { setTxResult } = useAppTransactionFeedback();
   const [farewellSnapshot, setFarewellSnapshot] =
     useState<PreviewBarSnapshot | null>(null);
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -114,6 +117,11 @@ export function PortfolioFacePreviewBar({
   );
 
   const isOpen = isPreviewing || farewellSnapshot !== null;
+
+  useEffect(() => {
+    if (!error) return;
+    setTxResult({ type: 'error', msg: txToastError.pageLookSaveFailed });
+  }, [error, setTxResult]);
 
   if (
     !isOwner ||
@@ -139,12 +147,9 @@ export function PortfolioFacePreviewBar({
     committedHeroSource: snapshot.committedHeroSource,
     includeHero: snapshot.isPreviewingHeroSource,
   });
-  const previewLead =
-    snapshot.isPreviewingLayout && !snapshot.isPreviewingHeroSource
-      ? 'Previewing layout'
-      : 'Previewing';
+  const showSavedMeta = savedLabel !== previewLabel;
 
-  function handleDiscard() {
+  function handleCancel() {
     discardPreview();
     window.setTimeout(() => {
       customize?.openCustomize();
@@ -165,56 +170,61 @@ export function PortfolioFacePreviewBar({
       patch.heroSource = snapshot.previewHeroSource;
     }
 
-    const didSave = await applyFacePatch(patch);
-    if (didSave) {
-      setFarewellSnapshot(snapshot);
-      setSaved(true);
-      dismissTimerRef.current = setTimeout(() => {
-        discardPreview();
-        setSaved(false);
-        setFarewellSnapshot(null);
-      }, SAVED_DISMISS_MS);
+    const txHash = await applyFacePatch(patch);
+    if (txHash === null) {
+      return;
     }
+
+    setTxResult({
+      type: 'success',
+      msg: txToastSuccess.pageLookSaved,
+      explorerHref: nearExplorerTxHref(txHash),
+    });
+    setFarewellSnapshot(snapshot);
+    dismissTimerRef.current = setTimeout(() => {
+      discardPreview();
+      setFarewellSnapshot(null);
+    }, SAVED_DISMISS_MS);
   }
 
-  const actionsBusy = isApplying || saved;
   return (
     <div
       className={`${osFloatingPanelClassName} ${osSheetFloatingPanelClassName} portfolio-face-preview-bar portfolio-face-preview-bar--enter`}
       role="status"
     >
-      <p className={osSheetFloatingPanelCopyClassName}>
-        {previewLead} <strong>{previewLabel}</strong>
-        <span className={osSheetFloatingPanelMetaClassName}>
-          {' '}
-          · saved as {savedLabel}
-        </span>
-      </p>
-      <OsSheetActions layout="row-compact" tone="frosted-primary" borderless>
-        {!actionsBusy ? (
-          <OsSheetAction type="button" variant="danger" onClick={handleDiscard}>
-            Discard
-          </OsSheetAction>
+      <p className="portfolio-face-preview-bar-label">
+        <strong>{previewLabel}</strong>
+        {showSavedMeta ? (
+          <span className={osSheetFloatingPanelMetaClassName}>
+            {' '}
+            · {savedLabel}
+          </span>
         ) : null}
-        <OsSheetAction
-          type="button"
-          variant="primary"
-          ready={!saved}
-          succeeded={saved}
-          succeededLabel="Saved"
-          pending={isApplying}
-          pendingLabel="Saving…"
-          disabled={actionsBusy}
-          className={actionsBusy ? osSheetActionExpandedClassName : undefined}
-          onClick={() => void handleSave()}
-        >
-          Save page look
-        </OsSheetAction>
-      </OsSheetActions>
-
-      {error ? (
-        <p className={osSheetFloatingPanelErrorClassName}>{error}</p>
-      ) : null}
+      </p>
+      <div className="os-commit-actions">
+        {!isApplying ? (
+          <button
+            type="button"
+            className="os-commit-cancel"
+            onClick={handleCancel}
+          >
+            Cancel
+          </button>
+        ) : null}
+        <OsSheetActions layout="row-compact" tone="frosted-primary" borderless>
+          <OsSheetAction
+            type="button"
+            variant="primary"
+            ready={!isApplying}
+            pending={isApplying}
+            pendingLabel="Saving…"
+            disabled={isApplying}
+            onClick={() => void handleSave()}
+          >
+            Save
+          </OsSheetAction>
+        </OsSheetActions>
+      </div>
     </div>
   );
 }

@@ -576,6 +576,10 @@ export interface GroupMemberData {
 }
 
 export interface GroupStats {
+  /** On-chain counter from `get_group_stats`. */
+  total_members?: number;
+  total_join_requests?: number;
+  /** Legacy alias — prefer `total_members`. */
   member_count?: number;
   proposal_count?: number;
   [key: string]: unknown;

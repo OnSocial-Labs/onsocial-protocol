@@ -44,6 +44,7 @@ export function OsSheetAction({
   ...props
 }: OsSheetActionProps) {
   const isPrimary = variant === 'primary';
+  const usesPendingShell = isPrimary || variant === 'danger';
   const isReady = ready ?? dirty ?? false;
   const label = succeeded
     ? (succeededLabel ?? children)
@@ -53,7 +54,7 @@ export function OsSheetAction({
   const pendingSrLabel =
     typeof pendingLabel === 'string' ? pendingLabel : 'Saving';
 
-  if (!isPrimary) {
+  if (!usesPendingShell) {
     return (
       <button
         ref={ref}
@@ -77,11 +78,16 @@ export function OsSheetAction({
       type={type}
       className={cn(
         osSheetActionClassName,
-        'os-sheet-action--primary',
+        `os-sheet-action--${variant}`,
+        isPrimary &&
+          isReady &&
+          !succeeded &&
+          !failed &&
+          !pending &&
+          'is-ready',
         succeeded && 'is-succeeded',
         failed && !succeeded && 'is-failed',
         pending && 'is-pending',
-        isReady && !succeeded && !failed && !pending && 'is-ready',
         className
       )}
       disabled={disabled || pending || succeeded}

@@ -21,7 +21,7 @@ import { displayName, fallbackLabel } from '@/lib/profile-display';
 export type GuildComposerMode = 'post' | 'reply' | 'quote';
 
 const PLACEHOLDER: Record<GuildComposerMode, string> = {
-  post: 'Share something',
+  post: 'Share something…',
   reply: 'Post your reply',
   quote: 'Add a comment',
 };
@@ -264,8 +264,15 @@ export function GuildComposerModal({
         {error ? <p className="guild-form-error">{error}</p> : null}
 
         <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-          <OsSheetAction type="submit" disabled={pending || !text.trim()}>
-            {pending ? 'Posting…' : 'Post'}
+          <OsSheetAction
+            type="submit"
+            variant="primary"
+            ready={Boolean(text.trim()) && !pending}
+            pending={pending}
+            pendingLabel="Posting…"
+            disabled={pending || !text.trim()}
+          >
+            Post
           </OsSheetAction>
         </OsSheetActions>
       </form>

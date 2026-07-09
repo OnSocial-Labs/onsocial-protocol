@@ -1,12 +1,10 @@
 import Link from 'next/link';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { LiveGuildSettingsPanel } from '@/features/guilds/live-guild-settings-panel';
+import { LiveGuildsIndexPanel } from '@/features/guilds/live-guilds-index-panel';
 import {
   GUILD_ACTIONS,
-  GUILD_BLUEPRINTS,
   GUILD_PERMISSION_PRESETS,
-  GUILD_PHASES,
-  GUILD_PRODUCT_COPY,
   GUILD_ROLES,
   GUILD_STRUCTURE_TEMPLATES,
   getGuildBlueprint,
@@ -147,93 +145,7 @@ function GuildPermissionPresetList({ groupId }: { groupId: string }) {
 }
 
 export function GuildsIndexPanel() {
-  return (
-    <OsAppScreen
-      title={GUILD_PRODUCT_COPY.title}
-      subtitle={GUILD_PRODUCT_COPY.subtitle}
-    >
-      <div className="guilds-page">
-        <section className="guild-hero-card">
-          <p className="guild-eyebrow">
-            Built on {GUILD_PRODUCT_COPY.internalPrimitive}
-          </p>
-          <h2>Turn profiles into shared spaces.</h2>
-          <p>
-            Guilds are user-facing groups: durable homes for members, posts,
-            roles, and optional collaborative governance. On-chain activity is
-            public; guild access controls who can join, post, moderate, and
-            manage.
-          </p>
-          <div className="guild-hero-actions">
-            <Link className="guild-primary-link" href="/groups/create">
-              Create a guild
-            </Link>
-            <a className="guild-secondary-link" href="#guild-actions">
-              See what users can do
-            </a>
-          </div>
-        </section>
-
-        <section className="guild-section">
-          <div className="guild-section-head">
-            <p className="guild-eyebrow">Open by URL</p>
-            <h2>Already created a guild?</h2>
-            <p>
-              Go to <code>/groups/your-guild-id</code> to open its live page.
-              Others can use that same URL to join an open guild or request
-              access to an access-gated guild.
-            </p>
-          </div>
-        </section>
-
-        <section className="guild-section">
-          <div className="guild-section-head">
-            <p className="guild-eyebrow">Suggested starts</p>
-            <h2>Guild ideas</h2>
-          </div>
-          <div className="guild-card-grid">
-            {GUILD_BLUEPRINTS.map((guild) => (
-              <GuildBlueprintCard key={guild.id} guild={guild} />
-            ))}
-          </div>
-        </section>
-
-        <section id="guild-actions" className="guild-section">
-          <div className="guild-section-head">
-            <p className="guild-eyebrow">First actions</p>
-            <h2>Best first actions</h2>
-            <p>
-              Pages hold the durable product space. Modals and sheets stay
-              focused on short decisions like joining, inviting, voting, and
-              role changes.
-            </p>
-          </div>
-          <GuildActionList release="MVP" />
-        </section>
-
-        <section className="guild-section">
-          <div className="guild-section-head">
-            <p className="guild-eyebrow">Permissions without DAO jargon</p>
-            <h2>Simple roles first</h2>
-          </div>
-          <GuildRoleGrid />
-        </section>
-
-        <section className="guild-section">
-          <div className="guild-section-head">
-            <p className="guild-eyebrow">Structure builder lite</p>
-            <h2>Give every guild useful defaults.</h2>
-            <p>
-              Templates create familiar spaces like announcements, resources,
-              tasks, and proposals using channel metadata before a new product
-              object is needed.
-            </p>
-          </div>
-          <GuildStructureTemplateGrid />
-        </section>
-      </div>
-    </OsAppScreen>
-  );
+  return <LiveGuildsIndexPanel />;
 }
 
 export function GuildDetailPanel({ groupId }: { groupId: string }) {
@@ -290,40 +202,6 @@ export function GuildDetailPanel({ groupId }: { groupId: string }) {
             <h2>Join, post, and leave stay lightweight</h2>
           </div>
           <GuildActionList release="MVP" />
-        </section>
-      </div>
-    </OsAppScreen>
-  );
-}
-
-export function GuildMembersPanel({ groupId }: { groupId: string }) {
-  const guild = getGuildBlueprint(groupId);
-
-  return (
-    <OsAppScreen
-      title="Members"
-      subtitle={guild.name}
-      backFallbackHref={guildPath(groupId)}
-    >
-      <div className="guilds-page">
-        <GuildNav groupId={guild.id} />
-        <section className="guild-section">
-          <div className="guild-section-head">
-            <p className="guild-eyebrow">Roster and roles</p>
-            <h2>Organization power, social language</h2>
-            <p>
-              Guild roles map to core permission levels, but the UI should speak
-              like a community product instead of a protocol policy editor.
-            </p>
-          </div>
-          <GuildRoleGrid />
-        </section>
-        <section className="guild-section">
-          <div className="guild-section-head">
-            <p className="guild-eyebrow">Member actions</p>
-            <h2>Sheets for changes that need context</h2>
-          </div>
-          <GuildActionList release="Collaboration" />
         </section>
       </div>
     </OsAppScreen>

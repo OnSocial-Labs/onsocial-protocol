@@ -21,12 +21,10 @@ import { useSharedStoragePool } from '@/hooks/use-shared-storage-pool';
 import { useUserStorageBalance } from '@/hooks/use-user-storage-balance';
 import { useWalletNearBalance } from '@/hooks/use-wallet-near-balance';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
+import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { finalizeAmountInput } from '@/lib/amount-input';
-import {
-  waitForNearTransactionBatchConfirmation,
-  yoctoToNear,
-} from '@/lib/app-near-rpc';
+import { yoctoToNear } from '@/lib/app-near-rpc';
 import {
   sendStorageDepositTransaction,
   sendStorageWithdrawTransaction,
@@ -54,6 +52,11 @@ import {
   type UserStorageSummary,
 } from '@/lib/user-storage-display';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import {
+  txToastConfirming,
+  txToastError,
+  txToastSuccess,
+} from '@/lib/transaction-toast-copy';
 
 type StorageActionMode = 'deposit' | 'withdraw' | 'share';
 
@@ -167,12 +170,12 @@ export function AppStorageSheet({
   onStorageChanged,
 }: AppStorageSheetProps) {
   const { getSigningWallet } = useAppWallet();
+  const { trackTransaction } = useAppTransactionFeedback();
   const [closing, setClosing] = useState(false);
   const [localRefreshKey, setLocalRefreshKey] = useState(0);
   const [mode, setMode] = useState<StorageActionMode>('deposit');
   const [amountInput, setAmountInput] = useState('0.1');
   const [pending, setPending] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const sheetOpen = open && !closing;
@@ -249,7 +252,6 @@ export function AppStorageSheet({
 
   const handleSheetClosed = useCallback(() => {
     setClosing(false);
-    setSaved(false);
     onClosed?.();
     onClose();
   }, [onClose, onClosed]);
@@ -258,7 +260,6 @@ export function AppStorageSheet({
     if (!open) return;
 
     setError(null);
-    setSaved(false);
     setMode('deposit');
     setAmountInput('0.1');
   }, [open]);
@@ -271,7 +272,6 @@ export function AppStorageSheet({
 
   useEffect(() => {
     setError(null);
-    setSaved(false);
   }, [mode, amountInput]);
 
   const handleSubmit = async (event: FormEvent) => {
@@ -293,7 +293,6 @@ export function AppStorageSheet({
     }
 
     setError(null);
-    setSaved(false);
     setPending(true);
 
     try {
@@ -308,19 +307,26 @@ export function AppStorageSheet({
               amountYocto > 0n ? amountYocto.toString() : undefined
             );
 
-      if (txHashes.length > 0) {
-        const result = await waitForNearTransactionBatchConfirmation({
-          txHashes,
-          accountId,
-        });
+      const confirmed = await trackTransaction({
+        txHashes,
+        submittedMessage:
+          mode === 'deposit'
+            ? txToastConfirming.addingStorage
+            : txToastConfirming.withdrawingStorage,
+        successMessage:
+          mode === 'deposit'
+            ? txToastSuccess.storageAdded
+            : txToastSuccess.storageWithdrawn,
+        failureMessage:
+          mode === 'deposit'
+            ? txToastError.storageDepositFailed
+            : txToastError.storageWithdrawFailed,
+        onFailure: (message) => setError(message),
+      });
 
-        if (!result.ok) {
-          throw new Error(result.errorMessage ?? 'Transaction failed.');
-        }
+      if (confirmed) {
+        refreshAfterTx();
       }
-
-      setSaved(true);
-      refreshAfterTx();
     } catch (err) {
       if (isWalletUserCancellation(err)) return;
       setError(
@@ -536,18 +542,12 @@ export function AppStorageSheet({
                   >
                     <OsSheetPrimaryAction
                       type="submit"
-                      ready={canSubmitAmount && !saved && !pending && !error}
-                      succeeded={saved}
-                      succeededLabel={
-                        mode === 'deposit' ? 'Added' : 'Withdrawn'
-                      }
-                      failed={Boolean(error)}
-                      failedLabel="Try again"
+                      ready={canSubmitAmount && !pending && !error}
                       pending={pending}
                       pendingLabel={
                         mode === 'deposit' ? 'Adding…' : 'Withdrawing…'
                       }
-                      disabled={saved || pending || !canSubmitAmount}
+                      disabled={pending || !canSubmitAmount}
                     >
                       {mode === 'deposit' ? 'Add NEAR' : 'Withdraw NEAR'}
                     </OsSheetPrimaryAction>

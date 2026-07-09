@@ -11,23 +11,25 @@ import {
   OsSheetAction,
   OsSheetActions,
   osFloatingPanelClassName,
-  osSheetActionExpandedClassName,
   osSheetFloatingPanelClassName,
-  osSheetFloatingPanelCopyClassName,
-  osSheetFloatingPanelErrorClassName,
-  osSheetFloatingPanelMetaClassName,
 } from '@onsocial/ui';
 import { useApplyMood } from '@/hooks/use-apply-mood';
 import { useUnlockPremiumMood } from '@/hooks/use-unlock-premium-mood';
+import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-context';
 import { usePortfolioMoodPreview } from '@/contexts/portfolio-mood-preview-context';
 import {
   PAGE_MOOD_CATALOG as APP_MOOD_CATALOG,
   PREMIUM_MOOD_PRESETS,
 } from '@/lib/moods/presets';
+import {
+  txToastError,
+  txToastSuccess,
+} from '@/lib/transaction-toast-copy';
+import { nearExplorerTxHref } from '@/lib/app-config';
 import type { PublicPageConfig } from '@/lib/page-data';
 
-const SAVED_DISMISS_MS = 900;
+const SAVED_DISMISS_MS = 280;
 
 interface PortfolioMoodPreviewBarProps {
   pageAccountId: string;
@@ -36,7 +38,6 @@ interface PortfolioMoodPreviewBarProps {
 
 interface MoodPreviewBarSnapshot {
   previewLabel: string;
-  savedLabel: string;
 }
 
 function isPremiumMoodId(moodId: PageMoodId): moodId is PremiumPageMoodId {
@@ -48,7 +49,6 @@ export function PortfolioMoodPreviewBar({
   config,
 }: PortfolioMoodPreviewBarProps) {
   const {
-    committedMood,
     previewMoodId,
     effectiveMood,
     isPreviewingMood,
@@ -68,7 +68,7 @@ export function PortfolioMoodPreviewBar({
     isUnlocking,
     error: unlockError,
   } = useUnlockPremiumMood(pageAccountId);
-  const [saved, setSaved] = useState(false);
+  const { setTxResult } = useAppTransactionFeedback();
   const [farewellSnapshot, setFarewellSnapshot] =
     useState<MoodPreviewBarSnapshot | null>(null);
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -84,7 +84,12 @@ export function PortfolioMoodPreviewBar({
 
   const isOpen = isPreviewingMood || farewellSnapshot !== null;
   const error = applyError ?? unlockError;
-  const isBusy = isApplying || isUnlocking || saved;
+  const isBusy = isApplying || isUnlocking;
+
+  useEffect(() => {
+    if (!error) return;
+    setTxResult({ type: 'error', msg: txToastError.moodSaveFailed });
+  }, [error, setTxResult]);
 
   if (!isOwner || !isOpen || (!farewellSnapshot && !previewMoodId)) {
     return null;
@@ -92,7 +97,6 @@ export function PortfolioMoodPreviewBar({
 
   const snapshot = farewellSnapshot ?? {
     previewLabel: effectiveMood.label,
-    savedLabel: committedMood.label,
   };
   const activePreviewId = previewMoodId!;
   const unlocked = isPageMoodUnlocked(
@@ -104,29 +108,36 @@ export function PortfolioMoodPreviewBar({
   const needsUnlock = !unlocked && isPremiumMoodId(activePreviewId);
 
   async function handleSave() {
+    let explorerHref: string | null = null;
+
     if (needsUnlock) {
-      const didUnlock = await unlockMood(activePreviewId);
-      if (!didUnlock) {
+      const unlockTxHash = await unlockMood(activePreviewId);
+      if (unlockTxHash === null) {
         return;
       }
+      explorerHref = nearExplorerTxHref(unlockTxHash) ?? explorerHref;
     }
 
-    const didApply = await applyMood(activePreviewId);
-    if (!didApply) {
+    const applyTxHash = await applyMood(activePreviewId);
+    if (applyTxHash === null) {
       return;
     }
+    explorerHref = nearExplorerTxHref(applyTxHash) ?? explorerHref;
 
+    setTxResult({
+      type: 'success',
+      msg: txToastSuccess.moodSaved,
+      explorerHref,
+    });
     setFarewellSnapshot(snapshot);
-    setSaved(true);
     dismissTimerRef.current = setTimeout(() => {
       discardMoodPreview();
-      setSaved(false);
       setFarewellSnapshot(null);
       requestCloseMoodSheet();
     }, SAVED_DISMISS_MS);
   }
 
-  function handleDiscard() {
+  function handleCancel() {
     discardMoodPreview();
     window.setTimeout(() => {
       requestOpenMoodSheet();
@@ -138,48 +149,35 @@ export function PortfolioMoodPreviewBar({
       className={`${osFloatingPanelClassName} ${osSheetFloatingPanelClassName} portfolio-face-preview-bar portfolio-mood-preview-bar portfolio-face-preview-bar--enter${isPreviewingFace ? ' is-stacked' : ''}`}
       role="status"
     >
-      <p className={osSheetFloatingPanelCopyClassName}>
-        {saved ? (
-          <>
-            <strong>{snapshot.previewLabel}</strong> saved.
-          </>
-        ) : (
-          <>
-            Previewing mood <strong>{snapshot.previewLabel}</strong>
-            <span className={osSheetFloatingPanelMetaClassName}>
-              {' '}
-              · saved as {snapshot.savedLabel}
-            </span>
-          </>
-        )}
+      <p className="portfolio-face-preview-bar-label">
+        <strong>{snapshot.previewLabel}</strong>
       </p>
-      <OsSheetActions layout="row-compact" tone="frosted-primary" borderless>
+      <div className="os-commit-actions">
         {!isBusy ? (
-          <OsSheetAction type="button" variant="danger" onClick={handleDiscard}>
-            Discard
-          </OsSheetAction>
+          <button
+            type="button"
+            className="os-commit-cancel"
+            onClick={handleCancel}
+          >
+            Cancel
+          </button>
         ) : null}
-        <OsSheetAction
-          type="button"
-          variant="primary"
-          ready={!saved}
-          succeeded={saved}
-          succeededLabel="Saved"
-          pending={isApplying || isUnlocking}
-          pendingLabel={needsUnlock ? 'Unlocking…' : 'Saving…'}
-          disabled={isBusy}
-          className={isBusy ? osSheetActionExpandedClassName : undefined}
-          onClick={() => void handleSave()}
-        >
-          {needsUnlock && priceSocial
-            ? `Unlock · ${priceSocial} SOCIAL`
-            : 'Save mood'}
-        </OsSheetAction>
-      </OsSheetActions>
-
-      {error ? (
-        <p className={osSheetFloatingPanelErrorClassName}>{error}</p>
-      ) : null}
+        <OsSheetActions layout="row-compact" tone="frosted-primary" borderless>
+          <OsSheetAction
+            type="button"
+            variant="primary"
+            ready={!isBusy}
+            pending={isApplying || isUnlocking}
+            pendingLabel={needsUnlock ? 'Unlocking…' : 'Saving…'}
+            disabled={isBusy}
+            onClick={() => void handleSave()}
+          >
+            {needsUnlock && priceSocial
+              ? `Unlock · ${priceSocial}`
+              : 'Save'}
+          </OsSheetAction>
+        </OsSheetActions>
+      </div>
     </div>
   );
 }

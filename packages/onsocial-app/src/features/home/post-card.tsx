@@ -11,9 +11,9 @@ import {
   ProfileAvatar,
   RepeatIcon,
 } from '@onsocial/ui';
-import { appPageHref } from '@/lib/app-links';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
 import { parsePostText, postKey } from '@/lib/post-display';
+import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import type { PostEngagement } from '@/hooks/use-post-engagement';
@@ -82,8 +82,6 @@ export function QuotedPostInset({
   const text = parsePostText(post.value);
   const interactive = Boolean(href);
 
-  // The card may itself be a link — the inset intercepts its own clicks so
-  // the quote navigates to the quoted post, not the quoting one.
   const open = (event: { preventDefault(): void; stopPropagation(): void }) => {
     if (!href) return;
     event.preventDefault();
@@ -207,6 +205,54 @@ function EngagementStat({
   );
 }
 
+function PostCardBody({
+  actionHref,
+  relationContext,
+  badges,
+  text,
+}: {
+  actionHref?: string;
+  relationContext: { verb: string; handle: string } | null;
+  badges: string[];
+  text: string;
+}) {
+  const body = (
+    <>
+      {relationContext ? (
+        <span className="post-card-relation">
+          {relationContext.verb}{' '}
+          <span className="post-card-relation-handle">
+            @{relationContext.handle}
+          </span>
+        </span>
+      ) : null}
+      {badges.length > 0 ? (
+        <div className="post-card-badges">
+          {badges.map((badge) => (
+            <span key={badge}>{badge}</span>
+          ))}
+        </div>
+      ) : null}
+      <p className="post-card-body">{text || '…'}</p>
+    </>
+  );
+
+  if (!actionHref) {
+    return body;
+  }
+
+  return (
+    <Link
+      href={actionHref}
+      className="post-card-open"
+      scroll={false}
+      aria-label="Open post"
+    >
+      {body}
+    </Link>
+  );
+}
+
 export function PostRowSkeleton({ rows = 3 }: { rows?: number }) {
   return (
     <div className="post-row-skeleton-list" aria-hidden>
@@ -247,41 +293,41 @@ export function PostCard({
   const relationContext = showRelationBadge
     ? postRelationContext(post, Boolean(quotedPost))
     : null;
+  const profileHref = portfolioPath(post.accountId);
+  const cardClassName = `post-card animate-rise-in${className ? ` ${className}` : ''}`;
 
-  const content = (
-    <>
-      <ProfileAvatar
-        src={authorProfile?.avatarUrl ?? null}
-        fallbackInitial={name}
-        size="lg"
-        className="post-card-avatar"
-      />
+  return (
+    <article className={cardClassName}>
+      <Link
+        href={profileHref}
+        className="post-card-avatar-link"
+        scroll={false}
+        aria-label={`View ${name}'s profile`}
+      >
+        <ProfileAvatar
+          src={authorProfile?.avatarUrl ?? null}
+          fallbackInitial={name}
+          size="lg"
+          className="post-card-avatar"
+        />
+      </Link>
       <div className="post-card-copy">
         <header className="post-card-header">
           <PostIdentityMeta
             name={name}
             accountId={post.accountId}
             timestamp={post.blockTimestamp}
-            authorHref={actionHref ? undefined : appPageHref(post.accountId)}
+            authorHref={profileHref}
+            timeHref={actionHref}
             channel={showChannel ? (post.channel ?? undefined) : undefined}
           />
         </header>
-        {relationContext ? (
-          <span className="post-card-relation">
-            {relationContext.verb}{' '}
-            <span className="post-card-relation-handle">
-              @{relationContext.handle}
-            </span>
-          </span>
-        ) : null}
-        {badges.length > 0 ? (
-          <div className="post-card-badges">
-            {badges.map((badge) => (
-              <span key={badge}>{badge}</span>
-            ))}
-          </div>
-        ) : null}
-        <p className="post-card-body">{text || '…'}</p>
+        <PostCardBody
+          actionHref={actionHref}
+          relationContext={relationContext}
+          badges={badges}
+          text={text}
+        />
         {quotedPost ? (
           <QuotedPostInset
             post={quotedPost}
@@ -332,20 +378,8 @@ export function PostCard({
           </div>
         ) : null}
       </div>
-    </>
+    </article>
   );
-
-  const cardClassName = `post-card animate-rise-in${className ? ` ${className}` : ''}`;
-
-  if (actionHref) {
-    return (
-      <Link className={`${cardClassName} post-card-link`} href={actionHref}>
-        {content}
-      </Link>
-    );
-  }
-
-  return <article className={cardClassName}>{content}</article>;
 }
 
 export { postKey };

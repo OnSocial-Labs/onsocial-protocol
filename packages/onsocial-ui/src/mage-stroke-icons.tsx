@@ -32,7 +32,7 @@ export function ChevronDownIcon(props: MageStrokeIconProps) {
       <path
         d="M4 8.41693L10.5866 15.0037C10.9633 15.375 11.471 15.5831 12 15.5831C12.529 15.5831 13.0367 15.375 13.4134 15.0037L20 8.41693"
         stroke="currentColor"
-        strokeWidth={1.5}
+        strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -46,14 +46,14 @@ export function MultiplyIcon(props: MageStrokeIconProps) {
       <path
         d="M19 5L5 19"
         stroke="currentColor"
-        strokeWidth={1.5}
+        strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <path
         d="M19 19L5 5"
         stroke="currentColor"
-        strokeWidth={1.5}
+        strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -67,14 +67,14 @@ export function SearchIcon(props: MageStrokeIconProps) {
       <path
         d="M10.7828 18.8276C12.3741 18.8298 13.9302 18.3601 15.2544 17.4781C16.5785 16.596 17.6112 15.3413 18.2216 13.8726C18.832 12.4039 18.9929 10.7872 18.6837 9.2271C18.3746 7.66702 17.6093 6.23364 16.4849 5.10831C15.3604 3.98299 13.9272 3.2163 12.3666 2.90525C10.8061 2.5942 9.18823 2.75277 7.71786 3.3609C6.24748 3.96902 4.99062 4.99937 4.10632 6.32158C3.22202 7.64379 2.75 9.19844 2.75 10.7888C2.75 12.919 3.59596 14.9621 5.10209 16.4693C6.60821 17.9766 8.65135 18.8248 10.7828 18.8276Z"
         stroke="currentColor"
-        strokeWidth={1.5}
+        strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <path
         d="M16.4883 16.491L21.25 21.25"
         stroke="currentColor"
-        strokeWidth={1.5}
+        strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -89,7 +89,7 @@ export function SlidersHorizontalIcon(props: MageStrokeIconProps) {
       <path
         d="M21.25 12H8.895m-4.361 0H2.75m18.5 6.607h-5.748m-4.361 0H2.75m18.5-13.214h-3.105m-4.361 0H2.75m13.214 2.18a2.18 2.18 0 1 0 0-4.36a2.18 2.18 0 0 0 0 4.36Zm-9.25 6.607a2.18 2.18 0 1 0 0-4.36a2.18 2.18 0 0 0 0 4.36Zm6.607 6.608a2.18 2.18 0 1 0 0-4.361a2.18 2.18 0 0 0 0 4.36Z"
         stroke="currentColor"
-        strokeWidth={1.5}
+        strokeWidth={2}
         strokeLinecap="round"
         strokeMiterlimit={10}
       />
@@ -104,14 +104,29 @@ export function DotsCircleIcon(props: MageStrokeIconProps) {
       <path
         d="M12 21.5a9.5 9.5 0 1 0 0-19a9.5 9.5 0 0 0 0 19"
         stroke="currentColor"
-        strokeWidth={1.5}
+        strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <path
         d="M12 7.736a.673.673 0 1 0 0-1.346a.673.673 0 0 0 0 1.346m0 4.937a.673.673 0 1 0 0-1.346a.673.673 0 0 0 0 1.346m0 4.937a.673.673 0 1 0 0-1.346a.673.673 0 0 0 0 1.346"
         stroke="currentColor"
-        strokeWidth={1.5}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </MageStrokeSvg>
+  );
+}
+
+/** Vertical more menu — three dots without the circle frame. */
+export function DotsVerticalIcon(props: MageStrokeIconProps) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="M12 7.736a.673.673 0 1 0 0-1.346a.673.673 0 0 0 0 1.346m0 4.937a.673.673 0 1 0 0-1.346a.673.673 0 0 0 0 1.346m0 4.937a.673.673 0 1 0 0-1.346a.673.673 0 0 0 0 1.346"
+        stroke="currentColor"
+        strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -163,7 +178,7 @@ export function ArrowLeftIcon(props: MageStrokeIconProps) {
 
 /** Mage `check` — inline save / confirm affordance. */
 export function CheckIcon({
-  strokeWidth = 1.5,
+  strokeWidth = 2,
   ...props
 }: MageStrokeIconProps & { strokeWidth?: number }) {
   return (
@@ -182,7 +197,7 @@ export function CheckIcon({
 
 /** Mage `trash` — clear profile media. */
 export function TrashIcon({
-  strokeWidth = 1.75,
+  strokeWidth = 2,
   ...props
 }: MageStrokeIconProps & { strokeWidth?: number }) {
   return (
@@ -228,7 +243,7 @@ export function TrashIcon({
 
 /** Mage `camera` — profile / media pickers. */
 export function CameraIcon({
-  strokeWidth = 1.5,
+  strokeWidth = 2,
   ...props
 }: MageStrokeIconProps & { strokeWidth?: number }) {
   return (
@@ -259,7 +274,7 @@ export function ChevronRightIcon(props: MageStrokeIconProps) {
       <path
         d="m8.417 20l6.587-6.587a2.013 2.013 0 0 0 0-2.826L8.417 4"
         stroke="currentColor"
-        strokeWidth={1.5}
+        strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
@@ -274,7 +289,7 @@ export function CopyIcon(props: MageStrokeIconProps) {
       <path
         d="M18.327 7.286h-8.044a1.93 1.93 0 0 0-1.925 1.938v10.088c0 1.07.862 1.938 1.925 1.938h8.044a1.93 1.93 0 0 0 1.925-1.938V9.224c0-1.07-.862-1.938-1.925-1.938"
         stroke="currentColor"
-        strokeWidth={1.5}
+        strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
@@ -282,7 +297,7 @@ export function CopyIcon(props: MageStrokeIconProps) {
       <path
         d="M15.642 7.286V4.688c0-.514-.203-1.007-.564-1.37a1.92 1.92 0 0 0-1.361-.568H5.673c-.51 0-1 .204-1.36.568a1.95 1.95 0 0 0-.565 1.37v10.088c0 .514.203 1.007.564 1.37s.85.568 1.361.568h2.685"
         stroke="currentColor"
-        strokeWidth={1.5}
+        strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
@@ -291,8 +306,8 @@ export function CopyIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Slightly heavier stroke for small social affordances (~1rem). */
-const MAGE_SOCIAL_STROKE = 2;
+/** Default Mage stroke weight — 2px unless fill. */
+const MAGE_STROKE = 2;
 
 /** Mage `message-round` — reply / conversation affordance. */
 export function MessageRoundIcon(props: MageStrokeIconProps) {
@@ -301,7 +316,7 @@ export function MessageRoundIcon(props: MageStrokeIconProps) {
       <path
         d="M21.25 12a9.23 9.23 0 0 1-2.705 6.54A9.25 9.25 0 0 1 12 21.25a9.2 9.2 0 0 1-3.795-.81l-3.867.572a1.195 1.195 0 0 1-1.361-1.43l.537-3.923A8.9 8.9 0 0 1 2.75 12a9.23 9.23 0 0 1 2.705-6.54A9.25 9.25 0 0 1 12 2.75a9.26 9.26 0 0 1 6.545 2.71A9.24 9.24 0 0 1 21.25 12"
         stroke="currentColor"
-        strokeWidth={MAGE_SOCIAL_STROKE}
+        strokeWidth={MAGE_STROKE}
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
@@ -320,7 +335,7 @@ export function RepeatIcon(props: MageStrokeIconProps) {
       <path
         d="M19.75 6.75h-12a4 4 0 0 0-4 4v2m16-1v2a4 4 0 0 1-4 4h-12"
         stroke="currentColor"
-        strokeWidth={MAGE_SOCIAL_STROKE}
+        strokeWidth={MAGE_STROKE}
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
@@ -328,7 +343,7 @@ export function RepeatIcon(props: MageStrokeIconProps) {
       <path
         d="m16.75 9.75l3-3l-3-3m-10 11l-3 3l3 3"
         stroke="currentColor"
-        strokeWidth={MAGE_SOCIAL_STROKE}
+        strokeWidth={MAGE_STROKE}
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
@@ -344,7 +359,7 @@ export function HeartIcon(props: MageStrokeIconProps) {
       <path
         d="M12 7.23c-1.733-3.924-5.764-4.273-7.641-2.562c-1.529 1.373-2.263 4.665-.867 7.695C5.9 17.573 12 20.309 12 20.309s6.101-2.736 8.508-7.946c1.396-3.03.662-6.322-.867-7.695C17.764 2.957 13.733 3.306 12 7.229"
         stroke="currentColor"
-        strokeWidth={MAGE_SOCIAL_STROKE}
+        strokeWidth={MAGE_STROKE}
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
@@ -360,7 +375,7 @@ export function EditPenIcon(props: MageStrokeIconProps) {
       <path
         d="m4.144 16.735l.493-3.425a.97.97 0 0 1 .293-.587l9.665-9.664a1.03 1.03 0 0 1 .973-.281a5.1 5.1 0 0 1 2.346 1.372a5.1 5.1 0 0 1 1.384 2.346a1.07 1.07 0 0 1-.282.973l-9.664 9.664a1.17 1.17 0 0 1-.598.294l-3.437.492a1.044 1.044 0 0 1-1.173-1.184m8.633-11.846l4.41 4.398M3.79 21.25h16.42"
         stroke="currentColor"
-        strokeWidth={1.5}
+        strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
@@ -376,7 +391,7 @@ export function EditIcon(props: MageStrokeIconProps) {
       <path
         d="M19.09 14.441v4.44a2.37 2.37 0 0 1-2.369 2.369H5.12a2.37 2.37 0 0 1-2.369-2.383V7.279a2.356 2.356 0 0 1 2.37-2.37H9.56"
         stroke="currentColor"
-        strokeWidth={1.5}
+        strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
@@ -384,7 +399,7 @@ export function EditIcon(props: MageStrokeIconProps) {
       <path
         d="M6.835 15.803v-2.165c.002-.357.144-.7.395-.953l9.532-9.532a1.36 1.36 0 0 1 1.934 0l2.151 2.151a1.36 1.36 0 0 1 0 1.934l-9.532 9.532a1.36 1.36 0 0 1-.953.395H8.197a1.36 1.36 0 0 1-1.362-1.362M19.09 8.995l-4.085-4.086"
         stroke="currentColor"
-        strokeWidth={1.5}
+        strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
@@ -399,7 +414,7 @@ export function ExternalLinkIcon(props: MageStrokeIconProps) {
       <path
         d="M18.607 11.035v7.929a2.27 2.27 0 0 1-2.3 2.286H5.05a2.27 2.27 0 0 1-2.299-2.3V7.693a2.273 2.273 0 0 1 2.3-2.3h7.928M21.25 2.75L10.679 13.321M15.964 2.75h5.286v5.286"
         stroke="currentColor"
-        strokeWidth={1.5}
+        strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
@@ -414,7 +429,7 @@ export function GlobeIcon(props: MageStrokeIconProps) {
       <path
         d="M12 21.5a9.5 9.5 0 1 0 0-19a9.5 9.5 0 0 0 0 19"
         stroke="currentColor"
-        strokeWidth={1.5}
+        strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
@@ -422,7 +437,7 @@ export function GlobeIcon(props: MageStrokeIconProps) {
       <path
         d="M12 21.5c2.332 0 4.222-4.253 4.222-9.5S14.332 2.5 12 2.5 7.778 6.753 7.778 12s1.89 9.5 4.222 9.5M2.5 12h19"
         stroke="currentColor"
-        strokeWidth={1.5}
+        strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
@@ -438,7 +453,7 @@ export function GiftIcon(props: MageStrokeIconProps) {
       <path
         d="M4.80556 12V19.1944C4.80556 19.7396 5.02212 20.2624 5.40761 20.6479C5.79311 21.0334 6.31595 21.25 6.86111 21.25H17.1389C17.6841 21.25 18.2069 21.0334 18.5924 20.6479C18.9779 20.2624 19.1944 19.7396 19.1944 19.1944V12"
         stroke="currentColor"
-        strokeWidth={1.5}
+        strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
@@ -446,7 +461,7 @@ export function GiftIcon(props: MageStrokeIconProps) {
       <path
         d="M19.7083 6.86108H4.29167C3.44023 6.86108 2.75 7.55131 2.75 8.40275V10.4583C2.75 11.3097 3.44023 12 4.29167 12H19.7083C20.5598 12 21.25 11.3097 21.25 10.4583V8.40275C21.25 7.55131 20.5598 6.86108 19.7083 6.86108Z"
         stroke="currentColor"
-        strokeWidth={1.5}
+        strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
@@ -454,7 +469,7 @@ export function GiftIcon(props: MageStrokeIconProps) {
       <path
         d="M6.92278 6.86111C6.01834 5.71 5.83334 2.75 8.91667 2.75C12.4111 2.75 11.9486 6.86111 12 6.86111C12.0514 6.86111 11.6403 2.75 15.0833 2.75C18.1667 2.75 17.9611 5.71 17.0567 6.86111"
         stroke="currentColor"
-        strokeWidth={1.5}
+        strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
@@ -462,7 +477,7 @@ export function GiftIcon(props: MageStrokeIconProps) {
       <path
         d="M12 21.25V6.86108"
         stroke="currentColor"
-        strokeWidth={1.5}
+        strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
@@ -477,7 +492,7 @@ export function LogoutIcon(props: MageStrokeIconProps) {
       <path
         d="M13.477 21.245H8.34a4.92 4.92 0 0 1-5.136-4.623V7.378A4.92 4.92 0 0 1 8.34 2.755h5.136"
         stroke="currentColor"
-        strokeWidth={1.5}
+        strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
@@ -485,7 +500,7 @@ export function LogoutIcon(props: MageStrokeIconProps) {
       <path
         d="M20.795 12H7.442"
         stroke="currentColor"
-        strokeWidth={1.5}
+        strokeWidth={2}
         strokeLinecap="round"
         strokeMiterlimit={10}
         fill="none"
@@ -493,7 +508,7 @@ export function LogoutIcon(props: MageStrokeIconProps) {
       <path
         d="m16.083 17.136 4.404-4.404a1.04 1.04 0 0 0 0-1.464l-4.404-4.404"
         stroke="currentColor"
-        strokeWidth={1.5}
+        strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
@@ -508,7 +523,79 @@ export function UserIcon(props: MageStrokeIconProps) {
       <path
         d="M19.618 21.25c0-3.602-4.016-6.53-7.618-6.53s-7.618 2.928-7.618 6.53M12 11.456a4.353 4.353 0 1 0 0-8.706 4.353 4.353 0 0 0 0 8.706"
         stroke="currentColor"
-        strokeWidth={1.5}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </MageStrokeSvg>
+  );
+}
+
+/** Mage `plus` — add / create affordance. */
+export function PlusIcon(props: MageStrokeIconProps) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="M12 4.5v15m7.5-7.5h-15"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </MageStrokeSvg>
+  );
+}
+
+/** Mage `question-mark-circle` — help / info affordance. */
+export function QuestionMarkCircleIcon(props: MageStrokeIconProps) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="M9.008 8.84a3.185 3.185 0 0 1 3.471-1.806a3.09 3.09 0 0 1 2.265 1.614a2.682 2.682 0 0 1-1.562 3.689a1.98 1.98 0 0 0-1.276 1.787v.738"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeMiterlimit={10}
+        fill="none"
+      />
+      <path
+        d="M11.881 17.424h.008"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <path
+        d="M12 21.5a9.5 9.5 0 1 0 0-19a9.5 9.5 0 0 0 0 19"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </MageStrokeSvg>
+  );
+}
+
+/** Mage `link` — generic / other link affordance. */
+export function LinkIcon(props: MageStrokeIconProps) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="M10.522 13.48a4.1 4.1 0 0 0 2.892 1.199a4.7 4.7 0 0 0 1.063-.136a4.2 4.2 0 0 0 1.828-1.063l.969-.968l2.878-2.888a4.085 4.085 0 0 0-2.922-6.873a4.1 4.1 0 0 0-2.862 1.096L11.49 6.736"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <path
+        d="m12.445 17.336l-2.892 2.888a4.094 4.094 0 0 1-6.801-2.944a4.1 4.1 0 0 1 1.031-2.833l2.892-2.888l.969-.968A4.2 4.2 0 0 1 9.47 9.53a4.1 4.1 0 0 1 3.956 1.062"
+        stroke="currentColor"
+        strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
