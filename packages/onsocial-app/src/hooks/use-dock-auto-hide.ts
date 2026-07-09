@@ -27,7 +27,6 @@ export function useDockAutoHide(
   scrollRoot: Element | null = null
 ): boolean {
   const [hidden, setHidden] = useState(false);
-  const scoped = scrollRoot != null;
 
   // Clear scroll-hide when commit chrome pins the dock (render-time adjust).
   if (pinned && hidden) {
@@ -35,20 +34,17 @@ export function useDockAutoHide(
   }
 
   useEffect(() => {
-    if (pinned) {
-      setHidden(false);
-      return;
-    }
-    if (scoped && !scrollRoot) {
-      setHidden(false);
+    if (pinned || !scrollRoot) {
       return;
     }
 
-    let lastTop: number | undefined;
-    const lastTops = new WeakMap<EventTarget, number>();
+    let lastTop = scrollRoot.scrollTop;
 
-    const applyDelta = (top: number, last: number | undefined) => {
-      if (last === undefined) return;
+    const onScroll = (event: Event) => {
+      if (event.target !== scrollRoot) return;
+      const top = scrollRoot.scrollTop;
+      const last = lastTop;
+      lastTop = top;
       const delta = top - last;
       if (top <= TOP_REVEAL_PX || delta < -SHOW_DELTA_PX) {
         setHidden(false);
@@ -57,17 +53,23 @@ export function useDockAutoHide(
       }
     };
 
-    const onScroll = (event: Event) => {
-      if (scoped && scrollRoot) {
-        // Capture may see nested scrollers; only react to this root.
-        if (event.target !== scrollRoot) return;
-        const top = scrollRoot.scrollTop;
-        const last = lastTop;
-        lastTop = top;
-        applyDelta(top, last);
-        return;
-      }
+    scrollRoot.addEventListener('scroll', onScroll, {
+      passive: true,
+      capture: true,
+    });
+    return () => {
+      scrollRoot.removeEventListener('scroll', onScroll, { capture: true });
+    };
+  }, [pinned, scrollRoot]);
 
+  useEffect(() => {
+    if (pinned || scrollRoot) {
+      return;
+    }
+
+    const lastTops = new WeakMap<EventTarget, number>();
+
+    const onScroll = (event: Event) => {
       const target = event.target;
       if (!target) return;
       const top = scrollTopOf(target);
@@ -75,19 +77,15 @@ export function useDockAutoHide(
 
       const last = lastTops.get(target);
       lastTops.set(target, top);
-      applyDelta(top, last);
-    };
+      if (last === undefined) return;
 
-    if (scoped && scrollRoot) {
-      lastTop = scrollRoot.scrollTop;
-      scrollRoot.addEventListener('scroll', onScroll, {
-        passive: true,
-        capture: true,
-      });
-      return () => {
-        scrollRoot.removeEventListener('scroll', onScroll, { capture: true });
-      };
-    }
+      const delta = top - last;
+      if (top <= TOP_REVEAL_PX || delta < -SHOW_DELTA_PX) {
+        setHidden(false);
+      } else if (delta > HIDE_DELTA_PX) {
+        setHidden(true);
+      }
+    };
 
     window.addEventListener('scroll', onScroll, {
       capture: true,
@@ -96,7 +94,7 @@ export function useDockAutoHide(
     return () => {
       window.removeEventListener('scroll', onScroll, { capture: true });
     };
-  }, [pinned, scoped, scrollRoot]);
+  }, [pinned, scrollRoot]);
 
   return pinned ? false : hidden;
 }

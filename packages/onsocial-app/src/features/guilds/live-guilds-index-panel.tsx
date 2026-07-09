@@ -87,19 +87,21 @@ export function LiveGuildsIndexPanel() {
 
   useEffect(() => {
     if (walletLoading) return;
-    void load();
+    queueMicrotask(() => {
+      void load();
+    });
   }, [load, walletLoading]);
 
   useEffect(() => {
     const query = search.trim();
     if (!query) {
-      setSearchResults(null);
-      setSearchState('idle');
       return;
     }
 
     const requestId = ++searchRequestRef.current;
-    setSearchState('loading');
+    queueMicrotask(() => {
+      setSearchState('loading');
+    });
 
     const timer = window.setTimeout(() => {
       void (async () => {
@@ -129,11 +131,18 @@ export function LiveGuildsIndexPanel() {
     return () => window.clearTimeout(timer);
   }, [accountId, search]);
 
+  const searchQuery = search.trim();
+  if (!searchQuery && searchResults !== null) {
+    setSearchResults(null);
+  }
+  if (!searchQuery && searchState !== 'idle') {
+    setSearchState('idle');
+  }
+
   const visibleGuilds = useMemo(() => {
-    const query = search.trim();
-    if (!query) return guilds;
+    if (!searchQuery) return guilds;
     if (searchResults) return searchResults;
-    const needle = query.toLowerCase();
+    const needle = searchQuery.toLowerCase();
     return guilds.filter((card) => {
       const displayName = guildDisplayName(card.name, card.groupId);
       return (
@@ -142,7 +151,7 @@ export function LiveGuildsIndexPanel() {
         (card.description ?? '').toLowerCase().includes(needle)
       );
     });
-  }, [guilds, search, searchResults]);
+  }, [guilds, searchQuery, searchResults]);
 
   const toolbar = (
     <SearchField

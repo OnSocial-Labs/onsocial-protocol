@@ -46,13 +46,18 @@ export function GuildMembersSheet({
   const [roleFilter, setRoleFilter] = useState<GuildMemberRoleFilter>('all');
   const [query, setQuery] = useState('');
   const seedMembersRef = useRef(seedMembers);
-  seedMembersRef.current = seedMembers;
+
+  useEffect(() => {
+    seedMembersRef.current = seedMembers;
+  }, [seedMembers]);
 
   useEffect(() => {
     if (!open) return;
-    setRoleFilter('all');
-    setQuery('');
-    bootstrap(seedMembersRef.current);
+    queueMicrotask(() => {
+      setRoleFilter('all');
+      setQuery('');
+      bootstrap(seedMembersRef.current);
+    });
   }, [bootstrap, open]);
 
   const profiles = usePostAuthorProfiles(members.map((member) => member.memberId));

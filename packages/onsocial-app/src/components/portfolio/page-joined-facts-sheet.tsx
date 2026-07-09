@@ -134,7 +134,11 @@ export function PageJoinedFactsSheet({
     }
 
     let cancelled = false;
-    setCreationLoading(true);
+    queueMicrotask(() => {
+      if (!cancelled) {
+        setCreationLoading(true);
+      }
+    });
 
     void fetchNearAccountCreation(pageAccountId)
       .then((next) => {

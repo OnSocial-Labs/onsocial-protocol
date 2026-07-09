@@ -12,13 +12,12 @@ export function useGuildMembersManageContext(
   enabled = true
 ): GuildMembersManageContext {
   const { accountId, isConnected } = useAppWallet();
+  const canResolve = enabled && isConnected && Boolean(accountId);
   const [viewerIsOwner, setViewerIsOwner] = useState(false);
   const [viewerIsAdmin, setViewerIsAdmin] = useState(false);
 
   useEffect(() => {
-    if (!enabled || !isConnected || !accountId) {
-      setViewerIsOwner(false);
-      setViewerIsAdmin(false);
+    if (!canResolve || !accountId) {
       return;
     }
 
@@ -49,15 +48,15 @@ export function useGuildMembersManageContext(
     return () => {
       cancelled = true;
     };
-  }, [accountId, enabled, groupId, isConnected, memberDriven]);
+  }, [accountId, canResolve, groupId, memberDriven]);
 
   return useMemo(
     () => ({
       viewerAccountId: accountId,
-      viewerIsOwner,
-      viewerIsAdmin,
+      viewerIsOwner: canResolve ? viewerIsOwner : false,
+      viewerIsAdmin: canResolve ? viewerIsAdmin : false,
       memberDriven,
     }),
-    [accountId, memberDriven, viewerIsAdmin, viewerIsOwner]
+    [accountId, canResolve, memberDriven, viewerIsAdmin, viewerIsOwner]
   );
 }

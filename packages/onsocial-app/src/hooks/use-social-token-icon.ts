@@ -19,12 +19,12 @@ export function useSocialTokenIcon(enabled = true): string | null {
 
   useEffect(() => {
     if (!enabled) {
-      setIcon(null);
       return;
     }
 
     if (cachedSocialIcon !== undefined) {
-      setIcon(cachedSocialIcon || SOCIAL_TOKEN_ICON_FALLBACK);
+      const next = cachedSocialIcon || SOCIAL_TOKEN_ICON_FALLBACK;
+      queueMicrotask(() => setIcon(next));
       return;
     }
 
@@ -48,5 +48,5 @@ export function useSocialTokenIcon(enabled = true): string | null {
     };
   }, [enabled]);
 
-  return icon;
+  return enabled ? icon : null;
 }
