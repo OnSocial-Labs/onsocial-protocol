@@ -79,12 +79,7 @@ export function OsSheetAction({
       className={cn(
         osSheetActionClassName,
         `os-sheet-action--${variant}`,
-        isPrimary &&
-          isReady &&
-          !succeeded &&
-          !failed &&
-          !pending &&
-          'is-ready',
+        isPrimary && isReady && !succeeded && !failed && !pending && 'is-ready',
         succeeded && 'is-succeeded',
         failed && !succeeded && 'is-failed',
         pending && 'is-pending',
