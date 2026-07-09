@@ -11,7 +11,6 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type Ref,
-  type RefObject,
 } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from './cn.js';

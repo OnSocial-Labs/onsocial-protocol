@@ -44,10 +44,7 @@ function makeHarness(opts: HarnessOpts = {}) {
         }
       );
     }
-    if (
-      path === '/relay/delegate' ||
-      path === '/relay/delegate?wait=true'
-    ) {
+    if (path === '/relay/delegate' || path === '/relay/delegate?wait=true') {
       return { txHash: 'tx_signed' };
     }
     throw new Error(`unexpected POST ${path}`);
