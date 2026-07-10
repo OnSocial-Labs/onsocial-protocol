@@ -6,15 +6,19 @@ export function GuildDescriptionClamp({ text }: { text: string }) {
   const measureRef = useRef<HTMLParagraphElement>(null);
   const [expanded, setExpanded] = useState(false);
   const [needsClamp, setNeedsClamp] = useState(false);
+  const [clampText, setClampText] = useState(text);
+
+  if (text !== clampText) {
+    setClampText(text);
+    if (expanded) setExpanded(false);
+  }
 
   useEffect(() => {
     const el = measureRef.current;
     if (!el) return;
-    setNeedsClamp(el.scrollHeight > el.clientHeight + 1);
-  }, [text]);
-
-  useEffect(() => {
-    setExpanded(false);
+    queueMicrotask(() => {
+      setNeedsClamp(el.scrollHeight > el.clientHeight + 1);
+    });
   }, [text]);
 
   if (!text.trim()) return null;

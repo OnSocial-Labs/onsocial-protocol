@@ -37,7 +37,9 @@ export function useDockAutoHide(
 
   useEffect(() => {
     if (hideRequest > 0 && !pinned) {
-      setHidden(true);
+      queueMicrotask(() => {
+        setHidden(true);
+      });
     }
   }, [hideRequest, pinned]);
 

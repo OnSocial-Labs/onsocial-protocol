@@ -267,23 +267,26 @@ export function PageContentDrawer({
 
   useEffect(() => {
     if (!sheetOpen) {
-      setOpenPinned(false);
+      queueMicrotask(() => {
+        setOpenPinned(false);
+      });
       clearJumpLock();
       return;
     }
-    setOpenPinned(true);
+    queueMicrotask(() => {
+      setOpenPinned(true);
+    });
     const timer = setTimeout(() => setOpenPinned(false), 450);
     return () => clearTimeout(timer);
   }, [clearJumpLock, sheetOpen]);
 
-  useEffect(() => {
-    if (jumpSections.length === 0) {
-      return;
+  if (jumpSections.length === 0) {
+    if (activeSection !== null) {
+      setActiveSection(null);
     }
-    if (!activeSection || !jumpSections.includes(activeSection)) {
-      setActiveSection(jumpSections[0]!);
-    }
-  }, [activeSection, jumpSections]);
+  } else if (!activeSection || !jumpSections.includes(activeSection)) {
+    setActiveSection(jumpSections[0]!);
+  }
 
   useEffect(() => {
     if (!scrollNode || jumpSections.length < 2) {
