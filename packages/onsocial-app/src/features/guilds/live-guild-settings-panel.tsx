@@ -15,11 +15,14 @@ import {
   guildPath,
 } from '@/features/guilds/guilds-data';
 import {
-  guildTagsEqual,
   normalizeGuildConfig,
-  normalizeGuildTagsInput,
   type GuildConfigSnapshot,
 } from '@/features/guilds/guild-config';
+import { GuildTagsEditor } from '@/features/guilds/guild-tags-editor';
+import {
+  guildEditorTagsEqual,
+  normalizeGuildEditorTags,
+} from '@/features/guilds/guild-tag-editor';
 import {
   cloneGuildStructure,
   guildStructureForMetadata,
@@ -33,6 +36,10 @@ import {
 } from '@/features/guilds/guild-structure-discovery';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import {
+  guildCoverStyle,
+} from '@/features/guilds/guild-visual';
+import { guildDisplayInitials } from '@/features/guilds/guild-card-display';
 import {
   txToastConfirming,
   txToastError,
@@ -70,10 +77,12 @@ export function LiveGuildSettingsPanel({ groupId }: { groupId: string }) {
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [tagsInput, setTagsInput] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
   const [accessGated, setAccessGated] = useState(false);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerRemoved, setBannerRemoved] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarRemoved, setAvatarRemoved] = useState(false);
   const [structure, setStructure] = useState<GuildStructureDocument | null>(
     null
   );
@@ -84,7 +93,9 @@ export function LiveGuildSettingsPanel({ groupId }: { groupId: string }) {
   const [error, setError] = useState<string | null>(null);
 
   const bannerInputRef = useRef<HTMLInputElement>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerPreview = useObjectUrl(bannerFile);
+  const avatarPreview = useObjectUrl(avatarFile);
 
   const load = useCallback(async () => {
     setLoadState('loading');
@@ -101,12 +112,14 @@ export function LiveGuildSettingsPanel({ groupId }: { groupId: string }) {
       setSnapshot(normalized);
       setName(normalized.name);
       setDescription(normalized.description);
-      setTagsInput(normalized.tags.join(', '));
+      setTags(normalizeGuildEditorTags(normalized.tags));
       setAccessGated(normalized.accessGated);
       setMemberDriven(normalized.memberDriven);
       setStructure(cloneGuildStructure(normalized.structure));
       setBannerFile(null);
       setBannerRemoved(false);
+      setAvatarFile(null);
+      setAvatarRemoved(false);
 
       if (!accountId) {
         setCanEdit(false);
@@ -163,10 +176,13 @@ export function LiveGuildSettingsPanel({ groupId }: { groupId: string }) {
   const displayBannerUrl = bannerRemoved
     ? null
     : (bannerPreview ?? snapshot?.bannerUrl ?? null);
+  const displayAvatarUrl = avatarRemoved
+    ? null
+    : (avatarPreview ?? snapshot?.avatarUrl ?? null);
 
   const normalizedTags = useMemo(
-    () => normalizeGuildTagsInput(tagsInput),
-    [tagsInput]
+    () => normalizeGuildEditorTags(tags),
+    [tags]
   );
 
   const isDirty = useMemo(() => {
@@ -175,13 +191,17 @@ export function LiveGuildSettingsPanel({ groupId }: { groupId: string }) {
       name.trim() !== snapshot.name ||
       description.trim() !== snapshot.description ||
       accessGated !== snapshot.accessGated ||
-      !guildTagsEqual(normalizedTags, snapshot.tags) ||
+      !guildEditorTagsEqual(normalizedTags, snapshot.tags) ||
       !guildStructuresEqual(structure, snapshot.structure) ||
       bannerFile !== null ||
-      bannerRemoved
+      bannerRemoved ||
+      avatarFile !== null ||
+      avatarRemoved
     );
   }, [
     accessGated,
+    avatarFile,
+    avatarRemoved,
     bannerFile,
     bannerRemoved,
     description,
@@ -204,7 +224,7 @@ export function LiveGuildSettingsPanel({ groupId }: { groupId: string }) {
     if (description.trim() !== snapshot.description) {
       changes.description = description.trim();
     }
-    if (!guildTagsEqual(normalizedTags, snapshot.tags)) {
+    if (!guildEditorTagsEqual(normalizedTags, snapshot.tags)) {
       changes.tags = normalizedTags;
     }
     if (bannerFile) {
@@ -216,6 +236,16 @@ export function LiveGuildSettingsPanel({ groupId }: { groupId: string }) {
       };
     } else if (bannerRemoved && snapshot.bannerUrl) {
       onsocialPatch.banner = null;
+    }
+    if (avatarFile) {
+      const uploaded = await client.storage.upload(avatarFile);
+      changes.avatar = {
+        cid: uploaded.cid,
+        mime: uploaded.mime,
+        size: uploaded.size,
+      };
+    } else if (avatarRemoved && snapshot.avatarUrl) {
+      changes.avatar = null;
     }
     if (!guildStructuresEqual(structure, snapshot.structure)) {
       onsocialPatch.structure = guildStructureForMetadata(structure);
@@ -358,6 +388,11 @@ export function LiveGuildSettingsPanel({ groupId }: { groupId: string }) {
             <section className="guild-settings-media">
               <div
                 className={`guild-settings-banner${displayBannerUrl ? '' : ' guild-hero-cover--fallback'}`}
+                style={
+                  displayBannerUrl
+                    ? undefined
+                    : guildCoverStyle(null, groupId)
+                }
               >
                 {displayBannerUrl ? (
                   <img src={displayBannerUrl} alt="" />
@@ -378,7 +413,7 @@ export function LiveGuildSettingsPanel({ groupId }: { groupId: string }) {
                       setBannerRemoved(true);
                     }}
                   >
-                    Remove
+                    Remove banner
                   </button>
                 ) : null}
               </div>
@@ -393,6 +428,61 @@ export function LiveGuildSettingsPanel({ groupId }: { groupId: string }) {
                   if (file) setBannerRemoved(false);
                 }}
               />
+
+              <div className="guild-settings-avatar-row">
+                <div
+                  className={`guild-settings-avatar${
+                    displayAvatarUrl ? '' : ' guild-hero-avatar--fallback'
+                  }`}
+                  style={
+                    displayAvatarUrl
+                      ? undefined
+                      : guildCoverStyle(null, groupId)
+                  }
+                  aria-hidden
+                >
+                  {displayAvatarUrl ? (
+                    <img src={displayAvatarUrl} alt="" />
+                  ) : (
+                    <span>
+                      {guildDisplayInitials(name || snapshot?.name, groupId)}
+                    </span>
+                  )}
+                </div>
+                <div className="guild-settings-avatar-actions">
+                  <button
+                    type="button"
+                    className="guild-settings-avatar-button"
+                    onClick={() => avatarInputRef.current?.click()}
+                  >
+                    {displayAvatarUrl ? 'Change avatar' : 'Add avatar'}
+                  </button>
+                  {displayAvatarUrl ? (
+                    <button
+                      type="button"
+                      className="guild-settings-avatar-button guild-settings-avatar-button--ghost"
+                      onClick={() => {
+                        setAvatarFile(null);
+                        setAvatarRemoved(true);
+                      }}
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                  <small>Shown on the guild page over the banner.</small>
+                </div>
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  hidden
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] ?? null;
+                    setAvatarFile(file);
+                    if (file) setAvatarRemoved(false);
+                  }}
+                />
+              </div>
             </section>
 
             <label className="guild-field" htmlFor={fieldId('id')}>
@@ -421,21 +511,14 @@ export function LiveGuildSettingsPanel({ groupId }: { groupId: string }) {
               />
             </label>
 
-            <label className="guild-field" htmlFor={fieldId('tags')}>
+            <div className="guild-field">
               <span>Tags</span>
-              <input
+              <GuildTagsEditor
+                tags={tags}
+                onChange={setTags}
                 id={fieldId('tags')}
-                value={tagsInput}
-                onChange={(event) => setTagsInput(event.target.value)}
-                placeholder="builders, believers"
-                maxLength={96}
               />
-              <small>
-                {normalizedTags.length > 0
-                  ? normalizedTags.map((tag) => `#${tag}`).join(' ')
-                  : 'Optional, comma separated.'}
-              </small>
-            </label>
+            </div>
 
             <div className="guild-toggle-grid">
               <label className="guild-toggle-card">

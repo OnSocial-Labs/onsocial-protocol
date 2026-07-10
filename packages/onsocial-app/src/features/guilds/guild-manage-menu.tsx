@@ -27,6 +27,8 @@ interface GuildManageMenuProps {
   accessGated: boolean;
   memberDriven: boolean;
   canAddMember: boolean;
+  /** Owners/admins/mods — member requests inbox. */
+  canReviewRequests?: boolean;
   onOpenSheet: (sheet: GuildManageSheetId) => void;
 }
 
@@ -47,36 +49,35 @@ export function GuildManageMenu({
   memberCount,
   activeProposalCount,
   accessGated,
-  memberDriven,
   canAddMember,
+  canReviewRequests = false,
   onOpenSheet,
 }: GuildManageMenuProps) {
   const { isOpen, close, toggle, containerRef, panelRef } = useDropdown();
-  const menuLabel = 'Manage guild';
-  const showRequests = accessGated;
-  const showProposals = memberDriven;
+  const menuLabel = 'Guild';
+  const showRequests = accessGated && canReviewRequests;
 
   return (
     <div className="guild-manage-menu" ref={containerRef}>
       <button
         type="button"
         className={`${osIconActionClassName} guild-manage-menu-trigger${
-          pendingRequestCount > 0 ? ' has-badge' : ''
+          showRequests && pendingRequestCount > 0 ? ' has-badge' : ''
         }${isOpen ? ' is-open' : ''}`}
         onClick={toggle}
         aria-haspopup="menu"
         aria-expanded={isOpen}
         aria-label={
-          pendingRequestCount > 0
-            ? `Manage guild, ${pendingRequestCount} pending requests`
-            : 'Manage guild'
+          showRequests && pendingRequestCount > 0
+            ? `Guild menu, ${pendingRequestCount} pending requests`
+            : 'Guild menu'
         }
       >
         <UserPlusFillIcon
           className="glass-sheet-close-icon guild-manage-menu-icon"
           aria-hidden
         />
-        {pendingRequestCount > 0 ? (
+        {showRequests && pendingRequestCount > 0 ? (
           <span className="guild-manage-menu-badge" aria-hidden>
             {formatProfileCount(pendingRequestCount)}
           </span>
@@ -126,20 +127,18 @@ export function GuildManageMenu({
             <CountBadge count={memberCount} />
           </button>
 
-          {showProposals ? (
-            <button
-              type="button"
-              role="menuitem"
-              className={osFloatingPanelItemClassName}
-              onClick={() => {
-                onOpenSheet('proposals');
-                close();
-              }}
-            >
-              <span>Proposals</span>
-              <CountBadge count={activeProposalCount} />
-            </button>
-          ) : null}
+          <button
+            type="button"
+            role="menuitem"
+            className={osFloatingPanelItemClassName}
+            onClick={() => {
+              onOpenSheet('proposals');
+              close();
+            }}
+          >
+            <span>Proposals</span>
+            <CountBadge count={activeProposalCount} />
+          </button>
 
           {canAddMember ? (
             <button

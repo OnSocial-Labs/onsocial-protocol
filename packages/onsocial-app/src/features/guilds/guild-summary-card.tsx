@@ -1,11 +1,17 @@
 import Link from 'next/link';
 import {
-  formatGuildMemberCount,
+  formatGuildMemberCountParts,
   guildCardMetaTags,
+  guildDisplayInitials,
   guildDisplayName,
   type GuildCardRole,
 } from '@/features/guilds/guild-card-display';
-import { guildCoverClassName } from '@/features/guilds/guild-visual';
+import { GUILD_MAX_TAGS } from '@/features/guilds/guild-config';
+import {
+  guildCoverClassName,
+  guildCoverStyle,
+  guildFallbackCoverStyle,
+} from '@/features/guilds/guild-visual';
 import { guildPath } from '@/features/guilds/guilds-data';
 
 export interface GuildSummaryCardModel {
@@ -17,6 +23,8 @@ export interface GuildSummaryCardModel {
   accessGated: boolean;
   memberDriven: boolean;
   memberCount?: number | null;
+  /** Discover tags — max two; first is primary. */
+  tags?: string[];
   role?: GuildCardRole | null;
 }
 
@@ -29,7 +37,13 @@ function GuildCardPills({
   accessGated: boolean;
   memberDriven: boolean;
 }) {
-  const tags = guildCardMetaTags({ role, accessGated, memberDriven });
+  const tags = guildCardMetaTags({
+    role,
+    accessGated,
+    memberDriven,
+  });
+
+  if (tags.length === 0) return null;
 
   return (
     <span className="guild-card-pills">
@@ -47,6 +61,30 @@ function GuildCardPills({
   );
 }
 
+function GuildMemberStat({ count }: { count: number }) {
+  const { value, label } = formatGuildMemberCountParts(count);
+
+  return (
+    <span className="guild-summary-card-stat">
+      <span className="guild-summary-card-stat-count">{value}</span>
+      <span className="guild-summary-card-stat-label">{label}</span>
+    </span>
+  );
+}
+
+function GuildTopicTags({ tags }: { tags: string[] }) {
+  const visible = tags.slice(0, GUILD_MAX_TAGS);
+  if (visible.length === 0) return null;
+
+  return (
+    <span className="guild-summary-card-tags">
+      {visible.map((tag) => (
+        <span key={tag}>#{tag}</span>
+      ))}
+    </span>
+  );
+}
+
 export function GuildSummaryCard({
   guild,
   variant = 'grid',
@@ -55,6 +93,7 @@ export function GuildSummaryCard({
   variant?: 'rail' | 'grid';
 }) {
   const displayName = guildDisplayName(guild.name, guild.groupId);
+  const topicTags = guild.tags ?? [];
 
   return (
     <Link
@@ -64,22 +103,38 @@ export function GuildSummaryCard({
     >
       <div
         className={guildCoverClassName(guild.bannerUrl)}
+        style={guildCoverStyle(guild.bannerUrl, guild.groupId)}
         aria-hidden
       >
-        {guild.bannerUrl ? (
-          <img src={guild.bannerUrl} alt="" />
-        ) : null}
+        {guild.bannerUrl ? <img src={guild.bannerUrl} alt="" /> : null}
       </div>
+      <span className="guild-summary-card-identity" aria-hidden>
+        <span
+          className={`guild-summary-card-avatar${
+            guild.avatarUrl ? '' : ' guild-summary-card-avatar--fallback'
+          }`}
+          style={
+            guild.avatarUrl
+              ? undefined
+              : guildFallbackCoverStyle(guild.groupId)
+          }
+        >
+          {guild.avatarUrl ? (
+            <img src={guild.avatarUrl} alt="" />
+          ) : (
+            <span>{guildDisplayInitials(guild.name, guild.groupId)}</span>
+          )}
+        </span>
+      </span>
       <span className="guild-summary-card-body">
         <span className="guild-summary-card-name">{displayName}</span>
         {guild.description ? (
           <span className="guild-summary-card-copy">{guild.description}</span>
         ) : null}
+        {variant === 'grid' ? <GuildTopicTags tags={topicTags} /> : null}
         <span className="guild-summary-card-meta">
           {guild.memberCount != null ? (
-            <span className="guild-summary-card-stat">
-              {formatGuildMemberCount(guild.memberCount)}
-            </span>
+            <GuildMemberStat count={guild.memberCount} />
           ) : null}
           <GuildCardPills
             role={guild.role}

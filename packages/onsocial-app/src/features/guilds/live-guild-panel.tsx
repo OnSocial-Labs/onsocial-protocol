@@ -22,6 +22,7 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { PostRowSkeleton, postKey } from '@/features/home/post-card';
+import { GuildFeedFilterList } from '@/features/guilds/guild-feed-filter-list';
 import {
   GuildComposerModal,
   type GuildComposerMode,
@@ -43,12 +44,14 @@ import {
   normalizeGuildConfig,
   type GuildConfigSnapshot,
 } from '@/features/guilds/guild-config';
+import { GuildDescriptionClamp } from '@/features/guilds/guild-description-clamp';
 import { GuildAddMemberSheet } from '@/features/guilds/guild-add-member-sheet';
 import { GuildAddSpaceSheet } from '@/features/guilds/guild-add-space-sheet';
 import {
   GuildManageMenu,
   type GuildManageSheetId,
 } from '@/features/guilds/guild-manage-menu';
+import { guildDisplayInitials } from '@/features/guilds/guild-card-display';
 import { GuildMemberRequestsSheet } from '@/features/guilds/guild-member-requests-sheet';
 import { GuildMembersSheet } from '@/features/guilds/guild-members-sheet';
 import { GuildProposalsSheet } from '@/features/guilds/guild-proposals-sheet';
@@ -68,7 +71,10 @@ import {
   reconcileGuildMemberRoster,
 } from '@/features/guilds/guild-member-roster';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { guildHeroCoverClassName } from '@/features/guilds/guild-visual';
+import {
+  guildCoverStyle,
+  guildHeroCoverClassName,
+} from '@/features/guilds/guild-visual';
 import {
   guildAccessLabel,
   resolveGuildMemberCount,
@@ -182,6 +188,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     viewer?.isOwner || viewer?.isAdmin || viewer?.canModerate
   );
   const canAddMember = Boolean(viewer?.isOwner || viewer?.isAdmin);
+  const showManageMenu = Boolean(viewer?.isMember);
   const title = config?.name ?? groupId;
   const viewerAccess = useMemo(
     () => ({
@@ -219,14 +226,6 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     [config, viewerAccess]
   );
   const canCompose = Boolean(composerSpace);
-  /** Overview aggregates every room — name the post destination explicitly. */
-  const composePromptLabel = useMemo(() => {
-    if (!composerSpace) return '';
-    if (selectedFeedFilterId === 'all') {
-      return null;
-    }
-    return 'Share something here…';
-  }, [composerSpace, selectedFeedFilterId]);
   const feedPosts = useMemo(() => {
     const indexedKeys = new Set(state.posts.map(postKey));
     const pendingLocal = localPosts.filter(
@@ -428,25 +427,34 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
 
   useEffect(() => {
     const scrollRoot = scrollRootRef.current;
-    if (!scrollRoot) return;
+    if (!scrollRoot || loadState !== 'ready') return;
 
-    // Title handoff: elevate the bar (and fade its title in) only once the
-    // hero name has scrolled under it, so the name never doubles on screen.
+    // Title handoff: elevate once the hero name scrolls under the immersive bar.
     const heroTitle = heroTitleRef.current;
-    if (heroTitle) {
-      const observer = new IntersectionObserver(
-        ([entry]) => setHeaderElevated(!entry.isIntersecting),
-        // Top margin ≈ bar height; hero title counts as gone once beneath it.
-        { root: scrollRoot, rootMargin: '-72px 0px 0px 0px', threshold: 0 }
-      );
-      observer.observe(heroTitle);
-      return () => observer.disconnect();
-    }
+    const header = scrollRoot.parentElement?.querySelector(
+      '.os-app-screen-header'
+    );
 
-    const updateHeader = () => setHeaderElevated(scrollRoot.scrollTop > 18);
-    updateHeader();
-    scrollRoot.addEventListener('scroll', updateHeader, { passive: true });
-    return () => scrollRoot.removeEventListener('scroll', updateHeader);
+    const syncElevated = () => {
+      const scrolled = scrollRoot.scrollTop > 8;
+      if (!heroTitle) {
+        setHeaderElevated(scrollRoot.scrollTop > 18);
+        return;
+      }
+      const headerBottom =
+        header?.getBoundingClientRect().bottom ??
+        scrollRoot.getBoundingClientRect().top + 72;
+      const titleTop = heroTitle.getBoundingClientRect().top;
+      setHeaderElevated(scrolled && titleTop < headerBottom - 2);
+    };
+
+    syncElevated();
+    scrollRoot.addEventListener('scroll', syncElevated, { passive: true });
+    window.addEventListener('resize', syncElevated, { passive: true });
+    return () => {
+      scrollRoot.removeEventListener('scroll', syncElevated);
+      window.removeEventListener('resize', syncElevated);
+    };
   }, [loadState]);
 
   useEffect(() => {
@@ -505,7 +513,6 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       chainStats: state.stats,
       rosterFloor: facepileIds.length,
     }) ?? 0;
-  const proposalCount = state.stats?.proposal_count ?? 0;
   const actionLabel = useMemo(() => {
     if (!isConnected) return 'Connect wallet';
     if (!config) return 'Load guild';
@@ -630,6 +637,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     setComposer({ mode: 'post', target: null });
   }, []);
 
+  // Launcher pen is the only compose entry — no floating dock duplicate.
   useRegisterComposeAction(canCompose ? openPostComposer : null);
 
   const submitFromModal = async (text: string) => {
@@ -805,44 +813,66 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
         }
       : undefined;
 
+  const renderFeedFilters = (receded: boolean) => (
+    <GuildFeedFilterList
+      selectedFeedFilterId={selectedFeedFilterId}
+      onSelectFeedFilter={setSelectedFeedFilterId}
+      feedSpaces={feedSpaces}
+      canAddMember={canAddMember}
+      onAddSpace={() => setAddSpaceOpen(true)}
+      receded={receded}
+    />
+  );
+
   return (
     <OsAppScreen
       title={title}
+      // Hero owns name + mode; nav title fades in on scroll only.
       subtitle={
-        config
-          ? guildAccessLabel(config.accessGated)
+        loadState === 'ready'
+          ? undefined
           : 'Guilds are public on-chain spaces with access-gated participation.'
       }
       backFallbackHref="/groups"
       actions={
-        loadState === 'ready' && config && canManageGuild ? (
+        loadState === 'ready' && config && (showManageMenu || canManageGuild) ? (
           <>
-            <GuildManageMenu
-              pendingRequestCount={
-                state.moderation?.pendingMemberRequestCount ?? 0
-              }
-              memberCount={memberCount}
-              activeProposalCount={state.moderation?.activeProposalCount ?? 0}
-              accessGated={config.accessGated}
-              memberDriven={config.memberDriven}
-              canAddMember={canAddMember}
-              onOpenSheet={setManageSheet}
-            />
-            <Link
-              className={osIconActionClassName}
-              href={guildSectionPath(groupId, 'settings')}
-              aria-label="Guild settings"
-            >
-              <SlidersHorizontalIcon
-                className="glass-sheet-close-icon"
-                aria-hidden
+            {showManageMenu ? (
+              <GuildManageMenu
+                pendingRequestCount={
+                  state.moderation?.pendingMemberRequestCount ?? 0
+                }
+                memberCount={memberCount}
+                activeProposalCount={state.moderation?.activeProposalCount ?? 0}
+                accessGated={config.accessGated}
+                memberDriven={config.memberDriven}
+                canAddMember={canAddMember}
+                canReviewRequests={canManageGuild}
+                onOpenSheet={setManageSheet}
               />
-            </Link>
+            ) : null}
+            {canManageGuild ? (
+              <Link
+                className={osIconActionClassName}
+                href={guildSectionPath(groupId, 'settings')}
+                aria-label="Guild settings"
+              >
+                <SlidersHorizontalIcon
+                  className="glass-sheet-close-icon"
+                  aria-hidden
+                />
+              </Link>
+            ) : null}
           </>
         ) : undefined
       }
       immersiveHeader={loadState === 'ready'}
       headerElevated={headerElevated}
+      toolbar={
+        loadState === 'ready' && config && headerElevated
+          ? renderFeedFilters(false)
+          : undefined
+      }
       scrollRootRef={scrollRootRef}
     >
       <div className="guilds-page">
@@ -885,6 +915,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
             <section className="guild-hero">
               <div
                 className={guildHeroCoverClassName(config.bannerUrl)}
+                style={guildCoverStyle(config.bannerUrl, groupId)}
                 aria-hidden
               >
                 {config.bannerUrl ? (
@@ -894,10 +925,55 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                   />
                 ) : null}
               </div>
+
+              <div className="guild-hero-identity">
+                <div
+                  className={`guild-hero-avatar${
+                    config.avatarUrl ? '' : ' guild-hero-avatar--fallback'
+                  }`}
+                  style={
+                    config.avatarUrl
+                      ? undefined
+                      : guildCoverStyle(null, groupId)
+                  }
+                  aria-hidden
+                >
+                  {config.avatarUrl ? (
+                    <img src={config.avatarUrl} alt="" />
+                  ) : (
+                    <span>{guildDisplayInitials(config.name, groupId)}</span>
+                  )}
+                </div>
+                <div className="guild-hero-identity-actions">
+                  <button
+                    className={
+                      viewer?.isMember
+                        ? `guild-secondary-button guild-hero-action${confirmingLeave ? ' is-confirm-leave' : ''}`
+                        : joinPending
+                          ? 'guild-secondary-button guild-hero-action'
+                          : 'guild-primary-button guild-hero-action'
+                    }
+                    type="button"
+                    disabled={
+                      actionPending || (joinPending && !joinCancelReady)
+                    }
+                    onClick={handleMembershipClick}
+                    onBlur={confirmingLeave ? clearConfirmLeave : undefined}
+                  >
+                    {actionPending ? (
+                      <PulsingDots
+                        size="sm"
+                        className="guild-hero-action-dots"
+                      />
+                    ) : (
+                      actionLabel
+                    )}
+                  </button>
+                </div>
+              </div>
+
               <h2 ref={heroTitleRef}>{config.name}</h2>
-              {config.description ? (
-                <p className="guild-hero-description">{config.description}</p>
-              ) : null}
+
               <div className="guild-hero-meta">
                 <button
                   type="button"
@@ -925,56 +1001,23 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                     {memberCount} {memberCount === 1 ? 'member' : 'members'}
                   </span>
                 </button>
-                {config.memberDriven ? (
-                  <button
-                    type="button"
-                    className="guild-hero-meta-link"
-                    onClick={() => setManageSheet('proposals')}
-                  >
-                    {proposalCount > 0
-                      ? `${proposalCount} ${proposalCount === 1 ? 'proposal' : 'proposals'}`
-                      : 'Proposals'}
-                  </button>
-                ) : (
-                  <Link
-                    className="guild-hero-meta-link"
-                    href={guildSectionPath(groupId, 'proposals')}
-                  >
-                    {proposalCount > 0
-                      ? `${proposalCount} ${proposalCount === 1 ? 'proposal' : 'proposals'}`
-                      : 'Proposals'}
-                  </Link>
-                )}
-                {config.tags.length > 0 ? (
-                  <span className="guild-hero-tags">
-                    {config.tags.slice(0, 2).map((tag) => (
-                      <span key={tag}>#{tag}</span>
-                    ))}
-                    {config.tags.length > 2 ? (
-                      <span>+{config.tags.length - 2}</span>
-                    ) : null}
-                  </span>
-                ) : null}
-                <button
-                  className={
-                    viewer?.isMember
-                      ? `guild-secondary-button guild-hero-action${confirmingLeave ? ' is-confirm-leave' : ''}`
-                      : joinPending
-                        ? 'guild-secondary-button guild-hero-action'
-                        : 'guild-primary-button guild-hero-action'
-                  }
-                  type="button"
-                  disabled={actionPending || (joinPending && !joinCancelReady)}
-                  onClick={handleMembershipClick}
-                  onBlur={confirmingLeave ? clearConfirmLeave : undefined}
-                >
-                  {actionPending ? (
-                    <PulsingDots size="sm" className="guild-hero-action-dots" />
-                  ) : (
-                    actionLabel
-                  )}
-                </button>
+                <span className="guild-hero-mode">
+                  {guildAccessLabel(config.accessGated, config.memberDriven)}
+                </span>
               </div>
+
+              {config.description ? (
+                <GuildDescriptionClamp text={config.description} />
+              ) : null}
+
+              {config.tags.length > 0 ? (
+                <div className="guild-hero-tags" aria-label="Guild tags">
+                  {config.tags.map((tag) => (
+                    <span key={tag}>#{tag}</span>
+                  ))}
+                </div>
+              ) : null}
+
               {needsCollaborativeStorage ? (
                 <p className="guild-storage-gate-copy">
                   {GUILD_COLLABORATIVE_JOIN_STORAGE_HINT}
@@ -985,59 +1028,8 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
             {error ? <p className="guild-form-error">{error}</p> : null}
 
             <section className="guild-section guild-feed-section">
-              <div
-                className="guild-feed-filter-list"
-                aria-label="Guild feed filters"
-              >
-                <button
-                  className={`guild-feed-filter-button${selectedFeedFilterId === 'all' ? ' is-active' : ''}`}
-                  type="button"
-                  onClick={() => setSelectedFeedFilterId('all')}
-                >
-                  Overview
-                </button>
-                {feedSpaces.map((space) => (
-                  <button
-                    key={space.id}
-                    className={`guild-feed-filter-button${selectedFeedFilterId === space.id ? ' is-active' : ''}`}
-                    type="button"
-                    onClick={() => setSelectedFeedFilterId(space.id)}
-                  >
-                    {space.title}
-                  </button>
-                ))}
-                {canAddMember ? (
-                  <button
-                    className="guild-feed-filter-button guild-feed-filter-button--add"
-                    type="button"
-                    onClick={() => setAddSpaceOpen(true)}
-                  >
-                    + Add space
-                  </button>
-                ) : null}
-              </div>
-              {canCompose ? (
-                <button
-                  type="button"
-                  className="guild-reply-prompt"
-                  onClick={openPostComposer}
-                  aria-label={
-                    selectedFeedFilterId === 'all'
-                      ? `Share in ${composerSpace!.title}. Opens composer to choose room.`
-                      : `Share something in ${composerSpace!.title}`
-                  }
-                >
-                  {composePromptLabel ?? (
-                    <>
-                      Share in{' '}
-                      <span className="guild-reply-prompt-destination">
-                        {composerSpace!.title}
-                      </span>
-                      …
-                    </>
-                  )}
-                </button>
-              ) : viewer?.isMember ? (
+              {renderFeedFilters(headerElevated)}
+              {canCompose ? null : viewer?.isMember ? (
                 <div className="guild-state-card">
                   No spaces are available for you to post in yet.
                 </div>
@@ -1097,8 +1089,8 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
               ) : (
                 <div className="guild-state-card">
                   {selectedFeedSpace
-                    ? `No ${selectedFeedSpace.title.toLowerCase()} posts yet. Members can start this space from the composer.`
-                    : 'No guild posts yet. Members can start the feed from this page.'}
+                    ? `No ${selectedFeedSpace.title.toLowerCase()} posts yet. Members can start this space from compose.`
+                    : 'No guild posts yet. Members can start the feed from compose.'}
                 </div>
               )}
             </section>

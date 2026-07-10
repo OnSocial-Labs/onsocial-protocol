@@ -21,6 +21,8 @@ import {
   collectRelayTxHashes,
   normalizeGuildIdInput,
 } from '@/features/guilds/guilds-data';
+import { GuildTagsEditor } from '@/features/guilds/guild-tags-editor';
+import { normalizeGuildEditorTags } from '@/features/guilds/guild-tag-editor';
 import {
   DEFAULT_GUILD_STRUCTURE,
   guildStructureForMetadata,
@@ -40,22 +42,13 @@ export function GuildCreatePanel() {
   const [description, setDescription] = useState('');
   const [accessGated, setAccessGated] = useState(false);
   const [memberDriven, setMemberDriven] = useState(false);
-  const [tagsInput, setTagsInput] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const groupId = useMemo(
     () => normalizeGuildIdInput(slug || name),
     [name, slug]
-  );
-  const tags = useMemo(
-    () =>
-      tagsInput
-        .split(',')
-        .map((tag) => normalizeGuildIdInput(tag))
-        .filter(Boolean)
-        .slice(0, 6),
-    [tagsInput]
   );
   const canSubmit =
     groupId.length >= 3 && name.trim().length >= 2 && !pending && isConnected;
@@ -90,7 +83,7 @@ export function GuildCreatePanel() {
         description: description.trim() || undefined,
         isPrivate: accessGated,
         memberDriven,
-        tags,
+        tags: normalizeGuildEditorTags(tags),
         x: {
           onsocial: {
             structure: guildStructureForMetadata(DEFAULT_GUILD_STRUCTURE),
@@ -168,21 +161,10 @@ export function GuildCreatePanel() {
           />
         </label>
 
-        <label className="guild-field" htmlFor={fieldId('tags')}>
+        <div className="guild-field">
           <span>Tags</span>
-          <input
-            id={fieldId('tags')}
-            value={tagsInput}
-            onChange={(event) => setTagsInput(event.target.value)}
-            placeholder="builders, projects, social"
-            maxLength={96}
-          />
-          <small>
-            {tags.length > 0
-              ? tags.map((tag) => `#${tag}`).join(' ')
-              : 'Optional, comma separated.'}
-          </small>
-        </label>
+          <GuildTagsEditor tags={tags} onChange={setTags} id={fieldId('tags')} />
+        </div>
 
         <div className="guild-toggle-grid">
           <label className="guild-toggle-card">

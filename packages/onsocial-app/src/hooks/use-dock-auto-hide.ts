@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 
-const HIDE_DELTA_PX = 14;
-const SHOW_DELTA_PX = 8;
-const TOP_REVEAL_PX = 48;
+export const DOCK_HIDE_DELTA_PX = 14;
+export const DOCK_SHOW_DELTA_PX = 8;
+export const DOCK_TOP_REVEAL_PX = 48;
 
 function scrollTopOf(target: EventTarget | null): number | null {
   if (target instanceof Element) return target.scrollTop;
@@ -21,10 +21,12 @@ function scrollTopOf(target: EventTarget | null): number | null {
  * - Pass `scrollRoot` to bind a specific scroller (page drawer body).
  * - Pass `pinned` while commit chrome is up so save/refresh scroll cannot tuck
  *   the dock away.
+ * - Bump `hideRequest` to force a hide (e.g. after a section jump).
  */
 export function useDockAutoHide(
   pinned = false,
-  scrollRoot: Element | null = null
+  scrollRoot: Element | null = null,
+  hideRequest = 0
 ): boolean {
   const [hidden, setHidden] = useState(false);
 
@@ -32,6 +34,12 @@ export function useDockAutoHide(
   if (pinned && hidden) {
     setHidden(false);
   }
+
+  useEffect(() => {
+    if (hideRequest > 0 && !pinned) {
+      setHidden(true);
+    }
+  }, [hideRequest, pinned]);
 
   useEffect(() => {
     if (pinned || !scrollRoot) {
@@ -46,9 +54,9 @@ export function useDockAutoHide(
       const last = lastTop;
       lastTop = top;
       const delta = top - last;
-      if (top <= TOP_REVEAL_PX || delta < -SHOW_DELTA_PX) {
+      if (top <= DOCK_TOP_REVEAL_PX || delta < -DOCK_SHOW_DELTA_PX) {
         setHidden(false);
-      } else if (delta > HIDE_DELTA_PX) {
+      } else if (delta > DOCK_HIDE_DELTA_PX) {
         setHidden(true);
       }
     };
@@ -80,9 +88,9 @@ export function useDockAutoHide(
       if (last === undefined) return;
 
       const delta = top - last;
-      if (top <= TOP_REVEAL_PX || delta < -SHOW_DELTA_PX) {
+      if (top <= DOCK_TOP_REVEAL_PX || delta < -DOCK_SHOW_DELTA_PX) {
         setHidden(false);
-      } else if (delta > HIDE_DELTA_PX) {
+      } else if (delta > DOCK_HIDE_DELTA_PX) {
         setHidden(true);
       }
     };

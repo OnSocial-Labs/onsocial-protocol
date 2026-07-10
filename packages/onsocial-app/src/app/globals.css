@@ -29,19 +29,92 @@
 
 /* Page drawer — unlayered so these beat imported glass-sheet rules. */
 .glass-sheet-panel.page-drawer-panel {
-  height: min(90dvh, 52rem);
-  max-height: min(90dvh, 52rem);
-  --glass-header-scrim-height: min(7.5rem, 28%);
+  height: min(95dvh, 54rem);
+  max-height: min(95dvh, 54rem);
+  --glass-header-scrim-height: min(6.5rem, 24%);
 }
 
 /* Single scroller = sheet body. Content scrolls under the floating pill. */
 .glass-sheet-panel.page-drawer-panel > .glass-sheet-body.page-drawer-body {
-  padding: 0.2rem 1.15rem 0;
+  padding: 0.1rem 1.15rem 0;
+}
+
+/*
+ * Keep the overlay gesture dock above body chrome.
+ * Sticky + backdrop-filter inside the body can promote a compositor layer
+ * that otherwise paints over the absolute footer.
+ */
+.glass-sheet-panel.page-drawer-panel
+  > .glass-sheet-footer.glass-sheet-footer--overlay {
+  z-index: 20;
+}
+
+/*
+ * Immersive guild chrome — unlayered so white icons beat glass-sheet.css
+ * (imported outside @layer). Light-mode --fg is dark; without this, back /
+ * manage / settings vanish on dark banners.
+ */
+.os-app-screen[data-immersive-header='true']
+  .os-app-screen-header:not(.is-elevated)
+  .contextual-back,
+.os-app-screen[data-immersive-header='true']
+  .os-app-screen-header:not(.is-elevated)
+  .glass-sheet-icon-action {
+  box-sizing: border-box;
+  width: 1.85rem;
+  height: 1.85rem;
+  min-width: 1.85rem;
+  min-height: 1.85rem;
+  max-width: 1.85rem;
+  max-height: 1.85rem;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: rgb(0 0 0 / 0.42);
+  color: rgb(255 255 255 / 0.96);
+  filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.4));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.os-app-screen[data-immersive-header='true']
+  .os-app-screen-header:not(.is-elevated)
+  .glass-sheet-close-icon,
+.os-app-screen[data-immersive-header='true']
+  .os-app-screen-header:not(.is-elevated)
+  .guild-manage-menu-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: rgb(255 255 255 / 0.96);
+}
+
+.os-app-screen[data-immersive-header='true']
+  .os-app-screen-header:not(.is-elevated)
+  .contextual-back:hover,
+.os-app-screen[data-immersive-header='true']
+  .os-app-screen-header:not(.is-elevated)
+  .glass-sheet-icon-action:hover,
+.os-app-screen[data-immersive-header='true']
+  .os-app-screen-header:not(.is-elevated)
+  .glass-sheet-icon-action:focus-visible {
+  background: rgb(0 0 0 / 0.55);
+  color: rgb(255 255 255 / 1);
+}
+
+.os-app-screen[data-immersive-header='true']
+  .os-app-screen-header.is-elevated
+  .contextual-back,
+.os-app-screen[data-immersive-header='true']
+  .os-app-screen-header.is-elevated
+  .glass-sheet-icon-action {
+  filter: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 @media (min-width: 768px) {
   .glass-sheet-panel.page-drawer-panel {
-    height: min(90dvh, 52rem);
+    height: min(95dvh, 54rem);
   }
 }
 
@@ -5810,6 +5883,11 @@ a.os-surface-row {
   /* Full-viewport OS glass app surface (Discover, future OS apps). */
   .os-app-screen {
     --glass-header-scrim-height: var(--glass-screen-header-scrim-height);
+    /* Nav row fits sheet icon actions (2.75rem); used by sticky guild feed tabs. */
+    --os-app-screen-nav-row-height: 2.75rem;
+    --os-app-screen-chrome-height: calc(
+      0.65rem + var(--os-app-screen-nav-row-height) + 0.65rem
+    );
     position: relative;
     height: 100dvh;
     max-height: 100dvh;
@@ -5881,10 +5959,24 @@ a.os-surface-row {
 
   .os-app-screen[data-immersive-header='true']
     .os-app-screen-header.is-elevated {
-    background: rgb(var(--bg-rgb) / 0.72);
-    box-shadow: 0 1px 0 rgb(var(--fg-rgb) / 0.08);
-    backdrop-filter: blur(18px) saturate(1.18);
-    -webkit-backdrop-filter: blur(18px) saturate(1.18);
+    /* Solid chrome — feed must not bleed through title + space tabs. */
+    background: rgb(var(--bg-rgb));
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    padding-bottom: 0.45rem;
+  }
+
+  .os-app-screen[data-immersive-header='true']
+    .os-app-screen-header.is-elevated
+    .os-app-screen-nav-row {
+    align-items: center;
+  }
+
+  .os-app-screen[data-immersive-header='true']
+    .os-app-screen-header.is-elevated
+    .os-app-screen-title {
+    font-size: 0.95rem;
+    line-height: 1.25;
   }
 
   .os-app-screen[data-immersive-header='true'] .os-app-screen-title,
@@ -5896,6 +5988,7 @@ a.os-surface-row {
     .os-app-screen-header:not(.is-elevated)
     .os-app-screen-heading {
     opacity: 0;
+    visibility: hidden;
     transform: translateY(-0.2rem);
     pointer-events: none;
   }
@@ -5903,7 +5996,22 @@ a.os-surface-row {
   .os-app-screen[data-immersive-header='true'] .os-app-screen-heading {
     transition:
       opacity 160ms ease,
-      transform 160ms ease;
+      transform 160ms ease,
+      visibility 0s linear 160ms;
+  }
+
+  .os-app-screen[data-immersive-header='true']
+    .os-app-screen-header.is-elevated
+    .os-app-screen-heading {
+    padding-top: 0;
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    pointer-events: auto;
+    transition:
+      opacity 160ms ease,
+      transform 160ms ease,
+      visibility 0s linear 0s;
   }
 
   .os-app-screen[data-immersive-header='true']
@@ -5944,6 +6052,39 @@ a.os-surface-row {
 
   .os-app-screen-toolbar {
     margin-top: 0.75rem;
+  }
+
+  /* Guild detail — space tabs only mount once the immersive header elevates. */
+  .os-app-screen[data-immersive-header='true']
+    .os-app-screen-header.is-elevated
+    .os-app-screen-toolbar {
+    margin-top: 0.35rem;
+  }
+
+  .os-app-screen[data-immersive-header='true']
+    .os-app-screen-header.is-elevated
+    .os-app-screen-toolbar
+    .guild-feed-filter-list {
+    margin: 0;
+    padding: 0;
+    gap: 0.22rem;
+  }
+
+  .os-app-screen[data-immersive-header='true']
+    .os-app-screen-header.is-elevated
+    .os-app-screen-toolbar
+    .guild-feed-filter-button {
+    min-height: 1.55rem;
+    font-size: 0.64rem;
+    padding: 0.22rem 0.52rem;
+  }
+
+  .os-app-screen[data-immersive-header='true']
+    .os-app-screen-header.is-elevated
+    .os-app-screen-toolbar
+    .guild-feed-filter-button--add {
+    width: 1.55rem;
+    min-width: 1.55rem;
   }
 
   /* Icon actions opposite the back button (settings gear etc.). */
@@ -6328,14 +6469,15 @@ a.os-surface-row {
   .page-drawer-jump {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.35rem;
-    padding: 0.15rem 0 0.55rem;
+    gap: 0.28rem;
+    padding: 0.05rem 0 0;
   }
 
   .page-drawer-jump-chip {
     margin: 0;
     border: 0;
     border-radius: 9999px;
+    min-height: 1.85rem;
     padding: 0.32rem 0.62rem;
     background: rgb(var(--fg-rgb) / 0.05);
     color: rgb(var(--fg-rgb) / 0.58);
@@ -6356,26 +6498,22 @@ a.os-surface-row {
     outline: none;
   }
 
-  .page-drawer-panel[data-tone='mood-thread'] .page-drawer-jump-chip {
-    background: color-mix(
-      in srgb,
-      var(--mood-surface, rgb(var(--fg-rgb) / 0.06)) 70%,
-      transparent
-    );
-    color: color-mix(
-      in srgb,
-      var(--mood-muted, rgb(var(--fg-rgb) / 0.55)) 88%,
-      transparent
-    );
+  .page-drawer-jump-chip.is-active {
+    background: rgb(var(--fg-rgb) / 0.1);
+    color: rgb(var(--fg-rgb) / 0.92);
   }
 
-  .page-drawer-panel[data-tone='mood-thread'] .page-drawer-jump-chip:hover,
-  .page-drawer-panel[data-tone='mood-thread']
-    .page-drawer-jump-chip:focus-visible {
+  .page-drawer-panel[data-tone='mood-thread'] .page-drawer-jump-chip.is-active {
+    background: color-mix(
+      in srgb,
+      var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.2)))
+        14%,
+      rgb(var(--fg-rgb) / 0.07)
+    );
     color: color-mix(
       in srgb,
       var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.7))) 36%,
-      var(--mood-text, rgb(var(--fg-rgb) / 0.82))
+      var(--mood-text, rgb(var(--fg-rgb) / 0.92))
     );
   }
 
@@ -6475,15 +6613,15 @@ a.os-surface-row {
     display: flex;
     flex-shrink: 0;
     flex-direction: column;
-    gap: 0.35rem;
-    padding: 0.15rem 1.15rem 0.55rem;
+    gap: 0.28rem;
+    padding: 0.05rem 1.15rem 0.4rem;
   }
 
   .page-drawer-chrome-row {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 0.75rem;
+    gap: 0.65rem;
   }
 
   .page-drawer-meta {
@@ -6491,13 +6629,13 @@ a.os-surface-row {
     min-width: 0;
     flex: 1;
     flex-direction: column;
-    gap: 0.18rem;
-    padding-top: 0.12rem;
+    gap: 0.12rem;
+    padding-top: 0.06rem;
   }
 
   .page-drawer-name {
     margin: 0;
-    font-size: 1.02rem;
+    font-size: 0.98rem;
     font-weight: 650;
     letter-spacing: -0.015em;
     line-height: 1.2;
@@ -6836,6 +6974,8 @@ a.os-surface-row {
    */
   .page-drawer-gestures {
     --signals-arrow-size: 0.55rem;
+    position: relative;
+    z-index: 1;
     display: flex;
     justify-content: center;
     padding: 0.55rem 1rem
@@ -7162,13 +7302,13 @@ a.os-surface-row {
 
   .page-drawer-guild-rail {
     display: grid;
-    grid-auto-columns: minmax(11.75rem, 68%);
+    grid-auto-columns: minmax(10.75rem, 62%);
     grid-auto-flow: column;
-    gap: 0.6rem;
+    gap: 0.5rem;
     margin-inline: -0.1rem;
     overflow-x: auto;
     overscroll-behavior-x: contain;
-    padding: 0.05rem 0.1rem 0.45rem;
+    padding: 0.05rem 0.1rem 0.4rem;
     scroll-padding-inline: 0.1rem;
     scroll-snap-type: x proximity;
     scrollbar-width: none;
@@ -7232,85 +7372,40 @@ a.os-surface-row {
     display: grid;
     min-width: 0;
     min-height: 6.5rem;
-    grid-template-rows: auto 1fr;
+    grid-template-rows: auto auto 1fr;
     gap: 0;
     overflow: hidden;
-    border: 1px solid rgb(var(--fg-rgb) / 0.06);
-    border-radius: 1rem;
-    background: rgb(var(--fg-rgb) / 0.06);
+    border: 0;
+    border-radius: 0.95rem;
+    background: rgb(var(--fg-rgb) / 0.05);
     color: inherit;
     padding: 0;
     text-decoration: none;
     transition:
       background 160ms ease,
-      border-color 160ms ease,
       transform 160ms ease;
+  }
+
+  .guild-summary-card--rail {
+    min-height: 0;
+    min-width: 10.75rem;
+    border-radius: 0.85rem;
+    scroll-snap-align: start;
   }
 
   .guild-summary-card:hover,
   .guild-summary-card:focus-visible {
-    border-color: rgb(var(--fg-rgb) / 0.12);
-    background: rgb(var(--fg-rgb) / 0.09);
+    background: rgb(var(--fg-rgb) / 0.08);
     outline: none;
     transform: translateY(-1px);
   }
 
   .guild-summary-card-cover {
     position: relative;
+    z-index: 0;
     margin: 0;
-    height: clamp(3.15rem, 18vw, 4.15rem);
+    height: clamp(3.35rem, 18vw, 4.35rem);
     overflow: hidden;
-    -webkit-mask-image: linear-gradient(
-      to bottom,
-      #000 0%,
-      #000 68%,
-      rgb(0 0 0 / 0.55) 88%,
-      transparent 100%
-    );
-    mask-image: linear-gradient(
-      to bottom,
-      #000 0%,
-      #000 68%,
-      rgb(0 0 0 / 0.55) 88%,
-      transparent 100%
-    );
-  }
-
-  .guild-summary-card-cover.guild-hero-cover--fallback {
-    background:
-      radial-gradient(
-        circle at 14% 16%,
-        color-mix(in srgb, var(--protocol-purple) 54%, transparent),
-        transparent 38%
-      ),
-      radial-gradient(
-        circle at 84% 10%,
-        color-mix(in srgb, var(--protocol-green) 42%, transparent),
-        transparent 36%
-      ),
-      radial-gradient(
-        ellipse 90% 70% at 50% 100%,
-        color-mix(in srgb, var(--protocol-blue) 24%, transparent),
-        transparent 66%
-      ),
-      linear-gradient(
-        135deg,
-        rgb(var(--fg-rgb) / 0.18),
-        rgb(var(--fg-rgb) / 0.075) 48%,
-        color-mix(in srgb, var(--protocol-blue) 28%, transparent)
-      );
-  }
-
-  .guild-summary-card-cover.guild-hero-cover--fallback::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image:
-      linear-gradient(rgb(var(--fg-rgb) / 0.055) 1px, transparent 1px),
-      linear-gradient(90deg, rgb(var(--fg-rgb) / 0.04) 1px, transparent 1px);
-    background-size: 24px 24px;
-    opacity: 0.42;
-    pointer-events: none;
   }
 
   .guild-summary-card-cover img {
@@ -7323,23 +7418,75 @@ a.os-surface-row {
   }
 
   .guild-summary-card--rail .guild-summary-card-cover {
-    height: clamp(2.85rem, 14vw, 3.55rem);
+    height: clamp(3.1rem, 15vw, 3.85rem);
   }
 
   .guild-summary-card--grid .guild-summary-card-cover {
-    height: clamp(3.35rem, 20vw, 4.45rem);
+    height: clamp(3.5rem, 20vw, 4.65rem);
+  }
+
+  .guild-summary-card-identity {
+    --guild-card-avatar-size: 2.35rem;
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: flex-end;
+    margin: calc(var(--guild-card-avatar-size) / -2) 0.7rem 0;
+  }
+
+  .guild-summary-card--rail .guild-summary-card-identity {
+    --guild-card-avatar-size: 2rem;
+    margin-inline: 0.55rem;
+  }
+
+  .guild-summary-card-avatar {
+    display: grid;
+    place-items: center;
+    width: var(--guild-card-avatar-size);
+    height: var(--guild-card-avatar-size);
+    overflow: hidden;
+    border: 2px solid rgb(var(--bg-rgb));
+    border-radius: 0.72rem;
+    background: rgb(var(--fg-rgb) / 0.08);
+    box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.06);
+    color: rgb(var(--fg-rgb) / 0.7);
+    font-size: calc(var(--guild-card-avatar-size) * 0.3);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  .guild-summary-card-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .guild-summary-card-avatar--fallback {
+    background:
+      radial-gradient(
+        circle at 35% 30%,
+        color-mix(
+          in srgb,
+          var(--guild-fallback-accent, var(--protocol-blue)) 34%,
+          transparent
+        ),
+        transparent 62%
+      ),
+      rgb(var(--fg-rgb) / 0.1);
   }
 
   .guild-summary-card-body {
     display: grid;
     min-width: 0;
     gap: 0.1rem;
-    padding: 0.5rem 0.62rem 0.58rem;
+    padding: 0.4rem 0.62rem 0.58rem;
   }
 
-  .guild-summary-card--rail {
-    scroll-snap-align: start;
-    min-width: 11.75rem;
+  .guild-summary-card--rail .guild-summary-card-body {
+    gap: 0.18rem;
+    padding: 0.3rem 0.55rem 0.48rem;
   }
 
   .guild-summary-card--rail .guild-summary-card-copy {
@@ -7354,6 +7501,30 @@ a.os-surface-row {
     font-weight: 650;
     letter-spacing: -0.015em;
     color: rgb(var(--fg-rgb) / 0.92);
+  }
+
+  .guild-summary-card--rail .guild-summary-card-name {
+    font-size: 0.8rem;
+    letter-spacing: -0.02em;
+  }
+
+  .guild-summary-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.28rem 0.45rem;
+    min-width: 0;
+    color: rgb(var(--fg-rgb) / 0.42);
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+
+  .guild-summary-card-tags span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
   }
 
   .guild-summary-card-copy {
@@ -7378,18 +7549,55 @@ a.os-surface-row {
     margin-top: 0.12rem;
   }
 
+  .guild-summary-card--rail .guild-summary-card-meta {
+    flex-wrap: nowrap;
+    gap: 0.28rem 0.4rem;
+    margin-top: 0;
+    min-width: 0;
+  }
+
   .guild-summary-card-stat {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.22rem;
     color: rgb(var(--fg-rgb) / 0.5);
     font-size: 0.68rem;
     font-weight: 550;
     letter-spacing: -0.01em;
     line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  .guild-summary-card-stat-count {
+    color: rgb(var(--fg-rgb) / 0.82);
+    font-size: 0.78rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+
+  .guild-summary-card-stat-label {
+    color: rgb(var(--fg-rgb) / 0.42);
+    font-size: 0.62rem;
+    font-weight: 550;
+    letter-spacing: -0.01em;
+  }
+
+  .guild-summary-card--rail .guild-summary-card-stat-count {
+    font-size: 0.74rem;
   }
 
   .guild-card-pills {
     display: flex;
     flex-wrap: wrap;
     gap: 0.28rem;
+    min-width: 0;
+  }
+
+  .guild-summary-card--rail .guild-card-pills {
+    flex-wrap: nowrap;
+    overflow: hidden;
   }
 
   .guild-card-pill {
@@ -7403,6 +7611,12 @@ a.os-surface-row {
     letter-spacing: 0.03em;
     padding: 0.16rem 0.42rem;
     line-height: 1.15;
+  }
+
+  .guild-summary-card--rail .guild-card-pill {
+    font-size: 0.58rem;
+    letter-spacing: 0.02em;
+    padding: 0.12rem 0.36rem;
   }
 
   .guild-card-pill--role {
@@ -7434,7 +7648,7 @@ a.os-surface-row {
 
   @media (min-width: 640px) {
     .page-drawer-guild-rail {
-      grid-auto-columns: minmax(12.5rem, 52%);
+      grid-auto-columns: minmax(11.5rem, 46%);
     }
 
     .page-drawer-scarce-rail {
@@ -11885,6 +12099,10 @@ a.os-surface-row {
     padding: 0 1rem 1.5rem;
   }
 
+  .guilds-page:has(.guild-hero) {
+    gap: 0.55rem;
+  }
+
   .guild-hero-card,
   .guild-card,
   .guild-action-card,
@@ -11915,81 +12133,68 @@ a.os-surface-row {
       rgb(var(--fg-rgb) / 0.03);
   }
 
-  /* Guild detail hero — blended into the page, no card box. The screen
-     header above stays as the slim bar (back · name · settings) on scroll. */
+  /* Guild detail hero — portal-style solid banner + overlapping avatar. */
   .guild-hero {
+    --guild-avatar-size: 4.5rem;
+    /* Page (1rem) + hero (0.1rem) — cover bleeds both so content stays put. */
+    --guild-hero-bleed: 1.1rem;
     display: flex;
     flex-direction: column;
-    gap: 0.55rem;
-    padding: 0.3rem 0.15rem 0.35rem;
+    gap: 0.35rem;
+    padding: 0 0.1rem 0.2rem;
   }
 
-  /* Cover — one identity image (banner, else avatar), full-bleed and short,
-     dissolving into the page like the portfolio hero. No separate logo. */
-  .guild-hero-cover {
+  @media (min-width: 640px) {
+    .guild-hero {
+      --guild-avatar-size: 5rem;
+    }
+  }
+
+  /* Full-bleed solid banner — fills the top under the immersive nav. */
+  .guild-hero > .guild-hero-cover {
     position: relative;
-    margin: -0.3rem -1rem 0.1rem;
-    height: clamp(9rem, 28vw, 11.5rem);
+    z-index: 0;
+    width: calc(100% + (2 * var(--guild-hero-bleed)));
+    max-width: none;
+    margin-inline: calc(-1 * var(--guild-hero-bleed));
+    height: calc(
+      env(safe-area-inset-top, 0px) + clamp(7.25rem, 26vw, 10.25rem)
+    );
     overflow: hidden;
-    -webkit-mask-image: linear-gradient(
-      to bottom,
-      #000 0%,
-      #000 58%,
-      rgb(0 0 0 / 0.92) 70%,
-      rgb(0 0 0 / 0.7) 80%,
-      rgb(0 0 0 / 0.38) 90%,
+    border-radius: 0;
+  }
+
+  /* Soft top scrim so back / manage icons stay readable on dark banners. */
+  .guild-hero > .guild-hero-cover::after {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto;
+    z-index: 1;
+    height: calc(env(safe-area-inset-top, 0px) + 4.25rem);
+    pointer-events: none;
+    background: linear-gradient(
+      180deg,
+      rgb(0 0 0 / 0.48) 0%,
+      rgb(0 0 0 / 0.22) 55%,
       transparent 100%
     );
-    mask-image: linear-gradient(
-      to bottom,
-      #000 0%,
-      #000 58%,
-      rgb(0 0 0 / 0.92) 70%,
-      rgb(0 0 0 / 0.7) 80%,
-      rgb(0 0 0 / 0.38) 90%,
-      transparent 100%
-    );
-    -webkit-mask-repeat: no-repeat;
-    mask-repeat: no-repeat;
-    -webkit-mask-size: 100% 100%;
-    mask-size: 100% 100%;
   }
 
   .guild-hero-cover--fallback {
+    --guild-fallback-accent: var(--protocol-blue);
+    --guild-fallback-spot-x: 50%;
+    --guild-fallback-spot-y: 40%;
     background:
       radial-gradient(
-        circle at 14% 16%,
-        color-mix(in srgb, var(--protocol-purple) 54%, transparent),
-        transparent 38%
-      ),
-      radial-gradient(
-        circle at 84% 10%,
-        color-mix(in srgb, var(--protocol-green) 42%, transparent),
-        transparent 36%
-      ),
-      radial-gradient(
-        ellipse 90% 70% at 50% 100%,
-        color-mix(in srgb, var(--protocol-blue) 24%, transparent),
-        transparent 66%
+        circle at var(--guild-fallback-spot-x) var(--guild-fallback-spot-y),
+        color-mix(in srgb, var(--guild-fallback-accent) 28%, transparent),
+        transparent 62%
       ),
       linear-gradient(
-        135deg,
-        rgb(var(--fg-rgb) / 0.18),
-        rgb(var(--fg-rgb) / 0.075) 48%,
-        color-mix(in srgb, var(--protocol-blue) 28%, transparent)
+        180deg,
+        rgb(var(--fg-rgb) / 0.07),
+        rgb(var(--fg-rgb) / 0.03)
       );
-  }
-
-  .guild-hero-cover--fallback::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image:
-      linear-gradient(rgb(var(--fg-rgb) / 0.055) 1px, transparent 1px),
-      linear-gradient(90deg, rgb(var(--fg-rgb) / 0.04) 1px, transparent 1px);
-    background-size: 24px 24px;
-    opacity: 0.42;
-    pointer-events: none;
   }
 
   .guild-hero-cover img {
@@ -12001,40 +12206,163 @@ a.os-surface-row {
     object-position: center center;
   }
 
+  .guild-hero-identity {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: calc(var(--guild-avatar-size) / -2);
+    padding-inline: 0.05rem;
+  }
+
+  .guild-hero-avatar {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: var(--guild-avatar-size);
+    height: var(--guild-avatar-size);
+    overflow: hidden;
+    border: 3px solid rgb(var(--bg-rgb));
+    border-radius: 1.15rem;
+    background: rgb(var(--fg-rgb) / 0.08);
+    box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.06);
+    color: rgb(var(--fg-rgb) / 0.72);
+    font-size: calc(var(--guild-avatar-size) * 0.28);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  .guild-hero-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .guild-hero-avatar--fallback {
+    background:
+      radial-gradient(
+        circle at 35% 30%,
+        color-mix(
+          in srgb,
+          var(--guild-fallback-accent, var(--protocol-blue)) 34%,
+          transparent
+        ),
+        transparent 62%
+      ),
+      rgb(var(--fg-rgb) / 0.1);
+  }
+
+  .guild-hero-identity-actions {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    align-items: flex-start;
+    justify-content: flex-end;
+    padding-top: calc(var(--guild-avatar-size) / 2 + 0.35rem);
+  }
+
   .guild-hero h2 {
     margin: 0.15rem 0 0;
-    font-size: clamp(1.35rem, 4vw, 1.75rem);
-    font-weight: 600;
-    letter-spacing: -0.025em;
-    line-height: 1.16;
+    font-size: clamp(1.05rem, 3.2vw, 1.2rem);
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
   }
 
-  .guild-hero-description {
-    margin: 0;
-    font-size: 0.86rem;
-    line-height: 1.55;
-    color: rgb(var(--fg-rgb) / 0.62);
-  }
-
-  /* One-line vitals row: faces · counts · tags — action pinned right. */
   .guild-hero-meta {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.9rem;
-    margin-top: 0.1rem;
+    gap: 0.4rem 0.55rem;
+  }
+
+  .guild-hero-mode {
+    color: rgb(var(--fg-rgb) / 0.45);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .guild-hero-description-wrap,
+  .guild-hero-description-toggle {
+    position: relative;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+  }
+
+  .guild-hero-description-toggle {
+    cursor: pointer;
+    width: 100%;
+  }
+
+  .guild-hero-description-toggle:focus-visible {
+    outline: 2px solid rgb(var(--fg-rgb) / 0.28);
+    outline-offset: 2px;
+    border-radius: 0.35rem;
+  }
+
+  .guild-hero-description {
+    margin: 0;
+    font-size: 0.84rem;
+    line-height: 1.45;
+    color: rgb(var(--fg-rgb) / 0.62);
+    white-space: pre-wrap;
+  }
+
+  .guild-hero-description--clamped {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .guild-hero-description--measure {
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    display: -webkit-box;
+    overflow: hidden;
+    pointer-events: none;
+    visibility: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .guild-hero-description-more {
+    display: inline-block;
+    margin-top: 0.2rem;
+    color: rgb(var(--fg-rgb) / 0.48);
+    font-size: 0.72rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+  }
+
+  .guild-hero-description-toggle:hover .guild-hero-description-more,
+  .guild-hero-description-toggle:focus-visible .guild-hero-description-more {
+    color: rgb(var(--fg-rgb) / 0.72);
   }
 
   .guild-hero-tags {
-    display: inline-flex;
-    gap: 0.55rem;
-    font-size: 0.78rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.55rem;
+    font-size: 0.72rem;
     font-weight: 600;
-    color: rgb(var(--fg-rgb) / 0.42);
+    color: rgb(var(--fg-rgb) / 0.4);
   }
 
   .guild-hero-action {
-    margin-left: auto;
+    margin-left: 0;
   }
 
   .guild-storage-gate-copy {
@@ -12055,6 +12383,13 @@ a.os-surface-row {
 
   .guild-manage-menu-trigger.has-badge .guild-manage-menu-icon {
     color: rgb(var(--fg-rgb) / 0.92);
+  }
+
+  .os-app-screen[data-immersive-header='true']
+    .os-app-screen-header:not(.is-elevated)
+    .guild-manage-menu-trigger.has-badge
+    .guild-manage-menu-icon {
+    color: rgb(255 255 255 / 0.96);
   }
 
   .guild-manage-menu-badge {
@@ -12763,9 +13098,17 @@ a.os-surface-row {
     box-shadow: 0 0 0 2px rgb(var(--bg-rgb));
   }
 
+  .guild-hero .guild-primary-button,
+  .guild-hero .guild-secondary-button {
+    min-height: 1.85rem;
+    min-width: 4.75rem;
+    padding: 0.32rem 0.72rem;
+    font-size: 0.74rem;
+  }
+
   .guild-facepile-count,
   .guild-hero-meta-link {
-    font-size: 0.78rem;
+    font-size: 0.72rem;
     font-weight: 600;
     color: rgb(var(--fg-rgb) / 0.62);
     text-decoration: none;
@@ -12944,8 +13287,8 @@ a.os-surface-row {
     display: flex;
     align-items: center;
     gap: 0.85rem;
-    margin-top: -2.2rem;
-    padding-inline: 0.35rem;
+    margin-top: -2.4rem;
+    padding-inline: 0.85rem;
   }
 
   .guild-settings-avatar {
@@ -12954,11 +13297,16 @@ a.os-surface-row {
     width: 4.5rem;
     height: 4.5rem;
     overflow: hidden;
-    border-radius: 9999px;
     border: 3px solid rgb(var(--bg-rgb));
+    border-radius: 1.15rem;
     background: rgb(var(--fg-rgb) / 0.08);
-    font-size: 1.2rem;
-    font-weight: 600;
+    box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.06);
+    color: rgb(var(--fg-rgb) / 0.72);
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    text-transform: uppercase;
   }
 
   .guild-settings-avatar img {
@@ -12969,9 +13317,37 @@ a.os-surface-row {
 
   .guild-settings-avatar-actions {
     display: flex;
+    min-width: 0;
+    flex: 1;
     flex-wrap: wrap;
-    gap: 0.55rem;
-    padding-top: 1.6rem;
+    align-items: center;
+    gap: 0.45rem 0.55rem;
+    padding-top: 2.1rem;
+  }
+
+  .guild-settings-avatar-button {
+    border: 1px solid rgb(var(--fg-rgb) / 0.1);
+    border-radius: 9999px;
+    padding: 0.4rem 0.7rem;
+    background: rgb(var(--fg-rgb) / 0.05);
+    color: inherit;
+    font: inherit;
+    font-size: 0.74rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .guild-settings-avatar-button--ghost {
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.55);
+  }
+
+  .guild-settings-avatar-actions small {
+    width: 100%;
+    margin: 0;
+    font-size: 0.72rem;
+    line-height: 1.4;
+    color: rgb(var(--fg-rgb) / 0.45);
   }
 
   .guild-field input[readonly] {
@@ -12986,7 +13362,7 @@ a.os-surface-row {
   }
 
   .guild-feed-section {
-    gap: 0.85rem;
+    gap: 0.55rem;
   }
 
   .guild-feed-section .post-composer {
@@ -13406,29 +13782,27 @@ a.os-surface-row {
     word-break: break-word;
   }
 
-  /* Quiet pseudo-input that opens the composer targeting the focused post. */
+  /* Quiet pseudo-input that opens the composer (thread pages). */
   .guild-reply-prompt {
     width: 100%;
-    border: 1px solid rgb(var(--fg-rgb) / 0.09);
+    border: 0;
     border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.025);
+    background: rgb(var(--fg-rgb) / 0.05);
     color: rgb(var(--fg-rgb) / 0.42);
     cursor: text;
     font: inherit;
     font-size: 0.86rem;
     text-align: left;
-    padding: 0.72rem 1rem;
+    padding: 0.7rem 1rem;
     transition:
       background 160ms ease,
-      border-color 160ms ease,
       color 160ms ease;
   }
 
   .guild-reply-prompt:hover,
   .guild-reply-prompt:focus-visible {
-    border-color: rgb(var(--fg-rgb) / 0.14);
-    background: rgb(var(--fg-rgb) / 0.04);
-    color: rgb(var(--fg-rgb) / 0.6);
+    background: rgb(var(--fg-rgb) / 0.08);
+    color: rgb(var(--fg-rgb) / 0.62);
     outline: none;
   }
 
@@ -13555,35 +13929,68 @@ a.os-surface-row {
     gap: 0;
   }
 
+  /* In-flow below hero; scrolls away then docks in header toolbar. */
   .guild-feed-filter-list {
     display: flex;
-    gap: 0.45rem;
+    gap: 0.28rem;
     overflow-x: auto;
-    padding: 0.1rem 0 0.25rem;
+    margin-inline: -0.15rem;
+    padding: 0.28rem 0.15rem 0.35rem;
+    scrollbar-width: none;
+  }
+
+  .guild-feed-filter-list.is-receded {
+    display: none;
+  }
+
+  .guild-feed-filter-list::-webkit-scrollbar {
+    display: none;
   }
 
   .guild-feed-filter-button {
     flex: 0 0 auto;
-    border: 1px solid rgb(var(--fg-rgb) / 0.08);
+    border: 0;
     border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.035);
-    color: rgb(var(--fg-rgb) / 0.62);
+    min-height: 1.85rem;
+    background: rgb(var(--fg-rgb) / 0.05);
+    color: rgb(var(--fg-rgb) / 0.58);
     cursor: pointer;
     font: inherit;
-    font-size: 0.76rem;
-    font-weight: 650;
-    padding: 0.5rem 0.72rem;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 0.32rem 0.62rem;
+    transition:
+      background 160ms ease,
+      color 160ms ease;
+  }
+
+  .guild-feed-filter-button:hover,
+  .guild-feed-filter-button:focus-visible {
+    background: rgb(var(--fg-rgb) / 0.08);
+    color: rgb(var(--fg-rgb) / 0.82);
+    outline: none;
   }
 
   .guild-feed-filter-button.is-active {
-    border-color: color-mix(in srgb, var(--protocol-purple) 38%, transparent);
-    background: color-mix(in srgb, var(--protocol-purple) 16%, transparent);
-    color: rgb(var(--fg-rgb) / 0.88);
+    background: rgb(var(--fg-rgb) / 0.1);
+    color: rgb(var(--fg-rgb) / 0.92);
   }
 
   .guild-feed-filter-button--add {
-    border-style: dashed;
-    color: rgb(var(--fg-rgb) / 0.62);
+    display: inline-grid;
+    place-items: center;
+    width: 1.85rem;
+    min-width: 1.85rem;
+    padding-inline: 0;
+    border: 1px dashed rgb(var(--fg-rgb) / 0.14);
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.55);
+  }
+
+  .guild-feed-filter-add-icon {
+    width: 0.85rem;
+    height: 0.85rem;
   }
 
   .guild-action-card,
@@ -13930,6 +14337,45 @@ a.os-surface-row {
     font-size: 0.74rem;
     line-height: 1.45;
     color: rgb(var(--fg-rgb) / 0.48);
+  }
+
+  .guild-tags-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .guild-tags-editor-list.portfolio-tags {
+    margin: 0;
+    cursor: text;
+  }
+
+  .guild-tags-editor-list.is-full {
+    cursor: default;
+  }
+
+  .guild-field .guild-tags-editor .guild-tags-editor-tag--primary {
+    gap: 0.28rem;
+  }
+
+  .guild-field .guild-tags-editor .guild-tags-editor-primary-label {
+    border-radius: 9999px;
+    background: rgb(var(--fg-rgb) / 0.08);
+    color: rgb(var(--fg-rgb) / 0.5);
+    font-size: 0.56rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    padding: 0.18rem 0.32rem;
+    text-transform: uppercase;
+  }
+
+  .guild-tags-editor-meta {
+    margin: 0;
+  }
+
+  .guild-tags-editor-hint {
+    color: rgb(var(--fg-rgb) / 0.72);
   }
 
   .guild-composer-structure {

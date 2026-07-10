@@ -133,3 +133,32 @@ export function pageDrawerJumpSections(sections: PageSection[]): PageSection[] {
 export function pageDrawerSectionDomId(section: PageSection): string {
   return `page-drawer-section-${section}`;
 }
+
+/**
+ * Scroll-spy: last section whose top has crossed the marker.
+ * When the scroller is pinned at the end, force the last section so short
+ * trailing chapters still light up.
+ */
+export function resolvePageDrawerActiveSection(
+  sections: PageSection[],
+  sectionTops: number[],
+  markerY: number,
+  scrolledToEnd = false
+): PageSection | null {
+  if (sections.length === 0) {
+    return null;
+  }
+  if (scrolledToEnd) {
+    return sections[sections.length - 1]!;
+  }
+
+  let active = sections[0]!;
+  for (let i = 0; i < sections.length; i++) {
+    const top = sectionTops[i];
+    if (top == null) continue;
+    if (top <= markerY) {
+      active = sections[i]!;
+    }
+  }
+  return active;
+}

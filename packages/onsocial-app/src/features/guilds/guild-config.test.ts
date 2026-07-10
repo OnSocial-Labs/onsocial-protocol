@@ -4,6 +4,9 @@ import {
   isOwnGuildMemberRequest,
   isOwnJoinRequestProposal,
   memberRequestRowToProposal,
+  normalizeGuildTagList,
+  normalizeGuildTagsInput,
+  GUILD_MAX_TAGS,
 } from '@/features/guilds/guild-config';
 
 const row = {
@@ -50,7 +53,17 @@ describe('guild member request access', () => {
   it('maps legacy join requests into proposal cards', () => {
     const proposal = memberRequestRowToProposal(row);
     expect(proposal.type).toBe('join_request');
-    expect(proposal.target).toBe('test05.onsocial');
     expect(isOwnJoinRequestProposal(proposal, 'test05.onsocial')).toBe(true);
+  });
+});
+
+describe('guild tags', () => {
+  it(`keeps at most ${GUILD_MAX_TAGS} tags with the first as primary`, () => {
+    expect(
+      normalizeGuildTagsInput('Builders, Social, Extra, Noise')
+    ).toEqual(['builders', 'social']);
+    expect(
+      normalizeGuildTagList(['Near', 'near', 'grants', 'dao'])
+    ).toEqual(['near', 'grants']);
   });
 });

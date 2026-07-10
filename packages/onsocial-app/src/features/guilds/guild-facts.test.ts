@@ -48,12 +48,16 @@ describe('guild-facts', () => {
     });
 
     const enriched = applyChainGuildFacts(card, {
-      config: { is_private: true },
+      config: {
+        is_private: true,
+        tags: ['builders', 'social', 'extra'],
+      },
       stats: { total_members: 9 },
       indexedMemberCount: 7,
     });
 
     expect(enriched.accessGated).toBe(true);
     expect(enriched.memberCount).toBe(9);
+    expect(enriched.tags).toEqual(['builders', 'social']);
   });
 });

@@ -4,6 +4,8 @@ import {
   guildCardMetaTags,
   guildDisplayInitials,
   guildDisplayName,
+  guildModeId,
+  guildModeLabel,
   guildRoleBadgeLabel,
   isRawGroupId,
 } from '@/features/guilds/guild-card-display';
@@ -37,7 +39,28 @@ describe('guild-card-display', () => {
     expect(guildRoleBadgeLabel('Owner')).toBe('Owner');
   });
 
-  it('builds compact meta tags without member noise', () => {
+  it('resolves one mode with member-led winning over invite', () => {
+    expect(
+      guildModeId({ accessGated: false, memberDriven: false })
+    ).toBe('open');
+    expect(
+      guildModeId({ accessGated: true, memberDriven: false })
+    ).toBe('invite');
+    expect(
+      guildModeId({ accessGated: true, memberDriven: true })
+    ).toBe('member-led');
+    expect(guildModeLabel({ accessGated: true, memberDriven: true })).toBe(
+      'Member-led'
+    );
+    expect(guildModeLabel({ accessGated: true, memberDriven: false })).toBe(
+      'Invite only'
+    );
+    expect(guildModeLabel({ accessGated: false, memberDriven: false })).toBe(
+      'Open'
+    );
+  });
+
+  it('always shows the mode pill, including Open', () => {
     expect(
       guildCardMetaTags({
         role: 'Member',
@@ -45,8 +68,41 @@ describe('guild-card-display', () => {
         memberDriven: true,
       })
     ).toEqual([
-      { key: 'access', label: 'Access-gated' },
-      { key: 'governance', label: 'Collaborative', tone: 'accent' },
+      { key: 'mode', label: 'Member-led', tone: 'accent' },
+    ]);
+    expect(
+      guildCardMetaTags({
+        role: 'Member',
+        accessGated: true,
+        memberDriven: false,
+      })
+    ).toEqual([{ key: 'mode', label: 'Invite only', tone: 'default' }]);
+    expect(
+      guildCardMetaTags({
+        role: 'Member',
+        accessGated: false,
+        memberDriven: false,
+      })
+    ).toEqual([{ key: 'mode', label: 'Open', tone: 'default' }]);
+  });
+
+  it('keeps Open visible on rail peeks', () => {
+    expect(
+      guildCardMetaTags({
+        role: 'Member',
+        accessGated: false,
+        memberDriven: false,
+      })
+    ).toEqual([{ key: 'mode', label: 'Open', tone: 'default' }]);
+    expect(
+      guildCardMetaTags({
+        role: 'Owner',
+        accessGated: true,
+        memberDriven: true,
+      })
+    ).toEqual([
+      { key: 'role', label: 'Owner', tone: 'owner' },
+      { key: 'mode', label: 'Member-led', tone: 'accent' },
     ]);
   });
 

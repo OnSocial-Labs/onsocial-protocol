@@ -1,9 +1,13 @@
 import type { GroupStats } from '@onsocial/sdk';
 import {
   deriveGuildAccessGated,
+  normalizeGuildTagList,
   type GuildConfigSnapshot,
 } from '@/features/guilds/guild-config';
-import { guildRoleFromFlags } from '@/features/guilds/guild-card-display';
+import {
+  guildModeLabel,
+  guildRoleFromFlags,
+} from '@/features/guilds/guild-card-display';
 import { guildMediaUrlFromCid } from '@/features/guilds/guild-visual';
 import type { GuildSummaryCardModel } from '@/features/guilds/guild-summary-card';
 
@@ -51,8 +55,11 @@ export function resolveGuildMemberCount(input: {
   return Math.max(chain ?? 0, indexed ?? 0, floor);
 }
 
-export function guildAccessLabel(accessGated: boolean): string {
-  return accessGated ? 'Access-gated' : 'Open access';
+export function guildAccessLabel(
+  accessGated: boolean,
+  memberDriven = false
+): string {
+  return guildModeLabel({ accessGated, memberDriven });
 }
 
 function membershipRowToCardBase(row: {
@@ -76,6 +83,7 @@ function membershipRowToCardBase(row: {
     accessGated: deriveGuildAccessGated({ isPublic: row.isPublic }),
     memberDriven: Boolean(row.isMemberDriven),
     memberCount: null,
+    tags: [],
     role: guildRoleFromFlags(row),
   };
 }
@@ -123,10 +131,15 @@ export function applyChainGuildFacts(
     indexedCount: input.indexedMemberCount ?? card.memberCount,
   });
 
+  const tags = input.config
+    ? normalizeGuildTagList((input.config as { tags?: unknown }).tags)
+    : (card.tags ?? []);
+
   return {
     ...card,
     accessGated,
     memberCount,
+    tags,
   };
 }
 

@@ -1,8 +1,7 @@
 'use client';
 
-import { Fragment, useCallback, useMemo } from 'react';
+import { Fragment, useMemo } from 'react';
 import Link from 'next/link';
-import type { PageSection } from '@onsocial/sdk';
 import { Divider, ProtocolMotionArrow } from '@onsocial/ui';
 import { GuildSummaryCard } from '@/features/guilds/guild-summary-card';
 import { PortfolioLinkIcon } from '@/components/portfolio/portfolio-link-icon';
@@ -13,7 +12,6 @@ import {
 import {
   PAGE_DRAWER_GUILD_PEEK,
   PAGE_SECTION_LABELS,
-  pageDrawerJumpSections,
   pageDrawerSectionDomId,
   pageSectionCountHint,
   resolveVisiblePageSections,
@@ -41,37 +39,6 @@ interface PageContentSectionsProps {
   postPeeks?: ProfilePostPeek[];
   scarcePeeks?: ProfileScarcePeek[];
   scarceCount?: number;
-  /** Sheet body scroller — jump chips scroll this, not the window. */
-  scrollRoot?: HTMLElement | null;
-  /** Fired when a jump chip scrolls the body (keeps the gesture pill visible). */
-  onSectionJump?: () => void;
-}
-
-function PageDrawerJumpRail({
-  sections,
-  onJump,
-}: {
-  sections: PageSection[];
-  onJump: (section: PageSection) => void;
-}) {
-  if (sections.length < 2) {
-    return null;
-  }
-
-  return (
-    <nav className="page-drawer-jump" aria-label="Page sections">
-      {sections.map((section) => (
-        <button
-          key={section}
-          type="button"
-          className="page-drawer-jump-chip"
-          onClick={() => onJump(section)}
-        >
-          {PAGE_SECTION_LABELS[section]}
-        </button>
-      ))}
-    </nav>
-  );
 }
 
 function PageDrawerLinksList({ links }: { links: PortfolioSocialLink[] }) {
@@ -117,8 +84,6 @@ export function PageContentSections({
   postPeeks = [],
   scarcePeeks = [],
   scarceCount = 0,
-  scrollRoot = null,
-  onSectionJump,
 }: PageContentSectionsProps) {
   const links = useMemo(
     () => resolvePortfolioSocialLinks(profileLinks),
@@ -139,40 +104,6 @@ export function PageContentSections({
     [config, stats, guilds, links, effectiveScarceCount, postPeeks.length]
   );
 
-  const jumpSections = useMemo(
-    () => pageDrawerJumpSections(sections),
-    [sections]
-  );
-
-  const handleJump = useCallback(
-    (section: PageSection) => {
-      const node = document.getElementById(pageDrawerSectionDomId(section));
-      if (!node) return;
-
-      onSectionJump?.();
-
-      const scroller = scrollRoot;
-      if (!scroller) {
-        node.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        return;
-      }
-
-      /*
-       * Scroll the sheet body only. `scrollIntoView` leaves a dead band under
-       * short sections and can fight the floating pill overlay.
-       */
-      const scrollerRect = scroller.getBoundingClientRect();
-      const nodeRect = node.getBoundingClientRect();
-      const nextTop = scroller.scrollTop + (nodeRect.top - scrollerRect.top);
-      const maxTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
-      scroller.scrollTo({
-        top: Math.min(Math.max(0, nextTop), maxTop),
-        behavior: 'smooth',
-      });
-    },
-    [onSectionJump, scrollRoot]
-  );
-
   const peekGuilds = guilds.slice(0, PAGE_DRAWER_GUILD_PEEK);
   const guildOverflow = Math.max(0, guilds.length - peekGuilds.length);
   const feedHref = overlayPath(pageAccountId, 'feed');
@@ -188,8 +119,6 @@ export function PageContentSections({
 
   return (
     <div className="page-drawer-sections">
-      <PageDrawerJumpRail sections={jumpSections} onJump={handleJump} />
-
       {sections.map((section, index) => {
         const count = pageSectionCountHint(section, stats, {
           scarceCount: effectiveScarceCount,
@@ -202,9 +131,7 @@ export function PageContentSections({
 
         return (
           <Fragment key={section}>
-            {index > 0 || jumpSections.length >= 2 ? (
-              <Divider variant="detail" />
-            ) : null}
+            {index > 0 ? <Divider variant="detail" /> : null}
             <section
               id={pageDrawerSectionDomId(section)}
               className="page-drawer-section"

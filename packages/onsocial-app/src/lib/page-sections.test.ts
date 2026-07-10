@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   isPageSectionVisible,
   pageDrawerJumpSections,
+  pageDrawerSectionDomId,
+  resolvePageDrawerActiveSection,
   resolvePageSections,
   resolveVisiblePageSections,
 } from './page-sections';
@@ -75,6 +77,51 @@ describe('pageDrawerJumpSections', () => {
       'groups',
       'links',
     ]);
+  });
+});
+
+describe('pageDrawerSectionDomId', () => {
+  it('builds stable section element ids', () => {
+    expect(pageDrawerSectionDomId('posts')).toBe('page-drawer-section-posts');
+    expect(pageDrawerSectionDomId('groups')).toBe('page-drawer-section-groups');
+  });
+});
+
+describe('resolvePageDrawerActiveSection', () => {
+  it('picks the last section that has crossed the marker', () => {
+    expect(
+      resolvePageDrawerActiveSection(
+        ['posts', 'groups', 'links'],
+        [100, 40, 200],
+        50
+      )
+    ).toBe('groups');
+  });
+
+  it('forces the last section when scrolled to the end', () => {
+    expect(
+      resolvePageDrawerActiveSection(
+        ['posts', 'groups', 'links'],
+        [10, 80, 160],
+        50,
+        true
+      )
+    ).toBe('links');
+  });
+
+  it('keeps a middle section when end-force is off', () => {
+    expect(
+      resolvePageDrawerActiveSection(
+        ['posts', 'groups', 'links'],
+        [-40, 8, 120],
+        50,
+        false
+      )
+    ).toBe('groups');
+  });
+
+  it('returns null when there are no sections', () => {
+    expect(resolvePageDrawerActiveSection([], [], 50)).toBeNull();
   });
 });
 

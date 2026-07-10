@@ -76,6 +76,32 @@ export function guildRoleBadgeLabel(
   return role;
 }
 
+/** Single membership/governance mode — never stack access + collaborative. */
+export type GuildModeId = 'open' | 'invite' | 'member-led';
+
+export function guildModeId(input: {
+  accessGated: boolean;
+  memberDriven: boolean;
+}): GuildModeId {
+  if (input.memberDriven) return 'member-led';
+  if (input.accessGated) return 'invite';
+  return 'open';
+}
+
+export function guildModeLabel(input: {
+  accessGated: boolean;
+  memberDriven: boolean;
+}): string {
+  switch (guildModeId(input)) {
+    case 'member-led':
+      return 'Member-led';
+    case 'invite':
+      return 'Invite only';
+    case 'open':
+      return 'Open';
+  }
+}
+
 export function guildCardMetaTags(input: {
   role?: GuildCardRole | null;
   accessGated: boolean;
@@ -90,17 +116,28 @@ export function guildCardMetaTags(input: {
       tone: input.role === 'Owner' ? 'owner' : 'role',
     });
   }
+
+  const mode = guildModeId(input);
   tags.push({
-    key: 'access',
-    label: input.accessGated ? 'Access-gated' : 'Open',
+    key: 'mode',
+    label: guildModeLabel(input),
+    tone: mode === 'member-led' ? 'accent' : 'default',
   });
-  if (input.memberDriven) {
-    tags.push({ key: 'governance', label: 'Collaborative', tone: 'accent' });
-  }
   return tags;
 }
 
-export function formatGuildMemberCount(count: number): string {
+export function formatGuildMemberCountParts(count: number): {
+  value: string;
+  label: string;
+} {
   const safe = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
-  return safe === 1 ? '1 member' : `${safe.toLocaleString()} members`;
+  return {
+    value: safe.toLocaleString(),
+    label: safe === 1 ? 'member' : 'members',
+  };
+}
+
+export function formatGuildMemberCount(count: number): string {
+  const { value, label } = formatGuildMemberCountParts(count);
+  return `${value} ${label}`;
 }

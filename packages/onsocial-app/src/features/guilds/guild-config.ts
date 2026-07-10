@@ -246,23 +246,34 @@ export function normalizeGuildConfig(
     accessGated: deriveGuildAccessGated(raw),
     memberDriven:
       readBoolean(raw.member_driven) || readBoolean(raw.memberDriven),
-    tags: rawTags,
+    tags: normalizeGuildTagList(rawTags),
     structure: parseGuildStructure(raw),
   };
 }
 
+/** Guild discover tags — first tag is primary; hard cap keeps cards scannable. */
+export const GUILD_MAX_TAGS = 2;
+
+export function normalizeGuildTagList(tags: unknown): string[] {
+  if (!Array.isArray(tags)) return [];
+
+  const out: string[] = [];
+  for (const tag of tags) {
+    if (typeof tag !== 'string') continue;
+    const normalized = tag
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    if (!normalized || out.includes(normalized)) continue;
+    out.push(normalized);
+    if (out.length >= GUILD_MAX_TAGS) break;
+  }
+  return out;
+}
+
 export function normalizeGuildTagsInput(input: string): string[] {
-  return input
-    .split(',')
-    .map((tag) =>
-      tag
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9_-]+/g, '-')
-        .replace(/^-+|-+$/g, '')
-    )
-    .filter(Boolean)
-    .slice(0, 6);
+  return normalizeGuildTagList(input.split(','));
 }
 
 export function guildTagsEqual(a: string[], b: string[]): boolean {
