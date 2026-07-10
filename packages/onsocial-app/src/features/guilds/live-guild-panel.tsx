@@ -11,8 +11,9 @@ import {
 } from '@onsocial/sdk';
 import {
   Divider,
+  OsSheetAction,
+  OsSheetActions,
   ProfileAvatar,
-  PulsingDots,
   SlidersHorizontalIcon,
   osIconActionClassName,
 } from '@onsocial/ui';
@@ -24,9 +25,10 @@ import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { PostRowSkeleton, postKey } from '@/features/home/post-card';
 import { GuildFeedFilterList } from '@/features/guilds/guild-feed-filter-list';
 import {
-  GuildComposerModal,
+  GuildComposerSheet,
   type GuildComposerMode,
-} from '@/features/guilds/guild-composer-modal';
+  type GuildComposerSubmit,
+} from '@/features/guilds/guild-composer-sheet';
 import {
   canViewerPostInChannel,
   composerGuildSpaces,
@@ -64,6 +66,7 @@ import { useUserStorageBalance } from '@/hooks/use-user-storage-balance';
 import { coalesceFeedThreads } from '@/lib/feed-threads';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { usePostEngagement } from '@/hooks/use-post-engagement';
+import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useQuotedPosts } from '@/hooks/use-quoted-posts';
 import { resolveGuildViewerAccess } from '@/features/guilds/guild-viewer-access';
 import {
@@ -280,6 +283,9 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       onError: (message) => setTxResult({ type: 'error', msg: message }),
     }
   );
+  const { pollTallyFor, castVote, isPollVotePending } = usePollVotes(feedPosts, {
+    onError: (message) => setTxResult({ type: 'error', msg: message }),
+  });
 
   const refreshFeed = useCallback(async () => {
     setIsFeedRefreshing(true);
@@ -516,7 +522,11 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
   const actionLabel = useMemo(() => {
     if (!isConnected) return 'Connect wallet';
     if (!config) return 'Load guild';
-    if (viewer?.isMember) return confirmingLeave ? 'Leave guild?' : 'Joined';
+    if (viewer?.isMember) {
+      if (!confirmingLeave) return 'Joined';
+      // Owner cannot leave until ownership moves — same red confirm, different path.
+      return viewer.isOwner ? 'Transfer ownership?' : 'Leave guild?';
+    }
     if (joinPending) return joinCancelReady ? 'Cancel request' : 'Request pending';
     if (needsCollaborativeStorage) return 'Add storage';
     return config.accessGated ? 'Request access' : 'Join guild';
@@ -528,6 +538,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     joinCancelReady,
     needsCollaborativeStorage,
     viewer?.isMember,
+    viewer?.isOwner,
   ]);
 
   const clearConfirmLeave = () => {
@@ -547,6 +558,11 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     }
 
     if (!config) return;
+
+    if (viewer?.isMember && viewer.isOwner) {
+      setManageSheet('members');
+      return;
+    }
 
     setActionPending(true);
     try {
@@ -606,7 +622,10 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     }
   };
 
-  /** Leaving is on-chain and destructive — require a second tap to confirm. */
+  /**
+   * Leave / transfer ownership are destructive — require a second tap.
+   * Owners cannot leave on-chain; confirm opens members to transfer first.
+   */
   const handleMembershipClick = () => {
     if (needsCollaborativeStorage) {
       setStorageSheetOpen(true);
@@ -624,6 +643,10 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       return;
     }
     clearConfirmLeave();
+    if (viewer?.isMember && viewer.isOwner) {
+      setManageSheet('members');
+      return;
+    }
     void runMembershipAction();
   };
 
@@ -640,9 +663,11 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
   // Launcher pen is the only compose entry — no floating dock duplicate.
   useRegisterComposeAction(canCompose ? openPostComposer : null);
 
-  const submitFromModal = async (text: string) => {
+  const submitFromModal = async (payload: GuildComposerSubmit) => {
     if (!composer || modalPending) return;
     const { mode, target } = composer;
+    const text = payload.text.trim();
+    if (!text) return;
     if (mode !== 'post' && !target) return;
 
     if (mode !== 'post' && target) {
@@ -657,6 +682,18 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       await connect();
       return;
     }
+
+    const pollEmbed =
+      mode === 'post' && payload.poll
+        ? {
+            kind: 'poll' as const,
+            question: text,
+            options: payload.poll.options,
+            ...(payload.poll.durationMs != null
+              ? { closesAt: Date.now() + payload.poll.durationMs }
+              : {}),
+          }
+        : null;
 
     setModalError(null);
     setModalPending(true);
@@ -676,9 +713,11 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
             access: 'group',
             groupId,
             channel: guildSpaceFeedChannel(composerSpace),
-            kind: composerSpace.kind,
             audiences: [composerSpace.audience],
             timestamp: Date.now(),
+            ...(pollEmbed
+              ? { embeds: [pollEmbed] }
+              : { kind: composerSpace.kind }),
           },
           newPostId
         );
@@ -693,7 +732,9 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
             ? guildSpaceFeedChannel(composerSpace)
             : null,
           fallbackKind: composerSpace?.kind ?? null,
-          fallbackAudiences: composerSpace ? [composerSpace.audience] : undefined,
+          fallbackAudiences: composerSpace
+            ? [composerSpace.audience]
+            : undefined,
         });
         const postData = {
           text,
@@ -747,7 +788,11 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
           {
             accountId,
             postId: newPostId,
-            value: JSON.stringify({ v: 1, text }),
+            value: JSON.stringify({
+              v: 1,
+              text,
+              ...(pollEmbed ? { embeds: [pollEmbed] } : {}),
+            }),
             blockHeight: 0,
             blockTimestamp: Date.now(),
             groupId,
@@ -755,7 +800,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
             ...(mode === 'post' && composerSpace
               ? {
                   channel: guildSpaceFeedChannel(composerSpace),
-                  kind: composerSpace.kind,
+                  kind: pollEmbed ? 'poll' : composerSpace.kind,
                 }
               : mode === 'quote'
                 ? {
@@ -945,30 +990,39 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                   )}
                 </div>
                 <div className="guild-hero-identity-actions">
-                  <button
-                    className={
-                      viewer?.isMember
-                        ? `guild-secondary-button guild-hero-action${confirmingLeave ? ' is-confirm-leave' : ''}`
-                        : joinPending
-                          ? 'guild-secondary-button guild-hero-action'
-                          : 'guild-primary-button guild-hero-action'
-                    }
-                    type="button"
-                    disabled={
-                      actionPending || (joinPending && !joinCancelReady)
-                    }
-                    onClick={handleMembershipClick}
-                    onBlur={confirmingLeave ? clearConfirmLeave : undefined}
+                  <OsSheetActions
+                    layout="row-compact"
+                    tone="frosted-primary"
+                    borderless
+                    className="guild-hero-membership"
                   >
-                    {actionPending ? (
-                      <PulsingDots
-                        size="sm"
-                        className="guild-hero-action-dots"
-                      />
-                    ) : (
-                      actionLabel
-                    )}
-                  </button>
+                    <OsSheetAction
+                      type="button"
+                      className="guild-hero-action"
+                      variant={confirmingLeave ? 'danger' : 'primary'}
+                      ready={
+                        !confirmingLeave &&
+                        (Boolean(viewer?.isMember) ||
+                          (!joinPending &&
+                            !needsCollaborativeStorage &&
+                            isConnected &&
+                            Boolean(config)))
+                      }
+                      pending={actionPending}
+                      pendingLabel={
+                        viewer?.isMember
+                          ? 'Leaving…'
+                          : joinPending
+                            ? 'Canceling…'
+                            : 'Joining…'
+                      }
+                      disabled={joinPending && !joinCancelReady}
+                      onClick={handleMembershipClick}
+                      onBlur={confirmingLeave ? clearConfirmLeave : undefined}
+                    >
+                      {actionLabel}
+                    </OsSheetAction>
+                  </OsSheetActions>
                 </div>
               </div>
 
@@ -1058,6 +1112,11 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                         engagement={engagement}
                         isReactionPending={isReactionPending}
                         onToggleReaction={toggleReaction}
+                        pollTallyFor={pollTallyFor}
+                        isPollVotePending={isPollVotePending}
+                        onPollVote={(post, optionIndex) => {
+                          void castVote(post, optionIndex);
+                        }}
                         onReply={replyHandler}
                         onQuote={quoteHandler}
                       />
@@ -1098,7 +1157,8 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
         ) : null}
       </div>
       {composer ? (
-        <GuildComposerModal
+        <GuildComposerSheet
+          open
           mode={composer.mode}
           target={composer.target}
           targetAuthorProfile={
@@ -1132,7 +1192,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
           onClose={() => {
             if (!modalPending) setComposer(null);
           }}
-          onSubmit={(text) => void submitFromModal(text)}
+          onSubmit={(payload) => void submitFromModal(payload)}
         />
       ) : null}
       {accountId ? (

@@ -6,6 +6,7 @@ import { PostCard, postKey } from '@/features/home/post-card';
 import { guildPostPath } from '@/features/guilds/guilds-data';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import type { PostEngagement } from '@/hooks/use-post-engagement';
+import type { PollTally } from '@/lib/poll-votes';
 
 /** Chains up to this long render in full; longer ones collapse the middle. */
 const BLOCK_MAX_UNCOLLAPSED = 3;
@@ -23,6 +24,9 @@ interface FeedThreadBlockProps {
   engagement: Record<string, PostEngagement>;
   isReactionPending: (post: PostRow) => boolean;
   onToggleReaction: (post: PostRow) => void;
+  pollTallyFor?: (post: PostRow) => PollTally | undefined;
+  isPollVotePending?: (post: PostRow) => boolean;
+  onPollVote?: (post: PostRow, optionIndex: number) => void;
   onReply?: (post: PostRow) => void;
   onQuote?: (post: PostRow) => void;
 }
@@ -52,6 +56,9 @@ export function FeedThreadBlock({
   engagement,
   isReactionPending,
   onToggleReaction,
+  pollTallyFor,
+  isPollVotePending,
+  onPollVote,
   onReply,
   onQuote,
 }: FeedThreadBlockProps) {
@@ -124,6 +131,9 @@ export function FeedThreadBlock({
           engagement={stats}
           reactionPending={isReactionPending(post)}
           onToggleReaction={onToggleReaction}
+          pollTally={pollTallyFor?.(post)}
+          pollVotePending={isPollVotePending?.(post)}
+          onPollVote={onPollVote}
           onReply={onReply}
           onQuote={onQuote}
         />

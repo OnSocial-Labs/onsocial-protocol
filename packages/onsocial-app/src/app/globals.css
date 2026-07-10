@@ -112,6 +112,127 @@
   -webkit-backdrop-filter: none;
 }
 
+/*
+ * Guild hero membership — unlayered so compact size beats os-sheet-action.css
+ * row-compact (2.75rem). Keep the frosted borderless look, not the sheet footer bulk.
+ */
+.guild-hero .guild-hero-membership.os-sheet-actions--row-compact {
+  width: auto;
+  gap: 0;
+}
+
+.guild-hero
+  .guild-hero-membership.os-sheet-actions--row-compact
+  .os-sheet-action,
+.guild-hero
+  .guild-hero-membership.os-sheet-actions--row-compact
+  .os-sheet-action--primary {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 4.25rem;
+  min-height: 1.65rem;
+  padding: 0.28rem 0.62rem;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  border-radius: 9999px;
+  box-shadow: none;
+}
+
+/*
+ * Add-space share segments — unlayered so grid/gap beat button resets and
+ * the three choices never read as one smashed word.
+ */
+.guild-add-space-segments {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+  width: 100%;
+  padding: 0.25rem;
+  border-radius: 9999px;
+  background: rgb(var(--fg-rgb) / 0.06);
+}
+
+.guild-add-space-segment {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 2.15rem;
+  margin: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: rgb(var(--fg-rgb) / 0.55);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  white-space: nowrap;
+  padding: 0 0.5rem;
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.guild-add-space-segment:hover:not(:disabled):not(.is-active),
+.guild-add-space-segment:focus-visible:not(:disabled):not(.is-active) {
+  color: rgb(var(--fg-rgb) / 0.84);
+  outline: none;
+}
+
+.guild-add-space-segment.is-active {
+  background: rgb(var(--bg-rgb) / 0.96);
+  color: rgb(var(--fg-rgb) / 0.94);
+  box-shadow:
+    0 1px 3px rgb(0 0 0 / 0.1),
+    inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
+}
+
+.guild-add-space-segment:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+/* Composer dock Post — unlayered so row-compact stays pill-sized. */
+.guild-composer-toolbar-post.os-sheet-actions--row-compact {
+  width: auto;
+  gap: 0;
+}
+
+.guild-composer-toolbar-post.os-sheet-actions--row-compact .os-sheet-action,
+.guild-composer-toolbar-post.os-sheet-actions--row-compact
+  .os-sheet-action--primary {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 4.5rem;
+  min-height: 2.15rem;
+  padding: 0.35rem 0.95rem;
+  font-size: 0.78rem;
+  line-height: 1.2;
+  border-radius: 9999px;
+}
+
+.guild-hero
+  .guild-hero-membership.os-sheet-actions--row-compact
+  .os-sheet-action__shell {
+  width: auto;
+}
+
+.guild-hero
+  .guild-hero-membership.os-sheet-actions--borderless
+  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded),
+.guild-hero
+  .guild-hero-membership.os-sheet-actions--borderless
+  .os-sheet-action--primary.is-pending:disabled:not(.is-succeeded),
+.guild-hero
+  .guild-hero-membership.os-sheet-actions--borderless
+  .os-sheet-action--primary:not(:disabled):not(.is-ready):not(.is-succeeded) {
+  box-shadow: none;
+}
+
 @media (min-width: 768px) {
   .glass-sheet-panel.page-drawer-panel {
     height: min(95dvh, 54rem);
@@ -5919,13 +6040,9 @@ a.os-surface-row {
     );
   }
 
-  .os-app-screen-column,
-  .os-app-screen > .portfolio-summon-dock {
+  .os-app-screen-column {
     position: relative;
     z-index: 1;
-  }
-
-  .os-app-screen-column {
     display: flex;
     width: 100%;
     max-width: 36rem;
@@ -5934,6 +6051,11 @@ a.os-surface-row {
     flex: 1;
     flex-direction: column;
     margin: 0 auto;
+  }
+
+  /* Keep dock fixed/overlay — never `relative` or it eats a bottom strip. */
+  .os-app-screen > .portfolio-summon-dock {
+    z-index: 40;
   }
 
   .os-app-screen-header {
@@ -6105,7 +6227,30 @@ a.os-surface-row {
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
-    padding-bottom: calc(6.5rem + env(safe-area-inset-bottom, 0px));
+    /* Short clearance only — feed scrolls under the floating dock pill. */
+    padding-bottom: calc(3.25rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  /*
+   * Launcher dock = same family as Stand · Endorse · Support pill:
+   * dense frosted capsule, no full-width strip; content goes under.
+   */
+  .os-app-screen .os-dock-pill {
+    --os-dock-fill: rgb(var(--bg-rgb) / 0.96);
+    --os-dock-fill-hover: color-mix(
+      in srgb,
+      rgb(var(--bg-rgb) / 0.96) 88%,
+      rgb(var(--fg-rgb) / 0.08)
+    );
+    --os-dock-shadow:
+      0 18px 40px -18px rgb(0 0 0 / 0.34),
+      0 6px 16px -12px rgb(0 0 0 / 0.18);
+    --os-dock-shadow-hover:
+      0 20px 44px -16px rgb(0 0 0 / 0.38),
+      0 8px 18px -12px rgb(0 0 0 / 0.2);
+    --os-dock-lip: inset 0 1px 0 rgb(var(--fg-rgb) / 0.1);
+    backdrop-filter: blur(32px) saturate(1.6);
+    -webkit-backdrop-filter: blur(32px) saturate(1.6);
   }
 
   .os-app-screen[data-tone='os'] .os-app-screen-search.sheet-control {
@@ -11864,6 +12009,162 @@ a.os-surface-row {
     word-break: break-word;
   }
 
+  .post-poll-embed {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    margin-top: 0.35rem;
+    min-width: 0;
+  }
+
+  .post-poll-question {
+    margin: 0;
+    font-size: 0.92rem;
+    font-weight: 600;
+    line-height: 1.4;
+    color: rgb(var(--fg-rgb) / 0.92);
+  }
+
+  .post-poll-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .post-poll-option {
+    position: relative;
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 2.35rem;
+    margin: 0;
+    border: 0;
+    border-radius: 0.75rem;
+    background: rgb(var(--fg-rgb) / 0.045);
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.86rem;
+    font-weight: 500;
+    line-height: 1.35;
+    text-align: left;
+    padding: 0.55rem 0.8rem;
+    overflow: hidden;
+    transition: background 160ms ease;
+  }
+
+  .post-poll-option:hover:not(:disabled),
+  .post-poll-option:focus-visible:not(:disabled) {
+    background: rgb(var(--fg-rgb) / 0.075);
+    outline: none;
+  }
+
+  .post-poll-option:disabled {
+    cursor: default;
+    opacity: 1;
+  }
+
+  .post-poll-option.has-results:not(:disabled) {
+    cursor: pointer;
+  }
+
+  .post-poll-option.is-selected {
+    background: rgb(var(--fg-rgb) / 0.1);
+  }
+
+  .post-poll-option.is-winner:not(.is-selected) {
+    background: rgb(var(--fg-rgb) / 0.06);
+  }
+
+  .post-poll-option.is-winner .post-poll-option-label,
+  .post-poll-option.is-winner .post-poll-option-pct {
+    font-weight: 700;
+    color: rgb(var(--fg-rgb) / 0.92);
+  }
+
+  .post-poll-option.is-pending {
+    cursor: default;
+  }
+
+  .post-poll-option-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: rgb(var(--fg-rgb) / 0.08);
+    pointer-events: none;
+    transition: width 240ms ease;
+  }
+
+  .post-poll-option.is-selected .post-poll-option-fill {
+    background: rgb(var(--fg-rgb) / 0.14);
+  }
+
+  .post-poll-option.is-winner .post-poll-option-fill {
+    background: rgb(var(--fg-rgb) / 0.11);
+  }
+
+  .post-poll-option.is-selected.is-winner .post-poll-option-fill {
+    background: rgb(var(--fg-rgb) / 0.16);
+  }
+
+  .post-poll-option-main {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .post-poll-option-check {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 1.05rem;
+    height: 1.05rem;
+    border-radius: 9999px;
+    background: rgb(var(--fg-rgb) / 0.9);
+    color: rgb(var(--bg-rgb) / 0.96);
+  }
+
+  .post-poll-option-label {
+    min-width: 0;
+    word-break: break-word;
+  }
+
+  .post-poll-option-pct,
+  .post-poll-option-pending {
+    position: relative;
+    z-index: 1;
+    flex: 0 0 auto;
+  }
+
+  .post-poll-option-pct {
+    font-size: 0.78rem;
+    font-weight: 650;
+    letter-spacing: 0.01em;
+    color: rgb(var(--fg-rgb) / 0.62);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .post-poll-option.is-selected .post-poll-option-pct {
+    color: rgb(var(--fg-rgb) / 0.84);
+  }
+
+  .post-poll-footer {
+    margin: 0;
+    font-size: 0.72rem;
+    font-weight: 550;
+    letter-spacing: 0.01em;
+    line-height: 1.3;
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
   /* Quoted post — protocol-green gradient rail (divider-v-green-detail), no fill. */
   .post-card-quote-inset {
     display: flex;
@@ -12471,6 +12772,61 @@ a.os-surface-row {
 
   .guild-manage-sheet-body {
     padding: 0 1rem 1.25rem;
+  }
+
+  .guild-add-space-sheet-body {
+    padding: 0.2rem 1.15rem 1.25rem;
+  }
+
+  .guild-add-space-sheet-header {
+    padding-bottom: 0.45rem;
+  }
+
+  .guild-add-space-sheet-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .guild-add-space-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .guild-add-space-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.48);
+  }
+
+  .guild-add-space-input {
+    width: 100%;
+    border: 1px solid rgb(var(--fg-rgb) / 0.1);
+    border-radius: 0.9rem;
+    background: rgb(var(--fg-rgb) / 0.03);
+    color: inherit;
+    font: inherit;
+    font-size: 0.9rem;
+    outline: none;
+    padding: 0.75rem 0.85rem;
+  }
+
+  .guild-add-space-input:focus {
+    border-color: rgb(var(--fg-rgb) / 0.2);
+  }
+
+  .guild-add-space-input:disabled {
+    opacity: 0.6;
+  }
+
+  .guild-add-space-hint {
+    margin: 0;
+    font-size: 0.74rem;
+    line-height: 1.4;
+    color: rgb(var(--fg-rgb) / 0.48);
   }
 
   .guild-manage-sheet-state,
@@ -13098,14 +13454,6 @@ a.os-surface-row {
     box-shadow: 0 0 0 2px rgb(var(--bg-rgb));
   }
 
-  .guild-hero .guild-primary-button,
-  .guild-hero .guild-secondary-button {
-    min-height: 1.85rem;
-    min-width: 4.75rem;
-    padding: 0.32rem 0.72rem;
-    font-size: 0.74rem;
-  }
-
   .guild-facepile-count,
   .guild-hero-meta-link {
     font-size: 0.72rem;
@@ -13234,14 +13582,7 @@ a.os-surface-row {
 
   /* Stable footprint while the label swaps between text and pending dots. */
   .guild-hero-action {
-    min-width: 5.75rem;
-  }
-
-  /* Second-tap confirm state for the destructive on-chain leave. */
-  .guild-hero-action.is-confirm-leave {
-    border-color: color-mix(in srgb, var(--signal-error, #ef4444) 40%, transparent);
-    background: color-mix(in srgb, var(--signal-error, #ef4444) 8%, transparent);
-    color: var(--signal-error, #ef4444);
+    min-width: 4.25rem;
   }
 
   .guild-settings-media {
@@ -13669,37 +14010,112 @@ a.os-surface-row {
     line-height: 1.55;
   }
 
-  .guild-composer-modal-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 60;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgb(0 0 0 / 0.45);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    padding: 1rem;
+  .guild-composer-sheet-body {
+    padding: 0.35rem 1.15rem 0.85rem;
   }
 
-  .guild-composer-modal-card {
+  .guild-composer-sheet-form {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-    width: 100%;
-    max-width: 26rem;
-    padding: 1rem;
   }
 
-  .guild-composer-modal-card .post-card-quote-inset {
+  .guild-composer-sheet-form .post-card-quote-inset {
     margin-top: 0;
   }
 
-  .guild-composer-top {
+  .guild-composer-sheet-header .guild-composer-mode {
+    width: auto;
+  }
+
+  .guild-composer-destination-whisper {
+    margin: 0.12rem 0 0;
+  }
+
+  /* Compose dock — tools left, compact Post right (above keyboard). */
+  .guild-composer-sheet-footer {
+    padding: 0.4rem 1.15rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .guild-composer-sheet-footer.is-keyboard-open {
+    padding-bottom: 0.4rem;
+  }
+
+  .guild-composer-toolbar {
     display: flex;
-    gap: 0.5rem;
     align-items: center;
-    justify-content: space-between;
+    gap: 0.65rem;
+    min-width: 0;
+  }
+
+  .guild-composer-toolbar-tools {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .guild-composer-tool {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.35rem;
+    height: 2.35rem;
+    margin: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.52);
+    cursor: pointer;
+    padding: 0;
+    transition: color 160ms ease, background 160ms ease;
+  }
+
+  .guild-composer-tool:hover:not(:disabled),
+  .guild-composer-tool:focus-visible:not(:disabled) {
+    color: rgb(var(--fg-rgb) / 0.88);
+    background: rgb(var(--fg-rgb) / 0.06);
+    outline: none;
+  }
+
+  .guild-composer-tool:disabled {
+    cursor: default;
+    opacity: 0.42;
+  }
+
+  .guild-composer-tool.is-active {
+    color: rgb(var(--fg-rgb) / 0.92);
+    background: rgb(var(--fg-rgb) / 0.1);
+  }
+
+  .guild-composer-tool-icon {
+    display: block;
+    width: 1.2rem;
+    height: 1.2rem;
+  }
+
+  .guild-composer-toolbar-post {
+    flex: 0 0 auto;
+    width: auto;
+    margin-left: auto;
+  }
+
+  .guild-composer-toolbar-post.os-sheet-actions--row-compact {
+    width: auto;
+    gap: 0;
+  }
+
+  .guild-composer-toolbar-post .os-sheet-action,
+  .guild-composer-toolbar-post .os-sheet-action--primary {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 4.5rem;
+    min-height: 2.15rem;
+    padding: 0.35rem 0.95rem;
+    font-size: 0.78rem;
+    line-height: 1.2;
+    border-radius: 9999px;
   }
 
   .guild-composer-reply-flow {
@@ -13769,6 +14185,159 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.36);
   }
 
+  .guild-composer-poll {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    margin-top: 0.15rem;
+  }
+
+  .guild-composer-poll-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .guild-composer-poll-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+
+  .guild-composer-poll-input {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    border: 1px solid rgb(var(--fg-rgb) / 0.1);
+    border-radius: 0.75rem;
+    background: rgb(var(--fg-rgb) / 0.035);
+    color: inherit;
+    font: inherit;
+    font-size: 0.86rem;
+    line-height: 1.35;
+    padding: 0.55rem 0.75rem;
+    outline: none;
+    transition:
+      border-color 160ms ease,
+      background 160ms ease;
+  }
+
+  .guild-composer-poll-input::placeholder {
+    color: rgb(var(--fg-rgb) / 0.36);
+  }
+
+  .guild-composer-poll-input:focus {
+    border-color: rgb(var(--fg-rgb) / 0.22);
+    background: rgb(var(--fg-rgb) / 0.05);
+  }
+
+  .guild-composer-poll-input:disabled {
+    opacity: 0.55;
+  }
+
+  .guild-composer-poll-remove {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 1.85rem;
+    height: 1.85rem;
+    margin: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.42);
+    cursor: pointer;
+    font: inherit;
+    font-size: 1.15rem;
+    line-height: 1;
+    padding: 0;
+  }
+
+  .guild-composer-poll-remove:hover:not(:disabled),
+  .guild-composer-poll-remove:focus-visible:not(:disabled) {
+    color: rgb(var(--fg-rgb) / 0.78);
+    background: rgb(var(--fg-rgb) / 0.06);
+    outline: none;
+  }
+
+  .guild-composer-poll-remove:disabled {
+    cursor: default;
+    opacity: 0.4;
+  }
+
+  .guild-composer-poll-add {
+    align-self: flex-start;
+    margin: 0;
+    border: 0;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.55);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.3;
+    padding: 0.15rem 0.1rem;
+  }
+
+  .guild-composer-poll-add:hover:not(:disabled),
+  .guild-composer-poll-add:focus-visible:not(:disabled) {
+    color: rgb(var(--fg-rgb) / 0.88);
+    outline: none;
+  }
+
+  .guild-composer-poll-add:disabled {
+    cursor: default;
+    opacity: 0.45;
+  }
+
+  .guild-composer-poll-duration {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.1rem;
+  }
+
+  .guild-composer-poll-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 1.7rem;
+    margin: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: rgb(var(--fg-rgb) / 0.06);
+    color: rgb(var(--fg-rgb) / 0.55);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    line-height: 1.2;
+    padding: 0.28rem 0.65rem;
+    transition:
+      background 160ms ease,
+      color 160ms ease;
+  }
+
+  .guild-composer-poll-chip:hover:not(:disabled):not(.is-active),
+  .guild-composer-poll-chip:focus-visible:not(:disabled):not(.is-active) {
+    color: rgb(var(--fg-rgb) / 0.84);
+    background: rgb(var(--fg-rgb) / 0.09);
+    outline: none;
+  }
+
+  .guild-composer-poll-chip.is-active {
+    background: rgb(var(--fg-rgb) / 0.14);
+    color: rgb(var(--fg-rgb) / 0.94);
+  }
+
+  .guild-composer-poll-chip:disabled {
+    cursor: default;
+    opacity: 0.45;
+  }
+
   .guild-composer-reply-text {
     display: -webkit-box;
     -webkit-box-orient: vertical;
@@ -13816,44 +14385,16 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.88);
   }
 
-  /* Destination row — where a new post lands (guild name + channel picker). */
-  .guild-composer-destination {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.55rem;
-    min-width: 0;
-    color: rgb(var(--fg-rgb) / 0.62);
-    font-size: 0.78rem;
-    font-weight: 650;
-  }
+  /* Destination whisper lives under the title; spaces use .guild-composer-mode chips. */
 
-  .guild-composer-destination-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: rgb(var(--fg-rgb) / 0.88);
-  }
-
-  .guild-composer-destination select {
-    min-height: 1.85rem;
-    max-width: 10rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.12);
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.04);
-    color: rgb(var(--fg-rgb) / 0.78);
-    cursor: pointer;
-    font: inherit;
-    font-size: 0.74rem;
-    font-weight: 600;
-    padding: 0.2rem 0.65rem;
-  }
-
+  /* Compact chips — same language as All / General (no full-width dark track). */
   .guild-composer-mode {
     display: inline-flex;
+    flex-wrap: wrap;
     gap: 0.3rem;
-    border-radius: 9999px;
-    background: rgb(0 0 0 / 0.22);
-    padding: 0.22rem;
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
   }
 
   .guild-composer-mode button {
@@ -13863,18 +14404,29 @@ a.os-surface-row {
     min-height: 1.85rem;
     border: 0;
     border-radius: 9999px;
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.56);
+    background: rgb(var(--fg-rgb) / 0.05);
+    color: rgb(var(--fg-rgb) / 0.58);
     cursor: pointer;
     font: inherit;
-    font-size: 0.72rem;
-    font-weight: 650;
-    padding: 0 0.62rem;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 0.32rem 0.72rem;
+    transition:
+      background 160ms ease,
+      color 160ms ease;
+  }
+
+  .guild-composer-mode button:hover,
+  .guild-composer-mode button:focus-visible {
+    background: rgb(var(--fg-rgb) / 0.08);
+    color: rgb(var(--fg-rgb) / 0.82);
+    outline: none;
   }
 
   .guild-composer-mode button.is-active {
     background: rgb(var(--fg-rgb) / 0.1);
-    color: rgb(var(--fg-rgb) / 0.9);
+    color: rgb(var(--fg-rgb) / 0.92);
   }
 
   .guild-composer-mode button:disabled {

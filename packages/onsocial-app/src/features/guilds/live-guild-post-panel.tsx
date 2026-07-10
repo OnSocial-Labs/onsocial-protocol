@@ -9,9 +9,10 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { PostCard, PostRowSkeleton, postKey } from '@/features/home/post-card';
 import {
-  GuildComposerModal,
+  GuildComposerSheet,
   type GuildComposerMode,
-} from '@/features/guilds/guild-composer-modal';
+  type GuildComposerSubmit,
+} from '@/features/guilds/guild-composer-sheet';
 import {
   canViewerPostInChannel,
   parseGuildStructure,
@@ -31,6 +32,7 @@ import { resolveGuildViewerAccess } from '@/features/guilds/guild-viewer-access'
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { usePostEngagement } from '@/hooks/use-post-engagement';
+import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useAncestorChain, useQuotedPosts } from '@/hooks/use-quoted-posts';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
@@ -301,6 +303,12 @@ export function LiveGuildPostPanel({
   );
   const postAuthorProfiles = usePostAuthorProfiles(postAuthorIds);
   const { engagement, toggleReaction, isReactionPending } = usePostEngagement(
+    threadPosts,
+    {
+      onError: (message) => setTxResult({ type: 'error', msg: message }),
+    }
+  );
+  const { pollTallyFor, castVote, isPollVotePending } = usePollVotes(
     threadPosts,
     {
       onError: (message) => setTxResult({ type: 'error', msg: message }),
@@ -586,9 +594,10 @@ export function LiveGuildPostPanel({
     setModalTarget(target);
   };
 
-  const submitFromModal = async (text: string) => {
+  const submitFromModal = async (payload: GuildComposerSubmit) => {
     const target = modalTarget;
-    if (!target || modalPending) return;
+    const text = payload.text.trim();
+    if (!target || modalPending || !text) return;
 
     const channel = target.channel ?? threadChannel;
     if (!canPostInChannel(channel)) {
@@ -604,7 +613,11 @@ export function LiveGuildPostPanel({
     setModalError(null);
     setModalPending(true);
     try {
-      const { confirmed, newPostId } = await performSubmit(target, modalMode, text);
+      const { confirmed, newPostId } = await performSubmit(
+        target,
+        modalMode,
+        text
+      );
       if (confirmed) {
         const targetsRoot =
           conversation.root && postKey(target) === postKey(conversation.root);
@@ -736,6 +749,11 @@ export function LiveGuildPostPanel({
                     )}
                     onReply={replyHandler}
                     onQuote={quoteHandler}
+                    pollTally={pollTallyFor(ancestor)}
+                    pollVotePending={isPollVotePending(ancestor)}
+                    onPollVote={(post, optionIndex) => {
+                      void castVote(post, optionIndex);
+                    }}
                   />
                 </div>
               ))}
@@ -775,6 +793,11 @@ export function LiveGuildPostPanel({
                   onToggleReaction={toggleReaction}
                   onReply={replyHandler}
                   onQuote={quoteHandler}
+                  pollTally={pollTallyFor(conversation.root)}
+                  pollVotePending={isPollVotePending(conversation.root)}
+                  onPollVote={(post, optionIndex) => {
+                    void castVote(post, optionIndex);
+                  }}
                 />
               </div>
             </div>
@@ -901,6 +924,11 @@ export function LiveGuildPostPanel({
                             onToggleReaction={toggleReaction}
                             onReply={replyHandler}
                             onQuote={quoteHandler}
+                            pollTally={pollTallyFor(row.post)}
+                            pollVotePending={isPollVotePending(row.post)}
+                            onPollVote={(post, optionIndex) => {
+                              void castVote(post, optionIndex);
+                            }}
                           />
                         </div>
                       </div>
@@ -935,6 +963,11 @@ export function LiveGuildPostPanel({
                       onToggleReaction={toggleReaction}
                       onReply={replyHandler}
                       onQuote={quoteHandler}
+                      pollTally={pollTallyFor(quote)}
+                      pollVotePending={isPollVotePending(quote)}
+                      onPollVote={(post, optionIndex) => {
+                        void castVote(post, optionIndex);
+                      }}
                     />
                   </div>
                 ))
@@ -962,7 +995,8 @@ export function LiveGuildPostPanel({
         ) : null}
       </div>
       {modalTarget ? (
-        <GuildComposerModal
+        <GuildComposerSheet
+          open
           target={modalTarget}
           targetAuthorProfile={postAuthorProfiles[modalTarget.accountId]}
           mode={modalMode}
@@ -972,7 +1006,7 @@ export function LiveGuildPostPanel({
           onClose={() => {
             if (!modalPending) setModalTarget(null);
           }}
-          onSubmit={(text) => void submitFromModal(text)}
+          onSubmit={(payload) => void submitFromModal(payload)}
         />
       ) : null}
     </OsAppScreen>

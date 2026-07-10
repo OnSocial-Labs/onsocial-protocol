@@ -23,6 +23,55 @@ export function parsePostText(value: string): string {
   return trimmed;
 }
 
+/** Poll embed stored on post JSON (`embeds[].kind === 'poll'`). */
+export interface PostPollEmbed {
+  kind: 'poll';
+  question: string;
+  options: string[];
+  closesAt?: number;
+}
+
+export function parsePostPollEmbed(value: string): PostPollEmbed | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  try {
+    const parsed = JSON.parse(trimmed) as { embeds?: unknown };
+    if (!Array.isArray(parsed.embeds)) return null;
+
+    for (const entry of parsed.embeds) {
+      if (!entry || typeof entry !== 'object') continue;
+      const embed = entry as Record<string, unknown>;
+      if (embed.kind !== 'poll') continue;
+      if (typeof embed.question !== 'string' || !embed.question.trim()) {
+        continue;
+      }
+      if (!Array.isArray(embed.options)) continue;
+      const options = embed.options
+        .filter((option): option is string => typeof option === 'string')
+        .map((option) => option.trim())
+        .filter(Boolean);
+      if (options.length < 2) continue;
+
+      const closesAt =
+        typeof embed.closesAt === 'number' && Number.isFinite(embed.closesAt)
+          ? embed.closesAt
+          : undefined;
+
+      return {
+        kind: 'poll',
+        question: embed.question.trim(),
+        options,
+        closesAt,
+      };
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
 export function formatPostTimestamp(blockTimestamp: number | string): string {
   const date = resolvePostDate(blockTimestamp);
   if (!date) return 'Unknown time';

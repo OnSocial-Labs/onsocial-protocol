@@ -12,7 +12,9 @@ import {
   RepeatIcon,
 } from '@onsocial/ui';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
-import { parsePostText, postKey } from '@/lib/post-display';
+import { PostPollEmbedCard } from '@/features/home/post-poll-embed';
+import { parsePostPollEmbed, parsePostText, postKey } from '@/lib/post-display';
+import type { PollTally } from '@/lib/poll-votes';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
@@ -40,11 +42,15 @@ interface PostCardProps {
   onReply?: (post: PostRow) => void;
   /** Open a quote composer targeting this post. */
   onQuote?: (post: PostRow) => void;
+  pollTally?: PollTally;
+  pollVotePending?: boolean;
+  onPollVote?: (post: PostRow, optionIndex: number) => void;
 }
 
-function postBadges(post: PostRow): string[] {
-  // 'text' is the default kind — badge only exceptional kinds (media, poll…).
-  return [post.kind === 'text' ? null : post.kind].filter(
+function postBadges(post: PostRow, hasPollEmbed: boolean): string[] {
+  // 'text' is the default kind — badge only exceptional kinds (media…).
+  // Poll embeds render their own card; skip the redundant "poll" pill.
+  return [post.kind === 'text' || (hasPollEmbed && post.kind === 'poll') ? null : post.kind].filter(
     (value): value is string => typeof value === 'string' && value.trim() !== ''
   );
 }
@@ -210,11 +216,14 @@ function PostCardBody({
   relationContext,
   badges,
   text,
+  hideText = false,
 }: {
   actionHref?: string;
   relationContext: { verb: string; handle: string } | null;
   badges: string[];
   text: string;
+  /** When the poll card already shows the question, skip duplicate body text. */
+  hideText?: boolean;
 }) {
   const body = (
     <>
@@ -233,7 +242,7 @@ function PostCardBody({
           ))}
         </div>
       ) : null}
-      <p className="post-card-body">{text || '…'}</p>
+      {!hideText ? <p className="post-card-body">{text || '…'}</p> : null}
     </>
   );
 
@@ -285,11 +294,15 @@ export function PostCard({
   onToggleReaction,
   onReply,
   onQuote,
+  pollTally,
+  pollVotePending,
+  onPollVote,
 }: PostCardProps) {
   const text = parsePostText(post.value);
+  const poll = parsePostPollEmbed(post.value);
   const fallback = fallbackLabel(post.accountId);
   const name = authorProfile?.displayName?.trim() || fallback;
-  const badges = postBadges(post);
+  const badges = postBadges(post, Boolean(poll));
   const relationContext = showRelationBadge
     ? postRelationContext(post, Boolean(quotedPost))
     : null;
@@ -327,7 +340,20 @@ export function PostCard({
           relationContext={relationContext}
           badges={badges}
           text={text}
+          hideText={Boolean(poll) && text === poll?.question}
         />
+        {poll ? (
+          <PostPollEmbedCard
+            poll={poll}
+            tally={pollTally}
+            pending={pollVotePending}
+            onVote={
+              onPollVote
+                ? (optionIndex) => onPollVote(post, optionIndex)
+                : undefined
+            }
+          />
+        ) : null}
         {quotedPost ? (
           <QuotedPostInset
             post={quotedPost}

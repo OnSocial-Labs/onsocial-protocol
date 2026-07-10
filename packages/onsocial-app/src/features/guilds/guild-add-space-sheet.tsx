@@ -1,29 +1,37 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useCallback, useId, useState, type FormEvent } from 'react';
+import { Divider, GlassSheet, SheetCloseButton } from '@onsocial/ui';
 import {
-  Divider,
-  GlassSheet,
+  OsSheetAction,
   OsSheetActions,
-  OsSheetPrimaryAction,
-  PulsingDots,
-  SheetCloseButton,
-} from '@onsocial/ui';
+} from '@/components/ui/os-sheet-primary-action';
+import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import {
   GUILD_POST_POLICY_OPTIONS,
-  GUILD_SPACE_KIND_OPTIONS,
   cloneGuildStructure,
   mergeStructureSpaces,
   normalizeCustomSpaceInput,
-  postPolicyHint,
-  type GuildSpaceKind,
   type GuildSpacePostPolicy,
   type GuildStructureDocument,
 } from '@/features/guilds/guild-structure';
 import { persistGuildStructure } from '@/features/guilds/persist-guild-structure';
-import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
+import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
+import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+
+const POLICY_CHIP_LABEL: Record<GuildSpacePostPolicy, string> = {
+  members: 'Everyone',
+  moderators: 'Team',
+  admins: 'Leaders',
+};
+
+const POLICY_HINT: Record<GuildSpacePostPolicy, string> = {
+  members: 'Any member can share.',
+  moderators: 'Mods, admins, and owner.',
+  admins: 'Admins and owner only.',
+};
 
 interface GuildAddSpaceSheetProps {
   open: boolean;
@@ -42,29 +50,48 @@ export function GuildAddSpaceSheet({
   onClose,
   onSaved,
 }: GuildAddSpaceSheetProps) {
+  const titleId = useId();
+  const shareLabelId = useId();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction } = useAppTransactionFeedback();
+  const scrollFieldIntoView = useMobileFieldFocusScroll();
   const [title, setTitle] = useState('');
-  const [kind, setKind] = useState<GuildSpaceKind>('discussion');
   const [postPolicy, setPostPolicy] =
     useState<GuildSpacePostPolicy>('members');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [closing, setClosing] = useState(false);
+  const [wasOpen, setWasOpen] = useState(open);
+  const sheetOpen = open && !closing;
 
-  const handleClose = () => {
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setTitle('');
+      setPostPolicy('members');
+      setError(null);
+      setPending(false);
+      setClosing(false);
+    }
+  }
+
+  useScrollLock(open || closing);
+
+  const requestClose = useCallback(() => {
     if (pending) return;
-    setTitle('');
-    setKind('discussion');
-    setPostPolicy('members');
-    setError(null);
+    setClosing(true);
+  }, [pending]);
+
+  const handleSheetClosed = useCallback(() => {
+    setClosing(false);
     onClose();
-  };
+  }, [onClose]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     const space = normalizeCustomSpaceInput({
       title,
-      kind,
+      kind: 'discussion',
       postPolicy,
       audience: 'members',
     });
@@ -93,9 +120,8 @@ export function GuildAddSpaceSheet({
         async (input) => trackTransaction(input)
       );
       if (confirmed) {
-        setTitle('');
         onSaved?.();
-        onClose();
+        setClosing(true);
       }
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
@@ -107,37 +133,37 @@ export function GuildAddSpaceSheet({
     }
   };
 
+  const canSubmit = Boolean(title.trim()) && !pending;
+
   return (
     <GlassSheet
-      open={open}
-      onClose={handleClose}
+      open={sheetOpen}
+      onClose={requestClose}
+      onClosed={handleSheetClosed}
       tone="os"
       initialDetent="peek"
       zIndex={57}
       presentation="swap"
-      ariaLabelledBy="guild-add-space-title"
+      ariaLabelledBy={titleId}
       backdropLabel="Close add space"
-      panelClassName="guild-manage-sheet-panel"
-      bodyClassName="guild-manage-sheet-body"
+      panelClassName="guild-add-space-sheet-panel"
+      bodyClassName="guild-add-space-sheet-body"
       header={
         <>
-          <div className="standing-sheet-header guild-manage-sheet-header">
+          <div className="standing-sheet-header guild-add-space-sheet-header">
             <div className="standing-sheet-subject-row">
               <div className="standing-sheet-subject">
                 <div className="standing-sheet-subject-copy">
-                  <h2
-                    id="guild-add-space-title"
-                    className="standing-sheet-subject-name"
-                  >
+                  <h2 id={titleId} className="standing-sheet-subject-name">
                     Add space
                   </h2>
                   <p className="discover-sheet-subtitle">
-                    Name a feed tab and a place to share in this guild.
+                    New feed tab in this guild.
                   </p>
                 </div>
               </div>
               <div className="standing-sheet-actions">
-                <SheetCloseButton onClick={handleClose} ariaLabel="Close" />
+                <SheetCloseButton onClick={requestClose} ariaLabel="Close" />
               </div>
             </div>
           </div>
@@ -145,57 +171,56 @@ export function GuildAddSpaceSheet({
         </>
       }
     >
-      <form className="guild-add-member-sheet" onSubmit={handleSubmit}>
-        <label className="guild-field">
-          <span>Name</span>
+      <form
+        className="guild-add-space-sheet-form"
+        onSubmit={(event) => void handleSubmit(event)}
+      >
+        <label className="guild-add-space-field">
+          <span className="guild-add-space-label">Name</span>
           <input
-            className="guild-input"
+            className="guild-add-space-input"
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            placeholder="Ship room"
+            placeholder="Shipping Room"
             disabled={pending}
             maxLength={40}
             autoFocus
+            autoComplete="off"
+            onFocus={scrollFieldIntoView}
           />
         </label>
 
-        <label className="guild-field">
-          <span>Type</span>
-          <select
-            className="guild-input"
-            value={kind}
-            disabled={pending}
-            onChange={(event) => setKind(event.target.value as GuildSpaceKind)}
-          >
-            {GUILD_SPACE_KIND_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <small>Controls how posts are grouped and filtered.</small>
-        </label>
-
-        <label className="guild-field">
-          <span>Who can share here</span>
-          <select
-            className="guild-input"
-            value={postPolicy}
-            disabled={pending}
-            onChange={(event) =>
-              setPostPolicy(event.target.value as GuildSpacePostPolicy)
-            }
+        <div className="guild-add-space-field">
+          <span className="guild-add-space-label" id={shareLabelId}>
+            Who can share
+          </span>
+          <div
+            className="guild-add-space-segments"
+            role="radiogroup"
+            aria-labelledby={shareLabelId}
           >
             {GUILD_POST_POLICY_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
+              <button
+                key={option.value}
+                type="button"
+                role="radio"
+                aria-checked={postPolicy === option.value}
+                className={
+                  postPolicy === option.value
+                    ? 'guild-add-space-segment is-active'
+                    : 'guild-add-space-segment'
+                }
+                disabled={pending}
+                onClick={() => setPostPolicy(option.value)}
+              >
+                {POLICY_CHIP_LABEL[option.value]}
+              </button>
             ))}
-          </select>
-          <small className="guild-structure-policy-hint">
-            {postPolicyHint(postPolicy)}
-          </small>
-        </label>
+          </div>
+          <p className="guild-add-space-hint" aria-live="polite">
+            {POLICY_HINT[postPolicy]}
+          </p>
+        </div>
 
         {error ? (
           <p className="guild-form-error" role="alert">
@@ -203,14 +228,17 @@ export function GuildAddSpaceSheet({
           </p>
         ) : null}
 
-        <OsSheetActions>
-          <OsSheetPrimaryAction
-            pending={pending}
+        <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+          <OsSheetAction
             type="submit"
-            disabled={!title.trim()}
+            variant="primary"
+            ready={canSubmit}
+            pending={pending}
+            pendingLabel="Adding…"
+            disabled={!canSubmit}
           >
-            {pending ? <PulsingDots size="sm" /> : 'Add space'}
-          </OsSheetPrimaryAction>
+            Add space
+          </OsSheetAction>
         </OsSheetActions>
       </form>
     </GlassSheet>
