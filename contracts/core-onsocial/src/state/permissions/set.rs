@@ -105,7 +105,19 @@ impl SocialPlatform {
             )
             && perm.level != crate::domain::groups::permissions::kv::types::MANAGE;
 
-        if !is_authorized && !is_manage_delegation {
+        // Guild admins may grant/revoke WRITE on space allowlist capability paths
+        // (`groups/{id}/spaces/{spaceId}/write`) without needing path-local MANAGE.
+        let is_admin_space_write_grant = group_id_from_path.is_some()
+            && crate::domain::groups::structure::is_space_write_capability_path(&full_path)
+            && (perm.level == 0
+                || perm.level == crate::domain::groups::permissions::kv::types::WRITE)
+            && crate::domain::groups::permissions::kv::has_group_admin_permission(
+                self,
+                &path_identifier,
+                perm.caller,
+            );
+
+        if !is_authorized && !is_manage_delegation && !is_admin_space_write_grant {
             return Err(crate::unauthorized!(
                 "set_permission",
                 &format!(
@@ -116,7 +128,8 @@ impl SocialPlatform {
             ));
         }
 
-        // Member-driven groups: owners cannot bypass governance; only MANAGE delegation with expiry allowed.
+        // Member-driven groups: owners cannot bypass governance; only MANAGE delegation
+        // (or guild-admin allowlist WRITE grants) with expiry allowed.
         if group_id_from_path.is_some() && is_member_driven_group {
             if is_authorized {
                 return Err(crate::invalid_input!(
@@ -124,7 +137,7 @@ impl SocialPlatform {
                 ));
             }
 
-            if !is_manage_delegation {
+            if !is_manage_delegation && !is_admin_space_write_grant {
                 return Err(crate::invalid_input!(
                     "Member-driven groups require governance proposals for permission changes"
                 ));

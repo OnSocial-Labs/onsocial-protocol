@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   postContentPath,
@@ -11,10 +10,11 @@ import {
 } from '@onsocial/sdk';
 import {
   Divider,
+  InformationCircleFillIcon,
   OsSheetAction,
   OsSheetActions,
   ProfileAvatar,
-  SlidersHorizontalIcon,
+  SettingsIcon,
   osIconActionClassName,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
@@ -56,10 +56,15 @@ import {
 import { guildDisplayInitials } from '@/features/guilds/guild-card-display';
 import { GuildMemberRequestsSheet } from '@/features/guilds/guild-member-requests-sheet';
 import { GuildMembersSheet } from '@/features/guilds/guild-members-sheet';
+import { GuildEditSheet } from '@/features/guilds/guild-edit-sheet';
+import { GuildFactsSheet } from '@/features/guilds/guild-facts-sheet';
+import { GuildRoomsSheet } from '@/features/guilds/guild-rooms-sheet';
+import { GuildSettingsSheet } from '@/features/guilds/guild-settings-sheet';
 import { GuildProposalsSheet } from '@/features/guilds/guild-proposals-sheet';
+import { GuildSpaceWritersSheet } from '@/features/guilds/guild-space-writers-sheet';
+import { resolveViewerAllowlistSpaceIds } from '@/features/guilds/guild-space-write';
 import {
   collectRelayTxHashes,
-  guildSectionPath,
 } from '@/features/guilds/guilds-data';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useUserStorageBalance } from '@/hooks/use-user-storage-balance';
@@ -80,6 +85,7 @@ import {
 } from '@/features/guilds/guild-visual';
 import {
   guildAccessLabel,
+  readGroupStatsCreatedAt,
   resolveGuildMemberCount,
 } from '@/features/guilds/guild-facts';
 import {
@@ -106,6 +112,7 @@ interface LiveGuildModerationState {
 interface LiveGuildState {
   config: GuildConfigSnapshot | null;
   stats: GroupStats | null;
+  postCount: number | null;
   members: GroupMemberRow[];
   posts: PostRow[];
   feedError: string | null;
@@ -140,6 +147,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
   const [state, setState] = useState<LiveGuildState>({
     config: null,
     stats: null,
+    postCount: null,
     members: [],
     posts: [],
     feedError: null,
@@ -167,7 +175,20 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
   const [manageSheet, setManageSheet] = useState<GuildManageSheetId | null>(
     null
   );
+  const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
+  const [editSheetOpen, setEditSheetOpen] = useState(false);
+  const [roomsSheetOpen, setRoomsSheetOpen] = useState(false);
+  const [factsSheetOpen, setFactsSheetOpen] = useState(false);
+  const settingsNextRef = useRef<'edit' | 'rooms' | null>(null);
+  const factsNextRef = useRef<'members' | null>(null);
   const [addSpaceOpen, setAddSpaceOpen] = useState(false);
+  const [writersTarget, setWritersTarget] = useState<{
+    spaceId: string;
+    spaceTitle: string;
+  } | null>(null);
+  const [allowlistSpaceIds, setAllowlistSpaceIds] = useState<ReadonlySet<string>>(
+    () => new Set()
+  );
   const hasLoadedRef = useRef(false);
   const reconcileTimersRef = useRef<number[]>([]);
   const confirmLeaveTimerRef = useRef<number | null>(null);
@@ -199,8 +220,9 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       canModerate: viewer?.canModerate ?? false,
       isAdmin: viewer?.isAdmin ?? false,
       isOwner: viewer?.isOwner ?? false,
+      canWriteSpaceIds: allowlistSpaceIds,
     }),
-    [viewer]
+    [allowlistSpaceIds, viewer]
   );
   const feedSpaces = useMemo(
     () => (config ? enabledGuildSpaces(config.structure) : []),
@@ -267,6 +289,13 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       ids.unshift(accountId);
     }
     return ids;
+  }, [accountId, state.members, viewer?.isMember]);
+  const viewerJoinedAt = useMemo(() => {
+    if (!accountId || !viewer?.isMember) return null;
+    return (
+      state.members.find((member) => member.memberId === accountId)
+        ?.blockTimestamp ?? null
+    );
   }, [accountId, state.members, viewer?.isMember]);
   const postAuthorIds = useMemo(
     () => [
@@ -335,6 +364,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       setState({
         config: null,
         stats: null,
+        postCount: null,
         members: [],
         posts: [],
         feedError: null,
@@ -347,16 +377,18 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
 
     const normalizedConfig = normalizeGuildConfig(groupId, rawConfig);
 
-    const [statsResult, membersResult, viewerResult] = await Promise.allSettled([
-      client.groups.getStats(groupId),
-      client.query.groups.membersOf(groupId, { limit: 8 }),
-      accountId
-        ? resolveGuildViewerAccess(client, groupId, accountId, {
-            memberDriven: normalizedConfig.memberDriven,
-            accessGated: normalizedConfig.accessGated,
-          })
-        : Promise.resolve(null),
-    ]);
+    const [statsResult, membersResult, viewerResult, postCountResult] =
+      await Promise.allSettled([
+        client.groups.getStats(groupId),
+        client.query.groups.membersOf(groupId, { limit: 8 }),
+        accountId
+          ? resolveGuildViewerAccess(client, groupId, accountId, {
+              memberDriven: normalizedConfig.memberDriven,
+              accessGated: normalizedConfig.accessGated,
+            })
+          : Promise.resolve(null),
+        client.query.groups.postCountFor(groupId),
+      ]);
 
     const viewerState =
       viewerResult.status === 'fulfilled' && viewerResult.value
@@ -367,10 +399,29 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
         ? (viewerResult.value?.moderation ?? null)
         : null;
 
+    if (accountId && viewerState?.isMember) {
+      try {
+        const granted = await resolveViewerAllowlistSpaceIds(
+          client,
+          groupId,
+          accountId,
+          normalizedConfig.structure,
+          viewerState
+        );
+        setAllowlistSpaceIds(granted);
+      } catch {
+        setAllowlistSpaceIds(new Set());
+      }
+    } else {
+      setAllowlistSpaceIds(new Set());
+    }
+
     setState((current) => ({
       ...current,
       config: normalizedConfig,
       stats: statsResult.status === 'fulfilled' ? statsResult.value : null,
+      postCount:
+        postCountResult.status === 'fulfilled' ? postCountResult.value : null,
       members: reconcileGuildMemberRoster(
         membersResult.status === 'fulfilled'
           ? (membersResult.value.items ?? [])
@@ -673,7 +724,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     if (mode !== 'post' && target) {
       const threadChannel = target.channel ?? composerSpace?.id ?? null;
       if (!canPostInChannel(threadChannel)) {
-        setModalError('You cannot reply in this space.');
+        setModalError('You cannot reply in this room.');
         return;
       }
     }
@@ -704,7 +755,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       let response: unknown;
       if (mode === 'post') {
         if (!composerSpace) {
-          throw new Error('Choose a space before posting.');
+          throw new Error('Choose a room before posting.');
         }
         response = await client.groups.post(
           groupId,
@@ -876,7 +927,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       subtitle={
         loadState === 'ready'
           ? undefined
-          : 'Guilds are public on-chain spaces with access-gated participation.'
+          : 'Guilds are public on-chain communities with invite-only participation when gated.'
       }
       backFallbackHref="/groups"
       actions={
@@ -897,16 +948,17 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
               />
             ) : null}
             {canManageGuild ? (
-              <Link
+              <button
+                type="button"
                 className={osIconActionClassName}
-                href={guildSectionPath(groupId, 'settings')}
                 aria-label="Guild settings"
+                onClick={() => setSettingsSheetOpen(true)}
               >
-                <SlidersHorizontalIcon
+                <SettingsIcon
                   className="glass-sheet-close-icon"
                   aria-hidden
                 />
-              </Link>
+              </button>
             ) : null}
           </>
         ) : undefined
@@ -1055,8 +1107,21 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                     {memberCount} {memberCount === 1 ? 'member' : 'members'}
                   </span>
                 </button>
-                <span className="guild-hero-mode">
-                  {guildAccessLabel(config.accessGated, config.memberDriven)}
+                <span className="guild-hero-mode-row">
+                  <span className="guild-hero-mode">
+                    {guildAccessLabel(config.accessGated, config.memberDriven)}
+                  </span>
+                  <button
+                    type="button"
+                    className="guild-hero-facts-button"
+                    aria-label="Guild facts"
+                    onClick={() => setFactsSheetOpen(true)}
+                  >
+                    <InformationCircleFillIcon
+                      className="guild-hero-facts-icon"
+                      aria-hidden
+                    />
+                  </button>
                 </span>
               </div>
 
@@ -1085,7 +1150,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
               {renderFeedFilters(headerElevated)}
               {canCompose ? null : viewer?.isMember ? (
                 <div className="guild-state-card">
-                  No spaces are available for you to post in yet.
+                  No rooms are available for you to post in yet.
                 </div>
               ) : (
                 <div className="guild-state-card">
@@ -1148,7 +1213,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
               ) : (
                 <div className="guild-state-card">
                   {selectedFeedSpace
-                    ? `No ${selectedFeedSpace.title.toLowerCase()} posts yet. Members can start this space from compose.`
+                    ? `No ${selectedFeedSpace.title.toLowerCase()} posts yet. Members can start this room from compose.`
                     : 'No guild posts yet. Members can start the feed from compose.'}
                 </div>
               )}
@@ -1256,6 +1321,71 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
           onAdded={() => void refresh()}
         />
       ) : null}
+      {config ? (
+        <GuildFactsSheet
+          open={factsSheetOpen}
+          groupId={groupId}
+          guildName={config.name}
+          accessGated={config.accessGated}
+          memberDriven={config.memberDriven}
+          memberCount={memberCount}
+          isMember={viewer?.isMember ?? false}
+          isOwner={viewer?.isOwner ?? false}
+          isAdmin={viewer?.isAdmin ?? false}
+          canModerate={viewer?.canModerate ?? false}
+          joinPending={joinPending}
+          ownerId={config.ownerId}
+          memberJoinedAt={viewerJoinedAt}
+          createdAt={readGroupStatsCreatedAt(state.stats)}
+          postCount={state.postCount}
+          roomCount={feedSpaces.length}
+          tags={config.tags}
+          onClose={() => {
+            setFactsSheetOpen(false);
+            const next = factsNextRef.current;
+            factsNextRef.current = null;
+            if (next === 'members') setManageSheet('members');
+          }}
+          onOpenMembers={() => {
+            factsNextRef.current = 'members';
+          }}
+        />
+      ) : null}
+      {canManageGuild ? (
+        <GuildSettingsSheet
+          open={settingsSheetOpen}
+          guildName={config?.name}
+          onClose={() => {
+            setSettingsSheetOpen(false);
+            const next = settingsNextRef.current;
+            settingsNextRef.current = null;
+            if (next === 'edit') setEditSheetOpen(true);
+            if (next === 'rooms') setRoomsSheetOpen(true);
+          }}
+          onEditGuild={() => {
+            settingsNextRef.current = 'edit';
+          }}
+          onOpenRooms={() => {
+            settingsNextRef.current = 'rooms';
+          }}
+        />
+      ) : null}
+      {canManageGuild ? (
+        <GuildEditSheet
+          open={editSheetOpen}
+          groupId={groupId}
+          onClose={() => setEditSheetOpen(false)}
+          onSaved={() => void refresh()}
+        />
+      ) : null}
+      {canManageGuild ? (
+        <GuildRoomsSheet
+          open={roomsSheetOpen}
+          groupId={groupId}
+          onClose={() => setRoomsSheetOpen(false)}
+          onSaved={() => void refresh()}
+        />
+      ) : null}
       {config && addSpaceOpen ? (
         <GuildAddSpaceSheet
           open
@@ -1263,6 +1393,25 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
           memberDriven={config.memberDriven}
           structure={config.structure}
           onClose={() => setAddSpaceOpen(false)}
+          onSaved={(space) => {
+            void refresh();
+            if (space?.postPolicy === 'allowlist') {
+              setWritersTarget({
+                spaceId: space.id,
+                spaceTitle: space.title,
+              });
+            }
+          }}
+        />
+      ) : null}
+      {config && writersTarget ? (
+        <GuildSpaceWritersSheet
+          open
+          groupId={groupId}
+          spaceId={writersTarget.spaceId}
+          spaceTitle={writersTarget.spaceTitle}
+          memberDriven={config.memberDriven}
+          onClose={() => setWritersTarget(null)}
           onSaved={() => void refresh()}
         />
       ) : null}

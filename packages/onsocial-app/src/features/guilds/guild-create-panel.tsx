@@ -24,6 +24,10 @@ import {
 import { GuildTagsEditor } from '@/features/guilds/guild-tags-editor';
 import { normalizeGuildEditorTags } from '@/features/guilds/guild-tag-editor';
 import {
+  GUILD_MAX_DESCRIPTION_LENGTH,
+  GUILD_MAX_NAME_LENGTH,
+} from '@/features/guilds/guild-config';
+import {
   DEFAULT_GUILD_STRUCTURE,
   guildStructureForMetadata,
 } from '@/features/guilds/guild-structure';
@@ -74,6 +78,17 @@ export function GuildCreatePanel() {
       return;
     }
 
+    if (name.trim().length > GUILD_MAX_NAME_LENGTH) {
+      setError(`Guild name must be ${GUILD_MAX_NAME_LENGTH} characters or fewer.`);
+      return;
+    }
+    if (description.trim().length > GUILD_MAX_DESCRIPTION_LENGTH) {
+      setError(
+        `Description must be ${GUILD_MAX_DESCRIPTION_LENGTH} characters or fewer.`
+      );
+      return;
+    }
+
     setPending(true);
     try {
       const { client } = await getClient();
@@ -114,7 +129,7 @@ export function GuildCreatePanel() {
   return (
     <OsAppScreen
       title="Create guild"
-      subtitle="Name the space, choose access, and decide whether governance is owner-led or collaborative."
+      subtitle="Name the guild, choose access, and decide whether governance is owner-led or collaborative."
       backFallbackHref="/groups"
     >
       <form className="guild-create-form" onSubmit={handleSubmit}>
@@ -134,7 +149,7 @@ export function GuildCreatePanel() {
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder="Builder Room"
-            maxLength={64}
+            maxLength={GUILD_MAX_NAME_LENGTH}
           />
         </label>
 
@@ -157,8 +172,12 @@ export function GuildCreatePanel() {
             value={description}
             onChange={(event) => setDescription(event.target.value)}
             placeholder="An access-gated room for shipping, proposals, and member resources."
-            maxLength={240}
+            maxLength={GUILD_MAX_DESCRIPTION_LENGTH}
+            aria-describedby={fieldId('description-count')}
           />
+          <small id={fieldId('description-count')}>
+            {description.length}/{GUILD_MAX_DESCRIPTION_LENGTH}
+          </small>
         </label>
 
         <div className="guild-field">
@@ -174,9 +193,9 @@ export function GuildCreatePanel() {
               onChange={(event) => setAccessGated(event.target.checked)}
             />
             <span>
-              <strong>Access-gated membership</strong>
+              <strong>Invite only</strong>
               <small>
-                Chain data stays public; membership and write access are gated.
+                Anyone can view the guild; joining and posting need approval.
               </small>
             </span>
           </label>
@@ -200,11 +219,11 @@ export function GuildCreatePanel() {
 
         <section className="guild-section">
           <div className="guild-section-head">
-            <p className="guild-eyebrow">Public chain note</p>
-            <h2>Access-gated does not mean hidden.</h2>
+            <p className="guild-eyebrow">Public by default</p>
+            <h2>Invite only does not mean hidden.</h2>
             <p>
-              Guild activity is public on-chain. Access controls decide who can
-              join, post, moderate, and manage the space.
+              Guild activity stays visible. Invite only controls who can join
+              and post — not who can read the guild.
             </p>
           </div>
         </section>

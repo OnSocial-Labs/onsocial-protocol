@@ -24,6 +24,12 @@ export interface GuildProposalPresentation {
 
 const CHAIN_PERMISSION_TITLE_RE =
   /^Change Permission for (.+) to level (\d+)$/i;
+const CHAIN_PATH_GRANT_TITLE_RE =
+  /^Grant Path Permission on (.+) to (.+)$/i;
+const CHAIN_PATH_REVOKE_TITLE_RE =
+  /^Revoke Path Permission on (.+) from (.+)$/i;
+const SPACE_WRITE_PATH_RE =
+  /^groups\/[^/]+\/spaces\/([^/]+)\/write\/?$/i;
 
 function readNestedRecord(
   value: unknown
@@ -31,6 +37,86 @@ function readNestedRecord(
   return typeof value === 'object' && value !== null
     ? (value as Record<string, unknown>)
     : null;
+}
+
+function readProposalDataRecord(
+  proposal: Proposal,
+  ...keys: string[]
+): Record<string, unknown> | null {
+  for (const key of keys) {
+    const nested = readNestedRecord(proposal.data[key]);
+    if (nested) return nested;
+  }
+  return null;
+}
+
+function humanizeSpaceId(spaceId: string): string {
+  return spaceId
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function roomTitleFromSpaceWritePath(path: string): string | null {
+  const match = path.trim().match(SPACE_WRITE_PATH_RE);
+  if (!match?.[1]) return null;
+  return humanizeSpaceId(match[1]);
+}
+
+function readPathPermissionFields(proposal: Proposal): {
+  targetAccountId: string | null;
+  path: string | null;
+  reason: string | null;
+} {
+  const nested = readProposalDataRecord(
+    proposal,
+    'PathPermissionGrant',
+    'path_permission_grant',
+    'PathPermissionRevoke',
+    'path_permission_revoke'
+  );
+
+  const nestedTarget =
+    typeof nested?.target_user === 'string' ? nested.target_user.trim() : '';
+  const nestedPath = typeof nested?.path === 'string' ? nested.path.trim() : '';
+  const nestedReason =
+    typeof nested?.reason === 'string' ? nested.reason.trim() : '';
+
+  const directTarget =
+    typeof proposal.target === 'string' ? proposal.target.trim() : '';
+  const directPath =
+    typeof proposal.data.path === 'string' ? proposal.data.path.trim() : '';
+  const directReason =
+    typeof proposal.data.reason === 'string'
+      ? proposal.data.reason.trim()
+      : '';
+
+  let titlePath: string | null = null;
+  let titleTarget: string | null = null;
+  const grantMatch = proposal.title?.trim().match(CHAIN_PATH_GRANT_TITLE_RE);
+  if (grantMatch) {
+    titlePath = grantMatch[1]?.trim() || null;
+    titleTarget = grantMatch[2]?.trim() || null;
+  } else {
+    const revokeMatch = proposal.title?.trim().match(CHAIN_PATH_REVOKE_TITLE_RE);
+    if (revokeMatch) {
+      titlePath = revokeMatch[1]?.trim() || null;
+      titleTarget = revokeMatch[2]?.trim() || null;
+    }
+  }
+
+  return {
+    targetAccountId: nestedTarget || directTarget || titleTarget,
+    path: nestedPath || directPath || titlePath,
+    reason:
+      nestedReason ||
+      directReason ||
+      (typeof proposal.description === 'string'
+        ? proposal.description.trim()
+        : '') ||
+      null,
+  };
 }
 
 export function readPermissionChangeLevel(proposal: Proposal): number | null {
@@ -122,12 +208,16 @@ function isChainGeneratedCopy(value: string | null | undefined): boolean {
   if (!trimmed) return false;
   return (
     CHAIN_PERMISSION_TITLE_RE.test(trimmed) ||
+    CHAIN_PATH_GRANT_TITLE_RE.test(trimmed) ||
+    CHAIN_PATH_REVOKE_TITLE_RE.test(trimmed) ||
     /^Change Permission for /i.test(trimmed) ||
     /^Update Group:/i.test(trimmed) ||
     /^Grant Path Permission /i.test(trimmed) ||
     /^Revoke Path Permission /i.test(trimmed) ||
     /^Invite Member /i.test(trimmed) ||
-    /^Join Request from /i.test(trimmed)
+    /^Join Request from /i.test(trimmed) ||
+    /^path permission (grant|revoke)$/i.test(trimmed) ||
+    /^group update(?: metadata)?$/i.test(trimmed)
   );
 }
 
@@ -149,7 +239,7 @@ export function guildProposalPresentation(
         level
       );
       return {
-        kind: 'Role change',
+        kind: 'Role',
         kindTone: 'role',
         headline,
         targetAccountId,
@@ -167,7 +257,7 @@ export function guildProposalPresentation(
       readPermissionChangeTarget(proposal) ??
       (typeof proposal.target === 'string' ? proposal.target : null);
     return {
-      kind: 'Membership',
+      kind: 'Join',
       kindTone: 'access',
       headline: requester
         ? `${fallbackLabel(requester)} requested to join`
@@ -178,6 +268,63 @@ export function guildProposalPresentation(
       detail: proposal.description?.trim() || null,
       proposerLabel,
       suppressDescription: isChainGeneratedCopy(proposal.title),
+    };
+  }
+
+  if (
+    proposal.type === 'path_permission_grant' ||
+    proposal.type === 'path_permission_revoke'
+  ) {
+    const { targetAccountId, path, reason } = readPathPermissionFields(proposal);
+    const roomTitle = path ? roomTitleFromSpaceWritePath(path) : null;
+    const isGrant = proposal.type === 'path_permission_grant';
+    const name = targetAccountId ? fallbackLabel(targetAccountId) : null;
+    const cleanedReason =
+      reason && !isChainGeneratedCopy(reason) ? reason : null;
+
+    let headline: string;
+    if (cleanedReason) {
+      headline = cleanedReason;
+    } else if (roomTitle) {
+      headline = isGrant
+        ? `Allow to share in ${roomTitle}`
+        : `Remove from ${roomTitle}`;
+    } else if (name) {
+      headline = isGrant
+        ? `Allow ${name} to share in a room`
+        : `Remove ${name} from a room`;
+    } else {
+      headline = isGrant ? 'Allow room sharing' : 'Remove room sharing';
+    }
+
+    return {
+      kind: 'Room',
+      kindTone: 'access',
+      headline,
+      targetAccountId,
+      targetLabel: targetAccountId ? fallbackLabel(targetAccountId) : null,
+      roleLabel: null,
+      detail: null,
+      proposerLabel,
+      suppressDescription: true,
+    };
+  }
+
+  if (
+    proposal.type === 'group_update_metadata' ||
+    proposal.type === 'group_update'
+  ) {
+    const description = cleanProposalDescription(proposal.description);
+    return {
+      kind: 'Update',
+      kindTone: 'governance',
+      headline: description ?? 'Update guild settings',
+      targetAccountId: null,
+      targetLabel: null,
+      roleLabel: null,
+      detail: null,
+      proposerLabel,
+      suppressDescription: true,
     };
   }
 
@@ -218,11 +365,17 @@ export function guildProposalPresentation(
 function proposalTypeKind(type: string): string {
   switch (type) {
     case 'permission_change':
-      return 'Role change';
+      return 'Role';
     case 'member_invite':
       return 'Invite';
     case 'join_request':
-      return 'Membership';
+      return 'Join';
+    case 'path_permission_grant':
+    case 'path_permission_revoke':
+      return 'Room';
+    case 'group_update_metadata':
+    case 'group_update':
+      return 'Update';
     case 'transfer_ownership':
     case 'group_update_transfer_ownership':
       return 'Ownership';
@@ -243,10 +396,14 @@ function proposalKindTone(
       return 'role';
     case 'join_request':
     case 'member_invite':
+    case 'path_permission_grant':
+    case 'path_permission_revoke':
       return 'access';
     case 'voting_config_change':
     case 'transfer_ownership':
     case 'group_update_transfer_ownership':
+    case 'group_update_metadata':
+    case 'group_update':
       return 'governance';
     default:
       return 'default';
@@ -257,6 +414,13 @@ function guildProposalFallbackTitle(proposal: Proposal): string {
   switch (proposal.type) {
     case 'permission_change':
       return 'Role change';
+    case 'path_permission_grant':
+      return 'Allow room sharing';
+    case 'path_permission_revoke':
+      return 'Remove room sharing';
+    case 'group_update_metadata':
+    case 'group_update':
+      return 'Update guild settings';
     case 'transfer_ownership':
     case 'group_update_transfer_ownership':
       return 'Transfer ownership';
@@ -352,7 +516,11 @@ export function guildProposalOutcome(
         stripLabel: 'Approved',
         footerLabel: resolvedPresentation.roleLabel
           ? `${resolvedPresentation.roleLabel} role applied`
-          : 'Approved and applied',
+          : resolvedPresentation.kind === 'Room'
+            ? 'Room access applied'
+            : resolvedPresentation.kind === 'Update'
+              ? 'Guild updated'
+              : 'Approved and applied',
         isTerminal: true,
       };
     case 'rejected':
@@ -571,9 +739,7 @@ function activeProposalProgressLabel(input: {
   const remainingMembers = Math.max(memberPool - totalVotes, 0);
 
   if (votesStillNeeded > 0) {
-    return `${totalVotes}/${memberPool} voted · ${votesStillNeeded} more member${
-      votesStillNeeded === 1 ? ' needs' : 's need'
-    } to vote`;
+    return `${totalVotes}/${memberPool} · need ${votesStillNeeded} more`;
   }
 
   const meetsMajority = meetsMajorityThreshold(
@@ -589,22 +755,22 @@ function activeProposalProgressLabel(input: {
   );
 
   if (!meetsMajority && canStillPass && remainingMembers === 1) {
-    return `${yesVotes} support · ${noVotes} oppose · 1 vote decides`;
+    return `${yesVotes}–${noVotes} · 1 decides`;
   }
 
   if (!meetsMajority && canStillPass && remainingMembers > 1) {
-    return `${yesVotes} support · ${noVotes} oppose · ${remainingMembers} votes left`;
+    return `${yesVotes}–${noVotes} · ${remainingMembers} left`;
   }
 
   if (!meetsMajority && !canStillPass) {
-    return `${yesVotes} support · ${noVotes} oppose · not enough support`;
+    return `${yesVotes}–${noVotes} · not enough`;
   }
 
   if (meetsMajority) {
-    return `${yesVotes} support · ${noVotes} oppose · ready to pass`;
+    return `${yesVotes}–${noVotes} · ready`;
   }
 
-  return `${totalVotes}/${memberPool} voted · quorum met`;
+  return `${totalVotes}/${memberPool} · quorum met`;
 }
 
 /** Mirrors on-chain quorum + majority checks for compact proposal progress UI. */

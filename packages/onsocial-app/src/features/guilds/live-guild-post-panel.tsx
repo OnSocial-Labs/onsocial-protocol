@@ -29,6 +29,7 @@ import {
   guildPostPath,
 } from '@/features/guilds/guilds-data';
 import { resolveGuildViewerAccess } from '@/features/guilds/guild-viewer-access';
+import { resolveViewerAllowlistSpaceIds } from '@/features/guilds/guild-space-write';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { usePostEngagement } from '@/hooks/use-post-engagement';
@@ -378,6 +379,7 @@ export function LiveGuildPostPanel({
         }
 
         if (accountId && rawConfig) {
+          const structure = parseGuildStructure(rawConfig);
           const { viewer } = await resolveGuildViewerAccess(
             client,
             groupId,
@@ -390,7 +392,14 @@ export function LiveGuildPostPanel({
                 rawConfig.is_private === true || rawConfig.isPrivate === true,
             }
           );
-          setViewerAccess(viewer);
+          const canWriteSpaceIds = await resolveViewerAllowlistSpaceIds(
+            client,
+            groupId,
+            accountId,
+            structure,
+            viewer
+          );
+          setViewerAccess({ ...viewer, canWriteSpaceIds });
           setIsMember(viewer.isMember);
         } else {
           setViewerAccess({
@@ -601,7 +610,7 @@ export function LiveGuildPostPanel({
 
     const channel = target.channel ?? threadChannel;
     if (!canPostInChannel(channel)) {
-      setModalError('You cannot reply in this space.');
+      setModalError('You cannot reply in this room.');
       return;
     }
 
@@ -832,6 +841,8 @@ export function LiveGuildPostPanel({
               <button
                 type="button"
                 role="tab"
+                id="guild-thread-tab-replies"
+                aria-controls="guild-thread-panel"
                 aria-selected={activeThreadTab === 'replies'}
                 className={
                   activeThreadTab === 'replies' ? 'is-active' : undefined
@@ -839,11 +850,13 @@ export function LiveGuildPostPanel({
                 onClick={() => setActiveThreadTab('replies')}
               >
                 Replies
-                <span>{replyCount}</span>
+                <span className="guild-thread-tab-count">{replyCount}</span>
               </button>
               <button
                 type="button"
                 role="tab"
+                id="guild-thread-tab-quotes"
+                aria-controls="guild-thread-panel"
                 aria-selected={activeThreadTab === 'quotes'}
                 className={
                   activeThreadTab === 'quotes' ? 'is-active' : undefined
@@ -851,11 +864,20 @@ export function LiveGuildPostPanel({
                 onClick={() => setActiveThreadTab('quotes')}
               >
                 Quotes
-                <span>{quotes.length}</span>
+                <span className="guild-thread-tab-count">{quotes.length}</span>
               </button>
             </div>
 
-            <div className="guild-connected-stack" role="tabpanel">
+            <div
+              id="guild-thread-panel"
+              className="guild-connected-stack"
+              role="tabpanel"
+              aria-labelledby={
+                activeThreadTab === 'replies'
+                  ? 'guild-thread-tab-replies'
+                  : 'guild-thread-tab-quotes'
+              }
+            >
               {activeThreadTab === 'replies' ? (
                 replyRows.length > 0 ? (
                   replyRows.map((row, index) => {

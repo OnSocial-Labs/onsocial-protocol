@@ -472,7 +472,7 @@ export function GuildComposerSheet({
                 <div
                   className="guild-composer-mode"
                   role="radiogroup"
-                  aria-label="Space"
+                  aria-label="Room"
                 >
                   {destination.channels.map((channel) => (
                     <button

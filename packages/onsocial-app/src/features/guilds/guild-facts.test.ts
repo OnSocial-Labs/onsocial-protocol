@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { deriveGuildAccessGated } from '@/features/guilds/guild-config';
 import {
   applyChainGuildFacts,
+  readGroupStatsCreatedAt,
   readGroupStatsMemberCount,
   resolveGuildMemberCount,
 } from '@/features/guilds/guild-facts';
@@ -12,6 +13,14 @@ describe('guild-facts', () => {
     expect(readGroupStatsMemberCount({ total_members: 4 })).toBe(4);
     expect(readGroupStatsMemberCount({ member_count: 2 })).toBe(2);
     expect(readGroupStatsMemberCount(null)).toBeNull();
+  });
+
+  it('reads created_at from chain stats', () => {
+    expect(readGroupStatsCreatedAt({ created_at: '1727740800000000000' })).toBe(
+      1727740800000000000
+    );
+    expect(readGroupStatsCreatedAt({ created_at: 100 })).toBe(100);
+    expect(readGroupStatsCreatedAt(null)).toBeNull();
   });
 
   it('derives access the same way for config and indexer', () => {

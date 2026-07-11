@@ -32,6 +32,22 @@ export function readGroupStatsMemberCount(
   return null;
 }
 
+/** On-chain `created_at` is usually nanoseconds since epoch (string or number). */
+export function readGroupStatsCreatedAt(
+  stats: GroupStats | Record<string, unknown> | null | undefined
+): number | null {
+  if (!stats || typeof stats !== 'object') return null;
+  const raw = (stats as Record<string, unknown>).created_at;
+  if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) {
+    return raw;
+  }
+  if (typeof raw === 'string' && raw.trim()) {
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }
+  return null;
+}
+
 /** Prefer on-chain stats; never show a count lower than a confirmed roster floor. */
 export function resolveGuildMemberCount(input: {
   chainStats?: GroupStats | Record<string, unknown> | null;

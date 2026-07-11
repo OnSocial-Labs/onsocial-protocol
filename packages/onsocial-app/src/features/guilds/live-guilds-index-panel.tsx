@@ -179,7 +179,7 @@ export function LiveGuildsIndexPanel() {
   return (
     <OsAppScreen
       title="Guilds"
-      subtitle="Your spaces and open guilds on-chain."
+      subtitle="Your guilds and open communities on-chain."
       backFallbackHref={APP_HOME_PATH}
       actions={createAction}
       toolbar={toolbar}

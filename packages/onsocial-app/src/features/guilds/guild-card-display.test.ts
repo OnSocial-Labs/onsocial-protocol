@@ -6,6 +6,7 @@ import {
   guildDisplayName,
   guildModeId,
   guildModeLabel,
+  guildModeDescription,
   guildRoleBadgeLabel,
   isRawGroupId,
 } from '@/features/guilds/guild-card-display';
@@ -58,6 +59,15 @@ describe('guild-card-display', () => {
     expect(guildModeLabel({ accessGated: false, memberDriven: false })).toBe(
       'Open'
     );
+    expect(
+      guildModeDescription({ accessGated: true, memberDriven: true })
+    ).toMatch(/proposals/i);
+    expect(
+      guildModeDescription({ accessGated: true, memberDriven: false })
+    ).toMatch(/approval/i);
+    expect(
+      guildModeDescription({ accessGated: false, memberDriven: false })
+    ).toMatch(/join and post/i);
   });
 
   it('always shows the mode pill, including Open', () => {

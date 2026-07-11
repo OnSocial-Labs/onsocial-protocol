@@ -212,20 +212,18 @@ function EngagementStat({
 }
 
 function PostCardBody({
-  actionHref,
   relationContext,
   badges,
   text,
   hideText = false,
 }: {
-  actionHref?: string;
   relationContext: { verb: string; handle: string } | null;
   badges: string[];
   text: string;
   /** When the poll card already shows the question, skip duplicate body text. */
   hideText?: boolean;
 }) {
-  const body = (
+  return (
     <>
       {relationContext ? (
         <span className="post-card-relation">
@@ -244,21 +242,6 @@ function PostCardBody({
       ) : null}
       {!hideText ? <p className="post-card-body">{text || '…'}</p> : null}
     </>
-  );
-
-  if (!actionHref) {
-    return body;
-  }
-
-  return (
-    <Link
-      href={actionHref}
-      className="post-card-open"
-      scroll={false}
-      aria-label="Open post"
-    >
-      {body}
-    </Link>
   );
 }
 
@@ -307,10 +290,25 @@ export function PostCard({
     ? postRelationContext(post, Boolean(quotedPost))
     : null;
   const profileHref = portfolioPath(post.accountId);
-  const cardClassName = `post-card animate-rise-in${className ? ` ${className}` : ''}`;
+  const cardClassName = [
+    'post-card',
+    'animate-rise-in',
+    actionHref ? 'post-card--openable' : '',
+    className ?? '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <article className={cardClassName}>
+      {actionHref ? (
+        <Link
+          href={actionHref}
+          className="post-card-hit"
+          scroll={false}
+          aria-label="Open post"
+        />
+      ) : null}
       <Link
         href={profileHref}
         className="post-card-avatar-link"
@@ -336,7 +334,6 @@ export function PostCard({
           />
         </header>
         <PostCardBody
-          actionHref={actionHref}
           relationContext={relationContext}
           badges={badges}
           text={text}

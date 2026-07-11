@@ -48,6 +48,22 @@ export function reconcileGuildMemberRoster(
   });
 }
 
+/**
+ * Members who need an allowlist grant to share. Owner and guild admins already
+ * can post to allowlist rooms — never offer them in the picker.
+ */
+export function allowlistWriterCandidates(
+  members: GroupMemberRow[],
+  ownerId?: string | null
+): GroupMemberRow[] {
+  const owner = ownerId?.trim() ?? null;
+  return members.filter((member) => {
+    if (owner && member.memberId === owner) return false;
+    if (member.isOwner || member.isAdmin) return false;
+    return true;
+  });
+}
+
 export interface GuildMemberRoleFlags {
   isAdmin: boolean;
   canModerate: boolean;

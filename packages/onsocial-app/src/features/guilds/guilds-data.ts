@@ -60,7 +60,7 @@ export interface GuildPermissionPreset {
 export const GUILD_PRODUCT_COPY = {
   title: 'Guilds',
   subtitle:
-    'Collaborative spaces for feeds, membership, roles, and optional member-led governance.',
+    'Collaborative guilds for feeds, membership, roles, and optional member-led governance.',
   internalPrimitive: 'core-contract groups',
 } as const;
 
@@ -71,7 +71,7 @@ export const GUILD_BLUEPRINTS: GuildBlueprint[] = [
     eyebrow: 'Audience to members',
     summary: 'A public home for drops, discussion, and supporter access.',
     description:
-      'Best for creators who want a portable member space without turning their audience into a formal DAO on day one.',
+      'Best for creators who want a portable member guild without turning their audience into a formal DAO on day one.',
     access: 'Open access',
     governance: 'Owner-led',
     members: 'Open join',
@@ -138,7 +138,7 @@ export const GUILD_ROLES: Array<{
     name: 'Member',
     permission: 'WRITE',
     description:
-      'Posts, replies, votes where allowed, and participates in member spaces.',
+      'Posts, replies, votes where allowed, and participates in guild rooms.',
   },
   {
     id: 'visitor',
@@ -153,7 +153,7 @@ export const GUILD_ACTIONS: GuildActionMap[] = [
     id: 'create',
     label: 'Create guild',
     userValue:
-      'Start a shared space with a name, privacy, tags, and governance mode.',
+      'Start a guild with a name, privacy, tags, and governance mode.',
     surface: 'page',
     route: '/groups/create',
     sdkMethods: ['os.groups.create(groupId, config)'],
@@ -174,7 +174,7 @@ export const GUILD_ACTIONS: GuildActionMap[] = [
     id: 'post',
     label: 'Post to guild feed',
     userValue:
-      'Publish updates, resources, tasks, and discussion in a member space.',
+      'Publish updates, resources, tasks, and discussion in a guild room.',
     surface: 'inline',
     sdkMethods: [
       'os.groups.post(groupId, post)',
@@ -187,7 +187,7 @@ export const GUILD_ACTIONS: GuildActionMap[] = [
     id: 'invite',
     label: 'Invite or approve members',
     userValue:
-      'Grow access-gated spaces with owner-led approval or member-led proposals.',
+      'Grow invite-only guilds with owner-led approval or member-led proposals.',
     surface: 'sheet',
     sdkMethods: [
       'os.groups.addMember(groupId, memberId)',
@@ -226,7 +226,7 @@ export const GUILD_ACTIONS: GuildActionMap[] = [
   {
     id: 'leave',
     label: 'Leave guild',
-    userValue: 'Step out of a member space while preserving the guild history.',
+    userValue: 'Step out of a guild while preserving its history.',
     surface: 'modal',
     sdkMethods: ['os.groups.leave(groupId)'],
     contractAction: 'LeaveGroup',

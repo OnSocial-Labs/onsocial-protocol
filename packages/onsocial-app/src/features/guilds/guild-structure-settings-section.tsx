@@ -142,7 +142,7 @@ export function GuildStructureSettingsSection({
       ) : null}
 
       <div className="guild-structure-add-custom guild-structure-add-primary">
-        <p className="guild-structure-subhead">Add space</p>
+        <p className="guild-structure-subhead">Add room</p>
         <div className="guild-structure-custom-grid">
           <label className="guild-field">
             <span>Name</span>
@@ -209,7 +209,7 @@ export function GuildStructureSettingsSection({
           disabled={disabled || !customTitle.trim()}
           onClick={addCustomSpace}
         >
-          Add space
+          Add room
         </button>
       </div>
 
@@ -218,7 +218,7 @@ export function GuildStructureSettingsSection({
           <article key={space.id} className="guild-structure-space-row">
             <div className="guild-structure-space-copy">
               <label className="guild-structure-space-title-field">
-                <span className="sr-only">Space name</span>
+                <span className="sr-only">Room name</span>
                 <input
                   className="guild-structure-space-title-input"
                   value={space.title}
@@ -289,7 +289,7 @@ export function GuildStructureSettingsSection({
 
       {libraryAdds.length > 0 ? (
         <div className="guild-structure-add-library">
-          <p className="guild-structure-subhead">Suggested spaces</p>
+          <p className="guild-structure-subhead">Suggested rooms</p>
           <div className="guild-structure-chip-row">
             {libraryAdds.map((space) => (
               <button

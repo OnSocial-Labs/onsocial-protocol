@@ -193,6 +193,7 @@ export interface GuildConfigSnapshot {
   description: string;
   avatarUrl: string | null;
   bannerUrl: string | null;
+  ownerId: string | null;
   accessGated: boolean;
   memberDriven: boolean;
   tags: string[];
@@ -238,11 +239,14 @@ export function normalizeGuildConfig(
   const avatarCid = readNestedString(raw, ['avatar', 'cid']);
   const bannerCid = readNestedString(raw, ['x', 'onsocial', 'banner', 'cid']);
 
+  const owner = readString(raw.owner)?.trim() ?? '';
+
   return {
     name: readString(raw.name) ?? groupId,
     description: readString(raw.description) ?? '',
     avatarUrl: guildMediaUrlFromCid(avatarCid),
     bannerUrl: guildMediaUrlFromCid(bannerCid),
+    ownerId: owner || null,
     accessGated: deriveGuildAccessGated(raw),
     memberDriven:
       readBoolean(raw.member_driven) || readBoolean(raw.memberDriven),
@@ -253,6 +257,15 @@ export function normalizeGuildConfig(
 
 /** Guild discover tags — first tag is primary; hard cap keeps cards scannable. */
 export const GUILD_MAX_TAGS = 2;
+
+/** Display name — short enough for hero + cards. */
+export const GUILD_MAX_NAME_LENGTH = 64;
+
+/**
+ * Guild description — longer than profile bio (180), short enough for a
+ * 2-line hero clamp with “more”. UI-enforced; contract stores free-form string.
+ */
+export const GUILD_MAX_DESCRIPTION_LENGTH = 240;
 
 export function normalizeGuildTagList(tags: unknown): string[] {
   if (!Array.isArray(tags)) return [];

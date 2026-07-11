@@ -8,6 +8,7 @@ pub(crate) mod permissions;
 pub(crate) mod proposal_types;
 pub(crate) mod request_parsing;
 pub(crate) mod routing;
+pub(crate) mod structure;
 
 pub(crate) use content::GroupContentManager;
 pub(crate) use core::GroupStorage;

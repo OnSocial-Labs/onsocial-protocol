@@ -20,10 +20,10 @@ interface TrackGuildStructureInput {
 /**
  * Persist guild structure metadata on chain.
  *
- * Post policy is enforced in the app against `channel` metadata. On-chain
- * writes still land under `groups/{id}/content/post/{postId}` with member
- * WRITE on `groups/{id}/content/` — per-space path grants would not gate
- * channel choice until post paths or contract checks align with spaces.
+ * Post policy is enforced on-chain for `content/post/*` writes using structure
+ * metadata and post `channel`. Join still grants member WRITE on
+ * `groups/{id}/content/`; restricted spaces add role or
+ * `groups/{id}/spaces/{spaceId}/write` checks.
  */
 export async function persistGuildStructure(
   client: OnSocial,
@@ -35,7 +35,7 @@ export async function persistGuildStructure(
   const changes = guildStructureMetadataPatch(structure);
   const response = memberDriven
     ? await client.groups.proposeMetadataUpdate(groupId, changes, {
-        reason: 'Guild spaces update',
+        reason: 'Guild rooms update',
         autoVote: true,
       })
     : await client.groups.updateMetadata(groupId, changes);

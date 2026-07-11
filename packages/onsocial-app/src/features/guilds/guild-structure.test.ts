@@ -73,6 +73,8 @@ describe('guild-structure', () => {
     expect(postPolicyHint('moderators')).toBe('Mod · admin · owner');
     expect(postPolicyLabel('admins')).toBe('Leaders only');
     expect(postPolicyHint('admins')).toBe('admin · owner');
+    expect(postPolicyLabel('allowlist')).toBe('Selected members');
+    expect(postPolicyHint('allowlist')).toBe('Chosen members · admin · owner');
   });
 
   it('escalates staff access for restricted spaces', () => {
@@ -114,6 +116,56 @@ describe('guild-structure', () => {
       true
     );
     expect(canViewerPostInChannel(structure, 'announcements', admin)).toBe(true);
+    expect(
+      canPostToGuildSpace(structure.spaces[0]!, { ...member, isOwner: true })
+    ).toBe(true);
+  });
+
+  it('gates allowlist rooms by space write grants', () => {
+    const structure = parseGuildStructure({
+      name: 'Guild',
+      x: {
+        onsocial: {
+          structure: {
+            v: 1,
+            defaultSpaceId: 'general',
+            spaces: [
+              {
+                id: 'shipping-room',
+                title: 'Shipping',
+                kind: 'discussion',
+                enabled: true,
+                order: 0,
+                audience: 'members',
+                postPolicy: 'allowlist',
+              },
+            ],
+          },
+        },
+      },
+    });
+    const member = {
+      isMember: true,
+      canModerate: false,
+      isAdmin: false,
+      isOwner: false,
+    };
+    const moderator = { ...member, canModerate: true };
+    const admin = { ...member, isAdmin: true };
+
+    expect(canViewerPostInChannel(structure, 'shipping-room', member)).toBe(
+      false
+    );
+    expect(canViewerPostInChannel(structure, 'shipping-room', moderator)).toBe(
+      false
+    );
+    expect(canViewerPostInChannel(structure, 'shipping-room', admin)).toBe(true);
+    expect(
+      canViewerPostInChannel(structure, 'shipping-room', {
+        ...member,
+        canWriteSpaceIds: new Set(['shipping-room']),
+      })
+    ).toBe(true);
     expect(
       canPostToGuildSpace(structure.spaces[0]!, { ...member, isOwner: true })
     ).toBe(true);

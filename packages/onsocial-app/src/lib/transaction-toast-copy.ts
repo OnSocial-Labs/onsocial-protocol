@@ -26,6 +26,8 @@ export const txToastConfirming = {
   updatingGuildMemberRole: 'Confirming update…',
   removingGuildMember: 'Confirming removal…',
   transferringGuildOwnership: 'Confirming transfer…',
+  grantingGuildSpaceWriter: 'Confirming access…',
+  proposingGuildSpaceWriter: 'Confirming proposal…',
 } as const;
 
 export const txToastPending = {
@@ -50,6 +52,8 @@ export const txToastPending = {
   updatingGuildMemberRole: 'Updating role…',
   removingGuildMember: 'Removing member…',
   transferringGuildOwnership: 'Transferring ownership…',
+  grantingGuildSpaceWriter: 'Allowing to share…',
+  proposingGuildSpaceWriter: 'Proposing access…',
 } as const;
 
 export const txToastSuccess = {
@@ -83,6 +87,8 @@ export const txToastSuccess = {
   guildMemberRoleUpdated: 'Member role updated.',
   guildMemberRemoved: 'Member removed.',
   guildOwnershipTransferred: 'Ownership transferred.',
+  guildSpaceWriterGranted: 'Can share in room.',
+  guildSpaceWriterProposed: 'Access proposed.',
   endorsementSaved: (name: string) => `Endorsed ${name}.`,
   supportSent: (name: string) => `Supported ${name}.`,
   supportCollected: 'Support SOCIAL collected.',
@@ -109,6 +115,7 @@ export const txToastError = {
   guildMemberRoleFailed: 'Could not update member role.',
   guildRemoveMemberFailed: 'Could not remove member.',
   guildOwnershipTransferFailed: 'Could not transfer ownership.',
+  guildSpaceWriterFailed: 'Could not update who can share.',
   endorsementFailed: 'Could not save endorsement.',
   supportFailed: 'Could not send support.',
   claimSupportFailed: 'Could not claim support.',

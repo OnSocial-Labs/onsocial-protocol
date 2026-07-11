@@ -22,7 +22,7 @@ export function GuildFeedFilterList({
   return (
     <div
       className={`guild-feed-filter-list${receded ? ' is-receded' : ''}`}
-      aria-label="Guild spaces"
+      aria-label="Guild rooms"
     >
       <button
         className={`guild-feed-filter-button${selectedFeedFilterId === 'all' ? ' is-active' : ''}`}
@@ -46,8 +46,8 @@ export function GuildFeedFilterList({
           className="guild-feed-filter-button guild-feed-filter-button--add"
           type="button"
           onClick={onAddSpace}
-          aria-label="Add space"
-          title="Add space"
+          aria-label="Add room"
+          title="Add room"
         >
           <PlusIcon aria-hidden className="guild-feed-filter-add-icon" />
         </button>

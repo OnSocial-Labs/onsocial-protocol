@@ -7,7 +7,7 @@ export type GuildSpaceKind =
 
 export type GuildSpaceAudience = 'public' | 'members';
 
-export type GuildSpacePostPolicy = 'members' | 'moderators' | 'admins';
+export type GuildSpacePostPolicy = 'members' | 'moderators' | 'admins' | 'allowlist';
 
 export const GUILD_POST_POLICY_OPTIONS: {
   value: GuildSpacePostPolicy;
@@ -28,6 +28,11 @@ export const GUILD_POST_POLICY_OPTIONS: {
     value: 'admins',
     label: 'Leaders only',
     hint: 'admin · owner',
+  },
+  {
+    value: 'allowlist',
+    label: 'Selected members',
+    hint: 'Chosen members · admin · owner',
   },
 ];
 
@@ -63,6 +68,8 @@ export interface GuildViewerAccess {
   canModerate: boolean;
   isAdmin: boolean;
   isOwner: boolean;
+  /** Space ids where viewer holds allowlist WRITE (or higher). */
+  canWriteSpaceIds?: ReadonlySet<string>;
 }
 
 export const GUILD_SPACE_LIBRARY: GuildSpace[] = [
@@ -207,7 +214,12 @@ function readSpaceKind(value: unknown): GuildSpaceKind | null {
 }
 
 function readPostPolicy(value: unknown): GuildSpacePostPolicy | null {
-  if (value === 'members' || value === 'moderators' || value === 'admins') {
+  if (
+    value === 'members' ||
+    value === 'moderators' ||
+    value === 'admins' ||
+    value === 'allowlist'
+  ) {
     return value;
   }
   return null;
@@ -359,7 +371,15 @@ export function canPostToGuildSpace(
   if (space.postPolicy === 'moderators') {
     return viewer.canModerate || viewer.isAdmin || viewer.isOwner;
   }
-  return viewer.isAdmin || viewer.isOwner;
+  if (space.postPolicy === 'admins') {
+    return viewer.isAdmin || viewer.isOwner;
+  }
+  // Allowlist: leaders always; selected members need space WRITE grant.
+  if (space.postPolicy === 'allowlist') {
+    if (viewer.isAdmin || viewer.isOwner) return true;
+    return viewer.canWriteSpaceIds?.has(space.id) ?? false;
+  }
+  return false;
 }
 
 export function composerGuildSpaces(
@@ -385,8 +405,8 @@ export function guildSpaceMatchesPostChannel(
   return space.id === 'decisions' && channel === LEGACY_DECISIONS_CHANNEL;
 }
 
-export function guildSpaceContentPath(groupId: string, spaceId: string): string {
-  return `groups/${groupId}/content/${spaceId}/`;
+export function guildSpaceWritePath(groupId: string, spaceId: string): string {
+  return `groups/${groupId}/spaces/${spaceId}/write`;
 }
 
 export function postPolicyLabel(policy: GuildSpacePostPolicy): string {

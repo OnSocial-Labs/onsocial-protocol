@@ -6,6 +6,9 @@ type GuildSettingsPageProps = {
   params: Promise<{
     groupId: string;
   }>;
+  searchParams: Promise<{
+    section?: string;
+  }>;
 };
 
 export async function generateMetadata({
@@ -22,7 +25,14 @@ export async function generateMetadata({
 
 export default async function GuildSettingsPage({
   params,
+  searchParams,
 }: GuildSettingsPageProps) {
   const { groupId } = await params;
-  return <GuildSettingsPanel groupId={decodeURIComponent(groupId)} />;
+  const { section } = await searchParams;
+  return (
+    <GuildSettingsPanel
+      groupId={decodeURIComponent(groupId)}
+      section={section === 'rooms' ? 'rooms' : 'edit'}
+    />
+  );
 }

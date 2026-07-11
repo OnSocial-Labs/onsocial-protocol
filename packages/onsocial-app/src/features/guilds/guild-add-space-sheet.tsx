@@ -25,13 +25,21 @@ const POLICY_CHIP_LABEL: Record<GuildSpacePostPolicy, string> = {
   members: 'Everyone',
   moderators: 'Team',
   admins: 'Leaders',
+  allowlist: 'Selected',
 };
 
 const POLICY_HINT: Record<GuildSpacePostPolicy, string> = {
   members: 'Any member can share.',
   moderators: 'Mods, admins, and owner.',
   admins: 'Admins and owner only.',
+  allowlist: 'Choose members next. Leaders can always share.',
 };
+
+export interface GuildAddedSpaceResult {
+  id: string;
+  title: string;
+  postPolicy: GuildSpacePostPolicy;
+}
 
 interface GuildAddSpaceSheetProps {
   open: boolean;
@@ -39,7 +47,7 @@ interface GuildAddSpaceSheetProps {
   memberDriven: boolean;
   structure: GuildStructureDocument;
   onClose: () => void;
-  onSaved?: () => void;
+  onSaved?: (space?: GuildAddedSpaceResult) => void;
 }
 
 export function GuildAddSpaceSheet({
@@ -96,11 +104,11 @@ export function GuildAddSpaceSheet({
       audience: 'members',
     });
     if (!space) {
-      setError('Enter a space name.');
+      setError('Enter a room name.');
       return;
     }
     if (structure.spaces.some((entry) => entry.id === space.id)) {
-      setError('A space with this name already exists.');
+      setError('A room with this name already exists.');
       return;
     }
 
@@ -120,13 +128,17 @@ export function GuildAddSpaceSheet({
         async (input) => trackTransaction(input)
       );
       if (confirmed) {
-        onSaved?.();
+        onSaved?.({
+          id: space.id,
+          title: space.title,
+          postPolicy: space.postPolicy,
+        });
         setClosing(true);
       }
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
       setError(
-        cause instanceof Error ? cause.message : 'Could not add this space.'
+        cause instanceof Error ? cause.message : 'Could not add this room.'
       );
     } finally {
       setPending(false);
@@ -145,7 +157,7 @@ export function GuildAddSpaceSheet({
       zIndex={57}
       presentation="swap"
       ariaLabelledBy={titleId}
-      backdropLabel="Close add space"
+      backdropLabel="Close add room"
       panelClassName="guild-add-space-sheet-panel"
       bodyClassName="guild-add-space-sheet-body"
       header={
@@ -155,7 +167,7 @@ export function GuildAddSpaceSheet({
               <div className="standing-sheet-subject">
                 <div className="standing-sheet-subject-copy">
                   <h2 id={titleId} className="standing-sheet-subject-name">
-                    Add space
+                    Add room
                   </h2>
                   <p className="discover-sheet-subtitle">
                     New feed tab in this guild.
@@ -237,7 +249,7 @@ export function GuildAddSpaceSheet({
             pendingLabel="Adding…"
             disabled={!canSubmit}
           >
-            Add space
+            Add room
           </OsSheetAction>
         </OsSheetActions>
       </form>

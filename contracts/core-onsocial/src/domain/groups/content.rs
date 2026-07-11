@@ -71,6 +71,12 @@ impl GroupContentManager {
 
         validate_json_value_simple(content)?;
 
+        if crate::domain::groups::structure::is_feed_post_content_path(content_path) {
+            crate::domain::groups::structure::enforce_space_post_policy(
+                platform, group_id, author, &config, content,
+            )?;
+        }
+
         let is_update = platform.get_entry(&user_storage_path).is_some();
 
         let serialized_content = serde_json::to_vec(content)

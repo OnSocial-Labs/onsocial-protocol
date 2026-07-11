@@ -16,6 +16,7 @@ pub mod unit {
     pub mod governance_status_test;
     pub mod governance_test;
     pub mod grants_test;
+    pub mod group_space_post_policy_test;
     pub mod group_sponsor_quota_test;
     pub mod group_test;
     pub mod io_operations_test;

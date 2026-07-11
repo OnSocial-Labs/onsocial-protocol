@@ -102,6 +102,21 @@ export function guildModeLabel(input: {
   }
 }
 
+/** One-line explainers for guild facts sheet / mode chips. */
+export function guildModeDescription(input: {
+  accessGated: boolean;
+  memberDriven: boolean;
+}): string {
+  switch (guildModeId(input)) {
+    case 'member-led':
+      return 'Invite only. Joins and major changes go through member proposals.';
+    case 'invite':
+      return 'Anyone can view; joining and posting need approval.';
+    case 'open':
+      return 'Anyone can join and post. Activity stays public.';
+  }
+}
+
 export function guildCardMetaTags(input: {
   role?: GuildCardRole | null;
   accessGated: boolean;

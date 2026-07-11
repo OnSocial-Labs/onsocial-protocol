@@ -272,6 +272,36 @@ export class GroupsQuery {
   }
 
   /**
+   * Indexed post count for a guild (`posts_current` aggregate).
+   * Includes replies/quotes that live in the group content namespace.
+   */
+  async postCountFor(groupId: string): Promise<number> {
+    const id = groupId.trim();
+    if (!id) return 0;
+    const res = await this._q.graphql<{
+      postsCurrentAggregate: {
+        aggregate?: { count?: number | null } | null;
+      };
+    }>({
+      query: `query GroupPostCount($groupId: String!) {
+        postsCurrentAggregate(
+          where: {
+            groupId: {_eq: $groupId},
+            isGroupContent: {_eq: true}
+          }
+        ) {
+          aggregate { count }
+        }
+      }`,
+      variables: { groupId: id },
+    });
+    const count = res.data?.postsCurrentAggregate?.aggregate?.count;
+    return typeof count === 'number' && Number.isFinite(count)
+      ? Math.max(0, Math.floor(count))
+      : 0;
+  }
+
+  /**
    * Browse indexed guilds from `groups_current` (discover / search).
    *
    * ```ts

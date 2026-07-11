@@ -24,6 +24,7 @@ import {
   QuestionMarkCircleIcon,
   RepeatIcon,
   SearchIcon,
+  SettingsIcon,
   SlidersHorizontalIcon,
   TrashIcon,
   UserIcon,
@@ -55,6 +56,7 @@ describe('mage stroke icons', () => {
     expect(typeof MultiplyIcon).toBe('function');
     expect(typeof TrashIcon).toBe('function');
     expect(typeof SearchIcon).toBe('function');
+    expect(typeof SettingsIcon).toBe('function');
     expect(typeof DotsCircleIcon).toBe('function');
     expect(typeof DotsVerticalIcon).toBe('function');
     expect(typeof SlidersHorizontalIcon).toBe('function');

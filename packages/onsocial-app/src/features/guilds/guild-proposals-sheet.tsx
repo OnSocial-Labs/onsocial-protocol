@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Proposal, ProposalTally } from '@onsocial/sdk';
 import {
   Divider,
@@ -11,6 +11,7 @@ import {
 import { listActiveJoinRequestProposals } from '@/features/guilds/guild-config';
 import {
   guildProposalPresentation,
+  isTerminalGuildProposalStatus,
   partitionGuildGovernanceProposals,
 } from '@/features/guilds/guild-proposal-display';
 import { GuildProposalCard } from '@/features/guilds/guild-proposal-card';
@@ -26,6 +27,8 @@ import {
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
 
+const PROPOSAL_SOFT_RETRY_MS = [2000, 5000] as const;
+
 interface GuildProposalsSheetProps {
   open: boolean;
   groupId: string;
@@ -35,6 +38,20 @@ interface GuildProposalsSheetProps {
   onClose: () => void;
   onOpenRequests?: () => void;
   onResolved?: () => void;
+}
+
+function bumpTallyForVote(
+  tally: ProposalTally | null | undefined,
+  approve: boolean
+): ProposalTally {
+  const yes = Number(tally?.yes_votes) || 0;
+  const total = Number(tally?.total_votes) || 0;
+  return {
+    yes_votes: approve ? yes + 1 : yes,
+    total_votes: total + 1,
+    created_at: tally?.created_at ?? '0',
+    locked_member_count: Number(tally?.locked_member_count) || 0,
+  };
 }
 
 export function GuildProposalsSheet({
@@ -66,69 +83,166 @@ export function GuildProposalsSheet({
     Map<string, 'support' | 'oppose'>
   >(() => new Map());
   const [actionError, setActionError] = useState<string | null>(null);
+  const retryTimersRef = useRef<number[]>([]);
 
-  const loadProposals = useCallback(async () => {
-    setLoadState('loading');
-    setLoadError(null);
-    try {
-      const client = createReadOnlyOnSocialClient();
-      const rows = await client.groups.listProposals(groupId, { limit: 40 });
-      const { active, resolved } = partitionGuildGovernanceProposals(rows);
-      setAllProposals(rows);
-      setProposals(active);
-      setResolvedProposals(resolved);
-
-      const loadTargets = [...active, ...resolved];
-      const voteEntries = await Promise.all(
-        loadTargets.map(async (proposal) => {
-          const [voteResult, tallyResult] = await Promise.allSettled([
-            accountId
-              ? client.groups.getVote(groupId, proposal.id, accountId)
-              : Promise.resolve(null),
-            client.groups.getProposalTally(groupId, proposal.id),
-          ]);
-
-          return {
-            proposalId: proposal.id,
-            approve:
-              voteResult.status === 'fulfilled'
-                ? (voteResult.value?.approve ?? null)
-                : null,
-            tally:
-              tallyResult.status === 'fulfilled' ? tallyResult.value : null,
-          };
-        })
-      );
-
-      setViewerVotes(
-        new Map(
-          voteEntries
-            .filter((entry) => entry.approve !== null)
-            .map((entry) => [entry.proposalId, entry.approve as boolean])
-        )
-      );
-      setTallies(
-        new Map(voteEntries.map((entry) => [entry.proposalId, entry.tally]))
-      );
-      setLoadState('ready');
-    } catch (cause) {
-      setLoadState('error');
-      setLoadError(
-        cause instanceof Error ? cause.message : 'Could not load proposals.'
-      );
+  const clearRetryTimers = useCallback(() => {
+    for (const timerId of retryTimersRef.current) {
+      window.clearTimeout(timerId);
     }
-  }, [accountId, groupId]);
+    retryTimersRef.current = [];
+  }, []);
+
+  useEffect(() => () => clearRetryTimers(), [clearRetryTimers]);
+
+  const applyProposalSnapshot = useCallback(
+    (
+      proposal: Proposal,
+      tally: ProposalTally | null,
+      approve: boolean | null
+    ) => {
+      const terminal = isTerminalGuildProposalStatus(proposal.status);
+
+      setProposals((current) => {
+        const without = current.filter((row) => row.id !== proposal.id);
+        if (terminal) return without;
+        const index = current.findIndex((row) => row.id === proposal.id);
+        if (index === -1) return [proposal, ...without];
+        return current.map((row) => (row.id === proposal.id ? proposal : row));
+      });
+
+      setResolvedProposals((current) => {
+        const without = current.filter((row) => row.id !== proposal.id);
+        if (!terminal) return without;
+        return [proposal, ...without].slice(0, 5);
+      });
+
+      setAllProposals((current) => {
+        const index = current.findIndex((row) => row.id === proposal.id);
+        if (index === -1) return [proposal, ...current];
+        return current.map((row) => (row.id === proposal.id ? proposal : row));
+      });
+
+      setTallies((current) => new Map(current).set(proposal.id, tally));
+      setViewerVotes((current) => {
+        const next = new Map(current);
+        if (approve === null) next.delete(proposal.id);
+        else next.set(proposal.id, approve);
+        return next;
+      });
+    },
+    []
+  );
+
+  const refreshOneProposal = useCallback(
+    async (proposalId: string) => {
+      const client = createReadOnlyOnSocialClient();
+      const [proposalResult, tallyResult, voteResult] = await Promise.allSettled([
+        client.groups.getProposal(groupId, proposalId),
+        client.groups.getProposalTally(groupId, proposalId),
+        accountId
+          ? client.groups.getVote(groupId, proposalId, accountId)
+          : Promise.resolve(null),
+      ]);
+
+      const proposal =
+        proposalResult.status === 'fulfilled' ? proposalResult.value : null;
+      if (!proposal) return;
+
+      applyProposalSnapshot(
+        proposal,
+        tallyResult.status === 'fulfilled' ? tallyResult.value : null,
+        voteResult.status === 'fulfilled'
+          ? (voteResult.value?.approve ?? null)
+          : null
+      );
+    },
+    [accountId, applyProposalSnapshot, groupId]
+  );
+
+  const loadProposals = useCallback(
+    async (options: { soft?: boolean } = {}) => {
+      const soft = options.soft === true;
+      if (!soft) {
+        setLoadState('loading');
+        setLoadError(null);
+      }
+      try {
+        const client = createReadOnlyOnSocialClient();
+        const rows = await client.groups.listProposals(groupId, { limit: 40 });
+        const { active, resolved } = partitionGuildGovernanceProposals(rows);
+        setAllProposals(rows);
+        setProposals(active);
+        setResolvedProposals(resolved);
+
+        const loadTargets = [...active, ...resolved];
+        const voteEntries = await Promise.all(
+          loadTargets.map(async (proposal) => {
+            const [voteResult, tallyResult] = await Promise.allSettled([
+              accountId
+                ? client.groups.getVote(groupId, proposal.id, accountId)
+                : Promise.resolve(null),
+              client.groups.getProposalTally(groupId, proposal.id),
+            ]);
+
+            return {
+              proposalId: proposal.id,
+              approve:
+                voteResult.status === 'fulfilled'
+                  ? (voteResult.value?.approve ?? null)
+                  : null,
+              tally:
+                tallyResult.status === 'fulfilled' ? tallyResult.value : null,
+            };
+          })
+        );
+
+        setViewerVotes(
+          new Map(
+            voteEntries
+              .filter((entry) => entry.approve !== null)
+              .map((entry) => [entry.proposalId, entry.approve as boolean])
+          )
+        );
+        setTallies(
+          new Map(voteEntries.map((entry) => [entry.proposalId, entry.tally]))
+        );
+        setLoadState('ready');
+      } catch (cause) {
+        if (!soft) {
+          setLoadState('error');
+          setLoadError(
+            cause instanceof Error ? cause.message : 'Could not load proposals.'
+          );
+        }
+      }
+    },
+    [accountId, groupId]
+  );
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
+    clearRetryTimers();
     void Promise.resolve().then(() => {
       if (!cancelled) void loadProposals();
     });
     return () => {
       cancelled = true;
+      clearRetryTimers();
     };
-  }, [loadProposals, open]);
+  }, [clearRetryTimers, loadProposals, open]);
+
+  const scheduleProposalRetries = useCallback(
+    (proposalId: string) => {
+      clearRetryTimers();
+      retryTimersRef.current = PROPOSAL_SOFT_RETRY_MS.map((delay) =>
+        window.setTimeout(() => {
+          void refreshOneProposal(proposalId);
+        }, delay)
+      );
+    },
+    [clearRetryTimers, refreshOneProposal]
+  );
 
   const runVote = async (proposal: Proposal, approve: boolean) => {
     setActionError(null);
@@ -147,9 +261,17 @@ export function GuildProposalsSheet({
       });
 
       if (confirmed) {
+        // Keep the sheet mounted — update this card only, then soft-reconcile.
         setViewerVotes((current) => new Map(current).set(proposal.id, approve));
+        setTallies((current) =>
+          new Map(current).set(
+            proposal.id,
+            bumpTallyForVote(current.get(proposal.id), approve)
+          )
+        );
         onResolved?.();
-        await loadProposals();
+        await refreshOneProposal(proposal.id);
+        scheduleProposalRetries(proposal.id);
       }
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
@@ -296,7 +418,10 @@ export function GuildProposalsSheet({
 
         {loadState === 'ready' && resolvedProposals.length > 0 ? (
           <>
-            <Divider variant="detail" className="guild-proposals-section-divider" />
+            <Divider
+              variant="detail"
+              className="guild-proposals-section-divider"
+            />
             <p className="guild-proposals-section-label">Recently resolved</p>
             <div className="guild-proposal-list guild-proposal-list--resolved">
               {resolvedProposals.map((proposal) => (

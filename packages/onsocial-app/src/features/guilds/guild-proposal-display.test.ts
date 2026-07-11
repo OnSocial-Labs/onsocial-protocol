@@ -45,10 +45,46 @@ describe('guild-proposal-display', () => {
     expect(presentation.headline).toBe(
       'Make greenghost.onsocial.testnet a Moderator'
     );
-    expect(presentation.kind).toBe('Role change');
+    expect(presentation.kind).toBe('Role');
     expect(presentation.roleLabel).toBe('Moderator');
     expect(presentation.targetAccountId).toBe('greenghost.onsocial.testnet');
     expect(presentation.suppressDescription).toBe(true);
+  });
+
+  it('formats path permission grants as room access', () => {
+    const presentation = guildProposalPresentation({
+      ...baseProposal,
+      title:
+        'Grant Path Permission on groups/dao/spaces/shipping-room/write to greenghost.onsocial.testnet',
+      type: 'path_permission_grant',
+      target: 'greenghost.onsocial.testnet',
+      description: 'Allow sharing in Shipping Room',
+      data: {
+        path: 'groups/dao/spaces/shipping-room/write',
+        target_user: 'greenghost.onsocial.testnet',
+        reason: 'Allow sharing in Shipping Room',
+      },
+    });
+
+    expect(presentation.kind).toBe('Room');
+    expect(presentation.kindTone).toBe('access');
+    expect(presentation.headline).toBe('Allow sharing in Shipping Room');
+    expect(presentation.targetAccountId).toBe('greenghost.onsocial.testnet');
+  });
+
+  it('formats metadata updates without chain jargon', () => {
+    const presentation = guildProposalPresentation({
+      ...baseProposal,
+      title: 'Update Group: Metadata',
+      type: 'group_update_metadata',
+      target: 'alice.near',
+      description: 'Guild rooms update',
+      data: {},
+    });
+
+    expect(presentation.kind).toBe('Update');
+    expect(presentation.headline).toBe('Guild rooms update');
+    expect(presentation.targetAccountId).toBeNull();
   });
 
   it('formats proposal titles by type when chain copy is missing', () => {
@@ -86,7 +122,7 @@ describe('guild-proposal-display', () => {
     );
 
     expect(progress.quorumVotesRequired).toBe(2);
-    expect(progress.label).toBe('1/2 voted · 1 more member needs to vote');
+    expect(progress.label).toBe('1/2 · need 1 more');
     expect(progress.supportPoolPercent).toBe(50);
   });
 
@@ -99,7 +135,7 @@ describe('guild-proposal-display', () => {
     };
 
     const tiedProgress = guildProposalVoteProgress(baseProposal, tally, now);
-    expect(tiedProgress.label).toBe('1 support · 1 oppose · 1 vote decides');
+    expect(tiedProgress.label).toBe('1–1 · 1 decides');
     expect(tiedProgress.closesLabel).toBe('Closes in 6d');
 
     const closes = guildProposalClosesLabel(baseProposal, tally, now);

@@ -33,6 +33,7 @@ export {
 } from './glass-sheet.js';
 export {
   UserPlusFillIcon,
+  InformationCircleFillIcon,
   DotsCircleFillIcon,
   FireFillIcon,
   ShopFillIcon,
@@ -82,6 +83,7 @@ export {
   QuestionMarkCircleIcon,
   RepeatIcon,
   SearchIcon,
+  SettingsIcon,
   SlidersHorizontalIcon,
   TrashIcon,
   UserIcon,

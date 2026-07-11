@@ -315,12 +315,11 @@ function useSheetGesture(
   const [dragging, setDragging] = useState(false);
 
   useEffect(() => {
-    if (!open) {
-      setDetent(initialDetent);
-      setDragPx(null);
-      setDragging(false);
-      dragState.current = null;
-    }
+    // Re-apply on every open so HMR / prior peeks cannot leave a stale detent.
+    setDetent(initialDetent);
+    setDragPx(null);
+    setDragging(false);
+    dragState.current = null;
   }, [initialDetent, open]);
 
   useEffect(() => {

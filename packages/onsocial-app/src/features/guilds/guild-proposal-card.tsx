@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import type { Proposal, ProposalTally } from '@onsocial/sdk';
 import {
-  Divider,
   OsSheetAction,
   OsSheetActions,
   ProfileAvatar,
@@ -65,18 +64,25 @@ export function GuildProposalCard({
   const presentation = guildProposalPresentation(proposal);
   const outcome = guildProposalOutcome(proposal, presentation);
   const tallyLabel = outcome.isTerminal ? null : guildProposalTallyLabel(tally);
-  const stripStatusLabel = outcome.stripLabel ?? tallyLabel;
+  const voteProgress = guildProposalVoteProgress(proposal, tally);
+  // Prefer progress line over strip tally — avoid duplicate vote copy.
+  const stripStatusLabel =
+    outcome.stripLabel ??
+    (voteProgress.showProgress ? null : tallyLabel);
   const targetAccountId = presentation.targetAccountId;
   const targetProfile = targetAccountId ? profiles[targetAccountId] : undefined;
   const targetDisplayName = targetAccountId
     ? displayName(targetAccountId, targetProfile?.displayName ?? undefined)
     : null;
   const showIdentity = Boolean(targetAccountId && targetDisplayName);
-  const bodyLine =
-    presentation.detail ??
-    (showIdentity && presentation.roleLabel
-      ? `Promote to ${presentation.roleLabel.toLowerCase()}`
-      : presentation.headline);
+  const bodyLine = showIdentity
+    ? presentation.detail ??
+      (presentation.roleLabel
+        ? presentation.roleLabel === 'Member'
+          ? 'Make regular member'
+          : `Promote to ${presentation.roleLabel.toLowerCase()}`
+        : presentation.headline)
+    : null;
   const showHandle =
     showIdentity &&
     presentation.targetLabel &&
@@ -91,7 +97,6 @@ export function GuildProposalCard({
   const submittedDate = resolvePostDate(proposal.created_at);
   const submittedRelative = formatRelativePostTimestamp(proposal.created_at);
   const submittedTitle = formatPostTimestamp(proposal.created_at);
-  const voteProgress = guildProposalVoteProgress(proposal, tally);
   const showProposer =
     !suppressProposer && Boolean(proposerAccountId && proposerDisplayName);
   const showFooter =
@@ -197,10 +202,12 @@ export function GuildProposalCard({
                 ) : null}
               </div>
             ) : (
-              <p className="guild-proposal-card-headline">{presentation.headline}</p>
+              <p className="guild-proposal-card-headline">
+                {presentation.headline}
+              </p>
             )}
 
-            {showIdentity ? (
+            {showIdentity && bodyLine ? (
               <p className="guild-proposal-card-action">{bodyLine}</p>
             ) : null}
 
@@ -215,36 +222,30 @@ export function GuildProposalCard({
             ) : null}
           </div>
         </div>
+
+        {showProposer ? (
+          <Link
+            href={portfolioPath(proposerAccountId!)}
+            className="guild-proposal-card-proposer"
+            scroll={false}
+          >
+            <ProfileAvatar
+              src={proposerProfile?.avatarUrl ?? null}
+              fallbackInitial={proposerDisplayName!}
+              shellLoading={!proposerProfile}
+              size="sm"
+              className="guild-proposal-card-proposer-avatar"
+            />
+            <span className="guild-proposal-card-proposer-by">by</span>
+            <span className="guild-proposal-card-proposer-name">
+              {proposerDisplayName}
+            </span>
+          </Link>
+        ) : null}
       </div>
 
-      {showProposer || showFooter ? (
-        <div className="guild-proposal-card-lower">
-          <Divider variant="detail" className="guild-proposal-card-divider" />
-
-          {showProposer ? (
-            <div className="guild-proposal-card-proposer">
-              <span className="guild-proposal-card-proposer-label">Proposed by</span>
-              <Link
-                href={portfolioPath(proposerAccountId!)}
-                className="guild-proposal-card-proposer-chip"
-                scroll={false}
-              >
-                <ProfileAvatar
-                  src={proposerProfile?.avatarUrl ?? null}
-                  fallbackInitial={proposerDisplayName!}
-                  shellLoading={!proposerProfile}
-                  size="sm"
-                  className="guild-proposal-card-proposer-avatar"
-                />
-                <span className="guild-proposal-card-proposer-name">
-                  {proposerDisplayName}
-                </span>
-              </Link>
-            </div>
-          ) : null}
-
-          {showFooter ? (
-            <footer className="guild-proposal-card-footer">
+      {showFooter ? (
+        <footer className="guild-proposal-card-footer">
           {voteProgress.showProgress ? (
             <div className="guild-proposal-card-progress">
               <div
@@ -269,13 +270,6 @@ export function GuildProposalCard({
                   />
                 ) : null}
               </div>
-              {voteProgress.label ? (
-                <p
-                  className={`${osSheetFloatingPanelMetaClassName} guild-proposal-card-progress-label`}
-                >
-                  {voteProgress.label}
-                </p>
-              ) : null}
             </div>
           ) : null}
 
@@ -317,68 +311,76 @@ export function GuildProposalCard({
                 </OsSheetAction>
               </OsSheetActions>
             </>
-          ) : viewerVote === true || viewerVote === false ? (
-            <p
-              className={`${osSheetFloatingPanelMetaClassName} guild-proposal-card-voted`}
-            >
-              {guildViewerVoteLabel(viewerVote)}
-            </p>
-          ) : canVote ? (
-            <OsSheetActions
-              layout="row-compact"
-              tone="frosted-primary"
-              borderless
-              className="guild-proposal-card-actions"
-            >
-              {!pendingAction ? (
-                <>
-                  <OsSheetAction
-                    type="button"
-                    variant="danger"
-                    onClick={onOppose}
-                  >
-                    {opposeLabel}
-                  </OsSheetAction>
-                  <OsSheetAction
-                    type="button"
-                    variant="primary"
-                    ready
-                    onClick={onSupport}
-                  >
-                    {supportLabel}
-                  </OsSheetAction>
-                </>
-              ) : pendingAction === 'support' ? (
-                <OsSheetAction
-                  type="button"
-                  variant="primary"
-                  ready
-                  pending
-                  pendingLabel="Voting…"
-                  disabled
-                  className={osSheetActionExpandedClassName}
-                  onClick={onSupport}
-                >
-                  {supportLabel}
-                </OsSheetAction>
+          ) : (
+            <div className="guild-proposal-card-vote-row">
+              {voteProgress.showProgress && voteProgress.label ? (
+                <p className="guild-proposal-card-progress-label">
+                  {voteProgress.label}
+                </p>
+              ) : viewerVote === true || viewerVote === false ? (
+                <p className="guild-proposal-card-voted">
+                  {guildViewerVoteLabel(viewerVote)}
+                </p>
               ) : (
-                <OsSheetAction
-                  type="button"
-                  variant="danger"
-                  pending
-                  pendingLabel="Voting…"
-                  disabled
-                  className={osSheetActionExpandedClassName}
-                  onClick={onOppose}
-                >
-                  {opposeLabel}
-                </OsSheetAction>
+                <span className="guild-proposal-card-vote-spacer" />
               )}
-            </OsSheetActions>
-          ) : null}
-            </footer>
-          ) : null}
-        </div>
+
+              {viewerVote === true || viewerVote === false ? null : canVote ? (
+                <OsSheetActions
+                  layout="row-compact"
+                  tone="frosted-primary"
+                  borderless
+                  className="guild-proposal-card-actions"
+                >
+                  {!pendingAction ? (
+                    <>
+                      <OsSheetAction
+                        type="button"
+                        variant="danger"
+                        onClick={onOppose}
+                      >
+                        {opposeLabel}
+                      </OsSheetAction>
+                      <OsSheetAction
+                        type="button"
+                        variant="primary"
+                        ready
+                        onClick={onSupport}
+                      >
+                        {supportLabel}
+                      </OsSheetAction>
+                    </>
+                  ) : pendingAction === 'support' ? (
+                    <OsSheetAction
+                      type="button"
+                      variant="primary"
+                      ready
+                      pending
+                      pendingLabel="Voting…"
+                      disabled
+                      className={osSheetActionExpandedClassName}
+                      onClick={onSupport}
+                    >
+                      {supportLabel}
+                    </OsSheetAction>
+                  ) : (
+                    <OsSheetAction
+                      type="button"
+                      variant="danger"
+                      pending
+                      pendingLabel="Voting…"
+                      disabled
+                      className={osSheetActionExpandedClassName}
+                      onClick={onOppose}
+                    >
+                      {opposeLabel}
+                    </OsSheetAction>
+                  )}
+                </OsSheetActions>
+              ) : null}
+            </div>
+          )}
+        </footer>
       ) : null}
     </article>
   );

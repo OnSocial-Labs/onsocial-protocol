@@ -3,6 +3,7 @@ import { PERMISSION } from '@onsocial/sdk';
 import type { GroupMemberRow } from '@onsocial/sdk';
 import {
   applyGuildMemberActionToRow,
+  allowlistWriterCandidates,
   guildMemberRolesFromPermissionLevel,
   patchGuildMemberRosterAction,
   readGuildOwnerId,
@@ -57,6 +58,22 @@ describe('guild member roster reconciliation', () => {
     expect(guildMemberRoleBucket(reconciled[0]!)).toBe('owner');
     expect(guildMemberRoleBucket(reconciled[1]!)).toBe('admin');
     expect(countGuildMembersByRoleFilter(reconciled, 'owner')).toBe(1);
+  });
+
+  it('excludes owner and admins from allowlist writer candidates', () => {
+    const roster = reconcileGuildMemberRoster(
+      [
+        member({ memberId: 'owner.testnet' }),
+        member({ memberId: 'admin.testnet', isAdmin: true }),
+        member({ memberId: 'mod.testnet', canModerate: true }),
+        member({ memberId: 'writer.testnet' }),
+      ],
+      'owner.testnet'
+    );
+
+    expect(
+      allowlistWriterCandidates(roster, 'owner.testnet').map((row) => row.memberId)
+    ).toEqual(['mod.testnet', 'writer.testnet']);
   });
 
   it('reconciles mod/admin flags from chain role views without downgrading', () => {

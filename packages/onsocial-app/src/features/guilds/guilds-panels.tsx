@@ -238,6 +238,12 @@ export function GuildProposalsPanel({ groupId }: { groupId: string }) {
   );
 }
 
-export function GuildSettingsPanel({ groupId }: { groupId: string }) {
-  return <LiveGuildSettingsPanel groupId={groupId} />;
+export function GuildSettingsPanel({
+  groupId,
+  section = 'edit',
+}: {
+  groupId: string;
+  section?: 'edit' | 'rooms';
+}) {
+  return <LiveGuildSettingsPanel groupId={groupId} section={section} />;
 }
