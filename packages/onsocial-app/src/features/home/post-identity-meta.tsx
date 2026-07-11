@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import {
   formatPostTimestamp,
@@ -9,18 +10,17 @@ interface PostIdentityMetaProps {
   name: string;
   accountId: string;
   timestamp?: number | string;
-  /** When set, the display name links to the profile. */
   authorHref?: string;
-  /** When set, `@handle` links to the profile (defaults to authorHref). */
   handleHref?: string;
-  /** When set, the relative time links to the post/thread page. */
   timeHref?: string;
-  /** Channel context rendered as trailing `· #channel` (mixed feeds only). */
+  /** Room tag under the identity line (All feed). */
   channel?: string;
+  /** Trailing ··· — card’s right edge, opposite time. */
+  trailing?: ReactNode;
   className?: string;
 }
 
-/** Name · @handle · time · #channel — shared post identity line across feed, quotes, composer. */
+/** `Name @handle · time` on one line; optional `#{channel}` under. */
 export function PostIdentityMeta({
   name,
   accountId,
@@ -29,6 +29,7 @@ export function PostIdentityMeta({
   handleHref,
   timeHref,
   channel,
+  trailing,
   className,
 }: PostIdentityMetaProps) {
   const timestampIso =
@@ -79,30 +80,27 @@ export function PostIdentityMeta({
   ) : null;
 
   return (
-    <span
-      className={`post-identity-meta${className ? ` ${className}` : ''}`}
-    >
-      {nameNode}
-      <span className="post-identity-sep" aria-hidden>
-        ·
-      </span>
-      {handleNode}
-      {timeNode ? (
-        <>
-          <span className="post-identity-sep" aria-hidden>
-            ·
+    <div className={`post-identity${className ? ` ${className}` : ''}`}>
+      <div className="post-identity-row">
+        <div className="post-identity-meta">
+          {nameNode}
+          <span className="post-identity-tail">
+            {handleNode}
+            {timeNode ? (
+              <>
+                <span className="post-identity-sep" aria-hidden>
+                  ·
+                </span>
+                {timeNode}
+              </>
+            ) : null}
           </span>
-          {timeNode}
-        </>
-      ) : null}
+        </div>
+        {trailing}
+      </div>
       {channel ? (
-        <>
-          <span className="post-identity-sep" aria-hidden>
-            ·
-          </span>
-          <span className="post-identity-channel">#{channel}</span>
-        </>
+        <span className="post-identity-channel">#{channel}</span>
       ) : null}
-    </span>
+    </div>
   );
 }

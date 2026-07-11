@@ -67,6 +67,7 @@ export {
   ChevronRightIcon,
   CopyIcon,
   DotsCircleIcon,
+  DotsHorizontalIcon,
   DotsVerticalIcon,
   EditIcon,
   EditPenIcon,

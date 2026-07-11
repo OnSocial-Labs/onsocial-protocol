@@ -6243,6 +6243,14 @@ a.os-surface-row {
     min-width: 1.55rem;
   }
 
+  .os-app-screen[data-immersive-header='true']
+    .os-app-screen-header.is-elevated
+    .os-app-screen-toolbar
+    .guild-feed-filter-chip-info {
+    width: 0.62rem;
+    height: 0.62rem;
+  }
+
   /* Icon actions opposite the back button (settings gear etc.). */
   .os-app-screen-actions {
     display: flex;
@@ -11899,7 +11907,8 @@ a.os-surface-row {
   .post-card--openable .post-poll-option,
   .post-card--openable .post-card-quote-inset--link,
   .post-card--openable .post-card-stat-button,
-  .post-card--openable .post-card-react {
+  .post-card--openable .post-card-react,
+  .post-card--openable .post-card-menu {
     pointer-events: auto;
   }
 
@@ -11969,30 +11978,99 @@ a.os-surface-row {
     min-width: 0;
     flex: 1;
     flex-direction: column;
-    gap: 0.3rem;
+    gap: 0.2rem;
   }
 
-  /* Identity line — name · @handle · time with subtle separators. */
-  .post-identity-meta {
+  /*
+   * Clean identity:
+   *   Name @handle · 50m                         ⋮
+   *   #general
+   *   Hello
+   */
+  .post-identity {
     display: flex;
-    align-items: baseline;
-    gap: 0.35rem;
     min-width: 0;
     flex: 1;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .post-identity-row {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.35rem;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .post-identity-meta {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: baseline;
+    gap: 0.28rem;
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
   }
 
   .post-identity-name {
-    flex-shrink: 0;
-    max-width: 42%;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 55%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     font-size: 0.875rem;
     font-weight: 500;
     letter-spacing: -0.01em;
-    line-height: 1.5;
+    line-height: 1.25;
     color: rgb(var(--fg-rgb) / 0.96);
     text-decoration: none;
+  }
+
+  /* @handle · time stay glued — one group, never stretched apart. */
+  .post-identity-tail {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: baseline;
+    gap: 0.22rem;
+    min-width: 0;
+    flex: 0 1 auto;
+    overflow: hidden;
+  }
+
+  .post-identity-handle,
+  .post-identity-time,
+  .post-identity-sep {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.72rem;
+    line-height: 1.25;
+  }
+
+  .post-identity-handle {
+    flex: 0 1 auto;
+    min-width: 0;
+    color: rgb(var(--fg-rgb) / 0.42);
+    text-decoration: none;
+  }
+
+  .post-identity-time {
+    flex: 0 0 auto;
+    color: rgb(var(--fg-rgb) / 0.42);
+    text-decoration: none;
+  }
+
+  .post-identity-sep {
+    flex: 0 0 auto;
+    line-height: 1;
+    color: rgb(var(--fg-rgb) / 0.28);
+    user-select: none;
   }
 
   a.post-identity-name:hover,
@@ -12001,36 +12079,19 @@ a.os-surface-row {
     text-decoration: underline;
   }
 
-  a.post-identity-handle,
-  a.post-identity-time {
-    text-decoration: none;
-  }
-
-  .post-identity-handle,
-  .post-identity-time,
   .post-identity-channel {
-    min-width: 0;
-    flex: 0 1 auto;
+    display: block;
+    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 0.72rem;
-    line-height: 1.45;
-    color: rgb(var(--fg-rgb) / 0.42);
+    margin: 0;
+    padding: 0;
+    font-size: 0.68rem;
+    line-height: 1.15;
+    color: rgb(var(--fg-rgb) / 0.38);
   }
 
-  /* Time and channel are short fixed context — the handle truncates first. */
-  .post-identity-time,
-  .post-identity-channel {
-    flex-shrink: 0;
-  }
-
-  /* Long channel names still ellipsize instead of pushing the row wider. */
-  .post-identity-channel {
-    max-width: 8rem;
-  }
-
-  /* `Replying to @x` — quiet context line between identity and body. */
   .post-card-relation {
     display: block;
     overflow: hidden;
@@ -12045,17 +12106,53 @@ a.os-surface-row {
     color: color-mix(in srgb, var(--protocol-blue) 78%, rgb(var(--fg-rgb)));
   }
 
-  .post-identity-sep {
-    flex-shrink: 0;
-    font-size: 0.72rem;
-    line-height: 1;
-    color: rgb(var(--fg-rgb) / 0.28);
-    user-select: none;
-  }
-
   .post-card-header {
     display: flex;
     min-width: 0;
+    width: 100%;
+  }
+
+  /* Plain button — do not use glass-sheet-icon-action (2.75rem lofts the row). */
+  .post-card-menu {
+    position: relative;
+    flex: 0 0 auto;
+    z-index: 2;
+  }
+
+  .post-card-menu-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.1rem;
+    height: 1.1rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0.25rem;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.42);
+    cursor: pointer;
+  }
+
+  .post-card-menu-icon {
+    display: block;
+    width: 0.9rem;
+    height: 0.9rem;
+  }
+
+  .post-card-menu-trigger:hover,
+  .post-card-menu-trigger:focus-visible,
+  .post-card-menu-trigger.is-open {
+    color: rgb(var(--fg-rgb) / 0.62);
+    outline: none;
+  }
+
+  .post-card-menu:has(.post-card-menu-panel) {
+    z-index: 4;
+  }
+
+  .post-card-menu-panel {
+    width: 10.5rem;
   }
 
   .post-card-badges {
@@ -15071,9 +15168,39 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.55);
   }
 
+  /* Active room: faint trailing mark — tap again opens details (no extra chip). */
+  .guild-feed-filter-button--room-active {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28rem;
+    padding-inline-end: 0.48rem;
+  }
+
+  .guild-feed-filter-label {
+    min-width: 0;
+  }
+
+  .guild-feed-filter-chip-info {
+    width: 0.72rem;
+    height: 0.72rem;
+    flex-shrink: 0;
+    opacity: 0.42;
+  }
+
+  .guild-feed-filter-button--room-active:hover .guild-feed-filter-chip-info,
+  .guild-feed-filter-button--room-active:focus-visible
+    .guild-feed-filter-chip-info {
+    opacity: 0.62;
+  }
+
   .guild-feed-filter-add-icon {
     width: 0.85rem;
     height: 0.85rem;
+  }
+
+  .guild-room-meta-manage {
+    width: 100%;
+    margin-top: 0.75rem;
   }
 
   .guild-action-card,

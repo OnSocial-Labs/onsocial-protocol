@@ -5,11 +5,16 @@ import { useRouter } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
 import {
   Divider,
+  DotsVerticalIcon,
+  FloatingPanelMenu,
   HeartFillIcon,
   HeartIcon,
   MessageRoundIcon,
   ProfileAvatar,
   RepeatIcon,
+  osFloatingPanelBodyClassName,
+  osFloatingPanelItemClassName,
+  useDropdown,
 } from '@onsocial/ui';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
 import { PostPollEmbedCard } from '@/features/home/post-poll-embed';
@@ -33,7 +38,7 @@ interface PostCardProps {
   quotedHref?: string;
   /** Hide the `Replying to @x` context line (redundant inside thread tabs). */
   showRelationBadge?: boolean;
-  /** Show `· #channel` in the identity line (mixed "All" feeds only). */
+  /** Show `#{channel}` under the identity line (mixed "All" feeds only). */
   showChannel?: boolean;
   engagement?: PostEngagement;
   reactionPending?: boolean;
@@ -45,6 +50,65 @@ interface PostCardProps {
   pollTally?: PollTally;
   pollVotePending?: boolean;
   onPollVote?: (post: PostRow, optionIndex: number) => void;
+}
+
+function PostCardMenu({ href }: { href?: string }) {
+  const { isOpen, close, toggle, containerRef, panelRef } = useDropdown();
+
+  const copyLink = async () => {
+    if (!href || typeof window === 'undefined') return;
+    const url = new URL(href, window.location.origin).toString();
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      // Clipboard can fail in insecure contexts — still close the menu.
+    }
+    close();
+  };
+
+  return (
+    <div className="post-card-menu" ref={containerRef}>
+      <button
+        type="button"
+        className={`post-card-menu-trigger${isOpen ? ' is-open' : ''}`}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          toggle();
+        }}
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+        aria-label="Post options"
+      >
+        <DotsVerticalIcon className="post-card-menu-icon" aria-hidden />
+      </button>
+
+      <FloatingPanelMenu
+        ref={panelRef}
+        open={isOpen}
+        align="right"
+        offset="sm"
+        className="post-card-menu-panel"
+        role="menu"
+        aria-label="Post options"
+      >
+        <div className={osFloatingPanelBodyClassName}>
+          {href ? (
+            <button
+              type="button"
+              role="menuitem"
+              className={osFloatingPanelItemClassName}
+              onClick={() => {
+                void copyLink();
+              }}
+            >
+              <span>Copy link</span>
+            </button>
+          ) : null}
+        </div>
+      </FloatingPanelMenu>
+    </div>
+  );
 }
 
 function postBadges(post: PostRow, hasPollEmbed: boolean): string[] {
@@ -331,6 +395,7 @@ export function PostCard({
             authorHref={profileHref}
             timeHref={actionHref}
             channel={showChannel ? (post.channel ?? undefined) : undefined}
+            trailing={<PostCardMenu href={actionHref} />}
           />
         </header>
         <PostCardBody

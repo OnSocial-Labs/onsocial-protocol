@@ -354,12 +354,12 @@ export function guildSpaceById(
 export function defaultComposerSpace(
   structure: GuildStructureDocument,
   viewer: GuildViewerAccess
-): GuildSpace {
+): GuildSpace | null {
   const postable = composerGuildSpaces(structure, viewer);
   const preferred = postable.find(
     (space) => space.id === structure.defaultSpaceId
   );
-  return preferred ?? postable[0] ?? structure.spaces[0]!;
+  return preferred ?? postable[0] ?? null;
 }
 
 export function canPostToGuildSpace(

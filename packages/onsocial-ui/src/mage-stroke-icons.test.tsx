@@ -8,6 +8,7 @@ import {
   ChevronRightIcon,
   CopyIcon,
   DotsCircleIcon,
+  DotsHorizontalIcon,
   DotsVerticalIcon,
   EditIcon,
   EditPenIcon,
@@ -58,6 +59,7 @@ describe('mage stroke icons', () => {
     expect(typeof SearchIcon).toBe('function');
     expect(typeof SettingsIcon).toBe('function');
     expect(typeof DotsCircleIcon).toBe('function');
+    expect(typeof DotsHorizontalIcon).toBe('function');
     expect(typeof DotsVerticalIcon).toBe('function');
     expect(typeof SlidersHorizontalIcon).toBe('function');
   });

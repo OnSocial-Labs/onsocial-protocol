@@ -156,6 +156,21 @@ export function DotsVerticalIcon(props: MageStrokeIconProps) {
   );
 }
 
+/** Horizontal more menu — three dots for trailing post/row actions. */
+export function DotsHorizontalIcon(props: MageStrokeIconProps) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="M7.736 12a.673.673 0 1 0-1.346 0a.673.673 0 0 0 1.346 0m4.937 0a.673.673 0 1 0-1.346 0a.673.673 0 0 0 1.346 0m4.937 0a.673.673 0 1 0-1.346 0a.673.673 0 0 0 1.346 0"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </MageStrokeSvg>
+  );
+}
+
 export function ArrowUpRightIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>

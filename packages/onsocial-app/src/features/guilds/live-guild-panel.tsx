@@ -30,6 +30,7 @@ import {
   type GuildComposerSubmit,
 } from '@/features/guilds/guild-composer-sheet';
 import {
+  canPostToGuildSpace,
   canViewerPostInChannel,
   composerGuildSpaces,
   defaultComposerSpace,
@@ -238,10 +239,11 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       : guildSpaceById(config.structure, selectedFeedFilterId);
   const composerSpace = useMemo(() => {
     if (!config) return null;
-    return (
-      guildSpaceById(config.structure, composerSpaceId) ??
-      defaultComposerSpace(config.structure, viewerAccess)
-    );
+    const selected = guildSpaceById(config.structure, composerSpaceId);
+    if (selected && canPostToGuildSpace(selected, viewerAccess)) {
+      return selected;
+    }
+    return defaultComposerSpace(config.structure, viewerAccess);
   }, [composerSpaceId, config, viewerAccess]);
   const canPostInChannel = useCallback(
     (channel: string | null | undefined) =>
@@ -250,7 +252,17 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
         : false,
     [config, viewerAccess]
   );
-  const canCompose = Boolean(composerSpace);
+  // Pen only when the open feed room is writable (or All and at least one room is).
+  const canCompose = useMemo(() => {
+    if (!viewerAccess.isMember || postableSpaces.length === 0) return false;
+    if (selectedFeedFilterId === 'all' || !selectedFeedSpace) return true;
+    return canPostToGuildSpace(selectedFeedSpace, viewerAccess);
+  }, [
+    postableSpaces.length,
+    selectedFeedFilterId,
+    selectedFeedSpace,
+    viewerAccess,
+  ]);
   const feedPosts = useMemo(() => {
     const indexedKeys = new Set(state.posts.map(postKey));
     const pendingLocal = localPosts.filter(
@@ -265,6 +277,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
   useEffect(() => {
     if (!config) return;
     const defaultSpace = defaultComposerSpace(config.structure, viewerAccess);
+    if (!defaultSpace) return;
     if (!postableSpaces.some((space) => space.id === composerSpaceId)) {
       setComposerSpaceId(defaultSpace.id);
     }
@@ -916,6 +929,16 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       feedSpaces={feedSpaces}
       canAddMember={canAddMember}
       onAddSpace={() => setAddSpaceOpen(true)}
+      viewer={viewerAccess}
+      onManageWriters={
+        canAddMember
+          ? (space) =>
+              setWritersTarget({
+                spaceId: space.id,
+                spaceTitle: space.title,
+              })
+          : undefined
+      }
       receded={receded}
     />
   );
@@ -1148,16 +1171,6 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
 
             <section className="guild-section guild-feed-section">
               {renderFeedFilters(headerElevated)}
-              {canCompose ? null : viewer?.isMember ? (
-                <div className="guild-state-card">
-                  No rooms are available for you to post in yet.
-                </div>
-              ) : (
-                <div className="guild-state-card">
-                  Join this guild before posting. Public chain data stays
-                  visible, but posting is member-gated.
-                </div>
-              )}
 
               {feedPosts.length > 0 ? (
                 <div
@@ -1213,7 +1226,9 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
               ) : (
                 <div className="guild-state-card">
                   {selectedFeedSpace
-                    ? `No ${selectedFeedSpace.title.toLowerCase()} posts yet. Members can start this room from compose.`
+                    ? canCompose
+                      ? `No ${selectedFeedSpace.title.toLowerCase()} posts yet. Start this room from compose.`
+                      : `No ${selectedFeedSpace.title.toLowerCase()} posts yet.`
                     : 'No guild posts yet. Members can start the feed from compose.'}
                 </div>
               )}
