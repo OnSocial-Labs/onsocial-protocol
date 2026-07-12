@@ -255,6 +255,28 @@ export function normalizeGuildConfig(
   };
 }
 
+/**
+ * Merge a partial `x.onsocial` patch into existing group config `x`.
+ * Contract used to shallow-replace `x`, which wiped banner when rooms saved
+ * (and structure when banner saved). App merges before send; contract now
+ * deep-merges too.
+ */
+export function mergeGuildOnsocialMetadataPatch(
+  existingConfig: Record<string, unknown> | null | undefined,
+  onsocialPatch: Record<string, unknown>
+): { x: { onsocial: Record<string, unknown> } } {
+  const existingX = readRecord(existingConfig?.x);
+  const existingOnsocial = readRecord(existingX?.onsocial) ?? {};
+  return {
+    x: {
+      onsocial: {
+        ...existingOnsocial,
+        ...onsocialPatch,
+      },
+    },
+  };
+}
+
 /** Guild discover tags — first tag is primary; hard cap keeps cards scannable. */
 export const GUILD_MAX_TAGS = 2;
 

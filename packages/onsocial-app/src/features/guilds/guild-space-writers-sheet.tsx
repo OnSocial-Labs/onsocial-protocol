@@ -18,6 +18,7 @@ import { GuildMemberRoleBadge } from '@/features/guilds/guild-member-role-badge'
 import { guildMemberRoleBucket } from '@/features/guilds/guild-member-filter';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
+  allowlistLeaders,
   allowlistWriterCandidates,
   fetchGuildMemberRoleFlags,
   readGuildOwnerId,
@@ -27,6 +28,7 @@ import {
 import {
   grantGuildSpaceWrite,
   memberHasGuildSpaceWrite,
+  revokeGuildSpaceWrite,
 } from '@/features/guilds/guild-space-write';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
@@ -46,6 +48,8 @@ interface GuildSpaceWritersSheetProps {
   spaceId: string;
   spaceTitle: string;
   memberDriven: boolean;
+  /** Leaders can grant/revoke; everyone else gets a read-only Sharing list. */
+  canEdit?: boolean;
   onClose: () => void;
   onSaved?: () => void;
 }
@@ -56,6 +60,7 @@ export function GuildSpaceWritersSheet({
   spaceId,
   spaceTitle,
   memberDriven,
+  canEdit = true,
   onClose,
   onSaved,
 }: GuildSpaceWritersSheetProps) {
@@ -64,6 +69,7 @@ export function GuildSpaceWritersSheet({
   const { trackTransaction } = useAppTransactionFeedback();
   const [closing, setClosing] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
+  const [leaders, setLeaders] = useState<GroupMemberRow[]>([]);
   const [members, setMembers] = useState<GroupMemberRow[]>([]);
   const [grantedIds, setGrantedIds] = useState<Set<string>>(() => new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
@@ -78,6 +84,7 @@ export function GuildSpaceWritersSheet({
     setWasOpen(open);
     if (open) {
       setClosing(false);
+      setLeaders([]);
       setMembers([]);
       setGrantedIds(new Set());
       setSelectedIds(new Set());
@@ -89,9 +96,10 @@ export function GuildSpaceWritersSheet({
 
   useScrollLock(open || closing);
 
-  const profiles = usePostAuthorProfiles(
-    members.map((member) => member.memberId)
-  );
+  const profiles = usePostAuthorProfiles([
+    ...leaders.map((member) => member.memberId),
+    ...members.map((member) => member.memberId),
+  ]);
 
   const load = useCallback(async () => {
     setLoadState('loading');
@@ -103,7 +111,6 @@ export function GuildSpaceWritersSheet({
         client.query.groups.membersOf(groupId, { limit: 120 }),
       ]);
       const ownerId = readGuildOwnerId(config);
-      // Indexer often omits isOwner — reconcile from config, then chain admin flags.
       const reconciled = reconcileGuildMemberRoster(
         page.items ?? [],
         ownerId
@@ -115,10 +122,14 @@ export function GuildSpaceWritersSheet({
           .filter((member) => member.memberId !== ownerId)
           .map((member) => member.memberId)
       );
-      const roster = allowlistWriterCandidates(
-        reconcileGuildMemberRolesFromChain(reconciled, ownerId, roleFlags),
-        ownerId
+      const withRoles = reconcileGuildMemberRolesFromChain(
+        reconciled,
+        ownerId,
+        roleFlags
       );
+      const leaderRows = allowlistLeaders(withRoles, ownerId);
+      const roster = allowlistWriterCandidates(withRoles, ownerId);
+      setLeaders(leaderRows);
       setMembers(roster);
 
       const grantFlags = await Promise.all(
@@ -162,7 +173,7 @@ export function GuildSpaceWritersSheet({
   }, [onClose]);
 
   const toggleMember = (memberId: string) => {
-    if (pending || grantedIds.has(memberId)) return;
+    if (!canEdit || pending) return;
     setSelectedIds((current) => {
       const next = new Set(current);
       if (next.has(memberId)) next.delete(memberId);
@@ -171,8 +182,27 @@ export function GuildSpaceWritersSheet({
     });
   };
 
-  const toGrant = [...selectedIds].filter((id) => !grantedIds.has(id));
-  const canSubmit = toGrant.length > 0 && !pending && loadState === 'ready';
+  const toGrant = canEdit
+    ? [...selectedIds].filter((id) => !grantedIds.has(id))
+    : [];
+  const toRevoke = canEdit
+    ? [...grantedIds].filter((id) => !selectedIds.has(id))
+    : [];
+  const changeCount = toGrant.length + toRevoke.length;
+  const canSubmit =
+    canEdit && changeCount > 0 && !pending && loadState === 'ready';
+
+  const candidateRows = canEdit
+    ? [...members].sort((a, b) => {
+        const aGranted = grantedIds.has(a.memberId) ? 0 : 1;
+        const bGranted = grantedIds.has(b.memberId) ? 0 : 1;
+        return aGranted - bGranted;
+      })
+    : members.filter((member) => grantedIds.has(member.memberId));
+
+  const hasList = leaders.length > 0 || candidateRows.length > 0;
+  const showEmptyManage =
+    canEdit && leaders.length > 0 && members.length === 0;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -180,6 +210,7 @@ export function GuildSpaceWritersSheet({
     setError(null);
     try {
       const { client, accountId, wallet } = await getClient();
+
       for (const memberId of toGrant) {
         const response = await grantGuildSpaceWrite({
           client,
@@ -206,6 +237,34 @@ export function GuildSpaceWritersSheet({
           return;
         }
       }
+
+      for (const memberId of toRevoke) {
+        const response = await revokeGuildSpaceWrite({
+          client,
+          accountId,
+          wallet,
+          groupId,
+          spaceId,
+          memberId,
+          memberDriven,
+          spaceTitle,
+        });
+        const confirmed = await trackTransaction({
+          txHashes: collectRelayTxHashes(response),
+          submittedMessage: memberDriven
+            ? txToastConfirming.proposingGuildSpaceWriterRevoke
+            : txToastConfirming.revokingGuildSpaceWriter,
+          successMessage: memberDriven
+            ? txToastSuccess.guildSpaceWriterRevokeProposed
+            : txToastSuccess.guildSpaceWriterRevoked,
+          failureMessage: txToastError.guildSpaceWriterFailed,
+        });
+        if (!confirmed) {
+          setPending(false);
+          return;
+        }
+      }
+
       onSaved?.();
       setClosing(true);
     } catch (cause) {
@@ -220,6 +279,41 @@ export function GuildSpaceWritersSheet({
     }
   };
 
+  const renderLeaderRow = (member: GroupMemberRow, index: number) => {
+    const profile = profiles[member.memberId];
+    const name = profile?.displayName ?? displayName(member.memberId);
+    const handle = fallbackLabel(member.memberId);
+
+    return (
+      <div key={`leader-${member.memberId}`}>
+        {index > 0 ? <Divider variant="item" /> : null}
+        <div
+          className="standing-row guild-space-writer-row is-selected is-leader"
+          aria-label={`${name}, leader, always can share`}
+        >
+          <span className="standing-row-main">
+            <ProfileAvatar
+              src={profile?.avatarUrl ?? null}
+              fallbackInitial={name}
+              size="lg"
+              className="standing-row-avatar-slot"
+            />
+            <span className="standing-row-copy">
+              <span className="standing-row-head">
+                <span className="standing-row-name-row guild-member-row-name-row">
+                  <span className="standing-row-name">{name}</span>
+                  <GuildMemberRoleBadge member={member} />
+                  <span className="guild-space-writer-status">Always</span>
+                </span>
+                <span className="standing-row-handle">@{handle}</span>
+              </span>
+            </span>
+          </span>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <GlassSheet
       open={sheetOpen}
@@ -230,7 +324,7 @@ export function GuildSpaceWritersSheet({
       zIndex={58}
       presentation="swap"
       ariaLabelledBy={titleId}
-      backdropLabel="Close choose who can share"
+      backdropLabel="Close who can share"
       panelClassName="guild-add-space-sheet-panel"
       bodyClassName="guild-add-space-sheet-body"
       header={
@@ -242,9 +336,7 @@ export function GuildSpaceWritersSheet({
                   <h2 id={titleId} className="standing-sheet-subject-name">
                     Who can share
                   </h2>
-                  <p className="discover-sheet-subtitle">
-                    {spaceTitle} · leaders can always share
-                  </p>
+                  <p className="discover-sheet-subtitle">{spaceTitle}</p>
                 </div>
               </div>
               <div className="standing-sheet-actions">
@@ -267,14 +359,13 @@ export function GuildSpaceWritersSheet({
           </p>
         ) : null}
 
-        {loadState === 'ready' && members.length === 0 ? (
+        {loadState === 'ready' && !hasList ? (
           <div className="guild-manage-sheet-empty">
             <p className="guild-manage-sheet-empty-primary">
-              No other members yet
+              No members yet
             </p>
             <p className="discover-sheet-subtitle">
-              Leaders can share now. Add members, then choose who can share
-              here.
+              Add members, then choose who can share here.
             </p>
             <OsSheetActions layout="stack" tone="frosted-primary" borderless>
               <OsSheetAction
@@ -289,69 +380,130 @@ export function GuildSpaceWritersSheet({
           </div>
         ) : null}
 
-        {loadState === 'ready' && members.length > 0 ? (
+        {loadState === 'ready' && hasList ? (
           <>
             <div className="standing-list guild-space-writers-list">
-              {members.map((member, index) => {
+              {leaders.map((member, index) => renderLeaderRow(member, index))}
+              {candidateRows.map((member, index) => {
                 const profile = profiles[member.memberId];
                 const name =
                   profile?.displayName ?? displayName(member.memberId);
                 const handle = fallbackLabel(member.memberId);
                 const checked = selectedIds.has(member.memberId);
                 const already = grantedIds.has(member.memberId);
+                const removing = canEdit && already && !checked;
                 const showRoleBadge =
                   guildMemberRoleBucket(member) !== 'member';
+                const rowIndex = leaders.length + index;
+                const rowClass = checked
+                  ? 'standing-row guild-space-writer-row is-selected'
+                  : removing
+                    ? 'standing-row guild-space-writer-row is-removing'
+                    : 'standing-row guild-space-writer-row';
 
                 return (
                   <div key={member.memberId}>
-                    {index > 0 ? <Divider variant="item" /> : null}
-                    <button
-                      type="button"
-                      className={
-                        checked
-                          ? 'standing-row guild-space-writer-row is-selected'
-                          : 'standing-row guild-space-writer-row'
-                      }
-                      disabled={pending || already}
-                      aria-pressed={checked}
-                      onClick={() => toggleMember(member.memberId)}
-                    >
-                      <span className="standing-row-main">
-                        <ProfileAvatar
-                          src={profile?.avatarUrl ?? null}
-                          fallbackInitial={name}
-                          size="lg"
-                          className="standing-row-avatar-slot"
-                        />
-                        <span className="standing-row-copy">
-                          <span className="standing-row-head">
-                            <span className="standing-row-name-row guild-member-row-name-row">
-                              <span className="standing-row-name">{name}</span>
-                              {showRoleBadge ? (
-                                <GuildMemberRoleBadge member={member} />
-                              ) : null}
-                            </span>
-                            <span className="standing-row-handle">
-                              {already ? 'Can share' : `@${handle}`}
+                    {rowIndex > 0 ? <Divider variant="item" /> : null}
+                    {canEdit ? (
+                      <button
+                        type="button"
+                        className={rowClass}
+                        disabled={pending}
+                        aria-pressed={checked}
+                        aria-label={
+                          removing
+                            ? `${name}, will remove sharing`
+                            : already && checked
+                              ? `${name}, sharing`
+                              : checked
+                                ? `${name}, selected`
+                                : `${name}, not selected`
+                        }
+                        onClick={() => toggleMember(member.memberId)}
+                      >
+                        <span className="standing-row-main">
+                          <ProfileAvatar
+                            src={profile?.avatarUrl ?? null}
+                            fallbackInitial={name}
+                            size="lg"
+                            className="standing-row-avatar-slot"
+                          />
+                          <span className="standing-row-copy">
+                            <span className="standing-row-head">
+                              <span className="standing-row-name-row guild-member-row-name-row">
+                                <span className="standing-row-name">{name}</span>
+                                {showRoleBadge ? (
+                                  <GuildMemberRoleBadge member={member} />
+                                ) : null}
+                                {already && checked ? (
+                                  <span className="guild-space-writer-status">
+                                    Sharing
+                                  </span>
+                                ) : null}
+                                {removing ? (
+                                  <span className="guild-space-writer-status is-removing">
+                                    Remove
+                                  </span>
+                                ) : null}
+                              </span>
+                              <span className="standing-row-handle">
+                                @{handle}
+                              </span>
                             </span>
                           </span>
                         </span>
-                      </span>
-                      <span
-                        className={
-                          checked
-                            ? 'guild-space-writer-check is-on'
-                            : 'guild-space-writer-check'
-                        }
-                        aria-hidden
+                        <span
+                          className={
+                            checked
+                              ? 'guild-space-writer-check is-on'
+                              : 'guild-space-writer-check'
+                          }
+                          aria-hidden
+                        >
+                          {checked ? <CheckIcon /> : null}
+                        </span>
+                      </button>
+                    ) : (
+                      <div
+                        className="standing-row guild-space-writer-row is-selected"
+                        aria-label={`${name}, can share`}
                       >
-                        {checked ? <CheckIcon /> : null}
-                      </span>
-                    </button>
+                        <span className="standing-row-main">
+                          <ProfileAvatar
+                            src={profile?.avatarUrl ?? null}
+                            fallbackInitial={name}
+                            size="lg"
+                            className="standing-row-avatar-slot"
+                          />
+                          <span className="standing-row-copy">
+                            <span className="standing-row-head">
+                              <span className="standing-row-name-row guild-member-row-name-row">
+                                <span className="standing-row-name">{name}</span>
+                                {showRoleBadge ? (
+                                  <GuildMemberRoleBadge member={member} />
+                                ) : null}
+                                <span className="guild-space-writer-status">
+                                  Sharing
+                                </span>
+                              </span>
+                              <span className="standing-row-handle">
+                                @{handle}
+                              </span>
+                            </span>
+                          </span>
+                        </span>
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
+
+            {showEmptyManage ? (
+              <p className="discover-sheet-subtitle guild-space-writers-empty-note">
+                Add members, then choose who can share here.
+              </p>
+            ) : null}
 
             {error ? (
               <p className="guild-form-error" role="alert">
@@ -360,29 +512,45 @@ export function GuildSpaceWritersSheet({
             ) : null}
 
             <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-              {canSubmit || pending ? (
+              {canEdit && (canSubmit || pending) ? (
                 <OsSheetAction
                   type="button"
                   variant="primary"
                   ready={canSubmit}
                   pending={pending}
-                  pendingLabel={memberDriven ? 'Proposing…' : 'Allowing…'}
+                  pendingLabel={
+                    memberDriven
+                      ? 'Proposing…'
+                      : toRevoke.length > 0 && toGrant.length === 0
+                        ? 'Removing…'
+                        : toGrant.length > 0 && toRevoke.length === 0
+                          ? 'Allowing…'
+                          : 'Saving…'
+                  }
                   disabled={!canSubmit}
                   onClick={() => void handleSubmit()}
                 >
-                  {toGrant.length > 1
-                    ? `Allow ${toGrant.length}`
-                    : 'Allow'}
+                  {toGrant.length > 0 && toRevoke.length > 0
+                    ? `Save ${changeCount}`
+                    : toRevoke.length > 1
+                      ? `Remove ${toRevoke.length}`
+                      : toRevoke.length === 1
+                        ? 'Remove'
+                        : toGrant.length > 1
+                          ? `Allow ${toGrant.length}`
+                          : 'Allow'}
                 </OsSheetAction>
               ) : null}
               <OsSheetAction
                 type="button"
-                variant={canSubmit || pending ? 'ghost' : 'primary'}
+                variant={
+                  canEdit && (canSubmit || pending) ? 'ghost' : 'primary'
+                }
                 ready={!pending}
                 disabled={pending}
                 onClick={requestClose}
               >
-                {toGrant.length > 0 ? 'Skip for now' : 'Done'}
+                {canEdit && changeCount > 0 ? 'Cancel' : 'Done'}
               </OsSheetAction>
             </OsSheetActions>
           </>

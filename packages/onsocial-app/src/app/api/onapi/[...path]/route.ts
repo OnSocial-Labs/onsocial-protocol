@@ -33,6 +33,10 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
   { method: 'GET', path: 'data/proposal-count', body: 'none' },
   { method: 'GET', path: 'data/has-group-admin', body: 'none' },
   { method: 'GET', path: 'data/has-group-moderate', body: 'none' },
+  // Allowlist room writer checks (`os.permissions.has` / space WRITE grants).
+  { method: 'GET', path: 'data/has-permission', body: 'none' },
+  { method: 'GET', path: 'data/permissions', body: 'none' },
+
   // SOCIAL wallet balance — premium mood unlock preflight.
   { method: 'GET', path: 'data/ft-balance-of', body: 'none' },
   // SOCIAL token icon / decimals for amount fields.

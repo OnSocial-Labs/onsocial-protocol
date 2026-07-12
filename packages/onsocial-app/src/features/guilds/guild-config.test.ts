@@ -4,6 +4,7 @@ import {
   isOwnGuildMemberRequest,
   isOwnJoinRequestProposal,
   memberRequestRowToProposal,
+  mergeGuildOnsocialMetadataPatch,
   normalizeGuildTagList,
   normalizeGuildTagsInput,
   GUILD_MAX_TAGS,
@@ -65,5 +66,53 @@ describe('guild tags', () => {
     expect(
       normalizeGuildTagList(['Near', 'near', 'grants', 'dao'])
     ).toEqual(['near', 'grants']);
+  });
+});
+
+describe('guild onsocial metadata merge', () => {
+  it('keeps banner when structure is patched', () => {
+    const existing = {
+      x: {
+        onsocial: {
+          banner: { cid: 'bafyBanner', mime: 'image/png', size: 12 },
+        },
+      },
+    };
+    const patch = mergeGuildOnsocialMetadataPatch(existing, {
+      structure: { v: 1, defaultSpaceId: 'general', spaces: [] },
+    });
+    expect(patch.x.onsocial.banner).toEqual({
+      cid: 'bafyBanner',
+      mime: 'image/png',
+      size: 12,
+    });
+    expect(patch.x.onsocial.structure).toEqual({
+      v: 1,
+      defaultSpaceId: 'general',
+      spaces: [],
+    });
+  });
+
+  it('keeps structure when banner is patched', () => {
+    const existing = {
+      x: {
+        onsocial: {
+          structure: { v: 1, defaultSpaceId: 'club', spaces: [] },
+        },
+      },
+    };
+    const patch = mergeGuildOnsocialMetadataPatch(existing, {
+      banner: { cid: 'bafyNew', mime: 'image/jpeg', size: 9 },
+    });
+    expect(patch.x.onsocial.structure).toEqual({
+      v: 1,
+      defaultSpaceId: 'club',
+      spaces: [],
+    });
+    expect(patch.x.onsocial.banner).toEqual({
+      cid: 'bafyNew',
+      mime: 'image/jpeg',
+      size: 9,
+    });
   });
 });

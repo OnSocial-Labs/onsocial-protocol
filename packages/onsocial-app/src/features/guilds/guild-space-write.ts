@@ -2,6 +2,14 @@ import type { NearWalletBase } from '@hot-labs/near-connect';
 import type { OnSocial, RelayResponse } from '@onsocial/sdk';
 import { PERMISSION } from '@onsocial/sdk';
 import {
+  allowlistLeaders,
+  allowlistWriterCandidates,
+  fetchGuildMemberRoleFlags,
+  readGuildOwnerId,
+  reconcileGuildMemberRolesFromChain,
+  reconcileGuildMemberRoster,
+} from '@/features/guilds/guild-member-roster';
+import {
   enabledGuildSpaces,
   guildSpaceWritePath,
   type GuildStructureDocument,
@@ -150,4 +158,59 @@ export async function memberHasGuildSpaceWrite(
   } catch {
     return false;
   }
+}
+
+/** Non-leader grant count + leader count for allowlist room facts. */
+export async function loadGuildSpaceWriterCounts(
+  client: OnSocial,
+  groupId: string,
+  spaceId: string
+): Promise<{ grantedCount: number; leaderCount: number }> {
+  const [config, page] = await Promise.all([
+    client.groups.getConfig(groupId),
+    client.query.groups.membersOf(groupId, { limit: 120 }),
+  ]);
+  const ownerId = readGuildOwnerId(config);
+  const reconciled = reconcileGuildMemberRoster(page.items ?? [], ownerId);
+  const roleFlags = await fetchGuildMemberRoleFlags(
+    client,
+    groupId,
+    reconciled
+      .filter((member) => member.memberId !== ownerId)
+      .map((member) => member.memberId)
+  );
+  const withRoles = reconcileGuildMemberRolesFromChain(
+    reconciled,
+    ownerId,
+    roleFlags
+  );
+  const leaders = allowlistLeaders(withRoles, ownerId);
+  const roster = allowlistWriterCandidates(withRoles, ownerId);
+  if (roster.length === 0) {
+    return { grantedCount: 0, leaderCount: leaders.length };
+  }
+
+  const flags = await Promise.all(
+    roster.map((member) =>
+      memberHasGuildSpaceWrite(client, groupId, member.memberId, spaceId)
+    )
+  );
+  return {
+    grantedCount: flags.filter(Boolean).length,
+    leaderCount: leaders.length,
+  };
+}
+
+export type GuildSpaceWritersShareDisplay =
+  | { kind: 'loading' }
+  | { kind: 'leaders-only' }
+  | { kind: 'count'; count: number };
+
+/** Facts-row display for allowlist rooms — mirrors guild “N members”. */
+export function guildSpaceWritersShareDisplay(
+  grantedCount: number,
+  leaderCount: number
+): Exclude<GuildSpaceWritersShareDisplay, { kind: 'loading' }> {
+  if (grantedCount <= 0) return { kind: 'leaders-only' };
+  return { kind: 'count', count: leaderCount + grantedCount };
 }

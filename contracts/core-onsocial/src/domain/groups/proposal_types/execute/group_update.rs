@@ -7,6 +7,7 @@ use crate::constants::EVENT_TYPE_GROUP_UPDATE;
 use crate::domain::groups::GroupStorage;
 use crate::domain::groups::config::GroupConfig;
 use crate::domain::groups::governance::VotingConfig;
+use crate::domain::groups::operations::metadata::deep_merge_json;
 use crate::events::{EventBatch, EventBuilder};
 use crate::state::models::SocialPlatform;
 use crate::{SocialError, invalid_input};
@@ -39,8 +40,16 @@ impl ProposalType {
 
                     if let Some(changes_obj) = actual_changes.as_object() {
                         for (key, value) in changes_obj {
-                            if !matches!(key.as_str(), "owner" | "update_type" | "changes") {
-                                config_obj.insert(key.clone(), value.clone());
+                            if matches!(key.as_str(), "owner" | "update_type" | "changes") {
+                                continue;
+                            }
+                            match config_obj.get_mut(key) {
+                                Some(existing) if existing.is_object() && value.is_object() => {
+                                    deep_merge_json(existing, value);
+                                }
+                                _ => {
+                                    config_obj.insert(key.clone(), value.clone());
+                                }
                             }
                         }
                         // Invariant: member_driven groups must be private

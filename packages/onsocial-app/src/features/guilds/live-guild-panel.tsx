@@ -186,6 +186,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
   const [writersTarget, setWritersTarget] = useState<{
     spaceId: string;
     spaceTitle: string;
+    canEdit: boolean;
   } | null>(null);
   const [allowlistSpaceIds, setAllowlistSpaceIds] = useState<ReadonlySet<string>>(
     () => new Set()
@@ -924,20 +925,19 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
 
   const renderFeedFilters = (receded: boolean) => (
     <GuildFeedFilterList
+      groupId={groupId}
       selectedFeedFilterId={selectedFeedFilterId}
       onSelectFeedFilter={setSelectedFeedFilterId}
       feedSpaces={feedSpaces}
       canAddMember={canAddMember}
       onAddSpace={() => setAddSpaceOpen(true)}
       viewer={viewerAccess}
-      onManageWriters={
-        canAddMember
-          ? (space) =>
-              setWritersTarget({
-                spaceId: space.id,
-                spaceTitle: space.title,
-              })
-          : undefined
+      onOpenWriters={(space) =>
+        setWritersTarget({
+          spaceId: space.id,
+          spaceTitle: space.title,
+          canEdit: canAddMember,
+        })
       }
       receded={receded}
     />
@@ -1414,6 +1414,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
               setWritersTarget({
                 spaceId: space.id,
                 spaceTitle: space.title,
+                canEdit: true,
               });
             }
           }}
@@ -1426,6 +1427,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
           spaceId={writersTarget.spaceId}
           spaceTitle={writersTarget.spaceTitle}
           memberDriven={config.memberDriven}
+          canEdit={writersTarget.canEdit}
           onClose={() => setWritersTarget(null)}
           onSaved={() => void refresh()}
         />

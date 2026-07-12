@@ -1,7 +1,8 @@
 import type { OnSocial } from '@onsocial/sdk';
+import { mergeGuildOnsocialMetadataPatch } from '@/features/guilds/guild-config';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
-  guildStructureMetadataPatch,
+  guildStructureForMetadata,
   type GuildStructureDocument,
 } from '@/features/guilds/guild-structure';
 import {
@@ -24,6 +25,8 @@ interface TrackGuildStructureInput {
  * metadata and post `channel`. Join still grants member WRITE on
  * `groups/{id}/content/`; restricted spaces add role or
  * `groups/{id}/spaces/{spaceId}/write` checks.
+ *
+ * Merges into existing `x.onsocial` so banner/avatar extras survive room edits.
  */
 export async function persistGuildStructure(
   client: OnSocial,
@@ -32,7 +35,10 @@ export async function persistGuildStructure(
   structure: GuildStructureDocument,
   trackTransaction: (input: TrackGuildStructureInput) => Promise<boolean>
 ): Promise<boolean> {
-  const changes = guildStructureMetadataPatch(structure);
+  const existing = await client.groups.getConfig(groupId);
+  const changes = mergeGuildOnsocialMetadataPatch(existing, {
+    structure: guildStructureForMetadata(structure),
+  });
   const response = memberDriven
     ? await client.groups.proposeMetadataUpdate(groupId, changes, {
         reason: 'Guild rooms update',

@@ -64,6 +64,32 @@ export function allowlistWriterCandidates(
   });
 }
 
+/**
+ * Owner + admins who can always share in allowlist rooms (locked list rows).
+ * Owner first, then admins by memberId.
+ */
+export function allowlistLeaders(
+  members: GroupMemberRow[],
+  ownerId?: string | null
+): GroupMemberRow[] {
+  const owner = ownerId?.trim() ?? null;
+  return members
+    .filter((member) => {
+      if (owner && member.memberId === owner) return true;
+      return Boolean(member.isOwner || member.isAdmin);
+    })
+    .sort((a, b) => {
+      const aOwner = Boolean(
+        (owner && a.memberId === owner) || a.isOwner
+      );
+      const bOwner = Boolean(
+        (owner && b.memberId === owner) || b.isOwner
+      );
+      if (aOwner !== bOwner) return aOwner ? -1 : 1;
+      return a.memberId.localeCompare(b.memberId);
+    });
+}
+
 export interface GuildMemberRoleFlags {
   isAdmin: boolean;
   canModerate: boolean;

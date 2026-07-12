@@ -1,4 +1,7 @@
-use near_sdk::{AccountId, env, serde_json::Value};
+use near_sdk::{
+    AccountId, env,
+    serde_json::{Map, Value},
+};
 
 use crate::domain::groups::config::GroupConfig;
 use crate::events::{EventBatch, EventBuilder};
@@ -6,6 +9,57 @@ use crate::state::models::SocialPlatform;
 use crate::{SocialError, invalid_input, permission_denied};
 
 const RESERVED_METADATA_KEYS: &[&str] = &["owner", "update_type", "changes", "member_driven"];
+
+/// Deep-merge object patches into existing JSON.
+/// Nested objects merge; other values replace. `null` clears a key to null.
+pub(crate) fn deep_merge_json(target: &mut Value, patch: &Value) {
+    match (target, patch) {
+        (Value::Object(target_obj), Value::Object(patch_obj)) => {
+            for (key, patch_value) in patch_obj {
+                if patch_value.is_null() {
+                    target_obj.insert(key.clone(), Value::Null);
+                    continue;
+                }
+                match target_obj.get_mut(key) {
+                    Some(existing) if existing.is_object() && patch_value.is_object() => {
+                        deep_merge_json(existing, patch_value);
+                    }
+                    _ => {
+                        target_obj.insert(key.clone(), patch_value.clone());
+                    }
+                }
+            }
+        }
+        (target_slot, patch_value) => {
+            *target_slot = patch_value.clone();
+        }
+    }
+}
+
+/// Apply top-level metadata changes with deep-merge for nested objects
+/// (so `x.onsocial.banner` and `x.onsocial.structure` coexist).
+pub(crate) fn apply_group_config_changes(
+    config_obj: &mut Map<String, Value>,
+    changes_obj: &Map<String, Value>,
+    reserved_keys: &[&str],
+) -> Result<(), SocialError> {
+    for (key, value) in changes_obj {
+        if reserved_keys.contains(&key.as_str()) {
+            return Err(invalid_input!(format!(
+                "Cannot update reserved metadata field `{key}`"
+            )));
+        }
+        match config_obj.get_mut(key) {
+            Some(existing) if existing.is_object() && value.is_object() => {
+                deep_merge_json(existing, value);
+            }
+            _ => {
+                config_obj.insert(key.clone(), value.clone());
+            }
+        }
+    }
+    Ok(())
+}
 
 impl crate::domain::groups::core::GroupStorage {
     pub fn update_group_metadata(
@@ -44,14 +98,7 @@ impl crate::domain::groups::core::GroupStorage {
                 .as_object_mut()
                 .ok_or_else(|| invalid_input!("Group config must be a JSON object"))?;
 
-            for (key, value) in changes_obj {
-                if RESERVED_METADATA_KEYS.contains(&key.as_str()) {
-                    return Err(invalid_input!(format!(
-                        "Cannot update reserved metadata field `{key}`"
-                    )));
-                }
-                config_obj.insert(key.clone(), value.clone());
-            }
+            apply_group_config_changes(config_obj, changes_obj, RESERVED_METADATA_KEYS)?;
         }
 
         let updated_cfg = GroupConfig::try_from_value(&config_data)?;

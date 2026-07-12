@@ -1,11 +1,12 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useEffect, useId, useState, type ReactNode } from 'react';
 import {
   Divider,
   GlassSheet,
   InformationCircleFillIcon,
   PlusIcon,
+  ProtocolMotionArrow,
   SheetCloseButton,
 } from '@onsocial/ui';
 import {
@@ -16,7 +17,13 @@ import {
   type GuildSpace,
   type GuildViewerAccess,
 } from '@/features/guilds/guild-structure';
+import {
+  guildSpaceWritersShareDisplay,
+  loadGuildSpaceWriterCounts,
+  type GuildSpaceWritersShareDisplay,
+} from '@/features/guilds/guild-space-write';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
+import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 
 function spaceKindLabel(kind: GuildSpace['kind']): string {
   return (
@@ -34,7 +41,7 @@ function GuildRoomFactsRow({
   value,
 }: {
   label: string;
-  value: string;
+  value: ReactNode;
 }) {
   return (
     <div className="guild-facts-row">
@@ -44,39 +51,110 @@ function GuildRoomFactsRow({
   );
 }
 
+function WritersShareValue({
+  display,
+}: {
+  display: GuildSpaceWritersShareDisplay;
+}) {
+  if (display.kind === 'loading') {
+    return (
+      <span className="guild-facts-count-value is-loading" aria-hidden>
+        <span className="guild-facts-count">–</span>
+        <span className="guild-facts-unit"> can share</span>
+      </span>
+    );
+  }
+  if (display.kind === 'leaders-only') {
+    return <span className="guild-facts-link-label">Leaders only</span>;
+  }
+  return (
+    <span className="guild-facts-count-value">
+      <span className="guild-facts-count">{display.count}</span>
+      <span className="guild-facts-unit"> can share</span>
+    </span>
+  );
+}
+
+function writersShareAriaLabel(display: GuildSpaceWritersShareDisplay): string {
+  if (display.kind === 'loading') return 'Loading who can share';
+  if (display.kind === 'leaders-only') return 'Leaders only. View who can share';
+  return `${display.count} can share. View who can share`;
+}
+
 function GuildRoomFactsSheet({
+  groupId,
   space,
   viewer,
   open,
   onClose,
-  onManageWriters,
+  onOpenWriters,
 }: {
+  groupId: string;
   space: GuildSpace;
   viewer: GuildViewerAccess;
   open: boolean;
   onClose: () => void;
-  onManageWriters?: () => void;
+  onOpenWriters?: () => void;
 }) {
   const titleId = useId();
   const [closing, setClosing] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
+  const [writersDisplay, setWritersDisplay] =
+    useState<GuildSpaceWritersShareDisplay>({ kind: 'loading' });
   const sheetOpen = open && !closing;
   const canShare = canPostToGuildSpace(space, viewer);
-  const canManageWriters =
-    Boolean(onManageWriters) &&
-    space.postPolicy === 'allowlist' &&
-    (viewer.isAdmin || viewer.isOwner);
+  const canViewWriters =
+    Boolean(onOpenWriters) && space.postPolicy === 'allowlist';
 
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (open) setClosing(false);
+    if (open) {
+      setClosing(false);
+      setWritersDisplay({ kind: 'loading' });
+    }
   }
 
   useScrollLock(open || closing);
 
+  useEffect(() => {
+    if (!open || space.postPolicy !== 'allowlist') return;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const counts = await loadGuildSpaceWriterCounts(
+          createReadOnlyOnSocialClient(),
+          groupId,
+          space.id
+        );
+        if (!cancelled) {
+          setWritersDisplay(
+            guildSpaceWritersShareDisplay(
+              counts.grantedCount,
+              counts.leaderCount
+            )
+          );
+        }
+      } catch {
+        if (!cancelled) setWritersDisplay({ kind: 'leaders-only' });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [groupId, open, space.id, space.postPolicy]);
+
   const requestClose = () => {
     setClosing(true);
   };
+
+  const whoCanShareValue =
+    space.postPolicy === 'allowlist' ? (
+      <WritersShareValue display={writersDisplay} />
+    ) : (
+      postPolicyLabel(space.postPolicy)
+    );
 
   return (
     <GlassSheet
@@ -121,7 +199,24 @@ function GuildRoomFactsSheet({
           <div className="guild-facts-section-rows">
             <GuildRoomFactsRow
               label="Who can share"
-              value={postPolicyLabel(space.postPolicy)}
+              value={
+                canViewWriters ? (
+                  <button
+                    type="button"
+                    className="guild-facts-link group"
+                    aria-label={writersShareAriaLabel(writersDisplay)}
+                    onClick={() => {
+                      requestClose();
+                      onOpenWriters?.();
+                    }}
+                  >
+                    {whoCanShareValue}
+                    <ProtocolMotionArrow className="guild-facts-link-arrow" />
+                  </button>
+                ) : (
+                  whoCanShareValue
+                )
+              }
             />
             <GuildRoomFactsRow
               label="Rule"
@@ -146,41 +241,30 @@ function GuildRoomFactsSheet({
             />
           </div>
         </section>
-
-        {canManageWriters ? (
-          <button
-            type="button"
-            className="guild-secondary-button guild-room-meta-manage"
-            onClick={() => {
-              requestClose();
-              onManageWriters?.();
-            }}
-          >
-            Choose who can share
-          </button>
-        ) : null}
       </div>
     </GlassSheet>
   );
 }
 
 export function GuildFeedFilterList({
+  groupId,
   selectedFeedFilterId,
   onSelectFeedFilter,
   feedSpaces,
   canAddMember,
   onAddSpace,
   viewer,
-  onManageWriters,
+  onOpenWriters,
   receded = false,
 }: {
+  groupId: string;
   selectedFeedFilterId: 'all' | string;
   onSelectFeedFilter: (id: 'all' | string) => void;
   feedSpaces: GuildSpace[];
   canAddMember: boolean;
   onAddSpace: () => void;
   viewer: GuildViewerAccess;
-  onManageWriters?: (space: GuildSpace) => void;
+  onOpenWriters?: (space: GuildSpace) => void;
   /** Hide in-flow row once filters dock into the elevated header. */
   receded?: boolean;
 }) {
@@ -243,16 +327,17 @@ export function GuildFeedFilterList({
 
       {factsSpace ? (
         <GuildRoomFactsSheet
+          groupId={groupId}
           space={factsSpace}
           viewer={viewer}
           open
           onClose={() => setFactsSpace(null)}
-          onManageWriters={
-            onManageWriters
+          onOpenWriters={
+            onOpenWriters && factsSpace.postPolicy === 'allowlist'
               ? () => {
                   const space = factsSpace;
                   setFactsSpace(null);
-                  onManageWriters(space);
+                  onOpenWriters(space);
                 }
               : undefined
           }

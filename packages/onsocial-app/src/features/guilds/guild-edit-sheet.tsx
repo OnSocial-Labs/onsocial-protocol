@@ -28,6 +28,7 @@ import { guildDisplayInitials } from '@/features/guilds/guild-card-display';
 import {
   GUILD_MAX_DESCRIPTION_LENGTH,
   GUILD_MAX_NAME_LENGTH,
+  mergeGuildOnsocialMetadataPatch,
   normalizeGuildConfig,
   type GuildConfigSnapshot,
 } from '@/features/guilds/guild-config';
@@ -288,7 +289,11 @@ export function GuildEditSheet({
       changes.avatar = null;
     }
     if (Object.keys(onsocialPatch).length > 0) {
-      changes.x = { onsocial: onsocialPatch };
+      const existing = await client.groups.getConfig(groupId);
+      Object.assign(
+        changes,
+        mergeGuildOnsocialMetadataPatch(existing, onsocialPatch)
+      );
     }
     return changes;
   };

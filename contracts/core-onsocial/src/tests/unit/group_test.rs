@@ -829,4 +829,74 @@ mod group_metadata_update_tests {
             "Only the owner can update metadata directly"
         );
     }
+
+    #[test]
+    fn metadata_update_deep_merges_onsocial_banner_and_structure() {
+        let mut contract = init_live_contract();
+        let alice = test_account(0);
+
+        near_sdk::testing_env!(
+            get_context_with_deposit(alice.clone(), 100_000_000_000_000_000_000_000_000).build()
+        );
+        contract
+            .execute(create_group_request(
+                "rebels-media".to_string(),
+                json!({
+                    "name": "Social Rebels #1",
+                    "is_private": false,
+                    "member_driven": false
+                }),
+            ))
+            .unwrap();
+
+        near_sdk::testing_env!(
+            get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build()
+        );
+        contract
+            .execute(update_group_metadata_request(
+                "rebels-media".to_string(),
+                json!({
+                    "x": {
+                        "onsocial": {
+                            "banner": { "cid": "bafyBanner", "mime": "image/png", "size": 12 }
+                        }
+                    }
+                }),
+            ))
+            .unwrap();
+
+        near_sdk::testing_env!(
+            get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build()
+        );
+        contract
+            .execute(update_group_metadata_request(
+                "rebels-media".to_string(),
+                json!({
+                    "x": {
+                        "onsocial": {
+                            "structure": {
+                                "v": 1,
+                                "defaultSpaceId": "general",
+                                "spaces": [{ "id": "general", "title": "General" }]
+                            }
+                        }
+                    }
+                }),
+            ))
+            .unwrap();
+
+        let config = contract
+            .get_group_config("rebels-media".to_string())
+            .unwrap();
+        assert_eq!(
+            config.pointer("/x/onsocial/banner/cid"),
+            Some(&json!("bafyBanner")),
+            "structure patch must preserve banner"
+        );
+        assert_eq!(
+            config.pointer("/x/onsocial/structure/defaultSpaceId"),
+            Some(&json!("general")),
+            "structure patch must land"
+        );
+    }
 }

@@ -28,6 +28,8 @@ export const txToastConfirming = {
   transferringGuildOwnership: 'Confirming transfer…',
   grantingGuildSpaceWriter: 'Confirming access…',
   proposingGuildSpaceWriter: 'Confirming proposal…',
+  revokingGuildSpaceWriter: 'Confirming removal…',
+  proposingGuildSpaceWriterRevoke: 'Confirming proposal…',
 } as const;
 
 export const txToastPending = {
@@ -54,6 +56,8 @@ export const txToastPending = {
   transferringGuildOwnership: 'Transferring ownership…',
   grantingGuildSpaceWriter: 'Allowing to share…',
   proposingGuildSpaceWriter: 'Proposing access…',
+  revokingGuildSpaceWriter: 'Removing access…',
+  proposingGuildSpaceWriterRevoke: 'Proposing removal…',
 } as const;
 
 export const txToastSuccess = {
@@ -89,6 +93,8 @@ export const txToastSuccess = {
   guildOwnershipTransferred: 'Ownership transferred.',
   guildSpaceWriterGranted: 'Can share in room.',
   guildSpaceWriterProposed: 'Access proposed.',
+  guildSpaceWriterRevoked: 'Sharing removed.',
+  guildSpaceWriterRevokeProposed: 'Removal proposed.',
   endorsementSaved: (name: string) => `Endorsed ${name}.`,
   supportSent: (name: string) => `Supported ${name}.`,
   supportCollected: 'Support SOCIAL collected.',

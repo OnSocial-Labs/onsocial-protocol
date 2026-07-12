@@ -1,5 +1,5 @@
 mod create;
-mod metadata;
+pub(crate) mod metadata;
 mod ownership;
 mod privacy;
 mod stats;
