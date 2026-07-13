@@ -37,6 +37,13 @@ import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useAncestorChain, useQuotedPosts } from '@/hooks/use-quoted-posts';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
+  buildReplyRows,
+  flattenTreePosts,
+  leafThreadNode,
+  withoutIndexedPosts,
+  type ThreadReplyRow,
+} from '@/lib/thread-display';
+import {
   txToastConfirming,
   txToastError,
   txToastSuccess,
@@ -52,128 +59,6 @@ const REPLY_TREE_DEPTH = 6;
 const REPLY_TREE_MAX_NODES = 300;
 const RECONCILE_DELAYS_MS = [2_000, 5_000];
 
-/** Display row on the thread page: a post, or a per-branch fold control. */
-type ReplyRow =
-  | {
-      kind: 'post';
-      post: PostRow;
-      /** Drawn with the rail into the previous row (conversation run). */
-      connectedToPrevious: boolean;
-    }
-  | { kind: 'more'; branchKey: string; hiddenCount: number };
-
-/**
- * Flatten the reply tree into display rows for the thread page:
- *
- * - The root author's own thread leads: their self-reply run, connected by
- *   the rail. Replies from others to mid-thread posts are not inlined —
- *   each post's own page shows them.
- * - Then each branch (someone else's reply), divider-separated: the branch
- *   post plus at most ONE reply from its conversation line (the root
- *   author's response when present). Longer exchanges fold behind a dotted
- *   `Show N more` row that expands in place.
- * - Third parties replying inside a branch never render here; clicking the
- *   branch post opens its page with its own replies and quotes.
- */
-function buildReplyRows(
-  nodes: ThreadNode[],
-  rootAuthor: string | undefined,
-  expandedBranches: ReadonlySet<string>
-): ReplyRow[] {
-  const rows: ReplyRow[] = [];
-
-  const pushPost = (post: PostRow, connected: boolean) =>
-    rows.push({ kind: 'post', post, connectedToPrevious: connected });
-
-  // The author's thread: follow only their own self-replies downward.
-  const emitAuthorRun = (node: ThreadNode) => {
-    pushPost(node.post, false);
-    let cursor = node;
-    for (;;) {
-      const next = cursor.replies.find(
-        (reply) => reply.post.accountId === rootAuthor
-      );
-      if (!next) break;
-      pushPost(next.post, true);
-      cursor = next;
-    }
-  };
-
-  // The 1:1 conversation under a branch: the root author's responses and
-  // the branch author's follow-ups, in reply order.
-  const conversationLine = (branch: ThreadNode): ThreadNode[] => {
-    const branchAuthor = branch.post.accountId;
-    const line: ThreadNode[] = [];
-    let cursor = branch;
-    for (;;) {
-      const next =
-        cursor.replies.find(
-          (reply) => rootAuthor && reply.post.accountId === rootAuthor
-        ) ??
-        cursor.replies.find(
-          (reply) => reply.post.accountId === branchAuthor
-        );
-      if (!next) break;
-      line.push(next);
-      cursor = next;
-    }
-    return line;
-  };
-
-  const emitBranch = (branch: ThreadNode) => {
-    pushPost(branch.post, false);
-    const line = conversationLine(branch);
-    if (line.length === 0) return;
-
-    const branchKey = postKey(branch.post);
-    if (expandedBranches.has(branchKey)) {
-      for (const node of line) pushPost(node.post, true);
-      return;
-    }
-
-    pushPost(line[0]!.post, true);
-    const hiddenCount = line.length - 1;
-    if (hiddenCount > 0) rows.push({ kind: 'more', branchKey, hiddenCount });
-  };
-
-  // Root author's thread first, everyone else's branches after.
-  const authorNodes = rootAuthor
-    ? nodes.filter((node) => node.post.accountId === rootAuthor)
-    : [];
-  const branchNodes = nodes.filter((node) => !authorNodes.includes(node));
-
-  for (const node of authorNodes) emitAuthorRun(node);
-  for (const node of branchNodes) emitBranch(node);
-
-  // Consecutive runs by the same author join into one rail run.
-  for (let i = 1; i < rows.length; i += 1) {
-    const row = rows[i]!;
-    const previous = rows[i - 1]!;
-    if (
-      row.kind === 'post' &&
-      previous.kind === 'post' &&
-      !row.connectedToPrevious &&
-      previous.post.accountId === row.post.accountId
-    ) {
-      row.connectedToPrevious = true;
-    }
-  }
-
-  return rows;
-}
-
-/** Depth-first posts of the reply tree (for reconcile and engagement). */
-function flattenTreePosts(nodes: ThreadNode[]): PostRow[] {
-  return nodes.flatMap((node) => [
-    node.post,
-    ...flattenTreePosts(node.replies),
-  ]);
-}
-
-function leafNode(post: PostRow, path: string): ThreadNode {
-  return { post, path, edge: 'reply', depth: 1, replies: [], quotes: [] };
-}
-
 interface LiveGuildPostPanelProps {
   groupId: string;
   author: string;
@@ -186,12 +71,6 @@ function groupPostContentPath(
   targetPostId: string
 ): string {
   return `${postAuthor}/groups/${groupId}/content/post/${targetPostId}`;
-}
-
-/** Drop locally-confirmed rows once the indexed list contains them. */
-function withoutIndexed(local: PostRow[], indexed: PostRow[]): PostRow[] {
-  const indexedKeys = new Set(indexed.map(postKey));
-  return local.filter((row) => !indexedKeys.has(postKey(row)));
 }
 
 export function LiveGuildPostPanel({
@@ -252,10 +131,10 @@ export function LiveGuildPostPanel({
     );
     const lastPostRow = [...rows]
       .reverse()
-      .find((row): row is Extract<ReplyRow, { kind: 'post' }> => {
+      .find((row): row is Extract<ThreadReplyRow, { kind: 'post' }> => {
         return row.kind === 'post';
       });
-    for (const local of withoutIndexed(localReplies, treePosts)) {
+    for (const local of withoutIndexedPosts(localReplies, treePosts)) {
       rows.push({
         kind: 'post',
         post: local,
@@ -267,13 +146,13 @@ export function LiveGuildPostPanel({
   // Total conversation size for the Replies tab badge (folded rows included).
   const replyCount = useMemo(
     () =>
-      treePosts.length + withoutIndexed(localReplies, treePosts).length,
+      treePosts.length + withoutIndexedPosts(localReplies, treePosts).length,
     [treePosts, localReplies]
   );
   // Quotes read newest-first — your fresh quote leads the list.
   const quotes = useMemo(
     () => [
-      ...withoutIndexed(localQuotes, conversation.quotes),
+      ...withoutIndexedPosts(localQuotes, conversation.quotes),
       ...conversation.quotes,
     ],
     [conversation.quotes, localQuotes]
@@ -353,8 +232,8 @@ export function LiveGuildPostPanel({
           treeResult.status === 'fulfilled' ? treeResult.value.replies : [];
         const fetchedTreePosts = flattenTreePosts(fetchedTree);
 
-        setLocalReplies((current) => withoutIndexed(current, fetchedTreePosts));
-        setLocalQuotes((current) => withoutIndexed(current, fetchedQuotes));
+        setLocalReplies((current) => withoutIndexedPosts(current, fetchedTreePosts));
+        setLocalQuotes((current) => withoutIndexedPosts(current, fetchedQuotes));
 
         // Once the user paginated past the first page, a background
         // first-page fetch would discard loaded pages — reconcile only.
@@ -469,7 +348,7 @@ export function LiveGuildPostPanel({
           setReplyTree((current) => [
             ...current,
             ...page.map((post) =>
-              leafNode(
+              leafThreadNode(
                 post,
                 groupPostContentPath(post.accountId, groupId, post.postId)
               )

@@ -3,10 +3,10 @@
 import { useState } from 'react';
 import type { PostRow } from '@onsocial/sdk';
 import { PostCard, postKey } from '@/features/home/post-card';
-import { guildPostPath } from '@/features/guilds/guilds-data';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import type { PostEngagement } from '@/hooks/use-post-engagement';
 import type { PollTally } from '@/lib/poll-votes';
+import { postThreadPath } from '@/lib/post-routes';
 
 /** Chains up to this long render in full; longer ones collapse the middle. */
 const BLOCK_MAX_UNCOLLAPSED = 3;
@@ -17,8 +17,9 @@ const BLOCK_TAIL_VISIBLE = 2;
 interface FeedThreadBlockProps {
   /** Connected chain, oldest first (see `coalesceFeedThreads`). */
   block: PostRow[];
-  groupId: string;
-  showChannel: boolean;
+  /** When set, cards prefer this guild for thread links. */
+  groupId?: string;
+  showChannel?: boolean;
   postAuthorProfiles: Record<string, PostAuthorProfile>;
   quotedPosts: Record<string, PostRow>;
   engagement: Record<string, PostEngagement>;
@@ -40,17 +41,25 @@ interface BlockRow {
   first: boolean;
 }
 
+function resolveThreadHref(
+  post: PostRow,
+  fallbackGroupId?: string
+): string {
+  return postThreadPath({
+    accountId: post.accountId,
+    postId: post.postId,
+    groupId: post.groupId ?? fallbackGroupId,
+  });
+}
+
 /**
- * A connected conversation block in the guild feed: root on top, replies
- * beneath, avatars joined by one rail. Long chains keep the root (context)
- * and the latest `BLOCK_TAIL_VISIBLE` posts (recency); the middle folds
- * behind a dotted row that expands in place — earlier posts by the same
- * author, not hidden replies from others (those live on the thread page).
+ * A connected conversation block in a feed: root on top, self-replies
+ * beneath, avatars joined by one rail. Works for guild and personal feeds.
  */
 export function FeedThreadBlock({
   block,
   groupId,
-  showChannel,
+  showChannel = false,
   postAuthorProfiles,
   quotedPosts,
   engagement,
@@ -83,7 +92,6 @@ export function FeedThreadBlock({
     ? [{ post: block[0]!, up: false, down: true, first: true }]
     : block.map((post, index, posts) => toRow(post, index, posts));
 
-  // Tail rows stay chained: up into the dotted fold, down between each other.
   const tail: BlockRow[] = collapsed
     ? block
         .slice(-BLOCK_TAIL_VISIBLE)
@@ -102,32 +110,26 @@ export function FeedThreadBlock({
       .join(' ');
 
     const stats = engagement[postKey(post)];
-
     const quoted = post.refPath ? quotedPosts[post.refPath] : undefined;
+    const actionHref = resolveThreadHref(post, groupId);
+    const quotedHref = quoted
+      ? resolveThreadHref(quoted, quoted.groupId ?? groupId)
+      : undefined;
 
     return (
       <div key={postKey(post)} className={itemClassName}>
         <PostCard
           post={post}
           authorProfile={postAuthorProfiles[post.accountId]}
-          actionHref={guildPostPath(groupId, post.accountId, post.postId)}
+          actionHref={actionHref}
           showChannel={showChannel}
-          // Continuations are drawn with the rail, not labeled.
           showRelationBadge={first}
           className={first ? undefined : 'post-card--chain-cont'}
           quotedPost={quoted}
           quotedAuthorProfile={
             quoted ? postAuthorProfiles[quoted.accountId] : undefined
           }
-          quotedHref={
-            quoted
-              ? guildPostPath(
-                  quoted.groupId ?? groupId,
-                  quoted.accountId,
-                  quoted.postId
-                )
-              : undefined
-          }
+          quotedHref={quotedHref}
           engagement={stats}
           reactionPending={isReactionPending(post)}
           onToggleReaction={onToggleReaction}

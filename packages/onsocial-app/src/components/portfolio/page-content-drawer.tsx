@@ -19,6 +19,7 @@ import {
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { usePageContentDrawer } from '@/contexts/page-content-drawer-context';
+import { usePortfolioPostPeeks } from '@/contexts/portfolio-post-peeks-context';
 import { PageContentSections } from '@/components/portfolio/page-content-sections';
 import { PageDrawerGestures } from '@/components/portfolio/page-drawer-gestures';
 import { PageDrawerJumpRail } from '@/components/portfolio/page-drawer-jump-rail';
@@ -32,10 +33,7 @@ import {
 } from '@/lib/page-drawer-meta';
 import type { PublicPageConfig, PublicPageStats } from '@/lib/page-data';
 import type { ProfileGuildSummary } from '@/lib/profile-guilds';
-import type {
-  ProfilePostPeek,
-  ProfileScarcePeek,
-} from '@/lib/fetch-profile-peeks';
+import type { ProfileScarcePeek } from '@/lib/fetch-profile-peeks';
 import {
   pageDrawerJumpSections,
   pageDrawerSectionDomId,
@@ -67,7 +65,6 @@ interface PageContentDrawerProps {
   config: PublicPageConfig;
   stats: PublicPageStats;
   guilds?: ProfileGuildSummary[];
-  postPeeks?: ProfilePostPeek[];
   scarcePeeks?: ProfileScarcePeek[];
 }
 
@@ -191,10 +188,10 @@ export function PageContentDrawer({
   config,
   stats,
   guilds = [],
-  postPeeks = [],
   scarcePeeks = [],
 }: PageContentDrawerProps) {
   const { isOpen, close } = usePageContentDrawer();
+  const { postPeeks } = usePortfolioPostPeeks();
   const [scrollNode, setScrollNode] = useState<HTMLDivElement | null>(null);
   const [closing, setClosing] = useState(false);
   const [joinedFactsOpen, setJoinedFactsOpen] = useState(false);

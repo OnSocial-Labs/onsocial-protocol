@@ -9,7 +9,7 @@ import type {
   ProfilePostPeek,
   ProfileScarcePeek,
 } from '@/lib/fetch-profile-peeks';
-import { overlayPath } from '@/lib/overlay-routes';
+import { personalPostPath } from '@/lib/post-routes';
 
 export function PageDrawerPostPeekList({
   pageAccountId,
@@ -22,12 +22,10 @@ export function PageDrawerPostPeekList({
     return null;
   }
 
-  const feedHref = overlayPath(pageAccountId, 'feed');
-
   return (
     <ul className="page-drawer-post-peek">
       {posts.map((post) => {
-        const href = feedHref;
+        const href = personalPostPath(post.accountId || pageAccountId, post.postId);
         const relative = formatRelativePostTimestamp(post.blockTimestamp);
         const iso = postTimestampIso(post.blockTimestamp);
         return (

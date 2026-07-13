@@ -36,20 +36,26 @@ import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import { parsePostText } from '@/lib/post-display';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 
-export type GuildComposerMode = 'post' | 'reply' | 'quote';
+export type ComposerMode = 'post' | 'reply' | 'quote';
+/** @deprecated Prefer `ComposerMode`. */
+export type GuildComposerMode = ComposerMode;
 
-export interface GuildComposerPollDraft {
+export interface ComposerPollDraft {
   options: string[];
   /** Duration from now in ms; omit for open-ended. */
   durationMs?: number;
 }
+/** @deprecated Prefer `ComposerPollDraft`. */
+export type GuildComposerPollDraft = ComposerPollDraft;
 
-export interface GuildComposerSubmit {
+export interface ComposerSubmit {
   text: string;
-  poll?: GuildComposerPollDraft;
+  poll?: ComposerPollDraft;
 }
+/** @deprecated Prefer `ComposerSubmit`. */
+export type GuildComposerSubmit = ComposerSubmit;
 
-const PLACEHOLDER: Record<GuildComposerMode, string> = {
+const PLACEHOLDER: Record<ComposerMode, string> = {
   post: 'Share something…',
   reply: 'Post your reply',
   quote: 'Add a comment',
@@ -57,7 +63,7 @@ const PLACEHOLDER: Record<GuildComposerMode, string> = {
 
 const POLL_PLACEHOLDER = 'Ask a question…';
 
-const TITLE: Record<GuildComposerMode, string> = {
+const TITLE: Record<ComposerMode, string> = {
   post: 'New post',
   reply: 'Respond',
   quote: 'Respond',
@@ -94,27 +100,36 @@ function PollComposeIcon({ className }: { className?: string }) {
   );
 }
 
-/** Where a new post lands — guild plus channel, later a personal feed. */
-export interface GuildComposerDestination {
-  name: string;
-  channels: { id: string; title: string }[];
-  selectedChannelId: string;
-  onChannelChange: (channelId: string) => void;
-}
+/** Where a new post lands — guild room or personal public feed. */
+export type ComposerDestination =
+  | {
+      kind: 'guild';
+      name: string;
+      channels: { id: string; title: string }[];
+      selectedChannelId: string;
+      onChannelChange: (channelId: string) => void;
+    }
+  | {
+      kind: 'personal';
+      /** Whisper under the title, e.g. `@alice.near · Public`. */
+      label: string;
+    };
+/** @deprecated Prefer `ComposerDestination`. */
+export type GuildComposerDestination = ComposerDestination;
 
-interface GuildComposerSheetProps {
+interface ComposerSheetProps {
   open: boolean;
-  mode: GuildComposerMode;
+  mode: ComposerMode;
   /** Post being replied to / quoted. Not used in `post` mode. */
   target?: PostRow | null;
   targetAuthorProfile?: PostAuthorProfile;
-  onModeChange?: (mode: GuildComposerMode) => void;
+  onModeChange?: (mode: ComposerMode) => void;
   /** Destination picker for `post` mode. */
-  destination?: GuildComposerDestination;
+  destination?: ComposerDestination;
   pending: boolean;
   error?: string | null;
   onClose: () => void;
-  onSubmit: (payload: GuildComposerSubmit) => void;
+  onSubmit: (payload: ComposerSubmit) => void;
 }
 
 function IdentityLine({
@@ -177,7 +192,7 @@ function normalizePollOptions(options: string[]): string[] {
  * WYSIWYG composer in a bottom GlassSheet. Polls attach as an inline card on
  * new posts only; replies/quotes stay text.
  */
-export function GuildComposerSheet({
+export function ComposerSheet({
   open,
   mode,
   target,
@@ -188,7 +203,7 @@ export function GuildComposerSheet({
   error,
   onClose,
   onSubmit,
-}: GuildComposerSheetProps) {
+}: ComposerSheetProps) {
   const titleId = useId();
   const formId = useId();
   const { accountId } = useAppWallet();
@@ -451,9 +466,11 @@ export function GuildComposerSheet({
                   </h2>
                   {mode === 'post' && destination ? (
                     <p className="discover-sheet-subtitle guild-composer-destination-whisper">
-                      {destination.channels.length === 1
-                        ? `${destination.name} · ${destination.channels[0]!.title}`
-                        : destination.name}
+                      {destination.kind === 'personal'
+                        ? destination.label
+                        : destination.channels.length === 1
+                          ? `${destination.name} · ${destination.channels[0]!.title}`
+                          : destination.name}
                     </p>
                   ) : null}
                 </div>
@@ -466,7 +483,7 @@ export function GuildComposerSheet({
               </div>
             </div>
             {mode === 'post' &&
-            destination &&
+            destination?.kind === 'guild' &&
             destination.channels.length > 1 ? (
               <div className="standing-sheet-toolbar-row">
                 <div
@@ -614,3 +631,6 @@ export function GuildComposerSheet({
     </GlassSheet>
   );
 }
+
+/** @deprecated Prefer `ComposerSheet`. */
+export const GuildComposerSheet = ComposerSheet;

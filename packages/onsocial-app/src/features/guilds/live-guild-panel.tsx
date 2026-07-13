@@ -1257,6 +1257,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
           destination={
             composer.mode === 'post' && config && postableSpaces.length > 0
               ? {
+                  kind: 'guild' as const,
                   name: config.name,
                   channels: postableSpaces.map((space) => ({
                     id: space.id,

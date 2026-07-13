@@ -6,7 +6,9 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
+import { PenFillIcon } from '@onsocial/ui';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useComposeLauncher } from '@/contexts/compose-launcher-context';
 import { usePageContentDrawer } from '@/contexts/page-content-drawer-context';
 import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-context';
 import { usePortfolioMoodPreview } from '@/contexts/portfolio-mood-preview-context';
@@ -42,6 +44,7 @@ function readDockHintPending(): boolean {
 export function PortfolioPageDock({ pageAccountId }: PortfolioPageDockProps) {
   const { open: openPageDrawer } = usePageContentDrawer();
   const { accountId, isConnected } = useAppWallet();
+  const composeAction = useComposeLauncher();
   const { isPreviewingMood } = usePortfolioMoodPreview();
   const { isPreviewing: isPreviewingFace } = usePortfolioFacePreview();
   const [osOpen, setOsOpen] = useState(false);
@@ -168,6 +171,21 @@ export function PortfolioPageDock({ pageAccountId }: PortfolioPageDockProps) {
             >
               <span className="portfolio-summon-grip" aria-hidden />
             </button>
+          }
+          action={
+            composeAction ? (
+              <button
+                type="button"
+                className="portfolio-summon-compose"
+                onClick={composeAction}
+                aria-label="Compose a post"
+              >
+                <PenFillIcon
+                  className="portfolio-summon-compose-icon"
+                  aria-hidden
+                />
+              </button>
+            ) : undefined
           }
         />
       </div>

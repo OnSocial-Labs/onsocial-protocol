@@ -92,7 +92,7 @@ export function isFullPagePanelLayout(segments: readonly string[]): boolean {
   }
 
   const root = segments[0];
-  if (root === 'standing') {
+  if (root === 'standing' || root === 'posts') {
     return true;
   }
 

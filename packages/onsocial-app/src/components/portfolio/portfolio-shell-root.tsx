@@ -7,10 +7,12 @@ import {
   usePortfolioMoodPreview,
 } from '@/contexts/portfolio-mood-preview-context';
 import { PageContentDrawerProvider } from '@/contexts/page-content-drawer-context';
+import { PortfolioPostPeeksProvider } from '@/contexts/portfolio-post-peeks-context';
 import { PortfolioFacePreviewBar } from '@/components/portfolio/portfolio-face-preview-bar';
 import { PortfolioMoodPreviewBar } from '@/components/portfolio/portfolio-mood-preview-bar';
 import { PageContentDrawer } from '@/components/portfolio/page-content-drawer';
 import { PortfolioPageDock } from '@/components/portfolio/portfolio-page-dock';
+import { PortfolioPersonalComposer } from '@/components/portfolio/portfolio-personal-composer';
 import { ViewerWalletMoodSync } from '@/components/wallet/viewer-wallet-mood-sync';
 import { PortfolioCustomize } from '@/components/portfolio/portfolio-customize';
 import { PortfolioShell } from '@/components/portfolio/portfolio-shell';
@@ -94,7 +96,7 @@ function PortfolioShellPreviewBridge({
   const hasBanner = Boolean(hero);
 
   return (
-    <>
+    <PortfolioPostPeeksProvider initialPostPeeks={postPeeks}>
       <PortfolioShell
         mood={effectiveMood}
         config={previewConfig}
@@ -130,6 +132,7 @@ function PortfolioShellPreviewBridge({
           bannerUrl={bannerMedia?.url ?? null}
           bannerKind={bannerMedia?.kind ?? null}
         />
+        <PortfolioPersonalComposer pageAccountId={pageAccountId} />
         <PortfolioPageDock pageAccountId={pageAccountId} />
         <PageContentDrawer
           pageAccountId={pageAccountId}
@@ -142,7 +145,6 @@ function PortfolioShellPreviewBridge({
           config={config}
           stats={stats}
           guilds={guilds}
-          postPeeks={postPeeks}
           scarcePeeks={scarcePeeks}
         />
         <PortfolioFacePreviewBar
@@ -154,7 +156,7 @@ function PortfolioShellPreviewBridge({
           config={config}
         />
       </div>
-    </>
+    </PortfolioPostPeeksProvider>
   );
 }
 

@@ -3,9 +3,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { GroupPostRef, PostRow } from '@onsocial/sdk';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { fetchPersonalPost } from '@/lib/fetch-personal-post';
 
 const GROUP_POST_PATH_PATTERN =
   /^([^/]+)\/groups\/([^/]+)\/content\/post\/(.+)$/;
+/** Personal post content path: `{account}/post/{postId}`. */
+const PERSONAL_POST_PATH_PATTERN = /^([^/]+)\/post\/(.+)$/;
 
 const quotedPostCache = new Map<string, PostRow | null>();
 const quotedPostInFlight = new Map<string, Promise<PostRow | null>>();
@@ -17,6 +20,16 @@ export function parseGroupPostPath(path: string): GroupPostRef | null {
   return { author: match[1]!, groupId: match[2]!, postId: match[3]! };
 }
 
+/** Parse a personal post content path (`alice.near/post/123`). */
+export function parsePersonalPostPath(
+  path: string
+): { author: string; postId: string } | null {
+  if (path.includes('/groups/')) return null;
+  const match = PERSONAL_POST_PATH_PATTERN.exec(path);
+  if (!match) return null;
+  return { author: match[1]!, postId: match[2]! };
+}
+
 async function fetchQuotedPost(refPath: string): Promise<PostRow | null> {
   const cached = quotedPostCache.get(refPath);
   if (cached !== undefined) return cached;
@@ -24,14 +37,18 @@ async function fetchQuotedPost(refPath: string): Promise<PostRow | null> {
   const existing = quotedPostInFlight.get(refPath);
   if (existing) return existing;
 
-  const ref = parseGroupPostPath(refPath);
-  if (!ref) {
+  const groupRef = parseGroupPostPath(refPath);
+  const personalRef = groupRef ? null : parsePersonalPostPath(refPath);
+  if (!groupRef && !personalRef) {
     quotedPostCache.set(refPath, null);
     return null;
   }
 
-  const request = createReadOnlyOnSocialClient()
-    .query.groups.post(ref)
+  const request = (
+    groupRef
+      ? createReadOnlyOnSocialClient().query.groups.post(groupRef)
+      : fetchPersonalPost(personalRef!)
+  )
     .then((post) => {
       quotedPostCache.set(refPath, post);
       return post;
@@ -49,8 +66,8 @@ async function fetchQuotedPost(refPath: string): Promise<PostRow | null> {
 }
 
 /**
- * Resolve indexed group posts by their full content paths (quoted originals,
- * reply parents). Cached per path; one small canonical read per unique path.
+ * Resolve indexed posts by full content path (quoted originals, reply
+ * parents) — group or personal. Cached per path.
  */
 export function useResolvedGroupPosts(paths: Array<string | undefined>) {
   const uniquePaths = useMemo(

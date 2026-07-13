@@ -1,11 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { useAppWallet } from '@/contexts/app-wallet-context';
-import { PostCard, postKey } from '@/features/home/post-card';
-import { PostComposer } from '@/features/home/post-composer';
-import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { PostRow } from '@onsocial/sdk';
+import { useAppWallet } from '@/contexts/app-wallet-context';
+import {
+  PersonalFeedList,
+  shouldPrependOptimisticFeedPost,
+} from '@/features/home/personal-feed-list';
+import { usePersonalComposer } from '@/features/home/use-personal-composer';
+import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 
 async function loadHomeFeed(accountId: string | null): Promise<PostRow[]> {
   const client = createReadOnlyOnSocialClient();
@@ -30,7 +33,11 @@ async function loadHomeFeed(accountId: string | null): Promise<PostRow[]> {
 }
 
 export function HomeFeed() {
-  const { accountId, isLoading: walletLoading } = useAppWallet();
+  const {
+    accountId,
+    isConnected,
+    isLoading: walletLoading,
+  } = useAppWallet();
   const [posts, setPosts] = useState<PostRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +69,25 @@ export function HomeFeed() {
     void refresh();
   }, [refresh, walletLoading]);
 
+  const destinationLabel = useMemo(
+    () => (accountId ? `@${accountId} · Public` : 'Public'),
+    [accountId]
+  );
+
+  const onConfirmed = useCallback((post: PostRow) => {
+    if (!shouldPrependOptimisticFeedPost(post)) return;
+    setPosts((current) => [post, ...current]);
+  }, []);
+
+  const { openReply, openQuote, sheet } = usePersonalComposer({
+    registerPen: Boolean(isConnected && accountId),
+    destinationLabel,
+    onConfirmed,
+  });
+
+  const replyHandler = isConnected ? openReply : undefined;
+  const quoteHandler = isConnected ? openQuote : undefined;
+
   return (
     <div className="home-feed">
       <header className="home-feed-header">
@@ -73,7 +99,11 @@ export function HomeFeed() {
         </p>
       </header>
 
-      <PostComposer onPosted={() => void refresh()} />
+      {!isConnected && !walletLoading ? (
+        <section className="post-composer post-composer-guest">
+          <p className="post-composer-lead">Connect your wallet to post.</p>
+        </section>
+      ) : null}
 
       {isLoading ? (
         <div className="home-feed-state">Loading feed…</div>
@@ -90,12 +120,15 @@ export function HomeFeed() {
       ) : null}
 
       {!isLoading && !error && posts.length > 0 ? (
-        <div className="home-feed-list">
-          {posts.map((post) => (
-            <PostCard key={postKey(post)} post={post} />
-          ))}
-        </div>
+        <PersonalFeedList
+          posts={posts}
+          onReply={replyHandler}
+          onQuote={quoteHandler}
+          onEngagementError={(message) => setError(message)}
+        />
       ) : null}
+
+      {sheet}
     </div>
   );
 }

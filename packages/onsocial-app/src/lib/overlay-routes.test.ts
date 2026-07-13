@@ -77,6 +77,7 @@ describe('isFullPagePanelLayout', () => {
     expect(isFullPagePanelLayout(['standing', 'incoming'])).toBe(true);
     expect(isFullPagePanelLayout(['discover'])).toBe(true);
     expect(isFullPagePanelLayout(['feed'])).toBe(true);
+    expect(isFullPagePanelLayout(['posts', 'abc'])).toBe(true);
   });
 });
 
