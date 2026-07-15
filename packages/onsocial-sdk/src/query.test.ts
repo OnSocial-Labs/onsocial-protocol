@@ -617,7 +617,7 @@ describe('QueryModule', () => {
         blockHeight: 100 - i,
         blockTimestamp: 0,
       }));
-      const { os } = makeOs({ data: { postsCurrent: rows } });
+      const { os } = makeOs({ data: { postsFeed: rows } });
 
       const page = await os.query.feed.recent({ limit: 20 });
       expect(page.items).toHaveLength(20);
@@ -627,7 +627,7 @@ describe('QueryModule', () => {
     it('returns undefined nextOffset on last page', async () => {
       const { os } = makeOs({
         data: {
-          postsCurrent: [
+          postsFeed: [
             {
               accountId: 'a.near',
               postId: 'p1',
@@ -649,7 +649,7 @@ describe('QueryModule', () => {
     it('queries posts for standing-with accounts', async () => {
       const { os, fetch } = makeOs({
         data: {
-          postsCurrent: [
+          postsFeed: [
             {
               accountId: 'bob.near',
               postId: 'p1',
@@ -668,12 +668,13 @@ describe('QueryModule', () => {
 
       expect(page.items).toHaveLength(1);
       const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('postsFeed');
       expect(body.query).toContain('_in: $accounts');
       expect(body.variables.accounts).toEqual(['bob.near', 'carol.near']);
     });
 
     it('returns empty for empty standing list', async () => {
-      const { os, fetch } = makeOs({ data: { postsCurrent: [] } });
+      const { os, fetch } = makeOs({ data: { postsFeed: [] } });
       const page = await os.query.feed.fromAccounts({ accounts: [] });
       expect(page.items).toEqual([]);
       expect(fetch).not.toHaveBeenCalled();
@@ -681,10 +682,10 @@ describe('QueryModule', () => {
   });
 
   describe('getFilteredFeed()', () => {
-    it('queries postsCurrent with server-side channel and kind filtering', async () => {
+    it('queries postsFeed with server-side channel and kind filtering', async () => {
       const { os, fetch } = makeOs({
         data: {
-          postsCurrent: [
+          postsFeed: [
             {
               accountId: 'bob.near',
               postId: 'p1',
@@ -707,6 +708,7 @@ describe('QueryModule', () => {
 
       expect(page.items).toHaveLength(1);
       const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('postsFeed');
       expect(body.query).toContain('accountId: {_in: $accounts}');
       expect(body.query).toContain('channel: {_eq: $channel}');
       expect(body.query).toContain('kind: {_eq: $kind}');
@@ -715,10 +717,10 @@ describe('QueryModule', () => {
       expect(body.variables.kind).toBe('announcement');
     });
 
-    it('queries postsCurrent with server-side audience filtering', async () => {
+    it('queries postsFeed with server-side audience filtering', async () => {
       const { os, fetch } = makeOs({
         data: {
-          postsCurrent: [
+          postsFeed: [
             {
               accountId: 'bob.near',
               postId: 'p1',
@@ -744,7 +746,7 @@ describe('QueryModule', () => {
     });
 
     it('returns empty for empty standing list', async () => {
-      const { os, fetch } = makeOs({ data: { postsCurrent: [] } });
+      const { os, fetch } = makeOs({ data: { postsFeed: [] } });
       const page = await os.query.feed.fromAccountsFiltered({ accounts: [] });
       expect(page.items).toEqual([]);
       expect(fetch).not.toHaveBeenCalled();
@@ -2209,7 +2211,7 @@ describe('QueryModule', () => {
         }
         return {
           data: {
-            postsCurrent: [
+            postsFeed: [
               {
                 accountId: 'alice.near',
                 postId: 'p1',
@@ -2239,6 +2241,8 @@ describe('QueryModule', () => {
       expect(tagBody.variables.tag).toBe('onchain'); // stripped #
       expect(tagBody.query).toContain('blockHeight: DESC');
       expect(fetch.mock.calls).toHaveLength(2);
+      const hydrateBody = JSON.parse(fetch.mock.calls[1][1].body);
+      expect(hydrateBody.query).toContain('postsFeed');
     });
 
     it('returns nextOffset when page is full', async () => {
@@ -2257,7 +2261,7 @@ describe('QueryModule', () => {
         }
         return {
           data: {
-            postsCurrent: rows.map((row) => ({
+            postsFeed: rows.map((row) => ({
               ...row,
               value: '{"v":1,"text":"x"}',
             })),
@@ -2291,7 +2295,7 @@ describe('QueryModule', () => {
         }
         return {
           data: {
-            postsCurrent: [
+            postsFeed: [
               {
                 accountId: 'a.near',
                 postId: 'p1',

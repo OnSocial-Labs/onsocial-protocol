@@ -1,14 +1,35 @@
-/** Normalize typed search into a hashtag slug (no `#`). */
-export function normalizeHashtagQuery(raw: string): string {
-  return raw.trim().toLowerCase().replace(/^#+/, '');
-}
+import { APP_HOME_PATH } from '@/lib/app-routes';
+
+/** Query key for Home hashtag filter (`/home?tag=near`). */
+export const HOME_HASHTAG_QUERY_KEY = 'tag';
 
 const HASHTAG_SLUG_RE = /^[a-z0-9_]{1,64}$/;
 /** Matches `#NEAR`, `#gm_1` in free text (schema: lowercase a-z0-9_). */
 const HASHTAG_IN_TEXT_RE = /#([a-zA-Z0-9_]{1,64})\b/g;
 
+/** Normalize typed search into a hashtag slug (no `#`). */
+export function normalizeHashtagQuery(raw: string): string {
+  return raw.trim().toLowerCase().replace(/^#+/, '');
+}
+
 export function isValidHashtagSlug(slug: string): boolean {
   return HASHTAG_SLUG_RE.test(slug);
+}
+
+/** Home feed filtered to one indexed hashtag. */
+export function homeHashtagPath(tag: string): string {
+  const slug = normalizeHashtagQuery(tag);
+  if (!slug || !isValidHashtagSlug(slug)) return APP_HOME_PATH;
+  return `${APP_HOME_PATH}?${HOME_HASHTAG_QUERY_KEY}=${encodeURIComponent(slug)}`;
+}
+
+/** Read `?tag=` from the Home URL. */
+export function parseHomeHashtagParam(
+  raw: string | null | undefined
+): string | null {
+  if (!raw) return null;
+  const slug = normalizeHashtagQuery(raw);
+  return slug && isValidHashtagSlug(slug) ? slug : null;
 }
 
 export type HashtagTextSegment =

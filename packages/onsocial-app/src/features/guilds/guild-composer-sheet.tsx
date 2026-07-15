@@ -28,6 +28,7 @@ import { useViewerProfileShellContext } from '@/contexts/viewer-profile-shell-co
 import { QuotedPostInset } from '@/features/home/post-card';
 import { PostMediaBlock } from '@/features/home/post-media';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
+import { PostRichText } from '@/features/home/post-rich-text';
 import { ComposerHashtagTextarea } from '@/features/guilds/composer-hashtag-textarea';
 import {
   scrollMobileFieldIntoView,
@@ -190,7 +191,7 @@ function ReplyTargetPreview({
           timestamp={post.blockTimestamp}
         />
         <p className="guild-composer-reply-text">
-          {parsePostText(post.value) || '…'}
+          <PostRichText text={parsePostText(post.value)} />
         </p>
       </div>
     </div>

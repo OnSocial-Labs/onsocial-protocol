@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   extractHashtagsFromText,
   homeHashtagEmptyCopy,
+  homeHashtagPath,
   homeHashtagSubtitle,
   isValidHashtagSlug,
   normalizeHashtagQuery,
   parseHashtagCommit,
+  parseHomeHashtagParam,
   splitTextWithHashtags,
 } from '@/features/home/home-hashtag-search';
 
@@ -13,6 +15,16 @@ describe('home-hashtag-search', () => {
   it('normalizes drafts', () => {
     expect(normalizeHashtagQuery(' #OnChain ')).toBe('onchain');
     expect(normalizeHashtagQuery('gm')).toBe('gm');
+  });
+
+  it('builds and parses Home tag URLs', () => {
+    expect(homeHashtagPath('NEAR')).toBe('/home?tag=near');
+    expect(homeHashtagPath('#gm')).toBe('/home?tag=gm');
+    expect(homeHashtagPath('')).toBe('/home');
+    expect(parseHomeHashtagParam('NEAR')).toBe('near');
+    expect(parseHomeHashtagParam('#gm')).toBe('gm');
+    expect(parseHomeHashtagParam('no spaces')).toBeNull();
+    expect(parseHomeHashtagParam(null)).toBeNull();
   });
 
   it('extracts tags from post body', () => {

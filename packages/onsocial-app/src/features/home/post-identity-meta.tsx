@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import { MessageFillIcon } from '@onsocial/ui';
 import {
   formatPostTimestamp,
   formatRelativePostTimestamp,
@@ -13,14 +14,14 @@ interface PostIdentityMetaProps {
   authorHref?: string;
   handleHref?: string;
   timeHref?: string;
-  /** Room tag under the identity line (All feed). */
+  /** Room label under the identity line (guild “All” / mixed feeds). */
   channel?: string;
   /** Trailing ··· — card’s right edge, opposite time. */
   trailing?: ReactNode;
   className?: string;
 }
 
-/** `Name @handle · time` on one line; optional `#{channel}` under. */
+/** `Name @handle · time` on one line; optional room row under. */
 export function PostIdentityMeta({
   name,
   accountId,
@@ -36,6 +37,7 @@ export function PostIdentityMeta({
     timestamp != null ? postTimestampIso(timestamp) : undefined;
   const showTime = timestamp != null && timestamp !== '';
   const profileHandleHref = handleHref ?? authorHref;
+  const roomLabel = channel?.trim().replace(/^#/, '') || null;
 
   const nameNode = authorHref ? (
     <Link href={authorHref} className="post-identity-name" scroll={false}>
@@ -98,8 +100,14 @@ export function PostIdentityMeta({
         </div>
         {trailing}
       </div>
-      {channel ? (
-        <span className="post-identity-channel">#{channel}</span>
+      {roomLabel ? (
+        <span className="post-identity-channel">
+          <MessageFillIcon
+            className="post-identity-channel-icon"
+            aria-hidden
+          />
+          <span className="post-identity-channel-label">{roomLabel}</span>
+        </span>
       ) : null}
     </div>
   );

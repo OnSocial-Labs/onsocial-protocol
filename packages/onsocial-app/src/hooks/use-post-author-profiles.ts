@@ -1,4 +1,8 @@
+'use client';
+
 import { useEffect, useState } from 'react';
+import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { resolveProfileMediaUrl } from '@/lib/profile-display';
 
 export interface PostAuthorProfile {
   accountId: string;
@@ -7,87 +11,141 @@ export interface PostAuthorProfile {
 }
 
 const profileCache = new Map<string, PostAuthorProfile | null>();
-const profileInFlight = new Map<string, Promise<PostAuthorProfile | null>>();
+const batchInFlight = new Map<string, Promise<Record<string, PostAuthorProfile>>>();
 
-async function fetchPostAuthorProfile(
-  accountId: string
-): Promise<PostAuthorProfile | null> {
-  const cached = profileCache.get(accountId);
-  if (cached !== undefined) {
-    return cached;
-  }
-
-  const existing = profileInFlight.get(accountId);
-  if (existing) {
-    return existing;
-  }
-
-  const request = fetch(
-    `/api/profile/shell?${new URLSearchParams({ accountId }).toString()}`
-  )
-    .then(async (response) => {
-      if (!response.ok) return null;
-      return (await response
-        .json()
-        .catch(() => null)) as PostAuthorProfile | null;
-    })
-    .then((profile) => {
-      const resolved =
-        profile && profile.accountId === accountId
-          ? {
-              accountId,
-              displayName: profile.displayName,
-              avatarUrl: profile.avatarUrl ?? null,
-            }
-          : null;
-      profileCache.set(accountId, resolved);
-      return resolved;
-    })
-    .catch(() => {
-      profileCache.set(accountId, null);
-      return null;
-    })
-    .finally(() => {
-      profileInFlight.delete(accountId);
-    });
-
-  profileInFlight.set(accountId, request);
-  return request;
+function toPostAuthorProfile(
+  accountId: string,
+  name?: string | null,
+  avatar?: string | null
+): PostAuthorProfile | null {
+  const displayName = name?.trim() ?? '';
+  const avatarUrl = resolveProfileMediaUrl(avatar);
+  if (!displayName && !avatarUrl) return null;
+  return { accountId, displayName, avatarUrl };
 }
 
-export function usePostAuthorProfiles(accountIds: string[]) {
+function readCachedProfiles(
+  accountIds: string[]
+): Record<string, PostAuthorProfile> {
+  const out: Record<string, PostAuthorProfile> = {};
+  for (const accountId of accountIds) {
+    const cached = profileCache.get(accountId);
+    if (cached) out[accountId] = cached;
+  }
+  return out;
+}
+
+export function seedPostAuthorProfile(profile: PostAuthorProfile): void {
+  const displayName = profile.displayName.trim();
+  const avatarUrl = profile.avatarUrl ?? null;
+  if (!displayName && !avatarUrl) return;
+  profileCache.set(profile.accountId, {
+    accountId: profile.accountId,
+    displayName,
+    avatarUrl,
+  });
+}
+
+export function seedPostAuthorProfiles(profiles: PostAuthorProfile[]): void {
+  for (const profile of profiles) {
+    seedPostAuthorProfile(profile);
+  }
+}
+
+type FeedAuthorSeed = {
+  accountId: string;
+  authorName?: string | null;
+  authorAvatar?: string | null;
+  refAuthor?: string | null;
+  refAuthorName?: string | null;
+  refAuthorAvatar?: string | null;
+};
+
+export function seedPostAuthorProfilesFromFeed(
+  posts: FeedAuthorSeed[]
+): void {
+  for (const post of posts) {
+    const main = toPostAuthorProfile(
+      post.accountId,
+      post.authorName,
+      post.authorAvatar
+    );
+    if (main) seedPostAuthorProfile(main);
+
+    if (post.refAuthor) {
+      const quoted = toPostAuthorProfile(
+        post.refAuthor,
+        post.refAuthorName,
+        post.refAuthorAvatar
+      );
+      if (quoted) seedPostAuthorProfile(quoted);
+    }
+  }
+}
+
+async function fetchPostAuthorProfilesBatch(
+  accountIds: string[]
+): Promise<Record<string, PostAuthorProfile>> {
+  const uniqueIds = Array.from(new Set(accountIds.filter(Boolean))).sort();
+  if (uniqueIds.length === 0) return {};
+
+  const fromCache = readCachedProfiles(uniqueIds);
+  const missing = uniqueIds.filter((id) => !profileCache.has(id));
+  if (missing.length === 0) return fromCache;
+
+  const batchKey = missing.join('\n');
+  const existing = batchInFlight.get(batchKey);
+  if (existing) {
+    const fetched = await existing;
+    return { ...fromCache, ...fetched };
+  }
+
+  const request = (async (): Promise<Record<string, PostAuthorProfile>> => {
+    const client = createReadOnlyOnSocialClient();
+    const rows = await client.query.profiles.statsForAccounts(missing);
+    const byId = new Map(rows.map((row) => [row.accountId, row] as const));
+    const next: Record<string, PostAuthorProfile> = {};
+
+    for (const accountId of missing) {
+      const row = byId.get(accountId);
+      const profile = row
+        ? toPostAuthorProfile(accountId, row.name, row.avatar)
+        : null;
+      profileCache.set(accountId, profile);
+      if (profile) next[accountId] = profile;
+    }
+
+    return next;
+  })().finally(() => {
+    batchInFlight.delete(batchKey);
+  });
+
+  batchInFlight.set(batchKey, request);
+  const fetched = await request;
+  return { ...fromCache, ...fetched };
+}
+
+export function usePostAuthorProfiles(
+  accountIds: string[]
+): Record<string, PostAuthorProfile> {
   const accountIdsKey = Array.from(new Set(accountIds.filter(Boolean)))
     .sort()
     .join('\n');
-  const [profiles, setProfiles] = useState<Record<string, PostAuthorProfile>>(
-    {}
-  );
+  const uniqueAccountIds = accountIdsKey ? accountIdsKey.split('\n') : [];
+  // Re-read module cache each render so feed seeding paints names immediately.
+  const fromCache = readCachedProfiles(uniqueAccountIds);
+  const [fetched, setFetched] = useState<Record<string, PostAuthorProfile>>({});
+  const [fetchedKey, setFetchedKey] = useState('');
 
   useEffect(() => {
-    if (!accountIdsKey) {
-      return;
-    }
+    if (!accountIdsKey) return;
 
-    const uniqueAccountIds = accountIdsKey.split('\n');
     let cancelled = false;
 
-    void Promise.all(
-      uniqueAccountIds.map(
-        async (accountId): Promise<[string, PostAuthorProfile | null]> => [
-          accountId,
-          await fetchPostAuthorProfile(accountId),
-        ]
-      )
-    ).then((entries) => {
+    void fetchPostAuthorProfilesBatch(uniqueAccountIds).then((next) => {
       if (cancelled) return;
-
-      const nextProfiles: Record<string, PostAuthorProfile> = {};
-      for (const [accountId, profile] of entries) {
-        if (profile) {
-          nextProfiles[accountId] = profile;
-        }
-      }
-      setProfiles(nextProfiles);
+      setFetched(next);
+      setFetchedKey(accountIdsKey);
     });
 
     return () => {
@@ -99,5 +157,6 @@ export function usePostAuthorProfiles(accountIds: string[]) {
     return {};
   }
 
-  return profiles;
+  const activeFetched = fetchedKey === accountIdsKey ? fetched : {};
+  return { ...fromCache, ...activeFetched };
 }

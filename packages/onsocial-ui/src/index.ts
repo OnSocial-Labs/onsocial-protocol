@@ -43,6 +43,7 @@ export {
   GlobeFillIcon,
   GiftFillIcon,
   HeartFillIcon,
+  MessageFillIcon,
   PenFillIcon,
   UserCircleFillIcon,
   type MageFillIconProps,

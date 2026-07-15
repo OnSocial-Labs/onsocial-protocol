@@ -538,6 +538,40 @@ WHERE p.name IS NOT NULL
    OR p.banner IS NOT NULL;
 
 -- ────────────────────────────────────────────────────────────────────────────
+-- 6c. posts_feed — posts + author shell + optional guild name (Home/list UIs)
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE VIEW posts_feed AS
+SELECT
+  p.account_id,
+  p.post_id,
+  p.value,
+  p.block_height,
+  p.block_timestamp,
+  p.receipt_id,
+  p.parent_path,
+  p.parent_author,
+  p.parent_type,
+  p.ref_path,
+  p.ref_author,
+  p.ref_type,
+  p.channel,
+  p.kind,
+  p.audiences,
+  p.group_id,
+  p.is_group_content,
+  ps.name AS author_name,
+  ps.avatar AS author_avatar,
+  g.group_name AS group_name
+FROM posts_current p
+LEFT JOIN profile_search ps
+  ON ps.account_id = p.account_id
+LEFT JOIN groups_current g
+  ON g.group_id = p.group_id
+ AND p.group_id IS NOT NULL
+ AND p.group_id <> '';
+
+-- ────────────────────────────────────────────────────────────────────────────
 -- 7. thread_replies — posts that are replies
 -- ────────────────────────────────────────────────────────────────────────────
 

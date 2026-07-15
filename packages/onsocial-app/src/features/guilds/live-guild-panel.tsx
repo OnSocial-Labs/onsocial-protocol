@@ -55,7 +55,7 @@ import {
   GuildManageMenu,
   type GuildManageSheetId,
 } from '@/features/guilds/guild-manage-menu';
-import { guildDisplayInitials } from '@/features/guilds/guild-card-display';
+import { guildDisplayInitials, guildDisplayName } from '@/features/guilds/guild-card-display';
 import { GuildMemberRequestsSheet } from '@/features/guilds/guild-member-requests-sheet';
 import { GuildMembersSheet } from '@/features/guilds/guild-members-sheet';
 import { GuildEditSheet } from '@/features/guilds/guild-edit-sheet';
@@ -97,6 +97,11 @@ import {
   readGroupStatsCreatedAt,
   resolveGuildMemberCount,
 } from '@/features/guilds/guild-facts';
+import {
+  readGuildShellCache,
+  writeGuildShellCache,
+  type GuildShellCacheEntry,
+} from '@/lib/guild-shell-cache';
 import {
   txToastConfirming,
   txToastError,
@@ -180,6 +185,9 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [optimisticJoinPending, setOptimisticJoinPending] = useState(false);
   const [headerElevated, setHeaderElevated] = useState(false);
+  const [shellPreview, setShellPreview] = useState<GuildShellCacheEntry | null>(
+    () => readGuildShellCache(groupId) ?? null
+  );
   const [confirmingLeave, setConfirmingLeave] = useState(false);
   const [manageSheet, setManageSheet] = useState<GuildManageSheetId | null>(
     null
@@ -223,7 +231,14 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
   );
   const canAddMember = Boolean(viewer?.isOwner || viewer?.isAdmin);
   const showManageMenu = Boolean(viewer?.isMember);
-  const title = config?.name ?? groupId;
+  const resolvedDisplayName =
+    config
+      ? guildDisplayName(config.name, groupId)
+      : shellPreview
+        ? guildDisplayName(shellPreview.name, groupId)
+        : null;
+  const title =
+    headerElevated && resolvedDisplayName ? resolvedDisplayName : 'Guild';
   const viewerAccess = useMemo(
     () => ({
       isMember: viewer?.isMember ?? false,
@@ -238,6 +253,14 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     () => (config ? enabledGuildSpaces(config.structure) : []),
     [config]
   );
+  const channelTitleById = useMemo(() => {
+    const titles: Record<string, string> = {};
+    for (const space of feedSpaces) {
+      titles[space.id] = space.title;
+      titles[guildSpaceFeedChannel(space)] = space.title;
+    }
+    return titles;
+  }, [feedSpaces]);
   const postableSpaces = useMemo(
     () => (config ? composerGuildSpaces(config.structure, viewerAccess) : []),
     [config, viewerAccess]
@@ -400,6 +423,15 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     }
 
     const normalizedConfig = normalizeGuildConfig(groupId, rawConfig);
+    const shellEntry: GuildShellCacheEntry = {
+      name: normalizedConfig.name,
+      avatarUrl: normalizedConfig.avatarUrl,
+      bannerUrl: normalizedConfig.bannerUrl,
+      accessGated: normalizedConfig.accessGated,
+      memberDriven: normalizedConfig.memberDriven,
+    };
+    writeGuildShellCache(groupId, shellEntry);
+    setShellPreview(shellEntry);
 
     const [statsResult, membersResult, viewerResult, postCountResult] =
       await Promise.allSettled([
@@ -488,6 +520,11 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
   }, [refreshFeed, refreshShell]);
 
   useEffect(() => {
+    setShellPreview(readGuildShellCache(groupId) ?? null);
+    setHeaderElevated(false);
+  }, [groupId]);
+
+  useEffect(() => {
     if (walletLoading) return;
     hasLoadedRef.current = false;
     void refresh();
@@ -508,7 +545,10 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
 
   useEffect(() => {
     const scrollRoot = scrollRootRef.current;
-    if (!scrollRoot || loadState !== 'ready') return;
+    const canElevate =
+      loadState === 'ready' ||
+      (loadState === 'loading' && Boolean(shellPreview));
+    if (!scrollRoot || !canElevate) return;
 
     // Title handoff: elevate once the hero name scrolls under the immersive bar.
     const heroTitle = heroTitleRef.current;
@@ -516,7 +556,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       '.os-app-screen-header'
     );
 
-  const syncElevated = () => {
+    const syncElevated = () => {
       const scrolled = scrollRoot.scrollTop > 8;
       if (!heroTitle) {
         setHeaderElevated(scrollRoot.scrollTop > 18);
@@ -542,7 +582,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       scrollRoot.removeEventListener('scroll', syncElevated);
       window.removeEventListener('resize', syncElevated);
     };
-  }, [loadState]);
+  }, [loadState, shellPreview?.name]);
 
   useEffect(() => {
     const timers = reconcileTimersRef.current;
@@ -985,11 +1025,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     <OsAppScreen
       title={title}
       // Hero owns name + mode; nav title fades in on scroll only.
-      subtitle={
-        loadState === 'ready'
-          ? undefined
-          : 'Guilds are public on-chain communities with invite-only participation when gated.'
-      }
+      // Loading stays title-only — no marketing subtitle / raw groupId flash.
       backFallbackHref="/groups"
       actions={
         loadState === 'ready' && config && (showManageMenu || canManageGuild) ? (
@@ -1024,12 +1060,83 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
           </>
         ) : undefined
       }
-      immersiveHeader={loadState === 'ready'}
+      immersiveHeader={loadState === 'loading' || loadState === 'ready'}
       headerElevated={headerElevated}
       scrollRootRef={scrollRootRef}
     >
       <div className="guilds-page">
-        {loadState === 'loading' ? <PostRowSkeleton rows={4} /> : null}
+        {loadState === 'loading' ? (
+          <div
+            className="guild-loading"
+            aria-busy="true"
+            aria-label="Loading guild"
+          >
+            {shellPreview ? (
+              <section className="guild-hero">
+                <div
+                  className={guildHeroCoverClassName(shellPreview.bannerUrl)}
+                  style={guildCoverStyle(shellPreview.bannerUrl, groupId)}
+                  aria-hidden
+                >
+                  {shellPreview.bannerUrl ? (
+                    <img src={shellPreview.bannerUrl} alt="" />
+                  ) : null}
+                </div>
+
+                <div className="guild-hero-identity">
+                  <div className="guild-hero-avatar-shell">
+                    <div
+                      className={`guild-hero-avatar${
+                        shellPreview.avatarUrl
+                          ? ' has-media'
+                          : ' guild-hero-avatar--fallback'
+                      }`}
+                      style={
+                        shellPreview.avatarUrl
+                          ? guildAvatarFillStyle(shellPreview.avatarUrl)
+                          : guildCoverStyle(null, groupId)
+                      }
+                      aria-hidden
+                    >
+                      {shellPreview.avatarUrl ? null : (
+                        <span>
+                          {guildDisplayInitials(shellPreview.name, groupId)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <h2 ref={heroTitleRef}>
+                  {guildDisplayName(shellPreview.name, groupId)}
+                </h2>
+
+                <div className="guild-hero-meta">
+                  <span className="guild-hero-mode-row">
+                    <span className="guild-hero-mode">
+                      {guildAccessLabel(
+                        shellPreview.accessGated,
+                        shellPreview.memberDriven
+                      )}
+                    </span>
+                  </span>
+                </div>
+              </section>
+            ) : (
+              <div className="guild-loading-hero" aria-hidden>
+                <div className="guild-loading-cover standing-row-shimmer" />
+                <div className="guild-loading-identity">
+                  <div className="guild-loading-avatar standing-row-shimmer" />
+                  <div className="guild-loading-lines">
+                    <div className="standing-row-shimmer guild-loading-line" />
+                    <div className="standing-row-shimmer guild-loading-line-sm" />
+                  </div>
+                </div>
+              </div>
+            )}
+            <PostRowSkeleton rows={3} />
+          </div>
+        ) : null}
 
         {loadState === 'missing' ? (
           <section className="guild-hero-card">
@@ -1220,6 +1327,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                         block={block}
                         groupId={groupId}
                         showChannel={selectedFeedFilterId === 'all'}
+                        channelTitleById={channelTitleById}
                         postAuthorProfiles={postAuthorProfiles}
                         quotedPosts={quotedPosts}
                         engagement={engagement}

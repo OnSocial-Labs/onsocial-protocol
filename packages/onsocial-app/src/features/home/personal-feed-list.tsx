@@ -5,7 +5,14 @@ import { Divider } from '@onsocial/ui';
 import type { PostRow } from '@onsocial/sdk';
 import { FeedThreadBlock } from '@/features/guilds/feed-thread-block';
 import { postKey } from '@/features/home/post-card';
-import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
+import {
+  seedPostAuthorProfilesFromFeed,
+  usePostAuthorProfiles,
+} from '@/hooks/use-post-author-profiles';
+import {
+  seedGuildDisplayNamesFromFeed,
+  useGuildDisplayNames,
+} from '@/hooks/use-guild-display-names';
 import { usePostEngagement } from '@/hooks/use-post-engagement';
 import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useQuotedPosts } from '@/hooks/use-quoted-posts';
@@ -17,6 +24,10 @@ interface PersonalFeedListProps {
   onQuote?: (post: PostRow) => void;
   onEngagementError?: (message: string) => void;
   className?: string;
+  /** Hashtag results include replies to other people. */
+  includeForeignReplies?: boolean;
+  /** Home / hashtag mixed feed — guild source chip on group posts. */
+  showGuildAttribution?: boolean;
 }
 
 /** Shared home/profile feed rendering — thread blocks + quote insets + polls. */
@@ -26,9 +37,19 @@ export function PersonalFeedList({
   onQuote,
   onEngagementError,
   className,
+  includeForeignReplies = false,
+  showGuildAttribution = false,
 }: PersonalFeedListProps) {
-  const feedBlocks = useMemo(() => coalesceFeedThreads(posts), [posts]);
+  seedPostAuthorProfilesFromFeed(posts);
+  seedGuildDisplayNamesFromFeed(posts);
+
+  const feedBlocks = useMemo(
+    () => coalesceFeedThreads(posts, { includeForeignReplies }),
+    [includeForeignReplies, posts]
+  );
   const quotedPosts = useQuotedPosts(posts);
+  seedPostAuthorProfilesFromFeed(Object.values(quotedPosts));
+  seedGuildDisplayNamesFromFeed(Object.values(quotedPosts));
 
   const authorIds = useMemo(() => {
     const ids = new Set<string>();
@@ -39,7 +60,17 @@ export function PersonalFeedList({
     return Array.from(ids);
   }, [posts, quotedPosts]);
 
+  const guildIds = useMemo(() => {
+    if (!showGuildAttribution) return [];
+    const ids = new Set<string>();
+    for (const post of posts) {
+      if (post.groupId) ids.add(post.groupId);
+    }
+    return Array.from(ids);
+  }, [posts, showGuildAttribution]);
+
   const postAuthorProfiles = usePostAuthorProfiles(authorIds);
+  const guildNameById = useGuildDisplayNames(guildIds);
   const { engagement, toggleReaction, isReactionPending } = usePostEngagement(
     posts,
     { onError: onEngagementError }
@@ -71,6 +102,8 @@ export function PersonalFeedList({
             }}
             onReply={onReply}
             onQuote={onQuote}
+            showGuildAttribution={showGuildAttribution}
+            guildNameById={guildNameById}
           />
         </div>
       ))}

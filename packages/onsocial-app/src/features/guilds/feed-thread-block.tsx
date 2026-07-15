@@ -20,6 +20,11 @@ interface FeedThreadBlockProps {
   /** When set, cards prefer this guild for thread links. */
   groupId?: string;
   showChannel?: boolean;
+  /** Map post `channel` ids → room titles for the All feed. */
+  channelTitleById?: Record<string, string>;
+  /** Home / hashtag: show guild source above the author. */
+  showGuildAttribution?: boolean;
+  guildNameById?: Record<string, string>;
   postAuthorProfiles: Record<string, PostAuthorProfile>;
   quotedPosts: Record<string, PostRow>;
   engagement: Record<string, PostEngagement>;
@@ -60,6 +65,9 @@ export function FeedThreadBlock({
   block,
   groupId,
   showChannel = false,
+  channelTitleById,
+  showGuildAttribution = false,
+  guildNameById,
   postAuthorProfiles,
   quotedPosts,
   engagement,
@@ -123,6 +131,15 @@ export function FeedThreadBlock({
           authorProfile={postAuthorProfiles[post.accountId]}
           actionHref={actionHref}
           showChannel={showChannel}
+          channelLabel={
+            showChannel && post.channel
+              ? channelTitleById?.[post.channel] ?? post.channel
+              : undefined
+          }
+          showGuildAttribution={showGuildAttribution}
+          guildName={
+            post.groupId ? guildNameById?.[post.groupId] : undefined
+          }
           showRelationBadge={first}
           className={first ? undefined : 'post-card--chain-cont'}
           quotedPost={quoted}

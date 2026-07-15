@@ -17,10 +17,12 @@ import {
 } from '@/features/guilds/guild-composer-sheet';
 import {
   canViewerPostInChannel,
+  guildSpaceFeedChannel,
   parseGuildStructure,
   type GuildStructureDocument,
   type GuildViewerAccess,
 } from '@/features/guilds/guild-structure';
+import { guildDisplayName } from '@/features/guilds/guild-card-display';
 import {
   inheritedGuildReplyFeedMeta,
   parseGuildPostAudiences,
@@ -108,6 +110,7 @@ export function LiveGuildPostPanel({
   const [localQuotes, setLocalQuotes] = useState<PostRow[]>([]);
   const [guildStructure, setGuildStructure] =
     useState<GuildStructureDocument | null>(null);
+  const [guildName, setGuildName] = useState<string | null>(null);
   const [viewerAccess, setViewerAccess] = useState<GuildViewerAccess>({
     isMember: false,
     isOwner: false,
@@ -131,6 +134,15 @@ export function LiveGuildPostPanel({
   const reconcileTimersRef = useRef<number[]>([]);
 
   const rootPath = groupPostContentPath(author, groupId, postId);
+  const channelTitleById = useMemo(() => {
+    if (!guildStructure) return {};
+    const titles: Record<string, string> = {};
+    for (const space of guildStructure.spaces) {
+      titles[space.id] = space.title;
+      titles[guildSpaceFeedChannel(space)] = space.title;
+    }
+    return titles;
+  }, [guildStructure]);
   const treePosts = useMemo(() => flattenTreePosts(replyTree), [replyTree]);
   // Author's thread + folded branches as display rows, with chain-confirmed
   // local replies appended until the indexer catches up.
@@ -264,8 +276,12 @@ export function LiveGuildPostPanel({
 
         if (rawConfig) {
           setGuildStructure(parseGuildStructure(rawConfig));
+          const named =
+            typeof rawConfig.name === 'string' ? rawConfig.name : null;
+          setGuildName(named);
         } else {
           setGuildStructure(null);
+          setGuildName(null);
         }
 
         if (accountId && rawConfig) {
@@ -601,8 +617,7 @@ export function LiveGuildPostPanel({
 
   return (
     <OsAppScreen
-      title="Guild thread"
-      subtitle={groupId}
+      title={guildDisplayName(guildName, groupId)}
       backFallbackHref={guildPath(groupId)}
     >
       <div className="guilds-page">
@@ -695,6 +710,12 @@ export function LiveGuildPostPanel({
                   showRelationBadge={!hasParent}
                   // Thread is reached from anywhere — root keeps channel context.
                   showChannel
+                  channelLabel={
+                    conversation.root.channel
+                      ? channelTitleById[conversation.root.channel] ??
+                        conversation.root.channel
+                      : undefined
+                  }
                   quotedPost={
                     conversation.root.refPath
                       ? quotedPosts[conversation.root.refPath]

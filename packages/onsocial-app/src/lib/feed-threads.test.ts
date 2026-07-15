@@ -49,6 +49,19 @@ describe('coalesceFeedThreads', () => {
     expect(coalesceFeedThreads([reply, parent])).toEqual([[parent]]);
   });
 
+  it('keeps cross-author replies when includeForeignReplies is set', () => {
+    const parent = post({ postId: 'root', accountId: 'bob.near' });
+    const reply = post({
+      postId: 'r1',
+      parentPath: parentPathFor('bob.near', 'root'),
+      parentAuthor: 'bob.near',
+    });
+
+    expect(
+      coalesceFeedThreads([reply, parent], { includeForeignReplies: true })
+    ).toEqual([[reply], [parent]]);
+  });
+
   it('hides a self-thread rooted in a reply to someone else', () => {
     const bobsPost = post({ postId: 'root', accountId: 'bob.near' });
     const aliceReply = post({

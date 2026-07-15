@@ -302,6 +302,42 @@ export class GroupsQuery {
   }
 
   /**
+   * Look up indexed guild rows by id (`groups_current`).
+   *
+   * ```ts
+   * const rows = await os.query.groups.byIds(['dao', 'builders']);
+   * ```
+   */
+  async byIds(groupIds: string[]): Promise<GroupCurrentRow[]> {
+    const ids = Array.from(
+      new Set(groupIds.map((id) => id.trim()).filter(Boolean))
+    );
+    if (ids.length === 0) return [];
+
+    const res = await this._q.graphql<{ groupsCurrent: GroupCurrentRow[] }>({
+      query: `query GroupsByIds($ids: [String!]!, $limit: Int!) {
+        groupsCurrent(
+          where: { groupId: { _in: $ids } },
+          limit: $limit
+        ) {
+          groupId
+          ownerId
+          groupName
+          groupDescription
+          groupAvatarCid
+          groupBannerCid
+          isPublic
+          isMemberDriven
+          blockHeight
+          blockTimestamp
+        }
+      }`,
+      variables: { ids, limit: ids.length },
+    });
+    return res.data?.groupsCurrent ?? [];
+  }
+
+  /**
    * Browse indexed guilds from `groups_current` (discover / search).
    *
    * ```ts

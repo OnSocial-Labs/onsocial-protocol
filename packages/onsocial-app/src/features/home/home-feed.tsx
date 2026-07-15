@@ -1,28 +1,32 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { HomeFeedLensMenu } from '@/features/home/home-feed-lens-menu';
 import {
   homeFeedLensEmptyCopy,
-  homeFeedLensSubtitle,
   readStoredHomeFeedLens,
   resolveHomeFeedLens,
   writeStoredHomeFeedLens,
   type HomeFeedLens,
 } from '@/features/home/home-feed-lens';
+import { HomeActiveHashtagProvider } from '@/features/home/home-active-hashtag';
 import { HomeHashtagSearch } from '@/features/home/home-hashtag-search-field';
 import {
   homeHashtagEmptyCopy,
-  homeHashtagSubtitle,
+  homeHashtagPath,
+  HOME_HASHTAG_QUERY_KEY,
+  parseHomeHashtagParam,
 } from '@/features/home/home-hashtag-search';
 import {
   PersonalFeedList,
   shouldPrependOptimisticFeedPost,
 } from '@/features/home/personal-feed-list';
 import { usePersonalComposer } from '@/features/home/use-personal-composer';
+import { APP_HOME_PATH } from '@/lib/app-routes';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { revokeDroppedOptimisticMedia } from '@/lib/post-media';
 
@@ -60,6 +64,8 @@ async function loadHashtagFeed(tag: string): Promise<PostRow[]> {
 }
 
 export function HomePagePanel() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const {
     accountId,
     isConnected,
@@ -70,8 +76,16 @@ export function HomePagePanel() {
   const [error, setError] = useState<string | null>(null);
   const [lens, setLens] = useState<HomeFeedLens>('global');
   const [lensReady, setLensReady] = useState(false);
-  const [hashtagQuery, setHashtagQuery] = useState('');
-  const [activeHashtag, setActiveHashtag] = useState<string | null>(null);
+  const activeHashtag = parseHomeHashtagParam(
+    searchParams.get(HOME_HASHTAG_QUERY_KEY)
+  );
+  const [hashtagQuery, setHashtagQuery] = useState(() =>
+    activeHashtag ? `#${activeHashtag}` : ''
+  );
+
+  useEffect(() => {
+    setHashtagQuery(activeHashtag ? `#${activeHashtag}` : '');
+  }, [activeHashtag]);
 
   useEffect(() => {
     if (walletLoading) return;
@@ -113,8 +127,8 @@ export function HomePagePanel() {
 
   const clearHashtagSearch = useCallback(() => {
     setHashtagQuery('');
-    setActiveHashtag(null);
-  }, []);
+    router.replace(APP_HOME_PATH, { scroll: false });
+  }, [router]);
 
   const handleLensChange = useCallback(
     (next: HomeFeedLens) => {
@@ -126,10 +140,13 @@ export function HomePagePanel() {
     [clearHashtagSearch, isConnected]
   );
 
-  const handleCommitHashtag = useCallback((tag: string) => {
-    setHashtagQuery(`#${tag}`);
-    setActiveHashtag(tag);
-  }, []);
+  const handleCommitHashtag = useCallback(
+    (tag: string) => {
+      setHashtagQuery(`#${tag}`);
+      router.replace(homeHashtagPath(tag), { scroll: false });
+    },
+    [router]
+  );
 
   const destinationLabel = useMemo(
     () => (accountId ? `@${accountId} · Public` : 'Public'),
@@ -150,67 +167,66 @@ export function HomePagePanel() {
   const replyHandler = isConnected ? openReply : undefined;
   const quoteHandler = isConnected ? openQuote : undefined;
 
-  const subtitle = activeHashtag
-    ? homeHashtagSubtitle(activeHashtag)
-    : homeFeedLensSubtitle(activeLens);
-
   const emptyCopy = activeHashtag
     ? homeHashtagEmptyCopy(activeHashtag)
     : homeFeedLensEmptyCopy(activeLens);
 
   return (
-    <OsAppScreen
-      title="Home"
-      subtitle={subtitle}
-      backFallbackHref="/"
-      toolbar={
-        <div className="home-feed-toolbar">
-          <HomeFeedLensMenu
-            lens={activeLens}
-            onLensChange={handleLensChange}
-            standingAvailable={isConnected}
-          />
-          <HomeHashtagSearch
-            query={hashtagQuery}
-            onQueryChange={setHashtagQuery}
-            activeTag={activeHashtag}
-            onCommitTag={handleCommitHashtag}
-            onClear={clearHashtagSearch}
-          />
+    <HomeActiveHashtagProvider tag={activeHashtag}>
+      <OsAppScreen
+        title="Home"
+        backFallbackHref="/"
+        toolbar={
+          <div className="home-feed-toolbar">
+            <HomeFeedLensMenu
+              lens={activeLens}
+              onLensChange={handleLensChange}
+              standingAvailable={isConnected}
+            />
+            <HomeHashtagSearch
+              query={hashtagQuery}
+              onQueryChange={setHashtagQuery}
+              activeTag={activeHashtag}
+              onCommitTag={handleCommitHashtag}
+              onClear={clearHashtagSearch}
+            />
+          </div>
+        }
+      >
+        <div className="home-feed">
+          {!isConnected && !walletLoading ? (
+            <section className="post-composer post-composer-guest">
+              <p className="post-composer-lead">Connect your wallet to post.</p>
+            </section>
+          ) : null}
+
+          {isLoading ? (
+            <div className="home-feed-state">Loading feed…</div>
+          ) : null}
+
+          {!isLoading && error ? (
+            <div className="home-feed-state is-error">{error}</div>
+          ) : null}
+
+          {!isLoading && !error && posts.length === 0 ? (
+            <div className="home-feed-state">{emptyCopy}</div>
+          ) : null}
+
+          {!isLoading && !error && posts.length > 0 ? (
+            <PersonalFeedList
+              posts={posts}
+              includeForeignReplies={Boolean(activeHashtag)}
+              showGuildAttribution
+              onReply={replyHandler}
+              onQuote={quoteHandler}
+              onEngagementError={(message) => setError(message)}
+            />
+          ) : null}
+
+          {sheet}
         </div>
-      }
-    >
-      <div className="home-feed">
-        {!isConnected && !walletLoading ? (
-          <section className="post-composer post-composer-guest">
-            <p className="post-composer-lead">Connect your wallet to post.</p>
-          </section>
-        ) : null}
-
-        {isLoading ? (
-          <div className="home-feed-state">Loading feed…</div>
-        ) : null}
-
-        {!isLoading && error ? (
-          <div className="home-feed-state is-error">{error}</div>
-        ) : null}
-
-        {!isLoading && !error && posts.length === 0 ? (
-          <div className="home-feed-state">{emptyCopy}</div>
-        ) : null}
-
-        {!isLoading && !error && posts.length > 0 ? (
-          <PersonalFeedList
-            posts={posts}
-            onReply={replyHandler}
-            onQuote={quoteHandler}
-            onEngagementError={(message) => setError(message)}
-          />
-        ) : null}
-
-        {sheet}
-      </div>
-    </OsAppScreen>
+      </OsAppScreen>
+    </HomeActiveHashtagProvider>
   );
 }
 

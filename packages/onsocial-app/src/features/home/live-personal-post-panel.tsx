@@ -400,7 +400,6 @@ export function LivePersonalPostPanel({
   return (
     <OsAppScreen
       title="Post"
-      subtitle={`@${author}`}
       backFallbackHref={portfolioPath(author)}
     >
       <div className="guilds-page">

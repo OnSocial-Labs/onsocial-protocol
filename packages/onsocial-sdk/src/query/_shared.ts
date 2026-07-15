@@ -21,7 +21,7 @@ export class GraphQLValidationError extends Error {
   }
 }
 
-/** Row from `postsCurrent` view. */
+/** Row from `postsCurrent` / `postsFeed` view. */
 export interface PostRow {
   accountId: string;
   postId: string;
@@ -40,12 +40,26 @@ export interface PostRow {
   audiences?: string;
   groupId?: string;
   isGroupContent?: boolean;
+  /** Present when row comes from `posts_feed` or client enrich. */
+  authorName?: string | null;
+  authorAvatar?: string | null;
+  groupName?: string | null;
+  /** Present when client enrich hydrates quoted-author shells. */
+  refAuthorName?: string | null;
+  refAuthorAvatar?: string | null;
 }
 
 export const POST_ROW_FIELDS = `
   accountId postId value blockHeight blockTimestamp receiptId
   parentPath parentAuthor parentType refPath refAuthor refType channel kind audiences
   groupId isGroupContent
+`;
+
+export const FEED_POST_ROW_FIELDS = `
+  accountId postId value blockHeight blockTimestamp receiptId
+  parentPath parentAuthor parentType refPath refAuthor refType channel kind audiences
+  groupId isGroupContent
+  authorName authorAvatar groupName
 `;
 
 export function accountFromContentPath(path: string): string {

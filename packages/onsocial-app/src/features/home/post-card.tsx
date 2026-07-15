@@ -13,13 +13,16 @@ import {
   MessageRoundIcon,
   ProfileAvatar,
   RepeatIcon,
+  UsersFillIcon,
   osFloatingPanelBodyClassName,
   osFloatingPanelItemClassName,
   useDropdown,
 } from '@onsocial/ui';
+import { guildPath } from '@/features/guilds/guilds-data';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
 import { PostMediaStrip } from '@/features/home/post-media';
 import { PostPollEmbedCard } from '@/features/home/post-poll-embed';
+import { PostRichText } from '@/features/home/post-rich-text';
 import {
   parsePostPollEmbed,
   parsePostText,
@@ -56,8 +59,17 @@ interface PostCardProps {
   quotedHref?: string;
   /** Hide the `Replying to @x` context line (redundant inside thread tabs). */
   showRelationBadge?: boolean;
-  /** Show `#{channel}` under the identity line (mixed "All" feeds only). */
+  /** Show room under identity (guild “All” / thread root). */
   showChannel?: boolean;
+  /** Prefer room title when `channel` is an id. */
+  channelLabel?: string;
+  /**
+   * Mixed feeds (Home / hashtag): muted Users + guild name above the author.
+   * Skip inside a guild room where context is already the guild.
+   */
+  showGuildAttribution?: boolean;
+  /** Resolved guild display name when `showGuildAttribution` is on. */
+  guildName?: string;
   engagement?: PostEngagement;
   reactionPending?: boolean;
   onToggleReaction?: (post: PostRow) => void;
@@ -245,7 +257,9 @@ export function QuotedPostInset({
           >
             {/* Multi: text above mini-collage. Single: thumb beside text. */}
             {collage && text ? (
-              <p className="post-card-quote-inset-body">{text}</p>
+              <p className="post-card-quote-inset-body">
+                <PostRichText text={text} />
+              </p>
             ) : null}
             {collage ? (
               <PostMediaStrip
@@ -256,7 +270,9 @@ export function QuotedPostInset({
             ) : null}
             {thumb ? <QuoteMediaThumb item={thumb} /> : null}
             {!collage && text ? (
-              <p className="post-card-quote-inset-body">{text}</p>
+              <p className="post-card-quote-inset-body">
+                <PostRichText text={text} />
+              </p>
             ) : null}
           </div>
         ) : (
@@ -448,7 +464,9 @@ function PostCardBody({
       ) : null}
       {!hideText ? (
         <div className="post-card-body-block">
-          <p className="post-card-body">{bodyText || '…'}</p>
+          <p className="post-card-body">
+            <PostRichText text={bodyText} />
+          </p>
           {canExpand ? (
             <button
               type="button"
@@ -496,6 +514,9 @@ export function PostCard({
   quotedHref,
   showRelationBadge = true,
   showChannel = false,
+  channelLabel,
+  showGuildAttribution = false,
+  guildName,
   engagement,
   reactionPending,
   onToggleReaction,
@@ -520,6 +541,12 @@ export function PostCard({
     ? postRelationContext(post, Boolean(quotedPost))
     : null;
   const profileHref = portfolioPath(post.accountId);
+  const guildId = post.groupId?.trim() || null;
+  const guildLabel =
+    showGuildAttribution && guildId
+      ? guildName?.trim() || guildId
+      : null;
+  const guildHref = guildId ? guildPath(guildId) : null;
   const cardClassName = [
     'post-card',
     'animate-rise-in',
@@ -554,15 +581,32 @@ export function PostCard({
       </Link>
       <div className="post-card-copy">
         <header className="post-card-header">
-          <PostIdentityMeta
-            name={name}
-            accountId={post.accountId}
-            timestamp={post.blockTimestamp}
-            authorHref={profileHref}
-            timeHref={actionHref}
-            channel={showChannel ? (post.channel ?? undefined) : undefined}
-            trailing={<PostCardMenu href={actionHref} />}
-          />
+          <div className="post-card-header-stack">
+            {guildLabel && guildHref ? (
+              <Link
+                href={guildHref}
+                className="post-card-guild"
+                scroll={false}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <UsersFillIcon className="post-card-guild-icon" aria-hidden />
+                <span className="post-card-guild-name">{guildLabel}</span>
+              </Link>
+            ) : null}
+            <PostIdentityMeta
+              name={name}
+              accountId={post.accountId}
+              timestamp={post.blockTimestamp}
+              authorHref={profileHref}
+              timeHref={actionHref}
+              channel={
+                showChannel
+                  ? channelLabel?.trim() || post.channel || undefined
+                  : undefined
+              }
+              trailing={<PostCardMenu href={actionHref} />}
+            />
+          </div>
         </header>
         <PostCardBody
           relationContext={relationContext}

@@ -61,7 +61,7 @@ export function ComposerHashtagTextarea({
       >
         {segments.map((segment, index) =>
           segment.type === 'hashtag' ? (
-            <span key={`h-${index}`} className="guild-composer-hashtag">
+            <span key={`h-${index}`} className="os-hashtag">
               {segment.value}
             </span>
           ) : (
