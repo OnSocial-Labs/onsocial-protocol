@@ -262,22 +262,27 @@ export function QuotedPostInset({
 
 function QuoteMediaThumb({ item }: { item: PostMediaItem }) {
   const isVideo = isRenderablePostVideoMime(item.mime);
-  const [durationLabel, setDurationLabel] = useState('');
+  const [durationByUrl, setDurationByUrl] = useState<{
+    url: string;
+    label: string;
+  } | null>(null);
+  const durationLabel =
+    isVideo && durationByUrl?.url === item.url ? durationByUrl.label : '';
 
   useEffect(() => {
-    if (!isVideo) {
-      setDurationLabel('');
-      return;
-    }
+    if (!isVideo) return;
     let cancelled = false;
     const video = document.createElement('video');
     video.preload = 'metadata';
     video.onloadedmetadata = () => {
       if (cancelled) return;
-      setDurationLabel(formatMediaDuration(video.duration));
+      setDurationByUrl({
+        url: item.url,
+        label: formatMediaDuration(video.duration),
+      });
     };
     video.onerror = () => {
-      if (!cancelled) setDurationLabel('');
+      if (!cancelled) setDurationByUrl({ url: item.url, label: '' });
     };
     video.src = item.url;
     return () => {
@@ -298,7 +303,6 @@ function QuoteMediaThumb({ item }: { item: PostMediaItem }) {
           className="post-card-quote-thumb-media"
         />
       ) : (
-        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={item.url}
           alt=""

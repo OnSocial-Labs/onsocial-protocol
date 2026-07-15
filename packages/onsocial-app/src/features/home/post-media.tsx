@@ -69,24 +69,24 @@ export function PostMediaBlock({
   const isActivatable = Boolean(onActivate) && !onRemove && !focused;
   const wantsUnmutedAutoplay =
     playbackMode === 'detail-unmuted' && resumeFocusedVideo;
-  const [showUnmuteGate, setShowUnmuteGate] = useState(wantsUnmutedAutoplay);
+  const unmuteGateKey = wantsUnmutedAutoplay ? item.url : null;
+  const [clearedUnmuteGateKey, setClearedUnmuteGateKey] = useState<
+    string | null
+  >(null);
+  const showUnmuteGate =
+    unmuteGateKey !== null && clearedUnmuteGateKey !== unmuteGateKey;
 
   useEffect(() => {
-    if (!wantsUnmutedAutoplay) {
-      setShowUnmuteGate(false);
-      return;
-    }
-    setShowUnmuteGate(true);
+    if (!wantsUnmutedAutoplay) return;
     const video = videoRef.current;
     if (!video) return;
 
     const hideIfPlaying = () => {
-      if (!video.paused && !video.muted) setShowUnmuteGate(false);
+      if (!video.paused && !video.muted) setClearedUnmuteGateKey(item.url);
     };
-    hideIfPlaying();
     video.addEventListener('play', hideIfPlaying);
     video.addEventListener('volumechange', hideIfPlaying);
-    const timer = window.setTimeout(hideIfPlaying, 450);
+    const timer = window.setTimeout(hideIfPlaying, 0);
     return () => {
       video.removeEventListener('play', hideIfPlaying);
       video.removeEventListener('volumechange', hideIfPlaying);
@@ -130,7 +130,6 @@ export function PostMediaBlock({
           className="post-media-element"
         />
       ) : (
-        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={item.url}
           alt={item.alt?.trim() || ''}
@@ -148,7 +147,7 @@ export function PostMediaBlock({
             event.preventDefault();
             event.stopPropagation();
             playPostFocusVideo(index);
-            setShowUnmuteGate(false);
+            setClearedUnmuteGateKey(item.url);
           }}
         >
           <span className="post-media-unmute-gate-label">Play with sound</span>

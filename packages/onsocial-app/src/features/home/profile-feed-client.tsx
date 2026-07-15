@@ -29,8 +29,11 @@ export function ProfileFeedClient({
   const { accountId: viewerId, isConnected } = useAppWallet();
   const [posts, setPosts] = useState(initialPosts);
   const postsRef = useRef(posts);
-  postsRef.current = posts;
   const total = Math.max(postCount, posts.length);
+
+  useEffect(() => {
+    postsRef.current = posts;
+  }, [posts]);
 
   useEffect(() => {
     return () => {
