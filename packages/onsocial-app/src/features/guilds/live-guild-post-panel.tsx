@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import type { GroupConversation, PostRow, ThreadNode } from '@onsocial/sdk';
 import { Divider } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
@@ -44,11 +45,17 @@ import {
   type ThreadReplyRow,
 } from '@/lib/thread-display';
 import {
+  applyMediaKindOverride,
+  buildOptimisticMediaEntries,
+  readPostMediaUnmuteIndex,
+} from '@/lib/post-media';
+import {
   txToastConfirming,
   txToastError,
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import { playPostFocusVideo } from '@/hooks/use-post-list-video';
 
 type LoadState = 'loading' | 'ready' | 'missing' | 'error';
 type ThreadTab = 'replies' | 'quotes';
@@ -86,6 +93,9 @@ export function LiveGuildPostPanel({
   } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
+  const searchParams = useSearchParams();
+  const mediaUnmuted = searchParams.get('media') === 'unmute';
+  const mediaResumeIndex = readPostMediaUnmuteIndex(searchParams);
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [conversation, setConversation] = useState<GroupConversation>({
     root: null,
@@ -317,6 +327,11 @@ export function LiveGuildPostPanel({
     };
   }, []);
 
+  useEffect(() => {
+    if (!mediaUnmuted) return;
+    playPostFocusVideo(mediaResumeIndex);
+  }, [mediaUnmuted, mediaResumeIndex, conversation.root?.postId]);
+
   const scheduleReconcile = useCallback(() => {
     for (const delay of RECONCILE_DELAYS_MS) {
       reconcileTimersRef.current.push(
@@ -396,7 +411,8 @@ export function LiveGuildPostPanel({
   const performSubmit = async (
     target: PostRow,
     mode: GuildComposerMode,
-    text: string
+    text: string,
+    files: File[] = []
   ): Promise<{ confirmed: boolean; newPostId: string }> => {
     const newPostId = Date.now().toString();
     const { client } = await getClient();
@@ -405,19 +421,23 @@ export function LiveGuildPostPanel({
       groupId,
       postId: target.postId,
     };
-    const feedMeta = inheritedGuildReplyFeedMeta(target, {
-      fallbackChannel: threadChannel,
-      fallbackKind: conversation.root?.kind ?? null,
-      fallbackAudiences: conversation.root
-        ? parseGuildPostAudiences(conversation.root.audiences)
-        : undefined,
-    });
+    const feedMeta = applyMediaKindOverride(
+      inheritedGuildReplyFeedMeta(target, {
+        fallbackChannel: threadChannel,
+        fallbackKind: conversation.root?.kind ?? null,
+        fallbackAudiences: conversation.root
+          ? parseGuildPostAudiences(conversation.root.audiences)
+          : undefined,
+      }),
+      files
+    );
     const postData = {
       text,
       access: 'group' as const,
       groupId,
       timestamp: Date.now(),
       ...feedMeta,
+      ...(files.length ? { files } : {}),
     };
     const response =
       mode === 'quote'
@@ -444,17 +464,24 @@ export function LiveGuildPostPanel({
   const insertConfirmedRootChild = (
     mode: GuildComposerMode,
     text: string,
-    newPostId: string
+    newPostId: string,
+    files: File[] = []
   ) => {
     if (!accountId) return;
-    const feedMeta = conversation.root
-      ? inheritedGuildReplyFeedMeta(conversation.root)
-      : {};
+    const feedMeta = applyMediaKindOverride(
+      conversation.root ? inheritedGuildReplyFeedMeta(conversation.root) : {},
+      files
+    );
+    const media = files.length ? buildOptimisticMediaEntries(files) : undefined;
     // Chain-confirmed; show immediately while the indexer catches up.
     const confirmedRow: PostRow = {
       accountId,
       postId: newPostId,
-      value: JSON.stringify({ v: 1, text }),
+      value: JSON.stringify({
+        v: 1,
+        text,
+        ...(media ? { media } : {}),
+      }),
       blockHeight: 0,
       blockTimestamp: Date.now(),
       groupId,
@@ -485,7 +512,8 @@ export function LiveGuildPostPanel({
   const submitFromModal = async (payload: GuildComposerSubmit) => {
     const target = modalTarget;
     const text = payload.text.trim();
-    if (!target || modalPending || !text) return;
+    const files = payload.files ?? [];
+    if (!target || modalPending || (!text && !files.length)) return;
 
     const channel = target.channel ?? threadChannel;
     if (!canPostInChannel(channel)) {
@@ -504,13 +532,14 @@ export function LiveGuildPostPanel({
       const { confirmed, newPostId } = await performSubmit(
         target,
         modalMode,
-        text
+        text,
+        files
       );
       if (confirmed) {
         const targetsRoot =
           conversation.root && postKey(target) === postKey(conversation.root);
         if (targetsRoot) {
-          insertConfirmedRootChild(modalMode, text, newPostId);
+          insertConfirmedRootChild(modalMode, text, newPostId, files);
         } else {
           scheduleReconcile();
         }
@@ -654,6 +683,9 @@ export function LiveGuildPostPanel({
                   authorProfile={
                     postAuthorProfiles[conversation.root.accountId]
                   }
+                  mediaFocused
+                  mediaUnmuted={mediaUnmuted}
+                  mediaResumeIndex={mediaResumeIndex}
                   // Parent drawn above with a chain line already says "reply".
                   showRelationBadge={!hasParent}
                   // Thread is reached from anywhere — root keeps channel context.

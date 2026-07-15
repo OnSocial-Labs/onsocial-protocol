@@ -25,6 +25,7 @@ import {
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useViewerProfileShellContext } from '@/contexts/viewer-profile-shell-context';
 import { QuotedPostInset } from '@/features/home/post-card';
+import { PostMediaBlock } from '@/features/home/post-media';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
 import {
   scrollMobileFieldIntoView,
@@ -34,6 +35,10 @@ import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import { parsePostText } from '@/lib/post-display';
+import {
+  POST_MEDIA_MAX_FILES,
+  validatePostMediaFile,
+} from '@/lib/post-media';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 
 export type ComposerMode = 'post' | 'reply' | 'quote';
@@ -51,6 +56,8 @@ export type GuildComposerPollDraft = ComposerPollDraft;
 export interface ComposerSubmit {
   text: string;
   poll?: ComposerPollDraft;
+  /** Attached image/video files (uploaded by SDK on write). */
+  files?: File[];
 }
 /** @deprecated Prefer `ComposerSubmit`. */
 export type GuildComposerSubmit = ComposerSubmit;
@@ -213,13 +220,21 @@ export function ComposerSheet({
   const [pollEnabled, setPollEnabled] = useState(false);
   const [pollOptions, setPollOptions] = useState(['', '']);
   const [pollDurationMs, setPollDurationMs] = useState<number | undefined>();
+  const [mediaFiles, setMediaFiles] = useState<File[]>([]);
+  const [mediaPreviews, setMediaPreviews] = useState<
+    { url: string; mime: string }[]
+  >([]);
+  const [mediaError, setMediaError] = useState<string | null>(null);
   const [closing, setClosing] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
   const [formKey, setFormKey] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const mediaInputRef = useRef<HTMLInputElement>(null);
+  const mediaStripRef = useRef<HTMLDivElement>(null);
   const sheetOpen = open && !closing;
   const viewport = useVisualViewportSheetMetrics(sheetOpen);
   const canUsePoll = mode === 'post';
+  const canUseMedia = !pollEnabled;
 
   const viewerName = accountId
     ? displayName(accountId, viewerShell?.displayName)
@@ -233,6 +248,12 @@ export function ComposerSheet({
       setPollEnabled(false);
       setPollOptions(['', '']);
       setPollDurationMs(undefined);
+      setMediaFiles([]);
+      setMediaPreviews((current) => {
+        for (const preview of current) URL.revokeObjectURL(preview.url);
+        return [];
+      });
+      setMediaError(null);
       setClosing(false);
     }
   }
@@ -249,6 +270,12 @@ export function ComposerSheet({
     }, 280);
     return () => window.clearTimeout(focusTimer);
   }, [sheetOpen, mode, formKey]);
+
+  useEffect(() => {
+    return () => {
+      for (const preview of mediaPreviews) URL.revokeObjectURL(preview.url);
+    };
+  }, [mediaPreviews]);
 
   const requestClose = useCallback(() => {
     if (pending) return;
@@ -269,9 +296,10 @@ export function ComposerSheet({
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmed = text.trim();
-    if (!trimmed || pending || !pollReady) return;
+    if (pending || !pollReady) return;
+    if (!trimmed && mediaFiles.length === 0) return;
     onSubmit({
-      text: trimmed,
+      text: trimmed || (mediaFiles.length > 0 ? ' ' : ''),
       ...(canUsePoll && pollEnabled
         ? {
             poll: {
@@ -280,6 +308,7 @@ export function ComposerSheet({
             },
           }
         : {}),
+      ...(mediaFiles.length > 0 ? { files: mediaFiles } : {}),
     });
   };
 
@@ -326,12 +355,90 @@ export function ComposerSheet({
         setPollDurationMs(undefined);
         return false;
       }
+      setMediaFiles([]);
+      setMediaPreviews((previews) => {
+        for (const preview of previews) URL.revokeObjectURL(preview.url);
+        return [];
+      });
+      setMediaError(null);
       return true;
+    });
+  };
+
+  const removeMediaAt = (index: number) => {
+    setMediaFiles((current) => current.filter((_, i) => i !== index));
+    setMediaPreviews((current) => {
+      const next = [...current];
+      const [removed] = next.splice(index, 1);
+      if (removed) URL.revokeObjectURL(removed.url);
+      return next;
+    });
+    setMediaError(null);
+  };
+
+  const attachMediaFiles = async (fileList: FileList | null) => {
+    if (!fileList?.length || pending || !canUseMedia) return;
+    setMediaError(null);
+    const incoming = Array.from(fileList);
+    const candidates: File[] = [];
+    const candidatePreviews: { url: string; mime: string }[] = [];
+
+    for (const file of incoming) {
+      if (candidates.length >= POST_MEDIA_MAX_FILES) break;
+      const errorMessage = await validatePostMediaFile(file);
+      if (errorMessage) {
+        setMediaError(errorMessage);
+        continue;
+      }
+      candidates.push(file);
+      candidatePreviews.push({
+        url: URL.createObjectURL(file),
+        mime: file.type || 'application/octet-stream',
+      });
+    }
+
+    if (candidates.length === 0) {
+      if (mediaInputRef.current) mediaInputRef.current.value = '';
+      return;
+    }
+
+    const alreadyCount = mediaFiles.length;
+    const room = Math.max(0, POST_MEDIA_MAX_FILES - alreadyCount);
+    const take = candidates.slice(0, room);
+    const takePreviews = candidatePreviews.slice(0, room);
+    for (const preview of candidatePreviews.slice(room)) {
+      URL.revokeObjectURL(preview.url);
+    }
+
+    if (room === 0 || candidates.length > room) {
+      setMediaError(`You can attach up to ${POST_MEDIA_MAX_FILES} files.`);
+    }
+    if (take.length === 0) {
+      if (mediaInputRef.current) mediaInputRef.current.value = '';
+      return;
+    }
+
+    setPollEnabled(false);
+    setPollOptions(['', '']);
+    setPollDurationMs(undefined);
+    setMediaFiles((current) => [...current, ...take].slice(0, POST_MEDIA_MAX_FILES));
+    setMediaPreviews((current) =>
+      [...current, ...takePreviews].slice(0, POST_MEDIA_MAX_FILES)
+    );
+    if (mediaInputRef.current) mediaInputRef.current.value = '';
+
+    window.requestAnimationFrame(() => {
+      const strip = mediaStripRef.current;
+      if (!strip) return;
+      strip.scrollTo({ left: strip.scrollWidth, behavior: 'smooth' });
     });
   };
 
   const inputPlaceholder =
     canUsePoll && pollEnabled ? POLL_PLACEHOLDER : PLACEHOLDER[mode];
+
+  const canPost =
+    (Boolean(text.trim()) || mediaFiles.length > 0) && !pending && pollReady;
 
   const selfRow = (
     <div className="guild-composer-self">
@@ -356,6 +463,26 @@ export function ComposerSheet({
           onChange={(event) => setText(event.target.value)}
           onFocus={scrollFieldIntoView}
         />
+        {mediaPreviews.length > 0 ? (
+          <div
+            ref={mediaStripRef}
+            className="guild-composer-media-preview"
+            role="list"
+            aria-label="Attached media"
+          >
+            {mediaPreviews.map((preview, index) => (
+              <div key={preview.url} role="listitem">
+                <PostMediaBlock
+                  item={{ url: preview.url, mime: preview.mime }}
+                  size="preview"
+                  onRemove={
+                    pending ? undefined : () => removeMediaAt(index)
+                  }
+                />
+              </div>
+            ))}
+          </div>
+        ) : null}
         {canUsePoll && pollEnabled ? (
           <div className="guild-composer-poll">
             <div className="guild-composer-poll-options">
@@ -438,9 +565,6 @@ export function ComposerSheet({
       </div>
     </div>
   );
-
-  const canPost =
-    Boolean(text.trim()) && !pending && pollReady;
 
   return (
     <GlassSheet
@@ -554,9 +678,14 @@ export function ComposerSheet({
               <button
                 type="button"
                 className="guild-composer-tool"
-                disabled
-                title="Media — soon"
-                aria-label="Add media (soon)"
+                disabled={
+                  !canUseMedia ||
+                  pending ||
+                  mediaFiles.length >= POST_MEDIA_MAX_FILES
+                }
+                title="Add photo or video"
+                aria-label="Add photo or video"
+                onClick={() => mediaInputRef.current?.click()}
               >
                 <CameraIcon className="guild-composer-tool-icon" />
               </button>
@@ -626,6 +755,17 @@ export function ComposerSheet({
           selfRow
         )}
 
+        <input
+          ref={mediaInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
+          multiple
+          hidden
+          aria-hidden
+          onChange={(event) => void attachMediaFiles(event.target.files)}
+        />
+
+        {mediaError ? <p className="guild-form-error">{mediaError}</p> : null}
         {error ? <p className="guild-form-error">{error}</p> : null}
       </form>
     </GlassSheet>

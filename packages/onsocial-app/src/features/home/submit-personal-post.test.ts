@@ -102,4 +102,73 @@ describe('submitPersonalPost', () => {
 
     expect(result).toEqual({ confirmed: false, optimisticPost: null });
   });
+
+  it('creates a media-only post with files + optimistic kind', async () => {
+    const create = vi.fn().mockResolvedValue({ txHash: 'media-tx' });
+    const client = mockClient({ create });
+    const trackTransaction = vi.fn().mockResolvedValue(true);
+    const imageFile = new File([new Uint8Array([1, 2, 3])], 'photo.png', {
+      type: 'image/png',
+    });
+
+    const result = await submitPersonalPost({
+      client,
+      accountId: 'alice.testnet',
+      mode: 'post',
+      target: null,
+      payload: { text: '', files: [imageFile] },
+      trackTransaction,
+    });
+
+    expect(create).toHaveBeenCalledOnce();
+    const [postData] = create.mock.calls[0]!;
+    expect(postData.text).toBe('');
+    expect(postData.files).toEqual([imageFile]);
+
+    expect(result.confirmed).toBe(true);
+    expect(result.optimisticPost?.kind).toBe('image');
+    const body = JSON.parse(result.optimisticPost!.value) as {
+      media?: Array<{ previewUrl?: string; mime?: string }>;
+    };
+    expect(body.media?.[0]?.mime).toBe('image/png');
+    expect(body.media?.[0]?.previewUrl).toEqual(expect.any(String));
+  });
+
+  it('overrides inherited parent kind when replying with media', async () => {
+    const reply = vi.fn().mockResolvedValue({ txHash: 'media-reply-tx' });
+    const client = mockClient({ reply });
+    const trackTransaction = vi.fn().mockResolvedValue(true);
+    const videoFile = new File([new Uint8Array([1, 2, 3, 4])], 'clip.mp4', {
+      type: 'video/mp4',
+    });
+    const target: PostRow = {
+      accountId: 'bob.testnet',
+      postId: '42',
+      value: '{"v":1,"text":"hi"}',
+      blockHeight: 1,
+      blockTimestamp: 1,
+      isGroupContent: false,
+      kind: 'text',
+    };
+
+    const result = await submitPersonalPost({
+      client,
+      accountId: 'alice.testnet',
+      mode: 'reply',
+      target,
+      payload: { text: 'clip', files: [videoFile] },
+      trackTransaction,
+    });
+
+    expect(reply).toHaveBeenCalledWith(
+      { author: 'bob.testnet', postId: '42' },
+      expect.objectContaining({
+        text: 'clip',
+        files: [videoFile],
+        kind: 'video',
+      }),
+      expect.any(String)
+    );
+    expect(result.optimisticPost?.kind).toBe('video');
+  });
 });

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import type { PostRow, ThreadNode } from '@onsocial/sdk';
 import { Divider } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
@@ -33,6 +34,8 @@ import {
   withoutIndexedPosts,
 } from '@/lib/thread-display';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import { playPostFocusVideo } from '@/hooks/use-post-list-video';
+import { readPostMediaUnmuteIndex } from '@/lib/post-media';
 
 type LoadState = 'loading' | 'ready' | 'missing' | 'error';
 type ThreadTab = 'replies' | 'quotes';
@@ -66,6 +69,9 @@ export function LivePersonalPostPanel({
   } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
+  const searchParams = useSearchParams();
+  const mediaUnmuted = searchParams.get('media') === 'unmute';
+  const mediaResumeIndex = readPostMediaUnmuteIndex(searchParams);
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [conversation, setConversation] = useState<PersonalConversation>({
     root: null,
@@ -241,6 +247,11 @@ export function LivePersonalPostPanel({
     };
   }, []);
 
+  useEffect(() => {
+    if (!mediaUnmuted) return;
+    playPostFocusVideo(mediaResumeIndex);
+  }, [mediaUnmuted, mediaResumeIndex, conversation.root?.postId]);
+
   const scheduleReconcile = useCallback(() => {
     for (const delay of RECONCILE_DELAYS_MS) {
       reconcileTimersRef.current.push(
@@ -303,29 +314,12 @@ export function LivePersonalPostPanel({
 
   const insertConfirmedRootChild = (
     mode: ComposerMode,
-    text: string,
-    newPostId: string
+    optimisticPost: PostRow
   ) => {
-    if (!accountId) return;
-    const confirmedRow: PostRow = {
-      accountId,
-      postId: newPostId,
-      value: JSON.stringify({ v: 1, text }),
-      blockHeight: 0,
-      blockTimestamp: Date.now(),
-      isGroupContent: false,
-      ...(mode === 'quote'
-        ? { refAuthor: author, refPath: rootPath, refType: 'post' }
-        : {
-            parentAuthor: author,
-            parentPath: rootPath,
-            parentType: 'post',
-          }),
-    };
     if (mode === 'quote') {
-      setLocalQuotes((current) => [...current, confirmedRow]);
+      setLocalQuotes((current) => [...current, optimisticPost]);
     } else {
-      setLocalReplies((current) => [...current, confirmedRow]);
+      setLocalReplies((current) => [...current, optimisticPost]);
     }
     setActiveThreadTab(mode === 'quote' ? 'quotes' : 'replies');
     scheduleReconcile();
@@ -340,7 +334,8 @@ export function LivePersonalPostPanel({
   const submitFromModal = async (payload: ComposerSubmit) => {
     const target = modalTarget;
     const text = payload.text.trim();
-    if (!target || modalPending || !text) return;
+    const files = payload.files ?? [];
+    if (!target || modalPending || (!text && !files.length)) return;
 
     if (!isConnected || !accountId) {
       await connect();
@@ -356,18 +351,14 @@ export function LivePersonalPostPanel({
         accountId,
         mode: modalMode,
         target,
-        payload: { text },
+        payload,
         trackTransaction,
       });
       if (result.confirmed && result.optimisticPost) {
         const targetsRoot =
           conversation.root && postKey(target) === postKey(conversation.root);
         if (targetsRoot) {
-          insertConfirmedRootChild(
-            modalMode,
-            text,
-            result.optimisticPost.postId
-          );
+          insertConfirmedRootChild(modalMode, result.optimisticPost);
         } else {
           scheduleReconcile();
         }
@@ -490,6 +481,9 @@ export function LivePersonalPostPanel({
                   authorProfile={
                     postAuthorProfiles[conversation.root.accountId]
                   }
+                  mediaFocused
+                  mediaUnmuted={mediaUnmuted}
+                  mediaResumeIndex={mediaResumeIndex}
                   showRelationBadge={!hasParent}
                   quotedPost={
                     conversation.root.refPath

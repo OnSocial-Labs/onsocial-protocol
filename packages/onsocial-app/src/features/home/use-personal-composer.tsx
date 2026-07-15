@@ -79,7 +79,7 @@ export function usePersonalComposer({
     async (payload: ComposerSubmit) => {
       if (!composer || pending) return;
       const { mode, target } = composer;
-      if (!payload.text.trim()) return;
+      if (!payload.text.trim() && !(payload.files?.length)) return;
       if (mode !== 'post' && !target) return;
 
       if (!isConnected || !accountId) {

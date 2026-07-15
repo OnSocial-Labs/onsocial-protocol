@@ -11906,9 +11906,13 @@ a.os-surface-row {
   .post-card--openable .post-identity-time,
   .post-card--openable .post-poll-option,
   .post-card--openable .post-card-quote-inset--link,
+  .post-card--openable .post-media-tile.is-activatable,
+  .post-card--openable .post-media-unmute-gate,
   .post-card--openable .post-card-stat-button,
   .post-card--openable .post-card-react,
-  .post-card--openable .post-card-menu {
+  .post-card--openable .post-card-menu,
+  .post-card--openable .post-card-menu-panel,
+  .post-card--openable .post-card-menu-panel * {
     pointer-events: auto;
   }
 
@@ -11951,10 +11955,10 @@ a.os-surface-row {
     margin-right: 0.35rem;
   }
 
-  .post-card:hover,
-  .post-card:focus-within,
+  .post-card--openable:hover,
+  .post-card--openable:focus-within,
   .post-card-link:focus-visible,
-  .post-card:has(.post-card-hit:focus-visible),
+  .post-card--openable:has(.post-card-hit:focus-visible),
   .post-card-open:focus-visible {
     background: rgb(var(--fg-rgb) / 0.03);
     outline: none;
@@ -11968,8 +11972,8 @@ a.os-surface-row {
     margin-top: 0;
   }
 
-  .post-card:hover .post-card-avatar,
-  .post-card:focus-within .post-card-avatar {
+  .post-card--openable:hover .post-card-avatar,
+  .post-card--openable:focus-within .post-card-avatar {
     box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.08);
   }
 
@@ -12119,6 +12123,11 @@ a.os-surface-row {
     z-index: 2;
   }
 
+  /* Above media collage / poll embeds when the dropdown is open. */
+  .post-card-menu.is-open {
+    z-index: 30;
+  }
+
   .post-card-menu-trigger {
     display: inline-flex;
     align-items: center;
@@ -12147,12 +12156,9 @@ a.os-surface-row {
     outline: none;
   }
 
-  .post-card-menu:has(.post-card-menu-panel) {
-    z-index: 4;
-  }
-
   .post-card-menu-panel {
     width: 10.5rem;
+    z-index: 40;
   }
 
   .post-card-badges {
@@ -12179,6 +12185,257 @@ a.os-surface-row {
     line-height: 1.5;
     white-space: pre-wrap;
     word-break: break-word;
+  }
+
+  .post-media-strip {
+    margin-top: 0.35rem;
+    min-width: 0;
+  }
+
+  .post-media-strip.is-focused {
+    margin-top: 0.5rem;
+  }
+
+  /* Single attachment — full-width tile, borderless. */
+  .post-media-strip--1 {
+    display: block;
+  }
+
+  .post-media-strip--1 .post-media-tile {
+    border-radius: 0.65rem;
+    border: 0;
+    background: transparent;
+  }
+
+  .post-media-strip--1 .post-media-tile--compact {
+    max-height: 14rem;
+  }
+
+  .post-media-strip--1 .post-media-tile--page,
+  .post-media-strip--1.is-page .post-media-tile,
+  .post-media-strip--1.is-focused .post-media-tile {
+    max-height: min(28rem, 70vh);
+    border: 0;
+    border-radius: 0.65rem;
+    background: transparent;
+  }
+
+  .post-media-strip--1.is-page .post-media-element,
+  .post-media-strip--1.is-focused .post-media-element {
+    object-fit: contain;
+    background: transparent;
+  }
+
+  /*
+   * Multi attachment — borderless collage (rounded clip + hairline seams only).
+   * 2: side-by-side · 3: large left + two stacked · 4: 2×2
+   */
+  .post-media-strip.is-collage {
+    display: grid;
+    gap: 1px;
+    width: 100%;
+    overflow: hidden;
+    border-radius: 0.65rem;
+    border: 0;
+    background: rgb(var(--fg-rgb) / 0.08);
+  }
+
+  .post-media-strip.is-collage .post-media-tile {
+    border: 0;
+    border-radius: 0;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    max-height: none;
+    background: transparent;
+  }
+
+  .post-media-strip.is-collage .post-media-element {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    object-fit: cover;
+    background: transparent;
+  }
+
+  .post-media-strip.is-collage.post-media-strip--2 {
+    grid-template-columns: 1fr 1fr;
+    height: 12.5rem;
+  }
+
+  .post-media-strip.is-collage.post-media-strip--3 {
+    grid-template-columns: 1.15fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    height: 12.5rem;
+  }
+
+  .post-media-strip.is-collage.post-media-strip--3 .post-media-tile:first-child {
+    grid-row: 1 / -1;
+  }
+
+  .post-media-strip.is-collage.post-media-strip--4 {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    height: 14rem;
+  }
+
+  /* Quote inset — compact collage / single, still framed. */
+  .post-media-strip.is-quote {
+    margin-top: 0;
+  }
+
+  .post-media-strip.is-quote.post-media-strip--1 .post-media-tile {
+    max-height: 7.5rem;
+    border-radius: 0.5rem;
+    border: 0;
+  }
+
+  .post-media-strip.is-quote.is-collage {
+    border-radius: 0.5rem;
+    border: 0;
+  }
+
+  .post-media-strip.is-quote.is-collage.post-media-strip--2,
+  .post-media-strip.is-quote.is-collage.post-media-strip--3 {
+    height: 5.75rem;
+  }
+
+  .post-media-strip.is-quote.is-collage.post-media-strip--4 {
+    height: 6.5rem;
+  }
+
+  .post-media-tile--quote {
+    background: transparent;
+  }
+
+  /*
+   * Thread / detail — one-by-one horizontal snap slides.
+   * Letterbox / pillarbox stays transparent — no tile chrome.
+   */
+  .post-media-strip.is-carousel {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0;
+    width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    touch-action: pan-x;
+    background: transparent;
+  }
+
+  .post-media-strip.is-carousel::-webkit-scrollbar {
+    display: none;
+  }
+
+  .post-media-strip.is-carousel .post-media-tile {
+    flex: 0 0 100%;
+    width: 100%;
+    max-width: 100%;
+    height: min(28rem, 70vh);
+    max-height: min(28rem, 70vh);
+    scroll-snap-align: center;
+    scroll-snap-stop: always;
+    border: 0;
+    border-radius: 0.65rem;
+    background: transparent;
+  }
+
+  .post-media-strip.is-carousel .post-media-element {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    object-fit: contain;
+    background: transparent;
+  }
+
+  .post-media-tile {
+    position: relative;
+    overflow: hidden;
+    background: rgb(var(--fg-rgb) / 0.03);
+    line-height: 0;
+  }
+
+  .post-media-tile--preview {
+    max-height: 7.5rem;
+    max-width: 7.5rem;
+    flex-shrink: 0;
+    border-radius: 0.55rem;
+    border: 1px solid rgb(var(--fg-rgb) / 0.08);
+  }
+
+  .post-media-tile.is-activatable {
+    cursor: pointer;
+  }
+
+  .post-media-unmute-gate {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    background: rgb(0 0 0 / 0.38);
+    color: #fff;
+  }
+
+  .post-media-unmute-gate-label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.1rem;
+    padding: 0.35rem 0.85rem;
+    border-radius: 9999px;
+    background: rgb(255 255 255 / 0.16);
+    border: 1px solid rgb(255 255 255 / 0.28);
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    backdrop-filter: blur(8px);
+  }
+
+  .post-media-element {
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-height: inherit;
+    object-fit: cover;
+    border-radius: inherit;
+  }
+
+  .post-media-remove {
+    position: absolute;
+    top: 0.3rem;
+    right: 0.3rem;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: rgb(0 0 0 / 0.55);
+    color: rgb(255 255 255 / 0.95);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .post-media-remove:hover,
+  .post-media-remove:focus-visible {
+    background: rgb(0 0 0 / 0.72);
+    outline: none;
   }
 
   .post-poll-embed {
@@ -12367,11 +12624,12 @@ a.os-surface-row {
   }
 
   /* Hovering the quote focuses it alone — the outer card stays transparent. */
-  .post-card:hover:has(.post-card-quote-inset--link:hover) {
+  .post-card--openable:hover:has(.post-card-quote-inset--link:hover) {
     background: transparent;
   }
 
-  .post-card:hover:has(.post-card-quote-inset--link:hover) .post-card-avatar {
+  .post-card--openable:hover:has(.post-card-quote-inset--link:hover)
+    .post-card-avatar {
     box-shadow: none;
   }
 
@@ -12394,11 +12652,71 @@ a.os-surface-row {
     flex-shrink: 0;
   }
 
-  .post-card-quote-inset-body {
+  .post-card-quote-inset-body-row {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 0.55rem;
+    min-width: 0;
+  }
+
+  /* 2–4 media: text above full-width mini collage. */
+  .post-card-quote-inset-body-row.is-stacked {
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .post-card-quote-inset-body-row.has-media .post-card-quote-inset-body {
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
+    -webkit-line-clamp: 4;
     overflow: hidden;
+    white-space: normal;
+  }
+
+  .post-card-quote-inset-body-row.is-stacked .post-card-quote-inset-body {
+    -webkit-line-clamp: 3;
+    flex: none;
+    width: 100%;
+  }
+
+  .post-card-quote-thumb {
+    position: relative;
+    flex: 0 0 auto;
+    width: 3.6rem;
+    height: 3.6rem;
+    overflow: hidden;
+    border-radius: 0.45rem;
+    border: 0;
+    background: rgb(var(--fg-rgb) / 0.04);
+  }
+
+  .post-card-quote-thumb-media {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .post-card-quote-thumb-duration {
+    position: absolute;
+    z-index: 1;
+    right: 0.22rem;
+    bottom: 0.22rem;
+    padding: 0.08rem 0.28rem;
+    border-radius: 0.28rem;
+    background: rgb(0 0 0 / 0.62);
+    color: #fff;
+    font-size: 0.62rem;
+    font-weight: 650;
+    letter-spacing: 0.01em;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .post-card-quote-inset-body {
+    flex: 1;
+    min-width: 0;
     margin: 0;
     font-size: 0.82rem;
     line-height: 1.45;
@@ -14662,6 +14980,45 @@ a.os-surface-row {
 
   .guild-composer-sheet-form .post-card-quote-inset {
     margin-top: 0;
+  }
+
+  .guild-composer-media-preview {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 0.45rem;
+    margin-top: 0.45rem;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    padding-bottom: 0.15rem;
+    touch-action: pan-x;
+  }
+
+  .guild-composer-media-preview > [role='listitem'] {
+    flex: 0 0 auto;
+    width: 5.75rem;
+    height: 5.75rem;
+  }
+
+  .guild-composer-media-preview .post-media-tile--preview {
+    flex: none;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+  }
+
+  .guild-composer-media-preview .post-media-element {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    object-fit: cover;
   }
 
   .guild-composer-sheet-header .guild-composer-mode {

@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
@@ -17,8 +18,18 @@ import {
   useDropdown,
 } from '@onsocial/ui';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
+import { PostMediaStrip } from '@/features/home/post-media';
 import { PostPollEmbedCard } from '@/features/home/post-poll-embed';
 import { parsePostPollEmbed, parsePostText, postKey } from '@/lib/post-display';
+import {
+  parsePostMedia,
+  isRenderablePostVideoMime,
+  appendPostMediaIndex,
+  appendPostMediaUnmute,
+  formatMediaDuration,
+  truncateQuoteText,
+  type PostMediaItem,
+} from '@/lib/post-media';
 import type { PollTally } from '@/lib/poll-votes';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
@@ -50,13 +61,22 @@ interface PostCardProps {
   pollTally?: PollTally;
   pollVotePending?: boolean;
   onPollVote?: (post: PostRow, optionIndex: number) => void;
+  /** Thread root — page-sized focused media playback. */
+  mediaFocused?: boolean;
+  /** Detail opened with `?media=unmute` — resume video with sound. */
+  mediaUnmuted?: boolean;
+  /** Collage tile index to unmute (`?mi=`). */
+  mediaResumeIndex?: number;
 }
 
 function PostCardMenu({ href }: { href?: string }) {
   const { isOpen, close, toggle, containerRef, panelRef } = useDropdown();
 
+  // No actions yet without a permalink — don't render an empty ⋮ menu.
+  if (!href) return null;
+
   const copyLink = async () => {
-    if (!href || typeof window === 'undefined') return;
+    if (typeof window === 'undefined') return;
     const url = new URL(href, window.location.origin).toString();
     try {
       await navigator.clipboard.writeText(url);
@@ -67,7 +87,10 @@ function PostCardMenu({ href }: { href?: string }) {
   };
 
   return (
-    <div className="post-card-menu" ref={containerRef}>
+    <div
+      className={`post-card-menu${isOpen ? ' is-open' : ''}`}
+      ref={containerRef}
+    >
       <button
         type="button"
         className={`post-card-menu-trigger${isOpen ? ' is-open' : ''}`}
@@ -93,28 +116,39 @@ function PostCardMenu({ href }: { href?: string }) {
         aria-label="Post options"
       >
         <div className={osFloatingPanelBodyClassName}>
-          {href ? (
-            <button
-              type="button"
-              role="menuitem"
-              className={osFloatingPanelItemClassName}
-              onClick={() => {
-                void copyLink();
-              }}
-            >
-              <span>Copy link</span>
-            </button>
-          ) : null}
+          <button
+            type="button"
+            role="menuitem"
+            className={osFloatingPanelItemClassName}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              void copyLink();
+            }}
+          >
+            <span>Copy link</span>
+          </button>
         </div>
       </FloatingPanelMenu>
     </div>
   );
 }
 
-function postBadges(post: PostRow, hasPollEmbed: boolean): string[] {
-  // 'text' is the default kind — badge only exceptional kinds (media…).
-  // Poll embeds render their own card; skip the redundant "poll" pill.
-  return [post.kind === 'text' || (hasPollEmbed && post.kind === 'poll') ? null : post.kind].filter(
+function postBadges(
+  post: PostRow,
+  hasPollEmbed: boolean,
+  _hasMediaStrip: boolean
+): string[] {
+  const kind = post.kind;
+  // Media speaks for itself — never badge image/video/audio.
+  // Polls render their own card; skip the redundant "poll" pill.
+  const hideKind =
+    kind === 'text' ||
+    kind === 'image' ||
+    kind === 'video' ||
+    kind === 'audio' ||
+    (hasPollEmbed && kind === 'poll');
+  return [hideKind ? null : kind].filter(
     (value): value is string => typeof value === 'string' && value.trim() !== ''
   );
 }
@@ -149,7 +183,10 @@ export function QuotedPostInset({
   const router = useRouter();
   const name =
     authorProfile?.displayName?.trim() || fallbackLabel(post.accountId);
-  const text = parsePostText(post.value);
+  const text = truncateQuoteText(parsePostText(post.value));
+  const mediaItems = parsePostMedia(post.value).slice(0, 4);
+  const thumb = mediaItems.length === 1 ? mediaItems[0] : null;
+  const collage = mediaItems.length > 1 ? mediaItems : null;
   const interactive = Boolean(href);
 
   const open = (event: { preventDefault(): void; stopPropagation(): void }) => {
@@ -189,8 +226,90 @@ export function QuotedPostInset({
             timestamp={post.blockTimestamp}
           />
         </span>
-        <p className="post-card-quote-inset-body">{text || '…'}</p>
+        {thumb || collage || text ? (
+          <div
+            className={[
+              'post-card-quote-inset-body-row',
+              thumb ? 'has-media' : '',
+              collage ? 'is-stacked' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
+            {/* Multi: text above mini-collage. Single: thumb beside text. */}
+            {collage && text ? (
+              <p className="post-card-quote-inset-body">{text}</p>
+            ) : null}
+            {collage ? (
+              <PostMediaStrip
+                items={collage}
+                size="quote"
+                playbackDisabled
+              />
+            ) : null}
+            {thumb ? <QuoteMediaThumb item={thumb} /> : null}
+            {!collage && text ? (
+              <p className="post-card-quote-inset-body">{text}</p>
+            ) : null}
+          </div>
+        ) : (
+          <p className="post-card-quote-inset-body">…</p>
+        )}
       </div>
+    </div>
+  );
+}
+
+function QuoteMediaThumb({ item }: { item: PostMediaItem }) {
+  const isVideo = isRenderablePostVideoMime(item.mime);
+  const [durationLabel, setDurationLabel] = useState('');
+
+  useEffect(() => {
+    if (!isVideo) {
+      setDurationLabel('');
+      return;
+    }
+    let cancelled = false;
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => {
+      if (cancelled) return;
+      setDurationLabel(formatMediaDuration(video.duration));
+    };
+    video.onerror = () => {
+      if (!cancelled) setDurationLabel('');
+    };
+    video.src = item.url;
+    return () => {
+      cancelled = true;
+      video.removeAttribute('src');
+      video.load();
+    };
+  }, [isVideo, item.url]);
+
+  return (
+    <div className="post-card-quote-thumb" aria-hidden>
+      {isVideo ? (
+        <video
+          src={item.url}
+          muted
+          playsInline
+          preload="metadata"
+          className="post-card-quote-thumb-media"
+        />
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={item.url}
+          alt=""
+          className="post-card-quote-thumb-media"
+          loading="lazy"
+          decoding="async"
+        />
+      )}
+      {durationLabel ? (
+        <span className="post-card-quote-thumb-duration">{durationLabel}</span>
+      ) : null}
     </div>
   );
 }
@@ -344,12 +463,18 @@ export function PostCard({
   pollTally,
   pollVotePending,
   onPollVote,
+  mediaFocused = false,
+  mediaUnmuted = false,
+  mediaResumeIndex = 0,
 }: PostCardProps) {
+  const router = useRouter();
   const text = parsePostText(post.value);
   const poll = parsePostPollEmbed(post.value);
+  const mediaItems = parsePostMedia(post.value);
+  const hasMedia = mediaItems.length > 0;
   const fallback = fallbackLabel(post.accountId);
   const name = authorProfile?.displayName?.trim() || fallback;
-  const badges = postBadges(post, Boolean(poll));
+  const badges = postBadges(post, Boolean(poll), mediaItems.length > 0);
   const relationContext = showRelationBadge
     ? postRelationContext(post, Boolean(quotedPost))
     : null;
@@ -402,7 +527,10 @@ export function PostCard({
           relationContext={relationContext}
           badges={badges}
           text={text}
-          hideText={Boolean(poll) && text === poll?.question}
+          hideText={
+            (Boolean(poll) && text === poll?.question) ||
+            (mediaItems.length > 0 && !text.trim())
+          }
         />
         {poll ? (
           <PostPollEmbedCard
@@ -412,6 +540,31 @@ export function PostCard({
             onVote={
               onPollVote
                 ? (optionIndex) => onPollVote(post, optionIndex)
+                : undefined
+            }
+          />
+        ) : null}
+        {mediaItems.length > 0 ? (
+          <PostMediaStrip
+            items={mediaItems}
+            size={mediaFocused ? 'page' : 'compact'}
+            focused={mediaFocused}
+            focusedVideoMuted={!mediaUnmuted}
+            resumeFocusedVideo={mediaUnmuted}
+            resumeMediaIndex={mediaResumeIndex}
+            onActivate={
+              !mediaFocused && actionHref && hasMedia
+                ? (index) => {
+                    const item = mediaItems[index];
+                    const unmute = Boolean(
+                      item && isRenderablePostVideoMime(item.mime)
+                    );
+                    router.push(
+                      unmute
+                        ? appendPostMediaUnmute(actionHref, index)
+                        : appendPostMediaIndex(actionHref, index)
+                    );
+                  }
                 : undefined
             }
           />

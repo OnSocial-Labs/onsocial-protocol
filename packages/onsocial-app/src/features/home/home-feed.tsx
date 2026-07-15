@@ -9,6 +9,7 @@ import {
 } from '@/features/home/personal-feed-list';
 import { usePersonalComposer } from '@/features/home/use-personal-composer';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { revokeDroppedOptimisticMedia } from '@/lib/post-media';
 
 async function loadHomeFeed(accountId: string | null): Promise<PostRow[]> {
   const client = createReadOnlyOnSocialClient();
@@ -49,7 +50,10 @@ export function HomeFeed() {
 
     try {
       const items = await loadHomeFeed(accountId);
-      setPosts(items);
+      setPosts((current) => {
+        revokeDroppedOptimisticMedia(current, items);
+        return items;
+      });
       setFeedMode(accountId ? 'network' : 'global');
     } catch (cause) {
       const message =

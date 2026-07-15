@@ -1,5 +1,6 @@
 import type { PostRow, ThreadNode } from '@onsocial/sdk';
 import { postKey } from '@/features/home/post-card';
+import { revokeOptimisticMediaPreviewUrls } from '@/lib/post-media';
 
 /** Display row on a thread page: a post, or a per-branch fold control. */
 export type ThreadReplyRow =
@@ -122,5 +123,13 @@ export function withoutIndexedPosts(
   indexed: PostRow[]
 ): PostRow[] {
   const indexedKeys = new Set(indexed.map(postKey));
-  return local.filter((row) => !indexedKeys.has(postKey(row)));
+  const kept: PostRow[] = [];
+  for (const row of local) {
+    if (indexedKeys.has(postKey(row))) {
+      revokeOptimisticMediaPreviewUrls(row.value);
+    } else {
+      kept.push(row);
+    }
+  }
+  return kept;
 }

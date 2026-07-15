@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PostRow } from '@onsocial/sdk';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -9,6 +9,7 @@ import {
 } from '@/features/home/personal-feed-list';
 import { usePersonalComposer } from '@/features/home/use-personal-composer';
 import { accountIdsEqual } from '@/lib/account-match';
+import { revokeOptimisticMediaPreviewUrls } from '@/lib/post-media';
 
 interface ProfileFeedClientProps {
   accountId: string;
@@ -27,7 +28,17 @@ export function ProfileFeedClient({
 }: ProfileFeedClientProps) {
   const { accountId: viewerId, isConnected } = useAppWallet();
   const [posts, setPosts] = useState(initialPosts);
+  const postsRef = useRef(posts);
+  postsRef.current = posts;
   const total = Math.max(postCount, posts.length);
+
+  useEffect(() => {
+    return () => {
+      for (const post of postsRef.current) {
+        revokeOptimisticMediaPreviewUrls(post.value);
+      }
+    };
+  }, []);
 
   const isOwner =
     isConnected &&

@@ -11,6 +11,11 @@ import type {
 } from '@/features/guilds/guild-composer-sheet';
 import { assertCanReplyToGuildPost } from '@/features/home/assert-can-reply-to-guild-post';
 import {
+  applyMediaKindOverride,
+  buildOptimisticMediaEntries,
+  mediaKindFromFile,
+} from '@/lib/post-media';
+import {
   txToastConfirming,
   txToastError,
   txToastSuccess,
@@ -62,8 +67,12 @@ function buildOptimisticPost(args: {
     options: string[];
     closesAt?: number;
   } | null;
+  files?: File[];
 }): PostRow {
-  const { accountId, newPostId, text, mode, target, pollEmbed } = args;
+  const { accountId, newPostId, text, mode, target, pollEmbed, files } = args;
+  const media = files?.length ? buildOptimisticMediaEntries(files) : undefined;
+  const mediaKind =
+    !pollEmbed && files?.length ? mediaKindFromFile(files[0]!) : undefined;
   const base: PostRow = {
     accountId,
     postId: newPostId,
@@ -71,6 +80,7 @@ function buildOptimisticPost(args: {
       v: 1,
       text,
       ...(pollEmbed ? { embeds: [pollEmbed] } : {}),
+      ...(media ? { media } : {}),
     }),
     blockHeight: 0,
     blockTimestamp: Date.now(),
@@ -80,16 +90,19 @@ function buildOptimisticPost(args: {
     return {
       ...base,
       isGroupContent: false,
-      ...(pollEmbed ? { kind: 'poll' } : {}),
+      ...(pollEmbed ? { kind: 'poll' } : mediaKind ? { kind: mediaKind } : {}),
     };
   }
 
-  const feedMeta = target.groupId
-    ? inheritedGuildReplyFeedMeta(target)
-    : {
-        ...(target.channel ? { channel: target.channel } : {}),
-        ...(target.kind ? { kind: target.kind } : {}),
-      };
+  const feedMeta = applyMediaKindOverride(
+    target.groupId
+      ? inheritedGuildReplyFeedMeta(target)
+      : {
+          ...(target.channel ? { channel: target.channel } : {}),
+          ...(target.kind ? { kind: target.kind } : {}),
+        },
+    files ?? []
+  );
 
   if (mode === 'quote') {
     return {
@@ -130,7 +143,8 @@ export async function submitPersonalPost(args: {
 }): Promise<PersonalPostSubmitResult> {
   const { client, accountId, mode, target, payload, trackTransaction } = args;
   const text = payload.text.trim();
-  if (!text) {
+  const files = payload.files ?? [];
+  if (!text && !files.length) {
     return { confirmed: false, optimisticPost: null };
   }
   if (mode !== 'post' && !target) {
@@ -150,6 +164,7 @@ export async function submitPersonalPost(args: {
       : null;
 
   const newPostId = Date.now().toString();
+  const filePayload = files.length ? { files } : {};
   let response: unknown;
 
   if (mode === 'post') {
@@ -158,6 +173,7 @@ export async function submitPersonalPost(args: {
         text,
         timestamp: Date.now(),
         ...(pollEmbed ? { embeds: [pollEmbed] } : {}),
+        ...filePayload,
       },
       newPostId
     );
@@ -169,13 +185,17 @@ export async function submitPersonalPost(args: {
       groupId,
       postId: target!.postId,
     };
-    const feedMeta = inheritedGuildReplyFeedMeta(target!);
+    const feedMeta = applyMediaKindOverride(
+      inheritedGuildReplyFeedMeta(target!),
+      files
+    );
     const postData = {
       text,
       access: 'group' as const,
       groupId,
       timestamp: Date.now(),
       ...feedMeta,
+      ...filePayload,
     };
     response =
       mode === 'quote'
@@ -186,11 +206,18 @@ export async function submitPersonalPost(args: {
       author: target!.accountId,
       postId: target!.postId,
     };
+    const feedMeta = applyMediaKindOverride(
+      {
+        ...(target!.channel ? { channel: target!.channel } : {}),
+        ...(target!.kind ? { kind: target!.kind } : {}),
+      },
+      files
+    );
     const postData = {
       text,
       timestamp: Date.now(),
-      ...(target!.channel ? { channel: target!.channel } : {}),
-      ...(target!.kind ? { kind: target!.kind } : {}),
+      ...feedMeta,
+      ...filePayload,
     };
     response =
       mode === 'quote'
@@ -216,6 +243,7 @@ export async function submitPersonalPost(args: {
       mode,
       target,
       pollEmbed,
+      files: files.length ? files : undefined,
     }),
   };
 }

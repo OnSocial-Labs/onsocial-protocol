@@ -74,6 +74,12 @@ import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { usePostEngagement } from '@/hooks/use-post-engagement';
 import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useQuotedPosts } from '@/hooks/use-quoted-posts';
+import {
+  applyMediaKindOverride,
+  buildOptimisticMediaEntries,
+  mediaKindFromFile,
+  revokeDroppedOptimisticMedia,
+} from '@/lib/post-media';
 import { resolveGuildViewerAccess } from '@/features/guilds/guild-viewer-access';
 import {
   readGuildOwnerId,
@@ -346,9 +352,11 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
 
       const fetchedPosts = feedResult.items ?? [];
       const indexedKeys = new Set(fetchedPosts.map(postKey));
-      setLocalPosts((current) =>
-        current.filter((post) => !indexedKeys.has(postKey(post)))
-      );
+      setLocalPosts((current) => {
+        const next = current.filter((post) => !indexedKeys.has(postKey(post)));
+        revokeDroppedOptimisticMedia(current, next);
+        return next;
+      });
       setState((current) => ({
         ...current,
         posts: fetchedPosts,
@@ -732,7 +740,8 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     if (!composer || modalPending) return;
     const { mode, target } = composer;
     const text = payload.text.trim();
-    if (!text) return;
+    const files = payload.files ?? [];
+    if (!text && !files.length) return;
     if (mode !== 'post' && !target) return;
 
     if (mode !== 'post' && target) {
@@ -765,6 +774,10 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     try {
       const newPostId = Date.now().toString();
       const { client } = await getClient();
+      const filePayload = files.length ? { files } : {};
+      const media = files.length ? buildOptimisticMediaEntries(files) : undefined;
+      const mediaKind =
+        !pollEmbed && files.length ? mediaKindFromFile(files[0]!) : undefined;
 
       let response: unknown;
       if (mode === 'post') {
@@ -782,7 +795,10 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
             timestamp: Date.now(),
             ...(pollEmbed
               ? { embeds: [pollEmbed] }
-              : { kind: composerSpace.kind }),
+              : mediaKind
+                ? { kind: mediaKind }
+                : { kind: composerSpace.kind }),
+            ...filePayload,
           },
           newPostId
         );
@@ -792,21 +808,25 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
           groupId,
           postId: target!.postId,
         };
-        const feedMeta = inheritedGuildReplyFeedMeta(target!, {
-          fallbackChannel: composerSpace
-            ? guildSpaceFeedChannel(composerSpace)
-            : null,
-          fallbackKind: composerSpace?.kind ?? null,
-          fallbackAudiences: composerSpace
-            ? [composerSpace.audience]
-            : undefined,
-        });
+        const feedMeta = applyMediaKindOverride(
+          inheritedGuildReplyFeedMeta(target!, {
+            fallbackChannel: composerSpace
+              ? guildSpaceFeedChannel(composerSpace)
+              : null,
+            fallbackKind: composerSpace?.kind ?? null,
+            fallbackAudiences: composerSpace
+              ? [composerSpace.audience]
+              : undefined,
+          }),
+          files
+        );
         const postData = {
           text,
           access: 'group' as const,
           groupId,
           timestamp: Date.now(),
           ...feedMeta,
+          ...filePayload,
         };
         response =
           mode === 'quote'
@@ -839,15 +859,18 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
         const replyFeedMeta =
           mode === 'post' || !target
             ? null
-            : inheritedGuildReplyFeedMeta(target, {
-                fallbackChannel: composerSpace
-                  ? guildSpaceFeedChannel(composerSpace)
-                  : null,
-                fallbackKind: composerSpace?.kind ?? null,
-                fallbackAudiences: composerSpace
-                  ? [composerSpace.audience]
-                  : undefined,
-              });
+            : applyMediaKindOverride(
+                inheritedGuildReplyFeedMeta(target, {
+                  fallbackChannel: composerSpace
+                    ? guildSpaceFeedChannel(composerSpace)
+                    : null,
+                  fallbackKind: composerSpace?.kind ?? null,
+                  fallbackAudiences: composerSpace
+                    ? [composerSpace.audience]
+                    : undefined,
+                }),
+                files
+              );
         // Chain-confirmed; show at the top while the indexer catches up.
         setLocalPosts((current) => [
           {
@@ -857,6 +880,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
               v: 1,
               text,
               ...(pollEmbed ? { embeds: [pollEmbed] } : {}),
+              ...(media ? { media } : {}),
             }),
             blockHeight: 0,
             blockTimestamp: Date.now(),
@@ -865,7 +889,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
             ...(mode === 'post' && composerSpace
               ? {
                   channel: guildSpaceFeedChannel(composerSpace),
-                  kind: pollEmbed ? 'poll' : composerSpace.kind,
+                  kind: pollEmbed ? 'poll' : mediaKind ?? composerSpace.kind,
                 }
               : mode === 'quote'
                 ? {
