@@ -171,4 +171,26 @@ describe('submitPersonalPost', () => {
     );
     expect(result.optimisticPost?.kind).toBe('video');
   });
+
+  it('extracts hashtags from body text into create payload', async () => {
+    const create = vi.fn().mockResolvedValue({ txHash: 'tag-tx' });
+    const client = mockClient({ create });
+    const trackTransaction = vi.fn().mockResolvedValue(true);
+
+    const result = await submitPersonalPost({
+      client,
+      accountId: 'alice.testnet',
+      mode: 'post',
+      target: null,
+      payload: {
+        text: '#NEAR is the chain.',
+      },
+      trackTransaction,
+    });
+
+    expect(create).toHaveBeenCalledOnce();
+    const [postData] = create.mock.calls[0]!;
+    expect(postData.hashtags).toEqual(['near']);
+    expect(result.optimisticPost?.value).toContain('"hashtags":["near"]');
+  });
 });

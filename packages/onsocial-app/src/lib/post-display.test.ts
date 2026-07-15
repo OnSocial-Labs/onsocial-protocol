@@ -3,7 +3,14 @@ import {
   formatPostTimestamp,
   formatRelativePostTimestamp,
   parsePostText,
+  postFeedPreviewLimit,
+  postPreviewNeedsExpand,
   postTimestampIso,
+  POST_FEED_PREVIEW_CHARS,
+  POST_FEED_PREVIEW_CHARS_WITH_MEDIA,
+  POST_QUOTE_PREVIEW_CHARS,
+  POST_TEXT_MAX_LENGTH,
+  truncatePostPreview,
 } from './post-display';
 
 describe('parsePostText', () => {
@@ -15,6 +22,25 @@ describe('parsePostText', () => {
 
   it('falls back to raw value when not JSON', () => {
     expect(parsePostText('plain post')).toBe('plain post');
+  });
+});
+
+describe('post text preview', () => {
+  it('exposes feed / quote / compose caps', () => {
+    expect(POST_TEXT_MAX_LENGTH).toBe(4000);
+    expect(POST_FEED_PREVIEW_CHARS).toBe(280);
+    expect(POST_FEED_PREVIEW_CHARS_WITH_MEDIA).toBe(140);
+    expect(POST_QUOTE_PREVIEW_CHARS).toBe(120);
+    expect(postFeedPreviewLimit(false)).toBe(280);
+    expect(postFeedPreviewLimit(true)).toBe(140);
+  });
+
+  it('truncates with ellipsis and detects expand need', () => {
+    expect(truncatePostPreview('short', 280)).toBe('short');
+    expect(truncatePostPreview('a'.repeat(200), 120).endsWith('…')).toBe(true);
+    expect(truncatePostPreview('a'.repeat(200), 120).length).toBe(121);
+    expect(postPreviewNeedsExpand('a'.repeat(140), 140)).toBe(false);
+    expect(postPreviewNeedsExpand('a'.repeat(141), 140)).toBe(true);
   });
 });
 

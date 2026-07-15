@@ -130,7 +130,7 @@ describe('collage + unmute helpers', () => {
     expect(formatMediaDuration(65)).toBe('1:05');
     expect(truncateQuoteText('short')).toBe('short');
     expect(truncateQuoteText('a'.repeat(200)).endsWith('…')).toBe(true);
-    expect(truncateQuoteText('a'.repeat(200)).length).toBe(181);
+    expect(truncateQuoteText('a'.repeat(200)).length).toBe(121);
   });
 });
 

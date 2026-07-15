@@ -731,14 +731,27 @@ SELECT
   p.block_height,
   p.block_timestamp,
   p.group_id
-FROM posts_current p,
-  LATERAL jsonb_array_elements_text(
-    (p.value::jsonb) -> 'hashtags'
-  ) AS ht(tag)
+FROM posts_current p
+CROSS JOIN LATERAL jsonb_array_elements_text(
+  (
+    CASE
+      WHEN p.value ~ '^[\[\{]' THEN p.value::jsonb
+      ELSE NULL
+    END
+  ) -> 'hashtags'
+) AS ht(tag)
 WHERE p.value IS NOT NULL
   AND p.value != ''
-  AND (p.value::jsonb) -> 'hashtags' IS NOT NULL
-  AND jsonb_typeof((p.value::jsonb) -> 'hashtags') = 'array';
+  AND p.value ~ '^[\[\{]'
+  AND jsonb_typeof(
+    (
+      CASE
+        WHEN p.value ~ '^[\[\{]' THEN p.value::jsonb
+        ELSE NULL
+      END
+    ) -> 'hashtags'
+  ) = 'array'
+  AND length(trim(ht.tag)) > 0;
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 13. hashtag_counts — aggregate post count per hashtag

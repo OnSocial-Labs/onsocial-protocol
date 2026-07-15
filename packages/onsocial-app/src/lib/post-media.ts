@@ -1,4 +1,8 @@
 import type { MediaRef } from '@onsocial/sdk';
+import {
+  POST_QUOTE_PREVIEW_CHARS,
+  truncatePostPreview,
+} from '@/lib/post-display';
 import { resolveProfileMediaUrl } from '@/lib/profile-display';
 
 export const POST_VIDEO_MAX_SECONDS = 30;
@@ -44,10 +48,11 @@ export function formatMediaDuration(seconds: number): string {
 }
 
 /** Quote inset body copy — hard cap with ellipsis. */
-export function truncateQuoteText(text: string, maxChars = 180): string {
-  const trimmed = text.trim().replace(/\s+/g, ' ');
-  if (trimmed.length <= maxChars) return trimmed;
-  return `${trimmed.slice(0, maxChars).trimEnd()}…`;
+export function truncateQuoteText(
+  text: string,
+  maxChars = POST_QUOTE_PREVIEW_CHARS
+): string {
+  return truncatePostPreview(text, maxChars);
 }
 
 export function isPostMediaMime(mime: string): boolean {

@@ -24,6 +24,7 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { PostRowSkeleton, postKey } from '@/features/home/post-card';
 import { GuildFeedFilterList } from '@/features/guilds/guild-feed-filter-list';
+import { extractHashtagsFromText } from '@/features/home/home-hashtag-search';
 import {
   GuildComposerSheet,
   type GuildComposerMode,
@@ -515,7 +516,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       '.os-app-screen-header'
     );
 
-    const syncElevated = () => {
+  const syncElevated = () => {
       const scrolled = scrollRoot.scrollTop > 8;
       if (!heroTitle) {
         setHeaderElevated(scrollRoot.scrollTop > 18);
@@ -525,7 +526,13 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
         header?.getBoundingClientRect().bottom ??
         scrollRoot.getBoundingClientRect().top + 72;
       const titleTop = heroTitle.getBoundingClientRect().top;
-      setHeaderElevated(scrolled && titleTop < headerBottom - 2);
+      /* Hysteresis avoids elevate flicker at the title handoff line. */
+      setHeaderElevated((current) => {
+        if (current) {
+          return scrolled && titleTop < headerBottom + 10;
+        }
+        return scrolled && titleTop < headerBottom - 2;
+      });
     };
 
     syncElevated();
@@ -779,6 +786,9 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       const media = files.length ? buildOptimisticMediaEntries(files) : undefined;
       const mediaKind =
         !pollEmbed && files.length ? mediaKindFromFile(files[0]!) : undefined;
+      const hashtags = extractHashtagsFromText(text);
+      const hashtagPayload =
+        hashtags.length > 0 ? { hashtags } : ({} as { hashtags?: string[] });
 
       let response: unknown;
       if (mode === 'post') {
@@ -794,6 +804,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
             channel: guildSpaceFeedChannel(composerSpace),
             audiences: [composerSpace.audience],
             timestamp: Date.now(),
+            ...hashtagPayload,
             ...(pollEmbed
               ? { embeds: [pollEmbed] }
               : mediaKind
@@ -826,6 +837,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
           access: 'group' as const,
           groupId,
           timestamp: Date.now(),
+          ...hashtagPayload,
           ...feedMeta,
           ...filePayload,
         };
@@ -880,6 +892,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
             value: JSON.stringify({
               v: 1,
               text,
+              ...hashtagPayload,
               ...(pollEmbed ? { embeds: [pollEmbed] } : {}),
               ...(media ? { media } : {}),
             }),
@@ -948,7 +961,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
         }
       : undefined;
 
-  const renderFeedFilters = (receded: boolean) => (
+  const renderFeedFilters = () => (
     <GuildFeedFilterList
       groupId={groupId}
       selectedFeedFilterId={selectedFeedFilterId}
@@ -964,7 +977,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
           canEdit: canAddMember,
         })
       }
-      receded={receded}
+      pinned={headerElevated}
     />
   );
 
@@ -1013,11 +1026,6 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       }
       immersiveHeader={loadState === 'ready'}
       headerElevated={headerElevated}
-      toolbar={
-        loadState === 'ready' && config && headerElevated
-          ? renderFeedFilters(false)
-          : undefined
-      }
       scrollRootRef={scrollRootRef}
     >
       <div className="guilds-page">
@@ -1197,7 +1205,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
             {error ? <p className="guild-form-error">{error}</p> : null}
 
             <section className="guild-section guild-feed-section">
-              {renderFeedFilters(headerElevated)}
+              {renderFeedFilters()}
 
               {feedPosts.length > 0 ? (
                 <div

@@ -255,7 +255,7 @@ export function GuildFeedFilterList({
   onAddSpace,
   viewer,
   onOpenWriters,
-  receded = false,
+  pinned = false,
 }: {
   groupId: string;
   selectedFeedFilterId: 'all' | string;
@@ -265,64 +265,65 @@ export function GuildFeedFilterList({
   onAddSpace: () => void;
   viewer: GuildViewerAccess;
   onOpenWriters?: (space: GuildSpace) => void;
-  /** Hide in-flow row once filters dock into the elevated header. */
-  receded?: boolean;
+  /** Stick under the elevated immersive header once the hero title hands off. */
+  pinned?: boolean;
 }) {
   const [factsSpace, setFactsSpace] = useState<GuildSpace | null>(null);
 
   return (
     <>
       <div
-        className={`guild-feed-filter-list${receded ? ' is-receded' : ''}`}
-        aria-label="Guild rooms"
+        className={`guild-feed-filter-pin${pinned ? ' is-pinned' : ''}`}
       >
-        <button
-          className={`guild-feed-filter-button${selectedFeedFilterId === 'all' ? ' is-active' : ''}`}
-          type="button"
-          onClick={() => onSelectFeedFilter('all')}
-        >
-          All
-        </button>
-        {feedSpaces.map((space) => {
-          const isActive = selectedFeedFilterId === space.id;
-          return (
-            <button
-              key={space.id}
-              className={`guild-feed-filter-button${isActive ? ' is-active' : ''}${isActive ? ' guild-feed-filter-button--room-active' : ''}`}
-              type="button"
-              aria-label={
-                isActive ? `${space.title}, room details` : space.title
-              }
-              title={isActive ? 'Room details' : undefined}
-              onClick={() => {
-                if (isActive) {
-                  setFactsSpace(space);
-                  return;
-                }
-                onSelectFeedFilter(space.id);
-              }}
-            >
-              <span className="guild-feed-filter-label">{space.title}</span>
-              {isActive ? (
-                <InformationCircleFillIcon
-                  aria-hidden
-                  className="guild-feed-filter-chip-info"
-                />
-              ) : null}
-            </button>
-          );
-        })}
-        {canAddMember ? (
+        <div className="guild-feed-filter-list" aria-label="Guild rooms">
           <button
-            className="guild-feed-filter-button guild-feed-filter-button--add"
+            className={`guild-feed-filter-button${selectedFeedFilterId === 'all' ? ' is-active' : ''}`}
             type="button"
-            onClick={onAddSpace}
-            aria-label="Add room"
-            title="Add room"
+            onClick={() => onSelectFeedFilter('all')}
           >
-            <PlusIcon aria-hidden className="guild-feed-filter-add-icon" />
+            All
           </button>
-        ) : null}
+          {feedSpaces.map((space) => {
+            const isActive = selectedFeedFilterId === space.id;
+            return (
+              <button
+                key={space.id}
+                className={`guild-feed-filter-button${isActive ? ' is-active' : ''}${isActive ? ' guild-feed-filter-button--room-active' : ''}`}
+                type="button"
+                aria-label={
+                  isActive ? `${space.title}, room details` : space.title
+                }
+                title={isActive ? 'Room details' : undefined}
+                onClick={() => {
+                  if (isActive) {
+                    setFactsSpace(space);
+                    return;
+                  }
+                  onSelectFeedFilter(space.id);
+                }}
+              >
+                <span className="guild-feed-filter-label">{space.title}</span>
+                {isActive ? (
+                  <InformationCircleFillIcon
+                    aria-hidden
+                    className="guild-feed-filter-chip-info"
+                  />
+                ) : null}
+              </button>
+            );
+          })}
+          {canAddMember ? (
+            <button
+              className="guild-feed-filter-button guild-feed-filter-button--add"
+              type="button"
+              onClick={onAddSpace}
+              aria-label="Add room"
+              title="Add room"
+            >
+              <PlusIcon aria-hidden className="guild-feed-filter-add-icon" />
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {factsSpace ? (

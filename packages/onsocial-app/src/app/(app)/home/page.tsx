@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
-import { AppShell } from '@/components/app/app-shell';
-import { HomeFeed } from '@/features/home/home-feed';
+import { HomePagePanel } from '@/features/home/home-feed';
 
 export const metadata: Metadata = {
   title: 'Home • OnSocial',
@@ -8,9 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function HomePage() {
-  return (
-    <AppShell>
-      <HomeFeed />
-    </AppShell>
-  );
+  return <HomePagePanel />;
 }

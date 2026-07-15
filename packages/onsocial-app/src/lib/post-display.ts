@@ -1,5 +1,20 @@
 import type { PostRow } from '@onsocial/sdk';
 
+/** Composer hard cap for post body text. */
+export const POST_TEXT_MAX_LENGTH = 4000;
+
+/** Feed / list preview before “Show more” (text-only). */
+export const POST_FEED_PREVIEW_CHARS = 280;
+
+/** Tighter feed preview when the card also shows media. */
+export const POST_FEED_PREVIEW_CHARS_WITH_MEDIA = 140;
+
+/** Quoted-post inset preview. */
+export const POST_QUOTE_PREVIEW_CHARS = 120;
+
+/** Soft warn in composer when remaining budget dips below this. */
+export const POST_TEXT_WARN_REMAINING = 200;
+
 export function parsePostText(value: string): string {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -144,4 +159,32 @@ export function formatRelativePostTimestamp(
 
 export function postKey(post: PostRow): string {
   return `${post.accountId}:${post.postId}`;
+}
+
+export function postFeedPreviewLimit(hasMedia: boolean): number {
+  return hasMedia
+    ? POST_FEED_PREVIEW_CHARS_WITH_MEDIA
+    : POST_FEED_PREVIEW_CHARS;
+}
+
+/** Collapse whitespace runs for preview measurement (quotes / feed). */
+export function normalizePostPreviewText(text: string): string {
+  return text.trim().replace(/\s+/g, ' ');
+}
+
+/**
+ * Truncate for preview surfaces. Returns original when it already fits;
+ * otherwise ends with an ellipsis character.
+ */
+export function truncatePostPreview(text: string, maxChars: number): string {
+  const normalized = normalizePostPreviewText(text);
+  if (normalized.length <= maxChars) return normalized;
+  return `${normalized.slice(0, maxChars).trimEnd()}…`;
+}
+
+export function postPreviewNeedsExpand(
+  text: string,
+  maxChars: number
+): boolean {
+  return normalizePostPreviewText(text).length > maxChars;
 }

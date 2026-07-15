@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, type FocusEventHandler } from 'react';
 import { MultiplyIcon, SearchIcon } from '@onsocial/ui';
 
 interface SearchFieldProps {
@@ -13,6 +13,8 @@ interface SearchFieldProps {
   /** `sheet` — flat glass control; `floating-panel` — Portal filter-rail pill. */
   chrome?: 'sheet' | 'floating-panel';
   className?: string;
+  onFocus?: FocusEventHandler<HTMLInputElement>;
+  onBlur?: FocusEventHandler<HTMLInputElement>;
 }
 
 export function SearchField({
@@ -24,6 +26,8 @@ export function SearchField({
   ariaLabel,
   chrome = 'sheet',
   className = '',
+  onFocus,
+  onBlur,
 }: SearchFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -47,6 +51,8 @@ export function SearchField({
         enterKeyHint="search"
         value={value}
         onChange={(event) => onValueChange(event.target.value)}
+        onFocus={onFocus}
+        onBlur={onBlur}
         placeholder={placeholder}
         maxLength={maxLength}
         aria-label={ariaLabel ?? placeholder}

@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -27,6 +28,7 @@ import { useViewerProfileShellContext } from '@/contexts/viewer-profile-shell-co
 import { QuotedPostInset } from '@/features/home/post-card';
 import { PostMediaBlock } from '@/features/home/post-media';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
+import { ComposerHashtagTextarea } from '@/features/guilds/composer-hashtag-textarea';
 import {
   scrollMobileFieldIntoView,
   useMobileFieldFocusScroll,
@@ -34,7 +36,11 @@ import {
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
-import { parsePostText } from '@/lib/post-display';
+import {
+  parsePostText,
+  POST_TEXT_MAX_LENGTH,
+  POST_TEXT_WARN_REMAINING,
+} from '@/lib/post-display';
 import {
   POST_MEDIA_MAX_FILES,
   validatePostMediaFile,
@@ -271,6 +277,15 @@ export function ComposerSheet({
     return () => window.clearTimeout(focusTimer);
   }, [sheetOpen, mode, formKey]);
 
+  useLayoutEffect(() => {
+    const el = textareaRef.current;
+    if (!el || !sheetOpen) return;
+    /* Grow with content; the sheet body is the only scroller (no nested field scroll). */
+    el.style.height = '0px';
+    el.style.height = `${el.scrollHeight}px`;
+    el.style.overflowY = 'hidden';
+  }, [text, pollEnabled, formKey, sheetOpen]);
+
   useEffect(() => {
     return () => {
       for (const preview of mediaPreviews) URL.revokeObjectURL(preview.url);
@@ -298,6 +313,12 @@ export function ComposerSheet({
     const trimmed = text.trim();
     if (pending || !pollReady) return;
     if (!trimmed && mediaFiles.length === 0) return;
+    if (trimmed.length > POST_TEXT_MAX_LENGTH) {
+      setMediaError(
+        `Posts can be at most ${POST_TEXT_MAX_LENGTH.toLocaleString()} characters.`
+      );
+      return;
+    }
     onSubmit({
       text: trimmed || (mediaFiles.length > 0 ? ' ' : ''),
       ...(canUsePoll && pollEnabled
@@ -437,8 +458,16 @@ export function ComposerSheet({
   const inputPlaceholder =
     canUsePoll && pollEnabled ? POLL_PLACEHOLDER : PLACEHOLDER[mode];
 
+  const textLength = text.length;
+  const textRemaining = POST_TEXT_MAX_LENGTH - textLength;
+  const textOverLimit = textLength > POST_TEXT_MAX_LENGTH;
+  const showTextCount = textLength > 0;
+
   const canPost =
-    (Boolean(text.trim()) || mediaFiles.length > 0) && !pending && pollReady;
+    (Boolean(text.trim()) || mediaFiles.length > 0) &&
+    !pending &&
+    pollReady &&
+    !textOverLimit;
 
   const selfRow = (
     <div className="guild-composer-self">
@@ -452,15 +481,14 @@ export function ComposerSheet({
         {accountId ? (
           <IdentityLine name={viewerName} handle={accountId} />
         ) : null}
-        <textarea
-          ref={textareaRef}
-          className="guild-composer-input"
-          rows={pollEnabled ? 2 : 4}
+        <ComposerHashtagTextarea
+          textareaRef={textareaRef}
           placeholder={inputPlaceholder}
-          aria-label={inputPlaceholder}
+          ariaLabel={inputPlaceholder}
           value={text}
+          maxLength={POST_TEXT_MAX_LENGTH}
           disabled={pending}
-          onChange={(event) => setText(event.target.value)}
+          onChange={setText}
           onFocus={scrollFieldIntoView}
         />
         {mediaPreviews.length > 0 ? (
@@ -715,24 +743,45 @@ export function ComposerSheet({
                 <PollComposeIcon className="guild-composer-tool-icon" />
               </button>
             </div>
-            <OsSheetActions
-              layout="row-compact"
-              tone="frosted-primary"
-              borderless
-              className="guild-composer-toolbar-post"
-            >
-              <OsSheetAction
-                type="submit"
-                form={formId}
-                variant="primary"
-                ready={canPost}
-                pending={pending}
-                pendingLabel="Posting…"
-                disabled={!canPost}
+            <div className="guild-composer-toolbar-end">
+              <span
+                className={[
+                  'guild-composer-char-count',
+                  showTextCount ? '' : 'is-idle',
+                  textRemaining <= POST_TEXT_WARN_REMAINING ? 'is-warn' : '',
+                  textOverLimit ? 'is-error' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-live="polite"
+                aria-hidden={!showTextCount}
+                aria-label={
+                  showTextCount
+                    ? `${textRemaining} characters remaining`
+                    : undefined
+                }
               >
-                Post
-              </OsSheetAction>
-            </OsSheetActions>
+                {showTextCount ? textRemaining : '\u00a0'}
+              </span>
+              <OsSheetActions
+                layout="row-compact"
+                tone="frosted-primary"
+                borderless
+                className="guild-composer-toolbar-post"
+              >
+                <OsSheetAction
+                  type="submit"
+                  form={formId}
+                  variant="primary"
+                  ready={canPost}
+                  pending={pending}
+                  pendingLabel="Posting…"
+                  disabled={!canPost}
+                >
+                  Post
+                </OsSheetAction>
+              </OsSheetActions>
+            </div>
           </div>
         </div>
       }

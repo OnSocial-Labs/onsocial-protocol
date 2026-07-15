@@ -124,6 +124,7 @@ export class FeedQuery {
 
   /**
    * Posts tagged with a hashtag (paginated, newest first).
+   * Hydrates full `postsCurrent` rows so list UIs get text/media.
    *
    * ```ts
    * const page = await os.query.feed.byHashtag('onchain', { limit: 20 });
@@ -161,17 +162,46 @@ export class FeedQuery {
         offset,
       },
     });
-    const rows = res.data?.postHashtags ?? [];
-    return {
-      items: rows.map((r) => ({
-        accountId: r.accountId,
-        postId: r.postId,
-        value: '', // join with posts_current for full content
-        blockHeight: r.blockHeight,
-        blockTimestamp: r.blockTimestamp,
-        groupId: r.groupId ?? undefined,
-      })),
-      nextOffset: rows.length >= limit ? offset + limit : undefined,
-    };
+    const stubs = res.data?.postHashtags ?? [];
+    const nextOffset = stubs.length >= limit ? offset + limit : undefined;
+
+    if (stubs.length === 0) {
+      return { items: [], nextOffset };
+    }
+
+    const accountIds = Array.from(new Set(stubs.map((row) => row.accountId)));
+    const postIds = Array.from(new Set(stubs.map((row) => row.postId)));
+    const hydrated = await this._q.graphql<{ postsCurrent: PostRow[] }>({
+      query: `query PostsByHashtagHydrate($accounts: [String!]!, $postIds: [String!]!, $limit: Int!) {
+        postsCurrent(
+          where: {
+            _and: [
+              { accountId: { _in: $accounts } },
+              { postId: { _in: $postIds } }
+            ]
+          },
+          limit: $limit
+        ) {
+          ${POST_ROW_FIELDS}
+        }
+      }`,
+      variables: {
+        accounts: accountIds,
+        postIds,
+        limit: Math.max(stubs.length * 2, limit),
+      },
+    });
+
+    const byKey = new Map(
+      (hydrated.data?.postsCurrent ?? []).map(
+        (row) => [`${row.accountId}\0${row.postId}`, row] as const
+      )
+    );
+
+    const items = stubs
+      .map((stub) => byKey.get(`${stub.accountId}\0${stub.postId}`))
+      .filter((row): row is PostRow => row != null);
+
+    return { items, nextOffset };
   }
 }

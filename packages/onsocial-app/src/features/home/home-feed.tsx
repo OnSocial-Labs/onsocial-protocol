@@ -2,7 +2,22 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { PostRow } from '@onsocial/sdk';
+import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { HomeFeedLensMenu } from '@/features/home/home-feed-lens-menu';
+import {
+  homeFeedLensEmptyCopy,
+  homeFeedLensSubtitle,
+  readStoredHomeFeedLens,
+  resolveHomeFeedLens,
+  writeStoredHomeFeedLens,
+  type HomeFeedLens,
+} from '@/features/home/home-feed-lens';
+import { HomeHashtagSearch } from '@/features/home/home-hashtag-search-field';
+import {
+  homeHashtagEmptyCopy,
+  homeHashtagSubtitle,
+} from '@/features/home/home-hashtag-search';
 import {
   PersonalFeedList,
   shouldPrependOptimisticFeedPost,
@@ -11,10 +26,13 @@ import { usePersonalComposer } from '@/features/home/use-personal-composer';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { revokeDroppedOptimisticMedia } from '@/lib/post-media';
 
-async function loadHomeFeed(accountId: string | null): Promise<PostRow[]> {
+async function loadHomeFeed(
+  lens: HomeFeedLens,
+  accountId: string | null
+): Promise<PostRow[]> {
   const client = createReadOnlyOnSocialClient();
 
-  if (accountId) {
+  if (lens === 'standing' && accountId) {
     const standing = await client.query.standings.outgoing(accountId, {
       limit: 48,
     });
@@ -27,13 +45,21 @@ async function loadHomeFeed(accountId: string | null): Promise<PostRow[]> {
       });
       return page.items;
     }
+
+    return [];
   }
 
   const page = await client.query.feed.recent({ limit: 24 });
   return page.items;
 }
 
-export function HomeFeed() {
+async function loadHashtagFeed(tag: string): Promise<PostRow[]> {
+  const client = createReadOnlyOnSocialClient();
+  const page = await client.query.feed.byHashtag(tag, { limit: 24 });
+  return page.items;
+}
+
+export function HomePagePanel() {
   const {
     accountId,
     isConnected,
@@ -42,19 +68,31 @@ export function HomeFeed() {
   const [posts, setPosts] = useState<PostRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [feedMode, setFeedMode] = useState<'network' | 'global'>('global');
+  const [lens, setLens] = useState<HomeFeedLens>('global');
+  const [lensReady, setLensReady] = useState(false);
+  const [hashtagQuery, setHashtagQuery] = useState('');
+  const [activeHashtag, setActiveHashtag] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (walletLoading) return;
+    setLens(readStoredHomeFeedLens(isConnected));
+    setLensReady(true);
+  }, [isConnected, walletLoading]);
+
+  const activeLens = resolveHomeFeedLens(lens, isConnected);
 
   const refresh = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const items = await loadHomeFeed(accountId);
+      const items = activeHashtag
+        ? await loadHashtagFeed(activeHashtag)
+        : await loadHomeFeed(activeLens, accountId);
       setPosts((current) => {
         revokeDroppedOptimisticMedia(current, items);
         return items;
       });
-      setFeedMode(accountId ? 'network' : 'global');
     } catch (cause) {
       const message =
         cause instanceof Error ? cause.message : 'Could not load feed.';
@@ -63,15 +101,35 @@ export function HomeFeed() {
     } finally {
       setIsLoading(false);
     }
-  }, [accountId]);
+  }, [accountId, activeHashtag, activeLens]);
 
   useEffect(() => {
-    if (walletLoading) {
+    if (walletLoading || !lensReady) {
       return;
     }
 
     void refresh();
-  }, [refresh, walletLoading]);
+  }, [refresh, walletLoading, lensReady]);
+
+  const clearHashtagSearch = useCallback(() => {
+    setHashtagQuery('');
+    setActiveHashtag(null);
+  }, []);
+
+  const handleLensChange = useCallback(
+    (next: HomeFeedLens) => {
+      const resolved = resolveHomeFeedLens(next, isConnected);
+      setLens(resolved);
+      writeStoredHomeFeedLens(resolved);
+      clearHashtagSearch();
+    },
+    [clearHashtagSearch, isConnected]
+  );
+
+  const handleCommitHashtag = useCallback((tag: string) => {
+    setHashtagQuery(`#${tag}`);
+    setActiveHashtag(tag);
+  }, []);
 
   const destinationLabel = useMemo(
     () => (accountId ? `@${accountId} · Public` : 'Public'),
@@ -92,47 +150,69 @@ export function HomeFeed() {
   const replyHandler = isConnected ? openReply : undefined;
   const quoteHandler = isConnected ? openQuote : undefined;
 
+  const subtitle = activeHashtag
+    ? homeHashtagSubtitle(activeHashtag)
+    : homeFeedLensSubtitle(activeLens);
+
+  const emptyCopy = activeHashtag
+    ? homeHashtagEmptyCopy(activeHashtag)
+    : homeFeedLensEmptyCopy(activeLens);
+
   return (
-    <div className="home-feed">
-      <header className="home-feed-header">
-        <h1 className="home-feed-title">Home</h1>
-        <p className="home-feed-subtitle">
-          {feedMode === 'network'
-            ? 'Posts from you and accounts you stand with.'
-            : 'Recent posts across OnSocial.'}
-        </p>
-      </header>
-
-      {!isConnected && !walletLoading ? (
-        <section className="post-composer post-composer-guest">
-          <p className="post-composer-lead">Connect your wallet to post.</p>
-        </section>
-      ) : null}
-
-      {isLoading ? (
-        <div className="home-feed-state">Loading feed…</div>
-      ) : null}
-
-      {!isLoading && error ? (
-        <div className="home-feed-state is-error">{error}</div>
-      ) : null}
-
-      {!isLoading && !error && posts.length === 0 ? (
-        <div className="home-feed-state">
-          No posts yet. Be the first to share something.
+    <OsAppScreen
+      title="Home"
+      subtitle={subtitle}
+      backFallbackHref="/"
+      toolbar={
+        <div className="home-feed-toolbar">
+          <HomeFeedLensMenu
+            lens={activeLens}
+            onLensChange={handleLensChange}
+            standingAvailable={isConnected}
+          />
+          <HomeHashtagSearch
+            query={hashtagQuery}
+            onQueryChange={setHashtagQuery}
+            activeTag={activeHashtag}
+            onCommitTag={handleCommitHashtag}
+            onClear={clearHashtagSearch}
+          />
         </div>
-      ) : null}
+      }
+    >
+      <div className="home-feed">
+        {!isConnected && !walletLoading ? (
+          <section className="post-composer post-composer-guest">
+            <p className="post-composer-lead">Connect your wallet to post.</p>
+          </section>
+        ) : null}
 
-      {!isLoading && !error && posts.length > 0 ? (
-        <PersonalFeedList
-          posts={posts}
-          onReply={replyHandler}
-          onQuote={quoteHandler}
-          onEngagementError={(message) => setError(message)}
-        />
-      ) : null}
+        {isLoading ? (
+          <div className="home-feed-state">Loading feed…</div>
+        ) : null}
 
-      {sheet}
-    </div>
+        {!isLoading && error ? (
+          <div className="home-feed-state is-error">{error}</div>
+        ) : null}
+
+        {!isLoading && !error && posts.length === 0 ? (
+          <div className="home-feed-state">{emptyCopy}</div>
+        ) : null}
+
+        {!isLoading && !error && posts.length > 0 ? (
+          <PersonalFeedList
+            posts={posts}
+            onReply={replyHandler}
+            onQuote={quoteHandler}
+            onEngagementError={(message) => setError(message)}
+          />
+        ) : null}
+
+        {sheet}
+      </div>
+    </OsAppScreen>
   );
 }
+
+/** @deprecated Prefer `HomePagePanel`. */
+export const HomeFeed = HomePagePanel;

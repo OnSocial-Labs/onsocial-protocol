@@ -9,6 +9,7 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { PostCard, PostRowSkeleton, postKey } from '@/features/home/post-card';
+import { extractHashtagsFromText } from '@/features/home/home-hashtag-search';
 import {
   GuildComposerSheet,
   type GuildComposerMode,
@@ -431,11 +432,13 @@ export function LiveGuildPostPanel({
       }),
       files
     );
+    const hashtags = extractHashtagsFromText(text);
     const postData = {
       text,
       access: 'group' as const,
       groupId,
       timestamp: Date.now(),
+      ...(hashtags.length > 0 ? { hashtags } : {}),
       ...feedMeta,
       ...(files.length ? { files } : {}),
     };
@@ -472,6 +475,7 @@ export function LiveGuildPostPanel({
       conversation.root ? inheritedGuildReplyFeedMeta(conversation.root) : {},
       files
     );
+    const hashtags = extractHashtagsFromText(text);
     const media = files.length ? buildOptimisticMediaEntries(files) : undefined;
     // Chain-confirmed; show immediately while the indexer catches up.
     const confirmedRow: PostRow = {
@@ -480,6 +484,7 @@ export function LiveGuildPostPanel({
       value: JSON.stringify({
         v: 1,
         text,
+        ...(hashtags.length > 0 ? { hashtags } : {}),
         ...(media ? { media } : {}),
       }),
       blockHeight: 0,

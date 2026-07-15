@@ -6,8 +6,13 @@ let lockCount = 0;
 let scrollContainer: HTMLElement | null = null;
 let lockedScrollTop = 0;
 
+/** Background scrollers for OS app screens and portfolio face. */
 function findScrollContainer(): HTMLElement | null {
-  return document.querySelector('.portfolio-frame') ?? document.querySelector('.frame');
+  return (
+    document.querySelector<HTMLElement>('.os-app-screen-body') ??
+    document.querySelector<HTMLElement>('.portfolio-frame') ??
+    document.querySelector<HTMLElement>('.frame')
+  );
 }
 
 function blockScroll(event: Event) {

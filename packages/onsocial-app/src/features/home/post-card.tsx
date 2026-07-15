@@ -20,7 +20,14 @@ import {
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
 import { PostMediaStrip } from '@/features/home/post-media';
 import { PostPollEmbedCard } from '@/features/home/post-poll-embed';
-import { parsePostPollEmbed, parsePostText, postKey } from '@/lib/post-display';
+import {
+  parsePostPollEmbed,
+  parsePostText,
+  postFeedPreviewLimit,
+  postKey,
+  postPreviewNeedsExpand,
+  truncatePostPreview,
+} from '@/lib/post-display';
 import {
   parsePostMedia,
   isRenderablePostVideoMime,
@@ -403,13 +410,25 @@ function PostCardBody({
   badges,
   text,
   hideText = false,
+  hasMedia = false,
+  /** Thread focus / detail — show full copy, no Show more. */
+  expandDisabled = false,
 }: {
   relationContext: { verb: string; handle: string } | null;
   badges: string[];
   text: string;
   /** When the poll card already shows the question, skip duplicate body text. */
   hideText?: boolean;
+  hasMedia?: boolean;
+  expandDisabled?: boolean;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const previewLimit = postFeedPreviewLimit(hasMedia);
+  const canExpand =
+    !expandDisabled && !hideText && postPreviewNeedsExpand(text, previewLimit);
+  const bodyText =
+    canExpand && !expanded ? truncatePostPreview(text, previewLimit) : text;
+
   return (
     <>
       {relationContext ? (
@@ -427,7 +446,25 @@ function PostCardBody({
           ))}
         </div>
       ) : null}
-      {!hideText ? <p className="post-card-body">{text || '…'}</p> : null}
+      {!hideText ? (
+        <div className="post-card-body-block">
+          <p className="post-card-body">{bodyText || '…'}</p>
+          {canExpand ? (
+            <button
+              type="button"
+              className="post-card-show-more"
+              aria-expanded={expanded}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setExpanded((current) => !current);
+              }}
+            >
+              {expanded ? 'Show less' : 'Show more'}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </>
   );
 }
@@ -531,6 +568,8 @@ export function PostCard({
           relationContext={relationContext}
           badges={badges}
           text={text}
+          hasMedia={hasMedia}
+          expandDisabled={mediaFocused}
           hideText={
             (Boolean(poll) && text === poll?.question) ||
             (mediaItems.length > 0 && !text.trim())

@@ -2181,37 +2181,64 @@ describe('QueryModule', () => {
 
   describe('getPostsByHashtag()', () => {
     it('queries postHashtags by tag, newest first', async () => {
-      const { os, fetch } = makeOs({
-        data: {
-          postHashtags: [
-            {
-              accountId: 'alice.near',
-              postId: 'p1',
-              hashtag: 'onchain',
-              blockHeight: 100,
-              blockTimestamp: 1,
-              groupId: null,
+      const { os, fetch } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        if (query.includes('postHashtags')) {
+          return {
+            data: {
+              postHashtags: [
+                {
+                  accountId: 'alice.near',
+                  postId: 'p1',
+                  hashtag: 'onchain',
+                  blockHeight: 100,
+                  blockTimestamp: 1,
+                  groupId: null,
+                },
+                {
+                  accountId: 'bob.near',
+                  postId: 'p2',
+                  hashtag: 'onchain',
+                  blockHeight: 99,
+                  blockTimestamp: 2,
+                  groupId: null,
+                },
+              ],
             },
-            {
-              accountId: 'bob.near',
-              postId: 'p2',
-              hashtag: 'onchain',
-              blockHeight: 99,
-              blockTimestamp: 2,
-              groupId: null,
-            },
-          ],
-        },
+          };
+        }
+        return {
+          data: {
+            postsCurrent: [
+              {
+                accountId: 'alice.near',
+                postId: 'p1',
+                value: '{"v":1,"text":"one"}',
+                blockHeight: 100,
+                blockTimestamp: 1,
+              },
+              {
+                accountId: 'bob.near',
+                postId: 'p2',
+                value: '{"v":1,"text":"two"}',
+                blockHeight: 99,
+                blockTimestamp: 2,
+              },
+            ],
+          },
+        };
       });
 
       const page = await os.query.feed.byHashtag('#onchain', { limit: 10 });
       expect(page.items).toHaveLength(2);
       expect(page.items[0].accountId).toBe('alice.near');
       expect(page.items[0].postId).toBe('p1');
+      expect(page.items[0].value).toContain('one');
 
-      const body = JSON.parse(fetch.mock.calls[0][1].body);
-      expect(body.variables.tag).toBe('onchain'); // stripped #
-      expect(body.query).toContain('blockHeight: DESC');
+      const tagBody = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(tagBody.variables.tag).toBe('onchain'); // stripped #
+      expect(tagBody.query).toContain('blockHeight: DESC');
+      expect(fetch.mock.calls).toHaveLength(2);
     });
 
     it('returns nextOffset when page is full', async () => {
@@ -2223,30 +2250,63 @@ describe('QueryModule', () => {
         blockTimestamp: 0,
         groupId: null,
       }));
-      const { os } = makeOs({ data: { postHashtags: rows } });
+      const { os } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        if (query.includes('postHashtags')) {
+          return { data: { postHashtags: rows } };
+        }
+        return {
+          data: {
+            postsCurrent: rows.map((row) => ({
+              ...row,
+              value: '{"v":1,"text":"x"}',
+            })),
+          },
+        };
+      });
 
       const page = await os.query.feed.byHashtag('gm', { limit: 5 });
       expect(page.nextOffset).toBe(5);
+      expect(page.items).toHaveLength(5);
     });
 
     it('returns no nextOffset on last page', async () => {
-      const { os } = makeOs({
-        data: {
-          postHashtags: [
-            {
-              accountId: 'a.near',
-              postId: 'p1',
-              hashtag: 'gm',
-              blockHeight: 1,
-              blockTimestamp: 0,
-              groupId: null,
+      const { os } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        if (query.includes('postHashtags')) {
+          return {
+            data: {
+              postHashtags: [
+                {
+                  accountId: 'a.near',
+                  postId: 'p1',
+                  hashtag: 'gm',
+                  blockHeight: 1,
+                  blockTimestamp: 0,
+                  groupId: null,
+                },
+              ],
             },
-          ],
-        },
+          };
+        }
+        return {
+          data: {
+            postsCurrent: [
+              {
+                accountId: 'a.near',
+                postId: 'p1',
+                value: '{"v":1,"text":"gm"}',
+                blockHeight: 1,
+                blockTimestamp: 0,
+              },
+            ],
+          },
+        };
       });
 
       const page = await os.query.feed.byHashtag('gm', { limit: 20 });
       expect(page.nextOffset).toBeUndefined();
+      expect(page.items[0]?.value).toContain('gm');
     });
   });
 

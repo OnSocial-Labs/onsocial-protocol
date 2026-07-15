@@ -6011,36 +6011,19 @@ a.os-surface-row {
     display: none;
   }
 
-  /* ─── App shell (home, discover, market) ─────────────── */
-
-  .app-shell {
-    min-height: 100dvh;
-    display: flex;
-    flex-direction: column;
-    background: var(--bg);
-    color: rgb(var(--fg-rgb) / 0.96);
-  }
-
-  .app-shell-body {
-    flex: 1;
-    width: 100%;
-    padding: 1rem 1rem 7rem;
-  }
-
-  .discover-page {
-    display: flex;
-    justify-content: center;
-    width: 100%;
-  }
-
-  /* Full-viewport OS glass app surface (Discover, future OS apps). */
+  /* Full-viewport OS glass app surface (Home, Discover, Market, Guilds). */
   .os-app-screen {
     --glass-header-scrim-height: var(--glass-screen-header-scrim-height);
-    /* Nav row fits sheet icon actions (2.75rem); used by sticky guild feed tabs. */
+    /* Immersive elevate chrome + sticky room filter strip. */
     --os-app-screen-nav-row-height: 2.75rem;
     --os-app-screen-chrome-height: calc(
       0.65rem + var(--os-app-screen-nav-row-height) + 0.65rem
     );
+    --os-app-screen-elevated-chrome-height: calc(
+      env(safe-area-inset-top, 0px) + 0.65rem +
+        var(--os-app-screen-nav-row-height) + 0.45rem
+    );
+    --guild-feed-filter-sticky-block: 2.55rem;
     position: relative;
     height: 100dvh;
     max-height: 100dvh;
@@ -6113,7 +6096,7 @@ a.os-surface-row {
 
   .os-app-screen[data-immersive-header='true']
     .os-app-screen-header.is-elevated {
-    /* Solid chrome — feed must not bleed through title + space tabs. */
+    /* Solid chrome — feed must not bleed through the title bar. */
     background: rgb(var(--bg-rgb));
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
@@ -6208,45 +6191,18 @@ a.os-surface-row {
     margin-top: 0.75rem;
   }
 
-  /* Guild detail — space tabs only mount once the immersive header elevates. */
-  .os-app-screen[data-immersive-header='true']
-    .os-app-screen-header.is-elevated
-    .os-app-screen-toolbar {
-    margin-top: 0.35rem;
-  }
-
-  .os-app-screen[data-immersive-header='true']
-    .os-app-screen-header.is-elevated
-    .os-app-screen-toolbar
-    .guild-feed-filter-list {
-    margin: 0;
-    padding: 0;
-    gap: 0.22rem;
-  }
-
-  .os-app-screen[data-immersive-header='true']
-    .os-app-screen-header.is-elevated
-    .os-app-screen-toolbar
-    .guild-feed-filter-button {
-    min-height: 1.55rem;
-    font-size: 0.64rem;
-    padding: 0.22rem 0.52rem;
-  }
-
-  .os-app-screen[data-immersive-header='true']
-    .os-app-screen-header.is-elevated
-    .os-app-screen-toolbar
-    .guild-feed-filter-button--add {
-    width: 1.55rem;
-    min-width: 1.55rem;
-  }
-
-  .os-app-screen[data-immersive-header='true']
-    .os-app-screen-header.is-elevated
-    .os-app-screen-toolbar
-    .guild-feed-filter-chip-info {
-    width: 0.62rem;
-    height: 0.62rem;
+  /*
+   * Immersive elevate: feed anchors under solid title chrome + sticky room strip.
+   * Filters stay in-flow (sticky) — no dual-mount toolbar handoff jump.
+   */
+  .os-app-screen[data-immersive-header='true']:has(
+      .os-app-screen-header.is-elevated
+    )
+    .os-app-screen-body {
+    scroll-padding-top: calc(
+      var(--os-app-screen-elevated-chrome-height) +
+        var(--guild-feed-filter-sticky-block)
+    );
   }
 
   /* Icon actions opposite the back button (settings gear etc.). */
@@ -6267,8 +6223,55 @@ a.os-surface-row {
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
+    /* Touch / mobile: no rail. Desktop pointer: see hover overlay below. */
+    scrollbar-width: none;
     /* Short clearance only — feed scrolls under the floating dock pill. */
     padding-bottom: calc(3.25rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .os-app-screen-body::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+
+  /*
+   * Desktop pointer only — thin thumb appears on hover/focus, not a permanent
+   * rail through the immersive banner.
+   */
+  @media (hover: hover) and (pointer: fine) {
+    .os-app-screen-body {
+      scrollbar-width: thin;
+      scrollbar-color: transparent transparent;
+    }
+
+    .os-app-screen-body:hover,
+    .os-app-screen-body:focus-within {
+      scrollbar-color: rgb(var(--fg-rgb) / 0.18) transparent;
+    }
+
+    .os-app-screen-body::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+
+    .os-app-screen-body::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .os-app-screen-body::-webkit-scrollbar-thumb {
+      background: transparent;
+      border-radius: 9999px;
+    }
+
+    .os-app-screen-body:hover::-webkit-scrollbar-thumb,
+    .os-app-screen-body:focus-within::-webkit-scrollbar-thumb {
+      background: rgb(var(--fg-rgb) / 0.16);
+    }
+
+    .os-app-screen-body:hover::-webkit-scrollbar-thumb:hover,
+    .os-app-screen-body:focus-within::-webkit-scrollbar-thumb:hover {
+      background: rgb(var(--fg-rgb) / 0.28);
+    }
   }
 
   /*
@@ -6302,6 +6305,21 @@ a.os-surface-row {
   .os-app-screen[data-tone='os'] .os-app-screen-search.sheet-control:hover,
   .os-app-screen[data-tone='os']
     .os-app-screen-search.sheet-control:focus-within {
+    background: rgb(var(--fg-rgb) / 0.045);
+  }
+
+  .os-app-screen[data-tone='os'] .home-feed-toolbar .os-floating-panel-search {
+    background: rgb(var(--fg-rgb) / 0.03);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .os-app-screen[data-tone='os']
+    .home-feed-toolbar
+    .os-floating-panel-search:hover,
+  .os-app-screen[data-tone='os']
+    .home-feed-toolbar
+    .os-floating-panel-search:focus-within {
     background: rgb(var(--fg-rgb) / 0.045);
   }
 
@@ -11679,21 +11697,6 @@ a.os-surface-row {
     }
   }
 
-  /* ── App shell chrome (contextual back + account) ──────── */
-
-  .app-shell-chrome {
-    position: sticky;
-    top: 0;
-    z-index: 20;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: calc(env(safe-area-inset-top, 0px) + 0.75rem)
-      max(1rem, env(safe-area-inset-right, 0px)) 0.75rem
-      max(1rem, env(safe-area-inset-left, 0px));
-  }
-
   .contextual-back {
     display: inline-flex;
     align-items: center;
@@ -11717,32 +11720,122 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.95);
   }
 
+  /*
+   * Shared OsAppScreen body inset — Home, Market, Guilds, threads.
+   * Discover/Standing use `.standing-panel` (list density) instead.
+   */
   .home-feed,
-  .discover-page,
+  .app-soon-page,
+  .guilds-page,
+  .guild-create-form {
+    padding: 0 1rem 1.5rem;
+  }
+
+  .home-feed,
   .app-soon-page {
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
   }
 
-  .home-feed-header,
-  .discover-page-header {
+  .home-feed-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+  }
+
+  .home-hashtag-search {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    z-index: 2;
+  }
+
+  .home-hashtag-search-form {
+    display: block;
+    min-width: 0;
+  }
+
+  .home-feed-toolbar-search {
+    width: 100%;
+  }
+
+  .home-hashtag-suggest {
+    position: absolute;
+    top: calc(100% + 0.35rem);
+    left: 0;
+    right: 0;
+    z-index: 5;
     display: flex;
     flex-direction: column;
-    gap: 0.35rem;
+    gap: 0.15rem;
+    padding: 0.4rem;
+    border: 1px solid rgb(var(--fg-rgb) / 0.1);
+    border-radius: 1rem;
+    background: rgb(var(--bg-rgb) / 0.96);
+    box-shadow:
+      0 18px 40px -18px rgb(0 0 0 / 0.34),
+      0 6px 16px -12px rgb(0 0 0 / 0.18);
+    backdrop-filter: blur(20px) saturate(1.2);
+    -webkit-backdrop-filter: blur(20px) saturate(1.2);
   }
 
-  .home-feed-title,
-  .discover-page-title,
-  .app-soon-title {
+  .home-hashtag-suggest-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-height: 2.35rem;
     margin: 0;
-    font-size: clamp(1.6rem, 4vw, 2rem);
-    letter-spacing: -0.04em;
-    font-weight: 500;
+    border: 0;
+    border-radius: 0.75rem;
+    padding: 0.4rem 0.65rem;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
   }
 
-  .home-feed-subtitle,
-  .discover-page-subtitle,
+  .home-hashtag-suggest-item:hover,
+  .home-hashtag-suggest-item:focus-visible {
+    background: rgb(var(--fg-rgb) / 0.06);
+    outline: none;
+  }
+
+  .home-hashtag-suggest-tag {
+    font-size: 0.84rem;
+    font-weight: 600;
+  }
+
+  .home-hashtag-suggest-count {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
+  .home-feed-lens-option {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.12rem;
+    text-align: left;
+  }
+
+  .home-feed-lens-option-label {
+    font-weight: 600;
+  }
+
+  .home-feed-lens-option-desc {
+    font-size: 0.72rem;
+    font-weight: 500;
+    line-height: 1.35;
+    color: rgb(var(--fg-rgb) / 0.48);
+  }
+
   .app-soon-copy {
     margin: 0;
     font-size: 0.92rem;
@@ -11941,7 +12034,8 @@ a.os-surface-row {
   .post-card--openable .post-card-react,
   .post-card--openable .post-card-menu,
   .post-card--openable .post-card-menu-panel,
-  .post-card--openable .post-card-menu-panel * {
+  .post-card--openable .post-card-menu-panel *,
+  .post-card--openable .post-card-show-more {
     pointer-events: auto;
   }
 
@@ -12208,12 +12302,41 @@ a.os-surface-row {
     text-transform: capitalize;
   }
 
+  .post-card-body-block {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+    min-width: 0;
+  }
+
   .post-card-body {
     margin: 0;
     font-size: 0.92rem;
     line-height: 1.5;
     white-space: pre-wrap;
     word-break: break-word;
+  }
+
+  .post-card-show-more {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: rgb(var(--fg-rgb) / 0.52);
+    font: inherit;
+    font-size: 0.86rem;
+    font-weight: 600;
+    line-height: 1.3;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .post-card-show-more:hover,
+  .post-card-show-more:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.78);
+    outline: none;
   }
 
   .post-media-strip {
@@ -12698,7 +12821,7 @@ a.os-surface-row {
   .post-card-quote-inset-body-row.has-media .post-card-quote-inset-body {
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 4;
+    -webkit-line-clamp: 3;
     overflow: hidden;
     white-space: normal;
   }
@@ -12918,7 +13041,6 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    padding: 0 1rem 1.5rem;
   }
 
   .guilds-page:has(.guild-hero) {
@@ -15042,6 +15164,20 @@ a.os-surface-row {
     line-height: 1.55;
   }
 
+  /*
+   * Composer uses the GlassSheet flex stack:
+   * pinned header · scrolling body · pinned footer (keyboard-aware via panelStyle).
+   */
+  .guild-composer-sheet-panel.glass-sheet-panel {
+    overflow: hidden;
+  }
+
+  .guild-composer-sheet-panel > .glass-sheet-body.guild-composer-sheet-body {
+    min-height: 0;
+    flex: 1 1 auto;
+    overscroll-behavior: contain;
+  }
+
   .guild-composer-sheet-body {
     padding: 0.35rem 1.15rem 0.85rem;
   }
@@ -15166,10 +15302,19 @@ a.os-surface-row {
     height: 1.2rem;
   }
 
+  .guild-composer-toolbar-end {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: auto;
+    min-height: 2.15rem;
+  }
+
   .guild-composer-toolbar-post {
     flex: 0 0 auto;
     width: auto;
-    margin-left: auto;
+    margin-left: 0;
   }
 
   .guild-composer-toolbar-post.os-sheet-actions--row-compact {
@@ -15187,6 +15332,36 @@ a.os-surface-row {
     font-size: 0.78rem;
     line-height: 1.2;
     border-radius: 9999px;
+  }
+
+  /* Reserved slot beside Post — no layout jump when typing starts. */
+  .guild-composer-char-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    margin: 0;
+    min-width: 2.75rem;
+    height: 2.15rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    color: rgb(var(--fg-rgb) / 0.4);
+    transition: color 160ms ease, opacity 160ms ease;
+  }
+
+  .guild-composer-char-count.is-idle {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .guild-composer-char-count.is-warn {
+    color: color-mix(in srgb, var(--protocol-amber, #d97706) 82%, transparent);
+  }
+
+  .guild-composer-char-count.is-error {
+    color: color-mix(in srgb, var(--protocol-red) 92%, transparent);
   }
 
   .guild-composer-reply-flow {
@@ -15237,10 +15412,41 @@ a.os-surface-row {
     min-width: 0;
   }
 
-  /* Borderless input — your words sit in the row exactly as they will post. */
-  .guild-composer-input {
+  .guild-composer-input-shell {
+    position: relative;
     width: 100%;
-    min-height: 4.25rem;
+    min-width: 0;
+  }
+
+  .guild-composer-input-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    pointer-events: none;
+    color: inherit;
+    font: inherit;
+    font-size: 0.92rem;
+    line-height: 1.5;
+  }
+
+  .guild-composer-hashtag {
+    color: color-mix(in srgb, var(--protocol-green) 88%, rgb(var(--fg-rgb)));
+    font-weight: 600;
+  }
+
+  /* Grows with content; sheet body scrolls — no nested textarea overflow. */
+  .guild-composer-input {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    min-height: calc(0.92rem * 1.5 * 2);
+    max-height: none;
     border: 0;
     background: transparent;
     color: inherit;
@@ -15250,6 +15456,18 @@ a.os-surface-row {
     outline: none;
     padding: 0;
     resize: none;
+    overflow-y: hidden;
+  }
+
+  .guild-composer-input.is-hashtag-overlay {
+    color: transparent;
+    caret-color: rgb(var(--fg-rgb) / 0.92);
+    -webkit-text-fill-color: transparent;
+  }
+
+  .guild-composer-input.is-hashtag-overlay::placeholder {
+    color: rgb(var(--fg-rgb) / 0.36);
+    -webkit-text-fill-color: rgb(var(--fg-rgb) / 0.36);
   }
 
   .guild-composer-input::placeholder {
@@ -15574,7 +15792,22 @@ a.os-surface-row {
     gap: 0;
   }
 
-  /* In-flow below hero; scrolls away then docks in header toolbar. */
+  /* In-flow below hero; pins under elevated immersive chrome (no remount). */
+  .guild-feed-filter-pin {
+    position: relative;
+    z-index: 1;
+  }
+
+  .guild-feed-filter-pin.is-pinned {
+    position: sticky;
+    top: var(--os-app-screen-elevated-chrome-height);
+    z-index: 2;
+    margin-inline: -1rem;
+    padding-inline: 1rem;
+    background: rgb(var(--bg-rgb));
+    box-shadow: 0 1px 0 rgb(var(--fg-rgb) / 0.06);
+  }
+
   .guild-feed-filter-list {
     display: flex;
     gap: 0.28rem;
@@ -15582,10 +15815,6 @@ a.os-surface-row {
     margin-inline: -0.15rem;
     padding: 0.28rem 0.15rem 0.35rem;
     scrollbar-width: none;
-  }
-
-  .guild-feed-filter-list.is-receded {
-    display: none;
   }
 
   .guild-feed-filter-list::-webkit-scrollbar {
@@ -16121,14 +16350,6 @@ a.os-surface-row {
     min-height: 50vh;
     justify-content: center;
     align-items: flex-start;
-  }
-
-  .app-soon-eyebrow {
-    margin: 0;
-    font-size: 0.68rem;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: rgb(var(--fg-rgb) / 0.42);
   }
 
   .app-soon-link {
