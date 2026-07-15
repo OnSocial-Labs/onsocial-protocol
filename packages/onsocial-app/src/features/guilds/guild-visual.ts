@@ -79,3 +79,16 @@ export function guildCoverStyle(
 ): CSSProperties | undefined {
   return bannerUrl ? undefined : guildFallbackCoverStyle(groupId);
 }
+
+/**
+ * Paint avatar as a background on the rounded frame itself.
+ * Avoids the 1px antialias gutters you get from overflow-clipped `<img>`.
+ */
+export function guildAvatarFillStyle(
+  avatarUrl: string | null | undefined
+): CSSProperties | undefined {
+  if (!avatarUrl) return undefined;
+  return {
+    backgroundImage: `url(${JSON.stringify(avatarUrl)})`,
+  };
+}

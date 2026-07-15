@@ -802,19 +802,22 @@ a.os-surface-row {
   color: rgb(var(--fg-rgb) / 0.72);
 }
 
-/* Preview bar — thin dock toolbar (OS chrome, not a confirmation card). */
+/* Preview bar — thin dock toolbar (OS chrome, not a confirmation card).
+   Center on the fixed containing block (viewport or app column) — not
+   viewport inset math, which breaks when transform/backdrop-filter
+   re-parents `position: fixed` to the desktop card. */
 .portfolio-face-preview-bar {
   --preview-bar-mood: var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.72)));
 
   position: fixed;
-  left: calc(var(--os-column-inset-inline) + var(--os-column-width) / 2);
+  left: 50%;
   z-index: 26;
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
   align-items: center;
   gap: 0.5rem;
-  width: min(calc(var(--os-column-width) - 1.5rem), 20rem);
+  width: min(calc(100% - 1.5rem), 20rem);
   transform: translateX(-50%);
   bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
 }
@@ -1778,15 +1781,10 @@ a.os-surface-row {
     }
   }
 
-  /* Scroll lives here — no transform, or fixed UI inherits the wrong containing block. */
+  /* Scroll lives here — no transform, or fixed UI (dock / launcher) inherits
+     the wrong containing block and viewport-inset math clips it off-screen. */
   .app-surface.portfolio-frame {
     transform: none;
-  }
-
-  @media (min-width: 640px) {
-    .app-surface:not(.portfolio-frame) {
-      transform: translateX(0);
-    }
   }
 
   @media (min-width: 640px) {
@@ -6436,18 +6434,22 @@ a.os-surface-row {
     display: none;
   }
 
-  /* ── Summon launcher ─────────────────────────────────── */
+  /* ── Summon launcher ───────────────────────────────────
+     Center on the fixed containing block. Desktop `.os-app-screen` /
+     `.app-surface` establish one via backdrop-filter (and used to via a
+     no-op transform), so viewport `--os-column-inset-*` left math pushed
+     the dock outside the clipped card. */
 
   .portfolio-summon-dock {
     position: fixed;
-    left: calc(var(--os-column-inset-inline) + var(--os-column-width) / 2);
+    left: 50%;
     bottom: 0;
     z-index: 40;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: flex-end;
-    width: var(--os-column-width);
+    width: min(100%, var(--os-column-width));
     padding: 0 1rem calc(0.9rem + env(safe-area-inset-bottom));
     pointer-events: none;
     transform: translateX(-50%);
@@ -7614,11 +7616,15 @@ a.os-surface-row {
 
   .guild-summary-card-identity {
     --guild-card-avatar-size: 2.35rem;
+    --guild-card-avatar-ring: 2px;
     position: relative;
     z-index: 1;
     display: flex;
     align-items: flex-end;
-    margin: calc(var(--guild-card-avatar-size) / -2) 0.7rem 0;
+    margin: calc(
+        (var(--guild-card-avatar-size) + 2 * var(--guild-card-avatar-ring)) / -2
+      )
+      0.7rem 0;
   }
 
   .guild-summary-card--rail .guild-summary-card-identity {
@@ -7626,16 +7632,34 @@ a.os-surface-row {
     margin-inline: 0.55rem;
   }
 
+  .guild-summary-card-avatar-shell {
+    --guild-card-avatar-ring: 2px;
+    box-sizing: border-box;
+    flex-shrink: 0;
+    width: calc(
+      var(--guild-card-avatar-size) + 2 * var(--guild-card-avatar-ring)
+    );
+    height: calc(
+      var(--guild-card-avatar-size) + 2 * var(--guild-card-avatar-ring)
+    );
+    padding: var(--guild-card-avatar-ring);
+    border-radius: calc(0.72rem + var(--guild-card-avatar-ring));
+    background: rgb(var(--bg-rgb));
+  }
+
   .guild-summary-card-avatar {
-    display: grid;
-    place-items: center;
-    width: var(--guild-card-avatar-size);
-    height: var(--guild-card-avatar-size);
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 100%;
     overflow: hidden;
-    border: 2px solid rgb(var(--bg-rgb));
+    border: 0;
     border-radius: 0.72rem;
-    background: rgb(var(--fg-rgb) / 0.08);
-    box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.06);
+    background-color: rgb(var(--bg-rgb));
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    box-shadow: none;
     color: rgb(var(--fg-rgb) / 0.7);
     font-size: calc(var(--guild-card-avatar-size) * 0.3);
     font-weight: 700;
@@ -7644,10 +7668,15 @@ a.os-surface-row {
     text-transform: uppercase;
   }
 
-  .guild-summary-card-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+  .guild-summary-card-avatar.has-media {
+    background-color: rgb(var(--bg-rgb));
+  }
+
+  .guild-summary-card-avatar > span {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
   }
 
   .guild-summary-card-avatar--fallback {
@@ -13006,22 +13035,44 @@ a.os-surface-row {
     align-items: flex-end;
     justify-content: space-between;
     gap: 0.75rem;
-    margin-top: calc(var(--guild-avatar-size) / -2);
+    margin-top: calc(
+      (var(--guild-avatar-size) + 2 * var(--guild-avatar-ring, 3px)) / -2
+    );
     padding-inline: 0.05rem;
+  }
+
+  /*
+   * Opaque ring shell — solid pad around the media so rounded-corner AA
+   * composites against bg (not the banner “see-through” fringe).
+   */
+  .guild-hero-avatar-shell {
+    --guild-avatar-radius: 1.15rem;
+    --guild-avatar-ring: 3px;
+    box-sizing: border-box;
+    flex-shrink: 0;
+    width: calc(var(--guild-avatar-size) + 2 * var(--guild-avatar-ring));
+    height: calc(var(--guild-avatar-size) + 2 * var(--guild-avatar-ring));
+    padding: var(--guild-avatar-ring);
+    border-radius: calc(
+      var(--guild-avatar-radius) + var(--guild-avatar-ring)
+    );
+    background: rgb(var(--bg-rgb));
   }
 
   .guild-hero-avatar {
     position: relative;
     z-index: 1;
-    display: grid;
-    place-items: center;
-    width: var(--guild-avatar-size);
-    height: var(--guild-avatar-size);
+    display: block;
+    width: 100%;
+    height: 100%;
     overflow: hidden;
-    border: 3px solid rgb(var(--bg-rgb));
-    border-radius: 1.15rem;
-    background: rgb(var(--fg-rgb) / 0.08);
-    box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.06);
+    border: 0;
+    border-radius: var(--guild-avatar-radius, 1.15rem);
+    background-color: rgb(var(--bg-rgb));
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    box-shadow: none;
     color: rgb(var(--fg-rgb) / 0.72);
     font-size: calc(var(--guild-avatar-size) * 0.28);
     font-weight: 700;
@@ -13030,10 +13081,17 @@ a.os-surface-row {
     text-transform: uppercase;
   }
 
-  .guild-hero-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+  /* Keep opaque pad under the photo — never transparent (AA would leak banner). */
+  .guild-hero-avatar.has-media {
+    background-color: rgb(var(--bg-rgb));
+    background-size: cover;
+  }
+
+  .guild-hero-avatar > span {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
   }
 
   .guild-hero-avatar--fallback {
@@ -13543,26 +13601,41 @@ a.os-surface-row {
 
   .guild-edit-avatar {
     position: relative;
+    /* Rim chips need overflow:visible; shell owns the opaque ring. */
+    box-sizing: border-box;
+    border: 0;
+    box-shadow: none;
   }
 
+  .guild-edit-avatar.profile-editor-media-host--avatar {
+    border-radius: var(--guild-avatar-radius, 1.15rem);
+    overflow: visible;
+  }
+
+  .guild-edit-avatar-hit.profile-editor-media-backdrop,
   .guild-edit-avatar-hit {
-    display: grid;
-    place-items: center;
-    width: 100%;
-    height: 100%;
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: block;
+    width: auto;
+    height: auto;
     margin: 0;
     padding: 0;
     border: 0;
+    overflow: hidden;
+    border-radius: inherit;
     background: transparent;
     color: inherit;
     font: inherit;
     cursor: pointer;
   }
 
-  .guild-edit-avatar-hit img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+  .guild-edit-avatar-hit > span:not(.profile-editor-media-overlay) {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
   }
 
   .guild-edit-name {
@@ -14591,15 +14664,18 @@ a.os-surface-row {
   }
 
   .guild-settings-avatar {
-    display: grid;
-    place-items: center;
+    position: relative;
+    display: block;
     width: 4.5rem;
     height: 4.5rem;
     overflow: hidden;
-    border: 3px solid rgb(var(--bg-rgb));
+    border: 0;
     border-radius: 1.15rem;
-    background: rgb(var(--fg-rgb) / 0.08);
-    box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.06);
+    background-color: rgb(var(--bg-rgb));
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    box-shadow: 0 0 0 3px rgb(var(--bg-rgb));
     color: rgb(var(--fg-rgb) / 0.72);
     font-size: 1.15rem;
     font-weight: 700;
@@ -14608,10 +14684,8 @@ a.os-surface-row {
     text-transform: uppercase;
   }
 
-  .guild-settings-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+  .guild-settings-avatar.has-media {
+    background-color: rgb(var(--bg-rgb));
   }
 
   .guild-settings-avatar-actions {

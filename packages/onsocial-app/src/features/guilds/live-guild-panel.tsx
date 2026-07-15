@@ -87,6 +87,7 @@ import {
 } from '@/features/guilds/guild-member-roster';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
+  guildAvatarFillStyle,
   guildCoverStyle,
   guildHeroCoverClassName,
 } from '@/features/guilds/guild-visual';
@@ -1071,22 +1072,24 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
               </div>
 
               <div className="guild-hero-identity">
-                <div
-                  className={`guild-hero-avatar${
-                    config.avatarUrl ? '' : ' guild-hero-avatar--fallback'
-                  }`}
-                  style={
-                    config.avatarUrl
-                      ? undefined
-                      : guildCoverStyle(null, groupId)
-                  }
-                  aria-hidden
-                >
-                  {config.avatarUrl ? (
-                    <img src={config.avatarUrl} alt="" />
-                  ) : (
-                    <span>{guildDisplayInitials(config.name, groupId)}</span>
-                  )}
+                <div className="guild-hero-avatar-shell">
+                  <div
+                    className={`guild-hero-avatar${
+                      config.avatarUrl
+                        ? ' has-media'
+                        : ' guild-hero-avatar--fallback'
+                    }`}
+                    style={
+                      config.avatarUrl
+                        ? guildAvatarFillStyle(config.avatarUrl)
+                        : guildCoverStyle(null, groupId)
+                    }
+                    aria-hidden
+                  >
+                    {config.avatarUrl ? null : (
+                      <span>{guildDisplayInitials(config.name, groupId)}</span>
+                    )}
+                  </div>
                 </div>
                 <div className="guild-hero-identity-actions">
                   <OsSheetActions

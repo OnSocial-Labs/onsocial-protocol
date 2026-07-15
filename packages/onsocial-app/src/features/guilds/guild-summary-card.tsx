@@ -8,6 +8,7 @@ import {
 } from '@/features/guilds/guild-card-display';
 import { GUILD_MAX_TAGS } from '@/features/guilds/guild-config';
 import {
+  guildAvatarFillStyle,
   guildCoverClassName,
   guildCoverStyle,
   guildFallbackCoverStyle,
@@ -108,24 +109,26 @@ export function GuildSummaryCard({
       >
         {guild.bannerUrl ? <img src={guild.bannerUrl} alt="" /> : null}
       </div>
-      <span className="guild-summary-card-identity" aria-hidden>
-        <span
-          className={`guild-summary-card-avatar${
-            guild.avatarUrl ? '' : ' guild-summary-card-avatar--fallback'
-          }`}
-          style={
-            guild.avatarUrl
-              ? undefined
-              : guildFallbackCoverStyle(guild.groupId)
-          }
-        >
-          {guild.avatarUrl ? (
-            <img src={guild.avatarUrl} alt="" />
-          ) : (
-            <span>{guildDisplayInitials(guild.name, guild.groupId)}</span>
-          )}
+        <span className="guild-summary-card-identity" aria-hidden>
+          <span className="guild-summary-card-avatar-shell">
+            <span
+              className={`guild-summary-card-avatar${
+                guild.avatarUrl
+                  ? ' has-media'
+                  : ' guild-summary-card-avatar--fallback'
+              }`}
+              style={
+                guild.avatarUrl
+                  ? guildAvatarFillStyle(guild.avatarUrl)
+                  : guildFallbackCoverStyle(guild.groupId)
+              }
+            >
+              {guild.avatarUrl ? null : (
+                <span>{guildDisplayInitials(guild.name, guild.groupId)}</span>
+              )}
+            </span>
+          </span>
         </span>
-      </span>
       <span className="guild-summary-card-body">
         <span className="guild-summary-card-name">{displayName}</span>
         {guild.description ? (

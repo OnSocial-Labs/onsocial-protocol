@@ -40,6 +40,7 @@ import {
 } from '@/features/guilds/guild-tag-editor';
 import { GuildTagsEditor } from '@/features/guilds/guild-tags-editor';
 import {
+  guildAvatarFillStyle,
   guildCoverStyle,
   guildHeroCoverClassName,
 } from '@/features/guilds/guild-visual';
@@ -52,6 +53,7 @@ import {
   txToastError,
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
+import { prepareGuildAvatarFile } from '@/lib/prepare-guild-avatar';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 const GUILD_IMAGE_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif';
@@ -563,42 +565,52 @@ export function GuildEditSheet({
             </div>
 
             <div className="guild-hero-identity">
-              <div
-                className={`guild-hero-avatar guild-edit-avatar profile-editor-media-host profile-editor-media-host--avatar${
-                  displayAvatarUrl ? ' has-media' : ' guild-hero-avatar--fallback'
-                }`}
-                style={
-                  displayAvatarUrl ? undefined : guildCoverStyle(null, groupId)
-                }
-              >
-                <button
-                  type="button"
-                  className="guild-edit-avatar-hit"
-                  onClick={openAvatarPicker}
-                  aria-label={
-                    displayAvatarUrl ? 'Change avatar' : 'Add avatar'
+              <div className="guild-hero-avatar-shell">
+                <div
+                  className={`guild-hero-avatar guild-edit-avatar profile-editor-media-host profile-editor-media-host--avatar${
+                    displayAvatarUrl
+                      ? ' has-media'
+                      : ' guild-hero-avatar--fallback'
+                  }`}
+                  style={
+                    displayAvatarUrl
+                      ? guildAvatarFillStyle(displayAvatarUrl)
+                      : guildCoverStyle(null, groupId)
                   }
                 >
-                  {displayAvatarUrl ? (
-                    <img src={displayAvatarUrl} alt="" />
-                  ) : (
-                    <span aria-hidden>
-                      {guildDisplayInitials(name || snapshot.name, groupId)}
-                    </span>
-                  )}
-                </button>
-                <ProfileEditorMediaToolbar
-                  layout="avatar"
-                  removeLabel={displayAvatarUrl ? 'Remove avatar' : undefined}
-                  onRemove={
-                    displayAvatarUrl
-                      ? () => {
-                          setAvatarFile(null);
-                          setAvatarRemoved(true);
-                        }
-                      : undefined
-                  }
-                />
+                  <button
+                    type="button"
+                    className="profile-editor-media-backdrop guild-edit-avatar-hit"
+                    onClick={openAvatarPicker}
+                    aria-label={
+                      displayAvatarUrl ? 'Change avatar' : 'Add avatar'
+                    }
+                  >
+                    {displayAvatarUrl ? null : (
+                      <span aria-hidden>
+                        {guildDisplayInitials(name || snapshot.name, groupId)}
+                      </span>
+                    )}
+                    <span
+                      className={`profile-editor-media-overlay${displayAvatarUrl ? ' has-media' : ''}`}
+                      aria-hidden
+                    />
+                  </button>
+                  <ProfileEditorMediaToolbar
+                    layout="avatar"
+                    removeLabel={
+                      displayAvatarUrl ? 'Remove avatar' : undefined
+                    }
+                    onRemove={
+                      displayAvatarUrl
+                        ? () => {
+                            setAvatarFile(null);
+                            setAvatarRemoved(true);
+                          }
+                        : undefined
+                    }
+                  />
+                </div>
               </div>
             </div>
 
@@ -703,9 +715,24 @@ export function GuildEditSheet({
             accept={GUILD_IMAGE_ACCEPT}
             hidden
             onChange={(event) => {
-              const file = event.target.files?.[0] ?? null;
-              setAvatarFile(file);
-              if (file) setAvatarRemoved(false);
+              const input = event.target;
+              const file = input.files?.[0] ?? null;
+              input.value = '';
+              if (!file) return;
+              void (async () => {
+                try {
+                  const prepared = await prepareGuildAvatarFile(file);
+                  setAvatarFile(prepared);
+                  setAvatarRemoved(false);
+                  setError(null);
+                } catch (cause) {
+                  setError(
+                    cause instanceof Error
+                      ? cause.message
+                      : 'Could not prepare that avatar.'
+                  );
+                }
+              })();
             }}
           />
         </form>
