@@ -80,7 +80,7 @@ echo ">>> Validating Substreams SQL with ${POSTGRES_IMAGE}"
         exit 1
       fi
 
-      for view_name in posts_current standing_counts thread_reply_counts quote_counts leaderboard_rewards reputation_scores leaderboard_agent_features app_reputation; do
+      for view_name in posts_current posts_feed standing_counts thread_reply_counts quote_counts leaderboard_rewards reputation_scores leaderboard_agent_features app_reputation; do
         exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
           SELECT to_regclass('"'"'public.${view_name}'"'"') IS NOT NULL;
         ")"
@@ -181,6 +181,8 @@ SQLEOF
       db="$1"
       echo ">>> Guild view upgrade (append-only columns)"
       psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 <<SQLEOF >/dev/null
+-- Dependents of groups_current must drop first (posts_feed joins guild name).
+DROP VIEW IF EXISTS posts_feed;
 DROP VIEW IF EXISTS group_members_current;
 DROP VIEW IF EXISTS groups_current;
 CREATE VIEW groups_current AS
