@@ -487,16 +487,34 @@ function PostCardBody({
   );
 }
 
-export function PostRowSkeleton({ rows = 3 }: { rows?: number }) {
+export function PostRowSkeleton({
+  rows = 3,
+  /** Reserve the room row under identity (guild All feed) so posts don’t jump. */
+  showChannel = false,
+}: {
+  rows?: number;
+  showChannel?: boolean;
+}) {
   return (
     <div className="post-row-skeleton-list" aria-hidden>
       {Array.from({ length: rows }, (_, index) => (
-        <div key={index} className="post-card post-card--skeleton">
-          <div className="post-card-avatar post-row-skeleton-avatar standing-row-shimmer" />
-          <div className="post-card-copy">
-            <div className="standing-row-shimmer post-row-skeleton-line" />
-            <div className="standing-row-shimmer post-row-skeleton-line-sm" />
-            <div className="standing-row-shimmer post-row-skeleton-line-body" />
+        <div key={index}>
+          {index > 0 ? (
+            <div className="post-row-skeleton-divider" aria-hidden />
+          ) : null}
+          <div className="post-card post-card--skeleton">
+            <div className="post-card-avatar post-row-skeleton-avatar standing-row-shimmer" />
+            <div className="post-card-copy">
+              {/* One identity row — matches live Name @handle · time. */}
+              <div className="post-row-skeleton-identity">
+                <div className="standing-row-shimmer post-row-skeleton-line" />
+                <div className="standing-row-shimmer post-row-skeleton-line-sm" />
+              </div>
+              {showChannel ? (
+                <div className="standing-row-shimmer post-row-skeleton-channel" />
+              ) : null}
+              <div className="standing-row-shimmer post-row-skeleton-line-body" />
+            </div>
           </div>
         </div>
       ))}
@@ -549,7 +567,7 @@ export function PostCard({
   const guildHref = guildId ? guildPath(guildId) : null;
   const cardClassName = [
     'post-card',
-    'animate-rise-in',
+    // No rise-in here: feed skeletons morph in-place; translating up reads as content jump.
     actionHref ? 'post-card--openable' : '',
     className ?? '',
   ]

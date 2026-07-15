@@ -103,6 +103,10 @@ import {
   type GuildShellCacheEntry,
 } from '@/lib/guild-shell-cache';
 import {
+  readGuildMembershipCache,
+  writeGuildMembershipCache,
+} from '@/lib/guild-membership-cache';
+import {
   txToastConfirming,
   txToastError,
   txToastSuccess,
@@ -136,6 +140,9 @@ interface LiveGuildState {
 
 type LoadState = 'loading' | 'ready' | 'missing' | 'error';
 type GuildFeedFilterId = 'all' | string;
+
+/** Reserved facepile avatar slots — keep in sync with `.guild-facepile-avatars--slots` width. */
+const GUILD_FACEPILE_SLOTS = 3;
 
 function pendingJoinRequest(request: JoinRequest | null): boolean {
   return request?.status === 'pending';
@@ -188,6 +195,8 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
   const [shellPreview, setShellPreview] = useState<GuildShellCacheEntry | null>(
     () => readGuildShellCache(groupId) ?? null
   );
+  const [shellExtrasResolved, setShellExtrasResolved] = useState(false);
+  const [feedPending, setFeedPending] = useState(true);
   const [confirmingLeave, setConfirmingLeave] = useState(false);
   const [manageSheet, setManageSheet] = useState<GuildManageSheetId | null>(
     null
@@ -419,6 +428,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
         moderation: null,
       });
       setLoadState('missing');
+      setShellExtrasResolved(true);
       return false;
     }
 
@@ -429,9 +439,18 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       bannerUrl: normalizedConfig.bannerUrl,
       accessGated: normalizedConfig.accessGated,
       memberDriven: normalizedConfig.memberDriven,
+      description: normalizedConfig.description,
+      tags: normalizedConfig.tags,
     };
     writeGuildShellCache(groupId, shellEntry);
     setShellPreview(shellEntry);
+
+    // Paint hero/description as soon as config is known; stats/viewer follow.
+    setState((current) => ({
+      ...current,
+      config: normalizedConfig,
+    }));
+    setLoadState('ready');
 
     const [statsResult, membersResult, viewerResult, postCountResult] =
       await Promise.allSettled([
@@ -487,7 +506,17 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       viewer: viewerState,
       moderation: moderationState,
     }));
-    setLoadState('ready');
+
+    if (accountId) {
+      const joinPendingFromViewer =
+        pendingJoinRequest(viewerState?.joinRequest ?? null) ||
+        Boolean(viewerState?.pendingJoinProposalId);
+      writeGuildMembershipCache(accountId, groupId, {
+        isMember: Boolean(viewerState?.isMember),
+        joinPending: joinPendingFromViewer,
+      });
+    }
+    setShellExtrasResolved(true);
     return true;
   }, [accountId, groupId]);
 
@@ -498,14 +527,17 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       setLoadState('loading');
     }
     setError(null);
+    setFeedPending(true);
 
     try {
+      const feedPromise = refreshFeed().finally(() => setFeedPending(false));
       const shellReady = await refreshShell();
       if (!shellReady) {
         hasLoadedRef.current = true;
+        await feedPromise;
         return;
       }
-      await refreshFeed();
+      await feedPromise;
       hasLoadedRef.current = true;
     } catch (cause) {
       if (!hasLoadedRef.current) {
@@ -521,8 +553,35 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
 
   useEffect(() => {
     setShellPreview(readGuildShellCache(groupId) ?? null);
+    setShellExtrasResolved(false);
     setHeaderElevated(false);
+    setFeedPending(true);
+    setLocalPosts([]);
+    setLoadState('loading');
+    setState((current) => ({
+      ...current,
+      posts: [],
+      feedError: null,
+      // Avoid painting the previous guild's membership on the new shell.
+      config: null,
+      stats: null,
+      postCount: null,
+      members: [],
+      viewer: null,
+      moderation: null,
+    }));
+    setAllowlistSpaceIds(new Set());
   }, [groupId]);
+
+  useEffect(() => {
+    setShellExtrasResolved(false);
+    // Drop previous wallet's membership before extras resolve for the new one.
+    setState((current) => ({
+      ...current,
+      viewer: null,
+      moderation: null,
+    }));
+  }, [accountId]);
 
   useEffect(() => {
     if (walletLoading) return;
@@ -640,6 +699,14 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       chainStats: state.stats,
       rosterFloor: facepileIds.length,
     }) ?? 0;
+  const membershipHint =
+    accountId ? (readGuildMembershipCache(accountId, groupId) ?? null) : null;
+  const membershipChromePending =
+    walletLoading ||
+    (isConnected &&
+      Boolean(accountId) &&
+      !shellExtrasResolved &&
+      membershipHint == null);
   const actionLabel = useMemo(() => {
     if (!isConnected) return 'Connect wallet';
     if (!config) return 'Load guild';
@@ -647,6 +714,13 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       if (!confirmingLeave) return 'Joined';
       // Owner cannot leave until ownership moves — same red confirm, different path.
       return viewer.isOwner ? 'Transfer ownership?' : 'Leave guild?';
+    }
+    // Session hint while extras settle — never flash Join over unknown membership.
+    if (!viewer && membershipHint) {
+      if (membershipHint.isMember) return 'Joined';
+      if (membershipHint.joinPending) return 'Request pending';
+      if (needsCollaborativeStorage) return 'Add storage';
+      return config.accessGated ? 'Request access' : 'Join guild';
     }
     if (joinPending) return joinCancelReady ? 'Cancel request' : 'Request pending';
     if (needsCollaborativeStorage) return 'Add storage';
@@ -657,9 +731,9 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     isConnected,
     joinPending,
     joinCancelReady,
+    membershipHint,
     needsCollaborativeStorage,
-    viewer?.isMember,
-    viewer?.isOwner,
+    viewer,
   ]);
 
   const clearConfirmLeave = () => {
@@ -1121,6 +1195,18 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                     </span>
                   </span>
                 </div>
+
+                {shellPreview.description ? (
+                  <GuildDescriptionClamp text={shellPreview.description} />
+                ) : null}
+
+                {shellPreview.tags.length > 0 ? (
+                  <div className="guild-hero-tags" aria-label="Guild tags">
+                    {shellPreview.tags.map((tag) => (
+                      <span key={tag}>#{tag}</span>
+                    ))}
+                  </div>
+                ) : null}
               </section>
             ) : (
               <div className="guild-loading-hero" aria-hidden>
@@ -1134,7 +1220,10 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                 </div>
               </div>
             )}
-            <PostRowSkeleton rows={3} />
+            <PostRowSkeleton
+              rows={3}
+              showChannel={selectedFeedFilterId === 'all'}
+            />
           </div>
         ) : null}
 
@@ -1207,39 +1296,60 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                   </div>
                 </div>
                 <div className="guild-hero-identity-actions">
-                  <OsSheetActions
-                    layout="row-compact"
-                    tone="frosted-primary"
-                    borderless
-                    className="guild-hero-membership"
-                  >
-                    <OsSheetAction
-                      type="button"
-                      className="guild-hero-action"
-                      variant={confirmingLeave ? 'danger' : 'primary'}
-                      ready={
-                        !confirmingLeave &&
-                        (Boolean(viewer?.isMember) ||
-                          (!joinPending &&
-                            !needsCollaborativeStorage &&
-                            isConnected &&
-                            Boolean(config)))
-                      }
-                      pending={actionPending}
-                      pendingLabel={
-                        viewer?.isMember
-                          ? 'Leaving…'
-                          : joinPending
-                            ? 'Canceling…'
-                            : 'Joining…'
-                      }
-                      disabled={joinPending && !joinCancelReady}
-                      onClick={handleMembershipClick}
-                      onBlur={confirmingLeave ? clearConfirmLeave : undefined}
-                    >
-                      {actionLabel}
-                    </OsSheetAction>
-                  </OsSheetActions>
+                  <div className="guild-hero-membership-slot">
+                    {membershipChromePending ? (
+                      <span
+                        aria-busy="true"
+                        aria-label="Loading membership"
+                      >
+                        <span
+                          className="standing-row-shimmer guild-hero-membership-shimmer"
+                          aria-hidden
+                        />
+                      </span>
+                    ) : (
+                      <OsSheetActions
+                        layout="row-compact"
+                        tone="frosted-primary"
+                        borderless
+                        className="guild-hero-membership"
+                      >
+                        <OsSheetAction
+                          type="button"
+                          className="guild-hero-action"
+                          variant={confirmingLeave ? 'danger' : 'primary'}
+                          ready={
+                            !confirmingLeave &&
+                            (Boolean(viewer?.isMember) ||
+                              (!joinPending &&
+                                !needsCollaborativeStorage &&
+                                isConnected &&
+                                Boolean(config)))
+                          }
+                          pending={actionPending}
+                          pendingLabel={
+                            viewer?.isMember
+                              ? 'Leaving…'
+                              : joinPending
+                                ? 'Canceling…'
+                                : 'Joining…'
+                          }
+                          disabled={
+                            (joinPending && !joinCancelReady) ||
+                            (!viewer &&
+                              Boolean(membershipHint) &&
+                              !shellExtrasResolved)
+                          }
+                          onClick={handleMembershipClick}
+                          onBlur={
+                            confirmingLeave ? clearConfirmLeave : undefined
+                          }
+                        >
+                          {actionLabel}
+                        </OsSheetAction>
+                      </OsSheetActions>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1248,16 +1358,48 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
               <div className="guild-hero-meta">
                 <button
                   type="button"
-                  className="guild-facepile"
-                  aria-label={`${memberCount} ${memberCount === 1 ? 'member' : 'members'}. View roster.`}
-                  onClick={() => setManageSheet('members')}
+                  className="guild-facepile guild-facepile--stable"
+                  disabled={!shellExtrasResolved}
+                  aria-busy={!shellExtrasResolved}
+                  aria-label={
+                    shellExtrasResolved
+                      ? `${memberCount} ${memberCount === 1 ? 'member' : 'members'}. View roster.`
+                      : 'Loading members'
+                  }
+                  onClick={() => {
+                    if (!shellExtrasResolved) return;
+                    setManageSheet('members');
+                  }}
                 >
-                  {facepileIds.length > 0 ? (
-                    <span className="guild-facepile-avatars" aria-hidden>
-                      {facepileIds.slice(0, 5).map((memberId) => (
+                  <span
+                    className="guild-facepile-avatars guild-facepile-avatars--slots"
+                    aria-hidden
+                  >
+                    {Array.from({ length: GUILD_FACEPILE_SLOTS }, (_, i) => {
+                      if (!shellExtrasResolved) {
+                        return (
+                          <span
+                            key={i}
+                            className="standing-row-shimmer guild-facepile-avatar-shimmer"
+                          />
+                        );
+                      }
+                      const memberId = facepileIds[i];
+                      if (!memberId) {
+                        return (
+                          <span
+                            key={`empty-${i}`}
+                            className="guild-facepile-slot is-empty"
+                            aria-hidden
+                          />
+                        );
+                      }
+                      return (
                         <ProfileAvatar
                           key={memberId}
-                          src={postAuthorProfiles[memberId]?.avatarUrl ?? null}
+                          src={
+                            postAuthorProfiles[memberId]?.avatarUrl ?? null
+                          }
                           fallbackInitial={
                             postAuthorProfiles[memberId]?.displayName ??
                             memberId
@@ -1265,11 +1407,21 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                           size="sm"
                           className="guild-facepile-avatar"
                         />
-                      ))}
-                    </span>
-                  ) : null}
-                  <span className="guild-facepile-count">
-                    {memberCount} {memberCount === 1 ? 'member' : 'members'}
+                      );
+                    })}
+                  </span>
+                  <span className="guild-facepile-count guild-facepile-count--slot">
+                    {!shellExtrasResolved ? (
+                      <span
+                        className="standing-row-shimmer guild-facepile-count-shimmer"
+                        aria-hidden
+                      />
+                    ) : (
+                      <>
+                        {memberCount}{' '}
+                        {memberCount === 1 ? 'member' : 'members'}
+                      </>
+                    )}
                   </span>
                 </button>
                 <span className="guild-hero-mode-row">
@@ -1366,6 +1518,11 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                     Retry
                   </button>
                 </div>
+              ) : feedPending ? (
+                <PostRowSkeleton
+                  rows={3}
+                  showChannel={selectedFeedFilterId === 'all'}
+                />
               ) : (
                 <div className="guild-state-card">
                   {selectedFeedSpace

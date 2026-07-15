@@ -125,22 +125,38 @@
 
 /*
  * Guild hero membership — unlayered so compact size beats os-sheet-action.css
- * row-compact (2.75rem). Keep the frosted borderless look, not the sheet footer bulk.
+ * row-compact (2.75rem). Slot owns fixed width so Join/Request/Joined don't CLS.
  */
-.guild-hero .guild-hero-membership.os-sheet-actions--row-compact {
-  width: auto;
+.guild-hero-membership-slot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 7.25rem; /* fits Join / Request access / Connect wallet / Joined */
+  min-height: 1.65rem;
+  flex: 0 0 auto;
+}
+
+.guild-hero-membership-slot > [aria-busy='true'] {
+  display: block;
+  width: 100%;
+}
+
+.guild-hero-membership-slot .guild-hero-membership.os-sheet-actions--row-compact {
+  width: 100%;
   gap: 0;
 }
 
 .guild-hero
+  .guild-hero-membership-slot
   .guild-hero-membership.os-sheet-actions--row-compact
   .os-sheet-action,
 .guild-hero
+  .guild-hero-membership-slot
   .guild-hero-membership.os-sheet-actions--row-compact
   .os-sheet-action--primary {
   flex: 0 0 auto;
-  width: auto;
-  min-width: 4.25rem;
+  width: 100%;
+  min-width: 0;
   min-height: 1.65rem;
   padding: 0.28rem 0.62rem;
   font-size: 0.72rem;
@@ -249,9 +265,10 @@
 }
 
 .guild-hero
+  .guild-hero-membership-slot
   .guild-hero-membership.os-sheet-actions--row-compact
   .os-sheet-action__shell {
-  width: auto;
+  width: 100%;
 }
 
 .guild-hero
@@ -11923,11 +11940,20 @@ a.os-surface-row {
     transition: opacity 160ms ease;
   }
 
+  /* Match live feed spacing/dividers so skeleton → posts doesn’t nudge lines. */
   .post-row-skeleton-list {
     display: flex;
     flex-direction: column;
-    gap: 0.4rem;
-    padding: 0.35rem 0;
+    gap: 0;
+    padding: 0;
+  }
+
+  .post-row-skeleton-divider {
+    width: auto;
+    height: 1px;
+    margin-left: calc(0.35rem + 2.25rem + 0.75rem);
+    margin-right: 0.35rem;
+    background: rgb(var(--fg-rgb) / 0.08);
   }
 
   .post-card--skeleton {
@@ -11945,21 +11971,35 @@ a.os-surface-row {
     border-radius: 9999px;
   }
 
+  .post-row-skeleton-identity {
+    display: flex;
+    align-items: baseline;
+    gap: 0.28rem;
+    min-height: 1.1rem;
+  }
+
   .post-row-skeleton-line {
-    height: 0.72rem;
-    width: 42%;
+    height: 0.875rem;
+    width: 36%;
   }
 
   .post-row-skeleton-line-sm {
-    height: 0.55rem;
-    width: 28%;
-    margin-top: 0.3rem;
+    height: 0.72rem;
+    width: 32%;
+    margin-top: 0;
+  }
+
+  /* Room row under identity — match .post-identity-channel. */
+  .post-row-skeleton-channel {
+    height: 0.92rem;
+    width: 22%;
+    margin-top: 0.06rem;
   }
 
   .post-row-skeleton-line-body {
-    height: 0.62rem;
-    width: 82%;
-    margin-top: 0.5rem;
+    height: 1.25rem;
+    width: 72%;
+    margin-top: 0.35rem;
   }
 
   .home-feed-state,
@@ -14740,6 +14780,10 @@ a.os-surface-row {
     text-decoration: none;
   }
 
+  .guild-facepile--stable {
+    min-height: 1.35rem;
+  }
+
   button.guild-facepile {
     border: none;
     background: none;
@@ -14748,16 +14792,50 @@ a.os-surface-row {
     font: inherit;
   }
 
+  button.guild-facepile:disabled {
+    cursor: default;
+  }
+
   .guild-facepile-avatars {
     display: inline-flex;
   }
 
+  /* Fixed 3 overlapped ProfileAvatar sm slots (1.35rem) — CLS-stable width. */
+  .guild-facepile-avatars--slots {
+    display: inline-flex;
+    flex: 0 0 auto;
+    width: calc(1.35rem + 2 * (1.35rem - 0.4rem)); /* 3 overlapped */
+    height: 1.35rem;
+    align-items: center;
+  }
+
   /* Overlapping stack — page-background ring separates the circles. */
-  .guild-facepile-avatar:not(:first-child) {
+  .guild-facepile-avatar:not(:first-child),
+  .guild-facepile-avatar-shimmer:not(:first-child),
+  .guild-facepile-slot.is-empty:not(:first-child) {
     margin-left: -0.4rem;
   }
 
+  .guild-facepile-avatar-shimmer,
+  .guild-facepile-slot.is-empty,
   .guild-facepile-avatar {
+    width: 1.35rem;
+    height: 1.35rem;
+    flex: 0 0 auto;
+  }
+
+  .guild-facepile-avatar {
+    box-shadow: 0 0 0 2px rgb(var(--bg-rgb));
+  }
+
+  .guild-facepile-slot.is-empty {
+    border-radius: 9999px;
+    visibility: hidden; /* reserves space, no visual */
+    box-shadow: 0 0 0 2px rgb(var(--bg-rgb));
+  }
+
+  .guild-facepile-avatar-shimmer {
+    border-radius: 9999px;
     box-shadow: 0 0 0 2px rgb(var(--bg-rgb));
   }
 
@@ -14770,6 +14848,13 @@ a.os-surface-row {
     transition: color 140ms ease;
   }
 
+  .guild-facepile-count--slot {
+    display: inline-flex;
+    align-items: center;
+    min-width: 5.5rem; /* "N members" */
+    min-height: 0.72rem;
+  }
+
   button.guild-hero-meta-link {
     border: none;
     background: none;
@@ -14778,9 +14863,26 @@ a.os-surface-row {
     font: inherit;
   }
 
-  .guild-facepile:hover .guild-facepile-count,
+  .guild-facepile:hover:not(:disabled) .guild-facepile-count,
   .guild-hero-meta-link:hover {
     color: rgb(var(--fg-rgb) / 0.92);
+  }
+
+  /* Guild hero membership / facepile skeletons (Standing-style gated chrome). */
+  .guild-hero-membership-shimmer {
+    display: block;
+    width: 100%;
+    height: 1.65rem;
+    margin: 0;
+    border-radius: 9999px;
+  }
+
+  .guild-facepile-count-shimmer {
+    display: inline-block;
+    width: 100%;
+    max-width: 4.75rem;
+    height: 0.72rem;
+    border-radius: 9999px;
   }
 
   .guild-eyebrow,

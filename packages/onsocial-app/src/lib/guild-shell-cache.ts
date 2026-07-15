@@ -9,6 +9,8 @@ export interface GuildShellCacheEntry {
   bannerUrl: string | null;
   accessGated: boolean;
   memberDriven: boolean;
+  description: string;
+  tags: string[];
 }
 
 /** Soft cap so a long guild-hopping session stays small. */

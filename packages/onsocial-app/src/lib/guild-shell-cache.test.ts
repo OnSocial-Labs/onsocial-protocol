@@ -12,6 +12,8 @@ const shell = {
   bannerUrl: null as string | null,
   accessGated: false,
   memberDriven: true,
+  description: '',
+  tags: [] as string[],
 };
 
 describe('guildShellCache', () => {

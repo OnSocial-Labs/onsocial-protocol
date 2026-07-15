@@ -284,6 +284,11 @@ export function LiveGuildPostPanel({
           setGuildName(null);
         }
 
+        // Thread/conversation first; compose affordances hydrate with viewer.
+        if (!options.background) {
+          setLoadState(root ? 'ready' : 'missing');
+        }
+
         if (accountId && rawConfig) {
           const structure = parseGuildStructure(rawConfig);
           const { viewer } = await resolveGuildViewerAccess(
@@ -315,9 +320,6 @@ export function LiveGuildPostPanel({
             canModerate: false,
           });
           setIsMember(false);
-        }
-        if (!options.background) {
-          setLoadState(root ? 'ready' : 'missing');
         }
       } catch (cause) {
         if (options.background) return;
