@@ -91,9 +91,11 @@ export function formatPostTimestamp(blockTimestamp: number | string): string {
   const date = resolvePostDate(blockTimestamp);
   if (!date) return 'Unknown time';
 
+  // Always include the year — clearer on thread roots than “Jul 15, 4:12 PM”.
   return new Intl.DateTimeFormat(undefined, {
     month: 'short',
     day: 'numeric',
+    year: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
   }).format(date);

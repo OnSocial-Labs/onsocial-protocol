@@ -18,17 +18,26 @@ import {
   osFloatingPanelItemClassName,
   useDropdown,
 } from '@onsocial/ui';
+import { ProfileSupportSheet } from '@/components/portfolio/profile-support-sheet';
+import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
+import { useAppWallet } from '@/contexts/app-wallet-context';
 import { guildPath } from '@/features/guilds/guilds-data';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
 import { PostMediaStrip } from '@/features/home/post-media';
 import { PostPollEmbedCard } from '@/features/home/post-poll-embed';
 import { PostRichText } from '@/features/home/post-rich-text';
+import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
+import { useViewerStanding } from '@/hooks/use-viewer-standing';
+import { accountIdsEqual } from '@/lib/account-match';
+import { overlayPath, portfolioPath } from '@/lib/overlay-routes';
 import {
+  formatPostTimestamp,
   parsePostPollEmbed,
   parsePostText,
   postFeedPreviewLimit,
   postKey,
   postPreviewNeedsExpand,
+  postTimestampIso,
   truncatePostPreview,
 } from '@/lib/post-display';
 import {
@@ -40,9 +49,10 @@ import {
   truncateQuoteText,
   type PostMediaItem,
 } from '@/lib/post-media';
+import { postThreadPath } from '@/lib/post-routes';
 import type { PollTally } from '@/lib/poll-votes';
-import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
+import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import type { PostEngagement } from '@/hooks/use-post-engagement';
 
@@ -86,16 +96,47 @@ interface PostCardProps {
   mediaUnmuted?: boolean;
   /** Collage tile index to unmute (`?mi=`). */
   mediaResumeIndex?: number;
+  /**
+   * Open post / thread root: stacked name + @handle, full timestamp under
+   * the body above engagement icons.
+   */
+  detailLayout?: boolean;
 }
 
-function PostCardMenu({ href }: { href?: string }) {
+function PostCardMenu({
+  href,
+  accountId,
+  authorProfile,
+}: {
+  href?: string;
+  accountId: string;
+  authorProfile?: PostAuthorProfile;
+}) {
+  const router = useRouter();
+  const { accountId: viewerAccountId, isConnected } = useAppWallet();
+  const { setTxResult } = useAppTransactionFeedback();
+  // Arm relationship fetch only after the menu opens — avoids N fetches per feed.
+  const [gesturesArmed, setGesturesArmed] = useState(false);
+  const relationshipAccountId = gesturesArmed ? accountId : '';
+  const { viewerStanding, isLoading } = useViewerRelationship(
+    relationshipAccountId
+  );
+  const { updateStanding, isStandingPendingForTarget } = useViewerStanding(
+    relationshipAccountId || accountId
+  );
+  const [supportOpen, setSupportOpen] = useState(false);
   const { isOpen, close, toggle, containerRef, panelRef } = useDropdown();
 
-  // No actions yet without a permalink — don't render an empty ⋮ menu.
-  if (!href) return null;
+  const isSelf =
+    Boolean(viewerAccountId) &&
+    accountIdsEqual(viewerAccountId!, accountId);
+  const showGestures = isConnected && !isSelf;
+  const pending = isStandingPendingForTarget(accountId);
+  const profileHref = portfolioPath(accountId);
+  const endorsementsHref = overlayPath(accountId, 'endorsements');
 
   const copyLink = async () => {
-    if (typeof window === 'undefined') return;
+    if (!href || typeof window === 'undefined') return;
     const url = new URL(href, window.location.origin).toString();
     try {
       await navigator.clipboard.writeText(url);
@@ -105,51 +146,154 @@ function PostCardMenu({ href }: { href?: string }) {
     close();
   };
 
-  return (
-    <div
-      className={`post-card-menu${isOpen ? ' is-open' : ''}`}
-      ref={containerRef}
-    >
-      <button
-        type="button"
-        className={`post-card-menu-trigger${isOpen ? ' is-open' : ''}`}
-        onClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          toggle();
-        }}
-        aria-haspopup="menu"
-        aria-expanded={isOpen}
-        aria-label="Post options"
-      >
-        <DotsVerticalIcon className="post-card-menu-icon" aria-hidden />
-      </button>
+  async function handleStandToggle() {
+    if (pending || isLoading || !gesturesArmed) return;
+    try {
+      await updateStanding(
+        {
+          accountId,
+          name: authorProfile?.displayName?.trim() || null,
+          bio: null,
+          avatarUrl: authorProfile?.avatarUrl ?? null,
+        },
+        !viewerStanding
+      );
+    } catch (error) {
+      if (isWalletUserCancellation(error)) return;
+      setTxResult({
+        type: 'error',
+        msg:
+          error instanceof Error
+            ? error.message
+            : 'Could not update standing.',
+      });
+    } finally {
+      close();
+    }
+  }
 
-      <FloatingPanelMenu
-        ref={panelRef}
-        open={isOpen}
-        align="right"
-        offset="sm"
-        className="post-card-menu-panel"
-        role="menu"
-        aria-label="Post options"
+  const standLabel = isLoading
+    ? '…'
+    : pending
+      ? viewerStanding
+        ? 'Stepping back…'
+        : 'Standing…'
+      : viewerStanding
+        ? 'Step back'
+        : 'Stand with';
+
+  return (
+    <>
+      <div
+        className={`post-card-menu${isOpen ? ' is-open' : ''}`}
+        ref={containerRef}
       >
-        <div className={osFloatingPanelBodyClassName}>
-          <button
-            type="button"
-            role="menuitem"
-            className={osFloatingPanelItemClassName}
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              void copyLink();
-            }}
-          >
-            <span>Copy link</span>
-          </button>
-        </div>
-      </FloatingPanelMenu>
-    </div>
+        <button
+          type="button"
+          className={`post-card-menu-trigger${isOpen ? ' is-open' : ''}`}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (!isOpen && showGestures) setGesturesArmed(true);
+            toggle();
+          }}
+          aria-haspopup="menu"
+          aria-expanded={isOpen}
+          aria-label="Post options"
+        >
+          <DotsVerticalIcon className="post-card-menu-icon" aria-hidden />
+        </button>
+
+        <FloatingPanelMenu
+          ref={panelRef}
+          open={isOpen}
+          align="right"
+          offset="sm"
+          className="post-card-menu-panel"
+          role="menu"
+          aria-label="Post options"
+        >
+          <div className={osFloatingPanelBodyClassName}>
+            {showGestures ? (
+              <>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={osFloatingPanelItemClassName}
+                  disabled={pending || isLoading}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    void handleStandToggle();
+                  }}
+                >
+                  <span>{standLabel}</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={osFloatingPanelItemClassName}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setSupportOpen(true);
+                    close();
+                  }}
+                >
+                  <span>Support</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={osFloatingPanelItemClassName}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    close();
+                    router.push(endorsementsHref, { scroll: false });
+                  }}
+                >
+                  <span>Endorse</span>
+                </button>
+              </>
+            ) : null}
+            <Link
+              href={profileHref}
+              scroll={false}
+              role="menuitem"
+              className={osFloatingPanelItemClassName}
+              onClick={(event) => {
+                event.stopPropagation();
+                close();
+              }}
+            >
+              <span>View profile</span>
+            </Link>
+            {href ? (
+              <button
+                type="button"
+                role="menuitem"
+                className={osFloatingPanelItemClassName}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  void copyLink();
+                }}
+              >
+                <span>Copy link</span>
+              </button>
+            ) : null}
+          </div>
+        </FloatingPanelMenu>
+      </div>
+      <ProfileSupportSheet
+        open={supportOpen}
+        pageAccountId={accountId}
+        profileName={authorProfile?.displayName}
+        avatarUrl={authorProfile?.avatarUrl}
+        onOpenChange={setSupportOpen}
+      />
+    </>
   );
 }
 
@@ -546,6 +690,7 @@ export function PostCard({
   mediaFocused = false,
   mediaUnmuted = false,
   mediaResumeIndex = 0,
+  detailLayout = false,
 }: PostCardProps) {
   const router = useRouter();
   const text = parsePostText(post.value);
@@ -565,10 +710,14 @@ export function PostCard({
       ? guildName?.trim() || guildId
       : null;
   const guildHref = guildId ? guildPath(guildId) : null;
+  const detailTimestampIso = detailLayout
+    ? postTimestampIso(post.blockTimestamp)
+    : undefined;
   const cardClassName = [
     'post-card',
     // No rise-in here: feed skeletons morph in-place; translating up reads as content jump.
     actionHref ? 'post-card--openable' : '',
+    detailLayout ? 'post-card--detail' : '',
     className ?? '',
   ]
     .filter(Boolean)
@@ -614,15 +763,22 @@ export function PostCard({
             <PostIdentityMeta
               name={name}
               accountId={post.accountId}
-              timestamp={post.blockTimestamp}
+              timestamp={detailLayout ? undefined : post.blockTimestamp}
+              timeHref={detailLayout ? undefined : actionHref}
               authorHref={profileHref}
-              timeHref={actionHref}
+              layout={detailLayout ? 'stacked' : 'inline'}
               channel={
                 showChannel
                   ? channelLabel?.trim() || post.channel || undefined
                   : undefined
               }
-              trailing={<PostCardMenu href={actionHref} />}
+              trailing={
+                <PostCardMenu
+                  href={actionHref ?? postThreadPath(post)}
+                  accountId={post.accountId}
+                  authorProfile={authorProfile}
+                />
+              }
             />
           </div>
         </header>
@@ -680,6 +836,15 @@ export function PostCard({
             authorProfile={quotedAuthorProfile}
             href={quotedHref}
           />
+        ) : null}
+        {detailLayout ? (
+          <time
+            className="post-card-detail-time"
+            title={formatPostTimestamp(post.blockTimestamp)}
+            {...(detailTimestampIso ? { dateTime: detailTimestampIso } : {})}
+          >
+            {formatPostTimestamp(post.blockTimestamp)}
+          </time>
         ) : null}
         {engagement ? (
           <div className="post-card-engagement">

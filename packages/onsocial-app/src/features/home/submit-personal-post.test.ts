@@ -193,4 +193,28 @@ describe('submitPersonalPost', () => {
     expect(postData.hashtags).toEqual(['near']);
     expect(result.optimisticPost?.value).toContain('"hashtags":["near"]');
   });
+
+  it('extracts @mentions from body text into create payload', async () => {
+    const create = vi.fn().mockResolvedValue({ txHash: 'mention-tx' });
+    const client = mockClient({ create });
+    const trackTransaction = vi.fn().mockResolvedValue(true);
+
+    const result = await submitPersonalPost({
+      client,
+      accountId: 'alice.testnet',
+      mode: 'post',
+      target: null,
+      payload: {
+        text: 'hey @Bob.Testnet check this',
+      },
+      trackTransaction,
+    });
+
+    expect(create).toHaveBeenCalledOnce();
+    const [postData] = create.mock.calls[0]!;
+    expect(postData.mentions).toEqual(['bob.testnet']);
+    expect(result.optimisticPost?.value).toContain(
+      '"mentions":["bob.testnet"]'
+    );
+  });
 });

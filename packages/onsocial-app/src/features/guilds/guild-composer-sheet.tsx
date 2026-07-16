@@ -247,6 +247,17 @@ export function ComposerSheet({
     ? displayName(accountId, viewerShell?.displayName)
     : 'You';
 
+  const priorityMentionAccounts = useMemo(() => {
+    if ((mode !== 'reply' && mode !== 'quote') || !target) return undefined;
+    return [
+      {
+        accountId: target.accountId,
+        name: targetAuthorProfile?.displayName ?? null,
+        avatar: targetAuthorProfile?.avatarUrl ?? null,
+      },
+    ];
+  }, [mode, target, targetAuthorProfile]);
+
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) {
@@ -491,6 +502,7 @@ export function ComposerSheet({
           disabled={pending}
           onChange={setText}
           onFocus={scrollFieldIntoView}
+          priorityMentionAccounts={priorityMentionAccounts}
         />
         {mediaPreviews.length > 0 ? (
           <div

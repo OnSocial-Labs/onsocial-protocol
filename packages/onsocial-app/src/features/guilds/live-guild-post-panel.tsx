@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import type { GroupConversation, PostRow, ThreadNode } from '@onsocial/sdk';
 import { Divider } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
@@ -9,12 +9,17 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { PostCard, PostRowSkeleton, postKey } from '@/features/home/post-card';
-import { extractHashtagsFromText } from '@/features/home/home-hashtag-search';
+import { postMetaFromText } from '@/features/home/post-mentions';
 import {
   GuildComposerSheet,
   type GuildComposerMode,
   type GuildComposerSubmit,
 } from '@/features/guilds/guild-composer-sheet';
+import {
+  GuildMembershipJoinButton,
+  guildMembershipJoinLabel,
+  guildMembershipJoinPendingLabel,
+} from '@/features/guilds/guild-membership-join-button';
 import {
   canViewerPostInChannel,
   guildSpaceFeedChannel,
@@ -31,6 +36,7 @@ import {
   collectRelayTxHashes,
   guildPath,
   guildPostPath,
+  guildSectionPath,
 } from '@/features/guilds/guilds-data';
 import { resolveGuildViewerAccess } from '@/features/guilds/guild-viewer-access';
 import { resolveViewerAllowlistSpaceIds } from '@/features/guilds/guild-space-write';
@@ -40,6 +46,14 @@ import { usePostEngagement } from '@/hooks/use-post-engagement';
 import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useAncestorChain, useQuotedPosts } from '@/hooks/use-quoted-posts';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import {
+  setGuildMembershipActionPending,
+  useGuildMembershipActionPending,
+} from '@/lib/guild-membership-action-pending';
+import {
+  readGuildMembershipCache,
+  writeGuildMembershipCache,
+} from '@/lib/guild-membership-cache';
 import {
   buildReplyRows,
   flattenTreePosts,
@@ -96,9 +110,11 @@ export function LiveGuildPostPanel({
   } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const mediaUnmuted = searchParams.get('media') === 'unmute';
   const mediaResumeIndex = readPostMediaUnmuteIndex(searchParams);
+  const confirmLeaveTimerRef = useRef<number | null>(null);
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [conversation, setConversation] = useState<GroupConversation>({
     root: null,
@@ -118,11 +134,22 @@ export function LiveGuildPostPanel({
     canModerate: false,
   });
   const [isMember, setIsMember] = useState(false);
+  const [accessGated, setAccessGated] = useState(false);
+  const [memberDriven, setMemberDriven] = useState(false);
+  const [joinPending, setJoinPending] = useState(false);
+  const [joinCancelReady, setJoinCancelReady] = useState(false);
+  const [pendingJoinProposalId, setPendingJoinProposalId] = useState<
+    string | null
+  >(null);
+  const [viewerAccessResolved, setViewerAccessResolved] = useState(false);
+  const [confirmingLeave, setConfirmingLeave] = useState(false);
+  const joinActionPending = useGuildMembershipActionPending(accountId, groupId);
   const [modalTarget, setModalTarget] = useState<PostRow | null>(null);
   const [modalMode, setModalMode] = useState<GuildComposerMode>('reply');
   const [modalPending, setModalPending] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
   const [activeThreadTab, setActiveThreadTab] = useState<ThreadTab>('replies');
+  const [threadTabTouched, setThreadTabTouched] = useState(false);
   const [expandedBranches, setExpandedBranches] = useState<Set<string>>(
     () => new Set()
   );
@@ -255,8 +282,12 @@ export function LiveGuildPostPanel({
           treeResult.status === 'fulfilled' ? treeResult.value.replies : [];
         const fetchedTreePosts = flattenTreePosts(fetchedTree);
 
-        setLocalReplies((current) => withoutIndexedPosts(current, fetchedTreePosts));
-        setLocalQuotes((current) => withoutIndexedPosts(current, fetchedQuotes));
+        setLocalReplies((current) =>
+          withoutIndexedPosts(current, fetchedTreePosts)
+        );
+        setLocalQuotes((current) =>
+          withoutIndexedPosts(current, fetchedQuotes)
+        );
 
         // Once the user paginated past the first page, a background
         // first-page fetch would discard loaded pages — reconcile only.
@@ -279,9 +310,13 @@ export function LiveGuildPostPanel({
           const named =
             typeof rawConfig.name === 'string' ? rawConfig.name : null;
           setGuildName(named);
+          setMemberDriven(
+            rawConfig.member_driven === true || rawConfig.memberDriven === true
+          );
         } else {
           setGuildStructure(null);
           setGuildName(null);
+          setMemberDriven(false);
         }
 
         // Thread/conversation first; compose affordances hydrate with viewer.
@@ -291,16 +326,17 @@ export function LiveGuildPostPanel({
 
         if (accountId && rawConfig) {
           const structure = parseGuildStructure(rawConfig);
+          const gated =
+            rawConfig.is_private === true || rawConfig.isPrivate === true;
+          const memberDriven =
+            rawConfig.member_driven === true || rawConfig.memberDriven === true;
           const { viewer } = await resolveGuildViewerAccess(
             client,
             groupId,
             accountId,
             {
-              memberDriven:
-                rawConfig.member_driven === true ||
-                rawConfig.memberDriven === true,
-              accessGated:
-                rawConfig.is_private === true || rawConfig.isPrivate === true,
+              memberDriven,
+              accessGated: gated,
             }
           );
           const canWriteSpaceIds = await resolveViewerAllowlistSpaceIds(
@@ -310,8 +346,20 @@ export function LiveGuildPostPanel({
             structure,
             viewer
           );
+          const pending =
+            Boolean(viewer.pendingJoinProposalId) ||
+            viewer.joinRequest?.status === 'pending';
+          setPendingJoinProposalId(viewer.pendingJoinProposalId ?? null);
+          setJoinCancelReady(pending);
           setViewerAccess({ ...viewer, canWriteSpaceIds });
           setIsMember(viewer.isMember);
+          setAccessGated(gated);
+          setJoinPending(pending);
+          writeGuildMembershipCache(accountId, groupId, {
+            isMember: viewer.isMember,
+            joinPending: pending,
+          });
+          setViewerAccessResolved(true);
         } else {
           setViewerAccess({
             isMember: false,
@@ -320,6 +368,15 @@ export function LiveGuildPostPanel({
             canModerate: false,
           });
           setIsMember(false);
+          setPendingJoinProposalId(null);
+          setJoinCancelReady(false);
+          setAccessGated(
+            rawConfig
+              ? rawConfig.is_private === true || rawConfig.isPrivate === true
+              : false
+          );
+          setJoinPending(false);
+          setViewerAccessResolved(true);
         }
       } catch (cause) {
         if (options.background) return;
@@ -336,8 +393,25 @@ export function LiveGuildPostPanel({
 
   useEffect(() => {
     if (walletLoading) return;
+    setViewerAccessResolved(false);
     void refresh();
   }, [refresh, walletLoading]);
+
+  useEffect(() => {
+    setActiveThreadTab('replies');
+    setThreadTabTouched(false);
+  }, [rootPath]);
+
+  useEffect(() => {
+    if (threadTabTouched) return;
+    if (
+      activeThreadTab === 'replies' &&
+      replyCount === 0 &&
+      quotes.length > 0
+    ) {
+      setActiveThreadTab('quotes');
+    }
+  }, [activeThreadTab, quotes.length, replyCount, threadTabTouched]);
 
   useEffect(() => {
     const timers = reconcileTimersRef.current;
@@ -450,13 +524,13 @@ export function LiveGuildPostPanel({
       }),
       files
     );
-    const hashtags = extractHashtagsFromText(text);
+    const tagPayload = postMetaFromText(text);
     const postData = {
       text,
       access: 'group' as const,
       groupId,
       timestamp: Date.now(),
-      ...(hashtags.length > 0 ? { hashtags } : {}),
+      ...tagPayload,
       ...feedMeta,
       ...(files.length ? { files } : {}),
     };
@@ -493,7 +567,7 @@ export function LiveGuildPostPanel({
       conversation.root ? inheritedGuildReplyFeedMeta(conversation.root) : {},
       files
     );
-    const hashtags = extractHashtagsFromText(text);
+    const tagPayload = postMetaFromText(text);
     const media = files.length ? buildOptimisticMediaEntries(files) : undefined;
     // Chain-confirmed; show immediately while the indexer catches up.
     const confirmedRow: PostRow = {
@@ -502,7 +576,7 @@ export function LiveGuildPostPanel({
       value: JSON.stringify({
         v: 1,
         text,
-        ...(hashtags.length > 0 ? { hashtags } : {}),
+        ...tagPayload,
         ...(media ? { media } : {}),
       }),
       blockHeight: 0,
@@ -523,6 +597,7 @@ export function LiveGuildPostPanel({
       setLocalReplies((current) => [...current, confirmedRow]);
     }
     setActiveThreadTab(mode === 'quote' ? 'quotes' : 'replies');
+    setThreadTabTouched(true);
     scheduleReconcile();
   };
 
@@ -617,10 +692,206 @@ export function LiveGuildPostPanel({
   }, [root]);
   useRegisterComposeAction(canPostInThread && root ? composeReplyToRoot : null);
 
+  const membershipHint = accountId
+    ? (readGuildMembershipCache(accountId, groupId) ?? null)
+    : null;
+  const membershipChromePending =
+    walletLoading ||
+    (isConnected &&
+      Boolean(accountId) &&
+      !viewerAccessResolved &&
+      membershipHint == null);
+  const effectiveIsMember = viewerAccessResolved
+    ? isMember
+    : Boolean(membershipHint?.isMember);
+  const effectiveJoinPending = viewerAccessResolved
+    ? joinPending
+    : Boolean(membershipHint?.joinPending);
+  const effectiveIsOwner = viewerAccessResolved ? viewerAccess.isOwner : false;
+  const membershipActionLabel = guildMembershipJoinLabel({
+    isConnected,
+    accessGated,
+    joinPending: effectiveJoinPending,
+    joinCancelReady,
+    isMember: effectiveIsMember,
+    isOwner: effectiveIsOwner,
+    confirmingLeave,
+  });
+  const membershipActionReady = effectiveIsMember
+    ? !confirmingLeave
+    : effectiveJoinPending
+      ? joinCancelReady
+      : !isConnected || (viewerAccessResolved && !effectiveIsMember);
+
+  const clearConfirmLeave = () => {
+    if (confirmLeaveTimerRef.current !== null) {
+      window.clearTimeout(confirmLeaveTimerRef.current);
+      confirmLeaveTimerRef.current = null;
+    }
+    setConfirmingLeave(false);
+  };
+
+  const runMembershipAction = async () => {
+    if (!isConnected) {
+      await connect();
+      return;
+    }
+    if (effectiveIsMember && effectiveIsOwner) {
+      router.push(guildSectionPath(groupId, 'members'));
+      return;
+    }
+    if (effectiveJoinPending && !joinCancelReady) return;
+
+    setGuildMembershipActionPending(accountId, groupId, true);
+    try {
+      const { client } = await getClient();
+      const response = effectiveIsMember
+        ? await client.groups.leave(groupId)
+        : effectiveJoinPending
+          ? memberDriven && pendingJoinProposalId
+            ? await client.groups.cancelProposal(groupId, pendingJoinProposalId)
+            : await client.groups.cancelJoin(groupId)
+          : await client.groups.join(groupId);
+      const txHashes = collectRelayTxHashes(response);
+      const confirmed = await trackTransaction({
+        txHashes,
+        submittedMessage: effectiveIsMember
+          ? txToastConfirming.leavingGuild
+          : effectiveJoinPending
+            ? txToastConfirming.cancelingGuildRequest
+            : accessGated
+              ? txToastConfirming.requestingGuildAccess
+              : txToastConfirming.joiningGuild,
+        successMessage: effectiveIsMember
+          ? txToastSuccess.guildLeft
+          : effectiveJoinPending
+            ? txToastSuccess.guildRequestCanceled
+            : accessGated
+              ? txToastSuccess.guildAccessRequested
+              : txToastSuccess.guildJoined,
+        failureMessage: txToastError.guildMembershipFailed,
+      });
+      if (confirmed) {
+        if (accountId) {
+          writeGuildMembershipCache(accountId, groupId, {
+            isMember: effectiveIsMember
+              ? false
+              : effectiveJoinPending
+                ? false
+                : !accessGated,
+            joinPending: effectiveIsMember
+              ? false
+              : effectiveJoinPending
+                ? false
+                : accessGated,
+          });
+        }
+        if (effectiveIsMember) {
+          setIsMember(false);
+          setJoinPending(false);
+          setJoinCancelReady(false);
+          setPendingJoinProposalId(null);
+          setViewerAccess((current) => ({
+            ...current,
+            isMember: false,
+            isOwner: false,
+            isAdmin: false,
+            canModerate: false,
+          }));
+        } else if (effectiveJoinPending) {
+          setJoinPending(false);
+          setJoinCancelReady(false);
+          setPendingJoinProposalId(null);
+        } else if (accessGated) {
+          setJoinPending(true);
+          // Refresh resolves whether cancellation uses join request or proposal.
+          setJoinCancelReady(false);
+        } else {
+          setIsMember(true);
+          setJoinPending(false);
+        }
+        void refresh({ background: true });
+      }
+    } catch (cause) {
+      if (isWalletUserCancellation(cause)) return;
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Could not update guild membership.'
+      );
+    } finally {
+      setGuildMembershipActionPending(accountId, groupId, false);
+    }
+  };
+
+  /**
+   * Leave / transfer ownership are destructive — require a second tap.
+   * Owners cannot leave on-chain; confirm opens the members page to transfer.
+   */
+  const handleMembershipClick = () => {
+    if (effectiveJoinPending && !joinCancelReady) return;
+    if (effectiveIsMember && !confirmingLeave) {
+      setConfirmingLeave(true);
+      confirmLeaveTimerRef.current = window.setTimeout(() => {
+        confirmLeaveTimerRef.current = null;
+        setConfirmingLeave(false);
+      }, 4_000);
+      return;
+    }
+    clearConfirmLeave();
+    if (effectiveIsMember && effectiveIsOwner) {
+      router.push(guildSectionPath(groupId, 'members'));
+      return;
+    }
+    void runMembershipAction();
+  };
+
+  useEffect(() => {
+    return () => {
+      if (confirmLeaveTimerRef.current !== null) {
+        window.clearTimeout(confirmLeaveTimerRef.current);
+      }
+    };
+  }, []);
+
+  const membershipActions = (
+    <div className="guild-hero-membership-slot guild-thread-nav-membership-slot">
+      {membershipChromePending ? (
+        <span aria-busy="true" aria-label="Loading membership">
+          <span
+            className="standing-row-shimmer guild-thread-nav-membership-shimmer"
+            aria-hidden
+          />
+        </span>
+      ) : (
+        <GuildMembershipJoinButton
+          className="guild-hero-membership guild-thread-nav-membership"
+          label={membershipActionLabel}
+          ready={membershipActionReady}
+          pending={joinActionPending}
+          pendingLabel={guildMembershipJoinPendingLabel({
+            accessGated,
+            canceling: effectiveJoinPending,
+            leaving: effectiveIsMember,
+          })}
+          variant={confirmingLeave ? 'danger' : 'primary'}
+          disabled={
+            (effectiveJoinPending && !joinCancelReady) ||
+            (!viewerAccessResolved && Boolean(membershipHint))
+          }
+          onClick={handleMembershipClick}
+          onBlur={confirmingLeave ? clearConfirmLeave : undefined}
+        />
+      )}
+    </div>
+  );
+
   return (
     <OsAppScreen
       title={guildDisplayName(guildName, groupId)}
+      titleHref={guildPath(groupId)}
       backFallbackHref={guildPath(groupId)}
+      actions={membershipActions}
     >
       <div className="guilds-page">
         {loadState === 'loading' ? <PostRowSkeleton rows={4} /> : null}
@@ -708,14 +979,15 @@ export function LiveGuildPostPanel({
                   mediaFocused
                   mediaUnmuted={mediaUnmuted}
                   mediaResumeIndex={mediaResumeIndex}
+                  detailLayout
                   // Parent drawn above with a chain line already says "reply".
                   showRelationBadge={!hasParent}
                   // Thread is reached from anywhere — root keeps channel context.
                   showChannel
                   channelLabel={
                     conversation.root.channel
-                      ? channelTitleById[conversation.root.channel] ??
-                        conversation.root.channel
+                      ? (channelTitleById[conversation.root.channel] ??
+                        conversation.root.channel)
                       : undefined
                   }
                   quotedPost={
@@ -752,59 +1024,63 @@ export function LiveGuildPostPanel({
 
             <Divider variant="detail" />
 
-            {isMember ? (
-              <button
-                type="button"
-                className="guild-reply-prompt"
-                onClick={() =>
-                  conversation.root
-                    ? openComposerModal('reply')(conversation.root)
-                    : undefined
-                }
+            <div className="guild-thread-chrome">
+              {canPostInThread ? (
+                <button
+                  type="button"
+                  className="guild-reply-prompt"
+                  onClick={() =>
+                    conversation.root
+                      ? openComposerModal('reply')(conversation.root)
+                      : undefined
+                  }
+                >
+                  Add a reply…
+                </button>
+              ) : null}
+
+              <div
+                className="guild-thread-tabs"
+                role="tablist"
+                aria-label="Discussion content"
               >
-                Add a reply…
-              </button>
-            ) : (
-              <div className="guild-state-card">
-                Join this guild before replying. Thread history stays public.
+                <button
+                  type="button"
+                  role="tab"
+                  id="guild-thread-tab-replies"
+                  aria-controls="guild-thread-panel"
+                  aria-selected={activeThreadTab === 'replies'}
+                  className={
+                    activeThreadTab === 'replies' ? 'is-active' : undefined
+                  }
+                  onClick={() => {
+                    setThreadTabTouched(true);
+                    setActiveThreadTab('replies');
+                  }}
+                >
+                  Replies
+                  <span className="guild-thread-tab-count">{replyCount}</span>
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  id="guild-thread-tab-quotes"
+                  aria-controls="guild-thread-panel"
+                  aria-selected={activeThreadTab === 'quotes'}
+                  className={
+                    activeThreadTab === 'quotes' ? 'is-active' : undefined
+                  }
+                  onClick={() => {
+                    setThreadTabTouched(true);
+                    setActiveThreadTab('quotes');
+                  }}
+                >
+                  Quotes
+                  <span className="guild-thread-tab-count">
+                    {quotes.length}
+                  </span>
+                </button>
               </div>
-            )}
-
-            <Divider variant="detail" />
-
-            <div
-              className="guild-thread-tabs"
-              role="tablist"
-              aria-label="Discussion content"
-            >
-              <button
-                type="button"
-                role="tab"
-                id="guild-thread-tab-replies"
-                aria-controls="guild-thread-panel"
-                aria-selected={activeThreadTab === 'replies'}
-                className={
-                  activeThreadTab === 'replies' ? 'is-active' : undefined
-                }
-                onClick={() => setActiveThreadTab('replies')}
-              >
-                Replies
-                <span className="guild-thread-tab-count">{replyCount}</span>
-              </button>
-              <button
-                type="button"
-                role="tab"
-                id="guild-thread-tab-quotes"
-                aria-controls="guild-thread-panel"
-                aria-selected={activeThreadTab === 'quotes'}
-                className={
-                  activeThreadTab === 'quotes' ? 'is-active' : undefined
-                }
-                onClick={() => setActiveThreadTab('quotes')}
-              >
-                Quotes
-                <span className="guild-thread-tab-count">{quotes.length}</span>
-              </button>
             </div>
 
             <div

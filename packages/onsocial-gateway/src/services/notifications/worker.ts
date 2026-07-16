@@ -278,10 +278,11 @@ function buildNotification(
   };
 }
 
-function parseMentions(extraData: string | null): string[] {
-  if (!extraData) return [];
+/** Mentions live on PostV1 inside the indexed `value` JSON column. */
+function parseMentions(value: string | null): string[] {
+  if (!value) return [];
   try {
-    const parsed = JSON.parse(extraData);
+    const parsed = JSON.parse(value) as { mentions?: unknown };
     if (Array.isArray(parsed?.mentions)) {
       return parsed.mentions.filter(
         (m: unknown): m is string => typeof m === 'string' && m.length > 0
@@ -368,8 +369,8 @@ export function mapDataUpdateNotifications(
   }
 
   if (dataType === 'post') {
-    // Extract mentions from extra_data JSON
-    const mentionedAccounts = parseMentions(row.extra_data);
+    // Extract mentions from post value JSON (PostV1.mentions)
+    const mentionedAccounts = parseMentions(row.value);
     for (const mentioned of mentionedAccounts) {
       const mention = buildNotification(row, {
         recipient: mentioned,

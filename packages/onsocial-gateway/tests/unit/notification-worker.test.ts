@@ -782,11 +782,13 @@ describe('group proposal fan-out', () => {
 });
 
 describe('mention notifications', () => {
-  it('generates mention notifications from extra_data.mentions', () => {
+  it('generates mention notifications from post value.mentions', () => {
     const notifications = mapDataUpdateNotifications(
       makeDataUpdate({
         id: 'du-mention-1',
-        extra_data: JSON.stringify({
+        value: JSON.stringify({
+          v: 1,
+          text: 'hey @bob.testnet @carol.testnet',
           mentions: ['bob.testnet', 'carol.testnet'],
         }),
       })
@@ -809,7 +811,9 @@ describe('mention notifications', () => {
   it('suppresses self-mention (author mentions themselves)', () => {
     const notifications = mapDataUpdateNotifications(
       makeDataUpdate({
-        extra_data: JSON.stringify({
+        value: JSON.stringify({
+          v: 1,
+          text: '@alice.testnet',
           mentions: ['alice.testnet'],
         }),
       })
@@ -826,7 +830,9 @@ describe('mention notifications', () => {
       makeDataUpdate({
         parent_author: 'dave.testnet',
         parent_path: 'dave/post/root',
-        extra_data: JSON.stringify({
+        value: JSON.stringify({
+          v: 1,
+          text: 'reply @bob.testnet',
           mentions: ['bob.testnet'],
         }),
       })
@@ -836,9 +842,9 @@ describe('mention notifications', () => {
     expect(types).toEqual(['mention', 'reply']);
   });
 
-  it('handles null extra_data gracefully', () => {
+  it('handles null value gracefully', () => {
     const notifications = mapDataUpdateNotifications(
-      makeDataUpdate({ extra_data: null })
+      makeDataUpdate({ value: null })
     );
     const mentions = notifications.filter(
       (n) => n.notificationType === 'mention'
@@ -846,9 +852,9 @@ describe('mention notifications', () => {
     expect(mentions).toHaveLength(0);
   });
 
-  it('handles malformed JSON in extra_data', () => {
+  it('handles malformed JSON in value', () => {
     const notifications = mapDataUpdateNotifications(
-      makeDataUpdate({ extra_data: 'not-json{' })
+      makeDataUpdate({ value: 'not-json{' })
     );
     const mentions = notifications.filter(
       (n) => n.notificationType === 'mention'
@@ -856,9 +862,26 @@ describe('mention notifications', () => {
     expect(mentions).toHaveLength(0);
   });
 
-  it('handles extra_data without mentions field', () => {
+  it('handles value without mentions field', () => {
     const notifications = mapDataUpdateNotifications(
-      makeDataUpdate({ extra_data: JSON.stringify({ hashtags: ['web3'] }) })
+      makeDataUpdate({
+        value: JSON.stringify({ v: 1, text: 'hi', hashtags: ['web3'] }),
+      })
+    );
+    const mentions = notifications.filter(
+      (n) => n.notificationType === 'mention'
+    );
+    expect(mentions).toHaveLength(0);
+  });
+
+  it('does not read mentions from extra_data envelope', () => {
+    const notifications = mapDataUpdateNotifications(
+      makeDataUpdate({
+        value: JSON.stringify({ v: 1, text: 'plain post' }),
+        extra_data: JSON.stringify({
+          mentions: ['bob.testnet'],
+        }),
+      })
     );
     const mentions = notifications.filter(
       (n) => n.notificationType === 'mention'
@@ -869,7 +892,9 @@ describe('mention notifications', () => {
   it('skips non-string entries in mentions array', () => {
     const notifications = mapDataUpdateNotifications(
       makeDataUpdate({
-        extra_data: JSON.stringify({
+        value: JSON.stringify({
+          v: 1,
+          text: 'hi',
           mentions: ['bob.testnet', 42, null, '', 'carol.testnet'],
         }),
       })
@@ -889,7 +914,9 @@ describe('mention notifications', () => {
       makeDataUpdate({
         data_type: 'reaction',
         target_account: 'bob.testnet',
-        extra_data: JSON.stringify({ mentions: ['carol.testnet'] }),
+        value: JSON.stringify({
+          mentions: ['carol.testnet'],
+        }),
       })
     );
     const mentions = notifications.filter(
@@ -902,7 +929,9 @@ describe('mention notifications', () => {
     const notifications = mapDataUpdateNotifications(
       makeDataUpdate({
         id: 'du-dedup-mention',
-        extra_data: JSON.stringify({
+        value: JSON.stringify({
+          v: 1,
+          text: 'hi',
           mentions: ['bob.testnet', 'carol.testnet'],
         }),
       })

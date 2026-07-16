@@ -14,14 +14,19 @@ interface PostIdentityMetaProps {
   authorHref?: string;
   handleHref?: string;
   timeHref?: string;
-  /** Room label under the identity line (guild “All” / mixed feeds). */
+  /** Room label under the identity (guild “All” / mixed feeds / thread). */
   channel?: string;
-  /** Trailing ··· — card’s right edge, opposite time. */
+  /** Trailing ··· — end of the name row. */
   trailing?: ReactNode;
   className?: string;
+  /**
+   * `inline` (feed): Name @handle · time
+   * `stacked` (open post): Name, then @handle below — time rendered under the body.
+   */
+  layout?: 'inline' | 'stacked';
 }
 
-/** `Name @handle · time` on one line; optional room row under. */
+/** Post author identity — feed inline, or stacked for the open post root. */
 export function PostIdentityMeta({
   name,
   accountId,
@@ -32,12 +37,15 @@ export function PostIdentityMeta({
   channel,
   trailing,
   className,
+  layout = 'inline',
 }: PostIdentityMetaProps) {
   const timestampIso =
     timestamp != null ? postTimestampIso(timestamp) : undefined;
-  const showTime = timestamp != null && timestamp !== '';
+  const showTime =
+    layout === 'inline' && timestamp != null && timestamp !== '';
   const profileHandleHref = handleHref ?? authorHref;
   const roomLabel = channel?.trim().replace(/^#/, '') || null;
+  const stacked = layout === 'stacked';
 
   const nameNode = authorHref ? (
     <Link href={authorHref} className="post-identity-name" scroll={false}>
@@ -82,21 +90,29 @@ export function PostIdentityMeta({
   ) : null;
 
   return (
-    <div className={`post-identity${className ? ` ${className}` : ''}`}>
+    <div
+      className={`post-identity${stacked ? ' post-identity--stacked' : ''}${
+        className ? ` ${className}` : ''
+      }`}
+    >
       <div className="post-identity-row">
-        <div className="post-identity-meta">
+        <div
+          className={
+            stacked
+              ? 'post-identity-main post-identity-main--stacked'
+              : 'post-identity-main'
+          }
+        >
           {nameNode}
-          <span className="post-identity-tail">
-            {handleNode}
-            {timeNode ? (
-              <>
-                <span className="post-identity-sep" aria-hidden>
-                  ·
-                </span>
-                {timeNode}
-              </>
-            ) : null}
-          </span>
+          {handleNode}
+          {timeNode ? (
+            <>
+              <span className="post-identity-sep" aria-hidden>
+                ·
+              </span>
+              {timeNode}
+            </>
+          ) : null}
         </div>
         {trailing}
       </div>

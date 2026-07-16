@@ -22,9 +22,11 @@ export function useViewerRelationship(pageAccountId: string) {
   const [apiRelationship, setApiRelationship] =
     useState<ApiRelationshipState | null>(null);
   const [ledgerVersion, setLedgerVersion] = useState(0);
+  const targetAccountId = pageAccountId.trim();
   const isSelf =
     Boolean(viewerAccountId) &&
-    accountIdsEqual(viewerAccountId!, pageAccountId);
+    Boolean(targetAccountId) &&
+    accountIdsEqual(viewerAccountId!, targetAccountId);
 
   useEffect(() => {
     return subscribeGlobalViewerStandingLedger(() => {
@@ -33,7 +35,7 @@ export function useViewerRelationship(pageAccountId: string) {
   }, []);
 
   useEffect(() => {
-    if (!isConnected || !viewerAccountId || isSelf) {
+    if (!isConnected || !viewerAccountId || isSelf || !targetAccountId) {
       return;
     }
 
@@ -42,12 +44,12 @@ export function useViewerRelationship(pageAccountId: string) {
     void (async () => {
       try {
         const relationship = await fetchViewerStandingRelationship(
-          pageAccountId,
+          targetAccountId,
           viewerAccountId
         );
         if (!cancelled) {
           setApiRelationship({
-            pageAccountId,
+            pageAccountId: targetAccountId,
             viewerAccountId,
             viewerStanding: relationship.viewerStanding,
             theyStandWithViewer: relationship.theyStandWithViewer,
@@ -56,7 +58,7 @@ export function useViewerRelationship(pageAccountId: string) {
       } catch {
         if (!cancelled) {
           setApiRelationship({
-            pageAccountId,
+            pageAccountId: targetAccountId,
             viewerAccountId,
             viewerStanding: false,
             theyStandWithViewer: false,
@@ -68,9 +70,9 @@ export function useViewerRelationship(pageAccountId: string) {
     return () => {
       cancelled = true;
     };
-  }, [isConnected, isSelf, pageAccountId, viewerAccountId, ledgerVersion]);
+  }, [isConnected, isSelf, targetAccountId, viewerAccountId, ledgerVersion]);
 
-  if (!isConnected || !viewerAccountId || isSelf) {
+  if (!isConnected || !viewerAccountId || isSelf || !targetAccountId) {
     return {
       viewerStanding: false,
       theyStandWithViewer: false,
@@ -80,7 +82,7 @@ export function useViewerRelationship(pageAccountId: string) {
 
   const ledger = getGlobalViewerStandingLedger();
   const matchedRelationship =
-    apiRelationship?.pageAccountId === pageAccountId &&
+    apiRelationship?.pageAccountId === targetAccountId &&
     apiRelationship.viewerAccountId === viewerAccountId
       ? apiRelationship
       : null;
@@ -89,7 +91,7 @@ export function useViewerRelationship(pageAccountId: string) {
   return {
     viewerStanding: resolveViewerStanding(
       ledger,
-      pageAccountId,
+      targetAccountId,
       apiStanding
     ),
     theyStandWithViewer: matchedRelationship?.theyStandWithViewer ?? false,

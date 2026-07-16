@@ -1,11 +1,14 @@
 'use client';
 
 import type { ReactNode, RefObject } from 'react';
+import Link from 'next/link';
 import { ContextualBack } from '@/components/app/contextual-back';
 import { AppShellLauncher } from '@/components/os/summon-launcher';
 
 export interface OsAppScreenProps {
   title: string;
+  /** When set, the title navigates here (e.g. guild name → guild page). */
+  titleHref?: string;
   subtitle?: string;
   backFallbackHref?: string;
   /** Icon actions pinned opposite the back button (e.g. settings). */
@@ -22,6 +25,7 @@ export interface OsAppScreenProps {
 
 export function OsAppScreen({
   title,
+  titleHref,
   subtitle,
   backFallbackHref = '/',
   actions,
@@ -44,7 +48,20 @@ export function OsAppScreen({
           <div className="os-app-screen-nav-row">
             <ContextualBack fallbackHref={backFallbackHref} />
             <div className="os-app-screen-heading">
-              <h1 className="os-app-screen-title">{title}</h1>
+              <h1 className="os-app-screen-title">
+                {titleHref ? (
+                  <Link
+                    href={titleHref}
+                    className="os-app-screen-title-link"
+                    title={title}
+                    scroll={false}
+                  >
+                    {title}
+                  </Link>
+                ) : (
+                  title
+                )}
+              </h1>
               {subtitle ? (
                 <p className="os-app-screen-subtitle">{subtitle}</p>
               ) : null}

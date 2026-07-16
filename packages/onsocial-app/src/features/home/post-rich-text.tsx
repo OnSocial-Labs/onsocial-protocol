@@ -5,10 +5,11 @@ import { useHomeActiveHashtag } from '@/features/home/home-active-hashtag';
 import {
   homeHashtagPath,
   normalizeHashtagQuery,
-  splitTextWithHashtags,
 } from '@/features/home/home-hashtag-search';
+import { splitPostRichText } from '@/features/home/post-rich-segments';
+import { portfolioPath } from '@/lib/overlay-routes';
 
-/** Post / quote body with protocol-green hashtag highlights. */
+/** Post / quote body with hashtag + @mention highlights. */
 export function PostRichText({
   text,
   emptyFallback = '…',
@@ -22,9 +23,24 @@ export function PostRichText({
 
   return (
     <>
-      {splitTextWithHashtags(text).map((segment, index) => {
-        if (segment.type !== 'hashtag') {
+      {splitPostRichText(text).map((segment, index) => {
+        if (segment.type === 'text') {
           return <span key={`t-${index}`}>{segment.value}</span>;
+        }
+
+        if (segment.type === 'mention') {
+          return (
+            <Link
+              key={`m-${index}`}
+              href={portfolioPath(segment.accountId)}
+              className="os-mention"
+              onClick={(event) => {
+                event.stopPropagation();
+              }}
+            >
+              {segment.value}
+            </Link>
+          );
         }
 
         const slug = normalizeHashtagQuery(segment.value);

@@ -141,7 +141,8 @@
   width: 100%;
 }
 
-.guild-hero-membership-slot .guild-hero-membership.os-sheet-actions--row-compact {
+.guild-hero-membership-slot
+  .guild-hero-membership.os-sheet-actions--row-compact {
   width: 100%;
   gap: 0;
 }
@@ -153,6 +154,12 @@
 .guild-hero
   .guild-hero-membership-slot
   .guild-hero-membership.os-sheet-actions--row-compact
+  .os-sheet-action--primary,
+.guild-thread-nav-membership-slot
+  .guild-thread-nav-membership.os-sheet-actions--row-compact
+  .os-sheet-action,
+.guild-thread-nav-membership-slot
+  .guild-thread-nav-membership.os-sheet-actions--row-compact
   .os-sheet-action--primary {
   flex: 0 0 auto;
   width: 100%;
@@ -267,6 +274,9 @@
 .guild-hero
   .guild-hero-membership-slot
   .guild-hero-membership.os-sheet-actions--row-compact
+  .os-sheet-action__shell,
+.guild-thread-nav-membership-slot
+  .guild-thread-nav-membership.os-sheet-actions--row-compact
   .os-sheet-action__shell {
   width: 100%;
 }
@@ -279,6 +289,12 @@
   .os-sheet-action--primary.is-pending:disabled:not(.is-succeeded),
 .guild-hero
   .guild-hero-membership.os-sheet-actions--borderless
+  .os-sheet-action--primary:not(:disabled):not(.is-ready):not(.is-succeeded),
+.guild-thread-nav-membership.os-sheet-actions--borderless
+  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded),
+.guild-thread-nav-membership.os-sheet-actions--borderless
+  .os-sheet-action--primary.is-pending:disabled:not(.is-succeeded),
+.guild-thread-nav-membership.os-sheet-actions--borderless
   .os-sheet-action--primary:not(:disabled):not(.is-ready):not(.is-succeeded) {
   box-shadow: none;
 }
@@ -824,7 +840,10 @@ a.os-surface-row {
    viewport inset math, which breaks when transform/backdrop-filter
    re-parents `position: fixed` to the desktop card. */
 .portfolio-face-preview-bar {
-  --preview-bar-mood: var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.72)));
+  --preview-bar-mood: var(
+    --mood-accent-chrome,
+    var(--mood-accent, rgb(var(--fg-rgb) / 0.72))
+  );
 
   position: fixed;
   left: 50%;
@@ -850,7 +869,8 @@ a.os-surface-row {
   backdrop-filter: blur(32px) saturate(1.6);
   -webkit-backdrop-filter: blur(32px) saturate(1.6);
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--preview-bar-mood) 18%, rgb(var(--fg-rgb) / 0.08)),
+    inset 0 1px 0
+      color-mix(in srgb, var(--preview-bar-mood) 18%, rgb(var(--fg-rgb) / 0.08)),
     0 18px 40px -18px rgb(0 0 0 / 0.34),
     0 6px 16px -12px rgb(0 0 0 / 0.18);
   color: rgb(var(--fg-rgb) / 0.92);
@@ -945,7 +965,11 @@ a.os-surface-row {
 }
 
 .os-commit-cancel.is-danger {
-  color: color-mix(in srgb, var(--signal-error, #ef4444) 78%, rgb(var(--fg-rgb)));
+  color: color-mix(
+    in srgb,
+    var(--signal-error, #ef4444) 78%,
+    rgb(var(--fg-rgb))
+  );
 }
 
 .os-commit-cancel.is-danger:hover,
@@ -4344,9 +4368,8 @@ a.os-surface-row {
   }
 
   /* Match panel toggle hues — do not override step-back red. */
-  .portfolio-identity-gesture--stand .standing-toggle-arrow:not(
-      .standing-toggle-arrow--step-back
-    ) {
+  .portfolio-identity-gesture--stand
+    .standing-toggle-arrow:not(.standing-toggle-arrow--step-back) {
     color: var(--signal-standing);
   }
 
@@ -6181,15 +6204,19 @@ a.os-surface-row {
     display: flex;
     align-items: center;
     gap: 0.35rem;
+    width: 100%;
+    min-width: 0;
     min-height: var(--os-app-screen-nav-row-height);
+    overflow: hidden;
   }
 
   .os-app-screen-heading {
     min-width: 0;
-    flex: 1;
+    flex: 1 1 0;
     display: flex;
     flex-direction: column;
     justify-content: center;
+    overflow: hidden;
     padding-top: 0;
   }
 
@@ -6204,11 +6231,32 @@ a.os-surface-row {
   }
 
   .os-app-screen-title {
+    min-width: 0;
     margin: 0;
+    overflow: hidden;
     font-size: 1.05rem;
     font-weight: 600;
     letter-spacing: -0.02em;
     line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .os-app-screen-title-link {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    color: inherit;
+    text-decoration: none;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .os-app-screen-title-link:hover,
+  .os-app-screen-title-link:focus-visible {
+    text-decoration: underline;
+    text-underline-offset: 0.12em;
+    outline: none;
   }
 
   .os-app-screen-subtitle {
@@ -6317,11 +6365,9 @@ a.os-surface-row {
       rgb(var(--fg-rgb) / 0.08)
     );
     --os-dock-shadow:
-      0 18px 40px -18px rgb(0 0 0 / 0.34),
-      0 6px 16px -12px rgb(0 0 0 / 0.18);
+      0 18px 40px -18px rgb(0 0 0 / 0.34), 0 6px 16px -12px rgb(0 0 0 / 0.18);
     --os-dock-shadow-hover:
-      0 20px 44px -16px rgb(0 0 0 / 0.38),
-      0 8px 18px -12px rgb(0 0 0 / 0.2);
+      0 20px 44px -16px rgb(0 0 0 / 0.38), 0 8px 18px -12px rgb(0 0 0 / 0.2);
     --os-dock-lip: inset 0 1px 0 rgb(var(--fg-rgb) / 0.1);
     backdrop-filter: blur(32px) saturate(1.6);
     -webkit-backdrop-filter: blur(32px) saturate(1.6);
@@ -6750,7 +6796,8 @@ a.os-surface-row {
     );
     color: color-mix(
       in srgb,
-      var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.7))) 36%,
+      var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.7)))
+        36%,
       var(--mood-text, rgb(var(--fg-rgb) / 0.92))
     );
   }
@@ -7003,10 +7050,12 @@ a.os-surface-row {
   }
 
   .page-drawer-panel[data-tone='mood-thread'] .page-drawer-joined:hover,
-  .page-drawer-panel[data-tone='mood-thread'] .page-drawer-joined:focus-visible {
+  .page-drawer-panel[data-tone='mood-thread']
+    .page-drawer-joined:focus-visible {
     color: color-mix(
       in srgb,
-      var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.7))) 42%,
+      var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.7)))
+        42%,
       var(--mood-text, rgb(var(--fg-rgb) / 0.78))
     );
   }
@@ -7014,7 +7063,8 @@ a.os-surface-row {
   .page-drawer-panel[data-tone='mood-thread'] .page-drawer-joined-arrow {
     color: color-mix(
       in srgb,
-      var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.55))) 36%,
+      var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.55)))
+        36%,
       var(--mood-muted, rgb(var(--fg-rgb) / 0.36))
     );
   }
@@ -7022,7 +7072,8 @@ a.os-surface-row {
   .page-drawer-panel[data-tone='mood-thread'] .page-drawer-credentials {
     color: color-mix(
       in srgb,
-      var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.55))) 40%,
+      var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.55)))
+        40%,
       var(--mood-muted, rgb(var(--fg-rgb) / 0.42))
     );
   }
@@ -7030,7 +7081,8 @@ a.os-surface-row {
   .page-drawer-panel[data-tone='mood-thread'] .page-drawer-tags {
     color: color-mix(
       in srgb,
-      var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.55))) 26%,
+      var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.55)))
+        26%,
       var(--mood-muted, rgb(var(--fg-rgb) / 0.38))
     );
   }
@@ -7176,17 +7228,20 @@ a.os-surface-row {
     .page-joined-fact-section-title {
     color: color-mix(
       in srgb,
-      var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.55))) 30%,
+      var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.55)))
+        30%,
       var(--mood-muted, rgb(var(--fg-rgb) / 0.4))
     );
   }
 
-  .page-joined-facts-panel[data-tone='mood-thread'] .page-joined-fact-link:hover,
+  .page-joined-facts-panel[data-tone='mood-thread']
+    .page-joined-fact-link:hover,
   .page-joined-facts-panel[data-tone='mood-thread']
     .page-joined-fact-link:focus-visible {
     color: color-mix(
       in srgb,
-      var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.7))) 38%,
+      var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.7)))
+        38%,
       var(--mood-text, rgb(var(--fg-rgb) / 0.95))
     );
   }
@@ -7216,8 +7271,7 @@ a.os-surface-row {
     z-index: 1;
     display: flex;
     justify-content: center;
-    padding: 0.55rem 1rem
-      calc(0.65rem + env(safe-area-inset-bottom, 0px));
+    padding: 0.55rem 1rem calc(0.65rem + env(safe-area-inset-bottom, 0px));
     pointer-events: none;
     transform: translateY(0);
     transition: transform 260ms ease;
@@ -7277,7 +7331,10 @@ a.os-surface-row {
       inset 0 1px 0
         color-mix(
           in srgb,
-          var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.2)))
+          var(
+              --mood-accent-chrome,
+              var(--mood-accent, rgb(var(--fg-rgb) / 0.2))
+            )
             22%,
           rgb(var(--fg-rgb) / 0.1)
         ),
@@ -7492,12 +7549,11 @@ a.os-surface-row {
     aspect-ratio: 1;
     overflow: hidden;
     border-radius: 0.8rem;
-    background:
-      linear-gradient(
-        145deg,
-        rgb(var(--fg-rgb) / 0.1),
-        rgb(var(--fg-rgb) / 0.03)
-      );
+    background: linear-gradient(
+      145deg,
+      rgb(var(--fg-rgb) / 0.1),
+      rgb(var(--fg-rgb) / 0.03)
+    );
   }
 
   .page-drawer-scarce-cover.has-media {
@@ -12091,8 +12147,22 @@ a.os-surface-row {
   .post-card--openable .post-card-menu-panel *,
   .post-card--openable .post-card-show-more,
   .post-card--openable .os-hashtag,
+  .post-card--openable .os-mention,
   .post-card--openable .post-card-guild {
     pointer-events: auto;
+  }
+
+  /*
+   * Open ⋮ menu: post cards use pointer-events islands on copy, so @handle /
+   * name stay clickable even when the panel paints over them. Disable those
+   * islands while the menu is open so clicks hit the menu, not the underlay.
+   */
+  .post-card:has(.post-card-menu-panel) .post-identity-name,
+  .post-card:has(.post-card-menu-panel) .post-identity-handle,
+  .post-card:has(.post-card-menu-panel) .post-identity-time,
+  .post-card:has(.post-card-menu-panel) .post-card-guild,
+  .post-card:has(.post-card-menu-panel) .post-card-hit {
+    pointer-events: none;
   }
 
   .post-card-link,
@@ -12164,12 +12234,7 @@ a.os-surface-row {
     gap: 0.2rem;
   }
 
-  /*
-   * Clean identity:
-   *   Name @handle · 50m                         ⋮
-   *   #general
-   *   Hello
-   */
+  /* Name @handle · 50m ··· — handle truncates before the display name. */
   .post-identity {
     display: flex;
     min-width: 0;
@@ -12188,7 +12253,7 @@ a.os-surface-row {
     min-width: 0;
   }
 
-  .post-identity-meta {
+  .post-identity-main {
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
@@ -12199,31 +12264,51 @@ a.os-surface-row {
     overflow: hidden;
   }
 
+  /* Open post root: name on its own line, @account under it. */
+  .post-identity-main--stacked {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    gap: 0.08rem;
+    overflow: visible;
+  }
+
+  .post-identity--stacked .post-identity-name {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .post-identity--stacked .post-identity-handle {
+    flex: 0 1 auto;
+    max-width: 100%;
+  }
+
+  .post-card-detail-time {
+    display: block;
+    margin: 0.5rem 0 0.1rem;
+    font-size: 0.68rem;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.3;
+    color: rgb(var(--fg-rgb) / 0.34);
+  }
+
+  .post-card--detail .post-card-engagement {
+    margin-top: 0.35rem;
+  }
+
   .post-identity-name {
     flex: 0 1 auto;
-    min-width: 0;
-    max-width: 55%;
+    min-width: 2.5rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     font-size: 0.875rem;
-    font-weight: 500;
+    font-weight: 600;
     letter-spacing: -0.01em;
     line-height: 1.25;
     color: rgb(var(--fg-rgb) / 0.96);
     text-decoration: none;
-  }
-
-  /* @handle · time stay glued — one group, never stretched apart. */
-  .post-identity-tail {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: nowrap;
-    align-items: baseline;
-    gap: 0.22rem;
-    min-width: 0;
-    flex: 0 1 auto;
-    overflow: hidden;
   }
 
   .post-identity-handle,
@@ -12236,11 +12321,31 @@ a.os-surface-row {
     line-height: 1.25;
   }
 
+  /* Shrink handle first on narrow widths; keep name visible longer. */
   .post-identity-handle {
-    flex: 0 1 auto;
+    flex: 0 999 auto;
     min-width: 0;
     color: rgb(var(--fg-rgb) / 0.42);
     text-decoration: none;
+  }
+
+  /* Keep open-post identity stacked after the shared feed rules above. */
+  .post-identity--stacked .post-identity-row {
+    align-items: flex-start;
+  }
+
+  .post-identity--stacked .post-identity-main--stacked {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.08rem;
+  }
+
+  .post-identity--stacked .post-identity-name,
+  .post-identity--stacked .post-identity-handle {
+    display: block;
+    flex: none;
+    width: auto;
+    max-width: 100%;
   }
 
   .post-identity-time {
@@ -12352,6 +12457,25 @@ a.os-surface-row {
     line-height: 1.2;
   }
 
+  /*
+   * Open ⋮ menu must paint above @handle / body — not under them.
+   * Same :has(panel) lift pattern as standing / guild member row menus.
+   */
+  .post-card:has(.post-card-menu-panel) {
+    position: relative;
+    z-index: 8;
+  }
+
+  .post-identity-row:has(.post-card-menu-panel) {
+    position: relative;
+    z-index: 2;
+  }
+
+  .post-identity-row:has(.post-card-menu-panel) .post-identity-main {
+    position: relative;
+    z-index: 0;
+  }
+
   /* Plain button — do not use glass-sheet-icon-action (2.75rem lofts the row). */
   .post-card-menu {
     position: relative;
@@ -12359,12 +12483,14 @@ a.os-surface-row {
     z-index: 2;
   }
 
-  /* Above media collage / poll embeds when the dropdown is open. */
-  .post-card-menu.is-open {
+  .post-card-menu.is-open,
+  .post-card-menu:has(.post-card-menu-panel) {
     z-index: 30;
   }
 
   .post-card-menu-trigger {
+    position: relative;
+    z-index: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -12393,8 +12519,9 @@ a.os-surface-row {
   }
 
   .post-card-menu-panel {
-    width: 10.5rem;
+    width: 12rem;
     z-index: 40;
+    pointer-events: auto;
   }
 
   .post-card-badges {
@@ -12433,7 +12560,9 @@ a.os-surface-row {
 
   /* Indexed #tags in feed / quotes — green always; bold only for active filter. */
   .post-card-body .os-hashtag,
-  .post-card-quote-inset-body .os-hashtag {
+  .post-card-body .os-mention,
+  .post-card-quote-inset-body .os-hashtag,
+  .post-card-quote-inset-body .os-mention {
     color: var(--protocol-green);
     font-weight: inherit;
     text-decoration: none;
@@ -12447,8 +12576,12 @@ a.os-surface-row {
 
   .post-card-body .os-hashtag:hover,
   .post-card-quote-inset-body .os-hashtag:hover,
+  .post-card-body .os-mention:hover,
+  .post-card-quote-inset-body .os-mention:hover,
   .post-card-body .os-hashtag:focus-visible,
-  .post-card-quote-inset-body .os-hashtag:focus-visible {
+  .post-card-quote-inset-body .os-hashtag:focus-visible,
+  .post-card-body .os-mention:focus-visible,
+  .post-card-quote-inset-body .os-mention:focus-visible {
     text-decoration: underline;
     text-underline-offset: 0.12em;
     outline: none;
@@ -12557,7 +12690,8 @@ a.os-surface-row {
     height: 12.5rem;
   }
 
-  .post-media-strip.is-collage.post-media-strip--3 .post-media-tile:first-child {
+  .post-media-strip.is-collage.post-media-strip--3
+    .post-media-tile:first-child {
     grid-row: 1 / -1;
   }
 
@@ -13369,9 +13503,7 @@ a.os-surface-row {
     width: calc(var(--guild-avatar-size) + 2 * var(--guild-avatar-ring));
     height: calc(var(--guild-avatar-size) + 2 * var(--guild-avatar-ring));
     padding: var(--guild-avatar-ring);
-    border-radius: calc(
-      var(--guild-avatar-radius) + var(--guild-avatar-ring)
-    );
+    border-radius: calc(var(--guild-avatar-radius) + var(--guild-avatar-ring));
     background: rgb(var(--bg-rgb));
   }
 
@@ -13594,7 +13726,9 @@ a.os-surface-row {
     width: 0.72rem;
     height: 0.72rem;
     opacity: 0.42;
-    transition: opacity 160ms ease, transform 160ms ease;
+    transition:
+      opacity 160ms ease,
+      transform 160ms ease;
   }
 
   .guild-facts-link:hover .guild-facts-link-arrow,
@@ -14491,7 +14625,8 @@ a.os-surface-row {
       color-mix(in srgb, var(--protocol-blue) 16%, transparent);
   }
 
-  .guild-proposal-card-avatar-link:hover .guild-proposal-card-avatar.profile-avatar,
+  .guild-proposal-card-avatar-link:hover
+    .guild-proposal-card-avatar.profile-avatar,
   .guild-proposal-card-avatar-link:focus-visible
     .guild-proposal-card-avatar.profile-avatar {
     transform: scale(1.04);
@@ -14706,7 +14841,11 @@ a.os-surface-row {
   }
 
   .guild-proposal-card--approved {
-    border-top-color: color-mix(in srgb, var(--protocol-green) 40%, transparent);
+    border-top-color: color-mix(
+      in srgb,
+      var(--protocol-green) 40%,
+      transparent
+    );
   }
 
   .guild-proposal-card--approved .guild-proposal-card-strip {
@@ -14942,6 +15081,13 @@ a.os-surface-row {
     border-style: solid;
     border-color: var(--protocol-red-border);
     color: color-mix(in srgb, var(--protocol-red) 85%, rgb(var(--fg-rgb)));
+  }
+
+  .guild-state-card--inline {
+    padding: 0.45rem 0.85rem;
+    border-radius: 0.75rem;
+    font-size: 0.78rem;
+    line-height: 1.4;
   }
 
   .guild-hero-actions,
@@ -15532,7 +15678,9 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.52);
     cursor: pointer;
     padding: 0;
-    transition: color 160ms ease, background 160ms ease;
+    transition:
+      color 160ms ease,
+      background 160ms ease;
   }
 
   .guild-composer-tool:hover:not(:disabled),
@@ -15604,7 +15752,9 @@ a.os-surface-row {
     letter-spacing: 0.02em;
     line-height: 1;
     color: rgb(var(--fg-rgb) / 0.4);
-    transition: color 160ms ease, opacity 160ms ease;
+    transition:
+      color 160ms ease,
+      opacity 160ms ease;
   }
 
   .guild-composer-char-count.is-idle {
@@ -15674,6 +15824,12 @@ a.os-surface-row {
     min-width: 0;
   }
 
+  .guild-composer-input-field {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+  }
+
   .guild-composer-input-backdrop {
     position: absolute;
     inset: 0;
@@ -15692,7 +15848,8 @@ a.os-surface-row {
   }
 
   .guild-composer-hashtag,
-  .os-hashtag {
+  .os-hashtag,
+  .os-mention {
     color: var(--protocol-green);
     font-weight: inherit;
     text-decoration: none;
@@ -15703,8 +15860,64 @@ a.os-surface-row {
   }
 
   /* Composer overlay: never bold tags — weight mismatch shifts the caret. */
-  .guild-composer-input-backdrop .os-hashtag {
+  .guild-composer-input-backdrop .os-hashtag,
+  .guild-composer-input-backdrop .os-mention {
     font-weight: inherit;
+  }
+
+  .composer-mention-suggest {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    width: 100%;
+    margin-top: 0.35rem;
+  }
+
+  .composer-mention-suggest-divider {
+    width: 100%;
+  }
+
+  /*
+   * Standing-row identity layout, composer-tuned:
+   * larger avatar centered on the name+handle block; soft wash only on hover;
+   * slight left inset so hover doesn’t kiss the column edge.
+   */
+  .composer-mention-suggest-row.standing-row {
+    gap: 0;
+    margin: 0;
+    padding: 0.4rem 0.35rem 0.4rem 0.2rem;
+    border-radius: 0.55rem;
+    background: transparent;
+    border: 0;
+    width: 100%;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    appearance: none;
+    transition: background 160ms ease;
+  }
+
+  .composer-mention-suggest-row.standing-row:hover,
+  .composer-mention-suggest-row.standing-row:focus-visible {
+    background: rgb(var(--fg-rgb) / 0.03);
+    outline: none;
+  }
+
+  .composer-mention-suggest-row .standing-row-main {
+    align-items: center;
+    gap: 0.55rem;
+  }
+
+  .composer-mention-suggest-row .standing-row-avatar-slot {
+    margin-top: 0;
+    box-shadow: none;
+  }
+
+  .composer-mention-suggest-row.standing-row:hover .standing-row-avatar-slot,
+  .composer-mention-suggest-row.standing-row:focus-within
+    .standing-row-avatar-slot {
+    box-shadow: none;
   }
 
   /* Grows with content; sheet body scrolls — no nested textarea overflow. */
@@ -15910,6 +16123,25 @@ a.os-surface-row {
     word-break: break-word;
   }
 
+  .guild-thread-chrome {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  /* Compact Join / Connect opposite the thread title. */
+  .guild-thread-nav-membership {
+    flex-shrink: 0;
+  }
+
+  .guild-thread-nav-membership-shimmer {
+    display: block;
+    width: 100%;
+    height: 1.65rem;
+    margin: 0;
+    border-radius: 9999px;
+  }
+
   /* Quiet pseudo-input that opens the composer (thread pages). */
   .guild-reply-prompt {
     width: 100%;
@@ -15919,10 +16151,10 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.42);
     cursor: text;
     font: inherit;
-    font-size: 0.86rem;
+    font-size: 0.8rem;
     font-weight: 500;
     text-align: left;
-    padding: 0.7rem 1rem;
+    padding: 0.45rem 0.85rem;
     transition:
       background 160ms ease,
       color 160ms ease;
@@ -16358,7 +16590,8 @@ a.os-surface-row {
 
   .guild-structure-discovery {
     padding: 0.95rem;
-    border: 1px solid color-mix(in srgb, var(--protocol-purple) 24%, transparent);
+    border: 1px solid
+      color-mix(in srgb, var(--protocol-purple) 24%, transparent);
     border-radius: 1rem;
     background: color-mix(in srgb, var(--protocol-purple) 8%, transparent);
   }
@@ -17106,7 +17339,9 @@ a.os-surface-row {
   }
 
   /* Support presets — page mood reputation (injected on the sheet panel). */
-  .profile-support-sheet-panel .profile-support-presets .app-storage-preset.is-selected,
+  .profile-support-sheet-panel
+    .profile-support-presets
+    .app-storage-preset.is-selected,
   .profile-support-presets .app-storage-preset.is-selected {
     border-color: color-mix(
       in srgb,

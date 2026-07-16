@@ -10,7 +10,7 @@ import type {
   ComposerSubmit,
 } from '@/features/guilds/guild-composer-sheet';
 import { assertCanReplyToGuildPost } from '@/features/home/assert-can-reply-to-guild-post';
-import { extractHashtagsFromText } from '@/features/home/home-hashtag-search';
+import { postMetaFromText } from '@/features/home/post-mentions';
 import {
   applyMediaKindOverride,
   buildOptimisticMediaEntries,
@@ -56,11 +56,6 @@ function toastCopy(mode: ComposerMode) {
   };
 }
 
-function hashtagFields(text: string): { hashtags?: string[] } {
-  const hashtags = extractHashtagsFromText(text);
-  return hashtags.length > 0 ? { hashtags } : {};
-}
-
 function buildOptimisticPost(args: {
   accountId: string;
   newPostId: string;
@@ -85,7 +80,7 @@ function buildOptimisticPost(args: {
     value: JSON.stringify({
       v: 1,
       text,
-      ...hashtagFields(text),
+      ...postMetaFromText(text),
       ...(pollEmbed ? { embeds: [pollEmbed] } : {}),
       ...(media ? { media } : {}),
     }),
@@ -172,7 +167,7 @@ export async function submitPersonalPost(args: {
 
   const newPostId = Date.now().toString();
   const filePayload = files.length ? { files } : {};
-  const tags = hashtagFields(text);
+  const tags = postMetaFromText(text);
   let response: unknown;
 
   if (mode === 'post') {

@@ -75,7 +75,7 @@ export interface PostV1 extends GroupFeedMetaV1 {
   contentType?: ContentType;
   lang?: string;
   media?: MediaRef[];
-  /** Account ids mentioned in this post. Indexer uses for mention notifications. */
+  /** Account ids mentioned in this post. Gateway emits `mention` notifications from this list. */
   mentions?: string[];
   /** Lowercase, no leading `#`. */
   hashtags?: string[];

@@ -24,7 +24,7 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { PostRowSkeleton, postKey } from '@/features/home/post-card';
 import { GuildFeedFilterList } from '@/features/guilds/guild-feed-filter-list';
-import { extractHashtagsFromText } from '@/features/home/home-hashtag-search';
+import { postMetaFromText } from '@/features/home/post-mentions';
 import {
   GuildComposerSheet,
   type GuildComposerMode,
@@ -107,6 +107,10 @@ import {
   writeGuildMembershipCache,
 } from '@/lib/guild-membership-cache';
 import {
+  setGuildMembershipActionPending,
+  useGuildMembershipActionPending,
+} from '@/lib/guild-membership-action-pending';
+import {
   txToastConfirming,
   txToastError,
   txToastSuccess,
@@ -179,7 +183,12 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
   const [hasMorePosts, setHasMorePosts] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [isFeedRefreshing, setIsFeedRefreshing] = useState(false);
-  const [actionPending, setActionPending] = useState(false);
+  const [actionPendingLocal, setActionPendingLocal] = useState(false);
+  const actionPendingShared = useGuildMembershipActionPending(
+    accountId,
+    groupId
+  );
+  const actionPending = actionPendingLocal || actionPendingShared;
   const [composerSpaceId, setComposerSpaceId] = useState('general');
   const [selectedFeedFilterId, setSelectedFeedFilterId] =
     useState<GuildFeedFilterId>('all');
@@ -759,7 +768,8 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       return;
     }
 
-    setActionPending(true);
+    setActionPendingLocal(true);
+    setGuildMembershipActionPending(accountId, groupId, true);
     try {
       const { client } = await getClient();
       const response = viewer?.isMember
@@ -813,7 +823,8 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
           : 'Could not update guild membership.'
       );
     } finally {
-      setActionPending(false);
+      setActionPendingLocal(false);
+      setGuildMembershipActionPending(accountId, groupId, false);
     }
   };
 
@@ -900,9 +911,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       const media = files.length ? buildOptimisticMediaEntries(files) : undefined;
       const mediaKind =
         !pollEmbed && files.length ? mediaKindFromFile(files[0]!) : undefined;
-      const hashtags = extractHashtagsFromText(text);
-      const hashtagPayload =
-        hashtags.length > 0 ? { hashtags } : ({} as { hashtags?: string[] });
+      const tagPayload = postMetaFromText(text);
 
       let response: unknown;
       if (mode === 'post') {
@@ -918,7 +927,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
             channel: guildSpaceFeedChannel(composerSpace),
             audiences: [composerSpace.audience],
             timestamp: Date.now(),
-            ...hashtagPayload,
+            ...tagPayload,
             ...(pollEmbed
               ? { embeds: [pollEmbed] }
               : mediaKind
@@ -951,7 +960,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
           access: 'group' as const,
           groupId,
           timestamp: Date.now(),
-          ...hashtagPayload,
+          ...tagPayload,
           ...feedMeta,
           ...filePayload,
         };
@@ -1006,7 +1015,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
             value: JSON.stringify({
               v: 1,
               text,
-              ...hashtagPayload,
+              ...tagPayload,
               ...(pollEmbed ? { embeds: [pollEmbed] } : {}),
               ...(media ? { media } : {}),
             }),

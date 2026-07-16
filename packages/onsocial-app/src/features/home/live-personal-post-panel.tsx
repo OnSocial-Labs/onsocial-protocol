@@ -5,6 +5,10 @@ import { useSearchParams } from 'next/navigation';
 import type { PostRow, ThreadNode } from '@onsocial/sdk';
 import { Divider } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import {
+  OsSheetAction,
+  OsSheetActions,
+} from '@/components/ui/os-sheet-primary-action';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
@@ -86,6 +90,7 @@ export function LivePersonalPostPanel({
   const [modalPending, setModalPending] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
   const [activeThreadTab, setActiveThreadTab] = useState<ThreadTab>('replies');
+  const [threadTabTouched, setThreadTabTouched] = useState(false);
   const [expandedBranches, setExpandedBranches] = useState<Set<string>>(
     () => new Set()
   );
@@ -241,6 +246,18 @@ export function LivePersonalPostPanel({
   }, [refresh, walletLoading]);
 
   useEffect(() => {
+    setActiveThreadTab('replies');
+    setThreadTabTouched(false);
+  }, [rootPath]);
+
+  useEffect(() => {
+    if (threadTabTouched) return;
+    if (activeThreadTab === 'replies' && replyCount === 0 && quotes.length > 0) {
+      setActiveThreadTab('quotes');
+    }
+  }, [activeThreadTab, quotes.length, replyCount, threadTabTouched]);
+
+  useEffect(() => {
     const timers = reconcileTimersRef.current;
     return () => {
       for (const timer of timers) window.clearTimeout(timer);
@@ -322,6 +339,7 @@ export function LivePersonalPostPanel({
       setLocalReplies((current) => [...current, optimisticPost]);
     }
     setActiveThreadTab(mode === 'quote' ? 'quotes' : 'replies');
+    setThreadTabTouched(true);
     scheduleReconcile();
   };
 
@@ -397,10 +415,33 @@ export function LivePersonalPostPanel({
   }, [root]);
   useRegisterComposeAction(canPostInThread && root ? composeReplyToRoot : null);
 
+  const connectAction =
+    !walletLoading && !isConnected ? (
+      <OsSheetActions
+        layout="row-compact"
+        tone="frosted-primary"
+        borderless
+        className="guild-thread-nav-membership"
+      >
+        <OsSheetAction
+          type="button"
+          className="guild-hero-action"
+          variant="primary"
+          ready
+          onClick={() => {
+            void connect();
+          }}
+        >
+          Connect
+        </OsSheetAction>
+      </OsSheetActions>
+    ) : null;
+
   return (
     <OsAppScreen
       title="Post"
       backFallbackHref={portfolioPath(author)}
+      actions={connectAction}
     >
       <div className="guilds-page">
         {loadState === 'loading' ? <PostRowSkeleton rows={4} /> : null}
@@ -483,6 +524,7 @@ export function LivePersonalPostPanel({
                   mediaFocused
                   mediaUnmuted={mediaUnmuted}
                   mediaResumeIndex={mediaResumeIndex}
+                  detailLayout
                   showRelationBadge={!hasParent}
                   quotedPost={
                     conversation.root.refPath
@@ -518,59 +560,61 @@ export function LivePersonalPostPanel({
 
             <Divider variant="detail" />
 
-            {canPostInThread ? (
-              <button
-                type="button"
-                className="guild-reply-prompt"
-                onClick={() =>
-                  conversation.root
-                    ? openComposerModal('reply')(conversation.root)
-                    : undefined
-                }
+            <div className="guild-thread-chrome">
+              {canPostInThread ? (
+                <button
+                  type="button"
+                  className="guild-reply-prompt"
+                  onClick={() =>
+                    conversation.root
+                      ? openComposerModal('reply')(conversation.root)
+                      : undefined
+                  }
+                >
+                  Add a reply…
+                </button>
+              ) : null}
+
+              <div
+                className="guild-thread-tabs"
+                role="tablist"
+                aria-label="Discussion content"
               >
-                Add a reply…
-              </button>
-            ) : (
-              <div className="guild-state-card">
-                Connect your wallet to reply. Thread history stays public.
+                <button
+                  type="button"
+                  role="tab"
+                  id="personal-thread-tab-replies"
+                  aria-controls="personal-thread-panel"
+                  aria-selected={activeThreadTab === 'replies'}
+                  className={
+                    activeThreadTab === 'replies' ? 'is-active' : undefined
+                  }
+                  onClick={() => {
+                    setThreadTabTouched(true);
+                    setActiveThreadTab('replies');
+                  }}
+                >
+                  Replies
+                  <span className="guild-thread-tab-count">{replyCount}</span>
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  id="personal-thread-tab-quotes"
+                  aria-controls="personal-thread-panel"
+                  aria-selected={activeThreadTab === 'quotes'}
+                  className={
+                    activeThreadTab === 'quotes' ? 'is-active' : undefined
+                  }
+                  onClick={() => {
+                    setThreadTabTouched(true);
+                    setActiveThreadTab('quotes');
+                  }}
+                >
+                  Quotes
+                  <span className="guild-thread-tab-count">{quotes.length}</span>
+                </button>
               </div>
-            )}
-
-            <Divider variant="detail" />
-
-            <div
-              className="guild-thread-tabs"
-              role="tablist"
-              aria-label="Discussion content"
-            >
-              <button
-                type="button"
-                role="tab"
-                id="personal-thread-tab-replies"
-                aria-controls="personal-thread-panel"
-                aria-selected={activeThreadTab === 'replies'}
-                className={
-                  activeThreadTab === 'replies' ? 'is-active' : undefined
-                }
-                onClick={() => setActiveThreadTab('replies')}
-              >
-                Replies
-                <span className="guild-thread-tab-count">{replyCount}</span>
-              </button>
-              <button
-                type="button"
-                role="tab"
-                id="personal-thread-tab-quotes"
-                aria-controls="personal-thread-panel"
-                aria-selected={activeThreadTab === 'quotes'}
-                className={
-                  activeThreadTab === 'quotes' ? 'is-active' : undefined
-                }
-                onClick={() => setActiveThreadTab('quotes')}
-              >
-                Quotes
-                <span className="guild-thread-tab-count">{quotes.length}</span>
-              </button>
             </div>
 
             <div
