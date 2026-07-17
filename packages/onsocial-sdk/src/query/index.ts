@@ -137,6 +137,7 @@ export { BOOST_EVENT_TYPES } from './boost.js';
 export type { SocialSpendEventRow } from './social-spend.js';
 export {
   SOCIAL_SPEND_EVENT_TYPES,
+  SUPPORT_POT_ACTIONS,
   aggregateEndorsementSupportRows,
   parseLegacyEndorsementSpendTargetId,
 } from './social-spend.js';
@@ -144,6 +145,8 @@ export type {
   EndorsementSupporterAggregate,
   EndorsementSupportGivenRow,
   EndorsementSupportSummaryResult,
+  SupportPotAction,
+  SupportReceivedRow,
 } from './social-spend.js';
 export type { SocialSpendEventType } from './social-spend-events.js';
 export type { DataRow } from './raw.js';

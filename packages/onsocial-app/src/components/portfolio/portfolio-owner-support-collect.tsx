@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { GiftIcon, PulsingDots } from '@onsocial/ui';
+import { GiftIcon, InformationCircleFillIcon, PulsingDots } from '@onsocial/ui';
+import { PortfolioSupportCollectInfoSheet } from '@/components/portfolio/portfolio-support-collect-info-sheet';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
@@ -10,10 +11,7 @@ import { APP_COLLECT_ACTION_LABEL } from '@/lib/app-reward-constants';
 import { refreshAppSocialBalanceAfterClaim } from '@/lib/app-social-balance-sync';
 import { formatSocialCompact } from '@/lib/format-social-balance';
 import { fetchProfileSupportBalanceYocto } from '@/lib/social-spend-profile';
-import {
-  txToastError,
-  txToastSuccess,
-} from '@/lib/transaction-toast-copy';
+import { txToastError, txToastSuccess } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 interface PortfolioOwnerSupportCollectProps {
@@ -21,9 +19,7 @@ interface PortfolioOwnerSupportCollectProps {
 }
 
 /**
- * Owner-only face line — green gift mark · amount · Collect.
- * Same slot as visitor Stand · Endorse · Support; hidden when balance is 0.
- * Mark carries protocol green (like signal arrows); Collect stays quiet text.
+ * Owner-only face line — green gift mark · amount · Collect · info.
  * Claims the shared social-spend target pot (profile support, endorsement
  * support, and boost-post author share).
  */
@@ -34,6 +30,7 @@ export function PortfolioOwnerSupportCollect({
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [claimableYocto, setClaimableYocto] = useState<bigint | null>(null);
   const [pending, setPending] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
 
   const refreshSupport = useCallback(
     async (options: { fresh?: boolean } = {}) => {
@@ -107,45 +104,61 @@ export function PortfolioOwnerSupportCollect({
   const amountLabel = formatSocialCompact(claimableYocto.toString());
 
   return (
-    <div className="portfolio-identity-gestures">
-      <div
-        className="portfolio-identity-gesture-row"
-        role="group"
-        aria-label="Received support"
-      >
-        <button
-          type="button"
-          className="portfolio-identity-gesture portfolio-identity-gesture--collect group"
-          disabled={pending}
-          onClick={() => void handleCollect()}
-          aria-label={`Collect ${amountLabel} SOCIAL support`}
-          aria-busy={pending || undefined}
+    <>
+      <div className="portfolio-identity-gestures">
+        <div
+          className="portfolio-identity-gesture-row"
+          role="group"
+          aria-label="Received support"
         >
-          <span
-            className="portfolio-identity-gesture-gift-mark"
-            aria-hidden
+          <button
+            type="button"
+            className="portfolio-identity-gesture portfolio-identity-gesture--collect group"
+            disabled={pending}
+            onClick={() => void handleCollect()}
+            aria-label={`Collect ${amountLabel} SOCIAL support`}
+            aria-busy={pending || undefined}
           >
-            <GiftIcon className="portfolio-identity-gesture-gift" />
-          </span>
-          <span className="portfolio-identity-gesture-amount">
-            {amountLabel} SOCIAL
-          </span>
-          <span className="portfolio-identity-gesture-mid" aria-hidden>
-            ·
-          </span>
-          {pending ? (
-            <PulsingDots
-              size="sm"
-              label="Collecting support"
-              className="portfolio-identity-gesture-collect-dots"
-            />
-          ) : (
-            <span className="portfolio-identity-gesture-collect-label">
-              {APP_COLLECT_ACTION_LABEL}
+            <span className="portfolio-identity-gesture-gift-mark" aria-hidden>
+              <GiftIcon className="portfolio-identity-gesture-gift" />
             </span>
-          )}
-        </button>
+            <span className="portfolio-identity-gesture-amount">
+              {amountLabel} SOCIAL
+            </span>
+            <span className="portfolio-identity-gesture-mid" aria-hidden>
+              ·
+            </span>
+            {pending ? (
+              <PulsingDots
+                size="sm"
+                label="Collecting support"
+                className="portfolio-identity-gesture-collect-dots"
+              />
+            ) : (
+              <span className="portfolio-identity-gesture-collect-label">
+                {APP_COLLECT_ACTION_LABEL}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            className="portfolio-support-collect-info-button"
+            aria-label="What's in this support pot?"
+            onClick={() => setInfoOpen(true)}
+          >
+            <InformationCircleFillIcon
+              className="portfolio-support-collect-info-icon"
+              aria-hidden
+            />
+          </button>
+        </div>
       </div>
-    </div>
+      <PortfolioSupportCollectInfoSheet
+        open={infoOpen}
+        accountId={accountId}
+        claimableLabel={amountLabel}
+        onOpenChange={setInfoOpen}
+      />
+    </>
   );
 }

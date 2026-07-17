@@ -93,14 +93,21 @@ export function ProfileBioRichText({
             <Link
               key={`m-${index}`}
               href={getPortalProfileUrl(segment.accountId)}
-              className="text-foreground underline-offset-2 hover:underline"
+              className="os-mention underline-offset-2 hover:underline"
             >
               {segment.value}
             </Link>
           );
         }
+        if (segment.type === 'ticker') {
+          return (
+            <span key={`tk-${index}`} className="os-ticker">
+              {segment.value}
+            </span>
+          );
+        }
         return (
-          <span key={`x-${index}`} className="font-medium text-foreground/90">
+          <span key={`h-${index}`} className="os-hashtag">
             {segment.value}
           </span>
         );

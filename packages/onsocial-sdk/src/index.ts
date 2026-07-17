@@ -180,7 +180,10 @@ export type {
   EndorsementSupporterAggregate,
   EndorsementSupportGivenRow,
   EndorsementSupportSummaryResult,
+  SupportPotAction,
+  SupportReceivedRow,
 } from './query/index.js';
+export { SUPPORT_POT_ACTIONS } from './query/index.js';
 export {
   PERMISSION_OPERATIONS,
   GOVERNANCE_OPERATIONS,

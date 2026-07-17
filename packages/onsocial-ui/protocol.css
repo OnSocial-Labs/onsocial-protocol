@@ -5,6 +5,8 @@
  * TS literals:     @onsocial/sdk PROTOCOL_COLORS (keep hues in sync).
  * Portal legacy:    --portal-{hue}* aliases (stable for existing UI).
  * Signal semantics: --signal-{metric} for profile signal lines.
+ * Text tokens:     #hashtag → blue (standing), @mention → purple (solidarity),
+ *                   $ticker → green (reputation). Keep app CSS aligned.
  *
  * Theme: Portal uses `.dark` on <html>; OnPage uses `data-theme="light|dark"`.
  */

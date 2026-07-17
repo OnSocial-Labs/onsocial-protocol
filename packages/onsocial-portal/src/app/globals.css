@@ -873,3 +873,22 @@ html.lenis {
 .lenis.lenis-scrolling iframe {
   pointer-events: none;
 }
+
+/* Text tokens — same protocol roles as OnPage (# blue, @ purple, $ green). */
+.os-hashtag {
+  color: var(--protocol-blue);
+  font-weight: inherit;
+  text-decoration: none;
+}
+
+.os-mention {
+  color: var(--protocol-purple);
+  font-weight: inherit;
+  text-decoration: none;
+}
+
+.os-ticker {
+  color: var(--protocol-green);
+  font-weight: inherit;
+  text-decoration: none;
+}

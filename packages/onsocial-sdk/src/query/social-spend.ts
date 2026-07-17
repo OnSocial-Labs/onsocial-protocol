@@ -123,6 +123,26 @@ export interface EndorsementSupportGivenRow {
   topic: string | null;
 }
 
+/** Actions that credit the shared profile collect pot (`recipient_id`). */
+export const SUPPORT_POT_ACTIONS = [
+  'support_profile',
+  'support_endorsement',
+  'boost_post',
+] as const;
+
+export type SupportPotAction = (typeof SUPPORT_POT_ACTIONS)[number];
+
+export interface SupportReceivedRow {
+  spenderId: string;
+  action: SupportPotAction;
+  targetType: string | null;
+  targetId: string | null;
+  /** Author/target share credited to the recipient (yocto). */
+  amountYocto: string;
+  blockHeight: number;
+  blockTimestamp: number;
+}
+
 export function parseLegacyEndorsementSpendTargetId(
   endorsementId: string
 ): { issuer: string; target: string; topic: string } | null {
@@ -240,12 +260,16 @@ export class SocialSpendQuery {
       accountId?: string;
       spenderId?: string;
       appId?: string;
-      action?: string;
+      action?: string | string[];
       targetType?: string;
       targetId?: string;
       seasonId?: string;
       recipientId?: string;
       success?: boolean;
+      /** Inclusive lower bound on `blockHeight`. */
+      minBlockHeight?: number;
+      /** Exclusive upper bound on `blockHeight` (strictly older than). */
+      beforeBlockHeight?: number;
       limit?: number;
       offset?: number;
     } = {}
@@ -284,7 +308,13 @@ export class SocialSpendQuery {
     if (opts.spenderId)
       addEq('spenderId', 'spenderId', opts.spenderId, 'String!');
     if (opts.appId) addEq('appId', 'appId', opts.appId, 'String!');
-    if (opts.action) addEq('action', 'action', opts.action, 'String!');
+    if (opts.action !== undefined) {
+      if (Array.isArray(opts.action)) {
+        addIn('action', 'action', opts.action, 'String');
+      } else {
+        addEq('action', 'action', opts.action, 'String!');
+      }
+    }
     if (opts.targetType)
       addEq('targetType', 'targetType', opts.targetType, 'String!');
     if (opts.targetId) addEq('targetId', 'targetId', opts.targetId, 'String!');
@@ -293,6 +323,20 @@ export class SocialSpendQuery {
       addEq('recipientId', 'recipientId', opts.recipientId, 'String!');
     if (opts.success !== undefined)
       addEq('success', 'success', opts.success, 'Boolean!');
+    if (opts.minBlockHeight != null || opts.beforeBlockHeight != null) {
+      const heightParts: string[] = [];
+      if (opts.minBlockHeight != null) {
+        heightParts.push('_gte: $minBlockHeight');
+        params.push('$minBlockHeight: bigint!');
+        variables.minBlockHeight = opts.minBlockHeight;
+      }
+      if (opts.beforeBlockHeight != null) {
+        heightParts.push('_lt: $beforeBlockHeight');
+        params.push('$beforeBlockHeight: bigint!');
+        variables.beforeBlockHeight = opts.beforeBlockHeight;
+      }
+      wheres.push(`blockHeight: { ${heightParts.join(', ')} }`);
+    }
 
     const whereClause = wheres.length ? `where: { ${wheres.join(', ')} },` : '';
     const res = await this._q.graphql<{
@@ -494,5 +538,83 @@ export class SocialSpendQuery {
       limit: 1,
     });
     return rows[0] ?? null;
+  }
+
+  /**
+   * Latest `SOCIAL_TRANSFERRED` for an account (owner Collect), or null if
+   * they have never claimed the target pot.
+   */
+  async lastTargetCollect(
+    accountId: string
+  ): Promise<{ blockHeight: number; blockTimestamp: number } | null> {
+    const id = accountId.trim();
+    if (!id) return null;
+    const rows = await this.events({
+      accountId: id,
+      eventType: SOCIAL_SPEND_EVENT_TYPES.SOCIAL_TRANSFERRED,
+      limit: 1,
+    });
+    const row = rows[0];
+    if (!row || !Number.isFinite(row.blockHeight)) return null;
+    return {
+      blockHeight: row.blockHeight,
+      blockTimestamp: row.blockTimestamp,
+    };
+  }
+
+  /**
+   * SOCIAL credited to a profile collect pot — profile support, endorsement
+   * support, and boost-post author share (`recipient_id` = owner).
+   *
+   * Use `minBlockHeight` / `beforeBlockHeight` to split “in this collect”
+   * (credits after the last claim) from earlier history.
+   */
+  async supportReceived(
+    recipientAccountId: string,
+    opts: {
+      limit?: number;
+      offset?: number;
+      minBlockHeight?: number;
+      beforeBlockHeight?: number;
+    } = {}
+  ): Promise<SupportReceivedRow[]> {
+    const recipientId = recipientAccountId.trim();
+    if (!recipientId) return [];
+
+    const rows = await this.events({
+      recipientId,
+      action: [...SUPPORT_POT_ACTIONS],
+      eventType: SOCIAL_SPEND_EVENT_TYPES.SOCIAL_SPENT,
+      success: true,
+      minBlockHeight: opts.minBlockHeight,
+      beforeBlockHeight: opts.beforeBlockHeight,
+      limit: opts.limit ?? 40,
+      offset: opts.offset,
+    });
+
+    return rows
+      .map((row): SupportReceivedRow | null => {
+        const spenderId = row.spenderId?.trim();
+        const action = row.action?.trim();
+        if (!spenderId || !action) return null;
+        if (!SUPPORT_POT_ACTIONS.includes(action as SupportPotAction)) {
+          return null;
+        }
+        const amountYocto =
+          (row.targetAmount?.trim() || row.amount?.trim() || '0').replace(
+            /^0+(?=\d)/,
+            ''
+          ) || '0';
+        return {
+          spenderId,
+          action: action as SupportPotAction,
+          targetType: row.targetType,
+          targetId: row.targetId,
+          amountYocto,
+          blockHeight: row.blockHeight,
+          blockTimestamp: row.blockTimestamp,
+        };
+      })
+      .filter((row): row is SupportReceivedRow => row != null);
   }
 }

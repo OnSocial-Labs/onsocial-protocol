@@ -45,6 +45,16 @@
   flex: 0 1 auto;
 }
 
+.glass-sheet-panel.portfolio-support-collect-info-panel {
+  height: auto;
+  max-height: min(88dvh, 36rem);
+  --glass-header-scrim-height: min(5rem, 24%);
+}
+
+.glass-sheet-panel.portfolio-support-collect-info-panel > .glass-sheet-body {
+  flex: 0 1 auto;
+}
+
 /* Page drawer — unlayered so these beat imported glass-sheet rules. */
 .glass-sheet-panel.page-drawer-panel {
   height: min(95dvh, 54rem);
@@ -364,7 +374,8 @@
   .glass-sheet-panel.customize-sheet-panel,
   .glass-sheet-panel.mood-sheet-panel,
   .glass-sheet-panel.page-joined-facts-panel,
-  .glass-sheet-panel.guild-facts-sheet-panel {
+  .glass-sheet-panel.guild-facts-sheet-panel,
+  .glass-sheet-panel.portfolio-support-collect-info-panel {
     max-width: 36rem;
   }
 }
@@ -1525,7 +1536,8 @@ a.os-surface-row {
   }
 
   /* Support sheet portals outside the frame — same light-tone remap. */
-  :root[data-theme='light'] .profile-support-sheet-panel {
+  :root[data-theme='light'] .profile-support-sheet-panel,
+  :root[data-theme='light'] .portfolio-support-collect-info-panel {
     --signal-standing: color-mix(
       in srgb,
       var(--mood-signal-standing) var(--mood-light-tone),
@@ -1583,7 +1595,8 @@ a.os-surface-row {
       );
     }
 
-    :root:not([data-theme='dark']) .profile-support-sheet-panel {
+    :root:not([data-theme='dark']) .profile-support-sheet-panel,
+    :root:not([data-theme='dark']) .portfolio-support-collect-info-panel {
       --signal-standing: color-mix(
         in srgb,
         var(--mood-signal-standing) var(--mood-light-tone),
@@ -4439,6 +4452,135 @@ a.os-surface-row {
     stroke: currentColor;
   }
 
+  .portfolio-support-collect-info-button {
+    display: inline-grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 1.35rem;
+    height: 1.35rem;
+    margin: -0.3rem -0.15rem -0.3rem 0.05rem;
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.4);
+    cursor: pointer;
+    line-height: 0;
+    transition: color 160ms ease;
+  }
+
+  .portfolio-support-collect-info-button:hover,
+  .portfolio-support-collect-info-button:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.78);
+    outline: none;
+  }
+
+  .portfolio-support-collect-info-icon {
+    display: block;
+    width: 0.88rem;
+    height: 0.88rem;
+  }
+
+  .portfolio-support-collect-info-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.15rem 1.15rem 1.35rem;
+  }
+
+  .portfolio-support-collect-info-legend {
+    list-style: none;
+    margin: 0;
+    padding: 0.55rem 0 0.65rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  .portfolio-support-collect-info-legend li {
+    display: flex;
+    flex-direction: column;
+    gap: 0.12rem;
+  }
+
+  .portfolio-support-collect-info-legend-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: rgb(var(--fg-rgb) / 0.9);
+  }
+
+  .portfolio-support-collect-info-legend-detail {
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: rgb(var(--fg-rgb) / 0.55);
+  }
+
+  .portfolio-support-collect-info-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.55rem 0 0.65rem;
+  }
+
+  .portfolio-support-collect-info-section {
+    margin: 0 0 0.2rem;
+    font-size: 0.64rem;
+    font-weight: 650;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.38);
+  }
+
+  .portfolio-support-collect-info-section-note {
+    margin: 0 0 0.15rem;
+    font-size: 0.72rem;
+    line-height: 1.4;
+    color: rgb(var(--fg-rgb) / 0.48);
+  }
+
+  .portfolio-support-collect-info-empty {
+    margin: 0;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: rgb(var(--fg-rgb) / 0.52);
+  }
+
+  .portfolio-support-collect-info-list {
+    margin: 0;
+  }
+
+  .portfolio-support-collect-info-row.standing-row {
+    margin-inline: -0.2rem;
+    padding-block: 0.5rem;
+  }
+
+  .portfolio-support-collect-info-row .standing-row-aside {
+    min-width: 4.5rem;
+  }
+
+  .portfolio-support-collect-info-amount {
+    font-size: 0.74rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+    color: var(--signal-reputation, var(--protocol-green));
+    text-align: right;
+  }
+
+  .portfolio-support-collect-info-row-kind {
+    display: block;
+    margin-top: 0.1rem;
+    font-size: 0.7rem;
+    line-height: 1.4;
+    color: rgb(var(--fg-rgb) / 0.48);
+  }
+
+  .portfolio-support-collect-info-sentinel {
+    height: 1px;
+    width: 100%;
+    pointer-events: none;
+  }
+
   .portfolio-identity-gesture--collect:hover:not(:disabled)
     .portfolio-identity-gesture-gift-mark,
   .portfolio-identity-gesture--collect:focus-visible:not(:disabled)
@@ -6572,7 +6714,7 @@ a.os-surface-row {
     padding: 0.28rem 0.6rem;
     border-radius: 999px;
     background: rgb(var(--fg-rgb) / 0.05);
-    color: rgb(var(--fg-rgb) / 0.82);
+    color: var(--protocol-blue);
     font-size: 0.8rem;
     font-weight: 600;
     line-height: 1;
@@ -6597,6 +6739,10 @@ a.os-surface-row {
     font-size: 0.68rem;
     font-weight: 550;
     color: var(--os-surface-muted-strong);
+  }
+
+  .discover-trending-chip .discover-trending-chip-count {
+    color: color-mix(in srgb, var(--protocol-blue) 55%, rgb(var(--fg-rgb)));
   }
 
   .discover-trending-chip--ticker .discover-trending-chip-count {
@@ -12138,11 +12284,13 @@ a.os-surface-row {
     min-width: 0;
     font-size: 0.84rem;
     font-weight: 600;
+    color: var(--protocol-blue);
   }
 
   .home-hashtag-suggest-tag--ticker {
     font-weight: 700;
     letter-spacing: 0.02em;
+    color: var(--protocol-green);
   }
 
   .home-hashtag-suggest-meta {
@@ -12665,7 +12813,7 @@ a.os-surface-row {
   }
 
   .post-card-relation-handle {
-    color: color-mix(in srgb, var(--protocol-blue) 78%, rgb(var(--fg-rgb)));
+    color: var(--protocol-purple);
   }
 
   .post-card-header {
@@ -12816,12 +12964,24 @@ a.os-surface-row {
     word-break: break-word;
   }
 
-  /* Indexed #tags / $tickers / @mentions — green; tickers thicken when focused. */
+  /* Indexed #tags (blue) / @mentions (purple) / $tickers (green). */
   .post-card-body .os-hashtag,
+  .post-card-quote-inset-body .os-hashtag {
+    color: var(--protocol-blue);
+    font-weight: inherit;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
   .post-card-body .os-mention,
+  .post-card-quote-inset-body .os-mention {
+    color: var(--protocol-purple);
+    font-weight: inherit;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
   .post-card-body .os-ticker,
-  .post-card-quote-inset-body .os-hashtag,
-  .post-card-quote-inset-body .os-mention,
   .post-card-quote-inset-body .os-ticker {
     color: var(--protocol-green);
     font-weight: inherit;
@@ -16117,9 +16277,26 @@ a.os-surface-row {
     line-height: 1.5;
   }
 
+  /*
+   * Text tokens — protocol roles:
+   *   #hashtag → blue (standing / topics)
+   *   @mention → purple (solidarity / people)
+   *   $ticker  → green (reputation / value)
+   * On mooded profiles, remap to --signal-* (already mood-blended).
+   */
   .guild-composer-hashtag,
-  .os-hashtag,
-  .os-mention,
+  .os-hashtag {
+    color: var(--protocol-blue);
+    font-weight: inherit;
+    text-decoration: none;
+  }
+
+  .os-mention {
+    color: var(--protocol-purple);
+    font-weight: inherit;
+    text-decoration: none;
+  }
+
   .os-ticker {
     color: var(--protocol-green);
     font-weight: inherit;
@@ -16133,6 +16310,21 @@ a.os-surface-row {
   .os-ticker.is-active {
     font-weight: 700;
     letter-spacing: 0.01em;
+  }
+
+  .portfolio-frame[data-mood] .os-hashtag,
+  .portfolio-os-layer[data-mood] .os-hashtag {
+    color: var(--signal-standing);
+  }
+
+  .portfolio-frame[data-mood] .os-mention,
+  .portfolio-os-layer[data-mood] .os-mention {
+    color: var(--signal-solidarity);
+  }
+
+  .portfolio-frame[data-mood] .os-ticker,
+  .portfolio-os-layer[data-mood] .os-ticker {
+    color: var(--signal-reputation);
   }
 
   /* Composer overlay: never bold tags — weight mismatch shifts the caret. */
