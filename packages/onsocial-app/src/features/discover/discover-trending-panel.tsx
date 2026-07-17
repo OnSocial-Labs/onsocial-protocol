@@ -1,18 +1,27 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { HashtagCount, TickerCount } from '@onsocial/sdk';
+import { ProfileSocialList } from '@/components/panels/profile-social-list';
+import type { DiscoverTab } from '@/features/discover/discover-tabs';
 import { homeHashtagPath } from '@/features/home/home-hashtag-search';
 import {
   formatTickerDisplay,
   homeTickerPath,
 } from '@/features/home/home-ticker-search';
-import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { fetchDiscoverProfiles } from '@/lib/discover-profiles';
+import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useViewerStanding } from '@/hooks/use-viewer-standing';
 import { APP_GROUPS_PATH } from '@/lib/app-routes';
-import { portfolioPath } from '@/lib/overlay-routes';
-import type { DiscoverTab } from '@/features/discover/discover-tabs';
+import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import {
+  discoverProfileToProfileListAccount,
+  fetchDiscoverProfiles,
+} from '@/lib/discover-profiles';
+import {
+  profileListAccountToStandingSummary,
+  type ProfileListAccount,
+} from '@/lib/profile-list-account';
 
 const SECTION_LIMIT = 6;
 
@@ -21,28 +30,34 @@ type TrendingGuild = {
   groupName: string | null;
 };
 
-type TrendingProfile = {
-  accountId: string;
-  name: string | null;
-  standingCount: number;
-};
-
 /**
- * Default Discover landing: mixed trending sections. Entity tabs go deeper;
- * rows hand off to Home focus, Profiles tab, or a guild page.
+ * Default Discover landing: mixed trending sections. Profiles use the same
+ * social list rows as the Profiles tab (avatar, standing count, Stand).
  */
 export function DiscoverTrendingPanel({
   onOpenTab,
-  viewerAccountId,
 }: {
   onOpenTab: (tab: DiscoverTab) => void;
-  viewerAccountId: string | null;
 }) {
+  const {
+    accountId: viewerAccountId,
+    isConnected,
+    connect,
+  } = useAppWallet();
+  const { updateStanding, isStandingPendingForTarget } =
+    useViewerStanding('discover');
+
   const [tickers, setTickers] = useState<TickerCount[]>([]);
   const [topics, setTopics] = useState<HashtagCount[]>([]);
-  const [profiles, setProfiles] = useState<TrendingProfile[]>([]);
+  const [profiles, setProfiles] = useState<ProfileListAccount[]>([]);
   const [guilds, setGuilds] = useState<TrendingGuild[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [pendingStandingIds, setPendingStandingIds] = useState<Set<string>>(
+    () => new Set()
+  );
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const viewerKey = viewerAccountId ?? null;
 
   useEffect(() => {
     let cancelled = false;
@@ -57,10 +72,12 @@ export function DiscoverTrendingPanel({
         client.query.hashtags
           .trending({ limit: SECTION_LIMIT })
           .catch(() => [] as HashtagCount[]),
-        fetchDiscoverProfiles('', viewerAccountId, 0).catch(() => null),
+        fetchDiscoverProfiles('', viewerKey, 0).catch(() => null),
         client.query.groups
           .browse({ publicOnly: true, limit: SECTION_LIMIT })
-          .catch(() => ({ items: [] as Array<{ groupId: string; groupName: string | null }> })),
+          .catch(() => ({
+            items: [] as Array<{ groupId: string; groupName: string | null }>,
+          })),
       ]);
 
       if (cancelled) return;
@@ -68,11 +85,9 @@ export function DiscoverTrendingPanel({
       setTickers(tickerRows);
       setTopics(topicRows);
       setProfiles(
-        (profilePage?.profiles ?? []).slice(0, SECTION_LIMIT).map((p) => ({
-          accountId: p.accountId,
-          name: p.name,
-          standingCount: p.standingCount,
-        }))
+        (profilePage?.profiles ?? [])
+          .slice(0, SECTION_LIMIT)
+          .map(discoverProfileToProfileListAccount)
       );
       setGuilds(
         guildPage.items.map((g) => ({
@@ -86,7 +101,68 @@ export function DiscoverTrendingPanel({
     return () => {
       cancelled = true;
     };
-  }, [viewerAccountId]);
+  }, [viewerKey]);
+
+  const isStandingPending = useCallback(
+    (targetAccountId: string) =>
+      pendingStandingIds.has(targetAccountId) ||
+      isStandingPendingForTarget(targetAccountId),
+    [isStandingPendingForTarget, pendingStandingIds]
+  );
+
+  const handleUpdateStanding = useCallback(
+    async (account: ProfileListAccount, shouldStand: boolean) => {
+      if (isStandingPending(account.accountId)) return;
+
+      setActionError(null);
+      setPendingStandingIds((prev) => new Set(prev).add(account.accountId));
+
+      try {
+        await updateStanding(
+          profileListAccountToStandingSummary(account),
+          shouldStand
+        );
+        setProfiles((current) =>
+          current.map((profile) =>
+            profile.accountId === account.accountId
+              ? {
+                  ...profile,
+                  viewerStanding: shouldStand,
+                  standingSince: shouldStand
+                    ? (profile.standingSince ?? Date.now())
+                    : null,
+                  standingBlockTimestamp: shouldStand
+                    ? (profile.standingBlockTimestamp ?? Date.now())
+                    : null,
+                  standingCount: Math.max(
+                    0,
+                    profile.standingCount +
+                      (shouldStand === profile.viewerStanding
+                        ? 0
+                        : shouldStand
+                          ? 1
+                          : -1)
+                  ),
+                }
+              : profile
+          )
+        );
+      } catch (error) {
+        setActionError(
+          error instanceof Error
+            ? error.message
+            : 'Could not update standing.'
+        );
+      } finally {
+        setPendingStandingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(account.accountId);
+          return next;
+        });
+      }
+    },
+    [isStandingPending, updateStanding]
+  );
 
   const empty =
     !loading &&
@@ -133,6 +209,9 @@ export function DiscoverTrendingPanel({
                 className="discover-trending-chip discover-trending-chip--ticker"
               >
                 {formatTickerDisplay(item.ticker)}
+                <span className="discover-trending-chip-count">
+                  {item.postCount}
+                </span>
               </Link>
             ))}
           </div>
@@ -159,6 +238,9 @@ export function DiscoverTrendingPanel({
                 className="discover-trending-chip"
               >
                 #{item.hashtag}
+                <span className="discover-trending-chip-count">
+                  {item.postCount}
+                </span>
               </Link>
             ))}
           </div>
@@ -177,23 +259,49 @@ export function DiscoverTrendingPanel({
               See all
             </button>
           </div>
-          <ul className="discover-focus-rows">
-            {profiles.map((profile) => (
-              <li key={profile.accountId}>
-                <Link
-                  href={portfolioPath(profile.accountId)}
-                  className="discover-focus-row"
-                >
-                  <span className="discover-focus-row-label">
-                    {profile.name?.trim() || profile.accountId}
-                  </span>
-                  <span className="discover-focus-row-meta">
-                    {profile.standingCount}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+
+          {!isConnected ? (
+            <p className="discover-connect-hint">
+              <button
+                type="button"
+                className="discover-connect-hint-action"
+                onClick={() => void connect()}
+              >
+                Connect wallet
+              </button>{' '}
+              to stand with profiles.
+            </p>
+          ) : null}
+
+          {actionError ? (
+            <p className="standing-panel-error" role="alert">
+              {actionError}
+            </p>
+          ) : null}
+
+          <ProfileSocialList
+            accounts={profiles}
+            listKey="trending-profiles"
+            viewerAccountId={viewerKey}
+            showSolidarityBadge
+            standingTimeMode="viewer-only"
+            skeletonRowVariant="discover"
+            viewerRelationshipsLoading={false}
+            canUpdateStandingFor={(account) =>
+              isConnected &&
+              Boolean(viewerKey) &&
+              viewerKey !== account.accountId
+            }
+            isPendingFor={isStandingPending}
+            onUpdateStanding={(account, shouldStand) => {
+              if (!viewerKey || viewerKey === account.accountId) return;
+              void handleUpdateStanding(account, shouldStand);
+            }}
+            loadMoreSentinelRef={loadMoreRef}
+            footerSummary={null}
+            isLoadingMore={false}
+            showLoadMoreSentinel={false}
+          />
         </section>
       ) : null}
 

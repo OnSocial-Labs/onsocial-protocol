@@ -6548,6 +6548,7 @@ a.os-surface-row {
   .discover-trending-chip {
     display: inline-flex;
     align-items: center;
+    gap: 0.35rem;
     padding: 0.28rem 0.6rem;
     border-radius: 999px;
     background: rgb(var(--fg-rgb) / 0.05);
@@ -6570,6 +6571,16 @@ a.os-surface-row {
   .discover-trending-chip--ticker {
     color: var(--protocol-green);
     letter-spacing: 0.02em;
+  }
+
+  .discover-trending-chip-count {
+    font-size: 0.68rem;
+    font-weight: 550;
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
+  .discover-trending-chip--ticker .discover-trending-chip-count {
+    color: color-mix(in srgb, var(--protocol-green) 55%, rgb(var(--fg-rgb)));
   }
 
   .discover-omni-search {

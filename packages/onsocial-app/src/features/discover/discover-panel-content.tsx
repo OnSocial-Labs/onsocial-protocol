@@ -41,10 +41,7 @@ export function DiscoverPanelContent() {
       <DiscoverTabBar tab={tab} onTabChange={setTab} />
 
       {tab === 'trending' ? (
-        <DiscoverTrendingPanel
-          onOpenTab={setTab}
-          viewerAccountId={viewerAccountId}
-        />
+        <DiscoverTrendingPanel onOpenTab={setTab} />
       ) : null}
 
       {tab === 'profiles' ? (
