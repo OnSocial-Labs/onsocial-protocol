@@ -5,6 +5,7 @@ import type { HashtagCount, TickerCount } from '@onsocial/sdk';
 import { SearchField } from '@/components/ui/search-field';
 import {
   formatTickerDisplay,
+  homeFeedFocusKey,
   normalizeHashtagQuery,
   normalizeTickerQuery,
   parseHomeFeedFocusCommit,
@@ -36,9 +37,10 @@ export function HomeFeedFocusSearch({
   const [suggestions, setSuggestions] = useState<SuggestRow[]>([]);
   const [suggestOpen, setSuggestOpen] = useState(false);
   const [focused, setFocused] = useState(false);
+  const activeFocusKey = homeFeedFocusKey(activeFocus);
 
   useEffect(() => {
-    if (activeFocus || !focused) return;
+    if (activeFocusKey || !focused) return;
 
     const trimmed = query.trim();
     const wantsTicker = trimmed.startsWith('$');
@@ -72,17 +74,20 @@ export function HomeFeedFocusSearch({
               rows.push({ kind: 'hashtag', item });
             }
           } else {
+            // Isolate failures: missing ticker views must not blank hashtag UX.
             const [tags, tickers] = await Promise.all([
-              hashtagPrefix
+              (hashtagPrefix
                 ? client.query.hashtags.search(hashtagPrefix, {
                     limit: SUGGEST_LIMIT,
                   })
-                : client.query.hashtags.trending({ limit: SUGGEST_LIMIT }),
-              tickerPrefix
+                : client.query.hashtags.trending({ limit: SUGGEST_LIMIT })
+              ).catch(() => [] as HashtagCount[]),
+              (tickerPrefix
                 ? client.query.tickers.search(tickerPrefix, {
                     limit: SUGGEST_LIMIT,
                   })
-                : client.query.tickers.trending({ limit: SUGGEST_LIMIT }),
+                : client.query.tickers.trending({ limit: SUGGEST_LIMIT })
+              ).catch(() => [] as TickerCount[]),
             ]);
             for (const item of tags) rows.push({ kind: 'hashtag', item });
             for (const item of tickers) rows.push({ kind: 'ticker', item });
@@ -105,7 +110,7 @@ export function HomeFeedFocusSearch({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [activeFocus, focused, query]);
+  }, [activeFocusKey, focused, query]);
 
   const closeSuggestions = useCallback(() => {
     setSuggestions([]);
@@ -124,7 +129,7 @@ export function HomeFeedFocusSearch({
   );
 
   const showSuggestions =
-    !activeFocus && focused && suggestOpen && suggestions.length > 0;
+    !activeFocusKey && focused && suggestOpen && suggestions.length > 0;
 
   return (
     <div className="home-hashtag-search">

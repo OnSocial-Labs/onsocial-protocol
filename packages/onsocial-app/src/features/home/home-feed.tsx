@@ -18,6 +18,7 @@ import { HomeFeedFocusSearch } from '@/features/home/home-hashtag-search-field';
 import {
   homeFeedFocusClearPath,
   homeFeedFocusEmptyCopy,
+  homeFeedFocusKey,
   homeFeedFocusPath,
   homeFeedFocusQueryValue,
   HOME_HASHTAG_QUERY_KEY,
@@ -82,17 +83,20 @@ export function HomePagePanel() {
   const [error, setError] = useState<string | null>(null);
   const [lens, setLens] = useState<HomeFeedLens>('global');
   const [lensReady, setLensReady] = useState(false);
-  const activeFocus = parseHomeFeedFocus({
-    tag: searchParams.get(HOME_HASHTAG_QUERY_KEY),
-    ticker: searchParams.get(HOME_TICKER_QUERY_KEY),
-  });
+  const tagParam = searchParams.get(HOME_HASHTAG_QUERY_KEY);
+  const tickerParam = searchParams.get(HOME_TICKER_QUERY_KEY);
+  const activeFocus = useMemo(
+    () => parseHomeFeedFocus({ tag: tagParam, ticker: tickerParam }),
+    [tagParam, tickerParam]
+  );
+  const activeFocusKey = homeFeedFocusKey(activeFocus);
   const [focusQuery, setFocusQuery] = useState(() =>
     homeFeedFocusQueryValue(activeFocus)
   );
 
   useEffect(() => {
     setFocusQuery(homeFeedFocusQueryValue(activeFocus));
-  }, [activeFocus]);
+  }, [tagParam, tickerParam, activeFocus]);
 
   useEffect(() => {
     if (walletLoading) return;
@@ -102,35 +106,52 @@ export function HomePagePanel() {
 
   const activeLens = resolveHomeFeedLens(lens, isConnected);
 
-  const refresh = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const items = activeFocus
-        ? await loadFocusedFeed(activeFocus)
-        : await loadHomeFeed(activeLens, accountId);
-      setPosts((current) => {
-        revokeDroppedOptimisticMedia(current, items);
-        return items;
-      });
-    } catch (cause) {
-      const message =
-        cause instanceof Error ? cause.message : 'Could not load feed.';
-      setError(message);
-      setPosts([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [accountId, activeFocus, activeLens]);
-
   useEffect(() => {
     if (walletLoading || !lensReady) {
       return;
     }
 
-    void refresh();
-  }, [refresh, walletLoading, lensReady]);
+    let cancelled = false;
+    const focus = parseHomeFeedFocus({ tag: tagParam, ticker: tickerParam });
+
+    void (async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const items = focus
+          ? await loadFocusedFeed(focus)
+          : await loadHomeFeed(activeLens, accountId);
+        if (cancelled) return;
+        setPosts((current) => {
+          revokeDroppedOptimisticMedia(current, items);
+          return items;
+        });
+      } catch (cause) {
+        if (cancelled) return;
+        const message =
+          cause instanceof Error ? cause.message : 'Could not load feed.';
+        setError(message);
+        setPosts([]);
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    accountId,
+    activeFocusKey,
+    activeLens,
+    lensReady,
+    tagParam,
+    tickerParam,
+    walletLoading,
+  ]);
 
   const clearFocusSearch = useCallback(() => {
     setFocusQuery('');

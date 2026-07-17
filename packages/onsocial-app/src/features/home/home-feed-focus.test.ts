@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   homeFeedFocusEmptyCopy,
+  homeFeedFocusKey,
   homeFeedFocusPath,
   homeFeedFocusQueryValue,
   parseHomeFeedFocus,
@@ -66,6 +67,16 @@ describe('home-feed-focus', () => {
       kind: 'hashtag',
       value: 'near',
     });
+  });
+
+  it('builds stable focus keys for effect deps', () => {
+    expect(homeFeedFocusKey(null)).toBe('');
+    expect(homeFeedFocusKey({ kind: 'hashtag', value: 'near' })).toBe(
+      'hashtag:near'
+    );
+    expect(homeFeedFocusKey({ kind: 'ticker', value: 'social' })).toBe(
+      'ticker:social'
+    );
   });
 
   it('builds focus paths and copy', () => {

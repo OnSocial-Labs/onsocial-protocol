@@ -74,6 +74,12 @@ export function homeFeedFocusClearPath(): string {
   return APP_HOME_PATH;
 }
 
+/** Stable string for effects — avoids re-fetch loops from new object identity. */
+export function homeFeedFocusKey(focus: HomeFeedFocus | null): string {
+  if (!focus) return '';
+  return `${focus.kind}:${focus.value}`;
+}
+
 export {
   HOME_HASHTAG_QUERY_KEY,
   HOME_TICKER_QUERY_KEY,
