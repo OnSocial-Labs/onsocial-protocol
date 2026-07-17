@@ -32,27 +32,37 @@ export function DiscoverOmniSearchField({
   className?: string;
 }) {
   const router = useRouter();
-  const { query, setQuery } = useDiscoverPanel();
+  const { query, setQuery, tab } = useDiscoverPanel();
   const [suggestions, setSuggestions] = useState<DiscoverTopicSuggestRow[]>(
     []
   );
   const [suggestOpen, setSuggestOpen] = useState(false);
   const [focused, setFocused] = useState(false);
 
+  const wantsTopicSuggest =
+    focused &&
+    (isDiscoverTopicDraft(query) ||
+      tab === 'topics' ||
+      tab === 'tickers' ||
+      (tab === 'people' && query.trim().length >= 2 && !isDiscoverTopicDraft(query)));
+
   useEffect(() => {
-    if (!focused || !isDiscoverTopicDraft(query)) {
-      setSuggestions([]);
-      setSuggestOpen(false);
-      return;
-    }
+    if (!wantsTopicSuggest) return;
 
     let cancelled = false;
     const timer = window.setTimeout(() => {
       void loadDiscoverTopicSuggestions(query)
         .then((rows) => {
           if (cancelled) return;
-          setSuggestions(rows);
-          setSuggestOpen(rows.length > 0);
+          // On Topics/Tickers tabs, only show that kind.
+          const filtered =
+            tab === 'topics'
+              ? rows.filter((row) => row.kind === 'hashtag')
+              : tab === 'tickers'
+                ? rows.filter((row) => row.kind === 'ticker')
+                : rows;
+          setSuggestions(filtered);
+          setSuggestOpen(filtered.length > 0);
         })
         .catch(() => {
           if (!cancelled) {
@@ -66,7 +76,7 @@ export function DiscoverOmniSearchField({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [focused, query]);
+  }, [query, tab, wantsTopicSuggest]);
 
   const closeSuggestions = useCallback(() => {
     setSuggestions([]);
@@ -86,14 +96,18 @@ export function DiscoverOmniSearchField({
     (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       const intent = classifyDiscoverSearch(query);
-      if (intent.kind === 'people') return;
+      if (intent.kind === 'people') {
+        // Bare Enter on Topics/Tickers: open first suggestion if unique-ish,
+        // otherwise stay browsing the filtered list.
+        return;
+      }
       navigateToTopic(intent.href);
     },
     [navigateToTopic, query]
   );
 
   const showSuggestions =
-    focused && isDiscoverTopicDraft(query) && suggestOpen && suggestions.length > 0;
+    wantsTopicSuggest && suggestOpen && suggestions.length > 0;
 
   return (
     <div className="discover-omni-search">

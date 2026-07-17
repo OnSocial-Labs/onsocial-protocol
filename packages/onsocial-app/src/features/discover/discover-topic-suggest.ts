@@ -11,19 +11,23 @@ export type DiscoverTopicSuggestRow =
 
 const SUGGEST_LIMIT = 6;
 
-/** Topic/ticker autocomplete while drafting `#` / `$` in Discover. */
+/**
+ * Topic/ticker autocomplete for Discover.
+ * - `#…` / `$…` → that kind only
+ * - bare text → both (mixed), for People-tab omni suggests
+ */
 export async function loadDiscoverTopicSuggestions(
   raw: string
 ): Promise<DiscoverTopicSuggestRow[]> {
   const trimmed = raw.trim();
+  if (!trimmed) return [];
+
   const wantsTicker = trimmed.startsWith('$');
   const wantsHashtag = trimmed.startsWith('#');
-  if (!wantsTicker && !wantsHashtag) return [];
-
-  const client = createReadOnlyOnSocialClient();
-  const rows: DiscoverTopicSuggestRow[] = [];
   const hashtagPrefix = normalizeHashtagQuery(trimmed);
   const tickerPrefix = normalizeTickerQuery(trimmed);
+  const client = createReadOnlyOnSocialClient();
+  const rows: DiscoverTopicSuggestRow[] = [];
 
   if (wantsTicker) {
     const tickers = tickerPrefix
@@ -37,13 +41,32 @@ export async function loadDiscoverTopicSuggestions(
     return rows;
   }
 
-  const tags = hashtagPrefix
-    ? await client.query.hashtags
-        .search(hashtagPrefix, { limit: SUGGEST_LIMIT })
-        .catch(() => [] as HashtagCount[])
-    : await client.query.hashtags
-        .trending({ limit: SUGGEST_LIMIT })
-        .catch(() => [] as HashtagCount[]);
+  if (wantsHashtag) {
+    const tags = hashtagPrefix
+      ? await client.query.hashtags
+          .search(hashtagPrefix, { limit: SUGGEST_LIMIT })
+          .catch(() => [] as HashtagCount[])
+      : await client.query.hashtags
+          .trending({ limit: SUGGEST_LIMIT })
+          .catch(() => [] as HashtagCount[]);
+    for (const item of tags) rows.push({ kind: 'hashtag', item });
+    return rows;
+  }
+
+  // Bare text: mixed topic + ticker prefix matches.
+  if (!hashtagPrefix && !tickerPrefix) return [];
+
+  const [tags, tickers] = await Promise.all([
+    (hashtagPrefix
+      ? client.query.hashtags.search(hashtagPrefix, { limit: SUGGEST_LIMIT })
+      : Promise.resolve([] as HashtagCount[])
+    ).catch(() => [] as HashtagCount[]),
+    (tickerPrefix
+      ? client.query.tickers.search(tickerPrefix, { limit: SUGGEST_LIMIT })
+      : Promise.resolve([] as TickerCount[])
+    ).catch(() => [] as TickerCount[]),
+  ]);
   for (const item of tags) rows.push({ kind: 'hashtag', item });
+  for (const item of tickers) rows.push({ kind: 'ticker', item });
   return rows;
 }

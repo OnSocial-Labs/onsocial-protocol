@@ -18,6 +18,14 @@ import {
   isDiscoverPeopleSearchActive,
 } from '@/features/discover/discover-omni-search';
 import {
+  applyDiscoverTabParam,
+  discoverTabForQueryDraft,
+  discoverTopicFilterPrefix,
+  DISCOVER_TAB_QUERY_KEY,
+  parseDiscoverTab,
+  type DiscoverTab,
+} from '@/features/discover/discover-tabs';
+import {
   buildDiscoverListSummary,
   formatDiscoverSubtitle,
 } from '@/lib/discover-list-summary';
@@ -39,6 +47,22 @@ import {
   writeDiscoverListCache,
 } from '@/lib/discover-list-cache';
 import { replaceBrowserQueryUrl } from '@/lib/sync-browser-url-query';
+
+function discoverUrlQueryValue(query: string, tab: DiscoverTab): string {
+  if (tab === 'people') return discoverPeopleSearchQuery(query);
+  return discoverTopicFilterPrefix(query, tab);
+}
+
+function restoreDiscoverQueryFromUrl(
+  tab: DiscoverTab,
+  rawQ: string | null
+): string {
+  const q = normalizeProfileSearchQuery(rawQ);
+  if (!q) return '';
+  if (tab === 'topics') return `#${q}`;
+  if (tab === 'tickers') return `$${q}`;
+  return q;
+}
 
 interface ProtocolPulseTotals {
   discoverableProfiles?: number;
@@ -91,8 +115,14 @@ export function useDiscoverProfiles(
   const { updateStanding, isStandingPendingForTarget, standingSyncVersion } =
     useViewerStanding('discover');
 
-  const [query, setQuery] = useState(() =>
-    normalizeProfileSearchQuery(searchParams.get('q'))
+  const [query, setQueryState] = useState(() =>
+    restoreDiscoverQueryFromUrl(
+      parseDiscoverTab(searchParams.get(DISCOVER_TAB_QUERY_KEY)),
+      searchParams.get('q')
+    )
+  );
+  const [tab, setTabState] = useState<DiscoverTab>(() =>
+    parseDiscoverTab(searchParams.get(DISCOVER_TAB_QUERY_KEY))
   );
   const [profiles, setProfiles] = useState<DiscoverProfileSummary[]>(
     () => initialPage?.profiles ?? []
@@ -119,6 +149,17 @@ export function useDiscoverProfiles(
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const normalizedQuery = discoverPeopleSearchQuery(query);
+  const topicFilterPrefix = discoverTopicFilterPrefix(query, tab);
+  const urlQueryValue = discoverUrlQueryValue(query, tab);
+
+  const setTab = useCallback((next: DiscoverTab) => {
+    setTabState(next);
+  }, []);
+
+  const setQuery = useCallback((value: string) => {
+    setQueryState(value);
+    setTabState((current) => discoverTabForQueryDraft(value, current));
+  }, []);
 
   const mergedPendingStandingIds = useMemo(() => {
     void standingSyncVersion;
@@ -174,22 +215,22 @@ export function useDiscoverProfiles(
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (normalizedQuery) {
-      params.set('q', normalizedQuery);
+    if (urlQueryValue) {
+      params.set('q', urlQueryValue);
     } else {
       params.delete('q');
     }
+    applyDiscoverTabParam(params, tab);
 
     replaceBrowserQueryUrl(pathname, params);
-  }, [normalizedQuery, pathname]);
+  }, [pathname, tab, urlQueryValue]);
 
   useEffect(() => {
     const handlePopState = () => {
-      setQuery(
-        normalizeProfileSearchQuery(
-          new URLSearchParams(window.location.search).get('q')
-        )
-      );
+      const params = new URLSearchParams(window.location.search);
+      const nextTab = parseDiscoverTab(params.get(DISCOVER_TAB_QUERY_KEY));
+      setTabState(nextTab);
+      setQueryState(restoreDiscoverQueryFromUrl(nextTab, params.get('q')));
     };
 
     window.addEventListener('popstate', handlePopState);
@@ -276,6 +317,14 @@ export function useDiscoverProfiles(
 
   useEffect(() => {
     if (walletLoading) {
+      return;
+    }
+
+    if (tab !== 'people') {
+      pageAbortRef.current?.abort();
+      setIsLoading(false);
+      setIsListRefreshing(false);
+      setIsLoadingMore(false);
       return;
     }
 
@@ -371,6 +420,7 @@ export function useDiscoverProfiles(
     initialPage,
     normalizedQuery,
     reloadNonce,
+    tab,
     viewerKey,
     walletLoading,
   ]);
@@ -447,7 +497,7 @@ export function useDiscoverProfiles(
   const listKey = normalizedQuery || '__all__';
 
   const clearSearch = useCallback(() => {
-    setQuery('');
+    setQueryState('');
   }, []);
 
   const retryLoad = useCallback(() => {
@@ -513,6 +563,9 @@ export function useDiscoverProfiles(
   return {
     query,
     setQuery,
+    tab,
+    setTab,
+    topicFilterPrefix,
     listAccounts,
     viewerAccountId: viewerAccountId ?? null,
     isConnected,

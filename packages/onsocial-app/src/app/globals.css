@@ -6567,6 +6567,90 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.5);
   }
 
+  .discover-tab-bar {
+    display: flex;
+    gap: 0.25rem;
+    margin: 0 0 0.75rem;
+    padding: 0.2rem;
+    border-radius: 999px;
+    background: rgb(var(--fg-rgb) / 0.05);
+  }
+
+  .discover-tab-bar button {
+    flex: 1;
+    margin: 0;
+    border: 0;
+    border-radius: 999px;
+    padding: 0.45rem 0.65rem;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.58);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .discover-tab-bar button:hover,
+  .discover-tab-bar button:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.88);
+    outline: none;
+  }
+
+  .discover-tab-bar button.is-active {
+    background: rgb(var(--bg-rgb) / 0.92);
+    color: rgb(var(--fg-rgb) / 0.92);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
+  }
+
+  .discover-focus-list {
+    min-height: 8rem;
+  }
+
+  .discover-focus-rows {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .discover-focus-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-height: 2.5rem;
+    padding: 0.45rem 0.7rem;
+    border-radius: 0.85rem;
+    color: inherit;
+    text-decoration: none;
+    transition: background 120ms ease;
+  }
+
+  .discover-focus-row:hover,
+  .discover-focus-row:focus-visible {
+    background: rgb(var(--fg-rgb) / 0.05);
+    outline: none;
+  }
+
+  .discover-focus-row-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
+  .discover-focus-row--ticker .discover-focus-row-label {
+    color: var(--protocol-green);
+    letter-spacing: 0.02em;
+  }
+
+  .discover-focus-row-meta {
+    flex-shrink: 0;
+    font-size: 0.72rem;
+    font-weight: 550;
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
   .app-wallet-icon-slot.is-loading {
     pointer-events: none;
     background: linear-gradient(
