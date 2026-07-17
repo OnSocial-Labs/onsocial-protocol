@@ -6207,7 +6207,8 @@ a.os-surface-row {
     width: 100%;
     min-width: 0;
     min-height: var(--os-app-screen-nav-row-height);
-    overflow: hidden;
+    /* No overflow clip here — the heading owns title truncation; clipping the
+       row would cut off header dropdowns (guild manage / members menu). */
   }
 
   .os-app-screen-heading {
@@ -11892,8 +11893,23 @@ a.os-surface-row {
   }
 
   .home-hashtag-suggest-tag {
+    flex: 1;
+    min-width: 0;
     font-size: 0.84rem;
     font-weight: 600;
+  }
+
+  .home-hashtag-suggest-tag--ticker {
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .home-hashtag-suggest-meta {
+    flex-shrink: 0;
+    font-size: 0.68rem;
+    font-weight: 550;
+    letter-spacing: 0.02em;
+    color: rgb(var(--fg-rgb) / 0.42);
   }
 
   .home-hashtag-suggest-count {
@@ -12148,6 +12164,7 @@ a.os-surface-row {
   .post-card--openable .post-card-show-more,
   .post-card--openable .os-hashtag,
   .post-card--openable .os-mention,
+  .post-card--openable .os-ticker,
   .post-card--openable .post-card-guild {
     pointer-events: auto;
   }
@@ -12558,11 +12575,13 @@ a.os-surface-row {
     word-break: break-word;
   }
 
-  /* Indexed #tags in feed / quotes — green always; bold only for active filter. */
+  /* Indexed #tags / $tickers / @mentions — green; tickers thicken when focused. */
   .post-card-body .os-hashtag,
   .post-card-body .os-mention,
+  .post-card-body .os-ticker,
   .post-card-quote-inset-body .os-hashtag,
-  .post-card-quote-inset-body .os-mention {
+  .post-card-quote-inset-body .os-mention,
+  .post-card-quote-inset-body .os-ticker {
     color: var(--protocol-green);
     font-weight: inherit;
     text-decoration: none;
@@ -12574,14 +12593,24 @@ a.os-surface-row {
     font-weight: 600;
   }
 
+  .post-card-body .os-ticker.is-active,
+  .post-card-quote-inset-body .os-ticker.is-active {
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+
   .post-card-body .os-hashtag:hover,
   .post-card-quote-inset-body .os-hashtag:hover,
   .post-card-body .os-mention:hover,
   .post-card-quote-inset-body .os-mention:hover,
+  .post-card-body .os-ticker:hover,
+  .post-card-quote-inset-body .os-ticker:hover,
   .post-card-body .os-hashtag:focus-visible,
   .post-card-quote-inset-body .os-hashtag:focus-visible,
   .post-card-body .os-mention:focus-visible,
-  .post-card-quote-inset-body .os-mention:focus-visible {
+  .post-card-quote-inset-body .os-mention:focus-visible,
+  .post-card-body .os-ticker:focus-visible,
+  .post-card-quote-inset-body .os-ticker:focus-visible {
     text-decoration: underline;
     text-underline-offset: 0.12em;
     outline: none;
@@ -15849,7 +15878,8 @@ a.os-surface-row {
 
   .guild-composer-hashtag,
   .os-hashtag,
-  .os-mention {
+  .os-mention,
+  .os-ticker {
     color: var(--protocol-green);
     font-weight: inherit;
     text-decoration: none;
@@ -15859,9 +15889,15 @@ a.os-surface-row {
     font-weight: 600;
   }
 
+  .os-ticker.is-active {
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+
   /* Composer overlay: never bold tags — weight mismatch shifts the caret. */
   .guild-composer-input-backdrop .os-hashtag,
-  .guild-composer-input-backdrop .os-mention {
+  .guild-composer-input-backdrop .os-mention,
+  .guild-composer-input-backdrop .os-ticker {
     font-weight: inherit;
   }
 

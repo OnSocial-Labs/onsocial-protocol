@@ -13,20 +13,23 @@ import {
   writeStoredHomeFeedLens,
   type HomeFeedLens,
 } from '@/features/home/home-feed-lens';
-import { HomeActiveHashtagProvider } from '@/features/home/home-active-hashtag';
-import { HomeHashtagSearch } from '@/features/home/home-hashtag-search-field';
+import { HomeActiveFocusProvider } from '@/features/home/home-active-hashtag';
+import { HomeFeedFocusSearch } from '@/features/home/home-hashtag-search-field';
 import {
-  homeHashtagEmptyCopy,
-  homeHashtagPath,
+  homeFeedFocusClearPath,
+  homeFeedFocusEmptyCopy,
+  homeFeedFocusPath,
+  homeFeedFocusQueryValue,
   HOME_HASHTAG_QUERY_KEY,
-  parseHomeHashtagParam,
-} from '@/features/home/home-hashtag-search';
+  HOME_TICKER_QUERY_KEY,
+  parseHomeFeedFocus,
+  type HomeFeedFocus,
+} from '@/features/home/home-feed-focus';
 import {
   PersonalFeedList,
   shouldPrependOptimisticFeedPost,
 } from '@/features/home/personal-feed-list';
 import { usePersonalComposer } from '@/features/home/use-personal-composer';
-import { APP_HOME_PATH } from '@/lib/app-routes';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { revokeDroppedOptimisticMedia } from '@/lib/post-media';
 
@@ -57,9 +60,12 @@ async function loadHomeFeed(
   return page.items;
 }
 
-async function loadHashtagFeed(tag: string): Promise<PostRow[]> {
+async function loadFocusedFeed(focus: HomeFeedFocus): Promise<PostRow[]> {
   const client = createReadOnlyOnSocialClient();
-  const page = await client.query.feed.byHashtag(tag, { limit: 24 });
+  const page =
+    focus.kind === 'ticker'
+      ? await client.query.feed.byTicker(focus.value, { limit: 24 })
+      : await client.query.feed.byHashtag(focus.value, { limit: 24 });
   return page.items;
 }
 
@@ -76,16 +82,17 @@ export function HomePagePanel() {
   const [error, setError] = useState<string | null>(null);
   const [lens, setLens] = useState<HomeFeedLens>('global');
   const [lensReady, setLensReady] = useState(false);
-  const activeHashtag = parseHomeHashtagParam(
-    searchParams.get(HOME_HASHTAG_QUERY_KEY)
-  );
-  const [hashtagQuery, setHashtagQuery] = useState(() =>
-    activeHashtag ? `#${activeHashtag}` : ''
+  const activeFocus = parseHomeFeedFocus({
+    tag: searchParams.get(HOME_HASHTAG_QUERY_KEY),
+    ticker: searchParams.get(HOME_TICKER_QUERY_KEY),
+  });
+  const [focusQuery, setFocusQuery] = useState(() =>
+    homeFeedFocusQueryValue(activeFocus)
   );
 
   useEffect(() => {
-    setHashtagQuery(activeHashtag ? `#${activeHashtag}` : '');
-  }, [activeHashtag]);
+    setFocusQuery(homeFeedFocusQueryValue(activeFocus));
+  }, [activeFocus]);
 
   useEffect(() => {
     if (walletLoading) return;
@@ -100,8 +107,8 @@ export function HomePagePanel() {
     setError(null);
 
     try {
-      const items = activeHashtag
-        ? await loadHashtagFeed(activeHashtag)
+      const items = activeFocus
+        ? await loadFocusedFeed(activeFocus)
         : await loadHomeFeed(activeLens, accountId);
       setPosts((current) => {
         revokeDroppedOptimisticMedia(current, items);
@@ -115,7 +122,7 @@ export function HomePagePanel() {
     } finally {
       setIsLoading(false);
     }
-  }, [accountId, activeHashtag, activeLens]);
+  }, [accountId, activeFocus, activeLens]);
 
   useEffect(() => {
     if (walletLoading || !lensReady) {
@@ -125,9 +132,9 @@ export function HomePagePanel() {
     void refresh();
   }, [refresh, walletLoading, lensReady]);
 
-  const clearHashtagSearch = useCallback(() => {
-    setHashtagQuery('');
-    router.replace(APP_HOME_PATH, { scroll: false });
+  const clearFocusSearch = useCallback(() => {
+    setFocusQuery('');
+    router.replace(homeFeedFocusClearPath(), { scroll: false });
   }, [router]);
 
   const handleLensChange = useCallback(
@@ -135,15 +142,15 @@ export function HomePagePanel() {
       const resolved = resolveHomeFeedLens(next, isConnected);
       setLens(resolved);
       writeStoredHomeFeedLens(resolved);
-      clearHashtagSearch();
+      clearFocusSearch();
     },
-    [clearHashtagSearch, isConnected]
+    [clearFocusSearch, isConnected]
   );
 
-  const handleCommitHashtag = useCallback(
-    (tag: string) => {
-      setHashtagQuery(`#${tag}`);
-      router.replace(homeHashtagPath(tag), { scroll: false });
+  const handleCommitFocus = useCallback(
+    (focus: HomeFeedFocus) => {
+      setFocusQuery(homeFeedFocusQueryValue(focus));
+      router.replace(homeFeedFocusPath(focus), { scroll: false });
     },
     [router]
   );
@@ -167,12 +174,12 @@ export function HomePagePanel() {
   const replyHandler = isConnected ? openReply : undefined;
   const quoteHandler = isConnected ? openQuote : undefined;
 
-  const emptyCopy = activeHashtag
-    ? homeHashtagEmptyCopy(activeHashtag)
+  const emptyCopy = activeFocus
+    ? homeFeedFocusEmptyCopy(activeFocus)
     : homeFeedLensEmptyCopy(activeLens);
 
   return (
-    <HomeActiveHashtagProvider tag={activeHashtag}>
+    <HomeActiveFocusProvider focus={activeFocus}>
       <OsAppScreen
         title="Home"
         backFallbackHref="/"
@@ -183,12 +190,12 @@ export function HomePagePanel() {
               onLensChange={handleLensChange}
               standingAvailable={isConnected}
             />
-            <HomeHashtagSearch
-              query={hashtagQuery}
-              onQueryChange={setHashtagQuery}
-              activeTag={activeHashtag}
-              onCommitTag={handleCommitHashtag}
-              onClear={clearHashtagSearch}
+            <HomeFeedFocusSearch
+              query={focusQuery}
+              onQueryChange={setFocusQuery}
+              activeFocus={activeFocus}
+              onCommitFocus={handleCommitFocus}
+              onClear={clearFocusSearch}
             />
           </div>
         }
@@ -215,7 +222,7 @@ export function HomePagePanel() {
           {!isLoading && !error && posts.length > 0 ? (
             <PersonalFeedList
               posts={posts}
-              includeForeignReplies={Boolean(activeHashtag)}
+              includeForeignReplies={Boolean(activeFocus)}
               showGuildAttribution
               onReply={replyHandler}
               onQuote={quoteHandler}
@@ -226,9 +233,9 @@ export function HomePagePanel() {
           {sheet}
         </div>
       </OsAppScreen>
-    </HomeActiveHashtagProvider>
+    </HomeActiveFocusProvider>
   );
 }
 
-/** @deprecated Prefer `HomePagePanel`. */
-export const HomeFeed = HomePagePanel;
+/** @deprecated Prefer {@link HomePagePanel}. */
+export const HomeFeedPanel = HomePagePanel;

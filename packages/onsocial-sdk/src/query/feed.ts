@@ -351,4 +351,102 @@ export class FeedQuery {
 
     return { items, nextOffset };
   }
+
+  /**
+   * Posts tagged with a ticker / cashtag (paginated, newest first).
+   * Hydrates full `postsFeed` / `postsCurrent` rows so list UIs get text/media.
+   *
+   * ```ts
+   * const page = await os.query.feed.byTicker('social', { limit: 20 });
+   * ```
+   */
+  async byTicker(
+    ticker: string,
+    opts: { limit?: number; offset?: number } = {}
+  ): Promise<Paginated<PostRow>> {
+    const limit = opts.limit ?? 20;
+    const offset = opts.offset ?? 0;
+    const res = await this._q.graphql<{
+      postTickers: Array<{
+        accountId: string;
+        postId: string;
+        ticker: string;
+        blockHeight: number;
+        blockTimestamp: number;
+        groupId: string | null;
+      }>;
+    }>({
+      query: `query PostsByTicker($ticker: String!, $limit: Int!, $offset: Int!) {
+        postTickers(
+          where: {ticker: {_eq: $ticker}},
+          orderBy: [{blockHeight: DESC}],
+          limit: $limit,
+          offset: $offset
+        ) {
+          accountId postId ticker blockHeight blockTimestamp groupId
+        }
+      }`,
+      variables: {
+        ticker: ticker.toLowerCase().replace(/^\$/, ''),
+        limit,
+        offset,
+      },
+    });
+    const stubs = res.data?.postTickers ?? [];
+    const nextOffset = stubs.length >= limit ? offset + limit : undefined;
+
+    if (stubs.length === 0) {
+      return { items: [], nextOffset };
+    }
+
+    const accountIds = Array.from(new Set(stubs.map((row) => row.accountId)));
+    const postIds = Array.from(new Set(stubs.map((row) => row.postId)));
+    const hydrateVariables = {
+      accounts: accountIds,
+      postIds,
+      limit: Math.max(stubs.length * 2, limit),
+    };
+
+    const hydratedRows = await this.queryFeedRows({
+      variables: hydrateVariables,
+      postsFeedQuery: `query PostsByTickerHydrate($accounts: [String!]!, $postIds: [String!]!, $limit: Int!) {
+        postsFeed(
+          where: {
+            _and: [
+              { accountId: { _in: $accounts } },
+              { postId: { _in: $postIds } }
+            ]
+          },
+          limit: $limit
+        ) {
+          ${FEED_POST_ROW_FIELDS}
+        }
+      }`,
+      postsCurrentQuery: `query PostsByTickerHydrate($accounts: [String!]!, $postIds: [String!]!, $limit: Int!) {
+        postsCurrent(
+          where: {
+            _and: [
+              { accountId: { _in: $accounts } },
+              { postId: { _in: $postIds } }
+            ]
+          },
+          limit: $limit
+        ) {
+          ${POST_ROW_FIELDS}
+        }
+      }`,
+    });
+
+    const byKey = new Map(
+      hydratedRows.map(
+        (row) => [`${row.accountId}\0${row.postId}`, row] as const
+      )
+    );
+
+    const items = stubs
+      .map((stub) => byKey.get(`${stub.accountId}\0${stub.postId}`))
+      .filter((row): row is PostRow => row != null);
+
+    return { items, nextOffset };
+  }
 }

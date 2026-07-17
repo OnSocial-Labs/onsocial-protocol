@@ -55,6 +55,7 @@ import { SavesQuery } from './saves.js';
 import { EndorsementsQuery } from './endorsements.js';
 import { AttestationsQuery } from './attestations.js';
 import { HashtagsQuery } from './hashtags.js';
+import { TickersQuery } from './tickers.js';
 import { StatsQuery } from './stats.js';
 import { StorageQuery } from './storage.js';
 import { PermissionsQuery } from './permissions.js';
@@ -73,6 +74,7 @@ export type {
   ReactionRow,
   Paginated,
   HashtagCount,
+  TickerCount,
   GroupConversation,
   FeedFilter,
   GroupFeedFilter,
@@ -163,6 +165,7 @@ export class QueryModule {
   readonly endorsements: EndorsementsQuery;
   readonly attestations: AttestationsQuery;
   readonly hashtags: HashtagsQuery;
+  readonly tickers: TickersQuery;
   readonly stats: StatsQuery;
   readonly storage: StorageQuery;
   readonly permissions: PermissionsQuery;
@@ -188,6 +191,7 @@ export class QueryModule {
     this.endorsements = new EndorsementsQuery(this);
     this.attestations = new AttestationsQuery(this);
     this.hashtags = new HashtagsQuery(this);
+    this.tickers = new TickersQuery(this);
     this.stats = new StatsQuery(this, http);
     this.storage = new StorageQuery(this);
     this.permissions = new PermissionsQuery(this);

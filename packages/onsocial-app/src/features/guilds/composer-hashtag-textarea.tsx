@@ -193,6 +193,13 @@ export function ComposerHashtagTextarea({
                 </span>
               );
             }
+            if (segment.type === 'ticker') {
+              return (
+                <span key={`k-${index}`} className="os-ticker">
+                  {segment.value}
+                </span>
+              );
+            }
             if (segment.type === 'mention') {
               return (
                 <span key={`m-${index}`} className="os-mention">

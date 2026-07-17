@@ -800,6 +800,52 @@ FROM post_hashtags
 GROUP BY hashtag;
 
 -- ────────────────────────────────────────────────────────────────────────────
+-- 13b. post_tickers — ticker/cashtag-to-post junction
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE VIEW post_tickers AS
+SELECT
+  p.account_id,
+  p.post_id,
+  lower(trim(tk.sym)) AS ticker,
+  p.block_height,
+  p.block_timestamp,
+  p.group_id
+FROM posts_current p
+CROSS JOIN LATERAL jsonb_array_elements_text(
+  (
+    CASE
+      WHEN p.value ~ '^[\[\{]' THEN p.value::jsonb
+      ELSE NULL
+    END
+  ) -> 'tickers'
+) AS tk(sym)
+WHERE p.value IS NOT NULL
+  AND p.value != ''
+  AND p.value ~ '^[\[\{]'
+  AND jsonb_typeof(
+    (
+      CASE
+        WHEN p.value ~ '^[\[\{]' THEN p.value::jsonb
+        ELSE NULL
+      END
+    ) -> 'tickers'
+  ) = 'array'
+  AND length(trim(tk.sym)) > 0;
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 13c. ticker_counts — aggregate post count per ticker
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE VIEW ticker_counts AS
+SELECT
+  ticker,
+  count(*)          AS post_count,
+  max(block_height) AS last_block
+FROM post_tickers
+GROUP BY ticker;
+
+-- ────────────────────────────────────────────────────────────────────────────
 -- 14. saves_current — latest save state per (account, path)
 -- ────────────────────────────────────────────────────────────────────────────
 

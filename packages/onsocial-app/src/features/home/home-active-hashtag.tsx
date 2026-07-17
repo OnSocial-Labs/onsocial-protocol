@@ -1,10 +1,36 @@
 'use client';
 
 import { createContext, useContext, type ReactNode } from 'react';
+import type { HomeFeedFocus } from '@/features/home/home-feed-focus';
 
-const HomeActiveHashtagContext = createContext<string | null>(null);
+const HomeActiveFocusContext = createContext<HomeFeedFocus | null>(null);
 
-/** Supplies the Home `?tag=` filter so post bodies can bold matching #tags. */
+/** Supplies Home `?tag=` / `?ticker=` so post bodies can thicken matching tokens. */
+export function HomeActiveFocusProvider({
+  focus,
+  children,
+}: {
+  focus: HomeFeedFocus | null;
+  children: ReactNode;
+}) {
+  return (
+    <HomeActiveFocusContext.Provider value={focus}>
+      {children}
+    </HomeActiveFocusContext.Provider>
+  );
+}
+
+export function useHomeActiveFocus(): HomeFeedFocus | null {
+  return useContext(HomeActiveFocusContext);
+}
+
+/** @deprecated Prefer {@link useHomeActiveFocus}. */
+export function useHomeActiveHashtag(): string | null {
+  const focus = useHomeActiveFocus();
+  return focus?.kind === 'hashtag' ? focus.value : null;
+}
+
+/** @deprecated Prefer {@link HomeActiveFocusProvider}. */
 export function HomeActiveHashtagProvider({
   tag,
   children,
@@ -13,12 +39,10 @@ export function HomeActiveHashtagProvider({
   children: ReactNode;
 }) {
   return (
-    <HomeActiveHashtagContext.Provider value={tag}>
+    <HomeActiveFocusProvider
+      focus={tag ? { kind: 'hashtag', value: tag } : null}
+    >
       {children}
-    </HomeActiveHashtagContext.Provider>
+    </HomeActiveFocusProvider>
   );
-}
-
-export function useHomeActiveHashtag(): string | null {
-  return useContext(HomeActiveHashtagContext);
 }

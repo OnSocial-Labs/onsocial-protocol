@@ -146,6 +146,7 @@ export type {
   ReactionRow,
   Paginated,
   HashtagCount,
+  TickerCount,
   GroupConversation,
   GroupMemberRow,
   ThreadCounts,

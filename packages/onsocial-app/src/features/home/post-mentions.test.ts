@@ -24,12 +24,14 @@ describe('post-mentions', () => {
     );
   });
 
-  it('builds post meta with hashtags and mentions', () => {
-    expect(postMetaFromText('hi @alice.testnet #NEAR')).toEqual({
+  it('builds post meta with hashtags, tickers, and mentions', () => {
+    expect(postMetaFromText('hi @alice.testnet #NEAR $SOCIAL')).toEqual({
       hashtags: ['near'],
+      tickers: ['social'],
       mentions: ['alice.testnet'],
     });
     expect(postMetaFromText('plain')).toEqual({});
+    expect(postMetaFromText('price is $100 not a ticker')).toEqual({});
   });
 
   it('finds active mention query at caret', () => {
@@ -73,14 +75,16 @@ describe('post-mentions', () => {
     });
   });
 
-  it('segments mentions and hashtags for rich text', () => {
-    expect(splitPostRichText('hi @alice.testnet #gm')).toEqual([
+  it('segments mentions, tickers, and hashtags for rich text', () => {
+    expect(splitPostRichText('hi @alice.testnet $SOCIAL #gm')).toEqual([
       { type: 'text', value: 'hi ' },
       {
         type: 'mention',
         value: '@alice.testnet',
         accountId: 'alice.testnet',
       },
+      { type: 'text', value: ' ' },
+      { type: 'ticker', value: '$SOCIAL', slug: 'social' },
       { type: 'text', value: ' ' },
       { type: 'hashtag', value: '#gm' },
     ]);

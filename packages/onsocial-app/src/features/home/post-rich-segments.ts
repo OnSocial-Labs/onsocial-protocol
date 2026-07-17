@@ -1,4 +1,10 @@
-import { normalizeHashtagQuery } from '@/features/home/home-hashtag-search';
+import {
+  normalizeHashtagQuery,
+} from '@/features/home/home-hashtag-search';
+import {
+  isValidTickerSlug,
+  normalizeTickerQuery,
+} from '@/features/home/home-ticker-search';
 import {
   isValidMentionAccountId,
   normalizeMentionAccountId,
@@ -6,12 +12,15 @@ import {
 } from '@/features/home/post-mentions';
 
 const HASHTAG_IN_TEXT_RE = /#([a-zA-Z0-9_]{1,64})\b/g;
+const TICKER_IN_TEXT_RE =
+  /(?<![a-zA-Z0-9_])\$([a-zA-Z][a-zA-Z0-9_]{0,15})\b/g;
 const MENTION_IN_TEXT_RE =
   /(?<![a-zA-Z0-9._-])@([a-zA-Z0-9][a-zA-Z0-9._-]{0,63})(?![a-zA-Z0-9._-])/g;
 
 export type PostRichSegment =
   | { type: 'text'; value: string }
   | { type: 'hashtag'; value: string }
+  | { type: 'ticker'; value: string; slug: string }
   | { type: 'mention'; value: string; accountId: string };
 
 type MatchHit = {
@@ -20,7 +29,7 @@ type MatchHit = {
   segment: Exclude<PostRichSegment, { type: 'text' }>;
 };
 
-/** Segment body text for composer highlight + feed links (hashtags + @mentions). */
+/** Segment body text for composer highlight + feed links (# / $ / @). */
 export function splitPostRichText(text: string): PostRichSegment[] {
   if (!text) return [{ type: 'text', value: '' }];
 
@@ -35,6 +44,17 @@ export function splitPostRichText(text: string): PostRichSegment[] {
       index: match.index,
       length: match[0]!.length,
       segment: { type: 'hashtag', value: match[0]! },
+    });
+  }
+
+  TICKER_IN_TEXT_RE.lastIndex = 0;
+  while ((match = TICKER_IN_TEXT_RE.exec(text)) !== null) {
+    const slug = normalizeTickerQuery(match[1]!);
+    if (!isValidTickerSlug(slug)) continue;
+    hits.push({
+      index: match.index,
+      length: match[0]!.length,
+      segment: { type: 'ticker', value: match[0]!, slug },
     });
   }
 

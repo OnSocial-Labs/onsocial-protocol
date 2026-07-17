@@ -194,6 +194,28 @@ describe('submitPersonalPost', () => {
     expect(result.optimisticPost?.value).toContain('"hashtags":["near"]');
   });
 
+  it('extracts $tickers from body text into create payload', async () => {
+    const create = vi.fn().mockResolvedValue({ txHash: 'ticker-tx' });
+    const client = mockClient({ create });
+    const trackTransaction = vi.fn().mockResolvedValue(true);
+
+    const result = await submitPersonalPost({
+      client,
+      accountId: 'alice.testnet',
+      mode: 'post',
+      target: null,
+      payload: {
+        text: 'Collecting $SOCIAL today.',
+      },
+      trackTransaction,
+    });
+
+    expect(create).toHaveBeenCalledOnce();
+    const [postData] = create.mock.calls[0]!;
+    expect(postData.tickers).toEqual(['social']);
+    expect(result.optimisticPost?.value).toContain('"tickers":["social"]');
+  });
+
   it('extracts @mentions from body text into create payload', async () => {
     const create = vi.fn().mockResolvedValue({ txHash: 'mention-tx' });
     const client = mockClient({ create });

@@ -1,8 +1,11 @@
 import {
+  extractHashtagsFromText,
+} from '@/features/home/home-hashtag-search';
+import { extractTickersFromText } from '@/features/home/home-ticker-search';
+import {
   isValidNearAccountId,
   normalizeNearAccountId,
 } from '@/lib/app-near-account';
-import { extractHashtagsFromText } from '@/features/home/home-hashtag-search';
 
 /**
  * Mentions in post body: `@alice.testnet`, `@bob.near`.
@@ -46,15 +49,18 @@ export function extractMentionsFromText(text: string): string[] {
   return found;
 }
 
-/** Hashtags + mentions for PostV1 write / optimistic JSON. */
+/** Hashtags + tickers + mentions for PostV1 write / optimistic JSON. */
 export function postMetaFromText(text: string): {
   hashtags?: string[];
+  tickers?: string[];
   mentions?: string[];
 } {
   const hashtags = extractHashtagsFromText(text);
+  const tickers = extractTickersFromText(text);
   const mentions = extractMentionsFromText(text);
   return {
     ...(hashtags.length > 0 ? { hashtags } : {}),
+    ...(tickers.length > 0 ? { tickers } : {}),
     ...(mentions.length > 0 ? { mentions } : {}),
   };
 }

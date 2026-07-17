@@ -87,14 +87,15 @@ describe('PostV1', () => {
     expect(validatePostV1(p)).toBeNull();
   });
 
-  it('accepts mentions / hashtags / media / embeds / refs', () => {
+  it('accepts mentions / hashtags / tickers / media / embeds / refs', () => {
     const p = postV1({
-      text: 'hi @bob #web3',
+      text: 'hi @bob #web3 $SOCIAL',
       contentType: 'md',
       lang: 'en',
       media: [{ cid: 'bafy', mime: 'image/png' }],
       mentions: ['bob.near'],
       hashtags: ['web3', 'near'],
+      tickers: ['social', 'near'],
       embeds: [{ kind: 'link', url: 'https://x.test', title: 'X' }],
       parent: 'alice.near/post/main',
       parentType: 'post',
@@ -108,10 +109,12 @@ describe('PostV1', () => {
     expect(p.timestamp).toBe(7);
   });
 
-  it('rejects uppercase hashtags and bad parentType / refType', () => {
+  it('rejects uppercase hashtags, bad tickers, and bad parentType / refType', () => {
     expect(() => postV1({ text: 'x', hashtags: ['BadTag'] })).toThrow(
       /hashtags/
     );
+    expect(() => postV1({ text: 'x', tickers: ['SOCIAL'] })).toThrow(/tickers/);
+    expect(() => postV1({ text: 'x', tickers: ['1bad'] })).toThrow(/tickers/);
     expect(() => postV1({ text: 'x', parentType: 'reply' as never })).toThrow(
       /parentType/
     );

@@ -1,15 +1,19 @@
 'use client';
 
 import Link from 'next/link';
-import { useHomeActiveHashtag } from '@/features/home/home-active-hashtag';
+import { useHomeActiveFocus } from '@/features/home/home-active-hashtag';
 import {
   homeHashtagPath,
   normalizeHashtagQuery,
 } from '@/features/home/home-hashtag-search';
+import {
+  formatTickerDisplay,
+  homeTickerPath,
+} from '@/features/home/home-ticker-search';
 import { splitPostRichText } from '@/features/home/post-rich-segments';
 import { portfolioPath } from '@/lib/overlay-routes';
 
-/** Post / quote body with hashtag + @mention highlights. */
+/** Post / quote body with hashtag + ticker + @mention highlights. */
 export function PostRichText({
   text,
   emptyFallback = '…',
@@ -17,7 +21,7 @@ export function PostRichText({
   text: string;
   emptyFallback?: string;
 }) {
-  const activeTag = useHomeActiveHashtag();
+  const activeFocus = useHomeActiveFocus();
 
   if (!text) return <>{emptyFallback}</>;
 
@@ -43,8 +47,28 @@ export function PostRichText({
           );
         }
 
+        if (segment.type === 'ticker') {
+          const isActive =
+            activeFocus?.kind === 'ticker' &&
+            segment.slug === activeFocus.value;
+          return (
+            <Link
+              key={`tk-${index}`}
+              href={homeTickerPath(segment.slug)}
+              className={isActive ? 'os-ticker is-active' : 'os-ticker'}
+              scroll={false}
+              onClick={(event) => {
+                event.stopPropagation();
+              }}
+            >
+              {formatTickerDisplay(segment.slug)}
+            </Link>
+          );
+        }
+
         const slug = normalizeHashtagQuery(segment.value);
-        const isActive = activeTag != null && slug === activeTag;
+        const isActive =
+          activeFocus?.kind === 'hashtag' && slug === activeFocus.value;
 
         return (
           <Link

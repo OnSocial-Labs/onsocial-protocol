@@ -28,6 +28,13 @@ export interface HashtagCount {
   lastBlock: number;
 }
 
+/** Row from `ticker_counts` view. */
+export interface TickerCount {
+  ticker: string;
+  postCount: number;
+  lastBlock: number;
+}
+
 export interface GroupConversation {
   root: PostRow | null;
   replies: PostRow[];
