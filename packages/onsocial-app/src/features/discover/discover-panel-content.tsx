@@ -35,8 +35,6 @@ export function DiscoverPanelContent() {
     handleUpdateStanding,
   } = useDiscoverPanel();
 
-  const isTopicDraft = isDiscoverTopicDraft(query);
-
   return (
     <div className="standing-panel discover-panel">
       <DiscoverTabBar tab={tab} onTabChange={setTab} />
